@@ -4,6 +4,7 @@ import type { Facility, Goal, SkillLevel } from '@oga/core'
 import { Step1Skill } from './steps/Step1Skill'
 import { Step2Handicap } from './steps/Step2Handicap'
 import { Step3Goal } from './steps/Step3Goal'
+import { Step4Details } from './steps/Step4Details'
 
 export interface OnboardingDraft {
   skillLevel: SkillLevel | null
@@ -67,6 +68,23 @@ export function OnboardingPage() {
           <Step3Goal
             value={draft.goal}
             onChange={(goal) => setDraft((d) => ({ ...d, goal }))}
+            onBack={back}
+            onContinue={next}
+          />
+        )}
+        {step === 4 && (
+          <Step4Details
+            frequency={draft.playFrequency}
+            facilities={draft.facilities}
+            playStyle={draft.playStyle}
+            onChange={(patch) =>
+              setDraft((d) => ({
+                ...d,
+                playFrequency: patch.frequency ?? d.playFrequency,
+                facilities: patch.facilities ?? d.facilities,
+                playStyle: patch.playStyle ?? d.playStyle,
+              }))
+            }
             onBack={back}
             onContinue={next}
           />
