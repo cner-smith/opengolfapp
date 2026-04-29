@@ -13,6 +13,9 @@ export function useProfile() {
     enabled: !!user,
     queryFn: async () => {
       const { data, error } = await getProfile(supabase, user!.id)
+      // TODO: remove debug log
+      // eslint-disable-next-line no-console
+      console.log('getProfile:', { userId: user!.id, data, error })
       if (error) throw error
       return data
     },
