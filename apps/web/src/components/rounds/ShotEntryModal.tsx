@@ -533,14 +533,72 @@ function LieSlopeGrid({
             role="radio"
             aria-checked={value === key}
             onClick={() => onChange(key)}
-            style={gridButtonStyle(value === key)}
+            style={{
+              ...gridButtonStyle(value === key),
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: 4,
+            }}
           >
-            {key.replace('_', ' ')}
+            <SlopeIcon kind={key} />
+            <span>{key.replace('_', ' ')}</span>
           </button>
         ),
       )}
     </div>
   )
+}
+
+function SlopeIcon({ kind }: { kind: LieSlope }) {
+  const props = {
+    width: 32,
+    height: 24,
+    viewBox: '0 0 32 24',
+    fill: 'none',
+    stroke: 'currentColor',
+    strokeWidth: 2,
+    strokeLinecap: 'round' as const,
+  }
+  switch (kind) {
+    case 'uphill':
+      return (
+        <svg {...props}>
+          <line x1={4} y1={18} x2={28} y2={8} />
+          <circle cx={26} cy={6} r={2} fill="currentColor" stroke="none" />
+        </svg>
+      )
+    case 'level':
+      return (
+        <svg {...props}>
+          <line x1={4} y1={14} x2={28} y2={14} />
+          <circle cx={16} cy={11} r={2} fill="currentColor" stroke="none" />
+        </svg>
+      )
+    case 'downhill':
+      return (
+        <svg {...props}>
+          <line x1={4} y1={8} x2={28} y2={18} />
+          <circle cx={26} cy={20} r={2} fill="currentColor" stroke="none" />
+        </svg>
+      )
+    case 'ball_above':
+      return (
+        <svg {...props}>
+          <line x1={4} y1={22} x2={28} y2={4} />
+          <circle cx={24} cy={4} r={2} fill="currentColor" stroke="none" />
+          <line x1={6} y1={22} x2={10} y2={22} />
+        </svg>
+      )
+    case 'ball_below':
+      return (
+        <svg {...props}>
+          <line x1={4} y1={4} x2={28} y2={22} />
+          <circle cx={24} cy={22} r={2} fill="currentColor" stroke="none" />
+          <line x1={6} y1={4} x2={10} y2={4} />
+        </svg>
+      )
+  }
 }
 
 function PuttResultGrid({

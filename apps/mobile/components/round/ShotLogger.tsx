@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Modal, Pressable, ScrollView, Text, TextInput, View } from 'react-native'
+import Svg, { Circle, Line as SvgLine } from 'react-native-svg'
 import {
   CLUBS,
   LIE_TYPES,
@@ -160,6 +161,10 @@ export function ShotLogger({
                         }
                         style={gridButtonStyle(value.lieSlope === key)}
                       >
+                        <SlopeIcon
+                          kind={key}
+                          color={value.lieSlope === key ? '#0F6E56' : '#111111'}
+                        />
                         <Text style={gridButtonTextStyle(value.lieSlope === key)}>
                           {key.replace('_', ' ')}
                         </Text>
@@ -295,6 +300,105 @@ function gridButtonStyle(active: boolean) {
     backgroundColor: active ? '#E1F5EE' : '#F4F4F0',
     borderWidth: 0.5,
     borderColor: active ? '#1D9E75' : '#E0E0DA',
+    gap: 4,
+  }
+}
+
+function SlopeIcon({ kind, color }: { kind: LieSlope; color: string }) {
+  switch (kind) {
+    case 'uphill':
+      return (
+        <Svg width={32} height={24} viewBox="0 0 32 24">
+          <SvgLine
+            x1={4}
+            y1={18}
+            x2={28}
+            y2={8}
+            stroke={color}
+            strokeWidth={2}
+            strokeLinecap="round"
+          />
+          <Circle cx={26} cy={6} r={2} fill={color} />
+        </Svg>
+      )
+    case 'level':
+      return (
+        <Svg width={32} height={24} viewBox="0 0 32 24">
+          <SvgLine
+            x1={4}
+            y1={14}
+            x2={28}
+            y2={14}
+            stroke={color}
+            strokeWidth={2}
+            strokeLinecap="round"
+          />
+          <Circle cx={16} cy={11} r={2} fill={color} />
+        </Svg>
+      )
+    case 'downhill':
+      return (
+        <Svg width={32} height={24} viewBox="0 0 32 24">
+          <SvgLine
+            x1={4}
+            y1={8}
+            x2={28}
+            y2={18}
+            stroke={color}
+            strokeWidth={2}
+            strokeLinecap="round"
+          />
+          <Circle cx={26} cy={20} r={2} fill={color} />
+        </Svg>
+      )
+    case 'ball_above':
+      return (
+        <Svg width={32} height={24} viewBox="0 0 32 24">
+          <SvgLine
+            x1={4}
+            y1={22}
+            x2={28}
+            y2={4}
+            stroke={color}
+            strokeWidth={2}
+            strokeLinecap="round"
+          />
+          <Circle cx={24} cy={4} r={2} fill={color} />
+          <SvgLine
+            x1={6}
+            y1={22}
+            x2={10}
+            y2={22}
+            stroke={color}
+            strokeWidth={2}
+            strokeLinecap="round"
+          />
+        </Svg>
+      )
+    case 'ball_below':
+      return (
+        <Svg width={32} height={24} viewBox="0 0 32 24">
+          <SvgLine
+            x1={4}
+            y1={4}
+            x2={28}
+            y2={22}
+            stroke={color}
+            strokeWidth={2}
+            strokeLinecap="round"
+          />
+          <Circle cx={24} cy={22} r={2} fill={color} />
+          <SvgLine
+            x1={6}
+            y1={4}
+            x2={10}
+            y2={4}
+            stroke={color}
+            strokeWidth={2}
+            strokeLinecap="round"
+          />
+        </Svg>
+      )
   }
 }
 
