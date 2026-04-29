@@ -27,7 +27,3 @@ export function updateHoleScore(
 ) {
   return client.from('hole_scores').update(updates).eq('id', id).select().single()
 }
-
-export function deleteHoleScore(client: OgaSupabaseClient, id: string) {
-  return client.from('hole_scores').delete().eq('id', id)
-}

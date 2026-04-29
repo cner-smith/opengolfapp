@@ -3,7 +3,6 @@ import {
   createCourse,
   createHoles,
   defaultHolesForCourse,
-  getCourseWithHoles,
   getHolesForCourse,
   searchCourses,
 } from '@oga/supabase'
@@ -16,18 +15,6 @@ export function useCourseSearch(query: string) {
       const { data, error } = await searchCourses(supabase, query)
       if (error) throw error
       return data ?? []
-    },
-  })
-}
-
-export function useCourseWithHoles(courseId: string | undefined) {
-  return useQuery({
-    queryKey: ['course', courseId],
-    enabled: !!courseId,
-    queryFn: async () => {
-      const { data, error } = await getCourseWithHoles(supabase, courseId!)
-      if (error) throw error
-      return data
     },
   })
 }

@@ -21,14 +21,6 @@ export function searchCourses(client: OgaSupabaseClient, query: string, limit = 
     .limit(limit)
 }
 
-export function getCourseWithHoles(client: OgaSupabaseClient, courseId: string) {
-  return client
-    .from('courses')
-    .select('*, holes(*)')
-    .eq('id', courseId)
-    .single()
-}
-
 export function getHolesForCourse(client: OgaSupabaseClient, courseId: string) {
   return client
     .from('holes')
