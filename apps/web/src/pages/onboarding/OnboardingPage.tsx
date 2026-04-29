@@ -60,8 +60,19 @@ export function OnboardingPage() {
       // ProfileGuard reads ['profile', user.id] on mount of /. The cache
       // still holds the pre-save row (skill_level: null) so without a
       // forced refetch the guard sees stale data and bounces back here.
+      // TODO: remove debug logs
+      // eslint-disable-next-line no-console
+      console.log(
+        'Before refetch:',
+        queryClient.getQueryData(['profile', user.id]),
+      )
       await queryClient.invalidateQueries({ queryKey: ['profile', user.id] })
       await queryClient.refetchQueries({ queryKey: ['profile', user.id] })
+      // eslint-disable-next-line no-console
+      console.log(
+        'After refetch:',
+        queryClient.getQueryData(['profile', user.id]),
+      )
       navigate('/', { replace: true })
     } catch (err) {
       setError((err as Error).message)
