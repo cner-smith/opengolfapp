@@ -36,3 +36,7 @@ export function createShot(client: OgaSupabaseClient, shot: ShotInsert) {
 export function updateShot(client: OgaSupabaseClient, shotId: string, updates: ShotUpdate) {
   return client.from('shots').update(updates).eq('id', shotId).select().single()
 }
+
+export function deleteShot(client: OgaSupabaseClient, shotId: string) {
+  return client.from('shots').delete().eq('id', shotId)
+}

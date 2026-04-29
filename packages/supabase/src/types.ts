@@ -74,7 +74,15 @@ export interface Database {
           created_by?: string | null
           created_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: 'courses_created_by_fkey'
+            columns: ['created_by']
+            isOneToOne: false
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
+          },
+        ]
       }
       holes: {
         Row: {
@@ -113,7 +121,15 @@ export interface Database {
           pin_lat?: number | null
           pin_lng?: number | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: 'holes_course_id_fkey'
+            columns: ['course_id']
+            isOneToOne: false
+            referencedRelation: 'courses'
+            referencedColumns: ['id']
+          },
+        ]
       }
       rounds: {
         Row: {
@@ -173,7 +189,22 @@ export interface Database {
           notes?: string | null
           created_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: 'rounds_user_id_fkey'
+            columns: ['user_id']
+            isOneToOne: false
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'rounds_course_id_fkey'
+            columns: ['course_id']
+            isOneToOne: false
+            referencedRelation: 'courses'
+            referencedColumns: ['id']
+          },
+        ]
       }
       hole_scores: {
         Row: {
@@ -215,7 +246,22 @@ export interface Database {
           sg_around_green?: number | null
           sg_putting?: number | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: 'hole_scores_round_id_fkey'
+            columns: ['round_id']
+            isOneToOne: false
+            referencedRelation: 'rounds'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'hole_scores_hole_id_fkey'
+            columns: ['hole_id']
+            isOneToOne: false
+            referencedRelation: 'holes'
+            referencedColumns: ['id']
+          },
+        ]
       }
       shots: {
         Row: {
@@ -335,7 +381,22 @@ export interface Database {
           notes?: string | null
           created_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: 'shots_hole_score_id_fkey'
+            columns: ['hole_score_id']
+            isOneToOne: false
+            referencedRelation: 'hole_scores'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'shots_user_id_fkey'
+            columns: ['user_id']
+            isOneToOne: false
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
+          },
+        ]
       }
       drills: {
         Row: {
@@ -407,7 +468,15 @@ export interface Database {
           ai_insight?: string | null
           completed_drill_ids?: string[]
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: 'practice_plans_user_id_fkey'
+            columns: ['user_id']
+            isOneToOne: false
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
+          },
+        ]
       }
     }
     Views: Record<string, never>
