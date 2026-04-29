@@ -73,18 +73,53 @@ export function ShotLogger({
       visible={visible}
       onRequestClose={onClose}
     >
-      <View className="flex-1 justify-end bg-black/40">
-        <View className="rounded-t-2xl bg-white pb-6">
-          <View className="flex-row items-center justify-between px-5 pt-4">
-            <Text className="text-lg font-bold text-fairway-700">
+      <View
+        style={{
+          flex: 1,
+          justifyContent: 'flex-end',
+          backgroundColor: 'rgba(17,17,17,0.4)',
+        }}
+      >
+        <View
+          style={{
+            backgroundColor: '#FFFFFF',
+            borderTopLeftRadius: 16,
+            borderTopRightRadius: 16,
+            paddingHorizontal: 14,
+            paddingTop: 8,
+            paddingBottom: 24,
+          }}
+        >
+          <View
+            style={{
+              alignSelf: 'center',
+              width: 32,
+              height: 4,
+              borderRadius: 2,
+              backgroundColor: '#E0E0DA',
+              marginBottom: 12,
+            }}
+          />
+          <View
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              paddingHorizontal: 4,
+            }}
+          >
+            <Text style={{ color: '#111111', fontSize: 16, fontWeight: '500' }}>
               Shot #{shotNumber}
             </Text>
             <Pressable onPress={onSkip}>
-              <Text className="text-sm text-gray-500">Skip all →</Text>
+              <Text style={{ color: '#AAAAAA', fontSize: 11 }}>Skip all →</Text>
             </Pressable>
           </View>
 
-          <ScrollView className="max-h-[70vh] px-5" contentContainerStyle={{ paddingTop: 12 }}>
+          <ScrollView
+            style={{ maxHeight: 480 }}
+            contentContainerStyle={{ paddingTop: 14, paddingHorizontal: 4 }}
+          >
             <Section title="Club">
               <ChipRow
                 value={value.club}
@@ -104,11 +139,18 @@ export function ShotLogger({
             <Section title="Lie slope">
               <View
                 accessibilityRole="radiogroup"
-                className="flex-row flex-wrap"
-                style={{ gap: 4 }}
+                style={{
+                  flexDirection: 'row',
+                  flexWrap: 'wrap',
+                  gap: 5,
+                  maxWidth: 320,
+                }}
               >
                 {SLOPE_GRID.map((key, i) => (
-                  <View key={`${key}-${i}`} style={{ width: '32%' }}>
+                  <View
+                    key={`${key}-${i}`}
+                    style={{ width: '32%', maxWidth: 102 }}
+                  >
                     {key === 'spacer' ? null : (
                       <Pressable
                         accessibilityRole="radio"
@@ -116,19 +158,9 @@ export function ShotLogger({
                         onPress={() =>
                           setValue((prev) => ({ ...prev, lieSlope: key }))
                         }
-                        className={
-                          value.lieSlope === key
-                            ? 'items-center rounded bg-fairway-500 py-2'
-                            : 'items-center rounded border border-gray-200 py-2'
-                        }
+                        style={gridButtonStyle(value.lieSlope === key)}
                       >
-                        <Text
-                          className={
-                            value.lieSlope === key
-                              ? 'text-xs font-semibold text-white'
-                              : 'text-xs text-gray-700'
-                          }
-                        >
+                        <Text style={gridButtonTextStyle(value.lieSlope === key)}>
                           {key.replace('_', ' ')}
                         </Text>
                       </Pressable>
@@ -150,30 +182,30 @@ export function ShotLogger({
                         puttDistanceFt: t ? Number(t) : undefined,
                       }))
                     }
-                    className="w-32 rounded border border-gray-200 px-2 py-2"
+                    style={inputStyle}
                   />
                 </Section>
 
                 <Section title="Putt result">
-                  <View className="flex-row flex-wrap" style={{ gap: 4 }}>
+                  <View
+                    style={{
+                      flexDirection: 'row',
+                      flexWrap: 'wrap',
+                      gap: 5,
+                      maxWidth: 320,
+                    }}
+                  >
                     {PUTT_GRID.map((key, i) => (
-                      <View key={`${key}-${i}`} style={{ width: '32%' }}>
+                      <View
+                        key={`${key}-${i}`}
+                        style={{ width: '32%', maxWidth: 102 }}
+                      >
                         {key === 'spacer' ? null : (
                           <Pressable
                             onPress={() => set('puttResult', key)}
-                            className={
-                              value.puttResult === key
-                                ? 'items-center rounded bg-fairway-500 py-2'
-                                : 'items-center rounded border border-gray-200 py-2'
-                            }
+                            style={gridButtonStyle(value.puttResult === key)}
                           >
-                            <Text
-                              className={
-                                value.puttResult === key
-                                  ? 'text-xs font-semibold text-white'
-                                  : 'text-xs text-gray-700'
-                              }
-                            >
+                            <Text style={gridButtonTextStyle(value.puttResult === key)}>
                               {key.replace('_', ' ')}
                             </Text>
                           </Pressable>
@@ -199,23 +231,41 @@ export function ShotLogger({
                 onChangeText={(t) =>
                   setValue((prev) => ({ ...prev, notes: t || undefined }))
                 }
-                className="rounded border border-gray-200 px-2 py-2"
+                style={[inputStyle, { width: '100%' }]}
               />
             </Section>
           </ScrollView>
 
-          <View className="flex-row gap-2 px-5 pt-3">
+          <View style={{ flexDirection: 'row', gap: 8, paddingTop: 8 }}>
             <Pressable
               onPress={onClose}
-              className="flex-1 items-center rounded border border-gray-200 py-3"
+              style={{
+                flex: 1,
+                alignItems: 'center',
+                paddingVertical: 13,
+                borderRadius: 10,
+                borderWidth: 0.5,
+                borderColor: '#E4E4E0',
+                backgroundColor: '#FFFFFF',
+              }}
             >
-              <Text className="text-sm text-gray-700">Cancel</Text>
+              <Text style={{ color: '#111111', fontSize: 13, fontWeight: '500' }}>
+                Cancel
+              </Text>
             </Pressable>
             <Pressable
               onPress={() => onSave(value)}
-              className="flex-1 items-center rounded bg-fairway-500 py-3"
+              style={{
+                flex: 1,
+                alignItems: 'center',
+                paddingVertical: 13,
+                borderRadius: 10,
+                backgroundColor: '#111111',
+              }}
             >
-              <Text className="text-sm font-semibold text-white">Save + next →</Text>
+              <Text style={{ color: '#FFFFFF', fontSize: 13, fontWeight: '500' }}>
+                Save + next →
+              </Text>
             </Pressable>
           </View>
         </View>
@@ -224,10 +274,53 @@ export function ShotLogger({
   )
 }
 
+const inputStyle = {
+  backgroundColor: '#F9F9F6',
+  borderWidth: 0.5,
+  borderColor: '#E4E4E0',
+  borderRadius: 7,
+  paddingHorizontal: 10,
+  paddingVertical: 8,
+  fontSize: 13,
+  color: '#111111',
+  width: 132,
+} as const
+
+function gridButtonStyle(active: boolean) {
+  return {
+    alignItems: 'center' as const,
+    paddingVertical: 8,
+    paddingHorizontal: 6,
+    borderRadius: 7,
+    backgroundColor: active ? '#E1F5EE' : '#F4F4F0',
+    borderWidth: 0.5,
+    borderColor: active ? '#1D9E75' : '#E0E0DA',
+  }
+}
+
+function gridButtonTextStyle(active: boolean) {
+  return {
+    color: active ? '#0F6E56' : '#111111',
+    fontSize: 11,
+    fontWeight: (active ? '500' : '400') as '400' | '500',
+  }
+}
+
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <View className="mb-4">
-      <Text className="mb-1 text-xs font-semibold uppercase text-gray-500">{title}</Text>
+    <View style={{ marginBottom: 14 }}>
+      <Text
+        style={{
+          color: '#888880',
+          fontSize: 11,
+          fontWeight: '500',
+          letterSpacing: 0.4,
+          textTransform: 'uppercase',
+          marginBottom: 6,
+        }}
+      >
+        {title}
+      </Text>
       {children}
     </View>
   )
@@ -242,26 +335,34 @@ interface ChipRowProps<T extends string> {
 function ChipRow<T extends string>({ value, options, onChange }: ChipRowProps<T>) {
   return (
     <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-      <View className="flex-row" style={{ gap: 4 }}>
-        {options.map((opt) => (
-          <Pressable
-            key={opt}
-            onPress={() => onChange(opt)}
-            className={
-              value === opt
-                ? 'rounded-full bg-fairway-500 px-3 py-1.5'
-                : 'rounded-full border border-gray-200 px-3 py-1.5'
-            }
-          >
-            <Text
-              className={
-                value === opt ? 'text-xs font-semibold text-white' : 'text-xs text-gray-700'
-              }
+      <View style={{ flexDirection: 'row', gap: 6 }}>
+        {options.map((opt) => {
+          const active = value === opt
+          return (
+            <Pressable
+              key={opt}
+              onPress={() => onChange(opt)}
+              style={{
+                paddingHorizontal: 10,
+                paddingVertical: 7,
+                borderRadius: 7,
+                backgroundColor: active ? '#E1F5EE' : '#F4F4F0',
+                borderWidth: 0.5,
+                borderColor: active ? '#1D9E75' : '#E0E0DA',
+              }}
             >
-              {opt.replace(/_/g, ' ')}
-            </Text>
-          </Pressable>
-        ))}
+              <Text
+                style={{
+                  color: active ? '#0F6E56' : '#111111',
+                  fontSize: 12,
+                  fontWeight: active ? '500' : '400',
+                }}
+              >
+                {opt.replace(/_/g, ' ')}
+              </Text>
+            </Pressable>
+          )
+        })}
       </View>
     </ScrollView>
   )

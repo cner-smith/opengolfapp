@@ -223,15 +223,30 @@ export default function HoleScreen() {
 
   if (loading) {
     return (
-      <View className="flex-1 items-center justify-center bg-fairway-50">
-        <ActivityIndicator />
+      <View
+        style={{
+          flex: 1,
+          alignItems: 'center',
+          justifyContent: 'center',
+          backgroundColor: '#F4F4F0',
+        }}
+      >
+        <ActivityIndicator color="#1D9E75" />
       </View>
     )
   }
   if (error || !round || !currentHole || !currentHoleScore) {
     return (
-      <View className="flex-1 items-center justify-center bg-fairway-50 p-4">
-        <Text className="text-red-700">
+      <View
+        style={{
+          flex: 1,
+          alignItems: 'center',
+          justifyContent: 'center',
+          backgroundColor: '#F4F4F0',
+          padding: 16,
+        }}
+      >
+        <Text style={{ color: '#A32D2D', fontSize: 13 }}>
           {error ?? `Hole ${holeNumber} not found for this round.`}
         </Text>
       </View>
@@ -239,19 +254,48 @@ export default function HoleScreen() {
   }
 
   return (
-    <View className="flex-1 bg-fairway-50">
-      <View className="flex-row items-center justify-between bg-white px-4 py-2">
+    <View style={{ flex: 1, backgroundColor: '#F4F4F0' }}>
+      <View
+        style={{
+          backgroundColor: '#111111',
+          paddingTop: 48,
+          paddingBottom: 10,
+          paddingHorizontal: 14,
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+        }}
+      >
         <Pressable onPress={() => router.replace('/(app)')}>
-          <Text className="text-sm text-fairway-700">← Home</Text>
+          <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 12 }}>← Home</Text>
         </Pressable>
-        <Text className="font-semibold text-fairway-900">
-          Hole {holeNumber} · Par {currentHole.par}
-          {currentHole.yards ? ` · ${currentHole.yards} yd` : ''}
+        <View style={{ alignItems: 'center' }}>
+          <Text
+            style={{
+              color: 'rgba(255,255,255,0.45)',
+              fontSize: 10,
+              letterSpacing: 0.3,
+            }}
+          >
+            HOLE {holeNumber}
+          </Text>
+          <Text style={{ color: '#FFFFFF', fontSize: 15, fontWeight: '500' }}>
+            Par {currentHole.par}
+            {currentHole.yards ? ` · ${currentHole.yards} yd` : ''}
+          </Text>
+        </View>
+        <Text
+          style={{
+            color: 'rgba(255,255,255,0.6)',
+            fontSize: 11,
+            fontVariant: ['tabular-nums'],
+          }}
+        >
+          Shot {shotNumber}
         </Text>
-        <Text className="text-xs text-gray-500">Shot #{shotNumber}</Text>
       </View>
 
-      <View className="flex-1">
+      <View style={{ flex: 1 }}>
         <HoleMap
           center={center}
           pin={pin}
@@ -263,43 +307,78 @@ export default function HoleScreen() {
         />
       </View>
 
-      <View className="bg-white px-4 py-3">
-        <View className="mb-3 flex-row gap-2">
-          <Pressable
-            onPress={openLogger}
-            disabled={!ball || saving}
-            className={
-              ball
-                ? 'flex-1 items-center rounded bg-fairway-500 py-3'
-                : 'flex-1 items-center rounded bg-gray-200 py-3'
-            }
+      <View
+        style={{
+          backgroundColor: '#FFFFFF',
+          paddingHorizontal: 14,
+          paddingTop: 12,
+          paddingBottom: 12,
+          borderTopWidth: 0.5,
+          borderTopColor: '#E4E4E0',
+        }}
+      >
+        <Pressable
+          onPress={openLogger}
+          disabled={!ball || saving}
+          style={{
+            backgroundColor: ball ? '#111111' : '#F4F4F0',
+            borderRadius: 10,
+            paddingVertical: 13,
+            alignItems: 'center',
+            marginBottom: 10,
+          }}
+        >
+          <Text
+            style={{
+              color: ball ? '#FFFFFF' : '#AAAAAA',
+              fontSize: 13,
+              fontWeight: '500',
+            }}
           >
-            <Text
-              className={ball ? 'font-semibold text-white' : 'text-sm text-gray-500'}
-            >
-              {saving ? 'Saving…' : ball ? 'Save shot' : 'Place ball to save'}
-            </Text>
-          </Pressable>
-        </View>
-        <View className="flex-row justify-between">
+            {saving ? 'Saving…' : ball ? 'Save shot' : 'Place ball to save'}
+          </Text>
+        </Pressable>
+        <View
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 8,
+          }}
+        >
           <Pressable
             onPress={() => navigateHole(-1)}
             disabled={holeNumber === 1}
-            className="rounded border border-gray-200 px-4 py-2"
+            style={{
+              borderWidth: 0.5,
+              borderColor: '#E4E4E0',
+              borderRadius: 7,
+              paddingVertical: 6,
+              paddingHorizontal: 12,
+              opacity: holeNumber === 1 ? 0.4 : 1,
+            }}
           >
-            <Text className="text-sm">← Prev</Text>
+            <Text style={{ fontSize: 12 }}>← Prev</Text>
           </Pressable>
-          <ScorecardPreview
-            holes={holes}
-            holeScores={holeScores}
-            currentHoleNumber={holeNumber}
-          />
+          <View style={{ flex: 1 }}>
+            <ScorecardPreview
+              holes={holes}
+              holeScores={holeScores}
+              currentHoleNumber={holeNumber}
+            />
+          </View>
           <Pressable
             onPress={() => navigateHole(1)}
             disabled={holeNumber === 18}
-            className="rounded border border-gray-200 px-4 py-2"
+            style={{
+              borderWidth: 0.5,
+              borderColor: '#E4E4E0',
+              borderRadius: 7,
+              paddingVertical: 6,
+              paddingHorizontal: 12,
+              opacity: holeNumber === 18 ? 0.4 : 1,
+            }}
           >
-            <Text className="text-sm">Next →</Text>
+            <Text style={{ fontSize: 12 }}>Next →</Text>
           </Pressable>
         </View>
       </View>
@@ -326,39 +405,37 @@ function ScorecardPreview({
   currentHoleNumber: number
 }) {
   const scoresByHoleId = new Map(holeScores.map((hs) => [hs.hole_id, hs]))
-  const totalScore = holeScores.reduce((s, hs) => s + (hs.score || 0), 0)
-  const totalPar = holes.reduce((s, h) => s + h.par, 0)
-  const diff = totalScore - totalPar
   return (
     <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-      <View className="flex-row items-center" style={{ gap: 4 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
         {holes.map((h) => {
           const hs = scoresByHoleId.get(h.id)
           const active = h.number === currentHoleNumber
           return (
             <View
               key={h.id}
-              className={
-                active
-                  ? 'h-8 w-8 items-center justify-center rounded bg-fairway-500'
-                  : 'h-8 w-8 items-center justify-center rounded bg-fairway-100'
-              }
+              style={{
+                width: 26,
+                height: 26,
+                alignItems: 'center',
+                justifyContent: 'center',
+                borderRadius: 7,
+                backgroundColor: active ? '#111111' : '#F4F4F0',
+              }}
             >
               <Text
-                className={
-                  active ? 'text-xs font-bold text-white' : 'text-xs text-fairway-900'
-                }
+                style={{
+                  fontSize: 11,
+                  fontWeight: '500',
+                  color: active ? '#FFFFFF' : '#888880',
+                  fontVariant: ['tabular-nums'],
+                }}
               >
                 {hs && hs.score ? hs.score : h.number}
               </Text>
             </View>
           )
         })}
-        <View className="ml-2">
-          <Text className="text-xs text-gray-500">
-            {totalScore || '—'} {diff !== 0 && diff !== -totalPar ? `(${diff > 0 ? '+' : ''}${diff})` : ''}
-          </Text>
-        </View>
       </View>
     </ScrollView>
   )

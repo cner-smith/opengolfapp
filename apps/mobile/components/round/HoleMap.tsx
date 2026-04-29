@@ -85,19 +85,19 @@ export function HoleMap({
 
         {tee && (
           <Mapbox.PointAnnotation id="tee" coordinate={toCoord(tee)}>
-            <View className="h-3 w-3 rounded-full border-2 border-white bg-blue-500" />
+            <Marker color="#FFFFFF" border="#888880" size={10} />
           </Mapbox.PointAnnotation>
         )}
 
         {pin && (
           <Mapbox.PointAnnotation id="pin" coordinate={toCoord(pin)}>
-            <View className="h-3 w-3 rounded-full border-2 border-white bg-red-500" />
+            <Marker color="#E24B4A" border="#FFFFFF" size={10} />
           </Mapbox.PointAnnotation>
         )}
 
         {aim && (
           <Mapbox.PointAnnotation id="aim" coordinate={toCoord(aim)}>
-            <View className="h-4 w-4 rounded-full border-2 border-white bg-orange-500" />
+            <Marker color="#EF9F27" border="#FFFFFF" size={12} />
           </Mapbox.PointAnnotation>
         )}
 
@@ -111,22 +111,66 @@ export function HoleMap({
               if (c) onSetBall(c)
             }}
           >
-            <View className="h-5 w-5 rounded-full border-2 border-white bg-emerald-500" />
+            <Marker color="#1D9E75" border="#FFFFFF" size={14} />
           </Mapbox.PointAnnotation>
         )}
       </Mapbox.MapView>
 
-      <View className="absolute left-3 top-3 rounded-md bg-black/60 px-3 py-1.5">
-        <Text className="text-xs text-white">
+      <View
+        style={{
+          position: 'absolute',
+          top: 12,
+          left: 12,
+          backgroundColor: 'rgba(17,17,17,0.7)',
+          borderRadius: 8,
+          paddingHorizontal: 10,
+          paddingVertical: 6,
+        }}
+      >
+        <Text style={{ color: '#FFFFFF', fontSize: 10 }}>
           Long-press: aim · Tap: ball · Drag the green marker
         </Text>
       </View>
 
       {pinDistance !== null && (
-        <View className="absolute right-3 top-3 rounded-md bg-black/60 px-3 py-1.5">
-          <Text className="text-xs font-semibold text-white">{pinDistance} yd to pin</Text>
+        <View
+          style={{
+            position: 'absolute',
+            right: 12,
+            bottom: 12,
+            backgroundColor: 'rgba(17,17,17,0.7)',
+            borderRadius: 999,
+            paddingHorizontal: 12,
+            paddingVertical: 6,
+          }}
+        >
+          <Text
+            style={{
+              color: '#FFFFFF',
+              fontSize: 12,
+              fontWeight: '500',
+              fontVariant: ['tabular-nums'],
+            }}
+          >
+            {pinDistance} yd to pin
+          </Text>
         </View>
       )}
     </View>
+  )
+}
+
+function Marker({ color, border, size }: { color: string; border: string; size: number }) {
+  return (
+    <View
+      style={{
+        width: size,
+        height: size,
+        borderRadius: size / 2,
+        backgroundColor: color,
+        borderWidth: 2,
+        borderColor: border,
+      }}
+    />
   )
 }
