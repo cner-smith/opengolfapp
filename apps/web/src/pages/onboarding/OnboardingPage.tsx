@@ -1,10 +1,12 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import type { Facility, Goal, SkillLevel } from '@oga/core'
+import { useUpdateProfile } from '../../hooks/useProfile'
 import { Step1Skill } from './steps/Step1Skill'
 import { Step2Handicap } from './steps/Step2Handicap'
 import { Step3Goal } from './steps/Step3Goal'
 import { Step4Details } from './steps/Step4Details'
+import { Step5Summary } from './steps/Step5Summary'
 
 export interface OnboardingDraft {
   skillLevel: SkillLevel | null
@@ -19,7 +21,9 @@ const TOTAL_STEPS = 5
 
 export function OnboardingPage() {
   const navigate = useNavigate()
+  const updateProfile = useUpdateProfile()
   const [step, setStep] = useState<number>(1)
+  const [error, setError] = useState<string | null>(null)
   const [draft, setDraft] = useState<OnboardingDraft>({
     skillLevel: null,
     handicap: 15,
@@ -35,6 +39,23 @@ export function OnboardingPage() {
   function back() {
     if (step > 1) setStep(step - 1)
     else navigate('/login')
+  }
+
+  async function save() {
+    setError(null)
+    try {
+      await updateProfile.mutateAsync({
+        skill_level: draft.skillLevel,
+        handicap_index: draft.handicap,
+        goal: draft.goal,
+        play_frequency: draft.playFrequency,
+        facilities: draft.facilities,
+        play_style: draft.playStyle,
+      })
+      navigate('/', { replace: true })
+    } catch (err) {
+      setError((err as Error).message)
+    }
   }
 
   return (
@@ -87,6 +108,15 @@ export function OnboardingPage() {
             }
             onBack={back}
             onContinue={next}
+          />
+        )}
+        {step === 5 && (
+          <Step5Summary
+            draft={draft}
+            saving={updateProfile.isPending}
+            error={error}
+            onBack={back}
+            onSave={save}
           />
         )}
       </div>

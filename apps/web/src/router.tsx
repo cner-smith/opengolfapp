@@ -1,5 +1,6 @@
 import { createBrowserRouter, Outlet, type RouteObject } from 'react-router-dom'
 import { AuthGuard } from './components/auth/AuthGuard'
+import { ProfileGuard } from './components/auth/ProfileGuard'
 import { AppShell } from './components/layout/AppShell'
 import { LoginPage } from './pages/auth/LoginPage'
 import { SignupPage } from './pages/auth/SignupPage'
@@ -16,9 +17,11 @@ import { DrillLibraryPage } from './pages/practice/DrillLibraryPage'
 function ProtectedShell() {
   return (
     <AuthGuard>
-      <AppShell>
-        <Outlet />
-      </AppShell>
+      <ProfileGuard>
+        <AppShell>
+          <Outlet />
+        </AppShell>
+      </ProfileGuard>
     </AuthGuard>
   )
 }
