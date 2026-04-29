@@ -7,10 +7,11 @@ import { useAuth } from './useAuth'
 type ProfileUpdate = Database['public']['Tables']['profiles']['Update']
 
 export function useProfile() {
-  const { user } = useAuth()
+  const { user, loading } = useAuth()
   return useQuery({
     queryKey: ['profile', user?.id],
-    enabled: !!user,
+    enabled: !loading && !!user,
+    staleTime: 0,
     queryFn: async () => {
       const { data, error } = await getProfile(supabase, user!.id)
       if (error) throw error
