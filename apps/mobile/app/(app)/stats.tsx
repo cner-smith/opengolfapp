@@ -1,14 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Dimensions, Pressable, ScrollView, Text, View } from 'react-native'
-import {
-  VictoryAxis,
-  VictoryChart,
-  VictoryLegend,
-  VictoryLine,
-} from 'victory-native'
+import { VictoryAxis, VictoryChart, VictoryLine } from 'victory-native'
 import { getRecentSGData } from '@oga/supabase'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
+import { AppBar } from '../../components/ui/AppBar'
 
 const N_OPTIONS = [5, 10, 20] as const
 
@@ -60,87 +56,220 @@ export default function Stats() {
     [rounds],
   )
 
-  const chartWidth = screenWidth - 48
   const ordered = [...rounds].reverse()
 
   return (
-    <ScrollView className="flex-1 bg-fairway-50" contentContainerStyle={{ padding: 16 }}>
-      <View className="mb-4 flex-row items-center justify-between">
-        <Text className="text-xl font-bold text-fairway-700">Strokes Gained</Text>
-        <View className="flex-row rounded bg-white p-1">
-          {N_OPTIONS.map((opt) => (
-            <Pressable
-              key={opt}
-              onPress={() => setN(opt)}
-              className={
-                n === opt ? 'rounded bg-fairway-500 px-3 py-1' : 'rounded px-3 py-1'
-              }
-            >
-              <Text className={n === opt ? 'text-xs text-white' : 'text-xs text-gray-700'}>
-                Last {opt}
-              </Text>
-            </Pressable>
-          ))}
-        </View>
-      </View>
-
-      {loading ? (
-        <Text className="text-sm text-gray-500">Loading…</Text>
-      ) : rounds.length === 0 ? (
-        <View className="rounded-lg bg-white p-6">
-          <Text className="text-sm text-gray-600">No rounds with SG data yet.</Text>
-        </View>
-      ) : (
-        <>
-          <View className="mb-4 grid grid-cols-2 gap-2" style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-            {avgs.map((s) => (
-              <View key={s.key} style={{ width: '48%' }} className="rounded-lg bg-white p-3">
-                <Text className="text-xs text-gray-500">{s.label}</Text>
+    <View style={{ flex: 1, backgroundColor: '#F4F4F0' }}>
+      <AppBar
+        eyebrow="Performance"
+        title="Strokes Gained"
+        right={
+          <View
+            style={{
+              flexDirection: 'row',
+              backgroundColor: 'rgba(255,255,255,0.08)',
+              borderRadius: 7,
+              padding: 2,
+            }}
+          >
+            {N_OPTIONS.map((opt) => (
+              <Pressable
+                key={opt}
+                onPress={() => setN(opt)}
+                style={{
+                  paddingHorizontal: 9,
+                  paddingVertical: 4,
+                  borderRadius: 5,
+                  backgroundColor: n === opt ? '#FFFFFF' : 'transparent',
+                }}
+              >
                 <Text
-                  className={
-                    s.value > 0
-                      ? 'text-2xl font-bold text-emerald-700'
-                      : s.value < 0
-                        ? 'text-2xl font-bold text-red-700'
-                        : 'text-2xl font-bold text-gray-700'
-                  }
+                  style={{
+                    color: n === opt ? '#111111' : 'rgba(255,255,255,0.55)',
+                    fontSize: 11,
+                    fontWeight: '500',
+                  }}
                 >
-                  {s.value > 0 ? '+' : ''}
-                  {s.value.toFixed(2)}
+                  L{opt}
                 </Text>
-              </View>
+              </Pressable>
             ))}
           </View>
+        }
+      />
 
-          <View className="rounded-lg bg-white p-3">
-            <Text className="mb-1 text-xs font-semibold uppercase text-gray-500">
-              Per-category SG over last {rounds.length} rounds
+      <ScrollView contentContainerStyle={{ padding: 14, paddingBottom: 32 }}>
+        {loading ? (
+          <Text style={{ color: '#888880', fontSize: 13 }}>Loading…</Text>
+        ) : rounds.length === 0 ? (
+          <View
+            style={{
+              backgroundColor: '#FFFFFF',
+              borderWidth: 0.5,
+              borderColor: '#E4E4E0',
+              borderRadius: 10,
+              padding: 24,
+              alignItems: 'center',
+            }}
+          >
+            <Text style={{ color: '#111111', fontSize: 15, fontWeight: '500' }}>
+              No rounds with strokes gained yet
             </Text>
-            <VictoryChart height={260} width={chartWidth}>
-              <VictoryLegend
-                x={0}
-                y={0}
-                orientation="horizontal"
-                gutter={12}
-                style={{ labels: { fontSize: 9 } }}
-                data={SERIES.map((s) => ({
-                  name: s.label,
-                  symbol: { fill: s.color },
-                }))}
-              />
-              <VictoryAxis style={{ tickLabels: { fontSize: 9 } }} />
-              <VictoryAxis dependentAxis style={{ tickLabels: { fontSize: 9 } }} />
-              {SERIES.map((s) => (
-                <VictoryLine
-                  key={s.key}
-                  data={ordered.map((r, i) => ({ x: i + 1, y: r[s.key] ?? 0 }))}
-                  style={{ data: { stroke: s.color, strokeWidth: 2 } }}
-                />
-              ))}
-            </VictoryChart>
+            <Text
+              style={{
+                color: '#888880',
+                fontSize: 13,
+                marginTop: 6,
+                textAlign: 'center',
+              }}
+            >
+              Finalize a round to see SG trends per category.
+            </Text>
           </View>
-        </>
-      )}
-    </ScrollView>
+        ) : (
+          <>
+            <View
+              style={{
+                flexDirection: 'row',
+                flexWrap: 'wrap',
+                gap: 8,
+                marginBottom: 12,
+              }}
+            >
+              {avgs.map((s) => (
+                <View
+                  key={s.key}
+                  style={{
+                    width: '48%',
+                    backgroundColor: '#FFFFFF',
+                    borderWidth: 0.5,
+                    borderColor: '#E4E4E0',
+                    borderRadius: 10,
+                    padding: 12,
+                  }}
+                >
+                  <View
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      gap: 6,
+                      marginBottom: 4,
+                    }}
+                  >
+                    <View
+                      style={{
+                        width: 8,
+                        height: 8,
+                        borderRadius: 4,
+                        backgroundColor: s.color,
+                      }}
+                    />
+                    <Text style={{ color: '#888880', fontSize: 11 }}>{s.label}</Text>
+                  </View>
+                  <Text
+                    style={{
+                      fontSize: 22,
+                      fontWeight: '500',
+                      color:
+                        s.value > 0
+                          ? '#0F6E56'
+                          : s.value < 0
+                            ? '#A32D2D'
+                            : '#888880',
+                      fontVariant: ['tabular-nums'],
+                    }}
+                  >
+                    {s.value > 0 ? '+' : ''}
+                    {s.value.toFixed(2)}
+                  </Text>
+                </View>
+              ))}
+            </View>
+
+            <View
+              style={{
+                backgroundColor: '#FFFFFF',
+                borderWidth: 0.5,
+                borderColor: '#E4E4E0',
+                borderRadius: 10,
+                padding: 12,
+              }}
+            >
+              <Text
+                style={{
+                  color: '#888880',
+                  fontSize: 11,
+                  fontWeight: '500',
+                  letterSpacing: 0.4,
+                  textTransform: 'uppercase',
+                  marginBottom: 8,
+                }}
+              >
+                SG by category — last {rounds.length} rounds
+              </Text>
+              <VictoryChart
+                height={260}
+                width={screenWidth - 56}
+                padding={{ top: 16, right: 12, bottom: 28, left: 32 }}
+              >
+                <VictoryAxis
+                  style={{
+                    axis: { stroke: '#E4E4E0' },
+                    tickLabels: { fontSize: 9, fill: '#888880' },
+                    grid: { stroke: 'transparent' },
+                  }}
+                />
+                <VictoryAxis
+                  dependentAxis
+                  style={{
+                    axis: { stroke: '#E4E4E0' },
+                    tickLabels: { fontSize: 9, fill: '#888880' },
+                    grid: { stroke: '#F0F0EC' },
+                  }}
+                />
+                {SERIES.map((s) => (
+                  <VictoryLine
+                    key={s.key}
+                    data={ordered.map((r, i) => ({ x: i + 1, y: r[s.key] ?? 0 }))}
+                    style={{ data: { stroke: s.color, strokeWidth: 2 } }}
+                  />
+                ))}
+              </VictoryChart>
+              <View
+                style={{
+                  flexDirection: 'row',
+                  flexWrap: 'wrap',
+                  gap: 12,
+                  marginTop: 8,
+                }}
+              >
+                {SERIES.map((s) => (
+                  <View
+                    key={s.key}
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      gap: 4,
+                    }}
+                  >
+                    <View
+                      style={{
+                        width: 8,
+                        height: 8,
+                        borderRadius: 4,
+                        backgroundColor: s.color,
+                      }}
+                    />
+                    <Text style={{ color: '#888880', fontSize: 10 }}>
+                      {s.label}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+          </>
+        )}
+      </ScrollView>
+    </View>
   )
 }
