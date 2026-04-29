@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
   CLUBS,
-  LIE_SLOPES,
   LIE_TYPES,
   SHOT_RESULTS,
   type Club,
@@ -41,32 +40,23 @@ interface DraftShot {
   distanceToTarget?: number
   puttDistanceFt?: number
   puttResult?: PuttResult
-  penalty: boolean
-  ob: boolean
   notes?: string
 }
 
-const PUTT_RESULTS: readonly PuttResult[] = [
-  'made',
-  'short',
-  'long',
-  'missed_left',
-  'missed_right',
-]
-
 function shotRowToDraft(s: ShotRow): DraftShot {
+  let shotResult: ShotResult | undefined = (s.shot_result as ShotResult | null) ?? undefined
+  if (!shotResult && s.ob) shotResult = 'ob'
+  else if (!shotResult && s.penalty) shotResult = 'penalty'
   return {
     id: s.id,
     shotNumber: s.shot_number,
     club: (s.club as Club | null) ?? undefined,
     lieType: s.lie_type ?? undefined,
     lieSlope: s.lie_slope ?? undefined,
-    shotResult: (s.shot_result as ShotResult | null) ?? undefined,
+    shotResult,
     distanceToTarget: s.distance_to_target ?? undefined,
     puttDistanceFt: s.putt_distance_ft ?? undefined,
     puttResult: s.putt_result ?? undefined,
-    penalty: s.penalty,
-    ob: s.ob,
     notes: s.notes ?? undefined,
   }
 }
@@ -76,8 +66,6 @@ function emptyDraft(shotNumber: number, isFirstShot: boolean): DraftShot {
     shotNumber,
     lieType: isFirstShot ? 'tee' : undefined,
     lieSlope: 'level',
-    penalty: false,
-    ob: false,
   }
 }
 
@@ -133,8 +121,8 @@ export function ShotEntryModal({
       distance_to_target: draft.distanceToTarget ?? null,
       putt_distance_ft: draft.puttDistanceFt ?? null,
       putt_result: draft.puttResult ?? null,
-      penalty: draft.penalty,
-      ob: draft.ob,
+      penalty: draft.shotResult === 'penalty',
+      ob: draft.shotResult === 'ob',
       notes: draft.notes ?? null,
     }
     if (editing) {
@@ -254,9 +242,8 @@ export function ShotEntryModal({
             </Field>
 
             <Field label="Lie slope">
-              <ChipGroup
+              <LieSlopeGrid
                 value={draft.lieSlope}
-                options={LIE_SLOPES}
                 onChange={(v) => setDraft((d) => ({ ...d, lieSlope: v }))}
               />
             </Field>
@@ -296,9 +283,8 @@ export function ShotEntryModal({
                   />
                 </Field>
                 <Field label="Putt result">
-                  <ChipGroup
+                  <PuttResultGrid
                     value={draft.puttResult}
-                    options={PUTT_RESULTS}
                     onChange={(v) => setDraft((d) => ({ ...d, puttResult: v }))}
                   />
                 </Field>
@@ -314,19 +300,6 @@ export function ShotEntryModal({
                 />
               </Field>
             )}
-
-            <div className="flex flex-wrap gap-2">
-              <Toggle
-                label="Penalty"
-                value={draft.penalty}
-                onChange={(v) => setDraft((d) => ({ ...d, penalty: v }))}
-              />
-              <Toggle
-                label="OB"
-                value={draft.ob}
-                onChange={(v) => setDraft((d) => ({ ...d, ob: v }))}
-              />
-            </div>
 
             <Field label="Notes">
               <input
@@ -390,24 +363,85 @@ function ChipGroup<T extends string>({ value, options, onChange }: ChipGroupProp
   )
 }
 
-function Toggle({
-  label,
+type PuttSelectKey = PuttResult | 'spacer'
+type SlopeSelectKey = LieSlope | 'spacer'
+
+const SLOPE_GRID: SlopeSelectKey[] = [
+  'uphill',
+  'level',
+  'downhill',
+  'ball_above',
+  'spacer',
+  'ball_below',
+]
+
+const PUTT_GRID: PuttSelectKey[] = [
+  'made',
+  'short',
+  'long',
+  'missed_left',
+  'missed_right',
+  'spacer',
+]
+
+function gridButtonClass(active: boolean): string {
+  return `rounded px-2 py-2 text-xs ${
+    active
+      ? 'bg-fairway-500 text-white'
+      : 'border border-gray-200 text-gray-700 hover:bg-fairway-50'
+  }`
+}
+
+function LieSlopeGrid({
   value,
   onChange,
 }: {
-  label: string
-  value: boolean
-  onChange: (v: boolean) => void
+  value: LieSlope | undefined
+  onChange: (v: LieSlope | undefined) => void
 }) {
   return (
-    <button
-      type="button"
-      onClick={() => onChange(!value)}
-      className={`rounded-full px-3 py-1 text-xs ${
-        value ? 'bg-red-500 text-white' : 'border border-gray-200 text-gray-700 hover:bg-red-50'
-      }`}
-    >
-      {label} {value ? '✓' : ''}
-    </button>
+    <div className="grid max-w-xs grid-cols-3 gap-1">
+      {SLOPE_GRID.map((key, i) =>
+        key === 'spacer' ? (
+          <div key={`s${i}`} />
+        ) : (
+          <button
+            key={key}
+            type="button"
+            onClick={() => onChange(value === key ? undefined : key)}
+            className={gridButtonClass(value === key)}
+          >
+            {key.replace('_', ' ')}
+          </button>
+        ),
+      )}
+    </div>
+  )
+}
+
+function PuttResultGrid({
+  value,
+  onChange,
+}: {
+  value: PuttResult | undefined
+  onChange: (v: PuttResult | undefined) => void
+}) {
+  return (
+    <div className="grid max-w-xs grid-cols-3 gap-1">
+      {PUTT_GRID.map((key, i) =>
+        key === 'spacer' ? (
+          <div key={`s${i}`} />
+        ) : (
+          <button
+            key={key}
+            type="button"
+            onClick={() => onChange(value === key ? undefined : key)}
+            className={gridButtonClass(value === key)}
+          >
+            {key.replace('_', ' ')}
+          </button>
+        ),
+      )}
+    </div>
   )
 }
