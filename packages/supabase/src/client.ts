@@ -21,7 +21,11 @@ export function createOgaClient(opts: CreateClientOptions): OgaSupabaseClient {
   if (!opts.anonKey) throw new Error('Missing Supabase anon key')
   return createClient<Database>(opts.url, opts.anonKey, {
     auth: {
-      storage: opts.storage,
+      // Only forward storage when the caller actually provided one. Passing
+      // storage: undefined explicitly disables supabase-js's browser fallback
+      // to window.localStorage, leaving the session in memory only — sign-in
+      // appears to work but every reload (or remount) loses the user.
+      ...(opts.storage ? { storage: opts.storage } : {}),
       autoRefreshToken: opts.autoRefreshToken ?? true,
       persistSession: opts.persistSession ?? true,
       detectSessionInUrl: opts.detectSessionInUrl ?? true,
