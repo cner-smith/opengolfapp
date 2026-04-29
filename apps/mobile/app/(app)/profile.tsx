@@ -5,6 +5,7 @@ import { getProfile, updateProfile } from '@oga/supabase'
 import type { Database } from '@oga/supabase'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
+import { AppBar } from '../../components/ui/AppBar'
 
 type Profile = Database['public']['Tables']['profiles']['Row']
 type SkillLevel = Profile['skill_level']
@@ -68,85 +69,170 @@ export default function ProfileTab() {
   }
 
   return (
-    <ScrollView className="flex-1 bg-fairway-50" contentContainerStyle={{ padding: 16 }}>
-      <Text className="mb-4 text-xl font-bold text-fairway-700">Profile</Text>
-
-      <Field label="Username">
-        <TextInput
-          autoCapitalize="none"
-          value={username}
-          onChangeText={setUsername}
-          className="rounded border border-gray-200 bg-white px-3 py-2"
-        />
-      </Field>
-
-      <Field label="Handicap index">
-        <TextInput
-          keyboardType="decimal-pad"
-          value={handicap}
-          onChangeText={setHandicap}
-          className="rounded border border-gray-200 bg-white px-3 py-2"
-        />
-      </Field>
-
-      <Field label="Skill level">
-        <View className="flex-row flex-wrap" style={{ gap: 6 }}>
-          {SKILL_LEVELS.map((s) => (
-            <Chip
-              key={s}
-              label={s}
-              active={skill === s}
-              onPress={() => setSkill(s)}
-            />
-          ))}
+    <View style={{ flex: 1, backgroundColor: '#F4F4F0' }}>
+      <AppBar
+        eyebrow={profile?.username ? `@${profile.username}` : 'Account'}
+        title="Profile"
+      />
+      <ScrollView contentContainerStyle={{ padding: 14, paddingBottom: 32 }}>
+        <View
+          style={{
+            backgroundColor: '#FFFFFF',
+            borderWidth: 0.5,
+            borderColor: '#E4E4E0',
+            borderRadius: 10,
+            padding: 16,
+            marginBottom: 12,
+            alignItems: 'center',
+          }}
+        >
+          <Text
+            style={{
+              color: '#888880',
+              fontSize: 11,
+              fontWeight: '500',
+              letterSpacing: 0.4,
+              textTransform: 'uppercase',
+              marginBottom: 4,
+            }}
+          >
+            Handicap index
+          </Text>
+          <Text
+            style={{
+              color: '#111111',
+              fontSize: 36,
+              fontWeight: '500',
+              fontVariant: ['tabular-nums'],
+            }}
+          >
+            {profile?.handicap_index ?? '—'}
+          </Text>
+          <Text
+            style={{ color: '#888880', fontSize: 11, marginTop: 2, textTransform: 'capitalize' }}
+          >
+            {profile?.skill_level ?? 'No skill level set'}
+          </Text>
         </View>
-      </Field>
 
-      <Field label="Goal">
-        <View className="flex-row flex-wrap" style={{ gap: 6 }}>
-          {GOALS.map((g) => (
-            <Chip key={g} label={g.replace('_', ' ')} active={goal === g} onPress={() => setGoal(g)} />
-          ))}
-        </View>
-      </Field>
+        <Field label="Username">
+          <TextInput
+            autoCapitalize="none"
+            value={username}
+            onChangeText={setUsername}
+            style={inputStyle}
+          />
+        </Field>
 
-      <Field label="Facilities">
-        <View className="flex-row flex-wrap" style={{ gap: 6 }}>
-          {FACILITIES.map((f) => (
-            <Chip
-              key={f}
-              label={f.replace('_', ' ')}
-              active={facilities.includes(f)}
-              onPress={() => toggleFacility(f)}
-            />
-          ))}
-        </View>
-      </Field>
+        <Field label="Handicap index">
+          <TextInput
+            keyboardType="decimal-pad"
+            value={handicap}
+            onChangeText={setHandicap}
+            style={inputStyle}
+          />
+        </Field>
 
-      <Pressable
-        onPress={save}
-        disabled={saving}
-        className="mt-2 items-center rounded-lg bg-fairway-500 py-3"
-      >
-        <Text className="text-base font-semibold text-white">
-          {saving ? 'Saving…' : 'Save changes'}
-        </Text>
-      </Pressable>
+        <Field label="Skill level">
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+            {SKILL_LEVELS.map((s) => (
+              <Chip
+                key={s}
+                label={s}
+                active={skill === s}
+                onPress={() => setSkill(s)}
+              />
+            ))}
+          </View>
+        </Field>
 
-      <Pressable
-        onPress={() => supabase.auth.signOut()}
-        className="mt-3 items-center rounded border border-gray-200 py-3"
-      >
-        <Text className="text-sm text-gray-600">Sign out</Text>
-      </Pressable>
-    </ScrollView>
+        <Field label="Goal">
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+            {GOALS.map((g) => (
+              <Chip
+                key={g}
+                label={g.replace('_', ' ')}
+                active={goal === g}
+                onPress={() => setGoal(g)}
+              />
+            ))}
+          </View>
+        </Field>
+
+        <Field label="Facilities">
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+            {FACILITIES.map((f) => (
+              <Chip
+                key={f}
+                label={f.replace('_', ' ')}
+                active={facilities.includes(f)}
+                onPress={() => toggleFacility(f)}
+              />
+            ))}
+          </View>
+        </Field>
+
+        <Pressable
+          onPress={save}
+          disabled={saving}
+          style={{
+            marginTop: 4,
+            backgroundColor: '#111111',
+            borderRadius: 10,
+            paddingVertical: 13,
+            alignItems: 'center',
+          }}
+        >
+          <Text style={{ color: '#FFFFFF', fontSize: 13, fontWeight: '500' }}>
+            {saving ? 'Saving…' : 'Save changes'}
+          </Text>
+        </Pressable>
+
+        <Pressable
+          onPress={() => supabase.auth.signOut()}
+          style={{
+            marginTop: 10,
+            backgroundColor: '#FFFFFF',
+            borderWidth: 0.5,
+            borderColor: '#E4E4E0',
+            borderRadius: 10,
+            paddingVertical: 13,
+            alignItems: 'center',
+          }}
+        >
+          <Text style={{ color: '#888880', fontSize: 12 }}>Sign out</Text>
+        </Pressable>
+      </ScrollView>
+    </View>
   )
 }
 
+const inputStyle = {
+  backgroundColor: '#F9F9F6',
+  borderWidth: 0.5,
+  borderColor: '#E4E4E0',
+  borderRadius: 7,
+  paddingHorizontal: 10,
+  paddingVertical: 9,
+  fontSize: 13,
+  color: '#111111',
+} as const
+
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <View className="mb-4">
-      <Text className="mb-1 text-xs font-semibold uppercase text-gray-500">{label}</Text>
+    <View style={{ marginBottom: 14 }}>
+      <Text
+        style={{
+          color: '#888880',
+          fontSize: 11,
+          fontWeight: '500',
+          letterSpacing: 0.4,
+          textTransform: 'uppercase',
+          marginBottom: 6,
+        }}
+      >
+        {label}
+      </Text>
       {children}
     </View>
   )
@@ -164,14 +250,22 @@ function Chip({
   return (
     <Pressable
       onPress={onPress}
-      className={
-        active
-          ? 'rounded-full bg-fairway-500 px-3 py-1.5'
-          : 'rounded-full border border-gray-200 bg-white px-3 py-1.5'
-      }
+      style={{
+        paddingHorizontal: 10,
+        paddingVertical: 7,
+        borderRadius: 7,
+        backgroundColor: active ? '#E1F5EE' : '#F4F4F0',
+        borderWidth: 0.5,
+        borderColor: active ? '#1D9E75' : '#E0E0DA',
+      }}
     >
       <Text
-        className={active ? 'text-xs font-semibold text-white' : 'text-xs text-gray-700'}
+        style={{
+          color: active ? '#0F6E56' : '#111111',
+          fontSize: 12,
+          fontWeight: active ? '500' : '400',
+          textTransform: 'capitalize',
+        }}
       >
         {label}
       </Text>
