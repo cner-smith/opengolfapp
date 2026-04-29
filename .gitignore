@@ -1,0 +1,44 @@
+# dependencies
+node_modules/
+.pnpm-store/
+
+# build output
+dist/
+build/
+.next/
+.turbo/
+.expo/
+
+# env
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# editor
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# supabase
+supabase/.branches/
+supabase/.temp/
+
+# coverage
+coverage/
+
+# misc
+*.tsbuildinfo
+
+# Auto-generated claude-mem context placeholders (root CLAUDE.md is the real one)
+CLAUDE.md
+!/CLAUDE.md

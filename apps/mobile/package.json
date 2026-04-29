@@ -1,0 +1,44 @@
+{
+  "name": "@oga/mobile",
+  "version": "0.0.1",
+  "private": true,
+  "main": "expo-router/entry",
+  "scripts": {
+    "dev": "expo start",
+    "android": "expo start --android",
+    "ios": "expo start --ios",
+    "web": "expo start --web",
+    "typecheck": "tsc --noEmit",
+    "build": "echo \"Mobile builds run via EAS — see eas.json (added in Phase 8).\""
+  },
+  "dependencies": {
+    "@oga/core": "workspace:*",
+    "@oga/supabase": "workspace:*",
+    "@react-native-async-storage/async-storage": "1.23.1",
+    "@rnmapbox/maps": "10.1.33",
+    "@supabase/supabase-js": "^2.45.0",
+    "expo": "~51.0.28",
+    "expo-constants": "~16.0.2",
+    "expo-linking": "~6.3.1",
+    "expo-location": "~17.0.1",
+    "expo-router": "~3.5.23",
+    "expo-status-bar": "~1.12.1",
+    "nativewind": "^4.0.36",
+    "react": "18.2.0",
+    "react-dom": "18.2.0",
+    "react-native": "0.74.5",
+    "react-native-gesture-handler": "~2.16.1",
+    "react-native-reanimated": "~3.10.1",
+    "react-native-safe-area-context": "4.10.5",
+    "react-native-screens": "3.31.1",
+    "react-native-url-polyfill": "^2.0.0",
+    "react-native-web": "~0.19.10",
+    "tailwindcss": "^3.4.7"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.24.0",
+    "@types/node": "^20.12.0",
+    "@types/react": "~18.2.79",
+    "typescript": "~5.3.3"
+  }
+}
