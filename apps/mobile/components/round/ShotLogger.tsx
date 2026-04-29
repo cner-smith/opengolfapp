@@ -102,12 +102,20 @@ export function ShotLogger({
             </Section>
 
             <Section title="Lie slope">
-              <View className="flex-row flex-wrap" style={{ gap: 4 }}>
+              <View
+                accessibilityRole="radiogroup"
+                className="flex-row flex-wrap"
+                style={{ gap: 4 }}
+              >
                 {SLOPE_GRID.map((key, i) => (
                   <View key={`${key}-${i}`} style={{ width: '32%' }}>
                     {key === 'spacer' ? null : (
                       <Pressable
-                        onPress={() => set('lieSlope', key)}
+                        accessibilityRole="radio"
+                        accessibilityState={{ checked: value.lieSlope === key }}
+                        onPress={() =>
+                          setValue((prev) => ({ ...prev, lieSlope: key }))
+                        }
                         className={
                           value.lieSlope === key
                             ? 'items-center rounded bg-fairway-500 py-2'

@@ -397,10 +397,10 @@ function LieSlopeGrid({
   onChange,
 }: {
   value: LieSlope | undefined
-  onChange: (v: LieSlope | undefined) => void
+  onChange: (v: LieSlope) => void
 }) {
   return (
-    <div className="grid max-w-xs grid-cols-3 gap-1">
+    <div role="radiogroup" className="grid max-w-xs grid-cols-3 gap-1">
       {SLOPE_GRID.map((key, i) =>
         key === 'spacer' ? (
           <div key={`s${i}`} />
@@ -408,7 +408,9 @@ function LieSlopeGrid({
           <button
             key={key}
             type="button"
-            onClick={() => onChange(value === key ? undefined : key)}
+            role="radio"
+            aria-checked={value === key}
+            onClick={() => onChange(key)}
             className={gridButtonClass(value === key)}
           >
             {key.replace('_', ' ')}

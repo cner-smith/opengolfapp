@@ -17,6 +17,7 @@ The core belief: getting better at golf shouldn't be paywalled.
 - Before implementing any pattern, read one existing example of that pattern in the codebase first.
 - When uncertain whether to add something, don't. Ask instead.
 - You are not QA. The user is QA. Ship the minimum, then stop and report.
+- Before building or modifying any UI component, read DESIGN.md.
 
 ## What we're building
 
