@@ -1,3 +1,8 @@
 export { createOgaClient } from './client'
 export type { OgaSupabaseClient, CreateClientOptions } from './client'
 export type { Database, Json } from './types'
+export * from './queries/rounds'
+export * from './queries/shots'
+export * from './queries/profiles'
+export * from './queries/practice'
+export * from './queries/courses'

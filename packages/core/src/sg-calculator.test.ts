@@ -1,10 +1,33 @@
 import { describe, expect, it } from 'vitest'
 import {
+  averageSGBreakdown,
+  calculateRoundSG,
   calculateShotSG,
   getExpectedStrokes,
   getShotCategory,
+  type ShotWithContext,
 } from './sg-calculator'
 import { getHandicapBracket, interpolateBaseline } from './sg-baselines'
+import type { SGBreakdown, Shot } from './types'
+
+function shotCtx(
+  shot: Partial<Shot> & { par: number; isLastShot: boolean; shotNumber: number },
+): ShotWithContext {
+  return {
+    id: shot.id ?? 'shot',
+    holeScoreId: shot.holeScoreId ?? 'hs',
+    userId: shot.userId ?? 'user',
+    shotNumber: shot.shotNumber,
+    par: shot.par,
+    isLastShot: shot.isLastShot,
+    distanceToTarget: shot.distanceToTarget,
+    lieType: shot.lieType,
+    puttDistanceFt: shot.puttDistanceFt,
+    puttResult: shot.puttResult,
+    penalty: shot.penalty,
+    ob: shot.ob,
+  }
+}
 
 describe('getHandicapBracket', () => {
   it('floors low handicaps to 0', () => {
@@ -72,5 +95,106 @@ describe('calculateShotSG', () => {
   })
   it('returns negative for poor shots', () => {
     expect(calculateShotSG(3.12, 2.5)).toBeCloseTo(-0.38)
+  })
+})
+
+describe('calculateRoundSG', () => {
+  it('returns zeroed breakdown for empty input', () => {
+    const r = calculateRoundSG([], 10)
+    expect(r.total).toBe(0)
+    expect(r.offTee + r.approach + r.aroundGreen + r.putting).toBe(0)
+  })
+
+  it('credits SG to off_tee on tee shots and approach mid-hole', () => {
+    // Par 4: tee shot from 400yd (off_tee), approach 150yd (approach), 10ft putt holed.
+    const shots: ShotWithContext[] = [
+      shotCtx({
+        par: 4,
+        isLastShot: false,
+        shotNumber: 1,
+        lieType: 'tee',
+        distanceToTarget: 400,
+      }),
+      shotCtx({
+        par: 4,
+        isLastShot: false,
+        shotNumber: 2,
+        lieType: 'fairway',
+        distanceToTarget: 150,
+      }),
+      shotCtx({
+        par: 4,
+        isLastShot: true,
+        shotNumber: 3,
+        lieType: 'green',
+        puttDistanceFt: 10,
+        puttResult: 'made',
+      }),
+    ]
+    const r = calculateRoundSG(shots, 0)
+    expect(r.offTee).not.toBe(0)
+    expect(r.approach).not.toBe(0)
+    expect(r.putting).not.toBe(0)
+    expect(r.total).toBeCloseTo(r.offTee + r.approach + r.aroundGreen + r.putting)
+  })
+
+  it('penalizes SG for OB / penalty shots', () => {
+    const cleanShots: ShotWithContext[] = [
+      shotCtx({
+        par: 4,
+        isLastShot: false,
+        shotNumber: 1,
+        lieType: 'tee',
+        distanceToTarget: 400,
+      }),
+      shotCtx({
+        par: 4,
+        isLastShot: true,
+        shotNumber: 2,
+        lieType: 'green',
+        puttDistanceFt: 5,
+        puttResult: 'made',
+      }),
+    ]
+    const obShots: ShotWithContext[] = [
+      { ...cleanShots[0]!, ob: true },
+      cleanShots[1]!,
+    ]
+    const clean = calculateRoundSG(cleanShots, 0)
+    const ob = calculateRoundSG(obShots, 0)
+    expect(ob.offTee).toBeLessThan(clean.offTee)
+  })
+
+  it('treats holed putt as ending at zero expected', () => {
+    const shots: ShotWithContext[] = [
+      shotCtx({
+        par: 3,
+        isLastShot: true,
+        shotNumber: 2,
+        lieType: 'green',
+        puttDistanceFt: 5,
+        puttResult: 'made',
+      }),
+    ]
+    const r = calculateRoundSG(shots, 0)
+    // 5ft putt expected ~1.14, made it in 1 → SG = 1.14 - 0 - 1 = +0.14
+    expect(r.putting).toBeCloseTo(0.14, 2)
+  })
+})
+
+describe('averageSGBreakdown', () => {
+  it('zeros when no rounds', () => {
+    const r = averageSGBreakdown([])
+    expect(r.total).toBe(0)
+  })
+  it('averages component-wise', () => {
+    const a: SGBreakdown = { offTee: 1, approach: 2, aroundGreen: 3, putting: 4, total: 10 }
+    const b: SGBreakdown = { offTee: 3, approach: 4, aroundGreen: 5, putting: 6, total: 18 }
+    const avg = averageSGBreakdown([a, b])
+    expect(avg.offTee).toBe(2)
+    expect(avg.approach).toBe(3)
+    expect(avg.aroundGreen).toBe(4)
+    expect(avg.putting).toBe(5)
+    expect(avg.total).toBe(14)
   })
 })
