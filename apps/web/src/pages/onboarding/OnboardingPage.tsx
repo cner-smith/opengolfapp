@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useQueryClient } from '@tanstack/react-query'
 import type { Facility, Goal, SkillLevel } from '@oga/core'
+import { useAuth } from '../../hooks/useAuth'
 import { useUpdateProfile } from '../../hooks/useProfile'
 import { Step1Skill } from './steps/Step1Skill'
 import { Step2Handicap } from './steps/Step2Handicap'
@@ -21,6 +23,8 @@ const TOTAL_STEPS = 5
 
 export function OnboardingPage() {
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
+  const { user } = useAuth()
   const updateProfile = useUpdateProfile()
   const [step, setStep] = useState<number>(1)
   const [error, setError] = useState<string | null>(null)
@@ -43,6 +47,7 @@ export function OnboardingPage() {
 
   async function save() {
     setError(null)
+    if (!user) return
     try {
       await updateProfile.mutateAsync({
         skill_level: draft.skillLevel,
@@ -52,6 +57,11 @@ export function OnboardingPage() {
         facilities: draft.facilities,
         play_style: draft.playStyle,
       })
+      // ProfileGuard reads ['profile', user.id] on mount of /. The cache
+      // still holds the pre-save row (skill_level: null) so without a
+      // forced refetch the guard sees stale data and bounces back here.
+      await queryClient.invalidateQueries({ queryKey: ['profile', user.id] })
+      await queryClient.refetchQueries({ queryKey: ['profile', user.id] })
       navigate('/', { replace: true })
     } catch (err) {
       setError((err as Error).message)
