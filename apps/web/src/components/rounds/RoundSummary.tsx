@@ -12,6 +12,13 @@ interface RoundSummaryProps {
   totalRoundsLogged: number
 }
 
+const SG_KEYS = [
+  { key: 'sg_off_tee', label: 'Off tee' },
+  { key: 'sg_approach', label: 'Approach' },
+  { key: 'sg_around_green', label: 'Around green' },
+  { key: 'sg_putting', label: 'Putting' },
+] as const
+
 function formatSG(value: number | null | undefined): string {
   if (value === null || value === undefined) return '—'
   const sign = value > 0 ? '+' : ''
@@ -47,27 +54,50 @@ export function RoundSummary({
   const { best, worst } = bestWorstHole(holeScores, holes)
 
   return (
-    <div className="rounded-lg bg-white p-5 shadow-sm">
-      <div className="flex items-baseline justify-between">
-        <h2 className="text-lg font-bold text-fairway-700">Round summary</h2>
-        <div className="text-sm text-gray-500">
-          Score{' '}
-          <span className="text-base font-bold text-gray-900">{score}</span>
-          {toPar !== null && (
-            <span className="ml-1">({toPar > 0 ? `+${toPar}` : toPar === 0 ? 'E' : toPar})</span>
-          )}
+    <div
+      className="bg-oga-bg-card"
+      style={{
+        border: '0.5px solid #E4E4E0',
+        borderRadius: 10,
+        padding: '14px 16px',
+      }}
+    >
+      <div className="flex items-baseline justify-between" style={{ marginBottom: 14 }}>
+        <div>
+          <div
+            className="text-oga-text-muted uppercase"
+            style={{ fontSize: 11, fontWeight: 500, letterSpacing: 0.4 }}
+          >
+            Round summary
+          </div>
+          <div className="font-medium tabular text-oga-text-primary" style={{ fontSize: 28 }}>
+            {score || '—'}
+            {toPar !== null && (
+              <span
+                className="text-oga-text-muted"
+                style={{ fontSize: 13, fontWeight: 400, marginLeft: 8 }}
+              >
+                ({toPar > 0 ? `+${toPar}` : toPar === 0 ? 'E' : toPar})
+              </span>
+            )}
+          </div>
         </div>
       </div>
 
-      <dl className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <SGCell label="Off tee" value={round.sg_off_tee} />
-        <SGCell label="Approach" value={round.sg_approach} />
-        <SGCell label="Around green" value={round.sg_around_green} />
-        <SGCell label="Putting" value={round.sg_putting} />
-      </dl>
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4" style={{ marginBottom: 12 }}>
+        {SG_KEYS.map((c) => (
+          <SGCell key={c.key} label={c.label} value={round[c.key]} />
+        ))}
+      </div>
 
-      <div className="mt-4 grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
-        <Stat label="SG total" value={formatSG(round.sg_total)} />
+      <div
+        className="grid grid-cols-2 gap-3 sm:grid-cols-4"
+        style={{
+          paddingTop: 12,
+          borderTop: '0.5px solid #E4E4E0',
+        }}
+      >
+        <Stat label="SG total" value={formatSG(round.sg_total)} tone={signTone(round.sg_total)} />
         <Stat label="Putts" value={round.total_putts?.toString() ?? '—'} />
         <Stat
           label="Fairways"
@@ -81,33 +111,20 @@ export function RoundSummary({
       </div>
 
       {(best || worst) && (
-        <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
-          {best && (
-            <div className="rounded bg-emerald-50 px-3 py-2">
-              <div className="text-xs text-emerald-700">Best hole</div>
-              <div className="font-medium">
-                #{best.number} ({best.diff > 0 ? `+${best.diff}` : best.diff === 0 ? 'E' : best.diff})
-              </div>
-            </div>
-          )}
-          {worst && (
-            <div className="rounded bg-red-50 px-3 py-2">
-              <div className="text-xs text-red-700">Worst hole</div>
-              <div className="font-medium">
-                #{worst.number} ({worst.diff > 0 ? `+${worst.diff}` : worst.diff === 0 ? 'E' : worst.diff})
-              </div>
-            </div>
-          )}
+        <div className="mt-4 grid grid-cols-2 gap-3">
+          {best && <HighlightCard tone="positive" label="Best hole" hole={best.number} diff={best.diff} />}
+          {worst && <HighlightCard tone="negative" label="Worst hole" hole={worst.number} diff={worst.diff} />}
         </div>
       )}
 
       {totalRoundsLogged >= 3 && (
-        <div className="mt-5">
+        <div className="mt-4">
           <Link
             to="/practice"
-            className="inline-block rounded bg-fairway-500 px-4 py-2 text-sm text-white hover:bg-fairway-700"
+            className="inline-block rounded-card bg-oga-black text-white transition-colors hover:bg-oga-text-primary/90"
+            style={{ padding: '10px 16px', fontSize: 13, fontWeight: 500 }}
           >
-            Generate practice plan →
+            Generate practice plan
           </Link>
         </div>
       )}
@@ -115,22 +132,87 @@ export function RoundSummary({
   )
 }
 
+function signTone(value: number | null | undefined): 'positive' | 'negative' | undefined {
+  if (value === null || value === undefined) return undefined
+  if (value > 0) return 'positive'
+  if (value < 0) return 'negative'
+  return undefined
+}
+
 function SGCell({ label, value }: { label: string; value: number | null | undefined }) {
   const num = value ?? 0
-  const tone = num > 0 ? 'text-emerald-700' : num < 0 ? 'text-red-700' : 'text-gray-500'
+  const tone = num > 0 ? 'positive' : num < 0 ? 'negative' : 'neutral'
+  const color =
+    tone === 'positive' ? '#0F6E56' : tone === 'negative' ? '#A32D2D' : '#888880'
   return (
-    <div className="rounded border border-gray-100 bg-gray-50 p-3">
-      <div className="text-xs text-gray-500">{label}</div>
-      <div className={`text-lg font-bold ${tone}`}>{formatSG(value)}</div>
+    <div
+      className="bg-oga-bg-page"
+      style={{
+        borderRadius: 8,
+        padding: '10px 12px',
+      }}
+    >
+      <div
+        className="text-oga-text-muted"
+        style={{ fontSize: 10, marginBottom: 3 }}
+      >
+        {label}
+      </div>
+      <div className="tabular" style={{ fontSize: 18, fontWeight: 500, color }}>
+        {formatSG(value)}
+      </div>
     </div>
   )
 }
 
-function Stat({ label, value }: { label: string; value: string }) {
+function Stat({
+  label,
+  value,
+  tone,
+}: {
+  label: string
+  value: string
+  tone?: 'positive' | 'negative'
+}) {
+  const color =
+    tone === 'positive' ? '#0F6E56' : tone === 'negative' ? '#A32D2D' : '#111111'
   return (
     <div>
-      <div className="text-xs text-gray-500">{label}</div>
-      <div className="text-base font-medium text-gray-900">{value}</div>
+      <div className="text-oga-text-muted" style={{ fontSize: 10 }}>
+        {label}
+      </div>
+      <div className="font-medium tabular" style={{ fontSize: 15, color }}>
+        {value}
+      </div>
+    </div>
+  )
+}
+
+function HighlightCard({
+  tone,
+  label,
+  hole,
+  diff,
+}: {
+  tone: 'positive' | 'negative'
+  label: string
+  hole: number
+  diff: number
+}) {
+  const bg = tone === 'positive' ? '#E1F5EE' : '#FCEBEB'
+  const fg = tone === 'positive' ? '#0F6E56' : '#A32D2D'
+  return (
+    <div
+      style={{
+        backgroundColor: bg,
+        borderRadius: 8,
+        padding: '10px 12px',
+      }}
+    >
+      <div style={{ color: fg, fontSize: 10, fontWeight: 500 }}>{label}</div>
+      <div className="font-medium tabular" style={{ color: fg, fontSize: 15 }}>
+        Hole {hole} ({diff > 0 ? `+${diff}` : diff === 0 ? 'E' : diff})
+      </div>
     </div>
   )
 }

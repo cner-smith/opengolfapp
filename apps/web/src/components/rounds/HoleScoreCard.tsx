@@ -13,15 +13,60 @@ interface HoleScoreCardProps {
   onEditShots: (holeScoreId: string) => void
 }
 
-function diffLabel(score: number | null | undefined, par: number) {
+interface BubbleStyle {
+  bg: string
+  fg: string
+  border?: string
+}
+
+function bubbleStyle(score: number | null | undefined, par: number): BubbleStyle | null {
   if (!score) return null
   const d = score - par
-  if (d <= -3) return { label: 'Albatross', cls: 'bg-amber-200 text-amber-900' }
-  if (d === -2) return { label: 'Eagle', cls: 'bg-emerald-200 text-emerald-900' }
-  if (d === -1) return { label: 'Birdie', cls: 'bg-emerald-100 text-emerald-800' }
-  if (d === 0) return { label: 'Par', cls: 'bg-gray-100 text-gray-800' }
-  if (d === 1) return { label: 'Bogey', cls: 'bg-orange-100 text-orange-800' }
-  return { label: `+${d}`, cls: 'bg-red-100 text-red-800' }
+  if (d <= -2) return { bg: '#1D9E75', fg: '#FFFFFF' }
+  if (d === -1) return { bg: '#E1F5EE', fg: '#0F6E56', border: '#1D9E75' }
+  if (d === 0) return { bg: 'transparent', fg: '#888880' }
+  if (d === 1) return { bg: '#FCEBEB', fg: '#A32D2D' }
+  if (d === 2) return { bg: '#E24B4A', fg: '#FFFFFF' }
+  return { bg: '#A32D2D', fg: '#FFFFFF' }
+}
+
+function ToggleButton({
+  state,
+  onChange,
+  label,
+}: {
+  state: boolean | null
+  onChange: (v: boolean | null) => void
+  label: string
+}) {
+  const cycle = () => {
+    onChange(state === true ? false : state === false ? null : true)
+  }
+  const bg =
+    state === true ? '#1D9E75' : state === false ? '#FCEBEB' : '#F4F4F0'
+  const color =
+    state === true ? '#FFFFFF' : state === false ? '#A32D2D' : '#888880'
+  const border =
+    state === true ? 'transparent' : state === false ? '#FCEBEB' : '#E4E4E0'
+  return (
+    <button
+      type="button"
+      onClick={cycle}
+      style={{
+        backgroundColor: bg,
+        color,
+        border: `0.5px solid ${border}`,
+        borderRadius: 7,
+        padding: '5px 10px',
+        fontSize: 11,
+        fontWeight: 500,
+        minWidth: 56,
+      }}
+      aria-label={label}
+    >
+      {label} {state === true ? '✓' : state === false ? '✗' : '–'}
+    </button>
+  )
 }
 
 export function HoleScoreCard({
@@ -75,13 +120,21 @@ export function HoleScoreCard({
   }
 
   const isPar3 = hole.par === 3
-  const diff = diffLabel(holeScore?.score, hole.par)
+  const bubble = bubbleStyle(holeScore?.score, hole.par)
 
   return (
-    <div className="grid grid-cols-12 items-center gap-2 border-b border-gray-100 px-3 py-2 text-sm">
+    <div
+      className="grid grid-cols-12 items-center gap-3 border-t border-oga-border"
+      style={{ padding: '10px 14px' }}
+    >
       <div className="col-span-2">
-        <div className="font-semibold">Hole {hole.number}</div>
-        <div className="text-xs text-gray-500">
+        <div
+          className="font-medium tabular text-oga-text-primary"
+          style={{ fontSize: 14 }}
+        >
+          Hole {hole.number}
+        </div>
+        <div className="text-oga-text-muted tabular" style={{ fontSize: 11 }}>
           Par {hole.par}
           {hole.yards ? ` · ${hole.yards} yd` : ''}
         </div>
@@ -92,15 +145,43 @@ export function HoleScoreCard({
         inputMode="numeric"
         min={1}
         max={15}
-        placeholder="Score"
+        placeholder="—"
         value={score}
         onChange={(e) => setScore(e.target.value)}
         onBlur={() => {
           const n = score ? Number(score) : null
           if (n) persist({ score: n })
         }}
-        className="col-span-2 rounded border border-gray-200 px-2 py-1.5 text-center"
+        className="col-span-1 tabular bg-oga-bg-input text-oga-text-primary"
+        style={{
+          border: '0.5px solid #E4E4E0',
+          borderRadius: 7,
+          padding: '6px 8px',
+          fontSize: 14,
+          textAlign: 'center',
+          fontWeight: 500,
+        }}
       />
+
+      <div className="col-span-1 flex justify-center">
+        {bubble && (
+          <span
+            className="inline-flex items-center justify-center tabular"
+            style={{
+              backgroundColor: bubble.bg,
+              color: bubble.fg,
+              border: bubble.border ? `1.5px solid ${bubble.border}` : 'none',
+              borderRadius: 9999,
+              width: 28,
+              height: 28,
+              fontSize: 13,
+              fontWeight: 500,
+            }}
+          >
+            {holeScore?.score}
+          </span>
+        )}
+      </div>
 
       <input
         type="number"
@@ -111,62 +192,58 @@ export function HoleScoreCard({
         value={putts}
         onChange={(e) => setPutts(e.target.value)}
         onBlur={() => persist({ putts: putts === '' ? null : Number(putts) })}
-        className="col-span-2 rounded border border-gray-200 px-2 py-1.5 text-center"
+        className="col-span-2 tabular bg-oga-bg-input text-oga-text-primary"
+        style={{
+          border: '0.5px solid #E4E4E0',
+          borderRadius: 7,
+          padding: '6px 8px',
+          fontSize: 13,
+          textAlign: 'center',
+        }}
       />
 
       <div className="col-span-2 flex justify-center">
-        {!isPar3 ? (
-          <button
-            type="button"
-            onClick={() => {
-              const nextVal = fairway === true ? false : fairway === false ? null : true
-              setFairway(nextVal)
-              persist({ fairway_hit: nextVal })
-            }}
-            className={`rounded px-2 py-1 text-xs ${
-              fairway === true
-                ? 'bg-emerald-500 text-white'
-                : fairway === false
-                  ? 'bg-red-200 text-red-900'
-                  : 'bg-gray-100 text-gray-500'
-            }`}
-            aria-label="Fairway hit"
-          >
-            FH {fairway === true ? '✓' : fairway === false ? '✗' : '–'}
-          </button>
+        {isPar3 ? (
+          <span className="text-oga-text-hint" style={{ fontSize: 11 }}>
+            —
+          </span>
         ) : (
-          <span className="text-xs text-gray-300">—</span>
+          <ToggleButton
+            label="FH"
+            state={fairway}
+            onChange={(v) => {
+              setFairway(v)
+              persist({ fairway_hit: v })
+            }}
+          />
         )}
       </div>
 
       <div className="col-span-1 flex justify-center">
-        <button
-          type="button"
-          onClick={() => {
-            const nextVal = gir === true ? false : gir === false ? null : true
-            setGir(nextVal)
-            persist({ gir: nextVal })
+        <ToggleButton
+          label="GIR"
+          state={gir}
+          onChange={(v) => {
+            setGir(v)
+            persist({ gir: v })
           }}
-          className={`rounded px-2 py-1 text-xs ${
-            gir === true
-              ? 'bg-emerald-500 text-white'
-              : gir === false
-                ? 'bg-red-200 text-red-900'
-                : 'bg-gray-100 text-gray-500'
-          }`}
-          aria-label="GIR"
-        >
-          GIR
-        </button>
+        />
       </div>
 
-      <div className="col-span-3 flex items-center justify-end gap-2">
-        {diff && <span className={`rounded px-2 py-0.5 text-xs ${diff.cls}`}>{diff.label}</span>}
+      <div className="col-span-3 flex items-center justify-end">
         <button
           type="button"
           disabled={!holeScore}
           onClick={() => holeScore && onEditShots(holeScore.id)}
-          className="rounded border border-gray-200 px-2 py-1 text-xs hover:bg-fairway-50 disabled:opacity-40"
+          className="text-oga-text-primary transition-colors disabled:cursor-not-allowed disabled:opacity-40"
+          style={{
+            backgroundColor: '#FFFFFF',
+            border: '0.5px solid #E4E4E0',
+            borderRadius: 7,
+            padding: '6px 12px',
+            fontSize: 12,
+            fontWeight: 500,
+          }}
           title={holeScore ? 'Edit shots' : 'Enter a score to log shots'}
         >
           {shotCount > 0 ? `${shotCount} shots` : 'Add shots'}

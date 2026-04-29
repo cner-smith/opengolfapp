@@ -60,13 +60,20 @@ export function RoundDetailPage() {
   }, [shotsQuery.data])
 
   if (round.isLoading || holesQuery.isLoading) {
-    return <div className="p-4 text-fairway-700">Loading round…</div>
+    return <div className="text-oga-text-muted" style={{ fontSize: 13 }}>Loading round…</div>
   }
   if (round.error) {
-    return <div className="p-4 text-red-600">Error: {(round.error as Error).message}</div>
+    return (
+      <div
+        className="bg-oga-red-light text-oga-red-dark"
+        style={{ borderRadius: 10, padding: '12px 14px', fontSize: 13 }}
+      >
+        Error: {(round.error as Error).message}
+      </div>
+    )
   }
   if (!round.data) {
-    return <div className="p-4">Round not found.</div>
+    return <div style={{ fontSize: 13 }}>Round not found.</div>
   }
 
   const holesPlayed = holeScores.length
@@ -88,39 +95,60 @@ export function RoundDetailPage() {
   }
 
   return (
-    <div className="space-y-5">
-      <div className="flex items-center justify-between">
+    <div className="flex flex-col gap-3">
+      <div>
+        <button
+          type="button"
+          onClick={() => navigate('/rounds')}
+          className="text-oga-text-muted hover:text-oga-text-primary"
+          style={{ fontSize: 12 }}
+        >
+          ← All rounds
+        </button>
+      </div>
+      <div className="flex items-end justify-between">
         <div>
-          <button
-            type="button"
-            onClick={() => navigate('/rounds')}
-            className="text-sm text-fairway-700 hover:underline"
+          <h1
+            className="text-oga-text-primary"
+            style={{ fontSize: 22, fontWeight: 600, lineHeight: 1.3 }}
           >
-            ← All rounds
-          </button>
-          <h1 className="mt-1 text-2xl font-bold text-fairway-700">
             {round.data.courses?.name ?? 'Round'}
           </h1>
-          <div className="text-sm text-gray-500">
+          <div
+            className="text-oga-text-muted"
+            style={{ fontSize: 13, marginTop: 2 }}
+          >
             {round.data.played_at}
-            {round.data.tee_color ? ` · ${round.data.tee_color} tees` : ''}
+            {round.data.tee_color ? ` · ${round.data.tee_color} tees` : ''} ·{' '}
+            {holesPlayed}/18 holes scored
           </div>
         </div>
-        <div className="flex flex-col items-end gap-2">
-          <div className="text-xs text-gray-500">{holesPlayed}/18 holes scored</div>
-          <button
-            type="button"
-            onClick={handleComplete}
-            disabled={completeMutation.isPending || holesPlayed === 0}
-            className="rounded bg-fairway-500 px-4 py-2 text-sm text-white hover:bg-fairway-700 disabled:opacity-50"
-          >
-            {completeMutation.isPending ? 'Calculating…' : 'Save SG + finalize'}
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={handleComplete}
+          disabled={completeMutation.isPending || holesPlayed === 0}
+          className="bg-oga-black text-white transition-colors hover:bg-oga-text-primary/90 disabled:opacity-50"
+          style={{
+            borderRadius: 10,
+            padding: '10px 16px',
+            fontSize: 13,
+            fontWeight: 500,
+          }}
+        >
+          {completeMutation.isPending ? 'Calculating…' : 'Save SG + finalize'}
+        </button>
       </div>
 
       {completeError && (
-        <div className="rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+        <div
+          className="bg-oga-red-light text-oga-red-dark"
+          style={{
+            border: '0.5px solid #E24B4A',
+            borderRadius: 10,
+            padding: '12px 14px',
+            fontSize: 13,
+          }}
+        >
           {completeError}
         </div>
       )}
@@ -134,12 +162,27 @@ export function RoundDetailPage() {
         />
       )}
 
-      <div className="rounded-lg bg-white shadow-sm">
-        <div className="grid grid-cols-12 gap-2 border-b border-gray-100 px-3 py-2 text-xs font-semibold uppercase text-gray-500">
+      <div
+        className="bg-oga-bg-card overflow-hidden"
+        style={{
+          border: '0.5px solid #E4E4E0',
+          borderRadius: 10,
+        }}
+      >
+        <div
+          className="grid grid-cols-12 gap-3 text-oga-text-muted uppercase"
+          style={{
+            padding: '10px 14px',
+            fontSize: 10,
+            fontWeight: 500,
+            letterSpacing: 0.4,
+          }}
+        >
           <div className="col-span-2">Hole</div>
-          <div className="col-span-2 text-center">Score</div>
+          <div className="col-span-1 text-center">Score</div>
+          <div className="col-span-1" />
           <div className="col-span-2 text-center">Putts</div>
-          <div className="col-span-2 text-center">FH</div>
+          <div className="col-span-2 text-center">Fairway</div>
           <div className="col-span-1 text-center">GIR</div>
           <div className="col-span-3 text-right">Shots</div>
         </div>

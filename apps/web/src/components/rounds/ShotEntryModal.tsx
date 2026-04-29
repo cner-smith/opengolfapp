@@ -143,82 +143,134 @@ export function ShotEntryModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-lg bg-white shadow-xl">
-        <header className="flex items-center justify-between border-b border-gray-100 px-5 py-3">
+      <div
+        className="flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden bg-oga-bg-card"
+        style={{ border: '0.5px solid #E4E4E0', borderRadius: 12 }}
+      >
+        <header
+          className="flex items-center justify-between"
+          style={{
+            borderBottom: '0.5px solid #E4E4E0',
+            padding: '14px 18px',
+          }}
+        >
           <div>
-            <div className="text-lg font-bold text-fairway-700">
+            <div
+              className="font-medium text-oga-text-primary"
+              style={{ fontSize: 18 }}
+            >
               Shots — Hole {holeNumber}
             </div>
-            <div className="text-xs text-gray-500">Par {holePar}</div>
+            <div className="text-oga-text-muted" style={{ fontSize: 11 }}>
+              Par {holePar}
+            </div>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="rounded px-2 py-1 text-sm text-gray-600 hover:bg-gray-100"
+            className="text-oga-text-muted transition-colors hover:text-oga-text-primary"
+            style={{ fontSize: 13, padding: '6px 10px' }}
           >
             Close
           </button>
         </header>
 
-        <div className="grid flex-1 grid-cols-1 overflow-y-auto md:grid-cols-2">
-          <section className="border-r border-gray-100 p-4">
-            <div className="mb-2 text-sm font-medium text-gray-700">Shots</div>
+        <div className="grid flex-1 grid-cols-1 overflow-y-auto md:grid-cols-[260px_1fr]">
+          <section
+            style={{
+              borderRight: '0.5px solid #E4E4E0',
+              padding: 14,
+            }}
+          >
+            <div
+              className="text-oga-text-muted uppercase"
+              style={{
+                fontSize: 11,
+                fontWeight: 500,
+                letterSpacing: 0.4,
+                marginBottom: 8,
+              }}
+            >
+              Shots
+            </div>
             {holeShots.length === 0 && (
-              <div className="rounded border border-dashed border-gray-200 p-3 text-xs text-gray-500">
+              <div
+                className="text-oga-text-muted"
+                style={{
+                  border: '0.5px dashed #E4E4E0',
+                  borderRadius: 7,
+                  padding: 12,
+                  fontSize: 12,
+                }}
+              >
                 No shots logged yet.
               </div>
             )}
-            <ul className="space-y-1">
-              {holeShots.map((s) => (
-                <li
-                  key={s.id}
-                  className={`flex items-center justify-between rounded border px-3 py-2 text-xs ${
-                    editing === s.id
-                      ? 'border-fairway-500 bg-fairway-50'
-                      : 'border-gray-100'
-                  }`}
-                >
-                  <div>
-                    <div className="font-medium">
-                      #{s.shot_number} {s.club ?? '—'} · {s.lie_type ?? 'lie?'}
+            <ul className="flex flex-col" style={{ gap: 4 }}>
+              {holeShots.map((s) => {
+                const isEditing = editing === s.id
+                return (
+                  <li
+                    key={s.id}
+                    className="flex items-center justify-between"
+                    style={{
+                      backgroundColor: isEditing ? '#E1F5EE' : '#FFFFFF',
+                      border: `0.5px solid ${isEditing ? '#1D9E75' : '#E4E4E0'}`,
+                      borderRadius: 7,
+                      padding: '8px 10px',
+                      fontSize: 12,
+                    }}
+                  >
+                    <div>
+                      <div
+                        className="font-medium tabular text-oga-text-primary"
+                        style={{ fontSize: 12 }}
+                      >
+                        #{s.shot_number} {s.club ?? '—'}
+                        {s.lie_type ? ` · ${s.lie_type}` : ''}
+                      </div>
+                      <div className="text-oga-text-muted" style={{ fontSize: 11 }}>
+                        {s.shot_result ?? 'no result'}
+                      </div>
                     </div>
-                    <div className="text-gray-500">
-                      {s.shot_result ?? 'no result'}
-                      {s.penalty ? ' · penalty' : ''}
-                      {s.ob ? ' · OB' : ''}
+                    <div className="flex gap-1">
+                      <button
+                        type="button"
+                        onClick={() => startEdit(s)}
+                        className="text-oga-text-muted transition-colors hover:text-oga-text-primary"
+                        style={{ fontSize: 11, padding: '4px 8px' }}
+                      >
+                        Edit
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => remove(s.id)}
+                        className="text-oga-red transition-colors hover:text-oga-red-dark"
+                        style={{ fontSize: 11, padding: '4px 8px' }}
+                      >
+                        Del
+                      </button>
                     </div>
-                  </div>
-                  <div className="flex gap-1">
-                    <button
-                      type="button"
-                      onClick={() => startEdit(s)}
-                      className="rounded px-2 py-1 hover:bg-gray-100"
-                    >
-                      Edit
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => remove(s.id)}
-                      className="rounded px-2 py-1 text-red-600 hover:bg-red-50"
-                    >
-                      Del
-                    </button>
-                  </div>
-                </li>
-              ))}
+                  </li>
+                )
+              })}
             </ul>
           </section>
 
-          <section className="space-y-3 p-4 text-sm">
+          <section style={{ padding: 18 }} className="flex flex-col gap-4">
             <div className="flex items-center justify-between">
-              <div className="font-medium text-gray-700">
+              <div
+                className="font-medium text-oga-text-primary"
+                style={{ fontSize: 14 }}
+              >
                 {editing ? `Edit shot #${draft.shotNumber}` : `Add shot #${draft.shotNumber}`}
               </div>
               {editing && (
                 <button
                   type="button"
                   onClick={cancelEdit}
-                  className="text-xs text-gray-500 hover:underline"
+                  className="text-oga-text-muted hover:underline"
+                  style={{ fontSize: 11 }}
                 >
                   Cancel edit
                 </button>
@@ -250,17 +302,11 @@ export function ShotEntryModal({
 
             {!isPutt && (
               <Field label="Distance to target (yards)">
-                <input
-                  type="number"
-                  min={0}
-                  value={draft.distanceToTarget ?? ''}
-                  onChange={(e) =>
-                    setDraft((d) => ({
-                      ...d,
-                      distanceToTarget: e.target.value ? Number(e.target.value) : undefined,
-                    }))
+                <NumericInput
+                  value={draft.distanceToTarget}
+                  onChange={(n) =>
+                    setDraft((d) => ({ ...d, distanceToTarget: n }))
                   }
-                  className="w-32 rounded border border-gray-200 px-2 py-1.5"
                 />
               </Field>
             )}
@@ -268,18 +314,12 @@ export function ShotEntryModal({
             {isPutt && (
               <>
                 <Field label="Putt distance (ft)">
-                  <input
-                    type="number"
-                    min={0}
+                  <NumericInput
+                    value={draft.puttDistanceFt}
                     step="0.5"
-                    value={draft.puttDistanceFt ?? ''}
-                    onChange={(e) =>
-                      setDraft((d) => ({
-                        ...d,
-                        puttDistanceFt: e.target.value ? Number(e.target.value) : undefined,
-                      }))
+                    onChange={(n) =>
+                      setDraft((d) => ({ ...d, puttDistanceFt: n }))
                     }
-                    className="w-32 rounded border border-gray-200 px-2 py-1.5"
                   />
                 </Field>
                 <Field label="Putt result">
@@ -306,16 +346,42 @@ export function ShotEntryModal({
                 type="text"
                 value={draft.notes ?? ''}
                 onChange={(e) => setDraft((d) => ({ ...d, notes: e.target.value }))}
-                className="w-full rounded border border-gray-200 px-2 py-1.5"
+                className="w-full bg-oga-bg-input text-oga-text-primary"
+                style={{
+                  border: '0.5px solid #E4E4E0',
+                  borderRadius: 7,
+                  padding: '7px 10px',
+                  fontSize: 13,
+                }}
               />
             </Field>
 
             <div className="flex justify-end gap-2 pt-2">
               <button
                 type="button"
+                onClick={cancelEdit}
+                className="bg-oga-bg-card text-oga-text-primary transition-colors hover:bg-oga-bg-input"
+                style={{
+                  border: '0.5px solid #E4E4E0',
+                  borderRadius: 10,
+                  padding: '10px 16px',
+                  fontSize: 13,
+                  fontWeight: 500,
+                }}
+              >
+                Reset
+              </button>
+              <button
+                type="button"
                 onClick={save}
                 disabled={createShot.isPending || updateShot.isPending}
-                className="rounded bg-fairway-500 px-4 py-2 text-white hover:bg-fairway-700 disabled:opacity-50"
+                className="bg-oga-black text-white transition-colors hover:bg-oga-text-primary/90 disabled:opacity-50"
+                style={{
+                  borderRadius: 10,
+                  padding: '10px 16px',
+                  fontSize: 13,
+                  fontWeight: 500,
+                }}
               >
                 {editing ? 'Save changes' : 'Add shot'}
               </button>
@@ -327,10 +393,50 @@ export function ShotEntryModal({
   )
 }
 
+function NumericInput({
+  value,
+  step,
+  onChange,
+}: {
+  value: number | undefined
+  step?: string
+  onChange: (n: number | undefined) => void
+}) {
+  return (
+    <input
+      type="number"
+      min={0}
+      step={step}
+      value={value ?? ''}
+      onChange={(e) =>
+        onChange(e.target.value ? Number(e.target.value) : undefined)
+      }
+      className="tabular bg-oga-bg-input text-oga-text-primary"
+      style={{
+        border: '0.5px solid #E4E4E0',
+        borderRadius: 7,
+        padding: '7px 10px',
+        fontSize: 13,
+        width: 120,
+      }}
+    />
+  )
+}
+
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
-      <div className="mb-1 text-xs font-medium text-gray-600">{label}</div>
+      <div
+        className="text-oga-text-muted uppercase"
+        style={{
+          fontSize: 11,
+          fontWeight: 500,
+          letterSpacing: 0.4,
+          marginBottom: 6,
+        }}
+      >
+        {label}
+      </div>
       {children}
     </div>
   )
@@ -342,19 +448,27 @@ interface ChipGroupProps<T extends string> {
   onChange: (v: T | undefined) => void
 }
 
+function chipStyle(active: boolean): React.CSSProperties {
+  return {
+    backgroundColor: active ? '#E1F5EE' : '#F4F4F0',
+    color: active ? '#0F6E56' : '#111111',
+    border: `0.5px solid ${active ? '#1D9E75' : '#E0E0DA'}`,
+    borderRadius: 7,
+    padding: '7px 10px',
+    fontSize: 12,
+    fontWeight: active ? 500 : 400,
+  }
+}
+
 function ChipGroup<T extends string>({ value, options, onChange }: ChipGroupProps<T>) {
   return (
-    <div className="flex flex-wrap gap-1">
+    <div className="flex flex-wrap" style={{ gap: 6 }}>
       {options.map((opt) => (
         <button
           key={opt}
           type="button"
           onClick={() => onChange(value === opt ? undefined : opt)}
-          className={`rounded-full px-2.5 py-1 text-xs ${
-            value === opt
-              ? 'bg-fairway-500 text-white'
-              : 'border border-gray-200 text-gray-700 hover:bg-fairway-50'
-          }`}
+          style={chipStyle(value === opt)}
         >
           {opt.replace(/_/g, ' ')}
         </button>
@@ -384,12 +498,16 @@ const PUTT_GRID: PuttSelectKey[] = [
   'spacer',
 ]
 
-function gridButtonClass(active: boolean): string {
-  return `rounded px-2 py-2 text-xs ${
-    active
-      ? 'bg-fairway-500 text-white'
-      : 'border border-gray-200 text-gray-700 hover:bg-fairway-50'
-  }`
+function gridButtonStyle(active: boolean): React.CSSProperties {
+  return {
+    backgroundColor: active ? '#E1F5EE' : '#F4F4F0',
+    color: active ? '#0F6E56' : '#111111',
+    border: `0.5px solid ${active ? '#1D9E75' : '#E0E0DA'}`,
+    borderRadius: 7,
+    padding: '8px 8px',
+    fontSize: 12,
+    fontWeight: active ? 500 : 400,
+  }
 }
 
 function LieSlopeGrid({
@@ -400,7 +518,11 @@ function LieSlopeGrid({
   onChange: (v: LieSlope) => void
 }) {
   return (
-    <div role="radiogroup" className="grid max-w-xs grid-cols-3 gap-1">
+    <div
+      role="radiogroup"
+      className="grid grid-cols-3"
+      style={{ gap: 5, maxWidth: 320 }}
+    >
       {SLOPE_GRID.map((key, i) =>
         key === 'spacer' ? (
           <div key={`s${i}`} />
@@ -411,7 +533,7 @@ function LieSlopeGrid({
             role="radio"
             aria-checked={value === key}
             onClick={() => onChange(key)}
-            className={gridButtonClass(value === key)}
+            style={gridButtonStyle(value === key)}
           >
             {key.replace('_', ' ')}
           </button>
@@ -429,7 +551,7 @@ function PuttResultGrid({
   onChange: (v: PuttResult | undefined) => void
 }) {
   return (
-    <div className="grid max-w-xs grid-cols-3 gap-1">
+    <div className="grid grid-cols-3" style={{ gap: 5, maxWidth: 320 }}>
       {PUTT_GRID.map((key, i) =>
         key === 'spacer' ? (
           <div key={`s${i}`} />
@@ -438,7 +560,7 @@ function PuttResultGrid({
             key={key}
             type="button"
             onClick={() => onChange(value === key ? undefined : key)}
-            className={gridButtonClass(value === key)}
+            style={gridButtonStyle(value === key)}
           >
             {key.replace('_', ' ')}
           </button>
