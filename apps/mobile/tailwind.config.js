@@ -5,12 +5,26 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        fairway: {
-          50: '#f1f8f3',
-          100: '#dcecdf',
-          500: '#3f8d5a',
-          700: '#23613b',
-          900: '#143923',
+        oga: {
+          black: '#111111',
+          green: '#1D9E75',
+          'green-light': '#E1F5EE',
+          'green-mid': '#9FE1CB',
+          'green-dark': '#0F6E56',
+          red: '#E24B4A',
+          'red-light': '#FCEBEB',
+          'red-dark': '#A32D2D',
+          amber: '#EF9F27',
+          'amber-light': '#FAEEDA',
+          'amber-dark': '#854F0B',
+          'bg-page': '#F4F4F0',
+          'bg-card': '#FFFFFF',
+          'bg-input': '#F9F9F6',
+          border: '#E4E4E0',
+          'border-dark': '#D0D0CA',
+          'text-primary': '#111111',
+          'text-muted': '#888880',
+          'text-hint': '#AAAAAA',
         },
       },
     },
