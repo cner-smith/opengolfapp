@@ -3,6 +3,7 @@
   "version": "0.0.1",
   "private": true,
   "main": "expo-router/entry",
+  "packageManager": "npm@10.9.4",
   "scripts": {
     "dev": "expo start",
     "android": "expo run:android",
@@ -13,8 +14,8 @@
   },
   "dependencies": {
     "@expo/vector-icons": "^14.0.4",
-    "@oga/core": "workspace:*",
-    "@oga/supabase": "workspace:*",
+    "@oga/core": "file:../../packages/core",
+    "@oga/supabase": "file:../../packages/supabase",
     "@react-native-async-storage/async-storage": "1.23.1",
     "@rnmapbox/maps": "10.1.33",
     "@supabase/supabase-js": "^2.45.0",

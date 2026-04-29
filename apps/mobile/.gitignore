@@ -12,6 +12,11 @@
 .metro-health-check*
 *.tgz
 
+# Mobile uses npm separately from the pnpm workspace; lockfile is
+# regenerated on each EAS build (legacy-peer-deps=true) so we don't
+# track it.
+package-lock.json
+
 # Local env
 .env
 .env.*
