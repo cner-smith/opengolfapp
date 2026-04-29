@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import type { Facility, Goal, SkillLevel } from '@oga/core'
 import { Step1Skill } from './steps/Step1Skill'
 import { Step2Handicap } from './steps/Step2Handicap'
+import { Step3Goal } from './steps/Step3Goal'
 
 export interface OnboardingDraft {
   skillLevel: SkillLevel | null
@@ -58,6 +59,14 @@ export function OnboardingPage() {
           <Step2Handicap
             value={draft.handicap}
             onChange={(handicap) => setDraft((d) => ({ ...d, handicap }))}
+            onBack={back}
+            onContinue={next}
+          />
+        )}
+        {step === 3 && (
+          <Step3Goal
+            value={draft.goal}
+            onChange={(goal) => setDraft((d) => ({ ...d, goal }))}
             onBack={back}
             onContinue={next}
           />
