@@ -1,22 +1,36 @@
-import type { ReactNode } from 'react'
+import { useEffect, useState } from 'react'
 import { Navigate } from 'react-router-dom'
+import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
-import { useProfile } from '../../hooks/useProfile'
 
-export function ProfileGuard({ children }: { children: ReactNode }) {
+type ProfileState = 'loading' | 'complete' | 'incomplete'
+
+export function ProfileGuard({ children }: { children: React.ReactNode }) {
   const { user, loading: authLoading } = useAuth()
-  const { data, isLoading: profileLoading } = useProfile()
+  const [profileState, setProfileState] = useState<ProfileState>('loading')
 
-  if (authLoading || profileLoading) {
-    return (
-      <div className="flex h-screen items-center justify-center bg-oga-bg-page text-oga-text-muted text-sm">
-        Loading…
-      </div>
-    )
-  }
+  useEffect(() => {
+    if (authLoading) return
+    if (!user) return
+
+    supabase
+      .from('profiles')
+      .select('skill_level, goal')
+      .eq('id', user.id)
+      .single()
+      .then(({ data, error }) => {
+        // eslint-disable-next-line no-console
+        console.log('ProfileGuard direct query:', { data, error })
+        if (error || !data || !data.skill_level || !data.goal) {
+          setProfileState('incomplete')
+        } else {
+          setProfileState('complete')
+        }
+      })
+  }, [user, authLoading])
+
+  if (authLoading || profileState === 'loading') return null
   if (!user) return <Navigate to="/login" replace />
-  if (!data || data.skill_level === null || data.goal === null) {
-    return <Navigate to="/onboarding" replace />
-  }
+  if (profileState === 'incomplete') return <Navigate to="/onboarding" replace />
   return <>{children}</>
 }
