@@ -28,57 +28,95 @@ export function SignupPage() {
   }
 
   return (
-    <div className="flex h-screen items-center justify-center bg-fairway-50">
+    <div className="flex h-screen items-center justify-center bg-oga-bg-page">
       <form
         onSubmit={handleSubmit}
-        className="w-full max-w-sm rounded-lg bg-white p-8 shadow-sm"
+        className="w-full max-w-sm bg-oga-bg-card"
+        style={{ border: '0.5px solid #E4E4E0', borderRadius: 10, padding: 24 }}
       >
-        <h1 className="mb-6 text-2xl font-bold text-fairway-700">Create your OGA account</h1>
-        <label className="mb-3 block text-sm">
-          <span className="mb-1 block text-gray-600">Username</span>
-          <input
-            required
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-            className="w-full rounded border border-gray-200 px-3 py-2"
-          />
-        </label>
-        <label className="mb-3 block text-sm">
-          <span className="mb-1 block text-gray-600">Email</span>
-          <input
-            type="email"
-            required
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="w-full rounded border border-gray-200 px-3 py-2"
-          />
-        </label>
-        <label className="mb-4 block text-sm">
-          <span className="mb-1 block text-gray-600">Password</span>
-          <input
-            type="password"
-            required
-            minLength={8}
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="w-full rounded border border-gray-200 px-3 py-2"
-          />
-        </label>
-        {error && <div className="mb-3 text-sm text-red-600">{error}</div>}
+        <h1
+          className="text-oga-text-primary"
+          style={{ fontSize: 22, fontWeight: 600, marginBottom: 18 }}
+        >
+          Create your OGA account
+        </h1>
+        <FieldLabel>Username</FieldLabel>
+        <input
+          required
+          value={username}
+          onChange={(e) => setUsername(e.target.value)}
+          className="w-full bg-oga-bg-input text-oga-text-primary"
+          style={inputStyle}
+        />
+        <FieldLabel>Email</FieldLabel>
+        <input
+          type="email"
+          required
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          className="w-full bg-oga-bg-input text-oga-text-primary"
+          style={inputStyle}
+        />
+        <FieldLabel>Password</FieldLabel>
+        <input
+          type="password"
+          required
+          minLength={8}
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          className="w-full bg-oga-bg-input text-oga-text-primary"
+          style={{ ...inputStyle, marginBottom: 14 }}
+        />
+        {error && (
+          <div
+            className="text-oga-red-dark"
+            style={{ fontSize: 13, marginBottom: 10 }}
+          >
+            {error}
+          </div>
+        )}
         <button
           type="submit"
           disabled={loading}
-          className="w-full rounded bg-fairway-500 py-2 text-white hover:bg-fairway-700 disabled:opacity-50"
+          className="w-full bg-oga-black text-white transition-colors hover:bg-oga-text-primary/90 disabled:opacity-50"
+          style={{ borderRadius: 10, padding: '12px 16px', fontSize: 13, fontWeight: 500 }}
         >
           {loading ? 'Creating…' : 'Create account'}
         </button>
-        <p className="mt-4 text-center text-sm text-gray-600">
+        <p
+          className="text-oga-text-muted text-center"
+          style={{ fontSize: 13, marginTop: 14 }}
+        >
           Have an account?{' '}
-          <Link to="/login" className="text-fairway-700 hover:underline">
+          <Link to="/login" className="text-oga-green-dark hover:underline">
             Sign in
           </Link>
         </p>
       </form>
+    </div>
+  )
+}
+
+const inputStyle: React.CSSProperties = {
+  border: '0.5px solid #E4E4E0',
+  borderRadius: 7,
+  padding: '8px 10px',
+  fontSize: 13,
+  marginBottom: 12,
+}
+
+function FieldLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <div
+      className="text-oga-text-muted uppercase"
+      style={{
+        fontSize: 11,
+        fontWeight: 500,
+        letterSpacing: 0.4,
+        marginBottom: 6,
+      }}
+    >
+      {children}
     </div>
   )
 }

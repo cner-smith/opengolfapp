@@ -95,15 +95,33 @@ export default function NewRound() {
   }
 
   return (
-    <View className="flex-1 bg-fairway-50 p-4">
-      <Text className="mb-3 text-xl font-bold text-fairway-700">Start a round</Text>
+    <View style={{ flex: 1, backgroundColor: '#F4F4F0', padding: 16 }}>
+      <Text
+        style={{
+          color: '#111111',
+          fontSize: 22,
+          fontWeight: '600',
+          marginBottom: 12,
+        }}
+      >
+        Start a round
+      </Text>
       <TextInput
         placeholder="Search course…"
         value={query}
         onChangeText={setQuery}
-        className="mb-2 rounded bg-white px-3 py-2"
+        style={{
+          backgroundColor: '#F9F9F6',
+          borderWidth: 0.5,
+          borderColor: '#E4E4E0',
+          borderRadius: 7,
+          paddingHorizontal: 10,
+          paddingVertical: 9,
+          fontSize: 13,
+          marginBottom: 8,
+        }}
       />
-      {loading && <ActivityIndicator className="my-2" />}
+      {loading && <ActivityIndicator color="#1D9E75" style={{ marginVertical: 8 }} />}
       <FlatList
         data={results}
         keyExtractor={(c) => c.id}
@@ -111,39 +129,84 @@ export default function NewRound() {
           <Pressable
             onPress={() => startWith(item.id)}
             disabled={busy}
-            className="mb-2 rounded bg-white px-4 py-3"
+            style={{
+              backgroundColor: '#FFFFFF',
+              borderRadius: 10,
+              borderWidth: 0.5,
+              borderColor: '#E4E4E0',
+              paddingHorizontal: 14,
+              paddingVertical: 12,
+              marginBottom: 8,
+            }}
           >
-            <Text className="font-medium text-gray-900">{item.name}</Text>
-            {item.location && <Text className="text-xs text-gray-500">{item.location}</Text>}
+            <Text style={{ color: '#111111', fontSize: 14, fontWeight: '500' }}>
+              {item.name}
+            </Text>
+            {item.location && (
+              <Text style={{ color: '#888880', fontSize: 11 }}>{item.location}</Text>
+            )}
           </Pressable>
         )}
         ListEmptyComponent={
           loading ? null : (
-            <Text className="text-sm text-gray-500">No courses found.</Text>
+            <Text style={{ color: '#888880', fontSize: 13 }}>No courses found.</Text>
           )
         }
       />
 
-      <View className="mt-4 rounded-lg bg-white p-3">
-        <Text className="mb-1 text-xs font-semibold uppercase text-gray-500">
+      <View
+        style={{
+          marginTop: 14,
+          backgroundColor: '#FFFFFF',
+          borderRadius: 10,
+          borderWidth: 0.5,
+          borderColor: '#E4E4E0',
+          padding: 14,
+        }}
+      >
+        <Text
+          style={{
+            color: '#888880',
+            fontSize: 11,
+            fontWeight: '500',
+            letterSpacing: 0.4,
+            textTransform: 'uppercase',
+            marginBottom: 6,
+          }}
+        >
           Add a new course
         </Text>
         <TextInput
           placeholder="Course name"
           value={creatingCourseName}
           onChangeText={setCreatingCourseName}
-          className="mb-2 rounded border border-gray-200 px-3 py-2"
+          style={{
+            backgroundColor: '#F9F9F6',
+            borderWidth: 0.5,
+            borderColor: '#E4E4E0',
+            borderRadius: 7,
+            paddingHorizontal: 10,
+            paddingVertical: 9,
+            fontSize: 13,
+            marginBottom: 8,
+          }}
         />
         <Pressable
           onPress={addNewCourse}
           disabled={busy || !creatingCourseName.trim()}
-          className="items-center rounded bg-fairway-500 py-3"
+          style={{
+            backgroundColor: '#111111',
+            borderRadius: 10,
+            paddingVertical: 12,
+            alignItems: 'center',
+            opacity: busy || !creatingCourseName.trim() ? 0.5 : 1,
+          }}
         >
-          <Text className="font-semibold text-white">
+          <Text style={{ color: '#FFFFFF', fontSize: 13, fontWeight: '500' }}>
             {busy ? 'Working…' : 'Create course + start round'}
           </Text>
         </Pressable>
-        <Text className="mt-1 text-xs text-gray-500">
+        <Text style={{ color: '#888880', fontSize: 11, marginTop: 6 }}>
           Creates an 18-hole par-72 layout you can edit later.
         </Text>
       </View>

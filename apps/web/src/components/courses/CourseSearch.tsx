@@ -32,30 +32,50 @@ export function CourseSearch({ selectedCourseId, onSelect }: CourseSearchProps) 
   }
 
   return (
-    <div className="space-y-2">
+    <div className="flex flex-col gap-2">
       <input
         type="text"
         placeholder="Search course by name…"
         value={query}
         onChange={(e) => setQuery(e.target.value)}
-        className="w-full rounded border border-gray-200 px-3 py-2 text-sm"
+        className="w-full bg-oga-bg-input text-oga-text-primary"
+        style={{ border: '0.5px solid #E4E4E0', borderRadius: 7, padding: '8px 10px', fontSize: 13 }}
       />
-      <div className="max-h-48 overflow-y-auto rounded border border-gray-100">
-        {search.isLoading && <div className="p-3 text-sm text-gray-500">Searching…</div>}
+      <div
+        className="max-h-48 overflow-y-auto bg-oga-bg-card"
+        style={{ border: '0.5px solid #E4E4E0', borderRadius: 7 }}
+      >
+        {search.isLoading && (
+          <div className="text-oga-text-muted" style={{ padding: 12, fontSize: 13 }}>
+            Searching…
+          </div>
+        )}
         {!search.isLoading &&
-          courses.map((c) => (
-            <button
-              key={c.id}
-              type="button"
-              onClick={() => onSelect(c.id, c.name)}
-              className={`block w-full px-3 py-2 text-left text-sm hover:bg-fairway-50 ${
-                selectedCourseId === c.id ? 'bg-fairway-100 font-medium' : ''
-              }`}
-            >
-              <div>{c.name}</div>
-              {c.location && <div className="text-xs text-gray-500">{c.location}</div>}
-            </button>
-          ))}
+          courses.map((c) => {
+            const selected = selectedCourseId === c.id
+            return (
+              <button
+                key={c.id}
+                type="button"
+                onClick={() => onSelect(c.id, c.name)}
+                className="block w-full text-left transition-colors hover:bg-oga-bg-input"
+                style={{
+                  padding: '8px 12px',
+                  fontSize: 13,
+                  backgroundColor: selected ? '#E1F5EE' : 'transparent',
+                  fontWeight: selected ? 500 : 400,
+                  color: selected ? '#0F6E56' : '#111111',
+                }}
+              >
+                <div>{c.name}</div>
+                {c.location && (
+                  <div className="text-oga-text-muted" style={{ fontSize: 11 }}>
+                    {c.location}
+                  </div>
+                )}
+              </button>
+            )
+          })}
         {noMatch && !creating && (
           <button
             type="button"
@@ -63,53 +83,70 @@ export function CourseSearch({ selectedCourseId, onSelect }: CourseSearchProps) 
               setCreating(true)
               setNewName(query)
             }}
-            className="block w-full px-3 py-2 text-left text-sm text-fairway-700 hover:bg-fairway-50"
+            className="block w-full text-left text-oga-green-dark transition-colors hover:bg-oga-bg-input"
+            style={{ padding: '8px 12px', fontSize: 13 }}
           >
-            + Add "{query}" as a new course
+            + Add &ldquo;{query}&rdquo; as a new course
           </button>
         )}
       </div>
 
       {creating && (
-        <div className="space-y-2 rounded border border-fairway-100 bg-fairway-50 p-3">
-          <div className="text-sm font-medium text-fairway-900">Add new course</div>
+        <div
+          className="bg-oga-green-light"
+          style={{
+            border: '0.5px solid #1D9E75',
+            borderRadius: 10,
+            padding: 12,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 8,
+          }}
+        >
+          <div className="text-oga-green-dark" style={{ fontSize: 13, fontWeight: 500 }}>
+            Add new course
+          </div>
           <input
             type="text"
             placeholder="Course name"
             value={newName}
             onChange={(e) => setNewName(e.target.value)}
-            className="w-full rounded border border-gray-200 px-3 py-2 text-sm"
+            className="w-full bg-oga-bg-card text-oga-text-primary"
+            style={{ border: '0.5px solid #E4E4E0', borderRadius: 7, padding: '8px 10px', fontSize: 13 }}
           />
           <input
             type="text"
             placeholder="Location (city, state)"
             value={newLocation}
             onChange={(e) => setNewLocation(e.target.value)}
-            className="w-full rounded border border-gray-200 px-3 py-2 text-sm"
+            className="w-full bg-oga-bg-card text-oga-text-primary"
+            style={{ border: '0.5px solid #E4E4E0', borderRadius: 7, padding: '8px 10px', fontSize: 13 }}
           />
           <div className="flex gap-2">
             <button
               type="button"
               onClick={handleCreate}
               disabled={!newName.trim() || createMutation.isPending}
-              className="rounded bg-fairway-500 px-3 py-1.5 text-sm text-white hover:bg-fairway-700 disabled:opacity-50"
+              className="bg-oga-black text-white transition-colors hover:bg-oga-text-primary/90 disabled:opacity-50"
+              style={{ borderRadius: 7, padding: '8px 12px', fontSize: 12, fontWeight: 500 }}
             >
               {createMutation.isPending ? 'Creating…' : 'Create + use'}
             </button>
             <button
               type="button"
               onClick={() => setCreating(false)}
-              className="rounded border border-gray-200 px-3 py-1.5 text-sm"
+              className="bg-oga-bg-card text-oga-text-primary"
+              style={{ border: '0.5px solid #E4E4E0', borderRadius: 7, padding: '8px 12px', fontSize: 12 }}
             >
               Cancel
             </button>
           </div>
           {createMutation.error && (
-            <div className="text-xs text-red-600">
+            <div className="text-oga-red-dark" style={{ fontSize: 11 }}>
               {(createMutation.error as Error).message}
             </div>
           )}
-          <p className="text-xs text-gray-600">
+          <p className="text-oga-text-muted" style={{ fontSize: 11 }}>
             Creates an 18-hole par-72 layout. Edit individual holes later.
           </p>
         </div>

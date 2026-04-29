@@ -28,45 +28,109 @@ export default function Signup() {
   }
 
   return (
-    <View className="flex-1 justify-center bg-fairway-50 px-6">
-      <View className="rounded-lg bg-white p-6 shadow-sm">
-        <Text className="mb-6 text-2xl font-bold text-fairway-700">Create your OGA account</Text>
-        <Text className="mb-1 text-sm text-gray-600">Username</Text>
+    <View className="flex-1 justify-center bg-oga-bg-page px-6">
+      <View
+        style={{
+          backgroundColor: '#FFFFFF',
+          borderRadius: 10,
+          borderWidth: 0.5,
+          borderColor: '#E4E4E0',
+          padding: 20,
+        }}
+      >
+        <Text
+          style={{
+            color: '#111111',
+            fontSize: 22,
+            fontWeight: '600',
+            marginBottom: 16,
+          }}
+        >
+          Create your OGA account
+        </Text>
+        <FieldLabel>Username</FieldLabel>
         <TextInput
           autoCapitalize="none"
           value={username}
           onChangeText={setUsername}
-          className="mb-3 rounded border border-gray-200 px-3 py-2"
+          style={inputStyle}
         />
-        <Text className="mb-1 text-sm text-gray-600">Email</Text>
+        <FieldLabel>Email</FieldLabel>
         <TextInput
           autoCapitalize="none"
           keyboardType="email-address"
           value={email}
           onChangeText={setEmail}
-          className="mb-3 rounded border border-gray-200 px-3 py-2"
+          style={inputStyle}
         />
-        <Text className="mb-1 text-sm text-gray-600">Password</Text>
+        <FieldLabel>Password</FieldLabel>
         <TextInput
           secureTextEntry
           value={password}
           onChangeText={setPassword}
-          className="mb-4 rounded border border-gray-200 px-3 py-2"
+          style={{ ...inputStyle, marginBottom: 14 }}
         />
-        {error && <Text className="mb-3 text-sm text-red-600">{error}</Text>}
+        {error && (
+          <Text style={{ color: '#A32D2D', fontSize: 13, marginBottom: 10 }}>
+            {error}
+          </Text>
+        )}
         <Pressable
           onPress={handleSubmit}
           disabled={loading}
-          className="rounded bg-fairway-500 py-3"
+          style={{
+            backgroundColor: '#111111',
+            borderRadius: 10,
+            paddingVertical: 13,
+            alignItems: 'center',
+            opacity: loading ? 0.5 : 1,
+          }}
         >
-          <Text className="text-center font-semibold text-white">
+          <Text style={{ color: '#FFFFFF', fontSize: 13, fontWeight: '500' }}>
             {loading ? 'Creating…' : 'Create account'}
           </Text>
         </Pressable>
-        <Link href="/(auth)/login" className="mt-4 text-center text-sm text-fairway-700">
+        <Link
+          href="/(auth)/login"
+          style={{
+            color: '#0F6E56',
+            fontSize: 13,
+            marginTop: 14,
+            textAlign: 'center',
+          }}
+        >
           Have an account? Sign in
         </Link>
       </View>
     </View>
+  )
+}
+
+const inputStyle = {
+  backgroundColor: '#F9F9F6',
+  borderWidth: 0.5,
+  borderColor: '#E4E4E0',
+  borderRadius: 7,
+  paddingHorizontal: 10,
+  paddingVertical: 9,
+  fontSize: 13,
+  color: '#111111',
+  marginBottom: 12,
+} as const
+
+function FieldLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <Text
+      style={{
+        color: '#888880',
+        fontSize: 11,
+        fontWeight: '500',
+        letterSpacing: 0.4,
+        textTransform: 'uppercase',
+        marginBottom: 6,
+      }}
+    >
+      {children}
+    </Text>
   )
 }

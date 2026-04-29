@@ -4,14 +4,6 @@ export default {
   theme: {
     extend: {
       colors: {
-        // Legacy fairway-* aliases. Removed as each screen migrates to oga.*.
-        fairway: {
-          50: '#F4F4F0',
-          100: '#E1F5EE',
-          500: '#1D9E75',
-          700: '#0F6E56',
-          900: '#111111',
-        },
         oga: {
           black: '#111111',
           green: '#1D9E75',
