@@ -6,6 +6,18 @@ OGA is a free, open source golf tracking and improvement platform. It does every
 
 The core belief: getting better at golf shouldn't be paywalled.
 
+## Agent behavioral rules (read first, always)
+
+- Default to NO. Ship the minimum that satisfies the requirement. Stop.
+- Do not extract a helper unless it has 3+ callers or the inline version is genuinely unreadable. Two similar lines are fine.
+- Do not add config vars, options, or parameters for hypothetical future use. Add them when the caller exists.
+- Do not clean up, refactor, or touch code outside the scope of the current task.
+- Tests exist to catch real bugs only. No tests for getters, trivial logic, or framework behavior.
+- No docstrings unless the WHY is non-obvious from the name and types alone.
+- Before implementing any pattern, read one existing example of that pattern in the codebase first.
+- When uncertain whether to add something, don't. Ask instead.
+- You are not QA. The user is QA. Ship the minimum, then stop and report.
+
 ## What we're building
 
 ### Core features (in priority order)
