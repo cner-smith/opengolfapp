@@ -1,0 +1,18 @@
+# OSX
+#
+.DS_Store
+
+# Android/IntelliJ
+#
+build/
+.idea
+.gradle
+*.iml
+*.hprof
+.cxx/
+
+# local.properties is committed: it points sdk.dir at the EAS build
+# server's Android SDK install. Override via env if needed locally.
+
+# Bundle artifacts
+*.jsbundle

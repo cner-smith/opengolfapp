@@ -5,13 +5,14 @@
   "main": "expo-router/entry",
   "scripts": {
     "dev": "expo start",
-    "android": "expo start --android",
-    "ios": "expo start --ios",
+    "android": "expo run:android",
+    "ios": "expo run:ios",
     "web": "expo start --web",
     "typecheck": "tsc --noEmit",
     "build": "echo \"Mobile builds run via EAS — see eas.json (added in Phase 8).\""
   },
   "dependencies": {
+    "@expo/vector-icons": "^14.0.4",
     "@oga/core": "workspace:*",
     "@oga/supabase": "workspace:*",
     "@react-native-async-storage/async-storage": "1.23.1",
