@@ -19,8 +19,6 @@ export function ProfileGuard({ children }: { children: React.ReactNode }) {
       .eq('id', user.id)
       .single()
       .then(({ data, error }) => {
-        // eslint-disable-next-line no-console
-        console.log('ProfileGuard direct query:', { data, error })
         if (error || !data || !data.skill_level || !data.goal) {
           setProfileState('incomplete')
         } else {
