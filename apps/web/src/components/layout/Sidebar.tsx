@@ -24,27 +24,33 @@ export function Sidebar() {
 
   return (
     <aside
-      className="flex flex-col bg-oga-black text-white"
+      className="flex flex-col bg-caddie-ink text-caddie-bg"
       style={{ width: 220 }}
     >
       <div
-        className="border-b border-white/[0.08]"
-        style={{ padding: '18px 18px 14px' }}
+        className="border-b border-white/10"
+        style={{ padding: '20px 18px 16px' }}
       >
-        <div className="font-medium text-white" style={{ fontSize: 18 }}>
+        <div
+          className="font-serif text-caddie-bg"
+          style={{ fontSize: 18, fontWeight: 500 }}
+        >
           OGA
         </div>
-        <div className="text-white/40" style={{ fontSize: 10 }}>
+        <div
+          className="font-mono uppercase text-white/45"
+          style={{ fontSize: 10, letterSpacing: '0.14em', marginTop: 4 }}
+        >
           Open Golf App
         </div>
       </div>
 
       <div
-        className="uppercase text-white/30"
+        className="font-mono uppercase text-white/30"
         style={{
           fontSize: 10,
-          letterSpacing: '0.5px',
-          padding: '14px 12px 6px',
+          letterSpacing: '0.14em',
+          padding: '18px 14px 8px',
         }}
       >
         Menu
@@ -60,16 +66,16 @@ export function Sidebar() {
               [
                 'transition-colors',
                 isActive
-                  ? 'text-[#5DCAA5]'
-                  : 'text-white/50 hover:bg-white/[0.05] hover:text-white/80',
+                  ? 'text-caddie-pos'
+                  : 'text-white/50 hover:bg-white/5 hover:text-white/80',
               ].join(' ')
             }
             style={({ isActive }) => ({
               fontSize: 13,
               padding: '8px 14px',
               margin: '1px 8px',
-              borderRadius: 7,
-              backgroundColor: isActive ? 'rgba(29,158,117,0.20)' : undefined,
+              borderRadius: 2,
+              backgroundColor: isActive ? 'rgba(31,61,44,0.32)' : undefined,
             })}
           >
             {l.label}
@@ -78,35 +84,44 @@ export function Sidebar() {
       </nav>
 
       <div
-        className="border-t border-white/[0.08]"
-        style={{ padding: '14px 14px 16px' }}
+        className="border-t border-white/10"
+        style={{ padding: '14px 14px 18px' }}
       >
         <div className="flex items-center gap-3">
           <div
-            className="flex items-center justify-center rounded-full bg-oga-green text-white"
-            style={{ width: 30, height: 30, fontSize: 12, fontWeight: 500 }}
+            className="flex items-center justify-center bg-caddie-accent text-caddie-accent-ink"
+            style={{
+              width: 30,
+              height: 30,
+              fontSize: 12,
+              fontWeight: 500,
+              borderRadius: 2,
+            }}
           >
             {initials}
           </div>
           <div className="flex-1 overflow-hidden">
             <div
-              className="truncate text-white"
-              style={{ fontSize: 12, fontWeight: 500 }}
+              className="truncate text-caddie-bg"
+              style={{ fontSize: 13, fontWeight: 500 }}
             >
               {profile?.username ?? 'Sign in'}
             </div>
-            <div className="text-white/40 tabular" style={{ fontSize: 10 }}>
+            <div
+              className="font-mono uppercase tabular text-white/45"
+              style={{ fontSize: 10, letterSpacing: '0.14em', marginTop: 2 }}
+            >
               {profile?.handicap_index !== null && profile?.handicap_index !== undefined
-                ? `Hcp ${profile.handicap_index}`
-                : 'No handicap set'}
+                ? `HCP ${profile.handicap_index}`
+                : 'NO HCP'}
             </div>
           </div>
         </div>
         <button
           type="button"
           onClick={() => supabase.auth.signOut()}
-          className="mt-3 text-white/40 transition-colors hover:text-white/70"
-          style={{ fontSize: 10 }}
+          className="mt-3 font-mono uppercase text-white/40 transition-colors hover:text-white/70"
+          style={{ fontSize: 10, letterSpacing: '0.14em' }}
         >
           Sign out
         </button>
