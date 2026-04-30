@@ -1,4 +1,11 @@
-import { Suspense, lazy, useCallback, useMemo, useState } from 'react'
+import {
+  Suspense,
+  lazy,
+  useCallback,
+  useMemo,
+  useState,
+  type ReactNode,
+} from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import type { Database } from '@oga/supabase'
 import { HoleScoreCard } from '../../components/rounds/HoleScoreCard'
@@ -475,6 +482,24 @@ export function RoundDetailPage() {
           teeOverride={teeOverride}
           handlers={placeHandlers}
           saveError={saveError}
+          reviewSheet={
+            activeHole ? (
+              <HoleReviewSheet
+                open={reviewOpen}
+                holeNumber={activeHole.number}
+                par={activeHole.par}
+                totalPar={holes.reduce((s, h) => s + h.par, 0)}
+                pinLat={effectivePin?.lat ?? null}
+                pinLng={effectivePin?.lng ?? null}
+                teeLat={effectiveTee?.lat ?? null}
+                teeLng={effectiveTee?.lng ?? null}
+                placedPoints={placedPoints}
+                saving={savingHole}
+                onCancel={() => setReviewOpen(false)}
+                onSave={saveReviewedHole}
+              />
+            ) : null
+          }
         />
       )}
 
@@ -485,23 +510,6 @@ export function RoundDetailPage() {
           holeNumber={shotsModalFor.holeNumber}
           holePar={shotsModalFor.holePar}
           onClose={() => setShotsModalFor(null)}
-        />
-      )}
-
-      {activeHole && (
-        <HoleReviewSheet
-          open={reviewOpen}
-          holeNumber={activeHole.number}
-          par={activeHole.par}
-          totalPar={holes.reduce((s, h) => s + h.par, 0)}
-          pinLat={effectivePin?.lat ?? null}
-          pinLng={effectivePin?.lng ?? null}
-          teeLat={effectiveTee?.lat ?? null}
-          teeLng={effectiveTee?.lng ?? null}
-          placedPoints={placedPoints}
-          saving={savingHole}
-          onCancel={() => setReviewOpen(false)}
-          onSave={saveReviewedHole}
         />
       )}
     </div>
@@ -648,6 +656,7 @@ interface MapViewProps {
     onDoneWithHole: () => void
   }
   saveError: string | null
+  reviewSheet?: ReactNode
 }
 
 function MapView({
@@ -661,6 +670,7 @@ function MapView({
   teeOverride,
   handlers,
   saveError,
+  reviewSheet,
 }: MapViewProps) {
   const hasExistingShots = existingShots.some(
     (s) => s.endLat != null && s.endLng != null,
@@ -723,6 +733,7 @@ function MapView({
             onMoveTee={handlers.onMoveTee}
           />
         </Suspense>
+        {reviewSheet}
       </div>
       {saveError && (
         <div

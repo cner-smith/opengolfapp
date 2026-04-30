@@ -81,138 +81,163 @@ export function HoleReviewSheet({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, holeNumber, placedPoints.length])
 
+  // Slide-in: mount at translateY(100%), flip to 0 next frame so CSS
+  // transition runs. Two rAFs to ensure the initial style commits first.
+  const [slidIn, setSlidIn] = useState(false)
+  useEffect(() => {
+    if (!open) {
+      setSlidIn(false)
+      return
+    }
+    const a = requestAnimationFrame(() => {
+      const b = requestAnimationFrame(() => setSlidIn(true))
+      return () => cancelAnimationFrame(b)
+    })
+    return () => cancelAnimationFrame(a)
+  }, [open])
+
   if (!open) return null
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end justify-center"
-      style={{ background: 'rgba(28,33,28,0.45)' }}
+      role="dialog"
+      aria-label={`Hole ${holeNumber} review`}
+      style={{
+        position: 'absolute',
+        left: 0,
+        right: 0,
+        bottom: 0,
+        maxHeight: 'min(60vh, 60%)',
+        background: '#FBF8F1',
+        borderTop: '1px solid #9F9580',
+        borderTopLeftRadius: 12,
+        borderTopRightRadius: 12,
+        display: 'flex',
+        flexDirection: 'column',
+        transform: slidIn ? 'translateY(0)' : 'translateY(100%)',
+        transition: 'transform 220ms ease-out',
+        zIndex: 5,
+      }}
     >
       <div
-        className="bg-caddie-surface w-full"
         style={{
-          maxWidth: 720,
-          maxHeight: '85vh',
-          borderTop: '1px solid #9F9580',
-          borderTopLeftRadius: 12,
-          borderTopRightRadius: 12,
           display: 'flex',
-          flexDirection: 'column',
+          justifyContent: 'center',
+          paddingTop: 8,
+          marginBottom: 12,
         }}
       >
         <div
+          aria-hidden
           style={{
-            display: 'flex',
-            alignItems: 'baseline',
-            justifyContent: 'space-between',
-            padding: '18px 22px 14px',
-            borderBottom: '1px solid #D9D2BF',
+            width: 32,
+            height: 4,
+            borderRadius: 2,
+            background: '#D9D2BF',
           }}
-        >
-          <div>
-            <div className="kicker" style={{ marginBottom: 4 }}>
-              Hole {holeNumber} review
-            </div>
-            <div
-              className="font-serif text-caddie-ink"
-              style={{ fontSize: 22, fontWeight: 500, fontStyle: 'italic' }}
-            >
-              {rows.length} shot{rows.length === 1 ? '' : 's'} · par {par}
-            </div>
+        />
+      </div>
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'baseline',
+          justifyContent: 'space-between',
+          padding: '0 22px 14px',
+          borderBottom: '1px solid #D9D2BF',
+        }}
+      >
+        <div>
+          <div className="kicker" style={{ marginBottom: 4 }}>
+            Hole {holeNumber} review
           </div>
-          <button
-            type="button"
-            onClick={onCancel}
-            className="font-mono uppercase text-caddie-ink-mute hover:text-caddie-ink"
-            style={{
-              fontSize: 10,
-              letterSpacing: '0.14em',
-              padding: '6px 8px',
-              background: 'transparent',
-              border: 'none',
-            }}
+          <div
+            className="font-serif text-caddie-ink"
+            style={{ fontSize: 22, fontWeight: 500, fontStyle: 'italic' }}
           >
-            Edit on map
-          </button>
+            {rows.length} shot{rows.length === 1 ? '' : 's'} · par {par}
+          </div>
         </div>
+      </div>
 
-        <div
+      <div
+        style={{
+          overflowY: 'auto',
+          padding: '4px 22px 14px',
+          flex: 1,
+          minHeight: 0,
+        }}
+      >
+        {rows.length === 0 ? (
+          <div
+            className="text-caddie-ink-mute"
+            style={{ padding: 22, fontSize: 13 }}
+          >
+            No placed shots. Drop pins on the map and try again.
+          </div>
+        ) : (
+          rows.map((row, idx) => (
+            <ShotRow
+              key={row.shotNumber}
+              row={row}
+              onChange={(next) =>
+                setRows((prev) => {
+                  const copy = prev.slice()
+                  copy[idx] = next
+                  return copy
+                })
+              }
+            />
+          ))
+        )}
+      </div>
+
+      <div
+        style={{
+          display: 'flex',
+          gap: 10,
+          justifyContent: 'flex-end',
+          padding: '14px 22px 18px',
+          borderTop: '1px solid #D9D2BF',
+          background: '#FBF8F1',
+          flexShrink: 0,
+        }}
+      >
+        <button
+          type="button"
+          onClick={onCancel}
+          className="text-caddie-accent"
           style={{
-            overflowY: 'auto',
-            padding: '4px 22px 14px',
-            flex: 1,
+            border: '1px solid #1F3D2C',
+            background: 'transparent',
+            borderRadius: 2,
+            padding: '12px 16px',
+            fontSize: 14,
+            fontWeight: 600,
+            letterSpacing: '0.02em',
           }}
         >
-          {rows.length === 0 ? (
-            <div
-              className="text-caddie-ink-mute"
-              style={{ padding: 22, fontSize: 13 }}
-            >
-              No placed shots. Drop pins on the map and try again.
-            </div>
-          ) : (
-            rows.map((row, idx) => (
-              <ShotRow
-                key={row.shotNumber}
-                row={row}
-                onChange={(next) =>
-                  setRows((prev) => {
-                    const copy = prev.slice()
-                    copy[idx] = next
-                    return copy
-                  })
-                }
-              />
-            ))
+          Edit on map
+        </button>
+        <button
+          type="button"
+          onClick={() => onSave(rows)}
+          disabled={saving || rows.length === 0}
+          className="bg-caddie-accent text-caddie-accent-ink disabled:opacity-40"
+          style={{
+            borderRadius: 2,
+            padding: '12px 18px',
+            fontSize: 14,
+            fontWeight: 600,
+            letterSpacing: '0.02em',
+          }}
+        >
+          {saving ? 'Saving…' : 'Save hole'}{' '}
+          {!saving && (
+            <span className="font-serif" style={{ fontStyle: 'italic' }}>
+              →
+            </span>
           )}
-        </div>
-
-        <div
-          style={{
-            display: 'flex',
-            gap: 10,
-            justifyContent: 'flex-end',
-            padding: '14px 22px 22px',
-            borderTop: '1px solid #D9D2BF',
-          }}
-        >
-          <button
-            type="button"
-            onClick={onCancel}
-            className="text-caddie-accent"
-            style={{
-              border: '1px solid #1F3D2C',
-              background: 'transparent',
-              borderRadius: 2,
-              padding: '12px 16px',
-              fontSize: 14,
-              fontWeight: 600,
-              letterSpacing: '0.02em',
-            }}
-          >
-            Edit on map
-          </button>
-          <button
-            type="button"
-            onClick={() => onSave(rows)}
-            disabled={saving || rows.length === 0}
-            className="bg-caddie-accent text-caddie-accent-ink disabled:opacity-40"
-            style={{
-              borderRadius: 2,
-              padding: '12px 18px',
-              fontSize: 14,
-              fontWeight: 600,
-              letterSpacing: '0.02em',
-            }}
-          >
-            {saving ? 'Saving…' : 'Save hole'}{' '}
-            {!saving && (
-              <span className="font-serif" style={{ fontStyle: 'italic' }}>
-                →
-              </span>
-            )}
-          </button>
-        </div>
+        </button>
       </div>
     </div>
   )
