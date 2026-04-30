@@ -4,7 +4,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
 
-const ICON_SIZE = 20
+const ICON_SIZE = 18
 
 type ProfileState = 'loading' | 'complete' | 'incomplete'
 
@@ -40,16 +40,22 @@ export default function AppLayout() {
       screenOptions={{
         headerShown: false,
         tabBarStyle: {
-          backgroundColor: '#FFFFFF',
-          borderTopWidth: 0.5,
-          borderTopColor: '#E4E4E0',
+          backgroundColor: '#FBF8F1',
+          borderTopWidth: 1,
+          borderTopColor: '#D9D2BF',
           paddingTop: 8,
           paddingBottom: 10,
           height: 64,
+          elevation: 0,
+          shadowOpacity: 0,
         },
-        tabBarLabelStyle: { fontSize: 10, fontWeight: '500' },
-        tabBarActiveTintColor: '#1D9E75',
-        tabBarInactiveTintColor: '#AAAAAA',
+        tabBarLabelStyle: {
+          fontSize: 10,
+          fontWeight: '500',
+          letterSpacing: 0.4,
+        },
+        tabBarActiveTintColor: '#1F3D2C',
+        tabBarInactiveTintColor: '#8A8B7E',
       }}
     >
       <Tabs.Screen
