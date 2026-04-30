@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef } from 'react'
 import { Text, View } from 'react-native'
 import Mapbox from '@rnmapbox/maps'
+import { Gesture, GestureDetector } from 'react-native-gesture-handler'
+import { runOnJS } from 'react-native-reanimated'
 import { distanceYards, ensureMapboxInitialized } from '../../lib/maps'
 
 ensureMapboxInitialized()
@@ -43,7 +45,36 @@ export function HoleMap({
   onSetBall,
 }: HoleMapProps) {
   const cameraRef = useRef<Mapbox.Camera>(null)
+  const mapViewRef = useRef<Mapbox.MapView>(null)
   const cameraInitialized = useRef(false)
+
+  // Mapbox's onLongPress wasn't firing reliably on Android (single-tap
+  // onPress works fine, but long-press never reaches JS). Detect it via
+  // react-native-gesture-handler instead, then translate the screen
+  // point to lat/lng with the map ref.
+  async function dropAimFromScreenPoint(x: number, y: number) {
+    if (!mapViewRef.current) return
+    try {
+      const coord = await mapViewRef.current.getCoordinateFromView([x, y])
+      if (coord && coord.length >= 2) {
+        onSetAim({ lat: coord[1], lng: coord[0] })
+      }
+    } catch {
+      // map not ready yet
+    }
+  }
+
+  const longPress = useMemo(
+    () =>
+      Gesture.LongPress()
+        .minDuration(400)
+        .onStart((event) => {
+          'worklet'
+          runOnJS(dropAimFromScreenPoint)(event.x, event.y)
+        }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [onSetAim],
+  )
 
   // Center the camera once on first valid coords. Subsequent center changes
   // (e.g. GPS deltas while standing on the tee) should not retrigger
@@ -70,18 +101,14 @@ export function HoleMap({
     if (c) onSetBall(c)
   }
 
-  function handleLongPress(feature: unknown) {
-    const c = extractCoord(feature)
-    if (c) onSetAim(c)
-  }
-
   return (
-    <View className="relative flex-1">
+    <GestureDetector gesture={longPress}>
+      <View className="relative flex-1">
       <Mapbox.MapView
+        ref={mapViewRef}
         style={{ flex: 1 }}
         styleURL={Mapbox.StyleURL.Satellite}
         onPress={handleTap}
-        onLongPress={handleLongPress}
       >
         <Mapbox.Camera
           ref={cameraRef}
@@ -164,7 +191,8 @@ export function HoleMap({
           </Text>
         </View>
       )}
-    </View>
+      </View>
+    </GestureDetector>
   )
 }
 
