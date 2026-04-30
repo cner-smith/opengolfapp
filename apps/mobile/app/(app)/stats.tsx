@@ -213,6 +213,12 @@ export default function Stats() {
                 padding={{ top: 16, right: 12, bottom: 28, left: 32 }}
               >
                 <VictoryAxis
+                  tickFormat={(t) =>
+                    new Date(t).toLocaleDateString('en-US', {
+                      month: 'short',
+                      day: 'numeric',
+                    })
+                  }
                   style={{
                     axis: { stroke: '#E4E4E0' },
                     tickLabels: { fontSize: 9, fill: '#888880' },
@@ -230,7 +236,10 @@ export default function Stats() {
                 {SERIES.map((s) => (
                   <VictoryLine
                     key={s.key}
-                    data={ordered.map((r, i) => ({ x: i + 1, y: r[s.key] ?? 0 }))}
+                    data={ordered.map((r) => ({
+                      x: new Date(r.played_at).getTime(),
+                      y: r[s.key] ?? 0,
+                    }))}
                     style={{ data: { stroke: s.color, strokeWidth: 2 } }}
                   />
                 ))}
