@@ -95,7 +95,11 @@ function clubForTeeShot(distanceYards: number, par: number): Club {
 // ---------------------------------------------------------------------------
 
 const NEAR_GREEN_YARDS = 30
-const ON_GREEN_YARDS = 5
+// Threshold for "this shot started on (or so close to) the green that the
+// next stroke is a putt." 15 yd captures fringe lag putts and short
+// chip-ins that are functionally putts; tighter than 15 misclassifies
+// most casual short approaches.
+const ON_GREEN_YARDS = 15
 
 function inferLie(args: {
   isFirstShot: boolean

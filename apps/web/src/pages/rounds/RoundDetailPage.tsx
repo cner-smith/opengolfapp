@@ -9,6 +9,8 @@ import type {
   HoleGeo,
   PlacedPoint,
 } from '../../components/round/RoundMap'
+import { RoundMapInstructionStrip } from '../../components/round/RoundMap'
+import { haversineYards } from '@oga/core'
 
 // Lazy-load Mapbox GL JS only when the map tab is opened. Cuts ~2 MB off
 // the initial bundle for users who never leave the scorecard.
@@ -303,7 +305,23 @@ export function RoundDetailPage() {
           putt_distance_ft: isPuttRow
             ? Math.round(row.distanceYards * 3)
             : null,
-          putt_result: row.puttMade ? 'made' : null,
+          putt_result: !isPuttRow
+            ? null
+            : row.puttMade
+              ? 'made'
+              : row.puttResult ?? null,
+          putt_distance_result: !isPuttRow || row.puttMade
+            ? null
+            : row.puttResult === 'short' || row.puttResult === 'long'
+              ? row.puttResult
+              : null,
+          putt_direction_result: !isPuttRow || row.puttMade
+            ? null
+            : row.puttResult === 'missed_left'
+              ? 'left'
+              : row.puttResult === 'missed_right'
+                ? 'right'
+                : null,
           notes: null,
         })
       }
@@ -644,6 +662,27 @@ function MapView({
   handlers,
   saveError,
 }: MapViewProps) {
+  const hasExistingShots = existingShots.some(
+    (s) => s.endLat != null && s.endLng != null,
+  )
+  const lastPoint = placedPoints[placedPoints.length - 1] ?? null
+  const effectivePin =
+    pinOverride ??
+    (activeHoleGeo?.pinLat != null && activeHoleGeo?.pinLng != null
+      ? { lat: activeHoleGeo.pinLat, lng: activeHoleGeo.pinLng }
+      : null)
+  const remainingToPin =
+    lastPoint && effectivePin
+      ? Math.round(
+          haversineYards(
+            lastPoint.lat,
+            lastPoint.lng,
+            effectivePin.lat,
+            effectivePin.lng,
+          ),
+        )
+      : null
+
   return (
     <div>
       <HoleSelector
@@ -651,9 +690,19 @@ function MapView({
         activeNumber={activeHoleNumber}
         onSelect={onSwitchHole}
       />
+      <div style={{ marginTop: 14 }}>
+        <RoundMapInstructionStrip
+          hasExistingShots={hasExistingShots}
+          shotsPlaced={placedPoints.length}
+          remainingToPin={remainingToPin}
+          onUndo={handlers.onUndoPoint}
+          onClear={handlers.onClearPoints}
+          onDone={handlers.onDoneWithHole}
+        />
+      </div>
       <div
         style={{
-          marginTop: 14,
+          marginTop: 10,
           height: 540,
           border: '1px solid #D9D2BF',
           borderRadius: 4,
@@ -668,7 +717,10 @@ function MapView({
             placedPoints={placedPoints}
             pinOverride={pinOverride}
             teeOverride={teeOverride}
-            {...handlers}
+            onPlace={handlers.onPlace}
+            onMovePoint={handlers.onMovePoint}
+            onMovePin={handlers.onMovePin}
+            onMoveTee={handlers.onMoveTee}
           />
         </Suspense>
       </div>

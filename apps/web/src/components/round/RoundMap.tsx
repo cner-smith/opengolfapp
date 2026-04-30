@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { mapboxgl, MAPBOX_TOKEN_PRESENT } from '../../lib/mapbox'
 import { haversineYards } from '@oga/core'
+// useUnits stays imported for the strip (re-exported below).
 import { useUnits } from '../../hooks/useUnits'
 
 export interface HoleGeo {
@@ -46,9 +47,6 @@ interface RoundMapProps {
   onMovePoint: (index: number, point: PlacedPoint) => void
   onMovePin?: (point: PlacedPoint) => void
   onMoveTee?: (point: PlacedPoint) => void
-  onClearPoints: () => void
-  onUndoPoint: () => void
-  onDoneWithHole: () => void
 }
 
 const MARKER_COLORS = {
@@ -70,9 +68,6 @@ export function RoundMap({
   onMovePoint,
   onMovePin,
   onMoveTee,
-  onClearPoints,
-  onUndoPoint,
-  onDoneWithHole,
 }: RoundMapProps) {
   const effectivePin =
     pinOverride ??
@@ -274,19 +269,6 @@ export function RoundMap({
     effectiveTee?.lng,
   ])
 
-  const lastPoint = placedPoints[placedPoints.length - 1] ?? null
-  const remainingToPin =
-    lastPoint && effectivePin
-      ? Math.round(
-          haversineYards(
-            lastPoint.lat,
-            lastPoint.lng,
-            effectivePin.lat,
-            effectivePin.lng,
-          ),
-        )
-      : null
-
   return (
     <div style={{ position: 'relative', height: '100%', width: '100%' }}>
       <div
@@ -305,45 +287,36 @@ export function RoundMap({
           Map unavailable — set <code style={{ marginInline: 4 }}>VITE_MAPBOX_TOKEN</code> in your env to enable the map view.
         </div>
       )}
-
-      {hole && (
-        <InstructionStrip
-          hasExistingShots={hasExistingShots}
-          shotsPlaced={placedPoints.length}
-          remainingToPin={remainingToPin}
-          onUndo={onUndoPoint}
-          onClear={onClearPoints}
-          onDone={onDoneWithHole}
-        />
-      )}
     </div>
   )
 }
 
-function InstructionStrip({
-  hasExistingShots,
-  shotsPlaced,
-  remainingToPin,
-  onUndo,
-  onClear,
-  onDone,
-}: {
+interface RoundMapInstructionStripProps {
   hasExistingShots: boolean
   shotsPlaced: number
   remainingToPin: number | null
   onUndo: () => void
   onClear: () => void
   onDone: () => void
-}) {
+}
+
+// Strip used to live inside the map as an absolute overlay, but the
+// "Done" button kept colliding with Mapbox's zoom controls. It now
+// renders as a separate full-width bar above the map. See MapView in
+// RoundDetailPage for the layout.
+export function RoundMapInstructionStrip({
+  hasExistingShots,
+  shotsPlaced,
+  remainingToPin,
+  onUndo,
+  onClear,
+  onDone,
+}: RoundMapInstructionStripProps) {
   const placingNumber = shotsPlaced + 1
   const { toDisplay } = useUnits()
   return (
     <div
-      className="absolute"
       style={{
-        top: 12,
-        left: 12,
-        right: 12,
         background: '#FBF8F1',
         border: '1px solid #D9D2BF',
         borderRadius: 2,

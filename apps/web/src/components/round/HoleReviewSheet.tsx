@@ -37,10 +37,23 @@ export interface ReviewedShotRow {
   distanceYards: number
   distanceToPin: number
   isLastShot: boolean
-  /** Set when the user toggles "Made it ✓" on the last putt row.
+  /** Set when the user toggles "Made it ✓" on a putt row.
    *  Stored as putt_result='made' on save. */
   puttMade?: boolean
+  /** When puttMade is false, the user can pick a miss flavour.
+   *  Stored as putt_result on save. */
+  puttResult?: 'short' | 'long' | 'missed_left' | 'missed_right'
 }
+
+const PUTT_MISS_OPTIONS: {
+  value: 'short' | 'long' | 'missed_left' | 'missed_right'
+  label: string
+}[] = [
+  { value: 'short', label: 'Short' },
+  { value: 'long', label: 'Long' },
+  { value: 'missed_left', label: 'Missed left' },
+  { value: 'missed_right', label: 'Missed right' },
+]
 
 export function HoleReviewSheet({
   open,
@@ -213,7 +226,6 @@ function ShotRow({
   onChange: (next: ReviewedShotRow) => void
 }) {
   const isPutt = row.lieType === 'green' || row.club === 'putter'
-  const showMadeToggle = isPutt && row.isLastShot
   const { toDisplay, toDisplayFt } = useUnits()
   return (
     <div
@@ -283,17 +295,22 @@ function ShotRow({
           </option>
         ))}
       </select>
-      {showMadeToggle && (
+      {isPutt && (
         <button
           type="button"
           onClick={() =>
-            onChange({ ...row, puttMade: !row.puttMade })
+            onChange({
+              ...row,
+              puttMade: !row.puttMade,
+              // Toggling made → on clears any miss result.
+              puttResult: !row.puttMade ? undefined : row.puttResult,
+            })
           }
           aria-pressed={!!row.puttMade}
           style={{
             background: row.puttMade ? '#1F3D2C' : '#FBF8F1',
             color: row.puttMade ? '#F2EEE5' : '#1F3D2C',
-            border: `1px solid ${row.puttMade ? '#1F3D2C' : '#1F3D2C'}`,
+            border: '1px solid #1F3D2C',
             borderRadius: 2,
             padding: '6px 12px',
             fontSize: 12,
@@ -311,6 +328,56 @@ function ShotRow({
       >
         {toDisplay(row.distanceToPin)} to pin
       </span>
+      {isPutt && !row.puttMade && (
+        <div
+          style={{
+            display: 'flex',
+            flexWrap: 'wrap',
+            gap: 6,
+            width: '100%',
+            marginLeft: 0,
+          }}
+        >
+          <span
+            className="kicker"
+            style={{
+              alignSelf: 'center',
+              color: '#5C6356',
+              marginRight: 4,
+            }}
+          >
+            Miss
+          </span>
+          {PUTT_MISS_OPTIONS.map((opt) => {
+            const active = row.puttResult === opt.value
+            return (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() =>
+                  onChange({
+                    ...row,
+                    // Tap-to-clear so the user can drop the miss tag entirely.
+                    puttResult: active ? undefined : opt.value,
+                  })
+                }
+                style={{
+                  background: active ? '#1F3D2C' : '#EBE5D6',
+                  color: active ? '#F2EEE5' : '#1C211C',
+                  border: 'none',
+                  borderRadius: 2,
+                  padding: '6px 10px',
+                  fontSize: 12,
+                  fontWeight: active ? 500 : 400,
+                  cursor: 'pointer',
+                }}
+              >
+                {opt.label}
+              </button>
+            )
+          })}
+        </div>
+      )}
     </div>
   )
 }
