@@ -77,7 +77,8 @@ export default function Patterns() {
     if (!user) return
     let active = true
     setLoading(true)
-    getShotsByClub(supabase, user.id, club).then(({ data }) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    getShotsByClub(supabase, user.id, club).then(({ data }: { data: any }) => {
       if (!active) return
       setShots((data as ShotRowMin[]) ?? [])
       setLoading(false)

@@ -36,7 +36,8 @@ export default function Stats() {
     if (!user) return
     let active = true
     setLoading(true)
-    getRecentSGData(supabase, user.id, n).then(({ data }) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    getRecentSGData(supabase, user.id, n).then(({ data }: { data: any }) => {
       if (!active) return
       setRounds((data as RecentRound[]) ?? [])
       setLoading(false)

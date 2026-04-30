@@ -57,6 +57,10 @@ Full step-by-step in [docs/self-hosting.md](./docs/self-hosting.md).
 
 Drills, course layouts, bug fixes, and feature work all welcome. See [CONTRIBUTING.md](./CONTRIBUTING.md) — drill submissions are the highest-leverage contribution because the AI practice planner picks from this library.
 
+## Support
+
+OGA is free forever. If it's helped your game, consider [sponsoring the project](https://github.com/sponsors/cner-smith) to help cover server costs.
+
 ## License
 
 [MIT](./LICENSE) — © Contributors to the OGA project.

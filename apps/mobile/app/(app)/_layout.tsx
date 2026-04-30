@@ -21,7 +21,8 @@ export default function AppLayout() {
       .select('skill_level, goal')
       .eq('id', user.id)
       .single()
-      .then(({ data, error }) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .then(({ data, error }: { data: any; error: any }) => {
         if (error || !data || !data.skill_level || !data.goal) {
           setProfileState('incomplete')
         } else {

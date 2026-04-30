@@ -28,7 +28,8 @@ export default function NewRound() {
   useEffect(() => {
     let active = true
     setLoading(true)
-    searchCourses(supabase, query, 20).then(({ data }) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    searchCourses(supabase, query, 20).then(({ data }: { data: any }) => {
       if (!active) return
       setResults(data ?? [])
       setLoading(false)
@@ -59,7 +60,8 @@ export default function NewRound() {
       if (holesError) throw holesError
 
       await Promise.all(
-        (holes ?? []).map((h) =>
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (holes ?? []).map((h: any) =>
           upsertHoleScore(supabase, {
             round_id: round.id,
             hole_id: h.id,
