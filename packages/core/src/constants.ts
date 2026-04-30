@@ -65,6 +65,54 @@ export const FACILITIES = ['range', 'short_game', 'putting', 'sim'] as const
 
 export const SHOT_CATEGORIES = ['off_tee', 'approach', 'around_green', 'putting'] as const
 
+// ---------------------------------------------------------------------------
+// Display label maps. Stored values stay snake_case + lowercase so the DB
+// constraints don't break; render code looks the labels up here so the UI
+// reads naturally and falls back to the raw value when something
+// unexpected lands in the column.
+// ---------------------------------------------------------------------------
+
+export const BREAK_DIRECTION_LABELS: Record<string, string> = {
+  left_to_right: 'L → R',
+  right_to_left: 'R → L',
+  straight: 'Straight',
+  uphill: 'Uphill',
+  downhill: 'Downhill',
+  // Legacy single-letter values from pre-split rows.
+  left: 'L → R',
+  right: 'R → L',
+}
+
+export const PUTT_RESULT_LABELS: Record<string, string> = {
+  made: 'Made',
+  short: 'Short',
+  long: 'Long',
+  missed_left: 'Missed left',
+  missed_right: 'Missed right',
+}
+
+export const SHOT_RESULT_LABELS: Record<string, string> = {
+  solid: 'Solid',
+  push_right: 'Push right',
+  pull_left: 'Pull left',
+  fat: 'Fat',
+  thin: 'Thin',
+  shank: 'Shank',
+  topped: 'Topped',
+  penalty: 'Penalty',
+  ob: 'OB',
+}
+
+export const LIE_TYPE_LABELS: Record<string, string> = {
+  tee: 'Tee',
+  fairway: 'Fairway',
+  rough: 'Rough',
+  sand: 'Sand',
+  fringe: 'Fringe',
+  recovery: 'Recovery',
+  green: 'Green',
+}
+
 export type Club = (typeof CLUBS)[number]
 export type LieType = (typeof LIE_TYPES)[number]
 /** @deprecated kept for legacy reads; new code uses LieSlopeForward + LieSlopeSide. */

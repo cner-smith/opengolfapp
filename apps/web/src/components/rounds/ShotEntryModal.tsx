@@ -2,7 +2,10 @@ import { useEffect, useMemo, useState } from 'react'
 import {
   CLUBS,
   LIE_TYPES,
+  LIE_TYPE_LABELS,
+  PUTT_RESULT_LABELS,
   SHOT_RESULTS,
+  SHOT_RESULT_LABELS,
   combinedPuttResult,
   type Club,
   type LieSlopeForward,
@@ -378,13 +381,15 @@ export function ShotEntryModal({
                         style={{ fontSize: 15, fontWeight: 500, marginTop: 2 }}
                       >
                         {s.club ?? '—'}
-                        {s.lie_type ? ` · ${s.lie_type}` : ''}
+                        {s.lie_type
+                          ? ` · ${LIE_TYPE_LABELS[s.lie_type] ?? s.lie_type}`
+                          : ''}
                       </div>
                       <div
                         className="text-caddie-ink-dim"
                         style={{ fontSize: 12, marginTop: 2 }}
                       >
-                        {s.shot_result ?? 'no result'}
+                        {formatShotSummary(s)}
                       </div>
                     </div>
                     <div className="flex" style={{ gap: 4 }}>
@@ -755,6 +760,27 @@ export function ShotEntryModal({
       </div>
     </div>
   )
+}
+
+// Build the second line on each shot row in the side panel. Putts get
+// their putt_result label + distance; everything else gets the
+// shot_result label. Falls back to the raw value when the column has
+// something unexpected, and to '—' when both are null.
+function formatShotSummary(s: ShotRow): string {
+  if (s.lie_type === 'green' || s.club === 'putter') {
+    const result =
+      (s.putt_result && PUTT_RESULT_LABELS[s.putt_result]) ??
+      s.putt_result ??
+      null
+    const distance =
+      s.putt_distance_ft != null ? `${Math.round(s.putt_distance_ft)} ft` : null
+    const parts = [result, distance].filter(Boolean) as string[]
+    return parts.length ? parts.join(' · ') : '—'
+  }
+  if (s.shot_result) {
+    return SHOT_RESULT_LABELS[s.shot_result] ?? s.shot_result
+  }
+  return '—'
 }
 
 function NumericInput({
