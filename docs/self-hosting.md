@@ -114,7 +114,7 @@ You'll need an [Expo account](https://expo.dev) — also free for development bu
 
 **"unauthorized" on every query** — the Supabase client isn't attaching the auth token. Make sure you set `VITE_SUPABASE_ANON_KEY` (web) or `EXPO_PUBLIC_SUPABASE_ANON_KEY` (mobile), not the service role key.
 
-**Mobile EAS build fails on `gradle-plugin`** — see [DECISIONS.md](../DECISIONS.md) for the npm-vs-pnpm story; the short version is `apps/mobile` uses npm separately from the pnpm workspace.
+**Mobile EAS build fails on `gradle-plugin`** — `apps/mobile` uses npm separately from the pnpm workspace; the React Native Gradle plugin can't resolve transitive deps through pnpm's symlinked layout. Run `cd apps/mobile && npm install --legacy-peer-deps` before any EAS build, and let EAS regenerate `android/` via prebuild.
 
 ## Pulling updates from upstream
 

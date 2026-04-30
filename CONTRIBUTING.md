@@ -25,7 +25,7 @@ Also a GitHub issue, with the `feature` label. Tell us:
 - Why the existing screens don't already cover it.
 - One concrete acceptance criterion ("I can do X and see Y").
 
-If a feature breaks the [design pillars](./CLAUDE.md#what-makes-oga-different) (free forever, lie-slope-aware tracking, explicit aim point, skill-calibrated plans), say why up front — that's the highest bar.
+If a feature breaks one of the project's design pillars — free forever, lie-slope-aware tracking, aim point is always explicit user input, plans are calibrated to skill level — say why up front. That's the highest bar.
 
 ## Pull request process
 
@@ -39,7 +39,7 @@ If a feature breaks the [design pillars](./CLAUDE.md#what-makes-oga-different) (
    pnpm format          # prettier
    ```
 4. Push, open the PR. Title in imperative present tense ("Add lie-slope filter to patterns").
-5. CI must be green. Reviewer will check against the [agent behavioral rules in CLAUDE.md](./CLAUDE.md#agent-behavioral-rules-read-first-always) — keep PRs minimum-scope.
+5. CI must be green. Reviewer will check that the PR stays minimum-scope — see the code style notes below.
 
 ## Adding drills (the highest-leverage contribution)
 
@@ -78,7 +78,7 @@ To add: drop new rows into `supabase/seed.sql` following the existing pattern, r
 - Comments only when the **why** is non-obvious from the name and types alone. Don't narrate what the code does.
 - No emojis in source code or commit messages unless we're laying down user-facing copy.
 
-The [agent behavioral rules in CLAUDE.md](./CLAUDE.md#agent-behavioral-rules-read-first-always) apply to humans too — default to no, ship the minimum, no helpers under three callers, no speculative parameters. PRs that add scope beyond their stated concern will be asked to split.
+Default to no. Ship the minimum that satisfies the requirement. Don't extract a helper unless it has three or more callers. Don't add config vars, options, or parameters for hypothetical future use. PRs that add scope beyond their stated concern will be asked to split.
 
 ## License
 
