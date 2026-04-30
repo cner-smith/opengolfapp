@@ -19,15 +19,16 @@ interface BubbleStyle {
   border?: string
 }
 
+// Score bubble palette per DESIGN.md scorecard recipe.
 function bubbleStyle(score: number | null | undefined, par: number): BubbleStyle | null {
   if (!score) return null
   const d = score - par
-  if (d <= -2) return { bg: '#1D9E75', fg: '#FFFFFF' }
-  if (d === -1) return { bg: '#E1F5EE', fg: '#0F6E56', border: '#1D9E75' }
-  if (d === 0) return { bg: 'transparent', fg: '#888880' }
-  if (d === 1) return { bg: '#FCEBEB', fg: '#A32D2D' }
-  if (d === 2) return { bg: '#E24B4A', fg: '#FFFFFF' }
-  return { bg: '#A32D2D', fg: '#FFFFFF' }
+  if (d <= -2) return { bg: '#1F3D2C', fg: '#F2EEE5' }
+  if (d === -1) return { bg: '#FBF8F1', fg: '#1F3D2C', border: '#1F3D2C' }
+  if (d === 0) return { bg: 'transparent', fg: '#5C6356' }
+  if (d === 1) return { bg: '#F1DCD7', fg: '#A33A2A' }
+  if (d === 2) return { bg: '#A33A2A', fg: '#F2EEE5' }
+  return { bg: '#A33A2A', fg: '#F2EEE5' }
 }
 
 function ToggleButton({
@@ -43,11 +44,9 @@ function ToggleButton({
     onChange(state === true ? false : state === false ? null : true)
   }
   const bg =
-    state === true ? '#1D9E75' : state === false ? '#FCEBEB' : '#F4F4F0'
+    state === true ? '#1F3D2C' : state === false ? '#F1DCD7' : '#EBE5D6'
   const color =
-    state === true ? '#FFFFFF' : state === false ? '#A32D2D' : '#888880'
-  const border =
-    state === true ? 'transparent' : state === false ? '#FCEBEB' : '#E4E4E0'
+    state === true ? '#F2EEE5' : state === false ? '#A33A2A' : '#5C6356'
   return (
     <button
       type="button"
@@ -55,12 +54,13 @@ function ToggleButton({
       style={{
         backgroundColor: bg,
         color,
-        border: `0.5px solid ${border}`,
-        borderRadius: 7,
-        padding: '5px 10px',
-        fontSize: 11,
+        border: 'none',
+        borderRadius: 2,
+        padding: '6px 10px',
+        fontSize: 12,
         fontWeight: 500,
         minWidth: 56,
+        letterSpacing: '0.02em',
       }}
       aria-label={label}
     >
@@ -124,20 +124,34 @@ export function HoleScoreCard({
 
   return (
     <div
-      className="grid grid-cols-12 items-center gap-3 border-t border-oga-border"
-      style={{ padding: '10px 14px' }}
+      className="grid grid-cols-12 items-center"
+      style={{
+        padding: '14px 0',
+        gap: 12,
+        borderBottom: '1px solid #D9D2BF',
+      }}
     >
       <div className="col-span-2">
         <div
-          className="font-medium tabular text-oga-text-primary"
-          style={{ fontSize: 14 }}
+          className="font-mono uppercase tabular text-caddie-ink-mute"
+          style={{ fontSize: 10, letterSpacing: '0.14em' }}
         >
           Hole {hole.number}
         </div>
-        <div className="text-oga-text-muted tabular" style={{ fontSize: 11 }}>
+        <div
+          className="font-serif text-caddie-ink"
+          style={{ fontSize: 17, fontWeight: 500, lineHeight: 1.2, marginTop: 2 }}
+        >
           Par {hole.par}
-          {hole.yards ? ` · ${hole.yards} yd` : ''}
         </div>
+        {hole.yards && (
+          <div
+            className="font-mono tabular text-caddie-ink-mute"
+            style={{ fontSize: 10, letterSpacing: '0.14em' }}
+          >
+            {hole.yards} YD
+          </div>
+        )}
       </div>
 
       <input
@@ -152,12 +166,12 @@ export function HoleScoreCard({
           const n = score ? Number(score) : null
           if (n) persist({ score: n })
         }}
-        className="col-span-1 tabular bg-oga-bg-input text-oga-text-primary"
+        className="col-span-1 font-serif tabular text-caddie-ink bg-caddie-surface"
         style={{
-          border: '0.5px solid #E4E4E0',
-          borderRadius: 7,
-          padding: '6px 8px',
-          fontSize: 14,
+          border: '1px solid #D9D2BF',
+          borderRadius: 2,
+          padding: '8px 6px',
+          fontSize: 17,
           textAlign: 'center',
           fontWeight: 500,
         }}
@@ -166,15 +180,15 @@ export function HoleScoreCard({
       <div className="col-span-1 flex justify-center">
         {bubble && (
           <span
-            className="inline-flex items-center justify-center tabular"
+            className="inline-flex items-center justify-center font-serif tabular"
             style={{
               backgroundColor: bubble.bg,
               color: bubble.fg,
-              border: bubble.border ? `1.5px solid ${bubble.border}` : 'none',
-              borderRadius: 9999,
-              width: 28,
-              height: 28,
-              fontSize: 13,
+              border: bubble.border ? `1px solid ${bubble.border}` : 'none',
+              borderRadius: 2,
+              width: 30,
+              height: 30,
+              fontSize: 14,
               fontWeight: 500,
             }}
           >
@@ -192,11 +206,11 @@ export function HoleScoreCard({
         value={putts}
         onChange={(e) => setPutts(e.target.value)}
         onBlur={() => persist({ putts: putts === '' ? null : Number(putts) })}
-        className="col-span-2 tabular bg-oga-bg-input text-oga-text-primary"
+        className="col-span-2 tabular text-caddie-ink bg-caddie-surface"
         style={{
-          border: '0.5px solid #E4E4E0',
-          borderRadius: 7,
-          padding: '6px 8px',
+          border: '1px solid #D9D2BF',
+          borderRadius: 2,
+          padding: '8px 8px',
           fontSize: 13,
           textAlign: 'center',
         }}
@@ -204,7 +218,7 @@ export function HoleScoreCard({
 
       <div className="col-span-2 flex justify-center">
         {isPar3 ? (
-          <span className="text-oga-text-hint" style={{ fontSize: 11 }}>
+          <span className="text-caddie-ink-mute" style={{ fontSize: 11 }}>
             —
           </span>
         ) : (
@@ -235,14 +249,16 @@ export function HoleScoreCard({
           type="button"
           disabled={!holeScore}
           onClick={() => holeScore && onEditShots(holeScore.id)}
-          className="text-oga-text-primary transition-colors disabled:cursor-not-allowed disabled:opacity-40"
+          className="text-caddie-ink transition-colors disabled:cursor-not-allowed disabled:opacity-40"
           style={{
-            backgroundColor: '#FFFFFF',
-            border: '0.5px solid #E4E4E0',
-            borderRadius: 7,
-            padding: '6px 12px',
+            backgroundColor: '#FBF8F1',
+            border: '1px solid #1F3D2C',
+            color: '#1F3D2C',
+            borderRadius: 2,
+            padding: '8px 12px',
             fontSize: 12,
-            fontWeight: 500,
+            fontWeight: 600,
+            letterSpacing: '0.02em',
           }}
           title={holeScore ? 'Edit shots' : 'Enter a score to log shots'}
         >

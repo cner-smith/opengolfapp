@@ -55,27 +55,32 @@ export function RoundSummary({
 
   return (
     <div
-      className="bg-oga-bg-card"
+      className="bg-caddie-surface"
       style={{
-        border: '0.5px solid #E4E4E0',
-        borderRadius: 10,
-        padding: '14px 16px',
+        border: '1px solid #D9D2BF',
+        borderRadius: 4,
+        padding: 22,
       }}
     >
-      <div className="flex items-baseline justify-between" style={{ marginBottom: 14 }}>
+      <div
+        className="flex items-baseline justify-between"
+        style={{ marginBottom: 18 }}
+      >
         <div>
-          <div
-            className="text-oga-text-muted uppercase"
-            style={{ fontSize: 11, fontWeight: 500, letterSpacing: 0.4 }}
-          >
-            Round summary
+          <div className="kicker" style={{ marginBottom: 8 }}>
+            By the numbers
           </div>
-          <div className="font-medium tabular text-oga-text-primary" style={{ fontSize: 28 }}>
-            {score || '—'}
+          <div className="flex items-baseline" style={{ gap: 14 }}>
+            <span
+              className="font-serif tabular text-caddie-ink"
+              style={{ fontSize: 38, fontWeight: 500, lineHeight: 1 }}
+            >
+              {score || '—'}
+            </span>
             {toPar !== null && (
               <span
-                className="text-oga-text-muted"
-                style={{ fontSize: 13, fontWeight: 400, marginLeft: 8 }}
+                className="font-serif tabular text-caddie-ink-dim"
+                style={{ fontSize: 17, fontStyle: 'italic' }}
               >
                 ({toPar > 0 ? `+${toPar}` : toPar === 0 ? 'E' : toPar})
               </span>
@@ -84,17 +89,21 @@ export function RoundSummary({
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4" style={{ marginBottom: 12 }}>
+      <div
+        className="grid grid-cols-2 sm:grid-cols-4"
+        style={{ gap: 14, marginBottom: 18 }}
+      >
         {SG_KEYS.map((c) => (
           <SGCell key={c.key} label={c.label} value={round[c.key]} />
         ))}
       </div>
 
       <div
-        className="grid grid-cols-2 gap-3 sm:grid-cols-4"
+        className="grid grid-cols-2 sm:grid-cols-4"
         style={{
-          paddingTop: 12,
-          borderTop: '0.5px solid #E4E4E0',
+          gap: 14,
+          paddingTop: 18,
+          borderTop: '1px solid #D9D2BF',
         }}
       >
         <Stat label="SG total" value={formatSG(round.sg_total)} tone={signTone(round.sg_total)} />
@@ -111,20 +120,38 @@ export function RoundSummary({
       </div>
 
       {(best || worst) && (
-        <div className="mt-4 grid grid-cols-2 gap-3">
-          {best && <HighlightCard tone="positive" label="Best hole" hole={best.number} diff={best.diff} />}
-          {worst && <HighlightCard tone="negative" label="Worst hole" hole={worst.number} diff={worst.diff} />}
+        <div
+          className="grid grid-cols-2"
+          style={{
+            gap: 14,
+            marginTop: 18,
+            paddingTop: 18,
+            borderTop: '1px solid #D9D2BF',
+          }}
+        >
+          {best && <Highlight tone="pos" label="Best hole" hole={best.number} diff={best.diff} />}
+          {worst && <Highlight tone="neg" label="Worst hole" hole={worst.number} diff={worst.diff} />}
         </div>
       )}
 
       {totalRoundsLogged >= 3 && (
-        <div className="mt-4">
+        <div style={{ marginTop: 22 }}>
           <Link
             to="/practice"
-            className="inline-block rounded-card bg-oga-black text-white transition-colors hover:bg-oga-text-primary/90"
-            style={{ padding: '10px 16px', fontSize: 13, fontWeight: 500 }}
+            className="bg-caddie-accent text-caddie-accent-ink hover:opacity-90"
+            style={{
+              display: 'inline-block',
+              padding: '12px 16px',
+              fontSize: 14,
+              fontWeight: 600,
+              letterSpacing: '0.02em',
+              borderRadius: 2,
+            }}
           >
-            Generate practice plan
+            Generate practice plan{' '}
+            <span className="font-serif" style={{ fontStyle: 'italic' }}>
+              →
+            </span>
           </Link>
         </div>
       )}
@@ -132,33 +159,31 @@ export function RoundSummary({
   )
 }
 
-function signTone(value: number | null | undefined): 'positive' | 'negative' | undefined {
+function signTone(value: number | null | undefined): 'pos' | 'neg' | undefined {
   if (value === null || value === undefined) return undefined
-  if (value > 0) return 'positive'
-  if (value < 0) return 'negative'
+  if (value > 0) return 'pos'
+  if (value < 0) return 'neg'
   return undefined
 }
 
 function SGCell({ label, value }: { label: string; value: number | null | undefined }) {
   const num = value ?? 0
-  const tone = num > 0 ? 'positive' : num < 0 ? 'negative' : 'neutral'
-  const color =
-    tone === 'positive' ? '#0F6E56' : tone === 'negative' ? '#A32D2D' : '#888880'
+  const color = num > 0 ? '#1F3D2C' : num < 0 ? '#A33A2A' : '#5C6356'
   return (
-    <div
-      className="bg-oga-bg-page"
-      style={{
-        borderRadius: 8,
-        padding: '10px 12px',
-      }}
-    >
-      <div
-        className="text-oga-text-muted"
-        style={{ fontSize: 10, marginBottom: 3 }}
-      >
+    <div>
+      <div className="kicker" style={{ marginBottom: 8 }}>
         {label}
       </div>
-      <div className="tabular" style={{ fontSize: 18, fontWeight: 500, color }}>
+      <div
+        className="font-serif tabular"
+        style={{
+          fontSize: 22,
+          fontStyle: 'italic',
+          fontWeight: 500,
+          color,
+          lineHeight: 1.1,
+        }}
+      >
         {formatSG(value)}
       </div>
     </div>
@@ -172,46 +197,54 @@ function Stat({
 }: {
   label: string
   value: string
-  tone?: 'positive' | 'negative'
+  tone?: 'pos' | 'neg'
 }) {
-  const color =
-    tone === 'positive' ? '#0F6E56' : tone === 'negative' ? '#A32D2D' : '#111111'
+  const color = tone === 'pos' ? '#1F3D2C' : tone === 'neg' ? '#A33A2A' : '#1C211C'
   return (
     <div>
-      <div className="text-oga-text-muted" style={{ fontSize: 10 }}>
+      <div className="kicker" style={{ marginBottom: 6 }}>
         {label}
       </div>
-      <div className="font-medium tabular" style={{ fontSize: 15, color }}>
+      <div
+        className="font-serif tabular"
+        style={{ fontSize: 22, fontWeight: 500, color, lineHeight: 1.1 }}
+      >
         {value}
       </div>
     </div>
   )
 }
 
-function HighlightCard({
+function Highlight({
   tone,
   label,
   hole,
   diff,
 }: {
-  tone: 'positive' | 'negative'
+  tone: 'pos' | 'neg'
   label: string
   hole: number
   diff: number
 }) {
-  const bg = tone === 'positive' ? '#E1F5EE' : '#FCEBEB'
-  const fg = tone === 'positive' ? '#0F6E56' : '#A32D2D'
+  const color = tone === 'pos' ? '#1F3D2C' : '#A33A2A'
   return (
-    <div
-      style={{
-        backgroundColor: bg,
-        borderRadius: 8,
-        padding: '10px 12px',
-      }}
-    >
-      <div style={{ color: fg, fontSize: 10, fontWeight: 500 }}>{label}</div>
-      <div className="font-medium tabular" style={{ color: fg, fontSize: 15 }}>
-        Hole {hole} ({diff > 0 ? `+${diff}` : diff === 0 ? 'E' : diff})
+    <div>
+      <div className="kicker" style={{ marginBottom: 6 }}>
+        {label}
+      </div>
+      <div className="flex items-baseline" style={{ gap: 8 }}>
+        <span
+          className="font-serif text-caddie-ink"
+          style={{ fontSize: 22, fontWeight: 500 }}
+        >
+          Hole {hole}
+        </span>
+        <span
+          className="font-serif tabular"
+          style={{ fontSize: 17, fontStyle: 'italic', color }}
+        >
+          {diff > 0 ? `+${diff}` : diff === 0 ? 'E' : diff}
+        </span>
       </div>
     </div>
   )

@@ -60,13 +60,22 @@ export function RoundDetailPage() {
   }, [shotsQuery.data])
 
   if (round.isLoading || holesQuery.isLoading) {
-    return <div className="text-oga-text-muted" style={{ fontSize: 13 }}>Loading round…</div>
+    return (
+      <div className="text-caddie-ink-mute" style={{ fontSize: 13 }}>
+        Loading round…
+      </div>
+    )
   }
   if (round.error) {
     return (
       <div
-        className="bg-oga-red-light text-oga-red-dark"
-        style={{ borderRadius: 10, padding: '12px 14px', fontSize: 13 }}
+        className="text-caddie-neg"
+        style={{
+          border: '1px solid #A33A2A',
+          borderRadius: 4,
+          padding: '14px 18px',
+          fontSize: 13,
+        }}
       >
         Error: {(round.error as Error).message}
       </div>
@@ -95,28 +104,41 @@ export function RoundDetailPage() {
   }
 
   return (
-    <div className="flex flex-col gap-3">
-      <div>
-        <button
-          type="button"
-          onClick={() => navigate('/rounds')}
-          className="text-oga-text-muted hover:text-oga-text-primary"
-          style={{ fontSize: 12 }}
-        >
-          ← All rounds
-        </button>
-      </div>
-      <div className="flex items-end justify-between">
+    <div>
+      <button
+        type="button"
+        onClick={() => navigate('/rounds')}
+        className="font-mono uppercase text-caddie-ink-mute hover:text-caddie-ink"
+        style={{
+          fontSize: 10,
+          letterSpacing: '0.14em',
+          marginBottom: 18,
+        }}
+      >
+        ← All rounds
+      </button>
+
+      <div
+        className="flex items-end justify-between"
+        style={{ marginBottom: 28 }}
+      >
         <div>
+          <div className="kicker" style={{ marginBottom: 8 }}>
+            Round detail
+          </div>
           <h1
-            className="text-oga-text-primary"
-            style={{ fontSize: 22, fontWeight: 600, lineHeight: 1.3 }}
+            className="font-serif text-caddie-ink"
+            style={{ fontSize: 28, fontWeight: 500, lineHeight: 1.15 }}
           >
             {round.data.courses?.name ?? 'Round'}
           </h1>
           <div
-            className="text-oga-text-muted"
-            style={{ fontSize: 13, marginTop: 2 }}
+            className="font-mono uppercase tabular text-caddie-ink-mute"
+            style={{
+              fontSize: 10,
+              letterSpacing: '0.14em',
+              marginTop: 6,
+            }}
           >
             {round.data.played_at}
             {round.data.tee_color ? ` · ${round.data.tee_color} tees` : ''} ·{' '}
@@ -127,12 +149,13 @@ export function RoundDetailPage() {
           type="button"
           onClick={handleComplete}
           disabled={completeMutation.isPending || holesPlayed === 0}
-          className="bg-oga-black text-white transition-colors hover:bg-oga-text-primary/90 disabled:opacity-50"
+          className="bg-caddie-accent text-caddie-accent-ink hover:opacity-90 disabled:opacity-40"
           style={{
-            borderRadius: 10,
-            padding: '10px 16px',
-            fontSize: 13,
-            fontWeight: 500,
+            borderRadius: 2,
+            padding: '12px 16px',
+            fontSize: 14,
+            fontWeight: 600,
+            letterSpacing: '0.02em',
           }}
         >
           {completeMutation.isPending ? 'Calculating…' : 'Save SG + finalize'}
@@ -141,12 +164,13 @@ export function RoundDetailPage() {
 
       {completeError && (
         <div
-          className="bg-oga-red-light text-oga-red-dark"
+          className="text-caddie-neg"
           style={{
-            border: '0.5px solid #E24B4A',
-            borderRadius: 10,
-            padding: '12px 14px',
+            border: '1px solid #A33A2A',
+            borderRadius: 4,
+            padding: '14px 18px',
             fontSize: 13,
+            marginBottom: 18,
           }}
         >
           {completeError}
@@ -154,57 +178,59 @@ export function RoundDetailPage() {
       )}
 
       {round.data.sg_total !== null && (
-        <RoundSummary
-          round={round.data}
-          holes={holes}
-          holeScores={holeScores}
-          totalRoundsLogged={totalRoundsLogged}
-        />
+        <div style={{ marginBottom: 28 }}>
+          <RoundSummary
+            round={round.data}
+            holes={holes}
+            holeScores={holeScores}
+            totalRoundsLogged={totalRoundsLogged}
+          />
+        </div>
       )}
 
-      <div
-        className="bg-oga-bg-card overflow-hidden"
-        style={{
-          border: '0.5px solid #E4E4E0',
-          borderRadius: 10,
-        }}
-      >
-        <div
-          className="grid grid-cols-12 gap-3 text-oga-text-muted uppercase"
-          style={{
-            padding: '10px 14px',
-            fontSize: 10,
-            fontWeight: 500,
-            letterSpacing: 0.4,
-          }}
-        >
-          <div className="col-span-2">Hole</div>
-          <div className="col-span-1 text-center">Score</div>
-          <div className="col-span-1" />
-          <div className="col-span-2 text-center">Putts</div>
-          <div className="col-span-2 text-center">Fairway</div>
-          <div className="col-span-1 text-center">GIR</div>
-          <div className="col-span-3 text-right">Shots</div>
+      <div style={{ borderTop: '1px solid #D9D2BF', paddingTop: 14 }}>
+        <div className="kicker" style={{ marginBottom: 14 }}>
+          Scorecard
         </div>
-        {holes.map((h) => {
-          const hs = scoresByHoleId.get(h.id)
-          return (
-            <HoleScoreCard
-              key={h.id}
-              roundId={round.data.id}
-              hole={h}
-              holeScore={hs}
-              shotCount={hs ? (shotCountByHoleScore.get(hs.id) ?? 0) : 0}
-              onEditShots={(holeScoreId) =>
-                setShotsModalFor({
-                  holeScoreId,
-                  holeNumber: h.number,
-                  holePar: h.par,
-                })
-              }
-            />
-          )
-        })}
+        <div style={{ borderTop: '1px solid #D9D2BF' }}>
+          <div
+            className="grid grid-cols-12 items-center font-mono uppercase text-caddie-ink-mute"
+            style={{
+              padding: '10px 0',
+              fontSize: 10,
+              letterSpacing: '0.14em',
+              gap: 12,
+              borderBottom: '1px solid #D9D2BF',
+            }}
+          >
+            <div className="col-span-2">Hole</div>
+            <div className="col-span-1 text-center">Score</div>
+            <div className="col-span-1" />
+            <div className="col-span-2 text-center">Putts</div>
+            <div className="col-span-2 text-center">Fairway</div>
+            <div className="col-span-1 text-center">GIR</div>
+            <div className="col-span-3 text-right">Shots</div>
+          </div>
+          {holes.map((h) => {
+            const hs = scoresByHoleId.get(h.id)
+            return (
+              <HoleScoreCard
+                key={h.id}
+                roundId={round.data.id}
+                hole={h}
+                holeScore={hs}
+                shotCount={hs ? (shotCountByHoleScore.get(hs.id) ?? 0) : 0}
+                onEditShots={(holeScoreId) =>
+                  setShotsModalFor({
+                    holeScoreId,
+                    holeNumber: h.number,
+                    holePar: h.par,
+                  })
+                }
+              />
+            )
+          })}
+        </div>
       </div>
 
       {shotsModalFor && round.data && (

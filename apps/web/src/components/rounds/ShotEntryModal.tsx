@@ -142,34 +142,43 @@ export function ShotEntryModal({
   const isPutt = draft.lieType === 'green'
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-caddie-ink/60 p-4">
       <div
-        className="flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden bg-oga-bg-card"
-        style={{ border: '0.5px solid #E4E4E0', borderRadius: 12 }}
+        className="flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden bg-caddie-surface"
+        style={{ border: '1px solid #9F9580', borderRadius: 4 }}
       >
         <header
           className="flex items-center justify-between"
           style={{
-            borderBottom: '0.5px solid #E4E4E0',
-            padding: '14px 18px',
+            borderBottom: '1px solid #D9D2BF',
+            padding: '18px 22px',
           }}
         >
           <div>
-            <div
-              className="font-medium text-oga-text-primary"
-              style={{ fontSize: 18 }}
-            >
-              Shots — Hole {holeNumber}
+            <div className="kicker" style={{ marginBottom: 4 }}>
+              Hole {holeNumber} · Par {holePar}
             </div>
-            <div className="text-oga-text-muted" style={{ fontSize: 11 }}>
-              Par {holePar}
+            <div
+              className="font-serif text-caddie-ink"
+              style={{
+                fontSize: 22,
+                fontWeight: 500,
+                fontStyle: 'italic',
+                lineHeight: 1.1,
+              }}
+            >
+              Shots
             </div>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="text-oga-text-muted transition-colors hover:text-oga-text-primary"
-            style={{ fontSize: 13, padding: '6px 10px' }}
+            className="font-mono uppercase text-caddie-ink-mute hover:text-caddie-ink"
+            style={{
+              fontSize: 10,
+              letterSpacing: '0.14em',
+              padding: '6px 10px',
+            }}
           >
             Close
           </button>
@@ -178,75 +187,82 @@ export function ShotEntryModal({
         <div className="grid flex-1 grid-cols-1 overflow-y-auto md:grid-cols-[260px_1fr]">
           <section
             style={{
-              borderRight: '0.5px solid #E4E4E0',
-              padding: 14,
+              borderRight: '1px solid #D9D2BF',
+              padding: 18,
             }}
           >
-            <div
-              className="text-oga-text-muted uppercase"
-              style={{
-                fontSize: 11,
-                fontWeight: 500,
-                letterSpacing: 0.4,
-                marginBottom: 8,
-              }}
-            >
-              Shots
+            <div className="kicker" style={{ marginBottom: 12 }}>
+              Logged shots
             </div>
             {holeShots.length === 0 && (
               <div
-                className="text-oga-text-muted"
+                className="text-caddie-ink-mute"
                 style={{
-                  border: '0.5px dashed #E4E4E0',
-                  borderRadius: 7,
-                  padding: 12,
-                  fontSize: 12,
+                  border: '1px dashed #D9D2BF',
+                  borderRadius: 2,
+                  padding: 14,
+                  fontSize: 13,
                 }}
               >
                 No shots logged yet.
               </div>
             )}
-            <ul className="flex flex-col" style={{ gap: 4 }}>
-              {holeShots.map((s) => {
+            <ul>
+              {holeShots.map((s, i) => {
                 const isEditing = editing === s.id
                 return (
                   <li
                     key={s.id}
                     className="flex items-center justify-between"
                     style={{
-                      backgroundColor: isEditing ? '#E1F5EE' : '#FFFFFF',
-                      border: `0.5px solid ${isEditing ? '#1D9E75' : '#E4E4E0'}`,
-                      borderRadius: 7,
-                      padding: '8px 10px',
-                      fontSize: 12,
+                      borderTop: i === 0 ? 'none' : '1px solid #D9D2BF',
+                      padding: '12px 0',
+                      backgroundColor: isEditing ? '#EBE5D6' : 'transparent',
                     }}
                   >
                     <div>
                       <div
-                        className="font-medium tabular text-oga-text-primary"
-                        style={{ fontSize: 12 }}
+                        className="font-mono uppercase tabular text-caddie-ink-mute"
+                        style={{ fontSize: 10, letterSpacing: '0.14em' }}
                       >
-                        #{s.shot_number} {s.club ?? '—'}
+                        Shot {s.shot_number}
+                      </div>
+                      <div
+                        className="font-serif text-caddie-ink"
+                        style={{ fontSize: 15, fontWeight: 500, marginTop: 2 }}
+                      >
+                        {s.club ?? '—'}
                         {s.lie_type ? ` · ${s.lie_type}` : ''}
                       </div>
-                      <div className="text-oga-text-muted" style={{ fontSize: 11 }}>
+                      <div
+                        className="text-caddie-ink-dim"
+                        style={{ fontSize: 12, marginTop: 2 }}
+                      >
                         {s.shot_result ?? 'no result'}
                       </div>
                     </div>
-                    <div className="flex gap-1">
+                    <div className="flex" style={{ gap: 4 }}>
                       <button
                         type="button"
                         onClick={() => startEdit(s)}
-                        className="text-oga-text-muted transition-colors hover:text-oga-text-primary"
-                        style={{ fontSize: 11, padding: '4px 8px' }}
+                        className="font-mono uppercase text-caddie-ink-mute hover:text-caddie-ink"
+                        style={{
+                          fontSize: 10,
+                          letterSpacing: '0.14em',
+                          padding: '4px 8px',
+                        }}
                       >
                         Edit
                       </button>
                       <button
                         type="button"
                         onClick={() => remove(s.id)}
-                        className="text-oga-red transition-colors hover:text-oga-red-dark"
-                        style={{ fontSize: 11, padding: '4px 8px' }}
+                        className="font-mono uppercase text-caddie-neg"
+                        style={{
+                          fontSize: 10,
+                          letterSpacing: '0.14em',
+                          padding: '4px 8px',
+                        }}
                       >
                         Del
                       </button>
@@ -257,116 +273,128 @@ export function ShotEntryModal({
             </ul>
           </section>
 
-          <section style={{ padding: 18 }} className="flex flex-col gap-4">
-            <div className="flex items-center justify-between">
-              <div
-                className="font-medium text-oga-text-primary"
-                style={{ fontSize: 14 }}
-              >
-                {editing ? `Edit shot #${draft.shotNumber}` : `Add shot #${draft.shotNumber}`}
+          <section style={{ padding: 22 }} className="flex flex-col" >
+            <div
+              className="flex items-center justify-between"
+              style={{ marginBottom: 18 }}
+            >
+              <div className="kicker">
+                {editing ? `Edit shot ${draft.shotNumber}` : `Add shot ${draft.shotNumber}`}
               </div>
               {editing && (
                 <button
                   type="button"
                   onClick={cancelEdit}
-                  className="text-oga-text-muted hover:underline"
-                  style={{ fontSize: 11 }}
+                  className="font-mono uppercase text-caddie-ink-mute hover:underline"
+                  style={{ fontSize: 10, letterSpacing: '0.14em' }}
                 >
                   Cancel edit
                 </button>
               )}
             </div>
 
-            <Field label="Club">
-              <ChipGroup
-                value={draft.club}
-                options={CLUBS}
-                onChange={(v) => setDraft((d) => ({ ...d, club: v }))}
-              />
-            </Field>
-
-            <Field label="Lie type">
-              <ChipGroup
-                value={draft.lieType}
-                options={LIE_TYPES}
-                onChange={(v) => setDraft((d) => ({ ...d, lieType: v }))}
-              />
-            </Field>
-
-            <Field label="Lie slope">
-              <LieSlopeGrid
-                value={draft.lieSlope}
-                onChange={(v) => setDraft((d) => ({ ...d, lieSlope: v }))}
-              />
-            </Field>
-
-            {!isPutt && (
-              <Field label="Distance to target (yards)">
-                <NumericInput
-                  value={draft.distanceToTarget}
-                  onChange={(n) =>
-                    setDraft((d) => ({ ...d, distanceToTarget: n }))
-                  }
+            <div className="flex flex-col" style={{ gap: 18 }}>
+              <Field label="Club">
+                <ChipGroup
+                  value={draft.club}
+                  options={CLUBS}
+                  onChange={(v) => setDraft((d) => ({ ...d, club: v }))}
                 />
               </Field>
-            )}
 
-            {isPutt && (
-              <>
-                <Field label="Putt distance (ft)">
+              <Field label="Lie type">
+                <ChipGroup
+                  value={draft.lieType}
+                  options={LIE_TYPES}
+                  onChange={(v) => setDraft((d) => ({ ...d, lieType: v }))}
+                />
+              </Field>
+
+              <Field label="Lie slope">
+                <LieSlopeGrid
+                  value={draft.lieSlope}
+                  onChange={(v) => setDraft((d) => ({ ...d, lieSlope: v }))}
+                />
+              </Field>
+
+              {!isPutt && (
+                <Field label="Distance to target (yards)">
                   <NumericInput
-                    value={draft.puttDistanceFt}
-                    step="0.5"
+                    value={draft.distanceToTarget}
                     onChange={(n) =>
-                      setDraft((d) => ({ ...d, puttDistanceFt: n }))
+                      setDraft((d) => ({ ...d, distanceToTarget: n }))
                     }
                   />
                 </Field>
-                <Field label="Putt result">
-                  <PuttResultGrid
-                    value={draft.puttResult}
-                    onChange={(v) => setDraft((d) => ({ ...d, puttResult: v }))}
+              )}
+
+              {isPutt && (
+                <>
+                  <Field label="Putt distance (ft)">
+                    <NumericInput
+                      value={draft.puttDistanceFt}
+                      step="0.5"
+                      onChange={(n) =>
+                        setDraft((d) => ({ ...d, puttDistanceFt: n }))
+                      }
+                    />
+                  </Field>
+                  <Field label="Putt result">
+                    <PuttResultGrid
+                      value={draft.puttResult}
+                      onChange={(v) => setDraft((d) => ({ ...d, puttResult: v }))}
+                    />
+                  </Field>
+                </>
+              )}
+
+              {!isPutt && (
+                <Field label="Shot result">
+                  <ChipGroup
+                    value={draft.shotResult}
+                    options={SHOT_RESULTS}
+                    onChange={(v) => setDraft((d) => ({ ...d, shotResult: v }))}
                   />
                 </Field>
-              </>
-            )}
+              )}
 
-            {!isPutt && (
-              <Field label="Shot result">
-                <ChipGroup
-                  value={draft.shotResult}
-                  options={SHOT_RESULTS}
-                  onChange={(v) => setDraft((d) => ({ ...d, shotResult: v }))}
+              <Field label="Notes">
+                <input
+                  type="text"
+                  value={draft.notes ?? ''}
+                  onChange={(e) => setDraft((d) => ({ ...d, notes: e.target.value }))}
+                  className="w-full text-caddie-ink bg-caddie-surface"
+                  style={{
+                    border: '1px solid #D9D2BF',
+                    borderRadius: 2,
+                    padding: '8px 10px',
+                    fontSize: 14,
+                  }}
                 />
               </Field>
-            )}
+            </div>
 
-            <Field label="Notes">
-              <input
-                type="text"
-                value={draft.notes ?? ''}
-                onChange={(e) => setDraft((d) => ({ ...d, notes: e.target.value }))}
-                className="w-full bg-oga-bg-input text-oga-text-primary"
-                style={{
-                  border: '0.5px solid #E4E4E0',
-                  borderRadius: 7,
-                  padding: '7px 10px',
-                  fontSize: 13,
-                }}
-              />
-            </Field>
-
-            <div className="flex justify-end gap-2 pt-2">
+            <div
+              className="flex justify-end"
+              style={{
+                gap: 12,
+                marginTop: 22,
+                paddingTop: 18,
+                borderTop: '1px solid #D9D2BF',
+              }}
+            >
               <button
                 type="button"
                 onClick={cancelEdit}
-                className="bg-oga-bg-card text-oga-text-primary transition-colors hover:bg-oga-bg-input"
+                className="text-caddie-accent hover:opacity-80"
                 style={{
-                  border: '0.5px solid #E4E4E0',
-                  borderRadius: 10,
-                  padding: '10px 16px',
-                  fontSize: 13,
-                  fontWeight: 500,
+                  border: '1px solid #1F3D2C',
+                  borderRadius: 2,
+                  padding: '12px 16px',
+                  fontSize: 14,
+                  fontWeight: 600,
+                  letterSpacing: '0.02em',
+                  backgroundColor: 'transparent',
                 }}
               >
                 Reset
@@ -375,15 +403,19 @@ export function ShotEntryModal({
                 type="button"
                 onClick={save}
                 disabled={createShot.isPending || updateShot.isPending}
-                className="bg-oga-black text-white transition-colors hover:bg-oga-text-primary/90 disabled:opacity-50"
+                className="bg-caddie-accent text-caddie-accent-ink hover:opacity-90 disabled:opacity-40"
                 style={{
-                  borderRadius: 10,
-                  padding: '10px 16px',
-                  fontSize: 13,
-                  fontWeight: 500,
+                  borderRadius: 2,
+                  padding: '12px 16px',
+                  fontSize: 14,
+                  fontWeight: 600,
+                  letterSpacing: '0.02em',
                 }}
               >
-                {editing ? 'Save changes' : 'Add shot'}
+                {editing ? 'Save changes' : 'Add shot'}{' '}
+                <span className="font-serif" style={{ fontStyle: 'italic' }}>
+                  →
+                </span>
               </button>
             </div>
           </section>
@@ -411,13 +443,14 @@ function NumericInput({
       onChange={(e) =>
         onChange(e.target.value ? Number(e.target.value) : undefined)
       }
-      className="tabular bg-oga-bg-input text-oga-text-primary"
+      className="font-serif tabular text-caddie-ink bg-caddie-surface"
       style={{
-        border: '0.5px solid #E4E4E0',
-        borderRadius: 7,
-        padding: '7px 10px',
-        fontSize: 13,
-        width: 120,
+        border: '1px solid #D9D2BF',
+        borderRadius: 2,
+        padding: '8px 10px',
+        fontSize: 17,
+        fontWeight: 500,
+        width: 140,
       }}
     />
   )
@@ -426,15 +459,7 @@ function NumericInput({
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
-      <div
-        className="text-oga-text-muted uppercase"
-        style={{
-          fontSize: 11,
-          fontWeight: 500,
-          letterSpacing: 0.4,
-          marginBottom: 6,
-        }}
-      >
+      <div className="kicker" style={{ marginBottom: 10 }}>
         {label}
       </div>
       {children}
@@ -450,11 +475,11 @@ interface ChipGroupProps<T extends string> {
 
 function chipStyle(active: boolean): React.CSSProperties {
   return {
-    backgroundColor: active ? '#E1F5EE' : '#F4F4F0',
-    color: active ? '#0F6E56' : '#111111',
-    border: `0.5px solid ${active ? '#1D9E75' : '#E0E0DA'}`,
-    borderRadius: 7,
-    padding: '7px 10px',
+    backgroundColor: active ? '#1F3D2C' : '#EBE5D6',
+    color: active ? '#F2EEE5' : '#1C211C',
+    border: 'none',
+    borderRadius: 2,
+    padding: '6px 10px',
     fontSize: 12,
     fontWeight: active ? 500 : 400,
   }
@@ -494,17 +519,17 @@ const PUTT_GRID: PuttSelectKey[] = [
   'short',
   'long',
   'missed_left',
-  'missed_right',
   'spacer',
+  'missed_right',
 ]
 
 function gridButtonStyle(active: boolean): React.CSSProperties {
   return {
-    backgroundColor: active ? '#E1F5EE' : '#F4F4F0',
-    color: active ? '#0F6E56' : '#111111',
-    border: `0.5px solid ${active ? '#1D9E75' : '#E0E0DA'}`,
-    borderRadius: 7,
-    padding: '8px 8px',
+    backgroundColor: active ? '#1F3D2C' : '#EBE5D6',
+    color: active ? '#F2EEE5' : '#1C211C',
+    border: 'none',
+    borderRadius: 2,
+    padding: '12px 8px',
     fontSize: 12,
     fontWeight: active ? 500 : 400,
   }
@@ -521,7 +546,7 @@ function LieSlopeGrid({
     <div
       role="radiogroup"
       className="grid grid-cols-3"
-      style={{ gap: 5, maxWidth: 320 }}
+      style={{ gap: 6, maxWidth: 360 }}
     >
       {SLOPE_GRID.map((key, i) =>
         key === 'spacer' ? (
@@ -538,7 +563,7 @@ function LieSlopeGrid({
               display: 'flex',
               flexDirection: 'column',
               alignItems: 'center',
-              gap: 4,
+              gap: 6,
             }}
           >
             <SlopeIcon kind={key} />
@@ -557,7 +582,7 @@ function SlopeIcon({ kind }: { kind: LieSlope }) {
     viewBox: '0 0 32 24',
     fill: 'none',
     stroke: 'currentColor',
-    strokeWidth: 2,
+    strokeWidth: 1.5,
     strokeLinecap: 'round' as const,
   }
   switch (kind) {
@@ -609,7 +634,7 @@ function PuttResultGrid({
   onChange: (v: PuttResult | undefined) => void
 }) {
   return (
-    <div className="grid grid-cols-3" style={{ gap: 5, maxWidth: 320 }}>
+    <div className="grid grid-cols-3" style={{ gap: 6, maxWidth: 360 }}>
       {PUTT_GRID.map((key, i) =>
         key === 'spacer' ? (
           <div key={`s${i}`} />
