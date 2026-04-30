@@ -31,6 +31,14 @@ const SG_KEYS = [
   { key: 'sg_putting', label: 'Putting' },
 ] as const
 
+const KICKER: import('react-native').TextStyle = {
+  color: '#8A8B7E',
+  fontSize: 10,
+  fontWeight: '500',
+  letterSpacing: 1.4,
+  textTransform: 'uppercase',
+}
+
 export default function Home() {
   const { user } = useAuth()
   const [profile, setProfile] = useState<Profile | null>(null)
@@ -75,26 +83,47 @@ export default function Home() {
 
   const eyebrow =
     profile?.handicap_index != null ? `Handicap ${profile.handicap_index}` : 'Welcome'
+  const firstName = profile?.username?.split(/\s+/)[0]
 
   return (
-    <View className="flex-1 bg-oga-bg-page">
-      <AppBar
-        eyebrow={eyebrow}
-        title={profile?.username ?? 'Home'}
-      />
-      <ScrollView contentContainerStyle={{ padding: 14, paddingBottom: 32 }}>
+    <View style={{ flex: 1, backgroundColor: '#F2EEE5' }}>
+      <AppBar eyebrow={eyebrow} title={profile?.username ?? 'Home'} />
+      <ScrollView contentContainerStyle={{ padding: 18, paddingBottom: 40 }}>
+        <Text
+          style={{
+            color: '#1C211C',
+            fontSize: 28,
+            fontStyle: 'italic',
+            fontWeight: '500',
+            lineHeight: 32,
+            marginBottom: 6,
+          }}
+        >
+          {firstName ? `Good round, ${firstName}.` : 'Good round.'}
+        </Text>
+        <Text style={{ color: '#5C6356', fontSize: 14, marginBottom: 22 }}>
+          Last {rounds.length || 0} round{rounds.length === 1 ? '' : 's'}
+        </Text>
+
         <Link href="/(app)/round/new" asChild>
           <Pressable
             style={{
-              backgroundColor: '#111111',
-              borderRadius: 10,
-              paddingVertical: 14,
+              backgroundColor: '#1F3D2C',
+              borderRadius: 2,
+              paddingVertical: 16,
               alignItems: 'center',
-              marginBottom: 12,
+              marginBottom: 22,
             }}
           >
-            <Text style={{ color: '#FFFFFF', fontSize: 13, fontWeight: '500' }}>
-              + Start round
+            <Text
+              style={{
+                color: '#F2EEE5',
+                fontSize: 14,
+                fontWeight: '600',
+                letterSpacing: 0.3,
+              }}
+            >
+              Start round →
             </Text>
           </Pressable>
         </Link>
@@ -102,172 +131,186 @@ export default function Home() {
         {pending > 0 && (
           <View
             style={{
-              backgroundColor: '#FAEEDA',
-              borderRadius: 8,
-              padding: 10,
-              marginBottom: 12,
+              borderTopWidth: 1,
+              borderBottomWidth: 1,
+              borderColor: '#D9D2BF',
+              paddingVertical: 12,
+              marginBottom: 18,
             }}
           >
-            <Text style={{ color: '#854F0B', fontSize: 12 }}>
-              {pending} shot{pending === 1 ? '' : 's'} waiting to sync
+            <Text style={{ ...KICKER, marginBottom: 4 }}>Sync queue</Text>
+            <Text style={{ color: '#A66A1F', fontSize: 13 }}>
+              {pending} shot{pending === 1 ? '' : 's'} waiting to sync.
             </Text>
           </View>
         )}
 
         {rounds.length === 0 ? (
-          <Card>
+          <View
+            style={{
+              borderWidth: 1,
+              borderColor: '#D9D2BF',
+              backgroundColor: '#FBF8F1',
+              padding: 22,
+              borderRadius: 4,
+            }}
+          >
             <Text
-              style={{ color: '#111111', fontSize: 15, fontWeight: '500' }}
+              style={{
+                color: '#1C211C',
+                fontSize: 22,
+                fontStyle: 'italic',
+                fontWeight: '500',
+              }}
             >
-              No rounds logged yet
+              No rounds yet.
             </Text>
             <Text
               style={{
-                color: '#888880',
-                fontSize: 13,
-                marginTop: 6,
+                color: '#5C6356',
+                fontSize: 14,
+                marginTop: 8,
+                lineHeight: 20,
               }}
             >
               Log your first round to start tracking strokes gained.
             </Text>
-          </Card>
+          </View>
         ) : (
           <>
-            <Card label="SG breakdown">
-              <View style={{ gap: 10 }}>
+            <Section kicker="SG breakdown">
+              <View style={{ gap: 14 }}>
                 {breakdown.map((b) => (
                   <SGBar key={b.key} label={b.label} value={b.value} max={maxAbs} />
                 ))}
               </View>
-            </Card>
+            </Section>
 
-            <View style={{ height: 12 }} />
-
-            <Card label="SG total trend">
+            <Section kicker="SG total trend">
               <VictoryChart
                 height={200}
-                width={screenWidth - 56}
-                padding={{ top: 10, right: 16, bottom: 28, left: 32 }}
+                width={screenWidth - 36}
+                padding={{ top: 12, right: 16, bottom: 28, left: 32 }}
               >
                 <VictoryAxis
                   style={{
-                    axis: { stroke: '#E4E4E0' },
-                    tickLabels: { fontSize: 9, fill: '#888880' },
+                    axis: { stroke: '#D9D2BF' },
+                    tickLabels: {
+                      fontSize: 9,
+                      fill: '#8A8B7E',
+                      fontFamily: 'JetBrainsMono-Medium',
+                    },
                     grid: { stroke: 'transparent' },
                   }}
                 />
                 <VictoryAxis
                   dependentAxis
                   style={{
-                    axis: { stroke: '#E4E4E0' },
-                    tickLabels: { fontSize: 9, fill: '#888880' },
-                    grid: { stroke: '#F0F0EC', strokeDasharray: '0' },
+                    axis: { stroke: '#D9D2BF' },
+                    tickLabels: {
+                      fontSize: 9,
+                      fill: '#8A8B7E',
+                      fontFamily: 'JetBrainsMono-Medium',
+                    },
+                    grid: { stroke: '#EBE5D6', strokeDasharray: '0' },
                   }}
                 />
                 <VictoryLine
                   data={trend}
-                  style={{ data: { stroke: '#1D9E75', strokeWidth: 2 } }}
+                  style={{ data: { stroke: '#1F3D2C', strokeWidth: 1.5 } }}
                 />
               </VictoryChart>
-            </Card>
-
-            <View style={{ height: 12 }} />
+            </Section>
           </>
         )}
 
-        <Text
-          style={{
-            color: '#888880',
-            fontSize: 11,
-            fontWeight: '500',
-            letterSpacing: 0.4,
-            textTransform: 'uppercase',
-            marginBottom: 6,
-          }}
-        >
-          Recent rounds
-        </Text>
-        {rounds.length === 0 ? (
-          <Text style={{ color: '#888880', fontSize: 13 }}>No rounds yet.</Text>
-        ) : (
-          rounds.slice(0, 5).map((r) => (
-            <Link key={r.id} href={`/(app)/round/${r.id}`} asChild>
-              <Pressable
-                style={{
-                  backgroundColor: '#FFFFFF',
-                  borderRadius: 10,
-                  borderWidth: 0.5,
-                  borderColor: '#E4E4E0',
-                  padding: 12,
-                  marginBottom: 8,
-                  flexDirection: 'row',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                }}
-              >
-                <View>
-                  <Text
-                    style={{ color: '#111111', fontSize: 14, fontWeight: '500' }}
-                  >
-                    {r.courses?.name ?? 'Round'}
-                  </Text>
-                  <Text style={{ color: '#888880', fontSize: 11 }}>
-                    {r.played_at}
-                  </Text>
-                </View>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                  <Text
+        <Section kicker="Recent rounds">
+          {rounds.length === 0 ? (
+            <Text style={{ color: '#8A8B7E', fontSize: 13 }}>No rounds yet.</Text>
+          ) : (
+            <View style={{ borderTopWidth: 1, borderColor: '#D9D2BF' }}>
+              {rounds.slice(0, 5).map((r) => (
+                <Link key={r.id} href={`/(app)/round/${r.id}`} asChild>
+                  <Pressable
                     style={{
-                      color: '#111111',
-                      fontSize: 16,
-                      fontWeight: '500',
-                      fontVariant: ['tabular-nums'],
+                      flexDirection: 'row',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      paddingVertical: 14,
+                      borderBottomWidth: 1,
+                      borderColor: '#D9D2BF',
                     }}
                   >
-                    {r.total_score ?? '—'}
-                  </Text>
-                  <SGPill value={r.sg_total} />
-                </View>
-              </Pressable>
-            </Link>
-          ))
-        )}
+                    <View style={{ flex: 1, paddingRight: 12 }}>
+                      <Text
+                        style={{
+                          ...KICKER,
+                          color: '#8A8B7E',
+                          marginBottom: 4,
+                        }}
+                      >
+                        {r.played_at}
+                      </Text>
+                      <Text
+                        style={{
+                          color: '#1C211C',
+                          fontSize: 17,
+                          fontWeight: '500',
+                          fontStyle: 'italic',
+                        }}
+                      >
+                        {r.courses?.name ?? 'Round'}
+                      </Text>
+                    </View>
+                    <View
+                      style={{
+                        flexDirection: 'row',
+                        alignItems: 'baseline',
+                        gap: 14,
+                      }}
+                    >
+                      <Text
+                        style={{
+                          color: '#1C211C',
+                          fontSize: 22,
+                          fontWeight: '500',
+                          fontVariant: ['tabular-nums'],
+                        }}
+                      >
+                        {r.total_score ?? '—'}
+                      </Text>
+                      <SGValue value={r.sg_total} />
+                    </View>
+                  </Pressable>
+                </Link>
+              ))}
+            </View>
+          )}
+        </Section>
       </ScrollView>
     </View>
   )
 }
 
-function Card({
-  label,
+function Section({
+  kicker,
   children,
 }: {
-  label?: string
+  kicker: string
   children: React.ReactNode
 }) {
   return (
-    <View
-      style={{
-        backgroundColor: '#FFFFFF',
-        borderRadius: 10,
-        borderWidth: 0.5,
-        borderColor: '#E4E4E0',
-        padding: 14,
-      }}
-    >
-      {label && (
-        <Text
-          style={{
-            color: '#888880',
-            fontSize: 11,
-            fontWeight: '500',
-            letterSpacing: 0.4,
-            textTransform: 'uppercase',
-            marginBottom: 8,
-          }}
-        >
-          {label}
-        </Text>
-      )}
+    <View style={{ marginBottom: 28 }}>
+      <View
+        style={{
+          borderTopWidth: 1,
+          borderColor: '#D9D2BF',
+          paddingTop: 14,
+          marginBottom: 14,
+        }}
+      >
+        <Text style={KICKER}>{kicker}</Text>
+      </View>
       {children}
     </View>
   )
@@ -284,20 +327,27 @@ function SGBar({
 }) {
   const pct = Math.min(Math.abs(value) / max, 1) * 50
   const isPositive = value > 0
-  const fill = value > 0 ? '#1D9E75' : value < 0 ? '#E24B4A' : '#AAAAAA'
-  const textColor = value > 0 ? '#0F6E56' : value < 0 ? '#A32D2D' : '#888880'
+  const color = value > 0 ? '#1F3D2C' : value < 0 ? '#A33A2A' : '#8A8B7E'
   return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-      <Text style={{ color: '#888880', fontSize: 12, width: 92 }}>{label}</Text>
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+      <Text style={{ color: '#1C211C', fontSize: 13, width: 100 }}>{label}</Text>
       <View
         style={{
           flex: 1,
-          height: 7,
-          backgroundColor: '#F0F0EC',
-          borderRadius: 4,
+          height: 8,
           position: 'relative',
         }}
       >
+        <View
+          style={{
+            position: 'absolute',
+            left: 0,
+            right: 0,
+            top: 4,
+            height: 1,
+            backgroundColor: '#D9D2BF',
+          }}
+        />
         <View
           style={{
             position: 'absolute',
@@ -305,27 +355,27 @@ function SGBar({
             bottom: 0,
             left: '50%',
             width: 1,
-            backgroundColor: '#E4E4E0',
+            backgroundColor: '#9F9580',
           }}
         />
         <View
           style={{
             position: 'absolute',
-            top: 0,
-            bottom: 0,
+            top: 1,
+            bottom: 1,
             left: isPositive ? '50%' : `${50 - pct}%`,
             width: `${pct}%`,
-            backgroundColor: fill,
-            borderRadius: 4,
+            backgroundColor: color,
           }}
         />
       </View>
       <Text
         style={{
-          color: textColor,
-          fontSize: 12,
+          color,
+          fontSize: 15,
+          fontStyle: 'italic',
           fontWeight: '500',
-          width: 44,
+          width: 56,
           textAlign: 'right',
           fontVariant: ['tabular-nums'],
         }}
@@ -337,34 +387,23 @@ function SGBar({
   )
 }
 
-function SGPill({ value }: { value: number | null }) {
+function SGValue({ value }: { value: number | null }) {
   if (value === null) {
-    return <Text style={{ color: '#AAAAAA', fontSize: 11 }}>—</Text>
+    return <Text style={{ color: '#8A8B7E', fontSize: 17 }}>—</Text>
   }
-  const pos = value > 0
-  const neg = value < 0
-  const bg = pos ? '#E1F5EE' : neg ? '#FCEBEB' : '#F1EFE8'
-  const fg = pos ? '#0F6E56' : neg ? '#A32D2D' : '#5F5E5A'
+  const color = value > 0 ? '#1F3D2C' : value < 0 ? '#A33A2A' : '#5C6356'
   return (
-    <View
+    <Text
       style={{
-        backgroundColor: bg,
-        borderRadius: 8,
-        paddingHorizontal: 8,
-        paddingVertical: 2,
+        color,
+        fontSize: 17,
+        fontStyle: 'italic',
+        fontWeight: '500',
+        fontVariant: ['tabular-nums'],
       }}
     >
-      <Text
-        style={{
-          color: fg,
-          fontSize: 11,
-          fontWeight: '500',
-          fontVariant: ['tabular-nums'],
-        }}
-      >
-        SG {value > 0 ? '+' : ''}
-        {value.toFixed(2)}
-      </Text>
-    </View>
+      {value > 0 ? '+' : ''}
+      {value.toFixed(2)}
+    </Text>
   )
 }
