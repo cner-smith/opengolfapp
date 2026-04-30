@@ -29,23 +29,26 @@ export function ShotPatternsPage() {
   const stats = data?.stats ?? null
 
   return (
-    <div className="flex flex-col gap-3">
-      <div>
+    <div>
+      <div style={{ marginBottom: 28 }}>
+        <div className="kicker" style={{ marginBottom: 8 }}>
+          Dispersion ledger
+        </div>
         <h1
-          className="text-oga-text-primary"
-          style={{ fontSize: 22, fontWeight: 600, lineHeight: 1.3 }}
+          className="font-serif text-caddie-ink"
+          style={{ fontSize: 28, fontWeight: 500, lineHeight: 1.15 }}
         >
           Shot Patterns
         </h1>
         <div
-          className="text-oga-text-muted"
-          style={{ fontSize: 13, marginTop: 2 }}
+          className="text-caddie-ink-dim"
+          style={{ fontSize: 15, marginTop: 6, maxWidth: 560 }}
         >
-          Per-club dispersion centered on your aim point
+          Per-club dispersion centered on the aim point you set before each shot.
         </div>
       </div>
 
-      <Card label="Club">
+      <Section kicker="Club">
         <div className="flex flex-wrap" style={{ gap: 6 }}>
           {CLUBS.map((c) => (
             <button
@@ -58,136 +61,187 @@ export function ShotPatternsPage() {
             </button>
           ))}
         </div>
-      </Card>
+      </Section>
 
-      <div className="grid grid-cols-2 gap-3">
-        <Card label="Lie type">
+      <div
+        className="grid grid-cols-1 sm:grid-cols-2"
+        style={{ gap: 28, marginBottom: 28 }}
+      >
+        <FilterSection kicker="Lie type">
           <SelectChips
             value={lieType}
             options={['', ...LIE_TYPES] as const}
             onChange={(v) => setLieType(v as LieType | '')}
             renderLabel={(v) => (v === '' ? 'any' : v.replace(/_/g, ' '))}
           />
-        </Card>
-        <Card label="Lie slope">
+        </FilterSection>
+        <FilterSection kicker="Lie slope">
           <SelectChips
             value={lieSlope}
             options={['', ...LIE_SLOPES] as const}
             onChange={(v) => setLieSlope(v as LieSlope | '')}
             renderLabel={(v) => (v === '' ? 'any' : v.replace(/_/g, ' '))}
           />
-        </Card>
+        </FilterSection>
       </div>
 
-      <div className="grid gap-3 lg:grid-cols-[auto,1fr]">
-        <Card>
-          {isLoading ? (
-            <div
-              className="flex items-center justify-center text-oga-text-muted"
-              style={{ width: SVG_SIZE, height: SVG_SIZE, fontSize: 13 }}
-            >
-              Loading…
-            </div>
-          ) : points.length === 0 ? (
-            <div
-              className="flex items-center justify-center text-oga-text-muted"
-              style={{ width: SVG_SIZE, height: SVG_SIZE, fontSize: 13 }}
-            >
-              No shots yet for {club}
-              {lieType ? ` (${lieType})` : ''}
-              {lieSlope ? ` (${lieSlope})` : ''}.
-            </div>
-          ) : (
-            <DispersionPlot points={points} stats={stats} />
-          )}
-        </Card>
-
-        <div className="flex flex-col gap-3">
-          <Card label="Pattern summary">
-            {stats ? (
-              <dl className="grid grid-cols-2 gap-3">
-                <Stat label="Sample" value={`${stats.sampleSize} shots`} />
-                <Stat
-                  label="Avg lateral"
-                  value={`${stats.avgLateralOffset.toFixed(1)} yd`}
-                />
-                <Stat
-                  label="Avg distance bias"
-                  value={`${stats.avgDistanceOffset.toFixed(1)} yd`}
-                />
-                <Stat label="Shape" value={stats.shotShape} />
-                <Stat label="Dominant miss" value={stats.dominantMiss} />
-                <Stat
-                  label="68% spread"
-                  value={`±${stats.cone68.lateral.toFixed(1)} / ${stats.cone68.distance.toFixed(1)} yd`}
-                />
-              </dl>
-            ) : (
-              <p className="text-oga-text-muted" style={{ fontSize: 13 }}>
-                Need at least 5 shots with aim and landing coords to compute a pattern.
-              </p>
-            )}
-          </Card>
-          {stats && (
-            <div
-              style={{
-                backgroundColor: '#E1F5EE',
-                borderRadius: 10,
-                padding: '14px 16px',
-              }}
-            >
+      <div
+        style={{
+          borderTop: '1px solid #D9D2BF',
+          paddingTop: 14,
+        }}
+      >
+        <div className="kicker" style={{ marginBottom: 14 }}>
+          Pattern
+        </div>
+        <div
+          className="grid"
+          style={{
+            gap: 22,
+            gridTemplateColumns: 'minmax(0, auto) minmax(0, 1fr)',
+          }}
+        >
+          <div
+            className="bg-caddie-surface"
+            style={{
+              border: '1px solid #D9D2BF',
+              borderRadius: 4,
+              padding: 14,
+            }}
+          >
+            {isLoading ? (
               <div
-                className="uppercase"
+                className="flex items-center justify-center text-caddie-ink-mute"
+                style={{ width: SVG_SIZE, height: SVG_SIZE, fontSize: 13 }}
+              >
+                Loading…
+              </div>
+            ) : points.length === 0 ? (
+              <div
+                className="flex items-center justify-center text-caddie-ink-mute"
                 style={{
-                  color: '#0F6E56',
-                  fontSize: 11,
-                  fontWeight: 500,
-                  letterSpacing: 0.4,
-                  marginBottom: 4,
+                  width: SVG_SIZE,
+                  height: SVG_SIZE,
+                  fontSize: 13,
+                  textAlign: 'center',
+                  padding: 20,
                 }}
               >
-                Aim correction
+                No shots yet for {club}
+                {lieType ? ` (${lieType})` : ''}
+                {lieSlope ? ` (${lieSlope})` : ''}.
               </div>
-              <p style={{ color: '#0F6E56', fontSize: 13 }}>
-                {getAimCorrection(stats)}
-              </p>
+            ) : (
+              <DispersionPlot points={points} stats={stats} />
+            )}
+          </div>
+
+          <div className="flex flex-col" style={{ gap: 22 }}>
+            <div>
+              <div className="kicker" style={{ marginBottom: 12 }}>
+                Pattern summary
+              </div>
+              {stats ? (
+                <dl
+                  className="grid grid-cols-2"
+                  style={{ gap: 18, rowGap: 18 }}
+                >
+                  <Stat label="Sample" value={`${stats.sampleSize} shots`} />
+                  <Stat
+                    label="Avg lateral"
+                    value={`${stats.avgLateralOffset.toFixed(1)} yd`}
+                  />
+                  <Stat
+                    label="Distance bias"
+                    value={`${stats.avgDistanceOffset.toFixed(1)} yd`}
+                  />
+                  <Stat label="Shape" value={stats.shotShape} />
+                  <Stat label="Dominant miss" value={stats.dominantMiss} />
+                  <Stat
+                    label="68% spread"
+                    value={`±${stats.cone68.lateral.toFixed(1)} / ${stats.cone68.distance.toFixed(1)} yd`}
+                  />
+                </dl>
+              ) : (
+                <p
+                  className="font-serif text-caddie-ink"
+                  style={{
+                    fontSize: 17,
+                    lineHeight: 1.55,
+                    maxWidth: 480,
+                  }}
+                >
+                  Need at least <em>five shots</em> with aim and landing
+                  coordinates to compute a pattern.
+                </p>
+              )}
             </div>
-          )}
+            {stats && (
+              <div
+                style={{
+                  borderTop: '1px solid #D9D2BF',
+                  paddingTop: 18,
+                }}
+              >
+                <div className="kicker" style={{ marginBottom: 10 }}>
+                  Aim correction
+                </div>
+                <p
+                  className="font-serif text-caddie-ink"
+                  style={{ fontSize: 17, lineHeight: 1.55, maxWidth: 480 }}
+                >
+                  {getAimCorrection(stats)}
+                </p>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>
   )
 }
 
-function Card({
-  label,
+function Section({
+  kicker,
   children,
 }: {
-  label?: string
+  kicker: string
   children: React.ReactNode
 }) {
   return (
-    <div
-      className="bg-oga-bg-card"
-      style={{
-        border: '0.5px solid #E4E4E0',
-        borderRadius: 10,
-        padding: '12px 14px',
-      }}
-    >
-      {label && (
-        <div
-          className="text-oga-text-muted uppercase"
-          style={{
-            fontSize: 11,
-            fontWeight: 500,
-            letterSpacing: 0.4,
-            marginBottom: 8,
-          }}
-        >
-          {label}
-        </div>
-      )}
+    <section style={{ marginBottom: 28 }}>
+      <div
+        style={{
+          borderTop: '1px solid #D9D2BF',
+          paddingTop: 14,
+          marginBottom: 14,
+        }}
+      >
+        <div className="kicker">{kicker}</div>
+      </div>
+      {children}
+    </section>
+  )
+}
+
+function FilterSection({
+  kicker,
+  children,
+}: {
+  kicker: string
+  children: React.ReactNode
+}) {
+  return (
+    <div>
+      <div
+        style={{
+          borderTop: '1px solid #D9D2BF',
+          paddingTop: 14,
+          marginBottom: 14,
+        }}
+      >
+        <div className="kicker">{kicker}</div>
+      </div>
       {children}
     </div>
   )
@@ -195,11 +249,11 @@ function Card({
 
 function chipStyle(active: boolean): React.CSSProperties {
   return {
-    backgroundColor: active ? '#E1F5EE' : '#F4F4F0',
-    color: active ? '#0F6E56' : '#111111',
-    border: `0.5px solid ${active ? '#1D9E75' : '#E0E0DA'}`,
-    borderRadius: 7,
-    padding: '7px 10px',
+    backgroundColor: active ? '#1F3D2C' : '#EBE5D6',
+    color: active ? '#F2EEE5' : '#1C211C',
+    border: 'none',
+    borderRadius: 2,
+    padding: '6px 10px',
     fontSize: 12,
     fontWeight: active ? 500 : 400,
     cursor: 'pointer',
@@ -236,12 +290,17 @@ function SelectChips<T extends string>({
 function Stat({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <dt className="text-oga-text-muted" style={{ fontSize: 11 }}>
+      <dt className="kicker" style={{ marginBottom: 6 }}>
         {label}
       </dt>
       <dd
-        className="font-medium tabular text-oga-text-primary"
-        style={{ fontSize: 13, textTransform: 'capitalize' }}
+        className="font-serif tabular text-caddie-ink"
+        style={{
+          fontSize: 22,
+          fontWeight: 500,
+          textTransform: 'capitalize',
+          lineHeight: 1.1,
+        }}
       >
         {value}
       </dd>
@@ -249,12 +308,14 @@ function Stat({ label, value }: { label: string; value: string }) {
   )
 }
 
+// Pattern point colors. Solid = ink (neutral, the goal); push/pull = warn
+// amber; misses = neg brick. Stays inside the editorial palette.
 function pointColor(result: string | undefined): { fill: string; opacity: number } {
-  if (result === 'solid') return { fill: '#1D9E75', opacity: 0.7 }
+  if (result === 'solid') return { fill: '#1C211C', opacity: 0.75 }
   if (result === 'push_right' || result === 'pull_left')
-    return { fill: '#EF9F27', opacity: 0.7 }
-  if (result === undefined) return { fill: '#888880', opacity: 0.5 }
-  return { fill: '#E24B4A', opacity: 0.8 }
+    return { fill: '#A66A1F', opacity: 0.75 }
+  if (result === undefined) return { fill: '#8A8B7E', opacity: 0.5 }
+  return { fill: '#A33A2A', opacity: 0.8 }
 }
 
 function DispersionPlot({
@@ -291,7 +352,7 @@ function DispersionPlot({
       width={SVG_SIZE}
       height={SVG_SIZE}
       viewBox={`0 0 ${SVG_SIZE} ${SVG_SIZE}`}
-      style={{ backgroundColor: '#F8F8F6', borderRadius: 8 }}
+      style={{ backgroundColor: '#F2EEE5', borderRadius: 2 }}
     >
       {ticks.map((t) => (
         <g key={`v${t}`}>
@@ -300,7 +361,7 @@ function DispersionPlot({
             y1={0}
             x2={px(t)}
             y2={SVG_SIZE}
-            stroke="#E8E8E4"
+            stroke="#EBE5D6"
             strokeWidth={1}
           />
           <line
@@ -308,13 +369,13 @@ function DispersionPlot({
             y1={py(t)}
             x2={SVG_SIZE}
             y2={py(t)}
-            stroke="#E8E8E4"
+            stroke="#EBE5D6"
             strokeWidth={1}
           />
         </g>
       ))}
-      <line x1={cx} y1={0} x2={cx} y2={SVG_SIZE} stroke="#D0D0CA" strokeWidth={1} />
-      <line x1={0} y1={cy} x2={SVG_SIZE} y2={cy} stroke="#D0D0CA" strokeWidth={1} />
+      <line x1={cx} y1={0} x2={cx} y2={SVG_SIZE} stroke="#9F9580" strokeWidth={1} />
+      <line x1={0} y1={cy} x2={SVG_SIZE} y2={cy} stroke="#9F9580" strokeWidth={1} />
 
       {stats && (
         <>
@@ -323,8 +384,8 @@ function DispersionPlot({
             cy={py(stats.avgDistanceOffset)}
             rx={stats.cone95.lateral * scale}
             ry={stats.cone95.distance * scale}
-            fill="rgba(29,158,117,0.08)"
-            stroke="#1D9E75"
+            fill="rgba(31,61,44,0.06)"
+            stroke="#1F3D2C"
             strokeDasharray="5 4"
             strokeWidth={1}
           />
@@ -333,22 +394,24 @@ function DispersionPlot({
             cy={py(stats.avgDistanceOffset)}
             rx={stats.cone68.lateral * scale}
             ry={stats.cone68.distance * scale}
-            fill="rgba(29,158,117,0.15)"
-            stroke="#1D9E75"
+            fill="rgba(31,61,44,0.12)"
+            stroke="#1F3D2C"
             strokeDasharray="4 3"
             strokeWidth={1}
           />
         </>
       )}
 
-      <circle cx={cx} cy={cy} r={3} fill="#1D9E75" />
+      <circle cx={cx} cy={cy} r={3} fill="#A66A1F" />
       <text
         x={cx + 6}
         y={cy + 14}
         fontSize={10}
-        fill="#1D9E75"
+        fontFamily="JetBrains Mono, monospace"
+        letterSpacing="0.14em"
+        fill="#A66A1F"
       >
-        target
+        AIM
       </text>
 
       {points.map((p, i) => {
@@ -365,16 +428,44 @@ function DispersionPlot({
         )
       })}
 
-      <text x={cx + 6} y={14} fontSize={9} fill="#888880">
-        long
+      <text
+        x={cx + 8}
+        y={14}
+        fontSize={9}
+        fontFamily="JetBrains Mono, monospace"
+        letterSpacing="0.14em"
+        fill="#8A8B7E"
+      >
+        LONG
       </text>
-      <text x={cx + 6} y={SVG_SIZE - 6} fontSize={9} fill="#888880">
-        short
+      <text
+        x={cx + 8}
+        y={SVG_SIZE - 6}
+        fontSize={9}
+        fontFamily="JetBrains Mono, monospace"
+        letterSpacing="0.14em"
+        fill="#8A8B7E"
+      >
+        SHORT
       </text>
-      <text x={6} y={cy - 6} fontSize={9} fill="#888880">
+      <text
+        x={6}
+        y={cy - 6}
+        fontSize={9}
+        fontFamily="JetBrains Mono, monospace"
+        letterSpacing="0.14em"
+        fill="#8A8B7E"
+      >
         L
       </text>
-      <text x={SVG_SIZE - 14} y={cy - 6} fontSize={9} fill="#888880">
+      <text
+        x={SVG_SIZE - 14}
+        y={cy - 6}
+        fontSize={9}
+        fontFamily="JetBrains Mono, monospace"
+        letterSpacing="0.14em"
+        fill="#8A8B7E"
+      >
         R
       </text>
     </svg>
