@@ -10,7 +10,8 @@
     "test": "turbo test",
     "lint": "eslint apps/web/src packages/*/src --ext .ts,.tsx",
     "format": "prettier --write .",
-    "seed:demo": "tsx scripts/seed-demo.ts"
+    "seed:demo": "tsx scripts/seed-demo.ts",
+    "seed:my-data": "tsx scripts/seed-my-data.ts"
   },
   "devDependencies": {
     "@supabase/supabase-js": "^2.45.0",
