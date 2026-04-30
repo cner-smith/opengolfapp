@@ -2,12 +2,15 @@ import { useEffect, useState } from 'react'
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native'
 import { GreenDiagram, type BreakDirection } from './GreenDiagram'
 
-type PuttResult = 'made' | 'short' | 'long' | 'missed_left' | 'missed_right'
 type GreenSpeed = 'slow' | 'medium' | 'fast'
+type PuttDistanceResult = 'short' | 'long'
+type PuttDirectionResult = 'left' | 'right'
 
 export interface PuttingValue {
   puttDistanceFt?: number
-  puttResult?: PuttResult
+  puttMade?: boolean
+  puttDistanceResult?: PuttDistanceResult
+  puttDirectionResult?: PuttDirectionResult
   breakDirection?: BreakDirection
   puttSlopePct?: number // 0-4 intensity bucket
   greenSpeed?: GreenSpeed
@@ -31,15 +34,14 @@ const KICKER: import('react-native').TextStyle = {
   textTransform: 'uppercase',
 }
 
-const RESULT_GRID_ROW1: PuttResult[] = ['made', 'short', 'long']
-const RESULT_GRID_ROW2: PuttResult[] = ['missed_left', 'missed_right']
-const RESULT_LABEL: Record<PuttResult, string> = {
-  made: 'Made',
-  short: 'Short',
-  long: 'Long',
-  missed_left: 'Missed left',
-  missed_right: 'Missed right',
-}
+const DISTANCE_OPTIONS: { value: PuttDistanceResult; label: string }[] = [
+  { value: 'short', label: 'Short' },
+  { value: 'long', label: 'Long' },
+]
+const DIRECTION_OPTIONS: { value: PuttDirectionResult; label: string }[] = [
+  { value: 'left', label: 'Missed left' },
+  { value: 'right', label: 'Missed right' },
+]
 
 const BREAK_OPTIONS: { value: BreakDirection; label: string }[] = [
   { value: 'left_to_right', label: 'L → R' },
@@ -66,7 +68,9 @@ export function PuttingSheet({
 }: PuttingSheetProps) {
   const [value, setValue] = useState<PuttingValue>({
     puttDistanceFt: initial?.puttDistanceFt ?? initialDistanceFt ?? 0,
-    puttResult: initial?.puttResult,
+    puttMade: initial?.puttMade,
+    puttDistanceResult: initial?.puttDistanceResult,
+    puttDirectionResult: initial?.puttDirectionResult,
     breakDirection: initial?.breakDirection ?? 'straight',
     puttSlopePct: initial?.puttSlopePct ?? 0,
     greenSpeed: initial?.greenSpeed,
@@ -98,13 +102,42 @@ export function PuttingSheet({
     setValue((prev) => ({ ...prev, [k]: v }))
   }
 
+  // Toggle the made flag exclusively — selecting 'made' clears the
+  // distance / direction misses, and tapping any miss clears made.
+  function setMade(made: boolean) {
+    setValue((prev) => ({
+      ...prev,
+      puttMade: made,
+      puttDistanceResult: made ? undefined : prev.puttDistanceResult,
+      puttDirectionResult: made ? undefined : prev.puttDirectionResult,
+    }))
+  }
+
+  function setDistanceResult(v: PuttDistanceResult) {
+    setValue((prev) => ({
+      ...prev,
+      puttMade: false,
+      puttDistanceResult: prev.puttDistanceResult === v ? undefined : v,
+    }))
+  }
+
+  function setDirectionResult(v: PuttDirectionResult) {
+    setValue((prev) => ({
+      ...prev,
+      puttMade: false,
+      puttDirectionResult: prev.puttDirectionResult === v ? undefined : v,
+    }))
+  }
+
   function commit(makeOverride?: boolean) {
-    const finalResult: PuttResult | undefined = makeOverride
-      ? 'made'
-      : makeOverride === false && !value.puttResult
-        ? 'missed_left'
-        : value.puttResult
-    onSave({ ...value, puttResult: finalResult ?? value.puttResult })
+    const made =
+      makeOverride === true ? true : makeOverride === false ? false : value.puttMade
+    onSave({
+      ...value,
+      puttMade: made,
+      puttDistanceResult: made ? undefined : value.puttDistanceResult,
+      puttDirectionResult: made ? undefined : value.puttDirectionResult,
+    })
   }
 
   const distance = value.puttDistanceFt ?? 0
@@ -181,30 +214,57 @@ export function PuttingSheet({
           />
         </View>
 
-        <Section title="Result">
+        <Section title="Made?">
           <View style={{ flexDirection: 'row', gap: 8 }}>
-            {RESULT_GRID_ROW1.map((r) => (
-              <ResultCell
-                key={r}
-                label={RESULT_LABEL[r]}
-                made={r === 'made'}
-                active={value.puttResult === r}
-                onPress={() => set('puttResult', r)}
-              />
-            ))}
+            <ResultCell
+              label="Holed it"
+              made
+              active={value.puttMade === true}
+              onPress={() => setMade(value.puttMade !== true)}
+            />
+            <View style={{ flex: 2 }} />
           </View>
-          <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
-            {RESULT_GRID_ROW2.map((r) => (
+        </Section>
+
+        <Section title="Distance">
+          <View style={{ flexDirection: 'row', gap: 8 }}>
+            {DISTANCE_OPTIONS.map((d) => (
               <ResultCell
-                key={r}
-                label={RESULT_LABEL[r]}
+                key={d.value}
+                label={d.label}
                 made={false}
-                active={value.puttResult === r}
-                onPress={() => set('puttResult', r)}
+                active={
+                  !value.puttMade && value.puttDistanceResult === d.value
+                }
+                disabled={value.puttMade === true}
+                onPress={() => setDistanceResult(d.value)}
               />
             ))}
             <View style={{ flex: 1 }} />
           </View>
+          <Text style={{ ...KICKER, marginTop: 8, color: '#8A8B7E' }}>
+            Tap again to clear · leave blank if pace was right
+          </Text>
+        </Section>
+
+        <Section title="Direction">
+          <View style={{ flexDirection: 'row', gap: 8 }}>
+            {DIRECTION_OPTIONS.map((d) => (
+              <ResultCell
+                key={d.value}
+                label={d.label}
+                made={false}
+                active={
+                  !value.puttMade && value.puttDirectionResult === d.value
+                }
+                disabled={value.puttMade === true}
+                onPress={() => setDirectionResult(d.value)}
+              />
+            ))}
+          </View>
+          <Text style={{ ...KICKER, marginTop: 8, color: '#8A8B7E' }}>
+            Tap again to clear · leave blank if line was good
+          </Text>
         </Section>
 
         <Section title="Break">
@@ -362,29 +422,24 @@ function ResultCell({
   label,
   made,
   active,
+  disabled,
   onPress,
 }: {
   label: string
   made: boolean
   active: boolean
+  disabled?: boolean
   onPress: () => void
 }) {
-  // "Made" cell uses accent fill always (the celebrated outcome). Misses
-  // are surface with caddie-line border; active state inverts to accent.
-  const fill = made
-    ? '#1F3D2C'
-    : active
-      ? '#1F3D2C'
-      : '#FBF8F1'
-  const fg = made || active ? '#F2EEE5' : '#1C211C'
-  const border = made
-    ? '#1F3D2C'
-    : active
-      ? '#1F3D2C'
-      : '#D9D2BF'
+  // "Made" cell uses accent fill when active. Misses are surface with
+  // caddie-line border; active state inverts to accent fill.
+  const fill = (made && active) || (!made && active) ? '#1F3D2C' : '#FBF8F1'
+  const fg = active ? '#F2EEE5' : '#1C211C'
+  const border = active ? '#1F3D2C' : '#D9D2BF'
   return (
     <Pressable
       onPress={onPress}
+      disabled={disabled}
       style={{
         flex: 1,
         backgroundColor: fill,
@@ -393,13 +448,14 @@ function ResultCell({
         borderRadius: 2,
         paddingVertical: 16,
         alignItems: 'center',
+        opacity: disabled ? 0.4 : 1,
       }}
     >
       <Text
         style={{
           color: fg,
           fontSize: 14,
-          fontWeight: made || active ? '600' : '500',
+          fontWeight: active ? '600' : '500',
           letterSpacing: 0.3,
         }}
       >

@@ -28,6 +28,7 @@ import {
 } from '../../../../../lib/db'
 import { syncPendingShots } from '../../../../../lib/sync'
 import { distanceYards } from '../../../../../lib/maps'
+import { combinedPuttResult } from '@oga/core'
 
 type HoleRow = Database['public']['Tables']['holes']['Row']
 type HoleScoreRow = Database['public']['Tables']['hole_scores']['Row']
@@ -206,7 +207,17 @@ export default function HoleScreen() {
       penalty: meta?.shotResult === 'penalty',
       ob: meta?.shotResult === 'ob',
       putt_distance_ft: meta?.puttDistanceFt ?? null,
-      putt_result: meta?.puttResult ?? null,
+      putt_result: combinedPuttResult({
+        made: meta?.puttMade,
+        distance: meta?.puttDistanceResult ?? null,
+        direction: meta?.puttDirectionResult ?? null,
+      }),
+      putt_distance_result: meta?.puttMade
+        ? null
+        : meta?.puttDistanceResult ?? null,
+      putt_direction_result: meta?.puttMade
+        ? null
+        : meta?.puttDirectionResult ?? null,
       putt_slope_pct: meta?.puttSlopePct ?? null,
       green_speed: meta?.greenSpeed ?? null,
       break_direction: meta?.breakDirection ?? null,

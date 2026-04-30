@@ -106,11 +106,39 @@ export interface Shot {
     | 'right_to_left'
     | 'uphill'
     | 'downhill'
+  /** @deprecated combined value retained for back-compat reads. New code
+   *  uses puttMade + puttDistanceResult + puttDirectionResult — three
+   *  independent dimensions. */
   puttResult?: 'made' | 'short' | 'long' | 'missed_left' | 'missed_right'
+  puttMade?: boolean
+  puttDistanceResult?: 'short' | 'long'
+  puttDirectionResult?: 'left' | 'right'
   puttDistanceFt?: number
   puttSlopePct?: number
   greenSpeed?: 'slow' | 'medium' | 'fast'
   notes?: string
+}
+
+export type LegacyPuttResult =
+  | 'made'
+  | 'short'
+  | 'long'
+  | 'missed_left'
+  | 'missed_right'
+
+/** Reconstruct legacy putt_result from the three new putting axes so
+ *  writers can keep the legacy column populated for back-compat. */
+export function combinedPuttResult(args: {
+  made?: boolean
+  distance?: 'short' | 'long' | null
+  direction?: 'left' | 'right' | null
+}): LegacyPuttResult | null {
+  if (args.made) return 'made'
+  if (args.distance === 'short') return 'short'
+  if (args.distance === 'long') return 'long'
+  if (args.direction === 'left') return 'missed_left'
+  if (args.direction === 'right') return 'missed_right'
+  return null
 }
 
 export interface SGBreakdown {

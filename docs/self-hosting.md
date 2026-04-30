@@ -41,6 +41,10 @@ Migrations live in `supabase/migrations/`:
 
 - `0001_initial_schema.sql` — base schema (profiles, courses, rounds, hole_scores, shots, drills, practice_plans).
 - `0002_hole_score_pin_position.sql` — adds `pin_lat`/`pin_lng` to `hole_scores` for the per-round pin captured during live play.
+- `0003_split_lie_slope.sql` — splits `lie_slope` into independent `lie_slope_forward` (uphill/level/downhill) and `lie_slope_side` (ball above/below) axes; legacy column kept for back-compat reads.
+- `0004_course_external_id.sql` — adds `courses.external_id` (+ index) for OpenGolfAPI imports.
+- `0005_putting_fields.sql` — adds `putt_slope_pct` (0-4) and `green_speed` (slow/medium/fast) to `shots`.
+- `0006_putt_result_split.sql` — splits putt result into `putt_distance_result` (short/long) and `putt_direction_result` (left/right); legacy `putt_result` kept and backfilled.
 
 Apply them in order. Either:
 

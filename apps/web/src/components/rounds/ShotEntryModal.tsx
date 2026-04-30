@@ -3,6 +3,7 @@ import {
   CLUBS,
   LIE_TYPES,
   SHOT_RESULTS,
+  combinedPuttResult,
   type Club,
   type LieSlopeForward,
   type LieSlopeSide,
@@ -47,8 +48,6 @@ interface ShotEntryModalProps {
   onClose: () => void
 }
 
-type PuttResult = 'made' | 'short' | 'long' | 'missed_left' | 'missed_right'
-
 type GreenSpeed = 'slow' | 'medium' | 'fast'
 
 interface DraftShot {
@@ -61,7 +60,9 @@ interface DraftShot {
   shotResult?: ShotResult
   distanceToTarget?: number
   puttDistanceFt?: number
-  puttResult?: PuttResult
+  puttMade?: boolean
+  puttDistanceResult?: 'short' | 'long'
+  puttDirectionResult?: 'left' | 'right'
   puttSlopePct?: number
   greenSpeed?: GreenSpeed
   breakDirection?:
@@ -103,7 +104,21 @@ function shotRowToDraft(s: ShotRow): DraftShot {
     shotResult,
     distanceToTarget: s.distance_to_target ?? undefined,
     puttDistanceFt: s.putt_distance_ft ?? undefined,
-    puttResult: s.putt_result ?? undefined,
+    puttMade: s.putt_result === 'made' ? true : undefined,
+    puttDistanceResult:
+      s.putt_distance_result ??
+      (s.putt_result === 'short'
+        ? 'short'
+        : s.putt_result === 'long'
+          ? 'long'
+          : undefined),
+    puttDirectionResult:
+      s.putt_direction_result ??
+      (s.putt_result === 'missed_left'
+        ? 'left'
+        : s.putt_result === 'missed_right'
+          ? 'right'
+          : undefined),
     puttSlopePct: s.putt_slope_pct ?? undefined,
     greenSpeed: s.green_speed ?? undefined,
     breakDirection: mapBreakDirection(s.break_direction),
@@ -178,9 +193,24 @@ export function ShotEntryModal({
     setDraft(emptyDraft(holeShots.length + 1, holeShots.length === 0))
   }
 
-  async function save(overrideResult?: PuttResult) {
+  async function save(opts?: { madeOverride?: boolean }) {
     if (!user) return
     const isPuttSave = draft.lieType === 'green'
+    const made =
+      opts?.madeOverride === true
+        ? true
+        : opts?.madeOverride === false
+          ? false
+          : draft.puttMade
+    const distanceResult = made ? null : draft.puttDistanceResult ?? null
+    const directionResult = made ? null : draft.puttDirectionResult ?? null
+    const legacyPuttResult = isPuttSave
+      ? combinedPuttResult({
+          made,
+          distance: distanceResult,
+          direction: directionResult,
+        })
+      : null
     const insert: ShotInsert = {
       hole_score_id: holeScoreId,
       user_id: user.id,
@@ -194,7 +224,9 @@ export function ShotEntryModal({
       shot_result: isPuttSave ? null : draft.shotResult ?? null,
       distance_to_target: isPuttSave ? null : draft.distanceToTarget ?? null,
       putt_distance_ft: draft.puttDistanceFt ?? null,
-      putt_result: overrideResult ?? draft.puttResult ?? null,
+      putt_result: legacyPuttResult,
+      putt_distance_result: isPuttSave ? distanceResult : null,
+      putt_direction_result: isPuttSave ? directionResult : null,
       putt_slope_pct: draft.puttSlopePct ?? null,
       green_speed: draft.greenSpeed ?? null,
       break_direction: isPuttSave ? draft.breakDirection ?? null : null,
@@ -212,6 +244,31 @@ export function ShotEntryModal({
       await createShot.mutateAsync(insert)
     }
     cancelEdit()
+  }
+
+  function setPuttMade(made: boolean) {
+    setDraft((d) => ({
+      ...d,
+      puttMade: made,
+      puttDistanceResult: made ? undefined : d.puttDistanceResult,
+      puttDirectionResult: made ? undefined : d.puttDirectionResult,
+    }))
+  }
+
+  function setPuttDistanceResult(v: 'short' | 'long') {
+    setDraft((d) => ({
+      ...d,
+      puttMade: false,
+      puttDistanceResult: d.puttDistanceResult === v ? undefined : v,
+    }))
+  }
+
+  function setPuttDirectionResult(v: 'left' | 'right') {
+    setDraft((d) => ({
+      ...d,
+      puttMade: false,
+      puttDirectionResult: d.puttDirectionResult === v ? undefined : v,
+    }))
   }
 
   async function remove(id: string) {
@@ -433,11 +490,78 @@ export function ShotEntryModal({
 
               {isPutt && (
                 <>
-                  <Field label="Result">
-                    <PuttResultGrid
-                      value={draft.puttResult}
-                      onChange={(v) => setDraft((d) => ({ ...d, puttResult: v }))}
-                    />
+                  <Field label="Made?">
+                    <div className="flex" style={{ gap: 8 }}>
+                      <PuttResultButton
+                        label="Holed it"
+                        active={draft.puttMade === true}
+                        onClick={() => setPuttMade(draft.puttMade !== true)}
+                      />
+                      <div style={{ flex: 2 }} />
+                    </div>
+                  </Field>
+                  <Field label="Distance">
+                    <div className="flex" style={{ gap: 8 }}>
+                      <PuttResultButton
+                        label="Short"
+                        active={
+                          !draft.puttMade && draft.puttDistanceResult === 'short'
+                        }
+                        disabled={draft.puttMade === true}
+                        onClick={() => setPuttDistanceResult('short')}
+                      />
+                      <PuttResultButton
+                        label="Long"
+                        active={
+                          !draft.puttMade && draft.puttDistanceResult === 'long'
+                        }
+                        disabled={draft.puttMade === true}
+                        onClick={() => setPuttDistanceResult('long')}
+                      />
+                      <div style={{ flex: 1 }} />
+                    </div>
+                    <div
+                      className="font-mono uppercase text-caddie-ink-mute"
+                      style={{
+                        fontSize: 10,
+                        letterSpacing: '0.14em',
+                        marginTop: 8,
+                      }}
+                    >
+                      Tap again to clear · leave blank if pace was right
+                    </div>
+                  </Field>
+                  <Field label="Direction">
+                    <div className="flex" style={{ gap: 8 }}>
+                      <PuttResultButton
+                        label="Missed left"
+                        active={
+                          !draft.puttMade &&
+                          draft.puttDirectionResult === 'left'
+                        }
+                        disabled={draft.puttMade === true}
+                        onClick={() => setPuttDirectionResult('left')}
+                      />
+                      <PuttResultButton
+                        label="Missed right"
+                        active={
+                          !draft.puttMade &&
+                          draft.puttDirectionResult === 'right'
+                        }
+                        disabled={draft.puttMade === true}
+                        onClick={() => setPuttDirectionResult('right')}
+                      />
+                    </div>
+                    <div
+                      className="font-mono uppercase text-caddie-ink-mute"
+                      style={{
+                        fontSize: 10,
+                        letterSpacing: '0.14em',
+                        marginTop: 8,
+                      }}
+                    >
+                      Tap again to clear · leave blank if line was good
+                    </div>
                   </Field>
                   <Field label="Break">
                     <div className="flex flex-wrap" style={{ gap: 6 }}>
@@ -554,7 +678,7 @@ export function ShotEntryModal({
                 <>
                   <button
                     type="button"
-                    onClick={() => save('missed_left')}
+                    onClick={() => save({ madeOverride: false })}
                     disabled={createShot.isPending || updateShot.isPending}
                     className="text-caddie-accent hover:opacity-80 disabled:opacity-40"
                     style={{
@@ -574,7 +698,7 @@ export function ShotEntryModal({
                   </button>
                   <button
                     type="button"
-                    onClick={() => save('made')}
+                    onClick={() => save({ madeOverride: true })}
                     disabled={createShot.isPending || updateShot.isPending}
                     className="bg-caddie-accent text-caddie-accent-ink hover:opacity-90 disabled:opacity-40"
                     style={{
@@ -696,52 +820,37 @@ function ChipGroup<T extends string>({ value, options, onChange }: ChipGroupProp
   )
 }
 
-type PuttSelectKey = PuttResult | 'spacer'
-
-const PUTT_GRID: PuttSelectKey[] = [
-  'made',
-  'short',
-  'long',
-  'missed_left',
-  'spacer',
-  'missed_right',
-]
-
-function gridButtonStyle(active: boolean): React.CSSProperties {
-  return {
-    backgroundColor: active ? '#1F3D2C' : '#EBE5D6',
-    color: active ? '#F2EEE5' : '#1C211C',
-    border: 'none',
-    borderRadius: 2,
-    padding: '12px 8px',
-    fontSize: 12,
-    fontWeight: active ? 500 : 400,
-  }
-}
-
-function PuttResultGrid({
-  value,
-  onChange,
+function PuttResultButton({
+  label,
+  active,
+  disabled,
+  onClick,
 }: {
-  value: PuttResult | undefined
-  onChange: (v: PuttResult | undefined) => void
+  label: string
+  active: boolean
+  disabled?: boolean
+  onClick: () => void
 }) {
   return (
-    <div className="grid grid-cols-3" style={{ gap: 6, maxWidth: 360 }}>
-      {PUTT_GRID.map((key, i) =>
-        key === 'spacer' ? (
-          <div key={`s${i}`} />
-        ) : (
-          <button
-            key={key}
-            type="button"
-            onClick={() => onChange(value === key ? undefined : key)}
-            style={gridButtonStyle(value === key)}
-          >
-            {key.replace('_', ' ')}
-          </button>
-        ),
-      )}
-    </div>
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      style={{
+        flex: 1,
+        backgroundColor: active ? '#1F3D2C' : '#FBF8F1',
+        color: active ? '#F2EEE5' : '#1C211C',
+        border: `1px solid ${active ? '#1F3D2C' : '#D9D2BF'}`,
+        borderRadius: 2,
+        padding: '14px 10px',
+        fontSize: 14,
+        fontWeight: active ? 600 : 500,
+        opacity: disabled ? 0.4 : 1,
+        cursor: disabled ? 'not-allowed' : 'pointer',
+      }}
+    >
+      {label}
+    </button>
   )
 }
+

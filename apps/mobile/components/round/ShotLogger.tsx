@@ -13,7 +13,6 @@ import {
 } from '@oga/core'
 import { PuttingSheet } from './PuttingSheet'
 
-type PuttResult = 'made' | 'short' | 'long' | 'missed_left' | 'missed_right'
 type GreenSpeed = 'slow' | 'medium' | 'fast'
 type BreakDirection =
   | 'left_to_right'
@@ -28,7 +27,9 @@ export interface ShotLoggerValue {
   lieSlopeForward?: LieSlopeForward
   lieSlopeSide?: LieSlopeSide
   shotResult?: ShotResult
-  puttResult?: PuttResult
+  puttMade?: boolean
+  puttDistanceResult?: 'short' | 'long'
+  puttDirectionResult?: 'left' | 'right'
   puttDistanceFt?: number
   puttSlopePct?: number
   greenSpeed?: GreenSpeed
@@ -49,8 +50,6 @@ interface ShotLoggerProps {
   onClose: () => void
 }
 
-type PuttKey = PuttResult | 'spacer'
-
 const SLOPE_FORWARD_ROW: LieSlopeForward[] = ['uphill', 'level', 'downhill']
 const SLOPE_SIDE_ROW: (LieSlopeSide | 'spacer')[] = [
   'ball_above',
@@ -68,15 +67,6 @@ const SIDE_LABEL: Record<LieSlopeSide, string> = {
   ball_above: 'Ball above',
   ball_below: 'Ball below',
 }
-
-const PUTT_GRID: PuttKey[] = [
-  'made',
-  'short',
-  'long',
-  'missed_left',
-  'spacer',
-  'missed_right',
-]
 
 const KICKER: import('react-native').TextStyle = {
   color: '#8A8B7E',
@@ -126,7 +116,9 @@ export function ShotLogger({
             shotNumber={shotNumber}
             initialDistanceFt={puttDistanceFt}
             initial={{
-              puttResult: value.puttResult,
+              puttMade: value.puttMade,
+              puttDistanceResult: value.puttDistanceResult,
+              puttDirectionResult: value.puttDirectionResult,
               puttDistanceFt: value.puttDistanceFt,
               puttSlopePct: value.puttSlopePct,
               greenSpeed: value.greenSpeed,
@@ -138,7 +130,9 @@ export function ShotLogger({
               onSave({
                 club: 'putter',
                 lieType: 'green',
-                puttResult: p.puttResult,
+                puttMade: p.puttMade,
+                puttDistanceResult: p.puttDistanceResult,
+                puttDirectionResult: p.puttDirectionResult,
                 puttDistanceFt: p.puttDistanceFt,
                 puttSlopePct: p.puttSlopePct,
                 greenSpeed: p.greenSpeed,
@@ -313,60 +307,15 @@ export function ShotLogger({
               </View>
             </Section>
 
-            {isPutt ? (
-              <>
-                <Section title="Putt distance (ft)">
-                  <TextInput
-                    keyboardType="numeric"
-                    value={value.puttDistanceFt?.toString() ?? ''}
-                    onChangeText={(t) =>
-                      setValue((prev) => ({
-                        ...prev,
-                        puttDistanceFt: t ? Number(t) : undefined,
-                      }))
-                    }
-                    style={inputStyle}
-                  />
-                </Section>
-
-                <Section title="Putt result">
-                  <View
-                    style={{
-                      flexDirection: 'row',
-                      flexWrap: 'wrap',
-                      gap: 6,
-                      maxWidth: 360,
-                    }}
-                  >
-                    {PUTT_GRID.map((key, i) => (
-                      <View
-                        key={`${key}-${i}`}
-                        style={{ width: '32%', maxWidth: 116 }}
-                      >
-                        {key === 'spacer' ? null : (
-                          <Pressable
-                            onPress={() => set('puttResult', key)}
-                            style={gridButtonStyle(value.puttResult === key)}
-                          >
-                            <Text style={gridButtonTextStyle(value.puttResult === key)}>
-                              {key.replace('_', ' ')}
-                            </Text>
-                          </Pressable>
-                        )}
-                      </View>
-                    ))}
-                  </View>
-                </Section>
-              </>
-            ) : (
-              <Section title="Shot result">
-                <ChipRow
-                  value={value.shotResult}
-                  options={SHOT_RESULTS}
-                  onChange={(v) => set('shotResult', v)}
-                />
-              </Section>
-            )}
+            {/* Putt UI lives in PuttingSheet (rendered when lie_type=green).
+                The standard sheet only handles non-putt shots. */}
+            <Section title="Shot result">
+              <ChipRow
+                value={value.shotResult}
+                options={SHOT_RESULTS}
+                onChange={(v) => set('shotResult', v)}
+              />
+            </Section>
 
             <Section title="Notes">
               <TextInput

@@ -318,6 +318,8 @@ export interface Database {
             | 'downhill'
             | null
           putt_result: 'made' | 'short' | 'long' | 'missed_left' | 'missed_right' | null
+          putt_distance_result: 'short' | 'long' | null
+          putt_direction_result: 'left' | 'right' | null
           putt_distance_ft: number | null
           putt_slope_pct: number | null
           green_speed: 'slow' | 'medium' | 'fast' | null
@@ -369,6 +371,8 @@ export interface Database {
             | 'downhill'
             | null
           putt_result?: 'made' | 'short' | 'long' | 'missed_left' | 'missed_right' | null
+          putt_distance_result?: 'short' | 'long' | null
+          putt_direction_result?: 'left' | 'right' | null
           putt_distance_ft?: number | null
           putt_slope_pct?: number | null
           green_speed?: 'slow' | 'medium' | 'fast' | null
@@ -420,6 +424,8 @@ export interface Database {
             | 'downhill'
             | null
           putt_result?: 'made' | 'short' | 'long' | 'missed_left' | 'missed_right' | null
+          putt_distance_result?: 'short' | 'long' | null
+          putt_direction_result?: 'left' | 'right' | null
           putt_distance_ft?: number | null
           putt_slope_pct?: number | null
           green_speed?: 'slow' | 'medium' | 'fast' | null
