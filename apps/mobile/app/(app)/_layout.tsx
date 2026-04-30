@@ -1,13 +1,39 @@
+import { useEffect, useState } from 'react'
 import { Tabs, Redirect } from 'expo-router'
 import { MaterialCommunityIcons } from '@expo/vector-icons'
+import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
 
 const ICON_SIZE = 20
 
+type ProfileState = 'loading' | 'complete' | 'incomplete'
+
 export default function AppLayout() {
-  const { user, loading } = useAuth()
-  if (loading) return null
+  const { user, loading: authLoading } = useAuth()
+  const [profileState, setProfileState] = useState<ProfileState>('loading')
+
+  useEffect(() => {
+    if (authLoading) return
+    if (!user) return
+
+    supabase
+      .from('profiles')
+      .select('skill_level, goal')
+      .eq('id', user.id)
+      .single()
+      .then(({ data, error }) => {
+        if (error || !data || !data.skill_level || !data.goal) {
+          setProfileState('incomplete')
+        } else {
+          setProfileState('complete')
+        }
+      })
+  }, [user, authLoading])
+
+  if (authLoading || profileState === 'loading') return null
   if (!user) return <Redirect href="/(auth)/login" />
+  if (profileState === 'incomplete') return <Redirect href="/(auth)/onboarding" />
+
   return (
     <Tabs
       screenOptions={{
