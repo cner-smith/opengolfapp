@@ -96,6 +96,18 @@ export function HoleMap({
     return Math.round(distanceYards(ball, pin))
   }, [pin, ball])
 
+  const aimLine = useMemo(() => {
+    if (!ball || !aim) return null
+    return {
+      type: 'Feature' as const,
+      properties: {},
+      geometry: {
+        type: 'LineString' as const,
+        coordinates: [toCoord(ball), toCoord(aim)],
+      },
+    }
+  }, [ball, aim])
+
   function handleTap(feature: unknown) {
     const c = extractCoord(feature)
     if (c) onSetBall(c)
@@ -117,6 +129,20 @@ export function HoleMap({
             zoomLevel: 16,
           }}
         />
+
+        {aimLine && (
+          <Mapbox.ShapeSource id="aimLine" shape={aimLine}>
+            <Mapbox.LineLayer
+              id="aimLineLayer"
+              style={{
+                lineColor: '#EF9F27',
+                lineWidth: 2,
+                lineDasharray: [4, 3],
+                lineOpacity: 0.8,
+              }}
+            />
+          </Mapbox.ShapeSource>
+        )}
 
         {tee && (
           <Mapbox.PointAnnotation id="tee" coordinate={toCoord(tee)}>
