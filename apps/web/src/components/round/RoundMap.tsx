@@ -43,6 +43,9 @@ interface RoundMapProps {
    *  `hole.pinLat/pinLng` / `hole.teeLat/teeLng`. */
   pinOverride?: PlacedPoint | null
   teeOverride?: PlacedPoint | null
+  /** Suppress tap-to-place. Used in "Edit on map" mode so the user can
+   *  drag existing markers without accidentally dropping new ones. */
+  tapToPlaceDisabled?: boolean
   onPlace: (point: PlacedPoint) => void
   onMovePoint: (index: number, point: PlacedPoint) => void
   onMovePin?: (point: PlacedPoint) => void
@@ -64,6 +67,7 @@ export function RoundMap({
   placedPoints,
   pinOverride,
   teeOverride,
+  tapToPlaceDisabled,
   onPlace,
   onMovePoint,
   onMovePin,
@@ -136,13 +140,14 @@ export function RoundMap({
     if (!map) return
     function onClick(e: mapboxgl.MapMouseEvent) {
       if (hasExistingShots) return
+      if (tapToPlaceDisabled) return
       onPlace({ lat: e.lngLat.lat, lng: e.lngLat.lng })
     }
     map.on('click', onClick)
     return () => {
       map.off('click', onClick)
     }
-  }, [onPlace, hasExistingShots])
+  }, [onPlace, hasExistingShots, tapToPlaceDisabled])
 
   // Render markers + connecting line for either existing shots or placed points.
   useEffect(() => {
@@ -291,11 +296,14 @@ export function RoundMap({
 
 interface RoundMapInstructionStripProps {
   hasExistingShots: boolean
+  /** True while the user is dragging-to-correct from the review sheet. */
+  editing?: boolean
   shotsPlaced: number
   remainingToPin: number | null
   onUndo: () => void
   onClear: () => void
   onDone: () => void
+  onDoneEditing?: () => void
 }
 
 // Strip used to live inside the map as an absolute overlay, but the
@@ -304,11 +312,13 @@ interface RoundMapInstructionStripProps {
 // RoundDetailPage for the layout.
 export function RoundMapInstructionStrip({
   hasExistingShots,
+  editing,
   shotsPlaced,
   remainingToPin,
   onUndo,
   onClear,
   onDone,
+  onDoneEditing,
 }: RoundMapInstructionStripProps) {
   const placingNumber = shotsPlaced + 1
   const { toDisplay } = useUnits()
@@ -327,7 +337,16 @@ export function RoundMapInstructionStrip({
       }}
     >
       <div style={{ minWidth: 200 }}>
-        {hasExistingShots ? (
+        {editing ? (
+          <>
+            <div className="kicker" style={{ marginBottom: 2 }}>
+              Edit on map
+            </div>
+            <div className="text-caddie-ink" style={{ fontSize: 13 }}>
+              Drag any marker to adjust where the shot was hit from.
+            </div>
+          </>
+        ) : hasExistingShots ? (
           <>
             <div className="kicker" style={{ marginBottom: 2 }}>
               Logged hole
@@ -356,7 +375,22 @@ export function RoundMapInstructionStrip({
           </>
         )}
       </div>
-      {!hasExistingShots && (
+      {editing ? (
+        <button
+          type="button"
+          onClick={onDoneEditing}
+          className="bg-caddie-accent text-caddie-accent-ink"
+          style={{
+            borderRadius: 2,
+            padding: '6px 12px',
+            fontSize: 13,
+            fontWeight: 600,
+            letterSpacing: '0.02em',
+          }}
+        >
+          Done editing →
+        </button>
+      ) : !hasExistingShots ? (
         <div style={{ display: 'flex', gap: 8 }}>
           <button
             type="button"
@@ -404,7 +438,7 @@ export function RoundMapInstructionStrip({
             Done with hole →
           </button>
         </div>
-      )}
+      ) : null}
     </div>
   )
 }

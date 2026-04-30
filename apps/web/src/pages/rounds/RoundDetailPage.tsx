@@ -75,6 +75,7 @@ export function RoundDetailPage() {
   const [pinOverride, setPinOverride] = useState<PlacedPoint | null>(null)
   const [teeOverride, setTeeOverride] = useState<PlacedPoint | null>(null)
   const [reviewOpen, setReviewOpen] = useState(false)
+  const [editingOnMap, setEditingOnMap] = useState(false)
   const [savingHole, setSavingHole] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
 
@@ -196,6 +197,10 @@ export function RoundDetailPage() {
       onUndoPoint: () =>
         setPlacedPoints((prev) => prev.slice(0, -1)),
       onDoneWithHole: () => setReviewOpen(true),
+      onDoneEditing: () => {
+        setEditingOnMap(false)
+        setReviewOpen(true)
+      },
     }),
     [persistRoundPin],
   )
@@ -206,6 +211,7 @@ export function RoundDetailPage() {
     setPinOverride(null)
     setTeeOverride(null)
     setReviewOpen(false)
+    setEditingOnMap(false)
     setSaveError(null)
   }, [])
 
@@ -482,6 +488,7 @@ export function RoundDetailPage() {
           teeOverride={teeOverride}
           handlers={placeHandlers}
           saveError={saveError}
+          editingOnMap={editingOnMap}
           reviewSheet={
             activeHole ? (
               <HoleReviewSheet
@@ -493,7 +500,10 @@ export function RoundDetailPage() {
                 pinLng={effectivePin?.lng ?? null}
                 placedPoints={placedPoints}
                 saving={savingHole}
-                onEditOnMap={() => setReviewOpen(false)}
+                onEditOnMap={() => {
+                  setReviewOpen(false)
+                  setEditingOnMap(true)
+                }}
                 onSave={saveReviewedHole}
               />
             ) : null
@@ -652,8 +662,10 @@ interface MapViewProps {
     onClearPoints: () => void
     onUndoPoint: () => void
     onDoneWithHole: () => void
+    onDoneEditing: () => void
   }
   saveError: string | null
+  editingOnMap: boolean
   reviewSheet?: ReactNode
 }
 
@@ -668,6 +680,7 @@ function MapView({
   teeOverride,
   handlers,
   saveError,
+  editingOnMap,
   reviewSheet,
 }: MapViewProps) {
   const hasExistingShots = existingShots.some(
@@ -701,11 +714,13 @@ function MapView({
       <div style={{ marginTop: 14 }}>
         <RoundMapInstructionStrip
           hasExistingShots={hasExistingShots}
+          editing={editingOnMap}
           shotsPlaced={placedPoints.length}
           remainingToPin={remainingToPin}
           onUndo={handlers.onUndoPoint}
           onClear={handlers.onClearPoints}
           onDone={handlers.onDoneWithHole}
+          onDoneEditing={handlers.onDoneEditing}
         />
       </div>
       <div
@@ -725,6 +740,7 @@ function MapView({
             placedPoints={placedPoints}
             pinOverride={pinOverride}
             teeOverride={teeOverride}
+            tapToPlaceDisabled={editingOnMap}
             onPlace={handlers.onPlace}
             onMovePoint={handlers.onMovePoint}
             onMovePin={handlers.onMovePin}
