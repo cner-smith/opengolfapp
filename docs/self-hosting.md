@@ -35,7 +35,12 @@ You'll also need the **service_role** key for the seed script. Treat it like a d
 
 ## 3. Run the migrations
 
-The schema lives in `supabase/migrations/0001_initial_schema.sql`. Either:
+Migrations live in `supabase/migrations/`:
+
+- `0001_initial_schema.sql` — base schema (profiles, courses, rounds, hole_scores, shots, drills, practice_plans).
+- `0002_hole_score_pin_position.sql` — adds `pin_lat`/`pin_lng` to `hole_scores` for the per-round pin captured during live play.
+
+Apply them in order. Either:
 
 **Option A — Supabase CLI (recommended):**
 
@@ -44,9 +49,11 @@ npx supabase link --project-ref <your-project-ref>
 npx supabase db push
 ```
 
+`db push` applies every file in `supabase/migrations/` that hasn't run yet, in filename order, so a single command covers `0001` and `0002` on a fresh project.
+
 **Option B — SQL editor:**
 
-Open `supabase/migrations/0001_initial_schema.sql`, paste the whole file into the Supabase SQL editor, run it.
+Open each migration in `supabase/migrations/` (in numeric order), paste into the Supabase SQL editor, run.
 
 Then load the seed data (3 demo courses + 24 drills):
 
@@ -125,7 +132,7 @@ git remote add upstream https://github.com/cner-smith/opengolfapp.git
 git fetch upstream
 git merge upstream/main
 pnpm install
-# If the migration count changed, run:
+# Apply any new migrations (e.g. 0002+ on existing forks):
 npx supabase db push
 ```
 
