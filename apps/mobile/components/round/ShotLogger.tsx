@@ -50,9 +50,17 @@ const PUTT_GRID: PuttKey[] = [
   'short',
   'long',
   'missed_left',
-  'missed_right',
   'spacer',
+  'missed_right',
 ]
+
+const KICKER: import('react-native').TextStyle = {
+  color: '#8A8B7E',
+  fontSize: 10,
+  fontWeight: '500',
+  letterSpacing: 1.4,
+  textTransform: 'uppercase',
+}
 
 export function ShotLogger({
   visible,
@@ -78,17 +86,17 @@ export function ShotLogger({
         style={{
           flex: 1,
           justifyContent: 'flex-end',
-          backgroundColor: 'rgba(17,17,17,0.4)',
+          backgroundColor: 'rgba(28,33,28,0.55)',
         }}
       >
         <View
           style={{
-            backgroundColor: '#FFFFFF',
-            borderTopLeftRadius: 16,
-            borderTopRightRadius: 16,
-            paddingHorizontal: 14,
-            paddingTop: 8,
-            paddingBottom: 24,
+            backgroundColor: '#FBF8F1',
+            borderTopLeftRadius: 12,
+            borderTopRightRadius: 12,
+            paddingHorizontal: 18,
+            paddingTop: 10,
+            paddingBottom: 28,
           }}
         >
           <View
@@ -97,29 +105,51 @@ export function ShotLogger({
               width: 32,
               height: 4,
               borderRadius: 2,
-              backgroundColor: '#E0E0DA',
-              marginBottom: 12,
+              backgroundColor: '#D9D2BF',
+              marginBottom: 14,
             }}
           />
           <View
             style={{
               flexDirection: 'row',
-              alignItems: 'center',
+              alignItems: 'flex-end',
               justifyContent: 'space-between',
-              paddingHorizontal: 4,
+              paddingBottom: 14,
+              borderBottomWidth: 1,
+              borderColor: '#D9D2BF',
             }}
           >
-            <Text style={{ color: '#111111', fontSize: 16, fontWeight: '500' }}>
-              Shot #{shotNumber}
-            </Text>
+            <View>
+              <Text style={{ ...KICKER, marginBottom: 4 }}>
+                Shot {shotNumber}
+              </Text>
+              <Text
+                style={{
+                  color: '#1C211C',
+                  fontSize: 22,
+                  fontWeight: '500',
+                  fontStyle: 'italic',
+                }}
+              >
+                Log it.
+              </Text>
+            </View>
             <Pressable onPress={onSkip}>
-              <Text style={{ color: '#AAAAAA', fontSize: 11 }}>Skip all →</Text>
+              <Text
+                style={{
+                  ...KICKER,
+                  color: '#A66A1F',
+                  fontSize: 10,
+                }}
+              >
+                Skip all →
+              </Text>
             </Pressable>
           </View>
 
           <ScrollView
             style={{ maxHeight: 480 }}
-            contentContainerStyle={{ paddingTop: 14, paddingHorizontal: 4 }}
+            contentContainerStyle={{ paddingTop: 14 }}
           >
             <Section title="Club">
               <ChipRow
@@ -143,14 +173,14 @@ export function ShotLogger({
                 style={{
                   flexDirection: 'row',
                   flexWrap: 'wrap',
-                  gap: 5,
-                  maxWidth: 320,
+                  gap: 6,
+                  maxWidth: 360,
                 }}
               >
                 {SLOPE_GRID.map((key, i) => (
                   <View
                     key={`${key}-${i}`}
-                    style={{ width: '32%', maxWidth: 102 }}
+                    style={{ width: '32%', maxWidth: 116 }}
                   >
                     {key === 'spacer' ? null : (
                       <Pressable
@@ -163,7 +193,7 @@ export function ShotLogger({
                       >
                         <SlopeIcon
                           kind={key}
-                          color={value.lieSlope === key ? '#0F6E56' : '#111111'}
+                          color={value.lieSlope === key ? '#F2EEE5' : '#1C211C'}
                         />
                         <Text style={gridButtonTextStyle(value.lieSlope === key)}>
                           {key.replace('_', ' ')}
@@ -196,14 +226,14 @@ export function ShotLogger({
                     style={{
                       flexDirection: 'row',
                       flexWrap: 'wrap',
-                      gap: 5,
-                      maxWidth: 320,
+                      gap: 6,
+                      maxWidth: 360,
                     }}
                   >
                     {PUTT_GRID.map((key, i) => (
                       <View
                         key={`${key}-${i}`}
-                        style={{ width: '32%', maxWidth: 102 }}
+                        style={{ width: '32%', maxWidth: 116 }}
                       >
                         {key === 'spacer' ? null : (
                           <Pressable
@@ -241,20 +271,36 @@ export function ShotLogger({
             </Section>
           </ScrollView>
 
-          <View style={{ flexDirection: 'row', gap: 8, paddingTop: 8 }}>
+          <View
+            style={{
+              flexDirection: 'row',
+              gap: 10,
+              paddingTop: 14,
+              borderTopWidth: 1,
+              borderColor: '#D9D2BF',
+              marginTop: 4,
+            }}
+          >
             <Pressable
               onPress={onClose}
               style={{
                 flex: 1,
                 alignItems: 'center',
-                paddingVertical: 13,
-                borderRadius: 10,
-                borderWidth: 0.5,
-                borderColor: '#E4E4E0',
-                backgroundColor: '#FFFFFF',
+                paddingVertical: 14,
+                borderRadius: 2,
+                borderWidth: 1,
+                borderColor: '#1F3D2C',
+                backgroundColor: 'transparent',
               }}
             >
-              <Text style={{ color: '#111111', fontSize: 13, fontWeight: '500' }}>
+              <Text
+                style={{
+                  color: '#1F3D2C',
+                  fontSize: 14,
+                  fontWeight: '600',
+                  letterSpacing: 0.3,
+                }}
+              >
                 Cancel
               </Text>
             </Pressable>
@@ -263,12 +309,19 @@ export function ShotLogger({
               style={{
                 flex: 1,
                 alignItems: 'center',
-                paddingVertical: 13,
-                borderRadius: 10,
-                backgroundColor: '#111111',
+                paddingVertical: 14,
+                borderRadius: 2,
+                backgroundColor: '#1F3D2C',
               }}
             >
-              <Text style={{ color: '#FFFFFF', fontSize: 13, fontWeight: '500' }}>
+              <Text
+                style={{
+                  color: '#F2EEE5',
+                  fontSize: 14,
+                  fontWeight: '600',
+                  letterSpacing: 0.3,
+                }}
+              >
                 Save + next →
               </Text>
             </Pressable>
@@ -280,27 +333,26 @@ export function ShotLogger({
 }
 
 const inputStyle = {
-  backgroundColor: '#F9F9F6',
-  borderWidth: 0.5,
-  borderColor: '#E4E4E0',
-  borderRadius: 7,
+  backgroundColor: '#FBF8F1',
+  borderWidth: 1,
+  borderColor: '#D9D2BF',
+  borderRadius: 2,
   paddingHorizontal: 10,
-  paddingVertical: 8,
-  fontSize: 13,
-  color: '#111111',
-  width: 132,
+  paddingVertical: 10,
+  fontSize: 15,
+  color: '#1C211C',
+  width: 140,
 } as const
 
 function gridButtonStyle(active: boolean) {
   return {
     alignItems: 'center' as const,
-    paddingVertical: 8,
+    paddingVertical: 12,
     paddingHorizontal: 6,
-    borderRadius: 7,
-    backgroundColor: active ? '#E1F5EE' : '#F4F4F0',
-    borderWidth: 0.5,
-    borderColor: active ? '#1D9E75' : '#E0E0DA',
-    gap: 4,
+    borderRadius: 2,
+    backgroundColor: active ? '#1F3D2C' : '#EBE5D6',
+    borderWidth: 0,
+    gap: 6,
   }
 }
 
@@ -315,7 +367,7 @@ function SlopeIcon({ kind, color }: { kind: LieSlope; color: string }) {
             x2={28}
             y2={8}
             stroke={color}
-            strokeWidth={2}
+            strokeWidth={1.5}
             strokeLinecap="round"
           />
           <Circle cx={26} cy={6} r={2} fill={color} />
@@ -330,7 +382,7 @@ function SlopeIcon({ kind, color }: { kind: LieSlope; color: string }) {
             x2={28}
             y2={14}
             stroke={color}
-            strokeWidth={2}
+            strokeWidth={1.5}
             strokeLinecap="round"
           />
           <Circle cx={16} cy={11} r={2} fill={color} />
@@ -345,7 +397,7 @@ function SlopeIcon({ kind, color }: { kind: LieSlope; color: string }) {
             x2={28}
             y2={18}
             stroke={color}
-            strokeWidth={2}
+            strokeWidth={1.5}
             strokeLinecap="round"
           />
           <Circle cx={26} cy={20} r={2} fill={color} />
@@ -360,7 +412,7 @@ function SlopeIcon({ kind, color }: { kind: LieSlope; color: string }) {
             x2={28}
             y2={4}
             stroke={color}
-            strokeWidth={2}
+            strokeWidth={1.5}
             strokeLinecap="round"
           />
           <Circle cx={24} cy={4} r={2} fill={color} />
@@ -370,7 +422,7 @@ function SlopeIcon({ kind, color }: { kind: LieSlope; color: string }) {
             x2={10}
             y2={22}
             stroke={color}
-            strokeWidth={2}
+            strokeWidth={1.5}
             strokeLinecap="round"
           />
         </Svg>
@@ -384,7 +436,7 @@ function SlopeIcon({ kind, color }: { kind: LieSlope; color: string }) {
             x2={28}
             y2={22}
             stroke={color}
-            strokeWidth={2}
+            strokeWidth={1.5}
             strokeLinecap="round"
           />
           <Circle cx={24} cy={22} r={2} fill={color} />
@@ -394,7 +446,7 @@ function SlopeIcon({ kind, color }: { kind: LieSlope; color: string }) {
             x2={10}
             y2={4}
             stroke={color}
-            strokeWidth={2}
+            strokeWidth={1.5}
             strokeLinecap="round"
           />
         </Svg>
@@ -404,27 +456,23 @@ function SlopeIcon({ kind, color }: { kind: LieSlope; color: string }) {
 
 function gridButtonTextStyle(active: boolean) {
   return {
-    color: active ? '#0F6E56' : '#111111',
-    fontSize: 11,
+    color: active ? '#F2EEE5' : '#1C211C',
+    fontSize: 12,
     fontWeight: (active ? '500' : '400') as '400' | '500',
   }
 }
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <View style={{ marginBottom: 14 }}>
-      <Text
-        style={{
-          color: '#888880',
-          fontSize: 11,
-          fontWeight: '500',
-          letterSpacing: 0.4,
-          textTransform: 'uppercase',
-          marginBottom: 6,
-        }}
-      >
-        {title}
-      </Text>
+    <View
+      style={{
+        borderTopWidth: 1,
+        borderColor: '#D9D2BF',
+        paddingTop: 14,
+        marginBottom: 18,
+      }}
+    >
+      <Text style={{ ...KICKER, marginBottom: 12 }}>{title}</Text>
       {children}
     </View>
   )
@@ -448,16 +496,14 @@ function ChipRow<T extends string>({ value, options, onChange }: ChipRowProps<T>
               onPress={() => onChange(opt)}
               style={{
                 paddingHorizontal: 10,
-                paddingVertical: 7,
-                borderRadius: 7,
-                backgroundColor: active ? '#E1F5EE' : '#F4F4F0',
-                borderWidth: 0.5,
-                borderColor: active ? '#1D9E75' : '#E0E0DA',
+                paddingVertical: 8,
+                borderRadius: 2,
+                backgroundColor: active ? '#1F3D2C' : '#EBE5D6',
               }}
             >
               <Text
                 style={{
-                  color: active ? '#0F6E56' : '#111111',
+                  color: active ? '#F2EEE5' : '#1C211C',
                   fontSize: 12,
                   fontWeight: active ? '500' : '400',
                 }}
