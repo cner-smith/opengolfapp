@@ -3,7 +3,6 @@
   "version": "0.0.1",
   "private": true,
   "main": "expo-router/entry",
-  "packageManager": "npm@10.9.4",
   "scripts": {
     "dev": "expo start",
     "android": "expo run:android",
