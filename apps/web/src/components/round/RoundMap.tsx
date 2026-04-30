@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { mapboxgl, MAPBOX_TOKEN_PRESENT } from '../../lib/mapbox'
 import { haversineYards } from '@oga/core'
+import { useUnits } from '../../hooks/useUnits'
 
 export interface HoleGeo {
   id: string
@@ -272,6 +273,7 @@ function InstructionStrip({
   onDone: () => void
 }) {
   const placingNumber = shotsPlaced + 1
+  const { toDisplay } = useUnits()
   return (
     <div
       className="absolute"
@@ -313,7 +315,7 @@ function InstructionStrip({
                 ? 'Anywhere on the map.'
                 : `${shotsPlaced} shot${shotsPlaced === 1 ? '' : 's'} placed${
                     remainingToPin != null
-                      ? ` · ${remainingToPin} yd to pin`
+                      ? ` · ${toDisplay(remainingToPin)} to pin`
                       : ''
                   }.`}
             </div>

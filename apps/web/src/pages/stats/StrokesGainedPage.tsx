@@ -556,6 +556,7 @@ function StatTile({
 }
 
 function ApproachBandTile({ band }: { band: ApproachBandStat }) {
+  const { unit, toDisplay } = useUnits()
   const tone =
     band.avgSg == null
       ? '#5C6356'
@@ -564,6 +565,7 @@ function ApproachBandTile({ band }: { band: ApproachBandStat }) {
         : band.avgSg < 0
           ? '#A33A2A'
           : '#5C6356'
+  const label = formatBandLabel(band, unit, toDisplay)
   return (
     <div
       style={{
@@ -574,7 +576,7 @@ function ApproachBandTile({ band }: { band: ApproachBandStat }) {
       }}
     >
       <div className="kicker" style={{ marginBottom: 8 }}>
-        {band.label}
+        {label}
       </div>
       <div
         className="font-serif tabular"
@@ -810,6 +812,7 @@ function ClubAccuracyList({ entries }: { entries: ClubAccuracyEntry[] }) {
 }
 
 function ClubRows({ entries }: { entries: ClubAccuracyEntry[] }) {
+  const { toDisplay } = useUnits()
   return (
     <div style={{ borderTop: '1px solid #D9D2BF' }}>
       {entries.map((e) => (
@@ -843,7 +846,7 @@ function ClubRows({ entries }: { entries: ClubAccuracyEntry[] }) {
                 fontWeight: 500,
               }}
             >
-              {e.avgLateralYards.toFixed(1)} yd
+              {toDisplay(e.avgLateralYards, 1)}
             </span>
           </span>
         </div>
@@ -988,4 +991,20 @@ function fmtInt(v: number | null): string {
 function fmtPct(v: number | null): string {
   if (v == null || !Number.isFinite(v)) return '—'
   return `${v.toFixed(0)}%`
+}
+
+function formatBandLabel(
+  band: ApproachBandStat,
+  unit: 'yards' | 'meters',
+  toDisplay: (yards: number, decimals?: number) => string,
+): string {
+  if (!Number.isFinite(band.maxYards)) {
+    return `${toDisplay(band.minYards)}+`
+  }
+  // Show range as "min–max <unit>" by stripping the unit off the lower bound.
+  const upper = toDisplay(band.maxYards)
+  const lowerNumeric = unit === 'meters'
+    ? (band.minYards * 0.9144).toFixed(0)
+    : band.minYards.toFixed(0)
+  return `${lowerNumeric}–${upper}`
 }

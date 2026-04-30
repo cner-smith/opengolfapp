@@ -31,6 +31,7 @@ import { distanceYards } from '../../../../../lib/maps'
 import { combinedPuttResult } from '@oga/core'
 import { deleteRound } from '@oga/supabase'
 import { ConfirmDialog } from '../../../../../components/ui/ConfirmDialog'
+import { useUnits } from '../../../../../hooks/useUnits'
 
 type HoleRow = Database['public']['Tables']['holes']['Row']
 type HoleScoreRow = Database['public']['Tables']['hole_scores']['Row']
@@ -51,6 +52,7 @@ export default function HoleScreen() {
   const holeNumber = Number(number)
   const router = useRouter()
   const { user } = useAuth()
+  const { toDisplay } = useUnits()
 
   const [round, setRound] = useState<RoundRow | null>(null)
   const [holes, setHoles] = useState<HoleRow[]>([])
@@ -383,7 +385,7 @@ export default function HoleScreen() {
             }}
           >
             Par {currentHole.par}
-            {currentHole.yards ? ` · ${currentHole.yards} yd` : ''}
+            {currentHole.yards ? ` · ${toDisplay(currentHole.yards)}` : ''}
           </Text>
         </View>
         <Pressable

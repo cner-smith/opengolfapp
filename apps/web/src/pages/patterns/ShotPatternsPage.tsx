@@ -12,11 +12,13 @@ import {
 } from '@oga/core'
 import { useShotPatterns } from '../../hooks/useShotPatterns'
 import { LieSlopeGrid } from '../../components/forms/LieSlopeGrid'
+import { useUnits } from '../../hooks/useUnits'
 
 const SVG_SIZE = 420
 const SVG_VIEW_WIDTH = `min(${SVG_SIZE}px, 90vw)`
 
 export function ShotPatternsPage() {
+  const { unit, toDisplay } = useUnits()
   const [club, setClub] = useState<Club>('7i')
   const [lieType, setLieType] = useState<LieType | ''>('')
   const [lieSlopeForward, setLieSlopeForward] = useState<
@@ -160,17 +162,17 @@ export function ShotPatternsPage() {
                   <Stat label="Sample" value={`${stats.sampleSize} shots`} />
                   <Stat
                     label="Avg lateral"
-                    value={`${stats.avgLateralOffset.toFixed(1)} yd`}
+                    value={toDisplay(stats.avgLateralOffset, 1)}
                   />
                   <Stat
                     label="Distance bias"
-                    value={`${stats.avgDistanceOffset.toFixed(1)} yd`}
+                    value={toDisplay(stats.avgDistanceOffset, 1)}
                   />
                   <Stat label="Shape" value={stats.shotShape} />
                   <Stat label="Dominant miss" value={stats.dominantMiss} />
                   <Stat
                     label="68% spread"
-                    value={`±${stats.cone68.lateral.toFixed(1)} / ${stats.cone68.distance.toFixed(1)} yd`}
+                    value={`±${toDisplay(stats.cone68.lateral, 1)} / ${toDisplay(stats.cone68.distance, 1)}`}
                   />
                 </dl>
               ) : (
@@ -201,7 +203,7 @@ export function ShotPatternsPage() {
                   className="font-serif text-caddie-ink"
                   style={{ fontSize: 17, lineHeight: 1.55, maxWidth: 480 }}
                 >
-                  {getAimCorrection(stats)}
+                  {getAimCorrection(stats, unit)}
                 </p>
               </div>
             )}

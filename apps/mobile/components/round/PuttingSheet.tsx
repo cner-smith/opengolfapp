@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native'
 import { GreenDiagram, type BreakDirection } from './GreenDiagram'
+import { useUnits } from '../../hooks/useUnits'
 
 type GreenSpeed = 'slow' | 'medium' | 'fast'
 type PuttDistanceResult = 'short' | 'long'
@@ -66,6 +67,7 @@ export function PuttingSheet({
   onSave,
   onClose,
 }: PuttingSheetProps) {
+  const { unit } = useUnits()
   const [value, setValue] = useState<PuttingValue>({
     puttDistanceFt: initial?.puttDistanceFt ?? initialDistanceFt ?? 0,
     puttMade: initial?.puttMade,
@@ -205,7 +207,9 @@ export function PuttingSheet({
         />
 
         <View style={{ marginTop: 14 }}>
-          <Text style={{ ...KICKER, marginBottom: 6 }}>Distance override (ft)</Text>
+          <Text style={{ ...KICKER, marginBottom: 6 }}>
+            Distance override ({unit === 'meters' ? 'm' : 'ft'})
+          </Text>
           <TextInput
             keyboardType="numeric"
             value={distanceText}

@@ -176,7 +176,11 @@ const APPROACH_BANDS = [
 
 export interface ApproachBandStat {
   key: string
+  /** @deprecated yards-only label retained for back-compat. The UI should
+   *  format the label from minYards/maxYards using the user's unit prefs. */
   label: string
+  minYards: number
+  maxYards: number
   avgSg: number | null
   shots: number
 }
@@ -248,6 +252,8 @@ export function approachByDistance(
   return APPROACH_BANDS.map((b) => ({
     key: b.key,
     label: b.label,
+    minYards: b.min,
+    maxYards: b.max,
     avgSg: buckets[b.key]!.n > 0 ? buckets[b.key]!.sgSum / buckets[b.key]!.n : null,
     shots: buckets[b.key]!.n,
   }))

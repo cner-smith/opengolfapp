@@ -4,6 +4,7 @@ import Mapbox from '@rnmapbox/maps'
 import { Gesture, GestureDetector } from 'react-native-gesture-handler'
 import { runOnJS } from 'react-native-reanimated'
 import { distanceYards, ensureMapboxInitialized } from '../../lib/maps'
+import { useUnits } from '../../hooks/useUnits'
 
 ensureMapboxInitialized()
 
@@ -57,6 +58,7 @@ export function HoleMap({
   onSetBall,
   onPlacePin,
 }: HoleMapProps) {
+  const { toDisplay } = useUnits()
   const cameraRef = useRef<Mapbox.Camera>(null)
   const mapViewRef = useRef<Mapbox.MapView>(null)
   const cameraInitialized = useRef(false)
@@ -271,7 +273,7 @@ export function HoleMap({
                 fontVariant: ['tabular-nums'],
               }}
             >
-              {pinDistance} yd to pin
+              {toDisplay(pinDistance)} to pin
             </Text>
           </View>
         )}

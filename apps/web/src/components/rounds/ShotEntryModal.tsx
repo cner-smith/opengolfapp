@@ -20,6 +20,7 @@ import {
 import { useAuth } from '../../hooks/useAuth'
 import { LieSlopeGrid } from '../forms/LieSlopeGrid'
 import { GreenDiagram, type BreakDirection } from '../round/GreenDiagram'
+import { useUnits } from '../../hooks/useUnits'
 
 const BREAK_OPTIONS: { value: BreakDirection; label: string }[] = [
   { value: 'left_to_right', label: 'L → R' },
@@ -162,6 +163,7 @@ export function ShotEntryModal({
   onClose,
 }: ShotEntryModalProps) {
   const { user } = useAuth()
+  const units = useUnits()
   const shotsQuery = useShotsForRound(roundId)
   const createShot = useCreateShot(roundId)
   const updateShot = useUpdateShot(roundId)
@@ -478,7 +480,13 @@ export function ShotEntryModal({
               )}
 
               {!isPutt && (
-                <Field label="Distance to target (yards)">
+                <Field
+                  label={
+                    units.unit === 'meters'
+                      ? 'Distance to target (metres)'
+                      : 'Distance to target (yards)'
+                  }
+                >
                   <NumericInput
                     value={draft.distanceToTarget}
                     onChange={(n) =>

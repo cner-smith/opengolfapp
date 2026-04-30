@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { Database } from '@oga/supabase'
 import { useUpsertHoleScore } from '../../hooks/useHoleScores'
+import { useUnits } from '../../hooks/useUnits'
 
 type HoleRow = Database['public']['Tables']['holes']['Row']
 type HoleScoreRow = Database['public']['Tables']['hole_scores']['Row']
@@ -77,6 +78,7 @@ export function HoleScoreCard({
   onEditShots,
 }: HoleScoreCardProps) {
   const upsert = useUpsertHoleScore(roundId)
+  const { toDisplay } = useUnits()
   const [score, setScore] = useState<string>(holeScore?.score?.toString() ?? '')
   const [putts, setPutts] = useState<string>(holeScore?.putts?.toString() ?? '')
   const [fairway, setFairway] = useState<boolean | null>(holeScore?.fairway_hit ?? null)
@@ -147,9 +149,13 @@ export function HoleScoreCard({
         {hole.yards && (
           <div
             className="font-mono tabular text-caddie-ink-mute"
-            style={{ fontSize: 10, letterSpacing: '0.14em' }}
+            style={{
+              fontSize: 10,
+              letterSpacing: '0.14em',
+              textTransform: 'uppercase',
+            }}
           >
-            {hole.yards} YD
+            {toDisplay(hole.yards)}
           </div>
         )}
       </div>

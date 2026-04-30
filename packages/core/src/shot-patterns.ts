@@ -165,12 +165,24 @@ export function filterDispersionByLie(
   })
 }
 
-export function getAimCorrection(stats: DispersionStats): string {
-  const lateral = Math.round(Math.abs(stats.avgLateralOffset))
-  if (stats.dominantMiss === 'straight' || lateral < DOMINANT_MISS_THRESHOLD_YARDS) {
+export function getAimCorrection(
+  stats: DispersionStats,
+  unit: 'yards' | 'meters' = 'yards',
+): string {
+  const lateralYards = Math.abs(stats.avgLateralOffset)
+  if (
+    stats.dominantMiss === 'straight' ||
+    lateralYards < DOMINANT_MISS_THRESHOLD_YARDS
+  ) {
     return 'Your pattern is well centered on target.'
   }
+  const value =
+    unit === 'meters'
+      ? Math.round(lateralYards * 0.9144)
+      : Math.round(lateralYards)
+  const singular = unit === 'meters' ? 'metre' : 'yard'
+  const plural = unit === 'meters' ? 'metres' : 'yards'
+  const noun = value === 1 ? singular : plural
   const oppDir = stats.dominantMiss === 'right' ? 'left' : 'right'
-  const noun = lateral === 1 ? 'yard' : 'yards'
-  return `Aim ${lateral} ${noun} ${oppDir} of your target to center your pattern.`
+  return `Aim ${value} ${noun} ${oppDir} of your target to center your pattern.`
 }

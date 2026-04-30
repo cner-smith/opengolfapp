@@ -19,6 +19,7 @@ import {
 import { getShotsByClub } from '@oga/supabase'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
+import { useUnits } from '../../hooks/useUnits'
 import { AppBar } from '../../components/ui/AppBar'
 
 const KICKER: import('react-native').TextStyle = {
@@ -75,6 +76,7 @@ const ANY = '__any__' as const
 
 export default function Patterns() {
   const { user } = useAuth()
+  const { unit, toDisplay } = useUnits()
   const [club, setClub] = useState<Club>('7i')
   const [lieType, setLieType] = useState<LieType | typeof ANY>(ANY)
   const [lieSlope, setLieSlope] = useState<LieSlope | typeof ANY>(ANY)
@@ -160,17 +162,17 @@ export default function Patterns() {
               <Stat label="Sample" value={`${stats.sampleSize} shots`} />
               <Stat
                 label="Avg lateral"
-                value={`${stats.avgLateralOffset.toFixed(1)} yd`}
+                value={toDisplay(stats.avgLateralOffset, 1)}
               />
               <Stat
                 label="Distance bias"
-                value={`${stats.avgDistanceOffset.toFixed(1)} yd`}
+                value={toDisplay(stats.avgDistanceOffset, 1)}
               />
               <Stat label="Shape" value={stats.shotShape} />
               <Stat label="Dominant miss" value={stats.dominantMiss} />
               <Stat
                 label="68% spread"
-                value={`±${stats.cone68.lateral.toFixed(1)} / ${stats.cone68.distance.toFixed(1)} yd`}
+                value={`±${toDisplay(stats.cone68.lateral, 1)} / ${toDisplay(stats.cone68.distance, 1)}`}
               />
             </View>
           ) : (
@@ -204,7 +206,7 @@ export default function Patterns() {
                 lineHeight: 22,
               }}
             >
-              {getAimCorrection(stats)}
+              {getAimCorrection(stats, unit)}
             </Text>
           </View>
         )}
