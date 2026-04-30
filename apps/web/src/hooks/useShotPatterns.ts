@@ -3,7 +3,8 @@ import {
   computeDispersion,
   computeDispersionStats,
   filterDispersionByLie,
-  type LieSlope,
+  type LieSlopeForward,
+  type LieSlopeSide,
   type LieType,
   type Shot,
 } from '@oga/core'
@@ -13,8 +14,9 @@ import { useAuth } from './useAuth'
 
 interface UseShotPatternsArgs {
   club: string
-  lieSlope?: LieSlope
   lieType?: LieType
+  lieSlopeForward?: LieSlopeForward
+  lieSlopeSide?: LieSlopeSide
 }
 
 function rowToShot(row: Record<string, unknown>): Shot {
@@ -33,23 +35,45 @@ function rowToShot(row: Record<string, unknown>): Shot {
     club: (row.club as Shot['club']) ?? undefined,
     lieType: (row.lie_type as Shot['lieType']) ?? undefined,
     lieSlope: (row.lie_slope as Shot['lieSlope']) ?? undefined,
+    lieSlopeForward:
+      (row.lie_slope_forward as Shot['lieSlopeForward']) ?? undefined,
+    lieSlopeSide:
+      (row.lie_slope_side as Shot['lieSlopeSide']) ?? undefined,
     shotResult: (row.shot_result as Shot['shotResult']) ?? undefined,
     penalty: (row.penalty as boolean) ?? false,
     ob: (row.ob as boolean) ?? false,
   }
 }
 
-export function useShotPatterns({ club, lieSlope, lieType }: UseShotPatternsArgs) {
+export function useShotPatterns({
+  club,
+  lieType,
+  lieSlopeForward,
+  lieSlopeSide,
+}: UseShotPatternsArgs) {
   const { user } = useAuth()
   return useQuery({
-    queryKey: ['patterns', user?.id, club, lieSlope, lieType],
+    queryKey: [
+      'patterns',
+      user?.id,
+      club,
+      lieType,
+      lieSlopeForward,
+      lieSlopeSide,
+    ],
     enabled: !!user && !!club,
     queryFn: async () => {
       const { data, error } = await getShotsByClub(supabase, user!.id, club)
       if (error) throw error
       const shots = (data ?? []).map(rowToShot)
       let points = computeDispersion(shots)
-      if (lieSlope || lieType) points = filterDispersionByLie(points, lieSlope, lieType)
+      if (lieType || lieSlopeForward || lieSlopeSide) {
+        points = filterDispersionByLie(points, {
+          lieType,
+          lieSlopeForward,
+          lieSlopeSide,
+        })
+      }
       const stats = computeDispersionStats(points)
       return { points, stats }
     },

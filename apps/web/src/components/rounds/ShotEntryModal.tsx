@@ -4,7 +4,8 @@ import {
   LIE_TYPES,
   SHOT_RESULTS,
   type Club,
-  type LieSlope,
+  type LieSlopeForward,
+  type LieSlopeSide,
   type LieType,
   type ShotResult,
 } from '@oga/core'
@@ -36,7 +37,8 @@ interface DraftShot {
   shotNumber: number
   club?: Club
   lieType?: LieType
-  lieSlope?: LieSlope
+  lieSlopeForward?: LieSlopeForward
+  lieSlopeSide?: LieSlopeSide
   shotResult?: ShotResult
   distanceToTarget?: number
   puttDistanceFt?: number
@@ -44,16 +46,32 @@ interface DraftShot {
   notes?: string
 }
 
+// Map a legacy single-axis lie_slope value onto the two new axes so existing
+// rows stay editable after the split.
+function legacySlopeToAxes(
+  legacy: ShotRow['lie_slope'],
+): { forward?: LieSlopeForward; side?: LieSlopeSide } {
+  if (legacy === 'uphill' || legacy === 'level' || legacy === 'downhill') {
+    return { forward: legacy }
+  }
+  if (legacy === 'ball_above' || legacy === 'ball_below') {
+    return { side: legacy }
+  }
+  return {}
+}
+
 function shotRowToDraft(s: ShotRow): DraftShot {
   let shotResult: ShotResult | undefined = (s.shot_result as ShotResult | null) ?? undefined
   if (!shotResult && s.ob) shotResult = 'ob'
   else if (!shotResult && s.penalty) shotResult = 'penalty'
+  const legacy = legacySlopeToAxes(s.lie_slope)
   return {
     id: s.id,
     shotNumber: s.shot_number,
     club: (s.club as Club | null) ?? undefined,
     lieType: s.lie_type ?? undefined,
-    lieSlope: s.lie_slope ?? undefined,
+    lieSlopeForward: s.lie_slope_forward ?? legacy.forward,
+    lieSlopeSide: s.lie_slope_side ?? legacy.side,
     shotResult,
     distanceToTarget: s.distance_to_target ?? undefined,
     puttDistanceFt: s.putt_distance_ft ?? undefined,
@@ -66,7 +84,7 @@ function emptyDraft(shotNumber: number, isFirstShot: boolean): DraftShot {
   return {
     shotNumber,
     lieType: isFirstShot ? 'tee' : undefined,
-    lieSlope: 'level',
+    lieSlopeForward: 'level',
   }
 }
 
@@ -117,7 +135,9 @@ export function ShotEntryModal({
       shot_number: draft.shotNumber,
       club: draft.club ?? null,
       lie_type: draft.lieType ?? null,
-      lie_slope: draft.lieSlope ?? null,
+      lie_slope: null,
+      lie_slope_forward: draft.lieSlopeForward ?? null,
+      lie_slope_side: draft.lieSlopeSide ?? null,
       shot_result: draft.shotResult ?? null,
       distance_to_target: draft.distanceToTarget ?? null,
       putt_distance_ft: draft.puttDistanceFt ?? null,
@@ -313,10 +333,15 @@ export function ShotEntryModal({
 
               <Field label="Lie slope">
                 <LieSlopeGrid
-                  value={draft.lieSlope}
-                  onChange={(v) =>
-                    v && setDraft((d) => ({ ...d, lieSlope: v }))
+                  forward={draft.lieSlopeForward}
+                  side={draft.lieSlopeSide}
+                  onChangeForward={(v) =>
+                    setDraft((d) => ({ ...d, lieSlopeForward: v }))
                   }
+                  onChangeSide={(v) =>
+                    setDraft((d) => ({ ...d, lieSlopeSide: v }))
+                  }
+                  toggleable
                 />
               </Field>
 

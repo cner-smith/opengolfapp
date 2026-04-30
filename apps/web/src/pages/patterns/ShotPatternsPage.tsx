@@ -4,7 +4,8 @@ import {
   LIE_TYPES,
   getAimCorrection,
   type Club,
-  type LieSlope,
+  type LieSlopeForward,
+  type LieSlopeSide,
   type LieType,
   type DispersionPoint,
   type DispersionStats,
@@ -17,12 +18,18 @@ const SVG_SIZE = 420
 export function ShotPatternsPage() {
   const [club, setClub] = useState<Club>('7i')
   const [lieType, setLieType] = useState<LieType | ''>('')
-  const [lieSlope, setLieSlope] = useState<LieSlope | ''>('')
+  const [lieSlopeForward, setLieSlopeForward] = useState<
+    LieSlopeForward | undefined
+  >(undefined)
+  const [lieSlopeSide, setLieSlopeSide] = useState<LieSlopeSide | undefined>(
+    undefined,
+  )
 
   const { data, isLoading } = useShotPatterns({
     club,
     lieType: lieType || undefined,
-    lieSlope: lieSlope || undefined,
+    lieSlopeForward,
+    lieSlopeSide,
   })
 
   const points = data?.points ?? []
@@ -77,8 +84,10 @@ export function ShotPatternsPage() {
         </FilterSection>
         <FilterSection kicker="Lie slope">
           <LieSlopeGrid
-            value={lieSlope === '' ? undefined : lieSlope}
-            onChange={(v) => setLieSlope(v ?? '')}
+            forward={lieSlopeForward}
+            side={lieSlopeSide}
+            onChangeForward={setLieSlopeForward}
+            onChangeSide={setLieSlopeSide}
             toggleable
           />
         </FilterSection>
@@ -128,7 +137,8 @@ export function ShotPatternsPage() {
               >
                 No shots yet for {club}
                 {lieType ? ` (${lieType})` : ''}
-                {lieSlope ? ` (${lieSlope})` : ''}.
+                {lieSlopeForward ? ` (${lieSlopeForward})` : ''}
+                {lieSlopeSide ? ` (${lieSlopeSide.replace('_', ' ')})` : ''}.
               </div>
             ) : (
               <DispersionPlot points={points} stats={stats} />
