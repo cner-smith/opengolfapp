@@ -48,3 +48,20 @@ export function getRecentSGData(client: OgaSupabaseClient, userId: string, limit
     .order('played_at', { ascending: false })
     .limit(limit)
 }
+
+// Rounds with full hole-score and shot detail nested. Used by the stats
+// page to compute per-band, per-club, and per-lie aggregates client-side.
+export function getRoundsWithDetails(
+  client: OgaSupabaseClient,
+  userId: string,
+  limit = 20,
+) {
+  return client
+    .from('rounds')
+    .select(
+      '*, courses(name), hole_scores(*, holes(*), shots(*))',
+    )
+    .eq('user_id', userId)
+    .order('played_at', { ascending: false })
+    .limit(limit)
+}
