@@ -12,7 +12,7 @@ type SkillLevel = Profile['skill_level']
 type Goal = Profile['goal']
 
 export default function ProfileTab() {
-  const { user } = useAuth()
+  const { user, loading: authLoading } = useAuth()
   const [profile, setProfile] = useState<Profile | null>(null)
   const [username, setUsername] = useState('')
   const [handicap, setHandicap] = useState('')
@@ -22,10 +22,15 @@ export default function ProfileTab() {
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
-    if (!user) return
+    if (authLoading || !user) return
     let active = true
-    getProfile(supabase, user.id).then(({ data }) => {
-      if (!active || !data) return
+    getProfile(supabase, user.id).then(({ data, error }) => {
+      if (!active) return
+      if (error) {
+        Alert.alert('Could not load profile', error.message)
+        return
+      }
+      if (!data) return
       setProfile(data)
       setUsername(data.username ?? '')
       setHandicap(data.handicap_index?.toString() ?? '')
@@ -36,7 +41,7 @@ export default function ProfileTab() {
     return () => {
       active = false
     }
-  }, [user?.id])
+  }, [authLoading, user?.id])
 
   async function save() {
     if (!user) return
