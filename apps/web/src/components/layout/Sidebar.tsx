@@ -1,6 +1,7 @@
 import { NavLink } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { useProfile } from '../../hooks/useProfile'
+import { useHandicapMeta } from '../../hooks/useHandicapMeta'
 
 interface NavLinkDef {
   to: string
@@ -76,6 +77,7 @@ function deriveInitials(username: string | null | undefined): string {
 
 export function Sidebar() {
   const { data: profile } = useProfile()
+  const { data: handicapMeta } = useHandicapMeta()
   const initials = deriveInitials(profile?.username)
 
   return (
@@ -137,12 +139,34 @@ export function Sidebar() {
               {profile?.username ?? 'Sign in'}
             </div>
             <div
-              className="font-mono uppercase tabular text-white/45"
-              style={{ fontSize: 10, letterSpacing: '0.14em', marginTop: 2 }}
+              className="font-mono uppercase tabular text-white/45 flex items-center"
+              style={{
+                fontSize: 10,
+                letterSpacing: '0.14em',
+                marginTop: 2,
+                gap: 6,
+              }}
             >
-              {profile?.handicap_index !== null && profile?.handicap_index !== undefined
-                ? `HCP ${profile.handicap_index}`
-                : 'NO HCP'}
+              <span>
+                {profile?.handicap_index !== null && profile?.handicap_index !== undefined
+                  ? `HCP ${profile.handicap_index}`
+                  : 'NO HCP'}
+              </span>
+              {handicapMeta?.official && (
+                <span
+                  style={{
+                    background: 'rgba(31,61,44,0.65)',
+                    color: '#F2EEE5',
+                    padding: '1px 5px',
+                    fontSize: 8,
+                    letterSpacing: '0.14em',
+                    borderRadius: 2,
+                  }}
+                  title={`Calculated from ${handicapMeta.differentialsCount} round${handicapMeta.differentialsCount === 1 ? '' : 's'} with rated tees`}
+                >
+                  OFFICIAL
+                </span>
+              )}
             </div>
           </div>
         </div>

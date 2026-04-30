@@ -23,7 +23,7 @@ import {
 } from '../../components/round/HoleReviewSheet'
 import { useDeleteRound, useRound, useRounds } from '../../hooks/useRounds'
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
-import { useHolesForCourse } from '../../hooks/useCourses'
+import { useCourseTees, useHolesForCourse } from '../../hooks/useCourses'
 import { useHoleScores, useUpsertHoleScore } from '../../hooks/useHoleScores'
 import { useCreateShot, useShotsForRound } from '../../hooks/useShots'
 import { useCompleteRound } from '../../hooks/useCompleteRound'
@@ -43,6 +43,7 @@ export function RoundDetailPage() {
   const { user } = useAuth()
   const courseId = round.data?.course_id
   const holesQuery = useHolesForCourse(courseId)
+  const teesQuery = useCourseTees(courseId)
   const holeScoresQuery = useHoleScores(roundId)
   const shotsQuery = useShotsForRound(roundId)
   const upsertHoleScore = useUpsertHoleScore(roundId)
@@ -302,6 +303,10 @@ export function RoundDetailPage() {
             {round.data.tee_color ? ` · ${round.data.tee_color} tees` : ''} ·{' '}
             {holesPlayed}/18 holes scored
           </div>
+          <RoundRatingLine
+            round={round.data}
+            tees={teesQuery.data ?? []}
+          />
         </div>
         <div className="flex" style={{ gap: 8, flexWrap: 'wrap' }}>
           <button
@@ -681,6 +686,49 @@ function HoleSelector({
 }
 
 // Categorize a shot row for marker coloring on the map.
+type RoundRow = Database['public']['Tables']['rounds']['Row']
+type CourseTeeRow = Database['public']['Tables']['course_tees']['Row']
+
+function RoundRatingLine({
+  round,
+  tees,
+}: {
+  round: RoundRow
+  tees: CourseTeeRow[]
+}) {
+  const tee =
+    tees.find((t) => t.id === round.course_tee_id) ??
+    (round.tee_color
+      ? tees.find((t) => t.tee_color === round.tee_color!.toLowerCase())
+      : null) ??
+    null
+  const hasRating =
+    tee && tee.course_rating != null && tee.slope_rating != null
+  const diff = round.score_differential
+
+  if (!tee && diff == null) return null
+
+  return (
+    <div
+      className="font-mono uppercase tabular text-caddie-ink-mute"
+      style={{
+        fontSize: 10,
+        letterSpacing: '0.14em',
+        marginTop: 4,
+      }}
+    >
+      {hasRating
+        ? `Rating ${tee.course_rating?.toFixed(1)} · slope ${tee.slope_rating}`
+        : tee
+          ? 'No course rating on file'
+          : 'Add course rating to calculate handicap differential'}
+      {diff != null
+        ? ` · diff ${diff >= 0 ? '+' : ''}${diff.toFixed(1)}`
+        : ''}
+    </div>
+  )
+}
+
 function categorizeShot(s: {
   shot_number: number
   lie_type: string | null
