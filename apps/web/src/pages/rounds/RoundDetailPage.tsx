@@ -29,6 +29,7 @@ import { useCreateShot, useShotsForRound } from '../../hooks/useShots'
 import { useCompleteRound } from '../../hooks/useCompleteRound'
 import { useProfile } from '../../hooks/useProfile'
 import { useAuth } from '../../hooks/useAuth'
+import { supabase } from '../../lib/supabase'
 
 type HoleRow = Database['public']['Tables']['holes']['Row']
 type HoleScoreRow = Database['public']['Tables']['hole_scores']['Row']
@@ -62,6 +63,8 @@ export function RoundDetailPage() {
   const [view, setView] = useState<ViewMode>('scorecard')
   const [activeHoleNumber, setActiveHoleNumber] = useState<number>(1)
   const [placedPoints, setPlacedPoints] = useState<PlacedPoint[]>([])
+  const [pinOverride, setPinOverride] = useState<PlacedPoint | null>(null)
+  const [teeOverride, setTeeOverride] = useState<PlacedPoint | null>(null)
   const [reviewOpen, setReviewOpen] = useState(false)
   const [savingHole, setSavingHole] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
@@ -96,20 +99,37 @@ export function RoundDetailPage() {
     () => holes.find((h) => h.number === activeHoleNumber) ?? null,
     [holes, activeHoleNumber],
   )
+  const activeHoleScore = activeHole
+    ? scoresByHoleId.get(activeHole.id) ?? null
+    : null
+  // Pull the round-specific pin off the hole_scores row when present so
+  // it wins over the holes-table default.
+  const persistedRoundPin: PlacedPoint | null =
+    activeHoleScore?.pin_lat != null && activeHoleScore?.pin_lng != null
+      ? { lat: activeHoleScore.pin_lat, lng: activeHoleScore.pin_lng }
+      : null
+  const effectivePin: PlacedPoint | null =
+    pinOverride ??
+    persistedRoundPin ??
+    (activeHole?.pin_lat != null && activeHole?.pin_lng != null
+      ? { lat: activeHole.pin_lat, lng: activeHole.pin_lng }
+      : null)
+  const effectiveTee: PlacedPoint | null =
+    teeOverride ??
+    (activeHole?.tee_lat != null && activeHole?.tee_lng != null
+      ? { lat: activeHole.tee_lat, lng: activeHole.tee_lng }
+      : null)
   const activeHoleGeo: HoleGeo | null = activeHole
     ? {
         id: activeHole.id,
         number: activeHole.number,
         par: activeHole.par,
         yards: activeHole.yards,
-        teeLat: activeHole.tee_lat,
-        teeLng: activeHole.tee_lng,
-        pinLat: activeHole.pin_lat,
-        pinLng: activeHole.pin_lng,
+        teeLat: effectiveTee?.lat ?? null,
+        teeLng: effectiveTee?.lng ?? null,
+        pinLat: effectivePin?.lat ?? null,
+        pinLng: effectivePin?.lng ?? null,
       }
-    : null
-  const activeHoleScore = activeHole
-    ? scoresByHoleId.get(activeHole.id) ?? null
     : null
   const activeHoleShots = useMemo<ExistingShot[]>(() => {
     if (!activeHoleScore) return []
@@ -127,6 +147,28 @@ export function RoundDetailPage() {
       .sort((a, b) => a.shotNumber - b.shotNumber)
   }, [activeHoleScore, shotsQuery.data])
 
+  // The round-pin write is best-effort — we update local state synchronously
+  // so the map + review sheet update immediately, then persist to
+  // hole_scores.pin_lat/lng if we have a row to attach it to.
+  const persistRoundPin = useCallback(
+    async (point: PlacedPoint) => {
+      setPinOverride(point)
+      const hs = activeHoleScore
+      if (!hs) return
+      const { error } = await supabase
+        .from('hole_scores')
+        .update({ pin_lat: point.lat, pin_lng: point.lng })
+        .eq('id', hs.id)
+      if (error) {
+        // Don't roll back the local override — the user's intent stays
+        // visible while they retry. Surface the error for diagnostics.
+        // eslint-disable-next-line no-console
+        console.error('round pin update failed', error)
+      }
+    },
+    [activeHoleScore],
+  )
+
   const placeHandlers = useMemo(
     () => ({
       onPlace: (p: PlacedPoint) =>
@@ -137,17 +179,23 @@ export function RoundDetailPage() {
           next[idx] = p
           return next
         }),
+      onMovePin: (p: PlacedPoint) => {
+        void persistRoundPin(p)
+      },
+      onMoveTee: (p: PlacedPoint) => setTeeOverride(p),
       onClearPoints: () => setPlacedPoints([]),
       onUndoPoint: () =>
         setPlacedPoints((prev) => prev.slice(0, -1)),
       onDoneWithHole: () => setReviewOpen(true),
     }),
-    [],
+    [persistRoundPin],
   )
 
   const switchHole = useCallback((n: number) => {
     setActiveHoleNumber(n)
     setPlacedPoints([])
+    setPinOverride(null)
+    setTeeOverride(null)
     setReviewOpen(false)
     setSaveError(null)
   }, [])
@@ -232,6 +280,7 @@ export function RoundDetailPage() {
       if (!hs) throw new Error('hole_score upsert returned no row')
 
       for (const row of rows) {
+        const isPuttRow = row.lieType === 'green' || row.club === 'putter'
         await createShot.mutateAsync({
           hole_score_id: hs.id,
           user_id: user.id,
@@ -242,14 +291,19 @@ export function RoundDetailPage() {
           end_lng: row.endLng,
           aim_lat: null,
           aim_lng: null,
-          distance_to_target: row.lieType === 'green'
-            ? null
-            : Math.round(row.distanceToPin),
+          distance_to_target: isPuttRow ? null : Math.round(row.distanceToPin),
           club: row.club,
           lie_type: row.lieType,
           shot_result: null,
           penalty: false,
           ob: false,
+          // Putt-specific fields. distanceYards on a putt row is the
+          // tap-to-tap distance in yards; * 3 = feet (US convention),
+          // and putt_distance_ft is what the rest of the app reads.
+          putt_distance_ft: isPuttRow
+            ? Math.round(row.distanceYards * 3)
+            : null,
+          putt_result: row.puttMade ? 'made' : null,
           notes: null,
         })
       }
@@ -399,6 +453,8 @@ export function RoundDetailPage() {
           activeHoleGeo={activeHoleGeo}
           existingShots={activeHoleShots}
           placedPoints={placedPoints}
+          pinOverride={pinOverride}
+          teeOverride={teeOverride}
           handlers={placeHandlers}
           saveError={saveError}
         />
@@ -420,10 +476,10 @@ export function RoundDetailPage() {
           holeNumber={activeHole.number}
           par={activeHole.par}
           totalPar={holes.reduce((s, h) => s + h.par, 0)}
-          pinLat={activeHole.pin_lat}
-          pinLng={activeHole.pin_lng}
-          teeLat={activeHole.tee_lat}
-          teeLng={activeHole.tee_lng}
+          pinLat={effectivePin?.lat ?? null}
+          pinLng={effectivePin?.lng ?? null}
+          teeLat={effectiveTee?.lat ?? null}
+          teeLng={effectiveTee?.lng ?? null}
           placedPoints={placedPoints}
           saving={savingHole}
           onCancel={() => setReviewOpen(false)}
@@ -562,9 +618,13 @@ interface MapViewProps {
   activeHoleGeo: HoleGeo | null
   existingShots: ExistingShot[]
   placedPoints: PlacedPoint[]
+  pinOverride: PlacedPoint | null
+  teeOverride: PlacedPoint | null
   handlers: {
     onPlace: (p: PlacedPoint) => void
     onMovePoint: (idx: number, p: PlacedPoint) => void
+    onMovePin: (p: PlacedPoint) => void
+    onMoveTee: (p: PlacedPoint) => void
     onClearPoints: () => void
     onUndoPoint: () => void
     onDoneWithHole: () => void
@@ -579,6 +639,8 @@ function MapView({
   activeHoleGeo,
   existingShots,
   placedPoints,
+  pinOverride,
+  teeOverride,
   handlers,
   saveError,
 }: MapViewProps) {
@@ -604,6 +666,8 @@ function MapView({
             hole={activeHoleGeo}
             existingShots={existingShots}
             placedPoints={placedPoints}
+            pinOverride={pinOverride}
+            teeOverride={teeOverride}
             {...handlers}
           />
         </Suspense>

@@ -36,6 +36,10 @@ export interface ReviewedShotRow {
   endLng: number
   distanceYards: number
   distanceToPin: number
+  isLastShot: boolean
+  /** Set when the user toggles "Made it ✓" on the last putt row.
+   *  Stored as putt_result='made' on save. */
+  puttMade?: boolean
 }
 
 export function HoleReviewSheet({
@@ -208,7 +212,8 @@ function ShotRow({
   row: ReviewedShotRow
   onChange: (next: ReviewedShotRow) => void
 }) {
-  const isPutt = row.lieType === 'green'
+  const isPutt = row.lieType === 'green' || row.club === 'putter'
+  const showMadeToggle = isPutt && row.isLastShot
   const { toDisplay, toDisplayFt } = useUnits()
   return (
     <div
@@ -278,6 +283,28 @@ function ShotRow({
           </option>
         ))}
       </select>
+      {showMadeToggle && (
+        <button
+          type="button"
+          onClick={() =>
+            onChange({ ...row, puttMade: !row.puttMade })
+          }
+          aria-pressed={!!row.puttMade}
+          style={{
+            background: row.puttMade ? '#1F3D2C' : '#FBF8F1',
+            color: row.puttMade ? '#F2EEE5' : '#1F3D2C',
+            border: `1px solid ${row.puttMade ? '#1F3D2C' : '#1F3D2C'}`,
+            borderRadius: 2,
+            padding: '6px 12px',
+            fontSize: 12,
+            fontWeight: 600,
+            letterSpacing: '0.02em',
+            cursor: 'pointer',
+          }}
+        >
+          {row.puttMade ? 'Made it ✓' : 'Made it'}
+        </button>
+      )}
       <span
         className="text-caddie-ink-mute"
         style={{ fontSize: 12, marginLeft: 'auto' }}
@@ -325,6 +352,13 @@ function buildInitialRows(
       endLng: p.lng,
       distanceYards: inferred.distanceYards,
       distanceToPin: inferred.distanceToPin,
+      isLastShot: inferred.isLastShot,
+      // Default the last-putt to "made" because the player completed the
+      // hole — they almost always did make it. They can toggle off if not.
+      puttMade:
+        inferred.isLastShot && inferred.suggestedLieType === 'green'
+          ? true
+          : undefined,
     })
     prev = { lat: p.lat, lng: p.lng }
   })

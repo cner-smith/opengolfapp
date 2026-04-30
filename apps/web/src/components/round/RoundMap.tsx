@@ -37,8 +37,15 @@ interface RoundMapProps {
    *  logged. The parent owns this state so it can persist across
    *  re-renders and feed the review sheet. */
   placedPoints: PlacedPoint[]
+  /** Local override for the pin and tee positions while the user is
+   *  reviewing a hole. When set, these win over the values inside
+   *  `hole.pinLat/pinLng` / `hole.teeLat/teeLng`. */
+  pinOverride?: PlacedPoint | null
+  teeOverride?: PlacedPoint | null
   onPlace: (point: PlacedPoint) => void
   onMovePoint: (index: number, point: PlacedPoint) => void
+  onMovePin?: (point: PlacedPoint) => void
+  onMoveTee?: (point: PlacedPoint) => void
   onClearPoints: () => void
   onUndoPoint: () => void
   onDoneWithHole: () => void
@@ -57,12 +64,26 @@ export function RoundMap({
   hole,
   existingShots,
   placedPoints,
+  pinOverride,
+  teeOverride,
   onPlace,
   onMovePoint,
+  onMovePin,
+  onMoveTee,
   onClearPoints,
   onUndoPoint,
   onDoneWithHole,
 }: RoundMapProps) {
+  const effectivePin =
+    pinOverride ??
+    (hole && hole.pinLat != null && hole.pinLng != null
+      ? { lat: hole.pinLat, lng: hole.pinLng }
+      : null)
+  const effectiveTee =
+    teeOverride ??
+    (hole && hole.teeLat != null && hole.teeLng != null
+      ? { lat: hole.teeLat, lng: hole.teeLng }
+      : null)
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<mapboxgl.Map | null>(null)
   const markerRefs = useRef<mapboxgl.Marker[]>([])
@@ -73,15 +94,11 @@ export function RoundMap({
     (s) => s.endLat != null && s.endLng != null,
   )
   const center = useMemo<[number, number] | null>(() => {
-    if (!hole) return null
-    if (hole.pinLat != null && hole.pinLng != null) {
-      return [hole.pinLng, hole.pinLat]
-    }
-    if (hole.teeLat != null && hole.teeLng != null) {
-      return [hole.teeLng, hole.teeLat]
-    }
+    if (effectivePin) return [effectivePin.lng, effectivePin.lat]
+    if (effectiveTee) return [effectiveTee.lng, effectiveTee.lat]
     return null
-  }, [hole])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hole?.id])
 
   // Initialize the map once on mount.
   useEffect(() => {
@@ -98,7 +115,12 @@ export function RoundMap({
       new mapboxgl.AttributionControl({ compact: true }),
       'bottom-right',
     )
-    map.addControl(new mapboxgl.NavigationControl({ showCompass: false }), 'top-right')
+    // Zoom + / – live in the bottom-right corner so they don't fight the
+    // instruction strip across the top of the map.
+    map.addControl(
+      new mapboxgl.NavigationControl({ showCompass: false }),
+      'bottom-right',
+    )
     mapRef.current = map
     return () => {
       map.remove()
@@ -148,21 +170,46 @@ export function RoundMap({
     for (const m of markerRefs.current) m.remove()
     markerRefs.current = []
 
-    // Tee marker.
-    if (hole.teeLat != null && hole.teeLng != null) {
+    // Tee marker — draggable when a parent handler is wired in.
+    if (effectiveTee) {
       const el = makeIconMarker('TEE', '#FBF8F1', '#5C6356')
-      const marker = new mapboxgl.Marker({ element: el })
-        .setLngLat([hole.teeLng, hole.teeLat])
+      el.title = onMoveTee
+        ? 'Drag to move the tee for this hole'
+        : 'Tee box'
+      const marker = new mapboxgl.Marker({
+        element: el,
+        draggable: !!onMoveTee,
+      })
+        .setLngLat([effectiveTee.lng, effectiveTee.lat])
         .addTo(map)
+      if (onMoveTee) {
+        marker.on('dragend', () => {
+          const ll = marker.getLngLat()
+          onMoveTee({ lat: ll.lat, lng: ll.lng })
+        })
+      }
       markerRefs.current.push(marker)
     }
 
-    // Pin marker.
-    if (hole.pinLat != null && hole.pinLng != null) {
+    // Pin marker — draggable when a parent handler is wired in.
+    if (effectivePin) {
       const el = makeFlagMarker(MARKER_COLORS.pin)
-      const marker = new mapboxgl.Marker({ element: el, anchor: 'bottom' })
-        .setLngLat([hole.pinLng, hole.pinLat])
+      el.title = onMovePin
+        ? 'Drag to set pin position'
+        : 'Pin'
+      const marker = new mapboxgl.Marker({
+        element: el,
+        anchor: 'bottom',
+        draggable: !!onMovePin,
+      })
+        .setLngLat([effectivePin.lng, effectivePin.lat])
         .addTo(map)
+      if (onMovePin) {
+        marker.on('dragend', () => {
+          const ll = marker.getLngLat()
+          onMovePin({ lat: ll.lat, lng: ll.lng })
+        })
+      }
       markerRefs.current.push(marker)
     }
 
@@ -200,7 +247,7 @@ export function RoundMap({
     })
 
     // Trajectory line (existing shots).
-    const existingCoords = buildLineCoords(hole, existingValid)
+    const existingCoords = buildLineCoords(effectiveTee, existingValid)
     upsertLine(map, lineSourceId, existingCoords, '#FBF8F1')
 
     // Trajectory line (placed points): tee → placed[0] → ... → placed[n-1].
@@ -208,19 +255,35 @@ export function RoundMap({
       placedPoints.length === 0
         ? []
         : [
-            ...(hole.teeLat != null && hole.teeLng != null
-              ? [[hole.teeLng, hole.teeLat] as [number, number]]
+            ...(effectiveTee
+              ? [[effectiveTee.lng, effectiveTee.lat] as [number, number]]
               : []),
             ...placedPoints.map((p) => [p.lng, p.lat] as [number, number]),
           ]
     upsertLine(map, placedLineSourceId, placedCoords, '#A66A1F')
-  }, [existingShots, hole, placedPoints, onMovePoint])
+  }, [
+    existingShots,
+    hole,
+    placedPoints,
+    onMovePoint,
+    onMovePin,
+    onMoveTee,
+    effectivePin?.lat,
+    effectivePin?.lng,
+    effectiveTee?.lat,
+    effectiveTee?.lng,
+  ])
 
   const lastPoint = placedPoints[placedPoints.length - 1] ?? null
   const remainingToPin =
-    lastPoint && hole?.pinLat != null && hole.pinLng != null
+    lastPoint && effectivePin
       ? Math.round(
-          haversineYards(lastPoint.lat, lastPoint.lng, hole.pinLat, hole.pinLng),
+          haversineYards(
+            lastPoint.lat,
+            lastPoint.lng,
+            effectivePin.lat,
+            effectivePin.lng,
+          ),
         )
       : null
 
@@ -376,13 +439,11 @@ function InstructionStrip({
 }
 
 function buildLineCoords(
-  hole: HoleGeo,
+  tee: PlacedPoint | null,
   existing: ExistingShot[],
 ): [number, number][] {
   const coords: [number, number][] = []
-  if (hole.teeLat != null && hole.teeLng != null) {
-    coords.push([hole.teeLng, hole.teeLat])
-  }
+  if (tee) coords.push([tee.lng, tee.lat])
   for (const s of existing) {
     if (s.endLat == null || s.endLng == null) continue
     coords.push([s.endLng, s.endLat])
