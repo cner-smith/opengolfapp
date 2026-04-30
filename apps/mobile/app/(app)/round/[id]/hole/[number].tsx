@@ -10,7 +10,11 @@ import {
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import * as Location from 'expo-location'
 import type { Database } from '@oga/supabase'
-import { HoleMap, type LatLng } from '../../../../../components/round/HoleMap'
+import {
+  HoleMap,
+  type HoleMapMode,
+  type LatLng,
+} from '../../../../../components/round/HoleMap'
 import {
   ShotLogger,
   type ShotLoggerValue,
@@ -23,12 +27,21 @@ import {
   type ShotPayload,
 } from '../../../../../lib/db'
 import { syncPendingShots } from '../../../../../lib/sync'
+import { distanceYards } from '../../../../../lib/maps'
 
 type HoleRow = Database['public']['Tables']['holes']['Row']
 type HoleScoreRow = Database['public']['Tables']['hole_scores']['Row']
 type RoundRow = Database['public']['Tables']['rounds']['Row']
 
 const FALLBACK_CENTER: LatLng = { lat: 40.0, lng: -75.0 }
+const PIN_PROMPT_RADIUS_YARDS = 80
+
+const KICKER: import('react-native').TextStyle = {
+  fontSize: 10,
+  fontWeight: '600',
+  letterSpacing: 1.4,
+  textTransform: 'uppercase',
+}
 
 export default function HoleScreen() {
   const { id, number } = useLocalSearchParams<{ id: string; number: string }>()
@@ -49,6 +62,8 @@ export default function HoleScreen() {
   const [localShotCount, setLocalShotCount] = useState(0)
   const [loggerOpen, setLoggerOpen] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [mapMode, setMapMode] = useState<HoleMapMode>('shot')
+  const [gpsPosition, setGpsPosition] = useState<LatLng | null>(null)
 
   const currentHole = useMemo(
     () => holes.find((h) => h.number === holeNumber) ?? null,
@@ -59,25 +74,27 @@ export default function HoleScreen() {
     [holeScores, currentHole?.id],
   )
 
-  const center: LatLng = useMemo(() => {
-    if (currentHole?.pin_lat != null && currentHole.pin_lng != null) {
-      return { lat: currentHole.pin_lat, lng: currentHole.pin_lng }
-    }
-    if (currentHole?.tee_lat != null && currentHole.tee_lng != null) {
-      return { lat: currentHole.tee_lat, lng: currentHole.tee_lng }
-    }
-    if (ball) return ball
-    return FALLBACK_CENTER
-  }, [currentHole, ball])
-
-  const pin: LatLng | null =
+  const storedPin: LatLng | null =
     currentHole?.pin_lat != null && currentHole.pin_lng != null
       ? { lat: currentHole.pin_lat, lng: currentHole.pin_lng }
+      : null
+  const roundPin: LatLng | null =
+    currentHoleScore?.pin_lat != null && currentHoleScore.pin_lng != null
+      ? { lat: currentHoleScore.pin_lat, lng: currentHoleScore.pin_lng }
       : null
   const tee: LatLng | null =
     currentHole?.tee_lat != null && currentHole.tee_lng != null
       ? { lat: currentHole.tee_lat, lng: currentHole.tee_lng }
       : null
+
+  const center: LatLng = useMemo(() => {
+    if (roundPin) return roundPin
+    if (storedPin) return storedPin
+    if (tee) return tee
+    if (ball) return ball
+    return FALLBACK_CENTER
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [roundPin?.lat, roundPin?.lng, storedPin?.lat, storedPin?.lng, tee?.lat, tee?.lng, ball])
 
   const loadAll = useCallback(async () => {
     if (!id) return
@@ -131,9 +148,10 @@ export default function HoleScreen() {
     }
   }, [currentHoleScore?.id])
 
-  // Auto-place ball at current GPS position once per hole.
+  // Auto-place ball at current GPS position once per hole. Also keep
+  // gpsPosition fresh so we can detect when the player walks onto the green.
   useEffect(() => {
-    if (ball || !currentHole) return
+    if (!currentHole) return
     let active = true
     ;(async () => {
       try {
@@ -143,7 +161,9 @@ export default function HoleScreen() {
           accuracy: Location.Accuracy.High,
         })
         if (!active) return
-        setBall({ lat: loc.coords.latitude, lng: loc.coords.longitude })
+        const pos = { lat: loc.coords.latitude, lng: loc.coords.longitude }
+        setGpsPosition(pos)
+        if (!ball) setBall(pos)
       } catch {
         // GPS not available — user will tap to place.
       }
@@ -151,10 +171,18 @@ export default function HoleScreen() {
     return () => {
       active = false
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentHole?.id])
 
+  // Highlight "On the green" once the player is within 80 yd of the stored
+  // pin AND a per-round pin hasn't been captured yet.
+  const nearPin = useMemo(() => {
+    if (roundPin) return false
+    if (!storedPin || !gpsPosition) return false
+    return distanceYards(gpsPosition, storedPin) <= PIN_PROMPT_RADIUS_YARDS
+  }, [roundPin, storedPin, gpsPosition])
+
   const shotNumber = remoteShotCount + localShotCount + 1
-  const isPutt = currentHole?.par !== undefined && shotNumber > 0 // refined per logger
 
   function buildPayload(meta: ShotLoggerValue | null): ShotPayload | null {
     if (!user || !currentHoleScore) return null
@@ -207,6 +235,26 @@ export default function HoleScreen() {
     }
   }
 
+  async function persistRoundPin(loc: LatLng) {
+    if (!currentHoleScore) return
+    // Optimistic update so the marker appears immediately.
+    setHoleScores((prev) =>
+      prev.map((hs) =>
+        hs.id === currentHoleScore.id
+          ? { ...hs, pin_lat: loc.lat, pin_lng: loc.lng }
+          : hs,
+      ),
+    )
+    setMapMode('shot')
+    const { error: updateErr } = await supabase
+      .from('hole_scores')
+      .update({ pin_lat: loc.lat, pin_lng: loc.lng })
+      .eq('id', currentHoleScore.id)
+    if (updateErr) {
+      Alert.alert('Pin save failed', updateErr.message)
+    }
+  }
+
   function openLogger() {
     if (!ball) {
       Alert.alert('Place the ball first', 'Tap the map to drop the ball.')
@@ -228,10 +276,10 @@ export default function HoleScreen() {
           flex: 1,
           alignItems: 'center',
           justifyContent: 'center',
-          backgroundColor: '#F4F4F0',
+          backgroundColor: '#F2EEE5',
         }}
       >
-        <ActivityIndicator color="#1D9E75" />
+        <ActivityIndicator color="#1F3D2C" />
       </View>
     )
   }
@@ -242,11 +290,11 @@ export default function HoleScreen() {
           flex: 1,
           alignItems: 'center',
           justifyContent: 'center',
-          backgroundColor: '#F4F4F0',
-          padding: 16,
+          backgroundColor: '#F2EEE5',
+          padding: 18,
         }}
       >
-        <Text style={{ color: '#A32D2D', fontSize: 13 }}>
+        <Text style={{ color: '#A33A2A', fontSize: 13 }}>
           {error ?? `Hole ${holeNumber} not found for this round.`}
         </Text>
       </View>
@@ -254,40 +302,54 @@ export default function HoleScreen() {
   }
 
   return (
-    <View style={{ flex: 1, backgroundColor: '#F4F4F0' }}>
+    <View style={{ flex: 1, backgroundColor: '#F2EEE5' }}>
       <View
         style={{
-          backgroundColor: '#111111',
-          paddingTop: 48,
-          paddingBottom: 10,
-          paddingHorizontal: 14,
+          backgroundColor: '#1C211C',
+          paddingTop: 52,
+          paddingBottom: 14,
+          paddingHorizontal: 18,
           flexDirection: 'row',
           alignItems: 'center',
           justifyContent: 'space-between',
         }}
       >
         <Pressable onPress={() => router.replace('/(app)')}>
-          <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 12 }}>← Home</Text>
+          <Text
+            style={{
+              ...KICKER,
+              color: 'rgba(242,238,229,0.6)',
+            }}
+          >
+            ← Home
+          </Text>
         </Pressable>
         <View style={{ alignItems: 'center' }}>
           <Text
             style={{
-              color: 'rgba(255,255,255,0.45)',
-              fontSize: 10,
-              letterSpacing: 0.3,
+              ...KICKER,
+              color: 'rgba(242,238,229,0.45)',
+              marginBottom: 4,
             }}
           >
-            HOLE {holeNumber}
+            Hole {holeNumber}
           </Text>
-          <Text style={{ color: '#FFFFFF', fontSize: 15, fontWeight: '500' }}>
+          <Text
+            style={{
+              color: '#F2EEE5',
+              fontSize: 17,
+              fontWeight: '500',
+              fontStyle: 'italic',
+            }}
+          >
             Par {currentHole.par}
             {currentHole.yards ? ` · ${currentHole.yards} yd` : ''}
           </Text>
         </View>
         <Text
           style={{
-            color: 'rgba(255,255,255,0.6)',
-            fontSize: 11,
+            ...KICKER,
+            color: 'rgba(242,238,229,0.6)',
             fontVariant: ['tabular-nums'],
           }}
         >
@@ -298,46 +360,102 @@ export default function HoleScreen() {
       <View style={{ flex: 1 }}>
         <HoleMap
           center={center}
-          pin={pin}
+          pin={storedPin}
+          roundPin={roundPin}
           tee={tee}
           aim={aim}
           ball={ball}
+          mode={mapMode}
           onSetAim={setAim}
           onSetBall={setBall}
+          onPlacePin={persistRoundPin}
         />
       </View>
 
       <View
         style={{
-          backgroundColor: '#FFFFFF',
-          paddingHorizontal: 14,
-          paddingTop: 12,
-          paddingBottom: 12,
-          borderTopWidth: 0.5,
-          borderTopColor: '#E4E4E0',
+          backgroundColor: '#FBF8F1',
+          paddingHorizontal: 18,
+          paddingTop: 14,
+          paddingBottom: 14,
+          borderTopWidth: 1,
+          borderTopColor: '#D9D2BF',
         }}
       >
-        <Pressable
-          onPress={openLogger}
-          disabled={!ball || saving}
-          style={{
-            backgroundColor: ball ? '#111111' : '#F4F4F0',
-            borderRadius: 10,
-            paddingVertical: 13,
-            alignItems: 'center',
-            marginBottom: 10,
-          }}
-        >
-          <Text
+        {mapMode === 'pin' ? (
+          <Pressable
+            onPress={() => setMapMode('shot')}
             style={{
-              color: ball ? '#FFFFFF' : '#AAAAAA',
-              fontSize: 13,
-              fontWeight: '500',
+              borderWidth: 1,
+              borderColor: '#1F3D2C',
+              paddingVertical: 14,
+              alignItems: 'center',
+              marginBottom: 10,
+              borderRadius: 2,
             }}
           >
-            {saving ? 'Saving…' : ball ? 'Save shot' : 'Place ball to save'}
-          </Text>
-        </Pressable>
+            <Text
+              style={{
+                color: '#1F3D2C',
+                fontSize: 14,
+                fontWeight: '600',
+                letterSpacing: 0.3,
+              }}
+            >
+              Cancel pin placement
+            </Text>
+          </Pressable>
+        ) : (
+          <>
+            <Pressable
+              onPress={openLogger}
+              disabled={!ball || saving}
+              style={{
+                backgroundColor: ball ? '#1F3D2C' : '#EBE5D6',
+                borderRadius: 2,
+                paddingVertical: 14,
+                alignItems: 'center',
+                marginBottom: 10,
+              }}
+            >
+              <Text
+                style={{
+                  color: ball ? '#F2EEE5' : '#8A8B7E',
+                  fontSize: 14,
+                  fontWeight: '600',
+                  letterSpacing: 0.3,
+                }}
+              >
+                {saving
+                  ? 'Saving…'
+                  : ball
+                    ? 'Save shot →'
+                    : 'Place ball to save'}
+              </Text>
+            </Pressable>
+            <Pressable
+              onPress={() => setMapMode('pin')}
+              style={{
+                paddingVertical: 8,
+                alignItems: 'center',
+                marginBottom: 10,
+              }}
+            >
+              <Text
+                style={{
+                  ...KICKER,
+                  color: nearPin ? '#A66A1F' : '#8A8B7E',
+                }}
+              >
+                {roundPin
+                  ? 'Move pin'
+                  : nearPin
+                    ? 'On the green — place today\'s pin'
+                    : 'On the green'}
+              </Text>
+            </Pressable>
+          </>
+        )}
         <View
           style={{
             flexDirection: 'row',
@@ -349,15 +467,15 @@ export default function HoleScreen() {
             onPress={() => navigateHole(-1)}
             disabled={holeNumber === 1}
             style={{
-              borderWidth: 0.5,
-              borderColor: '#E4E4E0',
-              borderRadius: 7,
+              borderWidth: 1,
+              borderColor: '#D9D2BF',
+              borderRadius: 2,
               paddingVertical: 6,
               paddingHorizontal: 12,
               opacity: holeNumber === 1 ? 0.4 : 1,
             }}
           >
-            <Text style={{ fontSize: 12 }}>← Prev</Text>
+            <Text style={{ fontSize: 12, color: '#1C211C' }}>← Prev</Text>
           </Pressable>
           <View style={{ flex: 1 }}>
             <ScorecardPreview
@@ -370,15 +488,15 @@ export default function HoleScreen() {
             onPress={() => navigateHole(1)}
             disabled={holeNumber === 18}
             style={{
-              borderWidth: 0.5,
-              borderColor: '#E4E4E0',
-              borderRadius: 7,
+              borderWidth: 1,
+              borderColor: '#D9D2BF',
+              borderRadius: 2,
               paddingVertical: 6,
               paddingHorizontal: 12,
               opacity: holeNumber === 18 ? 0.4 : 1,
             }}
           >
-            <Text style={{ fontSize: 12 }}>Next →</Text>
+            <Text style={{ fontSize: 12, color: '#1C211C' }}>Next →</Text>
           </Pressable>
         </View>
       </View>
@@ -419,15 +537,15 @@ function ScorecardPreview({
                 height: 26,
                 alignItems: 'center',
                 justifyContent: 'center',
-                borderRadius: 7,
-                backgroundColor: active ? '#111111' : '#F4F4F0',
+                borderRadius: 2,
+                backgroundColor: active ? '#1F3D2C' : '#EBE5D6',
               }}
             >
               <Text
                 style={{
                   fontSize: 11,
                   fontWeight: '500',
-                  color: active ? '#FFFFFF' : '#888880',
+                  color: active ? '#F2EEE5' : '#5C6356',
                   fontVariant: ['tabular-nums'],
                 }}
               >
