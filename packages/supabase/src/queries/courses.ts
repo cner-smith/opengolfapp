@@ -77,3 +77,26 @@ export function getCourseByExternalId(
     .eq('external_id', externalId)
     .maybeSingle()
 }
+
+type CourseTeeInsert = Database['public']['Tables']['course_tees']['Insert']
+
+export function getCourseTees(client: OgaSupabaseClient, courseId: string) {
+  return client
+    .from('course_tees')
+    .select('*')
+    .eq('course_id', courseId)
+    .order('total_yards', { ascending: false })
+}
+
+export function upsertCourseTees(
+  client: OgaSupabaseClient,
+  rows: CourseTeeInsert[],
+) {
+  if (rows.length === 0) {
+    return Promise.resolve({ data: [] as unknown[], error: null })
+  }
+  return client
+    .from('course_tees')
+    .upsert(rows, { onConflict: 'course_id,tee_color' })
+    .select()
+}

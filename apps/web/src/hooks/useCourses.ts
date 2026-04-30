@@ -11,8 +11,10 @@ import {
   createHoles,
   defaultHolesForCourse,
   getCourseByExternalId,
+  getCourseTees,
   getHolesForCourse,
   searchCourses,
+  upsertCourseTees,
 } from '@oga/supabase'
 import type { Database } from '@oga/supabase'
 import { supabase } from '../lib/supabase'
@@ -116,9 +118,37 @@ export function useImportApiCourse() {
       const { error: holesError } = await createHoles(supabase, holeRows)
       if (holesError) throw holesError
 
+      // Tees are best-effort — failures shouldn't block the round flow.
+      if (detail && detail.tees.length > 0) {
+        await upsertCourseTees(
+          supabase,
+          detail.tees.map((t) => ({
+            course_id: course.id,
+            tee_color: t.color,
+            tee_name: t.name ?? null,
+            course_rating: t.rating ?? null,
+            slope_rating: t.slope ?? null,
+            total_yards: t.totalYards ?? null,
+            par: t.par ?? null,
+          })),
+        )
+      }
+
       return course as CourseRow
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['courses'] }),
+  })
+}
+
+export function useCourseTees(courseId: string | null | undefined) {
+  return useQuery({
+    queryKey: ['course-tees', courseId],
+    enabled: !!courseId,
+    queryFn: async () => {
+      const { data, error } = await getCourseTees(supabase, courseId!)
+      if (error) throw error
+      return data ?? []
+    },
   })
 }
 

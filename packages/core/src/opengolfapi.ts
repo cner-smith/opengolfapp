@@ -20,6 +20,15 @@ export interface OpenGolfApiHole {
   yards?: number
 }
 
+export interface OpenGolfApiTee {
+  color: string
+  name?: string
+  rating?: number
+  slope?: number
+  totalYards?: number
+  par?: number
+}
+
 export interface OpenGolfApiCourse {
   id: string
   name: string
@@ -27,6 +36,7 @@ export interface OpenGolfApiCourse {
   state?: string
   par?: number
   holes: OpenGolfApiHole[]
+  tees: OpenGolfApiTee[]
 }
 
 interface RawHole {
@@ -37,6 +47,22 @@ interface RawHole {
   yards?: number | string
   distance?: number | string
   yardage?: number | string
+}
+
+interface RawTee {
+  color?: string
+  name?: string
+  tee_color?: string
+  tee_name?: string
+  rating?: number | string
+  course_rating?: number | string
+  slope?: number | string
+  slope_rating?: number | string
+  yards?: number | string
+  total_yards?: number | string
+  total_yardage?: number | string
+  par?: number | string
+  holes?: RawHole[]
 }
 
 interface RawCourse {
@@ -52,7 +78,7 @@ interface RawCourse {
   hole_count?: number
   holes?: RawHole[]
   scorecard?: RawHole[]
-  tees?: { holes?: RawHole[] }[]
+  tees?: RawTee[]
 }
 
 function asInt(v: unknown): number | undefined {
@@ -64,10 +90,43 @@ function asInt(v: unknown): number | undefined {
   return undefined
 }
 
+function asNumber(v: unknown): number | undefined {
+  if (typeof v === 'number' && Number.isFinite(v)) return v
+  if (typeof v === 'string') {
+    const n = parseFloat(v)
+    if (Number.isFinite(n)) return n
+  }
+  return undefined
+}
+
+function normalizeTees(raws: RawTee[] | undefined): OpenGolfApiTee[] {
+  if (!Array.isArray(raws)) return []
+  const out: OpenGolfApiTee[] = []
+  for (const t of raws) {
+    const color = (t.color ?? t.tee_color ?? t.name ?? t.tee_name ?? '').trim()
+    if (!color) continue
+    const tee: OpenGolfApiTee = { color: color.toLowerCase() }
+    const name = t.name ?? t.tee_name
+    if (typeof name === 'string' && name.trim()) tee.name = name.trim()
+    const rating = asNumber(t.rating ?? t.course_rating)
+    if (rating != null) tee.rating = rating
+    const slope = asInt(t.slope ?? t.slope_rating)
+    if (slope != null) tee.slope = slope
+    const yards = asInt(t.yards ?? t.total_yards ?? t.total_yardage)
+    if (yards != null) tee.totalYards = yards
+    const par = asInt(t.par)
+    if (par != null) tee.par = par
+    out.push(tee)
+  }
+  return out
+}
+
 function pickHoles(raw: RawCourse): RawHole[] {
   if (Array.isArray(raw.holes) && raw.holes.length) return raw.holes
   if (Array.isArray(raw.scorecard) && raw.scorecard.length) return raw.scorecard
-  if (Array.isArray(raw.tees) && raw.tees[0]?.holes) return raw.tees[0]!.holes!
+  if (Array.isArray(raw.tees) && raw.tees[0]?.holes?.length) {
+    return raw.tees[0]!.holes!
+  }
   return []
 }
 
@@ -91,6 +150,7 @@ function normalizeCourse(raw: RawCourse): OpenGolfApiCourse {
     state: raw.state ?? raw.region ?? undefined,
     par: asInt(raw.par ?? raw.total_par),
     holes,
+    tees: normalizeTees(raw.tees),
   }
 }
 

@@ -21,6 +21,7 @@ import {
   createRound,
   getCourseByExternalId,
   searchCourses,
+  upsertCourseTees,
   upsertHoleScore,
 } from '@oga/supabase'
 import type { Database } from '@oga/supabase'
@@ -207,6 +208,20 @@ export default function NewRound() {
             }))
       const { error: holeErr } = await createHoles(supabase, holes)
       if (holeErr) throw holeErr
+      if (detail.tees.length > 0) {
+        await upsertCourseTees(
+          supabase,
+          detail.tees.map((t) => ({
+            course_id: course.id,
+            tee_color: t.color,
+            tee_name: t.name ?? null,
+            course_rating: t.rating ?? null,
+            slope_rating: t.slope ?? null,
+            total_yards: t.totalYards ?? null,
+            par: t.par ?? null,
+          })),
+        )
+      }
       await startWith(course.id)
     } catch (err) {
       setError((err as Error).message)
