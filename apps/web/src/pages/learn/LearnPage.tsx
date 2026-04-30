@@ -1,13 +1,38 @@
+import { useEffect, useState } from 'react'
 import { useDetailedStats } from '../../hooks/useDetailedStats'
+import { useProfile } from '../../hooks/useProfile'
 import { useUnits } from '../../hooks/useUnits'
 import type { DetailedStats } from '../../lib/statsCalculations'
+
+interface SectionLink {
+  id: string
+  label: string
+}
+
+const SECTION_LINKS: SectionLink[] = [
+  { id: 'strokes-gained', label: 'Strokes gained' },
+  { id: 'categories', label: 'Categories' },
+  { id: 'benchmarks', label: 'By the numbers' },
+  { id: 'handicap', label: 'Handicap' },
+  { id: 'gir', label: 'GIR' },
+  { id: 'scrambling', label: 'Scrambling' },
+  { id: 'up-down', label: 'Up & down' },
+  { id: 'sand-save', label: 'Sand save' },
+  { id: 'dispersion', label: 'Dispersion' },
+]
 
 export function LearnPage() {
   const stats = useDetailedStats(10)
   const me = stats.data ?? null
+  const activeId = useActiveSection()
+  const [jumpOpen, setJumpOpen] = useState(false)
 
   return (
-    <div>
+    <div
+      className="grid grid-cols-1 lg:grid-cols-[1fr_220px]"
+      style={{ gap: 32 }}
+    >
+      <div style={{ minWidth: 0 }}>
       <div style={{ marginBottom: 28 }}>
         <div className="kicker" style={{ marginBottom: 8 }}>
           Yardage book
@@ -126,8 +151,178 @@ export function LearnPage() {
         Benchmarks based on Mark Broadie's strokes gained research
         and PGA Tour ShotLink data. Amateur averages approximate.
       </Footnote>
+      </div>
+
+      <aside
+        className="hidden lg:block"
+        style={{
+          alignSelf: 'start',
+          position: 'sticky',
+          top: 28,
+        }}
+      >
+        <div className="kicker" style={{ marginBottom: 12 }}>
+          On this page
+        </div>
+        <nav
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            borderTop: '1px solid #D9D2BF',
+          }}
+        >
+          {SECTION_LINKS.map((s) => {
+            const active = activeId === s.id
+            return (
+              <a
+                key={s.id}
+                href={`#${s.id}`}
+                onClick={(e) => {
+                  e.preventDefault()
+                  document
+                    .getElementById(s.id)
+                    ?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                }}
+                style={{
+                  padding: '10px 0',
+                  borderBottom: '1px solid #D9D2BF',
+                  fontSize: 13,
+                  color: active ? '#1F3D2C' : '#5C6356',
+                  fontWeight: active ? 600 : 400,
+                  textDecoration: 'none',
+                }}
+              >
+                {s.label}
+              </a>
+            )
+          })}
+        </nav>
+      </aside>
+
+      <button
+        type="button"
+        onClick={() => setJumpOpen(true)}
+        className="lg:hidden fixed"
+        style={{
+          right: 18,
+          bottom: 18,
+          background: '#FBF8F1',
+          border: '1px solid #9F9580',
+          borderRadius: 999,
+          padding: '12px 16px',
+          fontSize: 12,
+          fontFamily: 'JetBrains Mono, monospace',
+          letterSpacing: '0.14em',
+          textTransform: 'uppercase',
+          color: '#1C211C',
+          zIndex: 30,
+        }}
+      >
+        Jump to section
+      </button>
+
+      {jumpOpen && (
+        <JumpSheet
+          activeId={activeId}
+          onSelect={(id) => {
+            document
+              .getElementById(id)
+              ?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+            setJumpOpen(false)
+          }}
+          onClose={() => setJumpOpen(false)}
+        />
+      )}
     </div>
   )
+}
+
+function JumpSheet({
+  activeId,
+  onSelect,
+  onClose,
+}: {
+  activeId: string | null
+  onSelect: (id: string) => void
+  onClose: () => void
+}) {
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-end justify-center"
+      style={{ background: 'rgba(28,33,28,0.55)' }}
+      onClick={onClose}
+    >
+      <div
+        className="bg-caddie-surface w-full"
+        style={{
+          maxWidth: 480,
+          borderTop: '1px solid #9F9580',
+          borderTopLeftRadius: 12,
+          borderTopRightRadius: 12,
+          padding: 18,
+          paddingBottom: 28,
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="kicker" style={{ marginBottom: 14 }}>
+          Jump to section
+        </div>
+        <nav
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            borderTop: '1px solid #D9D2BF',
+          }}
+        >
+          {SECTION_LINKS.map((s) => {
+            const active = activeId === s.id
+            return (
+              <button
+                key={s.id}
+                type="button"
+                onClick={() => onSelect(s.id)}
+                style={{
+                  padding: '14px 0',
+                  borderBottom: '1px solid #D9D2BF',
+                  fontSize: 15,
+                  textAlign: 'left',
+                  background: 'transparent',
+                  border: 'none',
+                  color: active ? '#1F3D2C' : '#1C211C',
+                  fontWeight: active ? 600 : 500,
+                  fontFamily: 'Fraunces, serif',
+                  fontStyle: 'italic',
+                }}
+              >
+                {s.label}
+              </button>
+            )
+          })}
+        </nav>
+      </div>
+    </div>
+  )
+}
+
+function useActiveSection(): string | null {
+  const [active, setActive] = useState<string | null>(SECTION_LINKS[0]!.id)
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const visible = entries
+          .filter((e) => e.isIntersecting)
+          .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)
+        if (visible[0]) setActive(visible[0].target.id)
+      },
+      { rootMargin: '0px 0px -60% 0px', threshold: 0.1 },
+    )
+    for (const link of SECTION_LINKS) {
+      const el = document.getElementById(link.id)
+      if (el) observer.observe(el)
+    }
+    return () => observer.disconnect()
+  }, [])
+  return active
 }
 
 // ===========================================================================
@@ -502,6 +697,12 @@ function BenchmarkSection({ me }: { me: DetailedStats | null }) {
     },
   ]
 
+  const [view, setView] = useState<'chart' | 'table'>('chart')
+  const profile = useProfile()
+  const userBracketIndex = bracketIndexForHandicap(
+    profile.data?.handicap_index ?? null,
+  )
+
   return (
     <Entry id="benchmarks" kicker="By the numbers" title="Where you sit in the field.">
       <Lede>
@@ -512,12 +713,210 @@ function BenchmarkSection({ me }: { me: DetailedStats | null }) {
         does not have enough rounds to compute it yet.
       </Lede>
 
-      <BenchmarkGroup title="Strokes gained" rows={sgRows} highlightScratch />
-      <BenchmarkGroup title="Scoring + ball striking" rows={scoringRows} />
-      <BenchmarkGroup title="Putting" rows={puttingRows} />
-      <BenchmarkGroup title="Ball striking" rows={ballStrikingRows} />
+      <BenchmarkViewTabs value={view} onChange={setView} />
+
+      {view === 'chart' ? (
+        <>
+          <BenchmarkGroup title="Strokes gained" rows={sgRows} highlightScratch />
+          <BenchmarkGroup title="Scoring + ball striking" rows={scoringRows} />
+          <BenchmarkGroup title="Putting" rows={puttingRows} />
+          <BenchmarkGroup title="Ball striking" rows={ballStrikingRows} />
+        </>
+      ) : (
+        <BenchmarkTable
+          groups={[
+            { title: 'Strokes gained', rows: sgRows, isSg: true },
+            { title: 'Scoring + ball striking', rows: scoringRows },
+            { title: 'Putting', rows: puttingRows },
+            { title: 'Ball striking', rows: ballStrikingRows },
+          ]}
+          userBracketIndex={userBracketIndex}
+        />
+      )}
     </Entry>
   )
+}
+
+function BenchmarkViewTabs({
+  value,
+  onChange,
+}: {
+  value: 'chart' | 'table'
+  onChange: (v: 'chart' | 'table') => void
+}) {
+  return (
+    <div
+      style={{
+        display: 'flex',
+        gap: 0,
+        borderBottom: '1px solid #D9D2BF',
+        marginTop: 14,
+        marginBottom: 18,
+      }}
+    >
+      {(['chart', 'table'] as const).map((v) => (
+        <button
+          key={v}
+          type="button"
+          onClick={() => onChange(v)}
+          className="font-mono uppercase"
+          style={{
+            background: 'transparent',
+            border: 'none',
+            padding: '8px 16px',
+            fontSize: 10,
+            letterSpacing: '0.14em',
+            color: value === v ? '#1C211C' : '#8A8B7E',
+            borderBottom:
+              value === v ? '2px solid #1F3D2C' : '2px solid transparent',
+            marginBottom: -1,
+          }}
+        >
+          {v}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+interface BenchmarkGroupSpec {
+  title: string
+  rows: BenchmarkRow[]
+  isSg?: boolean
+}
+
+function BenchmarkTable({
+  groups,
+  userBracketIndex,
+}: {
+  groups: BenchmarkGroupSpec[]
+  userBracketIndex: number | null
+}) {
+  const headerLabels = ['25+', '20', '15', '10', '5', 'SCR', 'PGA']
+  // Reverse mapping: BRACKETS goes PGA → 25+, headerLabels here is 25+ → PGA.
+  const reorderIdx = [6, 5, 4, 3, 2, 1, 0]
+  return (
+    <div style={{ overflowX: 'auto' }}>
+      <table
+        style={{
+          minWidth: 640,
+          width: '100%',
+          borderCollapse: 'collapse',
+        }}
+      >
+        <thead>
+          <tr style={{ borderBottom: '1px solid #9F9580' }}>
+            <th
+              className="font-mono uppercase"
+              style={{
+                fontSize: 10,
+                letterSpacing: '0.14em',
+                color: '#8A8B7E',
+                textAlign: 'left',
+                padding: '10px 8px',
+              }}
+            >
+              Stat
+            </th>
+            {headerLabels.map((h, i) => {
+              const highlighted = userBracketIndex != null && i === userBracketIndex
+              return (
+                <th
+                  key={h}
+                  className="font-mono uppercase tabular"
+                  style={{
+                    fontSize: 10,
+                    letterSpacing: '0.14em',
+                    color: '#8A8B7E',
+                    textAlign: 'right',
+                    padding: '10px 8px',
+                    minWidth: 56,
+                    background: highlighted
+                      ? 'rgba(31,61,44,0.15)'
+                      : 'transparent',
+                  }}
+                >
+                  {h}
+                </th>
+              )
+            })}
+          </tr>
+        </thead>
+        <tbody>
+          {groups.flatMap((g) => [
+            <tr key={`group-${g.title}`}>
+              <td
+                colSpan={8}
+                className="kicker"
+                style={{
+                  padding: '14px 8px 6px',
+                  borderTop: '1px solid #D9D2BF',
+                }}
+              >
+                {g.title}
+              </td>
+            </tr>,
+            ...g.rows.map((r) => (
+              <tr key={r.key}>
+                <td
+                  className="font-serif text-caddie-ink"
+                  style={{
+                    padding: '10px 8px',
+                    fontSize: 14,
+                    fontWeight: 500,
+                  }}
+                >
+                  {r.label}
+                </td>
+                {reorderIdx.map((origIdx, headIdx) => {
+                  const v = r.values[origIdx]!
+                  const tone =
+                    g.isSg
+                      ? v > 0
+                        ? '#1F3D2C'
+                        : v < 0
+                          ? '#A33A2A'
+                          : '#5C6356'
+                      : '#1C211C'
+                  const highlighted =
+                    userBracketIndex != null && headIdx === userBracketIndex
+                  return (
+                    <td
+                      key={origIdx}
+                      className="font-serif tabular"
+                      style={{
+                        padding: '10px 8px',
+                        fontSize: 14,
+                        fontStyle: g.isSg ? 'italic' : 'normal',
+                        textAlign: 'right',
+                        color: tone,
+                        background: highlighted
+                          ? 'rgba(31,61,44,0.15)'
+                          : 'transparent',
+                      }}
+                    >
+                      {r.format(v)}
+                    </td>
+                  )
+                })}
+              </tr>
+            )),
+          ])}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
+// Convert handicap → table column index (0=25+, 6=PGA).
+function bracketIndexForHandicap(h: number | null): number | null {
+  if (h == null || !Number.isFinite(h)) return null
+  if (h >= 25) return 0
+  if (h >= 18) return 1
+  if (h >= 13) return 2
+  if (h >= 8) return 3
+  if (h >= 3) return 4
+  return 5 // scratch
 }
 
 function BenchmarkGroup({
