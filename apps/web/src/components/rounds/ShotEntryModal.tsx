@@ -16,6 +16,7 @@ import {
   useUpdateShot,
 } from '../../hooks/useShots'
 import { useAuth } from '../../hooks/useAuth'
+import { LieSlopeGrid } from '../forms/LieSlopeGrid'
 
 type ShotInsert = Database['public']['Tables']['shots']['Insert']
 type ShotRow = Database['public']['Tables']['shots']['Row']
@@ -313,7 +314,9 @@ export function ShotEntryModal({
               <Field label="Lie slope">
                 <LieSlopeGrid
                   value={draft.lieSlope}
-                  onChange={(v) => setDraft((d) => ({ ...d, lieSlope: v }))}
+                  onChange={(v) =>
+                    v && setDraft((d) => ({ ...d, lieSlope: v }))
+                  }
                 />
               </Field>
 
@@ -503,16 +506,6 @@ function ChipGroup<T extends string>({ value, options, onChange }: ChipGroupProp
 }
 
 type PuttSelectKey = PuttResult | 'spacer'
-type SlopeSelectKey = LieSlope | 'spacer'
-
-const SLOPE_GRID: SlopeSelectKey[] = [
-  'uphill',
-  'level',
-  'downhill',
-  'ball_above',
-  'spacer',
-  'ball_below',
-]
 
 const PUTT_GRID: PuttSelectKey[] = [
   'made',
@@ -532,97 +525,6 @@ function gridButtonStyle(active: boolean): React.CSSProperties {
     padding: '12px 8px',
     fontSize: 12,
     fontWeight: active ? 500 : 400,
-  }
-}
-
-function LieSlopeGrid({
-  value,
-  onChange,
-}: {
-  value: LieSlope | undefined
-  onChange: (v: LieSlope) => void
-}) {
-  return (
-    <div
-      role="radiogroup"
-      className="grid grid-cols-3"
-      style={{ gap: 6, maxWidth: 360 }}
-    >
-      {SLOPE_GRID.map((key, i) =>
-        key === 'spacer' ? (
-          <div key={`s${i}`} />
-        ) : (
-          <button
-            key={key}
-            type="button"
-            role="radio"
-            aria-checked={value === key}
-            onClick={() => onChange(key)}
-            style={{
-              ...gridButtonStyle(value === key),
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              gap: 6,
-            }}
-          >
-            <SlopeIcon kind={key} />
-            <span>{key.replace('_', ' ')}</span>
-          </button>
-        ),
-      )}
-    </div>
-  )
-}
-
-function SlopeIcon({ kind }: { kind: LieSlope }) {
-  const props = {
-    width: 32,
-    height: 24,
-    viewBox: '0 0 32 24',
-    fill: 'none',
-    stroke: 'currentColor',
-    strokeWidth: 1.5,
-    strokeLinecap: 'round' as const,
-  }
-  switch (kind) {
-    case 'uphill':
-      return (
-        <svg {...props}>
-          <line x1={4} y1={18} x2={28} y2={8} />
-          <circle cx={26} cy={6} r={2} fill="currentColor" stroke="none" />
-        </svg>
-      )
-    case 'level':
-      return (
-        <svg {...props}>
-          <line x1={4} y1={14} x2={28} y2={14} />
-          <circle cx={16} cy={11} r={2} fill="currentColor" stroke="none" />
-        </svg>
-      )
-    case 'downhill':
-      return (
-        <svg {...props}>
-          <line x1={4} y1={8} x2={28} y2={18} />
-          <circle cx={26} cy={20} r={2} fill="currentColor" stroke="none" />
-        </svg>
-      )
-    case 'ball_above':
-      return (
-        <svg {...props}>
-          <line x1={4} y1={22} x2={28} y2={4} />
-          <circle cx={24} cy={4} r={2} fill="currentColor" stroke="none" />
-          <line x1={6} y1={22} x2={10} y2={22} />
-        </svg>
-      )
-    case 'ball_below':
-      return (
-        <svg {...props}>
-          <line x1={4} y1={4} x2={28} y2={22} />
-          <circle cx={24} cy={22} r={2} fill="currentColor" stroke="none" />
-          <line x1={6} y1={4} x2={10} y2={4} />
-        </svg>
-      )
   }
 }
 

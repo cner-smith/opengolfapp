@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import {
   CLUBS,
-  LIE_SLOPES,
   LIE_TYPES,
   getAimCorrection,
   type Club,
@@ -11,6 +10,7 @@ import {
   type DispersionStats,
 } from '@oga/core'
 import { useShotPatterns } from '../../hooks/useShotPatterns'
+import { LieSlopeGrid } from '../../components/forms/LieSlopeGrid'
 
 const SVG_SIZE = 420
 
@@ -76,11 +76,10 @@ export function ShotPatternsPage() {
           />
         </FilterSection>
         <FilterSection kicker="Lie slope">
-          <SelectChips
-            value={lieSlope}
-            options={['', ...LIE_SLOPES] as const}
-            onChange={(v) => setLieSlope(v as LieSlope | '')}
-            renderLabel={(v) => (v === '' ? 'any' : v.replace(/_/g, ' '))}
+          <LieSlopeGrid
+            value={lieSlope === '' ? undefined : lieSlope}
+            onChange={(v) => setLieSlope(v ?? '')}
+            toggleable
           />
         </FilterSection>
       </div>
