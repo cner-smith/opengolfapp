@@ -18,6 +18,7 @@ import type {
   MissTendencyEntry,
   RecoveryRateStat,
   ScoringDistributionSlice,
+  SlopeImpact,
 } from '../../lib/statsCalculations'
 
 const N_OPTIONS = [5, 10, 20] as const
@@ -287,9 +288,92 @@ function PatternsSection({ data }: { data: DetailedStats }) {
       <Subkicker style={{ marginTop: 22 }}>Club accuracy</Subkicker>
       <ClubAccuracyList entries={data.clubAccuracy} />
 
+      <Subkicker style={{ marginTop: 22 }}>Slope impact</Subkicker>
+      <SlopeImpactBlock impact={data.slopeImpact} />
+
       <Subkicker style={{ marginTop: 22 }}>Recovery from rough</Subkicker>
       <RecoveryStat stat={data.recovery} />
     </Section>
+  )
+}
+
+function SlopeImpactBlock({ impact }: { impact: SlopeImpact }) {
+  if (impact.forward.length === 0 && impact.side.length === 0) {
+    return (
+      <Insufficient note="Need shots logged with a forward or side slope (≥3 each) to score impact." />
+    )
+  }
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2" style={{ gap: 22 }}>
+      <SlopeAxisBlock title="Forward" entries={impact.forward} />
+      <SlopeAxisBlock title="Side" entries={impact.side} />
+    </div>
+  )
+}
+
+function SlopeAxisBlock({
+  title,
+  entries,
+}: {
+  title: string
+  entries: SlopeImpact['forward'] | SlopeImpact['side']
+}) {
+  return (
+    <div>
+      <div
+        className="font-mono uppercase text-caddie-ink-mute"
+        style={{
+          fontSize: 10,
+          letterSpacing: '0.14em',
+          marginBottom: 10,
+        }}
+      >
+        {title}
+      </div>
+      {entries.length === 0 ? (
+        <Insufficient note={`Need ≥3 ${title.toLowerCase()}-slope shots.`} />
+      ) : (
+        <div style={{ borderTop: '1px solid #D9D2BF' }}>
+          {entries.map((e) => (
+            <div
+              key={e.slope}
+              className="flex items-baseline justify-between"
+              style={{ borderBottom: '1px solid #D9D2BF', padding: '12px 0' }}
+            >
+              <span
+                className="font-serif text-caddie-ink"
+                style={{
+                  fontSize: 17,
+                  fontWeight: 500,
+                  textTransform: 'capitalize',
+                }}
+              >
+                {e.slope.replace('_', ' ')}
+              </span>
+              <span className="flex items-baseline" style={{ gap: 14 }}>
+                <span
+                  className="font-mono uppercase tabular text-caddie-ink-mute"
+                  style={{ fontSize: 10, letterSpacing: '0.14em' }}
+                >
+                  {e.shots} shots
+                </span>
+                <span
+                  className="font-serif tabular"
+                  style={{
+                    fontSize: 22,
+                    fontStyle: 'italic',
+                    fontWeight: 500,
+                    color: e.avgQuality < 0 ? '#A33A2A' : '#5C6356',
+                  }}
+                >
+                  {e.avgQuality.toFixed(2)}
+                </span>
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
   )
 }
 

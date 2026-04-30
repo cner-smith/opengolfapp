@@ -38,6 +38,8 @@ function shotRowToShot(s: ShotRow): Shot {
     club: (s.club as Shot['club']) ?? undefined,
     lieType: s.lie_type ?? undefined,
     lieSlope: s.lie_slope ?? undefined,
+    lieSlopeForward: s.lie_slope_forward ?? undefined,
+    lieSlopeSide: s.lie_slope_side ?? undefined,
     shotResult: (s.shot_result as Shot['shotResult']) ?? undefined,
     penalty: s.penalty,
     ob: s.ob,

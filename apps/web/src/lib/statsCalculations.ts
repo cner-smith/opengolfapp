@@ -2,6 +2,8 @@ import {
   calculateShotSG,
   getExpectedStrokes,
   getShotCategory,
+  type LieSlopeForward,
+  type LieSlopeSide,
   type ShotCategory,
 } from '@oga/core'
 import type { Database } from '@oga/supabase'
@@ -625,6 +627,68 @@ export function clubAccuracy(rounds: DetailedRound[]): ClubAccuracyEntry[] {
     .sort((a, b) => a.avgLateralYards - b.avgLateralYards)
 }
 
+export interface SlopeImpactEntry<T extends string> {
+  slope: T
+  avgQuality: number
+  shots: number
+}
+
+export interface SlopeImpact {
+  forward: SlopeImpactEntry<LieSlopeForward>[]
+  side: SlopeImpactEntry<LieSlopeSide>[]
+}
+
+// Backfill slope axes for legacy rows so impact stats include pre-split data.
+function readSlopeAxes(s: ShotRow): {
+  forward: LieSlopeForward | null
+  side: LieSlopeSide | null
+} {
+  const forward = (s.lie_slope_forward as LieSlopeForward | null) ?? null
+  const side = (s.lie_slope_side as LieSlopeSide | null) ?? null
+  if (forward || side) return { forward, side }
+  if (s.lie_slope === 'uphill' || s.lie_slope === 'level' || s.lie_slope === 'downhill') {
+    return { forward: s.lie_slope, side: null }
+  }
+  if (s.lie_slope === 'ball_above' || s.lie_slope === 'ball_below') {
+    return { forward: null, side: s.lie_slope }
+  }
+  return { forward: null, side: null }
+}
+
+export function slopeImpact(rounds: DetailedRound[]): SlopeImpact {
+  const forwardBuckets = new Map<LieSlopeForward, { sum: number; n: number }>()
+  const sideBuckets = new Map<LieSlopeSide, { sum: number; n: number }>()
+  for (const { shots } of flatten(rounds)) {
+    for (const s of shots) {
+      if (!s.shot_result) continue
+      const q = RESULT_QUALITY[s.shot_result] ?? 0
+      const axes = readSlopeAxes(s)
+      if (axes.forward) {
+        const b = forwardBuckets.get(axes.forward) ?? { sum: 0, n: 0 }
+        b.sum += q
+        b.n += 1
+        forwardBuckets.set(axes.forward, b)
+      }
+      if (axes.side) {
+        const b = sideBuckets.get(axes.side) ?? { sum: 0, n: 0 }
+        b.sum += q
+        b.n += 1
+        sideBuckets.set(axes.side, b)
+      }
+    }
+  }
+  return {
+    forward: [...forwardBuckets.entries()]
+      .filter(([, b]) => b.n >= 3)
+      .map(([slope, b]) => ({ slope, avgQuality: b.sum / b.n, shots: b.n }))
+      .sort((a, b) => a.avgQuality - b.avgQuality),
+    side: [...sideBuckets.entries()]
+      .filter(([, b]) => b.n >= 3)
+      .map(([slope, b]) => ({ slope, avgQuality: b.sum / b.n, shots: b.n }))
+      .sort((a, b) => a.avgQuality - b.avgQuality),
+  }
+}
+
 export interface RecoveryRateStat {
   recoveryPct: number | null
   totalRoughShots: number
@@ -669,6 +733,7 @@ export interface DetailedStats {
   costlyLies: CostlyLieEntry[]
   clubAccuracy: ClubAccuracyEntry[]
   recovery: RecoveryRateStat
+  slopeImpact: SlopeImpact
 }
 
 export function computeDetailedStats(
@@ -693,6 +758,7 @@ export function computeDetailedStats(
     costlyLies: costlyLies(rounds),
     clubAccuracy: clubAccuracy(rounds),
     recovery: recoveryFromRough(rounds),
+    slopeImpact: slopeImpact(rounds),
   }
 }
 
