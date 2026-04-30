@@ -18,6 +18,23 @@ import {
 } from '../../hooks/useShots'
 import { useAuth } from '../../hooks/useAuth'
 import { LieSlopeGrid } from '../forms/LieSlopeGrid'
+import { GreenDiagram, type BreakDirection } from '../round/GreenDiagram'
+
+const BREAK_OPTIONS: { value: BreakDirection; label: string }[] = [
+  { value: 'left_to_right', label: 'L → R' },
+  { value: 'straight', label: 'Straight' },
+  { value: 'right_to_left', label: 'R → L' },
+  { value: 'uphill', label: 'Uphill' },
+  { value: 'downhill', label: 'Downhill' },
+]
+
+const SLOPE_INTENSITY_LABELS = ['Flat', 'Slight', 'Moderate', 'Strong', 'Severe']
+
+const GREEN_SPEEDS: { value: GreenSpeed; label: string }[] = [
+  { value: 'slow', label: 'Slow' },
+  { value: 'medium', label: 'Medium' },
+  { value: 'fast', label: 'Fast' },
+]
 
 type ShotInsert = Database['public']['Tables']['shots']['Insert']
 type ShotRow = Database['public']['Tables']['shots']['Row']
@@ -32,6 +49,8 @@ interface ShotEntryModalProps {
 
 type PuttResult = 'made' | 'short' | 'long' | 'missed_left' | 'missed_right'
 
+type GreenSpeed = 'slow' | 'medium' | 'fast'
+
 interface DraftShot {
   id?: string
   shotNumber: number
@@ -43,6 +62,15 @@ interface DraftShot {
   distanceToTarget?: number
   puttDistanceFt?: number
   puttResult?: PuttResult
+  puttSlopePct?: number
+  greenSpeed?: GreenSpeed
+  breakDirection?:
+    | 'left_to_right'
+    | 'right_to_left'
+    | 'uphill'
+    | 'downhill'
+    | 'straight'
+  aimOffsetInches?: number
   notes?: string
 }
 
@@ -76,6 +104,10 @@ function shotRowToDraft(s: ShotRow): DraftShot {
     distanceToTarget: s.distance_to_target ?? undefined,
     puttDistanceFt: s.putt_distance_ft ?? undefined,
     puttResult: s.putt_result ?? undefined,
+    puttSlopePct: s.putt_slope_pct ?? undefined,
+    greenSpeed: s.green_speed ?? undefined,
+    breakDirection: 'straight',
+    aimOffsetInches: 0,
     notes: s.notes ?? undefined,
   }
 }
@@ -127,21 +159,25 @@ export function ShotEntryModal({
     setDraft(emptyDraft(holeShots.length + 1, holeShots.length === 0))
   }
 
-  async function save() {
+  async function save(overrideResult?: PuttResult) {
     if (!user) return
+    const isPuttSave = draft.lieType === 'green'
     const insert: ShotInsert = {
       hole_score_id: holeScoreId,
       user_id: user.id,
       shot_number: draft.shotNumber,
-      club: draft.club ?? null,
+      club: isPuttSave ? 'putter' : draft.club ?? null,
       lie_type: draft.lieType ?? null,
       lie_slope: null,
-      lie_slope_forward: draft.lieSlopeForward ?? null,
-      lie_slope_side: draft.lieSlopeSide ?? null,
-      shot_result: draft.shotResult ?? null,
-      distance_to_target: draft.distanceToTarget ?? null,
+      // Slope grid is hidden in putting mode — clear both axes.
+      lie_slope_forward: isPuttSave ? null : draft.lieSlopeForward ?? null,
+      lie_slope_side: isPuttSave ? null : draft.lieSlopeSide ?? null,
+      shot_result: isPuttSave ? null : draft.shotResult ?? null,
+      distance_to_target: isPuttSave ? null : draft.distanceToTarget ?? null,
       putt_distance_ft: draft.puttDistanceFt ?? null,
-      putt_result: draft.puttResult ?? null,
+      putt_result: overrideResult ?? draft.puttResult ?? null,
+      putt_slope_pct: draft.puttSlopePct ?? null,
+      green_speed: draft.greenSpeed ?? null,
       penalty: draft.shotResult === 'penalty',
       ob: draft.shotResult === 'ob',
       notes: draft.notes ?? null,
@@ -315,13 +351,26 @@ export function ShotEntryModal({
             </div>
 
             <div className="flex flex-col" style={{ gap: 18 }}>
-              <Field label="Club">
-                <ChipGroup
-                  value={draft.club}
-                  options={CLUBS}
-                  onChange={(v) => setDraft((d) => ({ ...d, club: v }))}
+              {isPutt && (
+                <GreenDiagram
+                  distanceFt={draft.puttDistanceFt ?? 0}
+                  aimOffsetInches={draft.aimOffsetInches ?? 0}
+                  breakDirection={draft.breakDirection ?? 'straight'}
+                  onAimChange={(n) =>
+                    setDraft((d) => ({ ...d, aimOffsetInches: n }))
+                  }
                 />
-              </Field>
+              )}
+
+              {!isPutt && (
+                <Field label="Club">
+                  <ChipGroup
+                    value={draft.club}
+                    options={CLUBS}
+                    onChange={(v) => setDraft((d) => ({ ...d, club: v }))}
+                  />
+                </Field>
+              )}
 
               <Field label="Lie type">
                 <ChipGroup
@@ -331,19 +380,21 @@ export function ShotEntryModal({
                 />
               </Field>
 
-              <Field label="Lie slope">
-                <LieSlopeGrid
-                  forward={draft.lieSlopeForward}
-                  side={draft.lieSlopeSide}
-                  onChangeForward={(v) =>
-                    setDraft((d) => ({ ...d, lieSlopeForward: v }))
-                  }
-                  onChangeSide={(v) =>
-                    setDraft((d) => ({ ...d, lieSlopeSide: v }))
-                  }
-                  toggleable
-                />
-              </Field>
+              {!isPutt && (
+                <Field label="Lie slope">
+                  <LieSlopeGrid
+                    forward={draft.lieSlopeForward}
+                    side={draft.lieSlopeSide}
+                    onChangeForward={(v) =>
+                      setDraft((d) => ({ ...d, lieSlopeForward: v }))
+                    }
+                    onChangeSide={(v) =>
+                      setDraft((d) => ({ ...d, lieSlopeSide: v }))
+                    }
+                    toggleable
+                  />
+                </Field>
+              )}
 
               {!isPutt && (
                 <Field label="Distance to target (yards)">
@@ -358,19 +409,67 @@ export function ShotEntryModal({
 
               {isPutt && (
                 <>
-                  <Field label="Putt distance (ft)">
+                  <Field label="Result">
+                    <PuttResultGrid
+                      value={draft.puttResult}
+                      onChange={(v) => setDraft((d) => ({ ...d, puttResult: v }))}
+                    />
+                  </Field>
+                  <Field label="Break">
+                    <div className="flex flex-wrap" style={{ gap: 6 }}>
+                      {BREAK_OPTIONS.map((b) => (
+                        <button
+                          key={b.value}
+                          type="button"
+                          onClick={() =>
+                            setDraft((d) => ({ ...d, breakDirection: b.value }))
+                          }
+                          style={chipStyle(draft.breakDirection === b.value)}
+                        >
+                          {b.label}
+                        </button>
+                      ))}
+                    </div>
+                  </Field>
+                  <Field label="How much">
+                    <div className="flex flex-wrap" style={{ gap: 6 }}>
+                      {SLOPE_INTENSITY_LABELS.map((label, idx) => (
+                        <button
+                          key={label}
+                          type="button"
+                          onClick={() =>
+                            setDraft((d) => ({ ...d, puttSlopePct: idx }))
+                          }
+                          style={chipStyle(draft.puttSlopePct === idx)}
+                        >
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                  </Field>
+                  <Field label="Speed">
+                    <div className="flex" style={{ gap: 6 }}>
+                      {GREEN_SPEEDS.map((s) => (
+                        <button
+                          key={s.value}
+                          type="button"
+                          onClick={() =>
+                            setDraft((d) => ({ ...d, greenSpeed: s.value }))
+                          }
+                          style={chipStyle(draft.greenSpeed === s.value)}
+                        >
+                          {s.label}
+                        </button>
+                      ))}
+                    </div>
+                  </Field>
+                  <Field label="Distance override (ft)">
                     <NumericInput
                       value={draft.puttDistanceFt}
                       step="0.5"
                       onChange={(n) =>
                         setDraft((d) => ({ ...d, puttDistanceFt: n }))
                       }
-                    />
-                  </Field>
-                  <Field label="Putt result">
-                    <PuttResultGrid
-                      value={draft.puttResult}
-                      onChange={(v) => setDraft((d) => ({ ...d, puttResult: v }))}
                     />
                   </Field>
                 </>
@@ -427,9 +526,51 @@ export function ShotEntryModal({
               >
                 Reset
               </button>
-              <button
+              {isPutt ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => save('missed_left')}
+                    disabled={createShot.isPending || updateShot.isPending}
+                    className="text-caddie-accent hover:opacity-80 disabled:opacity-40"
+                    style={{
+                      border: '1px solid #1F3D2C',
+                      borderRadius: 2,
+                      padding: '12px 16px',
+                      fontSize: 14,
+                      fontWeight: 600,
+                      letterSpacing: '0.02em',
+                      backgroundColor: 'transparent',
+                    }}
+                  >
+                    Missed{' '}
+                    <span className="font-serif" style={{ fontStyle: 'italic' }}>
+                      →
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => save('made')}
+                    disabled={createShot.isPending || updateShot.isPending}
+                    className="bg-caddie-accent text-caddie-accent-ink hover:opacity-90 disabled:opacity-40"
+                    style={{
+                      borderRadius: 2,
+                      padding: '12px 18px',
+                      fontSize: 15,
+                      fontWeight: 700,
+                      letterSpacing: '0.02em',
+                    }}
+                  >
+                    Holed it{' '}
+                    <span className="font-serif" style={{ fontStyle: 'italic' }}>
+                      →
+                    </span>
+                  </button>
+                </>
+              ) : (
+                <button
                 type="button"
-                onClick={save}
+                onClick={() => save()}
                 disabled={createShot.isPending || updateShot.isPending}
                 className="bg-caddie-accent text-caddie-accent-ink hover:opacity-90 disabled:opacity-40"
                 style={{
@@ -445,6 +586,7 @@ export function ShotEntryModal({
                   →
                 </span>
               </button>
+              )}
             </div>
           </section>
         </div>
