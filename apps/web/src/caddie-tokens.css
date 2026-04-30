@@ -1,0 +1,65 @@
+/* Caddie — paper editorial aesthetic
+ * Drop into your app and use as `var(--caddie-ink)` etc.
+ */
+
+:root {
+  /* Surfaces */
+  --caddie-bg:           #F2EEE5;  /* page background, warm paper */
+  --caddie-surface:      #FBF8F1;  /* cards, raised surfaces */
+  --caddie-surface-2:    #EBE5D6;  /* recessed / chip background */
+
+  /* Lines */
+  --caddie-line:         #D9D2BF;  /* hairline rules between sections */
+  --caddie-line-strong:  #9F9580;  /* emphasized borders */
+
+  /* Ink */
+  --caddie-ink:          #1C211C;  /* primary text, near-black */
+  --caddie-ink-dim:      #5C6356;  /* secondary text */
+  --caddie-ink-mute:     #8A8B7E;  /* tertiary, kickers, captions */
+
+  /* Accent (deep forest — the only saturated color) */
+  --caddie-accent:       #1F3D2C;
+  --caddie-accent-ink:   #F2EEE5;  /* text on accent fill */
+
+  /* Semantic */
+  --caddie-pos:          #1F3D2C;  /* positive = forest, same as accent */
+  --caddie-neg:          #A33A2A;  /* muted brick red */
+  --caddie-warn:         #A66A1F;  /* burnt amber */
+
+  /* Chip states */
+  --caddie-chip:         #EBE5D6;
+  --caddie-chip-on:      #1F3D2C;
+
+  /* Type families */
+  --caddie-serif: "Fraunces", "GT Sectra", Georgia, ui-serif, serif;
+  --caddie-sans:  "Inter", -apple-system, system-ui, sans-serif;
+  --caddie-mono:  "JetBrains Mono", "SF Mono", ui-monospace, monospace;
+
+  /* Radius — minimal; this is paper, not plastic */
+  --caddie-radius:    4px;
+  --caddie-radius-sm: 2px;
+
+  /* Type scale (px) */
+  --caddie-fs-display:  38;  /* serif italic mastheads */
+  --caddie-fs-h1:       28;
+  --caddie-fs-h2:       22;
+  --caddie-fs-lede:     17;  /* serif body lede */
+  --caddie-fs-body:     15;
+  --caddie-fs-meta:     13;  /* sans secondary */
+  --caddie-fs-kicker:   10;  /* mono uppercase eyebrow */
+
+  /* Letterspacing (em) */
+  --caddie-track-display: -0.025em;
+  --caddie-track-tight:   -0.015em;
+  --caddie-track-kicker:   0.14em;  /* mono uppercase */
+  --caddie-track-button:   0.02em;
+
+  /* Spacing scale (px) — tight, editorial rhythm */
+  --caddie-space-1:  4;
+  --caddie-space-2:  8;
+  --caddie-space-3:  12;
+  --caddie-space-4:  14;
+  --caddie-space-5:  18;
+  --caddie-space-6:  22;
+  --caddie-space-7:  28;
+}

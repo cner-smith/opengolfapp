@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
+@import './caddie-tokens.css';
 
 @tailwind base;
 @tailwind components;
@@ -12,9 +12,9 @@ body,
 }
 
 body {
-  font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
-  background-color: #f4f4f0;
-  color: #111111;
+  font-family: var(--caddie-sans);
+  background-color: var(--caddie-bg);
+  color: var(--caddie-ink);
   -webkit-font-smoothing: antialiased;
   font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
 }
@@ -22,4 +22,32 @@ body {
 /* Tabular numerals on numeric content (SG values, scores, distances). */
 .tabular {
   font-variant-numeric: tabular-nums;
+}
+
+/* Editorial primitives */
+.kicker {
+  font-family: var(--caddie-mono);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--caddie-ink-mute);
+}
+
+.serif {
+  font-family: var(--caddie-serif);
+}
+
+.serif-italic {
+  font-family: var(--caddie-serif);
+  font-style: italic;
+  font-weight: 500;
+}
+
+.mono {
+  font-family: var(--caddie-mono);
+}
+
+.hairline {
+  border-color: var(--caddie-line);
 }
