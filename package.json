@@ -11,7 +11,8 @@
     "lint": "eslint apps/web/src packages/*/src --ext .ts,.tsx",
     "format": "prettier --write .",
     "seed:demo": "tsx scripts/seed-demo.ts",
-    "seed:my-data": "tsx scripts/seed-my-data.ts"
+    "seed:my-data": "tsx scripts/seed-my-data.ts",
+    "import:osm": "tsx scripts/import-osm-course.ts"
   },
   "devDependencies": {
     "@supabase/supabase-js": "^2.45.0",
