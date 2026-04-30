@@ -101,6 +101,8 @@ export interface Shot {
   breakDirection?: 'left' | 'right' | 'straight'
   puttResult?: 'made' | 'short' | 'long' | 'missed_left' | 'missed_right'
   puttDistanceFt?: number
+  puttSlopePct?: number
+  greenSpeed?: 'slow' | 'medium' | 'fast'
   notes?: string
 }
 

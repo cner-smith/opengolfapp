@@ -55,6 +55,7 @@ export interface Database {
           name: string
           location: string | null
           mapbox_id: string | null
+          external_id: string | null
           created_by: string | null
           created_at: string
         }
@@ -63,6 +64,7 @@ export interface Database {
           name: string
           location?: string | null
           mapbox_id?: string | null
+          external_id?: string | null
           created_by?: string | null
           created_at?: string
         }
@@ -71,6 +73,7 @@ export interface Database {
           name?: string
           location?: string | null
           mapbox_id?: string | null
+          external_id?: string | null
           created_by?: string | null
           created_at?: string
         }
@@ -308,6 +311,8 @@ export interface Database {
           break_direction: 'left' | 'right' | 'straight' | null
           putt_result: 'made' | 'short' | 'long' | 'missed_left' | 'missed_right' | null
           putt_distance_ft: number | null
+          putt_slope_pct: number | null
+          green_speed: 'slow' | 'medium' | 'fast' | null
           notes: string | null
           created_at: string
         }
@@ -349,6 +354,8 @@ export interface Database {
           break_direction?: 'left' | 'right' | 'straight' | null
           putt_result?: 'made' | 'short' | 'long' | 'missed_left' | 'missed_right' | null
           putt_distance_ft?: number | null
+          putt_slope_pct?: number | null
+          green_speed?: 'slow' | 'medium' | 'fast' | null
           notes?: string | null
           created_at?: string
         }
@@ -390,6 +397,8 @@ export interface Database {
           break_direction?: 'left' | 'right' | 'straight' | null
           putt_result?: 'made' | 'short' | 'long' | 'missed_left' | 'missed_right' | null
           putt_distance_ft?: number | null
+          putt_slope_pct?: number | null
+          green_speed?: 'slow' | 'medium' | 'fast' | null
           notes?: string | null
           created_at?: string
         }
