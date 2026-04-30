@@ -29,6 +29,8 @@ import {
 import { syncPendingShots } from '../../../../../lib/sync'
 import { distanceYards } from '../../../../../lib/maps'
 import { combinedPuttResult } from '@oga/core'
+import { deleteRound } from '@oga/supabase'
+import { ConfirmDialog } from '../../../../../components/ui/ConfirmDialog'
 
 type HoleRow = Database['public']['Tables']['holes']['Row']
 type HoleScoreRow = Database['public']['Tables']['hole_scores']['Row']
@@ -65,6 +67,8 @@ export default function HoleScreen() {
   const [saving, setSaving] = useState(false)
   const [mapMode, setMapMode] = useState<HoleMapMode>('shot')
   const [gpsPosition, setGpsPosition] = useState<LatLng | null>(null)
+  const [confirmDelete, setConfirmDelete] = useState(false)
+  const [deleting, setDeleting] = useState(false)
 
   const currentHole = useMemo(
     () => holes.find((h) => h.number === holeNumber) ?? null,
@@ -289,6 +293,22 @@ export default function HoleScreen() {
     router.replace(`/(app)/round/${id}/hole/${next}`)
   }
 
+  async function handleDeleteRound() {
+    if (!round) return
+    setDeleting(true)
+    try {
+      const { error: delErr } = await deleteRound(supabase, round.id)
+      if (delErr) {
+        Alert.alert('Delete failed', delErr.message)
+        return
+      }
+      router.replace('/(app)')
+    } finally {
+      setDeleting(false)
+      setConfirmDelete(false)
+    }
+  }
+
   if (loading) {
     return (
       <View
@@ -366,15 +386,20 @@ export default function HoleScreen() {
             {currentHole.yards ? ` · ${currentHole.yards} yd` : ''}
           </Text>
         </View>
-        <Text
-          style={{
-            ...KICKER,
-            color: 'rgba(242,238,229,0.6)',
-            fontVariant: ['tabular-nums'],
-          }}
+        <Pressable
+          onPress={() => setConfirmDelete(true)}
+          accessibilityLabel="Delete round"
+          style={{ paddingHorizontal: 4 }}
         >
-          Shot {shotNumber}
-        </Text>
+          <Text
+            style={{
+              ...KICKER,
+              color: 'rgba(163,58,42,0.85)',
+            }}
+          >
+            Delete · Shot {shotNumber}
+          </Text>
+        </Pressable>
       </View>
 
       <View style={{ flex: 1 }}>
@@ -533,6 +558,17 @@ export default function HoleScreen() {
         onSave={(v) => persistShot(v)}
         onSkip={() => persistShot(null)}
         onClose={() => setLoggerOpen(false)}
+      />
+
+      <ConfirmDialog
+        visible={confirmDelete}
+        title="Delete this round?"
+        message="Hole scores and shots are removed too. This cannot be undone."
+        confirmLabel="Delete"
+        destructive
+        busy={deleting}
+        onConfirm={handleDeleteRound}
+        onCancel={() => setConfirmDelete(false)}
       />
     </View>
   )

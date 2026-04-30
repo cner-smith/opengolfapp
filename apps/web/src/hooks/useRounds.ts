@@ -1,5 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { createRound, getRecentSGData, getRound, getRounds } from '@oga/supabase'
+import {
+  createRound,
+  deleteRound,
+  getRecentSGData,
+  getRound,
+  getRounds,
+} from '@oga/supabase'
 import type { Database } from '@oga/supabase'
 import { supabase } from '../lib/supabase'
 import { useAuth } from './useAuth'
@@ -54,5 +60,21 @@ export function useCreateRound() {
       return data
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['rounds', user?.id] }),
+  })
+}
+
+export function useDeleteRound() {
+  const qc = useQueryClient()
+  const { user } = useAuth()
+  return useMutation({
+    mutationFn: async (roundId: string) => {
+      const { error } = await deleteRound(supabase, roundId)
+      if (error) throw error
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['rounds', user?.id] })
+      qc.invalidateQueries({ queryKey: ['sg', user?.id] })
+      qc.invalidateQueries({ queryKey: ['detailed-stats', user?.id] })
+    },
   })
 }

@@ -1,8 +1,15 @@
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { useRounds } from '../../hooks/useRounds'
+import { useDeleteRound, useRounds } from '../../hooks/useRounds'
+import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
 
 export function RoundsPage() {
   const { data: rounds, isLoading, error } = useRounds()
+  const deleteMutation = useDeleteRound()
+  const [pendingDelete, setPendingDelete] = useState<{
+    id: string
+    name: string
+  } | null>(null)
 
   return (
     <div>
@@ -112,58 +119,135 @@ export function RoundsPage() {
       {rounds && rounds.length > 0 && (
         <div style={{ borderTop: '1px solid #D9D2BF' }}>
           {rounds.map((r) => (
-            <Link
+            <div
               key={r.id}
-              to={`/rounds/${r.id}`}
-              className="flex items-center justify-between transition-colors hover:bg-caddie-surface"
+              className="flex items-center transition-colors hover:bg-caddie-surface"
               style={{
-                padding: '18px 8px',
+                padding: '14px 8px',
                 borderBottom: '1px solid #D9D2BF',
+                gap: 12,
               }}
             >
-              <div>
-                <div
-                  className="font-mono uppercase tabular text-caddie-ink-mute"
-                  style={{
-                    fontSize: 10,
-                    letterSpacing: '0.14em',
-                    marginBottom: 6,
-                  }}
-                >
-                  {r.played_at}
-                  {r.tee_color ? ` · ${r.tee_color} tees` : ''}
-                </div>
-                <div
-                  className="font-serif text-caddie-ink"
-                  style={{ fontSize: 22, fontWeight: 500, lineHeight: 1.15 }}
-                >
-                  {r.courses?.name ?? 'Round'}
-                </div>
-              </div>
-              <div className="flex items-baseline" style={{ gap: 28 }}>
-                <div className="text-right">
-                  <div className="kicker" style={{ marginBottom: 4 }}>
-                    Score
+              <Link
+                to={`/rounds/${r.id}`}
+                className="flex flex-1 items-center justify-between"
+                style={{ gap: 12 }}
+              >
+                <div className="min-w-0 flex-1">
+                  <div
+                    className="font-mono uppercase tabular text-caddie-ink-mute truncate"
+                    style={{
+                      fontSize: 10,
+                      letterSpacing: '0.14em',
+                      marginBottom: 6,
+                    }}
+                  >
+                    {r.played_at}
+                    {r.tee_color ? ` · ${r.tee_color} tees` : ''}
                   </div>
                   <div
-                    className="font-serif tabular text-caddie-ink"
-                    style={{ fontSize: 28, fontWeight: 500, lineHeight: 1 }}
+                    className="font-serif text-caddie-ink truncate"
+                    style={{
+                      fontSize: 22,
+                      fontWeight: 500,
+                      lineHeight: 1.15,
+                    }}
                   >
-                    {r.total_score ?? '—'}
+                    {r.courses?.name ?? 'Round'}
                   </div>
                 </div>
-                <div className="text-right" style={{ minWidth: 80 }}>
-                  <div className="kicker" style={{ marginBottom: 4 }}>
-                    SG
+                <div
+                  className="flex items-baseline"
+                  style={{ gap: 24 }}
+                >
+                  <div className="text-right">
+                    <div className="kicker" style={{ marginBottom: 4 }}>
+                      Score
+                    </div>
+                    <div
+                      className="font-serif tabular text-caddie-ink"
+                      style={{ fontSize: 28, fontWeight: 500, lineHeight: 1 }}
+                    >
+                      {r.total_score ?? '—'}
+                    </div>
                   </div>
-                  <SGValue value={r.sg_total} />
+                  <div className="text-right hidden sm:block" style={{ minWidth: 80 }}>
+                    <div className="kicker" style={{ marginBottom: 4 }}>
+                      SG
+                    </div>
+                    <SGValue value={r.sg_total} />
+                  </div>
                 </div>
-              </div>
-            </Link>
+              </Link>
+              <button
+                type="button"
+                onClick={() =>
+                  setPendingDelete({
+                    id: r.id,
+                    name: r.courses?.name ?? 'this round',
+                  })
+                }
+                aria-label={`Delete round at ${r.courses?.name ?? 'this round'}`}
+                className="text-caddie-ink-mute hover:text-caddie-neg"
+                style={{
+                  background: 'transparent',
+                  border: 'none',
+                  padding: 8,
+                  fontSize: 18,
+                  lineHeight: 1,
+                  cursor: 'pointer',
+                }}
+              >
+                <TrashIcon />
+              </button>
+            </div>
           ))}
         </div>
       )}
+
+      <ConfirmDialog
+        open={!!pendingDelete}
+        title={`Delete this round?`}
+        message={
+          pendingDelete
+            ? `${pendingDelete.name} will be removed along with its hole scores and shots. This cannot be undone.`
+            : undefined
+        }
+        confirmLabel="Delete"
+        destructive
+        busy={deleteMutation.isPending}
+        onConfirm={async () => {
+          if (!pendingDelete) return
+          try {
+            await deleteMutation.mutateAsync(pendingDelete.id)
+            setPendingDelete(null)
+          } catch {
+            setPendingDelete(null)
+          }
+        }}
+        onCancel={() => setPendingDelete(null)}
+      />
     </div>
+  )
+}
+
+function TrashIcon() {
+  return (
+    <svg width={18} height={18} viewBox="0 0 24 24" fill="none">
+      <path
+        d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m1 0v14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2V6h12Z"
+        stroke="currentColor"
+        strokeWidth={1.5}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M10 11v6M14 11v6"
+        stroke="currentColor"
+        strokeWidth={1.5}
+        strokeLinecap="round"
+      />
+    </svg>
   )
 }
 

@@ -1,14 +1,16 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Dimensions, Pressable, ScrollView, Text, View } from 'react-native'
 import { Link } from 'expo-router'
 import { VictoryAxis, VictoryChart, VictoryLine } from 'victory-native'
-import { getProfile, getRecentSGData } from '@oga/supabase'
+import { Swipeable } from 'react-native-gesture-handler'
+import { deleteRound, getProfile, getRecentSGData } from '@oga/supabase'
 import type { Database } from '@oga/supabase'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
 import { syncPendingShots } from '../../lib/sync'
 import { pendingCount } from '../../lib/db'
 import { AppBar } from '../../components/ui/AppBar'
+import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
 
 type Profile = Database['public']['Tables']['profiles']['Row']
 
@@ -44,7 +46,29 @@ export default function Home() {
   const [profile, setProfile] = useState<Profile | null>(null)
   const [rounds, setRounds] = useState<RecentRound[]>([])
   const [pending, setPending] = useState(0)
+  const [pendingDelete, setPendingDelete] = useState<{
+    id: string
+    name: string
+  } | null>(null)
+  const [deleting, setDeleting] = useState(false)
+  const swipeRefs = useRef<Map<string, Swipeable | null>>(new Map())
   const screenWidth = Dimensions.get('window').width
+
+  const handleDelete = useCallback(
+    async (id: string) => {
+      setDeleting(true)
+      try {
+        const { error } = await deleteRound(supabase, id)
+        if (error) throw error
+        setRounds((prev) => prev.filter((r) => r.id !== id))
+      } finally {
+        setDeleting(false)
+        setPendingDelete(null)
+        swipeRefs.current.delete(id)
+      }
+    },
+    [],
+  )
 
   useEffect(() => {
     if (!user) return
@@ -230,64 +254,118 @@ export default function Home() {
           ) : (
             <View style={{ borderTopWidth: 1, borderColor: '#D9D2BF' }}>
               {rounds.slice(0, 5).map((r) => (
-                <Link key={r.id} href={`/(app)/round/${r.id}`} asChild>
-                  <Pressable
-                    style={{
-                      flexDirection: 'row',
-                      justifyContent: 'space-between',
-                      alignItems: 'center',
-                      paddingVertical: 14,
-                      borderBottomWidth: 1,
-                      borderColor: '#D9D2BF',
-                    }}
-                  >
-                    <View style={{ flex: 1, paddingRight: 12 }}>
-                      <Text
-                        style={{
-                          ...KICKER,
-                          color: '#8A8B7E',
-                          marginBottom: 4,
-                        }}
-                      >
-                        {r.played_at}
-                      </Text>
-                      <Text
-                        style={{
-                          color: '#1C211C',
-                          fontSize: 17,
-                          fontWeight: '500',
-                          fontStyle: 'italic',
-                        }}
-                      >
-                        {r.courses?.name ?? 'Round'}
-                      </Text>
-                    </View>
-                    <View
+                <Swipeable
+                  key={r.id}
+                  ref={(ref) => {
+                    swipeRefs.current.set(r.id, ref)
+                  }}
+                  renderRightActions={() => (
+                    <Pressable
+                      onPress={() => {
+                        swipeRefs.current.get(r.id)?.close()
+                        setPendingDelete({
+                          id: r.id,
+                          name: r.courses?.name ?? 'this round',
+                        })
+                      }}
                       style={{
-                        flexDirection: 'row',
-                        alignItems: 'baseline',
-                        gap: 14,
+                        backgroundColor: '#A33A2A',
+                        justifyContent: 'center',
+                        alignItems: 'center',
+                        paddingHorizontal: 22,
                       }}
                     >
                       <Text
                         style={{
-                          color: '#1C211C',
-                          fontSize: 22,
-                          fontWeight: '500',
-                          fontVariant: ['tabular-nums'],
+                          color: '#F2EEE5',
+                          fontSize: 13,
+                          fontWeight: '600',
+                          letterSpacing: 0.3,
                         }}
                       >
-                        {r.total_score ?? '—'}
+                        Delete
                       </Text>
-                      <SGValue value={r.sg_total} />
-                    </View>
-                  </Pressable>
-                </Link>
+                    </Pressable>
+                  )}
+                  overshootRight={false}
+                >
+                  <Link href={`/(app)/round/${r.id}`} asChild>
+                    <Pressable
+                      style={{
+                        flexDirection: 'row',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        paddingVertical: 14,
+                        paddingHorizontal: 4,
+                        borderBottomWidth: 1,
+                        borderColor: '#D9D2BF',
+                        backgroundColor: '#F2EEE5',
+                      }}
+                    >
+                      <View style={{ flex: 1, paddingRight: 12 }}>
+                        <Text
+                          style={{
+                            ...KICKER,
+                            color: '#8A8B7E',
+                            marginBottom: 4,
+                          }}
+                        >
+                          {r.played_at}
+                        </Text>
+                        <Text
+                          style={{
+                            color: '#1C211C',
+                            fontSize: 17,
+                            fontWeight: '500',
+                            fontStyle: 'italic',
+                          }}
+                        >
+                          {r.courses?.name ?? 'Round'}
+                        </Text>
+                      </View>
+                      <View
+                        style={{
+                          flexDirection: 'row',
+                          alignItems: 'baseline',
+                          gap: 14,
+                        }}
+                      >
+                        <Text
+                          style={{
+                            color: '#1C211C',
+                            fontSize: 22,
+                            fontWeight: '500',
+                            fontVariant: ['tabular-nums'],
+                          }}
+                        >
+                          {r.total_score ?? '—'}
+                        </Text>
+                        <SGValue value={r.sg_total} />
+                      </View>
+                    </Pressable>
+                  </Link>
+                </Swipeable>
               ))}
             </View>
           )}
         </Section>
       </ScrollView>
+      <ConfirmDialog
+        visible={!!pendingDelete}
+        title="Delete this round?"
+        message={
+          pendingDelete
+            ? `${pendingDelete.name} will be removed along with its hole scores and shots. This cannot be undone.`
+            : undefined
+        }
+        confirmLabel="Delete"
+        destructive
+        busy={deleting}
+        onConfirm={async () => {
+          if (pendingDelete) await handleDelete(pendingDelete.id)
+        }}
+        onCancel={() => setPendingDelete(null)}
+      />
     </View>
   )
 }

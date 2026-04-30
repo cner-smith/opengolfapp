@@ -14,7 +14,8 @@ import {
   HoleReviewSheet,
   type ReviewedShotRow,
 } from '../../components/round/HoleReviewSheet'
-import { useRound, useRounds } from '../../hooks/useRounds'
+import { useDeleteRound, useRound, useRounds } from '../../hooks/useRounds'
+import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
 import { useHolesForCourse } from '../../hooks/useCourses'
 import { useHoleScores, useUpsertHoleScore } from '../../hooks/useHoleScores'
 import { useCreateShot, useShotsForRound } from '../../hooks/useShots'
@@ -40,7 +41,9 @@ export function RoundDetailPage() {
   const upsertHoleScore = useUpsertHoleScore(roundId)
   const createShot = useCreateShot(roundId)
   const completeMutation = useCompleteRound()
+  const deleteMutation = useDeleteRound()
   const allRounds = useRounds(50)
+  const [confirmDelete, setConfirmDelete] = useState(false)
 
   const [shotsModalFor, setShotsModalFor] = useState<{
     holeScoreId: string
@@ -185,6 +188,18 @@ export function RoundDetailPage() {
     }
   }
 
+  async function handleDelete() {
+    if (!round.data) return
+    try {
+      await deleteMutation.mutateAsync(round.data.id)
+      setConfirmDelete(false)
+      navigate('/rounds')
+    } catch (err) {
+      setCompleteError((err as Error).message)
+      setConfirmDelete(false)
+    }
+  }
+
   async function saveReviewedHole(rows: ReviewedShotRow[]) {
     if (!user || !activeHole || !round.data) return
     setSavingHole(true)
@@ -278,22 +293,52 @@ export function RoundDetailPage() {
             {holesPlayed}/18 holes scored
           </div>
         </div>
-        <button
-          type="button"
-          onClick={handleComplete}
-          disabled={completeMutation.isPending || holesPlayed === 0}
-          className="bg-caddie-accent text-caddie-accent-ink hover:opacity-90 disabled:opacity-40"
-          style={{
-            borderRadius: 2,
-            padding: '12px 16px',
-            fontSize: 14,
-            fontWeight: 600,
-            letterSpacing: '0.02em',
-          }}
-        >
-          {completeMutation.isPending ? 'Calculating…' : 'Save SG + finalize'}
-        </button>
+        <div className="flex" style={{ gap: 8, flexWrap: 'wrap' }}>
+          <button
+            type="button"
+            onClick={() => setConfirmDelete(true)}
+            disabled={deleteMutation.isPending}
+            className="text-caddie-neg hover:bg-caddie-neg/10 disabled:opacity-40"
+            style={{
+              background: 'transparent',
+              border: '1px solid #A33A2A',
+              borderRadius: 2,
+              padding: '12px 14px',
+              fontSize: 13,
+              fontWeight: 500,
+              letterSpacing: '0.02em',
+            }}
+          >
+            Delete round
+          </button>
+          <button
+            type="button"
+            onClick={handleComplete}
+            disabled={completeMutation.isPending || holesPlayed === 0}
+            className="bg-caddie-accent text-caddie-accent-ink hover:opacity-90 disabled:opacity-40"
+            style={{
+              borderRadius: 2,
+              padding: '12px 16px',
+              fontSize: 14,
+              fontWeight: 600,
+              letterSpacing: '0.02em',
+            }}
+          >
+            {completeMutation.isPending ? 'Calculating…' : 'Save SG + finalize'}
+          </button>
+        </div>
       </div>
+
+      <ConfirmDialog
+        open={confirmDelete}
+        title="Delete this round?"
+        message="This cannot be undone. Hole scores and shots are removed too."
+        confirmLabel="Delete"
+        destructive
+        busy={deleteMutation.isPending}
+        onConfirm={handleDelete}
+        onCancel={() => setConfirmDelete(false)}
+      />
 
       {completeError && (
         <div
