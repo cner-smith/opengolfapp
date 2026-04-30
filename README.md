@@ -59,7 +59,9 @@ Drills, course layouts, bug fixes, and feature work all welcome. See [CONTRIBUTI
 
 ## Support
 
-OGA is free forever. If it's helped your game, consider [sponsoring the project](https://github.com/sponsors/cner-smith) to help cover server costs.
+[![Sponsor on GitHub](https://img.shields.io/github/sponsors/cner-smith?logo=github&logoColor=white&label=Sponsor&color=1D9E75)](https://github.com/sponsors/cner-smith) [![Ko-fi](https://img.shields.io/badge/Ko--fi-Buy%20me%20a%20coffee-1D9E75?logo=ko-fi&logoColor=white)](https://ko-fi.com/nartana)
+
+OGA is free forever. If it's helped your game, consider [sponsoring the project](https://github.com/sponsors/cner-smith) or [tossing a coffee on Ko-fi](https://ko-fi.com/nartana) to help cover server costs.
 
 ## License
 
