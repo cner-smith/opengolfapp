@@ -18,14 +18,15 @@ const SG_KEYS = [
   { key: 'sg_putting', label: 'Putting' },
 ] as const
 
-const TICK_STYLE = { fontSize: 11, fill: '#888880' } as const
+const TICK_STYLE = { fontSize: 11, fill: '#8A8B7E' } as const
 
 const TOOLTIP_STYLE = {
-  backgroundColor: '#FFFFFF',
-  border: '0.5px solid #E4E4E0',
-  borderRadius: 10,
+  backgroundColor: '#FBF8F1',
+  border: '1px solid #D9D2BF',
+  borderRadius: 4,
   fontSize: 11,
   padding: '8px 10px',
+  fontFamily: 'Inter, sans-serif',
 } as const
 
 export function DashboardPage() {
@@ -33,14 +34,17 @@ export function DashboardPage() {
   const sg = useRecentSG(20)
   const rounds = sg.data ?? []
 
+  const firstName =
+    profile.data?.username?.split(/\s+/)[0] ?? null
+
   if (sg.isLoading) {
-    return <div className="text-oga-text-muted">Loading…</div>
+    return <div className="text-caddie-ink-mute">Loading…</div>
   }
 
   if (rounds.length === 0) {
     return (
       <div>
-        <PageHeader title="Dashboard" subtitle="Track your strokes gained over time" />
+        <Masthead greeting={firstName} subtitle="Log a round to start tracking your strokes gained." />
         <EmptyState
           headline="No rounds logged yet"
           body="Log your first round to see your strokes gained breakdown."
@@ -70,199 +74,240 @@ export function DashboardPage() {
 
   const totalSG = avgs.reduce((s, a) => s + a.value, 0)
 
+  const weakest = [...avgs].sort((a, b) => a.value - b.value)[0]!
+  const strongest = [...avgs].sort((a, b) => b.value - a.value)[0]!
+
   return (
     <div>
-      <PageHeader
-        title="Dashboard"
-        subtitle={`Based on your last ${rounds.length} round${rounds.length === 1 ? '' : 's'}${
+      <Masthead
+        greeting={firstName}
+        subtitle={`Last ${rounds.length} round${rounds.length === 1 ? '' : 's'}${
           profile.data?.handicap_index != null ? ` · Handicap ${profile.data.handicap_index}` : ''
         }`}
       />
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4" style={{ marginBottom: 12 }}>
-        <MetricTile
-          label="Avg score"
-          value={avgScore > 0 ? avgScore.toFixed(1) : '—'}
-        />
-        <MetricTile
-          label="SG total"
-          value={`${totalSG > 0 ? '+' : ''}${totalSG.toFixed(2)}`}
-          tone={totalSG > 0 ? 'positive' : totalSG < 0 ? 'negative' : 'neutral'}
-        />
-        <MetricTile
-          label="Rounds"
-          value={rounds.length.toString()}
-        />
-        <MetricTile
-          label="Categories tracked"
-          value={SG_KEYS.length.toString()}
-        />
-      </div>
+      <Lede strongest={strongest} weakest={weakest} />
 
-      <Card label="SG breakdown" style={{ marginBottom: 12 }}>
-        <div className="flex flex-col gap-2">
+      <Section kicker="By the numbers">
+        <div className="grid grid-cols-2 sm:grid-cols-4" style={{ gap: 14 }}>
+          <StatTile
+            label="Avg score"
+            value={avgScore > 0 ? avgScore.toFixed(1) : '—'}
+          />
+          <StatTile
+            label="SG total"
+            value={`${totalSG > 0 ? '+' : ''}${totalSG.toFixed(2)}`}
+            tone={totalSG > 0 ? 'pos' : totalSG < 0 ? 'neg' : 'neutral'}
+          />
+          <StatTile label="Rounds" value={rounds.length.toString()} />
+          <StatTile label="Categories" value={SG_KEYS.length.toString()} />
+        </div>
+      </Section>
+
+      <Section kicker="SG breakdown">
+        <div className="flex flex-col" style={{ gap: 14 }}>
           {avgs.map((a) => (
             <SGBar key={a.key} label={a.label} value={a.value} max={maxAbs} />
           ))}
         </div>
-      </Card>
+      </Section>
 
-      <Card label="SG total trend" style={{ marginBottom: 12 }}>
+      <Section kicker="SG total trend">
         <div style={{ height: 220 }}>
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={trendData} margin={{ top: 4, right: 8, bottom: 4, left: -16 }}>
-              <CartesianGrid stroke="#F0F0EC" vertical={false} />
+              <CartesianGrid stroke="#EBE5D6" vertical={false} />
               <XAxis
                 dataKey="date"
                 tick={TICK_STYLE}
                 tickLine={false}
-                axisLine={{ stroke: '#E4E4E0' }}
+                axisLine={{ stroke: '#D9D2BF' }}
               />
               <YAxis
                 tick={TICK_STYLE}
                 tickLine={false}
-                axisLine={{ stroke: '#E4E4E0' }}
+                axisLine={{ stroke: '#D9D2BF' }}
               />
               <Tooltip
                 contentStyle={TOOLTIP_STYLE}
-                labelStyle={{ color: '#888880' }}
+                labelStyle={{ color: '#8A8B7E' }}
               />
               <Line
                 type="monotone"
                 dataKey="sg"
-                stroke="#1D9E75"
-                strokeWidth={2}
-                dot={{ r: 3, fill: '#1D9E75', strokeWidth: 0 }}
+                stroke="#1F3D2C"
+                strokeWidth={1.5}
+                dot={{ r: 2.5, fill: '#1F3D2C', strokeWidth: 0 }}
                 activeDot={{ r: 4 }}
               />
             </LineChart>
           </ResponsiveContainer>
         </div>
-      </Card>
+      </Section>
 
-      <Card label="Recent rounds">
-        <ul className="divide-y divide-oga-border">
-          {rounds.slice(0, 5).map((r) => (
-            <li key={r.id}>
+      <Section kicker="Recent rounds">
+        <ul>
+          {rounds.slice(0, 5).map((r, i) => (
+            <li
+              key={r.id}
+              style={{
+                borderTop: i === 0 ? 'none' : '1px solid #D9D2BF',
+              }}
+            >
               <Link
                 to={`/rounds/${r.id}`}
-                className="flex items-center justify-between py-2 text-sm transition-colors hover:bg-oga-bg-input"
+                className="flex items-center justify-between transition-colors hover:bg-caddie-surface"
+                style={{ padding: '14px 0' }}
               >
                 <div>
-                  <div className="font-medium text-oga-text-primary">
+                  <div
+                    className="font-serif text-caddie-ink"
+                    style={{ fontSize: 17, fontWeight: 500 }}
+                  >
                     {r.courses?.name ?? 'Round'}
                   </div>
-                  <div className="text-oga-text-muted" style={{ fontSize: 11 }}>
+                  <div
+                    className="font-mono uppercase text-caddie-ink-mute tabular"
+                    style={{ fontSize: 10, letterSpacing: '0.14em', marginTop: 4 }}
+                  >
                     {r.played_at}
                   </div>
                 </div>
-                <div className="text-right">
+                <div className="flex items-baseline" style={{ gap: 18 }}>
                   <div
-                    className="font-medium tabular text-oga-text-primary"
-                    style={{ fontSize: 14 }}
+                    className="font-serif tabular text-caddie-ink"
+                    style={{ fontSize: 22, fontWeight: 500 }}
                   >
                     {r.total_score ?? '—'}
                   </div>
-                  <SGPill value={r.sg_total} />
+                  <SGValue value={r.sg_total} />
                 </div>
               </Link>
             </li>
           ))}
         </ul>
-      </Card>
+      </Section>
     </div>
   )
 }
 
-function PageHeader({ title, subtitle }: { title: string; subtitle?: string }) {
+function Masthead({ greeting, subtitle }: { greeting: string | null; subtitle: string }) {
   return (
-    <div style={{ marginBottom: 18 }}>
+    <div style={{ marginBottom: 28 }}>
       <h1
-        className="text-oga-text-primary"
-        style={{ fontSize: 22, fontWeight: 600, lineHeight: 1.3 }}
+        className="font-serif text-caddie-ink"
+        style={{
+          fontSize: 38,
+          fontWeight: 500,
+          fontStyle: 'italic',
+          letterSpacing: '-0.025em',
+          lineHeight: 1.05,
+        }}
       >
-        {title}
+        {greeting ? `Good round, ${greeting}.` : 'Good round.'}
       </h1>
-      {subtitle && (
-        <div
-          className="text-oga-text-muted"
-          style={{ fontSize: 13, marginTop: 2 }}
-        >
-          {subtitle}
-        </div>
-      )}
+      <div
+        className="text-caddie-ink-dim"
+        style={{ fontSize: 15, marginTop: 8 }}
+      >
+        {subtitle}
+      </div>
     </div>
   )
 }
 
-function Card({
-  label,
-  children,
-  style,
+function Lede({
+  strongest,
+  weakest,
 }: {
-  label?: string
-  children: React.ReactNode
-  style?: React.CSSProperties
+  strongest: { label: string; value: number }
+  weakest: { label: string; value: number }
 }) {
+  if (weakest.value >= 0) {
+    return (
+      <p
+        className="font-serif text-caddie-ink"
+        style={{
+          fontSize: 17,
+          fontWeight: 400,
+          lineHeight: 1.55,
+          maxWidth: 640,
+          marginBottom: 28,
+        }}
+      >
+        Everything is net positive right now. <em>{strongest.label}</em> leads
+        the four at {fmtSG(strongest.value)} a round — keep doing what you are doing.
+      </p>
+    )
+  }
   return (
-    <div
-      className="bg-oga-bg-card"
+    <p
+      className="font-serif text-caddie-ink"
       style={{
-        border: '0.5px solid #E4E4E0',
-        borderRadius: 10,
-        padding: '12px 14px',
-        ...style,
+        fontSize: 17,
+        fontWeight: 400,
+        lineHeight: 1.55,
+        maxWidth: 640,
+        marginBottom: 28,
       }}
     >
-      {label && (
-        <div
-          className="text-oga-text-muted uppercase"
-          style={{
-            fontSize: 11,
-            fontWeight: 500,
-            letterSpacing: 0.4,
-            marginBottom: 8,
-          }}
-        >
-          {label}
-        </div>
-      )}
-      {children}
-    </div>
+      <em>{weakest.label}.</em> Your biggest leak — costing about{' '}
+      {fmtAbs(weakest.value)} a round. {strongest.label.toLowerCase()} is the
+      one bright spot at {fmtSG(strongest.value)}.
+    </p>
   )
 }
 
-function MetricTile({
+function Section({
+  kicker,
+  children,
+}: {
+  kicker: string
+  children: React.ReactNode
+}) {
+  return (
+    <section style={{ marginBottom: 28 }}>
+      <div
+        style={{
+          borderTop: '1px solid #D9D2BF',
+          paddingTop: 14,
+          marginBottom: 14,
+        }}
+      >
+        <div className="kicker">{kicker}</div>
+      </div>
+      {children}
+    </section>
+  )
+}
+
+function StatTile({
   label,
   value,
   tone,
 }: {
   label: string
   value: string
-  tone?: 'positive' | 'negative' | 'neutral'
+  tone?: 'pos' | 'neg' | 'neutral'
 }) {
   const color =
-    tone === 'positive'
-      ? '#0F6E56'
-      : tone === 'negative'
-        ? '#A32D2D'
-        : '#111111'
+    tone === 'pos' ? '#1F3D2C' : tone === 'neg' ? '#A33A2A' : '#1C211C'
   return (
     <div
-      className="bg-oga-bg-card"
+      className="bg-caddie-surface"
       style={{
-        border: '0.5px solid #E4E4E0',
-        borderRadius: 10,
-        padding: '12px 14px',
+        border: '1px solid #D9D2BF',
+        borderRadius: 4,
+        padding: 18,
       }}
     >
-      <div
-        className="text-oga-text-muted"
-        style={{ fontSize: 10, marginBottom: 3 }}
-      >
+      <div className="kicker" style={{ marginBottom: 10 }}>
         {label}
       </div>
-      <div className="tabular" style={{ fontSize: 22, fontWeight: 500, color }}>
+      <div
+        className="font-serif tabular"
+        style={{ fontSize: 32, fontWeight: 500, color, lineHeight: 1.05 }}
+      >
         {value}
       </div>
     </div>
@@ -280,40 +325,46 @@ function SGBar({
 }) {
   const pct = Math.min(Math.abs(value) / max, 1) * 50
   const isPositive = value > 0
-  const color = value > 0 ? '#1D9E75' : value < 0 ? '#E24B4A' : '#AAAAAA'
-  const textColor = value > 0 ? '#0F6E56' : value < 0 ? '#A32D2D' : '#888880'
+  const color = value > 0 ? '#1F3D2C' : value < 0 ? '#A33A2A' : '#8A8B7E'
   return (
-    <div className="flex items-center gap-3">
+    <div className="flex items-center" style={{ gap: 14 }}>
       <div
-        className="text-oga-text-muted"
-        style={{ width: 100, fontSize: 12, flexShrink: 0 }}
+        className="text-caddie-ink"
+        style={{ width: 130, fontSize: 13, flexShrink: 0 }}
       >
         {label}
       </div>
       <div
-        className="relative flex-1 rounded"
-        style={{ height: 7, backgroundColor: '#F0F0EC' }}
+        className="relative flex-1"
+        style={{ height: 8 }}
       >
         <div
-          className="absolute inset-y-0"
-          style={{ left: '50%', width: 1, backgroundColor: '#E4E4E0' }}
+          className="absolute inset-x-0"
+          style={{ top: '50%', height: 1, backgroundColor: '#D9D2BF' }}
         />
         <div
-          className="absolute inset-y-0 rounded"
+          className="absolute"
+          style={{ left: '50%', top: 0, bottom: 0, width: 1, backgroundColor: '#9F9580' }}
+        />
+        <div
+          className="absolute"
           style={{
             left: isPositive ? '50%' : `${50 - pct}%`,
+            top: 1,
+            bottom: 1,
             width: `${pct}%`,
             backgroundColor: color,
           }}
         />
       </div>
       <div
-        className="tabular text-right"
+        className="font-serif tabular text-right"
         style={{
-          width: 44,
-          fontSize: 12,
+          width: 60,
+          fontSize: 17,
+          fontStyle: 'italic',
           fontWeight: 500,
-          color: textColor,
+          color,
         }}
       >
         {value > 0 ? '+' : ''}
@@ -323,26 +374,25 @@ function SGBar({
   )
 }
 
-function SGPill({ value }: { value: number | null }) {
-  if (value === null) return <span className="text-oga-text-hint" style={{ fontSize: 11 }}>—</span>
-  const pos = value > 0
-  const neg = value < 0
-  const bg = pos ? '#E1F5EE' : neg ? '#FCEBEB' : '#F1EFE8'
-  const fg = pos ? '#0F6E56' : neg ? '#A32D2D' : '#5F5E5A'
+function SGValue({ value }: { value: number | null }) {
+  if (value === null)
+    return (
+      <span className="text-caddie-ink-mute font-serif" style={{ fontSize: 17 }}>
+        —
+      </span>
+    )
+  const color = value > 0 ? '#1F3D2C' : value < 0 ? '#A33A2A' : '#5C6356'
   return (
     <span
-      className="tabular"
+      className="font-serif tabular"
       style={{
-        backgroundColor: bg,
-        color: fg,
-        fontSize: 10,
+        color,
+        fontSize: 17,
+        fontStyle: 'italic',
         fontWeight: 500,
-        padding: '2px 8px',
-        borderRadius: 8,
-        display: 'inline-block',
       }}
     >
-      SG {value > 0 ? '+' : ''}
+      {value > 0 ? '+' : ''}
       {value.toFixed(2)}
     </span>
   )
@@ -361,26 +411,49 @@ function EmptyState({
 }) {
   return (
     <div
-      className="bg-oga-bg-card text-center"
+      className="bg-caddie-surface text-center"
       style={{
-        border: '0.5px solid #E4E4E0',
-        borderRadius: 10,
-        padding: '32px 24px',
+        border: '1px solid #D9D2BF',
+        borderRadius: 4,
+        padding: '40px 24px',
       }}
     >
-      <div className="font-medium" style={{ fontSize: 15 }}>
+      <div
+        className="font-serif text-caddie-ink"
+        style={{ fontSize: 22, fontWeight: 500 }}
+      >
         {headline}
       </div>
-      <div className="text-oga-text-muted" style={{ fontSize: 13, marginTop: 6 }}>
+      <div
+        className="text-caddie-ink-dim"
+        style={{ fontSize: 15, marginTop: 8, maxWidth: 360, marginInline: 'auto' }}
+      >
         {body}
       </div>
       <Link
         to={ctaTo}
-        className="mt-4 inline-block rounded-card bg-oga-black text-white transition-colors hover:bg-oga-text-primary/90"
-        style={{ padding: '10px 16px', fontSize: 13, fontWeight: 500, marginTop: 16 }}
+        className="bg-caddie-accent text-caddie-accent-ink hover:opacity-90"
+        style={{
+          display: 'inline-block',
+          padding: '12px 16px',
+          fontSize: 14,
+          fontWeight: 600,
+          letterSpacing: '0.02em',
+          borderRadius: 2,
+          marginTop: 22,
+        }}
       >
-        {ctaLabel}
+        {ctaLabel} <span className="font-serif" style={{ fontStyle: 'italic' }}>→</span>
       </Link>
     </div>
   )
+}
+
+function fmtSG(value: number): string {
+  if (value === 0) return 'even'
+  return `${value > 0 ? '+' : ''}${value.toFixed(2)} strokes`
+}
+
+function fmtAbs(value: number): string {
+  return `${Math.abs(value).toFixed(1)} strokes`
 }
