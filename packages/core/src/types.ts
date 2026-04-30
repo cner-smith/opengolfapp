@@ -3,6 +3,8 @@ import type {
   Facility,
   Goal,
   LieSlope,
+  LieSlopeForward,
+  LieSlopeSide,
   LieType,
   ShotCategory,
   ShotResult,
@@ -88,7 +90,10 @@ export interface Shot {
   distanceToTarget?: number
   club?: Club
   lieType?: LieType
+  /** @deprecated read-only on legacy rows; new writes use lieSlopeForward + lieSlopeSide. */
   lieSlope?: LieSlope
+  lieSlopeForward?: LieSlopeForward
+  lieSlopeSide?: LieSlopeSide
   shotResult?: ShotResult
   penalty?: boolean
   ob?: boolean

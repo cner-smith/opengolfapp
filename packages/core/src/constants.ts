@@ -31,6 +31,8 @@ export const LIE_TYPES = [
   'green',
 ] as const
 
+/** @deprecated retained for migration reads; new code uses
+ *  LIE_SLOPES_FORWARD + LIE_SLOPES_SIDE so a lie can have both at once. */
 export const LIE_SLOPES = [
   'level',
   'uphill',
@@ -38,6 +40,10 @@ export const LIE_SLOPES = [
   'ball_above',
   'ball_below',
 ] as const
+
+export const LIE_SLOPES_FORWARD = ['uphill', 'level', 'downhill'] as const
+
+export const LIE_SLOPES_SIDE = ['ball_above', 'ball_below'] as const
 
 export const SHOT_RESULTS = [
   'solid',
@@ -61,7 +67,10 @@ export const SHOT_CATEGORIES = ['off_tee', 'approach', 'around_green', 'putting'
 
 export type Club = (typeof CLUBS)[number]
 export type LieType = (typeof LIE_TYPES)[number]
+/** @deprecated kept for legacy reads; new code uses LieSlopeForward + LieSlopeSide. */
 export type LieSlope = (typeof LIE_SLOPES)[number]
+export type LieSlopeForward = (typeof LIE_SLOPES_FORWARD)[number]
+export type LieSlopeSide = (typeof LIE_SLOPES_SIDE)[number]
 export type ShotResult = (typeof SHOT_RESULTS)[number]
 export type SkillLevel = (typeof SKILL_LEVELS)[number]
 export type Goal = (typeof GOALS)[number]

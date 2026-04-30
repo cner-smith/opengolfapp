@@ -1,4 +1,10 @@
-import type { LieSlope, LieType, ShotResult } from './constants'
+import type {
+  LieSlope,
+  LieSlopeForward,
+  LieSlopeSide,
+  LieType,
+  ShotResult,
+} from './constants'
 import type { Shot } from './types'
 
 export interface DispersionPoint {
@@ -7,7 +13,10 @@ export interface DispersionPoint {
   /** Yards long of aim (negative = short) */
   distanceOffsetYards: number
   shotResult?: ShotResult
+  /** @deprecated populated from legacy rows; new code uses lieSlopeForward + lieSlopeSide. */
   lieSlope?: LieSlope
+  lieSlopeForward?: LieSlopeForward
+  lieSlopeSide?: LieSlopeSide
   lieType?: LieType
 }
 
@@ -55,6 +64,8 @@ export function computeDispersion(shots: Shot[]): DispersionPoint[] {
       distanceOffsetYards: latYards,
       shotResult: s.shotResult,
       lieSlope: s.lieSlope,
+      lieSlopeForward: s.lieSlopeForward,
+      lieSlopeSide: s.lieSlopeSide,
       lieType: s.lieType,
     })
   }
@@ -111,14 +122,45 @@ export function computeDispersionStats(points: DispersionPoint[]): DispersionSta
   }
 }
 
+export interface DispersionFilter {
+  lieType?: LieType
+  lieSlopeForward?: LieSlopeForward
+  lieSlopeSide?: LieSlopeSide
+  /** @deprecated legacy single-slope filter (matches either axis). Prefer
+   *  lieSlopeForward / lieSlopeSide. */
+  lieSlope?: LieSlope
+}
+
 export function filterDispersionByLie(
   points: DispersionPoint[],
-  lieSlope?: LieSlope,
-  lieType?: LieType,
+  filterOrSlope?: DispersionFilter | LieSlope,
+  lieTypeArg?: LieType,
 ): DispersionPoint[] {
+  // Back-compat: filterDispersionByLie(points, lieSlope, lieType) still works.
+  const filter: DispersionFilter =
+    typeof filterOrSlope === 'string'
+      ? { lieSlope: filterOrSlope, lieType: lieTypeArg }
+      : { ...(filterOrSlope ?? {}), lieType: filterOrSlope?.lieType ?? lieTypeArg }
+
   return points.filter((p) => {
-    if (lieSlope && p.lieSlope !== lieSlope) return false
-    if (lieType && p.lieType !== lieType) return false
+    if (filter.lieType && p.lieType !== filter.lieType) return false
+    if (
+      filter.lieSlopeForward &&
+      p.lieSlopeForward !== filter.lieSlopeForward
+    ) {
+      return false
+    }
+    if (filter.lieSlopeSide && p.lieSlopeSide !== filter.lieSlopeSide) {
+      return false
+    }
+    if (
+      filter.lieSlope &&
+      p.lieSlope !== filter.lieSlope &&
+      p.lieSlopeForward !== filter.lieSlope &&
+      p.lieSlopeSide !== filter.lieSlope
+    ) {
+      return false
+    }
     return true
   })
 }

@@ -299,6 +299,8 @@ export interface Database {
             | 'ball_above'
             | 'ball_below'
             | null
+          lie_slope_forward: 'uphill' | 'level' | 'downhill' | null
+          lie_slope_side: 'ball_above' | 'ball_below' | null
           shot_result: string | null
           penalty: boolean
           ob: boolean
@@ -338,6 +340,8 @@ export interface Database {
             | 'ball_above'
             | 'ball_below'
             | null
+          lie_slope_forward?: 'uphill' | 'level' | 'downhill' | null
+          lie_slope_side?: 'ball_above' | 'ball_below' | null
           shot_result?: string | null
           penalty?: boolean
           ob?: boolean
@@ -377,6 +381,8 @@ export interface Database {
             | 'ball_above'
             | 'ball_below'
             | null
+          lie_slope_forward?: 'uphill' | 'level' | 'downhill' | null
+          lie_slope_side?: 'ball_above' | 'ball_below' | null
           shot_result?: string | null
           penalty?: boolean
           ob?: boolean
