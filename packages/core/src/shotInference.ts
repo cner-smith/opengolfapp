@@ -7,17 +7,17 @@ import type { Club, LieType } from './constants'
 
 export interface PlacedShot {
   shotNumber: number
-  lat: number
-  lng: number
-  /** Position the shot was hit FROM. Caller usually passes the previous
-   *  shot's (lat, lng); for shot 1 leave undefined and the inferrer uses
-   *  teeLat/teeLng. */
-  prevLat?: number
-  prevLng?: number
+  /** Where the shot was hit FROM — the player's stance for this shot.
+   *  Marker N's coordinates in the post-round tap-to-place flow. */
+  startLat: number
+  startLng: number
+  /** Where the shot ended. For non-last shots = next marker (the start
+   *  of the following shot). For the final shot of a hole that was
+   *  holed out = the pin. */
+  endLat: number
+  endLng: number
   pinLat: number
   pinLng: number
-  teeLat: number
-  teeLng: number
   /** Total shots placed for this hole. Used to identify the last shot. */
   totalShotsOnHole: number
   par: number
@@ -28,7 +28,9 @@ export interface InferredShot {
   suggestedLieType: LieType
   /** Distance the shot itself travelled (start → end) in yards. */
   distanceYards: number
-  /** Distance from the shot's end to the pin. */
+  /** Distance from the shot's START to the pin — the yards remaining
+   *  when the player stood over the ball. Matches the schema's
+   *  `shots.distance_to_target` semantic. */
   distanceToPin: number
   isLastShot: boolean
   confidence: 'high' | 'medium' | 'low'
@@ -103,16 +105,11 @@ const ON_GREEN_YARDS = 15
 
 function inferLie(args: {
   isFirstShot: boolean
-  isLastShot: boolean
   startToPinYards: number
-  endToPinYards: number
 }): LieType {
   // Tee shots are always 'tee'.
   if (args.isFirstShot) return 'tee'
-  // Final shot that holed out: it was a putt (or a chip-in we'll treat
-  // as a putt for default; user can edit).
-  if (args.isLastShot && args.endToPinYards <= ON_GREEN_YARDS) return 'green'
-  // Already on the green when this shot was hit (a lag, a 3rd putt, etc).
+  // Already on the green when this shot was hit (any putt — last or not).
   if (args.startToPinYards <= ON_GREEN_YARDS) return 'green'
   // Just off the green: fringe is the most useful default.
   if (args.startToPinYards <= NEAR_GREEN_YARDS) return 'fringe'
@@ -126,16 +123,12 @@ function inferLie(args: {
 
 function confidenceFor(args: {
   isFirstShot: boolean
-  isLastShot: boolean
-  endToPinYards: number
-  distanceYards: number
   startToPinYards: number
+  distanceYards: number
 }): InferredShot['confidence'] {
   // Tee shot is the highest-confidence lie call we make.
   if (args.isFirstShot) return 'high'
-  // Tap-in / putt: high.
-  if (args.isLastShot && args.endToPinYards <= ON_GREEN_YARDS) return 'high'
-  // From green to green-ish: high.
+  // Started on the green: putt — high confidence.
   if (args.startToPinYards <= ON_GREEN_YARDS) return 'high'
   // Standard mid-iron approach: medium.
   if (args.distanceYards >= 100 && args.distanceYards <= 200) return 'medium'
@@ -152,28 +145,17 @@ export function inferShot(shot: PlacedShot): InferredShot {
   const isFirstShot = shot.shotNumber === 1
   const isLastShot = shot.shotNumber === shot.totalShotsOnHole
 
-  const startLat = shot.prevLat ?? (isFirstShot ? shot.teeLat : shot.lat)
-  const startLng = shot.prevLng ?? (isFirstShot ? shot.teeLng : shot.lng)
-
   const distanceYards = round1(
-    haversineYards(startLat, startLng, shot.lat, shot.lng),
-  )
-  const distanceToPin = round1(
-    haversineYards(shot.lat, shot.lng, shot.pinLat, shot.pinLng),
+    haversineYards(shot.startLat, shot.startLng, shot.endLat, shot.endLng),
   )
   const startToPinYards = haversineYards(
-    startLat,
-    startLng,
+    shot.startLat,
+    shot.startLng,
     shot.pinLat,
     shot.pinLng,
   )
 
-  const lie = inferLie({
-    isFirstShot,
-    isLastShot,
-    startToPinYards,
-    endToPinYards: distanceToPin,
-  })
+  const lie = inferLie({ isFirstShot, startToPinYards })
 
   let club: Club
   if (lie === 'green') {
@@ -186,17 +168,15 @@ export function inferShot(shot: PlacedShot): InferredShot {
 
   const confidence = confidenceFor({
     isFirstShot,
-    isLastShot,
-    endToPinYards: distanceToPin,
-    distanceYards,
     startToPinYards,
+    distanceYards,
   })
 
   return {
     suggestedClub: club,
     suggestedLieType: lie,
     distanceYards,
-    distanceToPin,
+    distanceToPin: round1(startToPinYards),
     isLastShot,
     confidence,
   }

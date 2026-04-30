@@ -18,11 +18,13 @@ interface HoleReviewSheetProps {
   totalPar: number
   pinLat: number | null
   pinLng: number | null
-  teeLat: number | null
-  teeLng: number | null
+  /** Tap markers — each marker N is the START position of shot N.
+   *  End-of-shot for shot N is marker N+1; for the final shot it is
+   *  the pin (assumed holed). */
   placedPoints: PlacedPoint[]
   saving: boolean
-  onCancel: () => void
+  /** "Edit on map" — close the sheet and let the user drag markers. */
+  onEditOnMap: () => void
   onSave: (rows: ReviewedShotRow[]) => void | Promise<void>
 }
 
@@ -61,11 +63,9 @@ export function HoleReviewSheet({
   par,
   pinLat,
   pinLng,
-  teeLat,
-  teeLng,
   placedPoints,
   saving,
-  onCancel,
+  onEditOnMap,
   onSave,
 }: HoleReviewSheetProps) {
   const [rows, setRows] = useState<ReviewedShotRow[]>([])
@@ -77,9 +77,19 @@ export function HoleReviewSheet({
       setRows([])
       return
     }
-    setRows(buildInitialRows(placedPoints, par, pinLat, pinLng, teeLat, teeLng))
+    setRows(buildInitialRows(placedPoints, par, pinLat, pinLng))
+    // Rebuild whenever the marker count or any marker's coordinates
+    // change so dragging in edit mode flows back into the displayed
+    // distances when the sheet reopens.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, holeNumber, placedPoints.length])
+  }, [
+    open,
+    holeNumber,
+    placedPoints.length,
+    pinLat,
+    pinLng,
+    placedPoints.map((p) => `${p.lat},${p.lng}`).join('|'),
+  ])
 
   // Slide-in: mount at translateY(100%), flip to 0 next frame so CSS
   // transition runs. Two rAFs to ensure the initial style commits first.
@@ -204,7 +214,7 @@ export function HoleReviewSheet({
       >
         <button
           type="button"
-          onClick={onCancel}
+          onClick={onEditOnMap}
           className="text-caddie-accent"
           style={{
             border: '1px solid #1F3D2C',
@@ -412,24 +422,25 @@ function buildInitialRows(
   par: number,
   pinLat: number,
   pinLng: number,
-  teeLat: number | null,
-  teeLng: number | null,
 ): ReviewedShotRow[] {
   const total = points.length
   const rows: ReviewedShotRow[] = []
-  let prev: { lat: number; lng: number } | null =
-    teeLat != null && teeLng != null ? { lat: teeLat, lng: teeLng } : null
   points.forEach((p, idx) => {
+    const isLast = idx === total - 1
+    // End of shot N is the next marker. The final shot ends at the pin
+    // (the player holed it; the "Made it" toggle below lets them say
+    // otherwise but the on-map ending stays at the cup either way).
+    const next = isLast
+      ? { lat: pinLat, lng: pinLng }
+      : points[idx + 1]!
     const placed: PlacedShot = {
       shotNumber: idx + 1,
-      lat: p.lat,
-      lng: p.lng,
-      prevLat: prev?.lat,
-      prevLng: prev?.lng,
+      startLat: p.lat,
+      startLng: p.lng,
+      endLat: next.lat,
+      endLng: next.lng,
       pinLat,
       pinLng,
-      teeLat: teeLat ?? p.lat,
-      teeLng: teeLng ?? p.lng,
       totalShotsOnHole: total,
       par,
     }
@@ -438,10 +449,10 @@ function buildInitialRows(
       shotNumber: idx + 1,
       club: inferred.suggestedClub,
       lieType: inferred.suggestedLieType,
-      startLat: prev?.lat ?? null,
-      startLng: prev?.lng ?? null,
-      endLat: p.lat,
-      endLng: p.lng,
+      startLat: p.lat,
+      startLng: p.lng,
+      endLat: next.lat,
+      endLng: next.lng,
       distanceYards: inferred.distanceYards,
       distanceToPin: inferred.distanceToPin,
       isLastShot: inferred.isLastShot,
@@ -452,7 +463,6 @@ function buildInitialRows(
           ? true
           : undefined,
     })
-    prev = { lat: p.lat, lng: p.lng }
   })
   return rows
 }

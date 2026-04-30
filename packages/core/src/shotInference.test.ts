@@ -26,12 +26,12 @@ function basePlacedShot(overrides: Partial<PlacedShot>): PlacedShot {
   const pin = pinAtYards(380)
   return {
     shotNumber: 1,
-    lat: TEE.lat,
-    lng: TEE.lng,
+    startLat: TEE.lat,
+    startLng: TEE.lng,
+    endLat: TEE.lat,
+    endLng: TEE.lng,
     pinLat: pin.lat,
     pinLng: pin.lng,
-    teeLat: TEE.lat,
-    teeLng: TEE.lng,
     totalShotsOnHole: 4,
     par: 4,
     ...overrides,
@@ -56,8 +56,8 @@ describe('inferShot — tee shots', () => {
     const result = inferShot(
       basePlacedShot({
         shotNumber: 1,
-        lat: end.lat,
-        lng: end.lng,
+        endLat: end.lat,
+        endLng: end.lng,
         totalShotsOnHole: 4,
         par: 4,
       }),
@@ -74,8 +74,8 @@ describe('inferShot — tee shots', () => {
     const result = inferShot(
       basePlacedShot({
         shotNumber: 1,
-        lat: end.lat,
-        lng: end.lng,
+        endLat: end.lat,
+        endLng: end.lng,
         totalShotsOnHole: 4,
         par: 5,
         pinLat: pinAtYards(540).lat,
@@ -90,8 +90,8 @@ describe('inferShot — tee shots', () => {
     const result = inferShot(
       basePlacedShot({
         shotNumber: 1,
-        lat: end.lat,
-        lng: end.lng,
+        endLat: end.lat,
+        endLng: end.lng,
         totalShotsOnHole: 4,
         par: 5,
         pinLat: pinAtYards(540).lat,
@@ -106,8 +106,8 @@ describe('inferShot — tee shots', () => {
     const result = inferShot(
       basePlacedShot({
         shotNumber: 1,
-        lat: end.lat,
-        lng: end.lng,
+        endLat: end.lat,
+        endLng: end.lng,
         totalShotsOnHole: 3,
         par: 4,
       }),
@@ -120,8 +120,8 @@ describe('inferShot — tee shots', () => {
     const result = inferShot(
       basePlacedShot({
         shotNumber: 1,
-        lat: end.lat,
-        lng: end.lng,
+        endLat: end.lat,
+        endLng: end.lng,
         totalShotsOnHole: 3,
         par: 3,
         pinLat: pinAtYards(160).lat,
@@ -136,18 +136,16 @@ describe('inferShot — tee shots', () => {
 
 describe('inferShot — approach + lie', () => {
   it('mid-iron approach lands in the right club bucket and medium confidence', () => {
-    const start = endAtYards(220) // tee shot landed at 220 yd
+    const start = endAtYards(220) // shot 2 hit from 220 yd downrange
     const end = endAtYards(360) // 140 yd shot to about 20 yd short of pin
     const result = inferShot({
       shotNumber: 2,
-      prevLat: start.lat,
-      prevLng: start.lng,
-      lat: end.lat,
-      lng: end.lng,
+      startLat: start.lat,
+      startLng: start.lng,
+      endLat: end.lat,
+      endLng: end.lng,
       pinLat: pinAtYards(380).lat,
       pinLng: TEE.lng,
-      teeLat: TEE.lat,
-      teeLng: TEE.lng,
       totalShotsOnHole: 4,
       par: 4,
     })
@@ -163,14 +161,12 @@ describe('inferShot — approach + lie', () => {
     const end = endAtYards(378) // pitched up to 2 yd short
     const result = inferShot({
       shotNumber: 3,
-      prevLat: start.lat,
-      prevLng: start.lng,
-      lat: end.lat,
-      lng: end.lng,
+      startLat: start.lat,
+      startLng: start.lng,
+      endLat: end.lat,
+      endLng: end.lng,
       pinLat: pinAtYards(380).lat,
       pinLng: TEE.lng,
-      teeLat: TEE.lat,
-      teeLng: TEE.lng,
       totalShotsOnHole: 4,
       par: 4,
     })
@@ -181,19 +177,18 @@ describe('inferShot — approach + lie', () => {
 })
 
 describe('inferShot — putts and last shots', () => {
-  it('last shot within ~3 yd of pin reads as a putt', () => {
-    const start = endAtYards(378)
-    const end = endAtYards(380.5)
+  it('last shot starting on the green is a putt that ends at the pin', () => {
+    const pin = pinAtYards(380)
+    const start = endAtYards(378) // 2 yd from pin
     const result = inferShot({
       shotNumber: 4,
-      prevLat: start.lat,
-      prevLng: start.lng,
-      lat: end.lat,
-      lng: end.lng,
-      pinLat: pinAtYards(380).lat,
+      startLat: start.lat,
+      startLng: start.lng,
+      // Last shot was holed → end coords are the pin itself.
+      endLat: pin.lat,
+      endLng: pin.lng,
+      pinLat: pin.lat,
       pinLng: TEE.lng,
-      teeLat: TEE.lat,
-      teeLng: TEE.lng,
       totalShotsOnHole: 4,
       par: 4,
     })
@@ -209,14 +204,12 @@ describe('inferShot — putts and last shots', () => {
     const end = endAtYards(379)
     const result = inferShot({
       shotNumber: 3,
-      prevLat: start.lat,
-      prevLng: start.lng,
-      lat: end.lat,
-      lng: end.lng,
+      startLat: start.lat,
+      startLng: start.lng,
+      endLat: end.lat,
+      endLng: end.lng,
       pinLat: pinAtYards(380).lat,
       pinLng: TEE.lng,
-      teeLat: TEE.lat,
-      teeLng: TEE.lng,
       totalShotsOnHole: 4,
       par: 4,
     })

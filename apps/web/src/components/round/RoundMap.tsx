@@ -245,16 +245,14 @@ export function RoundMap({
     const existingCoords = buildLineCoords(effectiveTee, existingValid)
     upsertLine(map, lineSourceId, existingCoords, '#FBF8F1')
 
-    // Trajectory line (placed points): tee → placed[0] → ... → placed[n-1].
+    // Trajectory line (placed points): each marker is the START position
+    // of a shot, so segment N→N+1 is the path of shot N. Drawing just
+    // the markers in order without prepending the tee avoids a phantom
+    // "tee → marker 1" segment, since marker 1 IS the tee position.
     const placedCoords =
       placedPoints.length === 0
         ? []
-        : [
-            ...(effectiveTee
-              ? [[effectiveTee.lng, effectiveTee.lat] as [number, number]]
-              : []),
-            ...placedPoints.map((p) => [p.lng, p.lat] as [number, number]),
-          ]
+        : placedPoints.map((p) => [p.lng, p.lat] as [number, number])
     upsertLine(map, placedLineSourceId, placedCoords, '#A66A1F')
   }, [
     existingShots,
@@ -341,14 +339,14 @@ export function RoundMapInstructionStrip({
         ) : (
           <>
             <div className="kicker" style={{ marginBottom: 2 }}>
-              Tap to place shot {placingNumber}
+              Tap where you hit shot {placingNumber} from
             </div>
             <div
               className="text-caddie-ink-dim"
               style={{ fontSize: 12 }}
             >
               {shotsPlaced === 0
-                ? 'Anywhere on the map.'
+                ? 'Start at the tee box.'
                 : `${shotsPlaced} shot${shotsPlaced === 1 ? '' : 's'} placed${
                     remainingToPin != null
                       ? ` · ${toDisplay(remainingToPin)} to pin`

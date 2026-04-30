@@ -491,11 +491,9 @@ export function RoundDetailPage() {
                 totalPar={holes.reduce((s, h) => s + h.par, 0)}
                 pinLat={effectivePin?.lat ?? null}
                 pinLng={effectivePin?.lng ?? null}
-                teeLat={effectiveTee?.lat ?? null}
-                teeLng={effectiveTee?.lng ?? null}
                 placedPoints={placedPoints}
                 saving={savingHole}
-                onCancel={() => setReviewOpen(false)}
+                onEditOnMap={() => setReviewOpen(false)}
                 onSave={saveReviewedHole}
               />
             ) : null
