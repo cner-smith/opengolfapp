@@ -219,6 +219,8 @@ export interface Database {
           sg_approach: number | null
           sg_around_green: number | null
           sg_putting: number | null
+          pin_lat: number | null
+          pin_lng: number | null
         }
         Insert: {
           id?: string
@@ -232,6 +234,8 @@ export interface Database {
           sg_approach?: number | null
           sg_around_green?: number | null
           sg_putting?: number | null
+          pin_lat?: number | null
+          pin_lng?: number | null
         }
         Update: {
           id?: string
@@ -245,6 +249,8 @@ export interface Database {
           sg_approach?: number | null
           sg_around_green?: number | null
           sg_putting?: number | null
+          pin_lat?: number | null
+          pin_lng?: number | null
         }
         Relationships: [
           {
