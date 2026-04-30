@@ -137,9 +137,9 @@ insert into public.drills (name, description, duration_min, category, facility, 
 -- ---------------------------------------------------------------------------
 do $$
 declare
-  c1 uuid := uuid_generate_v4();
-  c2 uuid := uuid_generate_v4();
-  c3 uuid := uuid_generate_v4();
+  c1 uuid := gen_random_uuid();
+  c2 uuid := gen_random_uuid();
+  c3 uuid := gen_random_uuid();
 begin
   insert into public.courses (id, name, location) values
     (c1, 'Pine Ridge Golf Club', 'Demo, USA'),

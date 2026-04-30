@@ -1,8 +1,9 @@
 -- OGA initial schema
 -- Tables: profiles, courses, holes, rounds, hole_scores, shots, drills, practice_plans
 -- All user-owned tables have RLS enabled with policies that scope rows to auth.uid().
-
-create extension if not exists "uuid-ossp";
+--
+-- UUID defaults use gen_random_uuid() (built-in on Postgres 17 and on
+-- Supabase Cloud) so no extension is required.
 
 -- ---------------------------------------------------------------------------
 -- profiles (1:1 with auth.users)
@@ -23,7 +24,7 @@ create table public.profiles (
 -- courses
 -- ---------------------------------------------------------------------------
 create table public.courses (
-  id uuid primary key default uuid_generate_v4(),
+  id uuid primary key default gen_random_uuid(),
   name text not null,
   location text,
   mapbox_id text,
@@ -35,7 +36,7 @@ create table public.courses (
 -- holes
 -- ---------------------------------------------------------------------------
 create table public.holes (
-  id uuid primary key default uuid_generate_v4(),
+  id uuid primary key default gen_random_uuid(),
   course_id uuid not null references public.courses(id) on delete cascade,
   number int not null check (number between 1 and 18),
   par int not null check (par between 3 and 6),
@@ -52,7 +53,7 @@ create table public.holes (
 -- rounds
 -- ---------------------------------------------------------------------------
 create table public.rounds (
-  id uuid primary key default uuid_generate_v4(),
+  id uuid primary key default gen_random_uuid(),
   user_id uuid not null references public.profiles(id) on delete cascade,
   course_id uuid not null references public.courses(id),
   played_at date not null,
@@ -77,7 +78,7 @@ create index rounds_user_id_played_at_idx on public.rounds (user_id, played_at d
 -- hole_scores
 -- ---------------------------------------------------------------------------
 create table public.hole_scores (
-  id uuid primary key default uuid_generate_v4(),
+  id uuid primary key default gen_random_uuid(),
   round_id uuid not null references public.rounds(id) on delete cascade,
   hole_id uuid not null references public.holes(id),
   score int not null,
@@ -97,7 +98,7 @@ create index hole_scores_round_id_idx on public.hole_scores (round_id);
 -- shots
 -- ---------------------------------------------------------------------------
 create table public.shots (
-  id uuid primary key default uuid_generate_v4(),
+  id uuid primary key default gen_random_uuid(),
   hole_score_id uuid not null references public.hole_scores(id) on delete cascade,
   user_id uuid not null references public.profiles(id) on delete cascade,
   shot_number int not null,
@@ -137,7 +138,7 @@ create index shots_club_user_idx on public.shots (user_id, club);
 -- drills (global library)
 -- ---------------------------------------------------------------------------
 create table public.drills (
-  id uuid primary key default uuid_generate_v4(),
+  id uuid primary key default gen_random_uuid(),
   name text not null,
   description text,
   duration_min int,
@@ -152,7 +153,7 @@ create table public.drills (
 -- practice_plans
 -- ---------------------------------------------------------------------------
 create table public.practice_plans (
-  id uuid primary key default uuid_generate_v4(),
+  id uuid primary key default gen_random_uuid(),
   user_id uuid not null references public.profiles(id) on delete cascade,
   generated_at timestamptz not null default now(),
   valid_until date,
