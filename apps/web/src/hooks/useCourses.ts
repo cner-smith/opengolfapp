@@ -152,6 +152,39 @@ export function useCourseTees(courseId: string | null | undefined) {
   })
 }
 
+interface CreateCourseTeeArgs {
+  course_id: string
+  tee_color: string
+  course_rating?: number | null
+  slope_rating?: number | null
+  total_yards?: number | null
+  par?: number | null
+}
+
+export function useCreateCourseTee() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (args: CreateCourseTeeArgs) => {
+      const { data, error } = await upsertCourseTees(supabase, [
+        {
+          course_id: args.course_id,
+          tee_color: args.tee_color.toLowerCase(),
+          course_rating: args.course_rating ?? null,
+          slope_rating: args.slope_rating ?? null,
+          total_yards: args.total_yards ?? null,
+          par: args.par ?? null,
+        },
+      ])
+      if (error) throw error
+      return (data?.[0] ?? null) as
+        | { id: string; tee_color: string }
+        | null
+    },
+    onSuccess: (_data, vars) =>
+      qc.invalidateQueries({ queryKey: ['course-tees', vars.course_id] }),
+  })
+}
+
 interface ManualCourseArgs {
   name: string
   location: string | null

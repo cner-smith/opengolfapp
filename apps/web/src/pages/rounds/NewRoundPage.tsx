@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { CourseSearch } from '../../components/courses/CourseSearch'
+import { TeeSelector } from '../../components/courses/TeeSelector'
 import { useCreateRound } from '../../hooks/useRounds'
 import { useAuth } from '../../hooks/useAuth'
 
@@ -14,6 +15,7 @@ export function NewRoundPage() {
   const [courseName, setCourseName] = useState('')
   const [playedAt, setPlayedAt] = useState(() => new Date().toISOString().slice(0, 10))
   const [teeColor, setTeeColor] = useState<string>('white')
+  const [courseTeeId, setCourseTeeId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   async function handleSubmit(e: FormEvent) {
@@ -30,6 +32,7 @@ export function NewRoundPage() {
         course_id: courseId,
         played_at: playedAt,
         tee_color: teeColor,
+        course_tee_id: courseTeeId,
       })
       if (!round) throw new Error('Round insert returned no row')
       navigate(`/rounds/${round.id}`)
@@ -63,6 +66,7 @@ export function NewRoundPage() {
             onSelect={(id, name) => {
               setCourseId(id)
               setCourseName(name)
+              setCourseTeeId(null)
             }}
           />
           {courseName && courseId && (
@@ -74,6 +78,20 @@ export function NewRoundPage() {
             </p>
           )}
         </section>
+
+        {courseId && (
+          <section>
+            <FieldLabel>Tee</FieldLabel>
+            <TeeSelector
+              courseId={courseId}
+              selectedTeeId={courseTeeId}
+              onSelect={(id, color) => {
+                setCourseTeeId(id)
+                setTeeColor(color)
+              }}
+            />
+          </section>
+        )}
 
         <section className="grid grid-cols-2 gap-4">
           <label className="block">
