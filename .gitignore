@@ -39,6 +39,10 @@ coverage/
 # misc
 *.tsbuildinfo
 
-# Auto-generated claude-mem context placeholders (root CLAUDE.md is the real one)
+# Internal planning + design docs — kept locally, not published to GitHub.
 CLAUDE.md
-!/CLAUDE.md
+DESIGN.md
+DECISIONS.md
+PHASE_1.md
+PHASE_2.md
+PHASES_3_TO_8.md
