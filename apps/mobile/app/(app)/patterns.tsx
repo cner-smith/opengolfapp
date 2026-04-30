@@ -21,6 +21,14 @@ import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
 import { AppBar } from '../../components/ui/AppBar'
 
+const KICKER: import('react-native').TextStyle = {
+  color: '#8A8B7E',
+  fontSize: 10,
+  fontWeight: '500',
+  letterSpacing: 1.4,
+  textTransform: 'uppercase',
+}
+
 interface ShotRowMin {
   id: string
   hole_score_id: string
@@ -103,47 +111,40 @@ export default function Patterns() {
   const stats = useMemo(() => computeDispersionStats(points), [points])
 
   return (
-    <View style={{ flex: 1, backgroundColor: '#F4F4F0' }}>
+    <View style={{ flex: 1, backgroundColor: '#F2EEE5' }}>
       <AppBar eyebrow={`Club ${club}`} title="Shot Patterns" />
-      <ScrollView contentContainerStyle={{ padding: 14, paddingBottom: 32 }}>
-        <Card label="Club">
+      <ScrollView contentContainerStyle={{ padding: 18, paddingBottom: 40 }}>
+        <Section kicker="Club">
           <ChipRow
             value={club}
             options={CLUBS}
             onChange={(v) => v && setClub(v)}
           />
-        </Card>
-        <View style={{ height: 12 }} />
+        </Section>
 
-        <View style={{ flexDirection: 'row', gap: 8 }}>
-          <View style={{ flex: 1 }}>
-            <Card label="Lie type">
-              <ChipRow
-                value={lieType}
-                options={[ANY, ...LIE_TYPES] as const}
-                onChange={(v) => setLieType(v as LieType | typeof ANY)}
-                labelFor={(v) => (v === ANY ? 'any' : (v as string).replace(/_/g, ' '))}
-              />
-            </Card>
-          </View>
-          <View style={{ flex: 1 }}>
-            <Card label="Lie slope">
-              <ChipRow
-                value={lieSlope}
-                options={[ANY, ...LIE_SLOPES] as const}
-                onChange={(v) => setLieSlope(v as LieSlope | typeof ANY)}
-                labelFor={(v) => (v === ANY ? 'any' : (v as string).replace(/_/g, ' '))}
-              />
-            </Card>
-          </View>
-        </View>
-        <View style={{ height: 12 }} />
+        <Section kicker="Lie type">
+          <ChipRow
+            value={lieType}
+            options={[ANY, ...LIE_TYPES] as const}
+            onChange={(v) => setLieType(v as LieType | typeof ANY)}
+            labelFor={(v) => (v === ANY ? 'any' : (v as string).replace(/_/g, ' '))}
+          />
+        </Section>
 
-        <Card>
+        <Section kicker="Lie slope">
+          <ChipRow
+            value={lieSlope}
+            options={[ANY, ...LIE_SLOPES] as const}
+            onChange={(v) => setLieSlope(v as LieSlope | typeof ANY)}
+            labelFor={(v) => (v === ANY ? 'any' : (v as string).replace(/_/g, ' '))}
+          />
+        </Section>
+
+        <Section kicker="Pattern">
           {loading ? (
-            <Text style={{ color: '#888880', fontSize: 13 }}>Loading…</Text>
+            <Text style={{ color: '#8A8B7E', fontSize: 13 }}>Loading…</Text>
           ) : points.length === 0 ? (
-            <Text style={{ color: '#888880', fontSize: 13 }}>
+            <Text style={{ color: '#8A8B7E', fontSize: 13 }}>
               No shots yet for {club}
               {lieType !== ANY ? ` (${lieType})` : ''}
               {lieSlope !== ANY ? ` (${lieSlope})` : ''}.
@@ -151,19 +152,18 @@ export default function Patterns() {
           ) : (
             <DispersionPlot points={points} stats={stats} />
           )}
-        </Card>
-        <View style={{ height: 12 }} />
+        </Section>
 
-        <Card label="Pattern summary">
+        <Section kicker="Pattern summary">
           {stats ? (
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 18 }}>
               <Stat label="Sample" value={`${stats.sampleSize} shots`} />
               <Stat
                 label="Avg lateral"
                 value={`${stats.avgLateralOffset.toFixed(1)} yd`}
               />
               <Stat
-                label="Avg distance bias"
+                label="Distance bias"
                 value={`${stats.avgDistanceOffset.toFixed(1)} yd`}
               />
               <Stat label="Shape" value={stats.shotShape} />
@@ -174,34 +174,36 @@ export default function Patterns() {
               />
             </View>
           ) : (
-            <Text style={{ color: '#888880', fontSize: 13 }}>
-              Need at least 5 shots with aim and landing coords to compute a pattern.
+            <Text
+              style={{
+                color: '#1C211C',
+                fontSize: 15,
+                lineHeight: 22,
+                fontStyle: 'italic',
+              }}
+            >
+              Need at least <Text style={{ fontWeight: '500' }}>five shots</Text>{' '}
+              with aim and landing coords to compute a pattern.
             </Text>
           )}
-        </Card>
+        </Section>
 
         {stats && (
           <View
             style={{
-              backgroundColor: '#E1F5EE',
-              borderRadius: 10,
-              padding: 14,
-              marginTop: 12,
+              borderTopWidth: 1,
+              borderColor: '#D9D2BF',
+              paddingTop: 14,
             }}
           >
+            <Text style={{ ...KICKER, marginBottom: 10 }}>Aim correction</Text>
             <Text
               style={{
-                color: '#0F6E56',
-                fontSize: 11,
-                fontWeight: '500',
-                letterSpacing: 0.4,
-                textTransform: 'uppercase',
-                marginBottom: 4,
+                color: '#1C211C',
+                fontSize: 15,
+                lineHeight: 22,
               }}
             >
-              Aim correction
-            </Text>
-            <Text style={{ color: '#0F6E56', fontSize: 13 }}>
               {getAimCorrection(stats)}
             </Text>
           </View>
@@ -211,37 +213,25 @@ export default function Patterns() {
   )
 }
 
-function Card({
-  label,
+function Section({
+  kicker,
   children,
 }: {
-  label?: string
+  kicker: string
   children: React.ReactNode
 }) {
   return (
-    <View
-      style={{
-        backgroundColor: '#FFFFFF',
-        borderWidth: 0.5,
-        borderColor: '#E4E4E0',
-        borderRadius: 10,
-        padding: 12,
-      }}
-    >
-      {label && (
-        <Text
-          style={{
-            color: '#888880',
-            fontSize: 11,
-            fontWeight: '500',
-            letterSpacing: 0.4,
-            textTransform: 'uppercase',
-            marginBottom: 8,
-          }}
-        >
-          {label}
-        </Text>
-      )}
+    <View style={{ marginBottom: 22 }}>
+      <View
+        style={{
+          borderTopWidth: 1,
+          borderColor: '#D9D2BF',
+          paddingTop: 14,
+          marginBottom: 12,
+        }}
+      >
+        <Text style={KICKER}>{kicker}</Text>
+      </View>
       {children}
     </View>
   )
@@ -250,11 +240,11 @@ function Card({
 function Stat({ label, value }: { label: string; value: string }) {
   return (
     <View style={{ minWidth: 110 }}>
-      <Text style={{ color: '#888880', fontSize: 11 }}>{label}</Text>
+      <Text style={{ ...KICKER, marginBottom: 6 }}>{label}</Text>
       <Text
         style={{
-          color: '#111111',
-          fontSize: 13,
+          color: '#1C211C',
+          fontSize: 17,
           fontWeight: '500',
           textTransform: 'capitalize',
           fontVariant: ['tabular-nums'],
@@ -285,17 +275,15 @@ function ChipRow<T extends string>({ value, options, onChange, labelFor }: ChipR
               onPress={() => onChange(opt)}
               style={{
                 paddingHorizontal: 10,
-                paddingVertical: 7,
-                borderRadius: 7,
-                backgroundColor: active ? '#E1F5EE' : '#F4F4F0',
-                borderWidth: 0.5,
-                borderColor: active ? '#1D9E75' : '#E0E0DA',
+                paddingVertical: 8,
+                borderRadius: 2,
+                backgroundColor: active ? '#1F3D2C' : '#EBE5D6',
               }}
             >
               <Text
                 style={{
-                  color: active ? '#0F6E56' : '#111111',
-                  fontSize: 11,
+                  color: active ? '#F2EEE5' : '#1C211C',
+                  fontSize: 12,
                   fontWeight: active ? '500' : '400',
                 }}
               >
@@ -312,11 +300,11 @@ function ChipRow<T extends string>({ value, options, onChange, labelFor }: ChipR
 const SVG_SIZE = 320
 
 function pointColor(result: string | undefined): { fill: string; opacity: number } {
-  if (result === 'solid') return { fill: '#1D9E75', opacity: 0.7 }
+  if (result === 'solid') return { fill: '#1C211C', opacity: 0.75 }
   if (result === 'push_right' || result === 'pull_left')
-    return { fill: '#EF9F27', opacity: 0.7 }
-  if (result === undefined) return { fill: '#888880', opacity: 0.5 }
-  return { fill: '#E24B4A', opacity: 0.8 }
+    return { fill: '#A66A1F', opacity: 0.75 }
+  if (result === undefined) return { fill: '#8A8B7E', opacity: 0.5 }
+  return { fill: '#A33A2A', opacity: 0.8 }
 }
 
 function DispersionPlot({
@@ -352,7 +340,7 @@ function DispersionPlot({
 
   return (
     <Svg width={size} height={size}>
-      <Rect x={0} y={0} width={size} height={size} fill="#F8F8F6" rx={8} ry={8} />
+      <Rect x={0} y={0} width={size} height={size} fill="#F2EEE5" rx={2} ry={2} />
       {ticks.map((t) => (
         <Line
           key={`v${t}`}
@@ -360,7 +348,7 @@ function DispersionPlot({
           y1={0}
           x2={px(t)}
           y2={size}
-          stroke="#E8E8E4"
+          stroke="#EBE5D6"
           strokeWidth={1}
         />
       ))}
@@ -371,12 +359,12 @@ function DispersionPlot({
           y1={py(t)}
           x2={size}
           y2={py(t)}
-          stroke="#E8E8E4"
+          stroke="#EBE5D6"
           strokeWidth={1}
         />
       ))}
-      <Line x1={cx} y1={0} x2={cx} y2={size} stroke="#D0D0CA" strokeWidth={1} />
-      <Line x1={0} y1={cy} x2={size} y2={cy} stroke="#D0D0CA" strokeWidth={1} />
+      <Line x1={cx} y1={0} x2={cx} y2={size} stroke="#9F9580" strokeWidth={1} />
+      <Line x1={0} y1={cy} x2={size} y2={cy} stroke="#9F9580" strokeWidth={1} />
 
       {stats && (
         <>
@@ -385,8 +373,8 @@ function DispersionPlot({
             cy={py(stats.avgDistanceOffset)}
             rx={stats.cone95.lateral * scale}
             ry={stats.cone95.distance * scale}
-            fill="rgba(29,158,117,0.08)"
-            stroke="#1D9E75"
+            fill="rgba(31,61,44,0.06)"
+            stroke="#1F3D2C"
             strokeDasharray="5 4"
             strokeWidth={1}
           />
@@ -395,17 +383,17 @@ function DispersionPlot({
             cy={py(stats.avgDistanceOffset)}
             rx={stats.cone68.lateral * scale}
             ry={stats.cone68.distance * scale}
-            fill="rgba(29,158,117,0.15)"
-            stroke="#1D9E75"
+            fill="rgba(31,61,44,0.12)"
+            stroke="#1F3D2C"
             strokeDasharray="4 3"
             strokeWidth={1}
           />
         </>
       )}
 
-      <Circle cx={cx} cy={cy} r={3} fill="#1D9E75" />
-      <SvgText x={cx + 6} y={cy + 14} fontSize={9} fill="#1D9E75">
-        target
+      <Circle cx={cx} cy={cy} r={3} fill="#A66A1F" />
+      <SvgText x={cx + 6} y={cy + 14} fontSize={9} fill="#A66A1F">
+        AIM
       </SvgText>
 
       {points.map((p, i) => {
@@ -422,16 +410,16 @@ function DispersionPlot({
         )
       })}
 
-      <SvgText x={cx + 6} y={12} fontSize={9} fill="#888880">
-        long
+      <SvgText x={cx + 6} y={12} fontSize={9} fill="#8A8B7E">
+        LONG
       </SvgText>
-      <SvgText x={cx + 6} y={size - 4} fontSize={9} fill="#888880">
-        short
+      <SvgText x={cx + 6} y={size - 4} fontSize={9} fill="#8A8B7E">
+        SHORT
       </SvgText>
-      <SvgText x={4} y={cy - 4} fontSize={9} fill="#888880">
+      <SvgText x={4} y={cy - 4} fontSize={9} fill="#8A8B7E">
         L
       </SvgText>
-      <SvgText x={size - 12} y={cy - 4} fontSize={9} fill="#888880">
+      <SvgText x={size - 12} y={cy - 4} fontSize={9} fill="#8A8B7E">
         R
       </SvgText>
     </Svg>

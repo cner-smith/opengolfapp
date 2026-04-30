@@ -11,6 +11,14 @@ type Profile = Database['public']['Tables']['profiles']['Row']
 type SkillLevel = Profile['skill_level']
 type Goal = Profile['goal']
 
+const KICKER: import('react-native').TextStyle = {
+  color: '#8A8B7E',
+  fontSize: 10,
+  fontWeight: '500',
+  letterSpacing: 1.4,
+  textTransform: 'uppercase',
+}
+
 export default function ProfileTab() {
   const { user, loading: authLoading } = useAuth()
   const [profile, setProfile] = useState<Profile | null>(null)
@@ -75,47 +83,42 @@ export default function ProfileTab() {
   }
 
   return (
-    <View style={{ flex: 1, backgroundColor: '#F4F4F0' }}>
+    <View style={{ flex: 1, backgroundColor: '#F2EEE5' }}>
       <AppBar
         eyebrow={profile?.username ? `@${profile.username}` : 'Account'}
         title="Profile"
       />
-      <ScrollView contentContainerStyle={{ padding: 14, paddingBottom: 32 }}>
+      <ScrollView contentContainerStyle={{ padding: 18, paddingBottom: 40 }}>
         <View
           style={{
-            backgroundColor: '#FFFFFF',
-            borderWidth: 0.5,
-            borderColor: '#E4E4E0',
-            borderRadius: 10,
-            padding: 16,
-            marginBottom: 12,
+            borderTopWidth: 1,
+            borderBottomWidth: 1,
+            borderColor: '#D9D2BF',
+            paddingVertical: 28,
             alignItems: 'center',
+            marginBottom: 22,
           }}
         >
+          <Text style={{ ...KICKER, marginBottom: 8 }}>Handicap index</Text>
           <Text
             style={{
-              color: '#888880',
-              fontSize: 11,
-              fontWeight: '500',
-              letterSpacing: 0.4,
-              textTransform: 'uppercase',
-              marginBottom: 4,
-            }}
-          >
-            Handicap index
-          </Text>
-          <Text
-            style={{
-              color: '#111111',
-              fontSize: 36,
+              color: '#1C211C',
+              fontSize: 56,
+              fontStyle: 'italic',
               fontWeight: '500',
               fontVariant: ['tabular-nums'],
+              lineHeight: 60,
             }}
           >
             {profile?.handicap_index ?? '—'}
           </Text>
           <Text
-            style={{ color: '#888880', fontSize: 11, marginTop: 2, textTransform: 'capitalize' }}
+            style={{
+              color: '#5C6356',
+              fontSize: 14,
+              marginTop: 6,
+              textTransform: 'capitalize',
+            }}
           >
             {profile?.skill_level ?? 'No skill level set'}
           </Text>
@@ -182,14 +185,21 @@ export default function ProfileTab() {
           onPress={save}
           disabled={saving}
           style={{
-            marginTop: 4,
-            backgroundColor: '#111111',
-            borderRadius: 10,
-            paddingVertical: 13,
+            marginTop: 18,
+            backgroundColor: '#1F3D2C',
+            borderRadius: 2,
+            paddingVertical: 14,
             alignItems: 'center',
           }}
         >
-          <Text style={{ color: '#FFFFFF', fontSize: 13, fontWeight: '500' }}>
+          <Text
+            style={{
+              color: '#F2EEE5',
+              fontSize: 14,
+              fontWeight: '600',
+              letterSpacing: 0.3,
+            }}
+          >
             {saving ? 'Saving…' : 'Save changes'}
           </Text>
         </Pressable>
@@ -197,16 +207,19 @@ export default function ProfileTab() {
         <Pressable
           onPress={() => supabase.auth.signOut()}
           style={{
-            marginTop: 10,
-            backgroundColor: '#FFFFFF',
-            borderWidth: 0.5,
-            borderColor: '#E4E4E0',
-            borderRadius: 10,
-            paddingVertical: 13,
+            marginTop: 22,
+            paddingVertical: 12,
             alignItems: 'center',
           }}
         >
-          <Text style={{ color: '#888880', fontSize: 12 }}>Sign out</Text>
+          <Text
+            style={{
+              ...KICKER,
+              color: '#8A8B7E',
+            }}
+          >
+            Sign out
+          </Text>
         </Pressable>
       </ScrollView>
     </View>
@@ -214,31 +227,27 @@ export default function ProfileTab() {
 }
 
 const inputStyle = {
-  backgroundColor: '#F9F9F6',
-  borderWidth: 0.5,
-  borderColor: '#E4E4E0',
-  borderRadius: 7,
-  paddingHorizontal: 10,
-  paddingVertical: 9,
-  fontSize: 13,
-  color: '#111111',
+  backgroundColor: '#FBF8F1',
+  borderWidth: 1,
+  borderColor: '#D9D2BF',
+  borderRadius: 2,
+  paddingHorizontal: 12,
+  paddingVertical: 10,
+  fontSize: 15,
+  color: '#1C211C',
 } as const
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <View style={{ marginBottom: 14 }}>
-      <Text
-        style={{
-          color: '#888880',
-          fontSize: 11,
-          fontWeight: '500',
-          letterSpacing: 0.4,
-          textTransform: 'uppercase',
-          marginBottom: 6,
-        }}
-      >
-        {label}
-      </Text>
+    <View
+      style={{
+        borderTopWidth: 1,
+        borderColor: '#D9D2BF',
+        paddingTop: 14,
+        marginBottom: 18,
+      }}
+    >
+      <Text style={{ ...KICKER, marginBottom: 12 }}>{label}</Text>
       {children}
     </View>
   )
@@ -258,16 +267,14 @@ function Chip({
       onPress={onPress}
       style={{
         paddingHorizontal: 10,
-        paddingVertical: 7,
-        borderRadius: 7,
-        backgroundColor: active ? '#E1F5EE' : '#F4F4F0',
-        borderWidth: 0.5,
-        borderColor: active ? '#1D9E75' : '#E0E0DA',
+        paddingVertical: 8,
+        borderRadius: 2,
+        backgroundColor: active ? '#1F3D2C' : '#EBE5D6',
       }}
     >
       <Text
         style={{
-          color: active ? '#0F6E56' : '#111111',
+          color: active ? '#F2EEE5' : '#1C211C',
           fontSize: 12,
           fontWeight: active ? '500' : '400',
           textTransform: 'capitalize',

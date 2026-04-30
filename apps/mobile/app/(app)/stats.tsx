@@ -9,11 +9,19 @@ import { AppBar } from '../../components/ui/AppBar'
 const N_OPTIONS = [5, 10, 20] as const
 
 const SERIES = [
-  { key: 'sg_off_tee', label: 'Off tee', color: '#1D9E75' },
-  { key: 'sg_approach', label: 'Approach', color: '#E24B4A' },
-  { key: 'sg_around_green', label: 'Around green', color: '#EF9F27' },
-  { key: 'sg_putting', label: 'Putting', color: '#378ADD' },
+  { key: 'sg_off_tee', label: 'Off tee', color: '#1F3D2C' },
+  { key: 'sg_approach', label: 'Approach', color: '#A33A2A' },
+  { key: 'sg_around_green', label: 'Around green', color: '#A66A1F' },
+  { key: 'sg_putting', label: 'Putting', color: '#5C6356' },
 ] as const
+
+const KICKER: import('react-native').TextStyle = {
+  color: '#8A8B7E',
+  fontSize: 10,
+  fontWeight: '500',
+  letterSpacing: 1.4,
+  textTransform: 'uppercase',
+}
 
 interface RecentRound {
   played_at: string
@@ -60,7 +68,7 @@ export default function Stats() {
   const ordered = [...rounds].reverse()
 
   return (
-    <View style={{ flex: 1, backgroundColor: '#F4F4F0' }}>
+    <View style={{ flex: 1, backgroundColor: '#F2EEE5' }}>
       <AppBar
         eyebrow="Performance"
         title="Strokes Gained"
@@ -68,60 +76,70 @@ export default function Stats() {
           <View
             style={{
               flexDirection: 'row',
-              backgroundColor: 'rgba(255,255,255,0.08)',
-              borderRadius: 7,
-              padding: 2,
+              borderWidth: 1,
+              borderColor: 'rgba(242,238,229,0.25)',
             }}
           >
-            {N_OPTIONS.map((opt) => (
-              <Pressable
-                key={opt}
-                onPress={() => setN(opt)}
-                style={{
-                  paddingHorizontal: 9,
-                  paddingVertical: 4,
-                  borderRadius: 5,
-                  backgroundColor: n === opt ? '#FFFFFF' : 'transparent',
-                }}
-              >
-                <Text
+            {N_OPTIONS.map((opt, i) => {
+              const active = n === opt
+              return (
+                <Pressable
+                  key={opt}
+                  onPress={() => setN(opt)}
                   style={{
-                    color: n === opt ? '#111111' : 'rgba(255,255,255,0.55)',
-                    fontSize: 11,
-                    fontWeight: '500',
+                    paddingHorizontal: 10,
+                    paddingVertical: 5,
+                    backgroundColor: active ? '#1F3D2C' : 'transparent',
+                    borderLeftWidth: i === 0 ? 0 : 1,
+                    borderColor: 'rgba(242,238,229,0.25)',
                   }}
                 >
-                  L{opt}
-                </Text>
-              </Pressable>
-            ))}
+                  <Text
+                    style={{
+                      color: active ? '#F2EEE5' : 'rgba(242,238,229,0.6)',
+                      fontSize: 11,
+                      fontWeight: '600',
+                      letterSpacing: 0.3,
+                    }}
+                  >
+                    L{opt}
+                  </Text>
+                </Pressable>
+              )
+            })}
           </View>
         }
       />
 
-      <ScrollView contentContainerStyle={{ padding: 14, paddingBottom: 32 }}>
+      <ScrollView contentContainerStyle={{ padding: 18, paddingBottom: 40 }}>
         {loading ? (
-          <Text style={{ color: '#888880', fontSize: 13 }}>Loading…</Text>
+          <Text style={{ color: '#8A8B7E', fontSize: 13 }}>Loading…</Text>
         ) : rounds.length === 0 ? (
           <View
             style={{
-              backgroundColor: '#FFFFFF',
-              borderWidth: 0.5,
-              borderColor: '#E4E4E0',
-              borderRadius: 10,
-              padding: 24,
-              alignItems: 'center',
+              backgroundColor: '#FBF8F1',
+              borderWidth: 1,
+              borderColor: '#D9D2BF',
+              borderRadius: 4,
+              padding: 22,
             }}
           >
-            <Text style={{ color: '#111111', fontSize: 15, fontWeight: '500' }}>
-              No rounds with strokes gained yet
+            <Text
+              style={{
+                color: '#1C211C',
+                fontSize: 22,
+                fontStyle: 'italic',
+                fontWeight: '500',
+              }}
+            >
+              No rounds yet.
             </Text>
             <Text
               style={{
-                color: '#888880',
-                fontSize: 13,
-                marginTop: 6,
-                textAlign: 'center',
+                color: '#5C6356',
+                fontSize: 14,
+                marginTop: 8,
+                lineHeight: 20,
               }}
             >
               Finalize a round to see SG trends per category.
@@ -129,88 +147,69 @@ export default function Stats() {
           </View>
         ) : (
           <>
-            <View
-              style={{
-                flexDirection: 'row',
-                flexWrap: 'wrap',
-                gap: 8,
-                marginBottom: 12,
-              }}
-            >
-              {avgs.map((s) => (
-                <View
-                  key={s.key}
-                  style={{
-                    width: '48%',
-                    backgroundColor: '#FFFFFF',
-                    borderWidth: 0.5,
-                    borderColor: '#E4E4E0',
-                    borderRadius: 10,
-                    padding: 12,
-                  }}
-                >
+            <Section kicker="By the numbers">
+              <View
+                style={{
+                  flexDirection: 'row',
+                  flexWrap: 'wrap',
+                  gap: 14,
+                }}
+              >
+                {avgs.map((s) => (
                   <View
+                    key={s.key}
                     style={{
-                      flexDirection: 'row',
-                      alignItems: 'center',
-                      gap: 6,
-                      marginBottom: 4,
+                      width: '47%',
+                      backgroundColor: '#FBF8F1',
+                      borderWidth: 1,
+                      borderColor: '#D9D2BF',
+                      borderRadius: 4,
+                      padding: 14,
                     }}
                   >
                     <View
                       style={{
-                        width: 8,
-                        height: 8,
-                        borderRadius: 4,
-                        backgroundColor: s.color,
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        gap: 8,
+                        marginBottom: 10,
                       }}
-                    />
-                    <Text style={{ color: '#888880', fontSize: 11 }}>{s.label}</Text>
+                    >
+                      <View
+                        style={{
+                          width: 10,
+                          height: 2,
+                          backgroundColor: s.color,
+                        }}
+                      />
+                      <Text style={KICKER}>{s.label}</Text>
+                    </View>
+                    <Text
+                      style={{
+                        fontSize: 26,
+                        fontStyle: 'italic',
+                        fontWeight: '500',
+                        color:
+                          s.value > 0
+                            ? '#1F3D2C'
+                            : s.value < 0
+                              ? '#A33A2A'
+                              : '#5C6356',
+                        fontVariant: ['tabular-nums'],
+                      }}
+                    >
+                      {s.value > 0 ? '+' : ''}
+                      {s.value.toFixed(2)}
+                    </Text>
                   </View>
-                  <Text
-                    style={{
-                      fontSize: 22,
-                      fontWeight: '500',
-                      color:
-                        s.value > 0
-                          ? '#0F6E56'
-                          : s.value < 0
-                            ? '#A32D2D'
-                            : '#888880',
-                      fontVariant: ['tabular-nums'],
-                    }}
-                  >
-                    {s.value > 0 ? '+' : ''}
-                    {s.value.toFixed(2)}
-                  </Text>
-                </View>
-              ))}
-            </View>
+                ))}
+              </View>
+            </Section>
 
-            <View
-              style={{
-                backgroundColor: '#FFFFFF',
-                borderWidth: 0.5,
-                borderColor: '#E4E4E0',
-                borderRadius: 10,
-                padding: 12,
-              }}
-            >
-              <Text
-                style={{
-                  color: '#888880',
-                  fontSize: 11,
-                  fontWeight: '500',
-                  letterSpacing: 0.4,
-                  textTransform: 'uppercase',
-                  marginBottom: 8,
-                }}
-              >
-                SG by category — last {rounds.length} rounds
-              </Text>
+            <Section kicker={`SG by category — last ${rounds.length} rounds`}>
               <VictoryChart
                 height={260}
-                width={screenWidth - 56}
+                width={screenWidth - 36}
                 padding={{ top: 16, right: 12, bottom: 28, left: 32 }}
               >
                 <VictoryAxis
@@ -221,17 +220,17 @@ export default function Stats() {
                     })
                   }
                   style={{
-                    axis: { stroke: '#E4E4E0' },
-                    tickLabels: { fontSize: 9, fill: '#888880' },
+                    axis: { stroke: '#D9D2BF' },
+                    tickLabels: { fontSize: 9, fill: '#8A8B7E' },
                     grid: { stroke: 'transparent' },
                   }}
                 />
                 <VictoryAxis
                   dependentAxis
                   style={{
-                    axis: { stroke: '#E4E4E0' },
-                    tickLabels: { fontSize: 9, fill: '#888880' },
-                    grid: { stroke: '#F0F0EC' },
+                    axis: { stroke: '#D9D2BF' },
+                    tickLabels: { fontSize: 9, fill: '#8A8B7E' },
+                    grid: { stroke: '#EBE5D6' },
                   }}
                 />
                 {SERIES.map((s) => (
@@ -241,7 +240,7 @@ export default function Stats() {
                       x: new Date(r.played_at).getTime(),
                       y: r[s.key] ?? 0,
                     }))}
-                    style={{ data: { stroke: s.color, strokeWidth: 2 } }}
+                    style={{ data: { stroke: s.color, strokeWidth: 1.5 } }}
                   />
                 ))}
               </VictoryChart>
@@ -249,7 +248,7 @@ export default function Stats() {
                 style={{
                   flexDirection: 'row',
                   flexWrap: 'wrap',
-                  gap: 12,
+                  gap: 14,
                   marginTop: 8,
                 }}
               >
@@ -259,27 +258,46 @@ export default function Stats() {
                     style={{
                       flexDirection: 'row',
                       alignItems: 'center',
-                      gap: 4,
+                      gap: 6,
                     }}
                   >
                     <View
-                      style={{
-                        width: 8,
-                        height: 8,
-                        borderRadius: 4,
-                        backgroundColor: s.color,
-                      }}
+                      style={{ width: 10, height: 2, backgroundColor: s.color }}
                     />
-                    <Text style={{ color: '#888880', fontSize: 10 }}>
+                    <Text style={{ color: '#5C6356', fontSize: 11 }}>
                       {s.label}
                     </Text>
                   </View>
                 ))}
               </View>
-            </View>
+            </Section>
           </>
         )}
       </ScrollView>
+    </View>
+  )
+}
+
+function Section({
+  kicker,
+  children,
+}: {
+  kicker: string
+  children: React.ReactNode
+}) {
+  return (
+    <View style={{ marginBottom: 28 }}>
+      <View
+        style={{
+          borderTopWidth: 1,
+          borderColor: '#D9D2BF',
+          paddingTop: 14,
+          marginBottom: 14,
+        }}
+      >
+        <Text style={KICKER}>{kicker}</Text>
+      </View>
+      {children}
     </View>
   )
 }
