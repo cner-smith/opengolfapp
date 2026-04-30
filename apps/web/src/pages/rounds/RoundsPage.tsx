@@ -8,19 +8,22 @@ export function RoundsPage() {
     <div>
       <div
         className="flex items-end justify-between"
-        style={{ marginBottom: 18 }}
+        style={{ marginBottom: 28 }}
       >
         <div>
+          <div className="kicker" style={{ marginBottom: 8 }}>
+            Logbook
+          </div>
           <h1
-            className="text-oga-text-primary"
-            style={{ fontSize: 22, fontWeight: 600, lineHeight: 1.3 }}
+            className="font-serif text-caddie-ink"
+            style={{ fontSize: 28, fontWeight: 500, lineHeight: 1.15 }}
           >
             Rounds
           </h1>
           {rounds && rounds.length > 0 && (
             <div
-              className="text-oga-text-muted"
-              style={{ fontSize: 13, marginTop: 2 }}
+              className="text-caddie-ink-dim"
+              style={{ fontSize: 13, marginTop: 6 }}
             >
               {rounds.length} round{rounds.length === 1 ? '' : 's'} logged
             </div>
@@ -28,26 +31,35 @@ export function RoundsPage() {
         </div>
         <Link
           to="/rounds/new"
-          className="rounded-card bg-oga-black text-white transition-colors hover:bg-oga-text-primary/90"
-          style={{ padding: '10px 16px', fontSize: 13, fontWeight: 500 }}
+          className="bg-caddie-accent text-caddie-accent-ink hover:opacity-90"
+          style={{
+            padding: '12px 16px',
+            fontSize: 14,
+            fontWeight: 600,
+            letterSpacing: '0.02em',
+            borderRadius: 2,
+          }}
         >
-          New round
+          New round{' '}
+          <span className="font-serif" style={{ fontStyle: 'italic' }}>
+            →
+          </span>
         </Link>
       </div>
 
       {isLoading && (
-        <div className="text-oga-text-muted" style={{ fontSize: 13 }}>
+        <div className="text-caddie-ink-mute" style={{ fontSize: 13 }}>
           Loading rounds…
         </div>
       )}
 
       {error && (
         <div
-          className="bg-oga-red-light text-oga-red-dark"
+          className="text-caddie-neg"
           style={{
-            border: '0.5px solid #E24B4A',
-            borderRadius: 10,
-            padding: '12px 14px',
+            border: '1px solid #A33A2A',
+            borderRadius: 4,
+            padding: '14px 18px',
             fontSize: 13,
           }}
         >
@@ -57,115 +69,128 @@ export function RoundsPage() {
 
       {!isLoading && rounds && rounds.length === 0 && (
         <div
-          className="bg-oga-bg-card text-center"
+          className="bg-caddie-surface text-center"
           style={{
-            border: '0.5px solid #E4E4E0',
-            borderRadius: 10,
-            padding: '32px 24px',
+            border: '1px solid #D9D2BF',
+            borderRadius: 4,
+            padding: '40px 24px',
           }}
         >
-          <div className="font-medium" style={{ fontSize: 15 }}>
+          <div
+            className="font-serif text-caddie-ink"
+            style={{ fontSize: 22, fontWeight: 500 }}
+          >
             No rounds logged yet
           </div>
           <div
-            className="text-oga-text-muted"
-            style={{ fontSize: 13, marginTop: 6 }}
+            className="text-caddie-ink-dim"
+            style={{ fontSize: 15, marginTop: 8 }}
           >
             Log your first round to start tracking strokes gained.
           </div>
           <Link
             to="/rounds/new"
-            className="rounded-card bg-oga-black text-white"
+            className="bg-caddie-accent text-caddie-accent-ink"
             style={{
               display: 'inline-block',
-              padding: '10px 16px',
-              fontSize: 13,
-              fontWeight: 500,
-              marginTop: 16,
+              padding: '12px 16px',
+              fontSize: 14,
+              fontWeight: 600,
+              letterSpacing: '0.02em',
+              borderRadius: 2,
+              marginTop: 22,
             }}
           >
-            Log a round
+            Log a round{' '}
+            <span className="font-serif" style={{ fontStyle: 'italic' }}>
+              →
+            </span>
           </Link>
         </div>
       )}
 
-      <ul className="flex flex-col gap-2">
-        {rounds?.map((r) => (
-          <li key={r.id}>
+      {rounds && rounds.length > 0 && (
+        <div style={{ borderTop: '1px solid #D9D2BF' }}>
+          {rounds.map((r) => (
             <Link
+              key={r.id}
               to={`/rounds/${r.id}`}
-              className="flex items-center justify-between bg-oga-bg-card transition-colors hover:bg-oga-bg-input"
+              className="flex items-center justify-between transition-colors hover:bg-caddie-surface"
               style={{
-                border: '0.5px solid #E4E4E0',
-                borderRadius: 10,
-                padding: '12px 14px',
+                padding: '18px 8px',
+                borderBottom: '1px solid #D9D2BF',
               }}
             >
               <div>
                 <div
-                  className="font-medium text-oga-text-primary"
-                  style={{ fontSize: 15 }}
+                  className="font-mono uppercase tabular text-caddie-ink-mute"
+                  style={{
+                    fontSize: 10,
+                    letterSpacing: '0.14em',
+                    marginBottom: 6,
+                  }}
                 >
-                  {r.courses?.name ?? 'Round'}
-                </div>
-                <div className="text-oga-text-muted" style={{ fontSize: 11 }}>
                   {r.played_at}
                   {r.tee_color ? ` · ${r.tee_color} tees` : ''}
                 </div>
+                <div
+                  className="font-serif text-caddie-ink"
+                  style={{ fontSize: 22, fontWeight: 500, lineHeight: 1.15 }}
+                >
+                  {r.courses?.name ?? 'Round'}
+                </div>
               </div>
-              <div className="flex items-center gap-4">
+              <div className="flex items-baseline" style={{ gap: 28 }}>
                 <div className="text-right">
-                  <div
-                    className="text-oga-text-muted"
-                    style={{ fontSize: 10, marginBottom: 2 }}
-                  >
+                  <div className="kicker" style={{ marginBottom: 4 }}>
                     Score
                   </div>
                   <div
-                    className="font-medium tabular text-oga-text-primary"
-                    style={{ fontSize: 18 }}
+                    className="font-serif tabular text-caddie-ink"
+                    style={{ fontSize: 28, fontWeight: 500, lineHeight: 1 }}
                   >
                     {r.total_score ?? '—'}
                   </div>
                 </div>
-                <SGPill value={r.sg_total} />
+                <div className="text-right" style={{ minWidth: 80 }}>
+                  <div className="kicker" style={{ marginBottom: 4 }}>
+                    SG
+                  </div>
+                  <SGValue value={r.sg_total} />
+                </div>
               </div>
             </Link>
-          </li>
-        ))}
-      </ul>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
 
-function SGPill({ value }: { value: number | null }) {
+function SGValue({ value }: { value: number | null }) {
   if (value === null) {
     return (
       <span
-        className="text-oga-text-hint text-right"
-        style={{ fontSize: 11, width: 70 }}
+        className="font-serif text-caddie-ink-mute"
+        style={{ fontSize: 22 }}
       >
         —
       </span>
     )
   }
-  const pos = value > 0
-  const neg = value < 0
-  const bg = pos ? '#E1F5EE' : neg ? '#FCEBEB' : '#F1EFE8'
-  const fg = pos ? '#0F6E56' : neg ? '#A32D2D' : '#5F5E5A'
+  const color = value > 0 ? '#1F3D2C' : value < 0 ? '#A33A2A' : '#5C6356'
   return (
     <span
-      className="tabular"
+      className="font-serif tabular"
       style={{
-        backgroundColor: bg,
-        color: fg,
-        fontSize: 11,
+        color,
+        fontSize: 22,
+        fontStyle: 'italic',
         fontWeight: 500,
-        padding: '4px 10px',
-        borderRadius: 8,
+        lineHeight: 1,
       }}
     >
-      SG {value > 0 ? '+' : ''}
+      {value > 0 ? '+' : ''}
       {value.toFixed(2)}
     </span>
   )
