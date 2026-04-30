@@ -1,15 +1,22 @@
-import { useCallback, useMemo, useState } from 'react'
+import { Suspense, lazy, useCallback, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import type { Database } from '@oga/supabase'
 import { HoleScoreCard } from '../../components/rounds/HoleScoreCard'
 import { ShotEntryModal } from '../../components/rounds/ShotEntryModal'
 import { RoundSummary } from '../../components/rounds/RoundSummary'
-import {
-  RoundMap,
-  type ExistingShot,
-  type HoleGeo,
-  type PlacedPoint,
+import type {
+  ExistingShot,
+  HoleGeo,
+  PlacedPoint,
 } from '../../components/round/RoundMap'
+
+// Lazy-load Mapbox GL JS only when the map tab is opened. Cuts ~2 MB off
+// the initial bundle for users who never leave the scorecard.
+const RoundMap = lazy(() =>
+  import('../../components/round/RoundMap').then((m) => ({
+    default: m.RoundMap,
+  })),
+)
 import {
   HoleReviewSheet,
   type ReviewedShotRow,
@@ -584,12 +591,14 @@ function MapView({
           position: 'relative',
         }}
       >
-        <RoundMap
-          hole={activeHoleGeo}
-          existingShots={existingShots}
-          placedPoints={placedPoints}
-          {...handlers}
-        />
+        <Suspense fallback={<MapLoading />}>
+          <RoundMap
+            hole={activeHoleGeo}
+            existingShots={existingShots}
+            placedPoints={placedPoints}
+            {...handlers}
+          />
+        </Suspense>
       </div>
       {saveError && (
         <div
@@ -605,6 +614,17 @@ function MapView({
           {saveError}
         </div>
       )}
+    </div>
+  )
+}
+
+function MapLoading() {
+  return (
+    <div
+      className="flex items-center justify-center text-caddie-ink-mute"
+      style={{ height: '100%', width: '100%', fontSize: 13 }}
+    >
+      Loading map…
     </div>
   )
 }
