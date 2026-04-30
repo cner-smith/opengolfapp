@@ -13,6 +13,7 @@ import { StrokesGainedPage } from './pages/stats/StrokesGainedPage'
 import { ShotPatternsPage } from './pages/patterns/ShotPatternsPage'
 import { PracticePlanPage } from './pages/practice/PracticePlanPage'
 import { DrillLibraryPage } from './pages/practice/DrillLibraryPage'
+import { LearnPage } from './pages/learn/LearnPage'
 
 function ProtectedShell() {
   return (
@@ -41,6 +42,7 @@ const routes: RouteObject[] = [
       { path: '/patterns', element: <ShotPatternsPage /> },
       { path: '/practice', element: <PracticePlanPage /> },
       { path: '/practice/drills', element: <DrillLibraryPage /> },
+      { path: '/learn', element: <LearnPage /> },
     ],
   },
 ]

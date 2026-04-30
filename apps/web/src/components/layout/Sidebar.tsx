@@ -2,13 +2,68 @@ import { NavLink } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { useProfile } from '../../hooks/useProfile'
 
-const links = [
-  { to: '/', label: 'Dashboard' },
-  { to: '/rounds', label: 'Rounds' },
-  { to: '/stats', label: 'Strokes Gained' },
-  { to: '/patterns', label: 'Shot Patterns' },
-  { to: '/practice', label: 'Practice' },
+interface NavLinkDef {
+  to: string
+  label: string
+  section: 'menu' | 'resources'
+}
+
+const links: NavLinkDef[] = [
+  { to: '/', label: 'Dashboard', section: 'menu' },
+  { to: '/rounds', label: 'Rounds', section: 'menu' },
+  { to: '/stats', label: 'Strokes Gained', section: 'menu' },
+  { to: '/patterns', label: 'Shot Patterns', section: 'menu' },
+  { to: '/practice', label: 'Practice', section: 'menu' },
+  { to: '/learn', label: 'Learn', section: 'resources' },
 ]
+
+function SidebarSection({
+  label,
+  links,
+}: {
+  label: string
+  links: NavLinkDef[]
+}) {
+  return (
+    <div style={{ marginBottom: 6 }}>
+      <div
+        className="font-mono uppercase text-white/30"
+        style={{
+          fontSize: 10,
+          letterSpacing: '0.14em',
+          padding: '18px 14px 8px',
+        }}
+      >
+        {label}
+      </div>
+      {links.map((l) => (
+        <NavLink
+          key={l.to}
+          to={l.to}
+          end={l.to === '/'}
+          className={({ isActive }) =>
+            [
+              'transition-colors block',
+              isActive
+                ? 'text-caddie-accent-ink'
+                : 'text-white/50 hover:bg-white/5 hover:text-white/80',
+            ].join(' ')
+          }
+          style={({ isActive }) => ({
+            fontSize: 13,
+            fontWeight: isActive ? 500 : 400,
+            padding: '8px 14px',
+            margin: '1px 8px',
+            borderRadius: 2,
+            backgroundColor: isActive ? 'rgba(242,238,229,0.12)' : undefined,
+          })}
+        >
+          {l.label}
+        </NavLink>
+      ))}
+    </div>
+  )
+}
 
 function deriveInitials(username: string | null | undefined): string {
   const base = (username ?? '').trim()
@@ -45,43 +100,15 @@ export function Sidebar() {
         </div>
       </div>
 
-      <div
-        className="font-mono uppercase text-white/30"
-        style={{
-          fontSize: 10,
-          letterSpacing: '0.14em',
-          padding: '18px 14px 8px',
-        }}
-      >
-        Menu
-      </div>
-
       <nav className="flex flex-1 flex-col">
-        {links.map((l) => (
-          <NavLink
-            key={l.to}
-            to={l.to}
-            end={l.to === '/'}
-            className={({ isActive }) =>
-              [
-                'transition-colors',
-                isActive
-                  ? 'text-caddie-accent-ink'
-                  : 'text-white/50 hover:bg-white/5 hover:text-white/80',
-              ].join(' ')
-            }
-            style={({ isActive }) => ({
-              fontSize: 13,
-              fontWeight: isActive ? 500 : 400,
-              padding: '8px 14px',
-              margin: '1px 8px',
-              borderRadius: 2,
-              backgroundColor: isActive ? 'rgba(242,238,229,0.12)' : undefined,
-            })}
-          >
-            {l.label}
-          </NavLink>
-        ))}
+        <SidebarSection
+          label="Menu"
+          links={links.filter((l) => l.section === 'menu')}
+        />
+        <SidebarSection
+          label="Resources"
+          links={links.filter((l) => l.section === 'resources')}
+        />
       </nav>
 
       <div

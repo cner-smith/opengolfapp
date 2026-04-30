@@ -1,4 +1,5 @@
-import { ScrollView, Text, View } from 'react-native'
+import { Pressable, ScrollView, Text, View } from 'react-native'
+import { Link } from 'expo-router'
 import { AppBar } from '../../components/ui/AppBar'
 
 const KICKER: import('react-native').TextStyle = {
@@ -58,6 +59,55 @@ export default function Practice() {
             never sees a competitive tempo drill; a single-digit player never
             sees a learn-to-grip routine.
           </Text>
+        </View>
+
+        <View
+          style={{
+            borderTopWidth: 1,
+            borderColor: '#D9D2BF',
+            paddingTop: 14,
+            marginTop: 22,
+          }}
+        >
+          <Text style={{ ...KICKER, marginBottom: 12 }}>Resources</Text>
+          {/* `as never` because expo-router's typed routes file regenerates
+              on dev-server start; the learn route is wired in (app)/_layout.tsx. */}
+          <Link href={'/(app)/learn' as never} asChild>
+            <Pressable
+              style={{
+                borderWidth: 1,
+                borderColor: '#1F3D2C',
+                borderRadius: 2,
+                paddingVertical: 16,
+                paddingHorizontal: 14,
+              }}
+            >
+              <Text style={{ ...KICKER, color: '#5C6356', marginBottom: 6 }}>
+                Yardage book
+              </Text>
+              <Text
+                style={{
+                  color: '#1F3D2C',
+                  fontSize: 17,
+                  fontStyle: 'italic',
+                  fontWeight: '500',
+                }}
+              >
+                Learn the stats →
+              </Text>
+              <Text
+                style={{
+                  color: '#5C6356',
+                  fontSize: 13,
+                  marginTop: 6,
+                  lineHeight: 18,
+                }}
+              >
+                Glossary of strokes gained, GIR, scrambling, and how the
+                numbers stack up across the field.
+              </Text>
+            </Pressable>
+          </Link>
         </View>
       </ScrollView>
     </View>
