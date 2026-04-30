@@ -240,12 +240,18 @@ export function ShotEntryModal({
       ob: draft.shotResult === 'ob',
       notes: draft.notes ?? null,
     }
-    if (editing) {
-      await updateShot.mutateAsync({ id: editing, updates: insert })
-    } else {
-      await createShot.mutateAsync(insert)
+    try {
+      if (editing) {
+        await updateShot.mutateAsync({ id: editing, updates: insert })
+      } else {
+        await createShot.mutateAsync(insert)
+      }
+      cancelEdit()
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error('shot save failed', err, insert)
+      throw err
     }
-    cancelEdit()
   }
 
   function setPuttMade(made: boolean) {

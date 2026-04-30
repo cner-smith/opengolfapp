@@ -255,6 +255,8 @@ export default function HoleScreen() {
         .eq('id', payload.hole_score_id)
         .then(() => undefined, () => undefined)
     } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error('shot save failed', err, payload)
       Alert.alert('Save failed', (err as Error).message)
     } finally {
       setSaving(false)
