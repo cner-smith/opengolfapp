@@ -9,6 +9,7 @@ import {
   type PlacedShot,
 } from '@oga/core'
 import type { PlacedPoint } from './RoundMap'
+import { useUnits } from '../../hooks/useUnits'
 
 interface HoleReviewSheetProps {
   open: boolean
@@ -208,6 +209,7 @@ function ShotRow({
   onChange: (next: ReviewedShotRow) => void
 }) {
   const isPutt = row.lieType === 'green'
+  const { toDisplay, toDisplayFt } = useUnits()
   return (
     <div
       style={{
@@ -235,8 +237,8 @@ function ShotRow({
         }}
       >
         {isPutt
-          ? `${Math.round(row.distanceYards * 3)} ft putt`
-          : `${Math.round(row.distanceYards)} yd`}
+          ? `${toDisplayFt(row.distanceYards * 3)} putt`
+          : toDisplay(row.distanceYards)}
       </div>
       <select
         value={row.club}
@@ -280,7 +282,7 @@ function ShotRow({
         className="text-caddie-ink-mute"
         style={{ fontSize: 12, marginLeft: 'auto' }}
       >
-        {Math.round(row.distanceToPin)} yd to pin
+        {toDisplay(row.distanceToPin)} to pin
       </span>
     </div>
   )

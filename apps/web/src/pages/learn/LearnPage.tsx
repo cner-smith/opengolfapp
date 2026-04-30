@@ -1,4 +1,5 @@
 import { useDetailedStats } from '../../hooks/useDetailedStats'
+import { useUnits } from '../../hooks/useUnits'
 import type { DetailedStats } from '../../lib/statsCalculations'
 
 export function LearnPage() {
@@ -382,6 +383,7 @@ function BenchmarkSection({ me }: { me: DetailedStats | null }) {
   const ball = me?.ballStriking
   const scoring = me?.scoring
   const short = me?.shortGame
+  const { toDisplay, toDisplayFt } = useUnits()
 
   const sgRows: BenchmarkRow[] = [
     {
@@ -487,14 +489,14 @@ function BenchmarkSection({ me }: { me: DetailedStats | null }) {
       key: 'driving',
       label: 'Driving distance',
       values: [294, 250, 235, 220, 205, 190, 175],
-      format: (v) => `${v.toFixed(0)} yd`,
+      format: (v) => toDisplay(v),
       meValue: ball?.drivingDistanceAvg ?? null,
     },
     {
       key: 'proximity',
       label: 'Proximity to pin',
       values: [25, 42, 52, 65, 82, 105, 130],
-      format: (v) => `${v.toFixed(0)} ft`,
+      format: (v) => toDisplayFt(v),
       lowerIsBetter: true,
       meValue: ball?.proximityAvg != null ? ball.proximityAvg * 3 : null,
     },

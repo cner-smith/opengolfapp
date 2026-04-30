@@ -27,6 +27,7 @@ export default function ProfileTab() {
   const [skill, setSkill] = useState<SkillLevel>(null)
   const [goal, setGoal] = useState<Goal>(null)
   const [facilities, setFacilities] = useState<string[]>([])
+  const [unit, setUnit] = useState<'yards' | 'meters'>('yards')
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
@@ -46,6 +47,7 @@ export default function ProfileTab() {
       setSkill(data.skill_level ?? null)
       setGoal(data.goal ?? null)
       setFacilities(data.facilities ?? [])
+      setUnit(data.distance_unit === 'meters' ? 'meters' : 'yards')
     })
     return () => {
       active = false
@@ -66,6 +68,7 @@ export default function ProfileTab() {
       skill_level: skill,
       goal,
       facilities,
+      distance_unit: unit,
     })
     setSaving(false)
     if (error) {
@@ -178,6 +181,21 @@ export default function ProfileTab() {
                 onPress={() => toggleFacility(f)}
               />
             ))}
+          </View>
+        </Field>
+
+        <Field label="Units">
+          <View style={{ flexDirection: 'row', gap: 6 }}>
+            <Chip
+              label="Yards"
+              active={unit === 'yards'}
+              onPress={() => setUnit('yards')}
+            />
+            <Chip
+              label="Metres"
+              active={unit === 'meters'}
+              onPress={() => setUnit('meters')}
+            />
           </View>
         </Field>
 

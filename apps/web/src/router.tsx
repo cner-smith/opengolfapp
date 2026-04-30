@@ -14,6 +14,7 @@ import { ShotPatternsPage } from './pages/patterns/ShotPatternsPage'
 import { PracticePlanPage } from './pages/practice/PracticePlanPage'
 import { DrillLibraryPage } from './pages/practice/DrillLibraryPage'
 import { LearnPage } from './pages/learn/LearnPage'
+import { SettingsPage } from './pages/settings/SettingsPage'
 
 function ProtectedShell() {
   return (
@@ -43,6 +44,7 @@ const routes: RouteObject[] = [
       { path: '/practice', element: <PracticePlanPage /> },
       { path: '/practice/drills', element: <DrillLibraryPage /> },
       { path: '/learn', element: <LearnPage /> },
+      { path: '/settings', element: <SettingsPage /> },
     ],
   },
 ]

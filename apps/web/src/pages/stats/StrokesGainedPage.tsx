@@ -10,6 +10,7 @@ import {
   YAxis,
 } from 'recharts'
 import { useDetailedStats } from '../../hooks/useDetailedStats'
+import { useUnits } from '../../hooks/useUnits'
 import type {
   ApproachBandStat,
   ClubAccuracyEntry,
@@ -220,6 +221,7 @@ function ScoringSection({ data }: { data: DetailedStats }) {
 // ===========================================================================
 function BallStrikingSection({ data }: { data: DetailedStats }) {
   const b = data.ballStriking
+  const { toDisplay } = useUnits()
   return (
     <Section kicker="Ball striking">
       <div className="grid grid-cols-2 sm:grid-cols-4" style={{ gap: 14, marginBottom: 14 }}>
@@ -227,11 +229,7 @@ function BallStrikingSection({ data }: { data: DetailedStats }) {
         <StatTile label="GIR" value={fmtPct(b.girPct)} />
         <StatTile
           label="Drive avg"
-          value={
-            b.drivingDistanceAvg != null
-              ? `${b.drivingDistanceAvg.toFixed(0)} yd`
-              : '—'
-          }
+          value={b.drivingDistanceAvg != null ? toDisplay(b.drivingDistanceAvg) : '—'}
           subtle={
             b.drivingSampleSize > 0
               ? `${b.drivingSampleSize} drive${b.drivingSampleSize === 1 ? '' : 's'}`
@@ -240,9 +238,7 @@ function BallStrikingSection({ data }: { data: DetailedStats }) {
         />
         <StatTile
           label="Proximity"
-          value={
-            b.proximityAvg != null ? `${b.proximityAvg.toFixed(1)} yd` : '—'
-          }
+          value={b.proximityAvg != null ? toDisplay(b.proximityAvg, 1) : '—'}
           subtle={
             b.proximitySampleRounds > 0
               ? `Based on ${b.proximitySampleRounds} round${b.proximitySampleRounds === 1 ? '' : 's'} with pin logged`
