@@ -90,6 +90,50 @@ export interface Database {
           },
         ]
       }
+      course_tees: {
+        Row: {
+          id: string
+          course_id: string
+          tee_color: string
+          tee_name: string | null
+          course_rating: number | null
+          slope_rating: number | null
+          total_yards: number | null
+          par: number | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          course_id: string
+          tee_color: string
+          tee_name?: string | null
+          course_rating?: number | null
+          slope_rating?: number | null
+          total_yards?: number | null
+          par?: number | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          course_id?: string
+          tee_color?: string
+          tee_name?: string | null
+          course_rating?: number | null
+          slope_rating?: number | null
+          total_yards?: number | null
+          par?: number | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'course_tees_course_id_fkey'
+            columns: ['course_id']
+            isOneToOne: false
+            referencedRelation: 'courses'
+            referencedColumns: ['id']
+          },
+        ]
+      }
       holes: {
         Row: {
           id: string
@@ -154,6 +198,8 @@ export interface Database {
           sg_around_green: number | null
           sg_putting: number | null
           sg_total: number | null
+          course_tee_id: string | null
+          score_differential: number | null
           notes: string | null
           created_at: string
         }
@@ -173,6 +219,8 @@ export interface Database {
           sg_around_green?: number | null
           sg_putting?: number | null
           sg_total?: number | null
+          course_tee_id?: string | null
+          score_differential?: number | null
           notes?: string | null
           created_at?: string
         }
@@ -192,6 +240,8 @@ export interface Database {
           sg_around_green?: number | null
           sg_putting?: number | null
           sg_total?: number | null
+          course_tee_id?: string | null
+          score_differential?: number | null
           notes?: string | null
           created_at?: string
         }
