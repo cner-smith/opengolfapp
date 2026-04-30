@@ -15,6 +15,12 @@ import { PuttingSheet } from './PuttingSheet'
 
 type PuttResult = 'made' | 'short' | 'long' | 'missed_left' | 'missed_right'
 type GreenSpeed = 'slow' | 'medium' | 'fast'
+type BreakDirection =
+  | 'left_to_right'
+  | 'right_to_left'
+  | 'uphill'
+  | 'downhill'
+  | 'straight'
 
 export interface ShotLoggerValue {
   club?: Club
@@ -26,6 +32,8 @@ export interface ShotLoggerValue {
   puttDistanceFt?: number
   puttSlopePct?: number
   greenSpeed?: GreenSpeed
+  breakDirection?: BreakDirection
+  aimOffsetInches?: number
   notes?: string
 }
 
@@ -122,6 +130,8 @@ export function ShotLogger({
               puttDistanceFt: value.puttDistanceFt,
               puttSlopePct: value.puttSlopePct,
               greenSpeed: value.greenSpeed,
+              breakDirection: value.breakDirection,
+              aimOffsetInches: value.aimOffsetInches,
               notes: value.notes,
             }}
             onSave={(p) =>
@@ -132,6 +142,8 @@ export function ShotLogger({
                 puttDistanceFt: p.puttDistanceFt,
                 puttSlopePct: p.puttSlopePct,
                 greenSpeed: p.greenSpeed,
+                breakDirection: p.breakDirection,
+                aimOffsetInches: p.aimOffsetInches,
                 notes: p.notes,
               })
             }

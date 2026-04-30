@@ -308,7 +308,15 @@ export interface Database {
           penalty: boolean
           ob: boolean
           aim_offset_yards: number | null
-          break_direction: 'left' | 'right' | 'straight' | null
+          break_direction:
+            | 'left'
+            | 'right'
+            | 'straight'
+            | 'left_to_right'
+            | 'right_to_left'
+            | 'uphill'
+            | 'downhill'
+            | null
           putt_result: 'made' | 'short' | 'long' | 'missed_left' | 'missed_right' | null
           putt_distance_ft: number | null
           putt_slope_pct: number | null
@@ -351,7 +359,15 @@ export interface Database {
           penalty?: boolean
           ob?: boolean
           aim_offset_yards?: number | null
-          break_direction?: 'left' | 'right' | 'straight' | null
+          break_direction?:
+            | 'left'
+            | 'right'
+            | 'straight'
+            | 'left_to_right'
+            | 'right_to_left'
+            | 'uphill'
+            | 'downhill'
+            | null
           putt_result?: 'made' | 'short' | 'long' | 'missed_left' | 'missed_right' | null
           putt_distance_ft?: number | null
           putt_slope_pct?: number | null
@@ -394,7 +410,15 @@ export interface Database {
           penalty?: boolean
           ob?: boolean
           aim_offset_yards?: number | null
-          break_direction?: 'left' | 'right' | 'straight' | null
+          break_direction?:
+            | 'left'
+            | 'right'
+            | 'straight'
+            | 'left_to_right'
+            | 'right_to_left'
+            | 'uphill'
+            | 'downhill'
+            | null
           putt_result?: 'made' | 'short' | 'long' | 'missed_left' | 'missed_right' | null
           putt_distance_ft?: number | null
           putt_slope_pct?: number | null

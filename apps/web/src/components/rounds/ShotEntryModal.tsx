@@ -106,10 +106,29 @@ function shotRowToDraft(s: ShotRow): DraftShot {
     puttResult: s.putt_result ?? undefined,
     puttSlopePct: s.putt_slope_pct ?? undefined,
     greenSpeed: s.green_speed ?? undefined,
-    breakDirection: 'straight',
-    aimOffsetInches: 0,
+    breakDirection: mapBreakDirection(s.break_direction),
+    aimOffsetInches:
+      s.aim_offset_yards != null ? Math.round(s.aim_offset_yards * 36) : 0,
     notes: s.notes ?? undefined,
   }
+}
+
+function mapBreakDirection(
+  v: ShotRow['break_direction'],
+): DraftShot['breakDirection'] {
+  if (
+    v === 'left_to_right' ||
+    v === 'right_to_left' ||
+    v === 'uphill' ||
+    v === 'downhill' ||
+    v === 'straight'
+  ) {
+    return v
+  }
+  // Legacy left/right values map onto the new break-from→to vocabulary.
+  if (v === 'left') return 'right_to_left'
+  if (v === 'right') return 'left_to_right'
+  return 'straight'
 }
 
 function emptyDraft(shotNumber: number, isFirstShot: boolean): DraftShot {
@@ -178,6 +197,11 @@ export function ShotEntryModal({
       putt_result: overrideResult ?? draft.puttResult ?? null,
       putt_slope_pct: draft.puttSlopePct ?? null,
       green_speed: draft.greenSpeed ?? null,
+      break_direction: isPuttSave ? draft.breakDirection ?? null : null,
+      aim_offset_yards:
+        isPuttSave && draft.aimOffsetInches != null
+          ? Math.round((draft.aimOffsetInches / 36) * 10) / 10
+          : null,
       penalty: draft.shotResult === 'penalty',
       ob: draft.shotResult === 'ob',
       notes: draft.notes ?? null,

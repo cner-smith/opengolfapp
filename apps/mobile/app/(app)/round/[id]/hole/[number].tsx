@@ -209,6 +209,11 @@ export default function HoleScreen() {
       putt_result: meta?.puttResult ?? null,
       putt_slope_pct: meta?.puttSlopePct ?? null,
       green_speed: meta?.greenSpeed ?? null,
+      break_direction: meta?.breakDirection ?? null,
+      aim_offset_yards:
+        meta?.aimOffsetInches != null
+          ? Math.round((meta.aimOffsetInches / 36) * 10) / 10
+          : null,
       notes: meta?.notes ?? null,
     }
   }

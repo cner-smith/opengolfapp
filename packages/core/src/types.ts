@@ -98,7 +98,14 @@ export interface Shot {
   penalty?: boolean
   ob?: boolean
   aimOffsetYards?: number
-  breakDirection?: 'left' | 'right' | 'straight'
+  breakDirection?:
+    | 'left'
+    | 'right'
+    | 'straight'
+    | 'left_to_right'
+    | 'right_to_left'
+    | 'uphill'
+    | 'downhill'
   puttResult?: 'made' | 'short' | 'long' | 'missed_left' | 'missed_right'
   puttDistanceFt?: number
   puttSlopePct?: number
