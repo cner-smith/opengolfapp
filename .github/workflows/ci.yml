@@ -43,4 +43,6 @@ jobs:
         with:
           node-version: 20
       - name: Mobile typecheck
-        run: cd apps/mobile && npm install --legacy-peer-deps && npm run typecheck
+        run: |
+          cd packages/supabase && npm install --legacy-peer-deps
+          cd ../../apps/mobile && npm install --legacy-peer-deps && npm run typecheck
