@@ -11,8 +11,10 @@ import {
   type LieType,
   type ShotResult,
 } from '@oga/core'
+import { PuttingSheet } from './PuttingSheet'
 
 type PuttResult = 'made' | 'short' | 'long' | 'missed_left' | 'missed_right'
+type GreenSpeed = 'slow' | 'medium' | 'fast'
 
 export interface ShotLoggerValue {
   club?: Club
@@ -22,6 +24,8 @@ export interface ShotLoggerValue {
   shotResult?: ShotResult
   puttResult?: PuttResult
   puttDistanceFt?: number
+  puttSlopePct?: number
+  greenSpeed?: GreenSpeed
   notes?: string
 }
 
@@ -29,6 +33,8 @@ interface ShotLoggerProps {
   visible: boolean
   shotNumber: number
   isPutt: boolean
+  /** Seed putt distance from GPS (ball→pin) when starting in putting mode. */
+  puttDistanceFt?: number
   initial?: ShotLoggerValue
   onSave: (value: ShotLoggerValue) => void
   onSkip: () => void
@@ -76,14 +82,22 @@ export function ShotLogger({
   visible,
   shotNumber,
   isPutt,
+  puttDistanceFt,
   initial,
   onSave,
   onSkip,
   onClose,
 }: ShotLoggerProps) {
-  const [value, setValue] = useState<ShotLoggerValue>(initial ?? {})
+  const seededLieType: LieType | undefined = isPutt ? 'green' : initial?.lieType
+  const [value, setValue] = useState<ShotLoggerValue>({
+    ...initial,
+    lieType: seededLieType ?? initial?.lieType,
+    club: isPutt ? 'putter' : initial?.club,
+  })
   const set = <K extends keyof ShotLoggerValue>(key: K, v: ShotLoggerValue[K]) =>
     setValue((prev) => ({ ...prev, [key]: prev[key] === v ? undefined : v }))
+
+  const isOnGreen = value.lieType === 'green'
 
   return (
     <Modal
@@ -99,6 +113,31 @@ export function ShotLogger({
           backgroundColor: 'rgba(28,33,28,0.55)',
         }}
       >
+        {isOnGreen ? (
+          <PuttingSheet
+            shotNumber={shotNumber}
+            initialDistanceFt={puttDistanceFt}
+            initial={{
+              puttResult: value.puttResult,
+              puttDistanceFt: value.puttDistanceFt,
+              puttSlopePct: value.puttSlopePct,
+              greenSpeed: value.greenSpeed,
+              notes: value.notes,
+            }}
+            onSave={(p) =>
+              onSave({
+                club: 'putter',
+                lieType: 'green',
+                puttResult: p.puttResult,
+                puttDistanceFt: p.puttDistanceFt,
+                puttSlopePct: p.puttSlopePct,
+                greenSpeed: p.greenSpeed,
+                notes: p.notes,
+              })
+            }
+            onClose={onClose}
+          />
+        ) : (
         <View
           style={{
             backgroundColor: '#FBF8F1',
@@ -384,6 +423,7 @@ export function ShotLogger({
             </Pressable>
           </View>
         </View>
+        )}
       </View>
     </Modal>
   )

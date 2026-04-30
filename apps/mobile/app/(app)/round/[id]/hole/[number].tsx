@@ -207,6 +207,8 @@ export default function HoleScreen() {
       ob: meta?.shotResult === 'ob',
       putt_distance_ft: meta?.puttDistanceFt ?? null,
       putt_result: meta?.puttResult ?? null,
+      putt_slope_pct: meta?.puttSlopePct ?? null,
+      green_speed: meta?.greenSpeed ?? null,
       notes: meta?.notes ?? null,
     }
   }
@@ -507,6 +509,11 @@ export default function HoleScreen() {
         visible={loggerOpen}
         shotNumber={shotNumber}
         isPutt={false}
+        puttDistanceFt={
+          ball
+            ? Math.round(distanceYards(ball, roundPin ?? storedPin ?? ball) * 3)
+            : undefined
+        }
         onSave={(v) => persistShot(v)}
         onSkip={() => persistShot(null)}
         onClose={() => setLoggerOpen(false)}
