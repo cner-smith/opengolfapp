@@ -6,6 +6,7 @@ import {
   GestureDetector,
 } from 'react-native-gesture-handler'
 import { runOnJS } from 'react-native-reanimated'
+import { useUnits } from '../../hooks/useUnits'
 
 export type BreakDirection =
   | 'left_to_right'
@@ -46,6 +47,7 @@ export function GreenDiagram({
   const layoutRef = useRef<{ width: number } | null>(null)
   const [aimDuringDrag, setAimDuringDrag] = useState<number | null>(null)
   const startOffsetRef = useRef(aimOffsetInches)
+  const { toDisplayFt } = useUnits()
 
   const pinY = breakDirection === 'uphill' ? 56 : breakDirection === 'downhill' ? 80 : 68
   const ballX = 150
@@ -128,7 +130,7 @@ export function GreenDiagram({
               lineHeight: 30,
             }}
           >
-            {Math.round(distanceFt)} ft
+            {toDisplayFt(distanceFt)}
           </Text>
         </View>
         <Text style={{ ...KICKER, color: '#8A8B7E' }}>

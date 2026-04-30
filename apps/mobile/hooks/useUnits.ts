@@ -34,10 +34,13 @@ export function useUnits() {
     return yards.toFixed(decimals) + ' yd'
   }
 
-  function toDisplayFt(feet: number, decimals = 1): string {
+  // Putt distances render in cm under metric mode — most metric
+  // golfers still call putt distance in centimetres even when other
+  // distances are metres. Feet under yards mode.
+  function toDisplayFt(feet: number, _decimals = 1): string {
     if (!Number.isFinite(feet)) return '—'
     if (unit === 'meters') {
-      return (feet * 0.3048).toFixed(decimals) + ' m'
+      return Math.round(feet * 30.48) + ' cm'
     }
     return Math.round(feet) + ' ft'
   }

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { useUnits } from '../../hooks/useUnits'
 
 export type BreakDirection =
   | 'left_to_right'
@@ -26,6 +27,7 @@ export function GreenDiagram({
 }: GreenDiagramProps) {
   const svgRef = useRef<SVGSVGElement>(null)
   const [dragging, setDragging] = useState(false)
+  const { toDisplayFt } = useUnits()
 
   // Pin pos shifts up slightly for uphill, down for downhill.
   const pinY = breakDirection === 'uphill' ? 56 : breakDirection === 'downhill' ? 80 : 68
@@ -110,7 +112,7 @@ export function GreenDiagram({
               lineHeight: 1,
             }}
           >
-            {Math.round(distanceFt)} ft
+            {toDisplayFt(distanceFt)}
           </div>
         </div>
         <div className="kicker text-caddie-ink-mute">

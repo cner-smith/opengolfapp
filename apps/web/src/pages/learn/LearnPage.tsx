@@ -665,14 +665,14 @@ function BenchmarkSection({ me }: { me: DetailedStats | null }) {
     },
     {
       key: 'make_5ft',
-      label: 'Make % from 5 ft',
+      label: 'Make % from 5 ft / 152 cm',
       values: [96, 85, 75, 63, 52, 42, 33],
       format: (v) => `${v.toFixed(0)}%`,
       meValue: null,
     },
     {
       key: 'make_10ft',
-      label: 'Make % from 10 ft',
+      label: 'Make % from 10 ft / 305 cm',
       values: [55, 38, 28, 20, 14, 10, 7],
       format: (v) => `${v.toFixed(0)}%`,
       meValue: null,
