@@ -181,7 +181,7 @@ export function RoundDetailPage() {
   const totalRoundsLogged = allRounds.data?.length ?? 0
 
   async function handleComplete() {
-    if (!round.data || !courseId) return
+    if (!round.data || !courseId || !user) return
     setCompleteError(null)
     try {
       const handicap = profile.data?.handicap_index ?? 15
@@ -189,6 +189,9 @@ export function RoundDetailPage() {
         roundId: round.data.id,
         courseId,
         handicap,
+        courseTeeId: round.data.course_tee_id,
+        teeColor: round.data.tee_color,
+        userId: user.id,
       })
     } catch (err) {
       setCompleteError((err as Error).message)

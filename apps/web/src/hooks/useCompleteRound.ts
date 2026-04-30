@@ -1,9 +1,16 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import {
+  adjustedScore,
+  calculateDifferential,
+  calculateHandicapIndex,
+} from '@oga/core'
+import {
+  getCourseTees,
   getHoleScoresForRound,
   getHolesForCourse,
   getShotsForRound,
   updateHoleScore,
+  updateProfile,
   updateRound,
 } from '@oga/supabase'
 import type { Database } from '@oga/supabase'
@@ -14,21 +21,38 @@ import type { RoundSGResult } from '../lib/sgCalc'
 type HoleScoreRow = Database['public']['Tables']['hole_scores']['Row']
 type ShotRow = Database['public']['Tables']['shots']['Row']
 type HoleRow = Database['public']['Tables']['holes']['Row']
+type CourseTeeRow = Database['public']['Tables']['course_tees']['Row']
 
 interface CompleteRoundArgs {
   roundId: string
   courseId: string
   handicap: number
+  /** Persisted on the round at creation; null when the user skipped tee
+   *  selection. We fall back to matching by tee_color in that case. */
+  courseTeeId?: string | null
+  /** Tee colour string on the round — used as a fallback lookup when
+   *  course_tee_id is null (legacy / mobile / pre-tees rounds). */
+  teeColor?: string | null
+  /** auth user id; passed in so the profile recalc can hit the right row. */
+  userId: string
 }
 
 export function useCompleteRound() {
   const qc = useQueryClient()
   return useMutation<RoundSGResult, Error, CompleteRoundArgs>({
-    mutationFn: async ({ roundId, courseId, handicap }) => {
-      const [holesRes, holeScoresRes, shotsRes] = await Promise.all([
+    mutationFn: async ({
+      roundId,
+      courseId,
+      handicap,
+      courseTeeId,
+      teeColor,
+      userId,
+    }) => {
+      const [holesRes, holeScoresRes, shotsRes, teesRes] = await Promise.all([
         getHolesForCourse(supabase, courseId),
         getHoleScoresForRound(supabase, roundId),
         getShotsForRound(supabase, roundId),
+        getCourseTees(supabase, courseId),
       ])
       if (holesRes.error) throw holesRes.error
       if (holeScoresRes.error) throw holeScoresRes.error
@@ -43,20 +67,52 @@ export function useCompleteRound() {
         return rest
       })
       const shots = (shotsRes.data ?? []) as ShotRow[]
+      const tees = (teesRes.data ?? []) as CourseTeeRow[]
 
       const result = computeRoundSG({ holes, holeScores, shots, handicap })
 
-      const sgUpdates = Object.entries(result.perHoleScore).map(([holeScoreId, sg]) =>
-        updateHoleScore(supabase, holeScoreId, {
-          sg_off_tee: round2(sg.offTee),
-          sg_approach: round2(sg.approach),
-          sg_around_green: round2(sg.aroundGreen),
-          sg_putting: round2(sg.putting),
-        }),
+      const sgUpdates = Object.entries(result.perHoleScore).map(
+        ([holeScoreId, sg]) =>
+          updateHoleScore(supabase, holeScoreId, {
+            sg_off_tee: round2(sg.offTee),
+            sg_approach: round2(sg.approach),
+            sg_around_green: round2(sg.aroundGreen),
+            sg_putting: round2(sg.putting),
+          }),
       )
       const sgResults = await Promise.all(sgUpdates)
       const sgError = sgResults.find((r) => r.error)
       if (sgError?.error) throw sgError.error
+
+      // ---- Handicap differential ------------------------------------------
+      const tee =
+        (courseTeeId ? tees.find((t) => t.id === courseTeeId) : null) ??
+        (teeColor
+          ? tees.find((t) => t.tee_color === teeColor.toLowerCase())
+          : null) ??
+        null
+      let differential: number | null = null
+      if (
+        tee &&
+        tee.course_rating != null &&
+        tee.slope_rating != null &&
+        tee.slope_rating > 0
+      ) {
+        const holesById = new Map(holes.map((h) => [h.id, h]))
+        const holeRows = holeScores
+          .map((hs) => {
+            const h = holesById.get(hs.hole_id)
+            if (!h) return null
+            return { score: hs.score, par: h.par }
+          })
+          .filter((x): x is { score: number; par: number } => !!x)
+        if (holeRows.length > 0) {
+          const adjusted = adjustedScore(holeRows, handicap)
+          differential = round2(
+            calculateDifferential(adjusted, tee.course_rating, tee.slope_rating),
+          )
+        }
+      }
 
       const { error: roundError } = await updateRound(supabase, roundId, {
         sg_off_tee: round2(result.round.offTee),
@@ -69,8 +125,30 @@ export function useCompleteRound() {
         fairways_hit: result.totals.fairwaysTotal > 0 ? result.totals.fairwaysHit : null,
         fairways_total: result.totals.fairwaysTotal || null,
         gir: result.totals.gir,
+        // Stamp the resolved tee onto the round so future reads have a
+        // direct link without re-running the fallback.
+        course_tee_id: tee?.id ?? courseTeeId ?? null,
+        score_differential: differential,
       })
       if (roundError) throw roundError
+
+      // ---- Handicap index recompute --------------------------------------
+      if (differential != null) {
+        const { data: recentDiffs } = await supabase
+          .from('rounds')
+          .select('score_differential')
+          .eq('user_id', userId)
+          .not('score_differential', 'is', null)
+          .order('played_at', { ascending: false })
+          .limit(20)
+        const diffs = (recentDiffs ?? [])
+          .map((r) => r.score_differential)
+          .filter((d): d is number => d != null)
+        const newIndex = calculateHandicapIndex(diffs)
+        if (newIndex != null) {
+          await updateProfile(supabase, userId, { handicap_index: newIndex })
+        }
+      }
 
       return result
     },
@@ -78,6 +156,7 @@ export function useCompleteRound() {
       qc.invalidateQueries({ queryKey: ['round', variables.roundId] })
       qc.invalidateQueries({ queryKey: ['rounds'] })
       qc.invalidateQueries({ queryKey: ['hole-scores', variables.roundId] })
+      qc.invalidateQueries({ queryKey: ['profile', variables.userId] })
     },
   })
 }
