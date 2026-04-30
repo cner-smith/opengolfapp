@@ -6,7 +6,8 @@ import {
   LIE_TYPES,
   SHOT_RESULTS,
   type Club,
-  type LieSlope,
+  type LieSlopeForward,
+  type LieSlopeSide,
   type LieType,
   type ShotResult,
 } from '@oga/core'
@@ -16,7 +17,8 @@ type PuttResult = 'made' | 'short' | 'long' | 'missed_left' | 'missed_right'
 export interface ShotLoggerValue {
   club?: Club
   lieType?: LieType
-  lieSlope?: LieSlope
+  lieSlopeForward?: LieSlopeForward
+  lieSlopeSide?: LieSlopeSide
   shotResult?: ShotResult
   puttResult?: PuttResult
   puttDistanceFt?: number
@@ -33,17 +35,25 @@ interface ShotLoggerProps {
   onClose: () => void
 }
 
-type SlopeKey = LieSlope | 'spacer'
 type PuttKey = PuttResult | 'spacer'
 
-const SLOPE_GRID: SlopeKey[] = [
-  'uphill',
-  'level',
-  'downhill',
+const SLOPE_FORWARD_ROW: LieSlopeForward[] = ['uphill', 'level', 'downhill']
+const SLOPE_SIDE_ROW: (LieSlopeSide | 'spacer')[] = [
   'ball_above',
   'spacer',
   'ball_below',
 ]
+
+const FORWARD_LABEL: Record<LieSlopeForward, string> = {
+  uphill: 'Uphill',
+  level: 'Level',
+  downhill: 'Downhill',
+}
+
+const SIDE_LABEL: Record<LieSlopeSide, string> = {
+  ball_above: 'Ball above',
+  ball_below: 'Ball below',
+}
 
 const PUTT_GRID: PuttKey[] = [
   'made',
@@ -169,7 +179,6 @@ export function ShotLogger({
 
             <Section title="Lie slope">
               <View
-                accessibilityRole="radiogroup"
                 style={{
                   flexDirection: 'row',
                   flexWrap: 'wrap',
@@ -177,31 +186,79 @@ export function ShotLogger({
                   maxWidth: 360,
                 }}
               >
-                {SLOPE_GRID.map((key, i) => (
-                  <View
-                    key={`${key}-${i}`}
-                    style={{ width: '32%', maxWidth: 116 }}
-                  >
-                    {key === 'spacer' ? null : (
+                <View
+                  accessibilityRole="radiogroup"
+                  accessibilityLabel="Forward slope"
+                  style={{
+                    flexDirection: 'row',
+                    gap: 6,
+                    width: '100%',
+                  }}
+                >
+                  {SLOPE_FORWARD_ROW.map((key) => {
+                    const active = value.lieSlopeForward === key
+                    return (
                       <Pressable
+                        key={key}
                         accessibilityRole="radio"
-                        accessibilityState={{ checked: value.lieSlope === key }}
+                        accessibilityState={{ checked: active }}
                         onPress={() =>
-                          setValue((prev) => ({ ...prev, lieSlope: key }))
+                          setValue((prev) => ({
+                            ...prev,
+                            lieSlopeForward: active ? undefined : key,
+                          }))
                         }
-                        style={gridButtonStyle(value.lieSlope === key)}
+                        style={[gridButtonStyle(active), { flex: 1 }]}
                       >
-                        <SlopeIcon
+                        <SlopeForwardIcon
                           kind={key}
-                          color={value.lieSlope === key ? '#F2EEE5' : '#5C6356'}
+                          color={active ? '#F2EEE5' : '#5C6356'}
                         />
-                        <Text style={gridButtonTextStyle(value.lieSlope === key)}>
-                          {key.replace('_', ' ')}
+                        <Text style={gridButtonTextStyle(active)}>
+                          {FORWARD_LABEL[key]}
                         </Text>
                       </Pressable>
-                    )}
-                  </View>
-                ))}
+                    )
+                  })}
+                </View>
+                <View
+                  accessibilityRole="radiogroup"
+                  accessibilityLabel="Side slope"
+                  style={{
+                    flexDirection: 'row',
+                    gap: 6,
+                    width: '100%',
+                  }}
+                >
+                  {SLOPE_SIDE_ROW.map((key, i) => {
+                    if (key === 'spacer') {
+                      return <View key={`s${i}`} style={{ flex: 1 }} />
+                    }
+                    const active = value.lieSlopeSide === key
+                    return (
+                      <Pressable
+                        key={key}
+                        accessibilityRole="radio"
+                        accessibilityState={{ checked: active }}
+                        onPress={() =>
+                          setValue((prev) => ({
+                            ...prev,
+                            lieSlopeSide: active ? undefined : key,
+                          }))
+                        }
+                        style={[gridButtonStyle(active), { flex: 1 }]}
+                      >
+                        <SlopeSideIcon
+                          kind={key}
+                          color={active ? '#F2EEE5' : '#5C6356'}
+                        />
+                        <Text style={gridButtonTextStyle(active)}>
+                          {SIDE_LABEL[key]}
+                        </Text>
+                      </Pressable>
+                    )
+                  })}
+                </View>
               </View>
             </Section>
 
@@ -356,7 +413,13 @@ function gridButtonStyle(active: boolean) {
   }
 }
 
-function SlopeIcon({ kind, color }: { kind: LieSlope; color: string }) {
+function SlopeForwardIcon({
+  kind,
+  color,
+}: {
+  kind: LieSlopeForward
+  color: string
+}) {
   const stroke = {
     stroke: color,
     strokeWidth: 1.5,
@@ -364,7 +427,6 @@ function SlopeIcon({ kind, color }: { kind: LieSlope; color: string }) {
   }
   switch (kind) {
     case 'uphill':
-      // Line tilts up left to right; ball at the low (left) end.
       return (
         <Svg width={32} height={24} viewBox="0 0 32 24">
           <SvgLine x1={4} y1={18} x2={28} y2={6} {...stroke} />
@@ -372,7 +434,6 @@ function SlopeIcon({ kind, color }: { kind: LieSlope; color: string }) {
         </Svg>
       )
     case 'level':
-      // Horizontal line; ball centred above.
       return (
         <Svg width={32} height={24} viewBox="0 0 32 24">
           <SvgLine x1={4} y1={16} x2={28} y2={16} {...stroke} />
@@ -380,30 +441,41 @@ function SlopeIcon({ kind, color }: { kind: LieSlope; color: string }) {
         </Svg>
       )
     case 'downhill':
-      // Line tilts down left to right; ball at the low (right) end.
       return (
         <Svg width={32} height={24} viewBox="0 0 32 24">
           <SvgLine x1={4} y1={6} x2={28} y2={18} {...stroke} />
           <Circle cx={26} cy={15} r={2} fill={color} />
         </Svg>
       )
-    case 'ball_above':
-      // Horizontal line; ball positioned above the line.
-      return (
-        <Svg width={32} height={24} viewBox="0 0 32 24">
-          <SvgLine x1={4} y1={18} x2={28} y2={18} {...stroke} />
-          <Circle cx={16} cy={8} r={2} fill={color} />
-        </Svg>
-      )
-    case 'ball_below':
-      // Horizontal line; ball positioned below the line.
-      return (
-        <Svg width={32} height={24} viewBox="0 0 32 24">
-          <SvgLine x1={4} y1={8} x2={28} y2={8} {...stroke} />
-          <Circle cx={16} cy={18} r={2} fill={color} />
-        </Svg>
-      )
   }
+}
+
+function SlopeSideIcon({
+  kind,
+  color,
+}: {
+  kind: LieSlopeSide
+  color: string
+}) {
+  const stroke = {
+    stroke: color,
+    strokeWidth: 1.5,
+    strokeLinecap: 'round' as const,
+  }
+  if (kind === 'ball_above') {
+    return (
+      <Svg width={32} height={24} viewBox="0 0 32 24">
+        <SvgLine x1={4} y1={18} x2={28} y2={18} {...stroke} />
+        <Circle cx={16} cy={8} r={2} fill={color} />
+      </Svg>
+    )
+  }
+  return (
+    <Svg width={32} height={24} viewBox="0 0 32 24">
+      <SvgLine x1={4} y1={8} x2={28} y2={8} {...stroke} />
+      <Circle cx={16} cy={18} r={2} fill={color} />
+    </Svg>
+  )
 }
 
 function gridButtonTextStyle(active: boolean) {
