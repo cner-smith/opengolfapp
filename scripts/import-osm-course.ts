@@ -93,6 +93,16 @@ interface OverpassResponse {
   elements: OverpassElement[]
 }
 
+const OVERPASS_ENDPOINTS = [
+  'https://overpass-api.de/api/interpreter',
+  'https://overpass.kumi.systems/api/interpreter',
+  'https://overpass.private.coffee/api/interpreter',
+]
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
 async function fetchOverpass(args: Args): Promise<OverpassResponse> {
   const q = `
 [out:json][timeout:25];
@@ -106,18 +116,34 @@ out body;
 out skel qt;
 `.trim()
 
-  const res = await fetch('https://overpass-api.de/api/interpreter', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/x-www-form-urlencoded',
-      'User-Agent': 'oga-osm-import/0.1 (https://github.com/cner-smith/opengolfapp)',
-    },
-    body: 'data=' + encodeURIComponent(q),
-  })
-  if (!res.ok) {
-    throw new Error(`Overpass returned ${res.status}: ${await res.text()}`)
+  let lastError: Error | null = null
+  for (let attempt = 0; attempt < 3; attempt++) {
+    for (const endpoint of OVERPASS_ENDPOINTS) {
+      try {
+        const res = await fetch(endpoint, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'User-Agent': 'oga-osm-import/0.1 (https://github.com/cner-smith/opengolfapp)',
+          },
+          body: 'data=' + encodeURIComponent(q),
+        })
+        if (res.ok) {
+          return (await res.json()) as OverpassResponse
+        }
+        lastError = new Error(
+          `${endpoint} returned ${res.status}: ${(await res.text()).slice(0, 200)}`,
+        )
+      } catch (err) {
+        lastError = err as Error
+      }
+      // Brief pause before trying the next mirror.
+      await sleep(500)
+    }
+    // Backoff between full passes through the mirror list.
+    if (attempt < 2) await sleep(2000 * (attempt + 1))
   }
-  return (await res.json()) as OverpassResponse
+  throw lastError ?? new Error('Overpass request failed (no response)')
 }
 
 // ---------------------------------------------------------------------------
