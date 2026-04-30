@@ -279,9 +279,47 @@ function nearest(
   return best
 }
 
-function matchHoles(parsed: ReturnType<typeof parseElements>): MatchedHole[] {
-  const out: MatchedHole[] = []
+function matchHoles(
+  parsed: ReturnType<typeof parseElements>,
+  queryCenter: LatLon,
+): MatchedHole[] {
+  // Dedupe by ref: when the same hole number appears twice (common around
+  // multi-course properties where OSM tags overlap or duplicate), keep the
+  // way whose midpoint is closest to the query center.
+  const byRef = new Map<number, ParsedHole>()
+  const dropped: number[] = []
   for (const hole of parsed.holes) {
+    const mid = {
+      lat: (hole.teeFromHole.lat + hole.pinFromHole.lat) / 2,
+      lon: (hole.teeFromHole.lon + hole.pinFromHole.lon) / 2,
+    }
+    const dist = haversineMeters(mid, queryCenter)
+    const prev = byRef.get(hole.ref)
+    if (!prev) {
+      byRef.set(hole.ref, hole)
+      continue
+    }
+    const prevMid = {
+      lat: (prev.teeFromHole.lat + prev.pinFromHole.lat) / 2,
+      lon: (prev.teeFromHole.lon + prev.pinFromHole.lon) / 2,
+    }
+    const prevDist = haversineMeters(prevMid, queryCenter)
+    if (dist < prevDist) {
+      byRef.set(hole.ref, hole)
+      dropped.push(hole.ref)
+    } else {
+      dropped.push(hole.ref)
+    }
+  }
+  if (dropped.length > 0) {
+    const uniq = [...new Set(dropped)].sort((a, b) => a - b)
+    console.log(
+      `  Dedup: ${parsed.holes.length} hole ways → ${byRef.size} unique refs (duplicates on ${uniq.join(', ')})`,
+    )
+  }
+
+  const out: MatchedHole[] = []
+  for (const hole of byRef.values()) {
     const greenHit = nearest(parsed.greens, hole.pinFromHole)
     const teeHit = nearest(parsed.tees, hole.teeFromHole)
     const pin =
@@ -359,7 +397,7 @@ async function main() {
   console.log(
     `OSM: ${parsed.holes.length} hole ways, ${parsed.greens.length} green polygons, ${parsed.tees.length} tee polygons`,
   )
-  const matched = matchHoles(parsed)
+  const matched = matchHoles(parsed, { lat: args.lat, lon: args.lng })
   if (matched.length === 0) {
     throw new Error(
       'No hole ways found. Check the lat/lng/radius — Overpass returned 0 holes.',
@@ -376,10 +414,20 @@ async function main() {
     .map((h) => h.ref)
   const missingTee = matched.filter((h) => !h.hasTeeMatch).map((h) => h.ref)
 
+  const refs = matched.map((h) => h.ref).sort((a, b) => a - b)
+  const missingRefs: number[] = []
+  for (let n = 1; n <= 18; n++) {
+    if (!refs.includes(n)) missingRefs.push(n)
+  }
+
   console.log(`${created ? '✓ Created course' : '✓ Updated course'}: ${args.name}`)
   console.log(
     `✓ Imported ${matched.length} holes (${greenHits} with green coords, ${teeHits} with tee coords)`,
   )
+  console.log(`  Refs found: ${refs.join(', ')}`)
+  if (missingRefs.length) {
+    console.log(`  Refs missing from 1-18: ${missingRefs.join(', ')}`)
+  }
   if (missingGreen.length) {
     console.log(
       `  Holes falling back to hole-way endpoint for pin: ${missingGreen.join(', ')}`,
