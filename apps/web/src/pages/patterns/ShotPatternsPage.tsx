@@ -14,6 +14,7 @@ import { useShotPatterns } from '../../hooks/useShotPatterns'
 import { LieSlopeGrid } from '../../components/forms/LieSlopeGrid'
 
 const SVG_SIZE = 420
+const SVG_VIEW_WIDTH = `min(${SVG_SIZE}px, 90vw)`
 
 export function ShotPatternsPage() {
   const [club, setClub] = useState<Club>('7i')
@@ -103,11 +104,8 @@ export function ShotPatternsPage() {
           Pattern
         </div>
         <div
-          className="grid"
-          style={{
-            gap: 22,
-            gridTemplateColumns: 'minmax(0, auto) minmax(0, 1fr)',
-          }}
+          className="grid grid-cols-1 md:[grid-template-columns:minmax(0,auto)_minmax(0,1fr)]"
+          style={{ gap: 22 }}
         >
           <div
             className="bg-caddie-surface"
@@ -120,7 +118,11 @@ export function ShotPatternsPage() {
             {isLoading ? (
               <div
                 className="flex items-center justify-center text-caddie-ink-mute"
-                style={{ width: SVG_SIZE, height: SVG_SIZE, fontSize: 13 }}
+                style={{
+                  width: SVG_VIEW_WIDTH,
+                  height: SVG_VIEW_WIDTH,
+                  fontSize: 13,
+                }}
               >
                 Loading…
               </div>
@@ -128,8 +130,8 @@ export function ShotPatternsPage() {
               <div
                 className="flex items-center justify-center text-caddie-ink-mute"
                 style={{
-                  width: SVG_SIZE,
-                  height: SVG_SIZE,
+                  width: SVG_VIEW_WIDTH,
+                  height: SVG_VIEW_WIDTH,
                   fontSize: 13,
                   textAlign: 'center',
                   padding: 20,
@@ -358,8 +360,8 @@ function DispersionPlot({
 
   return (
     <svg
-      width={SVG_SIZE}
-      height={SVG_SIZE}
+      width={SVG_VIEW_WIDTH}
+      height={SVG_VIEW_WIDTH}
       viewBox={`0 0 ${SVG_SIZE} ${SVG_SIZE}`}
       style={{ backgroundColor: '#F2EEE5', borderRadius: 2 }}
     >

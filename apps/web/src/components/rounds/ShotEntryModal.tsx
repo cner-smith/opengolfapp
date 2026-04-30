@@ -280,9 +280,9 @@ export function ShotEntryModal({
   const isPutt = draft.lieType === 'green'
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-caddie-ink/60 p-4">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-caddie-ink/60 sm:p-4">
       <div
-        className="flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden bg-caddie-surface"
+        className="flex max-h-[92vh] w-full max-w-3xl flex-col overflow-hidden bg-caddie-surface"
         style={{ border: '1px solid #9F9580', borderRadius: 4 }}
       >
         <header

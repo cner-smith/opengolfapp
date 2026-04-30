@@ -267,8 +267,8 @@ export function RoundDetailPage() {
       </button>
 
       <div
-        className="flex items-end justify-between"
-        style={{ marginBottom: 28 }}
+        className="flex flex-col sm:flex-row sm:items-end sm:justify-between"
+        style={{ marginBottom: 28, gap: 14 }}
       >
         <div>
           <div className="kicker" style={{ marginBottom: 8 }}>
@@ -490,7 +490,13 @@ function ScorecardView({
       <div className="kicker" style={{ marginBottom: 14 }}>
         Scorecard
       </div>
-      <div style={{ borderTop: '1px solid #D9D2BF' }}>
+      <div
+        style={{
+          borderTop: '1px solid #D9D2BF',
+          overflowX: 'auto',
+        }}
+      >
+        <div style={{ minWidth: 720 }}>
         <div
           className="grid grid-cols-12 items-center font-mono uppercase text-caddie-ink-mute"
           style={{
@@ -528,6 +534,7 @@ function ScorecardView({
             />
           )
         })}
+        </div>
       </div>
     </div>
   )

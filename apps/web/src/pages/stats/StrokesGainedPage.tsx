@@ -47,7 +47,7 @@ export function StrokesGainedPage() {
   return (
     <div>
       <div
-        className="flex items-end justify-between"
+        className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3"
         style={{ marginBottom: 28 }}
       >
         <div>

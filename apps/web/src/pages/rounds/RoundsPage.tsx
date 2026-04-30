@@ -14,8 +14,8 @@ export function RoundsPage() {
   return (
     <div>
       <div
-        className="flex items-end justify-between"
-        style={{ marginBottom: 28 }}
+        className="flex flex-col sm:flex-row sm:items-end sm:justify-between"
+        style={{ marginBottom: 28, gap: 14 }}
       >
         <div>
           <div className="kicker" style={{ marginBottom: 8 }}>
