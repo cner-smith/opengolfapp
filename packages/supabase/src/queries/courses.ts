@@ -66,3 +66,14 @@ export function defaultHolesForCourse(courseId: string): HoleInsert[] {
     stroke_index: idx + 1,
   }))
 }
+
+export function getCourseByExternalId(
+  client: OgaSupabaseClient,
+  externalId: string,
+) {
+  return client
+    .from('courses')
+    .select('*')
+    .eq('external_id', externalId)
+    .maybeSingle()
+}

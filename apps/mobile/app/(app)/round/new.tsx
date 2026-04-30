@@ -1,11 +1,25 @@
-import { useEffect, useState } from 'react'
-import { ActivityIndicator, FlatList, Pressable, Text, TextInput, View } from 'react-native'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import {
+  ActivityIndicator,
+  Pressable,
+  ScrollView,
+  Text,
+  TextInput,
+  View,
+} from 'react-native'
 import { useRouter } from 'expo-router'
+import * as Location from 'expo-location'
+import {
+  formatLocation,
+  getOpenGolfApiCourse,
+  searchOpenGolfApi,
+  type OpenGolfApiSearchResult,
+} from '@oga/core'
 import {
   createCourse,
   createHoles,
   createRound,
-  defaultHolesForCourse,
+  getCourseByExternalId,
   searchCourses,
   upsertHoleScore,
 } from '@oga/supabase'
@@ -14,30 +28,103 @@ import { supabase } from '../../../lib/supabase'
 import { useAuth } from '../../../hooks/useAuth'
 
 type CourseRow = Database['public']['Tables']['courses']['Row']
+type HoleInsert = Database['public']['Tables']['holes']['Insert']
+
+const KICKER: import('react-native').TextStyle = {
+  color: '#8A8B7E',
+  fontSize: 10,
+  fontWeight: '500',
+  letterSpacing: 1.4,
+  textTransform: 'uppercase',
+}
+
+interface GpsState {
+  status: 'idle' | 'pending' | 'ok' | 'denied'
+  lat?: number
+  lng?: number
+}
 
 export default function NewRound() {
   const { user } = useAuth()
   const router = useRouter()
   const [query, setQuery] = useState('')
-  const [results, setResults] = useState<CourseRow[]>([])
-  const [loading, setLoading] = useState(false)
-  const [creatingCourseName, setCreatingCourseName] = useState('')
+  const [debouncedQuery, setDebouncedQuery] = useState('')
+  const [apiResults, setApiResults] = useState<OpenGolfApiSearchResult[]>([])
+  const [localResults, setLocalResults] = useState<CourseRow[]>([])
+  const [searching, setSearching] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [showManualForm, setShowManualForm] = useState(false)
+  const [gps, setGps] = useState<GpsState>({ status: 'idle' })
+  const searchAbort = useRef<AbortController | null>(null)
 
+  // Debounce 300ms.
   useEffect(() => {
-    let active = true
-    setLoading(true)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    searchCourses(supabase, query, 20).then(({ data }: { data: any }) => {
-      if (!active) return
-      setResults(data ?? [])
-      setLoading(false)
-    })
-    return () => {
-      active = false
-    }
+    const id = setTimeout(() => setDebouncedQuery(query), 300)
+    return () => clearTimeout(id)
   }, [query])
+
+  // Capture GPS once (best-effort) so manual / API course creation can
+  // anchor hole 1 to the user's tee location.
+  useEffect(() => {
+    if (gps.status !== 'idle') return
+    setGps({ status: 'pending' })
+    ;(async () => {
+      try {
+        const perm = await Location.requestForegroundPermissionsAsync()
+        if (perm.status !== 'granted') {
+          setGps({ status: 'denied' })
+          return
+        }
+        const loc = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.Low,
+        })
+        setGps({
+          status: 'ok',
+          lat: loc.coords.latitude,
+          lng: loc.coords.longitude,
+        })
+      } catch {
+        setGps({ status: 'denied' })
+      }
+    })()
+  }, [gps.status])
+
+  // Run search whenever debounced query changes.
+  useEffect(() => {
+    const term = debouncedQuery.trim()
+    searchAbort.current?.abort()
+    if (!term) {
+      setApiResults([])
+      setLocalResults([])
+      setSearching(false)
+      return
+    }
+    const ctrl = new AbortController()
+    searchAbort.current = ctrl
+    setSearching(true)
+    Promise.allSettled([
+      searchOpenGolfApi(term, ctrl.signal),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      searchCourses(supabase, term, 10).then((r: any) => r.data ?? []),
+    ])
+      .then(([api, local]) => {
+        if (ctrl.signal.aborted) return
+        setApiResults(api.status === 'fulfilled' ? api.value : [])
+        setLocalResults(local.status === 'fulfilled' ? local.value : [])
+      })
+      .finally(() => {
+        if (!ctrl.signal.aborted) setSearching(false)
+      })
+    return () => ctrl.abort()
+  }, [debouncedQuery])
+
+  const gpsCoords = gps.status === 'ok' ? { lat: gps.lat!, lng: gps.lng! } : null
+  const noMatches =
+    !searching &&
+    debouncedQuery.trim().length > 0 &&
+    apiResults.length === 0 &&
+    localResults.length === 0
 
   async function startWith(courseId: string) {
     if (!user) return
@@ -78,17 +165,48 @@ export default function NewRound() {
     }
   }
 
-  async function addNewCourse() {
-    const name = creatingCourseName.trim()
-    if (!name) return
+  async function startWithApiCourse(r: OpenGolfApiSearchResult) {
     setBusy(true)
     setError(null)
     try {
-      const { data: course, error: courseError } = await createCourse(supabase, { name })
-      if (courseError || !course) throw courseError ?? new Error('Course insert failed')
-      const { error: holesError } = await createHoles(supabase, defaultHolesForCourse(course.id))
-      if (holesError) throw holesError
-      setCreatingCourseName('')
+      const { data: existing } = await getCourseByExternalId(supabase, r.id)
+      if (existing) {
+        await startWith(existing.id)
+        return
+      }
+      const detail = await getOpenGolfApiCourse(r.id)
+      const location =
+        [detail.city, detail.state].filter(Boolean).join(', ') ||
+        formatLocation(r) ||
+        null
+      const { data: course, error: courseErr } = await createCourse(supabase, {
+        name: detail.name || r.name,
+        location,
+        external_id: r.id,
+      })
+      if (courseErr || !course) throw courseErr ?? new Error('Course insert failed')
+
+      const holes: HoleInsert[] =
+        detail.holes.length > 0
+          ? detail.holes.map((h, idx) => ({
+              course_id: course.id,
+              number: h.number,
+              par: h.par,
+              yards: h.yards ?? null,
+              stroke_index: idx + 1,
+              tee_lat: idx === 0 ? gpsCoords?.lat ?? null : null,
+              tee_lng: idx === 0 ? gpsCoords?.lng ?? null : null,
+            }))
+          : new Array(18).fill(null).map((_, idx) => ({
+              course_id: course.id,
+              number: idx + 1,
+              par: 4,
+              stroke_index: idx + 1,
+              tee_lat: idx === 0 ? gpsCoords?.lat ?? null : null,
+              tee_lng: idx === 0 ? gpsCoords?.lng ?? null : null,
+            }))
+      const { error: holeErr } = await createHoles(supabase, holes)
+      if (holeErr) throw holeErr
       await startWith(course.id)
     } catch (err) {
       setError((err as Error).message)
@@ -96,128 +214,418 @@ export default function NewRound() {
     }
   }
 
+  if (showManualForm) {
+    return (
+      <ManualCourseForm
+        initialName={query}
+        gpsCoords={gpsCoords}
+        busy={busy}
+        onCancel={() => setShowManualForm(false)}
+        onCreate={async ({ name, location, pars }) => {
+          setBusy(true)
+          setError(null)
+          try {
+            const { data: course, error: courseErr } = await createCourse(
+              supabase,
+              { name: name.trim(), location: location?.trim() || null },
+            )
+            if (courseErr || !course) {
+              throw courseErr ?? new Error('Course insert failed')
+            }
+            const holes: HoleInsert[] = pars.map((par, idx) => ({
+              course_id: course.id,
+              number: idx + 1,
+              par,
+              stroke_index: idx + 1,
+              tee_lat: idx === 0 ? gpsCoords?.lat ?? null : null,
+              tee_lng: idx === 0 ? gpsCoords?.lng ?? null : null,
+            }))
+            const { error: holeErr } = await createHoles(supabase, holes)
+            if (holeErr) throw holeErr
+            await startWith(course.id)
+            setShowManualForm(false)
+          } catch (err) {
+            setError((err as Error).message)
+            setBusy(false)
+          }
+        }}
+      />
+    )
+  }
+
   return (
-    <View style={{ flex: 1, backgroundColor: '#F4F4F0', padding: 16 }}>
+    <View style={{ flex: 1, backgroundColor: '#F2EEE5', padding: 18 }}>
       <Text
         style={{
-          color: '#111111',
-          fontSize: 22,
-          fontWeight: '600',
-          marginBottom: 12,
+          color: '#1C211C',
+          fontSize: 28,
+          fontWeight: '500',
+          marginBottom: 14,
+          fontStyle: 'italic',
         }}
       >
         Start a round
       </Text>
       <TextInput
-        placeholder="Search course…"
+        placeholder="Search courses…"
         value={query}
         onChangeText={setQuery}
+        autoCapitalize="words"
         style={{
-          backgroundColor: '#F9F9F6',
-          borderWidth: 0.5,
-          borderColor: '#E4E4E0',
-          borderRadius: 7,
-          paddingHorizontal: 10,
-          paddingVertical: 9,
-          fontSize: 13,
-          marginBottom: 8,
+          backgroundColor: '#FBF8F1',
+          borderWidth: 1,
+          borderColor: '#D9D2BF',
+          borderRadius: 2,
+          paddingHorizontal: 12,
+          paddingVertical: 12,
+          fontSize: 15,
+          marginBottom: 14,
         }}
       />
-      {loading && <ActivityIndicator color="#1D9E75" style={{ marginVertical: 8 }} />}
-      <FlatList
-        data={results}
-        keyExtractor={(c) => c.id}
-        renderItem={({ item }) => (
+
+      {searching && (
+        <ActivityIndicator color="#1F3D2C" style={{ marginVertical: 8 }} />
+      )}
+
+      <ScrollView keyboardShouldPersistTaps="handled">
+        {localResults.length > 0 && (
+          <View style={{ marginBottom: 14 }}>
+            <Text style={{ ...KICKER, marginBottom: 8 }}>Already imported</Text>
+            {localResults.map((c) => (
+              <Pressable
+                key={c.id}
+                onPress={() => startWith(c.id)}
+                disabled={busy}
+                style={{
+                  borderTopWidth: 1,
+                  borderColor: '#D9D2BF',
+                  paddingVertical: 14,
+                  opacity: busy ? 0.4 : 1,
+                }}
+              >
+                <Text
+                  style={{
+                    color: '#1C211C',
+                    fontSize: 15,
+                    fontWeight: '500',
+                  }}
+                >
+                  {c.name}
+                </Text>
+                {c.location && (
+                  <Text style={{ color: '#5C6356', fontSize: 12, marginTop: 2 }}>
+                    {c.location}
+                  </Text>
+                )}
+              </Pressable>
+            ))}
+          </View>
+        )}
+
+        {apiResults.length > 0 && (
+          <View style={{ marginBottom: 14 }}>
+            <Text style={{ ...KICKER, marginBottom: 8 }}>OpenGolfAPI</Text>
+            {apiResults.map((r) => (
+              <Pressable
+                key={r.id}
+                onPress={() => startWithApiCourse(r)}
+                disabled={busy}
+                style={{
+                  borderTopWidth: 1,
+                  borderColor: '#D9D2BF',
+                  paddingVertical: 14,
+                  opacity: busy ? 0.4 : 1,
+                }}
+              >
+                <Text
+                  style={{
+                    color: '#1C211C',
+                    fontSize: 15,
+                    fontWeight: '500',
+                  }}
+                >
+                  {r.name}
+                </Text>
+                {formatLocation(r) ? (
+                  <Text style={{ color: '#5C6356', fontSize: 12, marginTop: 2 }}>
+                    {formatLocation(r)}
+                  </Text>
+                ) : null}
+              </Pressable>
+            ))}
+          </View>
+        )}
+
+        {noMatches && (
           <Pressable
-            onPress={() => startWith(item.id)}
-            disabled={busy}
+            onPress={() => setShowManualForm(true)}
             style={{
-              backgroundColor: '#FFFFFF',
-              borderRadius: 10,
-              borderWidth: 0.5,
-              borderColor: '#E4E4E0',
-              paddingHorizontal: 14,
-              paddingVertical: 12,
-              marginBottom: 8,
+              borderWidth: 1,
+              borderColor: '#1F3D2C',
+              borderRadius: 2,
+              paddingVertical: 14,
+              alignItems: 'center',
             }}
           >
-            <Text style={{ color: '#111111', fontSize: 14, fontWeight: '500' }}>
-              {item.name}
+            <Text
+              style={{
+                color: '#1F3D2C',
+                fontSize: 14,
+                fontWeight: '600',
+                letterSpacing: 0.3,
+              }}
+            >
+              Course not found? Add it →
             </Text>
-            {item.location && (
-              <Text style={{ color: '#888880', fontSize: 11 }}>{item.location}</Text>
-            )}
           </Pressable>
         )}
-        ListEmptyComponent={
-          loading ? null : (
-            <Text style={{ color: '#888880', fontSize: 13 }}>No courses found.</Text>
-          )
-        }
-      />
 
-      <View
-        style={{
-          marginTop: 14,
-          backgroundColor: '#FFFFFF',
-          borderRadius: 10,
-          borderWidth: 0.5,
-          borderColor: '#E4E4E0',
-          padding: 14,
-        }}
-      >
-        <Text
-          style={{
-            color: '#888880',
-            fontSize: 11,
-            fontWeight: '500',
-            letterSpacing: 0.4,
-            textTransform: 'uppercase',
-            marginBottom: 6,
-          }}
-        >
-          Add a new course
-        </Text>
-        <TextInput
-          placeholder="Course name"
-          value={creatingCourseName}
-          onChangeText={setCreatingCourseName}
-          style={{
-            backgroundColor: '#F9F9F6',
-            borderWidth: 0.5,
-            borderColor: '#E4E4E0',
-            borderRadius: 7,
-            paddingHorizontal: 10,
-            paddingVertical: 9,
-            fontSize: 13,
-            marginBottom: 8,
-          }}
-        />
-        <Pressable
-          onPress={addNewCourse}
-          disabled={busy || !creatingCourseName.trim()}
-          style={{
-            backgroundColor: '#111111',
-            borderRadius: 10,
-            paddingVertical: 12,
-            alignItems: 'center',
-            opacity: busy || !creatingCourseName.trim() ? 0.5 : 1,
-          }}
-        >
-          <Text style={{ color: '#FFFFFF', fontSize: 13, fontWeight: '500' }}>
-            {busy ? 'Working…' : 'Create course + start round'}
+        {error && (
+          <Text style={{ color: '#A33A2A', fontSize: 13, marginTop: 12 }}>
+            {error}
           </Text>
-        </Pressable>
-        <Text style={{ color: '#888880', fontSize: 11, marginTop: 6 }}>
-          Creates an 18-hole par-72 layout you can edit later.
-        </Text>
-      </View>
+        )}
 
-      {error && (
-        <View className="mt-3 rounded bg-red-50 p-3">
-          <Text className="text-sm text-red-700">{error}</Text>
-        </View>
-      )}
+        <Text style={{ ...KICKER, marginTop: 28, color: '#8A8B7E' }}>
+          Course data from OpenGolfAPI · ODbL licensed
+        </Text>
+      </ScrollView>
     </View>
   )
 }
+
+interface ManualFormArgs {
+  name: string
+  location: string
+  pars: number[]
+}
+
+function ManualCourseForm({
+  initialName,
+  gpsCoords,
+  busy,
+  onCancel,
+  onCreate,
+}: {
+  initialName: string
+  gpsCoords: { lat: number; lng: number } | null
+  busy: boolean
+  onCancel: () => void
+  onCreate: (args: ManualFormArgs) => Promise<void>
+}) {
+  const [name, setName] = useState(initialName)
+  const [location, setLocation] = useState('')
+  const [holeCount, setHoleCount] = useState<9 | 18>(18)
+  const [pars, setPars] = useState<number[]>(() => new Array(18).fill(4))
+
+  const visiblePars = useMemo(() => pars.slice(0, holeCount), [pars, holeCount])
+
+  function cyclePar(idx: number) {
+    setPars((prev) => {
+      const next = prev.slice()
+      const cur = next[idx] ?? 4
+      next[idx] = cur === 3 ? 4 : cur === 4 ? 5 : 3
+      return next
+    })
+  }
+
+  return (
+    <View style={{ flex: 1, backgroundColor: '#F2EEE5' }}>
+      <ScrollView contentContainerStyle={{ padding: 18, paddingBottom: 40 }}>
+        <Text style={{ ...KICKER, marginBottom: 8 }}>Add course</Text>
+        <Text
+          style={{
+            color: '#1C211C',
+            fontSize: 28,
+            fontStyle: 'italic',
+            fontWeight: '500',
+            marginBottom: 18,
+          }}
+        >
+          New course
+        </Text>
+
+        <Text style={{ ...KICKER, marginBottom: 8 }}>Name</Text>
+        <TextInput
+          value={name}
+          onChangeText={setName}
+          autoCapitalize="words"
+          style={inputStyle}
+        />
+
+        <Text style={{ ...KICKER, marginTop: 18, marginBottom: 8 }}>
+          City, state (optional)
+        </Text>
+        <TextInput
+          value={location}
+          onChangeText={setLocation}
+          autoCapitalize="words"
+          style={inputStyle}
+        />
+
+        <Text style={{ ...KICKER, marginTop: 22, marginBottom: 8 }}>Holes</Text>
+        <View style={{ flexDirection: 'row', gap: 8 }}>
+          <Chip
+            label="18 holes"
+            active={holeCount === 18}
+            onPress={() => setHoleCount(18)}
+          />
+          <Chip
+            label="9 holes"
+            active={holeCount === 9}
+            onPress={() => setHoleCount(9)}
+          />
+        </View>
+
+        <Text style={{ ...KICKER, marginTop: 22, marginBottom: 12 }}>
+          Par per hole — tap to cycle
+        </Text>
+        <View
+          style={{
+            flexDirection: 'row',
+            flexWrap: 'wrap',
+            gap: 8,
+          }}
+        >
+          {visiblePars.map((p, idx) => (
+            <Pressable
+              key={idx}
+              onPress={() => cyclePar(idx)}
+              style={{
+                width: '11%',
+                alignItems: 'center',
+                gap: 4,
+              }}
+            >
+              <Text
+                style={{
+                  ...KICKER,
+                  fontSize: 9,
+                  letterSpacing: 0.6,
+                }}
+              >
+                {idx + 1}
+              </Text>
+              <View
+                style={{
+                  width: 32,
+                  height: 32,
+                  borderRadius: 999,
+                  backgroundColor: '#EBE5D6',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <Text
+                  style={{
+                    color: '#1C211C',
+                    fontSize: 15,
+                    fontWeight: '500',
+                    fontVariant: ['tabular-nums'],
+                  }}
+                >
+                  {p}
+                </Text>
+              </View>
+            </Pressable>
+          ))}
+        </View>
+
+        <Text
+          style={{
+            color: '#8A8B7E',
+            fontSize: 12,
+            marginTop: 18,
+          }}
+        >
+          {gpsCoords
+            ? `GPS captured (${gpsCoords.lat.toFixed(4)}, ${gpsCoords.lng.toFixed(4)}) — set as hole 1 tee.`
+            : 'GPS unavailable — hole coords left blank.'}
+        </Text>
+
+        <View style={{ flexDirection: 'row', gap: 10, marginTop: 22 }}>
+          <Pressable
+            onPress={onCancel}
+            style={{
+              flex: 1,
+              borderWidth: 1,
+              borderColor: '#D9D2BF',
+              borderRadius: 2,
+              paddingVertical: 14,
+              alignItems: 'center',
+            }}
+          >
+            <Text style={{ color: '#5C6356', fontSize: 13 }}>Cancel</Text>
+          </Pressable>
+          <Pressable
+            onPress={() =>
+              onCreate({ name, location, pars: visiblePars })
+            }
+            disabled={busy || !name.trim()}
+            style={{
+              flex: 2,
+              backgroundColor: busy || !name.trim() ? '#9F9580' : '#1F3D2C',
+              borderRadius: 2,
+              paddingVertical: 14,
+              alignItems: 'center',
+            }}
+          >
+            <Text
+              style={{
+                color: '#F2EEE5',
+                fontSize: 14,
+                fontWeight: '600',
+                letterSpacing: 0.3,
+              }}
+            >
+              {busy ? 'Creating…' : 'Create course →'}
+            </Text>
+          </Pressable>
+        </View>
+      </ScrollView>
+    </View>
+  )
+}
+
+function Chip({
+  label,
+  active,
+  onPress,
+}: {
+  label: string
+  active: boolean
+  onPress: () => void
+}) {
+  return (
+    <Pressable
+      onPress={onPress}
+      style={{
+        paddingHorizontal: 14,
+        paddingVertical: 10,
+        borderRadius: 2,
+        backgroundColor: active ? '#1F3D2C' : '#EBE5D6',
+      }}
+    >
+      <Text
+        style={{
+          color: active ? '#F2EEE5' : '#1C211C',
+          fontSize: 13,
+          fontWeight: active ? '600' : '400',
+        }}
+      >
+        {label}
+      </Text>
+    </Pressable>
+  )
+}
+
+const inputStyle = {
+  backgroundColor: '#FBF8F1',
+  borderWidth: 1,
+  borderColor: '#D9D2BF',
+  borderRadius: 2,
+  paddingHorizontal: 12,
+  paddingVertical: 12,
+  fontSize: 15,
+  color: '#1C211C',
+} as const

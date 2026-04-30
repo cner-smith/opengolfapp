@@ -12,6 +12,8 @@ Estimated time: 30–45 minutes the first time.
 - A [Mapbox](https://mapbox.com) account if you want the live round map (web is fine without it; mobile needs it).
 - Node 20+ and `pnpm` 10+ locally.
 
+Course search is powered by [OpenGolfAPI](https://opengolfapi.org) — no API key needed, 1,000 calls/day free, ODbL licensed. Course data fetched through the search box is attributed in the app footer.
+
 ## 1. Fork the repo
 
 Go to [github.com/cner-smith/opengolfapp](https://github.com/cner-smith/opengolfapp) and click **Fork**. Clone your fork locally:
