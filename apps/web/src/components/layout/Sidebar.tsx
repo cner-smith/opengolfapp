@@ -66,16 +66,17 @@ export function Sidebar() {
               [
                 'transition-colors',
                 isActive
-                  ? 'text-caddie-pos'
+                  ? 'text-caddie-accent-ink'
                   : 'text-white/50 hover:bg-white/5 hover:text-white/80',
               ].join(' ')
             }
             style={({ isActive }) => ({
               fontSize: 13,
+              fontWeight: isActive ? 500 : 400,
               padding: '8px 14px',
               margin: '1px 8px',
               borderRadius: 2,
-              backgroundColor: isActive ? 'rgba(31,61,44,0.32)' : undefined,
+              backgroundColor: isActive ? 'rgba(242,238,229,0.12)' : undefined,
             })}
           >
             {l.label}
