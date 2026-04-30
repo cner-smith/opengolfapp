@@ -1,6 +1,14 @@
-import { Redirect, useLocalSearchParams } from 'expo-router'
+import { useEffect } from 'react'
+import { useLocalSearchParams, useRouter } from 'expo-router'
 
 export default function RoundIndex() {
   const { id } = useLocalSearchParams<{ id: string }>()
-  return <Redirect href={`/(app)/round/${id}/hole/1`} />
+  const router = useRouter()
+
+  useEffect(() => {
+    if (!id) return
+    router.push(`/(app)/round/${id}/hole/1`)
+  }, [id])
+
+  return null
 }

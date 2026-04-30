@@ -196,7 +196,9 @@ export function HoleMap({
   )
 }
 
-function Marker({ color, border, size }: { color: string; border: string; size: number }) {
+type MarkerProps = { color: string; border: string; size: number }
+
+function Marker({ color, border, size }: MarkerProps) {
   return (
     <View
       style={{
