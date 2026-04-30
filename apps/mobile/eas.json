@@ -7,8 +7,7 @@
     "development": {
       "developmentClient": true,
       "distribution": "internal",
-      "node": "20.x",
-      "npm": "10.x",
+      "node": "20.18.0",
       "android": {
         "buildType": "apk"
       },
@@ -18,8 +17,7 @@
     },
     "preview": {
       "distribution": "internal",
-      "node": "20.x",
-      "npm": "10.x",
+      "node": "20.18.0",
       "android": {
         "buildType": "apk"
       },
@@ -29,8 +27,7 @@
     },
     "production": {
       "autoIncrement": true,
-      "node": "20.x",
-      "npm": "10.x",
+      "node": "20.18.0",
       "env": {
         "npm_config_legacy_peer_deps": "true"
       }
