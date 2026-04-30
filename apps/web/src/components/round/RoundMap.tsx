@@ -172,43 +172,60 @@ export function RoundMap({
 
     // Tee marker — draggable when a parent handler is wired in.
     if (effectiveTee) {
-      const el = makeIconMarker('TEE', '#FBF8F1', '#5C6356')
-      el.title = onMoveTee
-        ? 'Drag to move the tee for this hole'
-        : 'Tee box'
+      const parts = makeIconMarker('TEE', '#FBF8F1', '#5C6356')
       const marker = new mapboxgl.Marker({
-        element: el,
+        element: parts.outer,
         draggable: !!onMoveTee,
       })
         .setLngLat([effectiveTee.lng, effectiveTee.lat])
         .addTo(map)
       if (onMoveTee) {
+        attachDragFx({
+          outer: parts.outer,
+          content: parts.content,
+          marker,
+          tooltip: 'Drag to move tee',
+        })
         marker.on('dragend', () => {
           const ll = marker.getLngLat()
           onMoveTee({ lat: ll.lat, lng: ll.lng })
         })
+      } else {
+        parts.outer.title = 'Tee box'
       }
       markerRefs.current.push(marker)
     }
 
     // Pin marker — draggable when a parent handler is wired in.
     if (effectivePin) {
-      const el = makeFlagMarker(MARKER_COLORS.pin)
-      el.title = onMovePin
-        ? 'Drag to set pin position'
-        : 'Pin'
+      const parts = makeFlagMarker(MARKER_COLORS.pin)
       const marker = new mapboxgl.Marker({
-        element: el,
+        element: parts.outer,
         anchor: 'bottom',
         draggable: !!onMovePin,
       })
         .setLngLat([effectivePin.lng, effectivePin.lat])
         .addTo(map)
       if (onMovePin) {
+        attachDragFx({
+          outer: parts.outer,
+          content: parts.content,
+          marker,
+          tooltip: 'Drag to move pin',
+          // Pin tints to caddie-warn while dragging so the user can
+          // tell "the flag is grabbed" from "the flag is just hovered."
+          onDragColor: (active) => {
+            parts.flag.style.background = active
+              ? '#A66A1F'
+              : MARKER_COLORS.pin
+          },
+        })
         marker.on('dragend', () => {
           const ll = marker.getLngLat()
           onMovePin({ lat: ll.lat, lng: ll.lng })
         })
+      } else {
+        parts.outer.title = 'Pin'
       }
       markerRefs.current.push(marker)
     }
@@ -226,8 +243,9 @@ export function RoundMap({
             : s.category === 'around-green'
               ? MARKER_COLORS.approach
               : MARKER_COLORS.green
-      const el = makeNumberedMarker(s.shotNumber, color, '#FBF8F1')
-      const marker = new mapboxgl.Marker({ element: el })
+      const parts = makeNumberedMarker(s.shotNumber, color, '#FBF8F1')
+      parts.outer.title = `Shot ${s.shotNumber}`
+      const marker = new mapboxgl.Marker({ element: parts.outer })
         .setLngLat([s.endLng!, s.endLat!])
         .addTo(map)
       markerRefs.current.push(marker)
@@ -235,10 +253,23 @@ export function RoundMap({
 
     // Placed points (tap-to-place mode).
     placedPoints.forEach((p, idx) => {
-      const el = makeNumberedMarker(idx + 1, MARKER_COLORS.ball, '#FBF8F1')
-      const marker = new mapboxgl.Marker({ element: el, draggable: true })
+      const parts = makeNumberedMarker(
+        idx + 1,
+        MARKER_COLORS.ball,
+        '#FBF8F1',
+      )
+      const marker = new mapboxgl.Marker({
+        element: parts.outer,
+        draggable: true,
+      })
         .setLngLat([p.lng, p.lat])
         .addTo(map)
+      attachDragFx({
+        outer: parts.outer,
+        content: parts.content,
+        marker,
+        tooltip: 'Drag to adjust position',
+      })
       marker.on('dragend', () => {
         const ll = marker.getLngLat()
         onMovePoint(idx, { lat: ll.lat, lng: ll.lng })
@@ -490,51 +521,127 @@ function upsertLine(
 
 // ---------------------------------------------------------------------------
 // DOM marker factories — keep them lightweight, no React per marker.
+//
+// Mapbox writes inline `transform: translate3d(...)` on the marker's
+// outer element to position it, so we can't put our own transform there
+// (it would be wiped on the next pan). Each factory returns an outer
+// (positioned by Mapbox) plus an inner `content` we own — that's where
+// hover scale and drag glow are applied. See `attachDragFx`.
 // ---------------------------------------------------------------------------
 
-function makeNumberedMarker(n: number, fill: string, text: string): HTMLElement {
-  const el = document.createElement('div')
-  el.style.width = '24px'
-  el.style.height = '24px'
-  el.style.borderRadius = '999px'
-  el.style.background = fill
-  el.style.color = text
-  el.style.fontFamily = 'Inter, sans-serif'
-  el.style.fontWeight = '600'
-  el.style.fontSize = '12px'
-  el.style.display = 'flex'
-  el.style.alignItems = 'center'
-  el.style.justifyContent = 'center'
-  el.style.border = '2px solid #FBF8F1'
-  el.style.cursor = 'grab'
-  el.textContent = String(n)
-  return el
+interface MarkerParts {
+  outer: HTMLElement
+  content: HTMLElement
 }
 
-function makeIconMarker(label: string, bg: string, fg: string): HTMLElement {
-  const el = document.createElement('div')
-  el.style.padding = '3px 6px'
-  el.style.background = bg
-  el.style.color = fg
-  el.style.fontFamily = 'JetBrains Mono, monospace'
-  el.style.fontSize = '9px'
-  el.style.letterSpacing = '0.14em'
-  el.style.fontWeight = '500'
-  el.style.border = `1px solid ${fg}`
-  el.style.borderRadius = '2px'
-  el.textContent = label
-  return el
+function makeNumberedMarker(
+  n: number,
+  fill: string,
+  text: string,
+): MarkerParts {
+  const outer = document.createElement('div')
+  outer.style.display = 'flex'
+  outer.style.alignItems = 'center'
+  outer.style.justifyContent = 'center'
+  const content = document.createElement('div')
+  content.style.width = '24px'
+  content.style.height = '24px'
+  content.style.borderRadius = '999px'
+  content.style.background = fill
+  content.style.color = text
+  content.style.fontFamily = 'Inter, sans-serif'
+  content.style.fontWeight = '600'
+  content.style.fontSize = '12px'
+  content.style.display = 'flex'
+  content.style.alignItems = 'center'
+  content.style.justifyContent = 'center'
+  content.style.border = '2px solid #FBF8F1'
+  content.style.transition =
+    'transform 120ms ease, box-shadow 120ms ease'
+  content.textContent = String(n)
+  outer.appendChild(content)
+  return { outer, content }
 }
 
-function makeFlagMarker(color: string): HTMLElement {
-  const el = document.createElement('div')
-  el.style.width = '16px'
-  el.style.height = '24px'
-  el.style.position = 'relative'
-  el.innerHTML = `
-    <div style="position:absolute;left:6px;top:0;width:2px;height:24px;background:#FBF8F1"></div>
-    <div style="position:absolute;left:8px;top:1px;width:9px;height:7px;background:${color}"></div>
-    <div style="position:absolute;left:5px;top:22px;width:4px;height:2px;border-radius:1px;background:#FBF8F1"></div>
-  `
-  return el
+function makeIconMarker(
+  label: string,
+  bg: string,
+  fg: string,
+): MarkerParts {
+  const outer = document.createElement('div')
+  const content = document.createElement('div')
+  content.style.padding = '3px 6px'
+  content.style.background = bg
+  content.style.color = fg
+  content.style.fontFamily = 'JetBrains Mono, monospace'
+  content.style.fontSize = '9px'
+  content.style.letterSpacing = '0.14em'
+  content.style.fontWeight = '500'
+  content.style.border = `1px solid ${fg}`
+  content.style.borderRadius = '2px'
+  content.style.transition =
+    'transform 120ms ease, box-shadow 120ms ease'
+  content.textContent = label
+  outer.appendChild(content)
+  return { outer, content }
+}
+
+interface FlagParts extends MarkerParts {
+  flag: HTMLElement
+}
+
+function makeFlagMarker(color: string): FlagParts {
+  const outer = document.createElement('div')
+  const content = document.createElement('div')
+  content.style.width = '16px'
+  content.style.height = '24px'
+  content.style.position = 'relative'
+  content.style.transition =
+    'transform 120ms ease, box-shadow 120ms ease'
+  const pole = document.createElement('div')
+  pole.style.cssText =
+    'position:absolute;left:6px;top:0;width:2px;height:24px;background:#FBF8F1'
+  const flag = document.createElement('div')
+  flag.style.cssText = `position:absolute;left:8px;top:1px;width:9px;height:7px;background:${color};transition:background 120ms ease`
+  const base = document.createElement('div')
+  base.style.cssText =
+    'position:absolute;left:5px;top:22px;width:4px;height:2px;border-radius:1px;background:#FBF8F1'
+  content.appendChild(pole)
+  content.appendChild(flag)
+  content.appendChild(base)
+  outer.appendChild(content)
+  return { outer, content, flag }
+}
+
+function attachDragFx(opts: {
+  outer: HTMLElement
+  content: HTMLElement
+  marker: mapboxgl.Marker
+  tooltip: string
+  onDragColor?: (active: boolean) => void
+}) {
+  const { outer, content, marker, tooltip, onDragColor } = opts
+  outer.title = tooltip
+  outer.style.cursor = 'grab'
+  let dragging = false
+  outer.addEventListener('mouseenter', () => {
+    if (!dragging) content.style.transform = 'scale(1.2)'
+  })
+  outer.addEventListener('mouseleave', () => {
+    if (!dragging) content.style.transform = ''
+  })
+  marker.on('dragstart', () => {
+    dragging = true
+    outer.style.cursor = 'grabbing'
+    content.style.transform = 'scale(1.2)'
+    content.style.boxShadow = '0 0 0 4px rgba(166,106,31,0.55)'
+    onDragColor?.(true)
+  })
+  marker.on('dragend', () => {
+    dragging = false
+    outer.style.cursor = 'grab'
+    content.style.transform = ''
+    content.style.boxShadow = ''
+    onDragColor?.(false)
+  })
 }
