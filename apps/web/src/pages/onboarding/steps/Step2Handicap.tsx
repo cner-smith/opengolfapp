@@ -29,33 +29,37 @@ export function Step2Handicap({
   return (
     <div>
       <StepHeading
+        kicker="Handicap"
         title="What's your handicap index?"
-        subtitle="It calibrates the strokes-gained baseline. Don't have one — your best guess is fine."
+        subtitle="It calibrates the strokes-gained baseline. No official number — your best guess is fine."
       />
       <div
-        className="bg-oga-bg-page text-center"
         style={{
-          borderRadius: 8,
-          padding: '20px 16px',
-          marginBottom: 16,
+          borderTop: '1px solid #D9D2BF',
+          borderBottom: '1px solid #D9D2BF',
+          padding: '32px 0',
+          textAlign: 'center',
+          marginBottom: 22,
         }}
       >
         <div
-          className="tabular text-oga-text-primary"
-          style={{ fontSize: 36, fontWeight: 500, lineHeight: 1 }}
+          className="font-serif tabular text-caddie-ink"
+          style={{
+            fontSize: 64,
+            fontStyle: 'italic',
+            fontWeight: 500,
+            lineHeight: 1,
+          }}
         >
           {value}
         </div>
         <div
-          className="text-oga-green-dark"
-          style={{ fontSize: 13, fontWeight: 500, marginTop: 6 }}
+          className="font-serif text-caddie-ink-dim"
+          style={{ fontSize: 17, marginTop: 10 }}
         >
           {bracket.name}
         </div>
-        <div
-          className="text-oga-text-muted"
-          style={{ fontSize: 11, marginTop: 2 }}
-        >
+        <div className="kicker" style={{ marginTop: 6 }}>
           {bracket.description}
         </div>
       </div>
@@ -68,15 +72,15 @@ export function Step2Handicap({
         onChange={(e) => onChange(Number(e.target.value))}
         style={{
           width: '100%',
-          accentColor: '#1D9E75',
+          accentColor: '#1F3D2C',
           marginBottom: 8,
         }}
       />
       <div
-        className="text-oga-text-muted flex justify-between"
-        style={{ fontSize: 11, marginBottom: 18 }}
+        className="font-mono uppercase tabular text-caddie-ink-mute flex justify-between"
+        style={{ fontSize: 10, letterSpacing: '0.14em' }}
       >
-        <span>0 (scratch)</span>
+        <span>0 SCRATCH</span>
         <span>36+</span>
       </div>
       <OnboardingButtons onBack={onBack} onContinue={onContinue} canContinue={true} />

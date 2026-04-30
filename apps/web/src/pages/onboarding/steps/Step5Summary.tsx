@@ -46,20 +46,11 @@ export function Step5Summary({
   return (
     <div>
       <StepHeading
-        title="You're set"
-        subtitle="Confirm and we'll calibrate your strokes-gained baseline to these answers."
+        kicker="Confirm"
+        title="You're set."
+        subtitle="We'll calibrate your strokes-gained baseline to these answers."
       />
-      <dl
-        className="bg-oga-bg-page"
-        style={{
-          borderRadius: 8,
-          padding: '14px 16px',
-          marginBottom: 18,
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 10,
-        }}
-      >
+      <dl style={{ borderTop: '1px solid #D9D2BF' }}>
         <Row label="Skill level">
           {draft.skillLevel ? SKILL_LABEL[draft.skillLevel] : '—'}
         </Row>
@@ -81,13 +72,13 @@ export function Step5Summary({
       </dl>
       {error && (
         <div
-          className="bg-oga-red-light text-oga-red-dark"
+          className="text-caddie-neg"
           style={{
-            border: '0.5px solid #E24B4A',
-            borderRadius: 7,
-            padding: '10px 12px',
+            border: '1px solid #A33A2A',
+            borderRadius: 2,
+            padding: '12px 14px',
             fontSize: 13,
-            marginBottom: 14,
+            marginTop: 18,
           }}
         >
           {error}
@@ -111,9 +102,21 @@ export function Step5Summary({
 
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="flex justify-between" style={{ fontSize: 13 }}>
-      <dt className="text-oga-text-muted">{label}</dt>
-      <dd className="font-medium tabular text-oga-text-primary">{children}</dd>
+    <div
+      className="flex items-baseline justify-between"
+      style={{
+        padding: '14px 0',
+        borderBottom: '1px solid #D9D2BF',
+        gap: 18,
+      }}
+    >
+      <dt className="kicker">{label}</dt>
+      <dd
+        className="font-serif text-caddie-ink text-right"
+        style={{ fontSize: 17, fontWeight: 500 }}
+      >
+        {children}
+      </dd>
     </div>
   )
 }

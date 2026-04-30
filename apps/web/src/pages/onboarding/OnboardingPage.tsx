@@ -59,16 +59,28 @@ export function OnboardingPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-oga-bg-page">
+    <div className="flex min-h-screen items-start justify-center bg-caddie-bg">
       <div
-        className="w-full max-w-md bg-oga-bg-card"
+        className="w-full"
         style={{
-          border: '0.5px solid #E4E4E0',
-          borderRadius: 10,
-          padding: 24,
+          maxWidth: 520,
+          padding: '60px 24px 40px',
         }}
       >
+        <div style={{ marginBottom: 32 }}>
+          <div
+            className="font-serif text-caddie-ink"
+            style={{ fontSize: 22, fontWeight: 500 }}
+          >
+            OGA
+          </div>
+          <div className="kicker" style={{ marginTop: 4 }}>
+            Open Golf App
+          </div>
+        </div>
+
         <StepIndicator current={step} total={TOTAL_STEPS} />
+
         {step === 1 && (
           <Step1Skill
             value={draft.skillLevel}
@@ -126,32 +138,23 @@ export function OnboardingPage() {
 
 function StepIndicator({ current, total }: { current: number; total: number }) {
   return (
-    <div style={{ marginBottom: 20 }}>
-      <div
-        className="text-oga-text-muted uppercase"
-        style={{
-          fontSize: 10,
-          fontWeight: 500,
-          letterSpacing: 0.5,
-          marginBottom: 8,
-        }}
-      >
+    <div style={{ marginBottom: 28 }}>
+      <div className="kicker" style={{ marginBottom: 10 }}>
         Step {current} of {total}
       </div>
       <div
         style={{
           width: '100%',
-          height: 3,
-          backgroundColor: '#F0F0EC',
-          borderRadius: 2,
-          overflow: 'hidden',
+          height: 1,
+          backgroundColor: '#D9D2BF',
+          position: 'relative',
         }}
       >
         <div
           style={{
             width: `${(current / total) * 100}%`,
-            height: '100%',
-            backgroundColor: '#1D9E75',
+            height: 1,
+            backgroundColor: '#1F3D2C',
             transition: 'width 200ms ease',
           }}
         />

@@ -26,7 +26,7 @@ const OPTIONS: Option[] = [
   {
     value: 'competitive',
     label: 'Competitive amateur',
-    blurb: 'Tournaments, club championships, single-digit handicap territory.',
+    blurb: 'Tournaments, club championships, single-digit territory.',
   },
 ]
 
@@ -44,14 +44,11 @@ export function Step1Skill({
   return (
     <div>
       <StepHeading
+        kicker="Skill"
         title="How would you describe your golf?"
-        subtitle="We'll use this to calibrate strokes-gained baselines and practice plans."
+        subtitle="We use this to calibrate strokes-gained baselines and tailor practice plans."
       />
-      <div
-        className="flex flex-col gap-2"
-        role="radiogroup"
-        style={{ marginBottom: 18 }}
-      >
+      <div role="radiogroup" style={{ borderTop: '1px solid #D9D2BF' }}>
         {OPTIONS.map((opt) => {
           const active = value === opt.value
           return (
@@ -61,29 +58,33 @@ export function Step1Skill({
               role="radio"
               aria-checked={active}
               onClick={() => onChange(opt.value)}
-              className="text-left transition-colors"
+              className="text-left transition-colors w-full"
               style={{
-                backgroundColor: active ? '#E1F5EE' : '#FFFFFF',
-                border: `0.5px solid ${active ? '#1D9E75' : '#E4E4E0'}`,
-                color: active ? '#0F6E56' : '#111111',
-                borderRadius: 10,
-                padding: '14px 16px',
+                backgroundColor: active ? '#FBF8F1' : 'transparent',
+                borderBottom: '1px solid #D9D2BF',
+                padding: '18px 14px',
+                display: 'block',
               }}
             >
-              <div
-                style={{
-                  fontSize: 14,
-                  fontWeight: 500,
-                  marginBottom: 2,
-                }}
-              >
-                {opt.label}
+              <div className="flex items-baseline justify-between">
+                <div
+                  className="font-serif text-caddie-ink"
+                  style={{ fontSize: 17, fontWeight: 500 }}
+                >
+                  {opt.label}
+                </div>
+                {active && (
+                  <span
+                    className="font-mono uppercase text-caddie-accent"
+                    style={{ fontSize: 10, letterSpacing: '0.14em' }}
+                  >
+                    Selected
+                  </span>
+                )}
               </div>
               <div
-                style={{
-                  fontSize: 12,
-                  color: active ? '#0F6E56' : '#888880',
-                }}
+                className="text-caddie-ink-dim"
+                style={{ fontSize: 13, marginTop: 4, lineHeight: 1.5 }}
               >
                 {opt.blurb}
               </div>

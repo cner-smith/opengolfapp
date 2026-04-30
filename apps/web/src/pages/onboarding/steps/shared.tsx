@@ -1,25 +1,34 @@
 export function StepHeading({
+  kicker,
   title,
   subtitle,
 }: {
+  kicker?: string
   title: string
   subtitle?: string
 }) {
   return (
-    <div style={{ marginBottom: 18 }}>
+    <div style={{ marginBottom: 22 }}>
+      {kicker && <div className="kicker" style={{ marginBottom: 8 }}>{kicker}</div>}
       <h1
-        className="text-oga-text-primary"
-        style={{ fontSize: 22, fontWeight: 600, lineHeight: 1.3 }}
+        className="font-serif text-caddie-ink"
+        style={{
+          fontSize: 28,
+          fontWeight: 500,
+          fontStyle: 'italic',
+          letterSpacing: '-0.015em',
+          lineHeight: 1.15,
+        }}
       >
         {title}
       </h1>
       {subtitle && (
-        <div
-          className="text-oga-text-muted"
-          style={{ fontSize: 13, marginTop: 4 }}
+        <p
+          className="text-caddie-ink-dim"
+          style={{ fontSize: 15, marginTop: 8, lineHeight: 1.5 }}
         >
           {subtitle}
-        </div>
+        </p>
       )}
     </div>
   )
@@ -39,35 +48,41 @@ export function OnboardingButtons({
   busy?: boolean
 }) {
   return (
-    <div className="flex justify-between gap-2">
+    <div className="flex justify-between" style={{ gap: 12, marginTop: 22 }}>
       <button
         type="button"
         onClick={onBack}
-        className="bg-oga-bg-card text-oga-text-primary transition-colors hover:bg-oga-bg-input"
+        className="font-mono uppercase text-caddie-ink-mute hover:text-caddie-ink"
         style={{
-          border: '0.5px solid #E4E4E0',
-          borderRadius: 10,
-          padding: '12px 18px',
-          fontSize: 13,
-          fontWeight: 500,
+          fontSize: 10,
+          letterSpacing: '0.14em',
+          padding: '12px 0',
+          background: 'transparent',
+          border: 'none',
         }}
       >
-        Back
+        ← Back
       </button>
       <button
         type="button"
         onClick={onContinue}
         disabled={!canContinue || busy}
-        className="bg-oga-black text-white transition-colors hover:bg-oga-text-primary/90 disabled:opacity-40"
+        className="bg-caddie-accent text-caddie-accent-ink hover:opacity-90 disabled:opacity-40"
         style={{
-          borderRadius: 10,
+          borderRadius: 2,
           padding: '12px 22px',
-          fontSize: 13,
-          fontWeight: 500,
+          fontSize: 14,
+          fontWeight: 600,
+          letterSpacing: '0.02em',
           flex: 1,
         }}
       >
-        {busy ? 'Saving…' : continueLabel}
+        {busy ? 'Saving…' : continueLabel}{' '}
+        {!busy && (
+          <span className="font-serif" style={{ fontStyle: 'italic' }}>
+            →
+          </span>
+        )}
       </button>
     </div>
   )

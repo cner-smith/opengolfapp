@@ -50,6 +50,7 @@ export function Step4Details({
   return (
     <div>
       <StepHeading
+        kicker="Details"
         title="A bit about how you play"
         subtitle="Drives the practice plan and the kinds of drills you'll see."
       />
@@ -72,22 +73,17 @@ export function Step4Details({
                 key={f}
                 type="button"
                 onClick={() => toggleFacility(f)}
-                style={{
-                  backgroundColor: active ? '#E1F5EE' : '#F4F4F0',
-                  color: active ? '#0F6E56' : '#111111',
-                  border: `0.5px solid ${active ? '#1D9E75' : '#E0E0DA'}`,
-                  borderRadius: 7,
-                  padding: '7px 10px',
-                  fontSize: 12,
-                  fontWeight: active ? 500 : 400,
-                }}
+                style={chipStyle(active)}
               >
                 {FACILITY_LABEL[f]}
               </button>
             )
           })}
         </div>
-        <div className="text-oga-text-muted" style={{ fontSize: 11, marginTop: 6 }}>
+        <div
+          className="text-caddie-ink-mute"
+          style={{ fontSize: 12, marginTop: 8 }}
+        >
           Select any that apply.
         </div>
       </Field>
@@ -114,21 +110,31 @@ export function Step4Details({
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div style={{ marginBottom: 16 }}>
-      <div
-        className="text-oga-text-muted uppercase"
-        style={{
-          fontSize: 11,
-          fontWeight: 500,
-          letterSpacing: 0.4,
-          marginBottom: 8,
-        }}
-      >
+    <div
+      style={{
+        borderTop: '1px solid #D9D2BF',
+        paddingTop: 14,
+        marginBottom: 22,
+      }}
+    >
+      <div className="kicker" style={{ marginBottom: 12 }}>
         {label}
       </div>
       {children}
     </div>
   )
+}
+
+function chipStyle(active: boolean): React.CSSProperties {
+  return {
+    backgroundColor: active ? '#1F3D2C' : '#EBE5D6',
+    color: active ? '#F2EEE5' : '#1C211C',
+    border: 'none',
+    borderRadius: 2,
+    padding: '6px 10px',
+    fontSize: 12,
+    fontWeight: active ? 500 : 400,
+  }
 }
 
 interface ChipGroupProps<T extends string> {
@@ -153,15 +159,7 @@ function ChipGroup<T extends string>({
             key={opt}
             type="button"
             onClick={() => onChange(opt)}
-            style={{
-              backgroundColor: active ? '#E1F5EE' : '#F4F4F0',
-              color: active ? '#0F6E56' : '#111111',
-              border: `0.5px solid ${active ? '#1D9E75' : '#E0E0DA'}`,
-              borderRadius: 7,
-              padding: '7px 10px',
-              fontSize: 12,
-              fontWeight: active ? 500 : 400,
-            }}
+            style={chipStyle(active)}
           >
             {renderLabel(opt)}
           </button>
