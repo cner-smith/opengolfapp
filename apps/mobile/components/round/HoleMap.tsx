@@ -43,13 +43,21 @@ export function HoleMap({
   onSetBall,
 }: HoleMapProps) {
   const cameraRef = useRef<Mapbox.Camera>(null)
+  const cameraInitialized = useRef(false)
 
+  // Center the camera once on first valid coords. Subsequent center changes
+  // (e.g. GPS deltas while standing on the tee) should not retrigger
+  // setCamera — the style was reloading and the satellite tiles would flash
+  // back to a black canvas every time.
   useEffect(() => {
-    cameraRef.current?.setCamera({
+    if (cameraInitialized.current) return
+    if (!cameraRef.current) return
+    cameraRef.current.setCamera({
       centerCoordinate: toCoord(center),
       zoomLevel: 16,
       animationDuration: 400,
     })
+    cameraInitialized.current = true
   }, [center.lat, center.lng])
 
   const pinDistance = useMemo(() => {
