@@ -60,7 +60,7 @@ export function LieSlopeGrid({ value, onChange, toggleable = false }: Props) {
               cursor: 'pointer',
             }}
           >
-            <SlopeIcon kind={key} color={active ? '#F2EEE5' : '#1C211C'} />
+            <SlopeIcon kind={key} color={active ? '#F2EEE5' : '#5C6356'} />
             <span>{LABEL[key]}</span>
           </button>
         )
@@ -81,40 +81,43 @@ function SlopeIcon({ kind, color }: { kind: LieSlope; color: string }) {
   }
   switch (kind) {
     case 'uphill':
+      // Line tilts up left to right; ball at the low (left) end.
       return (
         <svg {...props}>
-          <line x1={4} y1={18} x2={28} y2={8} />
-          <circle cx={26} cy={6} r={2} fill={color} stroke="none" />
+          <line x1={4} y1={18} x2={28} y2={6} />
+          <circle cx={6} cy={15} r={2} fill={color} stroke="none" />
         </svg>
       )
     case 'level':
+      // Horizontal line; ball centred above.
       return (
         <svg {...props}>
-          <line x1={4} y1={14} x2={28} y2={14} />
-          <circle cx={16} cy={11} r={2} fill={color} stroke="none" />
+          <line x1={4} y1={16} x2={28} y2={16} />
+          <circle cx={16} cy={12} r={2} fill={color} stroke="none" />
         </svg>
       )
     case 'downhill':
+      // Line tilts down left to right; ball at the low (right) end.
       return (
         <svg {...props}>
-          <line x1={4} y1={8} x2={28} y2={18} />
-          <circle cx={26} cy={20} r={2} fill={color} stroke="none" />
+          <line x1={4} y1={6} x2={28} y2={18} />
+          <circle cx={26} cy={15} r={2} fill={color} stroke="none" />
         </svg>
       )
     case 'ball_above':
+      // Horizontal line; ball positioned above the line.
       return (
         <svg {...props}>
-          <line x1={4} y1={22} x2={28} y2={4} />
-          <circle cx={24} cy={4} r={2} fill={color} stroke="none" />
-          <line x1={6} y1={22} x2={10} y2={22} />
+          <line x1={4} y1={18} x2={28} y2={18} />
+          <circle cx={16} cy={8} r={2} fill={color} stroke="none" />
         </svg>
       )
     case 'ball_below':
+      // Horizontal line; ball positioned below the line.
       return (
         <svg {...props}>
-          <line x1={4} y1={4} x2={28} y2={22} />
-          <circle cx={24} cy={22} r={2} fill={color} stroke="none" />
-          <line x1={6} y1={4} x2={10} y2={4} />
+          <line x1={4} y1={8} x2={28} y2={8} />
+          <circle cx={16} cy={18} r={2} fill={color} stroke="none" />
         </svg>
       )
   }

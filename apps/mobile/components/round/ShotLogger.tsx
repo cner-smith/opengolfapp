@@ -193,7 +193,7 @@ export function ShotLogger({
                       >
                         <SlopeIcon
                           kind={key}
-                          color={value.lieSlope === key ? '#F2EEE5' : '#1C211C'}
+                          color={value.lieSlope === key ? '#F2EEE5' : '#5C6356'}
                         />
                         <Text style={gridButtonTextStyle(value.lieSlope === key)}>
                           {key.replace('_', ' ')}
@@ -357,98 +357,50 @@ function gridButtonStyle(active: boolean) {
 }
 
 function SlopeIcon({ kind, color }: { kind: LieSlope; color: string }) {
+  const stroke = {
+    stroke: color,
+    strokeWidth: 1.5,
+    strokeLinecap: 'round' as const,
+  }
   switch (kind) {
     case 'uphill':
+      // Line tilts up left to right; ball at the low (left) end.
       return (
         <Svg width={32} height={24} viewBox="0 0 32 24">
-          <SvgLine
-            x1={4}
-            y1={18}
-            x2={28}
-            y2={8}
-            stroke={color}
-            strokeWidth={1.5}
-            strokeLinecap="round"
-          />
-          <Circle cx={26} cy={6} r={2} fill={color} />
+          <SvgLine x1={4} y1={18} x2={28} y2={6} {...stroke} />
+          <Circle cx={6} cy={15} r={2} fill={color} />
         </Svg>
       )
     case 'level':
+      // Horizontal line; ball centred above.
       return (
         <Svg width={32} height={24} viewBox="0 0 32 24">
-          <SvgLine
-            x1={4}
-            y1={14}
-            x2={28}
-            y2={14}
-            stroke={color}
-            strokeWidth={1.5}
-            strokeLinecap="round"
-          />
-          <Circle cx={16} cy={11} r={2} fill={color} />
+          <SvgLine x1={4} y1={16} x2={28} y2={16} {...stroke} />
+          <Circle cx={16} cy={12} r={2} fill={color} />
         </Svg>
       )
     case 'downhill':
+      // Line tilts down left to right; ball at the low (right) end.
       return (
         <Svg width={32} height={24} viewBox="0 0 32 24">
-          <SvgLine
-            x1={4}
-            y1={8}
-            x2={28}
-            y2={18}
-            stroke={color}
-            strokeWidth={1.5}
-            strokeLinecap="round"
-          />
-          <Circle cx={26} cy={20} r={2} fill={color} />
+          <SvgLine x1={4} y1={6} x2={28} y2={18} {...stroke} />
+          <Circle cx={26} cy={15} r={2} fill={color} />
         </Svg>
       )
     case 'ball_above':
+      // Horizontal line; ball positioned above the line.
       return (
         <Svg width={32} height={24} viewBox="0 0 32 24">
-          <SvgLine
-            x1={4}
-            y1={22}
-            x2={28}
-            y2={4}
-            stroke={color}
-            strokeWidth={1.5}
-            strokeLinecap="round"
-          />
-          <Circle cx={24} cy={4} r={2} fill={color} />
-          <SvgLine
-            x1={6}
-            y1={22}
-            x2={10}
-            y2={22}
-            stroke={color}
-            strokeWidth={1.5}
-            strokeLinecap="round"
-          />
+          <SvgLine x1={4} y1={18} x2={28} y2={18} {...stroke} />
+          <Circle cx={16} cy={8} r={2} fill={color} />
         </Svg>
       )
     case 'ball_below':
+      // Horizontal line; ball positioned below the line.
       return (
         <Svg width={32} height={24} viewBox="0 0 32 24">
-          <SvgLine
-            x1={4}
-            y1={4}
-            x2={28}
-            y2={22}
-            stroke={color}
-            strokeWidth={1.5}
-            strokeLinecap="round"
-          />
-          <Circle cx={24} cy={22} r={2} fill={color} />
-          <SvgLine
-            x1={6}
-            y1={4}
-            x2={10}
-            y2={4}
-            stroke={color}
-            strokeWidth={1.5}
-            strokeLinecap="round"
-          />
+          <SvgLine x1={4} y1={8} x2={28} y2={8} {...stroke} />
+          <Circle cx={16} cy={18} r={2} fill={color} />
         </Svg>
       )
   }
