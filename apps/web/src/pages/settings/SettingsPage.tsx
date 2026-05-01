@@ -1,4 +1,12 @@
 import { useEffect, useState } from 'react'
+import {
+  FACILITIES,
+  GOALS,
+  SKILL_LEVELS,
+  type Facility,
+  type Goal,
+  type SkillLevel,
+} from '@oga/core'
 import { useProfile, useUpdateProfile } from '../../hooks/useProfile'
 
 const UNIT_OPTIONS: { value: 'yards' | 'meters'; label: string }[] = [
@@ -6,19 +14,59 @@ const UNIT_OPTIONS: { value: 'yards' | 'meters'; label: string }[] = [
   { value: 'meters', label: 'Metres' },
 ]
 
+const SKILL_LABELS: Record<SkillLevel, string> = {
+  beginner: 'Beginner',
+  casual: 'Casual',
+  developing: 'Developing',
+  competitive: 'Competitive',
+}
+
+const GOAL_LABELS: Record<Goal, string> = {
+  break_100: 'Break 100',
+  break_90: 'Break 90',
+  break_80: 'Break 80',
+  break_70s: 'Break 70s',
+  scratch: 'Scratch',
+}
+
+const FACILITY_LABELS: Record<Facility, string> = {
+  range: 'Range',
+  short_game: 'Short Game',
+  putting: 'Putting',
+  sim: 'Sim',
+}
+
 export function SettingsPage() {
   const { data: profile } = useProfile()
   const updateProfile = useUpdateProfile()
   const [error, setError] = useState<string | null>(null)
   const [username, setUsername] = useState('')
   const [handicap, setHandicap] = useState('')
+  const [skill, setSkill] = useState<SkillLevel | null>(null)
+  const [goal, setGoal] = useState<Goal | null>(null)
+  const [facilities, setFacilities] = useState<Facility[]>([])
   const [saved, setSaved] = useState(false)
   const unit = profile?.distance_unit ?? 'yards'
 
   useEffect(() => {
     setUsername(profile?.username ?? '')
     setHandicap(profile?.handicap_index?.toString() ?? '')
-  }, [profile?.username, profile?.handicap_index])
+    setSkill((profile?.skill_level as SkillLevel | null) ?? null)
+    setGoal((profile?.goal as Goal | null) ?? null)
+    setFacilities((profile?.facilities ?? []) as Facility[])
+  }, [
+    profile?.username,
+    profile?.handicap_index,
+    profile?.skill_level,
+    profile?.goal,
+    profile?.facilities,
+  ])
+
+  function toggleFacility(f: Facility) {
+    setFacilities((prev) =>
+      prev.includes(f) ? prev.filter((x) => x !== f) : [...prev, f],
+    )
+  }
 
   async function setUnit(value: 'yards' | 'meters') {
     setError(null)
@@ -42,6 +90,9 @@ export function SettingsPage() {
       await updateProfile.mutateAsync({
         username: trimmed || null,
         handicap_index: numericHandicap,
+        skill_level: skill,
+        goal,
+        facilities,
       })
       setSaved(true)
     } catch (err) {
@@ -121,6 +172,79 @@ export function SettingsPage() {
             )}
           </div>
         </div>
+      </section>
+
+      <section
+        style={{
+          borderTop: '1px solid #D9D2BF',
+          paddingTop: 18,
+          marginBottom: 28,
+        }}
+      >
+        <div className="kicker" style={{ marginBottom: 12 }}>
+          Skill level
+        </div>
+        <ChipRow>
+          {SKILL_LEVELS.map((s) => (
+            <Chip
+              key={s}
+              label={SKILL_LABELS[s]}
+              active={skill === s}
+              onClick={() => setSkill(skill === s ? null : s)}
+            />
+          ))}
+        </ChipRow>
+      </section>
+
+      <section
+        style={{
+          borderTop: '1px solid #D9D2BF',
+          paddingTop: 18,
+          marginBottom: 28,
+        }}
+      >
+        <div className="kicker" style={{ marginBottom: 12 }}>
+          Goal
+        </div>
+        <ChipRow>
+          {GOALS.map((g) => (
+            <Chip
+              key={g}
+              label={GOAL_LABELS[g]}
+              active={goal === g}
+              onClick={() => setGoal(goal === g ? null : g)}
+            />
+          ))}
+        </ChipRow>
+      </section>
+
+      <section
+        style={{
+          borderTop: '1px solid #D9D2BF',
+          paddingTop: 18,
+          marginBottom: 28,
+        }}
+      >
+        <div className="kicker" style={{ marginBottom: 12 }}>
+          Facilities
+        </div>
+        <ChipRow>
+          {FACILITIES.map((f) => (
+            <Chip
+              key={f}
+              label={FACILITY_LABELS[f]}
+              active={facilities.includes(f)}
+              onClick={() => toggleFacility(f)}
+            />
+          ))}
+        </ChipRow>
+        <p
+          className="text-caddie-ink-dim"
+          style={{ fontSize: 13, marginTop: 10, lineHeight: 1.5 }}
+        >
+          Practice plans use your available facilities to pick drills
+          you can actually run.
+        </p>
       </section>
 
       <section
@@ -240,4 +364,42 @@ const inputStyle: React.CSSProperties = {
   padding: '10px 12px',
   fontSize: 14,
   color: '#1C211C',
+}
+
+function ChipRow({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="flex flex-wrap" style={{ gap: 8 }}>
+      {children}
+    </div>
+  )
+}
+
+function Chip({
+  label,
+  active,
+  onClick,
+}: {
+  label: string
+  active: boolean
+  onClick: () => void
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      style={{
+        background: active ? '#1F3D2C' : '#EBE5D6',
+        color: active ? '#F2EEE5' : '#1C211C',
+        border: 'none',
+        borderRadius: 2,
+        padding: '6px 12px',
+        fontSize: 12,
+        fontWeight: active ? 500 : 400,
+        cursor: 'pointer',
+      }}
+    >
+      {label}
+    </button>
+  )
 }
