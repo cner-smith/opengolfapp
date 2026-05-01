@@ -401,11 +401,11 @@ function DispersionPlot({
         AIM
       </SvgText>
 
-      {points.map((p, i) => {
+      {points.map((p) => {
         const c = pointColor(p.shotResult)
         return (
           <Circle
-            key={i}
+            key={p.id}
             cx={px(p.lateralOffsetYards)}
             cy={py(p.distanceOffsetYards)}
             r={3.5}
