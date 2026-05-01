@@ -73,16 +73,21 @@ export function RoundMap({
   onMovePin,
   onMoveTee,
 }: RoundMapProps) {
-  const effectivePin =
-    pinOverride ??
-    (hole && hole.pinLat != null && hole.pinLng != null
-      ? { lat: hole.pinLat, lng: hole.pinLng }
-      : null)
-  const effectiveTee =
-    teeOverride ??
-    (hole && hole.teeLat != null && hole.teeLng != null
-      ? { lat: hole.teeLat, lng: hole.teeLng }
-      : null)
+  // Memoized so downstream effects can dep on the object directly without
+  // thrashing on every parent render — coords are the only meaningful
+  // identity here.
+  const effectivePin = useMemo<PlacedPoint | null>(() => {
+    const lat = pinOverride?.lat ?? hole?.pinLat ?? null
+    const lng = pinOverride?.lng ?? hole?.pinLng ?? null
+    if (lat == null || lng == null) return null
+    return { lat, lng }
+  }, [pinOverride?.lat, pinOverride?.lng, hole?.pinLat, hole?.pinLng])
+  const effectiveTee = useMemo<PlacedPoint | null>(() => {
+    const lat = teeOverride?.lat ?? hole?.teeLat ?? null
+    const lng = teeOverride?.lng ?? hole?.teeLng ?? null
+    if (lat == null || lng == null) return null
+    return { lat, lng }
+  }, [teeOverride?.lat, teeOverride?.lng, hole?.teeLat, hole?.teeLng])
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<mapboxgl.Map | null>(null)
   const markerRefs = useRef<mapboxgl.Marker[]>([])
@@ -96,8 +101,7 @@ export function RoundMap({
     if (effectivePin) return [effectivePin.lng, effectivePin.lat]
     if (effectiveTee) return [effectiveTee.lng, effectiveTee.lat]
     return null
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hole?.id])
+  }, [effectivePin, effectiveTee])
 
   // Initialize the map once on mount.
   useEffect(() => {
@@ -148,19 +152,6 @@ export function RoundMap({
       map.off('click', onClick)
     }
   }, [onPlace, hasExistingShots, tapToPlaceDisabled])
-
-  // Render markers + connecting line for either existing shots or placed points.
-  useEffect(() => {
-    const map = mapRef.current
-    if (!map) return
-    // Wait for style.
-    if (!map.isStyleLoaded()) {
-      map.once('styledata', () => renderLayers())
-      return
-    }
-    renderLayers()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hole?.id, hasExistingShots, placedPoints, existingShots])
 
   const renderLayers = useCallback(() => {
     const map = mapRef.current
@@ -297,11 +288,23 @@ export function RoundMap({
     onMovePoint,
     onMovePin,
     onMoveTee,
-    effectivePin?.lat,
-    effectivePin?.lng,
-    effectiveTee?.lat,
-    effectiveTee?.lng,
+    effectivePin,
+    effectiveTee,
   ])
+
+  // Render markers + connecting line for either existing shots or placed points.
+  // renderLayers is memoized; its identity tracks the inputs that determine
+  // what's drawn, so deping on it is the correct trigger.
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map) return
+    // Wait for style.
+    if (!map.isStyleLoaded()) {
+      map.once('styledata', () => renderLayers())
+      return
+    }
+    renderLayers()
+  }, [renderLayers])
 
   return (
     <div style={{ position: 'relative', height: '100%', width: '100%' }}>

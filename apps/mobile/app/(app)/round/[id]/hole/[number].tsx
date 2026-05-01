@@ -128,8 +128,7 @@ export default function HoleScreen() {
     if (tee) return tee
     if (ball) return ball
     return FALLBACK_CENTER
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tee?.lat, tee?.lng, ball])
+  }, [tee?.lat, tee?.lng, ball?.lat, ball?.lng])
 
   const loadAll = useCallback(async () => {
     if (!id) return
@@ -202,6 +201,8 @@ export default function HoleScreen() {
   // Auto-place ball at current GPS position once per hole. Also keep
   // gpsPosition fresh so we can detect when the player walks onto the green.
   // Skipped in past-round mode since the player isn't on the course.
+  // Functional setBall preserves any manual placement (prev wins) without
+  // needing `ball` in deps — which would re-fire the GPS request mid-hole.
   useEffect(() => {
     if (!currentHole) return
     if (isPastMode) return
@@ -216,7 +217,7 @@ export default function HoleScreen() {
         if (!active) return
         const pos = { lat: loc.coords.latitude, lng: loc.coords.longitude }
         setGpsPosition(pos)
-        if (!ball) setBall(pos)
+        setBall((prev) => prev ?? pos)
       } catch {
         // GPS not available — user will tap to place.
       }
@@ -224,7 +225,6 @@ export default function HoleScreen() {
     return () => {
       active = false
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentHole?.id, isPastMode])
 
   // Highlight "On the green" once the player is within 80 yd of the stored

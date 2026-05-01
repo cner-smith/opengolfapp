@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   CLUBS,
   LIE_TYPES,
@@ -57,6 +57,19 @@ export function HoleReviewSheet({
 }: HoleReviewSheetProps) {
   const [rows, setRows] = useState<ReviewedShotRow[]>([])
 
+  // Stringified marker positions: cheap stable identity for the effect's
+  // dep array, so the .map().join() doesn't run inline in deps every
+  // render just to be compared.
+  const placedKey = useMemo(
+    () => placedPoints.map((p) => `${p.lat},${p.lng}`).join('|'),
+    [placedPoints],
+  )
+  // Read latest placedPoints inside the effect via ref so the effect's
+  // dep list can be just `placedKey` — re-running only when coords
+  // actually change, not on every parent render that returns a new array.
+  const placedPointsRef = useRef(placedPoints)
+  placedPointsRef.current = placedPoints
+
   useEffect(() => {
     if (!open) return
     if (pinLat == null || pinLng == null) {
@@ -64,19 +77,10 @@ export function HoleReviewSheet({
       setRows([])
       return
     }
-    setRows(buildInitialRows(placedPoints, par, pinLat, pinLng))
-    // Rebuild whenever the marker count or any marker's coordinates
-    // change so dragging in edit mode flows back into the displayed
-    // distances when the sheet reopens.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    open,
-    holeNumber,
-    placedPoints.length,
-    pinLat,
-    pinLng,
-    placedPoints.map((p) => `${p.lat},${p.lng}`).join('|'),
-  ])
+    setRows(
+      buildInitialRows(placedPointsRef.current, par, pinLat, pinLng),
+    )
+  }, [open, holeNumber, par, pinLat, pinLng, placedKey])
 
   // Slide-in: mount at translateY(100%), flip to 0 next frame so CSS
   // transition runs. Two rAFs to ensure the initial style commits first.
