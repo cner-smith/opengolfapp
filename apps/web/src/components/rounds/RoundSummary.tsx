@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import { formatSG as formatSGNumber, formatToPar } from '@oga/core'
 import type { Database } from '@oga/supabase'
 
 type RoundRow = Database['public']['Tables']['rounds']['Row']
@@ -21,8 +22,7 @@ const SG_KEYS = [
 
 function formatSG(value: number | null | undefined): string {
   if (value === null || value === undefined) return '—'
-  const sign = value > 0 ? '+' : ''
-  return `${sign}${value.toFixed(2)}`
+  return formatSGNumber(value)
 }
 
 function bestWorstHole(
@@ -82,7 +82,7 @@ export function RoundSummary({
                 className="font-serif tabular text-caddie-ink-dim"
                 style={{ fontSize: 17, fontStyle: 'italic' }}
               >
-                ({toPar > 0 ? `+${toPar}` : toPar === 0 ? 'E' : toPar})
+                ({formatToPar(toPar)})
               </span>
             )}
           </div>
@@ -243,7 +243,7 @@ function Highlight({
           className="font-serif tabular"
           style={{ fontSize: 17, fontStyle: 'italic', color }}
         >
-          {diff > 0 ? `+${diff}` : diff === 0 ? 'E' : diff}
+          {formatToPar(diff)}
         </span>
       </div>
     </div>

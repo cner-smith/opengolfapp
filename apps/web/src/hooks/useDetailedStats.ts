@@ -6,7 +6,7 @@ import {
   computeDetailedStats,
   type DetailedRound,
   type DetailedStats,
-} from '../lib/statsCalculations'
+} from '@oga/core'
 import { useAuth } from './useAuth'
 import { useProfile } from './useProfile'
 
@@ -29,7 +29,7 @@ export function useDetailedStats(limit: number): {
       // The Supabase types for nested joins (rounds → hole_scores → holes/shots)
       // come back as unknown — there's no public typegen path that resolves the
       // *, hole_scores(*, holes(*), shots(*)) shape. Cast is asserted here, not
-      // runtime-checked; if the schema or query changes, statsCalculations will
+      // runtime-checked; if the schema or query changes, @oga/core/stats will
       // throw a clear "cannot read property X of undefined" rather than a silent
       // type lie. Re-run `supabase gen types` and adjust DetailedRound when the
       // schema moves.

@@ -3,7 +3,9 @@ import {
   adjustedScore,
   calculateDifferential,
   calculateHandicapIndex,
+  computeRoundSG,
 } from '@oga/core'
+import type { RoundSGResult } from '@oga/core'
 import {
   getCourseTees,
   getHoleScoresForRound,
@@ -14,8 +16,6 @@ import {
 } from '@oga/supabase'
 import type { Database } from '@oga/supabase'
 import { supabase } from '../lib/supabase'
-import { computeRoundSG } from '../lib/sgCalc'
-import type { RoundSGResult } from '../lib/sgCalc'
 
 type HoleScoreRow = Database['public']['Tables']['hole_scores']['Row']
 type ShotRow = Database['public']['Tables']['shots']['Row']

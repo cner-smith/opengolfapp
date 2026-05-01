@@ -17,7 +17,7 @@ import type {
   PlacedPoint,
 } from '../../components/round/RoundMap'
 import { RoundMapInstructionStrip } from '../../components/round/RoundMap'
-import { combinedPuttResult, haversineYards } from '@oga/core'
+import { combinedPuttResult, getShotCategory, haversineYards } from '@oga/core'
 
 // Lazy-load Mapbox GL JS only when the map tab is opened. Cuts ~2 MB off
 // the initial bundle for users who never leave the scorecard.
@@ -157,7 +157,7 @@ export function RoundDetailPage() {
         endLng: s.end_lng,
         startLat: s.start_lat,
         startLng: s.start_lng,
-        category: categorizeShot(s),
+        category: categorizeShot(s, activeHole?.par ?? 4),
       }))
       .sort((a, b) => a.shotNumber - b.shotNumber)
   }, [activeHoleScore, shotsQuery.data])
@@ -880,15 +880,36 @@ function RoundRatingLine({
   )
 }
 
-function categorizeShot(s: {
-  shot_number: number
-  lie_type: string | null
-  distance_to_target: number | null
-}): ExistingShot['category'] {
-  if (s.lie_type === 'green') return 'putt'
+function categorizeShot(
+  s: {
+    shot_number: number
+    lie_type: string | null
+    distance_to_target: number | null
+  },
+  par: number,
+): ExistingShot['category'] {
+  // Visual override: any tee-lie shot (incl. par 3) renders as a tee
+  // marker even though SG-wise par 3 tee shots count as approach.
   if (s.lie_type === 'tee') return 'tee'
-  if (s.distance_to_target != null && s.distance_to_target <= 30) {
-    return 'around-green'
-  }
+  const cat = getShotCategory(
+    {
+      lieType:
+        (s.lie_type as
+          | 'tee'
+          | 'fairway'
+          | 'rough'
+          | 'sand'
+          | 'fringe'
+          | 'recovery'
+          | 'green'
+          | null) ?? undefined,
+      distanceToTarget: s.distance_to_target ?? undefined,
+    },
+    par,
+    s.shot_number,
+  )
+  if (cat === 'putting') return 'putt'
+  if (cat === 'around_green') return 'around-green'
+  if (cat === 'off_tee') return 'tee'
   return 'approach'
 }
