@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   ActivityIndicator,
   Alert,
@@ -78,7 +78,6 @@ export default function HoleScreen() {
 
   const [aim, setAim] = useState<LatLng | null>(null)
   const [ball, setBall] = useState<LatLng | null>(null)
-  const lastEndRef = useRef<LatLng | null>(null)
   const [remoteShotCount, setRemoteShotCount] = useState(0)
   const [localShotCount, setLocalShotCount] = useState(0)
   const [remotePuttCount, setRemotePuttCount] = useState(0)
@@ -189,7 +188,6 @@ export default function HoleScreen() {
       setLocalShotCount(local.length)
       setRemotePuttCount(puttRes.count ?? 0)
       setLocalPuttCount(localPutts)
-      lastEndRef.current = null
     })()
     return () => {
       active = false
@@ -235,16 +233,18 @@ export default function HoleScreen() {
   const shotNumber = remoteShotCount + localShotCount + 1
 
   function buildPayload(meta: ShotLoggerValue | null): ShotPayload | null {
-    if (!user || !currentHoleScore) return null
-    const start = lastEndRef.current ?? tee ?? null
+    if (!user || !currentHoleScore || !ball) return null
+    // New live-round semantics: ball is the player's current position
+    // (the start of this shot). end_lat/lng is unknown until the next
+    // PLACE_BALL — the next ball mark fills in this shot's landing.
     return {
       hole_score_id: currentHoleScore.id,
       user_id: user.id,
       shot_number: shotNumber,
-      start_lat: start?.lat ?? null,
-      start_lng: start?.lng ?? null,
-      end_lat: ball?.lat ?? null,
-      end_lng: ball?.lng ?? null,
+      start_lat: ball.lat,
+      start_lng: ball.lng,
+      end_lat: null,
+      end_lng: null,
       aim_lat: aim?.lat ?? null,
       aim_lng: aim?.lng ?? null,
       club: meta?.club ?? null,
@@ -284,7 +284,6 @@ export default function HoleScreen() {
     setSaving(true)
     try {
       await insertPendingShot(payload)
-      lastEndRef.current = ball
       const isPutt = payload.club === 'putter' || payload.lie_type === 'green'
       setLocalShotCount((c) => c + 1)
       if (isPutt) setLocalPuttCount((c) => c + 1)
