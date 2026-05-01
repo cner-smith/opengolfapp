@@ -1,5 +1,13 @@
 import { useState } from 'react'
-import { View, Text, TextInput, Pressable } from 'react-native'
+import {
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  Text,
+  TextInput,
+  View,
+} from 'react-native'
 import { Link, useRouter } from 'expo-router'
 import { supabase } from '../../lib/supabase'
 
@@ -28,7 +36,19 @@ export default function Signup() {
   }
 
   return (
-    <View className="flex-1 justify-center bg-oga-bg-page px-6">
+    <KeyboardAvoidingView
+      className="flex-1 bg-oga-bg-page"
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+    >
+      <ScrollView
+        contentContainerStyle={{
+          flexGrow: 1,
+          justifyContent: 'center',
+          paddingHorizontal: 24,
+          paddingVertical: 24,
+        }}
+        keyboardShouldPersistTaps="handled"
+      >
       <View
         style={{
           backgroundColor: '#FFFFFF',
@@ -102,7 +122,8 @@ export default function Signup() {
           Have an account? Sign in
         </Link>
       </View>
-    </View>
+      </ScrollView>
+    </KeyboardAvoidingView>
   )
 }
 

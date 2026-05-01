@@ -1,5 +1,13 @@
 import { useEffect, useState } from 'react'
-import { Pressable, ScrollView, Text, TextInput, View } from 'react-native'
+import {
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  Text,
+  TextInput,
+  View,
+} from 'react-native'
 import { GreenDiagram, type BreakDirection } from './GreenDiagram'
 import { useUnits } from '../../hooks/useUnits'
 
@@ -145,7 +153,8 @@ export function PuttingSheet({
   const distance = value.puttDistanceFt ?? 0
 
   return (
-    <View
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       style={{
         backgroundColor: '#FBF8F1',
         borderTopLeftRadius: 12,
@@ -364,7 +373,7 @@ export function PuttingSheet({
           </Pressable>
         </View>
       </ScrollView>
-    </View>
+    </KeyboardAvoidingView>
   )
 }
 

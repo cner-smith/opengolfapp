@@ -455,7 +455,10 @@ function ManualCourseForm({
 
   return (
     <View style={{ flex: 1, backgroundColor: '#F2EEE5' }}>
-      <ScrollView contentContainerStyle={{ padding: 18, paddingBottom: 40 }}>
+      <ScrollView
+        contentContainerStyle={{ padding: 18, paddingBottom: 40 }}
+        keyboardShouldPersistTaps="handled"
+      >
         <Text style={{ ...KICKER, marginBottom: 8 }}>Add course</Text>
         <Text
           style={{
