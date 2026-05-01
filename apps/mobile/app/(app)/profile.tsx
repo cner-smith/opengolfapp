@@ -57,7 +57,7 @@ export default function ProfileTab() {
       }
       if (!data) return
       hydratedUserIdRef.current = user.id
-      setProfile(data)
+      setProfile(data as unknown as Profile)
       setUsername(data.username ?? '')
       setHandicap(data.handicap_index?.toString() ?? '')
       setSkill(data.skill_level ?? null)

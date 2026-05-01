@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Dimensions, Pressable, ScrollView, Text, View } from 'react-native'
+import { Pressable, ScrollView, Text, useWindowDimensions, View } from 'react-native'
 import { VictoryAxis, VictoryChart, VictoryLine } from 'victory-native'
 import { formatSG } from '@oga/core'
 import { getRecentSGData } from '@oga/supabase'
@@ -39,7 +39,7 @@ export default function Stats() {
   const [n, setN] = useState<number>(10)
   const [rounds, setRounds] = useState<RecentRound[]>([])
   const [loading, setLoading] = useState(true)
-  const screenWidth = Dimensions.get('window').width
+  const { width: screenWidth } = useWindowDimensions()
 
   useEffect(() => {
     if (!user) return
@@ -69,7 +69,21 @@ export default function Stats() {
     [rounds],
   )
 
-  const ordered = [...rounds].reverse()
+  // Pre-build the chart series once per rounds change. The inline
+  // ordered.map(...) inside <VictoryLine> previously rebuilt every
+  // chart-data array on every parent render (window resize, focus,
+  // etc.) and Victory then re-tessellated the lines.
+  const chartSeries = useMemo(() => {
+    const ordered = [...rounds].reverse()
+    return SERIES.map((s) => ({
+      key: s.key,
+      color: s.color,
+      data: ordered.map((r) => ({
+        x: new Date(r.played_at).getTime(),
+        y: r[s.key] ?? 0,
+      })),
+    }))
+  }, [rounds])
 
   return (
     <View style={{ flex: 1, backgroundColor: '#F2EEE5' }}>
@@ -236,13 +250,10 @@ export default function Stats() {
                     grid: { stroke: '#EBE5D6' },
                   }}
                 />
-                {SERIES.map((s) => (
+                {chartSeries.map((s) => (
                   <VictoryLine
                     key={s.key}
-                    data={ordered.map((r) => ({
-                      x: new Date(r.played_at).getTime(),
-                      y: r[s.key] ?? 0,
-                    }))}
+                    data={s.data}
                     style={{ data: { stroke: s.color, strokeWidth: 1.5 } }}
                   />
                 ))}

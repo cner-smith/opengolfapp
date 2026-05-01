@@ -7,6 +7,12 @@ import { useAuth } from './useAuth'
 type ShotInsert = Database['public']['Tables']['shots']['Insert']
 type ShotUpdate = Database['public']['Tables']['shots']['Update']
 
+// getShotsForRound's narrow column list matches every consumer of this
+// hook (no one reads created_at). Cast the inferred narrow shape back to
+// the canonical ShotRow so the call sites — ShotEntryModal's startEdit,
+// the round map's categorizeShot — keep their existing types.
+type ShotRow = Database['public']['Tables']['shots']['Row']
+
 export function useShotsForRound(roundId: string | undefined) {
   const { user } = useAuth()
   return useQuery({
@@ -15,7 +21,7 @@ export function useShotsForRound(roundId: string | undefined) {
     queryFn: async () => {
       const { data, error } = await getShotsForRound(supabase, roundId!, user!.id)
       if (error) throw error
-      return data ?? []
+      return (data ?? []) as unknown as ShotRow[]
     },
   })
 }

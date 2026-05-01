@@ -1,3 +1,4 @@
+import { useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import {
   CartesianGrid,
@@ -38,6 +39,41 @@ export function DashboardPage() {
   const firstName =
     profile.data?.username?.split(/\s+/)[0] ?? null
 
+  // All five reductions over the rounds array share the same dependency
+  // (`rounds`) and run on every render — wrap once so unrelated parent
+  // re-renders don't recompute SG averages, trend coords, and avg score
+  // from scratch. Hook stays above the early returns to keep call order
+  // stable across renders.
+  const stats = useMemo(() => {
+    const avgs = SG_KEYS.map((c) => {
+      const values = rounds
+        .map((r) => r[c.key])
+        .filter((v): v is number => v !== null)
+      const avg =
+        values.length === 0 ? 0 : values.reduce((a, b) => a + b, 0) / values.length
+      return { ...c, value: Number(avg.toFixed(2)) }
+    })
+    const maxAbs = Math.max(...avgs.map((a) => Math.abs(a.value)), 0.5)
+    const trendData = [...rounds].reverse().map((r) => ({
+      date: r.played_at,
+      sg: r.sg_total ?? 0,
+    }))
+    const totalScore = rounds.reduce((s, r) => s + (r.total_score ?? 0), 0)
+    const totalScoreCount = rounds.filter((r) => r.total_score !== null).length
+    const avgScore = totalScoreCount > 0 ? totalScore / totalScoreCount : 0
+    const totalSG = avgs.reduce((s, a) => s + a.value, 0)
+    const sortedDesc = [...avgs].sort((a, b) => b.value - a.value)
+    return {
+      avgs,
+      maxAbs,
+      trendData,
+      avgScore,
+      totalSG,
+      weakest: sortedDesc[sortedDesc.length - 1]!,
+      strongest: sortedDesc[0]!,
+    }
+  }, [rounds])
+
   if (sg.isLoading) {
     return <div className="text-caddie-ink-mute">Loading…</div>
   }
@@ -56,27 +92,7 @@ export function DashboardPage() {
     )
   }
 
-  const avgs = SG_KEYS.map((c) => {
-    const values = rounds.map((r) => r[c.key]).filter((v): v is number => v !== null)
-    const avg = values.length === 0 ? 0 : values.reduce((a, b) => a + b, 0) / values.length
-    return { ...c, value: Number(avg.toFixed(2)) }
-  })
-
-  const maxAbs = Math.max(...avgs.map((a) => Math.abs(a.value)), 0.5)
-
-  const trendData = [...rounds].reverse().map((r) => ({
-    date: r.played_at,
-    sg: r.sg_total ?? 0,
-  }))
-
-  const totalScore = rounds.reduce((s, r) => s + (r.total_score ?? 0), 0)
-  const totalScoreCount = rounds.filter((r) => r.total_score !== null).length
-  const avgScore = totalScoreCount > 0 ? totalScore / totalScoreCount : 0
-
-  const totalSG = avgs.reduce((s, a) => s + a.value, 0)
-
-  const weakest = [...avgs].sort((a, b) => a.value - b.value)[0]!
-  const strongest = [...avgs].sort((a, b) => b.value - a.value)[0]!
+  const { avgs, maxAbs, trendData, avgScore, totalSG, weakest, strongest } = stats
 
   return (
     <div>

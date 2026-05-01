@@ -3,8 +3,14 @@ import type { Database } from '../types'
 
 type ProfileUpdate = Database['public']['Tables']['profiles']['Update']
 
+// Explicit column list — `select('*')` over-fetches every audit / metadata
+// column on every read. These seven are everything the apps actually
+// consume from the profile.
+const PROFILE_COLUMNS =
+  'id, username, handicap_index, skill_level, goal, facilities, distance_unit'
+
 export function getProfile(client: OgaSupabaseClient, userId: string) {
-  return client.from('profiles').select('*').eq('id', userId).single()
+  return client.from('profiles').select(PROFILE_COLUMNS).eq('id', userId).single()
 }
 
 export function updateProfile(

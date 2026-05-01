@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Dimensions, Pressable, ScrollView, Text, View } from 'react-native'
+import { Pressable, ScrollView, Text, useWindowDimensions, View } from 'react-native'
 import Svg, { Circle, Ellipse, Line, Rect, Text as SvgText } from 'react-native-svg'
 import {
   CLUBS,
@@ -319,7 +319,7 @@ function DispersionPlot({
   points: DispersionPoint[]
   stats: DispersionStats | null
 }) {
-  const screenWidth = Dimensions.get('window').width
+  const { width: screenWidth } = useWindowDimensions()
   const size = Math.min(SVG_SIZE, screenWidth - 56)
 
   const maxAbs = Math.max(

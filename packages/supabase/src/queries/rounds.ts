@@ -1,13 +1,22 @@
 import type { OgaSupabaseClient } from '../client'
 import type { Database } from '../types'
+import { SHOT_COLUMNS } from './shots'
 
 type RoundInsert = Database['public']['Tables']['rounds']['Insert']
 type RoundUpdate = Database['public']['Tables']['rounds']['Update']
 
+// Explicit column list for the rounds row — drops audit columns and
+// `notes` (not displayed in any list/detail view today). Pair with
+// SHOT_COLUMNS for the nested shots() join so the stats/detail payload
+// no longer ships every audit column for every shot in every round.
+// Single literal so supabase-js's select-type inference doesn't collapse
+// to GenericStringError.
+const ROUND_COLUMNS = 'id, user_id, course_id, played_at, tee_color, total_score, total_putts, fairways_hit, fairways_total, gir, sg_off_tee, sg_approach, sg_around_green, sg_putting, sg_total, course_tee_id, score_differential' as const
+
 export function getRounds(client: OgaSupabaseClient, userId: string, limit = 20) {
   return client
     .from('rounds')
-    .select('*, courses(name, city, state)')
+    .select(`${ROUND_COLUMNS}, courses(name, city, state)`)
     .eq('user_id', userId)
     .order('played_at', { ascending: false })
     .limit(limit)
@@ -23,7 +32,9 @@ export function getRound(
 ) {
   return client
     .from('rounds')
-    .select('*, courses(name, city, state), hole_scores(*, holes(*), shots(*))')
+    .select(
+      `${ROUND_COLUMNS}, courses(name, city, state), hole_scores(*, holes(*), shots(${SHOT_COLUMNS}))`,
+    )
     .eq('id', roundId)
     .eq('user_id', userId)
     .single()
@@ -78,7 +89,7 @@ export function getRoundsWithDetails(
   return client
     .from('rounds')
     .select(
-      '*, courses(name), hole_scores(*, holes(*), shots(*))',
+      `${ROUND_COLUMNS}, courses(name), hole_scores(*, holes(*), shots(${SHOT_COLUMNS}))`,
     )
     .eq('user_id', userId)
     .order('played_at', { ascending: false })
