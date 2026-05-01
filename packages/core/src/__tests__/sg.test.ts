@@ -139,8 +139,12 @@ describe('calculateRoundSG — driveable par 4', () => {
   })
 
   it('putting SG = -0.24 for hcp 20 — left a 1 ft second, holed', () => {
+    // PUTTING_BASELINES[20] minimum key is 3 ft, so 1 ft tap-ins
+    // clamp to PUTTING[20][3] = 1.13. The second putt then "earns"
+    // 1.13 - 0 - 1 = 0.13 because the last-shot endExpected is 0.
+    //
     // putt 1 (10 ft → 1.76) → next 1 ft (clamped 3 ft → 1.13): -0.37
-    // putt 2 (1 ft, last + holed): 1.13 − 0 − 1 = 0.13
+    // putt 2 (1 ft [clamped], last + holed): 1.13 − 0 − 1 = 0.13
     // putting total = -0.24
     const sg = calculateRoundSG(buildRound(), 20)
     expect(sg.putting).toBeCloseTo(-0.24, 2)
@@ -159,9 +163,18 @@ describe('calculateRoundSG — 3-putt from 6 feet (handicap 0)', () => {
   ]
 
   it('putting SG = -1.81 — pinned to the hand-computed value', () => {
-    // putt 1 (6 ft → 1.193, next 1.5 ft → 1.03): -0.837
-    // putt 2 (1.5 ft → 1.03, next 0.5 ft → 1.03): -1.0
-    // putt 3 (0.5 ft → 1.03, holed → 0): 0.03
+    // PUTTING_BASELINES[0]'s minimum key is 3 ft, so any distance ≤3
+    // ft clamps to PUTTING[0][3] = 1.03. That's why the math below
+    // shows 1.5 ft and 0.5 ft both expecting 1.03 strokes — the
+    // baseline table simply doesn't model sub-3-ft tap-ins, and a putt
+    // from 1.5 ft to 0.5 ft therefore "earns" SG = 1.03 - 1.03 - 1
+    // = -1.0 (it cost a stroke without changing the expected). This
+    // is a documented coarseness in the baseline tables, not a logic
+    // bug in calculateRoundSG.
+    //
+    // putt 1 (6 ft → 1.193, next 1.5 ft → 1.03 [clamped]): -0.837
+    // putt 2 (1.5 ft → 1.03 [clamped], next 0.5 ft → 1.03 [clamped]): -1.0
+    // putt 3 (0.5 ft → 1.03 [clamped], holed → 0): 0.03
     // sum = -1.807
     const sg = calculateRoundSG(ROUND, 0)
     expect(sg.putting).toBeCloseTo(-1.807, 2)
@@ -332,20 +345,51 @@ describe('computeRoundSG (sg.ts) — DB row → result adapter', () => {
 })
 
 describe('calculateRoundSG — penalty / OB attribution', () => {
-  // Penalty on a tee shot should subtract a stroke from off-tee SG.
-  it('penalty stroke subtracts 1 from the affected category SG', () => {
-    const clean: ShotWithContext[] = [
+  function buildClean(): ShotWithContext[] {
+    return [
       shot({ shotNumber: 1, par: 4, isLastShot: false, lieType: 'tee', distanceToTarget: 380 }),
       shot({ shotNumber: 2, par: 4, isLastShot: true, lieType: 'fairway', distanceToTarget: 50 }),
     ]
+  }
+
+  it('penalty stroke subtracts 1 from the affected category SG', () => {
     const withPenalty: ShotWithContext[] = [
       shot({ shotNumber: 1, par: 4, isLastShot: false, lieType: 'tee', distanceToTarget: 380, penalty: true }),
       shot({ shotNumber: 2, par: 4, isLastShot: true, lieType: 'fairway', distanceToTarget: 50 }),
     ]
-    const a = calculateRoundSG(clean, 15)
+    const a = calculateRoundSG(buildClean(), 15)
     const b = calculateRoundSG(withPenalty, 15)
     expect(b.offTee).toBeCloseTo(a.offTee - 1, 6)
     // Approach SG and other categories unchanged.
     expect(b.approach).toBeCloseTo(a.approach, 6)
+  })
+
+  it('OB stroke subtracts 1 from the affected category SG', () => {
+    // OB is graded the same as a one-stroke penalty in the SG impl
+    // (penaltyAdjust = penalty || ob). Stroke-and-distance is not
+    // separately modeled — the dropped re-tee just becomes the next
+    // shot in the array. This pin makes sure the OB branch stays
+    // wired up and doesn't silently zero out.
+    const withOB: ShotWithContext[] = [
+      shot({ shotNumber: 1, par: 4, isLastShot: false, lieType: 'tee', distanceToTarget: 380, ob: true }),
+      shot({ shotNumber: 2, par: 4, isLastShot: true, lieType: 'fairway', distanceToTarget: 50 }),
+    ]
+    const a = calculateRoundSG(buildClean(), 15)
+    const b = calculateRoundSG(withOB, 15)
+    expect(b.offTee).toBeCloseTo(a.offTee - 1, 6)
+    expect(b.approach).toBeCloseTo(a.approach, 6)
+  })
+
+  it('OB and penalty stack — both flags subtract together', () => {
+    // The impl uses `penalty || ob`, so a shot flagged with both still
+    // takes only ONE -1 adjustment, not two. Lock this in so a future
+    // refactor that splits them doesn't accidentally double-count.
+    const both: ShotWithContext[] = [
+      shot({ shotNumber: 1, par: 4, isLastShot: false, lieType: 'tee', distanceToTarget: 380, penalty: true, ob: true }),
+      shot({ shotNumber: 2, par: 4, isLastShot: true, lieType: 'fairway', distanceToTarget: 50 }),
+    ]
+    const a = calculateRoundSG(buildClean(), 15)
+    const b = calculateRoundSG(both, 15)
+    expect(b.offTee).toBeCloseTo(a.offTee - 1, 6)
   })
 })
