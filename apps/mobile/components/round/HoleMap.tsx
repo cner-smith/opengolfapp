@@ -103,7 +103,8 @@ export function HoleMap({
     if (!cameraRef.current) return
     cameraRef.current.setCamera({
       centerCoordinate: toCoord(center),
-      zoomLevel: 16,
+      zoomLevel: 17,
+      pitch: 45,
       animationDuration: 400,
     })
     cameraInitialized.current = true
@@ -165,7 +166,8 @@ export function HoleMap({
             ref={cameraRef}
             defaultSettings={{
               centerCoordinate: toCoord(center),
-              zoomLevel: 16,
+              zoomLevel: 17,
+              pitch: 45,
             }}
           />
 
