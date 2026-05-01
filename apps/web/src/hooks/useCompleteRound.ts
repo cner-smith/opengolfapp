@@ -50,7 +50,7 @@ export function useCompleteRound() {
       const [holesRes, holeScoresRes, shotsRes, teesRes] = await Promise.all([
         getHolesForCourse(supabase, courseId),
         getHoleScoresForRound(supabase, roundId),
-        getShotsForRound(supabase, roundId),
+        getShotsForRound(supabase, roundId, userId),
         getCourseTees(supabase, courseId),
       ])
       if (holesRes.error) throw holesRes.error
@@ -128,7 +128,10 @@ export function useCompleteRound() {
         }
       }
 
-      const { error: roundError } = await updateRound(supabase, roundId, {
+      const { error: roundError } = await updateRound(
+        supabase,
+        roundId,
+        {
         sg_off_tee: round2(result.round.offTee),
         sg_approach: round2(result.round.approach),
         sg_around_green: round2(result.round.aroundGreen),
@@ -143,7 +146,9 @@ export function useCompleteRound() {
         // direct link without re-running the fallback.
         course_tee_id: tee?.id ?? courseTeeId ?? null,
         score_differential: differential,
-      })
+        },
+        userId,
+      )
       if (roundError) throw roundError
 
       // ---- Handicap index recompute --------------------------------------

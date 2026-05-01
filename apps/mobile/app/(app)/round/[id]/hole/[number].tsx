@@ -416,10 +416,10 @@ export default function HoleScreen() {
   }
 
   async function handleDeleteRound() {
-    if (!round) return
+    if (!round || !user) return
     setDeleting(true)
     try {
-      const { error: delErr } = await deleteRound(supabase, round.id)
+      const { error: delErr } = await deleteRound(supabase, round.id, user.id)
       if (delErr) {
         Alert.alert('Delete failed', delErr.message)
         return

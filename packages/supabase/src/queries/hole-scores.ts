@@ -20,10 +20,21 @@ export function upsertHoleScore(client: OgaSupabaseClient, score: HoleScoreInser
     .single()
 }
 
+// hole_scores has no direct user_id column. Belt-and-suspenders is to
+// constrain by round_id (caller knows it), so RLS's parent-table check
+// can't be the only thing standing between a stray UUID and another
+// user's row.
 export function updateHoleScore(
   client: OgaSupabaseClient,
   id: string,
   updates: HoleScoreUpdate,
+  roundId: string,
 ) {
-  return client.from('hole_scores').update(updates).eq('id', id).select().single()
+  return client
+    .from('hole_scores')
+    .update(updates)
+    .eq('id', id)
+    .eq('round_id', roundId)
+    .select()
+    .single()
 }

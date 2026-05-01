@@ -56,9 +56,10 @@ export default function Home() {
 
   const handleDelete = useCallback(
     async (id: string) => {
+      if (!user) return
       setDeleting(true)
       try {
-        const { error } = await deleteRound(supabase, id)
+        const { error } = await deleteRound(supabase, id, user.id)
         if (error) throw error
         setRounds((prev) => prev.filter((r) => r.id !== id))
       } finally {
@@ -67,7 +68,7 @@ export default function Home() {
         swipeRefs.current.delete(id)
       }
     },
-    [],
+    [user],
   )
 
   useEffect(() => {
