@@ -102,14 +102,14 @@ export default function HoleScreen() {
       ? { lat: currentHole.tee_lat, lng: currentHole.tee_lng }
       : null
 
+  // Camera anchors on the tee box — the player's starting point. Pin/green
+  // is intentionally NOT a fallback; it would mis-frame the hole every time.
   const center: LatLng = useMemo(() => {
-    if (roundPin) return roundPin
-    if (storedPin) return storedPin
     if (tee) return tee
     if (ball) return ball
     return FALLBACK_CENTER
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [roundPin?.lat, roundPin?.lng, storedPin?.lat, storedPin?.lng, tee?.lat, tee?.lng, ball])
+  }, [tee?.lat, tee?.lng, ball])
 
   const loadAll = useCallback(async () => {
     if (!id) return
