@@ -185,6 +185,8 @@ export function useCompleteRound() {
       qc.invalidateQueries({ queryKey: ['round', variables.roundId] })
       qc.invalidateQueries({ queryKey: ['rounds'] })
       qc.invalidateQueries({ queryKey: ['hole-scores', variables.roundId] })
+      qc.invalidateQueries({ queryKey: ['shots', 'round', variables.roundId] })
+      qc.invalidateQueries({ queryKey: ['detailed-stats'] })
       qc.invalidateQueries({ queryKey: ['profile', variables.userId] })
     },
   })
