@@ -69,6 +69,10 @@ export default function ProfileTab() {
       Alert.alert('Handicap must be a number')
       return
     }
+    if (numericHandicap != null && (numericHandicap < -10 || numericHandicap > 54)) {
+      Alert.alert('Handicap must be between -10 and 54')
+      return
+    }
     setSaving(true)
     const { data, error } = await updateProfile(supabase, user.id, {
       username: username || null,

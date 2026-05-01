@@ -192,11 +192,18 @@ export default function HoleScreen() {
       setLocalShotCount(local.length)
       setRemotePuttCount(puttRes.count ?? 0)
       setLocalPuttCount(localPutts)
-      lastSavedShotLocalIdRef.current = null
     })()
     return () => {
       active = false
     }
+  }, [currentHoleScore?.id])
+
+  // Reset the just-saved-shot ref synchronously on hole transition. Keeping
+  // it inside the async count-load effect (above) created a race: a tap-to-
+  // mark-ball that set the ref could be wiped out when the (slower) count
+  // load resolved a moment later, leaving shot N's end_lat/end_lng unset.
+  useEffect(() => {
+    lastSavedShotLocalIdRef.current = null
   }, [currentHoleScore?.id])
 
   // Auto-place ball at current GPS position once per hole. Also keep

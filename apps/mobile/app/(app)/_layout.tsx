@@ -17,6 +17,7 @@ export default function AppLayout() {
     if (authLoading) return
     if (!user) return
 
+    let active = true
     supabase
       .from('profiles')
       .select('skill_level, goal')
@@ -24,12 +25,16 @@ export default function AppLayout() {
       .single()
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       .then(({ data, error }: { data: any; error: any }) => {
+        if (!active) return
         if (error || !data || !data.skill_level || !data.goal) {
           setProfileState('incomplete')
         } else {
           setProfileState('complete')
         }
       })
+    return () => {
+      active = false
+    }
   }, [user, authLoading])
 
   if (authLoading || profileState === 'loading') return null

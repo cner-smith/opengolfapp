@@ -86,6 +86,10 @@ export function SettingsPage() {
       setError('Handicap must be a number')
       return
     }
+    if (numericHandicap != null && (numericHandicap < -10 || numericHandicap > 54)) {
+      setError('Handicap must be between -10 and 54')
+      return
+    }
     try {
       await updateProfile.mutateAsync({
         username: trimmed || null,
@@ -139,8 +143,11 @@ export function SettingsPage() {
           <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             <span className="kicker">Handicap index</span>
             <input
-              type="text"
+              type="number"
               inputMode="decimal"
+              min={-10}
+              max={54}
+              step={0.1}
               value={handicap}
               onChange={(e) => setHandicap(e.target.value)}
               style={inputStyle}
