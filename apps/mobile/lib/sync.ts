@@ -1,13 +1,39 @@
 import { listPendingShots, markShotSynced, type ShotPayload } from './db'
 import { supabase } from './supabase'
 
+// Module-scope lock that survives a Fast Refresh and prevents two
+// concurrent syncPendingShots() calls from racing the same SQLite rows.
+// A timestamp + TTL guards against the lock getting stuck `true` after a
+// crash mid-flight: if the current process can't have been holding it
+// for that long, we know it's stale and reset.
 let inFlight = false
-
+let inFlightSince: number | null = null
+const LOCK_TTL_MS = 30_000
 const CHUNK_SIZE = 50
 
-export async function syncPendingShots(): Promise<{ synced: number; failed: number }> {
-  if (inFlight) return { synced: 0, failed: 0 }
+function acquireLock(): boolean {
+  if (inFlight) {
+    if (inFlightSince != null && Date.now() - inFlightSince > LOCK_TTL_MS) {
+      // eslint-disable-next-line no-console
+      console.warn('[sync] stale lock detected, resetting')
+      inFlight = false
+      inFlightSince = null
+    } else {
+      return false
+    }
+  }
   inFlight = true
+  inFlightSince = Date.now()
+  return true
+}
+
+function releaseLock(): void {
+  inFlight = false
+  inFlightSince = null
+}
+
+export async function syncPendingShots(): Promise<{ synced: number; failed: number }> {
+  if (!acquireLock()) return { synced: 0, failed: 0 }
   let synced = 0
   let failed = 0
   try {
@@ -49,7 +75,7 @@ export async function syncPendingShots(): Promise<{ synced: number; failed: numb
       }
     }
   } finally {
-    inFlight = false
+    releaseLock()
   }
   return { synced, failed }
 }
