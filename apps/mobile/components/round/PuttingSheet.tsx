@@ -198,12 +198,12 @@ export function PuttingSheet({
             On the green.
           </Text>
         </View>
-        <Pressable onPress={onClose}>
-          <Text
-            style={{ ...KICKER, color: '#8A8B7E', padding: 6 }}
-          >
-            Close
-          </Text>
+        <Pressable
+          onPress={onClose}
+          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+          style={{ padding: 12 }}
+        >
+          <Text style={{ ...KICKER, color: '#8A8B7E' }}>Close</Text>
         </Pressable>
       </View>
 

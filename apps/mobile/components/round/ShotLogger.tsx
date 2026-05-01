@@ -189,7 +189,11 @@ export function ShotLogger({
                 Log it.
               </Text>
             </View>
-            <Pressable onPress={onSkip}>
+            <Pressable
+              onPress={onSkip}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+              style={{ padding: 6 }}
+            >
               <Text
                 style={{
                   ...KICKER,
