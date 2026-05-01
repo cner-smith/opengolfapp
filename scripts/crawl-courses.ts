@@ -124,6 +124,8 @@ interface OgaListItem {
   name: string
   city?: string
   state?: string
+  lat?: number
+  lng?: number
 }
 
 interface OgaTee {
@@ -146,6 +148,8 @@ interface OgaCourseDetail {
   name: string
   city?: string
   state?: string
+  lat?: number
+  lng?: number
   holes: OgaHole[]
   tees: OgaTee[]
 }
@@ -188,6 +192,12 @@ interface RawCourse {
   holes?: RawHole[]
   scorecard?: RawHole[]
   tees?: RawTee[]
+  lat?: number | string
+  lng?: number | string
+  longitude?: number | string
+  latitude?: number | string
+  coordinates?: { lat?: number | string; lng?: number | string; longitude?: number | string; latitude?: number | string }
+  location?: { lat?: number | string; lng?: number | string; longitude?: number | string; latitude?: number | string }
 }
 
 interface OsmCourseLite {
@@ -296,16 +306,34 @@ function pickArray(payload: unknown): RawCourse[] {
   return []
 }
 
+function pickCoords(raw: RawCourse): { lat?: number; lng?: number } {
+  const sources: Array<RawCourse['coordinates']> = [
+    raw,
+    raw.coordinates,
+    raw.location && typeof raw.location === 'object' ? raw.location : undefined,
+  ]
+  for (const src of sources) {
+    if (!src) continue
+    const lat = asNumber(src.lat ?? src.latitude)
+    const lng = asNumber(src.lng ?? src.longitude)
+    if (lat != null && lng != null) return { lat, lng }
+  }
+  return {}
+}
+
 function normalizeListItem(raw: RawCourse): OgaListItem | null {
   const id = String(raw.id ?? raw.course_id ?? '')
   if (!id) return null
   const name = (raw.name ?? raw.course_name ?? '').trim()
   if (!name) return null
+  const coords = pickCoords(raw)
   return {
     id,
     name,
     city: raw.city ?? undefined,
     state: raw.state ?? raw.region ?? undefined,
+    lat: coords.lat,
+    lng: coords.lng,
   }
 }
 
@@ -368,11 +396,14 @@ function normalizeDetail(raw: RawCourse): OgaCourseDetail | null {
     holes.push(yards != null ? { number, par, yards } : { number, par })
   }
   holes.sort((a, b) => a.number - b.number)
+  const coords = pickCoords(raw)
   return {
     id,
     name,
     city: raw.city ?? undefined,
     state: raw.state ?? raw.region ?? undefined,
+    lat: coords.lat,
+    lng: coords.lng,
     holes,
     tees: normalizeTees(raw.tees),
   }
@@ -499,8 +530,20 @@ async function insertOrUpdateCourse(args: {
   externalId: string
   name: string
   location: string | null
+  city: string | null
+  state: string | null
+  lat: number | null
+  lng: number | null
   force: boolean
 }): Promise<{ id: string; isNew: boolean; skipped: boolean }> {
+  const fields = {
+    name: args.name,
+    location: args.location,
+    city: args.city,
+    state: args.state,
+    lat: args.lat,
+    lng: args.lng,
+  }
   const existing = await findCourseByExternalId(args.externalId)
   if (existing && !args.force) {
     return { id: existing, isNew: false, skipped: true }
@@ -508,7 +551,7 @@ async function insertOrUpdateCourse(args: {
   if (existing) {
     const { error } = await supabase
       .from('courses')
-      .update({ name: args.name, location: args.location })
+      .update(fields)
       .eq('id', existing)
     if (error) throw error
     return { id: existing, isNew: false, skipped: false }
@@ -516,8 +559,7 @@ async function insertOrUpdateCourse(args: {
   const { data, error } = await supabase
     .from('courses')
     .insert({
-      name: args.name,
-      location: args.location,
+      ...fields,
       external_id: args.externalId,
     })
     .select('id')
@@ -660,13 +702,17 @@ async function crawlOpenGolfApi(
             await sleep(OPENGOLFAPI_DELAY_MS)
             continue
           }
-          const location = [detail.city ?? item.city, detail.state ?? item.state ?? state]
-            .filter((s) => !!s && s.length > 0)
-            .join(', ')
+          const city = (detail.city ?? item.city ?? '').trim() || null
+          const stateCode = (detail.state ?? item.state ?? state).trim() || null
+          const location = [city, stateCode].filter((s) => !!s).join(', ') || null
           const upsert = await insertOrUpdateCourse({
             externalId,
             name: detail.name,
-            location: location || null,
+            location,
+            city,
+            state: stateCode,
+            lat: detail.lat ?? item.lat ?? null,
+            lng: detail.lng ?? item.lng ?? null,
             force,
           })
           if (!upsert.skipped) {
@@ -752,6 +798,10 @@ async function crawlOsm(
             externalId,
             name: c.name,
             location: c.state,
+            city: null,
+            state: c.state,
+            lat: c.lat,
+            lng: c.lng,
             force,
           })
           if (upsert.skipped) totalSkipped++

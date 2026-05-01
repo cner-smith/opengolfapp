@@ -61,6 +61,10 @@ export interface Database {
           external_id: string | null
           created_by: string | null
           created_at: string
+          lat: number | null
+          lng: number | null
+          city: string | null
+          state: string | null
         }
         Insert: {
           id?: string
@@ -70,6 +74,10 @@ export interface Database {
           external_id?: string | null
           created_by?: string | null
           created_at?: string
+          lat?: number | null
+          lng?: number | null
+          city?: string | null
+          state?: string | null
         }
         Update: {
           id?: string
@@ -79,6 +87,10 @@ export interface Database {
           external_id?: string | null
           created_by?: string | null
           created_at?: string
+          lat?: number | null
+          lng?: number | null
+          city?: string | null
+          state?: string | null
         }
         Relationships: [
           {
