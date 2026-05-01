@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   ActivityIndicator,
   Alert,
@@ -24,6 +24,7 @@ import { useAuth } from '../../../../../hooks/useAuth'
 import {
   insertPendingShot,
   pendingShotsForHoleScore,
+  setPendingShotEnd,
   type ShotPayload,
 } from '../../../../../lib/db'
 import { syncPendingShots } from '../../../../../lib/sync'
@@ -78,6 +79,9 @@ export default function HoleScreen() {
 
   const [aim, setAim] = useState<LatLng | null>(null)
   const [ball, setBall] = useState<LatLng | null>(null)
+  // local_id of the just-saved pending shot, so the next PLACE_BALL
+  // can fill in that shot's end_lat/end_lng with the new ball position.
+  const lastSavedShotLocalIdRef = useRef<number | null>(null)
   const [remoteShotCount, setRemoteShotCount] = useState(0)
   const [localShotCount, setLocalShotCount] = useState(0)
   const [remotePuttCount, setRemotePuttCount] = useState(0)
@@ -188,6 +192,7 @@ export default function HoleScreen() {
       setLocalShotCount(local.length)
       setRemotePuttCount(puttRes.count ?? 0)
       setLocalPuttCount(localPutts)
+      lastSavedShotLocalIdRef.current = null
     })()
     return () => {
       active = false
@@ -283,7 +288,8 @@ export default function HoleScreen() {
     if (!payload) return
     setSaving(true)
     try {
-      await insertPendingShot(payload)
+      const localId = await insertPendingShot(payload)
+      lastSavedShotLocalIdRef.current = localId
       const isPutt = payload.club === 'putter' || payload.lie_type === 'green'
       setLocalShotCount((c) => c + 1)
       if (isPutt) setLocalPuttCount((c) => c + 1)
@@ -310,6 +316,17 @@ export default function HoleScreen() {
             : hs,
         ),
       )
+      // Re-acquire GPS so the next PLACE_BALL frames the player's new
+      // position. Skipped in past-round mode where GPS is meaningless.
+      if (!isPastMode) {
+        Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High })
+          .then((loc) => {
+            const pos = { lat: loc.coords.latitude, lng: loc.coords.longitude }
+            setGpsPosition(pos)
+            setBall(pos)
+          })
+          .catch(() => undefined)
+      }
     } catch (err) {
       // eslint-disable-next-line no-console
       console.error('shot save failed', err, payload)
@@ -339,10 +356,30 @@ export default function HoleScreen() {
     }
   }
 
-  function markBallHere() {
+  async function markBallHere() {
     if (!ball) {
       Alert.alert('Place the ball first', 'Tap the map to drop the ball.')
       return
+    }
+    // Fill in the previous shot's landing — this position is where it
+    // ended. Pending rows get patched in SQLite; synced rows get a
+    // best-effort remote update.
+    const prevLocalId = lastSavedShotLocalIdRef.current
+    if (prevLocalId != null) {
+      const ballSnapshot = ball
+      const result = await setPendingShotEnd(
+        prevLocalId,
+        ballSnapshot.lat,
+        ballSnapshot.lng,
+      ).catch(() => null)
+      if (result?.status === 'synced' && result.remote_id) {
+        supabase
+          .from('shots')
+          .update({ end_lat: ballSnapshot.lat, end_lng: ballSnapshot.lng })
+          .eq('id', result.remote_id)
+          .then(() => undefined, () => undefined)
+      }
+      lastSavedShotLocalIdRef.current = null
     }
     setAim(null)
     setRoundState('SET_AIM')

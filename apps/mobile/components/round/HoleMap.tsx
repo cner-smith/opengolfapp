@@ -135,6 +135,34 @@ export function HoleMap({
     })
   }, [isPinMode, roundPin?.lat, roundPin?.lng, pin?.lat, pin?.lng])
 
+  // Mark whether we owe the camera a PLACE_BALL re-frame on the next
+  // ball update. Set on phase transitions INTO PLACE_BALL (e.g. after
+  // saving a shot) so the camera flies back to the closer tee-style view
+  // once GPS settles on the new ball position.
+  const prevPhaseRef = useRef<HoleMapPhase>(phase)
+  const reframePlaceBallRef = useRef(false)
+  useEffect(() => {
+    if (phase === 'PLACE_BALL' && prevPhaseRef.current !== 'PLACE_BALL') {
+      reframePlaceBallRef.current = true
+    }
+    prevPhaseRef.current = phase
+  }, [phase])
+
+  useEffect(() => {
+    if (!reframePlaceBallRef.current) return
+    if (phase !== 'PLACE_BALL') return
+    if (!cameraRef.current) return
+    if (!ball) return
+    cameraRef.current.setCamera({
+      centerCoordinate: toCoord(ball),
+      zoomLevel: 17,
+      pitch: 45,
+      heading: 0,
+      animationDuration: 800,
+    })
+    reframePlaceBallRef.current = false
+  }, [ball?.lat, ball?.lng, phase])
+
   // SET_AIM: rotate the camera so direction-of-play (ball → pin) is
   // toward the top of the screen, zoom out enough to see both ends of
   // the hole, and tilt for a first-person-ish perspective. The 1.2s
