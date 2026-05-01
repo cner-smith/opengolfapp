@@ -101,6 +101,10 @@ importers:
         version: 5.4.21(@types/node@25.6.0)(lightningcss@1.27.0)(terser@5.46.2)
 
   packages/core:
+    dependencies:
+      '@oga/supabase':
+        specifier: file:../supabase
+        version: link:../supabase
     devDependencies:
       typescript:
         specifier: ^5.4.0

@@ -41,5 +41,7 @@ jobs:
           node-version: 20
       - name: Install supabase package deps
         run: cd packages/supabase && npm install --legacy-peer-deps
+      - name: Install core package deps
+        run: cd packages/core && npm install --legacy-peer-deps
       - name: Mobile typecheck
         run: cd apps/mobile && npm install --legacy-peer-deps && npm run typecheck
