@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Pressable, ScrollView, Text, useWindowDimensions, View } from 'react-native'
 import { Link } from 'expo-router'
 import { VictoryAxis, VictoryChart, VictoryLine } from 'victory-native'
@@ -105,17 +105,24 @@ export default function Home() {
       .catch(() => undefined)
   }, [])
 
-  const breakdown = SG_KEYS.map((c) => {
-    const values = rounds.map((r) => r[c.key]).filter((v): v is number => v !== null)
-    const avg = values.length === 0 ? 0 : values.reduce((a, b) => a + b, 0) / values.length
-    return { ...c, value: Number(avg.toFixed(2)) }
-  })
-  const maxAbs = Math.max(...breakdown.map((b) => Math.abs(b.value)), 0.5)
-
-  const trend = [...rounds].reverse().map((r, i) => ({
-    x: i + 1,
-    y: r.sg_total ?? 0,
-  }))
+  // SG breakdown + trend are pure functions of `rounds` — memoize so
+  // unrelated parent re-renders (delete sync, window resize) don't
+  // re-walk the array four times for the SG averages and once more for
+  // the trend points.
+  const { breakdown, maxAbs, trend } = useMemo(() => {
+    const bd = SG_KEYS.map((c) => {
+      const values = rounds.map((r) => r[c.key]).filter((v): v is number => v !== null)
+      const avg =
+        values.length === 0 ? 0 : values.reduce((a, b) => a + b, 0) / values.length
+      return { ...c, value: Number(avg.toFixed(2)) }
+    })
+    const maxAbsValue = Math.max(...bd.map((b) => Math.abs(b.value)), 0.5)
+    const trendPoints = [...rounds].reverse().map((r, i) => ({
+      x: i + 1,
+      y: r.sg_total ?? 0,
+    }))
+    return { breakdown: bd, maxAbs: maxAbsValue, trend: trendPoints }
+  }, [rounds])
 
   const eyebrow =
     profile?.handicap_index != null ? `Handicap ${profile.handicap_index}` : 'Welcome'
