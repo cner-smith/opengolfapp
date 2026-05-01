@@ -12,7 +12,7 @@ import * as Location from 'expo-location'
 import type { Database } from '@oga/supabase'
 import {
   HoleMap,
-  type HoleMapMode,
+  type HoleMapPhase,
   type LatLng,
 } from '../../../../../components/round/HoleMap'
 import {
@@ -24,6 +24,7 @@ import { useAuth } from '../../../../../hooks/useAuth'
 import {
   insertPendingShot,
   pendingShotsForHoleScore,
+  setPendingShotEnd,
   type ShotPayload,
 } from '../../../../../lib/db'
 import { syncPendingShots } from '../../../../../lib/sync'
@@ -39,6 +40,14 @@ type RoundRow = Database['public']['Tables']['rounds']['Row']
 
 const FALLBACK_CENTER: LatLng = { lat: 40.0, lng: -75.0 }
 const PIN_PROMPT_RADIUS_YARDS = 80
+
+// Live-round state machine. Each shot loops through:
+//   PLACE_BALL → SET_AIM → SHOT_DETAIL → PLACE_BALL
+// PLACE_BALL: GPS auto-places ball, player drags to refine, confirms with
+//   "Mark ball here →".
+// SET_AIM: camera rotates so play direction is up; long-press drops aim.
+// SHOT_DETAIL: ShotLogger sheet open; save returns to PLACE_BALL.
+type RoundState = 'PLACE_BALL' | 'SET_AIM' | 'SHOT_DETAIL'
 
 const KICKER: import('react-native').TextStyle = {
   fontSize: 10,
@@ -70,14 +79,20 @@ export default function HoleScreen() {
 
   const [aim, setAim] = useState<LatLng | null>(null)
   const [ball, setBall] = useState<LatLng | null>(null)
-  const lastEndRef = useRef<LatLng | null>(null)
+  // local_id of the just-saved pending shot, so the next PLACE_BALL
+  // can fill in that shot's end_lat/end_lng with the new ball position.
+  const lastSavedShotLocalIdRef = useRef<number | null>(null)
   const [remoteShotCount, setRemoteShotCount] = useState(0)
   const [localShotCount, setLocalShotCount] = useState(0)
   const [remotePuttCount, setRemotePuttCount] = useState(0)
   const [localPuttCount, setLocalPuttCount] = useState(0)
   const [loggerOpen, setLoggerOpen] = useState(false)
   const [saving, setSaving] = useState(false)
-  const [mapMode, setMapMode] = useState<HoleMapMode>('shot')
+  // Pin placement is orthogonal to the shot phase machine. When true,
+  // tapping the map writes today's flag position rather than driving
+  // the shot flow.
+  const [pinPlacementOpen, setPinPlacementOpen] = useState(false)
+  const [roundState, setRoundState] = useState<RoundState>('PLACE_BALL')
   const [gpsPosition, setGpsPosition] = useState<LatLng | null>(null)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [deleting, setDeleting] = useState(false)
@@ -177,7 +192,7 @@ export default function HoleScreen() {
       setLocalShotCount(local.length)
       setRemotePuttCount(puttRes.count ?? 0)
       setLocalPuttCount(localPutts)
-      lastEndRef.current = null
+      lastSavedShotLocalIdRef.current = null
     })()
     return () => {
       active = false
@@ -223,16 +238,18 @@ export default function HoleScreen() {
   const shotNumber = remoteShotCount + localShotCount + 1
 
   function buildPayload(meta: ShotLoggerValue | null): ShotPayload | null {
-    if (!user || !currentHoleScore) return null
-    const start = lastEndRef.current ?? tee ?? null
+    if (!user || !currentHoleScore || !ball) return null
+    // New live-round semantics: ball is the player's current position
+    // (the start of this shot). end_lat/lng is unknown until the next
+    // PLACE_BALL — the next ball mark fills in this shot's landing.
     return {
       hole_score_id: currentHoleScore.id,
       user_id: user.id,
       shot_number: shotNumber,
-      start_lat: start?.lat ?? null,
-      start_lng: start?.lng ?? null,
-      end_lat: ball?.lat ?? null,
-      end_lng: ball?.lng ?? null,
+      start_lat: ball.lat,
+      start_lng: ball.lng,
+      end_lat: null,
+      end_lng: null,
       aim_lat: aim?.lat ?? null,
       aim_lng: aim?.lng ?? null,
       club: meta?.club ?? null,
@@ -271,14 +288,15 @@ export default function HoleScreen() {
     if (!payload) return
     setSaving(true)
     try {
-      await insertPendingShot(payload)
-      lastEndRef.current = ball
+      const localId = await insertPendingShot(payload)
+      lastSavedShotLocalIdRef.current = localId
       const isPutt = payload.club === 'putter' || payload.lie_type === 'green'
       setLocalShotCount((c) => c + 1)
       if (isPutt) setLocalPuttCount((c) => c + 1)
       setAim(null)
       setBall(null)
       setLoggerOpen(false)
+      setRoundState('PLACE_BALL')
       // Background sync — don't await.
       syncPendingShots().catch(() => undefined)
       // Best-effort hole_score update so the scorecard reflects shot/putt
@@ -298,6 +316,17 @@ export default function HoleScreen() {
             : hs,
         ),
       )
+      // Re-acquire GPS so the next PLACE_BALL frames the player's new
+      // position. Skipped in past-round mode where GPS is meaningless.
+      if (!isPastMode) {
+        Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High })
+          .then((loc) => {
+            const pos = { lat: loc.coords.latitude, lng: loc.coords.longitude }
+            setGpsPosition(pos)
+            setBall(pos)
+          })
+          .catch(() => undefined)
+      }
     } catch (err) {
       // eslint-disable-next-line no-console
       console.error('shot save failed', err, payload)
@@ -317,7 +346,7 @@ export default function HoleScreen() {
           : hs,
       ),
     )
-    setMapMode('shot')
+    setPinPlacementOpen(false)
     const { error: updateErr } = await supabase
       .from('hole_scores')
       .update({ pin_lat: loc.lat, pin_lng: loc.lng })
@@ -327,12 +356,50 @@ export default function HoleScreen() {
     }
   }
 
-  function openLogger() {
+  async function markBallHere() {
     if (!ball) {
       Alert.alert('Place the ball first', 'Tap the map to drop the ball.')
       return
     }
+    // Fill in the previous shot's landing — this position is where it
+    // ended. Pending rows get patched in SQLite; synced rows get a
+    // best-effort remote update.
+    const prevLocalId = lastSavedShotLocalIdRef.current
+    if (prevLocalId != null) {
+      const ballSnapshot = ball
+      const result = await setPendingShotEnd(
+        prevLocalId,
+        ballSnapshot.lat,
+        ballSnapshot.lng,
+      ).catch(() => null)
+      if (result?.status === 'synced' && result.remote_id) {
+        supabase
+          .from('shots')
+          .update({ end_lat: ballSnapshot.lat, end_lng: ballSnapshot.lng })
+          .eq('id', result.remote_id)
+          .then(() => undefined, () => undefined)
+      }
+      lastSavedShotLocalIdRef.current = null
+    }
+    setAim(null)
+    setRoundState('SET_AIM')
+  }
+
+  function confirmAim() {
+    setRoundState('SHOT_DETAIL')
     setLoggerOpen(true)
+  }
+
+  function skipAim() {
+    // Pace-of-play escape hatch: log the shot without an explicit aim.
+    setAim(null)
+    setRoundState('SHOT_DETAIL')
+    setLoggerOpen(true)
+  }
+
+  function closeLogger() {
+    setLoggerOpen(false)
+    setRoundState('PLACE_BALL')
   }
 
   function navigateHole(delta: number) {
@@ -458,7 +525,13 @@ export default function HoleScreen() {
           tee={tee}
           aim={aim}
           ball={ball}
-          mode={mapMode}
+          phase={
+            pinPlacementOpen
+              ? 'PIN'
+              : roundState === 'SET_AIM'
+                ? 'SET_AIM'
+                : 'PLACE_BALL'
+          }
           onSetAim={setAim}
           onSetBall={setBall}
           onPlacePin={persistRoundPin}
@@ -475,9 +548,9 @@ export default function HoleScreen() {
           borderTopColor: '#D9D2BF',
         }}
       >
-        {mapMode === 'pin' ? (
+        {pinPlacementOpen ? (
           <Pressable
-            onPress={() => setMapMode('shot')}
+            onPress={() => setPinPlacementOpen(false)}
             style={{
               borderWidth: 1,
               borderColor: '#1F3D2C',
@@ -498,10 +571,49 @@ export default function HoleScreen() {
               Cancel pin placement
             </Text>
           </Pressable>
+        ) : roundState === 'SET_AIM' ? (
+          <>
+            <Pressable
+              onPress={confirmAim}
+              disabled={!aim}
+              style={{
+                backgroundColor: aim ? '#1F3D2C' : '#EBE5D6',
+                borderRadius: 2,
+                paddingVertical: 14,
+                alignItems: 'center',
+                marginBottom: 8,
+              }}
+            >
+              <Text
+                style={{
+                  color: aim ? '#F2EEE5' : '#8A8B7E',
+                  fontSize: 14,
+                  fontWeight: '600',
+                  letterSpacing: 0.3,
+                }}
+              >
+                {aim ? 'Confirm aim →' : 'Long-press the map to aim'}
+              </Text>
+            </Pressable>
+            <View
+              style={{
+                flexDirection: 'row',
+                justifyContent: 'space-between',
+                marginBottom: 10,
+              }}
+            >
+              <Pressable onPress={() => setRoundState('PLACE_BALL')}>
+                <Text style={{ ...KICKER, color: '#8A8B7E' }}>← Re-place ball</Text>
+              </Pressable>
+              <Pressable onPress={skipAim}>
+                <Text style={{ ...KICKER, color: '#8A8B7E' }}>Skip aim</Text>
+              </Pressable>
+            </View>
+          </>
         ) : (
           <>
             <Pressable
-              onPress={openLogger}
+              onPress={markBallHere}
               disabled={!ball || saving}
               style={{
                 backgroundColor: ball ? '#1F3D2C' : '#EBE5D6',
@@ -522,12 +634,12 @@ export default function HoleScreen() {
                 {saving
                   ? 'Saving…'
                   : ball
-                    ? 'Save shot →'
-                    : 'Place ball to save'}
+                    ? 'Mark ball here →'
+                    : 'Drop the ball to mark'}
               </Text>
             </Pressable>
             <Pressable
-              onPress={() => setMapMode('pin')}
+              onPress={() => setPinPlacementOpen(true)}
               style={{
                 paddingVertical: 8,
                 alignItems: 'center',
@@ -605,7 +717,7 @@ export default function HoleScreen() {
         }
         onSave={(v) => persistShot(v)}
         onSkip={() => persistShot(null)}
-        onClose={() => setLoggerOpen(false)}
+        onClose={closeLogger}
       />
 
       <ConfirmDialog
