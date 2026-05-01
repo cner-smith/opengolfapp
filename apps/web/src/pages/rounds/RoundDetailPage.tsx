@@ -285,14 +285,19 @@ export function RoundDetailPage() {
     setSaveError(null)
     try {
       // Ensure a hole_score row exists; the score equals the placed
-      // shot count, which is what the player just confirmed.
+      // shot count, which is what the player just confirmed. Putts is
+      // derived from the rows so the scorecard reflects what was placed
+      // without needing a manual entry.
       const existing = scoresByHoleId.get(activeHole.id)
+      const puttCount = rows.filter(
+        (r) => r.lieType === 'green' || r.club === 'putter',
+      ).length
       const hsResult = await upsertHoleScore.mutateAsync({
         id: existing?.id,
         round_id: round.data.id,
         hole_id: activeHole.id,
         score: rows.length,
-        putts: existing?.putts ?? null,
+        putts: puttCount,
         fairway_hit: existing?.fairway_hit ?? null,
         gir: existing?.gir ?? null,
       })

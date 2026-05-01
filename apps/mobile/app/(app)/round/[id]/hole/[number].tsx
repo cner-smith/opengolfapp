@@ -73,6 +73,8 @@ export default function HoleScreen() {
   const lastEndRef = useRef<LatLng | null>(null)
   const [remoteShotCount, setRemoteShotCount] = useState(0)
   const [localShotCount, setLocalShotCount] = useState(0)
+  const [remotePuttCount, setRemotePuttCount] = useState(0)
+  const [localPuttCount, setLocalPuttCount] = useState(0)
   const [loggerOpen, setLoggerOpen] = useState(false)
   const [saving, setSaving] = useState(false)
   const [mapMode, setMapMode] = useState<HoleMapMode>('shot')
@@ -143,19 +145,38 @@ export default function HoleScreen() {
     loadAll()
   }, [loadAll])
 
-  // Reload remote + local shot counts whenever the active hole_score changes.
+  // Reload remote + local shot/putt counts whenever the active hole_score
+  // changes. Putts are counted as shots where club='putter' OR lie_type='green'.
   useEffect(() => {
     if (!currentHoleScore) return
     let active = true
     ;(async () => {
-      const { count } = await supabase
-        .from('shots')
-        .select('id', { count: 'exact', head: true })
-        .eq('hole_score_id', currentHoleScore.id)
-      const local = await pendingShotsForHoleScore(currentHoleScore.id)
+      const [shotRes, puttRes, local] = await Promise.all([
+        supabase
+          .from('shots')
+          .select('id', { count: 'exact', head: true })
+          .eq('hole_score_id', currentHoleScore.id),
+        supabase
+          .from('shots')
+          .select('id', { count: 'exact', head: true })
+          .eq('hole_score_id', currentHoleScore.id)
+          .or('club.eq.putter,lie_type.eq.green'),
+        pendingShotsForHoleScore(currentHoleScore.id),
+      ])
       if (!active) return
-      setRemoteShotCount(count ?? 0)
+      let localPutts = 0
+      for (const r of local) {
+        try {
+          const p = JSON.parse(r.payload) as ShotPayload
+          if (p.club === 'putter' || p.lie_type === 'green') localPutts++
+        } catch {
+          // skip malformed pending payload
+        }
+      }
+      setRemoteShotCount(shotRes.count ?? 0)
       setLocalShotCount(local.length)
+      setRemotePuttCount(puttRes.count ?? 0)
+      setLocalPuttCount(localPutts)
       lastEndRef.current = null
     })()
     return () => {
@@ -252,18 +273,31 @@ export default function HoleScreen() {
     try {
       await insertPendingShot(payload)
       lastEndRef.current = ball
+      const isPutt = payload.club === 'putter' || payload.lie_type === 'green'
       setLocalShotCount((c) => c + 1)
+      if (isPutt) setLocalPuttCount((c) => c + 1)
       setAim(null)
       setBall(null)
       setLoggerOpen(false)
       // Background sync — don't await.
       syncPendingShots().catch(() => undefined)
-      // Best-effort score update so the scorecard reflects shot count.
+      // Best-effort hole_score update so the scorecard reflects shot/putt
+      // count. shotNumber is the just-saved shot's number == new score.
+      const newPutts =
+        remotePuttCount + localPuttCount + (isPutt ? 1 : 0)
       supabase
         .from('hole_scores')
-        .update({ score: shotNumber })
+        .update({ score: shotNumber, putts: newPutts })
         .eq('id', payload.hole_score_id)
         .then(() => undefined, () => undefined)
+      // Reflect optimistically in the inline scorecard preview.
+      setHoleScores((prev) =>
+        prev.map((hs) =>
+          hs.id === payload.hole_score_id
+            ? { ...hs, score: shotNumber, putts: newPutts }
+            : hs,
+        ),
+      )
     } catch (err) {
       // eslint-disable-next-line no-console
       console.error('shot save failed', err, payload)
