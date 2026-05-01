@@ -9,7 +9,6 @@ import {
   getHoleScoresForRound,
   getHolesForCourse,
   getShotsForRound,
-  updateHoleScore,
   updateProfile,
   updateRound,
 } from '@oga/supabase'
@@ -71,18 +70,33 @@ export function useCompleteRound() {
 
       const result = computeRoundSG({ holes, holeScores, shots, handicap })
 
-      const sgUpdates = Object.entries(result.perHoleScore).map(
-        ([holeScoreId, sg]) =>
-          updateHoleScore(supabase, holeScoreId, {
+      // Single batch upsert beats N sequential UPDATEs. Carry round_id /
+      // hole_id / score forward unchanged so the underlying INSERT path of
+      // upsert can satisfy the NOT NULL columns; the conflict on `id` then
+      // updates the SG fields only.
+      const holeScoresById = new Map(holeScores.map((hs) => [hs.id, hs]))
+      const sgRows = Object.entries(result.perHoleScore)
+        .map(([holeScoreId, sg]) => {
+          const existing = holeScoresById.get(holeScoreId)
+          if (!existing) return null
+          return {
+            id: holeScoreId,
+            round_id: existing.round_id,
+            hole_id: existing.hole_id,
+            score: existing.score,
             sg_off_tee: round2(sg.offTee),
             sg_approach: round2(sg.approach),
             sg_around_green: round2(sg.aroundGreen),
             sg_putting: round2(sg.putting),
-          }),
-      )
-      const sgResults = await Promise.all(sgUpdates)
-      const sgError = sgResults.find((r) => r.error)
-      if (sgError?.error) throw sgError.error
+          }
+        })
+        .filter((r): r is NonNullable<typeof r> => r != null)
+      if (sgRows.length > 0) {
+        const { error: sgError } = await supabase
+          .from('hole_scores')
+          .upsert(sgRows, { onConflict: 'id' })
+        if (sgError) throw sgError
+      }
 
       // ---- Handicap differential ------------------------------------------
       const tee =

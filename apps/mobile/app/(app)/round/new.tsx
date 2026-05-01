@@ -22,7 +22,6 @@ import {
   getCourseByExternalId,
   searchCourses,
   upsertCourseTees,
-  upsertHoleScore,
 } from '@oga/supabase'
 import type { Database } from '@oga/supabase'
 import { supabase } from '../../../lib/supabase'
@@ -153,16 +152,20 @@ export default function NewRound() {
         .order('number')
       if (holesError) throw holesError
 
-      await Promise.all(
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (holes ?? []).map((h: any) =>
-          upsertHoleScore(supabase, {
-            round_id: round.id,
-            hole_id: h.id,
-            score: 0,
-          }),
-        ),
-      )
+      // Single batch insert beats 18 sequential round-trips; round was just
+      // created so there's nothing to conflict against.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const holeScoreRows = (holes ?? []).map((h: any) => ({
+        round_id: round.id,
+        hole_id: h.id,
+        score: 0,
+      }))
+      if (holeScoreRows.length > 0) {
+        const { error: hsError } = await supabase
+          .from('hole_scores')
+          .insert(holeScoreRows)
+        if (hsError) throw hsError
+      }
 
       router.replace(`/(app)/round/${round.id}/hole/1?mode=${mode}`)
     } catch (err) {
