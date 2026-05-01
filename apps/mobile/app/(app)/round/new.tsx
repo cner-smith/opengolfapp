@@ -160,8 +160,7 @@ export default function NewRound() {
 
       // Single batch insert beats 18 sequential round-trips; round was just
       // created so there's nothing to conflict against.
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const holeScoreRows = (holes ?? []).map((h: any) => ({
+      const holeScoreRows = (holes ?? []).map((h) => ({
         round_id: round.id,
         hole_id: h.id,
         score: 0,
