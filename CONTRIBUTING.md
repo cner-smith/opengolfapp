@@ -6,6 +6,22 @@ Thanks for showing up. OGA stays free and open because contributors make it bett
 
 See the [Quick start](./README.md#quick-start) in the README for the full sequence (`supabase start`, `pnpm install`, `pnpm dev --filter web`). Make sure `pnpm typecheck` and `pnpm test` both pass before you start touching code so you have a clean baseline.
 
+## Development workflow
+
+### Branching
+- Branch from dev: `git checkout dev && git pull && git checkout -b feature/your-feature`
+- Name branches: `feature/thing`, `fix/bug-name`, `chore/cleanup`
+- Never push directly to main or dev
+
+### Opening a PR
+1. Push your branch
+2. Open a PR against `dev` (not main)
+3. Fill out the PR template
+4. CI must pass before merging
+
+### Releases
+Maintainers periodically merge dev → main to cut a release.
+
 ## Reporting bugs
 
 Open a [GitHub issue](https://github.com/cner-smith/opengolfapp/issues). Include:
