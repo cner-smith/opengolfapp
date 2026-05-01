@@ -40,6 +40,14 @@ type RoundRow = Database['public']['Tables']['rounds']['Row']
 const FALLBACK_CENTER: LatLng = { lat: 40.0, lng: -75.0 }
 const PIN_PROMPT_RADIUS_YARDS = 80
 
+// Live-round state machine. Each shot loops through:
+//   PLACE_BALL → SET_AIM → SHOT_DETAIL → PLACE_BALL
+// PLACE_BALL: GPS auto-places ball, player drags to refine, confirms with
+//   "Mark ball here →".
+// SET_AIM: camera rotates so play direction is up; long-press drops aim.
+// SHOT_DETAIL: ShotLogger sheet open; save returns to PLACE_BALL.
+type RoundState = 'PLACE_BALL' | 'SET_AIM' | 'SHOT_DETAIL'
+
 const KICKER: import('react-native').TextStyle = {
   fontSize: 10,
   fontWeight: '600',
@@ -78,6 +86,7 @@ export default function HoleScreen() {
   const [loggerOpen, setLoggerOpen] = useState(false)
   const [saving, setSaving] = useState(false)
   const [mapMode, setMapMode] = useState<HoleMapMode>('shot')
+  const [roundState, setRoundState] = useState<RoundState>('PLACE_BALL')
   const [gpsPosition, setGpsPosition] = useState<LatLng | null>(null)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [deleting, setDeleting] = useState(false)
@@ -279,6 +288,7 @@ export default function HoleScreen() {
       setAim(null)
       setBall(null)
       setLoggerOpen(false)
+      setRoundState('PLACE_BALL')
       // Background sync — don't await.
       syncPendingShots().catch(() => undefined)
       // Best-effort hole_score update so the scorecard reflects shot/putt
@@ -327,12 +337,20 @@ export default function HoleScreen() {
     }
   }
 
-  function openLogger() {
+  function markBallHere() {
     if (!ball) {
       Alert.alert('Place the ball first', 'Tap the map to drop the ball.')
       return
     }
+    // Commit 1 wires PLACE_BALL → SHOT_DETAIL directly; the SET_AIM
+    // intermediate is added in the next commit.
+    setRoundState('SHOT_DETAIL')
     setLoggerOpen(true)
+  }
+
+  function closeLogger() {
+    setLoggerOpen(false)
+    setRoundState('PLACE_BALL')
   }
 
   function navigateHole(delta: number) {
@@ -501,7 +519,7 @@ export default function HoleScreen() {
         ) : (
           <>
             <Pressable
-              onPress={openLogger}
+              onPress={markBallHere}
               disabled={!ball || saving}
               style={{
                 backgroundColor: ball ? '#1F3D2C' : '#EBE5D6',
@@ -522,8 +540,8 @@ export default function HoleScreen() {
                 {saving
                   ? 'Saving…'
                   : ball
-                    ? 'Save shot →'
-                    : 'Place ball to save'}
+                    ? 'Mark ball here →'
+                    : 'Drop the ball to mark'}
               </Text>
             </Pressable>
             <Pressable
@@ -605,7 +623,7 @@ export default function HoleScreen() {
         }
         onSave={(v) => persistShot(v)}
         onSkip={() => persistShot(null)}
-        onClose={() => setLoggerOpen(false)}
+        onClose={closeLogger}
       />
 
       <ConfirmDialog
