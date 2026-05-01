@@ -43,6 +43,24 @@ Optional demo data:
 pnpm seed:demo              # creates demo@oga.app + 15 rounds of realistic data
 ```
 
+## Populating the courses database
+
+The `courses` / `holes` / `course_tees` tables ship empty. Populate them
+from free sources by running the crawler — manual one-off, not scheduled:
+
+```bash
+SUPABASE_URL=... SUPABASE_SERVICE_ROLE_KEY=... \
+  pnpm crawl:courses --source opengolfapi          # all 50 US states (~5h)
+pnpm crawl:courses --source opengolfapi --states TX,OK,CA
+pnpm crawl:courses --source osm --states OK        # OSM golf course centroids
+pnpm crawl:courses --status                        # show progress
+```
+
+Resumable: re-running picks up where it left off via the `crawl_state`
+table. Add `--force` to re-import existing courses. See the script
+header in [`scripts/crawl-courses.ts`](./scripts/crawl-courses.ts) for
+details.
+
 ## Self-hosting
 
 [![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/cner-smith/opengolfapp)
