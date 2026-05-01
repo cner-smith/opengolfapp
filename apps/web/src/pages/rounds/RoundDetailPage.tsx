@@ -17,7 +17,7 @@ import type {
   PlacedPoint,
 } from '../../components/round/RoundMap'
 import { RoundMapInstructionStrip } from '../../components/round/RoundMap'
-import { haversineYards } from '@oga/core'
+import { combinedPuttResult, haversineYards } from '@oga/core'
 
 // Lazy-load Mapbox GL JS only when the map tab is opened. Cuts ~2 MB off
 // the initial bundle for users who never leave the scorecard.
@@ -318,23 +318,19 @@ export function RoundDetailPage() {
           putt_distance_ft: isPuttRow
             ? Math.round(row.distanceYards * 3)
             : null,
+          // Distance + direction are independent axes; legacy putt_result
+          // is reconstructed for back-compat readers.
           putt_result: !isPuttRow
             ? null
-            : row.puttMade
-              ? 'made'
-              : row.puttResult ?? null,
-          putt_distance_result: !isPuttRow || row.puttMade
-            ? null
-            : row.puttResult === 'short' || row.puttResult === 'long'
-              ? row.puttResult
-              : null,
-          putt_direction_result: !isPuttRow || row.puttMade
-            ? null
-            : row.puttResult === 'missed_left'
-              ? 'left'
-              : row.puttResult === 'missed_right'
-                ? 'right'
-                : null,
+            : combinedPuttResult({
+                made: row.puttMade,
+                distance: row.puttDistanceResult ?? null,
+                direction: row.puttDirectionResult ?? null,
+              }),
+          putt_distance_result:
+            !isPuttRow || row.puttMade ? null : row.puttDistanceResult ?? null,
+          putt_direction_result:
+            !isPuttRow || row.puttMade ? null : row.puttDirectionResult ?? null,
           notes: null,
         })
       }

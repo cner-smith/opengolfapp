@@ -42,19 +42,25 @@ export interface ReviewedShotRow {
   /** Set when the user toggles "Made it ✓" on a putt row.
    *  Stored as putt_result='made' on save. */
   puttMade?: boolean
-  /** When puttMade is false, the user can pick a miss flavour.
-   *  Stored as putt_result on save. */
-  puttResult?: 'short' | 'long' | 'missed_left' | 'missed_right'
+  /** Distance miss axis — independent of direction. Stored as
+   *  putt_distance_result. */
+  puttDistanceResult?: 'short' | 'long'
+  /** Direction miss axis — independent of distance. Stored as
+   *  putt_direction_result. */
+  puttDirectionResult?: 'left' | 'right'
 }
 
-const PUTT_MISS_OPTIONS: {
-  value: 'short' | 'long' | 'missed_left' | 'missed_right'
-  label: string
-}[] = [
+const PUTT_DISTANCE_OPTIONS: { value: 'short' | 'long'; label: string }[] = [
   { value: 'short', label: 'Short' },
   { value: 'long', label: 'Long' },
-  { value: 'missed_left', label: 'Missed left' },
-  { value: 'missed_right', label: 'Missed right' },
+]
+
+const PUTT_DIRECTION_OPTIONS: {
+  value: 'left' | 'right'
+  label: string
+}[] = [
+  { value: 'left', label: 'Missed left' },
+  { value: 'right', label: 'Missed right' },
 ]
 
 export function HoleReviewSheet({
@@ -337,8 +343,13 @@ function ShotRow({
             onChange({
               ...row,
               puttMade: !row.puttMade,
-              // Toggling made → on clears any miss result.
-              puttResult: !row.puttMade ? undefined : row.puttResult,
+              // Toggling made → on clears both miss axes.
+              puttDistanceResult: !row.puttMade
+                ? undefined
+                : row.puttDistanceResult,
+              puttDirectionResult: !row.puttMade
+                ? undefined
+                : row.puttDirectionResult,
             })
           }
           aria-pressed={!!row.puttMade}
@@ -364,55 +375,106 @@ function ShotRow({
         {toDisplay(row.distanceToPin)} to pin
       </span>
       {isPutt && !row.puttMade && (
-        <div
-          style={{
-            display: 'flex',
-            flexWrap: 'wrap',
-            gap: 6,
-            width: '100%',
-            marginLeft: 0,
-          }}
-        >
-          <span
-            className="kicker"
+        <PuttMissAxes row={row} onChange={onChange} />
+      )}
+    </div>
+  )
+}
+
+function PuttMissAxes({
+  row,
+  onChange,
+}: {
+  row: ReviewedShotRow
+  onChange: (next: ReviewedShotRow) => void
+}) {
+  return (
+    <div
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 8,
+        width: '100%',
+        marginLeft: 0,
+      }}
+    >
+      <AxisRow
+        label="Distance"
+        options={PUTT_DISTANCE_OPTIONS}
+        value={row.puttDistanceResult}
+        onSelect={(v) =>
+          onChange({
+            ...row,
+            puttDistanceResult:
+              row.puttDistanceResult === v ? undefined : v,
+          })
+        }
+      />
+      <AxisRow
+        label="Direction"
+        options={PUTT_DIRECTION_OPTIONS}
+        value={row.puttDirectionResult}
+        onSelect={(v) =>
+          onChange({
+            ...row,
+            puttDirectionResult:
+              row.puttDirectionResult === v ? undefined : v,
+          })
+        }
+      />
+    </div>
+  )
+}
+
+function AxisRow<V extends string>({
+  label,
+  options,
+  value,
+  onSelect,
+}: {
+  label: string
+  options: { value: V; label: string }[]
+  value: V | undefined
+  onSelect: (v: V) => void
+}) {
+  return (
+    <div
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        flexWrap: 'wrap',
+        gap: 6,
+      }}
+    >
+      <span
+        className="kicker"
+        style={{ minWidth: 72, color: '#5C6356' }}
+      >
+        {label}
+      </span>
+      {options.map((opt) => {
+        const active = value === opt.value
+        return (
+          <button
+            key={opt.value}
+            type="button"
+            onClick={() => onSelect(opt.value)}
+            aria-pressed={active}
             style={{
-              alignSelf: 'center',
-              color: '#5C6356',
-              marginRight: 4,
+              background: active ? '#1F3D2C' : '#EBE5D6',
+              color: active ? '#F2EEE5' : '#1C211C',
+              border: 'none',
+              borderRadius: 2,
+              padding: '6px 10px',
+              fontSize: 12,
+              fontWeight: active ? 500 : 400,
+              cursor: 'pointer',
             }}
           >
-            Miss
-          </span>
-          {PUTT_MISS_OPTIONS.map((opt) => {
-            const active = row.puttResult === opt.value
-            return (
-              <button
-                key={opt.value}
-                type="button"
-                onClick={() =>
-                  onChange({
-                    ...row,
-                    // Tap-to-clear so the user can drop the miss tag entirely.
-                    puttResult: active ? undefined : opt.value,
-                  })
-                }
-                style={{
-                  background: active ? '#1F3D2C' : '#EBE5D6',
-                  color: active ? '#F2EEE5' : '#1C211C',
-                  border: 'none',
-                  borderRadius: 2,
-                  padding: '6px 10px',
-                  fontSize: 12,
-                  fontWeight: active ? 500 : 400,
-                  cursor: 'pointer',
-                }}
-              >
-                {opt.label}
-              </button>
-            )
-          })}
-        </div>
-      )}
+            {opt.label}
+          </button>
+        )
+      })}
     </div>
   )
 }
