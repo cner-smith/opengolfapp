@@ -87,10 +87,13 @@ export default function Patterns() {
     if (!user) return
     let active = true
     setLoading(true)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    getShotsByClub(supabase, user.id, club).then(({ data }: { data: any }) => {
+    getShotsByClub(supabase, user.id, club).then(({ data, error }) => {
       if (!active) return
-      setShots((data as ShotRowMin[]) ?? [])
+      if (error) {
+        // eslint-disable-next-line no-console
+        console.error('[patterns/getShotsByClub]', error.message)
+      }
+      setShots((data as ShotRowMin[] | null) ?? [])
       setLoading(false)
     })
     return () => {

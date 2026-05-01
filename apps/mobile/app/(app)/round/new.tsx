@@ -111,8 +111,14 @@ export default function NewRound() {
     setSearching(true)
     Promise.allSettled([
       searchOpenGolfApi(term, ctrl.signal),
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      searchCourses(supabase, term, 10).then((r: any) => r.data ?? []),
+      searchCourses(supabase, term, 10).then(({ data, error }) => {
+        if (error) {
+          // eslint-disable-next-line no-console
+          console.warn('[round/new searchCourses]', error.message)
+          return [] as CourseRow[]
+        }
+        return (data ?? []) as CourseRow[]
+      }),
     ])
       .then(([api, local]) => {
         if (ctrl.signal.aborted) return

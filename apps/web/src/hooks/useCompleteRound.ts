@@ -153,19 +153,25 @@ export function useCompleteRound() {
 
       // ---- Handicap index recompute --------------------------------------
       if (differential != null) {
-        const { data: recentDiffs } = await supabase
+        const { data: recentDiffs, error: diffsError } = await supabase
           .from('rounds')
           .select('score_differential')
           .eq('user_id', userId)
           .not('score_differential', 'is', null)
           .order('played_at', { ascending: false })
           .limit(20)
+        if (diffsError) throw diffsError
         const diffs = (recentDiffs ?? [])
           .map((r) => r.score_differential)
           .filter((d): d is number => d != null)
         const newIndex = calculateHandicapIndex(diffs)
         if (newIndex != null) {
-          await updateProfile(supabase, userId, { handicap_index: newIndex })
+          const { error: profileError } = await updateProfile(
+            supabase,
+            userId,
+            { handicap_index: newIndex },
+          )
+          if (profileError) throw profileError
         }
       }
 

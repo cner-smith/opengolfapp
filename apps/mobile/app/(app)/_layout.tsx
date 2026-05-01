@@ -22,11 +22,19 @@ export default function AppLayout() {
       .from('profiles')
       .select('skill_level, goal')
       .eq('id', user.id)
-      .single()
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      .then(({ data, error }: { data: any; error: any }) => {
+      .maybeSingle()
+      .then(({ data, error }) => {
         if (!active) return
-        if (error || !data || !data.skill_level || !data.goal) {
+        if (error) {
+          // eslint-disable-next-line no-console
+          console.error('[(app)/_layout]', error.message)
+          // Treat as incomplete is the wrong call for a transient error;
+          // leave the user on the loading state until the next render
+          // can retry. Setting incomplete here would punt them to
+          // onboarding and clobber their saved profile.
+          return
+        }
+        if (!data || !data.skill_level || !data.goal) {
           setProfileState('incomplete')
         } else {
           setProfileState('complete')

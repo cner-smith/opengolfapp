@@ -41,10 +41,11 @@ export default function ProfileTab() {
   useEffect(() => {
     if (authLoading || !user) return
     let active = true
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    getProfile(supabase, user.id).then(({ data, error }: { data: any; error: any }) => {
+    getProfile(supabase, user.id).then(({ data, error }) => {
       if (!active) return
       if (error) {
+        // eslint-disable-next-line no-console
+        console.error('[profile/getProfile]', error.message)
         Alert.alert('Could not load profile', error.message)
         return
       }

@@ -314,7 +314,12 @@ export default function HoleScreen() {
         .from('hole_scores')
         .update({ score: shotNumber, putts: newPutts })
         .eq('id', payload.hole_score_id)
-        .then(() => undefined, () => undefined)
+        .then(({ error }) => {
+          if (error) {
+            // eslint-disable-next-line no-console
+            console.warn('[hole/score-update]', error.message)
+          }
+        })
       // Reflect optimistically in the inline scorecard preview.
       setHoleScores((prev) =>
         prev.map((hs) =>
@@ -384,7 +389,12 @@ export default function HoleScreen() {
           .from('shots')
           .update({ end_lat: ballSnapshot.lat, end_lng: ballSnapshot.lng })
           .eq('id', result.remote_id)
-          .then(() => undefined, () => undefined)
+          .then(({ error }) => {
+            if (error) {
+              // eslint-disable-next-line no-console
+              console.warn('[hole/end-coord-patch]', error.message)
+            }
+          })
       }
       lastSavedShotLocalIdRef.current = null
     }

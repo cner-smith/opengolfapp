@@ -44,10 +44,13 @@ export default function Stats() {
     if (!user) return
     let active = true
     setLoading(true)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    getRecentSGData(supabase, user.id, n).then(({ data }: { data: any }) => {
+    getRecentSGData(supabase, user.id, n).then(({ data, error }) => {
       if (!active) return
-      setRounds((data as RecentRound[]) ?? [])
+      if (error) {
+        // eslint-disable-next-line no-console
+        console.error('[stats/getRecentSGData]', error.message)
+      }
+      setRounds((data as RecentRound[] | null) ?? [])
       setLoading(false)
     })
     return () => {

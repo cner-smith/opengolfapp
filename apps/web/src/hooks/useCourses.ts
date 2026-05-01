@@ -79,7 +79,11 @@ export function useImportApiCourse() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async (args: ImportFromApiArgs) => {
-      const { data: existing } = await getCourseByExternalId(supabase, args.apiId)
+      const { data: existing, error: existingError } = await getCourseByExternalId(
+        supabase,
+        args.apiId,
+      )
+      if (existingError) throw existingError
       if (existing) return existing as CourseRow
 
       let detail: OpenGolfApiCourse | null = null
