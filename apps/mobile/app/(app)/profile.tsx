@@ -1,5 +1,13 @@
 import { useEffect, useState } from 'react'
-import { Alert, Pressable, ScrollView, Text, TextInput, View } from 'react-native'
+import {
+  Alert,
+  Linking,
+  Pressable,
+  ScrollView,
+  Text,
+  TextInput,
+  View,
+} from 'react-native'
 import { FACILITIES, GOALS, SKILL_LEVELS } from '@oga/core'
 import { getProfile, updateProfile } from '@oga/supabase'
 import type { Database } from '@oga/supabase'
@@ -221,6 +229,78 @@ export default function ProfileTab() {
             {saving ? 'Saving…' : 'Save changes'}
           </Text>
         </Pressable>
+
+        <View
+          style={{
+            marginTop: 28,
+            backgroundColor: '#FBF8F1',
+            borderWidth: 1,
+            borderColor: '#D9D2BF',
+            borderRadius: 2,
+            padding: 18,
+          }}
+        >
+          <Text style={{ ...KICKER, marginBottom: 10 }}>Support OGA</Text>
+          <Text
+            style={{
+              color: '#1C211C',
+              fontSize: 14,
+              lineHeight: 20,
+              marginBottom: 14,
+            }}
+          >
+            OGA is free and open source. If it helps your game,
+            consider buying us a round.
+          </Text>
+          <View style={{ flexDirection: 'row', gap: 10 }}>
+            <Pressable
+              onPress={() => Linking.openURL('https://ko-fi.com/nartana')}
+              style={{
+                flex: 1,
+                borderWidth: 1,
+                borderColor: '#1F3D2C',
+                paddingVertical: 12,
+                alignItems: 'center',
+                borderRadius: 2,
+              }}
+            >
+              <Text
+                style={{
+                  color: '#1F3D2C',
+                  fontSize: 13,
+                  fontWeight: '600',
+                  letterSpacing: 0.3,
+                }}
+              >
+                Ko-fi ↗
+              </Text>
+            </Pressable>
+            <Pressable
+              onPress={() =>
+                Linking.openURL('https://github.com/sponsors/cner-smith')
+              }
+              style={{
+                flex: 1,
+                borderWidth: 1,
+                borderColor: '#1F3D2C',
+                paddingVertical: 12,
+                alignItems: 'center',
+                borderRadius: 2,
+              }}
+            >
+              <Text
+                style={{
+                  color: '#1F3D2C',
+                  fontSize: 13,
+                  fontWeight: '600',
+                  letterSpacing: 0.3,
+                }}
+              >
+                GitHub ↗
+              </Text>
+            </Pressable>
+          </View>
+        </View>
 
         <Pressable
           onPress={() => supabase.auth.signOut()}
