@@ -7,7 +7,7 @@ type RoundUpdate = Database['public']['Tables']['rounds']['Update']
 export function getRounds(client: OgaSupabaseClient, userId: string, limit = 20) {
   return client
     .from('rounds')
-    .select('*, courses(name, location)')
+    .select('*, courses(name, city, state)')
     .eq('user_id', userId)
     .order('played_at', { ascending: false })
     .limit(limit)
@@ -23,7 +23,7 @@ export function getRound(
 ) {
   return client
     .from('rounds')
-    .select('*, courses(name, location), hole_scores(*, holes(*), shots(*))')
+    .select('*, courses(name, city, state), hole_scores(*, holes(*), shots(*))')
     .eq('id', roundId)
     .eq('user_id', userId)
     .single()

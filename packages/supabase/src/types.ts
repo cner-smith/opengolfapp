@@ -56,7 +56,6 @@ export interface Database {
         Row: {
           id: string
           name: string
-          location: string | null
           mapbox_id: string | null
           external_id: string | null
           created_by: string | null
@@ -69,7 +68,6 @@ export interface Database {
         Insert: {
           id?: string
           name: string
-          location?: string | null
           mapbox_id?: string | null
           external_id?: string | null
           created_by?: string | null
@@ -82,7 +80,6 @@ export interface Database {
         Update: {
           id?: string
           name?: string
-          location?: string | null
           mapbox_id?: string | null
           external_id?: string | null
           created_by?: string | null
