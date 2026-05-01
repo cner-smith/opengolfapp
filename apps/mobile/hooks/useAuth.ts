@@ -9,8 +9,7 @@ export function useAuth() {
   useEffect(() => {
     let mounted = true
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    supabase.auth.getSession().then(({ data }: { data: any }) => {
+    supabase.auth.getSession().then(({ data }) => {
       if (!mounted) return
       setUser(data.session?.user ?? null)
       setLoading(false)
@@ -18,8 +17,7 @@ export function useAuth() {
 
     const {
       data: { subscription },
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    } = supabase.auth.onAuthStateChange((_event: any, session: any) => {
+    } = supabase.auth.onAuthStateChange((_event, session) => {
       if (!mounted) return
       setUser(session?.user ?? null)
     })

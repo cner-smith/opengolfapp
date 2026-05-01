@@ -50,14 +50,18 @@ export function useCompleteRound() {
       const [holesRes, holeScoresRes, shotsRes, teesRes] = await Promise.all([
         getHolesForCourse(supabase, courseId),
         getHoleScoresForRound(supabase, roundId),
-        getShotsForRound(supabase, roundId),
+        getShotsForRound(supabase, roundId, userId),
         getCourseTees(supabase, courseId),
       ])
       if (holesRes.error) throw holesRes.error
       if (holeScoresRes.error) throw holeScoresRes.error
       if (shotsRes.error) throw shotsRes.error
 
-      const holes = (holesRes.data ?? []) as HoleRow[]
+      // Plain ?? [] — the select returns the row type already, no cast
+      // needed. The holeScoreRows annotation carries the nested holes()
+      // join shape that the typed select doesn't expose; that's the one
+      // place a narrowing assertion still earns its keep.
+      const holes: HoleRow[] = holesRes.data ?? []
       const holeScoreRows = (holeScoresRes.data ?? []) as Array<
         HoleScoreRow & { holes?: HoleRow | null }
       >
@@ -66,7 +70,7 @@ export function useCompleteRound() {
         return rest
       })
       const shots = (shotsRes.data ?? []) as ShotRow[]
-      const tees = (teesRes.data ?? []) as CourseTeeRow[]
+      const tees: CourseTeeRow[] = teesRes.data ?? []
 
       const result = computeRoundSG({ holes, holeScores, shots, handicap })
 
@@ -128,7 +132,10 @@ export function useCompleteRound() {
         }
       }
 
-      const { error: roundError } = await updateRound(supabase, roundId, {
+      const { error: roundError } = await updateRound(
+        supabase,
+        roundId,
+        {
         sg_off_tee: round2(result.round.offTee),
         sg_approach: round2(result.round.approach),
         sg_around_green: round2(result.round.aroundGreen),
@@ -143,24 +150,32 @@ export function useCompleteRound() {
         // direct link without re-running the fallback.
         course_tee_id: tee?.id ?? courseTeeId ?? null,
         score_differential: differential,
-      })
+        },
+        userId,
+      )
       if (roundError) throw roundError
 
       // ---- Handicap index recompute --------------------------------------
       if (differential != null) {
-        const { data: recentDiffs } = await supabase
+        const { data: recentDiffs, error: diffsError } = await supabase
           .from('rounds')
           .select('score_differential')
           .eq('user_id', userId)
           .not('score_differential', 'is', null)
           .order('played_at', { ascending: false })
           .limit(20)
+        if (diffsError) throw diffsError
         const diffs = (recentDiffs ?? [])
           .map((r) => r.score_differential)
           .filter((d): d is number => d != null)
         const newIndex = calculateHandicapIndex(diffs)
         if (newIndex != null) {
-          await updateProfile(supabase, userId, { handicap_index: newIndex })
+          const { error: profileError } = await updateProfile(
+            supabase,
+            userId,
+            { handicap_index: newIndex },
+          )
+          if (profileError) throw profileError
         }
       }
 

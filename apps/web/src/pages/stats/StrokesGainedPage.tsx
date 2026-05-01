@@ -22,7 +22,7 @@ import type {
   SlopeImpact,
 } from '../../lib/statsCalculations'
 
-const N_OPTIONS = [5, 10, 20] as const
+const N_OPTIONS: readonly number[] = [5, 10, 20]
 
 const TICK_STYLE = { fontSize: 11, fill: '#8A8B7E' } as const
 const TOOLTIP_STYLE = {
@@ -72,7 +72,7 @@ export function StrokesGainedPage() {
         </div>
         <Segmented
           value={n}
-          options={N_OPTIONS as unknown as readonly number[]}
+          options={N_OPTIONS}
           onChange={setN}
           renderLabel={(v) => `Last ${v}`}
         />

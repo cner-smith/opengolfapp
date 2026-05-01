@@ -13,11 +13,19 @@ export function getRounds(client: OgaSupabaseClient, userId: string, limit = 20)
     .limit(limit)
 }
 
-export function getRound(client: OgaSupabaseClient, roundId: string) {
+// Belt-and-suspenders: every read/mutation on user-owned tables takes a
+// userId and filters on it in addition to RLS, so a missing or misconfigured
+// policy can't silently expose another user's data.
+export function getRound(
+  client: OgaSupabaseClient,
+  roundId: string,
+  userId: string,
+) {
   return client
     .from('rounds')
     .select('*, courses(name, location), hole_scores(*, holes(*), shots(*))')
     .eq('id', roundId)
+    .eq('user_id', userId)
     .single()
 }
 
@@ -29,12 +37,23 @@ export function updateRound(
   client: OgaSupabaseClient,
   roundId: string,
   updates: RoundUpdate,
+  userId: string,
 ) {
-  return client.from('rounds').update(updates).eq('id', roundId).select().single()
+  return client
+    .from('rounds')
+    .update(updates)
+    .eq('id', roundId)
+    .eq('user_id', userId)
+    .select()
+    .single()
 }
 
-export function deleteRound(client: OgaSupabaseClient, roundId: string) {
-  return client.from('rounds').delete().eq('id', roundId)
+export function deleteRound(
+  client: OgaSupabaseClient,
+  roundId: string,
+  userId: string,
+) {
+  return client.from('rounds').delete().eq('id', roundId).eq('user_id', userId)
 }
 
 export function getRecentSGData(client: OgaSupabaseClient, userId: string, limit = 10) {

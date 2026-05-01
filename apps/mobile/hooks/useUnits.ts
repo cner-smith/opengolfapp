@@ -15,9 +15,14 @@ export function useUnits() {
   useEffect(() => {
     if (!user) return
     let active = true
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    getProfile(supabase, user.id).then(({ data }: { data: any }) => {
-      if (!active || !data) return
+    getProfile(supabase, user.id).then(({ data, error }) => {
+      if (!active) return
+      if (error) {
+        // eslint-disable-next-line no-console
+        console.warn('[useUnits/getProfile]', error.message)
+        return
+      }
+      if (!data) return
       if (data.distance_unit === 'meters') setUnit('meters')
       else setUnit('yards')
     })

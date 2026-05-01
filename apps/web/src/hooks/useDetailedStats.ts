@@ -1,3 +1,4 @@
+import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { getRoundsWithDetails } from '@oga/supabase'
 import { supabase } from '../lib/supabase'
@@ -25,12 +26,27 @@ export function useDetailedStats(limit: number): {
     queryFn: async (): Promise<DetailedRound[]> => {
       const { data, error } = await getRoundsWithDetails(supabase, user!.id, limit)
       if (error) throw error
+      // The Supabase types for nested joins (rounds → hole_scores → holes/shots)
+      // come back as unknown — there's no public typegen path that resolves the
+      // *, hole_scores(*, holes(*), shots(*)) shape. Cast is asserted here, not
+      // runtime-checked; if the schema or query changes, statsCalculations will
+      // throw a clear "cannot read property X of undefined" rather than a silent
+      // type lie. Re-run `supabase gen types` and adjust DetailedRound when the
+      // schema moves.
       return (data ?? []) as DetailedRound[]
     },
   })
 
-  const rounds = query.data ?? []
-  const data = rounds.length > 0 ? computeDetailedStats(rounds, handicap) : null
+  const rounds = useMemo(() => query.data ?? [], [query.data])
+  // computeDetailedStats walks every shot in every round (O(N×shots)) — wrap
+  // in useMemo so it doesn't re-run on parent renders unrelated to the data.
+  // Returns null while loading and when there are zero rounds; consumers
+  // MUST gate EmptyState on !isLoading first to avoid flashing the empty
+  // state during fetch.
+  const data = useMemo(
+    () => (rounds.length > 0 ? computeDetailedStats(rounds, handicap) : null),
+    [rounds, handicap],
+  )
 
   return {
     data,

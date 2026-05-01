@@ -56,9 +56,10 @@ export default function Home() {
 
   const handleDelete = useCallback(
     async (id: string) => {
+      if (!user) return
       setDeleting(true)
       try {
-        const { error } = await deleteRound(supabase, id)
+        const { error } = await deleteRound(supabase, id, user.id)
         if (error) throw error
         setRounds((prev) => prev.filter((r) => r.id !== id))
       } finally {
@@ -67,19 +68,29 @@ export default function Home() {
         swipeRefs.current.delete(id)
       }
     },
-    [],
+    [user],
   )
 
   useEffect(() => {
     if (!user) return
     let active = true
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    getProfile(supabase, user.id).then(({ data }: { data: any }) => {
-      if (active && data) setProfile(data)
+    getProfile(supabase, user.id).then(({ data, error }) => {
+      if (!active) return
+      if (error) {
+        // eslint-disable-next-line no-console
+        console.error('[home/getProfile]', error.message)
+        return
+      }
+      if (data) setProfile(data)
     })
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    getRecentSGData(supabase, user.id, 20).then(({ data }: { data: any }) => {
-      if (active && data) setRounds(data as RecentRound[])
+    getRecentSGData(supabase, user.id, 20).then(({ data, error }) => {
+      if (!active) return
+      if (error) {
+        // eslint-disable-next-line no-console
+        console.error('[home/getRecentSGData]', error.message)
+        return
+      }
+      if (data) setRounds(data as RecentRound[])
     })
     return () => {
       active = false

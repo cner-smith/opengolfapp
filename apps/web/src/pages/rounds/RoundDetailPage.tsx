@@ -169,11 +169,15 @@ export function RoundDetailPage() {
     async (point: PlacedPoint) => {
       setPinOverride(point)
       const hs = activeHoleScore
-      if (!hs) return
+      if (!hs || !roundId) return
+      // Belt-and-suspenders: constrain by round_id alongside row id, so a
+      // misconfigured RLS policy can't let a stray UUID write another
+      // user's pin.
       const { error } = await supabase
         .from('hole_scores')
         .update({ pin_lat: point.lat, pin_lng: point.lng })
         .eq('id', hs.id)
+        .eq('round_id', roundId)
       if (error) {
         // Don't roll back the local override — the user's intent stays
         // visible while they retry. Surface the error for diagnostics.
@@ -181,7 +185,7 @@ export function RoundDetailPage() {
         console.error('round pin update failed', error)
       }
     },
-    [activeHoleScore],
+    [activeHoleScore, roundId],
   )
 
   const placeHandlers = useMemo(

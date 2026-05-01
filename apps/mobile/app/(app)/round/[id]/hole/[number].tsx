@@ -25,6 +25,7 @@ import {
   insertPendingShot,
   pendingShotsForHoleScore,
   setPendingShotEnd,
+  type PendingShot,
   type ShotPayload,
 } from '../../../../../lib/db'
 import { syncPendingShots } from '../../../../../lib/sync'
@@ -83,9 +84,11 @@ export default function HoleScreen() {
   // can fill in that shot's end_lat/end_lng with the new ball position.
   const lastSavedShotLocalIdRef = useRef<number | null>(null)
   const [remoteShotCount, setRemoteShotCount] = useState(0)
-  const [localShotCount, setLocalShotCount] = useState(0)
   const [remotePuttCount, setRemotePuttCount] = useState(0)
-  const [localPuttCount, setLocalPuttCount] = useState(0)
+  // Single source of truth for unsynced shots on this hole. Local counts
+  // are derived via useMemo so an optimistic save and a slow re-load can't
+  // disagree about how many shots / putts the user has logged.
+  const [pendingForHole, setPendingForHole] = useState<PendingShot[]>([])
   const [loggerOpen, setLoggerOpen] = useState(false)
   const [saving, setSaving] = useState(false)
   // Pin placement is orthogonal to the shot phase machine. When true,
@@ -179,19 +182,9 @@ export default function HoleScreen() {
         pendingShotsForHoleScore(currentHoleScore.id),
       ])
       if (!active) return
-      let localPutts = 0
-      for (const r of local) {
-        try {
-          const p = JSON.parse(r.payload) as ShotPayload
-          if (p.club === 'putter' || p.lie_type === 'green') localPutts++
-        } catch {
-          // skip malformed pending payload
-        }
-      }
       setRemoteShotCount(shotRes.count ?? 0)
-      setLocalShotCount(local.length)
       setRemotePuttCount(puttRes.count ?? 0)
-      setLocalPuttCount(localPutts)
+      setPendingForHole(local)
     })()
     return () => {
       active = false
@@ -242,6 +235,22 @@ export default function HoleScreen() {
     return distanceYards(gpsPosition, storedPin) <= PIN_PROMPT_RADIUS_YARDS
   }, [roundPin, storedPin, gpsPosition])
 
+  // Derive local shot/putt counts from the pending array — single source
+  // of truth, never out of sync with the underlying queue. Putts are
+  // counted as shots where club='putter' OR lie_type='green'.
+  const localShotCount = pendingForHole.length
+  const localPuttCount = useMemo(() => {
+    let n = 0
+    for (const r of pendingForHole) {
+      try {
+        const p = JSON.parse(r.payload) as ShotPayload
+        if (p.club === 'putter' || p.lie_type === 'green') n++
+      } catch {
+        // skip malformed pending payload
+      }
+    }
+    return n
+  }, [pendingForHole])
   const shotNumber = remoteShotCount + localShotCount + 1
 
   function buildPayload(meta: ShotLoggerValue | null): ShotPayload | null {
@@ -298,8 +307,18 @@ export default function HoleScreen() {
       const localId = await insertPendingShot(payload)
       lastSavedShotLocalIdRef.current = localId
       const isPutt = payload.club === 'putter' || payload.lie_type === 'green'
-      setLocalShotCount((c) => c + 1)
-      if (isPutt) setLocalPuttCount((c) => c + 1)
+      // Append to the pending queue — counts derive from this so they can't
+      // drift. Status starts 'pending' until syncPendingShots flips it.
+      setPendingForHole((prev) => [
+        ...prev,
+        {
+          local_id: localId,
+          remote_id: null,
+          status: 'pending',
+          payload: JSON.stringify(payload),
+          created_at: Date.now(),
+        },
+      ])
       setAim(null)
       setBall(null)
       setLoggerOpen(false)
@@ -314,7 +333,12 @@ export default function HoleScreen() {
         .from('hole_scores')
         .update({ score: shotNumber, putts: newPutts })
         .eq('id', payload.hole_score_id)
-        .then(() => undefined, () => undefined)
+        .then(({ error }) => {
+          if (error) {
+            // eslint-disable-next-line no-console
+            console.warn('[hole/score-update]', error.message)
+          }
+        })
       // Reflect optimistically in the inline scorecard preview.
       setHoleScores((prev) =>
         prev.map((hs) =>
@@ -384,7 +408,12 @@ export default function HoleScreen() {
           .from('shots')
           .update({ end_lat: ballSnapshot.lat, end_lng: ballSnapshot.lng })
           .eq('id', result.remote_id)
-          .then(() => undefined, () => undefined)
+          .then(({ error }) => {
+            if (error) {
+              // eslint-disable-next-line no-console
+              console.warn('[hole/end-coord-patch]', error.message)
+            }
+          })
       }
       lastSavedShotLocalIdRef.current = null
     }
@@ -416,10 +445,10 @@ export default function HoleScreen() {
   }
 
   async function handleDeleteRound() {
-    if (!round) return
+    if (!round || !user) return
     setDeleting(true)
     try {
-      const { error: delErr } = await deleteRound(supabase, round.id)
+      const { error: delErr } = await deleteRound(supabase, round.id, user.id)
       if (delErr) {
         Alert.alert('Delete failed', delErr.message)
         return
