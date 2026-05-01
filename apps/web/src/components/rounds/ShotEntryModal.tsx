@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   CLUBS,
   LIE_TYPES,
@@ -170,10 +170,18 @@ export function ShotEntryModal({
   )
   const [editing, setEditing] = useState<string | null>(null)
 
+  // Read the latest holeShots count via ref so the reset effect doesn't
+  // need it as a dep — a refetch ticking the count up shouldn't wipe the
+  // draft the user is filling in. cancelEdit() handles the post-save reset
+  // explicitly with the up-to-date length.
+  const holeShotsRef = useRef(holeShots)
+  holeShotsRef.current = holeShots
+
   useEffect(() => {
     if (editing) return
-    setDraft(emptyDraft(holeShots.length + 1, holeShots.length === 0))
-  }, [holeShots.length, editing])
+    const len = holeShotsRef.current.length
+    setDraft(emptyDraft(len + 1, len === 0))
+  }, [holeScoreId, editing])
 
   function startEdit(s: ShotRow) {
     setEditing(s.id)

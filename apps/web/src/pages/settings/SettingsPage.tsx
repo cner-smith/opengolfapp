@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   FACILITIES,
   GOALS,
@@ -48,19 +48,20 @@ export function SettingsPage() {
   const [saved, setSaved] = useState(false)
   const unit = profile?.distance_unit ?? 'yards'
 
+  // Hydrate form fields the first time profile loads. Refetches (our own
+  // save, or background refresh) must not stomp on values the user is in
+  // the middle of editing — saveProfile() is the single source of truth
+  // for committing changes back to the server.
+  const hydratedRef = useRef(false)
   useEffect(() => {
-    setUsername(profile?.username ?? '')
-    setHandicap(profile?.handicap_index?.toString() ?? '')
-    setSkill((profile?.skill_level as SkillLevel | null) ?? null)
-    setGoal((profile?.goal as Goal | null) ?? null)
-    setFacilities((profile?.facilities ?? []) as Facility[])
-  }, [
-    profile?.username,
-    profile?.handicap_index,
-    profile?.skill_level,
-    profile?.goal,
-    profile?.facilities,
-  ])
+    if (!profile || hydratedRef.current) return
+    hydratedRef.current = true
+    setUsername(profile.username ?? '')
+    setHandicap(profile.handicap_index?.toString() ?? '')
+    setSkill((profile.skill_level as SkillLevel | null) ?? null)
+    setGoal((profile.goal as Goal | null) ?? null)
+    setFacilities((profile.facilities ?? []) as Facility[])
+  }, [profile])
 
   function toggleFacility(f: Facility) {
     setFacilities((prev) =>

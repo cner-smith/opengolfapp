@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   CLUBS,
   LIE_TYPES,
@@ -57,30 +57,32 @@ export function HoleReviewSheet({
 }: HoleReviewSheetProps) {
   const [rows, setRows] = useState<ReviewedShotRow[]>([])
 
-  // Stringified marker positions: cheap stable identity for the effect's
-  // dep array, so the .map().join() doesn't run inline in deps every
-  // render just to be compared.
-  const placedKey = useMemo(
-    () => placedPoints.map((p) => `${p.lat},${p.lng}`).join('|'),
-    [placedPoints],
-  )
-  // Read latest placedPoints inside the effect via ref so the effect's
-  // dep list can be just `placedKey` — re-running only when coords
-  // actually change, not on every parent render that returns a new array.
+  // Read the latest placedPoints inside the effect via ref so the effect
+  // doesn't re-fire (and clobber user edits) just because the parent
+  // returned a new array reference.
   const placedPointsRef = useRef(placedPoints)
   placedPointsRef.current = placedPoints
 
+  // Hydrate rows from the placed coordinates once per (hole, open). After
+  // hydration the user's typing/dropdown choices are the source of truth —
+  // dragging markers updates coords, but does NOT rebuild rows and erase
+  // edits. The sheet re-hydrates fresh on next open.
+  const hydratedHoleRef = useRef<number | null>(null)
   useEffect(() => {
-    if (!open) return
+    if (!open) {
+      hydratedHoleRef.current = null
+      return
+    }
     if (pinLat == null || pinLng == null) {
-      // No pin coords on this hole — distances meaningless. Bail with empty.
       setRows([])
       return
     }
+    if (hydratedHoleRef.current === holeNumber) return
+    hydratedHoleRef.current = holeNumber
     setRows(
       buildInitialRows(placedPointsRef.current, par, pinLat, pinLng),
     )
-  }, [open, holeNumber, par, pinLat, pinLng, placedKey])
+  }, [open, holeNumber, par, pinLat, pinLng])
 
   // Slide-in: mount at translateY(100%), flip to 0 next frame so CSS
   // transition runs. Two rAFs to ensure the initial style commits first.
