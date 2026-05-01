@@ -469,7 +469,11 @@ export default function HoleScreen() {
           justifyContent: 'space-between',
         }}
       >
-        <Pressable onPress={() => router.replace('/(app)')}>
+        <Pressable
+          onPress={() => router.replace('/(app)')}
+          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+          style={{ padding: 6 }}
+        >
           <Text
             style={{
               ...KICKER,
@@ -602,10 +606,18 @@ export default function HoleScreen() {
                 marginBottom: 10,
               }}
             >
-              <Pressable onPress={() => setRoundState('PLACE_BALL')}>
+              <Pressable
+                onPress={() => setRoundState('PLACE_BALL')}
+                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                style={{ padding: 6 }}
+              >
                 <Text style={{ ...KICKER, color: '#8A8B7E' }}>← Re-place ball</Text>
               </Pressable>
-              <Pressable onPress={skipAim}>
+              <Pressable
+                onPress={skipAim}
+                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                style={{ padding: 6 }}
+              >
                 <Text style={{ ...KICKER, color: '#8A8B7E' }}>Skip aim</Text>
               </Pressable>
             </View>

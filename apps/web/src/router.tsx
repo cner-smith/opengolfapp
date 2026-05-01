@@ -2,6 +2,7 @@ import { createBrowserRouter, Outlet, type RouteObject } from 'react-router-dom'
 import { AuthGuard } from './components/auth/AuthGuard'
 import { ProfileGuard } from './components/auth/ProfileGuard'
 import { AppShell } from './components/layout/AppShell'
+import { RouteErrorBoundary } from './components/errors/ErrorBoundary'
 import { LoginPage } from './pages/auth/LoginPage'
 import { SignupPage } from './pages/auth/SignupPage'
 import { OnboardingPage } from './pages/onboarding/OnboardingPage'
@@ -28,23 +29,30 @@ function ProtectedShell() {
   )
 }
 
+const errorElement = <RouteErrorBoundary />
+
 const routes: RouteObject[] = [
-  { path: '/login', element: <LoginPage /> },
-  { path: '/signup', element: <SignupPage /> },
-  { path: '/onboarding', element: <AuthGuard><OnboardingPage /></AuthGuard> },
+  { path: '/login', element: <LoginPage />, errorElement },
+  { path: '/signup', element: <SignupPage />, errorElement },
+  {
+    path: '/onboarding',
+    element: <AuthGuard><OnboardingPage /></AuthGuard>,
+    errorElement,
+  },
   {
     element: <ProtectedShell />,
+    errorElement,
     children: [
-      { path: '/', element: <DashboardPage /> },
-      { path: '/rounds', element: <RoundsPage /> },
-      { path: '/rounds/new', element: <NewRoundPage /> },
-      { path: '/rounds/:id', element: <RoundDetailPage /> },
-      { path: '/stats', element: <StrokesGainedPage /> },
-      { path: '/patterns', element: <ShotPatternsPage /> },
-      { path: '/practice', element: <PracticePlanPage /> },
-      { path: '/practice/drills', element: <DrillLibraryPage /> },
-      { path: '/learn', element: <LearnPage /> },
-      { path: '/settings', element: <SettingsPage /> },
+      { path: '/', element: <DashboardPage />, errorElement },
+      { path: '/rounds', element: <RoundsPage />, errorElement },
+      { path: '/rounds/new', element: <NewRoundPage />, errorElement },
+      { path: '/rounds/:id', element: <RoundDetailPage />, errorElement },
+      { path: '/stats', element: <StrokesGainedPage />, errorElement },
+      { path: '/patterns', element: <ShotPatternsPage />, errorElement },
+      { path: '/practice', element: <PracticePlanPage />, errorElement },
+      { path: '/practice/drills', element: <DrillLibraryPage />, errorElement },
+      { path: '/learn', element: <LearnPage />, errorElement },
+      { path: '/settings', element: <SettingsPage />, errorElement },
     ],
   },
 ]
