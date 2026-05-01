@@ -3,6 +3,7 @@ import { Tabs, Redirect } from 'expo-router'
 import { MaterialCommunityIcons } from '@expo/vector-icons'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
+import { ErrorBoundary } from '../../components/errors/ErrorBoundary'
 
 const ICON_SIZE = 18
 
@@ -36,6 +37,7 @@ export default function AppLayout() {
   if (profileState === 'incomplete') return <Redirect href="/(auth)/onboarding" />
 
   return (
+    <ErrorBoundary>
     <Tabs
       screenOptions={{
         headerShown: false,
@@ -116,5 +118,6 @@ export default function AppLayout() {
       <Tabs.Screen name="round/[id]/index" options={{ href: null }} />
       <Tabs.Screen name="round/[id]/hole/[number]" options={{ href: null }} />
     </Tabs>
+    </ErrorBoundary>
   )
 }
