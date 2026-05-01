@@ -1,3 +1,4 @@
+import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { getRoundsWithDetails } from '@oga/supabase'
 import { supabase } from '../lib/supabase'
@@ -36,8 +37,16 @@ export function useDetailedStats(limit: number): {
     },
   })
 
-  const rounds = query.data ?? []
-  const data = rounds.length > 0 ? computeDetailedStats(rounds, handicap) : null
+  const rounds = useMemo(() => query.data ?? [], [query.data])
+  // computeDetailedStats walks every shot in every round (O(N×shots)) — wrap
+  // in useMemo so it doesn't re-run on parent renders unrelated to the data.
+  // Returns null while loading and when there are zero rounds; consumers
+  // MUST gate EmptyState on !isLoading first to avoid flashing the empty
+  // state during fetch.
+  const data = useMemo(
+    () => (rounds.length > 0 ? computeDetailedStats(rounds, handicap) : null),
+    [rounds, handicap],
+  )
 
   return {
     data,
