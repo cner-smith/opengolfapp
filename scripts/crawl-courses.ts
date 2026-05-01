@@ -12,13 +12,20 @@
  *   SUPABASE_SERVICE_ROLE_KEY     admin key (bypasses RLS)
  *
  * CLI:
- *   tsx scripts/crawl-courses.ts --source opengolfapi
- *   tsx scripts/crawl-courses.ts --source opengolfapi --states TX,OK,CA
- *   tsx scripts/crawl-courses.ts --source osm --states OK
- *   tsx scripts/crawl-courses.ts --source opengolfapi --force
+ *   tsx scripts/crawl-courses.ts --source osm-first              # OSM + enrich
+ *   tsx scripts/crawl-courses.ts --source osm-first --states OK
+ *   tsx scripts/crawl-courses.ts --source osm                    # OSM only
+ *   tsx scripts/crawl-courses.ts --source enrich --states OK     # enrich only
+ *   tsx scripts/crawl-courses.ts --source opengolfapi            # legacy
  *   tsx scripts/crawl-courses.ts --status
  *
- * OpenGolfAPI: ~1 req/sec (900/day soft cap). A full US crawl is ~5 hours.
+ * OSM-first is the recommended mode: Overpass returns every named
+ * leisure=golf_course in a bbox (no 100-result cap), and the enrich
+ * pass fills in tee ratings/slopes by fuzzy-matching each OSM course
+ * against OpenGolfAPI's 100-per-state subset.
+ *
+ * OpenGolfAPI: ~1 req/sec (900/day soft cap). Hard 100-result cap on
+ *   /courses/state/:state — used for enrichment only.
  * OSM Overpass: ~1 req per 2 sec, single state-bbox query per state.
  */
 import 'dotenv/config'
@@ -201,17 +208,21 @@ interface RawCourse {
 }
 
 interface OsmCourseLite {
-  wayId: number
+  osmType: 'way' | 'relation' | 'node'
+  osmId: number
   name: string
   lat: number
   lng: number
   state: string
+  city?: string
 }
 
 type CrawlStatus = 'pending' | 'in_progress' | 'done' | 'error'
 
+type Source = 'opengolfapi' | 'osm' | 'osm-first' | 'enrich'
+
 interface Args {
-  source: 'opengolfapi' | 'osm' | null
+  source: Source | null
   states: string[] | null // null = default (all for OpenGolfAPI / all w/ bbox for OSM)
   force: boolean
   status: boolean
@@ -232,10 +243,13 @@ function parseArgs(argv: string[]): Args {
     const a = argv[i]
     const next = argv[i + 1]
     if (a === '--source' && next) {
-      if (next !== 'opengolfapi' && next !== 'osm') {
-        throw new Error(`--source must be opengolfapi or osm (got: ${next})`)
+      const allowed = ['opengolfapi', 'osm', 'osm-first', 'enrich'] as const
+      if (!allowed.includes(next as Source)) {
+        throw new Error(
+          `--source must be one of ${allowed.join(', ')} (got: ${next})`,
+        )
       }
-      source = next
+      source = next as Source
       i++
     } else if (a === '--states' && next) {
       states = next
@@ -441,16 +455,18 @@ interface OverpassNode {
   id: number
   lat: number
   lon: number
+  center?: undefined
   tags?: Record<string, string>
 }
-interface OverpassWay {
-  type: 'way'
+interface OverpassWayOrRelation {
+  type: 'way' | 'relation'
   id: number
   center?: { lat: number; lon: number }
   tags?: Record<string, string>
 }
+type OverpassElement = OverpassNode | OverpassWayOrRelation
 interface OverpassResponse {
-  elements: Array<OverpassNode | OverpassWay>
+  elements: OverpassElement[]
 }
 
 async function fetchOsmCoursesInState(state: string): Promise<OsmCourseLite[]> {
@@ -493,15 +509,26 @@ out center tags;
         if (!name) continue
         let lat: number | undefined
         let lng: number | undefined
-        if (el.type === 'way' && el.center) {
-          lat = el.center.lat
-          lng = el.center.lon
-        } else if (el.type === 'node') {
+        if (el.type === 'node') {
           lat = el.lat
           lng = el.lon
+        } else if (el.center) {
+          // ways and relations both come back with a `center` when the
+          // query asks for `out center tags`.
+          lat = el.center.lat
+          lng = el.center.lon
         }
         if (lat == null || lng == null) continue
-        out.push({ wayId: el.id, name, lat, lng, state })
+        const city = (tags['addr:city'] ?? '').trim() || undefined
+        out.push({
+          osmType: el.type,
+          osmId: el.id,
+          name,
+          lat,
+          lng,
+          state,
+          city,
+        })
       }
       return out
     } catch (err) {
@@ -792,13 +819,14 @@ async function crawlOsm(
       for (let i = 0; i < targets.length; i++) {
         const c = targets[i]
         if (!c) continue
-        const externalId = `osm_way_${c.wayId}`
+        const externalId = `osm_${c.osmType}_${c.osmId}`
+        const location = [c.city, c.state].filter((s) => !!s).join(', ') || c.state
         try {
           const upsert = await insertOrUpdateCourse({
             externalId,
             name: c.name,
-            location: c.state,
-            city: null,
+            location,
+            city: c.city ?? null,
             state: c.state,
             lat: c.lat,
             lng: c.lng,
@@ -815,7 +843,7 @@ async function crawlOsm(
           stateErrors++
           totalErrors++
           console.warn(
-            `[osm:${state}] way ${c.wayId} (${c.name}): ${(err as Error).message}`,
+            `[osm:${state}] ${c.osmType}/${c.osmId} (${c.name}): ${(err as Error).message}`,
           )
         }
       }
@@ -842,6 +870,218 @@ async function crawlOsm(
   }
   console.log(
     `\nOSM crawl complete: ${totalImported} imported, ${totalSkipped} skipped, ${totalErrors} errors`,
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Enrichment — fuzzy-match OSM courses to OpenGolfAPI to fill in tee data
+// ---------------------------------------------------------------------------
+
+// Strip the boilerplate suffixes / connectors / punctuation that drown out
+// real differences in club names. Both sides go through this before
+// comparison, so "Lake Hefner Golf Club" and "Lake Hefner GC" collapse to
+// the same canonical "lake hefner".
+function normalizeForMatch(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/[’']/g, '')
+    .replace(
+      /\b(golf and country club|golf country club|country club|golf club|golf course|golf links|the golf club|golf|gc|cc)\b/g,
+      ' ',
+    )
+    .replace(/\bat\b/g, ' ')
+    .replace(/[^a-z0-9 ]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+// Plain Levenshtein with a single rolling row. Casts are fine here — the
+// arrays are filled before reads.
+function levenshtein(a: string, b: string): number {
+  if (a === b) return 0
+  const m = a.length
+  const n = b.length
+  if (m === 0) return n
+  if (n === 0) return m
+  let prev: number[] = Array.from({ length: n + 1 }, (_, j) => j)
+  let curr: number[] = new Array<number>(n + 1).fill(0)
+  for (let i = 1; i <= m; i++) {
+    curr[0] = i
+    for (let j = 1; j <= n; j++) {
+      const cost = a.charCodeAt(i - 1) === b.charCodeAt(j - 1) ? 0 : 1
+      curr[j] = Math.min(
+        (curr[j - 1] as number) + 1,
+        (prev[j] as number) + 1,
+        (prev[j - 1] as number) + cost,
+      )
+    }
+    const tmp = prev
+    prev = curr
+    curr = tmp
+  }
+  return prev[n] as number
+}
+
+function nameSimilarity(a: string, b: string): number {
+  const na = normalizeForMatch(a)
+  const nb = normalizeForMatch(b)
+  if (!na || !nb) return 0
+  if (na === nb) return 1
+  const maxLen = Math.max(na.length, nb.length)
+  return maxLen === 0 ? 0 : 1 - levenshtein(na, nb) / maxLen
+}
+
+const MATCH_THRESHOLD = 0.7
+
+// Look up the OpenGolfAPI course that best matches `name` within `state`.
+// Returns the full detail (with tees) if a confident match is found.
+async function findOgaMatchForCourse(
+  name: string,
+  state: string,
+): Promise<OgaCourseDetail | null> {
+  const url = `${OPENGOLFAPI_BASE}/courses/search?q=${encodeURIComponent(name)}&state=${encodeURIComponent(state)}`
+  const payload = await fetchJson(url)
+  const raws = pickArray(payload)
+  let best: { item: OgaListItem; score: number } | null = null
+  for (const raw of raws) {
+    const item = normalizeListItem(raw)
+    if (!item) continue
+    // Only consider candidates from the right state — search ignores the
+    // state filter for some queries and returns mixed results.
+    if (item.state && item.state.toUpperCase() !== state.toUpperCase()) continue
+    const score = nameSimilarity(name, item.name)
+    if (score > (best?.score ?? 0)) best = { item, score }
+  }
+  if (!best || best.score < MATCH_THRESHOLD) return null
+  await sleep(OPENGOLFAPI_DELAY_MS)
+  return fetchOgaCourseDetail(best.item.id)
+}
+
+interface CourseRowMin {
+  id: string
+  name: string
+  external_id: string | null
+}
+
+async function crawlEnrich(
+  states: string[],
+  force: boolean,
+  limit: number | null,
+): Promise<void> {
+  let totalEnriched = 0
+  let totalUnmatched = 0
+  let totalSkipped = 0
+  let totalErrors = 0
+  for (const state of states) {
+    const crawlId = `enrich:state:${state}`
+    const prev = await getCrawlState(crawlId)
+    if (prev?.status === 'done' && !force) {
+      console.log(
+        `[enrich:${state}] skip — already done (${prev.items_processed} courses)`,
+      )
+      continue
+    }
+    await setCrawlState(crawlId, { status: 'in_progress', errorMessage: null })
+
+    let stateProcessed = 0
+    let stateEnriched = 0
+    let stateUnmatched = 0
+    let stateErrors = 0
+    try {
+      // OSM-imported courses for this state. Excludes manual or
+      // already-OpenGolfAPI-imported courses to keep the scope tight.
+      const { data: courseRows, error: coursesErr } = await supabase
+        .from('courses')
+        .select('id, name, external_id')
+        .eq('state', state)
+        .like('external_id', 'osm_%')
+      if (coursesErr) throw coursesErr
+      const courses = (courseRows ?? []) as CourseRowMin[]
+      const targets = limit != null ? courses.slice(0, limit) : courses
+      console.log(`[enrich:${state}] ${targets.length} OSM course(s) to consider`)
+
+      // Bulk-fetch existing tees so we can skip already-enriched courses
+      // without one round-trip per course.
+      const courseIds = targets.map((c) => c.id)
+      const teedSet = new Set<string>()
+      if (courseIds.length > 0) {
+        const { data: teesRows, error: teesErr } = await supabase
+          .from('course_tees')
+          .select('course_id')
+          .in('course_id', courseIds)
+        if (teesErr) throw teesErr
+        for (const row of teesRows ?? []) {
+          if (row.course_id) teedSet.add(row.course_id)
+        }
+      }
+
+      for (let i = 0; i < targets.length; i++) {
+        const course = targets[i]
+        if (!course) continue
+        if (teedSet.has(course.id) && !force) {
+          totalSkipped++
+          continue
+        }
+        try {
+          const match = await findOgaMatchForCourse(course.name, state)
+          stateProcessed++
+          if (!match) {
+            stateUnmatched++
+            totalUnmatched++
+            await sleep(OPENGOLFAPI_DELAY_MS)
+            continue
+          }
+          if (match.tees.length > 0) {
+            await upsertTees(course.id, match.tees)
+          }
+          // Switch the course's external_id to the OpenGolfAPI key so
+          // in-app searches that hit OpenGolfAPI dedupe against this row
+          // via getCourseByExternalId. The trade-off: a future OSM
+          // crawl will create a new course row for the OSM way; that's
+          // acceptable since the OSM crawl skips already-done states.
+          const ogaExternalId = `opengolfapi_${match.id}`
+          const { error: updateErr } = await supabase
+            .from('courses')
+            .update({ external_id: ogaExternalId })
+            .eq('id', course.id)
+          if (updateErr) throw updateErr
+          stateEnriched++
+          totalEnriched++
+          if ((i + 1) % 50 === 0 || i === targets.length - 1) {
+            console.log(
+              `[enrich:${state}] ${i + 1}/${targets.length} — matched: ${course.name}`,
+            )
+            await setCrawlState(crawlId, { itemsProcessed: stateProcessed })
+          }
+        } catch (err) {
+          stateErrors++
+          totalErrors++
+          console.warn(
+            `[enrich:${state}] ${course.name}: ${(err as Error).message}`,
+          )
+        }
+        await sleep(OPENGOLFAPI_DELAY_MS)
+      }
+
+      await setCrawlState(crawlId, {
+        status: 'done',
+        itemsProcessed: stateProcessed,
+        errorMessage: null,
+      })
+      console.log(
+        `[enrich:${state}] done — ${stateEnriched} enriched, ${stateUnmatched} no-match, ${stateErrors} errors`,
+      )
+    } catch (err) {
+      console.error(`[enrich:${state}] fatal: ${(err as Error).message}`)
+      await setCrawlState(crawlId, {
+        status: 'error',
+        itemsProcessed: stateProcessed,
+        errorMessage: (err as Error).message,
+      })
+    }
+  }
+  console.log(
+    `\nEnrichment complete: ${totalEnriched} enriched, ${totalUnmatched} no-match, ${totalSkipped} already-teed, ${totalErrors} errors`,
   )
 }
 
@@ -893,8 +1133,10 @@ async function main(): Promise<void> {
   if (!args.source) {
     console.error(
       'Missing --source. Usage:\n' +
-        '  tsx scripts/crawl-courses.ts --source opengolfapi [--states TX,OK] [--force] [--limit N]\n' +
-        '  tsx scripts/crawl-courses.ts --source osm --states OK [--force]\n' +
+        '  tsx scripts/crawl-courses.ts --source osm-first [--states TX,OK] [--force] [--limit N]\n' +
+        '  tsx scripts/crawl-courses.ts --source osm [--states TX,OK] [--force]\n' +
+        '  tsx scripts/crawl-courses.ts --source enrich [--states TX,OK] [--force]\n' +
+        '  tsx scripts/crawl-courses.ts --source opengolfapi [--states TX,OK] [--force]\n' +
         '  tsx scripts/crawl-courses.ts --status',
     )
     process.exit(1)
@@ -906,17 +1148,34 @@ async function main(): Promise<void> {
       `OpenGolfAPI crawl: ${states.length} state(s)${args.force ? ' (force)' : ''}`,
     )
     await crawlOpenGolfApi(states, args.force, args.limit)
-  } else {
-    const configured = Object.keys(STATE_BBOX)
-    const states = args.states ?? configured
-    const unsupported = states.filter((s) => !STATE_BBOX[s])
-    if (unsupported.length) {
-      throw new Error(
-        `OSM bbox not configured for: ${unsupported.join(', ')}. Add to STATE_BBOX.`,
-      )
-    }
+    return
+  }
+
+  // The remaining sources all rely on the OSM bbox table.
+  const configured = Object.keys(STATE_BBOX)
+  const states = args.states ?? configured
+  const unsupported = states.filter((s) => !STATE_BBOX[s])
+  if (unsupported.length) {
+    throw new Error(
+      `OSM bbox not configured for: ${unsupported.join(', ')}. Add to STATE_BBOX.`,
+    )
+  }
+
+  if (args.source === 'osm') {
     console.log(`OSM crawl: ${states.length} state(s)${args.force ? ' (force)' : ''}`)
     await crawlOsm(states, args.force, args.limit)
+  } else if (args.source === 'enrich') {
+    console.log(
+      `Enrich crawl: ${states.length} state(s)${args.force ? ' (force)' : ''}`,
+    )
+    await crawlEnrich(states, args.force, args.limit)
+  } else {
+    // osm-first: phase 1 = OSM coverage, phase 2 = OpenGolfAPI enrichment.
+    console.log(
+      `OSM-first crawl: ${states.length} state(s)${args.force ? ' (force)' : ''}`,
+    )
+    await crawlOsm(states, args.force, args.limit)
+    await crawlEnrich(states, args.force, args.limit)
   }
 }
 
