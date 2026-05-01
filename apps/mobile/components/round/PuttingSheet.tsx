@@ -8,12 +8,14 @@ import {
   TextInput,
   View,
 } from 'react-native'
-import { GreenDiagram, type BreakDirection } from './GreenDiagram'
+import type {
+  BreakDirection,
+  GreenSpeed,
+  PuttDirectionResult,
+  PuttDistanceResult,
+} from '@oga/core'
+import { GreenDiagram } from './GreenDiagram'
 import { useUnits } from '../../hooks/useUnits'
-
-type GreenSpeed = 'slow' | 'medium' | 'fast'
-type PuttDistanceResult = 'short' | 'long'
-type PuttDirectionResult = 'left' | 'right'
 
 export interface PuttingValue {
   puttDistanceFt?: number

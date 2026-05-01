@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
+import { YARDS_TO_METERS, type DistanceUnit } from '@oga/core'
 import { getProfile } from '@oga/supabase'
 import { supabase } from '../lib/supabase'
 import { useAuth } from './useAuth'
 
-export type DistanceUnit = 'yards' | 'meters'
+export type { DistanceUnit }
 
 // Mobile mirror of the web useUnits hook. Reads the profile's
 // distance_unit lazily — components can render with the default 'yards'
@@ -34,7 +35,7 @@ export function useUnits() {
   function toDisplay(yards: number, decimals = 0): string {
     if (!Number.isFinite(yards)) return '—'
     if (unit === 'meters') {
-      return (yards * 0.9144).toFixed(decimals) + ' m'
+      return (yards * YARDS_TO_METERS).toFixed(decimals) + ' m'
     }
     return yards.toFixed(decimals) + ' yd'
   }
