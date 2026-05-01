@@ -13,6 +13,13 @@ build/
 .env
 .env.local
 .env.*.local
+.env.development
+.env.production
+.env.staging
+apps/web/.env.development
+apps/web/.env.production
+apps/mobile/.env.development
+apps/mobile/.env.production
 !.env.example
 
 # editor
