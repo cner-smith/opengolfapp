@@ -556,7 +556,6 @@ async function findCourseByExternalId(externalId: string): Promise<string | null
 async function insertOrUpdateCourse(args: {
   externalId: string
   name: string
-  location: string | null
   city: string | null
   state: string | null
   lat: number | null
@@ -565,7 +564,6 @@ async function insertOrUpdateCourse(args: {
 }): Promise<{ id: string; isNew: boolean; skipped: boolean }> {
   const fields = {
     name: args.name,
-    location: args.location,
     city: args.city,
     state: args.state,
     lat: args.lat,
@@ -731,11 +729,9 @@ async function crawlOpenGolfApi(
           }
           const city = (detail.city ?? item.city ?? '').trim() || null
           const stateCode = (detail.state ?? item.state ?? state).trim() || null
-          const location = [city, stateCode].filter((s) => !!s).join(', ') || null
           const upsert = await insertOrUpdateCourse({
             externalId,
             name: detail.name,
-            location,
             city,
             state: stateCode,
             lat: detail.lat ?? item.lat ?? null,
@@ -820,12 +816,10 @@ async function crawlOsm(
         const c = targets[i]
         if (!c) continue
         const externalId = `osm_${c.osmType}_${c.osmId}`
-        const location = [c.city, c.state].filter((s) => !!s).join(', ') || c.state
         try {
           const upsert = await insertOrUpdateCourse({
             externalId,
             name: c.name,
-            location,
             city: c.city ?? null,
             state: c.state,
             lat: c.lat,

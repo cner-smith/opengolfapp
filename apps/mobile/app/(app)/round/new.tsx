@@ -190,13 +190,12 @@ export default function NewRound() {
         return
       }
       const detail = await getOpenGolfApiCourse(r.id)
-      const location =
-        [detail.city, detail.state].filter(Boolean).join(', ') ||
-        formatLocation(r) ||
-        null
+      const city = detail.city ?? r.city ?? null
+      const state = detail.state ?? r.state ?? null
       const { data: course, error: courseErr } = await createCourse(supabase, {
         name: detail.name || r.name,
-        location,
+        city,
+        state,
         external_id: r.id,
       })
       if (courseErr || !course) throw courseErr ?? new Error('Course insert failed')
@@ -254,9 +253,17 @@ export default function NewRound() {
           setBusy(true)
           setError(null)
           try {
+            const trimmed = location?.trim() ?? ''
+            const commaIdx = trimmed.indexOf(',')
+            const city =
+              commaIdx >= 0
+                ? trimmed.slice(0, commaIdx).trim() || null
+                : trimmed || null
+            const state =
+              commaIdx >= 0 ? trimmed.slice(commaIdx + 1).trim() || null : null
             const { data: course, error: courseErr } = await createCourse(
               supabase,
-              { name: name.trim(), location: location?.trim() || null },
+              { name: name.trim(), city, state },
             )
             if (courseErr || !course) {
               throw courseErr ?? new Error('Course insert failed')
@@ -344,11 +351,14 @@ export default function NewRound() {
                 >
                   {c.name}
                 </Text>
-                {c.location && (
-                  <Text style={{ color: '#5C6356', fontSize: 12, marginTop: 2 }}>
-                    {c.location}
-                  </Text>
-                )}
+                {(() => {
+                  const where = [c.city, c.state].filter((s) => !!s).join(', ')
+                  return where ? (
+                    <Text style={{ color: '#5C6356', fontSize: 12, marginTop: 2 }}>
+                      {where}
+                    </Text>
+                  ) : null
+                })()}
               </Pressable>
             ))}
           </View>
