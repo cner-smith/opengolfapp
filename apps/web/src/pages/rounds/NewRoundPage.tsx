@@ -7,6 +7,8 @@ import { useAuth } from '../../hooks/useAuth'
 
 const TEE_COLORS = ['black', 'blue', 'white', 'gold', 'red'] as const
 
+type RoundMode = 'live' | 'past'
+
 export function NewRoundPage() {
   const navigate = useNavigate()
   const { user } = useAuth()
@@ -16,6 +18,7 @@ export function NewRoundPage() {
   const [playedAt, setPlayedAt] = useState(() => new Date().toISOString().slice(0, 10))
   const [teeColor, setTeeColor] = useState<string>('white')
   const [courseTeeId, setCourseTeeId] = useState<string | null>(null)
+  const [mode, setMode] = useState<RoundMode>('past')
   const [error, setError] = useState<string | null>(null)
 
   async function handleSubmit(e: FormEvent) {
@@ -35,7 +38,11 @@ export function NewRoundPage() {
         course_tee_id: courseTeeId,
       })
       if (!round) throw new Error('Round insert returned no row')
-      navigate(`/rounds/${round.id}`)
+      // Live rounds open the map view directly so the user can start
+      // dropping shots; past-round entry stays on the scorecard.
+      navigate(
+        mode === 'live' ? `/rounds/${round.id}?view=map` : `/rounds/${round.id}`,
+      )
     } catch (err) {
       setError((err as Error).message)
     }
@@ -59,6 +66,24 @@ export function NewRoundPage() {
         className="bg-oga-bg-card flex flex-col gap-5"
         style={{ border: '0.5px solid #E4E4E0', borderRadius: 10, padding: 20 }}
       >
+        <section>
+          <FieldLabel>Are you logging this round live or after the fact?</FieldLabel>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <ModeChip
+              active={mode === 'past'}
+              onClick={() => setMode('past')}
+              title="After the fact"
+              subtitle="No GPS · enter on scorecard or map"
+            />
+            <ModeChip
+              active={mode === 'live'}
+              onClick={() => setMode('live')}
+              title="Live"
+              subtitle="GPS-tracked, shot-by-shot on the map"
+            />
+          </div>
+        </section>
+
         <section>
           <FieldLabel>Course</FieldLabel>
           <CourseSearch
@@ -159,6 +184,51 @@ export function NewRoundPage() {
         </div>
       </form>
     </div>
+  )
+}
+
+function ModeChip({
+  active,
+  onClick,
+  title,
+  subtitle,
+}: {
+  active: boolean
+  onClick: () => void
+  title: string
+  subtitle: string
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className={
+        active
+          ? 'bg-oga-black text-white'
+          : 'bg-oga-bg-card text-oga-text-primary hover:bg-oga-bg-input'
+      }
+      style={{
+        flex: 1,
+        textAlign: 'left',
+        border: active ? '0.5px solid transparent' : '0.5px solid #E4E4E0',
+        borderRadius: 10,
+        padding: '12px 14px',
+        fontSize: 13,
+        fontWeight: 500,
+        transition: 'background 120ms',
+      }}
+    >
+      <div style={{ fontWeight: 600, marginBottom: 2 }}>{title}</div>
+      <div
+        style={{
+          fontSize: 11,
+          opacity: active ? 0.85 : 0.7,
+        }}
+      >
+        {subtitle}
+      </div>
+    </button>
   )
 }
 

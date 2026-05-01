@@ -7,7 +7,7 @@ import {
   TextInput,
   View,
 } from 'react-native'
-import { useRouter } from 'expo-router'
+import { useLocalSearchParams, useRouter } from 'expo-router'
 import * as Location from 'expo-location'
 import {
   formatLocation,
@@ -48,6 +48,12 @@ interface GpsState {
 export default function NewRound() {
   const { user } = useAuth()
   const router = useRouter()
+  const params = useLocalSearchParams<{ mode?: string }>()
+  // Two entry points from the home tab: 'live' (GPS-tracked) and
+  // 'past' (post-round entry). Default to 'live' since that's the
+  // primary CTA — anyone reaching this page without a mode is most
+  // likely about to play.
+  const mode: 'live' | 'past' = params.mode === 'past' ? 'past' : 'live'
   const [query, setQuery] = useState('')
   const [debouncedQuery, setDebouncedQuery] = useState('')
   const [apiResults, setApiResults] = useState<OpenGolfApiSearchResult[]>([])
@@ -158,7 +164,7 @@ export default function NewRound() {
         ),
       )
 
-      router.replace(`/(app)/round/${round.id}/hole/1`)
+      router.replace(`/(app)/round/${round.id}/hole/1?mode=${mode}`)
     } catch (err) {
       setError((err as Error).message)
     } finally {
@@ -270,6 +276,9 @@ export default function NewRound() {
 
   return (
     <View style={{ flex: 1, backgroundColor: '#F2EEE5', padding: 18 }}>
+      <Text style={{ ...KICKER, marginBottom: 6 }}>
+        {mode === 'past' ? 'Log past round' : 'Start live round'}
+      </Text>
       <Text
         style={{
           color: '#1C211C',
@@ -279,7 +288,7 @@ export default function NewRound() {
           fontStyle: 'italic',
         }}
       >
-        Start a round
+        {mode === 'past' ? 'Pick the course you played' : 'Pick a course to start'}
       </Text>
       <TextInput
         placeholder="Search courses…"

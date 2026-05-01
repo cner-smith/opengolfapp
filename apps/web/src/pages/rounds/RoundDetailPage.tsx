@@ -6,7 +6,7 @@ import {
   useState,
   type ReactNode,
 } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import type { Database } from '@oga/supabase'
 import { HoleScoreCard } from '../../components/rounds/HoleScoreCard'
 import { ShotEntryModal } from '../../components/rounds/ShotEntryModal'
@@ -69,7 +69,12 @@ export function RoundDetailPage() {
     holePar: number
   } | null>(null)
   const [completeError, setCompleteError] = useState<string | null>(null)
-  const [view, setView] = useState<ViewMode>('scorecard')
+  const [searchParams] = useSearchParams()
+  // Live-round entries land on the map view directly so the user can
+  // start dropping shots; everything else opens on the scorecard.
+  const [view, setView] = useState<ViewMode>(() =>
+    searchParams.get('view') === 'map' ? 'map' : 'scorecard',
+  )
   const [activeHoleNumber, setActiveHoleNumber] = useState<number>(1)
   const [placedPoints, setPlacedPoints] = useState<PlacedPoint[]>([])
   const [pinOverride, setPinOverride] = useState<PlacedPoint | null>(null)

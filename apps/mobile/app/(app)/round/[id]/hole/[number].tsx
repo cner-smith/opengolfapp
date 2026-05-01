@@ -48,8 +48,16 @@ const KICKER: import('react-native').TextStyle = {
 }
 
 export default function HoleScreen() {
-  const { id, number } = useLocalSearchParams<{ id: string; number: string }>()
+  const { id, number, mode } = useLocalSearchParams<{
+    id: string
+    number: string
+    mode?: string
+  }>()
   const holeNumber = Number(number)
+  // 'past' means the player is logging after the fact — GPS would just
+  // put the ball wherever they happen to be sitting, so skip the
+  // auto-place + nearPin prompt and let them tap markers manually.
+  const isPastMode = mode === 'past'
   const router = useRouter()
   const { user } = useAuth()
   const { toDisplay } = useUnits()
@@ -157,8 +165,10 @@ export default function HoleScreen() {
 
   // Auto-place ball at current GPS position once per hole. Also keep
   // gpsPosition fresh so we can detect when the player walks onto the green.
+  // Skipped in past-round mode since the player isn't on the course.
   useEffect(() => {
     if (!currentHole) return
+    if (isPastMode) return
     let active = true
     ;(async () => {
       try {
@@ -179,7 +189,7 @@ export default function HoleScreen() {
       active = false
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentHole?.id])
+  }, [currentHole?.id, isPastMode])
 
   // Highlight "On the green" once the player is within 80 yd of the stored
   // pin AND a per-round pin hasn't been captured yet.
