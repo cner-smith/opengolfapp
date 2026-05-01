@@ -13,18 +13,23 @@ export function ProfileGuard({ children }: { children: React.ReactNode }) {
     if (authLoading) return
     if (!user) return
 
+    let active = true
     supabase
       .from('profiles')
       .select('skill_level, goal')
       .eq('id', user.id)
       .single()
       .then(({ data, error }) => {
+        if (!active) return
         if (error || !data || !data.skill_level || !data.goal) {
           setProfileState('incomplete')
         } else {
           setProfileState('complete')
         }
       })
+    return () => {
+      active = false
+    }
   }, [user, authLoading])
 
   if (authLoading || profileState === 'loading') return null
