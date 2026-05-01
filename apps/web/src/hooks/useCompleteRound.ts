@@ -69,7 +69,12 @@ export function useCompleteRound() {
         const { holes: _holes, ...rest } = row
         return rest
       })
-      const shots = (shotsRes.data ?? []) as ShotRow[]
+      // `as unknown as ShotRow[]` because getShotsForRound now narrows the
+      // select to the columns the SG calc actually reads — created_at is
+      // dropped at the DB level. computeRoundSG never touches it; the
+      // cast acknowledges the structural mismatch with the generated
+      // ShotRow row type.
+      const shots = (shotsRes.data ?? []) as unknown as ShotRow[]
       const tees: CourseTeeRow[] = teesRes.data ?? []
 
       const result = computeRoundSG({ holes, holeScores, shots, handicap })

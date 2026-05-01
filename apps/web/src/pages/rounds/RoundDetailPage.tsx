@@ -399,7 +399,7 @@ export function RoundDetailPage() {
             {holesPlayed}/18 holes scored
           </div>
           <RoundRatingLine
-            round={round.data}
+            round={round.data as unknown as RoundRow}
             tees={teesQuery.data ?? []}
           />
         </div>
@@ -468,7 +468,7 @@ export function RoundDetailPage() {
       {round.data.sg_total !== null && (
         <div style={{ marginBottom: 28 }}>
           <RoundSummary
-            round={round.data}
+            round={round.data as unknown as RoundRow}
             holes={holes}
             holeScores={holeScores}
             totalRoundsLogged={totalRoundsLogged}

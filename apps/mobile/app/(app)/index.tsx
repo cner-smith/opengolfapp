@@ -82,7 +82,7 @@ export default function Home() {
         console.error('[home/getProfile]', error.message)
         return
       }
-      if (data) setProfile(data)
+      if (data) setProfile(data as unknown as Profile)
     })
     getRecentSGData(supabase, user.id, 20).then(({ data, error }) => {
       if (!active) return
