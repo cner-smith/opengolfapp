@@ -25,6 +25,13 @@ export function useDetailedStats(limit: number): {
     queryFn: async (): Promise<DetailedRound[]> => {
       const { data, error } = await getRoundsWithDetails(supabase, user!.id, limit)
       if (error) throw error
+      // The Supabase types for nested joins (rounds → hole_scores → holes/shots)
+      // come back as unknown — there's no public typegen path that resolves the
+      // *, hole_scores(*, holes(*), shots(*)) shape. Cast is asserted here, not
+      // runtime-checked; if the schema or query changes, statsCalculations will
+      // throw a clear "cannot read property X of undefined" rather than a silent
+      // type lie. Re-run `supabase gen types` and adjust DetailedRound when the
+      // schema moves.
       return (data ?? []) as DetailedRound[]
     },
   })

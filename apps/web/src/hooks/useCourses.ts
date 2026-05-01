@@ -84,7 +84,7 @@ export function useImportApiCourse() {
         args.apiId,
       )
       if (existingError) throw existingError
-      if (existing) return existing as CourseRow
+      if (existing) return existing
 
       let detail: OpenGolfApiCourse | null = null
       try {

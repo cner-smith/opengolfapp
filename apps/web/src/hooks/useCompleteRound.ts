@@ -57,7 +57,11 @@ export function useCompleteRound() {
       if (holeScoresRes.error) throw holeScoresRes.error
       if (shotsRes.error) throw shotsRes.error
 
-      const holes = (holesRes.data ?? []) as HoleRow[]
+      // Plain ?? [] — the select returns the row type already, no cast
+      // needed. The holeScoreRows annotation carries the nested holes()
+      // join shape that the typed select doesn't expose; that's the one
+      // place a narrowing assertion still earns its keep.
+      const holes: HoleRow[] = holesRes.data ?? []
       const holeScoreRows = (holeScoresRes.data ?? []) as Array<
         HoleScoreRow & { holes?: HoleRow | null }
       >
@@ -66,7 +70,7 @@ export function useCompleteRound() {
         return rest
       })
       const shots = (shotsRes.data ?? []) as ShotRow[]
-      const tees = (teesRes.data ?? []) as CourseTeeRow[]
+      const tees: CourseTeeRow[] = teesRes.data ?? []
 
       const result = computeRoundSG({ holes, holeScores, shots, handicap })
 

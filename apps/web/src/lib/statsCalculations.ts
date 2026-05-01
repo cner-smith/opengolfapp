@@ -645,12 +645,19 @@ export interface SlopeImpact {
 }
 
 // Backfill slope axes for legacy rows so impact stats include pre-split data.
+function isLieSlopeForward(v: string | null): v is LieSlopeForward {
+  return v === 'uphill' || v === 'level' || v === 'downhill'
+}
+function isLieSlopeSide(v: string | null): v is LieSlopeSide {
+  return v === 'ball_above' || v === 'ball_below'
+}
+
 function readSlopeAxes(s: ShotRow): {
   forward: LieSlopeForward | null
   side: LieSlopeSide | null
 } {
-  const forward = (s.lie_slope_forward as LieSlopeForward | null) ?? null
-  const side = (s.lie_slope_side as LieSlopeSide | null) ?? null
+  const forward = isLieSlopeForward(s.lie_slope_forward) ? s.lie_slope_forward : null
+  const side = isLieSlopeSide(s.lie_slope_side) ? s.lie_slope_side : null
   if (forward || side) return { forward, side }
   if (s.lie_slope === 'uphill' || s.lie_slope === 'level' || s.lie_slope === 'downhill') {
     return { forward: s.lie_slope, side: null }
