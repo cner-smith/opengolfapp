@@ -12,7 +12,7 @@ import * as Location from 'expo-location'
 import type { Database } from '@oga/supabase'
 import {
   HoleMap,
-  type HoleMapMode,
+  type HoleMapPhase,
   type LatLng,
 } from '../../../../../components/round/HoleMap'
 import {
@@ -85,7 +85,10 @@ export default function HoleScreen() {
   const [localPuttCount, setLocalPuttCount] = useState(0)
   const [loggerOpen, setLoggerOpen] = useState(false)
   const [saving, setSaving] = useState(false)
-  const [mapMode, setMapMode] = useState<HoleMapMode>('shot')
+  // Pin placement is orthogonal to the shot phase machine. When true,
+  // tapping the map writes today's flag position rather than driving
+  // the shot flow.
+  const [pinPlacementOpen, setPinPlacementOpen] = useState(false)
   const [roundState, setRoundState] = useState<RoundState>('PLACE_BALL')
   const [gpsPosition, setGpsPosition] = useState<LatLng | null>(null)
   const [confirmDelete, setConfirmDelete] = useState(false)
@@ -327,7 +330,7 @@ export default function HoleScreen() {
           : hs,
       ),
     )
-    setMapMode('shot')
+    setPinPlacementOpen(false)
     const { error: updateErr } = await supabase
       .from('hole_scores')
       .update({ pin_lat: loc.lat, pin_lng: loc.lng })
@@ -342,8 +345,18 @@ export default function HoleScreen() {
       Alert.alert('Place the ball first', 'Tap the map to drop the ball.')
       return
     }
-    // Commit 1 wires PLACE_BALL → SHOT_DETAIL directly; the SET_AIM
-    // intermediate is added in the next commit.
+    setAim(null)
+    setRoundState('SET_AIM')
+  }
+
+  function confirmAim() {
+    setRoundState('SHOT_DETAIL')
+    setLoggerOpen(true)
+  }
+
+  function skipAim() {
+    // Pace-of-play escape hatch: log the shot without an explicit aim.
+    setAim(null)
     setRoundState('SHOT_DETAIL')
     setLoggerOpen(true)
   }
@@ -476,7 +489,13 @@ export default function HoleScreen() {
           tee={tee}
           aim={aim}
           ball={ball}
-          mode={mapMode}
+          phase={
+            pinPlacementOpen
+              ? 'PIN'
+              : roundState === 'SET_AIM'
+                ? 'SET_AIM'
+                : 'PLACE_BALL'
+          }
           onSetAim={setAim}
           onSetBall={setBall}
           onPlacePin={persistRoundPin}
@@ -493,9 +512,9 @@ export default function HoleScreen() {
           borderTopColor: '#D9D2BF',
         }}
       >
-        {mapMode === 'pin' ? (
+        {pinPlacementOpen ? (
           <Pressable
-            onPress={() => setMapMode('shot')}
+            onPress={() => setPinPlacementOpen(false)}
             style={{
               borderWidth: 1,
               borderColor: '#1F3D2C',
@@ -516,6 +535,45 @@ export default function HoleScreen() {
               Cancel pin placement
             </Text>
           </Pressable>
+        ) : roundState === 'SET_AIM' ? (
+          <>
+            <Pressable
+              onPress={confirmAim}
+              disabled={!aim}
+              style={{
+                backgroundColor: aim ? '#1F3D2C' : '#EBE5D6',
+                borderRadius: 2,
+                paddingVertical: 14,
+                alignItems: 'center',
+                marginBottom: 8,
+              }}
+            >
+              <Text
+                style={{
+                  color: aim ? '#F2EEE5' : '#8A8B7E',
+                  fontSize: 14,
+                  fontWeight: '600',
+                  letterSpacing: 0.3,
+                }}
+              >
+                {aim ? 'Confirm aim →' : 'Long-press the map to aim'}
+              </Text>
+            </Pressable>
+            <View
+              style={{
+                flexDirection: 'row',
+                justifyContent: 'space-between',
+                marginBottom: 10,
+              }}
+            >
+              <Pressable onPress={() => setRoundState('PLACE_BALL')}>
+                <Text style={{ ...KICKER, color: '#8A8B7E' }}>← Re-place ball</Text>
+              </Pressable>
+              <Pressable onPress={skipAim}>
+                <Text style={{ ...KICKER, color: '#8A8B7E' }}>Skip aim</Text>
+              </Pressable>
+            </View>
+          </>
         ) : (
           <>
             <Pressable
@@ -545,7 +603,7 @@ export default function HoleScreen() {
               </Text>
             </Pressable>
             <Pressable
-              onPress={() => setMapMode('pin')}
+              onPress={() => setPinPlacementOpen(true)}
               style={{
                 paddingVertical: 8,
                 alignItems: 'center',
