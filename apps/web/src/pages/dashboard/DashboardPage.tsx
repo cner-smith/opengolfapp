@@ -8,6 +8,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
+import { formatSG } from '@oga/core'
 import { useRecentSG } from '../../hooks/useRounds'
 import { useProfile } from '../../hooks/useProfile'
 
@@ -96,7 +97,7 @@ export function DashboardPage() {
           />
           <StatTile
             label="SG total"
-            value={`${totalSG > 0 ? '+' : ''}${totalSG.toFixed(2)}`}
+            value={formatSG(totalSG)}
             tone={totalSG > 0 ? 'pos' : totalSG < 0 ? 'neg' : 'neutral'}
           />
           <StatTile label="Rounds" value={rounds.length.toString()} />
@@ -367,8 +368,7 @@ function SGBar({
           color,
         }}
       >
-        {value > 0 ? '+' : ''}
-        {value.toFixed(2)}
+        {formatSG(value)}
       </div>
     </div>
   )
@@ -392,8 +392,7 @@ function SGValue({ value }: { value: number | null }) {
         fontWeight: 500,
       }}
     >
-      {value > 0 ? '+' : ''}
-      {value.toFixed(2)}
+      {formatSG(value)}
     </span>
   )
 }
@@ -451,7 +450,7 @@ function EmptyState({
 
 function fmtSG(value: number): string {
   if (value === 0) return 'even'
-  return `${value > 0 ? '+' : ''}${value.toFixed(2)} strokes`
+  return `${formatSG(value)} strokes`
 }
 
 function fmtAbs(value: number): string {

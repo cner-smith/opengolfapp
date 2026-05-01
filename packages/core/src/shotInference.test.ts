@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { inferShot, haversineYards, type PlacedShot } from './shotInference'
+import { inferShot, type PlacedShot } from './shotInference'
+import { haversineYards } from './units'
 
 // Hole geometry helpers for the tests. We construct synthetic coords
 // using ~111,000 m / degree of latitude so distances come out in

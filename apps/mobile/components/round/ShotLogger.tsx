@@ -5,21 +5,15 @@ import {
   CLUBS,
   LIE_TYPES,
   SHOT_RESULTS,
+  type BreakDirection,
   type Club,
+  type GreenSpeed,
   type LieSlopeForward,
   type LieSlopeSide,
   type LieType,
   type ShotResult,
 } from '@oga/core'
 import { PuttingSheet } from './PuttingSheet'
-
-type GreenSpeed = 'slow' | 'medium' | 'fast'
-type BreakDirection =
-  | 'left_to_right'
-  | 'right_to_left'
-  | 'uphill'
-  | 'downhill'
-  | 'straight'
 
 export interface ShotLoggerValue {
   club?: Club

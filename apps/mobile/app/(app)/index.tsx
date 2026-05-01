@@ -3,6 +3,7 @@ import { Dimensions, Pressable, ScrollView, Text, View } from 'react-native'
 import { Link } from 'expo-router'
 import { VictoryAxis, VictoryChart, VictoryLine } from 'victory-native'
 import { Swipeable } from 'react-native-gesture-handler'
+import { formatSG } from '@oga/core'
 import { deleteRound, getProfile, getRecentSGData } from '@oga/supabase'
 import type { Database } from '@oga/supabase'
 import { supabase } from '../../lib/supabase'
@@ -504,8 +505,7 @@ function SGBar({
           fontVariant: ['tabular-nums'],
         }}
       >
-        {value > 0 ? '+' : ''}
-        {value.toFixed(2)}
+        {formatSG(value)}
       </Text>
     </View>
   )
@@ -526,8 +526,7 @@ function SGValue({ value }: { value: number | null }) {
         fontVariant: ['tabular-nums'],
       }}
     >
-      {value > 0 ? '+' : ''}
-      {value.toFixed(2)}
+      {formatSG(value)}
     </Text>
   )
 }

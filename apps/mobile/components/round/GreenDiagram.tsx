@@ -6,14 +6,10 @@ import {
   GestureDetector,
 } from 'react-native-gesture-handler'
 import { runOnJS } from 'react-native-reanimated'
+import type { BreakDirection } from '@oga/core'
 import { useUnits } from '../../hooks/useUnits'
 
-export type BreakDirection =
-  | 'left_to_right'
-  | 'right_to_left'
-  | 'uphill'
-  | 'downhill'
-  | 'straight'
+export type { BreakDirection }
 
 export interface GreenDiagramProps {
   distanceFt: number

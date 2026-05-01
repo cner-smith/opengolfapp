@@ -1,6 +1,7 @@
+import { YARDS_TO_METERS, type DistanceUnit } from '@oga/core'
 import { useProfile } from './useProfile'
 
-export type DistanceUnit = 'yards' | 'meters'
+export type { DistanceUnit }
 
 export function useUnits() {
   const { data: profile } = useProfile()
@@ -9,7 +10,7 @@ export function useUnits() {
   function toDisplay(yards: number, decimals = 0): string {
     if (!Number.isFinite(yards)) return '—'
     if (unit === 'meters') {
-      return (yards * 0.9144).toFixed(decimals) + ' m'
+      return (yards * YARDS_TO_METERS).toFixed(decimals) + ' m'
     }
     return yards.toFixed(decimals) + ' yd'
   }

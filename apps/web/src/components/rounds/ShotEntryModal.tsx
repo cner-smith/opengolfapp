@@ -7,10 +7,15 @@ import {
   SHOT_RESULTS,
   SHOT_RESULT_LABELS,
   combinedPuttResult,
+  legacySlopeToAxes,
+  type BreakDirection,
   type Club,
+  type GreenSpeed,
   type LieSlopeForward,
   type LieSlopeSide,
   type LieType,
+  type PuttDirectionResult,
+  type PuttDistanceResult,
   type ShotResult,
 } from '@oga/core'
 import type { Database } from '@oga/supabase'
@@ -22,10 +27,13 @@ import {
 } from '../../hooks/useShots'
 import { useAuth } from '../../hooks/useAuth'
 import { LieSlopeGrid } from '../forms/LieSlopeGrid'
-import { GreenDiagram, type BreakDirection } from '../round/GreenDiagram'
+import { GreenDiagram } from '../round/GreenDiagram'
 import { useUnits } from '../../hooks/useUnits'
 
-const BREAK_OPTIONS: { value: BreakDirection; label: string }[] = [
+const BREAK_OPTIONS: {
+  value: Exclude<BreakDirection, 'left' | 'right'>
+  label: string
+}[] = [
   { value: 'left_to_right', label: 'L → R' },
   { value: 'straight', label: 'Straight' },
   { value: 'right_to_left', label: 'R → L' },
@@ -52,8 +60,6 @@ interface ShotEntryModalProps {
   onClose: () => void
 }
 
-type GreenSpeed = 'slow' | 'medium' | 'fast'
-
 interface DraftShot {
   id?: string
   shotNumber: number
@@ -65,32 +71,13 @@ interface DraftShot {
   distanceToTarget?: number
   puttDistanceFt?: number
   puttMade?: boolean
-  puttDistanceResult?: 'short' | 'long'
-  puttDirectionResult?: 'left' | 'right'
+  puttDistanceResult?: PuttDistanceResult
+  puttDirectionResult?: PuttDirectionResult
   puttSlopePct?: number
   greenSpeed?: GreenSpeed
-  breakDirection?:
-    | 'left_to_right'
-    | 'right_to_left'
-    | 'uphill'
-    | 'downhill'
-    | 'straight'
+  breakDirection?: Exclude<BreakDirection, 'left' | 'right'>
   aimOffsetInches?: number
   notes?: string
-}
-
-// Map a legacy single-axis lie_slope value onto the two new axes so existing
-// rows stay editable after the split.
-function legacySlopeToAxes(
-  legacy: ShotRow['lie_slope'],
-): { forward?: LieSlopeForward; side?: LieSlopeSide } {
-  if (legacy === 'uphill' || legacy === 'level' || legacy === 'downhill') {
-    return { forward: legacy }
-  }
-  if (legacy === 'ball_above' || legacy === 'ball_below') {
-    return { side: legacy }
-  }
-  return {}
 }
 
 function shotRowToDraft(s: ShotRow): DraftShot {

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Dimensions, Pressable, ScrollView, Text, View } from 'react-native'
 import { VictoryAxis, VictoryChart, VictoryLine } from 'victory-native'
+import { formatSG } from '@oga/core'
 import { getRecentSGData } from '@oga/supabase'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
@@ -201,8 +202,7 @@ export default function Stats() {
                         fontVariant: ['tabular-nums'],
                       }}
                     >
-                      {s.value > 0 ? '+' : ''}
-                      {s.value.toFixed(2)}
+                      {formatSG(s.value)}
                     </Text>
                   </View>
                 ))}
