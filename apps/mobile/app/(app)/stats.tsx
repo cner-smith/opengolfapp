@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Dimensions, Pressable, ScrollView, Text, View } from 'react-native'
+import { Pressable, ScrollView, Text, useWindowDimensions, View } from 'react-native'
 import { VictoryAxis, VictoryChart, VictoryLine } from 'victory-native'
 import { formatSG } from '@oga/core'
 import { getRecentSGData } from '@oga/supabase'
@@ -39,7 +39,7 @@ export default function Stats() {
   const [n, setN] = useState<number>(10)
   const [rounds, setRounds] = useState<RecentRound[]>([])
   const [loading, setLoading] = useState(true)
-  const screenWidth = Dimensions.get('window').width
+  const { width: screenWidth } = useWindowDimensions()
 
   useEffect(() => {
     if (!user) return

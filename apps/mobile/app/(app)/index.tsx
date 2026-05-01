@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Dimensions, Pressable, ScrollView, Text, View } from 'react-native'
+import { Pressable, ScrollView, Text, useWindowDimensions, View } from 'react-native'
 import { Link } from 'expo-router'
 import { VictoryAxis, VictoryChart, VictoryLine } from 'victory-native'
 import { Swipeable } from 'react-native-gesture-handler'
@@ -53,7 +53,7 @@ export default function Home() {
   } | null>(null)
   const [deleting, setDeleting] = useState(false)
   const swipeRefs = useRef<Map<string, Swipeable | null>>(new Map())
-  const screenWidth = Dimensions.get('window').width
+  const { width: screenWidth } = useWindowDimensions()
 
   const handleDelete = useCallback(
     async (id: string) => {

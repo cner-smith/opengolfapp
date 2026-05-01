@@ -108,15 +108,14 @@ export async function setPendingShotEnd(
 
 export async function pendingShotsForHoleScore(holeScoreId: string): Promise<PendingShot[]> {
   const db = await getDb()
-  const rows = await db.getAllAsync<PendingShot>(
-    `SELECT * FROM pending_shots WHERE status = 'pending' ORDER BY created_at ASC`,
+  // Push the hole-score filter into SQLite via json_extract — previously
+  // every call pulled the entire pending queue and JS-filtered, which
+  // re-parsed every payload on every hole change.
+  return db.getAllAsync<PendingShot>(
+    `SELECT * FROM pending_shots
+     WHERE status = 'pending'
+       AND json_extract(payload, '$.hole_score_id') = ?
+     ORDER BY created_at ASC`,
+    holeScoreId,
   )
-  return rows.filter((r) => {
-    try {
-      const p = JSON.parse(r.payload) as ShotPayload
-      return p.hole_score_id === holeScoreId
-    } catch {
-      return false
-    }
-  })
 }
