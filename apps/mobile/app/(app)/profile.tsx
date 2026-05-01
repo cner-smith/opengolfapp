@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   Alert,
   Linking,
@@ -38,8 +38,14 @@ export default function ProfileTab() {
   const [unit, setUnit] = useState<'yards' | 'meters'>('yards')
   const [saving, setSaving] = useState(false)
 
+  // Hydrate form fields from the server once per signed-in user. After
+  // hydration, only save() and the user's edits drive the form — a
+  // re-fetch can't clobber typing. Reset on user.id change so a different
+  // account starts cleanly.
+  const hydratedUserIdRef = useRef<string | null>(null)
   useEffect(() => {
     if (authLoading || !user) return
+    if (hydratedUserIdRef.current === user.id) return
     let active = true
     getProfile(supabase, user.id).then(({ data, error }) => {
       if (!active) return
@@ -50,6 +56,7 @@ export default function ProfileTab() {
         return
       }
       if (!data) return
+      hydratedUserIdRef.current = user.id
       setProfile(data)
       setUsername(data.username ?? '')
       setHandicap(data.handicap_index?.toString() ?? '')

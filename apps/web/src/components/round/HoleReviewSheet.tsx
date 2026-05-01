@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   CLUBS,
   LIE_TYPES,
@@ -57,26 +57,32 @@ export function HoleReviewSheet({
 }: HoleReviewSheetProps) {
   const [rows, setRows] = useState<ReviewedShotRow[]>([])
 
+  // Read the latest placedPoints inside the effect via ref so the effect
+  // doesn't re-fire (and clobber user edits) just because the parent
+  // returned a new array reference.
+  const placedPointsRef = useRef(placedPoints)
+  placedPointsRef.current = placedPoints
+
+  // Hydrate rows from the placed coordinates once per (hole, open). After
+  // hydration the user's typing/dropdown choices are the source of truth —
+  // dragging markers updates coords, but does NOT rebuild rows and erase
+  // edits. The sheet re-hydrates fresh on next open.
+  const hydratedHoleRef = useRef<number | null>(null)
   useEffect(() => {
-    if (!open) return
+    if (!open) {
+      hydratedHoleRef.current = null
+      return
+    }
     if (pinLat == null || pinLng == null) {
-      // No pin coords on this hole — distances meaningless. Bail with empty.
       setRows([])
       return
     }
-    setRows(buildInitialRows(placedPoints, par, pinLat, pinLng))
-    // Rebuild whenever the marker count or any marker's coordinates
-    // change so dragging in edit mode flows back into the displayed
-    // distances when the sheet reopens.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    open,
-    holeNumber,
-    placedPoints.length,
-    pinLat,
-    pinLng,
-    placedPoints.map((p) => `${p.lat},${p.lng}`).join('|'),
-  ])
+    if (hydratedHoleRef.current === holeNumber) return
+    hydratedHoleRef.current = holeNumber
+    setRows(
+      buildInitialRows(placedPointsRef.current, par, pinLat, pinLng),
+    )
+  }, [open, holeNumber, par, pinLat, pinLng])
 
   // Slide-in: mount at translateY(100%), flip to 0 next frame so CSS
   // transition runs. Two rAFs to ensure the initial style commits first.

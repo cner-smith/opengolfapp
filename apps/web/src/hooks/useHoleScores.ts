@@ -27,6 +27,7 @@ export function useUpsertHoleScore(roundId: string | undefined) {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['hole-scores', roundId] })
+      qc.invalidateQueries({ queryKey: ['round', roundId] })
     },
   })
 }

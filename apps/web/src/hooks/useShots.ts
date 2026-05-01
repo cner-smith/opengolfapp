@@ -20,6 +20,17 @@ export function useShotsForRound(roundId: string | undefined) {
   })
 }
 
+// Shot mutations also bust the round summary + detailed stats so SG and
+// per-shot derived numbers refresh after a save.
+function invalidateShotMutationKeys(
+  qc: ReturnType<typeof useQueryClient>,
+  roundId: string | undefined,
+) {
+  qc.invalidateQueries({ queryKey: ['shots', 'round', roundId] })
+  qc.invalidateQueries({ queryKey: ['round', roundId] })
+  qc.invalidateQueries({ queryKey: ['detailed-stats'] })
+}
+
 export function useCreateShot(roundId: string | undefined) {
   const qc = useQueryClient()
   return useMutation({
@@ -28,7 +39,7 @@ export function useCreateShot(roundId: string | undefined) {
       if (error) throw error
       return data
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['shots', 'round', roundId] }),
+    onSuccess: () => invalidateShotMutationKeys(qc, roundId),
   })
 }
 
@@ -42,7 +53,7 @@ export function useUpdateShot(roundId: string | undefined) {
       if (error) throw error
       return data
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['shots', 'round', roundId] }),
+    onSuccess: () => invalidateShotMutationKeys(qc, roundId),
   })
 }
 
@@ -55,6 +66,6 @@ export function useDeleteShot(roundId: string | undefined) {
       const { error } = await deleteShot(supabase, id, user.id)
       if (error) throw error
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['shots', 'round', roundId] }),
+    onSuccess: () => invalidateShotMutationKeys(qc, roundId),
   })
 }
