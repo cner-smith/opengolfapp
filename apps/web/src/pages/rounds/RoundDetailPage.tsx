@@ -3,6 +3,7 @@ import {
   lazy,
   useCallback,
   useMemo,
+  useReducer,
   useState,
   type ReactNode,
 } from 'react'
@@ -51,6 +52,77 @@ type HoleScoreRow = Database['public']['Tables']['hole_scores']['Row']
 
 type ViewMode = 'scorecard' | 'map'
 
+// Hole-coupled view state. These seven fields used to live as
+// individual useState hooks and were reset together in switchHole —
+// every new piece of hole-scoped state was a fresh chance to forget a
+// reset and leave stale data on screen. Bundling them in a reducer
+// makes SWITCH_HOLE one atomic transition.
+interface HoleViewState {
+  activeHoleNumber: number
+  placedPoints: PlacedPoint[]
+  pinOverride: PlacedPoint | null
+  teeOverride: PlacedPoint | null
+  reviewOpen: boolean
+  editingOnMap: boolean
+  saveError: string | null
+}
+
+type HoleViewAction =
+  | { type: 'SWITCH_HOLE'; holeNumber: number }
+  | { type: 'PUSH_POINT'; point: PlacedPoint }
+  | { type: 'MOVE_POINT'; index: number; point: PlacedPoint }
+  | { type: 'CLEAR_POINTS' }
+  | { type: 'POP_POINT' }
+  | { type: 'PIN_OVERRIDE'; point: PlacedPoint | null }
+  | { type: 'TEE_OVERRIDE'; point: PlacedPoint | null }
+  | { type: 'OPEN_REVIEW' }
+  | { type: 'CLOSE_REVIEW' }
+  | { type: 'EDIT_ON_MAP'; editing: boolean }
+  | { type: 'SAVE_ERROR'; message: string | null }
+  | { type: 'AFTER_SAVE' }
+
+const HOLE_VIEW_INITIAL: HoleViewState = {
+  activeHoleNumber: 1,
+  placedPoints: [],
+  pinOverride: null,
+  teeOverride: null,
+  reviewOpen: false,
+  editingOnMap: false,
+  saveError: null,
+}
+
+function holeViewReducer(state: HoleViewState, action: HoleViewAction): HoleViewState {
+  switch (action.type) {
+    case 'SWITCH_HOLE':
+      return { ...HOLE_VIEW_INITIAL, activeHoleNumber: action.holeNumber }
+    case 'PUSH_POINT':
+      return { ...state, placedPoints: [...state.placedPoints, action.point] }
+    case 'MOVE_POINT': {
+      const next = state.placedPoints.slice()
+      next[action.index] = action.point
+      return { ...state, placedPoints: next }
+    }
+    case 'CLEAR_POINTS':
+      return { ...state, placedPoints: [] }
+    case 'POP_POINT':
+      return { ...state, placedPoints: state.placedPoints.slice(0, -1) }
+    case 'PIN_OVERRIDE':
+      return { ...state, pinOverride: action.point }
+    case 'TEE_OVERRIDE':
+      return { ...state, teeOverride: action.point }
+    case 'OPEN_REVIEW':
+      return { ...state, reviewOpen: true }
+    case 'CLOSE_REVIEW':
+      return { ...state, reviewOpen: false }
+    case 'EDIT_ON_MAP':
+      return { ...state, editingOnMap: action.editing }
+    case 'SAVE_ERROR':
+      return { ...state, saveError: action.message }
+    case 'AFTER_SAVE':
+      return { ...state, reviewOpen: false, placedPoints: [] }
+  }
+}
+
 export function RoundDetailPage() {
   const { id: roundId } = useParams()
   const navigate = useNavigate()
@@ -81,14 +153,17 @@ export function RoundDetailPage() {
   const [view, setView] = useState<ViewMode>(() =>
     searchParams.get('view') === 'map' ? 'map' : 'scorecard',
   )
-  const [activeHoleNumber, setActiveHoleNumber] = useState<number>(1)
-  const [placedPoints, setPlacedPoints] = useState<PlacedPoint[]>([])
-  const [pinOverride, setPinOverride] = useState<PlacedPoint | null>(null)
-  const [teeOverride, setTeeOverride] = useState<PlacedPoint | null>(null)
-  const [reviewOpen, setReviewOpen] = useState(false)
-  const [editingOnMap, setEditingOnMap] = useState(false)
+  const [holeView, dispatchHoleView] = useReducer(holeViewReducer, HOLE_VIEW_INITIAL)
+  const {
+    activeHoleNumber,
+    placedPoints,
+    pinOverride,
+    teeOverride,
+    reviewOpen,
+    editingOnMap,
+    saveError,
+  } = holeView
   const [savingHole, setSavingHole] = useState(false)
-  const [saveError, setSaveError] = useState<string | null>(null)
 
   const holes = useMemo(() => holesQuery.data ?? [], [holesQuery.data])
   const rawScores: Array<HoleScoreRow & { holes?: HoleRow | null }> = useMemo(
@@ -173,7 +248,7 @@ export function RoundDetailPage() {
   // hole_scores.pin_lat/lng if we have a row to attach it to.
   const persistRoundPin = useCallback(
     async (point: PlacedPoint) => {
-      setPinOverride(point)
+      dispatchHoleView({ type: 'PIN_OVERRIDE', point })
       const hs = activeHoleScore
       if (!hs || !roundId) return
       // Belt-and-suspenders: constrain by round_id alongside row id, so a
@@ -196,38 +271,27 @@ export function RoundDetailPage() {
 
   const placeHandlers = useMemo(
     () => ({
-      onPlace: (p: PlacedPoint) =>
-        setPlacedPoints((prev) => [...prev, p]),
+      onPlace: (p: PlacedPoint) => dispatchHoleView({ type: 'PUSH_POINT', point: p }),
       onMovePoint: (idx: number, p: PlacedPoint) =>
-        setPlacedPoints((prev) => {
-          const next = prev.slice()
-          next[idx] = p
-          return next
-        }),
+        dispatchHoleView({ type: 'MOVE_POINT', index: idx, point: p }),
       onMovePin: (p: PlacedPoint) => {
         void persistRoundPin(p)
       },
-      onMoveTee: (p: PlacedPoint) => setTeeOverride(p),
-      onClearPoints: () => setPlacedPoints([]),
-      onUndoPoint: () =>
-        setPlacedPoints((prev) => prev.slice(0, -1)),
-      onDoneWithHole: () => setReviewOpen(true),
+      onMoveTee: (p: PlacedPoint) =>
+        dispatchHoleView({ type: 'TEE_OVERRIDE', point: p }),
+      onClearPoints: () => dispatchHoleView({ type: 'CLEAR_POINTS' }),
+      onUndoPoint: () => dispatchHoleView({ type: 'POP_POINT' }),
+      onDoneWithHole: () => dispatchHoleView({ type: 'OPEN_REVIEW' }),
       onDoneEditing: () => {
-        setEditingOnMap(false)
-        setReviewOpen(true)
+        dispatchHoleView({ type: 'EDIT_ON_MAP', editing: false })
+        dispatchHoleView({ type: 'OPEN_REVIEW' })
       },
     }),
     [persistRoundPin],
   )
 
   const switchHole = useCallback((n: number) => {
-    setActiveHoleNumber(n)
-    setPlacedPoints([])
-    setPinOverride(null)
-    setTeeOverride(null)
-    setReviewOpen(false)
-    setEditingOnMap(false)
-    setSaveError(null)
+    dispatchHoleView({ type: 'SWITCH_HOLE', holeNumber: n })
   }, [])
 
   if (round.isLoading || holesQuery.isLoading) {
@@ -292,7 +356,7 @@ export function RoundDetailPage() {
   async function saveReviewedHole(rows: ReviewedShotRow[]) {
     if (!user || !activeHole || !round.data) return
     setSavingHole(true)
-    setSaveError(null)
+    dispatchHoleView({ type: 'SAVE_ERROR', message: null })
     try {
       // Ensure a hole_score row exists; the score equals the placed
       // shot count, which is what the player just confirmed. Putts is
@@ -354,10 +418,9 @@ export function RoundDetailPage() {
           notes: null,
         })
       }
-      setReviewOpen(false)
-      setPlacedPoints([])
+      dispatchHoleView({ type: 'AFTER_SAVE' })
     } catch (err) {
-      setSaveError(toUserMessage(err))
+      dispatchHoleView({ type: 'SAVE_ERROR', message: toUserMessage(err) })
     } finally {
       setSavingHole(false)
     }
@@ -517,8 +580,8 @@ export function RoundDetailPage() {
                 placedPoints={placedPoints}
                 saving={savingHole}
                 onEditOnMap={() => {
-                  setReviewOpen(false)
-                  setEditingOnMap(true)
+                  dispatchHoleView({ type: 'CLOSE_REVIEW' })
+                  dispatchHoleView({ type: 'EDIT_ON_MAP', editing: true })
                 }}
                 onSave={saveReviewedHole}
               />
