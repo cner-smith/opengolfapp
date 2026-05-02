@@ -287,6 +287,27 @@ export function HoleMap({
     }
   }, [previousShots, ball?.lat, ball?.lng])
 
+  // Per-segment midpoint + distance for the small labels rendered along
+  // the breadcrumb line. Excludes the trailing ball→nothing segment when
+  // ball is the only point. Only segments between fully-resolved waypoint
+  // pairs are kept (the current ball position is included as the final
+  // waypoint so the latest leg also gets a label).
+  const previousShotSegments = useMemo(() => {
+    const pts: LatLng[] = [...(previousShots ?? [])]
+    if (ball) pts.push(ball)
+    const out: { id: string; midpoint: LatLng; yards: number }[] = []
+    for (let i = 0; i < pts.length - 1; i++) {
+      const a = pts[i]!
+      const b = pts[i + 1]!
+      out.push({
+        id: `seg-${i}`,
+        midpoint: { lat: (a.lat + b.lat) / 2, lng: (a.lng + b.lng) / 2 },
+        yards: Math.round(distanceYards(a, b)),
+      })
+    }
+    return out
+  }, [previousShots, ball?.lat, ball?.lng])
+
   function handleTap(feature: unknown) {
     const c = extractCoord(feature)
     if (!c) return
@@ -341,6 +362,39 @@ export function HoleMap({
                 coordinate={toCoord(p)}
               >
                 <Marker color="#A66A1F" border="#FBF8F1" size={9} />
+              </Mapbox.PointAnnotation>
+            ))}
+
+          {/* Small distance label between every pair of consecutive
+              waypoints on the breadcrumb. Smaller / more muted than the
+              aim distance pill so it reads as supporting info, not the
+              primary callout. */}
+          {!isPinMode &&
+            previousShotSegments.map((seg) => (
+              <Mapbox.PointAnnotation
+                key={seg.id}
+                id={seg.id}
+                coordinate={toCoord(seg.midpoint)}
+              >
+                <View
+                  style={{
+                    backgroundColor: 'rgba(28,33,28,0.65)',
+                    borderRadius: 999,
+                    paddingHorizontal: 7,
+                    paddingVertical: 2,
+                  }}
+                >
+                  <Text
+                    style={{
+                      color: '#F2EEE5',
+                      fontSize: 10,
+                      fontWeight: '500',
+                      fontVariant: ['tabular-nums'],
+                    }}
+                  >
+                    {toDisplay(seg.yards)}
+                  </Text>
+                </View>
               </Mapbox.PointAnnotation>
             ))}
 
