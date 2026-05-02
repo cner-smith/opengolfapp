@@ -37,9 +37,10 @@ import {
 import { syncPendingShots } from '../../../../../lib/sync'
 import { distanceYards } from '../../../../../lib/maps'
 import { combinedPuttResult } from '@oga/core'
-import { deleteRound } from '@oga/supabase'
+import { deleteRound, getProfile } from '@oga/supabase'
 import { ConfirmDialog } from '../../../../../components/ui/ConfirmDialog'
 import { useUnits } from '../../../../../hooks/useUnits'
+import { completeRound } from '../../../../../lib/completeRound'
 
 type HoleRow = Database['public']['Tables']['holes']['Row']
 type HoleScoreRow = Database['public']['Tables']['hole_scores']['Row']
@@ -119,6 +120,8 @@ export default function HoleScreen() {
   const [deleting, setDeleting] = useState(false)
   const [scorecardOpen, setScorecardOpen] = useState(false)
   const [confirmLeave, setConfirmLeave] = useState(false)
+  const [confirmEnd, setConfirmEnd] = useState(false)
+  const [ending, setEnding] = useState(false)
 
   const currentHole = useMemo(
     () => holes.find((h) => h.number === holeNumber) ?? null,
@@ -599,6 +602,29 @@ export default function HoleScreen() {
   const totalShotsThisHole =
     remoteShotCount + localShotCount > 0 ? remoteShotCount + localShotCount : 0
 
+  async function handleEndRound() {
+    if (!round || !user) return
+    setEnding(true)
+    try {
+      const { data: profile } = await getProfile(supabase, user.id)
+      const handicap =
+        (profile as { handicap_index?: number | null } | null)?.handicap_index ??
+        null
+      await completeRound({
+        roundId: round.id,
+        courseId: round.course_id,
+        userId: user.id,
+        handicap,
+      })
+      router.replace(`/(app)/round/${round.id}`)
+    } catch (err) {
+      Alert.alert('End round failed', (err as Error).message)
+    } finally {
+      setEnding(false)
+      setConfirmEnd(false)
+    }
+  }
+
   async function handleDeleteRound() {
     if (!round || !user) return
     setDeleting(true)
@@ -696,20 +722,36 @@ export default function HoleScreen() {
             {currentHole.yards ? ` · ${toDisplay(currentHole.yards)}` : ''}
           </Text>
         </View>
-        <Pressable
-          onPress={() => setConfirmDelete(true)}
-          accessibilityLabel="Delete round"
-          style={{ paddingHorizontal: 4 }}
-        >
-          <Text
-            style={{
-              ...KICKER,
-              color: 'rgba(163,58,42,0.85)',
-            }}
+        <View style={{ alignItems: 'flex-end', gap: 6 }}>
+          <Pressable
+            onPress={() => setConfirmEnd(true)}
+            accessibilityLabel="End round early"
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
-            Delete · Shot {shotNumber}
-          </Text>
-        </Pressable>
+            <Text
+              style={{
+                ...KICKER,
+                color: 'rgba(242,238,229,0.85)',
+              }}
+            >
+              End · Shot {shotNumber}
+            </Text>
+          </Pressable>
+          <Pressable
+            onPress={() => setConfirmDelete(true)}
+            accessibilityLabel="Delete round"
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Text
+              style={{
+                ...KICKER,
+                color: 'rgba(163,58,42,0.85)',
+              }}
+            >
+              Delete
+            </Text>
+          </Pressable>
+        </View>
       </View>
 
       <View style={{ flex: 1 }}>
@@ -1038,6 +1080,17 @@ export default function HoleScreen() {
           router.replace('/(app)')
         }}
         onCancel={() => setConfirmLeave(false)}
+      />
+
+      <ConfirmDialog
+        visible={confirmEnd}
+        title={`End round after hole ${holeNumber}?`}
+        message={`Your round will be saved with ${totalShotsThisHole > 0 ? holeNumber : holeNumber - 1} hole(s) of detail. SG and totals are computed from what's logged so far.`}
+        confirmLabel="End round"
+        cancelLabel="Cancel"
+        busy={ending}
+        onConfirm={handleEndRound}
+        onCancel={() => setConfirmEnd(false)}
       />
 
       <Modal
