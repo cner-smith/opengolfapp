@@ -1,15 +1,18 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   CLUBS,
   LIE_TYPES,
-  inferShot,
+  buildInitialRows,
   type Club,
-  type InferredShot,
   type LieType,
-  type PlacedShot,
+  type PuttDirectionResult,
+  type PuttDistanceResult,
+  type ReviewedShotRow,
 } from '@oga/core'
 import type { PlacedPoint } from './RoundMap'
 import { useUnits } from '../../hooks/useUnits'
+
+export type { ReviewedShotRow }
 
 interface HoleReviewSheetProps {
   open: boolean
@@ -28,35 +31,13 @@ interface HoleReviewSheetProps {
   onSave: (rows: ReviewedShotRow[]) => void | Promise<void>
 }
 
-export interface ReviewedShotRow {
-  shotNumber: number
-  club: Club
-  lieType: LieType
-  startLat: number | null
-  startLng: number | null
-  endLat: number
-  endLng: number
-  distanceYards: number
-  distanceToPin: number
-  isLastShot: boolean
-  /** Set when the user toggles "Made it ✓" on a putt row.
-   *  Stored as putt_result='made' on save. */
-  puttMade?: boolean
-  /** Distance miss axis — independent of direction. Stored as
-   *  putt_distance_result. */
-  puttDistanceResult?: 'short' | 'long'
-  /** Direction miss axis — independent of distance. Stored as
-   *  putt_direction_result. */
-  puttDirectionResult?: 'left' | 'right'
-}
-
-const PUTT_DISTANCE_OPTIONS: { value: 'short' | 'long'; label: string }[] = [
+const PUTT_DISTANCE_OPTIONS: { value: PuttDistanceResult; label: string }[] = [
   { value: 'short', label: 'Short' },
   { value: 'long', label: 'Long' },
 ]
 
 const PUTT_DIRECTION_OPTIONS: {
-  value: 'left' | 'right'
+  value: PuttDirectionResult
   label: string
 }[] = [
   { value: 'left', label: 'Missed left' },
@@ -76,26 +57,32 @@ export function HoleReviewSheet({
 }: HoleReviewSheetProps) {
   const [rows, setRows] = useState<ReviewedShotRow[]>([])
 
+  // Read the latest placedPoints inside the effect via ref so the effect
+  // doesn't re-fire (and clobber user edits) just because the parent
+  // returned a new array reference.
+  const placedPointsRef = useRef(placedPoints)
+  placedPointsRef.current = placedPoints
+
+  // Hydrate rows from the placed coordinates once per (hole, open). After
+  // hydration the user's typing/dropdown choices are the source of truth —
+  // dragging markers updates coords, but does NOT rebuild rows and erase
+  // edits. The sheet re-hydrates fresh on next open.
+  const hydratedHoleRef = useRef<number | null>(null)
   useEffect(() => {
-    if (!open) return
+    if (!open) {
+      hydratedHoleRef.current = null
+      return
+    }
     if (pinLat == null || pinLng == null) {
-      // No pin coords on this hole — distances meaningless. Bail with empty.
       setRows([])
       return
     }
-    setRows(buildInitialRows(placedPoints, par, pinLat, pinLng))
-    // Rebuild whenever the marker count or any marker's coordinates
-    // change so dragging in edit mode flows back into the displayed
-    // distances when the sheet reopens.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    open,
-    holeNumber,
-    placedPoints.length,
-    pinLat,
-    pinLng,
-    placedPoints.map((p) => `${p.lat},${p.lng}`).join('|'),
-  ])
+    if (hydratedHoleRef.current === holeNumber) return
+    hydratedHoleRef.current = holeNumber
+    setRows(
+      buildInitialRows(placedPointsRef.current, par, pinLat, pinLng),
+    )
+  }, [open, holeNumber, par, pinLat, pinLng])
 
   // Slide-in: mount at translateY(100%), flip to 0 next frame so CSS
   // transition runs. Two rAFs to ensure the initial style commits first.
@@ -479,52 +466,3 @@ function AxisRow<V extends string>({
   )
 }
 
-function buildInitialRows(
-  points: PlacedPoint[],
-  par: number,
-  pinLat: number,
-  pinLng: number,
-): ReviewedShotRow[] {
-  const total = points.length
-  const rows: ReviewedShotRow[] = []
-  points.forEach((p, idx) => {
-    const isLast = idx === total - 1
-    // End of shot N is the next marker. The final shot ends at the pin
-    // (the player holed it; the "Made it" toggle below lets them say
-    // otherwise but the on-map ending stays at the cup either way).
-    const next = isLast
-      ? { lat: pinLat, lng: pinLng }
-      : points[idx + 1]!
-    const placed: PlacedShot = {
-      shotNumber: idx + 1,
-      startLat: p.lat,
-      startLng: p.lng,
-      endLat: next.lat,
-      endLng: next.lng,
-      pinLat,
-      pinLng,
-      totalShotsOnHole: total,
-      par,
-    }
-    const inferred: InferredShot = inferShot(placed)
-    rows.push({
-      shotNumber: idx + 1,
-      club: inferred.suggestedClub,
-      lieType: inferred.suggestedLieType,
-      startLat: p.lat,
-      startLng: p.lng,
-      endLat: next.lat,
-      endLng: next.lng,
-      distanceYards: inferred.distanceYards,
-      distanceToPin: inferred.distanceToPin,
-      isLastShot: inferred.isLastShot,
-      // Default the last-putt to "made" because the player completed the
-      // hole — they almost always did make it. They can toggle off if not.
-      puttMade:
-        inferred.isLastShot && inferred.suggestedLieType === 'green'
-          ? true
-          : undefined,
-    })
-  })
-  return rows
-}

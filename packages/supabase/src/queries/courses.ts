@@ -4,18 +4,22 @@ import type { Database } from '../types'
 type CourseInsert = Database['public']['Tables']['courses']['Insert']
 type HoleInsert = Database['public']['Tables']['holes']['Insert']
 
+// Cards / pickers only ever render name + city/state and need lat/lng for
+// the hole-map fallback; external_id keeps the OpenGolfAPI link reachable.
+const COURSE_COLUMNS = 'id, name, city, state, lat, lng, external_id'
+
 export function getCourses(client: OgaSupabaseClient) {
-  return client.from('courses').select('*').order('name')
+  return client.from('courses').select(COURSE_COLUMNS).order('name')
 }
 
 export function searchCourses(client: OgaSupabaseClient, query: string, limit = 10) {
   const trimmed = query.trim()
   if (!trimmed) {
-    return client.from('courses').select('*').order('name').limit(limit)
+    return client.from('courses').select(COURSE_COLUMNS).order('name').limit(limit)
   }
   return client
     .from('courses')
-    .select('*')
+    .select(COURSE_COLUMNS)
     .ilike('name', `%${trimmed}%`)
     .order('name')
     .limit(limit)
@@ -73,7 +77,7 @@ export function getCourseByExternalId(
 ) {
   return client
     .from('courses')
-    .select('*')
+    .select(COURSE_COLUMNS)
     .eq('external_id', externalId)
     .maybeSingle()
 }

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import {
   CLUBS,
   LIE_TYPES,
@@ -338,27 +338,33 @@ function DispersionPlot({
   points: DispersionPoint[]
   stats: DispersionStats | null
 }) {
-  const maxAbs = Math.max(
-    ...points.map((p) =>
-      Math.max(Math.abs(p.lateralOffsetYards), Math.abs(p.distanceOffsetYards)),
-    ),
-    stats ? stats.cone95.lateral : 0,
-    stats ? stats.cone95.distance : 0,
-    20,
-  )
-  const range = maxAbs * 1.15
+  // Spread Math.max over every point ran on every render. Memoize the
+  // dispersion-derived geometry; chip-toggle re-renders no longer
+  // re-walk the points array.
+  const { maxAbs, range, scale, ticks } = useMemo(() => {
+    const max = Math.max(
+      ...points.map((p) =>
+        Math.max(Math.abs(p.lateralOffsetYards), Math.abs(p.distanceOffsetYards)),
+      ),
+      stats ? stats.cone95.lateral : 0,
+      stats ? stats.cone95.distance : 0,
+      20,
+    )
+    const r = max * 1.15
+    const s = (SVG_SIZE / 2) / r
+    const step = r > 50 ? 20 : r > 20 ? 10 : 5
+    const t: number[] = []
+    for (let v = step; v < r; v += step) {
+      t.push(v, -v)
+    }
+    return { maxAbs: max, range: r, scale: s, ticks: t }
+  }, [points, stats])
+
   const cx = SVG_SIZE / 2
   const cy = SVG_SIZE / 2
-  const scale = (SVG_SIZE / 2) / range
 
   const px = (lat: number) => cx + lat * scale
   const py = (dist: number) => cy - dist * scale
-
-  const tickStep = range > 50 ? 20 : range > 20 ? 10 : 5
-  const ticks: number[] = []
-  for (let t = tickStep; t < range; t += tickStep) {
-    ticks.push(t, -t)
-  }
 
   return (
     <svg
@@ -427,11 +433,11 @@ function DispersionPlot({
         AIM
       </text>
 
-      {points.map((p, i) => {
+      {points.map((p) => {
         const c = pointColor(p.shotResult)
         return (
           <circle
-            key={i}
+            key={p.id}
             cx={px(p.lateralOffsetYards)}
             cy={py(p.distanceOffsetYards)}
             r={3.5}

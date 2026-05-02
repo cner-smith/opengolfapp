@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Dimensions, Pressable, ScrollView, Text, View } from 'react-native'
+import { Pressable, ScrollView, Text, useWindowDimensions, View } from 'react-native'
 import Svg, { Circle, Ellipse, Line, Rect, Text as SvgText } from 'react-native-svg'
 import {
   CLUBS,
@@ -87,10 +87,13 @@ export default function Patterns() {
     if (!user) return
     let active = true
     setLoading(true)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    getShotsByClub(supabase, user.id, club).then(({ data }: { data: any }) => {
+    getShotsByClub(supabase, user.id, club).then(({ data, error }) => {
       if (!active) return
-      setShots((data as ShotRowMin[]) ?? [])
+      if (error) {
+        // eslint-disable-next-line no-console
+        console.error('[patterns/getShotsByClub]', error.message)
+      }
+      setShots((data as ShotRowMin[] | null) ?? [])
       setLoading(false)
     })
     return () => {
@@ -316,7 +319,7 @@ function DispersionPlot({
   points: DispersionPoint[]
   stats: DispersionStats | null
 }) {
-  const screenWidth = Dimensions.get('window').width
+  const { width: screenWidth } = useWindowDimensions()
   const size = Math.min(SVG_SIZE, screenWidth - 56)
 
   const maxAbs = Math.max(
@@ -398,11 +401,11 @@ function DispersionPlot({
         AIM
       </SvgText>
 
-      {points.map((p, i) => {
+      {points.map((p) => {
         const c = pointColor(p.shotResult)
         return (
           <Circle
-            key={i}
+            key={p.id}
             cx={px(p.lateralOffsetYards)}
             cy={py(p.distanceOffsetYards)}
             r={3.5}

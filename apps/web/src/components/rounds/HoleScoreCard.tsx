@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { Database } from '@oga/supabase'
 import { useUpsertHoleScore } from '../../hooks/useHoleScores'
 import { useUnits } from '../../hooks/useUnits'
@@ -84,12 +84,20 @@ export function HoleScoreCard({
   const [fairway, setFairway] = useState<boolean | null>(holeScore?.fairway_hit ?? null)
   const [gir, setGir] = useState<boolean | null>(holeScore?.gir ?? null)
 
+  // Hydrate the form from server state once per holeScore.id. Subsequent
+  // refetches (after our own save, or another tab) must not clobber what
+  // the user is typing — that was the source of "I edited and it reverted"
+  // reports during scorecard entry.
+  const hydratedIdRef = useRef<string | null>(null)
   useEffect(() => {
-    setScore(holeScore?.score?.toString() ?? '')
-    setPutts(holeScore?.putts?.toString() ?? '')
-    setFairway(holeScore?.fairway_hit ?? null)
-    setGir(holeScore?.gir ?? null)
-  }, [holeScore?.id, holeScore?.score, holeScore?.putts, holeScore?.fairway_hit, holeScore?.gir])
+    if (!holeScore) return
+    if (hydratedIdRef.current === holeScore.id) return
+    hydratedIdRef.current = holeScore.id
+    setScore(holeScore.score?.toString() ?? '')
+    setPutts(holeScore.putts?.toString() ?? '')
+    setFairway(holeScore.fairway_hit ?? null)
+    setGir(holeScore.gir ?? null)
+  }, [holeScore])
 
   function persist(next: {
     score?: number | null

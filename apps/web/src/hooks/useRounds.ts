@@ -26,11 +26,12 @@ export function useRounds(limit = 20) {
 }
 
 export function useRound(roundId: string | undefined) {
+  const { user } = useAuth()
   return useQuery({
-    queryKey: ['round', roundId],
-    enabled: !!roundId,
+    queryKey: ['round', roundId, user?.id],
+    enabled: !!roundId && !!user,
     queryFn: async () => {
-      const { data, error } = await getRound(supabase, roundId!)
+      const { data, error } = await getRound(supabase, roundId!, user!.id)
       if (error) throw error
       return data
     },
@@ -68,7 +69,8 @@ export function useDeleteRound() {
   const { user } = useAuth()
   return useMutation({
     mutationFn: async (roundId: string) => {
-      const { error } = await deleteRound(supabase, roundId)
+      if (!user) throw new Error('Not authenticated')
+      const { error } = await deleteRound(supabase, roundId, user.id)
       if (error) throw error
     },
     onSuccess: () => {

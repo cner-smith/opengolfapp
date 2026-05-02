@@ -108,7 +108,9 @@ export function CourseSearch({ selectedCourseId, onSelect }: CourseSearchProps) 
                   key={c.id}
                   selected={selectedCourseId === c.id}
                   title={c.name}
-                  subtitle={c.location ?? undefined}
+                  subtitle={
+                    [c.city, c.state].filter((s) => !!s).join(', ') || undefined
+                  }
                   onClick={() => {
                     onSelect(c.id, c.name)
                     setQuery('')

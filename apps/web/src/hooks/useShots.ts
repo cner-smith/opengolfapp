@@ -2,20 +2,39 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createShot, deleteShot, getShotsForRound, updateShot } from '@oga/supabase'
 import type { Database } from '@oga/supabase'
 import { supabase } from '../lib/supabase'
+import { useAuth } from './useAuth'
 
 type ShotInsert = Database['public']['Tables']['shots']['Insert']
 type ShotUpdate = Database['public']['Tables']['shots']['Update']
 
+// getShotsForRound's narrow column list matches every consumer of this
+// hook (no one reads created_at). Cast the inferred narrow shape back to
+// the canonical ShotRow so the call sites — ShotEntryModal's startEdit,
+// the round map's categorizeShot — keep their existing types.
+type ShotRow = Database['public']['Tables']['shots']['Row']
+
 export function useShotsForRound(roundId: string | undefined) {
+  const { user } = useAuth()
   return useQuery({
-    queryKey: ['shots', 'round', roundId],
-    enabled: !!roundId,
+    queryKey: ['shots', 'round', roundId, user?.id],
+    enabled: !!roundId && !!user,
     queryFn: async () => {
-      const { data, error } = await getShotsForRound(supabase, roundId!)
+      const { data, error } = await getShotsForRound(supabase, roundId!, user!.id)
       if (error) throw error
-      return data ?? []
+      return (data ?? []) as unknown as ShotRow[]
     },
   })
+}
+
+// Shot mutations also bust the round summary + detailed stats so SG and
+// per-shot derived numbers refresh after a save.
+function invalidateShotMutationKeys(
+  qc: ReturnType<typeof useQueryClient>,
+  roundId: string | undefined,
+) {
+  qc.invalidateQueries({ queryKey: ['shots', 'round', roundId] })
+  qc.invalidateQueries({ queryKey: ['round', roundId] })
+  qc.invalidateQueries({ queryKey: ['detailed-stats'] })
 }
 
 export function useCreateShot(roundId: string | undefined) {
@@ -26,29 +45,33 @@ export function useCreateShot(roundId: string | undefined) {
       if (error) throw error
       return data
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['shots', 'round', roundId] }),
+    onSuccess: () => invalidateShotMutationKeys(qc, roundId),
   })
 }
 
 export function useUpdateShot(roundId: string | undefined) {
   const qc = useQueryClient()
+  const { user } = useAuth()
   return useMutation({
     mutationFn: async ({ id, updates }: { id: string; updates: ShotUpdate }) => {
-      const { data, error } = await updateShot(supabase, id, updates)
+      if (!user) throw new Error('Not authenticated')
+      const { data, error } = await updateShot(supabase, id, updates, user.id)
       if (error) throw error
       return data
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['shots', 'round', roundId] }),
+    onSuccess: () => invalidateShotMutationKeys(qc, roundId),
   })
 }
 
 export function useDeleteShot(roundId: string | undefined) {
   const qc = useQueryClient()
+  const { user } = useAuth()
   return useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await deleteShot(supabase, id)
+      if (!user) throw new Error('Not authenticated')
+      const { error } = await deleteShot(supabase, id, user.id)
       if (error) throw error
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['shots', 'round', roundId] }),
+    onSuccess: () => invalidateShotMutationKeys(qc, roundId),
   })
 }

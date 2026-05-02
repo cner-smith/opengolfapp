@@ -3,6 +3,8 @@ import { Tabs, Redirect } from 'expo-router'
 import { MaterialCommunityIcons } from '@expo/vector-icons'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
+import { ErrorBoundary } from '../../components/errors/ErrorBoundary'
+import { UnitsProvider } from '../../contexts/UnitsContext'
 
 const ICON_SIZE = 18
 
@@ -16,19 +18,32 @@ export default function AppLayout() {
     if (authLoading) return
     if (!user) return
 
+    let active = true
     supabase
       .from('profiles')
       .select('skill_level, goal')
       .eq('id', user.id)
-      .single()
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      .then(({ data, error }: { data: any; error: any }) => {
-        if (error || !data || !data.skill_level || !data.goal) {
+      .maybeSingle()
+      .then(({ data, error }) => {
+        if (!active) return
+        if (error) {
+          // eslint-disable-next-line no-console
+          console.error('[(app)/_layout]', error.message)
+          // Treat as incomplete is the wrong call for a transient error;
+          // leave the user on the loading state until the next render
+          // can retry. Setting incomplete here would punt them to
+          // onboarding and clobber their saved profile.
+          return
+        }
+        if (!data || !data.skill_level || !data.goal) {
           setProfileState('incomplete')
         } else {
           setProfileState('complete')
         }
       })
+    return () => {
+      active = false
+    }
   }, [user, authLoading])
 
   if (authLoading || profileState === 'loading') return null
@@ -36,6 +51,8 @@ export default function AppLayout() {
   if (profileState === 'incomplete') return <Redirect href="/(auth)/onboarding" />
 
   return (
+    <ErrorBoundary>
+    <UnitsProvider>
     <Tabs
       screenOptions={{
         headerShown: false,
@@ -116,5 +133,7 @@ export default function AppLayout() {
       <Tabs.Screen name="round/[id]/index" options={{ href: null }} />
       <Tabs.Screen name="round/[id]/hole/[number]" options={{ href: null }} />
     </Tabs>
+    </UnitsProvider>
+    </ErrorBoundary>
   )
 }

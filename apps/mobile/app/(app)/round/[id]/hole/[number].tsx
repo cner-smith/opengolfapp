@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   ActivityIndicator,
   Alert,
+  Modal,
   Pressable,
   ScrollView,
   Text,
@@ -12,18 +13,24 @@ import * as Location from 'expo-location'
 import type { Database } from '@oga/supabase'
 import {
   HoleMap,
-  type HoleMapMode,
+  type HoleMapPhase,
   type LatLng,
 } from '../../../../../components/round/HoleMap'
 import {
   ShotLogger,
   type ShotLoggerValue,
 } from '../../../../../components/round/ShotLogger'
+import {
+  PuttingSheet,
+  type PuttingValue,
+} from '../../../../../components/round/PuttingSheet'
 import { supabase } from '../../../../../lib/supabase'
 import { useAuth } from '../../../../../hooks/useAuth'
 import {
   insertPendingShot,
   pendingShotsForHoleScore,
+  setPendingShotEnd,
+  type PendingShot,
   type ShotPayload,
 } from '../../../../../lib/db'
 import { syncPendingShots } from '../../../../../lib/sync'
@@ -39,6 +46,23 @@ type RoundRow = Database['public']['Tables']['rounds']['Row']
 
 const FALLBACK_CENTER: LatLng = { lat: 40.0, lng: -75.0 }
 const PIN_PROMPT_RADIUS_YARDS = 80
+
+// Live-round state machine. Each shot loops through:
+//   PLACE_BALL → SET_AIM → SHOT_DETAIL → PLACE_BALL    (off the green)
+//   PLACE_BALL → PUTTING → PLACE_BALL                  (within ~30 yd of pin)
+// PLACE_BALL: GPS auto-places ball, player drags to refine, confirms with
+//   "Mark ball here →".
+// SET_AIM: camera rotates so play direction is up; long-press drops aim.
+// SHOT_DETAIL: ShotLogger sheet open; save returns to PLACE_BALL.
+// PUTTING: PuttingSheet open with green diagram; save returns to PLACE_BALL
+//   (player loops here for each successive putt).
+type RoundState = 'PLACE_BALL' | 'SET_AIM' | 'SHOT_DETAIL' | 'PUTTING'
+
+// Distance threshold where the workflow auto-switches to putting.
+// 30 yards lines up with the SG "around-green" boundary; once a player
+// is inside that radius they're on or chipping near the green and the
+// putting flow is more likely than the aim-line flow.
+const PUTTING_RADIUS_YARDS = 30
 
 const KICKER: import('react-native').TextStyle = {
   fontSize: 10,
@@ -70,15 +94,29 @@ export default function HoleScreen() {
 
   const [aim, setAim] = useState<LatLng | null>(null)
   const [ball, setBall] = useState<LatLng | null>(null)
-  const lastEndRef = useRef<LatLng | null>(null)
+  // local_id of the just-saved pending shot, so the next PLACE_BALL
+  // can fill in that shot's end_lat/end_lng with the new ball position.
+  const lastSavedShotLocalIdRef = useRef<number | null>(null)
   const [remoteShotCount, setRemoteShotCount] = useState(0)
-  const [localShotCount, setLocalShotCount] = useState(0)
+  const [remotePuttCount, setRemotePuttCount] = useState(0)
+  // Single source of truth for unsynced shots on this hole. Local counts
+  // are derived via useMemo so an optimistic save and a slow re-load can't
+  // disagree about how many shots / putts the user has logged.
+  const [pendingForHole, setPendingForHole] = useState<PendingShot[]>([])
+  // Synced shot start positions for this hole. Combined with pending
+  // shot starts to render the breadcrumb of waypoints on the map.
+  const [remoteShotStarts, setRemoteShotStarts] = useState<LatLng[]>([])
   const [loggerOpen, setLoggerOpen] = useState(false)
   const [saving, setSaving] = useState(false)
-  const [mapMode, setMapMode] = useState<HoleMapMode>('shot')
+  // Pin placement is orthogonal to the shot phase machine. When true,
+  // tapping the map writes today's flag position rather than driving
+  // the shot flow.
+  const [pinPlacementOpen, setPinPlacementOpen] = useState(false)
+  const [roundState, setRoundState] = useState<RoundState>('PLACE_BALL')
   const [gpsPosition, setGpsPosition] = useState<LatLng | null>(null)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [scorecardOpen, setScorecardOpen] = useState(false)
 
   const currentHole = useMemo(
     () => holes.find((h) => h.number === holeNumber) ?? null,
@@ -102,14 +140,13 @@ export default function HoleScreen() {
       ? { lat: currentHole.tee_lat, lng: currentHole.tee_lng }
       : null
 
+  // Camera anchors on the tee box — the player's starting point. Pin/green
+  // is intentionally NOT a fallback; it would mis-frame the hole every time.
   const center: LatLng = useMemo(() => {
-    if (roundPin) return roundPin
-    if (storedPin) return storedPin
     if (tee) return tee
     if (ball) return ball
     return FALLBACK_CENTER
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [roundPin?.lat, roundPin?.lng, storedPin?.lat, storedPin?.lng, tee?.lat, tee?.lng, ball])
+  }, [tee?.lat, tee?.lng, ball?.lat, ball?.lng])
 
   const loadAll = useCallback(async () => {
     if (!id) return
@@ -143,53 +180,102 @@ export default function HoleScreen() {
     loadAll()
   }, [loadAll])
 
-  // Reload remote + local shot counts whenever the active hole_score changes.
+  // Reload remote + local shot/putt counts whenever the active hole_score
+  // changes. Putts are counted as shots where club='putter' OR lie_type='green'.
+  // Also pulls remote shot start coords so the on-map waypoint breadcrumb
+  // survives a screen reload mid-hole.
   useEffect(() => {
     if (!currentHoleScore) return
     let active = true
     ;(async () => {
-      const { count } = await supabase
-        .from('shots')
-        .select('id', { count: 'exact', head: true })
-        .eq('hole_score_id', currentHoleScore.id)
-      const local = await pendingShotsForHoleScore(currentHoleScore.id)
+      const [shotRes, puttRes, startsRes, local] = await Promise.all([
+        supabase
+          .from('shots')
+          .select('id', { count: 'exact', head: true })
+          .eq('hole_score_id', currentHoleScore.id),
+        supabase
+          .from('shots')
+          .select('id', { count: 'exact', head: true })
+          .eq('hole_score_id', currentHoleScore.id)
+          .or('club.eq.putter,lie_type.eq.green'),
+        supabase
+          .from('shots')
+          .select('shot_number, start_lat, start_lng')
+          .eq('hole_score_id', currentHoleScore.id)
+          .not('start_lat', 'is', null)
+          .not('start_lng', 'is', null)
+          .order('shot_number'),
+        pendingShotsForHoleScore(currentHoleScore.id),
+      ])
       if (!active) return
-      setRemoteShotCount(count ?? 0)
-      setLocalShotCount(local.length)
-      lastEndRef.current = null
+      setRemoteShotCount(shotRes.count ?? 0)
+      setRemotePuttCount(puttRes.count ?? 0)
+      const starts: LatLng[] = []
+      for (const r of startsRes.data ?? []) {
+        if (r.start_lat != null && r.start_lng != null) {
+          starts.push({ lat: r.start_lat, lng: r.start_lng })
+        }
+      }
+      setRemoteShotStarts(starts)
+      setPendingForHole(local)
     })()
     return () => {
       active = false
     }
   }, [currentHoleScore?.id])
 
-  // Auto-place ball at current GPS position once per hole. Also keep
-  // gpsPosition fresh so we can detect when the player walks onto the green.
-  // Skipped in past-round mode since the player isn't on the course.
+  // Reset the just-saved-shot ref synchronously on hole transition. Keeping
+  // it inside the async count-load effect (above) created a race: a tap-to-
+  // mark-ball that set the ref could be wiped out when the (slower) count
+  // load resolved a moment later, leaving shot N's end_lat/end_lng unset.
+  useEffect(() => {
+    lastSavedShotLocalIdRef.current = null
+  }, [currentHoleScore?.id])
+
+  // Live GPS during the PLACE_BALL phase so the ball marker tracks the
+  // player as they walk between shots. The previous one-shot
+  // getCurrentPositionAsync left the ball at the position from the last
+  // tap-to-place — a player walking 40 yd while filling in shot
+  // metadata would see the next ball auto-placed at the stale spot.
+  //
+  // Subscription is torn down once the player taps "Mark ball here" and
+  // we leave PLACE_BALL — no need to keep the GPS radio active during
+  // SET_AIM / SHOT_DETAIL. Skipped entirely in past-round mode.
+  //
+  // Functional setBall preserves any manual placement (prev wins): once
+  // the player drags the ball, watchPosition still updates gpsPosition
+  // for the nearPin proximity check but doesn't clobber the manual pin.
   useEffect(() => {
     if (!currentHole) return
     if (isPastMode) return
+    if (roundState !== 'PLACE_BALL') return
     let active = true
+    let subscription: Location.LocationSubscription | null = null
     ;(async () => {
       try {
         const perm = await Location.requestForegroundPermissionsAsync()
         if (perm.status !== 'granted') return
-        const loc = await Location.getCurrentPositionAsync({
-          accuracy: Location.Accuracy.High,
-        })
         if (!active) return
-        const pos = { lat: loc.coords.latitude, lng: loc.coords.longitude }
-        setGpsPosition(pos)
-        if (!ball) setBall(pos)
+        subscription = await Location.watchPositionAsync(
+          {
+            accuracy: Location.Accuracy.BestForNavigation,
+            distanceInterval: 2,
+          },
+          (loc) => {
+            const pos = { lat: loc.coords.latitude, lng: loc.coords.longitude }
+            setGpsPosition(pos)
+            setBall((prev) => prev ?? pos)
+          },
+        )
       } catch {
         // GPS not available — user will tap to place.
       }
     })()
     return () => {
       active = false
+      subscription?.remove()
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentHole?.id, isPastMode])
+  }, [currentHole?.id, isPastMode, roundState])
 
   // Highlight "On the green" once the player is within 80 yd of the stored
   // pin AND a per-round pin hasn't been captured yet.
@@ -199,19 +285,57 @@ export default function HoleScreen() {
     return distanceYards(gpsPosition, storedPin) <= PIN_PROMPT_RADIUS_YARDS
   }, [roundPin, storedPin, gpsPosition])
 
+  // Derive local shot/putt counts from the pending array — single source
+  // of truth, never out of sync with the underlying queue. Putts are
+  // counted as shots where club='putter' OR lie_type='green'.
+  const localShotCount = pendingForHole.length
+
+  // Shot waypoints rendered on the map: synced shot starts followed by
+  // pending shot starts (in pending insertion order). The current ball
+  // is intentionally excluded — HoleMap appends it as the line's final
+  // segment so the ball can move while the breadcrumb stays.
+  const previousShots = useMemo(() => {
+    const out: LatLng[] = [...remoteShotStarts]
+    for (const r of pendingForHole) {
+      try {
+        const p = JSON.parse(r.payload) as ShotPayload
+        if (p.start_lat != null && p.start_lng != null) {
+          out.push({ lat: p.start_lat, lng: p.start_lng })
+        }
+      } catch {
+        // skip malformed pending payload
+      }
+    }
+    return out
+  }, [remoteShotStarts, pendingForHole])
+
+  const localPuttCount = useMemo(() => {
+    let n = 0
+    for (const r of pendingForHole) {
+      try {
+        const p = JSON.parse(r.payload) as ShotPayload
+        if (p.club === 'putter' || p.lie_type === 'green') n++
+      } catch {
+        // skip malformed pending payload
+      }
+    }
+    return n
+  }, [pendingForHole])
   const shotNumber = remoteShotCount + localShotCount + 1
 
   function buildPayload(meta: ShotLoggerValue | null): ShotPayload | null {
-    if (!user || !currentHoleScore) return null
-    const start = lastEndRef.current ?? tee ?? null
+    if (!user || !currentHoleScore || !ball) return null
+    // New live-round semantics: ball is the player's current position
+    // (the start of this shot). end_lat/lng is unknown until the next
+    // PLACE_BALL — the next ball mark fills in this shot's landing.
     return {
       hole_score_id: currentHoleScore.id,
       user_id: user.id,
       shot_number: shotNumber,
-      start_lat: start?.lat ?? null,
-      start_lng: start?.lng ?? null,
-      end_lat: ball?.lat ?? null,
-      end_lng: ball?.lng ?? null,
+      start_lat: ball.lat,
+      start_lng: ball.lng,
+      end_lat: null,
+      end_lng: null,
       aim_lat: aim?.lat ?? null,
       aim_lng: aim?.lng ?? null,
       club: meta?.club ?? null,
@@ -250,20 +374,64 @@ export default function HoleScreen() {
     if (!payload) return
     setSaving(true)
     try {
-      await insertPendingShot(payload)
-      lastEndRef.current = ball
-      setLocalShotCount((c) => c + 1)
+      const localId = await insertPendingShot(payload)
+      lastSavedShotLocalIdRef.current = localId
+      const isPutt = payload.club === 'putter' || payload.lie_type === 'green'
+      // Append to the pending queue — counts derive from this so they can't
+      // drift. Status starts 'pending' until syncPendingShots flips it.
+      // The breadcrumb derives previousShots from pendingForHole +
+      // remoteShotStarts (see useMemo above). Pending stays here until
+      // hole change refetches; remote starts refresh on next mount, so
+      // there's no double-count and no need to push optimistically.
+      setPendingForHole((prev) => [
+        ...prev,
+        {
+          local_id: localId,
+          remote_id: null,
+          status: 'pending',
+          payload: JSON.stringify(payload),
+          created_at: Date.now(),
+        },
+      ])
       setAim(null)
       setBall(null)
       setLoggerOpen(false)
+      setRoundState('PLACE_BALL')
       // Background sync — don't await.
       syncPendingShots().catch(() => undefined)
-      // Best-effort score update so the scorecard reflects shot count.
+      // Best-effort hole_score update so the scorecard reflects shot/putt
+      // count. shotNumber is the just-saved shot's number == new score.
+      const newPutts =
+        remotePuttCount + localPuttCount + (isPutt ? 1 : 0)
       supabase
         .from('hole_scores')
-        .update({ score: shotNumber })
+        .update({ score: shotNumber, putts: newPutts })
         .eq('id', payload.hole_score_id)
-        .then(() => undefined, () => undefined)
+        .then(({ error }) => {
+          if (error) {
+            // eslint-disable-next-line no-console
+            console.warn('[hole/score-update]', error.message)
+          }
+        })
+      // Reflect optimistically in the inline scorecard preview.
+      setHoleScores((prev) =>
+        prev.map((hs) =>
+          hs.id === payload.hole_score_id
+            ? { ...hs, score: shotNumber, putts: newPutts }
+            : hs,
+        ),
+      )
+      // Re-acquire GPS so the next PLACE_BALL frames the player's new
+      // position. Skipped in past-round mode where GPS is meaningless.
+      if (!isPastMode) {
+        Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High })
+          .then((loc) => {
+            const pos = { lat: loc.coords.latitude, lng: loc.coords.longitude }
+            setGpsPosition(pos)
+            setBall(pos)
+          })
+          .catch(() => undefined)
+      }
     } catch (err) {
       // eslint-disable-next-line no-console
       console.error('shot save failed', err, payload)
@@ -275,6 +443,11 @@ export default function HoleScreen() {
 
   async function persistRoundPin(loc: LatLng) {
     if (!currentHoleScore) return
+    // Reject tap events that gave us non-finite coords — defensive
+    // guard so we never write null pin_lat by mistake (the original
+    // bug looked like "pin disappeared on tap" and likely traced to a
+    // malformed Mapbox tap feature on the device).
+    if (!Number.isFinite(loc.lat) || !Number.isFinite(loc.lng)) return
     // Optimistic update so the marker appears immediately.
     setHoleScores((prev) =>
       prev.map((hs) =>
@@ -283,7 +456,7 @@ export default function HoleScreen() {
           : hs,
       ),
     )
-    setMapMode('shot')
+    setPinPlacementOpen(false)
     const { error: updateErr } = await supabase
       .from('hole_scores')
       .update({ pin_lat: loc.lat, pin_lng: loc.lng })
@@ -293,12 +466,114 @@ export default function HoleScreen() {
     }
   }
 
-  function openLogger() {
+  // Explicit "clear today's flag" action. The Cancel button in PIN
+  // mode used to just exit the mode without doing anything to the pin;
+  // device testing showed players wanted Cancel to also remove a
+  // mistakenly-placed flag. Sets pin_lat/pin_lng to null in the DB and
+  // optimistically in state.
+  async function clearRoundPin() {
+    if (!currentHoleScore) return
+    setHoleScores((prev) =>
+      prev.map((hs) =>
+        hs.id === currentHoleScore.id
+          ? { ...hs, pin_lat: null, pin_lng: null }
+          : hs,
+      ),
+    )
+    setPinPlacementOpen(false)
+    const { error: updateErr } = await supabase
+      .from('hole_scores')
+      .update({ pin_lat: null, pin_lng: null })
+      .eq('id', currentHoleScore.id)
+    if (updateErr) {
+      Alert.alert('Pin clear failed', updateErr.message)
+    }
+  }
+
+  async function markBallHere() {
     if (!ball) {
       Alert.alert('Place the ball first', 'Tap the map to drop the ball.')
       return
     }
+    // Fill in the previous shot's landing — this position is where it
+    // ended. Pending rows get patched in SQLite; synced rows get a
+    // best-effort remote update.
+    const prevLocalId = lastSavedShotLocalIdRef.current
+    if (prevLocalId != null) {
+      const ballSnapshot = ball
+      const result = await setPendingShotEnd(
+        prevLocalId,
+        ballSnapshot.lat,
+        ballSnapshot.lng,
+      ).catch(() => null)
+      if (result?.status === 'synced' && result.remote_id) {
+        supabase
+          .from('shots')
+          .update({ end_lat: ballSnapshot.lat, end_lng: ballSnapshot.lng })
+          .eq('id', result.remote_id)
+          .then(({ error }) => {
+            if (error) {
+              // eslint-disable-next-line no-console
+              console.warn('[hole/end-coord-patch]', error.message)
+            }
+          })
+      }
+      lastSavedShotLocalIdRef.current = null
+    }
+    setAim(null)
+    // Auto-switch to the putting flow when the player has marked their
+    // position within ~30 yd of the pin — bypasses SET_AIM (long-press
+    // line) and SHOT_DETAIL (club/lie/result), since none of those
+    // matter on a putt. Falls back to the standard aim flow if no pin
+    // is known.
+    const pinTarget = roundPin ?? storedPin ?? null
+    if (pinTarget && distanceYards(ball, pinTarget) <= PUTTING_RADIUS_YARDS) {
+      setRoundState('PUTTING')
+      return
+    }
+    setRoundState('SET_AIM')
+  }
+
+  function confirmAim() {
+    setRoundState('SHOT_DETAIL')
     setLoggerOpen(true)
+  }
+
+  function skipAim() {
+    // Pace-of-play escape hatch: log the shot without an explicit aim.
+    setAim(null)
+    setRoundState('SHOT_DETAIL')
+    setLoggerOpen(true)
+  }
+
+  function closeLogger() {
+    setLoggerOpen(false)
+    setRoundState('PLACE_BALL')
+  }
+
+  // Map a PuttingValue into the ShotLoggerValue shape persistShot
+  // expects, then run the same persistence path. Forces club=putter and
+  // lieType=green so downstream stats classify these correctly without
+  // requiring the player to pick them out of a chip row.
+  async function persistPutt(v: PuttingValue) {
+    const meta: ShotLoggerValue = {
+      club: 'putter',
+      lieType: 'green',
+      puttMade: v.puttMade,
+      puttDistanceResult: v.puttDistanceResult,
+      puttDirectionResult: v.puttDirectionResult,
+      puttDistanceFt: v.puttDistanceFt,
+      puttSlopePct: v.puttSlopePct,
+      greenSpeed: v.greenSpeed,
+      breakDirection: v.breakDirection,
+      aimOffsetInches: v.aimOffsetInches,
+      notes: v.notes,
+    }
+    await persistShot(meta)
+  }
+
+  function closePuttingSheet() {
+    setRoundState('PLACE_BALL')
   }
 
   function navigateHole(delta: number) {
@@ -307,11 +582,27 @@ export default function HoleScreen() {
     router.replace(`/(app)/round/${id}/hole/${next}`)
   }
 
+  // "Finish hole" advances to the next hole. The hole_score row's
+  // score/putts are already updated optimistically each time persistShot
+  // runs, so this is just navigation — no extra DB write needed. On hole
+  // 18 we jump back to the home screen where the just-completed round
+  // appears at the top of the recent-rounds list.
+  function finishHole() {
+    if (holeNumber < 18) {
+      router.replace(`/(app)/round/${id}/hole/${holeNumber + 1}`)
+    } else {
+      router.replace('/(app)')
+    }
+  }
+
+  const totalShotsThisHole =
+    remoteShotCount + localShotCount > 0 ? remoteShotCount + localShotCount : 0
+
   async function handleDeleteRound() {
-    if (!round) return
+    if (!round || !user) return
     setDeleting(true)
     try {
-      const { error: delErr } = await deleteRound(supabase, round.id)
+      const { error: delErr } = await deleteRound(supabase, round.id, user.id)
       if (delErr) {
         Alert.alert('Delete failed', delErr.message)
         return
@@ -368,7 +659,11 @@ export default function HoleScreen() {
           justifyContent: 'space-between',
         }}
       >
-        <Pressable onPress={() => router.replace('/(app)')}>
+        <Pressable
+          onPress={() => router.replace('/(app)')}
+          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+          style={{ padding: 6 }}
+        >
           <Text
             style={{
               ...KICKER,
@@ -424,7 +719,14 @@ export default function HoleScreen() {
           tee={tee}
           aim={aim}
           ball={ball}
-          mode={mapMode}
+          previousShots={previousShots}
+          phase={
+            pinPlacementOpen
+              ? 'PIN'
+              : roundState === 'SET_AIM'
+                ? 'SET_AIM'
+                : 'PLACE_BALL'
+          }
           onSetAim={setAim}
           onSetBall={setBall}
           onPlacePin={persistRoundPin}
@@ -441,33 +743,106 @@ export default function HoleScreen() {
           borderTopColor: '#D9D2BF',
         }}
       >
-        {mapMode === 'pin' ? (
-          <Pressable
-            onPress={() => setMapMode('shot')}
-            style={{
-              borderWidth: 1,
-              borderColor: '#1F3D2C',
-              paddingVertical: 14,
-              alignItems: 'center',
-              marginBottom: 10,
-              borderRadius: 2,
-            }}
-          >
-            <Text
+        {pinPlacementOpen ? (
+          <View style={{ flexDirection: 'row', gap: 8, marginBottom: 10 }}>
+            <Pressable
+              onPress={() => setPinPlacementOpen(false)}
               style={{
-                color: '#1F3D2C',
-                fontSize: 14,
-                fontWeight: '600',
-                letterSpacing: 0.3,
+                flex: 1,
+                borderWidth: 1,
+                borderColor: '#D9D2BF',
+                paddingVertical: 14,
+                alignItems: 'center',
+                borderRadius: 2,
               }}
             >
-              Cancel pin placement
-            </Text>
-          </Pressable>
+              <Text
+                style={{
+                  color: '#5C6356',
+                  fontSize: 14,
+                  fontWeight: '600',
+                  letterSpacing: 0.3,
+                }}
+              >
+                Cancel
+              </Text>
+            </Pressable>
+            {roundPin && (
+              <Pressable
+                onPress={clearRoundPin}
+                style={{
+                  flex: 1,
+                  borderWidth: 1,
+                  borderColor: '#A33A2A',
+                  paddingVertical: 14,
+                  alignItems: 'center',
+                  borderRadius: 2,
+                }}
+              >
+                <Text
+                  style={{
+                    color: '#A33A2A',
+                    fontSize: 14,
+                    fontWeight: '600',
+                    letterSpacing: 0.3,
+                  }}
+                >
+                  Clear flag
+                </Text>
+              </Pressable>
+            )}
+          </View>
+        ) : roundState === 'SET_AIM' ? (
+          <>
+            <Pressable
+              onPress={confirmAim}
+              disabled={!aim}
+              style={{
+                backgroundColor: aim ? '#1F3D2C' : '#EBE5D6',
+                borderRadius: 2,
+                paddingVertical: 14,
+                alignItems: 'center',
+                marginBottom: 8,
+              }}
+            >
+              <Text
+                style={{
+                  color: aim ? '#F2EEE5' : '#8A8B7E',
+                  fontSize: 14,
+                  fontWeight: '600',
+                  letterSpacing: 0.3,
+                }}
+              >
+                {aim ? 'Confirm aim →' : 'Long-press the map to aim'}
+              </Text>
+            </Pressable>
+            <View
+              style={{
+                flexDirection: 'row',
+                justifyContent: 'space-between',
+                marginBottom: 10,
+              }}
+            >
+              <Pressable
+                onPress={() => setRoundState('PLACE_BALL')}
+                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                style={{ padding: 6 }}
+              >
+                <Text style={{ ...KICKER, color: '#8A8B7E' }}>← Re-place ball</Text>
+              </Pressable>
+              <Pressable
+                onPress={skipAim}
+                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                style={{ padding: 6 }}
+              >
+                <Text style={{ ...KICKER, color: '#8A8B7E' }}>Skip aim</Text>
+              </Pressable>
+            </View>
+          </>
         ) : (
           <>
             <Pressable
-              onPress={openLogger}
+              onPress={markBallHere}
               disabled={!ball || saving}
               style={{
                 backgroundColor: ball ? '#1F3D2C' : '#EBE5D6',
@@ -488,12 +863,12 @@ export default function HoleScreen() {
                 {saving
                   ? 'Saving…'
                   : ball
-                    ? 'Save shot →'
-                    : 'Place ball to save'}
+                    ? 'Mark ball here →'
+                    : 'Drop the ball to mark'}
               </Text>
             </Pressable>
             <Pressable
-              onPress={() => setMapMode('pin')}
+              onPress={() => setPinPlacementOpen(true)}
               style={{
                 paddingVertical: 8,
                 alignItems: 'center',
@@ -513,6 +888,30 @@ export default function HoleScreen() {
                     : 'On the green'}
               </Text>
             </Pressable>
+            {totalShotsThisHole > 0 && (
+              <Pressable
+                onPress={finishHole}
+                style={{
+                  borderWidth: 1,
+                  borderColor: '#1F3D2C',
+                  paddingVertical: 12,
+                  alignItems: 'center',
+                  marginBottom: 10,
+                  borderRadius: 2,
+                }}
+              >
+                <Text
+                  style={{
+                    color: '#1F3D2C',
+                    fontSize: 13,
+                    fontWeight: '600',
+                    letterSpacing: 0.3,
+                  }}
+                >
+                  {holeNumber < 18 ? `Finish hole · next →` : 'Finish round'}
+                </Text>
+              </Pressable>
+            )}
           </>
         )}
         <View
@@ -536,13 +935,17 @@ export default function HoleScreen() {
           >
             <Text style={{ fontSize: 12, color: '#1C211C' }}>← Prev</Text>
           </Pressable>
-          <View style={{ flex: 1 }}>
+          <Pressable
+            onPress={() => setScorecardOpen(true)}
+            style={{ flex: 1 }}
+            accessibilityLabel="Open scorecard"
+          >
             <ScorecardPreview
               holes={holes}
               holeScores={holeScores}
               currentHoleNumber={holeNumber}
             />
-          </View>
+          </Pressable>
           <Pressable
             onPress={() => navigateHole(1)}
             disabled={holeNumber === 18}
@@ -571,8 +974,30 @@ export default function HoleScreen() {
         }
         onSave={(v) => persistShot(v)}
         onSkip={() => persistShot(null)}
-        onClose={() => setLoggerOpen(false)}
+        onClose={closeLogger}
       />
+
+      <Modal
+        visible={roundState === 'PUTTING'}
+        transparent
+        animationType="slide"
+        onRequestClose={closePuttingSheet}
+      >
+        <View style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.4)' }}>
+          <PuttingSheet
+            shotNumber={shotNumber}
+            initialDistanceFt={
+              ball && (roundPin ?? storedPin)
+                ? Math.round(
+                    distanceYards(ball, (roundPin ?? storedPin) as LatLng) * 3,
+                  )
+                : undefined
+            }
+            onSave={persistPutt}
+            onClose={closePuttingSheet}
+          />
+        </View>
+      </Modal>
 
       <ConfirmDialog
         visible={confirmDelete}
@@ -584,6 +1009,270 @@ export default function HoleScreen() {
         onConfirm={handleDeleteRound}
         onCancel={() => setConfirmDelete(false)}
       />
+
+      <Modal
+        visible={scorecardOpen}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setScorecardOpen(false)}
+      >
+        <ScorecardModal
+          holes={holes}
+          holeScores={holeScores}
+          currentHoleNumber={holeNumber}
+          onJumpToHole={(n) => {
+            setScorecardOpen(false)
+            if (n !== holeNumber) {
+              router.replace(`/(app)/round/${id}/hole/${n}`)
+            }
+          }}
+          onClose={() => setScorecardOpen(false)}
+        />
+      </Modal>
+    </View>
+  )
+}
+
+function ScorecardModal({
+  holes,
+  holeScores,
+  currentHoleNumber,
+  onJumpToHole,
+  onClose,
+}: {
+  holes: HoleRow[]
+  holeScores: HoleScoreRow[]
+  currentHoleNumber: number
+  onJumpToHole: (n: number) => void
+  onClose: () => void
+}) {
+  const scoresByHoleId = useMemo(
+    () => new Map(holeScores.map((hs) => [hs.hole_id, hs])),
+    [holeScores],
+  )
+  const sorted = useMemo(
+    () => [...holes].sort((a, b) => a.number - b.number),
+    [holes],
+  )
+  let runningTotal = 0
+  let runningPar = 0
+  return (
+    <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)' }}>
+      <Pressable style={{ flex: 1 }} onPress={onClose} />
+      <View
+        style={{
+          backgroundColor: '#FBF8F1',
+          borderTopLeftRadius: 12,
+          borderTopRightRadius: 12,
+          paddingHorizontal: 18,
+          paddingTop: 14,
+          paddingBottom: 28,
+          maxHeight: '85%',
+        }}
+      >
+        <View
+          style={{
+            alignSelf: 'center',
+            width: 32,
+            height: 4,
+            borderRadius: 2,
+            backgroundColor: '#D9D2BF',
+            marginBottom: 14,
+          }}
+        />
+        <Text
+          style={{
+            ...KICKER,
+            color: '#8A8B7E',
+            marginBottom: 6,
+          }}
+        >
+          Scorecard
+        </Text>
+        <ScrollView
+          style={{ maxHeight: '90%' }}
+          showsVerticalScrollIndicator={false}
+        >
+          <View
+            style={{
+              flexDirection: 'row',
+              paddingVertical: 8,
+              borderBottomWidth: 1,
+              borderColor: '#D9D2BF',
+            }}
+          >
+            <Text style={{ ...KICKER, flex: 1, color: '#8A8B7E' }}>Hole</Text>
+            <Text
+              style={{ ...KICKER, width: 44, textAlign: 'right', color: '#8A8B7E' }}
+            >
+              Par
+            </Text>
+            <Text
+              style={{ ...KICKER, width: 56, textAlign: 'right', color: '#8A8B7E' }}
+            >
+              Score
+            </Text>
+            <Text
+              style={{ ...KICKER, width: 56, textAlign: 'right', color: '#8A8B7E' }}
+            >
+              +/−
+            </Text>
+          </View>
+          {sorted.map((h) => {
+            const hs = scoresByHoleId.get(h.id)
+            const score = hs?.score ?? null
+            if (score != null) {
+              runningTotal += score
+              runningPar += h.par
+            }
+            const diff = score != null ? score - h.par : null
+            const active = h.number === currentHoleNumber
+            return (
+              <Pressable
+                key={h.id}
+                onPress={() => onJumpToHole(h.number)}
+                style={{
+                  flexDirection: 'row',
+                  paddingVertical: 10,
+                  borderBottomWidth: 1,
+                  borderColor: '#EBE5D6',
+                  backgroundColor: active ? '#EBE5D6' : 'transparent',
+                  paddingHorizontal: 6,
+                  borderRadius: 2,
+                }}
+              >
+                <Text
+                  style={{
+                    flex: 1,
+                    fontSize: 15,
+                    color: '#1C211C',
+                    fontWeight: active ? '600' : '400',
+                  }}
+                >
+                  {h.number}
+                </Text>
+                <Text
+                  style={{
+                    width: 44,
+                    textAlign: 'right',
+                    fontSize: 15,
+                    color: '#5C6356',
+                    fontVariant: ['tabular-nums'],
+                  }}
+                >
+                  {h.par}
+                </Text>
+                <Text
+                  style={{
+                    width: 56,
+                    textAlign: 'right',
+                    fontSize: 15,
+                    color: score != null ? '#1C211C' : '#8A8B7E',
+                    fontVariant: ['tabular-nums'],
+                    fontWeight: '500',
+                  }}
+                >
+                  {score ?? '—'}
+                </Text>
+                <Text
+                  style={{
+                    width: 56,
+                    textAlign: 'right',
+                    fontSize: 15,
+                    color:
+                      diff == null
+                        ? '#8A8B7E'
+                        : diff < 0
+                          ? '#1F3D2C'
+                          : diff > 0
+                            ? '#A33A2A'
+                            : '#5C6356',
+                    fontVariant: ['tabular-nums'],
+                  }}
+                >
+                  {diff == null ? '—' : diff === 0 ? 'E' : diff > 0 ? `+${diff}` : `${diff}`}
+                </Text>
+              </Pressable>
+            )
+          })}
+          <View
+            style={{
+              flexDirection: 'row',
+              paddingVertical: 12,
+              borderTopWidth: 1,
+              borderColor: '#9F9580',
+              marginTop: 4,
+              paddingHorizontal: 6,
+            }}
+          >
+            <Text style={{ flex: 1, fontSize: 14, fontWeight: '600', color: '#1C211C' }}>
+              Total played
+            </Text>
+            <Text
+              style={{
+                width: 44,
+                textAlign: 'right',
+                fontSize: 14,
+                fontWeight: '600',
+                color: '#1C211C',
+                fontVariant: ['tabular-nums'],
+              }}
+            >
+              {runningPar}
+            </Text>
+            <Text
+              style={{
+                width: 56,
+                textAlign: 'right',
+                fontSize: 14,
+                fontWeight: '600',
+                color: '#1C211C',
+                fontVariant: ['tabular-nums'],
+              }}
+            >
+              {runningTotal}
+            </Text>
+            <Text
+              style={{
+                width: 56,
+                textAlign: 'right',
+                fontSize: 14,
+                fontWeight: '600',
+                color:
+                  runningPar === 0
+                    ? '#8A8B7E'
+                    : runningTotal - runningPar < 0
+                      ? '#1F3D2C'
+                      : runningTotal - runningPar > 0
+                        ? '#A33A2A'
+                        : '#5C6356',
+                fontVariant: ['tabular-nums'],
+              }}
+            >
+              {runningPar === 0
+                ? '—'
+                : runningTotal === runningPar
+                  ? 'E'
+                  : runningTotal - runningPar > 0
+                    ? `+${runningTotal - runningPar}`
+                    : `${runningTotal - runningPar}`}
+            </Text>
+          </View>
+        </ScrollView>
+        <Pressable
+          onPress={onClose}
+          style={{
+            marginTop: 14,
+            paddingVertical: 12,
+            alignItems: 'center',
+            borderWidth: 1,
+            borderColor: '#D9D2BF',
+            borderRadius: 2,
+          }}
+        >
+          <Text style={{ ...KICKER, color: '#5C6356' }}>Close</Text>
+        </Pressable>
+      </View>
     </View>
   )
 }

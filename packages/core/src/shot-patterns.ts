@@ -8,6 +8,9 @@ import type {
 import type { Shot } from './types'
 
 export interface DispersionPoint {
+  /** Source shot id — used as a stable React key when rendering the
+   *  dispersion plot, and lets a click handler trace back to the row. */
+  id: string
   /** Yards right of aim (negative = left) */
   lateralOffsetYards: number
   /** Yards long of aim (negative = short) */
@@ -60,6 +63,7 @@ export function computeDispersion(shots: Shot[]): DispersionPoint[] {
     const latYards = (endLat - aimLat) * YARDS_PER_DEG_LAT
     const lngYards = (endLng - aimLng) * yardsPerDegLng(aimLat)
     points.push({
+      id: s.id,
       lateralOffsetYards: lngYards,
       distanceOffsetYards: latYards,
       shotResult: s.shotResult,

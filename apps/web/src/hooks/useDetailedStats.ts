@@ -1,3 +1,4 @@
+import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { getRoundsWithDetails } from '@oga/supabase'
 import { supabase } from '../lib/supabase'
@@ -5,7 +6,7 @@ import {
   computeDetailedStats,
   type DetailedRound,
   type DetailedStats,
-} from '../lib/statsCalculations'
+} from '@oga/core'
 import { useAuth } from './useAuth'
 import { useProfile } from './useProfile'
 
@@ -25,12 +26,26 @@ export function useDetailedStats(limit: number): {
     queryFn: async (): Promise<DetailedRound[]> => {
       const { data, error } = await getRoundsWithDetails(supabase, user!.id, limit)
       if (error) throw error
-      return (data ?? []) as DetailedRound[]
+      // The Supabase types for nested joins (rounds → hole_scores → holes/shots)
+      // come back as a narrow inferred shape (no created_at on shots, no notes
+      // on the round) because the select uses ROUND_COLUMNS / SHOT_COLUMNS.
+      // computeDetailedStats only reads the SG-relevant columns those lists
+      // include; the via-`unknown` cast acknowledges the structural mismatch
+      // without forcing the generated DetailedRound type to drop fields.
+      return (data ?? []) as unknown as DetailedRound[]
     },
   })
 
-  const rounds = query.data ?? []
-  const data = rounds.length > 0 ? computeDetailedStats(rounds, handicap) : null
+  const rounds = useMemo(() => query.data ?? [], [query.data])
+  // computeDetailedStats walks every shot in every round (O(N×shots)) — wrap
+  // in useMemo so it doesn't re-run on parent renders unrelated to the data.
+  // Returns null while loading and when there are zero rounds; consumers
+  // MUST gate EmptyState on !isLoading first to avoid flashing the empty
+  // state during fetch.
+  const data = useMemo(
+    () => (rounds.length > 0 ? computeDetailedStats(rounds, handicap) : null),
+    [rounds, handicap],
+  )
 
   return {
     data,

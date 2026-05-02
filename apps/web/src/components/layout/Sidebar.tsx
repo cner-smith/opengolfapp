@@ -114,6 +114,39 @@ export function Sidebar() {
         />
       </nav>
 
+      <div style={{ padding: '12px 14px 6px' }}>
+        <div
+          className="font-mono uppercase text-white/30"
+          style={{
+            fontSize: 10,
+            letterSpacing: '0.14em',
+            marginBottom: 8,
+          }}
+        >
+          Support OGA
+        </div>
+        <div style={{ display: 'flex', gap: 14 }}>
+          <a
+            href="https://ko-fi.com/nartana"
+            target="_blank"
+            rel="noreferrer"
+            className="text-white/45 transition-colors hover:text-caddie-accent-ink"
+            style={{ fontSize: 12 }}
+          >
+            Ko-fi
+          </a>
+          <a
+            href="https://github.com/sponsors/cner-smith"
+            target="_blank"
+            rel="noreferrer"
+            className="text-white/45 transition-colors hover:text-caddie-accent-ink"
+            style={{ fontSize: 12 }}
+          >
+            Sponsor
+          </a>
+        </div>
+      </div>
+
       <div
         className="border-t border-white/10"
         style={{ padding: '14px 14px 18px' }}

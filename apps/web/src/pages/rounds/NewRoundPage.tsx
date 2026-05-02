@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { todayLocalDate } from '@oga/core'
 import { CourseSearch } from '../../components/courses/CourseSearch'
 import { TeeSelector } from '../../components/courses/TeeSelector'
 import { useCreateRound } from '../../hooks/useRounds'
@@ -15,7 +16,7 @@ export function NewRoundPage() {
   const createRoundMutation = useCreateRound()
   const [courseId, setCourseId] = useState<string | null>(null)
   const [courseName, setCourseName] = useState('')
-  const [playedAt, setPlayedAt] = useState(() => new Date().toISOString().slice(0, 10))
+  const [playedAt, setPlayedAt] = useState(() => todayLocalDate())
   const [teeColor, setTeeColor] = useState<string>('white')
   const [courseTeeId, setCourseTeeId] = useState<string | null>(null)
   const [mode, setMode] = useState<RoundMode>('past')

@@ -11,6 +11,45 @@ import type {
   SkillLevel,
 } from './constants'
 
+export type DistanceUnit = 'yards' | 'meters'
+
+export type GreenSpeed = 'slow' | 'medium' | 'fast'
+
+// Canonical 7-value vocabulary matching shots.break_direction in the DB.
+// `left` / `right` are legacy single-letter values from pre-split rows;
+// new code writes one of the explicit five.
+export type BreakDirection =
+  | 'left'
+  | 'right'
+  | 'straight'
+  | 'left_to_right'
+  | 'right_to_left'
+  | 'uphill'
+  | 'downhill'
+
+export type PuttDistanceResult = 'short' | 'long'
+export type PuttDirectionResult = 'left' | 'right'
+
+// Shot-result quality lookup used by stats heuristics (most costly lies,
+// slope impact, etc.). Lower = worse outcome. Domain constant — not a
+// view-config map; UI labels live in SHOT_RESULT_LABELS.
+//
+// Keyed on ShotResult so adding/removing a value in SHOT_RESULTS without
+// updating this map is a compile error rather than silently degrading
+// stats: an unknown shot_result would have read `undefined` here, used
+// as 0 via `?? 0` in stats.ts, neutralising the row.
+export const RESULT_QUALITY: Record<ShotResult, number> = {
+  solid: 1,
+  push_right: 0,
+  pull_left: 0,
+  fat: -1,
+  thin: -1,
+  topped: -1,
+  shank: -1,
+  penalty: -1,
+  ob: -1,
+}
+
 export interface Profile {
   id: string
   username: string
@@ -98,24 +137,17 @@ export interface Shot {
   penalty?: boolean
   ob?: boolean
   aimOffsetYards?: number
-  breakDirection?:
-    | 'left'
-    | 'right'
-    | 'straight'
-    | 'left_to_right'
-    | 'right_to_left'
-    | 'uphill'
-    | 'downhill'
+  breakDirection?: BreakDirection
   /** @deprecated combined value retained for back-compat reads. New code
    *  uses puttMade + puttDistanceResult + puttDirectionResult — three
    *  independent dimensions. */
   puttResult?: 'made' | 'short' | 'long' | 'missed_left' | 'missed_right'
   puttMade?: boolean
-  puttDistanceResult?: 'short' | 'long'
-  puttDirectionResult?: 'left' | 'right'
+  puttDistanceResult?: PuttDistanceResult
+  puttDirectionResult?: PuttDirectionResult
   puttDistanceFt?: number
   puttSlopePct?: number
-  greenSpeed?: 'slow' | 'medium' | 'fast'
+  greenSpeed?: GreenSpeed
   notes?: string
 }
 
@@ -130,8 +162,8 @@ export type LegacyPuttResult =
  *  writers can keep the legacy column populated for back-compat. */
 export function combinedPuttResult(args: {
   made?: boolean
-  distance?: 'short' | 'long' | null
-  direction?: 'left' | 'right' | null
+  distance?: PuttDistanceResult | null
+  direction?: PuttDirectionResult | null
 }): LegacyPuttResult | null {
   if (args.made) return 'made'
   if (args.distance === 'short') return 'short'
@@ -139,6 +171,21 @@ export function combinedPuttResult(args: {
   if (args.direction === 'left') return 'missed_left'
   if (args.direction === 'right') return 'missed_right'
   return null
+}
+
+/** Inverse of combinedPuttResult — render a human-readable label from
+ *  the two miss axes. Returns '' when both are null (e.g. line + pace
+ *  were both fine). */
+export function decombinedPuttResult(
+  distance: PuttDistanceResult | null,
+  direction: PuttDirectionResult | null,
+): string {
+  const parts: string[] = []
+  if (distance === 'short') parts.push('Short')
+  else if (distance === 'long') parts.push('Long')
+  if (direction === 'left') parts.push('Missed left')
+  else if (direction === 'right') parts.push('Missed right')
+  return parts.join(', ')
 }
 
 export interface SGBreakdown {

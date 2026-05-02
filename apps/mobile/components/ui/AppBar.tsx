@@ -1,4 +1,5 @@
 import { Text, View } from 'react-native'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 
 interface AppBarProps {
   eyebrow?: string
@@ -7,11 +8,12 @@ interface AppBarProps {
 }
 
 export function AppBar({ eyebrow, title, right }: AppBarProps) {
+  const insets = useSafeAreaInsets()
   return (
     <View
       style={{
         backgroundColor: '#1C211C',
-        paddingTop: 52,
+        paddingTop: insets.top + 14,
         paddingBottom: 14,
         paddingHorizontal: 18,
         flexDirection: 'row',

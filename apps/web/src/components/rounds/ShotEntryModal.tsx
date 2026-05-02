@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   CLUBS,
   LIE_TYPES,
@@ -7,10 +7,15 @@ import {
   SHOT_RESULTS,
   SHOT_RESULT_LABELS,
   combinedPuttResult,
+  legacySlopeToAxes,
+  type BreakDirection,
   type Club,
+  type GreenSpeed,
   type LieSlopeForward,
   type LieSlopeSide,
   type LieType,
+  type PuttDirectionResult,
+  type PuttDistanceResult,
   type ShotResult,
 } from '@oga/core'
 import type { Database } from '@oga/supabase'
@@ -22,10 +27,13 @@ import {
 } from '../../hooks/useShots'
 import { useAuth } from '../../hooks/useAuth'
 import { LieSlopeGrid } from '../forms/LieSlopeGrid'
-import { GreenDiagram, type BreakDirection } from '../round/GreenDiagram'
+import { GreenDiagram } from '../round/GreenDiagram'
 import { useUnits } from '../../hooks/useUnits'
 
-const BREAK_OPTIONS: { value: BreakDirection; label: string }[] = [
+const BREAK_OPTIONS: {
+  value: Exclude<BreakDirection, 'left' | 'right'>
+  label: string
+}[] = [
   { value: 'left_to_right', label: 'L → R' },
   { value: 'straight', label: 'Straight' },
   { value: 'right_to_left', label: 'R → L' },
@@ -52,8 +60,6 @@ interface ShotEntryModalProps {
   onClose: () => void
 }
 
-type GreenSpeed = 'slow' | 'medium' | 'fast'
-
 interface DraftShot {
   id?: string
   shotNumber: number
@@ -65,32 +71,13 @@ interface DraftShot {
   distanceToTarget?: number
   puttDistanceFt?: number
   puttMade?: boolean
-  puttDistanceResult?: 'short' | 'long'
-  puttDirectionResult?: 'left' | 'right'
+  puttDistanceResult?: PuttDistanceResult
+  puttDirectionResult?: PuttDirectionResult
   puttSlopePct?: number
   greenSpeed?: GreenSpeed
-  breakDirection?:
-    | 'left_to_right'
-    | 'right_to_left'
-    | 'uphill'
-    | 'downhill'
-    | 'straight'
+  breakDirection?: Exclude<BreakDirection, 'left' | 'right'>
   aimOffsetInches?: number
   notes?: string
-}
-
-// Map a legacy single-axis lie_slope value onto the two new axes so existing
-// rows stay editable after the split.
-function legacySlopeToAxes(
-  legacy: ShotRow['lie_slope'],
-): { forward?: LieSlopeForward; side?: LieSlopeSide } {
-  if (legacy === 'uphill' || legacy === 'level' || legacy === 'downhill') {
-    return { forward: legacy }
-  }
-  if (legacy === 'ball_above' || legacy === 'ball_below') {
-    return { side: legacy }
-  }
-  return {}
 }
 
 function shotRowToDraft(s: ShotRow): DraftShot {
@@ -183,10 +170,18 @@ export function ShotEntryModal({
   )
   const [editing, setEditing] = useState<string | null>(null)
 
+  // Read the latest holeShots count via ref so the reset effect doesn't
+  // need it as a dep — a refetch ticking the count up shouldn't wipe the
+  // draft the user is filling in. cancelEdit() handles the post-save reset
+  // explicitly with the up-to-date length.
+  const holeShotsRef = useRef(holeShots)
+  holeShotsRef.current = holeShots
+
   useEffect(() => {
     if (editing) return
-    setDraft(emptyDraft(holeShots.length + 1, holeShots.length === 0))
-  }, [holeShots.length, editing])
+    const len = holeShotsRef.current.length
+    setDraft(emptyDraft(len + 1, len === 0))
+  }, [holeScoreId, editing])
 
   function startEdit(s: ShotRow) {
     setEditing(s.id)
@@ -382,7 +377,7 @@ export function ShotEntryModal({
                       >
                         {s.club ?? '—'}
                         {s.lie_type
-                          ? ` · ${LIE_TYPE_LABELS[s.lie_type] ?? s.lie_type}`
+                          ? ` · ${LIE_TYPE_LABELS[s.lie_type as LieType] ?? s.lie_type}`
                           : ''}
                       </div>
                       <div
@@ -769,7 +764,8 @@ export function ShotEntryModal({
 function formatShotSummary(s: ShotRow): string {
   if (s.lie_type === 'green' || s.club === 'putter') {
     const result =
-      (s.putt_result && PUTT_RESULT_LABELS[s.putt_result]) ??
+      (s.putt_result &&
+        PUTT_RESULT_LABELS[s.putt_result as keyof typeof PUTT_RESULT_LABELS]) ??
       s.putt_result ??
       null
     const distance =
@@ -778,7 +774,7 @@ function formatShotSummary(s: ShotRow): string {
     return parts.length ? parts.join(' · ') : '—'
   }
   if (s.shot_result) {
-    return SHOT_RESULT_LABELS[s.shot_result] ?? s.shot_result
+    return SHOT_RESULT_LABELS[s.shot_result as ShotResult] ?? s.shot_result
   }
   return '—'
 }

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from 'react'
+import { useCallback, useEffect, useMemo, useRef } from 'react'
 import { Text, View } from 'react-native'
 import Mapbox from '@rnmapbox/maps'
 import { Gesture, GestureDetector } from 'react-native-gesture-handler'
@@ -13,7 +13,15 @@ export interface LatLng {
   lng: number
 }
 
-export type HoleMapMode = 'shot' | 'pin'
+/**
+ * `PLACE_BALL` — ball draggable, tap places ball, no aim interaction.
+ * `SET_AIM`    — ball locked, long-press drops aim, camera rotates so
+ *                play direction is up.
+ * `PIN`        — pin placement modality (orthogonal to the shot flow).
+ * Kept lowercase ('shot') for back-compat but new callers use the
+ * three-phase form.
+ */
+export type HoleMapPhase = 'PLACE_BALL' | 'SET_AIM' | 'PIN'
 
 interface HoleMapProps {
   center: LatLng
@@ -27,7 +35,15 @@ interface HoleMapProps {
   tee?: LatLng | null
   aim?: LatLng | null
   ball?: LatLng | null
-  mode?: HoleMapMode
+  /**
+   * Previously-logged shot start positions, in shot order. Rendered as
+   * small amber waypoints with a line connecting consecutive points
+   * AND a final segment from the last waypoint to the current ball, so
+   * the player has a visible breadcrumb of how they got to the
+   * current position. Pass an empty array (or omit) on shot 1.
+   */
+  previousShots?: LatLng[]
+  phase?: HoleMapPhase
   onSetAim: (loc: LatLng) => void
   onSetBall: (loc: LatLng) => void
   onPlacePin?: (loc: LatLng) => void
@@ -53,7 +69,8 @@ export function HoleMap({
   tee,
   aim,
   ball,
-  mode = 'shot',
+  previousShots,
+  phase = 'PLACE_BALL',
   onSetAim,
   onSetBall,
   onPlacePin,
@@ -63,24 +80,30 @@ export function HoleMap({
   const mapViewRef = useRef<Mapbox.MapView>(null)
   const cameraInitialized = useRef(false)
 
-  const isPinMode = mode === 'pin'
+  const isPinMode = phase === 'PIN'
+  const isAimPhase = phase === 'SET_AIM'
+  const isPlaceBallPhase = phase === 'PLACE_BALL'
 
   // Mapbox's onLongPress wasn't firing reliably on Android (single-tap
   // onPress works fine, but long-press never reaches JS). Detect it via
   // react-native-gesture-handler instead, then translate the screen
-  // point to lat/lng with the map ref.
-  async function dropAimFromScreenPoint(x: number, y: number) {
-    if (!mapViewRef.current) return
-    if (isPinMode) return
-    try {
-      const coord = await mapViewRef.current.getCoordinateFromView([x, y])
-      if (coord && coord.length >= 2) {
-        onSetAim({ lat: coord[1], lng: coord[0] })
+  // point to lat/lng with the map ref. Long-press is the aim mechanism;
+  // gate it to the SET_AIM phase so the ball-placement step isn't noisy.
+  const dropAimFromScreenPoint = useCallback(
+    async (x: number, y: number) => {
+      if (!mapViewRef.current) return
+      if (!isAimPhase) return
+      try {
+        const coord = await mapViewRef.current.getCoordinateFromView([x, y])
+        if (coord && coord.length >= 2) {
+          onSetAim({ lat: coord[1], lng: coord[0] })
+        }
+      } catch {
+        // map not ready yet
       }
-    } catch {
-      // map not ready yet
-    }
-  }
+    },
+    [isAimPhase, onSetAim],
+  )
 
   const longPress = useMemo(
     () =>
@@ -90,20 +113,25 @@ export function HoleMap({
           'worklet'
           runOnJS(dropAimFromScreenPoint)(event.x, event.y)
         }),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [onSetAim, isPinMode],
+    [dropAimFromScreenPoint],
   )
 
   // Center the camera once on first valid coords. Subsequent center changes
   // (e.g. GPS deltas while standing on the tee) should not retrigger
   // setCamera — the style was reloading and the satellite tiles would flash
   // back to a black canvas every time.
+  //
+  // PLACE_BALL is flat top-down (pitch 0) — tilt only happens on the
+  // SET_AIM transition below. A tilted tee-box camera was disorienting
+  // on the device because it framed grass at an angle before the player
+  // had even decided what they were aiming at.
   useEffect(() => {
     if (cameraInitialized.current) return
     if (!cameraRef.current) return
     cameraRef.current.setCamera({
       centerCoordinate: toCoord(center),
-      zoomLevel: 16,
+      zoomLevel: 17,
+      pitch: 0,
       animationDuration: 400,
     })
     cameraInitialized.current = true
@@ -123,6 +151,84 @@ export function HoleMap({
     })
   }, [isPinMode, roundPin?.lat, roundPin?.lng, pin?.lat, pin?.lng])
 
+  // Mark whether we owe the camera a PLACE_BALL re-frame on the next
+  // ball update. Set on phase transitions INTO PLACE_BALL (e.g. after
+  // saving a shot) so the camera flies back to the closer tee-style view
+  // once GPS settles on the new ball position.
+  const prevPhaseRef = useRef<HoleMapPhase>(phase)
+  const reframePlaceBallRef = useRef(false)
+  useEffect(() => {
+    if (phase === 'PLACE_BALL' && prevPhaseRef.current !== 'PLACE_BALL') {
+      reframePlaceBallRef.current = true
+    }
+    prevPhaseRef.current = phase
+  }, [phase])
+
+  useEffect(() => {
+    if (!reframePlaceBallRef.current) return
+    if (phase !== 'PLACE_BALL') return
+    if (!cameraRef.current) return
+    if (!ball) return
+    cameraRef.current.setCamera({
+      centerCoordinate: toCoord(ball),
+      zoomLevel: 17,
+      pitch: 0,
+      heading: 0,
+      animationDuration: 800,
+    })
+    reframePlaceBallRef.current = false
+  }, [ball?.lat, ball?.lng, phase])
+
+  // SET_AIM: rotate the camera so direction-of-play (ball → pin) is
+  // toward the top of the screen, zoom to fit the shot ahead, and
+  // tilt for a first-person-ish perspective. The 1.2s duration is
+  // the satisfying UX moment that signals "now aim".
+  //
+  // Zoom adapts to ball→pin distance so a 90-yd wedge frames the
+  // green tightly while a 380-yd par 5 still shows fairway + green.
+  // Fixed zoom 15 was too far out for short approaches and too close
+  // on long par 5s.
+  useEffect(() => {
+    if (!isAimPhase) return
+    if (!cameraRef.current) return
+    if (!ball) return
+    const target = roundPin ?? pin ?? null
+    const focus = target
+      ? {
+          lat: (ball.lat + target.lat) / 2,
+          lng: (ball.lng + target.lng) / 2,
+        }
+      : ball
+    const bearing = target
+      ? (Math.atan2(target.lng - ball.lng, target.lat - ball.lat) * 180) /
+        Math.PI
+      : 0
+    const distYd = target ? distanceYards(ball, target) : null
+    const zoom =
+      distYd == null
+        ? 15
+        : distYd < 150
+          ? 16
+          : distYd <= 300
+            ? 15
+            : 14
+    cameraRef.current.setCamera({
+      centerCoordinate: toCoord(focus),
+      zoomLevel: zoom,
+      pitch: 30,
+      heading: bearing,
+      animationDuration: 1200,
+    })
+  }, [
+    isAimPhase,
+    ball?.lat,
+    ball?.lng,
+    roundPin?.lat,
+    roundPin?.lng,
+    pin?.lat,
+    pin?.lng,
+  ])
+
   const effectivePin = roundPin ?? pin ?? null
   const pinDistance = useMemo(() => {
     if (!effectivePin || !ball) return null
@@ -130,7 +236,7 @@ export function HoleMap({
   }, [effectivePin, ball])
 
   const aimLine = useMemo(() => {
-    if (isPinMode) return null
+    if (!isAimPhase) return null
     if (!ball || !aim) return null
     return {
       type: 'Feature' as const,
@@ -140,14 +246,46 @@ export function HoleMap({
         coordinates: [toCoord(ball), toCoord(aim)],
       },
     }
-  }, [ball, aim, isPinMode])
+  }, [ball, aim, isAimPhase])
+
+  const aimDistanceYards = useMemo(() => {
+    if (!isAimPhase || !ball || !aim) return null
+    return Math.round(distanceYards(ball, aim))
+  }, [isAimPhase, ball, aim])
+
+  const aimMidpoint: LatLng | null = useMemo(() => {
+    if (!isAimPhase || !ball || !aim) return null
+    return { lat: (ball.lat + aim.lat) / 2, lng: (ball.lng + aim.lng) / 2 }
+  }, [isAimPhase, ball, aim])
+
+  // Breadcrumb line through every previous shot start, with a final
+  // segment to the current ball so the most recent leg is visible too.
+  // Filtered to require at least 2 points so the LineString geometry
+  // is valid.
+  const previousShotsLine = useMemo(() => {
+    const pts: LatLng[] = previousShots ?? []
+    const ordered = ball ? [...pts, ball] : pts
+    if (ordered.length < 2) return null
+    return {
+      type: 'Feature' as const,
+      properties: {},
+      geometry: {
+        type: 'LineString' as const,
+        coordinates: ordered.map(toCoord),
+      },
+    }
+  }, [previousShots, ball?.lat, ball?.lng])
 
   function handleTap(feature: unknown) {
     const c = extractCoord(feature)
     if (!c) return
     if (isPinMode) {
       onPlacePin?.(c)
-    } else {
+      return
+    }
+    // Tap-to-place-ball is only meaningful in PLACE_BALL. In SET_AIM we
+    // don't want stray taps moving the just-confirmed ball position.
+    if (isPlaceBallPhase) {
       onSetBall(c)
     }
   }
@@ -165,9 +303,34 @@ export function HoleMap({
             ref={cameraRef}
             defaultSettings={{
               centerCoordinate: toCoord(center),
-              zoomLevel: 16,
+              zoomLevel: 17,
+              pitch: 0,
             }}
           />
+
+          {!isPinMode && previousShotsLine && (
+            <Mapbox.ShapeSource id="prevShotsLine" shape={previousShotsLine}>
+              <Mapbox.LineLayer
+                id="prevShotsLineLayer"
+                style={{
+                  lineColor: '#A66A1F',
+                  lineWidth: 1.5,
+                  lineOpacity: 0.7,
+                }}
+              />
+            </Mapbox.ShapeSource>
+          )}
+
+          {!isPinMode &&
+            (previousShots ?? []).map((p, i) => (
+              <Mapbox.PointAnnotation
+                key={`prev-shot-${i}`}
+                id={`prev-shot-${i}`}
+                coordinate={toCoord(p)}
+              >
+                <Marker color="#A66A1F" border="#FBF8F1" size={9} />
+              </Mapbox.PointAnnotation>
+            ))}
 
           {aimLine && (
             <Mapbox.ShapeSource id="aimLine" shape={aimLine}>
@@ -189,23 +352,57 @@ export function HoleMap({
             </Mapbox.PointAnnotation>
           )}
 
-          {/* Stored hole pin: dim flag, only when no per-round pin. */}
-          {!roundPin && pin && (
+          {/* Stored hole pin: dim flag, only when no per-round pin.
+              Hidden in PIN mode so the annotation doesn't intercept the
+              tap that's supposed to place a new flag. */}
+          {!isPinMode && !roundPin && pin && (
             <Mapbox.PointAnnotation id="pin" coordinate={toCoord(pin)}>
               <Flag tone="dim" />
             </Mapbox.PointAnnotation>
           )}
 
-          {/* Per-round pin: prominent flag. */}
-          {roundPin && (
+          {/* Per-round pin: prominent flag. Hidden in PIN mode for the
+              same reason — taps need to reach the map below. */}
+          {!isPinMode && roundPin && (
             <Mapbox.PointAnnotation id="roundPin" coordinate={toCoord(roundPin)}>
               <Flag tone="strong" />
             </Mapbox.PointAnnotation>
           )}
 
-          {!isPinMode && aim && (
+          {isAimPhase && aim && (
             <Mapbox.PointAnnotation id="aim" coordinate={toCoord(aim)}>
               <Marker color="#A66A1F" border="#FBF8F1" size={12} />
+            </Mapbox.PointAnnotation>
+          )}
+
+          {/* Distance pill at midpoint of the aim line. Sized + colored
+              for outdoor readability — large white serif numerals on a
+              dark, semi-opaque pill. */}
+          {aimMidpoint && aimDistanceYards !== null && (
+            <Mapbox.PointAnnotation
+              id="aimDistance"
+              coordinate={toCoord(aimMidpoint)}
+            >
+              <View
+                style={{
+                  backgroundColor: 'rgba(28,33,28,0.85)',
+                  borderRadius: 999,
+                  paddingHorizontal: 14,
+                  paddingVertical: 6,
+                }}
+              >
+                <Text
+                  style={{
+                    color: '#F2EEE5',
+                    fontFamily: 'Fraunces-Medium',
+                    fontSize: 26,
+                    fontWeight: '600',
+                    fontVariant: ['tabular-nums'],
+                  }}
+                >
+                  {toDisplay(aimDistanceYards)}
+                </Text>
+              </View>
             </Mapbox.PointAnnotation>
           )}
 
@@ -213,7 +410,7 @@ export function HoleMap({
             <Mapbox.PointAnnotation
               id="ball"
               coordinate={toCoord(ball)}
-              draggable
+              draggable={isPlaceBallPhase}
               onDragEnd={(e: unknown) => {
                 const c = extractCoord(e)
                 if (c) onSetBall(c)
@@ -249,7 +446,9 @@ export function HoleMap({
           >
             {isPinMode
               ? 'Pin mode — tap to place flag'
-              : 'Long-press: aim · Tap: ball · Drag the green marker'}
+              : isAimPhase
+                ? 'Long-press to set aim point'
+                : 'Drag the ball to refine, then tap Mark ball here'}
           </Text>
         </View>
 

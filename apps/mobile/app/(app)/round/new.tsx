@@ -13,6 +13,7 @@ import {
   formatLocation,
   getOpenGolfApiCourse,
   searchOpenGolfApi,
+  todayLocalDate,
   type OpenGolfApiSearchResult,
 } from '@oga/core'
 import {
@@ -22,7 +23,6 @@ import {
   getCourseByExternalId,
   searchCourses,
   upsertCourseTees,
-  upsertHoleScore,
 } from '@oga/supabase'
 import type { Database } from '@oga/supabase'
 import { supabase } from '../../../lib/supabase'
@@ -112,8 +112,14 @@ export default function NewRound() {
     setSearching(true)
     Promise.allSettled([
       searchOpenGolfApi(term, ctrl.signal),
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      searchCourses(supabase, term, 10).then((r: any) => r.data ?? []),
+      searchCourses(supabase, term, 10).then(({ data, error }) => {
+        if (error) {
+          // eslint-disable-next-line no-console
+          console.warn('[round/new searchCourses]', error.message)
+          return [] as CourseRow[]
+        }
+        return (data ?? []) as CourseRow[]
+      }),
     ])
       .then(([api, local]) => {
         if (ctrl.signal.aborted) return
@@ -138,7 +144,7 @@ export default function NewRound() {
     setBusy(true)
     setError(null)
     try {
-      const today = new Date().toISOString().slice(0, 10)
+      const today = todayLocalDate()
       const { data: round, error: roundError } = await createRound(supabase, {
         user_id: user.id,
         course_id: courseId,
@@ -153,16 +159,19 @@ export default function NewRound() {
         .order('number')
       if (holesError) throw holesError
 
-      await Promise.all(
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (holes ?? []).map((h: any) =>
-          upsertHoleScore(supabase, {
-            round_id: round.id,
-            hole_id: h.id,
-            score: 0,
-          }),
-        ),
-      )
+      // Single batch insert beats 18 sequential round-trips; round was just
+      // created so there's nothing to conflict against.
+      const holeScoreRows = (holes ?? []).map((h) => ({
+        round_id: round.id,
+        hole_id: h.id,
+        score: 0,
+      }))
+      if (holeScoreRows.length > 0) {
+        const { error: hsError } = await supabase
+          .from('hole_scores')
+          .insert(holeScoreRows)
+        if (hsError) throw hsError
+      }
 
       router.replace(`/(app)/round/${round.id}/hole/1?mode=${mode}`)
     } catch (err) {
@@ -182,13 +191,12 @@ export default function NewRound() {
         return
       }
       const detail = await getOpenGolfApiCourse(r.id)
-      const location =
-        [detail.city, detail.state].filter(Boolean).join(', ') ||
-        formatLocation(r) ||
-        null
+      const city = detail.city ?? r.city ?? null
+      const state = detail.state ?? r.state ?? null
       const { data: course, error: courseErr } = await createCourse(supabase, {
         name: detail.name || r.name,
-        location,
+        city,
+        state,
         external_id: r.id,
       })
       if (courseErr || !course) throw courseErr ?? new Error('Course insert failed')
@@ -246,9 +254,17 @@ export default function NewRound() {
           setBusy(true)
           setError(null)
           try {
+            const trimmed = location?.trim() ?? ''
+            const commaIdx = trimmed.indexOf(',')
+            const city =
+              commaIdx >= 0
+                ? trimmed.slice(0, commaIdx).trim() || null
+                : trimmed || null
+            const state =
+              commaIdx >= 0 ? trimmed.slice(commaIdx + 1).trim() || null : null
             const { data: course, error: courseErr } = await createCourse(
               supabase,
-              { name: name.trim(), location: location?.trim() || null },
+              { name: name.trim(), city, state },
             )
             if (courseErr || !course) {
               throw courseErr ?? new Error('Course insert failed')
@@ -336,11 +352,14 @@ export default function NewRound() {
                 >
                   {c.name}
                 </Text>
-                {c.location && (
-                  <Text style={{ color: '#5C6356', fontSize: 12, marginTop: 2 }}>
-                    {c.location}
-                  </Text>
-                )}
+                {(() => {
+                  const where = [c.city, c.state].filter((s) => !!s).join(', ')
+                  return where ? (
+                    <Text style={{ color: '#5C6356', fontSize: 12, marginTop: 2 }}>
+                      {where}
+                    </Text>
+                  ) : null
+                })()}
               </Pressable>
             ))}
           </View>
@@ -455,7 +474,10 @@ function ManualCourseForm({
 
   return (
     <View style={{ flex: 1, backgroundColor: '#F2EEE5' }}>
-      <ScrollView contentContainerStyle={{ padding: 18, paddingBottom: 40 }}>
+      <ScrollView
+        contentContainerStyle={{ padding: 18, paddingBottom: 40 }}
+        keyboardShouldPersistTaps="handled"
+      >
         <Text style={{ ...KICKER, marginBottom: 8 }}>Add course</Text>
         <Text
           style={{

@@ -40,6 +40,10 @@ export default function MobileOnboarding() {
       Alert.alert('Handicap must be a number')
       return
     }
+    if (numericHandicap != null && (numericHandicap < -10 || numericHandicap > 54)) {
+      Alert.alert('Handicap must be between -10 and 54')
+      return
+    }
     setSaving(true)
     const { error } = await updateProfile(supabase, user.id, {
       skill_level: skill,
@@ -58,6 +62,7 @@ export default function MobileOnboarding() {
     <ScrollView
       style={{ flex: 1, backgroundColor: '#F4F4F0' }}
       contentContainerStyle={{ padding: 16, paddingTop: 48, paddingBottom: 32 }}
+      keyboardShouldPersistTaps="handled"
     >
       <Text
         style={{

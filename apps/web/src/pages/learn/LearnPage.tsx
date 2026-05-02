@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useDetailedStats } from '../../hooks/useDetailedStats'
 import { useProfile } from '../../hooks/useProfile'
 import { useUnits } from '../../hooks/useUnits'
-import type { DetailedStats } from '../../lib/statsCalculations'
+import type { DetailedStats } from '@oga/core'
 
 interface SectionLink {
   id: string
