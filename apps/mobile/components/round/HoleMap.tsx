@@ -111,13 +111,18 @@ export function HoleMap({
   // (e.g. GPS deltas while standing on the tee) should not retrigger
   // setCamera — the style was reloading and the satellite tiles would flash
   // back to a black canvas every time.
+  //
+  // PLACE_BALL is flat top-down (pitch 0) — tilt only happens on the
+  // SET_AIM transition below. A tilted tee-box camera was disorienting
+  // on the device because it framed grass at an angle before the player
+  // had even decided what they were aiming at.
   useEffect(() => {
     if (cameraInitialized.current) return
     if (!cameraRef.current) return
     cameraRef.current.setCamera({
       centerCoordinate: toCoord(center),
       zoomLevel: 17,
-      pitch: 45,
+      pitch: 0,
       animationDuration: 400,
     })
     cameraInitialized.current = true
@@ -158,7 +163,7 @@ export function HoleMap({
     cameraRef.current.setCamera({
       centerCoordinate: toCoord(ball),
       zoomLevel: 17,
-      pitch: 45,
+      pitch: 0,
       heading: 0,
       animationDuration: 800,
     })
@@ -258,7 +263,7 @@ export function HoleMap({
             defaultSettings={{
               centerCoordinate: toCoord(center),
               zoomLevel: 17,
-              pitch: 45,
+              pitch: 0,
             }}
           />
 
