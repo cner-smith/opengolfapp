@@ -394,7 +394,12 @@ export default function HoleScreen() {
         },
       ])
       setAim(null)
-      setBall(null)
+      // Leave ball at the just-hit shot's start position. The next shot
+      // is hit from somewhere downrange; the player drags the ball to
+      // refine. The previous behaviour of clearing the ball + reading a
+      // fresh GPS fix snapped the marker to the player's current device
+      // location — which on test builds (or anywhere far from where the
+      // ball actually lies) jumped the marker miles off the course.
       setLoggerOpen(false)
       setRoundState('PLACE_BALL')
       // Background sync — don't await.
@@ -421,17 +426,11 @@ export default function HoleScreen() {
             : hs,
         ),
       )
-      // Re-acquire GPS so the next PLACE_BALL frames the player's new
-      // position. Skipped in past-round mode where GPS is meaningless.
-      if (!isPastMode) {
-        Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High })
-          .then((loc) => {
-            const pos = { lat: loc.coords.latitude, lng: loc.coords.longitude }
-            setGpsPosition(pos)
-            setBall(pos)
-          })
-          .catch(() => undefined)
-      }
+      // Intentionally do NOT snap ball to a fresh GPS reading here. The
+      // watchPosition effect keeps gpsPosition fresh for the nearPin
+      // proximity check, and its functional setBall (prev ?? pos) only
+      // fills the ball when it's null — so a manually-placed (or
+      // carried-over from the prior shot) ball is preserved.
     } catch (err) {
       // eslint-disable-next-line no-console
       console.error('shot save failed', err, payload)
