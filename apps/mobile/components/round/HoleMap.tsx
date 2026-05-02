@@ -451,7 +451,24 @@ export function HoleMap({
                 if (c) onSetBall(c)
               }}
             >
-              <Marker color="#1F3D2C" border="#FBF8F1" size={14} />
+              {/* 44pt transparent hit area so the marker is comfortable
+                  to grab one-handed — Apple HIG minimum target size.
+                  The visual marker stays small; the touchable area
+                  extends well past it. */}
+              <View
+                style={{
+                  width: 44,
+                  height: 44,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <Marker
+                  color="#1F3D2C"
+                  border="#FBF8F1"
+                  size={isPlaceBallPhase ? 18 : 14}
+                />
+              </View>
             </Mapbox.PointAnnotation>
           )}
         </Mapbox.MapView>
