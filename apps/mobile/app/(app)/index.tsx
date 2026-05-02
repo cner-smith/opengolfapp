@@ -508,6 +508,27 @@ export default function Home() {
                   </Link>
                 </Swipeable>
               ))}
+              {rounds.length > 5 && (
+                <Link href="/(app)/rounds" asChild>
+                  <Pressable
+                    style={{
+                      paddingVertical: 14,
+                      paddingHorizontal: 4,
+                      alignItems: 'flex-end',
+                    }}
+                  >
+                    <Text
+                      style={{
+                        color: '#8A8B7E',
+                        fontSize: 13,
+                        fontWeight: '500',
+                      }}
+                    >
+                      See all rounds →
+                    </Text>
+                  </Pressable>
+                </Link>
+              )}
             </View>
           )}
         </Section>

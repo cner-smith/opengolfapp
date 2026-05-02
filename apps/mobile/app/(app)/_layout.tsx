@@ -129,6 +129,7 @@ export default function AppLayout() {
         }}
       />
       <Tabs.Screen name="learn" options={{ href: null }} />
+      <Tabs.Screen name="rounds" options={{ href: null }} />
       <Tabs.Screen name="round/new" options={{ href: null }} />
       <Tabs.Screen name="round/[id]/index" options={{ href: null }} />
       <Tabs.Screen name="round/[id]/hole/[number]" options={{ href: null }} />
