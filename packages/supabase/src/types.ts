@@ -56,7 +56,6 @@ export interface Database {
         Row: {
           id: string
           name: string
-          mapbox_id: string | null
           external_id: string | null
           created_by: string | null
           created_at: string
@@ -68,7 +67,6 @@ export interface Database {
         Insert: {
           id?: string
           name: string
-          mapbox_id?: string | null
           external_id?: string | null
           created_by?: string | null
           created_at?: string
@@ -80,7 +78,6 @@ export interface Database {
         Update: {
           id?: string
           name?: string
-          mapbox_id?: string | null
           external_id?: string | null
           created_by?: string | null
           created_at?: string
@@ -593,7 +590,12 @@ export interface Database {
       }
     }
     Views: Record<string, never>
-    Functions: Record<string, never>
+    Functions: {
+      search_courses: {
+        Args: { search_query: string; result_limit?: number }
+        Returns: Database['public']['Tables']['courses']['Row'][]
+      }
+    }
     Enums: Record<string, never>
     CompositeTypes: Record<string, never>
   }

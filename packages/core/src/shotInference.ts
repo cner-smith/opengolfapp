@@ -3,7 +3,7 @@
 // coordinates plus tee/pin context, returns suggested club, lie type,
 // distances, and a confidence rating.
 
-import type { Club, LieType } from './constants'
+import { NEAR_GREEN_YARDS, type Club, type LieType } from './constants'
 import { haversineYards } from './units'
 
 export interface PlacedShot {
@@ -75,7 +75,6 @@ function clubForTeeShot(distanceYards: number, par: number): Club {
 // Lie inference
 // ---------------------------------------------------------------------------
 
-const NEAR_GREEN_YARDS = 30
 // Threshold for "this shot started on (or so close to) the green that the
 // next stroke is a putt." 15 yd captures fringe lag putts and short
 // chip-ins that are functionally putts; tighter than 15 misclassifies

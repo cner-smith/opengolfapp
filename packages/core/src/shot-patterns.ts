@@ -137,15 +137,8 @@ export interface DispersionFilter {
 
 export function filterDispersionByLie(
   points: DispersionPoint[],
-  filterOrSlope?: DispersionFilter | LieSlope,
-  lieTypeArg?: LieType,
+  filter: DispersionFilter = {},
 ): DispersionPoint[] {
-  // Back-compat: filterDispersionByLie(points, lieSlope, lieType) still works.
-  const filter: DispersionFilter =
-    typeof filterOrSlope === 'string'
-      ? { lieSlope: filterOrSlope, lieType: lieTypeArg }
-      : { ...(filterOrSlope ?? {}), lieType: filterOrSlope?.lieType ?? lieTypeArg }
-
   return points.filter((p) => {
     if (filter.lieType && p.lieType !== filter.lieType) return false
     if (

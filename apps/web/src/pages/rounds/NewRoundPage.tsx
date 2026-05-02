@@ -53,18 +53,18 @@ export function NewRoundPage() {
     <div className="mx-auto max-w-2xl">
       <div style={{ marginBottom: 18 }}>
         <h1
-          className="text-oga-text-primary"
+          className="text-caddie-ink"
           style={{ fontSize: 22, fontWeight: 600, lineHeight: 1.3 }}
         >
           New round
         </h1>
-        <div className="text-oga-text-muted" style={{ fontSize: 13, marginTop: 2 }}>
+        <div className="text-caddie-ink-dim" style={{ fontSize: 13, marginTop: 2 }}>
           Pick a course and we'll set up the scorecard
         </div>
       </div>
       <form
         onSubmit={handleSubmit}
-        className="bg-oga-bg-card flex flex-col gap-5"
+        className="bg-caddie-surface flex flex-col gap-5"
         style={{ border: '0.5px solid #E4E4E0', borderRadius: 10, padding: 20 }}
       >
         <section>
@@ -97,7 +97,7 @@ export function NewRoundPage() {
           />
           {courseName && courseId && (
             <p
-              className="text-oga-green-dark"
+              className="text-caddie-accent"
               style={{ fontSize: 13, marginTop: 8 }}
             >
               Selected: {courseName}
@@ -127,7 +127,7 @@ export function NewRoundPage() {
               required
               value={playedAt}
               onChange={(e) => setPlayedAt(e.target.value)}
-              className="w-full bg-oga-bg-input text-oga-text-primary"
+              className="w-full bg-caddie-surface-2 text-caddie-ink"
               style={{ border: '0.5px solid #E4E4E0', borderRadius: 7, padding: '8px 10px', fontSize: 13 }}
             />
           </label>
@@ -136,7 +136,7 @@ export function NewRoundPage() {
             <select
               value={teeColor}
               onChange={(e) => setTeeColor(e.target.value)}
-              className="w-full bg-oga-bg-input text-oga-text-primary capitalize"
+              className="w-full bg-caddie-surface-2 text-caddie-ink capitalize"
               style={{ border: '0.5px solid #E4E4E0', borderRadius: 7, padding: '8px 10px', fontSize: 13 }}
             >
               {TEE_COLORS.map((t) => (
@@ -149,7 +149,7 @@ export function NewRoundPage() {
         </section>
 
         {error && (
-          <div className="text-oga-red-dark" style={{ fontSize: 13 }}>
+          <div className="text-caddie-neg" style={{ fontSize: 13 }}>
             {error}
           </div>
         )}
@@ -158,7 +158,7 @@ export function NewRoundPage() {
           <button
             type="button"
             onClick={() => navigate('/rounds')}
-            className="bg-oga-bg-card text-oga-text-primary transition-colors hover:bg-oga-bg-input"
+            className="bg-caddie-surface text-caddie-ink transition-colors hover:bg-caddie-surface-2"
             style={{
               border: '0.5px solid #E4E4E0',
               borderRadius: 10,
@@ -172,7 +172,7 @@ export function NewRoundPage() {
           <button
             type="submit"
             disabled={createRoundMutation.isPending || !courseId}
-            className="bg-oga-black text-white transition-colors hover:bg-oga-text-primary/90 disabled:opacity-50"
+            className="bg-caddie-accent text-caddie-accent-ink transition-opacity hover:opacity-90 disabled:opacity-50"
             style={{
               borderRadius: 10,
               padding: '10px 16px',
@@ -206,8 +206,8 @@ function ModeChip({
       aria-pressed={active}
       className={
         active
-          ? 'bg-oga-black text-white'
-          : 'bg-oga-bg-card text-oga-text-primary hover:bg-oga-bg-input'
+          ? 'bg-caddie-accent text-caddie-accent-ink'
+          : 'bg-caddie-surface text-caddie-ink hover:bg-caddie-surface-2'
       }
       style={{
         flex: 1,
@@ -236,7 +236,7 @@ function ModeChip({
 function FieldLabel({ children }: { children: React.ReactNode }) {
   return (
     <div
-      className="text-oga-text-muted uppercase"
+      className="text-caddie-ink-dim uppercase"
       style={{
         fontSize: 11,
         fontWeight: 500,

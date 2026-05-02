@@ -1,3 +1,16 @@
+// Stand-in handicap when a profile hasn't filled one in yet. Picked as
+// the rough median of US recreational golfers (USGA mid-handicap)
+// so SG baselines and bracket lookups don't degenerate to scratch
+// or 30+ for a brand-new user. NEVER store this — only use as a
+// transient calc input.
+export const DEFAULT_HANDICAP = 15
+
+// Distance-to-target threshold splitting "approach" from "around green"
+// for SG categorisation, lie inference, and stats bucketing. Keep the
+// three uses (sg-calculator, stats, shotInference) on the same number
+// so a shot can't be SG-classified one way and stats-bucketed another.
+export const NEAR_GREEN_YARDS = 30
+
 export const CLUBS = [
   'driver',
   '3w',
@@ -84,39 +97,18 @@ export type Goal = (typeof GOALS)[number]
 export type Facility = (typeof FACILITIES)[number]
 export type ShotCategory = (typeof SHOT_CATEGORIES)[number]
 
-// Local types for the label maps below. BreakDirection / LegacyPuttResult
-// are mirrored in types.ts (which can't import from this file in the
-// reverse direction without a cycle); the union duplication is small
-// and locks the label maps to the exact set the DB enum allows.
-type BreakDirectionKey =
-  | 'left'
-  | 'right'
-  | 'straight'
-  | 'left_to_right'
-  | 'right_to_left'
-  | 'uphill'
-  | 'downhill'
-
+// LegacyPuttResultKey mirrors LegacyPuttResult in types.ts (which can't
+// import from this file without a cycle); the union duplication locks
+// PUTT_RESULT_LABELS to the exact set the DB enum allows. Adding a new
+// value without its label is a compile error — the previous
+// Record<string, string> typing silently rendered the raw enum value
+// when a key was missing.
 type LegacyPuttResultKey =
   | 'made'
   | 'short'
   | 'long'
   | 'missed_left'
   | 'missed_right'
-
-// Adding a new value in BREAK_DIRECTION (etc.) without adding its label
-// is now a compile error — the previous Record<string, string> typing
-// silently rendered the raw enum value when a key was missing.
-export const BREAK_DIRECTION_LABELS: Record<BreakDirectionKey, string> = {
-  left_to_right: 'L → R',
-  right_to_left: 'R → L',
-  straight: 'Straight',
-  uphill: 'Uphill',
-  downhill: 'Downhill',
-  // Legacy single-letter values from pre-split rows.
-  left: 'L → R',
-  right: 'R → L',
-}
 
 export const PUTT_RESULT_LABELS: Record<LegacyPuttResultKey, string> = {
   made: 'Made',

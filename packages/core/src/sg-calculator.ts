@@ -1,4 +1,4 @@
-import type { ShotCategory } from './constants'
+import { NEAR_GREEN_YARDS, type ShotCategory } from './constants'
 import {
   APPROACH_BASELINES,
   AROUND_GREEN_BASELINES,
@@ -14,7 +14,10 @@ export function getShotCategory(
   shotNumber: number,
 ): ShotCategory {
   if (shot.lieType === 'green') return 'putting'
-  if (shot.distanceToTarget !== undefined && shot.distanceToTarget <= 30) {
+  if (
+    shot.distanceToTarget !== undefined &&
+    shot.distanceToTarget <= NEAR_GREEN_YARDS
+  ) {
     return 'around_green'
   }
   if (shotNumber === 1 && (par === 4 || par === 5)) return 'off_tee'
@@ -62,8 +65,7 @@ function startDistanceFt(shot: Shot): number | undefined {
 }
 
 function holedOut(shot: Shot): boolean {
-  if (shot.lieType === 'green' && shot.puttResult === 'made') return true
-  return false
+  return shot.lieType === 'green' && shot.puttResult === 'made'
 }
 
 export function calculateRoundSG(
@@ -127,24 +129,3 @@ export function calculateRoundSG(
   return breakdown
 }
 
-export function averageSGBreakdown(rounds: SGBreakdown[]): SGBreakdown {
-  if (rounds.length === 0) return { ...EMPTY_SG }
-  const sum = rounds.reduce<SGBreakdown>(
-    (acc, r) => ({
-      offTee: acc.offTee + r.offTee,
-      approach: acc.approach + r.approach,
-      aroundGreen: acc.aroundGreen + r.aroundGreen,
-      putting: acc.putting + r.putting,
-      total: acc.total + r.total,
-    }),
-    { ...EMPTY_SG },
-  )
-  const n = rounds.length
-  return {
-    offTee: sum.offTee / n,
-    approach: sum.approach / n,
-    aroundGreen: sum.aroundGreen / n,
-    putting: sum.putting / n,
-    total: sum.total / n,
-  }
-}

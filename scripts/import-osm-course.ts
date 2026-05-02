@@ -369,7 +369,7 @@ async function upsertCourse(
 
   const { data, error } = await supabase
     .from('courses')
-    .insert({ name, mapbox_id: null, lat: centroid.lat, lng: centroid.lon })
+    .insert({ name, lat: centroid.lat, lng: centroid.lon })
     .select('id')
     .single()
   if (error || !data) throw error ?? new Error('course insert failed')

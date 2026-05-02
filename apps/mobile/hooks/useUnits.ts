@@ -8,7 +8,13 @@ export type { DistanceUnit }
 // the same { unit, toDisplay, toDisplayFt } shape the component tree
 // already depends on; formatters are imported from @oga/core so the
 // conversion factors don't drift between web and mobile.
-export function useUnits() {
+export interface UseUnitsResult {
+  unit: DistanceUnit
+  toDisplay: (yards: number, decimals?: number) => string
+  toDisplayFt: (feet: number) => string
+}
+
+export function useUnits(): UseUnitsResult {
   const { unit } = useUnitsContext()
 
   function toDisplay(yards: number, decimals = 0): string {

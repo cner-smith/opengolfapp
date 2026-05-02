@@ -309,6 +309,49 @@ async function fetchJson(url: string): Promise<unknown> {
   return res.json()
 }
 
+// Enrichment-path fetch. Never throws — returns null when the request can't be
+// recovered. Handles 429 (Retry-After-style sleep), 404 (silent miss), and one
+// retry on transient HTTP / network errors.
+async function fetchJsonResilient(
+  url: string,
+  label: string,
+): Promise<unknown | null> {
+  let failedAttempts = 0
+  const MAX_ATTEMPTS = 2
+  while (true) {
+    try {
+      const res = await fetch(url, { headers: { Accept: 'application/json' } })
+      if (res.status === 429) {
+        console.warn(`[${label}] Rate limited — waiting 30s`)
+        await sleep(30000)
+        continue
+      }
+      if (res.status === 404) return null
+      if (!res.ok) {
+        failedAttempts++
+        if (failedAttempts < MAX_ATTEMPTS) {
+          console.warn(`[${label}] HTTP ${res.status} — retrying in 5s: ${url}`)
+          await sleep(5000)
+          continue
+        }
+        console.warn(`[${label}] HTTP ${res.status} — giving up: ${url}`)
+        return null
+      }
+      return await res.json()
+    } catch (err) {
+      failedAttempts++
+      const msg = (err as Error).message
+      if (failedAttempts < MAX_ATTEMPTS) {
+        console.warn(`[${label}] ${msg} — retrying in 5s`)
+        await sleep(5000)
+        continue
+      }
+      console.warn(`[${label}] ${msg} — giving up`)
+      return null
+    }
+  }
+}
+
 function pickArray(payload: unknown): RawCourse[] {
   if (Array.isArray(payload)) return payload as RawCourse[]
   if (payload && typeof payload === 'object') {
@@ -553,44 +596,39 @@ async function findCourseByExternalId(externalId: string): Promise<string | null
   return data?.id ?? null
 }
 
-async function insertOrUpdateCourse(args: {
+// Upsert keyed on external_id (partial unique index from migration 0019).
+// Re-running the crawler updates the existing row in place rather than
+// inserting a parallel duplicate; the previous select-then-insert flow
+// could race two crawlers into a double-insert and silently produced
+// thousands of duplicate rows.
+//
+// Manual user-created courses (no external_id) NEVER come through here —
+// they go through createCourse() in the web hooks and stay plain inserts.
+async function upsertCourse(args: {
   externalId: string
   name: string
   city: string | null
   state: string | null
   lat: number | null
   lng: number | null
-  force: boolean
-}): Promise<{ id: string; isNew: boolean; skipped: boolean }> {
-  const fields = {
-    name: args.name,
-    city: args.city,
-    state: args.state,
-    lat: args.lat,
-    lng: args.lng,
-  }
-  const existing = await findCourseByExternalId(args.externalId)
-  if (existing && !args.force) {
-    return { id: existing, isNew: false, skipped: true }
-  }
-  if (existing) {
-    const { error } = await supabase
-      .from('courses')
-      .update(fields)
-      .eq('id', existing)
-    if (error) throw error
-    return { id: existing, isNew: false, skipped: false }
-  }
+}): Promise<{ id: string }> {
   const { data, error } = await supabase
     .from('courses')
-    .insert({
-      ...fields,
-      external_id: args.externalId,
-    })
+    .upsert(
+      {
+        external_id: args.externalId,
+        name: args.name,
+        city: args.city,
+        state: args.state,
+        lat: args.lat,
+        lng: args.lng,
+      },
+      { onConflict: 'external_id', ignoreDuplicates: false },
+    )
     .select('id')
     .single()
-  if (error || !data) throw error ?? new Error('course insert failed')
-  return { id: data.id, isNew: true, skipped: false }
+  if (error || !data) throw error ?? new Error('course upsert failed')
+  return { id: data.id }
 }
 
 async function upsertHoles(courseId: string, holes: OgaHole[]): Promise<void> {
@@ -729,22 +767,20 @@ async function crawlOpenGolfApi(
           }
           const city = (detail.city ?? item.city ?? '').trim() || null
           const stateCode = (detail.state ?? item.state ?? state).trim() || null
-          const upsert = await insertOrUpdateCourse({
+          const { id: courseId } = await upsertCourse({
             externalId,
             name: detail.name,
             city,
             state: stateCode,
             lat: detail.lat ?? item.lat ?? null,
             lng: detail.lng ?? item.lng ?? null,
-            force,
           })
-          if (!upsert.skipped) {
-            await upsertHoles(upsert.id, detail.holes)
-            await upsertTees(upsert.id, detail.tees)
-            totalImported++
-          } else {
-            totalSkipped++
-          }
+          // Holes + tees always re-upserted from the freshly-fetched
+          // detail. Their own upsert keys (course_id,number /
+          // course_id,tee_color) keep this idempotent.
+          await upsertHoles(courseId, detail.holes)
+          await upsertTees(courseId, detail.tees)
+          totalImported++
           stateCount++
 
           if ((i + 1) % 100 === 0 || i === targets.length - 1) {
@@ -817,17 +853,15 @@ async function crawlOsm(
         if (!c) continue
         const externalId = `osm_${c.osmType}_${c.osmId}`
         try {
-          const upsert = await insertOrUpdateCourse({
+          await upsertCourse({
             externalId,
             name: c.name,
             city: c.city ?? null,
             state: c.state,
             lat: c.lat,
             lng: c.lng,
-            force,
           })
-          if (upsert.skipped) totalSkipped++
-          else totalImported++
+          totalImported++
           stateCount++
           if ((i + 1) % 100 === 0 || i === targets.length - 1) {
             console.log(`[osm:${state}] ${i + 1}/${targets.length} — last: ${c.name}`)
@@ -929,12 +963,16 @@ const MATCH_THRESHOLD = 0.7
 
 // Look up the OpenGolfAPI course that best matches `name` within `state`.
 // Returns the full detail (with tees) if a confident match is found.
+// Uses resilient fetcher — never throws on transient network/HTTP errors.
 async function findOgaMatchForCourse(
   name: string,
   state: string,
+  label: string,
+  interReqDelayMs: number,
 ): Promise<OgaCourseDetail | null> {
-  const url = `${OPENGOLFAPI_BASE}/courses/search?q=${encodeURIComponent(name)}&state=${encodeURIComponent(state)}`
-  const payload = await fetchJson(url)
+  const searchUrl = `${OPENGOLFAPI_BASE}/courses/search?q=${encodeURIComponent(name)}&state=${encodeURIComponent(state)}`
+  const payload = await fetchJsonResilient(searchUrl, label)
+  if (!payload) return null
   const raws = pickArray(payload)
   let best: { item: OgaListItem; score: number } | null = null
   for (const raw of raws) {
@@ -947,14 +985,92 @@ async function findOgaMatchForCourse(
     if (score > (best?.score ?? 0)) best = { item, score }
   }
   if (!best || best.score < MATCH_THRESHOLD) return null
-  await sleep(OPENGOLFAPI_DELAY_MS)
-  return fetchOgaCourseDetail(best.item.id)
+  await sleep(interReqDelayMs)
+  const detailUrl = `${OPENGOLFAPI_BASE}/courses/${encodeURIComponent(best.item.id)}`
+  const detailPayload = await fetchJsonResilient(detailUrl, label)
+  if (!detailPayload) return null
+  let raw: RawCourse | null = null
+  if (Array.isArray(detailPayload)) {
+    raw = (detailPayload[0] ?? null) as RawCourse | null
+  } else if (detailPayload && typeof detailPayload === 'object') {
+    const obj = detailPayload as { course?: unknown; data?: unknown }
+    if (obj.course && typeof obj.course === 'object') {
+      raw = obj.course as RawCourse
+    } else if (obj.data && typeof obj.data === 'object' && !Array.isArray(obj.data)) {
+      raw = obj.data as RawCourse
+    } else {
+      raw = detailPayload as RawCourse
+    }
+  }
+  if (!raw) return null
+  return normalizeDetail(raw)
 }
 
 interface CourseRowMin {
   id: string
   name: string
   external_id: string | null
+}
+
+// Paginated fetch of OSM-imported courses for a state. Supabase's default
+// row cap is 1000 — paginating in 500-row chunks keeps us well under that
+// even if one state grows past it (and so we can see the ceiling in logs
+// instead of silently truncating).
+async function fetchOsmCoursesForState(
+  state: string,
+): Promise<CourseRowMin[]> {
+  const PAGE_SIZE = 500
+  const all: CourseRowMin[] = []
+  let from = 0
+  while (true) {
+    const { data, error } = await supabase
+      .from('courses')
+      .select('id, name, external_id')
+      .eq('state', state)
+      .like('external_id', 'osm_%')
+      .range(from, from + PAGE_SIZE - 1)
+    if (error) {
+      throw new Error(
+        `courses fetch failed (state=${state}, range=${from}-${from + PAGE_SIZE - 1}): ${error.message ?? JSON.stringify(error)}`,
+      )
+    }
+    const rows = (data ?? []) as CourseRowMin[]
+    all.push(...rows)
+    if (rows.length < PAGE_SIZE) break
+    from += PAGE_SIZE
+  }
+  return all
+}
+
+// Bulk tee lookup, chunked to avoid PostgREST's URL-length limit. With ~868
+// UUIDs the single `.in('course_id', courseIds)` call serialises into a URL
+// long enough to trip a 400 — and the supabase client throws its raw
+// PostgrestError, which has no `stack`, so the outer catch reports just
+// "Bad Request" with no clue where it came from. 200 ids/chunk is well
+// under any cap.
+async function fetchAlreadyTeedCourseIds(
+  courseIds: string[],
+  label: string,
+): Promise<Set<string>> {
+  const teedSet = new Set<string>()
+  if (courseIds.length === 0) return teedSet
+  const CHUNK = 200
+  for (let i = 0; i < courseIds.length; i += CHUNK) {
+    const chunk = courseIds.slice(i, i + CHUNK)
+    const { data, error } = await supabase
+      .from('course_tees')
+      .select('course_id')
+      .in('course_id', chunk)
+    if (error) {
+      throw new Error(
+        `[${label}] course_tees lookup failed (chunk ${i}-${i + chunk.length - 1}, ${chunk.length} ids): ${error.message ?? JSON.stringify(error)}`,
+      )
+    }
+    for (const row of data ?? []) {
+      if (row.course_id) teedSet.add(row.course_id)
+    }
+  }
+  return teedSet
 }
 
 async function crawlEnrich(
@@ -984,31 +1100,64 @@ async function crawlEnrich(
     try {
       // OSM-imported courses for this state. Excludes manual or
       // already-OpenGolfAPI-imported courses to keep the scope tight.
-      const { data: courseRows, error: coursesErr } = await supabase
-        .from('courses')
-        .select('id, name, external_id')
-        .eq('state', state)
-        .like('external_id', 'osm_%')
-      if (coursesErr) throw coursesErr
-      const courses = (courseRows ?? []) as CourseRowMin[]
+      console.log(`[enrich:${state}] fetching courses from DB...`)
+      let courses: CourseRowMin[]
+      try {
+        courses = await fetchOsmCoursesForState(state)
+      } catch (err) {
+        const e = err as Error
+        console.error(`[enrich:${state}] DB fetch failed:`, {
+          message: e.message,
+          stack: e.stack,
+        })
+        await setCrawlState(crawlId, {
+          status: 'error',
+          itemsProcessed: 0,
+          errorMessage: `DB fetch failed: ${e.message}`,
+        })
+        continue
+      }
+      console.log(
+        `[enrich:${state}] fetched ${courses.length} courses from DB`,
+      )
       const targets = limit != null ? courses.slice(0, limit) : courses
-      console.log(`[enrich:${state}] ${targets.length} OSM course(s) to consider`)
+      // Big states have hit OpenGolfAPI rate limits with the default 1100ms
+      // cadence — bump to 2000ms when there's >200 to grind through.
+      const perReqDelay = targets.length > 200 ? 2000 : OPENGOLFAPI_DELAY_MS
+      console.log(
+        `[enrich:${state}] ${targets.length} OSM course(s) to consider (delay ${perReqDelay}ms)`,
+      )
 
       // Bulk-fetch existing tees so we can skip already-enriched courses
-      // without one round-trip per course.
+      // without one round-trip per course. Chunked to dodge the IN-list
+      // URL-length cap.
       const courseIds = targets.map((c) => c.id)
-      const teedSet = new Set<string>()
-      if (courseIds.length > 0) {
-        const { data: teesRows, error: teesErr } = await supabase
-          .from('course_tees')
-          .select('course_id')
-          .in('course_id', courseIds)
-        if (teesErr) throw teesErr
-        for (const row of teesRows ?? []) {
-          if (row.course_id) teedSet.add(row.course_id)
-        }
+      let teedSet: Set<string>
+      try {
+        console.log(
+          `[enrich:${state}] looking up existing tees for ${courseIds.length} course(s)...`,
+        )
+        teedSet = await fetchAlreadyTeedCourseIds(courseIds, `enrich:${state}`)
+        console.log(
+          `[enrich:${state}] ${teedSet.size} course(s) already have tees`,
+        )
+      } catch (err) {
+        const e = err as Error
+        console.error(`[enrich:${state}] tees lookup failed:`, {
+          message: e.message,
+          stack: e.stack,
+        })
+        await setCrawlState(crawlId, {
+          status: 'error',
+          itemsProcessed: 0,
+          errorMessage: `tees lookup failed: ${e.message}`,
+        })
+        continue
       }
 
+      console.log(
+        `[enrich:${state}] starting loop, first course: ${courses[0]?.name}`,
+      )
       for (let i = 0; i < targets.length; i++) {
         const course = targets[i]
         if (!course) continue
@@ -1017,12 +1166,17 @@ async function crawlEnrich(
           continue
         }
         try {
-          const match = await findOgaMatchForCourse(course.name, state)
+          const match = await findOgaMatchForCourse(
+            course.name,
+            state,
+            `enrich:${state}`,
+            perReqDelay,
+          )
           stateProcessed++
           if (!match) {
             stateUnmatched++
             totalUnmatched++
-            await sleep(OPENGOLFAPI_DELAY_MS)
+            await sleep(perReqDelay)
             continue
           }
           if (match.tees.length > 0) {
@@ -1038,7 +1192,11 @@ async function crawlEnrich(
             .from('courses')
             .update({ external_id: ogaExternalId })
             .eq('id', course.id)
-          if (updateErr) throw updateErr
+          if (updateErr) {
+            throw new Error(
+              `external_id update failed (course=${course.id}): ${updateErr.message ?? JSON.stringify(updateErr)}`,
+            )
+          }
           stateEnriched++
           totalEnriched++
           if ((i + 1) % 50 === 0 || i === targets.length - 1) {
@@ -1054,7 +1212,7 @@ async function crawlEnrich(
             `[enrich:${state}] ${course.name}: ${(err as Error).message}`,
           )
         }
-        await sleep(OPENGOLFAPI_DELAY_MS)
+        await sleep(perReqDelay)
       }
 
       await setCrawlState(crawlId, {
@@ -1066,11 +1224,16 @@ async function crawlEnrich(
         `[enrich:${state}] done — ${stateEnriched} enriched, ${stateUnmatched} no-match, ${stateErrors} errors`,
       )
     } catch (err) {
-      console.error(`[enrich:${state}] fatal: ${(err as Error).message}`)
+      const e = err as Error
+      console.error(`[enrich:${state}] fatal: ${e.message}`)
+      console.error(`[enrich:${state}] fatal details:`, {
+        message: e.message,
+        stack: e.stack,
+      })
       await setCrawlState(crawlId, {
         status: 'error',
         itemsProcessed: stateProcessed,
-        errorMessage: (err as Error).message,
+        errorMessage: e.message,
       })
     }
   }

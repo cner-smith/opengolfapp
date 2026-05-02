@@ -305,7 +305,7 @@ function JumpSheet({
 }
 
 function useActiveSection(): string | null {
-  const [active, setActive] = useState<string | null>(SECTION_LINKS[0]!.id)
+  const [active, setActive] = useState<string | null>(SECTION_LINKS[0]?.id ?? null)
   useEffect(() => {
     const observer = new IntersectionObserver(
       (entries) => {

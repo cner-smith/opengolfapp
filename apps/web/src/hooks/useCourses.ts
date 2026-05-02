@@ -1,4 +1,3 @@
-import { useEffect, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   searchOpenGolfApi,
@@ -18,6 +17,7 @@ import {
 } from '@oga/supabase'
 import type { Database } from '@oga/supabase'
 import { supabase } from '../lib/supabase'
+import { useDebounce } from './useDebounce'
 
 type CourseRow = Database['public']['Tables']['courses']['Row']
 type HoleInsert = Database['public']['Tables']['holes']['Insert']
@@ -27,11 +27,7 @@ type HoleInsert = Database['public']['Tables']['holes']['Insert']
 // always surface even if OpenGolfAPI has no match. Deduped by
 // external_id and name.
 export function useCourseSearch(query: string) {
-  const [debounced, setDebounced] = useState(query)
-  useEffect(() => {
-    const id = setTimeout(() => setDebounced(query), 300)
-    return () => clearTimeout(id)
-  }, [query])
+  const debounced = useDebounce(query, 300)
 
   return useQuery({
     queryKey: ['courses', 'search', debounced],
@@ -43,10 +39,10 @@ export function useCourseSearch(query: string) {
       ])
       const apiHits: OpenGolfApiSearchResult[] =
         api.status === 'fulfilled' ? api.value : []
-      // searchCourses now returns the narrow column subset (mapbox_id /
-      // created_by / created_at dropped). Cast via unknown to the wider
-      // CourseRow so consumers that pick up a course from this list and
-      // pass it around with the full row type still typecheck.
+      // searchCourses now returns the narrow column subset (created_by /
+      // created_at dropped). Cast via unknown to the wider CourseRow so
+      // consumers that pick up a course from this list and pass it around
+      // with the full row type still typecheck.
       const localRows: CourseRow[] =
         local.status === 'fulfilled'
           ? ((local.value.data ?? []) as unknown as CourseRow[])

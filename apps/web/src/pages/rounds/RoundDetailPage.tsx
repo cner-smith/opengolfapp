@@ -17,7 +17,12 @@ import type {
   PlacedPoint,
 } from '../../components/round/RoundMap'
 import { RoundMapInstructionStrip } from '../../components/round/RoundMap'
-import { combinedPuttResult, getShotCategory, haversineYards } from '@oga/core'
+import {
+  combinedPuttResult,
+  DEFAULT_HANDICAP,
+  getShotCategory,
+  haversineYards,
+} from '@oga/core'
 
 // Lazy-load Mapbox GL JS only when the map tab is opened. Cuts ~2 MB off
 // the initial bundle for users who never leave the scorecard.
@@ -178,11 +183,11 @@ export function RoundDetailPage() {
         .update({ pin_lat: point.lat, pin_lng: point.lng })
         .eq('id', hs.id)
         .eq('round_id', roundId)
-      if (error) {
+      if (error && import.meta.env.DEV) {
         // Don't roll back the local override — the user's intent stays
         // visible while they retry. Surface the error for diagnostics.
         // eslint-disable-next-line no-console
-        console.error('round pin update failed', error)
+        console.error('[RoundDetailPage/updatePin]', error)
       }
     },
     [activeHoleScore, roundId],
@@ -257,7 +262,7 @@ export function RoundDetailPage() {
     if (!round.data || !courseId || !user) return
     setCompleteError(null)
     try {
-      const handicap = profile.data?.handicap_index ?? 15
+      const handicap = profile.data?.handicap_index ?? DEFAULT_HANDICAP
       await completeMutation.mutateAsync({
         roundId: round.data.id,
         courseId,
@@ -847,11 +852,10 @@ function RoundRatingLine({
   round: RoundRow
   tees: CourseTeeRow[]
 }) {
+  const teeColor = round.tee_color?.toLowerCase()
   const tee =
     tees.find((t) => t.id === round.course_tee_id) ??
-    (round.tee_color
-      ? tees.find((t) => t.tee_color === round.tee_color!.toLowerCase())
-      : null) ??
+    (teeColor ? tees.find((t) => t.tee_color === teeColor) : null) ??
     null
   const hasRating =
     tee && tee.course_rating != null && tee.slope_rating != null

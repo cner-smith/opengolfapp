@@ -220,6 +220,9 @@ export default function ProfileTab() {
         </Field>
 
         <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={saving ? 'Saving profile' : 'Save profile changes'}
+          accessibilityState={{ disabled: saving }}
           onPress={save}
           disabled={saving}
           style={{
@@ -266,6 +269,8 @@ export default function ProfileTab() {
           </Text>
           <View style={{ flexDirection: 'row', gap: 10 }}>
             <Pressable
+              accessibilityRole="link"
+              accessibilityLabel="Open Ko-fi sponsorship page"
               onPress={() => Linking.openURL('https://ko-fi.com/nartana')}
               style={{
                 flex: 1,
@@ -288,6 +293,8 @@ export default function ProfileTab() {
               </Text>
             </Pressable>
             <Pressable
+              accessibilityRole="link"
+              accessibilityLabel="Open GitHub Sponsors page"
               onPress={() =>
                 Linking.openURL('https://github.com/sponsors/cner-smith')
               }
@@ -315,6 +322,8 @@ export default function ProfileTab() {
         </View>
 
         <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Sign out"
           onPress={() => supabase.auth.signOut()}
           style={{
             marginTop: 22,
@@ -374,6 +383,9 @@ function Chip({
 }) {
   return (
     <Pressable
+      accessibilityRole="radio"
+      accessibilityLabel={label}
+      accessibilityState={{ selected: active }}
       onPress={onPress}
       style={{
         paddingHorizontal: 10,

@@ -104,11 +104,10 @@ export default function Patterns() {
   const points = useMemo(() => {
     let pts = computeDispersion(shots.map(rowToShot))
     if (lieType !== ANY || lieSlope !== ANY) {
-      pts = filterDispersionByLie(
-        pts,
-        lieSlope === ANY ? undefined : lieSlope,
-        lieType === ANY ? undefined : lieType,
-      )
+      pts = filterDispersionByLie(pts, {
+        lieSlope: lieSlope === ANY ? undefined : lieSlope,
+        lieType: lieType === ANY ? undefined : lieType,
+      })
     }
     return pts
   }, [shots, lieType, lieSlope])

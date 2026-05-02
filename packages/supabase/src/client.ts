@@ -28,7 +28,12 @@ export function createOgaClient(opts: CreateClientOptions): OgaSupabaseClient {
       ...(opts.storage ? { storage: opts.storage } : {}),
       autoRefreshToken: opts.autoRefreshToken ?? true,
       persistSession: opts.persistSession ?? true,
-      detectSessionInUrl: opts.detectSessionInUrl ?? true,
+      // No /auth/callback route exists yet. Default-true here would let
+      // supabase-js consume any access_token / refresh_token query
+      // params on whatever page the user lands on, which is a session
+      // injection foothold. Flip back to true (or pass explicitly) when
+      // an OAuth callback route is wired up.
+      detectSessionInUrl: opts.detectSessionInUrl ?? false,
     },
   })
 }
