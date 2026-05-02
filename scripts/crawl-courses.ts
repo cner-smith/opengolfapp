@@ -1038,13 +1038,48 @@ async function fetchOsmCoursesForState(
       .eq('state', state)
       .like('external_id', 'osm_%')
       .range(from, from + PAGE_SIZE - 1)
-    if (error) throw error
+    if (error) {
+      throw new Error(
+        `courses fetch failed (state=${state}, range=${from}-${from + PAGE_SIZE - 1}): ${error.message ?? JSON.stringify(error)}`,
+      )
+    }
     const rows = (data ?? []) as CourseRowMin[]
     all.push(...rows)
     if (rows.length < PAGE_SIZE) break
     from += PAGE_SIZE
   }
   return all
+}
+
+// Bulk tee lookup, chunked to avoid PostgREST's URL-length limit. With ~868
+// UUIDs the single `.in('course_id', courseIds)` call serialises into a URL
+// long enough to trip a 400 — and the supabase client throws its raw
+// PostgrestError, which has no `stack`, so the outer catch reports just
+// "Bad Request" with no clue where it came from. 200 ids/chunk is well
+// under any cap.
+async function fetchAlreadyTeedCourseIds(
+  courseIds: string[],
+  label: string,
+): Promise<Set<string>> {
+  const teedSet = new Set<string>()
+  if (courseIds.length === 0) return teedSet
+  const CHUNK = 200
+  for (let i = 0; i < courseIds.length; i += CHUNK) {
+    const chunk = courseIds.slice(i, i + CHUNK)
+    const { data, error } = await supabase
+      .from('course_tees')
+      .select('course_id')
+      .in('course_id', chunk)
+    if (error) {
+      throw new Error(
+        `[${label}] course_tees lookup failed (chunk ${i}-${i + chunk.length - 1}, ${chunk.length} ids): ${error.message ?? JSON.stringify(error)}`,
+      )
+    }
+    for (const row of data ?? []) {
+      if (row.course_id) teedSet.add(row.course_id)
+    }
+  }
+  return teedSet
 }
 
 async function crawlEnrich(
@@ -1103,20 +1138,35 @@ async function crawlEnrich(
       )
 
       // Bulk-fetch existing tees so we can skip already-enriched courses
-      // without one round-trip per course.
+      // without one round-trip per course. Chunked to dodge the IN-list
+      // URL-length cap.
       const courseIds = targets.map((c) => c.id)
-      const teedSet = new Set<string>()
-      if (courseIds.length > 0) {
-        const { data: teesRows, error: teesErr } = await supabase
-          .from('course_tees')
-          .select('course_id')
-          .in('course_id', courseIds)
-        if (teesErr) throw teesErr
-        for (const row of teesRows ?? []) {
-          if (row.course_id) teedSet.add(row.course_id)
-        }
+      let teedSet: Set<string>
+      try {
+        console.log(
+          `[enrich:${state}] looking up existing tees for ${courseIds.length} course(s)...`,
+        )
+        teedSet = await fetchAlreadyTeedCourseIds(courseIds, `enrich:${state}`)
+        console.log(
+          `[enrich:${state}] ${teedSet.size} course(s) already have tees`,
+        )
+      } catch (err) {
+        const e = err as Error
+        console.error(`[enrich:${state}] tees lookup failed:`, {
+          message: e.message,
+          stack: e.stack,
+        })
+        await setCrawlState(crawlId, {
+          status: 'error',
+          itemsProcessed: 0,
+          errorMessage: `tees lookup failed: ${e.message}`,
+        })
+        continue
       }
 
+      console.log(
+        `[enrich:${state}] starting loop, first course: ${courses[0]?.name}`,
+      )
       for (let i = 0; i < targets.length; i++) {
         const course = targets[i]
         if (!course) continue
@@ -1151,7 +1201,11 @@ async function crawlEnrich(
             .from('courses')
             .update({ external_id: ogaExternalId })
             .eq('id', course.id)
-          if (updateErr) throw updateErr
+          if (updateErr) {
+            throw new Error(
+              `external_id update failed (course=${course.id}): ${updateErr.message ?? JSON.stringify(updateErr)}`,
+            )
+          }
           stateEnriched++
           totalEnriched++
           if ((i + 1) % 50 === 0 || i === targets.length - 1) {
