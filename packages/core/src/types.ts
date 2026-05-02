@@ -33,7 +33,12 @@ export type PuttDirectionResult = 'left' | 'right'
 // Shot-result quality lookup used by stats heuristics (most costly lies,
 // slope impact, etc.). Lower = worse outcome. Domain constant — not a
 // view-config map; UI labels live in SHOT_RESULT_LABELS.
-export const RESULT_QUALITY: Record<string, number> = {
+//
+// Keyed on ShotResult so adding/removing a value in SHOT_RESULTS without
+// updating this map is a compile error rather than silently degrading
+// stats: an unknown shot_result would have read `undefined` here, used
+// as 0 via `?? 0` in stats.ts, neutralising the row.
+export const RESULT_QUALITY: Record<ShotResult, number> = {
   solid: 1,
   push_right: 0,
   pull_left: 0,

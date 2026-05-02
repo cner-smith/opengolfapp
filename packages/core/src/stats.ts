@@ -3,7 +3,7 @@ import {
   getExpectedStrokes,
   getShotCategory,
 } from './sg-calculator'
-import type { LieSlopeForward, LieSlopeSide, ShotCategory } from './constants'
+import type { LieSlopeForward, LieSlopeSide, ShotCategory, ShotResult } from './constants'
 import { METERS_TO_YARDS, haversineYards, toRadians } from './units'
 import { RESULT_QUALITY } from './types'
 import type { Database } from '@oga/supabase'
@@ -544,7 +544,10 @@ export function costlyLies(rounds: DetailedRound[]): CostlyLieEntry[] {
   for (const { shots } of flatten(rounds)) {
     for (const s of shots) {
       if (!s.lie_type || !s.shot_result) continue
-      const q = RESULT_QUALITY[s.shot_result] ?? 0
+      // shot_result comes from the DB as unconstrained text; cast and
+      // fall back to 0 so an unknown value (legacy / hand-edited row)
+      // contributes neutrally rather than crashing or skewing the bucket.
+      const q = RESULT_QUALITY[s.shot_result as ShotResult] ?? 0
       const b = buckets.get(s.lie_type) ?? { sum: 0, n: 0 }
       b.sum += q
       b.n += 1
@@ -640,7 +643,7 @@ export function slopeImpact(rounds: DetailedRound[]): SlopeImpact {
   for (const { shots } of flatten(rounds)) {
     for (const s of shots) {
       if (!s.shot_result) continue
-      const q = RESULT_QUALITY[s.shot_result] ?? 0
+      const q = RESULT_QUALITY[s.shot_result as ShotResult] ?? 0
       const axes = readSlopeAxes(s)
       if (axes.forward) {
         const b = forwardBuckets.get(axes.forward) ?? { sum: 0, n: 0 }

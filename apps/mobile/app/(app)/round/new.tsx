@@ -13,6 +13,7 @@ import {
   formatLocation,
   getOpenGolfApiCourse,
   searchOpenGolfApi,
+  todayLocalDate,
   type OpenGolfApiSearchResult,
 } from '@oga/core'
 import {
@@ -143,7 +144,7 @@ export default function NewRound() {
     setBusy(true)
     setError(null)
     try {
-      const today = new Date().toISOString().slice(0, 10)
+      const today = todayLocalDate()
       const { data: round, error: roundError } = await createRound(supabase, {
         user_id: user.id,
         course_id: courseId,

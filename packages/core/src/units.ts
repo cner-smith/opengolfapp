@@ -3,9 +3,13 @@
 // the conversion factors don't drift. Storage stays canonical (yards on
 // land, feet on the green); display conversion is the caller's job.
 
+import type { DistanceUnit } from './types'
+
 export const YARDS_TO_METERS = 0.9144
 export const METERS_TO_YARDS = 1.09361
 export const FEET_TO_YARDS = 0.333333
+export const FEET_TO_METERS = 0.3048
+export const FEET_TO_CM = 30.48
 
 export function toRadians(deg: number): number {
   return (deg * Math.PI) / 180
@@ -37,4 +41,40 @@ export function formatSG(n: number): string {
 export function formatToPar(diff: number): string {
   if (diff === 0) return 'E'
   return diff > 0 ? `+${diff}` : `${diff}`
+}
+
+// Shot distances: yards under 'yards' mode, metres under 'meters'. Caller
+// picks decimals (default 0 = whole units, the live-round display default).
+export function formatDistance(yards: number, unit: DistanceUnit, decimals = 0): string {
+  if (!Number.isFinite(yards)) return '—'
+  if (unit === 'meters') {
+    return (yards * YARDS_TO_METERS).toFixed(decimals) + ' m'
+  }
+  return yards.toFixed(decimals) + ' yd'
+}
+
+// Putt distances: feet under 'yards' mode (US convention), centimetres
+// under 'meters' mode (metric golfers still call putt distance in cm even
+// when other distances are metres). Always whole units — sub-foot/cm
+// precision is noise on a putting surface.
+export function formatPuttDistance(feet: number, unit: DistanceUnit): string {
+  if (!Number.isFinite(feet)) return '—'
+  if (unit === 'meters') {
+    return Math.round(feet * FEET_TO_CM) + ' cm'
+  }
+  return Math.round(feet) + ' ft'
+}
+
+// Today's date as YYYY-MM-DD in the player's LOCAL timezone. The naive
+// `new Date().toISOString().slice(0, 10)` returns UTC, which records the
+// wrong date for evening play in any timezone west of UTC (after ~7 pm
+// CST a round logs as tomorrow). rounds.played_at is a `date` column in
+// the DB so we want the local calendar date, not the UTC one.
+export function todayLocalDate(): string {
+  const d = new Date()
+  return [
+    d.getFullYear(),
+    String(d.getMonth() + 1).padStart(2, '0'),
+    String(d.getDate()).padStart(2, '0'),
+  ].join('-')
 }

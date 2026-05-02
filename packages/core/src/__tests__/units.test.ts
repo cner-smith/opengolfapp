@@ -1,11 +1,16 @@
 import { describe, expect, it } from 'vitest'
 import {
+  FEET_TO_CM,
+  FEET_TO_METERS,
   FEET_TO_YARDS,
   METERS_TO_YARDS,
   YARDS_TO_METERS,
+  formatDistance,
+  formatPuttDistance,
   formatSG,
   formatToPar,
   haversineYards,
+  todayLocalDate,
   toRadians,
 } from '../units'
 
@@ -162,5 +167,69 @@ describe('unit constants', () => {
   it('YARDS_TO_METERS is the canonical 0.9144', () => {
     // Literal-pin: catches an accidental rewrite to 0.91 or 0.9144000.
     expect(YARDS_TO_METERS).toBe(0.9144)
+  })
+
+  it('FEET_TO_METERS is the canonical 0.3048', () => {
+    expect(FEET_TO_METERS).toBe(0.3048)
+  })
+
+  it('FEET_TO_CM is 30.48 — the magic number previously inlined in useUnits', () => {
+    expect(FEET_TO_CM).toBe(30.48)
+  })
+})
+
+describe('formatDistance', () => {
+  it('yards mode renders whole yards by default', () => {
+    expect(formatDistance(150, 'yards')).toBe('150 yd')
+  })
+
+  it('yards mode honours decimals param', () => {
+    expect(formatDistance(150.5, 'yards', 1)).toBe('150.5 yd')
+  })
+
+  it('meters mode converts and labels with m', () => {
+    // 150 yd × 0.9144 = 137.16 m → "137 m" at 0 dp
+    expect(formatDistance(150, 'meters')).toBe('137 m')
+  })
+
+  it('non-finite input renders em dash so callers do not need a guard', () => {
+    expect(formatDistance(Number.NaN, 'yards')).toBe('—')
+    expect(formatDistance(Number.POSITIVE_INFINITY, 'meters')).toBe('—')
+  })
+})
+
+describe('formatPuttDistance', () => {
+  it('yards mode renders rounded feet', () => {
+    expect(formatPuttDistance(8.4, 'yards')).toBe('8 ft')
+    expect(formatPuttDistance(8.5, 'yards')).toBe('9 ft')
+  })
+
+  it('meters mode renders rounded centimetres (golfers call putts in cm)', () => {
+    // 8 ft × 30.48 = 243.84 cm → 244 cm
+    expect(formatPuttDistance(8, 'meters')).toBe('244 cm')
+  })
+
+  it('non-finite input renders em dash', () => {
+    expect(formatPuttDistance(Number.NaN, 'yards')).toBe('—')
+    expect(formatPuttDistance(Number.NaN, 'meters')).toBe('—')
+  })
+})
+
+describe('todayLocalDate', () => {
+  it('returns YYYY-MM-DD shape (10 chars, two dashes)', () => {
+    const out = todayLocalDate()
+    expect(out).toMatch(/^\d{4}-\d{2}-\d{2}$/)
+  })
+
+  it('matches the host machine local date — not UTC', () => {
+    // Recreate the expected local date the same way the helper does so
+    // the test is timezone-stable in CI (whatever TZ the runner uses).
+    const d = new Date()
+    const expected = [
+      d.getFullYear(),
+      String(d.getMonth() + 1).padStart(2, '0'),
+      String(d.getDate()).padStart(2, '0'),
+    ].join('-')
+    expect(todayLocalDate()).toBe(expected)
   })
 })
