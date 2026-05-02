@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Pressable, Text, View } from 'react-native'
+import { ActivityIndicator, Pressable, Text, View } from 'react-native'
 import { Tabs, Redirect } from 'expo-router'
 import { MaterialCommunityIcons } from '@expo/vector-icons'
 import { supabase } from '../../lib/supabase'
@@ -56,7 +56,22 @@ export default function AppLayout() {
     }
   }, [user, authLoading, retryNonce])
 
-  if (authLoading || profileState === 'loading') return null
+  if (authLoading || profileState === 'loading') {
+    // Match the native splash screen's dark background so the cold-start
+    // transition into the React tree doesn't flash a white frame.
+    return (
+      <View
+        style={{
+          flex: 1,
+          backgroundColor: '#1C211C',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        <ActivityIndicator color="#E8E4DC" />
+      </View>
+    )
+  }
   if (!user) return <Redirect href="/(auth)/login" />
   if (profileState === 'error') {
     return (
