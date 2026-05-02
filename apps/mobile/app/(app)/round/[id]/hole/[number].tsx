@@ -118,6 +118,7 @@ export default function HoleScreen() {
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [scorecardOpen, setScorecardOpen] = useState(false)
+  const [confirmLeave, setConfirmLeave] = useState(false)
 
   const currentHole = useMemo(
     () => holes.find((h) => h.number === holeNumber) ?? null,
@@ -660,7 +661,7 @@ export default function HoleScreen() {
         }}
       >
         <Pressable
-          onPress={() => router.replace('/(app)')}
+          onPress={() => setConfirmLeave(true)}
           hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
           style={{ padding: 6 }}
         >
@@ -1024,6 +1025,19 @@ export default function HoleScreen() {
         busy={deleting}
         onConfirm={handleDeleteRound}
         onCancel={() => setConfirmDelete(false)}
+      />
+
+      <ConfirmDialog
+        visible={confirmLeave}
+        title="Leave round?"
+        message="Your progress is saved and you can resume from the home screen."
+        confirmLabel="Leave"
+        cancelLabel="Stay"
+        onConfirm={() => {
+          setConfirmLeave(false)
+          router.replace('/(app)')
+        }}
+        onCancel={() => setConfirmLeave(false)}
       />
 
       <Modal

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Pressable, ScrollView, Text, useWindowDimensions, View } from 'react-native'
-import { Link } from 'expo-router'
+import { Link, useRouter } from 'expo-router'
 import { VictoryAxis, VictoryChart, VictoryLine } from 'victory-native'
 import { Swipeable } from 'react-native-gesture-handler'
 import { formatSG } from '@oga/core'
@@ -42,10 +42,18 @@ const KICKER: import('react-native').TextStyle = {
   textTransform: 'uppercase',
 }
 
+interface ActiveRound {
+  id: string
+  courseName: string
+  currentHole: number
+}
+
 export default function Home() {
   const { user } = useAuth()
+  const router = useRouter()
   const [profile, setProfile] = useState<Profile | null>(null)
   const [rounds, setRounds] = useState<RecentRound[]>([])
+  const [activeRound, setActiveRound] = useState<ActiveRound | null>(null)
   const [pending, setPending] = useState(0)
   const [pendingDelete, setPendingDelete] = useState<{
     id: string
@@ -105,6 +113,59 @@ export default function Home() {
       .catch(() => undefined)
   }, [])
 
+  // Active-round detection. Active = total_score IS NULL AND played_at
+  // within the last day, so a round abandoned a week ago doesn't haunt
+  // the home screen forever. The current hole is the highest hole the
+  // player has logged a score on, +1 (capped at 18) — so resuming
+  // jumps back to where they left off, not hole 1.
+  useEffect(() => {
+    if (!user) return
+    let active = true
+    ;(async () => {
+      const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000)
+        .toISOString()
+        .slice(0, 10)
+      const { data, error } = await supabase
+        .from('rounds')
+        .select('id, played_at, course_id, courses(name)')
+        .eq('user_id', user.id)
+        .is('total_score', null)
+        .gte('played_at', oneDayAgo)
+        .order('played_at', { ascending: false })
+        .limit(1)
+      if (!active || error || !data?.[0]) {
+        setActiveRound(null)
+        return
+      }
+      const round = data[0] as {
+        id: string
+        played_at: string
+        course_id: string
+        courses?: { name: string | null } | null
+      }
+      const { data: hs } = await supabase
+        .from('hole_scores')
+        .select('score, holes(number)')
+        .eq('round_id', round.id)
+        .gt('score', 0)
+      if (!active) return
+      const maxHole = (hs ?? []).reduce<number>((acc, row) => {
+        const n = (row as { holes?: { number?: number | null } | null }).holes
+          ?.number
+        return typeof n === 'number' && n > acc ? n : acc
+      }, 0)
+      const next = Math.min(18, Math.max(1, maxHole + 1))
+      setActiveRound({
+        id: round.id,
+        courseName: round.courses?.name ?? 'Round',
+        currentHole: next,
+      })
+    })()
+    return () => {
+      active = false
+    }
+  }, [user?.id])
+
   // SG breakdown + trend are pure functions of `rounds` — memoize so
   // unrelated parent re-renders (delete sync, window resize) don't
   // re-walk the array four times for the SG averages and once more for
@@ -147,6 +208,53 @@ export default function Home() {
         <Text style={{ color: '#5C6356', fontSize: 14, marginBottom: 22 }}>
           Last {rounds.length || 0} round{rounds.length === 1 ? '' : 's'}
         </Text>
+
+        {activeRound && (
+          <Pressable
+            onPress={() =>
+              router.push(
+                `/(app)/round/${activeRound.id}/hole/${activeRound.currentHole}?mode=live`,
+              )
+            }
+            style={{
+              borderWidth: 1,
+              borderColor: '#A66A1F',
+              borderRadius: 2,
+              paddingVertical: 14,
+              paddingHorizontal: 16,
+              marginBottom: 14,
+              backgroundColor: '#FBF8F1',
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+            }}
+          >
+            <View>
+              <Text style={{ ...KICKER, color: '#A66A1F', marginBottom: 4 }}>
+                Active round
+              </Text>
+              <Text
+                style={{
+                  color: '#1C211C',
+                  fontSize: 15,
+                  fontWeight: '500',
+                }}
+              >
+                {activeRound.courseName} · Hole {activeRound.currentHole}
+              </Text>
+            </View>
+            <Text
+              style={{
+                color: '#A66A1F',
+                fontSize: 14,
+                fontWeight: '600',
+                letterSpacing: 0.3,
+              }}
+            >
+              Resume →
+            </Text>
+          </Pressable>
+        )}
 
         <Link href="/(app)/round/new?mode=live" asChild>
           <Pressable
