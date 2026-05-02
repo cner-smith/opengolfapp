@@ -18,7 +18,7 @@ export class ErrorBoundary extends Component<Props, State> {
 
   override componentDidCatch(error: Error, info: ErrorInfo): void {
     if (import.meta.env.DEV) {
-      console.error('ErrorBoundary caught:', error, info)
+      console.error('[ErrorBoundary/caught]', error, info)
     }
   }
 

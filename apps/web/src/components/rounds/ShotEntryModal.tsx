@@ -249,7 +249,7 @@ export function ShotEntryModal({
     } catch (err) {
       if (import.meta.env.DEV) {
         // eslint-disable-next-line no-console
-        console.error('shot save failed', err, insert)
+        console.error('[ShotEntryModal/save]', err, insert)
       }
       throw err
     }
