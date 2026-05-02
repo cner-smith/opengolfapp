@@ -64,3 +64,17 @@ export function formatPuttDistance(feet: number, unit: DistanceUnit): string {
   }
   return Math.round(feet) + ' ft'
 }
+
+// Today's date as YYYY-MM-DD in the player's LOCAL timezone. The naive
+// `new Date().toISOString().slice(0, 10)` returns UTC, which records the
+// wrong date for evening play in any timezone west of UTC (after ~7 pm
+// CST a round logs as tomorrow). rounds.played_at is a `date` column in
+// the DB so we want the local calendar date, not the UTC one.
+export function todayLocalDate(): string {
+  const d = new Date()
+  return [
+    d.getFullYear(),
+    String(d.getMonth() + 1).padStart(2, '0'),
+    String(d.getDate()).padStart(2, '0'),
+  ].join('-')
+}

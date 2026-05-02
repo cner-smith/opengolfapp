@@ -10,6 +10,7 @@ import {
   formatSG,
   formatToPar,
   haversineYards,
+  todayLocalDate,
   toRadians,
 } from '../units'
 
@@ -211,5 +212,24 @@ describe('formatPuttDistance', () => {
   it('non-finite input renders em dash', () => {
     expect(formatPuttDistance(Number.NaN, 'yards')).toBe('—')
     expect(formatPuttDistance(Number.NaN, 'meters')).toBe('—')
+  })
+})
+
+describe('todayLocalDate', () => {
+  it('returns YYYY-MM-DD shape (10 chars, two dashes)', () => {
+    const out = todayLocalDate()
+    expect(out).toMatch(/^\d{4}-\d{2}-\d{2}$/)
+  })
+
+  it('matches the host machine local date — not UTC', () => {
+    // Recreate the expected local date the same way the helper does so
+    // the test is timezone-stable in CI (whatever TZ the runner uses).
+    const d = new Date()
+    const expected = [
+      d.getFullYear(),
+      String(d.getMonth() + 1).padStart(2, '0'),
+      String(d.getDate()).padStart(2, '0'),
+    ].join('-')
+    expect(todayLocalDate()).toBe(expected)
   })
 })
