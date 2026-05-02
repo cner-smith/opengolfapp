@@ -89,6 +89,9 @@ export default function HoleScreen() {
   // are derived via useMemo so an optimistic save and a slow re-load can't
   // disagree about how many shots / putts the user has logged.
   const [pendingForHole, setPendingForHole] = useState<PendingShot[]>([])
+  // Synced shot start positions for this hole. Combined with pending
+  // shot starts to render the breadcrumb of waypoints on the map.
+  const [remoteShotStarts, setRemoteShotStarts] = useState<LatLng[]>([])
   const [loggerOpen, setLoggerOpen] = useState(false)
   const [saving, setSaving] = useState(false)
   // Pin placement is orthogonal to the shot phase machine. When true,
@@ -164,11 +167,13 @@ export default function HoleScreen() {
 
   // Reload remote + local shot/putt counts whenever the active hole_score
   // changes. Putts are counted as shots where club='putter' OR lie_type='green'.
+  // Also pulls remote shot start coords so the on-map waypoint breadcrumb
+  // survives a screen reload mid-hole.
   useEffect(() => {
     if (!currentHoleScore) return
     let active = true
     ;(async () => {
-      const [shotRes, puttRes, local] = await Promise.all([
+      const [shotRes, puttRes, startsRes, local] = await Promise.all([
         supabase
           .from('shots')
           .select('id', { count: 'exact', head: true })
@@ -178,11 +183,25 @@ export default function HoleScreen() {
           .select('id', { count: 'exact', head: true })
           .eq('hole_score_id', currentHoleScore.id)
           .or('club.eq.putter,lie_type.eq.green'),
+        supabase
+          .from('shots')
+          .select('shot_number, start_lat, start_lng')
+          .eq('hole_score_id', currentHoleScore.id)
+          .not('start_lat', 'is', null)
+          .not('start_lng', 'is', null)
+          .order('shot_number'),
         pendingShotsForHoleScore(currentHoleScore.id),
       ])
       if (!active) return
       setRemoteShotCount(shotRes.count ?? 0)
       setRemotePuttCount(puttRes.count ?? 0)
+      const starts: LatLng[] = []
+      for (const r of startsRes.data ?? []) {
+        if (r.start_lat != null && r.start_lng != null) {
+          starts.push({ lat: r.start_lat, lng: r.start_lng })
+        }
+      }
+      setRemoteShotStarts(starts)
       setPendingForHole(local)
     })()
     return () => {
@@ -255,6 +274,26 @@ export default function HoleScreen() {
   // of truth, never out of sync with the underlying queue. Putts are
   // counted as shots where club='putter' OR lie_type='green'.
   const localShotCount = pendingForHole.length
+
+  // Shot waypoints rendered on the map: synced shot starts followed by
+  // pending shot starts (in pending insertion order). The current ball
+  // is intentionally excluded — HoleMap appends it as the line's final
+  // segment so the ball can move while the breadcrumb stays.
+  const previousShots = useMemo(() => {
+    const out: LatLng[] = [...remoteShotStarts]
+    for (const r of pendingForHole) {
+      try {
+        const p = JSON.parse(r.payload) as ShotPayload
+        if (p.start_lat != null && p.start_lng != null) {
+          out.push({ lat: p.start_lat, lng: p.start_lng })
+        }
+      } catch {
+        // skip malformed pending payload
+      }
+    }
+    return out
+  }, [remoteShotStarts, pendingForHole])
+
   const localPuttCount = useMemo(() => {
     let n = 0
     for (const r of pendingForHole) {
@@ -325,6 +364,10 @@ export default function HoleScreen() {
       const isPutt = payload.club === 'putter' || payload.lie_type === 'green'
       // Append to the pending queue — counts derive from this so they can't
       // drift. Status starts 'pending' until syncPendingShots flips it.
+      // The breadcrumb derives previousShots from pendingForHole +
+      // remoteShotStarts (see useMemo above). Pending stays here until
+      // hole change refetches; remote starts refresh on next mount, so
+      // there's no double-count and no need to push optimistically.
       setPendingForHole((prev) => [
         ...prev,
         {
@@ -581,6 +624,7 @@ export default function HoleScreen() {
           tee={tee}
           aim={aim}
           ball={ball}
+          previousShots={previousShots}
           phase={
             pinPlacementOpen
               ? 'PIN'

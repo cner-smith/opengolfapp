@@ -35,6 +35,14 @@ interface HoleMapProps {
   tee?: LatLng | null
   aim?: LatLng | null
   ball?: LatLng | null
+  /**
+   * Previously-logged shot start positions, in shot order. Rendered as
+   * small amber waypoints with a line connecting consecutive points
+   * AND a final segment from the last waypoint to the current ball, so
+   * the player has a visible breadcrumb of how they got to the
+   * current position. Pass an empty array (or omit) on shot 1.
+   */
+  previousShots?: LatLng[]
   phase?: HoleMapPhase
   onSetAim: (loc: LatLng) => void
   onSetBall: (loc: LatLng) => void
@@ -61,6 +69,7 @@ export function HoleMap({
   tee,
   aim,
   ball,
+  previousShots,
   phase = 'PLACE_BALL',
   onSetAim,
   onSetBall,
@@ -235,6 +244,24 @@ export function HoleMap({
     return { lat: (ball.lat + aim.lat) / 2, lng: (ball.lng + aim.lng) / 2 }
   }, [isAimPhase, ball, aim])
 
+  // Breadcrumb line through every previous shot start, with a final
+  // segment to the current ball so the most recent leg is visible too.
+  // Filtered to require at least 2 points so the LineString geometry
+  // is valid.
+  const previousShotsLine = useMemo(() => {
+    const pts: LatLng[] = previousShots ?? []
+    const ordered = ball ? [...pts, ball] : pts
+    if (ordered.length < 2) return null
+    return {
+      type: 'Feature' as const,
+      properties: {},
+      geometry: {
+        type: 'LineString' as const,
+        coordinates: ordered.map(toCoord),
+      },
+    }
+  }, [previousShots, ball?.lat, ball?.lng])
+
   function handleTap(feature: unknown) {
     const c = extractCoord(feature)
     if (!c) return
@@ -266,6 +293,30 @@ export function HoleMap({
               pitch: 0,
             }}
           />
+
+          {!isPinMode && previousShotsLine && (
+            <Mapbox.ShapeSource id="prevShotsLine" shape={previousShotsLine}>
+              <Mapbox.LineLayer
+                id="prevShotsLineLayer"
+                style={{
+                  lineColor: '#A66A1F',
+                  lineWidth: 1.5,
+                  lineOpacity: 0.7,
+                }}
+              />
+            </Mapbox.ShapeSource>
+          )}
+
+          {!isPinMode &&
+            (previousShots ?? []).map((p, i) => (
+              <Mapbox.PointAnnotation
+                key={`prev-shot-${i}`}
+                id={`prev-shot-${i}`}
+                coordinate={toCoord(p)}
+              >
+                <Marker color="#A66A1F" border="#FBF8F1" size={9} />
+              </Mapbox.PointAnnotation>
+            ))}
 
           {aimLine && (
             <Mapbox.ShapeSource id="aimLine" shape={aimLine}>
