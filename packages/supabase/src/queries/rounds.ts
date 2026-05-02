@@ -81,6 +81,13 @@ export function getRecentSGData(client: OgaSupabaseClient, userId: string, limit
 
 // Rounds with full hole-score and shot detail nested. Used by the stats
 // page to compute per-band, per-club, and per-lie aggregates client-side.
+//
+// Stats consume only (number, par, pin_lat, pin_lng) from the joined
+// holes — pin_* drives the proximity fallback when hole_scores has no
+// per-round pin override. The join used to pull holes(*), shipping
+// tee_lat/tee_lng/yards/stroke_index/id/course_id for every hole on
+// every round (18 × 20 = 360 rows of unused columns per stats page
+// load). Narrow projection cuts ~60% of the per-hole payload.
 export function getRoundsWithDetails(
   client: OgaSupabaseClient,
   userId: string,
@@ -89,7 +96,7 @@ export function getRoundsWithDetails(
   return client
     .from('rounds')
     .select(
-      `${ROUND_COLUMNS}, courses(name), hole_scores(*, holes(*), shots(${SHOT_COLUMNS}))`,
+      `${ROUND_COLUMNS}, courses(name), hole_scores(*, holes(number, par, pin_lat, pin_lng), shots(${SHOT_COLUMNS}))`,
     )
     .eq('user_id', userId)
     .order('played_at', { ascending: false })
