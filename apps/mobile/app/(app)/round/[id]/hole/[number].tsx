@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   ActivityIndicator,
   Alert,
+  Modal,
   Pressable,
   ScrollView,
   Text,
@@ -19,6 +20,10 @@ import {
   ShotLogger,
   type ShotLoggerValue,
 } from '../../../../../components/round/ShotLogger'
+import {
+  PuttingSheet,
+  type PuttingValue,
+} from '../../../../../components/round/PuttingSheet'
 import { supabase } from '../../../../../lib/supabase'
 import { useAuth } from '../../../../../hooks/useAuth'
 import {
@@ -43,12 +48,21 @@ const FALLBACK_CENTER: LatLng = { lat: 40.0, lng: -75.0 }
 const PIN_PROMPT_RADIUS_YARDS = 80
 
 // Live-round state machine. Each shot loops through:
-//   PLACE_BALL → SET_AIM → SHOT_DETAIL → PLACE_BALL
+//   PLACE_BALL → SET_AIM → SHOT_DETAIL → PLACE_BALL    (off the green)
+//   PLACE_BALL → PUTTING → PLACE_BALL                  (within ~30 yd of pin)
 // PLACE_BALL: GPS auto-places ball, player drags to refine, confirms with
 //   "Mark ball here →".
 // SET_AIM: camera rotates so play direction is up; long-press drops aim.
 // SHOT_DETAIL: ShotLogger sheet open; save returns to PLACE_BALL.
-type RoundState = 'PLACE_BALL' | 'SET_AIM' | 'SHOT_DETAIL'
+// PUTTING: PuttingSheet open with green diagram; save returns to PLACE_BALL
+//   (player loops here for each successive putt).
+type RoundState = 'PLACE_BALL' | 'SET_AIM' | 'SHOT_DETAIL' | 'PUTTING'
+
+// Distance threshold where the workflow auto-switches to putting.
+// 30 yards lines up with the SG "around-green" boundary; once a player
+// is inside that radius they're on or chipping near the green and the
+// putting flow is more likely than the aim-line flow.
+const PUTTING_RADIUS_YARDS = 30
 
 const KICKER: import('react-native').TextStyle = {
   fontSize: 10,
@@ -477,6 +491,16 @@ export default function HoleScreen() {
       lastSavedShotLocalIdRef.current = null
     }
     setAim(null)
+    // Auto-switch to the putting flow when the player has marked their
+    // position within ~30 yd of the pin — bypasses SET_AIM (long-press
+    // line) and SHOT_DETAIL (club/lie/result), since none of those
+    // matter on a putt. Falls back to the standard aim flow if no pin
+    // is known.
+    const pinTarget = roundPin ?? storedPin ?? null
+    if (pinTarget && distanceYards(ball, pinTarget) <= PUTTING_RADIUS_YARDS) {
+      setRoundState('PUTTING')
+      return
+    }
     setRoundState('SET_AIM')
   }
 
@@ -494,6 +518,31 @@ export default function HoleScreen() {
 
   function closeLogger() {
     setLoggerOpen(false)
+    setRoundState('PLACE_BALL')
+  }
+
+  // Map a PuttingValue into the ShotLoggerValue shape persistShot
+  // expects, then run the same persistence path. Forces club=putter and
+  // lieType=green so downstream stats classify these correctly without
+  // requiring the player to pick them out of a chip row.
+  async function persistPutt(v: PuttingValue) {
+    const meta: ShotLoggerValue = {
+      club: 'putter',
+      lieType: 'green',
+      puttMade: v.puttMade,
+      puttDistanceResult: v.puttDistanceResult,
+      puttDirectionResult: v.puttDirectionResult,
+      puttDistanceFt: v.puttDistanceFt,
+      puttSlopePct: v.puttSlopePct,
+      greenSpeed: v.greenSpeed,
+      breakDirection: v.breakDirection,
+      aimOffsetInches: v.aimOffsetInches,
+      notes: v.notes,
+    }
+    await persistShot(meta)
+  }
+
+  function closePuttingSheet() {
     setRoundState('PLACE_BALL')
   }
 
@@ -827,6 +876,28 @@ export default function HoleScreen() {
         onSkip={() => persistShot(null)}
         onClose={closeLogger}
       />
+
+      <Modal
+        visible={roundState === 'PUTTING'}
+        transparent
+        animationType="slide"
+        onRequestClose={closePuttingSheet}
+      >
+        <View style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.4)' }}>
+          <PuttingSheet
+            shotNumber={shotNumber}
+            initialDistanceFt={
+              ball && (roundPin ?? storedPin)
+                ? Math.round(
+                    distanceYards(ball, (roundPin ?? storedPin) as LatLng) * 3,
+                  )
+                : undefined
+            }
+            onSave={persistPutt}
+            onClose={closePuttingSheet}
+          />
+        </View>
+      </Modal>
 
       <ConfirmDialog
         visible={confirmDelete}
