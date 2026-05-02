@@ -3,6 +3,7 @@ import {
   getExpectedStrokes,
   getShotCategory,
 } from './sg-calculator'
+import { NEAR_GREEN_YARDS } from './constants'
 import type { LieSlopeForward, LieSlopeSide, ShotCategory, ShotResult } from './constants'
 import { METERS_TO_YARDS, haversineYards, toRadians } from './units'
 import { RESULT_QUALITY } from './types'
@@ -403,7 +404,7 @@ export function ballStrikingStats(rounds: DetailedRound[]): BallStrikingStats {
         if (
           category === 'approach' &&
           s.distance_to_target != null &&
-          s.distance_to_target > 30 &&
+          s.distance_to_target > NEAR_GREEN_YARDS &&
           s.end_lat != null &&
           s.end_lng != null
         ) {

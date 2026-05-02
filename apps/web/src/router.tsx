@@ -6,6 +6,7 @@ import { AppShell } from './components/layout/AppShell'
 import { RouteErrorBoundary } from './components/errors/ErrorBoundary'
 import { LoginPage } from './pages/auth/LoginPage'
 import { SignupPage } from './pages/auth/SignupPage'
+import { NotFoundPage } from './pages/errors/NotFoundPage'
 import { OnboardingPage } from './pages/onboarding/OnboardingPage'
 import { DashboardPage } from './pages/dashboard/DashboardPage'
 import { RoundsPage } from './pages/rounds/RoundsPage'
@@ -81,6 +82,7 @@ const routes: RouteObject[] = [
       { path: '/settings', element: <SettingsPage />, errorElement },
     ],
   },
+  { path: '*', element: <NotFoundPage />, errorElement },
 ]
 
 export const router: ReturnType<typeof createBrowserRouter> = createBrowserRouter(routes)

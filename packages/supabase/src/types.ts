@@ -590,7 +590,12 @@ export interface Database {
       }
     }
     Views: Record<string, never>
-    Functions: Record<string, never>
+    Functions: {
+      search_courses: {
+        Args: { search_query: string; result_limit?: number }
+        Returns: Database['public']['Tables']['courses']['Row'][]
+      }
+    }
     Enums: Record<string, never>
     CompositeTypes: Record<string, never>
   }

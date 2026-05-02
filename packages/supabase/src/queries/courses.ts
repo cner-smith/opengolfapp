@@ -17,12 +17,12 @@ export function searchCourses(client: OgaSupabaseClient, query: string, limit = 
   if (!trimmed) {
     return client.from('courses').select(COURSE_COLUMNS).order('name').limit(limit)
   }
-  return client
-    .from('courses')
-    .select(COURSE_COLUMNS)
-    .ilike('name', `%${trimmed}%`)
-    .order('name')
-    .limit(limit)
+  // search_courses RPC ranks by pg_trgm similarity (typo-tolerant) then
+  // falls back to ILIKE substring. Migration 0018; trigram index from 0015.
+  return client.rpc('search_courses', {
+    search_query: trimmed,
+    result_limit: limit,
+  })
 }
 
 export function getHolesForCourse(client: OgaSupabaseClient, courseId: string) {

@@ -246,8 +246,10 @@ export function ShotEntryModal({
       }
       cancelEdit()
     } catch (err) {
-      // eslint-disable-next-line no-console
-      console.error('shot save failed', err, insert)
+      if (import.meta.env.DEV) {
+        // eslint-disable-next-line no-console
+        console.error('shot save failed', err, insert)
+      }
       throw err
     }
   }
