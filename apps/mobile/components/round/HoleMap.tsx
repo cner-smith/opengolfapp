@@ -105,15 +105,21 @@ export function HoleMap({
     [isAimPhase, onSetAim],
   )
 
+  // Gate the long-press gesture to SET_AIM only. Outside that phase the
+  // GestureDetector still wraps the map but no longer captures touches,
+  // which restores the PointAnnotation drag for the ball marker during
+  // PLACE_BALL — Gesture.LongPress was claiming the initial touch and
+  // the native annotation drag never fired.
   const longPress = useMemo(
     () =>
       Gesture.LongPress()
+        .enabled(isAimPhase)
         .minDuration(400)
         .onStart((event) => {
           'worklet'
           runOnJS(dropAimFromScreenPoint)(event.x, event.y)
         }),
-    [dropAimFromScreenPoint],
+    [dropAimFromScreenPoint, isAimPhase],
   )
 
   // Center the camera once on first valid coords. Subsequent center changes
