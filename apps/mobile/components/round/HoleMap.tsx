@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Text, View } from 'react-native'
 import Mapbox from '@rnmapbox/maps'
 import { Gesture, GestureDetector } from 'react-native-gesture-handler'
@@ -79,6 +79,11 @@ export function HoleMap({
   const cameraRef = useRef<Mapbox.Camera>(null)
   const mapViewRef = useRef<Mapbox.MapView>(null)
   const cameraInitialized = useRef(false)
+  // Native side fires "Source X is not in style" when a ShapeSource /
+  // LineLayer mounts before the satellite style has finished loading.
+  // Gate every source behind this flag so React never renders them
+  // before native is ready to accept them.
+  const [styleLoaded, setStyleLoaded] = useState(false)
 
   const isPinMode = phase === 'PIN'
   const isAimPhase = phase === 'SET_AIM'
@@ -304,6 +309,7 @@ export function HoleMap({
           style={{ flex: 1 }}
           styleURL={Mapbox.StyleURL.Satellite}
           onPress={handleTap}
+          onDidFinishLoadingStyle={() => setStyleLoaded(true)}
         >
           <Mapbox.Camera
             ref={cameraRef}
@@ -314,7 +320,7 @@ export function HoleMap({
             }}
           />
 
-          {!isPinMode && previousShotsLine && (
+          {styleLoaded && !isPinMode && previousShotsLine && (
             <Mapbox.ShapeSource id="prevShotsLine" shape={previousShotsLine}>
               <Mapbox.LineLayer
                 id="prevShotsLineLayer"
@@ -338,7 +344,7 @@ export function HoleMap({
               </Mapbox.PointAnnotation>
             ))}
 
-          {aimLine && (
+          {styleLoaded && aimLine && (
             <Mapbox.ShapeSource id="aimLine" shape={aimLine}>
               <Mapbox.LineLayer
                 id="aimLineLayer"
