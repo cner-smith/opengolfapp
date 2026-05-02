@@ -6,7 +6,7 @@ import {
   Text,
   View,
 } from 'react-native'
-import { useLocalSearchParams, useRouter } from 'expo-router'
+import { Redirect, useLocalSearchParams, useRouter } from 'expo-router'
 import { formatSG } from '@oga/core'
 import type { Database } from '@oga/supabase'
 import { supabase } from '../../../../lib/supabase'
@@ -37,6 +37,7 @@ export default function RoundIndex() {
   const [courseName, setCourseName] = useState<string>('Round')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [redirectToLive, setRedirectToLive] = useState(false)
 
   useEffect(() => {
     if (!id) return
@@ -55,9 +56,10 @@ export default function RoundIndex() {
         setCourseName(row.courses?.name ?? 'Round')
         // Live round signal: total_score is set when the round completes
         // (either Finish round or End round early). Anything else is
-        // still in progress — drop into the hole flow.
+        // still in progress — drop into the hole flow via <Redirect>
+        // on the next render so we can't navigate after unmount.
         if (row.total_score == null) {
-          router.replace(`/(app)/round/${id}/hole/1?mode=live`)
+          if (active) setRedirectToLive(true)
           return
         }
         const [hRes, hsRes] = await Promise.all([
@@ -84,6 +86,10 @@ export default function RoundIndex() {
       active = false
     }
   }, [id])
+
+  if (redirectToLive && id) {
+    return <Redirect href={`/(app)/round/${id}/hole/1?mode=live`} />
+  }
 
   const scoresByHoleId = useMemo(
     () => new Map(holeScores.map((hs) => [hs.hole_id, hs])),
