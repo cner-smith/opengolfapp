@@ -65,8 +65,7 @@ function startDistanceFt(shot: Shot): number | undefined {
 }
 
 function holedOut(shot: Shot): boolean {
-  if (shot.lieType === 'green' && shot.puttResult === 'made') return true
-  return false
+  return shot.lieType === 'green' && shot.puttResult === 'made'
 }
 
 export function calculateRoundSG(
