@@ -937,9 +937,18 @@ export default function HoleScreen() {
           </Pressable>
           <Pressable
             onPress={() => setScorecardOpen(true)}
-            style={{ flex: 1 }}
+            style={{ flex: 1, alignItems: 'center' }}
             accessibilityLabel="Open scorecard"
           >
+            <Text
+              style={{
+                ...KICKER,
+                color: '#5C6356',
+                marginBottom: 4,
+              }}
+            >
+              Scorecard ▾
+            </Text>
             <ScorecardPreview
               holes={holes}
               holeScores={holeScores}
