@@ -544,12 +544,21 @@ export default function HoleScreen() {
       Alert.alert('Place the ball first', 'Tap the map to drop the ball.')
       return
     }
+    // Lock the ball position right now, before any awaits below.
+    // A GPS callback firing during the SQLite write could otherwise
+    // shift `ball` between the moment the player tapped "Mark" and
+    // the moment persistShot reads it for the next shot's
+    // start_lat/lng. Same snapshot also drives the previous shot's
+    // end_lat/lng patch.
+    const ballSnapshot = { lat: ball.lat, lng: ball.lng }
+    // Tapping "Mark ball here" is an explicit position commit — same
+    // semantics as a manual drag for the purposes of GPS freezing.
+    manuallyPlacedRef.current = true
     // Fill in the previous shot's landing — this position is where it
     // ended. Pending rows get patched in SQLite; synced rows get a
     // best-effort remote update.
     const prevLocalId = lastSavedShotLocalIdRef.current
     if (prevLocalId != null) {
-      const ballSnapshot = ball
       const result = await setPendingShotEnd(
         prevLocalId,
         ballSnapshot.lat,
@@ -569,6 +578,10 @@ export default function HoleScreen() {
       }
       lastSavedShotLocalIdRef.current = null
     }
+    // Re-pin ball state to the snapshot so the new shot's start_lat/lng
+    // (read from `ball` in persistShot) is the value the player
+    // committed to, not anything an in-flight GPS callback wrote.
+    setBall(ballSnapshot)
     setAim(null)
     // Auto-switch to the putting flow when the player has marked their
     // position within ~30 yd of the pin — bypasses SET_AIM (long-press
@@ -576,7 +589,7 @@ export default function HoleScreen() {
     // matter on a putt. Falls back to the standard aim flow if no pin
     // is known.
     const pinTarget = roundPin ?? storedPin ?? null
-    if (pinTarget && distanceYards(ball, pinTarget) <= PUTTING_RADIUS_YARDS) {
+    if (pinTarget && distanceYards(ballSnapshot, pinTarget) <= PUTTING_RADIUS_YARDS) {
       setRoundState('PUTTING')
       return
     }
