@@ -72,47 +72,6 @@ export const SHOT_CATEGORIES = ['off_tee', 'approach', 'around_green', 'putting'
 // unexpected lands in the column.
 // ---------------------------------------------------------------------------
 
-export const BREAK_DIRECTION_LABELS: Record<string, string> = {
-  left_to_right: 'L → R',
-  right_to_left: 'R → L',
-  straight: 'Straight',
-  uphill: 'Uphill',
-  downhill: 'Downhill',
-  // Legacy single-letter values from pre-split rows.
-  left: 'L → R',
-  right: 'R → L',
-}
-
-export const PUTT_RESULT_LABELS: Record<string, string> = {
-  made: 'Made',
-  short: 'Short',
-  long: 'Long',
-  missed_left: 'Missed left',
-  missed_right: 'Missed right',
-}
-
-export const SHOT_RESULT_LABELS: Record<string, string> = {
-  solid: 'Solid',
-  push_right: 'Push right',
-  pull_left: 'Pull left',
-  fat: 'Fat',
-  thin: 'Thin',
-  shank: 'Shank',
-  topped: 'Topped',
-  penalty: 'Penalty',
-  ob: 'OB',
-}
-
-export const LIE_TYPE_LABELS: Record<string, string> = {
-  tee: 'Tee',
-  fairway: 'Fairway',
-  rough: 'Rough',
-  sand: 'Sand',
-  fringe: 'Fringe',
-  recovery: 'Recovery',
-  green: 'Green',
-}
-
 export type Club = (typeof CLUBS)[number]
 export type LieType = (typeof LIE_TYPES)[number]
 /** @deprecated kept for legacy reads; new code uses LieSlopeForward + LieSlopeSide. */
@@ -124,3 +83,67 @@ export type SkillLevel = (typeof SKILL_LEVELS)[number]
 export type Goal = (typeof GOALS)[number]
 export type Facility = (typeof FACILITIES)[number]
 export type ShotCategory = (typeof SHOT_CATEGORIES)[number]
+
+// Local types for the label maps below. BreakDirection / LegacyPuttResult
+// are mirrored in types.ts (which can't import from this file in the
+// reverse direction without a cycle); the union duplication is small
+// and locks the label maps to the exact set the DB enum allows.
+type BreakDirectionKey =
+  | 'left'
+  | 'right'
+  | 'straight'
+  | 'left_to_right'
+  | 'right_to_left'
+  | 'uphill'
+  | 'downhill'
+
+type LegacyPuttResultKey =
+  | 'made'
+  | 'short'
+  | 'long'
+  | 'missed_left'
+  | 'missed_right'
+
+// Adding a new value in BREAK_DIRECTION (etc.) without adding its label
+// is now a compile error — the previous Record<string, string> typing
+// silently rendered the raw enum value when a key was missing.
+export const BREAK_DIRECTION_LABELS: Record<BreakDirectionKey, string> = {
+  left_to_right: 'L → R',
+  right_to_left: 'R → L',
+  straight: 'Straight',
+  uphill: 'Uphill',
+  downhill: 'Downhill',
+  // Legacy single-letter values from pre-split rows.
+  left: 'L → R',
+  right: 'R → L',
+}
+
+export const PUTT_RESULT_LABELS: Record<LegacyPuttResultKey, string> = {
+  made: 'Made',
+  short: 'Short',
+  long: 'Long',
+  missed_left: 'Missed left',
+  missed_right: 'Missed right',
+}
+
+export const SHOT_RESULT_LABELS: Record<ShotResult, string> = {
+  solid: 'Solid',
+  push_right: 'Push right',
+  pull_left: 'Pull left',
+  fat: 'Fat',
+  thin: 'Thin',
+  shank: 'Shank',
+  topped: 'Topped',
+  penalty: 'Penalty',
+  ob: 'OB',
+}
+
+export const LIE_TYPE_LABELS: Record<LieType, string> = {
+  tee: 'Tee',
+  fairway: 'Fairway',
+  rough: 'Rough',
+  sand: 'Sand',
+  fringe: 'Fringe',
+  recovery: 'Recovery',
+  green: 'Green',
+}

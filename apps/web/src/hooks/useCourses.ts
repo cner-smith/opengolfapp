@@ -43,8 +43,14 @@ export function useCourseSearch(query: string) {
       ])
       const apiHits: OpenGolfApiSearchResult[] =
         api.status === 'fulfilled' ? api.value : []
+      // searchCourses now returns the narrow column subset (mapbox_id /
+      // created_by / created_at dropped). Cast via unknown to the wider
+      // CourseRow so consumers that pick up a course from this list and
+      // pass it around with the full row type still typecheck.
       const localRows: CourseRow[] =
-        local.status === 'fulfilled' ? local.value.data ?? [] : []
+        local.status === 'fulfilled'
+          ? ((local.value.data ?? []) as unknown as CourseRow[])
+          : []
       return {
         api: apiHits,
         local: localRows,
@@ -79,8 +85,12 @@ export function useImportApiCourse() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async (args: ImportFromApiArgs) => {
-      const { data: existing } = await getCourseByExternalId(supabase, args.apiId)
-      if (existing) return existing as CourseRow
+      const { data: existing, error: existingError } = await getCourseByExternalId(
+        supabase,
+        args.apiId,
+      )
+      if (existingError) throw existingError
+      if (existing) return existing
 
       let detail: OpenGolfApiCourse | null = null
       try {
@@ -102,14 +112,26 @@ export function useImportApiCourse() {
             }))
           : defaultHolesForCourse('')
 
-      const location =
-        [detail?.city, detail?.state].filter(Boolean).join(', ') ||
-        args.fallbackLocation ||
-        null
+      // Prefer the detail's discrete city/state. If the detail came back
+      // empty, fall back to splitting the freeform fallbackLocation on
+      // its first comma — same UX as the manual form.
+      let city = detail?.city ?? null
+      let state = detail?.state ?? null
+      if (!city && !state && args.fallbackLocation) {
+        const trimmed = args.fallbackLocation.trim()
+        const commaIdx = trimmed.indexOf(',')
+        city =
+          commaIdx >= 0
+            ? trimmed.slice(0, commaIdx).trim() || null
+            : trimmed || null
+        state =
+          commaIdx >= 0 ? trimmed.slice(commaIdx + 1).trim() || null : null
+      }
 
       const { data: course, error } = await createCourse(supabase, {
         name: detail?.name ?? args.fallbackName,
-        location,
+        city,
+        state,
         external_id: args.apiId,
       })
       if (error || !course) throw error ?? new Error('Course insert failed')
@@ -187,6 +209,8 @@ export function useCreateCourseTee() {
 
 interface ManualCourseArgs {
   name: string
+  // Free-form "City, State" string from the form. Split on the first comma
+  // into discrete city + state at insert time.
   location: string | null
   pars: number[]
   gpsTeeCoords?: { lat: number; lng: number } | null
@@ -197,9 +221,16 @@ export function useCreateManualCourse() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async (args: ManualCourseArgs) => {
+      const trimmed = args.location?.trim() ?? ''
+      const commaIdx = trimmed.indexOf(',')
+      const city =
+        commaIdx >= 0 ? trimmed.slice(0, commaIdx).trim() || null : trimmed || null
+      const state =
+        commaIdx >= 0 ? trimmed.slice(commaIdx + 1).trim() || null : null
       const { data: course, error: courseError } = await createCourse(supabase, {
         name: args.name.trim(),
-        location: args.location?.trim() || null,
+        city,
+        state,
       })
       if (courseError || !course) {
         throw courseError ?? new Error('Course insert failed')

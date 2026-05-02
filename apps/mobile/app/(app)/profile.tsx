@@ -1,5 +1,13 @@
-import { useEffect, useState } from 'react'
-import { Alert, Pressable, ScrollView, Text, TextInput, View } from 'react-native'
+import { useEffect, useRef, useState } from 'react'
+import {
+  Alert,
+  Linking,
+  Pressable,
+  ScrollView,
+  Text,
+  TextInput,
+  View,
+} from 'react-native'
 import { FACILITIES, GOALS, SKILL_LEVELS } from '@oga/core'
 import { getProfile, updateProfile } from '@oga/supabase'
 import type { Database } from '@oga/supabase'
@@ -30,18 +38,26 @@ export default function ProfileTab() {
   const [unit, setUnit] = useState<'yards' | 'meters'>('yards')
   const [saving, setSaving] = useState(false)
 
+  // Hydrate form fields from the server once per signed-in user. After
+  // hydration, only save() and the user's edits drive the form — a
+  // re-fetch can't clobber typing. Reset on user.id change so a different
+  // account starts cleanly.
+  const hydratedUserIdRef = useRef<string | null>(null)
   useEffect(() => {
     if (authLoading || !user) return
+    if (hydratedUserIdRef.current === user.id) return
     let active = true
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    getProfile(supabase, user.id).then(({ data, error }: { data: any; error: any }) => {
+    getProfile(supabase, user.id).then(({ data, error }) => {
       if (!active) return
       if (error) {
+        // eslint-disable-next-line no-console
+        console.error('[profile/getProfile]', error.message)
         Alert.alert('Could not load profile', error.message)
         return
       }
       if (!data) return
-      setProfile(data)
+      hydratedUserIdRef.current = user.id
+      setProfile(data as unknown as Profile)
       setUsername(data.username ?? '')
       setHandicap(data.handicap_index?.toString() ?? '')
       setSkill(data.skill_level ?? null)
@@ -59,6 +75,10 @@ export default function ProfileTab() {
     const numericHandicap = handicap === '' ? null : Number(handicap)
     if (handicap !== '' && Number.isNaN(numericHandicap)) {
       Alert.alert('Handicap must be a number')
+      return
+    }
+    if (numericHandicap != null && (numericHandicap < -10 || numericHandicap > 54)) {
+      Alert.alert('Handicap must be between -10 and 54')
       return
     }
     setSaving(true)
@@ -221,6 +241,78 @@ export default function ProfileTab() {
             {saving ? 'Saving…' : 'Save changes'}
           </Text>
         </Pressable>
+
+        <View
+          style={{
+            marginTop: 28,
+            backgroundColor: '#FBF8F1',
+            borderWidth: 1,
+            borderColor: '#D9D2BF',
+            borderRadius: 2,
+            padding: 18,
+          }}
+        >
+          <Text style={{ ...KICKER, marginBottom: 10 }}>Support OGA</Text>
+          <Text
+            style={{
+              color: '#1C211C',
+              fontSize: 14,
+              lineHeight: 20,
+              marginBottom: 14,
+            }}
+          >
+            OGA is free and open source. If it helps your game,
+            consider buying us a round.
+          </Text>
+          <View style={{ flexDirection: 'row', gap: 10 }}>
+            <Pressable
+              onPress={() => Linking.openURL('https://ko-fi.com/nartana')}
+              style={{
+                flex: 1,
+                borderWidth: 1,
+                borderColor: '#1F3D2C',
+                paddingVertical: 12,
+                alignItems: 'center',
+                borderRadius: 2,
+              }}
+            >
+              <Text
+                style={{
+                  color: '#1F3D2C',
+                  fontSize: 13,
+                  fontWeight: '600',
+                  letterSpacing: 0.3,
+                }}
+              >
+                Ko-fi ↗
+              </Text>
+            </Pressable>
+            <Pressable
+              onPress={() =>
+                Linking.openURL('https://github.com/sponsors/cner-smith')
+              }
+              style={{
+                flex: 1,
+                borderWidth: 1,
+                borderColor: '#1F3D2C',
+                paddingVertical: 12,
+                alignItems: 'center',
+                borderRadius: 2,
+              }}
+            >
+              <Text
+                style={{
+                  color: '#1F3D2C',
+                  fontSize: 13,
+                  fontWeight: '600',
+                  letterSpacing: 0.3,
+                }}
+              >
+                GitHub ↗
+              </Text>
+            </Pressable>
+          </View>
+        </View>
 
         <Pressable
           onPress={() => supabase.auth.signOut()}

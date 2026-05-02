@@ -1,34 +1,42 @@
-import { useEffect, useState } from 'react'
 import { Navigate } from 'react-router-dom'
-import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
-
-type ProfileState = 'loading' | 'complete' | 'incomplete'
+import { useProfile } from '../../hooks/useProfile'
 
 export function ProfileGuard({ children }: { children: React.ReactNode }) {
   const { user, loading: authLoading } = useAuth()
-  const [profileState, setProfileState] = useState<ProfileState>('loading')
+  // Reads the same React Query cache the rest of the app does so we don't
+  // issue a second profiles query on every protected route mount. Earlier
+  // version called supabase.from('profiles').select(...) directly here.
+  const { data: profile, isLoading: profileLoading, isError } = useProfile()
 
-  useEffect(() => {
-    if (authLoading) return
-    if (!user) return
-
-    supabase
-      .from('profiles')
-      .select('skill_level, goal')
-      .eq('id', user.id)
-      .single()
-      .then(({ data, error }) => {
-        if (error || !data || !data.skill_level || !data.goal) {
-          setProfileState('incomplete')
-        } else {
-          setProfileState('complete')
-        }
-      })
-  }, [user, authLoading])
-
-  if (authLoading || profileState === 'loading') return null
+  if (authLoading || (user && profileLoading)) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-caddie-bg font-sans text-meta text-caddie-ink-dim">
+        Loading…
+      </div>
+    )
+  }
   if (!user) return <Navigate to="/login" replace />
-  if (profileState === 'incomplete') return <Navigate to="/onboarding" replace />
+
+  // Soft error screen so a transient network blip doesn't redirect a
+  // fully-onboarded user to /onboarding (which would clobber their
+  // profile on save).
+  if (isError) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center gap-3 bg-caddie-bg font-sans text-caddie-ink p-7 text-center">
+        <div className="font-serif italic text-h2">
+          Couldn't load your profile.
+        </div>
+        <div className="text-meta text-caddie-ink-dim">
+          Check your connection and reload.
+        </div>
+      </div>
+    )
+  }
+
+  if (!profile || !profile.skill_level || !profile.goal) {
+    return <Navigate to="/onboarding" replace />
+  }
+
   return <>{children}</>
 }

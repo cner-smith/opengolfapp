@@ -56,16 +56,18 @@ describe('computeDispersion', () => {
 describe('computeDispersionStats', () => {
   it('returns null for tiny sample', () => {
     expect(computeDispersionStats([])).toBeNull()
-    expect(computeDispersionStats([{ lateralOffsetYards: 0, distanceOffsetYards: 0 }])).toBeNull()
+    expect(
+      computeDispersionStats([{ id: 'tiny', lateralOffsetYards: 0, distanceOffsetYards: 0 }]),
+    ).toBeNull()
   })
 
   it('computes mean / std and labels miss tendency', () => {
     const pts: DispersionPoint[] = [
-      { lateralOffsetYards: 10, distanceOffsetYards: -5 },
-      { lateralOffsetYards: 12, distanceOffsetYards: -10 },
-      { lateralOffsetYards: 9, distanceOffsetYards: 0 },
-      { lateralOffsetYards: 11, distanceOffsetYards: -3 },
-      { lateralOffsetYards: 13, distanceOffsetYards: -8 },
+      { id: 'p1', lateralOffsetYards: 10, distanceOffsetYards: -5 },
+      { id: 'p2', lateralOffsetYards: 12, distanceOffsetYards: -10 },
+      { id: 'p3', lateralOffsetYards: 9, distanceOffsetYards: 0 },
+      { id: 'p4', lateralOffsetYards: 11, distanceOffsetYards: -3 },
+      { id: 'p5', lateralOffsetYards: 13, distanceOffsetYards: -8 },
     ]
     const stats = computeDispersionStats(pts)!
     expect(stats.sampleSize).toBe(5)
@@ -78,6 +80,7 @@ describe('computeDispersionStats', () => {
 
   it('labels balanced patterns as straight', () => {
     const pts: DispersionPoint[] = Array.from({ length: 10 }, (_, i) => ({
+      id: `bal-${i}`,
       lateralOffsetYards: i % 2 === 0 ? 1 : -1,
       distanceOffsetYards: 0,
     }))
@@ -89,9 +92,9 @@ describe('computeDispersionStats', () => {
 
 describe('filterDispersionByLie', () => {
   const pts: DispersionPoint[] = [
-    { lateralOffsetYards: 0, distanceOffsetYards: 0, lieSlope: 'level', lieType: 'fairway' },
-    { lateralOffsetYards: 0, distanceOffsetYards: 0, lieSlope: 'uphill', lieType: 'fairway' },
-    { lateralOffsetYards: 0, distanceOffsetYards: 0, lieSlope: 'level', lieType: 'rough' },
+    { id: 'lf1', lateralOffsetYards: 0, distanceOffsetYards: 0, lieSlope: 'level', lieType: 'fairway' },
+    { id: 'lf2', lateralOffsetYards: 0, distanceOffsetYards: 0, lieSlope: 'uphill', lieType: 'fairway' },
+    { id: 'lf3', lateralOffsetYards: 0, distanceOffsetYards: 0, lieSlope: 'level', lieType: 'rough' },
   ]
   it('filters by slope', () => {
     expect(filterDispersionByLie(pts, 'uphill')).toHaveLength(1)
@@ -107,7 +110,8 @@ describe('filterDispersionByLie', () => {
 describe('getAimCorrection', () => {
   it('reports centered when miss is small', () => {
     const stats = computeDispersionStats(
-      Array.from({ length: 10 }, () => ({
+      Array.from({ length: 10 }, (_, i) => ({
+        id: `c-${i}`,
         lateralOffsetYards: 0.5,
         distanceOffsetYards: 0,
       })),
@@ -117,7 +121,11 @@ describe('getAimCorrection', () => {
 
   it('suggests opposite-side aim for right-miss bias', () => {
     const stats = computeDispersionStats(
-      Array.from({ length: 6 }, () => ({ lateralOffsetYards: 8, distanceOffsetYards: 0 })),
+      Array.from({ length: 6 }, (_, i) => ({
+        id: `r-${i}`,
+        lateralOffsetYards: 8,
+        distanceOffsetYards: 0,
+      })),
     )!
     expect(getAimCorrection(stats)).toContain('left')
     expect(getAimCorrection(stats)).toContain('8')

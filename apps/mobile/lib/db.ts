@@ -71,17 +71,51 @@ export async function pendingCount(): Promise<number> {
   return row?.count ?? 0
 }
 
+/**
+ * Fills in `end_lat`/`end_lng` on a previously-saved shot. Used when
+ * the player marks the ball for shot N+1 — that position is the
+ * landing of shot N. Returns the row's sync state so the caller can
+ * also patch the remote row when it has already been synced.
+ */
+export async function setPendingShotEnd(
+  localId: number,
+  lat: number,
+  lng: number,
+): Promise<{ status: 'pending' | 'synced'; remote_id: string | null } | null> {
+  const db = await getDb()
+  const row = await db.getFirstAsync<PendingShot>(
+    `SELECT * FROM pending_shots WHERE local_id = ?`,
+    localId,
+  )
+  if (!row) return null
+  if (row.status === 'pending') {
+    let payload: ShotPayload
+    try {
+      payload = JSON.parse(row.payload)
+    } catch {
+      return null
+    }
+    payload.end_lat = lat
+    payload.end_lng = lng
+    await db.runAsync(
+      `UPDATE pending_shots SET payload = ? WHERE local_id = ?`,
+      JSON.stringify(payload),
+      localId,
+    )
+  }
+  return { status: row.status, remote_id: row.remote_id }
+}
+
 export async function pendingShotsForHoleScore(holeScoreId: string): Promise<PendingShot[]> {
   const db = await getDb()
-  const rows = await db.getAllAsync<PendingShot>(
-    `SELECT * FROM pending_shots WHERE status = 'pending' ORDER BY created_at ASC`,
+  // Push the hole-score filter into SQLite via json_extract — previously
+  // every call pulled the entire pending queue and JS-filtered, which
+  // re-parsed every payload on every hole change.
+  return db.getAllAsync<PendingShot>(
+    `SELECT * FROM pending_shots
+     WHERE status = 'pending'
+       AND json_extract(payload, '$.hole_score_id') = ?
+     ORDER BY created_at ASC`,
+    holeScoreId,
   )
-  return rows.filter((r) => {
-    try {
-      const p = JSON.parse(r.payload) as ShotPayload
-      return p.hole_score_id === holeScoreId
-    } catch {
-      return false
-    }
-  })
 }

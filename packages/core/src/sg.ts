@@ -1,9 +1,6 @@
-import {
-  calculateRoundSG,
-  type SGBreakdown,
-  type Shot,
-  type ShotWithContext,
-} from '@oga/core'
+import { calculateRoundSG } from './sg-calculator'
+import type { ShotWithContext } from './sg-calculator'
+import type { SGBreakdown, Shot } from './types'
 import type { Database } from '@oga/supabase'
 
 type HoleRow = Database['public']['Tables']['holes']['Row']

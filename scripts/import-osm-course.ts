@@ -348,18 +348,28 @@ function matchHoles(
 // Supabase upsert
 // ---------------------------------------------------------------------------
 
-async function upsertCourse(name: string): Promise<{ id: string; created: boolean }> {
+async function upsertCourse(
+  name: string,
+  centroid: LatLon,
+): Promise<{ id: string; created: boolean }> {
   const { data: existing, error: lookupErr } = await supabase
     .from('courses')
     .select('id')
     .eq('name', name)
     .maybeSingle()
   if (lookupErr) throw lookupErr
-  if (existing) return { id: existing.id, created: false }
+  if (existing) {
+    const { error: updateErr } = await supabase
+      .from('courses')
+      .update({ lat: centroid.lat, lng: centroid.lon })
+      .eq('id', existing.id)
+    if (updateErr) throw updateErr
+    return { id: existing.id, created: false }
+  }
 
   const { data, error } = await supabase
     .from('courses')
-    .insert({ name, mapbox_id: null })
+    .insert({ name, mapbox_id: null, lat: centroid.lat, lng: centroid.lon })
     .select('id')
     .single()
   if (error || !data) throw error ?? new Error('course insert failed')
@@ -404,7 +414,13 @@ async function main() {
     )
   }
 
-  const { id, created } = await upsertCourse(args.name)
+  // Course centroid = mean of all matched tee + pin coordinates. More
+  // robust than the query center the user passed (which is often the
+  // clubhouse, not the course).
+  const courseCentroid = centroid(
+    matched.flatMap((h) => [h.tee, h.pin]),
+  )
+  const { id, created } = await upsertCourse(args.name, courseCentroid)
   await upsertHoles(id, matched)
 
   const greenHits = matched.filter((h) => h.hasGreenMatch).length

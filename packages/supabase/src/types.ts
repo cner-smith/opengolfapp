@@ -56,29 +56,38 @@ export interface Database {
         Row: {
           id: string
           name: string
-          location: string | null
           mapbox_id: string | null
           external_id: string | null
           created_by: string | null
           created_at: string
+          lat: number | null
+          lng: number | null
+          city: string | null
+          state: string | null
         }
         Insert: {
           id?: string
           name: string
-          location?: string | null
           mapbox_id?: string | null
           external_id?: string | null
           created_by?: string | null
           created_at?: string
+          lat?: number | null
+          lng?: number | null
+          city?: string | null
+          state?: string | null
         }
         Update: {
           id?: string
           name?: string
-          location?: string | null
           mapbox_id?: string | null
           external_id?: string | null
           created_by?: string | null
           created_at?: string
+          lat?: number | null
+          lng?: number | null
+          city?: string | null
+          state?: string | null
         }
         Relationships: [
           {

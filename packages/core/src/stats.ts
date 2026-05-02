@@ -2,10 +2,10 @@ import {
   calculateShotSG,
   getExpectedStrokes,
   getShotCategory,
-  type LieSlopeForward,
-  type LieSlopeSide,
-  type ShotCategory,
-} from '@oga/core'
+} from './sg-calculator'
+import type { LieSlopeForward, LieSlopeSide, ShotCategory, ShotResult } from './constants'
+import { METERS_TO_YARDS, haversineYards, toRadians } from './units'
+import { RESULT_QUALITY } from './types'
 import type { Database } from '@oga/supabase'
 
 type RoundRow = Database['public']['Tables']['rounds']['Row']
@@ -25,24 +25,6 @@ export interface DetailedRound extends RoundRow {
 // ---------------------------------------------------------------------------
 // Geo helpers
 // ---------------------------------------------------------------------------
-
-export function haversineYards(
-  lat1: number,
-  lng1: number,
-  lat2: number,
-  lng2: number,
-): number {
-  const R = 6371000
-  const φ1 = (lat1 * Math.PI) / 180
-  const φ2 = (lat2 * Math.PI) / 180
-  const Δφ = ((lat2 - lat1) * Math.PI) / 180
-  const Δλ = ((lng2 - lng1) * Math.PI) / 180
-  const a =
-    Math.sin(Δφ / 2) ** 2 +
-    Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) ** 2
-  const d = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
-  return d * 1.09361
-}
 
 export function getProximityYards(
   shotEndLat: number,
@@ -67,7 +49,7 @@ function lateralMissYards(shot: {
   endLng: number
 }): number {
   const M_PER_DEG_LAT = 111320
-  const refLat = ((shot.startLat * Math.PI) / 180) as number
+  const refLat = toRadians(shot.startLat)
   const M_PER_DEG_LNG = 111320 * Math.cos(refLat)
   const ax = (shot.aimLng - shot.startLng) * M_PER_DEG_LNG
   const ay = (shot.aimLat - shot.startLat) * M_PER_DEG_LAT
@@ -77,7 +59,7 @@ function lateralMissYards(shot: {
   if (aimLen === 0) return 0
   // Cross product magnitude / |aim| = perpendicular distance (meters).
   const lateralMeters = Math.abs(ax * ey - ay * ex) / aimLen
-  return lateralMeters * 1.09361
+  return lateralMeters * METERS_TO_YARDS
 }
 
 // ---------------------------------------------------------------------------
@@ -103,10 +85,6 @@ function flatten(rounds: DetailedRound[]): FlatHoleScore[] {
     }
   }
   return out
-}
-
-function safe(n: number): number | null {
-  return Number.isFinite(n) ? n : null
 }
 
 function pct(numerator: number, denominator: number): number | null {
@@ -553,18 +531,6 @@ export function missTendency(rounds: DetailedRound[]): MissTendencyEntry[] {
     .sort((a, b) => b.count - a.count)
 }
 
-const RESULT_QUALITY: Record<string, number> = {
-  solid: 1,
-  push_right: 0,
-  pull_left: 0,
-  fat: -1,
-  thin: -1,
-  topped: -1,
-  shank: -1,
-  penalty: -1,
-  ob: -1,
-}
-
 export interface CostlyLieEntry {
   lie: string
   avgQuality: number
@@ -578,7 +544,10 @@ export function costlyLies(rounds: DetailedRound[]): CostlyLieEntry[] {
   for (const { shots } of flatten(rounds)) {
     for (const s of shots) {
       if (!s.lie_type || !s.shot_result) continue
-      const q = RESULT_QUALITY[s.shot_result] ?? 0
+      // shot_result comes from the DB as unconstrained text; cast and
+      // fall back to 0 so an unknown value (legacy / hand-edited row)
+      // contributes neutrally rather than crashing or skewing the bucket.
+      const q = RESULT_QUALITY[s.shot_result as ShotResult] ?? 0
       const b = buckets.get(s.lie_type) ?? { sum: 0, n: 0 }
       b.sum += q
       b.n += 1
@@ -645,12 +614,19 @@ export interface SlopeImpact {
 }
 
 // Backfill slope axes for legacy rows so impact stats include pre-split data.
+function isLieSlopeForward(v: string | null): v is LieSlopeForward {
+  return v === 'uphill' || v === 'level' || v === 'downhill'
+}
+function isLieSlopeSide(v: string | null): v is LieSlopeSide {
+  return v === 'ball_above' || v === 'ball_below'
+}
+
 function readSlopeAxes(s: ShotRow): {
   forward: LieSlopeForward | null
   side: LieSlopeSide | null
 } {
-  const forward = (s.lie_slope_forward as LieSlopeForward | null) ?? null
-  const side = (s.lie_slope_side as LieSlopeSide | null) ?? null
+  const forward = isLieSlopeForward(s.lie_slope_forward) ? s.lie_slope_forward : null
+  const side = isLieSlopeSide(s.lie_slope_side) ? s.lie_slope_side : null
   if (forward || side) return { forward, side }
   if (s.lie_slope === 'uphill' || s.lie_slope === 'level' || s.lie_slope === 'downhill') {
     return { forward: s.lie_slope, side: null }
@@ -667,7 +643,7 @@ export function slopeImpact(rounds: DetailedRound[]): SlopeImpact {
   for (const { shots } of flatten(rounds)) {
     for (const s of shots) {
       if (!s.shot_result) continue
-      const q = RESULT_QUALITY[s.shot_result] ?? 0
+      const q = RESULT_QUALITY[s.shot_result as ShotResult] ?? 0
       const axes = readSlopeAxes(s)
       if (axes.forward) {
         const b = forwardBuckets.get(axes.forward) ?? { sum: 0, n: 0 }
@@ -771,4 +747,3 @@ export function computeDetailedStats(
 // Re-export so consumers can import the shape constants.
 export const APPROACH_BAND_KEYS = APPROACH_BANDS.map((b) => b.key)
 export type { ShotCategory }
-export { safe }

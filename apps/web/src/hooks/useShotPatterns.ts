@@ -1,3 +1,4 @@
+import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import {
   computeDispersion,
@@ -52,30 +53,33 @@ export function useShotPatterns({
   lieSlopeSide,
 }: UseShotPatternsArgs) {
   const { user } = useAuth()
-  return useQuery({
-    queryKey: [
-      'patterns',
-      user?.id,
-      club,
-      lieType,
-      lieSlopeForward,
-      lieSlopeSide,
-    ],
+  // Cache the dispersion for (user, club) once. Lie filters apply
+  // client-side from the cached result so toggling a chip doesn't
+  // refetch — and doesn't invalidate the cached series for the
+  // un-filtered base view.
+  const query = useQuery({
+    queryKey: ['patterns', user?.id, club],
     enabled: !!user && !!club,
     queryFn: async () => {
       const { data, error } = await getShotsByClub(supabase, user!.id, club)
       if (error) throw error
       const shots = (data ?? []).map(rowToShot)
-      let points = computeDispersion(shots)
-      if (lieType || lieSlopeForward || lieSlopeSide) {
-        points = filterDispersionByLie(points, {
-          lieType,
-          lieSlopeForward,
-          lieSlopeSide,
-        })
-      }
-      const stats = computeDispersionStats(points)
-      return { points, stats }
+      return computeDispersion(shots)
     },
   })
+
+  const filtered = useMemo(() => {
+    if (!query.data) return undefined
+    const points =
+      lieType || lieSlopeForward || lieSlopeSide
+        ? filterDispersionByLie(query.data, {
+            lieType,
+            lieSlopeForward,
+            lieSlopeSide,
+          })
+        : query.data
+    return { points, stats: computeDispersionStats(points) }
+  }, [query.data, lieType, lieSlopeForward, lieSlopeSide])
+
+  return { ...query, data: filtered }
 }

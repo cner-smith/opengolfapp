@@ -5,21 +5,15 @@ import {
   CLUBS,
   LIE_TYPES,
   SHOT_RESULTS,
+  type BreakDirection,
   type Club,
+  type GreenSpeed,
   type LieSlopeForward,
   type LieSlopeSide,
   type LieType,
   type ShotResult,
 } from '@oga/core'
 import { PuttingSheet } from './PuttingSheet'
-
-type GreenSpeed = 'slow' | 'medium' | 'fast'
-type BreakDirection =
-  | 'left_to_right'
-  | 'right_to_left'
-  | 'uphill'
-  | 'downhill'
-  | 'straight'
 
 export interface ShotLoggerValue {
   club?: Club
@@ -189,7 +183,11 @@ export function ShotLogger({
                 Log it.
               </Text>
             </View>
-            <Pressable onPress={onSkip}>
+            <Pressable
+              onPress={onSkip}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+              style={{ padding: 6 }}
+            >
               <Text
                 style={{
                   ...KICKER,

@@ -3,20 +3,19 @@ import {
   adjustedScore,
   calculateDifferential,
   calculateHandicapIndex,
+  computeRoundSG,
 } from '@oga/core'
+import type { RoundSGResult } from '@oga/core'
 import {
   getCourseTees,
   getHoleScoresForRound,
   getHolesForCourse,
   getShotsForRound,
-  updateHoleScore,
   updateProfile,
   updateRound,
 } from '@oga/supabase'
 import type { Database } from '@oga/supabase'
 import { supabase } from '../lib/supabase'
-import { computeRoundSG } from '../lib/sgCalc'
-import type { RoundSGResult } from '../lib/sgCalc'
 
 type HoleScoreRow = Database['public']['Tables']['hole_scores']['Row']
 type ShotRow = Database['public']['Tables']['shots']['Row']
@@ -51,14 +50,18 @@ export function useCompleteRound() {
       const [holesRes, holeScoresRes, shotsRes, teesRes] = await Promise.all([
         getHolesForCourse(supabase, courseId),
         getHoleScoresForRound(supabase, roundId),
-        getShotsForRound(supabase, roundId),
+        getShotsForRound(supabase, roundId, userId),
         getCourseTees(supabase, courseId),
       ])
       if (holesRes.error) throw holesRes.error
       if (holeScoresRes.error) throw holeScoresRes.error
       if (shotsRes.error) throw shotsRes.error
 
-      const holes = (holesRes.data ?? []) as HoleRow[]
+      // Plain ?? [] — the select returns the row type already, no cast
+      // needed. The holeScoreRows annotation carries the nested holes()
+      // join shape that the typed select doesn't expose; that's the one
+      // place a narrowing assertion still earns its keep.
+      const holes: HoleRow[] = holesRes.data ?? []
       const holeScoreRows = (holeScoresRes.data ?? []) as Array<
         HoleScoreRow & { holes?: HoleRow | null }
       >
@@ -66,23 +69,43 @@ export function useCompleteRound() {
         const { holes: _holes, ...rest } = row
         return rest
       })
-      const shots = (shotsRes.data ?? []) as ShotRow[]
-      const tees = (teesRes.data ?? []) as CourseTeeRow[]
+      // `as unknown as ShotRow[]` because getShotsForRound now narrows the
+      // select to the columns the SG calc actually reads — created_at is
+      // dropped at the DB level. computeRoundSG never touches it; the
+      // cast acknowledges the structural mismatch with the generated
+      // ShotRow row type.
+      const shots = (shotsRes.data ?? []) as unknown as ShotRow[]
+      const tees: CourseTeeRow[] = teesRes.data ?? []
 
       const result = computeRoundSG({ holes, holeScores, shots, handicap })
 
-      const sgUpdates = Object.entries(result.perHoleScore).map(
-        ([holeScoreId, sg]) =>
-          updateHoleScore(supabase, holeScoreId, {
+      // Single batch upsert beats N sequential UPDATEs. Carry round_id /
+      // hole_id / score forward unchanged so the underlying INSERT path of
+      // upsert can satisfy the NOT NULL columns; the conflict on `id` then
+      // updates the SG fields only.
+      const holeScoresById = new Map(holeScores.map((hs) => [hs.id, hs]))
+      const sgRows = Object.entries(result.perHoleScore)
+        .map(([holeScoreId, sg]) => {
+          const existing = holeScoresById.get(holeScoreId)
+          if (!existing) return null
+          return {
+            id: holeScoreId,
+            round_id: existing.round_id,
+            hole_id: existing.hole_id,
+            score: existing.score,
             sg_off_tee: round2(sg.offTee),
             sg_approach: round2(sg.approach),
             sg_around_green: round2(sg.aroundGreen),
             sg_putting: round2(sg.putting),
-          }),
-      )
-      const sgResults = await Promise.all(sgUpdates)
-      const sgError = sgResults.find((r) => r.error)
-      if (sgError?.error) throw sgError.error
+          }
+        })
+        .filter((r): r is NonNullable<typeof r> => r != null)
+      if (sgRows.length > 0) {
+        const { error: sgError } = await supabase
+          .from('hole_scores')
+          .upsert(sgRows, { onConflict: 'id' })
+        if (sgError) throw sgError
+      }
 
       // ---- Handicap differential ------------------------------------------
       const tee =
@@ -114,7 +137,10 @@ export function useCompleteRound() {
         }
       }
 
-      const { error: roundError } = await updateRound(supabase, roundId, {
+      const { error: roundError } = await updateRound(
+        supabase,
+        roundId,
+        {
         sg_off_tee: round2(result.round.offTee),
         sg_approach: round2(result.round.approach),
         sg_around_green: round2(result.round.aroundGreen),
@@ -129,24 +155,32 @@ export function useCompleteRound() {
         // direct link without re-running the fallback.
         course_tee_id: tee?.id ?? courseTeeId ?? null,
         score_differential: differential,
-      })
+        },
+        userId,
+      )
       if (roundError) throw roundError
 
       // ---- Handicap index recompute --------------------------------------
       if (differential != null) {
-        const { data: recentDiffs } = await supabase
+        const { data: recentDiffs, error: diffsError } = await supabase
           .from('rounds')
           .select('score_differential')
           .eq('user_id', userId)
           .not('score_differential', 'is', null)
           .order('played_at', { ascending: false })
           .limit(20)
+        if (diffsError) throw diffsError
         const diffs = (recentDiffs ?? [])
           .map((r) => r.score_differential)
           .filter((d): d is number => d != null)
         const newIndex = calculateHandicapIndex(diffs)
         if (newIndex != null) {
-          await updateProfile(supabase, userId, { handicap_index: newIndex })
+          const { error: profileError } = await updateProfile(
+            supabase,
+            userId,
+            { handicap_index: newIndex },
+          )
+          if (profileError) throw profileError
         }
       }
 
@@ -156,6 +190,8 @@ export function useCompleteRound() {
       qc.invalidateQueries({ queryKey: ['round', variables.roundId] })
       qc.invalidateQueries({ queryKey: ['rounds'] })
       qc.invalidateQueries({ queryKey: ['hole-scores', variables.roundId] })
+      qc.invalidateQueries({ queryKey: ['shots', 'round', variables.roundId] })
+      qc.invalidateQueries({ queryKey: ['detailed-stats'] })
       qc.invalidateQueries({ queryKey: ['profile', variables.userId] })
     },
   })

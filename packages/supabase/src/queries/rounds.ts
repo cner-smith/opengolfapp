@@ -1,23 +1,42 @@
 import type { OgaSupabaseClient } from '../client'
 import type { Database } from '../types'
+import { SHOT_COLUMNS } from './shots'
 
 type RoundInsert = Database['public']['Tables']['rounds']['Insert']
 type RoundUpdate = Database['public']['Tables']['rounds']['Update']
 
+// Explicit column list for the rounds row — drops audit columns and
+// `notes` (not displayed in any list/detail view today). Pair with
+// SHOT_COLUMNS for the nested shots() join so the stats/detail payload
+// no longer ships every audit column for every shot in every round.
+// Single literal so supabase-js's select-type inference doesn't collapse
+// to GenericStringError.
+const ROUND_COLUMNS = 'id, user_id, course_id, played_at, tee_color, total_score, total_putts, fairways_hit, fairways_total, gir, sg_off_tee, sg_approach, sg_around_green, sg_putting, sg_total, course_tee_id, score_differential' as const
+
 export function getRounds(client: OgaSupabaseClient, userId: string, limit = 20) {
   return client
     .from('rounds')
-    .select('*, courses(name, location)')
+    .select(`${ROUND_COLUMNS}, courses(name, city, state)`)
     .eq('user_id', userId)
     .order('played_at', { ascending: false })
     .limit(limit)
 }
 
-export function getRound(client: OgaSupabaseClient, roundId: string) {
+// Belt-and-suspenders: every read/mutation on user-owned tables takes a
+// userId and filters on it in addition to RLS, so a missing or misconfigured
+// policy can't silently expose another user's data.
+export function getRound(
+  client: OgaSupabaseClient,
+  roundId: string,
+  userId: string,
+) {
   return client
     .from('rounds')
-    .select('*, courses(name, location), hole_scores(*, holes(*), shots(*))')
+    .select(
+      `${ROUND_COLUMNS}, courses(name, city, state), hole_scores(*, holes(*), shots(${SHOT_COLUMNS}))`,
+    )
     .eq('id', roundId)
+    .eq('user_id', userId)
     .single()
 }
 
@@ -29,12 +48,23 @@ export function updateRound(
   client: OgaSupabaseClient,
   roundId: string,
   updates: RoundUpdate,
+  userId: string,
 ) {
-  return client.from('rounds').update(updates).eq('id', roundId).select().single()
+  return client
+    .from('rounds')
+    .update(updates)
+    .eq('id', roundId)
+    .eq('user_id', userId)
+    .select()
+    .single()
 }
 
-export function deleteRound(client: OgaSupabaseClient, roundId: string) {
-  return client.from('rounds').delete().eq('id', roundId)
+export function deleteRound(
+  client: OgaSupabaseClient,
+  roundId: string,
+  userId: string,
+) {
+  return client.from('rounds').delete().eq('id', roundId).eq('user_id', userId)
 }
 
 export function getRecentSGData(client: OgaSupabaseClient, userId: string, limit = 10) {
@@ -51,6 +81,13 @@ export function getRecentSGData(client: OgaSupabaseClient, userId: string, limit
 
 // Rounds with full hole-score and shot detail nested. Used by the stats
 // page to compute per-band, per-club, and per-lie aggregates client-side.
+//
+// Stats consume only (number, par, pin_lat, pin_lng) from the joined
+// holes — pin_* drives the proximity fallback when hole_scores has no
+// per-round pin override. The join used to pull holes(*), shipping
+// tee_lat/tee_lng/yards/stroke_index/id/course_id for every hole on
+// every round (18 × 20 = 360 rows of unused columns per stats page
+// load). Narrow projection cuts ~60% of the per-hole payload.
 export function getRoundsWithDetails(
   client: OgaSupabaseClient,
   userId: string,
@@ -59,7 +96,7 @@ export function getRoundsWithDetails(
   return client
     .from('rounds')
     .select(
-      '*, courses(name), hole_scores(*, holes(*), shots(*))',
+      `${ROUND_COLUMNS}, courses(name), hole_scores(*, holes(number, par, pin_lat, pin_lng), shots(${SHOT_COLUMNS}))`,
     )
     .eq('user_id', userId)
     .order('played_at', { ascending: false })

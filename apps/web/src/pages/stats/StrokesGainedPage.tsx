@@ -11,6 +11,7 @@ import {
 } from 'recharts'
 import { useDetailedStats } from '../../hooks/useDetailedStats'
 import { useUnits } from '../../hooks/useUnits'
+import { YARDS_TO_METERS, formatSG } from '@oga/core'
 import type {
   ApproachBandStat,
   ClubAccuracyEntry,
@@ -20,9 +21,9 @@ import type {
   RecoveryRateStat,
   ScoringDistributionSlice,
   SlopeImpact,
-} from '../../lib/statsCalculations'
+} from '@oga/core'
 
-const N_OPTIONS = [5, 10, 20] as const
+const N_OPTIONS: readonly number[] = [5, 10, 20]
 
 const TICK_STYLE = { fontSize: 11, fill: '#8A8B7E' } as const
 const TOOLTIP_STYLE = {
@@ -72,7 +73,7 @@ export function StrokesGainedPage() {
         </div>
         <Segmented
           value={n}
-          options={N_OPTIONS as unknown as readonly number[]}
+          options={N_OPTIONS}
           onChange={setN}
           renderLabel={(v) => `Last ${v}`}
         />
@@ -500,9 +501,7 @@ function SgTile({
           lineHeight: 1.05,
         }}
       >
-        {value == null
-          ? '—'
-          : `${value > 0 ? '+' : ''}${value.toFixed(2)}`}
+        {value == null ? '—' : formatSG(value)}
       </div>
     </div>
   )
@@ -588,9 +587,7 @@ function ApproachBandTile({ band }: { band: ApproachBandStat }) {
           lineHeight: 1.1,
         }}
       >
-        {band.avgSg == null
-          ? '—'
-          : `${band.avgSg > 0 ? '+' : ''}${band.avgSg.toFixed(2)}`}
+        {band.avgSg == null ? '—' : formatSG(band.avgSg)}
       </div>
       <div
         className="text-caddie-ink-mute"
@@ -1004,7 +1001,7 @@ function formatBandLabel(
   // Show range as "min–max <unit>" by stripping the unit off the lower bound.
   const upper = toDisplay(band.maxYards)
   const lowerNumeric = unit === 'meters'
-    ? (band.minYards * 0.9144).toFixed(0)
+    ? (band.minYards * YARDS_TO_METERS).toFixed(0)
     : band.minYards.toFixed(0)
   return `${lowerNumeric}–${upper}`
 }
