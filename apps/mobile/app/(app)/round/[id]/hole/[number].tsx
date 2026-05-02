@@ -8,6 +8,7 @@ import {
   Text,
   View,
 } from 'react-native'
+import { GestureHandlerRootView } from 'react-native-gesture-handler'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import * as Location from 'expo-location'
 import type { Database } from '@oga/supabase'
@@ -982,20 +983,27 @@ export default function HoleScreen() {
         animationType="slide"
         onRequestClose={closePuttingSheet}
       >
-        <View style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.4)' }}>
-          <PuttingSheet
-            shotNumber={shotNumber}
-            initialDistanceFt={
-              ball && (roundPin ?? storedPin)
-                ? Math.round(
-                    distanceYards(ball, (roundPin ?? storedPin) as LatLng) * 3,
-                  )
-                : undefined
-            }
-            onSave={persistPutt}
-            onClose={closePuttingSheet}
-          />
-        </View>
+        {/* React Native's <Modal> renders to a separate native window on
+            Android, so the app-root GestureHandlerRootView doesn't apply
+            inside. Wrap the modal contents in their own root to restore
+            the GreenDiagram aim-handle pan gesture (broke after the
+            Reanimated refactor). */}
+        <GestureHandlerRootView style={{ flex: 1 }}>
+          <View style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.4)' }}>
+            <PuttingSheet
+              shotNumber={shotNumber}
+              initialDistanceFt={
+                ball && (roundPin ?? storedPin)
+                  ? Math.round(
+                      distanceYards(ball, (roundPin ?? storedPin) as LatLng) * 3,
+                    )
+                  : undefined
+              }
+              onSave={persistPutt}
+              onClose={closePuttingSheet}
+            />
+          </View>
+        </GestureHandlerRootView>
       </Modal>
 
       <ConfirmDialog
