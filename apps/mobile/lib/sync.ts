@@ -1,3 +1,5 @@
+import { AppState } from 'react-native'
+import NetInfo from '@react-native-community/netinfo'
 import { listPendingShots, markShotSynced, type ShotPayload } from './db'
 import { supabase } from './supabase'
 
@@ -10,6 +12,7 @@ let inFlight = false
 let inFlightSince: number | null = null
 const LOCK_TTL_MS = 30_000
 const CHUNK_SIZE = 50
+const RETRY_DELAY_MS = 2_000
 
 function acquireLock(): boolean {
   if (inFlight) {
@@ -30,6 +33,10 @@ function acquireLock(): boolean {
 function releaseLock(): void {
   inFlight = false
   inFlightSince = null
+}
+
+async function insertChunk(payloads: ShotPayload[]) {
+  return supabase.from('shots').insert(payloads).select('id')
 }
 
 export async function syncPendingShots(): Promise<{ synced: number; failed: number }> {
@@ -53,11 +60,22 @@ export async function syncPendingShots(): Promise<{ synced: number; failed: numb
         failed += chunk.length
         continue
       }
-      const { data, error } = await supabase
-        .from('shots')
-        .insert(payloads)
-        .select('id')
+      let { data, error } = await insertChunk(payloads)
       if (error || !data || data.length !== payloads.length) {
+        // Single retry after a short delay. Transient network/server
+        // hiccups (intermittent connectivity, brief 5xx) are common
+        // mid-round; one retry covers most without burning bandwidth.
+        // On second failure the chunk stays in the pending queue —
+        // markShotSynced never runs, so rows will be picked up by the
+        // next NetInfo reconnect / AppState foreground / manual call.
+        await new Promise((r) => setTimeout(r, RETRY_DELAY_MS))
+        const retry = await insertChunk(payloads)
+        data = retry.data
+        error = retry.error
+      }
+      if (error || !data || data.length !== payloads.length) {
+        // eslint-disable-next-line no-console
+        console.warn('[sync] chunk failed after retry, leaving pending:', error?.message ?? 'shape mismatch')
         failed += chunk.length
         continue
       }
@@ -79,3 +97,36 @@ export async function syncPendingShots(): Promise<{ synced: number; failed: numb
   }
   return { synced, failed }
 }
+
+// Auto-trigger sync on network reconnect and app foreground. Failures
+// previously stayed in the pending queue forever with no automatic
+// retry — a player who finished a round on a flaky connection would
+// see "synced" never tick up. Listeners are module-scope singletons
+// installed once at first import; we never need to remove them.
+let listenersInstalled = false
+
+function fireAndForget() {
+  syncPendingShots().catch((err) => {
+    // eslint-disable-next-line no-console
+    console.warn('[sync] background trigger failed:', err)
+  })
+}
+
+export function installAutoSync(): void {
+  if (listenersInstalled) return
+  listenersInstalled = true
+
+  NetInfo.addEventListener((state) => {
+    if (state.isConnected && state.isInternetReachable) {
+      fireAndForget()
+    }
+  })
+
+  AppState.addEventListener('change', (next) => {
+    if (next === 'active') {
+      fireAndForget()
+    }
+  })
+}
+
+installAutoSync()
