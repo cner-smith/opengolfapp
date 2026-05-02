@@ -211,6 +211,8 @@ export default function Home() {
 
         {activeRound && (
           <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`Resume active round at ${activeRound.courseName}, hole ${activeRound.currentHole}`}
             onPress={() =>
               router.push(
                 `/(app)/round/${activeRound.id}/hole/${activeRound.currentHole}?mode=live`,
@@ -258,6 +260,8 @@ export default function Home() {
 
         <Link href="/(app)/round/new?mode=live" asChild>
           <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Start live round"
             style={{
               backgroundColor: '#1F3D2C',
               borderRadius: 2,
@@ -291,6 +295,8 @@ export default function Home() {
 
         <Link href="/(app)/round/new?mode=past" asChild>
           <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Log past round"
             style={{
               borderWidth: 1,
               borderColor: '#1F3D2C',
@@ -423,6 +429,8 @@ export default function Home() {
                   }}
                   renderRightActions={() => (
                     <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel={`Delete round at ${r.courses?.name ?? 'this round'}`}
                       onPress={() => {
                         swipeRefs.current.get(r.id)?.close()
                         setPendingDelete({
@@ -453,6 +461,8 @@ export default function Home() {
                 >
                   <Link href={`/(app)/round/${r.id}`} asChild>
                     <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel={`Open round at ${r.courses?.name ?? 'unknown course'} on ${r.played_at}`}
                       style={{
                         flexDirection: 'row',
                         justifyContent: 'space-between',
@@ -511,6 +521,8 @@ export default function Home() {
               {rounds.length > 5 && (
                 <Link href="/(app)/rounds" asChild>
                   <Pressable
+                    accessibilityRole="link"
+                    accessibilityLabel="See all rounds"
                     style={{
                       paddingVertical: 14,
                       paddingHorizontal: 4,

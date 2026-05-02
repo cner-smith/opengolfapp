@@ -201,6 +201,8 @@ export function PuttingSheet({
           </Text>
         </View>
         <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Close putting sheet"
           onPress={onClose}
           hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
           style={{ padding: 12 }}
@@ -332,6 +334,8 @@ export function PuttingSheet({
 
         <View style={{ marginTop: 22 }}>
           <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Save putt as holed"
             onPress={() => commit(true)}
             style={{
               backgroundColor: '#1F3D2C',
@@ -352,6 +356,8 @@ export function PuttingSheet({
             </Text>
           </Pressable>
           <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Save putt as missed"
             onPress={() => commit(false)}
             style={{
               borderWidth: 1,
@@ -412,6 +418,9 @@ function Chip({
 }) {
   return (
     <Pressable
+      accessibilityRole="radio"
+      accessibilityLabel={label}
+      accessibilityState={{ selected: active }}
       onPress={onPress}
       style={{
         backgroundColor: active ? '#1F3D2C' : '#EBE5D6',
@@ -453,6 +462,9 @@ function ResultCell({
   const border = active ? '#1F3D2C' : '#D9D2BF'
   return (
     <Pressable
+      accessibilityRole="radio"
+      accessibilityLabel={label}
+      accessibilityState={{ selected: active, disabled }}
       onPress={onPress}
       disabled={disabled}
       style={{
