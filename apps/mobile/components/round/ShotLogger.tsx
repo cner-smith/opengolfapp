@@ -184,6 +184,8 @@ export function ShotLogger({
               </Text>
             </View>
             <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Skip all logging for this shot"
               onPress={onSkip}
               hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
               style={{ padding: 6 }}
@@ -337,6 +339,8 @@ export function ShotLogger({
             }}
           >
             <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Cancel logging shot"
               onPress={onClose}
               style={{
                 flex: 1,
@@ -360,6 +364,8 @@ export function ShotLogger({
               </Text>
             </Pressable>
             <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Save shot and continue"
               onPress={() => onSave(value)}
               style={{
                 flex: 1,
@@ -516,6 +522,9 @@ function ChipRow<T extends string>({ value, options, onChange }: ChipRowProps<T>
           return (
             <Pressable
               key={opt}
+              accessibilityRole="radio"
+              accessibilityLabel={opt.replace(/_/g, ' ')}
+              accessibilityState={{ selected: active }}
               onPress={() => onChange(opt)}
               style={{
                 paddingHorizontal: 10,

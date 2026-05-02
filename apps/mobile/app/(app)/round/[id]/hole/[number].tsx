@@ -193,30 +193,25 @@ export default function HoleScreen() {
     if (!currentHoleScore) return
     let active = true
     ;(async () => {
-      const [shotRes, puttRes, startsRes, local] = await Promise.all([
+      // Single fetch covers shot count, putt count, and start coords —
+      // putts are derivable from (club, lie_type) so the two count
+      // queries collapse into one round trip.
+      const [shotsRes, local] = await Promise.all([
         supabase
           .from('shots')
-          .select('id', { count: 'exact', head: true })
-          .eq('hole_score_id', currentHoleScore.id),
-        supabase
-          .from('shots')
-          .select('id', { count: 'exact', head: true })
+          .select('club, lie_type, shot_number, start_lat, start_lng')
           .eq('hole_score_id', currentHoleScore.id)
-          .or('club.eq.putter,lie_type.eq.green'),
-        supabase
-          .from('shots')
-          .select('shot_number, start_lat, start_lng')
-          .eq('hole_score_id', currentHoleScore.id)
-          .not('start_lat', 'is', null)
-          .not('start_lng', 'is', null)
           .order('shot_number'),
         pendingShotsForHoleScore(currentHoleScore.id),
       ])
       if (!active) return
-      setRemoteShotCount(shotRes.count ?? 0)
-      setRemotePuttCount(puttRes.count ?? 0)
+      const shots = shotsRes.data ?? []
+      setRemoteShotCount(shots.length)
+      setRemotePuttCount(
+        shots.filter((s) => s.club === 'putter' || s.lie_type === 'green').length,
+      )
       const starts: LatLng[] = []
-      for (const r of startsRes.data ?? []) {
+      for (const r of shots) {
         if (r.start_lat != null && r.start_lng != null) {
           starts.push({ lat: r.start_lat, lng: r.start_lng })
         }
@@ -687,6 +682,8 @@ export default function HoleScreen() {
         }}
       >
         <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Leave round and return home"
           onPress={() => setConfirmLeave(true)}
           hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
           style={{ padding: 6 }}
@@ -724,6 +721,7 @@ export default function HoleScreen() {
         </View>
         <View style={{ alignItems: 'flex-end', gap: 6 }}>
           <Pressable
+            accessibilityRole="button"
             onPress={() => setConfirmEnd(true)}
             accessibilityLabel="End round early"
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
@@ -738,6 +736,7 @@ export default function HoleScreen() {
             </Text>
           </Pressable>
           <Pressable
+            accessibilityRole="button"
             onPress={() => setConfirmDelete(true)}
             accessibilityLabel="Delete round"
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
@@ -789,6 +788,8 @@ export default function HoleScreen() {
         {pinPlacementOpen ? (
           <View style={{ flexDirection: 'row', gap: 8, marginBottom: 10 }}>
             <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Cancel pin placement"
               onPress={() => setPinPlacementOpen(false)}
               style={{
                 flex: 1,
@@ -812,6 +813,8 @@ export default function HoleScreen() {
             </Pressable>
             {roundPin && (
               <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Clear pin"
                 onPress={clearRoundPin}
                 style={{
                   flex: 1,
@@ -838,6 +841,9 @@ export default function HoleScreen() {
         ) : roundState === 'SET_AIM' ? (
           <>
             <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={aim ? 'Confirm aim point' : 'Long-press the map to set aim point'}
+              accessibilityState={{ disabled: !aim }}
               onPress={confirmAim}
               disabled={!aim}
               style={{
@@ -867,6 +873,8 @@ export default function HoleScreen() {
               }}
             >
               <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Re-place ball"
                 onPress={() => setRoundState('PLACE_BALL')}
                 hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
                 style={{ padding: 6 }}
@@ -874,6 +882,8 @@ export default function HoleScreen() {
                 <Text style={{ ...KICKER, color: '#8A8B7E' }}>← Re-place ball</Text>
               </Pressable>
               <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Skip aim point"
                 onPress={skipAim}
                 hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
                 style={{ padding: 6 }}
@@ -885,6 +895,9 @@ export default function HoleScreen() {
         ) : (
           <>
             <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={ball ? 'Mark ball at current position' : 'Drop the ball on the map first'}
+              accessibilityState={{ disabled: !ball || saving }}
               onPress={markBallHere}
               disabled={!ball || saving}
               style={{
@@ -911,6 +924,8 @@ export default function HoleScreen() {
               </Text>
             </Pressable>
             <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={roundPin ? 'Move pin' : 'Place pin'}
               onPress={() => setPinPlacementOpen(true)}
               style={{
                 paddingVertical: 8,
@@ -933,6 +948,8 @@ export default function HoleScreen() {
             </Pressable>
             {totalShotsThisHole > 0 && (
               <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={holeNumber < 18 ? 'Finish hole and continue' : 'Finish round'}
                 onPress={finishHole}
                 style={{
                   borderWidth: 1,
@@ -965,6 +982,9 @@ export default function HoleScreen() {
           }}
         >
           <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Previous hole"
+            accessibilityState={{ disabled: holeNumber === 1 }}
             onPress={() => navigateHole(-1)}
             disabled={holeNumber === 1}
             style={{
@@ -979,6 +999,7 @@ export default function HoleScreen() {
             <Text style={{ fontSize: 12, color: '#1C211C' }}>← Prev</Text>
           </Pressable>
           <Pressable
+            accessibilityRole="button"
             onPress={() => setScorecardOpen(true)}
             style={{ flex: 1, alignItems: 'center' }}
             accessibilityLabel="Open scorecard"
@@ -999,6 +1020,9 @@ export default function HoleScreen() {
             />
           </Pressable>
           <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Next hole"
+            accessibilityState={{ disabled: holeNumber === 18 }}
             onPress={() => navigateHole(1)}
             disabled={holeNumber === 18}
             style={{
@@ -1214,6 +1238,9 @@ function ScorecardModal({
             return (
               <Pressable
                 key={h.id}
+                accessibilityRole="button"
+                accessibilityLabel={`Jump to hole ${h.number}, par ${h.par}${score != null ? `, score ${score}` : ''}`}
+                accessibilityState={{ selected: active }}
                 onPress={() => onJumpToHole(h.number)}
                 style={{
                   flexDirection: 'row',
@@ -1344,6 +1371,8 @@ function ScorecardModal({
           </View>
         </ScrollView>
         <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Close scorecard"
           onPress={onClose}
           style={{
             marginTop: 14,

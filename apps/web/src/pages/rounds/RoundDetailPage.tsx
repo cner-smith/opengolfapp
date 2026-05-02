@@ -187,7 +187,7 @@ export function RoundDetailPage() {
         // Don't roll back the local override — the user's intent stays
         // visible while they retry. Surface the error for diagnostics.
         // eslint-disable-next-line no-console
-        console.error('round pin update failed', error)
+        console.error('[RoundDetailPage/updatePin]', error)
       }
     },
     [activeHoleScore, roundId],
