@@ -1,3 +1,10 @@
+// Stand-in handicap when a profile hasn't filled one in yet. Picked as
+// the rough median of US recreational golfers (USGA mid-handicap)
+// so SG baselines and bracket lookups don't degenerate to scratch
+// or 30+ for a brand-new user. NEVER store this — only use as a
+// transient calc input.
+export const DEFAULT_HANDICAP = 15
+
 export const CLUBS = [
   'driver',
   '3w',

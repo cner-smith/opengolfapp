@@ -4,6 +4,7 @@ import { getRoundsWithDetails } from '@oga/supabase'
 import { supabase } from '../lib/supabase'
 import {
   computeDetailedStats,
+  DEFAULT_HANDICAP,
   type DetailedRound,
   type DetailedStats,
 } from '@oga/core'
@@ -18,7 +19,7 @@ export function useDetailedStats(limit: number): {
 } {
   const { user } = useAuth()
   const profile = useProfile()
-  const handicap = profile.data?.handicap_index ?? 15
+  const handicap = profile.data?.handicap_index ?? DEFAULT_HANDICAP
 
   const query = useQuery({
     queryKey: ['detailed-stats', user?.id, limit],
