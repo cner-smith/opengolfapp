@@ -596,44 +596,39 @@ async function findCourseByExternalId(externalId: string): Promise<string | null
   return data?.id ?? null
 }
 
-async function insertOrUpdateCourse(args: {
+// Upsert keyed on external_id (partial unique index from migration 0019).
+// Re-running the crawler updates the existing row in place rather than
+// inserting a parallel duplicate; the previous select-then-insert flow
+// could race two crawlers into a double-insert and silently produced
+// thousands of duplicate rows.
+//
+// Manual user-created courses (no external_id) NEVER come through here —
+// they go through createCourse() in the web hooks and stay plain inserts.
+async function upsertCourse(args: {
   externalId: string
   name: string
   city: string | null
   state: string | null
   lat: number | null
   lng: number | null
-  force: boolean
-}): Promise<{ id: string; isNew: boolean; skipped: boolean }> {
-  const fields = {
-    name: args.name,
-    city: args.city,
-    state: args.state,
-    lat: args.lat,
-    lng: args.lng,
-  }
-  const existing = await findCourseByExternalId(args.externalId)
-  if (existing && !args.force) {
-    return { id: existing, isNew: false, skipped: true }
-  }
-  if (existing) {
-    const { error } = await supabase
-      .from('courses')
-      .update(fields)
-      .eq('id', existing)
-    if (error) throw error
-    return { id: existing, isNew: false, skipped: false }
-  }
+}): Promise<{ id: string }> {
   const { data, error } = await supabase
     .from('courses')
-    .insert({
-      ...fields,
-      external_id: args.externalId,
-    })
+    .upsert(
+      {
+        external_id: args.externalId,
+        name: args.name,
+        city: args.city,
+        state: args.state,
+        lat: args.lat,
+        lng: args.lng,
+      },
+      { onConflict: 'external_id', ignoreDuplicates: false },
+    )
     .select('id')
     .single()
-  if (error || !data) throw error ?? new Error('course insert failed')
-  return { id: data.id, isNew: true, skipped: false }
+  if (error || !data) throw error ?? new Error('course upsert failed')
+  return { id: data.id }
 }
 
 async function upsertHoles(courseId: string, holes: OgaHole[]): Promise<void> {
@@ -772,22 +767,20 @@ async function crawlOpenGolfApi(
           }
           const city = (detail.city ?? item.city ?? '').trim() || null
           const stateCode = (detail.state ?? item.state ?? state).trim() || null
-          const upsert = await insertOrUpdateCourse({
+          const { id: courseId } = await upsertCourse({
             externalId,
             name: detail.name,
             city,
             state: stateCode,
             lat: detail.lat ?? item.lat ?? null,
             lng: detail.lng ?? item.lng ?? null,
-            force,
           })
-          if (!upsert.skipped) {
-            await upsertHoles(upsert.id, detail.holes)
-            await upsertTees(upsert.id, detail.tees)
-            totalImported++
-          } else {
-            totalSkipped++
-          }
+          // Holes + tees always re-upserted from the freshly-fetched
+          // detail. Their own upsert keys (course_id,number /
+          // course_id,tee_color) keep this idempotent.
+          await upsertHoles(courseId, detail.holes)
+          await upsertTees(courseId, detail.tees)
+          totalImported++
           stateCount++
 
           if ((i + 1) % 100 === 0 || i === targets.length - 1) {
@@ -860,17 +853,15 @@ async function crawlOsm(
         if (!c) continue
         const externalId = `osm_${c.osmType}_${c.osmId}`
         try {
-          const upsert = await insertOrUpdateCourse({
+          await upsertCourse({
             externalId,
             name: c.name,
             city: c.city ?? null,
             state: c.state,
             lat: c.lat,
             lng: c.lng,
-            force,
           })
-          if (upsert.skipped) totalSkipped++
-          else totalImported++
+          totalImported++
           stateCount++
           if ((i + 1) % 100 === 0 || i === targets.length - 1) {
             console.log(`[osm:${state}] ${i + 1}/${targets.length} — last: ${c.name}`)
