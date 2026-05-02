@@ -28,14 +28,14 @@ export function SignupPage() {
   }
 
   return (
-    <div className="flex h-screen items-center justify-center bg-oga-bg-page">
+    <div className="flex h-screen items-center justify-center bg-caddie-bg">
       <form
         onSubmit={handleSubmit}
-        className="w-full max-w-sm bg-oga-bg-card"
+        className="w-full max-w-sm bg-caddie-surface"
         style={{ border: '0.5px solid #E4E4E0', borderRadius: 10, padding: 24 }}
       >
         <h1
-          className="text-oga-text-primary"
+          className="text-caddie-ink"
           style={{ fontSize: 22, fontWeight: 600, marginBottom: 18 }}
         >
           Create your OGA account
@@ -45,7 +45,7 @@ export function SignupPage() {
           required
           value={username}
           onChange={(e) => setUsername(e.target.value)}
-          className="w-full bg-oga-bg-input text-oga-text-primary"
+          className="w-full bg-caddie-surface text-caddie-ink"
           style={inputStyle}
         />
         <FieldLabel>Email</FieldLabel>
@@ -54,7 +54,7 @@ export function SignupPage() {
           required
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          className="w-full bg-oga-bg-input text-oga-text-primary"
+          className="w-full bg-caddie-surface text-caddie-ink"
           style={inputStyle}
         />
         <FieldLabel>Password</FieldLabel>
@@ -64,12 +64,12 @@ export function SignupPage() {
           minLength={8}
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          className="w-full bg-oga-bg-input text-oga-text-primary"
+          className="w-full bg-caddie-surface text-caddie-ink"
           style={{ ...inputStyle, marginBottom: 14 }}
         />
         {error && (
           <div
-            className="text-oga-red-dark"
+            className="text-caddie-neg"
             style={{ fontSize: 13, marginBottom: 10 }}
           >
             {error}
@@ -78,17 +78,17 @@ export function SignupPage() {
         <button
           type="submit"
           disabled={loading}
-          className="w-full bg-oga-black text-white transition-colors hover:bg-oga-text-primary/90 disabled:opacity-50"
+          className="w-full bg-caddie-accent text-caddie-accent-ink transition-opacity hover:opacity-90 disabled:opacity-50"
           style={{ borderRadius: 10, padding: '12px 16px', fontSize: 13, fontWeight: 500 }}
         >
           {loading ? 'Creating…' : 'Create account'}
         </button>
         <p
-          className="text-oga-text-muted text-center"
+          className="text-caddie-ink-dim text-center"
           style={{ fontSize: 13, marginTop: 14 }}
         >
           Have an account?{' '}
-          <Link to="/login" className="text-oga-green-dark hover:underline">
+          <Link to="/login" className="text-caddie-accent hover:underline">
             Sign in
           </Link>
         </p>
@@ -108,7 +108,7 @@ const inputStyle: React.CSSProperties = {
 function FieldLabel({ children }: { children: React.ReactNode }) {
   return (
     <div
-      className="text-oga-text-muted uppercase"
+      className="text-caddie-ink-dim uppercase"
       style={{
         fontSize: 11,
         fontWeight: 500,
