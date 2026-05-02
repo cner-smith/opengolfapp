@@ -5,6 +5,12 @@
 // transient calc input.
 export const DEFAULT_HANDICAP = 15
 
+// Distance-to-target threshold splitting "approach" from "around green"
+// for SG categorisation, lie inference, and stats bucketing. Keep the
+// three uses (sg-calculator, stats, shotInference) on the same number
+// so a shot can't be SG-classified one way and stats-bucketed another.
+export const NEAR_GREEN_YARDS = 30
+
 export const CLUBS = [
   'driver',
   '3w',

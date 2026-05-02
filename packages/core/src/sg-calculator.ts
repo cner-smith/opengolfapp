@@ -1,4 +1,4 @@
-import type { ShotCategory } from './constants'
+import { NEAR_GREEN_YARDS, type ShotCategory } from './constants'
 import {
   APPROACH_BASELINES,
   AROUND_GREEN_BASELINES,
@@ -14,7 +14,10 @@ export function getShotCategory(
   shotNumber: number,
 ): ShotCategory {
   if (shot.lieType === 'green') return 'putting'
-  if (shot.distanceToTarget !== undefined && shot.distanceToTarget <= 30) {
+  if (
+    shot.distanceToTarget !== undefined &&
+    shot.distanceToTarget <= NEAR_GREEN_YARDS
+  ) {
     return 'around_green'
   }
   if (shotNumber === 1 && (par === 4 || par === 5)) return 'off_tee'
