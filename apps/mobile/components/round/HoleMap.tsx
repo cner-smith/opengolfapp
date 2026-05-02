@@ -35,6 +35,14 @@ interface HoleMapProps {
   tee?: LatLng | null
   aim?: LatLng | null
   ball?: LatLng | null
+  /**
+   * Previously-logged shot start positions, in shot order. Rendered as
+   * small amber waypoints with a line connecting consecutive points
+   * AND a final segment from the last waypoint to the current ball, so
+   * the player has a visible breadcrumb of how they got to the
+   * current position. Pass an empty array (or omit) on shot 1.
+   */
+  previousShots?: LatLng[]
   phase?: HoleMapPhase
   onSetAim: (loc: LatLng) => void
   onSetBall: (loc: LatLng) => void
@@ -61,6 +69,7 @@ export function HoleMap({
   tee,
   aim,
   ball,
+  previousShots,
   phase = 'PLACE_BALL',
   onSetAim,
   onSetBall,
@@ -111,13 +120,18 @@ export function HoleMap({
   // (e.g. GPS deltas while standing on the tee) should not retrigger
   // setCamera — the style was reloading and the satellite tiles would flash
   // back to a black canvas every time.
+  //
+  // PLACE_BALL is flat top-down (pitch 0) — tilt only happens on the
+  // SET_AIM transition below. A tilted tee-box camera was disorienting
+  // on the device because it framed grass at an angle before the player
+  // had even decided what they were aiming at.
   useEffect(() => {
     if (cameraInitialized.current) return
     if (!cameraRef.current) return
     cameraRef.current.setCamera({
       centerCoordinate: toCoord(center),
       zoomLevel: 17,
-      pitch: 45,
+      pitch: 0,
       animationDuration: 400,
     })
     cameraInitialized.current = true
@@ -158,7 +172,7 @@ export function HoleMap({
     cameraRef.current.setCamera({
       centerCoordinate: toCoord(ball),
       zoomLevel: 17,
-      pitch: 45,
+      pitch: 0,
       heading: 0,
       animationDuration: 800,
     })
@@ -166,9 +180,14 @@ export function HoleMap({
   }, [ball?.lat, ball?.lng, phase])
 
   // SET_AIM: rotate the camera so direction-of-play (ball → pin) is
-  // toward the top of the screen, zoom out enough to see both ends of
-  // the hole, and tilt for a first-person-ish perspective. The 1.2s
-  // duration is the satisfying UX moment that signals "now aim".
+  // toward the top of the screen, zoom to fit the shot ahead, and
+  // tilt for a first-person-ish perspective. The 1.2s duration is
+  // the satisfying UX moment that signals "now aim".
+  //
+  // Zoom adapts to ball→pin distance so a 90-yd wedge frames the
+  // green tightly while a 380-yd par 5 still shows fairway + green.
+  // Fixed zoom 15 was too far out for short approaches and too close
+  // on long par 5s.
   useEffect(() => {
     if (!isAimPhase) return
     if (!cameraRef.current) return
@@ -184,9 +203,18 @@ export function HoleMap({
       ? (Math.atan2(target.lng - ball.lng, target.lat - ball.lat) * 180) /
         Math.PI
       : 0
+    const distYd = target ? distanceYards(ball, target) : null
+    const zoom =
+      distYd == null
+        ? 15
+        : distYd < 150
+          ? 16
+          : distYd <= 300
+            ? 15
+            : 14
     cameraRef.current.setCamera({
       centerCoordinate: toCoord(focus),
-      zoomLevel: 15,
+      zoomLevel: zoom,
       pitch: 30,
       heading: bearing,
       animationDuration: 1200,
@@ -230,6 +258,24 @@ export function HoleMap({
     return { lat: (ball.lat + aim.lat) / 2, lng: (ball.lng + aim.lng) / 2 }
   }, [isAimPhase, ball, aim])
 
+  // Breadcrumb line through every previous shot start, with a final
+  // segment to the current ball so the most recent leg is visible too.
+  // Filtered to require at least 2 points so the LineString geometry
+  // is valid.
+  const previousShotsLine = useMemo(() => {
+    const pts: LatLng[] = previousShots ?? []
+    const ordered = ball ? [...pts, ball] : pts
+    if (ordered.length < 2) return null
+    return {
+      type: 'Feature' as const,
+      properties: {},
+      geometry: {
+        type: 'LineString' as const,
+        coordinates: ordered.map(toCoord),
+      },
+    }
+  }, [previousShots, ball?.lat, ball?.lng])
+
   function handleTap(feature: unknown) {
     const c = extractCoord(feature)
     if (!c) return
@@ -258,9 +304,33 @@ export function HoleMap({
             defaultSettings={{
               centerCoordinate: toCoord(center),
               zoomLevel: 17,
-              pitch: 45,
+              pitch: 0,
             }}
           />
+
+          {!isPinMode && previousShotsLine && (
+            <Mapbox.ShapeSource id="prevShotsLine" shape={previousShotsLine}>
+              <Mapbox.LineLayer
+                id="prevShotsLineLayer"
+                style={{
+                  lineColor: '#A66A1F',
+                  lineWidth: 1.5,
+                  lineOpacity: 0.7,
+                }}
+              />
+            </Mapbox.ShapeSource>
+          )}
+
+          {!isPinMode &&
+            (previousShots ?? []).map((p, i) => (
+              <Mapbox.PointAnnotation
+                key={`prev-shot-${i}`}
+                id={`prev-shot-${i}`}
+                coordinate={toCoord(p)}
+              >
+                <Marker color="#A66A1F" border="#FBF8F1" size={9} />
+              </Mapbox.PointAnnotation>
+            ))}
 
           {aimLine && (
             <Mapbox.ShapeSource id="aimLine" shape={aimLine}>
@@ -282,15 +352,18 @@ export function HoleMap({
             </Mapbox.PointAnnotation>
           )}
 
-          {/* Stored hole pin: dim flag, only when no per-round pin. */}
-          {!roundPin && pin && (
+          {/* Stored hole pin: dim flag, only when no per-round pin.
+              Hidden in PIN mode so the annotation doesn't intercept the
+              tap that's supposed to place a new flag. */}
+          {!isPinMode && !roundPin && pin && (
             <Mapbox.PointAnnotation id="pin" coordinate={toCoord(pin)}>
               <Flag tone="dim" />
             </Mapbox.PointAnnotation>
           )}
 
-          {/* Per-round pin: prominent flag. */}
-          {roundPin && (
+          {/* Per-round pin: prominent flag. Hidden in PIN mode for the
+              same reason — taps need to reach the map below. */}
+          {!isPinMode && roundPin && (
             <Mapbox.PointAnnotation id="roundPin" coordinate={toCoord(roundPin)}>
               <Flag tone="strong" />
             </Mapbox.PointAnnotation>
