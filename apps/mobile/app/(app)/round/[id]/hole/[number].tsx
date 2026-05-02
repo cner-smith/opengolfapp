@@ -193,30 +193,25 @@ export default function HoleScreen() {
     if (!currentHoleScore) return
     let active = true
     ;(async () => {
-      const [shotRes, puttRes, startsRes, local] = await Promise.all([
+      // Single fetch covers shot count, putt count, and start coords —
+      // putts are derivable from (club, lie_type) so the two count
+      // queries collapse into one round trip.
+      const [shotsRes, local] = await Promise.all([
         supabase
           .from('shots')
-          .select('id', { count: 'exact', head: true })
-          .eq('hole_score_id', currentHoleScore.id),
-        supabase
-          .from('shots')
-          .select('id', { count: 'exact', head: true })
+          .select('club, lie_type, shot_number, start_lat, start_lng')
           .eq('hole_score_id', currentHoleScore.id)
-          .or('club.eq.putter,lie_type.eq.green'),
-        supabase
-          .from('shots')
-          .select('shot_number, start_lat, start_lng')
-          .eq('hole_score_id', currentHoleScore.id)
-          .not('start_lat', 'is', null)
-          .not('start_lng', 'is', null)
           .order('shot_number'),
         pendingShotsForHoleScore(currentHoleScore.id),
       ])
       if (!active) return
-      setRemoteShotCount(shotRes.count ?? 0)
-      setRemotePuttCount(puttRes.count ?? 0)
+      const shots = shotsRes.data ?? []
+      setRemoteShotCount(shots.length)
+      setRemotePuttCount(
+        shots.filter((s) => s.club === 'putter' || s.lie_type === 'green').length,
+      )
       const starts: LatLng[] = []
-      for (const r of startsRes.data ?? []) {
+      for (const r of shots) {
         if (r.start_lat != null && r.start_lng != null) {
           starts.push({ lat: r.start_lat, lng: r.start_lng })
         }
