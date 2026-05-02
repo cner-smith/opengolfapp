@@ -1,4 +1,3 @@
-import { useEffect, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   searchOpenGolfApi,
@@ -18,6 +17,7 @@ import {
 } from '@oga/supabase'
 import type { Database } from '@oga/supabase'
 import { supabase } from '../lib/supabase'
+import { useDebounce } from './useDebounce'
 
 type CourseRow = Database['public']['Tables']['courses']['Row']
 type HoleInsert = Database['public']['Tables']['holes']['Insert']
@@ -27,11 +27,7 @@ type HoleInsert = Database['public']['Tables']['holes']['Insert']
 // always surface even if OpenGolfAPI has no match. Deduped by
 // external_id and name.
 export function useCourseSearch(query: string) {
-  const [debounced, setDebounced] = useState(query)
-  useEffect(() => {
-    const id = setTimeout(() => setDebounced(query), 300)
-    return () => clearTimeout(id)
-  }, [query])
+  const debounced = useDebounce(query, 300)
 
   return useQuery({
     queryKey: ['courses', 'search', debounced],
