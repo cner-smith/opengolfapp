@@ -1,3 +1,4 @@
+import { AppState, type AppStateStatus } from 'react-native'
 import * as SQLite from 'expo-sqlite'
 import type { Database } from '@oga/supabase'
 
@@ -105,6 +106,25 @@ export async function setPendingShotEnd(
   }
   return { status: row.status, remote_id: row.remote_id }
 }
+
+// Flush WAL frames to the main DB file when the app moves to the
+// background. expo-sqlite 14 keeps writes in -wal until checkpointed,
+// and a long-running session can grow the WAL file unbounded — frames
+// are also at risk if the OS kills the process before the next implicit
+// checkpoint. PASSIVE skips when readers hold the lock so a backgrounded
+// app can't stall a foregrounded one.
+AppState.addEventListener('change', (nextState: AppStateStatus) => {
+  if (nextState !== 'background' && nextState !== 'inactive') return
+  void (async () => {
+    try {
+      const db = await getDb()
+      await db.execAsync('PRAGMA wal_checkpoint(PASSIVE);')
+    } catch (e) {
+      // eslint-disable-next-line no-console
+      console.error('[db/wal_checkpoint]', e)
+    }
+  })()
+})
 
 export async function pendingShotsForHoleScore(holeScoreId: string): Promise<PendingShot[]> {
   const db = await getDb()
