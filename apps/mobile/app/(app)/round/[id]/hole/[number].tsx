@@ -1016,6 +1016,7 @@ export default function HoleScreen() {
       </View>
 
       <ShotLogger
+        key={shotNumber}
         visible={loggerOpen}
         shotNumber={shotNumber}
         isPutt={false}

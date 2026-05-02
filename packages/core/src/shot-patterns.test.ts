@@ -97,13 +97,15 @@ describe('filterDispersionByLie', () => {
     { id: 'lf3', lateralOffsetYards: 0, distanceOffsetYards: 0, lieSlope: 'level', lieType: 'rough' },
   ]
   it('filters by slope', () => {
-    expect(filterDispersionByLie(pts, 'uphill')).toHaveLength(1)
+    expect(filterDispersionByLie(pts, { lieSlope: 'uphill' })).toHaveLength(1)
   })
   it('filters by type', () => {
-    expect(filterDispersionByLie(pts, undefined, 'fairway')).toHaveLength(2)
+    expect(filterDispersionByLie(pts, { lieType: 'fairway' })).toHaveLength(2)
   })
   it('filters by both', () => {
-    expect(filterDispersionByLie(pts, 'level', 'fairway')).toHaveLength(1)
+    expect(
+      filterDispersionByLie(pts, { lieSlope: 'level', lieType: 'fairway' }),
+    ).toHaveLength(1)
   })
 })
 

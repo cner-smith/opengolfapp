@@ -28,6 +28,7 @@ import {
 import { useAuth } from '../../hooks/useAuth'
 import { LieSlopeGrid } from '../forms/LieSlopeGrid'
 import { GreenDiagram } from '../round/GreenDiagram'
+import { ConfirmDialog } from '../ui/ConfirmDialog'
 import { useUnits } from '../../hooks/useUnits'
 
 const BREAK_OPTIONS: {
@@ -279,10 +280,13 @@ export function ShotEntryModal({
     }))
   }
 
-  async function remove(id: string) {
-    if (!confirm('Delete this shot?')) return
-    await deleteShot.mutateAsync(id)
-    if (editing === id) cancelEdit()
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null)
+
+  async function confirmDelete() {
+    if (!pendingDeleteId) return
+    await deleteShot.mutateAsync(pendingDeleteId)
+    if (editing === pendingDeleteId) cancelEdit()
+    setPendingDeleteId(null)
   }
 
   const isPutt = draft.lieType === 'green'
@@ -404,7 +408,7 @@ export function ShotEntryModal({
                       </button>
                       <button
                         type="button"
-                        onClick={() => remove(s.id)}
+                        onClick={() => setPendingDeleteId(s.id)}
                         className="font-mono uppercase text-caddie-neg"
                         style={{
                           fontSize: 10,
@@ -755,6 +759,15 @@ export function ShotEntryModal({
           </section>
         </div>
       </div>
+      <ConfirmDialog
+        open={pendingDeleteId !== null}
+        title="Delete this shot?"
+        destructive
+        confirmLabel="Delete"
+        busy={deleteShot.isPending}
+        onConfirm={confirmDelete}
+        onCancel={() => setPendingDeleteId(null)}
+      />
     </div>
   )
 }

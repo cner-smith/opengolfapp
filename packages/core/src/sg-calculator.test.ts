@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest'
 import {
-  averageSGBreakdown,
   calculateRoundSG,
   calculateShotSG,
   getExpectedStrokes,
@@ -8,7 +7,7 @@ import {
   type ShotWithContext,
 } from './sg-calculator'
 import { getHandicapBracket, interpolateBaseline } from './sg-baselines'
-import type { SGBreakdown, Shot } from './types'
+import type { Shot } from './types'
 
 function shotCtx(
   shot: Partial<Shot> & { par: number; isLastShot: boolean; shotNumber: number },
@@ -182,19 +181,3 @@ describe('calculateRoundSG', () => {
   })
 })
 
-describe('averageSGBreakdown', () => {
-  it('zeros when no rounds', () => {
-    const r = averageSGBreakdown([])
-    expect(r.total).toBe(0)
-  })
-  it('averages component-wise', () => {
-    const a: SGBreakdown = { offTee: 1, approach: 2, aroundGreen: 3, putting: 4, total: 10 }
-    const b: SGBreakdown = { offTee: 3, approach: 4, aroundGreen: 5, putting: 6, total: 18 }
-    const avg = averageSGBreakdown([a, b])
-    expect(avg.offTee).toBe(2)
-    expect(avg.approach).toBe(3)
-    expect(avg.aroundGreen).toBe(4)
-    expect(avg.putting).toBe(5)
-    expect(avg.total).toBe(14)
-  })
-})

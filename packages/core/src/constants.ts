@@ -97,39 +97,18 @@ export type Goal = (typeof GOALS)[number]
 export type Facility = (typeof FACILITIES)[number]
 export type ShotCategory = (typeof SHOT_CATEGORIES)[number]
 
-// Local types for the label maps below. BreakDirection / LegacyPuttResult
-// are mirrored in types.ts (which can't import from this file in the
-// reverse direction without a cycle); the union duplication is small
-// and locks the label maps to the exact set the DB enum allows.
-type BreakDirectionKey =
-  | 'left'
-  | 'right'
-  | 'straight'
-  | 'left_to_right'
-  | 'right_to_left'
-  | 'uphill'
-  | 'downhill'
-
+// LegacyPuttResultKey mirrors LegacyPuttResult in types.ts (which can't
+// import from this file without a cycle); the union duplication locks
+// PUTT_RESULT_LABELS to the exact set the DB enum allows. Adding a new
+// value without its label is a compile error — the previous
+// Record<string, string> typing silently rendered the raw enum value
+// when a key was missing.
 type LegacyPuttResultKey =
   | 'made'
   | 'short'
   | 'long'
   | 'missed_left'
   | 'missed_right'
-
-// Adding a new value in BREAK_DIRECTION (etc.) without adding its label
-// is now a compile error — the previous Record<string, string> typing
-// silently rendered the raw enum value when a key was missing.
-export const BREAK_DIRECTION_LABELS: Record<BreakDirectionKey, string> = {
-  left_to_right: 'L → R',
-  right_to_left: 'R → L',
-  straight: 'Straight',
-  uphill: 'Uphill',
-  downhill: 'Downhill',
-  // Legacy single-letter values from pre-split rows.
-  left: 'L → R',
-  right: 'R → L',
-}
 
 export const PUTT_RESULT_LABELS: Record<LegacyPuttResultKey, string> = {
   made: 'Made',

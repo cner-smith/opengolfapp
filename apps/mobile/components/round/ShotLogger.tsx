@@ -201,7 +201,7 @@ export function ShotLogger({
           </View>
 
           <ScrollView
-            style={{ maxHeight: 480 }}
+            style={{ maxHeight: '75%' }}
             contentContainerStyle={{ paddingTop: 14 }}
           >
             <Section title="Club">

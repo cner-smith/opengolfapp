@@ -72,8 +72,10 @@ export default function NewRound() {
   }, [query])
 
   // Capture GPS once (best-effort) so manual / API course creation can
-  // anchor hole 1 to the user's tee location.
+  // anchor hole 1 to the user's tee location. Past-round entry is
+  // historical — never prompt for location in that mode.
   useEffect(() => {
+    if (mode !== 'live') return
     if (gps.status !== 'idle') return
     setGps({ status: 'pending' })
     ;(async () => {
@@ -95,7 +97,7 @@ export default function NewRound() {
         setGps({ status: 'denied' })
       }
     })()
-  }, [gps.status])
+  }, [gps.status, mode])
 
   // Run search whenever debounced query changes.
   useEffect(() => {

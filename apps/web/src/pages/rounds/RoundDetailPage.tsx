@@ -852,11 +852,10 @@ function RoundRatingLine({
   round: RoundRow
   tees: CourseTeeRow[]
 }) {
+  const teeColor = round.tee_color?.toLowerCase()
   const tee =
     tees.find((t) => t.id === round.course_tee_id) ??
-    (round.tee_color
-      ? tees.find((t) => t.tee_color === round.tee_color!.toLowerCase())
-      : null) ??
+    (teeColor ? tees.find((t) => t.tee_color === teeColor) : null) ??
     null
   const hasRating =
     tee && tee.course_rating != null && tee.slope_rating != null

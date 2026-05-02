@@ -130,24 +130,3 @@ export function calculateRoundSG(
   return breakdown
 }
 
-export function averageSGBreakdown(rounds: SGBreakdown[]): SGBreakdown {
-  if (rounds.length === 0) return { ...EMPTY_SG }
-  const sum = rounds.reduce<SGBreakdown>(
-    (acc, r) => ({
-      offTee: acc.offTee + r.offTee,
-      approach: acc.approach + r.approach,
-      aroundGreen: acc.aroundGreen + r.aroundGreen,
-      putting: acc.putting + r.putting,
-      total: acc.total + r.total,
-    }),
-    { ...EMPTY_SG },
-  )
-  const n = rounds.length
-  return {
-    offTee: sum.offTee / n,
-    approach: sum.approach / n,
-    aroundGreen: sum.aroundGreen / n,
-    putting: sum.putting / n,
-    total: sum.total / n,
-  }
-}
