@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Text, View } from 'react-native'
 import Mapbox from '@rnmapbox/maps'
 import { Gesture, GestureDetector } from 'react-native-gesture-handler'
@@ -79,6 +79,11 @@ export function HoleMap({
   const cameraRef = useRef<Mapbox.Camera>(null)
   const mapViewRef = useRef<Mapbox.MapView>(null)
   const cameraInitialized = useRef(false)
+  // Native side fires "Source X is not in style" when a ShapeSource /
+  // LineLayer mounts before the satellite style has finished loading.
+  // Gate every source behind this flag so React never renders them
+  // before native is ready to accept them.
+  const [styleLoaded, setStyleLoaded] = useState(false)
 
   const isPinMode = phase === 'PIN'
   const isAimPhase = phase === 'SET_AIM'
@@ -105,15 +110,21 @@ export function HoleMap({
     [isAimPhase, onSetAim],
   )
 
+  // Gate the long-press gesture to SET_AIM only. Outside that phase the
+  // GestureDetector still wraps the map but no longer captures touches,
+  // which restores the PointAnnotation drag for the ball marker during
+  // PLACE_BALL — Gesture.LongPress was claiming the initial touch and
+  // the native annotation drag never fired.
   const longPress = useMemo(
     () =>
       Gesture.LongPress()
+        .enabled(isAimPhase)
         .minDuration(400)
         .onStart((event) => {
           'worklet'
           runOnJS(dropAimFromScreenPoint)(event.x, event.y)
         }),
-    [dropAimFromScreenPoint],
+    [dropAimFromScreenPoint, isAimPhase],
   )
 
   // Center the camera once on first valid coords. Subsequent center changes
@@ -276,6 +287,27 @@ export function HoleMap({
     }
   }, [previousShots, ball?.lat, ball?.lng])
 
+  // Per-segment midpoint + distance for the small labels rendered along
+  // the breadcrumb line. Excludes the trailing ball→nothing segment when
+  // ball is the only point. Only segments between fully-resolved waypoint
+  // pairs are kept (the current ball position is included as the final
+  // waypoint so the latest leg also gets a label).
+  const previousShotSegments = useMemo(() => {
+    const pts: LatLng[] = [...(previousShots ?? [])]
+    if (ball) pts.push(ball)
+    const out: { id: string; midpoint: LatLng; yards: number }[] = []
+    for (let i = 0; i < pts.length - 1; i++) {
+      const a = pts[i]!
+      const b = pts[i + 1]!
+      out.push({
+        id: `seg-${i}`,
+        midpoint: { lat: (a.lat + b.lat) / 2, lng: (a.lng + b.lng) / 2 },
+        yards: Math.round(distanceYards(a, b)),
+      })
+    }
+    return out
+  }, [previousShots, ball?.lat, ball?.lng])
+
   function handleTap(feature: unknown) {
     const c = extractCoord(feature)
     if (!c) return
@@ -298,6 +330,7 @@ export function HoleMap({
           style={{ flex: 1 }}
           styleURL={Mapbox.StyleURL.Satellite}
           onPress={handleTap}
+          onDidFinishLoadingStyle={() => setStyleLoaded(true)}
         >
           <Mapbox.Camera
             ref={cameraRef}
@@ -308,7 +341,7 @@ export function HoleMap({
             }}
           />
 
-          {!isPinMode && previousShotsLine && (
+          {styleLoaded && !isPinMode && previousShotsLine && (
             <Mapbox.ShapeSource id="prevShotsLine" shape={previousShotsLine}>
               <Mapbox.LineLayer
                 id="prevShotsLineLayer"
@@ -332,7 +365,40 @@ export function HoleMap({
               </Mapbox.PointAnnotation>
             ))}
 
-          {aimLine && (
+          {/* Small distance label between every pair of consecutive
+              waypoints on the breadcrumb. Smaller / more muted than the
+              aim distance pill so it reads as supporting info, not the
+              primary callout. */}
+          {!isPinMode &&
+            previousShotSegments.map((seg) => (
+              <Mapbox.PointAnnotation
+                key={seg.id}
+                id={seg.id}
+                coordinate={toCoord(seg.midpoint)}
+              >
+                <View
+                  style={{
+                    backgroundColor: 'rgba(28,33,28,0.65)',
+                    borderRadius: 999,
+                    paddingHorizontal: 7,
+                    paddingVertical: 2,
+                  }}
+                >
+                  <Text
+                    style={{
+                      color: '#F2EEE5',
+                      fontSize: 10,
+                      fontWeight: '500',
+                      fontVariant: ['tabular-nums'],
+                    }}
+                  >
+                    {toDisplay(seg.yards)}
+                  </Text>
+                </View>
+              </Mapbox.PointAnnotation>
+            ))}
+
+          {styleLoaded && aimLine && (
             <Mapbox.ShapeSource id="aimLine" shape={aimLine}>
               <Mapbox.LineLayer
                 id="aimLineLayer"
@@ -370,8 +436,31 @@ export function HoleMap({
           )}
 
           {isAimPhase && aim && (
-            <Mapbox.PointAnnotation id="aim" coordinate={toCoord(aim)}>
-              <Marker color="#A66A1F" border="#FBF8F1" size={12} />
+            <Mapbox.PointAnnotation
+              id="aim"
+              coordinate={toCoord(aim)}
+              draggable
+              onDrag={(e: unknown) => {
+                const c = extractCoord(e)
+                if (c) onSetAim(c)
+              }}
+              onDragEnd={(e: unknown) => {
+                const c = extractCoord(e)
+                if (c) onSetAim(c)
+              }}
+            >
+              {/* 44pt transparent hit area around the visual marker so the
+                  drag handle is comfortably reachable mid-round. */}
+              <View
+                style={{
+                  width: 44,
+                  height: 44,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <Marker color="#A66A1F" border="#FBF8F1" size={14} />
+              </View>
             </Mapbox.PointAnnotation>
           )}
 
@@ -416,7 +505,24 @@ export function HoleMap({
                 if (c) onSetBall(c)
               }}
             >
-              <Marker color="#1F3D2C" border="#FBF8F1" size={14} />
+              {/* 44pt transparent hit area so the marker is comfortable
+                  to grab one-handed — Apple HIG minimum target size.
+                  The visual marker stays small; the touchable area
+                  extends well past it. */}
+              <View
+                style={{
+                  width: 44,
+                  height: 44,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <Marker
+                  color="#1F3D2C"
+                  border="#FBF8F1"
+                  size={isPlaceBallPhase ? 18 : 14}
+                />
+              </View>
             </Mapbox.PointAnnotation>
           )}
         </Mapbox.MapView>
@@ -500,29 +606,31 @@ function Marker({ color, border, size }: MarkerProps) {
 
 // Simple flag glyph: vertical pole with a triangular cloth at the top.
 // "dim" = stored course pin (course default, may be wrong); "strong" =
-// today's actual flag position captured this round.
+// today's actual flag position captured this round. Sized large enough
+// to read at zoom 17 against satellite imagery — the previous 16x22
+// version was disappearing into the green on real device tests.
 function Flag({ tone }: { tone: 'dim' | 'strong' }) {
-  const flagColor = tone === 'strong' ? '#A33A2A' : 'rgba(163,58,42,0.6)'
-  const poleColor = tone === 'strong' ? '#FBF8F1' : 'rgba(251,248,241,0.7)'
+  const flagColor = tone === 'strong' ? '#A33A2A' : 'rgba(163,58,42,0.85)'
+  const poleColor = tone === 'strong' ? '#FBF8F1' : '#FBF8F1'
   return (
-    <View style={{ width: 16, height: 22, alignItems: 'flex-start' }}>
+    <View style={{ width: 26, height: 36, alignItems: 'flex-start' }}>
       <View
         style={{
           position: 'absolute',
-          left: 4,
+          left: 6,
           top: 0,
-          width: 2,
-          height: 22,
+          width: 3,
+          height: 36,
           backgroundColor: poleColor,
         }}
       />
       <View
         style={{
           position: 'absolute',
-          left: 6,
+          left: 9,
           top: 1,
-          width: 9,
-          height: 7,
+          width: 15,
+          height: 11,
           backgroundColor: flagColor,
           borderTopRightRadius: 1,
         }}
@@ -530,11 +638,11 @@ function Flag({ tone }: { tone: 'dim' | 'strong' }) {
       <View
         style={{
           position: 'absolute',
-          left: 3,
-          top: 21,
-          width: 4,
-          height: 2,
-          borderRadius: 1,
+          left: 4,
+          top: 33,
+          width: 7,
+          height: 3,
+          borderRadius: 1.5,
           backgroundColor: poleColor,
         }}
       />
