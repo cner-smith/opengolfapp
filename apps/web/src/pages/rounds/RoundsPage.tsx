@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useDeleteRound, useRounds } from '../../hooks/useRounds'
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
+import { toUserMessage } from '../../lib/errors'
 
 export function RoundsPage() {
   const { data: rounds, isLoading, error } = useRounds()
@@ -70,7 +71,7 @@ export function RoundsPage() {
             fontSize: 13,
           }}
         >
-          {(error as Error).message}
+          {toUserMessage(error)}
         </div>
       )}
 

@@ -23,6 +23,7 @@ import {
   getShotCategory,
   haversineYards,
 } from '@oga/core'
+import { toUserMessage } from '../../lib/errors'
 
 // Lazy-load Mapbox GL JS only when the map tab is opened. Cuts ~2 MB off
 // the initial bundle for users who never leave the scorecard.
@@ -247,7 +248,7 @@ export function RoundDetailPage() {
           fontSize: 13,
         }}
       >
-        Error: {(round.error as Error).message}
+        Error: {toUserMessage(round.error)}
       </div>
     )
   }
@@ -272,7 +273,7 @@ export function RoundDetailPage() {
         userId: user.id,
       })
     } catch (err) {
-      setCompleteError((err as Error).message)
+      setCompleteError(toUserMessage(err))
     }
   }
 
@@ -283,7 +284,7 @@ export function RoundDetailPage() {
       setConfirmDelete(false)
       navigate('/rounds')
     } catch (err) {
-      setCompleteError((err as Error).message)
+      setCompleteError(toUserMessage(err))
       setConfirmDelete(false)
     }
   }
@@ -356,7 +357,7 @@ export function RoundDetailPage() {
       setReviewOpen(false)
       setPlacedPoints([])
     } catch (err) {
-      setSaveError((err as Error).message)
+      setSaveError(toUserMessage(err))
     } finally {
       setSavingHole(false)
     }

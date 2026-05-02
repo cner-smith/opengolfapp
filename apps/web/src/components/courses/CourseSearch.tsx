@@ -5,6 +5,7 @@ import {
   useCreateManualCourse,
   useImportApiCourse,
 } from '../../hooks/useCourses'
+import { toUserMessage } from '../../lib/errors'
 
 interface CourseSearchProps {
   selectedCourseId: string | null
@@ -154,7 +155,7 @@ export function CourseSearch({ selectedCourseId, onSelect }: CourseSearchProps) 
               className="text-caddie-neg"
               style={{ padding: 14, fontSize: 12 }}
             >
-              {(search.error as Error).message}
+              {toUserMessage(search.error)}
             </div>
           )}
         </div>
@@ -162,7 +163,7 @@ export function CourseSearch({ selectedCourseId, onSelect }: CourseSearchProps) 
 
       {importApi.error && (
         <div className="text-caddie-neg" style={{ fontSize: 12 }}>
-          {(importApi.error as Error).message}
+          {toUserMessage(importApi.error)}
         </div>
       )}
 
@@ -411,7 +412,7 @@ function ManualCourseForm({
 
       {create.error && (
         <div className="text-caddie-neg" style={{ fontSize: 12 }}>
-          {(create.error as Error).message}
+          {toUserMessage(create.error)}
         </div>
       )}
 
