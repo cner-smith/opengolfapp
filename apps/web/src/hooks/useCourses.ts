@@ -43,10 +43,10 @@ export function useCourseSearch(query: string) {
       ])
       const apiHits: OpenGolfApiSearchResult[] =
         api.status === 'fulfilled' ? api.value : []
-      // searchCourses now returns the narrow column subset (mapbox_id /
-      // created_by / created_at dropped). Cast via unknown to the wider
-      // CourseRow so consumers that pick up a course from this list and
-      // pass it around with the full row type still typecheck.
+      // searchCourses now returns the narrow column subset (created_by /
+      // created_at dropped). Cast via unknown to the wider CourseRow so
+      // consumers that pick up a course from this list and pass it around
+      // with the full row type still typecheck.
       const localRows: CourseRow[] =
         local.status === 'fulfilled'
           ? ((local.value.data ?? []) as unknown as CourseRow[])
