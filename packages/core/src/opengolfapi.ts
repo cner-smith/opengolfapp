@@ -124,9 +124,8 @@ function normalizeTees(raws: RawTee[] | undefined): OpenGolfApiTee[] {
 function pickHoles(raw: RawCourse): RawHole[] {
   if (Array.isArray(raw.holes) && raw.holes.length) return raw.holes
   if (Array.isArray(raw.scorecard) && raw.scorecard.length) return raw.scorecard
-  if (Array.isArray(raw.tees) && raw.tees[0]?.holes?.length) {
-    return raw.tees[0]!.holes!
-  }
+  const firstTeeHoles = raw.tees?.[0]?.holes
+  if (Array.isArray(firstTeeHoles) && firstTeeHoles.length) return firstTeeHoles
   return []
 }
 
@@ -187,12 +186,12 @@ export async function searchOpenGolfApi(
     `/courses/search?q=${encodeURIComponent(trimmed)}`,
     signal,
   )) as { results?: RawCourse[]; data?: RawCourse[] } | RawCourse[]
-  const results = Array.isArray(data)
+  const results: RawCourse[] = Array.isArray(data)
     ? data
-    : Array.isArray((data as { results?: RawCourse[] }).results)
-      ? (data as { results?: RawCourse[] }).results!
-      : Array.isArray((data as { data?: RawCourse[] }).data)
-        ? (data as { data?: RawCourse[] }).data!
+    : Array.isArray(data.results)
+      ? data.results
+      : Array.isArray(data.data)
+        ? data.data
         : []
   return results
     .map(normalizeSearch)
