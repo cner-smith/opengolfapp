@@ -1,13 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import {
-  averageSGBreakdown,
   calculateRoundSG,
   calculateShotSG,
   getExpectedStrokes,
   type ShotWithContext,
 } from '../sg-calculator'
 import { computeRoundSG } from '../sg'
-import type { SGBreakdown, Shot } from '../types'
+import type { Shot } from '../types'
 import type { Database } from '@oga/supabase'
 
 type HoleRow = Database['public']['Tables']['holes']['Row']
@@ -64,32 +63,6 @@ describe('getExpectedStrokes — direct', () => {
   it('clamps to bracket — handicap 50 reads from the 30-bracket table', () => {
     // High handicap clamps to bracket 30. From 150 yd that's 5.01.
     expect(getExpectedStrokes('approach', 150, undefined, 50)).toBe(5.01)
-  })
-})
-
-describe('averageSGBreakdown', () => {
-  const r1: SGBreakdown = { offTee: 1.0, approach: 0.5, aroundGreen: 0.0, putting: -0.5, total: 1.0 }
-  const r2: SGBreakdown = { offTee: -1.0, approach: -0.5, aroundGreen: 0.0, putting: 0.5, total: -1.0 }
-
-  it('averages each category over multiple rounds', () => {
-    const avg = averageSGBreakdown([r1, r2])
-    expect(avg.offTee).toBe(0)
-    expect(avg.approach).toBe(0)
-    expect(avg.putting).toBe(0)
-    expect(avg.total).toBe(0)
-  })
-
-  it('empty input returns zero breakdown — not NaN', () => {
-    const avg = averageSGBreakdown([])
-    expect(avg.offTee).toBe(0)
-    expect(avg.approach).toBe(0)
-    expect(avg.aroundGreen).toBe(0)
-    expect(avg.putting).toBe(0)
-    expect(avg.total).toBe(0)
-  })
-
-  it('single round returns its own breakdown', () => {
-    expect(averageSGBreakdown([r1])).toEqual(r1)
   })
 })
 

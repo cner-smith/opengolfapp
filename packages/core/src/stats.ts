@@ -747,4 +747,3 @@ export function computeDetailedStats(
 
 // Re-export so consumers can import the shape constants.
 export const APPROACH_BAND_KEYS = APPROACH_BANDS.map((b) => b.key)
-export type { ShotCategory }
