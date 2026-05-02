@@ -35,15 +35,15 @@ describe('createKalmanState', () => {
 
 describe('updateKalman', () => {
   it('falls back to 5 m default measurement noise when accuracy missing', () => {
-    // With state variance 0 and no accuracy on the new reading,
-    // predicted variance = Q*dt = 3, R = 25, gain = 3/28 ≈ 0.107.
-    // New point is 1 m east; updated lng should land close to gain·1m.
-    const state = createKalmanState({ lat: OKC.lat, lng: OKC.lng, accuracy: 0 })
+    // State seeded without accuracy → variance = DEFAULT_INIT (49).
+    // Update with no accuracy on the reading → R = DEFAULT (25).
+    // dt = 1, Q = 3 → predV = 52, K = 52 / 77.
+    const state = createKalmanState({ lat: OKC.lat, lng: OKC.lng })
     const next = updateKalman(state, {
       lat: OKC.lat,
       lng: OKC.lng + METRE_LNG,
     })
-    const expectedGain = 3 / (3 + 25)
+    const expectedGain = 52 / (52 + 25)
     const drift = (next.lng - OKC.lng) / METRE_LNG
     expect(drift).toBeCloseTo(expectedGain, 4)
   })
@@ -99,27 +99,39 @@ describe('smoothGPSTrack', () => {
     expect(out[0]?.lng).toBe(OKC.lng)
   })
 
-  it('noisy readings around a true position converge toward truth', () => {
-    // Deterministic alternating noise around (OKC.lat, OKC.lng): each
-    // reading is offset by ±5 m on each axis. Mean is exactly the
-    // true point, so the smoothed track should drift toward it.
-    const noisy: GPSPoint[] = []
-    const offsets = [+5, -5, +5, -5, +5, -5, +5, -5, +5, -5, +5, -5]
-    for (let i = 0; i < offsets.length; i++) {
-      const off = offsets[i]!
-      noisy.push({
-        lat: OKC.lat + METRE_LAT * off,
-        lng: OKC.lng + METRE_LNG * off,
-        accuracy: 5,
-        timestamp: i * 1000,
-      })
-    }
+  it('smoothed RMSE beats raw RMSE by at least 30%, last point within 1.5 m', () => {
+    // Deterministic zero-mean noise sequence (sums to 0). With Q=3,
+    // R=25 the steady-state Kalman gain is ~0.3, so the filter
+    // attenuates noise meaningfully. RMSE comparison is the right
+    // measure here — the prior "last smoothed closer than last raw"
+    // assertion passed for trivial reasons whenever the final raw
+    // point happened to be far from truth.
+    const offsetsM = [3, -2, 4, -3, 2, -4, 3, -1, 1, -3]
+    const noisy: GPSPoint[] = offsetsM.map((m, i) => ({
+      lat: OKC.lat + METRE_LAT * m,
+      lng: OKC.lng + METRE_LNG * m,
+      accuracy: 5,
+      timestamp: i * 1000,
+    }))
     const smoothed = smoothGPSTrack(noisy)
+
+    const rmseMetres = (track: GPSPoint[]): number => {
+      let sum = 0
+      for (const p of track) {
+        // Yards via haversine, converted back to metres.
+        const distMetres = haversineYards(OKC.lat, OKC.lng, p.lat, p.lng) / 1.09361
+        sum += distMetres * distMetres
+      }
+      return Math.sqrt(sum / track.length)
+    }
+
+    const rawRmse = rmseMetres(noisy)
+    const smoothedRmse = rmseMetres(smoothed)
+    expect(smoothedRmse).toBeLessThan(rawRmse * 0.7)
+
     const last = smoothed[smoothed.length - 1]!
-    const lastRaw = noisy[noisy.length - 1]!
-    const lastRawDist = haversineYards(OKC.lat, OKC.lng, lastRaw.lat, lastRaw.lng)
-    const lastSmoothedDist = haversineYards(OKC.lat, OKC.lng, last.lat, last.lng)
-    expect(lastSmoothedDist).toBeLessThan(lastRawDist)
+    const lastDistMetres = haversineYards(OKC.lat, OKC.lng, last.lat, last.lng) / 1.09361
+    expect(lastDistMetres).toBeLessThan(1.5)
   })
 
   it('smoothed straight-line walk has lower point-to-point variance than raw', () => {
@@ -153,3 +165,87 @@ function pointToPointVarianceMetres(points: GPSPoint[]): number {
   }
   return sum
 }
+
+describe('edge cases', () => {
+  it('accuracy:0 falls back to default initial variance, filter does not collapse', () => {
+    // Some Android GPS states report accuracy 0. Without the floor
+    // this would seed variance=0 → K=1 → filter ignores every prior
+    // and just passes raw readings through. Floor must reject 0.
+    const s = createKalmanState({ lat: OKC.lat, lng: OKC.lng, accuracy: 0 })
+    expect(s.variance).toBe(49)
+  })
+
+  it('updateKalman with accuracy:0 falls back to default R=25, not R=0', () => {
+    const state = createKalmanState({ lat: OKC.lat, lng: OKC.lng, accuracy: 5 })
+    const next = updateKalman(state, {
+      lat: OKC.lat,
+      lng: OKC.lng + METRE_LNG,
+      accuracy: 0,
+    })
+    // With state variance 25, predV = 28, R fallback = 25, K = 28/53.
+    // If R=0 leaked through, K=1 and drift would be exactly 1.0.
+    const drift = (next.lng - OKC.lng) / METRE_LNG
+    expect(drift).toBeCloseTo(28 / 53, 4)
+  })
+
+  it('accuracy:NaN treated as missing, uses default R', () => {
+    const state = createKalmanState({ lat: OKC.lat, lng: OKC.lng, accuracy: 5 })
+    const next = updateKalman(state, {
+      lat: OKC.lat,
+      lng: OKC.lng + METRE_LNG,
+      accuracy: NaN,
+    })
+    expect(Number.isFinite(next.lat)).toBe(true)
+    expect(Number.isFinite(next.lng)).toBe(true)
+    expect(Number.isFinite(next.variance)).toBe(true)
+    const drift = (next.lng - OKC.lng) / METRE_LNG
+    expect(drift).toBeCloseTo(28 / 53, 4)
+  })
+
+  it('reading with NaN lat is ignored, state unchanged', () => {
+    const state = createKalmanState({ lat: OKC.lat, lng: OKC.lng, accuracy: 5 })
+    const next = updateKalman(state, { lat: NaN, lng: OKC.lng, accuracy: 5 })
+    expect(next).toBe(state)
+  })
+
+  it('reading with NaN lng is ignored, state unchanged', () => {
+    const state = createKalmanState({ lat: OKC.lat, lng: OKC.lng, accuracy: 5 })
+    const next = updateKalman(state, { lat: OKC.lat, lng: NaN, accuracy: 5 })
+    expect(next).toBe(state)
+  })
+
+  it('backward timestamp clamps dt to 0, filter freezes gracefully', () => {
+    // dt < 0 must not push variance backward. Math.max(0, …) clamps
+    // dt to 0 → Q*dt = 0 → predV = state.variance. With identical
+    // accuracy on state and reading, K reduces to var/(var+R).
+    const state = createKalmanState({
+      lat: OKC.lat,
+      lng: OKC.lng,
+      accuracy: 5,
+      timestamp: 5000,
+    })
+    const next = updateKalman(state, {
+      lat: OKC.lat,
+      lng: OKC.lng + METRE_LNG,
+      accuracy: 5,
+      timestamp: 1000,
+    })
+    expect(Number.isFinite(next.variance)).toBe(true)
+    expect(next.variance).toBeGreaterThan(0)
+    // Predicted variance = state.variance (25) + 0 = 25; K = 25/50.
+    const drift = (next.lng - OKC.lng) / METRE_LNG
+    expect(drift).toBeCloseTo(0.5, 4)
+  })
+
+  it('createKalmanState with NaN lat throws descriptive error', () => {
+    expect(() =>
+      createKalmanState({ lat: NaN, lng: OKC.lng, accuracy: 5 }),
+    ).toThrow(/lat and lng must be finite/)
+  })
+
+  it('createKalmanState with NaN lng throws descriptive error', () => {
+    expect(() =>
+      createKalmanState({ lat: OKC.lat, lng: NaN, accuracy: 5 }),
+    ).toThrow(/lat and lng must be finite/)
+  })
+})
