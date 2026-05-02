@@ -43,7 +43,21 @@ const DEFAULT_MEASUREMENT_VARIANCE = 25
 const DEFAULT_PROCESS_NOISE = 3
 
 export function createKalmanState(point: GPSPoint): KalmanState {
-  const variance = point.accuracy != null ? point.accuracy ** 2 : DEFAULT_INIT_VARIANCE
+  // Refuse to seed from a malformed coordinate. NaN here would
+  // permanently corrupt every subsequent updateKalman result, so fail
+  // loud at the boundary rather than silently produce NaN positions.
+  if (!Number.isFinite(point.lat) || !Number.isFinite(point.lng)) {
+    throw new Error('createKalmanState: lat and lng must be finite numbers')
+  }
+  // accuracy must be a finite, positive number to be meaningful. A
+  // reported 0 (some Android GPS states) would seed the filter with
+  // zero variance and cause it to ignore every subsequent reading;
+  // NaN would propagate. Either case falls back to the 7 m default.
+  const safeAccuracy =
+    point.accuracy != null && Number.isFinite(point.accuracy) && point.accuracy > 0
+      ? point.accuracy
+      : null
+  const variance = safeAccuracy != null ? safeAccuracy ** 2 : DEFAULT_INIT_VARIANCE
   return {
     lat: point.lat,
     lng: point.lng,
@@ -61,6 +75,11 @@ export function updateKalman(
   point: GPSPoint,
   options?: KalmanOptions,
 ): KalmanState {
+  // Drop corrupt readings outright — a single NaN measurement would
+  // poison the filter for the rest of the session.
+  if (!Number.isFinite(point.lat) || !Number.isFinite(point.lng)) {
+    return state
+  }
   const Q = options?.processNoise ?? DEFAULT_PROCESS_NOISE
   const dt =
     point.timestamp != null && state.timestamp != null
@@ -68,7 +87,13 @@ export function updateKalman(
       : 1
 
   const predictedVariance = state.variance + Q * dt
-  const R = point.accuracy != null ? point.accuracy ** 2 : DEFAULT_MEASUREMENT_VARIANCE
+  // Same accuracy guard as createKalmanState — accuracy:0 would set
+  // R=0 and force K=1 (raw passthrough); NaN would propagate.
+  const safeAccuracy =
+    point.accuracy != null && Number.isFinite(point.accuracy) && point.accuracy > 0
+      ? point.accuracy
+      : null
+  const R = safeAccuracy != null ? safeAccuracy ** 2 : DEFAULT_MEASUREMENT_VARIANCE
   const K = predictedVariance / (predictedVariance + R)
 
   return {

@@ -35,15 +35,15 @@ describe('createKalmanState', () => {
 
 describe('updateKalman', () => {
   it('falls back to 5 m default measurement noise when accuracy missing', () => {
-    // With state variance 0 and no accuracy on the new reading,
-    // predicted variance = Q*dt = 3, R = 25, gain = 3/28 ≈ 0.107.
-    // New point is 1 m east; updated lng should land close to gain·1m.
-    const state = createKalmanState({ lat: OKC.lat, lng: OKC.lng, accuracy: 0 })
+    // State seeded without accuracy → variance = DEFAULT_INIT (49).
+    // Update with no accuracy on the reading → R = DEFAULT (25).
+    // dt = 1, Q = 3 → predV = 52, K = 52 / 77.
+    const state = createKalmanState({ lat: OKC.lat, lng: OKC.lng })
     const next = updateKalman(state, {
       lat: OKC.lat,
       lng: OKC.lng + METRE_LNG,
     })
-    const expectedGain = 3 / (3 + 25)
+    const expectedGain = 52 / (52 + 25)
     const drift = (next.lng - OKC.lng) / METRE_LNG
     expect(drift).toBeCloseTo(expectedGain, 4)
   })
