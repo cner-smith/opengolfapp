@@ -377,7 +377,7 @@ export function ShotEntryModal({
                       >
                         {s.club ?? '—'}
                         {s.lie_type
-                          ? ` · ${LIE_TYPE_LABELS[s.lie_type] ?? s.lie_type}`
+                          ? ` · ${LIE_TYPE_LABELS[s.lie_type as LieType] ?? s.lie_type}`
                           : ''}
                       </div>
                       <div
@@ -764,7 +764,8 @@ export function ShotEntryModal({
 function formatShotSummary(s: ShotRow): string {
   if (s.lie_type === 'green' || s.club === 'putter') {
     const result =
-      (s.putt_result && PUTT_RESULT_LABELS[s.putt_result]) ??
+      (s.putt_result &&
+        PUTT_RESULT_LABELS[s.putt_result as keyof typeof PUTT_RESULT_LABELS]) ??
       s.putt_result ??
       null
     const distance =
@@ -773,7 +774,7 @@ function formatShotSummary(s: ShotRow): string {
     return parts.length ? parts.join(' · ') : '—'
   }
   if (s.shot_result) {
-    return SHOT_RESULT_LABELS[s.shot_result] ?? s.shot_result
+    return SHOT_RESULT_LABELS[s.shot_result as ShotResult] ?? s.shot_result
   }
   return '—'
 }
