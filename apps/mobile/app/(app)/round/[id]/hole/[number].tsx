@@ -110,6 +110,12 @@ export default function HoleScreen() {
   // the entire screen at GPS cadence (1-2 Hz). Reset on hole change,
   // manual drag, or when leaving PLACE_BALL — see useEffect below.
   const kalmanStateRef = useRef<KalmanState | null>(null)
+  // Set true the moment the player manually drags or taps the ball;
+  // freezes the GPS callback's setBall so the next reading can't
+  // clobber the manual placement. Cleared on hole change and on
+  // PLACE_BALL phase exit (so the next shot's PLACE_BALL re-engages
+  // GPS auto-tracking).
+  const manuallyPlacedRef = useRef(false)
   // local_id of the just-saved pending shot, so the next PLACE_BALL
   // can fill in that shot's end_lat/end_lng with the new ball position.
   const lastSavedShotLocalIdRef = useRef<number | null>(null)
@@ -275,6 +281,11 @@ export default function HoleScreen() {
             distanceInterval: 2,
           },
           (loc) => {
+            // Manual placement freezes GPS-driven ball updates. Without
+            // this, the next reading after a drag would re-init the
+            // filter at the raw GPS point and snap ball back, wiping
+            // the player's refinement.
+            if (manuallyPlacedRef.current) return
             const rawPoint = {
               lat: loc.coords.latitude,
               lng: loc.coords.longitude,
@@ -301,8 +312,11 @@ export default function HoleScreen() {
       subscription?.remove()
       // Phase exit clears the filter so re-entry to PLACE_BALL on the
       // next shot starts smoothing from a fresh fix rather than an
-      // old anchor that may now be hundreds of yards away.
+      // old anchor that may now be hundreds of yards away. Also clears
+      // the manual-placement freeze so the next PLACE_BALL cycle
+      // resumes GPS auto-tracking unless the player drags again.
       kalmanStateRef.current = null
+      manuallyPlacedRef.current = false
     }
   }, [currentHole?.id, isPastMode, roundState])
 
@@ -311,6 +325,7 @@ export default function HoleScreen() {
   // (past mode, or no current hole) before subscribing.
   useEffect(() => {
     kalmanStateRef.current = null
+    manuallyPlacedRef.current = false
   }, [currentHole?.id])
 
   // Highlight "On the green" once the player is within 80 yd of the stored
@@ -806,10 +821,17 @@ export default function HoleScreen() {
           }
           onSetAim={setAim}
           onSetBall={(loc) => {
-            // Manual drag/tap is an explicit override — drop the
-            // filter so the next GPS reading starts smoothing from
-            // the new anchor rather than the prior auto-tracked spot.
-            kalmanStateRef.current = null
+            // Manual drag/tap is an explicit override. Freeze GPS
+            // updates for this PLACE_BALL cycle and re-anchor the
+            // Kalman filter at the manual point with a low variance
+            // (1 m²) — strong prior so any future un-freeze still
+            // resists snapping back to a noisy raw fix.
+            manuallyPlacedRef.current = true
+            kalmanStateRef.current = {
+              lat: loc.lat,
+              lng: loc.lng,
+              variance: 1,
+            }
             setBall(loc)
           }}
           onPlacePin={persistRoundPin}
