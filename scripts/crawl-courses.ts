@@ -309,6 +309,49 @@ async function fetchJson(url: string): Promise<unknown> {
   return res.json()
 }
 
+// Enrichment-path fetch. Never throws — returns null when the request can't be
+// recovered. Handles 429 (Retry-After-style sleep), 404 (silent miss), and one
+// retry on transient HTTP / network errors.
+async function fetchJsonResilient(
+  url: string,
+  label: string,
+): Promise<unknown | null> {
+  let failedAttempts = 0
+  const MAX_ATTEMPTS = 2
+  while (true) {
+    try {
+      const res = await fetch(url, { headers: { Accept: 'application/json' } })
+      if (res.status === 429) {
+        console.warn(`[${label}] Rate limited — waiting 30s`)
+        await sleep(30000)
+        continue
+      }
+      if (res.status === 404) return null
+      if (!res.ok) {
+        failedAttempts++
+        if (failedAttempts < MAX_ATTEMPTS) {
+          console.warn(`[${label}] HTTP ${res.status} — retrying in 5s: ${url}`)
+          await sleep(5000)
+          continue
+        }
+        console.warn(`[${label}] HTTP ${res.status} — giving up: ${url}`)
+        return null
+      }
+      return await res.json()
+    } catch (err) {
+      failedAttempts++
+      const msg = (err as Error).message
+      if (failedAttempts < MAX_ATTEMPTS) {
+        console.warn(`[${label}] ${msg} — retrying in 5s`)
+        await sleep(5000)
+        continue
+      }
+      console.warn(`[${label}] ${msg} — giving up`)
+      return null
+    }
+  }
+}
+
 function pickArray(payload: unknown): RawCourse[] {
   if (Array.isArray(payload)) return payload as RawCourse[]
   if (payload && typeof payload === 'object') {
@@ -929,12 +972,16 @@ const MATCH_THRESHOLD = 0.7
 
 // Look up the OpenGolfAPI course that best matches `name` within `state`.
 // Returns the full detail (with tees) if a confident match is found.
+// Uses resilient fetcher — never throws on transient network/HTTP errors.
 async function findOgaMatchForCourse(
   name: string,
   state: string,
+  label: string,
+  interReqDelayMs: number,
 ): Promise<OgaCourseDetail | null> {
-  const url = `${OPENGOLFAPI_BASE}/courses/search?q=${encodeURIComponent(name)}&state=${encodeURIComponent(state)}`
-  const payload = await fetchJson(url)
+  const searchUrl = `${OPENGOLFAPI_BASE}/courses/search?q=${encodeURIComponent(name)}&state=${encodeURIComponent(state)}`
+  const payload = await fetchJsonResilient(searchUrl, label)
+  if (!payload) return null
   const raws = pickArray(payload)
   let best: { item: OgaListItem; score: number } | null = null
   for (const raw of raws) {
@@ -947,8 +994,25 @@ async function findOgaMatchForCourse(
     if (score > (best?.score ?? 0)) best = { item, score }
   }
   if (!best || best.score < MATCH_THRESHOLD) return null
-  await sleep(OPENGOLFAPI_DELAY_MS)
-  return fetchOgaCourseDetail(best.item.id)
+  await sleep(interReqDelayMs)
+  const detailUrl = `${OPENGOLFAPI_BASE}/courses/${encodeURIComponent(best.item.id)}`
+  const detailPayload = await fetchJsonResilient(detailUrl, label)
+  if (!detailPayload) return null
+  let raw: RawCourse | null = null
+  if (Array.isArray(detailPayload)) {
+    raw = (detailPayload[0] ?? null) as RawCourse | null
+  } else if (detailPayload && typeof detailPayload === 'object') {
+    const obj = detailPayload as { course?: unknown; data?: unknown }
+    if (obj.course && typeof obj.course === 'object') {
+      raw = obj.course as RawCourse
+    } else if (obj.data && typeof obj.data === 'object' && !Array.isArray(obj.data)) {
+      raw = obj.data as RawCourse
+    } else {
+      raw = detailPayload as RawCourse
+    }
+  }
+  if (!raw) return null
+  return normalizeDetail(raw)
 }
 
 interface CourseRowMin {
@@ -992,7 +1056,12 @@ async function crawlEnrich(
       if (coursesErr) throw coursesErr
       const courses = (courseRows ?? []) as CourseRowMin[]
       const targets = limit != null ? courses.slice(0, limit) : courses
-      console.log(`[enrich:${state}] ${targets.length} OSM course(s) to consider`)
+      // Big states have hit OpenGolfAPI rate limits with the default 1100ms
+      // cadence — bump to 2000ms when there's >200 to grind through.
+      const perReqDelay = targets.length > 200 ? 2000 : OPENGOLFAPI_DELAY_MS
+      console.log(
+        `[enrich:${state}] ${targets.length} OSM course(s) to consider (delay ${perReqDelay}ms)`,
+      )
 
       // Bulk-fetch existing tees so we can skip already-enriched courses
       // without one round-trip per course.
@@ -1017,12 +1086,17 @@ async function crawlEnrich(
           continue
         }
         try {
-          const match = await findOgaMatchForCourse(course.name, state)
+          const match = await findOgaMatchForCourse(
+            course.name,
+            state,
+            `enrich:${state}`,
+            perReqDelay,
+          )
           stateProcessed++
           if (!match) {
             stateUnmatched++
             totalUnmatched++
-            await sleep(OPENGOLFAPI_DELAY_MS)
+            await sleep(perReqDelay)
             continue
           }
           if (match.tees.length > 0) {
@@ -1054,7 +1128,7 @@ async function crawlEnrich(
             `[enrich:${state}] ${course.name}: ${(err as Error).message}`,
           )
         }
-        await sleep(OPENGOLFAPI_DELAY_MS)
+        await sleep(perReqDelay)
       }
 
       await setCrawlState(crawlId, {
