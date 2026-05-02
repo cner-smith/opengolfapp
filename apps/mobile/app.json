@@ -40,7 +40,8 @@
           "RNMapboxMapsImpl": "mapbox"
         }
       ],
-      "expo-font"
+      "expo-font",
+      "expo-secure-store"
     ],
     "experiments": {
       "typedRoutes": true
