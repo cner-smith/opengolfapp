@@ -116,6 +116,7 @@ export default function HoleScreen() {
   const [gpsPosition, setGpsPosition] = useState<LatLng | null>(null)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [scorecardOpen, setScorecardOpen] = useState(false)
 
   const currentHole = useMemo(
     () => holes.find((h) => h.number === holeNumber) ?? null,
@@ -581,6 +582,22 @@ export default function HoleScreen() {
     router.replace(`/(app)/round/${id}/hole/${next}`)
   }
 
+  // "Finish hole" advances to the next hole. The hole_score row's
+  // score/putts are already updated optimistically each time persistShot
+  // runs, so this is just navigation — no extra DB write needed. On hole
+  // 18 we jump back to the home screen where the just-completed round
+  // appears at the top of the recent-rounds list.
+  function finishHole() {
+    if (holeNumber < 18) {
+      router.replace(`/(app)/round/${id}/hole/${holeNumber + 1}`)
+    } else {
+      router.replace('/(app)')
+    }
+  }
+
+  const totalShotsThisHole =
+    remoteShotCount + localShotCount > 0 ? remoteShotCount + localShotCount : 0
+
   async function handleDeleteRound() {
     if (!round || !user) return
     setDeleting(true)
@@ -871,6 +888,30 @@ export default function HoleScreen() {
                     : 'On the green'}
               </Text>
             </Pressable>
+            {totalShotsThisHole > 0 && (
+              <Pressable
+                onPress={finishHole}
+                style={{
+                  borderWidth: 1,
+                  borderColor: '#1F3D2C',
+                  paddingVertical: 12,
+                  alignItems: 'center',
+                  marginBottom: 10,
+                  borderRadius: 2,
+                }}
+              >
+                <Text
+                  style={{
+                    color: '#1F3D2C',
+                    fontSize: 13,
+                    fontWeight: '600',
+                    letterSpacing: 0.3,
+                  }}
+                >
+                  {holeNumber < 18 ? `Finish hole · next →` : 'Finish round'}
+                </Text>
+              </Pressable>
+            )}
           </>
         )}
         <View
@@ -894,13 +935,17 @@ export default function HoleScreen() {
           >
             <Text style={{ fontSize: 12, color: '#1C211C' }}>← Prev</Text>
           </Pressable>
-          <View style={{ flex: 1 }}>
+          <Pressable
+            onPress={() => setScorecardOpen(true)}
+            style={{ flex: 1 }}
+            accessibilityLabel="Open scorecard"
+          >
             <ScorecardPreview
               holes={holes}
               holeScores={holeScores}
               currentHoleNumber={holeNumber}
             />
-          </View>
+          </Pressable>
           <Pressable
             onPress={() => navigateHole(1)}
             disabled={holeNumber === 18}
@@ -964,6 +1009,270 @@ export default function HoleScreen() {
         onConfirm={handleDeleteRound}
         onCancel={() => setConfirmDelete(false)}
       />
+
+      <Modal
+        visible={scorecardOpen}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setScorecardOpen(false)}
+      >
+        <ScorecardModal
+          holes={holes}
+          holeScores={holeScores}
+          currentHoleNumber={holeNumber}
+          onJumpToHole={(n) => {
+            setScorecardOpen(false)
+            if (n !== holeNumber) {
+              router.replace(`/(app)/round/${id}/hole/${n}`)
+            }
+          }}
+          onClose={() => setScorecardOpen(false)}
+        />
+      </Modal>
+    </View>
+  )
+}
+
+function ScorecardModal({
+  holes,
+  holeScores,
+  currentHoleNumber,
+  onJumpToHole,
+  onClose,
+}: {
+  holes: HoleRow[]
+  holeScores: HoleScoreRow[]
+  currentHoleNumber: number
+  onJumpToHole: (n: number) => void
+  onClose: () => void
+}) {
+  const scoresByHoleId = useMemo(
+    () => new Map(holeScores.map((hs) => [hs.hole_id, hs])),
+    [holeScores],
+  )
+  const sorted = useMemo(
+    () => [...holes].sort((a, b) => a.number - b.number),
+    [holes],
+  )
+  let runningTotal = 0
+  let runningPar = 0
+  return (
+    <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)' }}>
+      <Pressable style={{ flex: 1 }} onPress={onClose} />
+      <View
+        style={{
+          backgroundColor: '#FBF8F1',
+          borderTopLeftRadius: 12,
+          borderTopRightRadius: 12,
+          paddingHorizontal: 18,
+          paddingTop: 14,
+          paddingBottom: 28,
+          maxHeight: '85%',
+        }}
+      >
+        <View
+          style={{
+            alignSelf: 'center',
+            width: 32,
+            height: 4,
+            borderRadius: 2,
+            backgroundColor: '#D9D2BF',
+            marginBottom: 14,
+          }}
+        />
+        <Text
+          style={{
+            ...KICKER,
+            color: '#8A8B7E',
+            marginBottom: 6,
+          }}
+        >
+          Scorecard
+        </Text>
+        <ScrollView
+          style={{ maxHeight: '90%' }}
+          showsVerticalScrollIndicator={false}
+        >
+          <View
+            style={{
+              flexDirection: 'row',
+              paddingVertical: 8,
+              borderBottomWidth: 1,
+              borderColor: '#D9D2BF',
+            }}
+          >
+            <Text style={{ ...KICKER, flex: 1, color: '#8A8B7E' }}>Hole</Text>
+            <Text
+              style={{ ...KICKER, width: 44, textAlign: 'right', color: '#8A8B7E' }}
+            >
+              Par
+            </Text>
+            <Text
+              style={{ ...KICKER, width: 56, textAlign: 'right', color: '#8A8B7E' }}
+            >
+              Score
+            </Text>
+            <Text
+              style={{ ...KICKER, width: 56, textAlign: 'right', color: '#8A8B7E' }}
+            >
+              +/−
+            </Text>
+          </View>
+          {sorted.map((h) => {
+            const hs = scoresByHoleId.get(h.id)
+            const score = hs?.score ?? null
+            if (score != null) {
+              runningTotal += score
+              runningPar += h.par
+            }
+            const diff = score != null ? score - h.par : null
+            const active = h.number === currentHoleNumber
+            return (
+              <Pressable
+                key={h.id}
+                onPress={() => onJumpToHole(h.number)}
+                style={{
+                  flexDirection: 'row',
+                  paddingVertical: 10,
+                  borderBottomWidth: 1,
+                  borderColor: '#EBE5D6',
+                  backgroundColor: active ? '#EBE5D6' : 'transparent',
+                  paddingHorizontal: 6,
+                  borderRadius: 2,
+                }}
+              >
+                <Text
+                  style={{
+                    flex: 1,
+                    fontSize: 15,
+                    color: '#1C211C',
+                    fontWeight: active ? '600' : '400',
+                  }}
+                >
+                  {h.number}
+                </Text>
+                <Text
+                  style={{
+                    width: 44,
+                    textAlign: 'right',
+                    fontSize: 15,
+                    color: '#5C6356',
+                    fontVariant: ['tabular-nums'],
+                  }}
+                >
+                  {h.par}
+                </Text>
+                <Text
+                  style={{
+                    width: 56,
+                    textAlign: 'right',
+                    fontSize: 15,
+                    color: score != null ? '#1C211C' : '#8A8B7E',
+                    fontVariant: ['tabular-nums'],
+                    fontWeight: '500',
+                  }}
+                >
+                  {score ?? '—'}
+                </Text>
+                <Text
+                  style={{
+                    width: 56,
+                    textAlign: 'right',
+                    fontSize: 15,
+                    color:
+                      diff == null
+                        ? '#8A8B7E'
+                        : diff < 0
+                          ? '#1F3D2C'
+                          : diff > 0
+                            ? '#A33A2A'
+                            : '#5C6356',
+                    fontVariant: ['tabular-nums'],
+                  }}
+                >
+                  {diff == null ? '—' : diff === 0 ? 'E' : diff > 0 ? `+${diff}` : `${diff}`}
+                </Text>
+              </Pressable>
+            )
+          })}
+          <View
+            style={{
+              flexDirection: 'row',
+              paddingVertical: 12,
+              borderTopWidth: 1,
+              borderColor: '#9F9580',
+              marginTop: 4,
+              paddingHorizontal: 6,
+            }}
+          >
+            <Text style={{ flex: 1, fontSize: 14, fontWeight: '600', color: '#1C211C' }}>
+              Total played
+            </Text>
+            <Text
+              style={{
+                width: 44,
+                textAlign: 'right',
+                fontSize: 14,
+                fontWeight: '600',
+                color: '#1C211C',
+                fontVariant: ['tabular-nums'],
+              }}
+            >
+              {runningPar}
+            </Text>
+            <Text
+              style={{
+                width: 56,
+                textAlign: 'right',
+                fontSize: 14,
+                fontWeight: '600',
+                color: '#1C211C',
+                fontVariant: ['tabular-nums'],
+              }}
+            >
+              {runningTotal}
+            </Text>
+            <Text
+              style={{
+                width: 56,
+                textAlign: 'right',
+                fontSize: 14,
+                fontWeight: '600',
+                color:
+                  runningPar === 0
+                    ? '#8A8B7E'
+                    : runningTotal - runningPar < 0
+                      ? '#1F3D2C'
+                      : runningTotal - runningPar > 0
+                        ? '#A33A2A'
+                        : '#5C6356',
+                fontVariant: ['tabular-nums'],
+              }}
+            >
+              {runningPar === 0
+                ? '—'
+                : runningTotal === runningPar
+                  ? 'E'
+                  : runningTotal - runningPar > 0
+                    ? `+${runningTotal - runningPar}`
+                    : `${runningTotal - runningPar}`}
+            </Text>
+          </View>
+        </ScrollView>
+        <Pressable
+          onPress={onClose}
+          style={{
+            marginTop: 14,
+            paddingVertical: 12,
+            alignItems: 'center',
+            borderWidth: 1,
+            borderColor: '#D9D2BF',
+            borderRadius: 2,
+          }}
+        >
+          <Text style={{ ...KICKER, color: '#5C6356' }}>Close</Text>
+        </Pressable>
+      </View>
     </View>
   )
 }
