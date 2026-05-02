@@ -40,7 +40,12 @@ import {
 } from '../../../../../lib/db'
 import { syncPendingShots } from '../../../../../lib/sync'
 import { distanceYards } from '../../../../../lib/maps'
-import { combinedPuttResult } from '@oga/core'
+import {
+  combinedPuttResult,
+  createKalmanState,
+  updateKalman,
+  type KalmanState,
+} from '@oga/core'
 import { deleteRound, getProfile } from '@oga/supabase'
 import { ConfirmDialog } from '../../../../../components/ui/ConfirmDialog'
 import { useUnits } from '../../../../../hooks/useUnits'
@@ -100,6 +105,11 @@ export default function HoleScreen() {
 
   const [aim, setAim] = useState<LatLng | null>(null)
   const [ball, setBall] = useState<LatLng | null>(null)
+  // Kalman filter state for live GPS smoothing during PLACE_BALL. Held
+  // in a ref because every position update would otherwise re-render
+  // the entire screen at GPS cadence (1-2 Hz). Reset on hole change,
+  // manual drag, or when leaving PLACE_BALL — see useEffect below.
+  const kalmanStateRef = useRef<KalmanState | null>(null)
   // local_id of the just-saved pending shot, so the next PLACE_BALL
   // can fill in that shot's end_lat/end_lng with the new ball position.
   const lastSavedShotLocalIdRef = useRef<number | null>(null)
@@ -237,18 +247,17 @@ export default function HoleScreen() {
   }, [currentHoleScore?.id])
 
   // Live GPS during the PLACE_BALL phase so the ball marker tracks the
-  // player as they walk between shots. The previous one-shot
-  // getCurrentPositionAsync left the ball at the position from the last
-  // tap-to-place — a player walking 40 yd while filling in shot
-  // metadata would see the next ball auto-placed at the stale spot.
+  // player as they walk between shots. Raw phone GPS is ±3-10 m which
+  // can corrupt SG by 6-20 yd at golf scale, so the readings are run
+  // through a Kalman filter (issue #123) before driving the ball.
   //
   // Subscription is torn down once the player taps "Mark ball here" and
   // we leave PLACE_BALL — no need to keep the GPS radio active during
   // SET_AIM / SHOT_DETAIL. Skipped entirely in past-round mode.
   //
-  // Functional setBall preserves any manual placement (prev wins): once
-  // the player drags the ball, watchPosition still updates gpsPosition
-  // for the nearPin proximity check but doesn't clobber the manual pin.
+  // Filter ref is reset whenever the hole changes, the user manually
+  // drags the ball, or PLACE_BALL exits — each is a context switch
+  // where the prior filter state shouldn't carry over.
   useEffect(() => {
     if (!currentHole) return
     if (isPastMode) return
@@ -266,9 +275,21 @@ export default function HoleScreen() {
             distanceInterval: 2,
           },
           (loc) => {
-            const pos = { lat: loc.coords.latitude, lng: loc.coords.longitude }
-            setGpsPosition(pos)
-            setBall((prev) => prev ?? pos)
+            const rawPoint = {
+              lat: loc.coords.latitude,
+              lng: loc.coords.longitude,
+              accuracy: loc.coords.accuracy ?? undefined,
+              timestamp: loc.timestamp,
+            }
+            kalmanStateRef.current = kalmanStateRef.current
+              ? updateKalman(kalmanStateRef.current, rawPoint)
+              : createKalmanState(rawPoint)
+            const smoothed = {
+              lat: kalmanStateRef.current.lat,
+              lng: kalmanStateRef.current.lng,
+            }
+            setGpsPosition(smoothed)
+            setBall(smoothed)
           },
         )
       } catch {
@@ -278,8 +299,19 @@ export default function HoleScreen() {
     return () => {
       active = false
       subscription?.remove()
+      // Phase exit clears the filter so re-entry to PLACE_BALL on the
+      // next shot starts smoothing from a fresh fix rather than an
+      // old anchor that may now be hundreds of yards away.
+      kalmanStateRef.current = null
     }
   }, [currentHole?.id, isPastMode, roundState])
+
+  // Hole change resets the filter — covered by the watch effect's
+  // cleanup, but explicit here in case the watch effect short-circuits
+  // (past mode, or no current hole) before subscribing.
+  useEffect(() => {
+    kalmanStateRef.current = null
+  }, [currentHole?.id])
 
   // Highlight "On the green" once the player is within 80 yd of the stored
   // pin AND a per-round pin hasn't been captured yet.
@@ -430,11 +462,10 @@ export default function HoleScreen() {
             : hs,
         ),
       )
-      // Intentionally do NOT snap ball to a fresh GPS reading here. The
-      // watchPosition effect keeps gpsPosition fresh for the nearPin
-      // proximity check, and its functional setBall (prev ?? pos) only
-      // fills the ball when it's null — so a manually-placed (or
-      // carried-over from the prior shot) ball is preserved.
+      // Intentionally do NOT snap ball to a fresh GPS reading here.
+      // The watchPosition effect re-engages on phase return to
+      // PLACE_BALL, restarts the Kalman filter from the next reading,
+      // and resumes ball tracking from there.
     } catch (err) {
       // eslint-disable-next-line no-console
       console.error('shot save failed', err, payload)
@@ -774,7 +805,13 @@ export default function HoleScreen() {
                 : 'PLACE_BALL'
           }
           onSetAim={setAim}
-          onSetBall={setBall}
+          onSetBall={(loc) => {
+            // Manual drag/tap is an explicit override — drop the
+            // filter so the next GPS reading starts smoothing from
+            // the new anchor rather than the prior auto-tracked spot.
+            kalmanStateRef.current = null
+            setBall(loc)
+          }}
           onPlacePin={persistRoundPin}
         />
       </View>
