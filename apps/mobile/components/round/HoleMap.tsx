@@ -606,29 +606,31 @@ function Marker({ color, border, size }: MarkerProps) {
 
 // Simple flag glyph: vertical pole with a triangular cloth at the top.
 // "dim" = stored course pin (course default, may be wrong); "strong" =
-// today's actual flag position captured this round.
+// today's actual flag position captured this round. Sized large enough
+// to read at zoom 17 against satellite imagery — the previous 16x22
+// version was disappearing into the green on real device tests.
 function Flag({ tone }: { tone: 'dim' | 'strong' }) {
-  const flagColor = tone === 'strong' ? '#A33A2A' : 'rgba(163,58,42,0.6)'
-  const poleColor = tone === 'strong' ? '#FBF8F1' : 'rgba(251,248,241,0.7)'
+  const flagColor = tone === 'strong' ? '#A33A2A' : 'rgba(163,58,42,0.85)'
+  const poleColor = tone === 'strong' ? '#FBF8F1' : '#FBF8F1'
   return (
-    <View style={{ width: 16, height: 22, alignItems: 'flex-start' }}>
+    <View style={{ width: 26, height: 36, alignItems: 'flex-start' }}>
       <View
         style={{
           position: 'absolute',
-          left: 4,
+          left: 6,
           top: 0,
-          width: 2,
-          height: 22,
+          width: 3,
+          height: 36,
           backgroundColor: poleColor,
         }}
       />
       <View
         style={{
           position: 'absolute',
-          left: 6,
+          left: 9,
           top: 1,
-          width: 9,
-          height: 7,
+          width: 15,
+          height: 11,
           backgroundColor: flagColor,
           borderTopRightRadius: 1,
         }}
@@ -636,11 +638,11 @@ function Flag({ tone }: { tone: 'dim' | 'strong' }) {
       <View
         style={{
           position: 'absolute',
-          left: 3,
-          top: 21,
-          width: 4,
-          height: 2,
-          borderRadius: 1,
+          left: 4,
+          top: 33,
+          width: 7,
+          height: 3,
+          borderRadius: 1.5,
           backgroundColor: poleColor,
         }}
       />
