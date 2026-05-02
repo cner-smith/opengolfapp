@@ -376,8 +376,31 @@ export function HoleMap({
           )}
 
           {isAimPhase && aim && (
-            <Mapbox.PointAnnotation id="aim" coordinate={toCoord(aim)}>
-              <Marker color="#A66A1F" border="#FBF8F1" size={12} />
+            <Mapbox.PointAnnotation
+              id="aim"
+              coordinate={toCoord(aim)}
+              draggable
+              onDrag={(e: unknown) => {
+                const c = extractCoord(e)
+                if (c) onSetAim(c)
+              }}
+              onDragEnd={(e: unknown) => {
+                const c = extractCoord(e)
+                if (c) onSetAim(c)
+              }}
+            >
+              {/* 44pt transparent hit area around the visual marker so the
+                  drag handle is comfortably reachable mid-round. */}
+              <View
+                style={{
+                  width: 44,
+                  height: 44,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <Marker color="#A66A1F" border="#FBF8F1" size={14} />
+              </View>
             </Mapbox.PointAnnotation>
           )}
 
