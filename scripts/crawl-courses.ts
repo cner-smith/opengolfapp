@@ -1021,6 +1021,32 @@ interface CourseRowMin {
   external_id: string | null
 }
 
+// Paginated fetch of OSM-imported courses for a state. Supabase's default
+// row cap is 1000 — paginating in 500-row chunks keeps us well under that
+// even if one state grows past it (and so we can see the ceiling in logs
+// instead of silently truncating).
+async function fetchOsmCoursesForState(
+  state: string,
+): Promise<CourseRowMin[]> {
+  const PAGE_SIZE = 500
+  const all: CourseRowMin[] = []
+  let from = 0
+  while (true) {
+    const { data, error } = await supabase
+      .from('courses')
+      .select('id, name, external_id')
+      .eq('state', state)
+      .like('external_id', 'osm_%')
+      .range(from, from + PAGE_SIZE - 1)
+    if (error) throw error
+    const rows = (data ?? []) as CourseRowMin[]
+    all.push(...rows)
+    if (rows.length < PAGE_SIZE) break
+    from += PAGE_SIZE
+  }
+  return all
+}
+
 async function crawlEnrich(
   states: string[],
   force: boolean,
@@ -1048,13 +1074,26 @@ async function crawlEnrich(
     try {
       // OSM-imported courses for this state. Excludes manual or
       // already-OpenGolfAPI-imported courses to keep the scope tight.
-      const { data: courseRows, error: coursesErr } = await supabase
-        .from('courses')
-        .select('id, name, external_id')
-        .eq('state', state)
-        .like('external_id', 'osm_%')
-      if (coursesErr) throw coursesErr
-      const courses = (courseRows ?? []) as CourseRowMin[]
+      console.log(`[enrich:${state}] fetching courses from DB...`)
+      let courses: CourseRowMin[]
+      try {
+        courses = await fetchOsmCoursesForState(state)
+      } catch (err) {
+        const e = err as Error
+        console.error(`[enrich:${state}] DB fetch failed:`, {
+          message: e.message,
+          stack: e.stack,
+        })
+        await setCrawlState(crawlId, {
+          status: 'error',
+          itemsProcessed: 0,
+          errorMessage: `DB fetch failed: ${e.message}`,
+        })
+        continue
+      }
+      console.log(
+        `[enrich:${state}] fetched ${courses.length} courses from DB`,
+      )
       const targets = limit != null ? courses.slice(0, limit) : courses
       // Big states have hit OpenGolfAPI rate limits with the default 1100ms
       // cadence — bump to 2000ms when there's >200 to grind through.
@@ -1140,11 +1179,16 @@ async function crawlEnrich(
         `[enrich:${state}] done — ${stateEnriched} enriched, ${stateUnmatched} no-match, ${stateErrors} errors`,
       )
     } catch (err) {
-      console.error(`[enrich:${state}] fatal: ${(err as Error).message}`)
+      const e = err as Error
+      console.error(`[enrich:${state}] fatal: ${e.message}`)
+      console.error(`[enrich:${state}] fatal details:`, {
+        message: e.message,
+        stack: e.stack,
+      })
       await setCrawlState(crawlId, {
         status: 'error',
         itemsProcessed: stateProcessed,
-        errorMessage: (err as Error).message,
+        errorMessage: e.message,
       })
     }
   }
