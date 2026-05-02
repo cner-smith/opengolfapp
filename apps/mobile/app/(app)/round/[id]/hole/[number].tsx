@@ -442,6 +442,11 @@ export default function HoleScreen() {
 
   async function persistRoundPin(loc: LatLng) {
     if (!currentHoleScore) return
+    // Reject tap events that gave us non-finite coords — defensive
+    // guard so we never write null pin_lat by mistake (the original
+    // bug looked like "pin disappeared on tap" and likely traced to a
+    // malformed Mapbox tap feature on the device).
+    if (!Number.isFinite(loc.lat) || !Number.isFinite(loc.lng)) return
     // Optimistic update so the marker appears immediately.
     setHoleScores((prev) =>
       prev.map((hs) =>
@@ -457,6 +462,30 @@ export default function HoleScreen() {
       .eq('id', currentHoleScore.id)
     if (updateErr) {
       Alert.alert('Pin save failed', updateErr.message)
+    }
+  }
+
+  // Explicit "clear today's flag" action. The Cancel button in PIN
+  // mode used to just exit the mode without doing anything to the pin;
+  // device testing showed players wanted Cancel to also remove a
+  // mistakenly-placed flag. Sets pin_lat/pin_lng to null in the DB and
+  // optimistically in state.
+  async function clearRoundPin() {
+    if (!currentHoleScore) return
+    setHoleScores((prev) =>
+      prev.map((hs) =>
+        hs.id === currentHoleScore.id
+          ? { ...hs, pin_lat: null, pin_lng: null }
+          : hs,
+      ),
+    )
+    setPinPlacementOpen(false)
+    const { error: updateErr } = await supabase
+      .from('hole_scores')
+      .update({ pin_lat: null, pin_lng: null })
+      .eq('id', currentHoleScore.id)
+    if (updateErr) {
+      Alert.alert('Pin clear failed', updateErr.message)
     }
   }
 
@@ -698,28 +727,54 @@ export default function HoleScreen() {
         }}
       >
         {pinPlacementOpen ? (
-          <Pressable
-            onPress={() => setPinPlacementOpen(false)}
-            style={{
-              borderWidth: 1,
-              borderColor: '#1F3D2C',
-              paddingVertical: 14,
-              alignItems: 'center',
-              marginBottom: 10,
-              borderRadius: 2,
-            }}
-          >
-            <Text
+          <View style={{ flexDirection: 'row', gap: 8, marginBottom: 10 }}>
+            <Pressable
+              onPress={() => setPinPlacementOpen(false)}
               style={{
-                color: '#1F3D2C',
-                fontSize: 14,
-                fontWeight: '600',
-                letterSpacing: 0.3,
+                flex: 1,
+                borderWidth: 1,
+                borderColor: '#D9D2BF',
+                paddingVertical: 14,
+                alignItems: 'center',
+                borderRadius: 2,
               }}
             >
-              Cancel pin placement
-            </Text>
-          </Pressable>
+              <Text
+                style={{
+                  color: '#5C6356',
+                  fontSize: 14,
+                  fontWeight: '600',
+                  letterSpacing: 0.3,
+                }}
+              >
+                Cancel
+              </Text>
+            </Pressable>
+            {roundPin && (
+              <Pressable
+                onPress={clearRoundPin}
+                style={{
+                  flex: 1,
+                  borderWidth: 1,
+                  borderColor: '#A33A2A',
+                  paddingVertical: 14,
+                  alignItems: 'center',
+                  borderRadius: 2,
+                }}
+              >
+                <Text
+                  style={{
+                    color: '#A33A2A',
+                    fontSize: 14,
+                    fontWeight: '600',
+                    letterSpacing: 0.3,
+                  }}
+                >
+                  Clear flag
+                </Text>
+              </Pressable>
+            )}
+          </View>
         ) : roundState === 'SET_AIM' ? (
           <>
             <Pressable

@@ -338,15 +338,18 @@ export function HoleMap({
             </Mapbox.PointAnnotation>
           )}
 
-          {/* Stored hole pin: dim flag, only when no per-round pin. */}
-          {!roundPin && pin && (
+          {/* Stored hole pin: dim flag, only when no per-round pin.
+              Hidden in PIN mode so the annotation doesn't intercept the
+              tap that's supposed to place a new flag. */}
+          {!isPinMode && !roundPin && pin && (
             <Mapbox.PointAnnotation id="pin" coordinate={toCoord(pin)}>
               <Flag tone="dim" />
             </Mapbox.PointAnnotation>
           )}
 
-          {/* Per-round pin: prominent flag. */}
-          {roundPin && (
+          {/* Per-round pin: prominent flag. Hidden in PIN mode for the
+              same reason — taps need to reach the map below. */}
+          {!isPinMode && roundPin && (
             <Mapbox.PointAnnotation id="roundPin" coordinate={toCoord(roundPin)}>
               <Flag tone="strong" />
             </Mapbox.PointAnnotation>
