@@ -5,6 +5,7 @@ import { CourseSearch } from '../../components/courses/CourseSearch'
 import { TeeSelector } from '../../components/courses/TeeSelector'
 import { useCreateRound } from '../../hooks/useRounds'
 import { useAuth } from '../../hooks/useAuth'
+import { toUserMessage } from '../../lib/errors'
 
 const TEE_COLORS = ['black', 'blue', 'white', 'gold', 'red'] as const
 
@@ -45,7 +46,7 @@ export function NewRoundPage() {
         mode === 'live' ? `/rounds/${round.id}?view=map` : `/rounds/${round.id}`,
       )
     } catch (err) {
-      setError((err as Error).message)
+      setError(toUserMessage(err))
     }
   }
 

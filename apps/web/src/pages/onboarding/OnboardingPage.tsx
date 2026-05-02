@@ -7,6 +7,7 @@ import { Step2Handicap } from './steps/Step2Handicap'
 import { Step3Goal } from './steps/Step3Goal'
 import { Step4Details } from './steps/Step4Details'
 import { Step5Summary } from './steps/Step5Summary'
+import { toUserMessage } from '../../lib/errors'
 
 export interface OnboardingDraft {
   skillLevel: SkillLevel | null
@@ -58,7 +59,7 @@ export function OnboardingPage() {
       })
       navigate('/', { replace: true })
     } catch (err) {
-      setError((err as Error).message)
+      setError(toUserMessage(err))
     }
   }
 
