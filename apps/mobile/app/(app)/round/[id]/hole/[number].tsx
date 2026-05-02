@@ -198,34 +198,50 @@ export default function HoleScreen() {
     lastSavedShotLocalIdRef.current = null
   }, [currentHoleScore?.id])
 
-  // Auto-place ball at current GPS position once per hole. Also keep
-  // gpsPosition fresh so we can detect when the player walks onto the green.
-  // Skipped in past-round mode since the player isn't on the course.
-  // Functional setBall preserves any manual placement (prev wins) without
-  // needing `ball` in deps — which would re-fire the GPS request mid-hole.
+  // Live GPS during the PLACE_BALL phase so the ball marker tracks the
+  // player as they walk between shots. The previous one-shot
+  // getCurrentPositionAsync left the ball at the position from the last
+  // tap-to-place — a player walking 40 yd while filling in shot
+  // metadata would see the next ball auto-placed at the stale spot.
+  //
+  // Subscription is torn down once the player taps "Mark ball here" and
+  // we leave PLACE_BALL — no need to keep the GPS radio active during
+  // SET_AIM / SHOT_DETAIL. Skipped entirely in past-round mode.
+  //
+  // Functional setBall preserves any manual placement (prev wins): once
+  // the player drags the ball, watchPosition still updates gpsPosition
+  // for the nearPin proximity check but doesn't clobber the manual pin.
   useEffect(() => {
     if (!currentHole) return
     if (isPastMode) return
+    if (roundState !== 'PLACE_BALL') return
     let active = true
+    let subscription: Location.LocationSubscription | null = null
     ;(async () => {
       try {
         const perm = await Location.requestForegroundPermissionsAsync()
         if (perm.status !== 'granted') return
-        const loc = await Location.getCurrentPositionAsync({
-          accuracy: Location.Accuracy.High,
-        })
         if (!active) return
-        const pos = { lat: loc.coords.latitude, lng: loc.coords.longitude }
-        setGpsPosition(pos)
-        setBall((prev) => prev ?? pos)
+        subscription = await Location.watchPositionAsync(
+          {
+            accuracy: Location.Accuracy.BestForNavigation,
+            distanceInterval: 2,
+          },
+          (loc) => {
+            const pos = { lat: loc.coords.latitude, lng: loc.coords.longitude }
+            setGpsPosition(pos)
+            setBall((prev) => prev ?? pos)
+          },
+        )
       } catch {
         // GPS not available — user will tap to place.
       }
     })()
     return () => {
       active = false
+      subscription?.remove()
     }
-  }, [currentHole?.id, isPastMode])
+  }, [currentHole?.id, isPastMode, roundState])
 
   // Highlight "On the green" once the player is within 80 yd of the stored
   // pin AND a per-round pin hasn't been captured yet.
