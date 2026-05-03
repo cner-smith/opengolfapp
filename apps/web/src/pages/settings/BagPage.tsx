@@ -78,6 +78,9 @@ export function BagPage() {
   const [confirmDelete, setConfirmDelete] = useState<UserClub | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [localOrder, setLocalOrder] = useState<UserClub[] | null>(null)
+  // Single-row inline edit. Holds the id of the club currently being
+  // edited; null when no row is in edit mode.
+  const [editingId, setEditingId] = useState<string | null>(null)
   // Set on drag-start, cleared after the order mutation settles. Guards
   // the localOrder<-server sync below so a refetch mid-drag (or a fast
   // second drag right after the first) can't stomp on what the user is
@@ -154,21 +157,28 @@ export function BagPage() {
     [upsertClub],
   )
 
-  const onRename = useCallback(
-    (id: string, name: string) => {
+  const onSaveEdit = useCallback(
+    (
+      id: string,
+      patch: { name: string; loft: number | null; typicalDistance: number | null },
+    ) => {
       const c = clubsRef.current.find((x) => x.id === id)
       if (!c) return
+      setError(null)
       upsertClub.mutate(
         {
           id: c.id,
-          name,
+          name: patch.name,
           club_type: c.club_type,
-          loft: c.loft,
-          typical_distance_yards: c.typical_distance_yards,
+          loft: patch.loft,
+          typical_distance_yards: patch.typicalDistance,
           sort_order: c.sort_order,
           in_bag: c.in_bag,
         },
-        { onError: (err) => setError(toUserMessage(err)) },
+        {
+          onSuccess: () => setEditingId(null),
+          onError: (err) => setError(toUserMessage(err)),
+        },
       )
     },
     [upsertClub],
@@ -295,8 +305,12 @@ export function BagPage() {
                 <SortableClubRow
                   key={c.id}
                   club={c}
+                  editing={editingId === c.id}
+                  onStartEdit={() => setEditingId(c.id)}
+                  onCancelEdit={() => setEditingId(null)}
+                  onSaveEdit={onSaveEdit}
+                  saving={upsertClub.isPending}
                   onToggleInBag={onToggleInBag}
-                  onRename={onRename}
                   onDelete={onRequestDelete}
                 />
               ))}
@@ -389,22 +403,29 @@ export function BagPage() {
 
 interface SortableClubRowProps {
   club: UserClub
+  editing: boolean
+  saving: boolean
+  onStartEdit: () => void
+  onCancelEdit: () => void
+  onSaveEdit: (
+    id: string,
+    patch: { name: string; loft: number | null; typicalDistance: number | null },
+  ) => void
   onToggleInBag: (id: string) => void
-  onRename: (id: string, name: string) => void
   onDelete: (id: string) => void
 }
 
 const SortableClubRow = memo(function SortableClubRow({
   club,
+  editing,
+  saving,
+  onStartEdit,
+  onCancelEdit,
+  onSaveEdit,
   onToggleInBag,
-  onRename,
   onDelete,
 }: SortableClubRowProps) {
   const sortable = useSortable({ id: club.id })
-  const [editing, setEditing] = useState(false)
-  const [name, setName] = useState(club.name)
-
-  useEffect(() => setName(club.name), [club.name])
 
   const style = {
     transform: CSS.Transform.toString(sortable.transform),
@@ -412,99 +433,249 @@ const SortableClubRow = memo(function SortableClubRow({
     opacity: sortable.isDragging ? 0.5 : 1,
   }
 
-  function commitRename() {
-    setEditing(false)
-    if (name.trim() && name.trim() !== club.name) onRename(club.id, name.trim())
-    else setName(club.name)
-  }
-
   return (
     <div
       ref={sortable.setNodeRef}
       style={{
         ...style,
-        display: 'flex',
-        alignItems: 'center',
-        gap: 12,
         borderBottom: '1px solid #D9D2BF',
-        padding: '14px 4px',
       }}
     >
-      <button
-        type="button"
-        aria-label="Drag to reorder"
-        {...sortable.attributes}
-        {...sortable.listeners}
-        className="text-caddie-ink-mute"
-        style={{ cursor: 'grab', fontSize: 14, padding: '4px 8px' }}
-      >
-        ⠿
-      </button>
-      <div style={{ flex: 1 }}>
-        {editing ? (
-          <input
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            onBlur={commitRename}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') commitRename()
-              if (e.key === 'Escape') {
-                setName(club.name)
-                setEditing(false)
-              }
-            }}
-            autoFocus
-            className="bg-transparent text-caddie-ink"
-            style={{ fontSize: 15, border: '1px solid #D9D2BF', padding: '4px 6px', width: '100%' }}
-          />
-        ) : (
-          <button
-            type="button"
-            onClick={() => setEditing(true)}
-            className="text-caddie-ink"
-            style={{ fontSize: 15, textAlign: 'left' }}
-          >
-            {club.name}
-          </button>
-        )}
-        <div
-          className="font-mono uppercase text-caddie-ink-mute"
-          style={{ fontSize: 10, letterSpacing: '0.14em', marginTop: 2 }}
-        >
-          {club.club_type}
-          {club.loft != null ? ` · ${club.loft}°` : ''}
-          {club.typical_distance_yards != null ? ` · ${club.typical_distance_yards} yd` : ''}
-        </div>
-      </div>
-      <button
-        type="button"
-        onClick={() => onToggleInBag(club.id)}
-        title="Benched clubs stay in your list but won't show up when logging shots."
-        className="font-mono uppercase"
+      <div
         style={{
-          fontSize: 10,
-          letterSpacing: '0.14em',
-          padding: '4px 10px',
-          borderRadius: 2,
-          border: '1px solid #D9D2BF',
-          color: club.in_bag ? '#F2EEE5' : '#5C6356',
-          background: club.in_bag ? '#1F3D2C' : 'transparent',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 12,
+          padding: '14px 4px',
         }}
       >
-        {club.in_bag ? 'In bag' : 'Benched'}
-      </button>
-      <button
-        type="button"
-        onClick={() => onDelete(club.id)}
-        aria-label={`Delete ${club.name}`}
-        className="text-caddie-neg hover:underline"
-        style={{ fontSize: 12 }}
-      >
-        Delete
-      </button>
+        <button
+          type="button"
+          aria-label="Drag to reorder"
+          {...sortable.attributes}
+          {...sortable.listeners}
+          className="text-caddie-ink-mute"
+          style={{ cursor: 'grab', fontSize: 14, padding: '4px 8px' }}
+        >
+          ⠿
+        </button>
+        <div style={{ flex: 1 }}>
+          <div className="text-caddie-ink" style={{ fontSize: 15 }}>
+            {club.name}
+          </div>
+          <div
+            className="font-mono uppercase text-caddie-ink-mute"
+            style={{ fontSize: 10, letterSpacing: '0.14em', marginTop: 2 }}
+          >
+            {club.club_type}
+            {club.loft != null ? ` · ${club.loft}°` : ''}
+            {club.typical_distance_yards != null
+              ? ` · ${club.typical_distance_yards} yd`
+              : ''}
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={() => onToggleInBag(club.id)}
+          title="Benched clubs stay in your list but won't show up when logging shots."
+          className="font-mono uppercase"
+          style={{
+            fontSize: 10,
+            letterSpacing: '0.14em',
+            padding: '4px 10px',
+            borderRadius: 2,
+            border: '1px solid #D9D2BF',
+            color: club.in_bag ? '#F2EEE5' : '#5C6356',
+            background: club.in_bag ? '#1F3D2C' : 'transparent',
+          }}
+        >
+          {club.in_bag ? 'In bag' : 'Benched'}
+        </button>
+        <button
+          type="button"
+          onClick={editing ? onCancelEdit : onStartEdit}
+          className="text-caddie-ink-dim hover:underline"
+          style={{ fontSize: 12 }}
+        >
+          {editing ? 'Close' : 'Edit'}
+        </button>
+        <button
+          type="button"
+          onClick={() => onDelete(club.id)}
+          aria-label={`Delete ${club.name}`}
+          className="text-caddie-neg hover:underline"
+          style={{ fontSize: 12 }}
+        >
+          Delete
+        </button>
+      </div>
+      {editing && (
+        <ClubEditForm
+          club={club}
+          saving={saving}
+          onCancel={onCancelEdit}
+          onSave={(patch) => onSaveEdit(club.id, patch)}
+        />
+      )}
     </div>
   )
 })
+
+function ClubEditForm({
+  club,
+  saving,
+  onCancel,
+  onSave,
+}: {
+  club: UserClub
+  saving: boolean
+  onCancel: () => void
+  onSave: (patch: {
+    name: string
+    loft: number | null
+    typicalDistance: number | null
+  }) => void
+}) {
+  const [name, setName] = useState(club.name)
+  const [loft, setLoft] = useState(club.loft != null ? String(club.loft) : '')
+  const [typical, setTypical] = useState(
+    club.typical_distance_yards != null
+      ? String(club.typical_distance_yards)
+      : '',
+  )
+  const [localError, setLocalError] = useState<string | null>(null)
+
+  useEffect(() => {
+    setName(club.name)
+    setLoft(club.loft != null ? String(club.loft) : '')
+    setTypical(
+      club.typical_distance_yards != null
+        ? String(club.typical_distance_yards)
+        : '',
+    )
+  }, [club.id, club.name, club.loft, club.typical_distance_yards])
+
+  function parseNumOrNull(s: string): number | null {
+    if (!s) return null
+    const n = Number(s)
+    return Number.isFinite(n) ? n : null
+  }
+
+  function submit() {
+    setLocalError(null)
+    if (!name.trim()) {
+      setLocalError('Name is required')
+      return
+    }
+    if (loft && !Number.isFinite(Number(loft))) {
+      setLocalError('Loft must be a number')
+      return
+    }
+    if (typical && !Number.isFinite(Number(typical))) {
+      setLocalError('Typical distance must be a number')
+      return
+    }
+    onSave({
+      name: name.trim(),
+      loft: parseNumOrNull(loft),
+      typicalDistance: parseNumOrNull(typical),
+    })
+  }
+
+  return (
+    <div
+      style={{
+        padding: '8px 4px 16px 40px',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 10,
+      }}
+    >
+      <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+        <span className="kicker">Name</span>
+        <input
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          className="bg-caddie-bg text-caddie-ink"
+          style={{
+            border: '1px solid #D9D2BF',
+            borderRadius: 2,
+            padding: '8px 10px',
+            fontSize: 14,
+          }}
+        />
+      </label>
+      <div style={{ display: 'flex', gap: 12 }}>
+        <label
+          style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: 1 }}
+        >
+          <span className="kicker">Loft (°)</span>
+          <input
+            value={loft}
+            onChange={(e) => setLoft(e.target.value)}
+            inputMode="decimal"
+            placeholder="optional"
+            className="bg-caddie-bg text-caddie-ink"
+            style={{
+              border: '1px solid #D9D2BF',
+              borderRadius: 2,
+              padding: '8px 10px',
+              fontSize: 14,
+            }}
+          />
+        </label>
+        <label
+          style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: 1 }}
+        >
+          <span className="kicker">Typical distance (yd)</span>
+          <input
+            value={typical}
+            onChange={(e) => setTypical(e.target.value)}
+            inputMode="numeric"
+            placeholder="optional"
+            className="bg-caddie-bg text-caddie-ink"
+            style={{
+              border: '1px solid #D9D2BF',
+              borderRadius: 2,
+              padding: '8px 10px',
+              fontSize: 14,
+            }}
+          />
+        </label>
+      </div>
+      {localError && (
+        <div className="text-caddie-neg" style={{ fontSize: 13 }}>
+          {localError}
+        </div>
+      )}
+      <div style={{ display: 'flex', gap: 8 }}>
+        <button
+          type="button"
+          onClick={submit}
+          disabled={saving}
+          className="bg-caddie-accent text-caddie-accent-ink"
+          style={{
+            padding: '8px 14px',
+            fontSize: 13,
+            fontWeight: 600,
+            borderRadius: 2,
+            opacity: saving ? 0.7 : 1,
+          }}
+        >
+          {saving ? 'Saving…' : 'Save'}
+        </button>
+        <button
+          type="button"
+          onClick={onCancel}
+          className="text-caddie-ink-dim"
+          style={{ fontSize: 13 }}
+        >
+          Cancel
+        </button>
+      </div>
+    </div>
+  )
+}
 
 function AddClubForm({
   draft,
