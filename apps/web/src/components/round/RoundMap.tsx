@@ -94,26 +94,6 @@ export function RoundMap({
   onMoveTee,
   onSetAim,
 }: RoundMapProps) {
-  // Top-of-component log so we can confirm RoundMap mounts at all and
-  // see the props actually arriving — the previous in-effect log only
-  // fires after the first render, and a missing log there couldn't tell
-  // us whether the component never rendered or just rendered with the
-  // wrong inputs.
-  if (import.meta.env.DEV) {
-    // eslint-disable-next-line no-console
-    console.log('[RoundMap] component rendering, props:', {
-      holeId: hole?.id ?? null,
-      holeNumber: hole?.number ?? null,
-      teeLat: hole?.teeLat ?? null,
-      teeLng: hole?.teeLng ?? null,
-      pinLat: hole?.pinLat ?? null,
-      pinLng: hole?.pinLng ?? null,
-      courseLat: hole?.courseLat ?? null,
-      courseLng: hole?.courseLng ?? null,
-      placedPointsCount: placedPoints.length,
-      existingShotsCount: existingShots.length,
-    })
-  }
   const { toDisplay } = useUnits()
   // Memoized so downstream effects can dep on the object directly without
   // thrashing on every parent render — coords are the only meaningful
@@ -139,45 +119,51 @@ export function RoundMap({
   const hasExistingShots = existingShots.some(
     (s) => s.endLat != null && s.endLng != null,
   )
-  // Prefer tee over pin so a fresh past-round map opens looking down the
-  // hole (where shot 1 starts) rather than zoomed straight at the green.
-  // Falls back to pin, then to course-level coordinates so a course
-  // without per-hole layout data still shows the property — the player
-  // can still tap to place shots manually.
-  const courseFallback = useMemo<[number, number] | null>(() => {
-    if (hole?.courseLat == null || hole?.courseLng == null) return null
-    return [hole.courseLng, hole.courseLat]
-  }, [hole?.courseLat, hole?.courseLng])
-  const center = useMemo<[number, number] | null>(() => {
-    if (effectiveTee) return [effectiveTee.lng, effectiveTee.lat]
-    if (effectivePin) return [effectivePin.lng, effectivePin.lat]
-    return courseFallback
-  }, [effectivePin, effectiveTee, courseFallback])
-  const hasHoleLayout = effectiveTee != null || effectivePin != null
-  // Per-hole layout missing → zoom out so the whole course is visible;
-  // with layout, frame the hole tightly.
-  const targetZoom = hasHoleLayout ? 17 : 15
+  // Single camera target with priority order: hole tee → hole pin →
+  // course centroid → hard-coded OKC default. Course rows missing
+  // lat/lng entirely fall to OKC zoom 11 so the player isn't stranded
+  // at the world view if every tier comes back null. useMemo gives a
+  // stable identity when the underlying coords don't change, so the
+  // camera effect below only fires when something actually moved.
+  const cameraTarget = useMemo<{
+    center: [number, number]
+    zoom: number
+  }>(() => {
+    if (effectiveTee) {
+      return { center: [effectiveTee.lng, effectiveTee.lat], zoom: 17 }
+    }
+    if (effectivePin) {
+      return { center: [effectivePin.lng, effectivePin.lat], zoom: 15 }
+    }
+    if (hole?.courseLat != null && hole?.courseLng != null) {
+      return { center: [hole.courseLng, hole.courseLat], zoom: 15 }
+    }
+    return { center: [-97.5, 35.5], zoom: 11 }
+  }, [
+    effectiveTee?.lat,
+    effectiveTee?.lng,
+    effectivePin?.lat,
+    effectivePin?.lng,
+    hole?.courseLat,
+    hole?.courseLng,
+  ])
 
-  // Initialize the map once on mount.
+  const initialPositionDoneRef = useRef(false)
+
+  // Initialize at a neutral world view. The reactive camera effect
+  // below positions it as soon as any priority tier resolves —
+  // decoupling init from positioning fixes a race where the map
+  // captured a stale center on mount (before useCourse / the joined
+  // courses field returned) and then never re-flew because the
+  // dependent useMemo identity didn't change.
   useEffect(() => {
     if (!containerRef.current || !MAPBOX_TOKEN_PRESENT) return
     if (mapRef.current) return
-    if (import.meta.env.DEV) {
-      // eslint-disable-next-line no-console
-      console.log('[RoundMap] init center', {
-        center,
-        targetZoom,
-        teeLat: hole?.teeLat,
-        pinLat: hole?.pinLat,
-        courseLat: hole?.courseLat,
-        courseLng: hole?.courseLng,
-      })
-    }
     const map = new mapboxgl.Map({
       container: containerRef.current,
       style: 'mapbox://styles/mapbox/satellite-streets-v12',
-      center: center ?? [-97.5, 35.5],
-      zoom: center ? targetZoom : 12,
+      center: [0, 0],
+      zoom: 1,
       attributionControl: false,
     })
     map.addControl(
@@ -197,14 +183,28 @@ export function RoundMap({
     }
   }, [])
 
-  // Fly to the active hole when it changes. Zoom adapts to whether
-  // per-hole layout data is available — when only the course centroid
-  // is known, frame wider so the player can still see the property.
+  // Reactive camera positioning. First valid target snaps the camera
+  // into place (jumpTo, no animation) so a fresh map doesn't spend a
+  // second flying in from the world view. Subsequent target changes
+  // (hole switch, course coords arriving late, focus-on-green after a
+  // putt) animate so the change is visible.
   useEffect(() => {
     const map = mapRef.current
-    if (!map || !center) return
-    map.flyTo({ center, zoom: targetZoom, speed: 1.4 })
-  }, [center?.[0], center?.[1], targetZoom])
+    if (!map) return
+    if (!initialPositionDoneRef.current) {
+      map.jumpTo({
+        center: cameraTarget.center,
+        zoom: cameraTarget.zoom,
+      })
+      initialPositionDoneRef.current = true
+      return
+    }
+    map.flyTo({
+      center: cameraTarget.center,
+      zoom: cameraTarget.zoom,
+      speed: 1.4,
+    })
+  }, [cameraTarget])
 
   // After a non-holed putt save the parent bumps focusGreenSignal —
   // fly in tight on the green so the next putt placement lands on the
