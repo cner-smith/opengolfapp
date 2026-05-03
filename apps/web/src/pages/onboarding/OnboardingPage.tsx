@@ -1,12 +1,16 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import type { Facility, Goal, SkillLevel } from '@oga/core'
+import { DEFAULT_BAG, type Facility, type Goal, type SkillLevel } from '@oga/core'
+import { seedDefaultBag } from '@oga/supabase'
 import { useUpdateProfile } from '../../hooks/useProfile'
+import { useAuth } from '../../hooks/useAuth'
+import { supabase } from '../../lib/supabase'
 import { Step1Skill } from './steps/Step1Skill'
 import { Step2Handicap } from './steps/Step2Handicap'
 import { Step3Goal } from './steps/Step3Goal'
 import { Step4Details } from './steps/Step4Details'
 import { Step5Summary } from './steps/Step5Summary'
+import { Step6Bag } from './steps/Step6Bag'
 import { toUserMessage } from '../../lib/errors'
 
 export interface OnboardingDraft {
@@ -18,10 +22,11 @@ export interface OnboardingDraft {
   playStyle: 'casual' | 'mixed' | 'competitive' | null
 }
 
-const TOTAL_STEPS = 5
+const TOTAL_STEPS = 6
 
 export function OnboardingPage() {
   const navigate = useNavigate()
+  const { user } = useAuth()
   const updateProfile = useUpdateProfile()
   const [step, setStep] = useState<number>(1)
   const [error, setError] = useState<string | null>(null)
@@ -33,6 +38,14 @@ export function OnboardingPage() {
     facilities: [],
     playStyle: null,
   })
+  // Bag step starts with all DEFAULT_BAG clubs selected. User toggles
+  // off any they don't carry. Skipping the step doesn't seed at all —
+  // the bag stays empty and ShotEntryModal falls back to DEFAULT_BAG
+  // until the user explicitly populates it.
+  const [bagSelection, setBagSelection] = useState<Set<string>>(
+    () => new Set(DEFAULT_BAG.map((c) => c.club_type)),
+  )
+  const [savingBag, setSavingBag] = useState(false)
 
   function next() {
     if (step < TOTAL_STEPS) setStep(step + 1)
@@ -42,7 +55,10 @@ export function OnboardingPage() {
     else navigate('/login')
   }
 
-  async function save() {
+  // Step 5 → save profile, advance to bag step. Step 6 → save bag (or
+  // skip), navigate home. Splitting the saves keeps the bag truly
+  // optional: a user who skips never inserts a user_clubs row.
+  async function saveProfile() {
     setError(null)
     if (draft.handicap < -10 || draft.handicap > 54) {
       setError('Handicap must be between -10 and 54')
@@ -57,10 +73,35 @@ export function OnboardingPage() {
         facilities: draft.facilities,
         play_style: draft.playStyle,
       })
-      navigate('/', { replace: true })
+      next()
     } catch (err) {
       setError(toUserMessage(err))
     }
+  }
+
+  async function saveBagAndFinish() {
+    if (!user) return
+    setError(null)
+    setSavingBag(true)
+    try {
+      const filtered = DEFAULT_BAG.filter((c) => bagSelection.has(c.club_type))
+      // Re-number sort_order so the user's pruned bag stays contiguous.
+      const reseeded = filtered.map((c, idx) => ({
+        club_type: c.club_type,
+        name: c.name,
+        sort_order: idx,
+      }))
+      await seedDefaultBag(supabase, user.id, reseeded)
+      navigate('/', { replace: true })
+    } catch (err) {
+      setError(toUserMessage(err))
+    } finally {
+      setSavingBag(false)
+    }
+  }
+
+  function skipBag() {
+    navigate('/', { replace: true })
   }
 
   return (
@@ -133,7 +174,17 @@ export function OnboardingPage() {
             saving={updateProfile.isPending}
             error={error}
             onBack={back}
-            onSave={save}
+            onSave={saveProfile}
+          />
+        )}
+        {step === 6 && (
+          <Step6Bag
+            selected={bagSelection}
+            onChange={setBagSelection}
+            onBack={back}
+            onContinue={saveBagAndFinish}
+            onSkip={skipBag}
+            busy={savingBag}
           />
         )}
       </div>
