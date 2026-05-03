@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import type { Database } from '@oga/supabase'
 import { useUpsertHoleScore } from '../../hooks/useHoleScores'
 import { useUnits } from '../../hooks/useUnits'
+import { supabase } from '../../lib/supabase'
 
 type HoleRow = Database['public']['Tables']['holes']['Row']
 type HoleScoreRow = Database['public']['Tables']['hole_scores']['Row']
@@ -82,11 +84,18 @@ export function HoleScoreCard({
   onEditShots,
 }: HoleScoreCardProps) {
   const upsert = useUpsertHoleScore(roundId)
+  const queryClient = useQueryClient()
   const { toDisplay } = useUnits()
   const [score, setScore] = useState<string>(holeScore?.score?.toString() ?? '')
   const [putts, setPutts] = useState<string>(holeScore?.putts?.toString() ?? '')
   const [fairway, setFairway] = useState<boolean | null>(holeScore?.fairway_hit ?? null)
   const [gir, setGir] = useState<boolean | null>(holeScore?.gir ?? null)
+  // No yards + no tee coords = course had no layout data when this hole
+  // was loaded (or it was synthesized client-side). Lets the player
+  // override par per-hole instead of being stuck at the 4 default.
+  const isSyntheticHole = !hole.yards && hole.tee_lat == null
+  const [parOverride, setParOverride] = useState<number | null>(null)
+  const effectivePar = parOverride ?? hole.par
 
   // Hydrate the form from server state once per holeScore.id. Subsequent
   // refetches (after our own save, or another tab) must not clobber what
@@ -103,6 +112,31 @@ export function HoleScoreCard({
     setGir(holeScore.gir ?? null)
   }, [holeScore])
 
+  // Cycle par 3 → 4 → 5 → 3. Synthetic placeholders just keep the new
+  // par in local state — ensureRealHole reads it on the next hole_score
+  // save and seeds the materialized row. Real-but-no-layout rows (a hole
+  // exists in the DB but yards/coords are null) get an immediate UPDATE
+  // so the change is permanent course curation.
+  async function setPar(newPar: number) {
+    setParOverride(newPar)
+    if (hole.id.startsWith('synthetic-')) return
+    const { error } = await supabase
+      .from('holes')
+      .update({ par: newPar })
+      .eq('id', hole.id)
+    if (error) {
+      // Roll back the optimistic override so the UI doesn't lie about
+      // what's persisted. The user re-tries by tapping again.
+      setParOverride(null)
+      if (import.meta.env.DEV) {
+        // eslint-disable-next-line no-console
+        console.error('[HoleScoreCard/setPar]', error)
+      }
+      return
+    }
+    queryClient.invalidateQueries({ queryKey: ['holes', hole.course_id] })
+  }
+
   async function persist(next: {
     score?: number | null
     putts?: number | null
@@ -113,8 +147,11 @@ export function HoleScoreCard({
       next.score !== undefined ? next.score : score ? Number(score) : null
     if (!numericScore) return
     // Materialize the synthetic hole before the upsert (FK on hole_id).
-    // No-op for real holes — short-circuits and returns the existing id.
-    const realHoleId = await ensureRealHole(hole)
+    // Pass the par override so the new holes row reflects the user's
+    // pick rather than the par-4 placeholder default.
+    const holeForEnsure =
+      parOverride != null ? { ...hole, par: parOverride } : hole
+    const realHoleId = await ensureRealHole(holeForEnsure)
     upsert.mutate({
       id: holeScore?.id,
       round_id: roundId,
@@ -127,7 +164,7 @@ export function HoleScoreCard({
             ? null
             : Number(putts),
       fairway_hit:
-        hole.par <= 3
+        effectivePar <= 3
           ? null
           : next.fairway_hit !== undefined
             ? next.fairway_hit
@@ -136,8 +173,8 @@ export function HoleScoreCard({
     })
   }
 
-  const isPar3 = hole.par === 3
-  const bubble = bubbleStyle(holeScore?.score, hole.par)
+  const isPar3 = effectivePar === 3
+  const bubble = bubbleStyle(holeScore?.score, effectivePar)
 
   return (
     <div
@@ -155,12 +192,37 @@ export function HoleScoreCard({
         >
           Hole {hole.number}
         </div>
-        <div
-          className="font-serif text-caddie-ink"
-          style={{ fontSize: 17, fontWeight: 500, lineHeight: 1.2, marginTop: 2 }}
-        >
-          Par {hole.par}
-        </div>
+        {isSyntheticHole ? (
+          <button
+            type="button"
+            onClick={() => {
+              const next = effectivePar === 3 ? 4 : effectivePar === 4 ? 5 : 3
+              void setPar(next)
+            }}
+            aria-label={`Par ${effectivePar}, tap to change`}
+            className="font-serif text-caddie-ink"
+            style={{
+              marginTop: 2,
+              padding: '2px 8px',
+              fontSize: 17,
+              fontWeight: 500,
+              lineHeight: 1.2,
+              background: 'transparent',
+              border: '1px dashed #9F9580',
+              borderRadius: 2,
+              textAlign: 'left',
+            }}
+          >
+            Par {effectivePar}
+          </button>
+        ) : (
+          <div
+            className="font-serif text-caddie-ink"
+            style={{ fontSize: 17, fontWeight: 500, lineHeight: 1.2, marginTop: 2 }}
+          >
+            Par {hole.par}
+          </div>
+        )}
         {hole.yards && (
           <div
             className="font-mono tabular text-caddie-ink-mute"
