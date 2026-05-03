@@ -92,6 +92,9 @@ export function OnboardingPage() {
         sort_order: idx,
       }))
       await seedDefaultBag(supabase, user.id, reseeded)
+      // Flip the gate AFTER the bag write so a failed bag save can't
+      // strand the user on a half-completed onboarding.
+      await updateProfile.mutateAsync({ onboarding_completed: true })
       navigate('/', { replace: true })
     } catch (err) {
       setError(toUserMessage(err))
@@ -100,8 +103,18 @@ export function OnboardingPage() {
     }
   }
 
-  function skipBag() {
-    navigate('/', { replace: true })
+  async function skipBag() {
+    if (!user) return
+    setError(null)
+    setSavingBag(true)
+    try {
+      await updateProfile.mutateAsync({ onboarding_completed: true })
+      navigate('/', { replace: true })
+    } catch (err) {
+      setError(toUserMessage(err))
+    } finally {
+      setSavingBag(false)
+    }
   }
 
   return (
@@ -185,6 +198,7 @@ export function OnboardingPage() {
             onContinue={saveBagAndFinish}
             onSkip={skipBag}
             busy={savingBag}
+            error={error}
           />
         )}
       </div>

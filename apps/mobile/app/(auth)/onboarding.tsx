@@ -67,16 +67,6 @@ export default function MobileOnboarding() {
       return
     }
     setSaving(true)
-    const { error } = await updateProfile(supabase, user.id, {
-      skill_level: skill,
-      handicap_index: numericHandicap,
-      goal,
-    })
-    if (error) {
-      setSaving(false)
-      Alert.alert('Save failed', error.message)
-      return
-    }
     if (seedBag && bagSelection.size > 0) {
       try {
         const reseeded = DEFAULT_BAG.filter((c) =>
@@ -88,14 +78,28 @@ export default function MobileOnboarding() {
         }))
         await seedDefaultBag(supabase, user.id, reseeded)
       } catch (e) {
-        // Bag seeding is best-effort; profile save already succeeded so
-        // we don't block navigation. The user can populate the bag from
-        // /bag any time. Surface the error so they know it failed.
+        // Bag seeding is best-effort; let the user know but don't
+        // block their onboarding completion. They can rebuild the bag
+        // from Profile → My Bag.
         Alert.alert(
           'Bag setup skipped',
           `Could not save bag: ${(e as Error).message}. You can build it from Profile → My Bag.`,
         )
       }
+    }
+    // Single profile write — saves the required fields AND flips the
+    // onboarding gate atomically. If the bag write above failed the
+    // gate still flips so the user isn't trapped on /onboarding.
+    const { error } = await updateProfile(supabase, user.id, {
+      skill_level: skill,
+      handicap_index: numericHandicap,
+      goal,
+      onboarding_completed: true,
+    })
+    if (error) {
+      setSaving(false)
+      Alert.alert('Save failed', error.message)
+      return
     }
     setSaving(false)
     router.replace('/(app)')
