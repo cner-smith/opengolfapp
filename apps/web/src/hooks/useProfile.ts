@@ -29,6 +29,14 @@ export function useUpdateProfile() {
       if (error) throw error
       return data
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['profile', user?.id] }),
+    // Seed the cache with the row the server just returned BEFORE the
+    // background refetch kicks off. Without this, ProfileGuard reads
+    // the pre-mutation cache (skill_level=null, onboarding_completed=
+    // false) on the next /-route mount and bounces the user back to
+    // /onboarding even though the DB is up to date.
+    onSuccess: (data) => {
+      if (data) qc.setQueryData(['profile', user?.id], data)
+      qc.invalidateQueries({ queryKey: ['profile', user?.id] })
+    },
   })
 }

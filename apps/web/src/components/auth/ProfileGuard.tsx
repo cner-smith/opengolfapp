@@ -34,7 +34,15 @@ export function ProfileGuard({ children }: { children: React.ReactNode }) {
     )
   }
 
-  if (!profile || !profile.skill_level || !profile.goal) {
+  // Single explicit gate. Earlier check (`!skill_level || !goal`) raced
+  // a stale TanStack Query cache populated during the pre-onboarding
+  // sign-in pass — the cache returned the pre-onboarding row
+  // synchronously while the background refetch was still in flight,
+  // so a user who just completed onboarding got bounced back to
+  // /onboarding. The explicit boolean + setQueryData in
+  // useUpdateProfile makes the cache reflect the freshly-saved state
+  // on the very next read.
+  if (!profile || !profile.onboarding_completed) {
     return <Navigate to="/onboarding" replace />
   }
 
