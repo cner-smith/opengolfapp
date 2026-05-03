@@ -35,7 +35,7 @@ export function Step6Bag({
       <StepHeading
         kicker="Optional"
         title="Build your bag."
-        subtitle="Select the clubs you carry. Tap to toggle. You can customise your bag fully in settings later."
+        subtitle="Standard bags carry up to 14 clubs. Select what you carry — tap to toggle. You can customise your bag fully in settings later."
       />
       <div
         style={{

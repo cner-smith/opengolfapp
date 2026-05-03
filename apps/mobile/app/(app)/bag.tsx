@@ -112,7 +112,7 @@ export default function BagScreen() {
   function confirmReset() {
     Alert.alert(
       'Reset to default bag?',
-      'This deletes every club and seeds the default 15-club bag.',
+      'This deletes every club and seeds the default 14-club bag.',
       [
         { text: 'Cancel', style: 'cancel' },
         {

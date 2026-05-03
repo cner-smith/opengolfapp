@@ -112,10 +112,10 @@ export const CANONICAL_CLUBS_BY_CATEGORY: Record<ClubCategory, readonly string[]
   utility: [],
 }
 
-// Default 15-club starting bag seeded for new users when their bag is
-// empty. Standard tournament bag is 14 clubs — we ship 15 because the
-// 5-wood + 4h + 5h overlap is common in amateur bags. Players trim on
-// onboarding or in /settings/bag.
+// Default 14-club starting bag seeded for new users when their bag is
+// empty. 14 is the legal max under USGA rules; we drop the 4-hybrid
+// (most amateurs carry either the 5w or the 4h, not both — keeping
+// the 5w covers more bag profiles). Players can swap in /settings/bag.
 export interface DefaultBagEntry {
   club_type: string
   name: string
@@ -126,18 +126,17 @@ export const DEFAULT_BAG: readonly DefaultBagEntry[] = [
   { club_type: 'driver', name: 'Driver', sort_order: 0 },
   { club_type: '3w', name: '3 Wood', sort_order: 1 },
   { club_type: '5w', name: '5 Wood', sort_order: 2 },
-  { club_type: '4h', name: '4 Hybrid', sort_order: 3 },
-  { club_type: '5h', name: '5 Hybrid', sort_order: 4 },
-  { club_type: '5i', name: '5 Iron', sort_order: 5 },
-  { club_type: '6i', name: '6 Iron', sort_order: 6 },
-  { club_type: '7i', name: '7 Iron', sort_order: 7 },
-  { club_type: '8i', name: '8 Iron', sort_order: 8 },
-  { club_type: '9i', name: '9 Iron', sort_order: 9 },
-  { club_type: 'pw', name: 'Pitching Wedge', sort_order: 10 },
-  { club_type: 'gw', name: 'Gap Wedge', sort_order: 11 },
-  { club_type: 'sw', name: 'Sand Wedge', sort_order: 12 },
-  { club_type: 'lw', name: 'Lob Wedge', sort_order: 13 },
-  { club_type: 'putter', name: 'Putter', sort_order: 14 },
+  { club_type: '5h', name: '5 Hybrid', sort_order: 3 },
+  { club_type: '5i', name: '5 Iron', sort_order: 4 },
+  { club_type: '6i', name: '6 Iron', sort_order: 5 },
+  { club_type: '7i', name: '7 Iron', sort_order: 6 },
+  { club_type: '8i', name: '8 Iron', sort_order: 7 },
+  { club_type: '9i', name: '9 Iron', sort_order: 8 },
+  { club_type: 'pw', name: 'Pitching Wedge', sort_order: 9 },
+  { club_type: 'gw', name: 'Gap Wedge', sort_order: 10 },
+  { club_type: 'sw', name: 'Sand Wedge', sort_order: 11 },
+  { club_type: 'lw', name: 'Lob Wedge', sort_order: 12 },
+  { club_type: 'putter', name: 'Putter', sort_order: 13 },
 ] as const
 
 export const LIE_TYPES = [

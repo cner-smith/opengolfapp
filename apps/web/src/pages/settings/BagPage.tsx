@@ -355,7 +355,7 @@ export function BagPage() {
       <ConfirmDialog
         open={confirmReset}
         title="Reset to default bag?"
-        message="This deletes every club you've added and seeds the default 15-club bag."
+        message="This deletes every club you've added and seeds the default 14-club bag."
         confirmLabel="Reset"
         destructive
         onConfirm={() => {
