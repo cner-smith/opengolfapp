@@ -123,7 +123,7 @@ type HoleViewAction =
   | { type: 'CLOSE_REVIEW' }
   | { type: 'EDIT_ON_MAP'; editing: boolean }
   | { type: 'SAVE_ERROR'; message: string | null }
-  | { type: 'AFTER_SAVE' }
+  | { type: 'AFTER_SAVE'; nextHoleNumber: number | null }
 
 const HOLE_VIEW_INITIAL: HoleViewState = {
   activeHoleNumber: 1,
@@ -234,11 +234,12 @@ function holeViewReducer(state: HoleViewState, action: HoleViewAction): HoleView
       return { ...state, saveError: action.message }
     case 'AFTER_SAVE': {
       // Auto-advance to the next hole on save so the player isn't stuck
-      // re-tapping the hole selector after every Done with hole. Hole 18
-      // is the last — stay put and just clear the placed-shot state so
-      // the player can review or edit.
-      const next = state.activeHoleNumber + 1
-      if (next > 18) {
+      // re-tapping the hole selector after every Done with hole. Caller
+      // decides how far we can advance — `nextHoleNumber == null` means
+      // we just saved the last hole on the course (caller compared
+      // against the course's expected hole count). In that case stay put
+      // and just clear the placed-shot state so the player can review.
+      if (action.nextHoleNumber == null) {
         return {
           ...state,
           reviewOpen: false,
@@ -251,7 +252,7 @@ function holeViewReducer(state: HoleViewState, action: HoleViewAction): HoleView
       }
       return {
         ...HOLE_VIEW_INITIAL,
-        activeHoleNumber: next,
+        activeHoleNumber: action.nextHoleNumber,
         focusGreenSignal: state.focusGreenSignal,
       }
     }
@@ -316,24 +317,32 @@ export function RoundDetailPage() {
   // Without this, every downstream feature gates on `activeHole` being
   // non-null and the round detail page locks up.
   //
-  // Once any hole is materialized via ensureRealHole, the query refetches
-  // and returns just that one row — but holes 2..18 still need synthetic
-  // placeholders so the player can navigate to them. Detect "synthetic
-  // mode" by checking whether every fetched row lacks layout data
-  // (yards null + tee_lat null = freshly-inserted placeholder), and pad
-  // to 18. Real courses with full layout (yards/coords populated) keep
-  // their fetched rows untouched so 9-hole-real-course rendering doesn't
-  // sprout phantom holes 10..18.
+  // Detection is length-based — once any hole is materialized via
+  // ensureRealHole, the query refetches with one row and the rest must
+  // still be synthesized. Predicate-based detection (yards/tee_lat null)
+  // breaks once `saveReviewedHole` seeds the new row with the player's
+  // teeOverride — that single populated tee_lat made every "is this
+  // synthetic?" check return false on the post-save refetch and holes
+  // 2..18 disappeared from the array. Length is the unambiguous signal:
+  // if fewer rows than the course expects, fill the gap.
+  //
+  // Expected count comes from `course_tees.par` when present (≤36 = 9,
+  // else 18); falls back to 18 when no tees row exists. 9-hole real
+  // courses with no course_tees row would over-pad — that combination
+  // is rare enough to leave for a follow-up.
   type HSWithJoin = HoleScoreRow & {
     holes?: { number?: number | null; par?: number | null } | null
   }
+  const expectedHoleCount = useMemo(() => {
+    const tees = teesQuery.data ?? []
+    const totalPar = tees[0]?.par
+    if (totalPar != null && totalPar <= 36) return 9
+    return 18
+  }, [teesQuery.data])
   const holes = useMemo<HoleRow[]>(() => {
     const fetched = holesQuery.data ?? []
     const roundData = round.data
-    const allSynthetic =
-      fetched.length === 0 ||
-      fetched.every((h) => !h.yards && h.tee_lat == null)
-    if (!allSynthetic) return fetched
+    if (fetched.length >= expectedHoleCount) return fetched
     if (!roundData) return fetched
     // Index real rows + score-derived rows by hole number for a 1..18
     // merge. Real wins over score-derived, score-derived wins over a
@@ -356,7 +365,7 @@ export function RoundDetailPage() {
         })
       }
     }
-    return Array.from({ length: 18 }, (_, i) => {
+    return Array.from({ length: expectedHoleCount }, (_, i) => {
       const num = i + 1
       const real = realByNumber.get(num)
       if (real) return real
@@ -388,7 +397,7 @@ export function RoundDetailPage() {
         pin_lng: null,
       }
     })
-  }, [holesQuery.data, round.data])
+  }, [holesQuery.data, round.data, expectedHoleCount])
   const rawScores: Array<HoleScoreRow & { holes?: HoleRow | null }> = useMemo(
     () => holeScoresQuery.data ?? [],
     [holeScoresQuery.data],
@@ -766,7 +775,13 @@ export function RoundDetailPage() {
           notes: null,
         })
       }
-      dispatchHoleView({ type: 'AFTER_SAVE' })
+      // Cap auto-advance to the course's expected hole count — passing
+      // null on the last hole keeps the player put with a cleared state.
+      const nextHole =
+        activeHole.number + 1 <= expectedHoleCount
+          ? activeHole.number + 1
+          : null
+      dispatchHoleView({ type: 'AFTER_SAVE', nextHoleNumber: nextHole })
     } catch (err) {
       dispatchHoleView({ type: 'SAVE_ERROR', message: toUserMessage(err) })
     } finally {
