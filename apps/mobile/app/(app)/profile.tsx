@@ -8,6 +8,7 @@ import {
   TextInput,
   View,
 } from 'react-native'
+import { useRouter } from 'expo-router'
 import { FACILITIES, GOALS, SKILL_LEVELS } from '@oga/core'
 import { getProfile, updateProfile } from '@oga/supabase'
 import type { Database } from '@oga/supabase'
@@ -28,6 +29,7 @@ const KICKER: import('react-native').TextStyle = {
 }
 
 export default function ProfileTab() {
+  const router = useRouter()
   const { user, loading: authLoading } = useAuth()
   const [profile, setProfile] = useState<Profile | null>(null)
   const [username, setUsername] = useState('')
@@ -218,6 +220,31 @@ export default function ProfileTab() {
             />
           </View>
         </Field>
+
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Open My Bag"
+          onPress={() => router.push('/(app)/bag')}
+          style={{
+            marginTop: 18,
+            paddingVertical: 16,
+            paddingHorizontal: 4,
+            borderTopWidth: 1,
+            borderBottomWidth: 1,
+            borderColor: '#D9D2BF',
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+          }}
+        >
+          <View>
+            <Text style={{ ...KICKER, marginBottom: 2 }}>Equipment</Text>
+            <Text style={{ color: '#1C211C', fontSize: 16, fontWeight: '500' }}>
+              My Bag
+            </Text>
+          </View>
+          <Text style={{ color: '#1F3D2C', fontSize: 18, fontStyle: 'italic' }}>→</Text>
+        </Pressable>
 
         <Pressable
           accessibilityRole="button"

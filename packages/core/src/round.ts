@@ -13,7 +13,11 @@ export interface PlacedPoint {
 
 export interface ReviewedShotRow {
   shotNumber: number
-  club: Club
+  /** Canonical Club when inferred from the static table; arbitrary
+   *  string when picked from a user-bag entry whose club_type isn't in
+   *  CLUBS. The downstream `shots.club` column is text so callers don't
+   *  need to narrow. */
+  club: Club | string
   lieType: LieType
   startLat: number | null
   startLng: number | null

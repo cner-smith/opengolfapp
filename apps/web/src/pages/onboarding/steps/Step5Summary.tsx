@@ -93,7 +93,7 @@ export function Step5Summary({
           draft.playFrequency !== null &&
           draft.playStyle !== null
         }
-        continueLabel="Start tracking"
+        continueLabel="Continue"
         busy={saving}
       />
     </div>

@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
-  CLUBS,
+  DEFAULT_BAG,
   LIE_TYPES,
   buildInitialRows,
   type Club,
@@ -11,6 +11,7 @@ import {
 } from '@oga/core'
 import type { PlacedPoint } from './RoundMap'
 import { useUnits } from '../../hooks/useUnits'
+import { useUserBag } from '../../hooks/useUserBag'
 
 export type { ReviewedShotRow }
 
@@ -255,6 +256,19 @@ function ShotRow({
 }) {
   const isPutt = row.lieType === 'green' || row.club === 'putter'
   const { toDisplay, toDisplayFt } = useUnits()
+  const bag = useUserBag()
+  // Source the club options from the user's bag, falling back to
+  // DEFAULT_BAG when empty/loading. Splice in the row's current `club`
+  // when it isn't represented (custom utility club types from a bag
+  // edit, or a legacy CLUBS-based row from before this PR) so the
+  // <select> always shows the value the user actually has.
+  const clubOptions = useMemo(() => {
+    const base = bag.data && bag.data.length > 0
+      ? bag.data.map((c) => c.club_type)
+      : DEFAULT_BAG.map((c) => c.club_type)
+    if (row.club && !base.includes(row.club)) return [row.club, ...base]
+    return base
+  }, [bag.data, row.club])
   return (
     <div
       style={{
@@ -297,7 +311,7 @@ function ShotRow({
           minWidth: 110,
         }}
       >
-        {CLUBS.map((c) => (
+        {clubOptions.map((c) => (
           <option key={c} value={c}>
             {c}
           </option>
