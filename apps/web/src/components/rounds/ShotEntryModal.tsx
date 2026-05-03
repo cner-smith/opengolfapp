@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
-  CLUBS,
+  DEFAULT_BAG,
   LIE_TYPES,
   LIE_TYPE_LABELS,
   PUTT_RESULT_LABELS,
@@ -18,6 +18,7 @@ import {
   type PuttDistanceResult,
   type ShotResult,
 } from '@oga/core'
+import { useUserBag } from '../../hooks/useUserBag'
 import type { Database } from '@oga/supabase'
 import {
   useCreateShot,
@@ -159,6 +160,19 @@ export function ShotEntryModal({
   const createShot = useCreateShot(roundId)
   const updateShot = useUpdateShot(roundId)
   const deleteShot = useDeleteShot(roundId)
+  const bag = useUserBag()
+
+  // Source club options from the user's bag (in_bag rows, in sort_order).
+  // Fall back to DEFAULT_BAG while loading or if the user has trimmed
+  // their bag to nothing — never show an empty club picker. Bag custom
+  // club_types pass through as plain strings since `shots.club` is a
+  // text column.
+  const clubOptions: readonly string[] = useMemo(() => {
+    if (bag.data && bag.data.length > 0) {
+      return bag.data.map((c) => c.club_type)
+    }
+    return DEFAULT_BAG.map((c) => c.club_type)
+  }, [bag.data])
 
   const holeShots = useMemo(() => {
     return (shotsQuery.data ?? [])
@@ -461,8 +475,10 @@ export function ShotEntryModal({
                 <Field label="Club">
                   <ChipGroup
                     value={draft.club}
-                    options={CLUBS}
-                    onChange={(v) => setDraft((d) => ({ ...d, club: v }))}
+                    options={clubOptions}
+                    onChange={(v) =>
+                      setDraft((d) => ({ ...d, club: v as Club | undefined }))
+                    }
                   />
                 </Field>
               )}
