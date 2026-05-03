@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Modal, Pressable, ScrollView, Text, TextInput, View } from 'react-native'
 import Svg, { Circle, Line as SvgLine } from 'react-native-svg'
 import {
-  CLUBS,
+  DEFAULT_BAG,
   LIE_TYPES,
   SHOT_RESULTS,
   type BreakDirection,
@@ -13,6 +13,7 @@ import {
   type LieType,
   type ShotResult,
 } from '@oga/core'
+import { useUserBag } from '../../hooks/useUserBag'
 import { PuttingSheet } from './PuttingSheet'
 
 export interface ShotLoggerValue {
@@ -88,6 +89,13 @@ export function ShotLogger({
   })
   const set = <K extends keyof ShotLoggerValue>(key: K, v: ShotLoggerValue[K]) =>
     setValue((prev) => ({ ...prev, [key]: prev[key] === v ? undefined : v }))
+
+  // Source the club picker from the user's bag. Fall back to DEFAULT_BAG
+  // while the bag is loading or if the user trimmed it to nothing — never
+  // show an empty picker.
+  const { bag } = useUserBag()
+  const clubOptions: readonly string[] =
+    bag.length > 0 ? bag.map((c) => c.club_type) : DEFAULT_BAG.map((c) => c.club_type)
 
   const isOnGreen = value.lieType === 'green'
 
@@ -209,8 +217,8 @@ export function ShotLogger({
             <Section title="Club">
               <ChipRow
                 value={value.club}
-                options={CLUBS}
-                onChange={(v) => set('club', v)}
+                options={clubOptions}
+                onChange={(v) => set('club', v as Club | undefined)}
               />
             </Section>
 
