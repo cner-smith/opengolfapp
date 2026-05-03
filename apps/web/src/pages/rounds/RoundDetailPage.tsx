@@ -296,7 +296,47 @@ export function RoundDetailPage() {
   } = holeView
   const [savingHole, setSavingHole] = useState(false)
 
-  const holes = useMemo(() => holesQuery.data ?? [], [holesQuery.data])
+  // Synthetic fallback when the course has no rows in the `holes` table
+  // (typical for OSM-imported courses that never went through enrichment).
+  // Without this, every downstream feature gates on `activeHole` being
+  // non-null and the round detail page locks up: scorecard renders no
+  // rows, map placement buttons hide, review sheet can't open. Synthesize
+  // either from hole_scores (real hole_ids + joined par survive a
+  // refresh) or as 18 par-4 placeholders so the UI is at least usable.
+  type HSWithJoin = HoleScoreRow & { holes?: { par?: number | null } | null }
+  const holes = useMemo<HoleRow[]>(() => {
+    const fetched = holesQuery.data ?? []
+    if (fetched.length > 0) return fetched
+    const roundData = round.data
+    if (!roundData) return []
+    const scores = (roundData as { hole_scores?: HSWithJoin[] }).hole_scores
+    if (scores && scores.length > 0) {
+      return scores.map((hs, i) => ({
+        id: hs.hole_id,
+        course_id: roundData.course_id,
+        number: i + 1,
+        par: hs.holes?.par ?? 4,
+        yards: null,
+        stroke_index: i + 1,
+        tee_lat: null,
+        tee_lng: null,
+        pin_lat: null,
+        pin_lng: null,
+      }))
+    }
+    return Array.from({ length: 18 }, (_, i) => ({
+      id: `synthetic-${roundData.id}-hole-${i + 1}`,
+      course_id: roundData.course_id,
+      number: i + 1,
+      par: 4,
+      yards: null,
+      stroke_index: i + 1,
+      tee_lat: null,
+      tee_lng: null,
+      pin_lat: null,
+      pin_lng: null,
+    }))
+  }, [holesQuery.data, round.data])
   const rawScores: Array<HoleScoreRow & { holes?: HoleRow | null }> = useMemo(
     () => holeScoresQuery.data ?? [],
     [holeScoresQuery.data],
