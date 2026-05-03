@@ -427,6 +427,18 @@ export function RoundDetailPage() {
       const hs = hsResult ?? existing
       if (!hs) throw new Error('hole_score upsert returned no row')
 
+      // Replace-all save: drop any shots already attached to this
+      // hole_score before inserting the freshly reviewed rows. Without
+      // this, a re-save (e.g. after a partial-success error retry, or
+      // after editing the hole on the map) duplicated rows in the DB
+      // and surfaced as phantom shot markers + shifted shot numbers.
+      const { error: delErr } = await supabase
+        .from('shots')
+        .delete()
+        .eq('hole_score_id', hs.id)
+        .eq('user_id', user.id)
+      if (delErr) throw delErr
+
       for (const row of rows) {
         const isPuttRow =
           row.lieType === 'green' ||
