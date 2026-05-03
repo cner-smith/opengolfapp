@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { Pressable, ScrollView, Text, View } from 'react-native'
 import type { Database } from '@oga/supabase'
 
@@ -18,6 +18,11 @@ interface ScorecardModalProps {
   holeScores: HoleScoreRow[]
   currentHoleNumber: number
   onJumpToHole: (n: number) => void
+  /** Tap-to-cycle par 3 → 4 → 5 → 3 for holes that came back with no
+   *  layout data (yards null + tee coords null — typical OSM-only rows).
+   *  Optional so callers that don't yet wire the update can still mount
+   *  the modal read-only. */
+  onChangePar?: (holeId: string, newPar: number) => void
   onClose: () => void
 }
 
@@ -26,6 +31,7 @@ export function ScorecardModal({
   holeScores,
   currentHoleNumber,
   onJumpToHole,
+  onChangePar,
   onClose,
 }: ScorecardModalProps) {
   const scoresByHoleId = useMemo(
@@ -36,6 +42,10 @@ export function ScorecardModal({
     () => [...holes].sort((a, b) => a.number - b.number),
     [holes],
   )
+  const hasSyntheticHoles = sorted.some(
+    (h) => !h.yards && h.tee_lat == null,
+  )
+  const [hintDismissed, setHintDismissed] = useState(false)
   let runningTotal = 0
   let runningPar = 0
   return (
@@ -71,6 +81,33 @@ export function ScorecardModal({
         >
           Scorecard
         </Text>
+        {hasSyntheticHoles && !hintDismissed && onChangePar && (
+          <View
+            style={{
+              marginBottom: 10,
+              paddingHorizontal: 12,
+              paddingVertical: 8,
+              borderWidth: 1,
+              borderColor: '#D9D2BF',
+              borderRadius: 2,
+              flexDirection: 'row',
+              alignItems: 'flex-start',
+              gap: 12,
+            }}
+          >
+            <Text style={{ flex: 1, fontSize: 13, color: '#5C6356', lineHeight: 18 }}>
+              No course layout found. Par defaults to 4 — tap to edit.
+            </Text>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Dismiss notice"
+              onPress={() => setHintDismissed(true)}
+              hitSlop={8}
+            >
+              <Text style={{ ...KICKER, color: '#8A8B7E' }}>Dismiss</Text>
+            </Pressable>
+          </View>
+        )}
         <ScrollView
           style={{ maxHeight: '90%' }}
           showsVerticalScrollIndicator={false}
@@ -136,17 +173,49 @@ export function ScorecardModal({
                 >
                   {h.number}
                 </Text>
-                <Text
-                  style={{
-                    width: 44,
-                    textAlign: 'right',
-                    fontSize: 15,
-                    color: '#5C6356',
-                    fontVariant: ['tabular-nums'],
-                  }}
-                >
-                  {h.par}
-                </Text>
+                {!h.yards && h.tee_lat == null && onChangePar ? (
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={`Par ${h.par}, tap to change`}
+                    onPress={() => {
+                      const next = h.par === 3 ? 4 : h.par === 4 ? 5 : 3
+                      onChangePar(h.id, next)
+                    }}
+                    hitSlop={6}
+                    style={{
+                      width: 44,
+                      alignItems: 'flex-end',
+                      paddingVertical: 2,
+                      paddingHorizontal: 4,
+                      borderWidth: 1,
+                      borderStyle: 'dashed',
+                      borderColor: '#9F9580',
+                      borderRadius: 2,
+                    }}
+                  >
+                    <Text
+                      style={{
+                        fontSize: 15,
+                        color: '#5C6356',
+                        fontVariant: ['tabular-nums'],
+                      }}
+                    >
+                      {h.par}
+                    </Text>
+                  </Pressable>
+                ) : (
+                  <Text
+                    style={{
+                      width: 44,
+                      textAlign: 'right',
+                      fontSize: 15,
+                      color: '#5C6356',
+                      fontVariant: ['tabular-nums'],
+                    }}
+                  >
+                    {h.par}
+                  </Text>
+                )}
                 <Text
                   style={{
                     width: 56,

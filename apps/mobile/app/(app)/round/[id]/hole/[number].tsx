@@ -1225,6 +1225,23 @@ export default function HoleScreen() {
               router.replace(`/(app)/round/${id}/hole/${n}`)
             }
           }}
+          onChangePar={async (holeId, newPar) => {
+            // Optimistic update so the cell reflects the tap immediately.
+            // Roll back if the DB write fails so the UI doesn't lie.
+            const prev = holes.find((h) => h.id === holeId)?.par ?? 4
+            setHoles((cur) =>
+              cur.map((h) => (h.id === holeId ? { ...h, par: newPar } : h)),
+            )
+            const { error: parErr } = await supabase
+              .from('holes')
+              .update({ par: newPar })
+              .eq('id', holeId)
+            if (parErr) {
+              setHoles((cur) =>
+                cur.map((h) => (h.id === holeId ? { ...h, par: prev } : h)),
+              )
+            }
+          }}
           onClose={() => setScorecardOpen(false)}
         />
       </Modal>

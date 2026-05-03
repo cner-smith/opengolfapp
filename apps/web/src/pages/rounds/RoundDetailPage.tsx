@@ -1010,11 +1010,52 @@ function ScorecardView({
   ensureRealHole,
   onEditShots,
 }: ScorecardViewProps) {
+  const hasSyntheticHoles = holes.some(
+    (h) => !h.yards && h.tee_lat == null,
+  )
+  const [hintDismissed, setHintDismissed] = useState(false)
   return (
     <div style={{ borderTop: '1px solid #D9D2BF', paddingTop: 14 }}>
       <div className="kicker" style={{ marginBottom: 14 }}>
         Scorecard
       </div>
+      {hasSyntheticHoles && !hintDismissed && (
+        <div
+          role="status"
+          style={{
+            marginBottom: 14,
+            padding: '10px 14px',
+            background: '#FBF8F1',
+            border: '1px solid #D9D2BF',
+            borderRadius: 2,
+            display: 'flex',
+            alignItems: 'flex-start',
+            gap: 14,
+          }}
+        >
+          <div
+            className="text-caddie-ink-dim"
+            style={{ flex: 1, fontSize: 13, lineHeight: 1.4 }}
+          >
+            No course layout found. Par defaults to 4 — tap to edit.
+          </div>
+          <button
+            type="button"
+            onClick={() => setHintDismissed(true)}
+            aria-label="Dismiss notice"
+            className="font-mono uppercase text-caddie-ink-mute hover:text-caddie-ink"
+            style={{
+              fontSize: 10,
+              letterSpacing: '0.14em',
+              background: 'transparent',
+              border: 'none',
+              padding: 4,
+            }}
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
       <div
         style={{
           borderTop: '1px solid #D9D2BF',
