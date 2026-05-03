@@ -532,6 +532,7 @@ function upsertLine(
   color: string,
 ) {
   const layerId = `${sourceId}-layer`
+  const outlineLayerId = `${sourceId}-outline`
   const data: GeoJSON.Feature<GeoJSON.LineString> = {
     type: 'Feature',
     properties: {},
@@ -540,21 +541,34 @@ function upsertLine(
   const src = map.getSource(sourceId) as mapboxgl.GeoJSONSource | undefined
   if (src) {
     src.setData(data)
-  } else {
-    map.addSource(sourceId, { type: 'geojson', data })
-    map.addLayer({
-      id: layerId,
-      type: 'line',
-      source: sourceId,
-      layout: { 'line-join': 'round', 'line-cap': 'round' },
-      paint: {
-        'line-color': color,
-        'line-width': 1.5,
-        'line-dasharray': [3, 2],
-        'line-opacity': 0.85,
-      },
-    })
+    return
   }
+  map.addSource(sourceId, { type: 'geojson', data })
+  // Dark outline first so the amber line reads against both bright
+  // satellite (sand) and dark areas (rough/water). Without the outline
+  // the warn amber disappeared into fall fairway tiles.
+  map.addLayer({
+    id: outlineLayerId,
+    type: 'line',
+    source: sourceId,
+    layout: { 'line-join': 'round', 'line-cap': 'round' },
+    paint: {
+      'line-color': '#1C211C',
+      'line-width': 4,
+      'line-opacity': 0.55,
+    },
+  })
+  map.addLayer({
+    id: layerId,
+    type: 'line',
+    source: sourceId,
+    layout: { 'line-join': 'round', 'line-cap': 'round' },
+    paint: {
+      'line-color': color,
+      'line-width': 2.5,
+      'line-opacity': 1,
+    },
+  })
 }
 
 // ---------------------------------------------------------------------------
