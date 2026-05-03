@@ -11,6 +11,9 @@ interface HoleScoreCardProps {
   hole: HoleRow
   holeScore?: HoleScoreRow
   shotCount: number
+  /** Materialize a synthetic-id hole into a real `holes` row before
+   *  the hole_scores upsert (FK requirement). No-op for real holes. */
+  ensureRealHole: (hole: HoleRow) => Promise<string>
   onEditShots: (holeScoreId: string) => void
 }
 
@@ -75,6 +78,7 @@ export function HoleScoreCard({
   hole,
   holeScore,
   shotCount,
+  ensureRealHole,
   onEditShots,
 }: HoleScoreCardProps) {
   const upsert = useUpsertHoleScore(roundId)
@@ -99,7 +103,7 @@ export function HoleScoreCard({
     setGir(holeScore.gir ?? null)
   }, [holeScore])
 
-  function persist(next: {
+  async function persist(next: {
     score?: number | null
     putts?: number | null
     fairway_hit?: boolean | null
@@ -108,10 +112,13 @@ export function HoleScoreCard({
     const numericScore =
       next.score !== undefined ? next.score : score ? Number(score) : null
     if (!numericScore) return
+    // Materialize the synthetic hole before the upsert (FK on hole_id).
+    // No-op for real holes — short-circuits and returns the existing id.
+    const realHoleId = await ensureRealHole(hole)
     upsert.mutate({
       id: holeScore?.id,
       round_id: roundId,
-      hole_id: hole.id,
+      hole_id: realHoleId,
       score: numericScore,
       putts:
         next.putts !== undefined
@@ -178,7 +185,7 @@ export function HoleScoreCard({
         onChange={(e) => setScore(e.target.value)}
         onBlur={() => {
           const n = score ? Number(score) : null
-          if (n) persist({ score: n })
+          if (n) void persist({ score: n })
         }}
         className="col-span-1 font-serif tabular text-caddie-ink bg-caddie-surface"
         style={{
@@ -219,7 +226,7 @@ export function HoleScoreCard({
         placeholder="Putts"
         value={putts}
         onChange={(e) => setPutts(e.target.value)}
-        onBlur={() => persist({ putts: putts === '' ? null : Number(putts) })}
+        onBlur={() => void persist({ putts: putts === '' ? null : Number(putts) })}
         className="col-span-2 tabular text-caddie-ink bg-caddie-surface"
         style={{
           border: '1px solid #D9D2BF',
@@ -241,7 +248,7 @@ export function HoleScoreCard({
             state={fairway}
             onChange={(v) => {
               setFairway(v)
-              persist({ fairway_hit: v })
+              void persist({ fairway_hit: v })
             }}
           />
         )}
@@ -253,7 +260,7 @@ export function HoleScoreCard({
           state={gir}
           onChange={(v) => {
             setGir(v)
-            persist({ gir: v })
+            void persist({ gir: v })
           }}
         />
       </div>

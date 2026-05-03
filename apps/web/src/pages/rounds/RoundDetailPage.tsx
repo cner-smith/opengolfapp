@@ -9,6 +9,7 @@ import {
   type ReactNode,
 } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { useQueryClient } from '@tanstack/react-query'
 import type { Database } from '@oga/supabase'
 import { HoleScoreCard } from '../../components/rounds/HoleScoreCard'
 import { ShotEntryModal } from '../../components/rounds/ShotEntryModal'
@@ -264,6 +265,7 @@ export function RoundDetailPage() {
   const completeMutation = useCompleteRound()
   const deleteMutation = useDeleteRound()
   const allRounds = useRounds(50)
+  const queryClient = useQueryClient()
   const [confirmDelete, setConfirmDelete] = useState(false)
 
   const [shotsModalFor, setShotsModalFor] = useState<{
@@ -431,6 +433,60 @@ export function RoundDetailPage() {
       .sort((a, b) => a.shotNumber - b.shotNumber)
   }, [activeHoleScore, shotsQuery.data])
 
+  // Materialize a synthetic hole into a real `holes` row before any
+  // operation that writes to hole_scores. Synthetic ids (prefixed
+  // 'synthetic-') come from the no-OSM-data fallback in the `holes`
+  // memo above; hole_scores.hole_id has a FK to holes.id, so without
+  // this an upsert would fail. On insert, invalidate the holes query
+  // so the synthetic placeholder gets replaced with the real row on
+  // the next read. On unique-violation (course_id,number race), look
+  // up the existing row instead of clobbering it.
+  const ensureRealHole = useCallback(
+    async (
+      hole: HoleRow,
+      opts?: {
+        teeLat?: number | null
+        teeLng?: number | null
+        pinLat?: number | null
+        pinLng?: number | null
+      },
+    ): Promise<string> => {
+      if (!hole.id.startsWith('synthetic-')) return hole.id
+      const { data: inserted, error: insertErr } = await supabase
+        .from('holes')
+        .insert({
+          course_id: hole.course_id,
+          number: hole.number,
+          par: hole.par,
+          yards: null,
+          stroke_index: hole.number,
+          tee_lat: opts?.teeLat ?? null,
+          tee_lng: opts?.teeLng ?? null,
+          pin_lat: opts?.pinLat ?? null,
+          pin_lng: opts?.pinLng ?? null,
+        })
+        .select('id')
+        .single()
+      if (!insertErr && inserted) {
+        queryClient.invalidateQueries({ queryKey: ['holes', hole.course_id] })
+        return inserted.id
+      }
+      if (insertErr?.code === '23505') {
+        const { data: existing, error: selectErr } = await supabase
+          .from('holes')
+          .select('id')
+          .eq('course_id', hole.course_id)
+          .eq('number', hole.number)
+          .single()
+        if (selectErr || !existing) throw selectErr ?? insertErr
+        queryClient.invalidateQueries({ queryKey: ['holes', hole.course_id] })
+        return existing.id
+      }
+      throw insertErr ?? new Error('hole insert failed')
+    },
+    [queryClient],
+  )
+
   // The round-pin write is best-effort — we update local state synchronously
   // so the map + review sheet update immediately, then persist to
   // hole_scores.pin_lat/lng if we have a row to attach it to.
@@ -582,10 +638,20 @@ export function RoundDetailPage() {
           r.club === 'putter' ||
           r.distanceToPin <= NEAR_GREEN_YARDS,
       ).length
+      // Materialize the synthetic hole if needed before upserting the
+      // hole_score (FK to holes.id). Seeds the new holes row with any
+      // session tee/pin overrides so manual placements persist as the
+      // course's first real layout data — every save curates the course.
+      const realHoleId = await ensureRealHole(activeHole, {
+        teeLat: teeOverride?.lat ?? null,
+        teeLng: teeOverride?.lng ?? null,
+        pinLat: pinOverride?.lat ?? null,
+        pinLng: pinOverride?.lng ?? null,
+      })
       const hsResult = await upsertHoleScore.mutateAsync({
         id: existing?.id,
         round_id: round.data.id,
-        hole_id: activeHole.id,
+        hole_id: realHoleId,
         score: rows.length,
         putts: puttCount,
         fairway_hit: existing?.fairway_hit ?? null,
@@ -785,6 +851,7 @@ export function RoundDetailPage() {
           scoresByHoleId={scoresByHoleId}
           shotCountByHoleScore={shotCountByHoleScore}
           roundId={round.data.id}
+          ensureRealHole={ensureRealHole}
           onEditShots={(args) => setShotsModalFor(args)}
         />
       ) : (
@@ -925,6 +992,9 @@ interface ScorecardViewProps {
   scoresByHoleId: Map<string, HoleScoreRow>
   shotCountByHoleScore: Map<string, number>
   roundId: string
+  /** Materialize a synthetic-id hole into a real `holes` row before
+   *  any hole_scores write. No-op for real holes. */
+  ensureRealHole: (hole: HoleRow) => Promise<string>
   onEditShots: (args: {
     holeScoreId: string
     holeNumber: number
@@ -937,6 +1007,7 @@ function ScorecardView({
   scoresByHoleId,
   shotCountByHoleScore,
   roundId,
+  ensureRealHole,
   onEditShots,
 }: ScorecardViewProps) {
   return (
@@ -978,6 +1049,7 @@ function ScorecardView({
               hole={h}
               holeScore={hs}
               shotCount={hs ? (shotCountByHoleScore.get(hs.id) ?? 0) : 0}
+              ensureRealHole={ensureRealHole}
               onEditShots={(holeScoreId) =>
                 onEditShots({
                   holeScoreId,
