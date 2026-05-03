@@ -342,6 +342,20 @@ export function RoundDetailPage() {
   const courseRow = courseQuery.data ?? null
   const courseFallbackLat = courseRow?.lat ?? joinedCourse?.lat ?? null
   const courseFallbackLng = courseRow?.lng ?? joinedCourse?.lng ?? null
+  if (import.meta.env.DEV) {
+    // eslint-disable-next-line no-console
+    console.log('[RoundDetail] course from useCourse:', courseRow)
+    // eslint-disable-next-line no-console
+    console.log('[RoundDetail] round.course (joined):', joinedCourse)
+    // eslint-disable-next-line no-console
+    console.log('[RoundDetail] resolved fallback coords:', {
+      lat: courseFallbackLat,
+      lng: courseFallbackLng,
+      activeHoleNumber,
+      teeLat: activeHole?.tee_lat ?? null,
+      pinLat: activeHole?.pin_lat ?? null,
+    })
+  }
   const activeHoleGeo: HoleGeo | null = activeHole
     ? {
         id: activeHole.id,

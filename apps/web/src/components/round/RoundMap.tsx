@@ -94,6 +94,26 @@ export function RoundMap({
   onMoveTee,
   onSetAim,
 }: RoundMapProps) {
+  // Top-of-component log so we can confirm RoundMap mounts at all and
+  // see the props actually arriving — the previous in-effect log only
+  // fires after the first render, and a missing log there couldn't tell
+  // us whether the component never rendered or just rendered with the
+  // wrong inputs.
+  if (import.meta.env.DEV) {
+    // eslint-disable-next-line no-console
+    console.log('[RoundMap] component rendering, props:', {
+      holeId: hole?.id ?? null,
+      holeNumber: hole?.number ?? null,
+      teeLat: hole?.teeLat ?? null,
+      teeLng: hole?.teeLng ?? null,
+      pinLat: hole?.pinLat ?? null,
+      pinLng: hole?.pinLng ?? null,
+      courseLat: hole?.courseLat ?? null,
+      courseLng: hole?.courseLng ?? null,
+      placedPointsCount: placedPoints.length,
+      existingShotsCount: existingShots.length,
+    })
+  }
   const { toDisplay } = useUnits()
   // Memoized so downstream effects can dep on the object directly without
   // thrashing on every parent render — coords are the only meaningful
