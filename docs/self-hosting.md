@@ -37,14 +37,23 @@ You'll also need the **service_role** key for the seed script. Treat it like a d
 
 ## 3. Run the migrations
 
-Migrations live in `supabase/migrations/`:
+Migrations live in `supabase/migrations/`, numbered sequentially from
+`0001_initial_schema.sql` through `0021_shot_result_check.sql` at the
+time of writing. Highlights:
 
-- `0001_initial_schema.sql` — base schema (profiles, courses, rounds, hole_scores, shots, drills, practice_plans).
-- `0002_hole_score_pin_position.sql` — adds `pin_lat`/`pin_lng` to `hole_scores` for the per-round pin captured during live play.
-- `0003_split_lie_slope.sql` — splits `lie_slope` into independent `lie_slope_forward` (uphill/level/downhill) and `lie_slope_side` (ball above/below) axes; legacy column kept for back-compat reads.
-- `0004_course_external_id.sql` — adds `courses.external_id` (+ index) for OpenGolfAPI imports.
-- `0005_putting_fields.sql` — adds `putt_slope_pct` (0-4) and `green_speed` (slow/medium/fast) to `shots`.
-- `0006_putt_result_split.sql` — splits putt result into `putt_distance_result` (short/long) and `putt_direction_result` (left/right); legacy `putt_result` kept and backfilled.
+- `0001` — base schema (profiles, courses, rounds, hole_scores, shots,
+  drills, practice_plans) with RLS policies on every user-owned table.
+- `0002` — per-round pin override (`hole_scores.pin_lat/pin_lng`).
+- `0003` — splits `lie_slope` into independent `lie_slope_forward` and
+  `lie_slope_side` axes; legacy column kept for back-compat reads.
+- `0006` — splits putt result into independent `putt_distance_result`
+  (short/long) and `putt_direction_result` (left/right) axes.
+- `0008` — `course_tees` (per-tee handicap rating + slope).
+- `0010`–`0012` — crawl-pipeline tables for course ingestion.
+- `0013` — drops `courses.location` in favor of discrete `city`/`state`.
+- `0017` — drops the never-used `courses.mapbox_id`.
+- `0018`–`0021` — fuzzy course search (`pg_trgm`), unique index on
+  `external_id`, CHECK constraints on `play_frequency` and `shot_result`.
 
 Apply them in order. Either:
 
@@ -55,7 +64,7 @@ npx supabase link --project-ref <your-project-ref>
 npx supabase db push
 ```
 
-`db push` applies every file in `supabase/migrations/` that hasn't run yet, in filename order, so a single command covers `0001` and `0002` on a fresh project.
+`db push` applies every file in `supabase/migrations/` that hasn't run yet, in filename order, so a single command covers `0001` through the latest migration on a fresh project.
 
 **Option B — SQL editor:**
 
