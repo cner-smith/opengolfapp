@@ -24,6 +24,7 @@ export interface Database {
           facilities: string[] | null
           play_style: 'casual' | 'mixed' | 'competitive' | null
           distance_unit: 'yards' | 'meters'
+          onboarding_completed: boolean
           created_at: string
         }
         Insert: {
@@ -36,6 +37,7 @@ export interface Database {
           facilities?: string[] | null
           play_style?: 'casual' | 'mixed' | 'competitive' | null
           distance_unit?: 'yards' | 'meters'
+          onboarding_completed?: boolean
           created_at?: string
         }
         Update: {
@@ -48,6 +50,7 @@ export interface Database {
           facilities?: string[] | null
           play_style?: 'casual' | 'mixed' | 'competitive' | null
           distance_unit?: 'yards' | 'meters'
+          onboarding_completed?: boolean
           created_at?: string
         }
         Relationships: []
