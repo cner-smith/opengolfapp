@@ -298,7 +298,12 @@ export function RoundMap({
 
   const renderLayers = useCallback(() => {
     const map = mapRef.current
-    if (!map || !hole) return
+    if (!map) return
+    // Markers, lines, distance pills, and aim ghosts render purely off
+    // shot/placed-point coordinates. Tee/pin/aim sub-blocks already
+    // null-check their own inputs (via effectiveTee, effectivePin) so
+    // a course with no row in the holes table still draws shots when
+    // their start/end coords are populated.
 
     // Clear old markers.
     for (const m of markerRefs.current) m.remove()
