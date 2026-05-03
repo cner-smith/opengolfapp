@@ -2,6 +2,7 @@ import {
   Suspense,
   lazy,
   useCallback,
+  useEffect,
   useMemo,
   useReducer,
   useState,
@@ -325,6 +326,10 @@ export function RoundDetailPage() {
     (activeHole?.tee_lat != null && activeHole?.tee_lng != null
       ? { lat: activeHole.tee_lat, lng: activeHole.tee_lng }
       : null)
+  // Course-level lat/lng pulled off the joined courses row. Used as the
+  // map's fallback camera target when this hole has no tee/pin coords —
+  // most courses imported pre-OSM still lack per-hole layout data.
+  const courseRow = round.data?.courses ?? null
   const activeHoleGeo: HoleGeo | null = activeHole
     ? {
         id: activeHole.id,
@@ -335,8 +340,17 @@ export function RoundDetailPage() {
         teeLng: effectiveTee?.lng ?? null,
         pinLat: effectivePin?.lat ?? null,
         pinLng: effectivePin?.lng ?? null,
+        courseLat: courseRow?.lat ?? null,
+        courseLng: courseRow?.lng ?? null,
       }
     : null
+  // True when the active hole has no per-hole layout in the DB. Drives
+  // the dismissable notice banner above the map and the "— yd to pin"
+  // strip text so the player understands why distances are missing.
+  const missingHoleLayout =
+    activeHole != null &&
+    activeHole.tee_lat == null &&
+    activeHole.pin_lat == null
   const activeHoleShots = useMemo<ExistingShot[]>(() => {
     if (!activeHoleScore) return []
     return (shotsQuery.data ?? [])
@@ -713,6 +727,7 @@ export function RoundDetailPage() {
           placedPoints={placedPoints}
           placedAims={placedAims}
           aimMode={aimMode}
+          missingHoleLayout={missingHoleLayout}
           focusGreenSignal={focusGreenSignal}
           puttingOpen={puttingSheetForIdx != null}
           pinOverride={pinOverride}
@@ -915,6 +930,9 @@ interface MapViewProps {
   placedPoints: PlacedPoint[]
   placedAims: (PlacedPoint | null)[]
   aimMode: boolean
+  /** True when the active hole has neither tee nor pin coordinates in
+   *  the DB — drives the dismissable notice banner above the map. */
+  missingHoleLayout: boolean
   /** True while the putting sheet is open — suppresses tap-to-place so
    *  taps that hit the map under the sheet don't drop new shots. */
   puttingOpen: boolean
@@ -949,6 +967,7 @@ function MapView({
   placedPoints,
   placedAims,
   aimMode,
+  missingHoleLayout,
   puttingOpen,
   focusGreenSignal,
   pinOverride,
@@ -958,6 +977,13 @@ function MapView({
   editingOnMap,
   reviewSheet,
 }: MapViewProps) {
+  // Notice banner sits above the map when the active hole has no tee
+  // or pin coords. Dismiss state resets on every hole switch so the
+  // player isn't surprised by a missing-data hole later in the round.
+  const [noticeDismissed, setNoticeDismissed] = useState(false)
+  useEffect(() => {
+    setNoticeDismissed(false)
+  }, [activeHoleNumber])
   const hasExistingShots = existingShots.some(
     (s) => s.endLat != null && s.endLng != null,
   )
@@ -986,12 +1012,56 @@ function MapView({
         activeNumber={activeHoleNumber}
         onSelect={onSwitchHole}
       />
+      {missingHoleLayout && !noticeDismissed && (
+        <div
+          role="status"
+          style={{
+            marginTop: 14,
+            padding: '10px 14px',
+            background: '#FBF8F1',
+            border: '1px solid #D9D2BF',
+            borderRadius: 2,
+            display: 'flex',
+            alignItems: 'flex-start',
+            gap: 14,
+          }}
+        >
+          <div style={{ flex: 1 }}>
+            <div className="kicker" style={{ marginBottom: 4 }}>
+              No hole layout
+            </div>
+            <div
+              className="text-caddie-ink-dim"
+              style={{ fontSize: 13, lineHeight: 1.4 }}
+            >
+              No hole layout data for this course. You can still place
+              shots manually.
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setNoticeDismissed(true)}
+            aria-label="Dismiss notice"
+            className="font-mono uppercase text-caddie-ink-mute hover:text-caddie-ink"
+            style={{
+              fontSize: 10,
+              letterSpacing: '0.14em',
+              background: 'transparent',
+              border: 'none',
+              padding: 4,
+            }}
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
       <div style={{ marginTop: 14 }}>
         <RoundMapInstructionStrip
           hasExistingShots={hasExistingShots}
           editing={editingOnMap}
           shotsPlaced={placedPoints.length}
           remainingToPin={remainingToPin}
+          pinAvailable={effectivePin != null}
           aimMode={aimMode}
           aimsSet={placedAims.filter((a) => a != null).length}
           onToggleAimMode={handlers.onToggleAimMode}

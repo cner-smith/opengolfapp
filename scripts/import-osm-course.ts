@@ -10,6 +10,13 @@
  * tee_lat/lng + pin_lat/lng. Re-running is safe: the course is
  * matched by name and holes are upserted on (course_id, number).
  *
+ * Pass --update-existing to refuse creating a new course row and
+ * instead delete-then-replace holes for the matching course. Useful
+ * when re-importing layout for a course that already exists in the
+ * DB; without this flag a stale hole that's no longer in OSM would
+ * remain because the upsert is keyed on (course_id, number) and
+ * doesn't drop missing rows.
+ *
  * Env: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY (read from .env via
  * dotenv/config or the shell).
  */
@@ -37,6 +44,7 @@ interface Args {
   lat: number
   lng: number
   radius: number
+  updateExisting: boolean
 }
 
 function parseArgs(argv: string[]): Args {
@@ -44,6 +52,7 @@ function parseArgs(argv: string[]): Args {
   let lat: number | undefined
   let lng: number | undefined
   let radius: number | undefined
+  let updateExisting = false
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i]
     const next = argv[i + 1]
@@ -59,17 +68,19 @@ function parseArgs(argv: string[]): Args {
     } else if (a === '--radius' && next != null) {
       radius = Number(next)
       i++
+    } else if (a === '--update-existing') {
+      updateExisting = true
     }
   }
   if (!name || lat == null || lng == null || radius == null) {
     throw new Error(
-      'Usage: tsx scripts/import-osm-course.ts --name "<Course Name>" --lat <lat> --lng <lng> --radius <meters>',
+      'Usage: tsx scripts/import-osm-course.ts --name "<Course Name>" --lat <lat> --lng <lng> --radius <meters> [--update-existing]',
     )
   }
   if (!Number.isFinite(lat) || !Number.isFinite(lng) || !Number.isFinite(radius)) {
     throw new Error('--lat, --lng, --radius must be numeric')
   }
-  return { name, lat, lng, radius }
+  return { name, lat, lng, radius, updateExisting }
 }
 
 // ---------------------------------------------------------------------------
@@ -351,6 +362,7 @@ function matchHoles(
 async function upsertCourse(
   name: string,
   centroid: LatLon,
+  updateExisting: boolean,
 ): Promise<{ id: string; created: boolean }> {
   const { data: existing, error: lookupErr } = await supabase
     .from('courses')
@@ -366,6 +378,16 @@ async function upsertCourse(
     if (updateErr) throw updateErr
     return { id: existing.id, created: false }
   }
+  // --update-existing means "operate on a known course only" — bail
+  // out with a clear error rather than silently inserting a duplicate
+  // row when the name match misses (e.g. punctuation drift between
+  // the DB row and the OSM tag).
+  if (updateExisting) {
+    throw new Error(
+      `--update-existing was set but no course matching "${name}" exists. ` +
+        `Re-run without the flag to create it, or fix the --name argument to match the existing row.`,
+    )
+  }
 
   const { data, error } = await supabase
     .from('courses')
@@ -374,6 +396,23 @@ async function upsertCourse(
     .single()
   if (error || !data) throw error ?? new Error('course insert failed')
   return { id: data.id, created: true }
+}
+
+async function deleteHolesForCourse(courseId: string): Promise<number> {
+  // Count first so we can report what was wiped — Supabase delete()
+  // doesn't return the affected row count without a `count: 'exact'`
+  // header, and a separate count keeps the log line accurate.
+  const { count, error: countErr } = await supabase
+    .from('holes')
+    .select('*', { count: 'exact', head: true })
+    .eq('course_id', courseId)
+  if (countErr) throw countErr
+  const { error } = await supabase
+    .from('holes')
+    .delete()
+    .eq('course_id', courseId)
+  if (error) throw error
+  return count ?? 0
 }
 
 async function upsertHoles(courseId: string, holes: MatchedHole[]): Promise<void> {
@@ -420,7 +459,22 @@ async function main() {
   const courseCentroid = centroid(
     matched.flatMap((h) => [h.tee, h.pin]),
   )
-  const { id, created } = await upsertCourse(args.name, courseCentroid)
+  const { id, created } = await upsertCourse(
+    args.name,
+    courseCentroid,
+    args.updateExisting,
+  )
+  // --update-existing wipes the existing holes before inserting fresh
+  // ones, so a hole that's been removed from OSM upstream doesn't
+  // linger in the DB. Default flow (upsert-only) keeps any holes not
+  // present in the new import — desirable for a partial re-import,
+  // but a footgun when the goal is "reset this course's layout".
+  if (args.updateExisting && !created) {
+    const wiped = await deleteHolesForCourse(id)
+    if (wiped > 0) {
+      console.log(`✓ Cleared ${wiped} existing hole row${wiped === 1 ? '' : 's'} on this course`)
+    }
+  }
   await upsertHoles(id, matched)
 
   const greenHits = matched.filter((h) => h.hasGreenMatch).length

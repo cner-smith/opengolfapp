@@ -44,6 +44,13 @@ interface HoleMapProps {
    */
   previousShots?: LatLng[]
   phase?: HoleMapPhase
+  /**
+   * True when this hole has no tee or pin coordinates in the DB —
+   * surfaces a small banner under the top hint so the player knows
+   * the missing distance pill / no auto-putt switch is data-driven,
+   * not a bug.
+   */
+  missingHoleLayout?: boolean
   onSetAim: (loc: LatLng) => void
   onSetBall: (loc: LatLng) => void
   onPlacePin?: (loc: LatLng) => void
@@ -71,6 +78,7 @@ export function HoleMap({
   ball,
   previousShots,
   phase = 'PLACE_BALL',
+  missingHoleLayout = false,
   onSetAim,
   onSetBall,
   onPlacePin,
@@ -557,6 +565,35 @@ export function HoleMap({
                 : 'Drag the ball to refine, then tap Mark ball here'}
           </Text>
         </View>
+
+        {missingHoleLayout && !isPinMode && (
+          <View
+            style={{
+              position: 'absolute',
+              top: 48,
+              left: 12,
+              right: 12,
+              backgroundColor: 'rgba(28,33,28,0.78)',
+              borderWidth: 1,
+              borderColor: 'rgba(217,210,191,0.4)',
+              borderRadius: 2,
+              paddingHorizontal: 10,
+              paddingVertical: 6,
+            }}
+          >
+            <Text
+              style={{
+                color: '#F2EEE5',
+                fontSize: 11,
+                lineHeight: 14,
+              }}
+            >
+              No hole layout for this course. Place shots manually — the
+              distance pill and putting auto-switch stay off until tee /
+              pin coords land.
+            </Text>
+          </View>
+        )}
 
         {!isPinMode && pinDistance !== null && (
           <View

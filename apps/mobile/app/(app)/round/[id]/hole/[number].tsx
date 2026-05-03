@@ -98,6 +98,7 @@ export default function HoleScreen() {
   const { toDisplay } = useUnits()
 
   const [round, setRound] = useState<RoundRow | null>(null)
+  const [courseCenter, setCourseCenter] = useState<LatLng | null>(null)
   const [holes, setHoles] = useState<HoleRow[]>([])
   const [holeScores, setHoleScores] = useState<HoleScoreRow[]>([])
   const [loading, setLoading] = useState(true)
@@ -167,24 +168,37 @@ export default function HoleScreen() {
 
   // Camera anchors on the tee box — the player's starting point. Pin/green
   // is intentionally NOT a fallback; it would mis-frame the hole every time.
+  // Course centroid is the next-best landing if no per-hole layout exists,
+  // and the hard-coded US-center FALLBACK_CENTER is the absolute last
+  // resort (course rows missing lat/lng entirely).
   const center: LatLng = useMemo(() => {
     if (tee) return tee
     if (ball) return ball
+    if (courseCenter) return courseCenter
     return FALLBACK_CENTER
-  }, [tee?.lat, tee?.lng, ball?.lat, ball?.lng])
+  }, [tee?.lat, tee?.lng, ball?.lat, ball?.lng, courseCenter?.lat, courseCenter?.lng])
 
   const loadAll = useCallback(async () => {
     if (!id) return
     setLoading(true)
     setError(null)
     try {
+      // Joining course lat/lng so HoleMap has a fallback camera target
+      // when this hole has no tee/pin coords (most courses pre-OSM
+      // import). Without it the map flew to FALLBACK_CENTER (US
+      // middle), which felt broken.
       const { data: r, error: rErr } = await supabase
         .from('rounds')
-        .select('*')
+        .select('*, courses(lat, lng)')
         .eq('id', id)
         .single()
       if (rErr || !r) throw rErr ?? new Error('Round not found')
       setRound(r)
+      setCourseCenter(
+        r.courses && r.courses.lat != null && r.courses.lng != null
+          ? { lat: r.courses.lat, lng: r.courses.lng }
+          : null,
+      )
 
       const [hRes, hsRes] = await Promise.all([
         supabase.from('holes').select('*').eq('course_id', r.course_id).order('number'),
@@ -825,6 +839,7 @@ export default function HoleScreen() {
           aim={aim}
           ball={ball}
           previousShots={previousShots}
+          missingHoleLayout={tee == null && storedPin == null && roundPin == null}
           phase={
             pinPlacementOpen
               ? 'PIN'
