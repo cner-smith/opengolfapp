@@ -94,6 +94,11 @@ interface HoleViewState {
   focusGreenSignal: number
   pinOverride: PlacedPoint | null
   teeOverride: PlacedPoint | null
+  /** Manual tee/pin placement flow — when set, the next map tap drops
+   *  the corresponding marker instead of starting a shot. Used for
+   *  courses with no hole layout in the DB so the player can mark the
+   *  tee box and pin themselves. */
+  placementMode: 'tee' | 'pin' | null
   reviewOpen: boolean
   editingOnMap: boolean
   saveError: string | null
@@ -112,6 +117,7 @@ type HoleViewAction =
   | { type: 'SET_PUTT'; index: number; data: WebPuttData }
   | { type: 'PIN_OVERRIDE'; point: PlacedPoint | null }
   | { type: 'TEE_OVERRIDE'; point: PlacedPoint | null }
+  | { type: 'PLACEMENT_MODE'; mode: 'tee' | 'pin' | null }
   | { type: 'OPEN_REVIEW' }
   | { type: 'CLOSE_REVIEW' }
   | { type: 'EDIT_ON_MAP'; editing: boolean }
@@ -128,6 +134,7 @@ const HOLE_VIEW_INITIAL: HoleViewState = {
   focusGreenSignal: 0,
   pinOverride: null,
   teeOverride: null,
+  placementMode: null,
   reviewOpen: false,
   editingOnMap: false,
   saveError: null,
@@ -209,9 +216,13 @@ function holeViewReducer(state: HoleViewState, action: HoleViewAction): HoleView
       }
     }
     case 'PIN_OVERRIDE':
-      return { ...state, pinOverride: action.point }
+      // A pin write also exits placement mode so the next tap goes back
+      // to dropping shot markers instead of re-placing the pin.
+      return { ...state, pinOverride: action.point, placementMode: null }
     case 'TEE_OVERRIDE':
-      return { ...state, teeOverride: action.point }
+      return { ...state, teeOverride: action.point, placementMode: null }
+    case 'PLACEMENT_MODE':
+      return { ...state, placementMode: action.mode }
     case 'OPEN_REVIEW':
       return { ...state, reviewOpen: true }
     case 'CLOSE_REVIEW':
@@ -278,6 +289,7 @@ export function RoundDetailPage() {
     focusGreenSignal,
     pinOverride,
     teeOverride,
+    placementMode,
     reviewOpen,
     editingOnMap,
     saveError,
@@ -434,6 +446,12 @@ export function RoundDetailPage() {
         dispatchHoleView({ type: 'SET_AIM', index: idx, point }),
       onToggleAimMode: (on: boolean) =>
         dispatchHoleView({ type: 'AIM_MODE', on }),
+      onStartPlaceTee: () =>
+        dispatchHoleView({ type: 'PLACEMENT_MODE', mode: 'tee' }),
+      onStartPlacePin: () =>
+        dispatchHoleView({ type: 'PLACEMENT_MODE', mode: 'pin' }),
+      onCancelPlacement: () =>
+        dispatchHoleView({ type: 'PLACEMENT_MODE', mode: null }),
       onDoneWithHole: () => dispatchHoleView({ type: 'OPEN_REVIEW' }),
       onDoneEditing: () => {
         dispatchHoleView({ type: 'EDIT_ON_MAP', editing: false })
@@ -746,6 +764,7 @@ export function RoundDetailPage() {
           puttingOpen={puttingSheetForIdx != null}
           pinOverride={pinOverride}
           teeOverride={teeOverride}
+          placementMode={placementMode}
           handlers={placeHandlers}
           saveError={saveError}
           editingOnMap={editingOnMap}
@@ -960,6 +979,8 @@ interface MapViewProps {
   focusGreenSignal: number
   pinOverride: PlacedPoint | null
   teeOverride: PlacedPoint | null
+  /** Active manual-placement mode for courses missing hole layout. */
+  placementMode: 'tee' | 'pin' | null
   handlers: {
     onPlace: (p: PlacedPoint) => void
     onMovePoint: (idx: number, p: PlacedPoint) => void
@@ -969,6 +990,9 @@ interface MapViewProps {
     onUndoPoint: () => void
     onSetAim: (idx: number, p: PlacedPoint | null) => void
     onToggleAimMode: (on: boolean) => void
+    onStartPlaceTee: () => void
+    onStartPlacePin: () => void
+    onCancelPlacement: () => void
     onDoneWithHole: () => void
     onDoneEditing: () => void
   }
@@ -993,6 +1017,7 @@ function MapView({
   focusGreenSignal,
   pinOverride,
   teeOverride,
+  placementMode,
   handlers,
   saveError,
   editingOnMap,
@@ -1014,6 +1039,15 @@ function MapView({
     (activeHoleGeo?.pinLat != null && activeHoleGeo?.pinLng != null
       ? { lat: activeHoleGeo.pinLat, lng: activeHoleGeo.pinLng }
       : null)
+  const effectiveTee =
+    teeOverride ??
+    (activeHoleGeo?.teeLat != null && activeHoleGeo?.teeLng != null
+      ? { lat: activeHoleGeo.teeLat, lng: activeHoleGeo.teeLng }
+      : null)
+  // Manual placement entry points only render when the active hole has
+  // no coord for that target. Tee/pin both null = course w/o hole layout.
+  const needsTee = activeHoleGeo != null && effectiveTee == null
+  const needsPin = activeHoleGeo != null && effectivePin == null
   const remainingToPin =
     lastPoint && effectivePin
       ? Math.round(
@@ -1085,6 +1119,13 @@ function MapView({
           pinAvailable={effectivePin != null}
           aimMode={aimMode}
           aimsSet={placedAims.filter((a) => a != null).length}
+          holeNumber={activeHoleNumber}
+          needsTee={needsTee}
+          needsPin={needsPin}
+          placementMode={placementMode}
+          onStartPlaceTee={handlers.onStartPlaceTee}
+          onStartPlacePin={handlers.onStartPlacePin}
+          onCancelPlacement={handlers.onCancelPlacement}
           onToggleAimMode={handlers.onToggleAimMode}
           onClearLastAim={() => {
             const idx = placedAims.length - 1
@@ -1119,6 +1160,7 @@ function MapView({
             pinOverride={pinOverride}
             teeOverride={teeOverride}
             tapToPlaceDisabled={editingOnMap || puttingOpen}
+            placementMode={placementMode}
             onPlace={handlers.onPlace}
             onMovePoint={handlers.onMovePoint}
             onMovePin={handlers.onMovePin}

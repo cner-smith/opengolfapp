@@ -68,6 +68,10 @@ interface RoundMapProps {
   /** Suppress tap-to-place. Used in "Edit on map" mode so the user can
    *  drag existing markers without accidentally dropping new ones. */
   tapToPlaceDisabled?: boolean
+  /** When set, the next map tap places either the tee box or pin for
+   *  this hole instead of dropping a shot marker. Used for courses with
+   *  no hole layout in the DB so the player can mark them manually. */
+  placementMode?: 'tee' | 'pin' | null
   onPlace: (point: PlacedPoint) => void
   onMovePoint: (index: number, point: PlacedPoint) => void
   onMovePin?: (point: PlacedPoint) => void
@@ -96,6 +100,7 @@ export function RoundMap({
   pinOverride,
   teeOverride,
   tapToPlaceDisabled,
+  placementMode,
   onPlace,
   onMovePoint,
   onMovePin,
@@ -253,6 +258,17 @@ export function RoundMap({
     const map = mapRef.current
     if (!map) return
     function onClick(e: mapboxgl.MapMouseEvent) {
+      // Tee / pin placement wins over every other click outcome — even
+      // when shots already exist, the user explicitly entered placement
+      // mode from the strip and the next tap should land the marker.
+      if (placementMode === 'tee' && onMoveTee) {
+        onMoveTee({ lat: e.lngLat.lat, lng: e.lngLat.lng })
+        return
+      }
+      if (placementMode === 'pin' && onMovePin) {
+        onMovePin({ lat: e.lngLat.lat, lng: e.lngLat.lng })
+        return
+      }
       if (hasExistingShots) return
       if (tapToPlaceDisabled) return
       if (aimMode && onSetAim) {
@@ -275,6 +291,9 @@ export function RoundMap({
     aimMode,
     onSetAim,
     placedPoints.length,
+    placementMode,
+    onMoveTee,
+    onMovePin,
   ])
 
   const renderLayers = useCallback(() => {
@@ -530,6 +549,20 @@ interface RoundMapInstructionStripProps {
   aimMode?: boolean
   /** Number of placed shots that already have an aim point. */
   aimsSet?: number
+  /** Active hole number — surfaced in the manual-placement instruction
+   *  copy so the user knows which hole they're marking up. */
+  holeNumber?: number
+  /** True when no tee coordinate exists for this hole (DB null and no
+   *  session override). Drives the "Place tee box" entry button. */
+  needsTee?: boolean
+  /** True when no pin coordinate exists for this hole. */
+  needsPin?: boolean
+  /** Active manual-placement mode. When set, the strip switches to a
+   *  "tap to place …" prompt with a Cancel button. */
+  placementMode?: 'tee' | 'pin' | null
+  onStartPlaceTee?: () => void
+  onStartPlacePin?: () => void
+  onCancelPlacement?: () => void
   onToggleAimMode?: (on: boolean) => void
   onClearLastAim?: () => void
   onUndo: () => void
@@ -550,6 +583,13 @@ export function RoundMapInstructionStrip({
   pinAvailable = true,
   aimMode = false,
   aimsSet = 0,
+  holeNumber,
+  needsTee = false,
+  needsPin = false,
+  placementMode = null,
+  onStartPlaceTee,
+  onStartPlacePin,
+  onCancelPlacement,
   onToggleAimMode,
   onClearLastAim,
   onUndo,
@@ -559,6 +599,92 @@ export function RoundMapInstructionStrip({
 }: RoundMapInstructionStripProps) {
   const placingNumber = shotsPlaced + 1
   const { toDisplay } = useUnits()
+  if (placementMode) {
+    const holeLabel = holeNumber != null ? ` for hole ${holeNumber}` : ''
+    const targetLabel =
+      placementMode === 'tee' ? 'tee box' : 'pin'
+    return (
+      <div
+        style={{
+          background: '#FBF8F1',
+          border: '1px solid #D9D2BF',
+          borderRadius: 2,
+          padding: '10px 14px',
+          display: 'flex',
+          gap: 14,
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+        }}
+      >
+        <div style={{ minWidth: 200 }}>
+          <div className="kicker" style={{ marginBottom: 2 }}>
+            Place {targetLabel}
+          </div>
+          <div className="text-caddie-ink" style={{ fontSize: 13 }}>
+            Tap to place the {targetLabel}{holeLabel}.
+          </div>
+        </div>
+        {onCancelPlacement && (
+          <button
+            type="button"
+            onClick={onCancelPlacement}
+            className="text-caddie-ink-dim"
+            style={{
+              border: '1px solid #D9D2BF',
+              borderRadius: 2,
+              padding: '6px 10px',
+              fontSize: 12,
+              background: 'transparent',
+            }}
+          >
+            Cancel
+          </button>
+        )}
+      </div>
+    )
+  }
+  const placeButtons =
+    (needsTee && onStartPlaceTee) || (needsPin && onStartPlacePin) ? (
+      <>
+        {needsTee && onStartPlaceTee && (
+          <button
+            type="button"
+            onClick={onStartPlaceTee}
+            style={{
+              border: '1px solid #5C6356',
+              borderRadius: 2,
+              padding: '6px 10px',
+              fontSize: 12,
+              background: 'transparent',
+              color: '#5C6356',
+              fontWeight: 600,
+              letterSpacing: '0.02em',
+            }}
+          >
+            Place tee box
+          </button>
+        )}
+        {needsPin && onStartPlacePin && (
+          <button
+            type="button"
+            onClick={onStartPlacePin}
+            style={{
+              border: '1px solid #A33A2A',
+              borderRadius: 2,
+              padding: '6px 10px',
+              fontSize: 12,
+              background: 'transparent',
+              color: '#A33A2A',
+              fontWeight: 600,
+              letterSpacing: '0.02em',
+            }}
+          >
+            Place pin
+          </button>
+        )}
+      </>
+    ) : null
   return (
     <div
       style={{
@@ -626,22 +752,26 @@ export function RoundMapInstructionStrip({
         )}
       </div>
       {editing ? (
-        <button
-          type="button"
-          onClick={onDoneEditing}
-          className="bg-caddie-accent text-caddie-accent-ink"
-          style={{
-            borderRadius: 2,
-            padding: '6px 12px',
-            fontSize: 13,
-            fontWeight: 600,
-            letterSpacing: '0.02em',
-          }}
-        >
-          Done editing →
-        </button>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          {placeButtons}
+          <button
+            type="button"
+            onClick={onDoneEditing}
+            className="bg-caddie-accent text-caddie-accent-ink"
+            style={{
+              borderRadius: 2,
+              padding: '6px 12px',
+              fontSize: 13,
+              fontWeight: 600,
+              letterSpacing: '0.02em',
+            }}
+          >
+            Done editing →
+          </button>
+        </div>
       ) : !hasExistingShots ? (
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          {placeButtons}
           {onToggleAimMode && shotsPlaced > 0 && (
             <button
               type="button"
@@ -722,6 +852,10 @@ export function RoundMapInstructionStrip({
           >
             Done with hole →
           </button>
+        </div>
+      ) : placeButtons ? (
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          {placeButtons}
         </div>
       ) : null}
     </div>
