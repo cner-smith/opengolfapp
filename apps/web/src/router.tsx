@@ -14,6 +14,7 @@ import { NewRoundPage } from './pages/rounds/NewRoundPage'
 import { PracticePlanPage } from './pages/practice/PracticePlanPage'
 import { DrillLibraryPage } from './pages/practice/DrillLibraryPage'
 import { SettingsPage } from './pages/settings/SettingsPage'
+import { BagPage } from './pages/settings/BagPage'
 
 // Heavy / non-entry routes are loaded on demand. Entry routes (auth,
 // dashboard, rounds list, settings) stay eager so the initial paint
@@ -80,6 +81,7 @@ const routes: RouteObject[] = [
       { path: '/practice/drills', element: <DrillLibraryPage />, errorElement },
       { path: '/learn', element: <LearnPage />, errorElement },
       { path: '/settings', element: <SettingsPage />, errorElement },
+      { path: '/settings/bag', element: <BagPage />, errorElement },
     ],
   },
   { path: '*', element: <NotFoundPage />, errorElement },
