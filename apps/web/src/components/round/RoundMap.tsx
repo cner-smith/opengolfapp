@@ -73,6 +73,7 @@ export function RoundMap({
   onMovePin,
   onMoveTee,
 }: RoundMapProps) {
+  const { toDisplay } = useUnits()
   // Memoized so downstream effects can dep on the object directly without
   // thrashing on every parent render — coords are the only meaningful
   // identity here.
@@ -282,14 +283,36 @@ export function RoundMap({
     upsertLine(map, lineSourceId, existingCoords, '#A66A1F')
 
     // Trajectory line (placed points): each marker is the START position
-    // of a shot, so segment N→N+1 is the path of shot N. Drawing just
-    // the markers in order without prepending the tee avoids a phantom
-    // "tee → marker 1" segment, since marker 1 IS the tee position.
-    const placedCoords =
+    // of a shot, so segment N→N+1 is the path of shot N. Closing to the
+    // pin renders the final leg from the last marker through the cup.
+    const placedCoords: [number, number][] =
       placedPoints.length === 0
         ? []
-        : placedPoints.map((p) => [p.lng, p.lat] as [number, number])
+        : [
+            ...placedPoints.map((p) => [p.lng, p.lat] as [number, number]),
+            ...(effectivePin
+              ? ([[effectivePin.lng, effectivePin.lat]] as [number, number][])
+              : []),
+          ]
     upsertLine(map, placedLineSourceId, placedCoords, '#A66A1F')
+
+    // Per-segment distance pills. Renders midpoint label between every
+    // pair of consecutive line coords for both existing and placed lines
+    // so the player can see each shot's distance at a glance.
+    for (const coords of [existingCoords, placedCoords]) {
+      for (let i = 0; i < coords.length - 1; i++) {
+        const a = coords[i]!
+        const b = coords[i + 1]!
+        const yards = Math.round(haversineYards(a[1], a[0], b[1], b[0]))
+        if (yards <= 0) continue
+        const mid: [number, number] = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2]
+        const el = makeDistancePill(toDisplay(yards))
+        const marker = new mapboxgl.Marker({ element: el })
+          .setLngLat(mid)
+          .addTo(map)
+        markerRefs.current.push(marker)
+      }
+    }
   }, [
     existingShots,
     hole,
@@ -299,6 +322,7 @@ export function RoundMap({
     onMoveTee,
     effectivePin,
     effectiveTee,
+    toDisplay,
   ])
 
   // Render markers + connecting line for either existing shots or placed points.
@@ -575,6 +599,24 @@ function makeNumberedMarker(
   content.textContent = String(n)
   outer.appendChild(content)
   return { outer, content }
+}
+
+function makeDistancePill(label: string): HTMLElement {
+  const el = document.createElement('div')
+  el.style.cssText = [
+    'background:rgba(28,33,28,0.85)',
+    'color:#F2EEE5',
+    'font-family:JetBrains Mono, monospace',
+    'font-size:11px',
+    'font-weight:500',
+    'letter-spacing:0.04em',
+    'padding:3px 8px',
+    'border-radius:999px',
+    'pointer-events:none',
+    'white-space:nowrap',
+  ].join(';')
+  el.textContent = label
+  return el
 }
 
 function makeIconMarker(
