@@ -45,6 +45,9 @@ interface RoundMapProps {
   /** When true, the next map tap sets aim for the most recently placed
    *  shot instead of pushing a new shot start marker. */
   aimMode?: boolean
+  /** Monotonic counter — when it increments, fly to the pin at zoom 18
+   *  to frame the green for the next putt placement. */
+  focusGreenSignal?: number
   /** Local override for the pin and tee positions while the user is
    *  reviewing a hole. When set, these win over the values inside
    *  `hole.pinLat/pinLng` / `hole.teeLat/teeLng`. */
@@ -75,6 +78,7 @@ export function RoundMap({
   placedPoints,
   placedAims,
   aimMode,
+  focusGreenSignal,
   pinOverride,
   teeOverride,
   tapToPlaceDisabled,
@@ -153,6 +157,27 @@ export function RoundMap({
     if (!map || !center) return
     map.flyTo({ center, zoom: 17, speed: 1.4 })
   }, [center?.[0], center?.[1]])
+
+  // After a non-holed putt save the parent bumps focusGreenSignal —
+  // fly in tight on the green so the next putt placement lands on the
+  // right surface. The ref starts at the prop's initial value so the
+  // first render doesn't auto-fire (signal=0 matches; only later
+  // increments trigger the flyTo).
+  const lastSignalRef = useRef<number | undefined>(focusGreenSignal)
+  useEffect(() => {
+    if (focusGreenSignal == null) return
+    if (lastSignalRef.current === focusGreenSignal) return
+    lastSignalRef.current = focusGreenSignal
+    const map = mapRef.current
+    if (!map) return
+    if (!effectivePin) return
+    map.flyTo({
+      center: [effectivePin.lng, effectivePin.lat],
+      zoom: 18,
+      pitch: 0,
+      duration: 800,
+    })
+  }, [focusGreenSignal, effectivePin])
 
   // Wire a click handler for tap-to-place on holes that have no live shots.
   // When aimMode is on, the next click sets aim for the most recently
