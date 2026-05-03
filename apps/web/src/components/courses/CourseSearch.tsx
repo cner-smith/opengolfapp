@@ -5,10 +5,15 @@ import {
   useCreateManualCourse,
   useImportApiCourse,
 } from '../../hooks/useCourses'
+import { toUserMessage } from '../../lib/errors'
 
 interface CourseSearchProps {
   selectedCourseId: string | null
   onSelect: (courseId: string, courseName: string) => void
+  /** Capture GPS once for stamping the user's tee location on hole 1.
+   *  Only meaningful for live rounds; defaults to false so past-round
+   *  entry doesn't trigger a permission prompt. */
+  requestGps?: boolean
 }
 
 interface GpsState {
@@ -17,7 +22,11 @@ interface GpsState {
   lng?: number
 }
 
-export function CourseSearch({ selectedCourseId, onSelect }: CourseSearchProps) {
+export function CourseSearch({
+  selectedCourseId,
+  onSelect,
+  requestGps = false,
+}: CourseSearchProps) {
   const [query, setQuery] = useState('')
   const [creatingManual, setCreatingManual] = useState(false)
   const [gps, setGps] = useState<GpsState>({ status: 'idle' })
@@ -32,9 +41,11 @@ export function CourseSearch({ selectedCourseId, onSelect }: CourseSearchProps) 
     apiResults.length === 0 &&
     localResults.length === 0
 
-  // Capture GPS once when the search box is opened so manual + API
-  // imports can stamp the user's tee location on hole 1.
+  // Capture GPS once when the parent has opted in (live-round mode) so
+  // manual + API imports can stamp the user's tee location on hole 1.
+  // Past-round entry skips this — no need to prompt for location.
   useEffect(() => {
+    if (!requestGps) return
     if (gps.status !== 'idle') return
     if (typeof navigator === 'undefined' || !navigator.geolocation) {
       setGps({ status: 'denied' })
@@ -51,7 +62,7 @@ export function CourseSearch({ selectedCourseId, onSelect }: CourseSearchProps) 
       () => setGps({ status: 'denied' }),
       { enableHighAccuracy: false, timeout: 10000, maximumAge: 60_000 },
     )
-  }, [gps.status])
+  }, [requestGps, gps.status])
 
   const gpsCoords = gps.status === 'ok' ? { lat: gps.lat!, lng: gps.lng! } : null
 
@@ -154,7 +165,7 @@ export function CourseSearch({ selectedCourseId, onSelect }: CourseSearchProps) 
               className="text-caddie-neg"
               style={{ padding: 14, fontSize: 12 }}
             >
-              {(search.error as Error).message}
+              {toUserMessage(search.error)}
             </div>
           )}
         </div>
@@ -162,7 +173,7 @@ export function CourseSearch({ selectedCourseId, onSelect }: CourseSearchProps) 
 
       {importApi.error && (
         <div className="text-caddie-neg" style={{ fontSize: 12 }}>
-          {(importApi.error as Error).message}
+          {toUserMessage(importApi.error)}
         </div>
       )}
 
@@ -411,7 +422,7 @@ function ManualCourseForm({
 
       {create.error && (
         <div className="text-caddie-neg" style={{ fontSize: 12 }}>
-          {(create.error as Error).message}
+          {toUserMessage(create.error)}
         </div>
       )}
 

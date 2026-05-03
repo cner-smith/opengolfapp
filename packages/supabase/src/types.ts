@@ -24,6 +24,7 @@ export interface Database {
           facilities: string[] | null
           play_style: 'casual' | 'mixed' | 'competitive' | null
           distance_unit: 'yards' | 'meters'
+          onboarding_completed: boolean
           created_at: string
         }
         Insert: {
@@ -36,6 +37,7 @@ export interface Database {
           facilities?: string[] | null
           play_style?: 'casual' | 'mixed' | 'competitive' | null
           distance_unit?: 'yards' | 'meters'
+          onboarding_completed?: boolean
           created_at?: string
         }
         Update: {
@@ -48,6 +50,7 @@ export interface Database {
           facilities?: string[] | null
           play_style?: 'casual' | 'mixed' | 'competitive' | null
           distance_unit?: 'yards' | 'meters'
+          onboarding_completed?: boolean
           created_at?: string
         }
         Relationships: []
@@ -587,6 +590,42 @@ export interface Database {
             referencedColumns: ['id']
           },
         ]
+      }
+      user_clubs: {
+        Row: {
+          id: string
+          user_id: string
+          name: string
+          club_type: string
+          loft: number | null
+          typical_distance_yards: number | null
+          sort_order: number
+          in_bag: boolean
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          name: string
+          club_type: string
+          loft?: number | null
+          typical_distance_yards?: number | null
+          sort_order?: number
+          in_bag?: boolean
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          name?: string
+          club_type?: string
+          loft?: number | null
+          typical_distance_yards?: number | null
+          sort_order?: number
+          in_bag?: boolean
+          created_at?: string
+        }
+        Relationships: []
       }
     }
     Views: Record<string, never>

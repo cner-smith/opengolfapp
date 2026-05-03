@@ -16,6 +16,7 @@
     },
     "android": {
       "package": "app.opengolf.oga",
+      "softwareKeyboardLayoutMode": "pan",
       "permissions": [
         "ACCESS_FINE_LOCATION",
         "ACCESS_COARSE_LOCATION",

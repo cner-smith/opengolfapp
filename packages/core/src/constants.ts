@@ -34,6 +34,111 @@ export const CLUBS = [
   'putter',
 ] as const
 
+// Functional categories used by the bag-setup picklist UI. The free-text
+// `name` field captures sub-type (mini driver, chipper, attack wedge, etc).
+export const CLUB_CATEGORIES = [
+  'driver',
+  'wood',
+  'hybrid',
+  'iron',
+  'wedge',
+  'utility',
+  'putter',
+] as const
+
+export type ClubCategory = (typeof CLUB_CATEGORIES)[number]
+
+export const CLUB_CATEGORY_LABELS: Record<ClubCategory, string> = {
+  driver: 'Driver',
+  wood: 'Wood',
+  hybrid: 'Hybrid',
+  iron: 'Iron',
+  wedge: 'Wedge',
+  utility: 'Utility',
+  putter: 'Putter',
+}
+
+// Map a canonical club_type to its category for the picklist UI. Anything
+// not matched here falls back to 'utility' — the catch-all for chippers,
+// truly custom one-offs, etc.
+export function clubCategoryFor(clubType: string): ClubCategory {
+  if (clubType === 'driver') return 'driver'
+  if (clubType === 'putter') return 'putter'
+  if (clubType === 'mini_driver' || /^\d{1,2}w$/.test(clubType)) return 'wood'
+  if (/^\d{1,2}h$/.test(clubType)) return 'hybrid'
+  if (/^\d{1,2}i$/.test(clubType)) return 'iron'
+  if (
+    clubType === 'pw' ||
+    clubType === 'gw' ||
+    clubType === 'sw' ||
+    clubType === 'lw' ||
+    clubType === 'aw' ||
+    /^\d{2}°$/.test(clubType)
+  )
+    return 'wedge'
+  return 'utility'
+}
+
+// Canonical picklist options per category, surfaced by the bag UIs on
+// web and mobile. Lives here (not in app code) so both apps stay in
+// lockstep — adding a club_type to the picklist is a one-file edit.
+// Wedges are ordered by loft so the dropdown reads top-to-bottom from
+// pitch through lob; degree-named entries cover players who know their
+// wedges by loft rather than by name.
+export const CANONICAL_CLUBS_BY_CATEGORY: Record<ClubCategory, readonly string[]> = {
+  driver: ['driver'],
+  wood: ['mini_driver', '2w', '3w', '4w', '5w', '7w', '9w', '11w', '13w'],
+  hybrid: ['2h', '3h', '4h', '5h', '6h', '7h'],
+  iron: ['1i', '2i', '3i', '4i', '5i', '6i', '7i', '8i', '9i'],
+  wedge: [
+    '45°',
+    '46°',
+    '47°',
+    '48°',
+    'pw',
+    'gw',
+    'aw',
+    '50°',
+    '52°',
+    '54°',
+    '56°',
+    'sw',
+    '58°',
+    '60°',
+    '62°',
+    'lw',
+  ],
+  putter: ['putter'],
+  utility: [],
+}
+
+// Default 14-club starting bag seeded for new users when their bag is
+// empty. 14 is the legal max under USGA rules; we drop the 4-hybrid
+// (most amateurs carry either the 5w or the 4h, not both — keeping
+// the 5w covers more bag profiles). Players can swap in /settings/bag.
+export interface DefaultBagEntry {
+  club_type: string
+  name: string
+  sort_order: number
+}
+
+export const DEFAULT_BAG: readonly DefaultBagEntry[] = [
+  { club_type: 'driver', name: 'Driver', sort_order: 0 },
+  { club_type: '3w', name: '3 Wood', sort_order: 1 },
+  { club_type: '5w', name: '5 Wood', sort_order: 2 },
+  { club_type: '5h', name: '5 Hybrid', sort_order: 3 },
+  { club_type: '5i', name: '5 Iron', sort_order: 4 },
+  { club_type: '6i', name: '6 Iron', sort_order: 5 },
+  { club_type: '7i', name: '7 Iron', sort_order: 6 },
+  { club_type: '8i', name: '8 Iron', sort_order: 7 },
+  { club_type: '9i', name: '9 Iron', sort_order: 8 },
+  { club_type: 'pw', name: 'Pitching Wedge', sort_order: 9 },
+  { club_type: 'gw', name: 'Gap Wedge', sort_order: 10 },
+  { club_type: 'sw', name: 'Sand Wedge', sort_order: 11 },
+  { club_type: 'lw', name: 'Lob Wedge', sort_order: 12 },
+  { club_type: 'putter', name: 'Putter', sort_order: 13 },
+] as const
+
 export const LIE_TYPES = [
   'tee',
   'fairway',

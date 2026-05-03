@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useCourseTees, useCreateCourseTee } from '../../hooks/useCourses'
 import { useUnits } from '../../hooks/useUnits'
+import { toUserMessage } from '../../lib/errors'
 
 interface TeeRow {
   id: string
@@ -225,7 +226,7 @@ function AddTeeForm({
       </div>
       {error && (
         <div className="text-caddie-neg" style={{ fontSize: 12 }}>
-          {error.message}
+          {toUserMessage(error)}
         </div>
       )}
       <div className="flex justify-end" style={{ gap: 8 }}>

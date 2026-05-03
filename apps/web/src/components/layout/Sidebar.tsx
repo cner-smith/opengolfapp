@@ -16,6 +16,7 @@ const links: NavLinkDef[] = [
   { to: '/patterns', label: 'Shot Patterns', section: 'menu' },
   { to: '/practice', label: 'Practice', section: 'menu' },
   { to: '/learn', label: 'Learn', section: 'resources' },
+  { to: '/settings/bag', label: 'My Bag', section: 'resources' },
   { to: '/settings', label: 'Settings', section: 'resources' },
 ]
 
@@ -42,7 +43,9 @@ function SidebarSection({
         <NavLink
           key={l.to}
           to={l.to}
-          end={l.to === '/'}
+          // /settings would otherwise highlight when /settings/bag is active
+          // because NavLink uses prefix matching by default.
+          end={l.to === '/' || l.to === '/settings'}
           className={({ isActive }) =>
             [
               'transition-colors block',

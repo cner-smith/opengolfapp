@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
-  CLUBS,
+  DEFAULT_BAG,
   LIE_TYPES,
+  NEAR_GREEN_YARDS,
   buildInitialRows,
   type Club,
   type LieType,
@@ -10,7 +11,9 @@ import {
   type ReviewedShotRow,
 } from '@oga/core'
 import type { PlacedPoint } from './RoundMap'
+import type { WebPuttData } from './WebPuttingSheet'
 import { useUnits } from '../../hooks/useUnits'
+import { useUserBag } from '../../hooks/useUserBag'
 
 export type { ReviewedShotRow }
 
@@ -25,6 +28,11 @@ interface HoleReviewSheetProps {
    *  End-of-shot for shot N is marker N+1; for the final shot it is
    *  the pin (assumed holed). */
   placedPoints: PlacedPoint[]
+  /** Putt metadata pre-collected via the putting sheet at tap time.
+   *  Parallel to placedPoints. When the inferred row for that index
+   *  is a putt, this data overrides the defaults so the user doesn't
+   *  re-enter what they just answered. */
+  placedPutts?: (WebPuttData | null)[]
   saving: boolean
   /** "Edit on map" — close the sheet and let the user drag markers. */
   onEditOnMap: () => void
@@ -51,6 +59,7 @@ export function HoleReviewSheet({
   pinLat,
   pinLng,
   placedPoints,
+  placedPutts,
   saving,
   onEditOnMap,
   onSave,
@@ -59,9 +68,13 @@ export function HoleReviewSheet({
 
   // Read the latest placedPoints inside the effect via ref so the effect
   // doesn't re-fire (and clobber user edits) just because the parent
-  // returned a new array reference.
+  // returned a new array reference. Same trick for placedPutts so a
+  // stale inline-collected putt doesn't get re-merged after the user
+  // hand-edited the row.
   const placedPointsRef = useRef(placedPoints)
   placedPointsRef.current = placedPoints
+  const placedPuttsRef = useRef(placedPutts)
+  placedPuttsRef.current = placedPutts
 
   // Hydrate rows from the placed coordinates once per (hole, open). After
   // hydration the user's typing/dropdown choices are the source of truth —
@@ -79,8 +92,32 @@ export function HoleReviewSheet({
     }
     if (hydratedHoleRef.current === holeNumber) return
     hydratedHoleRef.current = holeNumber
+    const baseRows = buildInitialRows(
+      placedPointsRef.current,
+      par,
+      pinLat,
+      pinLng,
+    )
+    const putts = placedPuttsRef.current ?? []
+    // Merge any inline-collected putt data into the inferred rows so the
+    // player doesn't have to re-enter what they just answered in the
+    // putting sheet. Distance in feet maps to distanceYards / 3 so the
+    // sheet's edit display stays consistent.
     setRows(
-      buildInitialRows(placedPointsRef.current, par, pinLat, pinLng),
+      baseRows.map((row, idx) => {
+        const inline = putts[idx]
+        if (!inline) return row
+        return {
+          ...row,
+          puttMade: inline.puttMade,
+          puttDistanceResult: inline.puttDistanceResult,
+          puttDirectionResult: inline.puttDirectionResult,
+          distanceYards:
+            inline.puttDistanceFt != null
+              ? inline.puttDistanceFt / 3
+              : row.distanceYards,
+        }
+      }),
     )
   }, [open, holeNumber, par, pinLat, pinLng])
 
@@ -253,8 +290,29 @@ function ShotRow({
   row: ReviewedShotRow
   onChange: (next: ReviewedShotRow) => void
 }) {
-  const isPutt = row.lieType === 'green' || row.club === 'putter'
+  // Mirror mobile's PUTTING_RADIUS_YARDS — any shot starting within 30 yd
+  // of the pin gets the putt entry surface (made/short/long, miss left/
+  // right, distance in feet) rather than the standard club + lie row.
+  // Lie-type 'green' and club 'putter' still trigger it, so an explicit
+  // putt row stays a putt even if the start coords drifted past 30 yd.
+  const isPutt =
+    row.lieType === 'green' ||
+    row.club === 'putter' ||
+    row.distanceToPin <= NEAR_GREEN_YARDS
   const { toDisplay, toDisplayFt } = useUnits()
+  const bag = useUserBag()
+  // Source the club options from the user's bag, falling back to
+  // DEFAULT_BAG when empty/loading. Splice in the row's current `club`
+  // when it isn't represented (custom utility club types from a bag
+  // edit, or a legacy CLUBS-based row from before this PR) so the
+  // <select> always shows the value the user actually has.
+  const clubOptions = useMemo(() => {
+    const base = bag.data && bag.data.length > 0
+      ? bag.data.map((c) => c.club_type)
+      : DEFAULT_BAG.map((c) => c.club_type)
+    if (row.club && !base.includes(row.club)) return [row.club, ...base]
+    return base
+  }, [bag.data, row.club])
   return (
     <div
       style={{
@@ -297,7 +355,7 @@ function ShotRow({
           minWidth: 110,
         }}
       >
-        {CLUBS.map((c) => (
+        {clubOptions.map((c) => (
           <option key={c} value={c}>
             {c}
           </option>

@@ -8,6 +8,7 @@ import {
   type SkillLevel,
 } from '@oga/core'
 import { useProfile, useUpdateProfile } from '../../hooks/useProfile'
+import { toUserMessage } from '../../lib/errors'
 
 const UNIT_OPTIONS: { value: 'yards' | 'meters'; label: string }[] = [
   { value: 'yards', label: 'Yards' },
@@ -74,7 +75,7 @@ export function SettingsPage() {
     try {
       await updateProfile.mutateAsync({ distance_unit: value })
     } catch (err) {
-      setError((err as Error).message)
+      setError(toUserMessage(err))
     }
   }
 
@@ -101,7 +102,7 @@ export function SettingsPage() {
       })
       setSaved(true)
     } catch (err) {
-      setError((err as Error).message)
+      setError(toUserMessage(err))
     }
   }
 

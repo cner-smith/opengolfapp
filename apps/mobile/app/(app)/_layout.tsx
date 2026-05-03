@@ -32,7 +32,7 @@ export default function AppLayout() {
 
     supabase
       .from('profiles')
-      .select('skill_level, goal')
+      .select('onboarding_completed')
       .eq('id', user.id)
       .maybeSingle()
       .then(({ data, error }) => {
@@ -44,7 +44,7 @@ export default function AppLayout() {
           setProfileState('error')
           return
         }
-        if (!data || !data.skill_level || !data.goal) {
+        if (!data || !data.onboarding_completed) {
           setProfileState('incomplete')
         } else {
           setProfileState('complete')
@@ -212,6 +212,7 @@ export default function AppLayout() {
         }}
       />
       <Tabs.Screen name="learn" options={{ href: null }} />
+      <Tabs.Screen name="bag" options={{ href: null }} />
       <Tabs.Screen name="rounds" options={{ href: null }} />
       <Tabs.Screen name="round/new" options={{ href: null }} />
       <Tabs.Screen name="round/[id]/index" options={{ href: null }} />

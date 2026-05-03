@@ -156,7 +156,7 @@ export function PuttingSheet({
 
   return (
     <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       style={{
         backgroundColor: '#FBF8F1',
         borderTopLeftRadius: 12,

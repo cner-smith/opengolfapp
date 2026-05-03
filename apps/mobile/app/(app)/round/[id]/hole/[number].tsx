@@ -25,6 +25,10 @@ import {
   PuttingSheet,
   type PuttingValue,
 } from '../../../../../components/round/PuttingSheet'
+import {
+  ScorecardModal,
+  ScorecardPreview,
+} from '../../../../../components/round/Scorecard'
 import { supabase } from '../../../../../lib/supabase'
 import { useAuth } from '../../../../../hooks/useAuth'
 import {
@@ -36,7 +40,12 @@ import {
 } from '../../../../../lib/db'
 import { syncPendingShots } from '../../../../../lib/sync'
 import { distanceYards } from '../../../../../lib/maps'
-import { combinedPuttResult } from '@oga/core'
+import {
+  combinedPuttResult,
+  createKalmanState,
+  updateKalman,
+  type KalmanState,
+} from '@oga/core'
 import { deleteRound, getProfile } from '@oga/supabase'
 import { ConfirmDialog } from '../../../../../components/ui/ConfirmDialog'
 import { useUnits } from '../../../../../hooks/useUnits'
@@ -96,6 +105,17 @@ export default function HoleScreen() {
 
   const [aim, setAim] = useState<LatLng | null>(null)
   const [ball, setBall] = useState<LatLng | null>(null)
+  // Kalman filter state for live GPS smoothing during PLACE_BALL. Held
+  // in a ref because every position update would otherwise re-render
+  // the entire screen at GPS cadence (1-2 Hz). Reset on hole change,
+  // manual drag, or when leaving PLACE_BALL — see useEffect below.
+  const kalmanStateRef = useRef<KalmanState | null>(null)
+  // Set true the moment the player manually drags or taps the ball;
+  // freezes the GPS callback's setBall so the next reading can't
+  // clobber the manual placement. Cleared on hole change and on
+  // PLACE_BALL phase exit (so the next shot's PLACE_BALL re-engages
+  // GPS auto-tracking).
+  const manuallyPlacedRef = useRef(false)
   // local_id of the just-saved pending shot, so the next PLACE_BALL
   // can fill in that shot's end_lat/end_lng with the new ball position.
   const lastSavedShotLocalIdRef = useRef<number | null>(null)
@@ -233,18 +253,17 @@ export default function HoleScreen() {
   }, [currentHoleScore?.id])
 
   // Live GPS during the PLACE_BALL phase so the ball marker tracks the
-  // player as they walk between shots. The previous one-shot
-  // getCurrentPositionAsync left the ball at the position from the last
-  // tap-to-place — a player walking 40 yd while filling in shot
-  // metadata would see the next ball auto-placed at the stale spot.
+  // player as they walk between shots. Raw phone GPS is ±3-10 m which
+  // can corrupt SG by 6-20 yd at golf scale, so the readings are run
+  // through a Kalman filter (issue #123) before driving the ball.
   //
   // Subscription is torn down once the player taps "Mark ball here" and
   // we leave PLACE_BALL — no need to keep the GPS radio active during
   // SET_AIM / SHOT_DETAIL. Skipped entirely in past-round mode.
   //
-  // Functional setBall preserves any manual placement (prev wins): once
-  // the player drags the ball, watchPosition still updates gpsPosition
-  // for the nearPin proximity check but doesn't clobber the manual pin.
+  // Filter ref is reset whenever the hole changes, the user manually
+  // drags the ball, or PLACE_BALL exits — each is a context switch
+  // where the prior filter state shouldn't carry over.
   useEffect(() => {
     if (!currentHole) return
     if (isPastMode) return
@@ -262,9 +281,26 @@ export default function HoleScreen() {
             distanceInterval: 2,
           },
           (loc) => {
-            const pos = { lat: loc.coords.latitude, lng: loc.coords.longitude }
-            setGpsPosition(pos)
-            setBall((prev) => prev ?? pos)
+            // Manual placement freezes GPS-driven ball updates. Without
+            // this, the next reading after a drag would re-init the
+            // filter at the raw GPS point and snap ball back, wiping
+            // the player's refinement.
+            if (manuallyPlacedRef.current) return
+            const rawPoint = {
+              lat: loc.coords.latitude,
+              lng: loc.coords.longitude,
+              accuracy: loc.coords.accuracy ?? undefined,
+              timestamp: loc.timestamp,
+            }
+            kalmanStateRef.current = kalmanStateRef.current
+              ? updateKalman(kalmanStateRef.current, rawPoint)
+              : createKalmanState(rawPoint)
+            const smoothed = {
+              lat: kalmanStateRef.current.lat,
+              lng: kalmanStateRef.current.lng,
+            }
+            setGpsPosition(smoothed)
+            setBall(smoothed)
           },
         )
       } catch {
@@ -274,8 +310,23 @@ export default function HoleScreen() {
     return () => {
       active = false
       subscription?.remove()
+      // Phase exit clears the filter so re-entry to PLACE_BALL on the
+      // next shot starts smoothing from a fresh fix rather than an
+      // old anchor that may now be hundreds of yards away. Also clears
+      // the manual-placement freeze so the next PLACE_BALL cycle
+      // resumes GPS auto-tracking unless the player drags again.
+      kalmanStateRef.current = null
+      manuallyPlacedRef.current = false
     }
   }, [currentHole?.id, isPastMode, roundState])
+
+  // Hole change resets the filter — covered by the watch effect's
+  // cleanup, but explicit here in case the watch effect short-circuits
+  // (past mode, or no current hole) before subscribing.
+  useEffect(() => {
+    kalmanStateRef.current = null
+    manuallyPlacedRef.current = false
+  }, [currentHole?.id])
 
   // Highlight "On the green" once the player is within 80 yd of the stored
   // pin AND a per-round pin hasn't been captured yet.
@@ -426,11 +477,10 @@ export default function HoleScreen() {
             : hs,
         ),
       )
-      // Intentionally do NOT snap ball to a fresh GPS reading here. The
-      // watchPosition effect keeps gpsPosition fresh for the nearPin
-      // proximity check, and its functional setBall (prev ?? pos) only
-      // fills the ball when it's null — so a manually-placed (or
-      // carried-over from the prior shot) ball is preserved.
+      // Intentionally do NOT snap ball to a fresh GPS reading here.
+      // The watchPosition effect re-engages on phase return to
+      // PLACE_BALL, restarts the Kalman filter from the next reading,
+      // and resumes ball tracking from there.
     } catch (err) {
       // eslint-disable-next-line no-console
       console.error('shot save failed', err, payload)
@@ -494,12 +544,21 @@ export default function HoleScreen() {
       Alert.alert('Place the ball first', 'Tap the map to drop the ball.')
       return
     }
+    // Lock the ball position right now, before any awaits below.
+    // A GPS callback firing during the SQLite write could otherwise
+    // shift `ball` between the moment the player tapped "Mark" and
+    // the moment persistShot reads it for the next shot's
+    // start_lat/lng. Same snapshot also drives the previous shot's
+    // end_lat/lng patch.
+    const ballSnapshot = { lat: ball.lat, lng: ball.lng }
+    // Tapping "Mark ball here" is an explicit position commit — same
+    // semantics as a manual drag for the purposes of GPS freezing.
+    manuallyPlacedRef.current = true
     // Fill in the previous shot's landing — this position is where it
     // ended. Pending rows get patched in SQLite; synced rows get a
     // best-effort remote update.
     const prevLocalId = lastSavedShotLocalIdRef.current
     if (prevLocalId != null) {
-      const ballSnapshot = ball
       const result = await setPendingShotEnd(
         prevLocalId,
         ballSnapshot.lat,
@@ -519,6 +578,10 @@ export default function HoleScreen() {
       }
       lastSavedShotLocalIdRef.current = null
     }
+    // Re-pin ball state to the snapshot so the new shot's start_lat/lng
+    // (read from `ball` in persistShot) is the value the player
+    // committed to, not anything an in-flight GPS callback wrote.
+    setBall(ballSnapshot)
     setAim(null)
     // Auto-switch to the putting flow when the player has marked their
     // position within ~30 yd of the pin — bypasses SET_AIM (long-press
@@ -526,7 +589,7 @@ export default function HoleScreen() {
     // matter on a putt. Falls back to the standard aim flow if no pin
     // is known.
     const pinTarget = roundPin ?? storedPin ?? null
-    if (pinTarget && distanceYards(ball, pinTarget) <= PUTTING_RADIUS_YARDS) {
+    if (pinTarget && distanceYards(ballSnapshot, pinTarget) <= PUTTING_RADIUS_YARDS) {
       setRoundState('PUTTING')
       return
     }
@@ -770,7 +833,20 @@ export default function HoleScreen() {
                 : 'PLACE_BALL'
           }
           onSetAim={setAim}
-          onSetBall={setBall}
+          onSetBall={(loc) => {
+            // Manual drag/tap is an explicit override. Freeze GPS
+            // updates for this PLACE_BALL cycle and re-anchor the
+            // Kalman filter at the manual point with a low variance
+            // (1 m²) — strong prior so any future un-freeze still
+            // resists snapping back to a noisy raw fix.
+            manuallyPlacedRef.current = true
+            kalmanStateRef.current = {
+              lat: loc.lat,
+              lng: loc.lng,
+              variance: 1,
+            }
+            setBall(loc)
+          }}
           onPlacePin={persistRoundPin}
         />
       </View>
@@ -1141,297 +1217,3 @@ export default function HoleScreen() {
   )
 }
 
-function ScorecardModal({
-  holes,
-  holeScores,
-  currentHoleNumber,
-  onJumpToHole,
-  onClose,
-}: {
-  holes: HoleRow[]
-  holeScores: HoleScoreRow[]
-  currentHoleNumber: number
-  onJumpToHole: (n: number) => void
-  onClose: () => void
-}) {
-  const scoresByHoleId = useMemo(
-    () => new Map(holeScores.map((hs) => [hs.hole_id, hs])),
-    [holeScores],
-  )
-  const sorted = useMemo(
-    () => [...holes].sort((a, b) => a.number - b.number),
-    [holes],
-  )
-  let runningTotal = 0
-  let runningPar = 0
-  return (
-    <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)' }}>
-      <Pressable style={{ flex: 1 }} onPress={onClose} />
-      <View
-        style={{
-          backgroundColor: '#FBF8F1',
-          borderTopLeftRadius: 12,
-          borderTopRightRadius: 12,
-          paddingHorizontal: 18,
-          paddingTop: 14,
-          paddingBottom: 28,
-          maxHeight: '85%',
-        }}
-      >
-        <View
-          style={{
-            alignSelf: 'center',
-            width: 32,
-            height: 4,
-            borderRadius: 2,
-            backgroundColor: '#D9D2BF',
-            marginBottom: 14,
-          }}
-        />
-        <Text
-          style={{
-            ...KICKER,
-            color: '#8A8B7E',
-            marginBottom: 6,
-          }}
-        >
-          Scorecard
-        </Text>
-        <ScrollView
-          style={{ maxHeight: '90%' }}
-          showsVerticalScrollIndicator={false}
-        >
-          <View
-            style={{
-              flexDirection: 'row',
-              paddingVertical: 8,
-              borderBottomWidth: 1,
-              borderColor: '#D9D2BF',
-            }}
-          >
-            <Text style={{ ...KICKER, flex: 1, color: '#8A8B7E' }}>Hole</Text>
-            <Text
-              style={{ ...KICKER, width: 44, textAlign: 'right', color: '#8A8B7E' }}
-            >
-              Par
-            </Text>
-            <Text
-              style={{ ...KICKER, width: 56, textAlign: 'right', color: '#8A8B7E' }}
-            >
-              Score
-            </Text>
-            <Text
-              style={{ ...KICKER, width: 56, textAlign: 'right', color: '#8A8B7E' }}
-            >
-              +/−
-            </Text>
-          </View>
-          {sorted.map((h) => {
-            const hs = scoresByHoleId.get(h.id)
-            const score = hs?.score ?? null
-            if (score != null) {
-              runningTotal += score
-              runningPar += h.par
-            }
-            const diff = score != null ? score - h.par : null
-            const active = h.number === currentHoleNumber
-            return (
-              <Pressable
-                key={h.id}
-                accessibilityRole="button"
-                accessibilityLabel={`Jump to hole ${h.number}, par ${h.par}${score != null ? `, score ${score}` : ''}`}
-                accessibilityState={{ selected: active }}
-                onPress={() => onJumpToHole(h.number)}
-                style={{
-                  flexDirection: 'row',
-                  paddingVertical: 10,
-                  borderBottomWidth: 1,
-                  borderColor: '#EBE5D6',
-                  backgroundColor: active ? '#EBE5D6' : 'transparent',
-                  paddingHorizontal: 6,
-                  borderRadius: 2,
-                }}
-              >
-                <Text
-                  style={{
-                    flex: 1,
-                    fontSize: 15,
-                    color: '#1C211C',
-                    fontWeight: active ? '600' : '400',
-                  }}
-                >
-                  {h.number}
-                </Text>
-                <Text
-                  style={{
-                    width: 44,
-                    textAlign: 'right',
-                    fontSize: 15,
-                    color: '#5C6356',
-                    fontVariant: ['tabular-nums'],
-                  }}
-                >
-                  {h.par}
-                </Text>
-                <Text
-                  style={{
-                    width: 56,
-                    textAlign: 'right',
-                    fontSize: 15,
-                    color: score != null ? '#1C211C' : '#8A8B7E',
-                    fontVariant: ['tabular-nums'],
-                    fontWeight: '500',
-                  }}
-                >
-                  {score ?? '—'}
-                </Text>
-                <Text
-                  style={{
-                    width: 56,
-                    textAlign: 'right',
-                    fontSize: 15,
-                    color:
-                      diff == null
-                        ? '#8A8B7E'
-                        : diff < 0
-                          ? '#1F3D2C'
-                          : diff > 0
-                            ? '#A33A2A'
-                            : '#5C6356',
-                    fontVariant: ['tabular-nums'],
-                  }}
-                >
-                  {diff == null ? '—' : diff === 0 ? 'E' : diff > 0 ? `+${diff}` : `${diff}`}
-                </Text>
-              </Pressable>
-            )
-          })}
-          <View
-            style={{
-              flexDirection: 'row',
-              paddingVertical: 12,
-              borderTopWidth: 1,
-              borderColor: '#9F9580',
-              marginTop: 4,
-              paddingHorizontal: 6,
-            }}
-          >
-            <Text style={{ flex: 1, fontSize: 14, fontWeight: '600', color: '#1C211C' }}>
-              Total played
-            </Text>
-            <Text
-              style={{
-                width: 44,
-                textAlign: 'right',
-                fontSize: 14,
-                fontWeight: '600',
-                color: '#1C211C',
-                fontVariant: ['tabular-nums'],
-              }}
-            >
-              {runningPar}
-            </Text>
-            <Text
-              style={{
-                width: 56,
-                textAlign: 'right',
-                fontSize: 14,
-                fontWeight: '600',
-                color: '#1C211C',
-                fontVariant: ['tabular-nums'],
-              }}
-            >
-              {runningTotal}
-            </Text>
-            <Text
-              style={{
-                width: 56,
-                textAlign: 'right',
-                fontSize: 14,
-                fontWeight: '600',
-                color:
-                  runningPar === 0
-                    ? '#8A8B7E'
-                    : runningTotal - runningPar < 0
-                      ? '#1F3D2C'
-                      : runningTotal - runningPar > 0
-                        ? '#A33A2A'
-                        : '#5C6356',
-                fontVariant: ['tabular-nums'],
-              }}
-            >
-              {runningPar === 0
-                ? '—'
-                : runningTotal === runningPar
-                  ? 'E'
-                  : runningTotal - runningPar > 0
-                    ? `+${runningTotal - runningPar}`
-                    : `${runningTotal - runningPar}`}
-            </Text>
-          </View>
-        </ScrollView>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Close scorecard"
-          onPress={onClose}
-          style={{
-            marginTop: 14,
-            paddingVertical: 12,
-            alignItems: 'center',
-            borderWidth: 1,
-            borderColor: '#D9D2BF',
-            borderRadius: 2,
-          }}
-        >
-          <Text style={{ ...KICKER, color: '#5C6356' }}>Close</Text>
-        </Pressable>
-      </View>
-    </View>
-  )
-}
-
-function ScorecardPreview({
-  holes,
-  holeScores,
-  currentHoleNumber,
-}: {
-  holes: HoleRow[]
-  holeScores: HoleScoreRow[]
-  currentHoleNumber: number
-}) {
-  const scoresByHoleId = new Map(holeScores.map((hs) => [hs.hole_id, hs]))
-  return (
-    <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-        {holes.map((h) => {
-          const hs = scoresByHoleId.get(h.id)
-          const active = h.number === currentHoleNumber
-          return (
-            <View
-              key={h.id}
-              style={{
-                width: 26,
-                height: 26,
-                alignItems: 'center',
-                justifyContent: 'center',
-                borderRadius: 2,
-                backgroundColor: active ? '#1F3D2C' : '#EBE5D6',
-              }}
-            >
-              <Text
-                style={{
-                  fontSize: 11,
-                  fontWeight: '500',
-                  color: active ? '#F2EEE5' : '#5C6356',
-                  fontVariant: ['tabular-nums'],
-                }}
-              >
-                {hs && hs.score ? hs.score : h.number}
-              </Text>
-            </View>
-          )
-        })}
-      </View>
-    </ScrollView>
-  )
-}
