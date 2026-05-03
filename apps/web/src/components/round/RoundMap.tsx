@@ -222,8 +222,13 @@ export function RoundMap({
     }
 
     // Existing shots: numbered markers + dashed trajectory.
+    // Marker N renders at the START of shot N — that's "where the player
+    // stood for shot N", matching the post-round tap flow. Falling back
+    // to end coords for legacy rows that pre-date start_lat/lng.
     const existingValid = existingShots.filter(
-      (s) => s.endLat != null && s.endLng != null,
+      (s) =>
+        (s.startLat != null && s.startLng != null) ||
+        (s.endLat != null && s.endLng != null),
     )
     for (const s of existingValid) {
       const color =
@@ -236,8 +241,10 @@ export function RoundMap({
               : MARKER_COLORS.green
       const parts = makeNumberedMarker(s.shotNumber, color, '#FBF8F1')
       parts.outer.title = `Shot ${s.shotNumber}`
+      const lng = s.startLng ?? s.endLng!
+      const lat = s.startLat ?? s.endLat!
       const marker = new mapboxgl.Marker({ element: parts.outer })
-        .setLngLat([s.endLng!, s.endLat!])
+        .setLngLat([lng, lat])
         .addTo(map)
       markerRefs.current.push(marker)
     }
@@ -268,9 +275,11 @@ export function RoundMap({
       markerRefs.current.push(marker)
     })
 
-    // Trajectory line (existing shots).
-    const existingCoords = buildLineCoords(effectiveTee, existingValid)
-    upsertLine(map, lineSourceId, existingCoords, '#FBF8F1')
+    // Trajectory line (existing shots): connect each shot's start
+    // position in order, then close to the pin so the final segment
+    // shows the last leg.
+    const existingCoords = buildLineCoords(existingValid, effectivePin)
+    upsertLine(map, lineSourceId, existingCoords, '#A66A1F')
 
     // Trajectory line (placed points): each marker is the START position
     // of a shot, so segment N→N+1 is the path of shot N. Drawing just
@@ -478,15 +487,17 @@ export function RoundMapInstructionStrip({
 }
 
 function buildLineCoords(
-  tee: PlacedPoint | null,
   existing: ExistingShot[],
+  pin: PlacedPoint | null,
 ): [number, number][] {
   const coords: [number, number][] = []
-  if (tee) coords.push([tee.lng, tee.lat])
   for (const s of existing) {
-    if (s.endLat == null || s.endLng == null) continue
-    coords.push([s.endLng, s.endLat])
+    const lng = s.startLng ?? s.endLng
+    const lat = s.startLat ?? s.endLat
+    if (lat == null || lng == null) continue
+    coords.push([lng, lat])
   }
+  if (pin && coords.length > 0) coords.push([pin.lng, pin.lat])
   return coords
 }
 
