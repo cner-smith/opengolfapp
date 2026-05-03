@@ -109,9 +109,13 @@ export function RoundMap({
   const hasExistingShots = existingShots.some(
     (s) => s.endLat != null && s.endLng != null,
   )
+  // Prefer tee over pin so a fresh past-round map opens looking down the
+  // hole (where shot 1 starts) rather than zoomed straight at the green.
+  // Falls back to pin only when tee coords are missing — same behaviour
+  // as mobile's PLACE_BALL camera frame.
   const center = useMemo<[number, number] | null>(() => {
-    if (effectivePin) return [effectivePin.lng, effectivePin.lat]
     if (effectiveTee) return [effectiveTee.lng, effectiveTee.lat]
+    if (effectivePin) return [effectivePin.lng, effectivePin.lat]
     return null
   }, [effectivePin, effectiveTee])
 
