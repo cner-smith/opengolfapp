@@ -38,6 +38,10 @@ import {
   HoleReviewSheet,
   type ReviewedShotRow,
 } from '../../components/round/HoleReviewSheet'
+import {
+  WebPuttingSheet,
+  type WebPuttData,
+} from '../../components/round/WebPuttingSheet'
 import { useDeleteRound, useRound, useRounds } from '../../hooks/useRounds'
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
 import { useCourseTees, useHolesForCourse } from '../../hooks/useCourses'
@@ -66,9 +70,23 @@ interface HoleViewState {
    *  that shot. Aim point is what the player was aiming at when they
    *  hit shot N; required for meaningful dispersion analysis. */
   placedAims: (PlacedPoint | null)[]
+  /** Putt metadata per placed shot. Parallel to placedPoints. Set when
+   *  a tap landed within 30 yd of the pin and the user filled the
+   *  putting sheet. Null for non-putts. The data flows straight through
+   *  to saveReviewedHole so the player doesn't re-enter putt details
+   *  in the end-of-hole review. */
+  placedPutts: (WebPuttData | null)[]
   /** When true, the next map tap sets the aim point for the latest
    *  placed shot instead of dropping a new shot start marker. */
   aimMode: boolean
+  /** Index of the placed shot whose putting sheet is currently open;
+   *  null when the sheet is closed. */
+  puttingSheetForIdx: number | null
+  /** Monotonic counter the map watches to fly to the green after a
+   *  saved putt. Bumped when the user saves a non-holed putt so
+   *  RoundMap can flyTo the pin at zoom 18 to frame the green for the
+   *  next putt placement. */
+  focusGreenSignal: number
   pinOverride: PlacedPoint | null
   teeOverride: PlacedPoint | null
   reviewOpen: boolean
@@ -78,12 +96,15 @@ interface HoleViewState {
 
 type HoleViewAction =
   | { type: 'SWITCH_HOLE'; holeNumber: number }
-  | { type: 'PUSH_POINT'; point: PlacedPoint }
+  | { type: 'PUSH_POINT'; point: PlacedPoint; openPuttSheet?: boolean }
   | { type: 'MOVE_POINT'; index: number; point: PlacedPoint }
   | { type: 'CLEAR_POINTS' }
   | { type: 'POP_POINT' }
   | { type: 'SET_AIM'; index: number; point: PlacedPoint | null }
   | { type: 'AIM_MODE'; on: boolean }
+  | { type: 'OPEN_PUTT_SHEET'; index: number }
+  | { type: 'CLOSE_PUTT_SHEET' }
+  | { type: 'SET_PUTT'; index: number; data: WebPuttData }
   | { type: 'PIN_OVERRIDE'; point: PlacedPoint | null }
   | { type: 'TEE_OVERRIDE'; point: PlacedPoint | null }
   | { type: 'OPEN_REVIEW' }
@@ -96,7 +117,10 @@ const HOLE_VIEW_INITIAL: HoleViewState = {
   activeHoleNumber: 1,
   placedPoints: [],
   placedAims: [],
+  placedPutts: [],
   aimMode: false,
+  puttingSheetForIdx: null,
+  focusGreenSignal: 0,
   pinOverride: null,
   teeOverride: null,
   reviewOpen: false,
@@ -107,29 +131,51 @@ const HOLE_VIEW_INITIAL: HoleViewState = {
 function holeViewReducer(state: HoleViewState, action: HoleViewAction): HoleViewState {
   switch (action.type) {
     case 'SWITCH_HOLE':
-      return { ...HOLE_VIEW_INITIAL, activeHoleNumber: action.holeNumber }
-    case 'PUSH_POINT':
+      return {
+        ...HOLE_VIEW_INITIAL,
+        activeHoleNumber: action.holeNumber,
+        // Keep the focus-green counter monotonic across hole switches —
+        // resetting to 0 mid-session would re-fire RoundMap's flyTo
+        // effect (it watches the counter for changes).
+        focusGreenSignal: state.focusGreenSignal,
+      }
+    case 'PUSH_POINT': {
+      const newIdx = state.placedPoints.length
       return {
         ...state,
         placedPoints: [...state.placedPoints, action.point],
         placedAims: [...state.placedAims, null],
+        placedPutts: [...state.placedPutts, null],
         // Drop aim mode after placing a new shot — aim mode is sticky to
         // a specific shot, and pushing a new shot moves the cursor.
         aimMode: false,
+        // Auto-open the putting sheet for the new shot when this push
+        // landed within 30 yd of the pin (caller-controlled flag).
+        puttingSheetForIdx: action.openPuttSheet ? newIdx : state.puttingSheetForIdx,
       }
+    }
     case 'MOVE_POINT': {
       const next = state.placedPoints.slice()
       next[action.index] = action.point
       return { ...state, placedPoints: next }
     }
     case 'CLEAR_POINTS':
-      return { ...state, placedPoints: [], placedAims: [], aimMode: false }
+      return {
+        ...state,
+        placedPoints: [],
+        placedAims: [],
+        placedPutts: [],
+        aimMode: false,
+        puttingSheetForIdx: null,
+      }
     case 'POP_POINT':
       return {
         ...state,
         placedPoints: state.placedPoints.slice(0, -1),
         placedAims: state.placedAims.slice(0, -1),
+        placedPutts: state.placedPutts.slice(0, -1),
         aimMode: false,
+        puttingSheetForIdx: null,
       }
     case 'SET_AIM': {
       const next = state.placedAims.slice()
@@ -138,6 +184,25 @@ function holeViewReducer(state: HoleViewState, action: HoleViewAction): HoleView
     }
     case 'AIM_MODE':
       return { ...state, aimMode: action.on }
+    case 'OPEN_PUTT_SHEET':
+      return { ...state, puttingSheetForIdx: action.index }
+    case 'CLOSE_PUTT_SHEET':
+      return { ...state, puttingSheetForIdx: null }
+    case 'SET_PUTT': {
+      const next = state.placedPutts.slice()
+      next[action.index] = action.data
+      return {
+        ...state,
+        placedPutts: next,
+        puttingSheetForIdx: null,
+        // A miss → frame the green for the follow-up putt. A holed
+        // putt ends the hole, so leave the camera where it is and let
+        // the player tap "Done with hole".
+        focusGreenSignal: action.data.puttMade
+          ? state.focusGreenSignal
+          : state.focusGreenSignal + 1,
+      }
+    }
     case 'PIN_OVERRIDE':
       return { ...state, pinOverride: action.point }
     case 'TEE_OVERRIDE':
@@ -156,7 +221,9 @@ function holeViewReducer(state: HoleViewState, action: HoleViewAction): HoleView
         reviewOpen: false,
         placedPoints: [],
         placedAims: [],
+        placedPutts: [],
         aimMode: false,
+        puttingSheetForIdx: null,
       }
   }
 }
@@ -196,7 +263,10 @@ export function RoundDetailPage() {
     activeHoleNumber,
     placedPoints,
     placedAims,
+    placedPutts,
     aimMode,
+    puttingSheetForIdx,
+    focusGreenSignal,
     pinOverride,
     teeOverride,
     reviewOpen,
@@ -311,7 +381,20 @@ export function RoundDetailPage() {
 
   const placeHandlers = useMemo(
     () => ({
-      onPlace: (p: PlacedPoint) => dispatchHoleView({ type: 'PUSH_POINT', point: p }),
+      onPlace: (p: PlacedPoint) => {
+        // Auto-open the putting sheet for any tap within 30 yd of the
+        // pin so the user lands straight on putt entry instead of the
+        // generic shot detail row.
+        const isPutt =
+          effectivePin != null &&
+          haversineYards(p.lat, p.lng, effectivePin.lat, effectivePin.lng) <=
+            NEAR_GREEN_YARDS
+        dispatchHoleView({
+          type: 'PUSH_POINT',
+          point: p,
+          openPuttSheet: isPutt,
+        })
+      },
       onMovePoint: (idx: number, p: PlacedPoint) =>
         dispatchHoleView({ type: 'MOVE_POINT', index: idx, point: p }),
       onMovePin: (p: PlacedPoint) => {
@@ -331,7 +414,7 @@ export function RoundDetailPage() {
         dispatchHoleView({ type: 'OPEN_REVIEW' })
       },
     }),
-    [persistRoundPin],
+    [persistRoundPin, effectivePin],
   )
 
   const switchHole = useCallback((n: number) => {
@@ -630,6 +713,8 @@ export function RoundDetailPage() {
           placedPoints={placedPoints}
           placedAims={placedAims}
           aimMode={aimMode}
+          focusGreenSignal={focusGreenSignal}
+          puttingOpen={puttingSheetForIdx != null}
           pinOverride={pinOverride}
           teeOverride={teeOverride}
           handlers={placeHandlers}
@@ -637,21 +722,51 @@ export function RoundDetailPage() {
           editingOnMap={editingOnMap}
           reviewSheet={
             activeHole ? (
-              <HoleReviewSheet
-                open={reviewOpen}
-                holeNumber={activeHole.number}
-                par={activeHole.par}
-                totalPar={holes.reduce((s, h) => s + h.par, 0)}
-                pinLat={effectivePin?.lat ?? null}
-                pinLng={effectivePin?.lng ?? null}
-                placedPoints={placedPoints}
-                saving={savingHole}
-                onEditOnMap={() => {
-                  dispatchHoleView({ type: 'CLOSE_REVIEW' })
-                  dispatchHoleView({ type: 'EDIT_ON_MAP', editing: true })
-                }}
-                onSave={saveReviewedHole}
-              />
+              <>
+                <HoleReviewSheet
+                  open={reviewOpen}
+                  holeNumber={activeHole.number}
+                  par={activeHole.par}
+                  totalPar={holes.reduce((s, h) => s + h.par, 0)}
+                  pinLat={effectivePin?.lat ?? null}
+                  pinLng={effectivePin?.lng ?? null}
+                  placedPoints={placedPoints}
+                  placedPutts={placedPutts}
+                  saving={savingHole}
+                  onEditOnMap={() => {
+                    dispatchHoleView({ type: 'CLOSE_REVIEW' })
+                    dispatchHoleView({ type: 'EDIT_ON_MAP', editing: true })
+                  }}
+                  onSave={saveReviewedHole}
+                />
+                {puttingSheetForIdx != null &&
+                  placedPoints[puttingSheetForIdx] &&
+                  effectivePin && (
+                    <WebPuttingSheet
+                      open
+                      shotNumber={puttingSheetForIdx + 1}
+                      initialDistanceFt={Math.round(
+                        haversineYards(
+                          placedPoints[puttingSheetForIdx]!.lat,
+                          placedPoints[puttingSheetForIdx]!.lng,
+                          effectivePin.lat,
+                          effectivePin.lng,
+                        ) * 3,
+                      )}
+                      initial={placedPutts[puttingSheetForIdx] ?? null}
+                      onSave={(data) =>
+                        dispatchHoleView({
+                          type: 'SET_PUTT',
+                          index: puttingSheetForIdx,
+                          data,
+                        })
+                      }
+                      onClose={() =>
+                        dispatchHoleView({ type: 'CLOSE_PUTT_SHEET' })
+                      }
+                    />
+                  )}
+              </>
             ) : null
           }
         />
@@ -800,6 +915,12 @@ interface MapViewProps {
   placedPoints: PlacedPoint[]
   placedAims: (PlacedPoint | null)[]
   aimMode: boolean
+  /** True while the putting sheet is open — suppresses tap-to-place so
+   *  taps that hit the map under the sheet don't drop new shots. */
+  puttingOpen: boolean
+  /** Bumped after a non-holed putt save so RoundMap zooms to the green
+   *  for the next putt placement. */
+  focusGreenSignal: number
   pinOverride: PlacedPoint | null
   teeOverride: PlacedPoint | null
   handlers: {
@@ -828,6 +949,8 @@ function MapView({
   placedPoints,
   placedAims,
   aimMode,
+  puttingOpen,
+  focusGreenSignal,
   pinOverride,
   teeOverride,
   handlers,
@@ -899,9 +1022,10 @@ function MapView({
             placedPoints={placedPoints}
             placedAims={placedAims}
             aimMode={aimMode}
+            focusGreenSignal={focusGreenSignal}
             pinOverride={pinOverride}
             teeOverride={teeOverride}
-            tapToPlaceDisabled={editingOnMap}
+            tapToPlaceDisabled={editingOnMap || puttingOpen}
             onPlace={handlers.onPlace}
             onMovePoint={handlers.onMovePoint}
             onMovePin={handlers.onMovePin}

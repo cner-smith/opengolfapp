@@ -11,6 +11,7 @@ import {
   type ReviewedShotRow,
 } from '@oga/core'
 import type { PlacedPoint } from './RoundMap'
+import type { WebPuttData } from './WebPuttingSheet'
 import { useUnits } from '../../hooks/useUnits'
 import { useUserBag } from '../../hooks/useUserBag'
 
@@ -27,6 +28,11 @@ interface HoleReviewSheetProps {
    *  End-of-shot for shot N is marker N+1; for the final shot it is
    *  the pin (assumed holed). */
   placedPoints: PlacedPoint[]
+  /** Putt metadata pre-collected via the putting sheet at tap time.
+   *  Parallel to placedPoints. When the inferred row for that index
+   *  is a putt, this data overrides the defaults so the user doesn't
+   *  re-enter what they just answered. */
+  placedPutts?: (WebPuttData | null)[]
   saving: boolean
   /** "Edit on map" — close the sheet and let the user drag markers. */
   onEditOnMap: () => void
@@ -53,6 +59,7 @@ export function HoleReviewSheet({
   pinLat,
   pinLng,
   placedPoints,
+  placedPutts,
   saving,
   onEditOnMap,
   onSave,
@@ -61,9 +68,13 @@ export function HoleReviewSheet({
 
   // Read the latest placedPoints inside the effect via ref so the effect
   // doesn't re-fire (and clobber user edits) just because the parent
-  // returned a new array reference.
+  // returned a new array reference. Same trick for placedPutts so a
+  // stale inline-collected putt doesn't get re-merged after the user
+  // hand-edited the row.
   const placedPointsRef = useRef(placedPoints)
   placedPointsRef.current = placedPoints
+  const placedPuttsRef = useRef(placedPutts)
+  placedPuttsRef.current = placedPutts
 
   // Hydrate rows from the placed coordinates once per (hole, open). After
   // hydration the user's typing/dropdown choices are the source of truth —
@@ -81,8 +92,32 @@ export function HoleReviewSheet({
     }
     if (hydratedHoleRef.current === holeNumber) return
     hydratedHoleRef.current = holeNumber
+    const baseRows = buildInitialRows(
+      placedPointsRef.current,
+      par,
+      pinLat,
+      pinLng,
+    )
+    const putts = placedPuttsRef.current ?? []
+    // Merge any inline-collected putt data into the inferred rows so the
+    // player doesn't have to re-enter what they just answered in the
+    // putting sheet. Distance in feet maps to distanceYards / 3 so the
+    // sheet's edit display stays consistent.
     setRows(
-      buildInitialRows(placedPointsRef.current, par, pinLat, pinLng),
+      baseRows.map((row, idx) => {
+        const inline = putts[idx]
+        if (!inline) return row
+        return {
+          ...row,
+          puttMade: inline.puttMade,
+          puttDistanceResult: inline.puttDistanceResult,
+          puttDirectionResult: inline.puttDirectionResult,
+          distanceYards:
+            inline.puttDistanceFt != null
+              ? inline.puttDistanceFt / 3
+              : row.distanceYards,
+        }
+      }),
     )
   }, [open, holeNumber, par, pinLat, pinLng])
 
