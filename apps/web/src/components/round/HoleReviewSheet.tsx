@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   DEFAULT_BAG,
   LIE_TYPES,
+  NEAR_GREEN_YARDS,
   buildInitialRows,
   type Club,
   type LieType,
@@ -254,7 +255,15 @@ function ShotRow({
   row: ReviewedShotRow
   onChange: (next: ReviewedShotRow) => void
 }) {
-  const isPutt = row.lieType === 'green' || row.club === 'putter'
+  // Mirror mobile's PUTTING_RADIUS_YARDS — any shot starting within 30 yd
+  // of the pin gets the putt entry surface (made/short/long, miss left/
+  // right, distance in feet) rather than the standard club + lie row.
+  // Lie-type 'green' and club 'putter' still trigger it, so an explicit
+  // putt row stays a putt even if the start coords drifted past 30 yd.
+  const isPutt =
+    row.lieType === 'green' ||
+    row.club === 'putter' ||
+    row.distanceToPin <= NEAR_GREEN_YARDS
   const { toDisplay, toDisplayFt } = useUnits()
   const bag = useUserBag()
   // Source the club options from the user's bag, falling back to

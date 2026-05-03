@@ -23,6 +23,7 @@ import {
   DEFAULT_HANDICAP,
   getShotCategory,
   haversineYards,
+  NEAR_GREEN_YARDS,
 } from '@oga/core'
 import { toUserMessage } from '../../lib/errors'
 
@@ -406,8 +407,13 @@ export function RoundDetailPage() {
       // derived from the rows so the scorecard reflects what was placed
       // without needing a manual entry.
       const existing = scoresByHoleId.get(activeHole.id)
+      // Match HoleReviewSheet's isPutt — any shot starting within 30 yd
+      // of the pin counts as a putt for the scorecard's putt total.
       const puttCount = rows.filter(
-        (r) => r.lieType === 'green' || r.club === 'putter',
+        (r) =>
+          r.lieType === 'green' ||
+          r.club === 'putter' ||
+          r.distanceToPin <= NEAR_GREEN_YARDS,
       ).length
       const hsResult = await upsertHoleScore.mutateAsync({
         id: existing?.id,
@@ -422,7 +428,10 @@ export function RoundDetailPage() {
       if (!hs) throw new Error('hole_score upsert returned no row')
 
       for (const row of rows) {
-        const isPuttRow = row.lieType === 'green' || row.club === 'putter'
+        const isPuttRow =
+          row.lieType === 'green' ||
+          row.club === 'putter' ||
+          row.distanceToPin <= NEAR_GREEN_YARDS
         const aim = placedAims[row.shotNumber - 1] ?? null
         await createShot.mutateAsync({
           hole_score_id: hs.id,
