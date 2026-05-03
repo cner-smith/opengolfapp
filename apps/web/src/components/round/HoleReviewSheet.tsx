@@ -4,6 +4,7 @@ import {
   LIE_TYPES,
   NEAR_GREEN_YARDS,
   buildInitialRows,
+  haversineYards,
   type Club,
   type LieType,
   type PuttDirectionResult,
@@ -86,18 +87,33 @@ export function HoleReviewSheet({
       hydratedHoleRef.current = null
       return
     }
-    if (pinLat == null || pinLng == null) {
-      setRows([])
-      return
-    }
     if (hydratedHoleRef.current === holeNumber) return
     hydratedHoleRef.current = holeNumber
-    const baseRows = buildInitialRows(
-      placedPointsRef.current,
-      par,
-      pinLat,
-      pinLng,
-    )
+    // When pin coords are unavailable (course has no OSM hole layout and
+    // the user hasn't manually placed a pin), build rows directly from
+    // placed points: end of shot N is the next placed point, last shot
+    // ends at itself, and distance-to-pin reads 0. The user picks club /
+    // lie manually since we can't infer them from a missing pin context.
+    const points = placedPointsRef.current
+    const baseRows: ReviewedShotRow[] =
+      pinLat != null && pinLng != null
+        ? buildInitialRows(points, par, pinLat, pinLng)
+        : points.map((p, idx) => {
+            const isLast = idx === points.length - 1
+            const next = isLast ? p : points[idx + 1]!
+            return {
+              shotNumber: idx + 1,
+              club: 'driver',
+              lieType: idx === 0 ? 'tee' : 'fairway',
+              startLat: p.lat,
+              startLng: p.lng,
+              endLat: next.lat,
+              endLng: next.lng,
+              distanceYards: haversineYards(p.lat, p.lng, next.lat, next.lng),
+              distanceToPin: 0,
+              isLastShot: isLast,
+            }
+          })
     const putts = placedPuttsRef.current ?? []
     // Merge any inline-collected putt data into the inferred rows so the
     // player doesn't have to re-enter what they just answered in the
