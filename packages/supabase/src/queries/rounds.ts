@@ -33,7 +33,7 @@ export function getRound(
   return client
     .from('rounds')
     .select(
-      `${ROUND_COLUMNS}, courses(name, city, state), hole_scores(*, holes(*), shots(${SHOT_COLUMNS}))`,
+      `${ROUND_COLUMNS}, courses(name, city, state, lat, lng), hole_scores(*, holes(*), shots(${SHOT_COLUMNS}))`,
     )
     .eq('id', roundId)
     .eq('user_id', userId)

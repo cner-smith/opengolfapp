@@ -13,6 +13,12 @@ export interface HoleGeo {
   teeLng: number | null
   pinLat: number | null
   pinLng: number | null
+  /** Course-level fallback coordinates. Used as the camera target when
+   *  the hole has no tee/pin coords (most courses pre-OSM-import). The
+   *  map zooms out to ~15 in that case so the player sees the whole
+   *  property and can still tap to place shots manually. */
+  courseLat?: number | null
+  courseLng?: number | null
 }
 
 export interface ExistingShot {
@@ -115,13 +121,22 @@ export function RoundMap({
   )
   // Prefer tee over pin so a fresh past-round map opens looking down the
   // hole (where shot 1 starts) rather than zoomed straight at the green.
-  // Falls back to pin only when tee coords are missing — same behaviour
-  // as mobile's PLACE_BALL camera frame.
+  // Falls back to pin, then to course-level coordinates so a course
+  // without per-hole layout data still shows the property — the player
+  // can still tap to place shots manually.
+  const courseFallback = useMemo<[number, number] | null>(() => {
+    if (hole?.courseLat == null || hole?.courseLng == null) return null
+    return [hole.courseLng, hole.courseLat]
+  }, [hole?.courseLat, hole?.courseLng])
   const center = useMemo<[number, number] | null>(() => {
     if (effectiveTee) return [effectiveTee.lng, effectiveTee.lat]
     if (effectivePin) return [effectivePin.lng, effectivePin.lat]
-    return null
-  }, [effectivePin, effectiveTee])
+    return courseFallback
+  }, [effectivePin, effectiveTee, courseFallback])
+  const hasHoleLayout = effectiveTee != null || effectivePin != null
+  // Per-hole layout missing → zoom out so the whole course is visible;
+  // with layout, frame the hole tightly.
+  const targetZoom = hasHoleLayout ? 17 : 15
 
   // Initialize the map once on mount.
   useEffect(() => {
@@ -131,7 +146,7 @@ export function RoundMap({
       container: containerRef.current,
       style: 'mapbox://styles/mapbox/satellite-streets-v12',
       center: center ?? [-97.5, 35.5],
-      zoom: center ? 17 : 12,
+      zoom: center ? targetZoom : 12,
       attributionControl: false,
     })
     map.addControl(
@@ -151,12 +166,14 @@ export function RoundMap({
     }
   }, [])
 
-  // Fly to the active hole when it changes.
+  // Fly to the active hole when it changes. Zoom adapts to whether
+  // per-hole layout data is available — when only the course centroid
+  // is known, frame wider so the player can still see the property.
   useEffect(() => {
     const map = mapRef.current
     if (!map || !center) return
-    map.flyTo({ center, zoom: 17, speed: 1.4 })
-  }, [center?.[0], center?.[1]])
+    map.flyTo({ center, zoom: targetZoom, speed: 1.4 })
+  }, [center?.[0], center?.[1], targetZoom])
 
   // After a non-holed putt save the parent bumps focusGreenSignal —
   // fly in tight on the green so the next putt placement lands on the
@@ -456,6 +473,9 @@ interface RoundMapInstructionStripProps {
   editing?: boolean
   shotsPlaced: number
   remainingToPin: number | null
+  /** False when this hole has no pin coordinates — drives the "— to
+   *  pin" placeholder instead of just hiding the distance silently. */
+  pinAvailable?: boolean
   /** Aim mode: next tap sets aim for the latest placed shot. */
   aimMode?: boolean
   /** Number of placed shots that already have an aim point. */
@@ -477,6 +497,7 @@ export function RoundMapInstructionStrip({
   editing,
   shotsPlaced,
   remainingToPin,
+  pinAvailable = true,
   aimMode = false,
   aimsSet = 0,
   onToggleAimMode,
@@ -546,7 +567,9 @@ export function RoundMapInstructionStrip({
                   }${
                     remainingToPin != null
                       ? ` · ${toDisplay(remainingToPin)} to pin`
-                      : ''
+                      : pinAvailable
+                        ? ''
+                        : ' · — to pin'
                   }.`}
             </div>
           </>
