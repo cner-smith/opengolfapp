@@ -1,9 +1,8 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
+  CANONICAL_CLUBS_BY_CATEGORY,
   CLUB_CATEGORIES,
   CLUB_CATEGORY_LABELS,
-  CLUBS,
-  DEFAULT_BAG,
   clubCategoryFor,
   type ClubCategory,
 } from '@oga/core'
@@ -48,20 +47,6 @@ const EMPTY_DRAFT: AddClubDraft = {
   clubType: '7i',
   loft: '',
   typicalDistance: '',
-}
-
-// Maps the picklist category to the canonical CLUBS subset that matches.
-// Utility = "anything not covered above"; we let the user enter a free
-// club_type value when they pick utility (mini driver, chipper, attack
-// wedge, etc).
-const CANONICAL_CLUBS_BY_CATEGORY: Record<ClubCategory, readonly string[]> = {
-  driver: ['driver'],
-  wood: CLUBS.filter((c) => /^[357]w$/.test(c)),
-  hybrid: CLUBS.filter((c) => /^[345]h$/.test(c)),
-  iron: CLUBS.filter((c) => /^[2-9]i$/.test(c)),
-  wedge: ['pw', 'gw', 'sw', 'lw'],
-  putter: ['putter'],
-  utility: [],
 }
 
 export function BagPage() {
@@ -696,10 +681,19 @@ function AddClubForm({
     () => CANONICAL_CLUBS_BY_CATEGORY[draft.category],
     [draft.category],
   )
+  // Custom mode lets the user enter a free-text club_type for non-utility
+  // categories (e.g. an "attack wedge" the canonical wedge list doesn't
+  // mention). Toggled by the "Custom…" sentinel option in the dropdown.
+  const [customMode, setCustomMode] = useState(false)
+  const CUSTOM_VALUE = '__custom__'
+  const showFreeText = draft.category === 'utility' || customMode
 
   // When category changes, jump club_type to the first canonical option
   // for that category if the current type doesn't fit. Skip for utility.
+  // Switching category also resets custom mode so the user starts from
+  // canonical options for the new category.
   useEffect(() => {
+    setCustomMode(false)
     if (draft.category === 'utility') return
     if (!canonicalOptions.includes(draft.clubType)) {
       onChange({ ...draft, clubType: canonicalOptions[0] ?? '' })
@@ -744,11 +738,11 @@ function AddClubForm({
         </label>
         <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
           <span className="kicker">Club type</span>
-          {draft.category === 'utility' ? (
+          {showFreeText ? (
             <input
               value={draft.clubType}
               onChange={(e) => onChange({ ...draft, clubType: e.target.value })}
-              placeholder="e.g. chipper, mini_driver, aw"
+              placeholder="e.g. chipper, attack wedge, 1.5 hybrid"
               style={{
                 padding: '8px 10px',
                 fontSize: 14,
@@ -759,8 +753,19 @@ function AddClubForm({
             />
           ) : (
             <select
-              value={draft.clubType}
-              onChange={(e) => onChange({ ...draft, clubType: e.target.value })}
+              value={
+                canonicalOptions.includes(draft.clubType)
+                  ? draft.clubType
+                  : canonicalOptions[0] ?? ''
+              }
+              onChange={(e) => {
+                if (e.target.value === CUSTOM_VALUE) {
+                  setCustomMode(true)
+                  onChange({ ...draft, clubType: '' })
+                  return
+                }
+                onChange({ ...draft, clubType: e.target.value })
+              }}
               style={{
                 padding: '8px 10px',
                 fontSize: 14,
@@ -774,7 +779,28 @@ function AddClubForm({
                   {c}
                 </option>
               ))}
+              <option value={CUSTOM_VALUE}>Custom…</option>
             </select>
+          )}
+          {customMode && draft.category !== 'utility' && (
+            <button
+              type="button"
+              onClick={() => {
+                setCustomMode(false)
+                onChange({ ...draft, clubType: canonicalOptions[0] ?? '' })
+              }}
+              className="text-caddie-ink-dim"
+              style={{
+                fontSize: 12,
+                textAlign: 'left',
+                background: 'transparent',
+                border: 'none',
+                padding: 0,
+                marginTop: 2,
+              }}
+            >
+              ← Back to {CLUB_CATEGORY_LABELS[draft.category]} list
+            </button>
           )}
         </label>
         <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>

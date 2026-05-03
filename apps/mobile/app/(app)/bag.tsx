@@ -10,9 +10,9 @@ import {
 } from 'react-native'
 import { useRouter } from 'expo-router'
 import {
+  CANONICAL_CLUBS_BY_CATEGORY,
   CLUB_CATEGORIES,
   CLUB_CATEGORY_LABELS,
-  CLUBS,
   clubCategoryFor,
   type ClubCategory,
 } from '@oga/core'
@@ -37,16 +37,6 @@ const KICKER: import('react-native').TextStyle = {
   fontWeight: '500',
   letterSpacing: 1.4,
   textTransform: 'uppercase',
-}
-
-const CANONICAL_BY_CATEGORY: Record<ClubCategory, readonly string[]> = {
-  driver: ['driver'],
-  wood: CLUBS.filter((c) => /^[357]w$/.test(c)),
-  hybrid: CLUBS.filter((c) => /^[345]h$/.test(c)),
-  iron: CLUBS.filter((c) => /^[2-9]i$/.test(c)),
-  wedge: ['pw', 'gw', 'sw', 'lw'],
-  putter: ['putter'],
-  utility: [],
 }
 
 interface AddDraft {
@@ -78,6 +68,9 @@ export default function BagScreen() {
   // it's adding a new club. The modal renders the same form either way;
   // only the upsert payload differs.
   const [editingId, setEditingId] = useState<string | null>(null)
+  // Lets the user enter a free-text club_type when the canonical chip
+  // list for the chosen category doesn't cover what they carry.
+  const [customMode, setCustomMode] = useState(false)
 
   async function toggleInBag(c: UserClub) {
     if (!user) return
@@ -163,6 +156,7 @@ export default function BagScreen() {
   function closeForm() {
     setShowAdd(false)
     setEditingId(null)
+    setCustomMode(false)
     setDraft(EMPTY_DRAFT)
   }
 
@@ -379,35 +373,54 @@ export default function BagScreen() {
                 <Field label="Category">
                   <CategoryRow
                     value={draft.category}
-                    onChange={(c) =>
+                    onChange={(c) => {
+                      setCustomMode(false)
                       setDraft((d) => ({
                         ...d,
                         category: c,
                         clubType:
                           c === 'utility'
                             ? d.clubType
-                            : CANONICAL_BY_CATEGORY[c][0] ?? '',
+                            : CANONICAL_CLUBS_BY_CATEGORY[c][0] ?? '',
                       }))
-                    }
+                    }}
                   />
                 </Field>
 
                 <Field label="Club type">
-                  {draft.category === 'utility' ? (
-                    <TextInput
-                      value={draft.clubType}
-                      onChangeText={(v) =>
-                        setDraft((d) => ({ ...d, clubType: v }))
-                      }
-                      placeholder="e.g. chipper, mini_driver, aw"
-                      style={inputStyle}
-                      autoCapitalize="none"
-                    />
+                  {draft.category === 'utility' || customMode ? (
+                    <View style={{ gap: 6 }}>
+                      <TextInput
+                        value={draft.clubType}
+                        onChangeText={(v) =>
+                          setDraft((d) => ({ ...d, clubType: v }))
+                        }
+                        placeholder="e.g. chipper, attack wedge, 1.5 hybrid"
+                        style={inputStyle}
+                        autoCapitalize="none"
+                      />
+                      {customMode && draft.category !== 'utility' && (
+                        <Pressable
+                          onPress={() => {
+                            setCustomMode(false)
+                            setDraft((d) => ({
+                              ...d,
+                              clubType:
+                                CANONICAL_CLUBS_BY_CATEGORY[d.category][0] ?? '',
+                            }))
+                          }}
+                        >
+                          <Text style={{ color: '#5C6356', fontSize: 12 }}>
+                            ← Back to {CLUB_CATEGORY_LABELS[draft.category]} list
+                          </Text>
+                        </Pressable>
+                      )}
+                    </View>
                   ) : (
                     <View
                       style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}
                     >
-                      {CANONICAL_BY_CATEGORY[draft.category].map((c) => (
+                      {CANONICAL_CLUBS_BY_CATEGORY[draft.category].map((c) => (
                         <Chip
                           key={c}
                           label={c}
@@ -417,6 +430,14 @@ export default function BagScreen() {
                           }
                         />
                       ))}
+                      <Chip
+                        label="Custom…"
+                        active={false}
+                        onPress={() => {
+                          setCustomMode(true)
+                          setDraft((d) => ({ ...d, clubType: '' }))
+                        }}
+                      />
                     </View>
                   )}
                 </Field>

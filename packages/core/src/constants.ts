@@ -59,17 +59,57 @@ export const CLUB_CATEGORY_LABELS: Record<ClubCategory, string> = {
 }
 
 // Map a canonical club_type to its category for the picklist UI. Anything
-// not matched here falls back to 'utility' — the catch-all for utility
-// irons / mini drivers / chippers / etc.
+// not matched here falls back to 'utility' — the catch-all for chippers,
+// truly custom one-offs, etc.
 export function clubCategoryFor(clubType: string): ClubCategory {
   if (clubType === 'driver') return 'driver'
   if (clubType === 'putter') return 'putter'
-  if (/^[357]w$/.test(clubType)) return 'wood'
-  if (/^[345]h$/.test(clubType)) return 'hybrid'
-  if (/^[2-9]i$/.test(clubType)) return 'iron'
-  if (clubType === 'pw' || clubType === 'gw' || clubType === 'sw' || clubType === 'lw')
+  if (clubType === 'mini_driver' || /^\d{1,2}w$/.test(clubType)) return 'wood'
+  if (/^\d{1,2}h$/.test(clubType)) return 'hybrid'
+  if (/^\d{1,2}i$/.test(clubType)) return 'iron'
+  if (
+    clubType === 'pw' ||
+    clubType === 'gw' ||
+    clubType === 'sw' ||
+    clubType === 'lw' ||
+    clubType === 'aw' ||
+    /^\d{2}°$/.test(clubType)
+  )
     return 'wedge'
   return 'utility'
+}
+
+// Canonical picklist options per category, surfaced by the bag UIs on
+// web and mobile. Lives here (not in app code) so both apps stay in
+// lockstep — adding a club_type to the picklist is a one-file edit.
+// Wedges are ordered by loft so the dropdown reads top-to-bottom from
+// pitch through lob; degree-named entries cover players who know their
+// wedges by loft rather than by name.
+export const CANONICAL_CLUBS_BY_CATEGORY: Record<ClubCategory, readonly string[]> = {
+  driver: ['driver'],
+  wood: ['mini_driver', '2w', '3w', '4w', '5w', '7w', '9w', '11w', '13w'],
+  hybrid: ['2h', '3h', '4h', '5h', '6h', '7h'],
+  iron: ['1i', '2i', '3i', '4i', '5i', '6i', '7i', '8i', '9i'],
+  wedge: [
+    '45°',
+    '46°',
+    '47°',
+    '48°',
+    'pw',
+    'gw',
+    'aw',
+    '50°',
+    '52°',
+    '54°',
+    '56°',
+    'sw',
+    '58°',
+    '60°',
+    '62°',
+    'lw',
+  ],
+  putter: ['putter'],
+  utility: [],
 }
 
 // Default 15-club starting bag seeded for new users when their bag is
