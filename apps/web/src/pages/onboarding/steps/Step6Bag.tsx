@@ -11,6 +11,7 @@ interface Step6BagProps {
   onContinue: () => void
   onSkip: () => void
   busy: boolean
+  error: string | null
 }
 
 export function Step6Bag({
@@ -20,6 +21,7 @@ export function Step6Bag({
   onContinue,
   onSkip,
   busy,
+  error,
 }: Step6BagProps) {
   function toggle(clubType: string) {
     const next = new Set(selected)
@@ -33,7 +35,7 @@ export function Step6Bag({
       <StepHeading
         kicker="Optional"
         title="Build your bag."
-        subtitle="Tap to add or remove clubs. Only the clubs in your bag will show up when logging shots. You can update this any time in settings."
+        subtitle="Select the clubs you carry. Tap to toggle. You can customise your bag fully in settings later."
       />
       <div
         style={{
@@ -52,15 +54,33 @@ export function Step6Bag({
               onClick={() => toggle(c.club_type)}
               aria-pressed={active}
               style={{
-                backgroundColor: active ? '#1F3D2C' : '#EBE5D6',
-                color: active ? '#F2EEE5' : '#1C211C',
-                border: 'none',
+                // Outline style for unselected, filled accent + leading
+                // checkmark for selected — gives an obvious binary read
+                // at a glance instead of "two shades of green".
+                backgroundColor: active ? '#1F3D2C' : 'transparent',
+                color: active ? '#F2EEE5' : '#5C6356',
+                border: active ? '1px solid #1F3D2C' : '1px solid #D9D2BF',
                 borderRadius: 2,
                 padding: '8px 12px',
                 fontSize: 13,
                 fontWeight: active ? 500 : 400,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
               }}
             >
+              <span
+                aria-hidden
+                style={{
+                  display: 'inline-block',
+                  width: 12,
+                  fontSize: 12,
+                  lineHeight: 1,
+                  textAlign: 'center',
+                }}
+              >
+                {active ? '✓' : ''}
+              </span>
               {c.name}
             </button>
           )
@@ -72,19 +92,45 @@ export function Step6Bag({
       >
         {selected.size} of {DEFAULT_BAG.length} selected
       </div>
+      <p
+        className="text-caddie-ink-mute"
+        style={{ fontSize: 12, marginTop: 8, lineHeight: 1.5 }}
+      >
+        You can add custom clubs and reorder your bag any time in
+        Settings → My Bag.
+      </p>
+      {error && (
+        <div
+          className="text-caddie-neg"
+          role="alert"
+          style={{
+            border: '1px solid #A33A2A',
+            borderRadius: 2,
+            padding: '10px 12px',
+            fontSize: 13,
+            marginTop: 14,
+          }}
+        >
+          {error}
+        </div>
+      )}
       <OnboardingButtons
         onBack={onBack}
         onContinue={onContinue}
-        canContinue={selected.size > 0}
+        // The bag step is optional — even zero selected is a valid
+        // "Looks good" (it just leaves the bag empty, equivalent to
+        // skipping). The earlier `selected.size > 0` gate looked like
+        // the button was broken when the user trimmed everything.
+        canContinue={true}
         continueLabel={busy ? 'Saving…' : 'Looks good'}
         busy={busy}
       />
       <button
         type="button"
         onClick={onSkip}
-        className="font-mono uppercase text-caddie-ink-mute hover:text-caddie-ink"
+        className="font-mono uppercase text-caddie-ink-dim hover:text-caddie-ink"
         style={{
-          fontSize: 10,
+          fontSize: 11,
           letterSpacing: '0.14em',
           padding: '14px 0 0',
           background: 'transparent',
@@ -95,7 +141,7 @@ export function Step6Bag({
         }}
         disabled={busy}
       >
-        Skip for now →
+        Set up later →
       </button>
     </div>
   )
