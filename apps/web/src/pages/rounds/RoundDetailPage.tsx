@@ -23,6 +23,7 @@ import {
   DEFAULT_HANDICAP,
   getShotCategory,
   haversineYards,
+  NEAR_GREEN_YARDS,
 } from '@oga/core'
 import { toUserMessage } from '../../lib/errors'
 
@@ -406,8 +407,13 @@ export function RoundDetailPage() {
       // derived from the rows so the scorecard reflects what was placed
       // without needing a manual entry.
       const existing = scoresByHoleId.get(activeHole.id)
+      // Match HoleReviewSheet's isPutt — any shot starting within 30 yd
+      // of the pin counts as a putt for the scorecard's putt total.
       const puttCount = rows.filter(
-        (r) => r.lieType === 'green' || r.club === 'putter',
+        (r) =>
+          r.lieType === 'green' ||
+          r.club === 'putter' ||
+          r.distanceToPin <= NEAR_GREEN_YARDS,
       ).length
       const hsResult = await upsertHoleScore.mutateAsync({
         id: existing?.id,
@@ -421,8 +427,23 @@ export function RoundDetailPage() {
       const hs = hsResult ?? existing
       if (!hs) throw new Error('hole_score upsert returned no row')
 
+      // Replace-all save: drop any shots already attached to this
+      // hole_score before inserting the freshly reviewed rows. Without
+      // this, a re-save (e.g. after a partial-success error retry, or
+      // after editing the hole on the map) duplicated rows in the DB
+      // and surfaced as phantom shot markers + shifted shot numbers.
+      const { error: delErr } = await supabase
+        .from('shots')
+        .delete()
+        .eq('hole_score_id', hs.id)
+        .eq('user_id', user.id)
+      if (delErr) throw delErr
+
       for (const row of rows) {
-        const isPuttRow = row.lieType === 'green' || row.club === 'putter'
+        const isPuttRow =
+          row.lieType === 'green' ||
+          row.club === 'putter' ||
+          row.distanceToPin <= NEAR_GREEN_YARDS
         const aim = placedAims[row.shotNumber - 1] ?? null
         await createShot.mutateAsync({
           hole_score_id: hs.id,
