@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <rect width="64" height="64" rx="8" fill="#1F3D2C"/>
+  <text x="32" y="42" text-anchor="middle"
+        font-family="Georgia, 'Times New Roman', serif"
+        font-style="italic" font-weight="500" font-size="28"
+        fill="#F2EEE5">OGA</text>
+</svg>
