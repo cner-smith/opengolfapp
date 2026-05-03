@@ -596,14 +596,18 @@ async function findCourseByExternalId(externalId: string): Promise<string | null
   return data?.id ?? null
 }
 
-// Upsert keyed on external_id (partial unique index from migration 0019).
-// Re-running the crawler updates the existing row in place rather than
-// inserting a parallel duplicate; the previous select-then-insert flow
-// could race two crawlers into a double-insert and silently produced
-// thousands of duplicate rows.
+// Select-then-update-or-insert keyed on external_id. The unique index
+// from migration 0019 is a *partial* index (`WHERE external_id IS NOT
+// NULL`), and PostgREST refuses to use a partial index as the conflict
+// target on `.upsert(..., { onConflict })` — every call returned
+// "there is no unique or exclusion constraint matching the ON CONFLICT
+// specification" and the whole crawl row failed.
 //
-// Manual user-created courses (no external_id) NEVER come through here —
-// they go through createCourse() in the web hooks and stay plain inserts.
+// We're single-process here (the crawler runs sequentially per state),
+// so the lookup → write race that motivated the original `.upsert()`
+// can't fire. Manual user-created courses (no external_id) NEVER come
+// through here — they go through createCourse() in the web hooks and
+// stay plain inserts.
 async function upsertCourse(args: {
   externalId: string
   name: string
@@ -612,22 +616,31 @@ async function upsertCourse(args: {
   lat: number | null
   lng: number | null
 }): Promise<{ id: string }> {
+  const row = {
+    external_id: args.externalId,
+    name: args.name,
+    city: args.city,
+    state: args.state,
+    lat: args.lat,
+    lng: args.lng,
+  }
+  const existingId = await findCourseByExternalId(args.externalId)
+  if (existingId) {
+    const { data, error } = await supabase
+      .from('courses')
+      .update(row)
+      .eq('id', existingId)
+      .select('id')
+      .single()
+    if (error || !data) throw error ?? new Error('course update failed')
+    return { id: data.id }
+  }
   const { data, error } = await supabase
     .from('courses')
-    .upsert(
-      {
-        external_id: args.externalId,
-        name: args.name,
-        city: args.city,
-        state: args.state,
-        lat: args.lat,
-        lng: args.lng,
-      },
-      { onConflict: 'external_id', ignoreDuplicates: false },
-    )
+    .insert(row)
     .select('id')
     .single()
-  if (error || !data) throw error ?? new Error('course upsert failed')
+  if (error || !data) throw error ?? new Error('course insert failed')
   return { id: data.id }
 }
 
