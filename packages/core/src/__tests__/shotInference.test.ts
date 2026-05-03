@@ -24,6 +24,7 @@ function placedShot(opts: Partial<PlacedShot>): PlacedShot {
     pinLng: opts.pinLng ?? TEE.lng,
     totalShotsOnHole: opts.totalShotsOnHole ?? 4,
     par: opts.par ?? 4,
+    userBag: opts.userBag,
   }
 }
 
@@ -262,5 +263,109 @@ describe('getShotCategory', () => {
     expect(
       getShotCategory({ lieType: 'green', distanceToTarget: 25 }, 4, 3),
     ).toBe('putting')
+  })
+})
+
+describe('inferShot — userBag-aware club selection', () => {
+  it('userBag with typical_distance_yards picks the closest user club', () => {
+    const start = offsetLatYards(TEE.lat, 220)
+    const end = offsetLatYards(TEE.lat, 370)
+    const result = inferShot(
+      placedShot({
+        shotNumber: 2,
+        startLat: start,
+        endLat: end,
+        totalShotsOnHole: 4,
+        userBag: [
+          { club_type: '7i', typical_distance_yards: 150 },
+          { club_type: '6i', typical_distance_yards: 165 },
+          { club_type: '8i', typical_distance_yards: 135 },
+          { club_type: 'pw', typical_distance_yards: 105 },
+        ],
+      }),
+    )
+    // The bag's 7i at 150 yd matches the 150 yd shot exactly; the
+    // table would have suggested 6i. Bag wins when distances exist.
+    expect(result.suggestedClub).toBe('7i')
+  })
+
+  it('userBag without typical_distance_yards swaps to nearest owned canonical club', () => {
+    // Table picks 6i for a 150 yd approach. Bag has no 6i so we should
+    // step out — prefer one step longer (5i) over shorter (7i) so the
+    // approach doesn't systematically come up short.
+    const start = offsetLatYards(TEE.lat, 220)
+    const end = offsetLatYards(TEE.lat, 370)
+    const result = inferShot(
+      placedShot({
+        shotNumber: 2,
+        startLat: start,
+        endLat: end,
+        totalShotsOnHole: 4,
+        userBag: [
+          { club_type: 'driver' },
+          { club_type: '5i' },
+          { club_type: '7i' },
+          { club_type: 'pw' },
+          { club_type: 'putter' },
+        ],
+      }),
+    )
+    expect(result.suggestedClub).toBe('5i')
+  })
+
+  it('empty userBag falls back to the static table', () => {
+    const start = offsetLatYards(TEE.lat, 220)
+    const end = offsetLatYards(TEE.lat, 370)
+    const result = inferShot(
+      placedShot({
+        shotNumber: 2,
+        startLat: start,
+        endLat: end,
+        totalShotsOnHole: 4,
+        userBag: [],
+      }),
+    )
+    expect(result.suggestedClub).toBe('6i')
+  })
+
+  it('userBag with custom non-canonical club_type returns the custom string', () => {
+    // A 130 yd shot — table picks 7i. Bag has only a custom utility
+    // 'chipper' calibrated at 130. clubFromUserDistances should match
+    // distance regardless of canonical-ness, returning the custom string.
+    const start = offsetLatYards(TEE.lat, 240)
+    const end = offsetLatYards(TEE.lat, 370)
+    const result = inferShot(
+      placedShot({
+        shotNumber: 2,
+        startLat: start,
+        endLat: end,
+        totalShotsOnHole: 4,
+        userBag: [
+          { club_type: 'chipper', typical_distance_yards: 130 },
+          { club_type: 'driver', typical_distance_yards: 250 },
+        ],
+      }),
+    )
+    expect(result.suggestedClub).toBe('chipper')
+  })
+
+  it('userBag never overrides putter on the green', () => {
+    // Even with a wedge calibrated at near-zero, a putt must still
+    // suggest putter — the green-check happens before the bag swap.
+    const start = offsetLatYards(TEE.lat, 379)
+    const end = offsetLatYards(TEE.lat, 380)
+    const result = inferShot(
+      placedShot({
+        shotNumber: 3,
+        startLat: start,
+        endLat: end,
+        totalShotsOnHole: 3,
+        userBag: [
+          { club_type: 'lw', typical_distance_yards: 1 },
+          { club_type: 'putter', typical_distance_yards: 0 },
+        ],
+      }),
+    )
+    expect(result.suggestedClub).toBe('putter')
   })
 })

@@ -3,8 +3,18 @@
 // coordinates plus tee/pin context, returns suggested club, lie type,
 // distances, and a confidence rating.
 
-import { NEAR_GREEN_YARDS, type Club, type LieType } from './constants'
+import { CLUBS, NEAR_GREEN_YARDS, type Club, type LieType } from './constants'
 import { haversineYards } from './units'
+
+/** A user-bag entry the inference layer can match against. Values mirror
+ *  the `user_clubs` row but the inference engine never imports
+ *  @oga/supabase, so we accept the minimal shape. `typical_distance_yards`
+ *  is the user's measured carry; when present we prefer it over the
+ *  static lookup table. */
+export interface UserBagClub {
+  club_type: string
+  typical_distance_yards?: number | null
+}
 
 export interface PlacedShot {
   shotNumber: number
@@ -22,10 +32,20 @@ export interface PlacedShot {
   /** Total shots placed for this hole. Used to identify the last shot. */
   totalShotsOnHole: number
   par: number
+  /** Optional user bag. When supplied, club suggestion restricts to
+   *  clubs the user actually carries; if rows include
+   *  `typical_distance_yards`, the suggester picks the nearest match
+   *  by user-measured carry instead of the static table. */
+  userBag?: readonly UserBagClub[]
 }
 
 export interface InferredShot {
-  suggestedClub: Club
+  /** Canonical Club when no user bag was supplied or the suggestion
+   *  matched the static table; arbitrary string when the suggestion
+   *  came from a user-bag entry whose club_type isn't in CLUBS (a
+   *  utility / chipper / mini-driver). The DB column is text so
+   *  downstream callers don't need to narrow. */
+  suggestedClub: Club | string
   suggestedLieType: LieType
   /** Distance the shot itself travelled (start → end) in yards. */
   distanceYards: number
@@ -69,6 +89,50 @@ function clubForTeeShot(distanceYards: number, par: number): Club {
   if (distanceYards >= 180) return '3w'
   if (distanceYards >= 150) return '3h'
   return clubForFullShotYards(distanceYards)
+}
+
+// Pick the user's club whose typical_distance_yards is closest to the
+// shot distance. Only considers rows where the user has actually
+// recorded a typical distance. Returns null when the bag has no usable
+// distances so callers can fall back.
+function clubFromUserDistances(
+  distanceYards: number,
+  bag: readonly UserBagClub[],
+): string | null {
+  let best: { club_type: string; diff: number } | null = null
+  for (const club of bag) {
+    const dist = club.typical_distance_yards
+    if (dist == null) continue
+    const diff = Math.abs(dist - distanceYards)
+    if (best === null || diff < best.diff) {
+      best = { club_type: club.club_type, diff }
+    }
+  }
+  return best?.club_type ?? null
+}
+
+// Picked club may not be in the user's bag — swap to the nearest one
+// that is. Search outward through the canonical CLUBS ladder, preferring
+// one step LONGER over shorter so approaches don't systematically come
+// up short. Returns null if no canonical club_type from CLUBS appears
+// in the bag (caller falls back to the picked club).
+const CLUB_LADDER: readonly Club[] = CLUBS.filter((c) => c !== 'putter')
+
+function nearestBaggedClub(
+  picked: Club,
+  bag: readonly UserBagClub[],
+): string | null {
+  const owned = new Set(bag.map((c) => c.club_type))
+  if (owned.has(picked)) return picked
+  const idx = CLUB_LADDER.indexOf(picked)
+  if (idx < 0) return null
+  for (let step = 1; step < CLUB_LADDER.length; step++) {
+    const longer = CLUB_LADDER[idx - step]
+    if (longer && owned.has(longer)) return longer
+    const shorter = CLUB_LADDER[idx + step]
+    if (shorter && owned.has(shorter)) return shorter
+  }
+  return null
 }
 
 // ---------------------------------------------------------------------------
@@ -135,13 +199,30 @@ export function inferShot(shot: PlacedShot): InferredShot {
 
   const lie = inferLie({ isFirstShot, startToPinYards })
 
-  let club: Club
+  // Static table picks first, then we re-bias against the user's bag if
+  // one was supplied. This keeps tee-vs-fairway logic, par-3 routing,
+  // and putter-on-green selection in one place — the bag step only
+  // tweaks WHICH club from the suggested ladder the player would
+  // actually pull.
+  let club: Club | string
   if (lie === 'green') {
     club = 'putter'
   } else if (isFirstShot) {
     club = clubForTeeShot(distanceYards, shot.par)
   } else {
     club = clubForFullShotYards(distanceYards)
+  }
+
+  if (lie !== 'green' && shot.userBag && shot.userBag.length > 0) {
+    const fromDistances = clubFromUserDistances(distanceYards, shot.userBag)
+    if (fromDistances != null) {
+      club = fromDistances
+    } else {
+      // User bag exists but no typical_distance_yards anywhere — restrict
+      // the table pick to clubs they actually carry.
+      const swapped = nearestBaggedClub(club as Club, shot.userBag)
+      if (swapped != null) club = swapped
+    }
   }
 
   const confidence = confidenceFor({
