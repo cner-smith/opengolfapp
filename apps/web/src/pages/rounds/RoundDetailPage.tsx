@@ -735,6 +735,8 @@ export function RoundDetailPage() {
           activeHoleNumber={activeHoleNumber}
           onSwitchHole={switchHole}
           activeHoleGeo={activeHoleGeo}
+          courseLat={courseFallbackLat}
+          courseLng={courseFallbackLng}
           existingShots={activeHoleShots}
           placedPoints={placedPoints}
           placedAims={placedAims}
@@ -938,6 +940,11 @@ interface MapViewProps {
   activeHoleNumber: number
   onSwitchHole: (n: number) => void
   activeHoleGeo: HoleGeo | null
+  /** Course-level lat/lng — passed to RoundMap as a direct prop so the
+   *  camera can fall back to the course centroid even when activeHoleGeo
+   *  is null (course rows with no entries in the holes table). */
+  courseLat: number | null
+  courseLng: number | null
   existingShots: ExistingShot[]
   placedPoints: PlacedPoint[]
   placedAims: (PlacedPoint | null)[]
@@ -975,6 +982,8 @@ function MapView({
   activeHoleNumber,
   onSwitchHole,
   activeHoleGeo,
+  courseLat,
+  courseLng,
   existingShots,
   placedPoints,
   placedAims,
@@ -1100,6 +1109,8 @@ function MapView({
         <Suspense fallback={<MapLoading />}>
           <RoundMap
             hole={activeHoleGeo}
+            courseLat={courseLat}
+            courseLng={courseLng}
             existingShots={existingShots}
             placedPoints={placedPoints}
             placedAims={placedAims}

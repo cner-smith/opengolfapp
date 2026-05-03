@@ -38,6 +38,12 @@ export interface PlacedPoint {
 
 interface RoundMapProps {
   hole: HoleGeo | null
+  /** Course-level lat/lng — direct prop, independent of `hole`.
+   *  Surfaces course centroid even when `hole` is null (e.g. courses
+   *  with no rows in the holes table). HoleGeo.courseLat/courseLng
+   *  is still honoured but only as a secondary read. */
+  courseLat?: number | null
+  courseLng?: number | null
   /** Pre-existing shots (live-tracked or previously saved). */
   existingShots: ExistingShot[]
   /** Tap-placed points for the active hole when no existing shots are
@@ -80,6 +86,8 @@ const MARKER_COLORS = {
 
 export function RoundMap({
   hole,
+  courseLat,
+  courseLng,
   existingShots,
   placedPoints,
   placedAims,
@@ -119,6 +127,14 @@ export function RoundMap({
   const hasExistingShots = existingShots.some(
     (s) => s.endLat != null && s.endLng != null,
   )
+  // Course centroid resolves from a direct prop first (so a course
+  // with zero rows in the holes table — and therefore a null `hole`
+  // — still drops the camera on the property), and only falls back
+  // to the optional HoleGeo.courseLat/Lng for callers that haven't
+  // adopted the direct props yet.
+  const effectiveCourseLat = courseLat ?? hole?.courseLat ?? null
+  const effectiveCourseLng = courseLng ?? hole?.courseLng ?? null
+
   // Single camera target with priority order: hole tee → hole pin →
   // course centroid → hard-coded OKC default. Course rows missing
   // lat/lng entirely fall to OKC zoom 11 so the player isn't stranded
@@ -135,8 +151,8 @@ export function RoundMap({
     if (effectivePin) {
       return { center: [effectivePin.lng, effectivePin.lat], zoom: 15 }
     }
-    if (hole?.courseLat != null && hole?.courseLng != null) {
-      return { center: [hole.courseLng, hole.courseLat], zoom: 15 }
+    if (effectiveCourseLat != null && effectiveCourseLng != null) {
+      return { center: [effectiveCourseLng, effectiveCourseLat], zoom: 15 }
     }
     return { center: [-97.5, 35.5], zoom: 11 }
   }, [
@@ -144,18 +160,17 @@ export function RoundMap({
     effectiveTee?.lng,
     effectivePin?.lat,
     effectivePin?.lng,
-    hole?.courseLat,
-    hole?.courseLng,
+    effectiveCourseLat,
+    effectiveCourseLng,
   ])
 
   const initialPositionDoneRef = useRef(false)
+  const [mapLoaded, setMapLoaded] = useState(false)
 
-  // Initialize at a neutral world view. The reactive camera effect
-  // below positions it as soon as any priority tier resolves —
-  // decoupling init from positioning fixes a race where the map
-  // captured a stale center on mount (before useCourse / the joined
-  // courses field returned) and then never re-flew because the
-  // dependent useMemo identity didn't change.
+  // Initialize at a neutral world view. The camera positioning waits
+  // for the 'load' event below — Mapbox happily queues jumpTo on a
+  // mid-load map, but a load gate makes the timing explicit and
+  // matches what production was actually doing under the hood.
   useEffect(() => {
     if (!containerRef.current || !MAPBOX_TOKEN_PRESENT) return
     if (mapRef.current) return
@@ -176,19 +191,23 @@ export function RoundMap({
       new mapboxgl.NavigationControl({ showCompass: false }),
       'bottom-right',
     )
+    map.on('load', () => setMapLoaded(true))
     mapRef.current = map
     return () => {
       map.remove()
       mapRef.current = null
+      setMapLoaded(false)
     }
   }, [])
 
-  // Reactive camera positioning. First valid target snaps the camera
-  // into place (jumpTo, no animation) so a fresh map doesn't spend a
-  // second flying in from the world view. Subsequent target changes
-  // (hole switch, course coords arriving late, focus-on-green after a
-  // putt) animate so the change is visible.
+  // Reactive camera positioning. Gated on `mapLoaded` so we never call
+  // jumpTo against an instance whose style hasn't finished initializing
+  // — which is the failure mode the OKC-stuck bug was hitting in
+  // production. First valid target after load snaps (jumpTo, instant);
+  // subsequent target changes (hole switch, course coords arriving
+  // late, focus-on-green after a putt) animate via flyTo.
   useEffect(() => {
+    if (!mapLoaded) return
     const map = mapRef.current
     if (!map) return
     if (!initialPositionDoneRef.current) {
@@ -204,7 +223,7 @@ export function RoundMap({
       zoom: cameraTarget.zoom,
       speed: 1.4,
     })
-  }, [cameraTarget])
+  }, [mapLoaded, cameraTarget])
 
   // After a non-holed putt save the parent bumps focusGreenSignal —
   // fly in tight on the green so the next putt placement lands on the
