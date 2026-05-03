@@ -34,6 +34,72 @@ export const CLUBS = [
   'putter',
 ] as const
 
+// Functional categories used by the bag-setup picklist UI. The free-text
+// `name` field captures sub-type (mini driver, chipper, attack wedge, etc).
+export const CLUB_CATEGORIES = [
+  'driver',
+  'wood',
+  'hybrid',
+  'iron',
+  'wedge',
+  'utility',
+  'putter',
+] as const
+
+export type ClubCategory = (typeof CLUB_CATEGORIES)[number]
+
+export const CLUB_CATEGORY_LABELS: Record<ClubCategory, string> = {
+  driver: 'Driver',
+  wood: 'Wood',
+  hybrid: 'Hybrid',
+  iron: 'Iron',
+  wedge: 'Wedge',
+  utility: 'Utility',
+  putter: 'Putter',
+}
+
+// Map a canonical club_type to its category for the picklist UI. Anything
+// not matched here falls back to 'utility' — the catch-all for utility
+// irons / mini drivers / chippers / etc.
+export function clubCategoryFor(clubType: string): ClubCategory {
+  if (clubType === 'driver') return 'driver'
+  if (clubType === 'putter') return 'putter'
+  if (/^[357]w$/.test(clubType)) return 'wood'
+  if (/^[345]h$/.test(clubType)) return 'hybrid'
+  if (/^[2-9]i$/.test(clubType)) return 'iron'
+  if (clubType === 'pw' || clubType === 'gw' || clubType === 'sw' || clubType === 'lw')
+    return 'wedge'
+  return 'utility'
+}
+
+// Default 15-club starting bag seeded for new users when their bag is
+// empty. Standard tournament bag is 14 clubs — we ship 15 because the
+// 5-wood + 4h + 5h overlap is common in amateur bags. Players trim on
+// onboarding or in /settings/bag.
+export interface DefaultBagEntry {
+  club_type: string
+  name: string
+  sort_order: number
+}
+
+export const DEFAULT_BAG: readonly DefaultBagEntry[] = [
+  { club_type: 'driver', name: 'Driver', sort_order: 0 },
+  { club_type: '3w', name: '3 Wood', sort_order: 1 },
+  { club_type: '5w', name: '5 Wood', sort_order: 2 },
+  { club_type: '4h', name: '4 Hybrid', sort_order: 3 },
+  { club_type: '5h', name: '5 Hybrid', sort_order: 4 },
+  { club_type: '5i', name: '5 Iron', sort_order: 5 },
+  { club_type: '6i', name: '6 Iron', sort_order: 6 },
+  { club_type: '7i', name: '7 Iron', sort_order: 7 },
+  { club_type: '8i', name: '8 Iron', sort_order: 8 },
+  { club_type: '9i', name: '9 Iron', sort_order: 9 },
+  { club_type: 'pw', name: 'Pitching Wedge', sort_order: 10 },
+  { club_type: 'gw', name: 'Gap Wedge', sort_order: 11 },
+  { club_type: 'sw', name: 'Sand Wedge', sort_order: 12 },
+  { club_type: 'lw', name: 'Lob Wedge', sort_order: 13 },
+  { club_type: 'putter', name: 'Putter', sort_order: 14 },
+] as const
+
 export const LIE_TYPES = [
   'tee',
   'fairway',
