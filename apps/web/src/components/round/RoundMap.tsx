@@ -38,6 +38,13 @@ interface RoundMapProps {
    *  logged. The parent owns this state so it can persist across
    *  re-renders and feed the review sheet. */
   placedPoints: PlacedPoint[]
+  /** Aim point per placed shot, parallel to placedPoints. Null when the
+   *  user hasn't set an aim for that shot. Required to feed dispersion
+   *  analysis — captured rather than inferred. */
+  placedAims?: (PlacedPoint | null)[]
+  /** When true, the next map tap sets aim for the most recently placed
+   *  shot instead of pushing a new shot start marker. */
+  aimMode?: boolean
   /** Local override for the pin and tee positions while the user is
    *  reviewing a hole. When set, these win over the values inside
    *  `hole.pinLat/pinLng` / `hole.teeLat/teeLng`. */
@@ -50,6 +57,7 @@ interface RoundMapProps {
   onMovePoint: (index: number, point: PlacedPoint) => void
   onMovePin?: (point: PlacedPoint) => void
   onMoveTee?: (point: PlacedPoint) => void
+  onSetAim?: (index: number, point: PlacedPoint | null) => void
 }
 
 const MARKER_COLORS = {
@@ -65,6 +73,8 @@ export function RoundMap({
   hole,
   existingShots,
   placedPoints,
+  placedAims,
+  aimMode,
   pinOverride,
   teeOverride,
   tapToPlaceDisabled,
@@ -72,7 +82,9 @@ export function RoundMap({
   onMovePoint,
   onMovePin,
   onMoveTee,
+  onSetAim,
 }: RoundMapProps) {
+  const { toDisplay } = useUnits()
   // Memoized so downstream effects can dep on the object directly without
   // thrashing on every parent render — coords are the only meaningful
   // identity here.
@@ -139,19 +151,35 @@ export function RoundMap({
   }, [center?.[0], center?.[1]])
 
   // Wire a click handler for tap-to-place on holes that have no live shots.
+  // When aimMode is on, the next click sets aim for the most recently
+  // placed shot instead of pushing a new shot marker.
   useEffect(() => {
     const map = mapRef.current
     if (!map) return
     function onClick(e: mapboxgl.MapMouseEvent) {
       if (hasExistingShots) return
       if (tapToPlaceDisabled) return
+      if (aimMode && onSetAim) {
+        const idx = placedPoints.length - 1
+        if (idx >= 0) {
+          onSetAim(idx, { lat: e.lngLat.lat, lng: e.lngLat.lng })
+        }
+        return
+      }
       onPlace({ lat: e.lngLat.lat, lng: e.lngLat.lng })
     }
     map.on('click', onClick)
     return () => {
       map.off('click', onClick)
     }
-  }, [onPlace, hasExistingShots, tapToPlaceDisabled])
+  }, [
+    onPlace,
+    hasExistingShots,
+    tapToPlaceDisabled,
+    aimMode,
+    onSetAim,
+    placedPoints.length,
+  ])
 
   const renderLayers = useCallback(() => {
     const map = mapRef.current
@@ -222,8 +250,13 @@ export function RoundMap({
     }
 
     // Existing shots: numbered markers + dashed trajectory.
+    // Marker N renders at the START of shot N — that's "where the player
+    // stood for shot N", matching the post-round tap flow. Falling back
+    // to end coords for legacy rows that pre-date start_lat/lng.
     const existingValid = existingShots.filter(
-      (s) => s.endLat != null && s.endLng != null,
+      (s) =>
+        (s.startLat != null && s.startLng != null) ||
+        (s.endLat != null && s.endLng != null),
     )
     for (const s of existingValid) {
       const color =
@@ -236,8 +269,10 @@ export function RoundMap({
               : MARKER_COLORS.green
       const parts = makeNumberedMarker(s.shotNumber, color, '#FBF8F1')
       parts.outer.title = `Shot ${s.shotNumber}`
+      const lng = s.startLng ?? s.endLng!
+      const lat = s.startLat ?? s.endLat!
       const marker = new mapboxgl.Marker({ element: parts.outer })
-        .setLngLat([s.endLng!, s.endLat!])
+        .setLngLat([lng, lat])
         .addTo(map)
       markerRefs.current.push(marker)
     }
@@ -268,28 +303,86 @@ export function RoundMap({
       markerRefs.current.push(marker)
     })
 
-    // Trajectory line (existing shots).
-    const existingCoords = buildLineCoords(effectiveTee, existingValid)
-    upsertLine(map, lineSourceId, existingCoords, '#FBF8F1')
+    // Trajectory line (existing shots): connect each shot's start
+    // position in order, then close to the pin so the final segment
+    // shows the last leg.
+    const existingCoords = buildLineCoords(existingValid, effectivePin)
+    upsertLine(map, lineSourceId, existingCoords, '#A66A1F')
 
     // Trajectory line (placed points): each marker is the START position
-    // of a shot, so segment N→N+1 is the path of shot N. Drawing just
-    // the markers in order without prepending the tee avoids a phantom
-    // "tee → marker 1" segment, since marker 1 IS the tee position.
-    const placedCoords =
+    // of a shot, so segment N→N+1 is the path of shot N. Closing to the
+    // pin renders the final leg from the last marker through the cup.
+    const placedCoords: [number, number][] =
       placedPoints.length === 0
         ? []
-        : placedPoints.map((p) => [p.lng, p.lat] as [number, number])
+        : [
+            ...placedPoints.map((p) => [p.lng, p.lat] as [number, number]),
+            ...(effectivePin
+              ? ([[effectivePin.lng, effectivePin.lat]] as [number, number][])
+              : []),
+          ]
     upsertLine(map, placedLineSourceId, placedCoords, '#A66A1F')
+
+    // Per-segment distance pills. Renders midpoint label between every
+    // pair of consecutive line coords for both existing and placed lines
+    // so the player can see each shot's distance at a glance.
+    for (const coords of [existingCoords, placedCoords]) {
+      for (let i = 0; i < coords.length - 1; i++) {
+        const a = coords[i]!
+        const b = coords[i + 1]!
+        const yards = Math.round(haversineYards(a[1], a[0], b[1], b[0]))
+        if (yards <= 0) continue
+        const mid: [number, number] = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2]
+        const el = makeDistancePill(toDisplay(yards))
+        const marker = new mapboxgl.Marker({ element: el })
+          .setLngLat(mid)
+          .addTo(map)
+        markerRefs.current.push(marker)
+      }
+    }
+
+    // Aim markers + dashed aim lines per placed shot. Aim color matches
+    // the rest of the warn palette (#A66A1F) so it reads as "intent",
+    // distinct from the accent ball/pin marker.
+    const aimLineCoords: [number, number][][] = []
+    placedPoints.forEach((p, idx) => {
+      const aim = placedAims?.[idx] ?? null
+      if (!aim) return
+      const aimEl = makeAimMarker()
+      const aimMarker = new mapboxgl.Marker({ element: aimEl })
+        .setLngLat([aim.lng, aim.lat])
+        .addTo(map)
+      markerRefs.current.push(aimMarker)
+      aimLineCoords.push([
+        [p.lng, p.lat],
+        [aim.lng, aim.lat],
+      ])
+      // Distance pill at midpoint of the aim line.
+      const yards = Math.round(haversineYards(p.lat, p.lng, aim.lat, aim.lng))
+      if (yards > 0) {
+        const mid: [number, number] = [
+          (p.lng + aim.lng) / 2,
+          (p.lat + aim.lat) / 2,
+        ]
+        const el = makeDistancePill(`AIM ${toDisplay(yards)}`)
+        const marker = new mapboxgl.Marker({ element: el })
+          .setLngLat(mid)
+          .addTo(map)
+        markerRefs.current.push(marker)
+      }
+    })
+    upsertDashedLines(map, 'aim-lines', aimLineCoords, '#A66A1F')
   }, [
     existingShots,
     hole,
     placedPoints,
+    placedAims,
     onMovePoint,
     onMovePin,
     onMoveTee,
     effectivePin,
     effectiveTee,
+    toDisplay,
   ])
 
   // Render markers + connecting line for either existing shots or placed points.
@@ -334,6 +427,12 @@ interface RoundMapInstructionStripProps {
   editing?: boolean
   shotsPlaced: number
   remainingToPin: number | null
+  /** Aim mode: next tap sets aim for the latest placed shot. */
+  aimMode?: boolean
+  /** Number of placed shots that already have an aim point. */
+  aimsSet?: number
+  onToggleAimMode?: (on: boolean) => void
+  onClearLastAim?: () => void
   onUndo: () => void
   onClear: () => void
   onDone: () => void
@@ -349,6 +448,10 @@ export function RoundMapInstructionStrip({
   editing,
   shotsPlaced,
   remainingToPin,
+  aimMode = false,
+  aimsSet = 0,
+  onToggleAimMode,
+  onClearLastAim,
   onUndo,
   onClear,
   onDone,
@@ -389,6 +492,15 @@ export function RoundMapInstructionStrip({
               Drag any marker to refine its position.
             </div>
           </>
+        ) : aimMode ? (
+          <>
+            <div className="kicker" style={{ marginBottom: 2 }}>
+              Aim point — shot {shotsPlaced}
+            </div>
+            <div className="text-caddie-ink" style={{ fontSize: 13 }}>
+              Tap where you were aiming when you hit shot {shotsPlaced}.
+            </div>
+          </>
         ) : (
           <>
             <div className="kicker" style={{ marginBottom: 2 }}>
@@ -401,6 +513,8 @@ export function RoundMapInstructionStrip({
               {shotsPlaced === 0
                 ? 'Start at the tee box.'
                 : `${shotsPlaced} shot${shotsPlaced === 1 ? '' : 's'} placed${
+                    aimsSet > 0 ? ` · ${aimsSet} aim${aimsSet === 1 ? '' : 's'} set` : ''
+                  }${
                     remainingToPin != null
                       ? ` · ${toDisplay(remainingToPin)} to pin`
                       : ''
@@ -425,7 +539,42 @@ export function RoundMapInstructionStrip({
           Done editing →
         </button>
       ) : !hasExistingShots ? (
-        <div style={{ display: 'flex', gap: 8 }}>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          {onToggleAimMode && shotsPlaced > 0 && (
+            <button
+              type="button"
+              onClick={() => onToggleAimMode(!aimMode)}
+              aria-pressed={aimMode}
+              style={{
+                border: '1px solid #A66A1F',
+                borderRadius: 2,
+                padding: '6px 10px',
+                fontSize: 12,
+                background: aimMode ? '#A66A1F' : 'transparent',
+                color: aimMode ? '#F2EEE5' : '#A66A1F',
+                fontWeight: 600,
+                letterSpacing: '0.02em',
+              }}
+            >
+              {aimMode ? 'Cancel aim' : 'Set aim'}
+            </button>
+          )}
+          {onClearLastAim && aimsSet > 0 && !aimMode && (
+            <button
+              type="button"
+              onClick={onClearLastAim}
+              className="text-caddie-ink-dim"
+              style={{
+                border: '1px solid #D9D2BF',
+                borderRadius: 2,
+                padding: '6px 10px',
+                fontSize: 12,
+                background: 'transparent',
+              }}
+            >
+              Clear aim
+            </button>
+          )}
           <button
             type="button"
             disabled={shotsPlaced === 0}
@@ -478,16 +627,50 @@ export function RoundMapInstructionStrip({
 }
 
 function buildLineCoords(
-  tee: PlacedPoint | null,
   existing: ExistingShot[],
+  pin: PlacedPoint | null,
 ): [number, number][] {
   const coords: [number, number][] = []
-  if (tee) coords.push([tee.lng, tee.lat])
   for (const s of existing) {
-    if (s.endLat == null || s.endLng == null) continue
-    coords.push([s.endLng, s.endLat])
+    const lng = s.startLng ?? s.endLng
+    const lat = s.startLat ?? s.endLat
+    if (lat == null || lng == null) continue
+    coords.push([lng, lat])
   }
+  if (pin && coords.length > 0) coords.push([pin.lng, pin.lat])
   return coords
+}
+
+function upsertDashedLines(
+  map: mapboxgl.Map,
+  sourceId: string,
+  segments: [number, number][][],
+  color: string,
+) {
+  const layerId = `${sourceId}-layer`
+  const data: GeoJSON.Feature<GeoJSON.MultiLineString> = {
+    type: 'Feature',
+    properties: {},
+    geometry: { type: 'MultiLineString', coordinates: segments },
+  }
+  const src = map.getSource(sourceId) as mapboxgl.GeoJSONSource | undefined
+  if (src) {
+    src.setData(data)
+    return
+  }
+  map.addSource(sourceId, { type: 'geojson', data })
+  map.addLayer({
+    id: layerId,
+    type: 'line',
+    source: sourceId,
+    layout: { 'line-join': 'round', 'line-cap': 'round' },
+    paint: {
+      'line-color': color,
+      'line-width': 1.5,
+      'line-dasharray': [4, 3],
+      'line-opacity': 0.85,
+    },
+  })
 }
 
 function upsertLine(
@@ -497,6 +680,7 @@ function upsertLine(
   color: string,
 ) {
   const layerId = `${sourceId}-layer`
+  const outlineLayerId = `${sourceId}-outline`
   const data: GeoJSON.Feature<GeoJSON.LineString> = {
     type: 'Feature',
     properties: {},
@@ -505,21 +689,34 @@ function upsertLine(
   const src = map.getSource(sourceId) as mapboxgl.GeoJSONSource | undefined
   if (src) {
     src.setData(data)
-  } else {
-    map.addSource(sourceId, { type: 'geojson', data })
-    map.addLayer({
-      id: layerId,
-      type: 'line',
-      source: sourceId,
-      layout: { 'line-join': 'round', 'line-cap': 'round' },
-      paint: {
-        'line-color': color,
-        'line-width': 1.5,
-        'line-dasharray': [3, 2],
-        'line-opacity': 0.85,
-      },
-    })
+    return
   }
+  map.addSource(sourceId, { type: 'geojson', data })
+  // Dark outline first so the amber line reads against both bright
+  // satellite (sand) and dark areas (rough/water). Without the outline
+  // the warn amber disappeared into fall fairway tiles.
+  map.addLayer({
+    id: outlineLayerId,
+    type: 'line',
+    source: sourceId,
+    layout: { 'line-join': 'round', 'line-cap': 'round' },
+    paint: {
+      'line-color': '#1C211C',
+      'line-width': 4,
+      'line-opacity': 0.55,
+    },
+  })
+  map.addLayer({
+    id: layerId,
+    type: 'line',
+    source: sourceId,
+    layout: { 'line-join': 'round', 'line-cap': 'round' },
+    paint: {
+      'line-color': color,
+      'line-width': 2.5,
+      'line-opacity': 1,
+    },
+  })
 }
 
 // ---------------------------------------------------------------------------
@@ -564,6 +761,43 @@ function makeNumberedMarker(
   content.textContent = String(n)
   outer.appendChild(content)
   return { outer, content }
+}
+
+function makeAimMarker(): HTMLElement {
+  const outer = document.createElement('div')
+  outer.style.display = 'flex'
+  outer.style.alignItems = 'center'
+  outer.style.justifyContent = 'center'
+  const dot = document.createElement('div')
+  dot.style.cssText = [
+    'width:14px',
+    'height:14px',
+    'border-radius:999px',
+    'background:#A66A1F',
+    'border:2px solid #FBF8F1',
+    'pointer-events:none',
+  ].join(';')
+  outer.appendChild(dot)
+  outer.title = 'Aim point'
+  return outer
+}
+
+function makeDistancePill(label: string): HTMLElement {
+  const el = document.createElement('div')
+  el.style.cssText = [
+    'background:rgba(28,33,28,0.85)',
+    'color:#F2EEE5',
+    'font-family:JetBrains Mono, monospace',
+    'font-size:11px',
+    'font-weight:500',
+    'letter-spacing:0.04em',
+    'padding:3px 8px',
+    'border-radius:999px',
+    'pointer-events:none',
+    'white-space:nowrap',
+  ].join(';')
+  el.textContent = label
+  return el
 }
 
 function makeIconMarker(

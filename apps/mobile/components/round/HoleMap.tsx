@@ -414,7 +414,7 @@ export function HoleMap({
 
           {!isPinMode && tee && (
             <Mapbox.PointAnnotation id="tee" coordinate={toCoord(tee)}>
-              <Marker color="#FBF8F1" border="#5C6356" size={10} />
+              <TeeBadge />
             </Mapbox.PointAnnotation>
           )}
 
@@ -584,6 +584,36 @@ export function HoleMap({
         )}
       </View>
     </GestureDetector>
+  )
+}
+
+// Small "TEE" pill — kept visually identical to the web map's tee
+// marker so the satellite view reads the same on both platforms. The
+// previous bare cream circle was indistinguishable from a ball at the
+// same zoom.
+function TeeBadge() {
+  return (
+    <View
+      style={{
+        backgroundColor: '#FBF8F1',
+        borderWidth: 1,
+        borderColor: '#5C6356',
+        borderRadius: 2,
+        paddingHorizontal: 6,
+        paddingVertical: 3,
+      }}
+    >
+      <Text
+        style={{
+          color: '#5C6356',
+          fontSize: 9,
+          fontWeight: '500',
+          letterSpacing: 1.4,
+        }}
+      >
+        TEE
+      </Text>
+    </View>
   )
 }
 

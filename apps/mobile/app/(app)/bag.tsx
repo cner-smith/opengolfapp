@@ -10,9 +10,9 @@ import {
 } from 'react-native'
 import { useRouter } from 'expo-router'
 import {
+  CANONICAL_CLUBS_BY_CATEGORY,
   CLUB_CATEGORIES,
   CLUB_CATEGORY_LABELS,
-  CLUBS,
   clubCategoryFor,
   type ClubCategory,
 } from '@oga/core'
@@ -37,16 +37,6 @@ const KICKER: import('react-native').TextStyle = {
   fontWeight: '500',
   letterSpacing: 1.4,
   textTransform: 'uppercase',
-}
-
-const CANONICAL_BY_CATEGORY: Record<ClubCategory, readonly string[]> = {
-  driver: ['driver'],
-  wood: CLUBS.filter((c) => /^[357]w$/.test(c)),
-  hybrid: CLUBS.filter((c) => /^[345]h$/.test(c)),
-  iron: CLUBS.filter((c) => /^[2-9]i$/.test(c)),
-  wedge: ['pw', 'gw', 'sw', 'lw'],
-  putter: ['putter'],
-  utility: [],
 }
 
 interface AddDraft {
@@ -74,6 +64,13 @@ export default function BagScreen() {
   })
   const [showAdd, setShowAdd] = useState(false)
   const [draft, setDraft] = useState<AddDraft>(EMPTY_DRAFT)
+  // Set to a club id when the modal is editing an existing row; null when
+  // it's adding a new club. The modal renders the same form either way;
+  // only the upsert payload differs.
+  const [editingId, setEditingId] = useState<string | null>(null)
+  // Lets the user enter a free-text club_type when the canonical chip
+  // list for the chosen category doesn't cover what they carry.
+  const [customMode, setCustomMode] = useState(false)
 
   async function toggleInBag(c: UserClub) {
     if (!user) return
@@ -115,7 +112,7 @@ export default function BagScreen() {
   function confirmReset() {
     Alert.alert(
       'Reset to default bag?',
-      'This deletes every club and seeds the default 15-club bag.',
+      'This deletes every club and seeds the default 14-club bag.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -143,7 +140,27 @@ export default function BagScreen() {
     return Number.isFinite(n) ? n : null
   }
 
-  async function handleAdd() {
+  function startEdit(c: UserClub) {
+    setDraft({
+      name: c.name,
+      category: clubCategoryFor(c.club_type),
+      clubType: c.club_type,
+      loft: c.loft != null ? String(c.loft) : '',
+      typicalDistance:
+        c.typical_distance_yards != null ? String(c.typical_distance_yards) : '',
+    })
+    setEditingId(c.id)
+    setShowAdd(true)
+  }
+
+  function closeForm() {
+    setShowAdd(false)
+    setEditingId(null)
+    setCustomMode(false)
+    setDraft(EMPTY_DRAFT)
+  }
+
+  async function handleSave() {
     if (!user) return
     if (!draft.name.trim()) {
       Alert.alert('Name is required')
@@ -165,18 +182,25 @@ export default function BagScreen() {
       return
     }
     try {
-      const maxSort = bag.reduce((m, c) => Math.max(m, c.sort_order), -1)
+      const existing = editingId ? bag.find((c) => c.id === editingId) : null
+      const sortOrder = existing
+        ? existing.sort_order
+        : bag.reduce((m, c) => Math.max(m, c.sort_order), -1) + 1
+      // Editing an existing row keeps club_type fixed — that's the
+      // canonical id for stats joins. Only edit name/loft/typical here.
       await upsertClub(user.id, {
+        ...(editingId ? { id: editingId } : {}),
         name: draft.name.trim(),
-        club_type: draft.clubType.trim().toLowerCase(),
+        club_type: existing
+          ? existing.club_type
+          : draft.clubType.trim().toLowerCase(),
         loft: parseNumOrNull(draft.loft),
         typical_distance_yards: parseNumOrNull(draft.typicalDistance),
-        sort_order: maxSort + 1,
-        in_bag: true,
+        sort_order: sortOrder,
+        in_bag: existing ? existing.in_bag : true,
       })
       await refetch()
-      setDraft(EMPTY_DRAFT)
-      setShowAdd(false)
+      closeForm()
     } catch (e) {
       Alert.alert('Save failed', (e as Error).message)
     }
@@ -254,6 +278,7 @@ export default function BagScreen() {
               onLongPress={drag}
               onToggle={() => toggleInBag(item)}
               onDelete={() => confirmDelete(item)}
+              onEdit={() => startEdit(item)}
             />
           )}
           ListFooterComponent={
@@ -300,7 +325,7 @@ export default function BagScreen() {
         visible={showAdd}
         animationType="slide"
         transparent
-        onRequestClose={() => setShowAdd(false)}
+        onRequestClose={closeForm}
       >
         <View
           style={{
@@ -328,7 +353,9 @@ export default function BagScreen() {
                 marginBottom: 14,
               }}
             />
-            <Text style={{ ...KICKER, marginBottom: 4 }}>New club</Text>
+            <Text style={{ ...KICKER, marginBottom: 4 }}>
+              {editingId ? 'Edit club' : 'New club'}
+            </Text>
             <Text
               style={{
                 color: '#1C211C',
@@ -338,47 +365,84 @@ export default function BagScreen() {
                 marginBottom: 18,
               }}
             >
-              Add to bag.
+              {editingId ? 'Edit club.' : 'Add to bag.'}
             </Text>
 
-            <Field label="Category">
-              <CategoryRow
-                value={draft.category}
-                onChange={(c) =>
-                  setDraft((d) => ({
-                    ...d,
-                    category: c,
-                    clubType:
-                      c === 'utility'
-                        ? d.clubType
-                        : CANONICAL_BY_CATEGORY[c][0] ?? '',
-                  }))
-                }
-              />
-            </Field>
+            {!editingId && (
+              <>
+                <Field label="Category">
+                  <CategoryRow
+                    value={draft.category}
+                    onChange={(c) => {
+                      setCustomMode(false)
+                      setDraft((d) => ({
+                        ...d,
+                        category: c,
+                        clubType:
+                          c === 'utility'
+                            ? d.clubType
+                            : CANONICAL_CLUBS_BY_CATEGORY[c][0] ?? '',
+                      }))
+                    }}
+                  />
+                </Field>
 
-            <Field label="Club type">
-              {draft.category === 'utility' ? (
-                <TextInput
-                  value={draft.clubType}
-                  onChangeText={(v) => setDraft((d) => ({ ...d, clubType: v }))}
-                  placeholder="e.g. chipper, mini_driver, aw"
-                  style={inputStyle}
-                  autoCapitalize="none"
-                />
-              ) : (
-                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
-                  {CANONICAL_BY_CATEGORY[draft.category].map((c) => (
-                    <Chip
-                      key={c}
-                      label={c}
-                      active={draft.clubType === c}
-                      onPress={() => setDraft((d) => ({ ...d, clubType: c }))}
-                    />
-                  ))}
-                </View>
-              )}
-            </Field>
+                <Field label="Club type">
+                  {draft.category === 'utility' || customMode ? (
+                    <View style={{ gap: 6 }}>
+                      <TextInput
+                        value={draft.clubType}
+                        onChangeText={(v) =>
+                          setDraft((d) => ({ ...d, clubType: v }))
+                        }
+                        placeholder="e.g. chipper, attack wedge, 1.5 hybrid"
+                        style={inputStyle}
+                        autoCapitalize="none"
+                      />
+                      {customMode && draft.category !== 'utility' && (
+                        <Pressable
+                          onPress={() => {
+                            setCustomMode(false)
+                            setDraft((d) => ({
+                              ...d,
+                              clubType:
+                                CANONICAL_CLUBS_BY_CATEGORY[d.category][0] ?? '',
+                            }))
+                          }}
+                        >
+                          <Text style={{ color: '#5C6356', fontSize: 12 }}>
+                            ← Back to {CLUB_CATEGORY_LABELS[draft.category]} list
+                          </Text>
+                        </Pressable>
+                      )}
+                    </View>
+                  ) : (
+                    <View
+                      style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}
+                    >
+                      {CANONICAL_CLUBS_BY_CATEGORY[draft.category].map((c) => (
+                        <Chip
+                          key={c}
+                          label={c}
+                          active={draft.clubType === c}
+                          onPress={() =>
+                            setDraft((d) => ({ ...d, clubType: c }))
+                          }
+                        />
+                      ))}
+                      <Chip
+                        label="Custom…"
+                        active={false}
+                        onPress={() => {
+                          setCustomMode(true)
+                          setDraft((d) => ({ ...d, clubType: '' }))
+                        }}
+                      />
+                    </View>
+                  )}
+                </Field>
+              </>
+            )}
 
             <Field label="Display name">
               <TextInput
@@ -416,15 +480,17 @@ export default function BagScreen() {
               </View>
             </View>
 
-            <Text style={{ color: '#8A8B7E', fontSize: 12, marginTop: 6 }}>
-              Category will default to{' '}
-              {CLUB_CATEGORY_LABELS[clubCategoryFor(draft.clubType)]} based on
-              the club_type you chose.
-            </Text>
+            {!editingId && (
+              <Text style={{ color: '#8A8B7E', fontSize: 12, marginTop: 6 }}>
+                Category will default to{' '}
+                {CLUB_CATEGORY_LABELS[clubCategoryFor(draft.clubType)]} based on
+                the club_type you chose.
+              </Text>
+            )}
 
             <View style={{ flexDirection: 'row', gap: 8, marginTop: 18 }}>
               <Pressable
-                onPress={handleAdd}
+                onPress={handleSave}
                 style={{
                   flex: 1,
                   backgroundColor: '#1F3D2C',
@@ -436,14 +502,11 @@ export default function BagScreen() {
                 <Text
                   style={{ color: '#F2EEE5', fontSize: 14, fontWeight: '600' }}
                 >
-                  Add to bag →
+                  {editingId ? 'Save changes →' : 'Add to bag →'}
                 </Text>
               </Pressable>
               <Pressable
-                onPress={() => {
-                  setShowAdd(false)
-                  setDraft(EMPTY_DRAFT)
-                }}
+                onPress={closeForm}
                 style={{
                   paddingVertical: 14,
                   paddingHorizontal: 18,
@@ -466,12 +529,14 @@ function ClubRow({
   onLongPress,
   onToggle,
   onDelete,
+  onEdit,
 }: {
   club: UserClub
   isActive: boolean
   onLongPress: () => void
   onToggle: () => void
   onDelete: () => void
+  onEdit: () => void
 }) {
   return (
     <View
@@ -529,6 +594,14 @@ function ClubRow({
         >
           {club.in_bag ? 'In bag' : 'Benched'}
         </Text>
+      </Pressable>
+      <Pressable
+        onPress={onEdit}
+        accessibilityLabel={`Edit ${club.name}`}
+        hitSlop={8}
+        style={{ paddingHorizontal: 4 }}
+      >
+        <Text style={{ color: '#5C6356', fontSize: 12 }}>Edit</Text>
       </Pressable>
       <Pressable
         onPress={onDelete}

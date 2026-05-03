@@ -38,12 +38,25 @@ describe('clubCategoryFor', () => {
     expect(clubCategoryFor('lw')).toBe('wedge')
   })
 
-  it('falls back to utility for non-canonical club_types', () => {
-    // Non-canonical entries from a user bag (utility category) all
-    // fall through to 'utility' so the picklist UI never crashes.
+  it('maps mini driver and extended fairway woods', () => {
+    expect(clubCategoryFor('mini_driver')).toBe('wood')
+    expect(clubCategoryFor('2w')).toBe('wood')
+    expect(clubCategoryFor('11w')).toBe('wood')
+  })
+
+  it('maps additional hybrids and irons', () => {
+    expect(clubCategoryFor('6h')).toBe('hybrid')
+    expect(clubCategoryFor('1i')).toBe('iron')
+  })
+
+  it('maps degree-named wedges and attack wedge', () => {
+    expect(clubCategoryFor('aw')).toBe('wedge')
+    expect(clubCategoryFor('46°')).toBe('wedge')
+    expect(clubCategoryFor('60°')).toBe('wedge')
+  })
+
+  it('falls back to utility for genuinely non-canonical club_types', () => {
     expect(clubCategoryFor('chipper')).toBe('utility')
-    expect(clubCategoryFor('mini_driver')).toBe('utility')
-    expect(clubCategoryFor('aw')).toBe('utility')
     expect(clubCategoryFor('')).toBe('utility')
   })
 
@@ -62,8 +75,8 @@ describe('clubCategoryFor', () => {
 })
 
 describe('DEFAULT_BAG', () => {
-  it('has 15 entries', () => {
-    expect(DEFAULT_BAG.length).toBe(15)
+  it('has 14 entries (the USGA legal max)', () => {
+    expect(DEFAULT_BAG.length).toBe(14)
   })
 
   it('every entry references a canonical CLUB', () => {
@@ -72,7 +85,7 @@ describe('DEFAULT_BAG', () => {
     }
   })
 
-  it('sort_order values are 0..14 in order', () => {
+  it('sort_order values are 0..13 in order', () => {
     DEFAULT_BAG.forEach((entry, idx) => {
       expect(entry.sort_order).toBe(idx)
     })

@@ -219,8 +219,8 @@ export default function MobileOnboarding() {
         {seedBag ? (
           <>
             <Text style={{ color: '#888880', fontSize: 12, marginBottom: 10 }}>
-              Tap to add or remove clubs you carry. Edit any time in Profile →
-              My Bag.
+              Standard bags carry up to 14 clubs. Tap to add or remove. Edit
+              any time in Profile → My Bag.
             </Text>
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
               {DEFAULT_BAG.map((c) => (

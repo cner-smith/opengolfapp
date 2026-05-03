@@ -60,6 +60,14 @@ type ViewMode = 'scorecard' | 'map'
 interface HoleViewState {
   activeHoleNumber: number
   placedPoints: PlacedPoint[]
+  /** Aim point per placed shot. Parallel to placedPoints — index N is
+   *  the aim for shot N. Null when the user hasn't placed an aim for
+   *  that shot. Aim point is what the player was aiming at when they
+   *  hit shot N; required for meaningful dispersion analysis. */
+  placedAims: (PlacedPoint | null)[]
+  /** When true, the next map tap sets the aim point for the latest
+   *  placed shot instead of dropping a new shot start marker. */
+  aimMode: boolean
   pinOverride: PlacedPoint | null
   teeOverride: PlacedPoint | null
   reviewOpen: boolean
@@ -73,6 +81,8 @@ type HoleViewAction =
   | { type: 'MOVE_POINT'; index: number; point: PlacedPoint }
   | { type: 'CLEAR_POINTS' }
   | { type: 'POP_POINT' }
+  | { type: 'SET_AIM'; index: number; point: PlacedPoint | null }
+  | { type: 'AIM_MODE'; on: boolean }
   | { type: 'PIN_OVERRIDE'; point: PlacedPoint | null }
   | { type: 'TEE_OVERRIDE'; point: PlacedPoint | null }
   | { type: 'OPEN_REVIEW' }
@@ -84,6 +94,8 @@ type HoleViewAction =
 const HOLE_VIEW_INITIAL: HoleViewState = {
   activeHoleNumber: 1,
   placedPoints: [],
+  placedAims: [],
+  aimMode: false,
   pinOverride: null,
   teeOverride: null,
   reviewOpen: false,
@@ -96,16 +108,35 @@ function holeViewReducer(state: HoleViewState, action: HoleViewAction): HoleView
     case 'SWITCH_HOLE':
       return { ...HOLE_VIEW_INITIAL, activeHoleNumber: action.holeNumber }
     case 'PUSH_POINT':
-      return { ...state, placedPoints: [...state.placedPoints, action.point] }
+      return {
+        ...state,
+        placedPoints: [...state.placedPoints, action.point],
+        placedAims: [...state.placedAims, null],
+        // Drop aim mode after placing a new shot — aim mode is sticky to
+        // a specific shot, and pushing a new shot moves the cursor.
+        aimMode: false,
+      }
     case 'MOVE_POINT': {
       const next = state.placedPoints.slice()
       next[action.index] = action.point
       return { ...state, placedPoints: next }
     }
     case 'CLEAR_POINTS':
-      return { ...state, placedPoints: [] }
+      return { ...state, placedPoints: [], placedAims: [], aimMode: false }
     case 'POP_POINT':
-      return { ...state, placedPoints: state.placedPoints.slice(0, -1) }
+      return {
+        ...state,
+        placedPoints: state.placedPoints.slice(0, -1),
+        placedAims: state.placedAims.slice(0, -1),
+        aimMode: false,
+      }
+    case 'SET_AIM': {
+      const next = state.placedAims.slice()
+      next[action.index] = action.point
+      return { ...state, placedAims: next, aimMode: false }
+    }
+    case 'AIM_MODE':
+      return { ...state, aimMode: action.on }
     case 'PIN_OVERRIDE':
       return { ...state, pinOverride: action.point }
     case 'TEE_OVERRIDE':
@@ -119,7 +150,13 @@ function holeViewReducer(state: HoleViewState, action: HoleViewAction): HoleView
     case 'SAVE_ERROR':
       return { ...state, saveError: action.message }
     case 'AFTER_SAVE':
-      return { ...state, reviewOpen: false, placedPoints: [] }
+      return {
+        ...state,
+        reviewOpen: false,
+        placedPoints: [],
+        placedAims: [],
+        aimMode: false,
+      }
   }
 }
 
@@ -157,6 +194,8 @@ export function RoundDetailPage() {
   const {
     activeHoleNumber,
     placedPoints,
+    placedAims,
+    aimMode,
     pinOverride,
     teeOverride,
     reviewOpen,
@@ -281,6 +320,10 @@ export function RoundDetailPage() {
         dispatchHoleView({ type: 'TEE_OVERRIDE', point: p }),
       onClearPoints: () => dispatchHoleView({ type: 'CLEAR_POINTS' }),
       onUndoPoint: () => dispatchHoleView({ type: 'POP_POINT' }),
+      onSetAim: (idx: number, point: PlacedPoint | null) =>
+        dispatchHoleView({ type: 'SET_AIM', index: idx, point }),
+      onToggleAimMode: (on: boolean) =>
+        dispatchHoleView({ type: 'AIM_MODE', on }),
       onDoneWithHole: () => dispatchHoleView({ type: 'OPEN_REVIEW' }),
       onDoneEditing: () => {
         dispatchHoleView({ type: 'EDIT_ON_MAP', editing: false })
@@ -380,6 +423,7 @@ export function RoundDetailPage() {
 
       for (const row of rows) {
         const isPuttRow = row.lieType === 'green' || row.club === 'putter'
+        const aim = placedAims[row.shotNumber - 1] ?? null
         await createShot.mutateAsync({
           hole_score_id: hs.id,
           user_id: user.id,
@@ -388,8 +432,8 @@ export function RoundDetailPage() {
           start_lng: row.startLng,
           end_lat: row.endLat,
           end_lng: row.endLng,
-          aim_lat: null,
-          aim_lng: null,
+          aim_lat: aim?.lat ?? null,
+          aim_lng: aim?.lng ?? null,
           distance_to_target: isPuttRow ? null : Math.round(row.distanceToPin),
           club: row.club,
           lie_type: row.lieType,
@@ -563,6 +607,8 @@ export function RoundDetailPage() {
           activeHoleGeo={activeHoleGeo}
           existingShots={activeHoleShots}
           placedPoints={placedPoints}
+          placedAims={placedAims}
+          aimMode={aimMode}
           pinOverride={pinOverride}
           teeOverride={teeOverride}
           handlers={placeHandlers}
@@ -731,6 +777,8 @@ interface MapViewProps {
   activeHoleGeo: HoleGeo | null
   existingShots: ExistingShot[]
   placedPoints: PlacedPoint[]
+  placedAims: (PlacedPoint | null)[]
+  aimMode: boolean
   pinOverride: PlacedPoint | null
   teeOverride: PlacedPoint | null
   handlers: {
@@ -740,6 +788,8 @@ interface MapViewProps {
     onMoveTee: (p: PlacedPoint) => void
     onClearPoints: () => void
     onUndoPoint: () => void
+    onSetAim: (idx: number, p: PlacedPoint | null) => void
+    onToggleAimMode: (on: boolean) => void
     onDoneWithHole: () => void
     onDoneEditing: () => void
   }
@@ -755,6 +805,8 @@ function MapView({
   activeHoleGeo,
   existingShots,
   placedPoints,
+  placedAims,
+  aimMode,
   pinOverride,
   teeOverride,
   handlers,
@@ -796,6 +848,13 @@ function MapView({
           editing={editingOnMap}
           shotsPlaced={placedPoints.length}
           remainingToPin={remainingToPin}
+          aimMode={aimMode}
+          aimsSet={placedAims.filter((a) => a != null).length}
+          onToggleAimMode={handlers.onToggleAimMode}
+          onClearLastAim={() => {
+            const idx = placedAims.length - 1
+            if (idx >= 0) handlers.onSetAim(idx, null)
+          }}
           onUndo={handlers.onUndoPoint}
           onClear={handlers.onClearPoints}
           onDone={handlers.onDoneWithHole}
@@ -817,6 +876,8 @@ function MapView({
             hole={activeHoleGeo}
             existingShots={existingShots}
             placedPoints={placedPoints}
+            placedAims={placedAims}
+            aimMode={aimMode}
             pinOverride={pinOverride}
             teeOverride={teeOverride}
             tapToPlaceDisabled={editingOnMap}
@@ -824,6 +885,7 @@ function MapView({
             onMovePoint={handlers.onMovePoint}
             onMovePin={handlers.onMovePin}
             onMoveTee={handlers.onMoveTee}
+            onSetAim={handlers.onSetAim}
           />
         </Suspense>
         {reviewSheet}
