@@ -588,6 +588,42 @@ export interface Database {
           },
         ]
       }
+      user_clubs: {
+        Row: {
+          id: string
+          user_id: string
+          name: string
+          club_type: string
+          loft: number | null
+          typical_distance_yards: number | null
+          sort_order: number
+          in_bag: boolean
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          name: string
+          club_type: string
+          loft?: number | null
+          typical_distance_yards?: number | null
+          sort_order?: number
+          in_bag?: boolean
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          name?: string
+          club_type?: string
+          loft?: number | null
+          typical_distance_yards?: number | null
+          sort_order?: number
+          in_bag?: boolean
+          created_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: Record<string, never>
     Functions: {
