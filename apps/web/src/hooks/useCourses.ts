@@ -10,6 +10,7 @@ import {
   createHoles,
   defaultHolesForCourse,
   getCourseByExternalId,
+  getCourseById,
   getCourseTees,
   getHolesForCourse,
   searchCourses,
@@ -52,6 +53,23 @@ export function useCourseSearch(query: string) {
         local: localRows,
         apiAvailable: api.status === 'fulfilled',
       }
+    },
+  })
+}
+
+// Direct course-row fetch by id. Used by RoundDetailPage to read
+// authoritative course lat/lng for the map's fallback camera target —
+// the joined courses(...) field on the round query has been
+// unreliable for the centroid lookup, so a separate direct read
+// avoids the join-shape ambiguity.
+export function useCourse(courseId: string | undefined) {
+  return useQuery({
+    queryKey: ['course', courseId],
+    enabled: !!courseId,
+    queryFn: async () => {
+      const { data, error } = await getCourseById(supabase, courseId!)
+      if (error) throw error
+      return data
     },
   })
 }

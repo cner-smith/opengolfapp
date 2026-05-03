@@ -45,7 +45,11 @@ import {
 } from '../../components/round/WebPuttingSheet'
 import { useDeleteRound, useRound, useRounds } from '../../hooks/useRounds'
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
-import { useCourseTees, useHolesForCourse } from '../../hooks/useCourses'
+import {
+  useCourse,
+  useCourseTees,
+  useHolesForCourse,
+} from '../../hooks/useCourses'
 import { useHoleScores, useUpsertHoleScore } from '../../hooks/useHoleScores'
 import { useCreateShot, useShotsForRound } from '../../hooks/useShots'
 import { useCompleteRound } from '../../hooks/useCompleteRound'
@@ -238,6 +242,10 @@ export function RoundDetailPage() {
   const courseId = round.data?.course_id
   const holesQuery = useHolesForCourse(courseId)
   const teesQuery = useCourseTees(courseId)
+  // Direct fetch — the joined courses(...) field on the round query has
+  // been intermittently flat (no lat/lng) for reasons that haven't
+  // panned out in PostgREST. A standalone course read is unambiguous.
+  const courseQuery = useCourse(courseId)
   const holeScoresQuery = useHoleScores(roundId)
   const shotsQuery = useShotsForRound(roundId)
   const upsertHoleScore = useUpsertHoleScore(roundId)
@@ -326,10 +334,14 @@ export function RoundDetailPage() {
     (activeHole?.tee_lat != null && activeHole?.tee_lng != null
       ? { lat: activeHole.tee_lat, lng: activeHole.tee_lng }
       : null)
-  // Course-level lat/lng pulled off the joined courses row. Used as the
-  // map's fallback camera target when this hole has no tee/pin coords —
-  // most courses imported pre-OSM still lack per-hole layout data.
-  const courseRow = round.data?.courses ?? null
+  // Course-level lat/lng pulled from the dedicated course query. The
+  // joined courses(...) field on the round query also exposes lat/lng,
+  // but reading both lets us pick whichever is non-null first — useful
+  // while the join shape stabilises across PostgREST behaviours.
+  const joinedCourse = round.data?.courses ?? null
+  const courseRow = courseQuery.data ?? null
+  const courseFallbackLat = courseRow?.lat ?? joinedCourse?.lat ?? null
+  const courseFallbackLng = courseRow?.lng ?? joinedCourse?.lng ?? null
   const activeHoleGeo: HoleGeo | null = activeHole
     ? {
         id: activeHole.id,
@@ -340,8 +352,8 @@ export function RoundDetailPage() {
         teeLng: effectiveTee?.lng ?? null,
         pinLat: effectivePin?.lat ?? null,
         pinLng: effectivePin?.lng ?? null,
-        courseLat: courseRow?.lat ?? null,
-        courseLng: courseRow?.lng ?? null,
+        courseLat: courseFallbackLat,
+        courseLng: courseFallbackLng,
       }
     : null
   // True when the active hole has no per-hole layout in the DB. Drives

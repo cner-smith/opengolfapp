@@ -142,6 +142,17 @@ export function RoundMap({
   useEffect(() => {
     if (!containerRef.current || !MAPBOX_TOKEN_PRESENT) return
     if (mapRef.current) return
+    if (import.meta.env.DEV) {
+      // eslint-disable-next-line no-console
+      console.log('[RoundMap] init center', {
+        center,
+        targetZoom,
+        teeLat: hole?.teeLat,
+        pinLat: hole?.pinLat,
+        courseLat: hole?.courseLat,
+        courseLng: hole?.courseLng,
+      })
+    }
     const map = new mapboxgl.Map({
       container: containerRef.current,
       style: 'mapbox://styles/mapbox/satellite-streets-v12',
