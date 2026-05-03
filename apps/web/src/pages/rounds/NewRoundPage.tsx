@@ -95,6 +95,7 @@ export function NewRoundPage() {
               setCourseName(name)
               setCourseTeeId(null)
             }}
+            requestGps={mode === 'live'}
           />
           {courseName && courseId && (
             <p
