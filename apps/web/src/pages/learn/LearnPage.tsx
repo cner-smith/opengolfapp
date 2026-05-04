@@ -3,6 +3,7 @@ import { useDetailedStats } from '../../hooks/useDetailedStats'
 import { useProfile } from '../../hooks/useProfile'
 import { useUnits } from '../../hooks/useUnits'
 import type { DetailedStats } from '@oga/core'
+import { HowToPracticeArticle } from './articles/HowToPracticeArticle'
 
 interface ArticleStub {
   id: string
@@ -43,7 +44,7 @@ const LEARN_SECTIONS: LearnSection[] = [
     number: 'Section three',
     title: 'Improving your game',
     articles: [
-      { id: 'how-to-practice', title: 'How to practice effectively', status: 'stub' },
+      { id: 'how-to-practice', title: 'How to practice effectively', status: 'live' },
       { id: 'practice-modes', title: 'Block, random, and pressure practice', status: 'stub' },
       { id: 'measurable-goals', title: 'Creating measurable practice goals', status: 'stub' },
       { id: 'skill-and-pressure-games', title: 'Skill games and pressure games', status: 'stub' },
@@ -228,13 +229,13 @@ export function LearnPage() {
             number={section.number}
             title={section.title}
           />
-          {section.articles.map((article) => (
-            <StubEntry
-              key={article.id}
-              id={article.id}
-              title={article.title}
-            />
-          ))}
+          {section.articles.map((article) =>
+            article.status === 'live' ? (
+              <LiveArticle key={article.id} id={article.id} title={article.title} />
+            ) : (
+              <StubEntry key={article.id} id={article.id} title={article.title} />
+            ),
+          )}
         </div>
       ))}
 
@@ -1490,6 +1491,15 @@ function ArticleAnchor({
       </h3>
     </section>
   )
+}
+
+function LiveArticle({ id, title }: { id: string; title: string }) {
+  switch (id) {
+    case 'how-to-practice':
+      return <HowToPracticeArticle />
+    default:
+      return <StubEntry id={id} title={title} />
+  }
 }
 
 function StubEntry({ id, title }: { id: string; title: string }) {
