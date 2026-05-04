@@ -123,7 +123,7 @@ type HoleViewAction =
   | { type: 'CLOSE_REVIEW' }
   | { type: 'EDIT_ON_MAP'; editing: boolean }
   | { type: 'SAVE_ERROR'; message: string | null }
-  | { type: 'AFTER_SAVE' }
+  | { type: 'AFTER_SAVE'; nextHoleNumber: number | null }
 
 const HOLE_VIEW_INITIAL: HoleViewState = {
   activeHoleNumber: 1,
@@ -232,16 +232,30 @@ function holeViewReducer(state: HoleViewState, action: HoleViewAction): HoleView
       return { ...state, editingOnMap: action.editing }
     case 'SAVE_ERROR':
       return { ...state, saveError: action.message }
-    case 'AFTER_SAVE':
-      return {
-        ...state,
-        reviewOpen: false,
-        placedPoints: [],
-        placedAims: [],
-        placedPutts: [],
-        aimMode: false,
-        puttingSheetForIdx: null,
+    case 'AFTER_SAVE': {
+      // Auto-advance to the next hole on save so the player isn't stuck
+      // re-tapping the hole selector after every Done with hole. Caller
+      // decides how far we can advance — `nextHoleNumber == null` means
+      // we just saved the last hole on the course (caller compared
+      // against the course's expected hole count). In that case stay put
+      // and just clear the placed-shot state so the player can review.
+      if (action.nextHoleNumber == null) {
+        return {
+          ...state,
+          reviewOpen: false,
+          placedPoints: [],
+          placedAims: [],
+          placedPutts: [],
+          aimMode: false,
+          puttingSheetForIdx: null,
+        }
       }
+      return {
+        ...HOLE_VIEW_INITIAL,
+        activeHoleNumber: action.nextHoleNumber,
+        focusGreenSignal: state.focusGreenSignal,
+      }
+    }
   }
 }
 
@@ -301,44 +315,89 @@ export function RoundDetailPage() {
   // Synthetic fallback when the course has no rows in the `holes` table
   // (typical for OSM-imported courses that never went through enrichment).
   // Without this, every downstream feature gates on `activeHole` being
-  // non-null and the round detail page locks up: scorecard renders no
-  // rows, map placement buttons hide, review sheet can't open. Synthesize
-  // either from hole_scores (real hole_ids + joined par survive a
-  // refresh) or as 18 par-4 placeholders so the UI is at least usable.
-  type HSWithJoin = HoleScoreRow & { holes?: { par?: number | null } | null }
+  // non-null and the round detail page locks up.
+  //
+  // Detection is length-based — once any hole is materialized via
+  // ensureRealHole, the query refetches with one row and the rest must
+  // still be synthesized. Predicate-based detection (yards/tee_lat null)
+  // breaks once `saveReviewedHole` seeds the new row with the player's
+  // teeOverride — that single populated tee_lat made every "is this
+  // synthetic?" check return false on the post-save refetch and holes
+  // 2..18 disappeared from the array. Length is the unambiguous signal:
+  // if fewer rows than the course expects, fill the gap.
+  //
+  // Expected count comes from `course_tees.par` when present (≤36 = 9,
+  // else 18); falls back to 18 when no tees row exists. 9-hole real
+  // courses with no course_tees row would over-pad — that combination
+  // is rare enough to leave for a follow-up.
+  type HSWithJoin = HoleScoreRow & {
+    holes?: { number?: number | null; par?: number | null } | null
+  }
+  const expectedHoleCount = useMemo(() => {
+    const tees = teesQuery.data ?? []
+    const totalPar = tees[0]?.par
+    if (totalPar != null && totalPar <= 36) return 9
+    return 18
+  }, [teesQuery.data])
   const holes = useMemo<HoleRow[]>(() => {
     const fetched = holesQuery.data ?? []
-    if (fetched.length > 0) return fetched
     const roundData = round.data
-    if (!roundData) return []
-    const scores = (roundData as { hole_scores?: HSWithJoin[] }).hole_scores
-    if (scores && scores.length > 0) {
-      return scores.map((hs, i) => ({
-        id: hs.hole_id,
+    if (fetched.length >= expectedHoleCount) return fetched
+    if (!roundData) return fetched
+    // Index real rows + score-derived rows by hole number for a 1..18
+    // merge. Real wins over score-derived, score-derived wins over a
+    // generic par-4 placeholder. score-derived carries the real hole_id
+    // (FK already valid) so the upsert path doesn't need ensureRealHole.
+    const realByNumber = new Map<number, HoleRow>()
+    for (const h of fetched) realByNumber.set(h.number, h)
+    const scores =
+      (roundData as { hole_scores?: HSWithJoin[] }).hole_scores ?? []
+    const scoredByNumber = new Map<
+      number,
+      { id: string; par: number | null }
+    >()
+    for (const hs of scores) {
+      const num = hs.holes?.number ?? null
+      if (num != null) {
+        scoredByNumber.set(num, {
+          id: hs.hole_id,
+          par: hs.holes?.par ?? null,
+        })
+      }
+    }
+    return Array.from({ length: expectedHoleCount }, (_, i) => {
+      const num = i + 1
+      const real = realByNumber.get(num)
+      if (real) return real
+      const scored = scoredByNumber.get(num)
+      if (scored) {
+        return {
+          id: scored.id,
+          course_id: roundData.course_id,
+          number: num,
+          par: scored.par ?? 4,
+          yards: null,
+          stroke_index: num,
+          tee_lat: null,
+          tee_lng: null,
+          pin_lat: null,
+          pin_lng: null,
+        }
+      }
+      return {
+        id: `synthetic-${roundData.id}-hole-${num}`,
         course_id: roundData.course_id,
-        number: i + 1,
-        par: hs.holes?.par ?? 4,
+        number: num,
+        par: 4,
         yards: null,
-        stroke_index: i + 1,
+        stroke_index: num,
         tee_lat: null,
         tee_lng: null,
         pin_lat: null,
         pin_lng: null,
-      }))
-    }
-    return Array.from({ length: 18 }, (_, i) => ({
-      id: `synthetic-${roundData.id}-hole-${i + 1}`,
-      course_id: roundData.course_id,
-      number: i + 1,
-      par: 4,
-      yards: null,
-      stroke_index: i + 1,
-      tee_lat: null,
-      tee_lng: null,
-      pin_lat: null,
-      pin_lng: null,
-    }))
-  }, [holesQuery.data, round.data])
+      }
+    })
+  }, [holesQuery.data, round.data, expectedHoleCount])
   const rawScores: Array<HoleScoreRow & { holes?: HoleRow | null }> = useMemo(
     () => holeScoresQuery.data ?? [],
     [holeScoresQuery.data],
@@ -716,7 +775,13 @@ export function RoundDetailPage() {
           notes: null,
         })
       }
-      dispatchHoleView({ type: 'AFTER_SAVE' })
+      // Cap auto-advance to the course's expected hole count — passing
+      // null on the last hole keeps the player put with a cleared state.
+      const nextHole =
+        activeHole.number + 1 <= expectedHoleCount
+          ? activeHole.number + 1
+          : null
+      dispatchHoleView({ type: 'AFTER_SAVE', nextHoleNumber: nextHole })
     } catch (err) {
       dispatchHoleView({ type: 'SAVE_ERROR', message: toUserMessage(err) })
     } finally {

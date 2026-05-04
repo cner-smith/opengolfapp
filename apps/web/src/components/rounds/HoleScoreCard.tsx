@@ -90,10 +90,9 @@ export function HoleScoreCard({
   const [putts, setPutts] = useState<string>(holeScore?.putts?.toString() ?? '')
   const [fairway, setFairway] = useState<boolean | null>(holeScore?.fairway_hit ?? null)
   const [gir, setGir] = useState<boolean | null>(holeScore?.gir ?? null)
-  // No yards + no tee coords = course had no layout data when this hole
-  // was loaded (or it was synthesized client-side). Lets the player
-  // override par per-hole instead of being stuck at the 4 default.
-  const isSyntheticHole = !hole.yards && hole.tee_lat == null
+  // Par is always editable on the scorecard — synthetic-fallback courses
+  // need it (par-4 default is wrong for the par 3s and 5s) and real
+  // courses occasionally have stale data the player wants to correct.
   const [parOverride, setParOverride] = useState<number | null>(null)
   const effectivePar = parOverride ?? hole.par
 
@@ -112,18 +111,17 @@ export function HoleScoreCard({
     setGir(holeScore.gir ?? null)
   }, [holeScore])
 
-  // Cycle par 3 → 4 → 5 → 3. Synthetic placeholders just keep the new
-  // par in local state — ensureRealHole reads it on the next hole_score
-  // save and seeds the materialized row. Real-but-no-layout rows (a hole
-  // exists in the DB but yards/coords are null) get an immediate UPDATE
-  // so the change is permanent course curation.
+  // Cycle par 3 → 4 → 5 → 3. Synthetic placeholders are materialized via
+  // ensureRealHole so the UPDATE has a real id to target; real holes
+  // short-circuit to a plain UPDATE. Either way the change is permanent
+  // course curation — every par tap improves the dataset over time.
   async function setPar(newPar: number) {
     setParOverride(newPar)
-    if (hole.id.startsWith('synthetic-')) return
+    const realHoleId = await ensureRealHole({ ...hole, par: newPar })
     const { error } = await supabase
       .from('holes')
       .update({ par: newPar })
-      .eq('id', hole.id)
+      .eq('id', realHoleId)
     if (error) {
       // Roll back the optimistic override so the UI doesn't lie about
       // what's persisted. The user re-tries by tapping again.
@@ -192,37 +190,32 @@ export function HoleScoreCard({
         >
           Hole {hole.number}
         </div>
-        {isSyntheticHole ? (
-          <button
-            type="button"
-            onClick={() => {
-              const next = effectivePar === 3 ? 4 : effectivePar === 4 ? 5 : 3
-              void setPar(next)
-            }}
-            aria-label={`Par ${effectivePar}, tap to change`}
-            className="font-serif text-caddie-ink"
-            style={{
-              marginTop: 2,
-              padding: '2px 8px',
-              fontSize: 17,
-              fontWeight: 500,
-              lineHeight: 1.2,
-              background: 'transparent',
-              border: '1px dashed #9F9580',
-              borderRadius: 2,
-              textAlign: 'left',
-            }}
-          >
-            Par {effectivePar}
-          </button>
-        ) : (
-          <div
-            className="font-serif text-caddie-ink"
-            style={{ fontSize: 17, fontWeight: 500, lineHeight: 1.2, marginTop: 2 }}
-          >
-            Par {hole.par}
-          </div>
-        )}
+        <button
+          type="button"
+          onClick={() => {
+            const next = effectivePar === 3 ? 4 : effectivePar === 4 ? 5 : 3
+            void setPar(next)
+          }}
+          aria-label={`Par ${effectivePar}, tap to change`}
+          title="Click to change par"
+          className="font-serif text-caddie-ink"
+          style={{
+            marginTop: 2,
+            padding: 0,
+            fontSize: 17,
+            fontWeight: 500,
+            lineHeight: 1.2,
+            background: 'transparent',
+            border: 'none',
+            textDecoration: 'underline dotted',
+            textDecorationColor: '#9F9580',
+            textUnderlineOffset: 4,
+            cursor: 'pointer',
+            textAlign: 'left',
+          }}
+        >
+          Par {effectivePar}
+        </button>
         {hole.yards && (
           <div
             className="font-mono tabular text-caddie-ink-mute"

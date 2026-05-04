@@ -173,7 +173,7 @@ export function ScorecardModal({
                 >
                   {h.number}
                 </Text>
-                {!h.yards && h.tee_lat == null && onChangePar ? (
+                {onChangePar ? (
                   <Pressable
                     accessibilityRole="button"
                     accessibilityLabel={`Par ${h.par}, tap to change`}
@@ -187,10 +187,6 @@ export function ScorecardModal({
                       alignItems: 'flex-end',
                       paddingVertical: 2,
                       paddingHorizontal: 4,
-                      borderWidth: 1,
-                      borderStyle: 'dashed',
-                      borderColor: '#9F9580',
-                      borderRadius: 2,
                     }}
                   >
                     <Text
@@ -198,6 +194,9 @@ export function ScorecardModal({
                         fontSize: 15,
                         color: '#5C6356',
                         fontVariant: ['tabular-nums'],
+                        textDecorationLine: 'underline',
+                        textDecorationStyle: 'dotted',
+                        textDecorationColor: '#9F9580',
                       }}
                     >
                       {h.par}
