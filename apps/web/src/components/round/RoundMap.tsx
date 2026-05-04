@@ -13,6 +13,12 @@ export interface HoleGeo {
   teeLng: number | null
   pinLat: number | null
   pinLng: number | null
+  /** Course-level fallback coordinates. Used as the camera target when
+   *  the hole has no tee/pin coords (most courses pre-OSM-import). The
+   *  map zooms out to ~15 in that case so the player sees the whole
+   *  property and can still tap to place shots manually. */
+  courseLat?: number | null
+  courseLng?: number | null
 }
 
 export interface ExistingShot {
@@ -32,6 +38,12 @@ export interface PlacedPoint {
 
 interface RoundMapProps {
   hole: HoleGeo | null
+  /** Course-level lat/lng — direct prop, independent of `hole`.
+   *  Surfaces course centroid even when `hole` is null (e.g. courses
+   *  with no rows in the holes table). HoleGeo.courseLat/courseLng
+   *  is still honoured but only as a secondary read. */
+  courseLat?: number | null
+  courseLng?: number | null
   /** Pre-existing shots (live-tracked or previously saved). */
   existingShots: ExistingShot[]
   /** Tap-placed points for the active hole when no existing shots are
@@ -56,6 +68,10 @@ interface RoundMapProps {
   /** Suppress tap-to-place. Used in "Edit on map" mode so the user can
    *  drag existing markers without accidentally dropping new ones. */
   tapToPlaceDisabled?: boolean
+  /** When set, the next map tap places either the tee box or pin for
+   *  this hole instead of dropping a shot marker. Used for courses with
+   *  no hole layout in the DB so the player can mark them manually. */
+  placementMode?: 'tee' | 'pin' | null
   onPlace: (point: PlacedPoint) => void
   onMovePoint: (index: number, point: PlacedPoint) => void
   onMovePin?: (point: PlacedPoint) => void
@@ -74,6 +90,8 @@ const MARKER_COLORS = {
 
 export function RoundMap({
   hole,
+  courseLat,
+  courseLng,
   existingShots,
   placedPoints,
   placedAims,
@@ -82,6 +100,7 @@ export function RoundMap({
   pinOverride,
   teeOverride,
   tapToPlaceDisabled,
+  placementMode,
   onPlace,
   onMovePoint,
   onMovePin,
@@ -113,25 +132,58 @@ export function RoundMap({
   const hasExistingShots = existingShots.some(
     (s) => s.endLat != null && s.endLng != null,
   )
-  // Prefer tee over pin so a fresh past-round map opens looking down the
-  // hole (where shot 1 starts) rather than zoomed straight at the green.
-  // Falls back to pin only when tee coords are missing — same behaviour
-  // as mobile's PLACE_BALL camera frame.
-  const center = useMemo<[number, number] | null>(() => {
-    if (effectiveTee) return [effectiveTee.lng, effectiveTee.lat]
-    if (effectivePin) return [effectivePin.lng, effectivePin.lat]
-    return null
-  }, [effectivePin, effectiveTee])
+  // Course centroid resolves from a direct prop first (so a course
+  // with zero rows in the holes table — and therefore a null `hole`
+  // — still drops the camera on the property), and only falls back
+  // to the optional HoleGeo.courseLat/Lng for callers that haven't
+  // adopted the direct props yet.
+  const effectiveCourseLat = courseLat ?? hole?.courseLat ?? null
+  const effectiveCourseLng = courseLng ?? hole?.courseLng ?? null
 
-  // Initialize the map once on mount.
+  // Single camera target with priority order: hole tee → hole pin →
+  // course centroid → hard-coded OKC default. Course rows missing
+  // lat/lng entirely fall to OKC zoom 11 so the player isn't stranded
+  // at the world view if every tier comes back null. useMemo gives a
+  // stable identity when the underlying coords don't change, so the
+  // camera effect below only fires when something actually moved.
+  const cameraTarget = useMemo<{
+    center: [number, number]
+    zoom: number
+  }>(() => {
+    if (effectiveTee) {
+      return { center: [effectiveTee.lng, effectiveTee.lat], zoom: 17 }
+    }
+    if (effectivePin) {
+      return { center: [effectivePin.lng, effectivePin.lat], zoom: 15 }
+    }
+    if (effectiveCourseLat != null && effectiveCourseLng != null) {
+      return { center: [effectiveCourseLng, effectiveCourseLat], zoom: 15 }
+    }
+    return { center: [-97.5, 35.5], zoom: 11 }
+  }, [
+    effectiveTee?.lat,
+    effectiveTee?.lng,
+    effectivePin?.lat,
+    effectivePin?.lng,
+    effectiveCourseLat,
+    effectiveCourseLng,
+  ])
+
+  const initialPositionDoneRef = useRef(false)
+  const [mapLoaded, setMapLoaded] = useState(false)
+
+  // Initialize at a neutral world view. The camera positioning waits
+  // for the 'load' event below — Mapbox happily queues jumpTo on a
+  // mid-load map, but a load gate makes the timing explicit and
+  // matches what production was actually doing under the hood.
   useEffect(() => {
     if (!containerRef.current || !MAPBOX_TOKEN_PRESENT) return
     if (mapRef.current) return
     const map = new mapboxgl.Map({
       container: containerRef.current,
       style: 'mapbox://styles/mapbox/satellite-streets-v12',
-      center: center ?? [-97.5, 35.5],
-      zoom: center ? 17 : 12,
+      center: [0, 0],
+      zoom: 1,
       attributionControl: false,
     })
     map.addControl(
@@ -144,19 +196,39 @@ export function RoundMap({
       new mapboxgl.NavigationControl({ showCompass: false }),
       'bottom-right',
     )
+    map.on('load', () => setMapLoaded(true))
     mapRef.current = map
     return () => {
       map.remove()
       mapRef.current = null
+      setMapLoaded(false)
     }
   }, [])
 
-  // Fly to the active hole when it changes.
+  // Reactive camera positioning. Gated on `mapLoaded` so we never call
+  // jumpTo against an instance whose style hasn't finished initializing
+  // — which is the failure mode the OKC-stuck bug was hitting in
+  // production. First valid target after load snaps (jumpTo, instant);
+  // subsequent target changes (hole switch, course coords arriving
+  // late, focus-on-green after a putt) animate via flyTo.
   useEffect(() => {
+    if (!mapLoaded) return
     const map = mapRef.current
-    if (!map || !center) return
-    map.flyTo({ center, zoom: 17, speed: 1.4 })
-  }, [center?.[0], center?.[1]])
+    if (!map) return
+    if (!initialPositionDoneRef.current) {
+      map.jumpTo({
+        center: cameraTarget.center,
+        zoom: cameraTarget.zoom,
+      })
+      initialPositionDoneRef.current = true
+      return
+    }
+    map.flyTo({
+      center: cameraTarget.center,
+      zoom: cameraTarget.zoom,
+      speed: 1.4,
+    })
+  }, [mapLoaded, cameraTarget])
 
   // After a non-holed putt save the parent bumps focusGreenSignal —
   // fly in tight on the green so the next putt placement lands on the
@@ -186,6 +258,17 @@ export function RoundMap({
     const map = mapRef.current
     if (!map) return
     function onClick(e: mapboxgl.MapMouseEvent) {
+      // Tee / pin placement wins over every other click outcome — even
+      // when shots already exist, the user explicitly entered placement
+      // mode from the strip and the next tap should land the marker.
+      if (placementMode === 'tee' && onMoveTee) {
+        onMoveTee({ lat: e.lngLat.lat, lng: e.lngLat.lng })
+        return
+      }
+      if (placementMode === 'pin' && onMovePin) {
+        onMovePin({ lat: e.lngLat.lat, lng: e.lngLat.lng })
+        return
+      }
       if (hasExistingShots) return
       if (tapToPlaceDisabled) return
       if (aimMode && onSetAim) {
@@ -208,11 +291,19 @@ export function RoundMap({
     aimMode,
     onSetAim,
     placedPoints.length,
+    placementMode,
+    onMoveTee,
+    onMovePin,
   ])
 
   const renderLayers = useCallback(() => {
     const map = mapRef.current
-    if (!map || !hole) return
+    if (!map) return
+    // Markers, lines, distance pills, and aim ghosts render purely off
+    // shot/placed-point coordinates. Tee/pin/aim sub-blocks already
+    // null-check their own inputs (via effectiveTee, effectivePin) so
+    // a course with no row in the holes table still draws shots when
+    // their start/end coords are populated.
 
     // Clear old markers.
     for (const m of markerRefs.current) m.remove()
@@ -456,10 +547,27 @@ interface RoundMapInstructionStripProps {
   editing?: boolean
   shotsPlaced: number
   remainingToPin: number | null
+  /** False when this hole has no pin coordinates — drives the "— to
+   *  pin" placeholder instead of just hiding the distance silently. */
+  pinAvailable?: boolean
   /** Aim mode: next tap sets aim for the latest placed shot. */
   aimMode?: boolean
   /** Number of placed shots that already have an aim point. */
   aimsSet?: number
+  /** Active hole number — surfaced in the manual-placement instruction
+   *  copy so the user knows which hole they're marking up. */
+  holeNumber?: number
+  /** True when no tee coordinate exists for this hole (DB null and no
+   *  session override). Drives the "Place tee box" entry button. */
+  needsTee?: boolean
+  /** True when no pin coordinate exists for this hole. */
+  needsPin?: boolean
+  /** Active manual-placement mode. When set, the strip switches to a
+   *  "tap to place …" prompt with a Cancel button. */
+  placementMode?: 'tee' | 'pin' | null
+  onStartPlaceTee?: () => void
+  onStartPlacePin?: () => void
+  onCancelPlacement?: () => void
   onToggleAimMode?: (on: boolean) => void
   onClearLastAim?: () => void
   onUndo: () => void
@@ -477,8 +585,16 @@ export function RoundMapInstructionStrip({
   editing,
   shotsPlaced,
   remainingToPin,
+  pinAvailable = true,
   aimMode = false,
   aimsSet = 0,
+  holeNumber,
+  needsTee = false,
+  needsPin = false,
+  placementMode = null,
+  onStartPlaceTee,
+  onStartPlacePin,
+  onCancelPlacement,
   onToggleAimMode,
   onClearLastAim,
   onUndo,
@@ -488,6 +604,92 @@ export function RoundMapInstructionStrip({
 }: RoundMapInstructionStripProps) {
   const placingNumber = shotsPlaced + 1
   const { toDisplay } = useUnits()
+  if (placementMode) {
+    const holeLabel = holeNumber != null ? ` for hole ${holeNumber}` : ''
+    const targetLabel =
+      placementMode === 'tee' ? 'tee box' : 'pin'
+    return (
+      <div
+        style={{
+          background: '#FBF8F1',
+          border: '1px solid #D9D2BF',
+          borderRadius: 2,
+          padding: '10px 14px',
+          display: 'flex',
+          gap: 14,
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+        }}
+      >
+        <div style={{ minWidth: 200 }}>
+          <div className="kicker" style={{ marginBottom: 2 }}>
+            Place {targetLabel}
+          </div>
+          <div className="text-caddie-ink" style={{ fontSize: 13 }}>
+            Tap to place the {targetLabel}{holeLabel}.
+          </div>
+        </div>
+        {onCancelPlacement && (
+          <button
+            type="button"
+            onClick={onCancelPlacement}
+            className="text-caddie-ink-dim"
+            style={{
+              border: '1px solid #D9D2BF',
+              borderRadius: 2,
+              padding: '6px 10px',
+              fontSize: 12,
+              background: 'transparent',
+            }}
+          >
+            Cancel
+          </button>
+        )}
+      </div>
+    )
+  }
+  const placeButtons =
+    (needsTee && onStartPlaceTee) || (needsPin && onStartPlacePin) ? (
+      <>
+        {needsTee && onStartPlaceTee && (
+          <button
+            type="button"
+            onClick={onStartPlaceTee}
+            style={{
+              border: '1px solid #5C6356',
+              borderRadius: 2,
+              padding: '6px 10px',
+              fontSize: 12,
+              background: 'transparent',
+              color: '#5C6356',
+              fontWeight: 600,
+              letterSpacing: '0.02em',
+            }}
+          >
+            Place tee box
+          </button>
+        )}
+        {needsPin && onStartPlacePin && (
+          <button
+            type="button"
+            onClick={onStartPlacePin}
+            style={{
+              border: '1px solid #A33A2A',
+              borderRadius: 2,
+              padding: '6px 10px',
+              fontSize: 12,
+              background: 'transparent',
+              color: '#A33A2A',
+              fontWeight: 600,
+              letterSpacing: '0.02em',
+            }}
+          >
+            Place pin
+          </button>
+        )}
+      </>
+    ) : null
   return (
     <div
       style={{
@@ -546,29 +748,35 @@ export function RoundMapInstructionStrip({
                   }${
                     remainingToPin != null
                       ? ` · ${toDisplay(remainingToPin)} to pin`
-                      : ''
+                      : pinAvailable
+                        ? ''
+                        : ' · — to pin'
                   }.`}
             </div>
           </>
         )}
       </div>
       {editing ? (
-        <button
-          type="button"
-          onClick={onDoneEditing}
-          className="bg-caddie-accent text-caddie-accent-ink"
-          style={{
-            borderRadius: 2,
-            padding: '6px 12px',
-            fontSize: 13,
-            fontWeight: 600,
-            letterSpacing: '0.02em',
-          }}
-        >
-          Done editing →
-        </button>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          {placeButtons}
+          <button
+            type="button"
+            onClick={onDoneEditing}
+            className="bg-caddie-accent text-caddie-accent-ink"
+            style={{
+              borderRadius: 2,
+              padding: '6px 12px',
+              fontSize: 13,
+              fontWeight: 600,
+              letterSpacing: '0.02em',
+            }}
+          >
+            Done editing →
+          </button>
+        </div>
       ) : !hasExistingShots ? (
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          {placeButtons}
           {onToggleAimMode && shotsPlaced > 0 && (
             <button
               type="button"
@@ -649,6 +857,10 @@ export function RoundMapInstructionStrip({
           >
             Done with hole →
           </button>
+        </div>
+      ) : placeButtons ? (
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          {placeButtons}
         </div>
       ) : null}
     </div>

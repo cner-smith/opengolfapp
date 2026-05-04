@@ -2,12 +2,14 @@ import {
   Suspense,
   lazy,
   useCallback,
+  useEffect,
   useMemo,
   useReducer,
   useState,
   type ReactNode,
 } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { useQueryClient } from '@tanstack/react-query'
 import type { Database } from '@oga/supabase'
 import { HoleScoreCard } from '../../components/rounds/HoleScoreCard'
 import { ShotEntryModal } from '../../components/rounds/ShotEntryModal'
@@ -44,7 +46,11 @@ import {
 } from '../../components/round/WebPuttingSheet'
 import { useDeleteRound, useRound, useRounds } from '../../hooks/useRounds'
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
-import { useCourseTees, useHolesForCourse } from '../../hooks/useCourses'
+import {
+  useCourse,
+  useCourseTees,
+  useHolesForCourse,
+} from '../../hooks/useCourses'
 import { useHoleScores, useUpsertHoleScore } from '../../hooks/useHoleScores'
 import { useCreateShot, useShotsForRound } from '../../hooks/useShots'
 import { useCompleteRound } from '../../hooks/useCompleteRound'
@@ -89,6 +95,11 @@ interface HoleViewState {
   focusGreenSignal: number
   pinOverride: PlacedPoint | null
   teeOverride: PlacedPoint | null
+  /** Manual tee/pin placement flow — when set, the next map tap drops
+   *  the corresponding marker instead of starting a shot. Used for
+   *  courses with no hole layout in the DB so the player can mark the
+   *  tee box and pin themselves. */
+  placementMode: 'tee' | 'pin' | null
   reviewOpen: boolean
   editingOnMap: boolean
   saveError: string | null
@@ -107,11 +118,12 @@ type HoleViewAction =
   | { type: 'SET_PUTT'; index: number; data: WebPuttData }
   | { type: 'PIN_OVERRIDE'; point: PlacedPoint | null }
   | { type: 'TEE_OVERRIDE'; point: PlacedPoint | null }
+  | { type: 'PLACEMENT_MODE'; mode: 'tee' | 'pin' | null }
   | { type: 'OPEN_REVIEW' }
   | { type: 'CLOSE_REVIEW' }
   | { type: 'EDIT_ON_MAP'; editing: boolean }
   | { type: 'SAVE_ERROR'; message: string | null }
-  | { type: 'AFTER_SAVE' }
+  | { type: 'AFTER_SAVE'; nextHoleNumber: number | null }
 
 const HOLE_VIEW_INITIAL: HoleViewState = {
   activeHoleNumber: 1,
@@ -123,6 +135,7 @@ const HOLE_VIEW_INITIAL: HoleViewState = {
   focusGreenSignal: 0,
   pinOverride: null,
   teeOverride: null,
+  placementMode: null,
   reviewOpen: false,
   editingOnMap: false,
   saveError: null,
@@ -204,9 +217,13 @@ function holeViewReducer(state: HoleViewState, action: HoleViewAction): HoleView
       }
     }
     case 'PIN_OVERRIDE':
-      return { ...state, pinOverride: action.point }
+      // A pin write also exits placement mode so the next tap goes back
+      // to dropping shot markers instead of re-placing the pin.
+      return { ...state, pinOverride: action.point, placementMode: null }
     case 'TEE_OVERRIDE':
-      return { ...state, teeOverride: action.point }
+      return { ...state, teeOverride: action.point, placementMode: null }
+    case 'PLACEMENT_MODE':
+      return { ...state, placementMode: action.mode }
     case 'OPEN_REVIEW':
       return { ...state, reviewOpen: true }
     case 'CLOSE_REVIEW':
@@ -215,16 +232,30 @@ function holeViewReducer(state: HoleViewState, action: HoleViewAction): HoleView
       return { ...state, editingOnMap: action.editing }
     case 'SAVE_ERROR':
       return { ...state, saveError: action.message }
-    case 'AFTER_SAVE':
-      return {
-        ...state,
-        reviewOpen: false,
-        placedPoints: [],
-        placedAims: [],
-        placedPutts: [],
-        aimMode: false,
-        puttingSheetForIdx: null,
+    case 'AFTER_SAVE': {
+      // Auto-advance to the next hole on save so the player isn't stuck
+      // re-tapping the hole selector after every Done with hole. Caller
+      // decides how far we can advance — `nextHoleNumber == null` means
+      // we just saved the last hole on the course (caller compared
+      // against the course's expected hole count). In that case stay put
+      // and just clear the placed-shot state so the player can review.
+      if (action.nextHoleNumber == null) {
+        return {
+          ...state,
+          reviewOpen: false,
+          placedPoints: [],
+          placedAims: [],
+          placedPutts: [],
+          aimMode: false,
+          puttingSheetForIdx: null,
+        }
       }
+      return {
+        ...HOLE_VIEW_INITIAL,
+        activeHoleNumber: action.nextHoleNumber,
+        focusGreenSignal: state.focusGreenSignal,
+      }
+    }
   }
 }
 
@@ -237,6 +268,10 @@ export function RoundDetailPage() {
   const courseId = round.data?.course_id
   const holesQuery = useHolesForCourse(courseId)
   const teesQuery = useCourseTees(courseId)
+  // Direct fetch — the joined courses(...) field on the round query has
+  // been intermittently flat (no lat/lng) for reasons that haven't
+  // panned out in PostgREST. A standalone course read is unambiguous.
+  const courseQuery = useCourse(courseId)
   const holeScoresQuery = useHoleScores(roundId)
   const shotsQuery = useShotsForRound(roundId)
   const upsertHoleScore = useUpsertHoleScore(roundId)
@@ -244,6 +279,7 @@ export function RoundDetailPage() {
   const completeMutation = useCompleteRound()
   const deleteMutation = useDeleteRound()
   const allRounds = useRounds(50)
+  const queryClient = useQueryClient()
   const [confirmDelete, setConfirmDelete] = useState(false)
 
   const [shotsModalFor, setShotsModalFor] = useState<{
@@ -269,13 +305,99 @@ export function RoundDetailPage() {
     focusGreenSignal,
     pinOverride,
     teeOverride,
+    placementMode,
     reviewOpen,
     editingOnMap,
     saveError,
   } = holeView
   const [savingHole, setSavingHole] = useState(false)
 
-  const holes = useMemo(() => holesQuery.data ?? [], [holesQuery.data])
+  // Synthetic fallback when the course has no rows in the `holes` table
+  // (typical for OSM-imported courses that never went through enrichment).
+  // Without this, every downstream feature gates on `activeHole` being
+  // non-null and the round detail page locks up.
+  //
+  // Detection is length-based — once any hole is materialized via
+  // ensureRealHole, the query refetches with one row and the rest must
+  // still be synthesized. Predicate-based detection (yards/tee_lat null)
+  // breaks once `saveReviewedHole` seeds the new row with the player's
+  // teeOverride — that single populated tee_lat made every "is this
+  // synthetic?" check return false on the post-save refetch and holes
+  // 2..18 disappeared from the array. Length is the unambiguous signal:
+  // if fewer rows than the course expects, fill the gap.
+  //
+  // Expected count comes from `course_tees.par` when present (≤36 = 9,
+  // else 18); falls back to 18 when no tees row exists. 9-hole real
+  // courses with no course_tees row would over-pad — that combination
+  // is rare enough to leave for a follow-up.
+  type HSWithJoin = HoleScoreRow & {
+    holes?: { number?: number | null; par?: number | null } | null
+  }
+  const expectedHoleCount = useMemo(() => {
+    const tees = teesQuery.data ?? []
+    const totalPar = tees[0]?.par
+    if (totalPar != null && totalPar <= 36) return 9
+    return 18
+  }, [teesQuery.data])
+  const holes = useMemo<HoleRow[]>(() => {
+    const fetched = holesQuery.data ?? []
+    const roundData = round.data
+    if (fetched.length >= expectedHoleCount) return fetched
+    if (!roundData) return fetched
+    // Index real rows + score-derived rows by hole number for a 1..18
+    // merge. Real wins over score-derived, score-derived wins over a
+    // generic par-4 placeholder. score-derived carries the real hole_id
+    // (FK already valid) so the upsert path doesn't need ensureRealHole.
+    const realByNumber = new Map<number, HoleRow>()
+    for (const h of fetched) realByNumber.set(h.number, h)
+    const scores =
+      (roundData as { hole_scores?: HSWithJoin[] }).hole_scores ?? []
+    const scoredByNumber = new Map<
+      number,
+      { id: string; par: number | null }
+    >()
+    for (const hs of scores) {
+      const num = hs.holes?.number ?? null
+      if (num != null) {
+        scoredByNumber.set(num, {
+          id: hs.hole_id,
+          par: hs.holes?.par ?? null,
+        })
+      }
+    }
+    return Array.from({ length: expectedHoleCount }, (_, i) => {
+      const num = i + 1
+      const real = realByNumber.get(num)
+      if (real) return real
+      const scored = scoredByNumber.get(num)
+      if (scored) {
+        return {
+          id: scored.id,
+          course_id: roundData.course_id,
+          number: num,
+          par: scored.par ?? 4,
+          yards: null,
+          stroke_index: num,
+          tee_lat: null,
+          tee_lng: null,
+          pin_lat: null,
+          pin_lng: null,
+        }
+      }
+      return {
+        id: `synthetic-${roundData.id}-hole-${num}`,
+        course_id: roundData.course_id,
+        number: num,
+        par: 4,
+        yards: null,
+        stroke_index: num,
+        tee_lat: null,
+        tee_lng: null,
+        pin_lat: null,
+        pin_lng: null,
+      }
+    })
+  }, [holesQuery.data, round.data, expectedHoleCount])
   const rawScores: Array<HoleScoreRow & { holes?: HoleRow | null }> = useMemo(
     () => holeScoresQuery.data ?? [],
     [holeScoresQuery.data],
@@ -325,6 +447,14 @@ export function RoundDetailPage() {
     (activeHole?.tee_lat != null && activeHole?.tee_lng != null
       ? { lat: activeHole.tee_lat, lng: activeHole.tee_lng }
       : null)
+  // Course-level lat/lng pulled from the dedicated course query. The
+  // joined courses(...) field on the round query also exposes lat/lng,
+  // but reading both lets us pick whichever is non-null first — useful
+  // while the join shape stabilises across PostgREST behaviours.
+  const joinedCourse = round.data?.courses ?? null
+  const courseRow = courseQuery.data ?? null
+  const courseFallbackLat = courseRow?.lat ?? joinedCourse?.lat ?? null
+  const courseFallbackLng = courseRow?.lng ?? joinedCourse?.lng ?? null
   const activeHoleGeo: HoleGeo | null = activeHole
     ? {
         id: activeHole.id,
@@ -335,8 +465,17 @@ export function RoundDetailPage() {
         teeLng: effectiveTee?.lng ?? null,
         pinLat: effectivePin?.lat ?? null,
         pinLng: effectivePin?.lng ?? null,
+        courseLat: courseFallbackLat,
+        courseLng: courseFallbackLng,
       }
     : null
+  // True when the active hole has no per-hole layout in the DB. Drives
+  // the dismissable notice banner above the map and the "— yd to pin"
+  // strip text so the player understands why distances are missing.
+  const missingHoleLayout =
+    activeHole != null &&
+    activeHole.tee_lat == null &&
+    activeHole.pin_lat == null
   const activeHoleShots = useMemo<ExistingShot[]>(() => {
     if (!activeHoleScore) return []
     return (shotsQuery.data ?? [])
@@ -352,6 +491,60 @@ export function RoundDetailPage() {
       }))
       .sort((a, b) => a.shotNumber - b.shotNumber)
   }, [activeHoleScore, shotsQuery.data])
+
+  // Materialize a synthetic hole into a real `holes` row before any
+  // operation that writes to hole_scores. Synthetic ids (prefixed
+  // 'synthetic-') come from the no-OSM-data fallback in the `holes`
+  // memo above; hole_scores.hole_id has a FK to holes.id, so without
+  // this an upsert would fail. On insert, invalidate the holes query
+  // so the synthetic placeholder gets replaced with the real row on
+  // the next read. On unique-violation (course_id,number race), look
+  // up the existing row instead of clobbering it.
+  const ensureRealHole = useCallback(
+    async (
+      hole: HoleRow,
+      opts?: {
+        teeLat?: number | null
+        teeLng?: number | null
+        pinLat?: number | null
+        pinLng?: number | null
+      },
+    ): Promise<string> => {
+      if (!hole.id.startsWith('synthetic-')) return hole.id
+      const { data: inserted, error: insertErr } = await supabase
+        .from('holes')
+        .insert({
+          course_id: hole.course_id,
+          number: hole.number,
+          par: hole.par,
+          yards: null,
+          stroke_index: hole.number,
+          tee_lat: opts?.teeLat ?? null,
+          tee_lng: opts?.teeLng ?? null,
+          pin_lat: opts?.pinLat ?? null,
+          pin_lng: opts?.pinLng ?? null,
+        })
+        .select('id')
+        .single()
+      if (!insertErr && inserted) {
+        queryClient.invalidateQueries({ queryKey: ['holes', hole.course_id] })
+        return inserted.id
+      }
+      if (insertErr?.code === '23505') {
+        const { data: existing, error: selectErr } = await supabase
+          .from('holes')
+          .select('id')
+          .eq('course_id', hole.course_id)
+          .eq('number', hole.number)
+          .single()
+        if (selectErr || !existing) throw selectErr ?? insertErr
+        queryClient.invalidateQueries({ queryKey: ['holes', hole.course_id] })
+        return existing.id
+      }
+      throw insertErr ?? new Error('hole insert failed')
+    },
+    [queryClient],
+  )
 
   // The round-pin write is best-effort — we update local state synchronously
   // so the map + review sheet update immediately, then persist to
@@ -408,6 +601,12 @@ export function RoundDetailPage() {
         dispatchHoleView({ type: 'SET_AIM', index: idx, point }),
       onToggleAimMode: (on: boolean) =>
         dispatchHoleView({ type: 'AIM_MODE', on }),
+      onStartPlaceTee: () =>
+        dispatchHoleView({ type: 'PLACEMENT_MODE', mode: 'tee' }),
+      onStartPlacePin: () =>
+        dispatchHoleView({ type: 'PLACEMENT_MODE', mode: 'pin' }),
+      onCancelPlacement: () =>
+        dispatchHoleView({ type: 'PLACEMENT_MODE', mode: null }),
       onDoneWithHole: () => dispatchHoleView({ type: 'OPEN_REVIEW' }),
       onDoneEditing: () => {
         dispatchHoleView({ type: 'EDIT_ON_MAP', editing: false })
@@ -498,10 +697,20 @@ export function RoundDetailPage() {
           r.club === 'putter' ||
           r.distanceToPin <= NEAR_GREEN_YARDS,
       ).length
+      // Materialize the synthetic hole if needed before upserting the
+      // hole_score (FK to holes.id). Seeds the new holes row with any
+      // session tee/pin overrides so manual placements persist as the
+      // course's first real layout data — every save curates the course.
+      const realHoleId = await ensureRealHole(activeHole, {
+        teeLat: teeOverride?.lat ?? null,
+        teeLng: teeOverride?.lng ?? null,
+        pinLat: pinOverride?.lat ?? null,
+        pinLng: pinOverride?.lng ?? null,
+      })
       const hsResult = await upsertHoleScore.mutateAsync({
         id: existing?.id,
         round_id: round.data.id,
-        hole_id: activeHole.id,
+        hole_id: realHoleId,
         score: rows.length,
         putts: puttCount,
         fairway_hit: existing?.fairway_hit ?? null,
@@ -566,7 +775,13 @@ export function RoundDetailPage() {
           notes: null,
         })
       }
-      dispatchHoleView({ type: 'AFTER_SAVE' })
+      // Cap auto-advance to the course's expected hole count — passing
+      // null on the last hole keeps the player put with a cleared state.
+      const nextHole =
+        activeHole.number + 1 <= expectedHoleCount
+          ? activeHole.number + 1
+          : null
+      dispatchHoleView({ type: 'AFTER_SAVE', nextHoleNumber: nextHole })
     } catch (err) {
       dispatchHoleView({ type: 'SAVE_ERROR', message: toUserMessage(err) })
     } finally {
@@ -701,6 +916,7 @@ export function RoundDetailPage() {
           scoresByHoleId={scoresByHoleId}
           shotCountByHoleScore={shotCountByHoleScore}
           roundId={round.data.id}
+          ensureRealHole={ensureRealHole}
           onEditShots={(args) => setShotsModalFor(args)}
         />
       ) : (
@@ -709,14 +925,18 @@ export function RoundDetailPage() {
           activeHoleNumber={activeHoleNumber}
           onSwitchHole={switchHole}
           activeHoleGeo={activeHoleGeo}
+          courseLat={courseFallbackLat}
+          courseLng={courseFallbackLng}
           existingShots={activeHoleShots}
           placedPoints={placedPoints}
           placedAims={placedAims}
           aimMode={aimMode}
+          missingHoleLayout={missingHoleLayout}
           focusGreenSignal={focusGreenSignal}
           puttingOpen={puttingSheetForIdx != null}
           pinOverride={pinOverride}
           teeOverride={teeOverride}
+          placementMode={placementMode}
           handlers={placeHandlers}
           saveError={saveError}
           editingOnMap={editingOnMap}
@@ -837,6 +1057,9 @@ interface ScorecardViewProps {
   scoresByHoleId: Map<string, HoleScoreRow>
   shotCountByHoleScore: Map<string, number>
   roundId: string
+  /** Materialize a synthetic-id hole into a real `holes` row before
+   *  any hole_scores write. No-op for real holes. */
+  ensureRealHole: (hole: HoleRow) => Promise<string>
   onEditShots: (args: {
     holeScoreId: string
     holeNumber: number
@@ -849,13 +1072,55 @@ function ScorecardView({
   scoresByHoleId,
   shotCountByHoleScore,
   roundId,
+  ensureRealHole,
   onEditShots,
 }: ScorecardViewProps) {
+  const hasSyntheticHoles = holes.some(
+    (h) => !h.yards && h.tee_lat == null,
+  )
+  const [hintDismissed, setHintDismissed] = useState(false)
   return (
     <div style={{ borderTop: '1px solid #D9D2BF', paddingTop: 14 }}>
       <div className="kicker" style={{ marginBottom: 14 }}>
         Scorecard
       </div>
+      {hasSyntheticHoles && !hintDismissed && (
+        <div
+          role="status"
+          style={{
+            marginBottom: 14,
+            padding: '10px 14px',
+            background: '#FBF8F1',
+            border: '1px solid #D9D2BF',
+            borderRadius: 2,
+            display: 'flex',
+            alignItems: 'flex-start',
+            gap: 14,
+          }}
+        >
+          <div
+            className="text-caddie-ink-dim"
+            style={{ flex: 1, fontSize: 13, lineHeight: 1.4 }}
+          >
+            No course layout found. Par defaults to 4 — tap to edit.
+          </div>
+          <button
+            type="button"
+            onClick={() => setHintDismissed(true)}
+            aria-label="Dismiss notice"
+            className="font-mono uppercase text-caddie-ink-mute hover:text-caddie-ink"
+            style={{
+              fontSize: 10,
+              letterSpacing: '0.14em',
+              background: 'transparent',
+              border: 'none',
+              padding: 4,
+            }}
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
       <div
         style={{
           borderTop: '1px solid #D9D2BF',
@@ -890,6 +1155,7 @@ function ScorecardView({
               hole={h}
               holeScore={hs}
               shotCount={hs ? (shotCountByHoleScore.get(hs.id) ?? 0) : 0}
+              ensureRealHole={ensureRealHole}
               onEditShots={(holeScoreId) =>
                 onEditShots({
                   holeScoreId,
@@ -911,10 +1177,18 @@ interface MapViewProps {
   activeHoleNumber: number
   onSwitchHole: (n: number) => void
   activeHoleGeo: HoleGeo | null
+  /** Course-level lat/lng — passed to RoundMap as a direct prop so the
+   *  camera can fall back to the course centroid even when activeHoleGeo
+   *  is null (course rows with no entries in the holes table). */
+  courseLat: number | null
+  courseLng: number | null
   existingShots: ExistingShot[]
   placedPoints: PlacedPoint[]
   placedAims: (PlacedPoint | null)[]
   aimMode: boolean
+  /** True when the active hole has neither tee nor pin coordinates in
+   *  the DB — drives the dismissable notice banner above the map. */
+  missingHoleLayout: boolean
   /** True while the putting sheet is open — suppresses tap-to-place so
    *  taps that hit the map under the sheet don't drop new shots. */
   puttingOpen: boolean
@@ -923,6 +1197,8 @@ interface MapViewProps {
   focusGreenSignal: number
   pinOverride: PlacedPoint | null
   teeOverride: PlacedPoint | null
+  /** Active manual-placement mode for courses missing hole layout. */
+  placementMode: 'tee' | 'pin' | null
   handlers: {
     onPlace: (p: PlacedPoint) => void
     onMovePoint: (idx: number, p: PlacedPoint) => void
@@ -932,6 +1208,9 @@ interface MapViewProps {
     onUndoPoint: () => void
     onSetAim: (idx: number, p: PlacedPoint | null) => void
     onToggleAimMode: (on: boolean) => void
+    onStartPlaceTee: () => void
+    onStartPlacePin: () => void
+    onCancelPlacement: () => void
     onDoneWithHole: () => void
     onDoneEditing: () => void
   }
@@ -945,19 +1224,30 @@ function MapView({
   activeHoleNumber,
   onSwitchHole,
   activeHoleGeo,
+  courseLat,
+  courseLng,
   existingShots,
   placedPoints,
   placedAims,
   aimMode,
+  missingHoleLayout,
   puttingOpen,
   focusGreenSignal,
   pinOverride,
   teeOverride,
+  placementMode,
   handlers,
   saveError,
   editingOnMap,
   reviewSheet,
 }: MapViewProps) {
+  // Notice banner sits above the map when the active hole has no tee
+  // or pin coords. Dismiss state resets on every hole switch so the
+  // player isn't surprised by a missing-data hole later in the round.
+  const [noticeDismissed, setNoticeDismissed] = useState(false)
+  useEffect(() => {
+    setNoticeDismissed(false)
+  }, [activeHoleNumber])
   const hasExistingShots = existingShots.some(
     (s) => s.endLat != null && s.endLng != null,
   )
@@ -967,6 +1257,15 @@ function MapView({
     (activeHoleGeo?.pinLat != null && activeHoleGeo?.pinLng != null
       ? { lat: activeHoleGeo.pinLat, lng: activeHoleGeo.pinLng }
       : null)
+  const effectiveTee =
+    teeOverride ??
+    (activeHoleGeo?.teeLat != null && activeHoleGeo?.teeLng != null
+      ? { lat: activeHoleGeo.teeLat, lng: activeHoleGeo.teeLng }
+      : null)
+  // Manual placement entry points only render when the active hole has
+  // no coord for that target. Tee/pin both null = course w/o hole layout.
+  const needsTee = activeHoleGeo != null && effectiveTee == null
+  const needsPin = activeHoleGeo != null && effectivePin == null
   const remainingToPin =
     lastPoint && effectivePin
       ? Math.round(
@@ -986,14 +1285,65 @@ function MapView({
         activeNumber={activeHoleNumber}
         onSelect={onSwitchHole}
       />
+      {missingHoleLayout && !noticeDismissed && (
+        <div
+          role="status"
+          style={{
+            marginTop: 14,
+            padding: '10px 14px',
+            background: '#FBF8F1',
+            border: '1px solid #D9D2BF',
+            borderRadius: 2,
+            display: 'flex',
+            alignItems: 'flex-start',
+            gap: 14,
+          }}
+        >
+          <div style={{ flex: 1 }}>
+            <div className="kicker" style={{ marginBottom: 4 }}>
+              No hole layout
+            </div>
+            <div
+              className="text-caddie-ink-dim"
+              style={{ fontSize: 13, lineHeight: 1.4 }}
+            >
+              No hole layout data for this course. You can still place
+              shots manually.
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setNoticeDismissed(true)}
+            aria-label="Dismiss notice"
+            className="font-mono uppercase text-caddie-ink-mute hover:text-caddie-ink"
+            style={{
+              fontSize: 10,
+              letterSpacing: '0.14em',
+              background: 'transparent',
+              border: 'none',
+              padding: 4,
+            }}
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
       <div style={{ marginTop: 14 }}>
         <RoundMapInstructionStrip
           hasExistingShots={hasExistingShots}
           editing={editingOnMap}
           shotsPlaced={placedPoints.length}
           remainingToPin={remainingToPin}
+          pinAvailable={effectivePin != null}
           aimMode={aimMode}
           aimsSet={placedAims.filter((a) => a != null).length}
+          holeNumber={activeHoleNumber}
+          needsTee={needsTee}
+          needsPin={needsPin}
+          placementMode={placementMode}
+          onStartPlaceTee={handlers.onStartPlaceTee}
+          onStartPlacePin={handlers.onStartPlacePin}
+          onCancelPlacement={handlers.onCancelPlacement}
           onToggleAimMode={handlers.onToggleAimMode}
           onClearLastAim={() => {
             const idx = placedAims.length - 1
@@ -1018,6 +1368,8 @@ function MapView({
         <Suspense fallback={<MapLoading />}>
           <RoundMap
             hole={activeHoleGeo}
+            courseLat={courseLat}
+            courseLng={courseLng}
             existingShots={existingShots}
             placedPoints={placedPoints}
             placedAims={placedAims}
@@ -1026,6 +1378,7 @@ function MapView({
             pinOverride={pinOverride}
             teeOverride={teeOverride}
             tapToPlaceDisabled={editingOnMap || puttingOpen}
+            placementMode={placementMode}
             onPlace={handlers.onPlace}
             onMovePoint={handlers.onMovePoint}
             onMovePin={handlers.onMovePin}
