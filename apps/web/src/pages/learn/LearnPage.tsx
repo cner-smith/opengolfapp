@@ -4,22 +4,86 @@ import { useProfile } from '../../hooks/useProfile'
 import { useUnits } from '../../hooks/useUnits'
 import type { DetailedStats } from '@oga/core'
 
+interface ArticleStub {
+  id: string
+  title: string
+  status: 'live' | 'stub'
+}
+
+interface LearnSection {
+  id: string
+  number: string
+  title: string
+  articles: ArticleStub[]
+}
+
+const LEARN_SECTIONS: LearnSection[] = [
+  {
+    id: 'understanding-the-game',
+    number: 'Section one',
+    title: 'Understanding the game',
+    articles: [
+      { id: 'strokes-gained', title: 'How strokes gained works', status: 'live' },
+      { id: 'benchmarks', title: 'Reading your stats', status: 'live' },
+      { id: 'glossary', title: 'Glossary of golf terms', status: 'live' },
+    ],
+  },
+  {
+    id: 'your-equipment',
+    number: 'Section two',
+    title: 'Your equipment',
+    articles: [
+      { id: 'guide-to-fittings', title: 'Guide to golf fittings', status: 'stub' },
+      { id: 'training-aids', title: 'Training aids explained', status: 'stub' },
+      { id: 'building-your-bag', title: 'Building your bag', status: 'stub' },
+    ],
+  },
+  {
+    id: 'improving-your-game',
+    number: 'Section three',
+    title: 'Improving your game',
+    articles: [
+      { id: 'how-to-practice', title: 'How to practice effectively', status: 'stub' },
+      { id: 'practice-modes', title: 'Block, random, and pressure practice', status: 'stub' },
+      { id: 'measurable-goals', title: 'Creating measurable practice goals', status: 'stub' },
+      { id: 'skill-and-pressure-games', title: 'Skill games and pressure games', status: 'stub' },
+      { id: 'understanding-your-swing', title: 'Understanding your own swing', status: 'stub' },
+      { id: 'swing-variations', title: 'Swing variations for different body types', status: 'stub' },
+      { id: 'operation-36', title: 'The Operation 36 philosophy', status: 'stub' },
+    ],
+  },
+  {
+    id: 'on-the-course',
+    number: 'Section four',
+    title: 'On the course',
+    articles: [
+      { id: 'course-management', title: 'Course management guide', status: 'stub' },
+      { id: 'mental-game', title: 'Mental game and on-course psychology', status: 'stub' },
+      { id: 'practice-vs-scoring-round', title: 'Practice round vs scoring round', status: 'stub' },
+      { id: 'self-diagnosis', title: 'Self-diagnosis: finding your weaknesses', status: 'stub' },
+    ],
+  },
+  {
+    id: 'working-with-coaches',
+    number: 'Section five',
+    title: 'Working with coaches',
+    articles: [
+      { id: 'lessons-and-coaching', title: 'Guide to lessons and coaching', status: 'stub' },
+      { id: 'fittings-with-coaches', title: 'Guide to golf fittings (all types)', status: 'stub' },
+      { id: 'questions-for-coach', title: 'Questions to ask your coach', status: 'stub' },
+    ],
+  },
+]
+
 interface SectionLink {
   id: string
   label: string
 }
 
-const SECTION_LINKS: SectionLink[] = [
-  { id: 'strokes-gained', label: 'Strokes gained' },
-  { id: 'categories', label: 'Categories' },
-  { id: 'benchmarks', label: 'By the numbers' },
-  { id: 'handicap', label: 'Handicap' },
-  { id: 'gir', label: 'GIR' },
-  { id: 'scrambling', label: 'Scrambling' },
-  { id: 'up-down', label: 'Up & down' },
-  { id: 'sand-save', label: 'Sand save' },
-  { id: 'dispersion', label: 'Dispersion' },
-]
+const SECTION_LINKS: SectionLink[] = LEARN_SECTIONS.map((s) => ({
+  id: s.id,
+  label: s.title,
+}))
 
 export function LearnPage() {
   const stats = useDetailedStats(10)
@@ -53,11 +117,21 @@ export function LearnPage() {
         </p>
       </div>
 
+      <TableOfContents sections={LEARN_SECTIONS} />
+
+      <SectionHeader
+        id="understanding-the-game"
+        number="Section one"
+        title="Understanding the game"
+      />
+
       <StrokesGainedEntry me={me} />
       <Entry id="categories" kicker="Reference">
         <SGCategoriesTable />
       </Entry>
       <BenchmarkSection me={me} />
+
+      <ArticleAnchor id="glossary" kicker="Glossary" title="Stat glossary." />
       <Entry id="handicap" kicker="Handicap index" title="The handicap, briefly.">
         <Lede>
           A handicap index is your <em>potential best</em> — the
@@ -146,6 +220,23 @@ export function LearnPage() {
           the opposite way of the bias.
         </Body>
       </Entry>
+
+      {LEARN_SECTIONS.slice(1).map((section) => (
+        <div key={section.id}>
+          <SectionHeader
+            id={section.id}
+            number={section.number}
+            title={section.title}
+          />
+          {section.articles.map((article) => (
+            <StubEntry
+              key={article.id}
+              id={article.id}
+              title={article.title}
+            />
+          ))}
+        </div>
+      ))}
 
       <Footnote>
         Benchmarks based on Mark Broadie's strokes gained research
@@ -1223,4 +1314,221 @@ function Footnote({ children }: { children: React.ReactNode }) {
 
 function fmtSG(v: number): string {
   return `${v > 0 ? '+' : ''}${v.toFixed(1)}`
+}
+
+// ===========================================================================
+// Section structure components
+// ===========================================================================
+function TableOfContents({ sections }: { sections: LearnSection[] }) {
+  return (
+    <section
+      style={{
+        border: '1px solid #D9D2BF',
+        background: '#FBF8F1',
+        borderRadius: 4,
+        padding: 22,
+        marginBottom: 32,
+      }}
+    >
+      <div className="kicker" style={{ marginBottom: 14 }}>
+        Contents
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+        {sections.map((s) => (
+          <div key={s.id}>
+            <a
+              href={`#${s.id}`}
+              onClick={(e) => {
+                e.preventDefault()
+                document
+                  .getElementById(s.id)
+                  ?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+              }}
+              className="font-serif text-caddie-ink"
+              style={{
+                fontSize: 17,
+                fontWeight: 500,
+                fontStyle: 'italic',
+                textDecoration: 'none',
+                display: 'block',
+              }}
+            >
+              {s.title}
+              <span
+                className="font-mono uppercase text-caddie-ink-mute"
+                style={{
+                  fontSize: 10,
+                  letterSpacing: '0.14em',
+                  fontStyle: 'normal',
+                  fontWeight: 500,
+                  marginLeft: 10,
+                }}
+              >
+                {s.articles.length} {s.articles.length === 1 ? 'article' : 'articles'}
+              </span>
+            </a>
+            <ul
+              style={{
+                listStyle: 'none',
+                padding: 0,
+                margin: '6px 0 0',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 4,
+              }}
+            >
+              {s.articles.map((a) => (
+                <li key={a.id}>
+                  <a
+                    href={`#${a.id}`}
+                    onClick={(e) => {
+                      e.preventDefault()
+                      document
+                        .getElementById(a.id)
+                        ?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                    }}
+                    className="text-caddie-ink-dim"
+                    style={{
+                      fontSize: 13,
+                      lineHeight: 1.6,
+                      textDecoration: 'none',
+                    }}
+                  >
+                    {a.title}
+                    {a.status === 'stub' && (
+                      <span
+                        className="font-mono uppercase text-caddie-ink-mute"
+                        style={{
+                          fontSize: 9,
+                          letterSpacing: '0.14em',
+                          marginLeft: 8,
+                        }}
+                      >
+                        Soon
+                      </span>
+                    )}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))}
+      </div>
+    </section>
+  )
+}
+
+function SectionHeader({
+  id,
+  number,
+  title,
+}: {
+  id: string
+  number: string
+  title: string
+}) {
+  return (
+    <section
+      id={id}
+      style={{
+        borderTop: '2px solid #9F9580',
+        paddingTop: 28,
+        marginTop: 14,
+        marginBottom: 22,
+      }}
+    >
+      <div className="kicker" style={{ marginBottom: 10 }}>
+        {number}
+      </div>
+      <h2
+        className="font-serif text-caddie-ink"
+        style={{
+          fontSize: 32,
+          fontWeight: 500,
+          fontStyle: 'italic',
+          letterSpacing: '-0.015em',
+          lineHeight: 1.1,
+        }}
+      >
+        {title}
+      </h2>
+    </section>
+  )
+}
+
+function ArticleAnchor({
+  id,
+  kicker,
+  title,
+}: {
+  id: string
+  kicker: string
+  title: string
+}) {
+  return (
+    <section
+      id={id}
+      style={{
+        borderTop: '1px solid #D9D2BF',
+        paddingTop: 22,
+        marginBottom: 18,
+      }}
+    >
+      <div className="kicker" style={{ marginBottom: 14 }}>
+        {kicker}
+      </div>
+      <h3
+        className="font-serif text-caddie-ink"
+        style={{
+          fontSize: 22,
+          fontWeight: 500,
+          fontStyle: 'italic',
+          lineHeight: 1.2,
+        }}
+      >
+        {title}
+      </h3>
+    </section>
+  )
+}
+
+function StubEntry({ id, title }: { id: string; title: string }) {
+  return (
+    <section
+      id={id}
+      style={{
+        borderTop: '1px solid #D9D2BF',
+        paddingTop: 22,
+        marginBottom: 32,
+      }}
+    >
+      <div className="kicker" style={{ marginBottom: 14 }}>
+        Coming soon
+      </div>
+      <h3
+        className="font-serif text-caddie-ink"
+        style={{
+          fontSize: 22,
+          fontWeight: 500,
+          fontStyle: 'italic',
+          letterSpacing: '-0.015em',
+          lineHeight: 1.2,
+          marginBottom: 12,
+        }}
+      >
+        {title}
+      </h3>
+      <p
+        className="text-caddie-ink-mute"
+        style={{
+          fontSize: 15,
+          lineHeight: 1.6,
+          fontStyle: 'italic',
+          maxWidth: 640,
+        }}
+      >
+        This guide is being written. Check back soon.
+      </p>
+    </section>
+  )
 }
