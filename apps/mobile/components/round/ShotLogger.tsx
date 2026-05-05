@@ -144,6 +144,16 @@ export function ShotLogger({
               })
             }
             onClose={onClose}
+            onChangeLie={(lie) =>
+              setValue((prev) => ({
+                ...prev,
+                lieType: lie,
+                // Drop putter when switching off the green — the player
+                // is logging a chip / bunker shot now and the club
+                // chip row will let them pick the right club.
+                club: prev.club === 'putter' ? undefined : prev.club,
+              }))
+            }
           />
         ) : (
         <View

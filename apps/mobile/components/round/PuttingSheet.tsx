@@ -11,6 +11,7 @@ import {
 import type {
   BreakDirection,
   GreenSpeed,
+  LieType,
   PuttDirectionResult,
   PuttDistanceResult,
 } from '@oga/core'
@@ -35,6 +36,14 @@ interface PuttingSheetProps {
   initial?: PuttingValue
   onSave: (value: PuttingValue) => void
   onClose: () => void
+  /**
+   * Optional escape from putting mode without closing the sheet. When
+   * provided, renders a "Not a putt?" link that hands the lie back to
+   * the parent so it can swap to the regular shot logger UI. Used by
+   * ShotLogger when its internal `lieType === 'green'` branch wants to
+   * let the player undo an incorrect on-the-green prompt response.
+   */
+  onChangeLie?: (lie: LieType) => void
 }
 
 const KICKER: import('react-native').TextStyle = {
@@ -76,6 +85,7 @@ export function PuttingSheet({
   initial,
   onSave,
   onClose,
+  onChangeLie,
 }: PuttingSheetProps) {
   const { unit } = useUnits()
   const [value, setValue] = useState<PuttingValue>({
@@ -199,6 +209,26 @@ export function PuttingSheet({
           >
             On the green.
           </Text>
+          {onChangeLie && (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Not a putt — switch to chip or bunker shot"
+              onPress={() => onChangeLie('rough')}
+              hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+              style={{ marginTop: 4 }}
+            >
+              <Text
+                style={{
+                  color: '#A66A1F',
+                  fontSize: 12,
+                  fontWeight: '500',
+                  letterSpacing: 0.2,
+                }}
+              >
+                Not a putt? Chip / bunker →
+              </Text>
+            </Pressable>
+          )}
         </View>
         <Pressable
           accessibilityRole="button"

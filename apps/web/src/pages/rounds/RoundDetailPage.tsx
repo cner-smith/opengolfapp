@@ -281,6 +281,12 @@ export function RoundDetailPage() {
   const allRounds = useRounds(50)
   const queryClient = useQueryClient()
   const [confirmDelete, setConfirmDelete] = useState(false)
+  // "On the green?" confirmation. Holds the placed point while the
+  // dialog is open. Cleared on either response — Yes pushes with the
+  // putting sheet, No pushes without it.
+  const [onGreenPrompt, setOnGreenPrompt] = useState<PlacedPoint | null>(
+    null,
+  )
 
   const [shotsModalFor, setShotsModalFor] = useState<{
     holeScoreId: string
@@ -575,17 +581,23 @@ export function RoundDetailPage() {
   const placeHandlers = useMemo(
     () => ({
       onPlace: (p: PlacedPoint) => {
-        // Auto-open the putting sheet for any tap within 30 yd of the
-        // pin so the user lands straight on putt entry instead of the
-        // generic shot detail row.
-        const isPutt =
+        // Within ~30 yd of the pin, ask before opening the putting
+        // sheet — the prior auto-switch was wrong on chips, bunkers,
+        // and fringe lies, and forced the player to back out and re-
+        // place to log a non-putt. The point goes into a holding cell
+        // until the prompt resolves.
+        const nearGreen =
           effectivePin != null &&
           haversineYards(p.lat, p.lng, effectivePin.lat, effectivePin.lng) <=
             NEAR_GREEN_YARDS
+        if (nearGreen) {
+          setOnGreenPrompt(p)
+          return
+        }
         dispatchHoleView({
           type: 'PUSH_POINT',
           point: p,
-          openPuttSheet: isPutt,
+          openPuttSheet: false,
         })
       },
       onMovePoint: (idx: number, p: PlacedPoint) =>
@@ -880,6 +892,34 @@ export function RoundDetailPage() {
         busy={deleteMutation.isPending}
         onConfirm={handleDelete}
         onCancel={() => setConfirmDelete(false)}
+      />
+
+      <ConfirmDialog
+        open={onGreenPrompt != null}
+        title="On the green?"
+        message="Within 30 yd of the pin — were you putting, or chipping/in a bunker?"
+        confirmLabel="Yes, I'm putting"
+        cancelLabel="No"
+        onConfirm={() => {
+          if (onGreenPrompt) {
+            dispatchHoleView({
+              type: 'PUSH_POINT',
+              point: onGreenPrompt,
+              openPuttSheet: true,
+            })
+          }
+          setOnGreenPrompt(null)
+        }}
+        onCancel={() => {
+          if (onGreenPrompt) {
+            dispatchHoleView({
+              type: 'PUSH_POINT',
+              point: onGreenPrompt,
+              openPuttSheet: false,
+            })
+          }
+          setOnGreenPrompt(null)
+        }}
       />
 
       {completeError && (

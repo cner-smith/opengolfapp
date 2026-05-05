@@ -148,6 +148,16 @@ export default function HoleScreen() {
   // yet, the round will be discarded") without changing the meaning of
   // the in-round Delete dialog.
   const [confirmExit, setConfirmExit] = useState(false)
+  // "On the green?" confirmation. Opened when the player marks ball
+  // within PUTTING_RADIUS_YARDS of the pin instead of auto-switching to
+  // putting mode — device testing showed the auto-switch was wrong
+  // often enough (chipping from rough at 25 yd, fringe lie at 8 yd)
+  // that the prompt is the safer default.
+  const [onGreenPromptOpen, setOnGreenPromptOpen] = useState(false)
+  // Seed lie type that gets passed to ShotLogger when it opens. Used
+  // to pre-fill 'green' for the YES path on the prompt and 'rough' for
+  // NO so the player isn't picking a lie chip from scratch every time.
+  const [loggerInitial, setLoggerInitial] = useState<ShotLoggerValue>({})
 
   // Synthetic-holes fallback. Mirrors the web pattern documented in
   // CLAUDE.md: when the course has fewer real `holes` rows than the
@@ -508,6 +518,7 @@ export default function HoleScreen() {
       // location — which on test builds (or anywhere far from where the
       // ball actually lies) jumped the marker miles off the course.
       setLoggerOpen(false)
+      setLoggerInitial({})
       setRoundState('PLACE_BALL')
       // Background sync — don't await.
       syncPendingShots().catch(() => undefined)
@@ -639,17 +650,34 @@ export default function HoleScreen() {
     // committed to, not anything an in-flight GPS callback wrote.
     setBall(ballSnapshot)
     setAim(null)
-    // Auto-switch to the putting flow when the player has marked their
-    // position within ~30 yd of the pin — bypasses SET_AIM (long-press
-    // line) and SHOT_DETAIL (club/lie/result), since none of those
-    // matter on a putt. Falls back to the standard aim flow if no pin
-    // is known.
+    // Within ~30 yd of the pin, ask first instead of auto-switching to
+    // putting. Wrong half the time on chips/bunker shots near the
+    // green; player decides. Falls back to the standard aim flow when
+    // no pin is known or the prompt is declined.
     const pinTarget = roundPin ?? storedPin ?? null
     if (pinTarget && distanceYards(ballSnapshot, pinTarget) <= PUTTING_RADIUS_YARDS) {
-      setRoundState('PUTTING')
+      setOnGreenPromptOpen(true)
       return
     }
     setRoundState('SET_AIM')
+  }
+
+  function handleOnGreenYes() {
+    setOnGreenPromptOpen(false)
+    setLoggerInitial({ lieType: 'green', club: 'putter' })
+    setRoundState('SHOT_DETAIL')
+    setLoggerOpen(true)
+  }
+
+  function handleOnGreenNo() {
+    setOnGreenPromptOpen(false)
+    // 'rough' is the safest near-green default — fairway/fringe/sand
+    // are common but rough is the modal answer for "near green but
+    // not putting". Player overrides in ShotLogger; this just saves a
+    // tap on the most likely choice.
+    setLoggerInitial({ lieType: 'rough' })
+    setRoundState('SHOT_DETAIL')
+    setLoggerOpen(true)
   }
 
   function confirmAim() {
@@ -666,6 +694,7 @@ export default function HoleScreen() {
 
   function closeLogger() {
     setLoggerOpen(false)
+    setLoggerInitial({})
     setRoundState('PLACE_BALL')
   }
 
@@ -1296,6 +1325,7 @@ export default function HoleScreen() {
             ? Math.round(distanceYards(ball, roundPin ?? storedPin ?? ball) * 3)
             : undefined
         }
+        initial={loggerInitial}
         onSave={(v) => persistShot(v)}
         onSkip={() => persistShot(null)}
         onClose={closeLogger}
@@ -1363,6 +1393,16 @@ export default function HoleScreen() {
         busy={ending}
         onConfirm={handleEndRound}
         onCancel={() => setConfirmEnd(false)}
+      />
+
+      <ConfirmDialog
+        visible={onGreenPromptOpen}
+        title="On the green?"
+        message="Within 30 yd of the pin — were you putting, or chipping/in a bunker?"
+        confirmLabel="Yes, I'm putting"
+        cancelLabel="No"
+        onConfirm={handleOnGreenYes}
+        onCancel={handleOnGreenNo}
       />
 
       <Modal
