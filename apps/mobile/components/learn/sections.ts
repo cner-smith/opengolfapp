@@ -39,7 +39,7 @@ export const LEARN_SECTIONS: LearnSection[] = [
     number: 'Section three',
     title: 'Improving your game',
     articles: [
-      { id: 'how-to-practice', title: 'How to practice effectively', status: 'stub' },
+      { id: 'how-to-practice', title: 'How to practice effectively', status: 'live' },
       { id: 'practice-modes', title: 'Block, random, and pressure practice', status: 'stub' },
       { id: 'measurable-goals', title: 'Creating measurable practice goals', status: 'stub' },
       { id: 'skill-and-pressure-games', title: 'Skill games and pressure games', status: 'stub' },
