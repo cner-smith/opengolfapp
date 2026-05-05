@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Pressable, ScrollView, Text, useWindowDimensions, View } from 'react-native'
-import { Link, useRouter } from 'expo-router'
+import { Link, useFocusEffect, useRouter } from 'expo-router'
 import { VictoryAxis, VictoryChart, VictoryLine } from 'victory-native'
 import { Swipeable } from 'react-native-gesture-handler'
 import Animated, {
@@ -127,53 +127,61 @@ export default function Home() {
   // the home screen forever. The current hole is the highest hole the
   // player has logged a score on, +1 (capped at 18) — so resuming
   // jumps back to where they left off, not hole 1.
-  useEffect(() => {
-    if (!user) return
-    let active = true
-    ;(async () => {
-      const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000)
-        .toISOString()
-        .slice(0, 10)
-      const { data, error } = await supabase
-        .from('rounds')
-        .select('id, played_at, course_id, courses(name)')
-        .eq('user_id', user.id)
-        .is('total_score', null)
-        .gte('played_at', oneDayAgo)
-        .order('played_at', { ascending: false })
-        .limit(1)
-      if (!active || error || !data?.[0]) {
-        setActiveRound(null)
-        return
+  //
+  // Uses `useFocusEffect` so the query re-runs every time the home tab
+  // gains focus. Without this, deleting the active round from the
+  // hole/end-round screens left a stale banner showing on home until
+  // the app reloaded — there's no react-query cache here to invalidate.
+  useFocusEffect(
+    useCallback(() => {
+      if (!user) return
+      let active = true
+      ;(async () => {
+        const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000)
+          .toISOString()
+          .slice(0, 10)
+        const { data, error } = await supabase
+          .from('rounds')
+          .select('id, played_at, course_id, courses(name)')
+          .eq('user_id', user.id)
+          .is('total_score', null)
+          .gte('played_at', oneDayAgo)
+          .order('played_at', { ascending: false })
+          .limit(1)
+        if (!active) return
+        if (error || !data?.[0]) {
+          setActiveRound(null)
+          return
+        }
+        const round = data[0] as {
+          id: string
+          played_at: string
+          course_id: string
+          courses?: { name: string | null } | null
+        }
+        const { data: hs } = await supabase
+          .from('hole_scores')
+          .select('score, holes(number)')
+          .eq('round_id', round.id)
+          .gt('score', 0)
+        if (!active) return
+        const maxHole = (hs ?? []).reduce<number>((acc, row) => {
+          const n = (row as { holes?: { number?: number | null } | null })
+            .holes?.number
+          return typeof n === 'number' && n > acc ? n : acc
+        }, 0)
+        const next = Math.min(18, Math.max(1, maxHole + 1))
+        setActiveRound({
+          id: round.id,
+          courseName: round.courses?.name ?? 'Round',
+          currentHole: next,
+        })
+      })()
+      return () => {
+        active = false
       }
-      const round = data[0] as {
-        id: string
-        played_at: string
-        course_id: string
-        courses?: { name: string | null } | null
-      }
-      const { data: hs } = await supabase
-        .from('hole_scores')
-        .select('score, holes(number)')
-        .eq('round_id', round.id)
-        .gt('score', 0)
-      if (!active) return
-      const maxHole = (hs ?? []).reduce<number>((acc, row) => {
-        const n = (row as { holes?: { number?: number | null } | null }).holes
-          ?.number
-        return typeof n === 'number' && n > acc ? n : acc
-      }, 0)
-      const next = Math.min(18, Math.max(1, maxHole + 1))
-      setActiveRound({
-        id: round.id,
-        courseName: round.courses?.name ?? 'Round',
-        currentHole: next,
-      })
-    })()
-    return () => {
-      active = false
-    }
-  }, [user?.id])
+    }, [user?.id]),
+  )
 
   // SG breakdown + trend are pure functions of `rounds` — memoize so
   // unrelated parent re-renders (delete sync, window resize) don't
