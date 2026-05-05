@@ -1,4 +1,4 @@
-import { useRef } from 'react'
+import { useCallback } from 'react'
 import { Text, View } from 'react-native'
 import Svg, { Circle, Ellipse, Line, Path } from 'react-native-svg'
 import {
@@ -56,7 +56,6 @@ export function GreenDiagram({
   breakDirection = 'straight',
   onAimChange,
 }: GreenDiagramProps) {
-  const layoutRef = useRef<{ width: number } | null>(null)
   const { toDisplayFt } = useUnits()
 
   // Drag is driven entirely by Reanimated shared values so the SVG
@@ -82,18 +81,20 @@ export function GreenDiagram({
   const handleY = 150
   const trajectoryEndY = pinY + 60
 
-  function commitWithTranslation(translationX: number) {
-    const w = layoutRef.current?.width ?? SVG_WIDTH
-    const pxPerSvgX = w / SVG_WIDTH
-    const svgDelta = translationX / pxPerSvgX
-    const targetCx = clamp(
-      CENTER_X + aimOffsetInches * PX_PER_INCH + svgDelta,
-      HANDLE_MIN_X,
-      HANDLE_MAX_X,
-    )
-    const next = Math.round((targetCx - CENTER_X) / PX_PER_INCH)
-    if (next !== aimOffsetInches) onAimChange(next)
-  }
+  // The committed offset is derived entirely inside the worklet from
+  // `startOffset.value` (snapshotted at gesture begin) and the current
+  // shared values, then handed to the parent via runOnJS. Computing the
+  // final value in the worklet avoids a stale-closure pitfall: if the
+  // parent re-renders mid-gesture, the prior JS-thread commit function
+  // captured an outdated `aimOffsetInches` and the committed value
+  // could disagree with the visible handle position. The worklet path
+  // always reads the freshest shared values.
+  const commitOffset = useCallback(
+    (next: number) => {
+      onAimChange(next)
+    },
+    [onAimChange],
+  )
 
   const pan = Gesture.Pan()
     .activeOffsetX([-2, 2])
@@ -114,7 +115,15 @@ export function GreenDiagram({
     })
     .onEnd((e) => {
       'worklet'
-      runOnJS(commitWithTranslation)(e.translationX)
+      const pxPerSvgX = layoutWidth.value / SVG_WIDTH
+      const svgDelta = e.translationX / pxPerSvgX
+      const targetCx = clampWorklet(
+        CENTER_X + startOffset.value * PX_PER_INCH + svgDelta,
+        HANDLE_MIN_X,
+        HANDLE_MAX_X,
+      )
+      const next = Math.round((targetCx - CENTER_X) / PX_PER_INCH)
+      runOnJS(commitOffset)(next)
       offsetX.value = 0
     })
 
@@ -193,7 +202,6 @@ export function GreenDiagram({
       <GestureDetector gesture={pan}>
         <View
           onLayout={(e) => {
-            layoutRef.current = { width: e.nativeEvent.layout.width }
             layoutWidth.value = e.nativeEvent.layout.width
           }}
           style={{ aspectRatio: SVG_WIDTH / SVG_HEIGHT, width: '100%' }}
@@ -256,11 +264,8 @@ export function GreenDiagram({
   )
 }
 
-function clamp(n: number, min: number, max: number): number {
-  return Math.min(max, Math.max(min, n))
-}
-
-// Same as clamp but flagged as a worklet so it can run on the UI thread.
+// Worklet-flagged clamp so the Pan onEnd / useAnimatedProps math can
+// run on the UI thread without bouncing through JS.
 function clampWorklet(n: number, min: number, max: number): number {
   'worklet'
   return Math.min(max, Math.max(min, n))
