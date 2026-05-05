@@ -8,11 +8,13 @@ import {
   TextInput,
   View,
 } from 'react-native'
-import type {
-  BreakDirection,
-  GreenSpeed,
-  PuttDirectionResult,
-  PuttDistanceResult,
+import {
+  FEET_TO_CM,
+  type BreakDirection,
+  type GreenSpeed,
+  type LieType,
+  type PuttDirectionResult,
+  type PuttDistanceResult,
 } from '@oga/core'
 import { GreenDiagram } from './GreenDiagram'
 import { useUnits } from '../../hooks/useUnits'
@@ -35,6 +37,14 @@ interface PuttingSheetProps {
   initial?: PuttingValue
   onSave: (value: PuttingValue) => void
   onClose: () => void
+  /**
+   * Optional escape from putting mode without closing the sheet. When
+   * provided, renders a "Not a putt?" link that hands the lie back to
+   * the parent so it can swap to the regular shot logger UI. Used by
+   * ShotLogger when its internal `lieType === 'green'` branch wants to
+   * let the player undo an incorrect on-the-green prompt response.
+   */
+  onChangeLie?: (lie: LieType) => void
 }
 
 const KICKER: import('react-native').TextStyle = {
@@ -76,8 +86,19 @@ export function PuttingSheet({
   initial,
   onSave,
   onClose,
+  onChangeLie,
 }: PuttingSheetProps) {
   const { unit } = useUnits()
+  const isMetric = unit === 'meters'
+  const inputUnit = isMetric ? 'cm' : 'ft'
+  // Storage stays in feet so SG baselines line up; the input field
+  // echoes the unit on the player's profile and converts on the way in
+  // and out. The previous label said "m" while the input still parsed
+  // feet — a metric player typing "5" stored 5 ft (1.5 m), not 5 m.
+  const feetToInput = (feet: number): number =>
+    isMetric ? Math.round(feet * FEET_TO_CM) : Math.round(feet)
+  const inputToFeet = (n: number): number =>
+    isMetric ? n / FEET_TO_CM : n
   const [value, setValue] = useState<PuttingValue>({
     puttDistanceFt: initial?.puttDistanceFt ?? initialDistanceFt ?? 0,
     puttMade: initial?.puttMade,
@@ -90,23 +111,23 @@ export function PuttingSheet({
     notes: initial?.notes,
   })
   const [distanceText, setDistanceText] = useState(
-    String(initial?.puttDistanceFt ?? initialDistanceFt ?? 0),
+    String(feetToInput(initial?.puttDistanceFt ?? initialDistanceFt ?? 0)),
   )
 
   useEffect(() => {
     if (initialDistanceFt != null && initial?.puttDistanceFt == null) {
       setValue((v) => ({ ...v, puttDistanceFt: initialDistanceFt }))
-      setDistanceText(String(initialDistanceFt))
+      setDistanceText(String(feetToInput(initialDistanceFt)))
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [initialDistanceFt])
+  }, [initialDistanceFt, unit])
 
   function commitDistance(text: string) {
     setDistanceText(text)
     const n = parseFloat(text)
     setValue((v) => ({
       ...v,
-      puttDistanceFt: Number.isFinite(n) ? n : undefined,
+      puttDistanceFt: Number.isFinite(n) ? inputToFeet(n) : undefined,
     }))
   }
 
@@ -199,6 +220,26 @@ export function PuttingSheet({
           >
             On the green.
           </Text>
+          {onChangeLie && (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Not a putt — switch to chip or bunker shot"
+              onPress={() => onChangeLie('rough')}
+              hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+              style={{ marginTop: 4 }}
+            >
+              <Text
+                style={{
+                  color: '#A66A1F',
+                  fontSize: 12,
+                  fontWeight: '500',
+                  letterSpacing: 0.2,
+                }}
+              >
+                Not a putt? Chip / bunker →
+              </Text>
+            </Pressable>
+          )}
         </View>
         <Pressable
           accessibilityRole="button"
@@ -221,7 +262,7 @@ export function PuttingSheet({
 
         <View style={{ marginTop: 14 }}>
           <Text style={{ ...KICKER, marginBottom: 6 }}>
-            Distance override ({unit === 'meters' ? 'm' : 'ft'})
+            Distance override ({inputUnit})
           </Text>
           <TextInput
             keyboardType="numeric"
