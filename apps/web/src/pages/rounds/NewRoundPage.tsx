@@ -5,6 +5,7 @@ import { CourseSearch } from '../../components/courses/CourseSearch'
 import { TeeSelector } from '../../components/courses/TeeSelector'
 import { useCreateRound } from '../../hooks/useRounds'
 import { useAuth } from '../../hooks/useAuth'
+import { supabase } from '../../lib/supabase'
 import { toUserMessage } from '../../lib/errors'
 
 const TEE_COLORS = ['black', 'blue', 'white', 'gold', 'red'] as const
@@ -30,6 +31,28 @@ export function NewRoundPage() {
     if (!courseId) {
       setError('Pick a course first.')
       return
+    }
+    // Block accidental abandonment: if the user already has an
+    // unfinished round started in the last day, ask before starting a
+    // fresh live round on top of it. Past-round logging is fine — it
+    // doesn't compete for the "currently playing" slot.
+    if (mode === 'live') {
+      const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000)
+        .toISOString()
+        .slice(0, 10)
+      const { data: unfinished } = await supabase
+        .from('rounds')
+        .select('id')
+        .eq('user_id', user.id)
+        .is('total_score', null)
+        .gte('played_at', oneDayAgo)
+        .limit(1)
+      if (unfinished && unfinished.length > 0) {
+        const ok = window.confirm(
+          'You have an unfinished round. Starting a new one will leave it incomplete. Continue?',
+        )
+        if (!ok) return
+      }
     }
     try {
       const round = await createRoundMutation.mutateAsync({
