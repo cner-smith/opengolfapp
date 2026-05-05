@@ -73,6 +73,10 @@ export function clubCategoryFor(clubType: string): ClubCategory {
     clubType === 'sw' ||
     clubType === 'lw' ||
     clubType === 'aw' ||
+    clubType === 'cw' ||
+    // Legacy: pre-rename rows from the dev-test phase of issue #164.
+    // Kept so any user_clubs row written before the rename still maps
+    // to the wedge category. New rows use 'cw'.
     clubType === 'custom_wedge'
   )
     return 'wedge'
@@ -83,32 +87,31 @@ export function clubCategoryFor(clubType: string): ClubCategory {
 // web and mobile. Lives here (not in app code) so both apps stay in
 // lockstep — adding a club_type to the picklist is a one-file edit.
 //
-// Wedges are name-based (pw → lw covers ~90% of players) plus a
-// `custom_wedge` slot for grinds outside the standard set. The user
-// captures the loft via the bag editor's loft field; the shot picker
-// reads loft via formatClubLabel below so a custom_wedge chip reads
-// "58°" rather than the raw "custom_wedge" string.
+// Wedges are name-based (pw → lw covers ~90% of players) plus a `cw`
+// slot for grinds outside the standard set. The user captures the
+// loft via the bag editor's loft field; the shot picker reads loft
+// via formatClubLabel below so a cw chip reads "58°" rather than the
+// raw "cw" string.
 export const CANONICAL_CLUBS_BY_CATEGORY: Record<ClubCategory, readonly string[]> = {
   driver: ['driver'],
   wood: ['mini_driver', '2w', '3w', '4w', '5w', '7w', '9w', '11w', '13w'],
   hybrid: ['2h', '3h', '4h', '5h', '6h', '7h'],
   iron: ['1i', '2i', '3i', '4i', '5i', '6i', '7i', '8i', '9i'],
-  wedge: ['pw', 'gw', 'aw', 'sw', 'lw', 'custom_wedge'],
+  wedge: ['pw', 'gw', 'aw', 'sw', 'lw', 'cw'],
   putter: ['putter'],
   utility: [],
 }
 
 // Picker label for a bag entry. Plain club_type for everything except
-// `custom_wedge`, where the loft (e.g. "58°") is the meaningful label.
-// Falls back to the club's free-text name, then the literal club_type
-// when no loft is set, so the chip never reads as raw "custom_wedge"
-// in the shot picker.
+// the custom-wedge slot (`cw`, or legacy `custom_wedge`), where the
+// loft (e.g. "58°") is the meaningful label. Falls back to the club's
+// free-text name, then a literal "wedge" when no loft is set.
 export function formatClubLabel(c: {
   club_type: string
   name?: string | null
   loft?: number | null
 }): string {
-  if (c.club_type === 'custom_wedge') {
+  if (c.club_type === 'cw' || c.club_type === 'custom_wedge') {
     if (c.loft != null && Number.isFinite(c.loft)) return `${c.loft}°`
     const trimmed = c.name?.trim()
     if (trimmed) return trimmed

@@ -423,7 +423,7 @@ export default function BagScreen() {
                       {CANONICAL_CLUBS_BY_CATEGORY[draft.category].map((c) => (
                         <Chip
                           key={c}
-                          label={c === 'custom_wedge' ? 'Custom (loft)' : c}
+                          label={c}
                           active={draft.clubType === c}
                           onPress={() =>
                             setDraft((d) => ({ ...d, clubType: c }))

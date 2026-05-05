@@ -776,7 +776,7 @@ function AddClubForm({
             >
               {canonicalOptions.map((c) => (
                 <option key={c} value={c}>
-                  {c === 'custom_wedge' ? 'Custom (loft)' : c}
+                  {c}
                 </option>
               ))}
               <option value={CUSTOM_VALUE}>Other…</option>
