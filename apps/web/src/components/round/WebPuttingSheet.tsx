@@ -1,5 +1,10 @@
 import { useEffect, useState } from 'react'
-import type { PuttDirectionResult, PuttDistanceResult } from '@oga/core'
+import {
+  FEET_TO_CM,
+  type PuttDirectionResult,
+  type PuttDistanceResult,
+} from '@oga/core'
+import { useUnits } from '../../hooks/useUnits'
 
 export interface WebPuttData {
   puttMade: boolean
@@ -42,6 +47,17 @@ export function WebPuttingSheet({
   onSave,
   onClose,
 }: WebPuttingSheetProps) {
+  const { unit } = useUnits()
+  const isMetric = unit === 'meters'
+  const inputUnit = isMetric ? 'cm' : 'ft'
+  // Helpers for input ↔ storage conversion. Storage is always feet so
+  // SG baselines stay correct; the input echoes whatever unit the
+  // player has set on their profile.
+  const feetToInput = (feet: number): number =>
+    isMetric ? Math.round(feet * FEET_TO_CM) : Math.round(feet)
+  const inputToFeet = (n: number): number =>
+    isMetric ? n / FEET_TO_CM : n
+  const minInput = feetToInput(MIN_PUTT_FT)
   const [distanceText, setDistanceText] = useState('')
   const [made, setMade] = useState<boolean>(false)
   const [distanceResult, setDistanceResult] = useState<
@@ -58,23 +74,24 @@ export function WebPuttingSheet({
   useEffect(() => {
     if (!open) return
     const seed = initial ?? null
-    setDistanceText(
-      String(
-        Math.max(
-          MIN_PUTT_FT,
-          seed?.puttDistanceFt ?? Math.round(initialDistanceFt),
-        ),
-      ),
+    const seedFt = Math.max(
+      MIN_PUTT_FT,
+      seed?.puttDistanceFt ?? Math.round(initialDistanceFt),
     )
+    setDistanceText(String(feetToInput(seedFt)))
     setMade(seed?.puttMade ?? false)
     setDistanceResult(seed?.puttDistanceResult)
     setDirectionResult(seed?.puttDirectionResult)
-  }, [open, shotNumber, initialDistanceFt, initial])
+    // feetToInput depends on `unit` which is captured in the closure;
+    // eslint can't see the dependency and would request a useCallback.
+    // Keeping it inline keeps the seed logic in one place.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, shotNumber, initialDistanceFt, initial, unit])
 
   function commit(makeOverride: boolean) {
     const parsed = Number(distanceText)
     const dist = Number.isFinite(parsed)
-      ? Math.max(MIN_PUTT_FT, Math.round(parsed))
+      ? Math.max(MIN_PUTT_FT, Math.round(inputToFeet(parsed)))
       : null
     onSave({
       puttMade: makeOverride,
@@ -161,11 +178,11 @@ export function WebPuttingSheet({
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginTop: 14 }}>
         <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          <span className="kicker">Distance (ft)</span>
+          <span className="kicker">Distance ({inputUnit})</span>
           <input
             type="number"
             inputMode="numeric"
-            min={MIN_PUTT_FT}
+            min={minInput}
             value={distanceText}
             onChange={(e) => setDistanceText(e.target.value)}
             className="bg-caddie-bg text-caddie-ink"
