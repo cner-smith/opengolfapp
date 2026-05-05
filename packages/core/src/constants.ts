@@ -106,6 +106,10 @@ export const CANONICAL_CLUBS_BY_CATEGORY: Record<ClubCategory, readonly string[]
 // the custom-wedge slot (`cw`, or legacy `custom_wedge`), where the
 // loft (e.g. "58°") is the meaningful label. Falls back to the club's
 // free-text name, then a literal "wedge" when no loft is set.
+//
+// Underscores in the club_type are rendered as spaces so multi-word
+// types (mini_driver, etc.) read cleanly under the bag UI's uppercase
+// kicker style — "MINI DRIVER" instead of "MINI_DRIVER".
 export function formatClubLabel(c: {
   club_type: string
   name?: string | null
@@ -117,7 +121,7 @@ export function formatClubLabel(c: {
     if (trimmed) return trimmed
     return 'wedge'
   }
-  return c.club_type
+  return c.club_type.replace(/_/g, ' ')
 }
 
 // Default 14-club starting bag seeded for new users when their bag is

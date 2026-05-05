@@ -139,10 +139,14 @@ describe('CANONICAL_CLUBS_BY_CATEGORY.wedge', () => {
 })
 
 describe('formatClubLabel', () => {
-  it('returns club_type unchanged for non-custom entries', () => {
+  it('returns club_type unchanged for non-custom single-word entries', () => {
     expect(formatClubLabel({ club_type: 'pw' })).toBe('pw')
     expect(formatClubLabel({ club_type: '7i', loft: 34 })).toBe('7i')
     expect(formatClubLabel({ club_type: 'driver', loft: 10.5 })).toBe('driver')
+  })
+
+  it('humanizes underscored club_types so the kicker style does not read MINI_DRIVER', () => {
+    expect(formatClubLabel({ club_type: 'mini_driver' })).toBe('mini driver')
   })
 
   it('returns the loft as the label for cw', () => {
