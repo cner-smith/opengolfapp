@@ -322,40 +322,44 @@ export default function Home() {
           </Pressable>
         )}
 
-        <Link href="/(app)/round/new?mode=live" asChild>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Start live round"
-            style={{
-              backgroundColor: '#1F3D2C',
-              borderRadius: 2,
-              paddingVertical: 18,
-              alignItems: 'center',
-              marginBottom: 6,
-            }}
-          >
+        {!activeRound && (
+          <>
+            <Link href="/(app)/round/new?mode=live" asChild>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Start live round"
+                style={{
+                  backgroundColor: '#1F3D2C',
+                  borderRadius: 2,
+                  paddingVertical: 18,
+                  alignItems: 'center',
+                  marginBottom: 6,
+                }}
+              >
+                <Text
+                  style={{
+                    color: '#F2EEE5',
+                    fontSize: 16,
+                    fontWeight: '700',
+                    letterSpacing: 0.4,
+                  }}
+                >
+                  ▶  Start live round
+                </Text>
+              </Pressable>
+            </Link>
             <Text
               style={{
-                color: '#F2EEE5',
-                fontSize: 16,
-                fontWeight: '700',
-                letterSpacing: 0.4,
+                color: '#5C6356',
+                fontSize: 12,
+                textAlign: 'center',
+                marginBottom: 14,
               }}
             >
-              ▶  Start live round
+              Track shots in real time with GPS
             </Text>
-          </Pressable>
-        </Link>
-        <Text
-          style={{
-            color: '#5C6356',
-            fontSize: 12,
-            textAlign: 'center',
-            marginBottom: 14,
-          }}
-        >
-          Track shots in real time with GPS
-        </Text>
+          </>
+        )}
 
         <Link href="/(app)/round/new?mode=past" asChild>
           <Pressable
