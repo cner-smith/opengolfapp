@@ -191,8 +191,8 @@ export default function Home() {
     }
     pulse.value = withRepeat(
       withSequence(
-        withTiming(0.4, { duration: 1000 }),
-        withTiming(1, { duration: 1000 }),
+        withTiming(0.4, { duration: 1500 }),
+        withTiming(1, { duration: 1500 }),
       ),
       -1,
       false,
