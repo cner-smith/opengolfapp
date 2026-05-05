@@ -97,6 +97,41 @@ export function HoleMap({
   const isAimPhase = phase === 'SET_AIM'
   const isPlaceBallPhase = phase === 'PLACE_BALL'
 
+  // Aim ghosts: prior shots' aim point + ball-start, retained as faded
+  // markers + dotted lines so the player can see intended direction vs
+  // actual result across the whole hole. Captured locally in HoleMap so
+  // the parent doesn't have to thread historical aim coords through.
+  const [aimGhosts, setAimGhosts] = useState<{ ball: LatLng; aim: LatLng }[]>(
+    [],
+  )
+  const lastAimSnapshotRef = useRef<{ ball: LatLng; aim: LatLng } | null>(null)
+  // While in SET_AIM, snapshot the current ball + aim pair so we can
+  // promote it to a ghost the moment the phase exits SET_AIM (i.e. shot
+  // was saved or aim was abandoned for ball placement again).
+  useEffect(() => {
+    if (isAimPhase && ball && aim) {
+      lastAimSnapshotRef.current = { ball, aim }
+    }
+  }, [isAimPhase, ball?.lat, ball?.lng, aim?.lat, aim?.lng])
+  const ghostPhaseRef = useRef<HoleMapPhase>(phase)
+  useEffect(() => {
+    if (ghostPhaseRef.current === 'SET_AIM' && phase !== 'SET_AIM') {
+      const snap = lastAimSnapshotRef.current
+      if (snap) {
+        setAimGhosts((prev) => [...prev, snap])
+        lastAimSnapshotRef.current = null
+      }
+    }
+    ghostPhaseRef.current = phase
+  }, [phase])
+  // Hole change is signalled by previousShots resetting to empty (the
+  // parent re-mounts a new hole with no prior shot starts). Clear ghosts
+  // so they don't bleed across holes.
+  const prevShotsLen = previousShots?.length ?? 0
+  useEffect(() => {
+    if (prevShotsLen === 0) setAimGhosts([])
+  }, [prevShotsLen])
+
   // Mapbox's onLongPress wasn't firing reliably on Android (single-tap
   // onPress works fine, but long-press never reaches JS). Detect it via
   // react-native-gesture-handler instead, then translate the screen
@@ -277,6 +312,21 @@ export function HoleMap({
     return { lat: (ball.lat + aim.lat) / 2, lng: (ball.lng + aim.lng) / 2 }
   }, [isAimPhase, ball, aim])
 
+  const aimGhostFeatures = useMemo(() => {
+    if (aimGhosts.length === 0) return null
+    return {
+      type: 'FeatureCollection' as const,
+      features: aimGhosts.map((g, i) => ({
+        type: 'Feature' as const,
+        properties: { id: i },
+        geometry: {
+          type: 'LineString' as const,
+          coordinates: [toCoord(g.ball), toCoord(g.aim)],
+        },
+      })),
+    }
+  }, [aimGhosts])
+
   // Breadcrumb line through every previous shot start, with a final
   // segment to the current ball so the most recent leg is visible too.
   // Filtered to require at least 2 points so the LineString geometry
@@ -407,6 +457,33 @@ export function HoleMap({
                   >
                     {toDisplay(seg.yards)}
                   </Text>
+                </View>
+              </Mapbox.PointAnnotation>
+            ))}
+
+          {styleLoaded && !isPinMode && aimGhostFeatures && (
+            <Mapbox.ShapeSource id="aimGhostsLine" shape={aimGhostFeatures}>
+              <Mapbox.LineLayer
+                id="aimGhostsLineLayer"
+                style={{
+                  lineColor: '#A66A1F',
+                  lineWidth: 1.2,
+                  lineDasharray: [3, 3],
+                  lineOpacity: 0.4,
+                }}
+              />
+            </Mapbox.ShapeSource>
+          )}
+
+          {!isPinMode &&
+            aimGhosts.map((g, i) => (
+              <Mapbox.PointAnnotation
+                key={`aim-ghost-${i}`}
+                id={`aim-ghost-${i}`}
+                coordinate={toCoord(g.aim)}
+              >
+                <View style={{ opacity: 0.4 }}>
+                  <Marker color="#A66A1F" border="#FBF8F1" size={9} />
                 </View>
               </Mapbox.PointAnnotation>
             ))}
