@@ -1,32 +1,10 @@
-import { useEffect, useState } from 'react'
-import type { User } from '@supabase/supabase-js'
-import { supabase } from '../lib/supabase'
+import { useAuthContext } from '../contexts/AuthContext'
 
+// Thin wrapper around the AuthProvider context. All previous call
+// sites used `{ user, loading }` and that shape is preserved here.
+// The session is also exposed so any future caller that needs the raw
+// access token (signed URL hand-off, RPC headers) doesn't have to
+// re-query supabase.auth.getSession().
 export function useAuth() {
-  const [user, setUser] = useState<User | null>(null)
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    let mounted = true
-
-    supabase.auth.getSession().then(({ data }) => {
-      if (!mounted) return
-      setUser(data.session?.user ?? null)
-      setLoading(false)
-    })
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (!mounted) return
-      setUser(session?.user ?? null)
-    })
-
-    return () => {
-      mounted = false
-      subscription.unsubscribe()
-    }
-  }, [])
-
-  return { user, loading }
+  return useAuthContext()
 }
