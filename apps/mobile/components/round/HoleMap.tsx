@@ -97,6 +97,46 @@ export function HoleMap({
   const isAimPhase = phase === 'SET_AIM'
   const isPlaceBallPhase = phase === 'PLACE_BALL'
 
+  // Aim ghosts: prior shots' aim point + ball-start, retained as faded
+  // markers + dotted lines so the player can see intended direction vs
+  // actual result across the whole hole. Captured locally in HoleMap so
+  // the parent doesn't have to thread historical aim coords through.
+  const [aimGhosts, setAimGhosts] = useState<{ ball: LatLng; aim: LatLng }[]>(
+    [],
+  )
+  const lastAimSnapshotRef = useRef<{ ball: LatLng; aim: LatLng } | null>(null)
+  // While in SET_AIM, snapshot the current ball + aim pair so we can
+  // promote it to a ghost the moment the phase exits SET_AIM (i.e. shot
+  // was saved or aim was abandoned for ball placement again).
+  useEffect(() => {
+    if (isAimPhase && ball && aim) {
+      lastAimSnapshotRef.current = { ball, aim }
+    }
+  }, [isAimPhase, ball?.lat, ball?.lng, aim?.lat, aim?.lng])
+  const ghostPhaseRef = useRef<HoleMapPhase>(phase)
+  useEffect(() => {
+    if (ghostPhaseRef.current === 'SET_AIM' && phase !== 'SET_AIM') {
+      const snap = lastAimSnapshotRef.current
+      if (snap) {
+        setAimGhosts((prev) => [...prev, snap])
+        lastAimSnapshotRef.current = null
+      }
+    }
+    ghostPhaseRef.current = phase
+  }, [phase])
+  // Hole change is signalled by previousShots resetting to empty (the
+  // parent re-mounts a new hole with no prior shot starts). Clear ghosts
+  // so they don't bleed across holes. Guarded on `aimGhosts.length > 0`
+  // so the initial mount (where prevShotsLen and aimGhosts.length are
+  // both 0) doesn't schedule a no-op state update.
+  const prevShotsLen = previousShots?.length ?? 0
+  const ghostCount = aimGhosts.length
+  useEffect(() => {
+    if (prevShotsLen === 0 && ghostCount > 0) {
+      setAimGhosts([])
+    }
+  }, [prevShotsLen, ghostCount])
+
   // Mapbox's onLongPress wasn't firing reliably on Android (single-tap
   // onPress works fine, but long-press never reaches JS). Detect it via
   // react-native-gesture-handler instead, then translate the screen
@@ -199,14 +239,10 @@ export function HoleMap({
   }, [ball?.lat, ball?.lng, phase])
 
   // SET_AIM: rotate the camera so direction-of-play (ball → pin) is
-  // toward the top of the screen, zoom to fit the shot ahead, and
-  // tilt for a first-person-ish perspective. The 1.2s duration is
-  // the satisfying UX moment that signals "now aim".
-  //
-  // Zoom adapts to ball→pin distance so a 90-yd wedge frames the
-  // green tightly while a 380-yd par 5 still shows fairway + green.
-  // Fixed zoom 15 was too far out for short approaches and too close
-  // on long par 5s.
+  // toward the top of the screen, add a subtle 20° tilt, and pick zoom
+  // by ball→pin distance so a wedge frames the green tightly while a
+  // par-5 still shows fairway + green. Fixed zoom 15 was too loose for
+  // short approaches (≤120 yd compressed the shot into a tiny band).
   useEffect(() => {
     if (!isAimPhase) return
     if (!cameraRef.current) return
@@ -224,17 +260,11 @@ export function HoleMap({
       : 0
     const distYd = target ? distanceYards(ball, target) : null
     const zoom =
-      distYd == null
-        ? 15
-        : distYd < 150
-          ? 16
-          : distYd <= 300
-            ? 15
-            : 14
+      distYd == null ? 15 : distYd >= 250 ? 14 : distYd >= 120 ? 15 : 16
     cameraRef.current.setCamera({
       centerCoordinate: toCoord(focus),
       zoomLevel: zoom,
-      pitch: 30,
+      pitch: 20,
       heading: bearing,
       animationDuration: 1200,
     })
@@ -276,6 +306,21 @@ export function HoleMap({
     if (!isAimPhase || !ball || !aim) return null
     return { lat: (ball.lat + aim.lat) / 2, lng: (ball.lng + aim.lng) / 2 }
   }, [isAimPhase, ball, aim])
+
+  const aimGhostFeatures = useMemo(() => {
+    if (aimGhosts.length === 0) return null
+    return {
+      type: 'FeatureCollection' as const,
+      features: aimGhosts.map((g, i) => ({
+        type: 'Feature' as const,
+        properties: { id: i },
+        geometry: {
+          type: 'LineString' as const,
+          coordinates: [toCoord(g.ball), toCoord(g.aim)],
+        },
+      })),
+    }
+  }, [aimGhosts])
 
   // Breadcrumb line through every previous shot start, with a final
   // segment to the current ball so the most recent leg is visible too.
@@ -369,7 +414,12 @@ export function HoleMap({
                 id={`prev-shot-${i}`}
                 coordinate={toCoord(p)}
               >
-                <Marker color="#A66A1F" border="#FBF8F1" size={9} />
+                <NumberedMarker
+                  color="#A66A1F"
+                  border="#FBF8F1"
+                  size={20}
+                  number={i + 1}
+                />
               </Mapbox.PointAnnotation>
             ))}
 
@@ -406,6 +456,33 @@ export function HoleMap({
               </Mapbox.PointAnnotation>
             ))}
 
+          {styleLoaded && !isPinMode && aimGhostFeatures && (
+            <Mapbox.ShapeSource id="aimGhostsLine" shape={aimGhostFeatures}>
+              <Mapbox.LineLayer
+                id="aimGhostsLineLayer"
+                style={{
+                  lineColor: '#A66A1F',
+                  lineWidth: 1.2,
+                  lineDasharray: [3, 3],
+                  lineOpacity: 0.4,
+                }}
+              />
+            </Mapbox.ShapeSource>
+          )}
+
+          {!isPinMode &&
+            aimGhosts.map((g, i) => (
+              <Mapbox.PointAnnotation
+                key={`aim-ghost-${i}`}
+                id={`aim-ghost-${i}`}
+                coordinate={toCoord(g.aim)}
+              >
+                <View style={{ opacity: 0.4 }}>
+                  <Marker color="#A66A1F" border="#FBF8F1" size={9} />
+                </View>
+              </Mapbox.PointAnnotation>
+            ))}
+
           {styleLoaded && aimLine && (
             <Mapbox.ShapeSource id="aimLine" shape={aimLine}>
               <Mapbox.LineLayer
@@ -426,20 +503,38 @@ export function HoleMap({
             </Mapbox.PointAnnotation>
           )}
 
-          {/* Stored hole pin: dim flag, only when no per-round pin.
-              Hidden in PIN mode so the annotation doesn't intercept the
-              tap that's supposed to place a new flag. */}
-          {!isPinMode && !roundPin && pin && (
-            <Mapbox.PointAnnotation id="pin" coordinate={toCoord(pin)}>
-              <Flag tone="dim" />
-            </Mapbox.PointAnnotation>
-          )}
-
-          {/* Per-round pin: prominent flag. Hidden in PIN mode for the
-              same reason — taps need to reach the map below. */}
-          {!isPinMode && roundPin && (
-            <Mapbox.PointAnnotation id="roundPin" coordinate={toCoord(roundPin)}>
-              <Flag tone="strong" />
+          {/* Single flag at effectivePin (roundPin > pin). Strong tone
+              when this round's pin is set, dim when only the stored
+              hole pin is known. In PIN mode the annotation is draggable
+              so the player can move it directly; tap-on-map (handled
+              below in handleTap) still places a fresh flag if dragging
+              isn't ergonomic. */}
+          {effectivePin && (
+            <Mapbox.PointAnnotation
+              id="effectivePin"
+              coordinate={toCoord(effectivePin)}
+              draggable={isPinMode}
+              onDragEnd={(e: unknown) => {
+                if (!isPinMode) return
+                const c = extractCoord(e)
+                if (c) onPlacePin?.(c)
+              }}
+            >
+              {/* 44pt transparent hit area in PIN mode so the flag is
+                  comfortable to drag — matches the ball/aim marker
+                  pattern (Apple HIG minimum target). Outside PIN mode
+                  the visual flag is the entire annotation; the halo
+                  has no behavioral effect. */}
+              <View
+                style={{
+                  width: 44,
+                  height: 44,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <Flag tone={roundPin ? 'strong' : 'dim'} />
+              </View>
             </Mapbox.PointAnnotation>
           )}
 
@@ -671,44 +766,95 @@ function Marker({ color, border, size }: MarkerProps) {
   )
 }
 
-// Simple flag glyph: vertical pole with a triangular cloth at the top.
-// "dim" = stored course pin (course default, may be wrong); "strong" =
-// today's actual flag position captured this round. Sized large enough
-// to read at zoom 17 against satellite imagery — the previous 16x22
-// version was disappearing into the green on real device tests.
+type NumberedMarkerProps = MarkerProps & { number: number; opacity?: number }
+
+function NumberedMarker({
+  color,
+  border,
+  size,
+  number,
+  opacity = 1,
+}: NumberedMarkerProps) {
+  return (
+    <View
+      style={{
+        width: size,
+        height: size,
+        borderRadius: size / 2,
+        backgroundColor: color,
+        borderWidth: 2,
+        borderColor: border,
+        alignItems: 'center',
+        justifyContent: 'center',
+        opacity,
+      }}
+    >
+      <Text
+        style={{
+          color: '#FBF8F1',
+          fontSize: size * 0.55,
+          fontWeight: '700',
+          fontVariant: ['tabular-nums'],
+          lineHeight: size,
+          textAlign: 'center',
+        }}
+      >
+        {number}
+      </Text>
+    </View>
+  )
+}
+
+// Simple flag glyph: vertical pole with a rectangular cloth at the top
+// and a small base disk. PointAnnotation measures children via normal
+// flex layout — the previous absolutely-positioned version sometimes
+// rendered as a zero-size annotation on Android, leaving no visible
+// flag at all. This version uses an explicit-size column so the
+// annotation always has positive bounds.
 function Flag({ tone }: { tone: 'dim' | 'strong' }) {
   const flagColor = tone === 'strong' ? '#A33A2A' : 'rgba(163,58,42,0.85)'
-  const poleColor = tone === 'strong' ? '#FBF8F1' : '#FBF8F1'
+  const poleColor = '#FBF8F1'
   return (
-    <View style={{ width: 26, height: 36, alignItems: 'flex-start' }}>
+    <View
+      style={{
+        width: 28,
+        height: 38,
+        alignItems: 'flex-start',
+        justifyContent: 'flex-start',
+      }}
+    >
+      {/* Cloth + pole top section */}
+      <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
+        <View
+          style={{
+            width: 3,
+            height: 12,
+            backgroundColor: poleColor,
+          }}
+        />
+        <View
+          style={{
+            width: 15,
+            height: 11,
+            backgroundColor: flagColor,
+            borderTopRightRadius: 1,
+          }}
+        />
+      </View>
+      {/* Pole shaft */}
       <View
         style={{
-          position: 'absolute',
-          left: 6,
-          top: 0,
           width: 3,
-          height: 36,
+          height: 22,
           backgroundColor: poleColor,
         }}
       />
+      {/* Base disk */}
       <View
         style={{
-          position: 'absolute',
-          left: 9,
-          top: 1,
-          width: 15,
-          height: 11,
-          backgroundColor: flagColor,
-          borderTopRightRadius: 1,
-        }}
-      />
-      <View
-        style={{
-          position: 'absolute',
-          left: 4,
-          top: 33,
-          width: 7,
+          width: 9,
           height: 3,
+          marginLeft: -3,
           borderRadius: 1.5,
           backgroundColor: poleColor,
         }}

@@ -3,6 +3,14 @@ import { Pressable, ScrollView, Text, useWindowDimensions, View } from 'react-na
 import { Link, useRouter } from 'expo-router'
 import { VictoryAxis, VictoryChart, VictoryLine } from 'victory-native'
 import { Swipeable } from 'react-native-gesture-handler'
+import Animated, {
+  cancelAnimation,
+  useAnimatedStyle,
+  useSharedValue,
+  withRepeat,
+  withSequence,
+  withTiming,
+} from 'react-native-reanimated'
 import { formatSG } from '@oga/core'
 import { deleteRound, getProfile, getRecentSGData } from '@oga/supabase'
 import type { Database } from '@oga/supabase'
@@ -38,6 +46,7 @@ const KICKER: import('react-native').TextStyle = {
   color: '#8A8B7E',
   fontSize: 10,
   fontWeight: '500',
+  fontFamily: 'JetBrainsMono-Medium',
   letterSpacing: 1.4,
   textTransform: 'uppercase',
 }
@@ -170,6 +179,31 @@ export default function Home() {
   // unrelated parent re-renders (delete sync, window resize) don't
   // re-walk the array four times for the SG averages and once more for
   // the trend points.
+  // Pulsing left border on the active-round banner — slow 1s in / 1s out
+  // breath so the player notices the live state without it nagging.
+  // Cancel on unmount or when activeRound clears so we don't leak a
+  // running worklet on Android.
+  const pulse = useSharedValue(1)
+  useEffect(() => {
+    if (!activeRound) {
+      cancelAnimation(pulse)
+      pulse.value = 1
+      return
+    }
+    pulse.value = withRepeat(
+      withSequence(
+        withTiming(0.4, { duration: 1500 }),
+        withTiming(1, { duration: 1500 }),
+      ),
+      -1,
+      false,
+    )
+    return () => {
+      cancelAnimation(pulse)
+    }
+  }, [activeRound, pulse])
+  const pulseStyle = useAnimatedStyle(() => ({ opacity: pulse.value }))
+
   const { breakdown, maxAbs, trend } = useMemo(() => {
     const bd = SG_KEYS.map((c) => {
       const values = rounds.map((r) => r[c.key]).filter((v): v is number => v !== null)
@@ -219,20 +253,40 @@ export default function Home() {
               )
             }
             style={{
-              borderWidth: 1,
-              borderColor: '#A66A1F',
               borderRadius: 2,
               paddingVertical: 14,
               paddingHorizontal: 16,
+              paddingLeft: 18,
               marginBottom: 14,
               backgroundColor: '#FBF8F1',
               flexDirection: 'row',
               alignItems: 'center',
               justifyContent: 'space-between',
+              position: 'relative',
+              overflow: 'hidden',
             }}
           >
+            <Animated.View
+              style={[
+                {
+                  position: 'absolute',
+                  left: 0,
+                  top: 0,
+                  bottom: 0,
+                  width: 4,
+                  backgroundColor: '#A66A1F',
+                },
+                pulseStyle,
+              ]}
+            />
             <View>
-              <Text style={{ ...KICKER, color: '#A66A1F', marginBottom: 4 }}>
+              <Text
+                style={{
+                  ...KICKER,
+                  color: '#A66A1F',
+                  marginBottom: 4,
+                }}
+              >
                 Active round
               </Text>
               <Text
@@ -240,6 +294,8 @@ export default function Home() {
                   color: '#1C211C',
                   fontSize: 15,
                   fontWeight: '500',
+                  fontFamily: 'Fraunces-Medium',
+                  fontStyle: 'italic',
                 }}
               >
                 {activeRound.courseName} · Hole {activeRound.currentHole}

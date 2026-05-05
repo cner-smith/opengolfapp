@@ -211,7 +211,7 @@ export default function AppLayout() {
           ),
         }}
       />
-      <Tabs.Screen name="learn" options={{ href: null }} />
+      <Tabs.Screen name="learn/index" options={{ href: null }} />
       <Tabs.Screen name="learn/[article]" options={{ href: null }} />
       <Tabs.Screen name="bag" options={{ href: null }} />
       <Tabs.Screen name="rounds" options={{ href: null }} />
