@@ -37,6 +37,15 @@ const FACILITY_LABELS: Record<Facility, string> = {
   sim: 'Sim',
 }
 
+// Mirrors the server-side username constraint: alphanumerics, hyphen,
+// underscore; 3–32 chars. Empty string is also valid (username is
+// nullable). Inlined rather than lifted to @oga/core because it has
+// only two callers (web + mobile profile screens) — under the
+// 3-caller extraction rule.
+const USERNAME_PATTERN = /^[a-zA-Z0-9_-]{3,32}$/
+const USERNAME_HELPER =
+  '3–32 characters. Letters, numbers, - and _ only.'
+
 export function SettingsPage() {
   const { data: profile } = useProfile()
   const updateProfile = useUpdateProfile()
@@ -47,7 +56,17 @@ export function SettingsPage() {
   const [goal, setGoal] = useState<Goal | null>(null)
   const [facilities, setFacilities] = useState<Facility[]>([])
   const [saved, setSaved] = useState(false)
+  const [usernameTouched, setUsernameTouched] = useState(false)
   const unit = profile?.distance_unit ?? 'yards'
+
+  // Only validate non-empty values — username is nullable in the DB so
+  // clearing it is allowed. `usernameTouched` keeps the error hidden
+  // until the user has actually started typing, so the field doesn't
+  // open in a red state when the page loads with a blank profile.
+  const trimmedUsername = username.trim()
+  const usernameInvalid =
+    trimmedUsername !== '' && !USERNAME_PATTERN.test(trimmedUsername)
+  const showUsernameError = usernameTouched && usernameInvalid
 
   // Hydrate form fields the first time profile loads. Refetches (our own
   // save, or background refresh) must not stomp on values the user is in
@@ -82,7 +101,11 @@ export function SettingsPage() {
   async function saveProfile() {
     setError(null)
     setSaved(false)
-    const trimmed = username.trim()
+    if (usernameInvalid) {
+      setUsernameTouched(true)
+      setError(USERNAME_HELPER)
+      return
+    }
     const numericHandicap = handicap === '' ? null : Number(handicap)
     if (handicap !== '' && Number.isNaN(numericHandicap)) {
       setError('Handicap must be a number')
@@ -94,7 +117,7 @@ export function SettingsPage() {
     }
     try {
       await updateProfile.mutateAsync({
-        username: trimmed || null,
+        username: trimmedUsername || null,
         handicap_index: numericHandicap,
         skill_level: skill,
         goal,
@@ -136,11 +159,26 @@ export function SettingsPage() {
             <input
               type="text"
               value={username}
-              onChange={(e) => setUsername(e.target.value)}
+              onChange={(e) => {
+                setUsername(e.target.value)
+                setUsernameTouched(true)
+              }}
+              aria-invalid={showUsernameError || undefined}
               autoCapitalize="off"
               autoCorrect="off"
-              style={inputStyle}
+              style={{
+                ...inputStyle,
+                borderColor: showUsernameError ? '#A33A2A' : '#D9D2BF',
+              }}
             />
+            <span
+              style={{
+                fontSize: 11,
+                color: showUsernameError ? '#A33A2A' : '#8A8B7E',
+              }}
+            >
+              {USERNAME_HELPER}
+            </span>
           </label>
           <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             <span className="kicker">Handicap index</span>
@@ -159,7 +197,7 @@ export function SettingsPage() {
             <button
               type="button"
               onClick={saveProfile}
-              disabled={updateProfile.isPending}
+              disabled={updateProfile.isPending || usernameInvalid}
               className="bg-caddie-accent text-caddie-accent-ink"
               style={{
                 border: 'none',
@@ -168,8 +206,12 @@ export function SettingsPage() {
                 fontSize: 13,
                 fontWeight: 600,
                 letterSpacing: '0.02em',
-                cursor: 'pointer',
-                opacity: updateProfile.isPending ? 0.5 : 1,
+                cursor:
+                  updateProfile.isPending || usernameInvalid
+                    ? 'not-allowed'
+                    : 'pointer',
+                opacity:
+                  updateProfile.isPending || usernameInvalid ? 0.5 : 1,
               }}
             >
               {updateProfile.isPending ? 'Saving…' : 'Save profile'}

@@ -28,6 +28,30 @@ const KICKER: import('react-native').TextStyle = {
   textTransform: 'uppercase',
 }
 
+// Mirrors the server-side username constraint: alphanumerics, hyphen,
+// underscore; 3–32 chars. Empty string is also valid (username is
+// nullable). Inlined rather than lifted to @oga/core because it has
+// only two callers (web + mobile profile screens) — under the
+// 3-caller extraction rule.
+const USERNAME_PATTERN = /^[a-zA-Z0-9_-]{3,32}$/
+const USERNAME_HELPER =
+  '3–32 characters. Letters, numbers, - and _ only.'
+
+// PostgREST surfaces raw SQL constraint messages on save errors —
+// fine for `console.error` but not for an Alert. Map the common
+// failure modes to friendly copy; everything else falls back to a
+// neutral string.
+function humanizeProfileSaveError(message: string | undefined): string {
+  if (!message) return 'Could not save profile. Please try again.'
+  if (/duplicate key|unique/i.test(message)) {
+    return 'That username is already taken.'
+  }
+  if (/check constraint|violates/i.test(message)) {
+    return "One of the fields didn't pass validation."
+  }
+  return 'Could not save profile. Please try again.'
+}
+
 export default function ProfileTab() {
   const router = useRouter()
   const { user, loading: authLoading } = useAuth()
@@ -39,6 +63,12 @@ export default function ProfileTab() {
   const [facilities, setFacilities] = useState<string[]>([])
   const [unit, setUnit] = useState<'yards' | 'meters'>('yards')
   const [saving, setSaving] = useState(false)
+  const [usernameTouched, setUsernameTouched] = useState(false)
+
+  const trimmedUsername = username.trim()
+  const usernameInvalid =
+    trimmedUsername !== '' && !USERNAME_PATTERN.test(trimmedUsername)
+  const showUsernameError = usernameTouched && usernameInvalid
 
   // Hydrate form fields from the server once per signed-in user. After
   // hydration, only save() and the user's edits drive the form — a
@@ -74,6 +104,11 @@ export default function ProfileTab() {
 
   async function save() {
     if (!user) return
+    if (usernameInvalid) {
+      setUsernameTouched(true)
+      Alert.alert('Username invalid', USERNAME_HELPER)
+      return
+    }
     const numericHandicap = handicap === '' ? null : Number(handicap)
     if (handicap !== '' && Number.isNaN(numericHandicap)) {
       Alert.alert('Handicap must be a number')
@@ -85,7 +120,7 @@ export default function ProfileTab() {
     }
     setSaving(true)
     const { data, error } = await updateProfile(supabase, user.id, {
-      username: username || null,
+      username: trimmedUsername || null,
       handicap_index: numericHandicap,
       skill_level: skill,
       goal,
@@ -94,7 +129,9 @@ export default function ProfileTab() {
     })
     setSaving(false)
     if (error) {
-      Alert.alert('Save failed', error.message)
+      // eslint-disable-next-line no-console
+      console.error('[profile/save]', error.message)
+      Alert.alert('Save failed', humanizeProfileSaveError(error.message))
       return
     }
     if (data) setProfile(data)
@@ -152,10 +189,26 @@ export default function ProfileTab() {
         <Field label="Username">
           <TextInput
             autoCapitalize="none"
+            autoCorrect={false}
             value={username}
-            onChangeText={setUsername}
-            style={inputStyle}
+            onChangeText={(v) => {
+              setUsername(v)
+              setUsernameTouched(true)
+            }}
+            style={{
+              ...inputStyle,
+              borderColor: showUsernameError ? '#A33A2A' : '#D9D2BF',
+            }}
           />
+          <Text
+            style={{
+              color: showUsernameError ? '#A33A2A' : '#8A8B7E',
+              fontSize: 11,
+              marginTop: 6,
+            }}
+          >
+            {USERNAME_HELPER}
+          </Text>
         </Field>
 
         <Field label="Handicap index">
@@ -249,15 +302,16 @@ export default function ProfileTab() {
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={saving ? 'Saving profile' : 'Save profile changes'}
-          accessibilityState={{ disabled: saving }}
+          accessibilityState={{ disabled: saving || usernameInvalid }}
           onPress={save}
-          disabled={saving}
+          disabled={saving || usernameInvalid}
           style={{
             marginTop: 18,
             backgroundColor: '#1F3D2C',
             borderRadius: 2,
             paddingVertical: 14,
             alignItems: 'center',
+            opacity: saving || usernameInvalid ? 0.5 : 1,
           }}
         >
           <Text
