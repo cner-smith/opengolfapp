@@ -431,20 +431,24 @@ export function HoleMap({
             </Mapbox.PointAnnotation>
           )}
 
-          {/* Stored hole pin: dim flag, only when no per-round pin.
-              Hidden in PIN mode so the annotation doesn't intercept the
-              tap that's supposed to place a new flag. */}
-          {!isPinMode && !roundPin && pin && (
-            <Mapbox.PointAnnotation id="pin" coordinate={toCoord(pin)}>
-              <Flag tone="dim" />
-            </Mapbox.PointAnnotation>
-          )}
-
-          {/* Per-round pin: prominent flag. Hidden in PIN mode for the
-              same reason — taps need to reach the map below. */}
-          {!isPinMode && roundPin && (
-            <Mapbox.PointAnnotation id="roundPin" coordinate={toCoord(roundPin)}>
-              <Flag tone="strong" />
+          {/* Single flag at effectivePin (roundPin > pin). Strong tone
+              when this round's pin is set, dim when only the stored
+              hole pin is known. In PIN mode the annotation is draggable
+              so the player can move it directly; tap-on-map (handled
+              below in handleTap) still places a fresh flag if dragging
+              isn't ergonomic. */}
+          {effectivePin && (
+            <Mapbox.PointAnnotation
+              id="effectivePin"
+              coordinate={toCoord(effectivePin)}
+              draggable={isPinMode}
+              onDragEnd={(e: unknown) => {
+                if (!isPinMode) return
+                const c = extractCoord(e)
+                if (c) onPlacePin?.(c)
+              }}
+            >
+              <Flag tone={roundPin ? 'strong' : 'dim'} />
             </Mapbox.PointAnnotation>
           )}
 
@@ -715,44 +719,56 @@ function NumberedMarker({
   )
 }
 
-// Simple flag glyph: vertical pole with a triangular cloth at the top.
-// "dim" = stored course pin (course default, may be wrong); "strong" =
-// today's actual flag position captured this round. Sized large enough
-// to read at zoom 17 against satellite imagery — the previous 16x22
-// version was disappearing into the green on real device tests.
+// Simple flag glyph: vertical pole with a rectangular cloth at the top
+// and a small base disk. PointAnnotation measures children via normal
+// flex layout — the previous absolutely-positioned version sometimes
+// rendered as a zero-size annotation on Android, leaving no visible
+// flag at all. This version uses an explicit-size column so the
+// annotation always has positive bounds.
 function Flag({ tone }: { tone: 'dim' | 'strong' }) {
   const flagColor = tone === 'strong' ? '#A33A2A' : 'rgba(163,58,42,0.85)'
-  const poleColor = tone === 'strong' ? '#FBF8F1' : '#FBF8F1'
+  const poleColor = '#FBF8F1'
   return (
-    <View style={{ width: 26, height: 36, alignItems: 'flex-start' }}>
+    <View
+      style={{
+        width: 28,
+        height: 38,
+        alignItems: 'flex-start',
+        justifyContent: 'flex-start',
+      }}
+    >
+      {/* Cloth + pole top section */}
+      <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
+        <View
+          style={{
+            width: 3,
+            height: 12,
+            backgroundColor: poleColor,
+          }}
+        />
+        <View
+          style={{
+            width: 15,
+            height: 11,
+            backgroundColor: flagColor,
+            borderTopRightRadius: 1,
+          }}
+        />
+      </View>
+      {/* Pole shaft */}
       <View
         style={{
-          position: 'absolute',
-          left: 6,
-          top: 0,
           width: 3,
-          height: 36,
+          height: 22,
           backgroundColor: poleColor,
         }}
       />
+      {/* Base disk */}
       <View
         style={{
-          position: 'absolute',
-          left: 9,
-          top: 1,
-          width: 15,
-          height: 11,
-          backgroundColor: flagColor,
-          borderTopRightRadius: 1,
-        }}
-      />
-      <View
-        style={{
-          position: 'absolute',
-          left: 4,
-          top: 33,
-          width: 7,
+          width: 9,
           height: 3,
+          marginLeft: -3,
           borderRadius: 1.5,
           backgroundColor: poleColor,
         }}
