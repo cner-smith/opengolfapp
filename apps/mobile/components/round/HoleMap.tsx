@@ -520,7 +520,21 @@ export function HoleMap({
                 if (c) onPlacePin?.(c)
               }}
             >
-              <Flag tone={roundPin ? 'strong' : 'dim'} />
+              {/* 44pt transparent hit area in PIN mode so the flag is
+                  comfortable to drag — matches the ball/aim marker
+                  pattern (Apple HIG minimum target). Outside PIN mode
+                  the visual flag is the entire annotation; the halo
+                  has no behavioral effect. */}
+              <View
+                style={{
+                  width: 44,
+                  height: 44,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <Flag tone={roundPin ? 'strong' : 'dim'} />
+              </View>
             </Mapbox.PointAnnotation>
           )}
 

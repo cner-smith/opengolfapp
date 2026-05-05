@@ -46,6 +46,7 @@ const KICKER: import('react-native').TextStyle = {
   color: '#8A8B7E',
   fontSize: 10,
   fontWeight: '500',
+  fontFamily: 'JetBrainsMono-Medium',
   letterSpacing: 1.4,
   textTransform: 'uppercase',
 }
@@ -255,7 +256,7 @@ export default function Home() {
               borderRadius: 2,
               paddingVertical: 14,
               paddingHorizontal: 16,
-              paddingLeft: 20,
+              paddingLeft: 18,
               marginBottom: 14,
               backgroundColor: '#FBF8F1',
               flexDirection: 'row',
@@ -284,7 +285,6 @@ export default function Home() {
                   ...KICKER,
                   color: '#A66A1F',
                   marginBottom: 4,
-                  fontFamily: 'JetBrainsMono-Medium',
                 }}
               >
                 Active round
@@ -295,6 +295,7 @@ export default function Home() {
                   fontSize: 15,
                   fontWeight: '500',
                   fontFamily: 'Fraunces-Medium',
+                  fontStyle: 'italic',
                 }}
               >
                 {activeRound.courseName} · Hole {activeRound.currentHole}
