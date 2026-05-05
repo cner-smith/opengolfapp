@@ -5,6 +5,7 @@ import {
   useEffect,
   useMemo,
   useReducer,
+  useRef,
   useState,
   type ReactNode,
 } from 'react'
@@ -14,6 +15,8 @@ import type { Database } from '@oga/supabase'
 import { HoleScoreCard } from '../../components/rounds/HoleScoreCard'
 import { ShotEntryModal } from '../../components/rounds/ShotEntryModal'
 import { RoundSummary } from '../../components/rounds/RoundSummary'
+import { ShareableScorecardCard } from '../../components/round/ShareableScorecardCard'
+import { toPng } from 'html-to-image'
 import type {
   ExistingShot,
   HoleGeo,
@@ -287,6 +290,9 @@ export function RoundDetailPage() {
   const [onGreenPrompt, setOnGreenPrompt] = useState<PlacedPoint | null>(
     null,
   )
+  const [shareTone, setShareTone] = useState<'light' | 'dark'>('light')
+  const [sharing, setSharing] = useState(false)
+  const shareCardRef = useRef<HTMLDivElement | null>(null)
 
   const [shotsModalFor, setShotsModalFor] = useState<{
     holeScoreId: string
@@ -691,6 +697,37 @@ export function RoundDetailPage() {
     }
   }
 
+  // Capture the off-screen ShareableScorecardCard via html-to-image and
+  // trigger a browser download. The card is rendered absolutely-
+  // positioned far off the left edge so the user never sees it; it
+  // exists only to hand a real DOM node to the rasteriser. 2x pixel
+  // ratio gives crisp output on retina screens without ballooning the
+  // file size for group-chat shares.
+  async function handleShare() {
+    if (!shareCardRef.current || sharing) return
+    setSharing(true)
+    try {
+      const dataUrl = await toPng(shareCardRef.current, {
+        pixelRatio: 2,
+        cacheBust: true,
+        backgroundColor: shareTone === 'dark' ? '#1C211C' : '#FBF8F1',
+      })
+      const courseSlug = (round.data?.courses?.name ?? 'round')
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/(^-|-$)/g, '')
+      const date = round.data?.played_at ?? 'unknown-date'
+      const link = document.createElement('a')
+      link.href = dataUrl
+      link.download = `${courseSlug}-${date}-scorecard.png`
+      link.click()
+    } catch (err) {
+      setCompleteError(toUserMessage(err))
+    } finally {
+      setSharing(false)
+    }
+  }
+
   async function saveReviewedHole(rows: ReviewedShotRow[]) {
     if (!user || !activeHole || !round.data) return
     setSavingHole(true)
@@ -867,6 +904,43 @@ export function RoundDetailPage() {
           </button>
           <button
             type="button"
+            onClick={handleShare}
+            disabled={sharing || holesPlayed === 0}
+            className="text-caddie-accent hover:bg-caddie-accent/10 disabled:opacity-40"
+            style={{
+              background: 'transparent',
+              border: '1px solid #1F3D2C',
+              borderRadius: 2,
+              padding: '12px 14px',
+              fontSize: 13,
+              fontWeight: 500,
+              letterSpacing: '0.02em',
+            }}
+          >
+            {sharing ? 'Rendering…' : 'Share scorecard'}
+          </button>
+          <button
+            type="button"
+            onClick={() =>
+              setShareTone((t) => (t === 'light' ? 'dark' : 'light'))
+            }
+            className="text-caddie-ink-mute hover:text-caddie-ink"
+            style={{
+              background: 'transparent',
+              border: 'none',
+              padding: '12px 6px',
+              fontSize: 11,
+              letterSpacing: '0.14em',
+              textTransform: 'uppercase',
+              fontFamily: '"JetBrains Mono", monospace',
+              cursor: 'pointer',
+            }}
+            title="Toggle share card tone"
+          >
+            {shareTone === 'light' ? 'Light' : 'Dark'}
+          </button>
+          <button
+            type="button"
             onClick={handleComplete}
             disabled={completeMutation.isPending || holesPlayed === 0}
             className="bg-caddie-accent text-caddie-accent-ink hover:opacity-90 disabled:opacity-40"
@@ -880,6 +954,29 @@ export function RoundDetailPage() {
           >
             {completeMutation.isPending ? 'Calculating…' : 'Save SG + finalize'}
           </button>
+        </div>
+      </div>
+
+      {/* Off-screen render target for html-to-image. Position fixed
+          left:-99999px keeps the rasteriser-visible DOM out of the
+          user's view; pointerEvents none so it can never intercept
+          clicks while the card is mounted. */}
+      <div
+        aria-hidden
+        style={{
+          position: 'fixed',
+          left: -99999,
+          top: 0,
+          pointerEvents: 'none',
+        }}
+      >
+        <div ref={shareCardRef}>
+          <ShareableScorecardCard
+            round={round.data}
+            holes={holes}
+            scoresByHoleId={scoresByHoleId}
+            tone={shareTone}
+          />
         </div>
       </div>
 
