@@ -154,16 +154,39 @@ export default function NewRound() {
       })
       if (roundError || !round) throw roundError ?? new Error('Round insert failed')
 
-      const { data: holes, error: holesError } = await supabase
+      const { data: existingHoles, error: holesError } = await supabase
         .from('holes')
         .select('id, number, par')
         .eq('course_id', courseId)
         .order('number')
       if (holesError) throw holesError
 
+      // Most courses (private clubs, anything not OSM-mapped) have zero
+      // rows in `holes`. Without holes there are no FK targets for
+      // hole_scores, the hole screen hits "Hole not found", and the
+      // resume banner traps the user. Materialize 18 par-4 placeholders
+      // for the course on the first round there — subsequent rounds at
+      // the same course inherit them, and any later enrichment / shot
+      // logging upgrades the rows in place via tee_lat / pin_lat fills.
+      let holes = existingHoles ?? []
+      if (holes.length === 0) {
+        const placeholders = Array.from({ length: 18 }, (_, i) => ({
+          course_id: courseId,
+          number: i + 1,
+          par: 4,
+          stroke_index: i + 1,
+        }))
+        const { data: inserted, error: phErr } = await supabase
+          .from('holes')
+          .insert(placeholders)
+          .select('id, number, par')
+        if (phErr) throw phErr
+        holes = inserted ?? []
+      }
+
       // Single batch insert beats 18 sequential round-trips; round was just
       // created so there's nothing to conflict against.
-      const holeScoreRows = (holes ?? []).map((h) => ({
+      const holeScoreRows = holes.map((h) => ({
         round_id: round.id,
         hole_id: h.id,
         score: 0,
