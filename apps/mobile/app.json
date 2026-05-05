@@ -6,6 +6,12 @@
     "version": "0.0.1",
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
+    "backgroundColor": "#1C211C",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "cover",
+      "backgroundColor": "#1C211C"
+    },
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "app.opengolf.oga",
