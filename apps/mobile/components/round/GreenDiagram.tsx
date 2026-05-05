@@ -36,6 +36,15 @@ const KICKER: import('react-native').TextStyle = {
 const SVG_WIDTH = 300
 const SVG_HEIGHT = 240
 const PX_PER_INCH = 3
+const CENTER_X = 150
+// Handle visual range, in SVG units. Stays inside the green trapezoid
+// (front edge 30→270). Both the worklet handle position and the
+// committed offset clamp against this range so they can't disagree —
+// the previous code clamped commit at ±50 in but pinned handle cx to
+// [50, 250] (±33 in), so dragging past the visual edge silently kept
+// updating the stored value while the handle stopped, producing drift.
+const HANDLE_MIN_X = 50
+const HANDLE_MAX_X = 250
 
 // Editorial perspective view from behind the ball, mobile flavor.
 // Drag the amber handle horizontally to bias aim left/right of the
@@ -76,10 +85,13 @@ export function GreenDiagram({
   function commitWithTranslation(translationX: number) {
     const w = layoutRef.current?.width ?? SVG_WIDTH
     const pxPerSvgX = w / SVG_WIDTH
-    const offsetInchesDelta = translationX / pxPerSvgX / PX_PER_INCH
-    const next = Math.round(
-      clamp(aimOffsetInches + offsetInchesDelta, -50, 50),
+    const svgDelta = translationX / pxPerSvgX
+    const targetCx = clamp(
+      CENTER_X + aimOffsetInches * PX_PER_INCH + svgDelta,
+      HANDLE_MIN_X,
+      HANDLE_MAX_X,
     )
+    const next = Math.round((targetCx - CENTER_X) / PX_PER_INCH)
     if (next !== aimOffsetInches) onAimChange(next)
   }
 
@@ -105,26 +117,26 @@ export function GreenDiagram({
   const handleProps = useAnimatedProps(() => {
     'worklet'
     const pxPerSvgX = layoutWidth.value / SVG_WIDTH
-    const deltaInches = offsetX.value / pxPerSvgX / PX_PER_INCH
+    const svgDelta = offsetX.value / pxPerSvgX
     const cx = clampWorklet(
-      150 + (startOffset.value + deltaInches) * PX_PER_INCH,
-      50,
-      250,
+      CENTER_X + startOffset.value * PX_PER_INCH + svgDelta,
+      HANDLE_MIN_X,
+      HANDLE_MAX_X,
     )
     return { cx }
   })
   const trajectoryProps = useAnimatedProps(() => {
     'worklet'
     const pxPerSvgX = layoutWidth.value / SVG_WIDTH
-    const deltaInches = offsetX.value / pxPerSvgX / PX_PER_INCH
+    const svgDelta = offsetX.value / pxPerSvgX
     const handleX = clampWorklet(
-      150 + (startOffset.value + deltaInches) * PX_PER_INCH,
-      50,
-      250,
+      CENTER_X + startOffset.value * PX_PER_INCH + svgDelta,
+      HANDLE_MIN_X,
+      HANDLE_MAX_X,
     )
-    const curveControlX = handleX * 0.6 + 150 * 0.4
+    const curveControlX = handleX * 0.6 + CENTER_X * 0.4
     return {
-      d: `M${ballX} ${ballY} Q ${curveControlX} ${handleY} 150 ${trajectoryEndY}`,
+      d: `M${ballX} ${ballY} Q ${curveControlX} ${handleY} ${CENTER_X} ${trajectoryEndY}`,
     }
   })
 
