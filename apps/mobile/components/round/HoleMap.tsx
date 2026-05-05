@@ -234,14 +234,9 @@ export function HoleMap({
   }, [ball?.lat, ball?.lng, phase])
 
   // SET_AIM: rotate the camera so direction-of-play (ball → pin) is
-  // toward the top of the screen, zoom to fit the shot ahead, and
-  // tilt for a first-person-ish perspective. The 1.2s duration is
-  // the satisfying UX moment that signals "now aim".
-  //
-  // Zoom adapts to ball→pin distance so a 90-yd wedge frames the
-  // green tightly while a 380-yd par 5 still shows fairway + green.
-  // Fixed zoom 15 was too far out for short approaches and too close
-  // on long par 5s.
+  // toward the top of the screen and add a subtle tilt. Fixed zoom 15
+  // and pitch 20 — device testing showed adaptive zoom + 30° pitch was
+  // too aggressive and disorienting on the SET_AIM transition.
   useEffect(() => {
     if (!isAimPhase) return
     if (!cameraRef.current) return
@@ -257,19 +252,10 @@ export function HoleMap({
       ? (Math.atan2(target.lng - ball.lng, target.lat - ball.lat) * 180) /
         Math.PI
       : 0
-    const distYd = target ? distanceYards(ball, target) : null
-    const zoom =
-      distYd == null
-        ? 15
-        : distYd < 150
-          ? 16
-          : distYd <= 300
-            ? 15
-            : 14
     cameraRef.current.setCamera({
       centerCoordinate: toCoord(focus),
-      zoomLevel: zoom,
-      pitch: 30,
+      zoomLevel: 15,
+      pitch: 20,
       heading: bearing,
       animationDuration: 1200,
     })
