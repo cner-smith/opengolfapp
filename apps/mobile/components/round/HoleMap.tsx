@@ -239,9 +239,10 @@ export function HoleMap({
   }, [ball?.lat, ball?.lng, phase])
 
   // SET_AIM: rotate the camera so direction-of-play (ball → pin) is
-  // toward the top of the screen and add a subtle tilt. Fixed zoom 15
-  // and pitch 20 — device testing showed adaptive zoom + 30° pitch was
-  // too aggressive and disorienting on the SET_AIM transition.
+  // toward the top of the screen, add a subtle 20° tilt, and pick zoom
+  // by ball→pin distance so a wedge frames the green tightly while a
+  // par-5 still shows fairway + green. Fixed zoom 15 was too loose for
+  // short approaches (≤120 yd compressed the shot into a tiny band).
   useEffect(() => {
     if (!isAimPhase) return
     if (!cameraRef.current) return
@@ -257,9 +258,12 @@ export function HoleMap({
       ? (Math.atan2(target.lng - ball.lng, target.lat - ball.lat) * 180) /
         Math.PI
       : 0
+    const distYd = target ? distanceYards(ball, target) : null
+    const zoom =
+      distYd == null ? 15 : distYd >= 250 ? 14 : distYd >= 120 ? 15 : 16
     cameraRef.current.setCamera({
       centerCoordinate: toCoord(focus),
-      zoomLevel: 15,
+      zoomLevel: zoom,
       pitch: 20,
       heading: bearing,
       animationDuration: 1200,
