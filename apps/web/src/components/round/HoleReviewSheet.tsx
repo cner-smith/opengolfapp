@@ -4,6 +4,7 @@ import {
   LIE_TYPES,
   NEAR_GREEN_YARDS,
   buildInitialRows,
+  formatClubLabel,
   haversineYards,
   type Club,
   type LieType,
@@ -321,12 +322,18 @@ function ShotRow({
   // DEFAULT_BAG when empty/loading. Splice in the row's current `club`
   // when it isn't represented (custom utility club types from a bag
   // edit, or a legacy CLUBS-based row from before this PR) so the
-  // <select> always shows the value the user actually has.
-  const clubOptions = useMemo(() => {
-    const base = bag.data && bag.data.length > 0
-      ? bag.data.map((c) => c.club_type)
-      : DEFAULT_BAG.map((c) => c.club_type)
-    if (row.club && !base.includes(row.club)) return [row.club, ...base]
+  // <select> always shows the value the user actually has. Labels
+  // route through `formatClubLabel` so a custom_wedge entry reads as
+  // its loft (e.g. "58°") rather than the raw "custom_wedge" key.
+  const clubOptions = useMemo<{ value: string; label: string }[]>(() => {
+    const source = bag.data && bag.data.length > 0 ? bag.data : DEFAULT_BAG
+    const base = source.map((c) => ({
+      value: c.club_type,
+      label: formatClubLabel(c),
+    }))
+    if (row.club && !base.some((o) => o.value === row.club)) {
+      return [{ value: row.club, label: row.club }, ...base]
+    }
     return base
   }, [bag.data, row.club])
   return (
@@ -372,8 +379,8 @@ function ShotRow({
         }}
       >
         {clubOptions.map((c) => (
-          <option key={c} value={c}>
-            {c}
+          <option key={c.value} value={c.value}>
+            {c.label}
           </option>
         ))}
       </select>

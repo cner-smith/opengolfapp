@@ -1,46 +1,35 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Pressable, ScrollView, Text, useWindowDimensions, View } from 'react-native'
-import { Link, useFocusEffect, useRouter } from 'expo-router'
-import { VictoryAxis, VictoryChart, VictoryLine } from 'victory-native'
-import { Swipeable } from 'react-native-gesture-handler'
-import Animated, {
-  cancelAnimation,
-  useAnimatedStyle,
-  useSharedValue,
-  withRepeat,
-  withSequence,
-  withTiming,
-} from 'react-native-reanimated'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { ScrollView, Text, View } from 'react-native'
 import { formatSG } from '@oga/core'
 import { deleteRound, getProfile, getRecentSGData } from '@oga/supabase'
 import type { Database } from '@oga/supabase'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
+import { useActiveRound } from '../../hooks/useActiveRound'
 import { syncPendingShots } from '../../lib/sync'
 import { pendingCount } from '../../lib/db'
 import { AppBar } from '../../components/ui/AppBar'
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
+import { ResumeRoundBanner } from '../../components/home/ResumeRoundBanner'
+import { SGBreakdown } from '../../components/home/SGBreakdown'
+import { SGTrendChart } from '../../components/home/SGTrendChart'
+import {
+  LogPastRoundCTA,
+  StartLiveRoundCTA,
+} from '../../components/home/RoundCTAs'
+import {
+  RecentRoundsList,
+  type RecentRoundRow,
+} from '../../components/home/RecentRoundsList'
 
 type Profile = Database['public']['Tables']['profiles']['Row']
 
-interface RecentRound {
-  id: string
-  played_at: string
-  total_score: number | null
+interface RecentRound extends RecentRoundRow {
   sg_off_tee: number | null
   sg_approach: number | null
   sg_around_green: number | null
   sg_putting: number | null
-  sg_total: number | null
-  courses?: { name: string | null } | null
 }
-
-const SG_KEYS = [
-  { key: 'sg_off_tee', label: 'Off tee' },
-  { key: 'sg_approach', label: 'Approach' },
-  { key: 'sg_around_green', label: 'Around green' },
-  { key: 'sg_putting', label: 'Putting' },
-] as const
 
 const KICKER: import('react-native').TextStyle = {
   color: '#8A8B7E',
@@ -51,26 +40,17 @@ const KICKER: import('react-native').TextStyle = {
   textTransform: 'uppercase',
 }
 
-interface ActiveRound {
-  id: string
-  courseName: string
-  currentHole: number
-}
-
 export default function Home() {
   const { user } = useAuth()
-  const router = useRouter()
   const [profile, setProfile] = useState<Profile | null>(null)
   const [rounds, setRounds] = useState<RecentRound[]>([])
-  const [activeRound, setActiveRound] = useState<ActiveRound | null>(null)
+  const activeRound = useActiveRound()
   const [pending, setPending] = useState(0)
   const [pendingDelete, setPendingDelete] = useState<{
     id: string
     name: string
   } | null>(null)
   const [deleting, setDeleting] = useState(false)
-  const swipeRefs = useRef<Map<string, Swipeable | null>>(new Map())
-  const { width: screenWidth } = useWindowDimensions()
 
   const handleDelete = useCallback(
     async (id: string) => {
@@ -83,7 +63,6 @@ export default function Home() {
       } finally {
         setDeleting(false)
         setPendingDelete(null)
-        swipeRefs.current.delete(id)
       }
     },
     [user],
@@ -122,113 +101,19 @@ export default function Home() {
       .catch(() => undefined)
   }, [])
 
-  // Active-round detection. Active = total_score IS NULL AND played_at
-  // within the last day, so a round abandoned a week ago doesn't haunt
-  // the home screen forever. The current hole is the highest hole the
-  // player has logged a score on, +1 (capped at 18) — so resuming
-  // jumps back to where they left off, not hole 1.
-  //
-  // Uses `useFocusEffect` so the query re-runs every time the home tab
-  // gains focus. Without this, deleting the active round from the
-  // hole/end-round screens left a stale banner showing on home until
-  // the app reloaded — there's no react-query cache here to invalidate.
-  useFocusEffect(
-    useCallback(() => {
-      if (!user) return
-      let active = true
-      ;(async () => {
-        const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000)
-          .toISOString()
-          .slice(0, 10)
-        const { data, error } = await supabase
-          .from('rounds')
-          .select('id, played_at, course_id, courses(name)')
-          .eq('user_id', user.id)
-          .is('total_score', null)
-          .gte('played_at', oneDayAgo)
-          .order('played_at', { ascending: false })
-          .limit(1)
-        if (!active) return
-        if (error || !data?.[0]) {
-          setActiveRound(null)
-          return
-        }
-        const round = data[0] as {
-          id: string
-          played_at: string
-          course_id: string
-          courses?: { name: string | null } | null
-        }
-        const { data: hs } = await supabase
-          .from('hole_scores')
-          .select('score, holes(number)')
-          .eq('round_id', round.id)
-          .gt('score', 0)
-        if (!active) return
-        const maxHole = (hs ?? []).reduce<number>((acc, row) => {
-          const n = (row as { holes?: { number?: number | null } | null })
-            .holes?.number
-          return typeof n === 'number' && n > acc ? n : acc
-        }, 0)
-        const next = Math.min(18, Math.max(1, maxHole + 1))
-        setActiveRound({
-          id: round.id,
-          courseName: round.courses?.name ?? 'Round',
-          currentHole: next,
-        })
-      })()
-      return () => {
-        active = false
-      }
-    }, [user?.id]),
+  const trend = useMemo(
+    () =>
+      [...rounds].reverse().map((r, i) => ({
+        x: i + 1,
+        y: r.sg_total ?? 0,
+      })),
+    [rounds],
   )
 
-  // SG breakdown + trend are pure functions of `rounds` — memoize so
-  // unrelated parent re-renders (delete sync, window resize) don't
-  // re-walk the array four times for the SG averages and once more for
-  // the trend points.
-  // Pulsing left border on the active-round banner — slow 1s in / 1s out
-  // breath so the player notices the live state without it nagging.
-  // Cancel on unmount or when activeRound clears so we don't leak a
-  // running worklet on Android.
-  const pulse = useSharedValue(1)
-  useEffect(() => {
-    if (!activeRound) {
-      cancelAnimation(pulse)
-      pulse.value = 1
-      return
-    }
-    pulse.value = withRepeat(
-      withSequence(
-        withTiming(0.4, { duration: 1500 }),
-        withTiming(1, { duration: 1500 }),
-      ),
-      -1,
-      false,
-    )
-    return () => {
-      cancelAnimation(pulse)
-    }
-  }, [activeRound, pulse])
-  const pulseStyle = useAnimatedStyle(() => ({ opacity: pulse.value }))
-
-  const { breakdown, maxAbs, trend } = useMemo(() => {
-    const bd = SG_KEYS.map((c) => {
-      const values = rounds.map((r) => r[c.key]).filter((v): v is number => v !== null)
-      const avg =
-        values.length === 0 ? 0 : values.reduce((a, b) => a + b, 0) / values.length
-      return { ...c, value: Number(avg.toFixed(2)) }
-    })
-    const maxAbsValue = Math.max(...bd.map((b) => Math.abs(b.value)), 0.5)
-    const trendPoints = [...rounds].reverse().map((r, i) => ({
-      x: i + 1,
-      y: r.sg_total ?? 0,
-    }))
-    return { breakdown: bd, maxAbs: maxAbsValue, trend: trendPoints }
-  }, [rounds])
-
   const eyebrow =
-    profile?.handicap_index != null ? `Handicap ${profile.handicap_index}` : 'Welcome'
+    profile?.handicap_index != null
+      ? `Handicap ${profile.handicap_index}`
+      : 'Welcome'
   const firstName = profile?.username?.split(/\s+/)[0]
 
   return (
@@ -251,142 +136,9 @@ export default function Home() {
           Last {rounds.length || 0} round{rounds.length === 1 ? '' : 's'}
         </Text>
 
-        {activeRound && (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={`Resume active round at ${activeRound.courseName}, hole ${activeRound.currentHole}`}
-            onPress={() =>
-              router.push(
-                `/(app)/round/${activeRound.id}/hole/${activeRound.currentHole}?mode=live`,
-              )
-            }
-            style={{
-              borderRadius: 2,
-              paddingVertical: 14,
-              paddingHorizontal: 16,
-              paddingLeft: 18,
-              marginBottom: 14,
-              backgroundColor: '#FBF8F1',
-              flexDirection: 'row',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              position: 'relative',
-              overflow: 'hidden',
-            }}
-          >
-            <Animated.View
-              style={[
-                {
-                  position: 'absolute',
-                  left: 0,
-                  top: 0,
-                  bottom: 0,
-                  width: 4,
-                  backgroundColor: '#A66A1F',
-                },
-                pulseStyle,
-              ]}
-            />
-            <View>
-              <Text
-                style={{
-                  ...KICKER,
-                  color: '#A66A1F',
-                  marginBottom: 4,
-                }}
-              >
-                Active round
-              </Text>
-              <Text
-                style={{
-                  color: '#1C211C',
-                  fontSize: 15,
-                  fontWeight: '500',
-                  fontFamily: 'Fraunces-Medium',
-                  fontStyle: 'italic',
-                }}
-              >
-                {activeRound.courseName} · Hole {activeRound.currentHole}
-              </Text>
-            </View>
-            <Text
-              style={{
-                color: '#A66A1F',
-                fontSize: 14,
-                fontWeight: '600',
-                letterSpacing: 0.3,
-              }}
-            >
-              Resume →
-            </Text>
-          </Pressable>
-        )}
-
-        {!activeRound && (
-          <>
-            <Link href="/(app)/round/new?mode=live" asChild>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Start live round"
-                style={{
-                  backgroundColor: '#1F3D2C',
-                  borderRadius: 2,
-                  paddingVertical: 18,
-                  alignItems: 'center',
-                  marginBottom: 6,
-                }}
-              >
-                <Text
-                  style={{
-                    color: '#F2EEE5',
-                    fontSize: 16,
-                    fontWeight: '700',
-                    letterSpacing: 0.4,
-                  }}
-                >
-                  ▶  Start live round
-                </Text>
-              </Pressable>
-            </Link>
-            <Text
-              style={{
-                color: '#5C6356',
-                fontSize: 12,
-                textAlign: 'center',
-                marginBottom: 14,
-              }}
-            >
-              Track shots in real time with GPS
-            </Text>
-          </>
-        )}
-
-        <Link href="/(app)/round/new?mode=past" asChild>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Log past round"
-            style={{
-              borderWidth: 1,
-              borderColor: '#1F3D2C',
-              backgroundColor: 'transparent',
-              borderRadius: 2,
-              paddingVertical: 14,
-              alignItems: 'center',
-              marginBottom: 22,
-            }}
-          >
-            <Text
-              style={{
-                color: '#1F3D2C',
-                fontSize: 14,
-                fontWeight: '600',
-                letterSpacing: 0.3,
-              }}
-            >
-              +  Log past round
-            </Text>
-          </Pressable>
-        </Link>
+        {activeRound && <ResumeRoundBanner round={activeRound} />}
+        {!activeRound && <StartLiveRoundCTA />}
+        <LogPastRoundCTA />
 
         {pending > 0 && (
           <View
@@ -438,180 +190,15 @@ export default function Home() {
           </View>
         ) : (
           <>
-            <Section kicker="SG breakdown">
-              <View style={{ gap: 14 }}>
-                {breakdown.map((b) => (
-                  <SGBar key={b.key} label={b.label} value={b.value} max={maxAbs} />
-                ))}
-              </View>
-            </Section>
-
-            <Section kicker="SG total trend">
-              <VictoryChart
-                height={200}
-                width={screenWidth - 36}
-                padding={{ top: 12, right: 16, bottom: 28, left: 32 }}
-              >
-                <VictoryAxis
-                  style={{
-                    axis: { stroke: '#D9D2BF' },
-                    tickLabels: {
-                      fontSize: 9,
-                      fill: '#8A8B7E',
-                      fontFamily: 'JetBrainsMono-Medium',
-                    },
-                    grid: { stroke: 'transparent' },
-                  }}
-                />
-                <VictoryAxis
-                  dependentAxis
-                  style={{
-                    axis: { stroke: '#D9D2BF' },
-                    tickLabels: {
-                      fontSize: 9,
-                      fill: '#8A8B7E',
-                      fontFamily: 'JetBrainsMono-Medium',
-                    },
-                    grid: { stroke: '#EBE5D6', strokeDasharray: '0' },
-                  }}
-                />
-                <VictoryLine
-                  data={trend}
-                  style={{ data: { stroke: '#1F3D2C', strokeWidth: 1.5 } }}
-                />
-              </VictoryChart>
-            </Section>
+            <SGBreakdown rounds={rounds} />
+            <SGTrendChart data={trend} />
           </>
         )}
 
-        <Section kicker="Recent rounds">
-          {rounds.length === 0 ? (
-            <Text style={{ color: '#8A8B7E', fontSize: 13 }}>No rounds yet.</Text>
-          ) : (
-            <View style={{ borderTopWidth: 1, borderColor: '#D9D2BF' }}>
-              {rounds.slice(0, 5).map((r) => (
-                <Swipeable
-                  key={r.id}
-                  ref={(ref) => {
-                    swipeRefs.current.set(r.id, ref)
-                  }}
-                  renderRightActions={() => (
-                    <Pressable
-                      accessibilityRole="button"
-                      accessibilityLabel={`Delete round at ${r.courses?.name ?? 'this round'}`}
-                      onPress={() => {
-                        swipeRefs.current.get(r.id)?.close()
-                        setPendingDelete({
-                          id: r.id,
-                          name: r.courses?.name ?? 'this round',
-                        })
-                      }}
-                      style={{
-                        backgroundColor: '#A33A2A',
-                        justifyContent: 'center',
-                        alignItems: 'center',
-                        paddingHorizontal: 22,
-                      }}
-                    >
-                      <Text
-                        style={{
-                          color: '#F2EEE5',
-                          fontSize: 13,
-                          fontWeight: '600',
-                          letterSpacing: 0.3,
-                        }}
-                      >
-                        Delete
-                      </Text>
-                    </Pressable>
-                  )}
-                  overshootRight={false}
-                >
-                  <Link href={`/(app)/round/${r.id}`} asChild>
-                    <Pressable
-                      accessibilityRole="button"
-                      accessibilityLabel={`Open round at ${r.courses?.name ?? 'unknown course'} on ${r.played_at}`}
-                      style={{
-                        flexDirection: 'row',
-                        justifyContent: 'space-between',
-                        alignItems: 'center',
-                        paddingVertical: 14,
-                        paddingHorizontal: 4,
-                        borderBottomWidth: 1,
-                        borderColor: '#D9D2BF',
-                        backgroundColor: '#F2EEE5',
-                      }}
-                    >
-                      <View style={{ flex: 1, paddingRight: 12 }}>
-                        <Text
-                          style={{
-                            ...KICKER,
-                            color: '#8A8B7E',
-                            marginBottom: 4,
-                          }}
-                        >
-                          {r.played_at}
-                        </Text>
-                        <Text
-                          style={{
-                            color: '#1C211C',
-                            fontSize: 17,
-                            fontWeight: '500',
-                            fontStyle: 'italic',
-                          }}
-                        >
-                          {r.courses?.name ?? 'Round'}
-                        </Text>
-                      </View>
-                      <View
-                        style={{
-                          flexDirection: 'row',
-                          alignItems: 'baseline',
-                          gap: 14,
-                        }}
-                      >
-                        <Text
-                          style={{
-                            color: '#1C211C',
-                            fontSize: 22,
-                            fontWeight: '500',
-                            fontVariant: ['tabular-nums'],
-                          }}
-                        >
-                          {r.total_score ?? '—'}
-                        </Text>
-                        <SGValue value={r.sg_total} />
-                      </View>
-                    </Pressable>
-                  </Link>
-                </Swipeable>
-              ))}
-              {rounds.length > 5 && (
-                <Link href="/(app)/rounds" asChild>
-                  <Pressable
-                    accessibilityRole="link"
-                    accessibilityLabel="See all rounds"
-                    style={{
-                      paddingVertical: 14,
-                      paddingHorizontal: 4,
-                      alignItems: 'flex-end',
-                    }}
-                  >
-                    <Text
-                      style={{
-                        color: '#8A8B7E',
-                        fontSize: 13,
-                        fontWeight: '500',
-                      }}
-                    >
-                      See all rounds →
-                    </Text>
-                  </Pressable>
-                </Link>
-              )}
-            </View>
-          )}
-        </Section>
+        <RecentRoundsList
+          rounds={rounds}
+          onRequestDelete={(id, name) => setPendingDelete({ id, name })}
+        />
       </ScrollView>
       <ConfirmDialog
         visible={!!pendingDelete}
@@ -630,119 +217,5 @@ export default function Home() {
         onCancel={() => setPendingDelete(null)}
       />
     </View>
-  )
-}
-
-function Section({
-  kicker,
-  children,
-}: {
-  kicker: string
-  children: React.ReactNode
-}) {
-  return (
-    <View style={{ marginBottom: 28 }}>
-      <View
-        style={{
-          borderTopWidth: 1,
-          borderColor: '#D9D2BF',
-          paddingTop: 14,
-          marginBottom: 14,
-        }}
-      >
-        <Text style={KICKER}>{kicker}</Text>
-      </View>
-      {children}
-    </View>
-  )
-}
-
-function SGBar({
-  label,
-  value,
-  max,
-}: {
-  label: string
-  value: number
-  max: number
-}) {
-  const pct = Math.min(Math.abs(value) / max, 1) * 50
-  const isPositive = value > 0
-  const color = value > 0 ? '#1F3D2C' : value < 0 ? '#A33A2A' : '#8A8B7E'
-  return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-      <Text style={{ color: '#1C211C', fontSize: 13, width: 100 }}>{label}</Text>
-      <View
-        style={{
-          flex: 1,
-          height: 8,
-          position: 'relative',
-        }}
-      >
-        <View
-          style={{
-            position: 'absolute',
-            left: 0,
-            right: 0,
-            top: 4,
-            height: 1,
-            backgroundColor: '#D9D2BF',
-          }}
-        />
-        <View
-          style={{
-            position: 'absolute',
-            top: 0,
-            bottom: 0,
-            left: '50%',
-            width: 1,
-            backgroundColor: '#9F9580',
-          }}
-        />
-        <View
-          style={{
-            position: 'absolute',
-            top: 1,
-            bottom: 1,
-            left: isPositive ? '50%' : `${50 - pct}%`,
-            width: `${pct}%`,
-            backgroundColor: color,
-          }}
-        />
-      </View>
-      <Text
-        style={{
-          color,
-          fontSize: 15,
-          fontStyle: 'italic',
-          fontWeight: '500',
-          width: 56,
-          textAlign: 'right',
-          fontVariant: ['tabular-nums'],
-        }}
-      >
-        {formatSG(value)}
-      </Text>
-    </View>
-  )
-}
-
-function SGValue({ value }: { value: number | null }) {
-  if (value === null) {
-    return <Text style={{ color: '#8A8B7E', fontSize: 17 }}>—</Text>
-  }
-  const color = value > 0 ? '#1F3D2C' : value < 0 ? '#A33A2A' : '#5C6356'
-  return (
-    <Text
-      style={{
-        color,
-        fontSize: 17,
-        fontStyle: 'italic',
-        fontWeight: '500',
-        fontVariant: ['tabular-nums'],
-      }}
-    >
-      {formatSG(value)}
-    </Text>
   )
 }

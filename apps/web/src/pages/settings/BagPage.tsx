@@ -776,10 +776,10 @@ function AddClubForm({
             >
               {canonicalOptions.map((c) => (
                 <option key={c} value={c}>
-                  {c}
+                  {c === 'custom_wedge' ? 'Custom (loft)' : c}
                 </option>
               ))}
-              <option value={CUSTOM_VALUE}>Custom…</option>
+              <option value={CUSTOM_VALUE}>Other…</option>
             </select>
           )}
           {customMode && draft.category !== 'utility' && (

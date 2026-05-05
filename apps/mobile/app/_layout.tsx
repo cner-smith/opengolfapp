@@ -5,6 +5,7 @@ import { StatusBar } from 'expo-status-bar'
 import { GestureHandlerRootView } from 'react-native-gesture-handler'
 import * as SplashScreen from 'expo-splash-screen'
 import { useFonts } from 'expo-font'
+import { AuthProvider } from '../contexts/AuthContext'
 import { useAuth } from '../hooks/useAuth'
 import { ErrorBoundary } from '../components/errors/ErrorBoundary'
 import '../global.css'
@@ -20,6 +21,14 @@ void SplashScreen.preventAutoHideAsync().catch(() => {
 })
 
 export default function RootLayout() {
+  return (
+    <AuthProvider>
+      <RootLayoutContent />
+    </AuthProvider>
+  )
+}
+
+function RootLayoutContent() {
   // Bundled Fraunces — `Fraunces9pt-SemiBold` upstream is the closest
   // 500-ish weight to "Medium" available as a static instance, so we
   // alias it under the family name the rest of the app references.

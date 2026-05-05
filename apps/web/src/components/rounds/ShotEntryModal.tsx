@@ -7,6 +7,7 @@ import {
   SHOT_RESULTS,
   SHOT_RESULT_LABELS,
   combinedPuttResult,
+  formatClubLabel,
   formatPuttDistance,
   legacySlopeToAxes,
   type BreakDirection,
@@ -46,6 +47,13 @@ const BREAK_OPTIONS: {
 ]
 
 const SLOPE_INTENSITY_LABELS = ['Flat', 'Slight', 'Moderate', 'Strong', 'Severe']
+
+const LIE_TYPE_OPTIONS: { value: LieType; label: string }[] = LIE_TYPES.map(
+  (l) => ({ value: l, label: LIE_TYPE_LABELS[l] }),
+)
+
+const SHOT_RESULT_OPTIONS: { value: ShotResult; label: string }[] =
+  SHOT_RESULTS.map((r) => ({ value: r, label: SHOT_RESULT_LABELS[r] }))
 
 const GREEN_SPEEDS: { value: GreenSpeed; label: string }[] = [
   { value: 'slow', label: 'Slow' },
@@ -168,12 +176,15 @@ export function ShotEntryModal({
   // Fall back to DEFAULT_BAG while loading or if the user has trimmed
   // their bag to nothing — never show an empty club picker. Bag custom
   // club_types pass through as plain strings since `shots.club` is a
-  // text column.
-  const clubOptions: readonly string[] = useMemo(() => {
-    if (bag.data && bag.data.length > 0) {
-      return bag.data.map((c) => c.club_type)
-    }
-    return DEFAULT_BAG.map((c) => c.club_type)
+  // text column. The label routes through `formatClubLabel` so a
+  // custom_wedge entry reads as its loft (e.g. "58°"), not the raw
+  // "custom_wedge" club_type.
+  const clubOptions = useMemo<{ value: string; label: string }[]>(() => {
+    const source = bag.data && bag.data.length > 0 ? bag.data : DEFAULT_BAG
+    return source.map((c) => ({
+      value: c.club_type,
+      label: formatClubLabel(c),
+    }))
   }, [bag.data])
 
   const holeShots = useMemo(() => {
@@ -397,7 +408,13 @@ export function ShotEntryModal({
                         className="font-serif text-caddie-ink"
                         style={{ fontSize: 15, fontWeight: 500, marginTop: 2 }}
                       >
-                        {s.club ?? '—'}
+                        {s.club
+                          ? formatClubLabel(
+                              bag.data?.find((b) => b.club_type === s.club) ?? {
+                                club_type: s.club,
+                              },
+                            )
+                          : '—'}
                         {s.lie_type
                           ? ` · ${LIE_TYPE_LABELS[s.lie_type as LieType] ?? s.lie_type}`
                           : ''}
@@ -488,7 +505,7 @@ export function ShotEntryModal({
               <Field label="Lie type">
                 <ChipGroup
                   value={draft.lieType}
-                  options={LIE_TYPES}
+                  options={LIE_TYPE_OPTIONS}
                   onChange={(v) => setDraft((d) => ({ ...d, lieType: v }))}
                 />
               </Field>
@@ -665,7 +682,7 @@ export function ShotEntryModal({
                 <Field label="Shot result">
                   <ChipGroup
                     value={draft.shotResult}
-                    options={SHOT_RESULTS}
+                    options={SHOT_RESULT_OPTIONS}
                     onChange={(v) => setDraft((d) => ({ ...d, shotResult: v }))}
                   />
                 </Field>
@@ -858,7 +875,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 
 interface ChipGroupProps<T extends string> {
   value: T | undefined
-  options: readonly T[]
+  options: readonly { value: T; label: string }[]
   onChange: (v: T | undefined) => void
 }
 
@@ -877,14 +894,14 @@ function chipStyle(active: boolean): React.CSSProperties {
 function ChipGroup<T extends string>({ value, options, onChange }: ChipGroupProps<T>) {
   return (
     <div className="flex flex-wrap" style={{ gap: 6 }}>
-      {options.map((opt) => (
+      {options.map(({ value: optValue, label }) => (
         <button
-          key={opt}
+          key={optValue}
           type="button"
-          onClick={() => onChange(value === opt ? undefined : opt)}
-          style={chipStyle(value === opt)}
+          onClick={() => onChange(value === optValue ? undefined : optValue)}
+          style={chipStyle(value === optValue)}
         >
-          {opt.replace(/_/g, ' ')}
+          {label}
         </button>
       ))}
     </div>

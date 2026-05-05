@@ -1,10 +1,11 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Modal, Pressable, ScrollView, Text, TextInput, View } from 'react-native'
 import Svg, { Circle, Line as SvgLine } from 'react-native-svg'
 import {
   DEFAULT_BAG,
   LIE_TYPES,
   SHOT_RESULTS,
+  formatClubLabel,
   type BreakDirection,
   type Club,
   type GreenSpeed,
@@ -44,6 +45,12 @@ interface ShotLoggerProps {
   onSkip: () => void
   onClose: () => void
 }
+
+const LIE_TYPE_OPTIONS = LIE_TYPES.map((l) => ({ value: l, label: l }))
+const SHOT_RESULT_OPTIONS = SHOT_RESULTS.map((r) => ({
+  value: r,
+  label: r.replace(/_/g, ' '),
+}))
 
 const SLOPE_FORWARD_ROW: LieSlopeForward[] = ['uphill', 'level', 'downhill']
 const SLOPE_SIDE_ROW: (LieSlopeSide | 'spacer')[] = [
@@ -94,8 +101,14 @@ export function ShotLogger({
   // while the bag is loading or if the user trimmed it to nothing — never
   // show an empty picker.
   const { bag } = useUserBag()
-  const clubOptions: readonly string[] =
-    bag.length > 0 ? bag.map((c) => c.club_type) : DEFAULT_BAG.map((c) => c.club_type)
+  const clubOptions = useMemo<{ value: string; label: string }[]>(
+    () =>
+      (bag.length > 0 ? bag : DEFAULT_BAG).map((c) => ({
+        value: c.club_type,
+        label: formatClubLabel(c),
+      })),
+    [bag],
+  )
 
   const isOnGreen = value.lieType === 'green'
 
@@ -235,7 +248,7 @@ export function ShotLogger({
             <Section title="Lie type">
               <ChipRow
                 value={value.lieType}
-                options={LIE_TYPES}
+                options={LIE_TYPE_OPTIONS}
                 onChange={(v) => set('lieType', v)}
               />
             </Section>
@@ -330,7 +343,7 @@ export function ShotLogger({
             <Section title="Shot result">
               <ChipRow
                 value={value.shotResult}
-                options={SHOT_RESULTS}
+                options={SHOT_RESULT_OPTIONS}
                 onChange={(v) => set('shotResult', v)}
               />
             </Section>
@@ -527,7 +540,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 
 interface ChipRowProps<T extends string> {
   value: T | undefined
-  options: readonly T[]
+  options: readonly { value: T; label: string }[]
   onChange: (v: T) => void
 }
 
@@ -535,15 +548,15 @@ function ChipRow<T extends string>({ value, options, onChange }: ChipRowProps<T>
   return (
     <ScrollView horizontal showsHorizontalScrollIndicator={false}>
       <View style={{ flexDirection: 'row', gap: 6 }}>
-        {options.map((opt) => {
-          const active = value === opt
+        {options.map(({ value: optValue, label }) => {
+          const active = value === optValue
           return (
             <Pressable
-              key={opt}
+              key={optValue}
               accessibilityRole="radio"
-              accessibilityLabel={opt.replace(/_/g, ' ')}
+              accessibilityLabel={label}
               accessibilityState={{ selected: active }}
-              onPress={() => onChange(opt)}
+              onPress={() => onChange(optValue)}
               style={{
                 paddingHorizontal: 10,
                 paddingVertical: 8,
@@ -558,7 +571,7 @@ function ChipRow<T extends string>({ value, options, onChange }: ChipRowProps<T>
                   fontWeight: active ? '500' : '400',
                 }}
               >
-                {opt.replace(/_/g, ' ')}
+                {label}
               </Text>
             </Pressable>
           )
