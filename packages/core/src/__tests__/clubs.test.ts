@@ -51,8 +51,13 @@ describe('clubCategoryFor', () => {
     expect(clubCategoryFor('1i')).toBe('iron')
   })
 
-  it('maps approach wedge and the custom_wedge slot', () => {
+  it('maps approach wedge and the cw custom-wedge slot', () => {
     expect(clubCategoryFor('aw')).toBe('wedge')
+    expect(clubCategoryFor('cw')).toBe('wedge')
+  })
+
+  it('still maps the legacy custom_wedge string to wedge', () => {
+    // Pre-rename rows from dev-test of #164. Kept for backwards compat.
     expect(clubCategoryFor('custom_wedge')).toBe('wedge')
   })
 
@@ -115,14 +120,14 @@ describe('DEFAULT_BAG', () => {
 })
 
 describe('CANONICAL_CLUBS_BY_CATEGORY.wedge', () => {
-  it('only contains the five traditional names plus custom_wedge', () => {
+  it('only contains the five traditional names plus cw', () => {
     expect(CANONICAL_CLUBS_BY_CATEGORY.wedge).toEqual([
       'pw',
       'gw',
       'aw',
       'sw',
       'lw',
-      'custom_wedge',
+      'cw',
     ])
   })
 
@@ -134,37 +139,39 @@ describe('CANONICAL_CLUBS_BY_CATEGORY.wedge', () => {
 })
 
 describe('formatClubLabel', () => {
-  it('returns club_type unchanged for non-custom entries', () => {
+  it('returns club_type unchanged for non-custom single-word entries', () => {
     expect(formatClubLabel({ club_type: 'pw' })).toBe('pw')
     expect(formatClubLabel({ club_type: '7i', loft: 34 })).toBe('7i')
     expect(formatClubLabel({ club_type: 'driver', loft: 10.5 })).toBe('driver')
   })
 
-  it('returns the loft as the label for custom_wedge', () => {
+  it('humanizes underscored club_types so the kicker style does not read MINI_DRIVER', () => {
+    expect(formatClubLabel({ club_type: 'mini_driver' })).toBe('mini driver')
+  })
+
+  it('returns the loft as the label for cw', () => {
+    expect(formatClubLabel({ club_type: 'cw', loft: 58 })).toBe('58°')
+    expect(formatClubLabel({ club_type: 'cw', loft: 62 })).toBe('62°')
+  })
+
+  it('also handles the legacy custom_wedge club_type', () => {
     expect(formatClubLabel({ club_type: 'custom_wedge', loft: 58 })).toBe(
       '58°',
     )
-    expect(formatClubLabel({ club_type: 'custom_wedge', loft: 62 })).toBe(
-      '62°',
-    )
   })
 
-  it('falls back to the user-set name when custom_wedge has no loft', () => {
-    expect(
-      formatClubLabel({ club_type: 'custom_wedge', name: 'lob v2' }),
-    ).toBe('lob v2')
+  it('falls back to the user-set name when cw has no loft', () => {
+    expect(formatClubLabel({ club_type: 'cw', name: 'lob v2' })).toBe('lob v2')
   })
 
-  it('falls back to literal "wedge" when custom_wedge has no loft and no name', () => {
-    expect(formatClubLabel({ club_type: 'custom_wedge' })).toBe('wedge')
-    expect(formatClubLabel({ club_type: 'custom_wedge', name: '   ' })).toBe(
-      'wedge',
-    )
+  it('falls back to literal "wedge" when cw has no loft and no name', () => {
+    expect(formatClubLabel({ club_type: 'cw' })).toBe('wedge')
+    expect(formatClubLabel({ club_type: 'cw', name: '   ' })).toBe('wedge')
   })
 
   it('rejects non-finite loft values', () => {
-    expect(
-      formatClubLabel({ club_type: 'custom_wedge', loft: Number.NaN }),
-    ).toBe('wedge')
+    expect(formatClubLabel({ club_type: 'cw', loft: Number.NaN })).toBe(
+      'wedge',
+    )
   })
 })
