@@ -369,7 +369,12 @@ export function HoleMap({
                 id={`prev-shot-${i}`}
                 coordinate={toCoord(p)}
               >
-                <Marker color="#A66A1F" border="#FBF8F1" size={9} />
+                <NumberedMarker
+                  color="#A66A1F"
+                  border="#FBF8F1"
+                  size={20}
+                  number={i + 1}
+                />
               </Mapbox.PointAnnotation>
             ))}
 
@@ -668,6 +673,45 @@ function Marker({ color, border, size }: MarkerProps) {
         borderColor: border,
       }}
     />
+  )
+}
+
+type NumberedMarkerProps = MarkerProps & { number: number; opacity?: number }
+
+function NumberedMarker({
+  color,
+  border,
+  size,
+  number,
+  opacity = 1,
+}: NumberedMarkerProps) {
+  return (
+    <View
+      style={{
+        width: size,
+        height: size,
+        borderRadius: size / 2,
+        backgroundColor: color,
+        borderWidth: 2,
+        borderColor: border,
+        alignItems: 'center',
+        justifyContent: 'center',
+        opacity,
+      }}
+    >
+      <Text
+        style={{
+          color: '#FBF8F1',
+          fontSize: size * 0.55,
+          fontWeight: '700',
+          fontVariant: ['tabular-nums'],
+          lineHeight: size,
+          textAlign: 'center',
+        }}
+      >
+        {number}
+      </Text>
+    </View>
   )
 }
 
