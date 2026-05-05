@@ -143,10 +143,62 @@ export default function HoleScreen() {
   const [confirmLeave, setConfirmLeave] = useState(false)
   const [confirmEnd, setConfirmEnd] = useState(false)
   const [ending, setEnding] = useState(false)
+  // Separate confirm state from the menu-triggered delete dialog so the
+  // error-screen Exit button can use friendlier copy ("nothing logged
+  // yet, the round will be discarded") without changing the meaning of
+  // the in-round Delete dialog.
+  const [confirmExit, setConfirmExit] = useState(false)
+  // "On the green?" confirmation. Opened when the player marks ball
+  // within PUTTING_RADIUS_YARDS of the pin instead of auto-switching to
+  // putting mode — device testing showed the auto-switch was wrong
+  // often enough (chipping from rough at 25 yd, fringe lie at 8 yd)
+  // that the prompt is the safer default.
+  const [onGreenPromptOpen, setOnGreenPromptOpen] = useState(false)
+  // Seed lie type that gets passed to ShotLogger when it opens. Used
+  // to pre-fill 'green' for the YES path on the prompt and 'rough' for
+  // NO so the player isn't picking a lie chip from scratch every time.
+  const [loggerInitial, setLoggerInitial] = useState<ShotLoggerValue>({})
+
+  // Synthetic-holes fallback. Mirrors the web pattern documented in
+  // CLAUDE.md: when the course has fewer real `holes` rows than the
+  // expected count (18 here — mobile doesn't query course_tees yet),
+  // pad with par-4 placeholders keyed `synthetic-${roundId}-hole-${n}`
+  // so the UI can render and the player isn't trapped on a "Hole not
+  // found" screen. Going-forward, `round/new.tsx` materializes 18 real
+  // placeholder rows on first round at the course, so this branch only
+  // catches rounds created before that fix or while a partial holes
+  // ingest is in flight. UPDATEs against synthetic hole_scores will
+  // fail server-side; that's acceptable here because the only path
+  // that reaches synthetic mode is rounds with no logged scores, and
+  // the player can use the in-screen Exit Round button to bail.
+  const expectedHoleCount = 18
+  const effectiveHoles = useMemo<HoleRow[]>(() => {
+    if (!round) return holes
+    if (holes.length >= expectedHoleCount) return holes
+    const realByNumber = new Map<number, HoleRow>()
+    for (const h of holes) realByNumber.set(h.number, h)
+    return Array.from({ length: expectedHoleCount }, (_, i) => {
+      const num = i + 1
+      const real = realByNumber.get(num)
+      if (real) return real
+      return {
+        id: `synthetic-${round.id}-hole-${num}`,
+        course_id: round.course_id,
+        number: num,
+        par: 4,
+        yards: null,
+        stroke_index: num,
+        tee_lat: null,
+        tee_lng: null,
+        pin_lat: null,
+        pin_lng: null,
+      } as HoleRow
+    })
+  }, [holes, round])
 
   const currentHole = useMemo(
-    () => holes.find((h) => h.number === holeNumber) ?? null,
-    [holes, holeNumber],
+    () => effectiveHoles.find((h) => h.number === holeNumber) ?? null,
+    [effectiveHoles, holeNumber],
   )
   const currentHoleScore = useMemo(
     () => holeScores.find((hs) => hs.hole_id === currentHole?.id) ?? null,
@@ -466,6 +518,7 @@ export default function HoleScreen() {
       // location — which on test builds (or anywhere far from where the
       // ball actually lies) jumped the marker miles off the course.
       setLoggerOpen(false)
+      setLoggerInitial({})
       setRoundState('PLACE_BALL')
       // Background sync — don't await.
       syncPendingShots().catch(() => undefined)
@@ -597,17 +650,34 @@ export default function HoleScreen() {
     // committed to, not anything an in-flight GPS callback wrote.
     setBall(ballSnapshot)
     setAim(null)
-    // Auto-switch to the putting flow when the player has marked their
-    // position within ~30 yd of the pin — bypasses SET_AIM (long-press
-    // line) and SHOT_DETAIL (club/lie/result), since none of those
-    // matter on a putt. Falls back to the standard aim flow if no pin
-    // is known.
+    // Within ~30 yd of the pin, ask first instead of auto-switching to
+    // putting. Wrong half the time on chips/bunker shots near the
+    // green; player decides. Falls back to the standard aim flow when
+    // no pin is known or the prompt is declined.
     const pinTarget = roundPin ?? storedPin ?? null
     if (pinTarget && distanceYards(ballSnapshot, pinTarget) <= PUTTING_RADIUS_YARDS) {
-      setRoundState('PUTTING')
+      setOnGreenPromptOpen(true)
       return
     }
     setRoundState('SET_AIM')
+  }
+
+  function handleOnGreenYes() {
+    setOnGreenPromptOpen(false)
+    setLoggerInitial({ lieType: 'green', club: 'putter' })
+    setRoundState('SHOT_DETAIL')
+    setLoggerOpen(true)
+  }
+
+  function handleOnGreenNo() {
+    setOnGreenPromptOpen(false)
+    // 'rough' is the safest near-green default — fairway/fringe/sand
+    // are common but rough is the modal answer for "near green but
+    // not putting". Player overrides in ShotLogger; this just saves a
+    // tap on the most likely choice.
+    setLoggerInitial({ lieType: 'rough' })
+    setRoundState('SHOT_DETAIL')
+    setLoggerOpen(true)
   }
 
   function confirmAim() {
@@ -624,6 +694,7 @@ export default function HoleScreen() {
 
   function closeLogger() {
     setLoggerOpen(false)
+    setLoggerInitial({})
     setRoundState('PLACE_BALL')
   }
 
@@ -713,6 +784,36 @@ export default function HoleScreen() {
     }
   }
 
+  // Escape hatch from the error screen. If we have a round row but
+  // can't render it (no holes / no hole_scores / etc.), discard it so
+  // the resume banner on home doesn't drag the player back into the
+  // same trap. If round is null we just navigate home — nothing to
+  // delete.
+  async function handleExitFromError() {
+    if (round && user) {
+      setDeleting(true)
+      try {
+        const { error: delErr } = await deleteRound(
+          supabase,
+          round.id,
+          user.id,
+        )
+        if (delErr) {
+          // eslint-disable-next-line no-console
+          console.error('[hole/exitFromError]', delErr.message)
+          Alert.alert('Could not discard round', delErr.message)
+          return
+        }
+      } finally {
+        setDeleting(false)
+        setConfirmExit(false)
+      }
+    } else {
+      setConfirmExit(false)
+    }
+    router.replace('/(app)')
+  }
+
   if (loading) {
     return (
       <View
@@ -728,6 +829,12 @@ export default function HoleScreen() {
     )
   }
   if (error || !round || !currentHole || !currentHoleScore) {
+    const headline = error
+      ? 'Something went wrong loading this round.'
+      : `Hole ${holeNumber} isn't set up for this round yet.`
+    const subline = error
+      ? 'Check your connection and try again, or exit to clear the round.'
+      : 'This usually means the course was created without per-hole layout data. Exit to discard the round and start fresh.'
     return (
       <View
         style={{
@@ -735,12 +842,90 @@ export default function HoleScreen() {
           alignItems: 'center',
           justifyContent: 'center',
           backgroundColor: '#F2EEE5',
-          padding: 18,
+          padding: 22,
         }}
       >
-        <Text style={{ color: '#A33A2A', fontSize: 13 }}>
-          {error ?? `Hole ${holeNumber} not found for this round.`}
+        <Text
+          style={{
+            color: '#1C211C',
+            fontSize: 20,
+            fontStyle: 'italic',
+            fontWeight: '500',
+            fontFamily: 'Fraunces-MediumItalic',
+            textAlign: 'center',
+            marginBottom: 10,
+          }}
+        >
+          {headline}
         </Text>
+        <Text
+          style={{
+            color: '#5C6356',
+            fontSize: 13,
+            lineHeight: 18,
+            textAlign: 'center',
+            marginBottom: 22,
+          }}
+        >
+          {subline}
+        </Text>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Try again"
+          onPress={loadAll}
+          style={{
+            borderWidth: 1,
+            borderColor: '#1F3D2C',
+            borderRadius: 2,
+            paddingVertical: 12,
+            paddingHorizontal: 22,
+            marginBottom: 10,
+          }}
+        >
+          <Text
+            style={{
+              color: '#1F3D2C',
+              fontSize: 13,
+              fontWeight: '600',
+              letterSpacing: 0.3,
+            }}
+          >
+            Try again
+          </Text>
+        </Pressable>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Exit round and discard"
+          onPress={() => setConfirmExit(true)}
+          style={{
+            backgroundColor: '#A33A2A',
+            borderRadius: 2,
+            paddingVertical: 14,
+            paddingHorizontal: 24,
+          }}
+        >
+          <Text
+            style={{
+              color: '#F2EEE5',
+              fontSize: 14,
+              fontWeight: '600',
+              letterSpacing: 0.3,
+            }}
+          >
+            Exit round
+          </Text>
+        </Pressable>
+        <ConfirmDialog
+          visible={confirmExit}
+          title="Leave this round?"
+          message="Nothing's been logged yet, so the round will be discarded."
+          confirmLabel="Leave round"
+          cancelLabel="Stay"
+          destructive
+          busy={deleting}
+          onConfirm={handleExitFromError}
+          onCancel={() => setConfirmExit(false)}
+        />
       </View>
     )
   }
@@ -1140,6 +1325,7 @@ export default function HoleScreen() {
             ? Math.round(distanceYards(ball, roundPin ?? storedPin ?? ball) * 3)
             : undefined
         }
+        initial={loggerInitial}
         onSave={(v) => persistShot(v)}
         onSkip={() => persistShot(null)}
         onClose={closeLogger}
@@ -1207,6 +1393,16 @@ export default function HoleScreen() {
         busy={ending}
         onConfirm={handleEndRound}
         onCancel={() => setConfirmEnd(false)}
+      />
+
+      <ConfirmDialog
+        visible={onGreenPromptOpen}
+        title="On the green?"
+        message="Within 30 yd of the pin — were you putting, or chipping/in a bunker?"
+        confirmLabel="Yes, I'm putting"
+        cancelLabel="No"
+        onConfirm={handleOnGreenYes}
+        onCancel={handleOnGreenNo}
       />
 
       <Modal

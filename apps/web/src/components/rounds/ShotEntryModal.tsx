@@ -7,9 +7,11 @@ import {
   SHOT_RESULTS,
   SHOT_RESULT_LABELS,
   combinedPuttResult,
+  formatPuttDistance,
   legacySlopeToAxes,
   type BreakDirection,
   type Club,
+  type DistanceUnit,
   type GreenSpeed,
   type LieSlopeForward,
   type LieSlopeSide,
@@ -404,7 +406,7 @@ export function ShotEntryModal({
                         className="text-caddie-ink-dim"
                         style={{ fontSize: 12, marginTop: 2 }}
                       >
-                        {formatShotSummary(s)}
+                        {formatShotSummary(s, units.unit)}
                       </div>
                     </div>
                     <div className="flex" style={{ gap: 4 }}>
@@ -792,7 +794,7 @@ export function ShotEntryModal({
 // their putt_result label + distance; everything else gets the
 // shot_result label. Falls back to the raw value when the column has
 // something unexpected, and to '—' when both are null.
-function formatShotSummary(s: ShotRow): string {
+function formatShotSummary(s: ShotRow, unit: DistanceUnit): string {
   if (s.lie_type === 'green' || s.club === 'putter') {
     const result =
       (s.putt_result &&
@@ -800,7 +802,9 @@ function formatShotSummary(s: ShotRow): string {
       s.putt_result ??
       null
     const distance =
-      s.putt_distance_ft != null ? `${Math.round(s.putt_distance_ft)} ft` : null
+      s.putt_distance_ft != null
+        ? formatPuttDistance(s.putt_distance_ft, unit)
+        : null
     const parts = [result, distance].filter(Boolean) as string[]
     return parts.length ? parts.join(' · ') : '—'
   }
