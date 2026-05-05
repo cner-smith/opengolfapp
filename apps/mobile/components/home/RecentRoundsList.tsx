@@ -60,6 +60,7 @@ export function RecentRoundsList({
                   accessibilityLabel={`Delete round at ${r.courses?.name ?? 'this round'}`}
                   onPress={() => {
                     swipeRefs.current.get(r.id)?.close()
+                    swipeRefs.current.delete(r.id)
                     onRequestDelete(r.id, r.courses?.name ?? 'this round')
                   }}
                   style={{

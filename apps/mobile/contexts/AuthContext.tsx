@@ -5,12 +5,11 @@ import {
   useState,
   type ReactNode,
 } from 'react'
-import type { Session, User } from '@supabase/supabase-js'
+import type { User } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabase'
 
 interface AuthState {
   user: User | null
-  session: Session | null
   loading: boolean
 }
 
@@ -23,7 +22,6 @@ const AuthContext = createContext<AuthState | null>(null)
 // the loading-flag race that bit the web app before it migrated.
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
-  const [session, setSession] = useState<Session | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -31,17 +29,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     supabase.auth.getSession().then(({ data }) => {
       if (!mounted) return
-      setSession(data.session ?? null)
       setUser(data.session?.user ?? null)
       setLoading(false)
     })
 
+    // Always flip loading off on the first auth event, including the
+    // synchronous INITIAL_SESSION the JS client emits on a warm
+    // session — getSession's resolve and the listener can race, and
+    // if getSession ever silently rejects we don't want the splash
+    // overlay to wedge.
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, nextSession) => {
       if (!mounted) return
-      setSession(nextSession ?? null)
       setUser(nextSession?.user ?? null)
+      setLoading(false)
     })
 
     return () => {
@@ -51,7 +53,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   return (
-    <AuthContext.Provider value={{ user, session, loading }}>
+    <AuthContext.Provider value={{ user, loading }}>
       {children}
     </AuthContext.Provider>
   )
