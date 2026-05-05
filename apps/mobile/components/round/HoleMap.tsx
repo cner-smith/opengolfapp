@@ -126,11 +126,16 @@ export function HoleMap({
   }, [phase])
   // Hole change is signalled by previousShots resetting to empty (the
   // parent re-mounts a new hole with no prior shot starts). Clear ghosts
-  // so they don't bleed across holes.
+  // so they don't bleed across holes. Guarded on `aimGhosts.length > 0`
+  // so the initial mount (where prevShotsLen and aimGhosts.length are
+  // both 0) doesn't schedule a no-op state update.
   const prevShotsLen = previousShots?.length ?? 0
+  const ghostCount = aimGhosts.length
   useEffect(() => {
-    if (prevShotsLen === 0) setAimGhosts([])
-  }, [prevShotsLen])
+    if (prevShotsLen === 0 && ghostCount > 0) {
+      setAimGhosts([])
+    }
+  }, [prevShotsLen, ghostCount])
 
   // Mapbox's onLongPress wasn't firing reliably on Android (single-tap
   // onPress works fine, but long-press never reaches JS). Detect it via
