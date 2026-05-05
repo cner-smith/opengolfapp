@@ -97,6 +97,12 @@ export function GreenDiagram({
 
   const pan = Gesture.Pan()
     .activeOffsetX([-2, 2])
+    // The diagram is rendered inside a ScrollView in PuttingSheet.
+    // Without `failOffsetY`, RNGH races the parent ScrollView for the
+    // initial touch and a slightly-diagonal drag can be claimed by the
+    // ScrollView, never activating the handle. Yield to vertical scroll
+    // only once the drag exceeds 5px vertical before 2px horizontal.
+    .failOffsetY([-5, 5])
     .onBegin(() => {
       'worklet'
       startOffset.value = aimOffsetInches
