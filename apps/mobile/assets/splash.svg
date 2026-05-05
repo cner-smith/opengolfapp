@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1242" height="2688" viewBox="0 0 1242 2688">
+  <!-- Caddie-bg dark — same value as the in-app dark surface so the
+       fade-in from splash to authenticated UI never flashes a
+       different shade. -->
+  <rect width="1242" height="2688" fill="#1C211C"/>
+  <!-- "OGA" wordmark, italic serif, cream. Noto Serif Italic is the
+       closest Fraunces-shaped fallback that's bundled on the dev
+       machine; the rendered PNG ships with the asset so production
+       devices don't need the font installed. -->
+  <text
+    x="621"
+    y="1344"
+    font-family="Noto Serif, Georgia, serif"
+    font-style="italic"
+    font-weight="500"
+    font-size="280"
+    letter-spacing="-8"
+    fill="#FBF8F1"
+    text-anchor="middle"
+    dominant-baseline="middle"
+  >OGA</text>
+  <!-- Quiet kicker below the mark — JetBrains Mono via the platform
+       monospace fallback. Fades into the background slightly so it
+       reads as a wordmark subtitle, not a call to action. -->
+  <text
+    x="621"
+    y="1488"
+    font-family="JetBrains Mono, Menlo, monospace"
+    font-weight="500"
+    font-size="36"
+    letter-spacing="6"
+    fill="rgba(242,238,229,0.45)"
+    text-anchor="middle"
+    dominant-baseline="middle"
+  >OPEN GOLF APP</text>
+</svg>
