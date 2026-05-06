@@ -33,7 +33,7 @@ export function TopHint({ isPinMode, isAimPhase }: TopHintProps) {
         {isPinMode
           ? 'Pin mode — tap to place flag'
           : isAimPhase
-            ? 'Long-press to set aim point'
+            ? 'Long-press to set aim line — where you started the ball, not where it finishes'
             : 'Drag the ball to refine, then tap Mark ball here'}
       </Text>
     </View>

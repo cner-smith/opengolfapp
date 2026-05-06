@@ -11,6 +11,7 @@ import {
 import { GestureHandlerRootView } from 'react-native-gesture-handler'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import * as Location from 'expo-location'
+import AsyncStorage from '@react-native-async-storage/async-storage'
 import type { Database } from '@oga/supabase'
 import {
   HoleMap,
@@ -154,6 +155,16 @@ export default function HoleScreen() {
   // often enough (chipping from rough at 25 yd, fringe lie at 8 yd)
   // that the prompt is the safer default.
   const [onGreenPromptOpen, setOnGreenPromptOpen] = useState(false)
+  // "Set an aim point?" confirmation. Opens after the player marks the
+  // ball (and after the on-green-no path) so the aim choice is explicit
+  // every shot rather than buried in a "Skip aim" link inside the SET_AIM
+  // phase. Confirm enters SET_AIM; cancel runs the existing skipAim flow
+  // straight into SHOT_DETAIL.
+  const [aimPromptOpen, setAimPromptOpen] = useState(false)
+  // First-use hint that "aim point = start line, drag to adjust." Gated
+  // by AsyncStorage so it only appears the first time the player ever
+  // sets an aim point on this device, then auto-dismisses after 3s.
+  const [aimHintVisible, setAimHintVisible] = useState(false)
   // Seed lie type that gets passed to ShotLogger when it opens. Used
   // to pre-fill 'green' for the YES path on the prompt and 'rough' for
   // NO so the player isn't picking a lie chip from scratch every time.
@@ -270,6 +281,28 @@ export default function HoleScreen() {
   useEffect(() => {
     loadAll()
   }, [loadAll])
+
+  // First-aim hint: when `aim` first transitions to non-null, check
+  // AsyncStorage. If the hint hasn't been shown on this device, mark
+  // it shown and surface the toast for 3s. Tap-to-dismiss is wired in
+  // the render block below.
+  useEffect(() => {
+    if (!aim) return
+    let cancelled = false
+    let timer: ReturnType<typeof setTimeout> | null = null
+    AsyncStorage.getItem('oga.aim-hint-shown')
+      .then((v) => {
+        if (cancelled || v) return
+        AsyncStorage.setItem('oga.aim-hint-shown', '1').catch(() => {})
+        setAimHintVisible(true)
+        timer = setTimeout(() => setAimHintVisible(false), 3000)
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+      if (timer) clearTimeout(timer)
+    }
+  }, [aim?.lat, aim?.lng])
 
   // Reload remote + local shot/putt counts whenever the active hole_score
   // changes. Putts are counted as shots where club='putter' OR lie_type='green'.
@@ -659,7 +692,7 @@ export default function HoleScreen() {
       setOnGreenPromptOpen(true)
       return
     }
-    setRoundState('SET_AIM')
+    setAimPromptOpen(true)
   }
 
   function handleOnGreenYes() {
@@ -690,6 +723,16 @@ export default function HoleScreen() {
     setAim(null)
     setRoundState('SHOT_DETAIL')
     setLoggerOpen(true)
+  }
+
+  function handleAimPromptConfirm() {
+    setAimPromptOpen(false)
+    setRoundState('SET_AIM')
+  }
+
+  function handleAimPromptSkip() {
+    setAimPromptOpen(false)
+    skipAim()
   }
 
   function closeLogger() {
@@ -1049,6 +1092,29 @@ export default function HoleScreen() {
           }}
           onPlacePin={persistRoundPin}
         />
+        {aimHintVisible && (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Dismiss aim point hint"
+            onPress={() => setAimHintVisible(false)}
+            style={{
+              position: 'absolute',
+              top: 48,
+              left: 12,
+              right: 12,
+              backgroundColor: 'rgba(28,33,28,0.92)',
+              borderColor: 'rgba(159,149,128,0.6)',
+              borderWidth: 1,
+              borderRadius: 4,
+              paddingHorizontal: 14,
+              paddingVertical: 10,
+            }}
+          >
+            <Text style={{ color: '#F2EEE5', fontSize: 13, lineHeight: 18 }}>
+              Aim point = start line. Drag to adjust.
+            </Text>
+          </Pressable>
+        )}
       </View>
 
       <View
@@ -1403,6 +1469,16 @@ export default function HoleScreen() {
         cancelLabel="No"
         onConfirm={handleOnGreenYes}
         onCancel={handleOnGreenNo}
+      />
+
+      <ConfirmDialog
+        visible={aimPromptOpen}
+        title="Set an aim point?"
+        message="Your aim point is your start line — where you intend to start the ball, not where you want it to finish."
+        confirmLabel="Set aim point →"
+        cancelLabel="Skip"
+        onConfirm={handleAimPromptConfirm}
+        onCancel={handleAimPromptSkip}
       />
 
       <Modal

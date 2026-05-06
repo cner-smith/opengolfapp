@@ -823,10 +823,11 @@ export function RoundMapInstructionStrip({
         ) : aimMode ? (
           <>
             <div className="kicker" style={{ marginBottom: 2 }}>
-              Aim point — shot {shotsPlaced}
+              Aim line — shot {shotsPlaced}
             </div>
             <div className="text-caddie-ink" style={{ fontSize: 13 }}>
-              Tap where you were aiming when you hit shot {shotsPlaced}.
+              Tap your aim line — where you started shot {shotsPlaced}, not
+              where it finished.
             </div>
           </>
         ) : (
