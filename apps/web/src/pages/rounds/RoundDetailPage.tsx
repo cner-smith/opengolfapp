@@ -301,6 +301,11 @@ export function RoundDetailPage() {
   // primary aim-collection moment. Putt placements skip it (putts
   // capture aim through the putting sheet's break/aim-offset fields).
   const [aimPromptOpen, setAimPromptOpen] = useState(false)
+  // First-use hint shown the first time the player ever places an aim
+  // point — explains that aim = start line, not finish target. Gated by
+  // localStorage so it appears once per device and auto-dismisses after
+  // 3s or on tap.
+  const [aimHintVisible, setAimHintVisible] = useState(false)
   const [shareTone, setShareTone] = useState<'light' | 'dark'>('light')
   const [sharing, setSharing] = useState(false)
   const shareCardRef = useRef<HTMLDivElement | null>(null)
@@ -367,6 +372,17 @@ export function RoundDetailPage() {
       }
     }
   }, [shotDragUndo])
+
+  const placedAimsHaveAny = placedAims.some((a) => a != null)
+  useEffect(() => {
+    if (!placedAimsHaveAny) return
+    if (typeof window === 'undefined') return
+    if (window.localStorage.getItem('oga.aim-hint-shown')) return
+    window.localStorage.setItem('oga.aim-hint-shown', '1')
+    setAimHintVisible(true)
+    const t = window.setTimeout(() => setAimHintVisible(false), 3000)
+    return () => window.clearTimeout(t)
+  }, [placedAimsHaveAny])
 
   // Synthetic fallback when the course has no rows in the `holes` table
   // (typical for OSM-imported courses that never went through enrichment).
@@ -1197,6 +1213,30 @@ export function RoundDetailPage() {
         }}
         onCancel={() => setAimPromptOpen(false)}
       />
+
+      {aimHintVisible && (
+        <button
+          type="button"
+          onClick={() => setAimHintVisible(false)}
+          aria-label="Dismiss aim point hint"
+          style={{
+            position: 'fixed',
+            bottom: 24,
+            left: '50%',
+            transform: 'translateX(-50%)',
+            background: '#1C211C',
+            color: '#F2EEE5',
+            borderRadius: 4,
+            padding: '12px 18px',
+            fontSize: 13,
+            zIndex: 100,
+            border: '1px solid #9F9580',
+            cursor: 'pointer',
+          }}
+        >
+          Aim point = start line. Drag to adjust.
+        </button>
+      )}
 
       {completeError && (
         <div

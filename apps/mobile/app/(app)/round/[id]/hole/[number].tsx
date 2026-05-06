@@ -11,6 +11,7 @@ import {
 import { GestureHandlerRootView } from 'react-native-gesture-handler'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import * as Location from 'expo-location'
+import AsyncStorage from '@react-native-async-storage/async-storage'
 import type { Database } from '@oga/supabase'
 import {
   HoleMap,
@@ -160,6 +161,10 @@ export default function HoleScreen() {
   // phase. Confirm enters SET_AIM; cancel runs the existing skipAim flow
   // straight into SHOT_DETAIL.
   const [aimPromptOpen, setAimPromptOpen] = useState(false)
+  // First-use hint that "aim point = start line, drag to adjust." Gated
+  // by AsyncStorage so it only appears the first time the player ever
+  // sets an aim point on this device, then auto-dismisses after 3s.
+  const [aimHintVisible, setAimHintVisible] = useState(false)
   // Seed lie type that gets passed to ShotLogger when it opens. Used
   // to pre-fill 'green' for the YES path on the prompt and 'rough' for
   // NO so the player isn't picking a lie chip from scratch every time.
@@ -276,6 +281,28 @@ export default function HoleScreen() {
   useEffect(() => {
     loadAll()
   }, [loadAll])
+
+  // First-aim hint: when `aim` first transitions to non-null, check
+  // AsyncStorage. If the hint hasn't been shown on this device, mark
+  // it shown and surface the toast for 3s. Tap-to-dismiss is wired in
+  // the render block below.
+  useEffect(() => {
+    if (!aim) return
+    let cancelled = false
+    let timer: ReturnType<typeof setTimeout> | null = null
+    AsyncStorage.getItem('oga.aim-hint-shown')
+      .then((v) => {
+        if (cancelled || v) return
+        AsyncStorage.setItem('oga.aim-hint-shown', '1').catch(() => {})
+        setAimHintVisible(true)
+        timer = setTimeout(() => setAimHintVisible(false), 3000)
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+      if (timer) clearTimeout(timer)
+    }
+  }, [aim?.lat, aim?.lng])
 
   // Reload remote + local shot/putt counts whenever the active hole_score
   // changes. Putts are counted as shots where club='putter' OR lie_type='green'.
@@ -1065,6 +1092,29 @@ export default function HoleScreen() {
           }}
           onPlacePin={persistRoundPin}
         />
+        {aimHintVisible && (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Dismiss aim point hint"
+            onPress={() => setAimHintVisible(false)}
+            style={{
+              position: 'absolute',
+              top: 48,
+              left: 12,
+              right: 12,
+              backgroundColor: 'rgba(28,33,28,0.92)',
+              borderColor: 'rgba(159,149,128,0.6)',
+              borderWidth: 1,
+              borderRadius: 4,
+              paddingHorizontal: 14,
+              paddingVertical: 10,
+            }}
+          >
+            <Text style={{ color: '#F2EEE5', fontSize: 13, lineHeight: 18 }}>
+              Aim point = start line. Drag to adjust.
+            </Text>
+          </Pressable>
+        )}
       </View>
 
       <View
