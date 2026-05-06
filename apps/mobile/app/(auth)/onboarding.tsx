@@ -35,12 +35,13 @@ export default function MobileOnboarding() {
   const [goal, setGoal] = useState<Goal | null>(null)
   const [saving, setSaving] = useState(false)
   // Bag step starts with all DEFAULT_BAG selected; user untoggles
-  // clubs they don't carry. seedBag = false means the user explicitly
-  // skipped, so we don't insert any user_clubs rows.
+  // clubs they don't carry. The "Set up later →" button (issue #156)
+  // commits with seed=false so no user_clubs rows are inserted from
+  // onboarding — auto-seed in useUserBag (issue #152) covers them on
+  // first shot log or bag-page visit.
   const [bagSelection, setBagSelection] = useState<Set<string>>(
     () => new Set(DEFAULT_BAG.map((c) => c.club_type)),
   )
-  const [seedBag, setSeedBag] = useState(true)
 
   function toggleBagClub(clubType: string) {
     setBagSelection((prev) => {
@@ -51,7 +52,7 @@ export default function MobileOnboarding() {
     })
   }
 
-  async function save() {
+  async function save(opts: { seedBag: boolean } = { seedBag: true }) {
     if (!user) return
     if (!skill || !goal) {
       Alert.alert('Pick a skill level and a goal first')
@@ -67,7 +68,7 @@ export default function MobileOnboarding() {
       return
     }
     setSaving(true)
-    if (seedBag && bagSelection.size > 0) {
+    if (opts.seedBag && bagSelection.size > 0) {
       try {
         const reseeded = DEFAULT_BAG.filter((c) =>
           bagSelection.has(c.club_type),
@@ -191,68 +192,46 @@ export default function MobileOnboarding() {
           borderColor: '#E4E4E0',
         }}
       >
-        <View
+        <Text
           style={{
-            flexDirection: 'row',
-            justifyContent: 'space-between',
-            alignItems: 'center',
+            color: '#888880',
+            fontSize: 11,
+            fontWeight: '500',
+            letterSpacing: 0.4,
+            textTransform: 'uppercase',
             marginBottom: 6,
           }}
         >
-          <Text
-            style={{
-              color: '#888880',
-              fontSize: 11,
-              fontWeight: '500',
-              letterSpacing: 0.4,
-              textTransform: 'uppercase',
-            }}
-          >
-            Bag (optional)
-          </Text>
-          <Pressable onPress={() => setSeedBag((s) => !s)} hitSlop={6}>
-            <Text style={{ color: '#0F6E56', fontSize: 12 }}>
-              {seedBag ? 'Skip for now' : 'Set up bag'}
-            </Text>
-          </Pressable>
+          Bag (optional)
+        </Text>
+        <Text style={{ color: '#888880', fontSize: 12, marginBottom: 10 }}>
+          Select the clubs you carry. You can customize your bag fully in
+          Settings → My Bag later.
+        </Text>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+          {DEFAULT_BAG.map((c) => (
+            <Chip
+              key={c.club_type}
+              label={c.name}
+              active={bagSelection.has(c.club_type)}
+              onPress={() => toggleBagClub(c.club_type)}
+            />
+          ))}
         </View>
-        {seedBag ? (
-          <>
-            <Text style={{ color: '#888880', fontSize: 12, marginBottom: 10 }}>
-              Standard bags carry up to 14 clubs. Tap to add or remove. Edit
-              any time in Profile → My Bag.
-            </Text>
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
-              {DEFAULT_BAG.map((c) => (
-                <Chip
-                  key={c.club_type}
-                  label={c.name}
-                  active={bagSelection.has(c.club_type)}
-                  onPress={() => toggleBagClub(c.club_type)}
-                />
-              ))}
-            </View>
-            <Text
-              style={{
-                color: '#888880',
-                fontSize: 11,
-                marginTop: 8,
-                letterSpacing: 0.3,
-              }}
-            >
-              {bagSelection.size} of {DEFAULT_BAG.length} selected
-            </Text>
-          </>
-        ) : (
-          <Text style={{ color: '#888880', fontSize: 12 }}>
-            Skipped — shot logger will use the default bag until you set yours
-            up.
-          </Text>
-        )}
+        <Text
+          style={{
+            color: '#888880',
+            fontSize: 11,
+            marginTop: 8,
+            letterSpacing: 0.3,
+          }}
+        >
+          {bagSelection.size} of {DEFAULT_BAG.length} selected
+        </Text>
       </View>
 
       <Pressable
-        onPress={save}
+        onPress={() => save({ seedBag: true })}
         disabled={saving}
         style={{
           marginTop: 8,
@@ -265,6 +244,27 @@ export default function MobileOnboarding() {
       >
         <Text style={{ color: '#FFFFFF', fontSize: 13, fontWeight: '500' }}>
           {saving ? 'Saving…' : 'Start tracking'}
+        </Text>
+      </Pressable>
+
+      <Pressable
+        onPress={() => save({ seedBag: false })}
+        disabled={saving}
+        accessibilityRole="button"
+        accessibilityLabel="Set up bag later"
+        style={{
+          marginTop: 10,
+          borderRadius: 10,
+          paddingVertical: 12,
+          alignItems: 'center',
+          borderWidth: 1,
+          borderColor: '#1F3D2C',
+          backgroundColor: 'transparent',
+          opacity: saving ? 0.5 : 1,
+        }}
+      >
+        <Text style={{ color: '#1F3D2C', fontSize: 13, fontWeight: '500' }}>
+          Set up later →
         </Text>
       </Pressable>
     </ScrollView>

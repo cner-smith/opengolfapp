@@ -99,16 +99,23 @@ export function ShotLogger({
 
   // Source the club picker from the user's bag. Fall back to DEFAULT_BAG
   // while the bag is loading or if the user trimmed it to nothing — never
-  // show an empty picker.
-  const { bag } = useUserBag()
-  const clubOptions = useMemo<{ value: string; label: string }[]>(
-    () =>
-      (bag.length > 0 ? bag : DEFAULT_BAG).map((c) => ({
-        value: c.club_type,
-        label: formatClubLabel(c),
-      })),
-    [bag],
-  )
+  // show an empty picker. seedIfEmpty=true ensures a brand-new user
+  // (e.g. one who skipped the optional onboarding bag step, issue #152)
+  // ends up with real user_clubs rows so inferShot's userBag path runs.
+  const { bag } = useUserBag({ seedIfEmpty: true })
+  const clubOptions = useMemo<{ value: string; label: string }[]>(() => {
+    const source = bag.length > 0 ? bag : DEFAULT_BAG
+    const typeCounts = new Map<string, number>()
+    for (const c of source) {
+      typeCounts.set(c.club_type, (typeCounts.get(c.club_type) ?? 0) + 1)
+    }
+    return source.map((c) => ({
+      value: c.club_type,
+      label: formatClubLabel(c, {
+        hasDuplicateType: (typeCounts.get(c.club_type) ?? 0) > 1,
+      }),
+    }))
+  }, [bag])
 
   const isOnGreen = value.lieType === 'green'
 
