@@ -71,7 +71,7 @@ export function ShotEntryModal({
   const createShot = useCreateShot(roundId)
   const updateShot = useUpdateShot(roundId)
   const deleteShot = useDeleteShot(roundId)
-  const bag = useUserBag()
+  const { bag } = useUserBag()
 
   // Source club options from the user's bag (in_bag rows, in sort_order).
   // Fall back to DEFAULT_BAG while loading or if the user has trimmed
@@ -79,14 +79,21 @@ export function ShotEntryModal({
   // club_types pass through as plain strings since `shots.club` is a
   // text column. The label routes through `formatClubLabel` so a
   // custom_wedge entry reads as its loft (e.g. "58°"), not the raw
-  // "custom_wedge" club_type.
+  // "custom_wedge" club_type, and so a bag carrying two clubs of the
+  // same `club_type` (e.g. lw 58° + lw 60°) disambiguates by loft.
   const clubOptions = useMemo<{ value: string; label: string }[]>(() => {
-    const source = bag.data && bag.data.length > 0 ? bag.data : DEFAULT_BAG
+    const source = bag.length > 0 ? bag : DEFAULT_BAG
+    const typeCounts = new Map<string, number>()
+    for (const c of source) {
+      typeCounts.set(c.club_type, (typeCounts.get(c.club_type) ?? 0) + 1)
+    }
     return source.map((c) => ({
       value: c.club_type,
-      label: formatClubLabel(c),
+      label: formatClubLabel(c, {
+        hasDuplicateType: (typeCounts.get(c.club_type) ?? 0) > 1,
+      }),
     }))
-  }, [bag.data])
+  }, [bag])
 
   const holeShots = useMemo(() => {
     return (shotsQuery.data ?? [])
@@ -315,7 +322,7 @@ export function ShotEntryModal({
                       >
                         {s.club
                           ? formatClubLabel(
-                              bag.data?.find((b) => b.club_type === s.club) ?? {
+                              bag.find((b) => b.club_type === s.club) ?? {
                                 club_type: s.club,
                               },
                             )

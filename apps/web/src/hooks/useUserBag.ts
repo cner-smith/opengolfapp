@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   deleteUserClub,
@@ -23,9 +24,22 @@ function invalidateBag(qc: ReturnType<typeof useQueryClient>, uid: string | unde
   qc.invalidateQueries({ queryKey: ALL_KEY(uid) })
 }
 
-export function useUserBag() {
+interface UseBagResult {
+  bag: UserClub[]
+  isLoading: boolean
+  error: Error | null
+  refetch: () => Promise<void>
+}
+
+// Shape mirrors the mobile useUserBag hook (issue #153) so consumers
+// destructure the same fields on either platform. The auto-seed effect
+// covers the skip-onboarding case (issue #152) — every authenticated
+// user ends up with user_clubs rows on first bag access, even if they
+// skipped the optional bag step in onboarding.
+export function useUserBag(): UseBagResult {
   const { user, loading } = useAuth()
-  return useQuery({
+  const qc = useQueryClient()
+  const query = useQuery({
     queryKey: BAG_KEY(user?.id),
     enabled: !loading && !!user,
     staleTime: 60_000,
@@ -35,6 +49,42 @@ export function useUserBag() {
       return (data ?? []) as UserClub[]
     },
   })
+
+  // Auto-seed when the bag loads empty for an authenticated user.
+  // Attempts at most once per user per hook instance — the ref holds
+  // the user id we've already tried for, not a transient bool. Without
+  // this gate, a user who benches every club (in_bag=false) keeps
+  // returning an empty `getUserBag` result; each `seedDefaultBag` call
+  // is a no-op (pre-filter sees the owned club_types) but the post-seed
+  // invalidation refetches → effect re-fires → tight loop.
+  const attemptedForRef = useRef<string | null>(null)
+  useEffect(() => {
+    if (
+      !loading &&
+      user &&
+      query.data &&
+      query.data.length === 0 &&
+      attemptedForRef.current !== user.id
+    ) {
+      attemptedForRef.current = user.id
+      seedDefaultBag(supabase, user.id, DEFAULT_BAG)
+        .then(() => invalidateBag(qc, user.id))
+        .catch(() => {
+          /* swallow — best-effort seed; user can still log shots via
+             the DEFAULT_BAG fallback in the picker. Server errors
+             surface elsewhere. */
+        })
+    }
+  }, [loading, user, query.data, qc])
+
+  return {
+    bag: query.data ?? [],
+    isLoading: query.isLoading,
+    error: (query.error as Error | null) ?? null,
+    refetch: async () => {
+      await query.refetch()
+    },
+  }
 }
 
 export function useAllUserClubs() {
