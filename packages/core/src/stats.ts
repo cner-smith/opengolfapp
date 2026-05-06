@@ -4,7 +4,7 @@ import {
   getShotCategory,
 } from './sg-calculator'
 import { NEAR_GREEN_YARDS } from './constants'
-import type { LieSlopeForward, LieSlopeSide, ShotCategory, ShotResult } from './constants'
+import type { LieSlopeForward, LieSlopeSide, LieType, ShotCategory, ShotResult } from './constants'
 import { METERS_TO_YARDS, haversineYards, toRadians } from './units'
 import { RESULT_QUALITY } from './types'
 import type { Database } from '@oga/supabase'
@@ -179,7 +179,7 @@ export function approachByDistance(
       if (s.distance_to_target == null) continue
       const category = getShotCategory(
         {
-          lieType: s.lie_type ?? undefined,
+          lieType: (s.lie_type as LieType | null) ?? undefined,
           distanceToTarget: s.distance_to_target,
         },
         hole.par,
@@ -205,7 +205,7 @@ export function approachByDistance(
       if (next && (next.distance_to_target != null || next.lie_type === 'green')) {
         const nextCat = getShotCategory(
           {
-            lieType: next.lie_type ?? undefined,
+            lieType: (next.lie_type as LieType | null) ?? undefined,
             distanceToTarget: next.distance_to_target ?? undefined,
           },
           hole.par,
@@ -395,7 +395,7 @@ export function ballStrikingStats(rounds: DetailedRound[]): BallStrikingStats {
         // and a pin (per-round preferred).
         const category = getShotCategory(
           {
-            lieType: s.lie_type ?? undefined,
+            lieType: (s.lie_type as LieType | null) ?? undefined,
             distanceToTarget: s.distance_to_target ?? undefined,
           },
           hole.par,

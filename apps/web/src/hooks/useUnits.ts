@@ -12,7 +12,10 @@ export interface UseUnitsResult {
 
 export function useUnits(): UseUnitsResult {
   const { data: profile } = useProfile()
-  const unit: DistanceUnit = profile?.distance_unit ?? 'yards'
+  // DB CHECK constraint (migration 0007) pins distance_unit to the union;
+  // the regenerated Supabase types surface it as plain `string`.
+  const unit: DistanceUnit =
+    (profile?.distance_unit as DistanceUnit | undefined) ?? 'yards'
 
   const toDisplay = useCallback(
     (yards: number, decimals = 0): string => formatDistance(yards, unit, decimals),
