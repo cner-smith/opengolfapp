@@ -1,0 +1,181 @@
+import { useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction, type MutableRefObject } from 'react'
+import * as Location from 'expo-location'
+import AsyncStorage from '@react-native-async-storage/async-storage'
+import { createKalmanState, updateKalman, type KalmanState } from '@oga/core'
+import type { LatLng } from '../../../../../../components/round/HoleMap'
+import { distanceYards } from '../../../../../../lib/maps'
+import { PIN_PROMPT_RADIUS_YARDS, type RoundState } from '../state/types'
+
+interface UseHoleStateInput {
+  currentHoleId: string | null | undefined
+  currentHoleScoreId: string | null | undefined
+  isPastMode: boolean
+  storedPin: LatLng | null
+  roundPin: LatLng | null
+}
+
+export interface UseHoleStateResult {
+  aim: LatLng | null
+  setAim: Dispatch<SetStateAction<LatLng | null>>
+  ball: LatLng | null
+  setBall: Dispatch<SetStateAction<LatLng | null>>
+  roundState: RoundState
+  setRoundState: Dispatch<SetStateAction<RoundState>>
+  gpsPosition: LatLng | null
+  kalmanStateRef: MutableRefObject<KalmanState | null>
+  manuallyPlacedRef: MutableRefObject<boolean>
+  lastSavedShotLocalIdRef: MutableRefObject<number | null>
+  aimHintVisible: boolean
+  setAimHintVisible: Dispatch<SetStateAction<boolean>>
+  nearPin: boolean
+}
+
+export function useHoleState({
+  currentHoleId,
+  currentHoleScoreId,
+  isPastMode,
+  storedPin,
+  roundPin,
+}: UseHoleStateInput): UseHoleStateResult {
+  const [aim, setAim] = useState<LatLng | null>(null)
+  const [ball, setBall] = useState<LatLng | null>(null)
+  // Kalman filter state for live GPS smoothing during PLACE_BALL. Held
+  // in a ref because every position update would otherwise re-render
+  // the entire screen at GPS cadence (1-2 Hz). Reset on hole change,
+  // manual drag, or when leaving PLACE_BALL — see useEffect below.
+  const kalmanStateRef = useRef<KalmanState | null>(null)
+  // Set true the moment the player manually drags or taps the ball;
+  // freezes the GPS callback's setBall so the next reading can't
+  // clobber the manual placement.
+  const manuallyPlacedRef = useRef(false)
+  // local_id of the just-saved pending shot, so the next PLACE_BALL
+  // can fill in that shot's end_lat/end_lng with the new ball position.
+  const lastSavedShotLocalIdRef = useRef<number | null>(null)
+  const [roundState, setRoundState] = useState<RoundState>('PLACE_BALL')
+  const [gpsPosition, setGpsPosition] = useState<LatLng | null>(null)
+  // First-use hint that "aim point = start line, drag to adjust." Gated
+  // by AsyncStorage so it only appears the first time the player ever
+  // sets an aim point on this device, then auto-dismisses after 3s.
+  const [aimHintVisible, setAimHintVisible] = useState(false)
+
+  // First-aim hint: when `aim` first transitions to non-null, check
+  // AsyncStorage. If the hint hasn't been shown on this device, mark
+  // it shown and surface the toast for 3s.
+  useEffect(() => {
+    if (!aim) return
+    let cancelled = false
+    let timer: ReturnType<typeof setTimeout> | null = null
+    AsyncStorage.getItem('oga.aim-hint-shown')
+      .then((v) => {
+        if (cancelled || v) return
+        AsyncStorage.setItem('oga.aim-hint-shown', '1').catch(() => {})
+        setAimHintVisible(true)
+        timer = setTimeout(() => setAimHintVisible(false), 3000)
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+      if (timer) clearTimeout(timer)
+    }
+  }, [aim?.lat, aim?.lng])
+
+  // Reset the just-saved-shot ref synchronously on hole transition. Keeping
+  // it inside the async count-load effect created a race: a tap-to-mark-ball
+  // that set the ref could be wiped out when the (slower) count load
+  // resolved a moment later, leaving shot N's end_lat/end_lng unset.
+  useEffect(() => {
+    lastSavedShotLocalIdRef.current = null
+  }, [currentHoleScoreId])
+
+  // Live GPS during the PLACE_BALL phase so the ball marker tracks the
+  // player as they walk between shots. Raw phone GPS is ±3-10 m which
+  // can corrupt SG by 6-20 yd at golf scale, so the readings are run
+  // through a Kalman filter (issue #123) before driving the ball.
+  useEffect(() => {
+    if (!currentHoleId) return
+    if (isPastMode) return
+    if (roundState !== 'PLACE_BALL') return
+    let active = true
+    let subscription: Location.LocationSubscription | null = null
+    ;(async () => {
+      try {
+        const perm = await Location.requestForegroundPermissionsAsync()
+        if (perm.status !== 'granted') return
+        if (!active) return
+        subscription = await Location.watchPositionAsync(
+          {
+            accuracy: Location.Accuracy.BestForNavigation,
+            distanceInterval: 2,
+          },
+          (loc) => {
+            // Manual placement freezes GPS-driven ball updates. Without
+            // this, the next reading after a drag would re-init the
+            // filter at the raw GPS point and snap ball back, wiping
+            // the player's refinement.
+            if (manuallyPlacedRef.current) return
+            const rawPoint = {
+              lat: loc.coords.latitude,
+              lng: loc.coords.longitude,
+              accuracy: loc.coords.accuracy ?? undefined,
+              timestamp: loc.timestamp,
+            }
+            kalmanStateRef.current = kalmanStateRef.current
+              ? updateKalman(kalmanStateRef.current, rawPoint)
+              : createKalmanState(rawPoint)
+            const smoothed = {
+              lat: kalmanStateRef.current.lat,
+              lng: kalmanStateRef.current.lng,
+            }
+            setGpsPosition(smoothed)
+            setBall(smoothed)
+          },
+        )
+      } catch {
+        // GPS not available — user will tap to place.
+      }
+    })()
+    return () => {
+      active = false
+      subscription?.remove()
+      // Phase exit clears the filter so re-entry to PLACE_BALL on the
+      // next shot starts smoothing from a fresh fix rather than an
+      // old anchor that may now be hundreds of yards away. Also clears
+      // the manual-placement freeze so the next PLACE_BALL cycle
+      // resumes GPS auto-tracking unless the player drags again.
+      kalmanStateRef.current = null
+      manuallyPlacedRef.current = false
+    }
+  }, [currentHoleId, isPastMode, roundState])
+
+  // Hole change resets the filter — covered by the watch effect's
+  // cleanup, but explicit here in case the watch effect short-circuits
+  // (past mode, or no current hole) before subscribing.
+  useEffect(() => {
+    kalmanStateRef.current = null
+    manuallyPlacedRef.current = false
+  }, [currentHoleId])
+
+  // Highlight "On the green" once the player is within 80 yd of the stored
+  // pin AND a per-round pin hasn't been captured yet.
+  const nearPin = useMemo(() => {
+    if (roundPin) return false
+    if (!storedPin || !gpsPosition) return false
+    return distanceYards(gpsPosition, storedPin) <= PIN_PROMPT_RADIUS_YARDS
+  }, [roundPin, storedPin, gpsPosition])
+
+  return {
+    aim,
+    setAim,
+    ball,
+    setBall,
+    roundState,
+    setRoundState,
+    gpsPosition,
+    kalmanStateRef,
+    manuallyPlacedRef,
+    lastSavedShotLocalIdRef,
+    aimHintVisible,
+    setAimHintVisible,
+    nearPin,
+  }
+}
