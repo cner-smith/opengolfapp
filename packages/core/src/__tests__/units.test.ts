@@ -199,14 +199,27 @@ describe('formatDistance', () => {
 })
 
 describe('formatPuttDistance', () => {
-  it('yards mode renders rounded feet', () => {
+  it('yards mode renders rounded feet at and above 1 ft', () => {
     expect(formatPuttDistance(8.4, 'yards')).toBe('8 ft')
     expect(formatPuttDistance(8.5, 'yards')).toBe('9 ft')
+    expect(formatPuttDistance(1, 'yards')).toBe('1 ft')
   })
 
-  it('meters mode renders rounded centimetres (golfers call putts in cm)', () => {
-    // 8 ft × 30.48 = 243.84 cm → 244 cm
-    expect(formatPuttDistance(8, 'meters')).toBe('244 cm')
+  it('yards mode switches to inches below 1 ft (a 6-inch tap-in shouldn’t round to 0)', () => {
+    expect(formatPuttDistance(0.5, 'yards')).toBe('6 in')
+    expect(formatPuttDistance(0.25, 'yards')).toBe('3 in')
+  })
+
+  it('meters mode renders metres with 1 decimal at and above 1 m', () => {
+    // 8 ft × 0.3048 = 2.4384 m → "2.4 m"
+    expect(formatPuttDistance(8, 'meters')).toBe('2.4 m')
+    expect(formatPuttDistance(3.281, 'meters')).toBe('1.0 m')
+  })
+
+  it('meters mode switches to centimetres below 1 m (sub-metre putts in cm)', () => {
+    // 2 ft × 30.48 = 60.96 cm → 61 cm
+    expect(formatPuttDistance(2, 'meters')).toBe('61 cm')
+    expect(formatPuttDistance(0.5, 'meters')).toBe('15 cm')
   })
 
   it('non-finite input renders em dash', () => {

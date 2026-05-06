@@ -53,15 +53,18 @@ export function formatDistance(yards: number, unit: DistanceUnit, decimals = 0):
   return yards.toFixed(decimals) + ' yd'
 }
 
-// Putt distances: feet under 'yards' mode (US convention), centimetres
-// under 'meters' mode (metric golfers still call putt distance in cm even
-// when other distances are metres). Always whole units — sub-foot/cm
-// precision is noise on a putting surface.
+// Putt distances: feet primary in 'yards' mode, metres primary in
+// 'meters' mode. Switches to a smaller unit below the threshold so a
+// 9-inch tap-in doesn't render as "0 ft" or "0 m" — inches under 1 ft
+// (yards) and centimetres under 1 m (meters).
 export function formatPuttDistance(feet: number, unit: DistanceUnit): string {
   if (!Number.isFinite(feet)) return '—'
   if (unit === 'meters') {
-    return Math.round(feet * FEET_TO_CM) + ' cm'
+    const meters = feet * FEET_TO_METERS
+    if (meters < 1) return Math.round(feet * FEET_TO_CM) + ' cm'
+    return meters.toFixed(1) + ' m'
   }
+  if (feet < 1) return Math.round(feet * 12) + ' in'
   return Math.round(feet) + ' ft'
 }
 
