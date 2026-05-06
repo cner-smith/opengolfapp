@@ -8,6 +8,7 @@ import {
   SHOT_RESULT_LABELS,
   combinedPuttResult,
   formatClubLabel,
+  formatDistance,
   formatPuttDistance,
   haversineYards,
   legacySlopeToAxes,
@@ -460,7 +461,7 @@ export function ShotEntryModal({
                         className="text-caddie-ink-dim"
                         style={{ fontSize: 12, marginTop: 2 }}
                       >
-                        {formatShotSummary(s, units.unit)}
+                        {formatShotSummary(s, holeShots[i + 1], units.unit)}
                       </div>
                     </div>
                     <div className="flex" style={{ gap: 4 }}>
@@ -860,27 +861,45 @@ export function ShotEntryModal({
 }
 
 // Build the second line on each shot row in the side panel. Putts get
-// their putt_result label + distance; everything else gets the
-// shot_result label. Falls back to the raw value when the column has
-// something unexpected, and to '—' when both are null.
-function formatShotSummary(s: ShotRow, unit: DistanceUnit): string {
+// putt distance (feet/cm/in/m via formatPuttDistance) plus the
+// putt_result label. Other shots get distance_to_target with a
+// haversine fallback to the next shot's start coords, plus the
+// shot_result label. Only renders '—' when there's truly no signal —
+// stored distance, coords, and result columns all null.
+function formatShotSummary(
+  s: ShotRow,
+  next: ShotRow | undefined,
+  unit: DistanceUnit,
+): string {
   if (s.lie_type === 'green' || s.club === 'putter') {
     const result =
       (s.putt_result &&
         PUTT_RESULT_LABELS[s.putt_result as keyof typeof PUTT_RESULT_LABELS]) ??
       s.putt_result ??
       null
-    const distance =
-      s.putt_distance_ft != null
-        ? formatPuttDistance(s.putt_distance_ft, unit)
-        : null
-    const parts = [result, distance].filter(Boolean) as string[]
+    const feet = s.putt_distance_ft ?? s.distance_to_target ?? null
+    const distance = feet != null ? formatPuttDistance(feet, unit) : null
+    const parts = [distance, result].filter(Boolean) as string[]
     return parts.length ? parts.join(' · ') : '—'
   }
-  if (s.shot_result) {
-    return SHOT_RESULT_LABELS[s.shot_result as ShotResult] ?? s.shot_result
+  let yards: number | null = s.distance_to_target ?? null
+  if (
+    yards == null &&
+    s.start_lat != null &&
+    s.start_lng != null &&
+    next?.start_lat != null &&
+    next?.start_lng != null
+  ) {
+    yards = Math.round(
+      haversineYards(s.start_lat, s.start_lng, next.start_lat, next.start_lng),
+    )
   }
-  return '—'
+  const distance = yards != null ? formatDistance(yards, unit) : null
+  const result = s.shot_result
+    ? SHOT_RESULT_LABELS[s.shot_result as ShotResult] ?? s.shot_result
+    : null
+  const parts = [distance, result].filter(Boolean) as string[]
+  return parts.length ? parts.join(' · ') : '—'
 }
 
 function NumericInput({

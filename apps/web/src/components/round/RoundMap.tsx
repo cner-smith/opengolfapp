@@ -181,6 +181,11 @@ export function RoundMap({
   ])
 
   const initialPositionDoneRef = useRef(false)
+  // When the user places or drags the tee/pin, the next cameraTarget
+  // change is a consequence of their own action — the camera should
+  // stay where they were looking, not snap back up the priority chain
+  // (e.g. tee wins over pin → placing a pin would fly back to the tee).
+  const userPlacedRef = useRef(false)
   const [mapLoaded, setMapLoaded] = useState(false)
 
   // Initialize at a neutral world view. The camera positioning waits
@@ -234,6 +239,10 @@ export function RoundMap({
       initialPositionDoneRef.current = true
       return
     }
+    if (userPlacedRef.current) {
+      userPlacedRef.current = false
+      return
+    }
     map.flyTo({
       center: cameraTarget.center,
       zoom: cameraTarget.zoom,
@@ -273,10 +282,12 @@ export function RoundMap({
       // when shots already exist, the user explicitly entered placement
       // mode from the strip and the next tap should land the marker.
       if (placementMode === 'tee' && onMoveTee) {
+        userPlacedRef.current = true
         onMoveTee({ lat: e.lngLat.lat, lng: e.lngLat.lng })
         return
       }
       if (placementMode === 'pin' && onMovePin) {
+        userPlacedRef.current = true
         onMovePin({ lat: e.lngLat.lat, lng: e.lngLat.lng })
         return
       }
@@ -338,6 +349,7 @@ export function RoundMap({
         })
         marker.on('dragend', () => {
           const ll = marker.getLngLat()
+          userPlacedRef.current = true
           onMoveTee({ lat: ll.lat, lng: ll.lng })
         })
       } else {
@@ -372,6 +384,7 @@ export function RoundMap({
         })
         marker.on('dragend', () => {
           const ll = marker.getLngLat()
+          userPlacedRef.current = true
           onMovePin({ lat: ll.lat, lng: ll.lng })
         })
       } else {
