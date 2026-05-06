@@ -29,55 +29,70 @@ export async function fetchOsmCoursesInState(state: string): Promise<OsmCourseLi
 out center tags;
 `.trim()
 
+  // Outer retry sweep — if every endpoint fails on a given attempt (transient
+  // overload, all three Overpass mirrors degraded simultaneously, etc.) wait
+  // and re-try the full endpoint cycle. Backoff is 5s, 15s, 45s between
+  // sweeps. Without this, large states (FL has 815 courses, the bbox query
+  // can run >60s on a hot Overpass instance) lost the whole state on one
+  // unlucky window.
+  const BACKOFFS_MS = [5_000, 15_000, 45_000]
   let lastErr: Error | null = null
-  for (const endpoint of OVERPASS_ENDPOINTS) {
-    try {
-      const res = await fetch(endpoint, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-          'User-Agent': 'oga-course-crawler/0.1 (https://github.com/cner-smith/opengolfapp)',
-        },
-        body: 'data=' + encodeURIComponent(q),
-      })
-      if (!res.ok) {
-        lastErr = new Error(`${endpoint} ${res.status}`)
-        continue
-      }
-      const data = (await res.json()) as OverpassResponse
-      const out: OsmCourseLite[] = []
-      for (const el of data.elements) {
-        const tags = el.tags ?? {}
-        const name = tags['name']
-        if (!name) continue
-        let lat: number | undefined
-        let lng: number | undefined
-        if (el.type === 'node') {
-          lat = el.lat
-          lng = el.lon
-        } else if (el.center) {
-          // ways and relations both come back with a `center` when the
-          // query asks for `out center tags`.
-          lat = el.center.lat
-          lng = el.center.lon
-        }
-        if (lat == null || lng == null) continue
-        const city = (tags['addr:city'] ?? '').trim() || undefined
-        out.push({
-          osmType: el.type,
-          osmId: el.id,
-          name,
-          lat,
-          lng,
-          state,
-          city,
+  for (let attempt = 0; attempt <= BACKOFFS_MS.length; attempt++) {
+    for (const endpoint of OVERPASS_ENDPOINTS) {
+      try {
+        const res = await fetch(endpoint, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'User-Agent': 'oga-course-crawler/0.1 (https://github.com/cner-smith/opengolfapp)',
+          },
+          body: 'data=' + encodeURIComponent(q),
         })
+        if (!res.ok) {
+          lastErr = new Error(`${endpoint} ${res.status}`)
+          continue
+        }
+        const data = (await res.json()) as OverpassResponse
+        const out: OsmCourseLite[] = []
+        for (const el of data.elements) {
+          const tags = el.tags ?? {}
+          const name = tags['name']
+          if (!name) continue
+          let lat: number | undefined
+          let lng: number | undefined
+          if (el.type === 'node') {
+            lat = el.lat
+            lng = el.lon
+          } else if (el.center) {
+            // ways and relations both come back with a `center` when the
+            // query asks for `out center tags`.
+            lat = el.center.lat
+            lng = el.center.lon
+          }
+          if (lat == null || lng == null) continue
+          const city = (tags['addr:city'] ?? '').trim() || undefined
+          out.push({
+            osmType: el.type,
+            osmId: el.id,
+            name,
+            lat,
+            lng,
+            state,
+            city,
+          })
+        }
+        return out
+      } catch (err) {
+        lastErr = err as Error
       }
-      return out
-    } catch (err) {
-      lastErr = err as Error
+      await sleep(500)
     }
-    await sleep(500)
+    const backoff = BACKOFFS_MS[attempt]
+    if (backoff == null) break
+    console.warn(
+      `[osm:${state}] all Overpass endpoints failed (last: ${lastErr?.message ?? 'unknown'}) — retry in ${backoff / 1000}s`,
+    )
+    await sleep(backoff)
   }
   throw lastErr ?? new Error('Overpass request failed')
 }
