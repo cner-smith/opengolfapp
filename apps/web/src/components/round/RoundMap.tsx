@@ -635,6 +635,11 @@ interface RoundMapInstructionStripProps {
   editing?: boolean
   shotsPlaced: number
   remainingToPin: number | null
+  /** Label for the most recent saved-shot drag — when non-null, render
+   *  an Undo button on the logged-hole strip. The parent owns the 5s
+   *  fade timer and clears the label by passing null. */
+  shotDragUndoLabel?: string | null
+  onApplyShotDragUndo?: () => void
   /** False when this hole has no pin coordinates — drives the "— to
    *  pin" placeholder instead of just hiding the distance silently. */
   pinAvailable?: boolean
@@ -680,6 +685,8 @@ export function RoundMapInstructionStrip({
   needsTee = false,
   needsPin = false,
   placementMode = null,
+  shotDragUndoLabel = null,
+  onApplyShotDragUndo,
   onStartPlaceTee,
   onStartPlacePin,
   onCancelPlacement,
@@ -808,7 +815,9 @@ export function RoundMapInstructionStrip({
               Logged hole
             </div>
             <div className="text-caddie-ink" style={{ fontSize: 13 }}>
-              Drag any marker to adjust its position.
+              {shotDragUndoLabel
+                ? `${shotDragUndoLabel} updated.`
+                : 'Drag any marker to adjust its position.'}
             </div>
           </>
         ) : aimMode ? (
@@ -946,9 +955,25 @@ export function RoundMapInstructionStrip({
             Done with hole →
           </button>
         </div>
-      ) : placeButtons ? (
+      ) : (placeButtons || (shotDragUndoLabel && onApplyShotDragUndo)) ? (
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           {placeButtons}
+          {shotDragUndoLabel && onApplyShotDragUndo && (
+            <button
+              type="button"
+              onClick={onApplyShotDragUndo}
+              className="text-caddie-ink-dim"
+              style={{
+                border: '1px solid #D9D2BF',
+                borderRadius: 2,
+                padding: '6px 10px',
+                fontSize: 12,
+                background: 'transparent',
+              }}
+            >
+              Undo
+            </button>
+          )}
         </div>
       ) : null}
     </div>

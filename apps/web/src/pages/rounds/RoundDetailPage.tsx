@@ -329,6 +329,39 @@ export function RoundDetailPage() {
   } = holeView
   const [savingHole, setSavingHole] = useState(false)
 
+  // Last drag-edit on a saved shot. Surfaces the Undo button on the
+  // logged-hole strip for 5s after every drag, then clears itself.
+  // Holds the previous coords so the undo can restore them via the same
+  // mutation path the drag took. `field` is the column the drag
+  // touched ('start' = start_lat/lng + distance_to_target, 'aim' =
+  // aim_lat/lng).
+  type ShotDragUndo = {
+    shotId: string
+    field: 'start' | 'aim'
+    prev: {
+      lat: number | null
+      lng: number | null
+      distanceToTarget?: number | null
+    }
+    label: string
+  }
+  const [shotDragUndo, setShotDragUndo] = useState<ShotDragUndo | null>(null)
+  const undoTimerRef = useRef<number | null>(null)
+  useEffect(() => {
+    if (undoTimerRef.current != null) {
+      window.clearTimeout(undoTimerRef.current)
+    }
+    if (!shotDragUndo) return
+    undoTimerRef.current = window.setTimeout(() => {
+      setShotDragUndo(null)
+    }, 5000)
+    return () => {
+      if (undoTimerRef.current != null) {
+        window.clearTimeout(undoTimerRef.current)
+      }
+    }
+  }, [shotDragUndo])
+
   // Synthetic fallback when the course has no rows in the `holes` table
   // (typical for OSM-imported courses that never went through enrichment).
   // Without this, every downstream feature gates on `activeHole` being
@@ -654,6 +687,9 @@ export function RoundDetailPage() {
     async (shotId: string, point: PlacedPoint) => {
       const shot = activeHoleShots.find((s) => s.id === shotId)
       if (!shot) return
+      // distance_to_target lives on the raw row — pull it for the undo
+      // snapshot. ExistingShot only exposes coords + numbering.
+      const rawShot = (shotsQuery.data ?? []).find((s) => s.id === shotId)
       const isPutt = shot.category === 'putt'
       const newDistance =
         !isPutt && effectivePin
@@ -666,6 +702,21 @@ export function RoundDetailPage() {
               ),
             )
           : null
+      // Stash prev for undo BEFORE the mutation — if the user immediately
+      // drags again the second drag's prev should reflect the first
+      // drag's end position, not what was on screen before either edit.
+      setShotDragUndo({
+        shotId,
+        field: 'start',
+        prev: {
+          lat: shot.startLat,
+          lng: shot.startLng,
+          distanceToTarget: isPutt
+            ? undefined
+            : rawShot?.distance_to_target ?? null,
+        },
+        label: `Shot ${shot.shotNumber} position`,
+      })
       try {
         await updateShot.mutateAsync({
           id: shotId,
@@ -680,15 +731,25 @@ export function RoundDetailPage() {
           // eslint-disable-next-line no-console
           console.error('[RoundDetailPage/moveExistingShot]', err)
         }
+        setShotDragUndo(null)
       }
     },
-    [activeHoleShots, effectivePin, updateShot],
+    [activeHoleShots, shotsQuery.data, effectivePin, updateShot],
   )
 
   const handleMoveExistingShotAim = useCallback(
     async (shotId: string, point: PlacedPoint) => {
       const shot = activeHoleShots.find((s) => s.id === shotId)
       if (!shot) return
+      setShotDragUndo({
+        shotId,
+        field: 'aim',
+        prev: {
+          lat: shot.aimLat ?? null,
+          lng: shot.aimLng ?? null,
+        },
+        label: `Shot ${shot.shotNumber} aim`,
+      })
       try {
         await updateShot.mutateAsync({
           id: shotId,
@@ -699,10 +760,41 @@ export function RoundDetailPage() {
           // eslint-disable-next-line no-console
           console.error('[RoundDetailPage/moveExistingShotAim]', err)
         }
+        setShotDragUndo(null)
       }
     },
     [activeHoleShots, updateShot],
   )
+
+  const applyShotDragUndo = useCallback(async () => {
+    const u = shotDragUndo
+    if (!u) return
+    setShotDragUndo(null)
+    try {
+      if (u.field === 'start') {
+        await updateShot.mutateAsync({
+          id: u.shotId,
+          updates: {
+            start_lat: u.prev.lat,
+            start_lng: u.prev.lng,
+            ...(u.prev.distanceToTarget !== undefined
+              ? { distance_to_target: u.prev.distanceToTarget }
+              : {}),
+          },
+        })
+      } else {
+        await updateShot.mutateAsync({
+          id: u.shotId,
+          updates: { aim_lat: u.prev.lat, aim_lng: u.prev.lng },
+        })
+      }
+    } catch (err) {
+      if (import.meta.env.DEV) {
+        // eslint-disable-next-line no-console
+        console.error('[RoundDetailPage/applyShotDragUndo]', err)
+      }
+    }
+  }, [shotDragUndo, updateShot])
 
   if (round.isLoading || holesQuery.isLoading) {
     return (
@@ -1143,6 +1235,8 @@ export function RoundDetailPage() {
           handlers={placeHandlers}
           onMoveExistingShot={handleMoveExistingShot}
           onMoveExistingShotAim={handleMoveExistingShotAim}
+          shotDragUndoLabel={shotDragUndo?.label ?? null}
+          onApplyShotDragUndo={applyShotDragUndo}
           saveError={saveError}
           editingOnMap={editingOnMap}
           reviewSheet={
@@ -1443,6 +1537,10 @@ interface MapViewProps {
   onMoveExistingShot: (shotId: string, point: PlacedPoint) => void
   /** Drag-end on a saved shot's aim ghost. */
   onMoveExistingShotAim: (shotId: string, point: PlacedPoint) => void
+  /** Label for the most recent saved-shot drag, or null when no recent
+   *  edit exists. Drives the Undo affordance on the logged-hole strip. */
+  shotDragUndoLabel: string | null
+  onApplyShotDragUndo: () => void
   reviewSheet?: ReactNode
 }
 
@@ -1466,6 +1564,8 @@ function MapView({
   handlers,
   onMoveExistingShot,
   onMoveExistingShotAim,
+  shotDragUndoLabel,
+  onApplyShotDragUndo,
   saveError,
   editingOnMap,
   reviewSheet,
@@ -1570,6 +1670,8 @@ function MapView({
           needsTee={needsTee}
           needsPin={needsPin}
           placementMode={placementMode}
+          shotDragUndoLabel={shotDragUndoLabel}
+          onApplyShotDragUndo={onApplyShotDragUndo}
           onStartPlaceTee={handlers.onStartPlaceTee}
           onStartPlacePin={handlers.onStartPlacePin}
           onCancelPlacement={handlers.onCancelPlacement}
