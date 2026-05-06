@@ -1,7 +1,6 @@
 import {
   SHOT_RESULTS,
   SHOT_RESULT_LABELS,
-  type Club,
   type ShotResult,
 } from '@oga/core'
 import { LieSlopeGrid } from '../../forms/LieSlopeGrid'
@@ -15,31 +14,21 @@ const SHOT_RESULT_OPTIONS: { value: ShotResult; label: string }[] =
 interface ShotFormFieldsProps {
   draft: DraftShot
   setDraft: (updater: (d: DraftShot) => DraftShot) => void
-  clubOptions: { value: string; label: string }[]
   unit: DistanceUnit
 }
 
-// Non-putt fields: club, lie slope, distance to target, shot result.
-// Lie type and Notes stay in the orchestrator because they render for
-// putts too.
+// Non-putt fields rendered AFTER lie type: lie slope, distance to
+// target, shot result. Club is rendered inline by the orchestrator
+// before Lie type to preserve the original render order — see the
+// JSX in ShotEntryModal. Lie type and Notes stay in the orchestrator
+// because they render for putts too.
 export function ShotFormFields({
   draft,
   setDraft,
-  clubOptions,
   unit,
 }: ShotFormFieldsProps) {
   return (
     <>
-      <Field label="Club">
-        <ChipGroup
-          value={draft.club}
-          options={clubOptions}
-          onChange={(v) =>
-            setDraft((d) => ({ ...d, club: v as Club | undefined }))
-          }
-        />
-      </Field>
-
       <Field label="Lie slope">
         <LieSlopeGrid
           forward={draft.lieSlopeForward}

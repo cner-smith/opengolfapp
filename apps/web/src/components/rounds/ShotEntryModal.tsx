@@ -10,6 +10,7 @@ import {
   formatDistance,
   formatPuttDistance,
   haversineYards,
+  type Club,
   type DistanceUnit,
   type LieType,
   type ShotResult,
@@ -25,6 +26,7 @@ import {
 import { useAuth } from '../../hooks/useAuth'
 import { ConfirmDialog } from '../ui/ConfirmDialog'
 import { useUnits } from '../../hooks/useUnits'
+import { GreenDiagram } from '../round/GreenDiagram'
 import { ChipGroup, Field } from './shots/formInputs'
 import {
   emptyDraft,
@@ -388,7 +390,28 @@ export function ShotEntryModal({
                 onChangeStart={handleMiniMapDrag}
               />
 
-              {isPutt && <PuttFormFields draft={draft} setDraft={setDraft} />}
+              {isPutt && (
+                <GreenDiagram
+                  distanceFt={draft.puttDistanceFt ?? 0}
+                  aimOffsetInches={draft.aimOffsetInches ?? 0}
+                  breakDirection={draft.breakDirection ?? 'straight'}
+                  onAimChange={(n) =>
+                    setDraft((d) => ({ ...d, aimOffsetInches: n }))
+                  }
+                />
+              )}
+
+              {!isPutt && (
+                <Field label="Club">
+                  <ChipGroup
+                    value={draft.club}
+                    options={clubOptions}
+                    onChange={(v) =>
+                      setDraft((d) => ({ ...d, club: v as Club | undefined }))
+                    }
+                  />
+                </Field>
+              )}
 
               <Field label="Lie type">
                 <ChipGroup
@@ -402,10 +425,11 @@ export function ShotEntryModal({
                 <ShotFormFields
                   draft={draft}
                   setDraft={setDraft}
-                  clubOptions={clubOptions}
                   unit={units.unit}
                 />
               )}
+
+              {isPutt && <PuttFormFields draft={draft} setDraft={setDraft} />}
 
               <Field label="Notes">
                 <input

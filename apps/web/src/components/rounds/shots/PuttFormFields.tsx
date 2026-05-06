@@ -1,5 +1,4 @@
 import { type BreakDirection, type GreenSpeed } from '@oga/core'
-import { GreenDiagram } from '../../round/GreenDiagram'
 import {
   Field,
   NumericInput,
@@ -32,9 +31,11 @@ interface PuttFormFieldsProps {
   setDraft: (updater: (d: DraftShot) => DraftShot) => void
 }
 
-// Putt-specific fields: green diagram, made/missed toggle, distance &
-// direction selectors, break/slope/speed, distance override. Lie type
-// and Notes stay in the orchestrator (rendered for non-putts too).
+// Putt-specific fields rendered AFTER lie type: made/missed toggle,
+// distance & direction selectors, break/slope/speed, distance override.
+// GreenDiagram is rendered inline by the orchestrator BEFORE Lie type,
+// matching the original render order. Lie type and Notes stay in the
+// orchestrator (rendered for non-putts too).
 export function PuttFormFields({ draft, setDraft }: PuttFormFieldsProps) {
   function setPuttMade(made: boolean) {
     setDraft((d) => ({
@@ -63,15 +64,6 @@ export function PuttFormFields({ draft, setDraft }: PuttFormFieldsProps) {
 
   return (
     <>
-      <GreenDiagram
-        distanceFt={draft.puttDistanceFt ?? 0}
-        aimOffsetInches={draft.aimOffsetInches ?? 0}
-        breakDirection={draft.breakDirection ?? 'straight'}
-        onAimChange={(n) =>
-          setDraft((d) => ({ ...d, aimOffsetInches: n }))
-        }
-      />
-
       <Field label="Made?">
         <div className="flex" style={{ gap: 8 }}>
           <PuttResultButton
