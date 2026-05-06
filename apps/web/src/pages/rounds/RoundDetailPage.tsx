@@ -295,6 +295,12 @@ export function RoundDetailPage() {
   const [onGreenPrompt, setOnGreenPrompt] = useState<PlacedPoint | null>(
     null,
   )
+  // "Set an aim point?" prompt — opens after every non-putt PUSH_POINT
+  // so the player decides explicitly whether this shot has aim data.
+  // Replaces the easy-to-miss "Set aim" button on the strip as the
+  // primary aim-collection moment. Putt placements skip it (putts
+  // capture aim through the putting sheet's break/aim-offset fields).
+  const [aimPromptOpen, setAimPromptOpen] = useState(false)
   const [shareTone, setShareTone] = useState<'light' | 'dark'>('light')
   const [sharing, setSharing] = useState(false)
   const shareCardRef = useRef<HTMLDivElement | null>(null)
@@ -645,6 +651,7 @@ export function RoundDetailPage() {
           point: p,
           openPuttSheet: false,
         })
+        setAimPromptOpen(true)
       },
       onMovePoint: (idx: number, p: PlacedPoint) =>
         dispatchHoleView({ type: 'MOVE_POINT', index: idx, point: p }),
@@ -1172,9 +1179,23 @@ export function RoundDetailPage() {
               point: onGreenPrompt,
               openPuttSheet: false,
             })
+            setAimPromptOpen(true)
           }
           setOnGreenPrompt(null)
         }}
+      />
+
+      <ConfirmDialog
+        open={aimPromptOpen}
+        title="Set an aim point?"
+        message="Your aim point is your start line — where you intend to start the ball, not where you want it to finish."
+        confirmLabel="Set aim point →"
+        cancelLabel="Skip"
+        onConfirm={() => {
+          dispatchHoleView({ type: 'AIM_MODE', on: true })
+          setAimPromptOpen(false)
+        }}
+        onCancel={() => setAimPromptOpen(false)}
       />
 
       {completeError && (

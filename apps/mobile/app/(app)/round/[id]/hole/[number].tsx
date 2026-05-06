@@ -154,6 +154,12 @@ export default function HoleScreen() {
   // often enough (chipping from rough at 25 yd, fringe lie at 8 yd)
   // that the prompt is the safer default.
   const [onGreenPromptOpen, setOnGreenPromptOpen] = useState(false)
+  // "Set an aim point?" confirmation. Opens after the player marks the
+  // ball (and after the on-green-no path) so the aim choice is explicit
+  // every shot rather than buried in a "Skip aim" link inside the SET_AIM
+  // phase. Confirm enters SET_AIM; cancel runs the existing skipAim flow
+  // straight into SHOT_DETAIL.
+  const [aimPromptOpen, setAimPromptOpen] = useState(false)
   // Seed lie type that gets passed to ShotLogger when it opens. Used
   // to pre-fill 'green' for the YES path on the prompt and 'rough' for
   // NO so the player isn't picking a lie chip from scratch every time.
@@ -659,7 +665,7 @@ export default function HoleScreen() {
       setOnGreenPromptOpen(true)
       return
     }
-    setRoundState('SET_AIM')
+    setAimPromptOpen(true)
   }
 
   function handleOnGreenYes() {
@@ -690,6 +696,16 @@ export default function HoleScreen() {
     setAim(null)
     setRoundState('SHOT_DETAIL')
     setLoggerOpen(true)
+  }
+
+  function handleAimPromptConfirm() {
+    setAimPromptOpen(false)
+    setRoundState('SET_AIM')
+  }
+
+  function handleAimPromptSkip() {
+    setAimPromptOpen(false)
+    skipAim()
   }
 
   function closeLogger() {
@@ -1403,6 +1419,16 @@ export default function HoleScreen() {
         cancelLabel="No"
         onConfirm={handleOnGreenYes}
         onCancel={handleOnGreenNo}
+      />
+
+      <ConfirmDialog
+        visible={aimPromptOpen}
+        title="Set an aim point?"
+        message="Your aim point is your start line — where you intend to start the ball, not where you want it to finish."
+        confirmLabel="Set aim point →"
+        cancelLabel="Skip"
+        onConfirm={handleAimPromptConfirm}
+        onCancel={handleAimPromptSkip}
       />
 
       <Modal
