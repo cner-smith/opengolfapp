@@ -28,6 +28,8 @@ export interface ExistingShot {
   endLng: number | null
   startLat: number | null
   startLng: number | null
+  aimLat?: number | null
+  aimLng?: number | null
   category?: 'tee' | 'approach' | 'around-green' | 'putt' | null
 }
 
@@ -77,6 +79,13 @@ interface RoundMapProps {
   onMovePin?: (point: PlacedPoint) => void
   onMoveTee?: (point: PlacedPoint) => void
   onSetAim?: (index: number, point: PlacedPoint | null) => void
+  /** Drag end on a saved shot's start marker. When wired, saved shot
+   *  markers become draggable so the player can correct positions
+   *  after a hole is logged. */
+  onMoveExistingShot?: (shotId: string, point: PlacedPoint) => void
+  /** Drag end on a saved shot's aim ghost. When wired (and the shot has
+   *  aim coords), the aim marker becomes draggable. */
+  onMoveExistingShotAim?: (shotId: string, point: PlacedPoint) => void
 }
 
 const MARKER_COLORS = {
@@ -106,6 +115,8 @@ export function RoundMap({
   onMovePin,
   onMoveTee,
   onSetAim,
+  onMoveExistingShot,
+  onMoveExistingShotAim,
 }: RoundMapProps) {
   const { toDisplay } = useUnits()
   // Memoized so downstream effects can dep on the object directly without
@@ -373,6 +384,7 @@ export function RoundMap({
     // Marker N renders at the START of shot N — that's "where the player
     // stood for shot N", matching the post-round tap flow. Falling back
     // to end coords for legacy rows that pre-date start_lat/lng.
+    const existingAimLines: [number, number][][] = []
     const existingValid = existingShots.filter(
       (s) =>
         (s.startLat != null && s.startLng != null) ||
@@ -388,13 +400,86 @@ export function RoundMap({
               ? MARKER_COLORS.approach
               : MARKER_COLORS.green
       const parts = makeNumberedMarker(s.shotNumber, color, '#FBF8F1')
-      parts.outer.title = `Shot ${s.shotNumber}`
       const lng = s.startLng ?? s.endLng!
       const lat = s.startLat ?? s.endLat!
-      const marker = new mapboxgl.Marker({ element: parts.outer })
+      // Drag is gated on the parent wiring a handler AND the row having a
+      // real start coord — moving an end-only legacy fallback would
+      // silently coerce it into a start coord on save.
+      const draggable =
+        !!onMoveExistingShot && s.startLat != null && s.startLng != null
+      const marker = new mapboxgl.Marker({
+        element: parts.outer,
+        draggable,
+      })
         .setLngLat([lng, lat])
         .addTo(map)
+      if (draggable) {
+        attachDragFx({
+          outer: parts.outer,
+          content: parts.content,
+          marker,
+          tooltip: `Shot ${s.shotNumber} — drag to adjust`,
+        })
+        marker.on('dragend', () => {
+          const ll = marker.getLngLat()
+          onMoveExistingShot!(s.id, { lat: ll.lat, lng: ll.lng })
+        })
+      } else {
+        parts.outer.title = `Shot ${s.shotNumber}`
+      }
       markerRefs.current.push(marker)
+
+      // Aim ghost for saved shots. Same warn palette as the placed-aim
+      // marker so the visual vocabulary stays consistent across modes.
+      if (s.aimLat != null && s.aimLng != null) {
+        const aimEl = makeAimMarker()
+        const aimDraggable = !!onMoveExistingShotAim
+        const aimMarker = new mapboxgl.Marker({
+          element: aimEl,
+          draggable: aimDraggable,
+        })
+          .setLngLat([s.aimLng, s.aimLat])
+          .addTo(map)
+        if (aimDraggable) {
+          aimEl.title = `Shot ${s.shotNumber} aim — drag to adjust`
+          aimEl.style.cursor = 'grab'
+          aimMarker.on('dragstart', () => {
+            aimEl.style.cursor = 'grabbing'
+          })
+          aimMarker.on('dragend', () => {
+            aimEl.style.cursor = 'grab'
+            const ll = aimMarker.getLngLat()
+            onMoveExistingShotAim!(s.id, { lat: ll.lat, lng: ll.lng })
+          })
+        }
+        markerRefs.current.push(aimMarker)
+
+        // Dashed aim line + AIM distance pill, mirroring the placed-shot
+        // version below. Uses the shot's start coord (with end fallback)
+        // so the line origin matches the numbered marker on the map.
+        const startLng = s.startLng ?? s.endLng
+        const startLat = s.startLat ?? s.endLat
+        if (startLat != null && startLng != null) {
+          const aimYards = Math.round(
+            haversineYards(startLat, startLng, s.aimLat, s.aimLng),
+          )
+          if (aimYards > 0) {
+            const mid: [number, number] = [
+              (startLng + s.aimLng) / 2,
+              (startLat + s.aimLat) / 2,
+            ]
+            const pill = makeDistancePill(`AIM ${toDisplay(aimYards)}`)
+            const pillMarker = new mapboxgl.Marker({ element: pill })
+              .setLngLat(mid)
+              .addTo(map)
+            markerRefs.current.push(pillMarker)
+          }
+          existingAimLines.push([
+            [startLng, startLat],
+            [s.aimLng, s.aimLat],
+          ])
+        }
+      }
     }
 
     // Placed points (tap-to-place mode).
@@ -492,6 +577,7 @@ export function RoundMap({
       }
     })
     upsertDashedLines(map, 'aim-lines', aimLineCoords, '#A66A1F')
+    upsertDashedLines(map, 'existing-aim-lines', existingAimLines, '#A66A1F')
   }, [
     existingShots,
     hole,
@@ -500,6 +586,8 @@ export function RoundMap({
     onMovePoint,
     onMovePin,
     onMoveTee,
+    onMoveExistingShot,
+    onMoveExistingShotAim,
     effectivePin,
     effectiveTee,
     toDisplay,
@@ -720,7 +808,7 @@ export function RoundMapInstructionStrip({
               Logged hole
             </div>
             <div className="text-caddie-ink" style={{ fontSize: 13 }}>
-              Drag any marker to refine its position.
+              Drag any marker to adjust its position.
             </div>
           </>
         ) : aimMode ? (

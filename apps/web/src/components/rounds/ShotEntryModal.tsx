@@ -9,6 +9,7 @@ import {
   combinedPuttResult,
   formatClubLabel,
   formatPuttDistance,
+  haversineYards,
   legacySlopeToAxes,
   type BreakDirection,
   type Club,
@@ -32,6 +33,7 @@ import {
 import { useAuth } from '../../hooks/useAuth'
 import { LieSlopeGrid } from '../forms/LieSlopeGrid'
 import { GreenDiagram } from '../round/GreenDiagram'
+import { ShotMiniMap } from '../round/ShotMiniMap'
 import { ConfirmDialog } from '../ui/ConfirmDialog'
 import { useUnits } from '../../hooks/useUnits'
 
@@ -69,6 +71,10 @@ interface ShotEntryModalProps {
   holeScoreId: string
   holeNumber: number
   holePar: number
+  /** Pin coords for this hole (round-pin override → static hole pin →
+   *  null). Drives the mini-map's distance_to_target recalc on drag. */
+  pinLat: number | null
+  pinLng: number | null
   onClose: () => void
 }
 
@@ -162,6 +168,8 @@ export function ShotEntryModal({
   holeScoreId,
   holeNumber,
   holePar,
+  pinLat,
+  pinLng,
   onClose,
 }: ShotEntryModalProps) {
   const { user } = useAuth()
@@ -317,6 +325,35 @@ export function ShotEntryModal({
   }
 
   const isPutt = draft.lieType === 'green'
+
+  // Source shot row + its successor for the mini-map. Mini-map shows
+  // only when editing a saved shot with start coords; new-shot drafts
+  // hide it because there's nothing on the map yet.
+  const editingRow = editing ? holeShots.find((s) => s.id === editing) : null
+  const editingNext = editingRow
+    ? holeShots.find((s) => s.shot_number === editingRow.shot_number + 1)
+    : null
+  async function handleMiniMapDrag(point: { lat: number; lng: number }) {
+    if (!editingRow) return
+    // Mirror RoundMap's drag handler — recalc distance_to_target against
+    // the pin so SG for this shot stays accurate. Skipped for putts
+    // (distance_to_target stays null; putt_distance_ft tracks that flow
+    // and isn't auto-recalculated on drag).
+    const isPutt =
+      editingRow.lie_type === 'green' || editingRow.club === 'putter'
+    const newDistance =
+      !isPutt && pinLat != null && pinLng != null
+        ? Math.round(haversineYards(point.lat, point.lng, pinLat, pinLng))
+        : null
+    await updateShot.mutateAsync({
+      id: editingRow.id,
+      updates: {
+        start_lat: point.lat,
+        start_lng: point.lng,
+        ...(isPutt ? {} : { distance_to_target: newDistance }),
+      },
+    })
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-caddie-ink/60 sm:p-4">
@@ -479,6 +516,19 @@ export function ShotEntryModal({
             </div>
 
             <div className="flex flex-col" style={{ gap: 18 }}>
+              {editingRow && editingRow.start_lat != null && (
+                <ShotMiniMap
+                  shotNumber={editingRow.shot_number}
+                  startLat={editingRow.start_lat}
+                  startLng={editingRow.start_lng}
+                  endLat={editingNext?.start_lat ?? editingRow.end_lat}
+                  endLng={editingNext?.start_lng ?? editingRow.end_lng}
+                  aimLat={editingRow.aim_lat}
+                  aimLng={editingRow.aim_lng}
+                  onChangeStart={handleMiniMapDrag}
+                />
+              )}
+
               {isPutt && (
                 <GreenDiagram
                   distanceFt={draft.puttDistanceFt ?? 0}
