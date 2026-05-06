@@ -8,6 +8,7 @@ import {
   combinedPuttResult,
   DEFAULT_HANDICAP,
   haversineYards,
+  inferHoleStats,
   NEAR_GREEN_YARDS,
 } from '@oga/core'
 import type { PlacedPoint } from '../../../components/round/RoundMap'
@@ -504,14 +505,26 @@ export function useRoundActions(input: UseRoundActionsInput): UseRoundActionsRes
           pinLat: pinOverride?.lat ?? null,
           pinLng: pinOverride?.lng ?? null,
         })
+        // Infer fairway_hit + gir from the placed shot lies. Existing
+        // manual entries from HoleScoreCard win via the ?? — re-saving
+        // the map review never silently overwrites a value the player
+        // explicitly toggled on the scorecard.
+        const inferred = inferHoleStats(
+          rows.map((r) => ({
+            shot_number: r.shotNumber,
+            lie_type: r.lieType,
+            shot_result: null,
+          })),
+          activeHole.par,
+        )
         const hsResult = await upsertHoleScore.mutateAsync({
           id: existing?.id,
           round_id: round.data.id,
           hole_id: realHoleId,
           score: rows.length,
           putts: puttCount,
-          fairway_hit: existing?.fairway_hit ?? null,
-          gir: existing?.gir ?? null,
+          fairway_hit: existing?.fairway_hit ?? inferred.fairway,
+          gir: existing?.gir ?? inferred.gir,
         })
         const hs = hsResult ?? existing
         if (!hs) throw new Error('hole_score upsert returned no row')
