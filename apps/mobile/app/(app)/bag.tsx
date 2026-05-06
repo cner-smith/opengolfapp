@@ -276,6 +276,9 @@ export default function BagScreen() {
             <ClubRow
               club={item}
               isActive={isActive}
+              hasDuplicateType={
+                bag.filter((c) => c.club_type === item.club_type).length > 1
+              }
               onLongPress={drag}
               onToggle={() => toggleInBag(item)}
               onDelete={() => confirmDelete(item)}
@@ -527,6 +530,7 @@ export default function BagScreen() {
 function ClubRow({
   club,
   isActive,
+  hasDuplicateType,
   onLongPress,
   onToggle,
   onDelete,
@@ -534,6 +538,7 @@ function ClubRow({
 }: {
   club: UserClub
   isActive: boolean
+  hasDuplicateType: boolean
   onLongPress: () => void
   onToggle: () => void
   onDelete: () => void
@@ -564,8 +569,11 @@ function ClubRow({
           {club.name}
         </Text>
         <Text style={{ ...KICKER, marginTop: 2 }}>
-          {formatClubLabel(club)}
-          {club.loft != null && club.club_type !== 'cw' && club.club_type !== 'custom_wedge'
+          {formatClubLabel(club, { hasDuplicateType })}
+          {club.loft != null &&
+          club.club_type !== 'cw' &&
+          club.club_type !== 'custom_wedge' &&
+          !hasDuplicateType
             ? ` · ${club.loft}°`
             : ''}
           {club.typical_distance_yards != null
