@@ -13,6 +13,7 @@ import {
   type ReviewedShotRow,
 } from '@oga/core'
 import type { PlacedPoint } from './RoundMap'
+import { ShotMiniMap } from './ShotMiniMap'
 import type { WebPuttData } from './WebPuttingSheet'
 import { useUnits } from '../../hooks/useUnits'
 import { useUserBag } from '../../hooks/useUserBag'
@@ -236,10 +237,42 @@ export function HoleReviewSheet({
             <ShotRow
               key={row.shotNumber}
               row={row}
+              nextRow={rows[idx + 1] ?? null}
+              pinLat={pinLat}
+              pinLng={pinLng}
               onChange={(next) =>
                 setRows((prev) => {
                   const copy = prev.slice()
                   copy[idx] = next
+                  // When start moves, the prior shot's end no longer
+                  // matches — keep them paired so the trajectory line
+                  // and SG distances stay consistent on save. Skip when
+                  // either coord side is null (synthetic-fallback rows
+                  // built without coords); those flows save without
+                  // start/end pairing in the first place.
+                  const prior = idx > 0 ? prev[idx - 1] : null
+                  if (
+                    prior &&
+                    next.startLat != null &&
+                    next.startLng != null &&
+                    prior.startLat != null &&
+                    prior.startLng != null &&
+                    (prior.endLat !== next.startLat ||
+                      prior.endLng !== next.startLng)
+                  ) {
+                    const priorDist = haversineYards(
+                      prior.startLat,
+                      prior.startLng,
+                      next.startLat,
+                      next.startLng,
+                    )
+                    copy[idx - 1] = {
+                      ...prior,
+                      endLat: next.startLat,
+                      endLng: next.startLng,
+                      distanceYards: priorDist,
+                    }
+                  }
                   return copy
                 })
               }
@@ -302,9 +335,15 @@ export function HoleReviewSheet({
 
 function ShotRow({
   row,
+  nextRow,
+  pinLat,
+  pinLng,
   onChange,
 }: {
   row: ReviewedShotRow
+  nextRow: ReviewedShotRow | null
+  pinLat: number | null
+  pinLng: number | null
   onChange: (next: ReviewedShotRow) => void
 }) {
   // Mirror mobile's PUTTING_RADIUS_YARDS — any shot starting within 30 yd
@@ -336,17 +375,56 @@ function ShotRow({
     }
     return base
   }, [bag.data, row.club])
+  const handleStartDrag = (point: { lat: number; lng: number }) => {
+    const nextLat =
+      nextRow && nextRow.startLat != null ? nextRow.startLat : point.lat
+    const nextLng =
+      nextRow && nextRow.startLng != null ? nextRow.startLng : point.lng
+    const newDistanceYards = haversineYards(
+      point.lat,
+      point.lng,
+      nextLat,
+      nextLng,
+    )
+    const newDistanceToPin =
+      pinLat != null && pinLng != null
+        ? haversineYards(point.lat, point.lng, pinLat, pinLng)
+        : row.distanceToPin
+    onChange({
+      ...row,
+      startLat: point.lat,
+      startLng: point.lng,
+      distanceYards: row.isLastShot ? row.distanceYards : newDistanceYards,
+      distanceToPin: newDistanceToPin,
+    })
+  }
   return (
     <div
       style={{
         display: 'flex',
-        alignItems: 'center',
-        gap: 14,
+        flexDirection: 'column',
+        gap: 10,
         padding: '14px 0',
         borderBottom: '1px solid #D9D2BF',
-        flexWrap: 'wrap',
       }}
     >
+      <ShotMiniMap
+        shotNumber={row.shotNumber}
+        startLat={row.startLat}
+        startLng={row.startLng}
+        endLat={nextRow ? nextRow.startLat : pinLat}
+        endLng={nextRow ? nextRow.startLng : pinLng}
+        onChangeStart={handleStartDrag}
+        height={140}
+      />
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 14,
+          flexWrap: 'wrap',
+        }}
+      >
       <div
         className="kicker"
         style={{ minWidth: 56 }}
@@ -445,6 +523,7 @@ function ShotRow({
       {isPutt && !row.puttMade && (
         <PuttMissAxes row={row} onChange={onChange} />
       )}
+      </div>
     </div>
   )
 }
