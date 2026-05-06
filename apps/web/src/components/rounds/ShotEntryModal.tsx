@@ -7,7 +7,10 @@ import {
   SHOT_RESULTS,
   SHOT_RESULT_LABELS,
   combinedPuttResult,
+  formatClubLabel,
+  formatDistance,
   formatPuttDistance,
+  haversineYards,
   legacySlopeToAxes,
   type BreakDirection,
   type Club,
@@ -31,6 +34,7 @@ import {
 import { useAuth } from '../../hooks/useAuth'
 import { LieSlopeGrid } from '../forms/LieSlopeGrid'
 import { GreenDiagram } from '../round/GreenDiagram'
+import { ShotMiniMap } from '../round/ShotMiniMap'
 import { ConfirmDialog } from '../ui/ConfirmDialog'
 import { useUnits } from '../../hooks/useUnits'
 
@@ -47,6 +51,13 @@ const BREAK_OPTIONS: {
 
 const SLOPE_INTENSITY_LABELS = ['Flat', 'Slight', 'Moderate', 'Strong', 'Severe']
 
+const LIE_TYPE_OPTIONS: { value: LieType; label: string }[] = LIE_TYPES.map(
+  (l) => ({ value: l, label: LIE_TYPE_LABELS[l] }),
+)
+
+const SHOT_RESULT_OPTIONS: { value: ShotResult; label: string }[] =
+  SHOT_RESULTS.map((r) => ({ value: r, label: SHOT_RESULT_LABELS[r] }))
+
 const GREEN_SPEEDS: { value: GreenSpeed; label: string }[] = [
   { value: 'slow', label: 'Slow' },
   { value: 'medium', label: 'Medium' },
@@ -61,6 +72,10 @@ interface ShotEntryModalProps {
   holeScoreId: string
   holeNumber: number
   holePar: number
+  /** Pin coords for this hole (round-pin override → static hole pin →
+   *  null). Drives the mini-map's distance_to_target recalc on drag. */
+  pinLat: number | null
+  pinLng: number | null
   onClose: () => void
 }
 
@@ -154,6 +169,8 @@ export function ShotEntryModal({
   holeScoreId,
   holeNumber,
   holePar,
+  pinLat,
+  pinLng,
   onClose,
 }: ShotEntryModalProps) {
   const { user } = useAuth()
@@ -168,12 +185,15 @@ export function ShotEntryModal({
   // Fall back to DEFAULT_BAG while loading or if the user has trimmed
   // their bag to nothing — never show an empty club picker. Bag custom
   // club_types pass through as plain strings since `shots.club` is a
-  // text column.
-  const clubOptions: readonly string[] = useMemo(() => {
-    if (bag.data && bag.data.length > 0) {
-      return bag.data.map((c) => c.club_type)
-    }
-    return DEFAULT_BAG.map((c) => c.club_type)
+  // text column. The label routes through `formatClubLabel` so a
+  // custom_wedge entry reads as its loft (e.g. "58°"), not the raw
+  // "custom_wedge" club_type.
+  const clubOptions = useMemo<{ value: string; label: string }[]>(() => {
+    const source = bag.data && bag.data.length > 0 ? bag.data : DEFAULT_BAG
+    return source.map((c) => ({
+      value: c.club_type,
+      label: formatClubLabel(c),
+    }))
   }, [bag.data])
 
   const holeShots = useMemo(() => {
@@ -307,6 +327,35 @@ export function ShotEntryModal({
 
   const isPutt = draft.lieType === 'green'
 
+  // Source shot row + its successor for the mini-map. Mini-map shows
+  // only when editing a saved shot with start coords; new-shot drafts
+  // hide it because there's nothing on the map yet.
+  const editingRow = editing ? holeShots.find((s) => s.id === editing) : null
+  const editingNext = editingRow
+    ? holeShots.find((s) => s.shot_number === editingRow.shot_number + 1)
+    : null
+  async function handleMiniMapDrag(point: { lat: number; lng: number }) {
+    if (!editingRow) return
+    // Mirror RoundMap's drag handler — recalc distance_to_target against
+    // the pin so SG for this shot stays accurate. Skipped for putts
+    // (distance_to_target stays null; putt_distance_ft tracks that flow
+    // and isn't auto-recalculated on drag).
+    const isPutt =
+      editingRow.lie_type === 'green' || editingRow.club === 'putter'
+    const newDistance =
+      !isPutt && pinLat != null && pinLng != null
+        ? Math.round(haversineYards(point.lat, point.lng, pinLat, pinLng))
+        : null
+    await updateShot.mutateAsync({
+      id: editingRow.id,
+      updates: {
+        start_lat: point.lat,
+        start_lng: point.lng,
+        ...(isPutt ? {} : { distance_to_target: newDistance }),
+      },
+    })
+  }
+
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-caddie-ink/60 sm:p-4">
       <div
@@ -397,7 +446,13 @@ export function ShotEntryModal({
                         className="font-serif text-caddie-ink"
                         style={{ fontSize: 15, fontWeight: 500, marginTop: 2 }}
                       >
-                        {s.club ?? '—'}
+                        {s.club
+                          ? formatClubLabel(
+                              bag.data?.find((b) => b.club_type === s.club) ?? {
+                                club_type: s.club,
+                              },
+                            )
+                          : '—'}
                         {s.lie_type
                           ? ` · ${LIE_TYPE_LABELS[s.lie_type as LieType] ?? s.lie_type}`
                           : ''}
@@ -406,7 +461,7 @@ export function ShotEntryModal({
                         className="text-caddie-ink-dim"
                         style={{ fontSize: 12, marginTop: 2 }}
                       >
-                        {formatShotSummary(s, units.unit)}
+                        {formatShotSummary(s, holeShots[i + 1], units.unit)}
                       </div>
                     </div>
                     <div className="flex" style={{ gap: 4 }}>
@@ -462,6 +517,21 @@ export function ShotEntryModal({
             </div>
 
             <div className="flex flex-col" style={{ gap: 18 }}>
+              {editingRow &&
+                editingRow.start_lat != null &&
+                editingRow.start_lng != null && (
+                <ShotMiniMap
+                  shotNumber={editingRow.shot_number}
+                  startLat={editingRow.start_lat}
+                  startLng={editingRow.start_lng}
+                  endLat={editingNext?.start_lat ?? editingRow.end_lat}
+                  endLng={editingNext?.start_lng ?? editingRow.end_lng}
+                  aimLat={editingRow.aim_lat}
+                  aimLng={editingRow.aim_lng}
+                  onChangeStart={handleMiniMapDrag}
+                />
+              )}
+
               {isPutt && (
                 <GreenDiagram
                   distanceFt={draft.puttDistanceFt ?? 0}
@@ -488,7 +558,7 @@ export function ShotEntryModal({
               <Field label="Lie type">
                 <ChipGroup
                   value={draft.lieType}
-                  options={LIE_TYPES}
+                  options={LIE_TYPE_OPTIONS}
                   onChange={(v) => setDraft((d) => ({ ...d, lieType: v }))}
                 />
               </Field>
@@ -665,7 +735,7 @@ export function ShotEntryModal({
                 <Field label="Shot result">
                   <ChipGroup
                     value={draft.shotResult}
-                    options={SHOT_RESULTS}
+                    options={SHOT_RESULT_OPTIONS}
                     onChange={(v) => setDraft((d) => ({ ...d, shotResult: v }))}
                   />
                 </Field>
@@ -791,27 +861,45 @@ export function ShotEntryModal({
 }
 
 // Build the second line on each shot row in the side panel. Putts get
-// their putt_result label + distance; everything else gets the
-// shot_result label. Falls back to the raw value when the column has
-// something unexpected, and to '—' when both are null.
-function formatShotSummary(s: ShotRow, unit: DistanceUnit): string {
+// putt distance (feet/cm/in/m via formatPuttDistance) plus the
+// putt_result label. Other shots get distance_to_target with a
+// haversine fallback to the next shot's start coords, plus the
+// shot_result label. Only renders '—' when there's truly no signal —
+// stored distance, coords, and result columns all null.
+function formatShotSummary(
+  s: ShotRow,
+  next: ShotRow | undefined,
+  unit: DistanceUnit,
+): string {
   if (s.lie_type === 'green' || s.club === 'putter') {
     const result =
       (s.putt_result &&
         PUTT_RESULT_LABELS[s.putt_result as keyof typeof PUTT_RESULT_LABELS]) ??
       s.putt_result ??
       null
-    const distance =
-      s.putt_distance_ft != null
-        ? formatPuttDistance(s.putt_distance_ft, unit)
-        : null
-    const parts = [result, distance].filter(Boolean) as string[]
+    const feet = s.putt_distance_ft ?? s.distance_to_target ?? null
+    const distance = feet != null ? formatPuttDistance(feet, unit) : null
+    const parts = [distance, result].filter(Boolean) as string[]
     return parts.length ? parts.join(' · ') : '—'
   }
-  if (s.shot_result) {
-    return SHOT_RESULT_LABELS[s.shot_result as ShotResult] ?? s.shot_result
+  let yards: number | null = s.distance_to_target ?? null
+  if (
+    yards == null &&
+    s.start_lat != null &&
+    s.start_lng != null &&
+    next?.start_lat != null &&
+    next?.start_lng != null
+  ) {
+    yards = Math.round(
+      haversineYards(s.start_lat, s.start_lng, next.start_lat, next.start_lng),
+    )
   }
-  return '—'
+  const distance = yards != null ? formatDistance(yards, unit) : null
+  const result = s.shot_result
+    ? SHOT_RESULT_LABELS[s.shot_result as ShotResult] ?? s.shot_result
+    : null
+  const parts = [distance, result].filter(Boolean) as string[]
+  return parts.length ? parts.join(' · ') : '—'
 }
 
 function NumericInput({
@@ -858,7 +946,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 
 interface ChipGroupProps<T extends string> {
   value: T | undefined
-  options: readonly T[]
+  options: readonly { value: T; label: string }[]
   onChange: (v: T | undefined) => void
 }
 
@@ -877,14 +965,14 @@ function chipStyle(active: boolean): React.CSSProperties {
 function ChipGroup<T extends string>({ value, options, onChange }: ChipGroupProps<T>) {
   return (
     <div className="flex flex-wrap" style={{ gap: 6 }}>
-      {options.map((opt) => (
+      {options.map(({ value: optValue, label }) => (
         <button
-          key={opt}
+          key={optValue}
           type="button"
-          onClick={() => onChange(value === opt ? undefined : opt)}
-          style={chipStyle(value === opt)}
+          onClick={() => onChange(value === optValue ? undefined : optValue)}
+          style={chipStyle(value === optValue)}
         >
-          {opt.replace(/_/g, ' ')}
+          {label}
         </button>
       ))}
     </div>

@@ -5,6 +5,7 @@ import {
   useEffect,
   useMemo,
   useReducer,
+  useRef,
   useState,
   type ReactNode,
 } from 'react'
@@ -14,6 +15,8 @@ import type { Database } from '@oga/supabase'
 import { HoleScoreCard } from '../../components/rounds/HoleScoreCard'
 import { ShotEntryModal } from '../../components/rounds/ShotEntryModal'
 import { RoundSummary } from '../../components/rounds/RoundSummary'
+import { ShareableScorecardCard } from '../../components/round/ShareableScorecardCard'
+import { toPng } from 'html-to-image'
 import type {
   ExistingShot,
   HoleGeo,
@@ -52,7 +55,11 @@ import {
   useHolesForCourse,
 } from '../../hooks/useCourses'
 import { useHoleScores, useUpsertHoleScore } from '../../hooks/useHoleScores'
-import { useCreateShot, useShotsForRound } from '../../hooks/useShots'
+import {
+  useCreateShot,
+  useShotsForRound,
+  useUpdateShot,
+} from '../../hooks/useShots'
 import { useCompleteRound } from '../../hooks/useCompleteRound'
 import { useProfile } from '../../hooks/useProfile'
 import { useAuth } from '../../hooks/useAuth'
@@ -276,6 +283,7 @@ export function RoundDetailPage() {
   const shotsQuery = useShotsForRound(roundId)
   const upsertHoleScore = useUpsertHoleScore(roundId)
   const createShot = useCreateShot(roundId)
+  const updateShot = useUpdateShot(roundId)
   const completeMutation = useCompleteRound()
   const deleteMutation = useDeleteRound()
   const allRounds = useRounds(50)
@@ -287,6 +295,20 @@ export function RoundDetailPage() {
   const [onGreenPrompt, setOnGreenPrompt] = useState<PlacedPoint | null>(
     null,
   )
+  // "Set an aim point?" prompt — opens after every non-putt PUSH_POINT
+  // so the player decides explicitly whether this shot has aim data.
+  // Replaces the easy-to-miss "Set aim" button on the strip as the
+  // primary aim-collection moment. Putt placements skip it (putts
+  // capture aim through the putting sheet's break/aim-offset fields).
+  const [aimPromptOpen, setAimPromptOpen] = useState(false)
+  // First-use hint shown the first time the player ever places an aim
+  // point — explains that aim = start line, not finish target. Gated by
+  // localStorage so it appears once per device and auto-dismisses after
+  // 3s or on tap.
+  const [aimHintVisible, setAimHintVisible] = useState(false)
+  const [shareTone, setShareTone] = useState<'light' | 'dark'>('light')
+  const [sharing, setSharing] = useState(false)
+  const shareCardRef = useRef<HTMLDivElement | null>(null)
 
   const [shotsModalFor, setShotsModalFor] = useState<{
     holeScoreId: string
@@ -317,6 +339,50 @@ export function RoundDetailPage() {
     saveError,
   } = holeView
   const [savingHole, setSavingHole] = useState(false)
+
+  // Last drag-edit on a saved shot. Surfaces the Undo button on the
+  // logged-hole strip for 5s after every drag, then clears itself.
+  // Holds the previous coords so the undo can restore them via the same
+  // mutation path the drag took. `field` is the column the drag
+  // touched ('start' = start_lat/lng + distance_to_target, 'aim' =
+  // aim_lat/lng).
+  type ShotDragUndo = {
+    shotId: string
+    field: 'start' | 'aim'
+    prev: {
+      lat: number | null
+      lng: number | null
+      distanceToTarget?: number | null
+    }
+    label: string
+  }
+  const [shotDragUndo, setShotDragUndo] = useState<ShotDragUndo | null>(null)
+  const undoTimerRef = useRef<number | null>(null)
+  useEffect(() => {
+    if (undoTimerRef.current != null) {
+      window.clearTimeout(undoTimerRef.current)
+    }
+    if (!shotDragUndo) return
+    undoTimerRef.current = window.setTimeout(() => {
+      setShotDragUndo(null)
+    }, 5000)
+    return () => {
+      if (undoTimerRef.current != null) {
+        window.clearTimeout(undoTimerRef.current)
+      }
+    }
+  }, [shotDragUndo])
+
+  const placedAimsHaveAny = placedAims.some((a) => a != null)
+  useEffect(() => {
+    if (!placedAimsHaveAny) return
+    if (typeof window === 'undefined') return
+    if (window.localStorage.getItem('oga.aim-hint-shown')) return
+    window.localStorage.setItem('oga.aim-hint-shown', '1')
+    setAimHintVisible(true)
+    const t = window.setTimeout(() => setAimHintVisible(false), 3000)
+    return () => window.clearTimeout(t)
+  }, [placedAimsHaveAny])
 
   // Synthetic fallback when the course has no rows in the `holes` table
   // (typical for OSM-imported courses that never went through enrichment).
@@ -493,6 +559,8 @@ export function RoundDetailPage() {
         endLng: s.end_lng,
         startLat: s.start_lat,
         startLng: s.start_lng,
+        aimLat: s.aim_lat,
+        aimLng: s.aim_lng,
         category: categorizeShot(s, activeHole?.par ?? 4),
       }))
       .sort((a, b) => a.shotNumber - b.shotNumber)
@@ -599,6 +667,7 @@ export function RoundDetailPage() {
           point: p,
           openPuttSheet: false,
         })
+        setAimPromptOpen(true)
       },
       onMovePoint: (idx: number, p: PlacedPoint) =>
         dispatchHoleView({ type: 'MOVE_POINT', index: idx, point: p }),
@@ -631,6 +700,124 @@ export function RoundDetailPage() {
   const switchHole = useCallback((n: number) => {
     dispatchHoleView({ type: 'SWITCH_HOLE', holeNumber: n })
   }, [])
+
+  // Drag end on a saved shot's start marker. Persists the new coord and
+  // recalculates distance_to_target against the current pin (skipped for
+  // putts — putt distance lives on putt_distance_ft and tracking start-
+  // to-pin yardage there would corrupt it). Stashes prev coords for the
+  // 5s undo button.
+  const handleMoveExistingShot = useCallback(
+    async (shotId: string, point: PlacedPoint) => {
+      const shot = activeHoleShots.find((s) => s.id === shotId)
+      if (!shot) return
+      // distance_to_target lives on the raw row — pull it for the undo
+      // snapshot. ExistingShot only exposes coords + numbering.
+      const rawShot = (shotsQuery.data ?? []).find((s) => s.id === shotId)
+      const isPutt = shot.category === 'putt'
+      const newDistance =
+        !isPutt && effectivePin
+          ? Math.round(
+              haversineYards(
+                point.lat,
+                point.lng,
+                effectivePin.lat,
+                effectivePin.lng,
+              ),
+            )
+          : null
+      // Stash prev for undo BEFORE the mutation — if the user immediately
+      // drags again the second drag's prev should reflect the first
+      // drag's end position, not what was on screen before either edit.
+      setShotDragUndo({
+        shotId,
+        field: 'start',
+        prev: {
+          lat: shot.startLat,
+          lng: shot.startLng,
+          distanceToTarget: isPutt
+            ? undefined
+            : rawShot?.distance_to_target ?? null,
+        },
+        label: `Shot ${shot.shotNumber} position`,
+      })
+      try {
+        await updateShot.mutateAsync({
+          id: shotId,
+          updates: {
+            start_lat: point.lat,
+            start_lng: point.lng,
+            ...(isPutt ? {} : { distance_to_target: newDistance }),
+          },
+        })
+      } catch (err) {
+        if (import.meta.env.DEV) {
+          // eslint-disable-next-line no-console
+          console.error('[RoundDetailPage/moveExistingShot]', err)
+        }
+        setShotDragUndo(null)
+      }
+    },
+    [activeHoleShots, shotsQuery.data, effectivePin, updateShot],
+  )
+
+  const handleMoveExistingShotAim = useCallback(
+    async (shotId: string, point: PlacedPoint) => {
+      const shot = activeHoleShots.find((s) => s.id === shotId)
+      if (!shot) return
+      setShotDragUndo({
+        shotId,
+        field: 'aim',
+        prev: {
+          lat: shot.aimLat ?? null,
+          lng: shot.aimLng ?? null,
+        },
+        label: `Shot ${shot.shotNumber} aim`,
+      })
+      try {
+        await updateShot.mutateAsync({
+          id: shotId,
+          updates: { aim_lat: point.lat, aim_lng: point.lng },
+        })
+      } catch (err) {
+        if (import.meta.env.DEV) {
+          // eslint-disable-next-line no-console
+          console.error('[RoundDetailPage/moveExistingShotAim]', err)
+        }
+        setShotDragUndo(null)
+      }
+    },
+    [activeHoleShots, updateShot],
+  )
+
+  const applyShotDragUndo = useCallback(async () => {
+    const u = shotDragUndo
+    if (!u) return
+    setShotDragUndo(null)
+    try {
+      if (u.field === 'start') {
+        await updateShot.mutateAsync({
+          id: u.shotId,
+          updates: {
+            start_lat: u.prev.lat,
+            start_lng: u.prev.lng,
+            ...(u.prev.distanceToTarget !== undefined
+              ? { distance_to_target: u.prev.distanceToTarget }
+              : {}),
+          },
+        })
+      } else {
+        await updateShot.mutateAsync({
+          id: u.shotId,
+          updates: { aim_lat: u.prev.lat, aim_lng: u.prev.lng },
+        })
+      }
+    } catch (err) {
+      if (import.meta.env.DEV) {
+        // eslint-disable-next-line no-console
+        console.error('[RoundDetailPage/applyShotDragUndo]', err)
+      }
+    }
+  }, [shotDragUndo, updateShot])
 
   if (round.isLoading || holesQuery.isLoading) {
     return (
@@ -688,6 +875,37 @@ export function RoundDetailPage() {
     } catch (err) {
       setCompleteError(toUserMessage(err))
       setConfirmDelete(false)
+    }
+  }
+
+  // Capture the off-screen ShareableScorecardCard via html-to-image and
+  // trigger a browser download. The card is rendered absolutely-
+  // positioned far off the left edge so the user never sees it; it
+  // exists only to hand a real DOM node to the rasteriser. 2x pixel
+  // ratio gives crisp output on retina screens without ballooning the
+  // file size for group-chat shares.
+  async function handleShare() {
+    if (!shareCardRef.current || sharing) return
+    setSharing(true)
+    try {
+      const dataUrl = await toPng(shareCardRef.current, {
+        pixelRatio: 2,
+        cacheBust: true,
+        backgroundColor: shareTone === 'dark' ? '#1C211C' : '#FBF8F1',
+      })
+      const courseSlug = (round.data?.courses?.name ?? 'round')
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/(^-|-$)/g, '')
+      const date = round.data?.played_at ?? 'unknown-date'
+      const link = document.createElement('a')
+      link.href = dataUrl
+      link.download = `${courseSlug}-${date}-scorecard.png`
+      link.click()
+    } catch (err) {
+      setCompleteError(toUserMessage(err))
+    } finally {
+      setSharing(false)
     }
   }
 
@@ -867,6 +1085,43 @@ export function RoundDetailPage() {
           </button>
           <button
             type="button"
+            onClick={handleShare}
+            disabled={sharing || holesPlayed === 0}
+            className="text-caddie-accent hover:bg-caddie-accent/10 disabled:opacity-40"
+            style={{
+              background: 'transparent',
+              border: '1px solid #1F3D2C',
+              borderRadius: 2,
+              padding: '12px 14px',
+              fontSize: 13,
+              fontWeight: 500,
+              letterSpacing: '0.02em',
+            }}
+          >
+            {sharing ? 'Rendering…' : 'Share scorecard'}
+          </button>
+          <button
+            type="button"
+            onClick={() =>
+              setShareTone((t) => (t === 'light' ? 'dark' : 'light'))
+            }
+            className="text-caddie-ink-mute hover:text-caddie-ink"
+            style={{
+              background: 'transparent',
+              border: 'none',
+              padding: '12px 6px',
+              fontSize: 11,
+              letterSpacing: '0.14em',
+              textTransform: 'uppercase',
+              fontFamily: '"JetBrains Mono", monospace',
+              cursor: 'pointer',
+            }}
+            title="Toggle share card tone"
+          >
+            {shareTone === 'light' ? 'Light' : 'Dark'}
+          </button>
+          <button
+            type="button"
             onClick={handleComplete}
             disabled={completeMutation.isPending || holesPlayed === 0}
             className="bg-caddie-accent text-caddie-accent-ink hover:opacity-90 disabled:opacity-40"
@@ -880,6 +1135,29 @@ export function RoundDetailPage() {
           >
             {completeMutation.isPending ? 'Calculating…' : 'Save SG + finalize'}
           </button>
+        </div>
+      </div>
+
+      {/* Off-screen render target for html-to-image. Position fixed
+          left:-99999px keeps the rasteriser-visible DOM out of the
+          user's view; pointerEvents none so it can never intercept
+          clicks while the card is mounted. */}
+      <div
+        aria-hidden
+        style={{
+          position: 'fixed',
+          left: -99999,
+          top: 0,
+          pointerEvents: 'none',
+        }}
+      >
+        <div ref={shareCardRef}>
+          <ShareableScorecardCard
+            round={round.data}
+            holes={holes}
+            scoresByHoleId={scoresByHoleId}
+            tone={shareTone}
+          />
         </div>
       </div>
 
@@ -917,10 +1195,48 @@ export function RoundDetailPage() {
               point: onGreenPrompt,
               openPuttSheet: false,
             })
+            setAimPromptOpen(true)
           }
           setOnGreenPrompt(null)
         }}
       />
+
+      <ConfirmDialog
+        open={aimPromptOpen}
+        title="Set an aim point?"
+        message="Your aim point is your start line — where you intend to start the ball, not where you want it to finish."
+        confirmLabel="Set aim point →"
+        cancelLabel="Skip"
+        onConfirm={() => {
+          dispatchHoleView({ type: 'AIM_MODE', on: true })
+          setAimPromptOpen(false)
+        }}
+        onCancel={() => setAimPromptOpen(false)}
+      />
+
+      {aimHintVisible && (
+        <button
+          type="button"
+          onClick={() => setAimHintVisible(false)}
+          aria-label="Dismiss aim point hint"
+          style={{
+            position: 'fixed',
+            bottom: 24,
+            left: '50%',
+            transform: 'translateX(-50%)',
+            background: '#1C211C',
+            color: '#F2EEE5',
+            borderRadius: 4,
+            padding: '12px 18px',
+            fontSize: 13,
+            zIndex: 100,
+            border: '1px solid #9F9580',
+            cursor: 'pointer',
+          }}
+        >
+          Aim point = start line. Drag to adjust.
+        </button>
+      )}
 
       {completeError && (
         <div
@@ -978,6 +1294,10 @@ export function RoundDetailPage() {
           teeOverride={teeOverride}
           placementMode={placementMode}
           handlers={placeHandlers}
+          onMoveExistingShot={handleMoveExistingShot}
+          onMoveExistingShotAim={handleMoveExistingShotAim}
+          shotDragUndoLabel={shotDragUndo?.label ?? null}
+          onApplyShotDragUndo={applyShotDragUndo}
           saveError={saveError}
           editingOnMap={editingOnMap}
           reviewSheet={
@@ -1032,15 +1352,33 @@ export function RoundDetailPage() {
         />
       )}
 
-      {shotsModalFor && round.data && (
-        <ShotEntryModal
-          roundId={round.data.id}
-          holeScoreId={shotsModalFor.holeScoreId}
-          holeNumber={shotsModalFor.holeNumber}
-          holePar={shotsModalFor.holePar}
-          onClose={() => setShotsModalFor(null)}
-        />
-      )}
+      {shotsModalFor && round.data && (() => {
+        // Resolve pin for the modal's mini-map distance recalc. Per-round
+        // override on hole_scores wins over the static holes-table pin,
+        // matching the priority used by RoundMap and the live entry flow.
+        const hsRow = (round.data.hole_scores as
+          | Array<{
+              id: string
+              hole_id: string
+              pin_lat: number | null
+              pin_lng: number | null
+            }>
+          | undefined)?.find((h) => h.id === shotsModalFor.holeScoreId)
+        const holeRow = holes.find((h) => h.id === hsRow?.hole_id)
+        const pinLat = hsRow?.pin_lat ?? holeRow?.pin_lat ?? null
+        const pinLng = hsRow?.pin_lng ?? holeRow?.pin_lng ?? null
+        return (
+          <ShotEntryModal
+            roundId={round.data.id}
+            holeScoreId={shotsModalFor.holeScoreId}
+            holeNumber={shotsModalFor.holeNumber}
+            holePar={shotsModalFor.holePar}
+            pinLat={pinLat}
+            pinLng={pinLng}
+            onClose={() => setShotsModalFor(null)}
+          />
+        )
+      })()}
     </div>
   )
 }
@@ -1256,6 +1594,14 @@ interface MapViewProps {
   }
   saveError: string | null
   editingOnMap: boolean
+  /** Drag-end on a saved shot's start marker. Forwarded to RoundMap. */
+  onMoveExistingShot: (shotId: string, point: PlacedPoint) => void
+  /** Drag-end on a saved shot's aim ghost. */
+  onMoveExistingShotAim: (shotId: string, point: PlacedPoint) => void
+  /** Label for the most recent saved-shot drag, or null when no recent
+   *  edit exists. Drives the Undo affordance on the logged-hole strip. */
+  shotDragUndoLabel: string | null
+  onApplyShotDragUndo: () => void
   reviewSheet?: ReactNode
 }
 
@@ -1277,6 +1623,10 @@ function MapView({
   teeOverride,
   placementMode,
   handlers,
+  onMoveExistingShot,
+  onMoveExistingShotAim,
+  shotDragUndoLabel,
+  onApplyShotDragUndo,
   saveError,
   editingOnMap,
   reviewSheet,
@@ -1381,6 +1731,8 @@ function MapView({
           needsTee={needsTee}
           needsPin={needsPin}
           placementMode={placementMode}
+          shotDragUndoLabel={shotDragUndoLabel}
+          onApplyShotDragUndo={onApplyShotDragUndo}
           onStartPlaceTee={handlers.onStartPlaceTee}
           onStartPlacePin={handlers.onStartPlacePin}
           onCancelPlacement={handlers.onCancelPlacement}
@@ -1424,6 +1776,8 @@ function MapView({
             onMovePin={handlers.onMovePin}
             onMoveTee={handlers.onMoveTee}
             onSetAim={handlers.onSetAim}
+            onMoveExistingShot={onMoveExistingShot}
+            onMoveExistingShotAim={onMoveExistingShotAim}
           />
         </Suspense>
         {reviewSheet}

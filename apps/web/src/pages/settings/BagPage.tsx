@@ -4,6 +4,7 @@ import {
   CLUB_CATEGORIES,
   CLUB_CATEGORY_LABELS,
   clubCategoryFor,
+  formatClubLabel,
   type ClubCategory,
 } from '@oga/core'
 import {
@@ -452,8 +453,10 @@ const SortableClubRow = memo(function SortableClubRow({
             className="font-mono uppercase text-caddie-ink-mute"
             style={{ fontSize: 10, letterSpacing: '0.14em', marginTop: 2 }}
           >
-            {club.club_type}
-            {club.loft != null ? ` · ${club.loft}°` : ''}
+            {formatClubLabel(club)}
+            {club.loft != null && club.club_type !== 'cw' && club.club_type !== 'custom_wedge'
+              ? ` · ${club.loft}°`
+              : ''}
             {club.typical_distance_yards != null
               ? ` · ${club.typical_distance_yards} yd`
               : ''}
@@ -776,10 +779,10 @@ function AddClubForm({
             >
               {canonicalOptions.map((c) => (
                 <option key={c} value={c}>
-                  {c}
+                  {formatClubLabel({ club_type: c })}
                 </option>
               ))}
-              <option value={CUSTOM_VALUE}>Custom…</option>
+              <option value={CUSTOM_VALUE}>Other…</option>
             </select>
           )}
           {customMode && draft.category !== 'utility' && (

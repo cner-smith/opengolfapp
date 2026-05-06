@@ -4,6 +4,7 @@ import {
   LIE_TYPES,
   NEAR_GREEN_YARDS,
   buildInitialRows,
+  formatClubLabel,
   haversineYards,
   type Club,
   type LieType,
@@ -239,6 +240,35 @@ export function HoleReviewSheet({
                 setRows((prev) => {
                   const copy = prev.slice()
                   copy[idx] = next
+                  // When start moves, the prior shot's end no longer
+                  // matches — keep them paired so the trajectory line
+                  // and SG distances stay consistent on save. Skip when
+                  // either coord side is null (synthetic-fallback rows
+                  // built without coords); those flows save without
+                  // start/end pairing in the first place.
+                  const prior = idx > 0 ? prev[idx - 1] : null
+                  if (
+                    prior &&
+                    next.startLat != null &&
+                    next.startLng != null &&
+                    prior.startLat != null &&
+                    prior.startLng != null &&
+                    (prior.endLat !== next.startLat ||
+                      prior.endLng !== next.startLng)
+                  ) {
+                    const priorDist = haversineYards(
+                      prior.startLat,
+                      prior.startLng,
+                      next.startLat,
+                      next.startLng,
+                    )
+                    copy[idx - 1] = {
+                      ...prior,
+                      endLat: next.startLat,
+                      endLng: next.startLng,
+                      distanceYards: priorDist,
+                    }
+                  }
                   return copy
                 })
               }
@@ -321,25 +351,38 @@ function ShotRow({
   // DEFAULT_BAG when empty/loading. Splice in the row's current `club`
   // when it isn't represented (custom utility club types from a bag
   // edit, or a legacy CLUBS-based row from before this PR) so the
-  // <select> always shows the value the user actually has.
-  const clubOptions = useMemo(() => {
-    const base = bag.data && bag.data.length > 0
-      ? bag.data.map((c) => c.club_type)
-      : DEFAULT_BAG.map((c) => c.club_type)
-    if (row.club && !base.includes(row.club)) return [row.club, ...base]
+  // <select> always shows the value the user actually has. Labels
+  // route through `formatClubLabel` so a custom_wedge entry reads as
+  // its loft (e.g. "58°") rather than the raw "custom_wedge" key.
+  const clubOptions = useMemo<{ value: string; label: string }[]>(() => {
+    const source = bag.data && bag.data.length > 0 ? bag.data : DEFAULT_BAG
+    const base = source.map((c) => ({
+      value: c.club_type,
+      label: formatClubLabel(c),
+    }))
+    if (row.club && !base.some((o) => o.value === row.club)) {
+      return [{ value: row.club, label: row.club }, ...base]
+    }
     return base
   }, [bag.data, row.club])
   return (
     <div
       style={{
         display: 'flex',
-        alignItems: 'center',
-        gap: 14,
+        flexDirection: 'column',
+        gap: 10,
         padding: '14px 0',
         borderBottom: '1px solid #D9D2BF',
-        flexWrap: 'wrap',
       }}
     >
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 14,
+          flexWrap: 'wrap',
+        }}
+      >
       <div
         className="kicker"
         style={{ minWidth: 56 }}
@@ -372,8 +415,8 @@ function ShotRow({
         }}
       >
         {clubOptions.map((c) => (
-          <option key={c} value={c}>
-            {c}
+          <option key={c.value} value={c.value}>
+            {c.label}
           </option>
         ))}
       </select>
@@ -438,6 +481,7 @@ function ShotRow({
       {isPutt && !row.puttMade && (
         <PuttMissAxes row={row} onChange={onChange} />
       )}
+      </div>
     </div>
   )
 }

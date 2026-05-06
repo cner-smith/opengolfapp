@@ -1,15 +1,19 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   ActivityIndicator,
+  Alert,
   Pressable,
   ScrollView,
   Text,
   View,
 } from 'react-native'
+import { captureRef } from 'react-native-view-shot'
+import * as Sharing from 'expo-sharing'
 import { Redirect, useLocalSearchParams, useRouter } from 'expo-router'
 import { formatSG } from '@oga/core'
 import type { Database } from '@oga/supabase'
 import { supabase } from '../../../../lib/supabase'
+import { ShareableScorecardCard } from '../../../../components/round/ShareableScorecardCard'
 
 type RoundRow = Database['public']['Tables']['rounds']['Row']
 type HoleRow = Database['public']['Tables']['holes']['Row']
@@ -38,6 +42,9 @@ export default function RoundIndex() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [redirectToLive, setRedirectToLive] = useState(false)
+  const [sharing, setSharing] = useState(false)
+  const [shareTone, setShareTone] = useState<'light' | 'dark'>('light')
+  const shareCardRef = useRef<View>(null)
 
   useEffect(() => {
     if (!id) return
@@ -132,6 +139,40 @@ export default function RoundIndex() {
     )
   }
 
+  // Captures the off-screen ShareableScorecardCard via
+  // react-native-view-shot, then hands the resulting tmpfile URI to
+  // expo-sharing's native share sheet. Falls back to an alert if
+  // sharing isn't available on this device (rare — Android always has
+  // it, iOS always has it). The capture happens against the off-screen
+  // wrapper a few hundred pixels off the left edge so the user never
+  // sees the card flicker into view.
+  async function handleShare() {
+    if (sharing || !shareCardRef.current) return
+    setSharing(true)
+    try {
+      const uri = await captureRef(shareCardRef, {
+        format: 'png',
+        quality: 1,
+        result: 'tmpfile',
+      })
+      const available = await Sharing.isAvailableAsync()
+      if (!available) {
+        Alert.alert('Sharing unavailable', 'This device cannot share files.')
+        return
+      }
+      await Sharing.shareAsync(uri, {
+        mimeType: 'image/png',
+        dialogTitle: 'Share scorecard',
+      })
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error('[round/share]', err)
+      Alert.alert('Share failed', (err as Error).message)
+    } finally {
+      setSharing(false)
+    }
+  }
+
   const sgRows: { label: string; value: number | null }[] = [
     { label: 'Off tee', value: round.sg_off_tee },
     { label: 'Approach', value: round.sg_approach },
@@ -185,7 +226,48 @@ export default function RoundIndex() {
             {courseName}
           </Text>
         </View>
-        <View style={{ width: 60 }} />
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Share scorecard"
+          accessibilityState={{ disabled: sharing }}
+          onPress={handleShare}
+          disabled={sharing}
+          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+          style={{ padding: 6, opacity: sharing ? 0.5 : 1 }}
+        >
+          <Text style={{ ...KICKER, color: 'rgba(242,238,229,0.6)' }}>
+            {sharing ? 'Rendering…' : 'Share →'}
+          </Text>
+        </Pressable>
+      </View>
+
+      {/* Off-screen render target for react-native-view-shot. The View
+          is laid out far off the left edge so it's never visible to
+          the player; collapsable={false} keeps RN from optimising
+          out an "empty" subtree the rasteriser still needs to read. */}
+      <View
+        pointerEvents="none"
+        collapsable={false}
+        style={{ position: 'absolute', left: -10000, top: 0 }}
+      >
+        <View ref={shareCardRef} collapsable={false}>
+          <ShareableScorecardCard
+            round={{
+              played_at: round.played_at,
+              tee_color: round.tee_color,
+              total_score: round.total_score,
+              sg_off_tee: round.sg_off_tee,
+              sg_approach: round.sg_approach,
+              sg_around_green: round.sg_around_green,
+              sg_putting: round.sg_putting,
+              sg_total: round.sg_total,
+              courseName,
+            }}
+            holes={sortedHoles}
+            scoresByHoleId={scoresByHoleId}
+            tone={shareTone}
+          />
+        </View>
       </View>
 
       <ScrollView contentContainerStyle={{ padding: 18, paddingBottom: 40 }}>

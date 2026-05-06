@@ -22,6 +22,12 @@ export default function Signup() {
   async function handleSubmit() {
     setLoading(true)
     setError(null)
+    // TODO(#113-mobile): Cloudflare Turnstile CAPTCHA on mobile signup.
+    // Web signup passes a `captchaToken` to Supabase via @marsidev/
+    // react-turnstile; the mobile equivalent needs a WebView-based
+    // Turnstile widget (or the Supabase-hosted hCaptcha challenge).
+    // Bot signups via the mobile client are rare today, so deferred
+    // until web CAPTCHA proves out the wider abuse-prevention story.
     const { error: signUpError } = await supabase.auth.signUp({
       email,
       password,

@@ -1,10 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import {
+  CANONICAL_CLUBS_BY_CATEGORY,
   CLUBS,
   CLUB_CATEGORIES,
   CLUB_CATEGORY_LABELS,
   DEFAULT_BAG,
   clubCategoryFor,
+  formatClubLabel,
 } from '../constants'
 
 describe('clubCategoryFor', () => {
@@ -49,10 +51,22 @@ describe('clubCategoryFor', () => {
     expect(clubCategoryFor('1i')).toBe('iron')
   })
 
-  it('maps degree-named wedges and attack wedge', () => {
+  it('maps approach wedge and the cw custom-wedge slot', () => {
     expect(clubCategoryFor('aw')).toBe('wedge')
-    expect(clubCategoryFor('46°')).toBe('wedge')
-    expect(clubCategoryFor('60°')).toBe('wedge')
+    expect(clubCategoryFor('cw')).toBe('wedge')
+  })
+
+  it('still maps the legacy custom_wedge string to wedge', () => {
+    // Pre-rename rows from dev-test of #164. Kept for backwards compat.
+    expect(clubCategoryFor('custom_wedge')).toBe('wedge')
+  })
+
+  it('no longer treats raw degree strings as wedges', () => {
+    // Degree-named entries were removed from the picklist (issue #164).
+    // The custom_wedge slot + the loft field carry the same intent;
+    // a free-floating "60°" string falls through to utility now.
+    expect(clubCategoryFor('60°')).toBe('utility')
+    expect(clubCategoryFor('46°')).toBe('utility')
   })
 
   it('falls back to utility for genuinely non-canonical club_types', () => {
@@ -102,5 +116,62 @@ describe('DEFAULT_BAG', () => {
 
   it('includes a driver', () => {
     expect(DEFAULT_BAG.some((c) => c.club_type === 'driver')).toBe(true)
+  })
+})
+
+describe('CANONICAL_CLUBS_BY_CATEGORY.wedge', () => {
+  it('only contains the five traditional names plus cw', () => {
+    expect(CANONICAL_CLUBS_BY_CATEGORY.wedge).toEqual([
+      'pw',
+      'gw',
+      'aw',
+      'sw',
+      'lw',
+      'cw',
+    ])
+  })
+
+  it('contains no degree-based entries', () => {
+    for (const c of CANONICAL_CLUBS_BY_CATEGORY.wedge) {
+      expect(/°/.test(c)).toBe(false)
+    }
+  })
+})
+
+describe('formatClubLabel', () => {
+  it('returns club_type unchanged for non-custom single-word entries', () => {
+    expect(formatClubLabel({ club_type: 'pw' })).toBe('pw')
+    expect(formatClubLabel({ club_type: '7i', loft: 34 })).toBe('7i')
+    expect(formatClubLabel({ club_type: 'driver', loft: 10.5 })).toBe('driver')
+  })
+
+  it('humanizes underscored club_types so the kicker style does not read MINI_DRIVER', () => {
+    expect(formatClubLabel({ club_type: 'mini_driver' })).toBe('mini driver')
+  })
+
+  it('returns the loft as the label for cw', () => {
+    expect(formatClubLabel({ club_type: 'cw', loft: 58 })).toBe('58°')
+    expect(formatClubLabel({ club_type: 'cw', loft: 62 })).toBe('62°')
+  })
+
+  it('also handles the legacy custom_wedge club_type', () => {
+    expect(formatClubLabel({ club_type: 'custom_wedge', loft: 58 })).toBe(
+      '58°',
+    )
+  })
+
+  it('falls back to the user-set name when cw has no loft', () => {
+    expect(formatClubLabel({ club_type: 'cw', name: 'lob v2' })).toBe('lob v2')
+  })
+
+  it('falls back to literal "wedge" when cw has no loft and no name', () => {
+    expect(formatClubLabel({ club_type: 'cw' })).toBe('wedge')
+    expect(formatClubLabel({ club_type: 'cw', name: '   ' })).toBe('wedge')
+  })
+
+  it('rejects non-finite loft values', () => {
+    expect(formatClubLabel({ club_type: 'cw', loft: Number.NaN })).toBe(
+      'wedge',
+    )
   })
 })

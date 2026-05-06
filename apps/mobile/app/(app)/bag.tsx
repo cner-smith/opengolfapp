@@ -14,6 +14,7 @@ import {
   CLUB_CATEGORIES,
   CLUB_CATEGORY_LABELS,
   clubCategoryFor,
+  formatClubLabel,
   type ClubCategory,
 } from '@oga/core'
 import DraggableFlatList, {
@@ -423,7 +424,7 @@ export default function BagScreen() {
                       {CANONICAL_CLUBS_BY_CATEGORY[draft.category].map((c) => (
                         <Chip
                           key={c}
-                          label={c}
+                          label={formatClubLabel({ club_type: c })}
                           active={draft.clubType === c}
                           onPress={() =>
                             setDraft((d) => ({ ...d, clubType: c }))
@@ -431,7 +432,7 @@ export default function BagScreen() {
                         />
                       ))}
                       <Chip
-                        label="Custom…"
+                        label="Other…"
                         active={false}
                         onPress={() => {
                           setCustomMode(true)
@@ -563,8 +564,10 @@ function ClubRow({
           {club.name}
         </Text>
         <Text style={{ ...KICKER, marginTop: 2 }}>
-          {club.club_type}
-          {club.loft != null ? ` · ${club.loft}°` : ''}
+          {formatClubLabel(club)}
+          {club.loft != null && club.club_type !== 'cw' && club.club_type !== 'custom_wedge'
+            ? ` · ${club.loft}°`
+            : ''}
           {club.typical_distance_yards != null
             ? ` · ${club.typical_distance_yards} yd`
             : ''}
