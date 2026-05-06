@@ -104,6 +104,13 @@ export function ShotMiniMap({
     if (!mapLoaded || !mapRef.current || !hasStart) return
     if (startMarkerRef.current) {
       startMarkerRef.current.setLngLat([startLng!, startLat!])
+      // Refresh the badge text when the panel switches to a different
+      // shot — without this, the marker DOM element keeps the number
+      // it was created with and every shot reads as "1".
+      const el = startMarkerRef.current.getElement()
+      if (el.textContent !== String(shotNumber)) {
+        el.textContent = String(shotNumber)
+      }
       return
     }
     const el = makeMiniNumberedMarker(shotNumber)
