@@ -516,7 +516,9 @@ export function ShotEntryModal({
             </div>
 
             <div className="flex flex-col" style={{ gap: 18 }}>
-              {editingRow && editingRow.start_lat != null && (
+              {editingRow &&
+                editingRow.start_lat != null &&
+                editingRow.start_lng != null && (
                 <ShotMiniMap
                   shotNumber={editingRow.shot_number}
                   startLat={editingRow.start_lat}
