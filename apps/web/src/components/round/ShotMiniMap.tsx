@@ -35,7 +35,7 @@ export function ShotMiniMap({
   aimLat,
   aimLng,
   onChangeStart,
-  height = 160,
+  height = 200,
 }: ShotMiniMapProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<mapboxgl.Map | null>(null)
@@ -55,15 +55,11 @@ export function ShotMiniMap({
       center: [startLng!, startLat!],
       zoom: 17,
       attributionControl: false,
-      dragPan: false,
-      scrollZoom: false,
-      doubleClickZoom: false,
-      boxZoom: false,
-      dragRotate: false,
-      keyboard: false,
-      touchZoomRotate: false,
-      interactive: false,
     })
+    map.addControl(
+      new mapboxgl.NavigationControl({ showCompass: false }),
+      'bottom-right',
+    )
     map.on('load', () => setMapLoaded(true))
     mapRef.current = map
     return () => {
