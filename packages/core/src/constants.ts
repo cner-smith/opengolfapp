@@ -110,18 +110,34 @@ export const CANONICAL_CLUBS_BY_CATEGORY: Record<ClubCategory, readonly string[]
 // Underscores in the club_type are rendered as spaces so multi-word
 // types (mini_driver, etc.) read cleanly under the bag UI's uppercase
 // kicker style — "MINI DRIVER" instead of "MINI_DRIVER".
-export function formatClubLabel(c: {
-  club_type: string
-  name?: string | null
-  loft?: number | null
-}): string {
+//
+// `opts.hasDuplicateType` lets callers disambiguate two clubs of the
+// same `club_type` in the bag (issue #151) — when set and the club has
+// a loft, the loft is appended in parens: "lw (58°)" vs "lw (60°)".
+// `cw` / `custom_wedge` already render as "58°" so they ignore the flag.
+export function formatClubLabel(
+  c: {
+    club_type: string
+    name?: string | null
+    loft?: number | null
+  },
+  opts: { hasDuplicateType?: boolean } = {},
+): string {
   if (c.club_type === 'cw' || c.club_type === 'custom_wedge') {
     if (c.loft != null && Number.isFinite(c.loft)) return `${c.loft}°`
     const trimmed = c.name?.trim()
     if (trimmed) return trimmed
     return 'wedge'
   }
-  return c.club_type.replace(/_/g, ' ')
+  const base = c.club_type.replace(/_/g, ' ')
+  if (
+    opts.hasDuplicateType &&
+    c.loft != null &&
+    Number.isFinite(c.loft)
+  ) {
+    return `${base} (${c.loft}°)`
+  }
+  return base
 }
 
 // Default 14-club starting bag seeded for new users when their bag is

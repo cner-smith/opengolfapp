@@ -174,4 +174,38 @@ describe('formatClubLabel', () => {
       'wedge',
     )
   })
+
+  it('appends loft in parens when hasDuplicateType and loft is set', () => {
+    expect(
+      formatClubLabel({ club_type: 'lw', loft: 58 }, { hasDuplicateType: true }),
+    ).toBe('lw (58°)')
+    expect(
+      formatClubLabel({ club_type: 'lw', loft: 60 }, { hasDuplicateType: true }),
+    ).toBe('lw (60°)')
+  })
+
+  it('omits the loft suffix when hasDuplicateType is false', () => {
+    expect(
+      formatClubLabel({ club_type: 'lw', loft: 58 }, { hasDuplicateType: false }),
+    ).toBe('lw')
+    expect(formatClubLabel({ club_type: 'lw', loft: 58 })).toBe('lw')
+  })
+
+  it('omits the loft suffix when loft is missing or non-finite', () => {
+    expect(
+      formatClubLabel({ club_type: 'lw' }, { hasDuplicateType: true }),
+    ).toBe('lw')
+    expect(
+      formatClubLabel(
+        { club_type: 'lw', loft: Number.NaN },
+        { hasDuplicateType: true },
+      ),
+    ).toBe('lw')
+  })
+
+  it('still renders cw as the loft alone, ignoring hasDuplicateType', () => {
+    expect(
+      formatClubLabel({ club_type: 'cw', loft: 58 }, { hasDuplicateType: true }),
+    ).toBe('58°')
+  })
 })
