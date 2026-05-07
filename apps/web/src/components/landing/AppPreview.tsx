@@ -7,18 +7,21 @@ const DemoMap = lazy(() =>
   import('./DemoMap').then((m) => ({ default: m.DemoMap })),
 )
 
+// Lake Hefner South — hole 7 in OKC. Hardcoded coords land on the
+// real fairway in Mapbox satellite tiles, so the preview reads as a
+// real golf course rather than empty terrain.
 const DEMO_HOLE = {
   number: 7,
   par: 4,
   yards: 387,
-  tee: { lat: 35.6234, lng: -97.5123 },
-  pin: { lat: 35.6271, lng: -97.5058 },
+  tee: { lat: 35.5584, lng: -97.5641 },
+  pin: { lat: 35.5601, lng: -97.5628 },
 }
 
 const DEMO_SHOTS = [
-  { shotNumber: 1, lat: 35.6234, lng: -97.5123 },
-  { shotNumber: 2, lat: 35.6251, lng: -97.5089 },
-  { shotNumber: 3, lat: 35.6263, lng: -97.5071 },
+  { shotNumber: 1, lat: 35.5584, lng: -97.5641 },
+  { shotNumber: 2, lat: 35.5591, lng: -97.5635 },
+  { shotNumber: 3, lat: 35.5598, lng: -97.5630 },
 ]
 
 // Phone-shaped frame around a real Mapbox view of a fake hole 7. The

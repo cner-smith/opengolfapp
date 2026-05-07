@@ -26,24 +26,22 @@ export function DemoMap({ tee, pin, shots }: DemoMapProps) {
     if (!containerRef.current || !MAPBOX_TOKEN_PRESENT) return
     if (mapRef.current) return
 
-    const bounds = new mapboxgl.LngLatBounds(
-      [tee.lng, tee.lat],
-      [pin.lng, pin.lat],
-    )
-    for (const s of shots) bounds.extend([s.lng, s.lat])
-
+    // Initialize centered on the tee at zoom 16 — wide enough to see
+    // the full hole on a phone-sized viewport, tight enough that
+    // satellite tiles read as fairway rather than rough/aerial.
     const map = new mapboxgl.Map({
       container: containerRef.current,
       style: 'mapbox://styles/mapbox/satellite-streets-v12',
-      center: bounds.getCenter(),
-      zoom: 17,
+      center: [tee.lng, tee.lat],
+      zoom: 16,
+      pitch: 0,
+      bearing: 0,
       interactive: false,
       attributionControl: false,
     })
     mapRef.current = map
 
     map.on('load', () => {
-      map.fitBounds(bounds, { padding: 28, animate: false, maxZoom: 18 })
 
       const lineCoords: [number, number][] = []
       for (const s of shots) lineCoords.push([s.lng, s.lat])
