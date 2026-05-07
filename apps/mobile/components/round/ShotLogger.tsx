@@ -41,6 +41,11 @@ interface ShotLoggerProps {
   /** Seed putt distance from GPS (ball→pin) when starting in putting mode. */
   puttDistanceFt?: number
   initial?: ShotLoggerValue
+  /** True while a save is in flight. Disables the Save button so a fast
+   *  double-tap can't enqueue two pending_shots rows for the same shot
+   *  number. The ref-based gate in useShotActions is the durable
+   *  backstop; this just gives the button a visible disabled state. */
+  saving?: boolean
   onSave: (value: ShotLoggerValue) => void
   onSkip: () => void
   onClose: () => void
@@ -84,6 +89,7 @@ export function ShotLogger({
   isPutt,
   puttDistanceFt,
   initial,
+  saving = false,
   onSave,
   onSkip,
   onClose,
@@ -404,6 +410,8 @@ export function ShotLogger({
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Save shot and continue"
+              accessibilityState={{ disabled: saving }}
+              disabled={saving}
               onPress={() => onSave(value)}
               style={{
                 flex: 1,
@@ -411,6 +419,7 @@ export function ShotLogger({
                 paddingVertical: 14,
                 borderRadius: 2,
                 backgroundColor: '#1F3D2C',
+                opacity: saving ? 0.6 : 1,
               }}
             >
               <Text
@@ -421,7 +430,7 @@ export function ShotLogger({
                   letterSpacing: 0.3,
                 }}
               >
-                Save + next →
+                {saving ? 'Saving…' : 'Save + next →'}
               </Text>
             </Pressable>
           </View>

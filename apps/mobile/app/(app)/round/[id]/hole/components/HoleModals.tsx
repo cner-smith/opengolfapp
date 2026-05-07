@@ -43,6 +43,7 @@ interface HoleModalsProps {
   totalShotsThisHole: number
   ending: boolean
   deleting: boolean
+  saving: boolean
   onPersistShot: (v: ShotLoggerValue | null) => void
   onPersistPutt: (v: PuttingValue) => Promise<void>
   onCloseLogger: () => void
@@ -84,6 +85,7 @@ export function HoleModals(props: HoleModalsProps) {
     totalShotsThisHole,
     ending,
     deleting,
+    saving,
     onPersistShot,
     onPersistPutt,
     onCloseLogger,
@@ -112,6 +114,7 @@ export function HoleModals(props: HoleModalsProps) {
             : undefined
         }
         initial={loggerInitial}
+        saving={saving}
         onSave={(v) => onPersistShot(v)}
         onSkip={() => onPersistShot(null)}
         onClose={onCloseLogger}

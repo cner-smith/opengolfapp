@@ -405,6 +405,7 @@ export default function HoleScreen() {
         totalShotsThisHole={totalShotsThisHole}
         ending={actions.ending}
         deleting={actions.deleting}
+        saving={actions.saving}
         onPersistShot={actions.persistShot}
         onPersistPutt={actions.persistPutt}
         onCloseLogger={actions.closeLogger}

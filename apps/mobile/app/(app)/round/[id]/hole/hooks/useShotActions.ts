@@ -1,4 +1,4 @@
-import { useState, type Dispatch, type SetStateAction } from 'react'
+import { useRef, useState, type Dispatch, type SetStateAction } from 'react'
 import { Alert } from 'react-native'
 import { useRouter } from 'expo-router'
 import type { User } from '@supabase/supabase-js'
@@ -79,6 +79,11 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
   } = input
   const router = useRouter()
   const [saving, setSaving] = useState(false)
+  // Ref-based in-flight gate. The `saving` state setter is async, so
+  // a fast double-tap on the Save button can fire `persistShot` twice
+  // before React commits the next render — both calls see `saving`
+  // === false. The ref flips synchronously and blocks the second call.
+  const persistShotInFlightRef = useRef(false)
   const [ending, setEnding] = useState(false)
   const [deleting, setDeleting] = useState(false)
 
@@ -147,8 +152,10 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
   }
 
   async function persistShot(meta: ShotLoggerValue | null) {
+    if (persistShotInFlightRef.current) return
     const payload = buildPayload(meta)
     if (!payload) return
+    persistShotInFlightRef.current = true
     setSaving(true)
     try {
       const localId = await insertPendingShot(payload)
@@ -193,6 +200,7 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
       console.error('shot save failed', err, payload)
       Alert.alert('Save failed', (err as Error).message)
     } finally {
+      persistShotInFlightRef.current = false
       setSaving(false)
     }
   }
