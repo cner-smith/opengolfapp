@@ -14,13 +14,6 @@ interface SGTrendChartProps {
   data: { x: number; y: number }[]
 }
 
-const HEIGHT = 200
-const BOTTOM = 28
-// Pin x-axis to chart bottom regardless of where y=0 falls.
-// Victory's independent axis defaults to crossing y=0 in domain space —
-// with negative SG values the line drifts into the middle of the plot.
-const X_AXIS_Y = HEIGHT - BOTTOM
-
 export function SGTrendChart({ data }: SGTrendChartProps) {
   const { width: screenWidth } = useWindowDimensions()
   return (
@@ -36,12 +29,11 @@ export function SGTrendChart({ data }: SGTrendChartProps) {
         <Text style={KICKER}>SG total trend</Text>
       </View>
       <VictoryChart
-        height={HEIGHT}
+        height={200}
         width={screenWidth - 36}
-        padding={{ top: 12, right: 16, bottom: BOTTOM, left: 32 }}
+        padding={{ top: 12, right: 16, bottom: 28, left: 32 }}
       >
         <VictoryAxis
-          offsetY={X_AXIS_Y}
           style={{
             axis: { stroke: '#D9D2BF' },
             tickLabels: {

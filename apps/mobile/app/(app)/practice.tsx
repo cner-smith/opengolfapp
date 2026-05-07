@@ -83,7 +83,7 @@ export default function Practice() {
               }}
             >
               <Text style={{ ...KICKER, color: '#5C6356', marginBottom: 6 }}>
-                Reference
+                Yardage book
               </Text>
               <Text
                 style={{

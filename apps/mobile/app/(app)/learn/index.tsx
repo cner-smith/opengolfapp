@@ -22,7 +22,7 @@ export default function LearnScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: '#F2EEE5' }}>
       <AppBar
-        eyebrow="Library"
+        eyebrow="Yardage book"
         title="Learn"
         right={
           <Pressable onPress={() => router.back()}>

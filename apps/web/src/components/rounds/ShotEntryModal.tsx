@@ -53,12 +53,6 @@ interface ShotEntryModalProps {
    *  null). Drives the mini-map's distance_to_target recalc on drag. */
   pinLat: number | null
   pinLng: number | null
-  /** True when the modal opens from the live-entry map view. The
-   *  per-shot mini-map stays hidden in that case — Mapbox occasionally
-   *  errors when a fresh map instance mounts inside an animating sheet
-   *  while the parent map view is also visible, and the live-entry
-   *  flow already has the round map behind the modal. */
-  liveEntry?: boolean
   onClose: () => void
 }
 
@@ -69,7 +63,6 @@ export function ShotEntryModal({
   holePar,
   pinLat,
   pinLng,
-  liveEntry = false,
   onClose,
 }: ShotEntryModalProps) {
   const { user } = useAuth()
@@ -398,13 +391,11 @@ export function ShotEntryModal({
             </div>
 
             <div className="flex flex-col" style={{ gap: 18 }}>
-              {!liveEntry && (
-                <ShotMiniMapPanel
-                  editingRow={editingRow}
-                  editingNext={editingNext}
-                  onChangeStart={handleMiniMapDrag}
-                />
-              )}
+              <ShotMiniMapPanel
+                editingRow={editingRow}
+                editingNext={editingNext}
+                onChangeStart={handleMiniMapDrag}
+              />
 
               {isPutt && (
                 <GreenDiagram
