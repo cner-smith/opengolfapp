@@ -7,21 +7,20 @@ const DemoMap = lazy(() =>
   import('./DemoMap').then((m) => ({ default: m.DemoMap })),
 )
 
-// Lake Hefner South — hole 7 in OKC. Hardcoded coords land on the
-// real fairway in Mapbox satellite tiles, so the preview reads as a
-// real golf course rather than empty terrain.
+// Lake Hefner South — hole 1, real coords from the courses DB.
+// Hardcoded so the preview lands on actual fairway in Mapbox satellite
+// tiles instead of empty terrain.
 const DEMO_HOLE = {
-  number: 7,
+  number: 1,
   par: 4,
-  yards: 387,
-  tee: { lat: 35.5584, lng: -97.5641 },
-  pin: { lat: 35.5601, lng: -97.5628 },
+  tee: { lat: 35.552530168, lng: -97.602615572 },
+  pin: { lat: 35.5504026026316, lng: -97.6044770631579 },
 }
 
 const DEMO_SHOTS = [
-  { shotNumber: 1, lat: 35.5584, lng: -97.5641 },
-  { shotNumber: 2, lat: 35.5591, lng: -97.5635 },
-  { shotNumber: 3, lat: 35.5598, lng: -97.5630 },
+  { shotNumber: 1, lat: 35.552530168, lng: -97.602615572 },
+  { shotNumber: 2, lat: 35.5518, lng: -97.6034 },
+  { shotNumber: 3, lat: 35.5508, lng: -97.6041 },
 ]
 
 // Phone-shaped frame around a real Mapbox view of a fake hole 7. The
@@ -94,7 +93,7 @@ export function AppPreview() {
                 marginTop: 4,
               }}
             >
-              Hole {DEMO_HOLE.number} · Par {DEMO_HOLE.par} · {DEMO_HOLE.yards} yd
+              Hole {DEMO_HOLE.number} · Par {DEMO_HOLE.par}
             </div>
           </div>
           <div style={{ flex: 1, position: 'relative' }}>

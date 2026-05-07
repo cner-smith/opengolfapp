@@ -165,7 +165,7 @@ function StatsBar() {
         }}
       >
         <Stat value="15,870" label="Courses in database" mono />
-        <Stat value="4" label="SG categories tracked" />
+        <Stat value="WHS" label="Handicap tracking" mono />
         <Stat value="100%" label="Free, forever" mono />
       </div>
     </div>
