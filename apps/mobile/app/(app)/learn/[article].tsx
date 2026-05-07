@@ -132,6 +132,8 @@ function LiveArticle({ id }: { id: string }) {
       return <HowToPracticeArticle />
     case 'course-management':
       return <CourseManagementArticle />
+    case 'mental-game':
+      return <MentalGameArticle />
     default:
       return <StubBody title="Article" />
   }
@@ -1409,5 +1411,372 @@ const RESOURCES = [
     title: '"Golf Is Not a Game of Perfect"',
     by: 'Bob Rotella.',
     note: 'The standard text on playing with what you have that day.',
+  },
+]
+
+function MentalGameArticle() {
+  return (
+    <View>
+      <Text style={{ ...KICKER, marginBottom: 10 }}>On the course · Draft</Text>
+      <Text style={TITLE}>The mental game.</Text>
+
+      <H3>Golf is you versus you</H3>
+      <Para>
+        Every other sport has an opponent actively trying to stop
+        you. In golf, the course is static. The ball sits still and
+        waits. Nobody is trying to beat you except you.
+      </Para>
+      <Para>
+        Once you have a functional swing, the game becomes almost
+        entirely mental. Most amateurs spend 95% of their practice
+        on the physical game and almost none on the mental game.
+        The swing is largely solved. The mental game is the frontier.
+      </Para>
+      <Para>
+        Golf is also one of the most humbling experiences available.
+        It will find every weakness in your ego and expose it
+        repeatedly. Either reduce the ego or suffer. There is no
+        third option.
+      </Para>
+
+      <Divider />
+
+      <H3>One shot at a time</H3>
+      <Para>
+        Every touring professional eventually says the same thing:
+        one shot at a time. It is repeated so often because it is
+        literally true. You cannot replay the last shot. You cannot
+        hit the next one until this one is done. The only shot that
+        exists is the one in front of you.
+      </Para>
+      <Para>
+        The brain doesn't work this way naturally. It replays the
+        shot you just botched. It fast-forwards to the putt on 18.
+        It calculates score. All of this thinking happens at exactly
+        the moment you need to be doing one thing.
+      </Para>
+      <Para>
+        Bob Rotella describes this as refusing to be seduced by
+        results. At the 2008 Masters, Trevor Immelman did not look
+        at a single leaderboard until walking up 18. The routine
+        protected him all day. The moment he stepped outside it,
+        the pressure arrived.
+      </Para>
+      <Para>
+        The short memory is a skill, not a trait. Give yourself a
+        window to feel the emotion — Rotella calls it walking it
+        off — then drop it. The bad shot already happened. Carrying
+        it into the next shot is a choice.
+      </Para>
+
+      <Divider />
+
+      <H3>Sulking won't get you anything</H3>
+      <Para>
+        When Padraig Harrington won the 2007 British Open, he
+        knocked two balls into the water on the last hole and made
+        double bogey. He still won. He told Rotella afterward that
+        it never entered his mind he might blow it. His only
+        thought was getting the ball in the hole so he could make
+        the playoff.
+      </Para>
+      <Para>
+        Rotella is direct: sulking won't get you anything. Feeling
+        sorry, replaying the mistake — none of it changes what
+        happened, all of it damages what comes next.
+      </Para>
+
+      <Divider />
+
+      <H3>The productive delusion</H3>
+      <Para>
+        Rotella's first rule: believe you can win. Not hope. Not
+        think you have a chance. Believe.
+      </Para>
+      <Para>
+        The player on a putting heater approaches the next putt
+        believing it's going in. The player who has been missing
+        all afternoon thinks: I'm due. Both are irrational. But the
+        golfer who believes stands over the ball with a different
+        quality of attention — and that affects the outcome.
+      </Para>
+      <Para>
+        It is the deliberate construction of a mental state that
+        serves performance. Call it confidence, call it a productive
+        delusion. You are allowed to be delusional in your own
+        favor. In golf, it is the correct strategy.
+      </Para>
+
+      <Divider />
+
+      <H3>Visualization</H3>
+      <Para>
+        Before a shot, the mental game starts. Not on the backswing
+        — before you take the club out of the bag.
+      </Para>
+      <Para>
+        See the shot you want to hit. The flight, the trajectory,
+        the bounce and roll. Like a video, in real time, as if it
+        already happened. For putting: see the line, see the ball
+        rolling along it, see it drop.
+      </Para>
+      <Para>
+        This is not mysticism. The brain rehearses motor patterns
+        through visualization in ways that translate into physical
+        execution. Pick a target, visualize the shot, let it rip.
+        In that order, every time.
+      </Para>
+      <Note variant="research">
+        Research basis: mental imagery and motor performance. See
+        Guillot &amp; Collet (2008) on mental simulation of motor
+        actions.
+      </Note>
+
+      <Divider />
+
+      <H3>The routine as an anchor</H3>
+      <Para>
+        A consistent pre-shot routine prepares you physically and
+        gives you a repeatable process. But it has a third purpose
+        most golfers miss: the routine is an anchor to the present
+        moment.
+      </Para>
+      <Para>
+        Curtis Strange won the 1988 U.S. Open looking calm on TV
+        but with his heart pounding. He told Rotella he was working
+        his tail off just to stay in the present. The routine made
+        him look calm and kept him functional.
+      </Para>
+      <Para>
+        When the mind is scattered, going through the routine
+        brings you back. Not magic — executing familiar physical
+        actions requires present-moment attention.
+      </Para>
+      <Para>
+        Routine must be consistent. Same grip check, same practice
+        swing, same target look — every time. The bigger the
+        moment, the more important it is the routine does not change.
+      </Para>
+      <Note variant="research">
+        Manu, The Upbeat Golfer — YouTube. Target commitment and
+        pre-shot routine for process-driven play.
+      </Note>
+
+      <Divider />
+
+      <H3>Patience over aggression</H3>
+      <Para>
+        Rotella's fourth rule: every time you have the urge to make
+        an aggressive play, go with the more conservative one. You
+        will always be okay.
+      </Para>
+      <Para>
+        At the 1992 U.S. Open, Tom Kite shot even par in 35-mph
+        wind and won by two. Most players didn't break 80. He did
+        it by staying patient and letting others beat themselves.
+        Patience compounds across 18 holes.
+      </Para>
+
+      <Divider />
+
+      <H3>Ignore unsolicited swing advice</H3>
+      <Para>
+        Rotella tells of a player who made eight birdies in round
+        one, stopped by the putting green, got two unsolicited
+        comments on his setup, and was a mess by the next day.
+      </Para>
+      <Para>
+        Stop them before they speak. Their comments will creep in
+        at the moment you need to be thinking about your target.
+        File anything observed for the range later — or let it go.
+      </Para>
+
+      <Divider />
+
+      <H3>Calm is a superpower</H3>
+      <Para>
+        You cannot make good decisions when angry. You cannot swing
+        well when amped up or seething. The state of anger is the
+        opposite of the state required to hit a golf ball.
+      </Para>
+      <Para>
+        This is not about being emotionless. Feel it briefly,
+        privately, then drop it. The next shot needs your full
+        attention.
+      </Para>
+      <Para>
+        Hand on chest, feel your breath, look at something specific
+        in your environment — grounding techniques exist to pull
+        you out of your own mind and back to the course where the
+        actual game is being played.
+      </Para>
+
+      <Divider />
+
+      <H3>Grounding and the present moment</H3>
+      <Para>
+        When the mind spirals, the way back is through the body,
+        not through more thinking. Feel your feet on the ground.
+        Feel the grip in your hands. Look at the grass, the trees,
+        the sky.
+      </Para>
+      <Para>
+        The mind in a spiral is pulling you into the past or the
+        future. The body only exists in the present. Returning
+        attention to physical sensation is the fastest route back
+        to where the golf shot actually lives.
+      </Para>
+      <Para>
+        Golf becomes deeply Buddhist here — not attached to
+        outcomes, not grasping at results, returning again and
+        again to what is actually happening right now. Everything
+        else is noise.
+      </Para>
+
+      <Divider />
+
+      <H3>Find someone who believes in you</H3>
+      <Para>
+        Ben Hogan considered quitting early in his career. Valerie
+        Hogan wouldn't let him. Confidence in yourself is essential.
+        Having someone who sees what you can't yet see in yourself
+        — a spouse, a friend, a coach — compounds it.
+      </Para>
+      <Para>
+        For amateurs this might be a playing partner who knows your
+        game, or a coach who genuinely believes in your potential.
+        Anyone who reflects your capability back to you on the days
+        you can't see it. The mental game is not fought entirely
+        alone.
+      </Para>
+
+      <Divider />
+
+      <H3>Be process-driven, not results-driven</H3>
+      <Para>
+        Most golfers think too little — react emotionally to where
+        the ball goes. The opposite problem: thinking too much.
+        Grinding swing thoughts, replaying the last bad shot.
+        Analysis paralysis is just as damaging as mindlessness.
+      </Para>
+      <Para>The sweet spot is a clear, repeatable pre-shot process:</Para>
+      <Bullets
+        items={[
+          'Pick a specific target',
+          'Visualize the shot',
+          'Commit fully',
+          'Go through your routine',
+          'Pull the trigger',
+        ]}
+      />
+      <Para>
+        Try tracking — alongside your score — whether you committed
+        to each shot. Not whether the result was what you wanted.
+        Whether you actually went through your process without
+        doubt. Process-oriented thinking gives you the best chance
+        of executing.
+      </Para>
+
+      <Divider />
+
+      <H3>It never gets fully solved</H3>
+      <Para>
+        Tour pros — with decades of experience and sports
+        psychologists — still get in their own way. The goal is
+        not to eliminate the mental challenge. It is to recover
+        more quickly. The pro who has a double on 6 and is back to
+        full focus on 7 has the same challenge as the amateur who
+        takes four holes to recover. They just recover faster.
+      </Para>
+      <Para>That recovery time is what you are training.</Para>
+
+      <Divider />
+
+      <H3>Resources</H3>
+      <Note variant="todo">
+        Verify all links before publishing.
+      </Note>
+      {MENTAL_GAME_RESOURCES.map((r) => (
+        <View
+          key={r.title}
+          style={{
+            borderTopWidth: 1,
+            borderColor: '#D9D2BF',
+            paddingVertical: 12,
+          }}
+        >
+          <Text
+            style={{
+              color: '#1C211C',
+              fontSize: 15,
+              fontStyle: 'italic',
+              fontWeight: '500',
+            }}
+          >
+            {r.title}
+            {r.by && (
+              <Text style={{ color: '#5C6356', fontStyle: 'normal', fontWeight: '400' }}>
+                {' '}— {r.by}
+              </Text>
+            )}
+          </Text>
+          <Text style={{ color: '#5C6356', fontSize: 14, lineHeight: 20, marginTop: 4 }}>
+            {r.note}
+          </Text>
+        </View>
+      ))}
+
+      <View
+        style={{
+          borderTopWidth: 1,
+          borderColor: '#D9D2BF',
+          paddingTop: 18,
+          marginTop: 22,
+        }}
+      >
+        <Text style={{ ...KICKER, color: '#8A8B7E', lineHeight: 14 }}>
+          Last reviewed May 2026 · Draft, needs review · Edit
+          docs/learn/mental-game.md to contribute
+        </Text>
+      </View>
+    </View>
+  )
+}
+
+const MENTAL_GAME_RESOURCES = [
+  {
+    title: '"Golf Is Not a Game of Perfect"',
+    by: 'Bob Rotella.',
+    note: 'The gold standard in golf psychology. Essential reading.',
+  },
+  {
+    title: '"Golf Is a Game of Confidence"',
+    by: 'Bob Rotella.',
+    note: 'The follow-up, equally valuable.',
+  },
+  {
+    title: 'Bob Rotella — "My 10 Rules on Mental Fitness"',
+    by: '',
+    note: 'GolfWRX. The ten rules referenced throughout this article.',
+  },
+  {
+    title: '"Zen Golf"',
+    by: 'Joseph Parent.',
+    note: 'Buddhist-influenced approach to present-moment play.',
+  },
+  {
+    title: 'The Upbeat Golfer (Manu)',
+    by: '',
+    note: 'YouTube. Process-driven mental approach, target commitment, playing without fear.',
+  },
+  {
+    title: '"The Inner Game of Tennis"',
+    by: 'Tim Gallwey.',
+    note: 'Not golf-specific but the foundational text on getting out of your own way in sport.',
+  },
+  {
+    title: '"Choke"',
+    by: 'Sian Beilock.',
+    note: 'The neuroscience of why we perform poorly under pressure and what to do about it.',
   },
 ]

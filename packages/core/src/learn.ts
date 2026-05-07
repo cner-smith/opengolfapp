@@ -142,9 +142,11 @@ export const LEARN_SECTIONS: LearnSection[] = [
       },
       {
         id: 'mental-game',
-        title: 'Mental game and on-course psychology',
-        description: 'Routines, target focus, recovering from a bad shot mid-round.',
-        status: 'soon',
+        title: 'The mental game',
+        description:
+          'One shot at a time, the productive delusion, visualization, and staying calm when it matters.',
+        status: 'draft',
+        words: 2900,
       },
       {
         id: 'practice-vs-scoring-round',
