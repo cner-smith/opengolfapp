@@ -51,7 +51,7 @@ export const LEARN_SECTIONS: LearnSection[] = [
     number: 'Section four',
     title: 'On the course',
     articles: [
-      { id: 'course-management', title: 'Course management guide', status: 'stub' },
+      { id: 'course-management', title: 'Course management guide', status: 'live' },
       { id: 'mental-game', title: 'Mental game and on-course psychology', status: 'stub' },
       { id: 'practice-vs-scoring-round', title: 'Practice round vs scoring round', status: 'stub' },
       { id: 'self-diagnosis', title: 'Self-diagnosis: finding your weaknesses', status: 'stub' },
