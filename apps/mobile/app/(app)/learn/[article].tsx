@@ -132,6 +132,10 @@ function LiveArticle({ id }: { id: string }) {
       return <HowToPracticeArticle />
     case 'course-management':
       return <CourseManagementArticle />
+    case 'mental-game':
+      return <MentalGameArticle />
+    case 'skill-games-pressure-games':
+      return <SkillGamesArticle />
     default:
       return <StubBody title="Article" />
   }
@@ -204,43 +208,219 @@ function BenchmarksArticle() {
 function GlossaryArticle() {
   return (
     <View>
-      <Text style={{ ...KICKER, marginBottom: 10 }}>Glossary</Text>
-      <Text style={TITLE}>Stats glossary.</Text>
-      <Text style={BODY}>
-        The terms used across the dashboard, defined in plain English.
-      </Text>
+      <Text style={{ ...KICKER, marginBottom: 10 }}>Understanding the game · Draft</Text>
+      <Text style={TITLE}>Glossary of golf terms.</Text>
+      <Para>
+        The basics — birdie, bogey, par, handicap, GIR — are covered
+        in the app's stat reference section. This glossary focuses
+        on the terms that come up once you start playing regularly
+        and trying to improve.
+      </Para>
 
-      {GLOSSARY.map((g) => (
-        <View
-          key={g.kicker}
-          style={{
-            borderTopWidth: 1,
-            borderColor: '#D9D2BF',
-            paddingTop: 18,
-            marginTop: 18,
-          }}
-        >
-          <Text style={{ ...KICKER, marginBottom: 8 }}>{g.kicker}</Text>
-          <Text
-            style={{
-              color: '#1C211C',
-              fontSize: 20,
-              fontStyle: 'italic',
-              fontWeight: '500',
-              lineHeight: 26,
-              marginBottom: 8,
-            }}
-          >
-            {g.title}
-          </Text>
-          <Text style={{ color: '#1C211C', fontSize: 15, lineHeight: 22 }}>
-            {g.body}
-          </Text>
+      {GLOSSARY_GROUPS.map((group) => (
+        <View key={group.heading}>
+          <Divider />
+          <H3>{group.heading}</H3>
+          {group.intro && <Para>{group.intro}</Para>}
+          {group.terms.map((t) => (
+            <Term key={t.name} name={t.name}>
+              {t.body}
+            </Term>
+          ))}
         </View>
       ))}
+
+      <View
+        style={{
+          borderTopWidth: 1,
+          borderColor: '#D9D2BF',
+          paddingTop: 18,
+          marginTop: 22,
+        }}
+      >
+        <Text style={{ ...KICKER, color: '#8A8B7E', lineHeight: 14 }}>
+          Last reviewed May 2026 · Draft, being expanded · Edit
+          docs/learn/glossary.md to contribute
+        </Text>
+      </View>
     </View>
   )
 }
+
+function Term({ name, children }: { name: string; children: React.ReactNode }) {
+  return (
+    <View
+      style={{
+        borderTopWidth: 1,
+        borderColor: '#D9D2BF',
+        paddingVertical: 12,
+      }}
+    >
+      <Text
+        style={{
+          color: '#1C211C',
+          fontSize: 16,
+          fontStyle: 'italic',
+          fontWeight: '500',
+          marginBottom: 4,
+        }}
+      >
+        {name}
+      </Text>
+      <Text style={{ color: '#1C211C', fontSize: 14, lineHeight: 20 }}>
+        {children}
+      </Text>
+    </View>
+  )
+}
+
+interface GlossaryTerm {
+  name: string
+  body: string
+}
+
+interface GlossaryGroup {
+  heading: string
+  intro?: string
+  terms: GlossaryTerm[]
+}
+
+const GLOSSARY_GROUPS: GlossaryGroup[] = [
+  {
+    heading: 'Shot shapes and ball flight',
+    terms: [
+      { name: 'Draw', body: 'A controlled shot that curves gently from right to left for a right-handed golfer. Typically more roll than a fade. Not to be confused with a hook.' },
+      { name: 'Fade', body: 'A controlled shot that curves gently from left to right for a right-handed golfer. Tour pros often prefer it because the ball lands softer with less roll.' },
+      { name: 'Hook', body: 'An uncontrolled, exaggerated draw. Often the result of a closed clubface at impact.' },
+      { name: 'Slice', body: 'An uncontrolled, exaggerated fade. The most common miss for amateurs — open face plus out-to-in path.' },
+      { name: 'Push', body: 'A shot that flies straight but to the right of the target with no curve. Different from a fade — wrong line, no shape.' },
+      { name: 'Pull', body: 'A shot that flies straight but to the left of the target with no curve. Different from a hook.' },
+      { name: 'Stinger', body: 'A low, penetrating shot hit with minimal loft, played into wind or under trees. Made famous by Tiger Woods.' },
+      { name: 'Punch shot', body: 'A low, controlled shot played with a shortened swing. Stays low, runs out after landing.' },
+      { name: 'Flier', body: 'A shot that travels farther than expected because grass gets between face and ball, reducing backspin. Common from rough.' },
+      { name: 'Spinner', body: 'A wedge struck cleanly into a soft green that spins back toward the player after landing. Useful when the pin is at the back of the green.' },
+      { name: 'Knuckleball', body: 'A shot with almost no spin — the ball flutters unpredictably. Often happens out of thick rough.' },
+      { name: 'Texas Wedge', body: 'Using a putter from off the green — fringe, apron, or even light rough. Highest-percentage shot when the ground between ball and hole is firm and flat.' },
+      { name: 'DOD (Driver Off the Deck)', body: 'Hitting a driver without a tee, from the fairway or rough. One of the hardest shots in golf. Made famous by social media creator "DOD King" Carter Smith.' },
+      { name: 'Thai Spinner', body: 'A low, high-spin shot popularized by Kiradech Aphibarnrat — steep outside-in lob wedge from a tight or grainy lie. Reached wider audiences when Keith Mitchell pulled it off at the 2025 Houston Open.' },
+    ],
+  },
+  {
+    heading: 'Short game shots',
+    terms: [
+      { name: 'Chip', body: 'Low, running shot from just off the green. Less-lofted club, putting-style stroke. Land just on, let it roll.' },
+      { name: 'Pitch', body: 'Higher, softer shot from 20–80 yards. Wedge, fuller swing than a chip. Harder because partial swings demand distance control.' },
+      { name: 'Bump and run', body: 'Mid-iron chip that lands short of the green and runs onto the surface. Favored in firm conditions. Lower risk than a flop.' },
+      { name: 'Flop shot', body: 'High, soft lob-wedge shot that lands softly with minimal roll. High risk — easy to skull or chunk if not practiced.' },
+      { name: 'Chunk / Fat shot', body: 'Hitting the ground behind the ball. Club digs, decelerates, ball comes up well short.' },
+      { name: 'Scalp / Thin / Blade', body: 'Hitting the ball with the leading edge instead of the face. Comes out low and hot, runs through the green.' },
+      { name: 'Flush', body: 'Slang for a perfectly struck shot — clean contact in the center of the face.' },
+    ],
+  },
+  {
+    heading: 'Putting terms',
+    terms: [
+      { name: 'Pin high / Hole high', body: 'Approach finishes level with the pin (correct distance, off line). Generally a good miss — putting across slope, not up or down it.' },
+      { name: 'Spinner (putting)', body: 'A putt that lips out spinning — catches the edge, spins around the rim, comes back out. See also: lip out.' },
+    ],
+  },
+  {
+    heading: 'Course and green terminology',
+    terms: [
+      { name: 'Below the hole', body: 'The lower side of the cup on a sloped green. Leaves an uphill putt — preferred. Tour players always try to stay below.' },
+      { name: 'Above the hole', body: 'The upper side. Leaves a downhill putt — faster, harder to control. Avoid.' },
+      { name: 'Short side', body: 'The side of the green closest to a tucked pin. Missing short side leaves the hardest possible chip. Do not short side yourself.' },
+      { name: 'Grain', body: 'Direction grass grows on a green. Bermuda grain strongly affects speed and break. With the grain is faster; against is slower.' },
+      { name: 'Stimp / Stimpmeter', body: 'Device that measures green speed. 10 = club golf, 12–13 = major championship, 14+ = extremely fast.' },
+      { name: 'False front', body: 'A green that slopes back toward the fairway at the front. Approach shots that land on it roll back off. Take more club.' },
+      { name: 'Apron / Fringe', body: 'Short grass surrounding the green — shorter than fairway, longer than green. Putt-able with care.' },
+      { name: 'Dogleg', body: 'A hole that bends left or right between tee and green.' },
+      { name: 'Bailout', body: 'A safe area to miss to when the primary target is dangerous. Identify before swinging.' },
+      { name: 'Big ball (Earth)', body: 'Slang for chunking — hitting the ground before the ball. The "big ball" is the Earth; you want to hit the small one first.' },
+    ],
+  },
+  {
+    heading: 'Divots and course care',
+    terms: [
+      { name: 'Divot', body: 'The chunk of turf displaced (or the hole left). Replace it, or fill with sand-mix where provided. Hitting from a divot is no relief — play it as it lies.' },
+      { name: 'Pitch mark / Ball mark', body: 'The indentation an approach leaves on the green. Repair yours and any nearby. Push edges down and smooth — do not lift the center.' },
+      { name: 'Burn mark', body: 'Browning on one side of the cup where grain grows away from the cup edge. The healthy side is with the grain; the burned side is into it. Quick read for grain on Bermuda greens.' },
+      { name: 'Divot tool / Pitch fork', body: 'Tool for repairing pitch marks. Insert tines at the edges, push inward. Never pry up from the center.' },
+    ],
+  },
+  {
+    heading: 'Scoring and competition',
+    terms: [
+      { name: 'Snowman', body: 'A score of 8 on a hole — the number 8 looks like a snowman.' },
+      { name: 'Blow up hole', body: 'A hole where everything goes wrong and a large number is recorded. Mental game = minimizing how many.' },
+      { name: 'Honors', body: 'The right to tee off first. In stroke play, goes to the lowest score on the previous hole.' },
+      { name: 'Ready golf', body: 'Hit when you are ready, not strictly by honors order. Speeds pace of play. Standard in casual rounds.' },
+      { name: 'Skins', body: 'Each hole worth a fixed amount. Win the hole outright (no ties) and you win the skin. Ties carry over and stack.' },
+      { name: 'Match play', body: 'Score tracked hole by hole rather than total strokes. Win a hole, go one up.' },
+      { name: 'Stroke play', body: 'Total strokes over the round. Lowest total wins.' },
+      { name: 'Stableford', body: 'Points based on score relative to par. Bogey 1, par 2, birdie 3, eagle 4. Encourages aggressive play.' },
+      { name: 'Nassau', body: 'A bet split into front nine, back nine, and full 18 — three separate match-play competitions.' },
+      { name: 'Press', body: 'A new side bet started mid-round in a Nassau or match play, typically when down by two.' },
+      { name: 'Dormie', body: 'In match play, leading by the same number of holes as remain. Cannot lose — worst outcome is a tie.' },
+    ],
+  },
+  {
+    heading: 'Lie and course conditions',
+    terms: [
+      { name: 'Tight lie', body: 'A ball sitting on bare or closely-mown ground with very little grass underneath. Demands clean contact.' },
+      { name: 'Plugged lie / Fried egg', body: 'Ball embedded in its own pitch mark, often in a bunker — only the top is visible, surrounded by disturbed sand.' },
+      { name: 'Hardpan', body: 'Very firm, dry ground with little or no grass. Produces low running shots; demands precise contact.' },
+    ],
+  },
+  {
+    heading: 'Equipment terms',
+    terms: [
+      { name: 'Muscle back', body: 'Iron with weight in a solid mass behind the center of the face — a blade. Less forgiving than cavity backs but unmatched feedback when struck pure.' },
+      { name: 'Cavity back', body: 'Iron with weight redistributed to the perimeter, creating a cavity. More forgiving on off-center hits. Standard for most amateurs.' },
+      { name: 'Loft', body: 'Angle of the clubface relative to vertical. Higher loft = higher flight, less distance. Lower = lower flight, more distance.' },
+      { name: 'Shaft flex', body: 'How much the shaft bends during the swing. Ladies, Senior, Regular, Stiff, Extra Stiff. Wrong flex affects flight and distance.' },
+      { name: 'Lie angle', body: 'Angle between shaft and ground when soled at address. Wrong lie angle pushes shots consistently left or right even with a good swing.' },
+    ],
+  },
+  {
+    heading: 'Slang and culture',
+    terms: [
+      { name: 'Worm burner', body: 'A shot that never gets airborne, rolling along the ground. Usually a topped or thinned iron.' },
+      { name: 'Shank', body: 'A shot struck off the hosel that fires hard right for a right-handed player. One of the most dreaded misses in golf — some players will not say the word.' },
+      { name: 'Yips', body: 'Involuntary muscle twitches or nerves on short putts (or chips). More mental than physical. Has ended careers.' },
+      { name: 'Cabbage', body: 'Thick, deep rough where the ball sits down and is hard to advance. You are just trying to get out.' },
+      { name: 'Lip out', body: 'A putt that catches the edge of the cup but does not fall in. One of the most frustrating outcomes in golf.' },
+      { name: 'Bite', body: 'What golfers shout asking a ball to stop on the green. Also a verb: "I need this to bite."' },
+      { name: 'Barkie', body: 'Making par after your ball hits a tree. Counted as bonus points in some social games.' },
+      { name: 'Greenie', body: 'In a group game, awarded to the player who hits the green in regulation on a par 3 closest to the pin.' },
+    ],
+  },
+  {
+    heading: 'Rules terms worth knowing',
+    terms: [
+      { name: 'Relief', body: 'When the rules let you move your ball without penalty — cart path, temporary water, GUR, embedded ball.' },
+      { name: 'Penalty area', body: 'Modern rules term (since 2019) for what was a water hazard. Yellow = two relief options, red = three. You may now ground your club.' },
+      { name: 'Ground under repair (GUR)', body: 'Areas marked for maintenance. Free relief.' },
+      { name: 'Provisional ball', body: 'A second ball played when the first may be lost or out of bounds. Must be announced. Saves walking back to replay.' },
+      { name: 'Stroke and distance', body: 'Penalty for a lost ball or OB. One stroke AND back to where you played from. The most severe penalty in golf.' },
+    ],
+  },
+  {
+    heading: 'Historical terms',
+    intro: 'Golf has a longer continuous history than almost any other sport, and its vocabulary reflects that. Some hickory-era terms still surface in writing, course names, or older players using them affectionately.',
+    terms: [
+      { name: 'Brassie', body: 'Old name for a 2-wood — named for the brass plate on the sole.' },
+      { name: 'Spoon', body: 'Old name for a 3-wood — for the shallow, spoon-like face.' },
+      { name: 'Baffy', body: 'Old name for a 4-wood. Rarely heard today.' },
+      { name: 'Cleek', body: 'Low-lofted hickory iron, roughly a modern 1 or 2-iron. Also a narrow-faced iron used for distance from tight lies.' },
+      { name: 'Mashie', body: 'Roughly a modern 5-iron. "Mashie niblick" was between a mashie and niblick — about a 7-iron.' },
+      { name: 'Niblick', body: 'High-lofted hickory club for short approaches and trouble — roughly a 9-iron or wedge.' },
+      { name: 'Jigger', body: 'Utility iron with moderate loft, used for punch shots and running approaches. No clean modern equivalent.' },
+      { name: 'Stymie', body: 'Pre-1952 match-play situation where your opponent\'s ball blocked your line. Still used figuratively — "in a stymie" means stuck.' },
+      { name: 'Fore', body: 'The warning shout when a ball is heading toward other players. Origin disputed — possibly from "forecaddie," possibly military. Still essential.' },
+    ],
+  },
+]
 
 function Stat({ label, value }: { label: string; value: string }) {
   return (
@@ -261,34 +441,6 @@ function Stat({ label, value }: { label: string; value: string }) {
     </View>
   )
 }
-
-const GLOSSARY = [
-  {
-    kicker: 'Handicap',
-    title: 'Your potential best, not your average.',
-    body: 'Average of your eight best score differentials over the last twenty rounds. Differentials normalize for course rating + slope so the same number means the same thing across courses.',
-  },
-  {
-    kicker: 'GIR',
-    title: 'On the green in regulation.',
-    body: 'Reaching the green in (par − 2) strokes. Tour pros sit around 67 percent, scratch amateurs 50, low double digits 30. The cleanest read on ball-striking.',
-  },
-  {
-    kicker: 'Scrambling · Up & down',
-    title: 'When you miss the green.',
-    body: 'Scrambling = par or better after missing the green. Up and down = chip and a putt from within 30 yd, no extra strokes. Tour up-and-down hovers around 60 percent; mid-handicaps closer to 30.',
-  },
-  {
-    kicker: 'Sand save',
-    title: 'Par from the bunker.',
-    body: 'A hole where one of your shots was hit from sand and you still made par or better. 50 percent is excellent recreational play; field average 35.',
-  },
-  {
-    kicker: 'Dispersion',
-    title: 'Reading the pattern.',
-    body: 'The inner ellipse covers 68 percent of your shots — your typical window. The outer one covers 95. A pattern shifted right of centre means a fade bias; the aim correction tip moves the centre back over your target.',
-  },
-]
 
 function HowToPracticeArticle() {
   return (
@@ -1409,5 +1561,698 @@ const RESOURCES = [
     title: '"Golf Is Not a Game of Perfect"',
     by: 'Bob Rotella.',
     note: 'The standard text on playing with what you have that day.',
+  },
+]
+
+function MentalGameArticle() {
+  return (
+    <View>
+      <Text style={{ ...KICKER, marginBottom: 10 }}>On the course · Draft</Text>
+      <Text style={TITLE}>The mental game.</Text>
+
+      <H3>Golf is you versus you</H3>
+      <Para>
+        Every other sport has an opponent actively trying to stop
+        you. In golf, the course is static. The ball sits still and
+        waits. Nobody is trying to beat you except you.
+      </Para>
+      <Para>
+        Once you have a functional swing, the game becomes almost
+        entirely mental. Most amateurs spend 95% of their practice
+        on the physical game and almost none on the mental game.
+        The swing is largely solved. The mental game is the frontier.
+      </Para>
+      <Para>
+        Golf is also one of the most humbling experiences available.
+        It will find every weakness in your ego and expose it
+        repeatedly. Either reduce the ego or suffer. There is no
+        third option.
+      </Para>
+
+      <Divider />
+
+      <H3>One shot at a time</H3>
+      <Para>
+        Every touring professional eventually says the same thing:
+        one shot at a time. It is repeated so often because it is
+        literally true. You cannot replay the last shot. You cannot
+        hit the next one until this one is done. The only shot that
+        exists is the one in front of you.
+      </Para>
+      <Para>
+        The brain doesn't work this way naturally. It replays the
+        shot you just botched. It fast-forwards to the putt on 18.
+        It calculates score. All of this thinking happens at exactly
+        the moment you need to be doing one thing.
+      </Para>
+      <Para>
+        Bob Rotella describes this as refusing to be seduced by
+        results. At the 2008 Masters, Trevor Immelman did not look
+        at a single leaderboard until walking up 18. The routine
+        protected him all day. The moment he stepped outside it,
+        the pressure arrived.
+      </Para>
+      <Para>
+        The short memory is a skill, not a trait. Give yourself a
+        window to feel the emotion — Rotella calls it walking it
+        off — then drop it. The bad shot already happened. Carrying
+        it into the next shot is a choice.
+      </Para>
+
+      <Divider />
+
+      <H3>Sulking won't get you anything</H3>
+      <Para>
+        When Padraig Harrington won the 2007 British Open, he
+        knocked two balls into the water on the last hole and made
+        double bogey. He still won. He told Rotella afterward that
+        it never entered his mind he might blow it. His only
+        thought was getting the ball in the hole so he could make
+        the playoff.
+      </Para>
+      <Para>
+        Rotella is direct: sulking won't get you anything. Feeling
+        sorry, replaying the mistake — none of it changes what
+        happened, all of it damages what comes next.
+      </Para>
+
+      <Divider />
+
+      <H3>The productive delusion</H3>
+      <Para>
+        Rotella's first rule: believe you can win. Not hope. Not
+        think you have a chance. Believe.
+      </Para>
+      <Para>
+        The player on a putting heater approaches the next putt
+        believing it's going in. The player who has been missing
+        all afternoon thinks: I'm due. Both are irrational. But the
+        golfer who believes stands over the ball with a different
+        quality of attention — and that affects the outcome.
+      </Para>
+      <Para>
+        It is the deliberate construction of a mental state that
+        serves performance. Call it confidence, call it a productive
+        delusion. You are allowed to be delusional in your own
+        favor. In golf, it is the correct strategy.
+      </Para>
+
+      <Divider />
+
+      <H3>Visualization</H3>
+      <Para>
+        Before a shot, the mental game starts. Not on the backswing
+        — before you take the club out of the bag.
+      </Para>
+      <Para>
+        See the shot you want to hit. The flight, the trajectory,
+        the bounce and roll. Like a video, in real time, as if it
+        already happened. For putting: see the line, see the ball
+        rolling along it, see it drop.
+      </Para>
+      <Para>
+        This is not mysticism. The brain rehearses motor patterns
+        through visualization in ways that translate into physical
+        execution. Pick a target, visualize the shot, let it rip.
+        In that order, every time.
+      </Para>
+      <Note variant="research">
+        Research basis: mental imagery and motor performance. See
+        Guillot &amp; Collet (2008) on mental simulation of motor
+        actions.
+      </Note>
+
+      <Divider />
+
+      <H3>The routine as an anchor</H3>
+      <Para>
+        A consistent pre-shot routine prepares you physically and
+        gives you a repeatable process. But it has a third purpose
+        most golfers miss: the routine is an anchor to the present
+        moment.
+      </Para>
+      <Para>
+        Curtis Strange won the 1988 U.S. Open looking calm on TV
+        but with his heart pounding. He told Rotella he was working
+        his tail off just to stay in the present. The routine made
+        him look calm and kept him functional.
+      </Para>
+      <Para>
+        When the mind is scattered, going through the routine
+        brings you back. Not magic — executing familiar physical
+        actions requires present-moment attention.
+      </Para>
+      <Para>
+        Routine must be consistent. Same grip check, same practice
+        swing, same target look — every time. The bigger the
+        moment, the more important it is the routine does not change.
+      </Para>
+      <Note variant="research">
+        Manu, The Upbeat Golfer — YouTube. Target commitment and
+        pre-shot routine for process-driven play.
+      </Note>
+
+      <Divider />
+
+      <H3>Patience over aggression</H3>
+      <Para>
+        Rotella's fourth rule: every time you have the urge to make
+        an aggressive play, go with the more conservative one. You
+        will always be okay.
+      </Para>
+      <Para>
+        At the 1992 U.S. Open, Tom Kite shot even par in 35-mph
+        wind and won by two. Most players didn't break 80. He did
+        it by staying patient and letting others beat themselves.
+        Patience compounds across 18 holes.
+      </Para>
+
+      <Divider />
+
+      <H3>Ignore unsolicited swing advice</H3>
+      <Para>
+        Rotella tells of a player who made eight birdies in round
+        one, stopped by the putting green, got two unsolicited
+        comments on his setup, and was a mess by the next day.
+      </Para>
+      <Para>
+        Stop them before they speak. Their comments will creep in
+        at the moment you need to be thinking about your target.
+        File anything observed for the range later — or let it go.
+      </Para>
+
+      <Divider />
+
+      <H3>Calm is a superpower</H3>
+      <Para>
+        You cannot make good decisions when angry. You cannot swing
+        well when amped up or seething. The state of anger is the
+        opposite of the state required to hit a golf ball.
+      </Para>
+      <Para>
+        This is not about being emotionless. Feel it briefly,
+        privately, then drop it. The next shot needs your full
+        attention.
+      </Para>
+      <Para>
+        Hand on chest, feel your breath, look at something specific
+        in your environment — grounding techniques exist to pull
+        you out of your own mind and back to the course where the
+        actual game is being played.
+      </Para>
+
+      <Divider />
+
+      <H3>Grounding and the present moment</H3>
+      <Para>
+        When the mind spirals, the way back is through the body,
+        not through more thinking. Feel your feet on the ground.
+        Feel the grip in your hands. Look at the grass, the trees,
+        the sky.
+      </Para>
+      <Para>
+        The mind in a spiral is pulling you into the past or the
+        future. The body only exists in the present. Returning
+        attention to physical sensation is the fastest route back
+        to where the golf shot actually lives.
+      </Para>
+      <Para>
+        Golf becomes deeply Buddhist here — not attached to
+        outcomes, not grasping at results, returning again and
+        again to what is actually happening right now. Everything
+        else is noise.
+      </Para>
+
+      <Divider />
+
+      <H3>Find someone who believes in you</H3>
+      <Para>
+        Ben Hogan considered quitting early in his career. Valerie
+        Hogan wouldn't let him. Confidence in yourself is essential.
+        Having someone who sees what you can't yet see in yourself
+        — a spouse, a friend, a coach — compounds it.
+      </Para>
+      <Para>
+        For amateurs this might be a playing partner who knows your
+        game, or a coach who genuinely believes in your potential.
+        Anyone who reflects your capability back to you on the days
+        you can't see it. The mental game is not fought entirely
+        alone.
+      </Para>
+
+      <Divider />
+
+      <H3>Be process-driven, not results-driven</H3>
+      <Para>
+        Most golfers think too little — react emotionally to where
+        the ball goes. The opposite problem: thinking too much.
+        Grinding swing thoughts, replaying the last bad shot.
+        Analysis paralysis is just as damaging as mindlessness.
+      </Para>
+      <Para>The sweet spot is a clear, repeatable pre-shot process:</Para>
+      <Bullets
+        items={[
+          'Pick a specific target',
+          'Visualize the shot',
+          'Commit fully',
+          'Go through your routine',
+          'Pull the trigger',
+        ]}
+      />
+      <Para>
+        Try tracking — alongside your score — whether you committed
+        to each shot. Not whether the result was what you wanted.
+        Whether you actually went through your process without
+        doubt. Process-oriented thinking gives you the best chance
+        of executing.
+      </Para>
+
+      <Divider />
+
+      <H3>It never gets fully solved</H3>
+      <Para>
+        Tour pros — with decades of experience and sports
+        psychologists — still get in their own way. The goal is
+        not to eliminate the mental challenge. It is to recover
+        more quickly. The pro who has a double on 6 and is back to
+        full focus on 7 has the same challenge as the amateur who
+        takes four holes to recover. They just recover faster.
+      </Para>
+      <Para>That recovery time is what you are training.</Para>
+
+      <Divider />
+
+      <H3>Resources</H3>
+      <Note variant="todo">
+        Verify all links before publishing.
+      </Note>
+      {MENTAL_GAME_RESOURCES.map((r) => (
+        <View
+          key={r.title}
+          style={{
+            borderTopWidth: 1,
+            borderColor: '#D9D2BF',
+            paddingVertical: 12,
+          }}
+        >
+          <Text
+            style={{
+              color: '#1C211C',
+              fontSize: 15,
+              fontStyle: 'italic',
+              fontWeight: '500',
+            }}
+          >
+            {r.title}
+            {r.by && (
+              <Text style={{ color: '#5C6356', fontStyle: 'normal', fontWeight: '400' }}>
+                {' '}— {r.by}
+              </Text>
+            )}
+          </Text>
+          <Text style={{ color: '#5C6356', fontSize: 14, lineHeight: 20, marginTop: 4 }}>
+            {r.note}
+          </Text>
+        </View>
+      ))}
+
+      <View
+        style={{
+          borderTopWidth: 1,
+          borderColor: '#D9D2BF',
+          paddingTop: 18,
+          marginTop: 22,
+        }}
+      >
+        <Text style={{ ...KICKER, color: '#8A8B7E', lineHeight: 14 }}>
+          Last reviewed May 2026 · Draft, needs review · Edit
+          docs/learn/mental-game.md to contribute
+        </Text>
+      </View>
+    </View>
+  )
+}
+
+const MENTAL_GAME_RESOURCES = [
+  {
+    title: '"Golf Is Not a Game of Perfect"',
+    by: 'Bob Rotella.',
+    note: 'The gold standard in golf psychology. Essential reading.',
+  },
+  {
+    title: '"Golf Is a Game of Confidence"',
+    by: 'Bob Rotella.',
+    note: 'The follow-up, equally valuable.',
+  },
+  {
+    title: 'Bob Rotella — "My 10 Rules on Mental Fitness"',
+    by: '',
+    note: 'GolfWRX. The ten rules referenced throughout this article.',
+  },
+  {
+    title: '"Zen Golf"',
+    by: 'Joseph Parent.',
+    note: 'Buddhist-influenced approach to present-moment play.',
+  },
+  {
+    title: 'The Upbeat Golfer (Manu)',
+    by: '',
+    note: 'YouTube. Process-driven mental approach, target commitment, playing without fear.',
+  },
+  {
+    title: '"The Inner Game of Tennis"',
+    by: 'Tim Gallwey.',
+    note: 'Not golf-specific but the foundational text on getting out of your own way in sport.',
+  },
+  {
+    title: '"Choke"',
+    by: 'Sian Beilock.',
+    note: 'The neuroscience of why we perform poorly under pressure and what to do about it.',
+  },
+]
+
+function SkillGamesArticle() {
+  return (
+    <View>
+      <Text style={{ ...KICKER, marginBottom: 10 }}>Improving your game · Draft</Text>
+      <Text style={TITLE}>Skill games and pressure games.</Text>
+
+      <H3>Why games beat mindless repetition</H3>
+      <Para>
+        Hitting the same shot over and over until you run out of
+        balls is the default range session. It feels like practice.
+        It largely isn't.
+      </Para>
+      <Para>
+        Games change the dynamic. A target, a score, stakes. You're
+        tracking something. You either succeed or you don't. That
+        structure forces commitment on each shot — the same
+        commitment you need on the course.
+      </Para>
+      <Para>
+        End sessions with games. Technical work belongs earlier
+        when focus is fresh. Finish with games when you're shifting
+        from mechanics to performance.
+      </Para>
+
+      <Divider />
+
+      <H3>The pressure problem</H3>
+      <Para>
+        The fundamental challenge of practice: you know you have
+        another ball. On the course, you don't. That knowledge
+        removes consequence from every range swing. You never
+        practice the mental state you need when something is
+        riding on the shot.
+      </Para>
+      <Para>
+        Pressure games solve this. Create enough consequence that
+        missing would genuinely bother you. Not so much that you're
+        miserable. Just enough that each shot matters.
+      </Para>
+      <Para>
+        Stakes must be real but not ruinous. A candy bar, ten
+        pushups, coffee with a buddy. Too small and you don't
+        care. Too large and anxiety takes over.
+      </Para>
+      <Para>
+        The last few balls of any range bucket are a natural
+        pressure game. You're out of balls. Make them count.
+      </Para>
+
+      <Divider />
+
+      <H3>Putting games</H3>
+
+      <H4>The clock drill</H4>
+      <Para>
+        Place twelve balls around a hole at three feet — clock
+        positions. Make all twelve in a row. Miss and start over.
+      </Para>
+      <Para>
+        Deceptively brutal. Getting to eleven and then missing is
+        genuinely painful. That pain is the point — it simulates
+        the pressure of needing to make a putt with something on
+        the line.
+      </Para>
+      <Para>
+        Move to four feet, then five. Tour players do this from
+        six feet as a warm-up. Make all twelve from six and your
+        short putting is tour-level.
+      </Para>
+      <KV label="Variation">
+        Use one ball. Walk around the clock, replace after each
+        putt, make all twelve in a row. Harder — no second chances,
+        and the walk resets your mental state between putts.
+      </KV>
+
+      <H4>Three-station pressure drill</H4>
+      <Para>
+        Three feet, six feet, nine feet. Make ten putts at each
+        station before moving on. Miss more than one and start the
+        station over.
+      </Para>
+      <Para>
+        Escalating pressure. Three feet is achievable. Six with
+        the threat of restart matters. Nine, after completing the
+        first two — real pressure. Track total attempts to complete
+        all three across sessions.
+      </Para>
+
+      <H4>The putting circuit</H4>
+      <Para>
+        Pick nine holes on the practice green. Par 2 each — one
+        putt, two-putt is par, three-putt is bogey. Play it as a
+        proper round. Same nine holes every session so you can
+        track improvement.
+      </Para>
+      <KV label="Competitive version">
+        Head to head with a partner. Stroke or match play. Adds
+        pressure solo practice can't replicate.
+      </KV>
+
+      <H4>The gate drill</H4>
+      <Para>
+        Two tees just wider than your putter, a foot in front of
+        the ball on your line. Roll the ball through without
+        touching either tee.
+      </Para>
+      <Para>
+        Trains starting line. Most missed putts are missed before
+        the ball breaks. Start at six feet straight, then ten,
+        then a breaker. Exposes inconsistency in stroke path fast.
+      </Para>
+
+      <H4>Speed control — the ladder drill</H4>
+      <Para>
+        Five balls at ten feet. Hit the first putt — note where it
+        finishes. The second must finish on the opposite side of
+        the hole from the first. The third must finish between the
+        first two.
+      </Para>
+      <Para>
+        Move back five feet and repeat. Trains intentional pace
+        variation — directly transferable to lag putting and fast
+        greens.
+      </Para>
+
+      <Divider />
+
+      <H3>Chipping and short game games</H3>
+
+      <H4>Up and down challenge</H4>
+      <Para>
+        Five spots around the practice green at varying distances.
+        From each spot, chip and putt out. Sum strokes. Set a
+        target — maybe 12 — and try to beat it. Lower as you
+        improve.
+      </Para>
+      <KV label="Pressure version">
+        Five up-and-downs in a row. Miss one and the streak
+        restarts. Getting to four and chunking the next chip is
+        exactly the pressure the course creates.
+      </KV>
+
+      <H4>Three clubs, one ball per station</H4>
+      <Para>
+        Three distances — 20, 40, 60 yards. One ball from each.
+        No mulligan. The single-ball constraint is everything.
+      </Para>
+
+      <H4>Flag left or flag right</H4>
+      <Para>
+        At the range pick a flag. Before each shot, declare: left
+        or right. Within ten feet on the declared side = birdie.
+        Correct side, outside the window = par. Wrong side =
+        double bogey.
+      </Para>
+      <Para>
+        Teaches two things. First, controlling shot shape under
+        pressure — you have to commit before you swing. Second,
+        the cost of the short side. Score over ten shots; -4 or
+        better is good.
+      </Para>
+
+      <Divider />
+
+      <H3>Full swing games</H3>
+
+      <H4>Horse at the range</H4>
+      <Para>
+        Like the basketball game. Pick a target. Hit. Partner has
+        to match it. Miss the match and you get a letter. First
+        to H-O-R-S-E loses. Calling your shot before swinging is
+        the same skill the course demands.
+      </Para>
+
+      <H4>The imaginary fairway</H4>
+      <Para>
+        Two targets define a fairway, 25–30 yards wide. Ten tee
+        shots. Driver in the fairway = 3, fairway wood = 2, iron
+        = 1. -2 if you imagine a hazard side and find it.
+      </Para>
+      <Para>
+        Incentivizes driver — the most distance, the most risk.
+        Forces a real reward-vs-risk decision on every shot.
+      </Para>
+
+      <H4>Same distance, different clubs</H4>
+      <Para>
+        Pick a flag at 100 yards. Hit it with five different clubs.
+        9-iron, 8-iron, PW, GW, SW — each requires a different
+        swing length and speed.
+      </Para>
+      <Para>
+        Builds feel for partial shots. Teaches your actual
+        distances better than full swings — you're forced to
+        feel a 75% swing with each club.
+      </Para>
+
+      <H4>Three club challenge</H4>
+      <Para>
+        Simulated nine-hole round on the range with only three
+        clubs — driver, mid iron, wedge. Tee shot, approach, chip
+        — each to a different target. Forces creativity. You
+        learn to work the ball.
+      </Para>
+
+      <Divider />
+
+      <H3>The last ball rule</H3>
+      <Para>
+        Whatever you're practicing, save your last ball for a
+        specific challenge. Announce it before you hit:
+      </Para>
+      <Bullets
+        items={[
+          '"This drive has to find the fairway."',
+          '"This wedge has to finish within ten feet of the flag."',
+          '"This 7-iron has to carry the 150 marker."',
+        ]}
+      />
+      <Para>
+        One ball, no second chance. The session ends on this shot
+        — and you find out whether the work translates when
+        something is riding on it.
+      </Para>
+
+      <Divider />
+
+      <H3>Building your own pressure games</H3>
+      <Para>
+        Generic drills work. Customized stakes work better.
+      </Para>
+      <KV label="Stakes must be real but not ruinous">
+        Candy bar, coffee, pushups, bragging rights. Twenty dollars
+        or public embarrassment shuts down performance instead of
+        training it.
+      </KV>
+      <KV label="Streaks beat totals">
+        10 of 15 creates less pressure than 5 in a row. Streaks
+        carry the weight of every previous success — closer to
+        how the course feels.
+      </KV>
+      <KV label="One-and-done beats best-of">
+        A single attempt, no mulligans. The closer to the
+        one-chance nature of a real shot, the better.
+      </KV>
+      <KV label="Track scores over time">
+        A game without a scoreboard is a drill. Watching your
+        score improve across months is genuinely motivating.
+      </KV>
+
+      <Divider />
+
+      <H3>Resources</H3>
+      <Note variant="todo">
+        Verify all links before publishing.
+      </Note>
+      {SKILL_GAMES_RESOURCES.map((r) => (
+        <View
+          key={r.title}
+          style={{
+            borderTopWidth: 1,
+            borderColor: '#D9D2BF',
+            paddingVertical: 12,
+          }}
+        >
+          <Text
+            style={{
+              color: '#1C211C',
+              fontSize: 15,
+              fontStyle: 'italic',
+              fontWeight: '500',
+            }}
+          >
+            {r.title}
+            {r.by && (
+              <Text style={{ color: '#5C6356', fontStyle: 'normal', fontWeight: '400' }}>
+                {' '}— {r.by}
+              </Text>
+            )}
+          </Text>
+          <Text style={{ color: '#5C6356', fontSize: 14, lineHeight: 20, marginTop: 4 }}>
+            {r.note}
+          </Text>
+        </View>
+      ))}
+
+      <View
+        style={{
+          borderTopWidth: 1,
+          borderColor: '#D9D2BF',
+          paddingTop: 18,
+          marginTop: 22,
+        }}
+      >
+        <Text style={{ ...KICKER, color: '#8A8B7E', lineHeight: 14 }}>
+          Last reviewed May 2026 · Draft, needs review · Edit
+          docs/learn/skill-games-pressure-games.md to contribute
+        </Text>
+      </View>
+    </View>
+  )
+}
+
+const SKILL_GAMES_RESOURCES = [
+  {
+    title: 'Golf Digest — 15 Best Golf Practice Games',
+    by: '',
+    note: 'golfdigest.com. Good overview of range and putting green games.',
+  },
+  {
+    title: 'Practical Golf — 5 Games That Build Real Skills',
+    by: '',
+    note: 'practical-golf.com. Solid pressure games with scoring systems.',
+  },
+  {
+    title: '"Dave Pelz\'s Short Game Bible"',
+    by: '',
+    note: 'Research-based approach to short game practice. Specific drills backed by data.',
+  },
+  {
+    title: 'The Upbeat Golfer (Manu)',
+    by: '',
+    note: 'YouTube. Process under pressure, routine under stakes.',
   },
 ]

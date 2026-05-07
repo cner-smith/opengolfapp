@@ -45,9 +45,9 @@ export const LEARN_SECTIONS: LearnSection[] = [
         id: 'glossary',
         title: 'Glossary of golf terms',
         description:
-          'Handicap, GIR, scrambling, up-and-down, sand save, dispersion — the working vocabulary of the app.',
-        status: 'published',
-        words: 700,
+          'Intermediate and advanced terms beyond the basics — shot shapes, green reading, slang, rules, and historical terms.',
+        status: 'draft',
+        words: 3500,
       },
     ],
   },
@@ -102,10 +102,12 @@ export const LEARN_SECTIONS: LearnSection[] = [
         status: 'soon',
       },
       {
-        id: 'skill-and-pressure-games',
+        id: 'skill-games-pressure-games',
         title: 'Skill games and pressure games',
-        description: 'Range games that build skills that survive the first tee.',
-        status: 'soon',
+        description:
+          'Clock drill, putting circuits, flag left or right, HORSE, and why the last ball in the bucket matters.',
+        status: 'draft',
+        words: 1900,
       },
       {
         id: 'understanding-your-swing',
@@ -142,9 +144,11 @@ export const LEARN_SECTIONS: LearnSection[] = [
       },
       {
         id: 'mental-game',
-        title: 'Mental game and on-course psychology',
-        description: 'Routines, target focus, recovering from a bad shot mid-round.',
-        status: 'soon',
+        title: 'The mental game',
+        description:
+          'One shot at a time, the productive delusion, visualization, and staying calm when it matters.',
+        status: 'draft',
+        words: 2900,
       },
       {
         id: 'practice-vs-scoring-round',
