@@ -1,3 +1,4 @@
+import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Footnote } from './components/ArticlePrimitives'
 import {
@@ -8,6 +9,9 @@ import {
 } from './data/learnSections'
 
 export function LearnPage() {
+  const [query, setQuery] = useState('')
+  const filtered = useMemo(() => filterSections(LEARN_SECTIONS, query), [query])
+
   return (
     <div style={{ maxWidth: 760 }}>
       <div style={{ marginBottom: 28 }}>
@@ -34,16 +38,115 @@ export function LearnPage() {
         </p>
       </div>
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 28 }}>
-        {LEARN_SECTIONS.map((s) => (
-          <SectionCard key={s.id} section={s} />
-        ))}
-      </div>
+      <SearchInput value={query} onChange={setQuery} />
+
+      {filtered.length === 0 ? (
+        <EmptyState />
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 28 }}>
+          {filtered.map((s) => (
+            <SectionCard key={s.id} section={s} />
+          ))}
+        </div>
+      )}
 
       <Footnote>
         Benchmarks based on Mark Broadie's strokes gained research and PGA Tour
         ShotLink data. Amateur averages approximate.
       </Footnote>
+    </div>
+  )
+}
+
+function filterSections(
+  sections: LearnSection[],
+  rawQuery: string,
+): LearnSection[] {
+  const q = rawQuery.trim().toLowerCase()
+  if (!q) return sections
+  return sections
+    .map((s) => {
+      const sectionMatch = s.title.toLowerCase().includes(q)
+      const articles = s.articles.filter(
+        (a) =>
+          sectionMatch ||
+          a.title.toLowerCase().includes(q) ||
+          a.description.toLowerCase().includes(q),
+      )
+      return { ...s, articles }
+    })
+    .filter((s) => s.articles.length > 0)
+}
+
+function SearchInput({
+  value,
+  onChange,
+}: {
+  value: string
+  onChange: (v: string) => void
+}) {
+  return (
+    <div style={{ position: 'relative', marginBottom: 28 }}>
+      <input
+        type="search"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder="Search guides…"
+        aria-label="Search Learn articles"
+        className="text-caddie-ink"
+        style={{
+          width: '100%',
+          background: '#FBF8F1',
+          border: '1px solid #D9D2BF',
+          borderRadius: 2,
+          padding: '12px 36px 12px 14px',
+          fontSize: 14,
+          fontFamily: 'Inter, sans-serif',
+          color: '#1C211C',
+          outline: 'none',
+        }}
+      />
+      {value && (
+        <button
+          type="button"
+          onClick={() => onChange('')}
+          aria-label="Clear search"
+          style={{
+            position: 'absolute',
+            right: 10,
+            top: '50%',
+            transform: 'translateY(-50%)',
+            background: 'transparent',
+            border: 'none',
+            cursor: 'pointer',
+            color: '#5C6356',
+            fontSize: 18,
+            lineHeight: 1,
+            padding: 4,
+          }}
+        >
+          ×
+        </button>
+      )}
+    </div>
+  )
+}
+
+function EmptyState() {
+  return (
+    <div
+      className="text-caddie-ink-dim"
+      style={{
+        border: '1px solid #D9D2BF',
+        background: '#FBF8F1',
+        borderRadius: 4,
+        padding: 32,
+        textAlign: 'center',
+        fontSize: 15,
+        fontStyle: 'italic',
+      }}
+    >
+      No articles found.
     </div>
   )
 }
