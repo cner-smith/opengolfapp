@@ -65,6 +65,15 @@ export function RoundDetailPage() {
   const [view, setView] = useState<ViewMode>(() =>
     searchParams.get('view') === 'map' ? 'map' : 'scorecard',
   )
+  // Capture "session started in live mode" at mount. `view` is a
+  // runtime ViewTabs toggle — past-round reviewers can switch to the
+  // map tab and we don't want that to suppress the shot mini-map for
+  // them. The mini-map suppression is for genuine live entry only.
+  const [isLiveEntry] = useState(
+    () =>
+      searchParams.get('mode') === 'live' ||
+      searchParams.get('view') === 'map',
+  )
   const [holeView, dispatchHoleView] = useReducer(holeViewReducer, HOLE_VIEW_INITIAL)
   const {
     activeHoleNumber,
@@ -457,6 +466,7 @@ export function RoundDetailPage() {
             holePar={shotsModalFor.holePar}
             pinLat={pinLat}
             pinLng={pinLng}
+            liveEntry={isLiveEntry}
             onClose={() => setShotsModalFor(null)}
           />
         )
