@@ -137,7 +137,7 @@ export default function Home() {
           {firstName ? `Good round, ${firstName}.` : 'Good round.'}
         </Text>
         <Text style={{ color: '#5C6356', fontSize: 14, marginBottom: 22 }}>
-          Last {rounds.length || 0} round{rounds.length === 1 ? '' : 's'}
+          Last {trend.length} round{trend.length === 1 ? '' : 's'}
         </Text>
 
         {activeRound && <ResumeRoundBanner round={activeRound} />}
