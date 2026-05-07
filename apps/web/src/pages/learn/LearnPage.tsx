@@ -97,7 +97,8 @@ function ArticleRow({
   article: ArticleStub
   isLast: boolean
 }) {
-  const isStub = article.status === 'stub'
+  const isSoon = article.status === 'soon'
+  const isDraft = article.status === 'draft'
   const reading = readingTimeMinutes(article)
 
   const inner = (
@@ -118,11 +119,25 @@ function ArticleRow({
             fontSize: 17,
             fontWeight: 500,
             fontStyle: 'italic',
-            color: isStub ? '#8A8B7E' : '#1C211C',
+            color: isSoon ? '#8A8B7E' : '#1C211C',
             marginBottom: 4,
           }}
         >
           {article.title}
+          {isDraft && (
+            <span
+              className="font-mono uppercase text-caddie-warn"
+              style={{
+                fontSize: 9,
+                letterSpacing: '0.14em',
+                marginLeft: 10,
+                fontStyle: 'normal',
+                fontWeight: 500,
+              }}
+            >
+              Draft
+            </span>
+          )}
         </div>
         <div
           className="text-caddie-ink-dim"
@@ -139,7 +154,7 @@ function ArticleRow({
           flexShrink: 0,
         }}
       >
-        {isStub ? (
+        {isSoon ? (
           <span
             className="font-mono uppercase text-caddie-ink-mute"
             style={{ fontSize: 10, letterSpacing: '0.14em' }}
@@ -169,7 +184,7 @@ function ArticleRow({
     </div>
   )
 
-  if (isStub) {
+  if (isSoon) {
     return <li aria-disabled="true">{inner}</li>
   }
   return (
