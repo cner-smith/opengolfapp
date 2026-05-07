@@ -417,6 +417,8 @@ export default function RoundIndex() {
             >
               +/−
             </Text>
+            {/* Header spacer for the row affordance arrow. */}
+            <Text style={{ width: 18, marginLeft: 6 }}> </Text>
           </View>
           {sortedHoles.map((h) => {
             const hs = scoresByHoleId.get(h.id)
@@ -488,6 +490,20 @@ export default function RoundIndex() {
                   }}
                 >
                   {d == null ? '—' : d === 0 ? 'E' : d > 0 ? `+${d}` : `${d}`}
+                </Text>
+                {/* Persistent affordance — pressed-only background gave
+                    no resting hint that rows were tappable. Arrow sits
+                    in muted ink so it doesn't fight the score columns. */}
+                <Text
+                  style={{
+                    width: 18,
+                    textAlign: 'right',
+                    fontSize: 14,
+                    color: '#8A8B7E',
+                    marginLeft: 6,
+                  }}
+                >
+                  →
                 </Text>
               </Pressable>
             )
