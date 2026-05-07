@@ -410,6 +410,7 @@ export default function HoleScreen() {
         onPersistPutt={actions.persistPutt}
         onCloseLogger={actions.closeLogger}
         onClosePuttingSheet={actions.closePuttingSheet}
+        onSwapPuttingToShot={actions.swapPuttingToShot}
         onConfirmDelete={actions.handleDeleteRound}
         onCancelDelete={() => setConfirmDelete(false)}
         onConfirmLeave={() => {

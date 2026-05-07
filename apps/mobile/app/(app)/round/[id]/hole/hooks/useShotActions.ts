@@ -2,7 +2,7 @@ import { useRef, useState, type Dispatch, type SetStateAction } from 'react'
 import { Alert } from 'react-native'
 import { useRouter } from 'expo-router'
 import type { User } from '@supabase/supabase-js'
-import { combinedPuttResult } from '@oga/core'
+import { combinedPuttResult, type LieType } from '@oga/core'
 import { deleteRound, getProfile } from '@oga/supabase'
 import { supabase } from '../../../../../../lib/supabase'
 import {
@@ -54,6 +54,7 @@ export interface UseShotActionsResult {
   handleAimPromptSkip: () => void
   closeLogger: () => void
   closePuttingSheet: () => void
+  swapPuttingToShot: (lieType: LieType) => void
   navigateHole: (delta: number) => void
   finishHole: () => void
   handleEndRound: () => Promise<void>
@@ -350,6 +351,17 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
     setRoundState('PLACE_BALL')
   }
 
+  // Recover from a mistaken "Yes, I'm putting" tap. PuttingSheet has
+  // no club/lie picker — without this escape, a player who's actually
+  // chipping from the fringe or in a bunker has no way out except
+  // Close, which drops them back to PLACE_BALL and loses the ball
+  // position. Mirrors handleOnGreenNo's seed.
+  function swapPuttingToShot(lieType: LieType) {
+    setLoggerInitial({ lieType })
+    setRoundState('SHOT_DETAIL')
+    setLoggerOpen(true)
+  }
+
   function navigateHole(delta: number) {
     const next = holeNumber + delta
     if (next < 1 || next > 18) return
@@ -441,6 +453,7 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
     handleAimPromptSkip,
     closeLogger,
     closePuttingSheet,
+    swapPuttingToShot,
     navigateHole,
     finishHole,
     handleEndRound,
