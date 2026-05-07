@@ -76,15 +76,21 @@ export default function Stats() {
   // ordered.map(...) inside <VictoryLine> previously rebuilt every
   // chart-data array on every parent render (window resize, focus,
   // etc.) and Victory then re-tessellated the lines.
+  // Skip rounds with null SG for a category — coercing null → 0
+  // here would anchor the line at zero on rounds where that
+  // category wasn't logged, and the by-the-numbers averages
+  // (which filter nulls) would no longer match what's drawn.
   const chartSeries = useMemo(() => {
     const ordered = [...rounds].reverse()
     return SERIES.map((s) => ({
       key: s.key,
       color: s.color,
-      data: ordered.map((r) => ({
-        x: new Date(r.played_at).getTime(),
-        y: r[s.key] ?? 0,
-      })),
+      data: ordered.flatMap((r) => {
+        const v = r[s.key]
+        return v == null
+          ? []
+          : [{ x: new Date(r.played_at).getTime(), y: v }]
+      }),
     }))
   }, [rounds])
 

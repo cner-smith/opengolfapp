@@ -101,12 +101,16 @@ export default function Home() {
       .catch(() => undefined)
   }, [])
 
+  // Skip rounds with no sg_total — null → 0 would anchor the line
+  // at zero on rounds the user never finalized SG for, and the SG
+  // breakdown averages (which filter nulls) would no longer match.
   const trend = useMemo(
     () =>
-      [...rounds].reverse().map((r, i) => ({
-        x: i + 1,
-        y: r.sg_total ?? 0,
-      })),
+      [...rounds]
+        .reverse()
+        .flatMap((r, i) =>
+          r.sg_total == null ? [] : [{ x: i + 1, y: r.sg_total }],
+        ),
     [rounds],
   )
 
@@ -133,7 +137,7 @@ export default function Home() {
           {firstName ? `Good round, ${firstName}.` : 'Good round.'}
         </Text>
         <Text style={{ color: '#5C6356', fontSize: 14, marginBottom: 22 }}>
-          Last {rounds.length || 0} round{rounds.length === 1 ? '' : 's'}
+          Last {trend.length} round{trend.length === 1 ? '' : 's'}
         </Text>
 
         {activeRound && <ResumeRoundBanner round={activeRound} />}
