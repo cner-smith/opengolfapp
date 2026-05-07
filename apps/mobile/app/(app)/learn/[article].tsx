@@ -56,10 +56,13 @@ export default function ArticleScreen() {
       <ScrollView contentContainerStyle={{ padding: 18, paddingBottom: 64 }}>
         {!found ? (
           <NotFound />
-        ) : found.article.status === 'stub' ? (
+        ) : found.article.status === 'soon' ? (
           <StubBody title={found.article.title} />
         ) : (
-          <LiveArticle id={found.article.id} />
+          <>
+            {found.article.status === 'draft' && <DraftBanner />}
+            <LiveArticle id={found.article.id} />
+          </>
         )}
       </ScrollView>
     </View>
@@ -72,6 +75,35 @@ function NotFound() {
       <Text style={TITLE}>Article not found.</Text>
       <Text style={{ ...BODY, color: '#5C6356', fontStyle: 'italic' }}>
         That guide does not exist yet.
+      </Text>
+    </View>
+  )
+}
+
+function DraftBanner() {
+  return (
+    <View
+      style={{
+        borderLeftWidth: 3,
+        borderLeftColor: '#A66A1F',
+        borderTopWidth: 1,
+        borderRightWidth: 1,
+        borderBottomWidth: 1,
+        borderTopColor: '#D9D2BF',
+        borderRightColor: '#D9D2BF',
+        borderBottomColor: '#D9D2BF',
+        borderRadius: 2,
+        backgroundColor: '#FBF8F1',
+        padding: 14,
+        marginBottom: 18,
+      }}
+    >
+      <Text style={{ ...KICKER, color: '#A66A1F', marginBottom: 6 }}>
+        Work in progress
+      </Text>
+      <Text style={{ color: '#1C211C', fontSize: 13, lineHeight: 19 }}>
+        This guide is being reviewed for accuracy. Treat specific technique
+        advice as provisional until the notice is removed.
       </Text>
     </View>
   )
