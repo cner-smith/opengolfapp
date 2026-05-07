@@ -1,4 +1,11 @@
-import { DemoMap } from './DemoMap'
+import { lazy, Suspense } from 'react'
+
+// Lazy-load DemoMap so mapbox-gl stays in its own chunk and out of the
+// landing-page first-paint critical path. The phone frame paints
+// immediately; the satellite tiles fill in once the chunk arrives.
+const DemoMap = lazy(() =>
+  import('./DemoMap').then((m) => ({ default: m.DemoMap })),
+)
 
 const DEMO_HOLE = {
   number: 7,
@@ -88,11 +95,13 @@ export function AppPreview() {
             </div>
           </div>
           <div style={{ flex: 1, position: 'relative' }}>
-            <DemoMap
-              tee={DEMO_HOLE.tee}
-              pin={DEMO_HOLE.pin}
-              shots={DEMO_SHOTS}
-            />
+            <Suspense fallback={<MapFallback />}>
+              <DemoMap
+                tee={DEMO_HOLE.tee}
+                pin={DEMO_HOLE.pin}
+                shots={DEMO_SHOTS}
+              />
+            </Suspense>
           </div>
           <div
             style={{
@@ -126,5 +135,18 @@ export function AppPreview() {
         </div>
       </div>
     </div>
+  )
+}
+
+function MapFallback() {
+  return (
+    <div
+      style={{
+        position: 'absolute',
+        inset: 0,
+        background:
+          'radial-gradient(circle at 70% 65%, #3e6a44 0%, #2c5034 45%, #244429 100%)',
+      }}
+    />
   )
 }
