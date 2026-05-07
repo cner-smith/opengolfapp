@@ -118,8 +118,9 @@ export function DemoMap({ tee, pin, shots }: DemoMapProps) {
   )
 }
 
-// Match the live RoundMap shot marker (apps/web/src/components/round/map/markerFactories.ts):
-// 24px amber circle with a cream border and the shot number in Inter 600.
+// Mirrors the live RoundMap shot marker style. Sized to the
+// landing-page spec (20px) — slightly tighter than the in-app 24px so
+// the markers don't overwhelm the small phone-frame viewport.
 function makeNumberedMarker(n: number): HTMLElement {
   const outer = document.createElement('div')
   outer.style.display = 'flex'
@@ -128,11 +129,11 @@ function makeNumberedMarker(n: number): HTMLElement {
   outer.style.pointerEvents = 'none'
   const inner = document.createElement('div')
   inner.style.cssText = [
-    'width:22px',
-    'height:22px',
+    'width:20px',
+    'height:20px',
     'border-radius:999px',
     'background:#A66A1F',
-    'color:#F2EEE5',
+    'color:#FBF8F1',
     'font-family:Inter, sans-serif',
     'font-weight:600',
     'font-size:11px',
@@ -146,15 +147,27 @@ function makeNumberedMarker(n: number): HTMLElement {
   return outer
 }
 
+// Inlined replica of makeFlagMarker in
+// apps/web/src/components/round/map/markerFactories.ts — kept inline
+// rather than imported so DemoMap stays a self-contained landing-page
+// chunk (the real factories module would drag the round-map graph in).
 function makePinMarker(): HTMLElement {
   const outer = document.createElement('div')
   outer.style.pointerEvents = 'none'
-  outer.innerHTML = `
-    <svg width="20" height="28" viewBox="0 0 20 28" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <line x1="10" y1="2" x2="10" y2="22" stroke="#FBF8F1" stroke-width="1.5" />
-      <path d="M10 3 L17 6 L10 9 Z" fill="#A33A2A" stroke="#FBF8F1" stroke-width="0.75" stroke-linejoin="round"/>
-      <circle cx="10" cy="22" r="3" fill="#A33A2A" stroke="#FBF8F1" stroke-width="1.5" />
-    </svg>
-  `
+  const content = document.createElement('div')
+  content.style.cssText = 'width:16px;height:24px;position:relative'
+  const pole = document.createElement('div')
+  pole.style.cssText =
+    'position:absolute;left:6px;top:0;width:2px;height:24px;background:#FBF8F1'
+  const flag = document.createElement('div')
+  flag.style.cssText =
+    'position:absolute;left:8px;top:1px;width:9px;height:7px;background:#A33A2A'
+  const base = document.createElement('div')
+  base.style.cssText =
+    'position:absolute;left:5px;top:22px;width:4px;height:2px;border-radius:1px;background:#FBF8F1'
+  content.appendChild(pole)
+  content.appendChild(flag)
+  content.appendChild(base)
+  outer.appendChild(content)
   return outer
 }

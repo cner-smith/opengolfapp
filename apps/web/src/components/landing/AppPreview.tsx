@@ -70,9 +70,9 @@ export function AppPreview() {
           <div
             style={{
               background: '#1C211C',
-              color: '#F2EEE5',
+              color: '#FBF8F1',
               padding: '14px 16px 12px',
-              borderBottom: '1px solid rgba(242, 238, 229, 0.1)',
+              borderBottom: '1px solid rgba(251, 248, 241, 0.1)',
             }}
           >
             <div
@@ -90,7 +90,7 @@ export function AppPreview() {
               style={{
                 fontSize: 9,
                 letterSpacing: '0.18em',
-                color: 'rgba(242, 238, 229, 0.55)',
+                color: 'rgba(251, 248, 241, 0.55)',
                 marginTop: 4,
               }}
             >
@@ -108,7 +108,7 @@ export function AppPreview() {
           </div>
           <div
             style={{
-              background: '#FBF8F1',
+              background: '#F2EEE5',
               color: '#1C211C',
               padding: '12px 16px',
               borderTop: '1px solid #D9D2BF',
