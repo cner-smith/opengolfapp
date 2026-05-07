@@ -102,10 +102,12 @@ export const LEARN_SECTIONS: LearnSection[] = [
         status: 'soon',
       },
       {
-        id: 'skill-and-pressure-games',
+        id: 'skill-games-pressure-games',
         title: 'Skill games and pressure games',
-        description: 'Range games that build skills that survive the first tee.',
-        status: 'soon',
+        description:
+          'Clock drill, putting circuits, flag left or right, HORSE, and why the last ball in the bucket matters.',
+        status: 'draft',
+        words: 1900,
       },
       {
         id: 'understanding-your-swing',
