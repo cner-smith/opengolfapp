@@ -95,7 +95,7 @@ export function OnboardingPage() {
       // Flip the gate AFTER the bag write so a failed bag save can't
       // strand the user on a half-completed onboarding.
       await updateProfile.mutateAsync({ onboarding_completed: true })
-      navigate('/', { replace: true })
+      navigate('/dashboard', { replace: true })
     } catch (err) {
       setError(toUserMessage(err))
     } finally {
@@ -109,7 +109,7 @@ export function OnboardingPage() {
     setSavingBag(true)
     try {
       await updateProfile.mutateAsync({ onboarding_completed: true })
-      navigate('/', { replace: true })
+      navigate('/dashboard', { replace: true })
     } catch (err) {
       setError(toUserMessage(err))
     } finally {

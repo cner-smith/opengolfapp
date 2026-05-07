@@ -10,7 +10,7 @@ interface NavLinkDef {
 }
 
 const links: NavLinkDef[] = [
-  { to: '/', label: 'Dashboard', section: 'menu' },
+  { to: '/dashboard', label: 'Dashboard', section: 'menu' },
   { to: '/rounds', label: 'Rounds', section: 'menu' },
   { to: '/stats', label: 'Strokes Gained', section: 'menu' },
   { to: '/patterns', label: 'Shot Patterns', section: 'menu' },
@@ -45,7 +45,7 @@ function SidebarSection({
           to={l.to}
           // /settings would otherwise highlight when /settings/bag is active
           // because NavLink uses prefix matching by default.
-          end={l.to === '/' || l.to === '/settings'}
+          end={l.to === '/dashboard' || l.to === '/settings'}
           className={({ isActive }) =>
             [
               'transition-colors block',
