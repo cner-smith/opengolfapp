@@ -4,6 +4,7 @@ import { AuthGuard } from './components/auth/AuthGuard'
 import { ProfileGuard } from './components/auth/ProfileGuard'
 import { AppShell } from './components/layout/AppShell'
 import { PublicShell } from './components/landing/PublicShell'
+import { PublicArticleLayout } from './components/landing/PublicArticleLayout'
 import { RouteErrorBoundary } from './components/errors/ErrorBoundary'
 import { LoginPage } from './pages/auth/LoginPage'
 import { SignupPage } from './pages/auth/SignupPage'
@@ -72,13 +73,21 @@ const errorElement = <RouteErrorBoundary />
 const routes: RouteObject[] = [
   // Public routes — no auth required. Visiting these signed-in is fine;
   // PublicNav swaps the sign-up CTA for "Go to app" so the home page
-  // doubles as a re-entry point.
+  // doubles as a re-entry point. Learn lives here so articles are
+  // crawlable and shareable without forcing readers through signup.
   {
     element: <PublicShell />,
     errorElement,
     children: [
       { path: '/', element: <LandingPage />, errorElement },
       { path: '/privacy', element: <PrivacyPage />, errorElement },
+      {
+        element: <PublicArticleLayout />,
+        children: [
+          { path: '/learn', element: <LearnPage />, errorElement },
+          { path: '/learn/:slug', element: <LearnArticlePage />, errorElement },
+        ],
+      },
     ],
   },
   { path: '/login', element: <LoginPage />, errorElement },
@@ -100,8 +109,6 @@ const routes: RouteObject[] = [
       { path: '/patterns', element: <ShotPatternsPage />, errorElement },
       { path: '/practice', element: <PracticePlanPage />, errorElement },
       { path: '/practice/drills', element: <DrillLibraryPage />, errorElement },
-      { path: '/learn', element: <LearnPage />, errorElement },
-      { path: '/learn/:slug', element: <LearnArticlePage />, errorElement },
       { path: '/settings', element: <SettingsPage />, errorElement },
       { path: '/settings/bag', element: <BagPage />, errorElement },
     ],
