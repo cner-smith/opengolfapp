@@ -1,7 +1,7 @@
 import { Linking, Pressable, ScrollView, Text, View } from 'react-native'
 import { useLocalSearchParams, useRouter } from 'expo-router'
+import { findLearnArticle } from '@oga/core'
 import { AppBar } from '../../../components/ui/AppBar'
-import { findArticle } from '../../../components/learn/sections'
 
 const KICKER: import('react-native').TextStyle = {
   color: '#8A8B7E',
@@ -37,7 +37,7 @@ const SUBKICKER: import('react-native').TextStyle = {
 export default function ArticleScreen() {
   const router = useRouter()
   const { article: slug } = useLocalSearchParams<{ article: string }>()
-  const found = slug ? findArticle(slug) : null
+  const found = slug ? findLearnArticle(slug) : null
 
   return (
     <View style={{ flex: 1, backgroundColor: '#F2EEE5' }}>

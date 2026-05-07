@@ -1,6 +1,9 @@
+// Learn-section catalog: shared between web and mobile so the two apps
+// can never drift on article ids, descriptions, or status vocabulary.
+
 export type ArticleStatus = 'published' | 'draft' | 'soon'
 
-export interface ArticleStub {
+export interface LearnArticle {
   id: string
   title: string
   description: string
@@ -13,7 +16,7 @@ export interface LearnSection {
   id: string
   number: string
   title: string
-  articles: ArticleStub[]
+  articles: LearnArticle[]
 }
 
 export const LEARN_SECTIONS: LearnSection[] = [
@@ -184,19 +187,9 @@ export const LEARN_SECTIONS: LearnSection[] = [
   },
 ]
 
-export interface SectionLink {
-  id: string
-  label: string
-}
-
-export const SECTION_LINKS: SectionLink[] = LEARN_SECTIONS.map((s) => ({
-  id: s.id,
-  label: s.title,
-}))
-
-export function findArticle(
+export function findLearnArticle(
   slug: string,
-): { article: ArticleStub; section: LearnSection } | null {
+): { article: LearnArticle; section: LearnSection } | null {
   for (const section of LEARN_SECTIONS) {
     const article = section.articles.find((a) => a.id === slug)
     if (article) return { article, section }
@@ -204,7 +197,9 @@ export function findArticle(
   return null
 }
 
-export function readingTimeMinutes(article: ArticleStub): number | null {
+const WORDS_PER_MINUTE = 200
+
+export function readingTimeMinutes(article: LearnArticle): number | null {
   if (!article.words) return null
-  return Math.max(1, Math.ceil(article.words / 200))
+  return Math.max(1, Math.ceil(article.words / WORDS_PER_MINUTE))
 }

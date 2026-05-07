@@ -1,12 +1,12 @@
 import { Pressable, ScrollView, Text, View } from 'react-native'
 import { useRouter } from 'expo-router'
-import { AppBar } from '../../../components/ui/AppBar'
 import {
   LEARN_SECTIONS,
   readingTimeMinutes,
-  type ArticleStub,
+  type LearnArticle,
   type LearnSection,
-} from '../../../components/learn/sections'
+} from '@oga/core'
+import { AppBar } from '../../../components/ui/AppBar'
 
 const KICKER: import('react-native').TextStyle = {
   color: '#8A8B7E',
@@ -66,8 +66,8 @@ function ArticleRow({
   article,
   onSelect,
 }: {
-  article: ArticleStub
-  onSelect: (article: ArticleStub) => void
+  article: LearnArticle
+  onSelect: (article: LearnArticle) => void
 }) {
   const isSoon = article.status === 'soon'
   const isDraft = article.status === 'draft'
@@ -151,7 +151,7 @@ function SectionBlock({
   onSelect,
 }: {
   section: LearnSection
-  onSelect: (article: ArticleStub) => void
+  onSelect: (article: LearnArticle) => void
 }) {
   return (
     <View

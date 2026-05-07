@@ -1,12 +1,12 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Footnote } from './components/ArticlePrimitives'
 import {
   LEARN_SECTIONS,
   readingTimeMinutes,
-  type ArticleStub,
+  type LearnArticle,
   type LearnSection,
-} from './data/learnSections'
+} from '@oga/core'
+import { Footnote } from './components/ArticlePrimitives'
 
 export function LearnPage() {
   const [query, setQuery] = useState('')
@@ -197,7 +197,7 @@ function ArticleRow({
   article,
   isLast,
 }: {
-  article: ArticleStub
+  article: LearnArticle
   isLast: boolean
 }) {
   const isSoon = article.status === 'soon'

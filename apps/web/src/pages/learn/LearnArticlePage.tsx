@@ -1,15 +1,15 @@
 import { useEffect, useState } from 'react'
 import { Link, Navigate, useParams } from 'react-router-dom'
-import { getArticleComponent } from './data/articleRegistry'
 import {
-  findArticle,
-  type ArticleStub,
+  findLearnArticle,
+  type LearnArticle,
   type LearnSection,
-} from './data/learnSections'
+} from '@oga/core'
+import { getArticleComponent } from './data/articleRegistry'
 
 export function LearnArticlePage() {
   const { slug = '' } = useParams<{ slug: string }>()
-  const found = findArticle(slug)
+  const found = findLearnArticle(slug)
   const Component = getArticleComponent(slug)
 
   if (!found || !Component) {
@@ -129,7 +129,7 @@ function DraftBanner({ slug }: { slug: string }) {
 function neighbours(
   section: LearnSection,
   currentId: string,
-): { prev: ArticleStub | null; next: ArticleStub | null } {
+): { prev: LearnArticle | null; next: LearnArticle | null } {
   const reachable = section.articles.filter((a) => a.status !== 'soon')
   const idx = reachable.findIndex((a) => a.id === currentId)
   if (idx === -1) return { prev: null, next: null }
@@ -143,8 +143,8 @@ function NeighbourNav({
   prev,
   next,
 }: {
-  prev: ArticleStub | null
-  next: ArticleStub | null
+  prev: LearnArticle | null
+  next: LearnArticle | null
 }) {
   if (!prev && !next) return null
   return (
@@ -169,7 +169,7 @@ function NeighbourLink({
   article,
 }: {
   direction: 'prev' | 'next'
-  article: ArticleStub | null
+  article: LearnArticle | null
 }) {
   const isNext = direction === 'next'
   const align = isNext ? 'right' : 'left'
