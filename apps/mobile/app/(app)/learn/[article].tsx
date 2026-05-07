@@ -1,8 +1,7 @@
-import { useState } from 'react'
 import { Linking, Pressable, ScrollView, Text, View } from 'react-native'
 import { useLocalSearchParams, useRouter } from 'expo-router'
+import { findLearnArticle } from '@oga/core'
 import { AppBar } from '../../../components/ui/AppBar'
-import { findArticle } from '../../../components/learn/sections'
 
 const KICKER: import('react-native').TextStyle = {
   color: '#8A8B7E',
@@ -38,7 +37,7 @@ const SUBKICKER: import('react-native').TextStyle = {
 export default function ArticleScreen() {
   const router = useRouter()
   const { article: slug } = useLocalSearchParams<{ article: string }>()
-  const found = slug ? findArticle(slug) : null
+  const found = slug ? findLearnArticle(slug) : null
 
   return (
     <View style={{ flex: 1, backgroundColor: '#F2EEE5' }}>
@@ -56,10 +55,13 @@ export default function ArticleScreen() {
       <ScrollView contentContainerStyle={{ padding: 18, paddingBottom: 64 }}>
         {!found ? (
           <NotFound />
-        ) : found.article.status === 'stub' ? (
+        ) : found.article.status === 'soon' ? (
           <StubBody title={found.article.title} />
         ) : (
-          <LiveArticle id={found.article.id} />
+          <>
+            {found.article.status === 'draft' && <DraftBanner />}
+            <LiveArticle id={found.article.id} />
+          </>
         )}
       </ScrollView>
     </View>
@@ -72,6 +74,35 @@ function NotFound() {
       <Text style={TITLE}>Article not found.</Text>
       <Text style={{ ...BODY, color: '#5C6356', fontStyle: 'italic' }}>
         That guide does not exist yet.
+      </Text>
+    </View>
+  )
+}
+
+function DraftBanner() {
+  return (
+    <View
+      style={{
+        borderLeftWidth: 3,
+        borderLeftColor: '#A66A1F',
+        borderTopWidth: 1,
+        borderRightWidth: 1,
+        borderBottomWidth: 1,
+        borderTopColor: '#D9D2BF',
+        borderRightColor: '#D9D2BF',
+        borderBottomColor: '#D9D2BF',
+        borderRadius: 2,
+        backgroundColor: '#FBF8F1',
+        padding: 14,
+        marginBottom: 18,
+      }}
+    >
+      <Text style={{ ...KICKER, color: '#A66A1F', marginBottom: 6 }}>
+        Work in progress
+      </Text>
+      <Text style={{ color: '#1C211C', fontSize: 13, lineHeight: 19 }}>
+        This guide is being reviewed for accuracy. Treat specific technique
+        advice as provisional until the notice is removed.
       </Text>
     </View>
   )
@@ -264,8 +295,6 @@ function HowToPracticeArticle() {
     <View>
       <Text style={{ ...KICKER, marginBottom: 10 }}>Improving your game · Draft</Text>
       <Text style={TITLE}>How to practice.</Text>
-
-      <WipBanner />
 
       <H3>The uncomfortable truth</H3>
       <Para>
@@ -589,52 +618,6 @@ function HowToPracticeArticle() {
   )
 }
 
-function WipBanner() {
-  const [dismissed, setDismissed] = useState(false)
-  if (dismissed) return null
-  return (
-    <View
-      style={{
-        backgroundColor: '#FBF8F1',
-        borderLeftWidth: 3,
-        borderLeftColor: '#A66A1F',
-        borderTopWidth: 1,
-        borderRightWidth: 1,
-        borderBottomWidth: 1,
-        borderColor: '#D9D2BF',
-        borderRadius: 2,
-        padding: 14,
-        marginBottom: 18,
-        flexDirection: 'row',
-        gap: 12,
-      }}
-    >
-      <View style={{ flex: 1 }}>
-        <Text style={{ ...KICKER, color: '#A66A1F', marginBottom: 6 }}>
-          Work in progress
-        </Text>
-        <Text style={{ color: '#1C211C', fontSize: 14, lineHeight: 20 }}>
-          This guide is being reviewed for accuracy. Treat specific
-          technique advice as provisional until the notice is removed.
-        </Text>
-      </View>
-      <Pressable
-        onPress={() => setDismissed(true)}
-        style={{
-          borderWidth: 1,
-          borderColor: '#D9D2BF',
-          borderRadius: 2,
-          paddingHorizontal: 10,
-          paddingVertical: 6,
-          alignSelf: 'flex-start',
-        }}
-      >
-        <Text style={{ ...KICKER, color: '#5C6356' }}>Dismiss</Text>
-      </Pressable>
-    </View>
-  )
-}
-
 function H3({ children }: { children: string }) {
   return (
     <Text
@@ -893,8 +876,6 @@ function CourseManagementArticle() {
     <View>
       <Text style={{ ...KICKER, marginBottom: 10 }}>On the course · Draft</Text>
       <Text style={TITLE}>Course management.</Text>
-
-      <WipBanner />
 
       <H3>You are not on the range anymore</H3>
       <Para>

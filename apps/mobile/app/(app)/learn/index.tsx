@@ -1,11 +1,12 @@
 import { Pressable, ScrollView, Text, View } from 'react-native'
 import { useRouter } from 'expo-router'
-import { AppBar } from '../../../components/ui/AppBar'
 import {
   LEARN_SECTIONS,
-  type ArticleStub,
+  readingTimeMinutes,
+  type LearnArticle,
   type LearnSection,
-} from '../../../components/learn/sections'
+} from '@oga/core'
+import { AppBar } from '../../../components/ui/AppBar'
 
 const KICKER: import('react-native').TextStyle = {
   color: '#8A8B7E',
@@ -61,12 +62,96 @@ export default function LearnScreen() {
   )
 }
 
+function ArticleRow({
+  article,
+  onSelect,
+}: {
+  article: LearnArticle
+  onSelect: (article: LearnArticle) => void
+}) {
+  const isSoon = article.status === 'soon'
+  const isDraft = article.status === 'draft'
+  const reading = readingTimeMinutes(article)
+  const titleColor = isSoon ? '#5C6356' : '#1C211C'
+
+  return (
+    <Pressable
+      onPress={() => (isSoon ? null : onSelect(article))}
+      disabled={isSoon}
+      style={{
+        borderTopWidth: 1,
+        borderColor: '#D9D2BF',
+        paddingVertical: 16,
+        flexDirection: 'row',
+        alignItems: 'flex-start',
+        justifyContent: 'space-between',
+      }}
+    >
+      <View style={{ flex: 1, paddingRight: 12 }}>
+        <View
+          style={{
+            flexDirection: 'row',
+            alignItems: 'baseline',
+            flexWrap: 'wrap',
+          }}
+        >
+          <Text
+            style={{
+              color: titleColor,
+              fontSize: 17,
+              fontStyle: 'italic',
+              fontWeight: '500',
+            }}
+          >
+            {article.title}
+          </Text>
+          {isDraft && (
+            <Text
+              style={{ ...KICKER, color: '#A66A1F', marginLeft: 8 }}
+            >
+              Draft
+            </Text>
+          )}
+        </View>
+        <Text
+          style={{
+            color: '#5C6356',
+            fontSize: 13,
+            lineHeight: 18,
+            marginTop: 4,
+          }}
+        >
+          {article.description}
+        </Text>
+      </View>
+      <View style={{ alignItems: 'flex-end' }}>
+        {isSoon ? (
+          <Text style={{ ...KICKER, color: '#8A8B7E' }}>Soon</Text>
+        ) : (
+          <>
+            {reading != null && (
+              <Text style={{ ...KICKER, color: '#8A8B7E', marginBottom: 4 }}>
+                {reading} min
+              </Text>
+            )}
+            <Text
+              style={{ color: '#8A8B7E', fontSize: 18, fontStyle: 'italic' }}
+            >
+              →
+            </Text>
+          </>
+        )}
+      </View>
+    </Pressable>
+  )
+}
+
 function SectionBlock({
   section,
   onSelect,
 }: {
   section: LearnSection
-  onSelect: (article: ArticleStub) => void
+  onSelect: (article: LearnArticle) => void
 }) {
   return (
     <View
@@ -92,46 +177,11 @@ function SectionBlock({
       </Text>
       <View>
         {section.articles.map((article) => (
-          <Pressable
+          <ArticleRow
             key={article.id}
-            onPress={() => onSelect(article)}
-            style={{
-              borderTopWidth: 1,
-              borderColor: '#D9D2BF',
-              paddingVertical: 16,
-              flexDirection: 'row',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-            }}
-          >
-            <Text
-              style={{
-                flex: 1,
-                color: article.status === 'stub' ? '#5C6356' : '#1C211C',
-                fontSize: 17,
-                fontStyle: 'italic',
-                fontWeight: '500',
-              }}
-            >
-              {article.title}
-            </Text>
-            {article.status === 'stub' ? (
-              <Text style={{ ...KICKER, color: '#8A8B7E', marginLeft: 12 }}>
-                Soon
-              </Text>
-            ) : (
-              <Text
-                style={{
-                  color: '#8A8B7E',
-                  fontSize: 18,
-                  fontStyle: 'italic',
-                  marginLeft: 12,
-                }}
-              >
-                →
-              </Text>
-            )}
-          </Pressable>
+            article={article}
+            onSelect={onSelect}
+          />
         ))}
       </View>
     </View>

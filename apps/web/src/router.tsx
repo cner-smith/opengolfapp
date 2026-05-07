@@ -34,6 +34,11 @@ const RoundDetailPage = lazy(() =>
 const LearnPage = lazy(() =>
   import('./pages/learn/LearnPage').then((m) => ({ default: m.LearnPage })),
 )
+const LearnArticlePage = lazy(() =>
+  import('./pages/learn/LearnArticlePage').then((m) => ({
+    default: m.LearnArticlePage,
+  })),
+)
 
 function RouteFallback() {
   return (
@@ -80,6 +85,7 @@ const routes: RouteObject[] = [
       { path: '/practice', element: <PracticePlanPage />, errorElement },
       { path: '/practice/drills', element: <DrillLibraryPage />, errorElement },
       { path: '/learn', element: <LearnPage />, errorElement },
+      { path: '/learn/:slug', element: <LearnArticlePage />, errorElement },
       { path: '/settings', element: <SettingsPage />, errorElement },
       { path: '/settings/bag', element: <BagPage />, errorElement },
     ],
