@@ -1,4 +1,4 @@
-import { useCallback } from 'react'
+import { useCallback, useEffect } from 'react'
 import { Text, View } from 'react-native'
 import Svg, { Circle, Ellipse, Line, Path } from 'react-native-svg'
 import {
@@ -66,6 +66,15 @@ export function GreenDiagram({
   const startOffset = useSharedValue(aimOffsetInches)
   const layoutWidth = useSharedValue(SVG_WIDTH)
 
+  // Mirror the committed prop into the shared value so the handle stays
+  // at its committed position after the gesture ends — useAnimatedProps
+  // reads `startOffset.value`, not the React prop, so without this sync
+  // the handle visually snapped back to its pre-drag position the moment
+  // `offsetX.value` reset to 0 in onEnd.
+  useEffect(() => {
+    startOffset.value = aimOffsetInches
+  }, [aimOffsetInches, startOffset])
+
   const pinY = breakDirection === 'uphill' ? 56 : breakDirection === 'downhill' ? 80 : 68
   const ballX = 150
   const ballY = 200
@@ -123,8 +132,14 @@ export function GreenDiagram({
         HANDLE_MAX_X,
       )
       const next = Math.round((targetCx - CENTER_X) / PX_PER_INCH)
-      runOnJS(commitOffset)(next)
+      // Bake the committed offset into the shared value before zeroing
+      // the live delta so the handle holds at its release position. The
+      // useEffect that syncs from the prop will land at the same value
+      // after React re-renders, but it runs a frame later — without this
+      // line the handle briefly snaps back to its pre-drag position.
+      startOffset.value = next
       offsetX.value = 0
+      runOnJS(commitOffset)(next)
     })
 
   // Worklet helpers — kept inline so each useAnimatedProps re-creates them
