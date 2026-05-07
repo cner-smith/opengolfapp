@@ -45,9 +45,9 @@ export const LEARN_SECTIONS: LearnSection[] = [
         id: 'glossary',
         title: 'Glossary of golf terms',
         description:
-          'Handicap, GIR, scrambling, up-and-down, sand save, dispersion — the working vocabulary of the app.',
-        status: 'published',
-        words: 700,
+          'Intermediate and advanced terms beyond the basics — shot shapes, green reading, slang, rules, and historical terms.',
+        status: 'draft',
+        words: 3500,
       },
     ],
   },
