@@ -218,11 +218,16 @@ export default function NewRound() {
       const detail = await getOpenGolfApiCourse(r.id)
       const city = detail.city ?? r.city ?? null
       const state = detail.state ?? r.state ?? null
+      // `created_by` required by holes INSERT policy (migration 0026):
+      // the followup createHoles call below RLS-fails on courses with
+      // created_by IS NULL.
+      if (!user) throw new Error('not authenticated')
       const { data: course, error: courseErr } = await createCourse(supabase, {
         name: detail.name || r.name,
         city,
         state,
         external_id: r.id,
+        created_by: user.id,
       })
       if (courseErr || !course) throw courseErr ?? new Error('Course insert failed')
 
@@ -287,9 +292,10 @@ export default function NewRound() {
                 : trimmed || null
             const state =
               commaIdx >= 0 ? trimmed.slice(commaIdx + 1).trim() || null : null
+            if (!user) throw new Error('not authenticated')
             const { data: course, error: courseErr } = await createCourse(
               supabase,
-              { name: name.trim(), city, state },
+              { name: name.trim(), city, state, created_by: user.id },
             )
             if (courseErr || !course) {
               throw courseErr ?? new Error('Course insert failed')

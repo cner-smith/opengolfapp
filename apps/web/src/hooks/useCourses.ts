@@ -19,6 +19,7 @@ import {
 import type { Database } from '@oga/supabase'
 import { supabase } from '../lib/supabase'
 import { useDebounce } from './useDebounce'
+import { useAuth } from './useAuth'
 
 type CourseRow = Database['public']['Tables']['courses']['Row']
 type HoleInsert = Database['public']['Tables']['holes']['Insert']
@@ -97,8 +98,10 @@ interface ImportFromApiArgs {
 // scorecard from OpenGolfAPI and inserts course + holes.
 export function useImportApiCourse() {
   const qc = useQueryClient()
+  const { user } = useAuth()
   return useMutation({
     mutationFn: async (args: ImportFromApiArgs) => {
+      if (!user) throw new Error('not authenticated')
       const { data: existing, error: existingError } = await getCourseByExternalId(
         supabase,
         args.apiId,
@@ -142,11 +145,16 @@ export function useImportApiCourse() {
           commaIdx >= 0 ? trimmed.slice(commaIdx + 1).trim() || null : null
       }
 
+      // `created_by` is required by the holes INSERT policy (migration
+      // 0026): the immediate `createHoles` call below RLS-fails on
+      // courses with `created_by IS NULL`. Stamp the caller's user id
+      // so the policy's `c.created_by = auth.uid()` check passes.
       const { data: course, error } = await createCourse(supabase, {
         name: detail?.name ?? args.fallbackName,
         city,
         state,
         external_id: args.apiId,
+        created_by: user.id,
       })
       if (error || !course) throw error ?? new Error('Course insert failed')
 
@@ -233,18 +241,23 @@ interface ManualCourseArgs {
 // Used by "Course not found? Add it →" form. pars.length determines 9-vs-18.
 export function useCreateManualCourse() {
   const qc = useQueryClient()
+  const { user } = useAuth()
   return useMutation({
     mutationFn: async (args: ManualCourseArgs) => {
+      if (!user) throw new Error('not authenticated')
       const trimmed = args.location?.trim() ?? ''
       const commaIdx = trimmed.indexOf(',')
       const city =
         commaIdx >= 0 ? trimmed.slice(0, commaIdx).trim() || null : trimmed || null
       const state =
         commaIdx >= 0 ? trimmed.slice(commaIdx + 1).trim() || null : null
+      // See useImportApiCourse — `created_by` required by holes INSERT
+      // policy (migration 0026) so the followup createHoles passes RLS.
       const { data: course, error: courseError } = await createCourse(supabase, {
         name: args.name.trim(),
         city,
         state,
+        created_by: user.id,
       })
       if (courseError || !course) {
         throw courseError ?? new Error('Course insert failed')
