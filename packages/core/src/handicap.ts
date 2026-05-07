@@ -1,14 +1,19 @@
-// USGA-style handicap mechanics.
-// - calculateDifferential — per-round score differential from
-//   adjusted score, course rating, slope rating.
-// - calculateHandicapIndex — averages the best of the last N
-//   differentials (lookup table per submission count) and applies
-//   the 0.96 confidence factor.
-// - adjustedScore — Equitable Stroke Control: caps each hole's
-//   score for handicap purposes based on the player's index.
+// World Handicap System (WHS) mechanics — in effect since January 2020.
 //
-// Pure module — no DB, no React. Used by web + mobile finalize
-// flows and any future server-side handicap recompute.
+// - calculateDifferential: per-round score differential from adjusted
+//   score, course rating, slope rating. Rounded to one decimal per
+//   USGA Rule 5.1.
+// - calculateHandicapIndex: averages the lowest N differentials per
+//   the WHS table (Rule 5.2a) and applies the low-round adjustment.
+//   Replaces the legacy 0.96 multiplier — WHS does not use one.
+// - adjustedScore: Equitable Stroke Control caps each hole's score
+//   for handicap purposes based on the player's index.
+//
+// Pure module — no DB, no React. Used by web + mobile finalize flows
+// and any future server-side handicap recompute.
+
+const MAX_HANDICAP_INDEX = 54.0
+const RECENT_WINDOW = 20
 
 export function calculateDifferential(
   adjustedScore: number,
@@ -18,31 +23,50 @@ export function calculateDifferential(
   if (!Number.isFinite(slopeRating) || slopeRating <= 0) {
     throw new Error('slopeRating must be a positive number')
   }
-  return ((adjustedScore - courseRating) * 113) / slopeRating
+  const raw = ((adjustedScore - courseRating) * 113) / slopeRating
+  return Math.round(raw * 10) / 10
 }
 
+interface BracketRule {
+  bestCount: number
+  adjustment: number
+}
+
+// WHS Rule 5.2a table. `count` is the number of acceptable
+// differentials (capped at 20 — see `considered` below).
+function bracketFor(count: number): BracketRule {
+  if (count >= 20) return { bestCount: 8, adjustment: 0 }
+  if (count === 19) return { bestCount: 7, adjustment: 0 }
+  if (count >= 17) return { bestCount: 6, adjustment: 0 }
+  if (count >= 15) return { bestCount: 5, adjustment: 0 }
+  if (count >= 12) return { bestCount: 4, adjustment: 0 }
+  if (count >= 9) return { bestCount: 3, adjustment: 0 }
+  if (count >= 7) return { bestCount: 2, adjustment: 0 }
+  if (count === 6) return { bestCount: 2, adjustment: -1.0 }
+  if (count === 5) return { bestCount: 1, adjustment: 0 }
+  if (count === 4) return { bestCount: 1, adjustment: -1.0 }
+  return { bestCount: 1, adjustment: -2.0 } // count === 3
+}
+
+// `differentials` is most-recent-first. For 20+ we drop everything
+// past the most-recent-20 window before picking the best 8 — this
+// matches WHS "of the most recent 20 scores" wording.
 export function calculateHandicapIndex(
   differentials: number[],
 ): number | null {
   const valid = differentials.filter((d) => Number.isFinite(d))
   if (valid.length < 3) return null
 
-  const sorted = [...valid].sort((a, b) => a - b)
-  const count = valid.length
+  const considered =
+    valid.length >= RECENT_WINDOW ? valid.slice(0, RECENT_WINDOW) : valid
 
-  let bestCount: number
-  if (count >= 20) bestCount = 8
-  else if (count >= 17) bestCount = 7
-  else if (count >= 14) bestCount = 6
-  else if (count >= 11) bestCount = 5
-  else if (count >= 9) bestCount = 4
-  else if (count >= 7) bestCount = 3
-  else if (count >= 5) bestCount = 2
-  else bestCount = 1
-
+  const { bestCount, adjustment } = bracketFor(considered.length)
+  const sorted = [...considered].sort((a, b) => a - b)
   const best = sorted.slice(0, bestCount)
   const avg = best.reduce((a, b) => a + b, 0) / best.length
-  return Math.round(avg * 0.96 * 10) / 10
+  const result = avg + adjustment
+  const rounded = Math.round(result * 10) / 10
+  return Math.min(rounded, MAX_HANDICAP_INDEX)
 }
 
 // ESC: cap each hole's gross score before computing the adjusted
