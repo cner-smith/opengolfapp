@@ -104,15 +104,19 @@ export default function Home() {
   // Skip rounds with no sg_total — null → 0 would anchor the line
   // at zero on rounds the user never finalized SG for, and the SG
   // breakdown averages (which filter nulls) would no longer match.
-  const trend = useMemo(
-    () =>
-      [...rounds]
-        .reverse()
-        .flatMap((r, i) =>
-          r.sg_total == null ? [] : [{ x: i + 1, y: r.sg_total }],
-        ),
-    [rounds],
-  )
+  // Use a separate ordinal counter (not the source-array index) so the
+  // x values stay 1..N over the kept rounds — flatMap's `i` runs over
+  // the full reversed array including null-filtered entries, which
+  // would otherwise produce sparse ordinals like [1, 3, 5] and a
+  // visually gapped axis.
+  const trend = useMemo(() => {
+    let seq = 0
+    return [...rounds]
+      .reverse()
+      .flatMap((r) =>
+        r.sg_total == null ? [] : [{ x: ++seq, y: r.sg_total }],
+      )
+  }, [rounds])
 
   const eyebrow =
     profile?.handicap_index != null

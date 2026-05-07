@@ -65,10 +65,19 @@ function RootLayoutContent() {
   // this the withDelay timings would re-arm and stutter.
   const animationStarted = useRef(false)
 
+  // Hide native splash whenever fonts are loaded; idempotent.
   useEffect(() => {
     if (!fontsLoaded) return
     SplashScreen.hideAsync().catch(() => {})
-    if (animationStarted.current) return
+  }, [fontsLoaded])
+
+  // Arm the staged fade choreography exactly once. animationStarted
+  // gates double-arms on re-render; reducedMotion is snapshotted at
+  // first-run time. A mid-fade toggle of reducedMotion is handled by
+  // the second effect below — this one never re-runs once started.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (!fontsLoaded || animationStarted.current) return
     animationStarted.current = true
     if (reducedMotion) {
       // Skip the staged choreography but still hold briefly so the
@@ -90,7 +99,20 @@ function RootLayoutContent() {
       SUPPORT_DELAY,
       withTiming(1, { duration: FADE_DURATION, easing: Easing.out(Easing.cubic) }),
     )
-  }, [fontsLoaded, reducedMotion, logoOpacity, taglineOpacity, supportOpacity])
+  }, [fontsLoaded])
+
+  // If the user toggles reduced-motion mid-fade, honor it: cancel any
+  // in-flight withDelay/withTiming and snap all text to visible. The
+  // first effect's animationStarted ref keeps it from re-arming.
+  useEffect(() => {
+    if (!reducedMotion) return
+    cancelAnimation(logoOpacity)
+    cancelAnimation(taglineOpacity)
+    cancelAnimation(supportOpacity)
+    logoOpacity.value = 1
+    taglineOpacity.value = 1
+    supportOpacity.value = 1
+  }, [reducedMotion, logoOpacity, taglineOpacity, supportOpacity])
 
   // Mark the overlay as ready to dismiss after the staged fade-ins
   // settle. The actual dismiss waits on auth too — we never tear the
