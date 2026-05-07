@@ -1,4 +1,4 @@
-import { useCallback } from 'react'
+import { useCallback, useEffect } from 'react'
 import { Text, View } from 'react-native'
 import Svg, { Circle, Ellipse, Line, Path } from 'react-native-svg'
 import {
@@ -65,6 +65,24 @@ export function GreenDiagram({
   const offsetX = useSharedValue(0)
   const startOffset = useSharedValue(aimOffsetInches)
   const layoutWidth = useSharedValue(SVG_WIDTH)
+  // Tracks whether a Pan is currently active so the prop-mirror effect
+  // below doesn't clobber `startOffset.value` mid-drag. Without this,
+  // a parent re-render during an active gesture (e.g. ShotLogger
+  // refreshing) would write the stale committed value back into the
+  // shared value while `offsetX.value` is non-zero, snapping the
+  // handle to a wrong position in the middle of a drag.
+  const isGestureActive = useSharedValue(false)
+
+  // Mirror the committed prop into the shared value so the handle stays
+  // at its committed position after the gesture ends — useAnimatedProps
+  // reads `startOffset.value`, not the React prop, so without this sync
+  // the handle visually snapped back to its pre-drag position the moment
+  // `offsetX.value` reset to 0 in onEnd. Skip while a gesture is active
+  // so a parent re-render mid-drag can't clobber the live position.
+  useEffect(() => {
+    if (isGestureActive.value) return
+    startOffset.value = aimOffsetInches
+  }, [aimOffsetInches, startOffset, isGestureActive])
 
   const pinY = breakDirection === 'uphill' ? 56 : breakDirection === 'downhill' ? 80 : 68
   const ballX = 150
@@ -106,6 +124,7 @@ export function GreenDiagram({
     .failOffsetY([-5, 5])
     .onBegin(() => {
       'worklet'
+      isGestureActive.value = true
       startOffset.value = aimOffsetInches
       offsetX.value = 0
     })
@@ -123,8 +142,22 @@ export function GreenDiagram({
         HANDLE_MAX_X,
       )
       const next = Math.round((targetCx - CENTER_X) / PX_PER_INCH)
-      runOnJS(commitOffset)(next)
+      // Bake the committed offset into the shared value before zeroing
+      // the live delta so the handle holds at its release position. The
+      // prop-mirror useEffect lands at the same value after React re-
+      // renders, but it runs a frame later — without this line the
+      // handle briefly snaps back to its pre-drag position.
+      startOffset.value = next
       offsetX.value = 0
+      isGestureActive.value = false
+      runOnJS(commitOffset)(next)
+    })
+    .onFinalize(() => {
+      'worklet'
+      // Covers gesture cancellation (touch leaves the screen, parent
+      // takes over) — without this `isGestureActive` could stick true
+      // and the prop-mirror effect would never re-arm.
+      isGestureActive.value = false
     })
 
   // Worklet helpers — kept inline so each useAnimatedProps re-creates them
