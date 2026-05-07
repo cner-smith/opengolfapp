@@ -154,7 +154,10 @@ export default function Patterns() {
               {lieSlope !== ANY ? ` (${lieSlope})` : ''}.
             </Text>
           ) : (
-            <DispersionPlot points={points} stats={stats} />
+            <>
+              <DispersionPlot points={points} stats={stats} />
+              <PatternLegend hasStats={!!stats} />
+            </>
           )}
         </Section>
 
@@ -303,12 +306,72 @@ function ChipRow<T extends string>({ value, options, onChange, labelFor }: ChipR
 
 const SVG_SIZE = 320
 
+// Two-state coloring: clean green for a centered shot, vivid red for
+// any miss/outlier. The earlier four-tone scheme (solid / push-pull /
+// miss / unspecified) used hues that read close enough to each other
+// at marker size that players couldn't distinguish them on the green
+// background. A binary signal is plenty for "did this shot do its job
+// or not" and the contrast is unambiguous.
+const COLOR_ON_TARGET = '#2a7a4a'
+const COLOR_MISS = '#c0392b'
+const COLOR_UNSPECIFIED = '#8A8B7E'
+
 function pointColor(result: string | undefined): { fill: string; opacity: number } {
-  if (result === 'solid') return { fill: '#1C211C', opacity: 0.75 }
-  if (result === 'push_right' || result === 'pull_left')
-    return { fill: '#A66A1F', opacity: 0.75 }
-  if (result === undefined) return { fill: '#8A8B7E', opacity: 0.5 }
-  return { fill: '#A33A2A', opacity: 0.8 }
+  if (result === undefined) return { fill: COLOR_UNSPECIFIED, opacity: 0.55 }
+  if (result === 'solid') return { fill: COLOR_ON_TARGET, opacity: 0.85 }
+  return { fill: COLOR_MISS, opacity: 0.85 }
+}
+
+function PatternLegend({ hasStats }: { hasStats: boolean }) {
+  return (
+    <View style={{ marginTop: 14, gap: 8 }}>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 14 }}>
+        <LegendDot color={COLOR_ON_TARGET} label="On target" />
+        <LegendDot color={COLOR_MISS} label="Miss / outlier" />
+        <LegendDot color={COLOR_UNSPECIFIED} label="Unspecified" />
+      </View>
+      {hasStats && (
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 14 }}>
+          <LegendEllipse opacity={0.12} label="68% of shots land here" />
+          <LegendEllipse opacity={0.06} label="95% of shots land here" />
+        </View>
+      )}
+    </View>
+  )
+}
+
+function LegendDot({ color, label }: { color: string; label: string }) {
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+      <View
+        style={{
+          width: 12,
+          height: 12,
+          borderRadius: 6,
+          backgroundColor: color,
+        }}
+      />
+      <Text style={{ color: '#1C211C', fontSize: 12 }}>{label}</Text>
+    </View>
+  )
+}
+
+function LegendEllipse({ opacity, label }: { opacity: number; label: string }) {
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+      <View
+        style={{
+          width: 18,
+          height: 12,
+          borderRadius: 6,
+          backgroundColor: `rgba(31,61,44,${opacity})`,
+          borderWidth: 1,
+          borderColor: '#1F3D2C',
+        }}
+      />
+      <Text style={{ color: '#1C211C', fontSize: 12 }}>{label}</Text>
+    </View>
+  )
 }
 
 function DispersionPlot({
