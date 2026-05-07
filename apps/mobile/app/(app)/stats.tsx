@@ -8,6 +8,9 @@ import { useAuth } from '../../hooks/useAuth'
 import { AppBar } from '../../components/ui/AppBar'
 
 const N_OPTIONS = [5, 10, 20] as const
+// Pin x-axis to chart bottom regardless of where y=0 falls in domain.
+const CHART_HEIGHT = 260
+const CHART_BOTTOM = 28
 
 const SERIES = [
   { key: 'sg_off_tee', label: 'Off tee', color: '#1F3D2C' },
@@ -225,11 +228,12 @@ export default function Stats() {
 
             <Section kicker={`SG by category — last ${rounds.length} rounds`}>
               <VictoryChart
-                height={260}
+                height={CHART_HEIGHT}
                 width={screenWidth - 36}
-                padding={{ top: 16, right: 12, bottom: 28, left: 32 }}
+                padding={{ top: 16, right: 12, bottom: CHART_BOTTOM, left: 32 }}
               >
                 <VictoryAxis
+                  offsetY={CHART_HEIGHT - CHART_BOTTOM}
                   tickFormat={(t) =>
                     new Date(t).toLocaleDateString('en-US', {
                       month: 'short',
