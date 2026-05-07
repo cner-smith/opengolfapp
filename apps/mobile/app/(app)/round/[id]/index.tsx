@@ -423,15 +423,21 @@ export default function RoundIndex() {
             const score = hs?.score ?? null
             const d = score != null && score > 0 ? score - h.par : null
             return (
-              <View
+              <Pressable
                 key={h.id}
-                style={{
+                accessibilityRole="button"
+                accessibilityLabel={`Hole ${h.number}, par ${h.par}${score != null && score > 0 ? `, score ${score}` : ', not played'}`}
+                onPress={() =>
+                  router.push(`/(app)/round/${id}/hole/${h.number}?mode=past`)
+                }
+                style={({ pressed }) => ({
                   flexDirection: 'row',
                   paddingVertical: 10,
                   borderBottomWidth: 1,
                   borderColor: '#EBE5D6',
                   paddingHorizontal: 6,
-                }}
+                  backgroundColor: pressed ? '#EBE5D6' : 'transparent',
+                })}
               >
                 <Text
                   style={{
@@ -483,7 +489,7 @@ export default function RoundIndex() {
                 >
                   {d == null ? '—' : d === 0 ? 'E' : d > 0 ? `+${d}` : `${d}`}
                 </Text>
-              </View>
+              </Pressable>
             )
           })}
         </View>
