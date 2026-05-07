@@ -417,21 +417,29 @@ export default function RoundIndex() {
             >
               +/−
             </Text>
+            {/* Header spacer for the row affordance arrow. */}
+            <Text style={{ width: 18, marginLeft: 6 }}> </Text>
           </View>
           {sortedHoles.map((h) => {
             const hs = scoresByHoleId.get(h.id)
             const score = hs?.score ?? null
             const d = score != null && score > 0 ? score - h.par : null
             return (
-              <View
+              <Pressable
                 key={h.id}
-                style={{
+                accessibilityRole="button"
+                accessibilityLabel={`Hole ${h.number}, par ${h.par}${score != null && score > 0 ? `, score ${score}` : ', not played'}`}
+                onPress={() =>
+                  router.push(`/(app)/round/${id}/hole/${h.number}?mode=past`)
+                }
+                style={({ pressed }) => ({
                   flexDirection: 'row',
                   paddingVertical: 10,
                   borderBottomWidth: 1,
                   borderColor: '#EBE5D6',
                   paddingHorizontal: 6,
-                }}
+                  backgroundColor: pressed ? '#EBE5D6' : 'transparent',
+                })}
               >
                 <Text
                   style={{
@@ -483,7 +491,21 @@ export default function RoundIndex() {
                 >
                   {d == null ? '—' : d === 0 ? 'E' : d > 0 ? `+${d}` : `${d}`}
                 </Text>
-              </View>
+                {/* Persistent affordance — pressed-only background gave
+                    no resting hint that rows were tappable. Arrow sits
+                    in muted ink so it doesn't fight the score columns. */}
+                <Text
+                  style={{
+                    width: 18,
+                    textAlign: 'right',
+                    fontSize: 14,
+                    color: '#8A8B7E',
+                    marginLeft: 6,
+                  }}
+                >
+                  →
+                </Text>
+              </Pressable>
             )
           })}
         </View>
