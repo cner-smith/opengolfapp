@@ -1,0 +1,906 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>OGA — Open Golf App</title>
+<meta name="description" content="Free, open source golf tracking and improvement platform. GPS shot tracking, strokes gained analysis, and coaching content for golfers who want to get better." />
+<meta property="og:title" content="OGA — Open Golf App" />
+<meta property="og:description" content="Track every shot. Understand your game. Free forever." />
+<meta property="og:url" content="https://oga.golf" />
+<meta property="og:type" content="website" />
+<meta name="theme-color" content="#F2EEE5" media="(prefers-color-scheme: light)" />
+<meta name="theme-color" content="#1C211C" media="(prefers-color-scheme: dark)" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,400;1,9..144,500;1,9..144,600&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+<script>
+  (function () {
+    try {
+      var stored = localStorage.getItem('oga-theme');
+      var theme = (stored === 'light' || stored === 'dark')
+        ? stored
+        : (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+      document.documentElement.setAttribute('data-theme', theme);
+    } catch (e) {
+      document.documentElement.setAttribute('data-theme', 'light');
+    }
+  })();
+</script>
+<style>
+  :root,
+  :root[data-theme="light"] {
+    --bg: #F2EEE5;
+    --surface: #FBF8F1;
+    --surface-2: #EBE5D6;
+    --ink: #1C211C;
+    --ink-dim: #5C6356;
+    --ink-mute: #8A8B7E;
+    --line: #D9D2BF;
+    --line-strong: #9F9580;
+    --accent: #1F3D2C;
+    --accent-soft: #2a5a3e;
+    --accent-ink: #F2EEE5;
+    --warn: #A66A1F;
+    --pos: #1F3D2C;
+    --neg: #A33A2A;
+    --invert-bg: #1C211C;
+    --invert-ink: #F2EEE5;
+    --invert-ink-dim: rgba(242, 238, 229, 0.65);
+    --invert-mute: rgba(242, 238, 229, 0.55);
+    --invert-line: rgba(242, 238, 229, 0.12);
+    --nav-scrolled: rgba(242, 238, 229, 0.88);
+    --hover-overlay: rgba(28, 33, 28, 0.05);
+  }
+
+  :root[data-theme="dark"] {
+    --bg: #1C211C;
+    --surface: #262C26;
+    --surface-2: #2F362F;
+    --ink: #F2EEE5;
+    --ink-dim: #BFB8A8;
+    --ink-mute: #8A8B7E;
+    --line: rgba(242, 238, 229, 0.12);
+    --line-strong: rgba(242, 238, 229, 0.22);
+    --accent: #2a7a4a;
+    --accent-soft: #34915a;
+    --accent-ink: #F2EEE5;
+    --warn: #C4823A;
+    --pos: #34915a;
+    --neg: #c0392b;
+    --invert-bg: #F2EEE5;
+    --invert-ink: #1C211C;
+    --invert-ink-dim: #5C6356;
+    --invert-mute: #8A8B7E;
+    --invert-line: #D9D2BF;
+    --nav-scrolled: rgba(28, 33, 28, 0.86);
+    --hover-overlay: rgba(242, 238, 229, 0.06);
+  }
+
+  :root {
+    --serif: 'Fraunces', Georgia, serif;
+    --sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    --mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: var(--sans);
+    background: var(--bg);
+    color: var(--ink);
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    overflow-x: hidden;
+    transition: background-color 200ms ease, color 200ms ease;
+  }
+
+  a { color: inherit; text-decoration: none; }
+  button { font-family: inherit; cursor: pointer; }
+
+  .wrap {
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 0 28px;
+  }
+
+  /* ---------- nav ---------- */
+  .nav {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    z-index: 50;
+    transition: background-color 240ms ease, border-color 240ms ease, backdrop-filter 240ms ease;
+    border-bottom: 1px solid transparent;
+  }
+  .nav.scrolled {
+    background: var(--nav-scrolled);
+    backdrop-filter: saturate(140%) blur(8px);
+    -webkit-backdrop-filter: saturate(140%) blur(8px);
+    border-bottom-color: var(--line);
+  }
+  .nav-inner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 18px 0;
+  }
+  .brand {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.05;
+  }
+  .brand .mark {
+    font-family: var(--serif);
+    font-style: italic;
+    font-weight: 500;
+    font-size: 26px;
+  }
+  .brand .sub {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--ink-mute);
+    margin-top: 4px;
+  }
+  .nav-cta { display: flex; gap: 10px; align-items: center; }
+
+  .theme-toggle {
+    width: 36px; height: 36px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border: 1px solid var(--line-strong);
+    border-radius: 2px;
+    color: var(--ink);
+    transition: background-color 160ms ease, color 160ms ease, border-color 160ms ease;
+  }
+  .theme-toggle:hover { background: var(--hover-overlay); }
+  .theme-toggle svg { display: block; }
+  :root[data-theme="light"] .theme-toggle .icon-moon { display: block; }
+  :root[data-theme="light"] .theme-toggle .icon-sun { display: none; }
+  :root[data-theme="dark"]  .theme-toggle .icon-sun { display: block; }
+  :root[data-theme="dark"]  .theme-toggle .icon-moon { display: none; }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-family: var(--sans);
+    font-weight: 600;
+    font-size: 14px;
+    letter-spacing: 0.01em;
+    border-radius: 2px;
+    padding: 10px 16px;
+    border: 1px solid transparent;
+    transition: background-color 160ms ease, color 160ms ease, border-color 160ms ease, transform 80ms ease;
+    text-decoration: none;
+    white-space: nowrap;
+  }
+  .btn-ghost { color: var(--ink); border-color: var(--line-strong); background: transparent; }
+  .btn-ghost:hover { background: var(--hover-overlay); }
+  .btn-fill { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+  .btn-fill:hover { filter: brightness(1.1); }
+  .btn-accent { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+  .btn-accent:hover { background: var(--accent-soft); border-color: var(--accent-soft); }
+  .btn-invert { background: var(--invert-ink); color: var(--invert-bg); border-color: var(--invert-ink); }
+  .btn-invert:hover { filter: brightness(1.05); }
+  .btn-lg { font-size: 15px; padding: 14px 22px; }
+  .arrow { font-family: var(--serif); font-style: italic; font-weight: 400; }
+
+  /* ---------- hero ---------- */
+  .hero {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    padding: 140px 0 80px;
+  }
+  .hero-grid {
+    display: grid;
+    grid-template-columns: 1.05fr 0.95fr;
+    gap: 56px;
+    align-items: center;
+    width: 100%;
+  }
+
+  .pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    border: 1px solid var(--line-strong);
+    border-radius: 999px;
+    padding: 6px 12px;
+    font-size: 12px;
+    letter-spacing: 0.02em;
+    color: var(--ink);
+    background: var(--surface);
+  }
+  .pill .dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--accent);
+    box-shadow: 0 0 0 3px rgba(31, 61, 44, 0.18);
+  }
+
+  .kicker {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--warn);
+    margin: 22px 0 14px;
+  }
+
+  .hero h1 {
+    font-family: var(--serif);
+    font-style: italic;
+    font-weight: 500;
+    font-size: clamp(44px, 7vw, 76px);
+    line-height: 1.02;
+    letter-spacing: -0.02em;
+    margin: 0 0 22px;
+  }
+
+  .hero-body {
+    font-size: 17px;
+    line-height: 1.6;
+    color: var(--ink-dim);
+    max-width: 480px;
+    margin: 0 0 28px;
+  }
+  .hero-cta-row { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
+  .hero-cta-note { font-size: 13px; color: var(--ink-mute); }
+
+  /* ---------- phone mockup (always dark — depicts a real device) ---------- */
+  .phone-wrap { display: flex; justify-content: center; }
+  .phone {
+    width: 320px;
+    aspect-ratio: 9 / 19;
+    border-radius: 36px;
+    background: #1C211C;
+    border: 1px solid var(--line-strong);
+    padding: 14px;
+    position: relative;
+  }
+  .phone::before {
+    content: '';
+    position: absolute;
+    top: 14px; left: 50%;
+    transform: translateX(-50%);
+    width: 110px; height: 22px;
+    background: #1C211C;
+    border-radius: 0 0 14px 14px;
+    z-index: 2;
+  }
+  .phone-screen {
+    width: 100%; height: 100%;
+    border-radius: 24px;
+    background: #28482e;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+  }
+  .phone-bar {
+    background: #1C211C;
+    color: #F2EEE5;
+    padding: 14px 16px 12px;
+    border-bottom: 1px solid rgba(242, 238, 229, 0.1);
+  }
+  .phone-bar .pb-title {
+    font-family: var(--serif);
+    font-style: italic;
+    font-weight: 500;
+    font-size: 15px;
+  }
+  .phone-bar .pb-meta {
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: rgba(242, 238, 229, 0.55);
+    margin-top: 4px;
+  }
+  .phone-map {
+    flex: 1;
+    position: relative;
+    background:
+      radial-gradient(circle at 70% 65%, #3e6a44 0%, #2c5034 45%, #244429 100%);
+    overflow: hidden;
+  }
+  .phone-map svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .phone-foot {
+    background: #FBF8F1;
+    color: #1C211C;
+    padding: 12px 16px;
+    border-top: 1px solid #D9D2BF;
+  }
+  .phone-foot .pf-kick {
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: #8A8B7E;
+  }
+  .phone-foot .pf-line {
+    font-family: var(--serif);
+    font-style: italic;
+    font-size: 14px;
+    margin-top: 4px;
+  }
+
+  .shot-marker {
+    opacity: 0;
+    transform: translateY(6px);
+    animation: markerIn 600ms ease forwards;
+  }
+  @keyframes markerIn {
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ---------- stats bar ---------- */
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    border-top: 1px solid var(--line);
+    border-bottom: 1px solid var(--line);
+  }
+  .stat {
+    padding: 36px 24px;
+    text-align: center;
+    border-right: 1px solid var(--line);
+  }
+  .stat:last-child { border-right: none; }
+  .stat-num {
+    font-family: var(--serif);
+    font-weight: 500;
+    font-size: 44px;
+    letter-spacing: -0.01em;
+    line-height: 1;
+  }
+  .stat-num.mono { font-family: var(--mono); font-weight: 500; font-size: 36px; }
+  .stat-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--ink-mute);
+    margin-top: 14px;
+  }
+
+  /* ---------- sections ---------- */
+  section { padding: 100px 0; }
+  .section-head { margin-bottom: 56px; }
+  .section-kick {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--warn);
+    margin-bottom: 12px;
+  }
+  .section-title {
+    font-family: var(--serif);
+    font-style: italic;
+    font-weight: 500;
+    font-size: clamp(32px, 4.4vw, 48px);
+    line-height: 1.1;
+    letter-spacing: -0.015em;
+    margin: 0;
+    max-width: 720px;
+  }
+  .section-body {
+    font-size: 16px;
+    color: var(--ink-dim);
+    margin: 18px 0 0;
+    max-width: 560px;
+    line-height: 1.65;
+  }
+
+  /* ---------- features ---------- */
+  .features-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+  }
+  .feature {
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    padding: 28px;
+    background: var(--surface);
+    opacity: 0;
+    transform: translateY(20px);
+    transition: opacity 600ms ease, transform 600ms ease, border-color 200ms ease, background-color 200ms ease;
+  }
+  .feature.in { opacity: 1; transform: translateY(0); }
+  .feature:hover { border-color: var(--line-strong); }
+  .feature-icon {
+    width: 36px; height: 36px;
+    border-radius: 4px;
+    background: var(--accent);
+    color: var(--accent-ink);
+    display: flex; align-items: center; justify-content: center;
+    margin-bottom: 22px;
+  }
+  .feature h3 {
+    font-family: var(--serif);
+    font-style: italic;
+    font-weight: 500;
+    font-size: 22px;
+    margin: 0 0 10px;
+    line-height: 1.2;
+  }
+  .feature p {
+    margin: 0;
+    color: var(--ink-dim);
+    font-size: 14.5px;
+    line-height: 1.6;
+  }
+
+  /* ---------- strokes gained ---------- */
+  .sg-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 64px;
+    align-items: center;
+  }
+  .sg-chart {
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    padding: 28px;
+    background: var(--surface);
+  }
+  .sg-row { padding: 14px 0; border-bottom: 1px solid var(--line); }
+  .sg-row:last-child { border-bottom: none; }
+  .sg-row-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 8px;
+  }
+  .sg-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--ink-mute);
+  }
+  .sg-value {
+    font-family: var(--serif);
+    font-style: italic;
+    font-weight: 500;
+    font-size: 16px;
+  }
+  .sg-value.pos { color: var(--pos); }
+  .sg-value.neg { color: var(--neg); }
+  .sg-value.zero { color: var(--ink-mute); }
+  .sg-bar-track {
+    position: relative;
+    height: 6px;
+    background: var(--surface-2);
+    overflow: hidden;
+  }
+  .sg-bar-fill {
+    position: absolute;
+    top: 0; bottom: 0;
+    width: 0;
+    transition: width 900ms cubic-bezier(0.2, 0.7, 0.2, 1);
+  }
+  .sg-bar-fill.pos { background: var(--pos); left: 50%; }
+  .sg-bar-fill.neg { background: var(--neg); right: 50%; }
+  .sg-bar-fill.zero { background: var(--ink-mute); left: 50%; }
+
+  /* ---------- learn ---------- */
+  .learn-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 18px;
+  }
+  .learn-card {
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    padding: 26px;
+    background: var(--surface);
+    transition: border-color 200ms ease, background-color 200ms ease, transform 200ms ease;
+    display: block;
+  }
+  .learn-card:hover {
+    border-color: var(--line-strong);
+    transform: translateY(-2px);
+  }
+  .learn-kick {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--ink-mute);
+    margin-bottom: 12px;
+  }
+  .learn-title {
+    font-family: var(--serif);
+    font-style: italic;
+    font-weight: 500;
+    font-size: 22px;
+    line-height: 1.25;
+  }
+
+  /* ---------- inverted CTA ---------- */
+  .invert-cta {
+    background: var(--invert-bg);
+    color: var(--invert-ink);
+    text-align: center;
+    padding: 110px 0 100px;
+  }
+  .invert-cta .section-kick { color: var(--invert-mute); margin-bottom: 18px; }
+  .invert-cta-title {
+    font-family: var(--serif);
+    font-style: italic;
+    font-weight: 500;
+    font-size: clamp(40px, 5vw, 60px);
+    line-height: 1.05;
+    letter-spacing: -0.015em;
+    margin: 0 0 18px;
+    color: var(--invert-ink);
+  }
+  .invert-cta-sub {
+    color: var(--invert-ink-dim);
+    font-size: 16px;
+    margin: 0 0 36px;
+  }
+
+  /* ---------- footer ---------- */
+  footer {
+    background: var(--invert-bg);
+    color: var(--invert-ink);
+    border-top: 1px solid var(--invert-line);
+    padding: 32px 0;
+  }
+  .footer-grid {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    gap: 24px;
+    align-items: center;
+  }
+  .footer-brand {
+    font-family: var(--serif);
+    font-style: italic;
+    font-weight: 500;
+    font-size: 20px;
+  }
+  .footer-links {
+    display: flex;
+    gap: 24px;
+    justify-content: center;
+  }
+  .footer-links a {
+    font-size: 13px;
+    color: var(--invert-mute);
+    transition: color 160ms ease;
+  }
+  .footer-links a:hover { color: var(--invert-ink); }
+  .footer-meta {
+    text-align: right;
+    font-size: 12px;
+    color: var(--invert-mute);
+    letter-spacing: 0.02em;
+  }
+
+  /* ---------- responsive ---------- */
+  @media (max-width: 960px) {
+    .hero { padding: 120px 0 60px; min-height: auto; }
+    .hero-grid { grid-template-columns: 1fr; gap: 48px; }
+    .features-grid { grid-template-columns: 1fr; }
+    .sg-grid { grid-template-columns: 1fr; gap: 36px; }
+    .learn-grid { grid-template-columns: 1fr; }
+    .stats { grid-template-columns: 1fr; }
+    .stat { border-right: none; border-bottom: 1px solid var(--line); }
+    .stat:last-child { border-bottom: none; }
+    .footer-grid { grid-template-columns: 1fr; text-align: center; }
+    .footer-links { flex-wrap: wrap; }
+    .footer-meta { text-align: center; }
+    section { padding: 72px 0; }
+    .stat-num { font-size: 38px; }
+  }
+  @media (max-width: 560px) {
+    .wrap { padding: 0 20px; }
+    .phone-wrap { display: none; }
+    .nav-cta .btn-ghost { display: none; }
+    .hero h1 { font-size: 44px; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.001ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.001ms !important;
+    }
+    .feature { opacity: 1; transform: none; }
+    .shot-marker { opacity: 1; transform: none; }
+  }
+</style>
+</head>
+<body>
+
+<nav class="nav" id="nav">
+  <div class="wrap nav-inner">
+    <a class="brand" href="/">
+      <span class="mark">OGA</span>
+      <span class="sub">Open Golf App</span>
+    </a>
+    <div class="nav-cta">
+      <button class="theme-toggle" id="themeToggle" type="button" aria-label="Toggle theme">
+        <svg class="icon-sun" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
+        <svg class="icon-moon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+      </button>
+      <a class="btn btn-ghost" href="https://oga.golf/login">Sign in</a>
+      <a class="btn btn-fill" href="https://oga.golf/signup">Sign up free</a>
+    </div>
+  </div>
+</nav>
+
+<section class="hero">
+  <div class="wrap hero-grid">
+    <div>
+      <span class="pill"><span class="dot"></span>Free and open source</span>
+      <div class="kicker">Golf improvement platform</div>
+      <h1>Track every shot.<br />Understand your game.</h1>
+      <p class="hero-body">GPS shot tracking, strokes gained analysis, and coaching content — built for golfers who want to get better, not just keep score.</p>
+      <div class="hero-cta-row">
+        <a class="btn btn-accent btn-lg" href="https://oga.golf/signup">Start tracking free <span class="arrow">→</span></a>
+        <span class="hero-cta-note">No subscription required.</span>
+      </div>
+    </div>
+    <div class="phone-wrap" aria-hidden="true">
+      <div class="phone">
+        <div class="phone-screen">
+          <div class="phone-bar">
+            <div class="pb-title">Lake Hefner South</div>
+            <div class="pb-meta">Hole 7 · Par 4 · 387 yd</div>
+          </div>
+          <div class="phone-map">
+            <svg viewBox="0 0 280 360" preserveAspectRatio="none">
+              <path d="M40 340 C 80 240, 130 180, 180 130 S 230 70, 240 40" stroke="rgba(242,238,229,0.18)" stroke-width="34" stroke-linecap="round" fill="none" />
+              <path d="M40 340 C 80 240, 130 180, 180 130 S 230 70, 240 40" stroke="rgba(242,238,229,0.10)" stroke-width="60" stroke-linecap="round" fill="none" />
+              <ellipse cx="232" cy="56" rx="34" ry="24" fill="#3a8054" opacity="0.85" />
+              <path d="M64 314 L 142 220" stroke="#A66A1F" stroke-width="1.5" stroke-dasharray="4 3" opacity="0.7" fill="none" />
+              <path d="M142 220 L 200 132" stroke="#A66A1F" stroke-width="1.5" stroke-dasharray="4 3" opacity="0.7" fill="none" />
+              <path d="M200 132 L 232 60" stroke="#A66A1F" stroke-width="1.5" stroke-dasharray="4 3" opacity="0.7" fill="none" />
+              <g class="shot-marker" style="animation-delay: 0ms;">
+                <line x1="232" y1="56" x2="232" y2="38" stroke="#F2EEE5" stroke-width="1" />
+                <circle cx="232" cy="56" r="3" fill="#F2EEE5" />
+              </g>
+              <g class="shot-marker" style="animation-delay: 300ms;">
+                <circle cx="64" cy="314" r="11" fill="#A66A1F" stroke="#F2EEE5" stroke-width="2" />
+                <text x="64" y="318" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" font-weight="600" fill="#F2EEE5">1</text>
+              </g>
+              <g class="shot-marker" style="animation-delay: 600ms;">
+                <circle cx="142" cy="220" r="11" fill="#A66A1F" stroke="#F2EEE5" stroke-width="2" />
+                <text x="142" y="224" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" font-weight="600" fill="#F2EEE5">2</text>
+              </g>
+              <g class="shot-marker" style="animation-delay: 900ms;">
+                <circle cx="200" cy="132" r="11" fill="#A66A1F" stroke="#F2EEE5" stroke-width="2" />
+                <text x="200" y="136" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" font-weight="600" fill="#F2EEE5">3</text>
+              </g>
+            </svg>
+          </div>
+          <div class="phone-foot">
+            <div class="pf-kick">Tap where you hit shot 3 from</div>
+            <div class="pf-line">2 shots placed · 42 yd to pin</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="wrap">
+  <div class="stats">
+    <div class="stat">
+      <div class="stat-num mono">15,870</div>
+      <div class="stat-label">Courses in database</div>
+    </div>
+    <div class="stat">
+      <div class="stat-num">4</div>
+      <div class="stat-label">SG categories tracked</div>
+    </div>
+    <div class="stat">
+      <div class="stat-num mono">100%</div>
+      <div class="stat-label">Free, forever</div>
+    </div>
+  </div>
+</div>
+
+<section id="features">
+  <div class="wrap">
+    <div class="features-grid" id="features-grid">
+      <article class="feature" data-anim>
+        <div class="feature-icon" aria-hidden="true">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><circle cx="12" cy="12" r="9"/></svg>
+        </div>
+        <h3>Live GPS round tracking</h3>
+        <p>Track every shot on the map with GPS precision. Ball placement, aim points, and shot trails — live as you play.</p>
+      </article>
+      <article class="feature" data-anim>
+        <div class="feature-icon" aria-hidden="true">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="6" y1="20" x2="6" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="18" y1="20" x2="18" y2="14"/></svg>
+        </div>
+        <h3>Strokes gained analysis</h3>
+        <p>Understand exactly where you're losing or gaining strokes — off the tee, approach, around the green, and putting.</p>
+      </article>
+      <article class="feature" data-anim>
+        <div class="feature-icon" aria-hidden="true">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l4-4 4 4 4-6 6 6"/></svg>
+        </div>
+        <h3>Shot patterns + trends</h3>
+        <p>See your miss patterns, club dispersion, and improvement trends across every round you've played.</p>
+      </article>
+    </div>
+  </div>
+</section>
+
+<section id="sg">
+  <div class="wrap sg-grid">
+    <div>
+      <div class="section-kick">Strokes gained</div>
+      <h2 class="section-title">Know exactly where strokes are leaking.</h2>
+      <p class="section-body">Most golfers practice their strengths. OGA shows you your weaknesses — the specific categories where you're losing shots to your handicap baseline, so you can practice what actually matters.</p>
+    </div>
+    <div class="sg-chart" id="sg-chart">
+      <div class="sg-row">
+        <div class="sg-row-head">
+          <span class="sg-label">SG · Off tee</span>
+          <span class="sg-value pos">+0.4</span>
+        </div>
+        <div class="sg-bar-track"><div class="sg-bar-fill pos" data-fill="22%"></div></div>
+      </div>
+      <div class="sg-row">
+        <div class="sg-row-head">
+          <span class="sg-label">SG · Approach</span>
+          <span class="sg-value neg">−1.2</span>
+        </div>
+        <div class="sg-bar-track"><div class="sg-bar-fill neg" data-fill="44%"></div></div>
+      </div>
+      <div class="sg-row">
+        <div class="sg-row-head">
+          <span class="sg-label">SG · Around green</span>
+          <span class="sg-value zero">−0.1</span>
+        </div>
+        <div class="sg-bar-track"><div class="sg-bar-fill zero" data-fill="6%"></div></div>
+      </div>
+      <div class="sg-row">
+        <div class="sg-row-head">
+          <span class="sg-label">SG · Putting</span>
+          <span class="sg-value pos">+1.2</span>
+        </div>
+        <div class="sg-bar-track"><div class="sg-bar-fill pos" data-fill="48%"></div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="learn">
+  <div class="wrap">
+    <div class="section-head">
+      <div class="section-kick">Learn</div>
+      <h2 class="section-title">A coach's column, built in.</h2>
+    </div>
+    <div class="learn-grid">
+      <a class="learn-card" href="https://oga.golf/learn">
+        <div class="learn-kick">On the course</div>
+        <div class="learn-title">Course management</div>
+      </a>
+      <a class="learn-card" href="https://oga.golf/learn">
+        <div class="learn-kick">Improving your game</div>
+        <div class="learn-title">How to practice effectively</div>
+      </a>
+      <a class="learn-card" href="https://oga.golf/learn">
+        <div class="learn-kick">On the course</div>
+        <div class="learn-title">The mental game</div>
+      </a>
+    </div>
+  </div>
+</section>
+
+<section class="invert-cta">
+  <div class="wrap">
+    <div class="section-kick">Open Golf App</div>
+    <h2 class="invert-cta-title">Start tracking free.</h2>
+    <p class="invert-cta-sub">No subscription. No ads. Open source.</p>
+    <a class="btn btn-invert btn-lg" href="https://oga.golf/signup">Create your account <span class="arrow">→</span></a>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap footer-grid">
+    <div class="footer-brand">OGA</div>
+    <div class="footer-links">
+      <a href="https://github.com/cner-smith/opengolfapp">GitHub</a>
+      <a href="https://ko-fi.com/nartana">Ko-fi</a>
+      <a href="https://oga.golf/privacy">Privacy</a>
+      <a href="https://oga.golf/login">Sign in</a>
+    </div>
+    <div class="footer-meta">Free and open source · MIT License</div>
+  </div>
+</footer>
+
+<script>
+  (function () {
+    var nav = document.getElementById('nav');
+    var onScroll = function () {
+      if (window.scrollY > 12) nav.classList.add('scrolled');
+      else nav.classList.remove('scrolled');
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    onScroll();
+
+    var toggle = document.getElementById('themeToggle');
+    if (toggle) {
+      toggle.addEventListener('click', function () {
+        var current = document.documentElement.getAttribute('data-theme');
+        var next = current === 'dark' ? 'light' : 'dark';
+        document.documentElement.setAttribute('data-theme', next);
+        try { localStorage.setItem('oga-theme', next); } catch (e) {}
+      });
+    }
+
+    var mq = window.matchMedia('(prefers-color-scheme: dark)');
+    var onMQChange = function (e) {
+      try {
+        if (localStorage.getItem('oga-theme')) return;
+      } catch (err) {}
+      document.documentElement.setAttribute('data-theme', e.matches ? 'dark' : 'light');
+    };
+    if (mq.addEventListener) mq.addEventListener('change', onMQChange);
+    else if (mq.addListener) mq.addListener(onMQChange);
+
+    var reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (reduced) {
+      document.querySelectorAll('[data-anim]').forEach(function (el) { el.classList.add('in'); });
+      document.querySelectorAll('.sg-bar-fill').forEach(function (el) {
+        el.style.width = el.getAttribute('data-fill');
+      });
+      return;
+    }
+
+    if (!('IntersectionObserver' in window)) {
+      document.querySelectorAll('[data-anim]').forEach(function (el) { el.classList.add('in'); });
+      document.querySelectorAll('.sg-bar-fill').forEach(function (el) {
+        el.style.width = el.getAttribute('data-fill');
+      });
+      return;
+    }
+
+    var featObs = new IntersectionObserver(function (entries) {
+      entries.forEach(function (entry) {
+        if (entry.isIntersecting) {
+          var idx = Array.prototype.indexOf.call(entry.target.parentNode.children, entry.target);
+          entry.target.style.transitionDelay = (idx * 100) + 'ms';
+          entry.target.classList.add('in');
+          featObs.unobserve(entry.target);
+        }
+      });
+    }, { threshold: 0.15 });
+    document.querySelectorAll('[data-anim]').forEach(function (el) { featObs.observe(el); });
+
+    var sgChart = document.getElementById('sg-chart');
+    if (sgChart) {
+      var sgObs = new IntersectionObserver(function (entries) {
+        entries.forEach(function (entry) {
+          if (entry.isIntersecting) {
+            sgChart.querySelectorAll('.sg-bar-fill').forEach(function (el, i) {
+              setTimeout(function () {
+                el.style.width = el.getAttribute('data-fill');
+              }, i * 120);
+            });
+            sgObs.unobserve(entry.target);
+          }
+        });
+      }, { threshold: 0.3 });
+      sgObs.observe(sgChart);
+    }
+  })();
+</script>
+
+</body>
+</html>
