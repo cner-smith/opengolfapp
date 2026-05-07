@@ -139,13 +139,24 @@ export function ScorecardModal({
           </View>
           {sorted.map((h) => {
             const hs = scoresByHoleId.get(h.id)
-            const score = hs?.score ?? null
+            // Treat 0 the same as null — `hole_scores` rows can be
+            // pre-created with score=0 before any shots are logged, and
+            // counting those as played pulls the running total deeply
+            // under par for unplayed holes (the live round looked like
+            // -71 after hole 1).
+            const rawScore = hs?.score
+            const score = rawScore != null && rawScore > 0 ? rawScore : null
             if (score != null) {
               runningTotal += score
               runningPar += h.par
             }
             const diff = score != null ? score - h.par : null
             const active = h.number === currentHoleNumber
+            // Editable par only for holes that came back without any
+            // layout data — for OSM-mapped holes par is authoritative
+            // and should be display-only.
+            const isSynthetic = !h.yards && h.tee_lat == null
+            const parEditable = !!onChangePar && isSynthetic
             return (
               <Pressable
                 key={h.id}
@@ -173,13 +184,13 @@ export function ScorecardModal({
                 >
                   {h.number}
                 </Text>
-                {onChangePar ? (
+                {parEditable ? (
                   <Pressable
                     accessibilityRole="button"
                     accessibilityLabel={`Par ${h.par}, tap to change`}
                     onPress={() => {
                       const next = h.par === 3 ? 4 : h.par === 4 ? 5 : 3
-                      onChangePar(h.id, next)
+                      onChangePar?.(h.id, next)
                     }}
                     hitSlop={6}
                     style={{
