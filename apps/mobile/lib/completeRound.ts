@@ -1,4 +1,4 @@
-import { computeRoundSG } from '@oga/core'
+import { computeRoundSG, inferHoleStats } from '@oga/core'
 import {
   getHoleScoresForRound,
   getHolesForCourse,
@@ -51,6 +51,54 @@ export async function completeRound({
     return rest
   })
   const shots = (shotsRes.data ?? []) as unknown as ShotRow[]
+
+  // Infer fairway_hit + gir for any hole where the player didn't set
+  // them manually. Mobile live mode never writes those columns
+  // per-shot, so without this round-level fairwaysHit/gir totals stay
+  // 0 even when the shot data clearly shows otherwise. Patches in
+  // place so the subsequent computeRoundSG sees the inferred values.
+  const inferUpserts: Array<{
+    id: string
+    round_id: string
+    hole_id: string
+    score: number
+    fairway_hit: boolean | null
+    gir: boolean | null
+  }> = []
+  const holesById = new Map(holes.map((h) => [h.id, h]))
+  for (const hs of holeScores) {
+    const hole = holesById.get(hs.hole_id)
+    if (!hole) continue
+    const holeShots = shots.filter((s) => s.hole_score_id === hs.id)
+    const inferred = inferHoleStats(
+      holeShots.map((s) => ({
+        shot_number: s.shot_number,
+        lie_type: s.lie_type,
+        shot_result: s.shot_result,
+      })),
+      hole.par,
+    )
+    const nextFairway = hs.fairway_hit ?? inferred.fairway
+    const nextGir = hs.gir ?? inferred.gir
+    if (nextFairway !== hs.fairway_hit || nextGir !== hs.gir) {
+      hs.fairway_hit = nextFairway
+      hs.gir = nextGir
+      inferUpserts.push({
+        id: hs.id,
+        round_id: hs.round_id,
+        hole_id: hs.hole_id,
+        score: hs.score,
+        fairway_hit: nextFairway,
+        gir: nextGir,
+      })
+    }
+  }
+  if (inferUpserts.length > 0) {
+    const { error: inferError } = await supabase
+      .from('hole_scores')
+      .upsert(inferUpserts, { onConflict: 'id' })
+    if (inferError) throw inferError
+  }
 
   const result = computeRoundSG({
     holes,
