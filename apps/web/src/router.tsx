@@ -3,11 +3,13 @@ import { createBrowserRouter, Outlet, type RouteObject } from 'react-router-dom'
 import { AuthGuard } from './components/auth/AuthGuard'
 import { ProfileGuard } from './components/auth/ProfileGuard'
 import { AppShell } from './components/layout/AppShell'
+import { PublicShell } from './components/landing/PublicShell'
 import { RouteErrorBoundary } from './components/errors/ErrorBoundary'
 import { LoginPage } from './pages/auth/LoginPage'
 import { SignupPage } from './pages/auth/SignupPage'
 import { NotFoundPage } from './pages/errors/NotFoundPage'
 import { OnboardingPage } from './pages/onboarding/OnboardingPage'
+import { LandingPage } from './pages/landing/LandingPage'
 import { DashboardPage } from './pages/dashboard/DashboardPage'
 import { RoundsPage } from './pages/rounds/RoundsPage'
 import { NewRoundPage } from './pages/rounds/NewRoundPage'
@@ -39,6 +41,9 @@ const LearnArticlePage = lazy(() =>
     default: m.LearnArticlePage,
   })),
 )
+const PrivacyPage = lazy(() =>
+  import('./pages/landing/PrivacyPage').then((m) => ({ default: m.PrivacyPage })),
+)
 
 function RouteFallback() {
   return (
@@ -65,6 +70,17 @@ function ProtectedShell() {
 const errorElement = <RouteErrorBoundary />
 
 const routes: RouteObject[] = [
+  // Public routes — no auth required. Visiting these signed-in is fine;
+  // PublicNav swaps the sign-up CTA for "Go to app" so the home page
+  // doubles as a re-entry point.
+  {
+    element: <PublicShell />,
+    errorElement,
+    children: [
+      { path: '/', element: <LandingPage />, errorElement },
+      { path: '/privacy', element: <PrivacyPage />, errorElement },
+    ],
+  },
   { path: '/login', element: <LoginPage />, errorElement },
   { path: '/signup', element: <SignupPage />, errorElement },
   {
@@ -76,7 +92,7 @@ const routes: RouteObject[] = [
     element: <ProtectedShell />,
     errorElement,
     children: [
-      { path: '/', element: <DashboardPage />, errorElement },
+      { path: '/dashboard', element: <DashboardPage />, errorElement },
       { path: '/rounds', element: <RoundsPage />, errorElement },
       { path: '/rounds/new', element: <NewRoundPage />, errorElement },
       { path: '/rounds/:id', element: <RoundDetailPage />, errorElement },
