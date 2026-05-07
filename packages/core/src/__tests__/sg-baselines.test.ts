@@ -99,6 +99,15 @@ describe('interpolateBaseline', () => {
   it('throws on an empty table', () => {
     expect(() => interpolateBaseline({}, 100)).toThrow()
   })
+
+  it('returns null for NaN distance (prevents propagation into stored SG)', () => {
+    expect(interpolateBaseline(table, Number.NaN)).toBe(null)
+  })
+
+  it('returns null for Infinity / -Infinity distance', () => {
+    expect(interpolateBaseline(table, Number.POSITIVE_INFINITY)).toBe(null)
+    expect(interpolateBaseline(table, Number.NEGATIVE_INFINITY)).toBe(null)
+  })
 })
 
 describe('interpolateBaseline — putting baselines (feet)', () => {
@@ -126,6 +135,7 @@ describe('interpolateBaseline — putting baselines (feet)', () => {
     let prev = 0
     for (const h of HANDICAP_BRACKETS) {
       const expected = interpolateBaseline(PUTTING_BASELINES[h], 5)
+      if (expected === null) throw new Error('expected finite baseline')
       expect(expected).toBeGreaterThan(prev)
       prev = expected
     }
@@ -137,6 +147,7 @@ describe('interpolateBaseline — putting baselines (feet)', () => {
     let prev = 0
     for (const dist of [3, 5, 8, 10, 15, 20, 30, 40, 60]) {
       const e = interpolateBaseline(scratch, dist)
+      if (e === null) throw new Error('expected finite baseline')
       expect(e).toBeGreaterThan(prev)
       prev = e
     }
@@ -172,6 +183,7 @@ describe('interpolateBaseline — approach baselines (yards)', () => {
     let prev = 0
     for (const h of HANDICAP_BRACKETS) {
       const e = interpolateBaseline(APPROACH_BASELINES[h], 150)
+      if (e === null) throw new Error('expected finite baseline')
       expect(e).toBeGreaterThan(prev)
       prev = e
     }

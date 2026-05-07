@@ -84,6 +84,15 @@ export function BagPage() {
     }
   }, [allClubs.data, seedIfEmpty])
 
+  // Issue #154: avoid the spinner → empty list → clubs flash on first
+  // visit. Treat the loaded-but-empty state as "still loading" while
+  // the auto-seed mutation is pending or hasn't yet run; once seed
+  // settles the query refetch surfaces the seeded rows.
+  const isSeedingEmpty =
+    !!allClubs.data &&
+    allClubs.data.length === 0 &&
+    (seedIfEmpty.isPending || (!seedIfEmpty.isSuccess && !seedIfEmpty.isError))
+
   useEffect(() => {
     if (allClubs.data && !updateOrder.isPending && !dragDirtyRef.current) {
       setLocalOrder(allClubs.data)
@@ -95,6 +104,15 @@ export function BagPage() {
   // array without forcing the callbacks to re-create on every render.
   const clubsRef = useRef(clubs)
   clubsRef.current = clubs
+
+  // Type-count map drives duplicate-loft labelling on each row. Computed
+  // once per render so two lobs (58° + 60°) read as "lw (58°)" and
+  // "lw (60°)" instead of two identical "lw" rows.
+  const typeCounts = useMemo(() => {
+    const m = new Map<string, number>()
+    for (const c of clubs) m.set(c.club_type, (m.get(c.club_type) ?? 0) + 1)
+    return m
+  }, [clubs])
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
@@ -257,7 +275,7 @@ export function BagPage() {
         </div>
       )}
 
-      {allClubs.isLoading && (
+      {(allClubs.isLoading || isSeedingEmpty) && (
         <div className="text-caddie-ink-dim" style={{ fontSize: 13 }}>
           Loading bag…
         </div>
@@ -279,7 +297,7 @@ export function BagPage() {
         </div>
       )}
 
-      {!allClubs.isLoading && !allClubs.isError && (
+      {!allClubs.isLoading && !allClubs.isError && !isSeedingEmpty && (
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
           <SortableContext items={clubs.map((c) => c.id)} strategy={verticalListSortingStrategy}>
             <div
@@ -298,6 +316,7 @@ export function BagPage() {
                   saving={upsertClub.isPending}
                   onToggleInBag={onToggleInBag}
                   onDelete={onRequestDelete}
+                  hasDuplicateType={(typeCounts.get(c.club_type) ?? 0) > 1}
                 />
               ))}
             </div>
@@ -391,6 +410,7 @@ interface SortableClubRowProps {
   club: UserClub
   editing: boolean
   saving: boolean
+  hasDuplicateType: boolean
   onStartEdit: () => void
   onCancelEdit: () => void
   onSaveEdit: (
@@ -405,6 +425,7 @@ const SortableClubRow = memo(function SortableClubRow({
   club,
   editing,
   saving,
+  hasDuplicateType,
   onStartEdit,
   onCancelEdit,
   onSaveEdit,
@@ -453,8 +474,11 @@ const SortableClubRow = memo(function SortableClubRow({
             className="font-mono uppercase text-caddie-ink-mute"
             style={{ fontSize: 10, letterSpacing: '0.14em', marginTop: 2 }}
           >
-            {formatClubLabel(club)}
-            {club.loft != null && club.club_type !== 'cw' && club.club_type !== 'custom_wedge'
+            {formatClubLabel(club, { hasDuplicateType })}
+            {club.loft != null &&
+            club.club_type !== 'cw' &&
+            club.club_type !== 'custom_wedge' &&
+            !hasDuplicateType
               ? ` · ${club.loft}°`
               : ''}
             {club.typical_distance_yards != null

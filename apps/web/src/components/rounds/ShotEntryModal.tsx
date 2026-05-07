@@ -4,23 +4,15 @@ import {
   LIE_TYPES,
   LIE_TYPE_LABELS,
   PUTT_RESULT_LABELS,
-  SHOT_RESULTS,
   SHOT_RESULT_LABELS,
   combinedPuttResult,
   formatClubLabel,
   formatDistance,
   formatPuttDistance,
   haversineYards,
-  legacySlopeToAxes,
-  type BreakDirection,
   type Club,
   type DistanceUnit,
-  type GreenSpeed,
-  type LieSlopeForward,
-  type LieSlopeSide,
   type LieType,
-  type PuttDirectionResult,
-  type PuttDistanceResult,
   type ShotResult,
 } from '@oga/core'
 import { useUserBag } from '../../hooks/useUserBag'
@@ -32,37 +24,22 @@ import {
   useUpdateShot,
 } from '../../hooks/useShots'
 import { useAuth } from '../../hooks/useAuth'
-import { LieSlopeGrid } from '../forms/LieSlopeGrid'
-import { GreenDiagram } from '../round/GreenDiagram'
-import { ShotMiniMap } from '../round/ShotMiniMap'
 import { ConfirmDialog } from '../ui/ConfirmDialog'
 import { useUnits } from '../../hooks/useUnits'
-
-const BREAK_OPTIONS: {
-  value: Exclude<BreakDirection, 'left' | 'right'>
-  label: string
-}[] = [
-  { value: 'left_to_right', label: 'L → R' },
-  { value: 'straight', label: 'Straight' },
-  { value: 'right_to_left', label: 'R → L' },
-  { value: 'uphill', label: 'Uphill' },
-  { value: 'downhill', label: 'Downhill' },
-]
-
-const SLOPE_INTENSITY_LABELS = ['Flat', 'Slight', 'Moderate', 'Strong', 'Severe']
+import { GreenDiagram } from '../round/GreenDiagram'
+import { ChipGroup, Field } from './shots/formInputs'
+import {
+  emptyDraft,
+  shotRowToDraft,
+  type DraftShot,
+} from './shots/draft'
+import { ShotFormFields } from './shots/ShotFormFields'
+import { PuttFormFields } from './shots/PuttFormFields'
+import { ShotMiniMapPanel } from './shots/ShotMiniMapPanel'
 
 const LIE_TYPE_OPTIONS: { value: LieType; label: string }[] = LIE_TYPES.map(
   (l) => ({ value: l, label: LIE_TYPE_LABELS[l] }),
 )
-
-const SHOT_RESULT_OPTIONS: { value: ShotResult; label: string }[] =
-  SHOT_RESULTS.map((r) => ({ value: r, label: SHOT_RESULT_LABELS[r] }))
-
-const GREEN_SPEEDS: { value: GreenSpeed; label: string }[] = [
-  { value: 'slow', label: 'Slow' },
-  { value: 'medium', label: 'Medium' },
-  { value: 'fast', label: 'Fast' },
-]
 
 type ShotInsert = Database['public']['Tables']['shots']['Insert']
 type ShotRow = Database['public']['Tables']['shots']['Row']
@@ -77,91 +54,6 @@ interface ShotEntryModalProps {
   pinLat: number | null
   pinLng: number | null
   onClose: () => void
-}
-
-interface DraftShot {
-  id?: string
-  shotNumber: number
-  club?: Club
-  lieType?: LieType
-  lieSlopeForward?: LieSlopeForward
-  lieSlopeSide?: LieSlopeSide
-  shotResult?: ShotResult
-  distanceToTarget?: number
-  puttDistanceFt?: number
-  puttMade?: boolean
-  puttDistanceResult?: PuttDistanceResult
-  puttDirectionResult?: PuttDirectionResult
-  puttSlopePct?: number
-  greenSpeed?: GreenSpeed
-  breakDirection?: Exclude<BreakDirection, 'left' | 'right'>
-  aimOffsetInches?: number
-  notes?: string
-}
-
-function shotRowToDraft(s: ShotRow): DraftShot {
-  let shotResult: ShotResult | undefined = (s.shot_result as ShotResult | null) ?? undefined
-  if (!shotResult && s.ob) shotResult = 'ob'
-  else if (!shotResult && s.penalty) shotResult = 'penalty'
-  const legacy = legacySlopeToAxes(s.lie_slope)
-  return {
-    id: s.id,
-    shotNumber: s.shot_number,
-    club: (s.club as Club | null) ?? undefined,
-    lieType: s.lie_type ?? undefined,
-    lieSlopeForward: s.lie_slope_forward ?? legacy.forward,
-    lieSlopeSide: s.lie_slope_side ?? legacy.side,
-    shotResult,
-    distanceToTarget: s.distance_to_target ?? undefined,
-    puttDistanceFt: s.putt_distance_ft ?? undefined,
-    puttMade: s.putt_result === 'made' ? true : undefined,
-    puttDistanceResult:
-      s.putt_distance_result ??
-      (s.putt_result === 'short'
-        ? 'short'
-        : s.putt_result === 'long'
-          ? 'long'
-          : undefined),
-    puttDirectionResult:
-      s.putt_direction_result ??
-      (s.putt_result === 'missed_left'
-        ? 'left'
-        : s.putt_result === 'missed_right'
-          ? 'right'
-          : undefined),
-    puttSlopePct: s.putt_slope_pct ?? undefined,
-    greenSpeed: s.green_speed ?? undefined,
-    breakDirection: mapBreakDirection(s.break_direction),
-    aimOffsetInches:
-      s.aim_offset_yards != null ? Math.round(s.aim_offset_yards * 36) : 0,
-    notes: s.notes ?? undefined,
-  }
-}
-
-function mapBreakDirection(
-  v: ShotRow['break_direction'],
-): DraftShot['breakDirection'] {
-  if (
-    v === 'left_to_right' ||
-    v === 'right_to_left' ||
-    v === 'uphill' ||
-    v === 'downhill' ||
-    v === 'straight'
-  ) {
-    return v
-  }
-  // Legacy left/right values map onto the new break-from→to vocabulary.
-  if (v === 'left') return 'right_to_left'
-  if (v === 'right') return 'left_to_right'
-  return 'straight'
-}
-
-function emptyDraft(shotNumber: number, isFirstShot: boolean): DraftShot {
-  return {
-    shotNumber,
-    lieType: isFirstShot ? 'tee' : undefined,
-    lieSlopeForward: 'level',
-  }
 }
 
 export function ShotEntryModal({
@@ -179,7 +71,7 @@ export function ShotEntryModal({
   const createShot = useCreateShot(roundId)
   const updateShot = useUpdateShot(roundId)
   const deleteShot = useDeleteShot(roundId)
-  const bag = useUserBag()
+  const { bag } = useUserBag()
 
   // Source club options from the user's bag (in_bag rows, in sort_order).
   // Fall back to DEFAULT_BAG while loading or if the user has trimmed
@@ -187,14 +79,21 @@ export function ShotEntryModal({
   // club_types pass through as plain strings since `shots.club` is a
   // text column. The label routes through `formatClubLabel` so a
   // custom_wedge entry reads as its loft (e.g. "58°"), not the raw
-  // "custom_wedge" club_type.
+  // "custom_wedge" club_type, and so a bag carrying two clubs of the
+  // same `club_type` (e.g. lw 58° + lw 60°) disambiguates by loft.
   const clubOptions = useMemo<{ value: string; label: string }[]>(() => {
-    const source = bag.data && bag.data.length > 0 ? bag.data : DEFAULT_BAG
+    const source = bag.length > 0 ? bag : DEFAULT_BAG
+    const typeCounts = new Map<string, number>()
+    for (const c of source) {
+      typeCounts.set(c.club_type, (typeCounts.get(c.club_type) ?? 0) + 1)
+    }
     return source.map((c) => ({
       value: c.club_type,
-      label: formatClubLabel(c),
+      label: formatClubLabel(c, {
+        hasDuplicateType: (typeCounts.get(c.club_type) ?? 0) > 1,
+      }),
     }))
-  }, [bag.data])
+  }, [bag])
 
   const holeShots = useMemo(() => {
     return (shotsQuery.data ?? [])
@@ -291,31 +190,6 @@ export function ShotEntryModal({
     }
   }
 
-  function setPuttMade(made: boolean) {
-    setDraft((d) => ({
-      ...d,
-      puttMade: made,
-      puttDistanceResult: made ? undefined : d.puttDistanceResult,
-      puttDirectionResult: made ? undefined : d.puttDirectionResult,
-    }))
-  }
-
-  function setPuttDistanceResult(v: 'short' | 'long') {
-    setDraft((d) => ({
-      ...d,
-      puttMade: false,
-      puttDistanceResult: d.puttDistanceResult === v ? undefined : v,
-    }))
-  }
-
-  function setPuttDirectionResult(v: 'left' | 'right') {
-    setDraft((d) => ({
-      ...d,
-      puttMade: false,
-      puttDirectionResult: d.puttDirectionResult === v ? undefined : v,
-    }))
-  }
-
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null)
 
   async function confirmDelete() {
@@ -330,7 +204,7 @@ export function ShotEntryModal({
   // Source shot row + its successor for the mini-map. Mini-map shows
   // only when editing a saved shot with start coords; new-shot drafts
   // hide it because there's nothing on the map yet.
-  const editingRow = editing ? holeShots.find((s) => s.id === editing) : null
+  const editingRow = editing ? holeShots.find((s) => s.id === editing) ?? null : null
   const editingNext = editingRow
     ? holeShots.find((s) => s.shot_number === editingRow.shot_number + 1)
     : null
@@ -340,10 +214,10 @@ export function ShotEntryModal({
     // the pin so SG for this shot stays accurate. Skipped for putts
     // (distance_to_target stays null; putt_distance_ft tracks that flow
     // and isn't auto-recalculated on drag).
-    const isPutt =
+    const editIsPutt =
       editingRow.lie_type === 'green' || editingRow.club === 'putter'
     const newDistance =
-      !isPutt && pinLat != null && pinLng != null
+      !editIsPutt && pinLat != null && pinLng != null
         ? Math.round(haversineYards(point.lat, point.lng, pinLat, pinLng))
         : null
     await updateShot.mutateAsync({
@@ -351,7 +225,7 @@ export function ShotEntryModal({
       updates: {
         start_lat: point.lat,
         start_lng: point.lng,
-        ...(isPutt ? {} : { distance_to_target: newDistance }),
+        ...(editIsPutt ? {} : { distance_to_target: newDistance }),
       },
     })
   }
@@ -448,7 +322,7 @@ export function ShotEntryModal({
                       >
                         {s.club
                           ? formatClubLabel(
-                              bag.data?.find((b) => b.club_type === s.club) ?? {
+                              bag.find((b) => b.club_type === s.club) ?? {
                                 club_type: s.club,
                               },
                             )
@@ -517,20 +391,11 @@ export function ShotEntryModal({
             </div>
 
             <div className="flex flex-col" style={{ gap: 18 }}>
-              {editingRow &&
-                editingRow.start_lat != null &&
-                editingRow.start_lng != null && (
-                <ShotMiniMap
-                  shotNumber={editingRow.shot_number}
-                  startLat={editingRow.start_lat}
-                  startLng={editingRow.start_lng}
-                  endLat={editingNext?.start_lat ?? editingRow.end_lat}
-                  endLng={editingNext?.start_lng ?? editingRow.end_lng}
-                  aimLat={editingRow.aim_lat}
-                  aimLng={editingRow.aim_lng}
-                  onChangeStart={handleMiniMapDrag}
-                />
-              )}
+              <ShotMiniMapPanel
+                editingRow={editingRow}
+                editingNext={editingNext}
+                onChangeStart={handleMiniMapDrag}
+              />
 
               {isPutt && (
                 <GreenDiagram
@@ -564,182 +429,14 @@ export function ShotEntryModal({
               </Field>
 
               {!isPutt && (
-                <Field label="Lie slope">
-                  <LieSlopeGrid
-                    forward={draft.lieSlopeForward}
-                    side={draft.lieSlopeSide}
-                    onChangeForward={(v) =>
-                      setDraft((d) => ({ ...d, lieSlopeForward: v }))
-                    }
-                    onChangeSide={(v) =>
-                      setDraft((d) => ({ ...d, lieSlopeSide: v }))
-                    }
-                    toggleable
-                  />
-                </Field>
+                <ShotFormFields
+                  draft={draft}
+                  setDraft={setDraft}
+                  unit={units.unit}
+                />
               )}
 
-              {!isPutt && (
-                <Field
-                  label={
-                    units.unit === 'meters'
-                      ? 'Distance to target (metres)'
-                      : 'Distance to target (yards)'
-                  }
-                >
-                  <NumericInput
-                    value={draft.distanceToTarget}
-                    onChange={(n) =>
-                      setDraft((d) => ({ ...d, distanceToTarget: n }))
-                    }
-                  />
-                </Field>
-              )}
-
-              {isPutt && (
-                <>
-                  <Field label="Made?">
-                    <div className="flex" style={{ gap: 8 }}>
-                      <PuttResultButton
-                        label="Holed it"
-                        active={draft.puttMade === true}
-                        onClick={() => setPuttMade(draft.puttMade !== true)}
-                      />
-                      <div style={{ flex: 2 }} />
-                    </div>
-                  </Field>
-                  <Field label="Distance">
-                    <div className="flex" style={{ gap: 8 }}>
-                      <PuttResultButton
-                        label="Short"
-                        active={
-                          !draft.puttMade && draft.puttDistanceResult === 'short'
-                        }
-                        disabled={draft.puttMade === true}
-                        onClick={() => setPuttDistanceResult('short')}
-                      />
-                      <PuttResultButton
-                        label="Long"
-                        active={
-                          !draft.puttMade && draft.puttDistanceResult === 'long'
-                        }
-                        disabled={draft.puttMade === true}
-                        onClick={() => setPuttDistanceResult('long')}
-                      />
-                      <div style={{ flex: 1 }} />
-                    </div>
-                    <div
-                      className="font-mono uppercase text-caddie-ink-mute"
-                      style={{
-                        fontSize: 10,
-                        letterSpacing: '0.14em',
-                        marginTop: 8,
-                      }}
-                    >
-                      Tap again to clear · leave blank if pace was right
-                    </div>
-                  </Field>
-                  <Field label="Direction">
-                    <div className="flex" style={{ gap: 8 }}>
-                      <PuttResultButton
-                        label="Missed left"
-                        active={
-                          !draft.puttMade &&
-                          draft.puttDirectionResult === 'left'
-                        }
-                        disabled={draft.puttMade === true}
-                        onClick={() => setPuttDirectionResult('left')}
-                      />
-                      <PuttResultButton
-                        label="Missed right"
-                        active={
-                          !draft.puttMade &&
-                          draft.puttDirectionResult === 'right'
-                        }
-                        disabled={draft.puttMade === true}
-                        onClick={() => setPuttDirectionResult('right')}
-                      />
-                    </div>
-                    <div
-                      className="font-mono uppercase text-caddie-ink-mute"
-                      style={{
-                        fontSize: 10,
-                        letterSpacing: '0.14em',
-                        marginTop: 8,
-                      }}
-                    >
-                      Tap again to clear · leave blank if line was good
-                    </div>
-                  </Field>
-                  <Field label="Break">
-                    <div className="flex flex-wrap" style={{ gap: 6 }}>
-                      {BREAK_OPTIONS.map((b) => (
-                        <button
-                          key={b.value}
-                          type="button"
-                          onClick={() =>
-                            setDraft((d) => ({ ...d, breakDirection: b.value }))
-                          }
-                          style={chipStyle(draft.breakDirection === b.value)}
-                        >
-                          {b.label}
-                        </button>
-                      ))}
-                    </div>
-                  </Field>
-                  <Field label="How much">
-                    <div className="flex flex-wrap" style={{ gap: 6 }}>
-                      {SLOPE_INTENSITY_LABELS.map((label, idx) => (
-                        <button
-                          key={label}
-                          type="button"
-                          onClick={() =>
-                            setDraft((d) => ({ ...d, puttSlopePct: idx }))
-                          }
-                          style={chipStyle(draft.puttSlopePct === idx)}
-                        >
-                          {label}
-                        </button>
-                      ))}
-                    </div>
-                  </Field>
-                  <Field label="Speed">
-                    <div className="flex" style={{ gap: 6 }}>
-                      {GREEN_SPEEDS.map((s) => (
-                        <button
-                          key={s.value}
-                          type="button"
-                          onClick={() =>
-                            setDraft((d) => ({ ...d, greenSpeed: s.value }))
-                          }
-                          style={chipStyle(draft.greenSpeed === s.value)}
-                        >
-                          {s.label}
-                        </button>
-                      ))}
-                    </div>
-                  </Field>
-                  <Field label="Distance override (ft)">
-                    <NumericInput
-                      value={draft.puttDistanceFt}
-                      step="0.5"
-                      onChange={(n) =>
-                        setDraft((d) => ({ ...d, puttDistanceFt: n }))
-                      }
-                    />
-                  </Field>
-                </>
-              )}
-
-              {!isPutt && (
-                <Field label="Shot result">
-                  <ChipGroup
-                    value={draft.shotResult}
-                    options={SHOT_RESULT_OPTIONS}
-                    onChange={(v) => setDraft((d) => ({ ...d, shotResult: v }))}
-                  />
-                </Field>
-              )}
+              {isPutt && <PuttFormFields draft={draft} setDraft={setDraft} />}
 
               <Field label="Notes">
                 <input
@@ -901,115 +598,3 @@ function formatShotSummary(
   const parts = [distance, result].filter(Boolean) as string[]
   return parts.length ? parts.join(' · ') : '—'
 }
-
-function NumericInput({
-  value,
-  step,
-  onChange,
-}: {
-  value: number | undefined
-  step?: string
-  onChange: (n: number | undefined) => void
-}) {
-  return (
-    <input
-      type="number"
-      min={0}
-      step={step}
-      value={value ?? ''}
-      onChange={(e) =>
-        onChange(e.target.value ? Number(e.target.value) : undefined)
-      }
-      className="font-serif tabular text-caddie-ink bg-caddie-surface"
-      style={{
-        border: '1px solid #D9D2BF',
-        borderRadius: 2,
-        padding: '8px 10px',
-        fontSize: 17,
-        fontWeight: 500,
-        width: 140,
-      }}
-    />
-  )
-}
-
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div>
-      <div className="kicker" style={{ marginBottom: 10 }}>
-        {label}
-      </div>
-      {children}
-    </div>
-  )
-}
-
-interface ChipGroupProps<T extends string> {
-  value: T | undefined
-  options: readonly { value: T; label: string }[]
-  onChange: (v: T | undefined) => void
-}
-
-function chipStyle(active: boolean): React.CSSProperties {
-  return {
-    backgroundColor: active ? '#1F3D2C' : '#EBE5D6',
-    color: active ? '#F2EEE5' : '#1C211C',
-    border: 'none',
-    borderRadius: 2,
-    padding: '6px 10px',
-    fontSize: 12,
-    fontWeight: active ? 500 : 400,
-  }
-}
-
-function ChipGroup<T extends string>({ value, options, onChange }: ChipGroupProps<T>) {
-  return (
-    <div className="flex flex-wrap" style={{ gap: 6 }}>
-      {options.map(({ value: optValue, label }) => (
-        <button
-          key={optValue}
-          type="button"
-          onClick={() => onChange(value === optValue ? undefined : optValue)}
-          style={chipStyle(value === optValue)}
-        >
-          {label}
-        </button>
-      ))}
-    </div>
-  )
-}
-
-function PuttResultButton({
-  label,
-  active,
-  disabled,
-  onClick,
-}: {
-  label: string
-  active: boolean
-  disabled?: boolean
-  onClick: () => void
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
-      style={{
-        flex: 1,
-        backgroundColor: active ? '#1F3D2C' : '#FBF8F1',
-        color: active ? '#F2EEE5' : '#1C211C',
-        border: `1px solid ${active ? '#1F3D2C' : '#D9D2BF'}`,
-        borderRadius: 2,
-        padding: '14px 10px',
-        fontSize: 14,
-        fontWeight: active ? 600 : 500,
-        opacity: disabled ? 0.4 : 1,
-        cursor: disabled ? 'not-allowed' : 'pointer',
-      }}
-    >
-      {label}
-    </button>
-  )
-}
-

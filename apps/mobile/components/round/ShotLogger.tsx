@@ -41,6 +41,11 @@ interface ShotLoggerProps {
   /** Seed putt distance from GPS (ball→pin) when starting in putting mode. */
   puttDistanceFt?: number
   initial?: ShotLoggerValue
+  /** True while a save is in flight. Disables the Save button so a fast
+   *  double-tap can't enqueue two pending_shots rows for the same shot
+   *  number. The ref-based gate in useShotActions is the durable
+   *  backstop; this just gives the button a visible disabled state. */
+  saving?: boolean
   onSave: (value: ShotLoggerValue) => void
   onSkip: () => void
   onClose: () => void
@@ -84,6 +89,7 @@ export function ShotLogger({
   isPutt,
   puttDistanceFt,
   initial,
+  saving = false,
   onSave,
   onSkip,
   onClose,
@@ -99,16 +105,23 @@ export function ShotLogger({
 
   // Source the club picker from the user's bag. Fall back to DEFAULT_BAG
   // while the bag is loading or if the user trimmed it to nothing — never
-  // show an empty picker.
-  const { bag } = useUserBag()
-  const clubOptions = useMemo<{ value: string; label: string }[]>(
-    () =>
-      (bag.length > 0 ? bag : DEFAULT_BAG).map((c) => ({
-        value: c.club_type,
-        label: formatClubLabel(c),
-      })),
-    [bag],
-  )
+  // show an empty picker. seedIfEmpty=true ensures a brand-new user
+  // (e.g. one who skipped the optional onboarding bag step, issue #152)
+  // ends up with real user_clubs rows so inferShot's userBag path runs.
+  const { bag } = useUserBag({ seedIfEmpty: true })
+  const clubOptions = useMemo<{ value: string; label: string }[]>(() => {
+    const source = bag.length > 0 ? bag : DEFAULT_BAG
+    const typeCounts = new Map<string, number>()
+    for (const c of source) {
+      typeCounts.set(c.club_type, (typeCounts.get(c.club_type) ?? 0) + 1)
+    }
+    return source.map((c) => ({
+      value: c.club_type,
+      label: formatClubLabel(c, {
+        hasDuplicateType: (typeCounts.get(c.club_type) ?? 0) > 1,
+      }),
+    }))
+  }, [bag])
 
   const isOnGreen = value.lieType === 'green'
 
@@ -397,6 +410,8 @@ export function ShotLogger({
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Save shot and continue"
+              accessibilityState={{ disabled: saving }}
+              disabled={saving}
               onPress={() => onSave(value)}
               style={{
                 flex: 1,
@@ -404,6 +419,7 @@ export function ShotLogger({
                 paddingVertical: 14,
                 borderRadius: 2,
                 backgroundColor: '#1F3D2C',
+                opacity: saving ? 0.6 : 1,
               }}
             >
               <Text
@@ -414,7 +430,7 @@ export function ShotLogger({
                   letterSpacing: 0.3,
                 }}
               >
-                Save + next →
+                {saving ? 'Saving…' : 'Save + next →'}
               </Text>
             </Pressable>
           </View>

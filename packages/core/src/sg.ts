@@ -19,6 +19,11 @@ export interface RoundSGResult {
   }
 }
 
+// DB-string → narrow-union casts. Postgres CHECK constraints (migrations
+// 0001 / 0003 / 0009) keep these columns inside their union vocabularies,
+// but the regenerated Supabase types surface them as plain `string | null`.
+// Issue #209 tracks promoting these CHECKs to real Postgres enums so the
+// regen produces narrow types directly.
 function shotRowToShot(s: ShotRow): Shot {
   return {
     id: s.id,
@@ -33,16 +38,16 @@ function shotRowToShot(s: ShotRow): Shot {
     startLng: s.start_lng ?? undefined,
     distanceToTarget: s.distance_to_target ?? undefined,
     club: (s.club as Shot['club']) ?? undefined,
-    lieType: s.lie_type ?? undefined,
-    lieSlope: s.lie_slope ?? undefined,
-    lieSlopeForward: s.lie_slope_forward ?? undefined,
-    lieSlopeSide: s.lie_slope_side ?? undefined,
+    lieType: (s.lie_type as Shot['lieType']) ?? undefined,
+    lieSlope: (s.lie_slope as Shot['lieSlope']) ?? undefined,
+    lieSlopeForward: (s.lie_slope_forward as Shot['lieSlopeForward']) ?? undefined,
+    lieSlopeSide: (s.lie_slope_side as Shot['lieSlopeSide']) ?? undefined,
     shotResult: (s.shot_result as Shot['shotResult']) ?? undefined,
     penalty: s.penalty,
     ob: s.ob,
     aimOffsetYards: s.aim_offset_yards ?? undefined,
-    breakDirection: s.break_direction ?? undefined,
-    puttResult: s.putt_result ?? undefined,
+    breakDirection: (s.break_direction as Shot['breakDirection']) ?? undefined,
+    puttResult: (s.putt_result as Shot['puttResult']) ?? undefined,
     puttDistanceFt: s.putt_distance_ft ?? undefined,
     notes: s.notes ?? undefined,
   }

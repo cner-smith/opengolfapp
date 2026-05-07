@@ -19,7 +19,7 @@ export function LoginPage() {
       setError(signInError.message)
       return
     }
-    navigate('/')
+    navigate('/dashboard')
   }
 
   return (

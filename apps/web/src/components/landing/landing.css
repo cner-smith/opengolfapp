@@ -1,0 +1,54 @@
+/* Landing page responsive collapses + reduced-motion guards. Inline
+ * styles handle the bulk of the visual layer; this file picks up
+ * what media queries can't cleanly express in JS-string CSS. */
+
+@media (max-width: 960px) {
+  .landing-hero-grid {
+    grid-template-columns: 1fr !important;
+    gap: 48px !important;
+  }
+  .landing-hero-grid > div:first-child {
+    text-align: left;
+  }
+  .landing-features,
+  .landing-learn {
+    grid-template-columns: 1fr !important;
+  }
+  .landing-sg {
+    grid-template-columns: 1fr !important;
+    gap: 36px !important;
+  }
+  .landing-stats {
+    grid-template-columns: 1fr !important;
+  }
+  .landing-stat {
+    border-right: none !important;
+    border-bottom: 1px solid #d9d2bf;
+  }
+  .landing-stat:last-child {
+    border-bottom: none;
+  }
+  .landing-footer {
+    grid-template-columns: 1fr !important;
+    text-align: center;
+  }
+  .landing-footer > div:last-child {
+    text-align: center !important;
+  }
+}
+
+@media (max-width: 560px) {
+  .landing-hero-preview {
+    display: none !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .landing-hero-grid *,
+  .landing-features *,
+  .landing-sg *,
+  .landing-learn * {
+    transition: none !important;
+    animation: none !important;
+  }
+}
