@@ -49,10 +49,15 @@ export function getHandicapBracket(handicap: number): HandicapBracket {
   return 30
 }
 
+// Returns `null` when distance is NaN/Infinity. The previous behavior
+// silently returned NaN (via `[undefined] + ratio * (...)`), which then
+// got stored on hole_scores.sg_* as a literal Postgres NaN — corrupting
+// stats forever. Callers already propagate null via getExpectedStrokes.
 export function interpolateBaseline(
   table: Record<number, number>,
   distance: number,
-): number {
+): number | null {
+  if (!Number.isFinite(distance)) return null
   const keys = Object.keys(table)
     .map(Number)
     .sort((a, b) => a - b)
