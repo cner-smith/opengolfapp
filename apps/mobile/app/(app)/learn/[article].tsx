@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import { Linking, Pressable, ScrollView, Text, View } from 'react-native'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { AppBar } from '../../../components/ui/AppBar'
@@ -296,8 +295,6 @@ function HowToPracticeArticle() {
     <View>
       <Text style={{ ...KICKER, marginBottom: 10 }}>Improving your game · Draft</Text>
       <Text style={TITLE}>How to practice.</Text>
-
-      <WipBanner />
 
       <H3>The uncomfortable truth</H3>
       <Para>
@@ -621,52 +618,6 @@ function HowToPracticeArticle() {
   )
 }
 
-function WipBanner() {
-  const [dismissed, setDismissed] = useState(false)
-  if (dismissed) return null
-  return (
-    <View
-      style={{
-        backgroundColor: '#FBF8F1',
-        borderLeftWidth: 3,
-        borderLeftColor: '#A66A1F',
-        borderTopWidth: 1,
-        borderRightWidth: 1,
-        borderBottomWidth: 1,
-        borderColor: '#D9D2BF',
-        borderRadius: 2,
-        padding: 14,
-        marginBottom: 18,
-        flexDirection: 'row',
-        gap: 12,
-      }}
-    >
-      <View style={{ flex: 1 }}>
-        <Text style={{ ...KICKER, color: '#A66A1F', marginBottom: 6 }}>
-          Work in progress
-        </Text>
-        <Text style={{ color: '#1C211C', fontSize: 14, lineHeight: 20 }}>
-          This guide is being reviewed for accuracy. Treat specific
-          technique advice as provisional until the notice is removed.
-        </Text>
-      </View>
-      <Pressable
-        onPress={() => setDismissed(true)}
-        style={{
-          borderWidth: 1,
-          borderColor: '#D9D2BF',
-          borderRadius: 2,
-          paddingHorizontal: 10,
-          paddingVertical: 6,
-          alignSelf: 'flex-start',
-        }}
-      >
-        <Text style={{ ...KICKER, color: '#5C6356' }}>Dismiss</Text>
-      </Pressable>
-    </View>
-  )
-}
-
 function H3({ children }: { children: string }) {
   return (
     <Text
@@ -925,8 +876,6 @@ function CourseManagementArticle() {
     <View>
       <Text style={{ ...KICKER, marginBottom: 10 }}>On the course · Draft</Text>
       <Text style={TITLE}>Course management.</Text>
-
-      <WipBanner />
 
       <H3>You are not on the range anymore</H3>
       <Para>
