@@ -42,13 +42,6 @@ export type ShotDragUndo = {
   label: string
 }
 
-interface EnsureRealHoleOpts {
-  teeLat?: number | null
-  teeLng?: number | null
-  pinLat?: number | null
-  pinLng?: number | null
-}
-
 interface UseRoundActionsInput {
   roundId: string | undefined
   user: User | null
@@ -72,7 +65,7 @@ interface UseRoundActionsInput {
 }
 
 export interface UseRoundActionsResult {
-  ensureRealHole: (hole: HoleRow, opts?: EnsureRealHoleOpts) => Promise<string>
+  ensureRealHole: (hole: HoleRow) => Promise<string>
   persistRoundPin: (point: PlacedPoint) => Promise<void>
   placeHandlers: {
     onPlace: (p: PlacedPoint) => void
@@ -148,47 +141,44 @@ export function useRoundActions(input: UseRoundActionsInput): UseRoundActionsRes
   // Materialize a synthetic hole into a real `holes` row before any
   // operation that writes to hole_scores. Synthetic ids (prefixed
   // 'synthetic-') come from the no-OSM-data fallback in the `holes`
-  // memo above; hole_scores.hole_id has a FK to holes.id, so without
-  // this an upsert would fail. On insert, invalidate the holes query
-  // so the synthetic placeholder gets replaced with the real row on
-  // the next read. On unique-violation (course_id,number race), look
-  // up the existing row instead of clobbering it.
+  // memo; hole_scores.hole_id has a FK to holes.id, so without this an
+  // upsert would fail.
+  //
+  // Routed through the `insert_synthetic_hole` RPC (migration 0026) —
+  // the new holes INSERT policy disallows client-side inserts for
+  // crawler-imported courses (`created_by IS NULL`), so this path goes
+  // through a SECURITY DEFINER function that checks `auth.uid()` owns
+  // the round before bypassing RLS. ON CONFLICT inside the RPC is
+  // idempotent so concurrent calls converge on the same row.
   const ensureRealHole = useCallback(
-    async (hole: HoleRow, opts?: EnsureRealHoleOpts): Promise<string> => {
+    async (hole: HoleRow): Promise<string> => {
       if (!hole.id.startsWith('synthetic-')) return hole.id
-      const { data: inserted, error: insertErr } = await supabase
-        .from('holes')
-        .insert({
-          course_id: hole.course_id,
-          number: hole.number,
-          par: hole.par,
-          yards: null,
-          stroke_index: hole.number,
-          tee_lat: opts?.teeLat ?? null,
-          tee_lng: opts?.teeLng ?? null,
-          pin_lat: opts?.pinLat ?? null,
-          pin_lng: opts?.pinLng ?? null,
-        })
-        .select('id')
-        .single()
-      if (!insertErr && inserted) {
-        queryClient.invalidateQueries({ queryKey: ['holes', hole.course_id] })
-        return inserted.id
+      if (!roundId) throw new Error('roundId required to materialize hole')
+      // supabase-js's generated types don't yet know about this RPC
+      // (regen lands separately). Cast to the narrow shape we use here.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const rpc = (supabase as any).rpc.bind(supabase) as (
+        fn: 'insert_synthetic_hole',
+        args: {
+          p_course_id: string
+          p_number: number
+          p_par: number
+          p_round_id: string
+        },
+      ) => Promise<{ data: string | null; error: { message: string } | null }>
+      const { data: holeId, error } = await rpc('insert_synthetic_hole', {
+        p_course_id: hole.course_id,
+        p_number: hole.number,
+        p_par: hole.par ?? 4,
+        p_round_id: roundId,
+      })
+      if (error || !holeId) {
+        throw new Error(error?.message ?? 'insert_synthetic_hole returned no id')
       }
-      if (insertErr?.code === '23505') {
-        const { data: existing, error: selectErr } = await supabase
-          .from('holes')
-          .select('id')
-          .eq('course_id', hole.course_id)
-          .eq('number', hole.number)
-          .single()
-        if (selectErr || !existing) throw selectErr ?? insertErr
-        queryClient.invalidateQueries({ queryKey: ['holes', hole.course_id] })
-        return existing.id
-      }
-      throw insertErr ?? new Error('hole insert failed')
+      queryClient.invalidateQueries({ queryKey: ['holes', hole.course_id] })
+      return holeId
     },
-    [queryClient],
+    [queryClient, roundId],
   )
 
   // The round-pin write is best-effort — we update local state synchronously
@@ -496,15 +486,13 @@ export function useRoundActions(input: UseRoundActionsInput): UseRoundActionsRes
             r.distanceToPin <= NEAR_GREEN_YARDS,
         ).length
         // Materialize the synthetic hole if needed before upserting the
-        // hole_score (FK to holes.id). Seeds the new holes row with any
-        // session tee/pin overrides so manual placements persist as the
-        // course's first real layout data — every save curates the course.
-        const realHoleId = await ensureRealHole(activeHole, {
-          teeLat: teeOverride?.lat ?? null,
-          teeLng: teeOverride?.lng ?? null,
-          pinLat: pinOverride?.lat ?? null,
-          pinLng: pinOverride?.lng ?? null,
-        })
+        // hole_score (FK to holes.id). The RPC inserts only (course_id,
+        // number, par, stroke_index) — per-round tee/pin overrides
+        // continue to live on hole_scores.pin_lat/lng (the round-pin
+        // path). Course-level tee/pin seeding from the review save was
+        // dropped in #220; track re-adding via a separate "course
+        // curation from completed rounds" issue.
+        const realHoleId = await ensureRealHole(activeHole)
         // Infer fairway_hit + gir from the placed shot lies. Existing
         // manual entries from HoleScoreCard win via the ?? — re-saving
         // the map review never silently overwrites a value the player
