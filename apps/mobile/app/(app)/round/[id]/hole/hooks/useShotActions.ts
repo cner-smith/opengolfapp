@@ -303,9 +303,9 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
   function handleOnGreenYes() {
     setOnGreenPromptOpen(false)
     // Drop straight into the dedicated PuttingSheet — there is no
-    // club/lie picker on that sheet, so there is nothing for the player
-    // to select after confirming "Yes, I'm putting". persistPutt hard-
-    // codes club='putter' + lie='green' on the way to the DB.
+    // club/lie picker on that sheet, so there is nothing for the
+    // player to select after confirming "Yes, I'm putting". persistPutt
+    // hard-codes club='putter' + lie='green' on the way to the DB.
     setLoggerInitial({ lieType: 'green', club: 'putter' })
     setRoundState('PUTTING')
   }

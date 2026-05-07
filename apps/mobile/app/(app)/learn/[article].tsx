@@ -42,7 +42,7 @@ export default function ArticleScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: '#F2EEE5' }}>
       <AppBar
-        eyebrow={found?.section.title ?? 'Learn'}
+        eyebrow={found?.section.title ?? 'Yardage book'}
         title={found?.article.title ?? 'Article'}
         right={
           <Pressable onPress={() => router.back()}>

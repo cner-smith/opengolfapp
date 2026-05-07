@@ -190,7 +190,7 @@ export function ScorecardModal({
                     accessibilityLabel={`Par ${h.par}, tap to change`}
                     onPress={() => {
                       const next = h.par === 3 ? 4 : h.par === 4 ? 5 : 3
-                      onChangePar!(h.id, next)
+                      onChangePar?.(h.id, next)
                     }}
                     hitSlop={6}
                     style={{

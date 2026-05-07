@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Pressable, StyleSheet, Text } from 'react-native'
 import { Stack } from 'expo-router'
 import { StatusBar } from 'expo-status-bar'
@@ -7,8 +7,10 @@ import * as SplashScreen from 'expo-splash-screen'
 import { useFonts } from 'expo-font'
 import Animated, {
   Easing,
+  cancelAnimation,
   runOnJS,
   useAnimatedStyle,
+  useReducedMotion,
   useSharedValue,
   withDelay,
   withTiming,
@@ -29,11 +31,12 @@ void SplashScreen.preventAutoHideAsync().catch(() => {
 })
 
 const FADE_DURATION = 500
-const LOGO_DELAY = 300
-const TAGLINE_DELAY = 900
-const SUPPORT_DELAY = 1500
+const LOGO_DELAY = 500
+const TAGLINE_DELAY = 1200
+const SUPPORT_DELAY = 2000
 const HOLD_BEFORE_DISMISS = 3500
 const FADE_OUT_DURATION = 350
+const REDUCED_MOTION_HOLD = 1000
 
 export default function RootLayout() {
   return (
@@ -49,6 +52,7 @@ function RootLayoutContent() {
     'Fraunces-MediumItalic': require('../assets/fonts/Fraunces-MediumItalic.ttf'),
   })
   const { loading: authLoading } = useAuth()
+  const reducedMotion = useReducedMotion()
 
   const overlayOpacity = useSharedValue(1)
   const logoOpacity = useSharedValue(0)
@@ -56,10 +60,33 @@ function RootLayoutContent() {
   const supportOpacity = useSharedValue(0)
   const [overlayMounted, setOverlayMounted] = useState(true)
   const [readyToDismiss, setReadyToDismiss] = useState(false)
+  // Guards the staged-fade effect against double-animation if the
+  // component re-renders mid-fade (font reload, fast refresh). Without
+  // this the withDelay timings would re-arm and stutter.
+  const animationStarted = useRef(false)
 
+  // Hide native splash whenever fonts are loaded; idempotent.
   useEffect(() => {
     if (!fontsLoaded) return
     SplashScreen.hideAsync().catch(() => {})
+  }, [fontsLoaded])
+
+  // Arm the staged fade choreography exactly once. animationStarted
+  // gates double-arms on re-render; reducedMotion is snapshotted at
+  // first-run time. A mid-fade toggle of reducedMotion is handled by
+  // the second effect below — this one never re-runs once started.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (!fontsLoaded || animationStarted.current) return
+    animationStarted.current = true
+    if (reducedMotion) {
+      // Skip the staged choreography but still hold briefly so the
+      // brand registers as more than a single frame on slower devices.
+      logoOpacity.value = 1
+      taglineOpacity.value = 1
+      supportOpacity.value = 1
+      return
+    }
     logoOpacity.value = withDelay(
       LOGO_DELAY,
       withTiming(1, { duration: FADE_DURATION, easing: Easing.out(Easing.cubic) }),
@@ -72,16 +99,30 @@ function RootLayoutContent() {
       SUPPORT_DELAY,
       withTiming(1, { duration: FADE_DURATION, easing: Easing.out(Easing.cubic) }),
     )
-  }, [fontsLoaded, logoOpacity, taglineOpacity, supportOpacity])
+  }, [fontsLoaded])
+
+  // If the user toggles reduced-motion mid-fade, honor it: cancel any
+  // in-flight withDelay/withTiming and snap all text to visible. The
+  // first effect's animationStarted ref keeps it from re-arming.
+  useEffect(() => {
+    if (!reducedMotion) return
+    cancelAnimation(logoOpacity)
+    cancelAnimation(taglineOpacity)
+    cancelAnimation(supportOpacity)
+    logoOpacity.value = 1
+    taglineOpacity.value = 1
+    supportOpacity.value = 1
+  }, [reducedMotion, logoOpacity, taglineOpacity, supportOpacity])
 
   // Mark the overlay as ready to dismiss after the staged fade-ins
   // settle. The actual dismiss waits on auth too — we never tear the
   // overlay down while a profile fetch is still in flight.
   useEffect(() => {
     if (!fontsLoaded) return
-    const t = setTimeout(() => setReadyToDismiss(true), HOLD_BEFORE_DISMISS)
+    const hold = reducedMotion ? REDUCED_MOTION_HOLD : HOLD_BEFORE_DISMISS
+    const t = setTimeout(() => setReadyToDismiss(true), hold)
     return () => clearTimeout(t)
-  }, [fontsLoaded])
+  }, [fontsLoaded, reducedMotion])
 
   useEffect(() => {
     if (!fontsLoaded || authLoading || !readyToDismiss) return
@@ -107,15 +148,18 @@ function RootLayoutContent() {
     opacity: supportOpacity.value,
   }))
 
-  // Tap-to-skip: collapse remaining timeouts and start the fade-out
-  // immediately, but only after fonts are ready (otherwise we'd unmount
-  // the overlay while the bundle is still booting and flash the system
-  // serif). Auth still gates the actual unmount inside the effect above.
+  // Tap-to-skip: cancel any in-flight fade timings, snap all text to
+  // visible, and start the dismiss path. Auth still gates the actual
+  // unmount inside the effect above so we don't tear the overlay down
+  // before the profile fetch resolves.
   const handleSkip = () => {
     if (!fontsLoaded) return
-    logoOpacity.value = withTiming(1, { duration: 0 })
-    taglineOpacity.value = withTiming(1, { duration: 0 })
-    supportOpacity.value = withTiming(1, { duration: 0 })
+    cancelAnimation(logoOpacity)
+    cancelAnimation(taglineOpacity)
+    cancelAnimation(supportOpacity)
+    logoOpacity.value = 1
+    taglineOpacity.value = 1
+    supportOpacity.value = 1
     setReadyToDismiss(true)
   }
 
@@ -132,7 +176,12 @@ function RootLayoutContent() {
           pointerEvents={authLoading || !readyToDismiss ? 'auto' : 'none'}
           style={[StyleSheet.absoluteFill, styles.overlay, overlayStyle]}
         >
-          <Pressable onPress={handleSkip} style={styles.skipHit}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Skip splash"
+            onPress={handleSkip}
+            style={styles.skipHit}
+          >
             <Animated.Text style={[styles.wordmark, logoStyle]}>
               OGA
             </Animated.Text>

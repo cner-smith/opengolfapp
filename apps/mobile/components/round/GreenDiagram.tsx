@@ -77,7 +77,8 @@ export function GreenDiagram({
   // at its committed position after the gesture ends — useAnimatedProps
   // reads `startOffset.value`, not the React prop, so without this sync
   // the handle visually snapped back to its pre-drag position the moment
-  // `offsetX.value` reset to 0 in onEnd.
+  // `offsetX.value` reset to 0 in onEnd. Skip while a gesture is active
+  // so a parent re-render mid-drag can't clobber the live position.
   useEffect(() => {
     if (isGestureActive.value) return
     startOffset.value = aimOffsetInches
@@ -143,9 +144,9 @@ export function GreenDiagram({
       const next = Math.round((targetCx - CENTER_X) / PX_PER_INCH)
       // Bake the committed offset into the shared value before zeroing
       // the live delta so the handle holds at its release position. The
-      // useEffect that syncs from the prop will land at the same value
-      // after React re-renders, but it runs a frame later — without this
-      // line the handle briefly snaps back to its pre-drag position.
+      // prop-mirror useEffect lands at the same value after React re-
+      // renders, but it runs a frame later — without this line the
+      // handle briefly snaps back to its pre-drag position.
       startOffset.value = next
       offsetX.value = 0
       isGestureActive.value = false
