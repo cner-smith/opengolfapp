@@ -1,17 +1,16 @@
-import { useMemo } from 'react'
+import { lazy, Suspense, useMemo } from 'react'
 import { Link } from 'react-router-dom'
-import {
-  CartesianGrid,
-  Line,
-  LineChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from 'recharts'
 import { formatSG } from '@oga/core'
 import { useRecentSG } from '../../hooks/useRounds'
 import { useProfile } from '../../hooks/useProfile'
+
+// Lazy-load recharts off the dashboard's first-paint chunk. Without this
+// the recharts vendor bundle (~150KB gzip) ships alongside the index
+// chunk on every authenticated cold start. Suspense fallback matches
+// the chart's container height so layout doesn't shift on hydration.
+const SGTrendChart = lazy(() =>
+  import('./components/SGTrendChart').then((m) => ({ default: m.SGTrendChart })),
+)
 
 const SG_KEYS = [
   { key: 'sg_off_tee', label: 'Off tee' },
@@ -19,17 +18,6 @@ const SG_KEYS = [
   { key: 'sg_around_green', label: 'Around green' },
   { key: 'sg_putting', label: 'Putting' },
 ] as const
-
-const TICK_STYLE = { fontSize: 11, fill: '#8A8B7E' } as const
-
-const TOOLTIP_STYLE = {
-  backgroundColor: '#FBF8F1',
-  border: '1px solid #D9D2BF',
-  borderRadius: 4,
-  fontSize: 11,
-  padding: '8px 10px',
-  fontFamily: 'Inter, sans-serif',
-} as const
 
 export function DashboardPage() {
   const profile = useProfile()
@@ -131,34 +119,16 @@ export function DashboardPage() {
 
       <Section kicker="SG total trend">
         <div style={{ height: 220 }}>
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={trendData} margin={{ top: 4, right: 8, bottom: 4, left: -16 }}>
-              <CartesianGrid stroke="#EBE5D6" vertical={false} />
-              <XAxis
-                dataKey="date"
-                tick={TICK_STYLE}
-                tickLine={false}
-                axisLine={{ stroke: '#D9D2BF' }}
+          <Suspense
+            fallback={
+              <div
+                className="bg-caddie-surface animate-pulse"
+                style={{ height: '100%', borderRadius: 4 }}
               />
-              <YAxis
-                tick={TICK_STYLE}
-                tickLine={false}
-                axisLine={{ stroke: '#D9D2BF' }}
-              />
-              <Tooltip
-                contentStyle={TOOLTIP_STYLE}
-                labelStyle={{ color: '#8A8B7E' }}
-              />
-              <Line
-                type="monotone"
-                dataKey="sg"
-                stroke="#1F3D2C"
-                strokeWidth={1.5}
-                dot={{ r: 2.5, fill: '#1F3D2C', strokeWidth: 0 }}
-                activeDot={{ r: 4 }}
-              />
-            </LineChart>
-          </ResponsiveContainer>
+            }
+          >
+            <SGTrendChart data={trendData} />
+          </Suspense>
         </div>
       </Section>
 
