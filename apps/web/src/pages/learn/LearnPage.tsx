@@ -1,144 +1,185 @@
-import { useState } from 'react'
-import { useDetailedStats } from '../../hooks/useDetailedStats'
-import { SECTION_LINKS } from './data/learnSections'
-import { useActiveSection } from './hooks/useActiveSection'
+import { Link } from 'react-router-dom'
 import { Footnote } from './components/ArticlePrimitives'
 import {
-  JumpSheet,
-  LearnTableOfContents,
-} from './components/LearnTableOfContents'
-import { UnderstandingTheGame } from './sections/UnderstandingTheGame'
-import { YourEquipment } from './sections/YourEquipment'
-import { ImprovingYourGame } from './sections/ImprovingYourGame'
-import { OnTheCourse } from './sections/OnTheCourse'
-import { WorkingWithCoaches } from './sections/WorkingWithCoaches'
+  LEARN_SECTIONS,
+  readingTimeMinutes,
+  type ArticleStub,
+  type LearnSection,
+} from './data/learnSections'
 
 export function LearnPage() {
-  const stats = useDetailedStats(10)
-  const me = stats.data ?? null
-  const activeId = useActiveSection()
-  const [jumpOpen, setJumpOpen] = useState(false)
-
   return (
-    <div
-      className="grid grid-cols-1 lg:grid-cols-[1fr_220px]"
-      style={{ gap: 32 }}
-    >
-      <div style={{ minWidth: 0 }}>
-        <div style={{ marginBottom: 28 }}>
-          <div className="kicker" style={{ marginBottom: 8 }}>
-            Yardage book
-          </div>
-          <h1
-            className="font-serif text-caddie-ink"
-            style={{ fontSize: 28, fontWeight: 500, lineHeight: 1.15 }}
-          >
-            Learn
-          </h1>
-          <p
-            className="text-caddie-ink-dim"
-            style={{ fontSize: 15, marginTop: 6, maxWidth: 640 }}
-          >
-            A coach's column on the stats this app tracks — what they
-            mean, why they matter, and what the numbers look like across
-            the field.
-          </p>
+    <div style={{ maxWidth: 760 }}>
+      <div style={{ marginBottom: 28 }}>
+        <div className="kicker" style={{ marginBottom: 8 }}>
+          Golf education
         </div>
-
-        <LearnTableOfContents />
-
-        <UnderstandingTheGame me={me} />
-        <YourEquipment />
-        <ImprovingYourGame />
-        <OnTheCourse />
-        <WorkingWithCoaches />
-
-        <Footnote>
-          Benchmarks based on Mark Broadie's strokes gained research
-          and PGA Tour ShotLink data. Amateur averages approximate.
-        </Footnote>
-      </div>
-
-      <aside
-        className="hidden lg:block"
-        style={{
-          alignSelf: 'start',
-          position: 'sticky',
-          top: 28,
-        }}
-      >
-        <div className="kicker" style={{ marginBottom: 12 }}>
-          On this page
-        </div>
-        <nav
+        <h1
+          className="font-serif text-caddie-ink"
           style={{
-            display: 'flex',
-            flexDirection: 'column',
-            borderTop: '1px solid #D9D2BF',
+            fontSize: 38,
+            fontWeight: 500,
+            fontStyle: 'italic',
+            letterSpacing: '-0.015em',
+            lineHeight: 1.05,
           }}
         >
-          {SECTION_LINKS.map((s) => {
-            const active = activeId === s.id
-            return (
-              <a
-                key={s.id}
-                href={`#${s.id}`}
-                onClick={(e) => {
-                  e.preventDefault()
-                  document
-                    .getElementById(s.id)
-                    ?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-                }}
-                style={{
-                  padding: '10px 0',
-                  borderBottom: '1px solid #D9D2BF',
-                  fontSize: 13,
-                  color: active ? '#1F3D2C' : '#5C6356',
-                  fontWeight: active ? 600 : 400,
-                  textDecoration: 'none',
-                }}
-              >
-                {s.label}
-              </a>
-            )
-          })}
-        </nav>
-      </aside>
+          Learn.
+        </h1>
+        <p
+          className="text-caddie-ink-dim"
+          style={{ fontSize: 15, marginTop: 8, maxWidth: 600, lineHeight: 1.55 }}
+        >
+          Guides, references, and frameworks for players who want to improve.
+        </p>
+      </div>
 
-      <button
-        type="button"
-        onClick={() => setJumpOpen(true)}
-        className="lg:hidden fixed"
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 28 }}>
+        {LEARN_SECTIONS.map((s) => (
+          <SectionCard key={s.id} section={s} />
+        ))}
+      </div>
+
+      <Footnote>
+        Benchmarks based on Mark Broadie's strokes gained research and PGA Tour
+        ShotLink data. Amateur averages approximate.
+      </Footnote>
+    </div>
+  )
+}
+
+function SectionCard({ section }: { section: LearnSection }) {
+  return (
+    <section
+      style={{
+        border: '1px solid #D9D2BF',
+        background: '#FBF8F1',
+        borderRadius: 4,
+      }}
+    >
+      <header
         style={{
-          right: 18,
-          bottom: 18,
-          background: '#FBF8F1',
-          border: '1px solid #9F9580',
-          borderRadius: 999,
-          padding: '12px 16px',
-          fontSize: 12,
-          fontFamily: 'JetBrains Mono, monospace',
-          letterSpacing: '0.14em',
-          textTransform: 'uppercase',
-          color: '#1C211C',
-          zIndex: 30,
+          padding: '18px 22px 14px',
+          borderBottom: '1px solid #D9D2BF',
         }}
       >
-        Jump to section
-      </button>
-
-      {jumpOpen && (
-        <JumpSheet
-          activeId={activeId}
-          onSelect={(id) => {
-            document
-              .getElementById(id)
-              ?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-            setJumpOpen(false)
+        <div className="kicker" style={{ marginBottom: 6 }}>
+          {section.title}
+        </div>
+        <div
+          className="font-mono uppercase text-caddie-ink-mute"
+          style={{
+            fontSize: 10,
+            letterSpacing: '0.14em',
           }}
-          onClose={() => setJumpOpen(false)}
-        />
-      )}
+        >
+          {section.articles.length}{' '}
+          {section.articles.length === 1 ? 'article' : 'articles'}
+        </div>
+      </header>
+      <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
+        {section.articles.map((a, i) => (
+          <ArticleRow
+            key={a.id}
+            article={a}
+            isLast={i === section.articles.length - 1}
+          />
+        ))}
+      </ul>
+    </section>
+  )
+}
+
+function ArticleRow({
+  article,
+  isLast,
+}: {
+  article: ArticleStub
+  isLast: boolean
+}) {
+  const isStub = article.status === 'stub'
+  const reading = readingTimeMinutes(article)
+
+  const inner = (
+    <div
+      style={{
+        padding: '16px 22px',
+        borderBottom: isLast ? 'none' : '1px solid #D9D2BF',
+        display: 'flex',
+        alignItems: 'baseline',
+        justifyContent: 'space-between',
+        gap: 16,
+      }}
+    >
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div
+          className="font-serif"
+          style={{
+            fontSize: 17,
+            fontWeight: 500,
+            fontStyle: 'italic',
+            color: isStub ? '#8A8B7E' : '#1C211C',
+            marginBottom: 4,
+          }}
+        >
+          {article.title}
+        </div>
+        <div
+          className="text-caddie-ink-dim"
+          style={{ fontSize: 13, lineHeight: 1.5 }}
+        >
+          {article.description}
+        </div>
+      </div>
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'baseline',
+          gap: 12,
+          flexShrink: 0,
+        }}
+      >
+        {isStub ? (
+          <span
+            className="font-mono uppercase text-caddie-ink-mute"
+            style={{ fontSize: 10, letterSpacing: '0.14em' }}
+          >
+            Soon
+          </span>
+        ) : (
+          <>
+            {reading != null && (
+              <span
+                className="font-mono uppercase text-caddie-ink-mute"
+                style={{ fontSize: 10, letterSpacing: '0.14em' }}
+              >
+                {reading} min
+              </span>
+            )}
+            <span
+              className="font-serif text-caddie-ink-mute"
+              style={{ fontSize: 18, fontStyle: 'italic' }}
+              aria-hidden
+            >
+              →
+            </span>
+          </>
+        )}
+      </div>
     </div>
+  )
+
+  if (isStub) {
+    return <li aria-disabled="true">{inner}</li>
+  }
+  return (
+    <li>
+      <Link
+        to={`/learn/${article.id}`}
+        style={{ textDecoration: 'none', display: 'block', color: 'inherit' }}
+      >
+        {inner}
+      </Link>
+    </li>
   )
 }
