@@ -457,6 +457,7 @@ export function RoundDetailPage() {
             holePar={shotsModalFor.holePar}
             pinLat={pinLat}
             pinLng={pinLng}
+            liveEntry={view === 'map'}
             onClose={() => setShotsModalFor(null)}
           />
         )
