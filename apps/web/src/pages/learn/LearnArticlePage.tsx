@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import { Link, Navigate, useParams } from 'react-router-dom'
 import { getArticleComponent } from './data/articleRegistry'
 import {
@@ -22,9 +23,9 @@ export function LearnArticlePage() {
   return (
     <div style={{ maxWidth: 760 }}>
       <BackLink />
-      <Breadcrumb section={section} title={article.title} />
+      <Breadcrumb section={section} />
+      {isDraft && <DraftBanner slug={article.id} />}
       <Component />
-      {isDraft && <DraftBanner />}
       <NeighbourNav prev={prev} next={next} />
     </div>
   )
@@ -49,13 +50,7 @@ function BackLink() {
   )
 }
 
-function Breadcrumb({
-  section,
-  title,
-}: {
-  section: LearnSection
-  title: string
-}) {
+function Breadcrumb({ section }: { section: LearnSection }) {
   return (
     <div
       className="font-mono uppercase text-caddie-ink-mute"
@@ -65,26 +60,68 @@ function Breadcrumb({
         marginBottom: 22,
       }}
     >
-      Learn / <span style={{ color: '#5C6356' }}>{section.title}</span> /{' '}
-      <span style={{ color: '#1C211C' }}>{title}</span>
+      Learn / <span style={{ color: '#1C211C' }}>{section.title}</span>
     </div>
   )
 }
 
-function DraftBanner() {
+function DraftBanner({ slug }: { slug: string }) {
+  const key = `oga.learn.${slug}.wip-dismissed`
+  const [dismissed, setDismissed] = useState(false)
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    if (window.sessionStorage.getItem(key) === '1') setDismissed(true)
+  }, [key])
+  if (dismissed) return null
   return (
     <div
-      className="font-mono uppercase text-caddie-ink-mute"
+      role="note"
       style={{
+        background: '#FBF8F1',
+        borderLeft: '3px solid #A66A1F',
         borderTop: '1px solid #D9D2BF',
-        paddingTop: 14,
-        marginTop: 22,
+        borderRight: '1px solid #D9D2BF',
+        borderBottom: '1px solid #D9D2BF',
+        borderRadius: 2,
+        padding: '14px 18px',
         marginBottom: 22,
-        fontSize: 10,
-        letterSpacing: '0.14em',
+        display: 'flex',
+        gap: 14,
+        alignItems: 'flex-start',
       }}
     >
-      Draft · content under review
+      <div style={{ flex: 1 }}>
+        <div className="kicker" style={{ marginBottom: 6, color: '#A66A1F' }}>
+          Work in progress
+        </div>
+        <p
+          className="text-caddie-ink"
+          style={{ fontSize: 14, lineHeight: 1.55 }}
+        >
+          This guide is being reviewed for accuracy. Treat specific
+          technique advice as provisional until the notice is removed.
+        </p>
+      </div>
+      <button
+        type="button"
+        onClick={() => {
+          window.sessionStorage.setItem(key, '1')
+          setDismissed(true)
+        }}
+        className="font-mono uppercase"
+        style={{
+          background: 'transparent',
+          border: '1px solid #D9D2BF',
+          padding: '6px 10px',
+          fontSize: 10,
+          letterSpacing: '0.14em',
+          color: '#5C6356',
+          cursor: 'pointer',
+          borderRadius: 2,
+        }}
+      >
+        Dismiss
+      </button>
     </div>
   )
 }

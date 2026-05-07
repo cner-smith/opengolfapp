@@ -1,7 +1,4 @@
-import { useEffect, useState } from 'react'
-
 const DEV = import.meta.env.DEV
-const WIP_KEY = 'oga.learn.course-management.wip-dismissed'
 
 export function CourseManagementArticle() {
   return (
@@ -29,8 +26,6 @@ export function CourseManagementArticle() {
       >
         Course management.
       </h2>
-
-      <WipBanner />
 
       <H3>You are not on the range anymore</H3>
       <P>
@@ -537,67 +532,6 @@ export function CourseManagementArticle() {
 // ===========================================================================
 // Components
 // ===========================================================================
-
-function WipBanner() {
-  const [dismissed, setDismissed] = useState(false)
-  useEffect(() => {
-    if (typeof window === 'undefined') return
-    if (window.sessionStorage.getItem(WIP_KEY) === '1') setDismissed(true)
-  }, [])
-  if (dismissed) return null
-  return (
-    <div
-      role="note"
-      style={{
-        background: '#FBF8F1',
-        borderLeft: '3px solid #A66A1F',
-        borderTop: '1px solid #D9D2BF',
-        borderRight: '1px solid #D9D2BF',
-        borderBottom: '1px solid #D9D2BF',
-        borderRadius: 2,
-        padding: '14px 18px',
-        marginBottom: 22,
-        display: 'flex',
-        gap: 14,
-        alignItems: 'flex-start',
-      }}
-    >
-      <div style={{ flex: 1 }}>
-        <div className="kicker" style={{ marginBottom: 6, color: '#A66A1F' }}>
-          Work in progress
-        </div>
-        <p
-          className="text-caddie-ink"
-          style={{ fontSize: 14, lineHeight: 1.55 }}
-        >
-          This guide is a work in progress and is being reviewed for
-          accuracy. Treat specific technique advice as provisional
-          until the notice is removed.
-        </p>
-      </div>
-      <button
-        type="button"
-        onClick={() => {
-          window.sessionStorage.setItem(WIP_KEY, '1')
-          setDismissed(true)
-        }}
-        className="font-mono uppercase"
-        style={{
-          background: 'transparent',
-          border: '1px solid #D9D2BF',
-          padding: '6px 10px',
-          fontSize: 10,
-          letterSpacing: '0.14em',
-          color: '#5C6356',
-          cursor: 'pointer',
-          borderRadius: 2,
-        }}
-      >
-        Dismiss
-      </button>
-    </div>
-  )
-}
 
 function H3({ children }: { children: React.ReactNode }) {
   return (
