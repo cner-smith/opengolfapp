@@ -30,6 +30,7 @@ interface UseShotActionsInput {
   setLoggerOpen: Dispatch<SetStateAction<boolean>>
   setLoggerInitial: Dispatch<SetStateAction<ShotLoggerValue>>
   setPinPlacementOpen: Dispatch<SetStateAction<boolean>>
+  setTeePlacementOpen: Dispatch<SetStateAction<boolean>>
   setOnGreenPromptOpen: Dispatch<SetStateAction<boolean>>
   setAimPromptOpen: Dispatch<SetStateAction<boolean>>
   setConfirmDelete: Dispatch<SetStateAction<boolean>>
@@ -45,6 +46,7 @@ export interface UseShotActionsResult {
   persistPutt: (v: PuttingValue) => Promise<void>
   persistRoundPin: (loc: LatLng) => Promise<void>
   clearRoundPin: () => Promise<void>
+  persistTee: (loc: LatLng) => Promise<void>
   markBallHere: () => Promise<void>
   handleOnGreenYes: () => void
   handleOnGreenNo: () => void
@@ -72,6 +74,7 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
     setLoggerOpen,
     setLoggerInitial,
     setPinPlacementOpen,
+    setTeePlacementOpen,
     setOnGreenPromptOpen,
     setAimPromptOpen,
     setConfirmDelete,
@@ -90,7 +93,9 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
 
   const {
     round,
+    currentHole,
     currentHoleScore,
+    setHoles,
     setHoleScores,
     setPendingForHole,
     storedPin,
@@ -259,6 +264,26 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
       .eq('id', currentHoleScore.id)
     if (updateErr) {
       Alert.alert('Pin clear failed', updateErr.message)
+    }
+  }
+
+  async function persistTee(loc: LatLng) {
+    if (!currentHole) return
+    if (!Number.isFinite(loc.lat) || !Number.isFinite(loc.lng)) return
+    setHoles((prev) =>
+      prev.map((h) =>
+        h.id === currentHole.id
+          ? { ...h, tee_lat: loc.lat, tee_lng: loc.lng }
+          : h,
+      ),
+    )
+    setTeePlacementOpen(false)
+    const { error: updateErr } = await supabase
+      .from('holes')
+      .update({ tee_lat: loc.lat, tee_lng: loc.lng })
+      .eq('id', currentHole.id)
+    if (updateErr) {
+      Alert.alert('Tee save failed', updateErr.message)
     }
   }
 
@@ -444,6 +469,7 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
     persistPutt,
     persistRoundPin,
     clearRoundPin,
+    persistTee,
     markBallHere,
     handleOnGreenYes,
     handleOnGreenNo,

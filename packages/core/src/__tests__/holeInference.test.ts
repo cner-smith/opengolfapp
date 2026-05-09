@@ -56,8 +56,13 @@ describe('inferHoleStats — gir', () => {
     expect(inferHoleStats(shots, 4).gir).toBe(true)
   })
 
-  it('par 4, shot 3 on green → gir: false', () => {
+  it('par 4, shot 3 on green → gir: true', () => {
     const shots: S[] = [tee(1), lie(2, 'rough'), lie(3, 'green')]
+    expect(inferHoleStats(shots, 4).gir).toBe(true)
+  })
+
+  it('par 4, shot 4 on green → gir: false', () => {
+    const shots: S[] = [tee(1), lie(2, 'rough'), lie(3, 'rough'), lie(4, 'green')]
     expect(inferHoleStats(shots, 4).gir).toBe(false)
   })
 
@@ -66,14 +71,35 @@ describe('inferHoleStats — gir', () => {
     expect(inferHoleStats(shots, 5).gir).toBe(true)
   })
 
-  it('par 5, shot 4 on green → gir: false', () => {
+  it('par 5, shot 4 on green → gir: true', () => {
     const shots: S[] = [
       tee(1),
       lie(2, 'fairway'),
       lie(3, 'rough'),
       lie(4, 'green'),
     ]
+    expect(inferHoleStats(shots, 5).gir).toBe(true)
+  })
+
+  it('par 5, shot 5 on green → gir: false', () => {
+    const shots: S[] = [
+      tee(1),
+      lie(2, 'fairway'),
+      lie(3, 'rough'),
+      lie(4, 'sand'),
+      lie(5, 'green'),
+    ]
     expect(inferHoleStats(shots, 5).gir).toBe(false)
+  })
+
+  it('par 3, shot 2 on green → gir: true', () => {
+    const shots: S[] = [tee(1), lie(2, 'green')]
+    expect(inferHoleStats(shots, 3).gir).toBe(true)
+  })
+
+  it('par 3, shot 3 on green → gir: false', () => {
+    const shots: S[] = [tee(1), lie(2, 'fringe'), lie(3, 'green')]
+    expect(inferHoleStats(shots, 3).gir).toBe(false)
   })
 
   it('hole-in-one par 3 → gir: true, fairway: null', () => {

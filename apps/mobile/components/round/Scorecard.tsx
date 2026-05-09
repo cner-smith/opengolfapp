@@ -361,6 +361,15 @@ export function ScorecardPreview({
         {holes.map((h) => {
           const hs = scoresByHoleId.get(h.id)
           const active = h.number === currentHoleNumber
+          const score = hs?.score && hs.score > 0 ? hs.score : null
+          const diff = score != null ? score - h.par : null
+          const isCircle = diff != null && diff <= -1
+          const isSquare = diff != null && diff >= 1
+          const hasDecoration = isCircle || isSquare
+          const decorationCount = diff != null && Math.abs(diff) >= 2 ? 2 : 1
+          const decoColor =
+            diff == null ? '#5C6356' : diff < 0 ? '#1F3D2C' : diff > 0 ? '#A33A2A' : '#1C211C'
+          const sizes = decorationCount === 1 ? [16] : [14, 20]
           return (
             <View
               key={h.id}
@@ -371,18 +380,49 @@ export function ScorecardPreview({
                 justifyContent: 'center',
                 borderRadius: 2,
                 backgroundColor: active ? '#1F3D2C' : '#EBE5D6',
+                ...(score != null && !active
+                  ? { borderWidth: 1.5, borderColor: '#1F3D2C' }
+                  : {}),
               }}
             >
-              <Text
-                style={{
-                  fontSize: 11,
-                  fontWeight: '500',
-                  color: active ? '#F2EEE5' : '#5C6356',
-                  fontVariant: ['tabular-nums'],
-                }}
-              >
-                {hs && hs.score ? hs.score : h.number}
-              </Text>
+              {score != null && !active && hasDecoration ? (
+                <>
+                  {sizes.map((size) => (
+                    <View
+                      key={size}
+                      style={{
+                        position: 'absolute',
+                        width: size,
+                        height: size,
+                        borderRadius: isCircle ? size / 2 : 1,
+                        borderWidth: 1.2,
+                        borderColor: decoColor,
+                      }}
+                    />
+                  ))}
+                  <Text
+                    style={{
+                      fontSize: 11,
+                      fontWeight: '500',
+                      color: decoColor,
+                      fontVariant: ['tabular-nums'],
+                    }}
+                  >
+                    {score}
+                  </Text>
+                </>
+              ) : (
+                <Text
+                  style={{
+                    fontSize: 11,
+                    fontWeight: '500',
+                    color: active ? '#F2EEE5' : score != null ? '#1C211C' : '#5C6356',
+                    fontVariant: ['tabular-nums'],
+                  }}
+                >
+                  {score != null ? score : h.number}
+                </Text>
+              )}
             </View>
           )
         })}

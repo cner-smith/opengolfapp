@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction, type MutableRefObject } from 'react'
+import { AppState } from 'react-native'
 import * as Location from 'expo-location'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { createKalmanState, updateKalman, type KalmanState } from '@oga/core'
@@ -43,6 +44,10 @@ export function useHoleState({
   // in a ref because every position update would otherwise re-render
   // the entire screen at GPS cadence (1-2 Hz). Reset on hole change,
   // manual drag, or when leaving PLACE_BALL — see useEffect below.
+  // Ref so the AppState listener can remove the subscription if the app
+  // backgrounds while GPS is active — prevents the native callback from
+  // firing into a null JS module object after the OS tears down the app.
+  const gpsSubscriptionRef = useRef<Location.LocationSubscription | null>(null)
   const kalmanStateRef = useRef<KalmanState | null>(null)
   // Set true the moment the player manually drags or taps the ball;
   // freezes the GPS callback's setBall so the next reading can't
@@ -108,6 +113,7 @@ export function useHoleState({
             distanceInterval: 2,
           },
           (loc) => {
+            if (!active) return
             // Manual placement freezes GPS-driven ball updates. Without
             // this, the next reading after a drag would re-init the
             // filter at the raw GPS point and snap ball back, wiping
@@ -130,6 +136,14 @@ export function useHoleState({
             setBall(smoothed)
           },
         )
+        // Cleanup may have run while watchPositionAsync was in flight —
+        // the `if (!active)` guard above only covers the window before
+        // this await, not after it. Remove immediately if stale.
+        if (!active) {
+          subscription.remove()
+          return
+        }
+        gpsSubscriptionRef.current = subscription
       } catch {
         // GPS not available — user will tap to place.
       }
@@ -137,6 +151,7 @@ export function useHoleState({
     return () => {
       active = false
       subscription?.remove()
+      gpsSubscriptionRef.current = null
       // Phase exit clears the filter so re-entry to PLACE_BALL on the
       // next shot starts smoothing from a fresh fix rather than an
       // old anchor that may now be hundreds of yards away. Also clears
@@ -154,6 +169,19 @@ export function useHoleState({
     kalmanStateRef.current = null
     manuallyPlacedRef.current = false
   }, [currentHoleId])
+
+  // Stop GPS when the app backgrounds. The native location callback
+  // fires into a null JS module if the OS tears down the app while a
+  // subscription is live, causing a fatal NPE in expo-location.
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'background' || state === 'inactive') {
+        gpsSubscriptionRef.current?.remove()
+        gpsSubscriptionRef.current = null
+      }
+    })
+    return () => sub.remove()
+  }, [])
 
   // Highlight "On the green" once the player is within 80 yd of the stored
   // pin AND a per-round pin hasn't been captured yet.

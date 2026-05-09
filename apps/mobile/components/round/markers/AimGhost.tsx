@@ -107,8 +107,11 @@ export function AimGhostLayers({
   if (isPinMode) return null
   return (
     <>
-      {styleLoaded && aimGhostFeatures && (
-        <Mapbox.ShapeSource id="aimGhostsLine" shape={aimGhostFeatures}>
+      {styleLoaded && (
+        <Mapbox.ShapeSource
+          id="aimGhostsLine"
+          shape={aimGhostFeatures ?? { type: 'FeatureCollection', features: [] }}
+        >
           <Mapbox.LineLayer
             id="aimGhostsLineLayer"
             style={{

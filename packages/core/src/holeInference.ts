@@ -45,7 +45,10 @@ function inferGir(
   par: number,
 ): boolean | null {
   if (shots.length === 0) return null
-  const threshold = par - 2
+  // lie_type is the start lie, so shot N on the green means the ball
+  // reached the green on shot N-1. GIR = on green in (par-2) strokes
+  // → shot (par-1) starts on green.
+  const threshold = par - 1
   // First shot whose start lie is the green, OR the shot the player
   // holed (handles hole-in-one where shot 1 starts on tee but
   // shot_result='holed' means the ball reached the cup that stroke).

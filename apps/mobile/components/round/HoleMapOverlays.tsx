@@ -3,9 +3,10 @@ import { Text, View } from 'react-native'
 interface TopHintProps {
   isPinMode: boolean
   isAimPhase: boolean
+  isTeeMode: boolean
 }
 
-export function TopHint({ isPinMode, isAimPhase }: TopHintProps) {
+export function TopHint({ isPinMode, isAimPhase, isTeeMode }: TopHintProps) {
   return (
     <View
       style={{
@@ -32,9 +33,11 @@ export function TopHint({ isPinMode, isAimPhase }: TopHintProps) {
       >
         {isPinMode
           ? 'Pin mode — tap to place flag'
-          : isAimPhase
-            ? 'Long-press to set aim line — where you started the ball, not where it finishes'
-            : 'Drag the ball to refine, then tap Mark ball here'}
+          : isTeeMode
+            ? 'Tee mode — tap to place tee box'
+            : isAimPhase
+              ? 'Long-press to set aim line — where you started the ball, not where it finishes'
+              : 'Drag the ball to refine, then tap Mark ball here'}
       </Text>
     </View>
   )

@@ -31,6 +31,13 @@ interface RecentRound extends RecentRoundRow {
   sg_putting: number | null
 }
 
+const SG_KEYS = [
+  { key: 'sg_off_tee', label: 'Off tee' },
+  { key: 'sg_approach', label: 'Approach' },
+  { key: 'sg_around_green', label: 'Around green' },
+  { key: 'sg_putting', label: 'Putting' },
+] as const
+
 const KICKER: import('react-native').TextStyle = {
   color: '#8A8B7E',
   fontSize: 10,
@@ -118,6 +125,21 @@ export default function Home() {
       )
   }, [rounds])
 
+  const homeStats = useMemo(() => {
+    const avgs = SG_KEYS.map((c) => {
+      const values = rounds.map((r) => r[c.key]).filter((v): v is number => v !== null)
+      const avg = values.length === 0 ? 0 : values.reduce((a, b) => a + b, 0) / values.length
+      return { ...c, value: Number(avg.toFixed(2)) }
+    })
+    const scoreRounds = rounds.filter((r) => r.total_score !== null)
+    const avgScore = scoreRounds.length > 0
+      ? scoreRounds.reduce((s, r) => s + (r.total_score ?? 0), 0) / scoreRounds.length
+      : null
+    const totalSG = avgs.reduce((s, a) => s + a.value, 0)
+    const sorted = [...avgs].sort((a, b) => b.value - a.value)
+    return { avgScore, totalSG, weakest: sorted[sorted.length - 1]!, strongest: sorted[0]! }
+  }, [rounds])
+
   const eyebrow =
     profile?.handicap_index != null
       ? `Handicap ${profile.handicap_index}`
@@ -143,6 +165,42 @@ export default function Home() {
         <Text style={{ color: '#5C6356', fontSize: 14, marginBottom: 22 }}>
           Last {trend.length} round{trend.length === 1 ? '' : 's'}
         </Text>
+
+        {rounds.length > 0 && (
+          <>
+            <Text
+              style={{
+                color: '#1C211C',
+                fontSize: 16,
+                fontStyle: 'italic',
+                lineHeight: 24,
+                marginBottom: 22,
+              }}
+            >
+              {homeStats.weakest.value >= 0 ? (
+                <>Everything is net positive. <Text style={{ fontWeight: '600' }}>{homeStats.strongest.label}</Text> leads at {fmtSG(homeStats.strongest.value)} a round.</>
+              ) : (
+                <><Text style={{ fontWeight: '600' }}>{homeStats.weakest.label}.</Text> Your biggest leak — costing about {fmtAbs(homeStats.weakest.value)} a round. {homeStats.strongest.label.toLowerCase()} is the bright spot at {fmtSG(homeStats.strongest.value)}.</>
+              )}
+            </Text>
+
+            <View style={{ marginBottom: 28 }}>
+              <View style={{ borderTopWidth: 1, borderColor: '#D9D2BF', paddingTop: 14, marginBottom: 14 }}>
+                <Text style={KICKER}>By the numbers</Text>
+              </View>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
+                <HomeTile label="Avg score" value={homeStats.avgScore != null ? homeStats.avgScore.toFixed(1) : '—'} />
+                <HomeTile
+                  label="SG total"
+                  value={formatSG(homeStats.totalSG)}
+                  valueColor={homeStats.totalSG > 0 ? '#1F3D2C' : homeStats.totalSG < 0 ? '#A33A2A' : '#1C211C'}
+                />
+                <HomeTile label="Rounds" value={rounds.length.toString()} />
+                <HomeTile label="Categories" value={SG_KEYS.length.toString()} />
+              </View>
+            </View>
+          </>
+        )}
 
         {activeRound && <ResumeRoundBanner round={activeRound} />}
         {!activeRound && <StartLiveRoundCTA />}
@@ -226,4 +284,42 @@ export default function Home() {
       />
     </View>
   )
+}
+
+function HomeTile({
+  label,
+  value,
+  valueColor = '#1C211C',
+}: {
+  label: string
+  value: string
+  valueColor?: string
+}) {
+  return (
+    <View
+      style={{
+        width: '47%',
+        backgroundColor: '#FBF8F1',
+        borderWidth: 1,
+        borderColor: '#D9D2BF',
+        borderRadius: 4,
+        padding: 14,
+      }}
+    >
+      <Text style={{ color: '#8A8B7E', fontSize: 10, fontWeight: '500', fontFamily: 'JetBrainsMono-Medium', letterSpacing: 1.4, textTransform: 'uppercase', marginBottom: 10 }}>
+        {label}
+      </Text>
+      <Text style={{ color: valueColor, fontSize: 28, fontStyle: 'italic', fontWeight: '500', fontVariant: ['tabular-nums'] }}>
+        {value}
+      </Text>
+    </View>
+  )
+}
+
+function fmtSG(value: number): string {
+  return value === 0 ? 'even' : `${formatSG(value)} strokes`
+}
+
+function fmtAbs(value: number): string {
+  return `${Math.abs(value).toFixed(1)} strokes`
 }
