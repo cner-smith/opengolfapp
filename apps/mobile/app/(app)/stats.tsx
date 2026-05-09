@@ -1,10 +1,19 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Pressable, ScrollView, Text, useWindowDimensions, View } from 'react-native'
 import { VictoryAxis, VictoryChart, VictoryLine } from 'victory-native'
-import { formatSG } from '@oga/core'
-import { getRecentSGData } from '@oga/supabase'
+import {
+  computeDetailedStats,
+  DEFAULT_HANDICAP,
+  formatSG,
+  YARDS_TO_METERS,
+  type ApproachBandStat,
+  type DetailedRound,
+  type DetailedStats,
+} from '@oga/core'
+import { getRoundsWithDetails } from '@oga/supabase'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
+import { useUnits } from '../../hooks/useUnits'
 import { AppBar } from '../../components/ui/AppBar'
 
 const N_OPTIONS = [5, 10, 20] as const
@@ -13,10 +22,11 @@ const CHART_HEIGHT = 260
 const CHART_BOTTOM = 28
 
 const SERIES = [
-  { key: 'sg_off_tee', label: 'Off tee', color: '#1F3D2C' },
-  { key: 'sg_approach', label: 'Approach', color: '#A33A2A' },
-  { key: 'sg_around_green', label: 'Around green', color: '#A66A1F' },
-  { key: 'sg_putting', label: 'Putting', color: '#5C6356' },
+  { key: 'sg_off_tee', label: 'Off tee', color: '#1F3D2C', dash: false },
+  { key: 'sg_approach', label: 'Approach', color: '#A33A2A', dash: false },
+  { key: 'sg_around_green', label: 'Around green', color: '#A66A1F', dash: false },
+  // Putting shares the green family with Off tee — dashed to distinguish.
+  { key: 'sg_putting', label: 'Putting', color: '#5C6356', dash: true },
 ] as const
 
 const KICKER: import('react-native').TextStyle = {
@@ -27,34 +37,25 @@ const KICKER: import('react-native').TextStyle = {
   textTransform: 'uppercase',
 }
 
-interface RecentRound {
-  played_at: string
-  sg_off_tee: number | null
-  sg_approach: number | null
-  sg_around_green: number | null
-  sg_putting: number | null
-  sg_total: number | null
-  total_score: number | null
-}
-
 export default function Stats() {
   const { user } = useAuth()
   const [n, setN] = useState<number>(10)
-  const [rounds, setRounds] = useState<RecentRound[]>([])
+  const [rounds, setRounds] = useState<DetailedRound[]>([])
   const [loading, setLoading] = useState(true)
   const { width: screenWidth } = useWindowDimensions()
+  const { unit, toDisplay } = useUnits()
 
   useEffect(() => {
     if (!user) return
     let active = true
     setLoading(true)
-    getRecentSGData(supabase, user.id, n).then(({ data, error }) => {
+    getRoundsWithDetails(supabase, user.id, n).then(({ data, error }) => {
       if (!active) return
       if (error) {
         // eslint-disable-next-line no-console
-        console.error('[stats/getRecentSGData]', error.message)
+        console.error('[stats/getRoundsWithDetails]', error.message)
       }
-      setRounds((data as RecentRound[] | null) ?? [])
+      setRounds((data as unknown as DetailedRound[] | null) ?? [])
       setLoading(false)
     })
     return () => {
@@ -80,19 +81,26 @@ export default function Stats() {
   // here would anchor the line at zero on rounds where that
   // category wasn't logged, and the by-the-numbers averages
   // (which filter nulls) would no longer match what's drawn.
+  // Cumulative running average per category. Each point = average of all
+  // rounds up to and including that date, so the rightmost point matches
+  // the card value exactly.
   const chartSeries = useMemo(() => {
     const ordered = [...rounds].reverse()
     return SERIES.map((s) => ({
       key: s.key,
       color: s.color,
+      dash: s.dash,
       data: ordered.flatMap((r) => {
         const v = r[s.key]
-        return v == null
-          ? []
-          : [{ x: new Date(r.played_at).getTime(), y: v }]
+        return v == null ? [] : [{ x: new Date(r.played_at).getTime(), y: v }]
       }),
     }))
   }, [rounds])
+
+  const stats: DetailedStats | null = useMemo(
+    () => (rounds.length > 0 ? computeDetailedStats(rounds, DEFAULT_HANDICAP) : null),
+    [rounds],
+  )
 
   return (
     <View style={{ flex: 1, backgroundColor: '#F2EEE5' }}>
@@ -174,7 +182,7 @@ export default function Stats() {
           </View>
         ) : (
           <>
-            <Section kicker="By the numbers">
+            <Section kicker={`Avg — last ${rounds.length} rounds`}>
               <View
                 style={{
                   flexDirection: 'row',
@@ -232,14 +240,14 @@ export default function Stats() {
               </View>
             </Section>
 
-            <Section kicker={`SG by category — last ${rounds.length} rounds`}>
+            <Section kicker={`SG trend — last ${rounds.length} rounds`}>
               <VictoryChart
                 height={CHART_HEIGHT}
                 width={screenWidth - 36}
                 padding={{ top: 16, right: 12, bottom: CHART_BOTTOM, left: 32 }}
               >
                 <VictoryAxis
-                  offsetY={CHART_HEIGHT - CHART_BOTTOM}
+                  offsetY={CHART_BOTTOM}
                   tickFormat={(t) =>
                     new Date(t).toLocaleDateString('en-US', {
                       month: 'short',
@@ -254,17 +262,35 @@ export default function Stats() {
                 />
                 <VictoryAxis
                   dependentAxis
+                  tickValues={[-1.5, -1, -0.5, 0, 0.5, 1, 1.5]}
                   style={{
                     axis: { stroke: '#D9D2BF' },
                     tickLabels: { fontSize: 9, fill: '#8A8B7E' },
                     grid: { stroke: '#EBE5D6' },
                   }}
                 />
+                {/* Zero reference line */}
+                {chartSeries[0]?.data.length >= 2 && (
+                  <VictoryLine
+                    data={[
+                      { x: chartSeries[0].data[0].x, y: 0 },
+                      { x: chartSeries[0].data[chartSeries[0].data.length - 1].x, y: 0 },
+                    ]}
+                    style={{ data: { stroke: '#9F9580', strokeWidth: 1, strokeDasharray: '3,3' } }}
+                  />
+                )}
                 {chartSeries.map((s) => (
                   <VictoryLine
                     key={s.key}
                     data={s.data}
-                    style={{ data: { stroke: s.color, strokeWidth: 1.5 } }}
+                    interpolation="monotoneX"
+                    style={{
+                      data: {
+                        stroke: s.color,
+                        strokeWidth: 1.5,
+                        strokeDasharray: s.dash ? '5,3' : '0',
+                      },
+                    }}
                   />
                 ))}
               </VictoryChart>
@@ -279,15 +305,16 @@ export default function Stats() {
                 {SERIES.map((s) => (
                   <View
                     key={s.key}
-                    style={{
-                      flexDirection: 'row',
-                      alignItems: 'center',
-                      gap: 6,
-                    }}
+                    style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}
                   >
-                    <View
-                      style={{ width: 10, height: 2, backgroundColor: s.color }}
-                    />
+                    {s.dash ? (
+                      <View style={{ flexDirection: 'row', gap: 2, alignItems: 'center' }}>
+                        <View style={{ width: 4, height: 2, backgroundColor: s.color }} />
+                        <View style={{ width: 4, height: 2, backgroundColor: s.color }} />
+                      </View>
+                    ) : (
+                      <View style={{ width: 10, height: 2, backgroundColor: s.color }} />
+                    )}
                     <Text style={{ color: '#5C6356', fontSize: 11 }}>
                       {s.label}
                     </Text>
@@ -295,6 +322,178 @@ export default function Stats() {
                 ))}
               </View>
             </Section>
+
+            {stats && (
+              <Section kicker="Scoring">
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginBottom: 14 }}>
+                  <StatTile label="Avg score" value={fmtNum(stats.scoring.avgScore, 1)} />
+                  <StatTile label="Par 3 avg" value={fmtNum(stats.scoring.avgPar3, 2)} />
+                  <StatTile label="Par 4 avg" value={fmtNum(stats.scoring.avgPar4, 2)} />
+                  <StatTile label="Par 5 avg" value={fmtNum(stats.scoring.avgPar5, 2)} />
+                  <StatTile label="Front 9" value={fmtNum(stats.scoring.front9Avg, 1)} />
+                  <StatTile label="Back 9" value={fmtNum(stats.scoring.back9Avg, 1)} />
+                  <StatTile label="Best round" value={fmtInt(stats.scoring.bestRound)} />
+                  <StatTile label="Worst round" value={fmtInt(stats.scoring.worstRound)} />
+                </View>
+                <ScoringDistBar
+                  slices={stats.scoringDistribution.slices}
+                  total={stats.scoringDistribution.total}
+                />
+              </Section>
+            )}
+
+            {stats && (
+              <Section kicker="Ball striking">
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
+                  <StatTile label="Fairways" value={fmtPct(stats.ballStriking.fairwayPct)} />
+                  <StatTile label="GIR" value={fmtPct(stats.ballStriking.girPct)} />
+                  <StatTile
+                    label="Drive avg"
+                    value={stats.ballStriking.drivingDistanceAvg != null ? toDisplay(stats.ballStriking.drivingDistanceAvg) : '—'}
+                  />
+                  <StatTile
+                    label="Proximity"
+                    value={stats.ballStriking.proximityAvg != null ? toDisplay(stats.ballStriking.proximityAvg, 1) : '—'}
+                  />
+                </View>
+              </Section>
+            )}
+
+            {stats && (
+              <Section kicker="Short game">
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
+                  <StatTile label="Putts/round" value={fmtNum(stats.shortGame.puttsPerRound, 1)} />
+                  <StatTile label="Putts/GIR" value={fmtNum(stats.shortGame.puttsPerGir, 2)} />
+                  <StatTile label="3-putt rate" value={fmtPct(stats.shortGame.threePuttPct)} />
+                  <StatTile label="Up & down" value={fmtPct(stats.shortGame.upAndDownPct)} />
+                  <StatTile label="Scrambling" value={fmtPct(stats.shortGame.scramblingPct)} />
+                  <StatTile label="Sand save" value={fmtPct(stats.shortGame.sandSavePct)} />
+                </View>
+              </Section>
+            )}
+
+            {stats && (
+              <Section kicker="Patterns">
+                <Subkicker>Miss tendency</Subkicker>
+                {stats.missTendency.length === 0 ? (
+                  <Insufficient note="Need shot results logged to detect a tendency." />
+                ) : (
+                  <View style={{ borderTopWidth: 1, borderColor: '#D9D2BF' }}>
+                    {stats.missTendency.map((e) => (
+                      <StatRow
+                        key={e.result}
+                        label={e.result.replace(/_/g, ' ')}
+                        sub={`${e.count} shots`}
+                        value={`${e.pct.toFixed(0)}%`}
+                      />
+                    ))}
+                  </View>
+                )}
+
+                <Subkicker style={{ marginTop: 18 }}>Most costly lies</Subkicker>
+                {stats.costlyLies.length === 0 ? (
+                  <Insufficient note="Need ≥5 shots per lie type with results." />
+                ) : (
+                  <View style={{ borderTopWidth: 1, borderColor: '#D9D2BF' }}>
+                    {stats.costlyLies.slice(0, 5).map((e) => (
+                      <StatRow
+                        key={e.lie}
+                        label={e.lie.replace(/_/g, ' ')}
+                        sub={`${e.shots} shots`}
+                        value={e.avgQuality.toFixed(2)}
+                        valueColor={e.avgQuality < 0 ? '#A33A2A' : '#5C6356'}
+                      />
+                    ))}
+                  </View>
+                )}
+
+                <Subkicker style={{ marginTop: 18 }}>Club accuracy</Subkicker>
+                {stats.clubAccuracy.length === 0 ? (
+                  <Insufficient note="Need shots with start, aim, and end coords (≥3 per club)." />
+                ) : (
+                  <View style={{ flexDirection: 'row', gap: 14 }}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ ...KICKER, marginBottom: 8 }}>Most accurate</Text>
+                      <View style={{ borderTopWidth: 1, borderColor: '#D9D2BF' }}>
+                        {stats.clubAccuracy.slice(0, 5).map((e) => (
+                          <StatRow
+                            key={e.club}
+                            label={e.club.toUpperCase()}
+                            sub={`${e.shots} shots`}
+                            value={toDisplay(e.avgLateralYards, 1)}
+                          />
+                        ))}
+                      </View>
+                    </View>
+                    {stats.clubAccuracy.length > 5 && (
+                      <View style={{ flex: 1 }}>
+                        <Text style={{ ...KICKER, marginBottom: 8 }}>Least accurate</Text>
+                        <View style={{ borderTopWidth: 1, borderColor: '#D9D2BF' }}>
+                          {[...stats.clubAccuracy].reverse().slice(0, 5).map((e) => (
+                            <StatRow
+                              key={e.club}
+                              label={e.club.toUpperCase()}
+                              sub={`${e.shots} shots`}
+                              value={toDisplay(e.avgLateralYards, 1)}
+                            />
+                          ))}
+                        </View>
+                      </View>
+                    )}
+                  </View>
+                )}
+
+                <Subkicker style={{ marginTop: 18 }}>Slope impact</Subkicker>
+                {stats.slopeImpact.forward.length === 0 && stats.slopeImpact.side.length === 0 ? (
+                  <Insufficient note="Need shots with slope logged (≥3 per type)." />
+                ) : (
+                  <View style={{ flexDirection: 'row', gap: 14 }}>
+                    {stats.slopeImpact.forward.length > 0 && (
+                      <View style={{ flex: 1 }}>
+                        <Text style={{ ...KICKER, marginBottom: 8 }}>Forward</Text>
+                        <View style={{ borderTopWidth: 1, borderColor: '#D9D2BF' }}>
+                          {stats.slopeImpact.forward.map((e) => (
+                            <StatRow
+                              key={e.slope}
+                              label={e.slope.replace(/_/g, ' ')}
+                              sub={`${e.shots} shots`}
+                              value={e.avgQuality.toFixed(2)}
+                              valueColor={e.avgQuality < 0 ? '#A33A2A' : '#5C6356'}
+                            />
+                          ))}
+                        </View>
+                      </View>
+                    )}
+                    {stats.slopeImpact.side.length > 0 && (
+                      <View style={{ flex: 1 }}>
+                        <Text style={{ ...KICKER, marginBottom: 8 }}>Side</Text>
+                        <View style={{ borderTopWidth: 1, borderColor: '#D9D2BF' }}>
+                          {stats.slopeImpact.side.map((e) => (
+                            <StatRow
+                              key={e.slope}
+                              label={e.slope.replace(/_/g, ' ')}
+                              sub={`${e.shots} shots`}
+                              value={e.avgQuality.toFixed(2)}
+                              valueColor={e.avgQuality < 0 ? '#A33A2A' : '#5C6356'}
+                            />
+                          ))}
+                        </View>
+                      </View>
+                    )}
+                  </View>
+                )}
+
+                <Subkicker style={{ marginTop: 18 }}>Recovery from rough</Subkicker>
+                {stats.recovery.totalRoughShots === 0 ? (
+                  <Insufficient note="Need rough shots logged to compute recovery rate." />
+                ) : (
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
+                    <StatTile label="Recovery rate" value={fmtPct(stats.recovery.recoveryPct)} />
+                    <StatTile label="Rough shots" value={String(stats.recovery.totalRoughShots)} />
+                  </View>
+                )}
+              </Section>
+            )}
           </>
         )}
       </ScrollView>
@@ -324,4 +523,157 @@ function Section({
       {children}
     </View>
   )
+}
+
+function Subkicker({ children, style }: { children: React.ReactNode; style?: import('react-native').ViewStyle }) {
+  return (
+    <View style={style}>
+      <Text style={{ ...KICKER, marginBottom: 8 }}>{children}</Text>
+    </View>
+  )
+}
+
+function StatTile({ label, value }: { label: string; value: string }) {
+  return (
+    <View
+      style={{
+        width: '47%',
+        backgroundColor: '#FBF8F1',
+        borderWidth: 1,
+        borderColor: '#D9D2BF',
+        borderRadius: 4,
+        padding: 12,
+      }}
+    >
+      <Text style={{ ...KICKER, marginBottom: 6 }}>{label}</Text>
+      <Text
+        style={{
+          color: '#1C211C',
+          fontSize: 20,
+          fontStyle: 'italic',
+          fontWeight: '500',
+          fontVariant: ['tabular-nums'],
+        }}
+      >
+        {value}
+      </Text>
+    </View>
+  )
+}
+
+function StatRow({
+  label,
+  sub,
+  value,
+  valueColor = '#1C211C',
+}: {
+  label: string
+  sub: string
+  value: string
+  valueColor?: string
+}) {
+  return (
+    <View
+      style={{
+        flexDirection: 'row',
+        alignItems: 'baseline',
+        justifyContent: 'space-between',
+        borderBottomWidth: 1,
+        borderColor: '#D9D2BF',
+        paddingVertical: 10,
+      }}
+    >
+      <Text
+        style={{
+          color: '#1C211C',
+          fontSize: 15,
+          fontWeight: '500',
+          textTransform: 'capitalize',
+          flex: 1,
+        }}
+      >
+        {label}
+      </Text>
+      <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 10 }}>
+        <Text style={{ ...KICKER, color: '#8A8B7E' }}>{sub}</Text>
+        <Text
+          style={{
+            color: valueColor,
+            fontSize: 20,
+            fontStyle: 'italic',
+            fontWeight: '500',
+            fontVariant: ['tabular-nums'],
+          }}
+        >
+          {value}
+        </Text>
+      </View>
+    </View>
+  )
+}
+
+function ScoringDistBar({
+  slices,
+  total,
+}: {
+  slices: import('@oga/core').ScoringDistributionSlice[]
+  total: number
+}) {
+  if (total === 0) return <Insufficient note="Need scored holes to plot the distribution." />
+  const visible = slices.filter((s) => s.count > 0)
+  return (
+    <View>
+      <View
+        style={{
+          flexDirection: 'row',
+          height: 44,
+          borderWidth: 1,
+          borderColor: '#D9D2BF',
+          borderRadius: 4,
+          overflow: 'hidden',
+          marginBottom: 10,
+        }}
+      >
+        {visible.map((s) => (
+          <View key={s.key} style={{ flex: s.count, backgroundColor: s.color, justifyContent: 'center', alignItems: 'center' }}>
+            {s.pct >= 8 && (
+              <Text style={{ color: '#F2EEE5', fontSize: 11, fontWeight: '500', fontVariant: ['tabular-nums'] }}>
+                {s.pct.toFixed(0)}%
+              </Text>
+            )}
+          </View>
+        ))}
+      </View>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
+        {slices.map((s) => (
+          <View key={s.key} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <View style={{ width: 8, height: 8, backgroundColor: s.color, borderRadius: 2 }} />
+            <Text style={{ color: '#5C6356', fontSize: 11 }}>
+              {s.label} {s.count} · {s.pct.toFixed(1)}%
+            </Text>
+          </View>
+        ))}
+      </View>
+    </View>
+  )
+}
+
+function Insufficient({ note }: { note: string }) {
+  return (
+    <Text style={{ color: '#8A8B7E', fontSize: 13, fontStyle: 'italic', marginBottom: 8 }}>
+      {note}
+    </Text>
+  )
+}
+
+function fmtNum(v: number | null, d: number): string {
+  return v != null ? v.toFixed(d) : '—'
+}
+
+function fmtInt(v: number | null): string {
+  return v != null ? String(Math.round(v)) : '—'
+}
+
+function fmtPct(v: number | null): string {
+  return v != null ? `${v.toFixed(1)}%` : '—'
 }

@@ -322,7 +322,7 @@ export default function NewRound() {
   }
 
   return (
-    <View style={{ flex: 1, backgroundColor: '#F2EEE5', padding: 18 }}>
+    <View style={{ flex: 1, backgroundColor: '#F2EEE5', paddingTop: 52, paddingHorizontal: 18, paddingBottom: 18 }}>
       <Text style={{ ...KICKER, marginBottom: 6 }}>
         {mode === 'past' ? 'Log past round' : 'Start live round'}
       </Text>

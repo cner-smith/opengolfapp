@@ -72,7 +72,12 @@ export function useHoleCamera({
   const prevPhaseRef = useRef<HoleMapPhase>(phase)
   const reframePlaceBallRef = useRef(false)
   useEffect(() => {
-    if (phase === 'PLACE_BALL' && prevPhaseRef.current !== 'PLACE_BALL') {
+    if (
+      phase === 'PLACE_BALL' &&
+      prevPhaseRef.current !== 'PLACE_BALL' &&
+      prevPhaseRef.current !== 'PIN' &&
+      prevPhaseRef.current !== 'TEE'
+    ) {
       reframePlaceBallRef.current = true
     }
     prevPhaseRef.current = phase
@@ -115,7 +120,11 @@ export function useHoleCamera({
       : 0
     const distYd = target ? distanceYards(ball, target) : null
     const zoom =
-      distYd == null ? 15 : distYd >= 250 ? 14 : distYd >= 120 ? 15 : 16
+      distYd == null ? 16
+      : distYd >= 300 ? 16
+      : distYd >= 150 ? 16.5
+      : distYd >= 80 ? 17
+      : 17
     cameraRef.current.setCamera({
       centerCoordinate: toCoord(focus),
       zoomLevel: zoom,

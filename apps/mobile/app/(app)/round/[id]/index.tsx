@@ -455,14 +455,14 @@ export default function RoundIndex() {
                 accessibilityRole="button"
                 accessibilityLabel={`Hole ${h.number}, par ${h.par}${score != null && score > 0 ? `, score ${score}` : ', not played'}, view shots`}
                 onPress={() => setShotsForHole(h)}
-                style={({ pressed }) => ({
+                android_ripple={{ color: '#EBE5D6' }}
+                style={{
                   flexDirection: 'row',
                   paddingVertical: 10,
                   borderBottomWidth: 1,
                   borderColor: '#EBE5D6',
                   paddingHorizontal: 6,
-                  backgroundColor: pressed ? '#EBE5D6' : 'transparent',
-                })}
+                }}
               >
                 <Text
                   style={{
@@ -548,6 +548,9 @@ export default function RoundIndex() {
         }
         unit={unit}
         onClose={() => setShotsForHole(null)}
+        onShotUpdated={(updated) =>
+          setShots((prev) => prev.map((s) => (s.id === updated.id ? updated : s)))
+        }
       />
     </View>
   )

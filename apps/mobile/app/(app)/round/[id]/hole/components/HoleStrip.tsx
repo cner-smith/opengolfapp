@@ -10,23 +10,27 @@ type HoleScoreRow = Database['public']['Tables']['hole_scores']['Row']
 
 interface HoleStripProps {
   pinPlacementOpen: boolean
+  teePlacementOpen: boolean
   roundState: RoundState
   ball: { lat: number; lng: number } | null
   aim: { lat: number; lng: number } | null
   saving: boolean
   roundPin: { lat: number; lng: number } | null
+  tee: { lat: number; lng: number } | null
   nearPin: boolean
   totalShotsThisHole: number
   holeNumber: number
   holes: HoleRow[]
   holeScores: HoleScoreRow[]
   onCancelPinPlacement: () => void
+  onCancelTeePlacement: () => void
   onClearRoundPin: () => void
   onConfirmAim: () => void
   onRePlaceBall: () => void
   onSkipAim: () => void
   onMarkBallHere: () => void
   onOpenPinPlacement: () => void
+  onOpenTeePlacement: () => void
   onFinishHole: () => void
   onPrev: () => void
   onNext: () => void
@@ -35,23 +39,27 @@ interface HoleStripProps {
 
 export function HoleStrip({
   pinPlacementOpen,
+  teePlacementOpen,
   roundState,
   ball,
   aim,
   saving,
   roundPin,
+  tee,
   nearPin,
   totalShotsThisHole,
   holeNumber,
   holes,
   holeScores,
   onCancelPinPlacement,
+  onCancelTeePlacement,
   onClearRoundPin,
   onConfirmAim,
   onRePlaceBall,
   onSkipAim,
   onMarkBallHere,
   onOpenPinPlacement,
+  onOpenTeePlacement,
   onFinishHole,
   onPrev,
   onNext,
@@ -120,6 +128,33 @@ export function HoleStrip({
               </Text>
             </Pressable>
           )}
+        </View>
+      ) : teePlacementOpen ? (
+        <View style={{ flexDirection: 'row', gap: 8, marginBottom: 10 }}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Cancel tee placement"
+            onPress={onCancelTeePlacement}
+            style={{
+              flex: 1,
+              borderWidth: 1,
+              borderColor: '#D9D2BF',
+              paddingVertical: 14,
+              alignItems: 'center',
+              borderRadius: 2,
+            }}
+          >
+            <Text
+              style={{
+                color: '#5C6356',
+                fontSize: 14,
+                fontWeight: '600',
+                letterSpacing: 0.3,
+              }}
+            >
+              Cancel
+            </Text>
+          </Pressable>
         </View>
       ) : roundState === 'SET_AIM' ? (
         <>
@@ -206,29 +241,45 @@ export function HoleStrip({
                   : 'Drop the ball to mark'}
             </Text>
           </Pressable>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={roundPin ? 'Move pin' : 'Place pin'}
-            onPress={onOpenPinPlacement}
+          <View
             style={{
-              paddingVertical: 8,
-              alignItems: 'center',
+              flexDirection: 'row',
+              justifyContent: 'space-between',
               marginBottom: 10,
             }}
           >
-            <Text
-              style={{
-                ...KICKER,
-                color: nearPin ? '#A66A1F' : '#8A8B7E',
-              }}
+            {!tee && (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Place tee box"
+                onPress={onOpenTeePlacement}
+                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                style={{ padding: 6 }}
+              >
+                <Text style={{ ...KICKER, color: '#5C6356' }}>Place tee box</Text>
+              </Pressable>
+            )}
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={roundPin ? 'Move pin' : 'Place pin'}
+              onPress={onOpenPinPlacement}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+              style={{ padding: 6, marginLeft: tee ? 'auto' : undefined }}
             >
-              {roundPin
-                ? 'Move pin'
-                : nearPin
-                  ? 'On the green — place today\'s pin'
-                  : 'On the green'}
-            </Text>
-          </Pressable>
+              <Text
+                style={{
+                  ...KICKER,
+                  color: nearPin ? '#A66A1F' : '#8A8B7E',
+                }}
+              >
+                {roundPin
+                  ? 'Move pin'
+                  : nearPin
+                    ? 'On the green — place today\'s pin'
+                    : 'Place pin location'}
+              </Text>
+            </Pressable>
+          </View>
           {totalShotsThisHole > 0 && (
             <Pressable
               accessibilityRole="button"

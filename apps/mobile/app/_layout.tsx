@@ -5,6 +5,7 @@ import { StatusBar } from 'expo-status-bar'
 import { GestureHandlerRootView } from 'react-native-gesture-handler'
 import * as SplashScreen from 'expo-splash-screen'
 import { useFonts } from 'expo-font'
+import AsyncStorage from '@react-native-async-storage/async-storage'
 import Animated, {
   Easing,
   cancelAnimation,
@@ -60,10 +61,28 @@ function RootLayoutContent() {
   const supportOpacity = useSharedValue(0)
   const [overlayMounted, setOverlayMounted] = useState(true)
   const [readyToDismiss, setReadyToDismiss] = useState(false)
+  // null = still checking storage, true = animate, false = skip
+  const [shouldAnimate, setShouldAnimate] = useState<boolean | null>(null)
   // Guards the staged-fade effect against double-animation if the
   // component re-renders mid-fade (font reload, fast refresh). Without
   // this the withDelay timings would re-arm and stutter.
   const animationStarted = useRef(false)
+
+  // Check whether a fresh login set the pending-splash flag. If not set,
+  // the user is resuming an existing session — skip the animation and
+  // dismiss the loading overlay as soon as fonts + auth are ready.
+  useEffect(() => {
+    AsyncStorage.getItem('oga.pending-splash')
+      .then((v) => {
+        if (v === '1') {
+          AsyncStorage.removeItem('oga.pending-splash').catch(() => {})
+          setShouldAnimate(true)
+        } else {
+          setShouldAnimate(false)
+        }
+      })
+      .catch(() => setShouldAnimate(false))
+  }, [])
 
   // Hide native splash whenever fonts are loaded; idempotent.
   useEffect(() => {
@@ -77,7 +96,7 @@ function RootLayoutContent() {
   // the second effect below — this one never re-runs once started.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
-    if (!fontsLoaded || animationStarted.current) return
+    if (!fontsLoaded || shouldAnimate !== true || animationStarted.current) return
     animationStarted.current = true
     if (reducedMotion) {
       // Skip the staged choreography but still hold briefly so the
@@ -114,18 +133,22 @@ function RootLayoutContent() {
     supportOpacity.value = 1
   }, [reducedMotion, logoOpacity, taglineOpacity, supportOpacity])
 
-  // Mark the overlay as ready to dismiss after the staged fade-ins
-  // settle. The actual dismiss waits on auth too — we never tear the
-  // overlay down while a profile fetch is still in flight.
+  // Mark the overlay as ready to dismiss. Two paths:
+  // - No animation (resuming session): ready immediately once flag check resolves.
+  // - Animation: ready after the staged hold completes.
   useEffect(() => {
-    if (!fontsLoaded) return
+    if (!fontsLoaded || shouldAnimate === null) return
+    if (!shouldAnimate) {
+      setReadyToDismiss(true)
+      return
+    }
     const hold = reducedMotion ? REDUCED_MOTION_HOLD : HOLD_BEFORE_DISMISS
     const t = setTimeout(() => setReadyToDismiss(true), hold)
     return () => clearTimeout(t)
-  }, [fontsLoaded, reducedMotion])
+  }, [fontsLoaded, shouldAnimate, reducedMotion])
 
   useEffect(() => {
-    if (!fontsLoaded || authLoading || !readyToDismiss) return
+    if (!fontsLoaded || authLoading || !readyToDismiss || shouldAnimate === null) return
     overlayOpacity.value = withTiming(
       0,
       { duration: FADE_OUT_DURATION, easing: Easing.out(Easing.cubic) },
@@ -176,22 +199,24 @@ function RootLayoutContent() {
           pointerEvents={authLoading || !readyToDismiss ? 'auto' : 'none'}
           style={[StyleSheet.absoluteFill, styles.overlay, overlayStyle]}
         >
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Skip splash"
-            onPress={handleSkip}
-            style={styles.skipHit}
-          >
-            <Animated.Text style={[styles.wordmark, logoStyle]}>
-              OGA
-            </Animated.Text>
-            <Animated.Text style={[styles.tagline, taglineStyle]}>
-              Track every shot.
-            </Animated.Text>
-            <Animated.Text style={[styles.support, supportStyle]}>
-              Free and open source · Ko-fi support appreciated
-            </Animated.Text>
-          </Pressable>
+          {shouldAnimate && (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Skip splash"
+              onPress={handleSkip}
+              style={styles.skipHit}
+            >
+              <Animated.Text style={[styles.wordmark, logoStyle]}>
+                OGA
+              </Animated.Text>
+              <Animated.Text style={[styles.tagline, taglineStyle]}>
+                Track every shot.
+              </Animated.Text>
+              <Animated.Text style={[styles.support, supportStyle]}>
+                Free and open source · Ko-fi support appreciated
+              </Animated.Text>
+            </Pressable>
+          )}
         </Animated.View>
       )}
     </GestureHandlerRootView>
