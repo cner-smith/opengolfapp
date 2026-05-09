@@ -98,7 +98,7 @@ export function HoleMap({
   const isAimPhase = phase === 'SET_AIM'
   const isPlaceBallPhase = phase === 'PLACE_BALL'
 
-  const cameraRef = useHoleCamera({ center, ball, pin, roundPin, phase })
+  const cameraRef = useHoleCamera({ center, ball, pin, roundPin, phase, styleLoaded })
 
   const previousShotsLen = previousShots?.length ?? 0
   const { aimGhosts, aimGhostFeatures } = useAimGhosts({
