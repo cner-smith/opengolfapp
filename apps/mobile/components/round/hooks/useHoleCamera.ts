@@ -13,6 +13,7 @@ interface UseHoleCameraOpts {
   pin?: LatLng | null
   roundPin?: LatLng | null
   phase: HoleMapPhase
+  styleLoaded: boolean
 }
 
 // Owns every camera positioning side-effect for HoleMap. The hook
@@ -24,6 +25,7 @@ export function useHoleCamera({
   pin,
   roundPin,
   phase,
+  styleLoaded,
 }: UseHoleCameraOpts) {
   const cameraRef = useRef<Mapbox.Camera>(null)
   const cameraInitialized = useRef(false)
@@ -40,6 +42,7 @@ export function useHoleCamera({
   // on the device because it framed grass at an angle before the player
   // had even decided what they were aiming at.
   useEffect(() => {
+    if (!styleLoaded) return
     if (cameraInitialized.current) return
     if (!cameraRef.current) return
     cameraRef.current.setCamera({
@@ -49,7 +52,7 @@ export function useHoleCamera({
       animationDuration: 400,
     })
     cameraInitialized.current = true
-  }, [center.lat, center.lng])
+  }, [styleLoaded, center.lat, center.lng])
 
   // When entering pin mode, zoom in on the stored pin so the user is
   // looking at the green.

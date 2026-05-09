@@ -163,7 +163,7 @@ export default function Home() {
           {firstName ? `Good round, ${firstName}.` : 'Good round.'}
         </Text>
         <Text style={{ color: '#5C6356', fontSize: 14, marginBottom: 22 }}>
-          Last {trend.length} round{trend.length === 1 ? '' : 's'}
+          Last {rounds.length} round{rounds.length === 1 ? '' : 's'}
         </Text>
 
         {rounds.length > 0 && (

@@ -58,6 +58,7 @@ export function useHoleState({
   const lastSavedShotLocalIdRef = useRef<number | null>(null)
   const [roundState, setRoundState] = useState<RoundState>('PLACE_BALL')
   const [gpsPosition, setGpsPosition] = useState<LatLng | null>(null)
+  const [gpsNonce, setGpsNonce] = useState(0)
   // First-use hint that "aim point = start line, drag to adjust." Gated
   // by AsyncStorage so it only appears the first time the player ever
   // sets an aim point on this device, then auto-dismisses after 3s.
@@ -160,7 +161,7 @@ export function useHoleState({
       kalmanStateRef.current = null
       manuallyPlacedRef.current = false
     }
-  }, [currentHoleId, isPastMode, roundState])
+  }, [currentHoleId, isPastMode, roundState, gpsNonce])
 
   // Hole change resets the filter — covered by the watch effect's
   // cleanup, but explicit here in case the watch effect short-circuits
@@ -178,6 +179,8 @@ export function useHoleState({
       if (state === 'background' || state === 'inactive') {
         gpsSubscriptionRef.current?.remove()
         gpsSubscriptionRef.current = null
+      } else if (state === 'active') {
+        setGpsNonce((n) => n + 1)
       }
     })
     return () => sub.remove()

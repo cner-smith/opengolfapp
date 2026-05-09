@@ -82,6 +82,7 @@ export function PastHoleShotsSheet({
   }
 
   return (
+    <>
     <Modal
       visible={visible}
       transparent
@@ -162,17 +163,29 @@ export function PastHoleShotsSheet({
         </View>
       </View>
 
-      {editingShot && (
-        <EditShotSheet
-          shot={editingShot}
-          clubs={clubs}
-          unit={unit}
-          saving={saving}
-          onSave={(updates) => handleSave(editingShot.id, updates)}
-          onClose={() => setEditingShot(null)}
-        />
-      )}
     </Modal>
+
+    <Modal
+      visible={visible && editingShot !== null}
+      transparent
+      animationType="slide"
+      onRequestClose={() => setEditingShot(null)}
+    >
+      <View style={{ flex: 1 }}>
+        <Pressable style={{ flex: 1 }} onPress={() => setEditingShot(null)} />
+        {editingShot && (
+          <EditShotSheet
+            shot={editingShot}
+            clubs={clubs}
+            unit={unit}
+            saving={saving}
+            onSave={(updates) => handleSave(editingShot.id, updates)}
+            onClose={() => setEditingShot(null)}
+          />
+        )}
+      </View>
+    </Modal>
+    </>
   )
 }
 
@@ -240,10 +253,6 @@ function EditShotSheet({ shot, clubs, saving, onSave, onClose }: EditShotSheetPr
   return (
     <View
       style={{
-        position: 'absolute',
-        bottom: 0,
-        left: 0,
-        right: 0,
         backgroundColor: '#FBF8F1',
         borderTopLeftRadius: 12,
         borderTopRightRadius: 12,

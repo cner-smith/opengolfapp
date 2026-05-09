@@ -108,9 +108,13 @@ export default function Signup() {
             source={{ uri: `https://oga.golf/captcha.html?siteKey=${TURNSTILE_SITE_KEY}` }}
             originWhitelist={['https://*', 'http://*']}
             onMessage={(event) => {
-              const msg = JSON.parse(event.nativeEvent.data)
-              if (msg.type === 'success') setCaptchaToken(msg.token)
-              else setCaptchaToken(null)
+              try {
+                const msg = JSON.parse(event.nativeEvent.data)
+                if (msg.type === 'success') setCaptchaToken(msg.token)
+                else setCaptchaToken(null)
+              } catch {
+                // ignore non-JSON WebView messages
+              }
             }}
             style={{ height: 65, marginBottom: 14 }}
             scrollEnabled={false}
