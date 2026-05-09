@@ -82,6 +82,7 @@ export function PastHoleShotsSheet({
   }
 
   return (
+    <>
     <Modal
       visible={visible}
       transparent
