@@ -70,7 +70,7 @@ export function SGTrendChart({ data }: SGTrendChartProps) {
         {/* Zero reference line so +/- is immediately readable */}
         {data.length >= 2 && (
           <VictoryLine
-            data={[{ x: data[0].x, y: 0 }, { x: data[data.length - 1].x, y: 0 }]}
+            data={[{ x: data[0]!.x, y: 0 }, { x: data[data.length - 1]!.x, y: 0 }]}
             style={{ data: { stroke: '#9F9580', strokeWidth: 1, strokeDasharray: '3,3' } }}
           />
         )}

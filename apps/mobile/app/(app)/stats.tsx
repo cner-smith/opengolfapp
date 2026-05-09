@@ -270,11 +270,11 @@ export default function Stats() {
                   }}
                 />
                 {/* Zero reference line */}
-                {chartSeries[0]?.data.length >= 2 && (
+                {(chartSeries[0]?.data.length ?? 0) >= 2 && (
                   <VictoryLine
                     data={[
-                      { x: chartSeries[0].data[0].x, y: 0 },
-                      { x: chartSeries[0].data[chartSeries[0].data.length - 1].x, y: 0 },
+                      { x: chartSeries[0]!.data[0]!.x, y: 0 },
+                      { x: chartSeries[0]!.data[chartSeries[0]!.data.length - 1]!.x, y: 0 },
                     ]}
                     style={{ data: { stroke: '#9F9580', strokeWidth: 1, strokeDasharray: '3,3' } }}
                   />
