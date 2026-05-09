@@ -54,6 +54,7 @@ interface HoleMapProps {
   onSetAim: (loc: LatLng) => void
   onSetBall: (loc: LatLng) => void
   onPlacePin?: (loc: LatLng) => void
+  onPlaceTee?: (loc: LatLng) => void
 }
 
 function toCoord(l: LatLng): [number, number] {
@@ -82,6 +83,7 @@ export function HoleMap({
   onSetAim,
   onSetBall,
   onPlacePin,
+  onPlaceTee,
 }: HoleMapProps) {
   const { toDisplay } = useUnits()
   const mapViewRef = useRef<Mapbox.MapView>(null)
@@ -92,6 +94,7 @@ export function HoleMap({
   const [styleLoaded, setStyleLoaded] = useState(false)
 
   const isPinMode = phase === 'PIN'
+  const isTeeMode = phase === 'TEE'
   const isAimPhase = phase === 'SET_AIM'
   const isPlaceBallPhase = phase === 'PLACE_BALL'
 
@@ -149,8 +152,10 @@ export function HoleMap({
     return Math.round(distanceYards(ball, effectivePin))
   }, [effectivePin, ball])
 
+  const showAim = isAimPhase || isPlaceBallPhase
+
   const aimLine = useMemo(() => {
-    if (!isAimPhase) return null
+    if (!showAim) return null
     if (!ball || !aim) return null
     return {
       type: 'Feature' as const,
@@ -160,17 +165,17 @@ export function HoleMap({
         coordinates: [toCoord(ball), toCoord(aim)],
       },
     }
-  }, [ball, aim, isAimPhase])
+  }, [ball, aim, showAim])
 
   const aimDistanceYards = useMemo(() => {
-    if (!isAimPhase || !ball || !aim) return null
+    if (!showAim || !ball || !aim) return null
     return Math.round(distanceYards(ball, aim))
-  }, [isAimPhase, ball, aim])
+  }, [showAim, ball, aim])
 
   const aimMidpoint: LatLng | null = useMemo(() => {
-    if (!isAimPhase || !ball || !aim) return null
+    if (!showAim || !ball || !aim) return null
     return { lat: (ball.lat + aim.lat) / 2, lng: (ball.lng + aim.lng) / 2 }
-  }, [isAimPhase, ball, aim])
+  }, [showAim, ball, aim])
 
   // Breadcrumb line through every previous shot start, with a final
   // segment to the current ball so the most recent leg is visible too.
@@ -215,6 +220,10 @@ export function HoleMap({
     if (!c) return
     if (isPinMode) {
       onPlacePin?.(c)
+      return
+    }
+    if (isTeeMode) {
+      onPlaceTee?.(c)
       return
     }
     // Tap-to-place-ball is only meaningful in PLACE_BALL. In SET_AIM we
@@ -289,6 +298,7 @@ export function HoleMap({
             <Mapbox.PointAnnotation
               id="effectivePin"
               coordinate={toCoord(effectivePin)}
+              anchor={{ x: 0.28, y: 0.91 }}
               draggable={isPinMode}
               onDragEnd={(e: unknown) => {
                 if (!isPinMode) return
@@ -314,11 +324,11 @@ export function HoleMap({
             </Mapbox.PointAnnotation>
           )}
 
-          {isAimPhase && aim && (
+          {showAim && aim && (
             <Mapbox.PointAnnotation
               id="aim"
               coordinate={toCoord(aim)}
-              draggable
+              draggable={isAimPhase}
               onDrag={(e: unknown) => {
                 const c = extractCoord(e)
                 if (c) onSetAim(c)
@@ -357,7 +367,11 @@ export function HoleMap({
               draggable={isPlaceBallPhase}
               onDragEnd={(e: unknown) => {
                 const c = extractCoord(e)
-                if (c) onSetBall(c)
+                // Ignore micro-drags (< 5 yd) — finger tremor or an
+                // accidental press-and-release would otherwise freeze
+                // GPS tracking for the rest of this PLACE_BALL cycle.
+                if (!c || distanceYards(ball, c) < 5) return
+                onSetBall(c)
               }}
             >
               {/* 44pt transparent hit area so the marker is comfortable
@@ -382,8 +396,8 @@ export function HoleMap({
           )}
         </Mapbox.MapView>
 
-        <TopHint isPinMode={isPinMode} isAimPhase={isAimPhase} />
-        {missingHoleLayout && !isPinMode && <MissingLayoutBanner />}
+        <TopHint isPinMode={isPinMode} isAimPhase={isAimPhase} isTeeMode={isTeeMode} />
+        {missingHoleLayout && !isPinMode && !isTeeMode && <MissingLayoutBanner />}
         {!isPinMode && pinDistance !== null && (
           <PinDistancePill display={toDisplay(pinDistance)} />
         )}

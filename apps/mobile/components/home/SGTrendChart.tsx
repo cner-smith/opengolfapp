@@ -14,6 +14,15 @@ interface SGTrendChartProps {
   data: { x: number; y: number }[]
 }
 
+const HEIGHT = 200
+const BOTTOM = 28
+// Pin x-axis to chart bottom regardless of where y=0 falls.
+// Victory's `bottom` transform is `y = height - offsetY`, so offsetY=BOTTOM
+// lands the axis at height-BOTTOM = bottom of the chart area. The prior
+// value (HEIGHT-BOTTOM=172) inverted this, placing the axis near the top
+// where Victory ignores it and falls back to the y=0 data position.
+const X_AXIS_Y = BOTTOM
+
 export function SGTrendChart({ data }: SGTrendChartProps) {
   const { width: screenWidth } = useWindowDimensions()
   return (
@@ -29,11 +38,12 @@ export function SGTrendChart({ data }: SGTrendChartProps) {
         <Text style={KICKER}>SG total trend</Text>
       </View>
       <VictoryChart
-        height={200}
+        height={HEIGHT}
         width={screenWidth - 36}
-        padding={{ top: 12, right: 16, bottom: 28, left: 32 }}
+        padding={{ top: 12, right: 16, bottom: BOTTOM, left: 32 }}
       >
         <VictoryAxis
+          offsetY={X_AXIS_Y}
           style={{
             axis: { stroke: '#D9D2BF' },
             tickLabels: {
@@ -46,6 +56,7 @@ export function SGTrendChart({ data }: SGTrendChartProps) {
         />
         <VictoryAxis
           dependentAxis
+          tickValues={[-0.5, 0, 0.5]}
           style={{
             axis: { stroke: '#D9D2BF' },
             tickLabels: {
@@ -56,8 +67,16 @@ export function SGTrendChart({ data }: SGTrendChartProps) {
             grid: { stroke: '#EBE5D6', strokeDasharray: '0' },
           }}
         />
+        {/* Zero reference line so +/- is immediately readable */}
+        {data.length >= 2 && (
+          <VictoryLine
+            data={[{ x: data[0]!.x, y: 0 }, { x: data[data.length - 1]!.x, y: 0 }]}
+            style={{ data: { stroke: '#9F9580', strokeWidth: 1, strokeDasharray: '3,3' } }}
+          />
+        )}
         <VictoryLine
           data={data}
+          interpolation="monotoneX"
           style={{ data: { stroke: '#1F3D2C', strokeWidth: 1.5 } }}
         />
       </VictoryChart>

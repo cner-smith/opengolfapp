@@ -1,6 +1,7 @@
 import { Modal, View } from 'react-native'
 import { GestureHandlerRootView } from 'react-native-gesture-handler'
 import type { Database } from '@oga/supabase'
+import type { LieType } from '@oga/core'
 import {
   ShotLogger,
   type ShotLoggerValue,
@@ -48,6 +49,7 @@ interface HoleModalsProps {
   onPersistPutt: (v: PuttingValue) => Promise<void>
   onCloseLogger: () => void
   onClosePuttingSheet: () => void
+  onSwapPuttingToShot: (lieType: LieType) => void
   onConfirmDelete: () => void
   onCancelDelete: () => void
   onConfirmLeave: () => void
@@ -90,6 +92,7 @@ export function HoleModals(props: HoleModalsProps) {
     onPersistPutt,
     onCloseLogger,
     onClosePuttingSheet,
+    onSwapPuttingToShot,
     onConfirmDelete,
     onCancelDelete,
     onConfirmLeave,
@@ -143,6 +146,7 @@ export function HoleModals(props: HoleModalsProps) {
               }
               onSave={onPersistPutt}
               onClose={onClosePuttingSheet}
+              onChangeLie={onSwapPuttingToShot}
             />
           </View>
         </GestureHandlerRootView>

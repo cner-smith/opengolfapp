@@ -9,7 +9,11 @@ import {
   View,
 } from 'react-native'
 import { Link, useRouter } from 'expo-router'
+import AsyncStorage from '@react-native-async-storage/async-storage'
+import { WebView } from 'react-native-webview'
 import { supabase } from '../../lib/supabase'
+
+const TURNSTILE_SITE_KEY = process.env.EXPO_PUBLIC_TURNSTILE_SITE_KEY
 
 export default function Signup() {
   const router = useRouter()
@@ -18,26 +22,29 @@ export default function Signup() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null)
+
+  const captchaEnabled = Boolean(TURNSTILE_SITE_KEY)
+  const canSubmit = !loading && (!captchaEnabled || captchaToken !== null)
 
   async function handleSubmit() {
     setLoading(true)
     setError(null)
-    // TODO(#113-mobile): Cloudflare Turnstile CAPTCHA on mobile signup.
-    // Web signup passes a `captchaToken` to Supabase via @marsidev/
-    // react-turnstile; the mobile equivalent needs a WebView-based
-    // Turnstile widget (or the Supabase-hosted hCaptcha challenge).
-    // Bot signups via the mobile client are rare today, so deferred
-    // until web CAPTCHA proves out the wider abuse-prevention story.
     const { error: signUpError } = await supabase.auth.signUp({
       email,
       password,
-      options: { data: { username } },
+      options: {
+        data: { username },
+        ...(captchaToken ? { captchaToken } : {}),
+      },
     })
     setLoading(false)
     if (signUpError) {
       setError(signUpError.message)
+      setCaptchaToken(null)
       return
     }
+    await AsyncStorage.setItem('oga.pending-splash', '1').catch(() => {})
     router.replace('/(app)')
   }
 
@@ -96,6 +103,19 @@ export default function Signup() {
           onChangeText={setPassword}
           style={{ ...inputStyle, marginBottom: 14 }}
         />
+        {captchaEnabled && (
+          <WebView
+            source={{ uri: `https://oga.golf/captcha.html?siteKey=${TURNSTILE_SITE_KEY}` }}
+            originWhitelist={['https://*', 'http://*']}
+            onMessage={(event) => {
+              const msg = JSON.parse(event.nativeEvent.data)
+              if (msg.type === 'success') setCaptchaToken(msg.token)
+              else setCaptchaToken(null)
+            }}
+            style={{ height: 65, marginBottom: 14 }}
+            scrollEnabled={false}
+          />
+        )}
         {error && (
           <Text style={{ color: '#A32D2D', fontSize: 13, marginBottom: 10 }}>
             {error}
@@ -103,13 +123,13 @@ export default function Signup() {
         )}
         <Pressable
           onPress={handleSubmit}
-          disabled={loading}
+          disabled={!canSubmit}
           style={{
             backgroundColor: '#111111',
             borderRadius: 10,
             paddingVertical: 13,
             alignItems: 'center',
-            opacity: loading ? 0.5 : 1,
+            opacity: !canSubmit ? 0.5 : 1,
           }}
         >
           <Text style={{ color: '#FFFFFF', fontSize: 13, fontWeight: '500' }}>

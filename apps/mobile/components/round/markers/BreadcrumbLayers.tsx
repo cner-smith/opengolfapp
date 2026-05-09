@@ -31,8 +31,11 @@ export function BreadcrumbLayers({
   if (isPinMode) return null
   return (
     <>
-      {styleLoaded && previousShotsLine && (
-        <Mapbox.ShapeSource id="prevShotsLine" shape={previousShotsLine}>
+      {styleLoaded && (
+        <Mapbox.ShapeSource
+          id="prevShotsLine"
+          shape={previousShotsLine ?? { type: 'FeatureCollection', features: [] }}
+        >
           <Mapbox.LineLayer
             id="prevShotsLineLayer"
             style={{

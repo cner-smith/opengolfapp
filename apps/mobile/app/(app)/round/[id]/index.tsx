@@ -14,10 +14,13 @@ import { formatSG } from '@oga/core'
 import type { Database } from '@oga/supabase'
 import { supabase } from '../../../../lib/supabase'
 import { ShareableScorecardCard } from '../../../../components/round/ShareableScorecardCard'
+import { PastHoleShotsSheet } from '../../../../components/round/PastHoleShotsSheet'
+import { useUnits } from '../../../../hooks/useUnits'
 
 type RoundRow = Database['public']['Tables']['rounds']['Row']
 type HoleRow = Database['public']['Tables']['holes']['Row']
 type HoleScoreRow = Database['public']['Tables']['hole_scores']['Row']
+type ShotRow = Database['public']['Tables']['shots']['Row']
 
 const KICKER: import('react-native').TextStyle = {
   color: '#8A8B7E',
@@ -38,13 +41,20 @@ export default function RoundIndex() {
   const [round, setRound] = useState<RoundRow | null>(null)
   const [holes, setHoles] = useState<HoleRow[]>([])
   const [holeScores, setHoleScores] = useState<HoleScoreRow[]>([])
+  const [shots, setShots] = useState<ShotRow[]>([])
   const [courseName, setCourseName] = useState<string>('Round')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [redirectToLive, setRedirectToLive] = useState(false)
   const [sharing, setSharing] = useState(false)
   const [shareTone, setShareTone] = useState<'light' | 'dark'>('light')
+  // Selected hole for the read-only shots sheet. The sheet is the
+  // entire past-round drill-down — we deliberately do NOT navigate
+  // back into the live HoleScreen route on tap (mode=past would drop
+  // the player into the place-ball state machine on a finalized round).
+  const [shotsForHole, setShotsForHole] = useState<HoleRow | null>(null)
   const shareCardRef = useRef<View>(null)
+  const { unit } = useUnits()
 
   useEffect(() => {
     if (!id) return
@@ -82,6 +92,21 @@ export default function RoundIndex() {
         if (hsRes.error) throw hsRes.error
         setHoles(hRes.data ?? [])
         setHoleScores(hsRes.data ?? [])
+        // Fetch shots for all hole_scores in this round so the read-only
+        // hole drill-down sheet can render without a per-tap query. Past
+        // rounds are bounded (≤18 holes, max ~10 shots/hole), so a single
+        // pull on mount is fine.
+        const holeScoreIds = (hsRes.data ?? []).map((hs) => hs.id)
+        if (holeScoreIds.length > 0) {
+          const { data: shotData, error: shotErr } = await supabase
+            .from('shots')
+            .select('*')
+            .in('hole_score_id', holeScoreIds)
+            .order('shot_number')
+          if (!active) return
+          if (shotErr) throw shotErr
+          setShots(shotData ?? [])
+        }
       } catch (err) {
         if (!active) return
         setError((err as Error).message)
@@ -417,14 +442,20 @@ export default function RoundIndex() {
             >
               +/−
             </Text>
+            {/* Header spacer for the row affordance arrow. */}
+            <Text style={{ width: 18, marginLeft: 6 }}> </Text>
           </View>
           {sortedHoles.map((h) => {
             const hs = scoresByHoleId.get(h.id)
             const score = hs?.score ?? null
             const d = score != null && score > 0 ? score - h.par : null
             return (
-              <View
+              <Pressable
                 key={h.id}
+                accessibilityRole="button"
+                accessibilityLabel={`Hole ${h.number}, par ${h.par}${score != null && score > 0 ? `, score ${score}` : ', not played'}, view shots`}
+                onPress={() => setShotsForHole(h)}
+                android_ripple={{ color: '#EBE5D6' }}
                 style={{
                   flexDirection: 'row',
                   paddingVertical: 10,
@@ -483,11 +514,44 @@ export default function RoundIndex() {
                 >
                   {d == null ? '—' : d === 0 ? 'E' : d > 0 ? `+${d}` : `${d}`}
                 </Text>
-              </View>
+                {/* Persistent affordance — pressed-only background gave
+                    no resting hint that rows were tappable. Arrow sits
+                    in muted ink so it doesn't fight the score columns. */}
+                <Text
+                  style={{
+                    width: 18,
+                    textAlign: 'right',
+                    fontSize: 14,
+                    color: '#8A8B7E',
+                    marginLeft: 6,
+                  }}
+                >
+                  →
+                </Text>
+              </Pressable>
             )
           })}
         </View>
       </ScrollView>
+      <PastHoleShotsSheet
+        visible={shotsForHole != null}
+        holeNumber={shotsForHole?.number ?? null}
+        par={shotsForHole?.par ?? null}
+        shots={
+          shotsForHole
+            ? shots.filter(
+                (s) =>
+                  s.hole_score_id ===
+                  scoresByHoleId.get(shotsForHole.id)?.id,
+              )
+            : []
+        }
+        unit={unit}
+        onClose={() => setShotsForHole(null)}
+        onShotUpdated={(updated) =>
+          setShots((prev) => prev.map((s) => (s.id === updated.id ? updated : s)))
+        }
+      />
     </View>
   )
 }

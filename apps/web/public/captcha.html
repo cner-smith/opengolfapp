@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>OGA Verification</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; background: transparent; }
+    body { display: flex; align-items: center; justify-content: center; }
+  </style>
+  <script>
+    const siteKey = new URLSearchParams(window.location.search).get('siteKey');
+
+    function initTurnstile() {
+      turnstile.render('#widget', {
+        sitekey: siteKey,
+        theme: 'light',
+        callback: function(token) {
+          if (window.ReactNativeWebView) {
+            window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'success', token: token }));
+          }
+        },
+        'error-callback': function() {
+          if (window.ReactNativeWebView) {
+            window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'error' }));
+          }
+        },
+        'expired-callback': function() {
+          if (window.ReactNativeWebView) {
+            window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'expired' }));
+          }
+        },
+      });
+    }
+  </script>
+  <script
+    src="https://challenges.cloudflare.com/turnstile/v0/api.js?onload=initTurnstile"
+    async
+    defer
+  ></script>
+</head>
+<body>
+  <div id="widget"></div>
+</body>
+</html>

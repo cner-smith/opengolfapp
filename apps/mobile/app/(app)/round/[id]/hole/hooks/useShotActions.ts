@@ -2,7 +2,7 @@ import { useRef, useState, type Dispatch, type SetStateAction } from 'react'
 import { Alert } from 'react-native'
 import { useRouter } from 'expo-router'
 import type { User } from '@supabase/supabase-js'
-import { combinedPuttResult } from '@oga/core'
+import { combinedPuttResult, type LieType } from '@oga/core'
 import { deleteRound, getProfile } from '@oga/supabase'
 import { supabase } from '../../../../../../lib/supabase'
 import {
@@ -30,6 +30,7 @@ interface UseShotActionsInput {
   setLoggerOpen: Dispatch<SetStateAction<boolean>>
   setLoggerInitial: Dispatch<SetStateAction<ShotLoggerValue>>
   setPinPlacementOpen: Dispatch<SetStateAction<boolean>>
+  setTeePlacementOpen: Dispatch<SetStateAction<boolean>>
   setOnGreenPromptOpen: Dispatch<SetStateAction<boolean>>
   setAimPromptOpen: Dispatch<SetStateAction<boolean>>
   setConfirmDelete: Dispatch<SetStateAction<boolean>>
@@ -45,6 +46,7 @@ export interface UseShotActionsResult {
   persistPutt: (v: PuttingValue) => Promise<void>
   persistRoundPin: (loc: LatLng) => Promise<void>
   clearRoundPin: () => Promise<void>
+  persistTee: (loc: LatLng) => Promise<void>
   markBallHere: () => Promise<void>
   handleOnGreenYes: () => void
   handleOnGreenNo: () => void
@@ -54,6 +56,7 @@ export interface UseShotActionsResult {
   handleAimPromptSkip: () => void
   closeLogger: () => void
   closePuttingSheet: () => void
+  swapPuttingToShot: (lieType: LieType) => void
   navigateHole: (delta: number) => void
   finishHole: () => void
   handleEndRound: () => Promise<void>
@@ -71,6 +74,7 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
     setLoggerOpen,
     setLoggerInitial,
     setPinPlacementOpen,
+    setTeePlacementOpen,
     setOnGreenPromptOpen,
     setAimPromptOpen,
     setConfirmDelete,
@@ -89,7 +93,9 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
 
   const {
     round,
+    currentHole,
     currentHoleScore,
+    setHoles,
     setHoleScores,
     setPendingForHole,
     storedPin,
@@ -261,6 +267,26 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
     }
   }
 
+  async function persistTee(loc: LatLng) {
+    if (!currentHole) return
+    if (!Number.isFinite(loc.lat) || !Number.isFinite(loc.lng)) return
+    setHoles((prev) =>
+      prev.map((h) =>
+        h.id === currentHole.id
+          ? { ...h, tee_lat: loc.lat, tee_lng: loc.lng }
+          : h,
+      ),
+    )
+    setTeePlacementOpen(false)
+    const { error: updateErr } = await supabase
+      .from('holes')
+      .update({ tee_lat: loc.lat, tee_lng: loc.lng })
+      .eq('id', currentHole.id)
+    if (updateErr) {
+      Alert.alert('Tee save failed', updateErr.message)
+    }
+  }
+
   async function markBallHere() {
     if (!ball) {
       Alert.alert('Place the ball first', 'Tap the map to drop the ball.')
@@ -301,9 +327,12 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
 
   function handleOnGreenYes() {
     setOnGreenPromptOpen(false)
+    // Drop straight into the dedicated PuttingSheet — there is no
+    // club/lie picker on that sheet, so there is nothing for the
+    // player to select after confirming "Yes, I'm putting". persistPutt
+    // hard-codes club='putter' + lie='green' on the way to the DB.
     setLoggerInitial({ lieType: 'green', club: 'putter' })
-    setRoundState('SHOT_DETAIL')
-    setLoggerOpen(true)
+    setRoundState('PUTTING')
   }
 
   function handleOnGreenNo() {
@@ -345,6 +374,17 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
 
   function closePuttingSheet() {
     setRoundState('PLACE_BALL')
+  }
+
+  // Recover from a mistaken "Yes, I'm putting" tap. PuttingSheet has
+  // no club/lie picker — without this escape, a player who's actually
+  // chipping from the fringe or in a bunker has no way out except
+  // Close, which drops them back to PLACE_BALL and loses the ball
+  // position. Mirrors handleOnGreenNo's seed.
+  function swapPuttingToShot(lieType: LieType) {
+    setLoggerInitial({ lieType })
+    setRoundState('SHOT_DETAIL')
+    setLoggerOpen(true)
   }
 
   function navigateHole(delta: number) {
@@ -429,6 +469,7 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
     persistPutt,
     persistRoundPin,
     clearRoundPin,
+    persistTee,
     markBallHere,
     handleOnGreenYes,
     handleOnGreenNo,
@@ -438,6 +479,7 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
     handleAimPromptSkip,
     closeLogger,
     closePuttingSheet,
+    swapPuttingToShot,
     navigateHole,
     finishHole,
     handleEndRound,

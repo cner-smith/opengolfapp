@@ -37,6 +37,7 @@ export default function HoleScreen() {
   // Local UI state — modal/dialog open flags + logger seed.
   const [loggerOpen, setLoggerOpen] = useState(false)
   const [pinPlacementOpen, setPinPlacementOpen] = useState(false)
+  const [teePlacementOpen, setTeePlacementOpen] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [scorecardOpen, setScorecardOpen] = useState(false)
   const [confirmLeave, setConfirmLeave] = useState(false)
@@ -62,16 +63,18 @@ export default function HoleScreen() {
   // resort (course rows missing lat/lng entirely).
   const center: LatLng = useMemo(() => {
     if (data.tee) return data.tee
-    if (finalState.ball) return finalState.ball
+    // Course centroid beats GPS — without hole data the player may not be
+    // at the course yet, so GPS ball position is the wrong anchor.
     if (data.courseCenter) return data.courseCenter
+    if (finalState.ball) return finalState.ball
     return FALLBACK_CENTER
   }, [
     data.tee?.lat,
     data.tee?.lng,
-    finalState.ball?.lat,
-    finalState.ball?.lng,
     data.courseCenter?.lat,
     data.courseCenter?.lng,
+    finalState.ball?.lat,
+    finalState.ball?.lng,
   ])
 
   const totalShotsThisHole =
@@ -88,6 +91,7 @@ export default function HoleScreen() {
     setLoggerOpen,
     setLoggerInitial,
     setPinPlacementOpen,
+    setTeePlacementOpen,
     setOnGreenPromptOpen,
     setAimPromptOpen,
     setConfirmDelete,
@@ -294,9 +298,11 @@ export default function HoleScreen() {
           phase={
             pinPlacementOpen
               ? 'PIN'
-              : finalState.roundState === 'SET_AIM'
-                ? 'SET_AIM'
-                : 'PLACE_BALL'
+              : teePlacementOpen
+                ? 'TEE'
+                : finalState.roundState === 'SET_AIM'
+                  ? 'SET_AIM'
+                  : 'PLACE_BALL'
           }
           onSetAim={finalState.setAim}
           onSetBall={(loc) => {
@@ -314,6 +320,7 @@ export default function HoleScreen() {
             finalState.setBall(loc)
           }}
           onPlacePin={actions.persistRoundPin}
+          onPlaceTee={actions.persistTee}
         />
         {finalState.aimHintVisible && (
           <Pressable
@@ -342,23 +349,27 @@ export default function HoleScreen() {
 
       <HoleStrip
         pinPlacementOpen={pinPlacementOpen}
+        teePlacementOpen={teePlacementOpen}
         roundState={finalState.roundState}
         ball={finalState.ball}
         aim={finalState.aim}
         saving={actions.saving}
         roundPin={data.roundPin}
+        tee={data.tee}
         nearPin={finalState.nearPin}
         totalShotsThisHole={totalShotsThisHole}
         holeNumber={holeNumber}
         holes={data.holes}
         holeScores={data.holeScores}
         onCancelPinPlacement={() => setPinPlacementOpen(false)}
+        onCancelTeePlacement={() => setTeePlacementOpen(false)}
         onClearRoundPin={actions.clearRoundPin}
         onConfirmAim={actions.confirmAim}
         onRePlaceBall={() => finalState.setRoundState('PLACE_BALL')}
         onSkipAim={actions.skipAim}
         onMarkBallHere={actions.markBallHere}
         onOpenPinPlacement={() => setPinPlacementOpen(true)}
+        onOpenTeePlacement={() => setTeePlacementOpen(true)}
         onFinishHole={actions.finishHole}
         onPrev={() => actions.navigateHole(-1)}
         onNext={() => actions.navigateHole(1)}
@@ -410,6 +421,7 @@ export default function HoleScreen() {
         onPersistPutt={actions.persistPutt}
         onCloseLogger={actions.closeLogger}
         onClosePuttingSheet={actions.closePuttingSheet}
+        onSwapPuttingToShot={actions.swapPuttingToShot}
         onConfirmDelete={actions.handleDeleteRound}
         onCancelDelete={() => setConfirmDelete(false)}
         onConfirmLeave={() => {

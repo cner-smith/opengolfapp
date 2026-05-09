@@ -154,7 +154,10 @@ export default function Patterns() {
               {lieSlope !== ANY ? ` (${lieSlope})` : ''}.
             </Text>
           ) : (
-            <DispersionPlot points={points} stats={stats} />
+            <>
+              <DispersionPlot points={points} stats={stats} />
+              <PatternLegend hasStats={!!stats} />
+            </>
           )}
         </Section>
 
@@ -309,6 +312,59 @@ function pointColor(result: string | undefined): { fill: string; opacity: number
     return { fill: '#A66A1F', opacity: 0.75 }
   if (result === undefined) return { fill: '#8A8B7E', opacity: 0.5 }
   return { fill: '#A33A2A', opacity: 0.8 }
+}
+
+function PatternLegend({ hasStats }: { hasStats: boolean }) {
+  return (
+    <View style={{ marginTop: 12, gap: 6 }}>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
+        <LegendDot color="#1C211C" label="Solid" />
+        <LegendDot color="#A66A1F" label="Push / pull" />
+        <LegendDot color="#A33A2A" label="Miss" />
+        <LegendDot color="#8A8B7E" label="Unspecified" />
+      </View>
+      {hasStats && (
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
+          <LegendEllipse opacity={0.35} label="68% of shots" />
+          <LegendEllipse opacity={0.10} label="95% of shots" />
+        </View>
+      )}
+    </View>
+  )
+}
+
+function LegendDot({ color, label }: { color: string; label: string }) {
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+      <View
+        style={{
+          width: 8,
+          height: 8,
+          borderRadius: 4,
+          backgroundColor: color,
+        }}
+      />
+      <Text style={{ color: '#5C6356', fontSize: 11 }}>{label}</Text>
+    </View>
+  )
+}
+
+function LegendEllipse({ opacity, label }: { opacity: number; label: string }) {
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+      <View
+        style={{
+          width: 18,
+          height: 12,
+          borderRadius: 6,
+          backgroundColor: `rgba(31,61,44,${opacity})`,
+          borderWidth: 1,
+          borderColor: '#1F3D2C',
+        }}
+      />
+      <Text style={{ color: '#1C211C', fontSize: 12 }}>{label}</Text>
+    </View>
+  )
 }
 
 function DispersionPlot({

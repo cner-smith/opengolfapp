@@ -9,7 +9,11 @@ import {
   View,
 } from 'react-native'
 import { Link, useRouter } from 'expo-router'
+import AsyncStorage from '@react-native-async-storage/async-storage'
+import { WebView } from 'react-native-webview'
 import { supabase } from '../../lib/supabase'
+
+const TURNSTILE_SITE_KEY = process.env.EXPO_PUBLIC_TURNSTILE_SITE_KEY
 
 export default function Login() {
   const router = useRouter()
@@ -17,16 +21,28 @@ export default function Login() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null)
+
+  const captchaEnabled = Boolean(TURNSTILE_SITE_KEY)
+  const canSubmit = !loading && (!captchaEnabled || captchaToken !== null)
 
   async function handleSubmit() {
     setLoading(true)
     setError(null)
-    const { error: signInError } = await supabase.auth.signInWithPassword({ email, password })
+    const { error: signInError } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+      options: {
+        ...(captchaToken ? { captchaToken } : {}),
+      },
+    })
     setLoading(false)
     if (signInError) {
       setError(signInError.message)
+      setCaptchaToken(null)
       return
     }
+    await AsyncStorage.setItem('oga.pending-splash', '1').catch(() => {})
     router.replace('/(app)')
   }
 
@@ -78,6 +94,19 @@ export default function Login() {
           onChangeText={setPassword}
           style={{ ...inputStyle, marginBottom: 14 }}
         />
+        {captchaEnabled && (
+          <WebView
+            source={{ uri: `https://oga.golf/captcha.html?siteKey=${TURNSTILE_SITE_KEY}` }}
+            originWhitelist={['https://*', 'http://*']}
+            onMessage={(event) => {
+              const msg = JSON.parse(event.nativeEvent.data)
+              if (msg.type === 'success') setCaptchaToken(msg.token)
+              else setCaptchaToken(null)
+            }}
+            style={{ height: 65, marginBottom: 14 }}
+            scrollEnabled={false}
+          />
+        )}
         {error && (
           <Text style={{ color: '#A32D2D', fontSize: 13, marginBottom: 10 }}>
             {error}
@@ -85,13 +114,13 @@ export default function Login() {
         )}
         <Pressable
           onPress={handleSubmit}
-          disabled={loading}
+          disabled={!canSubmit}
           style={{
             backgroundColor: '#111111',
             borderRadius: 10,
             paddingVertical: 13,
             alignItems: 'center',
-            opacity: loading ? 0.5 : 1,
+            opacity: !canSubmit ? 0.5 : 1,
           }}
         >
           <Text style={{ color: '#FFFFFF', fontSize: 13, fontWeight: '500' }}>
