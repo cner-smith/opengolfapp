@@ -55,9 +55,15 @@ export function useHoleCamera({
   }, [styleLoaded, center.lat, center.lng])
 
   // When entering pin mode, zoom in on the stored pin so the user is
-  // looking at the green.
+  // looking at the green. Fires ONCE per PIN session — re-snapping on
+  // every pin drag wiped out the player's pinch-zoom.
+  const pinSnappedRef = useRef(false)
   useEffect(() => {
-    if (!isPinMode) return
+    if (!isPinMode) {
+      pinSnappedRef.current = false
+      return
+    }
+    if (pinSnappedRef.current) return
     if (!cameraRef.current) return
     const target = roundPin ?? pin ?? null
     if (!target) return
@@ -66,6 +72,7 @@ export function useHoleCamera({
       zoomLevel: 19,
       animationDuration: 400,
     })
+    pinSnappedRef.current = true
   }, [isPinMode, roundPin?.lat, roundPin?.lng, pin?.lat, pin?.lng])
 
   // Mark whether we owe the camera a PLACE_BALL re-frame on the next
@@ -106,8 +113,16 @@ export function useHoleCamera({
   // by ball→pin distance so a wedge frames the green tightly while a
   // par-5 still shows fairway + green. Fixed zoom 15 was too loose for
   // short approaches (≤120 yd compressed the shot into a tiny band).
+  //
+  // Fires ONCE per SET_AIM session — re-snapping on every aim drag or
+  // pin nudge wiped out the player's pinch-zoom.
+  const aimSnappedRef = useRef(false)
   useEffect(() => {
-    if (!isAimPhase) return
+    if (!isAimPhase) {
+      aimSnappedRef.current = false
+      return
+    }
+    if (aimSnappedRef.current) return
     if (!cameraRef.current) return
     if (!ball) return
     const target = roundPin ?? pin ?? null
@@ -135,6 +150,7 @@ export function useHoleCamera({
       heading: bearing,
       animationDuration: 1200,
     })
+    aimSnappedRef.current = true
   }, [
     isAimPhase,
     ball?.lat,
