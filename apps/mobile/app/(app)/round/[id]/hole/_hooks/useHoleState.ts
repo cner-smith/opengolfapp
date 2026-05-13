@@ -124,28 +124,37 @@ export function useHoleState({
           // ignore
         }
         if (!active) return
-        // Fresh fix. Accuracy.High maps to FUSED HIGH_ACCURACY on Android
-        // (~10 m, fast). BestForNavigation requires satellite-only lock
-        // and can hang 30+ s on Android while Mapbox's puck happily
-        // shows the cached fused location — that mismatch is what the
-        // user was seeing.
-        try {
-          const initial = await Location.getCurrentPositionAsync({
-            accuracy: Location.Accuracy.High,
+        // Fire-and-forget fresh fix. AWAITING this on Android hangs the
+        // entire effect indefinitely under poor signal — the promise
+        // never resolves, try/catch doesn't save us, and
+        // watchPositionAsync below never gets installed. Mapbox's
+        // LocationPuck has its own native subscription that bypasses
+        // expo-location, which is why the puck appeared while
+        // gpsPosition stayed null.
+        Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.Balanced,
+        })
+          .then((initial) => {
+            if (active) {
+              setGpsPosition({
+                lat: initial.coords.latitude,
+                lng: initial.coords.longitude,
+              })
+            }
           })
-          if (active) {
-            setGpsPosition({
-              lat: initial.coords.latitude,
-              lng: initial.coords.longitude,
-            })
-          }
-        } catch {
-          // No fresh fix yet — watchPositionAsync still has a chance.
-        }
-        if (!active) return
+          .catch(() => {
+            // No fresh fix — watchPositionAsync still has a chance.
+          })
         subscription = await Location.watchPositionAsync(
           {
-            accuracy: Location.Accuracy.High,
+            // Balanced (~100 m) returns fixes immediately on Android.
+            // High required FUSED HIGH_ACCURACY which can sit waiting
+            // for a precise lock under degraded signal — UX-wise we
+            // only need accurate-enough to (a) light up the recenter
+            // button and (b) gate the 80-yd nearPin radius. Ball
+            // placement runs the readings through Kalman downstream,
+            // so accuracy here doesn't directly drive SG precision.
+            accuracy: Location.Accuracy.Balanced,
             distanceInterval: 2,
             // Heartbeat tick so gpsPosition refreshes even at rest. Pure
             // distanceInterval gating meant the recenter button could
