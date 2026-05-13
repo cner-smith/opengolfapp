@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useRef, useState } from 'react'
-import { Text, View } from 'react-native'
+import { Pressable, Text, View } from 'react-native'
 import Mapbox from '@rnmapbox/maps'
+import { MaterialCommunityIcons } from '@expo/vector-icons'
 import { Gesture, GestureDetector } from 'react-native-gesture-handler'
 import { runOnJS } from 'react-native-reanimated'
 import { distanceYards, ensureMapboxInitialized } from '../../lib/maps'
@@ -51,6 +52,17 @@ interface HoleMapProps {
    * not a bug.
    */
   missingHoleLayout?: boolean
+  /**
+   * Latest smoothed GPS position. Drives the recenter button (which
+   * camera-jumps to it) and the camera hook's auto-center-once
+   * behavior. Null until permission granted and a fix arrives.
+   */
+  gpsPosition?: LatLng | null
+  /**
+   * Course centroid (courses.lat/lng). Used as a proximity gate so
+   * auto-center only fires when the player is actually at the course.
+   */
+  courseCenter?: LatLng | null
   onSetAim: (loc: LatLng) => void
   onSetBall: (loc: LatLng) => void
   onPlacePin?: (loc: LatLng) => void
@@ -80,6 +92,8 @@ export function HoleMap({
   previousShots,
   phase = 'PLACE_BALL',
   missingHoleLayout = false,
+  gpsPosition,
+  courseCenter,
   onSetAim,
   onSetBall,
   onPlacePin,
@@ -98,7 +112,26 @@ export function HoleMap({
   const isAimPhase = phase === 'SET_AIM'
   const isPlaceBallPhase = phase === 'PLACE_BALL'
 
-  const cameraRef = useHoleCamera({ center, ball, pin, roundPin, phase, styleLoaded })
+  const cameraRef = useHoleCamera({
+    center,
+    ball,
+    pin,
+    roundPin,
+    phase,
+    styleLoaded,
+    gpsPosition,
+    courseCenter,
+  })
+
+  const recenterOnGps = useCallback(() => {
+    if (!gpsPosition || !cameraRef.current) return
+    cameraRef.current.setCamera({
+      centerCoordinate: toCoord(gpsPosition),
+      zoomLevel: 17,
+      pitch: 0,
+      animationDuration: 600,
+    })
+  }, [gpsPosition, cameraRef])
 
   const previousShotsLen = previousShots?.length ?? 0
   const { aimGhosts, aimGhostFeatures } = useAimGhosts({
@@ -406,6 +439,35 @@ export function HoleMap({
         {missingHoleLayout && !isPinMode && !isTeeMode && <MissingLayoutBanner />}
         {!isPinMode && pinDistance !== null && (
           <PinDistancePill display={toDisplay(pinDistance)} />
+        )}
+        {isPlaceBallPhase && (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Center map on my location"
+            disabled={!gpsPosition}
+            onPress={recenterOnGps}
+            hitSlop={8}
+            style={{
+              position: 'absolute',
+              right: 12,
+              bottom: 52,
+              width: 44,
+              height: 44,
+              borderRadius: 22,
+              backgroundColor: '#FBF8F1',
+              borderWidth: 1,
+              borderColor: '#1F3D2C',
+              alignItems: 'center',
+              justifyContent: 'center',
+              opacity: gpsPosition ? 1 : 0.5,
+            }}
+          >
+            <MaterialCommunityIcons
+              name="crosshairs-gps"
+              size={22}
+              color="#1F3D2C"
+            />
+          </Pressable>
         )}
       </View>
     </GestureDetector>

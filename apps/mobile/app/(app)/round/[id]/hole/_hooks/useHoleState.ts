@@ -108,24 +108,81 @@ export function useHoleState({
         const perm = await Location.requestForegroundPermissionsAsync()
         if (perm.status !== 'granted') return
         if (!active) return
+        // Last known fix first — instant, no satellite wait. Returns null
+        // if the device has nothing cached (cold boot, location services
+        // recently toggled). Seeds gpsPosition immediately so the recenter
+        // button and "Mark ball" CTA aren't greyed on hole load.
+        try {
+          const last = await Location.getLastKnownPositionAsync()
+          if (active && last) {
+            setGpsPosition({
+              lat: last.coords.latitude,
+              lng: last.coords.longitude,
+            })
+          }
+        } catch {
+          // ignore
+        }
+        if (!active) return
+        // Fire-and-forget fresh fix. AWAITING this on Android hangs the
+        // entire effect indefinitely under poor signal — the promise
+        // never resolves, try/catch doesn't save us, and
+        // watchPositionAsync below never gets installed. Mapbox's
+        // LocationPuck has its own native subscription that bypasses
+        // expo-location, which is why the puck appeared while
+        // gpsPosition stayed null.
+        Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.Balanced,
+        })
+          .then((initial) => {
+            if (active) {
+              setGpsPosition({
+                lat: initial.coords.latitude,
+                lng: initial.coords.longitude,
+              })
+            }
+          })
+          .catch(() => {
+            // No fresh fix — watchPositionAsync still has a chance.
+          })
         subscription = await Location.watchPositionAsync(
           {
-            accuracy: Location.Accuracy.BestForNavigation,
+            // Balanced (~100 m) returns fixes immediately on Android.
+            // High required FUSED HIGH_ACCURACY which can sit waiting
+            // for a precise lock under degraded signal — UX-wise we
+            // only need accurate-enough to (a) light up the recenter
+            // button and (b) gate the 80-yd nearPin radius. Ball
+            // placement runs the readings through Kalman downstream,
+            // so accuracy here doesn't directly drive SG precision.
+            accuracy: Location.Accuracy.Balanced,
             distanceInterval: 2,
+            // Heartbeat tick so gpsPosition refreshes even at rest. Pure
+            // distanceInterval gating meant the recenter button could
+            // never update once the player stopped walking.
+            timeInterval: 2000,
           },
           (loc) => {
             if (!active) return
-            // Manual placement freezes GPS-driven ball updates. Without
-            // this, the next reading after a drag would re-init the
-            // filter at the raw GPS point and snap ball back, wiping
-            // the player's refinement.
-            if (manuallyPlacedRef.current) return
             const rawPoint = {
               lat: loc.coords.latitude,
               lng: loc.coords.longitude,
               accuracy: loc.coords.accuracy ?? undefined,
               timestamp: loc.timestamp,
             }
+            // Always update gpsPosition (puck-adjacent recenter target +
+            // nearPin radius check) regardless of manual ball placement.
+            // The freeze below is solely about preventing GPS from
+            // clobbering the BALL marker after the player has dragged or
+            // tapped it. Using raw OS coords here, not Kalman-smoothed,
+            // because the manual-place handler re-anchors Kalman with a
+            // strong prior — using the smoothed value would lie for
+            // many readings after manual placement.
+            setGpsPosition({ lat: rawPoint.lat, lng: rawPoint.lng })
+            // Manual placement freezes GPS-driven ball updates. Without
+            // this, the next reading after a drag would re-init the
+            // filter at the raw GPS point and snap ball back, wiping
+            // the player's refinement.
+            if (manuallyPlacedRef.current) return
             kalmanStateRef.current = kalmanStateRef.current
               ? updateKalman(kalmanStateRef.current, rawPoint)
               : createKalmanState(rawPoint)
@@ -133,7 +190,6 @@ export function useHoleState({
               lat: kalmanStateRef.current.lat,
               lng: kalmanStateRef.current.lng,
             }
-            setGpsPosition(smoothed)
             setBall(smoothed)
           },
         )

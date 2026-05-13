@@ -112,6 +112,7 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
     setRoundState,
     manuallyPlacedRef,
     lastSavedShotLocalIdRef,
+    gpsPosition,
   } = state
 
   function buildPayload(meta: ShotLoggerValue | null): ShotPayload | null {
@@ -288,11 +289,19 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
   }
 
   async function markBallHere() {
-    if (!ball) {
-      Alert.alert('Place the ball first', 'Tap the map to drop the ball.')
+    // Use the dragged ball if the player set one, otherwise fall back to
+    // raw GPS — "Mark ball here" should always work as long as we know
+    // where the player is, even if they haven't tapped the map to drop
+    // a marker first.
+    const source = ball ?? gpsPosition
+    if (!source) {
+      Alert.alert(
+        'No GPS yet',
+        'Waiting for a location fix — try again in a moment, or tap the map to drop the ball manually.',
+      )
       return
     }
-    const ballSnapshot = { lat: ball.lat, lng: ball.lng }
+    const ballSnapshot = { lat: source.lat, lng: source.lng }
     manuallyPlacedRef.current = true
     const prevLocalId = lastSavedShotLocalIdRef.current
     if (prevLocalId != null) {

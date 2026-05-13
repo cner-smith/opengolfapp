@@ -14,7 +14,24 @@ interface UseHoleCameraOpts {
   roundPin?: LatLng | null
   phase: HoleMapPhase
   styleLoaded: boolean
+  /**
+   * Latest smoothed GPS position from useHoleState. When present AND
+   * the player is within ~1000 m of the course centroid, the camera
+   * auto-centers on it once after the initial hole frame. Testing
+   * from the user's house won't trigger because the gating distance
+   * fails.
+   */
+  gpsPosition?: LatLng | null
+  /**
+   * Course centroid (courses.lat/lng). Required for the auto-center
+   * proximity check; absent → auto-center is skipped.
+   */
+  courseCenter?: LatLng | null
 }
+
+// 1000 m gating threshold for auto-center, expressed as yards because
+// the only haversine helper imported here returns yards. 1000 m / 0.9144.
+const AUTO_CENTER_GATE_YARDS = 1094
 
 // Owns every camera positioning side-effect for HoleMap. The hook
 // returns the camera ref so HoleMap can mount it on the Mapbox.Camera
@@ -26,6 +43,8 @@ export function useHoleCamera({
   roundPin,
   phase,
   styleLoaded,
+  gpsPosition,
+  courseCenter,
 }: UseHoleCameraOpts) {
   const cameraRef = useRef<Mapbox.Camera>(null)
   const cameraInitialized = useRef(false)
@@ -53,6 +72,39 @@ export function useHoleCamera({
     })
     cameraInitialized.current = true
   }, [styleLoaded, center.lat, center.lng])
+
+  // Auto-center on the player's GPS position once per hole, when (a) the
+  // initial hole frame has already shown and (b) the player is actually
+  // at this course. Gated by distance to course centroid so testing from
+  // home doesn't yank the camera to a parking lot 50 mi away.
+  const autoCenteredRef = useRef(false)
+  useEffect(() => {
+    // Reset on hole change (center prop moves to new tee/centroid). When
+    // the per-hole route is collapsed to one component (issue #264 fix),
+    // this is still the right reset signal.
+    autoCenteredRef.current = false
+  }, [center.lat, center.lng])
+  useEffect(() => {
+    if (!styleLoaded) return
+    if (!cameraInitialized.current) return
+    if (autoCenteredRef.current) return
+    if (!gpsPosition || !courseCenter) return
+    if (distanceYards(gpsPosition, courseCenter) > AUTO_CENTER_GATE_YARDS) return
+    if (!cameraRef.current) return
+    cameraRef.current.setCamera({
+      centerCoordinate: toCoord(gpsPosition),
+      zoomLevel: 17,
+      pitch: 0,
+      animationDuration: 800,
+    })
+    autoCenteredRef.current = true
+  }, [
+    styleLoaded,
+    gpsPosition?.lat,
+    gpsPosition?.lng,
+    courseCenter?.lat,
+    courseCenter?.lng,
+  ])
 
   // When entering pin mode, zoom in on the stored pin so the user is
   // looking at the green. Fires ONCE per PIN session — re-snapping on

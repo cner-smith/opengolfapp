@@ -294,6 +294,8 @@ export default function HoleScreen() {
           aim={finalState.aim}
           ball={finalState.ball}
           previousShots={data.previousShots}
+          gpsPosition={finalState.gpsPosition}
+          courseCenter={data.courseCenter}
           missingHoleLayout={data.tee == null && data.storedPin == null && data.roundPin == null}
           phase={
             pinPlacementOpen
@@ -357,6 +359,7 @@ export default function HoleScreen() {
         roundPin={data.roundPin}
         tee={data.tee}
         nearPin={finalState.nearPin}
+        hasGps={finalState.gpsPosition != null}
         totalShotsThisHole={totalShotsThisHole}
         holeNumber={holeNumber}
         holes={data.holes}
