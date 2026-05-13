@@ -14,7 +14,7 @@ import { ScorecardModal } from '../../../../../../components/round/Scorecard'
 import { ConfirmDialog } from '../../../../../../components/ui/ConfirmDialog'
 import type { LatLng } from '../../../../../../components/round/HoleMap'
 import { distanceYards } from '../../../../../../lib/maps'
-import type { RoundState } from '../state/types'
+import type { RoundState } from '../_state/types'
 
 type HoleRow = Database['public']['Tables']['holes']['Row']
 type HoleScoreRow = Database['public']['Tables']['hole_scores']['Row']

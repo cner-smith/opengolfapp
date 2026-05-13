@@ -12,12 +12,12 @@ import { supabase } from '../../../../../lib/supabase'
 import { useAuth } from '../../../../../hooks/useAuth'
 import { ConfirmDialog } from '../../../../../components/ui/ConfirmDialog'
 import { useUnits } from '../../../../../hooks/useUnits'
-import { FALLBACK_CENTER, KICKER } from './state/types'
-import { useHoleData } from './hooks/useHoleData'
-import { useHoleState } from './hooks/useHoleState'
-import { useShotActions } from './hooks/useShotActions'
-import { HoleStrip } from './components/HoleStrip'
-import { HoleModals } from './components/HoleModals'
+import { FALLBACK_CENTER, KICKER } from './_state/types'
+import { useHoleData } from './_hooks/useHoleData'
+import { useHoleState } from './_hooks/useHoleState'
+import { useShotActions } from './_hooks/useShotActions'
+import { HoleStrip } from './_components/HoleStrip'
+import { HoleModals } from './_components/HoleModals'
 
 export default function HoleScreen() {
   const { id, number, mode } = useLocalSearchParams<{

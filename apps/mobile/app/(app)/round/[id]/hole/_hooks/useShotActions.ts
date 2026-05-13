@@ -16,7 +16,7 @@ import { completeRound } from '../../../../../../lib/completeRound'
 import type { LatLng } from '../../../../../../components/round/HoleMap'
 import type { ShotLoggerValue } from '../../../../../../components/round/ShotLogger'
 import type { PuttingValue } from '../../../../../../components/round/PuttingSheet'
-import { PUTTING_RADIUS_YARDS } from '../state/types'
+import { PUTTING_RADIUS_YARDS } from '../_state/types'
 import type { UseHoleDataResult } from './useHoleData'
 import type { UseHoleStateResult } from './useHoleState'
 
