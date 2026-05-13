@@ -252,6 +252,12 @@ export function HoleMap({
             }}
           />
 
+          <Mapbox.LocationPuck
+            visible
+            puckBearingEnabled
+            puckBearing="heading"
+          />
+
           <BreadcrumbLayers
             previousShots={previousShots ?? []}
             previousShotsLine={previousShotsLine}
