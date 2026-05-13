@@ -80,6 +80,40 @@ export function useHoleCamera({
     }
   }, [styleLoaded, center.lat, center.lng])
 
+  // Hole change: when the resident MapView's `center` prop moves to a
+  // new hole's tee (live-round screen no longer remounts per hole, see
+  // #264), explicitly fly the camera to the new center. Skips the
+  // first-frame case (covered by cameraInitialized above) and no-op
+  // transitions where center didn't actually change.
+  const lastHoleCenterRef = useRef<LatLng | null>(null)
+  useEffect(() => {
+    if (!styleLoaded) return
+    if (!cameraInitialized.current) {
+      lastHoleCenterRef.current = center
+      return
+    }
+    if (!cameraRef.current) return
+    const prev = lastHoleCenterRef.current
+    if (
+      prev &&
+      Math.abs(prev.lat - center.lat) < 1e-7 &&
+      Math.abs(prev.lng - center.lng) < 1e-7
+    ) {
+      return
+    }
+    try {
+      cameraRef.current.setCamera({
+        centerCoordinate: toCoord(center),
+        zoomLevel: 17,
+        pitch: 0,
+        animationDuration: 800,
+      })
+      lastHoleCenterRef.current = center
+    } catch {
+      // native camera released — retry on next center change
+    }
+  }, [styleLoaded, center.lat, center.lng])
+
   // Auto-center on the player's GPS position once per hole, when (a) the
   // initial hole frame has already shown and (b) the player is actually
   // at this course. Gated by distance to course centroid so testing from

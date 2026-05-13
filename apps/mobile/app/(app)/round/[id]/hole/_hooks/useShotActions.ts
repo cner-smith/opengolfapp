@@ -36,6 +36,10 @@ interface UseShotActionsInput {
   setConfirmDelete: Dispatch<SetStateAction<boolean>>
   setConfirmEnd: Dispatch<SetStateAction<boolean>>
   setConfirmExit: Dispatch<SetStateAction<boolean>>
+  // Hole navigation is callback-driven so the parent (LiveRoundSession)
+  // can keep the MapView resident across hole changes. Direct router.replace
+  // would fully unmount + remount the screen — see #264.
+  onHoleChange: (next: number) => void
 }
 
 export interface UseShotActionsResult {
@@ -80,6 +84,7 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
     setConfirmDelete,
     setConfirmEnd,
     setConfirmExit,
+    onHoleChange,
   } = input
   const router = useRouter()
   const [saving, setSaving] = useState(false)
@@ -399,12 +404,12 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
   function navigateHole(delta: number) {
     const next = holeNumber + delta
     if (next < 1 || next > 18) return
-    router.replace(`/(app)/round/${id}/hole/${next}`)
+    onHoleChange(next)
   }
 
   function finishHole() {
     if (holeNumber < 18) {
-      router.replace(`/(app)/round/${id}/hole/${holeNumber + 1}`)
+      onHoleChange(holeNumber + 1)
     } else {
       router.replace('/(app)')
     }
