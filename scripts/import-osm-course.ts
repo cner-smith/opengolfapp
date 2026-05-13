@@ -45,6 +45,7 @@ interface Args {
   lng: number
   radius: number
   updateExisting: boolean
+  courseFilter: string | undefined
 }
 
 function parseArgs(argv: string[]): Args {
@@ -53,6 +54,7 @@ function parseArgs(argv: string[]): Args {
   let lng: number | undefined
   let radius: number | undefined
   let updateExisting = false
+  let courseFilter: string | undefined
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i]
     const next = argv[i + 1]
@@ -70,17 +72,20 @@ function parseArgs(argv: string[]): Args {
       i++
     } else if (a === '--update-existing') {
       updateExisting = true
+    } else if (a === '--course-filter' && next != null) {
+      courseFilter = next
+      i++
     }
   }
   if (!name || lat == null || lng == null || radius == null) {
     throw new Error(
-      'Usage: tsx scripts/import-osm-course.ts --name "<Course Name>" --lat <lat> --lng <lng> --radius <meters> [--update-existing]',
+      'Usage: tsx scripts/import-osm-course.ts --name "<Course Name>" --lat <lat> --lng <lng> --radius <meters> [--update-existing] [--course-filter <substring>]',
     )
   }
   if (!Number.isFinite(lat) || !Number.isFinite(lng) || !Number.isFinite(radius)) {
     throw new Error('--lat, --lng, --radius must be numeric')
   }
-  return { name, lat, lng, radius, updateExisting }
+  return { name, lat, lng, radius, updateExisting, courseFilter }
 }
 
 // ---------------------------------------------------------------------------
@@ -201,7 +206,7 @@ interface ParsedHole {
   pathYards: number
 }
 
-function parseElements(resp: OverpassResponse): {
+function parseElements(resp: OverpassResponse, courseFilter?: string): {
   holes: ParsedHole[]
   greens: LatLon[]
   tees: LatLon[]
@@ -232,6 +237,7 @@ function parseElements(resp: OverpassResponse): {
     if (points.length === 0) continue
 
     if (golf === 'hole') {
+      if (courseFilter && !tags.name?.toLowerCase().includes(courseFilter.toLowerCase())) continue
       const refRaw = tags.ref ?? tags.name ?? ''
       const ref = parseInt(refRaw.replace(/\D/g, ''), 10)
       if (!Number.isFinite(ref) || ref < 1 || ref > 18) continue
@@ -442,7 +448,10 @@ async function main() {
     `Querying Overpass for "${args.name}" around ${args.lat},${args.lng} (r=${args.radius}m)…`,
   )
   const resp = await fetchOverpass(args)
-  const parsed = parseElements(resp)
+  if (args.courseFilter) {
+    console.log(`  Course filter: hole ways whose name contains "${args.courseFilter}" (case-insensitive)`)
+  }
+  const parsed = parseElements(resp, args.courseFilter)
   console.log(
     `OSM: ${parsed.holes.length} hole ways, ${parsed.greens.length} green polygons, ${parsed.tees.length} tee polygons`,
   )
