@@ -64,13 +64,20 @@ export function useHoleCamera({
     if (!styleLoaded) return
     if (cameraInitialized.current) return
     if (!cameraRef.current) return
-    cameraRef.current.setCamera({
-      centerCoordinate: toCoord(center),
-      zoomLevel: 17,
-      pitch: 0,
-      animationDuration: 400,
-    })
-    cameraInitialized.current = true
+    // setCamera throws on Android when the native camera handle has
+    // been released (e.g. hole transition mid-animation); the JS ref
+    // can stay truthy through teardown in @rnmapbox/maps 10.1.x.
+    try {
+      cameraRef.current.setCamera({
+        centerCoordinate: toCoord(center),
+        zoomLevel: 17,
+        pitch: 0,
+        animationDuration: 400,
+      })
+      cameraInitialized.current = true
+    } catch {
+      // native camera released — retry on next dep change
+    }
   }, [styleLoaded, center.lat, center.lng])
 
   // Auto-center on the player's GPS position once per hole, when (a) the
@@ -91,13 +98,17 @@ export function useHoleCamera({
     if (!gpsPosition || !courseCenter) return
     if (distanceYards(gpsPosition, courseCenter) > AUTO_CENTER_GATE_YARDS) return
     if (!cameraRef.current) return
-    cameraRef.current.setCamera({
-      centerCoordinate: toCoord(gpsPosition),
-      zoomLevel: 17,
-      pitch: 0,
-      animationDuration: 800,
-    })
-    autoCenteredRef.current = true
+    try {
+      cameraRef.current.setCamera({
+        centerCoordinate: toCoord(gpsPosition),
+        zoomLevel: 17,
+        pitch: 0,
+        animationDuration: 800,
+      })
+      autoCenteredRef.current = true
+    } catch {
+      // native camera released — try again on next GPS tick
+    }
   }, [
     styleLoaded,
     gpsPosition?.lat,
@@ -119,12 +130,16 @@ export function useHoleCamera({
     if (!cameraRef.current) return
     const target = roundPin ?? pin ?? null
     if (!target) return
-    cameraRef.current.setCamera({
-      centerCoordinate: toCoord(target),
-      zoomLevel: 19,
-      animationDuration: 400,
-    })
-    pinSnappedRef.current = true
+    try {
+      cameraRef.current.setCamera({
+        centerCoordinate: toCoord(target),
+        zoomLevel: 19,
+        animationDuration: 400,
+      })
+      pinSnappedRef.current = true
+    } catch {
+      // native camera released — retry on next pin change
+    }
   }, [isPinMode, roundPin?.lat, roundPin?.lng, pin?.lat, pin?.lng])
 
   // Mark whether we owe the camera a PLACE_BALL re-frame on the next
@@ -150,14 +165,18 @@ export function useHoleCamera({
     if (phase !== 'PLACE_BALL') return
     if (!cameraRef.current) return
     if (!ball) return
-    cameraRef.current.setCamera({
-      centerCoordinate: toCoord(ball),
-      zoomLevel: 17,
-      pitch: 0,
-      heading: 0,
-      animationDuration: 800,
-    })
-    reframePlaceBallRef.current = false
+    try {
+      cameraRef.current.setCamera({
+        centerCoordinate: toCoord(ball),
+        zoomLevel: 17,
+        pitch: 0,
+        heading: 0,
+        animationDuration: 800,
+      })
+      reframePlaceBallRef.current = false
+    } catch {
+      // native camera released — retry on next ball update
+    }
   }, [ball?.lat, ball?.lng, phase])
 
   // SET_AIM: rotate the camera so direction-of-play (ball → pin) is
@@ -195,14 +214,18 @@ export function useHoleCamera({
       : distYd >= 150 ? 16.5
       : distYd >= 80 ? 17
       : 17
-    cameraRef.current.setCamera({
-      centerCoordinate: toCoord(focus),
-      zoomLevel: zoom,
-      pitch: 20,
-      heading: bearing,
-      animationDuration: 1200,
-    })
-    aimSnappedRef.current = true
+    try {
+      cameraRef.current.setCamera({
+        centerCoordinate: toCoord(focus),
+        zoomLevel: zoom,
+        pitch: 20,
+        heading: bearing,
+        animationDuration: 1200,
+      })
+      aimSnappedRef.current = true
+    } catch {
+      // native camera released — retry on next aim/pin change
+    }
   }, [
     isAimPhase,
     ball?.lat,
