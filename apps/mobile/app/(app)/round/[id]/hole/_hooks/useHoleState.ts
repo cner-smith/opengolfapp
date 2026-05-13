@@ -5,7 +5,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage'
 import { createKalmanState, updateKalman, type KalmanState } from '@oga/core'
 import type { LatLng } from '../../../../../../components/round/HoleMap'
 import { distanceYards } from '../../../../../../lib/maps'
-import { PIN_PROMPT_RADIUS_YARDS, type RoundState } from '../state/types'
+import { PIN_PROMPT_RADIUS_YARDS, type RoundState } from '../_state/types'
 
 interface UseHoleStateInput {
   currentHoleId: string | null | undefined

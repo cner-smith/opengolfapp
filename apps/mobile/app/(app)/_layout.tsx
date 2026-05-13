@@ -218,12 +218,6 @@ export default function AppLayout() {
       <Tabs.Screen name="round/new" options={{ href: null }} />
       <Tabs.Screen name="round/[id]/index" options={{ href: null }} />
       <Tabs.Screen name="round/[id]/hole/[number]" options={{ href: null }} />
-      <Tabs.Screen name="round/[id]/hole/components/HoleStrip" options={{ href: null }} />
-      <Tabs.Screen name="round/[id]/hole/components/HoleModals" options={{ href: null }} />
-      <Tabs.Screen name="round/[id]/hole/hooks/useHoleData" options={{ href: null }} />
-      <Tabs.Screen name="round/[id]/hole/hooks/useHoleState" options={{ href: null }} />
-      <Tabs.Screen name="round/[id]/hole/hooks/useShotActions" options={{ href: null }} />
-      <Tabs.Screen name="round/[id]/hole/state/types" options={{ href: null }} />
     </Tabs>
     </UnitsProvider>
     </ErrorBoundary>

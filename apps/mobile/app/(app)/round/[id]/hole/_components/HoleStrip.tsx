@@ -3,7 +3,7 @@ import type { Database } from '@oga/supabase'
 import {
   ScorecardPreview,
 } from '../../../../../../components/round/Scorecard'
-import { KICKER, type RoundState } from '../state/types'
+import { KICKER, type RoundState } from '../_state/types'
 
 type HoleRow = Database['public']['Tables']['holes']['Row']
 type HoleScoreRow = Database['public']['Tables']['hole_scores']['Row']
