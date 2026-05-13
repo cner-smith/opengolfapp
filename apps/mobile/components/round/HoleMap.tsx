@@ -79,6 +79,10 @@ function extractCoord(feature: unknown): LatLng | null {
   if (!Array.isArray(coords) || coords.length < 2) return null
   const [lng, lat] = coords as number[]
   if (typeof lat !== 'number' || typeof lng !== 'number') return null
+  // @rnmapbox/maps fires onDragEnd with NaN coords on Android when a
+  // PointAnnotation is dragged off the visible map. NaN passes typeof
+  // 'number' and then poisons the Kalman filter + DB writes downstream.
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null
   return { lat, lng }
 }
 
@@ -148,10 +152,16 @@ export function HoleMap({
   // gate it to the SET_AIM phase so the ball-placement step isn't noisy.
   const dropAimFromScreenPoint = useCallback(
     async (x: number, y: number) => {
-      if (!mapViewRef.current) return
+      // Snapshot the ref before the await: if the user long-presses
+      // during a hole transition the native MapView can tear down
+      // mid-await and the post-await call lands on a released handle.
+      // Re-checking ref identity after the await catches that race.
+      const mapView = mapViewRef.current
+      if (!mapView) return
       if (!isAimPhase) return
       try {
-        const coord = await mapViewRef.current.getCoordinateFromView([x, y])
+        const coord = await mapView.getCoordinateFromView([x, y])
+        if (mapViewRef.current !== mapView) return
         if (coord && coord.length >= 2) {
           onSetAim({ lat: coord[1], lng: coord[0] })
         }
