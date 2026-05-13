@@ -108,24 +108,55 @@ export function useHoleState({
         const perm = await Location.requestForegroundPermissionsAsync()
         if (perm.status !== 'granted') return
         if (!active) return
+        // One-shot fix so gpsPosition (recenter button, nearPin prompt)
+        // populates within ~1 s of mount. watchPositionAsync below only
+        // fires on movement deltas, so a player standing still on the
+        // tee otherwise saw the recenter button greyed out indefinitely.
+        try {
+          const initial = await Location.getCurrentPositionAsync({
+            accuracy: Location.Accuracy.BestForNavigation,
+          })
+          if (active) {
+            setGpsPosition({
+              lat: initial.coords.latitude,
+              lng: initial.coords.longitude,
+            })
+          }
+        } catch {
+          // No initial fix yet — fall back to watchPositionAsync.
+        }
+        if (!active) return
         subscription = await Location.watchPositionAsync(
           {
             accuracy: Location.Accuracy.BestForNavigation,
             distanceInterval: 2,
+            // Heartbeat tick so gpsPosition refreshes even at rest. Pure
+            // distanceInterval gating meant the recenter button could
+            // never update once the player stopped walking.
+            timeInterval: 2000,
           },
           (loc) => {
             if (!active) return
-            // Manual placement freezes GPS-driven ball updates. Without
-            // this, the next reading after a drag would re-init the
-            // filter at the raw GPS point and snap ball back, wiping
-            // the player's refinement.
-            if (manuallyPlacedRef.current) return
             const rawPoint = {
               lat: loc.coords.latitude,
               lng: loc.coords.longitude,
               accuracy: loc.coords.accuracy ?? undefined,
               timestamp: loc.timestamp,
             }
+            // Always update gpsPosition (puck-adjacent recenter target +
+            // nearPin radius check) regardless of manual ball placement.
+            // The freeze below is solely about preventing GPS from
+            // clobbering the BALL marker after the player has dragged or
+            // tapped it. Using raw OS coords here, not Kalman-smoothed,
+            // because the manual-place handler re-anchors Kalman with a
+            // strong prior — using the smoothed value would lie for
+            // many readings after manual placement.
+            setGpsPosition({ lat: rawPoint.lat, lng: rawPoint.lng })
+            // Manual placement freezes GPS-driven ball updates. Without
+            // this, the next reading after a drag would re-init the
+            // filter at the raw GPS point and snap ball back, wiping
+            // the player's refinement.
+            if (manuallyPlacedRef.current) return
             kalmanStateRef.current = kalmanStateRef.current
               ? updateKalman(kalmanStateRef.current, rawPoint)
               : createKalmanState(rawPoint)
@@ -133,7 +164,6 @@ export function useHoleState({
               lat: kalmanStateRef.current.lat,
               lng: kalmanStateRef.current.lng,
             }
-            setGpsPosition(smoothed)
             setBall(smoothed)
           },
         )
