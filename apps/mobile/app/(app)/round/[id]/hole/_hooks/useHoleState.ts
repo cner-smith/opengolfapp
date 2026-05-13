@@ -108,13 +108,30 @@ export function useHoleState({
         const perm = await Location.requestForegroundPermissionsAsync()
         if (perm.status !== 'granted') return
         if (!active) return
-        // One-shot fix so gpsPosition (recenter button, nearPin prompt)
-        // populates within ~1 s of mount. watchPositionAsync below only
-        // fires on movement deltas, so a player standing still on the
-        // tee otherwise saw the recenter button greyed out indefinitely.
+        // Last known fix first — instant, no satellite wait. Returns null
+        // if the device has nothing cached (cold boot, location services
+        // recently toggled). Seeds gpsPosition immediately so the recenter
+        // button and "Mark ball" CTA aren't greyed on hole load.
+        try {
+          const last = await Location.getLastKnownPositionAsync()
+          if (active && last) {
+            setGpsPosition({
+              lat: last.coords.latitude,
+              lng: last.coords.longitude,
+            })
+          }
+        } catch {
+          // ignore
+        }
+        if (!active) return
+        // Fresh fix. Accuracy.High maps to FUSED HIGH_ACCURACY on Android
+        // (~10 m, fast). BestForNavigation requires satellite-only lock
+        // and can hang 30+ s on Android while Mapbox's puck happily
+        // shows the cached fused location — that mismatch is what the
+        // user was seeing.
         try {
           const initial = await Location.getCurrentPositionAsync({
-            accuracy: Location.Accuracy.BestForNavigation,
+            accuracy: Location.Accuracy.High,
           })
           if (active) {
             setGpsPosition({
@@ -123,12 +140,12 @@ export function useHoleState({
             })
           }
         } catch {
-          // No initial fix yet — fall back to watchPositionAsync.
+          // No fresh fix yet — watchPositionAsync still has a chance.
         }
         if (!active) return
         subscription = await Location.watchPositionAsync(
           {
-            accuracy: Location.Accuracy.BestForNavigation,
+            accuracy: Location.Accuracy.High,
             distanceInterval: 2,
             // Heartbeat tick so gpsPosition refreshes even at rest. Pure
             // distanceInterval gating meant the recenter button could

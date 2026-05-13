@@ -359,6 +359,7 @@ export default function HoleScreen() {
         roundPin={data.roundPin}
         tee={data.tee}
         nearPin={finalState.nearPin}
+        hasGps={finalState.gpsPosition != null}
         totalShotsThisHole={totalShotsThisHole}
         holeNumber={holeNumber}
         holes={data.holes}

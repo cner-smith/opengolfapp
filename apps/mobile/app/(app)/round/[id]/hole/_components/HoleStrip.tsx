@@ -18,6 +18,12 @@ interface HoleStripProps {
   roundPin: { lat: number; lng: number } | null
   tee: { lat: number; lng: number } | null
   nearPin: boolean
+  /**
+   * True when raw GPS is available, even if `ball` hasn't been set yet.
+   * Lets "Mark ball here" stay enabled — `markBallHere` falls back to
+   * the raw GPS position when no marker has been dropped.
+   */
+  hasGps: boolean
   totalShotsThisHole: number
   holeNumber: number
   holes: HoleRow[]
@@ -47,6 +53,7 @@ export function HoleStrip({
   roundPin,
   tee,
   nearPin,
+  hasGps,
   totalShotsThisHole,
   holeNumber,
   holes,
@@ -214,12 +221,18 @@ export function HoleStrip({
         <>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel={ball ? 'Mark ball at current position' : 'Drop the ball on the map first'}
-            accessibilityState={{ disabled: !ball || saving }}
+            accessibilityLabel={
+              ball
+                ? 'Mark ball at current position'
+                : hasGps
+                  ? 'Mark ball at your GPS location'
+                  : 'Waiting for GPS — drop the ball on the map'
+            }
+            accessibilityState={{ disabled: (!ball && !hasGps) || saving }}
             onPress={onMarkBallHere}
-            disabled={!ball || saving}
+            disabled={(!ball && !hasGps) || saving}
             style={{
-              backgroundColor: ball ? '#1F3D2C' : '#EBE5D6',
+              backgroundColor: ball || hasGps ? '#1F3D2C' : '#EBE5D6',
               borderRadius: 2,
               paddingVertical: 14,
               alignItems: 'center',
@@ -228,7 +241,7 @@ export function HoleStrip({
           >
             <Text
               style={{
-                color: ball ? '#F2EEE5' : '#8A8B7E',
+                color: ball || hasGps ? '#F2EEE5' : '#8A8B7E',
                 fontSize: 14,
                 fontWeight: '600',
                 letterSpacing: 0.3,
@@ -238,7 +251,9 @@ export function HoleStrip({
                 ? 'Saving…'
                 : ball
                   ? 'Mark ball here →'
-                  : 'Drop the ball to mark'}
+                  : hasGps
+                    ? 'Mark ball at my GPS →'
+                    : 'Waiting for GPS…'}
             </Text>
           </Pressable>
           <View
