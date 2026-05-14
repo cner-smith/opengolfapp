@@ -21,6 +21,12 @@ type HoleScoreRow = Database['public']['Tables']['hole_scores']['Row']
 
 interface HoleModalsProps {
   shotNumber: number
+  // Stable identity for the ShotLogger form instance — composed of
+  // hole_score_id + a per-save counter (see #284). Changes only on a
+  // legitimate "new shot entry" event (save success or hole change),
+  // never on incidental shotNumber recomputation. Pass through to
+  // <ShotLogger key={...}> so the form remount is intentional.
+  shotEntryKey: string
   loggerOpen: boolean
   loggerInitial: ShotLoggerValue
   ball: LatLng | null
@@ -65,6 +71,7 @@ interface HoleModalsProps {
 export function HoleModals(props: HoleModalsProps) {
   const {
     shotNumber,
+    shotEntryKey,
     loggerOpen,
     loggerInitial,
     ball,
@@ -107,7 +114,7 @@ export function HoleModals(props: HoleModalsProps) {
   return (
     <>
       <ShotLogger
-        key={shotNumber}
+        key={shotEntryKey}
         visible={loggerOpen}
         shotNumber={shotNumber}
         isPutt={false}
