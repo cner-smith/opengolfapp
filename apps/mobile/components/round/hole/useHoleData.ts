@@ -4,9 +4,9 @@ import {
   pendingShotsForHoleScore,
   type PendingShot,
   type ShotPayload,
-} from '../../../../../../lib/db'
-import { supabase } from '../../../../../../lib/supabase'
-import type { LatLng } from '../../../../../../components/round/HoleMap'
+} from '../../../lib/db'
+import { supabase } from '../../../lib/supabase'
+import type { LatLng } from '../HoleMap'
 
 type HoleRow = Database['public']['Tables']['holes']['Row']
 type HoleScoreRow = Database['public']['Tables']['hole_scores']['Row']

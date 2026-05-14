@@ -2,8 +2,8 @@ import { Pressable, Text, View } from 'react-native'
 import type { Database } from '@oga/supabase'
 import {
   ScorecardPreview,
-} from '../../../../../../components/round/Scorecard'
-import { KICKER, type RoundState } from '../_state/types'
+} from '../Scorecard'
+import { KICKER, type RoundState } from './types'
 
 type HoleRow = Database['public']['Tables']['holes']['Row']
 type HoleScoreRow = Database['public']['Tables']['hole_scores']['Row']

@@ -15,12 +15,12 @@ import { useUnits } from '../../hooks/useUnits'
 import {
   FALLBACK_CENTER,
   KICKER,
-} from '../../app/(app)/round/[id]/hole/_state/types'
-import { useHoleData } from '../../app/(app)/round/[id]/hole/_hooks/useHoleData'
-import { useHoleState } from '../../app/(app)/round/[id]/hole/_hooks/useHoleState'
-import { useShotActions } from '../../app/(app)/round/[id]/hole/_hooks/useShotActions'
-import { HoleStrip } from '../../app/(app)/round/[id]/hole/_components/HoleStrip'
-import { HoleModals } from '../../app/(app)/round/[id]/hole/_components/HoleModals'
+} from './hole/types'
+import { useHoleData } from './hole/useHoleData'
+import { useHoleState } from './hole/useHoleState'
+import { useShotActions } from './hole/useShotActions'
+import { HoleStrip } from './hole/HoleStrip'
+import { HoleModals } from './hole/HoleModals'
 
 interface LiveRoundSessionProps {
   roundId: string | undefined

@@ -4,19 +4,19 @@ import { useRouter } from 'expo-router'
 import type { User } from '@supabase/supabase-js'
 import { combinedPuttResult, type LieType } from '@oga/core'
 import { deleteRound, getProfile } from '@oga/supabase'
-import { supabase } from '../../../../../../lib/supabase'
+import { supabase } from '../../../lib/supabase'
 import {
   insertPendingShot,
   setPendingShotEnd,
   type ShotPayload,
-} from '../../../../../../lib/db'
-import { syncPendingShots } from '../../../../../../lib/sync'
-import { distanceYards } from '../../../../../../lib/maps'
-import { completeRound } from '../../../../../../lib/completeRound'
-import type { LatLng } from '../../../../../../components/round/HoleMap'
-import type { ShotLoggerValue } from '../../../../../../components/round/ShotLogger'
-import type { PuttingValue } from '../../../../../../components/round/PuttingSheet'
-import { PUTTING_RADIUS_YARDS } from '../_state/types'
+} from '../../../lib/db'
+import { syncPendingShots } from '../../../lib/sync'
+import { distanceYards } from '../../../lib/maps'
+import { completeRound } from '../../../lib/completeRound'
+import type { LatLng } from '../HoleMap'
+import type { ShotLoggerValue } from '../ShotLogger'
+import type { PuttingValue } from '../PuttingSheet'
+import { PUTTING_RADIUS_YARDS } from './types'
 import type { UseHoleDataResult } from './useHoleData'
 import type { UseHoleStateResult } from './useHoleState'
 
