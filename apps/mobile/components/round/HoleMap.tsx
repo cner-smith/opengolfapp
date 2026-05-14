@@ -301,11 +301,11 @@ export function HoleMap({
             }}
           />
 
-          <Mapbox.LocationPuck
-            visible
-            puckBearingEnabled
-            puckBearing="heading"
-          />
+          {/* Bearing intentionally not enabled — drives the magnetometer
+              continuously, which costs ~2-4 %/hr over a 4-hour round, and
+              the player's facing direction isn't UX-meaningful here (no
+              navigation, no panning relative to heading). */}
+          <Mapbox.LocationPuck visible />
 
           <BreadcrumbLayers
             previousShots={previousShots ?? []}
