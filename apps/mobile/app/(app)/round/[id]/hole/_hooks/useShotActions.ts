@@ -355,8 +355,10 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
     // are common but rough is the modal answer for "near green but
     // not putting". Player overrides in ShotLogger.
     setLoggerInitial({ lieType: 'rough' })
-    setRoundState('SHOT_DETAIL')
-    setLoggerOpen(true)
+    // Route through the aim prompt — chips and pitches still benefit
+    // from explicit aim capture for the shot-pattern dataset. Player
+    // can skip aim from the prompt if they want.
+    setAimPromptOpen(true)
   }
 
   function confirmAim() {

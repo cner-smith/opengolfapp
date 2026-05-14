@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   ActivityIndicator,
   Alert,
@@ -124,6 +124,27 @@ export default function RoundIndex() {
     }
   }, [id])
 
+  // Hooks must run unconditionally before any branch return — these
+  // memos are needed by the read-only summary path below, but lifting
+  // them above the redirectToLive early-return keeps render-1 (loading)
+  // and render-2 (live-session mount) on the same hook count.
+  const scoresByHoleId = useMemo(
+    () => new Map(holeScores.map((hs) => [hs.hole_id, hs])),
+    [holeScores],
+  )
+  const sortedHoles = useMemo(
+    () => [...holes].sort((a, b) => a.number - b.number),
+    [holes],
+  )
+
+  // Stable across renders — passing an inline arrow caused
+  // LiveRoundSession's onHoleChange-keyed effect to re-fire on every
+  // parent render, looping with router.setParams.
+  const syncHoleToUrl = useCallback(
+    (next: number) => router.setParams({ hole: String(next) }),
+    [router],
+  )
+
   // In-progress rounds mount the live session here — the path-segmented
   // hole route is deprecated, see #264. holeNumber is component state
   // inside LiveRoundSession; the ?hole= search param is just the URL
@@ -138,19 +159,10 @@ export default function RoundIndex() {
         roundId={id}
         initialHoleNumber={initialHole}
         mode={mode === 'past' ? 'past' : 'live'}
-        onHoleChange={(next) => router.setParams({ hole: String(next) })}
+        onHoleChange={syncHoleToUrl}
       />
     )
   }
-
-  const scoresByHoleId = useMemo(
-    () => new Map(holeScores.map((hs) => [hs.hole_id, hs])),
-    [holeScores],
-  )
-  const sortedHoles = useMemo(
-    () => [...holes].sort((a, b) => a.number - b.number),
-    [holes],
-  )
 
   if (loading) {
     return (

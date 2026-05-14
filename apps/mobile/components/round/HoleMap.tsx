@@ -63,6 +63,12 @@ interface HoleMapProps {
    * auto-center only fires when the player is actually at the course.
    */
   courseCenter?: LatLng | null
+  /**
+   * Active hole number, used as the hole-change signal for resident
+   * children (aim ghosts, anything else that needs to reset per hole).
+   * The map itself stays mounted across the whole round — see #264.
+   */
+  holeNumber: number
   onSetAim: (loc: LatLng) => void
   onSetBall: (loc: LatLng) => void
   onPlacePin?: (loc: LatLng) => void
@@ -98,6 +104,7 @@ export function HoleMap({
   missingHoleLayout = false,
   gpsPosition,
   courseCenter,
+  holeNumber,
   onSetAim,
   onSetBall,
   onPlacePin,
@@ -137,12 +144,11 @@ export function HoleMap({
     })
   }, [gpsPosition, cameraRef])
 
-  const previousShotsLen = previousShots?.length ?? 0
   const { aimGhosts, aimGhostFeatures } = useAimGhosts({
     ball,
     aim,
     phase,
-    previousShotsLen,
+    holeNumber,
   })
 
   // Mapbox's onLongPress wasn't firing reliably on Android (single-tap

@@ -12,7 +12,13 @@ interface AimGhostHookOpts {
   ball: LatLng | null | undefined
   aim: LatLng | null | undefined
   phase: HoleMapPhase
-  previousShotsLen: number
+  // Explicit hole-change signal. The prior "previousShotsLen === 0"
+  // heuristic worked when HoleMap remounted per hole, but in the
+  // resident-MapView world (post-#264) it fires during the gap between
+  // ghost promotion (on phase exit SET_AIM) and shot persistence
+  // (which bumps previousShotsLen), wiping the ghost that just got
+  // captured.
+  holeNumber: number
 }
 
 interface AimGhostHookResult {
@@ -28,7 +34,7 @@ export function useAimGhosts({
   ball,
   aim,
   phase,
-  previousShotsLen,
+  holeNumber,
 }: AimGhostHookOpts): AimGhostHookResult {
   const [aimGhosts, setAimGhosts] = useState<
     { ball: LatLng; aim: LatLng }[]
@@ -57,17 +63,12 @@ export function useAimGhosts({
     ghostPhaseRef.current = phase
   }, [phase])
 
-  // Hole change is signalled by previousShots resetting to empty (the
-  // parent re-mounts a new hole with no prior shot starts). Clear ghosts
-  // so they don't bleed across holes. Guarded on aimGhosts.length > 0
-  // so the initial mount (where prevShotsLen and aimGhosts.length are
-  // both 0) doesn't schedule a no-op state update.
-  const ghostCount = aimGhosts.length
+  // Clear ghosts on hole change. The functional setter bails on an
+  // already-empty array so the initial mount doesn't enqueue a no-op
+  // state update.
   useEffect(() => {
-    if (previousShotsLen === 0 && ghostCount > 0) {
-      setAimGhosts([])
-    }
-  }, [previousShotsLen, ghostCount])
+    setAimGhosts((prev) => (prev.length === 0 ? prev : []))
+  }, [holeNumber])
 
   const aimGhostFeatures = useMemo<GeoJSON.FeatureCollection | null>(() => {
     if (aimGhosts.length === 0) return null
