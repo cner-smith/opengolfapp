@@ -435,6 +435,12 @@ export default function LiveRoundSession({
 
       <HoleModals
         shotNumber={data.shotNumber}
+        // Compound key: hole_score id + per-save counter. Changes
+        // only on a real "new shot entry" event — a legitimate save
+        // (counter bumps in useShotActions) or a hole change (id
+        // changes). Never on incidental shotNumber recomputation
+        // from background fetches or sync. See #284.
+        shotEntryKey={`${data.currentHoleScore?.id ?? 'init'}-${actions.shotEntrySeq}`}
         loggerOpen={loggerOpen}
         loggerInitial={loggerInitial}
         ball={finalState.ball}

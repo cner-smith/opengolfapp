@@ -46,6 +46,12 @@ export interface UseShotActionsResult {
   saving: boolean
   ending: boolean
   deleting: boolean
+  // Monotonic counter that bumps once per successful persistShot.
+  // Used by HoleModals as the ShotLogger key so the form remounts
+  // (= resets) exactly when a shot saves — and not on incidental
+  // shotNumber recomputation from stale fetches or background sync.
+  // See #284 for the original symptom.
+  shotEntrySeq: number
   persistShot: (meta: ShotLoggerValue | null) => Promise<void>
   persistPutt: (v: PuttingValue) => Promise<void>
   persistRoundPin: (loc: LatLng) => Promise<void>
@@ -95,6 +101,7 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
   const persistShotInFlightRef = useRef(false)
   const [ending, setEnding] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [shotEntrySeq, setShotEntrySeq] = useState(0)
 
   const {
     round,
@@ -207,6 +214,9 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
             : hs,
         ),
       )
+      // Bump only on success — a failed save (caught below) shouldn't
+      // remount the form and wipe the player's entry.
+      setShotEntrySeq((s) => s + 1)
     } catch (err) {
       // eslint-disable-next-line no-console
       console.error('shot save failed', err, payload)
@@ -481,6 +491,7 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
     saving,
     ending,
     deleting,
+    shotEntrySeq,
     persistShot,
     persistPutt,
     persistRoundPin,
