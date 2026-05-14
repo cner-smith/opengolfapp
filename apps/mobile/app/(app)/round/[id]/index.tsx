@@ -9,7 +9,7 @@ import {
 } from 'react-native'
 import { captureRef } from 'react-native-view-shot'
 import * as Sharing from 'expo-sharing'
-import { useLocalSearchParams, useRouter } from 'expo-router'
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router'
 import { formatSG } from '@oga/core'
 import type { Database } from '@oga/supabase'
 import { supabase } from '../../../../lib/supabase'
@@ -97,21 +97,10 @@ export default function RoundIndex() {
         if (hsRes.error) throw hsRes.error
         setHoles(hRes.data ?? [])
         setHoleScores(hsRes.data ?? [])
-        // Fetch shots for all hole_scores in this round so the read-only
-        // hole drill-down sheet can render without a per-tap query. Past
-        // rounds are bounded (≤18 holes, max ~10 shots/hole), so a single
-        // pull on mount is fine.
-        const holeScoreIds = (hsRes.data ?? []).map((hs) => hs.id)
-        if (holeScoreIds.length > 0) {
-          const { data: shotData, error: shotErr } = await supabase
-            .from('shots')
-            .select('*')
-            .in('hole_score_id', holeScoreIds)
-            .order('shot_number')
-          if (!active) return
-          if (shotErr) throw shotErr
-          setShots(shotData ?? [])
-        }
+        // Shots are fetched in the useFocusEffect below — re-focus
+        // after an end-round (when pending shots are still syncing
+        // via fire-and-forget background sync) self-heals the count.
+        // See #246.
       } catch (err) {
         if (!active) return
         setError((err as Error).message)
@@ -135,6 +124,42 @@ export default function RoundIndex() {
   const sortedHoles = useMemo(
     () => [...holes].sort((a, b) => a.number - b.number),
     [holes],
+  )
+  // Drives the scorecard row's tap affordance — a row is only tappable
+  // if its hole has shots logged. Without this gate, the → arrow
+  // promises content; tap opens a sheet that reads "No shots logged
+  // for this hole." See #247.
+  const holeScoreIdsWithShots = useMemo(
+    () => new Set(shots.map((s) => s.hole_score_id)),
+    [shots],
+  )
+
+  // Refetch shots on screen focus. The end-round write order is:
+  // total_score + hole_scores first, then pending shot inserts trickle
+  // into the `shots` table via background sync. A player who reaches
+  // this screen mid-sync sees the totals row diverge from the per-hole
+  // drill-down sheet until a refetch. Initial mount fires this once
+  // (after holeScores populates and the callback identity changes),
+  // and every subsequent focus refires — so the common path
+  // (end-round → home → back to scorecard) self-heals. See #246.
+  useFocusEffect(
+    useCallback(() => {
+      if (holeScores.length === 0) return
+      let active = true
+      const holeScoreIds = holeScores.map((hs) => hs.id)
+      supabase
+        .from('shots')
+        .select('*')
+        .in('hole_score_id', holeScoreIds)
+        .order('shot_number')
+        .then(({ data, error }) => {
+          if (!active || error) return
+          setShots(data ?? [])
+        })
+      return () => {
+        active = false
+      }
+    }, [holeScores]),
   )
 
   // Stable across renders — passing an inline arrow caused
@@ -481,13 +506,18 @@ export default function RoundIndex() {
             const hs = scoresByHoleId.get(h.id)
             const score = hs?.score ?? null
             const d = score != null && score > 0 ? score - h.par : null
+            const hasShots = hs ? holeScoreIdsWithShots.has(hs.id) : false
             return (
               <Pressable
                 key={h.id}
-                accessibilityRole="button"
-                accessibilityLabel={`Hole ${h.number}, par ${h.par}${score != null && score > 0 ? `, score ${score}` : ', not played'}, view shots`}
-                onPress={() => setShotsForHole(h)}
-                android_ripple={{ color: '#EBE5D6' }}
+                accessibilityRole={hasShots ? 'button' : 'text'}
+                accessibilityLabel={
+                  hasShots
+                    ? `Hole ${h.number}, par ${h.par}, score ${score}, view shots`
+                    : `Hole ${h.number}, par ${h.par}${score != null && score > 0 ? `, score ${score}` : ', not played'}`
+                }
+                onPress={hasShots ? () => setShotsForHole(h) : undefined}
+                android_ripple={hasShots ? { color: '#EBE5D6' } : undefined}
                 style={{
                   flexDirection: 'row',
                   paddingVertical: 10,
@@ -546,9 +576,6 @@ export default function RoundIndex() {
                 >
                   {d == null ? '—' : d === 0 ? 'E' : d > 0 ? `+${d}` : `${d}`}
                 </Text>
-                {/* Persistent affordance — pressed-only background gave
-                    no resting hint that rows were tappable. Arrow sits
-                    in muted ink so it doesn't fight the score columns. */}
                 <Text
                   style={{
                     width: 18,
@@ -558,7 +585,7 @@ export default function RoundIndex() {
                     marginLeft: 6,
                   }}
                 >
-                  →
+                  {hasShots ? '→' : ''}
                 </Text>
               </Pressable>
             )
