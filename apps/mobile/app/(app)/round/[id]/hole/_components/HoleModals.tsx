@@ -217,7 +217,7 @@ export function HoleModals(props: HoleModalsProps) {
           onJumpToHole={(n) => {
             setScorecardOpen(false)
             if (n !== holeNumber) {
-              routerReplace(`/(app)/round/${id}/hole/${n}`)
+              routerReplace(`/(app)/round/${id}?hole=${n}`)
             }
           }}
           onChangePar={onChangePar}

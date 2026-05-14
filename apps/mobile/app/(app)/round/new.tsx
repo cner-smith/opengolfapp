@@ -198,7 +198,10 @@ export default function NewRound() {
         if (hsError) throw hsError
       }
 
-      router.replace(`/(app)/round/${round.id}/hole/1?mode=${mode}`)
+      router.replace({
+        pathname: '/(app)/round/[id]',
+        params: { id: round.id, hole: '1', mode },
+      })
     } catch (err) {
       setError((err as Error).message)
     } finally {

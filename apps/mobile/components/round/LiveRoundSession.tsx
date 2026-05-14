@@ -1,40 +1,58 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   ActivityIndicator,
   Pressable,
   Text,
   View,
 } from 'react-native'
-import { useLocalSearchParams, useRouter } from 'expo-router'
-import { HoleMap, type LatLng } from '../../../../../components/round/HoleMap'
-import type { ShotLoggerValue } from '../../../../../components/round/ShotLogger'
-import { supabase } from '../../../../../lib/supabase'
-import { useAuth } from '../../../../../hooks/useAuth'
-import { ConfirmDialog } from '../../../../../components/ui/ConfirmDialog'
-import { useUnits } from '../../../../../hooks/useUnits'
-import { FALLBACK_CENTER, KICKER } from './_state/types'
-import { useHoleData } from './_hooks/useHoleData'
-import { useHoleState } from './_hooks/useHoleState'
-import { useShotActions } from './_hooks/useShotActions'
-import { HoleStrip } from './_components/HoleStrip'
-import { HoleModals } from './_components/HoleModals'
+import { useRouter } from 'expo-router'
+import { HoleMap, type LatLng } from './HoleMap'
+import type { ShotLoggerValue } from './ShotLogger'
+import { supabase } from '../../lib/supabase'
+import { useAuth } from '../../hooks/useAuth'
+import { ConfirmDialog } from '../ui/ConfirmDialog'
+import { useUnits } from '../../hooks/useUnits'
+import {
+  FALLBACK_CENTER,
+  KICKER,
+} from '../../app/(app)/round/[id]/hole/_state/types'
+import { useHoleData } from '../../app/(app)/round/[id]/hole/_hooks/useHoleData'
+import { useHoleState } from '../../app/(app)/round/[id]/hole/_hooks/useHoleState'
+import { useShotActions } from '../../app/(app)/round/[id]/hole/_hooks/useShotActions'
+import { HoleStrip } from '../../app/(app)/round/[id]/hole/_components/HoleStrip'
+import { HoleModals } from '../../app/(app)/round/[id]/hole/_components/HoleModals'
 
-export default function HoleScreen() {
-  const { id, number, mode } = useLocalSearchParams<{
-    id: string
-    number: string
-    mode?: string
-  }>()
-  const holeNumber = Number(number)
-  // 'past' means the player is logging after the fact — GPS would just
-  // put the ball wherever they happen to be sitting, so skip the
-  // auto-place + nearPin prompt and let them tap markers manually.
+interface LiveRoundSessionProps {
+  roundId: string | undefined
+  initialHoleNumber: number
+  mode: 'live' | 'past'
+  // Called whenever the player navigates to a new hole. The parent uses
+  // this to keep the URL in sync (router.setParams) — but never to
+  // remount the screen, which is the whole point of this component.
+  // Optional so the component can be tested or driven without URL sync.
+  onHoleChange?: (next: number) => void
+}
+
+// Resident live-round screen. Owns the MapView for the full round so
+// @rnmapbox/maps doesn't accumulate stranded native peers across 18
+// per-hole remounts — see #264. Hole transitions are state changes
+// inside this component; the underlying route never re-navigates.
+export default function LiveRoundSession({
+  roundId,
+  initialHoleNumber,
+  mode,
+  onHoleChange,
+}: LiveRoundSessionProps) {
   const isPastMode = mode === 'past'
   const router = useRouter()
   const { user } = useAuth()
   const { toDisplay } = useUnits()
 
-  // Local UI state — modal/dialog open flags + logger seed.
+  const [holeNumber, setHoleNumber] = useState(initialHoleNumber)
+
+  // Per-hole UI state — modal/dialog flags + logger seed. These are
+  // explicitly reset when holeNumber changes (see useEffect below) so
+  // a modal left open on hole 5 doesn't reappear on hole 6.
   const [loggerOpen, setLoggerOpen] = useState(false)
   const [pinPlacementOpen, setPinPlacementOpen] = useState(false)
   const [teePlacementOpen, setTeePlacementOpen] = useState(false)
@@ -47,7 +65,30 @@ export default function HoleScreen() {
   const [aimPromptOpen, setAimPromptOpen] = useState(false)
   const [loggerInitial, setLoggerInitial] = useState<ShotLoggerValue>({})
 
-  const data = useHoleData(id, holeNumber)
+  // Per-hole reset. useHoleState resets its own refs (Kalman, manual
+  // placement, last-saved-shot id) keyed on currentHoleId — we don't
+  // duplicate that here. This effect covers the component-owned UI
+  // state machine that those hooks can't see.
+  useEffect(() => {
+    setLoggerOpen(false)
+    setPinPlacementOpen(false)
+    setTeePlacementOpen(false)
+    setOnGreenPromptOpen(false)
+    setAimPromptOpen(false)
+    setLoggerInitial({})
+    // Scorecard / confirm dialogs are session-level — don't reset them
+    // on hole change. A confirmDelete dialog mid-navigation should
+    // stay open.
+  }, [holeNumber])
+
+  // URL sync — let the parent know we navigated. Not required for
+  // correctness (the route doesn't change), just keeps the address bar
+  // honest so a refresh / deep-link share lands on the right hole.
+  useEffect(() => {
+    onHoleChange?.(holeNumber)
+  }, [holeNumber, onHoleChange])
+
+  const data = useHoleData(roundId, holeNumber)
   const finalState = useHoleState({
     currentHoleId: data.currentHole?.id ?? null,
     currentHoleScoreId: data.currentHoleScore?.id ?? null,
@@ -83,7 +124,7 @@ export default function HoleScreen() {
       : 0
 
   const actions = useShotActions({
-    id,
+    id: roundId,
     user,
     holeNumber,
     data,
@@ -97,6 +138,7 @@ export default function HoleScreen() {
     setConfirmDelete,
     setConfirmEnd,
     setConfirmExit,
+    onHoleChange: (next) => setHoleNumber(next),
   })
 
   if (data.loading) {
@@ -392,7 +434,7 @@ export default function HoleScreen() {
         holeScores={data.holeScores}
         holeNumber={holeNumber}
         routerReplace={(href) => router.replace(href as Parameters<typeof router.replace>[0])}
-        id={id}
+        id={roundId}
         onChangePar={async (holeId, newPar) => {
           // Optimistic update so the cell reflects the tap immediately.
           // Roll back if the DB write fails so the UI doesn't lie.
