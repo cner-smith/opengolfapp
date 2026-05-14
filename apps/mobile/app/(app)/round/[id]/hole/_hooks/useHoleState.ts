@@ -155,11 +155,18 @@ export function useHoleState({
             // placement runs the readings through Kalman downstream,
             // so accuracy here doesn't directly drive SG precision.
             accuracy: Location.Accuracy.Balanced,
-            distanceInterval: 2,
+            // 5 m chosen over 2 m for battery — at a ~1.4 m/s walking pace
+            // that's still a fix every ~3.5 s while moving, and Kalman
+            // smooths the gap. The marker is tap/drag-confirmed before
+            // shot capture, so coarser auto-tracking is fine.
+            distanceInterval: 5,
             // Heartbeat tick so gpsPosition refreshes even at rest. Pure
             // distanceInterval gating meant the recenter button could
-            // never update once the player stopped walking.
-            timeInterval: 2000,
+            // never update once the player stopped walking. 5 s is plenty
+            // for that UX (the recenter button doesn't need sub-second
+            // refresh at rest) and keeps the GPS chip from being held
+            // warm by a 2 s polling cadence.
+            timeInterval: 5000,
           },
           (loc) => {
             if (!active) return
