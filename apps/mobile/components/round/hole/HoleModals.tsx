@@ -5,16 +5,16 @@ import type { LieType } from '@oga/core'
 import {
   ShotLogger,
   type ShotLoggerValue,
-} from '../../../../../../components/round/ShotLogger'
+} from '../ShotLogger'
 import {
   PuttingSheet,
   type PuttingValue,
-} from '../../../../../../components/round/PuttingSheet'
-import { ScorecardModal } from '../../../../../../components/round/Scorecard'
-import { ConfirmDialog } from '../../../../../../components/ui/ConfirmDialog'
-import type { LatLng } from '../../../../../../components/round/HoleMap'
-import { distanceYards } from '../../../../../../lib/maps'
-import type { RoundState } from '../_state/types'
+} from '../PuttingSheet'
+import { ScorecardModal } from '../Scorecard'
+import { ConfirmDialog } from '../../ui/ConfirmDialog'
+import type { LatLng } from '../HoleMap'
+import { distanceYards } from '../../../lib/maps'
+import type { RoundState } from './types'
 
 type HoleRow = Database['public']['Tables']['holes']['Row']
 type HoleScoreRow = Database['public']['Tables']['hole_scores']['Row']
