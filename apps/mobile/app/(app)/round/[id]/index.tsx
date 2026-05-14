@@ -9,12 +9,13 @@ import {
 } from 'react-native'
 import { captureRef } from 'react-native-view-shot'
 import * as Sharing from 'expo-sharing'
-import { Redirect, useLocalSearchParams, useRouter } from 'expo-router'
+import { useLocalSearchParams, useRouter } from 'expo-router'
 import { formatSG } from '@oga/core'
 import type { Database } from '@oga/supabase'
 import { supabase } from '../../../../lib/supabase'
 import { ShareableScorecardCard } from '../../../../components/round/ShareableScorecardCard'
 import { PastHoleShotsSheet } from '../../../../components/round/PastHoleShotsSheet'
+import LiveRoundSession from '../../../../components/round/LiveRoundSession'
 import { useUnits } from '../../../../hooks/useUnits'
 
 type RoundRow = Database['public']['Tables']['rounds']['Row']
@@ -35,7 +36,11 @@ const KICKER: import('react-native').TextStyle = {
 // a past round from the home list isn't dropped back into the
 // Mark-ball / Set-aim state machine.
 export default function RoundIndex() {
-  const { id } = useLocalSearchParams<{ id: string }>()
+  const { id, hole, mode } = useLocalSearchParams<{
+    id: string
+    hole?: string
+    mode?: string
+  }>()
   const router = useRouter()
 
   const [round, setRound] = useState<RoundRow | null>(null)
@@ -119,8 +124,23 @@ export default function RoundIndex() {
     }
   }, [id])
 
+  // In-progress rounds mount the live session here — the path-segmented
+  // hole route is deprecated, see #264. holeNumber is component state
+  // inside LiveRoundSession; the ?hole= search param is just the URL
+  // mirror so a deep-link / refresh lands on the right hole.
   if (redirectToLive && id) {
-    return <Redirect href={`/(app)/round/${id}/hole/1?mode=live`} />
+    const initialHole = (() => {
+      const n = Number(hole)
+      return Number.isFinite(n) && n >= 1 && n <= 18 ? n : 1
+    })()
+    return (
+      <LiveRoundSession
+        roundId={id}
+        initialHoleNumber={initialHole}
+        mode={mode === 'past' ? 'past' : 'live'}
+        onHoleChange={(next) => router.setParams({ hole: String(next) })}
+      />
+    )
   }
 
   const scoresByHoleId = useMemo(
