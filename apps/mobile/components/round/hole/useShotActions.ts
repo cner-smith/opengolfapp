@@ -316,6 +316,20 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
       )
       return
     }
+    // NaN guard (#275). gpsPosition is the fallback when the player
+    // hasn't dragged a ball yet, and a corrupt GPS reading that slipped
+    // past upstream guards would otherwise propagate to setPendingShotEnd
+    // (NaN → SQLite → Postgres rejects on sync) and setBall (NaN
+    // poisons the next persistShot's start_lat).
+    if (!Number.isFinite(source.lat) || !Number.isFinite(source.lng)) {
+      // eslint-disable-next-line no-console
+      console.warn('[hole/markBallHere] non-finite source coord', source)
+      Alert.alert(
+        'GPS reading invalid',
+        'The location fix came back malformed. Try again, or tap the map to drop the ball manually.',
+      )
+      return
+    }
     const ballSnapshot = { lat: source.lat, lng: source.lng }
     manuallyPlacedRef.current = true
     const prevLocalId = lastSavedShotLocalIdRef.current

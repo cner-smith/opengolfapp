@@ -176,6 +176,14 @@ export function useHoleState({
               accuracy: loc.coords.accuracy ?? undefined,
               timestamp: loc.timestamp,
             }
+            // Defense-in-depth NaN guard (#275). Kalman's update path
+            // already drops corrupt readings safely, but gpsPosition
+            // bypasses the filter and flows directly to setPendingShotEnd
+            // via markBallHere — a NaN there hits Postgres as a double
+            // precision insert error and wedges the round.
+            if (!Number.isFinite(rawPoint.lat) || !Number.isFinite(rawPoint.lng)) {
+              return
+            }
             // Always update gpsPosition (puck-adjacent recenter target +
             // nearPin radius check) regardless of manual ball placement.
             // The freeze below is solely about preventing GPS from

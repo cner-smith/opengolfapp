@@ -169,7 +169,14 @@ export function HoleMap({
         const coord = await mapView.getCoordinateFromView([x, y])
         if (mapViewRef.current !== mapView) return
         if (coord && coord.length >= 2) {
-          onSetAim({ lat: coord[1], lng: coord[0] })
+          const lat = coord[1]
+          const lng = coord[0]
+          // NaN guard (#275). Long-press near Mapbox projection
+          // singularities (extreme zoom, off-tile area) can return
+          // non-finite coords; without this, aim flows to buildPayload
+          // as aim_lat/aim_lng and the shot save fails on sync.
+          if (!Number.isFinite(lat) || !Number.isFinite(lng)) return
+          onSetAim({ lat, lng })
         }
       } catch {
         // map not ready yet
