@@ -105,7 +105,24 @@ export function useHoleState({
     let subscription: Location.LocationSubscription | null = null
     ;(async () => {
       try {
-        const perm = await Location.requestForegroundPermissionsAsync()
+        // expo-location's permission request can hang on Android if the
+        // activity is recreated mid-dialog (rotation, theme change, OEM
+        // low-memory recycle). LocationHelpers.kt uses suspendCoroutine
+        // with no cancellation hook and no host-lifecycle cleanup, so
+        // the JS promise never settles. Race against a 10s timeout —
+        // matches PROFILE_FETCH_TIMEOUT_MS pattern in (app)/_layout.tsx.
+        // On timeout we treat as not-granted; user falls back to manual
+        // tap-to-place. See #278.
+        const perm = await Promise.race([
+          Location.requestForegroundPermissionsAsync(),
+          new Promise<never>((_, rej) =>
+            setTimeout(() => rej(new Error('perm-timeout')), 10_000),
+          ),
+        ]).catch((e: Error) => {
+          // eslint-disable-next-line no-console
+          console.warn('[useHoleState perm-timeout]', e.message)
+          return { status: 'undetermined' as const }
+        })
         if (perm.status !== 'granted') return
         if (!active) return
         // Last known fix first — instant, no satellite wait. Returns null
