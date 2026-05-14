@@ -349,6 +349,7 @@ export default function LiveRoundSession({
           previousShots={data.previousShots}
           gpsPosition={finalState.gpsPosition}
           courseCenter={data.courseCenter}
+          holeNumber={holeNumber}
           missingHoleLayout={data.tee == null && data.storedPin == null && data.roundPin == null}
           phase={
             pinPlacementOpen
