@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import {
   KeyboardAvoidingView,
   Platform,
@@ -113,14 +113,6 @@ export function PuttingSheet({
   const [distanceText, setDistanceText] = useState(
     String(feetToInput(initial?.puttDistanceFt ?? initialDistanceFt ?? 0)),
   )
-
-  useEffect(() => {
-    if (initialDistanceFt != null && initial?.puttDistanceFt == null) {
-      setValue((v) => ({ ...v, puttDistanceFt: initialDistanceFt }))
-      setDistanceText(String(feetToInput(initialDistanceFt)))
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [initialDistanceFt, unit])
 
   function commitDistance(text: string) {
     setDistanceText(text)

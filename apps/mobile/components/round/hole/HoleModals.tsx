@@ -143,6 +143,7 @@ export function HoleModals(props: HoleModalsProps) {
         <GestureHandlerRootView style={{ flex: 1 }}>
           <View style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.4)' }}>
             <PuttingSheet
+              key={shotEntryKey}
               shotNumber={shotNumber}
               initialDistanceFt={
                 ball && (roundPin ?? storedPin)
