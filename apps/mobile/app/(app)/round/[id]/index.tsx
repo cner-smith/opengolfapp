@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   ActivityIndicator,
   Alert,
@@ -137,6 +137,14 @@ export default function RoundIndex() {
     [holes],
   )
 
+  // Stable across renders — passing an inline arrow caused
+  // LiveRoundSession's onHoleChange-keyed effect to re-fire on every
+  // parent render, looping with router.setParams.
+  const syncHoleToUrl = useCallback(
+    (next: number) => router.setParams({ hole: String(next) }),
+    [router],
+  )
+
   // In-progress rounds mount the live session here — the path-segmented
   // hole route is deprecated, see #264. holeNumber is component state
   // inside LiveRoundSession; the ?hole= search param is just the URL
@@ -151,7 +159,7 @@ export default function RoundIndex() {
         roundId={id}
         initialHoleNumber={initialHole}
         mode={mode === 'past' ? 'past' : 'live'}
-        onHoleChange={(next) => router.setParams({ hole: String(next) })}
+        onHoleChange={syncHoleToUrl}
       />
     )
   }

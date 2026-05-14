@@ -41,7 +41,7 @@ export default function LiveRoundSession({
   roundId,
   initialHoleNumber,
   mode,
-  onHoleChange,
+  onHoleChange: syncHoleToUrl,
 }: LiveRoundSessionProps) {
   const isPastMode = mode === 'past'
   const router = useRouter()
@@ -81,12 +81,15 @@ export default function LiveRoundSession({
     // stay open.
   }, [holeNumber])
 
-  // URL sync — let the parent know we navigated. Not required for
-  // correctness (the route doesn't change), just keeps the address bar
-  // honest so a refresh / deep-link share lands on the right hole.
+  // External URL change → internal state. The scorecard hole-jump
+  // calls router.replace which updates the ?hole= search param;
+  // RoundIndex re-renders and passes a new initialHoleNumber. Without
+  // this sync, useState's initial-value semantics ignore the new prop
+  // and the player is stranded on the previous hole. setHoleNumber
+  // bails on no-op so this doesn't loop with the inline urlSync below.
   useEffect(() => {
-    onHoleChange?.(holeNumber)
-  }, [holeNumber, onHoleChange])
+    setHoleNumber(initialHoleNumber)
+  }, [initialHoleNumber])
 
   const data = useHoleData(roundId, holeNumber)
   const finalState = useHoleState({
@@ -138,7 +141,15 @@ export default function LiveRoundSession({
     setConfirmDelete,
     setConfirmEnd,
     setConfirmExit,
-    onHoleChange: (next) => setHoleNumber(next),
+    // URL sync fires here — only on user-driven navigation (Next /
+    // Prev / Finish), not on every render. A reactive useEffect that
+    // depended on the parent's onHoleChange prop looped because the
+    // prop was a new arrow on every parent render → effect re-fired →
+    // setParams → parent re-render → ...
+    onHoleChange: (next) => {
+      setHoleNumber(next)
+      syncHoleToUrl?.(next)
+    },
   })
 
   if (data.loading) {
