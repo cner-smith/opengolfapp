@@ -15,6 +15,7 @@
  */
 import 'dotenv/config'
 import { createClient } from '@supabase/supabase-js'
+import { DEFAULT_BAG } from '@oga/core'
 
 const URL = process.env.SUPABASE_URL ?? 'http://127.0.0.1:54321'
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -128,6 +129,23 @@ async function wipeDemoData(userId: string): Promise<void> {
     .delete()
     .eq('user_id', userId)
   if (planErr) throw planErr
+  const { error: clubsErr } = await supabase
+    .from('user_clubs')
+    .delete()
+    .eq('user_id', userId)
+  if (clubsErr) throw clubsErr
+}
+
+async function seedBag(userId: string): Promise<void> {
+  const rows = DEFAULT_BAG.map((c) => ({
+    user_id: userId,
+    club_type: c.club_type,
+    name: c.name,
+    sort_order: c.sort_order,
+    in_bag: true,
+  }))
+  const { error } = await supabase.from('user_clubs').insert(rows)
+  if (error) throw error
 }
 
 interface CourseRow {
@@ -350,6 +368,7 @@ async function main() {
   const userId = await ensureDemoUser()
   await ensureProfile(userId)
   await wipeDemoData(userId)
+  await seedBag(userId)
 
   const courses = await fetchCourses()
   if (courses.length < 3) {

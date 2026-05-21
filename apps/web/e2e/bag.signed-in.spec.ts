@@ -6,7 +6,7 @@ test.describe('Bag (signed in)', () => {
     await expect(
       page.getByRole('heading', { name: /My bag\./i }),
     ).toBeVisible()
-    // Seeded via scripts/seed-demo.ts (user_clubs additions, TODO).
+    // Seeded via scripts/seed-demo.ts → DEFAULT_BAG (14 clubs).
     // Each row has a drag handle with aria-label "Drag to reorder".
     const dragHandles = page.getByRole('button', { name: /Drag to reorder/i })
     await expect(dragHandles).toHaveCount(14)
