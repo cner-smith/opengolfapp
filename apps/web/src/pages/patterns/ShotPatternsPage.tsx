@@ -145,7 +145,10 @@ export function ShotPatternsPage() {
                 {lieSlopeSide ? ` (${lieSlopeSide.replace('_', ' ')})` : ''}.
               </div>
             ) : (
-              <DispersionPlot points={points} stats={stats} />
+              <>
+                <DispersionPlot points={points} stats={stats} />
+                <PatternLegend hasEllipses={!!stats} />
+              </>
             )}
           </div>
 
@@ -317,6 +320,54 @@ function Stat({ label, value }: { label: string; value: string }) {
       >
         {value}
       </dd>
+    </div>
+  )
+}
+
+const DOT_LEGEND = [
+  { color: '#1C211C', label: 'Solid' },
+  { color: '#A66A1F', label: 'Push / pull' },
+  { color: '#A33A2A', label: 'Miss' },
+  { color: '#8A8B7E', label: 'Unspecified' },
+] as const
+
+const ELLIPSE_LEGEND = [
+  { fill: 'rgba(31,61,44,0.12)', dashed: false, label: '68% of shots' },
+  { fill: 'rgba(31,61,44,0.06)', dashed: true, label: '95% of shots' },
+] as const
+
+function PatternLegend({ hasEllipses }: { hasEllipses: boolean }) {
+  return (
+    <div style={{ marginTop: 12, display: 'flex', flexWrap: 'wrap', gap: '6px 14px' }}>
+      {DOT_LEGEND.map((item) => (
+        <span key={item.label} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+          <span
+            style={{
+              width: 8,
+              height: 8,
+              borderRadius: '50%',
+              background: item.color,
+              flexShrink: 0,
+            }}
+          />
+          <span className="kicker" style={{ color: '#8A8B7E' }}>{item.label}</span>
+        </span>
+      ))}
+      {hasEllipses &&
+        ELLIPSE_LEGEND.map((item) => (
+          <span key={item.label} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+            <svg width="14" height="10" style={{ flexShrink: 0 }}>
+              <ellipse
+                cx="7" cy="5" rx="6" ry="4"
+                fill={item.fill}
+                stroke="#1F3D2C"
+                strokeWidth="1"
+                strokeDasharray={item.dashed ? '3 2' : undefined}
+              />
+            </svg>
+            <span className="kicker" style={{ color: '#8A8B7E' }}>{item.label}</span>
+          </span>
+        ))}
     </div>
   )
 }
