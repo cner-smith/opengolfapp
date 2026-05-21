@@ -1,5 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Pressable, ScrollView, Text, View } from 'react-native'
+import {
+  AccessibilityInfo,
+  Pressable,
+  ScrollView,
+  Text,
+  View,
+} from 'react-native'
 import { Link } from 'expo-router'
 import { Swipeable } from 'react-native-gesture-handler'
 import { formatSG } from '@oga/core'
@@ -23,6 +29,15 @@ const KICKER: import('react-native').TextStyle = {
   fontWeight: '500',
   letterSpacing: 1.4,
   textTransform: 'uppercase',
+}
+
+// Screen-reader label for a round row. TalkBack and VoiceOver read visible
+// numbers but don't always interpret them; spell out what each field is.
+function buildA11yLabel(r: RoundRow): string {
+  const parts = [`Round at ${r.courses?.name ?? 'unnamed course'}`, r.played_at]
+  if (r.total_score != null) parts.push(`scored ${r.total_score}`)
+  if (r.sg_total != null) parts.push(`strokes gained ${formatSG(r.sg_total)}`)
+  return parts.join('. ') + '.'
 }
 
 export default function RoundsList() {
@@ -53,13 +68,20 @@ export default function RoundsList() {
   }, [user?.id])
 
   const handleDelete = useCallback(
-    async (id: string) => {
+    async (id: string, courseName: string) => {
       if (!user) return
       setDeleting(true)
       try {
         const { error } = await deleteRound(supabase, id, user.id)
         if (error) throw error
         setRounds((prev) => prev.filter((r) => r.id !== id))
+        // Delay so VoiceOver doesn't swallow the announce while focus
+        // shifts from the dismissing ConfirmDialog.
+        setTimeout(() => {
+          AccessibilityInfo.announceForAccessibility(
+            `Deleted round at ${courseName}`,
+          )
+        }, 120)
       } finally {
         setDeleting(false)
         setPendingDelete(null)
@@ -68,6 +90,16 @@ export default function RoundsList() {
     },
     [user],
   )
+
+  // Shared entry point for the three delete triggers: swipe-tap,
+  // long-press, and the custom 'delete' accessibility action.
+  const openDeleteFor = useCallback((r: RoundRow) => {
+    swipeRefs.current.get(r.id)?.close()
+    setPendingDelete({
+      id: r.id,
+      name: r.courses?.name ?? 'this round',
+    })
+  }, [])
 
   return (
     <View style={{ flex: 1, backgroundColor: '#F2EEE5' }}>
@@ -93,13 +125,7 @@ export default function RoundsList() {
                 }}
                 renderRightActions={() => (
                   <Pressable
-                    onPress={() => {
-                      swipeRefs.current.get(r.id)?.close()
-                      setPendingDelete({
-                        id: r.id,
-                        name: r.courses?.name ?? 'this round',
-                      })
-                    }}
+                    onPress={() => openDeleteFor(r)}
                     style={{
                       backgroundColor: '#A33A2A',
                       justifyContent: 'center',
@@ -123,7 +149,17 @@ export default function RoundsList() {
               >
                 <Link href={`/(app)/round/${r.id}`} asChild>
                   <Pressable
-                    style={{
+                    onLongPress={() => openDeleteFor(r)}
+                    accessibilityLabel={buildA11yLabel(r)}
+                    accessibilityHint="Opens round detail"
+                    accessibilityActions={[
+                      { name: 'delete', label: 'Delete round' },
+                    ]}
+                    onAccessibilityAction={(e) => {
+                      if (e.nativeEvent.actionName === 'delete')
+                        openDeleteFor(r)
+                    }}
+                    style={({ pressed }) => ({
                       flexDirection: 'row',
                       justifyContent: 'space-between',
                       alignItems: 'center',
@@ -132,7 +168,8 @@ export default function RoundsList() {
                       borderBottomWidth: 1,
                       borderColor: '#D9D2BF',
                       backgroundColor: '#F2EEE5',
-                    }}
+                      opacity: pressed ? 0.7 : 1,
+                    })}
                   >
                     <View style={{ flex: 1, paddingRight: 12 }}>
                       <Text style={{ ...KICKER, marginBottom: 4 }}>
@@ -201,7 +238,8 @@ export default function RoundsList() {
         destructive
         busy={deleting}
         onConfirm={async () => {
-          if (pendingDelete) await handleDelete(pendingDelete.id)
+          if (pendingDelete)
+            await handleDelete(pendingDelete.id, pendingDelete.name)
         }}
         onCancel={() => setPendingDelete(null)}
       />
