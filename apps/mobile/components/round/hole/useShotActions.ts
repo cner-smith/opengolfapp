@@ -455,7 +455,7 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
         userId: user.id,
         handicap,
       })
-      router.replace(`/(app)/round/${round.id}`)
+      router.replace({ pathname: '/(app)/round/[id]', params: { id: round.id } })
     } catch (err) {
       Alert.alert('End round failed', (err as Error).message)
     } finally {
