@@ -218,7 +218,7 @@ export function PuttingSheet({
               accessibilityLabel="Not a putt — switch to chip or bunker shot"
               onPress={() => onChangeLie('rough')}
               hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
-              style={{ marginTop: 4 }}
+              style={{ marginTop: 4, paddingVertical: 12 }}
             >
               <Text
                 style={{
