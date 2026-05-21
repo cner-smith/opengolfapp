@@ -231,25 +231,6 @@ export function WebPuttingSheet({
       >
         <button
           type="button"
-          onClick={() => commit(true)}
-          className="bg-caddie-accent text-caddie-accent-ink"
-          style={{
-            flex: 1,
-            minWidth: 160,
-            borderRadius: 2,
-            padding: '14px 18px',
-            fontSize: 14,
-            fontWeight: 600,
-            letterSpacing: '0.02em',
-          }}
-        >
-          Holed it{' '}
-          <span className="font-serif" style={{ fontStyle: 'italic' }}>
-            →
-          </span>
-        </button>
-        <button
-          type="button"
           onClick={() => commit(false)}
           className="text-caddie-accent"
           style={{
@@ -265,6 +246,25 @@ export function WebPuttingSheet({
           }}
         >
           Missed{' '}
+          <span className="font-serif" style={{ fontStyle: 'italic' }}>
+            →
+          </span>
+        </button>
+        <button
+          type="button"
+          onClick={() => commit(true)}
+          className="bg-caddie-accent text-caddie-accent-ink"
+          style={{
+            flex: 1,
+            minWidth: 160,
+            borderRadius: 2,
+            padding: '14px 18px',
+            fontSize: 14,
+            fontWeight: 600,
+            letterSpacing: '0.02em',
+          }}
+        >
+          Holed it{' '}
           <span className="font-serif" style={{ fontStyle: 'italic' }}>
             →
           </span>

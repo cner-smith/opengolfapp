@@ -368,28 +368,6 @@ export function PuttingSheet({
         <View style={{ marginTop: 22 }}>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Save putt as holed"
-            onPress={() => commit(true)}
-            style={{
-              backgroundColor: '#1F3D2C',
-              borderRadius: 2,
-              paddingVertical: 18,
-              alignItems: 'center',
-            }}
-          >
-            <Text
-              style={{
-                color: '#F2EEE5',
-                fontSize: 16,
-                fontWeight: '700',
-                letterSpacing: 0.4,
-              }}
-            >
-              Holed it →
-            </Text>
-          </Pressable>
-          <Pressable
-            accessibilityRole="button"
             accessibilityLabel="Save putt as missed"
             onPress={() => commit(false)}
             style={{
@@ -398,7 +376,6 @@ export function PuttingSheet({
               borderRadius: 2,
               paddingVertical: 14,
               alignItems: 'center',
-              marginTop: 10,
             }}
           >
             <Text
@@ -410,6 +387,29 @@ export function PuttingSheet({
               }}
             >
               Missed →
+            </Text>
+          </Pressable>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Save putt as holed"
+            onPress={() => commit(true)}
+            style={{
+              backgroundColor: '#1F3D2C',
+              borderRadius: 2,
+              paddingVertical: 18,
+              alignItems: 'center',
+              marginTop: 10,
+            }}
+          >
+            <Text
+              style={{
+                color: '#F2EEE5',
+                fontSize: 16,
+                fontWeight: '700',
+                letterSpacing: 0.4,
+              }}
+            >
+              Holed it →
             </Text>
           </Pressable>
         </View>
