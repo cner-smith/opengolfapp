@@ -4,7 +4,7 @@ import { AuthGuard } from './components/auth/AuthGuard'
 import { ProfileGuard } from './components/auth/ProfileGuard'
 import { AppShell } from './components/layout/AppShell'
 import { PublicShell } from './components/landing/PublicShell'
-import { PublicArticleLayout } from './components/landing/PublicArticleLayout'
+import { LearnShell } from './components/landing/LearnShell'
 import { RouteErrorBoundary } from './components/errors/ErrorBoundary'
 import { LoginPage } from './pages/auth/LoginPage'
 import { SignupPage } from './pages/auth/SignupPage'
@@ -73,21 +73,25 @@ const errorElement = <RouteErrorBoundary />
 const routes: RouteObject[] = [
   // Public routes — no auth required. Visiting these signed-in is fine;
   // PublicNav swaps the sign-up CTA for "Go to app" so the home page
-  // doubles as a re-entry point. Learn lives here so articles are
-  // crawlable and shareable without forcing readers through signup.
+  // doubles as a re-entry point.
   {
     element: <PublicShell />,
     errorElement,
     children: [
       { path: '/', element: <LandingPage />, errorElement },
       { path: '/privacy', element: <PrivacyPage />, errorElement },
-      {
-        element: <PublicArticleLayout />,
-        children: [
-          { path: '/learn', element: <LearnPage />, errorElement },
-          { path: '/learn/:slug', element: <LearnArticlePage />, errorElement },
-        ],
-      },
+    ],
+  },
+  // Learn — same URLs for crawlers + signed-out readers, but signed-in
+  // users see the app chrome with sidebar. LearnShell handles the swap;
+  // routes stay out of PublicShell so PublicNav doesn't paint on top
+  // of AppShell for authed users.
+  {
+    element: <LearnShell />,
+    errorElement,
+    children: [
+      { path: '/learn', element: <LearnPage />, errorElement },
+      { path: '/learn/:slug', element: <LearnArticlePage />, errorElement },
     ],
   },
   { path: '/login', element: <LoginPage />, errorElement },
