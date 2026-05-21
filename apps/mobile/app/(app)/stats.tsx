@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Pressable, ScrollView, Text, useWindowDimensions, View } from 'react-native'
 import { VictoryAxis, VictoryChart, VictoryLine } from 'victory-native'
+import Svg, { Line as SvgLine } from 'react-native-svg'
 import {
   computeDetailedStats,
   DEFAULT_HANDICAP,
@@ -22,11 +23,10 @@ const CHART_HEIGHT = 260
 const CHART_BOTTOM = 28
 
 const SERIES = [
-  { key: 'sg_off_tee', label: 'Off tee', color: '#1F3D2C', dash: false },
-  { key: 'sg_approach', label: 'Approach', color: '#A33A2A', dash: false },
-  { key: 'sg_around_green', label: 'Around green', color: '#A66A1F', dash: false },
-  // Putting shares the green family with Off tee — dashed to distinguish.
-  { key: 'sg_putting', label: 'Putting', color: '#5C6356', dash: true },
+  { key: 'sg_off_tee', label: 'Off tee', color: '#1F3D2C', dash: '0' },
+  { key: 'sg_approach', label: 'Approach', color: '#A33A2A', dash: '6,3' },
+  { key: 'sg_around_green', label: 'Around green', color: '#A66A1F', dash: '2,3' },
+  { key: 'sg_putting', label: 'Putting', color: '#1C211C', dash: '6,3,2,3' },
 ] as const
 
 const KICKER: import('react-native').TextStyle = {
@@ -288,7 +288,7 @@ export default function Stats() {
                       data: {
                         stroke: s.color,
                         strokeWidth: 1.5,
-                        strokeDasharray: s.dash ? '5,3' : '0',
+                        strokeDasharray: s.dash,
                       },
                     }}
                   />
@@ -307,14 +307,17 @@ export default function Stats() {
                     key={s.key}
                     style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}
                   >
-                    {s.dash ? (
-                      <View style={{ flexDirection: 'row', gap: 2, alignItems: 'center' }}>
-                        <View style={{ width: 4, height: 2, backgroundColor: s.color }} />
-                        <View style={{ width: 4, height: 2, backgroundColor: s.color }} />
-                      </View>
-                    ) : (
-                      <View style={{ width: 10, height: 2, backgroundColor: s.color }} />
-                    )}
+                    <Svg width={16} height={4}>
+                      <SvgLine
+                        x1={0}
+                        y1={2}
+                        x2={16}
+                        y2={2}
+                        stroke={s.color}
+                        strokeWidth={1.5}
+                        strokeDasharray={s.dash}
+                      />
+                    </Svg>
                     <Text style={{ color: '#5C6356', fontSize: 11 }}>
                       {s.label}
                     </Text>
