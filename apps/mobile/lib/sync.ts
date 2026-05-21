@@ -108,9 +108,14 @@ export async function syncPendingShots(): Promise<{ synced: number; failed: numb
 // Auto-trigger sync on network reconnect and app foreground. Failures
 // previously stayed in the pending queue forever with no automatic
 // retry — a player who finished a round on a flaky connection would
-// see "synced" never tick up. Listeners are module-scope singletons
-// installed once at first import; we never need to remove them.
-let listenersInstalled = false
+// see "synced" never tick up. Listeners are global singletons; the
+// guard lives on globalThis (not module scope) so Metro Fast Refresh
+// / bundle reload doesn't stack duplicate listeners. Mirrors the
+// db.ts WAL-checkpoint pattern.
+declare global {
+  // eslint-disable-next-line no-var
+  var __ogaSyncInstalled: boolean | undefined
+}
 
 function fireAndForget() {
   syncPendingShots().catch((err) => {
@@ -120,8 +125,8 @@ function fireAndForget() {
 }
 
 export function installAutoSync(): void {
-  if (listenersInstalled) return
-  listenersInstalled = true
+  if (globalThis.__ogaSyncInstalled) return
+  globalThis.__ogaSyncInstalled = true
 
   NetInfo.addEventListener((state) => {
     if (state.isConnected && state.isInternetReachable) {

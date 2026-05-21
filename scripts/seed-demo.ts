@@ -15,6 +15,7 @@
  */
 import 'dotenv/config'
 import { createClient } from '@supabase/supabase-js'
+import { DEFAULT_BAG } from '@oga/core'
 
 const URL = process.env.SUPABASE_URL ?? 'http://127.0.0.1:54321'
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -27,8 +28,12 @@ const supabase = createClient(URL, SERVICE_KEY, {
   auth: { autoRefreshToken: false, persistSession: false },
 })
 
-const DEMO_EMAIL = 'demo@oga.app'
-const DEMO_PASSWORD = 'ogademo123'
+// Defaults match the original demo user. Override via env (e.g. for
+// the Playwright e2e account against the dev project) — see
+// `pnpm seed:e2e` for the full invocation.
+const SEED_EMAIL = process.env.SEED_EMAIL ?? 'demo@oga.app'
+const SEED_PASSWORD = process.env.SEED_PASSWORD ?? 'ogademo123'
+const SEED_USERNAME = process.env.SEED_USERNAME ?? 'demo'
 
 // Course base coords (no real geometry on the seeded courses, so we
 // synthesize plausible lat/lng for shot dispersion).
@@ -76,14 +81,14 @@ function pickClubForDistance(yards: number): string {
 
 async function ensureDemoUser(): Promise<string> {
   const { data: list } = await supabase.auth.admin.listUsers({ perPage: 1000 })
-  const existing = list?.users?.find((u) => u.email === DEMO_EMAIL)
+  const existing = list?.users?.find((u) => u.email === SEED_EMAIL)
   if (existing) return existing.id
 
   const { data, error } = await supabase.auth.admin.createUser({
-    email: DEMO_EMAIL,
-    password: DEMO_PASSWORD,
+    email: SEED_EMAIL,
+    password: SEED_PASSWORD,
     email_confirm: true,
-    user_metadata: { username: 'demo' },
+    user_metadata: { username: SEED_USERNAME },
   })
   if (error || !data.user) throw error ?? new Error('createUser returned no user')
   return data.user.id
@@ -95,13 +100,17 @@ async function ensureProfile(userId: string): Promise<void> {
     .upsert(
       {
         id: userId,
-        username: 'demo',
+        username: SEED_USERNAME,
         handicap_index: 12.4,
         skill_level: 'developing',
         goal: 'break_80',
         play_frequency: 'weekly',
         facilities: ['range', 'short_game', 'putting'],
         play_style: 'mixed',
+        // Added in migration 0023; the script pre-dates it. Without
+        // this, ProfileGuard would bounce the seeded user to
+        // /onboarding on next sign-in.
+        onboarding_completed: true,
       },
       { onConflict: 'id' },
     )
@@ -120,6 +129,23 @@ async function wipeDemoData(userId: string): Promise<void> {
     .delete()
     .eq('user_id', userId)
   if (planErr) throw planErr
+  const { error: clubsErr } = await supabase
+    .from('user_clubs')
+    .delete()
+    .eq('user_id', userId)
+  if (clubsErr) throw clubsErr
+}
+
+async function seedBag(userId: string): Promise<void> {
+  const rows = DEFAULT_BAG.map((c) => ({
+    user_id: userId,
+    club_type: c.club_type,
+    name: c.name,
+    sort_order: c.sort_order,
+    in_bag: true,
+  }))
+  const { error } = await supabase.from('user_clubs').insert(rows)
+  if (error) throw error
 }
 
 interface CourseRow {
@@ -342,6 +368,7 @@ async function main() {
   const userId = await ensureDemoUser()
   await ensureProfile(userId)
   await wipeDemoData(userId)
+  await seedBag(userId)
 
   const courses = await fetchCourses()
   if (courses.length < 3) {
@@ -365,7 +392,7 @@ async function main() {
 
   await insertPracticePlan(userId)
 
-  console.log(`Demo user ready — sign in as ${DEMO_EMAIL} / ${DEMO_PASSWORD}`)
+  console.log(`Seed user ready — sign in as ${SEED_EMAIL} / ${SEED_PASSWORD}`)
 }
 
 main().catch((err) => {

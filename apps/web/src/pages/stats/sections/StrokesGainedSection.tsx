@@ -23,10 +23,10 @@ const TOOLTIP_STYLE = {
 } as const
 
 const SG_SERIES = [
-  { key: 'offTee', label: 'Off tee', color: '#1F3D2C', dashed: false },
-  { key: 'approach', label: 'Approach', color: '#A33A2A', dashed: false },
-  { key: 'aroundGreen', label: 'Around green', color: '#A66A1F', dashed: false },
-  { key: 'putting', label: 'Putting', color: '#5C6356', dashed: true },
+  { key: 'offTee', label: 'Off tee', color: '#1F3D2C', dash: '0' },
+  { key: 'approach', label: 'Approach', color: '#A33A2A', dash: '6 3' },
+  { key: 'aroundGreen', label: 'Around green', color: '#A66A1F', dash: '2 3' },
+  { key: 'putting', label: 'Putting', color: '#1C211C', dash: '6 3 2 3' },
 ] as const
 
 function SGLegend() {
@@ -49,7 +49,7 @@ function SGLegend() {
               x1="0" y1="5" x2="16" y2="5"
               stroke={s.color}
               strokeWidth="1.5"
-              strokeDasharray={s.dashed ? '4 3' : undefined}
+              strokeDasharray={s.dash}
             />
           </svg>
           {s.label}
@@ -123,7 +123,7 @@ export function StrokesGainedSection({ data }: { data: DetailedStats }) {
                     name={s.label}
                     stroke={s.color}
                     strokeWidth={1.5}
-                    strokeDasharray={s.dashed ? '4 3' : undefined}
+                    strokeDasharray={s.dash}
                     dot={{ r: 2.5, fill: s.color, strokeWidth: 0 }}
                     activeDot={{ r: 4 }}
                   />

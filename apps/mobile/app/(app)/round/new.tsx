@@ -8,6 +8,7 @@ import {
   View,
 } from 'react-native'
 import { useLocalSearchParams, useRouter } from 'expo-router'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import * as Location from 'expo-location'
 import {
   formatLocation,
@@ -64,6 +65,7 @@ export default function NewRound() {
   const [showManualForm, setShowManualForm] = useState(false)
   const [gps, setGps] = useState<GpsState>({ status: 'idle' })
   const searchAbort = useRef<AbortController | null>(null)
+  const insets = useSafeAreaInsets()
 
   // Debounce 300ms.
   useEffect(() => {
@@ -337,7 +339,7 @@ export default function NewRound() {
   }
 
   return (
-    <View style={{ flex: 1, backgroundColor: '#F2EEE5', paddingTop: 52, paddingHorizontal: 18, paddingBottom: 18 }}>
+    <View style={{ flex: 1, backgroundColor: '#F2EEE5', paddingTop: insets.top + 14, paddingHorizontal: 18, paddingBottom: 18 }}>
       <Text style={{ ...KICKER, marginBottom: 6 }}>
         {mode === 'past' ? 'Log past round' : 'Start live round'}
       </Text>
