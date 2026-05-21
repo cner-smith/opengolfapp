@@ -23,11 +23,41 @@ const TOOLTIP_STYLE = {
 } as const
 
 const SG_SERIES = [
-  { key: 'offTee', label: 'Off tee', color: '#1F3D2C' },
-  { key: 'approach', label: 'Approach', color: '#A33A2A' },
-  { key: 'aroundGreen', label: 'Around green', color: '#A66A1F' },
-  { key: 'putting', label: 'Putting', color: '#5C6356' },
+  { key: 'offTee', label: 'Off tee', color: '#1F3D2C', dashed: false },
+  { key: 'approach', label: 'Approach', color: '#A33A2A', dashed: false },
+  { key: 'aroundGreen', label: 'Around green', color: '#A66A1F', dashed: false },
+  { key: 'putting', label: 'Putting', color: '#5C6356', dashed: true },
 ] as const
+
+function SGLegend() {
+  return (
+    <div
+      style={{
+        display: 'flex',
+        gap: 16,
+        justifyContent: 'center',
+        flexWrap: 'wrap',
+        fontSize: 11,
+        fontFamily: 'Inter, sans-serif',
+        paddingTop: 8,
+      }}
+    >
+      {SG_SERIES.map((s) => (
+        <span key={s.key} style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#5C6356' }}>
+          <svg width="16" height="10" style={{ flexShrink: 0 }}>
+            <line
+              x1="0" y1="5" x2="16" y2="5"
+              stroke={s.color}
+              strokeWidth="1.5"
+              strokeDasharray={s.dashed ? '4 3' : undefined}
+            />
+          </svg>
+          {s.label}
+        </span>
+      ))}
+    </div>
+  )
+}
 
 export function StrokesGainedSection({ data }: { data: DetailedStats }) {
   const series = SG_SERIES.map((s) => ({
@@ -84,14 +114,7 @@ export function StrokesGainedSection({ data }: { data: DetailedStats }) {
                   contentStyle={TOOLTIP_STYLE}
                   labelStyle={{ color: '#8A8B7E' }}
                 />
-                <Legend
-                  iconType="plainline"
-                  wrapperStyle={{
-                    fontSize: 11,
-                    color: '#5C6356',
-                    fontFamily: 'Inter, sans-serif',
-                  }}
-                />
+                <Legend content={<SGLegend />} />
                 {SG_SERIES.map((s) => (
                   <Line
                     key={s.key}
@@ -100,6 +123,7 @@ export function StrokesGainedSection({ data }: { data: DetailedStats }) {
                     name={s.label}
                     stroke={s.color}
                     strokeWidth={1.5}
+                    strokeDasharray={s.dashed ? '4 3' : undefined}
                     dot={{ r: 2.5, fill: s.color, strokeWidth: 0 }}
                     activeDot={{ r: 4 }}
                   />

@@ -7,7 +7,13 @@ export type ShotPayload = Database['public']['Tables']['shots']['Insert']
 export interface PendingShot {
   local_id: number
   remote_id: string | null
-  status: 'pending' | 'synced'
+  // 'broken' = JSON.parse(payload) failed at least once; the row is
+  // quarantined so sync stops retrying it forever (#292). All reads
+  // filter `WHERE status = 'pending'` so broken rows become invisible
+  // to consumers. There's intentionally no CHECK constraint on this
+  // column — CREATE TABLE IF NOT EXISTS skips on existing installs, so
+  // a CHECK can't be retro-applied. The TypeScript union is the gate.
+  status: 'pending' | 'synced' | 'broken'
   payload: string
   created_at: number
 }
@@ -59,6 +65,26 @@ export async function markShotSynced(localId: number, remoteId: string): Promise
   )
 }
 
+// Quarantine a corrupt pending row so sync stops retrying it forever
+// (#292). Set when JSON.parse(row.payload) throws. The `WHERE status =
+// 'pending'` filter on every read keeps broken rows out of subsequent
+// passes. Internally try/catch'd so callers (which are already inside a
+// parse-fail catch) can't have the real failure masked by a downstream
+// marker-write failure — the parse error log is what actually surfaces
+// what went wrong.
+export async function markShotBroken(localId: number): Promise<void> {
+  try {
+    const db = await getDb()
+    await db.runAsync(
+      `UPDATE pending_shots SET status = 'broken' WHERE local_id = ?`,
+      localId,
+    )
+  } catch (e) {
+    // eslint-disable-next-line no-console
+    console.error('[db/markShotBroken]', e)
+  }
+}
+
 export async function deletePendingShot(localId: number): Promise<void> {
   const db = await getDb()
   await db.runAsync(`DELETE FROM pending_shots WHERE local_id = ?`, localId)
@@ -89,11 +115,22 @@ export async function setPendingShotEnd(
     localId,
   )
   if (!row) return null
+  // Quarantined rows (set by an earlier parse-fail in this fn or by
+  // sync.ts) carry corrupt data; caller has nothing meaningful to do
+  // with them. Treat as "not found".
+  if (row.status === 'broken') return null
   if (row.status === 'pending') {
     let payload: ShotPayload
     try {
       payload = JSON.parse(row.payload)
-    } catch {
+    } catch (e) {
+      // eslint-disable-next-line no-console
+      console.error(
+        '[db/payload-corrupt] local_id=%d msg=%s',
+        localId,
+        (e as Error).message,
+      )
+      await markShotBroken(localId)
       return null
     }
     payload.end_lat = lat

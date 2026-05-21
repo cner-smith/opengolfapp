@@ -4,19 +4,19 @@ import { useRouter } from 'expo-router'
 import type { User } from '@supabase/supabase-js'
 import { combinedPuttResult, type LieType } from '@oga/core'
 import { deleteRound, getProfile } from '@oga/supabase'
-import { supabase } from '../../../../../../lib/supabase'
+import { supabase } from '../../../lib/supabase'
 import {
   insertPendingShot,
   setPendingShotEnd,
   type ShotPayload,
-} from '../../../../../../lib/db'
-import { syncPendingShots } from '../../../../../../lib/sync'
-import { distanceYards } from '../../../../../../lib/maps'
-import { completeRound } from '../../../../../../lib/completeRound'
-import type { LatLng } from '../../../../../../components/round/HoleMap'
-import type { ShotLoggerValue } from '../../../../../../components/round/ShotLogger'
-import type { PuttingValue } from '../../../../../../components/round/PuttingSheet'
-import { PUTTING_RADIUS_YARDS } from '../state/types'
+} from '../../../lib/db'
+import { syncPendingShots } from '../../../lib/sync'
+import { distanceYards } from '../../../lib/maps'
+import { completeRound } from '../../../lib/completeRound'
+import type { LatLng } from '../HoleMap'
+import type { ShotLoggerValue } from '../ShotLogger'
+import type { PuttingValue } from '../PuttingSheet'
+import { PUTTING_RADIUS_YARDS } from './types'
 import type { UseHoleDataResult } from './useHoleData'
 import type { UseHoleStateResult } from './useHoleState'
 
@@ -36,12 +36,22 @@ interface UseShotActionsInput {
   setConfirmDelete: Dispatch<SetStateAction<boolean>>
   setConfirmEnd: Dispatch<SetStateAction<boolean>>
   setConfirmExit: Dispatch<SetStateAction<boolean>>
+  // Hole navigation is callback-driven so the parent (LiveRoundSession)
+  // can keep the MapView resident across hole changes. Direct router.replace
+  // would fully unmount + remount the screen — see #264.
+  onHoleChange: (next: number) => void
 }
 
 export interface UseShotActionsResult {
   saving: boolean
   ending: boolean
   deleting: boolean
+  // Monotonic counter that bumps once per successful persistShot.
+  // Used by HoleModals as the ShotLogger key so the form remounts
+  // (= resets) exactly when a shot saves — and not on incidental
+  // shotNumber recomputation from stale fetches or background sync.
+  // See #284 for the original symptom.
+  shotEntrySeq: number
   persistShot: (meta: ShotLoggerValue | null) => Promise<void>
   persistPutt: (v: PuttingValue) => Promise<void>
   persistRoundPin: (loc: LatLng) => Promise<void>
@@ -80,6 +90,7 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
     setConfirmDelete,
     setConfirmEnd,
     setConfirmExit,
+    onHoleChange,
   } = input
   const router = useRouter()
   const [saving, setSaving] = useState(false)
@@ -90,6 +101,7 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
   const persistShotInFlightRef = useRef(false)
   const [ending, setEnding] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [shotEntrySeq, setShotEntrySeq] = useState(0)
 
   const {
     round,
@@ -112,6 +124,7 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
     setRoundState,
     manuallyPlacedRef,
     lastSavedShotLocalIdRef,
+    gpsPosition,
   } = state
 
   function buildPayload(meta: ShotLoggerValue | null): ShotPayload | null {
@@ -201,6 +214,9 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
             : hs,
         ),
       )
+      // Bump only on success — a failed save (caught below) shouldn't
+      // remount the form and wipe the player's entry.
+      setShotEntrySeq((s) => s + 1)
     } catch (err) {
       // eslint-disable-next-line no-console
       console.error('shot save failed', err, payload)
@@ -288,11 +304,33 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
   }
 
   async function markBallHere() {
-    if (!ball) {
-      Alert.alert('Place the ball first', 'Tap the map to drop the ball.')
+    // Use the dragged ball if the player set one, otherwise fall back to
+    // raw GPS — "Mark ball here" should always work as long as we know
+    // where the player is, even if they haven't tapped the map to drop
+    // a marker first.
+    const source = ball ?? gpsPosition
+    if (!source) {
+      Alert.alert(
+        'No GPS yet',
+        'Waiting for a location fix — try again in a moment, or tap the map to drop the ball manually.',
+      )
       return
     }
-    const ballSnapshot = { lat: ball.lat, lng: ball.lng }
+    // NaN guard (#275). gpsPosition is the fallback when the player
+    // hasn't dragged a ball yet, and a corrupt GPS reading that slipped
+    // past upstream guards would otherwise propagate to setPendingShotEnd
+    // (NaN → SQLite → Postgres rejects on sync) and setBall (NaN
+    // poisons the next persistShot's start_lat).
+    if (!Number.isFinite(source.lat) || !Number.isFinite(source.lng)) {
+      // eslint-disable-next-line no-console
+      console.warn('[hole/markBallHere] non-finite source coord', source)
+      Alert.alert(
+        'GPS reading invalid',
+        'The location fix came back malformed. Try again, or tap the map to drop the ball manually.',
+      )
+      return
+    }
+    const ballSnapshot = { lat: source.lat, lng: source.lng }
     manuallyPlacedRef.current = true
     const prevLocalId = lastSavedShotLocalIdRef.current
     if (prevLocalId != null) {
@@ -341,8 +379,10 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
     // are common but rough is the modal answer for "near green but
     // not putting". Player overrides in ShotLogger.
     setLoggerInitial({ lieType: 'rough' })
-    setRoundState('SHOT_DETAIL')
-    setLoggerOpen(true)
+    // Route through the aim prompt — chips and pitches still benefit
+    // from explicit aim capture for the shot-pattern dataset. Player
+    // can skip aim from the prompt if they want.
+    setAimPromptOpen(true)
   }
 
   function confirmAim() {
@@ -390,12 +430,12 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
   function navigateHole(delta: number) {
     const next = holeNumber + delta
     if (next < 1 || next > 18) return
-    router.replace(`/(app)/round/${id}/hole/${next}`)
+    onHoleChange(next)
   }
 
   function finishHole() {
     if (holeNumber < 18) {
-      router.replace(`/(app)/round/${id}/hole/${holeNumber + 1}`)
+      onHoleChange(holeNumber + 1)
     } else {
       router.replace('/(app)')
     }
@@ -465,6 +505,7 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
     saving,
     ending,
     deleting,
+    shotEntrySeq,
     persistShot,
     persistPutt,
     persistRoundPin,

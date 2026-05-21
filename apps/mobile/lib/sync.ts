@@ -1,6 +1,6 @@
 import { AppState } from 'react-native'
 import NetInfo from '@react-native-community/netinfo'
-import { listPendingShots, markShotSynced, type ShotPayload } from './db'
+import { listPendingShots, markShotBroken, markShotSynced, type ShotPayload } from './db'
 import { supabase } from './supabase'
 
 // Module-scope lock that survives a Fast Refresh and prevents two
@@ -51,9 +51,16 @@ export async function syncPendingShots(): Promise<{ synced: number; failed: numb
       for (const row of chunk) {
         try {
           payloads.push(JSON.parse(row.payload) as ShotPayload)
-        } catch {
-          // Malformed pending payload — skip; the row stays pending and
-          // will be retried (or hand-pruned) later.
+        } catch (e) {
+          // Malformed pending payload — quarantine so sync stops retrying
+          // it forever on every reconnect (#292).
+          // eslint-disable-next-line no-console
+          console.error(
+            '[db/payload-corrupt] local_id=%d msg=%s',
+            row.local_id,
+            (e as Error).message,
+          )
+          void markShotBroken(row.local_id)
         }
       }
       if (payloads.length === 0) {

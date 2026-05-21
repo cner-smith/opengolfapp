@@ -48,9 +48,14 @@ export function ResumeRoundBanner({ round }: { round: ActiveRound }) {
       accessibilityRole="button"
       accessibilityLabel={`Resume active round at ${round.courseName}, hole ${round.currentHole}`}
       onPress={() =>
-        router.push(
-          `/(app)/round/${round.id}/hole/${round.currentHole}?mode=live`,
-        )
+        router.push({
+          pathname: '/(app)/round/[id]',
+          params: {
+            id: round.id,
+            hole: String(round.currentHole),
+            mode: 'live',
+          },
+        })
       }
       style={{
         borderRadius: 2,

@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useRef, useState } from 'react'
-import { Text, View } from 'react-native'
+import { Pressable, Text, View } from 'react-native'
 import Mapbox from '@rnmapbox/maps'
+import { MaterialCommunityIcons } from '@expo/vector-icons'
 import { Gesture, GestureDetector } from 'react-native-gesture-handler'
 import { runOnJS } from 'react-native-reanimated'
 import { distanceYards, ensureMapboxInitialized } from '../../lib/maps'
@@ -51,6 +52,23 @@ interface HoleMapProps {
    * not a bug.
    */
   missingHoleLayout?: boolean
+  /**
+   * Latest smoothed GPS position. Drives the recenter button (which
+   * camera-jumps to it) and the camera hook's auto-center-once
+   * behavior. Null until permission granted and a fix arrives.
+   */
+  gpsPosition?: LatLng | null
+  /**
+   * Course centroid (courses.lat/lng). Used as a proximity gate so
+   * auto-center only fires when the player is actually at the course.
+   */
+  courseCenter?: LatLng | null
+  /**
+   * Active hole number, used as the hole-change signal for resident
+   * children (aim ghosts, anything else that needs to reset per hole).
+   * The map itself stays mounted across the whole round — see #264.
+   */
+  holeNumber: number
   onSetAim: (loc: LatLng) => void
   onSetBall: (loc: LatLng) => void
   onPlacePin?: (loc: LatLng) => void
@@ -67,6 +85,10 @@ function extractCoord(feature: unknown): LatLng | null {
   if (!Array.isArray(coords) || coords.length < 2) return null
   const [lng, lat] = coords as number[]
   if (typeof lat !== 'number' || typeof lng !== 'number') return null
+  // @rnmapbox/maps fires onDragEnd with NaN coords on Android when a
+  // PointAnnotation is dragged off the visible map. NaN passes typeof
+  // 'number' and then poisons the Kalman filter + DB writes downstream.
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null
   return { lat, lng }
 }
 
@@ -80,6 +102,9 @@ export function HoleMap({
   previousShots,
   phase = 'PLACE_BALL',
   missingHoleLayout = false,
+  gpsPosition,
+  courseCenter,
+  holeNumber,
   onSetAim,
   onSetBall,
   onPlacePin,
@@ -98,14 +123,32 @@ export function HoleMap({
   const isAimPhase = phase === 'SET_AIM'
   const isPlaceBallPhase = phase === 'PLACE_BALL'
 
-  const cameraRef = useHoleCamera({ center, ball, pin, roundPin, phase, styleLoaded })
+  const cameraRef = useHoleCamera({
+    center,
+    ball,
+    pin,
+    roundPin,
+    phase,
+    styleLoaded,
+    gpsPosition,
+    courseCenter,
+  })
 
-  const previousShotsLen = previousShots?.length ?? 0
+  const recenterOnGps = useCallback(() => {
+    if (!gpsPosition || !cameraRef.current) return
+    cameraRef.current.setCamera({
+      centerCoordinate: toCoord(gpsPosition),
+      zoomLevel: 17,
+      pitch: 0,
+      animationDuration: 600,
+    })
+  }, [gpsPosition, cameraRef])
+
   const { aimGhosts, aimGhostFeatures } = useAimGhosts({
     ball,
     aim,
     phase,
-    previousShotsLen,
+    holeNumber,
   })
 
   // Mapbox's onLongPress wasn't firing reliably on Android (single-tap
@@ -115,12 +158,25 @@ export function HoleMap({
   // gate it to the SET_AIM phase so the ball-placement step isn't noisy.
   const dropAimFromScreenPoint = useCallback(
     async (x: number, y: number) => {
-      if (!mapViewRef.current) return
+      // Snapshot the ref before the await: if the user long-presses
+      // during a hole transition the native MapView can tear down
+      // mid-await and the post-await call lands on a released handle.
+      // Re-checking ref identity after the await catches that race.
+      const mapView = mapViewRef.current
+      if (!mapView) return
       if (!isAimPhase) return
       try {
-        const coord = await mapViewRef.current.getCoordinateFromView([x, y])
+        const coord = await mapView.getCoordinateFromView([x, y])
+        if (mapViewRef.current !== mapView) return
         if (coord && coord.length >= 2) {
-          onSetAim({ lat: coord[1], lng: coord[0] })
+          const lat = coord[1]
+          const lng = coord[0]
+          // NaN guard (#275). Long-press near Mapbox projection
+          // singularities (extreme zoom, off-tile area) can return
+          // non-finite coords; without this, aim flows to buildPayload
+          // as aim_lat/aim_lng and the shot save fails on sync.
+          if (!Number.isFinite(lat) || !Number.isFinite(lng)) return
+          onSetAim({ lat, lng })
         }
       } catch {
         // map not ready yet
@@ -251,6 +307,12 @@ export function HoleMap({
               pitch: 0,
             }}
           />
+
+          {/* Bearing intentionally not enabled — drives the magnetometer
+              continuously, which costs ~2-4 %/hr over a 4-hour round, and
+              the player's facing direction isn't UX-meaningful here (no
+              navigation, no panning relative to heading). */}
+          <Mapbox.LocationPuck visible />
 
           <BreadcrumbLayers
             previousShots={previousShots ?? []}
@@ -400,6 +462,35 @@ export function HoleMap({
         {missingHoleLayout && !isPinMode && !isTeeMode && <MissingLayoutBanner />}
         {!isPinMode && pinDistance !== null && (
           <PinDistancePill display={toDisplay(pinDistance)} />
+        )}
+        {isPlaceBallPhase && (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Center map on my location"
+            disabled={!gpsPosition}
+            onPress={recenterOnGps}
+            hitSlop={8}
+            style={{
+              position: 'absolute',
+              right: 12,
+              bottom: 52,
+              width: 44,
+              height: 44,
+              borderRadius: 22,
+              backgroundColor: '#FBF8F1',
+              borderWidth: 1,
+              borderColor: '#1F3D2C',
+              alignItems: 'center',
+              justifyContent: 'center',
+              opacity: gpsPosition ? 1 : 0.5,
+            }}
+          >
+            <MaterialCommunityIcons
+              name="crosshairs-gps"
+              size={22}
+              color="#1F3D2C"
+            />
+          </Pressable>
         )}
       </View>
     </GestureDetector>

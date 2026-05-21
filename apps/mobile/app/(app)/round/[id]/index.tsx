@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   ActivityIndicator,
   Alert,
@@ -9,12 +9,13 @@ import {
 } from 'react-native'
 import { captureRef } from 'react-native-view-shot'
 import * as Sharing from 'expo-sharing'
-import { Redirect, useLocalSearchParams, useRouter } from 'expo-router'
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router'
 import { formatSG } from '@oga/core'
 import type { Database } from '@oga/supabase'
 import { supabase } from '../../../../lib/supabase'
 import { ShareableScorecardCard } from '../../../../components/round/ShareableScorecardCard'
 import { PastHoleShotsSheet } from '../../../../components/round/PastHoleShotsSheet'
+import LiveRoundSession from '../../../../components/round/LiveRoundSession'
 import { useUnits } from '../../../../hooks/useUnits'
 
 type RoundRow = Database['public']['Tables']['rounds']['Row']
@@ -35,7 +36,11 @@ const KICKER: import('react-native').TextStyle = {
 // a past round from the home list isn't dropped back into the
 // Mark-ball / Set-aim state machine.
 export default function RoundIndex() {
-  const { id } = useLocalSearchParams<{ id: string }>()
+  const { id, hole, mode } = useLocalSearchParams<{
+    id: string
+    hole?: string
+    mode?: string
+  }>()
   const router = useRouter()
 
   const [round, setRound] = useState<RoundRow | null>(null)
@@ -92,21 +97,10 @@ export default function RoundIndex() {
         if (hsRes.error) throw hsRes.error
         setHoles(hRes.data ?? [])
         setHoleScores(hsRes.data ?? [])
-        // Fetch shots for all hole_scores in this round so the read-only
-        // hole drill-down sheet can render without a per-tap query. Past
-        // rounds are bounded (≤18 holes, max ~10 shots/hole), so a single
-        // pull on mount is fine.
-        const holeScoreIds = (hsRes.data ?? []).map((hs) => hs.id)
-        if (holeScoreIds.length > 0) {
-          const { data: shotData, error: shotErr } = await supabase
-            .from('shots')
-            .select('*')
-            .in('hole_score_id', holeScoreIds)
-            .order('shot_number')
-          if (!active) return
-          if (shotErr) throw shotErr
-          setShots(shotData ?? [])
-        }
+        // Shots are fetched in the useFocusEffect below — re-focus
+        // after an end-round (when pending shots are still syncing
+        // via fire-and-forget background sync) self-heals the count.
+        // See #246.
       } catch (err) {
         if (!active) return
         setError((err as Error).message)
@@ -119,10 +113,10 @@ export default function RoundIndex() {
     }
   }, [id])
 
-  if (redirectToLive && id) {
-    return <Redirect href={`/(app)/round/${id}/hole/1?mode=live`} />
-  }
-
+  // Hooks must run unconditionally before any branch return — these
+  // memos are needed by the read-only summary path below, but lifting
+  // them above the redirectToLive early-return keeps render-1 (loading)
+  // and render-2 (live-session mount) on the same hook count.
   const scoresByHoleId = useMemo(
     () => new Map(holeScores.map((hs) => [hs.hole_id, hs])),
     [holeScores],
@@ -131,6 +125,69 @@ export default function RoundIndex() {
     () => [...holes].sort((a, b) => a.number - b.number),
     [holes],
   )
+  // Drives the scorecard row's tap affordance — a row is only tappable
+  // if its hole has shots logged. Without this gate, the → arrow
+  // promises content; tap opens a sheet that reads "No shots logged
+  // for this hole." See #247.
+  const holeScoreIdsWithShots = useMemo(
+    () => new Set(shots.map((s) => s.hole_score_id)),
+    [shots],
+  )
+
+  // Refetch shots on screen focus. The end-round write order is:
+  // total_score + hole_scores first, then pending shot inserts trickle
+  // into the `shots` table via background sync. A player who reaches
+  // this screen mid-sync sees the totals row diverge from the per-hole
+  // drill-down sheet until a refetch. Initial mount fires this once
+  // (after holeScores populates and the callback identity changes),
+  // and every subsequent focus refires — so the common path
+  // (end-round → home → back to scorecard) self-heals. See #246.
+  useFocusEffect(
+    useCallback(() => {
+      if (holeScores.length === 0) return
+      let active = true
+      const holeScoreIds = holeScores.map((hs) => hs.id)
+      supabase
+        .from('shots')
+        .select('*')
+        .in('hole_score_id', holeScoreIds)
+        .order('shot_number')
+        .then(({ data, error }) => {
+          if (!active || error) return
+          setShots(data ?? [])
+        })
+      return () => {
+        active = false
+      }
+    }, [holeScores]),
+  )
+
+  // Stable across renders — passing an inline arrow caused
+  // LiveRoundSession's onHoleChange-keyed effect to re-fire on every
+  // parent render, looping with router.setParams.
+  const syncHoleToUrl = useCallback(
+    (next: number) => router.setParams({ hole: String(next) }),
+    [router],
+  )
+
+  // In-progress rounds mount the live session here — the path-segmented
+  // hole route is deprecated, see #264. holeNumber is component state
+  // inside LiveRoundSession; the ?hole= search param is just the URL
+  // mirror so a deep-link / refresh lands on the right hole.
+  if (redirectToLive && id) {
+    const initialHole = (() => {
+      const n = Number(hole)
+      return Number.isFinite(n) && n >= 1 && n <= 18 ? n : 1
+    })()
+    return (
+      <LiveRoundSession
+        roundId={id}
+        initialHoleNumber={initialHole}
+        mode={mode === 'past' ? 'past' : 'live'}
+        onHoleChange={syncHoleToUrl}
+      />
+    )
+  }
 
   if (loading) {
     return (
@@ -449,13 +506,18 @@ export default function RoundIndex() {
             const hs = scoresByHoleId.get(h.id)
             const score = hs?.score ?? null
             const d = score != null && score > 0 ? score - h.par : null
+            const hasShots = hs ? holeScoreIdsWithShots.has(hs.id) : false
             return (
               <Pressable
                 key={h.id}
-                accessibilityRole="button"
-                accessibilityLabel={`Hole ${h.number}, par ${h.par}${score != null && score > 0 ? `, score ${score}` : ', not played'}, view shots`}
-                onPress={() => setShotsForHole(h)}
-                android_ripple={{ color: '#EBE5D6' }}
+                accessibilityRole={hasShots ? 'button' : 'text'}
+                accessibilityLabel={
+                  hasShots
+                    ? `Hole ${h.number}, par ${h.par}, score ${score}, view shots`
+                    : `Hole ${h.number}, par ${h.par}${score != null && score > 0 ? `, score ${score}` : ', not played'}`
+                }
+                onPress={hasShots ? () => setShotsForHole(h) : undefined}
+                android_ripple={hasShots ? { color: '#EBE5D6' } : undefined}
                 style={{
                   flexDirection: 'row',
                   paddingVertical: 10,
@@ -514,9 +576,6 @@ export default function RoundIndex() {
                 >
                   {d == null ? '—' : d === 0 ? 'E' : d > 0 ? `+${d}` : `${d}`}
                 </Text>
-                {/* Persistent affordance — pressed-only background gave
-                    no resting hint that rows were tappable. Arrow sits
-                    in muted ink so it doesn't fight the score columns. */}
                 <Text
                   style={{
                     width: 18,
@@ -526,7 +585,7 @@ export default function RoundIndex() {
                     marginLeft: 6,
                   }}
                 >
-                  →
+                  {hasShots ? '→' : ''}
                 </Text>
               </Pressable>
             )

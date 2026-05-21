@@ -1,12 +1,12 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { Database } from '@oga/supabase'
 import {
   pendingShotsForHoleScore,
   type PendingShot,
   type ShotPayload,
-} from '../../../../../../lib/db'
-import { supabase } from '../../../../../../lib/supabase'
-import type { LatLng } from '../../../../../../components/round/HoleMap'
+} from '../../../lib/db'
+import { supabase } from '../../../lib/supabase'
+import type { LatLng } from '../HoleMap'
 
 type HoleRow = Database['public']['Tables']['holes']['Row']
 type HoleScoreRow = Database['public']['Tables']['hole_scores']['Row']
@@ -149,9 +149,19 @@ export function useHoleData(
   // changes. Putts are counted as shots where club='putter' OR lie_type='green'.
   // Also pulls remote shot start coords so the on-map waypoint breadcrumb
   // survives a screen reload mid-hole.
+  //
+  // The original `let active = true` cleanup pattern protects against deps
+  // changing mid-fetch, but doesn't protect against two effect runs sharing
+  // the same `currentHoleScore.id` value (e.g. parent re-render that
+  // schedules a re-run without a value change, or a quick navigate-away-
+  // and-back). A monotonic nonce ref makes this race-free: every effect
+  // run claims a unique nonce; only the run whose nonce still matches the
+  // ref's latest value is allowed to commit setState. Stale fetches that
+  // resolve after a newer run started are silently dropped. (#284)
+  const fetchNonceRef = useRef(0)
   useEffect(() => {
     if (!currentHoleScore) return
-    let active = true
+    const myNonce = ++fetchNonceRef.current
     ;(async () => {
       const [shotsRes, local] = await Promise.all([
         supabase
@@ -161,7 +171,7 @@ export function useHoleData(
           .order('shot_number'),
         pendingShotsForHoleScore(currentHoleScore.id),
       ])
-      if (!active) return
+      if (myNonce !== fetchNonceRef.current) return
       const shots = shotsRes.data ?? []
       setRemoteShotCount(shots.length)
       setRemotePuttCount(
@@ -176,9 +186,6 @@ export function useHoleData(
       setRemoteShotStarts(starts)
       setPendingForHole(local)
     })()
-    return () => {
-      active = false
-    }
   }, [currentHoleScore?.id])
 
   // Derive local shot/putt counts from the pending array — single source

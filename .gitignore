@@ -46,6 +46,9 @@ coverage/
 # misc
 *.tsbuildinfo
 
+# serena mcp server project metadata (local tooling, do not publish)
+.serena/
+
 # Internal planning + design docs — kept locally, not published to GitHub.
 CLAUDE.md
 DESIGN.md

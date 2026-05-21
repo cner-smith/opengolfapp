@@ -80,7 +80,19 @@ export default function NewRound() {
     setGps({ status: 'pending' })
     ;(async () => {
       try {
-        const perm = await Location.requestForegroundPermissionsAsync()
+        // expo-location's permission request can hang on Android if the
+        // activity is recreated mid-dialog. Race against a 10s timeout —
+        // same mechanism as useHoleState.ts; see #278.
+        const perm = await Promise.race([
+          Location.requestForegroundPermissionsAsync(),
+          new Promise<never>((_, rej) =>
+            setTimeout(() => rej(new Error('perm-timeout')), 10_000),
+          ),
+        ]).catch((e: Error) => {
+          // eslint-disable-next-line no-console
+          console.warn('[round/new perm-timeout]', e.message)
+          return { status: 'undetermined' as const }
+        })
         if (perm.status !== 'granted') {
           setGps({ status: 'denied' })
           return
@@ -198,7 +210,10 @@ export default function NewRound() {
         if (hsError) throw hsError
       }
 
-      router.replace(`/(app)/round/${round.id}/hole/1?mode=${mode}`)
+      router.replace({
+        pathname: '/(app)/round/[id]',
+        params: { id: round.id, hole: '1', mode },
+      })
     } catch (err) {
       setError((err as Error).message)
     } finally {
