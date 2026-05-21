@@ -10,6 +10,7 @@ import {
 import { captureRef } from 'react-native-view-shot'
 import * as Sharing from 'expo-sharing'
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { formatSG } from '@oga/core'
 import type { Database } from '@oga/supabase'
 import { supabase } from '../../../../lib/supabase'
@@ -42,6 +43,7 @@ export default function RoundIndex() {
     mode?: string
   }>()
   const router = useRouter()
+  const insets = useSafeAreaInsets()
 
   const [round, setRound] = useState<RoundRow | null>(null)
   const [holes, setHoles] = useState<HoleRow[]>([])
@@ -278,7 +280,7 @@ export default function RoundIndex() {
       <View
         style={{
           backgroundColor: '#1C211C',
-          paddingTop: 52,
+          paddingTop: insets.top + 14,
           paddingBottom: 14,
           paddingHorizontal: 18,
           flexDirection: 'row',
