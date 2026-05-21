@@ -150,23 +150,34 @@ export async function setPendingShotEnd(
 // are also at risk if the OS kills the process before the next implicit
 // checkpoint. PASSIVE skips when readers hold the lock so a backgrounded
 // app can't stall a foregrounded one.
-AppState.addEventListener('change', (nextState: AppStateStatus) => {
-  if (nextState !== 'background' && nextState !== 'inactive') return
-  void (async () => {
-    try {
-      const db = await getDb()
-      await db.execAsync('PRAGMA wal_checkpoint(PASSIVE);')
-    } catch (e) {
-      // PASSIVE returns SQLITE_LOCKED if another statement on the
-      // connection is mid-execution at the moment AppState fires.
-      // Expected and recoverable — the next AppState transition or
-      // the implicit auto-checkpoint will flush. Don't log the noise.
-      if ((e as Error)?.message?.includes('locked')) return
-      // eslint-disable-next-line no-console
-      console.error('[db/wal_checkpoint]', e)
-    }
-  })()
-})
+//
+// globalThis guard so Metro Fast Refresh / bundle reload doesn't stack
+// duplicate listeners across the dev session. Module-scoped flags reset
+// on bundle eval; globalThis survives.
+declare global {
+  // eslint-disable-next-line no-var
+  var __ogaWalCheckpointInstalled: boolean | undefined
+}
+if (!globalThis.__ogaWalCheckpointInstalled) {
+  globalThis.__ogaWalCheckpointInstalled = true
+  AppState.addEventListener('change', (nextState: AppStateStatus) => {
+    if (nextState !== 'background' && nextState !== 'inactive') return
+    void (async () => {
+      try {
+        const db = await getDb()
+        await db.execAsync('PRAGMA wal_checkpoint(PASSIVE);')
+      } catch (e) {
+        // PASSIVE returns SQLITE_LOCKED if another statement on the
+        // connection is mid-execution at the moment AppState fires.
+        // Expected and recoverable — the next AppState transition or
+        // the implicit auto-checkpoint will flush. Don't log the noise.
+        if ((e as Error)?.message?.includes('locked')) return
+        // eslint-disable-next-line no-console
+        console.error('[db/wal_checkpoint]', e)
+      }
+    })()
+  })
+}
 
 export async function pendingShotsForHoleScore(holeScoreId: string): Promise<PendingShot[]> {
   const db = await getDb()
