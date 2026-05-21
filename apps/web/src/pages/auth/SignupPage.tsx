@@ -40,6 +40,7 @@ export function SignupPage() {
       password,
       options: {
         data: { username },
+        emailRedirectTo: `${window.location.origin}/onboarding`,
         ...(captchaToken ? { captchaToken } : {}),
       },
     })
