@@ -27,8 +27,12 @@ const supabase = createClient(URL, SERVICE_KEY, {
   auth: { autoRefreshToken: false, persistSession: false },
 })
 
-const DEMO_EMAIL = 'demo@oga.app'
-const DEMO_PASSWORD = 'ogademo123'
+// Defaults match the original demo user. Override via env (e.g. for
+// the Playwright e2e account against the dev project) — see
+// `pnpm seed:e2e` for the full invocation.
+const SEED_EMAIL = process.env.SEED_EMAIL ?? 'demo@oga.app'
+const SEED_PASSWORD = process.env.SEED_PASSWORD ?? 'ogademo123'
+const SEED_USERNAME = process.env.SEED_USERNAME ?? 'demo'
 
 // Course base coords (no real geometry on the seeded courses, so we
 // synthesize plausible lat/lng for shot dispersion).
@@ -76,14 +80,14 @@ function pickClubForDistance(yards: number): string {
 
 async function ensureDemoUser(): Promise<string> {
   const { data: list } = await supabase.auth.admin.listUsers({ perPage: 1000 })
-  const existing = list?.users?.find((u) => u.email === DEMO_EMAIL)
+  const existing = list?.users?.find((u) => u.email === SEED_EMAIL)
   if (existing) return existing.id
 
   const { data, error } = await supabase.auth.admin.createUser({
-    email: DEMO_EMAIL,
-    password: DEMO_PASSWORD,
+    email: SEED_EMAIL,
+    password: SEED_PASSWORD,
     email_confirm: true,
-    user_metadata: { username: 'demo' },
+    user_metadata: { username: SEED_USERNAME },
   })
   if (error || !data.user) throw error ?? new Error('createUser returned no user')
   return data.user.id
@@ -95,13 +99,17 @@ async function ensureProfile(userId: string): Promise<void> {
     .upsert(
       {
         id: userId,
-        username: 'demo',
+        username: SEED_USERNAME,
         handicap_index: 12.4,
         skill_level: 'developing',
         goal: 'break_80',
         play_frequency: 'weekly',
         facilities: ['range', 'short_game', 'putting'],
         play_style: 'mixed',
+        // Added in migration 0023; the script pre-dates it. Without
+        // this, ProfileGuard would bounce the seeded user to
+        // /onboarding on next sign-in.
+        onboarding_completed: true,
       },
       { onConflict: 'id' },
     )
@@ -365,7 +373,7 @@ async function main() {
 
   await insertPracticePlan(userId)
 
-  console.log(`Demo user ready — sign in as ${DEMO_EMAIL} / ${DEMO_PASSWORD}`)
+  console.log(`Seed user ready — sign in as ${SEED_EMAIL} / ${SEED_PASSWORD}`)
 }
 
 main().catch((err) => {

@@ -49,6 +49,12 @@ coverage/
 # serena mcp server project metadata (local tooling, do not publish)
 .serena/
 
+# playwright e2e outputs + signed-in auth state
+apps/web/test-results/
+apps/web/playwright-report/
+apps/web/blob-report/
+apps/web/e2e/.auth/
+
 # Internal planning + design docs — kept locally, not published to GitHub.
 CLAUDE.md
 DESIGN.md
