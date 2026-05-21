@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Alert, Pressable, ScrollView, Text, TextInput, View } from 'react-native'
 import { useRouter } from 'expo-router'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import {
   DEFAULT_BAG,
   GOALS,
@@ -30,6 +31,7 @@ const GOAL_LABEL: Record<Goal, string> = {
 export default function MobileOnboarding() {
   const router = useRouter()
   const { user } = useAuth()
+  const insets = useSafeAreaInsets()
   const [skill, setSkill] = useState<SkillLevel | null>(null)
   const [handicap, setHandicap] = useState('15')
   const [goal, setGoal] = useState<Goal | null>(null)
@@ -109,7 +111,7 @@ export default function MobileOnboarding() {
   return (
     <ScrollView
       style={{ flex: 1, backgroundColor: '#F4F4F0' }}
-      contentContainerStyle={{ padding: 16, paddingTop: 48, paddingBottom: 32 }}
+      contentContainerStyle={{ padding: 16, paddingTop: insets.top + 14, paddingBottom: 32 }}
       keyboardShouldPersistTaps="handled"
     >
       <Text

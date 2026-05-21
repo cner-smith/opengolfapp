@@ -157,6 +157,11 @@ AppState.addEventListener('change', (nextState: AppStateStatus) => {
       const db = await getDb()
       await db.execAsync('PRAGMA wal_checkpoint(PASSIVE);')
     } catch (e) {
+      // PASSIVE returns SQLITE_LOCKED if another statement on the
+      // connection is mid-execution at the moment AppState fires.
+      // Expected and recoverable — the next AppState transition or
+      // the implicit auto-checkpoint will flush. Don't log the noise.
+      if ((e as Error)?.message?.includes('locked')) return
       // eslint-disable-next-line no-console
       console.error('[db/wal_checkpoint]', e)
     }
