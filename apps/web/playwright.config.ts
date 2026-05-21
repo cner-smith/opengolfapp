@@ -11,9 +11,13 @@ dotenv.config({ path: '.env.test.local' })
 // cost every run.
 //
 // Projects:
-//   setup         — runs *.setup.ts (Supabase sign-in → writes storageState)
-//   chromium      — *.spec.ts (signed-out)
-//   chromium-auth — *.signed-in.spec.ts (uses storageState from setup)
+//   setup          — runs *.setup.ts (Supabase sign-in → writes storageState)
+//   chromium       — *.spec.ts (signed-out, parallel)
+//   chromium-auth  — *.signed-in.spec.ts (signed-in, read-only, parallel)
+//   chromium-flows — *.flow.spec.ts (signed-in, mutating, serial)
+//
+// chromium-flows is serial so mutating tests on the same e2e user can't
+// race each other (one test deleting a round mid-creation by another).
 export default defineConfig({
   testDir: './e2e',
   fullyParallel: true,
@@ -33,7 +37,7 @@ export default defineConfig({
     {
       name: 'chromium',
       use: { ...devices['Desktop Chrome'] },
-      testIgnore: /.*\.signed-in\.spec\.ts$/,
+      testIgnore: [/.*\.signed-in\.spec\.ts$/, /.*\.flow\.spec\.ts$/],
     },
     {
       name: 'chromium-auth',
@@ -43,6 +47,16 @@ export default defineConfig({
       },
       dependencies: ['setup'],
       testMatch: /.*\.signed-in\.spec\.ts$/,
+    },
+    {
+      name: 'chromium-flows',
+      use: {
+        ...devices['Desktop Chrome'],
+        storageState: 'e2e/.auth/user.json',
+      },
+      dependencies: ['setup'],
+      testMatch: /.*\.flow\.spec\.ts$/,
+      fullyParallel: false,
     },
   ],
   webServer: {
