@@ -54,7 +54,9 @@ export default function LearnScreen() {
           <SectionBlock
             key={section.id}
             section={section}
-            onSelect={(article) => router.push(`/(app)/learn/${article.id}`)}
+            onSelect={(article) =>
+              router.push({ pathname: '/(app)/learn/[article]', params: { article: article.id } })
+            }
           />
         ))}
       </ScrollView>
