@@ -11,7 +11,7 @@ better at golf shouldn't be paywalled.
 
 ## Live app
 
-- Web: https://opengolfapp-web.vercel.app
+- Web: https://oga.golf
 - Android: EAS development builds today; Play Store listing TBD
 - iOS: deferred — pending an Apple developer account
 
