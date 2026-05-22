@@ -1,5 +1,34 @@
 # Changelog
 
+## [0.5.0](https://github.com/cner-smith/opengolfapp/compare/v0.4.0...v0.5.0) (2026-05-22)
+
+
+### Features
+
+* **mobile:** iOS build prep — eas.json profiles, dynamic config, bundle ID ([#376](https://github.com/cner-smith/opengolfapp/issues/376)) ([948c8d3](https://github.com/cner-smith/opengolfapp/commit/948c8d3958feedff8e0d3c1d5e222309feb4f155))
+
+
+### Bug Fixes
+
+* **mobile:** bump react-native-draggable-flatlist 4.0.1 → 4.0.3 ([1e46943](https://github.com/cner-smith/opengolfapp/commit/1e46943f136b7e782dcf15cb888fa4448b71803c))
+* **mobile:** bump react-native-draggable-flatlist 4.0.1 → 4.0.3 ([59496b7](https://github.com/cner-smith/opengolfapp/commit/59496b7257b9433431fdc64dc111e99ab450a4ae))
+* **mobile:** collapse 6 dialog flags into one ActiveDialog union ([#293](https://github.com/cner-smith/opengolfapp/issues/293)) ([35a4794](https://github.com/cner-smith/opengolfapp/commit/35a4794834dcd8c6ad9b457b2cbe73ba943cc819))
+* **mobile:** collapse 6 dialog flags into one ActiveDialog union ([#293](https://github.com/cner-smith/opengolfapp/issues/293)) ([f7067c2](https://github.com/cner-smith/opengolfapp/commit/f7067c20d9d9574fd57c87a53fb2febeb389efa9))
+* **mobile:** gate LocationPuck mount during modal-covered phases ([#330](https://github.com/cner-smith/opengolfapp/issues/330)) ([0644e70](https://github.com/cner-smith/opengolfapp/commit/0644e70fa66440e3395628964b2ce1be59c13ee9))
+* **mobile:** gate LocationPuck mount during modal-covered phases ([#330](https://github.com/cner-smith/opengolfapp/issues/330)) ([d5aa029](https://github.com/cner-smith/opengolfapp/commit/d5aa029e6863189acf3c156f669a14602d42dbc8))
+* **mobile:** pass AbortSignal to course search so fetches actually cancel ([#291](https://github.com/cner-smith/opengolfapp/issues/291)) ([c714aa6](https://github.com/cner-smith/opengolfapp/commit/c714aa617b84483021ce2adfd2f9e9a478cd631d))
+* **mobile:** pass AbortSignal to course search so fetches actually cancel ([#291](https://github.com/cner-smith/opengolfapp/issues/291)) ([f70568a](https://github.com/cner-smith/opengolfapp/commit/f70568a9ca02180f91815fd541e236dddbd376fd))
+* **mobile:** rounds list — add accessibility actions for delete ([#286](https://github.com/cner-smith/opengolfapp/issues/286)) ([b841a8d](https://github.com/cner-smith/opengolfapp/commit/b841a8ddf59e44b930ace6100234a169de075d9b))
+* **mobile:** rounds list — add accessibility actions for delete ([#286](https://github.com/cner-smith/opengolfapp/issues/286)) ([1a69be0](https://github.com/cner-smith/opengolfapp/commit/1a69be089118b7706bed4adc013865fa7d4bf9a7))
+* **mobile:** rounds list a11y — screen-reader-accessible delete ([#286](https://github.com/cner-smith/opengolfapp/issues/286)) ([73a331c](https://github.com/cner-smith/opengolfapp/commit/73a331c326644984817710b0b8ccde4a99e1ecfc))
+* **mobile:** SecureStore chunked write — sentinel-last commit order ([#345](https://github.com/cner-smith/opengolfapp/issues/345)) ([a271346](https://github.com/cner-smith/opengolfapp/commit/a271346a553b5255fd1d2d7bd058482354a310c9))
+* **mobile:** SecureStore chunked write — sentinel-last commit order ([#345](https://github.com/cner-smith/opengolfapp/issues/345)) ([9a42844](https://github.com/cner-smith/opengolfapp/commit/9a428449a0231dd61d349851db42499942c1b1d9))
+
+
+### Chores
+
+* **issues:** add structured GitHub issue templates ([1be5bb2](https://github.com/cner-smith/opengolfapp/commit/1be5bb2b30d4b5da940800f7b125060a3e7f46be))
+
 ## [0.4.0](https://github.com/cner-smith/opengolfapp/compare/v0.3.1...v0.4.0) (2026-05-21)
 
 
