@@ -190,7 +190,7 @@ function RootLayoutContent() {
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <StatusBar style="light" />
+      <StatusBar style="auto" />
       <ErrorBoundary>
         <Stack screenOptions={{ headerShown: false }} />
       </ErrorBoundary>
