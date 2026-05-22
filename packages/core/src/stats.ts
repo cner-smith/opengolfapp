@@ -156,9 +156,8 @@ const SG_BREAKDOWN_KEYS: readonly SGBreakdownKey[] = [
   'sg_putting',
 ] as const
 
-// Empty/all-null category collapses to 0 (renders as a neutral bar at center).
-// `maxAbs` floored at 0.5 so low-magnitude values still render a visible bar
-// instead of disappearing into the axis.
+// null-only category treated as 0; maxAbs minimum of 0.5 prevents a zero-
+// range scale when every category has very low magnitude.
 export function sgBreakdown(rounds: SGRoundLike[]): SGBreakdownResult {
   const breakdown: SGBreakdownEntry[] = SG_BREAKDOWN_KEYS.map((key) => {
     const values = rounds
