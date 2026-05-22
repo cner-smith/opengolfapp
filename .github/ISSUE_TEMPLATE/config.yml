@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Self-hosting help
+    url: https://github.com/cner-smith/opengolfapp/blob/main/docs/self-hosting.md
+    about: Setup walkthrough for running OGA on your own Supabase + Vercel.
+  - name: Contributing guide
+    url: https://github.com/cner-smith/opengolfapp/blob/main/CONTRIBUTING.md
+    about: Branch flow, code style, PR conventions.

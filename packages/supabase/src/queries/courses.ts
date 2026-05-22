@@ -8,17 +8,33 @@ type HoleInsert = Database['public']['Tables']['holes']['Insert']
 // the hole-map fallback; external_id keeps the OpenGolfAPI link reachable.
 const COURSE_COLUMNS = 'id, name, city, state, lat, lng, external_id'
 
-export function searchCourses(client: OgaSupabaseClient, query: string, limit = 10) {
+export function searchCourses(
+  client: OgaSupabaseClient,
+  query: string,
+  limit = 10,
+  signal?: AbortSignal,
+) {
   const trimmed = query.trim()
   if (!trimmed) {
-    return client.from('courses').select(COURSE_COLUMNS).order('name').limit(limit)
+    const builder = client
+      .from('courses')
+      .select(COURSE_COLUMNS)
+      .order('name')
+      .limit(limit)
+    return signal ? builder.abortSignal(signal) : builder
   }
   // search_courses RPC ranks by pg_trgm similarity (typo-tolerant) then
   // falls back to ILIKE substring. Migration 0018; trigram index from 0015.
-  return client.rpc('search_courses', {
+  const builder = client.rpc('search_courses', {
     search_query: trimmed,
     result_limit: limit,
   })
+  // Threading an AbortSignal makes the underlying fetch actually
+  // cancellable — postgrest-js v3+ honors it via PostgrestTransformBuilder
+  // (PostgrestBuilder.ts:317-324). Without this, the request runs to
+  // completion regardless of cancellation, retaining response buffers
+  // until the JS .then chain settles. Issue #291.
+  return signal ? builder.abortSignal(signal) : builder
 }
 
 export function getCourseById(client: OgaSupabaseClient, courseId: string) {

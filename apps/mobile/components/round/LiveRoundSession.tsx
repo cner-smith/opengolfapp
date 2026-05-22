@@ -14,7 +14,9 @@ import { ConfirmDialog } from '../ui/ConfirmDialog'
 import { useUnits } from '../../hooks/useUnits'
 import {
   FALLBACK_CENTER,
+  HOLE_SCOPED_DIALOGS,
   KICKER,
+  type ActiveDialog,
 } from './hole/types'
 import { useHoleData } from './hole/useHoleData'
 import { useHoleState } from './hole/useHoleState'
@@ -56,13 +58,10 @@ export default function LiveRoundSession({
   const [loggerOpen, setLoggerOpen] = useState(false)
   const [pinPlacementOpen, setPinPlacementOpen] = useState(false)
   const [teePlacementOpen, setTeePlacementOpen] = useState(false)
-  const [confirmDelete, setConfirmDelete] = useState(false)
   const [scorecardOpen, setScorecardOpen] = useState(false)
-  const [confirmLeave, setConfirmLeave] = useState(false)
-  const [confirmEnd, setConfirmEnd] = useState(false)
-  const [confirmExit, setConfirmExit] = useState(false)
-  const [onGreenPromptOpen, setOnGreenPromptOpen] = useState(false)
-  const [aimPromptOpen, setAimPromptOpen] = useState(false)
+  // One mutually-exclusive confirm dialog at a time. See ActiveDialog
+  // in ./hole/types for the full union + rationale (#293).
+  const [activeDialog, setActiveDialog] = useState<ActiveDialog>(null)
   const [loggerInitial, setLoggerInitial] = useState<ShotLoggerValue>({})
 
   // Per-hole reset. useHoleState resets its own refs (Kalman, manual
@@ -73,12 +72,14 @@ export default function LiveRoundSession({
     setLoggerOpen(false)
     setPinPlacementOpen(false)
     setTeePlacementOpen(false)
-    setOnGreenPromptOpen(false)
-    setAimPromptOpen(false)
     setLoggerInitial({})
-    // Scorecard / confirm dialogs are session-level — don't reset them
-    // on hole change. A confirmDelete dialog mid-navigation should
-    // stay open.
+    // Clear only hole-scoped dialogs (onGreen / aim). Session-scoped
+    // confirms (delete / leave / end / exit) stay open across hole
+    // navigation — a confirmDelete dialog mid-navigation should not
+    // vanish out from under the user.
+    setActiveDialog(prev =>
+      prev !== null && HOLE_SCOPED_DIALOGS.has(prev) ? null : prev,
+    )
   }, [holeNumber])
 
   // External URL change → internal state. The scorecard hole-jump
@@ -136,11 +137,7 @@ export default function LiveRoundSession({
     setLoggerInitial,
     setPinPlacementOpen,
     setTeePlacementOpen,
-    setOnGreenPromptOpen,
-    setAimPromptOpen,
-    setConfirmDelete,
-    setConfirmEnd,
-    setConfirmExit,
+    setActiveDialog,
     // URL sync fires here — only on user-driven navigation (Next /
     // Prev / Finish), not on every render. A reactive useEffect that
     // depended on the parent's onHoleChange prop looped because the
@@ -234,7 +231,7 @@ export default function LiveRoundSession({
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Exit round and discard"
-          onPress={() => setConfirmExit(true)}
+          onPress={() => setActiveDialog('exit')}
           style={{
             backgroundColor: '#A33A2A',
             borderRadius: 2,
@@ -254,7 +251,7 @@ export default function LiveRoundSession({
           </Text>
         </Pressable>
         <ConfirmDialog
-          visible={confirmExit}
+          visible={activeDialog === 'exit'}
           title="Leave this round?"
           message="Nothing's been logged yet, so the round will be discarded."
           confirmLabel="Leave round"
@@ -262,7 +259,7 @@ export default function LiveRoundSession({
           destructive
           busy={actions.deleting}
           onConfirm={actions.handleExitFromError}
-          onCancel={() => setConfirmExit(false)}
+          onCancel={() => setActiveDialog(null)}
         />
       </View>
     )
@@ -284,7 +281,7 @@ export default function LiveRoundSession({
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Leave round and return home"
-          onPress={() => setConfirmLeave(true)}
+          onPress={() => setActiveDialog('leave')}
           hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
           style={{ padding: 6 }}
         >
@@ -317,7 +314,7 @@ export default function LiveRoundSession({
         <View style={{ alignItems: 'flex-end', gap: 6 }}>
           <Pressable
             accessibilityRole="button"
-            onPress={() => setConfirmEnd(true)}
+            onPress={() => setActiveDialog('end')}
             accessibilityLabel="End round early"
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
@@ -327,7 +324,7 @@ export default function LiveRoundSession({
           </Pressable>
           <Pressable
             accessibilityRole="button"
-            onPress={() => setConfirmDelete(true)}
+            onPress={() => setActiveDialog('delete')}
             accessibilityLabel="Delete round"
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
@@ -359,6 +356,10 @@ export default function LiveRoundSession({
                 : finalState.roundState === 'SET_AIM'
                   ? 'SET_AIM'
                   : 'PLACE_BALL'
+          }
+          showLocationPuck={
+            finalState.roundState !== 'SHOT_DETAIL' &&
+            finalState.roundState !== 'PUTTING'
           }
           onSetAim={finalState.setAim}
           onSetBall={(loc) => {
@@ -471,11 +472,7 @@ export default function LiveRoundSession({
           }
         }}
         setScorecardOpen={setScorecardOpen}
-        confirmDelete={confirmDelete}
-        confirmLeave={confirmLeave}
-        confirmEnd={confirmEnd}
-        onGreenPromptOpen={onGreenPromptOpen}
-        aimPromptOpen={aimPromptOpen}
+        activeDialog={activeDialog}
         totalShotsThisHole={totalShotsThisHole}
         ending={actions.ending}
         deleting={actions.deleting}
@@ -486,14 +483,14 @@ export default function LiveRoundSession({
         onClosePuttingSheet={actions.closePuttingSheet}
         onSwapPuttingToShot={actions.swapPuttingToShot}
         onConfirmDelete={actions.handleDeleteRound}
-        onCancelDelete={() => setConfirmDelete(false)}
+        onCancelDelete={() => setActiveDialog(null)}
         onConfirmLeave={() => {
-          setConfirmLeave(false)
+          setActiveDialog(null)
           router.replace('/(app)')
         }}
-        onCancelLeave={() => setConfirmLeave(false)}
+        onCancelLeave={() => setActiveDialog(null)}
         onConfirmEnd={actions.handleEndRound}
-        onCancelEnd={() => setConfirmEnd(false)}
+        onCancelEnd={() => setActiveDialog(null)}
         onGreenYes={actions.handleOnGreenYes}
         onGreenNo={actions.handleOnGreenNo}
         onAimPromptConfirm={actions.handleAimPromptConfirm}

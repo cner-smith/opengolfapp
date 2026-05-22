@@ -11,6 +11,9 @@
       "android": {
         "buildType": "apk"
       },
+      "ios": {
+        "simulator": false
+      },
       "env": {
         "npm_config_legacy_peer_deps": "true"
       }
@@ -20,6 +23,9 @@
       "node": "20.18.0",
       "android": {
         "buildType": "apk"
+      },
+      "ios": {
+        "simulator": false
       },
       "env": {
         "npm_config_legacy_peer_deps": "true"

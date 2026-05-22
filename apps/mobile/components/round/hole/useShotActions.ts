@@ -16,7 +16,7 @@ import { completeRound } from '../../../lib/completeRound'
 import type { LatLng } from '../HoleMap'
 import type { ShotLoggerValue } from '../ShotLogger'
 import type { PuttingValue } from '../PuttingSheet'
-import { PUTTING_RADIUS_YARDS } from './types'
+import { PUTTING_RADIUS_YARDS, type ActiveDialog } from './types'
 import type { UseHoleDataResult } from './useHoleData'
 import type { UseHoleStateResult } from './useHoleState'
 
@@ -31,11 +31,7 @@ interface UseShotActionsInput {
   setLoggerInitial: Dispatch<SetStateAction<ShotLoggerValue>>
   setPinPlacementOpen: Dispatch<SetStateAction<boolean>>
   setTeePlacementOpen: Dispatch<SetStateAction<boolean>>
-  setOnGreenPromptOpen: Dispatch<SetStateAction<boolean>>
-  setAimPromptOpen: Dispatch<SetStateAction<boolean>>
-  setConfirmDelete: Dispatch<SetStateAction<boolean>>
-  setConfirmEnd: Dispatch<SetStateAction<boolean>>
-  setConfirmExit: Dispatch<SetStateAction<boolean>>
+  setActiveDialog: Dispatch<SetStateAction<ActiveDialog>>
   // Hole navigation is callback-driven so the parent (LiveRoundSession)
   // can keep the MapView resident across hole changes. Direct router.replace
   // would fully unmount + remount the screen — see #264.
@@ -85,11 +81,7 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
     setLoggerInitial,
     setPinPlacementOpen,
     setTeePlacementOpen,
-    setOnGreenPromptOpen,
-    setAimPromptOpen,
-    setConfirmDelete,
-    setConfirmEnd,
-    setConfirmExit,
+    setActiveDialog,
     onHoleChange,
   } = input
   const router = useRouter()
@@ -357,14 +349,14 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
     setAim(null)
     const pinTarget = roundPin ?? storedPin ?? null
     if (pinTarget && distanceYards(ballSnapshot, pinTarget) <= PUTTING_RADIUS_YARDS) {
-      setOnGreenPromptOpen(true)
+      setActiveDialog('onGreen')
       return
     }
-    setAimPromptOpen(true)
+    setActiveDialog('aim')
   }
 
   function handleOnGreenYes() {
-    setOnGreenPromptOpen(false)
+    setActiveDialog(prev => (prev === 'onGreen' ? null : prev))
     // Drop straight into the dedicated PuttingSheet — there is no
     // club/lie picker on that sheet, so there is nothing for the
     // player to select after confirming "Yes, I'm putting". persistPutt
@@ -374,7 +366,10 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
   }
 
   function handleOnGreenNo() {
-    setOnGreenPromptOpen(false)
+    // Transition onGreen → aim. Synchronous, so React batches the
+    // two setActiveDialog calls and only the final 'aim' commit
+    // is observable. No guard needed.
+    setActiveDialog('aim')
     // 'rough' is the safest near-green default — fairway/fringe/sand
     // are common but rough is the modal answer for "near green but
     // not putting". Player overrides in ShotLogger.
@@ -382,7 +377,6 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
     // Route through the aim prompt — chips and pitches still benefit
     // from explicit aim capture for the shot-pattern dataset. Player
     // can skip aim from the prompt if they want.
-    setAimPromptOpen(true)
   }
 
   function confirmAim() {
@@ -397,12 +391,12 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
   }
 
   function handleAimPromptConfirm() {
-    setAimPromptOpen(false)
+    setActiveDialog(prev => (prev === 'aim' ? null : prev))
     setRoundState('SET_AIM')
   }
 
   function handleAimPromptSkip() {
-    setAimPromptOpen(false)
+    setActiveDialog(prev => (prev === 'aim' ? null : prev))
     skipAim()
   }
 
@@ -460,7 +454,9 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
       Alert.alert('End round failed', (err as Error).message)
     } finally {
       setEnding(false)
-      setConfirmEnd(false)
+      // Guard against clobbering a different dialog the user may have
+      // opened during the async window (TS agent feedback on #293).
+      setActiveDialog(prev => (prev === 'end' ? null : prev))
     }
   }
 
@@ -476,7 +472,9 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
       router.replace('/(app)')
     } finally {
       setDeleting(false)
-      setConfirmDelete(false)
+      // Guard against clobbering a different dialog the user may have
+      // opened during the async window.
+      setActiveDialog(prev => (prev === 'delete' ? null : prev))
     }
   }
 
@@ -493,10 +491,12 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
         }
       } finally {
         setDeleting(false)
-        setConfirmExit(false)
+        // Guard against clobbering a different dialog the user may have
+        // opened during the async window.
+        setActiveDialog(prev => (prev === 'exit' ? null : prev))
       }
     } else {
-      setConfirmExit(false)
+      setActiveDialog(prev => (prev === 'exit' ? null : prev))
     }
     router.replace('/(app)')
   }
