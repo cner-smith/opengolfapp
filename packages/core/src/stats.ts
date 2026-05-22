@@ -165,10 +165,8 @@ export interface ApproachBandStat {
   shots: number
 }
 
-// Format an ApproachBandStat as a display label like "50–100 yd" or "200+ yd",
-// honoring the user's unit pref. `toDisplay` converts yards→unit and appends
-// the unit suffix. The lower bound is rendered numeric-only and the upper bound
-// carries the unit so the range reads as one phrase.
+// Lower bound is numeric-only and upper carries the unit so the range reads
+// as one phrase ("50–100 yd"), not two ("50 yd – 100 yd").
 export function formatBandLabel(
   band: ApproachBandStat,
   unit: DistanceUnit,

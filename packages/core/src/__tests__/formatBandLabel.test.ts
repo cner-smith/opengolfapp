@@ -1,8 +1,9 @@
 import { describe, it, expect } from 'vitest'
 import { formatBandLabel, type ApproachBandStat } from '../stats'
+import { YARDS_TO_METERS } from '../units'
 
 const yardsFmt = (y: number) => `${y.toFixed(0)} yd`
-const metersFmt = (y: number) => `${(y * 0.9144).toFixed(0)} m`
+const metersFmt = (y: number) => `${(y * YARDS_TO_METERS).toFixed(0)} m`
 
 const band = (minYards: number, maxYards: number): ApproachBandStat => ({
   key: 'b',
