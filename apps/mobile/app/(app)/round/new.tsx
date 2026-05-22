@@ -128,7 +128,12 @@ export default function NewRound() {
     setSearching(true)
     Promise.allSettled([
       searchOpenGolfApi(term, ctrl.signal),
-      searchCourses(supabase, term, 10).then(({ data, error }) => {
+      searchCourses(supabase, term, 10, ctrl.signal).then(({ data, error }) => {
+        // Abort propagates here as a PostgrestError shape with code:'' and
+        // message starting "AbortError:" — but the cleanest gate is the
+        // signal itself, robust to postgrest-js error-shape drift. See
+        // #291.
+        if (ctrl.signal.aborted) return [] as CourseRow[]
         if (error) {
           // eslint-disable-next-line no-console
           console.warn('[round/new searchCourses]', error.message)
