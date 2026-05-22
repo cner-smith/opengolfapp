@@ -14,7 +14,7 @@ import { ScorecardModal } from '../Scorecard'
 import { ConfirmDialog } from '../../ui/ConfirmDialog'
 import type { LatLng } from '../HoleMap'
 import { distanceYards } from '../../../lib/maps'
-import type { RoundState } from './types'
+import type { ActiveDialog, RoundState } from './types'
 
 type HoleRow = Database['public']['Tables']['holes']['Row']
 type HoleScoreRow = Database['public']['Tables']['hole_scores']['Row']
@@ -41,12 +41,9 @@ interface HoleModalsProps {
   id: string | undefined
   onChangePar: (holeId: string, newPar: number) => Promise<void>
   setScorecardOpen: (open: boolean) => void
-  // Confirm dialogs
-  confirmDelete: boolean
-  confirmLeave: boolean
-  confirmEnd: boolean
-  onGreenPromptOpen: boolean
-  aimPromptOpen: boolean
+  // Confirm dialogs — one mutually-exclusive state. See ActiveDialog
+  // in ./types for the union (#293).
+  activeDialog: ActiveDialog
   totalShotsThisHole: number
   ending: boolean
   deleting: boolean
@@ -86,11 +83,7 @@ export function HoleModals(props: HoleModalsProps) {
     id,
     onChangePar,
     setScorecardOpen,
-    confirmDelete,
-    confirmLeave,
-    confirmEnd,
-    onGreenPromptOpen,
-    aimPromptOpen,
+    activeDialog,
     totalShotsThisHole,
     ending,
     deleting,
@@ -161,7 +154,7 @@ export function HoleModals(props: HoleModalsProps) {
       </Modal>
 
       <ConfirmDialog
-        visible={confirmDelete}
+        visible={activeDialog === 'delete'}
         title="Delete this round?"
         message="Hole scores and shots are removed too. This cannot be undone."
         confirmLabel="Delete"
@@ -172,7 +165,7 @@ export function HoleModals(props: HoleModalsProps) {
       />
 
       <ConfirmDialog
-        visible={confirmLeave}
+        visible={activeDialog === 'leave'}
         title="Leave round?"
         message="Your progress is saved and you can resume from the home screen."
         confirmLabel="Leave"
@@ -182,7 +175,7 @@ export function HoleModals(props: HoleModalsProps) {
       />
 
       <ConfirmDialog
-        visible={confirmEnd}
+        visible={activeDialog === 'end'}
         title={`End round after hole ${holeNumber}?`}
         message={`Your round will be saved with ${totalShotsThisHole > 0 ? holeNumber : holeNumber - 1} hole(s) of detail. SG and totals are computed from what's logged so far.`}
         confirmLabel="End round"
@@ -193,7 +186,7 @@ export function HoleModals(props: HoleModalsProps) {
       />
 
       <ConfirmDialog
-        visible={onGreenPromptOpen}
+        visible={activeDialog === 'onGreen'}
         title="On the green?"
         message="Within 30 yd of the pin — were you putting, or chipping/in a bunker?"
         confirmLabel="Yes, I'm putting"
@@ -203,7 +196,7 @@ export function HoleModals(props: HoleModalsProps) {
       />
 
       <ConfirmDialog
-        visible={aimPromptOpen}
+        visible={activeDialog === 'aim'}
         title="Set an aim point?"
         message="Your aim point is your start line — where you intend to start the ball, not where you want it to finish."
         confirmLabel="Set aim point →"
