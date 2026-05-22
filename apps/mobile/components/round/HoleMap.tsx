@@ -73,6 +73,17 @@ interface HoleMapProps {
   onSetBall: (loc: LatLng) => void
   onPlacePin?: (loc: LatLng) => void
   onPlaceTee?: (loc: LatLng) => void
+  /**
+   * Whether to mount the Mapbox LocationPuck. The puck owns its own
+   * native GPS subscription that bypasses expo-location, and setting
+   * `visible={false}` keeps that subscription alive (verified in
+   * @rnmapbox/maps source — see PR notes for #330). Conditional
+   * mount/unmount is the only way to actually pause the drain. Pass
+   * true during PLACE_BALL and SET_AIM (player on course, puck is
+   * meaningful) and false during SHOT_DETAIL / PUTTING (modals cover
+   * the map).
+   */
+  showLocationPuck: boolean
 }
 
 function toCoord(l: LatLng): [number, number] {
@@ -109,6 +120,7 @@ export function HoleMap({
   onSetBall,
   onPlacePin,
   onPlaceTee,
+  showLocationPuck,
 }: HoleMapProps) {
   const { toDisplay } = useUnits()
   const mapViewRef = useRef<Mapbox.MapView>(null)
@@ -311,8 +323,10 @@ export function HoleMap({
           {/* Bearing intentionally not enabled — drives the magnetometer
               continuously, which costs ~2-4 %/hr over a 4-hour round, and
               the player's facing direction isn't UX-meaningful here (no
-              navigation, no panning relative to heading). */}
-          <Mapbox.LocationPuck visible />
+              navigation, no panning relative to heading).
+              Conditional mount (not visible={...}) is required to actually
+              pause the native GPS subscription — see HoleMapProps.showLocationPuck. */}
+          {showLocationPuck && <Mapbox.LocationPuck visible />}
 
           <BreadcrumbLayers
             previousShots={previousShots ?? []}
