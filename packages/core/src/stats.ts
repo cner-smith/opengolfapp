@@ -5,8 +5,9 @@ import {
 } from './sg-calculator'
 import { NEAR_GREEN_YARDS } from './constants'
 import type { LieSlopeForward, LieSlopeSide, LieType, ShotCategory, ShotResult } from './constants'
-import { METERS_TO_YARDS, haversineYards, toRadians } from './units'
+import { METERS_TO_YARDS, YARDS_TO_METERS, haversineYards, toRadians } from './units'
 import { RESULT_QUALITY } from './types'
+import type { DistanceUnit } from './types'
 import type { Database } from '@oga/supabase'
 
 type RoundRow = Database['public']['Tables']['rounds']['Row']
@@ -162,6 +163,25 @@ export interface ApproachBandStat {
   maxYards: number
   avgSg: number | null
   shots: number
+}
+
+// Format an ApproachBandStat as a display label like "50–100 yd" or "200+ yd",
+// honoring the user's unit pref. `toDisplay` converts yards→unit and appends
+// the unit suffix. The lower bound is rendered numeric-only and the upper bound
+// carries the unit so the range reads as one phrase.
+export function formatBandLabel(
+  band: ApproachBandStat,
+  unit: DistanceUnit,
+  toDisplay: (yards: number, decimals?: number) => string,
+): string {
+  if (!Number.isFinite(band.maxYards)) {
+    return `${toDisplay(band.minYards)}+`
+  }
+  const upper = toDisplay(band.maxYards)
+  const lowerNumeric = unit === 'meters'
+    ? (band.minYards * YARDS_TO_METERS).toFixed(0)
+    : band.minYards.toFixed(0)
+  return `${lowerNumeric}–${upper}`
 }
 
 // Per-shot SG for approach shots, bucketed by start distance to target.
