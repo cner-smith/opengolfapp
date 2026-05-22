@@ -360,6 +360,10 @@ export default function LiveRoundSession({
                   ? 'SET_AIM'
                   : 'PLACE_BALL'
           }
+          showLocationPuck={
+            finalState.roundState !== 'SHOT_DETAIL' &&
+            finalState.roundState !== 'PUTTING'
+          }
           onSetAim={finalState.setAim}
           onSetBall={(loc) => {
             // Manual drag/tap is an explicit override. Freeze GPS
