@@ -28,10 +28,17 @@ export function LoginPage() {
   // so devs running against a local Supabase (CAPTCHA disabled) aren't
   // blocked. Production deploys always have the env var set.
   const captchaEnabled = Boolean(TURNSTILE_SITE_KEY)
-  const canSubmit = !loading && (!captchaEnabled || captchaToken !== null)
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
+    // Captcha is gated at submit time, not via button-disable. Turnstile
+    // managed mode auto-solves invisibly; the token usually arrives
+    // before the user finishes typing, but if they slam Enter early we
+    // surface a recoverable message instead of leaving the button dead.
+    if (captchaEnabled && !captchaToken) {
+      setError('Please wait a moment and try again.')
+      return
+    }
     setLoading(true)
     setError(null)
     const { error: signInError } = await supabase.auth.signInWithPassword({
@@ -116,7 +123,7 @@ export function LoginPage() {
         )}
         <button
           type="submit"
-          disabled={!canSubmit}
+          disabled={loading}
           className="w-full bg-caddie-accent text-caddie-accent-ink transition-opacity hover:opacity-90 disabled:opacity-50"
           style={{ borderRadius: 10, padding: '12px 16px', fontSize: 13, fontWeight: 500 }}
         >
