@@ -39,6 +39,14 @@ const config: ExpoConfig = {
       // false skips Apple's export-compliance prompt on every
       // TestFlight upload.
       ITSAppUsesNonExemptEncryption: false,
+      // Stubbed pre-emptively (#305). Not used at runtime today — Expo
+      // adds these automatically once expo-image-picker / expo-camera is
+      // imported, but declaring them upfront prevents an App Review
+      // rejection if either is added without a config bump.
+      NSCameraUsageDescription:
+        'OGA may use the camera to attach photos to round notes.',
+      NSPhotoLibraryAddUsageDescription:
+        'OGA may save round summary cards to your photo library.',
     },
   },
   android: {

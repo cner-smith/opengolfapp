@@ -145,7 +145,9 @@ export default function AppLayout() {
           borderTopColor: '#D9D2BF',
           paddingTop: 8,
           paddingBottom: 10,
-          height: 64,
+          // Height omitted (#300) so react-navigation/bottom-tabs adds the
+          // safe-area inset automatically — required for iPhone X+ home
+          // indicator clearance.
           elevation: 0,
           shadowOpacity: 0,
         },
