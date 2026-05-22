@@ -126,6 +126,54 @@ export function sgAverages(rounds: DetailedRound[]): SGAverages {
   return out
 }
 
+export type SGBreakdownKey =
+  | 'sg_off_tee'
+  | 'sg_approach'
+  | 'sg_around_green'
+  | 'sg_putting'
+
+export interface SGBreakdownEntry {
+  key: SGBreakdownKey
+  value: number
+}
+
+export interface SGBreakdownResult {
+  breakdown: SGBreakdownEntry[]
+  maxAbs: number
+}
+
+export interface SGRoundLike {
+  sg_off_tee: number | null
+  sg_approach: number | null
+  sg_around_green: number | null
+  sg_putting: number | null
+}
+
+const SG_BREAKDOWN_KEYS: readonly SGBreakdownKey[] = [
+  'sg_off_tee',
+  'sg_approach',
+  'sg_around_green',
+  'sg_putting',
+] as const
+
+// Empty/all-null category collapses to 0 (renders as a neutral bar at center).
+// `maxAbs` floored at 0.5 so low-magnitude values still render a visible bar
+// instead of disappearing into the axis.
+export function sgBreakdown(rounds: SGRoundLike[]): SGBreakdownResult {
+  const breakdown: SGBreakdownEntry[] = SG_BREAKDOWN_KEYS.map((key) => {
+    const values = rounds
+      .map((r) => r[key])
+      .filter((v): v is number => v !== null)
+    const avg =
+      values.length === 0
+        ? 0
+        : values.reduce((a, b) => a + b, 0) / values.length
+    return { key, value: Number(avg.toFixed(2)) }
+  })
+  const maxAbs = Math.max(...breakdown.map((b) => Math.abs(b.value)), 0.5)
+  return { breakdown, maxAbs }
+}
+
 export interface SGTrendPoint {
   date: string
   offTee: number
