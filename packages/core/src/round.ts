@@ -154,6 +154,7 @@ export function shotRowToDraft(s: ShotRow): DraftShot {
   else if (!shotResult && s.penalty) shotResult = 'penalty'
   const legacy = legacySlopeToAxes(s.lie_slope as LieSlope | null)
   const puttResult = s.putt_result as LegacyPuttResult | null
+  const breakAxes = decombinedBreakDirection(s.break_direction as BreakDirection | null)
   return {
     id: s.id,
     shotNumber: s.shot_number,
@@ -184,11 +185,11 @@ export function shotRowToDraft(s: ShotRow): DraftShot {
     breakDirection: mapBreakDirection(s.break_direction),
     breakDirectionVertical:
       (s.break_direction_vertical as BreakDirectionVertical | null) ??
-      decombinedBreakDirection(s.break_direction as BreakDirection | null).vertical ??
+      breakAxes.vertical ??
       undefined,
     breakDirectionHorizontal:
       (s.break_direction_horizontal as BreakDirectionHorizontal | null) ??
-      decombinedBreakDirection(s.break_direction as BreakDirection | null).horizontal ??
+      breakAxes.horizontal ??
       undefined,
     aimOffsetInches:
       s.aim_offset_yards != null ? Math.round(s.aim_offset_yards * 36) : 0,
