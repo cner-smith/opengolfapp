@@ -20,8 +20,7 @@ export type GreenSpeed = 'slow' | 'medium' | 'fast'
 // new code writes one of the explicit five.
 /** @deprecated Use {@link BreakDirectionVertical} and
  *  {@link BreakDirectionHorizontal} — break direction is two independent
- *  axes (slope + line), not one. Migration 0028 added the split columns;
- *  this single-axis enum is kept only for back-compat reads. */
+ *  axes (slope + line), not one. */
 export type BreakDirection =
   | 'left'
   | 'right'
