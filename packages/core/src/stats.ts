@@ -156,8 +156,8 @@ const SG_BREAKDOWN_KEYS: readonly SGBreakdownKey[] = [
   'sg_putting',
 ] as const
 
-// null-only category treated as 0; maxAbs minimum of 0.5 prevents a zero-
-// range scale when every category has very low magnitude.
+// null-only category treated as 0. maxAbs is the true peak magnitude;
+// UI consumers that need a non-zero scale should compose with barScale().
 export function sgBreakdown(rounds: SGRoundLike[]): SGBreakdownResult {
   const breakdown: SGBreakdownEntry[] = SG_BREAKDOWN_KEYS.map((key) => {
     const values = rounds
@@ -169,8 +169,15 @@ export function sgBreakdown(rounds: SGRoundLike[]): SGBreakdownResult {
         : values.reduce((a, b) => a + b, 0) / values.length
     return { key, value: Number(avg.toFixed(2)) }
   })
-  const maxAbs = Math.max(...breakdown.map((b) => Math.abs(b.value)), 0.5)
+  const maxAbs = Math.max(...breakdown.map((b) => Math.abs(b.value)), 0)
   return { breakdown, maxAbs }
+}
+
+// Presentation-only: floors maxAbs at 0.5 so a diverging-bar chart keeps a
+// visible scale when every SG category averages near zero. Not for domain
+// callers — they should read sgBreakdown's true maxAbs.
+export function barScale(maxAbs: number): number {
+  return Math.max(maxAbs, 0.5)
 }
 
 export interface SGTrendPoint {

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { sgBreakdown, type SGRoundLike } from '../stats'
+import { barScale, sgBreakdown, type SGRoundLike } from '../stats'
 
 const row = (
   offTee: number | null,
@@ -14,16 +14,16 @@ const row = (
 })
 
 describe('sgBreakdown', () => {
-  it('returns zeros and maxAbs floor of 0.5 for empty rounds', () => {
+  it('returns zeros and maxAbs of 0 for empty rounds', () => {
     const { breakdown, maxAbs } = sgBreakdown([])
     expect(breakdown.map((b) => b.value)).toEqual([0, 0, 0, 0])
-    expect(maxAbs).toBe(0.5)
+    expect(maxAbs).toBe(0)
   })
 
   it('treats all-null categories as 0 (rendered as neutral bar)', () => {
     const { breakdown, maxAbs } = sgBreakdown([row(null, null, null, null)])
     expect(breakdown.map((b) => b.value)).toEqual([0, 0, 0, 0])
-    expect(maxAbs).toBe(0.5)
+    expect(maxAbs).toBe(0)
   })
 
   it('averages non-null values per category, ignoring nulls', () => {
@@ -49,9 +49,9 @@ describe('sgBreakdown', () => {
     expect(maxAbs).toBe(0.8)
   })
 
-  it('keeps maxAbs floor of 0.5 when all averages are below 0.5', () => {
+  it('reports true peak when all averages are below 0.5 (no floor)', () => {
     const { maxAbs } = sgBreakdown([row(0.1, -0.2, 0.3, -0.1)])
-    expect(maxAbs).toBe(0.5)
+    expect(maxAbs).toBe(0.3)
   })
 
   it('returns category keys in the canonical off_tee → approach → around_green → putting order', () => {
@@ -62,5 +62,18 @@ describe('sgBreakdown', () => {
       'sg_around_green',
       'sg_putting',
     ])
+  })
+})
+
+describe('barScale', () => {
+  it('floors at 0.5 when input is below the floor', () => {
+    expect(barScale(0)).toBe(0.5)
+    expect(barScale(0.3)).toBe(0.5)
+    expect(barScale(0.5)).toBe(0.5)
+  })
+
+  it('returns input unchanged when above the floor', () => {
+    expect(barScale(0.8)).toBe(0.8)
+    expect(barScale(2)).toBe(2)
   })
 })

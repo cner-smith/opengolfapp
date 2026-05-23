@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import { Text, View } from 'react-native'
-import { formatSG, sgBreakdown, type SGBreakdownKey, type SGRoundLike } from '@oga/core'
+import { barScale, formatSG, sgBreakdown, type SGBreakdownKey, type SGRoundLike } from '@oga/core'
 
 const KICKER: import('react-native').TextStyle = {
   color: '#8A8B7E',
@@ -20,6 +20,7 @@ const SG_LABELS: Record<SGBreakdownKey, string> = {
 
 export function SGBreakdown({ rounds }: { rounds: SGRoundLike[] }) {
   const { breakdown, maxAbs } = useMemo(() => sgBreakdown(rounds), [rounds])
+  const scale = barScale(maxAbs)
 
   return (
     <View style={{ marginBottom: 28 }}>
@@ -35,7 +36,7 @@ export function SGBreakdown({ rounds }: { rounds: SGRoundLike[] }) {
       </View>
       <View style={{ gap: 14 }}>
         {breakdown.map((b) => (
-          <SGBar key={b.key} label={SG_LABELS[b.key]} value={b.value} max={maxAbs} />
+          <SGBar key={b.key} label={SG_LABELS[b.key]} value={b.value} max={scale} />
         ))}
       </View>
     </View>

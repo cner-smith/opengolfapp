@@ -152,7 +152,7 @@ export interface Shot {
   /** @deprecated combined value retained for back-compat reads. New code
    *  uses puttMade + puttDistanceResult + puttDirectionResult — three
    *  independent dimensions. */
-  puttResult?: 'made' | 'short' | 'long' | 'missed_left' | 'missed_right'
+  puttResult?: LegacyPuttResult
   puttMade?: boolean
   puttDistanceResult?: PuttDistanceResult
   puttDirectionResult?: PuttDirectionResult

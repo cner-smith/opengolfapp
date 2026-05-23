@@ -100,6 +100,16 @@ describe('shotRowToDraft', () => {
       expect(draft.puttDistanceResult).toBe('long')
       expect(draft.puttDirectionResult).toBe('right')
     })
+    it("puttMade=true and axis columns coexist when putt_result='made' is set alongside them", () => {
+      const draft = shotRowToDraft(row({
+        putt_result: 'made',
+        putt_distance_result: 'short',
+        putt_direction_result: 'right',
+      }))
+      expect(draft.puttMade).toBe(true)
+      expect(draft.puttDistanceResult).toBe('short')
+      expect(draft.puttDirectionResult).toBe('right')
+    })
   })
 
   describe('break_direction mapping', () => {
