@@ -18,6 +18,10 @@ export type GreenSpeed = 'slow' | 'medium' | 'fast'
 // Canonical 7-value vocabulary matching shots.break_direction in the DB.
 // `left` / `right` are legacy single-letter values from pre-split rows;
 // new code writes one of the explicit five.
+/** @deprecated Use {@link BreakDirectionVertical} and
+ *  {@link BreakDirectionHorizontal} — break direction is two independent
+ *  axes (slope + line), not one. Migration 0028 added the split columns;
+ *  this single-axis enum is kept only for back-compat reads. */
 export type BreakDirection =
   | 'left'
   | 'right'
@@ -26,6 +30,14 @@ export type BreakDirection =
   | 'right_to_left'
   | 'uphill'
   | 'downhill'
+
+// Two independent axes for shots.break_direction_vertical and
+// shots.break_direction_horizontal (migration 0028). A putt can break
+// both up/down AND L→R / R→L on the same line; the legacy
+// BreakDirection enum collapsed that into one value, losing half the
+// information. Either axis can be null when the player skipped it.
+export type BreakDirectionVertical = 'uphill' | 'downhill' | 'flat'
+export type BreakDirectionHorizontal = 'left_to_right' | 'right_to_left' | 'straight'
 
 export type PuttDistanceResult = 'short' | 'long'
 export type PuttDirectionResult = 'left' | 'right'
@@ -186,6 +198,56 @@ export function decombinedPuttResult(
   if (direction === 'left') parts.push('Missed left')
   else if (direction === 'right') parts.push('Missed right')
   return parts.join(', ')
+}
+
+/** Reconstruct legacy break_direction from the two new axes so writers
+ *  can keep the legacy column populated for back-compat. When both axes
+ *  are set, prefers horizontal — the more frequently-diagnostic axis
+ *  for putt line correction. `flat` vertical has no legacy equivalent
+ *  and is dropped if horizontal carries information.
+ *  Mirrors {@link combinedPuttResult} above. */
+export function combinedBreakDirection(args: {
+  vertical?: BreakDirectionVertical | null
+  horizontal?: BreakDirectionHorizontal | null
+}): BreakDirection | null {
+  if (args.horizontal === 'left_to_right') return 'left_to_right'
+  if (args.horizontal === 'right_to_left') return 'right_to_left'
+  if (args.horizontal === 'straight') return 'straight'
+  if (args.vertical === 'uphill') return 'uphill'
+  if (args.vertical === 'downhill') return 'downhill'
+  return null
+}
+
+/** Inverse of {@link combinedBreakDirection} — decompose a legacy
+ *  BreakDirection value into the two new axes for the read-path
+ *  fallback. Legacy single-letter `left` / `right` map onto the
+ *  break-from→to vocabulary the same way `mapBreakDirection()` in
+ *  round.ts does (left = breaks right-to-left, right = breaks
+ *  left-to-right). */
+export function decombinedBreakDirection(
+  legacy: BreakDirection | null | undefined,
+): {
+  vertical: BreakDirectionVertical | null
+  horizontal: BreakDirectionHorizontal | null
+} {
+  switch (legacy) {
+    case 'uphill':
+      return { vertical: 'uphill', horizontal: null }
+    case 'downhill':
+      return { vertical: 'downhill', horizontal: null }
+    case 'left_to_right':
+      return { vertical: null, horizontal: 'left_to_right' }
+    case 'right_to_left':
+      return { vertical: null, horizontal: 'right_to_left' }
+    case 'straight':
+      return { vertical: null, horizontal: 'straight' }
+    case 'left':
+      return { vertical: null, horizontal: 'right_to_left' }
+    case 'right':
+      return { vertical: null, horizontal: 'left_to_right' }
+    default:
+      return { vertical: null, horizontal: null }
+  }
 }
 
 export interface SGBreakdown {
