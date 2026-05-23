@@ -151,7 +151,7 @@ export interface Shot {
   notes?: string
 }
 
-type LegacyPuttResult =
+export type LegacyPuttResult =
   | 'made'
   | 'short'
   | 'long'
