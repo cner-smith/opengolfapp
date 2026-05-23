@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react'
 import { ActivityIndicator, Pressable, Text, View } from 'react-native'
 import { Tabs, Redirect } from 'expo-router'
 import { MaterialCommunityIcons } from '@expo/vector-icons'
+import { setStatusBarStyle } from 'expo-status-bar'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
 import { ErrorBoundary } from '../../components/errors/ErrorBoundary'
@@ -18,6 +20,18 @@ export default function AppLayout() {
   const { user, loading: authLoading } = useAuth()
   const [profileState, setProfileState] = useState<ProfileState>('loading')
   const [retryNonce, setRetryNonce] = useState(0)
+  const insets = useSafeAreaInsets()
+
+  // Loading + error views have a near-black background (#1C211C). Force
+  // light status bar icons while either is showing; restore auto once
+  // we're rendering the light-background Tabs tree.
+  useEffect(() => {
+    const dark =
+      authLoading ||
+      profileState === 'loading' ||
+      profileState === 'error'
+    setStatusBarStyle(dark ? 'light' : 'auto', true)
+  }, [authLoading, profileState])
 
   useEffect(() => {
     if (authLoading) return
@@ -144,10 +158,12 @@ export default function AppLayout() {
           borderTopWidth: 1,
           borderTopColor: '#D9D2BF',
           paddingTop: 8,
-          paddingBottom: 10,
-          // Height omitted (#300) so react-navigation/bottom-tabs adds the
-          // safe-area inset automatically — required for iPhone X+ home
-          // indicator clearance.
+          // Explicit height + paddingBottom from safe-area insets (#300).
+          // Removing height entirely shrank the bar to 49 px on Android and
+          // older iPhones (no home indicator), so we set the visible content
+          // band ourselves and add `insets.bottom` for iPhone X+ clearance.
+          height: 54 + insets.bottom,
+          paddingBottom: insets.bottom + 10,
           elevation: 0,
           shadowOpacity: 0,
         },
