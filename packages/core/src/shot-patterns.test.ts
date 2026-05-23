@@ -74,8 +74,9 @@ describe('computeDispersionStats', () => {
     expect(stats.avgLateralOffset).toBeCloseTo(11)
     expect(stats.dominantMiss).toBe('right')
     expect(stats.shotShape).toBe('fade')
-    expect(stats.cone68.lateral).toBeGreaterThan(0)
-    expect(stats.cone95.lateral).toBeCloseTo(stats.cone68.lateral * 1.96)
+    // 2D containment radii, not the 1-D 1σ / 1.96σ rule.
+    expect(stats.cone68.lateral).toBeCloseTo(stats.stdLateral * 1.5096, 3)
+    expect(stats.cone95.lateral).toBeCloseTo(stats.stdLateral * 2.4477, 3)
   })
 
   it('labels balanced patterns as straight', () => {
