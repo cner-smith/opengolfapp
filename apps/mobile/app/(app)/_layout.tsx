@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { ActivityIndicator, Pressable, Text, View } from 'react-native'
 import { Tabs, Redirect } from 'expo-router'
 import { MaterialCommunityIcons } from '@expo/vector-icons'
-import { setStatusBarStyle } from 'expo-status-bar'
+import { StatusBar } from 'expo-status-bar'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
@@ -21,17 +21,6 @@ export default function AppLayout() {
   const [profileState, setProfileState] = useState<ProfileState>('loading')
   const [retryNonce, setRetryNonce] = useState(0)
   const insets = useSafeAreaInsets()
-
-  // Loading + error views have a near-black background (#1C211C). Force
-  // light status bar icons while either is showing; restore auto once
-  // we're rendering the light-background Tabs tree.
-  useEffect(() => {
-    const dark =
-      authLoading ||
-      profileState === 'loading' ||
-      profileState === 'error'
-    setStatusBarStyle(dark ? 'light' : 'auto', true)
-  }, [authLoading, profileState])
 
   useEffect(() => {
     if (authLoading) return
@@ -82,6 +71,7 @@ export default function AppLayout() {
           justifyContent: 'center',
         }}
       >
+        <StatusBar style="light" animated />
         <ActivityIndicator color="#E8E4DC" />
       </View>
     )
@@ -98,6 +88,7 @@ export default function AppLayout() {
           padding: 28,
         }}
       >
+        <StatusBar style="light" animated />
         <Text
           style={{
             color: '#F2EEE5',
