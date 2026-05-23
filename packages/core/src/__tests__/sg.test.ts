@@ -267,6 +267,8 @@ describe('computeRoundSG (sg.ts) — DB row → result adapter', () => {
       ob: overrides.ob ?? false,
       aim_offset_yards: overrides.aim_offset_yards ?? null,
       break_direction: overrides.break_direction ?? null,
+      break_direction_vertical: overrides.break_direction_vertical ?? null,
+      break_direction_horizontal: overrides.break_direction_horizontal ?? null,
       putt_result: overrides.putt_result ?? null,
       putt_distance_result: overrides.putt_distance_result ?? null,
       putt_direction_result: overrides.putt_direction_result ?? null,

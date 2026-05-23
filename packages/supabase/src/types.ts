@@ -483,6 +483,8 @@ export type Database = {
           aim_lng: number | null
           aim_offset_yards: number | null
           break_direction: string | null
+          break_direction_horizontal: string | null
+          break_direction_vertical: string | null
           club: string | null
           created_at: string
           distance_to_target: number | null
@@ -514,6 +516,8 @@ export type Database = {
           aim_lng?: number | null
           aim_offset_yards?: number | null
           break_direction?: string | null
+          break_direction_horizontal?: string | null
+          break_direction_vertical?: string | null
           club?: string | null
           created_at?: string
           distance_to_target?: number | null
@@ -545,6 +549,8 @@ export type Database = {
           aim_lng?: number | null
           aim_offset_yards?: number | null
           break_direction?: string | null
+          break_direction_horizontal?: string | null
+          break_direction_vertical?: string | null
           club?: string | null
           created_at?: string
           distance_to_target?: number | null

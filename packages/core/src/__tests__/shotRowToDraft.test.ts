@@ -27,6 +27,8 @@ const row = (overrides: Partial<ShotRow>): ShotRow =>
     putt_slope_pct: null,
     green_speed: null,
     break_direction: null,
+    break_direction_vertical: null,
+    break_direction_horizontal: null,
     aim_offset_yards: null,
     notes: null,
     ...overrides,
@@ -119,6 +121,48 @@ describe('shotRowToDraft', () => {
     it("defaults to 'straight' for null/unknown break_direction", () => {
       expect(shotRowToDraft(row({ break_direction: null })).breakDirection).toBe('straight')
       expect(shotRowToDraft(row({ break_direction: 'something_else' })).breakDirection).toBe('straight')
+    })
+  })
+
+  describe('break_direction axes (vertical + horizontal)', () => {
+    it('reads explicit break_direction_vertical / _horizontal columns', () => {
+      const draft = shotRowToDraft(row({
+        break_direction_vertical: 'uphill',
+        break_direction_horizontal: 'left_to_right',
+      }))
+      expect(draft.breakDirectionVertical).toBe('uphill')
+      expect(draft.breakDirectionHorizontal).toBe('left_to_right')
+    })
+
+    it('falls back to decombined legacy break_direction when new columns are null', () => {
+      const upRow = shotRowToDraft(row({ break_direction: 'uphill' }))
+      expect(upRow.breakDirectionVertical).toBe('uphill')
+      expect(upRow.breakDirectionHorizontal).toBeUndefined()
+
+      const ltrRow = shotRowToDraft(row({ break_direction: 'left_to_right' }))
+      expect(ltrRow.breakDirectionVertical).toBeUndefined()
+      expect(ltrRow.breakDirectionHorizontal).toBe('left_to_right')
+    })
+
+    it('decombines legacy single-letter `left` / `right` onto the horizontal axis', () => {
+      expect(shotRowToDraft(row({ break_direction: 'left' })).breakDirectionHorizontal).toBe('right_to_left')
+      expect(shotRowToDraft(row({ break_direction: 'right' })).breakDirectionHorizontal).toBe('left_to_right')
+    })
+
+    it('prefers explicit new columns over legacy decomposition', () => {
+      const draft = shotRowToDraft(row({
+        break_direction: 'uphill',
+        break_direction_vertical: 'downhill',
+        break_direction_horizontal: 'straight',
+      }))
+      expect(draft.breakDirectionVertical).toBe('downhill')
+      expect(draft.breakDirectionHorizontal).toBe('straight')
+    })
+
+    it('returns undefined for both axes when nothing is set', () => {
+      const draft = shotRowToDraft(row({}))
+      expect(draft.breakDirectionVertical).toBeUndefined()
+      expect(draft.breakDirectionHorizontal).toBeUndefined()
     })
   })
 

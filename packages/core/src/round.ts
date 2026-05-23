@@ -6,11 +6,14 @@ import { inferShot, type InferredShot, type PlacedShot } from './shotInference'
 import type { Club, LieType, LieSlope, LieSlopeForward, LieSlopeSide, ShotResult } from './constants'
 import type {
   BreakDirection,
+  BreakDirectionHorizontal,
+  BreakDirectionVertical,
   GreenSpeed,
   LegacyPuttResult,
   PuttDirectionResult,
   PuttDistanceResult,
 } from './types'
+import { decombinedBreakDirection } from './types'
 import type { Database } from '@oga/supabase'
 
 type ShotRow = Database['public']['Tables']['shots']['Row']
@@ -129,7 +132,13 @@ export interface DraftShot {
   puttDirectionResult?: PuttDirectionResult
   puttSlopePct?: number
   greenSpeed?: GreenSpeed
+  /** @deprecated Use {@link DraftShot.breakDirectionVertical} and
+   *  {@link DraftShot.breakDirectionHorizontal}. Computed from the two
+   *  axes for back-compat with consumers (web `PuttFormFields`,
+   *  `GreenDiagram`) that still read this single-axis field. */
   breakDirection?: Exclude<BreakDirection, 'left' | 'right'>
+  breakDirectionVertical?: BreakDirectionVertical
+  breakDirectionHorizontal?: BreakDirectionHorizontal
   aimOffsetInches?: number
   notes?: string
 }
@@ -173,6 +182,14 @@ export function shotRowToDraft(s: ShotRow): DraftShot {
     puttSlopePct: s.putt_slope_pct ?? undefined,
     greenSpeed: (s.green_speed as GreenSpeed | null) ?? undefined,
     breakDirection: mapBreakDirection(s.break_direction),
+    breakDirectionVertical:
+      (s.break_direction_vertical as BreakDirectionVertical | null) ??
+      decombinedBreakDirection(s.break_direction as BreakDirection | null).vertical ??
+      undefined,
+    breakDirectionHorizontal:
+      (s.break_direction_horizontal as BreakDirectionHorizontal | null) ??
+      decombinedBreakDirection(s.break_direction as BreakDirection | null).horizontal ??
+      undefined,
     aimOffsetInches:
       s.aim_offset_yards != null ? Math.round(s.aim_offset_yards * 36) : 0,
     notes: s.notes ?? undefined,
