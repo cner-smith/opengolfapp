@@ -10,7 +10,9 @@ import {
 } from 'react-native'
 import {
   FEET_TO_CM,
-  type BreakDirection,
+  combinedBreakDirection,
+  type BreakDirectionHorizontal,
+  type BreakDirectionVertical,
   type GreenSpeed,
   type LieType,
   type PuttDirectionResult,
@@ -24,7 +26,8 @@ export interface PuttingValue {
   puttMade?: boolean
   puttDistanceResult?: PuttDistanceResult
   puttDirectionResult?: PuttDirectionResult
-  breakDirection?: BreakDirection
+  breakDirectionVertical?: BreakDirectionVertical
+  breakDirectionHorizontal?: BreakDirectionHorizontal
   puttSlopePct?: number // 0-4 intensity bucket
   greenSpeed?: GreenSpeed
   aimOffsetInches?: number
@@ -64,12 +67,15 @@ const DIRECTION_OPTIONS: { value: PuttDirectionResult; label: string }[] = [
   { value: 'right', label: 'Missed right' },
 ]
 
-const BREAK_OPTIONS: { value: BreakDirection; label: string }[] = [
+const BREAK_SLOPE_OPTIONS: { value: BreakDirectionVertical; label: string }[] = [
+  { value: 'uphill', label: 'Uphill' },
+  { value: 'flat', label: 'Flat' },
+  { value: 'downhill', label: 'Downhill' },
+]
+const BREAK_LINE_OPTIONS: { value: BreakDirectionHorizontal; label: string }[] = [
   { value: 'left_to_right', label: 'L → R' },
   { value: 'straight', label: 'Straight' },
   { value: 'right_to_left', label: 'R → L' },
-  { value: 'uphill', label: 'Uphill' },
-  { value: 'downhill', label: 'Downhill' },
 ]
 
 const SLOPE_INTENSITY_LABELS = ['Flat', 'Slight', 'Moderate', 'Strong', 'Severe']
@@ -104,7 +110,8 @@ export function PuttingSheet({
     puttMade: initial?.puttMade,
     puttDistanceResult: initial?.puttDistanceResult,
     puttDirectionResult: initial?.puttDirectionResult,
-    breakDirection: initial?.breakDirection ?? 'straight',
+    breakDirectionVertical: initial?.breakDirectionVertical,
+    breakDirectionHorizontal: initial?.breakDirectionHorizontal,
     puttSlopePct: initial?.puttSlopePct ?? 0,
     greenSpeed: initial?.greenSpeed,
     aimOffsetInches: initial?.aimOffsetInches ?? 0,
@@ -151,6 +158,20 @@ export function PuttingSheet({
       ...prev,
       puttMade: false,
       puttDirectionResult: prev.puttDirectionResult === v ? undefined : v,
+    }))
+  }
+
+  function setBreakSlope(v: BreakDirectionVertical) {
+    setValue((prev) => ({
+      ...prev,
+      breakDirectionVertical: prev.breakDirectionVertical === v ? undefined : v,
+    }))
+  }
+
+  function setBreakLine(v: BreakDirectionHorizontal) {
+    setValue((prev) => ({
+      ...prev,
+      breakDirectionHorizontal: prev.breakDirectionHorizontal === v ? undefined : v,
     }))
   }
 
@@ -248,7 +269,12 @@ export function PuttingSheet({
         <GreenDiagram
           distanceFt={distance}
           aimOffsetInches={value.aimOffsetInches ?? 0}
-          breakDirection={value.breakDirection ?? 'straight'}
+          breakDirection={
+            combinedBreakDirection({
+              vertical: value.breakDirectionVertical,
+              horizontal: value.breakDirectionHorizontal,
+            }) ?? 'straight'
+          }
           onAimChange={(n) => set('aimOffsetInches', n)}
         />
 
@@ -317,17 +343,36 @@ export function PuttingSheet({
           </Text>
         </Section>
 
-        <Section title="Break">
+        <Section title="Break (slope)">
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
-            {BREAK_OPTIONS.map((b) => (
+            {BREAK_SLOPE_OPTIONS.map((b) => (
               <Chip
                 key={b.value}
                 label={b.label}
-                active={value.breakDirection === b.value}
-                onPress={() => set('breakDirection', b.value)}
+                active={value.breakDirectionVertical === b.value}
+                onPress={() => setBreakSlope(b.value)}
               />
             ))}
           </View>
+          <Text style={{ ...KICKER, marginTop: 8, color: '#8A8B7E' }}>
+            Tap again to clear · leave blank if green was level
+          </Text>
+        </Section>
+
+        <Section title="Break (line)">
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+            {BREAK_LINE_OPTIONS.map((b) => (
+              <Chip
+                key={b.value}
+                label={b.label}
+                active={value.breakDirectionHorizontal === b.value}
+                onPress={() => setBreakLine(b.value)}
+              />
+            ))}
+          </View>
+          <Text style={{ ...KICKER, marginTop: 8, color: '#8A8B7E' }}>
+            Tap again to clear · leave blank if there was no break
+          </Text>
         </Section>
 
         <Section title="How much">
