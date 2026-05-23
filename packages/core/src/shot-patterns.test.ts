@@ -51,6 +51,32 @@ describe('computeDispersion', () => {
     const [p] = computeDispersion([s])
     expect(p!.lateralOffsetYards).toBeGreaterThan(0)
   })
+
+  it('projects start position into the aim-relative plane when present', () => {
+    const s = shot({
+      aimLat: AIM_LAT,
+      aimLng: AIM_LNG,
+      startLat: AIM_LAT - 0.001, // ~121 yds short of aim
+      startLng: AIM_LNG - 0.0001, // west of aim → start is left
+      endLat: AIM_LAT,
+      endLng: AIM_LNG,
+    })
+    const [p] = computeDispersion([s])
+    expect(p!.startDistanceOffsetYards).toBeCloseTo(-121, 0)
+    expect(p!.startLateralOffsetYards!).toBeLessThan(0)
+  })
+
+  it('leaves start offsets undefined when start coords are missing', () => {
+    const s = shot({
+      aimLat: AIM_LAT,
+      aimLng: AIM_LNG,
+      endLat: AIM_LAT + 0.001,
+      endLng: AIM_LNG,
+    })
+    const [p] = computeDispersion([s])
+    expect(p!.startLateralOffsetYards).toBeUndefined()
+    expect(p!.startDistanceOffsetYards).toBeUndefined()
+  })
 })
 
 describe('computeDispersionStats', () => {

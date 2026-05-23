@@ -15,6 +15,12 @@ export interface DispersionPoint {
   lateralOffsetYards: number
   /** Yards long of aim (negative = short) */
   distanceOffsetYards: number
+  /** Start position right of aim (negative = left). Undefined when the
+   *  shot has no recorded start — callers draw a straight line then. */
+  startLateralOffsetYards?: number
+  /** Start position long of aim (negative = short). Undefined when the
+   *  shot has no recorded start. */
+  startDistanceOffsetYards?: number
   shotResult?: ShotResult
   /** @deprecated populated from legacy rows; new code uses lieSlopeForward + lieSlopeSide. */
   lieSlope?: LieSlope
@@ -62,10 +68,18 @@ export function computeDispersion(shots: Shot[]): DispersionPoint[] {
     const endLng = s.endLng
     const latYards = (endLat - aimLat) * YARDS_PER_DEG_LAT
     const lngYards = (endLng - aimLng) * yardsPerDegLng(aimLat)
+    let startLateralOffsetYards: number | undefined
+    let startDistanceOffsetYards: number | undefined
+    if (isFiniteNumber(s.startLat) && isFiniteNumber(s.startLng)) {
+      startLateralOffsetYards = (s.startLng - aimLng) * yardsPerDegLng(aimLat)
+      startDistanceOffsetYards = (s.startLat - aimLat) * YARDS_PER_DEG_LAT
+    }
     points.push({
       id: s.id,
       lateralOffsetYards: lngYards,
       distanceOffsetYards: latYards,
+      startLateralOffsetYards,
+      startDistanceOffsetYards,
       shotResult: s.shotResult,
       lieSlope: s.lieSlope,
       lieSlopeForward: s.lieSlopeForward,
