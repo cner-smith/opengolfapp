@@ -60,7 +60,8 @@ export const LEARN_SECTIONS: LearnSection[] = [
         id: 'guide-to-fittings',
         title: 'Guide to golf fittings',
         description: 'What a fitting actually changes and when one is worth the money.',
-        status: 'soon',
+        status: 'draft',
+        words: 2200,
       },
       {
         id: 'training-aids',
