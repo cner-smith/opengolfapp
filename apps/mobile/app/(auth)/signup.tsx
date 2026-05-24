@@ -106,7 +106,7 @@ export default function Signup() {
         {captchaEnabled && (
           <WebView
             source={{ uri: `https://oga.golf/captcha.html?siteKey=${encodeURIComponent(TURNSTILE_SITE_KEY ?? '')}` }}
-            originWhitelist={['https://*', 'http://*']}
+            originWhitelist={['https://*', 'http://*', 'about:']}
             onMessage={(event) => {
               try {
                 const msg = JSON.parse(event.nativeEvent.data)
