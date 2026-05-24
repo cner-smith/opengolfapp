@@ -658,7 +658,7 @@ function BallFlightChart({
     )
   }
 
-  const x = (lat: number) => cx + lat * scale
+  const x = (lateralYards: number) => cx + lateralYards * scale
   const y = (dist: number) => teeY - dist * scale
   // Each shot's true forward distance from the tee.
   const carryOf = (p: DispersionPoint) =>
