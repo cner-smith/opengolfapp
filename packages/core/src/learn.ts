@@ -177,7 +177,8 @@ export const LEARN_SECTIONS: LearnSection[] = [
         id: 'lessons-and-coaching',
         title: 'Guide to lessons and coaching',
         description: 'Picking an instructor and getting a return on the lesson hour.',
-        status: 'soon',
+        status: 'draft',
+        words: 1300,
       },
       {
         id: 'fittings-with-coaches',
