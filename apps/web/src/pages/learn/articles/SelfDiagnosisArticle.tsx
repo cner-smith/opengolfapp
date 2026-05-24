@@ -1,7 +1,5 @@
 import type { CSSProperties, ReactNode } from 'react'
 
-const DEV = import.meta.env.DEV
-
 export function SelfDiagnosisArticle() {
   return (
     <article
@@ -93,6 +91,8 @@ export function SelfDiagnosisArticle() {
         Once you know the area, the same four questions crack open almost any
         ball-flight problem. Ask them in order. Each answer narrows the field.
       </P>
+
+      <DiagnosticFlow />
 
       <Subhead>1. What is your typical miss?</Subhead>
       <P>
@@ -227,19 +227,7 @@ export function SelfDiagnosisArticle() {
         actually addresses the pattern you walked in with.
       </P>
 
-      <EditorialNote variant="todo">
-        SVG flowchart diagrams (DESIGN.md editorial style) still to add: (1) a
-        top-level "where are the strokes leaking → which section" decision tree,
-        and (2) per-area miss → likely-cause → focus flow for tee / approach /
-        short game / putting. Holding for direction on flowchart approach
-        (hand-drawn SVG vs styled decision blocks).
-      </EditorialNote>
-
-      <EditorialNote variant="research">
-        Swing-cause claims here are stated as "usually / commonly" on purpose —
-        verify the slice path/alignment and fat-shot early-extension framing
-        against a teaching source before promoting from Draft to Published.
-      </EditorialNote>
+      <Sources />
 
       <Footer />
     </article>
@@ -346,44 +334,236 @@ function Example({
   )
 }
 
-function EditorialNote({
-  variant,
+// A scannable version of the four questions — each pass narrows the miss —
+// for readers who would skim past the prose below.
+function DiagnosticFlow() {
+  return (
+    <div style={{ maxWidth: 640, marginBottom: 18 }}>
+      <FlowNode n="01" q="What is your miss?">
+        <FlowBranch
+          label="Direction"
+          terms="push · pull · slice · hook"
+          read="A clubface-and-path story: the face sets the start line, the face-to-path gap sets the curve."
+        />
+        <FlowBranch
+          label="Contact"
+          terms="fat · thin · toe · heel"
+          read="A low-point story: where the bottom of your swing arc falls relative to the ball."
+        />
+      </FlowNode>
+
+      <Spine />
+
+      <FlowNode n="02" q="Same shape every time?">
+        <FlowBranch
+          tone="accent"
+          label="Consistent"
+          read="A pattern — aimable now, fixable later. This is the good news."
+        />
+        <FlowBranch
+          label="Random"
+          read="Back to fundamentals: grip, posture, alignment, balance changing swing to swing."
+        />
+      </FlowNode>
+
+      <Spine />
+
+      <FlowNode n="03" q="Only under pressure?">
+        <FlowBranch
+          label="Yes"
+          read="Tension and tempo, not technique. A range swing that breaks on the card is a rhythm-and-grip problem."
+        />
+      </FlowNode>
+
+      <Spine />
+
+      <FlowNode n="04" q="One club, or all of them?">
+        <FlowBranch
+          label="One club"
+          read="That club specifically — its setup, or a confidence issue with it."
+        />
+        <FlowBranch
+          label="All clubs"
+          read="Something systemic that travels with you: setup, posture, alignment."
+        />
+      </FlowNode>
+    </div>
+  )
+}
+
+function FlowNode({
+  n,
+  q,
   children,
 }: {
-  variant: 'research' | 'todo'
+  n: string
+  q: string
   children: ReactNode
 }) {
-  if (!DEV) return null
-  const tone = variant === 'research' ? '#1F3D2C' : '#A66A1F'
-  const label = variant === 'research' ? 'Source' : 'Todo'
   return (
     <div
       style={{
-        background: '#EBE5D6',
-        borderLeft: `3px solid ${tone}`,
-        padding: '10px 14px',
-        marginBottom: 14,
-        maxWidth: 680,
+        border: '1px solid #D9D2BF',
+        borderRadius: 2,
+        background: '#FBF8F1',
+        padding: '12px 14px',
       }}
     >
       <div
-        className="font-mono uppercase"
         style={{
-          fontSize: 10,
-          letterSpacing: '0.14em',
-          color: tone,
-          marginBottom: 4,
+          display: 'flex',
+          alignItems: 'baseline',
+          gap: 10,
+          marginBottom: 10,
         }}
       >
-        {label} · dev only
+        <span
+          className="font-mono"
+          style={{ fontSize: 10, letterSpacing: '0.14em', color: '#8A8B7E' }}
+        >
+          {n}
+        </span>
+        <span
+          className="font-serif text-caddie-ink"
+          style={{ fontSize: 16, fontStyle: 'italic' }}
+        >
+          {q}
+        </span>
+      </div>
+      <div style={{ display: 'grid', gap: 10 }}>{children}</div>
+    </div>
+  )
+}
+
+function FlowBranch({
+  label,
+  terms,
+  read,
+  tone,
+}: {
+  label: string
+  terms?: string
+  read: string
+  tone?: 'accent'
+}) {
+  const accent = tone === 'accent'
+  return (
+    <div style={{ borderLeft: `3px solid ${accent ? '#1F3D2C' : '#D9D2BF'}`, paddingLeft: 12 }}>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
+        <span
+          className="font-mono uppercase"
+          style={{
+            fontSize: 10,
+            letterSpacing: '0.14em',
+            color: accent ? '#1F3D2C' : '#5C6356',
+          }}
+        >
+          {label}
+        </span>
+        {terms && (
+          <span className="text-caddie-ink-mute" style={{ fontSize: 12 }}>
+            {terms}
+          </span>
+        )}
       </div>
       <div
         className="text-caddie-ink-dim"
-        style={{ fontSize: 13, lineHeight: 1.5, fontStyle: 'italic' }}
+        style={{ fontSize: 13, lineHeight: 1.5, marginTop: 3 }}
       >
-        {children}
+        {read}
       </div>
     </div>
+  )
+}
+
+function Spine() {
+  return <div style={{ width: 1, height: 16, background: '#D9D2BF', margin: '0 auto' }} />
+}
+
+function Sources() {
+  return (
+    <section style={{ borderTop: '1px solid #D9D2BF', paddingTop: 18, marginTop: 22 }}>
+      <div className="kicker" style={{ marginBottom: 12 }}>
+        Sources
+      </div>
+      <div style={{ display: 'grid', gap: 14, maxWidth: 640 }}>
+        <div>
+          <SrcLabel>Ball flight — start line and curve</SrcLabel>
+          <SrcBody>
+            <Src href="https://www.trackman.com/blog/golf/face-to-path">
+              TrackMan · Face to Path
+            </Src>{' '}
+            and{' '}
+            <Src href="https://www.trackman.com/blog/golf/club-path">Club Path</Src> — the
+            clubface sets roughly 85% of the start line; the face-to-path gap sets
+            the curve.
+          </SrcBody>
+        </div>
+        <div>
+          <SrcLabel>Low point and fat contact</SrcLabel>
+          <SrcBody>
+            <Src href="https://www.mytpi.com/articles/swing/why-early-extension-causes-a-reduction-of-power-in-the-golf-swing">
+              Titleist Performance Institute · Early Extension
+            </Src>
+            ;{' '}
+            <Src href="https://golf.com/instruction/biggest-swing-mistake-amateurs-make/">
+              Golf.com on GolfTEC swing data
+            </Src>
+            .
+          </SrcBody>
+        </div>
+        <div>
+          <SrcLabel>Putting — pace over read from range</SrcLabel>
+          <SrcBody>
+            Mark Broadie, <em>Every Shot Counts</em> (2014);{' '}
+            <Src href="https://www.pga.info/discover/latest/news/why-setting-realistic-expectations-lag-putting-key-shooting-lower-scores/">
+              PGA · lag-putting expectations
+            </Src>
+            .
+          </SrcBody>
+        </div>
+      </div>
+    </section>
+  )
+}
+
+function SrcLabel({ children }: { children: ReactNode }) {
+  return (
+    <div
+      className="font-mono uppercase"
+      style={{
+        fontSize: 10,
+        letterSpacing: '0.14em',
+        color: '#5C6356',
+        marginBottom: 4,
+      }}
+    >
+      {children}
+    </div>
+  )
+}
+
+function SrcBody({ children }: { children: ReactNode }) {
+  return (
+    <div
+      className="text-caddie-ink-dim"
+      style={{ fontSize: 13, lineHeight: 1.55 }}
+    >
+      {children}
+    </div>
+  )
+}
+
+function Src({ href, children }: { href: string; children: ReactNode }) {
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      style={{ color: '#1F3D2C', textDecoration: 'underline' }}
+    >
+      {children}
+    </a>
   )
 }
 
