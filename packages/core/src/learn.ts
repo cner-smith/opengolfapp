@@ -159,8 +159,10 @@ export const LEARN_SECTIONS: LearnSection[] = [
       {
         id: 'self-diagnosis',
         title: 'Self-diagnosis: finding your weaknesses',
-        description: 'Using your own SG and pattern data to know where strokes are leaking.',
-        status: 'soon',
+        description:
+          'A framework for reading your own miss patterns and finding where your game leaks strokes.',
+        status: 'draft',
+        words: 1500,
       },
     ],
   },
