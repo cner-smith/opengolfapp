@@ -334,87 +334,54 @@ function Example({
   )
 }
 
-// A scannable version of the four questions — each pass narrows the miss —
-// for readers who would skim past the prose below.
+// A compact top-down flowchart of the four questions, so a reader can scan the
+// decision path even if they skip the prose that expands each one below. Short
+// labels only here — the detail lives in the prose, not duplicated in the chart.
 function DiagnosticFlow() {
   return (
-    <div style={{ maxWidth: 640, marginBottom: 18 }}>
-      <FlowNode n="01" q="What is your miss?">
-        <FlowBranch
-          label="Direction"
-          terms="push · pull · slice · hook"
-          read="A clubface-and-path story: the face sets the start line, the face-to-path gap sets the curve."
-        />
-        <FlowBranch
-          label="Contact"
-          terms="fat · thin · toe · heel"
-          read="A low-point story: where the bottom of your swing arc falls relative to the ball."
-        />
-      </FlowNode>
-
-      <Spine />
-
-      <FlowNode n="02" q="Same shape every time?">
-        <FlowBranch
-          tone="accent"
-          label="Consistent"
-          read="A pattern — aimable now, fixable later. This is the good news."
-        />
-        <FlowBranch
-          label="Random"
-          read="Back to fundamentals: grip, posture, alignment, balance changing swing to swing."
-        />
-      </FlowNode>
-
-      <Spine />
-
-      <FlowNode n="03" q="Only under pressure?">
-        <FlowBranch
-          label="Yes"
-          read="Tension and tempo, not technique. A range swing that breaks on the card is a rhythm-and-grip problem."
-        />
-      </FlowNode>
-
-      <Spine />
-
-      <FlowNode n="04" q="One club, or all of them?">
-        <FlowBranch
-          label="One club"
-          read="That club specifically — its setup, or a confidence issue with it."
-        />
-        <FlowBranch
-          label="All clubs"
-          read="Something systemic that travels with you: setup, posture, alignment."
-        />
-      </FlowNode>
+    <div style={{ maxWidth: 480, margin: '4px auto 22px' }}>
+      <FlowQ n="01" q="What is your miss?" />
+      <Arrow />
+      <FlowRow>
+        <Chip label="Direction" sub="face & path" hint="push · pull · slice · hook" />
+        <Chip label="Contact" sub="low point" hint="fat · thin · toe · heel" />
+      </FlowRow>
+      <Arrow />
+      <FlowQ n="02" q="Same shape every time?" />
+      <Arrow />
+      <FlowRow>
+        <Chip accent label="Consistent" sub="a fixable pattern" />
+        <Chip label="Random" sub="check fundamentals" />
+      </FlowRow>
+      <Arrow />
+      <FlowQ n="03" q="Only under pressure?" />
+      <Arrow />
+      <FlowRow>
+        <Chip label="Yes" sub="tempo, not technique" />
+      </FlowRow>
+      <Arrow />
+      <FlowQ n="04" q="One club, or all of them?" />
+      <Arrow />
+      <FlowRow>
+        <Chip label="One club" sub="that club's setup" />
+        <Chip label="All clubs" sub="something systemic" />
+      </FlowRow>
     </div>
   )
 }
 
-function FlowNode({
-  n,
-  q,
-  children,
-}: {
-  n: string
-  q: string
-  children: ReactNode
-}) {
+function FlowQ({ n, q }: { n: string; q: string }) {
   return (
-    <div
-      style={{
-        border: '1px solid #D9D2BF',
-        borderRadius: 2,
-        background: '#FBF8F1',
-        padding: '12px 14px',
-      }}
-    >
+    <div style={{ display: 'flex', justifyContent: 'center' }}>
       <div
         style={{
           display: 'flex',
           alignItems: 'baseline',
           gap: 10,
-          marginBottom: 10,
+          border: '1px solid #9F9580',
+          borderRadius: 2,
+          background: '#FBF8F1',
+          padding: '10px 16px',
         }}
       >
         <span
@@ -425,59 +392,106 @@ function FlowNode({
         </span>
         <span
           className="font-serif text-caddie-ink"
-          style={{ fontSize: 16, fontStyle: 'italic' }}
+          style={{ fontSize: 17, fontStyle: 'italic' }}
         >
           {q}
         </span>
       </div>
-      <div style={{ display: 'grid', gap: 10 }}>{children}</div>
     </div>
   )
 }
 
-function FlowBranch({
+// Vertical connector with a chevron — the visual "flow" between steps.
+function Arrow() {
+  return (
+    <div
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        margin: '7px 0',
+      }}
+    >
+      <div style={{ width: 2, height: 12, background: '#9F9580' }} />
+      <svg
+        width="11"
+        height="7"
+        viewBox="0 0 11 7"
+        aria-hidden="true"
+        style={{ display: 'block' }}
+      >
+        <path d="M1 1 L5.5 6 L10 1" fill="none" stroke="#9F9580" strokeWidth="1.5" />
+      </svg>
+    </div>
+  )
+}
+
+function FlowRow({ children }: { children: ReactNode }) {
+  return (
+    <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
+      {children}
+    </div>
+  )
+}
+
+// One branch of a question. The accent variant is a filled green chip used once,
+// on the "Consistent" answer — the outcome the reader is hoping for.
+function Chip({
   label,
-  terms,
-  read,
-  tone,
+  sub,
+  hint,
+  accent,
 }: {
   label: string
-  terms?: string
-  read: string
-  tone?: 'accent'
+  sub: string
+  hint?: string
+  accent?: boolean
 }) {
-  const accent = tone === 'accent'
   return (
-    <div style={{ borderLeft: `3px solid ${accent ? '#1F3D2C' : '#D9D2BF'}`, paddingLeft: 12 }}>
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
-        <span
-          className="font-mono uppercase"
-          style={{
-            fontSize: 10,
-            letterSpacing: '0.14em',
-            color: accent ? '#1F3D2C' : '#5C6356',
-          }}
-        >
-          {label}
-        </span>
-        {terms && (
-          <span className="text-caddie-ink-mute" style={{ fontSize: 12 }}>
-            {terms}
-          </span>
-        )}
+    <div
+      style={{
+        flex: '1 1 150px',
+        maxWidth: 210,
+        border: `1px solid ${accent ? '#1F3D2C' : '#D9D2BF'}`,
+        background: accent ? '#1F3D2C' : '#EBE5D6',
+        borderRadius: 2,
+        padding: '9px 12px',
+      }}
+    >
+      <div
+        className="font-mono uppercase"
+        style={{
+          fontSize: 10,
+          letterSpacing: '0.14em',
+          color: accent ? '#F2EEE5' : '#5C6356',
+          marginBottom: 3,
+        }}
+      >
+        {label}
       </div>
       <div
-        className="text-caddie-ink-dim"
-        style={{ fontSize: 13, lineHeight: 1.5, marginTop: 3 }}
+        className="font-serif"
+        style={{
+          fontSize: 14,
+          fontStyle: 'italic',
+          color: accent ? '#F2EEE5' : '#1C211C',
+        }}
       >
-        {read}
+        {sub}
       </div>
+      {hint && (
+        <div
+          style={{
+            fontSize: 11,
+            color: accent ? 'rgba(242,238,229,0.72)' : '#8A8B7E',
+            marginTop: 3,
+          }}
+        >
+          {hint}
+        </div>
+      )}
     </div>
   )
-}
-
-function Spine() {
-  return <div style={{ width: 1, height: 16, background: '#D9D2BF', margin: '0 auto' }} />
 }
 
 function Sources() {
