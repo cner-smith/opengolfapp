@@ -61,7 +61,7 @@ export const LEARN_SECTIONS: LearnSection[] = [
         title: 'Guide to golf fittings',
         description: 'What a fitting actually changes and when one is worth the money.',
         status: 'draft',
-        words: 1500,
+        words: 2200,
       },
       {
         id: 'training-aids',

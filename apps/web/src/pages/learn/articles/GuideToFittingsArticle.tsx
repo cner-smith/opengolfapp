@@ -94,6 +94,38 @@ export function GuideToFittingsArticle() {
 
       <Hr />
 
+      <H3>Get the most out of the day</H3>
+      <P>
+        A fitting is only as good as the swing you bring to it. A few habits
+        separate data you can trust from a wasted hour:
+      </P>
+      <ul style={UL_STYLE}>
+        <li>
+          <strong>Bring the clubs you actually play.</strong> The fitter needs a
+          baseline — every recommendation should be measured against your
+          current gamer, not against nothing.
+        </li>
+        <li>
+          <strong>Warm up like a round, not a long-drive contest.</strong> Fit
+          the swing you play with, not the one that shows up for three perfect
+          balls.
+        </li>
+        <li>
+          <strong>Come with a goal and your typical miss.</strong> "I lose it
+          right off the tee" or "my wedges are gapping badly" focuses the hour.
+        </li>
+        <li>
+          <strong>Hit enough balls per option.</strong> One good shot is luck; a
+          fitter should be reading a cluster, not a highlight.
+        </li>
+        <li>
+          <strong>Be honest about how often you play.</strong> The best club for
+          a range hero who plays twice a year is not the best club for you.
+        </li>
+      </ul>
+
+      <Hr />
+
       <H3>A real fitting vs a sales pitch</H3>
       <P>
         A fitting and a sale can look identical from the outside. The difference
@@ -117,11 +149,90 @@ export function GuideToFittingsArticle() {
       </ul>
 
       <P>
-        Ask what they are measuring, ask to see the numbers for each option, and
-        ask what they would change and why. Indoor fitting gives controlled
-        launch-monitor data; outdoor lets you see real flight and roll. Both are
-        valid — but indoor numbers should still be explained, not just sold.
+        Indoor fitting gives controlled launch-monitor data; outdoor lets you
+        see real flight and roll. Both are valid — but either way the numbers
+        should be explained to you, not just sold.
       </P>
+
+      <Hr />
+
+      <H3>Questions worth asking</H3>
+      <P>
+        The fitter works for you for that hour, even when the bay is inside a
+        shop. These turn a transaction back into a fitting — each one, and what
+        you're listening for in the answer:
+      </P>
+      <QA lead="&ldquo;What are we optimizing for?&rdquo;">
+        You want a clear target before the first ball — carry distance, tighter
+        dispersion, better gapping. "Let's just hit some and see" is not a plan.
+      </QA>
+      <QA lead="&ldquo;Can I see the numbers for every option?&rdquo;">
+        A real fitting shows you the data for each club, not just announces a
+        winner. If the screen only faces the fitter, ask them to turn it around.
+      </QA>
+      <QA lead="&ldquo;How does this compare to what I'm playing now?&rdquo;">
+        Every change should beat your current gamer by enough to matter — and
+        "better" should be a number, not a feeling.
+      </QA>
+      <QA lead="&ldquo;Is this difference real, or is it inside my scatter?&rdquo;">
+        If an option averages five yards longer but your shots vary by twenty,
+        that five yards is noise. A good fitter talks in averages and spread,
+        not single shots.
+      </QA>
+      <QA lead="&ldquo;What would you change first — and what isn't worth it?&rdquo;">
+        A fitter willing to tell you something doesn't matter is one you can
+        trust on the things that do.
+      </QA>
+      <QA lead="&ldquo;What are my yardage gaps?&rdquo;">
+        You want even gaps between clubs — no two going the same distance, and no
+        big holes where you're stranded between clubs.
+      </QA>
+
+      <Hr />
+
+      <H3>Decoding what the fitter says</H3>
+      <P>
+        Fitters talk in launch-monitor shorthand. Here is what the common
+        phrases actually mean — and when one is a real signal versus a way to
+        wave a weak number past you.
+      </P>
+      <QA lead="&ldquo;You need more launch / less spin.&rdquo;">
+        Your carry isn't matching your speed. With the driver, too much spin
+        balloons the ball and costs distance; too little and it drops out of the
+        sky early. The fix is launch and spin working together, usually through
+        loft and shaft.
+      </QA>
+      <QA lead="&ldquo;Your smash factor is 1.4-something.&rdquo;">
+        How much ball speed you got for your clubhead speed — basically, how
+        flush you struck it. Around 1.50 with a driver is efficient; a low number
+        usually means off-center contact, which can be the club or your strike,
+        so make sure it's the club before you pay for it.
+      </QA>
+      <QA lead="&ldquo;Your dispersion tightened up.&rdquo;">
+        Your shots are landing in a smaller area. This matters more than one
+        extra-long drive — the tighter pattern is the one that keeps you in play.
+        Reward dispersion over the occasional bomb.
+      </QA>
+      <QA lead="&ldquo;Your spin axis is tilted.&rdquo;">
+        That's your curve: the ball fades or draws because the face and the path
+        don't match. Same mechanism as a slice in any ball-flight explainer — the
+        fitter is just reading it off the monitor.
+      </QA>
+      <QA lead="&ldquo;This shaft loads better for you.&rdquo;">
+        A feel-and-timing claim. It can be real, but it should still show up in
+        the data — better contact, tighter dispersion, more speed. If it only
+        feels better and the numbers are flat, that's preference, not performance.
+      </QA>
+      <QA lead="&ldquo;Your attack angle is up / down.&rdquo;">
+        Whether you're hitting up or down on the ball at impact. The driver likes
+        a slightly upward strike for carry; irons want a downward strike that
+        bottoms out just after the ball.
+      </QA>
+      <QA lead="&ldquo;The numbers don't tell the whole story.&rdquo;">
+        Sometimes true for feel — but it's also the line used to sell you past
+        data that doesn't support the upgrade. Make them tell you exactly what
+        the numbers are missing.
+      </QA>
 
       <Hr />
 
@@ -259,6 +370,30 @@ function Tag({ children }: { children: ReactNode }) {
   )
 }
 
+// A question to ask (or a phrase the fitter uses) and what it actually means.
+function QA({ lead, children }: { lead: string; children: ReactNode }) {
+  return (
+    <div
+      style={{
+        borderTop: '1px solid #D9D2BF',
+        paddingTop: 10,
+        marginBottom: 10,
+        maxWidth: 660,
+      }}
+    >
+      <div
+        className="font-serif text-caddie-ink"
+        style={{ fontSize: 15, fontStyle: 'italic', marginBottom: 4 }}
+      >
+        {lead}
+      </div>
+      <div className="text-caddie-ink-dim" style={{ fontSize: 14, lineHeight: 1.55 }}>
+        {children}
+      </div>
+    </div>
+  )
+}
+
 // Fitting priority by handicap — fit the highest-return club for where you are.
 function FitByHandicap() {
   const rows: { stage: string; advice: string }[] = [
@@ -353,6 +488,20 @@ function Sources() {
             </Src>{' '}
             — flex changes where the face points at impact, and isn't standard
             across brands; compression pairs to the same swing-speed logic.
+          </SrcBody>
+        </div>
+        <div>
+          <SrcLabel>What the fitter's numbers mean</SrcLabel>
+          <SrcBody>
+            <Src href="https://www.trackman.com/blog/golf/6-trackman-numbers-all-amateur-golfers-should-know">
+              TrackMan · 6 numbers every amateur should know
+            </Src>{' '}
+            and{' '}
+            <Src href="https://www.trackman.com/blog/golf/the-ultimate-guide-to-understanding-trackman">
+              the ultimate guide to TrackMan data
+            </Src>{' '}
+            — launch, spin, smash factor, attack angle, and dispersion, in plain
+            terms.
           </SrcBody>
         </div>
       </div>
