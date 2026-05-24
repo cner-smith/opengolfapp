@@ -502,15 +502,17 @@ function Sources() {
       </div>
       <div style={{ display: 'grid', gap: 14, maxWidth: 640 }}>
         <div>
-          <SrcLabel>Ball flight — start line and curve</SrcLabel>
+          <SrcLabel>Ball flight — start line, curve, and why the driver curves more</SrcLabel>
           <SrcBody>
             <Src href="https://www.trackman.com/blog/golf/face-to-path">
               TrackMan · Face to Path
             </Src>{' '}
             and{' '}
             <Src href="https://www.trackman.com/blog/golf/club-path">Club Path</Src> — the
-            clubface sets roughly 85% of the start line; the face-to-path gap sets
-            the curve.
+            clubface sets roughly 85% of the start line; the face-to-path gap sets the
+            curve. The driver's lower loft means a smaller{' '}
+            <Src href="https://www.trackman.com/blog/golf/spin-loft">spin loft</Src>, so the
+            spin axis tilts more easily — which is why it curves more than the irons.
           </SrcBody>
         </div>
         <div>
@@ -534,6 +536,20 @@ function Sources() {
               PGA · lag-putting expectations
             </Src>
             .
+          </SrcBody>
+        </div>
+        <div>
+          <SrcLabel>Pressure — why a range swing breaks on the card</SrcLabel>
+          <SrcBody>
+            <Src href="https://www.peaksports.com/sports-psychology-blog/choking-under-pressure-in-golf/">
+              Peak Performance Sport Psychology (Dr. Patrick Cohn)
+            </Src>{' '}
+            and{' '}
+            <Src href="https://www.trine.edu/academics/centers/center-for-sports-studies/blog/2022/choking_in_sports.aspx">
+              Trine University · choking in sport
+            </Src>{' '}
+            — under pressure the automatic motion is disrupted, the hands tighten and
+            tempo goes; the reset is feel and rhythm, not mechanics.
           </SrcBody>
         </div>
       </div>
