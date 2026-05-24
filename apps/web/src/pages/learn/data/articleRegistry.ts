@@ -3,6 +3,7 @@ import { CourseManagementArticle } from '../articles/CourseManagementArticle'
 import { GlossaryArticle } from '../articles/GlossaryArticle'
 import { GuideToFittingsArticle } from '../articles/GuideToFittingsArticle'
 import { HowToPracticeArticle } from '../articles/HowToPracticeArticle'
+import { LessonsAndCoachingArticle } from '../articles/LessonsAndCoachingArticle'
 import { MentalGameArticle } from '../articles/MentalGameArticle'
 import { Operation36Article } from '../articles/Operation36Article'
 import { ReadingStatsArticle } from '../articles/ReadingStatsArticle'
@@ -21,6 +22,7 @@ const ARTICLE_COMPONENTS: Record<string, ComponentType> = {
   'self-diagnosis': SelfDiagnosisArticle,
   'guide-to-fittings': GuideToFittingsArticle,
   'operation-36': Operation36Article,
+  'lessons-and-coaching': LessonsAndCoachingArticle,
 }
 
 export function getArticleComponent(slug: string): ComponentType | null {
