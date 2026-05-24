@@ -4,6 +4,7 @@ import { GlossaryArticle } from '../articles/GlossaryArticle'
 import { GuideToFittingsArticle } from '../articles/GuideToFittingsArticle'
 import { HowToPracticeArticle } from '../articles/HowToPracticeArticle'
 import { MentalGameArticle } from '../articles/MentalGameArticle'
+import { Operation36Article } from '../articles/Operation36Article'
 import { ReadingStatsArticle } from '../articles/ReadingStatsArticle'
 import { SelfDiagnosisArticle } from '../articles/SelfDiagnosisArticle'
 import { SkillGamesArticle } from '../articles/SkillGamesArticle'
@@ -19,6 +20,7 @@ const ARTICLE_COMPONENTS: Record<string, ComponentType> = {
   'skill-games-pressure-games': SkillGamesArticle,
   'self-diagnosis': SelfDiagnosisArticle,
   'guide-to-fittings': GuideToFittingsArticle,
+  'operation-36': Operation36Article,
 }
 
 export function getArticleComponent(slug: string): ComponentType | null {
