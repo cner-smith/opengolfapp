@@ -1,6 +1,7 @@
 import type { ComponentType } from 'react'
 import { CourseManagementArticle } from '../articles/CourseManagementArticle'
 import { GlossaryArticle } from '../articles/GlossaryArticle'
+import { GuideToFittingsArticle } from '../articles/GuideToFittingsArticle'
 import { HowToPracticeArticle } from '../articles/HowToPracticeArticle'
 import { MentalGameArticle } from '../articles/MentalGameArticle'
 import { ReadingStatsArticle } from '../articles/ReadingStatsArticle'
@@ -17,6 +18,7 @@ const ARTICLE_COMPONENTS: Record<string, ComponentType> = {
   'mental-game': MentalGameArticle,
   'skill-games-pressure-games': SkillGamesArticle,
   'self-diagnosis': SelfDiagnosisArticle,
+  'guide-to-fittings': GuideToFittingsArticle,
 }
 
 export function getArticleComponent(slug: string): ComponentType | null {
