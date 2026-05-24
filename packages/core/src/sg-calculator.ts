@@ -28,9 +28,9 @@ export function getShotCategory(
  *  from the SG `ShotCategory`. */
 export type ShotMarkerCategory = 'tee' | 'approach' | 'around-green' | 'putt'
 
-// Maps a shot to its round-map marker category. Any tee-lie shot renders as a
-// tee marker even on a par 3, where SG counts the tee shot as approach — the
-// marker reflects what the player sees, not the SG category.
+// Any tee-lie shot renders as a tee marker even on a par 3, where SG counts
+// the tee shot as approach — the marker reflects what the player sees, not the
+// SG category.
 export function getShotMarkerCategory(
   shot: Pick<Shot, 'lieType' | 'distanceToTarget'>,
   par: number,
