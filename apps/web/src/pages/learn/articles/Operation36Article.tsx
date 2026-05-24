@@ -74,6 +74,28 @@ export function Operation36Article() {
 
       <Hr />
 
+      <H3>What "36" actually means</H3>
+      <P>
+        The 36 is simply par for nine holes — four strokes a hole, nine holes,
+        thirty-six. What makes it clever is that you're chasing that par on a
+        course scaled to your ability instead of from the back tees. From 25
+        yards, giving yourself four shots to hole out is a target almost anyone
+        can reach with a little practice. So par stops being the intimidating
+        standard printed on the scorecard and becomes a personal, rolling
+        benchmark: par for <em>your</em> distance, today.
+      </P>
+      <P>
+        The number never changes — it's always 36 — but what it asks of you
+        grows as you move back. Par from 25 yards and par from 150 are the same
+        score and wildly different feats, and the gap between them is exactly
+        the ground you've earned your way across. That's the quiet trick of it:
+        a raw beginner and a single-digit handicap can both be "shooting par,"
+        each from the course that fits them, each with a real reason to be proud
+        of the number they wrote down.
+      </P>
+
+      <Hr />
+
       <H3>Why starting near the hole works</H3>
       <P>
         The instinct to "master the swing first" feels responsible, but it puts
@@ -142,6 +164,28 @@ export function Operation36Article() {
 
       <Hr />
 
+      <H3>What the program actually sells</H3>
+      <P>
+        The distance ladder is the part that's easy to describe, but it isn't
+        really what you pay for. Operation 36 is built around coaching: a
+        structured curriculum that introduces a set of skills at each level,
+        live group classes with a PGA coach, drills to work on between sessions,
+        and an app that tracks where you sit in the progression. The "shoot 36
+        to move back" framework is the scaffold — the teaching, the drills, and
+        the feedback are what actually carry you up it.
+      </P>
+      <P>
+        That's a fair trade, and for a lot of people — especially kids in a
+        junior program — it's some of the best money in golf. But it does mean
+        the full experience comes with a price tag and a place you have to show
+        up to. The framework rewards you for scoring; the coaching tells you{' '}
+        <em>how</em> to score better. The two are worth separating, because the
+        second part is the expensive part — and it's the part you can assemble
+        in other ways.
+      </P>
+
+      <Hr />
+
       <H3>Borrowing the idea without joining the program</H3>
       <P>
         You don't need to enroll anywhere to use the thinking. The philosophy
@@ -164,21 +208,32 @@ export function Operation36Article() {
 
       <Hr />
 
-      <H3>Using it in your own rounds</H3>
+      <H3>A guided version you can build for free</H3>
       <P>
         On the course, the same logic argues for playing the tees that fit your
         game today rather than the ones ego or habit picks for you. Move up,
         give yourself reachable holes, and make the round about completing it
         well instead of grinding through a course built for someone who hits it
         forty yards past you. As your scoring holds up, move back — the same
-        earned progression, just on a real card.
+        earned progression, on a real card.
       </P>
       <P>
-        This is also where tracking pays off. If you log your rounds, you can
-        watch the trend the way the program intends: scores from the forward
-        tees tightening up, then holding as you step back. The number that tells
-        you you're ready to move back is the one you've been writing down all
-        along.
+        The harder thing to replicate on your own is the guidance — the part
+        that tells you what to work on and shows you you're improving. That's a
+        lot of what OGA is built to do. Strokes gained analysis runs the
+        diagnosis a coach would, pointing at the one part of your game quietly
+        costing you the most shots; a practice plan turns that into specific
+        things to go work on; and tracking your rounds gives you the rising line
+        that tells you when you've earned the next step back. It's the same
+        loop — diagnose, practice, prove it, move back — without a membership.
+      </P>
+      <P>
+        None of that asks you to be a junior, to have grown up at a country
+        club, or to pay for a coach you can't reach. An app doesn't replace a
+        good teacher — the Operation 36 coaches are excellent at theirs — but
+        the <em>shape</em> of the journey, start where you can win and earn your
+        way back, is something any golfer can follow with honest tracking and
+        practice that has a point to it.
       </P>
 
       <Hr />

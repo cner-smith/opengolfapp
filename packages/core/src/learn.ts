@@ -127,7 +127,7 @@ export const LEARN_SECTIONS: LearnSection[] = [
         title: 'The Operation 36 philosophy',
         description: 'Building a game from inside out, par at every distance.',
         status: 'draft',
-        words: 1100,
+        words: 1600,
       },
     ],
   },
