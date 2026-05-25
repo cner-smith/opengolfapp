@@ -124,7 +124,8 @@ export const LEARN_SECTIONS: LearnSection[] = [
         id: 'swing-variations',
         title: 'Swing variations for different body types',
         description: 'Why the textbook swing fits some bodies and not others.',
-        status: 'soon',
+        status: 'draft',
+        words: 2400,
       },
       {
         id: 'operation-36',
