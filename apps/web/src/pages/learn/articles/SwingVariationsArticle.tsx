@@ -129,7 +129,7 @@ export function SwingVariationsArticle() {
 
       <Hr />
 
-      <H3>Schools of thought: the plane spectrum</H3>
+      <H3>Schools of thought</H3>
       <P>
         "Swing plane" — roughly, how upright or flat the club travels — is where
         much of the genuine expert disagreement lives. These are perspectives with
@@ -182,6 +182,35 @@ export function SwingVariationsArticle() {
           repeatable and easier on the body.
         </li>
       </ul>
+
+      <P>
+        Other respected methods aren't really about plane at all — they're about
+        making the motion simpler, more repeatable, or kinder to the body, which
+        is the same goal reached through a different door.
+      </P>
+      <ul style={UL_STYLE}>
+        <li>
+          <strong>Peak Performance (Don Trahan).</strong> A short, vertical,
+          limited-turn backswing — "a little turn, a lot of lift" — that Trahan
+          built with orthopedic input to be easy on the back and friendly to
+          players who've lost flexibility, while arguing it gives up little or no
+          clubhead speed.
+        </li>
+        <li>
+          <strong>The A Swing (David Leadbetter).</strong> An "alternative" that
+          rebuilds the backswing to be simpler and more repeatable, so the
+          downswing becomes mostly a reaction — aimed squarely at golfers who
+          can't groove the conventional move.
+        </li>
+        <li>
+          <strong>Swing the clubhead (Manuel de la Torre).</strong> A feel-first
+          school in the Ernest Jones tradition: focus on swinging the club itself
+          rather than choreographing body positions, trusting the body to follow a
+          correct clubhead motion. De la Torre was the PGA's first National
+          Teacher of the Year, in 1986.
+        </li>
+      </ul>
+
       <P>
         The honest takeaway is not "pick the right one." It's that a method which
         transforms one golfer can fight another's body outright — so the question
@@ -649,6 +678,23 @@ function Sources() {
               Bennett &amp; Plummer (Stack and Tilt)
             </Src>{' '}
             — weight-forward method and its tour adherents.
+          </SrcBody>
+        </div>
+        <div>
+          <SrcLabel>Simpler and body-friendly methods</SrcLabel>
+          <SrcBody>
+            <Src href="https://www.swingsurgeon.com/learn-the-swing">
+              Don Trahan · Peak Performance Golf Swing
+            </Src>{' '}
+            (vertical, limited-turn, body-friendly),{' '}
+            <Src href="https://www.golfdigest.com/story/david-leadbetter-a-swing-starter-kit">
+              David Leadbetter · the A Swing
+            </Src>{' '}
+            (a simpler, repeatable backswing), and{' '}
+            <Src href="https://www.wisconsin.golf/19th_hole/gary_d_amato/manuel-de-la-torres-former-students-committed-to-keeping-alive-his-simple-concepts-of-the/article_58cb7714-9baa-11ea-b99c-c79f89a574d7.html">
+              Manuel de la Torre
+            </Src>{' '}
+            (Ernest Jones's "swing the clubhead," 1986 PGA Teacher of the Year).
           </SrcBody>
         </div>
         <div>
