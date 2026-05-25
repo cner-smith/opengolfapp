@@ -163,7 +163,7 @@ export const LEARN_SECTIONS: LearnSection[] = [
         title: 'Practice round vs scoring round',
         description: 'Two different activities you should never mix.',
         status: 'draft',
-        words: 1050,
+        words: 1700,
       },
       {
         id: 'self-diagnosis',

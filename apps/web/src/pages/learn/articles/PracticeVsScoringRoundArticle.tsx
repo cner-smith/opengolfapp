@@ -46,8 +46,9 @@ export function PracticeVsScoringRoundArticle() {
       <P>
         A practice round is reconnaissance. You are not trying to shoot a number
         — you are gathering the information that lets you commit on the day it
-        counts. Tour caddies walk a course for days before an event doing
-        exactly this; you can get most of the value in one honest loop.
+        counts. It's what tour players spend the days before a tournament doing
+        — more on their method below — and you can get most of the value in a
+        single honest loop.
       </P>
       <ul style={UL_STYLE}>
         <li>
@@ -77,6 +78,88 @@ export function PracticeVsScoringRoundArticle() {
           expectation you'll carry to the first tee for no reason. Drop a second
           ball, try the riskier line, hole out for the read — the round is for
           learning, not for a number.
+        </li>
+      </ul>
+
+      <Hr />
+
+      <H3>How the pros do it</H3>
+      <P>
+        The gold standard for this lives on tour, and the logic scales down to
+        any golfer. Pros don't see a tournament course cold on Thursday — they
+        arrive days early and play practice rounds Monday and Tuesday, with
+        Wednesday's pro-am often serving as one last relaxed look. By the time
+        the first round counts, they've already made every decision the course
+        is going to ask of them.
+      </P>
+      <P>
+        Most of that work is reconnaissance, not swing practice. The caddie
+        scouts the course — sometimes separately from the player — pacing off
+        yardages to landing zones and to each pin area, logging the wind, and
+        recording the club, speed, and spin from shots hit along the way. All of
+        it goes into a yardage book built on top of the detailed base book the
+        event supplies, until the player has a hole-by-hole plan: the club off
+        each tee, the number to leave on each approach, and the side that can't
+        be short-sided. Crucially, they practice approaches to the actual hole
+        locations planned for the four tournament days — not to wherever the flag
+        happens to sit that morning.
+      </P>
+      <P>
+        Greens are the one place the rules recently pushed pros back toward doing
+        their own homework. Since 2022, golf's governing bodies have let
+        tournaments require an approved yardage book whose green diagrams show
+        only minimal detail — major slopes and tiers, not a full contour map —
+        and the only extra notes allowed are ones the player or caddie made from
+        watching a ball actually roll. Even the best players in the world now
+        have to earn their green reads in the practice round, which is exactly
+        what you should be doing anyway.
+      </P>
+
+      <Hr />
+
+      <H3>Borrow the method, skip the budget</H3>
+      <P>
+        You don't have a caddie, four days, or a closed golf course — but the
+        method shrinks to fit an ordinary tee time. The goal is unchanged: walk
+        off knowing the course so that nothing in your next scoring round is a
+        first-time surprise.
+      </P>
+      <ul style={UL_STYLE}>
+        <li>
+          <strong>Go when it's quiet.</strong> An early or twilight tee time, or
+          a slow midweek afternoon, lets you drop a second ball and experiment
+          without a group breathing down your neck. Reconnaissance needs room to
+          fail.
+        </li>
+        <li>
+          <strong>Keep a notebook.</strong> A phone note or a cheap yardage book
+          is plenty. One line per hole: a stock layup number and the one place
+          the ball can't go — "7th: lay back to 110, water long-right, bail
+          short-left." You'll have forgotten it by next week otherwise.
+        </li>
+        <li>
+          <strong>Rehearse the in-between yardages.</strong> Every course keeps
+          handing you the same awkward numbers — a 40-yard pitch, a 215-yard par
+          3, a layup that leaves three-quarter wedge. Hit those on purpose so
+          they're rehearsed instead of improvised under pressure.
+        </li>
+        <li>
+          <strong>Learn the big greens from every side.</strong> Lag a putt from
+          the front, the back, and each edge of the largest greens to feel the
+          speed and the two or three breaks that actually matter. Speed surprises
+          cost more strokes than misread line.
+        </li>
+        <li>
+          <strong>Practice the misses, not the makes.</strong> Chip and play
+          bunker shots from the spots you tend to short-side yourself, not the
+          comfortable ones — those are the shots that wreck a scoring round, so
+          meet them here first.
+        </li>
+        <li>
+          <strong>No time for a full loop? Do it in reverse.</strong> After an
+          ordinary round, jot three notes per nine while the holes are fresh.
+          A handful of rounds like that builds the same course knowledge a
+          dedicated practice round would, just spread out over time.
         </li>
       </ul>
 
@@ -360,6 +443,35 @@ function Sources() {
             </Src>{' '}
             — treating a practice round as a performance is how golfers carry
             scoring anxiety into a day that was supposed to lower it.
+          </SrcBody>
+        </div>
+        <div>
+          <SrcLabel>How tour players turn recon into a plan</SrcLabel>
+          <SrcBody>
+            <Src href="https://www.golfmonthly.com/features/5-secrets-of-the-players-open-yardage-book">
+              Golf Monthly · inside a tour player's yardage book
+            </Src>{' '}
+            and{' '}
+            <Src href="https://golfingfocus.com/what-do-pros-have-in-their-yardage-books-things-have-changed/">
+              Golfing Focus · what pros carry in their yardage books
+            </Src>{' '}
+            — caddies pace off pin-zone yardages and log wind, club, and spin in
+            practice rounds, building a hole-by-hole game plan before round one.
+          </SrcBody>
+        </div>
+        <div>
+          <SrcLabel>Even the pros earn their green reads in practice</SrcLabel>
+          <SrcBody>
+            <Src href="https://www.pgatour.com/article/news/ground-rules/2021/11/02/new-rule-will-limit-information-players-can-use-for-reading-greens-yardage-book-pga-tour">
+              PGA TOUR · the green-reading-materials rule (Model Local Rule G-11,
+              effective 2022)
+            </Src>{' '}
+            and{' '}
+            <Src href="https://www.golfdigest.com/story/usga-randa-approve-model-local-rule-to-limit-use-of-green-reading-materials">
+              Golf Digest · USGA and R&amp;A on the limit
+            </Src>{' '}
+            — approved books now show only minimal green detail, and any extra
+            notes must come from a player or caddie watching a ball roll.
           </SrcBody>
         </div>
       </div>
