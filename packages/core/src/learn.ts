@@ -118,7 +118,8 @@ export const LEARN_SECTIONS: LearnSection[] = [
         id: 'understanding-your-swing',
         title: 'Understanding your own swing',
         description: 'Reading your own miss patterns without an instructor in the bay.',
-        status: 'soon',
+        status: 'draft',
+        words: 900,
       },
       {
         id: 'swing-variations',

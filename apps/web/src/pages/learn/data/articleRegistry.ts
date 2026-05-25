@@ -16,6 +16,7 @@ import { SkillGamesArticle } from '../articles/SkillGamesArticle'
 import { StrokesGainedArticle } from '../articles/StrokesGainedArticle'
 import { SwingVariationsArticle } from '../articles/SwingVariationsArticle'
 import { TrainingAidsArticle } from '../articles/TrainingAidsArticle'
+import { UnderstandingYourSwingArticle } from '../articles/UnderstandingYourSwingArticle'
 
 const ARTICLE_COMPONENTS: Record<string, ComponentType> = {
   'strokes-gained': StrokesGainedArticle,
@@ -35,6 +36,7 @@ const ARTICLE_COMPONENTS: Record<string, ComponentType> = {
   'measurable-goals': MeasurableGoalsArticle,
   'questions-for-coach': QuestionsForCoachArticle,
   'swing-variations': SwingVariationsArticle,
+  'understanding-your-swing': UnderstandingYourSwingArticle,
 }
 
 export function getArticleComponent(slug: string): ComponentType | null {
