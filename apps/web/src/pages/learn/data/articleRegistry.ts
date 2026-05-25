@@ -7,6 +7,7 @@ import { HowToPracticeArticle } from '../articles/HowToPracticeArticle'
 import { LessonsAndCoachingArticle } from '../articles/LessonsAndCoachingArticle'
 import { MentalGameArticle } from '../articles/MentalGameArticle'
 import { Operation36Article } from '../articles/Operation36Article'
+import { PracticeModesArticle } from '../articles/PracticeModesArticle'
 import { ReadingStatsArticle } from '../articles/ReadingStatsArticle'
 import { SelfDiagnosisArticle } from '../articles/SelfDiagnosisArticle'
 import { SkillGamesArticle } from '../articles/SkillGamesArticle'
@@ -27,6 +28,7 @@ const ARTICLE_COMPONENTS: Record<string, ComponentType> = {
   'lessons-and-coaching': LessonsAndCoachingArticle,
   'training-aids': TrainingAidsArticle,
   'building-your-bag': BuildingYourBagArticle,
+  'practice-modes': PracticeModesArticle,
 }
 
 export function getArticleComponent(slug: string): ComponentType | null {

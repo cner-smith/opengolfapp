@@ -96,7 +96,8 @@ export const LEARN_SECTIONS: LearnSection[] = [
         id: 'practice-modes',
         title: 'Block, random, and pressure practice',
         description: 'A deeper look at the three modes and how to combine them.',
-        status: 'soon',
+        status: 'draft',
+        words: 800,
       },
       {
         id: 'measurable-goals',
