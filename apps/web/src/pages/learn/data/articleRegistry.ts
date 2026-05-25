@@ -1,6 +1,7 @@
 import type { ComponentType } from 'react'
 import { BuildingYourBagArticle } from '../articles/BuildingYourBagArticle'
 import { CourseManagementArticle } from '../articles/CourseManagementArticle'
+import { FittingsWithCoachesArticle } from '../articles/FittingsWithCoachesArticle'
 import { GlossaryArticle } from '../articles/GlossaryArticle'
 import { GuideToFittingsArticle } from '../articles/GuideToFittingsArticle'
 import { HowToPracticeArticle } from '../articles/HowToPracticeArticle'
@@ -9,6 +10,7 @@ import { MeasurableGoalsArticle } from '../articles/MeasurableGoalsArticle'
 import { MentalGameArticle } from '../articles/MentalGameArticle'
 import { Operation36Article } from '../articles/Operation36Article'
 import { PracticeModesArticle } from '../articles/PracticeModesArticle'
+import { PracticeVsScoringRoundArticle } from '../articles/PracticeVsScoringRoundArticle'
 import { QuestionsForCoachArticle } from '../articles/QuestionsForCoachArticle'
 import { ReadingStatsArticle } from '../articles/ReadingStatsArticle'
 import { SelfDiagnosisArticle } from '../articles/SelfDiagnosisArticle'
@@ -37,6 +39,8 @@ const ARTICLE_COMPONENTS: Record<string, ComponentType> = {
   'questions-for-coach': QuestionsForCoachArticle,
   'swing-variations': SwingVariationsArticle,
   'understanding-your-swing': UnderstandingYourSwingArticle,
+  'practice-vs-scoring-round': PracticeVsScoringRoundArticle,
+  'fittings-with-coaches': FittingsWithCoachesArticle,
 }
 
 export function getArticleComponent(slug: string): ComponentType | null {
