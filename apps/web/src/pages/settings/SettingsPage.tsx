@@ -58,6 +58,7 @@ export function SettingsPage() {
   const [saved, setSaved] = useState(false)
   const [usernameTouched, setUsernameTouched] = useState(false)
   const unit = profile?.distance_unit ?? 'yards'
+  const emailSummaries = profile?.email_round_summaries_enabled ?? true
 
   // Only validate non-empty values — username is nullable in the DB so
   // clearing it is allowed. `usernameTouched` keeps the error hidden
@@ -93,6 +94,15 @@ export function SettingsPage() {
     setError(null)
     try {
       await updateProfile.mutateAsync({ distance_unit: value })
+    } catch (err) {
+      setError(toUserMessage(err))
+    }
+  }
+
+  async function setEmailSummaries(value: boolean) {
+    setError(null)
+    try {
+      await updateProfile.mutateAsync({ email_round_summaries_enabled: value })
     } catch (err) {
       setError(toUserMessage(err))
     }
@@ -341,6 +351,54 @@ export function SettingsPage() {
         >
           Switches the display of distances throughout the app.
           Stored values stay in yards/feet — only formatting changes.
+        </p>
+      </section>
+
+      <section
+        style={{
+          borderTop: '1px solid #D9D2BF',
+          paddingTop: 18,
+          marginBottom: 28,
+        }}
+      >
+        <div className="kicker" style={{ marginBottom: 12 }}>
+          Email
+        </div>
+        <div className="flex flex-wrap" style={{ gap: 8 }}>
+          {[
+            { value: true, label: 'On' },
+            { value: false, label: 'Off' },
+          ].map((opt) => {
+            const active = emailSummaries === opt.value
+            return (
+              <button
+                key={opt.label}
+                type="button"
+                onClick={() => setEmailSummaries(opt.value)}
+                disabled={updateProfile.isPending}
+                style={{
+                  background: active ? '#1F3D2C' : '#EBE5D6',
+                  color: active ? '#F2EEE5' : '#1C211C',
+                  border: 'none',
+                  borderRadius: 2,
+                  padding: '10px 16px',
+                  fontSize: 13,
+                  fontWeight: active ? 600 : 500,
+                  letterSpacing: '0.02em',
+                  cursor: 'pointer',
+                  opacity: updateProfile.isPending ? 0.5 : 1,
+                }}
+              >
+                {opt.label}
+              </button>
+            )
+          })}
+        </div>
+        <p
+          className="text-caddie-ink-dim"
+          style={{ fontSize: 13, marginTop: 10, lineHeight: 1.5 }}
+        >
+          Get a round summary by email the morning after you play.
         </p>
       </section>
 
