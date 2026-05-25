@@ -162,7 +162,8 @@ export const LEARN_SECTIONS: LearnSection[] = [
         id: 'practice-vs-scoring-round',
         title: 'Practice round vs scoring round',
         description: 'Two different activities you should never mix.',
-        status: 'soon',
+        status: 'draft',
+        words: 1700,
       },
       {
         id: 'self-diagnosis',
@@ -188,9 +189,10 @@ export const LEARN_SECTIONS: LearnSection[] = [
       },
       {
         id: 'fittings-with-coaches',
-        title: 'Guide to golf fittings (all types)',
-        description: 'Driver, iron, wedge, putter — what each fitting covers.',
-        status: 'soon',
+        title: 'Fittings and your coach',
+        description: 'Who should fit you, and timing a fitting around your lessons.',
+        status: 'draft',
+        words: 1000,
       },
       {
         id: 'questions-for-coach',
