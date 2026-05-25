@@ -103,7 +103,8 @@ export const LEARN_SECTIONS: LearnSection[] = [
         id: 'measurable-goals',
         title: 'Creating measurable practice goals',
         description: 'Turning "work on my irons" into something you can actually pass or fail.',
-        status: 'soon',
+        status: 'draft',
+        words: 800,
       },
       {
         id: 'skill-games-pressure-games',

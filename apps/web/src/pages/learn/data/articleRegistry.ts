@@ -5,6 +5,7 @@ import { GlossaryArticle } from '../articles/GlossaryArticle'
 import { GuideToFittingsArticle } from '../articles/GuideToFittingsArticle'
 import { HowToPracticeArticle } from '../articles/HowToPracticeArticle'
 import { LessonsAndCoachingArticle } from '../articles/LessonsAndCoachingArticle'
+import { MeasurableGoalsArticle } from '../articles/MeasurableGoalsArticle'
 import { MentalGameArticle } from '../articles/MentalGameArticle'
 import { Operation36Article } from '../articles/Operation36Article'
 import { PracticeModesArticle } from '../articles/PracticeModesArticle'
@@ -29,6 +30,7 @@ const ARTICLE_COMPONENTS: Record<string, ComponentType> = {
   'training-aids': TrainingAidsArticle,
   'building-your-bag': BuildingYourBagArticle,
   'practice-modes': PracticeModesArticle,
+  'measurable-goals': MeasurableGoalsArticle,
 }
 
 export function getArticleComponent(slug: string): ComponentType | null {
