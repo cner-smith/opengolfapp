@@ -9,6 +9,7 @@ import { MeasurableGoalsArticle } from '../articles/MeasurableGoalsArticle'
 import { MentalGameArticle } from '../articles/MentalGameArticle'
 import { Operation36Article } from '../articles/Operation36Article'
 import { PracticeModesArticle } from '../articles/PracticeModesArticle'
+import { QuestionsForCoachArticle } from '../articles/QuestionsForCoachArticle'
 import { ReadingStatsArticle } from '../articles/ReadingStatsArticle'
 import { SelfDiagnosisArticle } from '../articles/SelfDiagnosisArticle'
 import { SkillGamesArticle } from '../articles/SkillGamesArticle'
@@ -31,6 +32,7 @@ const ARTICLE_COMPONENTS: Record<string, ComponentType> = {
   'building-your-bag': BuildingYourBagArticle,
   'practice-modes': PracticeModesArticle,
   'measurable-goals': MeasurableGoalsArticle,
+  'questions-for-coach': QuestionsForCoachArticle,
 }
 
 export function getArticleComponent(slug: string): ComponentType | null {
