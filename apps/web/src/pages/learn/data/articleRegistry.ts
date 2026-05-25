@@ -1,4 +1,5 @@
 import type { ComponentType } from 'react'
+import { BuildingYourBagArticle } from '../articles/BuildingYourBagArticle'
 import { CourseManagementArticle } from '../articles/CourseManagementArticle'
 import { GlossaryArticle } from '../articles/GlossaryArticle'
 import { GuideToFittingsArticle } from '../articles/GuideToFittingsArticle'
@@ -25,6 +26,7 @@ const ARTICLE_COMPONENTS: Record<string, ComponentType> = {
   'operation-36': Operation36Article,
   'lessons-and-coaching': LessonsAndCoachingArticle,
   'training-aids': TrainingAidsArticle,
+  'building-your-bag': BuildingYourBagArticle,
 }
 
 export function getArticleComponent(slug: string): ComponentType | null {
