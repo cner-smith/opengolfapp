@@ -6,7 +6,7 @@ const base = {
   courseName: 'Lincoln Park',
   totalScore: 85,
   par: 72,
-  sg: { offTee: 1.2, approach: -2.4, aroundGreen: 0, putting: -0.8, total: -2.0 },
+  sg: { offTee: 1.2, approach: -2.4, aroundGreen: 0, putting: -0.8 },
 }
 
 describe('buildRoundSummary', () => {
@@ -28,6 +28,7 @@ describe('buildRoundSummary', () => {
   })
 
   it('centers a neutral SG bar at 50%', () => {
+    // base fixture has aroundGreen: 0 → neutral SG maps to the bar midpoint
     const bar = buildRoundSummary(base).bars.find((b) => b.label === 'Around green')!
     expect(bar.widthPct).toBe(50)
   })

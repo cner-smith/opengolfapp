@@ -13,7 +13,6 @@ export interface RoundSummaryInput {
     approach: number
     aroundGreen: number
     putting: number
-    total: number
   }
 }
 
