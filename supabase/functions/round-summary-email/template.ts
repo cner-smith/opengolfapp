@@ -40,7 +40,7 @@ export function renderHtml(c: RoundSummaryContent): string {
     </td></tr>
     <tr><td style="padding:18px 28px;border-top:1px solid ${LINE};font:12px/1.5 -apple-system,Segoe UI,sans-serif;color:#8A8B7E">
       OGA is free and open source. <a href="https://oga.golf" style="color:${ACCENT};text-decoration:none">View the full report →</a><br>
-      Don't want these? Turn off round summaries in Settings.
+      Don't want these? Turn off round summaries in the app.
     </td></tr>
   </table>
 </body></html>`
