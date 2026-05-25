@@ -7,7 +7,7 @@ type ProfileUpdate = Database['public']['Tables']['profiles']['Update']
 // column on every read. ProfileGuard / mobile route gate read
 // onboarding_completed; the rest are app fields.
 const PROFILE_COLUMNS =
-  'id, username, handicap_index, skill_level, goal, facilities, distance_unit, onboarding_completed'
+  'id, username, handicap_index, skill_level, goal, facilities, distance_unit, onboarding_completed, email_round_summaries_enabled'
 
 export function getProfile(client: OgaSupabaseClient, userId: string) {
   return client.from('profiles').select(PROFILE_COLUMNS).eq('id', userId).single()
