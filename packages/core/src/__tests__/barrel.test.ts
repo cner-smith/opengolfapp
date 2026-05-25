@@ -10,6 +10,8 @@ describe('@oga/core barrel', () => {
     ['shotRowToDraft'],
     ['sgBreakdown'],
     ['barScale'],
+    ['getShotMarkerCategory'],
+    ['formatBandLabel'],
     ['combinedPuttResult'],
     ['decombinedPuttResult'],
     ['combinedBreakDirection'],

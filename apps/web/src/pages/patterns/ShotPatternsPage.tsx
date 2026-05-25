@@ -606,7 +606,7 @@ function BallFlightChart({
 }) {
   const { toDisplay } = useUnits()
 
-  const { avgCarry, scale, maxDist } = useMemo(() => {
+  const { avgCarry, scale, maxDist, viewCenterLat } = useMemo(() => {
     const carries = points
       .map((p) => p.startDistanceOffsetYards)
       .filter((v): v is number => v != null)
@@ -623,17 +623,24 @@ function BallFlightChart({
           : carry) + p.distanceOffsetYards,
     )
     const max = Math.max(...dists, carry, 1) * 1.08
-    const maxLat =
+    // Re-center the horizontal view on where the shots actually go, not on the
+    // aim line. A player who misses consistently to one side should see that
+    // cluster centered, with the aim line (lateral 0) sitting off to the side.
+    const viewCenterLat = stats ? stats.avgLateralOffset : 0
+    // Half-width must hold the cluster, the 95% cone, AND the tee/aim line
+    // (lateral 0) — every arc starts there, so it can never leave the frame.
+    const lateralExtent =
       Math.max(
-        ...points.map((p) => Math.abs(p.lateralOffsetYards)),
-        stats ? Math.abs(stats.avgLateralOffset) + stats.cone95.lateral : 0,
+        ...points.map((p) => Math.abs(p.lateralOffsetYards - viewCenterLat)),
+        stats ? stats.cone95.lateral : 0,
+        Math.abs(viewCenterLat),
         8,
       ) * 1.1
     // One isotropic scale for both axes — distance and lateral shown in true
     // proportion. Vertical fits the longest shot; shrink only if lateral would
     // overflow the width.
-    const s = Math.min((FLIGHT_H - 40 - 28) / max, (FLIGHT_W / 2 - 16) / maxLat)
-    return { avgCarry: carry, scale: s, maxDist: max }
+    const s = Math.min((FLIGHT_H - 40 - 28) / max, (FLIGHT_W / 2 - 16) / lateralExtent)
+    return { avgCarry: carry, scale: s, maxDist: max, viewCenterLat }
   }, [points, stats])
 
   const cx = FLIGHT_W / 2
@@ -658,8 +665,11 @@ function BallFlightChart({
     )
   }
 
-  const x = (lateralYards: number) => cx + lateralYards * scale
+  const x = (lateralYards: number) => cx + (lateralYards - viewCenterLat) * scale
   const y = (dist: number) => teeY - dist * scale
+  // Tee origin = the aim line (lateral 0). Once the view re-centers on the
+  // shot cluster this is no longer the chart center.
+  const teeX = x(0)
   // Each shot's true forward distance from the tee.
   const carryOf = (p: DispersionPoint) =>
     p.startDistanceOffsetYards != null ? -p.startDistanceOffsetYards : avgCarry
@@ -704,11 +714,11 @@ function BallFlightChart({
         </g>
       ))}
 
-      {/* center reference line (straight-ahead) */}
+      {/* aim line (straight-ahead from the tee) — lateral 0, not the chart center */}
       <line
-        x1={cx}
+        x1={teeX}
         y1={y(maxDist)}
-        x2={cx}
+        x2={teeX}
         y2={teeY}
         stroke="#D9D2BF"
         strokeWidth={0.8}
@@ -720,7 +730,7 @@ function BallFlightChart({
         {points.map((p) => (
           <path
             key={`flight-${p.id}`}
-            d={`M ${cx} ${teeY} Q ${cx} ${y(carryOf(p))} ${x(p.lateralOffsetYards)} ${y(carryOf(p) + p.distanceOffsetYards)}`}
+            d={`M ${teeX} ${teeY} Q ${x(p.lateralOffsetYards)} ${y(carryOf(p))} ${x(p.lateralOffsetYards)} ${y(carryOf(p) + p.distanceOffsetYards)}`}
             stroke={pointColor(p.shotResult).fill}
             strokeOpacity={0.3}
             strokeWidth={1.2}
@@ -728,7 +738,7 @@ function BallFlightChart({
         ))}
         {stats && (
           <path
-            d={`M ${cx} ${teeY} Q ${cx} ${y(avgCarry)} ${x(stats.avgLateralOffset)} ${y(avgCarry + stats.avgDistanceOffset)}`}
+            d={`M ${teeX} ${teeY} Q ${x(stats.avgLateralOffset)} ${y(avgCarry)} ${x(stats.avgLateralOffset)} ${y(avgCarry + stats.avgDistanceOffset)}`}
             stroke="#1F3D2C"
             strokeWidth={3}
             strokeOpacity={0.9}
@@ -763,9 +773,9 @@ function BallFlightChart({
         />
       )}
 
-      <circle cx={cx} cy={teeY} r={5} fill="#FBF8F1" stroke="#1C211C" strokeWidth={2} />
+      <circle cx={teeX} cy={teeY} r={5} fill="#FBF8F1" stroke="#1C211C" strokeWidth={2} />
       <text
-        x={cx}
+        x={teeX}
         y={teeY + 18}
         fontFamily="JetBrains Mono, monospace"
         fontSize={9}
