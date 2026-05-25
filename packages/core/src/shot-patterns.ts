@@ -15,6 +15,9 @@ export interface DispersionPoint {
   lateralOffsetYards: number
   /** Yards long of aim (negative = short) */
   distanceOffsetYards: number
+  /** Start position long of aim (negative = short). Undefined when the
+   *  shot has no recorded start. */
+  startDistanceOffsetYards?: number
   shotResult?: ShotResult
   /** @deprecated populated from legacy rows; new code uses lieSlopeForward + lieSlopeSide. */
   lieSlope?: LieSlope
@@ -62,10 +65,15 @@ export function computeDispersion(shots: Shot[]): DispersionPoint[] {
     const endLng = s.endLng
     const latYards = (endLat - aimLat) * YARDS_PER_DEG_LAT
     const lngYards = (endLng - aimLng) * yardsPerDegLng(aimLat)
+    let startDistanceOffsetYards: number | undefined
+    if (isFiniteNumber(s.startLat)) {
+      startDistanceOffsetYards = (s.startLat - aimLat) * YARDS_PER_DEG_LAT
+    }
     points.push({
       id: s.id,
       lateralOffsetYards: lngYards,
       distanceOffsetYards: latYards,
+      startDistanceOffsetYards,
       shotResult: s.shotResult,
       lieSlope: s.lieSlope,
       lieSlopeForward: s.lieSlopeForward,
@@ -88,6 +96,12 @@ function stdDev(xs: number[], avg: number): number {
 const DOMINANT_MISS_THRESHOLD_YARDS = 2
 const SHOT_SHAPE_THRESHOLD_YARDS = 3
 const MIN_SAMPLES_FOR_STATS = 5
+// 2D containment radii. The fraction of a bivariate-normal scatter inside an
+// axis-scaled ellipse is 1 − e^(−k²/2), so 68% / 95% containment needs
+// k = √(−2·ln(1−p)) — NOT the 1-D 1σ / 1.96σ rule, which here would enclose
+// only ~39% / ~85% of shots.
+const CONE_68_K = 1.5096 // √(−2 ln 0.32)
+const CONE_95_K = 2.4477 // √(−2 ln 0.05)
 
 export function computeDispersionStats(points: DispersionPoint[]): DispersionStats | null {
   if (points.length < MIN_SAMPLES_FOR_STATS) return null
@@ -118,8 +132,8 @@ export function computeDispersionStats(points: DispersionPoint[]): DispersionSta
     avgDistanceOffset: avgDist,
     stdLateral: stdLat,
     stdDistance: stdDist,
-    cone68: { lateral: stdLat, distance: stdDist },
-    cone95: { lateral: stdLat * 1.96, distance: stdDist * 1.96 },
+    cone68: { lateral: stdLat * CONE_68_K, distance: stdDist * CONE_68_K },
+    cone95: { lateral: stdLat * CONE_95_K, distance: stdDist * CONE_95_K },
     dominantMiss,
     shotShape,
     sampleSize: points.length,

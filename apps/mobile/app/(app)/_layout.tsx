@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react'
 import { ActivityIndicator, Pressable, Text, View } from 'react-native'
 import { Tabs, Redirect } from 'expo-router'
 import { MaterialCommunityIcons } from '@expo/vector-icons'
+import { StatusBar } from 'expo-status-bar'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
 import { ErrorBoundary } from '../../components/errors/ErrorBoundary'
@@ -18,6 +20,7 @@ export default function AppLayout() {
   const { user, loading: authLoading } = useAuth()
   const [profileState, setProfileState] = useState<ProfileState>('loading')
   const [retryNonce, setRetryNonce] = useState(0)
+  const insets = useSafeAreaInsets()
 
   useEffect(() => {
     if (authLoading) return
@@ -68,6 +71,7 @@ export default function AppLayout() {
           justifyContent: 'center',
         }}
       >
+        <StatusBar style="light" animated />
         <ActivityIndicator color="#E8E4DC" />
       </View>
     )
@@ -84,6 +88,7 @@ export default function AppLayout() {
           padding: 28,
         }}
       >
+        <StatusBar style="light" animated />
         <Text
           style={{
             color: '#F2EEE5',
@@ -144,8 +149,12 @@ export default function AppLayout() {
           borderTopWidth: 1,
           borderTopColor: '#D9D2BF',
           paddingTop: 8,
-          paddingBottom: 10,
-          height: 64,
+          // Explicit height + paddingBottom from safe-area insets (#300).
+          // Removing height entirely shrank the bar to 49 px on Android and
+          // older iPhones (no home indicator), so we set the visible content
+          // band ourselves and add `insets.bottom` for iPhone X+ clearance.
+          height: 54 + insets.bottom,
+          paddingBottom: insets.bottom + 10,
           elevation: 0,
           shadowOpacity: 0,
         },

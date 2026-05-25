@@ -6,7 +6,8 @@ import {
   LIE_TYPES,
   SHOT_RESULTS,
   formatClubLabel,
-  type BreakDirection,
+  type BreakDirectionHorizontal,
+  type BreakDirectionVertical,
   type Club,
   type GreenSpeed,
   type LieSlopeForward,
@@ -29,7 +30,8 @@ export interface ShotLoggerValue {
   puttDistanceFt?: number
   puttSlopePct?: number
   greenSpeed?: GreenSpeed
-  breakDirection?: BreakDirection
+  breakDirectionVertical?: BreakDirectionVertical
+  breakDirectionHorizontal?: BreakDirectionHorizontal
   aimOffsetInches?: number
   notes?: string
 }
@@ -150,7 +152,8 @@ export function ShotLogger({
               puttDistanceFt: value.puttDistanceFt,
               puttSlopePct: value.puttSlopePct,
               greenSpeed: value.greenSpeed,
-              breakDirection: value.breakDirection,
+              breakDirectionVertical: value.breakDirectionVertical,
+              breakDirectionHorizontal: value.breakDirectionHorizontal,
               aimOffsetInches: value.aimOffsetInches,
               notes: value.notes,
             }}
@@ -164,7 +167,8 @@ export function ShotLogger({
                 puttDistanceFt: p.puttDistanceFt,
                 puttSlopePct: p.puttSlopePct,
                 greenSpeed: p.greenSpeed,
-                breakDirection: p.breakDirection,
+                breakDirectionVertical: p.breakDirectionVertical,
+                breakDirectionHorizontal: p.breakDirectionHorizontal,
                 aimOffsetInches: p.aimOffsetInches,
                 notes: p.notes,
               })

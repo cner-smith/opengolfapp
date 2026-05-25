@@ -17,6 +17,10 @@ import { useUnits } from '../../hooks/useUnits'
 const SVG_SIZE = 420
 const SVG_VIEW_WIDTH = `min(${SVG_SIZE}px, 90vw)`
 
+const FLIGHT_W = 460
+const FLIGHT_H = 520
+const FLIGHT_VIEW_WIDTH = `min(${FLIGHT_W}px, 92vw)`
+
 export function ShotPatternsPage() {
   const { unit, toDisplay } = useUnits()
   const [club, setClub] = useState<Club>('7i')
@@ -211,6 +215,52 @@ export function ShotPatternsPage() {
               </div>
             )}
           </div>
+        </div>
+      </div>
+
+      <div style={{ borderTop: '1px solid #D9D2BF', paddingTop: 14, marginTop: 28 }}>
+        <div className="kicker" style={{ marginBottom: 6 }}>
+          Ball flight
+        </div>
+        <div
+          className="text-caddie-ink-dim"
+          style={{ fontSize: 13, marginBottom: 14, maxWidth: 560 }}
+        >
+          Each shot at its true carry up the range; the curve shows shape
+          (draw/fade). Thick line is your average.
+        </div>
+        <div
+          className="bg-caddie-surface"
+          style={{
+            border: '1px solid #D9D2BF',
+            borderRadius: 4,
+            padding: 14,
+            display: 'inline-block',
+          }}
+        >
+          {isLoading ? (
+            <div
+              className="flex items-center justify-center text-caddie-ink-mute"
+              style={{ width: FLIGHT_VIEW_WIDTH, height: 360, fontSize: 13 }}
+            >
+              Loading…
+            </div>
+          ) : !points.some((p) => p.startDistanceOffsetYards != null) ? (
+            <div
+              className="flex items-center justify-center text-caddie-ink-mute"
+              style={{
+                width: FLIGHT_VIEW_WIDTH,
+                height: 360,
+                fontSize: 13,
+                textAlign: 'center',
+                padding: 20,
+              }}
+            >
+              No shots with recorded start positions for {club} yet.
+            </div>
+          ) : (
+            <BallFlightChart points={points} stats={stats} />
+          )}
         </div>
       </div>
     </div>
@@ -537,6 +587,203 @@ function DispersionPlot({
         fill="#8A8B7E"
       >
         R
+      </text>
+    </svg>
+  )
+}
+
+// Top-down ball-flight view (mockup spec). Distinct from DispersionPlot: a
+// full-flight chart with the tee at the bottom and the target line up to the
+// pin. Each shot is a bezier tee → aim (control) → landing, so shot shape
+// reads geometrically. Within one club, carries cluster, so all shots
+// normalize to a common tee at the average carry; only lateral is to-scale.
+function BallFlightChart({
+  points,
+  stats,
+}: {
+  points: DispersionPoint[]
+  stats: DispersionStats | null
+}) {
+  const { toDisplay } = useUnits()
+
+  const { avgCarry, scale, maxDist, viewCenterLat } = useMemo(() => {
+    const carries = points
+      .map((p) => p.startDistanceOffsetYards)
+      .filter((v): v is number => v != null)
+      .map((d) => -d) // start sits ~carry yards short of aim
+    const carry = carries.length
+      ? carries.reduce((a, b) => a + b, 0) / carries.length
+      : 0
+    // True distance from the tee per shot = its own carry + long/short vs aim.
+    // Shots without a recorded start fall back to the average carry.
+    const dists = points.map(
+      (p) =>
+        (p.startDistanceOffsetYards != null
+          ? -p.startDistanceOffsetYards
+          : carry) + p.distanceOffsetYards,
+    )
+    const max = Math.max(...dists, carry, 1) * 1.08
+    // Re-center the horizontal view on where the shots actually go, not on the
+    // aim line. A player who misses consistently to one side should see that
+    // cluster centered, with the aim line (lateral 0) sitting off to the side.
+    const viewCenterLat = stats ? stats.avgLateralOffset : 0
+    // Half-width must hold the cluster, the 95% cone, AND the tee/aim line
+    // (lateral 0) — every arc starts there, so it can never leave the frame.
+    const lateralExtent =
+      Math.max(
+        ...points.map((p) => Math.abs(p.lateralOffsetYards - viewCenterLat)),
+        stats ? stats.cone95.lateral : 0,
+        Math.abs(viewCenterLat),
+        8,
+      ) * 1.1
+    // One isotropic scale for both axes — distance and lateral shown in true
+    // proportion. Vertical fits the longest shot; shrink only if lateral would
+    // overflow the width.
+    const s = Math.min((FLIGHT_H - 40 - 28) / max, (FLIGHT_W / 2 - 16) / lateralExtent)
+    return { avgCarry: carry, scale: s, maxDist: max, viewCenterLat }
+  }, [points, stats])
+
+  const cx = FLIGHT_W / 2
+  const teeY = FLIGHT_H - 40
+
+  // Degenerate when shots start ~at the target (no meaningful carry to plot).
+  if (avgCarry < 5) {
+    return (
+      <div
+        className="flex items-center justify-center text-caddie-ink-mute"
+        style={{
+          width: FLIGHT_VIEW_WIDTH,
+          height: 360,
+          fontSize: 13,
+          textAlign: 'center',
+          padding: 20,
+        }}
+      >
+        These shots don&apos;t have enough start-to-target distance to plot a
+        flight path.
+      </div>
+    )
+  }
+
+  const x = (lateralYards: number) => cx + (lateralYards - viewCenterLat) * scale
+  const y = (dist: number) => teeY - dist * scale
+  // Tee origin = the aim line (lateral 0). Once the view re-centers on the
+  // shot cluster this is no longer the chart center.
+  const teeX = x(0)
+  // Each shot's true forward distance from the tee.
+  const carryOf = (p: DispersionPoint) =>
+    p.startDistanceOffsetYards != null ? -p.startDistanceOffsetYards : avgCarry
+
+  // Driving-range yardage gridlines: finer spacing for short clubs.
+  const step = maxDist <= 160 ? 25 : 50
+  const gridLines: number[] = []
+  for (let d = step; d <= maxDist; d += step) gridLines.push(d)
+
+  return (
+    <svg
+      viewBox={`0 0 ${FLIGHT_W} ${FLIGHT_H}`}
+      style={{
+        width: FLIGHT_VIEW_WIDTH,
+        height: `calc(${FLIGHT_VIEW_WIDTH} * ${FLIGHT_H} / ${FLIGHT_W})`,
+        backgroundColor: '#F2EEE5',
+        borderRadius: 2,
+        display: 'block',
+      }}
+    >
+      {/* yardage gridlines — the driving-range backdrop */}
+      {gridLines.map((d) => (
+        <g key={`grid-${d}`}>
+          <line
+            x1={0}
+            y1={y(d)}
+            x2={FLIGHT_W}
+            y2={y(d)}
+            stroke="#E4DECF"
+            strokeWidth={1}
+          />
+          <text
+            x={6}
+            y={y(d) - 3}
+            fontFamily="JetBrains Mono, monospace"
+            fontSize={9}
+            letterSpacing="0.1em"
+            fill="#8A8B7E"
+          >
+            {toDisplay(d, 0)}
+          </text>
+        </g>
+      ))}
+
+      {/* aim line (straight-ahead from the tee) — lateral 0, not the chart center */}
+      <line
+        x1={teeX}
+        y1={y(maxDist)}
+        x2={teeX}
+        y2={teeY}
+        stroke="#D9D2BF"
+        strokeWidth={0.8}
+        strokeDasharray="3 5"
+      />
+
+      {/* individual shot flights */}
+      <g fill="none">
+        {points.map((p) => (
+          <path
+            key={`flight-${p.id}`}
+            d={`M ${teeX} ${teeY} Q ${x(p.lateralOffsetYards)} ${y(carryOf(p))} ${x(p.lateralOffsetYards)} ${y(carryOf(p) + p.distanceOffsetYards)}`}
+            stroke={pointColor(p.shotResult).fill}
+            strokeOpacity={0.3}
+            strokeWidth={1.2}
+          />
+        ))}
+        {stats && (
+          <path
+            d={`M ${teeX} ${teeY} Q ${x(stats.avgLateralOffset)} ${y(avgCarry)} ${x(stats.avgLateralOffset)} ${y(avgCarry + stats.avgDistanceOffset)}`}
+            stroke="#1F3D2C"
+            strokeWidth={3}
+            strokeOpacity={0.9}
+          />
+        )}
+      </g>
+
+      {/* landing dots */}
+      {points.map((p) => {
+        const c = pointColor(p.shotResult)
+        return (
+          <circle
+            key={`land-${p.id}`}
+            cx={x(p.lateralOffsetYards)}
+            cy={y(carryOf(p) + p.distanceOffsetYards)}
+            r={2.5}
+            fill={c.fill}
+            fillOpacity={c.opacity}
+          />
+        )
+      })}
+
+      {/* average landing */}
+      {stats && (
+        <circle
+          cx={x(stats.avgLateralOffset)}
+          cy={y(avgCarry + stats.avgDistanceOffset)}
+          r={4}
+          fill="#FBF8F1"
+          stroke="#1F3D2C"
+          strokeWidth={2}
+        />
+      )}
+
+      <circle cx={teeX} cy={teeY} r={5} fill="#FBF8F1" stroke="#1C211C" strokeWidth={2} />
+      <text
+        x={teeX}
+        y={teeY + 18}
+        fontFamily="JetBrains Mono, monospace"
+        fontSize={9}
+        letterSpacing="0.16em"
+        fill="#5C6356"
+        textAnchor="middle"
+      >
+        TEE
       </text>
     </svg>
   )

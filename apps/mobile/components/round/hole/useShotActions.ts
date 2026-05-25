@@ -2,7 +2,11 @@ import { useRef, useState, type Dispatch, type SetStateAction } from 'react'
 import { Alert } from 'react-native'
 import { useRouter } from 'expo-router'
 import type { User } from '@supabase/supabase-js'
-import { combinedPuttResult, type LieType } from '@oga/core'
+import {
+  combinedBreakDirection,
+  combinedPuttResult,
+  type LieType,
+} from '@oga/core'
 import { deleteRound, getProfile } from '@oga/supabase'
 import { supabase } from '../../../lib/supabase'
 import {
@@ -153,7 +157,12 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
         : meta?.puttDirectionResult ?? null,
       putt_slope_pct: meta?.puttSlopePct ?? null,
       green_speed: meta?.greenSpeed ?? null,
-      break_direction: meta?.breakDirection ?? null,
+      break_direction: combinedBreakDirection({
+        vertical: meta?.breakDirectionVertical,
+        horizontal: meta?.breakDirectionHorizontal,
+      }),
+      break_direction_vertical: meta?.breakDirectionVertical ?? null,
+      break_direction_horizontal: meta?.breakDirectionHorizontal ?? null,
       aim_offset_yards:
         meta?.aimOffsetInches != null
           ? Math.round((meta.aimOffsetInches / 36) * 10) / 10
@@ -229,7 +238,8 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
       puttDistanceFt: v.puttDistanceFt,
       puttSlopePct: v.puttSlopePct,
       greenSpeed: v.greenSpeed,
-      breakDirection: v.breakDirection,
+      breakDirectionVertical: v.breakDirectionVertical,
+      breakDirectionHorizontal: v.breakDirectionHorizontal,
       aimOffsetInches: v.aimOffsetInches,
       notes: v.notes,
     }

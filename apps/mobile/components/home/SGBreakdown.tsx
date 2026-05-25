@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import { Text, View } from 'react-native'
-import { formatSG } from '@oga/core'
+import { barScale, formatSG, sgBreakdown, type SGBreakdownKey, type SGRoundLike } from '@oga/core'
 
 const KICKER: import('react-native').TextStyle = {
   color: '#8A8B7E',
@@ -11,37 +11,16 @@ const KICKER: import('react-native').TextStyle = {
   textTransform: 'uppercase',
 }
 
-const SG_KEYS = [
-  { key: 'sg_off_tee', label: 'Off tee' },
-  { key: 'sg_approach', label: 'Approach' },
-  { key: 'sg_around_green', label: 'Around green' },
-  { key: 'sg_putting', label: 'Putting' },
-] as const
-
-interface SGRow {
-  sg_off_tee: number | null
-  sg_approach: number | null
-  sg_around_green: number | null
-  sg_putting: number | null
+const SG_LABELS: Record<SGBreakdownKey, string> = {
+  sg_off_tee: 'Off tee',
+  sg_approach: 'Approach',
+  sg_around_green: 'Around green',
+  sg_putting: 'Putting',
 }
 
-// Average each SG category across the rounds, then render a diverging
-// bar per category with the value floated at the bar end.
-export function SGBreakdown({ rounds }: { rounds: SGRow[] }) {
-  const { breakdown, maxAbs } = useMemo(() => {
-    const bd = SG_KEYS.map((c) => {
-      const values = rounds
-        .map((r) => r[c.key])
-        .filter((v): v is number => v !== null)
-      const avg =
-        values.length === 0
-          ? 0
-          : values.reduce((a, b) => a + b, 0) / values.length
-      return { ...c, value: Number(avg.toFixed(2)) }
-    })
-    const maxAbsValue = Math.max(...bd.map((b) => Math.abs(b.value)), 0.5)
-    return { breakdown: bd, maxAbs: maxAbsValue }
-  }, [rounds])
+export function SGBreakdown({ rounds }: { rounds: SGRoundLike[] }) {
+  const { breakdown, maxAbs } = useMemo(() => sgBreakdown(rounds), [rounds])
+  const scale = barScale(maxAbs)
 
   return (
     <View style={{ marginBottom: 28 }}>
@@ -57,7 +36,7 @@ export function SGBreakdown({ rounds }: { rounds: SGRow[] }) {
       </View>
       <View style={{ gap: 14 }}>
         {breakdown.map((b) => (
-          <SGBar key={b.key} label={b.label} value={b.value} max={maxAbs} />
+          <SGBar key={b.key} label={SG_LABELS[b.key]} value={b.value} max={scale} />
         ))}
       </View>
     </View>

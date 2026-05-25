@@ -190,7 +190,10 @@ function RootLayoutContent() {
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <StatusBar style="light" />
+      {/* Splash overlay has a near-black background (#1C211C). Force light
+          icons while it's mounted; auto-resolve takes over for the rest of
+          the app where backgrounds are light. */}
+      <StatusBar style={overlayMounted ? 'light' : 'auto'} animated />
       <ErrorBoundary>
         <Stack screenOptions={{ headerShown: false }} />
       </ErrorBoundary>

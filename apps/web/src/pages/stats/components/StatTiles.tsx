@@ -1,6 +1,6 @@
-import { formatSG, type ApproachBandStat, type RecoveryRateStat } from '@oga/core'
+import { formatSG, formatBandLabel, type ApproachBandStat, type RecoveryRateStat } from '@oga/core'
 import { useUnits } from '../../../hooks/useUnits'
-import { fmtPct, formatBandLabel } from '../format'
+import { fmtPct } from '../format'
 
 export function SgTile({
   label,

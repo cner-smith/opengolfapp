@@ -1,4 +1,5 @@
 import { useMemo, useRef } from 'react'
+import type { ShotMarkerCategory } from '@oga/core'
 import { MAPBOX_TOKEN_PRESENT } from '../../lib/mapbox'
 import { useMapSetup } from './map/useMapSetup'
 import { useMapLayers } from './map/useMapLayers'
@@ -33,7 +34,7 @@ export interface ExistingShot {
   startLng: number | null
   aimLat?: number | null
   aimLng?: number | null
-  category?: 'tee' | 'approach' | 'around-green' | 'putt' | null
+  category?: ShotMarkerCategory | null
 }
 
 export interface PlacedPoint {

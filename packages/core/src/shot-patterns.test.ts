@@ -51,6 +51,29 @@ describe('computeDispersion', () => {
     const [p] = computeDispersion([s])
     expect(p!.lateralOffsetYards).toBeGreaterThan(0)
   })
+
+  it('projects start distance into the aim-relative plane when present', () => {
+    const s = shot({
+      aimLat: AIM_LAT,
+      aimLng: AIM_LNG,
+      startLat: AIM_LAT - 0.001, // ~121 yds short of aim
+      endLat: AIM_LAT,
+      endLng: AIM_LNG,
+    })
+    const [p] = computeDispersion([s])
+    expect(p!.startDistanceOffsetYards).toBeCloseTo(-121, 0)
+  })
+
+  it('leaves start distance undefined when start coords are missing', () => {
+    const s = shot({
+      aimLat: AIM_LAT,
+      aimLng: AIM_LNG,
+      endLat: AIM_LAT + 0.001,
+      endLng: AIM_LNG,
+    })
+    const [p] = computeDispersion([s])
+    expect(p!.startDistanceOffsetYards).toBeUndefined()
+  })
 })
 
 describe('computeDispersionStats', () => {
@@ -74,8 +97,9 @@ describe('computeDispersionStats', () => {
     expect(stats.avgLateralOffset).toBeCloseTo(11)
     expect(stats.dominantMiss).toBe('right')
     expect(stats.shotShape).toBe('fade')
-    expect(stats.cone68.lateral).toBeGreaterThan(0)
-    expect(stats.cone95.lateral).toBeCloseTo(stats.cone68.lateral * 1.96)
+    // 2D containment radii, not the 1-D 1σ / 1.96σ rule.
+    expect(stats.cone68.lateral).toBeCloseTo(stats.stdLateral * 1.5096, 3)
+    expect(stats.cone95.lateral).toBeCloseTo(stats.stdLateral * 2.4477, 3)
   })
 
   it('labels balanced patterns as straight', () => {

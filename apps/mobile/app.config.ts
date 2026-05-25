@@ -29,16 +29,23 @@ const config: ExpoConfig = {
     infoPlist: {
       NSLocationWhenInUseUsageDescription:
         'OGA uses your location during a round to track shots and yardages.',
-      // App-store-review note (#301): the app only calls
-      // requestForegroundPermissionsAsync(), so the Always key is inert
-      // at runtime but reviewers will flag it. Removed before App Store
-      // submission, kept for dev/ad-hoc builds for now.
-      NSLocationAlwaysAndWhenInUseUsageDescription:
-        'OGA uses your location during a round to track shots and yardages.',
+      // NSLocationAlwaysAndWhenInUseUsageDescription is injected by the
+      // expo-location plugin below (locationAlwaysAndWhenInUsePermission).
+      // Don't duplicate the key here — Info.plist with duplicate keys is
+      // undefined behavior. #301 tracks removing the Always permission
+      // entirely since OGA only uses requestForegroundPermissionsAsync().
       // No proprietary encryption beyond standard TLS/Keychain.
       // false skips Apple's export-compliance prompt on every
       // TestFlight upload.
       ITSAppUsesNonExemptEncryption: false,
+      // Stubbed pre-emptively (#305). Not used at runtime today — Expo
+      // adds these automatically once expo-image-picker / expo-camera is
+      // imported, but declaring them upfront prevents an App Review
+      // rejection if either is added without a config bump.
+      NSCameraUsageDescription:
+        'OGA may use the camera to attach photos to round notes.',
+      NSPhotoLibraryAddUsageDescription:
+        'OGA may save round summary cards to your photo library.',
     },
   },
   android: {

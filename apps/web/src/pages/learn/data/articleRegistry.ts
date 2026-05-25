@@ -1,11 +1,24 @@
 import type { ComponentType } from 'react'
+import { BuildingYourBagArticle } from '../articles/BuildingYourBagArticle'
 import { CourseManagementArticle } from '../articles/CourseManagementArticle'
+import { FittingsWithCoachesArticle } from '../articles/FittingsWithCoachesArticle'
 import { GlossaryArticle } from '../articles/GlossaryArticle'
+import { GuideToFittingsArticle } from '../articles/GuideToFittingsArticle'
 import { HowToPracticeArticle } from '../articles/HowToPracticeArticle'
+import { LessonsAndCoachingArticle } from '../articles/LessonsAndCoachingArticle'
+import { MeasurableGoalsArticle } from '../articles/MeasurableGoalsArticle'
 import { MentalGameArticle } from '../articles/MentalGameArticle'
+import { Operation36Article } from '../articles/Operation36Article'
+import { PracticeModesArticle } from '../articles/PracticeModesArticle'
+import { PracticeVsScoringRoundArticle } from '../articles/PracticeVsScoringRoundArticle'
+import { QuestionsForCoachArticle } from '../articles/QuestionsForCoachArticle'
 import { ReadingStatsArticle } from '../articles/ReadingStatsArticle'
+import { SelfDiagnosisArticle } from '../articles/SelfDiagnosisArticle'
 import { SkillGamesArticle } from '../articles/SkillGamesArticle'
 import { StrokesGainedArticle } from '../articles/StrokesGainedArticle'
+import { SwingVariationsArticle } from '../articles/SwingVariationsArticle'
+import { TrainingAidsArticle } from '../articles/TrainingAidsArticle'
+import { UnderstandingYourSwingArticle } from '../articles/UnderstandingYourSwingArticle'
 
 const ARTICLE_COMPONENTS: Record<string, ComponentType> = {
   'strokes-gained': StrokesGainedArticle,
@@ -15,6 +28,19 @@ const ARTICLE_COMPONENTS: Record<string, ComponentType> = {
   'course-management': CourseManagementArticle,
   'mental-game': MentalGameArticle,
   'skill-games-pressure-games': SkillGamesArticle,
+  'self-diagnosis': SelfDiagnosisArticle,
+  'guide-to-fittings': GuideToFittingsArticle,
+  'operation-36': Operation36Article,
+  'lessons-and-coaching': LessonsAndCoachingArticle,
+  'training-aids': TrainingAidsArticle,
+  'building-your-bag': BuildingYourBagArticle,
+  'practice-modes': PracticeModesArticle,
+  'measurable-goals': MeasurableGoalsArticle,
+  'questions-for-coach': QuestionsForCoachArticle,
+  'swing-variations': SwingVariationsArticle,
+  'understanding-your-swing': UnderstandingYourSwingArticle,
+  'practice-vs-scoring-round': PracticeVsScoringRoundArticle,
+  'fittings-with-coaches': FittingsWithCoachesArticle,
 }
 
 export function getArticleComponent(slug: string): ComponentType | null {

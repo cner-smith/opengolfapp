@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import type { Database } from '@oga/supabase'
-import { getShotCategory } from '@oga/core'
+import { getShotMarkerCategory, type LieType } from '@oga/core'
 import type {
   ExistingShot,
   HoleGeo,
@@ -253,7 +253,14 @@ export function useRoundData({
         startLng: s.start_lng,
         aimLat: s.aim_lat,
         aimLng: s.aim_lng,
-        category: categorizeShot(s, activeHole?.par ?? 4),
+        category: getShotMarkerCategory(
+          {
+            lieType: (s.lie_type ?? undefined) as LieType | undefined,
+            distanceToTarget: s.distance_to_target ?? undefined,
+          },
+          activeHole?.par ?? 4,
+          s.shot_number,
+        ),
       }))
       .sort((a, b) => a.shotNumber - b.shotNumber)
   }, [activeHoleScore, shotsQuery.data, activeHole?.par])
@@ -284,37 +291,6 @@ export function useRoundData({
     missingHoleLayout,
     activeHoleShots,
   }
-}
-
-// Categorize a shot row for marker coloring on the map.
-function categorizeShot(
-  s: ShotRow,
-  par: number,
-): ExistingShot['category'] {
-  // Visual override: any tee-lie shot (incl. par 3) renders as a tee
-  // marker even though SG-wise par 3 tee shots count as approach.
-  if (s.lie_type === 'tee') return 'tee'
-  const cat = getShotCategory(
-    {
-      lieType:
-        (s.lie_type as
-          | 'tee'
-          | 'fairway'
-          | 'rough'
-          | 'sand'
-          | 'fringe'
-          | 'recovery'
-          | 'green'
-          | null) ?? undefined,
-      distanceToTarget: s.distance_to_target ?? undefined,
-    },
-    par,
-    s.shot_number,
-  )
-  if (cat === 'putting') return 'putt'
-  if (cat === 'around_green') return 'around-green'
-  if (cat === 'off_tee') return 'tee'
-  return 'approach'
 }
 
 export type { RoundRow }
