@@ -10,6 +10,7 @@ import { ReadingStatsArticle } from '../articles/ReadingStatsArticle'
 import { SelfDiagnosisArticle } from '../articles/SelfDiagnosisArticle'
 import { SkillGamesArticle } from '../articles/SkillGamesArticle'
 import { StrokesGainedArticle } from '../articles/StrokesGainedArticle'
+import { TrainingAidsArticle } from '../articles/TrainingAidsArticle'
 
 const ARTICLE_COMPONENTS: Record<string, ComponentType> = {
   'strokes-gained': StrokesGainedArticle,
@@ -23,6 +24,7 @@ const ARTICLE_COMPONENTS: Record<string, ComponentType> = {
   'guide-to-fittings': GuideToFittingsArticle,
   'operation-36': Operation36Article,
   'lessons-and-coaching': LessonsAndCoachingArticle,
+  'training-aids': TrainingAidsArticle,
 }
 
 export function getArticleComponent(slug: string): ComponentType | null {

@@ -67,7 +67,8 @@ export const LEARN_SECTIONS: LearnSection[] = [
         id: 'training-aids',
         title: 'Training aids explained',
         description: 'Which devices teach a real skill and which ones just feel productive.',
-        status: 'soon',
+        status: 'draft',
+        words: 1400,
       },
       {
         id: 'building-your-bag',
