@@ -25,7 +25,6 @@ interface RoundRow {
 const ROUND_SELECT = `
   id, user_id, total_score,
   sg_off_tee, sg_approach, sg_around_green, sg_putting,
-  course_tee_id,
   courses(name),
   course_tees(par)
 `
@@ -61,8 +60,13 @@ Deno.serve(async (req) => {
         .not('total_score', 'is', null) // skip completed-but-empty rounds
 
   const { data: rounds, error } = await query.returns<RoundRow[]>()
-  if (error) return json({ error: error.message }, 500)
+  if (error) {
+    console.error('[round-summary-email] query failed', error)
+    return json({ error: 'query failed' }, 500)
+  }
 
+  // Low-volume scaffold: sequential per-round profile + auth lookups are fine.
+  // Batch them if cron candidates ever exceed ~50 per run.
   let sent = 0
   for (const round of rounds ?? []) {
     // Opt-in gate (respected in both modes).
@@ -107,7 +111,10 @@ Deno.serve(async (req) => {
       },
     })
     // On failure, leave summary_email_sent_at null so the next cron tick retries.
-    if (sendErr) continue
+    if (sendErr) {
+      console.error('[round-summary-email] resend send failed', round.id, sendErr)
+      continue
+    }
 
     await supabase
       .from('rounds')
