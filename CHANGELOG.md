@@ -1,5 +1,81 @@
 # Changelog
 
+## [0.6.0](https://github.com/cner-smith/opengolfapp/compare/v0.5.0...v0.6.0) (2026-05-25)
+
+
+### Features
+
+* **core:** break_direction axes split — data + types ([#340](https://github.com/cner-smith/opengolfapp/issues/340) PR 1/2) ([3599acc](https://github.com/cner-smith/opengolfapp/commit/3599accc2a1147802f69e68f8331c5d74d021567))
+* **core:** split break_direction into vertical + horizontal axes ([#340](https://github.com/cner-smith/opengolfapp/issues/340)) ([91176b1](https://github.com/cner-smith/opengolfapp/commit/91176b11b58c7240a0256152019d50640deaba15))
+* **learn:** add diagnostic flowchart + cited sources to self-diagnosis ([#131](https://github.com/cner-smith/opengolfapp/issues/131)) ([5433dc4](https://github.com/cner-smith/opengolfapp/commit/5433dc470f1cb6c3d0d65578f8f229010651758a))
+* **learn:** add Trahan, Leadbetter A Swing, de la Torre schools ([#142](https://github.com/cner-smith/opengolfapp/issues/142)) ([49553b5](https://github.com/cner-smith/opengolfapp/commit/49553b5f17932fef9bad32e6ffd84693e11416c9))
+* **learn:** block, random, and pressure practice article ([41c3ac6](https://github.com/cner-smith/opengolfapp/commit/41c3ac60284fe1b465e8a840e2fceb22254780d5))
+* **learn:** block, random, and pressure practice article ([d04541e](https://github.com/cner-smith/opengolfapp/commit/d04541e0389e4eea340515a0fb6bf7a05183d37b))
+* **learn:** building your bag article ([27bb55b](https://github.com/cner-smith/opengolfapp/commit/27bb55ba1cb1edbcbf0c978a8e58b9aa654501e7))
+* **learn:** building your bag article ([9a9d342](https://github.com/cner-smith/opengolfapp/commit/9a9d342513bb640d90d6c1f12a8ce39c62358073))
+* **learn:** creating measurable practice goals article ([1833846](https://github.com/cner-smith/opengolfapp/commit/1833846e4d007e71be30f49621828275acd7f8f4))
+* **learn:** creating measurable practice goals article ([e50504d](https://github.com/cner-smith/opengolfapp/commit/e50504dc2170c6811da797a4bb86727ded802225))
+* **learn:** deepen fittings article — fitter Q&A + decoding their data ([#129](https://github.com/cner-smith/opengolfapp/issues/129)) ([7bc6456](https://github.com/cner-smith/opengolfapp/commit/7bc64566f489151f696a700890b24121535ec6a8))
+* **learn:** deepen Operation 36 article — what par means, paid value, OGA journey ([#135](https://github.com/cner-smith/opengolfapp/issues/135)) ([531fc7c](https://github.com/cner-smith/opengolfapp/commit/531fc7c44774e7c62a1c84c8302e6c79b946b502))
+* **learn:** expand practice-vs-scoring-round with tour prep + more examples ([59738c1](https://github.com/cner-smith/opengolfapp/commit/59738c18254766b26bb1f1aa1d6057ca12dbf240))
+* **learn:** final two articles — practice vs scoring round + fittings with a coach ([01dadac](https://github.com/cner-smith/opengolfapp/commit/01dadac6775a5e29d666ac01902abae43b44cedd))
+* **learn:** final two articles — practice vs scoring round + fittings with a coach ([d447311](https://github.com/cner-smith/opengolfapp/commit/d447311c8b0a2dfb033a24307ef94f45f80a1e3b))
+* **learn:** guide to golf fittings article ([#129](https://github.com/cner-smith/opengolfapp/issues/129)) ([013a2a0](https://github.com/cner-smith/opengolfapp/commit/013a2a0510c2f7444267592b410b693f7716b425))
+* **learn:** guide to golf fittings article ([#129](https://github.com/cner-smith/opengolfapp/issues/129)) ([49de1bb](https://github.com/cner-smith/opengolfapp/commit/49de1bba417ef22a6e794ec6bc1e842d73fc54ae))
+* **learn:** guide to lessons and coaching article ([#130](https://github.com/cner-smith/opengolfapp/issues/130)) ([ed743e5](https://github.com/cner-smith/opengolfapp/commit/ed743e5936b8f939bd8f49a1f86135d6adf06cc0))
+* **learn:** guide to lessons and coaching article ([#130](https://github.com/cner-smith/opengolfapp/issues/130)) ([d9771e2](https://github.com/cner-smith/opengolfapp/commit/d9771e29f50b430b18e341146febeafec048c785))
+* **learn:** Operation 36 teaching philosophy article ([#135](https://github.com/cner-smith/opengolfapp/issues/135)) ([b3cfb0a](https://github.com/cner-smith/opengolfapp/commit/b3cfb0a68d03082c66a8313dd1930bb84854012e))
+* **learn:** Operation 36 teaching philosophy article ([#135](https://github.com/cner-smith/opengolfapp/issues/135)) ([9353b7c](https://github.com/cner-smith/opengolfapp/commit/9353b7c9c9903e2ddfad764ae8d5a2f9d4218396))
+* **learn:** questions to ask your coach article ([111db3f](https://github.com/cner-smith/opengolfapp/commit/111db3fb18fc7fc816124b19809169b7832ed923))
+* **learn:** questions to ask your coach article ([8fad3bb](https://github.com/cner-smith/opengolfapp/commit/8fad3bb20e3cc4d3051c2434dc1939d284904a36))
+* **learn:** self-diagnosis article ([#131](https://github.com/cner-smith/opengolfapp/issues/131)) ([57cff97](https://github.com/cner-smith/opengolfapp/commit/57cff97bb09a354594991bb2fbe90dddb5a6821c))
+* **learn:** self-diagnosis article ([#131](https://github.com/cner-smith/opengolfapp/issues/131)) ([254a091](https://github.com/cner-smith/opengolfapp/commit/254a0914b507c0e62f1a9c436c480fa13947189e))
+* **learn:** swing variations for different body types ([#142](https://github.com/cner-smith/opengolfapp/issues/142)) ([e13dd9d](https://github.com/cner-smith/opengolfapp/commit/e13dd9d8de0c7ad9efd70a91985dcb66ffd6c1fa))
+* **learn:** swing variations for different body types article ([#142](https://github.com/cner-smith/opengolfapp/issues/142)) ([78836a5](https://github.com/cner-smith/opengolfapp/commit/78836a5d9737ea00ddd7b10db50269cee7de7961))
+* **learn:** training aids guide article ([#128](https://github.com/cner-smith/opengolfapp/issues/128)) ([d78fc79](https://github.com/cner-smith/opengolfapp/commit/d78fc79bed595a2b5f8f90be99edb17c8c21ca92))
+* **learn:** training aids guide article ([#128](https://github.com/cner-smith/opengolfapp/issues/128)) ([c23c4c3](https://github.com/cner-smith/opengolfapp/commit/c23c4c308ee5275714c03e69b73bd1ad994ea32b))
+* **learn:** understanding your own swing article ([dd8d09b](https://github.com/cner-smith/opengolfapp/commit/dd8d09bfeefff452532c3a36596c3236f19f165c))
+* **learn:** understanding your own swing article ([728bf89](https://github.com/cner-smith/opengolfapp/commit/728bf8991f6ac7c5b6696144c9d1867a910113b5))
+* **mobile:** PuttingSheet break — split into slope + line axes ([#340](https://github.com/cner-smith/opengolfapp/issues/340) PR 2/2) ([24aafc4](https://github.com/cner-smith/opengolfapp/commit/24aafc43dc024c02f8741eed9353d404b98be685))
+* **mobile:** split PuttingSheet break into 2 axes — UI + write-path ([#340](https://github.com/cner-smith/opengolfapp/issues/340)) ([dde88b1](https://github.com/cner-smith/opengolfapp/commit/dde88b1eba00373ec3e690b8c310579a564aad58))
+* **patterns:** standalone ball-flight chart on Shot Patterns ([#243](https://github.com/cner-smith/opengolfapp/issues/243)) ([db981c5](https://github.com/cner-smith/opengolfapp/commit/db981c572c693748beaeb62e7e3c3e62520111ec))
+* **patterns:** standalone ball-flight chart on Shot Patterns ([#243](https://github.com/cner-smith/opengolfapp/issues/243)) ([534196c](https://github.com/cner-smith/opengolfapp/commit/534196c6bf80ce3c9be64dc5648281b40d7f51d1))
+
+
+### Bug Fixes
+
+* **core:** dispersion ellipses use 2D containment radii, not 1-D σ ([121604a](https://github.com/cner-smith/opengolfapp/commit/121604a72817affc9e0e82e978f93d8535706322))
+* **core:** dispersion ellipses use 2D containment radii, not 1-D σ ([880bb3f](https://github.com/cner-smith/opengolfapp/commit/880bb3f27ce664988089d65680310b8749de4f94))
+* **learn:** make the self-diagnosis flowchart read as a flow ([#131](https://github.com/cner-smith/opengolfapp/issues/131)) ([0c74c32](https://github.com/cner-smith/opengolfapp/commit/0c74c32ebd2bfed4e385ab8adb80b41c3e169424))
+* **mobile/ios:** address [#389](https://github.com/cner-smith/opengolfapp/issues/389) cross-review findings ([4cf608b](https://github.com/cner-smith/opengolfapp/commit/4cf608b3f3e0166a563d735f2667d4cb9e7d9448))
+* **mobile/ios:** address [#389](https://github.com/cner-smith/opengolfapp/issues/389) cross-review findings (StatusBar, plist dedupe, tab bar) ([9f3a550](https://github.com/cner-smith/opengolfapp/commit/9f3a55024dc142f60d7f349bdda717860152bbeb))
+* **mobile/ios:** declarative StatusBar in dark views ([#393](https://github.com/cner-smith/opengolfapp/issues/393) auto-review blocker) ([4e91ec3](https://github.com/cner-smith/opengolfapp/commit/4e91ec3d27cb5fceab6a42006676ade64612251d))
+* **mobile:** allow about: scheme in auth WebView so iOS Turnstile completes ([#405](https://github.com/cner-smith/opengolfapp/issues/405)) ([93ddf89](https://github.com/cner-smith/opengolfapp/commit/93ddf89c843e8e098f20bdc7730b494abde64fe5))
+* **mobile:** allow about: scheme in auth WebView so iOS Turnstile completes ([#405](https://github.com/cner-smith/opengolfapp/issues/405)) ([4c6955a](https://github.com/cner-smith/opengolfapp/commit/4c6955ab83eb027f1c2d881eed68414ef17eca28))
+* **patterns:** tracer curve direction + cluster-centered view; pin barrel exports ([b22ac02](https://github.com/cner-smith/opengolfapp/commit/b22ac02e88d97ece1e8f57dfe8869cc38a9041aa))
+* **patterns:** tracer curve direction + cluster-centered view; pin two barrel exports ([75d6c7f](https://github.com/cner-smith/opengolfapp/commit/75d6c7f2604536a262b5510371f3097008daafea))
+
+
+### Refactors
+
+* **core:** move formatBandLabel to @oga/core ([#207](https://github.com/cner-smith/opengolfapp/issues/207)) ([4fafa3a](https://github.com/cner-smith/opengolfapp/commit/4fafa3a06cfe6b75eae3b161167d5ce7c153e5f1))
+* **core:** move formatBandLabel to @oga/core ([#207](https://github.com/cner-smith/opengolfapp/issues/207)) ([2fea0d5](https://github.com/cner-smith/opengolfapp/commit/2fea0d586fd87cd29fb76d46121676ad9bdeba8c))
+* **core:** move SGBreakdown averaging math to @oga/core ([#195](https://github.com/cner-smith/opengolfapp/issues/195)) ([ff61ff0](https://github.com/cner-smith/opengolfapp/commit/ff61ff0c18e829429235f30c54e4f7c261ed5627))
+* **core:** move SGBreakdown averaging to @oga/core ([#195](https://github.com/cner-smith/opengolfapp/issues/195)) ([05f76ea](https://github.com/cner-smith/opengolfapp/commit/05f76ea996749fe0916c1f8d5b6c7b0e7dfb59e1))
+* **core:** move shotRowToDraft + mapBreakDirection to @oga/core ([#205](https://github.com/cner-smith/opengolfapp/issues/205)) ([ac810e6](https://github.com/cner-smith/opengolfapp/commit/ac810e6f500f0a85ce6b25769f43d749aac324f3))
+* **core:** move shotRowToDraft + mapBreakDirection to @oga/core ([#205](https://github.com/cner-smith/opengolfapp/issues/205)) ([ce8b881](https://github.com/cner-smith/opengolfapp/commit/ce8b8813892d382e5678df0f47514c90e19096dc))
+
+
+### Chores
+
+* **core:** @oga/core polish sweep — [#394](https://github.com/cner-smith/opengolfapp/issues/394) [#395](https://github.com/cner-smith/opengolfapp/issues/395) [#397](https://github.com/cner-smith/opengolfapp/issues/397) [#398](https://github.com/cner-smith/opengolfapp/issues/398) ([8ad5423](https://github.com/cner-smith/opengolfapp/commit/8ad54238f0e3da0c1341a9026880deab22dd6703))
+* **core:** polish sweep — types, scale split, tests, barrel ([30acc1b](https://github.com/cner-smith/opengolfapp/commit/30acc1b79316dd1ec8df8e333663287c2b8defc2))
+* **core:** promote categorizeShot to @oga/core ([#206](https://github.com/cner-smith/opengolfapp/issues/206)) ([77699c8](https://github.com/cner-smith/opengolfapp/commit/77699c8773aff9303d6c75de0ad533645b7d8d1c))
+* **core:** promote categorizeShot to @oga/core as getShotMarkerCategory ([#206](https://github.com/cner-smith/opengolfapp/issues/206)) ([5ded837](https://github.com/cner-smith/opengolfapp/commit/5ded837bc3fc13a8f0a70ae9bb5bfa0cb97907f2))
+* **mobile/ios:** app config micro-fixes — usage strings, StatusBar, tab bar height ([d2985ca](https://github.com/cner-smith/opengolfapp/commit/d2985ca58b0dfd7be5b282d471cad1adced4f671))
+* **mobile/ios:** app config micro-fixes ([#300](https://github.com/cner-smith/opengolfapp/issues/300) [#302](https://github.com/cner-smith/opengolfapp/issues/302) [#305](https://github.com/cner-smith/opengolfapp/issues/305)) ([69885c7](https://github.com/cner-smith/opengolfapp/commit/69885c72c95bab9b3b71c521d734c08adc4c45db))
+* sync dev with main (post v0.5.0 release backmerge) ([00570b3](https://github.com/cner-smith/opengolfapp/commit/00570b3fc4552328b0d79956b86ab157da0da3d3))
+
 ## [0.5.0](https://github.com/cner-smith/opengolfapp/compare/v0.4.0...v0.5.0) (2026-05-22)
 
 
