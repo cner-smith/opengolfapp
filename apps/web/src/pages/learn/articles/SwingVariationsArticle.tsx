@@ -604,6 +604,21 @@ function Sources() {
           </SrcBody>
         </div>
         <div>
+          <SrcLabel>The modern swing and lower-back load</SrcLabel>
+          <SrcBody>
+            <Src href="https://thejns.org/spine/view/journals/j-neurosurg-spine/31/6/article-p914.xml">
+              Journal of Neurosurgery: Spine (2019) · lumbar degeneration in
+              modern-era golfers
+            </Src>{' '}
+            links the repetitive modern swing to early disc wear, while a{' '}
+            <Src href="https://www.tandfonline.com/doi/full/10.1080/02640414.2024.2319443">
+              2024 systematic review (Journal of Sports Sciences)
+            </Src>{' '}
+            cautions that the biomechanics-to-back-pain evidence is still limited
+            and conflicting — a real concern, not settled science.
+          </SrcBody>
+        </div>
+        <div>
           <SrcLabel>The classic flatter plane (Hogan)</SrcLabel>
           <SrcBody>
             <Src href="https://www.usgtf.com/hogans-five-lessons-in-our-modern-game/">
@@ -637,6 +652,19 @@ function Sources() {
           </SrcBody>
         </div>
         <div>
+          <SrcLabel>Fitting clubs to your body</SrcLabel>
+          <SrcBody>
+            <Src href="https://pluggedingolf.com/much-lie-angle-matter-golf-myths-unplugged/">
+              Plugged In Golf · lie-angle testing
+            </Src>{' '}
+            (a correct lie tightens left-right dispersion) and{' '}
+            <Src href="https://www.pga.info/discover/latest/news/pings-ultimate-guide-better-custom-fitting/">
+              PING's custom-fitting guide
+            </Src>{' '}
+            — most golfers don't fit the standard off-the-rack build.
+          </SrcBody>
+        </div>
+        <div>
           <SrcLabel>Great "incorrect" swings</SrcLabel>
           <SrcBody>
             <Src href="https://en.wikipedia.org/wiki/Jim_Furyk">Jim Furyk</Src>{' '}
@@ -645,6 +673,10 @@ function Sources() {
               the 58
             </Src>
             ),{' '}
+            <Src href="https://en.wikipedia.org/wiki/Lee_Trevino">Lee Trevino</Src>{' '}
+            (six majors, self-taught fade),{' '}
+            <Src href="https://en.wikipedia.org/wiki/Nancy_Lopez">Nancy Lopez</Src>{' '}
+            (48 LPGA wins),{' '}
             <Src href="https://en.wikipedia.org/wiki/John_Daly_(golfer)">
               John Daly
             </Src>{' '}
