@@ -435,16 +435,12 @@ export function useRoundActions(input: UseRoundActionsInput): UseRoundActionsRes
     }
   }, [round.data, courseId, user, profile.data?.handicap_index, completeMutation, setCompleteError])
 
-  // Pre-rasterise the off-screen ShareableScorecardCard so the share
-  // handler can hand `navigator.share()` a ready Blob with NO awaited
-  // work in between the click and the share() call. The Web Share API
-  // needs a live user-activation token; an `await` inside the click
-  // handler expires that token on iOS Safari, so the capture has to
-  // already be done by click time. The card lives absolutely-positioned
-  // far off the left edge (the user never sees it) purely to give the
-  // rasteriser a real DOM node. 2x pixel ratio = crisp on retina without
-  // ballooning the file for group-chat shares. Recaptures whenever the
-  // round data or the light/dark tone changes so the Blob is never stale.
+  // Pre-rasterise the off-screen ShareableScorecardCard to a Blob so the
+  // share handler can hand `navigator.share()` a ready file with NO
+  // awaited work between the click and the share() call: the Web Share
+  // API needs a live user-activation token, and an `await` inside the
+  // click handler expires that token on iOS Safari. 2x pixel ratio keeps
+  // it crisp on retina without ballooning the file for group-chat shares.
   const shareBlobRef = useRef<Blob | null>(null)
   useEffect(() => {
     const node = shareCardRef.current
@@ -464,7 +460,7 @@ export function useRoundActions(input: UseRoundActionsInput): UseRoundActionsRes
     return () => {
       cancelled = true
     }
-  }, [shareCardRef, round.data, shareTone])
+  }, [round.data, shareTone])
 
   // Open the native share sheet (Web Share API) with the scorecard PNG,
   // falling back to a download where file-sharing isn't supported (most
@@ -491,7 +487,10 @@ export function useRoundActions(input: UseRoundActionsInput): UseRoundActionsRes
           backgroundColor: shareTone === 'dark' ? '#1C211C' : '#FBF8F1',
         })
       }
-      if (!blob) return
+      // toBlob resolves null (rather than throwing) when rasterisation
+      // fails — surface it through the same path as other share errors
+      // instead of a silent no-op.
+      if (!blob) throw new Error('Could not render the scorecard image.')
 
       const file = new File([blob], filename, { type: 'image/png' })
       if (typeof navigator.share === 'function' && navigator.canShare?.({ files: [file] })) {
