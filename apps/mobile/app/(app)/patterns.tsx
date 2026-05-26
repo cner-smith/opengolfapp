@@ -9,6 +9,7 @@ import {
   LIE_TYPES,
   computeDispersion,
   computeDispersionStats,
+  dispersionVerdict,
   filterDispersionByLie,
   getAimCorrection,
   type Club,
@@ -93,7 +94,7 @@ export default function Patterns() {
     getShotsByClub(supabase, user.id, club).then(({ data, error }) => {
       if (!active) return
       if (error) {
-        // eslint-disable-next-line no-console
+        // eslint-disable-next-line no-console -- dev diagnostic; mobile has no logger/toast primitive
         console.error('[patterns/getShotsByClub]', error.message)
       }
       setShots((data as ShotRowMin[] | null) ?? [])
@@ -140,7 +141,7 @@ export default function Patterns() {
         dialogTitle: 'Share shot pattern',
       })
     } catch (err) {
-      // eslint-disable-next-line no-console
+      // eslint-disable-next-line no-console -- dev diagnostic; the user sees the Alert below
       console.error('[patterns/share]', err)
       Alert.alert('Share failed', (err as Error).message)
     } finally {
@@ -317,14 +318,6 @@ const SHARE_KICKER: import('react-native').TextStyle = {
   textTransform: 'uppercase',
 }
 
-function shareVerdict(stats: DispersionStats): string {
-  const { shotShape, dominantMiss } = stats
-  if (shotShape === 'straight' && dominantMiss === 'straight') return 'Dead straight'
-  if (dominantMiss === 'straight') return `A consistent ${shotShape}`
-  if (shotShape === 'straight') return `Straight, missing ${dominantMiss}`
-  return `A ${shotShape} that leaks ${dominantMiss}`
-}
-
 function ShotPatternsShareCard({
   points,
   stats,
@@ -417,7 +410,7 @@ function ShotPatternsShareCard({
               marginBottom: 30,
             }}
           >
-            {shareVerdict(stats)}
+            {dispersionVerdict(stats)}
           </Text>
           <View style={{ flexDirection: 'row', gap: 40, marginBottom: 30 }}>
             <ShareStat label="Sample" value={`${stats.sampleSize} shots`} c={c} />
