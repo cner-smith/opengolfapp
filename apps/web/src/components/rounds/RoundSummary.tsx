@@ -61,6 +61,7 @@ export function RoundSummary({
   const score = round.total_score ?? holeScores.reduce((s, hs) => s + hs.score, 0)
   const toPar = score && par ? score - par : null
   const { best, worst } = bestWorstHole(holeScores, holes)
+  const focus = pickRoundFocus(round)
 
   return (
     <div
@@ -143,10 +144,7 @@ export function RoundSummary({
         </div>
       )}
 
-      {(() => {
-        const focus = pickRoundFocus(round)
-        return focus ? <RoundNudge focus={focus} /> : null
-      })()}
+      {focus && <RoundNudge focus={focus} />}
 
       {totalRoundsLogged >= 3 && (
         <div style={{ marginTop: 22 }}>
@@ -175,10 +173,12 @@ export function RoundSummary({
 
 function RoundNudge({ focus }: { focus: RoundFocus }) {
   const { data: profile } = useProfile()
-  const { data: drills } = useDrills({
-    category: focus.category,
-    skillLevel: profile?.skill_level ?? undefined,
-  })
+  // Wait for the profile before fetching drills — otherwise the query fires
+  // once with skillLevel undefined, then refetches when the profile resolves.
+  const { data: drills } = useDrills(
+    { category: focus.category, skillLevel: profile?.skill_level ?? undefined },
+    { enabled: !!profile },
+  )
   const picks = selectNudgeDrills(drills ?? [], profile?.facilities ?? [])
 
   return (
@@ -200,6 +200,7 @@ function RoundNudge({ focus }: { focus: RoundFocus }) {
       </p>
       {picks.length > 0 && (
         <div className="flex flex-wrap" style={{ gap: 8 }}>
+          {/* No per-drill detail route exists; chips link to the drill library. */}
           {picks.map((drill) => (
             <Link
               key={drill.id}
