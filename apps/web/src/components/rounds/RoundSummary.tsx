@@ -190,7 +190,7 @@ function RoundNudge({ focus }: { focus: RoundFocus }) {
       }}
     >
       <div className="kicker" style={{ marginBottom: 8 }}>
-        {"Today's focus"}
+        Today's focus
       </div>
       <p
         className="font-serif text-caddie-ink"
