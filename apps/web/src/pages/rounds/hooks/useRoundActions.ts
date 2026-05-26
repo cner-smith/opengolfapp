@@ -1,9 +1,9 @@
-import { useCallback, type Dispatch, type RefObject } from 'react'
+import { useCallback, useEffect, useRef, type Dispatch, type RefObject } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import type { User } from '@supabase/supabase-js'
 import type { Database } from '@oga/supabase'
-import { toPng } from 'html-to-image'
+import { toBlob } from 'html-to-image'
 import {
   combinedPuttResult,
   DEFAULT_HANDICAP,
@@ -435,30 +435,83 @@ export function useRoundActions(input: UseRoundActionsInput): UseRoundActionsRes
     }
   }, [round.data, courseId, user, profile.data?.handicap_index, completeMutation, setCompleteError])
 
-  // Capture the off-screen ShareableScorecardCard via html-to-image and
-  // trigger a browser download. The card is rendered absolutely-
-  // positioned far off the left edge so the user never sees it; it
-  // exists only to hand a real DOM node to the rasteriser. 2x pixel
-  // ratio gives crisp output on retina screens without ballooning the
-  // file size for group-chat shares.
+  // Pre-rasterise the off-screen ShareableScorecardCard to a Blob so the
+  // share handler can hand `navigator.share()` a ready file with NO
+  // awaited work between the click and the share() call: the Web Share
+  // API needs a live user-activation token, and an `await` inside the
+  // click handler expires that token on iOS Safari. 2x pixel ratio keeps
+  // it crisp on retina without ballooning the file for group-chat shares.
+  const shareBlobRef = useRef<Blob | null>(null)
+  useEffect(() => {
+    const node = shareCardRef.current
+    if (!node || !round.data) return
+    let cancelled = false
+    toBlob(node, {
+      pixelRatio: 2,
+      cacheBust: true,
+      backgroundColor: shareTone === 'dark' ? '#1C211C' : '#FBF8F1',
+    })
+      .then((blob) => {
+        if (!cancelled) shareBlobRef.current = blob
+      })
+      .catch(() => {
+        if (!cancelled) shareBlobRef.current = null
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [round.data, shareTone])
+
+  // Open the native share sheet (Web Share API) with the scorecard PNG,
+  // falling back to a download where file-sharing isn't supported (most
+  // desktop Firefox, older browsers) or if share() fails for any reason
+  // other than the user dismissing the sheet.
   const handleShare = useCallback(async () => {
-    if (!shareCardRef.current || sharing) return
+    if (sharing) return
     setSharing(true)
     try {
-      const dataUrl = await toPng(shareCardRef.current, {
-        pixelRatio: 2,
-        cacheBust: true,
-        backgroundColor: shareTone === 'dark' ? '#1C211C' : '#FBF8F1',
-      })
       const courseSlug = (round.data?.courses?.name ?? 'round')
         .toLowerCase()
         .replace(/[^a-z0-9]+/g, '-')
         .replace(/(^-|-$)/g, '')
       const date = round.data?.played_at ?? 'unknown-date'
+      const filename = `${courseSlug}-${date}-scorecard.png`
+
+      // Prefer the pre-captured Blob (keeps the gesture token alive). Only
+      // fall back to a fresh capture if the effect hasn't produced one yet.
+      let blob = shareBlobRef.current
+      if (!blob && shareCardRef.current) {
+        blob = await toBlob(shareCardRef.current, {
+          pixelRatio: 2,
+          cacheBust: true,
+          backgroundColor: shareTone === 'dark' ? '#1C211C' : '#FBF8F1',
+        })
+      }
+      // toBlob resolves null (rather than throwing) when rasterisation
+      // fails — surface it through the same path as other share errors
+      // instead of a silent no-op.
+      if (!blob) throw new Error('Could not render the scorecard image.')
+
+      const file = new File([blob], filename, { type: 'image/png' })
+      if (typeof navigator.share === 'function' && navigator.canShare?.({ files: [file] })) {
+        try {
+          await navigator.share({ files: [file], title: 'OGA Scorecard' })
+          return
+        } catch (err) {
+          // User dismissed the sheet — not an error worth surfacing.
+          if ((err as Error).name === 'AbortError') return
+          // Any other share failure → fall through to the download path.
+        }
+      }
+
+      // Download fallback. Build the object URL from the same Blob and
+      // revoke it once the download has had a tick to start.
+      const url = URL.createObjectURL(blob)
       const link = document.createElement('a')
-      link.href = dataUrl
-      link.download = `${courseSlug}-${date}-scorecard.png`
+      link.href = url
+      link.download = filename
       link.click()
+      setTimeout(() => URL.revokeObjectURL(url), 1000)
     } catch (err) {
       setCompleteError(toUserMessage(err))
     } finally {
