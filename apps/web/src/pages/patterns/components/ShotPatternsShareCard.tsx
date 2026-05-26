@@ -1,4 +1,5 @@
 import {
+  dispersionVerdict,
   getAimCorrection,
   type Club,
   type DispersionPoint,
@@ -35,15 +36,6 @@ const KICKER: React.CSSProperties = {
 }
 
 const SERIF = '"Fraunces", Georgia, serif'
-
-// One-line verdict from the dispersion shape + dominant miss.
-function verdictHeadline(stats: DispersionStats): string {
-  const { shotShape, dominantMiss } = stats
-  if (shotShape === 'straight' && dominantMiss === 'straight') return 'Dead straight'
-  if (dominantMiss === 'straight') return `A consistent ${shotShape}`
-  if (shotShape === 'straight') return `Straight, missing ${dominantMiss}`
-  return `A ${shotShape} that leaks ${dominantMiss}`
-}
 
 interface ShotPatternsShareCardProps {
   points: DispersionPoint[]
@@ -142,7 +134,7 @@ export function ShotPatternsShareCard({
               marginBottom: 30,
             }}
           >
-            {verdictHeadline(stats)}
+            {dispersionVerdict(stats)}
           </div>
           <div style={{ display: 'flex', gap: 40, marginBottom: 30 }}>
             <Stat label="Sample" value={`${stats.sampleSize} shots`} />

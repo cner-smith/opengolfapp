@@ -55,6 +55,9 @@ export function ShotPatternsPage() {
   const shareCardRef = useRef<HTMLDivElement | null>(null)
   const [exporting, setExporting] = useState(false)
   const [exportError, setExportError] = useState<string | null>(null)
+  // Off-screen share card mounts lazily on first export so it isn't laid out
+  // on every club-chip re-render for users who never share.
+  const [showShareCard, setShowShareCard] = useState(false)
 
   // Rasterise the off-screen 1200×630 share card and open the native
   // share sheet (Web Share API), falling back to a download where file
@@ -65,11 +68,20 @@ export function ShotPatternsPage() {
   // the `await` before share() can expire the iOS-Safari gesture token —
   // in which case it simply degrades to the download path (same PNG).
   async function handleExport() {
-    const node = shareCardRef.current
-    if (!node || exporting) return
+    if (exporting) return
     setExporting(true)
     setExportError(null)
     try {
+      // Mount the card on first export, then wait a paint for it to lay out
+      // before rasterising.
+      if (!shareCardRef.current) {
+        setShowShareCard(true)
+        await new Promise<void>((resolve) =>
+          requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+        )
+      }
+      const node = shareCardRef.current
+      if (!node) throw new Error('share card not ready')
       const blob = await toBlob(node, {
         width: SHARE_CARD_W,
         height: SHARE_CARD_H,
@@ -96,7 +108,11 @@ export function ShotPatternsPage() {
       const link = document.createElement('a')
       link.href = url
       link.download = filename
+      // Firefox and older Safari only honour downloads from an anchor that's
+      // attached to the document; a detached element silently no-ops.
+      document.body.appendChild(link)
       link.click()
+      document.body.removeChild(link)
       setTimeout(() => URL.revokeObjectURL(url), 1000)
     } catch {
       setExportError('Could not export the image. Try again.')
@@ -363,7 +379,7 @@ export function ShotPatternsPage() {
       {/* Off-screen render target for the 1200×630 share card. Self-
           contained inline styles so the rasteriser needs no external
           stylesheet at capture time. */}
-      {stats && (
+      {showShareCard && stats && (
         <div
           aria-hidden
           style={{
