@@ -37,10 +37,16 @@ function json(body: unknown, status = 200): Response {
 }
 
 Deno.serve(async (req) => {
-  const supabase = createClient(
-    Deno.env.get('SUPABASE_URL')!,
-    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
-  )
+  const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+  // Service-role-only. A bare user JWT clears the gateway, so explicitly require
+  // the service key — otherwise any authenticated app user could trigger a
+  // cron-mode mass send or email the owner of an arbitrary round id. The cron
+  // passes this via pg_net; manual invokes pass it directly.
+  if ((req.headers.get('Authorization') ?? '') !== `Bearer ${serviceKey}`) {
+    return json({ error: 'unauthorized' }, 401)
+  }
+
+  const supabase = createClient(Deno.env.get('SUPABASE_URL')!, serviceKey)
   const resend = new Resend(Deno.env.get('RESEND_API_KEY')!)
 
   let roundId: string | undefined
@@ -69,6 +75,9 @@ Deno.serve(async (req) => {
   // Batch them if cron candidates ever exceed ~50 per run.
   let sent = 0
   for (const round of rounds ?? []) {
+    // Skip completed-but-empty rounds — manual mode bypasses the cron's
+    // total_score filter, so guard here too (avoids "0 (-72 to par)" emails).
+    if (round.total_score == null) continue
     // Opt-in gate (respected in both modes).
     const { data: profile } = await supabase
       .from('profiles')
@@ -78,8 +87,7 @@ Deno.serve(async (req) => {
     if (profile?.email_round_summaries_enabled === false) continue
 
     // Recipient lives in auth.users, not profiles — service role only.
-    const { data: userRes, error: userErr } =
-      await supabase.auth.admin.getUserById(round.user_id)
+    const { data: userRes, error: userErr } = await supabase.auth.admin.getUserById(round.user_id)
     const email = userRes?.user?.email
     if (userErr || !email) continue
 
@@ -116,10 +124,14 @@ Deno.serve(async (req) => {
       continue
     }
 
-    await supabase
+    const { error: stampErr } = await supabase
       .from('rounds')
       .update({ summary_email_sent_at: new Date().toISOString() })
       .eq('id', round.id)
+    if (stampErr) {
+      console.error('[round-summary-email] stamp failed', round.id, stampErr)
+      continue
+    }
     sent++
   }
 
