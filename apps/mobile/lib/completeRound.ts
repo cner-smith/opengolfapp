@@ -144,6 +144,7 @@ export async function completeRound({
       sg_around_green: round2(result.round.aroundGreen),
       sg_putting: round2(result.round.putting),
       sg_total: round2(result.round.total),
+      completed_at: new Date().toISOString(),
       total_score: result.totals.totalScore || null,
       total_putts: result.totals.totalPutts || null,
       fairways_hit:

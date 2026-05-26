@@ -348,6 +348,7 @@ export type Database = {
         Row: {
           created_at: string
           distance_unit: string
+          email_round_summaries_enabled: boolean
           facilities: string[] | null
           goal: string | null
           handicap_index: number | null
@@ -362,6 +363,7 @@ export type Database = {
         Insert: {
           created_at?: string
           distance_unit?: string
+          email_round_summaries_enabled?: boolean
           facilities?: string[] | null
           goal?: string | null
           handicap_index?: number | null
@@ -376,6 +378,7 @@ export type Database = {
         Update: {
           created_at?: string
           distance_unit?: string
+          email_round_summaries_enabled?: boolean
           facilities?: string[] | null
           goal?: string | null
           handicap_index?: number | null
@@ -391,6 +394,7 @@ export type Database = {
       }
       rounds: {
         Row: {
+          completed_at: string | null
           course_id: string
           course_tee_id: string | null
           created_at: string
@@ -406,12 +410,14 @@ export type Database = {
           sg_off_tee: number | null
           sg_putting: number | null
           sg_total: number | null
+          summary_email_sent_at: string | null
           tee_color: string | null
           total_putts: number | null
           total_score: number | null
           user_id: string
         }
         Insert: {
+          completed_at?: string | null
           course_id: string
           course_tee_id?: string | null
           created_at?: string
@@ -427,12 +433,14 @@ export type Database = {
           sg_off_tee?: number | null
           sg_putting?: number | null
           sg_total?: number | null
+          summary_email_sent_at?: string | null
           tee_color?: string | null
           total_putts?: number | null
           total_score?: number | null
           user_id: string
         }
         Update: {
+          completed_at?: string | null
           course_id?: string
           course_tee_id?: string | null
           created_at?: string
@@ -448,6 +456,7 @@ export type Database = {
           sg_off_tee?: number | null
           sg_putting?: number | null
           sg_total?: number | null
+          summary_email_sent_at?: string | null
           tee_color?: string | null
           total_putts?: number | null
           total_score?: number | null
