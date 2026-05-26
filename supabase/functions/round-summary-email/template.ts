@@ -16,13 +16,13 @@ export function renderHtml(c: RoundSummaryContent): string {
       const valueLabel = `${b.value > 0 ? '+' : ''}${b.value.toFixed(1)}`
       return `
       <tr>
-        <td style="padding:6px 0;font:13px/1.4 -apple-system,Segoe UI,sans-serif;color:${INK};width:120px">${b.label}</td>
-        <td style="padding:6px 0;width:100%">
+        <td style="padding:9px 16px 9px 0;font:13px/1.4 -apple-system,Segoe UI,sans-serif;color:${INK};white-space:nowrap;vertical-align:middle">${b.label}</td>
+        <td style="padding:9px 0;width:100%;vertical-align:middle">
           <div style="background:#EBE5D6;border-radius:2px;height:10px;width:100%">
             <div style="background:${barColor};height:10px;border-radius:2px;width:${b.widthPct}%"></div>
           </div>
         </td>
-        <td style="padding:6px 0 6px 10px;font:13px/1.4 -apple-system,Segoe UI,sans-serif;color:${barColor};text-align:right;white-space:nowrap">${valueLabel}</td>
+        <td style="padding:9px 0 9px 14px;font:13px/1.4 -apple-system,Segoe UI,sans-serif;color:${barColor};text-align:right;white-space:nowrap;vertical-align:middle">${valueLabel}</td>
       </tr>`
     })
     .join('')

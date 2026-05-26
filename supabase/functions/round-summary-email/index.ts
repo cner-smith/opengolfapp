@@ -36,17 +36,35 @@ function json(body: unknown, status = 200): Response {
   })
 }
 
+// True only if the bearer is a service_role JWT. The gateway (verify_jwt on)
+// has already validated the signature, so trusting the decoded `role` claim is
+// sound — and unlike comparing the raw key string, it survives key rotation and
+// the new API-key format.
+function isServiceRole(req: Request): boolean {
+  const token = (req.headers.get('Authorization') ?? '').replace(/^Bearer\s+/i, '')
+  const payload = token.split('.')[1]
+  if (!payload) return false
+  try {
+    const b64 = payload.replace(/-/g, '+').replace(/_/g, '/')
+    const padded = b64 + '='.repeat((4 - (b64.length % 4)) % 4)
+    return JSON.parse(atob(padded)).role === 'service_role'
+  } catch {
+    return false
+  }
+}
+
 Deno.serve(async (req) => {
-  const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-  // Service-role-only. A bare user JWT clears the gateway, so explicitly require
-  // the service key — otherwise any authenticated app user could trigger a
-  // cron-mode mass send or email the owner of an arbitrary round id. The cron
-  // passes this via pg_net; manual invokes pass it directly.
-  if ((req.headers.get('Authorization') ?? '') !== `Bearer ${serviceKey}`) {
+  // Service-role-only — see isServiceRole. Blocks a regular user's access token
+  // (role=authenticated) from triggering a cron-mode mass send or emailing the
+  // owner of an arbitrary round id. The cron passes a service_role JWT via pg_net.
+  if (!isServiceRole(req)) {
     return json({ error: 'unauthorized' }, 401)
   }
 
-  const supabase = createClient(Deno.env.get('SUPABASE_URL')!, serviceKey)
+  const supabase = createClient(
+    Deno.env.get('SUPABASE_URL')!,
+    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+  )
   const resend = new Resend(Deno.env.get('RESEND_API_KEY')!)
 
   let roundId: string | undefined
