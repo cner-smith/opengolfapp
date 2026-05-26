@@ -13,7 +13,9 @@ import { DispersionPlot } from './DispersionPlot'
 // ever reaches this card.
 const CARD_W = 1200
 const CARD_H = 630
-const PLOT_SIZE = 470
+// Plot is square; the card is short (630). Sized so the header, plot
+// panel, and footer all fit the fixed height without clipping.
+const PLOT_SIZE = 350
 
 const C = {
   bg: '#FBF8F1',
@@ -66,7 +68,7 @@ export function ShotPatternsShareCard({
         backgroundColor: C.bg,
         color: C.ink,
         fontFamily: 'Inter, system-ui, sans-serif',
-        padding: 56,
+        padding: '44px 56px',
         boxSizing: 'border-box',
         display: 'flex',
         flexDirection: 'column',
@@ -109,14 +111,14 @@ export function ShotPatternsShareCard({
           gap: 48,
           alignItems: 'center',
           flex: 1,
-          paddingTop: 28,
-          paddingBottom: 28,
+          paddingTop: 16,
+          paddingBottom: 16,
         }}
       >
         <div
           style={{
             flexShrink: 0,
-            padding: 16,
+            padding: 14,
             backgroundColor: C.surface,
             border: `1px solid ${C.line}`,
             borderRadius: 4,
