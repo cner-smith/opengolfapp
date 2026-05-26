@@ -41,6 +41,18 @@ export function pickRoundFocus(round: RoundFocusInput): RoundFocus | null {
   return worst
 }
 
+const FOCUS_LABEL: Record<NudgeCategory, string> = {
+  off_tee: 'Off the tee',
+  approach: 'Approach',
+  around_green: 'Around the green',
+  putting: 'Putting',
+}
+
+export function roundFocusHeadline(focus: RoundFocus): string {
+  const strokes = Math.abs(focus.sgDelta).toFixed(1)
+  return `${FOCUS_LABEL[focus.category]} cost you about ${strokes} strokes this round.`
+}
+
 // Compile-time check that every NudgeCategory is a real ShotCategory.
 const _categoryCheck: Record<NudgeCategory, ShotCategory> = {
   off_tee: 'off_tee',

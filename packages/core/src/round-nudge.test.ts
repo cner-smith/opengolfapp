@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { pickRoundFocus } from './round-nudge'
+import { roundFocusHeadline } from './round-nudge'
 
 const base = { sg_off_tee: 0, sg_approach: 0, sg_around_green: 0, sg_putting: 0 }
 
@@ -25,5 +26,16 @@ describe('pickRoundFocus', () => {
   it('breaks exact ties by putting > approach > around_green > off_tee', () => {
     expect(pickRoundFocus({ ...base, sg_off_tee: -1.0, sg_putting: -1.0 }))
       .toEqual({ category: 'putting', sgDelta: -1.0 })
+  })
+})
+
+describe('roundFocusHeadline', () => {
+  it('names the category and the strokes lost, one decimal', () => {
+    expect(roundFocusHeadline({ category: 'approach', sgDelta: -2.13 }))
+      .toBe('Approach cost you about 2.1 strokes this round.')
+  })
+  it('handles the around-green label', () => {
+    expect(roundFocusHeadline({ category: 'around_green', sgDelta: -1.0 }))
+      .toBe('Around the green cost you about 1.0 strokes this round.')
   })
 })
