@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { pickRoundFocus } from './round-nudge'
 import { roundFocusHeadline } from './round-nudge'
+import { selectNudgeDrills } from './round-nudge'
 
 const base = { sg_off_tee: 0, sg_approach: 0, sg_around_green: 0, sg_putting: 0 }
 
@@ -37,5 +38,21 @@ describe('roundFocusHeadline', () => {
   it('handles the around-green label', () => {
     expect(roundFocusHeadline({ category: 'around_green', sgDelta: -1.0 }))
       .toBe('Around the green cost you about 1.0 strokes this round.')
+  })
+})
+
+const d = (id: string, facility: string[] | null) => ({ id, facility })
+
+describe('selectNudgeDrills', () => {
+  it('keeps drills that need no facility or a facility the player has', () => {
+    const drills = [d('a', null), d('b', ['range']), d('c', ['net'])]
+    expect(selectNudgeDrills(drills, ['range']).map((x) => x.id)).toEqual(['a', 'b'])
+  })
+  it('caps at the limit (default 2)', () => {
+    const drills = [d('a', null), d('b', null), d('c', null)]
+    expect(selectNudgeDrills(drills, []).map((x) => x.id)).toEqual(['a', 'b'])
+  })
+  it('returns empty when nothing matches the player facilities', () => {
+    expect(selectNudgeDrills([d('a', ['net'])], ['range'])).toEqual([])
   })
 })

@@ -53,6 +53,22 @@ export function roundFocusHeadline(focus: RoundFocus): string {
   return `${FOCUS_LABEL[focus.category]} cost you about ${strokes} strokes this round.`
 }
 
+/** Keep drills doable at the player's facilities (empty facility = anywhere), cap at `limit`. */
+export function selectNudgeDrills<T extends { facility: string[] | null }>(
+  drills: T[],
+  facilities: string[],
+  limit = 2,
+): T[] {
+  return drills
+    .filter(
+      (drill) =>
+        !drill.facility ||
+        drill.facility.length === 0 ||
+        drill.facility.some((f) => facilities.includes(f)),
+    )
+    .slice(0, limit)
+}
+
 // Compile-time check that every NudgeCategory is a real ShotCategory.
 const _categoryCheck: Record<NudgeCategory, ShotCategory> = {
   off_tee: 'off_tee',
