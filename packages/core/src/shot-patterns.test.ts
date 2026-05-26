@@ -2,9 +2,11 @@ import { describe, expect, it } from 'vitest'
 import {
   computeDispersion,
   computeDispersionStats,
+  dispersionVerdict,
   filterDispersionByLie,
   getAimCorrection,
   type DispersionPoint,
+  type DispersionStats,
 } from './shot-patterns'
 import type { Shot } from './types'
 
@@ -155,5 +157,41 @@ describe('getAimCorrection', () => {
     )!
     expect(getAimCorrection(stats)).toContain('left')
     expect(getAimCorrection(stats)).toContain('8')
+  })
+})
+
+describe('dispersionVerdict', () => {
+  const stats = (overrides: Partial<DispersionStats>): DispersionStats => ({
+    avgLateralOffset: 0,
+    avgDistanceOffset: 0,
+    stdLateral: 0,
+    stdDistance: 0,
+    cone68: { lateral: 0, distance: 0 },
+    cone95: { lateral: 0, distance: 0 },
+    dominantMiss: 'straight',
+    shotShape: 'straight',
+    sampleSize: 10,
+    ...overrides,
+  })
+
+  it('calls a centered, straight pattern dead straight', () => {
+    expect(dispersionVerdict(stats({ shotShape: 'straight', dominantMiss: 'straight' }))).toBe(
+      'Dead straight',
+    )
+  })
+  it('names a consistent shape when the miss is straight', () => {
+    expect(dispersionVerdict(stats({ shotShape: 'fade', dominantMiss: 'straight' }))).toBe(
+      'A consistent fade',
+    )
+  })
+  it('reports a straight shape that still misses to a side', () => {
+    expect(dispersionVerdict(stats({ shotShape: 'straight', dominantMiss: 'left' }))).toBe(
+      'Straight, missing left',
+    )
+  })
+  it('describes a shape that leaks to its miss side', () => {
+    expect(dispersionVerdict(stats({ shotShape: 'draw', dominantMiss: 'right' }))).toBe(
+      'A draw that leaks right',
+    )
   })
 })
