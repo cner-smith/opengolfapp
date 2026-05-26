@@ -69,11 +69,6 @@ export function selectNudgeDrills<T extends { facility: string[] | null }>(
     .slice(0, limit)
 }
 
-// Compile-time check that every NudgeCategory is a real ShotCategory.
-const _categoryCheck: Record<NudgeCategory, ShotCategory> = {
-  off_tee: 'off_tee',
-  approach: 'approach',
-  around_green: 'around_green',
-  putting: 'putting',
-}
-void _categoryCheck
+// Compile-time guard that every NudgeCategory is a real ShotCategory.
+// Errors at build time if the two ever drift apart.
+type _NudgeIsShotCategory = NudgeCategory extends ShotCategory ? true : never

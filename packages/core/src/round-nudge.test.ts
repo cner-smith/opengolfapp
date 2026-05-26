@@ -26,6 +26,11 @@ describe('pickRoundFocus', () => {
     expect(pickRoundFocus({ ...base, sg_off_tee: -1.0, sg_putting: -1.0 }))
       .toEqual({ category: 'putting', sgDelta: -1.0 })
   })
+
+  it('includes the exact -0.5 threshold boundary (gate is > not >=)', () => {
+    expect(pickRoundFocus({ ...base, sg_approach: -0.5 }))
+      .toEqual({ category: 'approach', sgDelta: -0.5 })
+  })
 })
 
 describe('roundFocusHeadline', () => {
