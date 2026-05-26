@@ -72,8 +72,10 @@ export function ShotPatternsPage() {
     setExporting(true)
     setExportError(null)
     try {
-      // Mount the card on first export, then wait a paint for it to lay out
-      // before rasterising.
+      // The card is normally pre-mounted on the Export button's pointer-enter
+      // / focus (below), so the ref is ready here and the iOS share gesture
+      // token stays intact. Fallback: if a fast tap beat the mount, mount now
+      // and wait a paint — this rare path may forfeit the token (→ download).
       if (!shareCardRef.current) {
         setShowShareCard(true)
         await new Promise<void>((resolve) =>
@@ -200,6 +202,8 @@ export function ShotPatternsPage() {
               <button
                 type="button"
                 onClick={handleExport}
+                onPointerEnter={() => setShowShareCard(true)}
+                onFocus={() => setShowShareCard(true)}
                 disabled={exporting}
                 className="text-caddie-accent hover:bg-caddie-accent/10 disabled:opacity-40"
                 style={{
