@@ -39,6 +39,24 @@ export type Database = {
   }
   public: {
     Tables: {
+      course_submissions: {
+        Row: {
+          created_at: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       course_tees: {
         Row: {
           course_id: string
@@ -157,36 +175,60 @@ export type Database = {
       drills: {
         Row: {
           category: string | null
+          contributor: string | null
           created_at: string
           description: string | null
+          drill_type: string
           duration_min: number | null
           facility: string[] | null
+          goals: string[]
           id: string
           instructions: string | null
           name: string
           skill_levels: string[] | null
+          source: string | null
+          source_url: string | null
+          target_template: Json | null
+          targets: string[]
+          verified: boolean
         }
         Insert: {
           category?: string | null
+          contributor?: string | null
           created_at?: string
           description?: string | null
+          drill_type?: string
           duration_min?: number | null
           facility?: string[] | null
+          goals?: string[]
           id?: string
           instructions?: string | null
           name: string
           skill_levels?: string[] | null
+          source?: string | null
+          source_url?: string | null
+          target_template?: Json | null
+          targets?: string[]
+          verified?: boolean
         }
         Update: {
           category?: string | null
+          contributor?: string | null
           created_at?: string
           description?: string | null
+          drill_type?: string
           duration_min?: number | null
           facility?: string[] | null
+          goals?: string[]
           id?: string
           instructions?: string | null
           name?: string
           skill_levels?: string[] | null
+          source?: string | null
+          source_url?: string | null
+          target_template?: Json | null
+          targets?: string[]
+          verified?: boolean
         }
         Relationships: []
       }
@@ -304,33 +346,42 @@ export type Database = {
         Row: {
           ai_insight: string | null
           based_on_rounds: number | null
+          coach_note: string | null
           completed_drill_ids: string[]
           drills: Json | null
+          feedback: string | null
           focus_areas: Json | null
           generated_at: string
           id: string
+          raw_model_output: Json | null
           user_id: string
           valid_until: string | null
         }
         Insert: {
           ai_insight?: string | null
           based_on_rounds?: number | null
+          coach_note?: string | null
           completed_drill_ids?: string[]
           drills?: Json | null
+          feedback?: string | null
           focus_areas?: Json | null
           generated_at?: string
           id?: string
+          raw_model_output?: Json | null
           user_id: string
           valid_until?: string | null
         }
         Update: {
           ai_insight?: string | null
           based_on_rounds?: number | null
+          coach_note?: string | null
           completed_drill_ids?: string[]
           drills?: Json | null
+          feedback?: string | null
           focus_areas?: Json | null
           generated_at?: string
           id?: string
+          raw_model_output?: Json | null
           user_id?: string
           valid_until?: string | null
         }
@@ -644,6 +695,15 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      insert_synthetic_hole: {
+        Args: {
+          p_course_id: string
+          p_number: number
+          p_par: number
+          p_round_id: string
+        }
+        Returns: string
+      }
       search_courses: {
         Args: { result_limit?: number; search_query: string }
         Returns: {
@@ -805,3 +865,4 @@ export const Constants = {
     Enums: {},
   },
 } as const
+
