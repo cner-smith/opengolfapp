@@ -4,7 +4,10 @@ import { getDrills, getLatestPracticePlan } from '@oga/supabase'
 import { supabase } from '../lib/supabase'
 import { useAuth } from './useAuth'
 
-export function useDrills(filters: { skillLevel?: string; category?: ShotCategory } = {}) {
+export function useDrills(
+  filters: { skillLevel?: string; category?: ShotCategory } = {},
+  options: { enabled?: boolean } = {},
+) {
   return useQuery({
     queryKey: ['drills', filters.skillLevel, filters.category],
     queryFn: async () => {
@@ -12,6 +15,7 @@ export function useDrills(filters: { skillLevel?: string; category?: ShotCategor
       if (error) throw error
       return data ?? []
     },
+    enabled: options.enabled ?? true,
   })
 }
 
