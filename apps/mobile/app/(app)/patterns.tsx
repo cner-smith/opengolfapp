@@ -1,6 +1,8 @@
-import { useEffect, useMemo, useState } from 'react'
-import { Pressable, ScrollView, Text, useWindowDimensions, View } from 'react-native'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { Alert, Pressable, ScrollView, Text, useWindowDimensions, View } from 'react-native'
 import Svg, { Circle, Ellipse, Line, Rect, Text as SvgText } from 'react-native-svg'
+import { captureRef } from 'react-native-view-shot'
+import * as Sharing from 'expo-sharing'
 import {
   CLUBS,
   LIE_SLOPES,
@@ -12,6 +14,7 @@ import {
   type Club,
   type DispersionPoint,
   type DispersionStats,
+  type DistanceUnit,
   type LieSlope,
   type LieType,
   type Shot,
@@ -114,6 +117,37 @@ export default function Patterns() {
 
   const stats = useMemo(() => computeDispersionStats(points), [points])
 
+  const shareCardRef = useRef<View>(null)
+  const [sharing, setSharing] = useState(false)
+
+  // Capture the off-screen 1200×630 share card and hand it to the native
+  // share sheet via expo-sharing — same path as the scorecard share.
+  async function handleShare() {
+    if (sharing || !shareCardRef.current) return
+    setSharing(true)
+    try {
+      const uri = await captureRef(shareCardRef, {
+        format: 'png',
+        quality: 1,
+        result: 'tmpfile',
+      })
+      if (!(await Sharing.isAvailableAsync())) {
+        Alert.alert('Sharing unavailable', 'This device cannot share files.')
+        return
+      }
+      await Sharing.shareAsync(uri, {
+        mimeType: 'image/png',
+        dialogTitle: 'Share shot pattern',
+      })
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error('[patterns/share]', err)
+      Alert.alert('Share failed', (err as Error).message)
+    } finally {
+      setSharing(false)
+    }
+  }
+
   return (
     <View style={{ flex: 1, backgroundColor: '#F2EEE5' }}>
       <AppBar eyebrow={`Club ${club}`} title="Shot Patterns" />
@@ -157,6 +191,29 @@ export default function Patterns() {
             <>
               <DispersionPlot points={points} stats={stats} />
               <PatternLegend hasStats={!!stats} />
+              {stats && (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Export shot pattern image"
+                  accessibilityState={{ disabled: sharing }}
+                  onPress={handleShare}
+                  disabled={sharing}
+                  style={({ pressed }) => ({
+                    alignSelf: 'flex-start',
+                    marginTop: 14,
+                    paddingVertical: 9,
+                    paddingHorizontal: 14,
+                    borderWidth: 1,
+                    borderColor: '#1F3D2C',
+                    borderRadius: 2,
+                    opacity: pressed || sharing ? 0.6 : 1,
+                  })}
+                >
+                  <Text style={{ ...KICKER, color: '#1F3D2C' }}>
+                    {sharing ? 'Rendering…' : '↓ Export · 1200×630'}
+                  </Text>
+                </Pressable>
+              )}
             </>
           )}
         </Section>
@@ -216,6 +273,217 @@ export default function Patterns() {
           </View>
         )}
       </ScrollView>
+
+      {/* Off-screen render target for react-native-view-shot. Laid out
+          far off the left edge so it's never visible; collapsable={false}
+          keeps RN from optimising out the subtree the rasteriser reads. */}
+      {stats && (
+        <View
+          pointerEvents="none"
+          collapsable={false}
+          style={{ position: 'absolute', left: -10000, top: 0 }}
+        >
+          <View ref={shareCardRef} collapsable={false}>
+            <ShotPatternsShareCard
+              points={points}
+              stats={stats}
+              club={club}
+              unit={unit}
+              toDisplay={toDisplay}
+            />
+          </View>
+        </View>
+      )}
+    </View>
+  )
+}
+
+// Off-screen 1200×630 social share card — mobile parity of the web card
+// (apps/web ShotPatternsShareCard). Captured via react-native-view-shot.
+// Stats only — no username, email, or avatar.
+const SHARE_C = {
+  bg: '#FBF8F1',
+  surface: '#F2EEE5',
+  line: '#D9D2BF',
+  ink: '#1C211C',
+  inkDim: '#5C6356',
+  inkMute: '#8A8B7E',
+  accent: '#1F3D2C',
+} as const
+
+const SHARE_KICKER: import('react-native').TextStyle = {
+  fontWeight: '500',
+  letterSpacing: 2,
+  textTransform: 'uppercase',
+}
+
+function shareVerdict(stats: DispersionStats): string {
+  const { shotShape, dominantMiss } = stats
+  if (shotShape === 'straight' && dominantMiss === 'straight') return 'Dead straight'
+  if (dominantMiss === 'straight') return `A consistent ${shotShape}`
+  if (shotShape === 'straight') return `Straight, missing ${dominantMiss}`
+  return `A ${shotShape} that leaks ${dominantMiss}`
+}
+
+function ShotPatternsShareCard({
+  points,
+  stats,
+  club,
+  unit,
+  toDisplay,
+}: {
+  points: DispersionPoint[]
+  stats: DispersionStats
+  club: Club
+  unit: DistanceUnit
+  toDisplay: (yards: number, decimals?: number) => string
+}) {
+  const c = SHARE_C
+  return (
+    <View
+      style={{
+        width: 1200,
+        height: 630,
+        backgroundColor: c.bg,
+        paddingVertical: 44,
+        paddingHorizontal: 56,
+      }}
+    >
+      <View
+        style={{
+          flexDirection: 'row',
+          justifyContent: 'space-between',
+          alignItems: 'flex-start',
+          paddingBottom: 22,
+          borderBottomWidth: 1,
+          borderColor: c.line,
+        }}
+      >
+        <View>
+          <Text
+            style={{ ...SHARE_KICKER, fontSize: 14, color: c.inkMute, marginBottom: 8 }}
+          >
+            Open Golf App
+          </Text>
+          <Text
+            style={{
+              fontFamily: 'Fraunces-MediumItalic',
+              fontWeight: '500',
+              fontSize: 44,
+              color: c.ink,
+            }}
+          >
+            OGA
+          </Text>
+        </View>
+        <Text style={{ ...SHARE_KICKER, fontSize: 14, color: c.inkMute }}>
+          Shot Pattern
+        </Text>
+      </View>
+
+      <View
+        style={{
+          flex: 1,
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 48,
+          paddingVertical: 16,
+        }}
+      >
+        <View
+          style={{
+            padding: 14,
+            backgroundColor: c.surface,
+            borderWidth: 1,
+            borderColor: c.line,
+            borderRadius: 4,
+          }}
+        >
+          <DispersionPlot points={points} stats={stats} size={350} />
+        </View>
+
+        <View style={{ flex: 1 }}>
+          <Text
+            style={{ ...SHARE_KICKER, fontSize: 15, color: c.inkMute, marginBottom: 10 }}
+          >
+            {club}
+          </Text>
+          <Text
+            style={{
+              fontFamily: 'Fraunces-Medium',
+              fontWeight: '500',
+              fontSize: 46,
+              color: c.ink,
+              marginBottom: 30,
+            }}
+          >
+            {shareVerdict(stats)}
+          </Text>
+          <View style={{ flexDirection: 'row', gap: 40, marginBottom: 30 }}>
+            <ShareStat label="Sample" value={`${stats.sampleSize} shots`} c={c} />
+            <ShareStat
+              label="68% spread"
+              value={`±${toDisplay(stats.cone68.lateral, 1)} / ${toDisplay(stats.cone68.distance, 1)}`}
+              c={c}
+            />
+            <ShareStat label="Dominant miss" value={stats.dominantMiss} c={c} />
+          </View>
+          <Text
+            style={{
+              fontFamily: 'Fraunces-Medium',
+              fontSize: 22,
+              lineHeight: 33,
+              color: c.inkDim,
+            }}
+          >
+            {getAimCorrection(stats, unit)}
+          </Text>
+        </View>
+      </View>
+
+      <View
+        style={{
+          flexDirection: 'row',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          paddingTop: 20,
+          borderTopWidth: 1,
+          borderColor: c.line,
+        }}
+      >
+        <Text style={{ ...SHARE_KICKER, fontSize: 15, color: c.accent }}>oga.golf</Text>
+        <Text style={{ ...SHARE_KICKER, fontSize: 13, color: c.inkMute }}>
+          Free forever · no paywalls
+        </Text>
+      </View>
+    </View>
+  )
+}
+
+function ShareStat({
+  label,
+  value,
+  c,
+}: {
+  label: string
+  value: string
+  c: typeof SHARE_C
+}) {
+  return (
+    <View>
+      <Text style={{ ...SHARE_KICKER, fontSize: 12, color: c.inkMute, marginBottom: 6 }}>
+        {label}
+      </Text>
+      <Text
+        style={{
+          fontFamily: 'Fraunces-Medium',
+          fontWeight: '500',
+          fontSize: 26,
+          color: c.ink,
+        }}
+      >
+        {value}
+      </Text>
     </View>
   )
 }
@@ -370,12 +638,15 @@ function LegendEllipse({ opacity, label }: { opacity: number; label: string }) {
 function DispersionPlot({
   points,
   stats,
+  size: sizeProp,
 }: {
   points: DispersionPoint[]
   stats: DispersionStats | null
+  // Fixed size for the share card; omitted on-screen → responsive width.
+  size?: number
 }) {
   const { width: screenWidth } = useWindowDimensions()
-  const size = Math.min(SVG_SIZE, screenWidth - 56)
+  const size = sizeProp ?? Math.min(SVG_SIZE, screenWidth - 56)
 
   const maxAbs = Math.max(
     ...points.map((p) =>
