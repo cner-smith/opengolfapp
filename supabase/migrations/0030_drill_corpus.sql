@@ -12,7 +12,8 @@ alter table public.drills
     check (drill_type in ('warmup','technical','skill_game','pressure_game','putting')),
   add column if not exists target_template jsonb,                           -- measurement + skill scaling; resolved in @oga/core (engine track)
   add column if not exists source          text,                           -- instructional origin (PGA pro / book / video / study)
-  add column if not exists source_url      text,                           -- link to that origin (nullable: books/seminars have none)
+  add column if not exists source_url      text
+    check (source_url is null or source_url ~ '^https?://'),               -- link to origin (nullable; http(s) only — blocks javascript: etc. at the boundary)
   add column if not exists contributor     text,                           -- who added the drill to OGA (GH handle/name)
   add column if not exists verified        boolean not null default false; -- maintainer-vetted; retrieval gate requires true
 
@@ -21,6 +22,10 @@ create index if not exists drills_goals_gin   on public.drills using gin (goals)
 
 -- Feedback loop + generator output (read on the next generation, so bundled here).
 alter table public.practice_plans
-  add column if not exists feedback         text,   -- one untrusted free-text note per plan (<=500 chars, enforced in app)
+  -- One UNTRUSTED free-text note per plan (next-gen loop). DB-capped here so a
+  -- direct client write can't exceed it; MUST also be delimited/sanitized
+  -- before any prompt interpolation — preference-signal only, never able to
+  -- override rules/schema/drill set (spec D14). Treat as injection-prone input.
+  add column if not exists feedback         text check (char_length(feedback) <= 500),
   add column if not exists coach_note       text,   -- editorial "why this week" (OGA voice)
   add column if not exists raw_model_output jsonb;  -- persisted tool-call output for spot-check / regression
