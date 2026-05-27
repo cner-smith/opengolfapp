@@ -90,51 +90,52 @@ function normalizeCategoryProse(text: string): string {
 }
 
 // Tiny markdown-ish renderer scoped to the drill `instructions` format.
-// Segmentation: splits into paragraphs on either (a) a blank line or
-// (b) the boundary immediately before a **Header.** token — so the
-// continuous seed format `**Why.** … **Setup.** … **How.** …` produces
-// one paragraph per section rather than one wall of text.
-// Inline tokens: `**bold**` → <strong>, `*italic*` → <em>.
+// Tokenizes left-to-right into complete tokens (**bold** | *italic* | plain)
+// then groups: each **bold** header starts a new paragraph, following
+// plain/italic text belongs to that section.
+// The continuous seed format `**Why.** prose **Setup.** prose` produces one
+// paragraph per section. Complete-token matching (not a lookahead) avoids the
+// closing-**+body+opening-** ambiguity of the prior split approach.
 // No dangerouslySetInnerHTML — all text nodes + React elements only.
 function renderInstructions(text: string): React.ReactNode {
-  // Step 1: split on blank lines first, then within each chunk split
-  // before any **Header** token (lookahead keeps the token in the next segment).
-  const rawSegments = text
-    .split(/\n\s*\n/)
-    .flatMap((chunk) =>
-      chunk
-        .trim()
-        // Split at the position immediately before a **…** token that isn't
-        // at the very start of the chunk (so a leading header stays in chunk[0]).
-        .split(/(?=\*\*[^*]+\*\*)/)
-        .map((s) => s.trim())
-        .filter(Boolean),
-    )
-
-  // Inline tokenizer: handle both **bold** and *italic* (single asterisk).
-  function renderInline(para: string): React.ReactNode[] {
-    return para.split(/(\*\*[^*]+\*\*|\*[^*]+\*)/g).map((part, i) => {
-      if (/^\*\*[^*]+\*\*$/.test(part)) {
-        return (
-          <strong key={i} className="text-caddie-ink" style={{ fontWeight: 600 }}>
-            {part.slice(2, -2)}
-          </strong>
-        )
-      }
-      if (/^\*[^*]+\*$/.test(part)) {
-        return <em key={i}>{part.slice(1, -1)}</em>
-      }
-      return part
-    })
+  // Tokenize left-to-right into complete tokens: **bold** | *italic* | plain.
+  // Matching complete tokens (not a lookahead) avoids the closing-**+body+opening-**
+  // ambiguity. The seed uses **…** only for section headers and *…* for emphasis.
+  const tokens = text.match(/\*\*[^*]+\*\*|\*[^*]+\*|[^*]+/g) ?? []
+  // Group into paragraphs: each **bold** header starts a new paragraph; the
+  // following plain/italic text belongs to that section.
+  type Seg = { kind: 'b' | 'i' | 't'; text: string }
+  const paras: Seg[][] = []
+  let cur: Seg[] = []
+  for (const tok of tokens) {
+    if (tok.startsWith('**')) {
+      if (cur.length) paras.push(cur)
+      cur = [{ kind: 'b', text: tok.slice(2, -2) }]
+    } else if (tok.startsWith('*')) {
+      cur.push({ kind: 'i', text: tok.slice(1, -1) })
+    } else {
+      cur.push({ kind: 't', text: tok })
+    }
   }
+  if (cur.length) paras.push(cur)
 
-  return rawSegments.map((para, pi) => (
+  return paras.map((para, pi) => (
     <p
       key={pi}
       className="font-serif text-caddie-ink-dim"
       style={{ fontSize: 15, lineHeight: 1.6, marginTop: pi === 0 ? 0 : 12 }}
     >
-      {renderInline(para)}
+      {para.map((seg, si) =>
+        seg.kind === 'b' ? (
+          <strong key={si} className="text-caddie-ink" style={{ fontWeight: 600 }}>
+            {seg.text}
+          </strong>
+        ) : seg.kind === 'i' ? (
+          <em key={si}>{seg.text}</em>
+        ) : (
+          <span key={si}>{seg.text}</span>
+        ),
+      )}
     </p>
   ))
 }
