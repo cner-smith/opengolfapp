@@ -9,7 +9,6 @@ export interface ValidationCtx {
   articlesLen: number // size of the published-article set; article_ref must index into it
 }
 
-const MINUTE_TOLERANCE = 0.2
 const MAX_OVERLAP = 0.6
 
 export function validatePlanDraft(
@@ -26,7 +25,6 @@ export function validatePlanDraft(
 
   const usedIds = new Set<string>()
   for (const s of draft.sessions) {
-    let sum = 0
     for (const b of s.blocks) {
       const drill = refOf(b.drill_ref)
       if (!drill) {
@@ -42,14 +40,8 @@ export function validatePlanDraft(
       if (!Number.isFinite(b.minutes) || b.minutes <= 0) {
         errors.push(`block ${b.id} minutes ${b.minutes} invalid (must be a finite number > 0)`)
       }
-      sum += b.minutes
     }
-    // D4: total_minutes must be positive and finite; sum of block minutes must be within 20%
-    if (!Number.isFinite(s.total_minutes) || s.total_minutes <= 0) {
-      errors.push(`session "${s.title}" total_minutes ${s.total_minutes} invalid (must be > 0)`)
-    } else if (Math.abs(sum - s.total_minutes) / s.total_minutes > MINUTE_TOLERANCE) {
-      errors.push(`session "${s.title}" minutes ${sum} vs total ${s.total_minutes} >20%`)
-    }
+    // total_minutes is server-derived (sum of block minutes) — not validated here
   }
 
   // D5: each of the top-2 weaknesses must have at least one non-warmup block covering it

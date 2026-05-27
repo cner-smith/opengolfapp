@@ -54,11 +54,14 @@ describe('validatePlanDraft', () => {
     expect(validatePlanDraft(bad, ctx).ok).toBe(false)
   })
 
-  it('rejects when block minutes diverge >20% from total_minutes', () => {
+  it('accepts a draft whose total_minutes disagrees with the block sum (server derives it)', () => {
+    // total_minutes is now server-derived from block minutes; the model's emitted value is
+    // ignored — a mismatch (65 declared vs 85 in blocks) must no longer reject.
     const bad = structuredClone(okDraft)
+    // S1 blocks sum to 43; set total_minutes to something wildly wrong
     // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- structuredClone(okDraft) preserves the full shape, so this indexed access is non-null
-    bad.sessions[0]!.total_minutes = 200
-    expect(validatePlanDraft(bad, ctx).ok).toBe(false)
+    bad.sessions[0]!.total_minutes = 65 // blocks still sum to 43 — mismatch, but should pass
+    expect(validatePlanDraft(bad, ctx).ok).toBe(true)
   })
 
   it('rejects the wrong session count', () => {
@@ -85,11 +88,14 @@ describe('validatePlanDraft', () => {
     expect(validatePlanDraft(bad, ctx).ok).toBe(false)
   })
 
-  it('rejects a non-positive total_minutes (no longer silently skipped)', () => {
+  it('rejects a zero block minutes (per-block positivity check remains)', () => {
+    // The per-block minutes check (D3-adjacent) is independent of the removed D4 total check.
+    // A block with minutes=0 must still fail even though total_minutes is no longer validated.
+    const bad = structuredClone(okDraft)
     // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- structuredClone(okDraft) preserves the full shape, so this indexed access is non-null
-    const bad = structuredClone(okDraft); bad.sessions[0]!.total_minutes = 0
+    bad.sessions[0]!.blocks[1]!.minutes = 0
     const r = validatePlanDraft(bad, ctx)
-    expect(r.ok).toBe(false); expect(r.errors.join(' ')).toMatch(/total_minutes/)
+    expect(r.ok).toBe(false); expect(r.errors.join(' ')).toMatch(/invalid/)
   })
 
   it('rejects a negative block minutes', () => {
