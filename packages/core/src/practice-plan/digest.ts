@@ -3,12 +3,12 @@ import type {
 } from './types'
 
 // Tie-break priority (cheapest strokes first) — matches round-nudge.ts.
-const CATEGORIES: { key: keyof RoundSG; cat: PlanCategory }[] = [
+const CATEGORIES = [
   { key: 'sg_putting', cat: 'putting' },
   { key: 'sg_approach', cat: 'approach' },
   { key: 'sg_around_green', cat: 'around_green' },
   { key: 'sg_off_tee', cat: 'off_tee' },
-]
+] as const satisfies ReadonlyArray<{ key: keyof RoundSG; cat: PlanCategory }>
 
 // Pre-compute index map for explicit tie-breaking in sort.
 const CATEGORY_INDEX: Record<PlanCategory, number> = {
@@ -29,7 +29,7 @@ function mean(xs: number[]): number | null {
   return xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null
 }
 
-/** Sign of a simple first-vs-last split over chronologically-ordered values. */
+/** Label from a first-half vs last-half split over chronologically-ordered values. */
 function trendLabel(vals: number[]): 'improving' | 'declining' | 'flat' {
   if (vals.length < 3) return 'flat'
   const half = Math.floor(vals.length / 2)
