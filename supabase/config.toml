@@ -55,3 +55,9 @@ policy = "oneshot"
 
 [analytics]
 enabled = false
+
+# generate-practice-plan runs as the CALLER (user JWT). verify_jwt = true is
+# the gateway-level guard that validates the signature before the handler runs;
+# the dryRun service-role gate inside the function is only safe while this is on.
+[functions.generate-practice-plan]
+verify_jwt = true

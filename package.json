@@ -15,7 +15,8 @@
     "seed:my-data": "tsx scripts/seed-my-data.ts",
     "import:osm": "tsx scripts/import-osm-course.ts",
     "crawl:courses": "tsx scripts/crawl-courses.ts",
-    "email:vendor-core": "mkdir -p supabase/functions/_shared && cp packages/core/src/round-summary.ts supabase/functions/_shared/round-summary.ts"
+    "email:vendor-core": "mkdir -p supabase/functions/_shared && cp packages/core/src/round-summary.ts supabase/functions/_shared/round-summary.ts",
+    "vendor:practice-plan": "mkdir -p supabase/functions/_shared/practice-plan && cp $(ls packages/core/src/practice-plan/*.ts | grep -v '\\.test\\.ts' | grep -v '/index\\.ts') supabase/functions/_shared/practice-plan/"
   },
   "devDependencies": {
     "@supabase/supabase-js": "^2.45.0",
