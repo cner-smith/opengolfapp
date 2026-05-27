@@ -1,41 +1,17 @@
 import { Link } from 'react-router-dom'
+import type { PlanCategory, BlockType, StoredBlock, StoredSession, StoredFocusArea } from '@oga/core'
 import { useDrillsByIds, useGeneratePlan, useLatestPracticePlan } from '../../hooks/useDrills'
 import { toUserMessage } from '../../lib/errors'
 
 // ---------------------------------------------------------------------------
 // Stored-plan shapes. The generated Supabase types store `drills` and
 // `focus_areas` as `Json | null`; the engine writes the structured shapes
-// below (see the AI-plan engine spec). We narrow them here so the render
-// code is type-safe without trusting the loose Json type.
+// defined in `@oga/core` (StoredBlock, StoredSession, StoredFocusArea).
+// We narrow them here so the render code is type-safe without trusting the
+// loose Json type.
 // ---------------------------------------------------------------------------
 
-type PlanCategory = 'off_tee' | 'approach' | 'around_green' | 'putting'
-
-type BlockType = 'warmup' | 'technical' | 'skill_game' | 'pressure_game' | 'putting'
-
-type FocusArea = {
-  category: PlanCategory
-  reason: string
-  article?: { title: string; slug: string } | null
-}
-
-type PlanBlock = {
-  id: string
-  order: number
-  type: BlockType
-  drill_id: string
-  minutes: number
-  rationale: string
-  target: number | null
-}
-
-type PlanSession = {
-  title: string
-  total_minutes: number
-  blocks: PlanBlock[]
-}
-
-type PlanDrills = { sessions: PlanSession[] }
+type PlanDrills = { sessions: StoredSession[] }
 
 const CATEGORY_LABEL: Record<PlanCategory, string> = {
   off_tee: 'Off the tee',
@@ -59,7 +35,6 @@ const FACILITY_LABEL: Record<string, string> = {
   sim: 'Simulator',
 }
 
-const ACCENT = '#1F3D2C'
 const LINE = '#D9D2BF'
 
 // ---------------------------------------------------------------------------
@@ -91,8 +66,8 @@ function asDrills(value: unknown): PlanDrills {
   return { sessions: [] }
 }
 
-function asFocusAreas(value: unknown): FocusArea[] {
-  return Array.isArray(value) ? (value as FocusArea[]) : []
+function asFocusAreas(value: unknown): StoredFocusArea[] {
+  return Array.isArray(value) ? (value as StoredFocusArea[]) : []
 }
 
 // ---------------------------------------------------------------------------
@@ -329,7 +304,7 @@ function ReasoningPanel({ note }: { note: string }) {
   )
 }
 
-function FocusAreas({ areas }: { areas: FocusArea[] }) {
+function FocusAreas({ areas }: { areas: StoredFocusArea[] }) {
   if (areas.length === 0) return null
   return (
     <section style={{ borderTop: `1px solid ${LINE}`, paddingTop: 18, marginBottom: 32 }}>
@@ -377,7 +352,7 @@ function DrillCard({
   facilities,
 }: {
   index: number
-  block: PlanBlock
+  block: StoredBlock
   drillName: string
   facilities: string[]
 }) {
@@ -458,10 +433,10 @@ function DrillCard({
         </div>
         {block.target != null ? (
           <div
-            className="font-mono text-caddie-ink-mute"
-            style={{ fontSize: 10, letterSpacing: '0.04em', marginTop: 6 }}
+            className="font-mono text-caddie-ink-dim"
+            style={{ fontSize: 10, letterSpacing: '0.04em', marginTop: 10 }}
           >
-            target: {block.target}
+            Target: {block.target}
           </div>
         ) : null}
       </div>
@@ -474,7 +449,7 @@ function SessionSection({
   sessionNumber,
   drillsById,
 }: {
-  session: PlanSession
+  session: StoredSession
   sessionNumber: number
   drillsById: Record<string, { name: string; facility: string[] | null }>
 }) {
@@ -492,7 +467,7 @@ function SessionSection({
       </h2>
       <div>
         {blocks.map((block, i) => {
-          const drill = drillsById[block.drill_id]
+          const drill = block.drill_id ? drillsById[block.drill_id] : undefined
           return (
             <DrillCard
               key={block.id ?? `${block.drill_id}-${i}`}
@@ -520,8 +495,11 @@ export function PracticePlanPage() {
   const drills = asDrills(plan?.drills)
   const focusAreas = asFocusAreas(plan?.focus_areas)
 
-  // Resolve every block's drill UUID → row in one query.
-  const drillIds = drills.sessions.flatMap((s) => s.blocks.map((b) => b.drill_id))
+  // Resolve every block's drill UUID → row in one query. drill_id is string | undefined
+  // (StoredBlock shape); filter out any undefined before passing to useDrillsByIds.
+  const drillIds = drills.sessions.flatMap((s) =>
+    s.blocks.map((b) => b.drill_id).filter((id): id is string => id !== undefined),
+  )
   const drillsByIds = useDrillsByIds(drillIds)
   const drillsById = drillsByIds.data ?? {}
 
