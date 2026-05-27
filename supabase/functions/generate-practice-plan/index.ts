@@ -81,7 +81,13 @@ function decodeJwt(req: Request): Record<string, unknown> | null {
 // Assembled here (claude.ts returns per-call `attempt`s; we own the envelope).
 type RawModelOutput =
   | { status: 'ok' | 'repaired'; model: string; attempts: CallAttempt[]; request_id: string | null }
-  | { status: 'error'; model: string; error_type: string; request_id: string | null; message: string }
+  | {
+      status: 'error'
+      model: string
+      error_type: string
+      request_id: string | null
+      message: string
+    }
   | { status: 'baseline'; reason: string }
 
 // --- DB row shapes ---------------------------------------------------------
@@ -176,11 +182,9 @@ Deno.serve(async (req) => {
 
   // RLS-scoped client: anon key + the caller's JWT. NEVER the service-role key.
   const authHeader = req.headers.get('Authorization') ?? ''
-  const supabase = createClient(
-    Deno.env.get('SUPABASE_URL')!,
-    Deno.env.get('SUPABASE_ANON_KEY')!,
-    { global: { headers: { Authorization: authHeader } } },
-  )
+  const supabase = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_ANON_KEY')!, {
+    global: { headers: { Authorization: authHeader } },
+  })
 
   // Parse body once (dryRun + targetUserId). Tolerate an empty body.
   let body: { dryRun?: boolean; targetUserId?: string } = {}
@@ -225,11 +229,15 @@ Deno.serve(async (req) => {
       console.error('[generate-practice-plan] global-count rpc failed', rpcErr.message)
     } else if (typeof globalCount === 'number') {
       if (globalCount >= GLOBAL_MONTHLY_CAP) {
-        console.warn(`[generate-practice-plan] global cap hit (${globalCount}/${GLOBAL_MONTHLY_CAP}) → baseline`)
+        console.warn(
+          `[generate-practice-plan] global cap hit (${globalCount}/${GLOBAL_MONTHLY_CAP}) → baseline`,
+        )
         return await serveLatestOrBaseline(supabase, targetUserId, 'global_cap', dryRun)
       }
       if (globalCount >= GLOBAL_MONTHLY_CAP * 0.8) {
-        console.warn(`[generate-practice-plan] global generations at ${globalCount}/${GLOBAL_MONTHLY_CAP} (>=80%)`)
+        console.warn(
+          `[generate-practice-plan] global generations at ${globalCount}/${GLOBAL_MONTHLY_CAP} (>=80%)`,
+        )
       }
     }
   }
@@ -271,7 +279,8 @@ Deno.serve(async (req) => {
   // service-role dryRun path — a service_role JWT bypasses RLS, so without it the
   // rounds queries would aggregate every user's rounds. (profiles below is
   // already keyed by id.)
-  const sgFilter = 'sg_off_tee.not.is.null,sg_approach.not.is.null,sg_around_green.not.is.null,sg_putting.not.is.null'
+  const sgFilter =
+    'sg_off_tee.not.is.null,sg_approach.not.is.null,sg_around_green.not.is.null,sg_putting.not.is.null'
   const { count: sgRoundCount } = await supabase
     .from('rounds')
     .select('id', { count: 'exact', head: true })
@@ -324,19 +333,26 @@ Deno.serve(async (req) => {
   const { sessionCount, validityDays } = playFrequencyPlan(profile.play_frequency)
 
   // ----- Step 7: retrieve → prompt → Claude → validate (+ repair) ---------
-  const candidates: CandidateDrill[] = await getCandidatePool(supabase, {
-    skillLevel: profile.skill_level ?? 'developing',
-    goal: profile.goal ?? 'break_90',
-    facilities: profile.facilities,
-    // Top weaknesses drive the gate; always carry a warmup/putting via
-    // retrieval's completeness guarantee. weaknessTargets is intentionally
-    // OMITTED — no category→target-tag map exists in @oga/core yet, and the opt
-    // is optional (absent ⇒ stable id-asc order). Wire it when that map lands.
-    // Pass the FULL ranked list (worst-first) — a too-narrow gate could starve
-    // the pool; the prompt rules still force top-2 coverage on the model side.
-    focusCategories: weaknesses,
-  })
-  const articles: PlanArticle[] = getPublishedArticles()
+  let candidates: CandidateDrill[]
+  let articles: PlanArticle[]
+  try {
+    candidates = await getCandidatePool(supabase, {
+      skillLevel: profile.skill_level ?? 'developing',
+      goal: profile.goal ?? 'break_90',
+      facilities: profile.facilities,
+      // Top weaknesses drive the gate; always carry a warmup/putting via
+      // retrieval's completeness guarantee. weaknessTargets is intentionally
+      // OMITTED — no category→target-tag map exists in @oga/core yet, and the opt
+      // is optional (absent ⇒ stable id-asc order). Wire it when that map lands.
+      // Pass the FULL ranked list (worst-first) — a too-narrow gate could starve
+      // the pool; the prompt rules still force top-2 coverage on the model side.
+      focusCategories: weaknesses,
+    })
+    articles = getPublishedArticles()
+  } catch (err) {
+    console.error('[generate-practice-plan] retrieval failed', (err as Error).message)
+    return await serveBaseline(supabase, targetUserId, 'retrieval_failed', dryRun)
+  }
 
   // Try the generated path; any failure (Claude error, invalid-after-repair,
   // truncation, unresolved drill_ref at storage) diverts to baseline below.
@@ -521,7 +537,13 @@ function classifyClaudeError(err: unknown, model: string): RawModelOutput {
   // Protocol failures from claude.ts (already typed).
   if (err instanceof PlanTruncatedError || err instanceof PlanToolUseMissingError) {
     console.error(`[generate-practice-plan] ${err.name} (request ${err.request_id}) → baseline`)
-    return { status: 'error', model, error_type: err.name, request_id: err.request_id, message: err.message }
+    return {
+      status: 'error',
+      model,
+      error_type: err.name,
+      request_id: err.request_id,
+      message: err.message,
+    }
   }
 
   if (err instanceof Anthropic.APIError) {
@@ -531,12 +553,21 @@ function classifyClaudeError(err: unknown, model: string): RawModelOutput {
 
     // Config outage: bad/missing ANTHROPIC_API_KEY → every user silently
     // baselines forever. LOUD, distinct alert.
-    if (err instanceof Anthropic.AuthenticationError || err instanceof Anthropic.PermissionDeniedError) {
+    if (
+      err instanceof Anthropic.AuthenticationError ||
+      err instanceof Anthropic.PermissionDeniedError
+    ) {
       console.error(
         `[generate-practice-plan] 🔴 CLAUDE AUTH/PERMISSION FAILURE — ANTHROPIC_API_KEY likely bad/missing; ` +
           `ALL users are silently getting baselines. ${err.message} (request ${requestID})`,
       )
-      return { status: 'error', model, error_type: errType, request_id: requestID, message: err.message }
+      return {
+        status: 'error',
+        model,
+        error_type: errType,
+        request_id: requestID,
+        message: err.message,
+      }
     }
 
     // Transient: rate-limit / overload (529→InternalServerError) / 5xx. Baseline
@@ -555,12 +586,26 @@ function classifyClaudeError(err: unknown, model: string): RawModelOutput {
         `[generate-practice-plan] transient Claude error (${errType}/${type ?? err.status}) → baseline, cap not burned. ` +
           `${err.message} (request ${requestID})`,
       )
-      return { status: 'error', model, error_type: `transient:${errType}`, request_id: requestID, message: err.message }
+      return {
+        status: 'error',
+        model,
+        error_type: `transient:${errType}`,
+        request_id: requestID,
+        message: err.message,
+      }
     }
 
     // BadRequest / everything else.
-    console.error(`[generate-practice-plan] Claude error ${errType}: ${err.message} (request ${requestID}) → baseline`)
-    return { status: 'error', model, error_type: errType, request_id: requestID, message: err.message }
+    console.error(
+      `[generate-practice-plan] Claude error ${errType}: ${err.message} (request ${requestID}) → baseline`,
+    )
+    return {
+      status: 'error',
+      model,
+      error_type: errType,
+      request_id: requestID,
+      message: err.message,
+    }
   }
 
   // Non-SDK error (e.g. our own "validation failed after repair" / no-budget).

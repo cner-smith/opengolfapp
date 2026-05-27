@@ -10,10 +10,7 @@
 // orchestrator and passed in; this module never creates one.
 import type { SupabaseClient } from 'npm:@supabase/supabase-js@2'
 import type { CandidateDrill, PlanCategory, BlockType } from '../_shared/practice-plan/types.ts'
-import {
-  getPublishedArticles,
-  type PublishedArticle,
-} from '../_shared/published-articles.ts'
+import { getPublishedArticles, type PublishedArticle } from '../_shared/published-articles.ts'
 
 const POOL_LIMIT = 25
 
@@ -50,7 +47,16 @@ export interface CandidatePoolOpts {
 
 /** A PostgREST array/element literal: brace-wrapped, comma-joined. Values here are
  *  internal enum-like tokens (skill levels, goals, facility keys) with no commas,
- *  quotes, or braces, so no element-quoting is needed. */
+ *  quotes, or braces, so no element-quoting is needed.
+ *
+ *  Trust posture for interpolated values:
+ *  - `goal` is safe: DB CHECK constraint (migration 0001) limits it to the
+ *    known enum set ('break_100', 'break_90', …, 'scratch').
+ *  - `facilities` is safe in practice (app-controlled enum values) but has NO
+ *    DB CHECK constraint — it's a text[] with no brace/comma characters in any
+ *    valid value, so pgArray can't be weaponized. A malformed PostgREST filter
+ *    from either will throw in getCandidatePool, which now degrades to a baseline
+ *    in the orchestrator (no hard 500). */
 function pgArray(values: string[]): string {
   return `{${values.join(',')}}`
 }
@@ -87,11 +93,15 @@ function toCandidate(r: DrillRow): CandidateDrill {
  * PostgREST can't ORDER BY an array-overlap count, so we fetch the full gated set
  * ordered by `id asc` (stable + total), score overlap in JS, and stable-sort.
  *
- * Completeness guarantee: the returned ≤25 always includes ≥1 `warmup` AND ≥1
- * drill whose `drill_type` is `putting` or `pressure_game` (when the gated set
- * contains any), so the model can always build a full session. If the top slice
- * lacks one, we reserve a slot by swapping in the best-ranked qualifying drill
- * (dropping the current lowest-ranked occupant), preserving the ≤25 cap.
+ * Completeness guarantee: the pool is normally capped at POOL_LIMIT (25) and
+ * always includes ≥1 `warmup` AND ≥1 drill whose `drill_type` is `putting` or
+ * `pressure_game` (when the gated set contains any), so the model can always
+ * build a full session. In the degenerate case where the top-25 can't satisfy
+ * both guarantees via the swap path (every slot is shielding the other
+ * guarantee), `ensurePresent` appends rather than swaps, so the pool may grow
+ * to 26–27. This is safe: `validatePlanDraft` range-checks every `drill_ref`
+ * against `candidates.length`, so a slightly-over-cap pool never causes a
+ * silent out-of-bounds resolve.
  */
 export async function getCandidatePool(
   supabase: SupabaseClient,

@@ -16,9 +16,11 @@ security definer
 set search_path = ''
 stable
 as $$
+  -- AT TIME ZONE 'UTC' pins the month boundary to UTC, consistent with 0031's
+  -- day-boundary index and the per-user cap in the orchestrator.
   select count(*)::int
   from public.practice_plans
-  where generated_at >= date_trunc('month', now());
+  where generated_at >= date_trunc('month', now() AT TIME ZONE 'UTC');
 $$;
 
 grant execute on function public.plan_generations_this_month() to authenticated;
