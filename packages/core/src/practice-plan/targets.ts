@@ -9,8 +9,9 @@ export function resolveTarget(tmpl: TargetTemplate, digest: PlayerDigest): numbe
   const skill = digest.profile.skill_level ?? SKILL_FALLBACK
   let value = tmpl.baseline[skill] ?? tmpl.baseline[SKILL_FALLBACK] ?? tmpl.min
 
-  if (tmpl.scales_with) {
-    // Only dispersion scaling is defined for v1. Tighter cone -> +1, wide -> -1.
+  // Only 'approach_dispersion' scaling is defined for v1; other keys are no-ops
+  // (baseline only) until more scaling rules are added.
+  if (tmpl.scales_with === 'approach_dispersion') {
     const disp = digest.dispersion[0]?.cone68.lateral
     if (disp != null) value += disp < 8 ? 1 : disp > 16 ? -1 : 0
   }

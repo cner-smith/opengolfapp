@@ -17,11 +17,10 @@ describe('resolveTarget', () => {
     expect(resolveTarget(tmpl, digest('developing', 12))).toBe(6)
   })
   it('raises the bar when the scaling stat is tight, clamps to max', () => {
-    expect(resolveTarget(tmpl, digest('competitive', 4))).toBeLessThanOrEqual(9)
-    expect(resolveTarget(tmpl, digest('competitive', 4))).toBeGreaterThanOrEqual(7)
+    expect(resolveTarget(tmpl, digest('competitive', 4))).toBe(8)
   })
   it('clamps to min and falls back when skill/baseline missing', () => {
     const t2 = { ...tmpl, baseline: { developing: 6 } }
-    expect(resolveTarget(t2, digest('beginner', 30))).toBeGreaterThanOrEqual(3)
+    expect(resolveTarget(t2, digest('beginner', 30))).toBe(5)
   })
 })

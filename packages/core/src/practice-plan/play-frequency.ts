@@ -11,5 +11,5 @@ const SESSIONS: Record<PlayFrequency, number> = {
 export function playFrequencyPlan(
   freq: PlayFrequency | null | undefined,
 ): { sessionCount: number; validityDays: number } {
-  return { sessionCount: (freq && SESSIONS[freq]) || 2, validityDays: 7 }
+  return { sessionCount: freq != null ? (SESSIONS[freq] ?? 2) : 2, validityDays: 7 }
 }

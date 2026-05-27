@@ -10,6 +10,7 @@ describe('playFrequencyPlan', () => {
   })
   it('defaults null/unknown to weekly (2)', () => {
     expect(playFrequencyPlan(null).sessionCount).toBe(2)
+    expect(playFrequencyPlan(undefined).sessionCount).toBe(2)
     expect(playFrequencyPlan('whatever' as never).sessionCount).toBe(2)
   })
   it('validity is a fixed 7-day window (D5)', () => {
