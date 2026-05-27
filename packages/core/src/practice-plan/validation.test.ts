@@ -41,7 +41,7 @@ describe('validatePlanDraft', () => {
 
   it('rejects an out-of-range drill_ref', () => {
     const bad = structuredClone(okDraft)
-    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- structuredClone(okDraft) preserves the full shape, so this indexed access is non-null
     bad.sessions[0]!.blocks[1]!.drill_ref = 99
     const r = validatePlanDraft(bad, ctx)
     expect(r.ok).toBe(false); expect(r.errors.join(' ')).toMatch(/drill_ref/)
@@ -49,14 +49,14 @@ describe('validatePlanDraft', () => {
 
   it('rejects a drill_type inconsistent with the referenced drill', () => {
     const bad = structuredClone(okDraft)
-    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- structuredClone(okDraft) preserves the full shape, so this indexed access is non-null
     bad.sessions[0]!.blocks[2]!.type = 'warmup' // d2 is technical
     expect(validatePlanDraft(bad, ctx).ok).toBe(false)
   })
 
   it('rejects when block minutes diverge >20% from total_minutes', () => {
     const bad = structuredClone(okDraft)
-    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- structuredClone(okDraft) preserves the full shape, so this indexed access is non-null
     bad.sessions[0]!.total_minutes = 200
     expect(validatePlanDraft(bad, ctx).ok).toBe(false)
   })
@@ -68,7 +68,7 @@ describe('validatePlanDraft', () => {
 
   it('rejects when a top-2 weakness has no non-warmup block', () => {
     const bad = structuredClone(okDraft)
-    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- structuredClone(okDraft) preserves the full shape, so this indexed access is non-null
     for (const s of bad.sessions) s.blocks = s.blocks.filter((b) => pool[b.drill_ref]!.category !== 'putting')
     expect(validatePlanDraft(bad, ctx).ok).toBe(false)
   })
@@ -86,14 +86,14 @@ describe('validatePlanDraft', () => {
   })
 
   it('rejects a non-positive total_minutes (no longer silently skipped)', () => {
-    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- structuredClone(okDraft) preserves the full shape, so this indexed access is non-null
     const bad = structuredClone(okDraft); bad.sessions[0]!.total_minutes = 0
     const r = validatePlanDraft(bad, ctx)
     expect(r.ok).toBe(false); expect(r.errors.join(' ')).toMatch(/total_minutes/)
   })
 
   it('rejects a negative block minutes', () => {
-    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- structuredClone(okDraft) preserves the full shape, so this indexed access is non-null
     const bad = structuredClone(okDraft); bad.sessions[0]!.blocks[1]!.minutes = -20
     const r = validatePlanDraft(bad, ctx)
     expect(r.ok).toBe(false); expect(r.errors.join(' ')).toMatch(/invalid/)

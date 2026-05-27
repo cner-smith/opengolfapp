@@ -3,17 +3,13 @@ import type { TargetTemplate, PlayerDigest } from './types'
 
 const SKILL_FALLBACK: SkillLevel = 'developing'
 
-/** Resolve a drill's target to a concrete number: skill baseline -> scaling
- *  adjustment from the digest -> clamp. The model never emits target numbers. */
+/** Resolve a drill's target to a concrete number: skill baseline -> clamp.
+ *  v1 does NOT scale by dispersion — the digest exposes only per-club
+ *  dispersion, with no per-category aggregate yet, so `target_template.scales_with`
+ *  is carried on drills as data and consumed in Phase B once that aggregate
+ *  exists. Targets stay deterministic + auditable; the model never emits one. */
 export function resolveTarget(tmpl: TargetTemplate, digest: PlayerDigest): number {
   const skill = digest.profile.skill_level ?? SKILL_FALLBACK
-  let value = tmpl.baseline[skill] ?? tmpl.baseline[SKILL_FALLBACK] ?? tmpl.min
-
-  // Only 'approach_dispersion' scaling is defined for v1; other keys are no-ops
-  // (baseline only) until more scaling rules are added.
-  if (tmpl.scales_with === 'approach_dispersion') {
-    const disp = digest.dispersion[0]?.cone68.lateral
-    if (disp != null) value += disp < 8 ? 1 : disp > 16 ? -1 : 0
-  }
+  const value = tmpl.baseline[skill] ?? tmpl.baseline[SKILL_FALLBACK] ?? tmpl.min
   return Math.max(tmpl.min, Math.min(tmpl.max, value))
 }

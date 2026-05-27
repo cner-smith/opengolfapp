@@ -38,8 +38,8 @@ export function validatePlanDraft(
         errors.push(`block ${b.id} type ${b.type} != drill ${drill.drill_type}`)
       }
       usedIds.add(drill.id)
-      if (!Number.isFinite(b.minutes) || b.minutes < 0) {
-        errors.push(`block ${b.id} minutes ${b.minutes} invalid (must be a finite number >= 0)`)
+      if (!Number.isFinite(b.minutes) || b.minutes <= 0) {
+        errors.push(`block ${b.id} minutes ${b.minutes} invalid (must be a finite number > 0)`)
       }
       sum += b.minutes
     }
