@@ -241,4 +241,24 @@ describe('buildPlanPrompt — system rules', () => {
     const { system } = buildPlanPrompt(digest, candidates, articles, null, 4, 'id-1')
     expect(system).toContain('exactly 4 sessions')
   })
+
+  it('instructs the model to use readable category names in prose (not raw enum keys)', () => {
+    const { system } = buildPlanPrompt(digest, candidates, articles, null, 2, 'id-1')
+    // Must mention the readable form "around the green"
+    expect(system.toLowerCase()).toContain('around the green')
+    // Must instruct not to use raw keys
+    expect(system.toLowerCase()).toMatch(/never.*raw|raw.*key|not.*around_green|around_green.*never/i)
+  })
+
+  it('includes a readable category label mapping in the user message so the model has readable names in context', () => {
+    const { user } = buildPlanPrompt(digest, candidates, articles, null, 2, 'id-1')
+    // The user message should map or label the categories in readable form
+    expect(user.toLowerCase()).toContain('around the green')
+    expect(user.toLowerCase()).toContain('off the tee')
+  })
+
+  it('tool schema category enum is unchanged (raw keys are correct for structured output)', () => {
+    const categoryEnum = PLAN_TOOL.input_schema.properties.focus_areas.items.properties.category.enum
+    expect(categoryEnum).toEqual(['off_tee', 'approach', 'around_green', 'putting'])
+  })
 })
