@@ -12,7 +12,6 @@ export interface StorageCtx {
   pool: CandidateDrill[]
   articles: PlanArticle[]
   digest: PlayerDigest
-  basedOnRounds: number
 }
 
 /** One stored practice block — index `drill_ref` resolved to a real `drill_id`
@@ -56,11 +55,15 @@ export interface PlanStoragePayload {
  *  `target` via `resolveTarget`, and resolve each `article_ref` → catalog
  *  `{title, slug}` (never model-supplied text).
  *
- *  Refs are guarded with `?.`. After `validatePlanDraft` both ref classes are
- *  in range, so an unresolved ref means validator/pool/storage disagree (the
- *  off-by-one class): we `console.error` it rather than silently drop, so the
- *  orchestrator can divert to baseline. An unresolved optional `article_ref`
- *  is dropped, but logged once. */
+ *  `based_on_rounds` is derived from `ctx.digest.sg_summary.based_on_rounds`
+ *  — the single source of truth; there is no redundant ctx field.
+ *
+ *  After `validatePlanDraft` all `drill_ref` values are in range. If one
+ *  doesn't resolve it means validator/pool/storage disagree — an unreachable
+ *  invariant violation. We **throw** so the orchestrator's catch block can
+ *  fall back to the baseline plan instead of INSERTing a dangling block.
+ *  An unresolved optional `article_ref` is dropped and logged (harmless —
+ *  citations are optional). */
 export function resolvePlanForStorage(draft: PlanDraft, ctx: StorageCtx): PlanStoragePayload {
   const sessions: StoredSession[] = draft.sessions.map((s) => ({
     title: s.title,
@@ -69,9 +72,11 @@ export function resolvePlanForStorage(draft: PlanDraft, ctx: StorageCtx): PlanSt
       const drill = ctx.pool[b.drill_ref]
       const drillId = drill?.id
       if (drillId === undefined) {
-        // Unreachable after validatePlanDraft — surface loudly so the orchestrator
-        // can fall back to a baseline plan instead of storing a dangling block.
-        console.error(`resolvePlanForStorage: drill_ref ${b.drill_ref} did not resolve (block ${b.id})`)
+        // Unreachable after validatePlanDraft — throw so the orchestrator's
+        // catch block falls back to the baseline plan (never INSERT a dangling block).
+        throw new Error(
+          `resolvePlanForStorage: unresolved drill_ref ${b.drill_ref} (validator/pool/storage disagree)`,
+        )
       }
       const tmpl = drill?.target_template
       const target = b.type === 'warmup' ? null : tmpl ? resolveTarget(tmpl, ctx.digest) : null
@@ -106,6 +111,6 @@ export function resolvePlanForStorage(draft: PlanDraft, ctx: StorageCtx): PlanSt
     coach_note: draft.coach_note,
     focus_areas,
     drills: { sessions },
-    based_on_rounds: ctx.basedOnRounds,
+    based_on_rounds: ctx.digest.sg_summary.based_on_rounds,
   }
 }

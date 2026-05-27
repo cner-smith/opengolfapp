@@ -44,7 +44,7 @@ const draft: PlanDraft = {
   ],
 }
 
-const ctx = { pool, articles, digest, basedOnRounds: 8 }
+const ctx = { pool, articles, digest }
 
 afterEach(() => {
   vi.restoreAllMocks()
@@ -95,21 +95,20 @@ describe('resolvePlanForStorage', () => {
     expect(b.rationale).toBe('wedge control')
   })
 
-  it('returns the practice_plans column-shaped payload', () => {
+  it('returns the practice_plans column-shaped payload (based_on_rounds from digest)', () => {
     const out = resolvePlanForStorage(draft, ctx)
     expect(out.ai_insight).toBe('approach + putting') // week_focus
     expect(out.coach_note).toBe('Tied to your numbers.')
-    expect(out.based_on_rounds).toBe(8)
+    // based_on_rounds is derived from ctx.digest.sg_summary.based_on_rounds, not a separate ctx field
+    expect(out.based_on_rounds).toBe(digest.sg_summary.based_on_rounds) // 8
     expect(Array.isArray(out.focus_areas)).toBe(true)
     expect(out.drills.sessions).toHaveLength(1)
   })
 
-  it('console.errors (not silently swallows) an unresolved drill_ref', () => {
-    const spy = vi.spyOn(console, 'error').mockImplementation(() => {})
+  it('throws on an unresolved drill_ref (invariant violation — unreachable after validatePlanDraft)', () => {
     const bad: PlanDraft = structuredClone(draft)
     bad.sessions[0]!.blocks[1]!.drill_ref = 99 // out of range — unreachable after validation
-    resolvePlanForStorage(bad, ctx)
-    expect(spy).toHaveBeenCalled()
+    expect(() => resolvePlanForStorage(bad, ctx)).toThrow(/drill_ref/)
   })
 
   it('logs but drops an unresolved optional article_ref', () => {
