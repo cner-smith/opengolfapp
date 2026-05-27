@@ -2,8 +2,10 @@ import type { PlayerDigest, CandidateDrill, PlanCategory, BlockType } from './ty
 
 /** Max coach_note length the validator enforces (ValidationCtx.coachNoteMax).
  *  There is no shared constant in validation.ts — it is a per-call ctx field —
- *  so this is the single source of truth the orchestrator passes as coachNoteMax
- *  AND the schema maxLength. Keep the two in lockstep. */
+ *  so this is the single source of truth the orchestrator passes as coachNoteMax.
+ *  It is NOT used as a schema maxLength — the Anthropic tool API rejects that keyword
+ *  (400: "For 'string' type, property 'maxLength' is not supported").
+ *  validatePlanDraft owns all numeric/length bound enforcement. */
 export const COACH_NOTE_MAX = 800
 
 const PLAN_CATEGORIES: PlanCategory[] = ['off_tee', 'approach', 'around_green', 'putting']
@@ -11,19 +13,24 @@ const BLOCK_TYPES: BlockType[] = ['warmup', 'technical', 'skill_game', 'pressure
 
 /** Anthropic tool-use input schema for one PlanDraft. Mirrors `PlanDraft` field
  *  names exactly so `validatePlanDraft` / `resolvePlanForStorage` consume the
- *  model output directly. Maximally constraining: enums, integer bounds,
- *  minItems, maxLength, and `additionalProperties: false` everywhere so the
- *  model cannot smuggle a `target` (the server fills targets deterministically). */
+ *  model output directly.
+ *
+ *  Schema design: constrains `type`, `enum` (category/type), `required`, and
+ *  `additionalProperties: false` only. Numeric bounds (minimum, minItems) and
+ *  string length (maxLength) are intentionally ABSENT — the Anthropic tool API
+ *  returns a 400 for those keywords ("For 'integer' type, property 'minimum' is
+ *  not supported"). All bound enforcement lives in `validatePlanDraft` (server-side).
+ *  Descriptions fold in the guidance the model needs (e.g. "positive integer",
+ *  "3-5 sentences") so the model still has direction without schema keywords.
+ *
+ *  `strict: true` is also absent — optional properties (`reason`, `article_ref`)
+ *  are incompatible with strict mode, and non-strict is the proven safe path. */
 export const PLAN_TOOL = {
   name: 'emit_practice_plan',
   description:
     'Emit the weekly practice plan as structured data. Reference drills and Learn ' +
     'articles ONLY by the 0-based numbers shown in the user message; never invent ' +
     'ids or emit any target/goal number — the server fills targets deterministically.',
-  // strict mode: the enum + integer + string schema is fully expressible under
-  // Anthropic strict tool schemas, which rejects a class of malformed outputs
-  // before our validator runs. Harmless if the SDK/model ignores it.
-  strict: true,
   input_schema: {
     type: 'object',
     additionalProperties: false,
@@ -35,7 +42,6 @@ export const PLAN_TOOL = {
       },
       coach_note: {
         type: 'string',
-        maxLength: COACH_NOTE_MAX,
         description:
           '3-5 sentences. Reference only SG category names and the exact averages/trend ' +
           'values present in the digest; state no percentage/yardage/stat not literally ' +
@@ -43,7 +49,6 @@ export const PLAN_TOOL = {
       },
       focus_areas: {
         type: 'array',
-        minItems: 1,
         items: {
           type: 'object',
           additionalProperties: false,
@@ -60,7 +65,6 @@ export const PLAN_TOOL = {
             },
             article_ref: {
               type: 'integer',
-              minimum: 0,
               description:
                 '0-based index into the Learn articles list — the first listed article is 0. ' +
                 'Include ONLY if a listed article genuinely fits; otherwise omit this field.',
@@ -70,7 +74,6 @@ export const PLAN_TOOL = {
       },
       sessions: {
         type: 'array',
-        minItems: 1,
         items: {
           type: 'object',
           additionalProperties: false,
@@ -79,12 +82,10 @@ export const PLAN_TOOL = {
             title: { type: 'string', description: 'Short session title.' },
             total_minutes: {
               type: 'integer',
-              minimum: 1,
-              description: 'Total minutes for the session; should equal the sum of its block minutes.',
+              description: 'Positive integer. Total minutes for the session; should equal the sum of its block minutes.',
             },
             blocks: {
               type: 'array',
-              minItems: 1,
               items: {
                 type: 'object',
                 additionalProperties: false,
@@ -96,7 +97,6 @@ export const PLAN_TOOL = {
                   },
                   order: {
                     type: 'integer',
-                    minimum: 0,
                     description: 'Block order within the session (0-based).',
                   },
                   type: {
@@ -106,15 +106,13 @@ export const PLAN_TOOL = {
                   },
                   drill_ref: {
                     type: 'integer',
-                    minimum: 0,
                     description:
                       '0-based index of the chosen drill into the candidate list shown — ' +
                       'the first listed drill is 0. Never invent an id; pick only a listed number.',
                   },
                   minutes: {
                     type: 'integer',
-                    minimum: 1,
-                    description: 'Minutes for this block (> 0).',
+                    description: 'Positive integer. Minutes for this block.',
                   },
                   rationale: {
                     type: 'string',
