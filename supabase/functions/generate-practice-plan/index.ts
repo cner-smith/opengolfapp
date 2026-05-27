@@ -54,11 +54,21 @@ const DIGEST_ROUND_CAP = 10
 const REPAIR_MIN_BUDGET_MS = 35_000
 const WALL_CLOCK_BUDGET_MS = 120_000
 
+// --- CORS (browser invoke via supabase.functions.invoke) --------------------
+// `*` origin is correct: this function is JWT-auth-gated (verify_jwt + the
+// caller's bearer token). supabase-js sends auth in `Authorization`, not a
+// cookie, so `Access-Control-Allow-Credentials` is not needed and `*` is safe.
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+}
+
 // --- I/O helpers (mirror round-summary-email/index.ts) ---------------------
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { 'content-type': 'application/json' },
+    headers: { ...corsHeaders, 'content-type': 'application/json' },
   })
 }
 
@@ -170,6 +180,9 @@ function priorDrillIdsFrom(prior: PlanRow | null): string[] {
 }
 
 Deno.serve(async (req) => {
+  // ----- Preflight (CORS) --------------------------------------------------
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
+
   const startedAt = Date.now()
 
   // ----- Step 1: auth ------------------------------------------------------
