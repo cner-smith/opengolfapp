@@ -11,18 +11,27 @@ import { captureRef } from 'react-native-view-shot'
 import * as Sharing from 'expo-sharing'
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { formatSG } from '@oga/core'
+import {
+  formatSG,
+  pickRoundFocus,
+  roundFocusHeadline,
+  selectNudgeDrills,
+  type RoundFocus,
+} from '@oga/core'
+import { getDrills, getProfile } from '@oga/supabase'
 import type { Database } from '@oga/supabase'
 import { supabase } from '../../../../lib/supabase'
 import { ShareableScorecardCard } from '../../../../components/round/ShareableScorecardCard'
 import { PastHoleShotsSheet } from '../../../../components/round/PastHoleShotsSheet'
 import LiveRoundSession from '../../../../components/round/LiveRoundSession'
+import { useAuth } from '../../../../hooks/useAuth'
 import { useUnits } from '../../../../hooks/useUnits'
 
 type RoundRow = Database['public']['Tables']['rounds']['Row']
 type HoleRow = Database['public']['Tables']['holes']['Row']
 type HoleScoreRow = Database['public']['Tables']['hole_scores']['Row']
 type ShotRow = Database['public']['Tables']['shots']['Row']
+type DrillRow = Database['public']['Tables']['drills']['Row']
 
 const KICKER: import('react-native').TextStyle = {
   color: '#8A8B7E',
@@ -62,6 +71,10 @@ export default function RoundIndex() {
   const [shotsForHole, setShotsForHole] = useState<HoleRow | null>(null)
   const shareCardRef = useRef<View>(null)
   const { unit } = useUnits()
+  const { user } = useAuth()
+  // "Today's focus" nudge data — fetched lazily, only when the round has a leak.
+  const [nudgeFacilities, setNudgeFacilities] = useState<string[]>([])
+  const [nudgeDrills, setNudgeDrills] = useState<DrillRow[]>([])
 
   useEffect(() => {
     if (!id) return
@@ -114,6 +127,32 @@ export default function RoundIndex() {
       active = false
     }
   }, [id])
+
+  // "Today's focus" nudge (parity with web RoundSummary). Only fetch the
+  // profile + a couple of drills when the round actually has a leak —
+  // pickRoundFocus returns null on a balanced round, so nothing queries.
+  // No react-query on mobile; this mirrors web's useProfile→useDrills
+  // gating by hand.
+  useEffect(() => {
+    if (!round || round.total_score == null || !user) return
+    const focus = pickRoundFocus(round)
+    if (!focus) return
+    let active = true
+    ;(async () => {
+      const { data: profile, error: pErr } = await getProfile(supabase, user.id)
+      if (!active || pErr || !profile) return
+      setNudgeFacilities(profile.facilities ?? [])
+      const { data: drills, error: dErr } = await getDrills(supabase, {
+        category: focus.category,
+        skillLevel: profile.skill_level ?? undefined,
+      })
+      if (!active || dErr) return
+      setNudgeDrills(drills ?? [])
+    })()
+    return () => {
+      active = false
+    }
+  }, [round, user?.id])
 
   // Hooks must run unconditionally before any branch return — these
   // memos are needed by the read-only summary path below, but lifting
@@ -263,6 +302,7 @@ export default function RoundIndex() {
     { label: 'Around green', value: round.sg_around_green },
     { label: 'Putting', value: round.sg_putting },
   ]
+  const focus = pickRoundFocus(round)
 
   let runningScore = 0
   let runningPar = 0
@@ -469,6 +509,13 @@ export default function RoundIndex() {
           </View>
         </View>
 
+        {focus && (
+          <RoundNudge
+            focus={focus}
+            picks={selectNudgeDrills(nudgeDrills, nudgeFacilities)}
+          />
+        )}
+
         <View
           style={{
             borderTopWidth: 1,
@@ -613,6 +660,56 @@ export default function RoundIndex() {
           setShots((prev) => prev.map((s) => (s.id === updated.id ? updated : s)))
         }
       />
+    </View>
+  )
+}
+
+// Co-located post-round nudge — mirrors the web RoundSummary's RoundNudge.
+// Chips are non-interactive: mobile has no drill-library route yet (the
+// practice tab is a teaser), so there's nowhere honest to send a tap.
+function RoundNudge({ focus, picks }: { focus: RoundFocus; picks: DrillRow[] }) {
+  return (
+    <View
+      style={{
+        borderTopWidth: 1,
+        borderColor: '#D9D2BF',
+        paddingTop: 14,
+        marginBottom: 18,
+      }}
+    >
+      <Text style={{ ...KICKER, marginBottom: 8 }}>Today&apos;s focus</Text>
+      <Text
+        style={{
+          color: '#1C211C',
+          fontSize: 16,
+          lineHeight: 22,
+          fontStyle: 'italic',
+          marginBottom: picks.length ? 12 : 0,
+        }}
+      >
+        {roundFocusHeadline(focus)}
+      </Text>
+      {picks.length > 0 && (
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+          {picks.map((drill) => (
+            <View
+              key={drill.id}
+              style={{
+                borderWidth: 1,
+                borderColor: '#1F3D2C',
+                borderRadius: 2,
+                paddingVertical: 6,
+                paddingHorizontal: 10,
+              }}
+            >
+              <Text style={{ color: '#1F3D2C', fontSize: 13 }}>
+                {drill.name}
+                {drill.duration_min ? ` · ${drill.duration_min}m` : ''}
+              </Text>
+            </View>
+          ))}
+        </View>
+      )}
     </View>
   )
 }
