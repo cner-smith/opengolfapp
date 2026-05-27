@@ -1,6 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { ShotCategory } from '@oga/core'
-import { getDrills, getDrillsByIds, getLatestPracticePlan } from '@oga/supabase'
+import {
+  getDrills,
+  getDrillsByIds,
+  getLatestPracticePlan,
+  saveFeedback,
+  updatePlanProgress,
+} from '@oga/supabase'
 import { supabase } from '../lib/supabase'
 import { useAuth } from './useAuth'
 
@@ -58,6 +64,64 @@ export function useDrillsByIds(ids: string[]) {
       const byId: Record<string, (typeof drills)[number]> = {}
       for (const d of drills) byId[d.id] = d
       return byId
+    },
+  })
+}
+
+type PracticePlan = NonNullable<
+  Awaited<ReturnType<typeof getLatestPracticePlan>>['data']
+>
+
+export function useUpdatePlanProgress() {
+  const { user } = useAuth()
+  const qc = useQueryClient()
+  return useMutation<
+    unknown,
+    Error,
+    { planId: string; completedDrillIds: string[] }
+  >({
+    mutationFn: async ({ planId, completedDrillIds }) => {
+      const { data, error } = await updatePlanProgress(supabase, planId, completedDrillIds)
+      if (error) throw error
+      return data
+    },
+    onMutate: async ({ completedDrillIds }) => {
+      const key = ['practice-plan', user?.id]
+      await qc.cancelQueries({ queryKey: key })
+      const snapshot = qc.getQueryData<PracticePlan>(key)
+      qc.setQueryData<PracticePlan>(key, (prev) => {
+        if (!prev) return prev
+        return { ...prev, completed_drill_ids: completedDrillIds }
+      })
+      return { snapshot }
+    },
+    onError: (_err, _vars, context) => {
+      const ctx = context as { snapshot?: PracticePlan } | undefined
+      if (ctx?.snapshot !== undefined) {
+        qc.setQueryData(['practice-plan', user?.id], ctx.snapshot)
+      }
+    },
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: ['practice-plan', user?.id] })
+    },
+  })
+}
+
+export function useSaveFeedback() {
+  const { user } = useAuth()
+  const qc = useQueryClient()
+  return useMutation<unknown, Error, { planId: string; feedback: string }>({
+    mutationFn: async ({ planId, feedback }) => {
+      const { data, error } = await saveFeedback(supabase, planId, feedback)
+      if (error) throw error
+      return data
+    },
+    onSuccess: (_data, { feedback }) => {
+      qc.setQueryData<PracticePlan>(['practice-plan', user?.id], (prev) => {
+        if (!prev) return prev
+        return { ...prev, feedback }
+      })
+      qc.invalidateQueries({ queryKey: ['practice-plan', user?.id] })
     },
   })
 }
