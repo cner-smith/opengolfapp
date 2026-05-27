@@ -46,3 +46,21 @@ export function updatePlanProgress(
     .select()
     .single()
 }
+
+export function getDrillsByIds(client: OgaSupabaseClient, ids: string[]) {
+  if (ids.length === 0) return Promise.resolve({ data: [] as DrillCard[], error: null })
+  return client
+    .from('drills')
+    .select('id, name, description, facility, duration_min, drill_type, category')
+    .in('id', ids)
+}
+
+type DrillCard = {
+  id: string
+  name: string
+  description: string | null
+  facility: string[] | null
+  duration_min: number | null
+  drill_type: string
+  category: string | null
+}
