@@ -128,11 +128,9 @@ export default function RoundIndex() {
     }
   }, [id])
 
-  // "Today's focus" nudge (parity with web RoundSummary). Only fetch the
-  // profile + a couple of drills when the round actually has a leak —
-  // pickRoundFocus returns null on a balanced round, so nothing queries.
-  // No react-query on mobile; this mirrors web's useProfile→useDrills
-  // gating by hand.
+  // "Today's focus" nudge (parity with web RoundSummary). No react-query on
+  // mobile — gate the profile + drills fetch by hand, like web's
+  // useProfile→useDrills.
   useEffect(() => {
     if (!round || round.total_score == null || !user) return
     const focus = pickRoundFocus(round)
@@ -677,7 +675,7 @@ function RoundNudge({ focus, picks }: { focus: RoundFocus; picks: DrillRow[] }) 
         marginBottom: 18,
       }}
     >
-      <Text style={{ ...KICKER, marginBottom: 8 }}>Today&apos;s focus</Text>
+      <Text style={{ ...KICKER, marginBottom: 8 }}>Today's focus</Text>
       <Text
         style={{
           color: '#1C211C',
