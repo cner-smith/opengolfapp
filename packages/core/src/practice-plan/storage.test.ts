@@ -119,4 +119,13 @@ describe('resolvePlanForStorage', () => {
     expect(out.focus_areas[0]!.article).toBeUndefined()
     expect(spy).toHaveBeenCalled()
   })
+
+  it('sets stored total_minutes to the sum of block minutes, overriding the model-emitted value', () => {
+    // Draft declares total_minutes=65 but blocks sum to 8+20+15=43.
+    // Storage must derive the real total from block minutes, not copy the model hint.
+    const mismatch: PlanDraft = structuredClone(draft)
+    mismatch.sessions[0]!.total_minutes = 65 // deliberately wrong; blocks still sum to 43
+    const out = resolvePlanForStorage(mismatch, ctx)
+    expect(out.drills.sessions[0]!.total_minutes).toBe(43) // 8+20+15
+  })
 })

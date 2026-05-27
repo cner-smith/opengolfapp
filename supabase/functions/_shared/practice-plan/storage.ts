@@ -65,10 +65,8 @@ export interface PlanStoragePayload {
  *  An unresolved optional `article_ref` is dropped and logged (harmless —
  *  citations are optional). */
 export function resolvePlanForStorage(draft: PlanDraft, ctx: StorageCtx): PlanStoragePayload {
-  const sessions: StoredSession[] = draft.sessions.map((s) => ({
-    title: s.title,
-    total_minutes: s.total_minutes,
-    blocks: s.blocks.map((b) => {
+  const sessions: StoredSession[] = draft.sessions.map((s) => {
+    const blocks: StoredBlock[] = s.blocks.map((b) => {
       const drill = ctx.pool[b.drill_ref]
       const drillId = drill?.id
       if (drillId === undefined) {
@@ -89,8 +87,13 @@ export function resolvePlanForStorage(draft: PlanDraft, ctx: StorageCtx): PlanSt
         drill_id: drillId,
         target,
       }
-    }),
-  }))
+    })
+    return {
+      title: s.title,
+      total_minutes: blocks.reduce((acc, b) => acc + b.minutes, 0),
+      blocks,
+    }
+  })
 
   const focus_areas: StoredFocusArea[] = draft.focus_areas.map((f) => {
     const area: StoredFocusArea = { category: f.category, reason: f.reason }
