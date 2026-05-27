@@ -1,6 +1,6 @@
 import type {
   PlayerDigest, PlanCategory, RoundSG, DispersionSummary,
-} from './types'
+} from './types.ts'
 
 // Tie-break priority (cheapest strokes first) — matches round-nudge.ts.
 const CATEGORIES = [

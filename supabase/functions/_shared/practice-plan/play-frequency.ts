@@ -1,4 +1,4 @@
-import type { PlayFrequency } from './types'
+import type { PlayFrequency } from './types.ts'
 
 const SESSIONS: Record<PlayFrequency, number> = {
   monthly: 1,

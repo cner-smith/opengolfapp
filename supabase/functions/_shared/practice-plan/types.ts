@@ -1,4 +1,4 @@
-import type { SkillLevel, Goal } from '../constants'
+import type { SkillLevel, Goal } from '../constants.ts'
 
 export type PlanCategory = 'off_tee' | 'approach' | 'around_green' | 'putting'
 export type PlayFrequency = 'monthly' | 'weekly' | 'multi_weekly' | 'daily'

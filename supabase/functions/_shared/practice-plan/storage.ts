@@ -1,5 +1,5 @@
-import type { CandidateDrill, PlayerDigest, PlanDraft, PlanCategory } from './types'
-import { resolveTarget } from './targets'
+import type { CandidateDrill, PlayerDigest, PlanDraft, PlanCategory } from './types.ts'
+import { resolveTarget } from './targets.ts'
 
 /** A published Learn article eligible for citation. `article_ref` indexes this set. */
 export interface PlanArticle {

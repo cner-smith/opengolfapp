@@ -1,5 +1,5 @@
-import type { SkillLevel, Goal } from '../constants'
-import type { PlanDraft, PlanCategory } from './types'
+import type { SkillLevel, Goal } from '../constants.ts'
+import type { PlanDraft, PlanCategory } from './types.ts'
 
 // Baseline plans are static content (same `PlanDraft` shape the UI renders).
 // NOTE: block `drill_ref` is a placeholder here — baseline drill references are
