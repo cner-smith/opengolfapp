@@ -6,6 +6,7 @@ export interface ValidationCtx {
   sessionCount: number
   priorDrillIds: string[]
   coachNoteMax: number
+  articlesLen: number // size of the published-article set; article_ref must index into it
 }
 
 const MINUTE_TOLERANCE = 0.2
@@ -80,6 +81,15 @@ export function validatePlanDraft(
   // D7: coach_note length cap
   if (draft.coach_note.length > ctx.coachNoteMax) {
     errors.push(`coach_note ${draft.coach_note.length} > ${ctx.coachNoteMax}`)
+  }
+
+  // D8: article_ref (optional) must index into the published-article set when present.
+  // Mirrors the drill_ref bounds check — an out-of-range citation would otherwise be
+  // silently dropped at storage instead of triggering a repair (spec §9 layer 4 / §21).
+  for (const f of draft.focus_areas) {
+    if (f.article_ref !== undefined && (f.article_ref < 0 || f.article_ref >= ctx.articlesLen)) {
+      errors.push(`article_ref ${f.article_ref} out of range`)
+    }
   }
 
   return { ok: errors.length === 0, errors }

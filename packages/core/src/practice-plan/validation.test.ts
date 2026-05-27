@@ -32,7 +32,7 @@ const okDraft: PlanDraft = {
   ],
 }
 const ctx = { pool, weaknesses: ['approach', 'putting'] as const, sessionCount: 2,
-  priorDrillIds: [] as string[], coachNoteMax: 800 }
+  priorDrillIds: [] as string[], coachNoteMax: 800, articlesLen: 2 }
 
 describe('validatePlanDraft', () => {
   it('accepts a well-formed draft', () => {
@@ -97,5 +97,20 @@ describe('validatePlanDraft', () => {
     const bad = structuredClone(okDraft); bad.sessions[0]!.blocks[1]!.minutes = -20
     const r = validatePlanDraft(bad, ctx)
     expect(r.ok).toBe(false); expect(r.errors.join(' ')).toMatch(/invalid/)
+  })
+
+  it('rejects an out-of-range article_ref (security: must trigger repair, not silent drop)', () => {
+    const bad = structuredClone(okDraft)
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- structuredClone(okDraft) preserves the full shape, so this indexed access is non-null
+    bad.focus_areas[0]!.article_ref = 5 // articlesLen is 2 → index 5 is out of range
+    const r = validatePlanDraft(bad, ctx)
+    expect(r.ok).toBe(false); expect(r.errors.join(' ')).toMatch(/article_ref/)
+  })
+
+  it('accepts an in-range article_ref', () => {
+    const ok = structuredClone(okDraft)
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- structuredClone(okDraft) preserves the full shape, so this indexed access is non-null
+    ok.focus_areas[0]!.article_ref = 1 // articlesLen is 2 → index 1 is valid
+    expect(validatePlanDraft(ok, ctx).ok).toBe(true)
   })
 })
