@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync, mkdirSync } from 'node:fs'
+import { readFileSync, writeFileSync, mkdirSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { addTsExt } from './vendor-transform.mjs'
 
@@ -6,7 +6,6 @@ const SRC = 'packages/core/src/practice-plan'
 const VEN = 'supabase/functions/_shared/practice-plan'
 
 // Read source files (exclude test files and index.ts — barrel is hand-maintained)
-const { readdirSync } = await import('node:fs')
 const files = readdirSync(SRC).filter(
   (f) => f.endsWith('.ts') && !f.endsWith('.test.ts') && f !== 'index.ts',
 )
