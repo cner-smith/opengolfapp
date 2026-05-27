@@ -85,26 +85,31 @@ describe('PLAN_TOOL schema', () => {
     ])
   })
 
-  it('drill_ref and article_ref are integers with minimum 0', () => {
+  it('drill_ref and article_ref are integer-typed (bounds enforced server-side by validatePlanDraft)', () => {
     expect(blockItem.properties.drill_ref.type).toBe('integer')
-    expect(blockItem.properties.drill_ref.minimum).toBe(0)
     expect(focusItem.properties.article_ref.type).toBe('integer')
-    expect(focusItem.properties.article_ref.minimum).toBe(0)
+    // minimum/maximum are NOT in the schema — Anthropic tool API rejects them (400).
+    // validatePlanDraft owns all numeric bound enforcement.
+    expect((blockItem.properties.drill_ref as Record<string, unknown>)).not.toHaveProperty('minimum')
+    expect((focusItem.properties.article_ref as Record<string, unknown>)).not.toHaveProperty('minimum')
   })
 
-  it('minutes is an integer with minimum 1', () => {
-    expect(blockItem.properties.minutes.minimum).toBe(1)
+  it('minutes is an integer-typed field (positive-integer constraint in description; bound enforced by validatePlanDraft)', () => {
+    expect(blockItem.properties.minutes.type).toBe('integer')
+    expect((blockItem.properties.minutes as Record<string, unknown>)).not.toHaveProperty('minimum')
   })
 
-  it('sessions / blocks / focus_areas carry minItems 1', () => {
-    expect(schema.properties.sessions.minItems).toBe(1)
-    expect(schema.properties.focus_areas.minItems).toBe(1)
-    expect(sessionItem.properties.blocks.minItems).toBe(1)
-  })
-
-  it('coach_note carries maxLength equal to the validator coachNoteMax', () => {
-    expect(schema.properties.coach_note.maxLength).toBe(COACH_NOTE_MAX)
+  it('COACH_NOTE_MAX is still exported and equals 800 (used by orchestrator as coachNoteMax for validatePlanDraft)', () => {
     expect(COACH_NOTE_MAX).toBe(800)
+    // maxLength is NOT in the schema — Anthropic tool API rejects it.
+    expect((schema.properties.coach_note as Record<string, unknown>)).not.toHaveProperty('maxLength')
+  })
+
+  it('regression guard: serialized schema contains none of the Anthropic-rejected keywords', () => {
+    const serialized = JSON.stringify(PLAN_TOOL)
+    expect(serialized).not.toMatch(/"(minimum|maximum|minItems|maxItems|minLength|maxLength)"/)
+    // strict: true is also rejected when optional properties exist
+    expect((PLAN_TOOL as Record<string, unknown>).strict).toBeUndefined()
   })
 
   it('every object sets additionalProperties:false (no smuggled target field)', () => {
