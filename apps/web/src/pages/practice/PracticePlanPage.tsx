@@ -1,7 +1,13 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import type { PlanCategory, BlockType, StoredBlock, StoredSession, StoredFocusArea } from '@oga/core'
-import { useDrillsByIds, useGeneratePlan, useLatestPracticePlan } from '../../hooks/useDrills'
+import {
+  useDrillsByIds,
+  useGeneratePlan,
+  useLatestPracticePlan,
+  useSaveFeedback,
+  useUpdatePlanProgress,
+} from '../../hooks/useDrills'
 import { toUserMessage } from '../../lib/errors'
 
 // Resolved drill row from useDrillsByIds (shape mirrors getDrillsByIds' select).
@@ -415,35 +421,100 @@ function FocusAreas({ areas }: { areas: StoredFocusArea[] }) {
   )
 }
 
+function CompletionToggle({
+  checked,
+  label,
+  onToggle,
+}: {
+  checked: boolean
+  label: string
+  onToggle: () => void
+}) {
+  return (
+    <button
+      type="button"
+      role="checkbox"
+      aria-checked={checked}
+      aria-label={label}
+      onClick={onToggle}
+      className={checked ? 'bg-caddie-accent text-caddie-accent-ink' : 'bg-caddie-surface text-caddie-accent-ink'}
+      style={{
+        width: 18,
+        height: 18,
+        borderRadius: 2,
+        border: checked ? 'none' : '1px solid #9F9580',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: 0,
+        marginTop: 4,
+        cursor: 'pointer',
+        flexShrink: 0,
+      }}
+    >
+      {checked ? (
+        <svg
+          aria-hidden="true"
+          width="11"
+          height="11"
+          viewBox="0 0 12 12"
+          fill="none"
+          style={{ display: 'block' }}
+        >
+          <path
+            d="M2.5 6.2 5 8.7 9.5 3.5"
+            stroke="currentColor"
+            strokeWidth="1.6"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+      ) : null}
+    </button>
+  )
+}
+
 function DrillCard({
   index,
   block,
   drill,
+  completed,
+  onToggleComplete,
 }: {
   index: number
   block: StoredBlock
   drill: ResolvedDrill | undefined
+  completed: boolean
+  onToggleComplete: () => void
 }) {
   const [open, setOpen] = useState(false)
   const drillName = drill?.name ?? 'Drill'
   const facilities = drill?.facility ?? []
   const instructions = drill?.instructions?.trim() || drill?.description?.trim() || ''
   const canExpand = instructions.length > 0
+  const nameClass = completed ? 'text-caddie-ink-mute' : 'text-caddie-ink'
 
   return (
     <div style={{ borderBottom: `1px solid ${LINE}`, padding: '18px 0' }}>
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns: 'auto 1fr auto',
-          gap: 18,
+          gridTemplateColumns: 'auto auto 1fr auto',
+          gap: 14,
           alignItems: 'start',
         }}
       >
-        {/* Left — numeral */}
+        {/* Left — completion checkbox (separate interactive control) */}
+        <CompletionToggle
+          checked={completed}
+          label={`Mark "${drillName}" done`}
+          onToggle={onToggleComplete}
+        />
+
+        {/* Serif numeral */}
         <div
           className="font-serif text-caddie-ink-mute"
-          style={{ fontSize: 28, fontStyle: 'italic', lineHeight: 1, minWidth: 36 }}
+          style={{ fontSize: 28, fontStyle: 'italic', lineHeight: 1, minWidth: 32 }}
         >
           {String(index).padStart(2, '0')}
         </div>
@@ -456,7 +527,7 @@ function DrillCard({
               onClick={() => setOpen((o) => !o)}
               aria-expanded={open}
               aria-controls={`drill-detail-${block.id}`}
-              className="font-serif text-caddie-ink hover:opacity-80"
+              className={`font-serif hover:opacity-80 ${nameClass}`}
               style={{
                 display: 'flex',
                 alignItems: 'baseline',
@@ -482,7 +553,7 @@ function DrillCard({
             </button>
           ) : (
             <div
-              className="font-serif text-caddie-ink"
+              className={`font-serif ${nameClass}`}
               style={{ fontSize: 19, fontStyle: 'italic', lineHeight: 1.2 }}
             >
               {drillName}
@@ -586,16 +657,22 @@ function SessionSection({
   session,
   sessionNumber,
   drillsById,
+  completedIds,
+  onToggleComplete,
 }: {
   session: StoredSession
   sessionNumber: number
   drillsById: Record<string, ResolvedDrill>
+  completedIds: Set<string>
+  onToggleComplete: (blockId: string) => void
 }) {
   const blocks = [...session.blocks].sort((a, b) => a.order - b.order)
+  const doneCount = blocks.filter((b) => b.id != null && completedIds.has(b.id)).length
   return (
     <section style={{ borderTop: `1px solid ${LINE}`, paddingTop: 18, marginBottom: 32 }}>
       <div className="kicker" style={{ marginBottom: 8 }}>
         Session {sessionNumber} · {session.total_minutes} min
+        {doneCount > 0 ? ` · ${doneCount} of ${blocks.length} done` : ''}
       </div>
       <h2
         className="font-serif text-caddie-ink"
@@ -606,15 +683,90 @@ function SessionSection({
       <div>
         {blocks.map((block, i) => {
           const drill = block.drill_id ? drillsById[block.drill_id] : undefined
+          const completed = block.id != null && completedIds.has(block.id)
           return (
             <DrillCard
               key={block.id ?? `${block.drill_id}-${i}`}
               index={i + 1}
               block={block}
               drill={drill}
+              completed={completed}
+              onToggleComplete={() => {
+                if (block.id != null) onToggleComplete(block.id)
+              }}
             />
           )
         })}
+      </div>
+    </section>
+  )
+}
+
+const FEEDBACK_MAX = 500
+
+function FeedbackSection({ planId, initial }: { planId: string; initial: string }) {
+  const saveFeedback = useSaveFeedback()
+  const [value, setValue] = useState(initial)
+  // Track the last value we've persisted so blur only saves real edits and the
+  // "Saved" indicator clears the moment the user starts editing again.
+  const [savedValue, setSavedValue] = useState(initial)
+
+  const handleBlur = () => {
+    const next = value.trim()
+    if (next === savedValue.trim()) return
+    if (next.length === 0 && savedValue.trim().length === 0) return
+    saveFeedback.mutate(
+      { planId, feedback: next },
+      { onSuccess: () => setSavedValue(next) },
+    )
+  }
+
+  const showSaved = !saveFeedback.isPending && value.trim() === savedValue.trim() && savedValue.trim().length > 0
+
+  return (
+    <section style={{ borderTop: `1px solid ${LINE}`, paddingTop: 18, marginBottom: 32, maxWidth: 660 }}>
+      <div className="kicker" style={{ marginBottom: 8 }}>
+        Before next week
+      </div>
+      <p
+        className="font-serif text-caddie-ink-dim"
+        style={{ fontSize: 15, lineHeight: 1.5, marginBottom: 12 }}
+      >
+        One note on how this plan landed — what worked, what felt off. Next week's
+        plan reads it.
+      </p>
+      <textarea
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        onBlur={handleBlur}
+        maxLength={FEEDBACK_MAX}
+        rows={4}
+        className="font-sans bg-caddie-surface text-caddie-ink"
+        style={{
+          width: '100%',
+          border: `1px solid ${LINE}`,
+          borderRadius: 2,
+          padding: '12px 14px',
+          fontSize: 15,
+          lineHeight: 1.5,
+          resize: 'vertical',
+        }}
+      />
+      <div
+        style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 6 }}
+      >
+        <span
+          className="font-mono text-caddie-ink-mute"
+          style={{ fontSize: 10, letterSpacing: '0.04em', textTransform: 'uppercase' }}
+        >
+          {showSaved ? 'Saved' : ''}
+        </span>
+        <span
+          className="font-mono text-caddie-ink-mute"
+          style={{ fontSize: 10, letterSpacing: '0.04em' }}
+        >
+          {value.length} / {FEEDBACK_MAX}
+        </span>
       </div>
     </section>
   )
@@ -639,6 +791,19 @@ export function PracticePlanPage() {
   )
   const drillsByIds = useDrillsByIds(drillIds)
   const drillsById = drillsByIds.data ?? {}
+
+  const updateProgress = useUpdatePlanProgress()
+  const completedIds = new Set(plan?.completed_drill_ids ?? [])
+
+  // Toggle a block's completion: compute the next array off the current set and
+  // hand it to the optimistic hook, which flips the cached plan immediately.
+  const onToggleComplete = (blockId: string) => {
+    if (!plan) return
+    const next = new Set(completedIds)
+    if (next.has(blockId)) next.delete(blockId)
+    else next.add(blockId)
+    updateProgress.mutate({ planId: plan.id, completedDrillIds: [...next] })
+  }
 
   const onGenerate = () => generate.mutate()
   const errorNotice = generate.error ? <ErrorNotice error={generate.error} /> : null
@@ -691,8 +856,12 @@ export function PracticePlanPage() {
           session={session}
           sessionNumber={i + 1}
           drillsById={drillsById}
+          completedIds={completedIds}
+          onToggleComplete={onToggleComplete}
         />
       ))}
+
+      {plan.id ? <FeedbackSection planId={plan.id} initial={plan.feedback ?? ''} /> : null}
 
       {plan.based_on_rounds ? (
         <div
