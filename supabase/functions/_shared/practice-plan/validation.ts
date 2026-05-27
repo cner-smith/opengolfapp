@@ -25,6 +25,10 @@ export function validatePlanDraft(
 
   const usedIds = new Set<string>()
   for (const s of draft.sessions) {
+    // D_empty: a session with no blocks would store total_minutes: 0 (server derives it)
+    if (s.blocks.length === 0) {
+      errors.push(`session "${s.title}" has no blocks`)
+    }
     for (const b of s.blocks) {
       const drill = refOf(b.drill_ref)
       if (!drill) {

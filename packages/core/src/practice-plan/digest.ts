@@ -58,7 +58,8 @@ export function buildPlayerDigest(input: DigestInput): PlayerDigest {
   const { rounds } = input
   const averages = {} as Record<PlanCategory, number | null>
   for (const { key, cat } of CATEGORIES) {
-    averages[cat] = mean(rounds.map((r) => r[key]).filter((v): v is number => v != null))
+    const raw = mean(rounds.map((r) => r[key]).filter((v): v is number => v != null))
+    averages[cat] = raw == null ? null : Math.round(raw * 100) / 100
   }
 
   // Worst-first; nulls sort last; exact ties resolved by CATEGORIES order (putting first).

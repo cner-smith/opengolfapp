@@ -9,6 +9,15 @@ import type { PlayerDigest, CandidateDrill, PlanCategory, BlockType } from './ty
 export const COACH_NOTE_MAX = 800
 
 const PLAN_CATEGORIES: PlanCategory[] = ['off_tee', 'approach', 'around_green', 'putting']
+
+/** Readable prose labels for each category — for use in system rules and user message context.
+ *  The tool schema category enum MUST stay as the raw keys; only prose uses these labels. */
+const CATEGORY_LABELS: Record<PlanCategory, string> = {
+  off_tee: 'off the tee',
+  approach: 'approach',
+  around_green: 'around the green',
+  putting: 'putting',
+}
 const BLOCK_TYPES: BlockType[] = ['warmup', 'technical', 'skill_game', 'pressure_game', 'putting']
 
 /** Anthropic tool-use input schema for one PlanDraft. Mirrors `PlanDraft` field
@@ -49,6 +58,7 @@ export const PLAN_TOOL = {
       },
       focus_areas: {
         type: 'array',
+        description: 'One or more focus areas for the week (at least one).',
         items: {
           type: 'object',
           additionalProperties: false,
@@ -74,6 +84,7 @@ export const PLAN_TOOL = {
       },
       sessions: {
         type: 'array',
+        description: "The week's practice sessions — match the requested session count.",
         items: {
           type: 'object',
           additionalProperties: false,
@@ -86,6 +97,7 @@ export const PLAN_TOOL = {
             },
             blocks: {
               type: 'array',
+              description: 'One or more drill blocks in this session (at least one).',
               items: {
                 type: 'object',
                 additionalProperties: false,
@@ -176,6 +188,10 @@ export function buildPlanPrompt(
     '    prefer qualitative phrasing.',
     '(6) Cite a Learn article only if one genuinely fits, by its 0-based index, as a one-sentence',
     '    paraphrase with no quotes; if none fits, omit `article_ref` entirely.',
+    '(7) In `coach_note` and `reason` prose, refer to categories by their readable names:',
+    '    "off the tee", "approach", "around the green", "putting".',
+    '    Never use the raw keys like `around_green` or `off_tee` in prose.',
+    '    The structured `category` field must still use the raw key — only prose uses readable names.',
     '',
     'Return your answer ONLY by calling the emit_practice_plan tool.',
   ].join('\n')
@@ -187,7 +203,14 @@ export function buildPlanPrompt(
     ? articles.map(renderArticle).join('\n')
     : '(none)'
 
+  const categoryLabelMap = Object.entries(CATEGORY_LABELS)
+    .map(([key, label]) => `  ${key} → "${label}"`)
+    .join('\n')
+
   const parts: string[] = [
+    'Category readable names (use these in all prose — never the raw keys):',
+    categoryLabelMap,
+    '',
     'Player digest (the only data you may quote):',
     JSON.stringify(digest, null, 2),
     '',

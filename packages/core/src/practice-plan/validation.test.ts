@@ -119,4 +119,13 @@ describe('validatePlanDraft', () => {
     ok.focus_areas[0]!.article_ref = 1 // articlesLen is 2 → index 1 is valid
     expect(validatePlanDraft(ok, ctx).ok).toBe(true)
   })
+
+  it('rejects a session with zero blocks (empty-blocks session would store total_minutes: 0)', () => {
+    const bad = structuredClone(okDraft)
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- structuredClone(okDraft) preserves the full shape, so this indexed access is non-null
+    bad.sessions[1]!.blocks = []
+    const r = validatePlanDraft(bad, ctx)
+    expect(r.ok).toBe(false)
+    expect(r.errors.join(' ')).toMatch(/no blocks/)
+  })
 })
