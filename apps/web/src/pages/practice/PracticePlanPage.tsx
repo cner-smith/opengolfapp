@@ -1,7 +1,18 @@
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import type { PlanCategory, BlockType, StoredBlock, StoredSession, StoredFocusArea } from '@oga/core'
 import { useDrillsByIds, useGeneratePlan, useLatestPracticePlan } from '../../hooks/useDrills'
 import { toUserMessage } from '../../lib/errors'
+
+// Resolved drill row from useDrillsByIds (shape mirrors getDrillsByIds' select).
+type ResolvedDrill = {
+  name: string
+  description: string | null
+  instructions: string | null
+  facility: string[] | null
+  source: string | null
+  source_url: string | null
+}
 
 // ---------------------------------------------------------------------------
 // Stored-plan shapes. The generated Supabase types store `drills` and
@@ -68,6 +79,39 @@ function asDrills(value: unknown): PlanDrills {
 
 function asFocusAreas(value: unknown): StoredFocusArea[] {
   return Array.isArray(value) ? (value as StoredFocusArea[]) : []
+}
+
+// UI safety net: rewrite any leaked raw snake_case category enums in displayed
+// prose. `approach`/`putting` are already readable words and left untouched.
+function normalizeCategoryProse(text: string): string {
+  return text
+    .replace(/\boff_tee\b/gi, 'off the tee')
+    .replace(/\baround_green\b/gi, 'around the green')
+}
+
+// Tiny markdown-ish renderer scoped to the drill `instructions` format:
+// split on blank lines into paragraphs, convert `**bold**` to <strong>.
+// Not a general markdown parser — bold + paragraphs only.
+function renderInstructions(text: string): React.ReactNode {
+  const paragraphs = text.split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean)
+  return paragraphs.map((para, pi) => (
+    <p
+      key={pi}
+      className="font-serif text-caddie-ink-dim"
+      style={{ fontSize: 15, lineHeight: 1.6, marginTop: pi === 0 ? 0 : 12 }}
+    >
+      {para.split(/(\*\*[^*]+\*\*)/g).map((part, i) => {
+        const m = /^\*\*([^*]+)\*\*$/.exec(part)
+        return m ? (
+          <strong key={i} className="text-caddie-ink" style={{ fontWeight: 600 }}>
+            {m[1]}
+          </strong>
+        ) : (
+          part
+        )
+      })}
+    </p>
+  ))
 }
 
 // ---------------------------------------------------------------------------
@@ -297,7 +341,7 @@ function ReasoningPanel({ note }: { note: string }) {
           className="font-serif text-caddie-ink"
           style={{ fontSize: 17, lineHeight: 1.6 }}
         >
-          {note}
+          {normalizeCategoryProse(note)}
         </p>
       </div>
     </section>
@@ -324,7 +368,7 @@ function FocusAreas({ areas }: { areas: StoredFocusArea[] }) {
               className="text-caddie-ink-dim"
               style={{ fontSize: 15, lineHeight: 1.5, marginTop: 4 }}
             >
-              {area.reason}
+              {normalizeCategoryProse(area.reason)}
             </p>
             {area.article ? (
               <Link
@@ -348,98 +392,165 @@ function FocusAreas({ areas }: { areas: StoredFocusArea[] }) {
 function DrillCard({
   index,
   block,
-  drillName,
-  facilities,
+  drill,
 }: {
   index: number
   block: StoredBlock
-  drillName: string
-  facilities: string[]
+  drill: ResolvedDrill | undefined
 }) {
+  const [open, setOpen] = useState(false)
+  const drillName = drill?.name ?? 'Drill'
+  const facilities = drill?.facility ?? []
+  const instructions = drill?.instructions?.trim() || drill?.description?.trim() || ''
+  const canExpand = instructions.length > 0
+
   return (
-    <div
-      style={{
-        display: 'grid',
-        gridTemplateColumns: 'auto 1fr auto',
-        gap: 18,
-        alignItems: 'start',
-        borderBottom: `1px solid ${LINE}`,
-        padding: '18px 0',
-      }}
-    >
-      {/* Left — numeral */}
+    <div style={{ borderBottom: `1px solid ${LINE}`, padding: '18px 0' }}>
       <div
-        className="font-serif text-caddie-ink-mute"
-        style={{ fontSize: 28, fontStyle: 'italic', lineHeight: 1, minWidth: 36 }}
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'auto 1fr auto',
+          gap: 18,
+          alignItems: 'start',
+        }}
       >
-        {String(index).padStart(2, '0')}
-      </div>
-
-      {/* Center — name + why + equipment */}
-      <div>
+        {/* Left — numeral */}
         <div
-          className="font-serif text-caddie-ink"
-          style={{ fontSize: 19, fontStyle: 'italic', lineHeight: 1.2 }}
+          className="font-serif text-caddie-ink-mute"
+          style={{ fontSize: 28, fontStyle: 'italic', lineHeight: 1, minWidth: 36 }}
         >
-          {drillName}
+          {String(index).padStart(2, '0')}
         </div>
-        {block.rationale ? (
-          <p
-            className="font-serif text-caddie-ink-dim"
-            style={{ fontSize: 15, lineHeight: 1.5, marginTop: 6 }}
-          >
-            {block.rationale}
-          </p>
-        ) : null}
-        {facilities.length > 0 ? (
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 10 }}>
-            {facilities.map((f) => (
+
+        {/* Center — name (expand affordance) + why + equipment */}
+        <div>
+          {canExpand ? (
+            <button
+              type="button"
+              onClick={() => setOpen((o) => !o)}
+              aria-expanded={open}
+              className="font-serif text-caddie-ink hover:opacity-80"
+              style={{
+                display: 'flex',
+                alignItems: 'baseline',
+                gap: 8,
+                fontSize: 19,
+                fontStyle: 'italic',
+                lineHeight: 1.2,
+                textAlign: 'left',
+                cursor: 'pointer',
+                background: 'none',
+                border: 'none',
+                padding: 0,
+              }}
+            >
+              <span>{drillName}</span>
               <span
-                key={f}
-                className="font-mono bg-caddie-surface-2 text-caddie-ink-dim"
-                style={{
-                  fontSize: 10,
-                  letterSpacing: '0.04em',
-                  textTransform: 'uppercase',
-                  padding: '3px 8px',
-                  borderRadius: 2,
-                }}
+                className="font-mono text-caddie-ink-mute"
+                aria-hidden="true"
+                style={{ fontSize: 15, fontStyle: 'normal', lineHeight: 1 }}
               >
-                {FACILITY_LABEL[f] ?? f}
+                {open ? '−' : '+'}
               </span>
-            ))}
+            </button>
+          ) : (
+            <div
+              className="font-serif text-caddie-ink"
+              style={{ fontSize: 19, fontStyle: 'italic', lineHeight: 1.2 }}
+            >
+              {drillName}
+            </div>
+          )}
+          {block.rationale ? (
+            <p
+              className="font-serif text-caddie-ink-dim"
+              style={{ fontSize: 15, lineHeight: 1.5, marginTop: 6 }}
+            >
+              {block.rationale}
+            </p>
+          ) : null}
+          {facilities.length > 0 ? (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 10 }}>
+              {facilities.map((f) => (
+                <span
+                  key={f}
+                  className="font-mono bg-caddie-surface-2 text-caddie-ink-dim"
+                  style={{
+                    fontSize: 10,
+                    letterSpacing: '0.04em',
+                    textTransform: 'uppercase',
+                    padding: '3px 8px',
+                    borderRadius: 2,
+                  }}
+                >
+                  {FACILITY_LABEL[f] ?? f}
+                </span>
+              ))}
+            </div>
+          ) : null}
+        </div>
+
+        {/* Right — minutes + type tag + optional target */}
+        <div style={{ textAlign: 'right', minWidth: 72 }}>
+          <div
+            className="font-serif text-caddie-ink"
+            style={{ fontSize: 22, fontStyle: 'italic', lineHeight: 1 }}
+          >
+            {block.minutes} min
           </div>
-        ) : null}
+          <div
+            className="font-mono text-caddie-accent"
+            style={{
+              fontSize: 9,
+              letterSpacing: '0.12em',
+              textTransform: 'uppercase',
+              marginTop: 6,
+            }}
+          >
+            {BLOCK_TYPE_LABEL[block.type] ?? block.type}
+          </div>
+          {block.target != null ? (
+            <div
+              className="font-mono text-caddie-ink-dim"
+              style={{ fontSize: 10, letterSpacing: '0.04em', marginTop: 10 }}
+            >
+              Target: {block.target}
+            </div>
+          ) : null}
+        </div>
       </div>
 
-      {/* Right — minutes + type tag + optional target */}
-      <div style={{ textAlign: 'right', minWidth: 72 }}>
-        <div
-          className="font-serif text-caddie-ink"
-          style={{ fontSize: 22, fontStyle: 'italic', lineHeight: 1 }}
-        >
-          {block.minutes} min
+      {/* Expanded — full-width instructions, hairline-separated, no shadow */}
+      {canExpand && open ? (
+        <div style={{ borderTop: `1px solid ${LINE}`, marginTop: 16, paddingTop: 16, maxWidth: 660 }}>
+          {renderInstructions(instructions)}
+          {drill?.source ? (
+            <div
+              className="font-mono text-caddie-ink-mute"
+              style={{
+                fontSize: 10,
+                letterSpacing: '0.04em',
+                textTransform: 'uppercase',
+                marginTop: 14,
+              }}
+            >
+              via{' '}
+              {drill.source_url ? (
+                <a
+                  href={drill.source_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-caddie-accent hover:opacity-80"
+                >
+                  {drill.source}
+                </a>
+              ) : (
+                drill.source
+              )}
+            </div>
+          ) : null}
         </div>
-        <div
-          className="font-mono text-caddie-accent"
-          style={{
-            fontSize: 9,
-            letterSpacing: '0.12em',
-            textTransform: 'uppercase',
-            marginTop: 6,
-          }}
-        >
-          {BLOCK_TYPE_LABEL[block.type] ?? block.type}
-        </div>
-        {block.target != null ? (
-          <div
-            className="font-mono text-caddie-ink-dim"
-            style={{ fontSize: 10, letterSpacing: '0.04em', marginTop: 10 }}
-          >
-            Target: {block.target}
-          </div>
-        ) : null}
-      </div>
+      ) : null}
     </div>
   )
 }
@@ -451,7 +562,7 @@ function SessionSection({
 }: {
   session: StoredSession
   sessionNumber: number
-  drillsById: Record<string, { name: string; facility: string[] | null }>
+  drillsById: Record<string, ResolvedDrill>
 }) {
   const blocks = [...session.blocks].sort((a, b) => a.order - b.order)
   return (
@@ -473,8 +584,7 @@ function SessionSection({
               key={block.id ?? `${block.drill_id}-${i}`}
               index={i + 1}
               block={block}
-              drillName={drill?.name ?? 'Drill'}
-              facilities={drill?.facility ?? []}
+              drill={drill}
             />
           )
         })}
