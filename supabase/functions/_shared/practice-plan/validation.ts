@@ -1,4 +1,4 @@
-import type { PlanDraft, CandidateDrill, PlanCategory } from './types'
+import type { PlanDraft, CandidateDrill, PlanCategory } from './types.ts'
 
 export interface ValidationCtx {
   pool: CandidateDrill[]

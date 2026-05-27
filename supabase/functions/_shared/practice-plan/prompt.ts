@@ -1,4 +1,4 @@
-import type { PlayerDigest, CandidateDrill, PlanCategory, BlockType } from './types'
+import type { PlayerDigest, CandidateDrill, PlanCategory, BlockType } from './types.ts'
 
 /** Max coach_note length the validator enforces (ValidationCtx.coachNoteMax).
  *  There is no shared constant in validation.ts — it is a per-call ctx field —

@@ -1,5 +1,5 @@
-import type { SkillLevel } from '../constants'
-import type { TargetTemplate, PlayerDigest } from './types'
+import type { SkillLevel } from '../constants.ts'
+import type { TargetTemplate, PlayerDigest } from './types.ts'
 
 const SKILL_FALLBACK: SkillLevel = 'developing'
 
