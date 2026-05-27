@@ -74,8 +74,8 @@ describe('validatePlanDraft', () => {
   })
 
   it('rejects >=60% drill overlap with the prior plan when the pool allows variety', () => {
-    // draft uses d1+d2 (2 distinct drills); prior is also ['d1','d2'] → 100% overlap.
-    // pool has 5 drills; guard: pool.length(5) >= usedIds(2)+2 → true → check fires.
+    // draft uses d0+d1+d2 (3 distinct drills); prior is also ['d1','d2'] → 100% overlap of d1+d2.
+    // pool has 5 drills; guard: pool.length(5) >= usedIds(3)+2 → true → check fires.
     const r = validatePlanDraft(okDraft, { ...ctx, priorDrillIds: ['d1', 'd2'] })
     expect(r.ok).toBe(false); expect(r.errors.join(' ')).toMatch(/repetition|overlap/i)
   })
@@ -83,5 +83,19 @@ describe('validatePlanDraft', () => {
   it('rejects an over-long coach_note', () => {
     const bad = { ...okDraft, coach_note: 'x'.repeat(900) }
     expect(validatePlanDraft(bad, ctx).ok).toBe(false)
+  })
+
+  it('rejects a non-positive total_minutes (no longer silently skipped)', () => {
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+    const bad = structuredClone(okDraft); bad.sessions[0]!.total_minutes = 0
+    const r = validatePlanDraft(bad, ctx)
+    expect(r.ok).toBe(false); expect(r.errors.join(' ')).toMatch(/total_minutes/)
+  })
+
+  it('rejects a negative block minutes', () => {
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+    const bad = structuredClone(okDraft); bad.sessions[0]!.blocks[1]!.minutes = -20
+    const r = validatePlanDraft(bad, ctx)
+    expect(r.ok).toBe(false); expect(r.errors.join(' ')).toMatch(/invalid/)
   })
 })

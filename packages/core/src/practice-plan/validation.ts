@@ -38,11 +38,15 @@ export function validatePlanDraft(
         errors.push(`block ${b.id} type ${b.type} != drill ${drill.drill_type}`)
       }
       usedIds.add(drill.id)
+      if (!Number.isFinite(b.minutes) || b.minutes < 0) {
+        errors.push(`block ${b.id} minutes ${b.minutes} invalid (must be a finite number >= 0)`)
+      }
       sum += b.minutes
     }
-    // D4: sum of block minutes must be within 20% of session total_minutes
-    if (s.total_minutes > 0 &&
-        Math.abs(sum - s.total_minutes) / s.total_minutes > MINUTE_TOLERANCE) {
+    // D4: total_minutes must be positive and finite; sum of block minutes must be within 20%
+    if (!Number.isFinite(s.total_minutes) || s.total_minutes <= 0) {
+      errors.push(`session "${s.title}" total_minutes ${s.total_minutes} invalid (must be > 0)`)
+    } else if (Math.abs(sum - s.total_minutes) / s.total_minutes > MINUTE_TOLERANCE) {
       errors.push(`session "${s.title}" minutes ${sum} vs total ${s.total_minutes} >20%`)
     }
   }
