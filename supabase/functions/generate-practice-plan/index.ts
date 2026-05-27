@@ -352,13 +352,14 @@ Deno.serve(async (req) => {
     candidates = await getCandidatePool(supabase, {
       skillLevel: profile.skill_level ?? 'developing',
       goal: profile.goal ?? 'break_90',
-      facilities: profile.facilities,
-      // Top weaknesses drive the gate; always carry a warmup/putting via
-      // retrieval's completeness guarantee. weaknessTargets is intentionally
-      // OMITTED — no category→target-tag map exists in @oga/core yet, and the opt
-      // is optional (absent ⇒ stable id-asc order). Wire it when that map lands.
-      // Pass the FULL ranked list (worst-first) — a too-narrow gate could starve
-      // the pool; the prompt rules still force top-2 coverage on the model side.
+      // NO facility gate (Decisions §4) — facilities are not passed to retrieval;
+      // every drill is surfaced. Top weaknesses drive the gate; retrieval's
+      // completeness guarantee always carries a warmup + a green-area closer.
+      // weaknessTargets is intentionally OMITTED — no category→target-tag map
+      // exists in @oga/core yet, and the opt is optional (absent ⇒ stable id-asc
+      // order). Wire it when that map lands. Pass the FULL ranked list (worst-first)
+      // — a too-narrow gate could starve the pool; the prompt rules still force
+      // top-2 coverage on the model side.
       focusCategories: weaknesses,
     })
     articles = getPublishedArticles()
@@ -372,8 +373,8 @@ Deno.serve(async (req) => {
   let storedDraft: PlanDraft | null = null
   let raw: RawModelOutput | null = null
 
-  // No candidates means the corpus can't cover this player's weaknesses under
-  // their facility constraints (§17 floor gap) — skip Claude, serve baseline.
+  // No candidates means the corpus has no verified drills matching this player's
+  // skill/goal/weakness categories — skip Claude, serve baseline.
   if (candidates.length === 0) {
     console.warn('[generate-practice-plan] empty candidate pool → baseline')
   } else {

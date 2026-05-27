@@ -10,10 +10,10 @@ import type { PlanDraft, CandidateDrill } from './types'
 // the precondition the guard is testing for.
 const pool: CandidateDrill[] = [
   { id: 'd0', name: 'Warm', category: 'approach', drill_type: 'warmup', duration_min: 8, facility: [], target_template: null },
-  { id: 'd1', name: 'Wedge ladder', category: 'approach', drill_type: 'technical', duration_min: 20, facility: ['range'], target_template: null },
-  { id: 'd2', name: 'Gate', category: 'putting', drill_type: 'technical', duration_min: 15, facility: ['putting'], target_template: null },
+  { id: 'd1', name: 'Wedge ladder', category: 'approach', drill_type: 'blocked', duration_min: 20, facility: ['range'], target_template: null },
+  { id: 'd2', name: 'Gate', category: 'putting', drill_type: 'blocked', duration_min: 15, facility: ['putting'], target_template: null },
   { id: 'd3', name: 'Chip clock', category: 'around_green', drill_type: 'skill_game', duration_min: 15, facility: [], target_template: null },
-  { id: 'd4', name: 'Draw bias', category: 'off_tee', drill_type: 'technical', duration_min: 20, facility: ['range'], target_template: null },
+  { id: 'd4', name: 'Draw bias', category: 'off_tee', drill_type: 'blocked', duration_min: 20, facility: ['range'], target_template: null },
 ]
 const okDraft: PlanDraft = {
   week_focus: 'approach + putting',
@@ -22,12 +22,12 @@ const okDraft: PlanDraft = {
   sessions: [
     { title: 'S1', total_minutes: 43, blocks: [
       { id: 's1b1', order: 1, type: 'warmup', drill_ref: 0, minutes: 8, rationale: 'x' },
-      { id: 's1b2', order: 2, type: 'technical', drill_ref: 1, minutes: 20, rationale: 'x' },
-      { id: 's1b3', order: 3, type: 'technical', drill_ref: 2, minutes: 15, rationale: 'x' },
+      { id: 's1b2', order: 2, type: 'blocked', drill_ref: 1, minutes: 20, rationale: 'x' },
+      { id: 's1b3', order: 3, type: 'blocked', drill_ref: 2, minutes: 15, rationale: 'x' }, // green closer: d2 is putting (D10)
     ] },
     { title: 'S2', total_minutes: 35, blocks: [
-      { id: 's2b1', order: 1, type: 'technical', drill_ref: 1, minutes: 20, rationale: 'x' },
-      { id: 's2b2', order: 2, type: 'technical', drill_ref: 2, minutes: 15, rationale: 'x' },
+      { id: 's2b1', order: 1, type: 'blocked', drill_ref: 1, minutes: 20, rationale: 'x' },
+      { id: 's2b2', order: 2, type: 'blocked', drill_ref: 2, minutes: 15, rationale: 'x' }, // green closer: d2 is putting (D10)
     ] },
   ],
 }
@@ -117,6 +117,50 @@ describe('validatePlanDraft', () => {
     const ok = structuredClone(okDraft)
     // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- structuredClone(okDraft) preserves the full shape, so this indexed access is non-null
     ok.focus_areas[0]!.article_ref = 1 // articlesLen is 2 → index 1 is valid
+    expect(validatePlanDraft(ok, ctx).ok).toBe(true)
+  })
+
+  it('rejects a plan that does not open with a warmup (first block of the first session)', () => {
+    const bad = structuredClone(okDraft)
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- structuredClone(okDraft) preserves the full shape, so this indexed access is non-null
+    bad.sessions[0]!.blocks[0]!.type = 'blocked' // d0 is a warmup drill; D3 still passes only if drill matches, so swap the drill too
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- structuredClone(okDraft) preserves the full shape, so this indexed access is non-null
+    bad.sessions[0]!.blocks[0]!.drill_ref = 1 // d1 is blocked → D3 ok, but the plan no longer opens with a warmup
+    const r = validatePlanDraft(bad, ctx)
+    expect(r.ok).toBe(false)
+    expect(r.errors.join(' ')).toMatch(/open with a warmup/)
+  })
+
+  it('rejects a plan whose LAST session does not close on the green (last block category not putting/around_green)', () => {
+    const bad = structuredClone(okDraft)
+    // Point the final block of the last session at d4 (off_tee) — a non-green closer.
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- structuredClone(okDraft) preserves the full shape, so this indexed access is non-null
+    const last = bad.sessions[bad.sessions.length - 1]!
+    last.blocks[last.blocks.length - 1]!.drill_ref = 4 // d4: off_tee/blocked
+    const r = validatePlanDraft(bad, ctx)
+    expect(r.ok).toBe(false)
+    expect(r.errors.join(' ')).toMatch(/close on the green/)
+  })
+
+  it('rejects a plan whose NON-final session does not close on the green (per-session D10)', () => {
+    // D10 is PER-SESSION: every session must end on the green, not just the last one.
+    // Point the final block of the FIRST (non-final) session at d4 (off_tee) — the last
+    // session still closes green, so this fails only if the rule is enforced per-session.
+    const bad = structuredClone(okDraft)
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- structuredClone(okDraft) preserves the full shape, so this indexed access is non-null
+    const first = bad.sessions[0]!
+    first.blocks[first.blocks.length - 1]!.drill_ref = 4 // d4: off_tee/blocked — non-green closer
+    const r = validatePlanDraft(bad, ctx)
+    expect(r.ok).toBe(false)
+    expect(r.errors.join(' ')).toMatch(/close on the green/)
+  })
+
+  it('accepts a plan that closes on an around_green drill (not just putting)', () => {
+    const ok = structuredClone(okDraft)
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- structuredClone(okDraft) preserves the full shape, so this indexed access is non-null
+    const last = ok.sessions[ok.sessions.length - 1]!
+    last.blocks[last.blocks.length - 1]!.drill_ref = 3 // d3: around_green/skill_game
+    last.blocks[last.blocks.length - 1]!.type = 'skill_game' // keep D3 (type==drill_type) satisfied
     expect(validatePlanDraft(ok, ctx).ok).toBe(true)
   })
 

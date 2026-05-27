@@ -18,7 +18,7 @@ const CATEGORY_LABELS: Record<PlanCategory, string> = {
   around_green: 'around the green',
   putting: 'putting',
 }
-const BLOCK_TYPES: BlockType[] = ['warmup', 'technical', 'skill_game', 'pressure_game', 'putting']
+const BLOCK_TYPES: BlockType[] = ['warmup', 'blocked', 'random', 'skill_game', 'pressure_game', 'on_course']
 
 /** Anthropic tool-use input schema for one PlanDraft. Mirrors `PlanDraft` field
  *  names exactly so `validatePlanDraft` / `resolvePlanForStorage` consume the
@@ -192,6 +192,19 @@ export function buildPlanPrompt(
     '    "off the tee", "approach", "around the green", "putting".',
     '    Never use the raw keys like `around_green` or `off_tee` in prose.',
     '    The structured `category` field must still use the raw key — only prose uses readable names.',
+    '(8) Each session targets ONE focus AREA (the day\'s focus); the week\'s sessions cover the',
+    '    ranked weaknesses worst-first. Sequence the focus through the practice MODES as a',
+    '    PROGRESSION used in tandem — blocked (build the movement) → random (transfer it,',
+    '    a different shot every ball) → skill_game (measure it) → pressure_game (test it under',
+    '    consequence). The modes are NOT 1-for-1 swaps; use as many as the candidate list offers',
+    '    for that focus. `random` and `on_course` drills may be ABSENT — include a mode ONLY when',
+    '    a candidate of that drill_type exists; never invent one.',
+    '(9) Session FLOW: OPEN every session with a `warmup` block, then run the focus through the',
+    '    modes above, and CLOSE every session on the green — the LAST block must reference a drill',
+    '    whose category is `putting` or `around_green`. Prefer fuller, shorter blocks (more',
+    '    activities, less time each) over a few long blocks.',
+    '(10) Do NOT filter by the player\'s facilities. Surface and sequence drills regardless of where',
+    '     they are best done — players improvise. `facility` is a display hint only, never a gate.',
     '',
     'Return your answer ONLY by calling the emit_practice_plan tool.',
   ].join('\n')
