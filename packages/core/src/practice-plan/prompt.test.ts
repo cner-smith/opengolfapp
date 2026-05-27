@@ -262,3 +262,29 @@ describe('buildPlanPrompt — system rules', () => {
     expect(categoryEnum).toEqual(['off_tee', 'approach', 'around_green', 'putting'])
   })
 })
+
+// ---------------------------------------------------------------------------
+// (e) array descriptions carry "at least one" guidance (replaces removed minItems)
+// ---------------------------------------------------------------------------
+describe('PLAN_TOOL array-property descriptions', () => {
+  const schema = PLAN_TOOL.input_schema
+
+  it('focus_areas has a description mentioning "at least one"', () => {
+    const desc = (schema.properties.focus_areas as Record<string, unknown>).description as string
+    expect(typeof desc).toBe('string')
+    expect(desc.toLowerCase()).toContain('at least one')
+  })
+
+  it('sessions has a description guiding the model on session count', () => {
+    const desc = (schema.properties.sessions as Record<string, unknown>).description as string
+    expect(typeof desc).toBe('string')
+    expect(desc.length).toBeGreaterThan(0)
+  })
+
+  it('sessions[].blocks has a description mentioning "at least one"', () => {
+    const blocksSchema = schema.properties.sessions.items.properties.blocks
+    const desc = (blocksSchema as Record<string, unknown>).description as string
+    expect(typeof desc).toBe('string')
+    expect(desc.toLowerCase()).toContain('at least one')
+  })
+})

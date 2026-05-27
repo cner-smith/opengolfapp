@@ -58,6 +58,7 @@ export const PLAN_TOOL = {
       },
       focus_areas: {
         type: 'array',
+        description: 'One or more focus areas for the week (at least one).',
         items: {
           type: 'object',
           additionalProperties: false,
@@ -83,6 +84,7 @@ export const PLAN_TOOL = {
       },
       sessions: {
         type: 'array',
+        description: "The week's practice sessions — match the requested session count.",
         items: {
           type: 'object',
           additionalProperties: false,
@@ -95,6 +97,7 @@ export const PLAN_TOOL = {
             },
             blocks: {
               type: 'array',
+              description: 'One or more drill blocks in this session (at least one).',
               items: {
                 type: 'object',
                 additionalProperties: false,
