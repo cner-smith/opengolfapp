@@ -89,27 +89,52 @@ function normalizeCategoryProse(text: string): string {
     .replace(/\baround_green\b/gi, 'around the green')
 }
 
-// Tiny markdown-ish renderer scoped to the drill `instructions` format:
-// split on blank lines into paragraphs, convert `**bold**` to <strong>.
-// Not a general markdown parser — bold + paragraphs only.
+// Tiny markdown-ish renderer scoped to the drill `instructions` format.
+// Segmentation: splits into paragraphs on either (a) a blank line or
+// (b) the boundary immediately before a **Header.** token — so the
+// continuous seed format `**Why.** … **Setup.** … **How.** …` produces
+// one paragraph per section rather than one wall of text.
+// Inline tokens: `**bold**` → <strong>, `*italic*` → <em>.
+// No dangerouslySetInnerHTML — all text nodes + React elements only.
 function renderInstructions(text: string): React.ReactNode {
-  const paragraphs = text.split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean)
-  return paragraphs.map((para, pi) => (
+  // Step 1: split on blank lines first, then within each chunk split
+  // before any **Header** token (lookahead keeps the token in the next segment).
+  const rawSegments = text
+    .split(/\n\s*\n/)
+    .flatMap((chunk) =>
+      chunk
+        .trim()
+        // Split at the position immediately before a **…** token that isn't
+        // at the very start of the chunk (so a leading header stays in chunk[0]).
+        .split(/(?=\*\*[^*]+\*\*)/)
+        .map((s) => s.trim())
+        .filter(Boolean),
+    )
+
+  // Inline tokenizer: handle both **bold** and *italic* (single asterisk).
+  function renderInline(para: string): React.ReactNode[] {
+    return para.split(/(\*\*[^*]+\*\*|\*[^*]+\*)/g).map((part, i) => {
+      if (/^\*\*[^*]+\*\*$/.test(part)) {
+        return (
+          <strong key={i} className="text-caddie-ink" style={{ fontWeight: 600 }}>
+            {part.slice(2, -2)}
+          </strong>
+        )
+      }
+      if (/^\*[^*]+\*$/.test(part)) {
+        return <em key={i}>{part.slice(1, -1)}</em>
+      }
+      return part
+    })
+  }
+
+  return rawSegments.map((para, pi) => (
     <p
       key={pi}
       className="font-serif text-caddie-ink-dim"
       style={{ fontSize: 15, lineHeight: 1.6, marginTop: pi === 0 ? 0 : 12 }}
     >
-      {para.split(/(\*\*[^*]+\*\*)/g).map((part, i) => {
-        const m = /^\*\*([^*]+)\*\*$/.exec(part)
-        return m ? (
-          <strong key={i} className="text-caddie-ink" style={{ fontWeight: 600 }}>
-            {m[1]}
-          </strong>
-        ) : (
-          part
-        )
-      })}
+      {renderInline(para)}
     </p>
   ))
 }
@@ -429,6 +454,7 @@ function DrillCard({
               type="button"
               onClick={() => setOpen((o) => !o)}
               aria-expanded={open}
+              aria-controls={`drill-detail-${block.id}`}
               className="font-serif text-caddie-ink hover:opacity-80"
               style={{
                 display: 'flex',
@@ -522,7 +548,7 @@ function DrillCard({
 
       {/* Expanded — full-width instructions, hairline-separated, no shadow */}
       {canExpand && open ? (
-        <div style={{ borderTop: `1px solid ${LINE}`, marginTop: 16, paddingTop: 16, maxWidth: 660 }}>
+        <div id={`drill-detail-${block.id}`} style={{ borderTop: `1px solid ${LINE}`, marginTop: 16, paddingTop: 16, maxWidth: 660 }}>
           {renderInstructions(instructions)}
           {drill?.source ? (
             <div
