@@ -39,10 +39,11 @@ const CATEGORY_LABEL: Record<PlanCategory, string> = {
 
 const BLOCK_TYPE_LABEL: Record<BlockType, string> = {
   warmup: 'Warm-up',
-  technical: 'Technical',
+  blocked: 'Blocked',
+  random: 'Random',
   skill_game: 'Skill game',
   pressure_game: 'Pressure game',
-  putting: 'Putting',
+  on_course: 'On course',
 }
 
 const FACILITY_LABEL: Record<string, string> = {

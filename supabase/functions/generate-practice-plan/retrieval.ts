@@ -34,8 +34,6 @@ const DRILL_SELECT =
 export interface CandidatePoolOpts {
   skillLevel: string
   goal: string
-  /** The player's available facilities (e.g. ['range','practice_green']). */
-  facilities: string[]
   /** Ranked weakness categories from the digest (worst-first). */
   focusCategories: PlanCategory[]
   /** Weakness target tags (e.g. ['start_line','dispersion','lag']) used ONLY to
@@ -51,11 +49,8 @@ export interface CandidatePoolOpts {
  *
  *  Trust posture for interpolated values:
  *  - `goal` is safe: DB CHECK constraint (migration 0001) limits it to the
- *    known enum set ('break_100', 'break_90', …, 'scratch').
- *  - `facilities` is safe in practice (app-controlled enum values) but has NO
- *    DB CHECK constraint — it's a text[] with no brace/comma characters in any
- *    valid value, so pgArray can't be weaponized. A malformed PostgREST filter
- *    from either will throw in getCandidatePool, which now degrades to a baseline
+ *    known enum set ('break_100', 'break_90', …, 'scratch'). A malformed PostgREST
+ *    filter from it would throw in getCandidatePool, which degrades to a baseline
  *    in the orchestrator (no hard 500). */
 function pgArray(values: string[]): string {
   return `{${values.join(',')}}`
@@ -85,33 +80,39 @@ function toCandidate(r: DrillRow): CandidateDrill {
  * §7 candidate pool. Gate (all ANDed):
  *   - `skill_levels @> [skillLevel]`            — drill suits this skill band
  *   - `goals = '{}' OR goals @> [goal]`         — goal-agnostic OR matches the goal
- *   - `facility = '{}' OR facility && facilities` — anywhere-doable OR ≥1 facility match
  *   - `category = any(focusCategories)`         — attacks a ranked weakness
  *   - `verified = true`                          — maintainer-vetted only
+ *
+ * NO facility gate (taxonomy Decisions §4): every drill is surfaced regardless of
+ * the player's access — players improvise. `facility` survives on the candidate as
+ * a display-only "where" hint, never a filter.
  *
  * Order: targets-overlap-with-weaknesses DESC, then `id` ASC (total tiebreak).
  * PostgREST can't ORDER BY an array-overlap count, so we fetch the full gated set
  * ordered by `id asc` (stable + total), score overlap in JS, and stable-sort.
  *
  * Completeness guarantee: the pool is normally capped at POOL_LIMIT (25) and
- * always includes ≥1 `warmup` AND ≥1 drill whose `drill_type` is `putting` or
- * `pressure_game` (when the gated set contains any), so the model can always
- * build a full session. In the degenerate case where the top-25 can't satisfy
- * both guarantees via the swap path (every slot is shielding the other
- * guarantee), `ensurePresent` appends rather than swaps, so the pool may grow
- * to 26–27. This is safe: `validatePlanDraft` range-checks every `drill_ref`
- * against `candidates.length`, so a slightly-over-cap pool never causes a
- * silent out-of-bounds resolve.
+ * always includes ≥1 `warmup` drill AND ≥1 drill whose CATEGORY is `putting` or
+ * `around_green` (the always-close-on-the-green drill — when the gated set contains
+ * any), so the model can always build a full session that opens with a warmup and
+ * closes on the green. In the degenerate case where the top-25 can't satisfy both
+ * guarantees via the swap path (every slot is shielding the other guarantee),
+ * `ensurePresent` appends rather than swaps, so the pool may grow to 26–27. This is
+ * safe: `validatePlanDraft` range-checks every `drill_ref` against
+ * `candidates.length`, so a slightly-over-cap pool never causes a silent
+ * out-of-bounds resolve.
  */
 export async function getCandidatePool(
   supabase: SupabaseClient,
   opts: CandidatePoolOpts,
 ): Promise<CandidateDrill[]> {
-  const { skillLevel, goal, facilities, focusCategories, weaknessTargets = [] } = opts
+  const { skillLevel, goal, focusCategories, weaknessTargets = [] } = opts
 
   if (focusCategories.length === 0) return []
 
-  let query = supabase
+  // NO facility gate (Decisions §4) — every drill is surfaced; `facility` is a
+  // display hint only, carried through on the candidate but never filtered on.
+  const query = supabase
     .from('drills')
     .select(DRILL_SELECT)
     .eq('verified', true)
@@ -120,16 +121,8 @@ export async function getCandidatePool(
     // goal-agnostic ('{}') OR explicitly tagged for this goal. Two separate
     // .or() groups are AND-combined by PostgREST — the intended (A) AND (B).
     .or(`goals.eq.${pgArray([])},goals.cs.${pgArray([goal])}`)
-
-  // facility: anywhere-doable ('{}') OR overlaps the player's facilities. With no
-  // facilities known, the overlap arm can't match, so gate to anywhere-doable only.
-  query =
-    facilities.length > 0
-      ? query.or(`facility.eq.${pgArray([])},facility.ov.${pgArray(facilities)}`)
-      : query.eq('facility', pgArray([]))
-
-  // Stable, total base order; JS re-ranks by overlap below.
-  query = query.order('id', { ascending: true })
+    // Stable, total base order; JS re-ranks by overlap below.
+    .order('id', { ascending: true })
 
   const { data, error } = await query.returns<DrillRow[]>()
   if (error) {
@@ -147,10 +140,13 @@ export async function getCandidatePool(
 
   const ranked = scored.map((s) => s.r)
 
-  // Top slice, then guarantee a warmup and a putting/pressure_game drill are present.
+  // Top slice, then guarantee a warmup drill and a green-area (putting/around_green)
+  // closer are present — the always-open-with-a-warmup / always-close-on-the-green
+  // structure (Decisions §3) is enforced by `validatePlanDraft`; the pool must be
+  // able to satisfy it.
   const isWarmup = (r: DrillRow) => r.drill_type === 'warmup'
-  const isPuttingOrPressure = (r: DrillRow) =>
-    r.drill_type === 'putting' || r.drill_type === 'pressure_game'
+  const isGreenCloser = (r: DrillRow) =>
+    r.category === 'putting' || r.category === 'around_green'
 
   const selected = ranked.slice(0, POOL_LIMIT)
 
@@ -175,8 +171,8 @@ export async function getCandidatePool(
     selected.push(candidate)
   }
 
-  ensurePresent(isWarmup, isPuttingOrPressure)
-  ensurePresent(isPuttingOrPressure, isWarmup)
+  ensurePresent(isWarmup, isGreenCloser)
+  ensurePresent(isGreenCloser, isWarmup)
 
   return selected.map(toCandidate)
 }

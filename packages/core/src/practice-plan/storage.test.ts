@@ -12,8 +12,8 @@ const gateTmpl: TargetTemplate = {
 // Same pool shape as validation.test.ts; d1/d2 carry target_templates, d0 (warmup) does not.
 const pool: CandidateDrill[] = [
   { id: 'drill-uuid-0', name: 'Warm', category: 'approach', drill_type: 'warmup', duration_min: 8, facility: [], target_template: null },
-  { id: 'drill-uuid-1', name: 'Wedge ladder', category: 'approach', drill_type: 'technical', duration_min: 20, facility: ['range'], target_template: wedgeTmpl },
-  { id: 'drill-uuid-2', name: 'Gate', category: 'putting', drill_type: 'technical', duration_min: 15, facility: ['putting'], target_template: gateTmpl },
+  { id: 'drill-uuid-1', name: 'Wedge ladder', category: 'approach', drill_type: 'blocked', duration_min: 20, facility: ['range'], target_template: wedgeTmpl },
+  { id: 'drill-uuid-2', name: 'Gate', category: 'putting', drill_type: 'blocked', duration_min: 15, facility: ['putting'], target_template: gateTmpl },
 ]
 
 const articles = [
@@ -38,8 +38,8 @@ const draft: PlanDraft = {
   sessions: [
     { title: 'S1', total_minutes: 43, blocks: [
       { id: 's1b1', order: 1, type: 'warmup', drill_ref: 0, minutes: 8, rationale: 'loosen up' },
-      { id: 's1b2', order: 2, type: 'technical', drill_ref: 1, minutes: 20, rationale: 'wedge control' },
-      { id: 's1b3', order: 3, type: 'technical', drill_ref: 2, minutes: 15, rationale: 'gate' },
+      { id: 's1b2', order: 2, type: 'blocked', drill_ref: 1, minutes: 20, rationale: 'wedge control' },
+      { id: 's1b3', order: 3, type: 'blocked', drill_ref: 2, minutes: 15, rationale: 'gate' },
     ] },
   ],
 }
@@ -71,7 +71,7 @@ describe('resolvePlanForStorage', () => {
     const noTmpl: PlanDraft = structuredClone(draft)
     // point block to d0 (no template) but keep it a non-warmup type the validator would gate;
     // here we only test storage's tmpl-absent branch.
-    noTmpl.sessions[0]!.blocks[1]!.type = 'technical'
+    noTmpl.sessions[0]!.blocks[1]!.type = 'blocked'
     noTmpl.sessions[0]!.blocks[1]!.drill_ref = 0 // pool[0].target_template is null
     const out = resolvePlanForStorage(noTmpl, ctx)
     expect(out.drills.sessions[0]!.blocks[1]!.target).toBeNull()
@@ -90,7 +90,7 @@ describe('resolvePlanForStorage', () => {
     const b = out.drills.sessions[0]!.blocks[1]!
     expect(b.id).toBe('s1b2')
     expect(b.order).toBe(2)
-    expect(b.type).toBe('technical')
+    expect(b.type).toBe('blocked')
     expect(b.minutes).toBe(20)
     expect(b.rationale).toBe('wedge control')
   })

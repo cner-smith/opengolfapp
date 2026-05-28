@@ -1,5 +1,8 @@
 import { describe, it, expect } from 'vitest'
-import { selectBaselinePlan } from './baseline'
+import { selectBaselinePlan, BASELINE_PLANS } from './baseline'
+import type { BlockType } from './types'
+
+const VALID_MODES: BlockType[] = ['warmup', 'blocked', 'random', 'skill_game', 'pressure_game', 'on_course']
 
 describe('selectBaselinePlan', () => {
   it('returns a plan for a known skill×goal cell', () => {
@@ -19,5 +22,34 @@ describe('selectBaselinePlan', () => {
   })
   it('falls back to a default cell when skill/goal missing', () => {
     expect(selectBaselinePlan({ skill: null, goal: null, weekIndex: 3 }).sessions.length).toBeGreaterThan(0)
+  })
+
+  it('every block uses a valid practice MODE (no retired technical/putting types) and opens with a warmup', () => {
+    for (const variants of Object.values(BASELINE_PLANS)) {
+      for (const v of variants ?? []) {
+        // first block of the first session is a warmup (Decisions §3)
+        expect(v.sessions[0]!.blocks[0]!.type).toBe('warmup')
+        for (const s of v.sessions) {
+          for (const b of s.blocks) {
+            expect(VALID_MODES).toContain(b.type)
+          }
+        }
+      }
+    }
+  })
+
+  it('every session of every variant closes on the green (last block is a putting/around_green drill)', () => {
+    // Baseline block ids follow `b-<area>-<type>`; the green-area prefixes are `b-put-`
+    // (putting) and `b-atg-` (around_green) — the only category signal a placeholder
+    // block carries (drill_ref is a Phase-B placeholder). Per Decisions §3, the LAST
+    // block of EVERY session must be one of these.
+    for (const variants of Object.values(BASELINE_PLANS)) {
+      for (const v of variants ?? []) {
+        for (const s of v.sessions) {
+          const last = s.blocks[s.blocks.length - 1]!
+          expect(last.id).toMatch(/^b-(put|atg)-/)
+        }
+      }
+    }
   })
 })

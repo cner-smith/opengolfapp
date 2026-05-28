@@ -25,7 +25,7 @@ const candidates: CandidateDrill[] = [
     id: 'drill-aaa',
     name: 'Gate Drill',
     category: 'approach',
-    drill_type: 'technical',
+    drill_type: 'blocked',
     duration_min: 15,
     facility: ['range'],
     target_template: {
@@ -75,13 +75,14 @@ describe('PLAN_TOOL schema', () => {
     ])
   })
 
-  it('enum-constrains blocks[].type to the five BlockType members', () => {
+  it('enum-constrains blocks[].type to the six practice-mode BlockType members', () => {
     expect(blockItem.properties.type.enum).toEqual([
       'warmup',
-      'technical',
+      'blocked',
+      'random',
       'skill_game',
       'pressure_game',
-      'putting',
+      'on_course',
     ])
   })
 
@@ -170,7 +171,7 @@ describe('buildPlanPrompt — 0-based indexing', () => {
     const { user } = buildPlanPrompt(digest, candidates, articles, null, 2, 'id-1')
     expect(user).toContain('Gate Drill')
     expect(user).toContain('approach')
-    expect(user).toContain('technical')
+    expect(user).toContain('blocked')
     // the target metric tag may appear, but the numeric baseline/min/max must not
     expect(user).toContain('greens_hit')
     expect(user).not.toContain('target_template')
@@ -240,6 +241,24 @@ describe('buildPlanPrompt — system rules', () => {
   it('threads the requested session count into the system rules', () => {
     const { system } = buildPlanPrompt(digest, candidates, articles, null, 4, 'id-1')
     expect(system).toContain('exactly 4 sessions')
+  })
+
+  it('encodes the session-flow pedagogy: single focus, warmup open, close on the green, modes as a progression, no facility gate', () => {
+    const { system } = buildPlanPrompt(digest, candidates, articles, null, 3, 'id-1')
+    const lower = system.toLowerCase()
+    // one focus area per session
+    expect(lower).toMatch(/one focus area/)
+    // mode progression used in tandem, not swaps
+    expect(lower).toContain('progression')
+    expect(lower).toMatch(/not 1-for-1 swaps|never.*swap|not.*swap/)
+    // open with a warmup, close on the green
+    expect(lower).toContain('open every session with a `warmup`')
+    expect(lower).toMatch(/close every session on the green/)
+    expect(lower).toMatch(/putting.*around_green|around_green.*putting/)
+    // graceful: include a mode only when a candidate exists (random/on_course may be absent)
+    expect(lower).toMatch(/only when a candidate.*exists|may be absent/)
+    // no facility filtering — facility is a display hint
+    expect(lower).toMatch(/do not filter by the player's facilities|never a gate/)
   })
 
   it('instructs the model to use readable category names in prose (not raw enum keys)', () => {

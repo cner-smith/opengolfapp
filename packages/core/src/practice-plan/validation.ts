@@ -48,6 +48,30 @@ export function validatePlanDraft(
     // total_minutes is server-derived (sum of block minutes) — not validated here
   }
 
+  // D9: the plan must OPEN with a warmup — the first block of the first session.
+  // Unconditional (Decisions §3) — every session structure starts with an on-ramp.
+  const firstSession = draft.sessions[0]
+  const firstBlock = firstSession?.blocks[0]
+  if (firstBlock && firstBlock.type !== 'warmup') {
+    errors.push(`first block ${firstBlock.id} type ${firstBlock.type} != warmup (plan must open with a warmup)`)
+  }
+
+  // D10: EVERY session must CLOSE on the green — the last block of EACH session must
+  // reference a drill whose category is `putting` or `around_green`. Unconditional
+  // (Decisions §3): "the last thing you do in every session is putting always," no
+  // facility gating. Per-session, not just the final session.
+  for (const s of draft.sessions) {
+    const lastBlock = s.blocks[s.blocks.length - 1]
+    if (lastBlock) {
+      const closer = refOf(lastBlock.drill_ref)
+      if (closer && closer.category !== 'putting' && closer.category !== 'around_green') {
+        errors.push(
+          `last block ${lastBlock.id} drill category ${closer.category} != putting/around_green (session "${s.title}" must close on the green)`,
+        )
+      }
+    }
+  }
+
   // D5: each of the top-2 weaknesses must have at least one non-warmup block covering it
   const covered = new Set<PlanCategory>()
   for (const s of draft.sessions) {

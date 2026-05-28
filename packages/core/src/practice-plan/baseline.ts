@@ -39,15 +39,15 @@ export const BASELINE_PLANS: Partial<Record<Cell | 'default', BaselineVariant[]>
               type: 'warmup',
               drill_ref: 0, // Phase B: resolve to real drill id
               minutes: 10,
-              rationale: 'Gate drill to ingrain a square face at impact.',
+              rationale: 'Easy lag rolls to find the speed of the greens before any focused work.',
             },
             {
-              id: 'b-put-technical',
+              id: 'b-put-blocked',
               order: 1,
-              type: 'putting',
+              type: 'blocked',
               drill_ref: 0, // Phase B: resolve to real drill id
               minutes: 20,
-              rationale: 'Distance-control ladder from 10 – 30 ft.',
+              rationale: 'Gate drill — repeated straight putts to ingrain a square face and start line.',
             },
             {
               id: 'b-put-game',
@@ -55,7 +55,7 @@ export const BASELINE_PLANS: Partial<Record<Cell | 'default', BaselineVariant[]>
               type: 'pressure_game',
               drill_ref: 0, // Phase B: resolve to real drill id
               minutes: 15,
-              rationale: '18-hole putting game on the practice green to simulate real-round pressure.',
+              rationale: '18-hole putting game on the practice green to add consequence to the stroke.',
             },
           ],
         },
@@ -64,20 +64,21 @@ export const BASELINE_PLANS: Partial<Record<Cell | 'default', BaselineVariant[]>
           total_minutes: 30,
           blocks: [
             {
-              id: 'b-atg-chip',
+              id: 'b-atg-blocked',
               order: 0,
-              type: 'technical',
+              type: 'blocked',
               drill_ref: 0, // Phase B: resolve to real drill id
               minutes: 15,
-              rationale: 'Bump-and-run from tight lies to a near pin.',
+              rationale: 'Bump-and-run from tight lies to a near pin — same shot, repeated.',
             },
+            // Closes on the green (an around_green skill game) per Decisions §3.
             {
               id: 'b-atg-game',
               order: 1,
               type: 'skill_game',
               drill_ref: 0, // Phase B: resolve to real drill id
               minutes: 15,
-              rationale: 'Up-and-down challenge: 10 balls from various lies around the green.',
+              rationale: 'Up-and-down challenge: 10 balls from various lies around the green, keep score.',
             },
           ],
         },
@@ -111,45 +112,57 @@ export const BASELINE_PLANS: Partial<Record<Cell | 'default', BaselineVariant[]>
               type: 'warmup',
               drill_ref: 0, // Phase B: resolve to real drill id
               minutes: 10,
-              rationale: 'Nine-o\'clock to three-o\'clock half-swing to groove contact.',
+              rationale: 'Nine-o\'clock to three-o\'clock half-swings to groove contact.',
             },
             {
-              id: 'b-app-technical',
+              id: 'b-app-blocked',
               order: 1,
-              type: 'technical',
+              type: 'blocked',
               drill_ref: 0, // Phase B: resolve to real drill id
               minutes: 20,
-              rationale: 'Alignment-stick target gate drill — 7-iron to a specific pin.',
+              rationale: 'Alignment-stick target gate — 7-iron to a specific pin, same shot repeated.',
             },
+            // Closes on the green (an around_green skill game) — every session ends on the green per Decisions §3.
+            // Unique id (Variant A already uses `b-atg-game`).
             {
-              id: 'b-app-game',
+              id: 'b-atg-updown-game',
               order: 2,
               type: 'skill_game',
               drill_ref: 0, // Phase B: resolve to real drill id
               minutes: 15,
-              rationale: 'Hit-the-green game: score +1 for GIR, 0 for miss; target ≥ 7/10.',
+              rationale: 'Up-and-down challenge: 10 balls from various lies around the green, keep score.',
             },
           ],
         },
         {
-          title: 'Tee-shot consistency',
-          total_minutes: 30,
+          title: 'Tee shots, then close on the green',
+          total_minutes: 45,
           blocks: [
             {
-              id: 'b-ott-technical',
+              id: 'b-ott-warmup',
               order: 0,
-              type: 'technical',
+              type: 'warmup',
               drill_ref: 0, // Phase B: resolve to real drill id
-              minutes: 15,
-              rationale: 'Slow-motion takeaway drill to reduce over-the-top path.',
+              minutes: 10,
+              rationale: 'Easy half-speed swings with a mid-iron to loosen up before driver.',
             },
             {
-              id: 'b-ott-game',
+              id: 'b-ott-blocked',
               order: 1,
-              type: 'skill_game',
+              type: 'blocked',
               drill_ref: 0, // Phase B: resolve to real drill id
               minutes: 15,
-              rationale: 'Fairway-finder challenge: 10 drives, score for landing zone.',
+              rationale: 'Path-gate drill to reduce an over-the-top move, same swing repeated.',
+            },
+            // Closes on the green (a putting skill game) per Decisions §3.
+            // Unique id (Variant A already uses `b-put-game`).
+            {
+              id: 'b-put-lag-game',
+              order: 2,
+              type: 'skill_game',
+              drill_ref: 0, // Phase B: resolve to real drill id
+              minutes: 20,
+              rationale: 'Lag-ladder game from 10–40 ft to end every session on the green.',
             },
           ],
         },

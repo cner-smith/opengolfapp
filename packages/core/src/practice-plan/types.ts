@@ -2,7 +2,7 @@ import type { SkillLevel, Goal } from '../constants'
 
 export type PlanCategory = 'off_tee' | 'approach' | 'around_green' | 'putting'
 export type PlayFrequency = 'monthly' | 'weekly' | 'multi_weekly' | 'daily'
-export type BlockType = 'warmup' | 'technical' | 'skill_game' | 'pressure_game' | 'putting'
+export type BlockType = 'warmup' | 'blocked' | 'random' | 'skill_game' | 'pressure_game' | 'on_course'
 
 /** Already-fetched round, SG columns only (no stats engine needed). */
 export interface RoundSG {
