@@ -265,10 +265,14 @@ export function ShotPatternsPage() {
                 {lieSlopeSide ? ` (${lieSlopeSide.replace('_', ' ')})` : ''}.
               </div>
             ) : (
-              <>
+              // Width-constrained wrapper so the legend wraps within the plot's
+              // footprint instead of growing the cream box wider than the SVG
+              // (the legend's natural width on wide viewports exceeds 420 px,
+              // which was leaving empty space to the right of the plot).
+              <div style={{ width: SVG_VIEW_WIDTH }}>
                 <DispersionPlot points={points} stats={stats} />
                 <PatternLegend hasEllipses={!!stats} />
-              </>
+              </div>
             )}
           </div>
 
