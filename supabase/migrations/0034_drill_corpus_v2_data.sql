@@ -12,8 +12,18 @@
 -- Idempotency: adds a UNIQUE constraint on drills.name (which the data
 -- already satisfies — every corpus drill name is distinct) so the INSERT
 -- can ON CONFLICT (name) DO NOTHING and is safe to re-run.
+--
+-- ⚠️ PRE-CONDITION (operational): the ALTER TABLE below assumes all existing
+-- rows in `public.drills` have distinct `name` values. PostgreSQL scans the
+-- full table and rejects the constraint with no rollback path short of
+-- manual deduplication. The v1 corpus (PR #432) + dev's applied state both
+-- satisfy this. Risk surface is any project that accumulated drill rows
+-- outside of `seed.sql` (ad-hoc inserts, partial resets, experimental data).
+-- Before `supabase db push` to a project you don't fully control, run:
+--   select name, count(*) from public.drills group by name having count(*) > 1;
+-- and dedupe any hits before applying.
 
--- Make the INSERT idempotent on re-apply.
+-- Make the INSERT idempotent on re-apply. (See PRE-CONDITION above.)
 alter table public.drills add constraint drills_name_unique unique (name);
 
 insert into public.drills (name, description, duration_min, category, facility, skill_levels, instructions, goals, targets, drill_type, source, source_url, contributor, verified) values
