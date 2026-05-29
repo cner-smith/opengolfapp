@@ -2,7 +2,6 @@ import { useMemo } from 'react'
 import type { DispersionPoint, DispersionStats } from '@oga/core'
 
 export const SVG_SIZE = 420
-export const SVG_VIEW_WIDTH = `min(${SVG_SIZE}px, 90vw)`
 
 // Pattern point colors. Solid = ink (neutral, the goal); push/pull = warn
 // amber; misses = neg brick. Stays inside the editorial palette.
@@ -24,7 +23,7 @@ export function DispersionPlot({
   points: DispersionPoint[]
   stats: DispersionStats | null
   // Fixed pixel size for the share card (viewport-independent capture).
-  // Omitted on the page → responsive `min(420px, 90vw)`.
+  // Omitted on the page → SVG fills its parent (page wrapper caps the width).
   size?: number
 }) {
   // Spread Math.max over every point ran on every render. Memoize the
@@ -55,7 +54,7 @@ export function DispersionPlot({
   const px = (lat: number) => cx + lat * scale
   const py = (dist: number) => cy - dist * scale
 
-  const renderDim = size ?? SVG_VIEW_WIDTH
+  const renderDim = size ?? '100%'
 
   return (
     <svg

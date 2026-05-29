@@ -17,7 +17,7 @@ import { useUnits } from '../../hooks/useUnits'
 import {
   DispersionPlot,
   pointColor,
-  SVG_VIEW_WIDTH,
+  SVG_SIZE,
 } from './components/DispersionPlot'
 import { ShotPatternsShareCard } from './components/ShotPatternsShareCard'
 
@@ -241,8 +241,9 @@ export function ShotPatternsPage() {
               <div
                 className="flex items-center justify-center text-caddie-ink-mute"
                 style={{
-                  width: SVG_VIEW_WIDTH,
-                  height: SVG_VIEW_WIDTH,
+                  width: SVG_SIZE,
+                  maxWidth: '100%',
+                  aspectRatio: '1 / 1',
                   fontSize: 13,
                 }}
               >
@@ -252,8 +253,9 @@ export function ShotPatternsPage() {
               <div
                 className="flex items-center justify-center text-caddie-ink-mute"
                 style={{
-                  width: SVG_VIEW_WIDTH,
-                  height: SVG_VIEW_WIDTH,
+                  width: SVG_SIZE,
+                  maxWidth: '100%',
+                  aspectRatio: '1 / 1',
                   fontSize: 13,
                   textAlign: 'center',
                   padding: 20,
@@ -267,7 +269,9 @@ export function ShotPatternsPage() {
             ) : (
               // Constrain the wrapper so the legend's flex-wrap row wraps
               // within the plot footprint instead of stretching the parent.
-              <div style={{ width: SVG_VIEW_WIDTH }}>
+              // `maxWidth: 100%` is parent-relative (not 90vw) so the cream
+              // box's own padding can't be overrun on narrow viewports.
+              <div style={{ width: SVG_SIZE, maxWidth: '100%' }}>
                 <DispersionPlot points={points} stats={stats} />
                 <PatternLegend hasEllipses={!!stats} />
               </div>
