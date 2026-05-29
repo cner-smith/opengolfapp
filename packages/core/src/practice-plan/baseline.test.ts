@@ -64,7 +64,6 @@ describe('selectBaselinePlan', () => {
           for (const b of s.blocks) {
             expect(b.drill_name, `block ${b.id} has no drill_name`).toBeTruthy()
             expect(typeof b.drill_name).toBe('string')
-            expect(b.drill_name!.length).toBeGreaterThan(0)
           }
         }
       }
