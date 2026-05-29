@@ -33,6 +33,24 @@ export function haversineYards(
   return meters * METERS_TO_YARDS
 }
 
+// Initial great-circle bearing from point 1 to point 2, in degrees
+// clockwise from North, normalized to [0, 360). Used to orient the
+// shot-pattern dispersion overlay along the origin→target line.
+export function bearingDegrees(
+  lat1: number,
+  lng1: number,
+  lat2: number,
+  lng2: number,
+): number {
+  const φ1 = toRadians(lat1)
+  const φ2 = toRadians(lat2)
+  const Δλ = toRadians(lng2 - lng1)
+  const y = Math.sin(Δλ) * Math.cos(φ2)
+  const x = Math.cos(φ1) * Math.sin(φ2) - Math.sin(φ1) * Math.cos(φ2) * Math.cos(Δλ)
+  const θ = Math.atan2(y, x)
+  return ((θ * 180) / Math.PI + 360) % 360
+}
+
 export function formatSG(n: number): string {
   const sign = n > 0 ? '+' : ''
   return `${sign}${n.toFixed(2)}`

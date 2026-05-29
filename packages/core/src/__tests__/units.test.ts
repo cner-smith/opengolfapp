@@ -5,6 +5,7 @@ import {
   FEET_TO_YARDS,
   METERS_TO_YARDS,
   YARDS_TO_METERS,
+  bearingDegrees,
   formatDistance,
   formatPuttDistance,
   formatSG,
@@ -244,5 +245,44 @@ describe('todayLocalDate', () => {
       String(d.getDate()).padStart(2, '0'),
     ].join('-')
     expect(todayLocalDate()).toBe(expected)
+  })
+})
+
+// Compass bearing: degrees clockwise from North, range [0, 360). At lat 40,
+// 1° of longitude great-circle initial bearing is ~0.3° off the cardinal
+// (great circles bow poleward) — hence toBeCloseTo(_, 0) for due E/W.
+describe('bearingDegrees', () => {
+  it('returns 0 for due north (same lng, higher lat)', () => {
+    expect(bearingDegrees(40, -75, 41, -75)).toBeCloseTo(0, 5)
+  })
+
+  it('returns ~90 for due east (same lat, higher lng)', () => {
+    expect(bearingDegrees(40, -75, 40, -74)).toBeCloseTo(90, 0)
+  })
+
+  it('returns 180 for due south', () => {
+    expect(bearingDegrees(40, -75, 39, -75)).toBeCloseTo(180, 5)
+  })
+
+  it('returns ~270 for due west', () => {
+    expect(bearingDegrees(40, -75, 40, -76)).toBeCloseTo(270, 0)
+  })
+
+  it('normalizes a southwest heading into [0, 360) — never negative', () => {
+    const b = bearingDegrees(40, -75, 39, -76)
+    expect(b).toBeGreaterThan(180)
+    expect(b).toBeLessThan(270)
+  })
+
+  it('northeast-ish heading lands between N and E', () => {
+    // 0.001° lat ≈ 121 yd N, 0.001° lng at lat40 ≈ 92.7 yd E →
+    // atan2(92.7, 121) ≈ 37.5° (lng compression pulls it under 45).
+    expect(bearingDegrees(40, -75, 40.001, -74.999)).toBeCloseTo(37.5, 0)
+  })
+
+  it('is not symmetric — A→B differs from B→A off a meridian', () => {
+    const ab = bearingDegrees(40, -75, 41, -74)
+    const ba = bearingDegrees(41, -74, 40, -75)
+    expect(Math.abs(ab - ba)).toBeGreaterThan(1)
   })
 })
