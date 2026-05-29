@@ -584,14 +584,20 @@ function classifyClaudeError(err: unknown, model: string): RawModelOutput {
       }
     }
 
-    // Transient: rate-limit / overload (529→InternalServerError) / 5xx. Baseline
-    // but do NOT burn the user's monthly cap — by NOT inserting a row here, the
-    // count query naturally excludes this attempt (we serve a baseline that is
-    // also stored, but the cap counts plans; transient retries shouldn't penalize
-    // the user). We tag the reason so the caller can choose not to persist.
+    // Transient: rate-limit / overload (529→InternalServerError) / 5xx /
+    // connection-level failures (incl. APIConnectionTimeoutError — the SDK
+    // never reaches Anthropic, so there's no HTTP response to classify; the
+    // call timed out at the socket). All four are retryable conditions, so
+    // baseline ephemerally (no INSERT) — by NOT inserting a row here, the
+    // count query naturally excludes this attempt (we serve a baseline that
+    // is also stored, but the cap counts plans; transient retries shouldn't
+    // penalize the user) AND the cadence guard isn't tripped (a persisted
+    // baseline with valid_until 7d out would lock the user out of retrying).
+    // We tag the reason so the caller can choose not to persist.
     const transient =
       err instanceof Anthropic.RateLimitError ||
       err instanceof Anthropic.InternalServerError ||
+      err instanceof Anthropic.APIConnectionError ||
       type === 'overloaded_error' ||
       err.status === 429 ||
       (typeof err.status === 'number' && err.status >= 500)

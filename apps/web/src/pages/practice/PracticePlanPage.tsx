@@ -206,6 +206,44 @@ function GenerateButton({
   )
 }
 
+/** Indeterminate sliding progress bar shown while generation is in flight.
+ *  Claude calls can take 15–45s; static "Generating…" text gives no signal
+ *  the call is alive. The bar is the only motion cue and lives at the top of
+ *  whichever generate surface (NoPlanState card or PlanHeader) the user
+ *  clicked. Keyframes inlined so the change is contained to this file. */
+function GenerateProgressBar({ visible }: { visible: boolean }) {
+  if (!visible) return null
+  return (
+    <div
+      aria-hidden="true"
+      style={{
+        position: 'relative',
+        height: 3,
+        width: '100%',
+        background: '#EBE5D6',
+        overflow: 'hidden',
+        borderRadius: 2,
+      }}
+    >
+      <style>{`
+        @keyframes oga-progress-slide {
+          0%   { transform: translateX(-100%); }
+          100% { transform: translateX(400%); }
+        }
+      `}</style>
+      <div
+        className="bg-caddie-accent"
+        style={{
+          position: 'absolute',
+          inset: 0,
+          width: '25%',
+          animation: 'oga-progress-slide 1.4s ease-in-out infinite',
+        }}
+      />
+    </div>
+  )
+}
+
 function PageHeading() {
   return (
     <>
@@ -271,8 +309,18 @@ function NoPlanState({
       </div>
       <div
         className="bg-caddie-surface"
-        style={{ border: `1px solid ${LINE}`, borderRadius: 4, padding: '40px 32px', maxWidth: 640 }}
+        style={{
+          border: `1px solid ${LINE}`,
+          borderRadius: 4,
+          padding: '40px 32px',
+          maxWidth: 640,
+          position: 'relative',
+        }}
       >
+        {/* Top-of-card progress bar while generation is in flight. */}
+        <div style={{ position: 'absolute', top: 0, left: 0, right: 0 }}>
+          <GenerateProgressBar visible={isPending} />
+        </div>
         <div className="kicker" style={{ marginBottom: 12 }}>
           No plan yet
         </div>
@@ -338,24 +386,27 @@ function PlanHeader({
   isPending: boolean
 }) {
   return (
-    <div
-      className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3"
-      style={{ marginBottom: 28 }}
-    >
-      <div>
-        <div className="kicker" style={{ marginBottom: 8 }}>
-          {kicker}
-        </div>
-        <h1
-          className="font-serif text-caddie-ink"
-          style={{ fontSize: 28, fontWeight: 500, fontStyle: 'italic', lineHeight: 1.15, maxWidth: 640 }}
-        >
-          {insight}
-        </h1>
+    <div style={{ marginBottom: 28 }}>
+      {/* Top-of-section progress bar while a regenerate is in flight. */}
+      <div style={{ marginBottom: 8 }}>
+        <GenerateProgressBar visible={isPending} />
       </div>
-      {generateLabel ? (
-        <GenerateButton label={generateLabel} onGenerate={onGenerate} isPending={isPending} />
-      ) : null}
+      <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
+        <div>
+          <div className="kicker" style={{ marginBottom: 8 }}>
+            {kicker}
+          </div>
+          <h1
+            className="font-serif text-caddie-ink"
+            style={{ fontSize: 28, fontWeight: 500, fontStyle: 'italic', lineHeight: 1.15, maxWidth: 640 }}
+          >
+            {insight}
+          </h1>
+        </div>
+        {generateLabel ? (
+          <GenerateButton label={generateLabel} onGenerate={onGenerate} isPending={isPending} />
+        ) : null}
+      </div>
     </div>
   )
 }
