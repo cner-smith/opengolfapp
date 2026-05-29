@@ -52,4 +52,21 @@ describe('selectBaselinePlan', () => {
       }
     }
   })
+
+  it('every block carries a drill_name that serveBaseline can resolve', () => {
+    // Each baseline block names a real corpus drill by name; the Edge fn
+    // queries `drills.name in (…)` and fills `drill_id` before INSERT.
+    // A missing/empty hint means the UI would show "Drill" and `canExpand`
+    // would be false — the regression D fixes.
+    for (const variants of Object.values(BASELINE_PLANS)) {
+      for (const v of variants ?? []) {
+        for (const s of v.sessions) {
+          for (const b of s.blocks) {
+            expect(b.drill_name, `block ${b.id} has no drill_name`).toBeTruthy()
+            expect(typeof b.drill_name).toBe('string')
+          }
+        }
+      }
+    }
+  })
 })

@@ -673,9 +673,44 @@ async function serveBaseline(
   const weekIndex = Math.floor(Date.now() / (7 * 24 * 60 * 60 * 1000))
   const draft = selectBaselinePlan({ skill, goal, weekIndex, worstCategory })
 
-  // Baselines carry placeholder drill_refs (no resolved drill ids) — store the
-  // draft sessions as-is (UI renders the same PlanDraft shape). No pool to
-  // resolve against, so we map the draft directly.
+  // Resolve each baseline block's `drill_name` hint to a real `drill_id`
+  // against the corpus (one query, one map). Without this, the UI fallback
+  // shows the literal string "Drill" with no expand for every baseline block.
+  // Unresolved names (e.g., a prod project without migration 0034 applied)
+  // pass through with `drill_id` undefined — same as the pre-D behavior, so
+  // we never block a baseline on a name lookup miss.
+  const distinctNames = Array.from(
+    new Set(
+      draft.sessions.flatMap((s) =>
+        s.blocks.map((b) => b.drill_name).filter((n): n is string => !!n),
+      ),
+    ),
+  )
+  const nameToId = new Map<string, string>()
+  if (distinctNames.length > 0) {
+    const { data: drills, error: drillsErr } = await supabase
+      .from('drills')
+      .select('id, name')
+      .in('name', distinctNames)
+    if (drillsErr) {
+      console.error('[generate-practice-plan] baseline drills lookup failed', drillsErr.message)
+      // fall through with empty map — same as a corpus-less environment
+    } else {
+      for (const d of (drills ?? []) as { id: string; name: string }[]) {
+        nameToId.set(d.name, d.id)
+      }
+    }
+  }
+  const resolvedSessions = draft.sessions.map((s) => ({
+    ...s,
+    blocks: s.blocks.map((b) => {
+      const { drill_name, ...rest } = b
+      const drill_id = drill_name ? nameToId.get(drill_name) : undefined
+      // Strip the hint regardless; only attach drill_id when resolved.
+      return drill_id ? { ...rest, drill_id } : rest
+    }),
+  }))
+
   const days = validityDays ?? 7
   const validUntil = new Date()
   validUntil.setUTCDate(validUntil.getUTCDate() + days)
@@ -685,7 +720,7 @@ async function serveBaseline(
     ai_insight: draft.week_focus,
     coach_note: draft.coach_note,
     focus_areas: draft.focus_areas,
-    drills: { sessions: draft.sessions },
+    drills: { sessions: resolvedSessions },
     based_on_rounds: digest?.sg_summary.based_on_rounds ?? 0,
     valid_until: validUntil.toISOString().slice(0, 10),
     raw_model_output: raw ?? ({ status: 'baseline', reason } satisfies RawModelOutput),
