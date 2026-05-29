@@ -56,6 +56,10 @@ export interface PlanBlock {
   drill_ref: number // index into the candidate pool
   minutes: number
   rationale: string
+  // Baseline-only hint: the canonical drill name in the corpus. `serveBaseline`
+  // resolves it to a real `drill_id` at storage time and strips this field
+  // before INSERT. Never emitted by Claude tool calls.
+  drill_name?: string
 }
 export interface PlanSession {
   title: string
