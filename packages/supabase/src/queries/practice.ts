@@ -46,3 +46,37 @@ export function updatePlanProgress(
     .select()
     .single()
 }
+
+export function saveFeedback(
+  client: OgaSupabaseClient,
+  planId: string,
+  feedback: string,
+) {
+  return client
+    .from('practice_plans')
+    .update({ feedback })
+    .eq('id', planId)
+    .select()
+    .single()
+}
+
+export function getDrillsByIds(client: OgaSupabaseClient, ids: string[]) {
+  if (ids.length === 0) return Promise.resolve({ data: [] as DrillCard[], error: null })
+  return client
+    .from('drills')
+    .select('id, name, description, instructions, facility, duration_min, drill_type, category, source, source_url')
+    .in('id', ids)
+}
+
+type DrillCard = {
+  id: string
+  name: string
+  description: string | null
+  instructions: string | null
+  facility: string[] | null
+  duration_min: number | null
+  drill_type: string
+  category: string | null
+  source: string | null
+  source_url: string | null
+}

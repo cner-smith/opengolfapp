@@ -14,7 +14,9 @@
     "seed:e2e": "DOTENV_CONFIG_PATH=apps/web/.env.test.local tsx scripts/seed-demo.ts",
     "seed:my-data": "tsx scripts/seed-my-data.ts",
     "import:osm": "tsx scripts/import-osm-course.ts",
-    "crawl:courses": "tsx scripts/crawl-courses.ts"
+    "crawl:courses": "tsx scripts/crawl-courses.ts",
+    "email:vendor-core": "mkdir -p supabase/functions/_shared && cp packages/core/src/round-summary.ts supabase/functions/_shared/round-summary.ts",
+    "vendor:practice-plan": "node scripts/vendor-practice-plan.mjs"
   },
   "devDependencies": {
     "@supabase/supabase-js": "^2.45.0",

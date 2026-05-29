@@ -55,6 +55,9 @@ apps/web/playwright-report/
 apps/web/blob-report/
 apps/web/e2e/.auth/
 
+# Generated vendor copy of @oga/core for the Deno Edge Function (run `pnpm email:vendor-core`)
+supabase/functions/_shared/round-summary.ts
+
 # Internal planning + design docs — kept locally, not published to GitHub.
 CLAUDE.md
 DESIGN.md
@@ -63,3 +66,4 @@ PHASE_1.md
 PHASE_2.md
 PHASES_3_TO_8.md
 docs/internal/
+docs/superpowers/

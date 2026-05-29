@@ -62,6 +62,7 @@ export default function ProfileTab() {
   const [goal, setGoal] = useState<Goal>(null)
   const [facilities, setFacilities] = useState<string[]>([])
   const [unit, setUnit] = useState<'yards' | 'meters'>('yards')
+  const [emailSummaries, setEmailSummaries] = useState(true)
   const [saving, setSaving] = useState(false)
   const [usernameTouched, setUsernameTouched] = useState(false)
 
@@ -96,6 +97,7 @@ export default function ProfileTab() {
       setGoal(data.goal ?? null)
       setFacilities(data.facilities ?? [])
       setUnit(data.distance_unit === 'meters' ? 'meters' : 'yards')
+      setEmailSummaries(data.email_round_summaries_enabled ?? true)
     })
     return () => {
       active = false
@@ -126,6 +128,7 @@ export default function ProfileTab() {
       goal,
       facilities,
       distance_unit: unit,
+      email_round_summaries_enabled: emailSummaries,
     })
     setSaving(false)
     if (error) {
@@ -270,6 +273,21 @@ export default function ProfileTab() {
               label="Metres"
               active={unit === 'meters'}
               onPress={() => setUnit('meters')}
+            />
+          </View>
+        </Field>
+
+        <Field label="Email round summaries">
+          <View style={{ flexDirection: 'row', gap: 6 }}>
+            <Chip
+              label="On"
+              active={emailSummaries === true}
+              onPress={() => setEmailSummaries(true)}
+            />
+            <Chip
+              label="Off"
+              active={emailSummaries === false}
+              onPress={() => setEmailSummaries(false)}
             />
           </View>
         </Field>

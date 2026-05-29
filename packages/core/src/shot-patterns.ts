@@ -197,3 +197,13 @@ export function getAimCorrection(
   const oppDir = stats.dominantMiss === 'right' ? 'left' : 'right'
   return `Aim ${value} ${noun} ${oppDir} of your target to center your pattern.`
 }
+
+// One-line plain-language verdict from the dispersion shape + dominant miss.
+// Lives here (not in an app) so the web and mobile share cards share one copy.
+export function dispersionVerdict(stats: DispersionStats): string {
+  const { shotShape, dominantMiss } = stats
+  if (shotShape === 'straight' && dominantMiss === 'straight') return 'Dead straight'
+  if (dominantMiss === 'straight') return `A consistent ${shotShape}`
+  if (shotShape === 'straight') return `Straight, missing ${dominantMiss}`
+  return `A ${shotShape} that leaks ${dominantMiss}`
+}

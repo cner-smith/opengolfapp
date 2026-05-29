@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
+import { toBlob } from 'html-to-image'
 import {
   CLUBS,
   LIE_TYPES,
@@ -13,13 +14,22 @@ import {
 import { useShotPatterns } from '../../hooks/useShotPatterns'
 import { LieSlopeGrid } from '../../components/forms/LieSlopeGrid'
 import { useUnits } from '../../hooks/useUnits'
-
-const SVG_SIZE = 420
-const SVG_VIEW_WIDTH = `min(${SVG_SIZE}px, 90vw)`
+import {
+  DispersionPlot,
+  pointColor,
+  SVG_SIZE,
+} from './components/DispersionPlot'
+import { ShotPatternsShareCard } from './components/ShotPatternsShareCard'
 
 const FLIGHT_W = 460
 const FLIGHT_H = 520
 const FLIGHT_VIEW_WIDTH = `min(${FLIGHT_W}px, 92vw)`
+
+// Social share card — 1200×630 is Twitter/Facebook's preferred OG image
+// size. Rendered off-screen, rasterised on Export. The plot inside is
+// drawn at a fixed pixel size so the capture is viewport-independent.
+const SHARE_CARD_W = 1200
+const SHARE_CARD_H = 630
 
 export function ShotPatternsPage() {
   const { unit, toDisplay } = useUnits()
@@ -41,6 +51,77 @@ export function ShotPatternsPage() {
 
   const points = data?.points ?? []
   const stats = data?.stats ?? null
+
+  const shareCardRef = useRef<HTMLDivElement | null>(null)
+  const [exporting, setExporting] = useState(false)
+  const [exportError, setExportError] = useState<string | null>(null)
+  // Off-screen share card mounts lazily on first export so it isn't laid out
+  // on every club-chip re-render for users who never share.
+  const [showShareCard, setShowShareCard] = useState(false)
+
+  // Rasterise the off-screen 1200×630 share card and open the native
+  // share sheet (Web Share API), falling back to a download where file
+  // sharing isn't supported or the share fails for any reason other than
+  // the user dismissing the sheet. Captures on click rather than ahead of
+  // time: the card is heavy and the club filter changes often, so
+  // pre-rasterising on every chip tap would be wasteful. The cost is that
+  // the `await` before share() can expire the iOS-Safari gesture token —
+  // in which case it simply degrades to the download path (same PNG).
+  async function handleExport() {
+    if (exporting) return
+    setExporting(true)
+    setExportError(null)
+    try {
+      // The card is normally pre-mounted on the Export button's pointer-enter
+      // / focus (below), so the ref is ready here and the iOS share gesture
+      // token stays intact. Fallback: if a fast tap beat the mount, mount now
+      // and wait a paint — this rare path may forfeit the token (→ download).
+      if (!shareCardRef.current) {
+        setShowShareCard(true)
+        await new Promise<void>((resolve) =>
+          requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+        )
+      }
+      const node = shareCardRef.current
+      if (!node) throw new Error('share card not ready')
+      const blob = await toBlob(node, {
+        width: SHARE_CARD_W,
+        height: SHARE_CARD_H,
+        cacheBust: true,
+        backgroundColor: '#FBF8F1',
+      })
+      if (!blob) throw new Error('empty blob')
+      const filename = `oga-${club}-pattern.png`
+      const file = new File([blob], filename, { type: 'image/png' })
+      if (
+        typeof navigator.share === 'function' &&
+        navigator.canShare?.({ files: [file] })
+      ) {
+        try {
+          await navigator.share({ files: [file], title: 'OGA Shot Pattern' })
+          return
+        } catch (err) {
+          // User dismissed the sheet — not an error worth surfacing.
+          if ((err as Error).name === 'AbortError') return
+          // Any other share failure → fall through to the download path.
+        }
+      }
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = filename
+      // Firefox and older Safari only honour downloads from an anchor that's
+      // attached to the document; a detached element silently no-ops.
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      setTimeout(() => URL.revokeObjectURL(url), 1000)
+    } catch {
+      setExportError('Could not export the image. Try again.')
+    } finally {
+      setExporting(false)
+    }
+  }
 
   return (
     <div>
@@ -106,8 +187,43 @@ export function ShotPatternsPage() {
           paddingTop: 14,
         }}
       >
-        <div className="kicker" style={{ marginBottom: 14 }}>
-          Pattern
+        <div
+          className="flex items-center justify-between"
+          style={{ marginBottom: 14, gap: 12 }}
+        >
+          <div className="kicker">Pattern</div>
+          {stats && (
+            <div className="flex items-center" style={{ gap: 12 }}>
+              {exportError && (
+                <span className="text-caddie-neg" style={{ fontSize: 12 }}>
+                  {exportError}
+                </span>
+              )}
+              <button
+                type="button"
+                onClick={handleExport}
+                onPointerEnter={() => setShowShareCard(true)}
+                onFocus={() => setShowShareCard(true)}
+                disabled={exporting}
+                className="text-caddie-accent hover:bg-caddie-accent/10 disabled:opacity-40"
+                style={{
+                  background: 'transparent',
+                  border: '1px solid #1F3D2C',
+                  borderRadius: 2,
+                  padding: '8px 12px',
+                  fontSize: 11,
+                  fontWeight: 500,
+                  letterSpacing: '0.08em',
+                  textTransform: 'uppercase',
+                  fontFamily: '"JetBrains Mono", monospace',
+                  cursor: 'pointer',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {exporting ? 'Rendering…' : '↓ Export · 1200×630'}
+              </button>
+            </div>
+          )}
         </div>
         <div
           className="grid grid-cols-1 md:[grid-template-columns:minmax(0,auto)_minmax(0,1fr)]"
@@ -125,8 +241,9 @@ export function ShotPatternsPage() {
               <div
                 className="flex items-center justify-center text-caddie-ink-mute"
                 style={{
-                  width: SVG_VIEW_WIDTH,
-                  height: SVG_VIEW_WIDTH,
+                  width: SVG_SIZE,
+                  maxWidth: '100%',
+                  aspectRatio: '1 / 1',
                   fontSize: 13,
                 }}
               >
@@ -136,8 +253,9 @@ export function ShotPatternsPage() {
               <div
                 className="flex items-center justify-center text-caddie-ink-mute"
                 style={{
-                  width: SVG_VIEW_WIDTH,
-                  height: SVG_VIEW_WIDTH,
+                  width: SVG_SIZE,
+                  maxWidth: '100%',
+                  aspectRatio: '1 / 1',
                   fontSize: 13,
                   textAlign: 'center',
                   padding: 20,
@@ -149,10 +267,14 @@ export function ShotPatternsPage() {
                 {lieSlopeSide ? ` (${lieSlopeSide.replace('_', ' ')})` : ''}.
               </div>
             ) : (
-              <>
+              // Constrain the wrapper so the legend's flex-wrap row wraps
+              // within the plot footprint instead of stretching the parent.
+              // `maxWidth: 100%` is parent-relative (not 90vw) so the cream
+              // box's own padding can't be overrun on narrow viewports.
+              <div style={{ width: SVG_SIZE, maxWidth: '100%' }}>
                 <DispersionPlot points={points} stats={stats} />
                 <PatternLegend hasEllipses={!!stats} />
-              </>
+              </div>
             )}
           </div>
 
@@ -263,6 +385,31 @@ export function ShotPatternsPage() {
           )}
         </div>
       </div>
+
+      {/* Off-screen render target for the 1200×630 share card. Self-
+          contained inline styles so the rasteriser needs no external
+          stylesheet at capture time. */}
+      {showShareCard && stats && (
+        <div
+          aria-hidden
+          style={{
+            position: 'fixed',
+            left: -99999,
+            top: 0,
+            pointerEvents: 'none',
+          }}
+        >
+          <div ref={shareCardRef}>
+            <ShotPatternsShareCard
+              points={points}
+              stats={stats}
+              club={club}
+              unit={unit}
+              toDisplay={toDisplay}
+            />
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -419,176 +566,6 @@ function PatternLegend({ hasEllipses }: { hasEllipses: boolean }) {
           </span>
         ))}
     </div>
-  )
-}
-
-// Pattern point colors. Solid = ink (neutral, the goal); push/pull = warn
-// amber; misses = neg brick. Stays inside the editorial palette.
-function pointColor(result: string | undefined): { fill: string; opacity: number } {
-  if (result === 'solid') return { fill: '#1C211C', opacity: 0.75 }
-  if (result === 'push_right' || result === 'pull_left')
-    return { fill: '#A66A1F', opacity: 0.75 }
-  if (result === undefined) return { fill: '#8A8B7E', opacity: 0.5 }
-  return { fill: '#A33A2A', opacity: 0.8 }
-}
-
-function DispersionPlot({
-  points,
-  stats,
-}: {
-  points: DispersionPoint[]
-  stats: DispersionStats | null
-}) {
-  // Spread Math.max over every point ran on every render. Memoize the
-  // dispersion-derived geometry; chip-toggle re-renders no longer
-  // re-walk the points array.
-  const { maxAbs, range, scale, ticks } = useMemo(() => {
-    const max = Math.max(
-      ...points.map((p) =>
-        Math.max(Math.abs(p.lateralOffsetYards), Math.abs(p.distanceOffsetYards)),
-      ),
-      stats ? stats.cone95.lateral : 0,
-      stats ? stats.cone95.distance : 0,
-      20,
-    )
-    const r = max * 1.15
-    const s = (SVG_SIZE / 2) / r
-    const step = r > 50 ? 20 : r > 20 ? 10 : 5
-    const t: number[] = []
-    for (let v = step; v < r; v += step) {
-      t.push(v, -v)
-    }
-    return { maxAbs: max, range: r, scale: s, ticks: t }
-  }, [points, stats])
-
-  const cx = SVG_SIZE / 2
-  const cy = SVG_SIZE / 2
-
-  const px = (lat: number) => cx + lat * scale
-  const py = (dist: number) => cy - dist * scale
-
-  return (
-    <svg
-      width={SVG_VIEW_WIDTH}
-      height={SVG_VIEW_WIDTH}
-      viewBox={`0 0 ${SVG_SIZE} ${SVG_SIZE}`}
-      style={{ backgroundColor: '#F2EEE5', borderRadius: 2 }}
-    >
-      {ticks.map((t) => (
-        <g key={`v${t}`}>
-          <line
-            x1={px(t)}
-            y1={0}
-            x2={px(t)}
-            y2={SVG_SIZE}
-            stroke="#EBE5D6"
-            strokeWidth={1}
-          />
-          <line
-            x1={0}
-            y1={py(t)}
-            x2={SVG_SIZE}
-            y2={py(t)}
-            stroke="#EBE5D6"
-            strokeWidth={1}
-          />
-        </g>
-      ))}
-      <line x1={cx} y1={0} x2={cx} y2={SVG_SIZE} stroke="#9F9580" strokeWidth={1} />
-      <line x1={0} y1={cy} x2={SVG_SIZE} y2={cy} stroke="#9F9580" strokeWidth={1} />
-
-      {stats && (
-        <>
-          <ellipse
-            cx={px(stats.avgLateralOffset)}
-            cy={py(stats.avgDistanceOffset)}
-            rx={stats.cone95.lateral * scale}
-            ry={stats.cone95.distance * scale}
-            fill="rgba(31,61,44,0.06)"
-            stroke="#1F3D2C"
-            strokeDasharray="5 4"
-            strokeWidth={1}
-          />
-          <ellipse
-            cx={px(stats.avgLateralOffset)}
-            cy={py(stats.avgDistanceOffset)}
-            rx={stats.cone68.lateral * scale}
-            ry={stats.cone68.distance * scale}
-            fill="rgba(31,61,44,0.12)"
-            stroke="#1F3D2C"
-            strokeDasharray="4 3"
-            strokeWidth={1}
-          />
-        </>
-      )}
-
-      <circle cx={cx} cy={cy} r={3} fill="#A66A1F" />
-      <text
-        x={cx + 6}
-        y={cy + 14}
-        fontSize={10}
-        fontFamily="JetBrains Mono, monospace"
-        letterSpacing="0.14em"
-        fill="#A66A1F"
-      >
-        AIM
-      </text>
-
-      {points.map((p) => {
-        const c = pointColor(p.shotResult)
-        return (
-          <circle
-            key={p.id}
-            cx={px(p.lateralOffsetYards)}
-            cy={py(p.distanceOffsetYards)}
-            r={3.5}
-            fill={c.fill}
-            fillOpacity={c.opacity}
-          />
-        )
-      })}
-
-      <text
-        x={cx + 8}
-        y={14}
-        fontSize={9}
-        fontFamily="JetBrains Mono, monospace"
-        letterSpacing="0.14em"
-        fill="#8A8B7E"
-      >
-        LONG
-      </text>
-      <text
-        x={cx + 8}
-        y={SVG_SIZE - 6}
-        fontSize={9}
-        fontFamily="JetBrains Mono, monospace"
-        letterSpacing="0.14em"
-        fill="#8A8B7E"
-      >
-        SHORT
-      </text>
-      <text
-        x={6}
-        y={cy - 6}
-        fontSize={9}
-        fontFamily="JetBrains Mono, monospace"
-        letterSpacing="0.14em"
-        fill="#8A8B7E"
-      >
-        L
-      </text>
-      <text
-        x={SVG_SIZE - 14}
-        y={cy - 6}
-        fontSize={9}
-        fontFamily="JetBrains Mono, monospace"
-        letterSpacing="0.14em"
-        fill="#8A8B7E"
-      >
-        R
-      </text>
-    </svg>
   )
 }
 

@@ -1,0 +1,116 @@
+import type { PlanDraft, CandidateDrill, PlanCategory } from './types.ts'
+
+export interface ValidationCtx {
+  pool: CandidateDrill[]
+  weaknesses: readonly PlanCategory[] // ranked; top-2 must be covered
+  sessionCount: number
+  priorDrillIds: string[]
+  coachNoteMax: number
+  articlesLen: number // size of the published-article set; article_ref must index into it
+}
+
+const MAX_OVERLAP = 0.6
+
+export function validatePlanDraft(
+  draft: PlanDraft,
+  ctx: ValidationCtx,
+): { ok: boolean; errors: string[] } {
+  const errors: string[] = []
+  const refOf = (i: number): CandidateDrill | undefined => ctx.pool[i]
+
+  // D1: session count must match what the planner requested
+  if (draft.sessions.length !== ctx.sessionCount) {
+    errors.push(`session count ${draft.sessions.length} != ${ctx.sessionCount}`)
+  }
+
+  const usedIds = new Set<string>()
+  for (const s of draft.sessions) {
+    // D_empty: a session with no blocks would store total_minutes: 0 (server derives it)
+    if (s.blocks.length === 0) {
+      errors.push(`session "${s.title}" has no blocks`)
+    }
+    for (const b of s.blocks) {
+      const drill = refOf(b.drill_ref)
+      if (!drill) {
+        // D2: drill_ref must be a valid index into the candidate pool
+        errors.push(`drill_ref ${b.drill_ref} out of range`)
+        continue
+      }
+      // D3: block type must match the drill's declared drill_type
+      if (drill.drill_type !== b.type) {
+        errors.push(`block ${b.id} type ${b.type} != drill ${drill.drill_type}`)
+      }
+      usedIds.add(drill.id)
+      if (!Number.isFinite(b.minutes) || b.minutes <= 0) {
+        errors.push(`block ${b.id} minutes ${b.minutes} invalid (must be a finite number > 0)`)
+      }
+    }
+    // total_minutes is server-derived (sum of block minutes) — not validated here
+  }
+
+  // D9: the plan must OPEN with a warmup — the first block of the first session.
+  // Unconditional (Decisions §3) — every session structure starts with an on-ramp.
+  const firstSession = draft.sessions[0]
+  const firstBlock = firstSession?.blocks[0]
+  if (firstBlock && firstBlock.type !== 'warmup') {
+    errors.push(`first block ${firstBlock.id} type ${firstBlock.type} != warmup (plan must open with a warmup)`)
+  }
+
+  // D10: EVERY session must CLOSE on the green — the last block of EACH session must
+  // reference a drill whose category is `putting` or `around_green`. Unconditional
+  // (Decisions §3): "the last thing you do in every session is putting always," no
+  // facility gating. Per-session, not just the final session.
+  for (const s of draft.sessions) {
+    const lastBlock = s.blocks[s.blocks.length - 1]
+    if (lastBlock) {
+      const closer = refOf(lastBlock.drill_ref)
+      if (closer && closer.category !== 'putting' && closer.category !== 'around_green') {
+        errors.push(
+          `last block ${lastBlock.id} drill category ${closer.category} != putting/around_green (session "${s.title}" must close on the green)`,
+        )
+      }
+    }
+  }
+
+  // D5: each of the top-2 weaknesses must have at least one non-warmup block covering it
+  const covered = new Set<PlanCategory>()
+  for (const s of draft.sessions) {
+    for (const b of s.blocks) {
+      const d = refOf(b.drill_ref)
+      if (d && b.type !== 'warmup') covered.add(d.category)
+    }
+  }
+  for (const w of ctx.weaknesses.slice(0, 2)) {
+    if (!covered.has(w)) {
+      errors.push(`top weakness ${w} not covered by a non-warmup block`)
+    }
+  }
+
+  // D6: anti-repetition — only enforced when the pool is large enough to offer variety.
+  // Guard: pool.length >= usedIds.size + 2 means there are at least 2 unused drills
+  // the model could have picked instead. Skipping when the pool is too small avoids
+  // false positives on tiny drill libraries.
+  if (ctx.priorDrillIds.length > 0 && ctx.pool.length >= usedIds.size + 2) {
+    const prior = new Set(ctx.priorDrillIds)
+    const shared = [...usedIds].filter((id) => prior.has(id)).length
+    if (usedIds.size > 0 && shared / usedIds.size >= MAX_OVERLAP) {
+      errors.push(`drill overlap ${shared}/${usedIds.size} >= 60% (repetition)`)
+    }
+  }
+
+  // D7: coach_note length cap
+  if (draft.coach_note.length > ctx.coachNoteMax) {
+    errors.push(`coach_note ${draft.coach_note.length} > ${ctx.coachNoteMax}`)
+  }
+
+  // D8: article_ref (optional) must index into the published-article set when present.
+  // Mirrors the drill_ref bounds check — an out-of-range citation would otherwise be
+  // silently dropped at storage instead of triggering a repair (spec §9 layer 4 / §21).
+  for (const f of draft.focus_areas) {
+    if (f.article_ref !== undefined && (f.article_ref < 0 || f.article_ref >= ctx.articlesLen)) {
+      errors.push(`article_ref ${f.article_ref} out of range`)
+    }
+  }
+
+  return { ok: errors.length === 0, errors }
+}

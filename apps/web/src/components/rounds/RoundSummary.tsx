@@ -1,6 +1,15 @@
 import { Link } from 'react-router-dom'
-import { formatSG as formatSGNumber, formatToPar } from '@oga/core'
+import {
+  formatSG as formatSGNumber,
+  formatToPar,
+  pickRoundFocus,
+  roundFocusHeadline,
+  selectNudgeDrills,
+  type RoundFocus,
+} from '@oga/core'
 import type { Database } from '@oga/supabase'
+import { useProfile } from '../../hooks/useProfile'
+import { useDrills } from '../../hooks/useDrills'
 
 type RoundRow = Database['public']['Tables']['rounds']['Row']
 type HoleScoreRow = Database['public']['Tables']['hole_scores']['Row']
@@ -52,6 +61,7 @@ export function RoundSummary({
   const score = round.total_score ?? holeScores.reduce((s, hs) => s + hs.score, 0)
   const toPar = score && par ? score - par : null
   const { best, worst } = bestWorstHole(holeScores, holes)
+  const focus = pickRoundFocus(round)
 
   return (
     <div
@@ -134,6 +144,8 @@ export function RoundSummary({
         </div>
       )}
 
+      {focus && <RoundNudge focus={focus} />}
+
       {totalRoundsLogged >= 3 && (
         <div style={{ marginTop: 22 }}>
           <Link
@@ -153,6 +165,58 @@ export function RoundSummary({
               →
             </span>
           </Link>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function RoundNudge({ focus }: { focus: RoundFocus }) {
+  const { data: profile } = useProfile()
+  // Wait for the profile before fetching drills — otherwise the query fires
+  // once with skillLevel undefined, then refetches when the profile resolves.
+  const { data: drills } = useDrills(
+    { category: focus.category, skillLevel: profile?.skill_level ?? undefined },
+    { enabled: !!profile },
+  )
+  const picks = selectNudgeDrills(drills ?? [], profile?.facilities ?? [])
+
+  return (
+    <div
+      style={{
+        marginTop: 22,
+        paddingTop: 18,
+        borderTop: '1px solid #D9D2BF',
+      }}
+    >
+      <div className="kicker" style={{ marginBottom: 8 }}>
+        Today's focus
+      </div>
+      <p
+        className="font-serif text-caddie-ink"
+        style={{ fontSize: 17, lineHeight: 1.5, marginBottom: picks.length ? 12 : 0 }}
+      >
+        {roundFocusHeadline(focus)}
+      </p>
+      {picks.length > 0 && (
+        <div className="flex flex-wrap" style={{ gap: 8 }}>
+          {/* No per-drill detail route exists; chips link to the drill library. */}
+          {picks.map((drill) => (
+            <Link
+              key={drill.id}
+              to="/practice/drills"
+              className="text-caddie-accent hover:opacity-80"
+              style={{
+                border: '1px solid #1F3D2C',
+                borderRadius: 2,
+                padding: '6px 10px',
+                fontSize: 13,
+              }}
+            >
+              {drill.name}
+              {drill.duration_min ? ` · ${drill.duration_min}m` : ''}
+            </Link>
+          ))}
         </div>
       )}
     </div>
