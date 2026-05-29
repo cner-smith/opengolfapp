@@ -265,10 +265,12 @@ export function ShotPatternsPage() {
                 {lieSlopeSide ? ` (${lieSlopeSide.replace('_', ' ')})` : ''}.
               </div>
             ) : (
-              <>
+              // Constrain the wrapper so the legend's flex-wrap row wraps
+              // within the plot footprint instead of stretching the parent.
+              <div style={{ width: SVG_VIEW_WIDTH }}>
                 <DispersionPlot points={points} stats={stats} />
                 <PatternLegend hasEllipses={!!stats} />
-              </>
+              </div>
             )}
           </div>
 
