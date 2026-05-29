@@ -206,11 +206,8 @@ function GenerateButton({
   )
 }
 
-/** Indeterminate sliding progress bar shown while generation is in flight.
- *  Claude calls can take 15–45s; static "Generating…" text gives no signal
- *  the call is alive. The bar is the only motion cue and lives at the top of
- *  whichever generate surface (NoPlanState card or PlanHeader) the user
- *  clicked. Keyframes inlined so the change is contained to this file. */
+/** Keyframes inlined so this stays a single-file change instead of touching
+ *  the global stylesheet for one progress bar. */
 function GenerateProgressBar({ visible }: { visible: boolean }) {
   if (!visible) return null
   return (
@@ -387,10 +384,13 @@ function PlanHeader({
 }) {
   return (
     <div style={{ marginBottom: 28 }}>
-      {/* Top-of-section progress bar while a regenerate is in flight. */}
-      <div style={{ marginBottom: 8 }}>
-        <GenerateProgressBar visible={isPending} />
-      </div>
+      {/* Wrapper conditional, not just the bar: an always-rendered margin
+       *  would shift the title row by 8px in the idle (non-regenerating) state. */}
+      {isPending ? (
+        <div style={{ marginBottom: 8 }}>
+          <GenerateProgressBar visible />
+        </div>
+      ) : null}
       <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
         <div>
           <div className="kicker" style={{ marginBottom: 8 }}>
