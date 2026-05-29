@@ -206,6 +206,41 @@ function GenerateButton({
   )
 }
 
+/** Keyframes inlined so this stays a single-file change instead of touching
+ *  the global stylesheet for one progress bar. */
+function GenerateProgressBar({ visible }: { visible: boolean }) {
+  if (!visible) return null
+  return (
+    <div
+      aria-hidden="true"
+      style={{
+        position: 'relative',
+        height: 3,
+        width: '100%',
+        background: '#EBE5D6',
+        overflow: 'hidden',
+        borderRadius: 2,
+      }}
+    >
+      <style>{`
+        @keyframes oga-progress-slide {
+          0%   { transform: translateX(-100%); }
+          100% { transform: translateX(400%); }
+        }
+      `}</style>
+      <div
+        className="bg-caddie-accent"
+        style={{
+          position: 'absolute',
+          inset: 0,
+          width: '25%',
+          animation: 'oga-progress-slide 1.4s ease-in-out infinite',
+        }}
+      />
+    </div>
+  )
+}
+
 function PageHeading() {
   return (
     <>
@@ -271,8 +306,18 @@ function NoPlanState({
       </div>
       <div
         className="bg-caddie-surface"
-        style={{ border: `1px solid ${LINE}`, borderRadius: 4, padding: '40px 32px', maxWidth: 640 }}
+        style={{
+          border: `1px solid ${LINE}`,
+          borderRadius: 4,
+          padding: '40px 32px',
+          maxWidth: 640,
+          position: 'relative',
+        }}
       >
+        {/* Top-of-card progress bar while generation is in flight. */}
+        <div style={{ position: 'absolute', top: 0, left: 0, right: 0 }}>
+          <GenerateProgressBar visible={isPending} />
+        </div>
         <div className="kicker" style={{ marginBottom: 12 }}>
           No plan yet
         </div>
@@ -338,24 +383,30 @@ function PlanHeader({
   isPending: boolean
 }) {
   return (
-    <div
-      className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3"
-      style={{ marginBottom: 28 }}
-    >
-      <div>
-        <div className="kicker" style={{ marginBottom: 8 }}>
-          {kicker}
+    <div style={{ marginBottom: 28 }}>
+      {/* Wrapper conditional, not just the bar: an always-rendered margin
+       *  would shift the title row by 8px in the idle (non-regenerating) state. */}
+      {isPending ? (
+        <div style={{ marginBottom: 8 }}>
+          <GenerateProgressBar visible />
         </div>
-        <h1
-          className="font-serif text-caddie-ink"
-          style={{ fontSize: 28, fontWeight: 500, fontStyle: 'italic', lineHeight: 1.15, maxWidth: 640 }}
-        >
-          {insight}
-        </h1>
-      </div>
-      {generateLabel ? (
-        <GenerateButton label={generateLabel} onGenerate={onGenerate} isPending={isPending} />
       ) : null}
+      <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
+        <div>
+          <div className="kicker" style={{ marginBottom: 8 }}>
+            {kicker}
+          </div>
+          <h1
+            className="font-serif text-caddie-ink"
+            style={{ fontSize: 28, fontWeight: 500, fontStyle: 'italic', lineHeight: 1.15, maxWidth: 640 }}
+          >
+            {insight}
+          </h1>
+        </div>
+        {generateLabel ? (
+          <GenerateButton label={generateLabel} onGenerate={onGenerate} isPending={isPending} />
+        ) : null}
+      </div>
     </div>
   )
 }
