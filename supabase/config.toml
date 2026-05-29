@@ -61,3 +61,11 @@ enabled = false
 # the dryRun service-role gate inside the function is only safe while this is on.
 [functions.generate-practice-plan]
 verify_jwt = true
+
+# round-summary-email is cron-only. Its `isServiceRole` decoder reads `role`
+# from the JWT payload without re-checking the signature — it trusts the
+# Supabase gateway has already validated it. Make that dependency explicit
+# (instead of relying on the platform default) so a future upstream change
+# can't silently let unsigned tokens reach the handler.
+[functions.round-summary-email]
+verify_jwt = true
