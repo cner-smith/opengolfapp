@@ -281,12 +281,24 @@ export function useHoleState({
     }
   }, [currentHoleId, isPastMode, roundState, gpsNonce])
 
-  // Hole change resets the filter — covered by the watch effect's
-  // cleanup, but explicit here in case the watch effect short-circuits
-  // (past mode, or no current hole) before subscribing.
+  // Hole change resets per-hole state. The screen is resident (#264) so
+  // nothing remounts on a hole switch — without an explicit reset the
+  // previous hole's ball/aim render frozen on the new hole and the state
+  // machine stays mid-shot. Also clears the Kalman filter + manual-place
+  // freeze (the watch effect's cleanup covers those too, but this is
+  // explicit for the cases where the watch effect short-circuits — past
+  // mode, or no current hole — before subscribing).
   useEffect(() => {
+    // Guard on a real id so a transient null mid-session (e.g. a
+    // background refetch briefly emptying the holes list) can't wipe an
+    // in-progress ball/aim. A genuine hole switch goes id→id (both
+    // non-null), so this never blocks the intended reset.
+    if (!currentHoleId) return
     kalmanStateRef.current = null
     manuallyPlacedRef.current = false
+    setBall(null)
+    setAim(null)
+    setRoundState('PLACE_BALL')
   }, [currentHoleId])
 
   // Stop GPS when the app backgrounds. The native location callback

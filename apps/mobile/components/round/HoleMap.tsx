@@ -728,7 +728,15 @@ export function HoleMap({
             </Mapbox.PointAnnotation>
           )}
 
-          {showAim && aim && aimCoordMemo && (
+          {/* Render whenever an aim exists — NOT gated on showAim — so the
+              annotation never unmounts when the player dips into PIN/TEE
+              placement. @rnmapbox PointAnnotation loses its native drag
+              gesture on an unmount→remount under a reused id; keeping it
+              mounted (draggable still gated to SET_AIM) preserves the drag
+              when the player returns. Only the marker persists here — the
+              aim line/arc/pills stay gated on showAim, so the pin-placement
+              view stays uncluttered. */}
+          {aim && aimCoordMemo && (
             <Mapbox.PointAnnotation
               id="aim"
               coordinate={aimCoordMemo}
@@ -787,7 +795,11 @@ export function HoleMap({
             </Mapbox.MarkerView>
           )}
 
-          {!isPinMode && ball && (
+          {/* Render whenever a ball exists — same reasoning as the aim
+              annotation above: never unmount during PIN/TEE placement, or
+              the @rnmapbox drag gesture is lost on remount. draggable stays
+              gated to PLACE_BALL so the ball can't be dragged mid-aim. */}
+          {ball && (
             <Mapbox.PointAnnotation
               id="ball"
               coordinate={toCoord(ball)}
