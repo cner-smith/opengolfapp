@@ -490,6 +490,10 @@ export function HoleMap({
           ref={mapViewRef}
           style={{ flex: 1 }}
           styleURL={Mapbox.StyleURL.Satellite}
+          // Off by default it's on — the scale bar reads like a stray
+          // overlay on the satellite HUD and gets mistaken for the
+          // dispersion arc. Attribution/logo stay (Mapbox ToS).
+          scaleBarEnabled={false}
           onPress={handleTap}
           onDidFinishLoadingStyle={() => setStyleLoaded(true)}
         >
