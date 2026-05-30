@@ -256,21 +256,22 @@ export function HoleMap({
     [isAimPhase, onSetAim],
   )
 
-  // Gate the long-press gesture to SET_AIM only. Outside that phase the
-  // GestureDetector still wraps the map but no longer captures touches,
-  // which restores the PointAnnotation drag for the ball marker during
-  // PLACE_BALL — Gesture.LongPress was claiming the initial touch and
-  // the native annotation drag never fired.
+  // Long-press is only a CREATE-an-aim fallback now (no-pin holes, before the
+  // aim auto-spawns). Gate it to SET_AIM *and* `!aim`: the instant an aim
+  // marker exists it turns off, so the wrapping LongPress recognizer can't
+  // claim the initial touch and starve the native PointAnnotation drag — the
+  // "drag locks up at the start" fight. (Outside SET_AIM it was already off so
+  // the ball marker stayed draggable in PLACE_BALL.)
   const longPress = useMemo(
     () =>
       Gesture.LongPress()
-        .enabled(isAimPhase)
+        .enabled(isAimPhase && !aim)
         .minDuration(400)
         .onStart((event) => {
           'worklet'
           runOnJS(dropAimFromScreenPoint)(event.x, event.y)
         }),
-    [dropAimFromScreenPoint, isAimPhase],
+    [dropAimFromScreenPoint, isAimPhase, aim],
   )
 
   const effectivePin = roundPin ?? pin ?? null
@@ -822,7 +823,10 @@ export function HoleMap({
           )}
         </Mapbox.MapView>
 
-        <TopHint isPinMode={isPinMode} isAimPhase={isAimPhase} isTeeMode={isTeeMode} />
+        {/* No hint during SET_AIM — the aim line auto-spawns to the pin with a
+            draggable midpoint, so the old "long-press to set aim" reminder is
+            obsolete. Pin/tee placement + ball-drag hints still show. */}
+        {!isAimPhase && <TopHint isPinMode={isPinMode} isTeeMode={isTeeMode} />}
         {missingHoleLayout && !isPinMode && !isTeeMode && <MissingLayoutBanner />}
         {!isPinMode && !isTeeMode && pinDistance !== null && (
           <>

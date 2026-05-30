@@ -87,6 +87,11 @@ export default function LiveRoundSession({
   const [overlayMode, setOverlayMode] = useState<'tee' | 'appr'>('tee')
   const [teeRailIdx, setTeeRailIdx] = useState(0)
   const [apprRailIdx, setApprRailIdx] = useState(0)
+  // Round-options overflow menu (⋮) in the header — End / Delete live behind
+  // it instead of as always-visible taps, so a destructive Delete can't be
+  // mis-fired. A plain absolute popover (not a Modal) so it never collides
+  // with the confirm dialogs it opens (#293 one-modal-per-presenter).
+  const [menuOpen, setMenuOpen] = useState(false)
 
   // Per-hole reset. useHoleState resets its own refs (Kalman, manual
   // placement, last-saved-shot id) keyed on currentHoleId — we don't
@@ -397,25 +402,20 @@ export default function LiveRoundSession({
             {data.currentHole.yards ? ` · ${toDisplay(data.currentHole.yards)}` : ''}
           </Text>
         </View>
-        <View style={{ alignItems: 'flex-end', gap: 6 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+          <Text style={{ ...KICKER, color: 'rgba(242,238,229,0.45)' }}>
+            Shot {data.shotNumber}
+          </Text>
           <Pressable
             accessibilityRole="button"
-            onPress={() => setActiveDialog('end')}
-            accessibilityLabel="End round early"
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            accessibilityLabel="Round options"
+            onPress={() => setMenuOpen(true)}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            android_ripple={{ color: 'rgba(242,238,229,0.2)', borderless: true, radius: 18 }}
+            style={{ paddingHorizontal: 6, paddingVertical: 2 }}
           >
-            <Text style={{ ...KICKER, color: 'rgba(242,238,229,0.85)' }}>
-              End · Shot {data.shotNumber}
-            </Text>
-          </Pressable>
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => setActiveDialog('delete')}
-            accessibilityLabel="Delete round"
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          >
-            <Text style={{ ...KICKER, color: 'rgba(163,58,42,0.85)' }}>
-              Delete
+            <Text style={{ color: '#F2EEE5', fontSize: 22, fontWeight: '600', lineHeight: 24 }}>
+              ⋮
             </Text>
           </Pressable>
         </View>
@@ -602,6 +602,75 @@ export default function LiveRoundSession({
         onAimPromptConfirm={actions.handleAimPromptConfirm}
         onAimPromptSkip={actions.handleAimPromptSkip}
       />
+
+      {/* Round-options popover. Full-screen transparent backdrop catches the
+          outside-tap to dismiss; the card is right-aligned under the header.
+          Static styles only (function `style` is dropped by css-interop). */}
+      {menuOpen && (
+        <>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Close menu"
+            onPress={() => setMenuOpen(false)}
+            style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 20 }}
+          />
+          <View
+            style={{
+              position: 'absolute',
+              top: 96,
+              right: 12,
+              zIndex: 21,
+              minWidth: 184,
+              backgroundColor: '#1C211C',
+              borderRadius: 12,
+              borderWidth: 1,
+              borderColor: 'rgba(242,238,229,0.15)',
+              paddingVertical: 6,
+              shadowColor: '#000',
+              shadowOpacity: 0.4,
+              shadowRadius: 10,
+              shadowOffset: { width: 0, height: 4 },
+              elevation: 8,
+            }}
+          >
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="End round early"
+              onPress={() => {
+                setMenuOpen(false)
+                setActiveDialog('end')
+              }}
+              android_ripple={{ color: 'rgba(242,238,229,0.15)' }}
+              style={{ paddingVertical: 12, paddingHorizontal: 16 }}
+            >
+              <Text style={{ color: '#F2EEE5', fontSize: 15, fontWeight: '600' }}>
+                End round early
+              </Text>
+            </Pressable>
+            <View
+              style={{
+                height: 1,
+                backgroundColor: 'rgba(242,238,229,0.1)',
+                marginHorizontal: 8,
+              }}
+            />
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Delete round"
+              onPress={() => {
+                setMenuOpen(false)
+                setActiveDialog('delete')
+              }}
+              android_ripple={{ color: 'rgba(163,58,42,0.22)' }}
+              style={{ paddingVertical: 12, paddingHorizontal: 16 }}
+            >
+              <Text style={{ color: '#E0796B', fontSize: 15, fontWeight: '600' }}>
+                Delete round
+              </Text>
+            </Pressable>
+          </View>
+        </>
+      )}
     </View>
   )
 }

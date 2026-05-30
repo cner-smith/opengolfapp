@@ -16,11 +16,10 @@ const HUD_KICKER = {
 
 interface TopHintProps {
   isPinMode: boolean
-  isAimPhase: boolean
   isTeeMode: boolean
 }
 
-export function TopHint({ isPinMode, isAimPhase, isTeeMode }: TopHintProps) {
+export function TopHint({ isPinMode, isTeeMode }: TopHintProps) {
   return (
     <View
       style={{
@@ -52,9 +51,7 @@ export function TopHint({ isPinMode, isAimPhase, isTeeMode }: TopHintProps) {
           ? 'Pin mode — tap to place flag'
           : isTeeMode
             ? 'Tee mode — tap to place tee box'
-            : isAimPhase
-              ? 'Long-press to set aim line — where you started the ball, not where it finishes'
-              : 'Drag the ball to refine, then tap Mark ball here'}
+            : 'Drag the ball to refine, then tap Mark ball here'}
       </Text>
     </View>
   )
