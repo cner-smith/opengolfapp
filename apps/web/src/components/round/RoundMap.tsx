@@ -197,6 +197,7 @@ export function RoundMap({
     onMovePoint,
     onMovePin,
     onMoveTee,
+    onSetAim,
     onMoveExistingShot,
     onMoveExistingShotAim,
   })

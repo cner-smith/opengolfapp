@@ -149,6 +149,7 @@ export function RoundDetailPage() {
     user,
     profile,
     data,
+    isLiveEntry,
     pinOverride,
     teeOverride,
     placedAims,
@@ -281,12 +282,10 @@ export function RoundDetailPage() {
         }}
         onCancel={() => {
           if (onGreenPrompt) {
-            dispatchHoleView({
-              type: 'PUSH_POINT',
-              point: onGreenPrompt,
-              openPuttSheet: false,
-            })
-            setAimPromptOpen(true)
+            // Not putting (chip / bunker / fringe) — push as a normal shot
+            // through the shared path so live entry auto-spawns the aim and
+            // past-round entry gets the explicit aim prompt.
+            placeHandlers.onConfirmNonPutt(onGreenPrompt)
           }
           setOnGreenPrompt(null)
         }}

@@ -29,12 +29,26 @@ interface UseMapLayersInput {
   onMovePoint: (idx: number, point: PlacedPoint) => void
   onMovePin: ((point: PlacedPoint) => void) | undefined
   onMoveTee: ((point: PlacedPoint) => void) | undefined
+  onSetAim: ((index: number, point: PlacedPoint | null) => void) | undefined
   onMoveExistingShot: ((shotId: string, point: PlacedPoint) => void) | undefined
   onMoveExistingShotAim: ((shotId: string, point: PlacedPoint) => void) | undefined
 }
 
 const lineSourceId = 'shot-line'
 const placedLineSourceId = 'placed-line'
+
+// Aim overlays render white (#FBF8F1) — amber didn't read against fairway
+// satellite tiles (mirrors the mobile redesign's amber→white switch). The
+// shot trajectory lines stay amber so aim (intent) reads distinct from the
+// path actually taken.
+const AIM_COLOR = '#FBF8F1'
+
+// A single shot's aim: where the player stood (`start`) and where they
+// aimed (`aim`), both as [lng, lat]. The latest aimed shot gets the full
+// planning treatment (solid start→aim→pin bend + dotted start→pin
+// reference + carry/remaining pills); the rest render as a dashed
+// start→aim line.
+type AimSeg = { start: [number, number]; aim: [number, number] }
 
 export function useMapLayers({
   mapRef,
@@ -47,6 +61,7 @@ export function useMapLayers({
   onMovePoint,
   onMovePin,
   onMoveTee,
+  onSetAim,
   onMoveExistingShot,
   onMoveExistingShotAim,
 }: UseMapLayersInput): void {
@@ -132,7 +147,7 @@ export function useMapLayers({
     // Marker N renders at the START of shot N — that's "where the player
     // stood for shot N", matching the post-round tap flow. Falling back
     // to end coords for legacy rows that pre-date start_lat/lng.
-    const existingAimLines: [number, number][][] = []
+    const savedAimSegs: AimSeg[] = []
     const existingValid = existingShots.filter(
       (s) =>
         (s.startLat != null && s.startLng != null) ||
@@ -177,8 +192,9 @@ export function useMapLayers({
       }
       markerRefs.current.push(marker)
 
-      // Aim ghost for saved shots. Same warn palette as the placed-aim
-      // marker so the visual vocabulary stays consistent across modes.
+      // Aim ghost for saved shots. The line + pills are rendered
+      // centrally below (latest aim = full planning treatment, the rest
+      // dashed) so saved shots share the placed-flow vocabulary.
       if (s.aimLat != null && s.aimLng != null) {
         const aimEl = makeAimMarker()
         const aimDraggable = !!onMoveExistingShotAim
@@ -202,30 +218,15 @@ export function useMapLayers({
         }
         markerRefs.current.push(aimMarker)
 
-        // Dashed aim line + AIM distance pill, mirroring the placed-shot
-        // version below. Uses the shot's start coord (with end fallback)
-        // so the line origin matches the numbered marker on the map.
+        // Collect the start→aim segment. The origin uses the shot's start
+        // coord (end fallback) so the line matches the numbered marker.
         const startLng = s.startLng ?? s.endLng
         const startLat = s.startLat ?? s.endLat
         if (startLat != null && startLng != null) {
-          const aimYards = Math.round(
-            haversineYards(startLat, startLng, s.aimLat, s.aimLng),
-          )
-          if (aimYards > 0) {
-            const mid: [number, number] = [
-              (startLng + s.aimLng) / 2,
-              (startLat + s.aimLat) / 2,
-            ]
-            const pill = makeDistancePill(`AIM ${toDisplay(aimYards)}`)
-            const pillMarker = new mapboxgl.Marker({ element: pill })
-              .setLngLat(mid)
-              .addTo(map)
-            markerRefs.current.push(pillMarker)
-          }
-          existingAimLines.push([
-            [startLng, startLat],
-            [s.aimLng, s.aimLat],
-          ])
+          savedAimSegs.push({
+            start: [startLng, startLat],
+            aim: [s.aimLng, s.aimLat],
+          })
         }
       }
     }
@@ -294,38 +295,130 @@ export function useMapLayers({
       }
     }
 
-    // Aim markers + dashed aim lines per placed shot. Aim color matches
-    // the rest of the warn palette (#A66A1F) so it reads as "intent",
-    // distinct from the accent ball/pin marker.
-    const aimLineCoords: [number, number][][] = []
+    // Aim markers per placed shot — draggable (via onSetAim) so the player
+    // can adjust the auto-spawned start line. Lines + pills render
+    // centrally below alongside the saved-shot aims.
+    const placedAimSegs: AimSeg[] = []
     placedPoints.forEach((p, idx) => {
       const aim = placedAims?.[idx] ?? null
       if (!aim) return
       const aimEl = makeAimMarker()
-      const aimMarker = new mapboxgl.Marker({ element: aimEl })
+      const aimDraggable = !!onSetAim
+      const aimMarker = new mapboxgl.Marker({
+        element: aimEl,
+        draggable: aimDraggable,
+      })
         .setLngLat([aim.lng, aim.lat])
         .addTo(map)
-      markerRefs.current.push(aimMarker)
-      aimLineCoords.push([
-        [p.lng, p.lat],
-        [aim.lng, aim.lat],
-      ])
-      // Distance pill at midpoint of the aim line.
-      const yards = Math.round(haversineYards(p.lat, p.lng, aim.lat, aim.lng))
-      if (yards > 0) {
-        const mid: [number, number] = [
-          (p.lng + aim.lng) / 2,
-          (p.lat + aim.lat) / 2,
-        ]
-        const el = makeDistancePill(`AIM ${toDisplay(yards)}`)
-        const marker = new mapboxgl.Marker({ element: el })
-          .setLngLat(mid)
-          .addTo(map)
-        markerRefs.current.push(marker)
+      if (aimDraggable) {
+        aimEl.title = 'Aim point — drag to adjust'
+        aimEl.style.cursor = 'grab'
+        aimMarker.on('dragstart', () => {
+          aimEl.style.cursor = 'grabbing'
+        })
+        aimMarker.on('dragend', () => {
+          aimEl.style.cursor = 'grab'
+          const ll = aimMarker.getLngLat()
+          onSetAim!(idx, { lat: ll.lat, lng: ll.lng })
+        })
       }
+      markerRefs.current.push(aimMarker)
+      placedAimSegs.push({ start: [p.lng, p.lat], aim: [aim.lng, aim.lat] })
     })
-    upsertDashedLines(map, 'aim-lines', aimLineCoords, '#A66A1F')
-    upsertDashedLines(map, 'existing-aim-lines', existingAimLines, '#A66A1F')
+
+    // ---- Aim lines + pills (placed + saved, unified) ----
+    // The latest aimed shot — the placed flow while logging, otherwise the
+    // last saved aim — gets the full planning treatment: solid start→aim→
+    // pin bend, dotted start→pin reference, and carry + remaining pills.
+    // Every other aimed shot renders as a plain dashed start→aim line so a
+    // multi-shot hole doesn't clutter with overlapping bends.
+    const pinLngLat: [number, number] | null = effectivePin
+      ? [effectivePin.lng, effectivePin.lat]
+      : null
+    const activeFromPlaced = placedAimSegs.length > 0
+    const activeSeg: AimSeg | null = activeFromPlaced
+      ? placedAimSegs[placedAimSegs.length - 1]!
+      : savedAimSegs[savedAimSegs.length - 1] ?? null
+
+    // Non-active segments stay on their original source so switching flow
+    // (placed ↔ saved) clears the other source cleanly. The active seg is
+    // dropped from whichever set it belongs to.
+    const placedDashed = activeFromPlaced
+      ? placedAimSegs.slice(0, -1)
+      : placedAimSegs
+    const savedDashed =
+      !activeFromPlaced && savedAimSegs.length > 0
+        ? savedAimSegs.slice(0, -1)
+        : savedAimSegs
+    upsertDashedLines(
+      map,
+      'aim-lines',
+      placedDashed.map((s) => [s.start, s.aim]),
+      AIM_COLOR,
+    )
+    upsertDashedLines(
+      map,
+      'existing-aim-lines',
+      savedDashed.map((s) => [s.start, s.aim]),
+      AIM_COLOR,
+    )
+
+    // Active shot. Sources are always upserted (empty when there's no
+    // active aim) so stale geometry clears on the next render.
+    const activeSolid: [number, number][] = activeSeg
+      ? pinLngLat
+        ? [activeSeg.start, activeSeg.aim, pinLngLat]
+        : [activeSeg.start, activeSeg.aim]
+      : []
+    upsertLine(map, 'aim-active', activeSolid, AIM_COLOR)
+    upsertDashedLines(
+      map,
+      'aim-reference',
+      activeSeg && pinLngLat ? [[activeSeg.start, pinLngLat]] : [],
+      AIM_COLOR,
+    )
+    if (activeSeg) {
+      const carry = Math.round(
+        haversineYards(
+          activeSeg.start[1],
+          activeSeg.start[0],
+          activeSeg.aim[1],
+          activeSeg.aim[0],
+        ),
+      )
+      if (carry > 0) {
+        const mid: [number, number] = [
+          (activeSeg.start[0] + activeSeg.aim[0]) / 2,
+          (activeSeg.start[1] + activeSeg.aim[1]) / 2,
+        ]
+        markerRefs.current.push(
+          new mapboxgl.Marker({ element: makeDistancePill(`CARRY ${toDisplay(carry)}`) })
+            .setLngLat(mid)
+            .addTo(map),
+        )
+      }
+      if (pinLngLat) {
+        const remaining = Math.round(
+          haversineYards(
+            activeSeg.aim[1],
+            activeSeg.aim[0],
+            pinLngLat[1],
+            pinLngLat[0],
+          ),
+        )
+        if (remaining > 0) {
+          const mid: [number, number] = [
+            (activeSeg.aim[0] + pinLngLat[0]) / 2,
+            (activeSeg.aim[1] + pinLngLat[1]) / 2,
+          ]
+          markerRefs.current.push(
+            new mapboxgl.Marker({ element: makeDistancePill(`REMAINING ${toDisplay(remaining)}`) })
+              .setLngLat(mid)
+              .addTo(map),
+          )
+        }
+      }
+    }
   }, [
     mapRef,
     userPlacedRef,
@@ -335,6 +428,7 @@ export function useMapLayers({
     onMovePoint,
     onMovePin,
     onMoveTee,
+    onSetAim,
     onMoveExistingShot,
     onMoveExistingShotAim,
     effectivePin,
