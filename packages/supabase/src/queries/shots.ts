@@ -43,6 +43,26 @@ export function getShotsByClub(
     .limit(limit)
 }
 
+// All of a user's shots with aim+end coords, newest first, capped. Feeds
+// the live-round overlay, which builds per-club aim-relative dispersion in
+// ONE query (getShotsByClub is per-club). `start_lat` may be null — the
+// aim-relative math skips those rows, so we don't filter on it here.
+export function getShotsForUser(
+  client: OgaSupabaseClient,
+  userId: string,
+  limit = 1000,
+) {
+  return client
+    .from('shots')
+    .select(SHOT_COLUMNS)
+    .eq('user_id', userId)
+    .not('aim_lat', 'is', null)
+    .not('end_lat', 'is', null)
+    .not('club', 'is', null)
+    .order('created_at', { ascending: false })
+    .limit(limit)
+}
+
 export function createShot(client: OgaSupabaseClient, shot: ShotInsert) {
   return client.from('shots').insert(shot).select().single()
 }
