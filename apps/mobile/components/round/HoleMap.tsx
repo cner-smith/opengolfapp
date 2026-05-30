@@ -130,6 +130,11 @@ const ARC_THROTTLE_MS = 80
 // PointAnnotation owns the actual drag.
 const CROSSHAIR_HALF_YARDS = 7
 
+// How far past the aim the dotted aim-direction reference extends. Large
+// enough to run off-screen at the live-round zoom so it reads as a line
+// continuing "to infinity" in the direction you're aiming.
+const AIM_EXTENSION_YARDS = 250
+
 function extractCoord(feature: unknown): LatLng | null {
   const geom = (feature as { geometry?: { coordinates?: unknown } } | null)?.geometry
   const coords = geom?.coordinates
@@ -300,21 +305,26 @@ export function HoleMap({
 
   const showAim = isAimPhase || isPlaceBallPhase
 
-  // Straight ball→pin reference, "up the hole" (dotted). The solid aim
-  // path bends off this as the player drags the target. Independent of
-  // `aim` so it stays put during the drag (refs ux-09). Shown whenever a
-  // ball + pin exist in an aim-capable phase, including before the first aim.
+  // Aim direction extended "to infinity" (dotted): a ray from the aim
+  // continuing along the ball→aim bearing, past the target — the straight
+  // line your shot points down, which is where the dispersion arc points.
+  // Rotates with the aim as it's dragged; in a bent shot it diverges from
+  // the solid ball→aim→pin path, contrasting "straight on" vs the real pin.
   const referenceLine = useMemo(() => {
-    if (!showAim || !ball || !effectivePin) return null
+    if (!showAim || !ball || !aim) return null
+    if (distanceYards(ball, aim) < 1) return null
+    const heading = bearingDegrees(ball.lat, ball.lng, aim.lat, aim.lng)
+    if (!Number.isFinite(heading)) return null
+    const far = destinationYards(aim, heading, AIM_EXTENSION_YARDS)
     return {
       type: 'Feature' as const,
       properties: {},
       geometry: {
         type: 'LineString' as const,
-        coordinates: [toCoord(ball), toCoord(effectivePin)],
+        coordinates: [toCoord(aim), toCoord(far)],
       },
     }
-  }, [showAim, ball?.lat, ball?.lng, effectivePin?.lat, effectivePin?.lng])
+  }, [showAim, ball?.lat, ball?.lng, aim?.lat, aim?.lng])
 
   // Solid aim path origin → aim → pin (bends at the aim as it's dragged).
   // Falls back to ball→aim on no-pin holes.
