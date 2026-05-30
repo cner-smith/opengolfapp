@@ -135,6 +135,14 @@ const CROSSHAIR_HALF_YARDS = 7
 // continuing "to infinity" in the direction you're aiming.
 const AIM_EXTENSION_YARDS = 250
 
+// Min gap between aim updates while dragging the handle. The native
+// PointAnnotation drag fires onDrag every coalesced frame (≥60 Hz); each
+// one calls setAim, which re-renders the controlled handle AND re-serializes
+// every overlay ShapeSource across the bridge — the source of mid-tier
+// Android drag jank. Gating to ~25 Hz cuts that storm while the readouts
+// still track the finger; onDragEnd always applies the final position.
+const AIM_DRAG_THROTTLE_MS = 40
+
 function extractCoord(feature: unknown): LatLng | null {
   const geom = (feature as { geometry?: { coordinates?: unknown } } | null)?.geometry
   const coords = geom?.coordinates
@@ -392,6 +400,8 @@ export function HoleMap({
   // arc geometry recomputes ~12 Hz, not 60.
   const [throttledAim, setThrottledAim] = useState<LatLng | null>(aim ?? null)
   const lastArcTickRef = useRef(0)
+  // Wall-clock gate for the aim-drag throttle (see AIM_DRAG_THROTTLE_MS).
+  const lastAimDragRef = useRef(0)
   useEffect(() => {
     const next = aim ?? null
     const now = Date.now()
@@ -648,10 +658,18 @@ export function HoleMap({
               coordinate={toCoord(aim)}
               draggable={isAimPhase}
               onDrag={(e: unknown) => {
+                // Drop intermediate frames closer than the throttle window;
+                // the native marker still tracks the finger at full rate.
+                const now = Date.now()
+                if (now - lastAimDragRef.current < AIM_DRAG_THROTTLE_MS) return
+                lastAimDragRef.current = now
                 const c = extractCoord(e)
                 if (c) onSetAim(c)
               }}
               onDragEnd={(e: unknown) => {
+                // Final position is authoritative — bypass the gate so the
+                // last drag frame is never dropped.
+                lastAimDragRef.current = 0
                 const c = extractCoord(e)
                 if (c) onSetAim(c)
               }}
