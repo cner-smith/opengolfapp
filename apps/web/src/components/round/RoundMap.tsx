@@ -90,6 +90,12 @@ interface RoundMapProps {
   /** Drag end on a saved shot's aim ghost. When wired (and the shot has
    *  aim coords), the aim marker becomes draggable. */
   onMoveExistingShotAim?: (shotId: string, point: PlacedPoint) => void
+  /** Shot-pattern overlay (Phase B), anchored on the active aimed shot.
+   *  Mode picks the shape (tee arc / approach circle); the rail-derived
+   *  sizes feed the geometry. */
+  overlayMode?: 'tee' | 'appr'
+  arcWidthYards?: number
+  circleRadiusYards?: number
 }
 
 export function RoundMap({
@@ -112,6 +118,9 @@ export function RoundMap({
   onSetAim,
   onMoveExistingShot,
   onMoveExistingShotAim,
+  overlayMode = 'tee',
+  arcWidthYards = 0,
+  circleRadiusYards = 0,
 }: RoundMapProps) {
   // Memoized so downstream effects can dep on the object directly without
   // thrashing on every parent render — coords are the only meaningful
@@ -194,6 +203,9 @@ export function RoundMap({
     placedAims,
     effectivePin,
     effectiveTee,
+    overlayMode,
+    arcWidthYards,
+    circleRadiusYards,
     onMovePoint,
     onMovePin,
     onMoveTee,

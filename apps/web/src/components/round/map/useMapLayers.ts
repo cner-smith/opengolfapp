@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, type MutableRefObject } from 'react'
 import { mapboxgl } from '../../../lib/mapbox'
-import { haversineYards } from '@oga/core'
+import { arcGeoJSON, circleGeoJSON, haversineYards } from '@oga/core'
 import { useUnits } from '../../../hooks/useUnits'
 import type { ExistingShot, PlacedPoint } from '../RoundMap'
 import {
@@ -14,6 +14,8 @@ import {
 } from './markerFactories'
 import {
   buildLineCoords,
+  upsertArcBand,
+  upsertCircleFill,
   upsertDashedLines,
   upsertLine,
 } from './lineHelpers'
@@ -26,6 +28,12 @@ interface UseMapLayersInput {
   placedAims: (PlacedPoint | null)[] | undefined
   effectivePin: PlacedPoint | null
   effectiveTee: PlacedPoint | null
+  /** Shot-pattern overlay (always-on while aiming), anchored on the active
+   *  aimed shot. 'tee' → dispersion arc band of arcWidthYards total width;
+   *  'appr' → approach circle of circleRadiusYards, centered on the aim. */
+  overlayMode: 'tee' | 'appr'
+  arcWidthYards: number
+  circleRadiusYards: number
   onMovePoint: (idx: number, point: PlacedPoint) => void
   onMovePin: ((point: PlacedPoint) => void) | undefined
   onMoveTee: ((point: PlacedPoint) => void) | undefined
@@ -58,6 +66,9 @@ export function useMapLayers({
   placedAims,
   effectivePin,
   effectiveTee,
+  overlayMode,
+  arcWidthYards,
+  circleRadiusYards,
   onMovePoint,
   onMovePin,
   onMoveTee,
@@ -340,6 +351,30 @@ export function useMapLayers({
       ? placedAimSegs[placedAimSegs.length - 1]!
       : savedAimSegs[savedAimSegs.length - 1] ?? null
 
+    // Fixed-geometry shot-pattern overlay anchored on the active aimed shot.
+    // Tee → dispersion arc band across the aim line; Appr → approach circle
+    // centered on the aim (matches the mobile overlay — the aim is the
+    // target, not the pin). Rendered before the aim line below so it sits
+    // underneath; always upserted (empty when no active aim / wrong mode) so
+    // it clears on the next render.
+    const arcCoords: [number, number][] =
+      activeSeg && overlayMode === 'tee'
+        ? arcGeoJSON(
+            { lat: activeSeg.start[1], lng: activeSeg.start[0] },
+            { lat: activeSeg.aim[1], lng: activeSeg.aim[0] },
+            arcWidthYards / 2,
+          )?.geometry.coordinates ?? []
+        : []
+    upsertArcBand(map, 'aim-arc', arcCoords, AIM_COLOR)
+    const circleRing: [number, number][][] =
+      activeSeg && overlayMode === 'appr'
+        ? circleGeoJSON(
+            { lat: activeSeg.aim[1], lng: activeSeg.aim[0] },
+            circleRadiusYards,
+          )?.geometry.coordinates ?? []
+        : []
+    upsertCircleFill(map, 'aim-circle', circleRing, AIM_COLOR)
+
     // Non-active segments stay on their original source so switching flow
     // (placed ↔ saved) clears the other source cleanly. The active seg is
     // dropped from whichever set it belongs to.
@@ -433,6 +468,9 @@ export function useMapLayers({
     onMoveExistingShotAim,
     effectivePin,
     effectiveTee,
+    overlayMode,
+    arcWidthYards,
+    circleRadiusYards,
     toDisplay,
   ])
 

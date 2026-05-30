@@ -18,6 +18,15 @@ const RoundMap = lazy(() =>
 
 type HoleRow = Database['public']['Tables']['holes']['Row']
 
+// Distance-rail presets, identical to the mobile shot-pattern rail. Tee = arc
+// TOTAL width in yards (half each side of the aim line); Appr = circle DIAMETER
+// in feet (greens are a feet game). Fixed golf-standard widths, not a club
+// picker — shown in their native unit even on a meters profile (a metric preset
+// set is a deferred follow-up, matching mobile).
+const TEE_RAIL_YARDS = [95, 85, 75, 65] as const
+const APPR_RAIL_FEET = [50, 36, 30, 24] as const
+const FEET_PER_YARD = 3
+
 interface MapViewProps {
   holes: HoleRow[]
   activeHoleNumber: number
@@ -106,6 +115,30 @@ export function MapView({
   useEffect(() => {
     setNoticeDismissed(false)
   }, [activeHoleNumber])
+
+  // Shot-pattern overlay controls (Phase B). The toggle picks the SHAPE (tee
+  // arc band / approach circle); the rail SIZES it. Kept per-mode so switching
+  // modes preserves the other's pick. Map-scoped — resets to tee/widest if the
+  // player bounces to the scorecard tab (negligible).
+  const [overlayMode, setOverlayMode] = useState<'tee' | 'appr'>('tee')
+  const [teeRailIdx, setTeeRailIdx] = useState(0)
+  const [apprRailIdx, setApprRailIdx] = useState(0)
+  const arcWidthYards = TEE_RAIL_YARDS[teeRailIdx] ?? TEE_RAIL_YARDS[0]
+  const circleDiaFeet = APPR_RAIL_FEET[apprRailIdx] ?? APPR_RAIL_FEET[0]
+  const circleRadiusYards = circleDiaFeet / 2 / FEET_PER_YARD
+  const railLabels =
+    overlayMode === 'tee'
+      ? TEE_RAIL_YARDS.map((y) => `${y} yd`)
+      : APPR_RAIL_FEET.map((f) => `${f} ft`)
+  const railIndex = overlayMode === 'tee' ? teeRailIdx : apprRailIdx
+  const selectRail = (i: number) =>
+    overlayMode === 'tee' ? setTeeRailIdx(i) : setApprRailIdx(i)
+  // Rail appears once an aim exists (placed or saved) and not during manual
+  // tee/pin placement — mirrors the mobile gate.
+  const overlayControlsVisible =
+    placementMode == null &&
+    (placedAims.some((a) => a != null) ||
+      existingShots.some((s) => s.aimLat != null && s.aimLng != null))
   const hasExistingShots = existingShots.some(
     (s) => s.endLat != null && s.endLng != null,
   )
@@ -246,9 +279,21 @@ export function MapView({
             onSetAim={handlers.onSetAim}
             onMoveExistingShot={onMoveExistingShot}
             onMoveExistingShotAim={onMoveExistingShotAim}
+            overlayMode={overlayMode}
+            arcWidthYards={arcWidthYards}
+            circleRadiusYards={circleRadiusYards}
           />
         </Suspense>
         {reviewSheet}
+        {overlayControlsVisible && (
+          <OverlayRail
+            mode={overlayMode}
+            onSetMode={setOverlayMode}
+            railLabels={railLabels}
+            railIndex={railIndex}
+            onSelectRail={selectRail}
+          />
+        )}
       </div>
       {saveError && (
         <div
@@ -324,5 +369,95 @@ function HoleSelector({
         )
       })}
     </div>
+  )
+}
+
+// Right-edge shot-pattern controls (web parity of the mobile RightRail): a
+// Tee/Appr shape toggle over a distance rail. Vertically centered on the
+// windowed map and right-aligned, clear of Mapbox's bottom-right nav/zoom and
+// attribution controls. Co-located (single caller).
+function OverlayRail({
+  mode,
+  onSetMode,
+  railLabels,
+  railIndex,
+  onSelectRail,
+}: {
+  mode: 'tee' | 'appr'
+  onSetMode: (m: 'tee' | 'appr') => void
+  railLabels: string[]
+  railIndex: number
+  onSelectRail: (i: number) => void
+}) {
+  const groupStyle = {
+    display: 'flex',
+    flexDirection: 'column' as const,
+    gap: 2,
+    padding: 3,
+    borderRadius: 12,
+    background: 'rgba(28,33,28,0.82)',
+  }
+  return (
+    <div
+      style={{
+        position: 'absolute',
+        right: 12,
+        top: '50%',
+        transform: 'translateY(-50%)',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'flex-end',
+        gap: 10,
+        zIndex: 5,
+      }}
+    >
+      <div style={groupStyle}>
+        <RailPill label="Tee" active={mode === 'tee'} onClick={() => onSetMode('tee')} />
+        <RailPill label="Appr" active={mode === 'appr'} onClick={() => onSetMode('appr')} />
+      </div>
+      <div style={groupStyle}>
+        {railLabels.map((label, i) => (
+          <RailPill
+            key={label}
+            label={label}
+            active={i === railIndex}
+            onClick={() => onSelectRail(i)}
+          />
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function RailPill({
+  label,
+  active,
+  onClick,
+}: {
+  label: string
+  active: boolean
+  onClick: () => void
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className="font-mono tabular"
+      style={{
+        minWidth: 52,
+        padding: '7px 12px',
+        borderRadius: 9,
+        border: 'none',
+        cursor: 'pointer',
+        background: active ? '#FBF8F1' : 'transparent',
+        color: active ? '#1C211C' : '#F2EEE5',
+        fontSize: 12,
+        fontWeight: active ? 700 : 500,
+        letterSpacing: '0.02em',
+      }}
+    >
+      {label}
+    </button>
   )
 }
