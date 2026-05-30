@@ -530,7 +530,14 @@ export default function LiveRoundSession({
           onCancelTeePlacement={() => setTeePlacementOpen(false)}
           onClearRoundPin={actions.clearRoundPin}
           onConfirmAim={actions.confirmAim}
-          onRePlaceBall={() => finalState.setRoundState('PLACE_BALL')}
+          onRePlaceBall={() => {
+            // Clear the aim when backing out to re-place — otherwise the
+            // abandoned aim line lingers (showAim includes PLACE_BALL) and the
+            // ghost promotion is suppressed (see AimGhost). markBallHere
+            // re-seeds a fresh aim on the next mark.
+            finalState.setAim(null)
+            finalState.setRoundState('PLACE_BALL')
+          }}
           onSkipAim={actions.skipAim}
           onMarkBallHere={actions.markBallHere}
           onFinishHole={actions.finishHole}
