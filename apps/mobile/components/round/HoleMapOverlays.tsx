@@ -235,16 +235,16 @@ export function LeftToolbar({
       style={{
         position: 'absolute',
         left: 12,
-        bottom: 130,
+        bottom: 150,
       }}
     >
       <View
         style={{
           backgroundColor: PILL_BG,
-          borderRadius: 30,
-          paddingVertical: 8,
-          paddingHorizontal: 5,
-          gap: 4,
+          borderRadius: 26,
+          paddingVertical: 6,
+          paddingHorizontal: 4,
+          gap: 3,
           alignItems: 'center',
         }}
       >
@@ -300,9 +300,9 @@ function ToolbarButton({
       // Opacity feedback in the style callback rather than android_ripple,
       // which iOS silently ignores (#303).
       style={({ pressed }) => ({
-        width: 64,
-        height: 64,
-        borderRadius: 26,
+        width: 52,
+        height: 52,
+        borderRadius: 22,
         alignItems: 'center',
         justifyContent: 'center',
         backgroundColor: active ? '#FBF8F1' : 'transparent',
@@ -311,7 +311,7 @@ function ToolbarButton({
     >
       <MaterialCommunityIcons
         name={icon}
-        size={30}
+        size={24}
         color={active ? '#1C211C' : '#F2EEE5'}
       />
     </Pressable>
@@ -346,16 +346,16 @@ export function RightRail({
       style={{
         position: 'absolute',
         right: 12,
-        bottom: 130,
+        bottom: 150,
         alignItems: 'flex-end',
-        gap: 12,
+        gap: 10,
       }}
     >
-      <View style={{ backgroundColor: PILL_BG, borderRadius: 24, padding: 4, gap: 3 }}>
+      <View style={{ backgroundColor: PILL_BG, borderRadius: 18, padding: 3, gap: 2 }}>
         <RailPill label="Tee" active={mode === 'tee'} onPress={() => onSetMode('tee')} />
         <RailPill label="Appr" active={mode === 'appr'} onPress={() => onSetMode('appr')} />
       </View>
-      <View style={{ backgroundColor: PILL_BG, borderRadius: 24, padding: 4, gap: 3 }}>
+      <View style={{ backgroundColor: PILL_BG, borderRadius: 18, padding: 3, gap: 2 }}>
         {railLabels.map((label, i) => (
           <RailPill
             key={label}
@@ -386,10 +386,10 @@ function RailPill({
       onPress={onPress}
       hitSlop={4}
       style={({ pressed }) => ({
-        minWidth: 70,
-        paddingVertical: 14,
-        paddingHorizontal: 18,
-        borderRadius: 20,
+        minWidth: 56,
+        paddingVertical: 10,
+        paddingHorizontal: 14,
+        borderRadius: 15,
         alignItems: 'center',
         backgroundColor: active ? '#FBF8F1' : 'transparent',
         opacity: pressed ? 0.6 : 1,
@@ -398,7 +398,7 @@ function RailPill({
       <Text
         style={{
           color: active ? '#1C211C' : '#F2EEE5',
-          fontSize: 16,
+          fontSize: 14,
           fontWeight: active ? '700' : '600',
           fontVariant: ['tabular-nums'],
         }}
