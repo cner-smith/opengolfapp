@@ -1,4 +1,6 @@
-import { Text, View } from 'react-native'
+import type { ComponentProps } from 'react'
+import { Pressable, Text, View } from 'react-native'
+import { MaterialCommunityIcons } from '@expo/vector-icons'
 
 // Shared pill chrome — dark translucent card on satellite, per DESIGN.md
 // mobile map rules. The HUD readouts (To Hole / Exp / SG) all use it.
@@ -194,5 +196,215 @@ export function TeeBadge() {
         TEE
       </Text>
     </View>
+  )
+}
+
+type IconName = ComponentProps<typeof MaterialCommunityIcons>['name']
+
+// Vertical icon toolbar on the left edge of the live map (Shot Pattern
+// ref ux-12), adapted to OGA chrome: dark translucent pill, cream icons,
+// cream-filled "active" state matching the Tee/Appr toggle. Vertically
+// centered; the full-height wrapper is box-none so only the strip itself
+// catches touches — map pan/long-press underneath stay live.
+//
+// green-map (slope heatmap) is a dimmed v1.1 stub. The dispersion button
+// toggles the single-color historical-shot dots (render lands in T4).
+interface LeftToolbarProps {
+  dotsVisible: boolean
+  onToggleDots: () => void
+  onPlacePin: () => void
+  onPlaceTee: () => void
+  pinMode: boolean
+  teeMode: boolean
+}
+
+export function LeftToolbar({
+  dotsVisible,
+  onToggleDots,
+  onPlacePin,
+  onPlaceTee,
+  pinMode,
+  teeMode,
+}: LeftToolbarProps) {
+  return (
+    <View
+      pointerEvents="box-none"
+      style={{
+        position: 'absolute',
+        left: 12,
+        top: 0,
+        bottom: 0,
+        justifyContent: 'center',
+      }}
+    >
+      <View
+        style={{
+          backgroundColor: PILL_BG,
+          borderRadius: 24,
+          paddingVertical: 6,
+          paddingHorizontal: 4,
+          gap: 2,
+          alignItems: 'center',
+        }}
+      >
+        <ToolbarButton
+          icon="terrain"
+          label="Green slope heatmap (coming soon)"
+          disabled
+        />
+        <ToolbarButton
+          icon="grain"
+          label={dotsVisible ? 'Hide shot pattern' : 'Show shot pattern'}
+          active={dotsVisible}
+          onPress={onToggleDots}
+        />
+        <ToolbarButton
+          icon="flag"
+          label="Place pin"
+          active={pinMode}
+          onPress={onPlacePin}
+        />
+        <ToolbarButton
+          icon="golf-tee"
+          label="Place tee box"
+          active={teeMode}
+          onPress={onPlaceTee}
+        />
+      </View>
+    </View>
+  )
+}
+
+function ToolbarButton({
+  icon,
+  label,
+  onPress,
+  active,
+  disabled,
+}: {
+  icon: IconName
+  label: string
+  onPress?: () => void
+  active?: boolean
+  disabled?: boolean
+}) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityState={{ disabled: !!disabled, selected: !!active }}
+      disabled={disabled || !onPress}
+      onPress={onPress}
+      hitSlop={6}
+      // Opacity feedback in the style callback rather than android_ripple,
+      // which iOS silently ignores (#303).
+      style={({ pressed }) => ({
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: active ? '#FBF8F1' : 'transparent',
+        opacity: disabled ? 0.32 : pressed ? 0.6 : 1,
+      })}
+    >
+      <MaterialCommunityIcons
+        name={icon}
+        size={20}
+        color={active ? '#1C211C' : '#F2EEE5'}
+      />
+    </Pressable>
+  )
+}
+
+// Right-edge controls (Shot Pattern refs ux-10/11/13), adapted to OGA chrome:
+// a Tee/Appr toggle over a distance rail. The toggle picks the overlay SHAPE
+// (Tee → arc band, Appr → circle ring); the rail SIZES it (Tee = arc width in
+// yards, Appr = circle diameter in feet). Neither is a club picker. Vertically
+// centered; box-none wrapper so the map underneath stays pannable.
+interface RightRailProps {
+  mode: 'tee' | 'appr'
+  onSetMode: (mode: 'tee' | 'appr') => void
+  /** Display labels for the active mode's rail values, top → bottom. */
+  railLabels: string[]
+  railIndex: number
+  onSelectRail: (index: number) => void
+}
+
+export function RightRail({
+  mode,
+  onSetMode,
+  railLabels,
+  railIndex,
+  onSelectRail,
+}: RightRailProps) {
+  return (
+    <View
+      pointerEvents="box-none"
+      style={{
+        position: 'absolute',
+        right: 12,
+        top: 0,
+        bottom: 0,
+        justifyContent: 'center',
+        alignItems: 'flex-end',
+        gap: 10,
+      }}
+    >
+      <View style={{ backgroundColor: PILL_BG, borderRadius: 18, padding: 3, gap: 2 }}>
+        <RailPill label="Tee" active={mode === 'tee'} onPress={() => onSetMode('tee')} />
+        <RailPill label="Appr" active={mode === 'appr'} onPress={() => onSetMode('appr')} />
+      </View>
+      <View style={{ backgroundColor: PILL_BG, borderRadius: 18, padding: 3, gap: 2 }}>
+        {railLabels.map((label, i) => (
+          <RailPill
+            key={label}
+            label={label}
+            active={i === railIndex}
+            onPress={() => onSelectRail(i)}
+          />
+        ))}
+      </View>
+    </View>
+  )
+}
+
+function RailPill({
+  label,
+  active,
+  onPress,
+}: {
+  label: string
+  active: boolean
+  onPress: () => void
+}) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityState={{ selected: active }}
+      onPress={onPress}
+      hitSlop={4}
+      style={({ pressed }) => ({
+        minWidth: 48,
+        paddingVertical: 7,
+        paddingHorizontal: 10,
+        borderRadius: 15,
+        alignItems: 'center',
+        backgroundColor: active ? '#FBF8F1' : 'transparent',
+        opacity: pressed ? 0.6 : 1,
+      })}
+    >
+      <Text
+        style={{
+          color: active ? '#1C211C' : '#F2EEE5',
+          fontSize: 12,
+          fontWeight: '600',
+          fontVariant: ['tabular-nums'],
+        }}
+      >
+        {label}
+      </Text>
+    </Pressable>
   )
 }

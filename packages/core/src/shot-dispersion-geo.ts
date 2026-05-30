@@ -83,3 +83,77 @@ export function arcGeoJSON(
   }
   return { type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates } }
 }
+
+// Points sampled around the approach circle. 48 is round at any green-side
+// zoom and cheap to recompute.
+const CIRCLE_SAMPLES = 48
+
+export interface CircleFeature {
+  type: 'Feature'
+  properties: Record<string, unknown>
+  geometry: { type: 'Polygon'; coordinates: [number, number][][] }
+}
+
+/**
+ * Filled circle (Polygon) of `radiusYards` around `center` — the approach
+ * overlay ring, centered on the pin. Sampled via the great-circle
+ * destination formula so it stays round at any latitude. Returns null for a
+ * non-finite center or a non-positive / non-finite radius.
+ */
+export function circleGeoJSON(
+  center: GeoPoint,
+  radiusYards: number,
+  samples: number = CIRCLE_SAMPLES,
+): CircleFeature | null {
+  if (!Number.isFinite(center.lat) || !Number.isFinite(center.lng)) return null
+  if (!Number.isFinite(radiusYards) || radiusYards <= 0) return null
+  const ring: [number, number][] = []
+  for (let i = 0; i <= samples; i++) {
+    const p = destinationYards(center, (360 * i) / samples, radiusYards)
+    ring.push([p.lng, p.lat])
+  }
+  return { type: 'Feature', properties: {}, geometry: { type: 'Polygon', coordinates: [ring] } }
+}
+
+export interface ScatterFeatureCollection {
+  type: 'FeatureCollection'
+  features: {
+    type: 'Feature'
+    properties: Record<string, unknown>
+    geometry: { type: 'Point'; coordinates: [number, number] }
+  }[]
+}
+
+/**
+ * Places aim-relative scatter points (a club's historical shot endings as
+ * `{alongYards, perpYards}`) onto the hole around `target`, rotated to the
+ * current origin→target bearing — the single-color dispersion-dots overlay.
+ * `along` runs down the aim line (+ = past the target), `perp` is right of it
+ * (+ = right), matching arcGeoJSON's sign convention. Non-finite points are
+ * skipped; an empty collection comes back when origin and target coincide
+ * (the bearing is undefined below the arc-radius floor).
+ */
+export function scatterGeoJSON(
+  origin: GeoPoint,
+  target: GeoPoint,
+  points: { alongYards: number; perpYards: number }[],
+): ScatterFeatureCollection {
+  const features: ScatterFeatureCollection['features'] = []
+  const radius = haversineYards(origin.lat, origin.lng, target.lat, target.lng)
+  if (Number.isFinite(radius) && radius >= MIN_ARC_RADIUS_YARDS) {
+    const bearing = bearingDegrees(origin.lat, origin.lng, target.lat, target.lng)
+    for (const p of points) {
+      if (!Number.isFinite(p.alongYards) || !Number.isFinite(p.perpYards)) continue
+      // From the target: along the aim bearing, then perpendicular (+90 = right).
+      // Signed distances place short/left points on the opposite side correctly.
+      const alongPt = destinationYards(target, bearing, p.alongYards)
+      const placed = destinationYards(alongPt, bearing + 90, p.perpYards)
+      features.push({
+        type: 'Feature',
+        properties: {},
+        geometry: { type: 'Point', coordinates: [placed.lng, placed.lat] },
+      })
+    }
+  }
+  return { type: 'FeatureCollection', features }
+}

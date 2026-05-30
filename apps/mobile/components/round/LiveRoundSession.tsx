@@ -25,8 +25,18 @@ import {
 import { useHoleData } from './hole/useHoleData'
 import { useHoleState } from './hole/useHoleState'
 import { useShotActions } from './hole/useShotActions'
-import { HoleStrip } from './hole/HoleStrip'
 import { HoleModals } from './hole/HoleModals'
+import { MapBottomChrome } from './MapBottomChrome'
+import { LeftToolbar, RightRail } from './HoleMapOverlays'
+
+// Distance-rail presets (Shot Pattern refs ux-10/11). Tee = arc TOTAL width
+// in yards (half each side of the aim line); Appr = circle diameter in feet
+// (greens use feet). Fixed presets, not a club picker. Shown in their native
+// unit even on a meters profile — these are discrete golf-standard widths,
+// not measured distances; a metric preset set is a deferred follow-up.
+const TEE_RAIL_YARDS = [95, 85, 75, 65] as const
+const APPR_RAIL_FEET = [50, 36, 30, 24] as const
+const FEET_PER_YARD = 3
 
 interface LiveRoundSessionProps {
   roundId: string | undefined
@@ -67,6 +77,16 @@ export default function LiveRoundSession({
   // in ./hole/types for the full union + rationale (#293).
   const [activeDialog, setActiveDialog] = useState<ActiveDialog>(null)
   const [loggerInitial, setLoggerInitial] = useState<ShotLoggerValue>({})
+  // Left-toolbar dispersion-dots toggle (T2). Drives the single-color
+  // historical-shot scatter overlay; the render lands in T4. Off by
+  // default — it's a summoned planning aid, not always-on clutter.
+  const [dotsVisible, setDotsVisible] = useState(false)
+  // Aim overlay shape + size (T3). Tee → arc band, Appr → circle ring; the
+  // rail index sizes each, kept per-mode so switching modes preserves the
+  // other's pick. Default Tee, widest rail.
+  const [overlayMode, setOverlayMode] = useState<'tee' | 'appr'>('tee')
+  const [teeRailIdx, setTeeRailIdx] = useState(0)
+  const [apprRailIdx, setApprRailIdx] = useState(0)
 
   // Per-hole reset. useHoleState resets its own refs (Kalman, manual
   // placement, last-saved-shot id) keyed on currentHoleId — we don't
@@ -140,14 +160,26 @@ export default function LiveRoundSession({
     finalState.aim?.lat,
     finalState.aim?.lng,
   ])
-  const dispersionOverlay = useMemo(() => {
+  // Single-color dispersion dots for the selected club (left-toolbar toggle).
+  // Computed only when the dots are shown; sparse clubs → null (no dots).
+  const dispersionPoints = useMemo(() => {
+    if (!dotsVisible) return null
     const selected = selectClub(originToTargetYards)
-    if (!selected) return null
-    return {
-      perp95: selected.dispersion.perp95,
-      perpMean: selected.dispersion.perpMean,
-    }
-  }, [selectClub, originToTargetYards])
+    return selected ? selected.dispersion.points : null
+  }, [dotsVisible, selectClub, originToTargetYards])
+
+  // Overlay sizing from the active rail pick (fallbacks guard the indexed
+  // access). Arc width = the yard preset; circle radius = diameter-ft ÷ 2 ÷ 3.
+  const arcWidthYards = TEE_RAIL_YARDS[teeRailIdx] ?? TEE_RAIL_YARDS[0]
+  const circleDiaFeet = APPR_RAIL_FEET[apprRailIdx] ?? APPR_RAIL_FEET[0]
+  const circleRadiusYards = circleDiaFeet / 2 / FEET_PER_YARD
+  const railLabels =
+    overlayMode === 'tee'
+      ? TEE_RAIL_YARDS.map((y) => `${y} yd`)
+      : APPR_RAIL_FEET.map((f) => `${f} ft`)
+  const railIndex = overlayMode === 'tee' ? teeRailIdx : apprRailIdx
+  const selectRail = (i: number) =>
+    overlayMode === 'tee' ? setTeeRailIdx(i) : setApprRailIdx(i)
 
   // Handicap for the live expected-strokes / SG readouts. Read once from the
   // canonical profiles.handicap_index (player-entered, refined by the web
@@ -389,7 +421,11 @@ export default function LiveRoundSession({
           tee={data.tee}
           aim={finalState.aim}
           ball={finalState.ball}
-          dispersion={dispersionOverlay}
+          overlayMode={overlayMode}
+          arcWidthYards={arcWidthYards}
+          circleRadiusYards={circleRadiusYards}
+          dotsVisible={dotsVisible}
+          dispersionPoints={dispersionPoints}
           handicap={handicap}
           previousShots={data.previousShots}
           gpsPosition={finalState.gpsPosition}
@@ -450,37 +486,51 @@ export default function LiveRoundSession({
             </Text>
           </Pressable>
         )}
+        <LeftToolbar
+          dotsVisible={dotsVisible}
+          onToggleDots={() => setDotsVisible((v) => !v)}
+          onPlacePin={() => setPinPlacementOpen(true)}
+          onPlaceTee={() => setTeePlacementOpen(true)}
+          pinMode={pinPlacementOpen}
+          teeMode={teePlacementOpen}
+        />
+        {/* Tee/Appr + distance rail — appears once an aim exists, hidden
+            during pin/tee placement so it doesn't fight those flows. */}
+        {finalState.aim && !pinPlacementOpen && !teePlacementOpen && (
+          <RightRail
+            mode={overlayMode}
+            onSetMode={setOverlayMode}
+            railLabels={railLabels}
+            railIndex={railIndex}
+            onSelectRail={selectRail}
+          />
+        )}
+        <MapBottomChrome
+          roundState={finalState.roundState}
+          pinPlacementOpen={pinPlacementOpen}
+          teePlacementOpen={teePlacementOpen}
+          ball={finalState.ball}
+          aim={finalState.aim}
+          saving={actions.saving}
+          roundPin={data.roundPin}
+          hasGps={finalState.gpsPosition != null}
+          totalShotsThisHole={totalShotsThisHole}
+          holeNumber={holeNumber}
+          par={data.currentHole.par}
+          yardsLabel={data.currentHole.yards ? toDisplay(data.currentHole.yards) : null}
+          onCancelPinPlacement={() => setPinPlacementOpen(false)}
+          onCancelTeePlacement={() => setTeePlacementOpen(false)}
+          onClearRoundPin={actions.clearRoundPin}
+          onConfirmAim={actions.confirmAim}
+          onRePlaceBall={() => finalState.setRoundState('PLACE_BALL')}
+          onSkipAim={actions.skipAim}
+          onMarkBallHere={actions.markBallHere}
+          onFinishHole={actions.finishHole}
+          onPrev={() => actions.navigateHole(-1)}
+          onNext={() => actions.navigateHole(1)}
+          onOpenScorecard={() => setScorecardOpen(true)}
+        />
       </View>
-
-      <HoleStrip
-        pinPlacementOpen={pinPlacementOpen}
-        teePlacementOpen={teePlacementOpen}
-        roundState={finalState.roundState}
-        ball={finalState.ball}
-        aim={finalState.aim}
-        saving={actions.saving}
-        roundPin={data.roundPin}
-        tee={data.tee}
-        nearPin={finalState.nearPin}
-        hasGps={finalState.gpsPosition != null}
-        totalShotsThisHole={totalShotsThisHole}
-        holeNumber={holeNumber}
-        holes={data.holes}
-        holeScores={data.holeScores}
-        onCancelPinPlacement={() => setPinPlacementOpen(false)}
-        onCancelTeePlacement={() => setTeePlacementOpen(false)}
-        onClearRoundPin={actions.clearRoundPin}
-        onConfirmAim={actions.confirmAim}
-        onRePlaceBall={() => finalState.setRoundState('PLACE_BALL')}
-        onSkipAim={actions.skipAim}
-        onMarkBallHere={actions.markBallHere}
-        onOpenPinPlacement={() => setPinPlacementOpen(true)}
-        onOpenTeePlacement={() => setTeePlacementOpen(true)}
-        onFinishHole={actions.finishHole}
-        onPrev={() => actions.navigateHole(-1)}
-        onNext={() => actions.navigateHole(1)}
-        onOpenScorecard={() => setScorecardOpen(true)}
-      />
 
       <HoleModals
         shotNumber={data.shotNumber}

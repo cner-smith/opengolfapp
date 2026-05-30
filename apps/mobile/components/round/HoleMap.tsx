@@ -2,11 +2,14 @@ import { useCallback, useMemo, useRef, useState } from 'react'
 import { Pressable, Text, View } from 'react-native'
 import Mapbox from '@rnmapbox/maps'
 import {
+  arcGeoJSON,
   bearingDegrees,
   calculateShotSG,
+  circleGeoJSON,
   destinationYards,
   getExpectedStrokes,
   NEAR_GREEN_YARDS,
+  scatterGeoJSON,
 } from '@oga/core'
 import { MaterialCommunityIcons } from '@expo/vector-icons'
 import { Gesture, GestureDetector } from 'react-native-gesture-handler'
@@ -46,13 +49,22 @@ interface HoleMapProps {
   aim?: LatLng | null
   ball?: LatLng | null
   /**
-   * Aim-relative dispersion (yards) for the auto-selected club, drawn as a
-   * 95% arc from `ball` (origin) through `aim` (target). `perp95` is the
-   * lateral half-width; `perpMean` the player's lateral bias (+ = right).
-   * Null when the player has too little data for the relevant club — the
-   * overlay simply doesn't render.
+   * Fixed-geometry aim overlay (always on while aiming). Tee → an arc band
+   * across the aim line; Appr → a circle ring on the pin. NOT data-driven —
+   * the rail sizes it, the toggle shapes it.
    */
-  dispersion?: { perp95: number; perpMean: number } | null
+  overlayMode: 'tee' | 'appr'
+  /** Tee arc TOTAL lateral width in yards (rail value); half each side of aim. */
+  arcWidthYards: number
+  /** Appr circle radius in yards (rail diameter ÷ 2, feet→yards). */
+  circleRadiusYards: number
+  /**
+   * Single-color historical-shot dots, toggled by the left-toolbar dispersion
+   * button. The selected club's aim-relative offsets; placed around the aim
+   * and shown only when `dotsVisible`. Null / empty → no dots (sparse data).
+   */
+  dotsVisible: boolean
+  dispersionPoints?: { alongYards: number; perpYards: number }[] | null
   /**
    * Player handicap index, for the live expected-strokes / SG readouts.
    * Defaults handled by the caller (falls back to DEFAULT_HANDICAP).
@@ -163,6 +175,11 @@ export function HoleMap({
   onPlacePin,
   onPlaceTee,
   showLocationPuck,
+  overlayMode,
+  arcWidthYards,
+  circleRadiusYards,
+  dotsVisible,
+  dispersionPoints,
 }: HoleMapProps) {
   const { toDisplay } = useUnits()
   const mapViewRef = useRef<Mapbox.MapView>(null)
@@ -335,6 +352,30 @@ export function HoleMap({
     }
   }, [ball, aim, effectivePin, showAim])
 
+  // Fixed-geometry aim overlay (T4), always on while aiming. Tee → an arc
+  // band across the aim line at the rail's chosen width (half each side);
+  // Appr → a circle ring on the pin at the rail's diameter. Drawn under the
+  // aim line so the line + crosshair read on top.
+  const overlayArc = useMemo(() => {
+    if (!showAim || overlayMode !== 'tee' || !ball || !aim) return null
+    return arcGeoJSON(ball, aim, arcWidthYards / 2)
+  }, [showAim, overlayMode, ball, aim, arcWidthYards])
+
+  const overlayCircle = useMemo(() => {
+    if (!showAim || overlayMode !== 'appr' || !effectivePin) return null
+    return circleGeoJSON(effectivePin, circleRadiusYards)
+  }, [showAim, overlayMode, effectivePin, circleRadiusYards])
+
+  // Single-color dispersion dots (left-toolbar toggle): the selected club's
+  // aim-relative offsets, rotated to the live ball→aim bearing and scattered
+  // around the aim. Null until the player has enough data for that club.
+  const overlayDots = useMemo(() => {
+    if (!dotsVisible || !showAim || !ball || !aim) return null
+    if (!dispersionPoints || dispersionPoints.length === 0) return null
+    const fc = scatterGeoJSON(ball, aim, dispersionPoints)
+    return fc.features.length > 0 ? fc : null
+  }, [dotsVisible, showAim, ball, aim, dispersionPoints])
+
   // Perpendicular crosshair tick at the aim — the draggable handle's
   // visual. A short geo segment perpendicular to the ball→aim bearing, so
   // it rotates with the line. destinationYards/bearingDegrees share the
@@ -487,6 +528,64 @@ export function HoleMap({
             styleLoaded={styleLoaded}
             isPinMode={isPinMode}
           />
+
+          {/* Fixed-geometry aim overlay (T4), drawn under the aim line. Arc
+              band = a wide translucent stroke (the "fill") + a thin crisp
+              core, so it reads as an area, not the old invisible hairline. */}
+          {styleLoaded && !isPinMode && !isTeeMode && overlayArc && (
+            <Mapbox.ShapeSource id="overlayArc" shape={overlayArc}>
+              <Mapbox.LineLayer
+                id="overlayArcFill"
+                style={{
+                  lineColor: '#FBF8F1',
+                  lineWidth: 14,
+                  lineOpacity: 0.15,
+                  lineCap: 'round',
+                  lineJoin: 'round',
+                }}
+              />
+              <Mapbox.LineLayer
+                id="overlayArcCore"
+                style={{
+                  lineColor: '#FBF8F1',
+                  lineWidth: 2,
+                  lineOpacity: 0.9,
+                  lineCap: 'round',
+                  lineJoin: 'round',
+                }}
+              />
+            </Mapbox.ShapeSource>
+          )}
+
+          {/* Approach circle ring — translucent fill + thin border. */}
+          {styleLoaded && !isPinMode && !isTeeMode && overlayCircle && (
+            <Mapbox.ShapeSource id="overlayCircle" shape={overlayCircle}>
+              <Mapbox.FillLayer
+                id="overlayCircleFill"
+                style={{ fillColor: '#FBF8F1', fillOpacity: 0.12 }}
+              />
+              <Mapbox.LineLayer
+                id="overlayCircleBorder"
+                style={{ lineColor: '#FBF8F1', lineWidth: 2, lineOpacity: 0.9 }}
+              />
+            </Mapbox.ShapeSource>
+          )}
+
+          {/* Single-color historical-shot dots (dispersion toggle). */}
+          {styleLoaded && !isPinMode && !isTeeMode && overlayDots && (
+            <Mapbox.ShapeSource id="overlayDots" shape={overlayDots}>
+              <Mapbox.CircleLayer
+                id="overlayDotsLayer"
+                style={{
+                  circleRadius: 4,
+                  circleColor: '#FBF8F1',
+                  circleOpacity: 0.7,
+                  circleStrokeWidth: 1,
+                  circleStrokeColor: 'rgba(28,33,28,0.55)',
+                }}
+              />
+            </Mapbox.ShapeSource>
+          )}
 
           {/* Straight ball→pin reference, dotted cream hairline — the
               neutral "up the hole" guide the solid amber aim path bends

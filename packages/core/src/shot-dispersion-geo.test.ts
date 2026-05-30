@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { arcGeoJSON, destinationYards } from './shot-dispersion-geo'
+import { arcGeoJSON, circleGeoJSON, destinationYards, scatterGeoJSON } from './shot-dispersion-geo'
 import { bearingDegrees, haversineYards } from './units'
 
 const ORIGIN = { lat: 40, lng: -75 }
@@ -76,5 +76,65 @@ describe('arcGeoJSON', () => {
 
   it('returns null when the target is on top of the origin (radius below floor)', () => {
     expect(arcGeoJSON(ORIGIN, ORIGIN, 20)).toBeNull()
+  })
+})
+
+describe('circleGeoJSON', () => {
+  it('returns a closed Polygon ring of samples+1 coordinates', () => {
+    const c = circleGeoJSON(ORIGIN, 25, 48)!
+    expect(c).not.toBeNull()
+    expect(c.geometry.type).toBe('Polygon')
+    const ring = c.geometry.coordinates[0]!
+    expect(ring).toHaveLength(49)
+    // first === last → closed ring
+    expect(ring[0]).toEqual(ring[ring.length - 1])
+  })
+
+  it('every vertex sits radiusYards from the center', () => {
+    const ring = circleGeoJSON(ORIGIN, 25)!.geometry.coordinates[0]!
+    for (const [lng, lat] of ring) {
+      expect(haversineYards(ORIGIN.lat, ORIGIN.lng, lat, lng)).toBeCloseTo(25, 0)
+    }
+  })
+
+  it('returns null for a non-positive or non-finite radius', () => {
+    expect(circleGeoJSON(ORIGIN, 0)).toBeNull()
+    expect(circleGeoJSON(ORIGIN, -5)).toBeNull()
+    expect(circleGeoJSON(ORIGIN, NaN)).toBeNull()
+  })
+})
+
+describe('scatterGeoJSON', () => {
+  const TARGET = { lat: 40.002, lng: -75 } // due north of ORIGIN (~242 yd)
+
+  it('places a point past the target and right of the aim line', () => {
+    // aiming north: along+ = further north, perp+ = east (right).
+    const fc = scatterGeoJSON(ORIGIN, TARGET, [{ alongYards: 10, perpYards: 8 }])
+    expect(fc.features).toHaveLength(1)
+    const [lng, lat] = fc.features[0]!.geometry.coordinates
+    expect(lat).toBeGreaterThan(TARGET.lat) // 10 yd long → further north
+    expect(lng).toBeGreaterThan(TARGET.lng) // 8 yd right → east
+  })
+
+  it('places short/left points on the opposite sides', () => {
+    const [lng, lat] = scatterGeoJSON(ORIGIN, TARGET, [
+      { alongYards: -12, perpYards: -6 },
+    ]).features[0]!.geometry.coordinates
+    expect(lat).toBeLessThan(TARGET.lat) // short → south of target
+    expect(lng).toBeLessThan(TARGET.lng) // left → west
+  })
+
+  it('skips non-finite points', () => {
+    const fc = scatterGeoJSON(ORIGIN, TARGET, [
+      { alongYards: NaN, perpYards: 0 },
+      { alongYards: 5, perpYards: Infinity },
+      { alongYards: 5, perpYards: 5 },
+    ])
+    expect(fc.features).toHaveLength(1)
+  })
+
+  it('returns an empty collection when origin and target coincide', () => {
+    const fc = scatterGeoJSON(ORIGIN, ORIGIN, [{ alongYards: 5, perpYards: 5 }])
+    expect(fc.features).toHaveLength(0)
   })
 })
