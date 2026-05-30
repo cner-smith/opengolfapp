@@ -3,7 +3,9 @@ import { Pressable, Text, View } from 'react-native'
 import Mapbox from '@rnmapbox/maps'
 import {
   arcGeoJSON,
+  bearingDegrees,
   calculateShotSG,
+  destinationYards,
   getExpectedStrokes,
   NEAR_GREEN_YARDS,
 } from '@oga/core'
@@ -121,6 +123,12 @@ function toCoord(l: LatLng): [number, number] {
 // it's refresh-independent) — the final release position is always drawn,
 // intermediate frames are dropped.
 const ARC_THROTTLE_MS = 80
+
+// Half-length (yards) of the perpendicular crosshair tick drawn at the aim
+// — a short geo segment across the aim line so the draggable midpoint
+// handle reads as a crosshair (refs ux-09). Decorative; the transparent
+// PointAnnotation owns the actual drag.
+const CROSSHAIR_HALF_YARDS = 7
 
 function extractCoord(feature: unknown): LatLng | null {
   const geom = (feature as { geometry?: { coordinates?: unknown } } | null)?.geometry
@@ -292,18 +300,62 @@ export function HoleMap({
 
   const showAim = isAimPhase || isPlaceBallPhase
 
-  const aimLine = useMemo(() => {
-    if (!showAim) return null
-    if (!ball || !aim) return null
+  // Straight ball→pin reference, "up the hole" (dotted). The solid aim
+  // path bends off this as the player drags the target. Independent of
+  // `aim` so it stays put during the drag (refs ux-09). Shown whenever a
+  // ball + pin exist in an aim-capable phase, including before the first aim.
+  const referenceLine = useMemo(() => {
+    if (!showAim || !ball || !effectivePin) return null
     return {
       type: 'Feature' as const,
       properties: {},
       geometry: {
         type: 'LineString' as const,
-        coordinates: [toCoord(ball), toCoord(aim)],
+        coordinates: [toCoord(ball), toCoord(effectivePin)],
       },
     }
-  }, [ball, aim, showAim])
+  }, [showAim, ball?.lat, ball?.lng, effectivePin?.lat, effectivePin?.lng])
+
+  // Solid aim path origin → aim → pin (bends at the aim as it's dragged).
+  // Falls back to ball→aim on no-pin holes.
+  const aimLine = useMemo(() => {
+    if (!showAim) return null
+    if (!ball || !aim) return null
+    const coordinates = [toCoord(ball), toCoord(aim)]
+    if (effectivePin) coordinates.push(toCoord(effectivePin))
+    return {
+      type: 'Feature' as const,
+      properties: {},
+      geometry: { type: 'LineString' as const, coordinates },
+    }
+  }, [ball, aim, effectivePin, showAim])
+
+  // Perpendicular crosshair tick at the aim — the draggable handle's
+  // visual. A short geo segment perpendicular to the ball→aim bearing, so
+  // it rotates with the line. destinationYards/bearingDegrees share the
+  // arc's great-circle model. Bound to live `aim` (2 points, cheap to
+  // re-serialize — same cost class as the already-live aim line).
+  const aimCrosshair = useMemo(() => {
+    if (!showAim || !ball || !aim) return null
+    // Degenerate guard: with the aim ~on the ball the bearing is
+    // meaningless — bearingDegrees(p, p) returns 0 (finite, not NaN), so a
+    // finite-check alone wouldn't catch it and the tick would point an
+    // arbitrary direction. Suppress below ~1 yd, matching arcGeoJSON's
+    // radius floor.
+    if (distanceYards(ball, aim) < 1) return null
+    const heading = bearingDegrees(ball.lat, ball.lng, aim.lat, aim.lng)
+    if (!Number.isFinite(heading)) return null
+    const left = destinationYards(aim, heading - 90, CROSSHAIR_HALF_YARDS)
+    const right = destinationYards(aim, heading + 90, CROSSHAIR_HALF_YARDS)
+    return {
+      type: 'Feature' as const,
+      properties: {},
+      geometry: {
+        type: 'LineString' as const,
+        coordinates: [toCoord(left), toCoord(right)],
+      },
+    }
+  }, [showAim, ball?.lat, ball?.lng, aim?.lat, aim?.lng])
 
   const aimDistanceYards = useMemo(() => {
     if (!showAim || !ball || !aim) return null
@@ -314,6 +366,16 @@ export function HoleMap({
     if (!showAim || !ball || !aim) return null
     return { lat: (ball.lat + aim.lat) / 2, lng: (ball.lng + aim.lng) / 2 }
   }, [showAim, ball, aim])
+
+  // Midpoint of the aim→pin leg, where the subordinate "remaining" label
+  // sits — mirrors the carry pill on the ball→aim leg.
+  const remainingMidpoint: LatLng | null = useMemo(() => {
+    if (!showAim || !aim || !effectivePin) return null
+    return {
+      lat: (aim.lat + effectivePin.lat) / 2,
+      lng: (aim.lng + effectivePin.lng) / 2,
+    }
+  }, [showAim, aim?.lat, aim?.lng, effectivePin?.lat, effectivePin?.lng])
 
   // Throttled copy of `aim` that drives the dispersion arc. The raw aim
   // updates every drag frame; this trails it at ARC_THROTTLE_MS so the
@@ -454,6 +516,24 @@ export function HoleMap({
             isPinMode={isPinMode}
           />
 
+          {/* Straight ball→pin reference, dotted cream hairline — the
+              neutral "up the hole" guide the solid amber aim path bends
+              off. Drawn first so everything else reads on top. */}
+          {styleLoaded && referenceLine && (
+            <Mapbox.ShapeSource id="referenceLine" shape={referenceLine}>
+              <Mapbox.LineLayer
+                id="referenceLineLayer"
+                style={{
+                  lineColor: '#FBF8F1',
+                  lineWidth: 1.5,
+                  lineDasharray: [1, 3],
+                  lineOpacity: 0.5,
+                  lineCap: 'round',
+                }}
+              />
+            </Mapbox.ShapeSource>
+          )}
+
           {/* 95% dispersion arc — drawn under the aim line so the solid
               aim line reads on top. Amber dashed hairline per DESIGN.md
               (aim family); no new colors. */}
@@ -472,15 +552,35 @@ export function HoleMap({
             </Mapbox.ShapeSource>
           )}
 
+          {/* Solid amber aim path origin → aim → pin (DESIGN.md aim
+              family). Bends at the aim as the player drags the handle. */}
           {styleLoaded && aimLine && (
             <Mapbox.ShapeSource id="aimLine" shape={aimLine}>
               <Mapbox.LineLayer
                 id="aimLineLayer"
                 style={{
                   lineColor: '#A66A1F',
-                  lineWidth: 1.5,
-                  lineDasharray: [4, 3],
-                  lineOpacity: 0.8,
+                  lineWidth: 2,
+                  lineOpacity: 0.9,
+                  lineCap: 'round',
+                  lineJoin: 'round',
+                }}
+              />
+            </Mapbox.ShapeSource>
+          )}
+
+          {/* Perpendicular crosshair tick at the aim — solid amber, drawn
+              over the aim line so the two cross. The transparent aim
+              annotation below owns the drag. */}
+          {styleLoaded && aimCrosshair && (
+            <Mapbox.ShapeSource id="aimCrosshair" shape={aimCrosshair}>
+              <Mapbox.LineLayer
+                id="aimCrosshairLayer"
+                style={{
+                  lineColor: '#A66A1F',
+                  lineWidth: 2,
+                  lineOpacity: 0.9,
+                  lineCap: 'round',
                 }}
               />
             </Mapbox.ShapeSource>
@@ -542,8 +642,9 @@ export function HoleMap({
                 if (c) onSetAim(c)
               }}
             >
-              {/* 44pt transparent hit area around the visual marker so the
-                  drag handle is comfortably reachable mid-round. */}
+              {/* 44pt transparent hit area around a small center grab-dot.
+                  The perpendicular crosshair tick (drawn above) is the
+                  handle's main visual; the dot just marks the grab point. */}
               <View
                 style={{
                   width: 44,
@@ -552,7 +653,7 @@ export function HoleMap({
                   justifyContent: 'center',
                 }}
               >
-                <Marker color="#A66A1F" border="#FBF8F1" size={14} />
+                <Marker color="#A66A1F" border="#FBF8F1" size={9} />
               </View>
             </Mapbox.PointAnnotation>
           )}
@@ -566,6 +667,37 @@ export function HoleMap({
                 liveStrokes.sg != null && liveStrokes.sg < 0 ? 'neg' : 'pos'
               }
             />
+          )}
+
+          {/* Remaining (aim→pin) — subordinate to the hero carry pill: a
+              smaller, dimmer label on the aim→pin leg. Uses the already-
+              computed aimToPinYards, run through the units helper. */}
+          {remainingMidpoint && aimToPinYards !== null && (
+            <Mapbox.PointAnnotation
+              id="remainingDistance"
+              coordinate={toCoord(remainingMidpoint)}
+            >
+              <View
+                style={{
+                  backgroundColor: 'rgba(28,33,28,0.7)',
+                  borderRadius: 9,
+                  paddingHorizontal: 9,
+                  paddingVertical: 3,
+                }}
+              >
+                <Text
+                  style={{
+                    color: '#E8E2D4',
+                    fontFamily: 'Fraunces-Medium',
+                    fontSize: 14,
+                    fontWeight: '600',
+                    fontVariant: ['tabular-nums'],
+                  }}
+                >
+                  {toDisplay(aimToPinYards)}
+                </Text>
+              </View>
+            </Mapbox.PointAnnotation>
           )}
 
           {!isPinMode && ball && (

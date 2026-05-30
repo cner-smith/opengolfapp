@@ -7,6 +7,12 @@ import type { LatLng } from '../HoleMap'
 import { distanceYards } from '../../../lib/maps'
 import { PIN_PROMPT_RADIUS_YARDS, type RoundState } from './types'
 
+// Fraction of the straight ball→pin line where the aim auto-spawns when
+// the player enters SET_AIM without having dropped one yet. ~0.65 puts the
+// target two-thirds up the hole — a sensible default carry the player then
+// drags to refine (refs ux-09). A long-press still repositions it freely.
+const AIM_AUTOSPAWN_FRACTION = 0.65
+
 interface UseHoleStateInput {
   currentHoleId: string | null | undefined
   currentHoleScoreId: string | null | undefined
@@ -84,6 +90,30 @@ export function useHoleState({
       if (timer) clearTimeout(timer)
     }
   }, [aim?.lat, aim?.lng])
+
+  // Auto-spawn the aim target when the player enters SET_AIM. With a ball
+  // and a pin but no aim yet, seed one on the straight ball→pin line at
+  // AIM_AUTOSPAWN_FRACTION so the aim line, crosshair, and carry/remaining
+  // readouts appear immediately — no long-press needed to start (refs
+  // ux-09). Guarded on `!aim` so a dragged or long-pressed aim is never
+  // overwritten; markBallHere resets aim to null for the next shot, so this
+  // re-fires per shot. No-pin holes fall back to long-press-to-start.
+  const effectivePin = roundPin ?? storedPin ?? null
+  useEffect(() => {
+    if (roundState !== 'SET_AIM') return
+    if (aim || !ball || !effectivePin) return
+    setAim({
+      lat: ball.lat + AIM_AUTOSPAWN_FRACTION * (effectivePin.lat - ball.lat),
+      lng: ball.lng + AIM_AUTOSPAWN_FRACTION * (effectivePin.lng - ball.lng),
+    })
+  }, [
+    roundState,
+    aim,
+    ball?.lat,
+    ball?.lng,
+    effectivePin?.lat,
+    effectivePin?.lng,
+  ])
 
   // Reset the just-saved-shot ref synchronously on hole transition. Keeping
   // it inside the async count-load effect created a race: a tap-to-mark-ball
