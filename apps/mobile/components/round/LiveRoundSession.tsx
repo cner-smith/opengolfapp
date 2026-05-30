@@ -9,7 +9,9 @@ import { useRouter } from 'expo-router'
 import { HoleMap, type LatLng } from './HoleMap'
 import type { ShotLoggerValue } from './ShotLogger'
 import { supabase } from '../../lib/supabase'
+import { distanceYards } from '../../lib/maps'
 import { useAuth } from '../../hooks/useAuth'
+import { useClubDispersion } from './hole/useClubDispersion'
 import { ConfirmDialog } from '../ui/ConfirmDialog'
 import { useUnits } from '../../hooks/useUnits'
 import {
@@ -121,6 +123,29 @@ export default function LiveRoundSession({
     finalState.ball?.lat,
     finalState.ball?.lng,
   ])
+
+  // Per-club dispersion from the player's whole history (one query/session).
+  // The overlay shows the club whose median carry best matches the current
+  // ball→aim distance; a tee shot with no aim yet falls back to the longest
+  // club. Clubs with too little data simply produce no overlay (null).
+  const { selectClub } = useClubDispersion(user?.id)
+  const originToTargetYards = useMemo(() => {
+    if (!finalState.ball || !finalState.aim) return null
+    return distanceYards(finalState.ball, finalState.aim)
+  }, [
+    finalState.ball?.lat,
+    finalState.ball?.lng,
+    finalState.aim?.lat,
+    finalState.aim?.lng,
+  ])
+  const dispersionOverlay = useMemo(() => {
+    const selected = selectClub(originToTargetYards)
+    if (!selected) return null
+    return {
+      perp95: selected.dispersion.perp95,
+      perpMean: selected.dispersion.perpMean,
+    }
+  }, [selectClub, originToTargetYards])
 
   const totalShotsThisHole =
     data.remoteShotCount + data.localShotCount > 0
@@ -343,6 +368,7 @@ export default function LiveRoundSession({
           tee={data.tee}
           aim={finalState.aim}
           ball={finalState.ball}
+          dispersion={dispersionOverlay}
           previousShots={data.previousShots}
           gpsPosition={finalState.gpsPosition}
           courseCenter={data.courseCenter}

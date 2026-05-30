@@ -1,6 +1,7 @@
-import { useCallback, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Pressable, Text, View } from 'react-native'
 import Mapbox from '@rnmapbox/maps'
+import { arcGeoJSON } from '@oga/core'
 import { MaterialCommunityIcons } from '@expo/vector-icons'
 import { Gesture, GestureDetector } from 'react-native-gesture-handler'
 import { runOnJS } from 'react-native-reanimated'
@@ -36,6 +37,14 @@ interface HoleMapProps {
   tee?: LatLng | null
   aim?: LatLng | null
   ball?: LatLng | null
+  /**
+   * Aim-relative dispersion (yards) for the auto-selected club, drawn as a
+   * 95% arc from `ball` (origin) through `aim` (target). `perp95` is the
+   * lateral half-width; `perpMean` the player's lateral bias (+ = right).
+   * Null when the player has too little data for the relevant club — the
+   * overlay simply doesn't render.
+   */
+  dispersion?: { perp95: number; perpMean: number } | null
   /**
    * Previously-logged shot start positions, in shot order. Rendered as
    * small amber waypoints with a line connecting consecutive points
@@ -90,6 +99,17 @@ function toCoord(l: LatLng): [number, number] {
   return [l.lng, l.lat]
 }
 
+// The dispersion arc recomputes against the dragged aim. @rnmapbox/maps
+// forwards every native onAnnotationDrag straight to JS, and the drag
+// event inherits canCoalesce()=true (PointAnnotationDragEvent →
+// MapClickEvent → AbstractEvent), so RN frame-coalesces it to ~one per
+// frame — ≥60 Hz, higher on 90/120 Hz panels. Re-serializing the arc
+// ShapeSource across the bridge that fast janks mid-tier Android. Gate
+// the geometry recompute to ~12.5 Hz (leading + trailing, wall-clock so
+// it's refresh-independent) — the final release position is always drawn,
+// intermediate frames are dropped.
+const ARC_THROTTLE_MS = 80
+
 function extractCoord(feature: unknown): LatLng | null {
   const geom = (feature as { geometry?: { coordinates?: unknown } } | null)?.geometry
   const coords = geom?.coordinates
@@ -110,6 +130,7 @@ export function HoleMap({
   tee,
   aim,
   ball,
+  dispersion,
   previousShots,
   phase = 'PLACE_BALL',
   missingHoleLayout = false,
@@ -245,6 +266,46 @@ export function HoleMap({
     return { lat: (ball.lat + aim.lat) / 2, lng: (ball.lng + aim.lng) / 2 }
   }, [showAim, ball, aim])
 
+  // Throttled copy of `aim` that drives the dispersion arc. The raw aim
+  // updates every drag frame; this trails it at ARC_THROTTLE_MS so the
+  // arc geometry recomputes ~12 Hz, not 60.
+  const [throttledAim, setThrottledAim] = useState<LatLng | null>(aim ?? null)
+  const lastArcTickRef = useRef(0)
+  useEffect(() => {
+    const next = aim ?? null
+    const now = Date.now()
+    const elapsed = now - lastArcTickRef.current
+    if (elapsed >= ARC_THROTTLE_MS) {
+      lastArcTickRef.current = now
+      setThrottledAim(next)
+      return
+    }
+    const t = setTimeout(() => {
+      lastArcTickRef.current = Date.now()
+      setThrottledAim(next)
+    }, ARC_THROTTLE_MS - elapsed)
+    return () => clearTimeout(t)
+  }, [aim?.lat, aim?.lng])
+
+  // 95% dispersion arc for the selected club, anchored at the ball and
+  // spanning the lateral spread at the target's carry distance. arcGeoJSON
+  // returns null when the target sits on top of the ball (radius floor),
+  // so a degenerate drag never throws.
+  const dispersionArc = useMemo(() => {
+    if (!showAim || !ball || !throttledAim || !dispersion) return null
+    return arcGeoJSON(ball, throttledAim, dispersion.perp95, {
+      biasYards: dispersion.perpMean,
+    })
+  }, [
+    showAim,
+    ball?.lat,
+    ball?.lng,
+    throttledAim?.lat,
+    throttledAim?.lng,
+    dispersion?.perp95,
+    dispersion?.perpMean,
+  ])
+
   // Breadcrumb line through every previous shot start, with a final
   // segment to the current ball so the most recent leg is visible too.
   // Filtered to require at least 2 points so the LineString geometry
@@ -343,6 +404,24 @@ export function HoleMap({
             styleLoaded={styleLoaded}
             isPinMode={isPinMode}
           />
+
+          {/* 95% dispersion arc — drawn under the aim line so the solid
+              aim line reads on top. Amber dashed hairline per DESIGN.md
+              (aim family); no new colors. */}
+          {styleLoaded && dispersionArc && (
+            <Mapbox.ShapeSource id="dispersionArc" shape={dispersionArc}>
+              <Mapbox.LineLayer
+                id="dispersionArcLayer"
+                style={{
+                  lineColor: '#A66A1F',
+                  lineWidth: 2,
+                  lineDasharray: [2, 3],
+                  lineOpacity: 0.65,
+                  lineCap: 'round',
+                }}
+              />
+            </Mapbox.ShapeSource>
+          )}
 
           {styleLoaded && aimLine && (
             <Mapbox.ShapeSource id="aimLine" shape={aimLine}>
