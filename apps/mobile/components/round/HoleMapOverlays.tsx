@@ -297,17 +297,21 @@ function ToolbarButton({
       disabled={disabled || !onPress}
       onPress={onPress}
       hitSlop={6}
-      // Opacity feedback in the style callback rather than android_ripple,
-      // which iOS silently ignores (#303).
-      style={({ pressed }) => ({
+      android_ripple={{ color: 'rgba(242,238,229,0.2)', borderless: true, radius: 26 }}
+      // Static style object, NOT a `({ pressed }) => …` callback: under
+      // NativeWind/css-interop a function `style` on a wrapped RN component is
+      // never resolved, so the active cream fill silently never applied —
+      // that's why the selected toolbar/rail state never highlighted. Press
+      // feedback is android_ripple instead (Android-first; #303).
+      style={{
         width: 52,
         height: 52,
         borderRadius: 22,
         alignItems: 'center',
         justifyContent: 'center',
         backgroundColor: active ? '#FBF8F1' : 'transparent',
-        opacity: disabled ? 0.32 : pressed ? 0.6 : 1,
-      })}
+        opacity: disabled ? 0.32 : 1,
+      }}
     >
       <MaterialCommunityIcons
         name={icon}
@@ -385,15 +389,17 @@ function RailPill({
       accessibilityState={{ selected: active }}
       onPress={onPress}
       hitSlop={4}
-      style={({ pressed }) => ({
+      android_ripple={{ color: 'rgba(242,238,229,0.2)' }}
+      // Static style (see ToolbarButton): a function `style` doesn't resolve
+      // under css-interop, so the active cream fill silently never applied.
+      style={{
         minWidth: 56,
         paddingVertical: 10,
         paddingHorizontal: 14,
         borderRadius: 15,
         alignItems: 'center',
         backgroundColor: active ? '#FBF8F1' : 'transparent',
-        opacity: pressed ? 0.6 : 1,
-      })}
+      }}
     >
       <Text
         style={{

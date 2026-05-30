@@ -125,7 +125,13 @@ function PrimaryCta({
       accessibilityState={{ disabled: !!disabled }}
       disabled={disabled}
       onPress={onPress}
-      style={({ pressed }) => ({
+      android_ripple={{ color: 'rgba(31,61,44,0.18)' }}
+      // Static style object, NOT a `({ pressed }) => …` callback: under
+      // NativeWind/css-interop a function `style` on a wrapped RN component is
+      // never resolved, so the backgroundColor it returns silently never lands
+      // — that was the "CTA has no background on the satellite" bug. Press
+      // feedback comes from android_ripple instead (Android-first; #303).
+      style={{
         // Cream fill + forest text reads on ANY satellite (the forest-on-trees
         // version blended into dark imagery). Disabled stays a dark pill.
         backgroundColor: disabled ? 'rgba(28,33,28,0.85)' : '#FBF8F1',
@@ -134,14 +140,13 @@ function PrimaryCta({
         borderRadius: 26,
         paddingVertical: 15,
         paddingHorizontal: 30,
-        opacity: pressed ? 0.85 : 1,
         // Shadow lifts the pill off the satellite imagery.
         shadowColor: '#000',
         shadowOpacity: 0.35,
         shadowRadius: 7,
         shadowOffset: { width: 0, height: 2 },
         elevation: 5,
-      })}
+      }}
     >
       <Text
         style={{
@@ -171,15 +176,17 @@ function SecondaryPill({
       accessibilityRole="button"
       accessibilityLabel={label}
       onPress={onPress}
-      style={({ pressed }) => ({
+      android_ripple={{ color: 'rgba(242,238,229,0.18)' }}
+      // Static style (see PrimaryCta): function `style` doesn't resolve under
+      // css-interop, so the pill background would silently drop.
+      style={{
         backgroundColor: CHROME_BG,
         borderColor: danger ? 'rgba(163,58,42,0.9)' : 'rgba(242,238,229,0.4)',
         borderWidth: 1,
         borderRadius: 22,
         paddingVertical: 11,
         paddingHorizontal: 22,
-        opacity: pressed ? 0.7 : 1,
-      })}
+      }}
     >
       <Text style={{ color: danger ? '#E6A99C' : CREAM, fontSize: 14, fontWeight: '600' }}>
         {label}
@@ -203,20 +210,22 @@ function TextChip({
       accessibilityLabel={label}
       onPress={onPress}
       hitSlop={6}
-      style={({ pressed }) => ({
+      android_ripple={{ color: 'rgba(242,238,229,0.18)' }}
+      // Static style (see PrimaryCta): function `style` doesn't resolve under
+      // css-interop, so the chip background + border would silently drop.
+      style={{
         backgroundColor: 'rgba(28,33,28,0.92)',
         borderColor: 'rgba(242,238,229,0.45)',
         borderWidth: 1,
         borderRadius: 16,
         paddingVertical: 10,
         paddingHorizontal: 16,
-        opacity: pressed ? 0.6 : 1,
         shadowColor: '#000',
         shadowOpacity: 0.3,
         shadowRadius: 5,
         shadowOffset: { width: 0, height: 1 },
         elevation: 3,
-      })}
+      }}
     >
       <Text style={{ ...KICKER, color: strong ? CREAM : 'rgba(242,238,229,0.85)' }}>{label}</Text>
     </Pressable>
@@ -278,11 +287,14 @@ function NavChevron({
       disabled={disabled}
       onPress={onPress}
       hitSlop={10}
-      style={({ pressed }) => ({
+      android_ripple={{ color: 'rgba(242,238,229,0.2)', borderless: true, radius: 22 }}
+      // Static style (see PrimaryCta): a function `style` here silently dropped
+      // the padding (hit area) and the disabled dim under css-interop.
+      style={{
         paddingVertical: 6,
         paddingHorizontal: 16,
-        opacity: disabled ? 0.3 : pressed ? 0.6 : 1,
-      })}
+        opacity: disabled ? 0.3 : 1,
+      }}
     >
       <Text style={{ color: CREAM, fontSize: 20, fontWeight: '500' }}>
         {dir === 'prev' ? '‹' : '›'}
