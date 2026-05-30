@@ -126,26 +126,28 @@ function PrimaryCta({
       disabled={disabled}
       onPress={onPress}
       style={({ pressed }) => ({
-        backgroundColor: disabled ? 'rgba(28,33,28,0.7)' : '#1F3D2C',
-        borderColor: 'rgba(242,238,229,0.55)',
+        // Cream fill + forest text reads on ANY satellite (the forest-on-trees
+        // version blended into dark imagery). Disabled stays a dark pill.
+        backgroundColor: disabled ? 'rgba(28,33,28,0.85)' : '#FBF8F1',
+        borderColor: disabled ? 'rgba(242,238,229,0.4)' : '#1F3D2C',
         borderWidth: 1,
-        borderRadius: 24,
-        paddingVertical: 13,
-        paddingHorizontal: 28,
+        borderRadius: 26,
+        paddingVertical: 15,
+        paddingHorizontal: 30,
         opacity: pressed ? 0.85 : 1,
         // Shadow lifts the pill off the satellite imagery.
         shadowColor: '#000',
-        shadowOpacity: 0.3,
-        shadowRadius: 6,
+        shadowOpacity: 0.35,
+        shadowRadius: 7,
         shadowOffset: { width: 0, height: 2 },
-        elevation: 4,
+        elevation: 5,
       })}
     >
       <Text
         style={{
-          color: disabled ? 'rgba(242,238,229,0.6)' : CREAM,
-          fontSize: 15,
-          fontWeight: '600',
+          color: disabled ? 'rgba(242,238,229,0.7)' : '#1F3D2C',
+          fontSize: 16,
+          fontWeight: '700',
           letterSpacing: 0.3,
         }}
       >
@@ -202,13 +204,18 @@ function TextChip({
       onPress={onPress}
       hitSlop={6}
       style={({ pressed }) => ({
-        backgroundColor: 'rgba(28,33,28,0.9)',
-        borderColor: 'rgba(242,238,229,0.3)',
+        backgroundColor: 'rgba(28,33,28,0.92)',
+        borderColor: 'rgba(242,238,229,0.45)',
         borderWidth: 1,
         borderRadius: 16,
-        paddingVertical: 9,
+        paddingVertical: 10,
         paddingHorizontal: 16,
         opacity: pressed ? 0.6 : 1,
+        shadowColor: '#000',
+        shadowOpacity: 0.3,
+        shadowRadius: 5,
+        shadowOffset: { width: 0, height: 1 },
+        elevation: 3,
       })}
     >
       <Text style={{ ...KICKER, color: strong ? CREAM : 'rgba(242,238,229,0.85)' }}>{label}</Text>

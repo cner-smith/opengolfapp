@@ -230,21 +230,21 @@ export function LeftToolbar({
   return (
     <View
       pointerEvents="box-none"
+      // Sits low on the map (toward the bottom third) so it's in thumb reach,
+      // not floating dead-center. Grows upward from here.
       style={{
         position: 'absolute',
         left: 12,
-        top: 0,
-        bottom: 0,
-        justifyContent: 'center',
+        bottom: 130,
       }}
     >
       <View
         style={{
           backgroundColor: PILL_BG,
-          borderRadius: 24,
-          paddingVertical: 6,
-          paddingHorizontal: 4,
-          gap: 2,
+          borderRadius: 30,
+          paddingVertical: 8,
+          paddingHorizontal: 5,
+          gap: 4,
           alignItems: 'center',
         }}
       >
@@ -300,9 +300,9 @@ function ToolbarButton({
       // Opacity feedback in the style callback rather than android_ripple,
       // which iOS silently ignores (#303).
       style={({ pressed }) => ({
-        width: 48,
-        height: 48,
-        borderRadius: 24,
+        width: 64,
+        height: 64,
+        borderRadius: 26,
         alignItems: 'center',
         justifyContent: 'center',
         backgroundColor: active ? '#FBF8F1' : 'transparent',
@@ -311,7 +311,7 @@ function ToolbarButton({
     >
       <MaterialCommunityIcons
         name={icon}
-        size={24}
+        size={30}
         color={active ? '#1C211C' : '#F2EEE5'}
       />
     </Pressable>
@@ -342,21 +342,20 @@ export function RightRail({
   return (
     <View
       pointerEvents="box-none"
+      // Low on the map (toward the bottom third) for thumb reach. Grows upward.
       style={{
         position: 'absolute',
         right: 12,
-        top: 0,
-        bottom: 0,
-        justifyContent: 'center',
+        bottom: 130,
         alignItems: 'flex-end',
-        gap: 10,
+        gap: 12,
       }}
     >
-      <View style={{ backgroundColor: PILL_BG, borderRadius: 18, padding: 3, gap: 2 }}>
+      <View style={{ backgroundColor: PILL_BG, borderRadius: 24, padding: 4, gap: 3 }}>
         <RailPill label="Tee" active={mode === 'tee'} onPress={() => onSetMode('tee')} />
         <RailPill label="Appr" active={mode === 'appr'} onPress={() => onSetMode('appr')} />
       </View>
-      <View style={{ backgroundColor: PILL_BG, borderRadius: 18, padding: 3, gap: 2 }}>
+      <View style={{ backgroundColor: PILL_BG, borderRadius: 24, padding: 4, gap: 3 }}>
         {railLabels.map((label, i) => (
           <RailPill
             key={label}
@@ -387,10 +386,10 @@ function RailPill({
       onPress={onPress}
       hitSlop={4}
       style={({ pressed }) => ({
-        minWidth: 58,
-        paddingVertical: 10,
-        paddingHorizontal: 13,
-        borderRadius: 17,
+        minWidth: 70,
+        paddingVertical: 14,
+        paddingHorizontal: 18,
+        borderRadius: 20,
         alignItems: 'center',
         backgroundColor: active ? '#FBF8F1' : 'transparent',
         opacity: pressed ? 0.6 : 1,
@@ -399,8 +398,8 @@ function RailPill({
       <Text
         style={{
           color: active ? '#1C211C' : '#F2EEE5',
-          fontSize: 13,
-          fontWeight: '600',
+          fontSize: 16,
+          fontWeight: active ? '700' : '600',
           fontVariant: ['tabular-nums'],
         }}
       >

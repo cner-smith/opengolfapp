@@ -25,7 +25,7 @@ export function AimDistancePill({
   sublabelTone = 'pos',
 }: AimDistancePillProps) {
   return (
-    <Mapbox.PointAnnotation id="aimDistance" coordinate={toCoord(midpoint)}>
+    <Mapbox.MarkerView id="aimDistance" coordinate={toCoord(midpoint)} allowOverlap>
       <View
         style={{
           backgroundColor: 'rgba(28,33,28,0.85)',
@@ -62,6 +62,6 @@ export function AimDistancePill({
           </Text>
         ) : null}
       </View>
-    </Mapbox.PointAnnotation>
+    </Mapbox.MarkerView>
   )
 }

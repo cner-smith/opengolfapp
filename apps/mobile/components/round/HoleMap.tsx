@@ -415,15 +415,47 @@ export function HoleMap({
     return { lat: (ball.lat + aim.lat) / 2, lng: (ball.lng + aim.lng) / 2 }
   }, [showAim, ball, aim])
 
-  // Stable identity for the aim marker's coordinate. `toCoord(aim)` builds a
-  // NEW array every render; handing that to the @rnmapbox PointAnnotation
-  // makes it reset its native drag gesture on ANY unrelated re-render — e.g.
-  // tapping the distance rail (the "rail tap kills dragging" bug). Memoizing
-  // on the lat/lng values keeps the array identity stable so the drag handle
-  // survives those re-renders.
+  // @rnmapbox PointAnnotation is a PureComponent that renders its children to a
+  // bitmap; it re-renders (and re-bitmaps — dropping the in-flight native drag)
+  // whenever ANY prop IDENTITY changes. So every prop must be stable, or an
+  // unrelated re-render (e.g. tapping the distance rail → arcWidthYards state)
+  // resets the drag. THAT is the "rail tap kills dragging" bug. Stabilize all
+  // three moving props: coordinate (memo), the drag handlers (useCallback), and
+  // the child handle element (memo). Then a rail tap can't re-render the marker.
   const aimCoordMemo = useMemo<[number, number] | null>(
     () => (aim ? [aim.lng, aim.lat] : null),
     [aim?.lat, aim?.lng],
+  )
+  const onAimDrag = useCallback(
+    (e: unknown) => {
+      // Drop intermediate frames closer than the throttle; the native marker
+      // still tracks the finger at full rate.
+      const now = Date.now()
+      if (now - lastAimDragRef.current < AIM_DRAG_THROTTLE_MS) return
+      lastAimDragRef.current = now
+      const c = extractCoord(e)
+      if (c) onSetAim(c)
+    },
+    [onSetAim],
+  )
+  const onAimDragEnd = useCallback(
+    (e: unknown) => {
+      // Final position is authoritative — bypass the throttle gate.
+      lastAimDragRef.current = 0
+      const c = extractCoord(e)
+      if (c) onSetAim(c)
+    },
+    [onSetAim],
+  )
+  // Static child — memoized so the PureComponent never re-bitmaps it. 80pt
+  // transparent hit area around a small center grab-dot.
+  const aimHandle = useMemo(
+    () => (
+      <View style={{ width: 80, height: 80, alignItems: 'center', justifyContent: 'center' }}>
+        <Marker color="#A66A1F" border="#FBF8F1" size={9} />
+      </View>
+    ),
+    [],
   )
 
   // Midpoint of the aim→pin leg, where the subordinate "remaining" label
@@ -700,37 +732,10 @@ export function HoleMap({
               id="aim"
               coordinate={aimCoordMemo}
               draggable={isAimPhase}
-              onDrag={(e: unknown) => {
-                // Drop intermediate frames closer than the throttle window;
-                // the native marker still tracks the finger at full rate.
-                const now = Date.now()
-                if (now - lastAimDragRef.current < AIM_DRAG_THROTTLE_MS) return
-                lastAimDragRef.current = now
-                const c = extractCoord(e)
-                if (c) onSetAim(c)
-              }}
-              onDragEnd={(e: unknown) => {
-                // Final position is authoritative — bypass the gate so the
-                // last drag frame is never dropped.
-                lastAimDragRef.current = 0
-                const c = extractCoord(e)
-                if (c) onSetAim(c)
-              }}
+              onDrag={onAimDrag}
+              onDragEnd={onAimDragEnd}
             >
-              {/* Large transparent hit area around a small center grab-dot —
-                  80pt so the handle is easy to grab and you stop panning the
-                  map by accident. The perpendicular crosshair tick (drawn
-                  above) is the handle's main visual; the dot marks the grab. */}
-              <View
-                style={{
-                  width: 80,
-                  height: 80,
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-              >
-                <Marker color="#A66A1F" border="#FBF8F1" size={9} />
-              </View>
+              {aimHandle}
             </Mapbox.PointAnnotation>
           )}
 
@@ -749,13 +754,14 @@ export function HoleMap({
               smaller, dimmer label on the aim→pin leg. Uses the already-
               computed aimToPinYards, run through the units helper. */}
           {remainingMidpoint && aimToPinYards !== null && (
-            <Mapbox.PointAnnotation
+            <Mapbox.MarkerView
               id="remainingDistance"
               coordinate={toCoord(remainingMidpoint)}
+              allowOverlap
             >
               <View
                 style={{
-                  backgroundColor: 'rgba(28,33,28,0.88)',
+                  backgroundColor: 'rgba(28,33,28,0.92)',
                   borderRadius: 9,
                   paddingHorizontal: 9,
                   paddingVertical: 3,
@@ -777,7 +783,7 @@ export function HoleMap({
                     : toDisplay(aimToPinYards)}
                 </Text>
               </View>
-            </Mapbox.PointAnnotation>
+            </Mapbox.MarkerView>
           )}
 
           {!isPinMode && ball && (
