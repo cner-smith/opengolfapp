@@ -154,11 +154,12 @@ export default function NewRound() {
   }, [debouncedQuery])
 
   const gpsCoords = gps.status === 'ok' ? { lat: gps.lat!, lng: gps.lng! } : null
-  const noMatches =
-    !searching &&
-    debouncedQuery.trim().length > 0 &&
-    apiResults.length === 0 &&
-    localResults.length === 0
+  const hasResults = apiResults.length > 0 || localResults.length > 0
+  // Pin "Add it" below the results whenever there's a query to name the
+  // course from — not only on an empty search. Near-but-wrong fuzzy
+  // matches used to trap the user with no way to add the course they
+  // actually meant (#472). Mirrors web CourseSearch.
+  const showAddNew = !searching && debouncedQuery.trim().length > 0
 
   async function startWith(courseId: string) {
     if (!user) return
@@ -463,7 +464,7 @@ export default function NewRound() {
           </View>
         )}
 
-        {noMatches && (
+        {showAddNew && (
           <Pressable
             onPress={() => setShowManualForm(true)}
             style={{
@@ -472,6 +473,7 @@ export default function NewRound() {
               borderRadius: 2,
               paddingVertical: 14,
               alignItems: 'center',
+              marginTop: hasResults ? 8 : 0,
             }}
           >
             <Text
@@ -482,7 +484,7 @@ export default function NewRound() {
                 letterSpacing: 0.3,
               }}
             >
-              Course not found? Add it →
+              {hasResults ? "Don't see your course? Add it →" : 'Course not found? Add it →'}
             </Text>
           </Pressable>
         )}
