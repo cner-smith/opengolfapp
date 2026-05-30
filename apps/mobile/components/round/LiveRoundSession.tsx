@@ -151,22 +151,30 @@ export default function LiveRoundSession({
   // ball→aim distance; a tee shot with no aim yet falls back to the longest
   // club. Clubs with too little data simply produce no overlay (null).
   const { selectClub } = useClubDispersion(user?.id)
-  const originToTargetYards = useMemo(() => {
-    if (!finalState.ball || !finalState.aim) return null
-    return distanceYards(finalState.ball, finalState.aim)
+  // The dots' club is chosen by the SHOT distance (ball→pin), not ball→aim —
+  // so nudging the aim doesn't swap clubs and make the pattern flicker. The
+  // dots are still PLACED around the aim (in HoleMap); only WHICH club's
+  // pattern shows is pinned to the shot you're facing. Null (no pin / tee
+  // shot) → selectClub falls back to the longest club.
+  const ballToPinYards = useMemo(() => {
+    const pinPt = data.roundPin ?? data.storedPin
+    if (!finalState.ball || !pinPt) return null
+    return distanceYards(finalState.ball, pinPt)
   }, [
     finalState.ball?.lat,
     finalState.ball?.lng,
-    finalState.aim?.lat,
-    finalState.aim?.lng,
+    data.roundPin?.lat,
+    data.roundPin?.lng,
+    data.storedPin?.lat,
+    data.storedPin?.lng,
   ])
   // Single-color dispersion dots for the selected club (left-toolbar toggle).
   // Computed only when the dots are shown; sparse clubs → null (no dots).
   const dispersionPoints = useMemo(() => {
     if (!dotsVisible) return null
-    const selected = selectClub(originToTargetYards)
+    const selected = selectClub(ballToPinYards)
     return selected ? selected.dispersion.points : null
-  }, [dotsVisible, selectClub, originToTargetYards])
+  }, [dotsVisible, selectClub, ballToPinYards])
 
   // Overlay sizing from the active rail pick (fallbacks guard the indexed
   // access). Arc width = the yard preset; circle radius = diameter-ft ÷ 2 ÷ 3.

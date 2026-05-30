@@ -181,7 +181,7 @@ export function HoleMap({
   dotsVisible,
   dispersionPoints,
 }: HoleMapProps) {
-  const { toDisplay } = useUnits()
+  const { toDisplay, toDisplayFt } = useUnits()
   const mapViewRef = useRef<Mapbox.MapView>(null)
   // Native side fires "Source X is not in style" when a ShapeSource /
   // LineLayer mounts before the satellite style has finished loading.
@@ -361,10 +361,12 @@ export function HoleMap({
     return arcGeoJSON(ball, aim, arcWidthYards / 2)
   }, [showAim, overlayMode, ball, aim, arcWidthYards])
 
+  // Circle centers on the AIM (where you're aiming the approach), not the pin
+  // — your dispersion ring around the target, consistent with the Tee arc.
   const overlayCircle = useMemo(() => {
-    if (!showAim || overlayMode !== 'appr' || !effectivePin) return null
-    return circleGeoJSON(effectivePin, circleRadiusYards)
-  }, [showAim, overlayMode, effectivePin, circleRadiusYards])
+    if (!showAim || overlayMode !== 'appr' || !aim) return null
+    return circleGeoJSON(aim, circleRadiusYards)
+  }, [showAim, overlayMode, aim, circleRadiusYards])
 
   // Single-color dispersion dots (left-toolbar toggle): the selected club's
   // aim-relative offsets, rotated to the live ball→aim bearing and scattered
@@ -412,6 +414,17 @@ export function HoleMap({
     if (!showAim || !ball || !aim) return null
     return { lat: (ball.lat + aim.lat) / 2, lng: (ball.lng + aim.lng) / 2 }
   }, [showAim, ball, aim])
+
+  // Stable identity for the aim marker's coordinate. `toCoord(aim)` builds a
+  // NEW array every render; handing that to the @rnmapbox PointAnnotation
+  // makes it reset its native drag gesture on ANY unrelated re-render — e.g.
+  // tapping the distance rail (the "rail tap kills dragging" bug). Memoizing
+  // on the lat/lng values keeps the array identity stable so the drag handle
+  // survives those re-renders.
+  const aimCoordMemo = useMemo<[number, number] | null>(
+    () => (aim ? [aim.lng, aim.lat] : null),
+    [aim?.lat, aim?.lng],
+  )
 
   // Midpoint of the aim→pin leg, where the subordinate "remaining" label
   // sits — mirrors the carry pill on the ball→aim leg.
@@ -682,10 +695,10 @@ export function HoleMap({
             </Mapbox.PointAnnotation>
           )}
 
-          {showAim && aim && (
+          {showAim && aim && aimCoordMemo && (
             <Mapbox.PointAnnotation
               id="aim"
-              coordinate={toCoord(aim)}
+              coordinate={aimCoordMemo}
               draggable={isAimPhase}
               onDrag={(e: unknown) => {
                 // Drop intermediate frames closer than the throttle window;
@@ -704,13 +717,14 @@ export function HoleMap({
                 if (c) onSetAim(c)
               }}
             >
-              {/* 44pt transparent hit area around a small center grab-dot.
-                  The perpendicular crosshair tick (drawn above) is the
-                  handle's main visual; the dot just marks the grab point. */}
+              {/* Large transparent hit area around a small center grab-dot —
+                  80pt so the handle is easy to grab and you stop panning the
+                  map by accident. The perpendicular crosshair tick (drawn
+                  above) is the handle's main visual; the dot marks the grab. */}
               <View
                 style={{
-                  width: 44,
-                  height: 44,
+                  width: 80,
+                  height: 80,
                   alignItems: 'center',
                   justifyContent: 'center',
                 }}
@@ -741,7 +755,7 @@ export function HoleMap({
             >
               <View
                 style={{
-                  backgroundColor: 'rgba(28,33,28,0.7)',
+                  backgroundColor: 'rgba(28,33,28,0.88)',
                   borderRadius: 9,
                   paddingHorizontal: 9,
                   paddingVertical: 3,
@@ -756,7 +770,11 @@ export function HoleMap({
                     fontVariant: ['tabular-nums'],
                   }}
                 >
-                  {toDisplay(aimToPinYards)}
+                  {/* Inside the green-radius the approach leg reads in feet
+                      (greens are a feet game); toDisplayFt respects metric. */}
+                  {aimToPinYards <= NEAR_GREEN_YARDS
+                    ? toDisplayFt(aimToPinYards * 3)
+                    : toDisplay(aimToPinYards)}
                 </Text>
               </View>
             </Mapbox.PointAnnotation>

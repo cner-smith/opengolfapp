@@ -202,10 +202,12 @@ function TextChip({
       onPress={onPress}
       hitSlop={6}
       style={({ pressed }) => ({
-        backgroundColor: 'rgba(28,33,28,0.7)',
+        backgroundColor: 'rgba(28,33,28,0.9)',
+        borderColor: 'rgba(242,238,229,0.3)',
+        borderWidth: 1,
         borderRadius: 16,
-        paddingVertical: 7,
-        paddingHorizontal: 14,
+        paddingVertical: 9,
+        paddingHorizontal: 16,
         opacity: pressed ? 0.6 : 1,
       })}
     >

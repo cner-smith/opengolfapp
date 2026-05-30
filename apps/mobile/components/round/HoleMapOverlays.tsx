@@ -25,9 +25,10 @@ export function TopHint({ isPinMode, isAimPhase, isTeeMode }: TopHintProps) {
     <View
       style={{
         position: 'absolute',
-        // Sits below the corner HUD pills (top:12, ~46 tall) so the
-        // instructional line and the To Hole / Exp readouts don't collide.
-        top: 64,
+        // Sits well below the corner HUD pills (top:12, ~46 tall) with a
+        // clear gap so the instructional line and the To Hole / Exp readouts
+        // don't crowd each other.
+        top: 82,
         left: 12,
         right: 12,
         backgroundColor: isPinMode
@@ -64,8 +65,8 @@ export function MissingLayoutBanner() {
     <View
       style={{
         position: 'absolute',
-        // Below TopHint (top:64) so the two stack rather than overlap.
-        top: 108,
+        // Below TopHint (top:82) so the two stack rather than overlap.
+        top: 126,
         left: 12,
         right: 12,
         backgroundColor: 'rgba(28,33,28,0.78)',
@@ -299,9 +300,9 @@ function ToolbarButton({
       // Opacity feedback in the style callback rather than android_ripple,
       // which iOS silently ignores (#303).
       style={({ pressed }) => ({
-        width: 40,
-        height: 40,
-        borderRadius: 20,
+        width: 48,
+        height: 48,
+        borderRadius: 24,
         alignItems: 'center',
         justifyContent: 'center',
         backgroundColor: active ? '#FBF8F1' : 'transparent',
@@ -310,7 +311,7 @@ function ToolbarButton({
     >
       <MaterialCommunityIcons
         name={icon}
-        size={20}
+        size={24}
         color={active ? '#1C211C' : '#F2EEE5'}
       />
     </Pressable>
@@ -386,10 +387,10 @@ function RailPill({
       onPress={onPress}
       hitSlop={4}
       style={({ pressed }) => ({
-        minWidth: 48,
-        paddingVertical: 7,
-        paddingHorizontal: 10,
-        borderRadius: 15,
+        minWidth: 58,
+        paddingVertical: 10,
+        paddingHorizontal: 13,
+        borderRadius: 17,
         alignItems: 'center',
         backgroundColor: active ? '#FBF8F1' : 'transparent',
         opacity: pressed ? 0.6 : 1,
@@ -398,7 +399,7 @@ function RailPill({
       <Text
         style={{
           color: active ? '#1C211C' : '#F2EEE5',
-          fontSize: 12,
+          fontSize: 13,
           fontWeight: '600',
           fontVariant: ['tabular-nums'],
         }}
