@@ -355,6 +355,16 @@ export function HoleStrip({
         >
           <Text
             style={{
+              fontFamily: 'Fraunces-Medium',
+              fontSize: 13,
+              color: '#1C211C',
+              marginBottom: 2,
+            }}
+          >
+            {`Hole ${holeNumber} · Par ${holes.find((h) => h.number === holeNumber)?.par ?? 4}`}
+          </Text>
+          <Text
+            style={{
               ...KICKER,
               color: '#5C6356',
               marginBottom: 4,

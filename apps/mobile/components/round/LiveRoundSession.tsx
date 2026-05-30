@@ -8,6 +8,8 @@ import {
 import { useRouter } from 'expo-router'
 import { HoleMap, type LatLng } from './HoleMap'
 import type { ShotLoggerValue } from './ShotLogger'
+import { DEFAULT_HANDICAP } from '@oga/core'
+import { getProfile } from '@oga/supabase'
 import { supabase } from '../../lib/supabase'
 import { distanceYards } from '../../lib/maps'
 import { useAuth } from '../../hooks/useAuth'
@@ -146,6 +148,25 @@ export default function LiveRoundSession({
       perpMean: selected.dispersion.perpMean,
     }
   }, [selectClub, originToTargetYards])
+
+  // Handicap for the live expected-strokes / SG readouts. Read once from the
+  // canonical profiles.handicap_index (player-entered, refined by the web
+  // round-complete recompute); falls back to DEFAULT_HANDICAP until it loads
+  // or if unset. NOTE: mobile does not yet recompute the index after rounds —
+  // it consumes whatever web/onboarding last wrote.
+  const [handicap, setHandicap] = useState(DEFAULT_HANDICAP)
+  useEffect(() => {
+    if (!user?.id) return
+    let active = true
+    getProfile(supabase, user.id).then(({ data }) => {
+      if (!active) return
+      const idx = (data as { handicap_index?: number | null } | null)?.handicap_index
+      if (idx != null) setHandicap(idx)
+    })
+    return () => {
+      active = false
+    }
+  }, [user?.id])
 
   const totalShotsThisHole =
     data.remoteShotCount + data.localShotCount > 0
@@ -369,6 +390,7 @@ export default function LiveRoundSession({
           aim={finalState.aim}
           ball={finalState.ball}
           dispersion={dispersionOverlay}
+          handicap={handicap}
           previousShots={data.previousShots}
           gpsPosition={finalState.gpsPosition}
           courseCenter={data.courseCenter}

@@ -1,7 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Pressable, Text, View } from 'react-native'
 import Mapbox from '@rnmapbox/maps'
-import { arcGeoJSON } from '@oga/core'
+import {
+  arcGeoJSON,
+  calculateShotSG,
+  getExpectedStrokes,
+  NEAR_GREEN_YARDS,
+} from '@oga/core'
 import { MaterialCommunityIcons } from '@expo/vector-icons'
 import { Gesture, GestureDetector } from 'react-native-gesture-handler'
 import { runOnJS } from 'react-native-reanimated'
@@ -14,9 +19,11 @@ import { BreadcrumbLayers } from './markers/BreadcrumbLayers'
 import { AimDistancePill } from './markers/AimDistancePill'
 import { useHoleCamera } from './hooks/useHoleCamera'
 import {
+  ExpStrokesPill,
   MissingLayoutBanner,
-  PinDistancePill,
+  PinFirstCta,
   TeeBadge,
+  ToHolePill,
   TopHint,
 } from './HoleMapOverlays'
 import type { HoleMapPhase, LatLng } from './HoleMap.types'
@@ -45,6 +52,11 @@ interface HoleMapProps {
    * overlay simply doesn't render.
    */
   dispersion?: { perp95: number; perpMean: number } | null
+  /**
+   * Player handicap index, for the live expected-strokes / SG readouts.
+   * Defaults handled by the caller (falls back to DEFAULT_HANDICAP).
+   */
+  handicap: number
   /**
    * Previously-logged shot start positions, in shot order. Rendered as
    * small amber waypoints with a line connecting consecutive points
@@ -131,6 +143,7 @@ export function HoleMap({
   aim,
   ball,
   dispersion,
+  handicap,
   previousShots,
   phase = 'PLACE_BALL',
   missingHoleLayout = false,
@@ -240,6 +253,42 @@ export function HoleMap({
     if (!effectivePin || !ball) return null
     return Math.round(distanceYards(ball, effectivePin))
   }, [effectivePin, ball])
+
+  // Distance from the dragged target to the pin (Dt). Origin→pin is
+  // pinDistance (Ds). Both feed the live SG readout.
+  const aimToPinYards = useMemo(() => {
+    if (!effectivePin || !aim) return null
+    return Math.round(distanceYards(aim, effectivePin))
+  }, [effectivePin, aim])
+
+  // Live strokes readout: expected strokes to hole out from the ball, and
+  // the best-case SG of advancing to the aim — expected(Ds) − expected(Dt)
+  // − 1, i.e. calculateShotSG. Category is a distance band (no polygons):
+  // within NEAR_GREEN_YARDS → around_green ("GRN"), else approach ("FWY").
+  // HONEST: this is "value of reaching the target if struck clean", not a
+  // dispersion-weighted SG. Null (→ "—") until a pin + baseline resolve.
+  const liveStrokes = useMemo(() => {
+    if (pinDistance == null) return { expected: null, sg: null, lieLabel: null }
+    const startCat = pinDistance <= NEAR_GREEN_YARDS ? 'around_green' : 'approach'
+    const expected = getExpectedStrokes(startCat, pinDistance, undefined, handicap)
+    if (aimToPinYards == null || expected == null) {
+      return { expected, sg: null, lieLabel: null }
+    }
+    const targetCat = aimToPinYards <= NEAR_GREEN_YARDS ? 'around_green' : 'approach'
+    const targetExpected = getExpectedStrokes(targetCat, aimToPinYards, undefined, handicap)
+    if (targetExpected == null) return { expected, sg: null, lieLabel: null }
+    return {
+      expected,
+      sg: calculateShotSG(expected, targetExpected),
+      lieLabel: targetCat === 'around_green' ? 'GRN' : 'FWY',
+    }
+  }, [pinDistance, aimToPinYards, handicap])
+
+  // SG sub-line for the carry pill ("+0.3 · FWY"), pos/neg colored.
+  const sgSublabel =
+    liveStrokes.sg != null && liveStrokes.lieLabel != null
+      ? `${liveStrokes.sg >= 0 ? '+' : ''}${liveStrokes.sg.toFixed(1)} · ${liveStrokes.lieLabel}`
+      : null
 
   const showAim = isAimPhase || isPlaceBallPhase
 
@@ -512,6 +561,10 @@ export function HoleMap({
             <AimDistancePill
               midpoint={aimMidpoint}
               display={toDisplay(aimDistanceYards)}
+              sublabel={sgSublabel}
+              sublabelTone={
+                liveStrokes.sg != null && liveStrokes.sg < 0 ? 'neg' : 'pos'
+              }
             />
           )}
 
@@ -553,8 +606,18 @@ export function HoleMap({
 
         <TopHint isPinMode={isPinMode} isAimPhase={isAimPhase} isTeeMode={isTeeMode} />
         {missingHoleLayout && !isPinMode && !isTeeMode && <MissingLayoutBanner />}
-        {!isPinMode && pinDistance !== null && (
-          <PinDistancePill display={toDisplay(pinDistance)} />
+        {!isPinMode && !isTeeMode && pinDistance !== null && (
+          <>
+            <ToHolePill display={toDisplay(pinDistance)} />
+            <ExpStrokesPill value={liveStrokes.expected} />
+          </>
+        )}
+        {/* Pin-first UX (Task 7): no pin yet → prompt for it, since distances,
+            expected strokes, and the dispersion overlay all need one. Skipped
+            when the whole hole layout is missing (MissingLayoutBanner covers
+            that case). */}
+        {!isPinMode && !isTeeMode && !effectivePin && !missingHoleLayout && (
+          <PinFirstCta />
         )}
         {isPlaceBallPhase && (
           <Pressable
