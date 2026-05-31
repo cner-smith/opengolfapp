@@ -118,6 +118,7 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
     aim,
     aimTouched,
     setAim,
+    setAimTouched,
     setRoundState,
     manuallyPlacedRef,
     lastSavedShotLocalIdRef,
@@ -398,6 +399,10 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
   }
 
   function confirmAim() {
+    // Confirming is an explicit acceptance of the aim — even the unadjusted
+    // auto-suggestion — so mark it touched and persist it. ('Skip aim' clears
+    // the aim instead, so that path stays unpersisted.)
+    setAimTouched(true)
     setRoundState('SHOT_DETAIL')
     setLoggerOpen(true)
   }
