@@ -116,6 +116,7 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
     ball,
     setBall,
     aim,
+    aimTouched,
     setAim,
     setRoundState,
     manuallyPlacedRef,
@@ -133,8 +134,10 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
       start_lng: ball.lng,
       end_lat: null,
       end_lng: null,
-      aim_lat: aim?.lat ?? null,
-      aim_lng: aim?.lng ?? null,
+      // Persist aim only if the player set/dragged it; an untouched auto-spawn
+      // suggestion is dropped so it can't enter the dispersion dataset.
+      aim_lat: aimTouched ? aim?.lat ?? null : null,
+      aim_lng: aimTouched ? aim?.lng ?? null : null,
       club: meta?.club ?? null,
       lie_type: meta?.lieType ?? null,
       lie_slope: null,

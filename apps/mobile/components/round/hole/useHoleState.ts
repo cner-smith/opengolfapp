@@ -24,6 +24,11 @@ interface UseHoleStateInput {
 export interface UseHoleStateResult {
   aim: LatLng | null
   setAim: Dispatch<SetStateAction<LatLng | null>>
+  /** Whether the current aim was set/dragged by the player (true) vs left as
+   *  the auto-spawned suggestion (false). Only a touched aim is persisted to
+   *  shots.aim_lat/lng, so an untouched auto-spawn can't pollute dispersion. */
+  aimTouched: boolean
+  setAimTouched: Dispatch<SetStateAction<boolean>>
   ball: LatLng | null
   setBall: Dispatch<SetStateAction<LatLng | null>>
   roundState: RoundState
@@ -45,6 +50,10 @@ export function useHoleState({
   roundPin,
 }: UseHoleStateInput): UseHoleStateResult {
   const [aim, setAim] = useState<LatLng | null>(null)
+  // Auto-spawned aims start untouched; flipped true by a user drag/long-press
+  // (LiveRoundSession wraps onSetAim). Reset whenever the aim clears (effect
+  // below) so each new shot's suggestion starts untouched.
+  const [aimTouched, setAimTouched] = useState(false)
   const [ball, setBall] = useState<LatLng | null>(null)
   // Kalman filter state for live GPS smoothing during PLACE_BALL. Held
   // in a ref because every position update would otherwise re-render
@@ -114,6 +123,14 @@ export function useHoleState({
     effectivePin?.lat,
     effectivePin?.lng,
   ])
+
+  // An untouched aim is the auto-spawn suggestion. Reset the touched flag
+  // whenever the aim clears (new shot, hole change, re-place ball — all the
+  // setAim(null) paths) so the next auto-spawn starts untouched; a real
+  // drag/long-press re-sets it via LiveRoundSession's onSetAim wrapper.
+  useEffect(() => {
+    if (!aim) setAimTouched(false)
+  }, [aim])
 
   // Reset the just-saved-shot ref synchronously on hole transition. Keeping
   // it inside the async count-load effect created a race: a tap-to-mark-ball
@@ -327,6 +344,8 @@ export function useHoleState({
   return {
     aim,
     setAim,
+    aimTouched,
+    setAimTouched,
     ball,
     setBall,
     roundState,

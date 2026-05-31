@@ -453,7 +453,13 @@ export default function LiveRoundSession({
             finalState.roundState !== 'SHOT_DETAIL' &&
             finalState.roundState !== 'PUTTING'
           }
-          onSetAim={finalState.setAim}
+          onSetAim={(loc) => {
+            // A user drag / long-press is an explicit aim — mark it touched so
+            // it persists (an untouched auto-spawn suggestion is dropped on
+            // save). All user aim-sets route through this prop.
+            finalState.setAim(loc)
+            finalState.setAimTouched(true)
+          }}
           onSetBall={(loc) => {
             // Manual drag/tap is an explicit override. Freeze GPS
             // updates for this PLACE_BALL cycle and re-anchor the

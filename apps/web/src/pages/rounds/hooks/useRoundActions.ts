@@ -60,6 +60,9 @@ interface UseRoundActionsInput {
   pinOverride: PlacedPoint | null
   teeOverride: PlacedPoint | null
   placedAims: (PlacedPoint | null)[]
+  /** Parallel to placedAims — true while an aim is still the auto-spawned
+   *  suggestion. Auto/untouched aims are NOT persisted on save. */
+  placedAimAuto: boolean[]
   shotDragUndo: ShotDragUndo | null
   shareCardRef: RefObject<HTMLDivElement | null>
   sharing: boolean
@@ -119,6 +122,7 @@ export function useRoundActions(input: UseRoundActionsInput): UseRoundActionsRes
     pinOverride,
     teeOverride,
     placedAims,
+    placedAimAuto,
     shotDragUndo,
     shareCardRef,
     sharing,
@@ -238,6 +242,9 @@ export function useRoundActions(input: UseRoundActionsInput): UseRoundActionsRes
             lat: p.lat + AIM_AUTOSPAWN_FRACTION * (effectivePin.lat - p.lat),
             lng: p.lng + AIM_AUTOSPAWN_FRACTION * (effectivePin.lng - p.lng),
           },
+          // Visual suggestion only — flagged auto so it isn't persisted unless
+          // the player drags/sets it (keeps inferred aims out of dispersion).
+          auto: true,
         })
       } else {
         setAimPromptOpen(true)
@@ -622,7 +629,11 @@ export function useRoundActions(input: UseRoundActionsInput): UseRoundActionsRes
             row.lieType === 'green' ||
             row.club === 'putter' ||
             row.distanceToPin <= NEAR_GREEN_YARDS
-          const aim = placedAims[row.shotNumber - 1] ?? null
+          // Persist the aim only if the player actually set/dragged it — an
+          // untouched auto-spawn suggestion is dropped so it can't enter the
+          // dispersion dataset (aim must be explicit to count).
+          const aimIdx = row.shotNumber - 1
+          const aim = placedAimAuto[aimIdx] ? null : placedAims[aimIdx] ?? null
           await createShot.mutateAsync({
             hole_score_id: hs.id,
             user_id: user.id,
@@ -683,6 +694,7 @@ export function useRoundActions(input: UseRoundActionsInput): UseRoundActionsRes
       teeOverride,
       pinOverride,
       placedAims,
+      placedAimAuto,
       expectedHoleCount,
       upsertHoleScore,
       createShot,
