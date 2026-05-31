@@ -11,7 +11,7 @@ import { ShareableScorecardCard } from '../../components/round/ShareableScorecar
 import { HoleReviewSheet } from '../../components/round/HoleReviewSheet'
 import { WebPuttingSheet } from '../../components/round/WebPuttingSheet'
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
-import { haversineYards } from '@oga/core'
+import { DEFAULT_HANDICAP, haversineYards } from '@oga/core'
 import { useAuth } from '../../hooks/useAuth'
 import { useProfile } from '../../hooks/useProfile'
 import { toUserMessage } from '../../lib/errors'
@@ -369,6 +369,7 @@ export function RoundDetailPage() {
         <MapView
           holes={holes}
           userId={user?.id}
+          handicap={profile.data?.handicap_index ?? DEFAULT_HANDICAP}
           activeHoleNumber={activeHoleNumber}
           onSwitchHole={switchHole}
           activeHoleGeo={activeHoleGeo}

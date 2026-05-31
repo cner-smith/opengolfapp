@@ -1,5 +1,5 @@
 import { Suspense, lazy, useEffect, useState, type ReactNode } from 'react'
-import { haversineYards } from '@oga/core'
+import { getExpectedStrokes, haversineYards, NEAR_GREEN_YARDS } from '@oga/core'
 import type { Database } from '@oga/supabase'
 import {
   RoundMapInstructionStrip,
@@ -32,6 +32,8 @@ interface MapViewProps {
   holes: HoleRow[]
   /** Current user id — feeds the dispersion-dots overlay's club history. */
   userId: string | undefined
+  /** Player handicap index — calibrates the live expected-strokes / SG HUD. */
+  handicap: number
   activeHoleNumber: number
   onSwitchHole: (n: number) => void
   activeHoleGeo: HoleGeo | null
@@ -88,6 +90,7 @@ interface MapViewProps {
 export function MapView({
   holes,
   userId,
+  handicap,
   activeHoleNumber,
   onSwitchHole,
   activeHoleGeo,
@@ -177,6 +180,19 @@ export function MapView({
             effectivePin.lat,
             effectivePin.lng,
           ),
+        )
+      : null
+  // Live expected strokes to hole out from the current ball (Phase D HUD),
+  // calibrated to the player's handicap bracket. Distance-band category (no
+  // polygons): within NEAR_GREEN_YARDS → around_green, else approach. Null
+  // until a ball + pin resolve.
+  const expectedStrokes =
+    remainingToPin != null
+      ? getExpectedStrokes(
+          remainingToPin <= NEAR_GREEN_YARDS ? 'around_green' : 'approach',
+          remainingToPin,
+          undefined,
+          handicap,
         )
       : null
 
@@ -295,9 +311,13 @@ export function MapView({
             circleRadiusYards={circleRadiusYards}
             dotsVisible={dotsVisible}
             selectClub={selectClub}
+            handicap={handicap}
           />
         </Suspense>
         {reviewSheet}
+        {expectedStrokes != null && placementMode == null && (
+          <ExpStrokesHud value={expectedStrokes} />
+        )}
         <DotsToggle
           active={dotsVisible}
           onToggle={() => setDotsVisible((v) => !v)}
@@ -441,6 +461,42 @@ function OverlayRail({
             onClick={() => onSelectRail(i)}
           />
         ))}
+      </div>
+    </div>
+  )
+}
+
+// Live expected-strokes HUD pill (Phase D), top-right of the map clear of the
+// bottom-right Mapbox controls and the vertically-centered rail. The To Hole /
+// remaining readouts already live in the instruction strip + aim pills on web
+// (Option 1 keeps the strip), so this surfaces the one new value — expected
+// strokes to hole out from the current ball. Best-case SG rides the carry pill.
+function ExpStrokesHud({ value }: { value: number }) {
+  return (
+    <div
+      style={{
+        position: 'absolute',
+        top: 10,
+        right: 12,
+        zIndex: 5,
+        background: 'rgba(28,33,28,0.82)',
+        borderRadius: 6,
+        padding: '6px 12px',
+        textAlign: 'right',
+        pointerEvents: 'none',
+      }}
+    >
+      <div
+        className="font-mono uppercase"
+        style={{ color: 'rgba(242,238,229,0.6)', fontSize: 9, letterSpacing: '0.14em' }}
+      >
+        Exp · to hole
+      </div>
+      <div
+        className="tabular"
+        style={{ color: '#F2EEE5', fontSize: 18, fontWeight: 600, lineHeight: 1.2 }}
+      >
+        {value.toFixed(1)}
       </div>
     </div>
   )

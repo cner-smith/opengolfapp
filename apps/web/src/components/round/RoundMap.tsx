@@ -1,5 +1,5 @@
 import { useMemo, useRef } from 'react'
-import type { ShotMarkerCategory } from '@oga/core'
+import { DEFAULT_HANDICAP, type ShotMarkerCategory } from '@oga/core'
 import { MAPBOX_TOKEN_PRESENT } from '../../lib/mapbox'
 import { useMapSetup } from './map/useMapSetup'
 import { useMapLayers, type ClubPick } from './map/useMapLayers'
@@ -99,6 +99,8 @@ interface RoundMapProps {
   /** Single-color dispersion-dots overlay (Phase C). Toggle + club picker. */
   dotsVisible?: boolean
   selectClub?: (distanceToTargetYards: number | null) => ClubPick | null
+  /** Player handicap index — feeds the live best-case-SG readout (Phase D). */
+  handicap?: number
 }
 
 export function RoundMap({
@@ -126,6 +128,7 @@ export function RoundMap({
   circleRadiusYards = 0,
   dotsVisible = false,
   selectClub = () => null,
+  handicap = DEFAULT_HANDICAP,
 }: RoundMapProps) {
   // Memoized so downstream effects can dep on the object directly without
   // thrashing on every parent render — coords are the only meaningful
@@ -213,6 +216,7 @@ export function RoundMap({
     circleRadiusYards,
     dotsVisible,
     selectClub,
+    handicap,
     onMovePoint,
     onMovePin,
     onMoveTee,

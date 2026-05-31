@@ -72,7 +72,10 @@ export function makeAimMarker(): HTMLElement {
   return outer
 }
 
-export function makeDistancePill(label: string): HTMLElement {
+export function makeDistancePill(
+  label: string,
+  opts: { sublabel?: string; tone?: 'pos' | 'neg' } = {},
+): HTMLElement {
   const el = document.createElement('div')
   el.style.cssText = [
     'background:rgba(28,33,28,0.85)',
@@ -85,8 +88,24 @@ export function makeDistancePill(label: string): HTMLElement {
     'border-radius:999px',
     'pointer-events:none',
     'white-space:nowrap',
+    'text-align:center',
+    'line-height:1.25',
   ].join(';')
-  el.textContent = label
+  const main = document.createElement('div')
+  main.textContent = label
+  el.appendChild(main)
+  // Optional second line — the live best-case SG on the carry pill
+  // ("+0.3 · FWY"), tinted positive/negative.
+  if (opts.sublabel) {
+    const sub = document.createElement('div')
+    sub.textContent = opts.sublabel
+    sub.style.cssText = [
+      'font-size:9px',
+      'margin-top:1px',
+      `color:${opts.tone === 'neg' ? '#E0796B' : '#9FD8A8'}`,
+    ].join(';')
+    el.appendChild(sub)
+  }
   return el
 }
 

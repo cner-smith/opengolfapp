@@ -1,6 +1,14 @@
 import { useCallback, useEffect, useRef, type MutableRefObject } from 'react'
 import { mapboxgl } from '../../../lib/mapbox'
-import { arcGeoJSON, circleGeoJSON, haversineYards, scatterGeoJSON } from '@oga/core'
+import {
+  arcGeoJSON,
+  calculateShotSG,
+  circleGeoJSON,
+  getExpectedStrokes,
+  haversineYards,
+  NEAR_GREEN_YARDS,
+  scatterGeoJSON,
+} from '@oga/core'
 import { useUnits } from '../../../hooks/useUnits'
 import type { ExistingShot, PlacedPoint } from '../RoundMap'
 import {
@@ -47,6 +55,9 @@ interface UseMapLayersInput {
    *  aim. selectClub falls back to the longest club for a null distance. */
   dotsVisible: boolean
   selectClub: (distanceToTargetYards: number | null) => ClubPick | null
+  /** Player handicap index for the live best-case-SG readout on the carry
+   *  pill (expected strokes are calibrated to the bracket). */
+  handicap: number
   onMovePoint: (idx: number, point: PlacedPoint) => void
   onMovePin: ((point: PlacedPoint) => void) | undefined
   onMoveTee: ((point: PlacedPoint) => void) | undefined
@@ -84,6 +95,7 @@ export function useMapLayers({
   circleRadiusYards,
   dotsVisible,
   selectClub,
+  handicap,
   onMovePoint,
   onMovePin,
   onMoveTee,
@@ -454,6 +466,38 @@ export function useMapLayers({
       AIM_COLOR,
     )
     if (activeSeg) {
+      // Best-case SG of advancing ball→aim toward the pin: expected(start→pin)
+      // − expected(aim→pin) − 1 (calculateShotSG), as the carry pill's sublabel.
+      // Distance-band category (no polygons): within NEAR_GREEN_YARDS →
+      // around_green (GRN), else approach (FWY). HONEST: value of reaching the
+      // aim if struck clean, not dispersion-weighted. Needs a pin + baseline.
+      let sgSublabel: string | undefined
+      let sgTone: 'pos' | 'neg' = 'pos'
+      if (pinLngLat) {
+        const startToPin = haversineYards(
+          activeSeg.start[1],
+          activeSeg.start[0],
+          pinLngLat[1],
+          pinLngLat[0],
+        )
+        const aimToPin = haversineYards(
+          activeSeg.aim[1],
+          activeSeg.aim[0],
+          pinLngLat[1],
+          pinLngLat[0],
+        )
+        const startCat = startToPin <= NEAR_GREEN_YARDS ? 'around_green' : 'approach'
+        const targetCat = aimToPin <= NEAR_GREEN_YARDS ? 'around_green' : 'approach'
+        const expected = getExpectedStrokes(startCat, startToPin, undefined, handicap)
+        const targetExpected = getExpectedStrokes(targetCat, aimToPin, undefined, handicap)
+        if (expected != null && targetExpected != null) {
+          const sg = calculateShotSG(expected, targetExpected)
+          sgTone = sg < 0 ? 'neg' : 'pos'
+          sgSublabel = `${sg >= 0 ? '+' : ''}${sg.toFixed(1)} · ${
+            targetCat === 'around_green' ? 'GRN' : 'FWY'
+          }`
+        }
+      }
       const carry = Math.round(
         haversineYards(
           activeSeg.start[1],
@@ -468,7 +512,12 @@ export function useMapLayers({
           (activeSeg.start[1] + activeSeg.aim[1]) / 2,
         ]
         markerRefs.current.push(
-          new mapboxgl.Marker({ element: makeDistancePill(`CARRY ${toDisplay(carry)}`) })
+          new mapboxgl.Marker({
+            element: makeDistancePill(`CARRY ${toDisplay(carry)}`, {
+              sublabel: sgSublabel,
+              tone: sgTone,
+            }),
+          })
             .setLngLat(mid)
             .addTo(map),
         )
@@ -514,6 +563,7 @@ export function useMapLayers({
     circleRadiusYards,
     dotsVisible,
     selectClub,
+    handicap,
     toDisplay,
   ])
 
