@@ -103,6 +103,14 @@ interface HoleMapProps {
    * The map itself stays mounted across the whole round — see #264.
    */
   holeNumber: number
+  /**
+   * True when the current SET_AIM exit is a real shot commit (raw
+   * roundState → SHOT_DETAIL / PUTTING) rather than a "Re-place ball"
+   * backout. The `phase` prop collapses both to PLACE_BALL, so the aim-ghost
+   * promotion needs this separate signal to record a ghost on commit without
+   * leaving a stray one on re-place. Defaults false.
+   */
+  aimCommitted?: boolean
   onSetAim: (loc: LatLng) => void
   onSetBall: (loc: LatLng) => void
   onPlacePin?: (loc: LatLng) => void
@@ -166,6 +174,7 @@ export function HoleMap({
   handicap,
   previousShots,
   phase = 'PLACE_BALL',
+  aimCommitted = false,
   missingHoleLayout = false,
   gpsPosition,
   courseCenter,
@@ -219,6 +228,7 @@ export function HoleMap({
     ball,
     aim,
     phase,
+    aimCommitted,
     holeNumber,
   })
 

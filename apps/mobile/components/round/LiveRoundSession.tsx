@@ -128,6 +128,8 @@ export default function LiveRoundSession({
     isPastMode,
     storedPin: data.storedPin,
     roundPin: data.roundPin,
+    tee: data.tee,
+    hasPriorShots: data.remoteShotCount + data.localShotCount > 0,
   })
 
   // Camera anchors on the tee box — the player's starting point. Pin/green
@@ -448,6 +450,14 @@ export default function LiveRoundSession({
                 : finalState.roundState === 'SET_AIM'
                   ? 'SET_AIM'
                   : 'PLACE_BALL'
+          }
+          // A SET_AIM → SHOT_DETAIL/PUTTING transition is a real shot commit;
+          // SET_AIM → bare PLACE_BALL ("Re-place ball") is a backout. The
+          // collapsed `phase` above can't tell them apart, so the aim-ghost
+          // promotion reads this raw-roundState signal instead.
+          aimCommitted={
+            finalState.roundState === 'SHOT_DETAIL' ||
+            finalState.roundState === 'PUTTING'
           }
           showLocationPuck={
             finalState.roundState !== 'SHOT_DETAIL' &&
