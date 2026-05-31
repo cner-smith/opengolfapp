@@ -6,6 +6,7 @@ import type {
   ShotResult,
 } from './constants'
 import type { Shot } from './types'
+import { bearingDegrees, toRadians } from './units'
 
 export interface DispersionPoint {
   /** Source shot id — used as a stable React key when rendering the
@@ -136,6 +137,85 @@ export function computeDispersionStats(points: DispersionPoint[]): DispersionSta
     cone95: { lateral: stdLat * CONE_95_K, distance: stdDist * CONE_95_K },
     dominantMiss,
     shotShape,
+    sampleSize: points.length,
+  }
+}
+
+/**
+ * One shot's end position expressed in the AIM-RELATIVE frame:
+ * `alongYards` long of aim (+ = past the aim point), `perpYards` right of
+ * the aim line (+ = right). Unlike `computeDispersion` (which is compass-
+ * framed N/E), this rotates by the shot's intended line so spreads can be
+ * drawn correctly on a hole at any bearing. Returns null unless start, aim,
+ * AND end coords are all finite — start+aim are needed to derive the bearing.
+ */
+export function aimRelativeOffsets(
+  shot: Shot,
+): { alongYards: number; perpYards: number } | null {
+  if (
+    !isFiniteNumber(shot.startLat) ||
+    !isFiniteNumber(shot.startLng) ||
+    !isFiniteNumber(shot.aimLat) ||
+    !isFiniteNumber(shot.aimLng) ||
+    !isFiniteNumber(shot.endLat) ||
+    !isFiniteNumber(shot.endLng)
+  ) {
+    return null
+  }
+  // Bearing of the intended line (start → aim), compass degrees CW from N.
+  const θ = toRadians(bearingDegrees(shot.startLat, shot.startLng, shot.aimLat, shot.aimLng))
+  // end − aim in a local yards ENU plane (rotate AFTER the deg→yard scaling,
+  // never on raw degrees — 1° lng ≠ 1° lat in distance).
+  const north = (shot.endLat - shot.aimLat) * YARDS_PER_DEG_LAT
+  const east = (shot.endLng - shot.aimLng) * yardsPerDegLng(shot.aimLat)
+  return {
+    alongYards: north * Math.cos(θ) + east * Math.sin(θ),
+    perpYards: -north * Math.sin(θ) + east * Math.cos(θ),
+  }
+}
+
+export interface AimRelativeDispersion {
+  /** Mean long offset of the pattern (+ = long), yards. */
+  alongMean: number
+  /** Mean lateral offset (+ = right of aim) — the player's bias, yards. */
+  perpMean: number
+  /** 68% / 95% containment half-widths (radii) along each axis, yards. */
+  along68: number
+  along95: number
+  perp68: number
+  perp95: number
+  /** Surviving aim-relative points (start+aim+end present). */
+  points: { alongYards: number; perpYards: number }[]
+  /** Count of surviving points — NOT the input length. */
+  sampleSize: number
+}
+
+/**
+ * Aim-relative dispersion across a set of shots (one club's worth, ideally).
+ * Skips shots missing start/aim/end; returns null below MIN_SAMPLES_FOR_STATS.
+ * Cones use the same 2D containment k-factors as computeDispersionStats.
+ */
+export function computeAimRelativeDispersion(shots: Shot[]): AimRelativeDispersion | null {
+  const points: { alongYards: number; perpYards: number }[] = []
+  for (const s of shots) {
+    const o = aimRelativeOffsets(s)
+    if (o) points.push(o)
+  }
+  if (points.length < MIN_SAMPLES_FOR_STATS) return null
+  const alongs = points.map((p) => p.alongYards)
+  const perps = points.map((p) => p.perpYards)
+  const alongMean = mean(alongs)
+  const perpMean = mean(perps)
+  const alongStd = stdDev(alongs, alongMean)
+  const perpStd = stdDev(perps, perpMean)
+  return {
+    alongMean,
+    perpMean,
+    along68: alongStd * CONE_68_K,
+    along95: alongStd * CONE_95_K,
+    perp68: perpStd * CONE_68_K,
+    perp95: perpStd * CONE_95_K,
+    points,
     sampleSize: points.length,
   }
 }

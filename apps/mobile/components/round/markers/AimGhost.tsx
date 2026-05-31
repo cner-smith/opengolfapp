@@ -43,8 +43,7 @@ export function useAimGhosts({
   const isAimPhase = phase === 'SET_AIM'
 
   // While in SET_AIM, snapshot the current ball + aim pair so we can
-  // promote it to a ghost the moment the phase exits SET_AIM (i.e. shot
-  // was saved or aim was abandoned for ball placement again).
+  // promote it to a ghost the moment the shot is committed.
   useEffect(() => {
     if (isAimPhase && ball && aim) {
       lastAimSnapshotRef.current = { ball, aim }
@@ -53,11 +52,19 @@ export function useAimGhosts({
 
   const ghostPhaseRef = useRef<HoleMapPhase>(phase)
   useEffect(() => {
+    // Promote only on a COMMITTED exit (→ SHOT_DETAIL / PUTTING). Backing out
+    // to PLACE_BALL via "Re-place ball" abandons the aim — promoting it there
+    // left a stray ghost from the discarded aim, so the player ended up with
+    // two aim points after re-aiming. Drop the snapshot instead.
     if (ghostPhaseRef.current === 'SET_AIM' && phase !== 'SET_AIM') {
-      const snap = lastAimSnapshotRef.current
-      if (snap) {
-        setAimGhosts((prev) => [...prev, snap])
+      if (phase === 'PLACE_BALL') {
         lastAimSnapshotRef.current = null
+      } else {
+        const snap = lastAimSnapshotRef.current
+        if (snap) {
+          setAimGhosts((prev) => [...prev, snap])
+          lastAimSnapshotRef.current = null
+        }
       }
     }
     ghostPhaseRef.current = phase

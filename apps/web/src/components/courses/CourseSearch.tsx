@@ -35,11 +35,12 @@ export function CourseSearch({
 
   const apiResults = search.data?.api ?? []
   const localResults = search.data?.local ?? []
-  const noMatches =
-    !search.isLoading &&
-    query.trim().length > 0 &&
-    apiResults.length === 0 &&
-    localResults.length === 0
+  const hasResults = apiResults.length > 0 || localResults.length > 0
+  // The "Add it" affordance is pinned to the bottom of the results
+  // whenever there's a query to name the course from — not only when the
+  // search came back empty. Fuzzy/near-but-wrong matches used to trap the
+  // user with no way to add the course they actually meant (#472).
+  const showAddNew = !search.isLoading && query.trim().length > 0
 
   // Capture GPS once when the parent has opted in (live-round mode) so
   // manual + API imports can stamp the user's tee location on hole 1.
@@ -146,14 +147,19 @@ export function CourseSearch({
             </SearchGroup>
           )}
 
-          {noMatches && (
+          {showAddNew && (
             <button
               type="button"
               onClick={() => setCreatingManual(true)}
               className="block w-full text-left text-caddie-accent transition-colors hover:bg-caddie-bg"
-              style={{ padding: '14px 14px', fontSize: 14, fontWeight: 500 }}
+              style={{
+                padding: '14px 14px',
+                fontSize: 14,
+                fontWeight: 500,
+                borderTop: hasResults ? '1px solid #D9D2BF' : undefined,
+              }}
             >
-              Course not found?{' '}
+              {hasResults ? "Don't see your course?" : 'Course not found?'}{' '}
               <span className="font-serif" style={{ fontStyle: 'italic' }}>
                 Add it →
               </span>

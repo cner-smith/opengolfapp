@@ -1,6 +1,14 @@
 import { useCallback, useEffect, useRef, type MutableRefObject } from 'react'
 import { mapboxgl } from '../../../lib/mapbox'
-import { haversineYards } from '@oga/core'
+import {
+  arcGeoJSON,
+  calculateShotSG,
+  circleGeoJSON,
+  getExpectedStrokes,
+  haversineYards,
+  NEAR_GREEN_YARDS,
+  scatterGeoJSON,
+} from '@oga/core'
 import { useUnits } from '../../../hooks/useUnits'
 import type { ExistingShot, PlacedPoint } from '../RoundMap'
 import {
@@ -14,9 +22,19 @@ import {
 } from './markerFactories'
 import {
   buildLineCoords,
+  upsertArcBand,
+  upsertCircleFill,
   upsertDashedLines,
   upsertLine,
+  upsertScatter,
 } from './lineHelpers'
+
+// Minimal structural shape of the club dispersion picked by selectClub — kept
+// local so this map hook doesn't import a page-level hook type. Structurally
+// compatible with useClubDispersion's ClubDispersion.
+export type ClubPick = {
+  dispersion: { points: { alongYards: number; perpYards: number }[] }
+}
 
 interface UseMapLayersInput {
   mapRef: MutableRefObject<mapboxgl.Map | null>
@@ -26,15 +44,43 @@ interface UseMapLayersInput {
   placedAims: (PlacedPoint | null)[] | undefined
   effectivePin: PlacedPoint | null
   effectiveTee: PlacedPoint | null
+  /** Shot-pattern overlay (always-on while aiming), anchored on the active
+   *  aimed shot. 'tee' → dispersion arc band of arcWidthYards total width;
+   *  'appr' → approach circle of circleRadiusYards, centered on the aim. */
+  overlayMode: 'tee' | 'appr'
+  arcWidthYards: number
+  circleRadiusYards: number
+  /** Single-color dispersion-dots toggle + the club picker. When on and a club
+   *  resolves for the active shot's distance, its history scatters around the
+   *  aim. selectClub falls back to the longest club for a null distance. */
+  dotsVisible: boolean
+  selectClub: (distanceToTargetYards: number | null) => ClubPick | null
+  /** Player handicap index for the live best-case-SG readout on the carry
+   *  pill (expected strokes are calibrated to the bracket). */
+  handicap: number
   onMovePoint: (idx: number, point: PlacedPoint) => void
   onMovePin: ((point: PlacedPoint) => void) | undefined
   onMoveTee: ((point: PlacedPoint) => void) | undefined
+  onSetAim: ((index: number, point: PlacedPoint | null) => void) | undefined
   onMoveExistingShot: ((shotId: string, point: PlacedPoint) => void) | undefined
   onMoveExistingShotAim: ((shotId: string, point: PlacedPoint) => void) | undefined
 }
 
 const lineSourceId = 'shot-line'
 const placedLineSourceId = 'placed-line'
+
+// Aim overlays render white (#FBF8F1) — amber didn't read against fairway
+// satellite tiles (mirrors the mobile redesign's amber→white switch). The
+// shot trajectory lines stay amber so aim (intent) reads distinct from the
+// path actually taken.
+const AIM_COLOR = '#FBF8F1'
+
+// A single shot's aim: where the player stood (`start`) and where they
+// aimed (`aim`), both as [lng, lat]. The latest aimed shot gets the full
+// planning treatment (solid start→aim→pin bend + dotted start→pin
+// reference + carry/remaining pills); the rest render as a dashed
+// start→aim line.
+type AimSeg = { start: [number, number]; aim: [number, number] }
 
 export function useMapLayers({
   mapRef,
@@ -44,9 +90,16 @@ export function useMapLayers({
   placedAims,
   effectivePin,
   effectiveTee,
+  overlayMode,
+  arcWidthYards,
+  circleRadiusYards,
+  dotsVisible,
+  selectClub,
+  handicap,
   onMovePoint,
   onMovePin,
   onMoveTee,
+  onSetAim,
   onMoveExistingShot,
   onMoveExistingShotAim,
 }: UseMapLayersInput): void {
@@ -132,7 +185,7 @@ export function useMapLayers({
     // Marker N renders at the START of shot N — that's "where the player
     // stood for shot N", matching the post-round tap flow. Falling back
     // to end coords for legacy rows that pre-date start_lat/lng.
-    const existingAimLines: [number, number][][] = []
+    const savedAimSegs: AimSeg[] = []
     const existingValid = existingShots.filter(
       (s) =>
         (s.startLat != null && s.startLng != null) ||
@@ -177,8 +230,9 @@ export function useMapLayers({
       }
       markerRefs.current.push(marker)
 
-      // Aim ghost for saved shots. Same warn palette as the placed-aim
-      // marker so the visual vocabulary stays consistent across modes.
+      // Aim ghost for saved shots. The line + pills are rendered
+      // centrally below (latest aim = full planning treatment, the rest
+      // dashed) so saved shots share the placed-flow vocabulary.
       if (s.aimLat != null && s.aimLng != null) {
         const aimEl = makeAimMarker()
         const aimDraggable = !!onMoveExistingShotAim
@@ -202,30 +256,15 @@ export function useMapLayers({
         }
         markerRefs.current.push(aimMarker)
 
-        // Dashed aim line + AIM distance pill, mirroring the placed-shot
-        // version below. Uses the shot's start coord (with end fallback)
-        // so the line origin matches the numbered marker on the map.
+        // Collect the start→aim segment. The origin uses the shot's start
+        // coord (end fallback) so the line matches the numbered marker.
         const startLng = s.startLng ?? s.endLng
         const startLat = s.startLat ?? s.endLat
         if (startLat != null && startLng != null) {
-          const aimYards = Math.round(
-            haversineYards(startLat, startLng, s.aimLat, s.aimLng),
-          )
-          if (aimYards > 0) {
-            const mid: [number, number] = [
-              (startLng + s.aimLng) / 2,
-              (startLat + s.aimLat) / 2,
-            ]
-            const pill = makeDistancePill(`AIM ${toDisplay(aimYards)}`)
-            const pillMarker = new mapboxgl.Marker({ element: pill })
-              .setLngLat(mid)
-              .addTo(map)
-            markerRefs.current.push(pillMarker)
-          }
-          existingAimLines.push([
-            [startLng, startLat],
-            [s.aimLng, s.aimLat],
-          ])
+          savedAimSegs.push({
+            start: [startLng, startLat],
+            aim: [s.aimLng, s.aimLat],
+          })
         }
       }
     }
@@ -294,38 +333,217 @@ export function useMapLayers({
       }
     }
 
-    // Aim markers + dashed aim lines per placed shot. Aim color matches
-    // the rest of the warn palette (#A66A1F) so it reads as "intent",
-    // distinct from the accent ball/pin marker.
-    const aimLineCoords: [number, number][][] = []
+    // Aim markers per placed shot — draggable (via onSetAim) so the player
+    // can adjust the auto-spawned start line. Lines + pills render
+    // centrally below alongside the saved-shot aims.
+    const placedAimSegs: AimSeg[] = []
     placedPoints.forEach((p, idx) => {
       const aim = placedAims?.[idx] ?? null
       if (!aim) return
       const aimEl = makeAimMarker()
-      const aimMarker = new mapboxgl.Marker({ element: aimEl })
+      const aimDraggable = !!onSetAim
+      const aimMarker = new mapboxgl.Marker({
+        element: aimEl,
+        draggable: aimDraggable,
+      })
         .setLngLat([aim.lng, aim.lat])
         .addTo(map)
-      markerRefs.current.push(aimMarker)
-      aimLineCoords.push([
-        [p.lng, p.lat],
-        [aim.lng, aim.lat],
-      ])
-      // Distance pill at midpoint of the aim line.
-      const yards = Math.round(haversineYards(p.lat, p.lng, aim.lat, aim.lng))
-      if (yards > 0) {
-        const mid: [number, number] = [
-          (p.lng + aim.lng) / 2,
-          (p.lat + aim.lat) / 2,
-        ]
-        const el = makeDistancePill(`AIM ${toDisplay(yards)}`)
-        const marker = new mapboxgl.Marker({ element: el })
-          .setLngLat(mid)
-          .addTo(map)
-        markerRefs.current.push(marker)
+      if (aimDraggable) {
+        aimEl.title = 'Aim point — drag to adjust'
+        aimEl.style.cursor = 'grab'
+        aimMarker.on('dragstart', () => {
+          aimEl.style.cursor = 'grabbing'
+        })
+        aimMarker.on('dragend', () => {
+          aimEl.style.cursor = 'grab'
+          const ll = aimMarker.getLngLat()
+          onSetAim!(idx, { lat: ll.lat, lng: ll.lng })
+        })
       }
+      markerRefs.current.push(aimMarker)
+      placedAimSegs.push({ start: [p.lng, p.lat], aim: [aim.lng, aim.lat] })
     })
-    upsertDashedLines(map, 'aim-lines', aimLineCoords, '#A66A1F')
-    upsertDashedLines(map, 'existing-aim-lines', existingAimLines, '#A66A1F')
+
+    // ---- Aim lines + pills (placed + saved, unified) ----
+    // The latest aimed shot — the placed flow while logging, otherwise the
+    // last saved aim — gets the full planning treatment: solid start→aim→
+    // pin bend, dotted start→pin reference, and carry + remaining pills.
+    // Every other aimed shot renders as a plain dashed start→aim line so a
+    // multi-shot hole doesn't clutter with overlapping bends.
+    const pinLngLat: [number, number] | null = effectivePin
+      ? [effectivePin.lng, effectivePin.lat]
+      : null
+    const activeFromPlaced = placedAimSegs.length > 0
+    const activeSeg: AimSeg | null = activeFromPlaced
+      ? placedAimSegs[placedAimSegs.length - 1]!
+      : savedAimSegs[savedAimSegs.length - 1] ?? null
+
+    // Fixed-geometry shot-pattern overlay anchored on the active aimed shot.
+    // Tee → dispersion arc band across the aim line; Appr → approach circle
+    // centered on the aim (matches the mobile overlay — the aim is the
+    // target, not the pin). Rendered before the aim line below so it sits
+    // underneath; always upserted (empty when no active aim / wrong mode) so
+    // it clears on the next render.
+    const arcCoords: [number, number][] =
+      activeSeg && overlayMode === 'tee'
+        ? arcGeoJSON(
+            { lat: activeSeg.start[1], lng: activeSeg.start[0] },
+            { lat: activeSeg.aim[1], lng: activeSeg.aim[0] },
+            arcWidthYards / 2,
+          )?.geometry.coordinates ?? []
+        : []
+    upsertArcBand(map, 'aim-arc', arcCoords, AIM_COLOR)
+    const circleRing: [number, number][][] =
+      activeSeg && overlayMode === 'appr'
+        ? circleGeoJSON(
+            { lat: activeSeg.aim[1], lng: activeSeg.aim[0] },
+            circleRadiusYards,
+          )?.geometry.coordinates ?? []
+        : []
+    upsertCircleFill(map, 'aim-circle', circleRing, AIM_COLOR)
+
+    // Single-color dispersion dots: the club whose median carry best matches
+    // the active shot's ball→pin distance (longest club when no pin), scattered
+    // aim-relative around the active aim. Sparse clubs resolve to null → no
+    // dots (silent). Always upserted so toggling off / switching shots clears.
+    let dotCoords: [number, number][] = []
+    if (dotsVisible && activeSeg) {
+      const ballToPin =
+        effectivePin != null
+          ? haversineYards(
+              activeSeg.start[1],
+              activeSeg.start[0],
+              effectivePin.lat,
+              effectivePin.lng,
+            )
+          : null
+      const club = selectClub(ballToPin)
+      if (club && club.dispersion.points.length > 0) {
+        dotCoords = scatterGeoJSON(
+          { lat: activeSeg.start[1], lng: activeSeg.start[0] },
+          { lat: activeSeg.aim[1], lng: activeSeg.aim[0] },
+          club.dispersion.points,
+        ).features.map((f) => f.geometry.coordinates)
+      }
+    }
+    upsertScatter(map, 'aim-dots', dotCoords, AIM_COLOR)
+
+    // Non-active segments stay on their original source so switching flow
+    // (placed ↔ saved) clears the other source cleanly. The active seg is
+    // dropped from whichever set it belongs to.
+    const placedDashed = activeFromPlaced
+      ? placedAimSegs.slice(0, -1)
+      : placedAimSegs
+    const savedDashed =
+      !activeFromPlaced && savedAimSegs.length > 0
+        ? savedAimSegs.slice(0, -1)
+        : savedAimSegs
+    upsertDashedLines(
+      map,
+      'aim-lines',
+      placedDashed.map((s) => [s.start, s.aim]),
+      AIM_COLOR,
+    )
+    upsertDashedLines(
+      map,
+      'existing-aim-lines',
+      savedDashed.map((s) => [s.start, s.aim]),
+      AIM_COLOR,
+    )
+
+    // Active shot. Sources are always upserted (empty when there's no
+    // active aim) so stale geometry clears on the next render.
+    const activeSolid: [number, number][] = activeSeg
+      ? pinLngLat
+        ? [activeSeg.start, activeSeg.aim, pinLngLat]
+        : [activeSeg.start, activeSeg.aim]
+      : []
+    upsertLine(map, 'aim-active', activeSolid, AIM_COLOR)
+    upsertDashedLines(
+      map,
+      'aim-reference',
+      activeSeg && pinLngLat ? [[activeSeg.start, pinLngLat]] : [],
+      AIM_COLOR,
+    )
+    if (activeSeg) {
+      // Best-case SG of advancing ball→aim toward the pin: expected(start→pin)
+      // − expected(aim→pin) − 1 (calculateShotSG), as the carry pill's sublabel.
+      // Distance-band category (no polygons): within NEAR_GREEN_YARDS →
+      // around_green (GRN), else approach (FWY). HONEST: value of reaching the
+      // aim if struck clean, not dispersion-weighted. Needs a pin + baseline.
+      let sgSublabel: string | undefined
+      let sgTone: 'pos' | 'neg' = 'pos'
+      if (pinLngLat) {
+        const startToPin = haversineYards(
+          activeSeg.start[1],
+          activeSeg.start[0],
+          pinLngLat[1],
+          pinLngLat[0],
+        )
+        const aimToPin = haversineYards(
+          activeSeg.aim[1],
+          activeSeg.aim[0],
+          pinLngLat[1],
+          pinLngLat[0],
+        )
+        const startCat = startToPin <= NEAR_GREEN_YARDS ? 'around_green' : 'approach'
+        const targetCat = aimToPin <= NEAR_GREEN_YARDS ? 'around_green' : 'approach'
+        const expected = getExpectedStrokes(startCat, startToPin, undefined, handicap)
+        const targetExpected = getExpectedStrokes(targetCat, aimToPin, undefined, handicap)
+        if (expected != null && targetExpected != null) {
+          const sg = calculateShotSG(expected, targetExpected)
+          sgTone = sg < 0 ? 'neg' : 'pos'
+          sgSublabel = `${sg >= 0 ? '+' : ''}${sg.toFixed(1)} · ${
+            targetCat === 'around_green' ? 'GRN' : 'FWY'
+          }`
+        }
+      }
+      const carry = Math.round(
+        haversineYards(
+          activeSeg.start[1],
+          activeSeg.start[0],
+          activeSeg.aim[1],
+          activeSeg.aim[0],
+        ),
+      )
+      if (carry > 0) {
+        const mid: [number, number] = [
+          (activeSeg.start[0] + activeSeg.aim[0]) / 2,
+          (activeSeg.start[1] + activeSeg.aim[1]) / 2,
+        ]
+        markerRefs.current.push(
+          new mapboxgl.Marker({
+            element: makeDistancePill(`CARRY ${toDisplay(carry)}`, {
+              sublabel: sgSublabel,
+              tone: sgTone,
+            }),
+          })
+            .setLngLat(mid)
+            .addTo(map),
+        )
+      }
+      if (pinLngLat) {
+        const remaining = Math.round(
+          haversineYards(
+            activeSeg.aim[1],
+            activeSeg.aim[0],
+            pinLngLat[1],
+            pinLngLat[0],
+          ),
+        )
+        if (remaining > 0) {
+          const mid: [number, number] = [
+            (activeSeg.aim[0] + pinLngLat[0]) / 2,
+            (activeSeg.aim[1] + pinLngLat[1]) / 2,
+          ]
+          markerRefs.current.push(
+            new mapboxgl.Marker({ element: makeDistancePill(`REMAINING ${toDisplay(remaining)}`) })
+              .setLngLat(mid)
+              .addTo(map),
+          )
+        }
+      }
+    }
   }, [
     mapRef,
     userPlacedRef,
@@ -335,10 +553,17 @@ export function useMapLayers({
     onMovePoint,
     onMovePin,
     onMoveTee,
+    onSetAim,
     onMoveExistingShot,
     onMoveExistingShotAim,
     effectivePin,
     effectiveTee,
+    overlayMode,
+    arcWidthYards,
+    circleRadiusYards,
+    dotsVisible,
+    selectClub,
+    handicap,
     toDisplay,
   ])
 

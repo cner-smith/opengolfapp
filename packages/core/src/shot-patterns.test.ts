@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
+  aimRelativeOffsets,
+  computeAimRelativeDispersion,
   computeDispersion,
   computeDispersionStats,
   dispersionVerdict,
@@ -193,5 +195,86 @@ describe('dispersionVerdict', () => {
     expect(dispersionVerdict(stats({ shotShape: 'draw', dominantMiss: 'right' }))).toBe(
       'A draw that leaks right',
     )
+  })
+})
+
+const AR_LAT = 40
+const AR_LNG = -75
+const Y_PER_DEG_LAT = 121_000
+const yPerDegLng = (lat: number) => Y_PER_DEG_LAT * Math.cos((lat * Math.PI) / 180)
+
+// A shot aimed due NORTH (start due south of aim → bearing exactly 0),
+// landing `alongYd` long and `perpYd` right of aim. With bearing 0 the
+// aim-relative recovery is exact: along = north offset, perp = east offset.
+function northAimed(alongYd: number, perpYd: number, id = 'n'): Shot {
+  return shot({
+    id,
+    startLat: AR_LAT - 0.001,
+    startLng: AR_LNG,
+    aimLat: AR_LAT,
+    aimLng: AR_LNG,
+    endLat: AR_LAT + alongYd / Y_PER_DEG_LAT,
+    endLng: AR_LNG + perpYd / yPerDegLng(AR_LAT),
+  })
+}
+
+describe('aimRelativeOffsets', () => {
+  it('returns null when start/aim/end coords are incomplete', () => {
+    // aim + end present, start missing → cannot derive the shot bearing.
+    expect(
+      aimRelativeOffsets(shot({ aimLat: AR_LAT, aimLng: AR_LNG, endLat: AR_LAT, endLng: AR_LNG })),
+    ).toBeNull()
+  })
+
+  it('aiming north: long = +along, right = +perp (exact at bearing 0)', () => {
+    const r = aimRelativeOffsets(northAimed(100, 20))
+    expect(r).not.toBeNull()
+    expect(r!.alongYards).toBeCloseTo(100, 0)
+    expect(r!.perpYards).toBeCloseTo(20, 0)
+  })
+
+  it('aiming east: right-of-aim stays positive, left negative — no mirror', () => {
+    // start due west of aim → bearing ~90 (east). End is NE of aim:
+    // east of aim is LONG; north of aim is LEFT of an east aim → perp < 0.
+    const r = aimRelativeOffsets(
+      shot({
+        startLat: AR_LAT,
+        startLng: AR_LNG - 0.001,
+        aimLat: AR_LAT,
+        aimLng: AR_LNG,
+        endLat: AR_LAT + 0.001, // north of aim
+        endLng: AR_LNG + 0.001, // east of aim
+      }),
+    )
+    expect(r).not.toBeNull()
+    expect(r!.alongYards).toBeGreaterThan(0) // east of aim = long
+    expect(r!.perpYards).toBeLessThan(0) // north of aim = left of an east aim
+    // ~121 yd N (left) vs ~93 yd E (long) → lateral magnitude dominates.
+    expect(Math.abs(r!.perpYards)).toBeGreaterThan(Math.abs(r!.alongYards))
+  })
+})
+
+describe('computeAimRelativeDispersion', () => {
+  it('returns null below the 5-sample floor', () => {
+    expect(
+      computeAimRelativeDispersion([northAimed(100, 5, 'a'), northAimed(100, 5, 'b')]),
+    ).toBeNull()
+  })
+
+  it('counts only shots that survive the start/aim/end skip', () => {
+    const valid = [0, 1, 2, 3, 4].map((i) => northAimed(100, 5, `v${i}`))
+    const noStart = shot({ id: 'x', aimLat: AR_LAT, aimLng: AR_LNG, endLat: AR_LAT, endLng: AR_LNG })
+    const r = computeAimRelativeDispersion([...valid, noStart])
+    expect(r).not.toBeNull()
+    expect(r!.sampleSize).toBe(5) // not 6 — the no-start row is skipped
+  })
+
+  it('captures lateral bias sign and orders 68% inside 95%', () => {
+    const shots = [4, 5, 6, 5, 4].map((p, i) => northAimed(100, p, `b${i}`))
+    const r = computeAimRelativeDispersion(shots)!
+    expect(r.alongMean).toBeCloseTo(100, 0)
+    expect(r.perpMean).toBeCloseTo(4.8, 0) // all shots right of aim
+    expect(r.perp95).toBeGreaterThan(r.perp68)
+    expect(r.perp68).toBeGreaterThan(0)
   })
 })

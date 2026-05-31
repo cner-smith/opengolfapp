@@ -8,8 +8,12 @@ import {
 import { useRouter } from 'expo-router'
 import { HoleMap, type LatLng } from './HoleMap'
 import type { ShotLoggerValue } from './ShotLogger'
+import { DEFAULT_HANDICAP } from '@oga/core'
+import { getProfile } from '@oga/supabase'
 import { supabase } from '../../lib/supabase'
+import { distanceYards } from '../../lib/maps'
 import { useAuth } from '../../hooks/useAuth'
+import { useClubDispersion } from './hole/useClubDispersion'
 import { ConfirmDialog } from '../ui/ConfirmDialog'
 import { useUnits } from '../../hooks/useUnits'
 import {
@@ -21,8 +25,18 @@ import {
 import { useHoleData } from './hole/useHoleData'
 import { useHoleState } from './hole/useHoleState'
 import { useShotActions } from './hole/useShotActions'
-import { HoleStrip } from './hole/HoleStrip'
 import { HoleModals } from './hole/HoleModals'
+import { MapBottomChrome } from './MapBottomChrome'
+import { LeftToolbar, RightRail } from './HoleMapOverlays'
+
+// Distance-rail presets (Shot Pattern refs ux-10/11). Tee = arc TOTAL width
+// in yards (half each side of the aim line); Appr = circle diameter in feet
+// (greens use feet). Fixed presets, not a club picker. Shown in their native
+// unit even on a meters profile — these are discrete golf-standard widths,
+// not measured distances; a metric preset set is a deferred follow-up.
+const TEE_RAIL_YARDS = [95, 85, 75, 65] as const
+const APPR_RAIL_FEET = [50, 36, 30, 24] as const
+const FEET_PER_YARD = 3
 
 interface LiveRoundSessionProps {
   roundId: string | undefined
@@ -63,6 +77,21 @@ export default function LiveRoundSession({
   // in ./hole/types for the full union + rationale (#293).
   const [activeDialog, setActiveDialog] = useState<ActiveDialog>(null)
   const [loggerInitial, setLoggerInitial] = useState<ShotLoggerValue>({})
+  // Left-toolbar dispersion-dots toggle (T2). Drives the single-color
+  // historical-shot scatter overlay; the render lands in T4. Off by
+  // default — it's a summoned planning aid, not always-on clutter.
+  const [dotsVisible, setDotsVisible] = useState(false)
+  // Aim overlay shape + size (T3). Tee → arc band, Appr → circle ring; the
+  // rail index sizes each, kept per-mode so switching modes preserves the
+  // other's pick. Default Tee, widest rail.
+  const [overlayMode, setOverlayMode] = useState<'tee' | 'appr'>('tee')
+  const [teeRailIdx, setTeeRailIdx] = useState(0)
+  const [apprRailIdx, setApprRailIdx] = useState(0)
+  // Round-options overflow menu (⋮) in the header — End / Delete live behind
+  // it instead of as always-visible taps, so a destructive Delete can't be
+  // mis-fired. A plain absolute popover (not a Modal) so it never collides
+  // with the confirm dialogs it opens (#293 one-modal-per-presenter).
+  const [menuOpen, setMenuOpen] = useState(false)
 
   // Per-hole reset. useHoleState resets its own refs (Kalman, manual
   // placement, last-saved-shot id) keyed on currentHoleId — we don't
@@ -121,6 +150,68 @@ export default function LiveRoundSession({
     finalState.ball?.lat,
     finalState.ball?.lng,
   ])
+
+  // Per-club dispersion from the player's whole history (one query/session).
+  // The overlay shows the club whose median carry best matches the current
+  // ball→aim distance; a tee shot with no aim yet falls back to the longest
+  // club. Clubs with too little data simply produce no overlay (null).
+  const { selectClub } = useClubDispersion(user?.id)
+  // The dots' club is chosen by the SHOT distance (ball→pin), not ball→aim —
+  // so nudging the aim doesn't swap clubs and make the pattern flicker. The
+  // dots are still PLACED around the aim (in HoleMap); only WHICH club's
+  // pattern shows is pinned to the shot you're facing. Null (no pin / tee
+  // shot) → selectClub falls back to the longest club.
+  const ballToPinYards = useMemo(() => {
+    const pinPt = data.roundPin ?? data.storedPin
+    if (!finalState.ball || !pinPt) return null
+    return distanceYards(finalState.ball, pinPt)
+  }, [
+    finalState.ball?.lat,
+    finalState.ball?.lng,
+    data.roundPin?.lat,
+    data.roundPin?.lng,
+    data.storedPin?.lat,
+    data.storedPin?.lng,
+  ])
+  // Single-color dispersion dots for the selected club (left-toolbar toggle).
+  // Computed only when the dots are shown; sparse clubs → null (no dots).
+  const dispersionPoints = useMemo(() => {
+    if (!dotsVisible) return null
+    const selected = selectClub(ballToPinYards)
+    return selected ? selected.dispersion.points : null
+  }, [dotsVisible, selectClub, ballToPinYards])
+
+  // Overlay sizing from the active rail pick (fallbacks guard the indexed
+  // access). Arc width = the yard preset; circle radius = diameter-ft ÷ 2 ÷ 3.
+  const arcWidthYards = TEE_RAIL_YARDS[teeRailIdx] ?? TEE_RAIL_YARDS[0]
+  const circleDiaFeet = APPR_RAIL_FEET[apprRailIdx] ?? APPR_RAIL_FEET[0]
+  const circleRadiusYards = circleDiaFeet / 2 / FEET_PER_YARD
+  const railLabels =
+    overlayMode === 'tee'
+      ? TEE_RAIL_YARDS.map((y) => `${y} yd`)
+      : APPR_RAIL_FEET.map((f) => `${f} ft`)
+  const railIndex = overlayMode === 'tee' ? teeRailIdx : apprRailIdx
+  const selectRail = (i: number) =>
+    overlayMode === 'tee' ? setTeeRailIdx(i) : setApprRailIdx(i)
+
+  // Handicap for the live expected-strokes / SG readouts. Read once from the
+  // canonical profiles.handicap_index (player-entered, refined by the web
+  // round-complete recompute); falls back to DEFAULT_HANDICAP until it loads
+  // or if unset. NOTE: mobile does not yet recompute the index after rounds —
+  // it consumes whatever web/onboarding last wrote.
+  const [handicap, setHandicap] = useState(DEFAULT_HANDICAP)
+  useEffect(() => {
+    if (!user?.id) return
+    let active = true
+    getProfile(supabase, user.id).then(({ data }) => {
+      if (!active) return
+      const idx = (data as { handicap_index?: number | null } | null)?.handicap_index
+      if (idx != null) setHandicap(idx)
+    })
+    return () => {
+      active = false
+    }
+  }, [user?.id])
 
   const totalShotsThisHole =
     data.remoteShotCount + data.localShotCount > 0
@@ -311,25 +402,20 @@ export default function LiveRoundSession({
             {data.currentHole.yards ? ` · ${toDisplay(data.currentHole.yards)}` : ''}
           </Text>
         </View>
-        <View style={{ alignItems: 'flex-end', gap: 6 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+          <Text style={{ ...KICKER, color: 'rgba(242,238,229,0.45)' }}>
+            Shot {data.shotNumber}
+          </Text>
           <Pressable
             accessibilityRole="button"
-            onPress={() => setActiveDialog('end')}
-            accessibilityLabel="End round early"
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            accessibilityLabel="Round options"
+            onPress={() => setMenuOpen(true)}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            android_ripple={{ color: 'rgba(242,238,229,0.2)', borderless: true, radius: 18 }}
+            style={{ paddingHorizontal: 6, paddingVertical: 2 }}
           >
-            <Text style={{ ...KICKER, color: 'rgba(242,238,229,0.85)' }}>
-              End · Shot {data.shotNumber}
-            </Text>
-          </Pressable>
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => setActiveDialog('delete')}
-            accessibilityLabel="Delete round"
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          >
-            <Text style={{ ...KICKER, color: 'rgba(163,58,42,0.85)' }}>
-              Delete
+            <Text style={{ color: '#F2EEE5', fontSize: 22, fontWeight: '600', lineHeight: 24 }}>
+              ⋮
             </Text>
           </Pressable>
         </View>
@@ -343,6 +429,12 @@ export default function LiveRoundSession({
           tee={data.tee}
           aim={finalState.aim}
           ball={finalState.ball}
+          overlayMode={overlayMode}
+          arcWidthYards={arcWidthYards}
+          circleRadiusYards={circleRadiusYards}
+          dotsVisible={dotsVisible}
+          dispersionPoints={dispersionPoints}
+          handicap={handicap}
           previousShots={data.previousShots}
           gpsPosition={finalState.gpsPosition}
           courseCenter={data.courseCenter}
@@ -361,7 +453,13 @@ export default function LiveRoundSession({
             finalState.roundState !== 'SHOT_DETAIL' &&
             finalState.roundState !== 'PUTTING'
           }
-          onSetAim={finalState.setAim}
+          onSetAim={(loc) => {
+            // A user drag / long-press is an explicit aim — mark it touched so
+            // it persists (an untouched auto-spawn suggestion is dropped on
+            // save). All user aim-sets route through this prop.
+            finalState.setAim(loc)
+            finalState.setAimTouched(true)
+          }}
           onSetBall={(loc) => {
             // Manual drag/tap is an explicit override. Freeze GPS
             // updates for this PLACE_BALL cycle and re-anchor the
@@ -402,37 +500,58 @@ export default function LiveRoundSession({
             </Text>
           </Pressable>
         )}
+        <LeftToolbar
+          dotsVisible={dotsVisible}
+          onToggleDots={() => setDotsVisible((v) => !v)}
+          onPlacePin={() => setPinPlacementOpen(true)}
+          onPlaceTee={() => setTeePlacementOpen(true)}
+          pinMode={pinPlacementOpen}
+          teeMode={teePlacementOpen}
+        />
+        {/* Tee/Appr + distance rail — appears once an aim exists, hidden
+            during pin/tee placement so it doesn't fight those flows. */}
+        {finalState.aim && !pinPlacementOpen && !teePlacementOpen && (
+          <RightRail
+            mode={overlayMode}
+            onSetMode={setOverlayMode}
+            railLabels={railLabels}
+            railIndex={railIndex}
+            onSelectRail={selectRail}
+          />
+        )}
+        <MapBottomChrome
+          roundState={finalState.roundState}
+          pinPlacementOpen={pinPlacementOpen}
+          teePlacementOpen={teePlacementOpen}
+          ball={finalState.ball}
+          aim={finalState.aim}
+          saving={actions.saving}
+          roundPin={data.roundPin}
+          hasGps={finalState.gpsPosition != null}
+          totalShotsThisHole={totalShotsThisHole}
+          holeNumber={holeNumber}
+          par={data.currentHole.par}
+          yardsLabel={data.currentHole.yards ? toDisplay(data.currentHole.yards) : null}
+          onCancelPinPlacement={() => setPinPlacementOpen(false)}
+          onCancelTeePlacement={() => setTeePlacementOpen(false)}
+          onClearRoundPin={actions.clearRoundPin}
+          onConfirmAim={actions.confirmAim}
+          onRePlaceBall={() => {
+            // Clear the aim when backing out to re-place — otherwise the
+            // abandoned aim line lingers (showAim includes PLACE_BALL) and the
+            // ghost promotion is suppressed (see AimGhost). markBallHere
+            // re-seeds a fresh aim on the next mark.
+            finalState.setAim(null)
+            finalState.setRoundState('PLACE_BALL')
+          }}
+          onSkipAim={actions.skipAim}
+          onMarkBallHere={actions.markBallHere}
+          onFinishHole={actions.finishHole}
+          onPrev={() => actions.navigateHole(-1)}
+          onNext={() => actions.navigateHole(1)}
+          onOpenScorecard={() => setScorecardOpen(true)}
+        />
       </View>
-
-      <HoleStrip
-        pinPlacementOpen={pinPlacementOpen}
-        teePlacementOpen={teePlacementOpen}
-        roundState={finalState.roundState}
-        ball={finalState.ball}
-        aim={finalState.aim}
-        saving={actions.saving}
-        roundPin={data.roundPin}
-        tee={data.tee}
-        nearPin={finalState.nearPin}
-        hasGps={finalState.gpsPosition != null}
-        totalShotsThisHole={totalShotsThisHole}
-        holeNumber={holeNumber}
-        holes={data.holes}
-        holeScores={data.holeScores}
-        onCancelPinPlacement={() => setPinPlacementOpen(false)}
-        onCancelTeePlacement={() => setTeePlacementOpen(false)}
-        onClearRoundPin={actions.clearRoundPin}
-        onConfirmAim={actions.confirmAim}
-        onRePlaceBall={() => finalState.setRoundState('PLACE_BALL')}
-        onSkipAim={actions.skipAim}
-        onMarkBallHere={actions.markBallHere}
-        onOpenPinPlacement={() => setPinPlacementOpen(true)}
-        onOpenTeePlacement={() => setTeePlacementOpen(true)}
-        onFinishHole={actions.finishHole}
-        onPrev={() => actions.navigateHole(-1)}
-        onNext={() => actions.navigateHole(1)}
-        onOpenScorecard={() => setScorecardOpen(true)}
-      />
 
       <HoleModals
         shotNumber={data.shotNumber}
@@ -496,6 +615,75 @@ export default function LiveRoundSession({
         onAimPromptConfirm={actions.handleAimPromptConfirm}
         onAimPromptSkip={actions.handleAimPromptSkip}
       />
+
+      {/* Round-options popover. Full-screen transparent backdrop catches the
+          outside-tap to dismiss; the card is right-aligned under the header.
+          Static styles only (function `style` is dropped by css-interop). */}
+      {menuOpen && (
+        <>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Close menu"
+            onPress={() => setMenuOpen(false)}
+            style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 20 }}
+          />
+          <View
+            style={{
+              position: 'absolute',
+              top: 96,
+              right: 12,
+              zIndex: 21,
+              minWidth: 184,
+              backgroundColor: '#1C211C',
+              borderRadius: 12,
+              borderWidth: 1,
+              borderColor: 'rgba(242,238,229,0.15)',
+              paddingVertical: 6,
+              shadowColor: '#000',
+              shadowOpacity: 0.4,
+              shadowRadius: 10,
+              shadowOffset: { width: 0, height: 4 },
+              elevation: 8,
+            }}
+          >
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="End round early"
+              onPress={() => {
+                setMenuOpen(false)
+                setActiveDialog('end')
+              }}
+              android_ripple={{ color: 'rgba(242,238,229,0.15)' }}
+              style={{ paddingVertical: 12, paddingHorizontal: 16 }}
+            >
+              <Text style={{ color: '#F2EEE5', fontSize: 15, fontWeight: '600' }}>
+                End round early
+              </Text>
+            </Pressable>
+            <View
+              style={{
+                height: 1,
+                backgroundColor: 'rgba(242,238,229,0.1)',
+                marginHorizontal: 8,
+              }}
+            />
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Delete round"
+              onPress={() => {
+                setMenuOpen(false)
+                setActiveDialog('delete')
+              }}
+              android_ripple={{ color: 'rgba(163,58,42,0.22)' }}
+              style={{ paddingVertical: 12, paddingHorizontal: 16 }}
+            >
+              <Text style={{ color: '#E0796B', fontSize: 15, fontWeight: '600' }}>
+                Delete round
+              </Text>
+            </Pressable>
+          </View>
+        </>
+      )}
     </View>
   )
 }
