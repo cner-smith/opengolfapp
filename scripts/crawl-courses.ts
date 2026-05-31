@@ -37,16 +37,10 @@
  *   - enricher.ts   — OpenGolfAPI fetch/normalize + crawlEnrich + crawlOpenGolfApi
  */
 import { ALL_STATES, STATE_BBOX } from './crawl/util'
-import {
-  countCourses,
-  fetchAllCrawlState,
-} from './crawl/db-writer'
+import { countCourses, fetchAllCrawlState } from './crawl/db-writer'
 import { crawlOsm } from './crawl/osm-fetcher'
 import { crawlOsmHoles } from './crawl/holes-fetcher'
-import {
-  crawlEnrich,
-  crawlOpenGolfApi,
-} from './crawl/enricher'
+import { crawlEnrich, crawlOpenGolfApi } from './crawl/enricher'
 import type { Args, Source } from './crawl/types'
 
 function parseArgs(argv: string[]): Args {
@@ -55,15 +49,14 @@ function parseArgs(argv: string[]): Args {
   let force = false
   let status = false
   let limit: number | null = null
+  let maxCourses: number | null = null
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i]
     const next = argv[i + 1]
     if (a === '--source' && next) {
       const allowed = ['opengolfapi', 'osm', 'osm-first', 'enrich', 'osm-holes'] as const
       if (!allowed.includes(next as Source)) {
-        throw new Error(
-          `--source must be one of ${allowed.join(', ')} (got: ${next})`,
-        )
+        throw new Error(`--source must be one of ${allowed.join(', ')} (got: ${next})`)
       }
       source = next as Source
       i++
@@ -82,9 +75,14 @@ function parseArgs(argv: string[]): Args {
       if (!Number.isFinite(n) || n <= 0) throw new Error('--limit must be > 0')
       limit = n
       i++
+    } else if (a === '--max-courses' && next) {
+      const n = parseInt(next, 10)
+      if (!Number.isFinite(n) || n <= 0) throw new Error('--max-courses must be > 0')
+      maxCourses = n
+      i++
     }
   }
-  return { source, states, force, status, limit }
+  return { source, states, force, status, limit, maxCourses }
 }
 
 async function showStatus(): Promise<void> {
@@ -131,9 +129,7 @@ async function main(): Promise<void> {
 
   if (args.source === 'opengolfapi') {
     const states = args.states ?? [...ALL_STATES]
-    console.log(
-      `OpenGolfAPI crawl: ${states.length} state(s)${args.force ? ' (force)' : ''}`,
-    )
+    console.log(`OpenGolfAPI crawl: ${states.length} state(s)${args.force ? ' (force)' : ''}`)
     await crawlOpenGolfApi(states, args.force, args.limit)
     return
   }
@@ -143,31 +139,26 @@ async function main(): Promise<void> {
   const states = args.states ?? configured
   const unsupported = states.filter((s) => !STATE_BBOX[s])
   if (unsupported.length) {
-    throw new Error(
-      `OSM bbox not configured for: ${unsupported.join(', ')}. Add to STATE_BBOX.`,
-    )
+    throw new Error(`OSM bbox not configured for: ${unsupported.join(', ')}. Add to STATE_BBOX.`)
   }
 
   if (args.source === 'osm') {
     console.log(`OSM crawl: ${states.length} state(s)${args.force ? ' (force)' : ''}`)
     await crawlOsm(states, args.force, args.limit)
   } else if (args.source === 'osm-holes') {
-    console.log(
-      `OSM hole-geometry crawl: ${states.length} state(s)${args.force ? ' (force)' : ''}`,
-    )
+    console.log(`OSM hole-geometry crawl: ${states.length} state(s)${args.force ? ' (force)' : ''}`)
     await crawlOsmHoles(states, args.force, args.limit)
   } else if (args.source === 'enrich') {
     console.log(
-      `Enrich crawl: ${states.length} state(s)${args.force ? ' (force)' : ''}`,
+      `Enrich crawl: ${states.length} state(s)${args.force ? ' (force)' : ''}` +
+        (args.maxCourses != null ? ` (budget ${args.maxCourses} courses)` : ''),
     )
-    await crawlEnrich(states, args.force, args.limit)
+    await crawlEnrich(states, args.force, args.limit, args.maxCourses)
   } else {
     // osm-first: phase 1 = OSM coverage, phase 2 = OpenGolfAPI enrichment.
-    console.log(
-      `OSM-first crawl: ${states.length} state(s)${args.force ? ' (force)' : ''}`,
-    )
+    console.log(`OSM-first crawl: ${states.length} state(s)${args.force ? ' (force)' : ''}`)
     await crawlOsm(states, args.force, args.limit)
-    await crawlEnrich(states, args.force, args.limit)
+    await crawlEnrich(states, args.force, args.limit, args.maxCourses)
   }
 }
 

@@ -132,6 +132,7 @@ export interface Args {
   force: boolean
   status: boolean
   limit: number | null // optional cap on courses per state (for testing)
+  maxCourses: number | null // global cap on API-processed courses this run (enrich rate-limit budget)
 }
 
 export interface CrawlStateRow {

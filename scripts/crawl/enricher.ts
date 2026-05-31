@@ -448,11 +448,17 @@ export async function crawlEnrich(
   states: string[],
   force: boolean,
   limit: number | null,
+  maxCourses: number | null = null,
 ): Promise<void> {
   let totalEnriched = 0
   let totalUnmatched = 0
   let totalSkipped = 0
   let totalErrors = 0
+  // Global rate-limit budget: courses that have hit the OpenGolfAPI this run
+  // (matched or no-match — both cost calls). Lets a daily cron stay under the
+  // ~900/day cap and resume next run via the teedSet skip + in-progress state.
+  let apiProcessed = 0
+  let budgetReached = false
   for (const state of states) {
     const crawlId = `enrich:state:${state}`
     const prev = await getCrawlState(crawlId)
@@ -536,6 +542,11 @@ export async function crawlEnrich(
           totalSkipped++
           continue
         }
+        if (maxCourses != null && apiProcessed >= maxCourses) {
+          budgetReached = true
+          break
+        }
+        apiProcessed++
         try {
           const match = await findOgaMatchForCourse(
             course.name,
@@ -577,14 +588,21 @@ export async function crawlEnrich(
         await sleep(perReqDelay)
       }
 
-      await setCrawlState(crawlId, {
-        status: 'done',
-        itemsProcessed: stateProcessed,
-        errorMessage: null,
-      })
-      console.log(
-        `[enrich:${state}] done — ${stateEnriched} enriched, ${stateUnmatched} no-match, ${stateErrors} errors`,
-      )
+      if (budgetReached) {
+        await setCrawlState(crawlId, { itemsProcessed: stateProcessed })
+        console.log(
+          `[enrich:${state}] paused — ${maxCourses}-course daily budget reached (${stateEnriched} enriched so far; state left in-progress to resume next run)`,
+        )
+      } else {
+        await setCrawlState(crawlId, {
+          status: 'done',
+          itemsProcessed: stateProcessed,
+          errorMessage: null,
+        })
+        console.log(
+          `[enrich:${state}] done — ${stateEnriched} enriched, ${stateUnmatched} no-match, ${stateErrors} errors`,
+        )
+      }
     } catch (err) {
       const e = err as Error
       console.error(`[enrich:${state}] fatal: ${e.message}`)
@@ -598,6 +616,7 @@ export async function crawlEnrich(
         errorMessage: e.message,
       })
     }
+    if (budgetReached) break // stop touching further states this run
   }
   console.log(
     `\nEnrichment complete: ${totalEnriched} enriched, ${totalUnmatched} no-match, ${totalSkipped} already-teed, ${totalErrors} errors`,
