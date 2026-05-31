@@ -11,14 +11,7 @@
 // courses, imperfect for adjacent multi-course facilities (see #267). Runs are
 // idempotent: courses that already have hole geometry are skipped, so it never
 // clobbers hand-curated data and is safe to re-run / resume.
-import {
-  OSM_DELAY_MS,
-  OVERPASS_ENDPOINTS,
-  STATE_BBOX,
-  asInt,
-  haversineMeters,
-  sleep,
-} from './util'
+import { OSM_DELAY_MS, OVERPASS_ENDPOINTS, STATE_BBOX, asInt, haversineMeters, sleep } from './util'
 import {
   fetchCoursesWithHoleGeometry,
   fetchOsmCoursesGeoForState,
@@ -26,12 +19,7 @@ import {
   setCrawlState,
   upsertHoleGeometry,
 } from './db-writer'
-import type {
-  CourseGeo,
-  OgaHoleGeo,
-  OverpassGeomElement,
-  OverpassGeomResponse,
-} from './types'
+import type { CourseGeo, OgaHoleGeo, OverpassGeomElement, OverpassGeomResponse } from './types'
 
 interface Pt {
   lat: number
@@ -159,10 +147,7 @@ out geom tags;
 
 // Assign each hole way to its nearest course centroid (within radius), keeping
 // the nearest hole per ref, then build numbered holes with oriented geometry.
-function buildHolesForCourses(
-  courses: CourseGeo[],
-  f: HoleFeatures,
-): Map<string, OgaHoleGeo[]> {
+function buildHolesForCourses(courses: CourseGeo[], f: HoleFeatures): Map<string, OgaHoleGeo[]> {
   // course id -> ref -> { hole way, distance to that course }
   const byCourse = new Map<string, Map<number, { hw: HoleWay; d: number }>>()
   for (const hw of f.holeWays) {

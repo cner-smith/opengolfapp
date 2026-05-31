@@ -61,11 +61,7 @@ export async function upsertCourse(args: {
     if (error || !data) throw error ?? new Error('course update failed')
     return { id: data.id }
   }
-  const { data, error } = await supabase
-    .from('courses')
-    .insert(row)
-    .select('id')
-    .single()
+  const { data, error } = await supabase.from('courses').insert(row).select('id').single()
   if (error || !data) throw error ?? new Error('course insert failed')
   return { id: data.id }
 }
@@ -78,18 +74,13 @@ export async function upsertHoles(courseId: string, holes: OgaHole[]): Promise<v
     par: h.par,
     yards: h.yards ?? null,
   }))
-  const { error } = await supabase
-    .from('holes')
-    .upsert(rows, { onConflict: 'course_id,number' })
+  const { error } = await supabase.from('holes').upsert(rows, { onConflict: 'course_id,number' })
   if (error) throw error
 }
 
 // Like upsertHoles but also writes per-hole tee/pin geometry. Used by the
 // osm-holes pass. Same (course_id, number) conflict target.
-export async function upsertHoleGeometry(
-  courseId: string,
-  holes: OgaHoleGeo[],
-): Promise<void> {
+export async function upsertHoleGeometry(courseId: string, holes: OgaHoleGeo[]): Promise<void> {
   if (holes.length === 0) return
   const rows = holes.map((h) => ({
     course_id: courseId,
@@ -101,18 +92,14 @@ export async function upsertHoleGeometry(
     pin_lat: h.pinLat ?? null,
     pin_lng: h.pinLng ?? null,
   }))
-  const { error } = await supabase
-    .from('holes')
-    .upsert(rows, { onConflict: 'course_id,number' })
+  const { error } = await supabase.from('holes').upsert(rows, { onConflict: 'course_id,number' })
   if (error) throw error
 }
 
 // Courses in a state that have a centroid (lat/lng). The osm-holes pass
 // assigns each OSM hole way to its nearest such course. Includes ALL coord
 // courses (OSM, OpenGolfAPI-enriched, and manually added), not just osm_%.
-export async function fetchOsmCoursesGeoForState(
-  state: string,
-): Promise<CourseGeo[]> {
+export async function fetchOsmCoursesGeoForState(state: string): Promise<CourseGeo[]> {
   const PAGE_SIZE = 500
   const all: CourseGeo[] = []
   let from = 0
@@ -186,11 +173,7 @@ export async function upsertTees(courseId: string, tees: OgaTee[]): Promise<void
 }
 
 export async function getCrawlState(id: string): Promise<CrawlStateRow | null> {
-  const { data, error } = await supabase
-    .from('crawl_state')
-    .select('*')
-    .eq('id', id)
-    .maybeSingle()
+  const { data, error } = await supabase.from('crawl_state').select('*').eq('id', id).maybeSingle()
   if (error) throw error
   return (data as CrawlStateRow | null) ?? null
 }
@@ -211,9 +194,7 @@ export async function setCrawlState(
   if (fields.status != null) row.status = fields.status
   if (fields.itemsProcessed != null) row.items_processed = fields.itemsProcessed
   if (fields.errorMessage !== undefined) row.error_message = fields.errorMessage
-  const { error } = await supabase
-    .from('crawl_state')
-    .upsert(row, { onConflict: 'id' })
+  const { error } = await supabase.from('crawl_state').upsert(row, { onConflict: 'id' })
   if (error) throw error
 }
 
@@ -221,9 +202,7 @@ export async function setCrawlState(
 // row cap is 1000 — paginating in 500-row chunks keeps us well under that
 // even if one state grows past it (and so we can see the ceiling in logs
 // instead of silently truncating).
-export async function fetchOsmCoursesForState(
-  state: string,
-): Promise<CourseRowMin[]> {
+export async function fetchOsmCoursesForState(state: string): Promise<CourseRowMin[]> {
   const PAGE_SIZE = 500
   const all: CourseRowMin[] = []
   let from = 0
@@ -281,10 +260,7 @@ export async function fetchAlreadyTeedCourseIds(
 // Update a course's external_id. Used by the enrichment pass to switch
 // OSM-discovered courses to the OpenGolfAPI key once a fuzzy match
 // confirms they're the same course.
-export async function updateCourseExternalId(
-  courseId: string,
-  externalId: string,
-): Promise<void> {
+export async function updateCourseExternalId(courseId: string, externalId: string): Promise<void> {
   const { error: updateErr } = await supabase
     .from('courses')
     .update({ external_id: externalId })

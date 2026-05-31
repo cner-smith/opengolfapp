@@ -45,10 +45,7 @@ async function fetchJson(url: string): Promise<unknown> {
 // Enrichment-path fetch. Never throws — returns null when the request can't be
 // recovered. Handles 429 (Retry-After-style sleep), 404 (silent miss), and one
 // retry on transient HTTP / network errors.
-async function fetchJsonResilient(
-  url: string,
-  label: string,
-): Promise<unknown | null> {
+async function fetchJsonResilient(url: string, label: string): Promise<unknown | null> {
   let failedAttempts = 0
   const MAX_ATTEMPTS = 2
   while (true) {
@@ -132,9 +129,7 @@ function normalizeListItem(raw: RawCourse): OgaListItem | null {
 }
 
 async function fetchStateCourseList(state: string): Promise<OgaListItem[]> {
-  const payload = await fetchJson(
-    `${OPENGOLFAPI_BASE}/courses/state/${encodeURIComponent(state)}`,
-  )
+  const payload = await fetchJson(`${OPENGOLFAPI_BASE}/courses/state/${encodeURIComponent(state)}`)
   const raws = pickArray(payload)
   const out: OgaListItem[] = []
   for (const raw of raws) {
@@ -204,9 +199,7 @@ function normalizeDetail(raw: RawCourse): OgaCourseDetail | null {
 }
 
 async function fetchOgaCourseDetail(id: string): Promise<OgaCourseDetail | null> {
-  const payload = await fetchJson(
-    `${OPENGOLFAPI_BASE}/courses/${encodeURIComponent(id)}`,
-  )
+  const payload = await fetchJson(`${OPENGOLFAPI_BASE}/courses/${encodeURIComponent(id)}`)
   // Detail endpoint may return the course object directly or wrapped under
   // { course } / { data }.
   let raw: RawCourse | null = null
@@ -372,9 +365,7 @@ export async function crawlOpenGolfApi(
             stateCount++
             totalSkipped++
             if (i % 100 === 0) {
-              console.log(
-                `[${state}] ${i + 1}/${targets.length} (skipped existing: ${item.name})`,
-              )
+              console.log(`[${state}] ${i + 1}/${targets.length} (skipped existing: ${item.name})`)
             }
             continue
           }
@@ -407,17 +398,13 @@ export async function crawlOpenGolfApi(
           stateCount++
 
           if ((i + 1) % 100 === 0 || i === targets.length - 1) {
-            console.log(
-              `[${state}] ${i + 1}/${targets.length} — last: ${detail.name}`,
-            )
+            console.log(`[${state}] ${i + 1}/${targets.length} — last: ${detail.name}`)
             await setCrawlState(crawlId, { itemsProcessed: stateCount })
           }
         } catch (err) {
           stateErrors++
           totalErrors++
-          console.warn(
-            `[${state}] ${item.id} (${item.name}): ${(err as Error).message}`,
-          )
+          console.warn(`[${state}] ${item.id} (${item.name}): ${(err as Error).message}`)
         }
         await sleep(OPENGOLFAPI_DELAY_MS)
       }
@@ -427,9 +414,7 @@ export async function crawlOpenGolfApi(
         itemsProcessed: stateCount,
         errorMessage: null,
       })
-      console.log(
-        `[${state}] done — ${stateCount} processed, ${stateErrors} errors`,
-      )
+      console.log(`[${state}] done — ${stateCount} processed, ${stateErrors} errors`)
     } catch (err) {
       console.error(`[${state}] fatal: ${(err as Error).message}`)
       await setCrawlState(crawlId, {
@@ -463,9 +448,7 @@ export async function crawlEnrich(
     const crawlId = `enrich:state:${state}`
     const prev = await getCrawlState(crawlId)
     if (prev?.status === 'done' && !force) {
-      console.log(
-        `[enrich:${state}] skip — already done (${prev.items_processed} courses)`,
-      )
+      console.log(`[enrich:${state}] skip — already done (${prev.items_processed} courses)`)
       continue
     }
     await setCrawlState(crawlId, { status: 'in_progress', errorMessage: null })
@@ -494,9 +477,7 @@ export async function crawlEnrich(
         })
         continue
       }
-      console.log(
-        `[enrich:${state}] fetched ${courses.length} courses from DB`,
-      )
+      console.log(`[enrich:${state}] fetched ${courses.length} courses from DB`)
       const targets = limit != null ? courses.slice(0, limit) : courses
       // Big states have hit OpenGolfAPI rate limits with the default 1100ms
       // cadence — bump to 2000ms when there's >200 to grind through.
@@ -515,9 +496,7 @@ export async function crawlEnrich(
           `[enrich:${state}] looking up existing tees for ${courseIds.length} course(s)...`,
         )
         teedSet = await fetchAlreadyTeedCourseIds(courseIds, `enrich:${state}`)
-        console.log(
-          `[enrich:${state}] ${teedSet.size} course(s) already have tees`,
-        )
+        console.log(`[enrich:${state}] ${teedSet.size} course(s) already have tees`)
       } catch (err) {
         const e = err as Error
         console.error(`[enrich:${state}] tees lookup failed:`, {
@@ -532,9 +511,7 @@ export async function crawlEnrich(
         continue
       }
 
-      console.log(
-        `[enrich:${state}] starting loop, first course: ${courses[0]?.name}`,
-      )
+      console.log(`[enrich:${state}] starting loop, first course: ${courses[0]?.name}`)
       for (let i = 0; i < targets.length; i++) {
         const course = targets[i]
         if (!course) continue
@@ -573,17 +550,13 @@ export async function crawlEnrich(
           stateEnriched++
           totalEnriched++
           if ((i + 1) % 50 === 0 || i === targets.length - 1) {
-            console.log(
-              `[enrich:${state}] ${i + 1}/${targets.length} — matched: ${course.name}`,
-            )
+            console.log(`[enrich:${state}] ${i + 1}/${targets.length} — matched: ${course.name}`)
             await setCrawlState(crawlId, { itemsProcessed: stateProcessed })
           }
         } catch (err) {
           stateErrors++
           totalErrors++
-          console.warn(
-            `[enrich:${state}] ${course.name}: ${(err as Error).message}`,
-          )
+          console.warn(`[enrich:${state}] ${course.name}: ${(err as Error).message}`)
         }
         await sleep(perReqDelay)
       }
