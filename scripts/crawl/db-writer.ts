@@ -5,8 +5,10 @@ import { supabase } from './client'
 import type {
   CrawlStateRow,
   CrawlStatus,
+  CourseGeo,
   CourseRowMin,
   OgaHole,
+  OgaHoleGeo,
   OgaTee,
 } from './types'
 
@@ -80,6 +82,90 @@ export async function upsertHoles(courseId: string, holes: OgaHole[]): Promise<v
     .from('holes')
     .upsert(rows, { onConflict: 'course_id,number' })
   if (error) throw error
+}
+
+// Like upsertHoles but also writes per-hole tee/pin geometry. Used by the
+// osm-holes pass. Same (course_id, number) conflict target.
+export async function upsertHoleGeometry(
+  courseId: string,
+  holes: OgaHoleGeo[],
+): Promise<void> {
+  if (holes.length === 0) return
+  const rows = holes.map((h) => ({
+    course_id: courseId,
+    number: h.number,
+    par: h.par,
+    yards: h.yards ?? null,
+    tee_lat: h.teeLat ?? null,
+    tee_lng: h.teeLng ?? null,
+    pin_lat: h.pinLat ?? null,
+    pin_lng: h.pinLng ?? null,
+  }))
+  const { error } = await supabase
+    .from('holes')
+    .upsert(rows, { onConflict: 'course_id,number' })
+  if (error) throw error
+}
+
+// Courses in a state that have a centroid (lat/lng). The osm-holes pass
+// assigns each OSM hole way to its nearest such course. Includes ALL coord
+// courses (OSM, OpenGolfAPI-enriched, and manually added), not just osm_%.
+export async function fetchOsmCoursesGeoForState(
+  state: string,
+): Promise<CourseGeo[]> {
+  const PAGE_SIZE = 500
+  const all: CourseGeo[] = []
+  let from = 0
+  while (true) {
+    const { data, error } = await supabase
+      .from('courses')
+      .select('id, lat, lng')
+      .eq('state', state)
+      .not('lat', 'is', null)
+      .not('lng', 'is', null)
+      .range(from, from + PAGE_SIZE - 1)
+    if (error) {
+      throw new Error(
+        `courses geo fetch failed (state=${state}, range=${from}-${from + PAGE_SIZE - 1}): ${error.message ?? JSON.stringify(error)}`,
+      )
+    }
+    const rows = (data ?? []) as { id: string; lat: number | null; lng: number | null }[]
+    for (const r of rows) {
+      if (r.lat != null && r.lng != null) all.push({ id: r.id, lat: r.lat, lng: r.lng })
+    }
+    if (rows.length < PAGE_SIZE) break
+    from += PAGE_SIZE
+  }
+  return all
+}
+
+// Course ids that already have at least one hole carrying coordinates. The
+// osm-holes pass skips these so it never clobbers hand-curated or previously
+// imported geometry (idempotent + safe to re-run). Chunked like the tee lookup.
+export async function fetchCoursesWithHoleGeometry(
+  courseIds: string[],
+  label: string,
+): Promise<Set<string>> {
+  const have = new Set<string>()
+  if (courseIds.length === 0) return have
+  const CHUNK = 200
+  for (let i = 0; i < courseIds.length; i += CHUNK) {
+    const chunk = courseIds.slice(i, i + CHUNK)
+    const { data, error } = await supabase
+      .from('holes')
+      .select('course_id')
+      .in('course_id', chunk)
+      .not('tee_lat', 'is', null)
+    if (error) {
+      throw new Error(
+        `[${label}] hole-geometry lookup failed (chunk ${i}-${i + chunk.length - 1}): ${error.message ?? JSON.stringify(error)}`,
+      )
+    }
+    for (const row of data ?? []) {
+      if (row.course_id) have.add(row.course_id)
+    }
+  }
+  return have
 }
 
 export async function upsertTees(courseId: string, tees: OgaTee[]): Promise<void> {

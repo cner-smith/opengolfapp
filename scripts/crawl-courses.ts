@@ -42,6 +42,7 @@ import {
   fetchAllCrawlState,
 } from './crawl/db-writer'
 import { crawlOsm } from './crawl/osm-fetcher'
+import { crawlOsmHoles } from './crawl/holes-fetcher'
 import {
   crawlEnrich,
   crawlOpenGolfApi,
@@ -58,7 +59,7 @@ function parseArgs(argv: string[]): Args {
     const a = argv[i]
     const next = argv[i + 1]
     if (a === '--source' && next) {
-      const allowed = ['opengolfapi', 'osm', 'osm-first', 'enrich'] as const
+      const allowed = ['opengolfapi', 'osm', 'osm-first', 'enrich', 'osm-holes'] as const
       if (!allowed.includes(next as Source)) {
         throw new Error(
           `--source must be one of ${allowed.join(', ')} (got: ${next})`,
@@ -120,6 +121,7 @@ async function main(): Promise<void> {
       'Missing --source. Usage:\n' +
         '  tsx scripts/crawl-courses.ts --source osm-first [--states TX,OK] [--force] [--limit N]\n' +
         '  tsx scripts/crawl-courses.ts --source osm [--states TX,OK] [--force]\n' +
+        '  tsx scripts/crawl-courses.ts --source osm-holes [--states TX,OK] [--force] [--limit N]\n' +
         '  tsx scripts/crawl-courses.ts --source enrich [--states TX,OK] [--force]\n' +
         '  tsx scripts/crawl-courses.ts --source opengolfapi [--states TX,OK] [--force]\n' +
         '  tsx scripts/crawl-courses.ts --status',
@@ -149,6 +151,11 @@ async function main(): Promise<void> {
   if (args.source === 'osm') {
     console.log(`OSM crawl: ${states.length} state(s)${args.force ? ' (force)' : ''}`)
     await crawlOsm(states, args.force, args.limit)
+  } else if (args.source === 'osm-holes') {
+    console.log(
+      `OSM hole-geometry crawl: ${states.length} state(s)${args.force ? ' (force)' : ''}`,
+    )
+    await crawlOsmHoles(states, args.force, args.limit)
   } else if (args.source === 'enrich') {
     console.log(
       `Enrich crawl: ${states.length} state(s)${args.force ? ' (force)' : ''}`,
