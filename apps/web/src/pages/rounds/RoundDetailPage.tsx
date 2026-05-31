@@ -368,6 +368,7 @@ export function RoundDetailPage() {
       ) : (
         <MapView
           holes={holes}
+          userId={user?.id}
           activeHoleNumber={activeHoleNumber}
           onSwitchHole={switchHole}
           activeHoleGeo={activeHoleGeo}

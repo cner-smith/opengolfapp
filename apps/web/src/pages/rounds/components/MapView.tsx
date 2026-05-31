@@ -7,6 +7,7 @@ import {
   type HoleGeo,
   type PlacedPoint,
 } from '../../../components/round/RoundMap'
+import { useClubDispersion } from '../hooks/useClubDispersion'
 
 // Lazy-load Mapbox GL JS only when the map tab is opened. Cuts ~2 MB off
 // the initial bundle for users who never leave the scorecard.
@@ -29,6 +30,8 @@ const FEET_PER_YARD = 3
 
 interface MapViewProps {
   holes: HoleRow[]
+  /** Current user id — feeds the dispersion-dots overlay's club history. */
+  userId: string | undefined
   activeHoleNumber: number
   onSwitchHole: (n: number) => void
   activeHoleGeo: HoleGeo | null
@@ -84,6 +87,7 @@ interface MapViewProps {
 
 export function MapView({
   holes,
+  userId,
   activeHoleNumber,
   onSwitchHole,
   activeHoleGeo,
@@ -139,6 +143,13 @@ export function MapView({
     placementMode == null &&
     (placedAims.some((a) => a != null) ||
       existingShots.some((s) => s.aimLat != null && s.aimLng != null))
+
+  // Single-color dispersion-dots overlay (Phase C). One shot-history query per
+  // session (memoized on userId); the dots only render once there's an active
+  // aim and the matched club has enough samples. Left-edge toggle, always
+  // present so the player can pre-arm it.
+  const [dotsVisible, setDotsVisible] = useState(false)
+  const { selectClub } = useClubDispersion(userId)
   const hasExistingShots = existingShots.some(
     (s) => s.endLat != null && s.endLng != null,
   )
@@ -282,9 +293,15 @@ export function MapView({
             overlayMode={overlayMode}
             arcWidthYards={arcWidthYards}
             circleRadiusYards={circleRadiusYards}
+            dotsVisible={dotsVisible}
+            selectClub={selectClub}
           />
         </Suspense>
         {reviewSheet}
+        <DotsToggle
+          active={dotsVisible}
+          onToggle={() => setDotsVisible((v) => !v)}
+        />
         {overlayControlsVisible && (
           <OverlayRail
             mode={overlayMode}
@@ -425,6 +442,51 @@ function OverlayRail({
           />
         ))}
       </div>
+    </div>
+  )
+}
+
+// Left-edge dispersion-dots toggle (web parity of the mobile left-toolbar
+// "grain" button). Always present so the player can pre-arm it; the dots only
+// render once there's an active aim and the matched club has data. Vertically
+// centered on the left, clear of the right-side rail.
+function DotsToggle({
+  active,
+  onToggle,
+}: {
+  active: boolean
+  onToggle: () => void
+}) {
+  return (
+    <div
+      style={{
+        position: 'absolute',
+        left: 12,
+        top: '50%',
+        transform: 'translateY(-50%)',
+        zIndex: 5,
+      }}
+    >
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-pressed={active}
+        title="Toggle your shot-pattern dots"
+        className="font-mono uppercase"
+        style={{
+          padding: '8px 12px',
+          borderRadius: 12,
+          border: 'none',
+          cursor: 'pointer',
+          background: active ? '#FBF8F1' : 'rgba(28,33,28,0.82)',
+          color: active ? '#1C211C' : '#F2EEE5',
+          fontSize: 10,
+          fontWeight: active ? 700 : 500,
+          letterSpacing: '0.12em',
+        }}
+      >
+        Pattern
+      </button>
     </div>
   )
 }

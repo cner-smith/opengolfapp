@@ -2,7 +2,7 @@ import { useMemo, useRef } from 'react'
 import type { ShotMarkerCategory } from '@oga/core'
 import { MAPBOX_TOKEN_PRESENT } from '../../lib/mapbox'
 import { useMapSetup } from './map/useMapSetup'
-import { useMapLayers } from './map/useMapLayers'
+import { useMapLayers, type ClubPick } from './map/useMapLayers'
 
 // Re-export the instruction strip so existing imports
 // (`{ RoundMapInstructionStrip } from '.../RoundMap'`) keep working.
@@ -96,6 +96,9 @@ interface RoundMapProps {
   overlayMode?: 'tee' | 'appr'
   arcWidthYards?: number
   circleRadiusYards?: number
+  /** Single-color dispersion-dots overlay (Phase C). Toggle + club picker. */
+  dotsVisible?: boolean
+  selectClub?: (distanceToTargetYards: number | null) => ClubPick | null
 }
 
 export function RoundMap({
@@ -121,6 +124,8 @@ export function RoundMap({
   overlayMode = 'tee',
   arcWidthYards = 0,
   circleRadiusYards = 0,
+  dotsVisible = false,
+  selectClub = () => null,
 }: RoundMapProps) {
   // Memoized so downstream effects can dep on the object directly without
   // thrashing on every parent render — coords are the only meaningful
@@ -206,6 +211,8 @@ export function RoundMap({
     overlayMode,
     arcWidthYards,
     circleRadiusYards,
+    dotsVisible,
+    selectClub,
     onMovePoint,
     onMovePin,
     onMoveTee,

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, type MutableRefObject } from 'react'
 import { mapboxgl } from '../../../lib/mapbox'
-import { arcGeoJSON, circleGeoJSON, haversineYards } from '@oga/core'
+import { arcGeoJSON, circleGeoJSON, haversineYards, scatterGeoJSON } from '@oga/core'
 import { useUnits } from '../../../hooks/useUnits'
 import type { ExistingShot, PlacedPoint } from '../RoundMap'
 import {
@@ -18,7 +18,15 @@ import {
   upsertCircleFill,
   upsertDashedLines,
   upsertLine,
+  upsertScatter,
 } from './lineHelpers'
+
+// Minimal structural shape of the club dispersion picked by selectClub — kept
+// local so this map hook doesn't import a page-level hook type. Structurally
+// compatible with useClubDispersion's ClubDispersion.
+export type ClubPick = {
+  dispersion: { points: { alongYards: number; perpYards: number }[] }
+}
 
 interface UseMapLayersInput {
   mapRef: MutableRefObject<mapboxgl.Map | null>
@@ -34,6 +42,11 @@ interface UseMapLayersInput {
   overlayMode: 'tee' | 'appr'
   arcWidthYards: number
   circleRadiusYards: number
+  /** Single-color dispersion-dots toggle + the club picker. When on and a club
+   *  resolves for the active shot's distance, its history scatters around the
+   *  aim. selectClub falls back to the longest club for a null distance. */
+  dotsVisible: boolean
+  selectClub: (distanceToTargetYards: number | null) => ClubPick | null
   onMovePoint: (idx: number, point: PlacedPoint) => void
   onMovePin: ((point: PlacedPoint) => void) | undefined
   onMoveTee: ((point: PlacedPoint) => void) | undefined
@@ -69,6 +82,8 @@ export function useMapLayers({
   overlayMode,
   arcWidthYards,
   circleRadiusYards,
+  dotsVisible,
+  selectClub,
   onMovePoint,
   onMovePin,
   onMoveTee,
@@ -375,6 +390,32 @@ export function useMapLayers({
         : []
     upsertCircleFill(map, 'aim-circle', circleRing, AIM_COLOR)
 
+    // Single-color dispersion dots: the club whose median carry best matches
+    // the active shot's ball→pin distance (longest club when no pin), scattered
+    // aim-relative around the active aim. Sparse clubs resolve to null → no
+    // dots (silent). Always upserted so toggling off / switching shots clears.
+    let dotCoords: [number, number][] = []
+    if (dotsVisible && activeSeg) {
+      const ballToPin =
+        effectivePin != null
+          ? haversineYards(
+              activeSeg.start[1],
+              activeSeg.start[0],
+              effectivePin.lat,
+              effectivePin.lng,
+            )
+          : null
+      const club = selectClub(ballToPin)
+      if (club && club.dispersion.points.length > 0) {
+        dotCoords = scatterGeoJSON(
+          { lat: activeSeg.start[1], lng: activeSeg.start[0] },
+          { lat: activeSeg.aim[1], lng: activeSeg.aim[0] },
+          club.dispersion.points,
+        ).features.map((f) => f.geometry.coordinates)
+      }
+    }
+    upsertScatter(map, 'aim-dots', dotCoords, AIM_COLOR)
+
     // Non-active segments stay on their original source so switching flow
     // (placed ↔ saved) clears the other source cleanly. The active seg is
     // dropped from whichever set it belongs to.
@@ -471,6 +512,8 @@ export function useMapLayers({
     overlayMode,
     arcWidthYards,
     circleRadiusYards,
+    dotsVisible,
+    selectClub,
     toDisplay,
   ])
 

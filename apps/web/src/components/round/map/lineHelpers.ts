@@ -181,3 +181,39 @@ export function upsertCircleFill(
     paint: { 'line-color': color, 'line-width': 1.5, 'line-opacity': 0.9 },
   })
 }
+
+// Single-color dispersion DOTS (the player's aim-relative shot history scattered
+// around the target). `points` is the projected [lng, lat] list from
+// scatterGeoJSON; rendered as a CircleLayer (one small dot each, dark hairline
+// for contrast on satellite). Pass [] to clear.
+export function upsertScatter(
+  map: mapboxgl.Map,
+  sourceId: string,
+  points: [number, number][],
+  color: string,
+) {
+  const layerId = `${sourceId}-layer`
+  const data: GeoJSON.Feature<GeoJSON.MultiPoint> = {
+    type: 'Feature',
+    properties: {},
+    geometry: { type: 'MultiPoint', coordinates: points },
+  }
+  const src = map.getSource(sourceId) as mapboxgl.GeoJSONSource | undefined
+  if (src) {
+    src.setData(data)
+    return
+  }
+  map.addSource(sourceId, { type: 'geojson', data })
+  map.addLayer({
+    id: layerId,
+    type: 'circle',
+    source: sourceId,
+    paint: {
+      'circle-radius': 3,
+      'circle-color': color,
+      'circle-opacity': 0.55,
+      'circle-stroke-width': 0.5,
+      'circle-stroke-color': '#1C211C',
+    },
+  })
+}
