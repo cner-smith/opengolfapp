@@ -100,7 +100,7 @@ export function useClubDispersion(
     getShotsForUser(supabase, userId).then(({ data, error }) => {
       if (!active) return
       if (error && import.meta.env.DEV) {
-        // eslint-disable-next-line no-console
+        // eslint-disable-next-line no-console -- dev diagnostic; the dots are an optional overlay that degrades to none on error (no user-facing toast warranted)
         console.error('[useClubDispersion/getShotsForUser]', error.message)
       }
       setRows((data as ShotRow[] | null) ?? [])
