@@ -458,12 +458,30 @@ export function HoleMap({
     },
     [onSetAim],
   )
-  // Static child — memoized so the PureComponent never re-bitmaps it. 80pt
-  // transparent hit area around a small center grab-dot.
+  // Static child — memoized so the PureComponent never re-bitmaps it.
+  // @rnmapbox PointAnnotation hit-tests the OPAQUE pixels of the rendered
+  // bitmap, NOT the React View frame — so a fully transparent pad is not
+  // grabbable and only the tiny dot was draggable. A visible translucent 48pt
+  // disc gives a real ~48pt opaque touch target (and shows the grab zone). The
+  // outer 80pt box just centers it. Proper fix is a MarkerView + gesture-handler
+  // rewrite — see the tracking issue.
   const aimHandle = useMemo(
     () => (
       <View style={{ width: 80, height: 80, alignItems: 'center', justifyContent: 'center' }}>
-        <Marker color="#A66A1F" border="#FBF8F1" size={9} />
+        <View
+          style={{
+            width: 48,
+            height: 48,
+            borderRadius: 24,
+            backgroundColor: 'rgba(166,106,31,0.22)',
+            borderWidth: 1.5,
+            borderColor: 'rgba(166,106,31,0.6)',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <Marker color="#A66A1F" border="#FBF8F1" size={9} />
+        </View>
       </View>
     ),
     [],
@@ -823,14 +841,17 @@ export function HoleMap({
                 onSetBall(c)
               }}
             >
-              {/* 44pt transparent hit area so the marker is comfortable
-                  to grab one-handed — Apple HIG minimum target size.
-                  The visual marker stays small; the touchable area
-                  extends well past it. */}
+              {/* Translucent 44pt grab disc. PointAnnotation hit-tests the
+                  opaque bitmap pixels, not the View frame, so a transparent
+                  pad isn't grabbable — the filled disc IS the touch target. */}
               <View
                 style={{
                   width: 44,
                   height: 44,
+                  borderRadius: 22,
+                  backgroundColor: 'rgba(31,61,44,0.20)',
+                  borderWidth: 1.5,
+                  borderColor: 'rgba(31,61,44,0.55)',
                   alignItems: 'center',
                   justifyContent: 'center',
                 }}
