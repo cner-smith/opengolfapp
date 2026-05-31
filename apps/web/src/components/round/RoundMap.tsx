@@ -8,6 +8,13 @@ import { useMapLayers, type ClubPick } from './map/useMapLayers'
 // (`{ RoundMapInstructionStrip } from '.../RoundMap'`) keep working.
 export { RoundMapInstructionStrip } from './map/RoundMapInstructionStrip'
 
+// Stable no-op default for the optional `selectClub` prop. A module constant so
+// the identity never changes — an inline `() => null` default would be a fresh
+// function each render and, since selectClub is in useMapLayers' renderLayers
+// dependency array, would tear down + rebuild every marker on each parent render.
+const NO_CLUB_PICK: (distanceToTargetYards: number | null) => ClubPick | null =
+  () => null
+
 export interface HoleGeo {
   id: string
   number: number
@@ -127,7 +134,7 @@ export function RoundMap({
   arcWidthYards = 0,
   circleRadiusYards = 0,
   dotsVisible = false,
-  selectClub = () => null,
+  selectClub = NO_CLUB_PICK,
   handicap = DEFAULT_HANDICAP,
 }: RoundMapProps) {
   // Memoized so downstream effects can dep on the object directly without
