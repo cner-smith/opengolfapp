@@ -15,6 +15,7 @@ import type { Database } from '@oga/supabase'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
 import { AppBar } from '../../components/ui/AppBar'
+import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
 
 type Profile = Database['public']['Tables']['profiles']['Row']
 type SkillLevel = Profile['skill_level']
@@ -65,6 +66,22 @@ export default function ProfileTab() {
   const [emailSummaries, setEmailSummaries] = useState(true)
   const [saving, setSaving] = useState(false)
   const [usernameTouched, setUsernameTouched] = useState(false)
+  const [deleteOpen, setDeleteOpen] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+
+  async function deleteAccount() {
+    setDeleting(true)
+    const { error } = await supabase.rpc('delete_my_account')
+    if (error) {
+      setDeleting(false)
+      setDeleteOpen(false)
+      Alert.alert('Could not delete account', error.message)
+      return
+    }
+    // Deleting the auth row leaves the current JWT valid until sign-out, so
+    // clear the session explicitly; the auth listener then redirects to login.
+    await supabase.auth.signOut()
+  }
 
   const trimmedUsername = username.trim()
   const usernameInvalid =
@@ -439,7 +456,27 @@ export default function ProfileTab() {
             Sign out
           </Text>
         </Pressable>
+
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Delete account"
+          onPress={() => setDeleteOpen(true)}
+          style={{ paddingVertical: 12, alignItems: 'center' }}
+        >
+          <Text style={{ ...KICKER, color: '#A33A2A' }}>Delete account</Text>
+        </Pressable>
       </ScrollView>
+
+      <ConfirmDialog
+        visible={deleteOpen}
+        title="Delete your OGA account?"
+        message="This will permanently delete your account and all rounds, shots, and saved data. This cannot be undone."
+        confirmLabel="Delete account"
+        destructive
+        busy={deleting}
+        onConfirm={deleteAccount}
+        onCancel={() => setDeleteOpen(false)}
+      />
     </View>
   )
 }
