@@ -12,14 +12,10 @@ interface AimGhostHookOpts {
   ball: LatLng | null | undefined
   aim: LatLng | null | undefined
   phase: HoleMapPhase
-  // Whether the SET_AIM exit is a real shot commit (roundState →
-  // SHOT_DETAIL / PUTTING) vs a "Re-place ball" backout (roundState →
-  // bare PLACE_BALL). The HoleMap `phase` collapses both to PLACE_BALL
-  // (HoleMapPhase has no SHOT_DETAIL/PUTTING), so the string alone can't
-  // tell a committed shot from an abandoned aim — promoting on every exit
-  // would re-introduce the duplicate-ghost bug (commit 4670661), dropping
-  // on every exit means no ghost ever records. This flag, derived from the
-  // raw roundState in LiveRoundSession, is the authoritative discriminator.
+  // Authoritative "was this a real shot commit?" flag, derived from the raw
+  // roundState in LiveRoundSession. HoleMap's `phase` collapses a commit and
+  // a "Re-place ball" backout into the same PLACE_BALL, so the phase string
+  // alone can't tell them apart. See the promote effect below for how it's used.
   aimCommitted: boolean
   // Explicit hole-change signal. The prior "previousShotsLen === 0"
   // heuristic worked when HoleMap remounted per hole, but in the
