@@ -19,6 +19,13 @@ interface UseHoleStateInput {
   isPastMode: boolean
   storedPin: LatLng | null
   roundPin: LatLng | null
+  /** Hole's tee-box coords, used to default shot 1's ball marker so the
+   *  player starts from the tee rather than an empty map. Null on holes
+   *  without layout. */
+  tee: LatLng | null
+  /** Whether any shot has been logged on this hole yet (remote + pending).
+   *  The tee default only applies on shot 1 (no prior shots). */
+  hasPriorShots: boolean
 }
 
 export interface UseHoleStateResult {
@@ -48,6 +55,8 @@ export function useHoleState({
   isPastMode,
   storedPin,
   roundPin,
+  tee,
+  hasPriorShots,
 }: UseHoleStateInput): UseHoleStateResult {
   const [aim, setAim] = useState<LatLng | null>(null)
   // Auto-spawned aims start untouched; flipped true by a user drag/long-press
@@ -317,6 +326,20 @@ export function useHoleState({
     setAim(null)
     setRoundState('PLACE_BALL')
   }, [currentHoleId])
+
+  // Default shot 1's ball marker to the tee box so the player starts from a
+  // sensible point instead of an empty map. This is only an INITIAL default:
+  // live GPS (PLACE_BALL effect above) and manual drag both overwrite it, and
+  // the `!ball` guard means it never clobbers a ball GPS/the player already
+  // placed. Gated to shot 1 (no prior shots), PLACE_BALL, live mode, and a
+  // known tee. Past mode places shots by hand, so it's excluded.
+  useEffect(() => {
+    if (isPastMode) return
+    if (hasPriorShots) return
+    if (roundState !== 'PLACE_BALL') return
+    if (ball || !tee) return
+    setBall({ lat: tee.lat, lng: tee.lng })
+  }, [isPastMode, hasPriorShots, roundState, ball, tee?.lat, tee?.lng])
 
   // Stop GPS when the app backgrounds. The native location callback
   // fires into a null JS module if the OS tears down the app while a
