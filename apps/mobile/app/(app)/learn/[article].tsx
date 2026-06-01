@@ -2,37 +2,8 @@ import { Linking, Pressable, ScrollView, Text, View } from 'react-native'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { findLearnArticle } from '@oga/core'
 import { AppBar } from '../../../components/ui/AppBar'
-
-const KICKER: import('react-native').TextStyle = {
-  color: '#8A8B7E',
-  fontSize: 10,
-  fontWeight: '500',
-  letterSpacing: 1.4,
-  textTransform: 'uppercase',
-}
-
-const TITLE: import('react-native').TextStyle = {
-  color: '#1C211C',
-  fontSize: 26,
-  fontStyle: 'italic',
-  fontWeight: '500',
-  lineHeight: 32,
-  marginBottom: 14,
-}
-
-const BODY: import('react-native').TextStyle = {
-  color: '#1C211C',
-  fontSize: 15,
-  lineHeight: 22,
-  marginBottom: 14,
-}
-
-const SUBKICKER: import('react-native').TextStyle = {
-  ...KICKER,
-  color: '#5C6356',
-  marginTop: 14,
-  marginBottom: 10,
-}
+import { BODY, KICKER, SUBKICKER, TITLE } from '../../../components/learn/primitives'
+import { MOBILE_ARTICLES } from '../../../components/learn/articles'
 
 export default function ArticleScreen() {
   const router = useRouter()
@@ -136,9 +107,10 @@ function LiveArticle({ id }: { id: string }) {
       return <MentalGameArticle />
     case 'skill-games-pressure-games':
       return <SkillGamesArticle />
-    default:
-      return <StubBody title="Article" />
   }
+  const Ported = MOBILE_ARTICLES[id]
+  if (Ported) return <Ported />
+  return <StubBody title="Article" />
 }
 
 function StrokesGainedArticle() {

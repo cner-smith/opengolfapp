@@ -1,0 +1,649 @@
+import { Text, View } from 'react-native'
+import Svg, { Circle, Line, Text as SvgText } from 'react-native-svg'
+import {
+  ArticleHeader,
+  ArticleFooter,
+  BulletList,
+  Callout,
+  Em,
+  Figure,
+  H3,
+  Hr,
+  Link,
+  P,
+  Sources,
+  Strong,
+  KICKER,
+  C,
+} from '../primitives'
+
+export function SwingVariationsArticle() {
+  return (
+    <View>
+      <ArticleHeader
+        kicker="Improving your game · Draft"
+        title="Swing your swing."
+      />
+
+      <P>
+        Almost all golf instruction quietly assumes one student: a flexible,
+        able-bodied, average-height, right-handed player with a full, painless
+        turn. If that's not you — and for most golfers it isn't — a tip built for
+        that body can be useless or worse. The evidence for this is sitting in the
+        Hall of Fame, where some of the best players who ever lived swung in ways
+        a textbook would red-pen. There is no single correct golf swing. There is,
+        however, an <Em>easier</Em> swing for your body — one that's more
+        repeatable and less likely to hurt you — and a well-trained coach is the
+        fastest way to find it.
+      </P>
+
+      <Hr />
+
+      <H3>Before you take advice from anyone</H3>
+      <P>
+        Generic tips are optimized for the average golfer. Before you take one
+        from a video or an article, run it through a few honest questions:
+      </P>
+      <Checklist
+        items={[
+          'Am I as flexible as this instructor assumes?',
+          'Do I have an injury or limitation that affects how far I can rotate?',
+          'Is this person built like me — similar height, age, mobility?',
+          'Is this tip aimed at my actual miss, or is it generic?',
+          'Is it written for my handedness?',
+          'What is it quietly assuming about my swing that may not be true of mine?',
+        ]}
+      />
+      <P>
+        None of this means ignore instruction. It means apply it critically — a
+        tip that transformed someone built nothing like you is a hypothesis for
+        your swing, not a prescription.
+      </P>
+
+      <Hr />
+
+      <H3>The proof: great swings that broke the rules</H3>
+      <P>
+        If there were one correct swing, the best players in the world would all
+        own it. They emphatically don't. A short, non-exhaustive list of
+        "incorrect" swings that won at the highest level:
+      </P>
+      <HallOfFame />
+      <P>
+        The pattern isn't that technique doesn't matter — it matters enormously.
+        It's that each of these players found a motion that was repeatable for{' '}
+        <Em>their</Em> body and then owned it, instead of grinding toward a
+        position someone else's body was built for.
+      </P>
+
+      <Hr />
+
+      <H3>Every striking sport finds the same thing</H3>
+      <P>
+        Golf isn't special here. Sports science has spent decades studying how
+        athletes swing implements and throw objects — baseball pitches and swings,
+        the tennis serve, the javelin and hammer, cricket, hockey — and two
+        findings keep surfacing that map straight onto the golf swing.
+      </P>
+      <P>
+        The first: there is no single optimal movement. The motor-control pioneer
+        Nikolai Bernstein described skilled action as{' '}
+        <Em>"repetition without repetition"</Em> — even an expert never repeats a
+        motion exactly, and, counterintuitively, experts vary <Em>more</Em> than
+        beginners, because many different movement solutions reach the same
+        result. Studies of elite throwers land in the same place, calling for
+        individualized technical profiling rather than one template for everyone.
+      </P>
+      <P>
+        The second: what good technique shares isn't a position, it's a sequence.
+        Across pitching, the tennis serve, the javelin and the rest, power comes
+        from a kinetic chain that fires from the ground up — legs and trunk first,
+        then out to the fast, distal end: the hand, the racquet head, the
+        clubface. The shape of the motion varies from athlete to athlete; the
+        order doesn't. It's why a shorter, well-sequenced backswing so often beats
+        a long one that loses its timing — the same thing a pitching coach drills.
+      </P>
+      <P>
+        Together they're just "swing your swing" in lab form: build a motion your
+        body can sequence and repeat, rather than chasing a specific position
+        borrowed from a body unlike yours. The Hall of Fame and the biomechanics
+        literature agree.
+      </P>
+
+      <Hr />
+
+      <H3>Your body shapes your swing</H3>
+      <P>
+        Height, build, mobility, and handedness all change what a sound setup and
+        swing look like for you. These are tendencies, not rules — but they're a
+        better starting point than a one-size template.
+      </P>
+      <BodyTypeTable />
+      <P>
+        Notice how much of this is about equipment as well as motion. A swing and
+        the clubs that swing it are one system; fitting one to your body without
+        the other leaves performance on the table.
+      </P>
+
+      <Hr />
+
+      <H3>Schools of thought</H3>
+      <P>
+        "Swing plane" — roughly, how upright or flat the club travels — is where
+        much of the genuine expert disagreement lives. These are perspectives with
+        serious adherents, not a ranking. Most of the debate runs along a line
+        from steep and upright to flat and rotary, with single-plane methods at
+        one end.
+      </P>
+      <PlaneSpectrum />
+      <BulletList
+        items={[
+          <Text>
+            <Strong>The modern tour swing.</Strong> Big separation between the
+            shoulders and hips at the top — what Jim McLean popularized in 1992 as
+            the <Em>X-Factor</Em> — plus heavy use of the ground for speed. It's
+            what most online instruction assumes, and it produces enormous power.
+            It also asks for real flexibility, and its importance is genuinely
+            disputed: a number of teachers argue that chasing maximum X-Factor adds
+            lower-back stress for modest gain. Powerful, but not free, and not for
+            every body.
+          </Text>,
+          <Text>
+            <Strong>The classic flatter plane (Hogan).</Strong> Ben Hogan's{' '}
+            <Em>Five Lessons</Em> and its famous "pane of glass" image describe a
+            flatter, on-plane move that's still hugely influential. Tellingly, even
+            Hogan's plane isn't universal: as instructors have long noted, shorter
+            players tend to work above that pane and taller players below it — proof
+            that the most famous swing model in print still has to bend to the body
+            using it.
+          </Text>,
+          <Text>
+            <Strong>The single-plane swing (Moe Norman / Graves).</Strong> Club,
+            arms, and body set on essentially one plane at address and impact,
+            stripping out moving parts. Moe Norman — whom Sam Snead and others
+            called the greatest ball-striker who ever lived — built it intuitively;
+            Todd Graves, taught directly by Norman, now teaches it through the
+            Graves Golf Academy. Fewer moving parts and low spinal stress make it
+            worth a look for players who fight conventional complexity or have back
+            limitations.
+          </Text>,
+          <Text>
+            <Strong>Stack and Tilt.</Strong> Created by instructors Mike Bennett and
+            Andy Plummer, it keeps the weight forward over the lead side throughout
+            the swing to kill lateral sway. Controversial, but with real tour
+            adherents over the years (Aaron Baddeley and Mike Weir among them), and
+            potentially friendlier to limited hip mobility.
+          </Text>,
+          <Text>
+            <Strong>Rotary, body-driven methods.</Strong> A family of approaches
+            that lead with body rotation over hand and arm manipulation, on the
+            argument that fewer timing-dependent parts make the swing more
+            repeatable and easier on the body.
+          </Text>,
+        ]}
+      />
+
+      <P>
+        Other respected methods aren't really about plane at all — they're about
+        making the motion simpler, more repeatable, or kinder to the body, which
+        is the same goal reached through a different door.
+      </P>
+      <BulletList
+        items={[
+          <Text>
+            <Strong>Peak Performance (Don Trahan).</Strong> A short, vertical,
+            limited-turn backswing — "a little turn, a lot of lift" — that Trahan
+            built with orthopedic input to be easy on the back and friendly to
+            players who've lost flexibility, while arguing it gives up little or no
+            clubhead speed.
+          </Text>,
+          <Text>
+            <Strong>The A Swing (David Leadbetter).</Strong> An "alternative" that
+            rebuilds the backswing to be simpler and more repeatable, so the
+            downswing becomes mostly a reaction — aimed squarely at golfers who
+            can't groove the conventional move.
+          </Text>,
+          <Text>
+            <Strong>Swing the clubhead (Manuel de la Torre).</Strong> A feel-first
+            school in the Ernest Jones tradition: focus on swinging the club itself
+            rather than choreographing body positions, trusting the body to follow a
+            correct clubhead motion. De la Torre was the PGA's first National
+            Teacher of the Year, in 1986.
+          </Text>,
+        ]}
+      />
+
+      <P>
+        The honest takeaway is not "pick the right one." It's that a method which
+        transforms one golfer can fight another's body outright — so the question
+        is never "which swing is correct," but "which of these fits the body I
+        actually have."
+      </P>
+
+      <Hr />
+
+      <H3>Physical conditions and adaptations</H3>
+      <Callout>
+        <Text style={{ color: C.ink, fontSize: 14, lineHeight: 22 }}>
+          <Strong>This is general information, not medical advice.</Strong> If you
+          have any of the conditions below, get cleared by a medical professional
+          and work with a TPI-certified instructor <Em>before</Em> changing your
+          swing or starting intensive practice. The notes here are starting points
+          for that conversation, not prescriptions.
+        </Text>
+      </Callout>
+      <BulletList
+        items={[
+          <Text>
+            <Strong>Scoliosis.</Strong> Spinal curvature can make a high-torque
+            rotational swing a poor fit; a flatter, more arms-based or single-plane
+            motion may put less stress on the spine. This is exactly the case for a
+            physical screening before any intensive change.
+          </Text>,
+          <Text>
+            <Strong>Hip replacement or hip limitations.</Strong> Weight shift and
+            hip clearance are affected. Methods that reduce lateral movement (such
+            as single-plane or weight-forward styles) and a wider, more stable
+            stance can lower the demand on the hip.
+          </Text>,
+          <Text>
+            <Strong>Shoulder injury or limited shoulder mobility.</Strong> Backswing
+            length and follow-through are the first things to give. A shorter, more
+            controlled backswing that prioritizes solid contact usually beats
+            forcing a full turn you don't have.
+          </Text>,
+          <Text>
+            <Strong>Back injury or fused vertebrae.</Strong> When rotation is
+            restricted or gone, arms-dominant, minimal-rotation swings are the
+            adaptation, and Moe Norman's low-stress single-plane motion is worth
+            studying. Medical clearance first, always.
+          </Text>,
+          <Text>
+            <Strong>One-arm and adaptive golfers.</Strong> Competitive one-arm and
+            adaptive players exist and thrive. The mechanics are genuinely different,
+            not a tweak of the standard swing, and specialized adaptive instruction
+            exists to teach them.
+          </Text>,
+        ]}
+      />
+
+      <Hr />
+
+      <H3>How a good coach finds your swing</H3>
+      <P>
+        This is where a well-trained teacher earns their fee. The Titleist
+        Performance Institute (TPI) has done the most rigorous work on what it
+        calls the <Em>body-swing connection</Em> — mapping specific physical
+        limitations to the swing characteristics they tend to produce. A TPI
+        screening identifies what your body can and can't do <Em>before</Em> you
+        try to change anything, which is often more valuable than any single swing
+        tip.
+      </P>
+      <P>
+        That's the practical core of "swing your swing." A good coach assesses
+        your body first and prescribes to it; a good fitter measures your impact
+        and ball flight rather than textbook numbers; and the right equipment is
+        built to fit the swing your body actually makes. As the companion guides on
+        lessons and on the questions to ask your coach put it — the teacher worth
+        hiring is the one who looks at you before they look at a model.
+      </P>
+
+      <Hr />
+
+      <H3>The bottom line</H3>
+      <P>
+        "Swing your swing" isn't lazy advice. It's the most sophisticated advice
+        in golf. There is no one correct swing — the Hall of Fame settles that —
+        but there is a swing that's easier, more repeatable, and safer for your
+        particular body. Find your constraints honestly, build a motion that works
+        within them, fit your equipment to that motion, and work with a coach who
+        starts from your body and not a textbook. That, not copying a position
+        built for someone else, is the actual path to better golf.
+      </P>
+
+      <Sources
+        items={[
+          {
+            name: 'The body-swing connection',
+            note: (
+              <Text>
+                <Link href="https://www.mytpi.com/certification/about">
+                  Titleist Performance Institute · About Certification
+                </Link>{' '}
+                and{' '}
+                <Link href="https://mytpi.com/articles/fitness/x-factor_essentials_what_it_is_and_how_to_train_it">
+                  TPI · X-Factor essentials
+                </Link>{' '}
+                — screening the body first, and mapping physical limits to swing
+                characteristics.
+              </Text>
+            ),
+          },
+          {
+            name: 'What other striking and throwing sports show',
+            note: (
+              <Text>
+                <Link href="https://pmc.ncbi.nlm.nih.gov/articles/PMC7438768/">
+                  Bernstein's "repetition without repetition" (motor-control review)
+                </Link>{' '}
+                — skilled movement is variable, with many solutions to one task;{' '}
+                <Link href="https://pmc.ncbi.nlm.nih.gov/articles/PMC3445080/">
+                  the kinetic chain in overhand pitching
+                </Link>{' '}
+                and{' '}
+                <Link href="https://www.sciencedirect.com/science/article/pii/S002192902300235X">
+                  fifty years of performance-related sports biomechanics
+                </Link>{' '}
+                — power runs proximal-to-distal across throwing and striking sports,
+                and elite technique calls for individual profiling, not one template.
+              </Text>
+            ),
+          },
+          {
+            name: 'The modern swing and the X-Factor — and the dispute',
+            note: (
+              <Text>
+                <Link href="https://www.golfdigest.com/story/jim-mcleans-new-x-factor">
+                  Golf Digest · Jim McLean on the X-Factor
+                </Link>{' '}
+                (popularized 1992) and a critical view in{' '}
+                <Link href="https://www.perfectgolfswingreview.net/xfactor.htm">
+                  a review of the X-Factor evidence
+                </Link>{' '}
+                — power gains are real but contested, and high separation can add
+                lower-back stress.
+              </Text>
+            ),
+          },
+          {
+            name: 'The modern swing and lower-back load',
+            note: (
+              <Text>
+                <Link href="https://thejns.org/spine/view/journals/j-neurosurg-spine/31/6/article-p914.xml">
+                  Journal of Neurosurgery: Spine (2019) · lumbar degeneration in
+                  modern-era golfers
+                </Link>{' '}
+                links the repetitive modern swing to early disc wear, while a{' '}
+                <Link href="https://www.tandfonline.com/doi/full/10.1080/02640414.2024.2319443">
+                  2024 systematic review (Journal of Sports Sciences)
+                </Link>{' '}
+                cautions that the biomechanics-to-back-pain evidence is still limited
+                and conflicting — a real concern, not settled science.
+              </Text>
+            ),
+          },
+          {
+            name: 'The classic flatter plane (Hogan)',
+            note: (
+              <Text>
+                <Link href="https://www.usgtf.com/hogans-five-lessons-in-our-modern-game/">
+                  USGTF · Hogan's Five Lessons in the modern game
+                </Link>{' '}
+                and{' '}
+                <Link href="https://mygolfspy.com/news-opinion/ben-hogans-swing/">
+                  MyGolfSpy · Ben Hogan's swing
+                </Link>{' '}
+                — the "pane of glass" plane, and why it doesn't fit every height.
+              </Text>
+            ),
+          },
+          {
+            name: 'The single-plane swing (Moe Norman / Graves)',
+            note: (
+              <Text>
+                <Link href="https://gravesgolf.com/about-moe-norman/">
+                  Graves Golf · About Moe Norman
+                </Link>{' '}
+                and{' '}
+                <Link href="https://moenorman.org/">Todd Graves · Moe Norman</Link> — the
+                single-plane method, and the ball-striking reputation behind it.
+              </Text>
+            ),
+          },
+          {
+            name: 'Stack and Tilt',
+            note: (
+              <Text>
+                <Link href="https://en.wikipedia.org/wiki/Mike_Bennett_and_Andy_Plummer">
+                  Bennett & Plummer (Stack and Tilt)
+                </Link>{' '}
+                — weight-forward method and its tour adherents.
+              </Text>
+            ),
+          },
+          {
+            name: 'Simpler and body-friendly methods',
+            note: (
+              <Text>
+                <Link href="https://www.swingsurgeon.com/learn-the-swing">
+                  Don Trahan · Peak Performance Golf Swing
+                </Link>{' '}
+                (vertical, limited-turn, body-friendly),{' '}
+                <Link href="https://www.golfdigest.com/story/david-leadbetter-a-swing-starter-kit">
+                  David Leadbetter · the A Swing
+                </Link>{' '}
+                (a simpler, repeatable backswing), and{' '}
+                <Link href="https://www.wisconsin.golf/19th_hole/gary_d_amato/manuel-de-la-torres-former-students-committed-to-keeping-alive-his-simple-concepts-of-the/article_58cb7714-9baa-11ea-b99c-c79f89a574d7.html">
+                  Manuel de la Torre
+                </Link>{' '}
+                (Ernest Jones's "swing the clubhead," 1986 PGA Teacher of the Year).
+              </Text>
+            ),
+          },
+          {
+            name: 'Fitting clubs to your body',
+            note: (
+              <Text>
+                <Link href="https://pluggedingolf.com/much-lie-angle-matter-golf-myths-unplugged/">
+                  Plugged In Golf · lie-angle testing
+                </Link>{' '}
+                (a correct lie tightens left-right dispersion) and{' '}
+                <Link href="https://www.pga.info/discover/latest/news/pings-ultimate-guide-better-custom-fitting/">
+                  PING's custom-fitting guide
+                </Link>{' '}
+                — most golfers don't fit the standard off-the-rack build.
+              </Text>
+            ),
+          },
+          {
+            name: 'Great "incorrect" swings',
+            note: (
+              <Text>
+                <Link href="https://en.wikipedia.org/wiki/Jim_Furyk">Jim Furyk</Link>{' '}
+                (2003 U.S. Open;{' '}
+                <Link href="https://en.wikipedia.org/wiki/Jim_Furyk's_round_of_58">
+                  the 58
+                </Link>
+                ),{' '}
+                <Link href="https://en.wikipedia.org/wiki/Lee_Trevino">Lee Trevino</Link>{' '}
+                (six majors, self-taught fade),{' '}
+                <Link href="https://en.wikipedia.org/wiki/Nancy_Lopez">Nancy Lopez</Link>{' '}
+                (48 LPGA wins),{' '}
+                <Link href="https://en.wikipedia.org/wiki/John_Daly_(golfer)">
+                  John Daly
+                </Link>{' '}
+                (two majors), and{' '}
+                <Link href="https://en.wikipedia.org/wiki/Gary_Player">Gary Player</Link>{' '}
+                (nine majors, competitive into his 70s).
+              </Text>
+            ),
+          },
+        ]}
+      />
+
+      <ArticleFooter>
+        Last reviewed May 2026 · Draft, needs line-by-line accuracy review
+      </ArticleFooter>
+    </View>
+  )
+}
+
+// The self-awareness questions to run before taking a generic tip. A tinted
+// card with a "?"-glyph before each item, mirroring the web Checklist.
+function Checklist({ items }: { items: string[] }) {
+  return (
+    <View
+      style={{
+        backgroundColor: C.boxBg,
+        borderWidth: 1,
+        borderColor: C.line,
+        borderRadius: 2,
+        paddingVertical: 14,
+        paddingHorizontal: 18,
+        marginBottom: 18,
+      }}
+    >
+      <Text style={{ ...KICKER, color: C.inkDim, marginBottom: 12 }}>
+        Run this before you copy a tip
+      </Text>
+      {items.map((item) => (
+        <View key={item} style={{ flexDirection: 'row', gap: 8, marginBottom: 9 }}>
+          <Text style={{ color: C.accent, fontSize: 14, lineHeight: 21 }}>?</Text>
+          <Text style={{ color: C.ink, fontSize: 14, lineHeight: 21, flex: 1 }}>
+            {item}
+          </Text>
+        </View>
+      ))}
+    </View>
+  )
+}
+
+// Cards: unconventional swings that won at the top. Single-column stack on
+// mobile (web uses an auto-fit grid).
+function HallOfFame() {
+  const players: { name: string; quirk: string; result: string }[] = [
+    {
+      name: 'Jim Furyk',
+      quirk: 'A double-loop swing no coach would teach from scratch.',
+      result: 'Won the 2003 U.S. Open; shot 58, the lowest round in PGA Tour history.',
+    },
+    {
+      name: 'Lee Trevino',
+      quirk: 'Open stance, a deliberate fade, self-taught — told for years to change it.',
+      result: 'Six major championships. Hall of Fame.',
+    },
+    {
+      name: 'Nancy Lopez',
+      quirk: 'A pronounced "flying" right elbow every textbook warns against.',
+      result: '48 LPGA Tour wins and a Hall of Fame career.',
+    },
+    {
+      name: 'Moe Norman',
+      quirk: 'A single-plane swing dismissed for decades as eccentric.',
+      result: 'Sam Snead and others called him the greatest ball-striker who ever lived.',
+    },
+    {
+      name: 'John Daly',
+      quirk: '"Grip it and rip it" — a backswing well past parallel.',
+      result: 'Two major championships: the 1991 PGA and the 1995 Open.',
+    },
+    {
+      name: 'Gary Player',
+      quirk: 'Smaller stature; a swing he kept reshaping as he aged.',
+      result: 'Nine majors, and competitive into his 70s.',
+    },
+  ]
+  return (
+    <View style={{ gap: 12, marginBottom: 16 }}>
+      {players.map((p) => (
+        <View
+          key={p.name}
+          style={{
+            borderWidth: 1,
+            borderColor: C.line,
+            backgroundColor: C.boxBg,
+            borderRadius: 2,
+            paddingVertical: 12,
+            paddingHorizontal: 14,
+          }}
+        >
+          <Text
+            style={{ color: C.ink, fontSize: 16, fontStyle: 'italic', marginBottom: 6 }}
+          >
+            {p.name}
+          </Text>
+          <Text style={{ color: C.inkDim, fontSize: 13, lineHeight: 20, marginBottom: 6 }}>
+            {p.quirk}
+          </Text>
+          <Text style={{ color: C.accent, fontSize: 13, lineHeight: 20, fontWeight: '500' }}>
+            {p.result}
+          </Text>
+        </View>
+      ))}
+    </View>
+  )
+}
+
+// Body type → swing/equipment tendency. Tendencies, not rules. Stacked
+// single-column rows on mobile (web uses a 2-col flex row).
+function BodyTypeTable() {
+  const rows: { type: string; note: string }[] = [
+    {
+      type: 'Taller (6′2″+)',
+      note: 'Tend to stand more upright, with a flatter natural plane. Usually need longer clubs and flatter lie angles — off-the-rack clubs are built to a standard, not to you.',
+    },
+    {
+      type: 'Shorter',
+      note: 'Stand closer to the ball with a more upright shaft angle; an upright plane is natural and correct here. Shorter clubs and more upright lie angles often fit better.',
+    },
+    {
+      type: 'Limited flexibility / older',
+      note: 'A restricted turn changes everything. A shorter backswing with good sequencing beats a long one that collapses; force the “modern” power move and you risk injury. Gary Player’s swing evolved with his body for a reason.',
+    },
+    {
+      type: 'Heavier build',
+      note: 'A restricted hip turn is common, and compensating with more arm swing is adaptive, not wrong. Grip size and shaft flex fitting matter more, not less; standing a touch further from the ball can help.',
+    },
+    {
+      type: 'Left-handed',
+      note: 'Most instruction is written for righties — mirror the cues. Left-handed equipment is more limited, so custom fitting matters even more.',
+    },
+  ]
+  return (
+    <View style={{ marginBottom: 16, borderTopWidth: 1, borderTopColor: C.line }}>
+      {rows.map((r) => (
+        <View
+          key={r.type}
+          style={{ paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: C.line }}
+        >
+          <Text
+            style={{ color: C.ink, fontSize: 15, fontStyle: 'italic', marginBottom: 4 }}
+          >
+            {r.type}
+          </Text>
+          <Text style={{ color: C.inkDim, fontSize: 14, lineHeight: 21 }}>{r.note}</Text>
+        </View>
+      ))}
+    </View>
+  )
+}
+
+// Editorial line-art: the shaft plane from upright to flat, with single-plane
+// shown as arms-and-shaft aligned. Same viewBox + coordinate data as the web
+// inline svg, re-authored in react-native-svg. Single plane in accent.
+function PlaneSpectrum() {
+  return (
+    <Figure caption='Roughly how the club travels — steep and upright through flat and rotary to a single plane. None is "correct"; each fits a different body.'>
+      <Svg width="100%" height={120} viewBox="0 0 240 120">
+        {/* ground + ball, shared origin at lower right */}
+        <Line x1={20} y1={100} x2={220} y2={100} stroke={C.mute} strokeWidth={1.5} />
+        <Circle cx={190} cy={100} r={3} fill={C.ink} />
+        {/* upright (steep) plane */}
+        <Line x1={190} y1={100} x2={150} y2={14} stroke={C.mute} strokeWidth={2} />
+        {/* flat (Hogan) plane */}
+        <Line x1={190} y1={100} x2={78} y2={36} stroke={C.mute} strokeWidth={2} />
+        {/* single plane (accent) */}
+        <Line x1={190} y1={100} x2={40} y2={64} stroke={C.accent} strokeWidth={2.5} />
+        <SvgText x={138} y={12} fontSize={7} fontFamily="monospace" letterSpacing={0.5} fill={C.mute}>
+          UPRIGHT
+        </SvgText>
+        <SvgText x={62} y={32} fontSize={7} fontFamily="monospace" letterSpacing={0.5} fill={C.mute}>
+          FLAT
+        </SvgText>
+        <SvgText x={20} y={60} fontSize={7} fontFamily="monospace" letterSpacing={0.5} fill={C.accent}>
+          SINGLE PLANE
+        </SvgText>
+      </Svg>
+    </Figure>
+  )
+}
