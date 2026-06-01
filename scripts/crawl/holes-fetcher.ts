@@ -14,7 +14,7 @@
 import { OSM_DELAY_MS, OVERPASS_ENDPOINTS, STATE_BBOX, asInt, haversineMeters, sleep } from './util'
 import {
   fetchCoursesWithHoleGeometry,
-  fetchOsmCoursesGeoForState,
+  fetchCourseGeoForState,
   getCrawlState,
   setCrawlState,
   upsertHoleGeometry,
@@ -136,10 +136,11 @@ out geom tags;
       await sleep(500)
     }
     const backoff = BACKOFFS_MS[attempt]
-    if (backoff == null) break
+    const retryNote = backoff == null ? 'no retries left' : `retry in ${backoff / 1000}s`
     console.warn(
-      `[osm-holes:${state}] all Overpass endpoints failed (last: ${lastErr?.message ?? 'unknown'}) — retry in ${backoff / 1000}s`,
+      `[osm-holes:${state}] all Overpass endpoints failed (last: ${lastErr?.message ?? 'unknown'}) — ${retryNote}`,
     )
+    if (backoff == null) break
     await sleep(backoff)
   }
   throw lastErr ?? new Error('Overpass hole query failed')
@@ -221,7 +222,7 @@ export async function crawlOsmHoles(
     }
     await setCrawlState(crawlId, { status: 'in_progress', errorMessage: null })
     try {
-      const courses = await fetchOsmCoursesGeoForState(state)
+      const courses = await fetchCourseGeoForState(state)
       if (courses.length === 0) {
         console.log(`[osm-holes:${state}] no courses with coords — skip`)
         await setCrawlState(crawlId, { status: 'done', itemsProcessed: 0, errorMessage: null })

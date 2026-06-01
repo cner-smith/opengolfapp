@@ -39,5 +39,5 @@ STAMP="$(date +%Y-%m-%d\ %H:%M:%S)"
   echo "=== enrich run $STAMP (budget 400 courses) ==="
   # 400 courses * up to ~2 calls each stays comfortably under the ~900/day cap.
   npx tsx scripts/crawl-courses.ts --source enrich --max-courses 400
-  echo "=== finished $STAMP ==="
+  echo "=== finished $(date +%Y-%m-%d\ %H:%M:%S) ==="
 } >> "$LOG" 2>&1

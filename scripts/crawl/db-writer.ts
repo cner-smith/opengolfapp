@@ -99,7 +99,7 @@ export async function upsertHoleGeometry(courseId: string, holes: OgaHoleGeo[]):
 // Courses in a state that have a centroid (lat/lng). The osm-holes pass
 // assigns each OSM hole way to its nearest such course. Includes ALL coord
 // courses (OSM, OpenGolfAPI-enriched, and manually added), not just osm_%.
-export async function fetchOsmCoursesGeoForState(state: string): Promise<CourseGeo[]> {
+export async function fetchCourseGeoForState(state: string): Promise<CourseGeo[]> {
   const PAGE_SIZE = 500
   const all: CourseGeo[] = []
   let from = 0
