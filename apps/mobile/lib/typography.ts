@@ -21,3 +21,27 @@ export const FONT = {
   /** Inconsolata 500 — kickers, metadata, codes (the yardage-book mono). */
   mono: 'Inconsolata-Medium',
 } as const
+
+/**
+ * Role-named family presets for app `<Text>`. Typeface-only: each preset sets
+ * `fontFamily` and nothing else — spread it into a `<Text>`'s style and keep
+ * the call site's own `fontSize` / `color` / spacing. Picking a role here is
+ * how the named-weight rule is enforced: bold/italic text gets the bold/italic
+ * Epilogue family, never a bare `fontWeight`.
+ *
+ *   <Text style={[TYPE.body, { color: C.ink, fontSize: 15 }]}>…</Text>
+ */
+export const TYPE = {
+  /** Display / h1 / h2 headlines (Fraunces italic 500). */
+  serif: { fontFamily: FONT.serifItalic },
+  /** Upright serif + standalone display numbers (score, SG, distance, yards). */
+  serifUpright: { fontFamily: FONT.serif },
+  /** Standard UI text / body copy. */
+  body: { fontFamily: FONT.body },
+  /** Body at weight 600/700/'bold'. */
+  bodyBold: { fontFamily: FONT.bodyBold },
+  /** Italic body emphasis. */
+  bodyItalic: { fontFamily: FONT.bodyItalic },
+  /** Kickers + metadata/codes (hole #, par, distance, timestamps). */
+  kicker: { fontFamily: FONT.mono },
+} as const

@@ -1,6 +1,7 @@
 import { Text, View } from 'react-native'
 import Mapbox from '@rnmapbox/maps'
 import type { LatLng } from '../HoleMap.types'
+import { TYPE } from '../../../lib/typography'
 
 function toCoord(l: LatLng): [number, number] {
   return [l.lng, l.lat]
@@ -36,27 +37,32 @@ export function AimDistancePill({
         }}
       >
         <Text
-          style={{
-            color: '#F2EEE5',
-            fontFamily: 'Fraunces-Medium',
-            fontSize: 26,
-            fontWeight: '600',
-            fontVariant: ['tabular-nums'],
-          }}
+          style={[
+            TYPE.serifUpright,
+            {
+              color: '#F2EEE5',
+              fontSize: 26,
+              fontWeight: '600',
+              fontVariant: ['tabular-nums'],
+            },
+          ]}
         >
           {display}
         </Text>
         {sublabel ? (
           <Text
-            style={{
-              // caddie-pos / caddie-neg, brightened for satellite contrast.
-              color: sublabelTone === 'neg' ? '#E8A08F' : '#9FD3B0',
-              fontSize: 12,
-              fontWeight: '600',
-              letterSpacing: 0.4,
-              fontVariant: ['tabular-nums'],
-              marginTop: 1,
-            }}
+            style={[
+              TYPE.kicker,
+              {
+                // caddie-pos / caddie-neg, brightened for satellite contrast.
+                color: sublabelTone === 'neg' ? '#E8A08F' : '#9FD3B0',
+                fontSize: 12,
+                fontWeight: '600',
+                letterSpacing: 0.4,
+                fontVariant: ['tabular-nums'],
+                marginTop: 1,
+              },
+            ]}
           >
             {sublabel}
           </Text>

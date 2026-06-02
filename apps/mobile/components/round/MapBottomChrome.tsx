@@ -1,6 +1,7 @@
 import { Pressable, Text, View } from 'react-native'
 import { PressableTouch } from '../ui/PressableTouch'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import { TYPE } from '../../lib/typography'
 import { KICKER, type RoundState } from './hole/types'
 
 // Floating bottom chrome that replaces the old cream HoleStrip panel so the
@@ -150,12 +151,15 @@ function PrimaryCta({
       }}
     >
       <Text
-        style={{
-          color: disabled ? 'rgba(242,238,229,0.7)' : '#1F3D2C',
-          fontSize: 16,
-          fontWeight: '700',
-          letterSpacing: 0.3,
-        }}
+        style={[
+          TYPE.bodyBold,
+          {
+            color: disabled ? 'rgba(242,238,229,0.7)' : '#1F3D2C',
+            fontSize: 16,
+            fontWeight: '700',
+            letterSpacing: 0.3,
+          },
+        ]}
       >
         {label}
       </Text>
@@ -189,7 +193,7 @@ function SecondaryPill({
         paddingHorizontal: 22,
       }}
     >
-      <Text style={{ color: danger ? '#E6A99C' : CREAM, fontSize: 14, fontWeight: '600' }}>
+      <Text style={[TYPE.bodyBold, { color: danger ? '#E6A99C' : CREAM, fontSize: 14, fontWeight: '600' }]}>
         {label}
       </Text>
     </PressableTouch>
@@ -228,7 +232,7 @@ function TextChip({
         elevation: 3,
       }}
     >
-      <Text style={{ ...KICKER, color: strong ? CREAM : 'rgba(242,238,229,0.85)' }}>{label}</Text>
+      <Text style={[TYPE.kicker, { ...KICKER, color: strong ? CREAM : 'rgba(242,238,229,0.85)' }]}>{label}</Text>
     </PressableTouch>
   )
 }
@@ -259,10 +263,10 @@ function HoleNavPill({
         onPress={onOpenScorecard}
         style={{ alignItems: 'center', paddingHorizontal: 8 }}
       >
-        <Text style={{ fontFamily: 'Fraunces-Medium', fontSize: 14, color: CREAM }}>
+        <Text style={[TYPE.serifUpright, { fontSize: 14, color: CREAM }]}>
           {`Hole ${holeNumber} · Par ${par}${yardsLabel ? ` · ${yardsLabel}` : ''}`}
         </Text>
-        <Text style={{ ...KICKER, color: 'rgba(242,238,229,0.6)', marginTop: 2 }}>
+        <Text style={[TYPE.kicker, { ...KICKER, color: 'rgba(242,238,229,0.6)', marginTop: 2 }]}>
           Scorecard ▾
         </Text>
       </Pressable>
@@ -297,7 +301,7 @@ function NavChevron({
         opacity: disabled ? 0.3 : 1,
       }}
     >
-      <Text style={{ color: CREAM, fontSize: 20, fontWeight: '500' }}>
+      <Text style={[TYPE.body, { color: CREAM, fontSize: 20, fontWeight: '500' }]}>
         {dir === 'prev' ? '‹' : '›'}
       </Text>
     </PressableTouch>

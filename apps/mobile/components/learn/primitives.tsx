@@ -340,6 +340,45 @@ export function ResourceList({
   )
 }
 
+/** Dev-only editorial annotation (source citation / TODO). Renders nothing in
+ *  production — these are internal review notes, never shown to readers. */
+export function DevNote({
+  variant,
+  inline,
+  children,
+}: {
+  variant: 'research' | 'todo'
+  inline?: boolean
+  children: ReactNode
+}) {
+  if (!__DEV__) return null
+  const tone = variant === 'research' ? C.accent : C.amber
+  const label = variant === 'research' ? 'Source' : 'Todo'
+  if (inline) {
+    return (
+      <Text style={{ ...KICKER, color: tone, marginTop: 4 }}>
+        [{label}] {children}
+      </Text>
+    )
+  }
+  return (
+    <View
+      style={{
+        backgroundColor: C.boxBg,
+        borderLeftWidth: 3,
+        borderLeftColor: tone,
+        padding: 12,
+        marginBottom: 12,
+      }}
+    >
+      <Text style={{ ...KICKER, color: tone, marginBottom: 4 }}>{label} · dev only</Text>
+      <Text style={{ color: C.inkDim, fontFamily: FONT.bodyItalic, fontSize: 13, fontStyle: 'italic', lineHeight: 19 }}>
+        {children}
+      </Text>
+    </View>
+  )
+}
+
 /** Article footer ("Last reviewed … · Draft …"). */
 export function ArticleFooter({ children }: { children: ReactNode }) {
   return (

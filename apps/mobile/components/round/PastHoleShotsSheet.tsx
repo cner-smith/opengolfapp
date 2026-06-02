@@ -16,6 +16,7 @@ import type { Database } from '@oga/supabase'
 import { supabase } from '../../lib/supabase'
 import { useUserBag } from '../../hooks/useUserBag'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import { FONT, TYPE } from '../../lib/typography'
 
 type ShotRow = Database['public']['Tables']['shots']['Row']
 
@@ -25,6 +26,7 @@ const KICKER: import('react-native').TextStyle = {
   fontWeight: '500',
   letterSpacing: 1.4,
   textTransform: 'uppercase',
+  fontFamily: FONT.mono,
 }
 
 const SHOT_RESULT_LABELS: Record<ShotResult, string> = {
@@ -135,19 +137,19 @@ export function PastHoleShotsSheet({
             {par != null ? ` · Par ${par}` : ''}
           </Text>
           <Text
-            style={{
+            style={[TYPE.serif, {
               color: '#1C211C',
               fontSize: 22,
               fontStyle: 'italic',
               fontWeight: '500',
               marginBottom: 14,
-            }}
+            }]}
           >
             {sortedShots.length} shot{sortedShots.length === 1 ? '' : 's'}
           </Text>
 
           {sortedShots.length === 0 ? (
-            <Text style={{ color: '#5C6356', fontSize: 14, lineHeight: 20 }}>
+            <Text style={[TYPE.body, { color: '#5C6356', fontSize: 14, lineHeight: 20 }]}>
               No shots logged for this hole.
             </Text>
           ) : (
@@ -214,20 +216,20 @@ function ShotRowView({
         alignItems: 'center',
       }}
     >
-      <Text style={{ width: 24, color: '#8A8B7E', fontSize: 14, fontVariant: ['tabular-nums'] }}>
+      <Text style={[TYPE.kicker, { width: 24, color: '#8A8B7E', fontSize: 14, fontVariant: ['tabular-nums'] }]}>
         {shot.shot_number}
       </Text>
       <View style={{ flex: 1 }}>
-        <Text style={{ color: '#1C211C', fontSize: 15, fontWeight: '500', textTransform: 'capitalize' }}>
+        <Text style={[TYPE.bodyBold, { color: '#1C211C', fontSize: 15, fontWeight: '500', textTransform: 'capitalize' }]}>
           {clubLabel}
         </Text>
         {(lieLabel || distanceLabel) && (
-          <Text style={{ color: '#5C6356', fontSize: 12, marginTop: 2 }}>
+          <Text style={[TYPE.body, { color: '#5C6356', fontSize: 12, marginTop: 2 }]}>
             {[lieLabel, distanceLabel].filter(Boolean).join(' · ')}
           </Text>
         )}
       </View>
-      <Text style={{ color: '#8A8B7E', fontSize: 12 }}>Edit</Text>
+      <Text style={[TYPE.body, { color: '#8A8B7E', fontSize: 12 }]}>Edit</Text>
     </PressableTouch>
   )
 }
@@ -270,13 +272,13 @@ function EditShotSheet({ shot, clubs, saving, onSave, onClose }: EditShotSheetPr
         }}
       />
       <Text
-        style={{
+        style={[TYPE.serif, {
           color: '#1C211C',
           fontSize: 17,
           fontStyle: 'italic',
           fontWeight: '500',
           marginBottom: 18,
-        }}
+        }]}
       >
         Edit shot {shot.shot_number}
       </Text>
@@ -298,7 +300,7 @@ function EditShotSheet({ shot, clubs, saving, onSave, onClose }: EditShotSheetPr
                     backgroundColor: active ? '#1F3D2C' : '#EBE5D6',
                   }}
                 >
-                  <Text style={{ color: active ? '#F2EEE5' : '#1C211C', fontSize: 12 }}>
+                  <Text style={[TYPE.body, { color: active ? '#F2EEE5' : '#1C211C', fontSize: 12 }]}>
                     {formatClubLabel({ club_type: c.club_type })}
                   </Text>
                 </Pressable>
@@ -323,7 +325,7 @@ function EditShotSheet({ shot, clubs, saving, onSave, onClose }: EditShotSheetPr
                     backgroundColor: active ? '#1F3D2C' : '#EBE5D6',
                   }}
                 >
-                  <Text style={{ color: active ? '#F2EEE5' : '#1C211C', fontSize: 12 }}>
+                  <Text style={[TYPE.body, { color: active ? '#F2EEE5' : '#1C211C', fontSize: 12 }]}>
                     {LIE_TYPE_LABELS[lt as LieType]}
                   </Text>
                 </Pressable>
@@ -348,7 +350,7 @@ function EditShotSheet({ shot, clubs, saving, onSave, onClose }: EditShotSheetPr
                     backgroundColor: active ? '#1F3D2C' : '#EBE5D6',
                   }}
                 >
-                  <Text style={{ color: active ? '#F2EEE5' : '#1C211C', fontSize: 12 }}>
+                  <Text style={[TYPE.body, { color: active ? '#F2EEE5' : '#1C211C', fontSize: 12 }]}>
                     {SHOT_RESULT_LABELS[r as ShotResult]}
                   </Text>
                 </Pressable>

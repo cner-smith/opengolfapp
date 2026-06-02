@@ -22,6 +22,7 @@ import DraggableFlatList, {
 } from 'react-native-draggable-flatlist'
 import { GestureHandlerRootView } from 'react-native-gesture-handler'
 import { AppBar } from '../../components/ui/AppBar'
+import { TYPE } from '../../lib/typography'
 import { useAuth } from '../../hooks/useAuth'
 import {
   deleteClub,
@@ -33,6 +34,7 @@ import {
 } from '../../hooks/useUserBag'
 
 const KICKER: import('react-native').TextStyle = {
+  ...TYPE.kicker,
   color: '#8A8B7E',
   fontSize: 10,
   fontWeight: '500',
@@ -232,10 +234,10 @@ export default function BagScreen() {
             hitSlop={10}
           >
             <Text
-              style={{
+              style={[TYPE.body, {
                 color: 'rgba(242,238,229,0.75)',
                 fontSize: 13,
-              }}
+              }]}
             >
               ← Back
             </Text>
@@ -244,12 +246,12 @@ export default function BagScreen() {
       />
       {isLoading && (
         <View style={{ padding: 24 }}>
-          <Text style={{ color: '#5C6356', fontSize: 14 }}>Loading bag…</Text>
+          <Text style={[TYPE.body, { color: '#5C6356', fontSize: 14 }]}>Loading bag…</Text>
         </View>
       )}
       {error && (
         <View style={{ padding: 24 }}>
-          <Text style={{ color: '#A33A2A', fontSize: 14 }}>
+          <Text style={[TYPE.body, { color: '#A33A2A', fontSize: 14 }]}>
             Could not load bag: {error.message}
           </Text>
         </View>
@@ -262,11 +264,11 @@ export default function BagScreen() {
           contentContainerStyle={{ padding: 18, paddingBottom: 40 }}
           ListHeaderComponent={
             <View style={{ marginBottom: 18 }}>
-              <Text style={{ color: '#5C6356', fontSize: 14, marginBottom: 6 }}>
+              <Text style={[TYPE.body, { color: '#5C6356', fontSize: 14, marginBottom: 6 }]}>
                 Add the clubs you carry. Only these clubs appear when logging
                 shots.
               </Text>
-              <Text style={{ color: '#8A8B7E', fontSize: 12 }}>
+              <Text style={[TYPE.body, { color: '#8A8B7E', fontSize: 12 }]}>
                 Hold a club to drag it. Benched clubs stay saved but are
                 hidden from the shot logger.
               </Text>
@@ -299,7 +301,7 @@ export default function BagScreen() {
                 }}
               >
                 <Text
-                  style={{ color: '#F2EEE5', fontSize: 14, fontWeight: '600' }}
+                  style={[TYPE.bodyBold, { color: '#F2EEE5', fontSize: 14, fontWeight: '600' }]}
                 >
                   Add club →
                 </Text>
@@ -316,7 +318,7 @@ export default function BagScreen() {
                   borderRadius: 2,
                 }}
               >
-                <Text style={{ color: '#1F3D2C', fontSize: 13 }}>
+                <Text style={[TYPE.body, { color: '#1F3D2C', fontSize: 13 }]}>
                   Reset to default bag
                 </Text>
               </Pressable>
@@ -361,13 +363,13 @@ export default function BagScreen() {
               {editingId ? 'Edit club' : 'New club'}
             </Text>
             <Text
-              style={{
+              style={[TYPE.serif, {
                 color: '#1C211C',
                 fontSize: 22,
                 fontWeight: '500',
                 fontStyle: 'italic',
                 marginBottom: 18,
-              }}
+              }]}
             >
               {editingId ? 'Edit club.' : 'Add to bag.'}
             </Text>
@@ -414,7 +416,7 @@ export default function BagScreen() {
                             }))
                           }}
                         >
-                          <Text style={{ color: '#5C6356', fontSize: 12 }}>
+                          <Text style={[TYPE.body, { color: '#5C6356', fontSize: 12 }]}>
                             ← Back to {CLUB_CATEGORY_LABELS[draft.category]} list
                           </Text>
                         </Pressable>
@@ -485,7 +487,7 @@ export default function BagScreen() {
             </View>
 
             {!editingId && (
-              <Text style={{ color: '#8A8B7E', fontSize: 12, marginTop: 6 }}>
+              <Text style={[TYPE.body, { color: '#8A8B7E', fontSize: 12, marginTop: 6 }]}>
                 Category will default to{' '}
                 {CLUB_CATEGORY_LABELS[clubCategoryFor(draft.clubType)]} based on
                 the club_type you chose.
@@ -504,7 +506,7 @@ export default function BagScreen() {
                 }}
               >
                 <Text
-                  style={{ color: '#F2EEE5', fontSize: 14, fontWeight: '600' }}
+                  style={[TYPE.bodyBold, { color: '#F2EEE5', fontSize: 14, fontWeight: '600' }]}
                 >
                   {editingId ? 'Save changes →' : 'Add to bag →'}
                 </Text>
@@ -517,7 +519,7 @@ export default function BagScreen() {
                   alignItems: 'center',
                 }}
               >
-                <Text style={{ color: '#5C6356', fontSize: 13 }}>Cancel</Text>
+                <Text style={[TYPE.body, { color: '#5C6356', fontSize: 13 }]}>Cancel</Text>
               </Pressable>
             </View>
           </ScrollView>
@@ -562,10 +564,10 @@ function ClubRow({
         hitSlop={8}
         style={{ paddingHorizontal: 6 }}
       >
-        <Text style={{ color: '#8A8B7E', fontSize: 16 }}>⠿</Text>
+        <Text style={[TYPE.body, { color: '#8A8B7E', fontSize: 16 }]}>⠿</Text>
       </Pressable>
       <View style={{ flex: 1 }}>
-        <Text style={{ color: '#1C211C', fontSize: 16, fontWeight: '500' }}>
+        <Text style={[TYPE.body, { color: '#1C211C', fontSize: 16, fontWeight: '500' }]}>
           {club.name}
         </Text>
         <Text style={{ ...KICKER, marginTop: 2 }}>
@@ -595,13 +597,13 @@ function ClubRow({
         }}
       >
         <Text
-          style={{
+          style={[TYPE.kicker, {
             color: club.in_bag ? '#F2EEE5' : '#5C6356',
             fontSize: 10,
             letterSpacing: 1.4,
             textTransform: 'uppercase',
             fontWeight: '500',
-          }}
+          }]}
         >
           {club.in_bag ? 'In bag' : 'Benched'}
         </Text>
@@ -612,7 +614,7 @@ function ClubRow({
         hitSlop={8}
         style={{ paddingHorizontal: 4 }}
       >
-        <Text style={{ color: '#5C6356', fontSize: 12 }}>Edit</Text>
+        <Text style={[TYPE.body, { color: '#5C6356', fontSize: 12 }]}>Edit</Text>
       </Pressable>
       <Pressable
         onPress={onDelete}
@@ -620,7 +622,7 @@ function ClubRow({
         hitSlop={8}
         style={{ paddingHorizontal: 4 }}
       >
-        <Text style={{ color: '#A33A2A', fontSize: 12 }}>Delete</Text>
+        <Text style={[TYPE.body, { color: '#A33A2A', fontSize: 12 }]}>Delete</Text>
       </Pressable>
     </View>
   )
@@ -667,11 +669,11 @@ function Chip({
       }}
     >
       <Text
-        style={{
+        style={[TYPE.body, {
           color: active ? '#F2EEE5' : '#1C211C',
           fontSize: 12,
           fontWeight: active ? '500' : '400',
-        }}
+        }]}
       >
         {label}
       </Text>
@@ -695,6 +697,7 @@ function Field({
 }
 
 const inputStyle: import('react-native').TextStyle = {
+  ...TYPE.body,
   borderWidth: 1,
   borderColor: '#D9D2BF',
   backgroundColor: '#FBF8F1',

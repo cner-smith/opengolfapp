@@ -18,6 +18,7 @@ import { useAuth } from '../../hooks/useAuth'
 import { useClubDispersion } from './hole/useClubDispersion'
 import { ConfirmDialog } from '../ui/ConfirmDialog'
 import { useUnits } from '../../hooks/useUnits'
+import { TYPE } from '../../lib/typography'
 import {
   FALLBACK_CENTER,
   HOLE_SCOPED_DIALOGS,
@@ -277,26 +278,31 @@ export default function LiveRoundSession({
         }}
       >
         <Text
-          style={{
-            color: '#1C211C',
-            fontSize: 20,
-            fontStyle: 'italic',
-            fontWeight: '500',
-            fontFamily: 'Fraunces-MediumItalic',
-            textAlign: 'center',
-            marginBottom: 10,
-          }}
+          style={[
+            TYPE.serif,
+            {
+              color: '#1C211C',
+              fontSize: 20,
+              fontStyle: 'italic',
+              fontWeight: '500',
+              textAlign: 'center',
+              marginBottom: 10,
+            },
+          ]}
         >
           {headline}
         </Text>
         <Text
-          style={{
-            color: '#5C6356',
-            fontSize: 13,
-            lineHeight: 18,
-            textAlign: 'center',
-            marginBottom: 22,
-          }}
+          style={[
+            TYPE.body,
+            {
+              color: '#5C6356',
+              fontSize: 13,
+              lineHeight: 18,
+              textAlign: 'center',
+              marginBottom: 22,
+            },
+          ]}
         >
           {subline}
         </Text>
@@ -314,12 +320,15 @@ export default function LiveRoundSession({
           }}
         >
           <Text
-            style={{
-              color: '#1F3D2C',
-              fontSize: 13,
-              fontWeight: '600',
-              letterSpacing: 0.3,
-            }}
+            style={[
+              TYPE.bodyBold,
+              {
+                color: '#1F3D2C',
+                fontSize: 13,
+                fontWeight: '600',
+                letterSpacing: 0.3,
+              },
+            ]}
           >
             Try again
           </Text>
@@ -336,12 +345,15 @@ export default function LiveRoundSession({
           }}
         >
           <Text
-            style={{
-              color: '#F2EEE5',
-              fontSize: 14,
-              fontWeight: '600',
-              letterSpacing: 0.3,
-            }}
+            style={[
+              TYPE.bodyBold,
+              {
+                color: '#F2EEE5',
+                fontSize: 14,
+                fontWeight: '600',
+                letterSpacing: 0.3,
+              },
+            ]}
           >
             Exit round
           </Text>
@@ -383,34 +395,40 @@ export default function LiveRoundSession({
           hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
           style={{ padding: 6 }}
         >
-          <Text style={{ ...KICKER, color: 'rgba(242,238,229,0.6)' }}>
+          <Text style={[TYPE.kicker, { ...KICKER, color: 'rgba(242,238,229,0.6)' }]}>
             ← Home
           </Text>
         </Pressable>
         <View style={{ alignItems: 'center' }}>
           <Text
-            style={{
-              ...KICKER,
-              color: 'rgba(242,238,229,0.45)',
-              marginBottom: 4,
-            }}
+            style={[
+              TYPE.kicker,
+              {
+                ...KICKER,
+                color: 'rgba(242,238,229,0.45)',
+                marginBottom: 4,
+              },
+            ]}
           >
             Hole {holeNumber}
           </Text>
           <Text
-            style={{
-              color: '#F2EEE5',
-              fontSize: 17,
-              fontWeight: '500',
-              fontStyle: 'italic',
-            }}
+            style={[
+              TYPE.serif,
+              {
+                color: '#F2EEE5',
+                fontSize: 17,
+                fontWeight: '500',
+                fontStyle: 'italic',
+              },
+            ]}
           >
             Par {data.currentHole.par}
             {data.currentHole.yards ? ` · ${toDisplay(data.currentHole.yards)}` : ''}
           </Text>
         </View>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-          <Text style={{ ...KICKER, color: 'rgba(242,238,229,0.45)' }}>
+          <Text style={[TYPE.kicker, { ...KICKER, color: 'rgba(242,238,229,0.45)' }]}>
             Shot {data.shotNumber}
           </Text>
           <PressableTouch
@@ -421,7 +439,7 @@ export default function LiveRoundSession({
             android_ripple={{ color: 'rgba(242,238,229,0.2)', borderless: true, radius: 18 }}
             style={{ paddingHorizontal: 6, paddingVertical: 2 }}
           >
-            <Text style={{ color: '#F2EEE5', fontSize: 22, fontWeight: '600', lineHeight: 24 }}>
+            <Text style={[TYPE.bodyBold, { color: '#F2EEE5', fontSize: 22, fontWeight: '600', lineHeight: 24 }]}>
               ⋮
             </Text>
           </PressableTouch>
@@ -512,7 +530,7 @@ export default function LiveRoundSession({
               paddingVertical: 10,
             }}
           >
-            <Text style={{ color: '#F2EEE5', fontSize: 13, lineHeight: 18 }}>
+            <Text style={[TYPE.body, { color: '#F2EEE5', fontSize: 13, lineHeight: 18 }]}>
               Aim point = start line. Drag to adjust.
             </Text>
           </Pressable>
@@ -676,7 +694,7 @@ export default function LiveRoundSession({
               android_ripple={{ color: 'rgba(242,238,229,0.15)' }}
               style={{ paddingVertical: 12, paddingHorizontal: 16 }}
             >
-              <Text style={{ color: '#F2EEE5', fontSize: 15, fontWeight: '600' }}>
+              <Text style={[TYPE.bodyBold, { color: '#F2EEE5', fontSize: 15, fontWeight: '600' }]}>
                 End round early
               </Text>
             </PressableTouch>
@@ -697,7 +715,7 @@ export default function LiveRoundSession({
               android_ripple={{ color: 'rgba(163,58,42,0.22)' }}
               style={{ paddingVertical: 12, paddingHorizontal: 16 }}
             >
-              <Text style={{ color: '#E0796B', fontSize: 15, fontWeight: '600' }}>
+              <Text style={[TYPE.bodyBold, { color: '#E0796B', fontSize: 15, fontWeight: '600' }]}>
                 Delete round
               </Text>
             </PressableTouch>

@@ -1,5 +1,6 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react'
 import { Pressable, ScrollView, Text, View } from 'react-native'
+import { TYPE } from '../../lib/typography'
 
 interface Props {
   children: ReactNode
@@ -49,33 +50,30 @@ function ErrorScreen({ error, onReset }: { error: Error; onReset: () => void }) 
       >
         <View style={{ maxWidth: 480 }}>
           <Text
-            style={{
-              fontFamily: 'Fraunces-MediumItalic',
+            style={[TYPE.serif, {
               fontStyle: 'italic',
               fontWeight: '500',
               fontSize: 32,
               color: '#1C211C',
               textAlign: 'center',
-            }}
+            }]}
           >
             Something went wrong.
           </Text>
           <Text
-            style={{
-              fontFamily: 'Inter-Regular',
+            style={[TYPE.body, {
               fontSize: 15,
               color: '#5C6356',
               textAlign: 'center',
               marginTop: 14,
               marginBottom: 22,
-            }}
+            }]}
           >
             The screen hit an unexpected error. Tap below to retry.
           </Text>
           {__DEV__ && (
             <Text
-              style={{
-                fontFamily: 'Inconsolata-Regular',
+              style={[TYPE.kicker, {
                 fontSize: 11,
                 color: '#A33A2A',
                 backgroundColor: '#FBF8F1',
@@ -84,7 +82,7 @@ function ErrorScreen({ error, onReset }: { error: Error; onReset: () => void }) 
                 borderRadius: 4,
                 padding: 14,
                 marginBottom: 22,
-              }}
+              }]}
             >
               {error.message}
               {error.stack ? `\n\n${error.stack}` : ''}
@@ -101,13 +99,12 @@ function ErrorScreen({ error, onReset }: { error: Error; onReset: () => void }) 
             }}
           >
             <Text
-              style={{
-                fontFamily: 'Inter-SemiBold',
+              style={[TYPE.bodyBold, {
                 fontSize: 14,
                 fontWeight: '600',
                 letterSpacing: 0.28,
                 color: '#F2EEE5',
-              }}
+              }]}
             >
               Try again
             </Text>

@@ -1,5 +1,6 @@
 import { Text, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import { TYPE } from '../../lib/typography'
 
 interface AppBarProps {
   eyebrow?: string
@@ -24,25 +25,29 @@ export function AppBar({ eyebrow, title, right }: AppBarProps) {
       <View>
         {eyebrow && (
           <Text
-            style={{
-              color: 'rgba(242,238,229,0.45)',
-              fontSize: 10,
-              fontFamily: 'Inconsolata-Medium',
-              letterSpacing: 1.4,
-              textTransform: 'uppercase',
-              marginBottom: 4,
-            }}
+            style={[
+              TYPE.kicker,
+              {
+                color: 'rgba(242,238,229,0.45)',
+                fontSize: 10,
+                letterSpacing: 1.4,
+                textTransform: 'uppercase',
+                marginBottom: 4,
+              },
+            ]}
           >
             {eyebrow}
           </Text>
         )}
         <Text
-          style={{
-            color: '#F2EEE5',
-            fontSize: 17,
-            fontFamily: 'Fraunces-Medium',
-            fontWeight: '500',
-          }}
+          style={[
+            TYPE.serifUpright,
+            {
+              color: '#F2EEE5',
+              fontSize: 17,
+              fontWeight: '500',
+            },
+          ]}
         >
           {title}
         </Text>

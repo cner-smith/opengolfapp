@@ -1,12 +1,12 @@
 import { useMemo } from 'react'
 import { Text, View } from 'react-native'
 import { barScale, formatSG, sgBreakdown, type SGBreakdownKey, type SGRoundLike } from '@oga/core'
+import { TYPE } from '../../lib/typography'
 
 const KICKER: import('react-native').TextStyle = {
   color: '#8A8B7E',
   fontSize: 10,
   fontWeight: '500',
-  fontFamily: 'Inconsolata-Medium',
   letterSpacing: 1.4,
   textTransform: 'uppercase',
 }
@@ -32,7 +32,7 @@ export function SGBreakdown({ rounds }: { rounds: SGRoundLike[] }) {
           marginBottom: 14,
         }}
       >
-        <Text style={KICKER}>SG breakdown</Text>
+        <Text style={[TYPE.kicker, KICKER]}>SG breakdown</Text>
       </View>
       <View style={{ gap: 14 }}>
         {breakdown.map((b) => (
@@ -57,7 +57,7 @@ function SGBar({
   const color = value > 0 ? '#1F3D2C' : value < 0 ? '#A33A2A' : '#8A8B7E'
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-      <Text style={{ color: '#1C211C', fontSize: 13, width: 100 }}>
+      <Text style={[TYPE.body, { color: '#1C211C', fontSize: 13, width: 100 }]}>
         {label}
       </Text>
       <View style={{ flex: 1, height: 8, position: 'relative' }}>
@@ -93,15 +93,18 @@ function SGBar({
         />
       </View>
       <Text
-        style={{
-          color,
-          fontSize: 15,
-          fontStyle: 'italic',
-          fontWeight: '500',
-          width: 56,
-          textAlign: 'right',
-          fontVariant: ['tabular-nums'],
-        }}
+        style={[
+          TYPE.serif,
+          {
+            color,
+            fontSize: 15,
+            fontStyle: 'italic',
+            fontWeight: '500',
+            width: 56,
+            textAlign: 'right',
+            fontVariant: ['tabular-nums'],
+          },
+        ]}
       >
         {formatSG(value)}
       </Text>

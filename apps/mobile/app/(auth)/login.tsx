@@ -11,6 +11,7 @@ import {
 import { Link, useRouter } from 'expo-router'
 import { WebView } from 'react-native-webview'
 import { supabase } from '../../lib/supabase'
+import { TYPE } from '../../lib/typography'
 
 const TURNSTILE_SITE_KEY = process.env.EXPO_PUBLIC_TURNSTILE_SITE_KEY
 
@@ -70,12 +71,12 @@ export default function Login() {
         }}
       >
         <Text
-          style={{
+          style={[TYPE.bodyBold, {
             color: '#111111',
             fontSize: 22,
             fontWeight: '600',
             marginBottom: 16,
-          }}
+          }]}
         >
           Sign in to OGA
         </Text>
@@ -112,7 +113,7 @@ export default function Login() {
           />
         )}
         {error && (
-          <Text style={{ color: '#A32D2D', fontSize: 13, marginBottom: 10 }}>
+          <Text style={[TYPE.body, { color: '#A32D2D', fontSize: 13, marginBottom: 10 }]}>
             {error}
           </Text>
         )}
@@ -127,18 +128,18 @@ export default function Login() {
             opacity: !canSubmit ? 0.5 : 1,
           }}
         >
-          <Text style={{ color: '#FFFFFF', fontSize: 13, fontWeight: '500' }}>
+          <Text style={[TYPE.body, { color: '#FFFFFF', fontSize: 13, fontWeight: '500' }]}>
             {loading ? 'Signing in…' : 'Sign in'}
           </Text>
         </Pressable>
         <Link
           href="/(auth)/signup"
-          style={{
+          style={[TYPE.body, {
             color: '#0F6E56',
             fontSize: 13,
             marginTop: 14,
             textAlign: 'center',
-          }}
+          }]}
         >
           No account? Sign up
         </Link>
@@ -163,14 +164,14 @@ const inputStyle = {
 function FieldLabel({ children }: { children: React.ReactNode }) {
   return (
     <Text
-      style={{
+      style={[TYPE.body, {
         color: '#888880',
         fontSize: 11,
         fontWeight: '500',
         letterSpacing: 0.4,
         textTransform: 'uppercase',
         marginBottom: 6,
-      }}
+      }]}
     >
       {children}
     </Text>

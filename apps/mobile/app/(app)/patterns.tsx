@@ -25,8 +25,10 @@ import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
 import { useUnits } from '../../hooks/useUnits'
 import { AppBar } from '../../components/ui/AppBar'
+import { FONT, TYPE } from '../../lib/typography'
 
 const KICKER: import('react-native').TextStyle = {
+  ...TYPE.kicker,
   color: '#8A8B7E',
   fontSize: 10,
   fontWeight: '500',
@@ -181,9 +183,9 @@ export default function Patterns() {
 
         <Section kicker="Pattern">
           {loading ? (
-            <Text style={{ color: '#8A8B7E', fontSize: 13 }}>Loading…</Text>
+            <Text style={[TYPE.body, { color: '#8A8B7E', fontSize: 13 }]}>Loading…</Text>
           ) : points.length === 0 ? (
-            <Text style={{ color: '#8A8B7E', fontSize: 13 }}>
+            <Text style={[TYPE.body, { color: '#8A8B7E', fontSize: 13 }]}>
               No shots yet for {club}
               {lieType !== ANY ? ` (${lieType})` : ''}
               {lieSlope !== ANY ? ` (${lieSlope})` : ''}.
@@ -240,14 +242,14 @@ export default function Patterns() {
             </View>
           ) : (
             <Text
-              style={{
+              style={[TYPE.bodyItalic, {
                 color: '#1C211C',
                 fontSize: 15,
                 lineHeight: 22,
                 fontStyle: 'italic',
-              }}
+              }]}
             >
-              Need at least <Text style={{ fontWeight: '500' }}>five shots</Text>{' '}
+              Need at least <Text style={[TYPE.bodyItalic, { fontWeight: '500' }]}>five shots</Text>{' '}
               with aim and landing coords to compute a pattern.
             </Text>
           )}
@@ -263,11 +265,11 @@ export default function Patterns() {
           >
             <Text style={{ ...KICKER, marginBottom: 10 }}>Aim correction</Text>
             <Text
-              style={{
+              style={[TYPE.body, {
                 color: '#1C211C',
                 fontSize: 15,
                 lineHeight: 22,
-              }}
+              }]}
             >
               {getAimCorrection(stats, unit)}
             </Text>
@@ -313,6 +315,7 @@ const SHARE_C = {
 } as const
 
 const SHARE_KICKER: import('react-native').TextStyle = {
+  ...TYPE.kicker,
   fontWeight: '500',
   letterSpacing: 2,
   textTransform: 'uppercase',
@@ -360,7 +363,7 @@ function ShotPatternsShareCard({
           </Text>
           <Text
             style={{
-              fontFamily: 'Fraunces-MediumItalic',
+              ...TYPE.serif,
               fontWeight: '500',
               fontSize: 44,
               color: c.ink,
@@ -403,7 +406,7 @@ function ShotPatternsShareCard({
           </Text>
           <Text
             style={{
-              fontFamily: 'Fraunces-Medium',
+              ...TYPE.serifUpright,
               fontWeight: '500',
               fontSize: 46,
               color: c.ink,
@@ -423,7 +426,7 @@ function ShotPatternsShareCard({
           </View>
           <Text
             style={{
-              fontFamily: 'Fraunces-Medium',
+              ...TYPE.serifUpright,
               fontSize: 22,
               lineHeight: 33,
               color: c.inkDim,
@@ -469,7 +472,7 @@ function ShareStat({
       </Text>
       <Text
         style={{
-          fontFamily: 'Fraunces-Medium',
+          ...TYPE.serifUpright,
           fontWeight: '500',
           fontSize: 26,
           color: c.ink,
@@ -510,13 +513,13 @@ function Stat({ label, value }: { label: string; value: string }) {
     <View style={{ minWidth: 110 }}>
       <Text style={{ ...KICKER, marginBottom: 6 }}>{label}</Text>
       <Text
-        style={{
+        style={[TYPE.serifUpright, {
           color: '#1C211C',
           fontSize: 17,
           fontWeight: '500',
           textTransform: 'capitalize',
           fontVariant: ['tabular-nums'],
-        }}
+        }]}
       >
         {value}
       </Text>
@@ -549,11 +552,11 @@ function ChipRow<T extends string>({ value, options, onChange, labelFor }: ChipR
               }}
             >
               <Text
-                style={{
+                style={[TYPE.body, {
                   color: active ? '#F2EEE5' : '#1C211C',
                   fontSize: 12,
                   fontWeight: active ? '500' : '400',
-                }}
+                }]}
               >
                 {labelFor ? labelFor(opt) : opt}
               </Text>
@@ -605,7 +608,7 @@ function LegendDot({ color, label }: { color: string; label: string }) {
           backgroundColor: color,
         }}
       />
-      <Text style={{ color: '#5C6356', fontSize: 11 }}>{label}</Text>
+      <Text style={[TYPE.body, { color: '#5C6356', fontSize: 11 }]}>{label}</Text>
     </View>
   )
 }
@@ -623,7 +626,7 @@ function LegendEllipse({ opacity, label }: { opacity: number; label: string }) {
           borderColor: '#1F3D2C',
         }}
       />
-      <Text style={{ color: '#1C211C', fontSize: 12 }}>{label}</Text>
+      <Text style={[TYPE.body, { color: '#1C211C', fontSize: 12 }]}>{label}</Text>
     </View>
   )
 }
@@ -716,7 +719,7 @@ function DispersionPlot({
       )}
 
       <Circle cx={cx} cy={cy} r={3} fill="#A66A1F" />
-      <SvgText x={cx + 6} y={cy + 14} fontSize={9} fill="#A66A1F">
+      <SvgText x={cx + 6} y={cy + 14} fontSize={9} fill="#A66A1F" fontFamily={FONT.mono}>
         AIM
       </SvgText>
 
@@ -734,16 +737,16 @@ function DispersionPlot({
         )
       })}
 
-      <SvgText x={cx + 6} y={12} fontSize={9} fill="#8A8B7E">
+      <SvgText x={cx + 6} y={12} fontSize={9} fill="#8A8B7E" fontFamily={FONT.mono}>
         LONG
       </SvgText>
-      <SvgText x={cx + 6} y={size - 4} fontSize={9} fill="#8A8B7E">
+      <SvgText x={cx + 6} y={size - 4} fontSize={9} fill="#8A8B7E" fontFamily={FONT.mono}>
         SHORT
       </SvgText>
-      <SvgText x={4} y={cy - 4} fontSize={9} fill="#8A8B7E">
+      <SvgText x={4} y={cy - 4} fontSize={9} fill="#8A8B7E" fontFamily={FONT.mono}>
         L
       </SvgText>
-      <SvgText x={size - 12} y={cy - 4} fontSize={9} fill="#8A8B7E">
+      <SvgText x={size - 12} y={cy - 4} fontSize={9} fill="#8A8B7E" fontFamily={FONT.mono}>
         R
       </SvgText>
     </Svg>

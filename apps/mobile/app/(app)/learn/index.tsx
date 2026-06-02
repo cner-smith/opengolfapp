@@ -7,9 +7,12 @@ import {
   type LearnSection,
 } from '@oga/core'
 import { AppBar } from '../../../components/ui/AppBar'
+import { C } from '../../../components/learn/primitives'
+import { FONT, TYPE } from '../../../lib/typography'
 
 const KICKER: import('react-native').TextStyle = {
-  color: '#8A8B7E',
+  fontFamily: FONT.mono,
+  color: C.mute,
   fontSize: 10,
   fontWeight: '500',
   letterSpacing: 1.4,
@@ -20,7 +23,7 @@ export default function LearnScreen() {
   const router = useRouter()
 
   return (
-    <View style={{ flex: 1, backgroundColor: '#F2EEE5' }}>
+    <View style={{ flex: 1, backgroundColor: C.bg }}>
       <AppBar
         eyebrow="Yardage book"
         title="Learn"
@@ -34,18 +37,18 @@ export default function LearnScreen() {
       />
       <ScrollView contentContainerStyle={{ padding: 18, paddingBottom: 64 }}>
         <Text
-          style={{
-            color: '#1C211C',
+          style={[TYPE.serif, {
+            color: C.ink,
             fontSize: 22,
             fontStyle: 'italic',
             fontWeight: '500',
             lineHeight: 28,
             marginBottom: 8,
-          }}
+          }]}
         >
           A coach's column on the stats this app tracks.
         </Text>
-        <Text style={{ color: '#5C6356', fontSize: 14, lineHeight: 20 }}>
+        <Text style={[TYPE.body, { color: C.inkDim, fontSize: 14, lineHeight: 20 }]}>
           What they mean, why they matter, and what the numbers look like across
           the field.
         </Text>
@@ -74,7 +77,7 @@ function ArticleRow({
   const isSoon = article.status === 'soon'
   const isDraft = article.status === 'draft'
   const reading = readingTimeMinutes(article)
-  const titleColor = isSoon ? '#5C6356' : '#1C211C'
+  const titleColor = isSoon ? C.inkDim : C.ink
 
   return (
     <Pressable
@@ -82,7 +85,7 @@ function ArticleRow({
       disabled={isSoon}
       style={{
         borderTopWidth: 1,
-        borderColor: '#D9D2BF',
+        borderColor: C.line,
         paddingVertical: 16,
         flexDirection: 'row',
         alignItems: 'flex-start',
@@ -98,46 +101,46 @@ function ArticleRow({
           }}
         >
           <Text
-            style={{
+            style={[TYPE.serif, {
               color: titleColor,
               fontSize: 17,
               fontStyle: 'italic',
               fontWeight: '500',
-            }}
+            }]}
           >
             {article.title}
           </Text>
           {isDraft && (
             <Text
-              style={{ ...KICKER, color: '#A66A1F', marginLeft: 8 }}
+              style={{ ...KICKER, color: C.amber, marginLeft: 8 }}
             >
               Draft
             </Text>
           )}
         </View>
         <Text
-          style={{
-            color: '#5C6356',
+          style={[TYPE.body, {
+            color: C.inkDim,
             fontSize: 13,
             lineHeight: 18,
             marginTop: 4,
-          }}
+          }]}
         >
           {article.description}
         </Text>
       </View>
       <View style={{ alignItems: 'flex-end' }}>
         {isSoon ? (
-          <Text style={{ ...KICKER, color: '#8A8B7E' }}>Soon</Text>
+          <Text style={{ ...KICKER, color: C.mute }}>Soon</Text>
         ) : (
           <>
             {reading != null && (
-              <Text style={{ ...KICKER, color: '#8A8B7E', marginBottom: 4 }}>
+              <Text style={{ ...KICKER, color: C.mute, marginBottom: 4 }}>
                 {reading} min
               </Text>
             )}
             <Text
-              style={{ color: '#8A8B7E', fontSize: 18, fontStyle: 'italic' }}
+              style={[TYPE.serif, { color: C.mute, fontSize: 18, fontStyle: 'italic' }]}
             >
               →
             </Text>
@@ -166,14 +169,14 @@ function SectionBlock({
     >
       <Text style={{ ...KICKER, marginBottom: 8 }}>{section.number}</Text>
       <Text
-        style={{
-          color: '#1C211C',
+        style={[TYPE.serif, {
+          color: C.ink,
           fontSize: 24,
           fontStyle: 'italic',
           fontWeight: '500',
           lineHeight: 30,
           marginBottom: 14,
-        }}
+        }]}
       >
         {section.title}
       </Text>

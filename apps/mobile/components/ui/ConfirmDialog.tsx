@@ -1,4 +1,5 @@
 import { Modal, Pressable, Text, View } from 'react-native'
+import { TYPE } from '../../lib/typography'
 
 interface ConfirmDialogProps {
   visible: boolean
@@ -59,29 +60,35 @@ export function ConfirmDialog({
             maxWidth: 360,
           }}
         >
-          <Text style={{ ...KICKER, marginBottom: 8 }}>
+          <Text style={[TYPE.kicker, KICKER, { marginBottom: 8 }]}>
             {destructive ? 'Confirm delete' : 'Confirm'}
           </Text>
           <Text
-            style={{
-              color: '#1C211C',
-              fontSize: 22,
-              fontStyle: 'italic',
-              fontWeight: '500',
-              lineHeight: 28,
-              marginBottom: message ? 10 : 22,
-            }}
+            style={[
+              TYPE.serif,
+              {
+                color: '#1C211C',
+                fontSize: 22,
+                fontStyle: 'italic',
+                fontWeight: '500',
+                lineHeight: 28,
+                marginBottom: message ? 10 : 22,
+              },
+            ]}
           >
             {title}
           </Text>
           {message && (
             <Text
-              style={{
-                color: '#5C6356',
-                fontSize: 14,
-                lineHeight: 20,
-                marginBottom: 22,
-              }}
+              style={[
+                TYPE.body,
+                {
+                  color: '#5C6356',
+                  fontSize: 14,
+                  lineHeight: 20,
+                  marginBottom: 22,
+                },
+              ]}
             >
               {message}
             </Text>
@@ -99,7 +106,7 @@ export function ConfirmDialog({
                 opacity: busy ? 0.5 : 1,
               }}
             >
-              <Text style={{ color: '#5C6356', fontSize: 13, fontWeight: '500' }}>
+              <Text style={[TYPE.body, { color: '#5C6356', fontSize: 13, fontWeight: '500' }]}>
                 {cancelLabel}
               </Text>
             </Pressable>
@@ -115,12 +122,15 @@ export function ConfirmDialog({
               }}
             >
               <Text
-                style={{
-                  color: '#F2EEE5',
-                  fontSize: 14,
-                  fontWeight: '600',
-                  letterSpacing: 0.3,
-                }}
+                style={[
+                  TYPE.bodyBold,
+                  {
+                    color: '#F2EEE5',
+                    fontSize: 14,
+                    fontWeight: '600',
+                    letterSpacing: 0.3,
+                  },
+                ]}
               >
                 {busy ? 'Working…' : confirmLabel}
               </Text>

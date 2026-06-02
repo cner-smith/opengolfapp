@@ -16,12 +16,14 @@ import type { Database } from '@oga/supabase'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
 import { AppBar } from '../../components/ui/AppBar'
+import { TYPE } from '../../lib/typography'
 
 type Profile = Database['public']['Tables']['profiles']['Row']
 type SkillLevel = Profile['skill_level']
 type Goal = Profile['goal']
 
 const KICKER: import('react-native').TextStyle = {
+  ...TYPE.kicker,
   color: '#8A8B7E',
   fontSize: 10,
   fontWeight: '500',
@@ -194,24 +196,24 @@ export default function ProfileTab() {
         >
           <Text style={{ ...KICKER, marginBottom: 8 }}>Handicap index</Text>
           <Text
-            style={{
+            style={[TYPE.serif, {
               color: '#1C211C',
               fontSize: 56,
               fontStyle: 'italic',
               fontWeight: '500',
               fontVariant: ['tabular-nums'],
               lineHeight: 60,
-            }}
+            }]}
           >
             {profile?.handicap_index ?? '—'}
           </Text>
           <Text
-            style={{
+            style={[TYPE.body, {
               color: '#5C6356',
               fontSize: 14,
               marginTop: 6,
               textTransform: 'capitalize',
-            }}
+            }]}
           >
             {profile?.skill_level ?? 'No skill level set'}
           </Text>
@@ -232,11 +234,11 @@ export default function ProfileTab() {
             }}
           />
           <Text
-            style={{
+            style={[TYPE.body, {
               color: showUsernameError ? '#A33A2A' : '#8A8B7E',
               fontSize: 11,
               marginTop: 6,
-            }}
+            }]}
           >
             {USERNAME_HELPER}
           </Text>
@@ -338,11 +340,11 @@ export default function ProfileTab() {
         >
           <View>
             <Text style={{ ...KICKER, marginBottom: 2 }}>Equipment</Text>
-            <Text style={{ color: '#1C211C', fontSize: 16, fontWeight: '500' }}>
+            <Text style={[TYPE.body, { color: '#1C211C', fontSize: 16, fontWeight: '500' }]}>
               My Bag
             </Text>
           </View>
-          <Text style={{ color: '#1F3D2C', fontSize: 18, fontStyle: 'italic' }}>→</Text>
+          <Text style={[TYPE.bodyItalic, { color: '#1F3D2C', fontSize: 18, fontStyle: 'italic' }]}>→</Text>
         </Pressable>
 
         <Pressable
@@ -361,12 +363,12 @@ export default function ProfileTab() {
           }}
         >
           <Text
-            style={{
+            style={[TYPE.bodyBold, {
               color: '#F2EEE5',
               fontSize: 14,
               fontWeight: '600',
               letterSpacing: 0.3,
-            }}
+            }]}
           >
             {saving ? 'Saving…' : 'Save changes'}
           </Text>
@@ -384,12 +386,12 @@ export default function ProfileTab() {
         >
           <Text style={{ ...KICKER, marginBottom: 10 }}>Support OGA</Text>
           <Text
-            style={{
+            style={[TYPE.body, {
               color: '#1C211C',
               fontSize: 14,
               lineHeight: 20,
               marginBottom: 14,
-            }}
+            }]}
           >
             OGA is free and open source. If it helps your game,
             consider buying us a round.
@@ -409,12 +411,12 @@ export default function ProfileTab() {
               }}
             >
               <Text
-                style={{
+                style={[TYPE.bodyBold, {
                   color: '#1F3D2C',
                   fontSize: 13,
                   fontWeight: '600',
                   letterSpacing: 0.3,
-                }}
+                }]}
               >
                 Ko-fi ↗
               </Text>
@@ -435,12 +437,12 @@ export default function ProfileTab() {
               }}
             >
               <Text
-                style={{
+                style={[TYPE.bodyBold, {
                   color: '#1F3D2C',
                   fontSize: 13,
                   fontWeight: '600',
                   letterSpacing: 0.3,
-                }}
+                }]}
               >
                 GitHub ↗
               </Text>
@@ -489,6 +491,7 @@ export default function ProfileTab() {
 }
 
 const inputStyle = {
+  ...TYPE.body,
   backgroundColor: '#FBF8F1',
   borderWidth: 1,
   borderColor: '#D9D2BF',
@@ -553,28 +556,28 @@ function DeleteAccountModal({
         >
           <Text style={{ ...KICKER, marginBottom: 8 }}>Confirm delete</Text>
           <Text
-            style={{
+            style={[TYPE.serif, {
               color: '#1C211C',
               fontSize: 22,
               fontStyle: 'italic',
               fontWeight: '500',
               lineHeight: 28,
               marginBottom: 10,
-            }}
+            }]}
           >
             {phase === 'confirm' ? 'Delete your OGA account?' : 'Type to confirm'}
           </Text>
 
           {phase === 'confirm' ? (
-            <Text style={{ color: '#5C6356', fontSize: 14, lineHeight: 20, marginBottom: 22 }}>
+            <Text style={[TYPE.body, { color: '#5C6356', fontSize: 14, lineHeight: 20, marginBottom: 22 }]}>
               This will permanently delete your account and all rounds, shots,
               and saved data. This cannot be undone.
             </Text>
           ) : (
             <>
-              <Text style={{ color: '#5C6356', fontSize: 14, lineHeight: 20, marginBottom: 14 }}>
+              <Text style={[TYPE.body, { color: '#5C6356', fontSize: 14, lineHeight: 20, marginBottom: 14 }]}>
                 Type{' '}
-                <Text style={{ fontWeight: '700', color: '#1C211C' }}>{DELETE_PHRASE}</Text>{' '}
+                <Text style={[TYPE.bodyBold, { fontWeight: '700', color: '#1C211C' }]}>{DELETE_PHRASE}</Text>{' '}
                 below to permanently delete your account.
               </Text>
               <TextInput
@@ -606,7 +609,7 @@ function DeleteAccountModal({
                 opacity: busy ? 0.5 : 1,
               }}
             >
-              <Text style={{ color: '#5C6356', fontSize: 13, fontWeight: '500' }}>Cancel</Text>
+              <Text style={[TYPE.body, { color: '#5C6356', fontSize: 13, fontWeight: '500' }]}>Cancel</Text>
             </Pressable>
 
             {phase === 'confirm' ? (
@@ -621,7 +624,7 @@ function DeleteAccountModal({
                   paddingVertical: 10,
                 }}
               >
-                <Text style={{ color: '#F2EEE5', fontSize: 14, fontWeight: '600', letterSpacing: 0.3 }}>
+                <Text style={[TYPE.bodyBold, { color: '#F2EEE5', fontSize: 14, fontWeight: '600', letterSpacing: 0.3 }]}>
                   Continue
                 </Text>
               </Pressable>
@@ -639,7 +642,7 @@ function DeleteAccountModal({
                   opacity: busy || !matches ? 0.5 : 1,
                 }}
               >
-                <Text style={{ color: '#F2EEE5', fontSize: 14, fontWeight: '600', letterSpacing: 0.3 }}>
+                <Text style={[TYPE.bodyBold, { color: '#F2EEE5', fontSize: 14, fontWeight: '600', letterSpacing: 0.3 }]}>
                   {busy ? 'Deleting…' : 'Delete account'}
                 </Text>
               </Pressable>
@@ -690,12 +693,12 @@ function Chip({
       }}
     >
       <Text
-        style={{
+        style={[TYPE.body, {
           color: active ? '#F2EEE5' : '#1C211C',
           fontSize: 12,
           fontWeight: active ? '500' : '400',
           textTransform: 'capitalize',
-        }}
+        }]}
       >
         {label}
       </Text>
