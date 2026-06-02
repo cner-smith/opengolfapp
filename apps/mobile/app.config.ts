@@ -10,11 +10,19 @@ const config: ExpoConfig = {
   scheme: 'oga',
   version: '0.0.1',
   orientation: 'portrait',
+  // Direction A "o." monogram (brand-mark Issue 03) — flat 1024² master;
+  // iOS clips the squircle, so no baked corners. Dark/tinted variants
+  // (icon-dark.png / icon-tinted.png) are staged in assets/ but need the
+  // ios.icon {light,dark,tinted} object, which lands in Expo SDK 52.
+  icon: './assets/icon.png',
   userInterfaceStyle: 'automatic',
   backgroundColor: '#1C211C',
   splash: {
     image: './assets/splash.png',
-    resizeMode: 'cover',
+    // contain (not cover): the splash asset is the paper "o." mark on a
+    // transparent field; backgroundColor (#1C211C ink) fills around it so
+    // the centred mark shows whole on every aspect ratio.
+    resizeMode: 'contain',
     backgroundColor: '#1C211C',
   },
   ios: {
@@ -107,6 +115,10 @@ const config: ExpoConfig = {
     // Android package name stays as-is — already-shipped users have this
     // identifier installed. Changing it produces a different app for them.
     package: 'app.opengolf.oga',
+    adaptiveIcon: {
+      foregroundImage: './assets/adaptive-icon.png',
+      backgroundColor: '#F2EEE5',
+    },
     softwareKeyboardLayoutMode: 'pan',
     permissions: [
       'ACCESS_FINE_LOCATION',
