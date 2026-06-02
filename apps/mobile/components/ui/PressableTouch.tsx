@@ -13,7 +13,6 @@ const IOS_PRESSED_OPACITY = 0.75
 
 type Props = Omit<PressableProps, 'style'> & {
   style?: StyleProp<ViewStyle>
-  pressedOpacity?: number
 }
 
 /**
@@ -27,8 +26,6 @@ type Props = Omit<PressableProps, 'style'> & {
  *
  * `ref` is not forwarded — no caller needs one yet. Add `forwardRef` when a
  * tap target genuinely needs `measure()`/focus.
- *
- * Default tap target for the app; reach for this instead of a bare Pressable.
  */
 export function PressableTouch({
   style,
@@ -36,7 +33,6 @@ export function PressableTouch({
   onPressIn,
   onPressOut,
   disabled,
-  pressedOpacity = IOS_PRESSED_OPACITY,
   ...rest
 }: Props) {
   const [pressed, setPressed] = useState(false)
@@ -56,7 +52,7 @@ export function PressableTouch({
         setPressed(false)
         onPressOut?.(e)
       }}
-      style={[style, dim ? { opacity: pressedOpacity } : null]}
+      style={[style, dim ? { opacity: IOS_PRESSED_OPACITY } : null]}
     />
   )
 }
