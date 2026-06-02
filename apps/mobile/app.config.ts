@@ -48,14 +48,13 @@ const config: ExpoConfig = {
         'OGA may save round summary cards to your photo library.',
     },
     // App Privacy Manifest (required for App Store uploads since May 2024).
-    // Expo SDK 51 reads this and emits PrivacyInfo.xcprivacy at prebuild —
-    // don't hand-place a file (CNG regenerates ios/). Declared at the app
-    // level because Apple doesn't reliably parse manifests bundled by static
-    // CocoaPod deps (per Expo's apple-privacy guide), so the Required Reason
-    // APIs our stack touches are redeclared here. Reason codes verified
-    // against deps actually present: expo-sqlite (FileTimestamp/DiskSpace),
-    // @react-native-async-storage (UserDefaults), react-native core
-    // (SystemBootTime). NSPrivacyTracking false — no IDFA, no ad SDKs.
+    // Hand-placing a PrivacyInfo.xcprivacy is futile here — CNG regenerates
+    // ios/. Declared at the app level because Apple doesn't reliably parse
+    // manifests bundled by static CocoaPod deps (per Expo's apple-privacy
+    // guide), so the Required Reason APIs our stack touches are redeclared
+    // here, verified against deps actually present: expo-sqlite (FileTimestamp/
+    // DiskSpace), @react-native-async-storage (UserDefaults), react-native
+    // core (SystemBootTime). NSPrivacyTracking false — no IDFA, no ad SDKs.
     privacyManifests: {
       NSPrivacyTracking: false,
       NSPrivacyTrackingDomains: [],
