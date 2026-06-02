@@ -32,9 +32,11 @@ describe('computeDispersion', () => {
   })
 
   it('converts lat/lng deltas to yard offsets', () => {
-    // 0.001 deg lat ≈ 121 yards north → distanceOffset ~ +121
-    // 0.001 deg lng at lat 40 ≈ 121000 * cos(40°) ~ 92,690 yards/deg
+    // Aimed due north (start south of aim). End 0.001 deg lat ≈ 121 yds north
+    // of aim = straight down the line → distanceOffset ~ +121, lateral ~0.
     const s = shot({
+      startLat: AIM_LAT - 0.001,
+      startLng: AIM_LNG,
       aimLat: AIM_LAT,
       aimLng: AIM_LNG,
       endLat: AIM_LAT + 0.001,
@@ -45,22 +47,61 @@ describe('computeDispersion', () => {
     expect(p!.lateralOffsetYards).toBeCloseTo(0, 5)
   })
 
-  it('positive lateral when end is east of aim', () => {
+  it('frames offsets relative to the aim line, not compass N/E (regression #464)', () => {
+    // Shot aimed due EAST (start west of aim → bearing ~90°), landing
+    // straight down the line: purely east of aim = all distance, no
+    // perpendicular miss. Compass framing mislabels the eastward end as a
+    // huge LATERAL offset; aim-relative framing must read it as ~all distance.
     const s = shot({
+      id: 'east',
+      startLat: AIM_LAT,
+      startLng: AIM_LNG - 0.001,
       aimLat: AIM_LAT,
       aimLng: AIM_LNG,
       endLat: AIM_LAT,
-      endLng: AIM_LNG + 0.0001,
+      endLng: AIM_LNG + 0.001,
     })
     const [p] = computeDispersion([s])
-    expect(p!.lateralOffsetYards).toBeGreaterThan(0)
+    expect(p!.lateralOffsetYards).toBeCloseTo(0, 0) // no perpendicular miss
+    expect(p!.distanceOffsetYards).toBeGreaterThan(50) // it's all distance
+  })
+
+  it('reads identical perp misses identically regardless of aim bearing (regression #464)', () => {
+    // Same shot — 30 yds right of aim, dead on for distance — flown on two
+    // different compass bearings (north vs east). The compass frame smears
+    // these into different lateral/distance offsets; the aim-relative frame
+    // must report the same perpendicular miss for both.
+    const PERP = 30
+    const northAimedRight = shot({
+      id: 'n',
+      startLat: AIM_LAT - 0.001,
+      startLng: AIM_LNG,
+      aimLat: AIM_LAT,
+      aimLng: AIM_LNG,
+      endLat: AIM_LAT,
+      endLng: AIM_LNG + PERP / (Y_PER_DEG_LAT * Math.cos((AIM_LAT * Math.PI) / 180)),
+    })
+    const eastAimedRight = shot({
+      id: 'e',
+      startLat: AIM_LAT,
+      startLng: AIM_LNG - 0.001,
+      aimLat: AIM_LAT,
+      aimLng: AIM_LNG,
+      endLat: AIM_LAT - PERP / Y_PER_DEG_LAT, // south of an east aim = right
+      endLng: AIM_LNG,
+    })
+    const [pn] = computeDispersion([northAimedRight])
+    const [pe] = computeDispersion([eastAimedRight])
+    expect(pn!.lateralOffsetYards).toBeCloseTo(PERP, 0)
+    expect(pe!.lateralOffsetYards).toBeCloseTo(pn!.lateralOffsetYards, 0)
   })
 
   it('projects start distance into the aim-relative plane when present', () => {
     const s = shot({
+      startLat: AIM_LAT - 0.001, // ~121 yds short of aim, due south
+      startLng: AIM_LNG,
       aimLat: AIM_LAT,
       aimLng: AIM_LNG,
-      startLat: AIM_LAT - 0.001, // ~121 yds short of aim
       endLat: AIM_LAT,
       endLng: AIM_LNG,
     })
@@ -68,15 +109,14 @@ describe('computeDispersion', () => {
     expect(p!.startDistanceOffsetYards).toBeCloseTo(-121, 0)
   })
 
-  it('leaves start distance undefined when start coords are missing', () => {
+  it('skips shots without a start position (cannot derive the aim line)', () => {
     const s = shot({
       aimLat: AIM_LAT,
       aimLng: AIM_LNG,
       endLat: AIM_LAT + 0.001,
       endLng: AIM_LNG,
     })
-    const [p] = computeDispersion([s])
-    expect(p!.startDistanceOffsetYards).toBeUndefined()
+    expect(computeDispersion([s])).toHaveLength(0)
   })
 })
 
