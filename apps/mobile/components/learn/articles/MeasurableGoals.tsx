@@ -1,5 +1,6 @@
 import { Text, View } from 'react-native'
 import Svg, { Line, Rect, Text as SvgText } from 'react-native-svg'
+import { FONT } from '../../../lib/typography'
 import {
   ArticleFooter,
   ArticleHeader,
@@ -148,19 +149,19 @@ function DifficultyBand() {
       <Rect x={90} y={26} width={58} height={14} fill={C.accent} opacity={0.16} />
       <Line x1={90} y1={22} x2={90} y2={44} stroke={C.accent} strokeWidth={1.5} />
       <Line x1={148} y1={22} x2={148} y2={44} stroke={C.accent} strokeWidth={1.5} />
-      <SvgText x={14} y={58} fontSize={7} fontFamily="monospace" letterSpacing={1} fill={C.mute}>
+      <SvgText x={14} y={58} fontSize={7} fontFamily={FONT.mono} letterSpacing={1} fill={C.mute}>
         TOO EASY
       </SvgText>
-      <SvgText x={98} y={58} fontSize={7} fontFamily="monospace" letterSpacing={1} fill={C.accent}>
+      <SvgText x={98} y={58} fontSize={7} fontFamily={FONT.mono} letterSpacing={1} fill={C.accent}>
         THE ZONE
       </SvgText>
-      <SvgText x={168} y={58} fontSize={7} fontFamily="monospace" letterSpacing={1} fill={C.mute}>
+      <SvgText x={168} y={58} fontSize={7} fontFamily={FONT.mono} letterSpacing={1} fill={C.mute}>
         TOO HARD
       </SvgText>
-      <SvgText x={10} y={20} fontSize={7} fontFamily="monospace" fill={C.mute}>
+      <SvgText x={10} y={20} fontSize={7} fontFamily={FONT.mono} fill={C.mute}>
         0%
       </SvgText>
-      <SvgText x={196} y={20} fontSize={7} fontFamily="monospace" fill={C.mute}>
+      <SvgText x={196} y={20} fontSize={7} fontFamily={FONT.mono} fill={C.mute}>
         100%
       </SvgText>
     </Svg>
@@ -196,11 +197,11 @@ function AnatomyTable() {
           style={{ paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: C.line }}
         >
           <Text
-            style={{ color: C.ink, fontSize: 15, fontStyle: 'italic', fontWeight: '500', marginBottom: 4 }}
+            style={{ color: C.ink, fontFamily: FONT.serifItalic, fontSize: 15, fontStyle: 'italic', fontWeight: '500', marginBottom: 4 }}
           >
             {r.part}
           </Text>
-          <Text style={{ color: C.inkDim, fontSize: 14, lineHeight: 20 }}>{r.detail}</Text>
+          <Text style={{ color: C.inkDim, fontFamily: FONT.body, fontSize: 14, lineHeight: 20 }}>{r.detail}</Text>
         </View>
       ))}
     </View>

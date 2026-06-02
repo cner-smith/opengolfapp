@@ -18,6 +18,7 @@ import {
   Tag,
   C,
 } from '../primitives'
+import { FONT } from '../../../lib/typography'
 
 export function TrainingAidsArticle() {
   return (
@@ -399,10 +400,10 @@ function Aid({
   return (
     <View style={{ borderTopWidth: 1, borderTopColor: C.line, paddingTop: 14, marginBottom: 14 }}>
       {svg ? <Figure caption={caption}>{svg}</Figure> : null}
-      <Text style={{ color: C.ink, fontSize: 18, fontStyle: 'italic', fontWeight: '500', marginBottom: 6 }}>
+      <Text style={{ color: C.ink, fontFamily: FONT.serifItalic, fontSize: 18, fontStyle: 'italic', fontWeight: '500', marginBottom: 6 }}>
         {name}
       </Text>
-      <Text style={{ color: C.inkDim, fontSize: 14, lineHeight: 22, marginBottom: 8 }}>
+      <Text style={{ color: C.inkDim, fontFamily: FONT.body, fontSize: 14, lineHeight: 22, marginBottom: 8 }}>
         <Tag>Trains</Tag> {trains}
       </Text>
       {children}
@@ -412,7 +413,7 @@ function Aid({
 
 function AidBody({ children }: { children: ReactNode }) {
   return (
-    <Text style={{ color: C.inkDim, fontSize: 14, lineHeight: 22, marginBottom: 8 }}>
+    <Text style={{ color: C.inkDim, fontFamily: FONT.body, fontSize: 14, lineHeight: 22, marginBottom: 8 }}>
       {children}
     </Text>
   )
@@ -420,7 +421,7 @@ function AidBody({ children }: { children: ReactNode }) {
 
 function LookFor({ children }: { children: ReactNode }) {
   return (
-    <Text style={{ color: C.inkDim, fontSize: 14, lineHeight: 22 }}>
+    <Text style={{ color: C.inkDim, fontFamily: FONT.body, fontSize: 14, lineHeight: 22 }}>
       <Tag>Look for</Tag> {children}
     </Text>
   )

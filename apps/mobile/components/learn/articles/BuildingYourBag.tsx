@@ -1,5 +1,6 @@
 import { Text, View } from 'react-native'
 import Svg, { Circle, G, Line, Rect } from 'react-native-svg'
+import { FONT } from '../../../lib/typography'
 import {
   ArticleFooter,
   ArticleHeader,
@@ -274,6 +275,7 @@ function SampleBag() {
           <Text
             style={{
               color: C.ink,
+              fontFamily: FONT.serifItalic,
               fontSize: 15,
               fontStyle: 'italic',
               fontWeight: '500',
@@ -282,7 +284,7 @@ function SampleBag() {
           >
             {r.role}
           </Text>
-          <Text style={{ color: C.inkDim, fontSize: 14, lineHeight: 20 }}>{r.clubs}</Text>
+          <Text style={{ color: C.inkDim, fontFamily: FONT.body, fontSize: 14, lineHeight: 20 }}>{r.clubs}</Text>
         </View>
       ))}
     </View>

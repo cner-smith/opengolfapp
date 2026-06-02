@@ -22,6 +22,7 @@ import {
   Strong,
   Subhead,
 } from '../primitives'
+import { FONT } from '../../../lib/typography'
 
 export function GuideToFittingsArticle() {
   return (
@@ -361,13 +362,13 @@ function Fit({
 }) {
   return (
     <View style={{ borderTopWidth: 1, borderTopColor: C.line, paddingTop: 12, marginBottom: 12 }}>
-      <Text style={{ color: C.ink, fontSize: 18, fontStyle: 'italic', marginBottom: 6 }}>
+      <Text style={{ color: C.ink, fontFamily: FONT.serifItalic, fontSize: 18, fontStyle: 'italic', marginBottom: 6 }}>
         {name}
       </Text>
-      <Text style={{ color: C.inkDim, fontSize: 14, lineHeight: 22 }}>
+      <Text style={{ color: C.inkDim, fontFamily: FONT.body, fontSize: 14, lineHeight: 22 }}>
         <FitTag>Measures</FitTag> {measures}
       </Text>
-      <Text style={{ color: C.inkDim, fontSize: 14, lineHeight: 22, marginTop: 4 }}>
+      <Text style={{ color: C.inkDim, fontFamily: FONT.body, fontSize: 14, lineHeight: 22, marginTop: 4 }}>
         <FitTag>Adjusts</FitTag> {adjusts}
       </Text>
     </View>
@@ -385,10 +386,10 @@ function FitTag({ children }: { children: ReactNode }) {
 function QA({ lead, children }: { lead: string; children: ReactNode }) {
   return (
     <View style={{ borderTopWidth: 1, borderTopColor: C.line, paddingTop: 10, marginBottom: 10 }}>
-      <Text style={{ color: C.ink, fontSize: 15, fontStyle: 'italic', marginBottom: 4 }}>
+      <Text style={{ color: C.ink, fontFamily: FONT.serifItalic, fontSize: 15, fontStyle: 'italic', marginBottom: 4 }}>
         {lead}
       </Text>
-      <Text style={{ color: C.inkDim, fontSize: 14, lineHeight: 22 }}>{children}</Text>
+      <Text style={{ color: C.inkDim, fontFamily: FONT.body, fontSize: 14, lineHeight: 22 }}>{children}</Text>
     </View>
   )
 }
@@ -420,10 +421,10 @@ function FitByHandicap() {
           key={r.stage}
           style={{ paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: C.line }}
         >
-          <Text style={{ color: C.ink, fontSize: 15, fontStyle: 'italic', marginBottom: 4 }}>
+          <Text style={{ color: C.ink, fontFamily: FONT.serifItalic, fontSize: 15, fontStyle: 'italic', marginBottom: 4 }}>
             {r.stage}
           </Text>
-          <Text style={{ color: C.inkDim, fontSize: 14, lineHeight: 21 }}>{r.advice}</Text>
+          <Text style={{ color: C.inkDim, fontFamily: FONT.body, fontSize: 14, lineHeight: 21 }}>{r.advice}</Text>
         </View>
       ))}
     </View>

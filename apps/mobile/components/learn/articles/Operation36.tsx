@@ -13,6 +13,7 @@ import {
   Strong,
   C,
 } from '../primitives'
+import { FONT } from '../../../lib/typography'
 
 export function Operation36Article() {
   return (
@@ -192,7 +193,7 @@ export function Operation36Article() {
         can fold it into how they practice and play:
       </P>
       <Callout>
-        <Text style={{ color: C.ink, fontSize: 14, lineHeight: 22 }}>
+        <Text style={{ color: C.ink, fontFamily: FONT.body, fontSize: 14, lineHeight: 22 }}>
           <Strong>Start your sessions close and work outward.</Strong> Open with
           wedges and chips from 25–50 yards before you ever pull the driver. When
           you're learning a new club, begin with partial swings at a short target
@@ -200,7 +201,7 @@ export function Operation36Article() {
         </Text>
       </Callout>
       <Callout>
-        <Text style={{ color: C.ink, fontSize: 14, lineHeight: 22 }}>
+        <Text style={{ color: C.ink, fontFamily: FONT.body, fontSize: 14, lineHeight: 22 }}>
           <Strong>Measure practice by "did I score," not "did I hit it well."</Strong>{' '}
           Give yourself a pass/fail target — up-and-down from 30 yards, two-putt
           from 20 feet — instead of grading the look of the swing. Build the
@@ -330,6 +331,7 @@ function Rung({
     >
       <Text
         style={{
+          fontFamily: FONT.serifItalic,
           fontSize: 18,
           fontStyle: 'italic',
           color: goal ? '#F2EEE5' : C.ink,
@@ -341,6 +343,7 @@ function Rung({
       {caption ? (
         <Text
           style={{
+            fontFamily: FONT.body,
             fontSize: 12,
             flex: 1,
             color: goal ? 'rgba(242,238,229,0.78)' : C.mute,
@@ -361,6 +364,7 @@ function Gate() {
       <Text
         style={{
           ...{
+            fontFamily: FONT.mono,
             fontSize: 9,
             letterSpacing: 1.3,
             textTransform: 'uppercase' as const,
@@ -371,7 +375,7 @@ function Gate() {
       >
         Shoot 36 to advance
       </Text>
-      <Text style={{ fontSize: 13, lineHeight: 13, color: '#9F9580' }}>⌄</Text>
+      <Text style={{ fontFamily: FONT.body, fontSize: 13, lineHeight: 13, color: '#9F9580' }}>⌄</Text>
     </View>
   )
 }
