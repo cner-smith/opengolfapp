@@ -220,8 +220,10 @@ export default function AppLayout() {
           ),
         }}
       />
-      <Tabs.Screen name="learn/index" options={{ href: null }} />
-      <Tabs.Screen name="learn/[article]" options={{ href: null }} />
+      {/* Learn is a nested stack (learn/_layout.tsx owns index + [article]),
+          so it collapses to a single hidden tab route. This is what makes
+          "← Back" from an article pop to the list instead of the Home tab. */}
+      <Tabs.Screen name="learn" options={{ href: null }} />
       <Tabs.Screen name="bag" options={{ href: null }} />
       <Tabs.Screen name="rounds" options={{ href: null }} />
       <Tabs.Screen name="round/new" options={{ href: null }} />
