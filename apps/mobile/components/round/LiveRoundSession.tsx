@@ -5,6 +5,7 @@ import {
   Text,
   View,
 } from 'react-native'
+import { PressableTouch } from '../ui/PressableTouch'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useRouter } from 'expo-router'
 import { HoleMap, type LatLng } from './HoleMap'
@@ -412,7 +413,7 @@ export default function LiveRoundSession({
           <Text style={{ ...KICKER, color: 'rgba(242,238,229,0.45)' }}>
             Shot {data.shotNumber}
           </Text>
-          <Pressable
+          <PressableTouch
             accessibilityRole="button"
             accessibilityLabel="Round options"
             onPress={() => setMenuOpen(true)}
@@ -423,7 +424,7 @@ export default function LiveRoundSession({
             <Text style={{ color: '#F2EEE5', fontSize: 22, fontWeight: '600', lineHeight: 24 }}>
               ⋮
             </Text>
-          </Pressable>
+          </PressableTouch>
         </View>
       </View>
 
@@ -665,7 +666,7 @@ export default function LiveRoundSession({
               elevation: 8,
             }}
           >
-            <Pressable
+            <PressableTouch
               accessibilityRole="button"
               accessibilityLabel="End round early"
               onPress={() => {
@@ -678,7 +679,7 @@ export default function LiveRoundSession({
               <Text style={{ color: '#F2EEE5', fontSize: 15, fontWeight: '600' }}>
                 End round early
               </Text>
-            </Pressable>
+            </PressableTouch>
             <View
               style={{
                 height: 1,
@@ -686,7 +687,7 @@ export default function LiveRoundSession({
                 marginHorizontal: 8,
               }}
             />
-            <Pressable
+            <PressableTouch
               accessibilityRole="button"
               accessibilityLabel="Delete round"
               onPress={() => {
@@ -699,7 +700,7 @@ export default function LiveRoundSession({
               <Text style={{ color: '#E0796B', fontSize: 15, fontWeight: '600' }}>
                 Delete round
               </Text>
-            </Pressable>
+            </PressableTouch>
           </View>
         </>
       )}

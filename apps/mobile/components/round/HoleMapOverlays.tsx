@@ -1,5 +1,6 @@
 import type { ComponentProps } from 'react'
-import { Pressable, Text, View } from 'react-native'
+import { Text, View } from 'react-native'
+import { PressableTouch } from '../ui/PressableTouch'
 import { MaterialCommunityIcons } from '@expo/vector-icons'
 
 // Shared pill chrome — dark translucent card on satellite, per DESIGN.md
@@ -287,7 +288,7 @@ function ToolbarButton({
   disabled?: boolean
 }) {
   return (
-    <Pressable
+    <PressableTouch
       accessibilityRole="button"
       accessibilityLabel={label}
       accessibilityState={{ disabled: !!disabled, selected: !!active }}
@@ -298,8 +299,8 @@ function ToolbarButton({
       // Static style object, NOT a `({ pressed }) => …` callback: under
       // NativeWind/css-interop a function `style` on a wrapped RN component is
       // never resolved, so the active cream fill silently never applied —
-      // that's why the selected toolbar/rail state never highlighted. Press
-      // feedback is android_ripple instead (Android-first; #303).
+      // that's why the selected toolbar/rail state never highlighted. Android
+      // press feedback is android_ripple; iOS dims via PressableTouch (#303).
       style={{
         width: 52,
         height: 52,
@@ -315,7 +316,7 @@ function ToolbarButton({
         size={24}
         color={active ? '#1C211C' : '#F2EEE5'}
       />
-    </Pressable>
+    </PressableTouch>
   )
 }
 
@@ -380,7 +381,7 @@ function RailPill({
   onPress: () => void
 }) {
   return (
-    <Pressable
+    <PressableTouch
       accessibilityRole="button"
       accessibilityLabel={label}
       accessibilityState={{ selected: active }}
@@ -408,6 +409,6 @@ function RailPill({
       >
         {label}
       </Text>
-    </Pressable>
+    </PressableTouch>
   )
 }
