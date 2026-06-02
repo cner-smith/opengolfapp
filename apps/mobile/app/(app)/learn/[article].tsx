@@ -4,6 +4,7 @@ import { findLearnArticle } from '@oga/core'
 import { AppBar } from '../../../components/ui/AppBar'
 import { BODY, C, KICKER, TITLE } from '../../../components/learn/primitives'
 import { MOBILE_ARTICLES } from '../../../components/learn/articles'
+import { TYPE } from '../../../lib/typography'
 
 export default function ArticleScreen() {
   const router = useRouter()
@@ -78,7 +79,7 @@ function DraftBanner() {
       <Text style={{ ...KICKER, color: C.amber, marginBottom: 6 }}>
         Work in progress
       </Text>
-      <Text style={{ color: C.ink, fontSize: 13, lineHeight: 19 }}>
+      <Text style={[TYPE.body, { color: C.ink, fontSize: 13, lineHeight: 19 }]}>
         This guide is being reviewed for accuracy. Treat specific technique
         advice as provisional until the notice is removed.
       </Text>
