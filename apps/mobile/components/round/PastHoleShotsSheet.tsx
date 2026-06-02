@@ -14,6 +14,7 @@ import {
 import type { Database } from '@oga/supabase'
 import { supabase } from '../../lib/supabase'
 import { useUserBag } from '../../hooks/useUserBag'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 
 type ShotRow = Database['public']['Tables']['shots']['Row']
 
@@ -60,6 +61,7 @@ export function PastHoleShotsSheet({
   const clubs = bag.length > 0 ? bag : DEFAULT_BAG
   const [editingShot, setEditingShot] = useState<ShotRow | null>(null)
   const [saving, setSaving] = useState(false)
+  const insets = useSafeAreaInsets()
 
   const sortedShots = [...shots].sort((a, b) => a.shot_number - b.shot_number)
 
@@ -81,16 +83,31 @@ export function PastHoleShotsSheet({
     }
   }
 
+  // One <Modal> with discriminated content (list vs editor) — NOT two
+  // sibling Modals. iOS allows one presented modal per presenter, so the
+  // old stacked-Modal edit flow silently failed to present (#293/#495).
   return (
-    <>
     <Modal
       visible={visible}
       transparent
       animationType="slide"
-      onRequestClose={onClose}
+      onRequestClose={editingShot ? () => setEditingShot(null) : onClose}
     >
       <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)' }}>
-        <Pressable style={{ flex: 1 }} onPress={onClose} />
+        <Pressable
+          style={{ flex: 1 }}
+          onPress={editingShot ? () => setEditingShot(null) : onClose}
+        />
+        {editingShot ? (
+          <EditShotSheet
+            shot={editingShot}
+            clubs={clubs}
+            unit={unit}
+            saving={saving}
+            onSave={(updates) => handleSave(editingShot.id, updates)}
+            onClose={() => setEditingShot(null)}
+          />
+        ) : (
         <View
           style={{
             backgroundColor: '#FBF8F1',
@@ -98,7 +115,7 @@ export function PastHoleShotsSheet({
             borderTopRightRadius: 12,
             paddingHorizontal: 18,
             paddingTop: 14,
-            paddingBottom: 28,
+            paddingBottom: insets.bottom + 28,
             maxHeight: '80%',
           }}
         >
@@ -161,31 +178,9 @@ export function PastHoleShotsSheet({
             <Text style={{ ...KICKER, color: '#5C6356' }}>Close</Text>
           </Pressable>
         </View>
-      </View>
-
-    </Modal>
-
-    <Modal
-      visible={visible && editingShot !== null}
-      transparent
-      animationType="slide"
-      onRequestClose={() => setEditingShot(null)}
-    >
-      <View style={{ flex: 1 }}>
-        <Pressable style={{ flex: 1 }} onPress={() => setEditingShot(null)} />
-        {editingShot && (
-          <EditShotSheet
-            shot={editingShot}
-            clubs={clubs}
-            unit={unit}
-            saving={saving}
-            onSave={(updates) => handleSave(editingShot.id, updates)}
-            onClose={() => setEditingShot(null)}
-          />
         )}
       </View>
     </Modal>
-    </>
   )
 }
 
@@ -246,6 +241,7 @@ interface EditShotSheetProps {
 }
 
 function EditShotSheet({ shot, clubs, saving, onSave, onClose }: EditShotSheetProps) {
+  const insets = useSafeAreaInsets()
   const [club, setClub] = useState<string | null>(shot.club ?? null)
   const [lieType, setLieType] = useState<string | null>(shot.lie_type ?? null)
   const [shotResult, setShotResult] = useState<string | null>(shot.shot_result ?? null)
@@ -258,7 +254,7 @@ function EditShotSheet({ shot, clubs, saving, onSave, onClose }: EditShotSheetPr
         borderTopRightRadius: 12,
         paddingHorizontal: 18,
         paddingTop: 14,
-        paddingBottom: 28,
+        paddingBottom: insets.bottom + 28,
         maxHeight: '90%',
       }}
     >

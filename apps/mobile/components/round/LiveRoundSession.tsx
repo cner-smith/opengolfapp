@@ -5,6 +5,7 @@ import {
   Text,
   View,
 } from 'react-native'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useRouter } from 'expo-router'
 import { HoleMap, type LatLng } from './HoleMap'
 import type { ShotLoggerValue } from './ShotLogger'
@@ -63,6 +64,7 @@ export default function LiveRoundSession({
   const router = useRouter()
   const { user } = useAuth()
   const { toDisplay } = useUnits()
+  const insets = useSafeAreaInsets()
 
   const [holeNumber, setHoleNumber] = useState(initialHoleNumber)
 
@@ -363,7 +365,9 @@ export default function LiveRoundSession({
       <View
         style={{
           backgroundColor: '#1C211C',
-          paddingTop: 52,
+          // Was a hardcoded 52 (Android ~24dp status bar + 28 gap); use the
+          // real top inset so the header clears the Dynamic Island (#494).
+          paddingTop: insets.top + 28,
           paddingBottom: 14,
           paddingHorizontal: 18,
           flexDirection: 'row',
@@ -494,7 +498,9 @@ export default function LiveRoundSession({
             onPress={() => finalState.setAimHintVisible(false)}
             style={{
               position: 'absolute',
-              top: 48,
+              // Tracks the header offset (was 48 = ~24dp status bar + 24) so
+              // it shifts down with the header on notched devices (#494).
+              top: insets.top + 24,
               left: 12,
               right: 12,
               backgroundColor: 'rgba(28,33,28,0.92)',
@@ -640,7 +646,10 @@ export default function LiveRoundSession({
           <View
             style={{
               position: 'absolute',
-              top: 96,
+              // Drops just below the header; was 96 = ~24dp status bar + 72.
+              // Derive from the inset so it stays flush under the header
+              // when it grows on notched devices (#494).
+              top: insets.top + 72,
               right: 12,
               zIndex: 21,
               minWidth: 184,
