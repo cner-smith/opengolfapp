@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Modal, Pressable, ScrollView, Text, View } from 'react-native'
+import { PressableTouch } from '../ui/PressableTouch'
 import {
   DEFAULT_BAG,
   LIE_TYPE_LABELS,
@@ -199,7 +200,7 @@ function ShotRowView({
     shot.distance_to_target != null ? formatDistance(shot.distance_to_target, unit) : null
 
   return (
-    <Pressable
+    <PressableTouch
       android_ripple={{ color: '#EBE5D6' }}
       accessibilityRole="button"
       accessibilityLabel={`Edit shot ${shot.shot_number}: ${clubLabel}`}
@@ -227,7 +228,7 @@ function ShotRowView({
         )}
       </View>
       <Text style={{ color: '#8A8B7E', fontSize: 12 }}>Edit</Text>
-    </Pressable>
+    </PressableTouch>
   )
 }
 

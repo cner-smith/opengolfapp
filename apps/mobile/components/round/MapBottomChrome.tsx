@@ -1,4 +1,5 @@
 import { Pressable, Text, View } from 'react-native'
+import { PressableTouch } from '../ui/PressableTouch'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { KICKER, type RoundState } from './hole/types'
 
@@ -119,7 +120,7 @@ function PrimaryCta({
   onPress: () => void
 }) {
   return (
-    <Pressable
+    <PressableTouch
       accessibilityRole="button"
       accessibilityLabel={label}
       accessibilityState={{ disabled: !!disabled }}
@@ -129,8 +130,8 @@ function PrimaryCta({
       // Static style object, NOT a `({ pressed }) => …` callback: under
       // NativeWind/css-interop a function `style` on a wrapped RN component is
       // never resolved, so the backgroundColor it returns silently never lands
-      // — that was the "CTA has no background on the satellite" bug. Press
-      // feedback comes from android_ripple instead (Android-first; #303).
+      // — that was the "CTA has no background on the satellite" bug. Android
+      // press feedback is android_ripple; iOS dims via PressableTouch (#303).
       style={{
         // Cream fill + forest text reads on ANY satellite (the forest-on-trees
         // version blended into dark imagery). Disabled stays a dark pill.
@@ -158,7 +159,7 @@ function PrimaryCta({
       >
         {label}
       </Text>
-    </Pressable>
+    </PressableTouch>
   )
 }
 
@@ -172,7 +173,7 @@ function SecondaryPill({
   danger?: boolean
 }) {
   return (
-    <Pressable
+    <PressableTouch
       accessibilityRole="button"
       accessibilityLabel={label}
       onPress={onPress}
@@ -191,7 +192,7 @@ function SecondaryPill({
       <Text style={{ color: danger ? '#E6A99C' : CREAM, fontSize: 14, fontWeight: '600' }}>
         {label}
       </Text>
-    </Pressable>
+    </PressableTouch>
   )
 }
 
@@ -205,7 +206,7 @@ function TextChip({
   strong?: boolean
 }) {
   return (
-    <Pressable
+    <PressableTouch
       accessibilityRole="button"
       accessibilityLabel={label}
       onPress={onPress}
@@ -228,7 +229,7 @@ function TextChip({
       }}
     >
       <Text style={{ ...KICKER, color: strong ? CREAM : 'rgba(242,238,229,0.85)' }}>{label}</Text>
-    </Pressable>
+    </PressableTouch>
   )
 }
 
@@ -280,7 +281,7 @@ function NavChevron({
   onPress: () => void
 }) {
   return (
-    <Pressable
+    <PressableTouch
       accessibilityRole="button"
       accessibilityLabel={dir === 'prev' ? 'Previous hole' : 'Next hole'}
       accessibilityState={{ disabled }}
@@ -299,6 +300,6 @@ function NavChevron({
       <Text style={{ color: CREAM, fontSize: 20, fontWeight: '500' }}>
         {dir === 'prev' ? '‹' : '›'}
       </Text>
-    </Pressable>
+    </PressableTouch>
   )
 }

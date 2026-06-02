@@ -7,6 +7,7 @@ import {
   Text,
   View,
 } from 'react-native'
+import { PressableTouch } from '../../../../components/ui/PressableTouch'
 import { captureRef } from 'react-native-view-shot'
 import * as Sharing from 'expo-sharing'
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router'
@@ -555,7 +556,7 @@ export default function RoundIndex() {
             const d = score != null && score > 0 ? score - h.par : null
             const hasShots = hs ? holeScoreIdsWithShots.has(hs.id) : false
             return (
-              <Pressable
+              <PressableTouch
                 key={h.id}
                 accessibilityRole={hasShots ? 'button' : 'text'}
                 accessibilityLabel={
@@ -634,7 +635,7 @@ export default function RoundIndex() {
                 >
                   {hasShots ? '→' : ''}
                 </Text>
-              </Pressable>
+              </PressableTouch>
             )
           })}
         </View>
