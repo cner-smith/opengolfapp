@@ -78,9 +78,20 @@ export default function ProfileTab() {
       Alert.alert('Could not delete account', error.message)
       return
     }
-    // Deleting the auth row leaves the current JWT valid until sign-out, so
-    // clear the session explicitly; the auth listener then redirects to login.
-    await supabase.auth.signOut()
+    // The account row is already gone; the JWT just stays valid until
+    // sign-out, so clear the session. If signOut itself errors we must STILL
+    // release the modal — otherwise the user is stranded in a disabled
+    // "Deleting…" dialog after an irreversible delete. On success the auth
+    // listener unmounts this screen and redirects to login.
+    const { error: signOutError } = await supabase.auth.signOut()
+    if (signOutError) {
+      setDeleting(false)
+      setDeleteOpen(false)
+      Alert.alert(
+        'Account deleted',
+        'Your account has been deleted. Restart the app to finish signing out.',
+      )
+    }
   }
 
   const trimmedUsername = username.trim()
