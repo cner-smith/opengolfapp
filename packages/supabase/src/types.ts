@@ -695,6 +695,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      delete_my_account: {
+        Args: never
+        Returns: undefined
+      }
       insert_synthetic_hole: {
         Args: {
           p_course_id: string
