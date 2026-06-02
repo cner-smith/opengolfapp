@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import { ScrollView, Text, View } from 'react-native'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Pressable, ScrollView, Text, View } from 'react-native'
 import { formatSG } from '@oga/core'
 import { deleteRound, getProfile, getRecentSGData } from '@oga/supabase'
 import type { Database } from '@oga/supabase'
@@ -21,6 +21,7 @@ import {
   RecentRoundsList,
   type RecentRoundRow,
 } from '../../components/home/RecentRoundsList'
+import { LearnPreview } from '../../components/home/LearnPreview'
 
 type Profile = Database['public']['Tables']['profiles']['Row']
 
@@ -58,6 +59,15 @@ export default function Home() {
     name: string
   } | null>(null)
   const [deleting, setDeleting] = useState(false)
+
+  // The "yardage book" preview lives at the bottom of the scroll; the hint
+  // up top scrolls to it (captured y is relative to the scroll content
+  // since the preview is a direct child of the contentContainer).
+  const scrollRef = useRef<ScrollView>(null)
+  const learnYRef = useRef(0)
+  const scrollToLearn = useCallback(() => {
+    scrollRef.current?.scrollTo({ y: learnYRef.current, animated: true })
+  }, [])
 
   const handleDelete = useCallback(
     async (id: string) => {
@@ -149,7 +159,7 @@ export default function Home() {
   return (
     <View style={{ flex: 1, backgroundColor: '#F2EEE5' }}>
       <AppBar eyebrow={eyebrow} title={profile?.username ?? 'Home'} />
-      <ScrollView contentContainerStyle={{ padding: 18, paddingBottom: 40 }}>
+      <ScrollView ref={scrollRef} contentContainerStyle={{ padding: 18, paddingBottom: 40 }}>
         <Text
           style={{
             color: '#1C211C',
@@ -162,9 +172,14 @@ export default function Home() {
         >
           {firstName ? `Good round, ${firstName}.` : 'Good round.'}
         </Text>
-        <Text style={{ color: '#5C6356', fontSize: 14, marginBottom: 22 }}>
+        <Text style={{ color: '#5C6356', fontSize: 14, marginBottom: 10 }}>
           Last {rounds.length} round{rounds.length === 1 ? '' : 's'}
         </Text>
+        <Pressable onPress={scrollToLearn} hitSlop={6} style={{ marginBottom: 22 }}>
+          <Text style={{ color: '#8A8B7E', fontSize: 13, fontStyle: 'italic' }}>
+            ↓ New to a stat? The yardage book's at the bottom.
+          </Text>
+        </Pressable>
 
         {rounds.length > 0 && (
           <>
@@ -265,6 +280,14 @@ export default function Home() {
           rounds={rounds}
           onRequestDelete={(id, name) => setPendingDelete({ id, name })}
         />
+
+        <View
+          onLayout={(e) => {
+            learnYRef.current = e.nativeEvent.layout.y
+          }}
+        >
+          <LearnPreview />
+        </View>
       </ScrollView>
       <ConfirmDialog
         visible={!!pendingDelete}
