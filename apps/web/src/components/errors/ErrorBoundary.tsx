@@ -65,7 +65,7 @@ function ErrorScreen({ error }: { error: Error }) {
         </h1>
         <p
           style={{
-            fontFamily: 'Inter, sans-serif',
+            fontFamily: 'Epilogue, sans-serif',
             fontSize: 15,
             color: 'var(--caddie-ink-dim)',
             marginTop: 14,
@@ -77,7 +77,7 @@ function ErrorScreen({ error }: { error: Error }) {
         {import.meta.env.DEV && (
           <pre
             style={{
-              fontFamily: 'JetBrains Mono, monospace',
+              fontFamily: 'Inconsolata, monospace',
               fontSize: 12,
               color: 'var(--caddie-neg)',
               backgroundColor: 'var(--caddie-surface)',
@@ -99,7 +99,7 @@ function ErrorScreen({ error }: { error: Error }) {
           type="button"
           onClick={() => window.location.reload()}
           style={{
-            fontFamily: 'Inter, sans-serif',
+            fontFamily: 'Epilogue, sans-serif',
             fontSize: 14,
             fontWeight: 600,
             letterSpacing: 0.28,

@@ -6,7 +6,7 @@ const KICKER: import('react-native').TextStyle = {
   color: '#8A8B7E',
   fontSize: 10,
   fontWeight: '500',
-  fontFamily: 'JetBrainsMono-Medium',
+  fontFamily: 'Inconsolata-Medium',
   letterSpacing: 1.4,
   textTransform: 'uppercase',
 }

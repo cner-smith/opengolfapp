@@ -75,7 +75,7 @@ function ErrorScreen({ error, onReset }: { error: Error; onReset: () => void }) 
           {__DEV__ && (
             <Text
               style={{
-                fontFamily: 'JetBrainsMono-Regular',
+                fontFamily: 'Inconsolata-Regular',
                 fontSize: 11,
                 color: '#A33A2A',
                 backgroundColor: '#FBF8F1',

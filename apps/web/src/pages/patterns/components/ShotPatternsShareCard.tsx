@@ -29,7 +29,7 @@ const C = {
 } as const
 
 const KICKER: React.CSSProperties = {
-  fontFamily: '"JetBrains Mono", monospace',
+  fontFamily: '"Inconsolata", monospace',
   fontWeight: 500,
   letterSpacing: '0.16em',
   textTransform: 'uppercase',
@@ -59,7 +59,7 @@ export function ShotPatternsShareCard({
         height: CARD_H,
         backgroundColor: C.bg,
         color: C.ink,
-        fontFamily: 'Inter, system-ui, sans-serif',
+        fontFamily: 'Epilogue, system-ui, sans-serif',
         padding: '44px 56px',
         boxSizing: 'border-box',
         display: 'flex',

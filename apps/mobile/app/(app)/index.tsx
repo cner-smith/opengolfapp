@@ -43,7 +43,7 @@ const KICKER: import('react-native').TextStyle = {
   color: '#8A8B7E',
   fontSize: 10,
   fontWeight: '500',
-  fontFamily: 'JetBrainsMono-Medium',
+  fontFamily: 'Inconsolata-Medium',
   letterSpacing: 1.4,
   textTransform: 'uppercase',
 }
@@ -329,7 +329,7 @@ function HomeTile({
         padding: 14,
       }}
     >
-      <Text style={{ color: '#8A8B7E', fontSize: 10, fontWeight: '500', fontFamily: 'JetBrainsMono-Medium', letterSpacing: 1.4, textTransform: 'uppercase', marginBottom: 10 }}>
+      <Text style={{ color: '#8A8B7E', fontSize: 10, fontWeight: '500', fontFamily: 'Inconsolata-Medium', letterSpacing: 1.4, textTransform: 'uppercase', marginBottom: 10 }}>
         {label}
       </Text>
       <Text style={{ color: valueColor, fontSize: 28, fontStyle: 'italic', fontWeight: '500', fontVariant: ['tabular-nums'] }}>

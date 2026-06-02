@@ -215,7 +215,7 @@ export function ShotPatternsPage() {
                   fontWeight: 500,
                   letterSpacing: '0.08em',
                   textTransform: 'uppercase',
-                  fontFamily: '"JetBrains Mono", monospace',
+                  fontFamily: '"Inconsolata", monospace',
                   cursor: 'pointer',
                   whiteSpace: 'nowrap',
                 }}
@@ -681,7 +681,7 @@ function BallFlightChart({
           <text
             x={6}
             y={y(d) - 3}
-            fontFamily="JetBrains Mono, monospace"
+            fontFamily="Inconsolata, monospace"
             fontSize={9}
             letterSpacing="0.1em"
             fill="#8A8B7E"
@@ -754,7 +754,7 @@ function BallFlightChart({
       <text
         x={teeX}
         y={teeY + 18}
-        fontFamily="JetBrains Mono, monospace"
+        fontFamily="Inconsolata, monospace"
         fontSize={9}
         letterSpacing="0.16em"
         fill="#5C6356"

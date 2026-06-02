@@ -27,7 +27,7 @@ export function AppBar({ eyebrow, title, right }: AppBarProps) {
             style={{
               color: 'rgba(242,238,229,0.45)',
               fontSize: 10,
-              fontFamily: 'JetBrainsMono-Medium',
+              fontFamily: 'Inconsolata-Medium',
               letterSpacing: 1.4,
               textTransform: 'uppercase',
               marginBottom: 4,

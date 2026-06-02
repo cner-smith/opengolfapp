@@ -25,7 +25,7 @@ const TOOLTIP_STYLE = {
   borderRadius: 4,
   fontSize: 11,
   padding: '8px 10px',
-  fontFamily: 'Inter, sans-serif',
+  fontFamily: 'Epilogue, sans-serif',
 } as const
 
 // Extracted from DashboardPage so recharts (~150KB gzip) loads

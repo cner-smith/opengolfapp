@@ -39,7 +39,7 @@ export function makeNumberedMarker(
   content.style.borderRadius = '999px'
   content.style.background = fill
   content.style.color = text
-  content.style.fontFamily = 'Inter, sans-serif'
+  content.style.fontFamily = 'Epilogue, sans-serif'
   content.style.fontWeight = '600'
   content.style.fontSize = '12px'
   content.style.display = 'flex'
@@ -80,7 +80,7 @@ export function makeDistancePill(
   el.style.cssText = [
     'background:rgba(28,33,28,0.85)',
     'color:#F2EEE5',
-    'font-family:JetBrains Mono, monospace',
+    'font-family:Inconsolata, monospace',
     'font-size:11px',
     'font-weight:500',
     'letter-spacing:0.04em',
@@ -119,7 +119,7 @@ export function makeIconMarker(
   content.style.padding = '3px 6px'
   content.style.background = bg
   content.style.color = fg
-  content.style.fontFamily = 'JetBrains Mono, monospace'
+  content.style.fontFamily = 'Inconsolata, monospace'
   content.style.fontSize = '9px'
   content.style.letterSpacing = '0.14em'
   content.style.fontWeight = '500'

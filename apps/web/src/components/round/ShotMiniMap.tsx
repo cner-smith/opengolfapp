@@ -223,7 +223,7 @@ function makeMiniNumberedMarker(n: number): HTMLElement {
     'border-radius:999px',
     'background:#1F3D2C',
     'color:#FBF8F1',
-    'font-family:Inter, sans-serif',
+    'font-family:Epilogue, sans-serif',
     'font-weight:600',
     'font-size:11px',
     'display:flex',

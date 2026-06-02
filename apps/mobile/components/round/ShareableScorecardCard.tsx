@@ -58,7 +58,7 @@ const KICKER: import('react-native').TextStyle = {
   fontWeight: '500',
   letterSpacing: 1.3,
   textTransform: 'uppercase',
-  fontFamily: 'JetBrainsMono-Medium',
+  fontFamily: 'Inconsolata-Medium',
 }
 
 export function ShareableScorecardCard({
@@ -184,7 +184,7 @@ export function ShareableScorecardCard({
           {toPar != null && (
             <Text
               style={{
-                fontFamily: 'JetBrainsMono-Medium',
+                fontFamily: 'Inconsolata-Medium',
                 fontSize: 14,
                 fontWeight: '500',
                 color:
@@ -239,7 +239,7 @@ export function ShareableScorecardCard({
         <Text style={{ ...KICKER, color: c.inkMute }}>Tracked with OGA</Text>
         <Text
           style={{
-            fontFamily: 'JetBrainsMono-Medium',
+            fontFamily: 'Inconsolata-Medium',
             fontSize: 9,
             color: c.inkMute,
           }}
@@ -284,7 +284,7 @@ function ScoreGrid({
   const cellNum: import('react-native').TextStyle = {
     flex: 1,
     textAlign: 'center',
-    fontFamily: 'JetBrainsMono-Medium',
+    fontFamily: 'Inconsolata-Medium',
     fontSize: 11,
     fontWeight: '500',
     fontVariant: ['tabular-nums'],
@@ -292,7 +292,7 @@ function ScoreGrid({
   }
   const labelStyle: import('react-native').TextStyle = {
     width: 38,
-    fontFamily: 'JetBrainsMono-Medium',
+    fontFamily: 'Inconsolata-Medium',
     fontSize: 9,
     fontWeight: '500',
     color: colors.inkMute,
@@ -338,7 +338,7 @@ function ScoreGrid({
           style={{
             ...totalCell,
             color: colors.inkMute,
-            fontFamily: 'JetBrainsMono-Medium',
+            fontFamily: 'Inconsolata-Medium',
             fontSize: 9,
             letterSpacing: 1.2,
             textTransform: 'uppercase',
@@ -368,7 +368,7 @@ function ScoreGrid({
           style={{
             ...totalCell,
             color: colors.inkDim,
-            fontFamily: 'JetBrainsMono-Medium',
+            fontFamily: 'Inconsolata-Medium',
             fontSize: 11,
           }}
         >
@@ -447,7 +447,7 @@ function ScoreCell({ cellStyle, colors, par, score }: ScoreCellProps) {
       ))}
       <Text
         style={{
-          fontFamily: 'JetBrainsMono-Medium',
+          fontFamily: 'Inconsolata-Medium',
           fontSize: 11,
           fontWeight: '500',
           color,

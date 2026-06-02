@@ -5,7 +5,7 @@ const KICKER: import('react-native').TextStyle = {
   color: '#8A8B7E',
   fontSize: 10,
   fontWeight: '500',
-  fontFamily: 'JetBrainsMono-Medium',
+  fontFamily: 'Inconsolata-Medium',
   letterSpacing: 1.4,
   textTransform: 'uppercase',
 }
@@ -49,7 +49,7 @@ export function SGTrendChart({ data }: SGTrendChartProps) {
             tickLabels: {
               fontSize: 9,
               fill: '#8A8B7E',
-              fontFamily: 'JetBrainsMono-Medium',
+              fontFamily: 'Inconsolata-Medium',
             },
             grid: { stroke: 'transparent' },
           }}
@@ -62,7 +62,7 @@ export function SGTrendChart({ data }: SGTrendChartProps) {
             tickLabels: {
               fontSize: 9,
               fill: '#8A8B7E',
-              fontFamily: 'JetBrainsMono-Medium',
+              fontFamily: 'Inconsolata-Medium',
             },
             grid: { stroke: '#EBE5D6', strokeDasharray: '0' },
           }}

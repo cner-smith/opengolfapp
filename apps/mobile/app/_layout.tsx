@@ -39,6 +39,8 @@ function RootLayoutContent() {
   const [fontsLoaded] = useFonts({
     'Fraunces-Medium': require('../assets/fonts/Fraunces-Medium.ttf'),
     'Fraunces-MediumItalic': require('../assets/fonts/Fraunces-MediumItalic.ttf'),
+    'Inconsolata-Medium': require('../assets/fonts/Inconsolata-Medium.ttf'),
+    'Inconsolata-Regular': require('../assets/fonts/Inconsolata-Regular.ttf'),
   })
   const { loading: authLoading } = useAuth()
 
