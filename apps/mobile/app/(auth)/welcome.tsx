@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { Pressable, StyleSheet } from 'react-native'
+import { BackHandler, Pressable, StyleSheet } from 'react-native'
 import { useRouter } from 'expo-router'
 import { StatusBar } from 'expo-status-bar'
 import Animated, {
@@ -62,6 +62,16 @@ export default function Welcome() {
     return () => clearTimeout(t)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  // Android hardware back during the splash forwards into the app rather than
+  // popping to the (already-passed, now-authenticated) login screen.
+  useEffect(() => {
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      router.replace('/(app)')
+      return true
+    })
+    return () => sub.remove()
+  }, [router])
 
   // Tap to skip — snap the text visible, then forward.
   const handleSkip = () => {
