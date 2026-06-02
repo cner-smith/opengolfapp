@@ -1,6 +1,8 @@
 import { useMemo, useState } from 'react'
 import { Modal, Pressable, ScrollView, Text, TextInput, View } from 'react-native'
 import Svg, { Circle, Line as SvgLine } from 'react-native-svg'
+import { GestureHandlerRootView } from 'react-native-gesture-handler'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import {
   DEFAULT_BAG,
   LIE_TYPES,
@@ -125,6 +127,7 @@ export function ShotLogger({
     }))
   }, [bag])
 
+  const insets = useSafeAreaInsets()
   const isOnGreen = value.lieType === 'green'
 
   return (
@@ -134,6 +137,11 @@ export function ShotLogger({
       visible={visible}
       onRequestClose={onClose}
     >
+      {/* RN <Modal> opens a separate native window the app-root
+          GestureHandlerRootView doesn't reach — wrap the contents in
+          their own root so the on-green GreenDiagram aim-handle pan
+          gesture works (mirrors HoleModals; #496). */}
+      <GestureHandlerRootView style={{ flex: 1 }}>
       <View
         style={{
           flex: 1,
@@ -193,7 +201,7 @@ export function ShotLogger({
             borderTopRightRadius: 12,
             paddingHorizontal: 18,
             paddingTop: 10,
-            paddingBottom: 28,
+            paddingBottom: insets.bottom + 28,
           }}
         >
           <View
@@ -441,6 +449,7 @@ export function ShotLogger({
         </View>
         )}
       </View>
+      </GestureHandlerRootView>
     </Modal>
   )
 }

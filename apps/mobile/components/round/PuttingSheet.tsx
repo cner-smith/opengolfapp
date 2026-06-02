@@ -20,6 +20,7 @@ import {
 } from '@oga/core'
 import { GreenDiagram } from './GreenDiagram'
 import { useUnits } from '../../hooks/useUnits'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 
 export interface PuttingValue {
   puttDistanceFt?: number
@@ -186,6 +187,7 @@ export function PuttingSheet({
     })
   }
 
+  const insets = useSafeAreaInsets()
   const distance = value.puttDistanceFt ?? 0
 
   return (
@@ -197,7 +199,7 @@ export function PuttingSheet({
         borderTopRightRadius: 12,
         paddingHorizontal: 18,
         paddingTop: 10,
-        paddingBottom: 24,
+        paddingBottom: insets.bottom + 24,
         maxHeight: '90%',
       }}
     >
