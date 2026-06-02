@@ -64,8 +64,8 @@ simulator build is not useful here (it only runs in the macOS Simulator).
   `app.opengolf.oga` — that string is the *Android* package; iOS is `golf.oga.app`.)
 
 ### Prerequisites — needs your Apple/Expo/Mapbox accounts (cannot be done here)
-1. **#297** Apple Developer Program active + App Store Connect reachable. (Issue
-   still open; memory says the account went active ~2026-05-21 — confirm + close.)
+1. **#297** Apple Developer Program active + App Store Connect reachable.
+   (TODO: confirm #297 is closed before proceeding.)
 2. `eas login` as the Expo account that owns project
    `f852bb53-02fc-46a1-b509-4b2170cb6d84`.
 3. **Two Mapbox tokens must reach the EAS build** (verify, set if missing):
