@@ -41,5 +41,3 @@ A reviewer could question WebView use under Guideline 4.2.7 (HTML5 wrappers) or
 **If rejected anyway:** escalate to the App Review Board with the response
 above — high probability of acceptance. Budget one round trip in the submission
 timeline.
-
-_Closes #308._
