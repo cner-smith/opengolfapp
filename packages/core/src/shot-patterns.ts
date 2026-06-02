@@ -173,10 +173,12 @@ export function computeDispersionStats(points: DispersionPoint[]): DispersionSta
 /**
  * One shot's end position expressed in the AIM-RELATIVE frame:
  * `alongYards` long of aim (+ = past the aim point), `perpYards` right of
- * the aim line (+ = right). Unlike `computeDispersion` (which is compass-
- * framed N/E), this rotates by the shot's intended line so spreads can be
- * drawn correctly on a hole at any bearing. Returns null unless start, aim,
- * AND end coords are all finite — start+aim are needed to derive the bearing.
+ * the aim line (+ = right). Rotates by the shot's intended (start→aim) line so
+ * spreads read correctly on a hole at any bearing. This is the lightweight
+ * along/perp pair (used by the live-round overlay); `computeDispersion` shares
+ * the same `rotateAroundAim` core but returns full DispersionPoints. Returns
+ * null unless start, aim, AND end coords are all finite — start+aim are needed
+ * to derive the bearing.
  */
 export function aimRelativeOffsets(
   shot: Shot,
