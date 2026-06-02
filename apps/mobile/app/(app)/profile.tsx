@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import {
   Alert,
   Linking,
+  Modal,
   Pressable,
   ScrollView,
   Text,
@@ -15,7 +16,6 @@ import type { Database } from '@oga/supabase'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
 import { AppBar } from '../../components/ui/AppBar'
-import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
 
 type Profile = Database['public']['Tables']['profiles']['Row']
 type SkillLevel = Profile['skill_level']
@@ -467,12 +467,8 @@ export default function ProfileTab() {
         </Pressable>
       </ScrollView>
 
-      <ConfirmDialog
+      <DeleteAccountModal
         visible={deleteOpen}
-        title="Delete your OGA account?"
-        message="This will permanently delete your account and all rounds, shots, and saved data. This cannot be undone."
-        confirmLabel="Delete account"
-        destructive
         busy={deleting}
         onConfirm={deleteAccount}
         onCancel={() => setDeleteOpen(false)}
@@ -491,6 +487,158 @@ const inputStyle = {
   fontSize: 15,
   color: '#1C211C',
 } as const
+
+// Two-phase confirmation for the irreversible account delete, in a SINGLE
+// Modal (never two stacked — iOS allows one presented modal per presenter,
+// #293). Phase 1 is the "are you sure" warning; phase 2 requires typing the
+// exact phrase, so the delete can't be triggered by a stray tap.
+const DELETE_PHRASE = 'delete my account'
+
+function DeleteAccountModal({
+  visible,
+  busy,
+  onConfirm,
+  onCancel,
+}: {
+  visible: boolean
+  busy: boolean
+  onConfirm: () => void | Promise<void>
+  onCancel: () => void
+}) {
+  const [phase, setPhase] = useState<'confirm' | 'type'>('confirm')
+  const [text, setText] = useState('')
+  const matches = text.trim().toLowerCase() === DELETE_PHRASE
+
+  // Reset to phase one whenever the modal (re)opens, so a reopened dialog
+  // never starts on the typed step with stale text.
+  useEffect(() => {
+    if (visible) {
+      setPhase('confirm')
+      setText('')
+    }
+  }, [visible])
+
+  return (
+    <Modal transparent animationType="fade" visible={visible} onRequestClose={onCancel}>
+      <View
+        style={{
+          flex: 1,
+          backgroundColor: 'rgba(28,33,28,0.55)',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: 18,
+        }}
+      >
+        <View
+          style={{
+            backgroundColor: '#FBF8F1',
+            borderColor: '#9F9580',
+            borderWidth: 1,
+            borderRadius: 4,
+            padding: 22,
+            width: '100%',
+            maxWidth: 360,
+          }}
+        >
+          <Text style={{ ...KICKER, marginBottom: 8 }}>Confirm delete</Text>
+          <Text
+            style={{
+              color: '#1C211C',
+              fontSize: 22,
+              fontStyle: 'italic',
+              fontWeight: '500',
+              lineHeight: 28,
+              marginBottom: 10,
+            }}
+          >
+            {phase === 'confirm' ? 'Delete your OGA account?' : 'Type to confirm'}
+          </Text>
+
+          {phase === 'confirm' ? (
+            <Text style={{ color: '#5C6356', fontSize: 14, lineHeight: 20, marginBottom: 22 }}>
+              This will permanently delete your account and all rounds, shots,
+              and saved data. This cannot be undone.
+            </Text>
+          ) : (
+            <>
+              <Text style={{ color: '#5C6356', fontSize: 14, lineHeight: 20, marginBottom: 14 }}>
+                Type{' '}
+                <Text style={{ fontWeight: '700', color: '#1C211C' }}>{DELETE_PHRASE}</Text>{' '}
+                below to permanently delete your account.
+              </Text>
+              <TextInput
+                value={text}
+                onChangeText={setText}
+                editable={!busy}
+                autoCapitalize="none"
+                autoCorrect={false}
+                placeholder={DELETE_PHRASE}
+                placeholderTextColor="#8A8B7E"
+                style={{ ...inputStyle, marginBottom: 22 }}
+                accessibilityLabel="Type delete my account to confirm"
+              />
+            </>
+          )}
+
+          <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 10 }}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Cancel"
+              onPress={onCancel}
+              disabled={busy}
+              style={{
+                borderWidth: 1,
+                borderColor: '#D9D2BF',
+                borderRadius: 2,
+                paddingHorizontal: 14,
+                paddingVertical: 10,
+                opacity: busy ? 0.5 : 1,
+              }}
+            >
+              <Text style={{ color: '#5C6356', fontSize: 13, fontWeight: '500' }}>Cancel</Text>
+            </Pressable>
+
+            {phase === 'confirm' ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Continue to type-to-confirm step"
+                onPress={() => setPhase('type')}
+                style={{
+                  backgroundColor: '#A33A2A',
+                  borderRadius: 2,
+                  paddingHorizontal: 16,
+                  paddingVertical: 10,
+                }}
+              >
+                <Text style={{ color: '#F2EEE5', fontSize: 14, fontWeight: '600', letterSpacing: 0.3 }}>
+                  Continue
+                </Text>
+              </Pressable>
+            ) : (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Delete account"
+                onPress={onConfirm}
+                disabled={busy || !matches}
+                style={{
+                  backgroundColor: '#A33A2A',
+                  borderRadius: 2,
+                  paddingHorizontal: 16,
+                  paddingVertical: 10,
+                  opacity: busy || !matches ? 0.5 : 1,
+                }}
+              >
+                <Text style={{ color: '#F2EEE5', fontSize: 14, fontWeight: '600', letterSpacing: 0.3 }}>
+                  {busy ? 'Deleting…' : 'Delete account'}
+                </Text>
+              </Pressable>
+            )}
+          </View>
+        </View>
+      </View>
+    </Modal>
+  )
+}
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
