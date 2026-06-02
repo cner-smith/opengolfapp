@@ -9,7 +9,6 @@ import {
   View,
 } from 'react-native'
 import { Link, useRouter } from 'expo-router'
-import AsyncStorage from '@react-native-async-storage/async-storage'
 import { WebView } from 'react-native-webview'
 import { supabase } from '../../lib/supabase'
 
@@ -44,8 +43,9 @@ export default function Signup() {
       setCaptchaToken(null)
       return
     }
-    await AsyncStorage.setItem('oga.pending-splash', '1').catch(() => {})
-    router.replace('/(app)')
+    // Route through the brand splash (plays on every login), which then
+    // forwards into the app. See app/(auth)/welcome.tsx (#500).
+    router.replace('/(auth)/welcome')
   }
 
   return (
