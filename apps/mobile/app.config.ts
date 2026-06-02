@@ -27,16 +27,15 @@ const config: ExpoConfig = {
     buildNumber: '1',
     supportsTablet: true,
     infoPlist: {
+      // Foreground-only: OGA calls requestForegroundPermissionsAsync during a
+      // round and never requests background/Always location. The expo-location
+      // plugin below explicitly disables the Always variants (#301) so its
+      // default usage strings can't re-add a permission we never use — Apple
+      // rejects declaring permissions you don't request.
       NSLocationWhenInUseUsageDescription:
-        'OGA uses your location during a round to track shots and yardages.',
-      // NSLocationAlwaysAndWhenInUseUsageDescription is injected by the
-      // expo-location plugin below (locationAlwaysAndWhenInUsePermission).
-      // Don't duplicate the key here — Info.plist with duplicate keys is
-      // undefined behavior. #301 tracks removing the Always permission
-      // entirely since OGA only uses requestForegroundPermissionsAsync().
-      // No proprietary encryption beyond standard TLS/Keychain.
-      // false skips Apple's export-compliance prompt on every
-      // TestFlight upload.
+        'OGA uses your location during active rounds to track shot locations on the course map.',
+      // No proprietary encryption beyond standard TLS/Keychain. false skips
+      // Apple's export-compliance prompt on every TestFlight upload.
       ITSAppUsesNonExemptEncryption: false,
       // Stubbed pre-emptively (#305). Not used at runtime today — Expo
       // adds these automatically once expo-image-picker / expo-camera is
@@ -124,8 +123,12 @@ const config: ExpoConfig = {
     [
       'expo-location',
       {
-        locationAlwaysAndWhenInUsePermission:
-          'Allow OGA to use your location to track shots.',
+        // false → the plugin DELETES these keys from Info.plist
+        // (@expo/config-plugins Permissions.js: `=== false` deletes). Omitting
+        // them instead would fall back to the plugin's default usage string and
+        // re-add the Always permission. OGA is foreground-only — see infoPlist.
+        locationAlwaysAndWhenInUsePermission: false,
+        locationAlwaysPermission: false,
       },
     ],
     [
