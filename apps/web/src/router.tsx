@@ -45,6 +45,9 @@ const LearnArticlePage = lazy(() =>
 const PrivacyPage = lazy(() =>
   import('./pages/landing/PrivacyPage').then((m) => ({ default: m.PrivacyPage })),
 )
+const SupportPage = lazy(() =>
+  import('./pages/landing/SupportPage').then((m) => ({ default: m.SupportPage })),
+)
 
 function RouteFallback() {
   return (
@@ -80,6 +83,7 @@ const routes: RouteObject[] = [
     children: [
       { path: '/', element: <LandingPage />, errorElement },
       { path: '/privacy', element: <PrivacyPage />, errorElement },
+      { path: '/support', element: <SupportPage />, errorElement },
     ],
   },
   // Learn — same URLs for crawlers + signed-out readers, but signed-in

@@ -715,6 +715,7 @@ function Footer() {
             Ko-fi
           </FooterLink>
           <FooterLink to="/privacy">Privacy</FooterLink>
+          <FooterLink to="/support">Support</FooterLink>
           <FooterLink to="/login">Sign in</FooterLink>
         </div>
         <div
