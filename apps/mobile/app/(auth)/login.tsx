@@ -98,7 +98,11 @@ export default function Login() {
         {captchaEnabled && (
           <WebView
             source={{ uri: `https://oga.golf/captcha.html?siteKey=${encodeURIComponent(TURNSTILE_SITE_KEY ?? '')}` }}
-            originWhitelist={['https://*', 'http://*', 'about:']}
+            // about:blank + about:srcdoc required for the Turnstile challenge
+            // iframe to load inside iOS WKWebView — without them iOS filters the
+            // sub-frame and the widget hangs on "Verifying…" (#405). Per
+            // Cloudflare's Turnstile mobile-implementation docs.
+            originWhitelist={['https://*', 'http://*', 'about:blank', 'about:srcdoc']}
             onMessage={(event) => {
               try {
                 const msg = JSON.parse(event.nativeEvent.data)
