@@ -8,7 +8,8 @@ import {
   TextInput,
   View,
 } from 'react-native'
-import { Link, useRouter } from 'expo-router'
+import { Link } from 'expo-router'
+import * as Linking from 'expo-linking'
 import { WebView } from 'react-native-webview'
 import { supabase } from '../../lib/supabase'
 import { TYPE } from '../../lib/typography'
@@ -16,13 +17,13 @@ import { TYPE } from '../../lib/typography'
 const TURNSTILE_SITE_KEY = process.env.EXPO_PUBLIC_TURNSTILE_SITE_KEY
 
 export default function Signup() {
-  const router = useRouter()
   const [username, setUsername] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [captchaToken, setCaptchaToken] = useState<string | null>(null)
+  const [submitted, setSubmitted] = useState(false)
 
   const captchaEnabled = Boolean(TURNSTILE_SITE_KEY)
   const canSubmit = !loading && (!captchaEnabled || captchaToken !== null)
@@ -35,6 +36,10 @@ export default function Signup() {
       password,
       options: {
         data: { username },
+        // Deep link the confirmation email back into the app (handled by
+        // app/auth-callback.tsx). Without this, GoTrue falls back to the
+        // project Site URL (a localhost/web URL) and never returns to mobile.
+        emailRedirectTo: Linking.createURL('auth-callback'),
         ...(captchaToken ? { captchaToken } : {}),
       },
     })
@@ -44,9 +49,48 @@ export default function Signup() {
       setCaptchaToken(null)
       return
     }
-    // Route through the brand splash (plays on every login), which then
-    // forwards into the app. See app/(auth)/welcome.tsx (#500).
-    router.replace('/(auth)/welcome')
+    // Email confirmation is required, so signUp returns no session yet. Show a
+    // "check your email" state rather than routing into the app; the link
+    // deep-links back in via app/auth-callback.tsx once tapped.
+    setSubmitted(true)
+  }
+
+  if (submitted) {
+    return (
+      <View className="flex-1 bg-oga-bg-page items-center justify-center px-6">
+        <View
+          style={{
+            backgroundColor: '#FFFFFF',
+            borderRadius: 10,
+            borderWidth: 0.5,
+            borderColor: '#E4E4E0',
+            padding: 20,
+            width: '100%',
+          }}
+        >
+          <Text
+            style={[TYPE.bodyBold, {
+              color: '#111111',
+              fontSize: 22,
+              fontWeight: '600',
+              marginBottom: 12,
+            }]}
+          >
+            Check your email
+          </Text>
+          <Text style={[TYPE.body, { color: '#555550', fontSize: 14, lineHeight: 20 }]}>
+            We sent a confirmation link to {email}. Open it on this device to
+            finish setting up your account.
+          </Text>
+          <Link
+            href="/(auth)/login"
+            style={[TYPE.body, { color: '#0F6E56', fontSize: 13, marginTop: 18 }]}
+          >
+            Back to sign in
+          </Link>
+        </View>
+      </View>
+    )
   }
 
   return (
