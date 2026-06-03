@@ -103,21 +103,12 @@ export default function Signup() {
         keyboardShouldPersistTaps="handled"
       >
       <View
-        style={{
-          backgroundColor: '#FFFFFF',
-          borderRadius: 10,
-          borderWidth: 0.5,
-          borderColor: '#E4E4E0',
-          padding: 20,
-        }}
+        className="border-oga-border bg-oga-bg-card"
+        style={{ borderRadius: 10, borderWidth: 0.5, padding: 20 }}
       >
         <Text
-          style={[TYPE.bodyBold, {
-            color: '#111111',
-            fontSize: 22,
-            fontWeight: '600',
-            marginBottom: 16,
-          }]}
+          style={[TYPE.bodyBold, { fontSize: 22, fontWeight: '600', marginBottom: 16 }]}
+          className="text-oga-text-primary"
         >
           Create your OGA account
         </Text>
@@ -126,6 +117,7 @@ export default function Signup() {
           autoCapitalize="none"
           value={username}
           onChangeText={setUsername}
+          className="bg-oga-bg-input border-oga-border text-oga-text-primary"
           style={inputStyle}
         />
         <FieldLabel>Email</FieldLabel>
@@ -134,6 +126,7 @@ export default function Signup() {
           keyboardType="email-address"
           value={email}
           onChangeText={setEmail}
+          className="bg-oga-bg-input border-oga-border text-oga-text-primary"
           style={inputStyle}
         />
         <FieldLabel>Password</FieldLabel>
@@ -141,6 +134,7 @@ export default function Signup() {
           secureTextEntry
           value={password}
           onChangeText={setPassword}
+          className="bg-oga-bg-input border-oga-border text-oga-text-primary"
           style={{ ...inputStyle, marginBottom: 14 }}
         />
         {captchaEnabled && (
@@ -161,35 +155,32 @@ export default function Signup() {
           />
         )}
         {error && (
-          <Text style={[TYPE.body, { color: '#A32D2D', fontSize: 13, marginBottom: 10 }]}>
+          <Text style={[TYPE.body, { fontSize: 13, marginBottom: 10 }]} className="text-oga-red">
             {error}
           </Text>
         )}
         <Pressable
           onPress={handleSubmit}
           disabled={!canSubmit}
+          className="bg-oga-black"
           style={{
-            backgroundColor: '#111111',
             borderRadius: 10,
             paddingVertical: 13,
             alignItems: 'center',
             opacity: !canSubmit ? 0.5 : 1,
           }}
         >
-          <Text style={[TYPE.body, { color: '#FFFFFF', fontSize: 13, fontWeight: '500' }]}>
+          <Text style={[TYPE.body, { fontSize: 13, fontWeight: '500' }]} className="text-white">
             {loading ? 'Creating…' : 'Create account'}
           </Text>
         </Pressable>
-        <Link
-          href="/(auth)/login"
-          style={[TYPE.body, {
-            color: '#0F6E56',
-            fontSize: 13,
-            marginTop: 14,
-            textAlign: 'center',
-          }]}
-        >
-          Have an account? Sign in
+        <Link href="/(auth)/login" asChild>
+          <Text
+            style={[TYPE.body, { fontSize: 13, marginTop: 14, textAlign: 'center' }]}
+            className="text-oga-green"
+          >
+            Have an account? Sign in
+          </Text>
         </Link>
       </View>
       </ScrollView>
@@ -197,15 +188,15 @@ export default function Signup() {
   )
 }
 
+// Colors come from the design tokens applied via className on each input
+// (bg-oga-bg-input / border-oga-border / text-oga-text-primary); this holds
+// the shared layout only.
 const inputStyle = {
-  backgroundColor: '#F9F9F6',
   borderWidth: 0.5,
-  borderColor: '#E4E4E0',
   borderRadius: 7,
   paddingHorizontal: 10,
   paddingVertical: 9,
   fontSize: 13,
-  color: '#111111',
   marginBottom: 12,
 } as const
 
@@ -213,13 +204,13 @@ function FieldLabel({ children }: { children: React.ReactNode }) {
   return (
     <Text
       style={[TYPE.body, {
-        color: '#888880',
         fontSize: 11,
         fontWeight: '500',
         letterSpacing: 0.4,
         textTransform: 'uppercase',
         marginBottom: 6,
       }]}
+      className="text-oga-text-hint"
     >
       {children}
     </Text>
