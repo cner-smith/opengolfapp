@@ -7,17 +7,35 @@ import type { LatLng } from '../HoleMap'
 import { distanceYards } from '../../../lib/maps'
 import { PIN_PROMPT_RADIUS_YARDS, type RoundState } from './types'
 
+// Fraction of the straight ball→pin line where the aim auto-spawns when
+// the player enters SET_AIM without having dropped one yet. ~0.65 puts the
+// target two-thirds up the hole — a sensible default carry the player then
+// drags to refine (refs ux-09). A long-press still repositions it freely.
+const AIM_AUTOSPAWN_FRACTION = 0.65
+
 interface UseHoleStateInput {
   currentHoleId: string | null | undefined
   currentHoleScoreId: string | null | undefined
   isPastMode: boolean
   storedPin: LatLng | null
   roundPin: LatLng | null
+  /** Hole's tee-box coords, used to default shot 1's ball marker so the
+   *  player starts from the tee rather than an empty map. Null on holes
+   *  without layout. */
+  tee: LatLng | null
+  /** Whether any shot has been logged on this hole yet (remote + pending).
+   *  The tee default only applies on shot 1 (no prior shots). */
+  hasPriorShots: boolean
 }
 
 export interface UseHoleStateResult {
   aim: LatLng | null
   setAim: Dispatch<SetStateAction<LatLng | null>>
+  /** Whether the current aim was set/dragged by the player (true) vs left as
+   *  the auto-spawned suggestion (false). Only a touched aim is persisted to
+   *  shots.aim_lat/lng, so an untouched auto-spawn can't pollute dispersion. */
+  aimTouched: boolean
+  setAimTouched: Dispatch<SetStateAction<boolean>>
   ball: LatLng | null
   setBall: Dispatch<SetStateAction<LatLng | null>>
   roundState: RoundState
@@ -37,8 +55,14 @@ export function useHoleState({
   isPastMode,
   storedPin,
   roundPin,
+  tee,
+  hasPriorShots,
 }: UseHoleStateInput): UseHoleStateResult {
   const [aim, setAim] = useState<LatLng | null>(null)
+  // Auto-spawned aims start untouched; flipped true by a user drag/long-press
+  // (LiveRoundSession wraps onSetAim). Reset whenever the aim clears (effect
+  // below) so each new shot's suggestion starts untouched.
+  const [aimTouched, setAimTouched] = useState(false)
   const [ball, setBall] = useState<LatLng | null>(null)
   // Kalman filter state for live GPS smoothing during PLACE_BALL. Held
   // in a ref because every position update would otherwise re-render
@@ -84,6 +108,38 @@ export function useHoleState({
       if (timer) clearTimeout(timer)
     }
   }, [aim?.lat, aim?.lng])
+
+  // Auto-spawn the aim target when the player enters SET_AIM. With a ball
+  // and a pin but no aim yet, seed one on the straight ball→pin line at
+  // AIM_AUTOSPAWN_FRACTION so the aim line, crosshair, and carry/remaining
+  // readouts appear immediately — no long-press needed to start (refs
+  // ux-09). Guarded on `!aim` so a dragged or long-pressed aim is never
+  // overwritten; markBallHere resets aim to null for the next shot, so this
+  // re-fires per shot. No-pin holes fall back to long-press-to-start.
+  const effectivePin = roundPin ?? storedPin ?? null
+  useEffect(() => {
+    if (roundState !== 'SET_AIM') return
+    if (aim || !ball || !effectivePin) return
+    setAim({
+      lat: ball.lat + AIM_AUTOSPAWN_FRACTION * (effectivePin.lat - ball.lat),
+      lng: ball.lng + AIM_AUTOSPAWN_FRACTION * (effectivePin.lng - ball.lng),
+    })
+  }, [
+    roundState,
+    aim,
+    ball?.lat,
+    ball?.lng,
+    effectivePin?.lat,
+    effectivePin?.lng,
+  ])
+
+  // An untouched aim is the auto-spawn suggestion. Reset the touched flag
+  // whenever the aim clears (new shot, hole change, re-place ball — all the
+  // setAim(null) paths) so the next auto-spawn starts untouched; a real
+  // drag/long-press re-sets it via LiveRoundSession's onSetAim wrapper.
+  useEffect(() => {
+    if (!aim) setAimTouched(false)
+  }, [aim])
 
   // Reset the just-saved-shot ref synchronously on hole transition. Keeping
   // it inside the async count-load effect created a race: a tap-to-mark-ball
@@ -251,13 +307,39 @@ export function useHoleState({
     }
   }, [currentHoleId, isPastMode, roundState, gpsNonce])
 
-  // Hole change resets the filter — covered by the watch effect's
-  // cleanup, but explicit here in case the watch effect short-circuits
-  // (past mode, or no current hole) before subscribing.
+  // Hole change resets per-hole state. The screen is resident (#264) so
+  // nothing remounts on a hole switch — without an explicit reset the
+  // previous hole's ball/aim render frozen on the new hole and the state
+  // machine stays mid-shot. Also clears the Kalman filter + manual-place
+  // freeze (the watch effect's cleanup covers those too, but this is
+  // explicit for the cases where the watch effect short-circuits — past
+  // mode, or no current hole — before subscribing).
   useEffect(() => {
+    // Guard on a real id so a transient null mid-session (e.g. a
+    // background refetch briefly emptying the holes list) can't wipe an
+    // in-progress ball/aim. A genuine hole switch goes id→id (both
+    // non-null), so this never blocks the intended reset.
+    if (!currentHoleId) return
     kalmanStateRef.current = null
     manuallyPlacedRef.current = false
+    setBall(null)
+    setAim(null)
+    setRoundState('PLACE_BALL')
   }, [currentHoleId])
+
+  // Default shot 1's ball marker to the tee box so the player starts from a
+  // sensible point instead of an empty map. This is only an INITIAL default:
+  // live GPS (PLACE_BALL effect above) and manual drag both overwrite it, and
+  // the `!ball` guard means it never clobbers a ball GPS/the player already
+  // placed. Gated to shot 1 (no prior shots), PLACE_BALL, live mode, and a
+  // known tee. Past mode places shots by hand, so it's excluded.
+  useEffect(() => {
+    if (isPastMode) return
+    if (hasPriorShots) return
+    if (roundState !== 'PLACE_BALL') return
+    if (ball || !tee) return
+    setBall({ lat: tee.lat, lng: tee.lng })
+  }, [isPastMode, hasPriorShots, roundState, ball, tee?.lat, tee?.lng])
 
   // Stop GPS when the app backgrounds. The native location callback
   // fires into a null JS module if the OS tears down the app while a
@@ -285,6 +367,8 @@ export function useHoleState({
   return {
     aim,
     setAim,
+    aimTouched,
+    setAimTouched,
     ball,
     setBall,
     roundState,

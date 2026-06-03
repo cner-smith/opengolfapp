@@ -7,6 +7,7 @@ import {
   Text,
   View,
 } from 'react-native'
+import { PressableTouch } from '../../../../components/ui/PressableTouch'
 import { captureRef } from 'react-native-view-shot'
 import * as Sharing from 'expo-sharing'
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router'
@@ -26,6 +27,7 @@ import { PastHoleShotsSheet } from '../../../../components/round/PastHoleShotsSh
 import LiveRoundSession from '../../../../components/round/LiveRoundSession'
 import { useAuth } from '../../../../hooks/useAuth'
 import { useUnits } from '../../../../hooks/useUnits'
+import { FONT, TYPE } from '../../../../lib/typography'
 
 type RoundRow = Database['public']['Tables']['rounds']['Row']
 type HoleRow = Database['public']['Tables']['holes']['Row']
@@ -39,6 +41,7 @@ const KICKER: import('react-native').TextStyle = {
   fontWeight: '500',
   letterSpacing: 1.4,
   textTransform: 'uppercase',
+  fontFamily: FONT.mono,
 }
 
 // Round entry route. Live (incomplete) rounds redirect into the hole
@@ -253,7 +256,7 @@ export default function RoundIndex() {
           padding: 18,
         }}
       >
-        <Text style={{ color: '#A33A2A', fontSize: 13 }}>
+        <Text style={[TYPE.body, { color: '#A33A2A', fontSize: 13 }]}>
           {error ?? 'Round not found'}
         </Text>
       </View>
@@ -338,12 +341,12 @@ export default function RoundIndex() {
             {round.played_at}
           </Text>
           <Text
-            style={{
+            style={[TYPE.serif, {
               color: '#F2EEE5',
               fontSize: 17,
               fontWeight: '500',
               fontStyle: 'italic',
-            }}
+            }]}
           >
             {courseName}
           </Text>
@@ -404,12 +407,12 @@ export default function RoundIndex() {
           <View>
             <Text style={{ ...KICKER, marginBottom: 4 }}>Total</Text>
             <Text
-              style={{
+              style={[TYPE.serifUpright, {
                 color: '#1C211C',
                 fontSize: 36,
                 fontWeight: '500',
                 fontVariant: ['tabular-nums'],
-              }}
+              }]}
             >
               {round.total_score ?? '—'}
             </Text>
@@ -417,13 +420,13 @@ export default function RoundIndex() {
           <View style={{ alignItems: 'flex-end' }}>
             <Text style={{ ...KICKER, marginBottom: 4 }}>To par</Text>
             <Text
-              style={{
+              style={[TYPE.serifUpright, {
                 color:
                   diff < 0 ? '#1F3D2C' : diff > 0 ? '#A33A2A' : '#5C6356',
                 fontSize: 28,
                 fontWeight: '500',
                 fontVariant: ['tabular-nums'],
-              }}
+              }]}
             >
               {runningPar === 0
                 ? '—'
@@ -454,9 +457,9 @@ export default function RoundIndex() {
                 paddingVertical: 6,
               }}
             >
-              <Text style={{ color: '#1C211C', fontSize: 13 }}>{row.label}</Text>
+              <Text style={[TYPE.body, { color: '#1C211C', fontSize: 13 }]}>{row.label}</Text>
               <Text
-                style={{
+                style={[TYPE.kicker, {
                   color:
                     row.value == null
                       ? '#8A8B7E'
@@ -468,7 +471,7 @@ export default function RoundIndex() {
                   fontSize: 13,
                   fontVariant: ['tabular-nums'],
                   fontWeight: '500',
-                }}
+                }]}
               >
                 {row.value == null ? '—' : formatSG(row.value)}
               </Text>
@@ -484,11 +487,11 @@ export default function RoundIndex() {
               borderColor: '#EBE5D6',
             }}
           >
-            <Text style={{ color: '#1C211C', fontSize: 14, fontWeight: '600' }}>
+            <Text style={[TYPE.bodyBold, { color: '#1C211C', fontSize: 14, fontWeight: '600' }]}>
               Total
             </Text>
             <Text
-              style={{
+              style={[TYPE.kicker, {
                 color:
                   round.sg_total == null
                     ? '#8A8B7E'
@@ -500,7 +503,7 @@ export default function RoundIndex() {
                 fontSize: 14,
                 fontVariant: ['tabular-nums'],
                 fontWeight: '600',
-              }}
+              }]}
             >
               {round.sg_total == null ? '—' : formatSG(round.sg_total)}
             </Text>
@@ -547,7 +550,7 @@ export default function RoundIndex() {
               +/−
             </Text>
             {/* Header spacer for the row affordance arrow. */}
-            <Text style={{ width: 18, marginLeft: 6 }}> </Text>
+            <Text style={[TYPE.body, { width: 18, marginLeft: 6 }]}> </Text>
           </View>
           {sortedHoles.map((h) => {
             const hs = scoresByHoleId.get(h.id)
@@ -555,7 +558,7 @@ export default function RoundIndex() {
             const d = score != null && score > 0 ? score - h.par : null
             const hasShots = hs ? holeScoreIdsWithShots.has(hs.id) : false
             return (
-              <Pressable
+              <PressableTouch
                 key={h.id}
                 accessibilityRole={hasShots ? 'button' : 'text'}
                 accessibilityLabel={
@@ -574,39 +577,39 @@ export default function RoundIndex() {
                 }}
               >
                 <Text
-                  style={{
+                  style={[TYPE.kicker, {
                     flex: 1,
                     fontSize: 15,
                     color: '#1C211C',
-                  }}
+                  }]}
                 >
                   {h.number}
                 </Text>
                 <Text
-                  style={{
+                  style={[TYPE.kicker, {
                     width: 44,
                     textAlign: 'right',
                     fontSize: 15,
                     color: '#5C6356',
                     fontVariant: ['tabular-nums'],
-                  }}
+                  }]}
                 >
                   {h.par}
                 </Text>
                 <Text
-                  style={{
+                  style={[TYPE.kicker, {
                     width: 56,
                     textAlign: 'right',
                     fontSize: 15,
                     color: score != null && score > 0 ? '#1C211C' : '#8A8B7E',
                     fontVariant: ['tabular-nums'],
                     fontWeight: '500',
-                  }}
+                  }]}
                 >
                   {score != null && score > 0 ? score : '—'}
                 </Text>
                 <Text
-                  style={{
+                  style={[TYPE.kicker, {
                     width: 56,
                     textAlign: 'right',
                     fontSize: 15,
@@ -619,22 +622,22 @@ export default function RoundIndex() {
                             ? '#A33A2A'
                             : '#5C6356',
                     fontVariant: ['tabular-nums'],
-                  }}
+                  }]}
                 >
                   {d == null ? '—' : d === 0 ? 'E' : d > 0 ? `+${d}` : `${d}`}
                 </Text>
                 <Text
-                  style={{
+                  style={[TYPE.body, {
                     width: 18,
                     textAlign: 'right',
                     fontSize: 14,
                     color: '#8A8B7E',
                     marginLeft: 6,
-                  }}
+                  }]}
                 >
                   {hasShots ? '→' : ''}
                 </Text>
-              </Pressable>
+              </PressableTouch>
             )
           })}
         </View>
@@ -677,13 +680,13 @@ function RoundNudge({ focus, picks }: { focus: RoundFocus; picks: DrillRow[] }) 
     >
       <Text style={{ ...KICKER, marginBottom: 8 }}>Today's focus</Text>
       <Text
-        style={{
+        style={[TYPE.serif, {
           color: '#1C211C',
           fontSize: 16,
           lineHeight: 22,
           fontStyle: 'italic',
           marginBottom: picks.length ? 12 : 0,
-        }}
+        }]}
       >
         {roundFocusHeadline(focus)}
       </Text>
@@ -700,7 +703,7 @@ function RoundNudge({ focus, picks }: { focus: RoundFocus; picks: DrillRow[] }) 
                 paddingHorizontal: 10,
               }}
             >
-              <Text style={{ color: '#1F3D2C', fontSize: 13 }}>
+              <Text style={[TYPE.body, { color: '#1F3D2C', fontSize: 13 }]}>
                 {drill.name}
                 {drill.duration_min ? ` · ${drill.duration_min}m` : ''}
               </Text>

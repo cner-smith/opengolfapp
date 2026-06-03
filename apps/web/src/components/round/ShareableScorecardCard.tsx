@@ -58,7 +58,7 @@ const COLORS = {
 } as const
 
 const KICKER_STYLE: React.CSSProperties = {
-  fontFamily: '"JetBrains Mono", monospace',
+  fontFamily: '"Inconsolata", monospace',
   fontSize: 10,
   fontWeight: 500,
   letterSpacing: '0.14em',
@@ -94,7 +94,7 @@ export function ShareableScorecardCard({
         width: CARD_WIDTH,
         backgroundColor: c.bg,
         color: c.ink,
-        fontFamily: 'Inter, system-ui, sans-serif',
+        fontFamily: 'Epilogue, system-ui, sans-serif',
         padding: 36,
         boxSizing: 'border-box',
       }}
@@ -197,7 +197,7 @@ export function ShareableScorecardCard({
           {toPar != null && (
             <span
               style={{
-                fontFamily: '"JetBrains Mono", monospace',
+                fontFamily: '"Inconsolata", monospace',
                 fontSize: 18,
                 fontWeight: 500,
                 color: toPar < 0 ? c.accent : toPar > 0 ? c.neg : c.inkDim,
@@ -253,7 +253,7 @@ export function ShareableScorecardCard({
         </div>
         <div
           style={{
-            fontFamily: '"JetBrains Mono", monospace',
+            fontFamily: '"Inconsolata", monospace',
             fontSize: 11,
             color: c.inkMute,
           }}
@@ -301,7 +301,7 @@ function ScoreGrid({
   const cellStyle: React.CSSProperties = {
     flex: 1,
     textAlign: 'center',
-    fontFamily: '"JetBrains Mono", monospace',
+    fontFamily: '"Inconsolata", monospace',
     fontSize: 14,
     fontWeight: 500,
     fontVariantNumeric: 'tabular-nums',
@@ -350,7 +350,7 @@ function ScoreGrid({
             {n}
           </div>
         ))}
-        <div style={{ ...totalCellStyle, color: colors.inkMute, fontStyle: 'normal', fontFamily: '"JetBrains Mono", monospace', fontSize: 10, letterSpacing: '0.14em', textTransform: 'uppercase' }}>
+        <div style={{ ...totalCellStyle, color: colors.inkMute, fontStyle: 'normal', fontFamily: '"Inconsolata", monospace', fontSize: 10, letterSpacing: '0.14em', textTransform: 'uppercase' }}>
           {rangeLabel}
         </div>
       </div>
@@ -365,7 +365,7 @@ function ScoreGrid({
             </div>
           )
         })}
-        <div style={{ ...totalCellStyle, color: colors.inkDim, fontStyle: 'normal', fontFamily: '"JetBrains Mono", monospace', fontSize: 14 }}>
+        <div style={{ ...totalCellStyle, color: colors.inkDim, fontStyle: 'normal', fontFamily: '"Inconsolata", monospace', fontSize: 14 }}>
           {parSum}
         </div>
       </div>

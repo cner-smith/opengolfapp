@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Pressable, ScrollView, Text, View } from 'react-native'
 import type { Database } from '@oga/supabase'
+import { FONT, TYPE } from '../../lib/typography'
 
 type HoleRow = Database['public']['Tables']['holes']['Row']
 type HoleScoreRow = Database['public']['Tables']['hole_scores']['Row']
@@ -11,6 +12,7 @@ const KICKER: import('react-native').TextStyle = {
   fontWeight: '500',
   letterSpacing: 1.4,
   textTransform: 'uppercase',
+  fontFamily: FONT.mono,
 }
 
 interface ScorecardModalProps {
@@ -95,7 +97,7 @@ export function ScorecardModal({
               gap: 12,
             }}
           >
-            <Text style={{ flex: 1, fontSize: 13, color: '#5C6356', lineHeight: 18 }}>
+            <Text style={[TYPE.body, { flex: 1, fontSize: 13, color: '#5C6356', lineHeight: 18 }]}>
               No course layout found. Par defaults to 4 — tap to edit.
             </Text>
             <Pressable
@@ -175,12 +177,12 @@ export function ScorecardModal({
                 }}
               >
                 <Text
-                  style={{
+                  style={[TYPE.kicker, {
                     flex: 1,
                     fontSize: 15,
                     color: '#1C211C',
                     fontWeight: active ? '600' : '400',
-                  }}
+                  }]}
                 >
                   {h.number}
                 </Text>
@@ -201,45 +203,45 @@ export function ScorecardModal({
                     }}
                   >
                     <Text
-                      style={{
+                      style={[TYPE.kicker, {
                         fontSize: 15,
                         color: '#5C6356',
                         fontVariant: ['tabular-nums'],
                         textDecorationLine: 'underline',
                         textDecorationStyle: 'dotted',
                         textDecorationColor: '#9F9580',
-                      }}
+                      }]}
                     >
                       {h.par}
                     </Text>
                   </Pressable>
                 ) : (
                   <Text
-                    style={{
+                    style={[TYPE.kicker, {
                       width: 44,
                       textAlign: 'right',
                       fontSize: 15,
                       color: '#5C6356',
                       fontVariant: ['tabular-nums'],
-                    }}
+                    }]}
                   >
                     {h.par}
                   </Text>
                 )}
                 <Text
-                  style={{
+                  style={[TYPE.kicker, {
                     width: 56,
                     textAlign: 'right',
                     fontSize: 15,
                     color: score != null ? '#1C211C' : '#8A8B7E',
                     fontVariant: ['tabular-nums'],
                     fontWeight: '500',
-                  }}
+                  }]}
                 >
                   {score ?? '—'}
                 </Text>
                 <Text
-                  style={{
+                  style={[TYPE.kicker, {
                     width: 56,
                     textAlign: 'right',
                     fontSize: 15,
@@ -252,7 +254,7 @@ export function ScorecardModal({
                             ? '#A33A2A'
                             : '#5C6356',
                     fontVariant: ['tabular-nums'],
-                  }}
+                  }]}
                 >
                   {diff == null ? '—' : diff === 0 ? 'E' : diff > 0 ? `+${diff}` : `${diff}`}
                 </Text>
@@ -269,35 +271,35 @@ export function ScorecardModal({
               paddingHorizontal: 6,
             }}
           >
-            <Text style={{ flex: 1, fontSize: 14, fontWeight: '600', color: '#1C211C' }}>
+            <Text style={[TYPE.bodyBold, { flex: 1, fontSize: 14, fontWeight: '600', color: '#1C211C' }]}>
               Total played
             </Text>
             <Text
-              style={{
+              style={[TYPE.kicker, {
                 width: 44,
                 textAlign: 'right',
                 fontSize: 14,
                 fontWeight: '600',
                 color: '#1C211C',
                 fontVariant: ['tabular-nums'],
-              }}
+              }]}
             >
               {runningPar}
             </Text>
             <Text
-              style={{
+              style={[TYPE.kicker, {
                 width: 56,
                 textAlign: 'right',
                 fontSize: 14,
                 fontWeight: '600',
                 color: '#1C211C',
                 fontVariant: ['tabular-nums'],
-              }}
+              }]}
             >
               {runningTotal}
             </Text>
             <Text
-              style={{
+              style={[TYPE.kicker, {
                 width: 56,
                 textAlign: 'right',
                 fontSize: 14,
@@ -311,7 +313,7 @@ export function ScorecardModal({
                         ? '#A33A2A'
                         : '#5C6356',
                 fontVariant: ['tabular-nums'],
-              }}
+              }]}
             >
               {runningPar === 0
                 ? '—'
@@ -401,24 +403,24 @@ export function ScorecardPreview({
                     />
                   ))}
                   <Text
-                    style={{
+                    style={[TYPE.kicker, {
                       fontSize: 11,
                       fontWeight: '500',
                       color: decoColor,
                       fontVariant: ['tabular-nums'],
-                    }}
+                    }]}
                   >
                     {score}
                   </Text>
                 </>
               ) : (
                 <Text
-                  style={{
+                  style={[TYPE.kicker, {
                     fontSize: 11,
                     fontWeight: '500',
                     color: active ? '#F2EEE5' : score != null ? '#1C211C' : '#5C6356',
                     fontVariant: ['tabular-nums'],
-                  }}
+                  }]}
                 >
                   {score != null ? score : h.number}
                 </Text>

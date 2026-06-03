@@ -121,7 +121,7 @@ export function RoundHeader({
               fontSize: 11,
               letterSpacing: '0.14em',
               textTransform: 'uppercase',
-              fontFamily: '"JetBrains Mono", monospace',
+              fontFamily: '"Inconsolata", monospace',
               cursor: 'pointer',
             }}
             title="Toggle share card tone"

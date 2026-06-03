@@ -116,7 +116,7 @@ export function DispersionPlot({
         x={cx + 6}
         y={cy + 14}
         fontSize={10}
-        fontFamily="JetBrains Mono, monospace"
+        fontFamily="Inconsolata, monospace"
         letterSpacing="0.14em"
         fill="#A66A1F"
       >
@@ -141,7 +141,7 @@ export function DispersionPlot({
         x={cx + 8}
         y={14}
         fontSize={9}
-        fontFamily="JetBrains Mono, monospace"
+        fontFamily="Inconsolata, monospace"
         letterSpacing="0.14em"
         fill="#8A8B7E"
       >
@@ -151,7 +151,7 @@ export function DispersionPlot({
         x={cx + 8}
         y={SVG_SIZE - 6}
         fontSize={9}
-        fontFamily="JetBrains Mono, monospace"
+        fontFamily="Inconsolata, monospace"
         letterSpacing="0.14em"
         fill="#8A8B7E"
       >
@@ -161,7 +161,7 @@ export function DispersionPlot({
         x={6}
         y={cy - 6}
         fontSize={9}
-        fontFamily="JetBrains Mono, monospace"
+        fontFamily="Inconsolata, monospace"
         letterSpacing="0.14em"
         fill="#8A8B7E"
       >
@@ -171,7 +171,7 @@ export function DispersionPlot({
         x={SVG_SIZE - 14}
         y={cy - 6}
         fontSize={9}
-        fontFamily="JetBrains Mono, monospace"
+        fontFamily="Inconsolata, monospace"
         letterSpacing="0.14em"
         fill="#8A8B7E"
       >

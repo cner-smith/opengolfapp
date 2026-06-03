@@ -11,7 +11,7 @@ import { ShareableScorecardCard } from '../../components/round/ShareableScorecar
 import { HoleReviewSheet } from '../../components/round/HoleReviewSheet'
 import { WebPuttingSheet } from '../../components/round/WebPuttingSheet'
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
-import { haversineYards } from '@oga/core'
+import { DEFAULT_HANDICAP, haversineYards } from '@oga/core'
 import { useAuth } from '../../hooks/useAuth'
 import { useProfile } from '../../hooks/useProfile'
 import { toUserMessage } from '../../lib/errors'
@@ -79,6 +79,7 @@ export function RoundDetailPage() {
     activeHoleNumber,
     placedPoints,
     placedAims,
+    placedAimAuto,
     placedPutts,
     aimMode,
     puttingSheetForIdx,
@@ -149,9 +150,11 @@ export function RoundDetailPage() {
     user,
     profile,
     data,
+    isLiveEntry,
     pinOverride,
     teeOverride,
     placedAims,
+    placedAimAuto,
     shotDragUndo,
     shareCardRef,
     sharing,
@@ -281,12 +284,10 @@ export function RoundDetailPage() {
         }}
         onCancel={() => {
           if (onGreenPrompt) {
-            dispatchHoleView({
-              type: 'PUSH_POINT',
-              point: onGreenPrompt,
-              openPuttSheet: false,
-            })
-            setAimPromptOpen(true)
+            // Not putting (chip / bunker / fringe) — push as a normal shot
+            // through the shared path so live entry auto-spawns the aim and
+            // past-round entry gets the explicit aim prompt.
+            placeHandlers.onConfirmNonPutt(onGreenPrompt)
           }
           setOnGreenPrompt(null)
         }}
@@ -369,6 +370,8 @@ export function RoundDetailPage() {
       ) : (
         <MapView
           holes={holes}
+          userId={user?.id}
+          handicap={profile.data?.handicap_index ?? DEFAULT_HANDICAP}
           activeHoleNumber={activeHoleNumber}
           onSwitchHole={switchHole}
           activeHoleGeo={activeHoleGeo}

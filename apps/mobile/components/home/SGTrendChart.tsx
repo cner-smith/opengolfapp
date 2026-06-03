@@ -1,11 +1,11 @@
 import { Text, View, useWindowDimensions } from 'react-native'
 import { VictoryAxis, VictoryChart, VictoryLine } from 'victory-native'
+import { FONT, TYPE } from '../../lib/typography'
 
 const KICKER: import('react-native').TextStyle = {
   color: '#8A8B7E',
   fontSize: 10,
   fontWeight: '500',
-  fontFamily: 'JetBrainsMono-Medium',
   letterSpacing: 1.4,
   textTransform: 'uppercase',
 }
@@ -35,7 +35,7 @@ export function SGTrendChart({ data }: SGTrendChartProps) {
           marginBottom: 14,
         }}
       >
-        <Text style={KICKER}>SG total trend</Text>
+        <Text style={[TYPE.kicker, KICKER]}>SG total trend</Text>
       </View>
       <VictoryChart
         height={HEIGHT}
@@ -49,7 +49,7 @@ export function SGTrendChart({ data }: SGTrendChartProps) {
             tickLabels: {
               fontSize: 9,
               fill: '#8A8B7E',
-              fontFamily: 'JetBrainsMono-Medium',
+              fontFamily: FONT.mono,
             },
             grid: { stroke: 'transparent' },
           }}
@@ -62,7 +62,7 @@ export function SGTrendChart({ data }: SGTrendChartProps) {
             tickLabels: {
               fontSize: 9,
               fill: '#8A8B7E',
-              fontFamily: 'JetBrainsMono-Medium',
+              fontFamily: FONT.mono,
             },
             grid: { stroke: '#EBE5D6', strokeDasharray: '0' },
           }}

@@ -1,8 +1,10 @@
 import { Pressable, ScrollView, Text, View } from 'react-native'
 import { Link } from 'expo-router'
 import { AppBar } from '../../components/ui/AppBar'
+import { TYPE } from '../../lib/typography'
 
 const KICKER: import('react-native').TextStyle = {
+  ...TYPE.kicker,
   color: '#8A8B7E',
   fontSize: 10,
   fontWeight: '500',
@@ -16,24 +18,24 @@ export default function Practice() {
       <AppBar eyebrow="Today's focus" title="Practice" />
       <ScrollView contentContainerStyle={{ padding: 18, paddingBottom: 40 }}>
         <Text
-          style={{
+          style={[TYPE.serif, {
             color: '#1C211C',
             fontSize: 28,
             fontStyle: 'italic',
             fontWeight: '500',
             marginBottom: 8,
             lineHeight: 32,
-          }}
+          }]}
         >
           A column, not a checklist.
         </Text>
         <Text
-          style={{
+          style={[TYPE.body, {
             color: '#5C6356',
             fontSize: 14,
             lineHeight: 20,
             marginBottom: 22,
-          }}
+          }]}
         >
           Once you've logged enough rounds, this tab will read like a coach's
           column — a short opinion on where the strokes are leaking and three
@@ -49,11 +51,11 @@ export default function Practice() {
         >
           <Text style={{ ...KICKER, marginBottom: 12 }}>Coming in phase 5</Text>
           <Text
-            style={{
+            style={[TYPE.body, {
               color: '#1C211C',
               fontSize: 15,
               lineHeight: 22,
-            }}
+            }]}
           >
             Drills are calibrated to skill level and goal. A handicap-22 player
             never sees a competitive tempo drill; a single-digit player never
@@ -86,22 +88,22 @@ export default function Practice() {
                 Reference
               </Text>
               <Text
-                style={{
+                style={[TYPE.serif, {
                   color: '#1F3D2C',
                   fontSize: 17,
                   fontStyle: 'italic',
                   fontWeight: '500',
-                }}
+                }]}
               >
                 Learn the stats →
               </Text>
               <Text
-                style={{
+                style={[TYPE.body, {
                   color: '#5C6356',
                   fontSize: 13,
                   marginTop: 6,
                   lineHeight: 18,
-                }}
+                }]}
               >
                 Glossary of strokes gained, GIR, scrambling, and how the
                 numbers stack up across the field.

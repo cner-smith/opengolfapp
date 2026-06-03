@@ -28,6 +28,7 @@ import {
 import type { Database } from '@oga/supabase'
 import { supabase } from '../../../lib/supabase'
 import { useAuth } from '../../../hooks/useAuth'
+import { FONT, TYPE } from '../../../lib/typography'
 
 type CourseRow = Database['public']['Tables']['courses']['Row']
 type HoleInsert = Database['public']['Tables']['holes']['Insert']
@@ -38,6 +39,7 @@ const KICKER: import('react-native').TextStyle = {
   fontWeight: '500',
   letterSpacing: 1.4,
   textTransform: 'uppercase',
+  fontFamily: FONT.mono,
 }
 
 interface GpsState {
@@ -154,11 +156,12 @@ export default function NewRound() {
   }, [debouncedQuery])
 
   const gpsCoords = gps.status === 'ok' ? { lat: gps.lat!, lng: gps.lng! } : null
-  const noMatches =
-    !searching &&
-    debouncedQuery.trim().length > 0 &&
-    apiResults.length === 0 &&
-    localResults.length === 0
+  const hasResults = apiResults.length > 0 || localResults.length > 0
+  // Pin "Add it" below the results whenever there's a query to name the
+  // course from — not only on an empty search. Near-but-wrong fuzzy
+  // matches used to trap the user with no way to add the course they
+  // actually meant (#472). Mirrors web CourseSearch.
+  const showAddNew = !searching && debouncedQuery.trim().length > 0
 
   async function startWith(courseId: string) {
     if (!user) return
@@ -189,18 +192,29 @@ export default function NewRound() {
       // logging upgrades the rows in place via tee_lat / pin_lat fills.
       let holes = existingHoles ?? []
       if (holes.length === 0) {
-        const placeholders = Array.from({ length: 18 }, (_, i) => ({
-          course_id: courseId,
+        // A direct holes insert is blocked by RLS (migration 0026) on any
+        // course the user didn't create — which is every crawler/public
+        // course. Materialize through the insert_synthetic_hole SECURITY
+        // DEFINER RPC instead (it authorizes by round ownership), the same
+        // path the web uses via ensureRealHole. Returns the hole id; pairs
+        // with the number/par we passed in.
+        const created = await Promise.all(
+          Array.from({ length: 18 }, (_, i) =>
+            supabase.rpc('insert_synthetic_hole', {
+              p_course_id: courseId,
+              p_number: i + 1,
+              p_par: 4,
+              p_round_id: round.id,
+            }),
+          ),
+        )
+        const failed = created.find((r) => r.error)
+        if (failed?.error) throw failed.error
+        holes = created.map((r, i) => ({
+          id: r.data as string,
           number: i + 1,
           par: 4,
-          stroke_index: i + 1,
         }))
-        const { data: inserted, error: phErr } = await supabase
-          .from('holes')
-          .insert(placeholders)
-          .select('id, number, par')
-        if (phErr) throw phErr
-        holes = inserted ?? []
       }
 
       // Single batch insert beats 18 sequential round-trips; round was just
@@ -349,13 +363,13 @@ export default function NewRound() {
         {mode === 'past' ? 'Log past round' : 'Start live round'}
       </Text>
       <Text
-        style={{
+        style={[TYPE.serif, {
           color: '#1C211C',
           fontSize: 28,
           fontWeight: '500',
           marginBottom: 14,
           fontStyle: 'italic',
-        }}
+        }]}
       >
         {mode === 'past' ? 'Pick the course you played' : 'Pick a course to start'}
       </Text>
@@ -364,7 +378,7 @@ export default function NewRound() {
         value={query}
         onChangeText={setQuery}
         autoCapitalize="words"
-        style={{
+        style={[TYPE.body, {
           backgroundColor: '#FBF8F1',
           borderWidth: 1,
           borderColor: '#D9D2BF',
@@ -373,7 +387,7 @@ export default function NewRound() {
           paddingVertical: 12,
           fontSize: 15,
           marginBottom: 14,
-        }}
+        }]}
       />
 
       {searching && (
@@ -397,18 +411,18 @@ export default function NewRound() {
                 }}
               >
                 <Text
-                  style={{
+                  style={[TYPE.bodyBold, {
                     color: '#1C211C',
                     fontSize: 15,
                     fontWeight: '500',
-                  }}
+                  }]}
                 >
                   {c.name}
                 </Text>
                 {(() => {
                   const where = [c.city, c.state].filter((s) => !!s).join(', ')
                   return where ? (
-                    <Text style={{ color: '#5C6356', fontSize: 12, marginTop: 2 }}>
+                    <Text style={[TYPE.body, { color: '#5C6356', fontSize: 12, marginTop: 2 }]}>
                       {where}
                     </Text>
                   ) : null
@@ -434,16 +448,16 @@ export default function NewRound() {
                 }}
               >
                 <Text
-                  style={{
+                  style={[TYPE.bodyBold, {
                     color: '#1C211C',
                     fontSize: 15,
                     fontWeight: '500',
-                  }}
+                  }]}
                 >
                   {r.name}
                 </Text>
                 {formatLocation(r) ? (
-                  <Text style={{ color: '#5C6356', fontSize: 12, marginTop: 2 }}>
+                  <Text style={[TYPE.body, { color: '#5C6356', fontSize: 12, marginTop: 2 }]}>
                     {formatLocation(r)}
                   </Text>
                 ) : null}
@@ -452,7 +466,7 @@ export default function NewRound() {
           </View>
         )}
 
-        {noMatches && (
+        {showAddNew && (
           <Pressable
             onPress={() => setShowManualForm(true)}
             style={{
@@ -461,23 +475,24 @@ export default function NewRound() {
               borderRadius: 2,
               paddingVertical: 14,
               alignItems: 'center',
+              marginTop: hasResults ? 8 : 0,
             }}
           >
             <Text
-              style={{
+              style={[TYPE.bodyBold, {
                 color: '#1F3D2C',
                 fontSize: 14,
                 fontWeight: '600',
                 letterSpacing: 0.3,
-              }}
+              }]}
             >
-              Course not found? Add it →
+              {hasResults ? "Don't see your course? Add it →" : 'Course not found? Add it →'}
             </Text>
           </Pressable>
         )}
 
         {error && (
-          <Text style={{ color: '#A33A2A', fontSize: 13, marginTop: 12 }}>
+          <Text style={[TYPE.body, { color: '#A33A2A', fontSize: 13, marginTop: 12 }]}>
             {error}
           </Text>
         )}
@@ -533,13 +548,13 @@ function ManualCourseForm({
       >
         <Text style={{ ...KICKER, marginBottom: 8 }}>Add course</Text>
         <Text
-          style={{
+          style={[TYPE.serif, {
             color: '#1C211C',
             fontSize: 28,
             fontStyle: 'italic',
             fontWeight: '500',
             marginBottom: 18,
-          }}
+          }]}
         >
           New course
         </Text>
@@ -616,12 +631,12 @@ function ManualCourseForm({
                 }}
               >
                 <Text
-                  style={{
+                  style={[TYPE.serifUpright, {
                     color: '#1C211C',
                     fontSize: 15,
                     fontWeight: '500',
                     fontVariant: ['tabular-nums'],
-                  }}
+                  }]}
                 >
                   {p}
                 </Text>
@@ -631,11 +646,11 @@ function ManualCourseForm({
         </View>
 
         <Text
-          style={{
+          style={[TYPE.body, {
             color: '#8A8B7E',
             fontSize: 12,
             marginTop: 18,
-          }}
+          }]}
         >
           {gpsCoords
             ? `GPS captured (${gpsCoords.lat.toFixed(4)}, ${gpsCoords.lng.toFixed(4)}) — set as hole 1 tee.`
@@ -654,7 +669,7 @@ function ManualCourseForm({
               alignItems: 'center',
             }}
           >
-            <Text style={{ color: '#5C6356', fontSize: 13 }}>Cancel</Text>
+            <Text style={[TYPE.body, { color: '#5C6356', fontSize: 13 }]}>Cancel</Text>
           </Pressable>
           <Pressable
             onPress={() =>
@@ -670,12 +685,12 @@ function ManualCourseForm({
             }}
           >
             <Text
-              style={{
+              style={[TYPE.bodyBold, {
                 color: '#F2EEE5',
                 fontSize: 14,
                 fontWeight: '600',
                 letterSpacing: 0.3,
-              }}
+              }]}
             >
               {busy ? 'Creating…' : 'Create course →'}
             </Text>
@@ -706,11 +721,11 @@ function Chip({
       }}
     >
       <Text
-        style={{
+        style={[active ? TYPE.bodyBold : TYPE.body, {
           color: active ? '#F2EEE5' : '#1C211C',
           fontSize: 13,
           fontWeight: active ? '600' : '400',
-        }}
+        }]}
       >
         {label}
       </Text>
@@ -727,4 +742,5 @@ const inputStyle = {
   paddingVertical: 12,
   fontSize: 15,
   color: '#1C211C',
+  fontFamily: FONT.body,
 } as const

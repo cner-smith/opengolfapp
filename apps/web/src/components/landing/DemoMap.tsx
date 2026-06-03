@@ -106,7 +106,7 @@ export function DemoMap({ tee, pin, shots }: DemoMapProps) {
             fontSize: 12,
             padding: 16,
             textAlign: 'center',
-            fontFamily: 'JetBrains Mono, monospace',
+            fontFamily: 'Inconsolata, monospace',
             letterSpacing: '0.14em',
             textTransform: 'uppercase',
           }}
@@ -134,7 +134,7 @@ function makeNumberedMarker(n: number): HTMLElement {
     'border-radius:999px',
     'background:#A66A1F',
     'color:#FBF8F1',
-    'font-family:Inter, sans-serif',
+    'font-family:Epilogue, sans-serif',
     'font-weight:600',
     'font-size:11px',
     'display:flex',

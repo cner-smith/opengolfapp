@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import {
   Alert,
   Linking,
+  Modal,
   Pressable,
   ScrollView,
   Text,
@@ -15,12 +16,14 @@ import type { Database } from '@oga/supabase'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
 import { AppBar } from '../../components/ui/AppBar'
+import { TYPE } from '../../lib/typography'
 
 type Profile = Database['public']['Tables']['profiles']['Row']
 type SkillLevel = Profile['skill_level']
 type Goal = Profile['goal']
 
 const KICKER: import('react-native').TextStyle = {
+  ...TYPE.kicker,
   color: '#8A8B7E',
   fontSize: 10,
   fontWeight: '500',
@@ -65,6 +68,33 @@ export default function ProfileTab() {
   const [emailSummaries, setEmailSummaries] = useState(true)
   const [saving, setSaving] = useState(false)
   const [usernameTouched, setUsernameTouched] = useState(false)
+  const [deleteOpen, setDeleteOpen] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+
+  async function deleteAccount() {
+    setDeleting(true)
+    const { error } = await supabase.rpc('delete_my_account')
+    if (error) {
+      setDeleting(false)
+      setDeleteOpen(false)
+      Alert.alert('Could not delete account', error.message)
+      return
+    }
+    // The account row is already gone; the JWT just stays valid until
+    // sign-out, so clear the session. If signOut itself errors we must STILL
+    // release the modal — otherwise the user is stranded in a disabled
+    // "Deleting…" dialog after an irreversible delete. On success the auth
+    // listener unmounts this screen and redirects to login.
+    const { error: signOutError } = await supabase.auth.signOut()
+    if (signOutError) {
+      setDeleting(false)
+      setDeleteOpen(false)
+      Alert.alert(
+        'Account deleted',
+        'Your account has been deleted. Restart the app to finish signing out.',
+      )
+    }
+  }
 
   const trimmedUsername = username.trim()
   const usernameInvalid =
@@ -166,24 +196,24 @@ export default function ProfileTab() {
         >
           <Text style={{ ...KICKER, marginBottom: 8 }}>Handicap index</Text>
           <Text
-            style={{
+            style={[TYPE.serif, {
               color: '#1C211C',
               fontSize: 56,
               fontStyle: 'italic',
               fontWeight: '500',
               fontVariant: ['tabular-nums'],
               lineHeight: 60,
-            }}
+            }]}
           >
             {profile?.handicap_index ?? '—'}
           </Text>
           <Text
-            style={{
+            style={[TYPE.body, {
               color: '#5C6356',
               fontSize: 14,
               marginTop: 6,
               textTransform: 'capitalize',
-            }}
+            }]}
           >
             {profile?.skill_level ?? 'No skill level set'}
           </Text>
@@ -204,11 +234,11 @@ export default function ProfileTab() {
             }}
           />
           <Text
-            style={{
+            style={[TYPE.body, {
               color: showUsernameError ? '#A33A2A' : '#8A8B7E',
               fontSize: 11,
               marginTop: 6,
-            }}
+            }]}
           >
             {USERNAME_HELPER}
           </Text>
@@ -310,11 +340,11 @@ export default function ProfileTab() {
         >
           <View>
             <Text style={{ ...KICKER, marginBottom: 2 }}>Equipment</Text>
-            <Text style={{ color: '#1C211C', fontSize: 16, fontWeight: '500' }}>
+            <Text style={[TYPE.body, { color: '#1C211C', fontSize: 16, fontWeight: '500' }]}>
               My Bag
             </Text>
           </View>
-          <Text style={{ color: '#1F3D2C', fontSize: 18, fontStyle: 'italic' }}>→</Text>
+          <Text style={[TYPE.bodyItalic, { color: '#1F3D2C', fontSize: 18, fontStyle: 'italic' }]}>→</Text>
         </Pressable>
 
         <Pressable
@@ -333,12 +363,12 @@ export default function ProfileTab() {
           }}
         >
           <Text
-            style={{
+            style={[TYPE.bodyBold, {
               color: '#F2EEE5',
               fontSize: 14,
               fontWeight: '600',
               letterSpacing: 0.3,
-            }}
+            }]}
           >
             {saving ? 'Saving…' : 'Save changes'}
           </Text>
@@ -356,12 +386,12 @@ export default function ProfileTab() {
         >
           <Text style={{ ...KICKER, marginBottom: 10 }}>Support OGA</Text>
           <Text
-            style={{
+            style={[TYPE.body, {
               color: '#1C211C',
               fontSize: 14,
               lineHeight: 20,
               marginBottom: 14,
-            }}
+            }]}
           >
             OGA is free and open source. If it helps your game,
             consider buying us a round.
@@ -381,12 +411,12 @@ export default function ProfileTab() {
               }}
             >
               <Text
-                style={{
+                style={[TYPE.bodyBold, {
                   color: '#1F3D2C',
                   fontSize: 13,
                   fontWeight: '600',
                   letterSpacing: 0.3,
-                }}
+                }]}
               >
                 Ko-fi ↗
               </Text>
@@ -407,12 +437,12 @@ export default function ProfileTab() {
               }}
             >
               <Text
-                style={{
+                style={[TYPE.bodyBold, {
                   color: '#1F3D2C',
                   fontSize: 13,
                   fontWeight: '600',
                   letterSpacing: 0.3,
-                }}
+                }]}
               >
                 GitHub ↗
               </Text>
@@ -439,12 +469,29 @@ export default function ProfileTab() {
             Sign out
           </Text>
         </Pressable>
+
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Delete account"
+          onPress={() => setDeleteOpen(true)}
+          style={{ paddingVertical: 12, alignItems: 'center' }}
+        >
+          <Text style={{ ...KICKER, color: '#A33A2A' }}>Delete account</Text>
+        </Pressable>
       </ScrollView>
+
+      <DeleteAccountModal
+        visible={deleteOpen}
+        busy={deleting}
+        onConfirm={deleteAccount}
+        onCancel={() => setDeleteOpen(false)}
+      />
     </View>
   )
 }
 
 const inputStyle = {
+  ...TYPE.body,
   backgroundColor: '#FBF8F1',
   borderWidth: 1,
   borderColor: '#D9D2BF',
@@ -454,6 +501,158 @@ const inputStyle = {
   fontSize: 15,
   color: '#1C211C',
 } as const
+
+// Two-phase confirmation for the irreversible account delete, in a SINGLE
+// Modal (never two stacked — iOS allows one presented modal per presenter,
+// #293). Phase 1 is the "are you sure" warning; phase 2 requires typing the
+// exact phrase, so the delete can't be triggered by a stray tap.
+const DELETE_PHRASE = 'delete my account'
+
+function DeleteAccountModal({
+  visible,
+  busy,
+  onConfirm,
+  onCancel,
+}: {
+  visible: boolean
+  busy: boolean
+  onConfirm: () => void | Promise<void>
+  onCancel: () => void
+}) {
+  const [phase, setPhase] = useState<'confirm' | 'type'>('confirm')
+  const [text, setText] = useState('')
+  const matches = text.trim().toLowerCase() === DELETE_PHRASE
+
+  // Reset to phase one whenever the modal (re)opens, so a reopened dialog
+  // never starts on the typed step with stale text.
+  useEffect(() => {
+    if (visible) {
+      setPhase('confirm')
+      setText('')
+    }
+  }, [visible])
+
+  return (
+    <Modal transparent animationType="fade" visible={visible} onRequestClose={onCancel}>
+      <View
+        style={{
+          flex: 1,
+          backgroundColor: 'rgba(28,33,28,0.55)',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: 18,
+        }}
+      >
+        <View
+          style={{
+            backgroundColor: '#FBF8F1',
+            borderColor: '#9F9580',
+            borderWidth: 1,
+            borderRadius: 4,
+            padding: 22,
+            width: '100%',
+            maxWidth: 360,
+          }}
+        >
+          <Text style={{ ...KICKER, marginBottom: 8 }}>Confirm delete</Text>
+          <Text
+            style={[TYPE.serif, {
+              color: '#1C211C',
+              fontSize: 22,
+              fontStyle: 'italic',
+              fontWeight: '500',
+              lineHeight: 28,
+              marginBottom: 10,
+            }]}
+          >
+            {phase === 'confirm' ? 'Delete your OGA account?' : 'Type to confirm'}
+          </Text>
+
+          {phase === 'confirm' ? (
+            <Text style={[TYPE.body, { color: '#5C6356', fontSize: 14, lineHeight: 20, marginBottom: 22 }]}>
+              This will permanently delete your account and all rounds, shots,
+              and saved data. This cannot be undone.
+            </Text>
+          ) : (
+            <>
+              <Text style={[TYPE.body, { color: '#5C6356', fontSize: 14, lineHeight: 20, marginBottom: 14 }]}>
+                Type{' '}
+                <Text style={[TYPE.bodyBold, { fontWeight: '700', color: '#1C211C' }]}>{DELETE_PHRASE}</Text>{' '}
+                below to permanently delete your account.
+              </Text>
+              <TextInput
+                value={text}
+                onChangeText={setText}
+                editable={!busy}
+                autoCapitalize="none"
+                autoCorrect={false}
+                placeholder={DELETE_PHRASE}
+                placeholderTextColor="#8A8B7E"
+                style={{ ...inputStyle, marginBottom: 22 }}
+                accessibilityLabel="Type delete my account to confirm"
+              />
+            </>
+          )}
+
+          <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 10 }}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Cancel"
+              onPress={onCancel}
+              disabled={busy}
+              style={{
+                borderWidth: 1,
+                borderColor: '#D9D2BF',
+                borderRadius: 2,
+                paddingHorizontal: 14,
+                paddingVertical: 10,
+                opacity: busy ? 0.5 : 1,
+              }}
+            >
+              <Text style={[TYPE.body, { color: '#5C6356', fontSize: 13, fontWeight: '500' }]}>Cancel</Text>
+            </Pressable>
+
+            {phase === 'confirm' ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Continue to type-to-confirm step"
+                onPress={() => setPhase('type')}
+                style={{
+                  backgroundColor: '#A33A2A',
+                  borderRadius: 2,
+                  paddingHorizontal: 16,
+                  paddingVertical: 10,
+                }}
+              >
+                <Text style={[TYPE.bodyBold, { color: '#F2EEE5', fontSize: 14, fontWeight: '600', letterSpacing: 0.3 }]}>
+                  Continue
+                </Text>
+              </Pressable>
+            ) : (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Delete account"
+                onPress={onConfirm}
+                disabled={busy || !matches}
+                style={{
+                  backgroundColor: '#A33A2A',
+                  borderRadius: 2,
+                  paddingHorizontal: 16,
+                  paddingVertical: 10,
+                  opacity: busy || !matches ? 0.5 : 1,
+                }}
+              >
+                <Text style={[TYPE.bodyBold, { color: '#F2EEE5', fontSize: 14, fontWeight: '600', letterSpacing: 0.3 }]}>
+                  {busy ? 'Deleting…' : 'Delete account'}
+                </Text>
+              </Pressable>
+            )}
+          </View>
+        </View>
+      </View>
+    </Modal>
+  )
+}
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -494,12 +693,12 @@ function Chip({
       }}
     >
       <Text
-        style={{
+        style={[TYPE.body, {
           color: active ? '#F2EEE5' : '#1C211C',
           fontSize: 12,
           fontWeight: active ? '500' : '400',
           textTransform: 'capitalize',
-        }}
+        }]}
       >
         {label}
       </Text>

@@ -116,7 +116,9 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
     ball,
     setBall,
     aim,
+    aimTouched,
     setAim,
+    setAimTouched,
     setRoundState,
     manuallyPlacedRef,
     lastSavedShotLocalIdRef,
@@ -133,8 +135,10 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
       start_lng: ball.lng,
       end_lat: null,
       end_lng: null,
-      aim_lat: aim?.lat ?? null,
-      aim_lng: aim?.lng ?? null,
+      // Persist aim only if the player set/dragged it; an untouched auto-spawn
+      // suggestion is dropped so it can't enter the dispersion dataset.
+      aim_lat: aimTouched ? aim?.lat ?? null : null,
+      aim_lng: aimTouched ? aim?.lng ?? null : null,
       club: meta?.club ?? null,
       lie_type: meta?.lieType ?? null,
       lie_slope: null,
@@ -362,7 +366,11 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
       setActiveDialog('onGreen')
       return
     }
-    setActiveDialog('aim')
+    // Go straight into aiming — no "Set aim point?" prompt. The aim line
+    // auto-spawns to the pin (useHoleState) with a draggable midpoint; "Skip
+    // aim" stays available in the SET_AIM bottom chrome. (The on-green prompt
+    // above is kept.)
+    setRoundState('SET_AIM')
   }
 
   function handleOnGreenYes() {
@@ -376,20 +384,25 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
   }
 
   function handleOnGreenNo() {
-    // Transition onGreen → aim. Synchronous, so React batches the
-    // two setActiveDialog calls and only the final 'aim' commit
-    // is observable. No guard needed.
-    setActiveDialog('aim')
+    // Not on the green → close the prompt and go straight into aiming (no
+    // separate "Set aim point?" prompt). Synchronous, so React batches the
+    // dialog-clear with the phase change.
+    setActiveDialog(prev => (prev === 'onGreen' ? null : prev))
     // 'rough' is the safest near-green default — fairway/fringe/sand
     // are common but rough is the modal answer for "near green but
     // not putting". Player overrides in ShotLogger.
     setLoggerInitial({ lieType: 'rough' })
-    // Route through the aim prompt — chips and pitches still benefit
-    // from explicit aim capture for the shot-pattern dataset. Player
-    // can skip aim from the prompt if they want.
+    // Chips and pitches still benefit from explicit aim capture for the
+    // shot-pattern dataset; the aim line auto-spawns and "Skip aim" stays
+    // available in the SET_AIM chrome.
+    setRoundState('SET_AIM')
   }
 
   function confirmAim() {
+    // Confirming is an explicit acceptance of the aim — even the unadjusted
+    // auto-suggestion — so mark it touched and persist it. ('Skip aim' clears
+    // the aim instead, so that path stays unpersisted.)
+    setAimTouched(true)
     setRoundState('SHOT_DETAIL')
     setLoggerOpen(true)
   }

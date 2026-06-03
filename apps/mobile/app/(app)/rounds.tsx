@@ -14,6 +14,7 @@ import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
 import { AppBar } from '../../components/ui/AppBar'
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
+import { FONT, TYPE } from '../../lib/typography'
 
 interface RoundRow {
   id: string
@@ -29,6 +30,7 @@ const KICKER: import('react-native').TextStyle = {
   fontWeight: '500',
   letterSpacing: 1.4,
   textTransform: 'uppercase',
+  fontFamily: FONT.mono,
 }
 
 // Screen-reader label for a round row. TalkBack and VoiceOver read visible
@@ -112,7 +114,7 @@ export default function RoundsList() {
         }}
       >
         {rounds.length === 0 ? (
-          <Text style={{ color: '#8A8B7E', fontSize: 13, marginTop: 18 }}>
+          <Text style={[TYPE.body, { color: '#8A8B7E', fontSize: 13, marginTop: 18 }]}>
             No rounds yet.
           </Text>
         ) : (
@@ -134,12 +136,12 @@ export default function RoundsList() {
                     }}
                   >
                     <Text
-                      style={{
+                      style={[TYPE.bodyBold, {
                         color: '#F2EEE5',
                         fontSize: 13,
                         fontWeight: '600',
                         letterSpacing: 0.3,
-                      }}
+                      }]}
                     >
                       Delete
                     </Text>
@@ -176,12 +178,12 @@ export default function RoundsList() {
                         {r.played_at}
                       </Text>
                       <Text
-                        style={{
+                        style={[TYPE.serif, {
                           color: '#1C211C',
                           fontSize: 17,
                           fontWeight: '500',
                           fontStyle: 'italic',
-                        }}
+                        }]}
                       >
                         {r.courses?.name ?? 'Round'}
                       </Text>
@@ -194,17 +196,17 @@ export default function RoundsList() {
                       }}
                     >
                       <Text
-                        style={{
+                        style={[TYPE.serifUpright, {
                           color: '#1C211C',
                           fontSize: 22,
                           fontWeight: '500',
                           fontVariant: ['tabular-nums'],
-                        }}
+                        }]}
                       >
                         {r.total_score ?? '—'}
                       </Text>
                       <Text
-                        style={{
+                        style={[TYPE.serifUpright, {
                           color:
                             r.sg_total == null
                               ? '#8A8B7E'
@@ -214,7 +216,7 @@ export default function RoundsList() {
                           fontSize: 13,
                           fontWeight: '500',
                           fontVariant: ['tabular-nums'],
-                        }}
+                        }]}
                       >
                         {r.sg_total == null ? '—' : formatSG(r.sg_total)}
                       </Text>

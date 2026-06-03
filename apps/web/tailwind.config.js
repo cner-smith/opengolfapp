@@ -47,8 +47,8 @@ export default {
       },
       fontFamily: {
         serif: ['Fraunces', 'GT Sectra', 'Georgia', 'ui-serif', 'serif'],
-        sans: ['Inter', '-apple-system', 'system-ui', 'sans-serif'],
-        mono: ['JetBrains Mono', 'SF Mono', 'ui-monospace', 'monospace'],
+        sans: ['Epilogue', '-apple-system', 'system-ui', 'sans-serif'],
+        mono: ['Inconsolata', 'SF Mono', 'ui-monospace', 'monospace'],
       },
       fontSize: {
         kicker: ['10px', { lineHeight: '1.2', letterSpacing: '0.14em' }],

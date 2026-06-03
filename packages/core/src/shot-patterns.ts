@@ -6,6 +6,7 @@ import type {
   ShotResult,
 } from './constants'
 import type { Shot } from './types'
+import { bearingDegrees, toRadians } from './units'
 
 export interface DispersionPoint {
   /** Source shot id — used as a stable React key when rendering the
@@ -48,32 +49,61 @@ function isFiniteNumber(n: number | null | undefined): n is number {
   return n !== null && n !== undefined && Number.isFinite(n)
 }
 
+/** True only when start, aim, AND end coords are all finite — the minimum
+ *  needed to derive the intended (start→aim) line and frame the shot to it. */
+function hasAimGeometry(
+  s: Shot,
+): s is Shot &
+  Record<
+    'startLat' | 'startLng' | 'aimLat' | 'aimLng' | 'endLat' | 'endLng',
+    number
+  > {
+  return (
+    isFiniteNumber(s.startLat) &&
+    isFiniteNumber(s.startLng) &&
+    isFiniteNumber(s.aimLat) &&
+    isFiniteNumber(s.aimLng) &&
+    isFiniteNumber(s.endLat) &&
+    isFiniteNumber(s.endLng)
+  )
+}
+
+/**
+ * Rotate a (target − aim) displacement into the aim-relative frame given the
+ * intended-line bearing θ (radians, CW from N). `alongYards` = past the aim
+ * point along the line; `perpYards` = right of the line. Scale deg→yards
+ * BEFORE rotating — 1° lng ≠ 1° lat in distance.
+ */
+function rotateAroundAim(
+  targetLat: number,
+  targetLng: number,
+  aimLat: number,
+  aimLng: number,
+  θ: number,
+): { alongYards: number; perpYards: number } {
+  const north = (targetLat - aimLat) * YARDS_PER_DEG_LAT
+  const east = (targetLng - aimLng) * yardsPerDegLng(aimLat)
+  return {
+    alongYards: north * Math.cos(θ) + east * Math.sin(θ),
+    perpYards: -north * Math.sin(θ) + east * Math.cos(θ),
+  }
+}
+
 export function computeDispersion(shots: Shot[]): DispersionPoint[] {
   const points: DispersionPoint[] = []
   for (const s of shots) {
-    if (
-      !isFiniteNumber(s.aimLat) ||
-      !isFiniteNumber(s.aimLng) ||
-      !isFiniteNumber(s.endLat) ||
-      !isFiniteNumber(s.endLng)
-    ) {
-      continue
-    }
-    const aimLat = s.aimLat
-    const aimLng = s.aimLng
-    const endLat = s.endLat
-    const endLng = s.endLng
-    const latYards = (endLat - aimLat) * YARDS_PER_DEG_LAT
-    const lngYards = (endLng - aimLng) * yardsPerDegLng(aimLat)
-    let startDistanceOffsetYards: number | undefined
-    if (isFiniteNumber(s.startLat)) {
-      startDistanceOffsetYards = (s.startLat - aimLat) * YARDS_PER_DEG_LAT
-    }
+    // Aim-relative framing needs the start→aim line, so skip shots missing
+    // start (compass-framing them and mixing bearings smears the pattern — #464).
+    if (!hasAimGeometry(s)) continue
+    const θ = toRadians(bearingDegrees(s.startLat, s.startLng, s.aimLat, s.aimLng))
+    const end = rotateAroundAim(s.endLat, s.endLng, s.aimLat, s.aimLng, θ)
+    const start = rotateAroundAim(s.startLat, s.startLng, s.aimLat, s.aimLng, θ)
     points.push({
       id: s.id,
-      lateralOffsetYards: lngYards,
-      distanceOffsetYards: latYards,
-      startDistanceOffsetYards,
+      lateralOffsetYards: end.perpYards,
+      distanceOffsetYards: end.alongYards,
+      // Start projected onto the aim line (negative = behind aim = the carry).
+      startDistanceOffsetYards: start.alongYards,
       shotResult: s.shotResult,
       lieSlope: s.lieSlope,
       lieSlopeForward: s.lieSlopeForward,
@@ -136,6 +166,71 @@ export function computeDispersionStats(points: DispersionPoint[]): DispersionSta
     cone95: { lateral: stdLat * CONE_95_K, distance: stdDist * CONE_95_K },
     dominantMiss,
     shotShape,
+    sampleSize: points.length,
+  }
+}
+
+/**
+ * One shot's end position expressed in the AIM-RELATIVE frame:
+ * `alongYards` long of aim (+ = past the aim point), `perpYards` right of
+ * the aim line (+ = right). Rotates by the shot's intended (start→aim) line so
+ * spreads read correctly on a hole at any bearing. This is the lightweight
+ * along/perp pair (used by the live-round overlay); `computeDispersion` shares
+ * the same `rotateAroundAim` core but returns full DispersionPoints. Returns
+ * null unless start, aim, AND end coords are all finite — start+aim are needed
+ * to derive the bearing.
+ */
+export function aimRelativeOffsets(
+  shot: Shot,
+): { alongYards: number; perpYards: number } | null {
+  if (!hasAimGeometry(shot)) return null
+  // Bearing of the intended line (start → aim), compass degrees CW from N.
+  const θ = toRadians(bearingDegrees(shot.startLat, shot.startLng, shot.aimLat, shot.aimLng))
+  return rotateAroundAim(shot.endLat, shot.endLng, shot.aimLat, shot.aimLng, θ)
+}
+
+export interface AimRelativeDispersion {
+  /** Mean long offset of the pattern (+ = long), yards. */
+  alongMean: number
+  /** Mean lateral offset (+ = right of aim) — the player's bias, yards. */
+  perpMean: number
+  /** 68% / 95% containment half-widths (radii) along each axis, yards. */
+  along68: number
+  along95: number
+  perp68: number
+  perp95: number
+  /** Surviving aim-relative points (start+aim+end present). */
+  points: { alongYards: number; perpYards: number }[]
+  /** Count of surviving points — NOT the input length. */
+  sampleSize: number
+}
+
+/**
+ * Aim-relative dispersion across a set of shots (one club's worth, ideally).
+ * Skips shots missing start/aim/end; returns null below MIN_SAMPLES_FOR_STATS.
+ * Cones use the same 2D containment k-factors as computeDispersionStats.
+ */
+export function computeAimRelativeDispersion(shots: Shot[]): AimRelativeDispersion | null {
+  const points: { alongYards: number; perpYards: number }[] = []
+  for (const s of shots) {
+    const o = aimRelativeOffsets(s)
+    if (o) points.push(o)
+  }
+  if (points.length < MIN_SAMPLES_FOR_STATS) return null
+  const alongs = points.map((p) => p.alongYards)
+  const perps = points.map((p) => p.perpYards)
+  const alongMean = mean(alongs)
+  const perpMean = mean(perps)
+  const alongStd = stdDev(alongs, alongMean)
+  const perpStd = stdDev(perps, perpMean)
+  return {
+    alongMean,
+    perpMean,
+    along68: alongStd * CONE_68_K,
+    along95: alongStd * CONE_95_K,
+    perp68: perpStd * CONE_68_K,
+    perp95: perpStd * CONE_95_K,
+    points,
     sampleSize: points.length,
   }
 }

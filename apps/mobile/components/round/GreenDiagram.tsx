@@ -12,6 +12,7 @@ import Animated, {
 } from 'react-native-reanimated'
 import type { BreakDirection } from '@oga/core'
 import { useUnits } from '../../hooks/useUnits'
+import { TYPE } from '../../lib/typography'
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle)
 const AnimatedPath = Animated.createAnimatedComponent(Path)
@@ -211,21 +212,24 @@ export function GreenDiagram({
         }}
       >
         <View>
-          <Text style={KICKER}>To pin</Text>
+          <Text style={[TYPE.kicker, KICKER]}>To pin</Text>
           <Text
-            style={{
-              color: '#1C211C',
-              fontSize: 28,
-              fontStyle: 'italic',
-              fontWeight: '500',
-              fontVariant: ['tabular-nums'],
-              lineHeight: 30,
-            }}
+            style={[
+              TYPE.serif,
+              {
+                color: '#1C211C',
+                fontSize: 28,
+                fontStyle: 'italic',
+                fontWeight: '500',
+                fontVariant: ['tabular-nums'],
+                lineHeight: 30,
+              },
+            ]}
           >
             {toDisplayFt(distanceFt)}
           </Text>
         </View>
-        <Text style={{ ...KICKER, color: '#8A8B7E' }}>
+        <Text style={[TYPE.kicker, { ...KICKER, color: '#8A8B7E' }]}>
           {breakDirection === 'straight'
             ? 'Straight'
             : breakDirection.replace(/_/g, ' ')}
@@ -283,13 +287,16 @@ export function GreenDiagram({
       </GestureDetector>
 
       <Text
-        style={{
-          color: '#1C211C',
-          fontSize: 17,
-          fontWeight: '500',
-          textAlign: 'center',
-          marginTop: 6,
-        }}
+        style={[
+          TYPE.body,
+          {
+            color: '#1C211C',
+            fontSize: 17,
+            fontWeight: '500',
+            textAlign: 'center',
+            marginTop: 6,
+          },
+        ]}
       >
         {aimLabel}
       </Text>

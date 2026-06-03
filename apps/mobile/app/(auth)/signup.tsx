@@ -9,9 +9,9 @@ import {
   View,
 } from 'react-native'
 import { Link, useRouter } from 'expo-router'
-import AsyncStorage from '@react-native-async-storage/async-storage'
 import { WebView } from 'react-native-webview'
 import { supabase } from '../../lib/supabase'
+import { TYPE } from '../../lib/typography'
 
 const TURNSTILE_SITE_KEY = process.env.EXPO_PUBLIC_TURNSTILE_SITE_KEY
 
@@ -44,8 +44,9 @@ export default function Signup() {
       setCaptchaToken(null)
       return
     }
-    await AsyncStorage.setItem('oga.pending-splash', '1').catch(() => {})
-    router.replace('/(app)')
+    // Route through the brand splash (plays on every login), which then
+    // forwards into the app. See app/(auth)/welcome.tsx (#500).
+    router.replace('/(auth)/welcome')
   }
 
   return (
@@ -72,12 +73,12 @@ export default function Signup() {
         }}
       >
         <Text
-          style={{
+          style={[TYPE.bodyBold, {
             color: '#111111',
             fontSize: 22,
             fontWeight: '600',
             marginBottom: 16,
-          }}
+          }]}
         >
           Create your OGA account
         </Text>
@@ -121,7 +122,7 @@ export default function Signup() {
           />
         )}
         {error && (
-          <Text style={{ color: '#A32D2D', fontSize: 13, marginBottom: 10 }}>
+          <Text style={[TYPE.body, { color: '#A32D2D', fontSize: 13, marginBottom: 10 }]}>
             {error}
           </Text>
         )}
@@ -136,18 +137,18 @@ export default function Signup() {
             opacity: !canSubmit ? 0.5 : 1,
           }}
         >
-          <Text style={{ color: '#FFFFFF', fontSize: 13, fontWeight: '500' }}>
+          <Text style={[TYPE.body, { color: '#FFFFFF', fontSize: 13, fontWeight: '500' }]}>
             {loading ? 'Creating…' : 'Create account'}
           </Text>
         </Pressable>
         <Link
           href="/(auth)/login"
-          style={{
+          style={[TYPE.body, {
             color: '#0F6E56',
             fontSize: 13,
             marginTop: 14,
             textAlign: 'center',
-          }}
+          }]}
         >
           Have an account? Sign in
         </Link>
@@ -172,14 +173,14 @@ const inputStyle = {
 function FieldLabel({ children }: { children: React.ReactNode }) {
   return (
     <Text
-      style={{
+      style={[TYPE.body, {
         color: '#888880',
         fontSize: 11,
         fontWeight: '500',
         letterSpacing: 0.4,
         textTransform: 'uppercase',
         marginBottom: 6,
-      }}
+      }]}
     >
       {children}
     </Text>

@@ -27,7 +27,7 @@ function RouteFallback() {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        fontFamily: 'Inter, sans-serif',
+        fontFamily: 'Epilogue, sans-serif',
         fontSize: 14,
         color: '#5C6356',
       }}

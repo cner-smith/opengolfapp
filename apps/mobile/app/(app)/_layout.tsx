@@ -8,6 +8,7 @@ import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
 import { ErrorBoundary } from '../../components/errors/ErrorBoundary'
 import { UnitsProvider } from '../../contexts/UnitsContext'
+import { TYPE } from '../../lib/typography'
 
 const ICON_SIZE = 18
 // Transient profile fetch can hang on flaky networks. After this
@@ -90,24 +91,24 @@ export default function AppLayout() {
       >
         <StatusBar style="light" animated />
         <Text
-          style={{
+          style={[TYPE.serif, {
             color: '#F2EEE5',
             fontSize: 20,
             fontWeight: '500',
             fontStyle: 'italic',
             marginBottom: 10,
             textAlign: 'center',
-          }}
+          }]}
         >
           Something went wrong loading your profile.
         </Text>
         <Text
-          style={{
+          style={[TYPE.body, {
             color: 'rgba(242,238,229,0.65)',
             fontSize: 14,
             textAlign: 'center',
             marginBottom: 22,
-          }}
+          }]}
         >
           Check your connection, then try again.
         </Text>
@@ -123,12 +124,12 @@ export default function AppLayout() {
           }}
         >
           <Text
-            style={{
+            style={[TYPE.bodyBold, {
               color: '#F2EEE5',
               fontSize: 14,
               fontWeight: '600',
               letterSpacing: 0.3,
-            }}
+            }]}
           >
             Try again
           </Text>
@@ -220,12 +221,19 @@ export default function AppLayout() {
           ),
         }}
       />
-      <Tabs.Screen name="learn/index" options={{ href: null }} />
-      <Tabs.Screen name="learn/[article]" options={{ href: null }} />
+      {/* Learn is a nested stack (learn/_layout.tsx owns index + [article]),
+          so it collapses to a single hidden tab route. This is what makes
+          "← Back" from an article pop to the list instead of the Home tab. */}
+      <Tabs.Screen name="learn" options={{ href: null }} />
       <Tabs.Screen name="bag" options={{ href: null }} />
       <Tabs.Screen name="rounds" options={{ href: null }} />
       <Tabs.Screen name="round/new" options={{ href: null }} />
-      <Tabs.Screen name="round/[id]/index" options={{ href: null }} />
+      {/* Live round is full-bleed — hide the tab bar entirely while it's
+          focused (not just the tab button) to reclaim the bottom strip. */}
+      <Tabs.Screen
+        name="round/[id]/index"
+        options={{ href: null, tabBarStyle: { display: 'none' } }}
+      />
     </Tabs>
     </UnitsProvider>
     </ErrorBoundary>

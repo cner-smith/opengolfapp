@@ -14,6 +14,12 @@ export interface HoleViewState {
    *  that shot. Aim point is what the player was aiming at when they
    *  hit shot N; required for meaningful dispersion analysis. */
   placedAims: (PlacedPoint | null)[]
+  /** Whether each placed aim is still the auto-spawned suggestion (true) vs
+   *  user-touched (false). Parallel to placedAims. An untouched auto-spawn is
+   *  a system guess — NOT persisted to shots.aim_lat/lng on save, so it can't
+   *  pollute the dispersion dataset (aim must be explicit to count). Any drag
+   *  or explicit set flips it to false. */
+  placedAimAuto: boolean[]
   /** Putt metadata per placed shot. Parallel to placedPoints. Set when
    *  a tap landed within 30 yd of the pin and the user filled the
    *  putting sheet. Null for non-putts. The data flows straight through
@@ -49,7 +55,7 @@ export type HoleViewAction =
   | { type: 'MOVE_POINT'; index: number; point: PlacedPoint }
   | { type: 'CLEAR_POINTS' }
   | { type: 'POP_POINT' }
-  | { type: 'SET_AIM'; index: number; point: PlacedPoint | null }
+  | { type: 'SET_AIM'; index: number; point: PlacedPoint | null; auto?: boolean }
   | { type: 'AIM_MODE'; on: boolean }
   | { type: 'OPEN_PUTT_SHEET'; index: number }
   | { type: 'CLOSE_PUTT_SHEET' }
@@ -67,6 +73,7 @@ export const HOLE_VIEW_INITIAL: HoleViewState = {
   activeHoleNumber: 1,
   placedPoints: [],
   placedAims: [],
+  placedAimAuto: [],
   placedPutts: [],
   aimMode: false,
   puttingSheetForIdx: null,
@@ -96,6 +103,7 @@ export function holeViewReducer(state: HoleViewState, action: HoleViewAction): H
         ...state,
         placedPoints: [...state.placedPoints, action.point],
         placedAims: [...state.placedAims, null],
+        placedAimAuto: [...state.placedAimAuto, false],
         placedPutts: [...state.placedPutts, null],
         // Drop aim mode after placing a new shot — aim mode is sticky to
         // a specific shot, and pushing a new shot moves the cursor.
@@ -115,6 +123,7 @@ export function holeViewReducer(state: HoleViewState, action: HoleViewAction): H
         ...state,
         placedPoints: [],
         placedAims: [],
+        placedAimAuto: [],
         placedPutts: [],
         aimMode: false,
         puttingSheetForIdx: null,
@@ -124,6 +133,7 @@ export function holeViewReducer(state: HoleViewState, action: HoleViewAction): H
         ...state,
         placedPoints: state.placedPoints.slice(0, -1),
         placedAims: state.placedAims.slice(0, -1),
+        placedAimAuto: state.placedAimAuto.slice(0, -1),
         placedPutts: state.placedPutts.slice(0, -1),
         aimMode: false,
         puttingSheetForIdx: null,
@@ -131,7 +141,11 @@ export function holeViewReducer(state: HoleViewState, action: HoleViewAction): H
     case 'SET_AIM': {
       const next = state.placedAims.slice()
       next[action.index] = action.point
-      return { ...state, placedAims: next, aimMode: false }
+      // Track whether this is the auto-spawned suggestion (auto:true) or a
+      // user-driven set/drag (auto omitted → false). Only the latter persists.
+      const nextAuto = state.placedAimAuto.slice()
+      nextAuto[action.index] = action.auto ?? false
+      return { ...state, placedAims: next, placedAimAuto: nextAuto, aimMode: false }
     }
     case 'AIM_MODE':
       return { ...state, aimMode: action.on }
@@ -183,6 +197,7 @@ export function holeViewReducer(state: HoleViewState, action: HoleViewAction): H
           reviewOpen: false,
           placedPoints: [],
           placedAims: [],
+          placedAimAuto: [],
           placedPutts: [],
           aimMode: false,
           puttingSheetForIdx: null,

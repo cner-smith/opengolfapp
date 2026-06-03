@@ -10,12 +10,12 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated'
 import type { ActiveRound } from '../../hooks/useActiveRound'
+import { TYPE } from '../../lib/typography'
 
 const KICKER: import('react-native').TextStyle = {
   color: '#8A8B7E',
   fontSize: 10,
   fontWeight: '500',
-  fontFamily: 'JetBrainsMono-Medium',
   letterSpacing: 1.4,
   textTransform: 'uppercase',
 }
@@ -86,33 +86,41 @@ export function ResumeRoundBanner({ round }: { round: ActiveRound }) {
       />
       <View>
         <Text
-          style={{
-            ...KICKER,
-            color: '#A66A1F',
-            marginBottom: 4,
-          }}
+          style={[
+            TYPE.kicker,
+            KICKER,
+            {
+              color: '#A66A1F',
+              marginBottom: 4,
+            },
+          ]}
         >
           Active round
         </Text>
         <Text
-          style={{
-            color: '#1C211C',
-            fontSize: 15,
-            fontWeight: '500',
-            fontFamily: 'Fraunces-Medium',
-            fontStyle: 'italic',
-          }}
+          style={[
+            TYPE.serif,
+            {
+              color: '#1C211C',
+              fontSize: 15,
+              fontWeight: '500',
+              fontStyle: 'italic',
+            },
+          ]}
         >
           {round.courseName} · Hole {round.currentHole}
         </Text>
       </View>
       <Text
-        style={{
-          color: '#A66A1F',
-          fontSize: 14,
-          fontWeight: '600',
-          letterSpacing: 0.3,
-        }}
+        style={[
+          TYPE.bodyBold,
+          {
+            color: '#A66A1F',
+            fontSize: 14,
+            fontWeight: '600',
+            letterSpacing: 0.3,
+          },
+        ]}
       >
         Resume →
       </Text>

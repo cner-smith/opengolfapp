@@ -25,6 +25,12 @@ import type { UseRoundDataResult } from './useRoundData'
 
 type HoleRow = Database['public']['Tables']['holes']['Row']
 
+// Fraction of the start→pin line where a live-round shot's aim auto-spawns.
+// Mirrors the mobile redesign (useHoleState `AIM_AUTOSPAWN_FRACTION`) so the
+// aim line + carry/remaining readouts appear the moment a shot is placed —
+// no extra tap. Past-round entry keeps the explicit "Set an aim point?" prompt.
+const AIM_AUTOSPAWN_FRACTION = 0.65
+
 // Last drag-edit on a saved shot. Surfaces the Undo button on the
 // logged-hole strip for 5s after every drag, then clears itself.
 // Holds the previous coords so the undo can restore them via the same
@@ -47,9 +53,16 @@ interface UseRoundActionsInput {
   user: User | null
   profile: ReturnType<typeof useProfile>
   data: UseRoundDataResult
+  /** True when this session was opened as a live round (mode=live / the
+   *  map view). Live entry auto-spawns the aim point; past-round review
+   *  keeps the explicit aim prompt. Captured once at mount by the page. */
+  isLiveEntry: boolean
   pinOverride: PlacedPoint | null
   teeOverride: PlacedPoint | null
   placedAims: (PlacedPoint | null)[]
+  /** Parallel to placedAims — true while an aim is still the auto-spawned
+   *  suggestion. Auto/untouched aims are NOT persisted on save. */
+  placedAimAuto: boolean[]
   shotDragUndo: ShotDragUndo | null
   shareCardRef: RefObject<HTMLDivElement | null>
   sharing: boolean
@@ -69,6 +82,9 @@ export interface UseRoundActionsResult {
   persistRoundPin: (point: PlacedPoint) => Promise<void>
   placeHandlers: {
     onPlace: (p: PlacedPoint) => void
+    /** Push a confirmed non-putt shot (used by the on-green "No" branch)
+     *  through the same auto-spawn / aim-prompt path as a fresh tap. */
+    onConfirmNonPutt: (p: PlacedPoint) => void
     onMovePoint: (idx: number, p: PlacedPoint) => void
     onMovePin: (p: PlacedPoint) => void
     onMoveTee: (p: PlacedPoint) => void
@@ -102,9 +118,11 @@ export function useRoundActions(input: UseRoundActionsInput): UseRoundActionsRes
     user,
     profile,
     data,
+    isLiveEntry,
     pinOverride,
     teeOverride,
     placedAims,
+    placedAimAuto,
     shotDragUndo,
     shareCardRef,
     sharing,
@@ -207,6 +225,34 @@ export function useRoundActions(input: UseRoundActionsInput): UseRoundActionsRes
     [activeHoleScore, roundId, dispatchHoleView],
   )
 
+  // Push a confirmed non-putt shot, then either auto-spawn its aim (live
+  // entry) or prompt the player to set it (past-round review). The aim
+  // seeds on the straight start→pin line so the aim path + carry/remaining
+  // render immediately. SET_AIM targets the slot PUSH_POINT just appended
+  // (`placedAims.length` before the push), so it always lands on the new
+  // shot. Shared by onPlace and the on-green "No" branch.
+  const pushShotWithAim = useCallback(
+    (p: PlacedPoint) => {
+      dispatchHoleView({ type: 'PUSH_POINT', point: p, openPuttSheet: false })
+      if (isLiveEntry && effectivePin) {
+        dispatchHoleView({
+          type: 'SET_AIM',
+          index: placedAims.length,
+          point: {
+            lat: p.lat + AIM_AUTOSPAWN_FRACTION * (effectivePin.lat - p.lat),
+            lng: p.lng + AIM_AUTOSPAWN_FRACTION * (effectivePin.lng - p.lng),
+          },
+          // Visual suggestion only — flagged auto so it isn't persisted unless
+          // the player drags/sets it (keeps inferred aims out of dispersion).
+          auto: true,
+        })
+      } else {
+        setAimPromptOpen(true)
+      }
+    },
+    [isLiveEntry, effectivePin, placedAims.length, dispatchHoleView, setAimPromptOpen],
+  )
+
   const placeHandlers = {
     onPlace: useCallback(
       (p: PlacedPoint) => {
@@ -223,15 +269,11 @@ export function useRoundActions(input: UseRoundActionsInput): UseRoundActionsRes
           setOnGreenPrompt(p)
           return
         }
-        dispatchHoleView({
-          type: 'PUSH_POINT',
-          point: p,
-          openPuttSheet: false,
-        })
-        setAimPromptOpen(true)
+        pushShotWithAim(p)
       },
-      [effectivePin, dispatchHoleView, setOnGreenPrompt, setAimPromptOpen],
+      [effectivePin, setOnGreenPrompt, pushShotWithAim],
     ),
+    onConfirmNonPutt: pushShotWithAim,
     onMovePoint: useCallback(
       (idx: number, p: PlacedPoint) =>
         dispatchHoleView({ type: 'MOVE_POINT', index: idx, point: p }),
@@ -587,7 +629,11 @@ export function useRoundActions(input: UseRoundActionsInput): UseRoundActionsRes
             row.lieType === 'green' ||
             row.club === 'putter' ||
             row.distanceToPin <= NEAR_GREEN_YARDS
-          const aim = placedAims[row.shotNumber - 1] ?? null
+          // Persist the aim only if the player actually set/dragged it — an
+          // untouched auto-spawn suggestion is dropped so it can't enter the
+          // dispersion dataset (aim must be explicit to count).
+          const aimIdx = row.shotNumber - 1
+          const aim = placedAimAuto[aimIdx] ? null : placedAims[aimIdx] ?? null
           await createShot.mutateAsync({
             hole_score_id: hs.id,
             user_id: user.id,
@@ -648,6 +694,7 @@ export function useRoundActions(input: UseRoundActionsInput): UseRoundActionsRes
       teeOverride,
       pinOverride,
       placedAims,
+      placedAimAuto,
       expectedHoleCount,
       upsertHoleScore,
       createShot,

@@ -16,6 +16,7 @@ import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
 import { useUnits } from '../../hooks/useUnits'
 import { AppBar } from '../../components/ui/AppBar'
+import { TYPE } from '../../lib/typography'
 
 const N_OPTIONS = [5, 10, 20] as const
 // Pin x-axis to chart bottom regardless of where y=0 falls in domain.
@@ -30,6 +31,7 @@ const SERIES = [
 ] as const
 
 const KICKER: import('react-native').TextStyle = {
+  ...TYPE.kicker,
   color: '#8A8B7E',
   fontSize: 10,
   fontWeight: '500',
@@ -130,12 +132,12 @@ export default function Stats() {
                   }}
                 >
                   <Text
-                    style={{
+                    style={[TYPE.bodyBold, {
                       color: active ? '#F2EEE5' : 'rgba(242,238,229,0.6)',
                       fontSize: 11,
                       fontWeight: '600',
                       letterSpacing: 0.3,
-                    }}
+                    }]}
                   >
                     L{opt}
                   </Text>
@@ -148,7 +150,7 @@ export default function Stats() {
 
       <ScrollView contentContainerStyle={{ padding: 18, paddingBottom: 40 }}>
         {loading ? (
-          <Text style={{ color: '#8A8B7E', fontSize: 13 }}>Loading…</Text>
+          <Text style={[TYPE.body, { color: '#8A8B7E', fontSize: 13 }]}>Loading…</Text>
         ) : rounds.length === 0 ? (
           <View
             style={{
@@ -160,22 +162,22 @@ export default function Stats() {
             }}
           >
             <Text
-              style={{
+              style={[TYPE.serif, {
                 color: '#1C211C',
                 fontSize: 22,
                 fontStyle: 'italic',
                 fontWeight: '500',
-              }}
+              }]}
             >
               No rounds yet.
             </Text>
             <Text
-              style={{
+              style={[TYPE.body, {
                 color: '#5C6356',
                 fontSize: 14,
                 marginTop: 8,
                 lineHeight: 20,
-              }}
+              }]}
             >
               Finalize a round to see SG trends per category.
             </Text>
@@ -220,7 +222,7 @@ export default function Stats() {
                       <Text style={KICKER}>{s.label}</Text>
                     </View>
                     <Text
-                      style={{
+                      style={[TYPE.serif, {
                         fontSize: 26,
                         fontStyle: 'italic',
                         fontWeight: '500',
@@ -231,7 +233,7 @@ export default function Stats() {
                               ? '#A33A2A'
                               : '#5C6356',
                         fontVariant: ['tabular-nums'],
-                      }}
+                      }]}
                     >
                       {formatSG(s.value)}
                     </Text>
@@ -318,7 +320,7 @@ export default function Stats() {
                         strokeDasharray={s.dash}
                       />
                     </Svg>
-                    <Text style={{ color: '#5C6356', fontSize: 11 }}>
+                    <Text style={[TYPE.body, { color: '#5C6356', fontSize: 11 }]}>
                       {s.label}
                     </Text>
                   </View>
@@ -550,13 +552,13 @@ function StatTile({ label, value }: { label: string; value: string }) {
     >
       <Text style={{ ...KICKER, marginBottom: 6 }}>{label}</Text>
       <Text
-        style={{
+        style={[TYPE.serif, {
           color: '#1C211C',
           fontSize: 20,
           fontStyle: 'italic',
           fontWeight: '500',
           fontVariant: ['tabular-nums'],
-        }}
+        }]}
       >
         {value}
       </Text>
@@ -587,26 +589,26 @@ function StatRow({
       }}
     >
       <Text
-        style={{
+        style={[TYPE.body, {
           color: '#1C211C',
           fontSize: 15,
           fontWeight: '500',
           textTransform: 'capitalize',
           flex: 1,
-        }}
+        }]}
       >
         {label}
       </Text>
       <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 10 }}>
         <Text style={{ ...KICKER, color: '#8A8B7E' }}>{sub}</Text>
         <Text
-          style={{
+          style={[TYPE.serif, {
             color: valueColor,
             fontSize: 20,
             fontStyle: 'italic',
             fontWeight: '500',
             fontVariant: ['tabular-nums'],
-          }}
+          }]}
         >
           {value}
         </Text>
@@ -640,7 +642,7 @@ function ScoringDistBar({
         {visible.map((s) => (
           <View key={s.key} style={{ flex: s.count, backgroundColor: s.color, justifyContent: 'center', alignItems: 'center' }}>
             {s.pct >= 8 && (
-              <Text style={{ color: '#F2EEE5', fontSize: 11, fontWeight: '500', fontVariant: ['tabular-nums'] }}>
+              <Text style={[TYPE.body, { color: '#F2EEE5', fontSize: 11, fontWeight: '500', fontVariant: ['tabular-nums'] }]}>
                 {s.pct.toFixed(0)}%
               </Text>
             )}
@@ -651,7 +653,7 @@ function ScoringDistBar({
         {slices.map((s) => (
           <View key={s.key} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
             <View style={{ width: 8, height: 8, backgroundColor: s.color, borderRadius: 2 }} />
-            <Text style={{ color: '#5C6356', fontSize: 11 }}>
+            <Text style={[TYPE.body, { color: '#5C6356', fontSize: 11 }]}>
               {s.label} {s.count} · {s.pct.toFixed(1)}%
             </Text>
           </View>
@@ -663,7 +665,7 @@ function ScoringDistBar({
 
 function Insufficient({ note }: { note: string }) {
   return (
-    <Text style={{ color: '#8A8B7E', fontSize: 13, fontStyle: 'italic', marginBottom: 8 }}>
+    <Text style={[TYPE.bodyItalic, { color: '#8A8B7E', fontSize: 13, fontStyle: 'italic', marginBottom: 8 }]}>
       {note}
     </Text>
   )

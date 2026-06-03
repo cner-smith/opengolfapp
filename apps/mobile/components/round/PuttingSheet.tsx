@@ -20,6 +20,8 @@ import {
 } from '@oga/core'
 import { GreenDiagram } from './GreenDiagram'
 import { useUnits } from '../../hooks/useUnits'
+import { TYPE } from '../../lib/typography'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 
 export interface PuttingValue {
   puttDistanceFt?: number
@@ -186,6 +188,7 @@ export function PuttingSheet({
     })
   }
 
+  const insets = useSafeAreaInsets()
   const distance = value.puttDistanceFt ?? 0
 
   return (
@@ -197,7 +200,7 @@ export function PuttingSheet({
         borderTopRightRadius: 12,
         paddingHorizontal: 18,
         paddingTop: 10,
-        paddingBottom: 24,
+        paddingBottom: insets.bottom + 24,
         maxHeight: '90%',
       }}
     >
@@ -222,14 +225,17 @@ export function PuttingSheet({
         }}
       >
         <View>
-          <Text style={{ ...KICKER, marginBottom: 4 }}>Putt {shotNumber}</Text>
+          <Text style={[TYPE.kicker, { ...KICKER, marginBottom: 4 }]}>Putt {shotNumber}</Text>
           <Text
-            style={{
-              color: '#1C211C',
-              fontSize: 22,
-              fontStyle: 'italic',
-              fontWeight: '500',
-            }}
+            style={[
+              TYPE.serif,
+              {
+                color: '#1C211C',
+                fontSize: 22,
+                fontStyle: 'italic',
+                fontWeight: '500',
+              },
+            ]}
           >
             On the green.
           </Text>
@@ -242,12 +248,15 @@ export function PuttingSheet({
               style={{ marginTop: 4, paddingVertical: 12 }}
             >
               <Text
-                style={{
-                  color: '#A66A1F',
-                  fontSize: 12,
-                  fontWeight: '500',
-                  letterSpacing: 0.2,
-                }}
+                style={[
+                  TYPE.body,
+                  {
+                    color: '#A66A1F',
+                    fontSize: 12,
+                    fontWeight: '500',
+                    letterSpacing: 0.2,
+                  },
+                ]}
               >
                 Not a putt? Chip / bunker →
               </Text>
@@ -261,7 +270,7 @@ export function PuttingSheet({
           hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
           style={{ padding: 12 }}
         >
-          <Text style={{ ...KICKER, color: '#8A8B7E' }}>Close</Text>
+          <Text style={[TYPE.kicker, { ...KICKER, color: '#8A8B7E' }]}>Close</Text>
         </Pressable>
       </View>
 
@@ -279,7 +288,7 @@ export function PuttingSheet({
         />
 
         <View style={{ marginTop: 14 }}>
-          <Text style={{ ...KICKER, marginBottom: 6 }}>
+          <Text style={[TYPE.kicker, { ...KICKER, marginBottom: 6 }]}>
             Distance override ({inputUnit})
           </Text>
           <TextInput
@@ -318,7 +327,7 @@ export function PuttingSheet({
             ))}
             <View style={{ flex: 1 }} />
           </View>
-          <Text style={{ ...KICKER, marginTop: 8, color: '#8A8B7E' }}>
+          <Text style={[TYPE.kicker, { ...KICKER, marginTop: 8, color: '#8A8B7E' }]}>
             Tap again to clear · leave blank if pace was right
           </Text>
         </Section>
@@ -338,7 +347,7 @@ export function PuttingSheet({
               />
             ))}
           </View>
-          <Text style={{ ...KICKER, marginTop: 8, color: '#8A8B7E' }}>
+          <Text style={[TYPE.kicker, { ...KICKER, marginTop: 8, color: '#8A8B7E' }]}>
             Tap again to clear · leave blank if line was good
           </Text>
         </Section>
@@ -354,7 +363,7 @@ export function PuttingSheet({
               />
             ))}
           </View>
-          <Text style={{ ...KICKER, marginTop: 8, color: '#8A8B7E' }}>
+          <Text style={[TYPE.kicker, { ...KICKER, marginTop: 8, color: '#8A8B7E' }]}>
             Tap again to clear · leave blank if green was level
           </Text>
         </Section>
@@ -370,7 +379,7 @@ export function PuttingSheet({
               />
             ))}
           </View>
-          <Text style={{ ...KICKER, marginTop: 8, color: '#8A8B7E' }}>
+          <Text style={[TYPE.kicker, { ...KICKER, marginTop: 8, color: '#8A8B7E' }]}>
             Tap again to clear · leave blank if there was no break
           </Text>
         </Section>
@@ -424,12 +433,15 @@ export function PuttingSheet({
             }}
           >
             <Text
-              style={{
-                color: '#1F3D2C',
-                fontSize: 14,
-                fontWeight: '600',
-                letterSpacing: 0.3,
-              }}
+              style={[
+                TYPE.bodyBold,
+                {
+                  color: '#1F3D2C',
+                  fontSize: 14,
+                  fontWeight: '600',
+                  letterSpacing: 0.3,
+                },
+              ]}
             >
               Missed →
             </Text>
@@ -447,12 +459,15 @@ export function PuttingSheet({
             }}
           >
             <Text
-              style={{
-                color: '#F2EEE5',
-                fontSize: 16,
-                fontWeight: '700',
-                letterSpacing: 0.4,
-              }}
+              style={[
+                TYPE.bodyBold,
+                {
+                  color: '#F2EEE5',
+                  fontSize: 16,
+                  fontWeight: '700',
+                  letterSpacing: 0.4,
+                },
+              ]}
             >
               Holed it →
             </Text>
@@ -479,7 +494,7 @@ function Section({
         marginTop: 14,
       }}
     >
-      <Text style={{ ...KICKER, marginBottom: 10 }}>{title}</Text>
+      <Text style={[TYPE.kicker, { ...KICKER, marginBottom: 10 }]}>{title}</Text>
       {children}
     </View>
   )
@@ -508,11 +523,14 @@ function Chip({
       }}
     >
       <Text
-        style={{
-          color: active ? '#F2EEE5' : '#1C211C',
-          fontSize: 12,
-          fontWeight: active ? '600' : '400',
-        }}
+        style={[
+          TYPE.body,
+          {
+            color: active ? '#F2EEE5' : '#1C211C',
+            fontSize: 12,
+            fontWeight: active ? '600' : '400',
+          },
+        ]}
       >
         {label}
       </Text>
@@ -557,12 +575,15 @@ function ResultCell({
       }}
     >
       <Text
-        style={{
-          color: fg,
-          fontSize: 14,
-          fontWeight: active ? '600' : '500',
-          letterSpacing: 0.3,
-        }}
+        style={[
+          TYPE.body,
+          {
+            color: fg,
+            fontSize: 14,
+            fontWeight: active ? '600' : '500',
+            letterSpacing: 0.3,
+          },
+        ]}
       >
         {label}
       </Text>

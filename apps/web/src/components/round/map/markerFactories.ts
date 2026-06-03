@@ -39,7 +39,7 @@ export function makeNumberedMarker(
   content.style.borderRadius = '999px'
   content.style.background = fill
   content.style.color = text
-  content.style.fontFamily = 'Inter, sans-serif'
+  content.style.fontFamily = 'Epilogue, sans-serif'
   content.style.fontWeight = '600'
   content.style.fontSize = '12px'
   content.style.display = 'flex'
@@ -72,12 +72,15 @@ export function makeAimMarker(): HTMLElement {
   return outer
 }
 
-export function makeDistancePill(label: string): HTMLElement {
+export function makeDistancePill(
+  label: string,
+  opts: { sublabel?: string; tone?: 'pos' | 'neg' } = {},
+): HTMLElement {
   const el = document.createElement('div')
   el.style.cssText = [
     'background:rgba(28,33,28,0.85)',
     'color:#F2EEE5',
-    'font-family:JetBrains Mono, monospace',
+    'font-family:Inconsolata, monospace',
     'font-size:11px',
     'font-weight:500',
     'letter-spacing:0.04em',
@@ -85,8 +88,24 @@ export function makeDistancePill(label: string): HTMLElement {
     'border-radius:999px',
     'pointer-events:none',
     'white-space:nowrap',
+    'text-align:center',
+    'line-height:1.25',
   ].join(';')
-  el.textContent = label
+  const main = document.createElement('div')
+  main.textContent = label
+  el.appendChild(main)
+  // Optional second line — the live best-case SG on the carry pill
+  // ("+0.3 · FWY"), tinted positive/negative.
+  if (opts.sublabel) {
+    const sub = document.createElement('div')
+    sub.textContent = opts.sublabel
+    sub.style.cssText = [
+      'font-size:9px',
+      'margin-top:1px',
+      `color:${opts.tone === 'neg' ? '#E0796B' : '#9FD8A8'}`,
+    ].join(';')
+    el.appendChild(sub)
+  }
   return el
 }
 
@@ -100,7 +119,7 @@ export function makeIconMarker(
   content.style.padding = '3px 6px'
   content.style.background = bg
   content.style.color = fg
-  content.style.fontFamily = 'JetBrains Mono, monospace'
+  content.style.fontFamily = 'Inconsolata, monospace'
   content.style.fontSize = '9px'
   content.style.letterSpacing = '0.14em'
   content.style.fontWeight = '500'

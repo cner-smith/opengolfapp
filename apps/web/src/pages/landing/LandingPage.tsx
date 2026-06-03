@@ -651,7 +651,7 @@ function FinalCTA() {
             border: '1px solid #F2EEE5',
             borderRadius: 2,
             padding: '14px 22px',
-            fontFamily: 'Inter, sans-serif',
+            fontFamily: 'Epilogue, sans-serif',
             fontWeight: 600,
             fontSize: 15,
             letterSpacing: '0.01em',
@@ -715,6 +715,7 @@ function Footer() {
             Ko-fi
           </FooterLink>
           <FooterLink to="/privacy">Privacy</FooterLink>
+          <FooterLink to="/support">Support</FooterLink>
           <FooterLink to="/login">Sign in</FooterLink>
         </div>
         <div
@@ -829,7 +830,7 @@ const btnAccentLg: React.CSSProperties = {
   border: '1px solid #1F3D2C',
   borderRadius: 2,
   padding: '14px 22px',
-  fontFamily: 'Inter, sans-serif',
+  fontFamily: 'Epilogue, sans-serif',
   fontWeight: 600,
   fontSize: 15,
   letterSpacing: '0.01em',

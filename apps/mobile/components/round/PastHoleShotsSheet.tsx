@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Modal, Pressable, ScrollView, Text, View } from 'react-native'
+import { PressableTouch } from '../ui/PressableTouch'
 import {
   DEFAULT_BAG,
   LIE_TYPE_LABELS,
@@ -14,6 +15,8 @@ import {
 import type { Database } from '@oga/supabase'
 import { supabase } from '../../lib/supabase'
 import { useUserBag } from '../../hooks/useUserBag'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import { FONT, TYPE } from '../../lib/typography'
 
 type ShotRow = Database['public']['Tables']['shots']['Row']
 
@@ -23,6 +26,7 @@ const KICKER: import('react-native').TextStyle = {
   fontWeight: '500',
   letterSpacing: 1.4,
   textTransform: 'uppercase',
+  fontFamily: FONT.mono,
 }
 
 const SHOT_RESULT_LABELS: Record<ShotResult, string> = {
@@ -60,6 +64,7 @@ export function PastHoleShotsSheet({
   const clubs = bag.length > 0 ? bag : DEFAULT_BAG
   const [editingShot, setEditingShot] = useState<ShotRow | null>(null)
   const [saving, setSaving] = useState(false)
+  const insets = useSafeAreaInsets()
 
   const sortedShots = [...shots].sort((a, b) => a.shot_number - b.shot_number)
 
@@ -81,16 +86,31 @@ export function PastHoleShotsSheet({
     }
   }
 
+  // One <Modal> with discriminated content (list vs editor) — NOT two
+  // sibling Modals. iOS allows one presented modal per presenter, so the
+  // old stacked-Modal edit flow silently failed to present (#293/#495).
   return (
-    <>
     <Modal
       visible={visible}
       transparent
       animationType="slide"
-      onRequestClose={onClose}
+      onRequestClose={editingShot ? () => setEditingShot(null) : onClose}
     >
       <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)' }}>
-        <Pressable style={{ flex: 1 }} onPress={onClose} />
+        <Pressable
+          style={{ flex: 1 }}
+          onPress={editingShot ? () => setEditingShot(null) : onClose}
+        />
+        {editingShot ? (
+          <EditShotSheet
+            shot={editingShot}
+            clubs={clubs}
+            unit={unit}
+            saving={saving}
+            onSave={(updates) => handleSave(editingShot.id, updates)}
+            onClose={() => setEditingShot(null)}
+          />
+        ) : (
         <View
           style={{
             backgroundColor: '#FBF8F1',
@@ -98,7 +118,7 @@ export function PastHoleShotsSheet({
             borderTopRightRadius: 12,
             paddingHorizontal: 18,
             paddingTop: 14,
-            paddingBottom: 28,
+            paddingBottom: insets.bottom + 28,
             maxHeight: '80%',
           }}
         >
@@ -117,19 +137,19 @@ export function PastHoleShotsSheet({
             {par != null ? ` · Par ${par}` : ''}
           </Text>
           <Text
-            style={{
+            style={[TYPE.serif, {
               color: '#1C211C',
               fontSize: 22,
               fontStyle: 'italic',
               fontWeight: '500',
               marginBottom: 14,
-            }}
+            }]}
           >
             {sortedShots.length} shot{sortedShots.length === 1 ? '' : 's'}
           </Text>
 
           {sortedShots.length === 0 ? (
-            <Text style={{ color: '#5C6356', fontSize: 14, lineHeight: 20 }}>
+            <Text style={[TYPE.body, { color: '#5C6356', fontSize: 14, lineHeight: 20 }]}>
               No shots logged for this hole.
             </Text>
           ) : (
@@ -161,31 +181,9 @@ export function PastHoleShotsSheet({
             <Text style={{ ...KICKER, color: '#5C6356' }}>Close</Text>
           </Pressable>
         </View>
-      </View>
-
-    </Modal>
-
-    <Modal
-      visible={visible && editingShot !== null}
-      transparent
-      animationType="slide"
-      onRequestClose={() => setEditingShot(null)}
-    >
-      <View style={{ flex: 1 }}>
-        <Pressable style={{ flex: 1 }} onPress={() => setEditingShot(null)} />
-        {editingShot && (
-          <EditShotSheet
-            shot={editingShot}
-            clubs={clubs}
-            unit={unit}
-            saving={saving}
-            onSave={(updates) => handleSave(editingShot.id, updates)}
-            onClose={() => setEditingShot(null)}
-          />
         )}
       </View>
     </Modal>
-    </>
   )
 }
 
@@ -204,7 +202,7 @@ function ShotRowView({
     shot.distance_to_target != null ? formatDistance(shot.distance_to_target, unit) : null
 
   return (
-    <Pressable
+    <PressableTouch
       android_ripple={{ color: '#EBE5D6' }}
       accessibilityRole="button"
       accessibilityLabel={`Edit shot ${shot.shot_number}: ${clubLabel}`}
@@ -218,21 +216,21 @@ function ShotRowView({
         alignItems: 'center',
       }}
     >
-      <Text style={{ width: 24, color: '#8A8B7E', fontSize: 14, fontVariant: ['tabular-nums'] }}>
+      <Text style={[TYPE.kicker, { width: 24, color: '#8A8B7E', fontSize: 14, fontVariant: ['tabular-nums'] }]}>
         {shot.shot_number}
       </Text>
       <View style={{ flex: 1 }}>
-        <Text style={{ color: '#1C211C', fontSize: 15, fontWeight: '500', textTransform: 'capitalize' }}>
+        <Text style={[TYPE.bodyBold, { color: '#1C211C', fontSize: 15, fontWeight: '500', textTransform: 'capitalize' }]}>
           {clubLabel}
         </Text>
         {(lieLabel || distanceLabel) && (
-          <Text style={{ color: '#5C6356', fontSize: 12, marginTop: 2 }}>
+          <Text style={[TYPE.body, { color: '#5C6356', fontSize: 12, marginTop: 2 }]}>
             {[lieLabel, distanceLabel].filter(Boolean).join(' · ')}
           </Text>
         )}
       </View>
-      <Text style={{ color: '#8A8B7E', fontSize: 12 }}>Edit</Text>
-    </Pressable>
+      <Text style={[TYPE.body, { color: '#8A8B7E', fontSize: 12 }]}>Edit</Text>
+    </PressableTouch>
   )
 }
 
@@ -246,6 +244,7 @@ interface EditShotSheetProps {
 }
 
 function EditShotSheet({ shot, clubs, saving, onSave, onClose }: EditShotSheetProps) {
+  const insets = useSafeAreaInsets()
   const [club, setClub] = useState<string | null>(shot.club ?? null)
   const [lieType, setLieType] = useState<string | null>(shot.lie_type ?? null)
   const [shotResult, setShotResult] = useState<string | null>(shot.shot_result ?? null)
@@ -258,7 +257,7 @@ function EditShotSheet({ shot, clubs, saving, onSave, onClose }: EditShotSheetPr
         borderTopRightRadius: 12,
         paddingHorizontal: 18,
         paddingTop: 14,
-        paddingBottom: 28,
+        paddingBottom: insets.bottom + 28,
         maxHeight: '90%',
       }}
     >
@@ -273,13 +272,13 @@ function EditShotSheet({ shot, clubs, saving, onSave, onClose }: EditShotSheetPr
         }}
       />
       <Text
-        style={{
+        style={[TYPE.serif, {
           color: '#1C211C',
           fontSize: 17,
           fontStyle: 'italic',
           fontWeight: '500',
           marginBottom: 18,
-        }}
+        }]}
       >
         Edit shot {shot.shot_number}
       </Text>
@@ -301,7 +300,7 @@ function EditShotSheet({ shot, clubs, saving, onSave, onClose }: EditShotSheetPr
                     backgroundColor: active ? '#1F3D2C' : '#EBE5D6',
                   }}
                 >
-                  <Text style={{ color: active ? '#F2EEE5' : '#1C211C', fontSize: 12 }}>
+                  <Text style={[TYPE.body, { color: active ? '#F2EEE5' : '#1C211C', fontSize: 12 }]}>
                     {formatClubLabel({ club_type: c.club_type })}
                   </Text>
                 </Pressable>
@@ -326,7 +325,7 @@ function EditShotSheet({ shot, clubs, saving, onSave, onClose }: EditShotSheetPr
                     backgroundColor: active ? '#1F3D2C' : '#EBE5D6',
                   }}
                 >
-                  <Text style={{ color: active ? '#F2EEE5' : '#1C211C', fontSize: 12 }}>
+                  <Text style={[TYPE.body, { color: active ? '#F2EEE5' : '#1C211C', fontSize: 12 }]}>
                     {LIE_TYPE_LABELS[lt as LieType]}
                   </Text>
                 </Pressable>
@@ -351,7 +350,7 @@ function EditShotSheet({ shot, clubs, saving, onSave, onClose }: EditShotSheetPr
                     backgroundColor: active ? '#1F3D2C' : '#EBE5D6',
                   }}
                 >
-                  <Text style={{ color: active ? '#F2EEE5' : '#1C211C', fontSize: 12 }}>
+                  <Text style={[TYPE.body, { color: active ? '#F2EEE5' : '#1C211C', fontSize: 12 }]}>
                     {SHOT_RESULT_LABELS[r as ShotResult]}
                   </Text>
                 </Pressable>

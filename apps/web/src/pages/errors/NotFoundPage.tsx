@@ -16,7 +16,7 @@ export function NotFoundPage() {
       <div style={{ maxWidth: 520, textAlign: 'center' }}>
         <div
           style={{
-            fontFamily: 'JetBrains Mono, monospace',
+            fontFamily: 'Inconsolata, monospace',
             fontSize: 11,
             letterSpacing: '0.18em',
             textTransform: 'uppercase',
@@ -41,7 +41,7 @@ export function NotFoundPage() {
         </h1>
         <p
           style={{
-            fontFamily: 'Inter, sans-serif',
+            fontFamily: 'Epilogue, sans-serif',
             fontSize: 15,
             color: 'var(--caddie-ink-dim)',
             marginTop: 14,
@@ -55,7 +55,7 @@ export function NotFoundPage() {
           type="button"
           onClick={() => navigate('/')}
           style={{
-            fontFamily: 'Inter, sans-serif',
+            fontFamily: 'Epilogue, sans-serif',
             fontSize: 14,
             fontWeight: 600,
             letterSpacing: 0.28,

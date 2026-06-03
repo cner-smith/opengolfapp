@@ -1,12 +1,19 @@
 import { useMemo, useRef } from 'react'
-import type { ShotMarkerCategory } from '@oga/core'
+import { DEFAULT_HANDICAP, type ShotMarkerCategory } from '@oga/core'
 import { MAPBOX_TOKEN_PRESENT } from '../../lib/mapbox'
 import { useMapSetup } from './map/useMapSetup'
-import { useMapLayers } from './map/useMapLayers'
+import { useMapLayers, type ClubPick } from './map/useMapLayers'
 
 // Re-export the instruction strip so existing imports
 // (`{ RoundMapInstructionStrip } from '.../RoundMap'`) keep working.
 export { RoundMapInstructionStrip } from './map/RoundMapInstructionStrip'
+
+// Stable no-op default for the optional `selectClub` prop. A module constant so
+// the identity never changes — an inline `() => null` default would be a fresh
+// function each render and, since selectClub is in useMapLayers' renderLayers
+// dependency array, would tear down + rebuild every marker on each parent render.
+const NO_CLUB_PICK: (distanceToTargetYards: number | null) => ClubPick | null =
+  () => null
 
 export interface HoleGeo {
   id: string
@@ -90,6 +97,17 @@ interface RoundMapProps {
   /** Drag end on a saved shot's aim ghost. When wired (and the shot has
    *  aim coords), the aim marker becomes draggable. */
   onMoveExistingShotAim?: (shotId: string, point: PlacedPoint) => void
+  /** Shot-pattern overlay (Phase B), anchored on the active aimed shot.
+   *  Mode picks the shape (tee arc / approach circle); the rail-derived
+   *  sizes feed the geometry. */
+  overlayMode?: 'tee' | 'appr'
+  arcWidthYards?: number
+  circleRadiusYards?: number
+  /** Single-color dispersion-dots overlay (Phase C). Toggle + club picker. */
+  dotsVisible?: boolean
+  selectClub?: (distanceToTargetYards: number | null) => ClubPick | null
+  /** Player handicap index — feeds the live best-case-SG readout (Phase D). */
+  handicap?: number
 }
 
 export function RoundMap({
@@ -112,6 +130,12 @@ export function RoundMap({
   onSetAim,
   onMoveExistingShot,
   onMoveExistingShotAim,
+  overlayMode = 'tee',
+  arcWidthYards = 0,
+  circleRadiusYards = 0,
+  dotsVisible = false,
+  selectClub = NO_CLUB_PICK,
+  handicap = DEFAULT_HANDICAP,
 }: RoundMapProps) {
   // Memoized so downstream effects can dep on the object directly without
   // thrashing on every parent render — coords are the only meaningful
@@ -194,9 +218,16 @@ export function RoundMap({
     placedAims,
     effectivePin,
     effectiveTee,
+    overlayMode,
+    arcWidthYards,
+    circleRadiusYards,
+    dotsVisible,
+    selectClub,
+    handicap,
     onMovePoint,
     onMovePin,
     onMoveTee,
+    onSetAim,
     onMoveExistingShot,
     onMoveExistingShotAim,
   })

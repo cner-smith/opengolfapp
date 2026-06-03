@@ -32,8 +32,8 @@
 
   /* Type families */
   --caddie-serif: "Fraunces", "GT Sectra", Georgia, ui-serif, serif;
-  --caddie-sans:  "Inter", -apple-system, system-ui, sans-serif;
-  --caddie-mono:  "JetBrains Mono", "SF Mono", ui-monospace, monospace;
+  --caddie-sans:  "Epilogue", -apple-system, system-ui, sans-serif;
+  --caddie-mono:  "Inconsolata", "SF Mono", ui-monospace, monospace;
 
   /* Radius — minimal; this is paper, not plastic */
   --caddie-radius:    4px;

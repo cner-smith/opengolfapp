@@ -12,6 +12,11 @@ interface AimGhostHookOpts {
   ball: LatLng | null | undefined
   aim: LatLng | null | undefined
   phase: HoleMapPhase
+  // Authoritative "was this a real shot commit?" flag, derived from the raw
+  // roundState in LiveRoundSession. HoleMap's `phase` collapses a commit and
+  // a "Re-place ball" backout into the same PLACE_BALL, so the phase string
+  // alone can't tell them apart. See the promote effect below for how it's used.
+  aimCommitted: boolean
   // Explicit hole-change signal. The prior "previousShotsLen === 0"
   // heuristic worked when HoleMap remounted per hole, but in the
   // resident-MapView world (post-#264) it fires during the gap between
@@ -34,6 +39,7 @@ export function useAimGhosts({
   ball,
   aim,
   phase,
+  aimCommitted,
   holeNumber,
 }: AimGhostHookOpts): AimGhostHookResult {
   const [aimGhosts, setAimGhosts] = useState<
@@ -43,22 +49,41 @@ export function useAimGhosts({
   const isAimPhase = phase === 'SET_AIM'
 
   // While in SET_AIM, snapshot the current ball + aim pair so we can
-  // promote it to a ghost the moment the phase exits SET_AIM (i.e. shot
-  // was saved or aim was abandoned for ball placement again).
+  // promote it to a ghost the moment the shot is committed.
   useEffect(() => {
     if (isAimPhase && ball && aim) {
       lastAimSnapshotRef.current = { ball, aim }
     }
   }, [isAimPhase, ball?.lat, ball?.lng, aim?.lat, aim?.lng])
 
+  // Mirror the latest commit signal + live aim into refs so the
+  // phase-gated effect below reads current values without re-running on
+  // every aim drag (which would fire mid-SET_AIM, before any exit).
+  const aimCommittedRef = useRef(aimCommitted)
+  aimCommittedRef.current = aimCommitted
+  const aimRef = useRef(aim)
+  aimRef.current = aim
+
   const ghostPhaseRef = useRef<HoleMapPhase>(phase)
   useEffect(() => {
+    // Promote only on a COMMITTED exit. Both a real shot commit and a
+    // "Re-place ball" backout leave SET_AIM for HoleMap-phase PLACE_BALL
+    // (the phase enum collapses SHOT_DETAIL/PUTTING into PLACE_BALL), so the
+    // phase string can't distinguish them — that collision is why promotion
+    // was dead. `aimCommitted` (from the raw roundState) does distinguish:
+    //   - commit (confirmAim / on-green) → aimCommitted true, aim still set
+    //   - skip aim                       → aimCommitted true, aim cleared (null)
+    //   - re-place ball                  → aimCommitted false
+    // Promote iff committed AND the aim survived the exit (excludes skip),
+    // else drop. Reading the live `aim` here — rather than aimTouched, whose
+    // reset is an async effect — avoids any cross-component effect-ordering
+    // race, so a re-place / skip can never wrongly promote a duplicate.
     if (ghostPhaseRef.current === 'SET_AIM' && phase !== 'SET_AIM') {
       const snap = lastAimSnapshotRef.current
-      if (snap) {
+      if (snap && aimCommittedRef.current && aimRef.current) {
         setAimGhosts((prev) => [...prev, snap])
-        lastAimSnapshotRef.current = null
       }
+      lastAimSnapshotRef.current = null
     }
     ghostPhaseRef.current = phase
   }, [phase])
