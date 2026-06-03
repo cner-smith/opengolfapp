@@ -58,7 +58,10 @@ export default function AuthCallback() {
       </Text>
       {error && (
         <Pressable onPress={() => router.replace('/(auth)/login')}>
-          <Text style={[TYPE.body, { color: '#0F6E56', fontSize: 13, marginTop: 16 }]}>
+          <Text
+            style={[TYPE.body, { fontSize: 13, marginTop: 16 }]}
+            className="text-oga-green"
+          >
             Back to sign in
           </Text>
         </Pressable>

@@ -59,34 +59,29 @@ export default function Signup() {
     return (
       <View className="flex-1 bg-oga-bg-page items-center justify-center px-6">
         <View
-          style={{
-            backgroundColor: '#FFFFFF',
-            borderRadius: 10,
-            borderWidth: 0.5,
-            borderColor: '#E4E4E0',
-            padding: 20,
-            width: '100%',
-          }}
+          className="border-oga-border bg-oga-bg-card"
+          style={{ borderRadius: 10, borderWidth: 0.5, padding: 20, width: '100%' }}
         >
           <Text
-            style={[TYPE.bodyBold, {
-              color: '#111111',
-              fontSize: 22,
-              fontWeight: '600',
-              marginBottom: 12,
-            }]}
+            style={[TYPE.bodyBold, { fontSize: 22, fontWeight: '600', marginBottom: 12 }]}
+            className="text-oga-text-primary"
           >
             Check your email
           </Text>
-          <Text style={[TYPE.body, { color: '#555550', fontSize: 14, lineHeight: 20 }]}>
+          <Text
+            style={[TYPE.body, { fontSize: 14, lineHeight: 20 }]}
+            className="text-oga-text-muted"
+          >
             We sent a confirmation link to {email}. Open it on this device to
             finish setting up your account.
           </Text>
-          <Link
-            href="/(auth)/login"
-            style={[TYPE.body, { color: '#0F6E56', fontSize: 13, marginTop: 18 }]}
-          >
-            Back to sign in
+          <Link href="/(auth)/login" asChild>
+            <Text
+              style={[TYPE.body, { fontSize: 13, marginTop: 18 }]}
+              className="text-oga-green"
+            >
+              Back to sign in
+            </Text>
           </Link>
         </View>
       </View>
