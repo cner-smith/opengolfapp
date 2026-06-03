@@ -39,7 +39,8 @@ export default function AuthCallback() {
       .setSession({ access_token: accessToken, refresh_token: refreshToken })
       .then(({ error: sessionError }) => {
         if (sessionError) {
-          handled.current = false
+          // Terminal: the effect only re-runs on a new `url`, so a retry must
+          // come from re-requesting confirmation (the "Back to sign in" link).
           setError(sessionError.message)
           return
         }
