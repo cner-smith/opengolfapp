@@ -1,5 +1,6 @@
 import { Text, View } from 'react-native'
 import Svg, { Circle, Line, Path, Text as SvgText } from 'react-native-svg'
+import { FONT } from '../../../lib/typography'
 import {
   ArticleHeader,
   ArticleFooter,
@@ -193,13 +194,13 @@ function BallFlightDiagram() {
       <Line x1={40} y1={108} x2={92} y2={20} stroke={C.mute} strokeWidth={1.5} />
       {/* actual curving flight (accent) — starts on the face line then bends */}
       <Path d="M40 108 Q 84 40 150 44" fill="none" stroke={C.accent} strokeWidth={2.5} />
-      <SvgText x={58} y={100} fontSize={7} fontFamily="monospace" letterSpacing={0.5} fill={C.mute}>
+      <SvgText x={58} y={100} fontSize={7} fontFamily={FONT.mono} letterSpacing={0.5} fill={C.mute}>
         TARGET
       </SvgText>
-      <SvgText x={86} y={16} fontSize={7} fontFamily="monospace" letterSpacing={0.5} fill={C.mute}>
+      <SvgText x={86} y={16} fontSize={7} fontFamily={FONT.mono} letterSpacing={0.5} fill={C.mute}>
         START = FACE
       </SvgText>
-      <SvgText x={120} y={58} fontSize={7} fontFamily="monospace" letterSpacing={0.5} fill={C.accent}>
+      <SvgText x={120} y={58} fontSize={7} fontFamily={FONT.mono} letterSpacing={0.5} fill={C.accent}>
         CURVE = FACE vs PATH
       </SvgText>
     </Svg>

@@ -2,6 +2,7 @@ import type { ComponentProps } from 'react'
 import { Text, View } from 'react-native'
 import { PressableTouch } from '../ui/PressableTouch'
 import { MaterialCommunityIcons } from '@expo/vector-icons'
+import { TYPE } from '../../lib/typography'
 
 // Shared pill chrome — dark translucent card on satellite, per DESIGN.md
 // mobile map rules. The HUD readouts (To Hole / Exp / SG) all use it.
@@ -40,13 +41,16 @@ export function TopHint({ isPinMode, isTeeMode }: TopHintProps) {
       }}
     >
       <Text
-        style={{
-          color: '#F2EEE5',
-          fontSize: 10,
-          fontWeight: '600',
-          letterSpacing: 1.4,
-          textTransform: 'uppercase',
-        }}
+        style={[
+          TYPE.kicker,
+          {
+            color: '#F2EEE5',
+            fontSize: 10,
+            fontWeight: '600',
+            letterSpacing: 1.4,
+            textTransform: 'uppercase',
+          },
+        ]}
       >
         {isPinMode
           ? 'Pin mode — tap to place flag'
@@ -75,7 +79,7 @@ export function MissingLayoutBanner() {
         paddingVertical: 6,
       }}
     >
-      <Text style={{ color: '#F2EEE5', fontSize: 11, lineHeight: 14 }}>
+      <Text style={[TYPE.body, { color: '#F2EEE5', fontSize: 11, lineHeight: 14 }]}>
         No hole layout for this course. Place shots manually — the distance
         pill and putting auto-switch stay off until tee / pin coords land.
       </Text>
@@ -100,14 +104,16 @@ export function ToHolePill({ display }: { display: string }) {
         minWidth: 86,
       }}
     >
-      <Text style={HUD_KICKER}>To Hole</Text>
+      <Text style={[TYPE.kicker, HUD_KICKER]}>To Hole</Text>
       <Text
-        style={{
-          color: '#F2EEE5',
-          fontFamily: 'Fraunces-Medium',
-          fontSize: 20,
-          fontVariant: ['tabular-nums'],
-        }}
+        style={[
+          TYPE.serifUpright,
+          {
+            color: '#F2EEE5',
+            fontSize: 20,
+            fontVariant: ['tabular-nums'],
+          },
+        ]}
       >
         {display}
       </Text>
@@ -133,14 +139,16 @@ export function ExpStrokesPill({ value }: { value: number | null }) {
         alignItems: 'flex-end',
       }}
     >
-      <Text style={HUD_KICKER}>Exp · to hole</Text>
+      <Text style={[TYPE.kicker, HUD_KICKER]}>Exp · to hole</Text>
       <Text
-        style={{
-          color: '#F2EEE5',
-          fontFamily: 'Fraunces-Medium',
-          fontSize: 20,
-          fontVariant: ['tabular-nums'],
-        }}
+        style={[
+          TYPE.serifUpright,
+          {
+            color: '#F2EEE5',
+            fontSize: 20,
+            fontVariant: ['tabular-nums'],
+          },
+        ]}
       >
         {value != null ? value.toFixed(1) : '—'}
       </Text>
@@ -165,7 +173,7 @@ export function PinFirstCta() {
         paddingVertical: 8,
       }}
     >
-      <Text style={{ color: '#F2EEE5', fontSize: 12, fontWeight: '600', lineHeight: 16 }}>
+      <Text style={[TYPE.bodyBold, { color: '#F2EEE5', fontSize: 12, fontWeight: '600', lineHeight: 16 }]}>
         Set the pin (below) to see your To Hole distance, expected strokes, and shot pattern.
       </Text>
     </View>
@@ -185,12 +193,15 @@ export function TeeBadge() {
       }}
     >
       <Text
-        style={{
-          color: '#5C6356',
-          fontSize: 9,
-          fontWeight: '500',
-          letterSpacing: 1.4,
-        }}
+        style={[
+          TYPE.kicker,
+          {
+            color: '#5C6356',
+            fontSize: 9,
+            fontWeight: '500',
+            letterSpacing: 1.4,
+          },
+        ]}
       >
         TEE
       </Text>
@@ -400,12 +411,15 @@ function RailPill({
       }}
     >
       <Text
-        style={{
-          color: active ? '#1C211C' : '#F2EEE5',
-          fontSize: 14,
-          fontWeight: active ? '700' : '600',
-          fontVariant: ['tabular-nums'],
-        }}
+        style={[
+          TYPE.kicker,
+          {
+            color: active ? '#1C211C' : '#F2EEE5',
+            fontSize: 14,
+            fontWeight: active ? '700' : '600',
+            fontVariant: ['tabular-nums'],
+          },
+        ]}
       >
         {label}
       </Text>

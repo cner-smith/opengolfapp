@@ -101,7 +101,7 @@ function SearchInput({
           borderRadius: 2,
           padding: '12px 36px 12px 14px',
           fontSize: 14,
-          fontFamily: 'Inter, sans-serif',
+          fontFamily: 'Epilogue, sans-serif',
           color: '#1C211C',
           outline: 'none',
         }}

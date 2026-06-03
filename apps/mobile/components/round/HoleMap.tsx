@@ -16,6 +16,7 @@ import { Gesture, GestureDetector } from 'react-native-gesture-handler'
 import { runOnJS } from 'react-native-reanimated'
 import { distanceYards, ensureMapboxInitialized } from '../../lib/maps'
 import { useUnits } from '../../hooks/useUnits'
+import { TYPE } from '../../lib/typography'
 import { Marker } from './markers/Marker'
 import { FlagMarker } from './markers/FlagMarker'
 import { AimGhostLayers, useAimGhosts } from './markers/AimGhost'
@@ -805,13 +806,15 @@ export function HoleMap({
                 }}
               >
                 <Text
-                  style={{
-                    color: '#E8E2D4',
-                    fontFamily: 'Fraunces-Medium',
-                    fontSize: 14,
-                    fontWeight: '600',
-                    fontVariant: ['tabular-nums'],
-                  }}
+                  style={[
+                    TYPE.serifUpright,
+                    {
+                      color: '#E8E2D4',
+                      fontSize: 14,
+                      fontWeight: '600',
+                      fontVariant: ['tabular-nums'],
+                    },
+                  ]}
                 >
                   {/* Inside the green-radius the approach leg reads in feet
                       (greens are a feet game); toDisplayFt respects metric. */}

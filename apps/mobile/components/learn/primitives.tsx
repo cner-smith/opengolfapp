@@ -9,11 +9,17 @@
  * one article uses) stay co-located in that article's file.
  *
  * Inline emphasis uses nested <Text>: write `<P>plain <Strong>bold</Strong></P>`
- * — RN flows nested Text inline just like the web <strong>/<em> spans.
+ * — RN flows nested Text inline just like the web <strong>/<em> spans. Nested
+ * Text inherits the parent's fontFamily, so spans only override when the weight
+ * or style changes (Strong/Em).
+ *
+ * Fonts come from the single mobile type source (lib/typography FONT); never
+ * hardcode a family string here.
  */
 import type { ReactNode } from 'react'
 import { Linking, Text, View } from 'react-native'
 import type { TextStyle, ViewStyle } from 'react-native'
+import { FONT } from '../../lib/typography'
 
 // ── palette (matches web tokens + the existing mobile [article].tsx) ──────────
 export const C = {
@@ -31,6 +37,7 @@ export const C = {
 // ── text styles ───────────────────────────────────────────────────────────
 export const KICKER: TextStyle = {
   color: C.mute,
+  fontFamily: FONT.mono,
   fontSize: 10,
   fontWeight: '500',
   letterSpacing: 1.4,
@@ -39,6 +46,7 @@ export const KICKER: TextStyle = {
 
 export const TITLE: TextStyle = {
   color: C.ink,
+  fontFamily: FONT.serifItalic,
   fontSize: 26,
   fontStyle: 'italic',
   fontWeight: '500',
@@ -48,6 +56,7 @@ export const TITLE: TextStyle = {
 
 export const BODY: TextStyle = {
   color: C.ink,
+  fontFamily: FONT.body,
   fontSize: 15,
   lineHeight: 22,
   marginBottom: 14,
@@ -62,6 +71,7 @@ export const SUBKICKER: TextStyle = {
 
 const H3_STYLE: TextStyle = {
   color: C.ink,
+  fontFamily: FONT.serifItalic,
   fontSize: 19,
   fontStyle: 'italic',
   fontWeight: '500',
@@ -72,6 +82,7 @@ const H3_STYLE: TextStyle = {
 
 const H4_STYLE: TextStyle = {
   color: C.ink,
+  fontFamily: FONT.serifItalic,
   fontSize: 16,
   fontStyle: 'italic',
   fontWeight: '500',
@@ -82,11 +93,11 @@ const H4_STYLE: TextStyle = {
 
 // ── inline spans (nest inside <P>, <H3>, list items, etc.) ──────────────────
 export function Strong({ children }: { children: ReactNode }) {
-  return <Text style={{ fontWeight: '700' }}>{children}</Text>
+  return <Text style={{ fontFamily: FONT.bodyBold, fontWeight: '700' }}>{children}</Text>
 }
 
 export function Em({ children }: { children: ReactNode }) {
-  return <Text style={{ fontStyle: 'italic' }}>{children}</Text>
+  return <Text style={{ fontFamily: FONT.bodyItalic, fontStyle: 'italic' }}>{children}</Text>
 }
 
 export function Link({ href, children }: { href: string; children: ReactNode }) {
@@ -152,7 +163,7 @@ export function NumberList({ items }: { items: ReactNode[] }) {
     <View style={{ marginBottom: 14, marginTop: 2 }}>
       {items.map((item, i) => (
         <View key={i} style={{ flexDirection: 'row', gap: 8, marginBottom: 6 }}>
-          <Text style={{ ...BODY, marginBottom: 0, fontWeight: '600' }}>{i + 1}.</Text>
+          <Text style={{ ...BODY, marginBottom: 0, fontFamily: FONT.bodyBold, fontWeight: '600' }}>{i + 1}.</Text>
           <Text style={{ ...BODY, marginBottom: 0, flex: 1 }}>{item}</Text>
         </View>
       ))}
@@ -226,10 +237,10 @@ export function DefRow({
         borderTopColor: C.line,
       }}
     >
-      <Text style={{ color: C.ink, fontSize: 15, fontStyle: 'italic', fontWeight: '500', marginBottom: 4 }}>
+      <Text style={{ color: C.ink, fontFamily: FONT.serifItalic, fontSize: 15, fontStyle: 'italic', fontWeight: '500', marginBottom: 4 }}>
         {term}
       </Text>
-      <Text style={{ color: C.inkDim, fontSize: 14, lineHeight: 20 }}>{children}</Text>
+      <Text style={{ color: C.inkDim, fontFamily: FONT.body, fontSize: 14, lineHeight: 20 }}>{children}</Text>
     </View>
   )
 }
@@ -238,7 +249,7 @@ export function DefRow({
 export function Kv({ label, children }: { label: string; children: ReactNode }) {
   return (
     <Text style={BODY}>
-      <Text style={{ fontWeight: '700' }}>{label} </Text>
+      <Text style={{ fontFamily: FONT.bodyBold, fontWeight: '700' }}>{label} </Text>
       {children}
     </Text>
   )
@@ -298,10 +309,10 @@ export function Sources({
       <Text style={{ ...KICKER, marginBottom: 4 }}>Sources</Text>
       {items.map((s, i) => (
         <View key={i} style={{ paddingVertical: 10, borderTopWidth: 1, borderTopColor: C.line }}>
-          <Text style={{ color: C.ink, fontSize: 14, fontStyle: 'italic', fontWeight: '500', marginBottom: 3 }}>
+          <Text style={{ color: C.ink, fontFamily: FONT.serifItalic, fontSize: 14, fontStyle: 'italic', fontWeight: '500', marginBottom: 3 }}>
             {s.href ? <Link href={s.href}>{s.name}</Link> : s.name}
           </Text>
-          <Text style={{ color: C.inkDim, fontSize: 13, lineHeight: 19 }}>{s.note}</Text>
+          <Text style={{ color: C.inkDim, fontFamily: FONT.body, fontSize: 13, lineHeight: 19 }}>{s.note}</Text>
         </View>
       ))}
     </View>
@@ -318,13 +329,52 @@ export function ResourceList({
     <View style={{ marginVertical: 6 }}>
       {items.map((r, i) => (
         <View key={i} style={{ paddingVertical: 12, borderTopWidth: 1, borderTopColor: C.line }}>
-          <Text style={{ color: C.ink, fontSize: 15, fontStyle: 'italic', fontWeight: '500' }}>
+          <Text style={{ color: C.ink, fontFamily: FONT.serifItalic, fontSize: 15, fontStyle: 'italic', fontWeight: '500' }}>
             {r.title}
-            {r.by ? <Text style={{ color: C.inkDim, fontStyle: 'normal', fontWeight: '400' }}> — {r.by}</Text> : null}
+            {r.by ? <Text style={{ color: C.inkDim, fontFamily: FONT.body, fontStyle: 'normal', fontWeight: '400' }}> — {r.by}</Text> : null}
           </Text>
-          <Text style={{ color: C.inkDim, fontSize: 14, lineHeight: 20, marginTop: 4 }}>{r.note}</Text>
+          <Text style={{ color: C.inkDim, fontFamily: FONT.body, fontSize: 14, lineHeight: 20, marginTop: 4 }}>{r.note}</Text>
         </View>
       ))}
+    </View>
+  )
+}
+
+/** Dev-only editorial annotation (source citation / TODO). Renders nothing in
+ *  production — these are internal review notes, never shown to readers. */
+export function DevNote({
+  variant,
+  inline,
+  children,
+}: {
+  variant: 'research' | 'todo'
+  inline?: boolean
+  children: ReactNode
+}) {
+  if (!__DEV__) return null
+  const tone = variant === 'research' ? C.accent : C.amber
+  const label = variant === 'research' ? 'Source' : 'Todo'
+  if (inline) {
+    return (
+      <Text style={{ ...KICKER, color: tone, marginTop: 4 }}>
+        [{label}] {children}
+      </Text>
+    )
+  }
+  return (
+    <View
+      style={{
+        backgroundColor: C.boxBg,
+        borderLeftWidth: 3,
+        borderLeftColor: tone,
+        padding: 12,
+        marginBottom: 12,
+      }}
+    >
+      <Text style={{ ...KICKER, color: tone, marginBottom: 4 }}>{label} · dev only</Text>
+      <Text style={{ color: C.inkDim, fontFamily: FONT.bodyItalic, fontSize: 13, fontStyle: 'italic', lineHeight: 19 }}>
+        {children}
+      </Text>
     </View>
   )
 }

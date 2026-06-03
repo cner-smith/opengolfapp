@@ -1,5 +1,6 @@
 import { Text, View } from 'react-native'
 import Svg, { Circle, Line, Polygon, Polyline, Rect, Text as SvgText } from 'react-native-svg'
+import { FONT } from '../../../lib/typography'
 import {
   ArticleHeader,
   ArticleFooter,
@@ -294,10 +295,10 @@ function RetentionDiagram() {
       <Polyline points="30,44 106,30 182,68" fill="none" stroke={C.mute} strokeWidth={2} />
       {/* random: low in practice, best later (accent) */}
       <Polyline points="30,74 106,60 182,30" fill="none" stroke={C.accent} strokeWidth={2} />
-      <SvgText x={54} y={100} fontSize={7} fontFamily="monospace" letterSpacing={1} fill={C.mute}>
+      <SvgText x={54} y={100} fontSize={7} fontFamily={FONT.mono} letterSpacing={1} fill={C.mute}>
         PRACTICE
       </SvgText>
-      <SvgText x={136} y={100} fontSize={7} fontFamily="monospace" letterSpacing={1} fill={C.mute}>
+      <SvgText x={136} y={100} fontSize={7} fontFamily={FONT.mono} letterSpacing={1} fill={C.mute}>
         LATER
       </SvgText>
     </Svg>
@@ -331,6 +332,7 @@ function CombineTable() {
           <Text
             style={{
               color: C.ink,
+              fontFamily: FONT.serifItalic,
               fontSize: 15,
               fontStyle: 'italic',
               fontWeight: '500',
@@ -339,7 +341,7 @@ function CombineTable() {
           >
             {r.goal}
           </Text>
-          <Text style={{ color: C.inkDim, fontSize: 14, lineHeight: 20 }}>{r.mix}</Text>
+          <Text style={{ color: C.inkDim, fontFamily: FONT.body, fontSize: 14, lineHeight: 20 }}>{r.mix}</Text>
         </View>
       ))}
     </View>

@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react'
 import { BackHandler, Pressable, StyleSheet } from 'react-native'
 import { useRouter } from 'expo-router'
 import { StatusBar } from 'expo-status-bar'
+import { FONT } from '../../lib/typography'
 import Animated, {
   Easing,
   cancelAnimation,
@@ -114,7 +115,7 @@ const styles = StyleSheet.create({
   },
   wordmark: {
     color: '#FBF8F1',
-    fontFamily: 'Fraunces-MediumItalic',
+    fontFamily: FONT.serifItalic,
     fontSize: 96,
     fontStyle: 'italic',
     letterSpacing: -2,
@@ -122,7 +123,7 @@ const styles = StyleSheet.create({
   },
   tagline: {
     color: 'rgba(242,238,229,0.85)',
-    fontFamily: 'Fraunces-MediumItalic',
+    fontFamily: FONT.serifItalic,
     fontSize: 18,
     fontStyle: 'italic',
     marginTop: 18,

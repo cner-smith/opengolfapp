@@ -15,6 +15,7 @@ import {
   Subhead,
   C,
 } from '../primitives'
+import { FONT } from '../../../lib/typography'
 
 export function SelfDiagnosisArticle() {
   return (
@@ -325,6 +326,7 @@ function Example({
       <Text
         style={{
           color: C.ink,
+          fontFamily: FONT.serifItalic,
           fontSize: 16,
           fontStyle: 'italic',
           marginBottom: 8,
@@ -332,10 +334,10 @@ function Example({
       >
         “{flight}”
       </Text>
-      <Text style={{ color: C.inkDim, fontSize: 14, lineHeight: 22, marginBottom: 8 }}>
+      <Text style={{ color: C.inkDim, fontFamily: FONT.body, fontSize: 14, lineHeight: 22, marginBottom: 8 }}>
         <Strong>What it reads as:</Strong> {read}
       </Text>
-      <Text style={{ color: C.inkDim, fontSize: 14, lineHeight: 22 }}>
+      <Text style={{ color: C.inkDim, fontFamily: FONT.body, fontSize: 14, lineHeight: 22 }}>
         <Strong>Where to focus:</Strong> {focus}
       </Text>
     </View>
@@ -395,8 +397,8 @@ function FlowQ({ n, q }: { n: string; q: string }) {
           paddingHorizontal: 16,
         }}
       >
-        <Text style={{ fontSize: 10, letterSpacing: 1.4, color: C.mute }}>{n}</Text>
-        <Text style={{ color: C.ink, fontSize: 17, fontStyle: 'italic' }}>{q}</Text>
+        <Text style={{ fontFamily: FONT.mono, fontSize: 10, letterSpacing: 1.4, color: C.mute }}>{n}</Text>
+        <Text style={{ color: C.ink, fontFamily: FONT.serifItalic, fontSize: 17, fontStyle: 'italic' }}>{q}</Text>
       </View>
     </View>
   )
@@ -458,6 +460,7 @@ function Chip({
     >
       <Text
         style={{
+          fontFamily: FONT.mono,
           fontSize: 10,
           letterSpacing: 1.4,
           textTransform: 'uppercase',
@@ -469,6 +472,7 @@ function Chip({
       </Text>
       <Text
         style={{
+          fontFamily: FONT.bodyItalic,
           fontSize: 14,
           fontStyle: 'italic',
           color: accent ? '#F2EEE5' : C.ink,
@@ -479,6 +483,7 @@ function Chip({
       {hint ? (
         <Text
           style={{
+            fontFamily: FONT.body,
             fontSize: 11,
             color: accent ? 'rgba(242,238,229,0.72)' : C.mute,
             marginTop: 3,

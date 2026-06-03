@@ -14,6 +14,7 @@ import {
   C,
   KICKER,
 } from '../primitives'
+import { FONT } from '../../../lib/typography'
 
 export function PracticeVsScoringRoundArticle() {
   return (
@@ -239,7 +240,7 @@ export function PracticeVsScoringRoundArticle() {
       </P>
 
       <Callout>
-        <Text style={{ color: C.ink, fontSize: 14, lineHeight: 22 }}>
+        <Text style={{ color: C.ink, fontFamily: FONT.body, fontSize: 14, lineHeight: 22 }}>
           <Strong>The one habit:</Strong> before you hit the first tee shot,
           decide out loud which round this is. "This is a practice round" or
           "I'm playing this one for score" — said before you start — is what
@@ -385,6 +386,7 @@ function ModeTable() {
           <Text
             style={{
               color: C.ink,
+              fontFamily: FONT.serifItalic,
               fontSize: 14,
               fontStyle: 'italic',
               fontWeight: '500',
@@ -398,13 +400,13 @@ function ModeTable() {
               <Text style={{ ...KICKER, color: C.inkDim, marginBottom: 3 }}>
                 Practice round
               </Text>
-              <Text style={{ color: C.ink, fontSize: 13, lineHeight: 19 }}>{r.practice}</Text>
+              <Text style={{ color: C.ink, fontFamily: FONT.body, fontSize: 13, lineHeight: 19 }}>{r.practice}</Text>
             </View>
             <View style={{ flex: 1 }}>
               <Text style={{ ...KICKER, color: C.inkDim, marginBottom: 3 }}>
                 Scoring round
               </Text>
-              <Text style={{ color: C.ink, fontSize: 13, lineHeight: 19 }}>{r.scoring}</Text>
+              <Text style={{ color: C.ink, fontFamily: FONT.body, fontSize: 13, lineHeight: 19 }}>{r.scoring}</Text>
             </View>
           </View>
         </View>

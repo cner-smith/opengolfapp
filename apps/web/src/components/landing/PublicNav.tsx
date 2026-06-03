@@ -126,7 +126,7 @@ const btnBase = {
   display: 'inline-flex',
   alignItems: 'center',
   gap: 6,
-  fontFamily: 'Inter, sans-serif',
+  fontFamily: 'Epilogue, sans-serif',
   fontWeight: 600,
   fontSize: 13,
   letterSpacing: '0.01em',

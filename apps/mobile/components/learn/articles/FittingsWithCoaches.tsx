@@ -1,4 +1,5 @@
 import { Text, View } from 'react-native'
+import { FONT } from '../../../lib/typography'
 import {
   ArticleHeader,
   ArticleFooter,
@@ -269,6 +270,7 @@ function FitterTable() {
           <Text
             style={{
               color: C.ink,
+              fontFamily: FONT.serifItalic,
               fontSize: 15,
               fontStyle: 'italic',
               marginBottom: 2,
@@ -276,10 +278,10 @@ function FitterTable() {
           >
             {r.who}
           </Text>
-          <Text style={{ color: C.ink, fontSize: 14, lineHeight: 20 }}>
+          <Text style={{ color: C.ink, fontFamily: FONT.body, fontSize: 14, lineHeight: 20 }}>
             {r.knows} · {r.neutral}
           </Text>
-          <Text style={{ color: C.inkDim, fontSize: 13, lineHeight: 19, marginTop: 2 }}>
+          <Text style={{ color: C.inkDim, fontFamily: FONT.body, fontSize: 13, lineHeight: 19, marginTop: 2 }}>
             Best: {r.best}
           </Text>
         </View>

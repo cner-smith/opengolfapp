@@ -22,6 +22,7 @@ import {
   type RecentRoundRow,
 } from '../../components/home/RecentRoundsList'
 import { LearnPreview } from '../../components/home/LearnPreview'
+import { TYPE } from '../../lib/typography'
 
 type Profile = Database['public']['Tables']['profiles']['Row']
 
@@ -43,7 +44,6 @@ const KICKER: import('react-native').TextStyle = {
   color: '#8A8B7E',
   fontSize: 10,
   fontWeight: '500',
-  fontFamily: 'JetBrainsMono-Medium',
   letterSpacing: 1.4,
   textTransform: 'uppercase',
 }
@@ -161,22 +161,25 @@ export default function Home() {
       <AppBar eyebrow={eyebrow} title={profile?.username ?? 'Home'} />
       <ScrollView ref={scrollRef} contentContainerStyle={{ padding: 18, paddingBottom: 40 }}>
         <Text
-          style={{
-            color: '#1C211C',
-            fontSize: 28,
-            fontStyle: 'italic',
-            fontWeight: '500',
-            lineHeight: 32,
-            marginBottom: 6,
-          }}
+          style={[
+            TYPE.serif,
+            {
+              color: '#1C211C',
+              fontSize: 28,
+              fontStyle: 'italic',
+              fontWeight: '500',
+              lineHeight: 32,
+              marginBottom: 6,
+            },
+          ]}
         >
           {firstName ? `Good round, ${firstName}.` : 'Good round.'}
         </Text>
-        <Text style={{ color: '#5C6356', fontSize: 14, marginBottom: 10 }}>
+        <Text style={[TYPE.body, { color: '#5C6356', fontSize: 14, marginBottom: 10 }]}>
           Last {rounds.length} round{rounds.length === 1 ? '' : 's'}
         </Text>
         <Pressable onPress={scrollToLearn} hitSlop={6} style={{ marginBottom: 22 }}>
-          <Text style={{ color: '#8A8B7E', fontSize: 13, fontStyle: 'italic' }}>
+          <Text style={[TYPE.bodyItalic, { color: '#8A8B7E', fontSize: 13, fontStyle: 'italic' }]}>
             ↓ New to a stat? The yardage book's at the bottom.
           </Text>
         </Pressable>
@@ -184,24 +187,27 @@ export default function Home() {
         {rounds.length > 0 && (
           <>
             <Text
-              style={{
-                color: '#1C211C',
-                fontSize: 16,
-                fontStyle: 'italic',
-                lineHeight: 24,
-                marginBottom: 22,
-              }}
+              style={[
+                TYPE.bodyItalic,
+                {
+                  color: '#1C211C',
+                  fontSize: 16,
+                  fontStyle: 'italic',
+                  lineHeight: 24,
+                  marginBottom: 22,
+                },
+              ]}
             >
               {homeStats.weakest.value >= 0 ? (
-                <>Everything is net positive. <Text style={{ fontWeight: '600' }}>{homeStats.strongest.label}</Text> leads at {fmtSG(homeStats.strongest.value)} a round.</>
+                <>Everything is net positive. <Text style={[TYPE.bodyBold, { fontWeight: '600' }]}>{homeStats.strongest.label}</Text> leads at {fmtSG(homeStats.strongest.value)} a round.</>
               ) : (
-                <><Text style={{ fontWeight: '600' }}>{homeStats.weakest.label}.</Text> Your biggest leak — costing about {fmtAbs(homeStats.weakest.value)} a round. {homeStats.strongest.label.toLowerCase()} is the bright spot at {fmtSG(homeStats.strongest.value)}.</>
+                <><Text style={[TYPE.bodyBold, { fontWeight: '600' }]}>{homeStats.weakest.label}.</Text> Your biggest leak — costing about {fmtAbs(homeStats.weakest.value)} a round. {homeStats.strongest.label.toLowerCase()} is the bright spot at {fmtSG(homeStats.strongest.value)}.</>
               )}
             </Text>
 
             <View style={{ marginBottom: 28 }}>
               <View style={{ borderTopWidth: 1, borderColor: '#D9D2BF', paddingTop: 14, marginBottom: 14 }}>
-                <Text style={KICKER}>By the numbers</Text>
+                <Text style={[TYPE.kicker, KICKER]}>By the numbers</Text>
               </View>
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
                 <HomeTile label="Avg score" value={homeStats.avgScore != null ? homeStats.avgScore.toFixed(1) : '—'} />
@@ -231,8 +237,8 @@ export default function Home() {
               marginBottom: 18,
             }}
           >
-            <Text style={{ ...KICKER, marginBottom: 4 }}>Sync queue</Text>
-            <Text style={{ color: '#A66A1F', fontSize: 13 }}>
+            <Text style={[TYPE.kicker, KICKER, { marginBottom: 4 }]}>Sync queue</Text>
+            <Text style={[TYPE.body, { color: '#A66A1F', fontSize: 13 }]}>
               {pending} shot{pending === 1 ? '' : 's'} waiting to sync.
             </Text>
           </View>
@@ -249,22 +255,28 @@ export default function Home() {
             }}
           >
             <Text
-              style={{
-                color: '#1C211C',
-                fontSize: 22,
-                fontStyle: 'italic',
-                fontWeight: '500',
-              }}
+              style={[
+                TYPE.serif,
+                {
+                  color: '#1C211C',
+                  fontSize: 22,
+                  fontStyle: 'italic',
+                  fontWeight: '500',
+                },
+              ]}
             >
               No rounds yet.
             </Text>
             <Text
-              style={{
-                color: '#5C6356',
-                fontSize: 14,
-                marginTop: 8,
-                lineHeight: 20,
-              }}
+              style={[
+                TYPE.body,
+                {
+                  color: '#5C6356',
+                  fontSize: 14,
+                  marginTop: 8,
+                  lineHeight: 20,
+                },
+              ]}
             >
               Log your first round to start tracking strokes gained.
             </Text>
@@ -329,10 +341,10 @@ function HomeTile({
         padding: 14,
       }}
     >
-      <Text style={{ color: '#8A8B7E', fontSize: 10, fontWeight: '500', fontFamily: 'JetBrainsMono-Medium', letterSpacing: 1.4, textTransform: 'uppercase', marginBottom: 10 }}>
+      <Text style={[TYPE.kicker, { color: '#8A8B7E', fontSize: 10, fontWeight: '500', letterSpacing: 1.4, textTransform: 'uppercase', marginBottom: 10 }]}>
         {label}
       </Text>
-      <Text style={{ color: valueColor, fontSize: 28, fontStyle: 'italic', fontWeight: '500', fontVariant: ['tabular-nums'] }}>
+      <Text style={[TYPE.serif, { color: valueColor, fontSize: 28, fontStyle: 'italic', fontWeight: '500', fontVariant: ['tabular-nums'] }]}>
         {value}
       </Text>
     </View>

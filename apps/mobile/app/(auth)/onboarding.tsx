@@ -12,6 +12,7 @@ import {
 import { seedDefaultBag, updateProfile } from '@oga/supabase'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
+import { TYPE } from '../../lib/typography'
 
 const SKILL_LABEL: Record<SkillLevel, string> = {
   beginner: 'Just starting out',
@@ -115,29 +116,29 @@ export default function MobileOnboarding() {
       keyboardShouldPersistTaps="handled"
     >
       <Text
-        style={{
+        style={[TYPE.kicker, {
           color: '#888880',
           fontSize: 10,
           fontWeight: '500',
           letterSpacing: 0.5,
           textTransform: 'uppercase',
           marginBottom: 8,
-        }}
+        }]}
       >
         Welcome to OGA
       </Text>
       <Text
-        style={{
+        style={[TYPE.bodyBold, {
           color: '#111111',
           fontSize: 22,
           fontWeight: '600',
           lineHeight: 28,
           marginBottom: 4,
-        }}
+        }]}
       >
         Three quick questions
       </Text>
-      <Text style={{ color: '#888880', fontSize: 13, marginBottom: 20 }}>
+      <Text style={[TYPE.body, { color: '#888880', fontSize: 13, marginBottom: 20 }]}>
         Calibrates strokes-gained baselines. You can edit these in Profile later.
       </Text>
 
@@ -195,18 +196,18 @@ export default function MobileOnboarding() {
         }}
       >
         <Text
-          style={{
+          style={[TYPE.body, {
             color: '#888880',
             fontSize: 11,
             fontWeight: '500',
             letterSpacing: 0.4,
             textTransform: 'uppercase',
             marginBottom: 6,
-          }}
+          }]}
         >
           Bag (optional)
         </Text>
-        <Text style={{ color: '#888880', fontSize: 12, marginBottom: 10 }}>
+        <Text style={[TYPE.body, { color: '#888880', fontSize: 12, marginBottom: 10 }]}>
           Select the clubs you carry. You can customize your bag fully in
           Settings → My Bag later.
         </Text>
@@ -221,12 +222,12 @@ export default function MobileOnboarding() {
           ))}
         </View>
         <Text
-          style={{
+          style={[TYPE.body, {
             color: '#888880',
             fontSize: 11,
             marginTop: 8,
             letterSpacing: 0.3,
-          }}
+          }]}
         >
           {bagSelection.size} of {DEFAULT_BAG.length} selected
         </Text>
@@ -244,7 +245,7 @@ export default function MobileOnboarding() {
           opacity: saving ? 0.5 : 1,
         }}
       >
-        <Text style={{ color: '#FFFFFF', fontSize: 13, fontWeight: '500' }}>
+        <Text style={[TYPE.body, { color: '#FFFFFF', fontSize: 13, fontWeight: '500' }]}>
           {saving ? 'Saving…' : 'Start tracking'}
         </Text>
       </Pressable>
@@ -265,7 +266,7 @@ export default function MobileOnboarding() {
           opacity: saving ? 0.5 : 1,
         }}
       >
-        <Text style={{ color: '#1F3D2C', fontSize: 13, fontWeight: '500' }}>
+        <Text style={[TYPE.body, { color: '#1F3D2C', fontSize: 13, fontWeight: '500' }]}>
           Set up later →
         </Text>
       </Pressable>
@@ -277,14 +278,14 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   return (
     <View style={{ marginBottom: 16 }}>
       <Text
-        style={{
+        style={[TYPE.body, {
           color: '#888880',
           fontSize: 11,
           fontWeight: '500',
           letterSpacing: 0.4,
           textTransform: 'uppercase',
           marginBottom: 6,
-        }}
+        }]}
       >
         {label}
       </Text>
@@ -315,11 +316,11 @@ function Chip({
       }}
     >
       <Text
-        style={{
+        style={[TYPE.body, {
           color: active ? '#0F6E56' : '#111111',
           fontSize: 12,
           fontWeight: active ? '500' : '400',
-        }}
+        }]}
       >
         {label}
       </Text>

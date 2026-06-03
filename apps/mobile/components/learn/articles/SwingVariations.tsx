@@ -16,6 +16,7 @@ import {
   KICKER,
   C,
 } from '../primitives'
+import { FONT } from '../../../lib/typography'
 
 export function SwingVariationsArticle() {
   return (
@@ -224,7 +225,7 @@ export function SwingVariationsArticle() {
 
       <H3>Physical conditions and adaptations</H3>
       <Callout>
-        <Text style={{ color: C.ink, fontSize: 14, lineHeight: 22 }}>
+        <Text style={{ color: C.ink, fontFamily: FONT.body, fontSize: 14, lineHeight: 22 }}>
           <Strong>This is general information, not medical advice.</Strong> If you
           have any of the conditions below, get cleared by a medical professional
           and work with a TPI-certified instructor <Em>before</Em> changing your
@@ -498,8 +499,8 @@ function Checklist({ items }: { items: string[] }) {
       </Text>
       {items.map((item) => (
         <View key={item} style={{ flexDirection: 'row', gap: 8, marginBottom: 9 }}>
-          <Text style={{ color: C.accent, fontSize: 14, lineHeight: 21 }}>?</Text>
-          <Text style={{ color: C.ink, fontSize: 14, lineHeight: 21, flex: 1 }}>
+          <Text style={{ color: C.accent, fontFamily: FONT.body, fontSize: 14, lineHeight: 21 }}>?</Text>
+          <Text style={{ color: C.ink, fontFamily: FONT.body, fontSize: 14, lineHeight: 21, flex: 1 }}>
             {item}
           </Text>
         </View>
@@ -558,14 +559,14 @@ function HallOfFame() {
           }}
         >
           <Text
-            style={{ color: C.ink, fontSize: 16, fontStyle: 'italic', marginBottom: 6 }}
+            style={{ color: C.ink, fontFamily: FONT.serifItalic, fontSize: 16, fontStyle: 'italic', marginBottom: 6 }}
           >
             {p.name}
           </Text>
-          <Text style={{ color: C.inkDim, fontSize: 13, lineHeight: 20, marginBottom: 6 }}>
+          <Text style={{ color: C.inkDim, fontFamily: FONT.body, fontSize: 13, lineHeight: 20, marginBottom: 6 }}>
             {p.quirk}
           </Text>
-          <Text style={{ color: C.accent, fontSize: 13, lineHeight: 20, fontWeight: '500' }}>
+          <Text style={{ color: C.accent, fontFamily: FONT.bodyBold, fontSize: 13, lineHeight: 20, fontWeight: '500' }}>
             {p.result}
           </Text>
         </View>
@@ -607,11 +608,11 @@ function BodyTypeTable() {
           style={{ paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: C.line }}
         >
           <Text
-            style={{ color: C.ink, fontSize: 15, fontStyle: 'italic', marginBottom: 4 }}
+            style={{ color: C.ink, fontFamily: FONT.serifItalic, fontSize: 15, fontStyle: 'italic', marginBottom: 4 }}
           >
             {r.type}
           </Text>
-          <Text style={{ color: C.inkDim, fontSize: 14, lineHeight: 21 }}>{r.note}</Text>
+          <Text style={{ color: C.inkDim, fontFamily: FONT.body, fontSize: 14, lineHeight: 21 }}>{r.note}</Text>
         </View>
       ))}
     </View>
@@ -634,13 +635,13 @@ function PlaneSpectrum() {
         <Line x1={190} y1={100} x2={78} y2={36} stroke={C.mute} strokeWidth={2} />
         {/* single plane (accent) */}
         <Line x1={190} y1={100} x2={40} y2={64} stroke={C.accent} strokeWidth={2.5} />
-        <SvgText x={138} y={12} fontSize={7} fontFamily="monospace" letterSpacing={0.5} fill={C.mute}>
+        <SvgText x={138} y={12} fontSize={7} fontFamily={FONT.mono} letterSpacing={0.5} fill={C.mute}>
           UPRIGHT
         </SvgText>
-        <SvgText x={62} y={32} fontSize={7} fontFamily="monospace" letterSpacing={0.5} fill={C.mute}>
+        <SvgText x={62} y={32} fontSize={7} fontFamily={FONT.mono} letterSpacing={0.5} fill={C.mute}>
           FLAT
         </SvgText>
-        <SvgText x={20} y={60} fontSize={7} fontFamily="monospace" letterSpacing={0.5} fill={C.accent}>
+        <SvgText x={20} y={60} fontSize={7} fontFamily={FONT.mono} letterSpacing={0.5} fill={C.accent}>
           SINGLE PLANE
         </SvgText>
       </Svg>

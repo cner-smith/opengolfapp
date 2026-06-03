@@ -18,6 +18,7 @@ import {
   type ShotResult,
 } from '@oga/core'
 import { useUserBag } from '../../hooks/useUserBag'
+import { TYPE } from '../../lib/typography'
 import { PuttingSheet } from './PuttingSheet'
 
 export interface ShotLoggerValue {
@@ -225,16 +226,19 @@ export function ShotLogger({
             }}
           >
             <View>
-              <Text style={{ ...KICKER, marginBottom: 4 }}>
+              <Text style={[TYPE.kicker, { ...KICKER, marginBottom: 4 }]}>
                 Shot {shotNumber}
               </Text>
               <Text
-                style={{
-                  color: '#1C211C',
-                  fontSize: 22,
-                  fontWeight: '500',
-                  fontStyle: 'italic',
-                }}
+                style={[
+                  TYPE.serif,
+                  {
+                    color: '#1C211C',
+                    fontSize: 22,
+                    fontWeight: '500',
+                    fontStyle: 'italic',
+                  },
+                ]}
               >
                 Log it.
               </Text>
@@ -247,11 +251,14 @@ export function ShotLogger({
               style={{ padding: 6 }}
             >
               <Text
-                style={{
-                  ...KICKER,
-                  color: '#A66A1F',
-                  fontSize: 10,
-                }}
+                style={[
+                  TYPE.kicker,
+                  {
+                    ...KICKER,
+                    color: '#A66A1F',
+                    fontSize: 10,
+                  },
+                ]}
               >
                 Skip all →
               </Text>
@@ -315,7 +322,7 @@ export function ShotLogger({
                           kind={key}
                           color={active ? '#F2EEE5' : '#5C6356'}
                         />
-                        <Text style={gridButtonTextStyle(active)}>
+                        <Text style={[TYPE.body, gridButtonTextStyle(active)]}>
                           {FORWARD_LABEL[key]}
                         </Text>
                       </Pressable>
@@ -353,7 +360,7 @@ export function ShotLogger({
                           kind={key}
                           color={active ? '#F2EEE5' : '#5C6356'}
                         />
-                        <Text style={gridButtonTextStyle(active)}>
+                        <Text style={[TYPE.body, gridButtonTextStyle(active)]}>
                           {SIDE_LABEL[key]}
                         </Text>
                       </Pressable>
@@ -409,12 +416,15 @@ export function ShotLogger({
               }}
             >
               <Text
-                style={{
-                  color: '#1F3D2C',
-                  fontSize: 14,
-                  fontWeight: '600',
-                  letterSpacing: 0.3,
-                }}
+                style={[
+                  TYPE.bodyBold,
+                  {
+                    color: '#1F3D2C',
+                    fontSize: 14,
+                    fontWeight: '600',
+                    letterSpacing: 0.3,
+                  },
+                ]}
               >
                 Cancel
               </Text>
@@ -435,12 +445,15 @@ export function ShotLogger({
               }}
             >
               <Text
-                style={{
-                  color: '#F2EEE5',
-                  fontSize: 14,
-                  fontWeight: '600',
-                  letterSpacing: 0.3,
-                }}
+                style={[
+                  TYPE.bodyBold,
+                  {
+                    color: '#F2EEE5',
+                    fontSize: 14,
+                    fontWeight: '600',
+                    letterSpacing: 0.3,
+                  },
+                ]}
               >
                 {saving ? 'Saving…' : 'Save + next →'}
               </Text>
@@ -561,7 +574,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
         marginBottom: 18,
       }}
     >
-      <Text style={{ ...KICKER, marginBottom: 12 }}>{title}</Text>
+      <Text style={[TYPE.kicker, { ...KICKER, marginBottom: 12 }]}>{title}</Text>
       {children}
     </View>
   )
@@ -594,11 +607,14 @@ function ChipRow<T extends string>({ value, options, onChange }: ChipRowProps<T>
               }}
             >
               <Text
-                style={{
-                  color: active ? '#F2EEE5' : '#1C211C',
-                  fontSize: 12,
-                  fontWeight: active ? '500' : '400',
-                }}
+                style={[
+                  TYPE.body,
+                  {
+                    color: active ? '#F2EEE5' : '#1C211C',
+                    fontSize: 12,
+                    fontWeight: active ? '500' : '400',
+                  },
+                ]}
               >
                 {label}
               </Text>

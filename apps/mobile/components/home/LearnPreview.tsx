@@ -1,6 +1,7 @@
 import { Pressable, Text, View } from 'react-native'
 import { useRouter } from 'expo-router'
 import { LEARN_SECTIONS, readingTimeMinutes, type LearnArticle } from '@oga/core'
+import { TYPE } from '../../lib/typography'
 
 const KICKER: import('react-native').TextStyle = {
   color: '#8A8B7E',
@@ -31,14 +32,14 @@ export function LearnPreview() {
           marginBottom: 12,
         }}
       >
-        <Text style={KICKER}>From the yardage book</Text>
+        <Text style={[TYPE.kicker, KICKER]}>From the yardage book</Text>
         <Pressable
           accessibilityRole="link"
           accessibilityLabel="See all Learn articles"
           onPress={() => router.push('/(app)/learn')}
           hitSlop={8}
         >
-          <Text style={{ ...KICKER, color: '#1F3D2C' }}>See all →</Text>
+          <Text style={[TYPE.kicker, KICKER, { color: '#1F3D2C' }]}>See all →</Text>
         </Pressable>
       </View>
 
@@ -80,22 +81,22 @@ function PreviewRow({
     >
       <View style={{ flex: 1, paddingRight: 12 }}>
         <View style={{ flexDirection: 'row', alignItems: 'baseline', flexWrap: 'wrap' }}>
-          <Text style={{ color: '#1C211C', fontSize: 16, fontStyle: 'italic', fontWeight: '500' }}>
+          <Text style={[TYPE.serif, { color: '#1C211C', fontSize: 16, fontStyle: 'italic', fontWeight: '500' }]}>
             {article.title}
           </Text>
           {article.status === 'draft' && (
-            <Text style={{ ...KICKER, color: '#A66A1F', marginLeft: 8 }}>Draft</Text>
+            <Text style={[TYPE.kicker, KICKER, { color: '#A66A1F', marginLeft: 8 }]}>Draft</Text>
           )}
         </View>
-        <Text style={{ color: '#5C6356', fontSize: 13, lineHeight: 18, marginTop: 4 }}>
+        <Text style={[TYPE.body, { color: '#5C6356', fontSize: 13, lineHeight: 18, marginTop: 4 }]}>
           {article.description}
         </Text>
       </View>
       <View style={{ alignItems: 'flex-end' }}>
         {reading != null && (
-          <Text style={{ ...KICKER, color: '#8A8B7E', marginBottom: 4 }}>{reading} min</Text>
+          <Text style={[TYPE.kicker, KICKER, { color: '#8A8B7E', marginBottom: 4 }]}>{reading} min</Text>
         )}
-        <Text style={{ color: '#8A8B7E', fontSize: 18, fontStyle: 'italic' }}>→</Text>
+        <Text style={[TYPE.serif, { color: '#8A8B7E', fontSize: 18, fontStyle: 'italic' }]}>→</Text>
       </View>
     </Pressable>
   )

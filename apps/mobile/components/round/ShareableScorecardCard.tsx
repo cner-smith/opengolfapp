@@ -1,6 +1,7 @@
 import { Text, View } from 'react-native'
 import { formatSG, formatToPar } from '@oga/core'
 import type { Database } from '@oga/supabase'
+import { FONT } from '../../lib/typography'
 
 type HoleRow = Database['public']['Tables']['holes']['Row']
 type HoleScoreRow = Database['public']['Tables']['hole_scores']['Row']
@@ -58,7 +59,7 @@ const KICKER: import('react-native').TextStyle = {
   fontWeight: '500',
   letterSpacing: 1.3,
   textTransform: 'uppercase',
-  fontFamily: 'JetBrainsMono-Medium',
+  fontFamily: FONT.mono,
 }
 
 export function ShareableScorecardCard({
@@ -105,7 +106,7 @@ export function ShareableScorecardCard({
           </Text>
           <Text
             style={{
-              fontFamily: 'Fraunces-MediumItalic',
+              fontFamily: FONT.serifItalic,
               fontWeight: '500',
               fontSize: 24,
               color: c.ink,
@@ -120,7 +121,7 @@ export function ShareableScorecardCard({
       <View style={{ paddingVertical: 14 }}>
         <Text
           style={{
-            fontFamily: 'Fraunces-Medium',
+            fontFamily: FONT.serif,
             fontWeight: '500',
             fontSize: 22,
             lineHeight: 26,
@@ -172,7 +173,7 @@ export function ShareableScorecardCard({
         >
           <Text
             style={{
-              fontFamily: 'Fraunces-MediumItalic',
+              fontFamily: FONT.serifItalic,
               fontWeight: '500',
               fontSize: 32,
               color: c.ink,
@@ -184,7 +185,7 @@ export function ShareableScorecardCard({
           {toPar != null && (
             <Text
               style={{
-                fontFamily: 'JetBrainsMono-Medium',
+                fontFamily: FONT.mono,
                 fontSize: 14,
                 fontWeight: '500',
                 color:
@@ -239,7 +240,7 @@ export function ShareableScorecardCard({
         <Text style={{ ...KICKER, color: c.inkMute }}>Tracked with OGA</Text>
         <Text
           style={{
-            fontFamily: 'JetBrainsMono-Medium',
+            fontFamily: FONT.mono,
             fontSize: 9,
             color: c.inkMute,
           }}
@@ -284,7 +285,7 @@ function ScoreGrid({
   const cellNum: import('react-native').TextStyle = {
     flex: 1,
     textAlign: 'center',
-    fontFamily: 'JetBrainsMono-Medium',
+    fontFamily: FONT.mono,
     fontSize: 11,
     fontWeight: '500',
     fontVariant: ['tabular-nums'],
@@ -292,7 +293,7 @@ function ScoreGrid({
   }
   const labelStyle: import('react-native').TextStyle = {
     width: 38,
-    fontFamily: 'JetBrainsMono-Medium',
+    fontFamily: FONT.mono,
     fontSize: 9,
     fontWeight: '500',
     color: colors.inkMute,
@@ -304,7 +305,7 @@ function ScoreGrid({
   const totalCell: import('react-native').TextStyle = {
     width: 32,
     textAlign: 'center',
-    fontFamily: 'Fraunces-MediumItalic',
+    fontFamily: FONT.serifItalic,
     fontSize: 13,
     fontWeight: '500',
     color: colors.ink,
@@ -338,7 +339,7 @@ function ScoreGrid({
           style={{
             ...totalCell,
             color: colors.inkMute,
-            fontFamily: 'JetBrainsMono-Medium',
+            fontFamily: FONT.mono,
             fontSize: 9,
             letterSpacing: 1.2,
             textTransform: 'uppercase',
@@ -368,7 +369,7 @@ function ScoreGrid({
           style={{
             ...totalCell,
             color: colors.inkDim,
-            fontFamily: 'JetBrainsMono-Medium',
+            fontFamily: FONT.mono,
             fontSize: 11,
           }}
         >
@@ -447,7 +448,7 @@ function ScoreCell({ cellStyle, colors, par, score }: ScoreCellProps) {
       ))}
       <Text
         style={{
-          fontFamily: 'JetBrainsMono-Medium',
+          fontFamily: FONT.mono,
           fontSize: 11,
           fontWeight: '500',
           color,
@@ -482,7 +483,7 @@ function SGStat({ label, value, colors }: SGStatProps) {
       </Text>
       <Text
         style={{
-          fontFamily: 'Fraunces-MediumItalic',
+          fontFamily: FONT.serifItalic,
           fontWeight: '500',
           fontSize: 20,
           color,

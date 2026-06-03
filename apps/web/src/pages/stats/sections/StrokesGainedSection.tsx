@@ -19,7 +19,7 @@ const TOOLTIP_STYLE = {
   borderRadius: 4,
   fontSize: 11,
   padding: '8px 10px',
-  fontFamily: 'Inter, sans-serif',
+  fontFamily: 'Epilogue, sans-serif',
 } as const
 
 const SG_SERIES = [
@@ -38,7 +38,7 @@ function SGLegend() {
         justifyContent: 'center',
         flexWrap: 'wrap',
         fontSize: 11,
-        fontFamily: 'Inter, sans-serif',
+        fontFamily: 'Epilogue, sans-serif',
         paddingTop: 8,
       }}
     >

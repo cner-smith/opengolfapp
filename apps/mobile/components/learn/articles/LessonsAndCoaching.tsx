@@ -15,6 +15,7 @@ import {
   KICKER,
   BODY,
 } from '../primitives'
+import { FONT } from '../../../lib/typography'
 
 export function LessonsAndCoachingArticle() {
   return (
@@ -182,7 +183,7 @@ export function LessonsAndCoachingArticle() {
         failed or the teacher was wrong.
       </P>
       <Callout>
-        <Text style={{ color: C.ink, fontSize: 14, lineHeight: 22 }}>
+        <Text style={{ color: C.ink, fontFamily: FONT.body, fontSize: 14, lineHeight: 22 }}>
           <Strong>So plan for the dip.</Strong> Commit to a set number of
           practice sessions on the change before you judge it, expect a rough
           patch in the middle, and don't carry a half-built swing into a round
@@ -231,7 +232,7 @@ export function LessonsAndCoachingArticle() {
         where you're actually losing shots.
       </P>
       <Callout>
-        <Text style={{ color: C.ink, fontSize: 14, lineHeight: 22 }}>
+        <Text style={{ color: C.ink, fontFamily: FONT.body, fontSize: 14, lineHeight: 22 }}>
           <Strong>Walk in with a diagnosis, not a complaint.</Strong> "I'm
           hitting it bad" burns the first ten minutes of the hour. "My strokes
           gained data says I lose about 1.2 shots a round on approach, and my
@@ -353,6 +354,7 @@ function FlagCard({
             <Text
               style={{
                 color: accent ? C.accent : C.mute,
+                fontFamily: FONT.body,
                 fontSize: 13.5,
                 lineHeight: 20,
               }}
@@ -360,7 +362,7 @@ function FlagCard({
               {accent ? '✓' : '·'}
             </Text>
             <Text
-              style={{ color: C.ink, fontSize: 13.5, lineHeight: 20, flex: 1 }}
+              style={{ color: C.ink, fontFamily: FONT.body, fontSize: 13.5, lineHeight: 20, flex: 1 }}
             >
               {item}
             </Text>

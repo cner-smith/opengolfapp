@@ -3,12 +3,12 @@ import { Pressable, Text, View } from 'react-native'
 import { Link } from 'expo-router'
 import { Swipeable } from 'react-native-gesture-handler'
 import { formatSG } from '@oga/core'
+import { TYPE } from '../../lib/typography'
 
 const KICKER: import('react-native').TextStyle = {
   color: '#8A8B7E',
   fontSize: 10,
   fontWeight: '500',
-  fontFamily: 'JetBrainsMono-Medium',
   letterSpacing: 1.4,
   textTransform: 'uppercase',
 }
@@ -42,10 +42,10 @@ export function RecentRoundsList({
           marginBottom: 14,
         }}
       >
-        <Text style={KICKER}>Recent rounds</Text>
+        <Text style={[TYPE.kicker, KICKER]}>Recent rounds</Text>
       </View>
       {rounds.length === 0 ? (
-        <Text style={{ color: '#8A8B7E', fontSize: 13 }}>No rounds yet.</Text>
+        <Text style={[TYPE.body, { color: '#8A8B7E', fontSize: 13 }]}>No rounds yet.</Text>
       ) : (
         <View style={{ borderTopWidth: 1, borderColor: '#D9D2BF' }}>
           {rounds.slice(0, 5).map((r) => (
@@ -71,12 +71,15 @@ export function RecentRoundsList({
                   }}
                 >
                   <Text
-                    style={{
-                      color: '#F2EEE5',
-                      fontSize: 13,
-                      fontWeight: '600',
-                      letterSpacing: 0.3,
-                    }}
+                    style={[
+                      TYPE.bodyBold,
+                      {
+                        color: '#F2EEE5',
+                        fontSize: 13,
+                        fontWeight: '600',
+                        letterSpacing: 0.3,
+                      },
+                    ]}
                   >
                     Delete
                   </Text>
@@ -100,16 +103,19 @@ export function RecentRoundsList({
                   }}
                 >
                   <View style={{ flex: 1, paddingRight: 12 }}>
-                    <Text style={{ ...KICKER, color: '#8A8B7E', marginBottom: 4 }}>
+                    <Text style={[TYPE.kicker, KICKER, { color: '#8A8B7E', marginBottom: 4 }]}>
                       {r.played_at}
                     </Text>
                     <Text
-                      style={{
-                        color: '#1C211C',
-                        fontSize: 17,
-                        fontWeight: '500',
-                        fontStyle: 'italic',
-                      }}
+                      style={[
+                        TYPE.serif,
+                        {
+                          color: '#1C211C',
+                          fontSize: 17,
+                          fontWeight: '500',
+                          fontStyle: 'italic',
+                        },
+                      ]}
                     >
                       {r.courses?.name ?? 'Round'}
                     </Text>
@@ -122,12 +128,15 @@ export function RecentRoundsList({
                     }}
                   >
                     <Text
-                      style={{
-                        color: '#1C211C',
-                        fontSize: 22,
-                        fontWeight: '500',
-                        fontVariant: ['tabular-nums'],
-                      }}
+                      style={[
+                        TYPE.serifUpright,
+                        {
+                          color: '#1C211C',
+                          fontSize: 22,
+                          fontWeight: '500',
+                          fontVariant: ['tabular-nums'],
+                        },
+                      ]}
                     >
                       {r.total_score ?? '—'}
                     </Text>
@@ -148,7 +157,7 @@ export function RecentRoundsList({
                   alignItems: 'flex-end',
                 }}
               >
-                <Text style={{ color: '#8A8B7E', fontSize: 13, fontWeight: '500' }}>
+                <Text style={[TYPE.body, { color: '#8A8B7E', fontSize: 13, fontWeight: '500' }]}>
                   See all rounds →
                 </Text>
               </Pressable>
@@ -162,18 +171,21 @@ export function RecentRoundsList({
 
 function SGValue({ value }: { value: number | null }) {
   if (value === null) {
-    return <Text style={{ color: '#8A8B7E', fontSize: 17 }}>—</Text>
+    return <Text style={[TYPE.serifUpright, { color: '#8A8B7E', fontSize: 17 }]}>—</Text>
   }
   const color = value > 0 ? '#1F3D2C' : value < 0 ? '#A33A2A' : '#5C6356'
   return (
     <Text
-      style={{
-        color,
-        fontSize: 17,
-        fontStyle: 'italic',
-        fontWeight: '500',
-        fontVariant: ['tabular-nums'],
-      }}
+      style={[
+        TYPE.serif,
+        {
+          color,
+          fontSize: 17,
+          fontStyle: 'italic',
+          fontWeight: '500',
+          fontVariant: ['tabular-nums'],
+        },
+      ]}
     >
       {formatSG(value)}
     </Text>

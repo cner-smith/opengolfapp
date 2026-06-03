@@ -8,6 +8,7 @@ import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
 import { ErrorBoundary } from '../../components/errors/ErrorBoundary'
 import { UnitsProvider } from '../../contexts/UnitsContext'
+import { TYPE } from '../../lib/typography'
 
 const ICON_SIZE = 18
 // Transient profile fetch can hang on flaky networks. After this
@@ -90,24 +91,24 @@ export default function AppLayout() {
       >
         <StatusBar style="light" animated />
         <Text
-          style={{
+          style={[TYPE.serif, {
             color: '#F2EEE5',
             fontSize: 20,
             fontWeight: '500',
             fontStyle: 'italic',
             marginBottom: 10,
             textAlign: 'center',
-          }}
+          }]}
         >
           Something went wrong loading your profile.
         </Text>
         <Text
-          style={{
+          style={[TYPE.body, {
             color: 'rgba(242,238,229,0.65)',
             fontSize: 14,
             textAlign: 'center',
             marginBottom: 22,
-          }}
+          }]}
         >
           Check your connection, then try again.
         </Text>
@@ -123,12 +124,12 @@ export default function AppLayout() {
           }}
         >
           <Text
-            style={{
+            style={[TYPE.bodyBold, {
               color: '#F2EEE5',
               fontSize: 14,
               fontWeight: '600',
               letterSpacing: 0.3,
-            }}
+            }]}
           >
             Try again
           </Text>
