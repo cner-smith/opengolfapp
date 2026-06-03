@@ -52,16 +52,29 @@ export function MentalGameArticle() {
       </P>
       <P>
         Bob Rotella describes this as refusing to be seduced by
-        results. At the 2008 Masters, Trevor Immelman did not look
-        at a single leaderboard until walking up 18. The routine
-        protected him all day. The moment he stepped outside it,
-        the pressure arrived.
+        results. At the 2008 Masters, Trevor Immelman held a two-shot
+        lead going into the final round and made a decision: he
+        would not look at a single leaderboard all day. His plan was
+        simple — pick a target, visualize the shot, hit it. Walking
+        up the 18th fairway, it was the first time all day he allowed
+        himself to think about the outcome. He asked his caddie how
+        they stood. Three shots over Tiger. His immediate thought:
+        how can I not five-putt this? The routine had protected him
+        all day. The moment he stepped outside it, the pressure
+        arrived.
       </P>
       <P>
         The short memory is a skill, not a trait. Give yourself a
         window to feel the emotion — Rotella calls it walking it
         off — then drop it. The bad shot already happened. Carrying
         it into the next shot is a choice.
+      </P>
+      <P>
+        The same discipline applies to good shots. A stretch of made
+        putts, a run of flushed irons — the player who stays even
+        through the highs as well as the lows is harder to shake
+        than the player who rides the wave. The wave always comes
+        back down. Stay level.
       </P>
 
       <Hr />
@@ -76,9 +89,19 @@ export function MentalGameArticle() {
         the playoff.
       </P>
       <P>
+        That is the mental game in one story. Bad things happened.
+        Catastrophically bad things. And his response was not panic,
+        not despair, not self-recrimination. It was: what is the
+        next shot?
+      </P>
+      <P>
         Rotella is direct: sulking won't get you anything. Feeling
         sorry, replaying the mistake — none of it changes what
         happened, all of it damages what comes next.
+      </P>
+      <P>
+        Give yourself a moment. Feel it briefly. Then drop it. You
+        have more golf to play and you need to be present for it.
       </P>
 
       <Hr />
@@ -116,10 +139,17 @@ export function MentalGameArticle() {
         rolling along it, see it drop.
       </P>
       <P>
-        This is not mysticism. The brain rehearses motor patterns
-        through visualization in ways that translate into physical
-        execution. Pick a target, visualize the shot, let it rip.
-        In that order, every time.
+        This is not mysticism. It is how motor learning works. The
+        brain rehearses movement patterns through visualization in
+        ways that translate directly into physical execution.
+        Athletes across every sport use it. Pick a target, visualize
+        the shot, let it rip. In that order, every time.
+      </P>
+      <P>
+        The practical version: before every shot, take a moment to
+        see exactly what you want the ball to do. Then step into the
+        shot with that image in your mind — not with swing thoughts,
+        not with mechanical checkpoints. The image.
       </P>
       <DevNote variant="research">
         Research basis: mental imagery and motor performance. See
@@ -166,10 +196,18 @@ export function MentalGameArticle() {
         will always be okay.
       </P>
       <P>
-        At the 1992 U.S. Open, Tom Kite shot even par in 35-mph
-        wind and won by two. Most players didn't break 80. He did
-        it by staying patient and letting others beat themselves.
-        Patience compounds across 18 holes.
+        At the 1992 U.S. Open at Pebble Beach, Tom Kite had been
+        0 for 20 in U.S. Opens. Wind gusts reached 35 miles per
+        hour on Sunday. Most players didn't break 80. Kite shot
+        even par and won by two. He did it by not getting flustered.
+        By staying patient. By letting others beat themselves.
+      </P>
+      <P>
+        In tough conditions — and golf is almost always tough
+        conditions of some kind — patience is a competitive
+        advantage. The impatient player forces shots. The patient
+        player waits for the right opportunity and executes the
+        percentages. Over 18 holes this compounds significantly.
       </P>
 
       <Hr />
