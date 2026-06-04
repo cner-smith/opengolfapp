@@ -498,31 +498,7 @@ export function CourseManagementArticle() {
 
       <Hr />
 
-      <H3>Resources</H3>
-      <EditorialNote variant="todo">
-        Verify all links before publishing.
-      </EditorialNote>
-      <ResourceList
-        items={[
-          {
-            title: 'Golf Sidekick',
-            note: 'YouTube. Search "Way of the Playa." Ego-free, score-focused course management for amateurs.',
-          },
-          {
-            title: 'The Upbeat Golfer (Manu)',
-            note: 'YouTube. Process-driven mental approach and target commitment.',
-          },
-          {
-            title: 'Will Robins — The Scoring Method',
-            note: 'thescoringmethod.com and YouTube @thescoringmethod. The Scoring Zone framework and modified scorecard system.',
-          },
-          {
-            title: '"Golf Is Not a Game of Perfect"',
-            by: 'Bob Rotella.',
-            note: 'The standard text on playing with what you have that day.',
-          },
-        ]}
-      />
+      <Sources />
 
       <Footer />
     </article>
@@ -606,40 +582,57 @@ const UL_STYLE: React.CSSProperties = {
   maxWidth: 680,
 }
 
-interface ResourceItem {
-  title: string
-  by?: string
-  note: string
+function Sources() {
+  return (
+    <section style={{ borderTop: '1px solid #D9D2BF', paddingTop: 18, marginTop: 22 }}>
+      <div className="kicker" style={{ marginBottom: 12 }}>
+        Sources
+      </div>
+      <div style={{ display: 'grid', gap: 14, maxWidth: 640 }}>
+        <div>
+          <SrcLabel>Course-management approaches this article draws on</SrcLabel>
+          <SrcBody>
+            Golf Sidekick's "Way of the Playa"; Will Robins' Scoring Method (
+            <Src href="https://thescoringmethod.com">thescoringmethod.com</Src>),
+            the Scoring Zone framework and modified scorecard; and Bob Rotella's
+            "Golf Is Not a Game of Perfect" — practitioner frameworks for
+            ego-free, score-first decision making.
+          </SrcBody>
+        </div>
+      </div>
+    </section>
+  )
 }
 
-function ResourceList({ items }: { items: ResourceItem[] }) {
+function SrcLabel({ children }: { children: React.ReactNode }) {
   return (
-    <ul style={{ listStyle: 'none', padding: 0, margin: '8px 0 14px', maxWidth: 680 }}>
-      {items.map((r) => (
-        <li
-          key={r.title}
-          style={{
-            padding: '12px 0',
-            borderTop: '1px solid #D9D2BF',
-          }}
-        >
-          <div
-            className="font-serif text-caddie-ink"
-            style={{ fontSize: 15, fontWeight: 500, fontStyle: 'italic' }}
-          >
-            {r.title}
-            {r.by && (
-              <span className="text-caddie-ink-dim" style={{ fontStyle: 'normal', fontWeight: 400 }}>
-                {' '}— {r.by}
-              </span>
-            )}
-          </div>
-          <div className="text-caddie-ink-dim" style={{ fontSize: 14, lineHeight: 1.55, marginTop: 4 }}>
-            {r.note}
-          </div>
-        </li>
-      ))}
-    </ul>
+    <div
+      className="font-mono uppercase"
+      style={{ fontSize: 10, letterSpacing: '0.14em', color: '#5C6356', marginBottom: 4 }}
+    >
+      {children}
+    </div>
+  )
+}
+
+function SrcBody({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="text-caddie-ink-dim" style={{ fontSize: 13, lineHeight: 1.55 }}>
+      {children}
+    </div>
+  )
+}
+
+function Src({ href, children }: { href: string; children: React.ReactNode }) {
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      style={{ color: '#1F3D2C', textDecoration: 'underline' }}
+    >
+      {children}
+    </a>
   )
 }
 

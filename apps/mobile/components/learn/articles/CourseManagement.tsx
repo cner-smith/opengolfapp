@@ -1,4 +1,4 @@
-import { View } from 'react-native'
+import { Text, View } from 'react-native'
 import {
   ArticleFooter,
   ArticleHeader,
@@ -7,8 +7,9 @@ import {
   H3,
   H4,
   Hr,
+  Link,
   P,
-  ResourceList,
+  Sources,
 } from '../primitives'
 
 export function CourseManagementArticle() {
@@ -477,11 +478,23 @@ export function CourseManagementArticle() {
 
       <Hr />
 
-      <H3>Resources</H3>
-      <DevNote variant="todo">
-        Verify all links before publishing.
-      </DevNote>
-      <ResourceList items={RESOURCES} />
+      <Sources
+        items={[
+          {
+            name: 'Course-management approaches this article draws on',
+            note: (
+              <Text>
+                Golf Sidekick's "Way of the Playa"; Will Robins' Scoring Method
+                (
+                <Link href="https://thescoringmethod.com">thescoringmethod.com</Link>
+                ), the Scoring Zone framework and modified scorecard; and Bob
+                Rotella's "Golf Is Not a Game of Perfect" — practitioner
+                frameworks for ego-free, score-first decision making.
+              </Text>
+            ),
+          },
+        ]}
+      />
 
       <ArticleFooter>
         Last reviewed May 2026
@@ -490,25 +503,3 @@ export function CourseManagementArticle() {
   )
 }
 
-const RESOURCES = [
-  {
-    title: 'Golf Sidekick',
-    by: '',
-    note: 'YouTube. Search "Way of the Playa." Ego-free, score-focused course management for amateurs.',
-  },
-  {
-    title: 'The Upbeat Golfer (Manu)',
-    by: '',
-    note: 'YouTube. Process-driven mental approach and target commitment.',
-  },
-  {
-    title: 'Will Robins — The Scoring Method',
-    by: '',
-    note: 'thescoringmethod.com and YouTube @thescoringmethod. The Scoring Zone framework and modified scorecard system.',
-  },
-  {
-    title: '"Golf Is Not a Game of Perfect"',
-    by: 'Bob Rotella.',
-    note: 'The standard text on playing with what you have that day.',
-  },
-]
