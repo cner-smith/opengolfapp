@@ -1,5 +1,3 @@
-const DEV = import.meta.env.DEV
-
 export function GlossaryArticle() {
   return (
     <article
@@ -571,11 +569,7 @@ export function GlossaryArticle() {
         possibly a military "beware before" command. One of golf's
         oldest surviving terms and one of its most important.
       </Term>
-      <EditorialNote variant="todo">
-        Verify historical club equivalencies — sources vary on
-        exact loft comparisons between hickory era clubs and modern
-        equivalents.
-      </EditorialNote>
+      <Sources />
 
       <Footer />
     </article>
@@ -662,44 +656,43 @@ function Hr() {
   )
 }
 
-function EditorialNote({
-  variant,
-  children,
-}: {
-  variant: 'research' | 'todo'
-  children: React.ReactNode
-}) {
-  if (!DEV) return null
-  const tone = variant === 'research' ? '#1F3D2C' : '#A66A1F'
-  const label = variant === 'research' ? 'Source' : 'Todo'
+function Sources() {
+  return (
+    <section style={{ borderTop: '1px solid #D9D2BF', paddingTop: 18, marginTop: 22 }}>
+      <div className="kicker" style={{ marginBottom: 12 }}>
+        Sources
+      </div>
+      <div style={{ display: 'grid', gap: 14, maxWidth: 640 }}>
+        <div>
+          <SrcLabel>How these definitions are sourced</SrcLabel>
+          <SrcBody>
+            Definitions follow the USGA &amp; R&amp;A Rules of Golf where a term
+            is formally defined there (stroke, hazard, out of bounds, and so
+            on), and otherwise reflect common golf usage. Slang and historical
+            entries are described as they're actually used, not as official
+            definitions.
+          </SrcBody>
+        </div>
+      </div>
+    </section>
+  )
+}
+
+function SrcLabel({ children }: { children: React.ReactNode }) {
   return (
     <div
-      style={{
-        background: '#EBE5D6',
-        borderLeft: `3px solid ${tone}`,
-        padding: '10px 14px',
-        marginBottom: 14,
-        marginTop: 14,
-        maxWidth: 680,
-      }}
+      className="font-mono uppercase"
+      style={{ fontSize: 10, letterSpacing: '0.14em', color: '#5C6356', marginBottom: 4 }}
     >
-      <div
-        className="font-mono uppercase"
-        style={{
-          fontSize: 10,
-          letterSpacing: '0.14em',
-          color: tone,
-          marginBottom: 4,
-        }}
-      >
-        {label} · dev only
-      </div>
-      <div
-        className="text-caddie-ink-dim"
-        style={{ fontSize: 13, lineHeight: 1.5, fontStyle: 'italic' }}
-      >
-        {children}
-      </div>
+      {children}
+    </div>
+  )
+}
+
+function SrcBody({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="text-caddie-ink-dim" style={{ fontSize: 13, lineHeight: 1.55 }}>
+      {children}
     </div>
   )
 }
