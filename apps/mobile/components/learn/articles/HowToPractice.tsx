@@ -1,4 +1,4 @@
-import { Linking, Pressable, Text, View } from 'react-native'
+import { Text, View } from 'react-native'
 import {
   ArticleFooter,
   ArticleHeader,
@@ -9,8 +9,9 @@ import {
   H4,
   Hr,
   Kv,
+  Link,
   P,
-  ResourceList,
+  Sources,
 } from '../primitives'
 import { FONT } from '../../../lib/typography'
 
@@ -278,31 +279,87 @@ export function HowToPracticeArticle() {
 
       <Hr />
 
-      <H3>Resources</H3>
-      <DevNote variant="todo">
-        These are starting points for further research, not endorsements.
-        Verify all links are current before publishing.
-      </DevNote>
-
-      <H4>Books</H4>
-      <ResourceList items={BOOKS} />
-
-      <H4>Research worth knowing</H4>
-      <BulletList
+      <Sources
         items={[
-          'Robert Bjork — contextual interference, desirable difficulties (UCLA)',
-          'Anders Ericsson — deliberate practice and expert performance',
-          'Gabriele Wulf — attentional focus research showing external focus cues outperform internal focus cues',
-          'Sian Beilock — choking under pressure',
+          {
+            name: 'Block vs random practice (contextual interference)',
+            note: (
+              <Text>
+                <Link href="https://www.nature.com/articles/s41598-024-65753-3">
+                  Scientific Reports (2024) · meta-analysis
+                </Link>{' '}
+                confirms high contextual interference improves retention, and{' '}
+                <Link href="https://www.tandfonline.com/doi/abs/10.1080/00336297.1998.10484285">
+                  Magill & Hall, Quest (1998)
+                </Link>{' '}
+                reviews the effect first shown by Shea & Morgan (1979): random
+                order hurts practice, helps learning.
+              </Text>
+            ),
+          },
+          {
+            name: 'Random practice in golf specifically',
+            note: (
+              <Text>
+                <Link href="https://www.frontiersin.org/journals/sports-and-active-living/articles/10.3389/fspor.2024.1324615/full">
+                  Frontiers · motor learning in golf, a systematic review
+                </Link>{' '}
+                and{' '}
+                <Link href="https://pubmed.ncbi.nlm.nih.gov/28449601/">
+                  Fazeli et al. (2017) · random vs blocked in golf putting
+                </Link>{' '}
+                — random groups putt worse in practice, better in retention.
+              </Text>
+            ),
+          },
+          {
+            name: 'Varying conditions — variability and desirable difficulty',
+            note: (
+              <Text>
+                <Link href="https://link.springer.com/article/10.3758/s13421-021-01168-z">
+                  Memory & Cognition (2021) · interleaving and transfer
+                </Link>{' '}
+                and{' '}
+                <Link href="https://pubmed.ncbi.nlm.nih.gov/14768838/">
+                  Sherwood & Lee (2003) · schema theory review
+                </Link>{' '}
+                — variable, interleaved practice is a "desirable difficulty" that
+                builds more general, robust skill.
+              </Text>
+            ),
+          },
+          {
+            name: 'Practicing under pressure',
+            note: (
+              <Text>
+                <Link href="https://www.tandfonline.com/doi/full/10.1080/1750984X.2017.1408134">
+                  International Review of Sport & Exercise Psychology (2018) ·
+                  choking interventions, a systematic review
+                </Link>{' '}
+                and{' '}
+                <Link href="https://www.frontiersin.org/journals/psychology/articles/10.3389/fpsyg.2025.1435374/full">
+                  Frontiers in Psychology (2025) · performance under pressure
+                </Link>{' '}
+                — acclimatization and pre-performance routines help skills
+                survive competitive anxiety.
+              </Text>
+            ),
+          },
+          {
+            name: 'Deliberate practice, and its limits',
+            note: (
+              <Text>
+                <Link href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6731745/">
+                  Macnamara & Hambrick, revisiting Ericsson, Krampe &
+                  Tesch-Römer (1993)
+                </Link>{' '}
+                — practice quality matters enormously, though the strong claim
+                that hours alone explain expertise has not fully replicated.
+              </Text>
+            ),
+          },
         ]}
       />
-
-      <H4>Online resources</H4>
-      <ResourceLink label="TPI (Titleist Performance Institute)" url="https://mytpi.com" />
-      <ResourceLink label="Robert Bjork's lab" url="https://bjorklab.psych.ucla.edu" />
-      <DevNote variant="todo" inline>
-        TODO: Verify Bjork lab URL is current
-      </DevNote>
 
       <ArticleFooter>
         Last reviewed May 2026
@@ -345,47 +402,3 @@ function SessionRows() {
     </View>
   )
 }
-
-function ResourceLink({ label, url }: { label: string; url: string }) {
-  return (
-    <Pressable onPress={() => Linking.openURL(url)} style={{ paddingVertical: 8 }}>
-      <Text style={{ color: C.ink, fontFamily: FONT.body, fontSize: 15, lineHeight: 22 }}>
-        {label}:{' '}
-        <Text style={{ color: C.accent, textDecorationLine: 'underline' }}>{url}</Text>
-      </Text>
-    </Pressable>
-  )
-}
-
-const BOOKS = [
-  {
-    title: '"Make It Stick"',
-    by: 'Brown, Roediger, McDaniel.',
-    note: 'Best plain-language summary of learning science. Not golf-specific but directly applicable.',
-  },
-  {
-    title: '"Golf Is Not a Game of Perfect"',
-    by: 'Bob Rotella.',
-    note: 'Standard text on golf psychology and performance.',
-  },
-  {
-    title: '"Dave Pelz\'s Short Game Bible"',
-    by: '',
-    note: 'Research-based approach to practice from inside 100 yards.',
-  },
-  {
-    title: '"Harvey Penick\'s Little Red Book"',
-    by: '',
-    note: 'The most beloved golf instruction book ever written. Simple, wise, feel-based.',
-  },
-  {
-    title: '"Peak"',
-    by: 'Anders Ericsson.',
-    note: 'His own account of deliberate practice research. Better than the Gladwell version.',
-  },
-  {
-    title: '"Choke"',
-    by: 'Sian Beilock.',
-    note: 'Accessible neuroscience of performance under pressure.',
-  },
-]

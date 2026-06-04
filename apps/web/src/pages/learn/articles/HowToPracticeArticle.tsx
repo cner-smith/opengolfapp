@@ -307,90 +307,7 @@ export function HowToPracticeArticle() {
 
       <Hr />
 
-      <H3>Resources</H3>
-      <EditorialNote variant="todo">
-        These are starting points for further research, not
-        endorsements. Verify all links are current before publishing.
-      </EditorialNote>
-
-      <H4>Books</H4>
-      <ResourceList
-        items={[
-          {
-            title: '"Make It Stick"',
-            by: 'Brown, Roediger, McDaniel.',
-            note: 'Best plain-language summary of learning science. Not golf-specific but directly applicable.',
-          },
-          {
-            title: '"Golf Is Not a Game of Perfect"',
-            by: 'Bob Rotella.',
-            note: 'Standard text on golf psychology and performance.',
-          },
-          {
-            title: '"Dave Pelz\'s Short Game Bible"',
-            note: 'Research-based approach to practice from inside 100 yards.',
-          },
-          {
-            title: '"Harvey Penick\'s Little Red Book"',
-            note: 'The most beloved golf instruction book ever written. Simple, wise, feel-based.',
-          },
-          {
-            title: '"Peak"',
-            by: 'Anders Ericsson.',
-            note: 'His own account of deliberate practice research. Better than the Gladwell version.',
-          },
-          {
-            title: '"Choke"',
-            by: 'Sian Beilock.',
-            note: 'Accessible neuroscience of performance under pressure.',
-          },
-        ]}
-      />
-
-      <H4>Research worth knowing</H4>
-      <ul style={UL_STYLE}>
-        <li>
-          Robert Bjork — contextual interference, desirable
-          difficulties (UCLA)
-        </li>
-        <li>
-          Anders Ericsson — deliberate practice and expert performance
-        </li>
-        <li>
-          Gabriele Wulf — attentional focus research showing external
-          focus cues outperform internal focus cues
-        </li>
-        <li>Sian Beilock — choking under pressure</li>
-      </ul>
-
-      <H4>Online resources</H4>
-      <ul style={UL_STYLE}>
-        <li>
-          TPI (Titleist Performance Institute):{' '}
-          <a
-            href="https://mytpi.com"
-            target="_blank"
-            rel="noreferrer"
-            style={{ color: '#1F3D2C', textDecoration: 'underline' }}
-          >
-            mytpi.com
-          </a>
-        </li>
-        <li>
-          Robert Bjork's lab:{' '}
-          <a
-            href="https://bjorklab.psych.ucla.edu"
-            target="_blank"
-            rel="noreferrer"
-            style={{ color: '#1F3D2C', textDecoration: 'underline' }}
-          >
-            bjorklab.psych.ucla.edu
-          </a>
-          <EditorialNote variant="todo" inline>
-            TODO: Verify this URL is current
-          </EditorialNote>
-        </li>
-      </ul>
+      <Sources />
 
       <Footer />
     </article>
@@ -540,40 +457,114 @@ function SessionTable() {
   )
 }
 
-interface ResourceItem {
-  title: string
-  by?: string
-  note: string
+function Sources() {
+  return (
+    <section style={{ borderTop: '1px solid #D9D2BF', paddingTop: 18, marginTop: 22 }}>
+      <div className="kicker" style={{ marginBottom: 12 }}>
+        Sources
+      </div>
+      <div style={{ display: 'grid', gap: 14, maxWidth: 640 }}>
+        <div>
+          <SrcLabel>Block vs random practice (contextual interference)</SrcLabel>
+          <SrcBody>
+            <Src href="https://www.nature.com/articles/s41598-024-65753-3">
+              Scientific Reports (2024) · meta-analysis
+            </Src>{' '}
+            confirms high contextual interference improves retention, and{' '}
+            <Src href="https://www.tandfonline.com/doi/abs/10.1080/00336297.1998.10484285">
+              Magill &amp; Hall, Quest (1998)
+            </Src>{' '}
+            reviews the effect first shown by Shea &amp; Morgan (1979): random
+            order hurts practice, helps learning.
+          </SrcBody>
+        </div>
+        <div>
+          <SrcLabel>Random practice in golf specifically</SrcLabel>
+          <SrcBody>
+            <Src href="https://www.frontiersin.org/journals/sports-and-active-living/articles/10.3389/fspor.2024.1324615/full">
+              Frontiers · motor learning in golf, a systematic review
+            </Src>{' '}
+            and{' '}
+            <Src href="https://pubmed.ncbi.nlm.nih.gov/28449601/">
+              Fazeli et al. (2017) · random vs blocked in golf putting
+            </Src>{' '}
+            — random groups putt worse in practice, better in retention.
+          </SrcBody>
+        </div>
+        <div>
+          <SrcLabel>Varying conditions — variability and desirable difficulty</SrcLabel>
+          <SrcBody>
+            <Src href="https://link.springer.com/article/10.3758/s13421-021-01168-z">
+              Memory &amp; Cognition (2021) · interleaving and transfer
+            </Src>{' '}
+            and{' '}
+            <Src href="https://pubmed.ncbi.nlm.nih.gov/14768838/">
+              Sherwood &amp; Lee (2003) · schema theory review
+            </Src>{' '}
+            — variable, interleaved practice is a "desirable difficulty" that
+            builds more general, robust skill.
+          </SrcBody>
+        </div>
+        <div>
+          <SrcLabel>Practicing under pressure</SrcLabel>
+          <SrcBody>
+            <Src href="https://www.tandfonline.com/doi/full/10.1080/1750984X.2017.1408134">
+              International Review of Sport &amp; Exercise Psychology (2018) ·
+              choking interventions, a systematic review
+            </Src>{' '}
+            and{' '}
+            <Src href="https://www.frontiersin.org/journals/psychology/articles/10.3389/fpsyg.2025.1435374/full">
+              Frontiers in Psychology (2025) · performance under pressure
+            </Src>{' '}
+            — acclimatization and pre-performance routines help skills survive
+            competitive anxiety.
+          </SrcBody>
+        </div>
+        <div>
+          <SrcLabel>Deliberate practice, and its limits</SrcLabel>
+          <SrcBody>
+            <Src href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6731745/">
+              Macnamara &amp; Hambrick, revisiting Ericsson, Krampe &amp;
+              Tesch-Römer (1993)
+            </Src>{' '}
+            — practice quality matters enormously, though the strong claim that
+            hours alone explain expertise has not fully replicated.
+          </SrcBody>
+        </div>
+      </div>
+    </section>
+  )
 }
 
-function ResourceList({ items }: { items: ResourceItem[] }) {
+function SrcLabel({ children }: { children: React.ReactNode }) {
   return (
-    <ul style={{ listStyle: 'none', padding: 0, margin: '8px 0 14px', maxWidth: 680 }}>
-      {items.map((r) => (
-        <li
-          key={r.title}
-          style={{
-            padding: '12px 0',
-            borderTop: '1px solid #D9D2BF',
-          }}
-        >
-          <div
-            className="font-serif text-caddie-ink"
-            style={{ fontSize: 15, fontWeight: 500, fontStyle: 'italic' }}
-          >
-            {r.title}
-            {r.by && (
-              <span className="text-caddie-ink-dim" style={{ fontStyle: 'normal', fontWeight: 400 }}>
-                {' '}— {r.by}
-              </span>
-            )}
-          </div>
-          <div className="text-caddie-ink-dim" style={{ fontSize: 14, lineHeight: 1.55, marginTop: 4 }}>
-            {r.note}
-          </div>
-        </li>
-      ))}
-    </ul>
+    <div
+      className="font-mono uppercase"
+      style={{ fontSize: 10, letterSpacing: '0.14em', color: '#5C6356', marginBottom: 4 }}
+    >
+      {children}
+    </div>
+  )
+}
+
+function SrcBody({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="text-caddie-ink-dim" style={{ fontSize: 13, lineHeight: 1.55 }}>
+      {children}
+    </div>
+  )
+}
+
+function Src({ href, children }: { href: string; children: React.ReactNode }) {
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      style={{ color: '#1F3D2C', textDecoration: 'underline' }}
+    >
+      {children}
+    </a>
   )
 }
 
