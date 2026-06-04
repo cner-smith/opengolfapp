@@ -17,7 +17,7 @@ import { FONT } from '../../../lib/typography'
 export function HowToPracticeArticle() {
   return (
     <View>
-      <ArticleHeader kicker="Improving your game · Draft" title="How to practice." />
+      <ArticleHeader kicker="Improving your game · How to practice" title="How to practice." />
 
       <H3>The uncomfortable truth</H3>
       <P>
@@ -96,6 +96,11 @@ export function HowToPracticeArticle() {
         reconstruct the motor pattern from scratch. That reconstruction
         process is where learning happens.
       </Kv>
+      <Kv label="Vary the conditions too">
+        Don't just change clubs — change distance, lie, wind, and slope.
+        Golf never gives you the same shot twice, so practice that never
+        repeats a shot transfers best.
+      </Kv>
       <Kv label="Not good for">
         Learning a brand new movement. Don't randomize before you have a
         basic pattern to work with.
@@ -109,17 +114,26 @@ export function HowToPracticeArticle() {
         still debated
       </DevNote>
 
-      <H4>Variable practice</H4>
+      <H4>Skill games</H4>
       <Kv label="What it is">
-        Same club, different conditions. 9-iron from 100 yards, then 90,
-        then uphill, then into wind, then from a downslope.
+        Turning a drill into a scored challenge. Make 7 of 10 from 8 feet.
+        Get up-and-down 6 times out of 10. Land 5 wedges inside a 15-foot
+        circle. Every game has a number you can pass or fail.
       </Kv>
       <Kv label="Good for">
-        Building adaptability. Golf never gives you the same shot twice.
-        Variable practice trains you for that reality.
+        Feedback and tracking. A score tells you instantly whether a shot
+        was good enough, and the same game repeated over weeks shows
+        whether you're actually improving — not just whether today felt
+        good.
+      </Kv>
+      <Kv label="Why it works">
+        A target and a score force a real result on every ball. That's the
+        line between practice and just hitting. It also makes practice
+        competitive, which is what keeps you coming back.
       </Kv>
       <Kv label="Combine it with">
-        Random practice for maximum transfer.
+        Pressure. Add a consequence to a skill game — start over on a miss
+        — and you've trained scoring and nerves at the same time.
       </Kv>
 
       <H4>Pressure practice</H4>
@@ -291,8 +305,7 @@ export function HowToPracticeArticle() {
       </DevNote>
 
       <ArticleFooter>
-        Last reviewed May 2026 · Draft, needs instructor review · Edit
-        docs/learn/how-to-practice.md to contribute
+        Last reviewed May 2026
       </ArticleFooter>
     </View>
   )

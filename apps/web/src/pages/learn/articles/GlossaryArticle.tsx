@@ -11,7 +11,7 @@ export function GlossaryArticle() {
       }}
     >
       <div className="kicker" style={{ marginBottom: 14 }}>
-        Understanding the game · Draft
+        Understanding the game · Glossary
       </div>
       <h2
         className="font-serif text-caddie-ink"
@@ -717,8 +717,7 @@ function Footer() {
         lineHeight: 1.6,
       }}
     >
-      Last reviewed May 2026 · Draft, being expanded · Edit
-      docs/learn/glossary.md to contribute
+      Last reviewed May 2026
     </div>
   )
 }

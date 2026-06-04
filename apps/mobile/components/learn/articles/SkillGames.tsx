@@ -16,7 +16,7 @@ export function SkillGamesArticle() {
   return (
     <View>
       <ArticleHeader
-        kicker="Improving your game · Draft"
+        kicker="Improving your game · Skill games"
         title="Skill games and pressure games."
       />
 
@@ -273,8 +273,7 @@ export function SkillGamesArticle() {
       <ResourceList items={SKILL_GAMES_RESOURCES} />
 
       <ArticleFooter>
-        Last reviewed May 2026 · Draft, needs review · Edit
-        docs/learn/skill-games-pressure-games.md to contribute
+        Last reviewed May 2026
       </ArticleFooter>
     </View>
   )

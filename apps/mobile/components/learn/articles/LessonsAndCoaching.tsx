@@ -21,7 +21,7 @@ export function LessonsAndCoachingArticle() {
   return (
     <View>
       <ArticleHeader
-        kicker="Working with coaches · Draft"
+        kicker="Working with coaches · Lessons and coaching"
         title="Lessons and coaching."
       />
 
@@ -276,7 +276,7 @@ export function LessonsAndCoachingArticle() {
         ]}
       />
 
-      <ArticleFooter>Last reviewed May 2026 · Draft, needs review</ArticleFooter>
+      <ArticleFooter>Last reviewed May 2026</ArticleFooter>
     </View>
   )
 }

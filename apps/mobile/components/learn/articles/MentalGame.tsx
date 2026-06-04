@@ -13,7 +13,7 @@ import {
 export function MentalGameArticle() {
   return (
     <View>
-      <ArticleHeader kicker="On the course · Draft" title="The mental game." />
+      <ArticleHeader kicker="On the course · The mental game" title="The mental game." />
 
       <H3>Golf is you versus you</H3>
       <P>
@@ -332,8 +332,7 @@ export function MentalGameArticle() {
       <ResourceList items={MENTAL_GAME_RESOURCES} />
 
       <ArticleFooter>
-        Last reviewed May 2026 · Draft, needs review · Edit
-        docs/learn/mental-game.md to contribute
+        Last reviewed May 2026
       </ArticleFooter>
     </View>
   )

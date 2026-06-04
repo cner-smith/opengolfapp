@@ -11,7 +11,7 @@ export function BuildingYourBagArticle() {
       }}
     >
       <div className="kicker" style={{ marginBottom: 14 }}>
-        Your equipment · Draft
+        Your equipment · Building your bag
       </div>
       <h2
         className="font-serif text-caddie-ink"
@@ -486,7 +486,7 @@ function Footer() {
         lineHeight: 1.6,
       }}
     >
-      Last reviewed May 2026 · Draft, needs fitter review
+      Last reviewed May 2026
     </div>
   )
 }

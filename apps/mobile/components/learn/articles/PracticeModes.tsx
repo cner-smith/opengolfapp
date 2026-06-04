@@ -20,7 +20,7 @@ export function PracticeModesArticle() {
   return (
     <View>
       <ArticleHeader
-        kicker="Improving your game · Draft"
+        kicker="Improving your game · Practice modes"
         title="Block, random, and pressure."
       />
 
@@ -235,7 +235,7 @@ export function PracticeModesArticle() {
       />
 
       <ArticleFooter>
-        Last reviewed May 2026 · Draft, needs coaching review
+        Last reviewed May 2026
       </ArticleFooter>
     </View>
   )

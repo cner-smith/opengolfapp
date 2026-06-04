@@ -11,7 +11,7 @@ export function SkillGamesArticle() {
       }}
     >
       <div className="kicker" style={{ marginBottom: 14 }}>
-        Improving your game · Draft
+        Improving your game · Skill games
       </div>
       <h2
         className="font-serif text-caddie-ink"
@@ -608,8 +608,7 @@ function Footer() {
         lineHeight: 1.6,
       }}
     >
-      Last reviewed May 2026 · Draft, needs review · Edit
-      docs/learn/skill-games-pressure-games.md to contribute
+      Last reviewed May 2026
     </div>
   )
 }

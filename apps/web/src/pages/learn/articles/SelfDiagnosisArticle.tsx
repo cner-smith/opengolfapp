@@ -11,7 +11,7 @@ export function SelfDiagnosisArticle() {
       }}
     >
       <div className="kicker" style={{ marginBottom: 14 }}>
-        On the course · Draft
+        On the course · Self-diagnosis
       </div>
       <h2
         className="font-serif text-caddie-ink"
@@ -610,7 +610,7 @@ function Footer() {
         lineHeight: 1.6,
       }}
     >
-      Last reviewed May 2026 · Draft, needs instructor review
+      Last reviewed May 2026
     </div>
   )
 }

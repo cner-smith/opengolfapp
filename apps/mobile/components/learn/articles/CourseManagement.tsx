@@ -14,7 +14,7 @@ import {
 export function CourseManagementArticle() {
   return (
     <View>
-      <ArticleHeader kicker="On the course · Draft" title="Course management." />
+      <ArticleHeader kicker="On the course · Course management" title="Course management." />
 
       <H3>You are not on the range anymore</H3>
       <P>
@@ -484,8 +484,7 @@ export function CourseManagementArticle() {
       <ResourceList items={RESOURCES} />
 
       <ArticleFooter>
-        Last reviewed May 2026 · Draft, needs instructor review ·
-        Edit docs/learn/course-management.md to contribute
+        Last reviewed May 2026
       </ArticleFooter>
     </View>
   )

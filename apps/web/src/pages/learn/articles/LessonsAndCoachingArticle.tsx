@@ -11,7 +11,7 @@ export function LessonsAndCoachingArticle() {
       }}
     >
       <div className="kicker" style={{ marginBottom: 14 }}>
-        Working with coaches · Draft
+        Working with coaches · Lessons and coaching
       </div>
       <h2
         className="font-serif text-caddie-ink"
@@ -507,7 +507,7 @@ function Footer() {
         lineHeight: 1.6,
       }}
     >
-      Last reviewed May 2026 · Draft, needs review
+      Last reviewed May 2026
     </div>
   )
 }

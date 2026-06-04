@@ -27,7 +27,7 @@ import { FONT } from '../../../lib/typography'
 export function GuideToFittingsArticle() {
   return (
     <View>
-      <ArticleHeader kicker="Your equipment · Draft" title="Golf fittings." />
+      <ArticleHeader kicker="Your equipment · Golf fittings" title="Golf fittings." />
 
       <H3>There is no such thing as "getting fit"</H3>
       <P>
@@ -343,7 +343,7 @@ export function GuideToFittingsArticle() {
         ]}
       />
 
-      <ArticleFooter>Last reviewed May 2026 · Draft, needs fitter review</ArticleFooter>
+      <ArticleFooter>Last reviewed May 2026</ArticleFooter>
     </View>
   )
 }

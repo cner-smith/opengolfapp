@@ -5,7 +5,7 @@ export function GlossaryArticle() {
   return (
     <View>
       <ArticleHeader
-        kicker="Understanding the game · Draft"
+        kicker="Understanding the game · Glossary"
         title="Glossary of golf terms."
       />
       <P>
@@ -29,8 +29,7 @@ export function GlossaryArticle() {
       ))}
 
       <ArticleFooter>
-        Last reviewed May 2026 · Draft, being expanded · Edit
-        docs/learn/glossary.md to contribute
+        Last reviewed May 2026
       </ArticleFooter>
     </View>
   )

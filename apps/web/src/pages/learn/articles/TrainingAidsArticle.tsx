@@ -11,7 +11,7 @@ export function TrainingAidsArticle() {
       }}
     >
       <div className="kicker" style={{ marginBottom: 14 }}>
-        Your equipment · Draft
+        Your equipment · Training aids
       </div>
       <h2
         className="font-serif text-caddie-ink"
@@ -752,7 +752,7 @@ function Footer() {
         lineHeight: 1.6,
       }}
     >
-      Last reviewed May 2026 · Draft, needs coaching review
+      Last reviewed May 2026
     </div>
   )
 }

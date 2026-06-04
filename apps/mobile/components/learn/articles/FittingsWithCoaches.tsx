@@ -19,7 +19,7 @@ export function FittingsWithCoachesArticle() {
   return (
     <View>
       <ArticleHeader
-        kicker="Working with coaches · Draft"
+        kicker="Working with coaches · Fittings with coaches"
         title="A lesson changes the swing; a fitting fits it."
       />
 
@@ -215,7 +215,7 @@ export function FittingsWithCoachesArticle() {
         ]}
       />
 
-      <ArticleFooter>Last reviewed May 2026 · Draft, needs coaching review</ArticleFooter>
+      <ArticleFooter>Last reviewed May 2026</ArticleFooter>
     </View>
   )
 }

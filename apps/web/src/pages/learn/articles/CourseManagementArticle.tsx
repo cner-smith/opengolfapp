@@ -11,7 +11,7 @@ export function CourseManagementArticle() {
       }}
     >
       <div className="kicker" style={{ marginBottom: 14 }}>
-        On the course · Draft
+        On the course · Course management
       </div>
       <h2
         className="font-serif text-caddie-ink"
@@ -714,8 +714,7 @@ function Footer() {
         lineHeight: 1.6,
       }}
     >
-      Last reviewed May 2026 · Draft, needs instructor review · Edit
-      docs/learn/course-management.md to contribute
+      Last reviewed May 2026
     </div>
   )
 }
