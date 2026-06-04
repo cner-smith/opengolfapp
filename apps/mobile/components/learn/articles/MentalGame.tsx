@@ -1,4 +1,4 @@
-import { View } from 'react-native'
+import { Text, View } from 'react-native'
 import {
   ArticleFooter,
   ArticleHeader,
@@ -6,8 +6,9 @@ import {
   DevNote,
   H3,
   Hr,
+  Link,
   P,
-  ResourceList,
+  Sources,
 } from '../primitives'
 
 export function MentalGameArticle() {
@@ -325,11 +326,38 @@ export function MentalGameArticle() {
 
       <Hr />
 
-      <H3>Resources</H3>
-      <DevNote variant="todo">
-        Verify all links before publishing.
-      </DevNote>
-      <ResourceList items={MENTAL_GAME_RESOURCES} />
+      <Sources
+        items={[
+          {
+            name: 'The science of performing under pressure',
+            note: (
+              <Text>
+                <Link href="https://www.tandfonline.com/doi/full/10.1080/1750984X.2017.1408134">
+                  International Review of Sport & Exercise Psychology (2018) ·
+                  choking interventions, a systematic review
+                </Link>{' '}
+                and{' '}
+                <Link href="https://www.frontiersin.org/journals/psychology/articles/10.3389/fpsyg.2025.1435374/full">
+                  Frontiers in Psychology (2025) · performance under pressure
+                </Link>{' '}
+                — pre-performance routines and gradual exposure to stakes help
+                skills survive competitive anxiety.
+              </Text>
+            ),
+          },
+          {
+            name: 'Foundational texts on the mental game',
+            note: (
+              <Text>
+                Bob Rotella, "Golf Is Not a Game of Perfect" and "Golf Is a Game
+                of Confidence"; Sian Beilock, "Choke"; Tim Gallwey, "The Inner
+                Game of Tennis"; Joseph Parent, "Zen Golf." These are the works
+                this article draws on.
+              </Text>
+            ),
+          },
+        ]}
+      />
 
       <ArticleFooter>
         Last reviewed May 2026
@@ -338,40 +366,3 @@ export function MentalGameArticle() {
   )
 }
 
-const MENTAL_GAME_RESOURCES = [
-  {
-    title: '"Golf Is Not a Game of Perfect"',
-    by: 'Bob Rotella.',
-    note: 'The gold standard in golf psychology. Essential reading.',
-  },
-  {
-    title: '"Golf Is a Game of Confidence"',
-    by: 'Bob Rotella.',
-    note: 'The follow-up, equally valuable.',
-  },
-  {
-    title: 'Bob Rotella — "My 10 Rules on Mental Fitness"',
-    by: '',
-    note: 'GolfWRX. The ten rules referenced throughout this article.',
-  },
-  {
-    title: '"Zen Golf"',
-    by: 'Joseph Parent.',
-    note: 'Buddhist-influenced approach to present-moment play.',
-  },
-  {
-    title: 'The Upbeat Golfer (Manu)',
-    by: '',
-    note: 'YouTube. Process-driven mental approach, target commitment, playing without fear.',
-  },
-  {
-    title: '"The Inner Game of Tennis"',
-    by: 'Tim Gallwey.',
-    note: 'Not golf-specific but the foundational text on getting out of your own way in sport.',
-  },
-  {
-    title: '"Choke"',
-    by: 'Sian Beilock.',
-    note: 'The neuroscience of why we perform poorly under pressure and what to do about it.',
-  },
-]

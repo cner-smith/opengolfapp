@@ -466,51 +466,7 @@ export function MentalGameArticle() {
 
       <Hr />
 
-      <H3>Resources</H3>
-      <EditorialNote variant="todo">
-        Verify all links before publishing.
-      </EditorialNote>
-      <ResourceList
-        items={[
-          {
-            title: '"Golf Is Not a Game of Perfect"',
-            by: 'Bob Rotella.',
-            note: 'The gold standard in golf psychology. Essential reading.',
-          },
-          {
-            title: '"Golf Is a Game of Confidence"',
-            by: 'Bob Rotella.',
-            note: 'The follow-up, equally valuable.',
-          },
-          {
-            title: 'Bob Rotella — "My 10 Rules on Mental Fitness"',
-            note: 'GolfWRX. The ten rules referenced throughout this article.',
-          },
-          {
-            title: '"Zen Golf"',
-            by: 'Joseph Parent.',
-            note: 'Buddhist-influenced approach to present-moment play.',
-          },
-          {
-            title: 'The Upbeat Golfer (Manu)',
-            note: 'YouTube. Process-driven mental approach, target commitment, playing without fear.',
-          },
-          {
-            title: '"The Inner Game of Tennis"',
-            by: 'Tim Gallwey.',
-            note: 'Not golf-specific but the foundational text on getting out of your own way in sport. Directly applicable.',
-          },
-          {
-            title: '"Choke"',
-            by: 'Sian Beilock.',
-            note: 'The neuroscience of why we perform poorly under pressure and what to do about it.',
-          },
-        ]}
-      />
-      <EditorialNote variant="todo">
-        TODO: Add sports psychology research citations on visualization
-        and motor performance
-      </EditorialNote>
+      <Sources />
 
       <Footer />
     </article>
@@ -577,40 +533,71 @@ const UL_STYLE: React.CSSProperties = {
   maxWidth: 680,
 }
 
-interface ResourceItem {
-  title: string
-  by?: string
-  note: string
+function Sources() {
+  return (
+    <section style={{ borderTop: '1px solid #D9D2BF', paddingTop: 18, marginTop: 22 }}>
+      <div className="kicker" style={{ marginBottom: 12 }}>
+        Sources
+      </div>
+      <div style={{ display: 'grid', gap: 14, maxWidth: 640 }}>
+        <div>
+          <SrcLabel>The science of performing under pressure</SrcLabel>
+          <SrcBody>
+            <Src href="https://www.tandfonline.com/doi/full/10.1080/1750984X.2017.1408134">
+              International Review of Sport &amp; Exercise Psychology (2018) ·
+              choking interventions, a systematic review
+            </Src>{' '}
+            and{' '}
+            <Src href="https://www.frontiersin.org/journals/psychology/articles/10.3389/fpsyg.2025.1435374/full">
+              Frontiers in Psychology (2025) · performance under pressure
+            </Src>{' '}
+            — pre-performance routines and gradual exposure to stakes help
+            skills survive competitive anxiety.
+          </SrcBody>
+        </div>
+        <div>
+          <SrcLabel>Foundational texts on the mental game</SrcLabel>
+          <SrcBody>
+            Bob Rotella, "Golf Is Not a Game of Perfect" and "Golf Is a Game of
+            Confidence"; Sian Beilock, "Choke"; Tim Gallwey, "The Inner Game of
+            Tennis"; Joseph Parent, "Zen Golf." These are the works this article
+            draws on.
+          </SrcBody>
+        </div>
+      </div>
+    </section>
+  )
 }
 
-function ResourceList({ items }: { items: ResourceItem[] }) {
+function SrcLabel({ children }: { children: React.ReactNode }) {
   return (
-    <ul style={{ listStyle: 'none', padding: 0, margin: '8px 0 14px', maxWidth: 680 }}>
-      {items.map((r) => (
-        <li
-          key={r.title}
-          style={{
-            padding: '12px 0',
-            borderTop: '1px solid #D9D2BF',
-          }}
-        >
-          <div
-            className="font-serif text-caddie-ink"
-            style={{ fontSize: 15, fontWeight: 500, fontStyle: 'italic' }}
-          >
-            {r.title}
-            {r.by && (
-              <span className="text-caddie-ink-dim" style={{ fontStyle: 'normal', fontWeight: 400 }}>
-                {' '}— {r.by}
-              </span>
-            )}
-          </div>
-          <div className="text-caddie-ink-dim" style={{ fontSize: 14, lineHeight: 1.55, marginTop: 4 }}>
-            {r.note}
-          </div>
-        </li>
-      ))}
-    </ul>
+    <div
+      className="font-mono uppercase"
+      style={{ fontSize: 10, letterSpacing: '0.14em', color: '#5C6356', marginBottom: 4 }}
+    >
+      {children}
+    </div>
+  )
+}
+
+function SrcBody({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="text-caddie-ink-dim" style={{ fontSize: 13, lineHeight: 1.55 }}>
+      {children}
+    </div>
+  )
+}
+
+function Src({ href, children }: { href: string; children: React.ReactNode }) {
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      style={{ color: '#1F3D2C', textDecoration: 'underline' }}
+    >
+      {children}
+    </a>
   )
 }
 
