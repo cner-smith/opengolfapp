@@ -19,11 +19,21 @@ import {
   selectNudgeDrills,
   type RoundFocus,
 } from '@oga/core'
-import { getDrills, getProfile } from '@oga/supabase'
+import {
+  deleteRound,
+  getDrills,
+  getProfile,
+  updateRound,
+  upsertHoleScore,
+} from '@oga/supabase'
 import type { Database } from '@oga/supabase'
 import { supabase } from '../../../../lib/supabase'
+import { completeRound } from '../../../../lib/completeRound'
 import { ShareableScorecardCard } from '../../../../components/round/ShareableScorecardCard'
 import { PastHoleShotsSheet } from '../../../../components/round/PastHoleShotsSheet'
+import { PastRoundMap } from '../../../../components/round/PastRoundMap'
+import { ScoreCell, TabSwitcher } from '../../../../components/round/PastScorecardParts'
+import type { LatLng } from '../../../../components/round/HoleMap'
 import LiveRoundSession from '../../../../components/round/LiveRoundSession'
 import { useAuth } from '../../../../hooks/useAuth'
 import { useUnits } from '../../../../hooks/useUnits'
@@ -62,10 +72,18 @@ export default function RoundIndex() {
   const [holeScores, setHoleScores] = useState<HoleScoreRow[]>([])
   const [shots, setShots] = useState<ShotRow[]>([])
   const [courseName, setCourseName] = useState<string>('Round')
+  const [courseCenter, setCourseCenter] = useState<LatLng | null>(null)
+  // Scorecard ⇄ Map tabs (#514): the scorecard edits scores/putts/details,
+  // the map places ball + aim geometry. `mapHole` is the hole the map is
+  // focused on; its prev/next nav drives it.
+  const [view, setView] = useState<'scorecard' | 'map'>('scorecard')
+  const [mapHole, setMapHole] = useState(1)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [redirectToLive, setRedirectToLive] = useState(false)
   const [sharing, setSharing] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+  const [savingSG, setSavingSG] = useState(false)
   const [shareTone, setShareTone] = useState<'light' | 'dark'>('light')
   // Selected hole for the read-only shots sheet. The sheet is the
   // entire past-round drill-down — we deliberately do NOT navigate
@@ -86,19 +104,27 @@ export default function RoundIndex() {
       try {
         const { data: r, error: rErr } = await supabase
           .from('rounds')
-          .select('*, courses(name)')
+          .select('*, courses(name, lat, lng)')
           .eq('id', id)
           .single()
         if (rErr || !r) throw rErr ?? new Error('Round not found')
         if (!active) return
-        const row = r as RoundRow & { courses?: { name: string | null } | null }
+        const row = r as RoundRow & {
+          courses?: { name: string | null; lat: number | null; lng: number | null } | null
+        }
         setRound(row)
         setCourseName(row.courses?.name ?? 'Round')
-        // Live round signal: total_score is set when the round completes
-        // (either Finish round or End round early). Anything else is
-        // still in progress — drop into the hole flow via <Redirect>
-        // on the next render so we can't navigate after unmount.
-        if (row.total_score == null) {
+        setCourseCenter(
+          row.courses?.lat != null && row.courses?.lng != null
+            ? { lat: row.courses.lat, lng: row.courses.lng }
+            : null,
+        )
+        // Live round signal: total_score is null while a LIVE round is in
+        // progress. Past-round entry (#514) persists a total_score sentinel
+        // at creation and lands here on the editable scorecard — never the
+        // live map. The `mode !== 'past'` guard is belt-and-suspenders for
+        // the first render before the sentinel round row is re-read.
+        if (row.total_score == null && mode !== 'past') {
           if (active) setRedirectToLive(true)
           return
         }
@@ -167,14 +193,14 @@ export default function RoundIndex() {
     () => [...holes].sort((a, b) => a.number - b.number),
     [holes],
   )
-  // Drives the scorecard row's tap affordance — a row is only tappable
-  // if its hole has shots logged. Without this gate, the → arrow
-  // promises content; tap opens a sheet that reads "No shots logged
-  // for this hole." See #247.
-  const holeScoreIdsWithShots = useMemo(
-    () => new Set(shots.map((s) => s.hole_score_id)),
-    [shots],
-  )
+  // Per-hole shot counts for the scorecard "Shots" affordance. Every row
+  // is tappable now that the scorecard is editable (#514) — the count just
+  // distinguishes "N shots →" from "+ add →".
+  const holeScoreShotCount = useMemo(() => {
+    const m = new Map<string, number>()
+    for (const s of shots) m.set(s.hole_score_id, (m.get(s.hole_score_id) ?? 0) + 1)
+    return m
+  }, [shots])
 
   // Refetch shots on screen focus. The end-round write order is:
   // total_score + hole_scores first, then pending shot inserts trickle
@@ -225,7 +251,11 @@ export default function RoundIndex() {
       <LiveRoundSession
         roundId={id}
         initialHoleNumber={initialHole}
-        mode={mode === 'past' ? 'past' : 'live'}
+        // Past entry no longer routes here (#514) — the redirect above is
+        // gated on `mode !== 'past'`, so this branch is always a live round.
+        // The LiveRoundSession `mode`/isPastMode plumbing is now dead and can
+        // be removed in a follow-up cleanup.
+        mode="live"
         onHoleChange={syncHoleToUrl}
       />
     )
@@ -294,6 +324,135 @@ export default function RoundIndex() {
       Alert.alert('Share failed', (err as Error).message)
     } finally {
       setSharing(false)
+    }
+  }
+
+  // Delete the whole round. Mirrors web RoundHeader's Delete (RLS-gated
+  // on user_id via deleteRound). No "End round early" here — this is the
+  // past-round / review surface, not the live tracker (#514).
+  function handleDelete() {
+    if (!round || !user || deleting) return
+    Alert.alert(
+      'Delete round?',
+      'This permanently removes the round and all its shots.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            setDeleting(true)
+            const { error: delErr } = await deleteRound(supabase, round.id, user.id)
+            if (delErr) {
+              setDeleting(false)
+              Alert.alert('Delete failed', delErr.message)
+              return
+            }
+            router.replace('/(app)')
+          },
+        },
+      ],
+    )
+  }
+
+  // Save SG / finalize (#514). Mirrors web's "Save SG + finalize" — runs
+  // the same completeRound pass the live End-round uses: computes per-hole +
+  // round SG from the placed shots and writes totals back. Safe to re-run
+  // (it's idempotent over the current DB state), so editing then re-saving
+  // recomputes. completeRound's pending-shot sync is a no-op for past rounds
+  // (they write straight to Supabase, never the local queue).
+  async function handleSaveSG() {
+    if (!round || !user || savingSG) return
+    setSavingSG(true)
+    try {
+      const { data: profile } = await getProfile(supabase, user.id)
+      const handicap =
+        (profile as { handicap_index?: number | null } | null)?.handicap_index ??
+        null
+      await completeRound({
+        roundId: round.id,
+        courseId: round.course_id,
+        userId: user.id,
+        handicap,
+      })
+      // Refetch round + hole_scores so the SG breakdown + totals reflect the
+      // computed values without leaving the screen.
+      const [rRes, hsRes] = await Promise.all([
+        supabase
+          .from('rounds')
+          .select('*, courses(name, lat, lng)')
+          .eq('id', round.id)
+          .single(),
+        supabase.from('hole_scores').select('*').eq('round_id', round.id),
+      ])
+      if (rRes.data) {
+        let saved = rRes.data as RoundRow & {
+          courses?: { name: string | null } | null
+        }
+        // completeRound writes `total_score: totalScore || null`, so an
+        // all-zero past round comes back null — which would re-strand it on
+        // the live map on next open (#514). Preserve the non-null sentinel.
+        if (saved.total_score == null) {
+          await updateRound(supabase, round.id, { total_score: 0 }, user.id)
+          saved = { ...saved, total_score: 0 }
+        }
+        setRound(saved)
+      }
+      if (hsRes.data) setHoleScores(hsRes.data)
+    } catch (err) {
+      Alert.alert('Save SG failed', (err as Error).message)
+    } finally {
+      setSavingSG(false)
+    }
+  }
+
+  // Inline scorecard edits (#514). Upsert the hole_score, patch local
+  // state, and keep rounds.total_score in sync so the Total header + the
+  // home list reflect the running score without a Save-SG round trip.
+  // total_score stays non-null (sentinel preserved) so routing never
+  // regresses to the live map.
+  async function persistHoleScore(
+    holeId: string,
+    patch: { score?: number; putts?: number | null },
+  ) {
+    if (!round || !user) return
+    const existing = scoresByHoleId.get(holeId)
+    const { data, error: hsErr } = await upsertHoleScore(supabase, {
+      round_id: round.id,
+      hole_id: holeId,
+      score: patch.score ?? existing?.score ?? 0,
+      ...(patch.putts !== undefined ? { putts: patch.putts } : {}),
+    })
+    if (hsErr || !data) {
+      Alert.alert('Save failed', hsErr?.message ?? 'Could not save score')
+      return
+    }
+    const updatedRow = data as HoleScoreRow
+    const nextList = (() => {
+      const idx = holeScores.findIndex((hs) => hs.hole_id === holeId)
+      if (idx === -1) return [...holeScores, updatedRow]
+      const n = holeScores.slice()
+      n[idx] = updatedRow
+      return n
+    })()
+    setHoleScores(nextList)
+    // Recompute rounds.total_score from the entered scores. Putts edits
+    // don't move the total, so skip the round write for those.
+    if (patch.score !== undefined) {
+      const byHole = new Map(nextList.map((hs) => [hs.hole_id, hs]))
+      let total = 0
+      for (const h of sortedHoles) {
+        const s = byHole.get(h.id)?.score
+        if (s != null && s > 0) total += s
+      }
+      setRound((prev) => (prev ? { ...prev, total_score: total } : prev))
+      const { error: rErr } = await updateRound(
+        supabase,
+        round.id,
+        { total_score: total },
+        user.id,
+      )
+      if (rErr) Alert.alert('Save failed', rErr.message)
     }
   }
 
@@ -395,6 +554,9 @@ export default function RoundIndex() {
         </View>
       </View>
 
+      <TabSwitcher view={view} onChange={setView} />
+
+      {view === 'scorecard' && (
       <ScrollView contentContainerStyle={{ padding: 18, paddingBottom: 40 }}>
         <View
           style={{
@@ -414,7 +576,7 @@ export default function RoundIndex() {
                 fontVariant: ['tabular-nums'],
               }]}
             >
-              {round.total_score ?? '—'}
+              {runningPar === 0 ? '—' : runningScore}
             </Text>
           </View>
           <View style={{ alignItems: 'flex-end' }}>
@@ -528,66 +690,57 @@ export default function RoundIndex() {
           <View
             style={{
               flexDirection: 'row',
+              alignItems: 'center',
               paddingVertical: 8,
               borderBottomWidth: 1,
               borderColor: '#D9D2BF',
             }}
           >
             <Text style={{ ...KICKER, flex: 1, color: '#8A8B7E' }}>Hole</Text>
-            <Text
-              style={{ ...KICKER, width: 44, textAlign: 'right', color: '#8A8B7E' }}
-            >
+            <Text style={{ ...KICKER, width: 32, textAlign: 'right', color: '#8A8B7E' }}>
               Par
             </Text>
-            <Text
-              style={{ ...KICKER, width: 56, textAlign: 'right', color: '#8A8B7E' }}
-            >
+            <Text style={{ ...KICKER, width: 52, textAlign: 'right', color: '#8A8B7E' }}>
               Score
             </Text>
-            <Text
-              style={{ ...KICKER, width: 56, textAlign: 'right', color: '#8A8B7E' }}
-            >
-              +/−
+            <Text style={{ ...KICKER, width: 48, textAlign: 'right', color: '#8A8B7E' }}>
+              Putts
             </Text>
-            {/* Header spacer for the row affordance arrow. */}
-            <Text style={[TYPE.body, { width: 18, marginLeft: 6 }]}> </Text>
+            <Text style={{ ...KICKER, width: 84, textAlign: 'right', color: '#8A8B7E' }}>
+              Shots
+            </Text>
           </View>
           {sortedHoles.map((h) => {
             const hs = scoresByHoleId.get(h.id)
-            const score = hs?.score ?? null
-            const d = score != null && score > 0 ? score - h.par : null
-            const hasShots = hs ? holeScoreIdsWithShots.has(hs.id) : false
+            const score = hs?.score ?? 0
+            const putts = hs?.putts ?? null
+            const d = score > 0 ? score - h.par : null
+            const shotCount = hs ? holeScoreShotCount.get(hs.id) ?? 0 : 0
+            const scoreColor =
+              d == null
+                ? '#1C211C'
+                : d < 0
+                  ? '#1F3D2C'
+                  : d > 0
+                    ? '#A33A2A'
+                    : '#5C6356'
             return (
-              <PressableTouch
+              <View
                 key={h.id}
-                accessibilityRole={hasShots ? 'button' : 'text'}
-                accessibilityLabel={
-                  hasShots
-                    ? `Hole ${h.number}, par ${h.par}, score ${score}, view shots`
-                    : `Hole ${h.number}, par ${h.par}${score != null && score > 0 ? `, score ${score}` : ', not played'}`
-                }
-                onPress={hasShots ? () => setShotsForHole(h) : undefined}
-                android_ripple={hasShots ? { color: '#EBE5D6' } : undefined}
                 style={{
                   flexDirection: 'row',
-                  paddingVertical: 10,
+                  alignItems: 'center',
                   borderBottomWidth: 1,
                   borderColor: '#EBE5D6',
                   paddingHorizontal: 6,
                 }}
               >
-                <Text
-                  style={[TYPE.kicker, {
-                    flex: 1,
-                    fontSize: 15,
-                    color: '#1C211C',
-                  }]}
-                >
+                <Text style={[TYPE.kicker, { flex: 1, fontSize: 15, color: '#1C211C' }]}>
                   {h.number}
                 </Text>
                 <Text
                   style={[TYPE.kicker, {
-                    width: 44,
+                    width: 32,
                     textAlign: 'right',
                     fontSize: 15,
                     color: '#5C6356',
@@ -596,52 +749,115 @@ export default function RoundIndex() {
                 >
                   {h.par}
                 </Text>
-                <Text
-                  style={[TYPE.kicker, {
-                    width: 56,
-                    textAlign: 'right',
-                    fontSize: 15,
-                    color: score != null && score > 0 ? '#1C211C' : '#8A8B7E',
-                    fontVariant: ['tabular-nums'],
-                    fontWeight: '500',
-                  }]}
+                <ScoreCell
+                  value={score}
+                  width={52}
+                  color={scoreColor}
+                  label={`Hole ${h.number} score`}
+                  onCommit={(n) => persistHoleScore(h.id, { score: n })}
+                />
+                <ScoreCell
+                  value={putts}
+                  width={48}
+                  color="#5C6356"
+                  label={`Hole ${h.number} putts`}
+                  onCommit={(n) => persistHoleScore(h.id, { putts: n > 0 ? n : null })}
+                />
+                <PressableTouch
+                  accessibilityRole="button"
+                  accessibilityLabel={
+                    shotCount > 0
+                      ? `Hole ${h.number}, ${shotCount} shots, edit`
+                      : `Hole ${h.number}, add shots`
+                  }
+                  onPress={() => setShotsForHole(h)}
+                  android_ripple={{ color: '#EBE5D6' }}
+                  style={{ width: 84, paddingVertical: 12, alignItems: 'flex-end' }}
                 >
-                  {score != null && score > 0 ? score : '—'}
-                </Text>
-                <Text
-                  style={[TYPE.kicker, {
-                    width: 56,
-                    textAlign: 'right',
-                    fontSize: 15,
-                    color:
-                      d == null
-                        ? '#8A8B7E'
-                        : d < 0
-                          ? '#1F3D2C'
-                          : d > 0
-                            ? '#A33A2A'
-                            : '#5C6356',
-                    fontVariant: ['tabular-nums'],
-                  }]}
-                >
-                  {d == null ? '—' : d === 0 ? 'E' : d > 0 ? `+${d}` : `${d}`}
-                </Text>
-                <Text
-                  style={[TYPE.body, {
-                    width: 18,
-                    textAlign: 'right',
-                    fontSize: 14,
-                    color: '#8A8B7E',
-                    marginLeft: 6,
-                  }]}
-                >
-                  {hasShots ? '→' : ''}
-                </Text>
-              </PressableTouch>
+                  <Text
+                    style={[TYPE.body, {
+                      fontSize: 13,
+                      color: shotCount > 0 ? '#1F3D2C' : '#8A8B7E',
+                    }]}
+                  >
+                    {shotCount > 0
+                      ? `${shotCount} shot${shotCount === 1 ? '' : 's'} →`
+                      : '+ add →'}
+                  </Text>
+                </PressableTouch>
+              </View>
             )
           })}
         </View>
+
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Save strokes gained"
+          accessibilityState={{ disabled: savingSG }}
+          onPress={handleSaveSG}
+          disabled={savingSG}
+          style={{
+            marginTop: 28,
+            paddingVertical: 14,
+            alignItems: 'center',
+            backgroundColor: savingSG ? '#5C6356' : '#1F3D2C',
+            borderRadius: 2,
+            opacity: savingSG ? 0.7 : 1,
+          }}
+        >
+          <Text style={{ ...KICKER, color: '#F2EEE5' }}>
+            {savingSG ? 'Saving…' : 'Save SG'}
+          </Text>
+        </Pressable>
+
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Delete round"
+          accessibilityState={{ disabled: deleting }}
+          onPress={handleDelete}
+          disabled={deleting}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          style={{
+            marginTop: 16,
+            paddingVertical: 12,
+            alignItems: 'center',
+            opacity: deleting ? 0.5 : 1,
+          }}
+        >
+          <Text style={{ ...KICKER, color: '#A33A2A' }}>
+            {deleting ? 'Deleting…' : 'Delete round'}
+          </Text>
+        </Pressable>
       </ScrollView>
+      )}
+
+      {view === 'map' && round && user && (
+        <PastRoundMap
+          roundId={round.id}
+          userId={user.id}
+          holes={sortedHoles}
+          holeScores={holeScores}
+          shots={shots}
+          courseCenter={courseCenter}
+          holeNumber={mapHole}
+          onHoleChange={setMapHole}
+          onShotUpserted={(s) =>
+            setShots((prev) => {
+              const i = prev.findIndex((x) => x.id === s.id)
+              if (i === -1) return [...prev, s]
+              const n = prev.slice()
+              n[i] = s
+              return n
+            })
+          }
+          onShotRemoved={(shotId) =>
+            setShots((prev) => prev.filter((x) => x.id !== shotId))
+          }
+          onHoleScoreChanged={(hs) =>
+            setHoleScores((prev) => prev.map((x) => (x.id === hs.id ? hs : x)))
+          }
+        />
+      )}
       <PastHoleShotsSheet
         visible={shotsForHole != null}
         holeNumber={shotsForHole?.number ?? null}

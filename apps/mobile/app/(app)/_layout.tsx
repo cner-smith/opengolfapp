@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { ActivityIndicator, Pressable, Text, View } from 'react-native'
+import { ActivityIndicator, Platform, Pressable, Text, View } from 'react-native'
 import { Tabs, Redirect } from 'expo-router'
 import { MaterialCommunityIcons } from '@expo/vector-icons'
 import { StatusBar } from 'expo-status-bar'
@@ -154,8 +154,11 @@ export default function AppLayout() {
           // Removing height entirely shrank the bar to 49 px on Android and
           // older iPhones (no home indicator), so we set the visible content
           // band ourselves and add `insets.bottom` for iPhone X+ clearance.
-          height: 54 + insets.bottom,
-          paddingBottom: insets.bottom + 10,
+          // Android gesture/3-button nav frequently reports insets.bottom≈0,
+          // so the label crowds the screen edge — add a fixed Android-only
+          // clearance band (height grows in step so the content band holds).
+          height: 54 + insets.bottom + (Platform.OS === 'android' ? 12 : 0),
+          paddingBottom: insets.bottom + 10 + (Platform.OS === 'android' ? 12 : 0),
           elevation: 0,
           shadowOpacity: 0,
         },

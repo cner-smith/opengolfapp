@@ -173,6 +173,11 @@ export default function NewRound() {
         user_id: user.id,
         course_id: courseId,
         played_at: today,
+        // Past-round entry persists a total_score sentinel (0) at creation
+        // so re-opening the round from the home list routes to the editable
+        // scorecard, never the live map state machine. Live rounds leave
+        // total_score null — that's the in-progress signal. See #514.
+        ...(mode === 'past' ? { total_score: 0 } : {}),
       })
       if (roundError || !round) throw roundError ?? new Error('Round insert failed')
 
