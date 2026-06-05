@@ -327,6 +327,28 @@ export default function RoundIndex() {
     }
   }
 
+  // Leaving a not-yet-finalized round (completed_at null) warns first and
+  // points the player at where to resume it — a logged-but-unfinished past
+  // round otherwise looks like a finished "0" round in the list (#514 QA).
+  function handleLeave() {
+    if (round && round.completed_at == null) {
+      Alert.alert(
+        'Leave this round?',
+        "It isn't finished. Your scores and shots are saved — resume it anytime from Recent rounds on the Home screen.",
+        [
+          { text: 'Keep logging', style: 'cancel' },
+          {
+            text: 'Leave',
+            style: 'destructive',
+            onPress: () => router.replace('/(app)'),
+          },
+        ],
+      )
+      return
+    }
+    router.replace('/(app)')
+  }
+
   // Delete the whole round. Mirrors web RoundHeader's Delete (RLS-gated
   // on user_id via deleteRound). No "End round early" here — this is the
   // past-round / review surface, not the live tracker (#514).
@@ -489,7 +511,7 @@ export default function RoundIndex() {
         }}
       >
         <Pressable
-          onPress={() => router.replace('/(app)')}
+          onPress={handleLeave}
           hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
           style={{ padding: 6 }}
         >

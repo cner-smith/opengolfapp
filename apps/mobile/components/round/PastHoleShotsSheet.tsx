@@ -108,7 +108,11 @@ export function PastHoleShotsSheet({
 
   const sortedShots = [...shots].sort((a, b) => a.shot_number - b.shot_number)
 
-  async function handleSave(shotId: string, updates: ShotUpdate) {
+  async function handleSave(
+    shotId: string,
+    updates: ShotUpdate,
+    next?: ShotRow | null,
+  ) {
     setSaving(true)
     const { data, error } = await supabase
       .from('shots')
@@ -118,8 +122,9 @@ export function PastHoleShotsSheet({
       .single()
     setSaving(false)
     if (!error && data) {
-      setEditingShot(null)
       onShotUpdated?.(data as ShotRow)
+      // next set by the editor's prev/next nav; null closes the editor.
+      setEditingShot(next ?? null)
     }
   }
 
@@ -140,10 +145,12 @@ export function PastHoleShotsSheet({
         />
         {editingShot ? (
           <EditShotSheet
+            key={editingShot.id}
             shot={editingShot}
+            allShots={sortedShots}
             clubs={clubs}
             saving={saving}
-            onSave={(updates) => handleSave(editingShot.id, updates)}
+            onSave={(updates, next) => handleSave(editingShot.id, updates, next)}
             onClose={() => setEditingShot(null)}
           />
         ) : (
@@ -290,9 +297,10 @@ function ShotRowView({
 
 interface EditShotSheetProps {
   shot: ShotRow
+  allShots: ShotRow[]
   clubs: readonly { club_type: string; name?: string | null }[]
   saving: boolean
-  onSave: (updates: ShotUpdate) => void
+  onSave: (updates: ShotUpdate, next?: ShotRow | null) => void
   onClose: () => void
 }
 
@@ -339,7 +347,14 @@ function ChipRow<T extends string>({
   )
 }
 
-function EditShotSheet({ shot, clubs, saving, onSave, onClose }: EditShotSheetProps) {
+function EditShotSheet({
+  shot,
+  allShots,
+  clubs,
+  saving,
+  onSave,
+  onClose,
+}: EditShotSheetProps) {
   const insets = useSafeAreaInsets()
   const [club, setClub] = useState<string | null>(shot.club ?? null)
   const [lieType, setLieType] = useState<LieType | null>(
@@ -377,11 +392,16 @@ function EditShotSheet({ shot, clubs, saving, onSave, onClose }: EditShotSheetPr
 
   const isPutt = lieType === 'green'
 
-  function handleSavePress() {
+  const idx = allShots.findIndex((s) => s.id === shot.id)
+  const prevShot = idx > 0 ? allShots[idx - 1]! : null
+  const nextShot =
+    idx >= 0 && idx < allShots.length - 1 ? allShots[idx + 1]! : null
+
+  function buildUpdates(): ShotUpdate {
     if (isPutt) {
       const distance = puttMade ? null : distanceResult
       const direction = puttMade ? null : directionResult
-      onSave({
+      return {
         club: 'putter',
         lie_type: 'green',
         lie_slope_forward: null,
@@ -397,10 +417,9 @@ function EditShotSheet({ shot, clubs, saving, onSave, onClose }: EditShotSheetPr
         break_direction: combinedBreakDirection({ vertical: breakV, horizontal: breakH }),
         break_direction_vertical: breakV,
         break_direction_horizontal: breakH,
-      })
-      return
+      }
     }
-    onSave({
+    return {
       club,
       lie_type: lieType,
       lie_slope_forward: slopeForward,
@@ -417,7 +436,11 @@ function EditShotSheet({ shot, clubs, saving, onSave, onClose }: EditShotSheetPr
       break_direction: null,
       break_direction_vertical: null,
       break_direction_horizontal: null,
-    })
+    }
+  }
+
+  function handleSavePress() {
+    onSave(buildUpdates())
   }
 
   return (
@@ -442,17 +465,48 @@ function EditShotSheet({ shot, clubs, saving, onSave, onClose }: EditShotSheetPr
           marginBottom: 14,
         }}
       />
-      <Text
-        style={[TYPE.serif, {
-          color: '#1C211C',
-          fontSize: 17,
-          fontStyle: 'italic',
-          fontWeight: '500',
+      <View
+        style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-between',
           marginBottom: 18,
-        }]}
+        }}
       >
-        Edit shot {shot.shot_number}
-      </Text>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Previous shot"
+          accessibilityState={{ disabled: !prevShot || saving }}
+          disabled={!prevShot || saving}
+          onPress={() => onSave(buildUpdates(), prevShot)}
+          hitSlop={8}
+          style={{ padding: 4, opacity: prevShot ? 1 : 0.3 }}
+        >
+          <Text style={{ ...KICKER, color: '#5C6356' }}>‹ Prev</Text>
+        </Pressable>
+        <Text
+          style={[TYPE.serif, {
+            color: '#1C211C',
+            fontSize: 17,
+            fontStyle: 'italic',
+            fontWeight: '500',
+          }]}
+        >
+          Shot {shot.shot_number}
+          {allShots.length > 1 ? ` of ${allShots.length}` : ''}
+        </Text>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Next shot"
+          accessibilityState={{ disabled: !nextShot || saving }}
+          disabled={!nextShot || saving}
+          onPress={() => onSave(buildUpdates(), nextShot)}
+          hitSlop={8}
+          style={{ padding: 4, opacity: nextShot ? 1 : 0.3 }}
+        >
+          <Text style={{ ...KICKER, color: '#5C6356' }}>Next ›</Text>
+        </Pressable>
+      </View>
 
       <ScrollView showsVerticalScrollIndicator={false}>
         <ChipRow

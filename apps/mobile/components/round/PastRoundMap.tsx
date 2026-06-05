@@ -1,13 +1,20 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Alert, Pressable, Text, View } from 'react-native'
+import { Alert, Modal, Pressable, Text, View } from 'react-native'
+import { GestureHandlerRootView } from 'react-native-gesture-handler'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { DEFAULT_HANDICAP } from '@oga/core'
+import {
+  DEFAULT_HANDICAP,
+  combinedBreakDirection,
+  combinedPuttResult,
+} from '@oga/core'
 import type { Database } from '@oga/supabase'
 import { supabase } from '../../lib/supabase'
 import { distanceYards } from '../../lib/maps'
 import { FONT, TYPE } from '../../lib/typography'
 import { HoleMap, type LatLng } from './HoleMap'
 import type { HoleMapPhase } from './HoleMap.types'
+import { PuttingSheet, type PuttingValue } from './PuttingSheet'
+import { PUTTING_RADIUS_YARDS } from './hole/types'
 
 type HoleRow = Database['public']['Tables']['holes']['Row']
 type HoleScoreRow = Database['public']['Tables']['hole_scores']['Row']
@@ -112,6 +119,9 @@ export function PastRoundMap({
   const [placed, setPlaced] = useState<PlacedShot[]>([])
   const [activeIdx, setActiveIdx] = useState(0)
   const [mode, setMode] = useState<PlacementMode>('PLACE_BALL')
+  // When set, the green-shot putting sheet is open for this shot index,
+  // seeded with the auto-derived start→pin distance (feet).
+  const [puttSheet, setPuttSheet] = useState<{ idx: number; distanceFt: number } | null>(null)
   const aimTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Clear a pending aim-debounce on unmount (e.g. switching to the Scorecard
@@ -239,16 +249,78 @@ export function PastRoundMap({
           prev.map((s, i) => (i === idx ? { ...s, id: saved.id } : s)),
         )
         onShotUpserted(saved)
-        await syncScore(placed.filter((s) => s.start != null).length)
+        // Count idx as started: the closure `placed` predates this shot's
+        // start being set, so filtering it directly under-counts by one
+        // (the score off-by-one — every hole read one stroke low). See #514 QA.
+        await syncScore(
+          placed.filter((s, i) => (i === idx ? true : s.start != null)).length,
+        )
       }
     }
   }
 
   function handleSetBall(loc: LatLng) {
+    const wasInitial = active?.start == null
     setPlaced((prev) =>
       prev.map((s, i) => (i === activeIdx ? { ...s, start: loc } : s)),
     )
     persistShotAt(activeIdx, { start: loc })
+    // Auto-advance after the FIRST placement of a shot (mirrors the live
+    // flow the user liked). Within the putting radius of the pin → open the
+    // putting sheet with the distance auto-derived (no map aim); otherwise
+    // drop straight into aim mode.
+    if (wasInitial) {
+      if (effectivePin && distanceYards(loc, effectivePin) <= PUTTING_RADIUS_YARDS) {
+        setPuttSheet({
+          idx: activeIdx,
+          distanceFt: Math.round(distanceYards(loc, effectivePin) * 3),
+        })
+      } else {
+        setMode('SET_AIM')
+      }
+    }
+  }
+
+  // Save the green shot as a putt: the start was already persisted on
+  // placement, so this UPDATEs that row with the putt fields (mirrors the
+  // live persistPutt column mapping). Distance came from the placement.
+  async function handlePuttSave(idx: number, value: PuttingValue) {
+    const shot = placed[idx]
+    if (!shot?.id) {
+      setPuttSheet(null)
+      return
+    }
+    const made = value.puttMade ?? false
+    const distance = made ? null : value.puttDistanceResult ?? null
+    const direction = made ? null : value.puttDirectionResult ?? null
+    const { data, error } = await supabase
+      .from('shots')
+      .update({
+        club: 'putter',
+        lie_type: 'green',
+        putt_distance_ft: value.puttDistanceFt ?? null,
+        putt_result: combinedPuttResult({ made, distance, direction }),
+        putt_distance_result: distance,
+        putt_direction_result: direction,
+        putt_slope_pct: value.puttSlopePct ?? null,
+        green_speed: value.greenSpeed ?? null,
+        break_direction: combinedBreakDirection({
+          vertical: value.breakDirectionVertical,
+          horizontal: value.breakDirectionHorizontal,
+        }),
+        break_direction_vertical: value.breakDirectionVertical ?? null,
+        break_direction_horizontal: value.breakDirectionHorizontal ?? null,
+      })
+      .eq('id', shot.id)
+      .eq('user_id', userId)
+      .select()
+      .single()
+    if (error) {
+      Alert.alert('Save failed', error.message)
+      return
+    }
+    if (data) onShotUpserted(data as ShotRow)
+    setPuttSheet(null)
   }
 
   function handleSetAim(loc: LatLng) {
@@ -473,6 +545,35 @@ export function PastRoundMap({
           </Pressable>
         </View>
       </View>
+
+      {puttSheet && (
+        <Modal
+          visible
+          transparent
+          animationType="slide"
+          onRequestClose={() => setPuttSheet(null)}
+        >
+          {/* Modal renders to a separate native window on Android, so the
+              app-root GestureHandlerRootView doesn't reach the GreenDiagram
+              aim handle inside — re-root it here (mirrors HoleModals). */}
+          <GestureHandlerRootView style={{ flex: 1 }}>
+            <View
+              style={{
+                flex: 1,
+                justifyContent: 'flex-end',
+                backgroundColor: 'rgba(0,0,0,0.4)',
+              }}
+            >
+              <PuttingSheet
+                shotNumber={placed[puttSheet.idx]?.shotNumber ?? 1}
+                initialDistanceFt={puttSheet.distanceFt}
+                onSave={(v) => handlePuttSave(puttSheet.idx, v)}
+                onClose={() => setPuttSheet(null)}
+              />
+            </View>
+          </GestureHandlerRootView>
+        </Modal>
+      )}
     </View>
   )
 }
