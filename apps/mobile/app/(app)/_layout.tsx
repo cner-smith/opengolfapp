@@ -149,16 +149,17 @@ export default function AppLayout() {
           backgroundColor: '#FBF8F1',
           borderTopWidth: 1,
           borderTopColor: '#D9D2BF',
-          paddingTop: 8,
           // Explicit height + paddingBottom from safe-area insets (#300).
           // Removing height entirely shrank the bar to 49 px on Android and
           // older iPhones (no home indicator), so we set the visible content
           // band ourselves and add `insets.bottom` for iPhone X+ clearance.
           // Android gesture/3-button nav frequently reports insets.bottom≈0,
-          // so the label crowds the screen edge — add a fixed Android-only
-          // clearance band (height grows in step so the content band holds).
+          // so the label crowds the screen edge — grow the bar and split the
+          // extra between top and bottom so the icon+label stay CENTERED
+          // (an earlier bottom-only bump shoved them upward).
+          paddingTop: 8 + (Platform.OS === 'android' ? 6 : 0),
           height: 54 + insets.bottom + (Platform.OS === 'android' ? 12 : 0),
-          paddingBottom: insets.bottom + 10 + (Platform.OS === 'android' ? 12 : 0),
+          paddingBottom: insets.bottom + 10 + (Platform.OS === 'android' ? 6 : 0),
           elevation: 0,
           shadowOpacity: 0,
         },
