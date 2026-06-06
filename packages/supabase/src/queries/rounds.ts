@@ -79,6 +79,22 @@ export function getRecentSGData(client: OgaSupabaseClient, userId: string, limit
     .limit(limit)
 }
 
+// Same shape as getRecentSGData but WITHOUT the `sg_total IS NOT NULL` filter,
+// so in-progress (live, sg_total null) and freshly-created past rounds still
+// appear in the round LISTS. The SG dashboard keeps using getRecentSGData
+// (it legitimately wants only rounds with computed SG). List UIs render `—`
+// for null score/SG.
+export function getRecentRounds(client: OgaSupabaseClient, userId: string, limit = 10) {
+  return client
+    .from('rounds')
+    .select(
+      'id, played_at, sg_off_tee, sg_approach, sg_around_green, sg_putting, sg_total, total_score, courses(name)',
+    )
+    .eq('user_id', userId)
+    .order('played_at', { ascending: false })
+    .limit(limit)
+}
+
 // Rounds with full hole-score and shot detail nested. Used by the stats
 // page to compute per-band, per-club, and per-lie aggregates client-side.
 //

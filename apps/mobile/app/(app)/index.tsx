@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Pressable, ScrollView, Text, View } from 'react-native'
 import { formatSG } from '@oga/core'
-import { deleteRound, getProfile, getRecentSGData } from '@oga/supabase'
+import { deleteRound, getProfile, getRecentRounds } from '@oga/supabase'
 import type { Database } from '@oga/supabase'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
@@ -97,11 +97,11 @@ export default function Home() {
       }
       if (data) setProfile(data as unknown as Profile)
     })
-    getRecentSGData(supabase, user.id, 20).then(({ data, error }) => {
+    getRecentRounds(supabase, user.id, 20).then(({ data, error }) => {
       if (!active) return
       if (error) {
         // eslint-disable-next-line no-console
-        console.error('[home/getRecentSGData]', error.message)
+        console.error('[home/getRecentRounds]', error.message)
         return
       }
       if (data) setRounds(data as RecentRound[])
