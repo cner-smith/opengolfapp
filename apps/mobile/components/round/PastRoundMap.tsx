@@ -1,19 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Alert, Modal, Pressable, Text, View } from 'react-native'
-import { GestureHandlerRootView } from 'react-native-gesture-handler'
+import { Alert, Pressable, Text, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import {
-  DEFAULT_HANDICAP,
-  combinedBreakDirection,
-  combinedPuttResult,
-} from '@oga/core'
+import { DEFAULT_HANDICAP, bearingDegrees, destinationYards } from '@oga/core'
 import type { Database } from '@oga/supabase'
 import { supabase } from '../../lib/supabase'
 import { distanceYards } from '../../lib/maps'
 import { FONT, TYPE } from '../../lib/typography'
+import { ConfirmDialog } from '../ui/ConfirmDialog'
 import { HoleMap, type LatLng } from './HoleMap'
 import type { HoleMapPhase } from './HoleMap.types'
-import { PuttingSheet, type PuttingValue } from './PuttingSheet'
 import { PUTTING_RADIUS_YARDS } from './hole/types'
 
 type HoleRow = Database['public']['Tables']['holes']['Row']
@@ -48,6 +43,10 @@ interface PlacedShot {
 }
 
 type PlacementMode = Extract<HoleMapPhase, 'PLACE_BALL' | 'SET_AIM' | 'PIN'>
+
+// Half-width of the tee box (each dot sits this far to either side of the
+// tee shot, perpendicular to the line of play). ~4 yd ≈ a real teeing ground.
+const TEE_BOX_HALF_YARDS = 4
 
 interface PastRoundMapProps {
   roundId: string
@@ -119,9 +118,12 @@ export function PastRoundMap({
   const [placed, setPlaced] = useState<PlacedShot[]>([])
   const [activeIdx, setActiveIdx] = useState(0)
   const [mode, setMode] = useState<PlacementMode>('PLACE_BALL')
-  // When set, the green-shot putting sheet is open for this shot index,
-  // seeded with the auto-derived start→pin distance (feet).
-  const [puttSheet, setPuttSheet] = useState<{ idx: number; distanceFt: number } | null>(null)
+  // When set (a shot index), the "On the green?" prompt is showing for a ball
+  // just placed within putting range (mirrors the live round's prompt). Yes
+  // marks it a putt + advances; No drops into aiming. Putt DETAILS (made /
+  // short-long / left-right / break) are edited on the scorecard
+  // (PastHoleShotsSheet), web-parity — never inline here.
+  const [greenPromptIdx, setGreenPromptIdx] = useState<number | null>(null)
   const aimTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Clear a pending aim-debounce on unmount (e.g. switching to the Scorecard
@@ -139,8 +141,6 @@ export function PastRoundMap({
   const seededForRef = useRef<string | null>(null)
   useEffect(() => {
     const key = currentHoleScore?.id ?? `none-${holeNumber}`
-    if (seededForRef.current === key) return
-    seededForRef.current = key
     const hsId = currentHoleScore?.id
     const existing = hsId
       ? shots
@@ -158,6 +158,21 @@ export function PastRoundMap({
                 : null,
           }))
       : []
+    if (seededForRef.current === key) {
+      // `shots` load AFTER `hole_scores` (parent's useFocusEffect), so the
+      // first seed for a hole can land before the real shots arrive → an
+      // empty draft. Adopt the real shots when they show up, but ONLY while
+      // the user hasn't started placing (every entry still an un-persisted
+      // draft) so our own persist writes never clobber in-progress work.
+      // Once adopted, `placed` has ids → this branch is a no-op (loop-safe).
+      if (existing.length > 0 && placed.every((s) => s.id == null)) {
+        setPlaced(existing)
+        setActiveIdx(existing.length - 1)
+        setMode('PLACE_BALL')
+      }
+      return
+    }
+    seededForRef.current = key
     const seeded =
       existing.length > 0
         ? existing
@@ -165,7 +180,7 @@ export function PastRoundMap({
     setPlaced(seeded)
     setActiveIdx(seeded.length - 1)
     setMode('PLACE_BALL')
-  }, [currentHoleScore?.id, holeNumber, shots])
+  }, [currentHoleScore?.id, holeNumber, shots, placed])
 
   const active = placed[activeIdx] ?? null
   const previousStarts = useMemo(
@@ -181,6 +196,25 @@ export function PastRoundMap({
     () => placed.filter((s) => s.start != null).length,
     [placed],
   )
+
+  // Tee box = two dots flanking the tee shot, perpendicular to the line of
+  // play, so you place the drive between them. The tee IS where you hit shot
+  // 1, so it's derived from the first placed shot (falling back to the stored
+  // course tee until one is placed), oriented toward that shot's aim, then the
+  // pin. No separate placement / storage — nothing to "move," so no round-state
+  // gating needed.
+  const teeBox = useMemo<[LatLng, LatLng] | null>(() => {
+    const origin = placed[0]?.start ?? tee
+    if (!origin) return null
+    const toward = placed[0]?.aim ?? effectivePin
+    const heading = toward
+      ? bearingDegrees(origin.lat, origin.lng, toward.lat, toward.lng)
+      : 0
+    return [
+      destinationYards(origin, heading - 90, TEE_BOX_HALF_YARDS),
+      destinationYards(origin, heading + 90, TEE_BOX_HALF_YARDS),
+    ]
+  }, [placed, tee, effectivePin])
 
   // Keep hole_scores.score honest with the placed-shot count (a placed shot
   // IS a stroke). Pure score-only entry on the scorecard is untouched —
@@ -259,68 +293,61 @@ export function PastRoundMap({
     }
   }
 
-  function handleSetBall(loc: LatLng) {
+  async function handleSetBall(loc: LatLng) {
     const wasInitial = active?.start == null
     setPlaced((prev) =>
       prev.map((s, i) => (i === activeIdx ? { ...s, start: loc } : s)),
     )
-    persistShotAt(activeIdx, { start: loc })
-    // Auto-advance after the FIRST placement of a shot (mirrors the live
-    // flow the user liked). Within the putting radius of the pin → open the
-    // putting sheet with the distance auto-derived (no map aim); otherwise
-    // drop straight into aim mode.
-    if (wasInitial) {
-      if (effectivePin && distanceYards(loc, effectivePin) <= PUTTING_RADIUS_YARDS) {
-        setPuttSheet({
-          idx: activeIdx,
-          distanceFt: Math.round(distanceYards(loc, effectivePin) * 3),
-        })
-      } else {
-        setMode('SET_AIM')
-      }
+    // Await the placement INSERT so the row + id exist before any follow-up
+    // (a putt confirmation may update it). Only branch on the FIRST placement.
+    await persistShotAt(activeIdx, { start: loc })
+    if (!wasInitial) return
+    // Within putting range of the pin → ask "On the green?" (mirrors the live
+    // prompt) instead of forcing aim or an inline detail sheet. A putt skips
+    // aiming entirely; a non-putt goes to aim as usual.
+    if (effectivePin && distanceYards(loc, effectivePin) <= PUTTING_RADIUS_YARDS) {
+      setGreenPromptIdx(activeIdx)
+    } else {
+      setMode('SET_AIM')
     }
   }
 
-  // Save the green shot as a putt: the start was already persisted on
-  // placement, so this UPDATEs that row with the putt fields (mirrors the
-  // live persistPutt column mapping). Distance came from the placement.
-  async function handlePuttSave(idx: number, value: PuttingValue) {
+  // "On the green?" → Yes: it's a putt. Mark lie/club + pre-fill the putt
+  // distance (start→pin) so the scorecard's putt editor is ready, then advance
+  // to a fresh shot so the next ball can be placed. NO aim, NO inline details —
+  // made / short-long / left-right / break are set on the scorecard.
+  async function handleGreenYes() {
+    const idx = greenPromptIdx
+    setGreenPromptIdx(null)
+    if (idx == null) return
     const shot = placed[idx]
-    if (!shot?.id) {
-      setPuttSheet(null)
-      return
+    if (shot?.id) {
+      const distFt =
+        shot.start && effectivePin
+          ? Math.round(distanceYards(shot.start, effectivePin) * 3)
+          : null
+      const { data, error } = await supabase
+        .from('shots')
+        .update({ lie_type: 'green', club: 'putter', putt_distance_ft: distFt })
+        .eq('id', shot.id)
+        .eq('user_id', userId)
+        .select()
+        .single()
+      if (error) {
+        Alert.alert('Save failed', error.message)
+        return
+      }
+      if (data) onShotUpserted(data as ShotRow)
     }
-    const made = value.puttMade ?? false
-    const distance = made ? null : value.puttDistanceResult ?? null
-    const direction = made ? null : value.puttDirectionResult ?? null
-    const { data, error } = await supabase
-      .from('shots')
-      .update({
-        club: 'putter',
-        lie_type: 'green',
-        putt_distance_ft: value.puttDistanceFt ?? null,
-        putt_result: combinedPuttResult({ made, distance, direction }),
-        putt_distance_result: distance,
-        putt_direction_result: direction,
-        putt_slope_pct: value.puttSlopePct ?? null,
-        green_speed: value.greenSpeed ?? null,
-        break_direction: combinedBreakDirection({
-          vertical: value.breakDirectionVertical,
-          horizontal: value.breakDirectionHorizontal,
-        }),
-        break_direction_vertical: value.breakDirectionVertical ?? null,
-        break_direction_horizontal: value.breakDirectionHorizontal ?? null,
-      })
-      .eq('id', shot.id)
-      .eq('user_id', userId)
-      .select()
-      .single()
-    if (error) {
-      Alert.alert('Save failed', error.message)
-      return
-    }
-    if (data) onShotUpserted(data as ShotRow)
-    setPuttSheet(null)
+    // Advance to the next shot (reuses the +Shot path) so you can place the
+    // next ball immediately.
+    handleAddShot()
+  }
+
+  // "On the green?" → No: not a putt (chip / bunker / fringe). Aim as usual.
+  function handleGreenNo() {
+    setGreenPromptIdx(null)
+    setMode('SET_AIM')
   }
 
   function handleSetAim(loc: LatLng) {
@@ -450,6 +477,7 @@ export function PastRoundMap({
           pin={storedPin}
           roundPin={roundPin}
           tee={tee}
+          teeBox={teeBox}
           aim={active?.aim ?? null}
           ball={active?.start ?? null}
           previousShots={previousStarts}
@@ -546,34 +574,17 @@ export function PastRoundMap({
         </View>
       </View>
 
-      {puttSheet && (
-        <Modal
-          visible
-          transparent
-          animationType="slide"
-          onRequestClose={() => setPuttSheet(null)}
-        >
-          {/* Modal renders to a separate native window on Android, so the
-              app-root GestureHandlerRootView doesn't reach the GreenDiagram
-              aim handle inside — re-root it here (mirrors HoleModals). */}
-          <GestureHandlerRootView style={{ flex: 1 }}>
-            <View
-              style={{
-                flex: 1,
-                justifyContent: 'flex-end',
-                backgroundColor: 'rgba(0,0,0,0.4)',
-              }}
-            >
-              <PuttingSheet
-                shotNumber={placed[puttSheet.idx]?.shotNumber ?? 1}
-                initialDistanceFt={puttSheet.distanceFt}
-                onSave={(v) => handlePuttSave(puttSheet.idx, v)}
-                onClose={() => setPuttSheet(null)}
-              />
-            </View>
-          </GestureHandlerRootView>
-        </Modal>
-      )}
+      {/* "On the green?" — mirrors the live round prompt. Yes → it's a putt
+          (no aim, details on the scorecard); No → aim as a chip/bunker shot. */}
+      <ConfirmDialog
+        visible={greenPromptIdx != null}
+        title="On the green?"
+        message="Within 30 yd of the pin — were you putting, or chipping/in a bunker?"
+        confirmLabel="Yes, I'm putting"
+        cancelLabel="No"
+        onConfirm={handleGreenYes}
+        onCancel={handleGreenNo}
+      />
     </View>
   )
 }

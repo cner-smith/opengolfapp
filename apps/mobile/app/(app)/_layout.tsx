@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { ActivityIndicator, Platform, Pressable, Text, View } from 'react-native'
+import { ActivityIndicator, Pressable, Text, View } from 'react-native'
 import { Tabs, Redirect } from 'expo-router'
 import { MaterialCommunityIcons } from '@expo/vector-icons'
 import { StatusBar } from 'expo-status-bar'
@@ -150,16 +150,16 @@ export default function AppLayout() {
           borderTopWidth: 1,
           borderTopColor: '#D9D2BF',
           // Explicit height + paddingBottom from safe-area insets (#300).
-          // Removing height entirely shrank the bar to 49 px on Android and
-          // older iPhones (no home indicator), so we set the visible content
-          // band ourselves and add `insets.bottom` for iPhone X+ clearance.
-          // Android gesture/3-button nav frequently reports insets.bottom≈0,
-          // so the label crowds the screen edge — grow the bar and split the
-          // extra between top and bottom so the icon+label stay CENTERED
-          // (an earlier bottom-only bump shoved them upward).
-          paddingTop: 8 + (Platform.OS === 'android' ? 6 : 0),
-          height: 54 + insets.bottom + (Platform.OS === 'android' ? 12 : 0),
-          paddingBottom: insets.bottom + 10 + (Platform.OS === 'android' ? 6 : 0),
+          // Explicit height + paddingBottom from safe-area insets (#300).
+          // Platform-neutral. height and paddingBottom carry an equal +8 over
+          // the base 54/10 so the content band [paddingTop, height-paddingBottom]
+          // is unchanged (no cramping) but the whole bar grows 8px at the bottom
+          // — lifting the icon+label ~8px off the bottom edge (device QA: label
+          // sat too low on a Galaxy S23). Keep top/bottom moving together if you
+          // retune; do NOT re-add Platform.OS bumps (the 49a283b regression).
+          paddingTop: 8,
+          height: 62 + insets.bottom,
+          paddingBottom: insets.bottom + 18,
           elevation: 0,
           shadowOpacity: 0,
         },
