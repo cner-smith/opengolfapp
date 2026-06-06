@@ -145,13 +145,14 @@ export function PastRoundMap({
     const existing = hsId
       ? shots
           .filter(
-            (s) => s.hole_score_id === hsId && s.start_lat != null && s.start_lng != null,
+            (s): s is ShotRow & { start_lat: number; start_lng: number } =>
+              s.hole_score_id === hsId && s.start_lat != null && s.start_lng != null,
           )
           .sort((a, b) => a.shot_number - b.shot_number)
           .map<PlacedShot>((s) => ({
             id: s.id,
             shotNumber: s.shot_number,
-            start: { lat: s.start_lat as number, lng: s.start_lng as number },
+            start: { lat: s.start_lat, lng: s.start_lng },
             aim:
               s.aim_lat != null && s.aim_lng != null
                 ? { lat: s.aim_lat, lng: s.aim_lng }
@@ -228,7 +229,11 @@ export function PastRoundMap({
       .eq('round_id', roundId)
       .select()
       .single()
-    if (!error && data) onHoleScoreChanged(data as HoleScoreRow)
+    if (error) {
+      Alert.alert('Save failed', error.message)
+      return
+    }
+    if (data) onHoleScoreChanged(data as HoleScoreRow)
   }
 
   async function persistShotAt(
@@ -321,26 +326,31 @@ export function PastRoundMap({
     setGreenPromptIdx(null)
     if (idx == null) return
     const shot = placed[idx]
-    if (shot?.id) {
-      const distFt =
-        shot.start && effectivePin
-          ? Math.round(distanceYards(shot.start, effectivePin) * 3)
-          : null
-      const { data, error } = await supabase
-        .from('shots')
-        .update({ lie_type: 'green', club: 'putter', putt_distance_ft: distFt })
-        .eq('id', shot.id)
-        .eq('user_id', userId)
-        .select()
-        .single()
-      if (error) {
-        Alert.alert('Save failed', error.message)
-        return
-      }
-      if (data) onShotUpserted(data as ShotRow)
+    if (!shot?.id) {
+      // The placement INSERT failed (rare — handleSetBall awaits it). Don't
+      // silently advance as if the putt were recorded; surface it so the
+      // player can re-place the ball.
+      Alert.alert('Save failed', "That shot didn't save — try placing the ball again.")
+      return
     }
+    const distFt =
+      shot.start && effectivePin
+        ? Math.round(distanceYards(shot.start, effectivePin) * 3)
+        : null
+    const { data, error } = await supabase
+      .from('shots')
+      .update({ lie_type: 'green', club: 'putter', putt_distance_ft: distFt })
+      .eq('id', shot.id)
+      .eq('user_id', userId)
+      .select()
+      .single()
+    if (error) {
+      Alert.alert('Save failed', error.message)
+      return
+    }
+    if (data) onShotUpserted(data as ShotRow)
     // Advance to the next shot (reuses the +Shot path) so you can place the
-    // next ball immediately.
+    // next ball immediately — only after the putt mark persisted.
     handleAddShot()
   }
 

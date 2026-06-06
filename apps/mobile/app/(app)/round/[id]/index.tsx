@@ -467,14 +467,19 @@ export default function RoundIndex() {
         const s = byHole.get(h.id)?.score
         if (s != null && s > 0) total += s
       }
-      setRound((prev) => (prev ? { ...prev, total_score: total } : prev))
+      // Write first, then reflect locally — an optimistic setRound here left
+      // the header total contradicting the DB with no rollback on failure.
       const { error: rErr } = await updateRound(
         supabase,
         round.id,
         { total_score: total },
         user.id,
       )
-      if (rErr) Alert.alert('Save failed', rErr.message)
+      if (rErr) {
+        Alert.alert('Save failed', rErr.message)
+        return
+      }
+      setRound((prev) => (prev ? { ...prev, total_score: total } : prev))
     }
   }
 
