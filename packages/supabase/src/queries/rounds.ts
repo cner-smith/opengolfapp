@@ -79,11 +79,8 @@ export function getRecentSGData(client: OgaSupabaseClient, userId: string, limit
     .limit(limit)
 }
 
-// Same shape as getRecentSGData but WITHOUT the `sg_total IS NOT NULL` filter,
-// so in-progress (live, sg_total null) and freshly-created past rounds still
-// appear in the round LISTS. The SG dashboard keeps using getRecentSGData
-// (it legitimately wants only rounds with computed SG). List UIs render `—`
-// for null score/SG.
+// List views include in-progress rounds; the SG dashboard intentionally
+// keeps getRecentSGData (only rounds with computed SG).
 export function getRecentRounds(client: OgaSupabaseClient, userId: string, limit = 10) {
   return client
     .from('rounds')
