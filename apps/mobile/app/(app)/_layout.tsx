@@ -149,13 +149,17 @@ export default function AppLayout() {
           backgroundColor: '#FBF8F1',
           borderTopWidth: 1,
           borderTopColor: '#D9D2BF',
-          paddingTop: 8,
           // Explicit height + paddingBottom from safe-area insets (#300).
-          // Removing height entirely shrank the bar to 49 px on Android and
-          // older iPhones (no home indicator), so we set the visible content
-          // band ourselves and add `insets.bottom` for iPhone X+ clearance.
-          height: 54 + insets.bottom,
-          paddingBottom: insets.bottom + 10,
+          // Explicit height + paddingBottom from safe-area insets (#300).
+          // Platform-neutral. height and paddingBottom carry an equal +8 over
+          // the base 54/10 so the content band [paddingTop, height-paddingBottom]
+          // is unchanged (no cramping) but the whole bar grows 8px at the bottom
+          // — lifting the icon+label ~8px off the bottom edge (device QA: label
+          // sat too low on a Galaxy S23). Keep top/bottom moving together if you
+          // retune; do NOT re-add Platform.OS bumps (the 49a283b regression).
+          paddingTop: 8,
+          height: 62 + insets.bottom,
+          paddingBottom: insets.bottom + 18,
           elevation: 0,
           shadowOpacity: 0,
         },

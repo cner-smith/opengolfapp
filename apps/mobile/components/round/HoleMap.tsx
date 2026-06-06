@@ -47,6 +47,11 @@ interface HoleMapProps {
    */
   roundPin?: LatLng | null
   tee?: LatLng | null
+  // Two dots framing the tee shot (perpendicular to the line of play), used
+  // by the past-round logger in place of the single TeeBadge. The caller
+  // (PastRoundMap) computes the positions; we only render them. When set,
+  // it supersedes the `tee` badge.
+  teeBox?: [LatLng, LatLng] | null
   aim?: LatLng | null
   ball?: LatLng | null
   /**
@@ -165,11 +170,23 @@ function extractCoord(feature: unknown): LatLng | null {
   return { lat, lng }
 }
 
+// Tee-box dot — small forest-ringed cream circle, rendered as a pair flanking
+// the tee shot (see PastRoundMap). Deliberately understated vs the old badge.
+const TEE_DOT = {
+  width: 12,
+  height: 12,
+  borderRadius: 6,
+  backgroundColor: '#FBF8F1',
+  borderWidth: 2,
+  borderColor: '#5C6356',
+}
+
 export function HoleMap({
   center,
   pin,
   roundPin,
   tee,
+  teeBox,
   aim,
   ball,
   handicap,
@@ -715,7 +732,17 @@ export function HoleMap({
             </Mapbox.ShapeSource>
           )}
 
-          {!isPinMode && tee && (
+          {!isPinMode && teeBox && (
+            <>
+              <Mapbox.PointAnnotation id="teeL" coordinate={toCoord(teeBox[0])}>
+                <View style={TEE_DOT} />
+              </Mapbox.PointAnnotation>
+              <Mapbox.PointAnnotation id="teeR" coordinate={toCoord(teeBox[1])}>
+                <View style={TEE_DOT} />
+              </Mapbox.PointAnnotation>
+            </>
+          )}
+          {!isPinMode && !teeBox && tee && (
             <Mapbox.PointAnnotation id="tee" coordinate={toCoord(tee)}>
               <TeeBadge />
             </Mapbox.PointAnnotation>
