@@ -679,8 +679,6 @@ function Sources() {
   )
 }
 
-
-
 function Footer() {
   return (
     <div
