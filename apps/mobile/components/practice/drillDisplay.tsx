@@ -32,14 +32,6 @@ export const FACILITY_LABEL: Record<string, string> = {
   sim: 'Simulator',
 }
 
-// UI safety net: rewrite any leaked raw snake_case category enums in displayed
-// prose. `approach`/`putting` are already readable words and left untouched.
-export function normalizeCategoryProse(text: string): string {
-  return text
-    .replace(/\boff_tee\b/gi, 'off the tee')
-    .replace(/\baround_green\b/gi, 'around the green')
-}
-
 // Tiny markdown-ish renderer scoped to the drill `instructions` format, ported
 // from web's renderInstructions. Tokenize left-to-right into complete tokens
 // (**bold** | *italic* | plain), then group: each **bold** header starts a new

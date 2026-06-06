@@ -8,7 +8,6 @@ import {
   BLOCK_TYPE_LABEL,
   CATEGORY_LABEL,
   FACILITY_LABEL,
-  normalizeCategoryProse,
   renderInstructions,
 } from '../../components/practice/drillDisplay'
 import { TYPE } from '../../lib/typography'
@@ -43,6 +42,14 @@ function asSessions(value: unknown): StoredSession[] {
 }
 function asFocusAreas(value: unknown): StoredFocusArea[] {
   return Array.isArray(value) ? (value as StoredFocusArea[]) : []
+}
+
+// UI safety net: rewrite any leaked raw snake_case category enums in displayed
+// prose (coach_note / focus reasons). `approach`/`putting` are already readable.
+function normalizeCategoryProse(text: string): string {
+  return text
+    .replace(/\boff_tee\b/gi, 'off the tee')
+    .replace(/\baround_green\b/gi, 'around the green')
 }
 
 // `valid_until` / `generated_at` are bare date strings (YYYY-MM-DD). Compare to
@@ -136,7 +143,7 @@ export default function Practice() {
                   <ActivityIndicator color={CREAM} />
                 ) : (
                   <Text style={[TYPE.serif, { color: CREAM, fontSize: 16, fontStyle: 'italic', fontWeight: '500' }]}>
-                    Generate this week&rsquo;s plan
+                    Generate this week’s plan
                   </Text>
                 )}
               </PressableTouch>
@@ -233,7 +240,7 @@ function NoPlan({
           <ActivityIndicator color={CREAM} />
         ) : (
           <Text style={[TYPE.serif, { color: CREAM, fontSize: 17, fontStyle: 'italic', fontWeight: '500' }]}>
-            Generate this week&rsquo;s plan
+            Generate this week’s plan
           </Text>
         )}
       </PressableTouch>
@@ -507,7 +514,7 @@ function FeedbackSection({
     <View style={{ borderTopWidth: 1, borderColor: LINE, paddingTop: 18, marginBottom: 28 }}>
       <Text style={{ ...KICKER, marginBottom: 8 }}>Before next week</Text>
       <Text style={[TYPE.body, { color: INK_DIM, fontSize: 14, lineHeight: 20, marginBottom: 12 }]}>
-        One note on how this plan landed — what worked, what felt off. Next week&rsquo;s plan reads it.
+        One note on how this plan landed — what worked, what felt off. Next week’s plan reads it.
       </Text>
       <TextInput
         value={value}
