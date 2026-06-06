@@ -22,7 +22,7 @@ export function UnderstandingYourSwingArticle() {
   return (
     <View>
       <ArticleHeader
-        kicker="Improving your game · Draft"
+        kicker="Improving your game · Your swing"
         title="The ball doesn't lie."
       />
 
@@ -175,7 +175,7 @@ export function UnderstandingYourSwingArticle() {
       />
 
       <ArticleFooter>
-        Last reviewed May 2026 · Draft, needs coaching review
+        Last reviewed May 2026
       </ArticleFooter>
     </View>
   )

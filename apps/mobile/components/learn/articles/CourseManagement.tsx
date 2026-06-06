@@ -1,4 +1,4 @@
-import { View } from 'react-native'
+import { Text, View } from 'react-native'
 import {
   ArticleFooter,
   ArticleHeader,
@@ -7,14 +7,15 @@ import {
   H3,
   H4,
   Hr,
+  Link,
   P,
-  ResourceList,
+  Sources,
 } from '../primitives'
 
 export function CourseManagementArticle() {
   return (
     <View>
-      <ArticleHeader kicker="On the course · Draft" title="Course management." />
+      <ArticleHeader kicker="On the course · Course management" title="Course management." />
 
       <H3>You are not on the range anymore</H3>
       <P>
@@ -477,39 +478,28 @@ export function CourseManagementArticle() {
 
       <Hr />
 
-      <H3>Resources</H3>
-      <DevNote variant="todo">
-        Verify all links before publishing.
-      </DevNote>
-      <ResourceList items={RESOURCES} />
+      <Sources
+        items={[
+          {
+            name: 'Course-management approaches this article draws on',
+            note: (
+              <Text>
+                Golf Sidekick's "Way of the Playa"; Will Robins' Scoring Method
+                (
+                <Link href="https://thescoringmethod.com">thescoringmethod.com</Link>
+                ), the Scoring Zone framework and modified scorecard; and Bob
+                Rotella's "Golf Is Not a Game of Perfect" — practitioner
+                frameworks for ego-free, score-first decision making.
+              </Text>
+            ),
+          },
+        ]}
+      />
 
       <ArticleFooter>
-        Last reviewed May 2026 · Draft, needs instructor review ·
-        Edit docs/learn/course-management.md to contribute
+        Last reviewed May 2026
       </ArticleFooter>
     </View>
   )
 }
 
-const RESOURCES = [
-  {
-    title: 'Golf Sidekick',
-    by: '',
-    note: 'YouTube. Search "Way of the Playa." Ego-free, score-focused course management for amateurs.',
-  },
-  {
-    title: 'The Upbeat Golfer (Manu)',
-    by: '',
-    note: 'YouTube. Process-driven mental approach and target commitment.',
-  },
-  {
-    title: 'Will Robins — The Scoring Method',
-    by: '',
-    note: 'thescoringmethod.com and YouTube @thescoringmethod. The Scoring Zone framework and modified scorecard system.',
-  },
-  {
-    title: '"Golf Is Not a Game of Perfect"',
-    by: 'Bob Rotella.',
-    note: 'The standard text on playing with what you have that day.',
-  },
-]

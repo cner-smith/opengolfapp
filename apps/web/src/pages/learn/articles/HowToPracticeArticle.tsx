@@ -1,3 +1,4 @@
+import { SrcBody, SrcLabel } from '../components/ArticlePrimitives'
 const DEV = import.meta.env.DEV
 
 export function HowToPracticeArticle() {
@@ -11,7 +12,7 @@ export function HowToPracticeArticle() {
       }}
     >
       <div className="kicker" style={{ marginBottom: 14 }}>
-        Improving your game · Draft
+        Improving your game · How to practice
       </div>
       <h2
         className="font-serif text-caddie-ink"
@@ -110,6 +111,11 @@ export function HowToPracticeArticle() {
         fully reconstruct the motor pattern from scratch. That
         reconstruction process is where learning happens.
       </Kv>
+      <Kv label="Vary the conditions too">
+        Don't just change clubs — change distance, lie, wind, and
+        slope. Golf never gives you the same shot twice, so practice
+        that never repeats a shot transfers best.
+      </Kv>
       <Kv label="Not good for">
         Learning a brand new movement. Don't randomize before you
         have a basic pattern to work with.
@@ -123,17 +129,26 @@ export function HowToPracticeArticle() {
         well-established or still debated
       </EditorialNote>
 
-      <H4>Variable practice</H4>
+      <H4>Skill games</H4>
       <Kv label="What it is">
-        Same club, different conditions. 9-iron from 100 yards, then
-        90, then uphill, then into wind, then from a downslope.
+        Turning a drill into a scored challenge. Make 7 of 10 from 8
+        feet. Get up-and-down 6 times out of 10. Land 5 wedges inside
+        a 15-foot circle. Every game has a number you can pass or fail.
       </Kv>
       <Kv label="Good for">
-        Building adaptability. Golf never gives you the same shot
-        twice. Variable practice trains you for that reality.
+        Feedback and tracking. A score tells you instantly whether a
+        shot was good enough, and the same game repeated over weeks
+        shows whether you're actually improving — not just whether
+        today felt good.
+      </Kv>
+      <Kv label="Why it works">
+        A target and a score force a real result on every ball. That's
+        the line between practice and just hitting. It also makes
+        practice competitive, which is what keeps you coming back.
       </Kv>
       <Kv label="Combine it with">
-        Random practice for maximum transfer.
+        Pressure. Add a consequence to a skill game — start over on a
+        miss — and you've trained scoring and nerves at the same time.
       </Kv>
 
       <H4>Pressure practice</H4>
@@ -293,90 +308,7 @@ export function HowToPracticeArticle() {
 
       <Hr />
 
-      <H3>Resources</H3>
-      <EditorialNote variant="todo">
-        These are starting points for further research, not
-        endorsements. Verify all links are current before publishing.
-      </EditorialNote>
-
-      <H4>Books</H4>
-      <ResourceList
-        items={[
-          {
-            title: '"Make It Stick"',
-            by: 'Brown, Roediger, McDaniel.',
-            note: 'Best plain-language summary of learning science. Not golf-specific but directly applicable.',
-          },
-          {
-            title: '"Golf Is Not a Game of Perfect"',
-            by: 'Bob Rotella.',
-            note: 'Standard text on golf psychology and performance.',
-          },
-          {
-            title: '"Dave Pelz\'s Short Game Bible"',
-            note: 'Research-based approach to practice from inside 100 yards.',
-          },
-          {
-            title: '"Harvey Penick\'s Little Red Book"',
-            note: 'The most beloved golf instruction book ever written. Simple, wise, feel-based.',
-          },
-          {
-            title: '"Peak"',
-            by: 'Anders Ericsson.',
-            note: 'His own account of deliberate practice research. Better than the Gladwell version.',
-          },
-          {
-            title: '"Choke"',
-            by: 'Sian Beilock.',
-            note: 'Accessible neuroscience of performance under pressure.',
-          },
-        ]}
-      />
-
-      <H4>Research worth knowing</H4>
-      <ul style={UL_STYLE}>
-        <li>
-          Robert Bjork — contextual interference, desirable
-          difficulties (UCLA)
-        </li>
-        <li>
-          Anders Ericsson — deliberate practice and expert performance
-        </li>
-        <li>
-          Gabriele Wulf — attentional focus research showing external
-          focus cues outperform internal focus cues
-        </li>
-        <li>Sian Beilock — choking under pressure</li>
-      </ul>
-
-      <H4>Online resources</H4>
-      <ul style={UL_STYLE}>
-        <li>
-          TPI (Titleist Performance Institute):{' '}
-          <a
-            href="https://mytpi.com"
-            target="_blank"
-            rel="noreferrer"
-            style={{ color: '#1F3D2C', textDecoration: 'underline' }}
-          >
-            mytpi.com
-          </a>
-        </li>
-        <li>
-          Robert Bjork's lab:{' '}
-          <a
-            href="https://bjorklab.psych.ucla.edu"
-            target="_blank"
-            rel="noreferrer"
-            style={{ color: '#1F3D2C', textDecoration: 'underline' }}
-          >
-            bjorklab.psych.ucla.edu
-          </a>
-          <EditorialNote variant="todo" inline>
-            TODO: Verify this URL is current
-          </EditorialNote>
-        </li>
-      </ul>
+      <Sources />
 
       <Footer />
     </article>
@@ -526,40 +458,95 @@ function SessionTable() {
   )
 }
 
-interface ResourceItem {
-  title: string
-  by?: string
-  note: string
+function Sources() {
+  return (
+    <section style={{ borderTop: '1px solid #D9D2BF', paddingTop: 18, marginTop: 22 }}>
+      <div className="kicker" style={{ marginBottom: 12 }}>
+        Sources
+      </div>
+      <div style={{ display: 'grid', gap: 14, maxWidth: 640 }}>
+        <div>
+          <SrcLabel>Block vs random practice (contextual interference)</SrcLabel>
+          <SrcBody>
+            <Src href="https://www.nature.com/articles/s41598-024-65753-3">
+              Scientific Reports (2024) · meta-analysis
+            </Src>{' '}
+            confirms high contextual interference improves retention, and{' '}
+            <Src href="https://www.tandfonline.com/doi/abs/10.1080/00336297.1998.10484285">
+              Magill &amp; Hall, Quest (1998)
+            </Src>{' '}
+            reviews the effect first shown by Shea &amp; Morgan (1979): random
+            order hurts practice, helps learning.
+          </SrcBody>
+        </div>
+        <div>
+          <SrcLabel>Random practice in golf specifically</SrcLabel>
+          <SrcBody>
+            <Src href="https://www.frontiersin.org/journals/sports-and-active-living/articles/10.3389/fspor.2024.1324615/full">
+              Frontiers · motor learning in golf, a systematic review
+            </Src>{' '}
+            and{' '}
+            <Src href="https://pubmed.ncbi.nlm.nih.gov/28449601/">
+              Fazeli et al. (2017) · random vs blocked in golf putting
+            </Src>{' '}
+            — random groups putt worse in practice, better in retention.
+          </SrcBody>
+        </div>
+        <div>
+          <SrcLabel>Varying conditions — variability and desirable difficulty</SrcLabel>
+          <SrcBody>
+            <Src href="https://link.springer.com/article/10.3758/s13421-021-01168-z">
+              Memory &amp; Cognition (2021) · interleaving and transfer
+            </Src>{' '}
+            and{' '}
+            <Src href="https://pubmed.ncbi.nlm.nih.gov/14768838/">
+              Sherwood &amp; Lee (2003) · schema theory review
+            </Src>{' '}
+            — variable, interleaved practice is a "desirable difficulty" that
+            builds more general, robust skill.
+          </SrcBody>
+        </div>
+        <div>
+          <SrcLabel>Practicing under pressure</SrcLabel>
+          <SrcBody>
+            <Src href="https://www.tandfonline.com/doi/full/10.1080/1750984X.2017.1408134">
+              International Review of Sport &amp; Exercise Psychology (2018) ·
+              choking interventions, a systematic review
+            </Src>{' '}
+            and{' '}
+            <Src href="https://www.frontiersin.org/journals/psychology/articles/10.3389/fpsyg.2025.1435374/full">
+              Frontiers in Psychology (2025) · performance under pressure
+            </Src>{' '}
+            — acclimatization and pre-performance routines help skills survive
+            competitive anxiety.
+          </SrcBody>
+        </div>
+        <div>
+          <SrcLabel>Deliberate practice, and its limits</SrcLabel>
+          <SrcBody>
+            <Src href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6731745/">
+              Macnamara &amp; Hambrick, revisiting Ericsson, Krampe &amp;
+              Tesch-Römer (1993)
+            </Src>{' '}
+            — practice quality matters enormously, though the strong claim that
+            hours alone explain expertise has not fully replicated.
+          </SrcBody>
+        </div>
+      </div>
+    </section>
+  )
 }
 
-function ResourceList({ items }: { items: ResourceItem[] }) {
+function Src({ href, children }: { href: string; children: React.ReactNode }) {
   return (
-    <ul style={{ listStyle: 'none', padding: 0, margin: '8px 0 14px', maxWidth: 680 }}>
-      {items.map((r) => (
-        <li
-          key={r.title}
-          style={{
-            padding: '12px 0',
-            borderTop: '1px solid #D9D2BF',
-          }}
-        >
-          <div
-            className="font-serif text-caddie-ink"
-            style={{ fontSize: 15, fontWeight: 500, fontStyle: 'italic' }}
-          >
-            {r.title}
-            {r.by && (
-              <span className="text-caddie-ink-dim" style={{ fontStyle: 'normal', fontWeight: 400 }}>
-                {' '}— {r.by}
-              </span>
-            )}
-          </div>
-          <div className="text-caddie-ink-dim" style={{ fontSize: 14, lineHeight: 1.55, marginTop: 4 }}>
-            {r.note}
-          </div>
-        </li>
-      ))}
-    </ul>
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      style={{ color: '#1F3D2C', textDecoration: 'underline' }}
+    >
+      {children}
+    </a>
   )
 }
 
@@ -634,8 +621,7 @@ function Footer() {
         lineHeight: 1.6,
       }}
     >
-      Last reviewed May 2026 · Draft, needs instructor review · Edit
-      docs/learn/how-to-practice.md to contribute
+      Last reviewed May 2026
     </div>
   )
 }

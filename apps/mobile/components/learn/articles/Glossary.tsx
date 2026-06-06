@@ -1,11 +1,11 @@
 import { View } from 'react-native'
-import { ArticleFooter, ArticleHeader, DefRow, H3, Hr, P } from '../primitives'
+import { ArticleFooter, ArticleHeader, DefRow, H3, Hr, P, Sources } from '../primitives'
 
 export function GlossaryArticle() {
   return (
     <View>
       <ArticleHeader
-        kicker="Understanding the game · Draft"
+        kicker="Understanding the game · Glossary"
         title="Glossary of golf terms."
       />
       <P>
@@ -28,9 +28,17 @@ export function GlossaryArticle() {
         </View>
       ))}
 
+      <Sources
+        items={[
+          {
+            name: 'How these definitions are sourced',
+            note: "Definitions follow the USGA & R&A Rules of Golf where a term is formally defined there (stroke, hazard, out of bounds, and so on), and otherwise reflect common golf usage. Slang and historical entries are described as they're actually used, not as official definitions.",
+          },
+        ]}
+      />
+
       <ArticleFooter>
-        Last reviewed May 2026 · Draft, being expanded · Edit
-        docs/learn/glossary.md to contribute
+        Last reviewed May 2026
       </ArticleFooter>
     </View>
   )

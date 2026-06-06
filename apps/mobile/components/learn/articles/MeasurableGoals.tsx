@@ -18,7 +18,7 @@ import {
 export function MeasurableGoalsArticle() {
   return (
     <View>
-      <ArticleHeader kicker="Improving your game · Draft" title="A goal you can pass or fail." />
+      <ArticleHeader kicker="Improving your game · Measurable goals" title="A goal you can pass or fail." />
 
       <P>
         Most practice goals are wishes wearing a goal's clothes — work on my
@@ -133,7 +133,7 @@ export function MeasurableGoalsArticle() {
         ]}
       />
 
-      <ArticleFooter>Last reviewed May 2026 · Draft, needs coaching review</ArticleFooter>
+      <ArticleFooter>Last reviewed May 2026</ArticleFooter>
     </View>
   )
 }

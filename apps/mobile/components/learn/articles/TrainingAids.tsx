@@ -23,7 +23,7 @@ import { FONT } from '../../../lib/typography'
 export function TrainingAidsArticle() {
   return (
     <View>
-      <ArticleHeader kicker="Your equipment · Draft" title="Training aids." />
+      <ArticleHeader kicker="Your equipment · Training aids" title="Training aids." />
 
       <H3>Feeling productive isn't the same as getting better</H3>
       <P>
@@ -375,7 +375,7 @@ export function TrainingAidsArticle() {
       />
 
       <ArticleFooter>
-        Last reviewed May 2026 · Draft, needs coaching review
+        Last reviewed May 2026
       </ArticleFooter>
     </View>
   )

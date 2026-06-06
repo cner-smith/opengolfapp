@@ -1,5 +1,4 @@
-const DEV = import.meta.env.DEV
-
+import { SrcBody, SrcLabel } from '../components/ArticlePrimitives'
 export function SkillGamesArticle() {
   return (
     <article
@@ -11,7 +10,7 @@ export function SkillGamesArticle() {
       }}
     >
       <div className="kicker" style={{ marginBottom: 14 }}>
-        Improving your game · Draft
+        Improving your game · Skill games
       </div>
       <h2
         className="font-serif text-caddie-ink"
@@ -385,35 +384,7 @@ export function SkillGamesArticle() {
 
       <Hr />
 
-      <H3>Resources</H3>
-      <EditorialNote variant="todo">
-        Verify all links before publishing.
-      </EditorialNote>
-      <ResourceList
-        items={[
-          {
-            title: 'Golf Digest — 15 Best Golf Practice Games',
-            note: 'golfdigest.com. Good overview of range and putting green games.',
-          },
-          {
-            title: 'Practical Golf — 5 Games That Build Real Skills',
-            note: 'practical-golf.com. Solid collection of pressure games with scoring systems.',
-          },
-          {
-            title: '"Dave Pelz\'s Short Game Bible"',
-            note: 'The research-based approach to short game practice. Specific drills backed by data.',
-          },
-          {
-            title: 'The Upbeat Golfer (Manu)',
-            note: 'YouTube. Process under pressure, routine under stakes.',
-          },
-        ]}
-      />
-      <EditorialNote variant="todo">
-        TODO: Add research citations on pressure practice and
-        performance transfer (see Sian Beilock's work on choking
-        and practice under pressure)
-      </EditorialNote>
+      <Sources />
 
       <Footer />
     </article>
@@ -517,81 +488,70 @@ const UL_STYLE: React.CSSProperties = {
   maxWidth: 680,
 }
 
-interface ResourceItem {
-  title: string
-  by?: string
-  note: string
-}
-
-function ResourceList({ items }: { items: ResourceItem[] }) {
+function Sources() {
   return (
-    <ul style={{ listStyle: 'none', padding: 0, margin: '8px 0 14px', maxWidth: 680 }}>
-      {items.map((r) => (
-        <li
-          key={r.title}
-          style={{
-            padding: '12px 0',
-            borderTop: '1px solid #D9D2BF',
-          }}
-        >
-          <div
-            className="font-serif text-caddie-ink"
-            style={{ fontSize: 15, fontWeight: 500, fontStyle: 'italic' }}
-          >
-            {r.title}
-            {r.by && (
-              <span className="text-caddie-ink-dim" style={{ fontStyle: 'normal', fontWeight: 400 }}>
-                {' '}— {r.by}
-              </span>
-            )}
-          </div>
-          <div className="text-caddie-ink-dim" style={{ fontSize: 14, lineHeight: 1.55, marginTop: 4 }}>
-            {r.note}
-          </div>
-        </li>
-      ))}
-    </ul>
+    <section style={{ borderTop: '1px solid #D9D2BF', paddingTop: 18, marginTop: 22 }}>
+      <div className="kicker" style={{ marginBottom: 12 }}>
+        Sources
+      </div>
+      <div style={{ display: 'grid', gap: 14, maxWidth: 640 }}>
+        <div>
+          <SrcLabel>Why scored, varied games transfer (contextual interference)</SrcLabel>
+          <SrcBody>
+            <Src href="https://www.nature.com/articles/s41598-024-65753-3">
+              Scientific Reports (2024) · meta-analysis
+            </Src>{' '}
+            confirms high contextual interference improves retention, and{' '}
+            <Src href="https://www.tandfonline.com/doi/abs/10.1080/00336297.1998.10484285">
+              Magill &amp; Hall, Quest (1998)
+            </Src>{' '}
+            reviews the effect first shown by Shea &amp; Morgan (1979): mixed,
+            scored practice transfers better than rote repetition.
+          </SrcBody>
+        </div>
+        <div>
+          <SrcLabel>In golf specifically</SrcLabel>
+          <SrcBody>
+            <Src href="https://www.frontiersin.org/journals/sports-and-active-living/articles/10.3389/fspor.2024.1324615/full">
+              Frontiers · motor learning in golf, a systematic review
+            </Src>{' '}
+            and{' '}
+            <Src href="https://pubmed.ncbi.nlm.nih.gov/28449601/">
+              Fazeli et al. (2017) · random vs blocked in golf putting
+            </Src>{' '}
+            — varied, game-like practice builds a more skilled mental model.
+          </SrcBody>
+        </div>
+        <div>
+          <SrcLabel>Why the stakes matter — practicing under pressure</SrcLabel>
+          <SrcBody>
+            <Src href="https://www.tandfonline.com/doi/full/10.1080/1750984X.2017.1408134">
+              International Review of Sport &amp; Exercise Psychology (2018) ·
+              choking interventions, a systematic review
+            </Src>{' '}
+            and{' '}
+            <Src href="https://www.frontiersin.org/journals/psychology/articles/10.3389/fpsyg.2025.1435374/full">
+              Frontiers in Psychology (2025) · performance under pressure
+            </Src>{' '}
+            — rehearsing with consequences helps skills survive competitive
+            anxiety.
+          </SrcBody>
+        </div>
+      </div>
+    </section>
   )
 }
 
-function EditorialNote({
-  variant,
-  children,
-}: {
-  variant: 'research' | 'todo'
-  children: React.ReactNode
-}) {
-  if (!DEV) return null
-  const tone = variant === 'research' ? '#1F3D2C' : '#A66A1F'
-  const label = variant === 'research' ? 'Source' : 'Todo'
+function Src({ href, children }: { href: string; children: React.ReactNode }) {
   return (
-    <div
-      style={{
-        background: '#EBE5D6',
-        borderLeft: `3px solid ${tone}`,
-        padding: '10px 14px',
-        marginBottom: 14,
-        maxWidth: 680,
-      }}
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      style={{ color: '#1F3D2C', textDecoration: 'underline' }}
     >
-      <div
-        className="font-mono uppercase"
-        style={{
-          fontSize: 10,
-          letterSpacing: '0.14em',
-          color: tone,
-          marginBottom: 4,
-        }}
-      >
-        {label} · dev only
-      </div>
-      <div
-        className="text-caddie-ink-dim"
-        style={{ fontSize: 13, lineHeight: 1.5, fontStyle: 'italic' }}
-      >
-        {children}
-      </div>
-    </div>
+      {children}
+    </a>
   )
 }
 
@@ -608,8 +568,7 @@ function Footer() {
         lineHeight: 1.6,
       }}
     >
-      Last reviewed May 2026 · Draft, needs review · Edit
-      docs/learn/skill-games-pressure-games.md to contribute
+      Last reviewed May 2026
     </div>
   )
 }

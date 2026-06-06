@@ -1,22 +1,22 @@
-import { View } from 'react-native'
+import { Text, View } from 'react-native'
 import {
   ArticleFooter,
   ArticleHeader,
   BulletList,
-  DevNote,
   H3,
   H4,
   Hr,
   Kv,
+  Link,
   P,
-  ResourceList,
+  Sources,
 } from '../primitives'
 
 export function SkillGamesArticle() {
   return (
     <View>
       <ArticleHeader
-        kicker="Improving your game · Draft"
+        kicker="Improving your game · Skill games"
         title="Skill games and pressure games."
       />
 
@@ -266,39 +266,64 @@ export function SkillGamesArticle() {
 
       <Hr />
 
-      <H3>Resources</H3>
-      <DevNote variant="todo">
-        Verify all links before publishing.
-      </DevNote>
-      <ResourceList items={SKILL_GAMES_RESOURCES} />
+      <Sources
+        items={[
+          {
+            name: 'Why scored, varied games transfer (contextual interference)',
+            note: (
+              <Text>
+                <Link href="https://www.nature.com/articles/s41598-024-65753-3">
+                  Scientific Reports (2024) · meta-analysis
+                </Link>{' '}
+                confirms high contextual interference improves retention, and{' '}
+                <Link href="https://www.tandfonline.com/doi/abs/10.1080/00336297.1998.10484285">
+                  Magill & Hall, Quest (1998)
+                </Link>{' '}
+                reviews the effect first shown by Shea & Morgan (1979): mixed,
+                scored practice transfers better than rote repetition.
+              </Text>
+            ),
+          },
+          {
+            name: 'In golf specifically',
+            note: (
+              <Text>
+                <Link href="https://www.frontiersin.org/journals/sports-and-active-living/articles/10.3389/fspor.2024.1324615/full">
+                  Frontiers · motor learning in golf, a systematic review
+                </Link>{' '}
+                and{' '}
+                <Link href="https://pubmed.ncbi.nlm.nih.gov/28449601/">
+                  Fazeli et al. (2017) · random vs blocked in golf putting
+                </Link>{' '}
+                — varied, game-like practice builds a more skilled mental model.
+              </Text>
+            ),
+          },
+          {
+            name: 'Why the stakes matter — practicing under pressure',
+            note: (
+              <Text>
+                <Link href="https://www.tandfonline.com/doi/full/10.1080/1750984X.2017.1408134">
+                  International Review of Sport & Exercise Psychology (2018) ·
+                  choking interventions, a systematic review
+                </Link>{' '}
+                and{' '}
+                <Link href="https://www.frontiersin.org/journals/psychology/articles/10.3389/fpsyg.2025.1435374/full">
+                  Frontiers in Psychology (2025) · performance under pressure
+                </Link>{' '}
+                — rehearsing with consequences helps skills survive competitive
+                anxiety.
+              </Text>
+            ),
+          },
+        ]}
+      />
 
       <ArticleFooter>
-        Last reviewed May 2026 · Draft, needs review · Edit
-        docs/learn/skill-games-pressure-games.md to contribute
+        Last reviewed May 2026
       </ArticleFooter>
     </View>
   )
 }
 
-const SKILL_GAMES_RESOURCES = [
-  {
-    title: 'Golf Digest — 15 Best Golf Practice Games',
-    by: '',
-    note: 'golfdigest.com. Good overview of range and putting green games.',
-  },
-  {
-    title: 'Practical Golf — 5 Games That Build Real Skills',
-    by: '',
-    note: 'practical-golf.com. Solid pressure games with scoring systems.',
-  },
-  {
-    title: '"Dave Pelz\'s Short Game Bible"',
-    by: '',
-    note: 'Research-based approach to short game practice. Specific drills backed by data.',
-  },
-  {
-    title: 'The Upbeat Golfer (Manu)',
-    by: '',
-    note: 'YouTube. Process under pressure, routine under stakes.',
-  },
-]
+// (sources now rendered via the shared Sources primitive above)

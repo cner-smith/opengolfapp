@@ -20,7 +20,7 @@ export function PracticeVsScoringRoundArticle() {
   return (
     <View>
       <ArticleHeader
-        kicker="On the course · Draft"
+        kicker="On the course · Practice vs scoring"
         title="Decide which round you're playing."
       />
 
@@ -339,7 +339,7 @@ export function PracticeVsScoringRoundArticle() {
         ]}
       />
 
-      <ArticleFooter>Last reviewed May 2026 · Draft, needs review</ArticleFooter>
+      <ArticleFooter>Last reviewed May 2026</ArticleFooter>
     </View>
   )
 }

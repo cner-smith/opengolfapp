@@ -19,7 +19,7 @@ export function QuestionsForCoachArticle() {
   return (
     <View>
       <ArticleHeader
-        kicker="Working with coaches · Draft"
+        kicker="Working with coaches · Questions for your coach"
         title="A lesson is a conversation."
       />
 
@@ -201,7 +201,7 @@ export function QuestionsForCoachArticle() {
       />
 
       <ArticleFooter>
-        Last reviewed May 2026 · Draft, needs coaching review
+        Last reviewed May 2026
       </ArticleFooter>
     </View>
   )
