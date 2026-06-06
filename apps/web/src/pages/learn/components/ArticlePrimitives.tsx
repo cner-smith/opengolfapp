@@ -213,3 +213,25 @@ export function ArticleAnchor({
 export function fmtSG(v: number): string {
   return `${v > 0 ? '+' : ''}${v.toFixed(1)}`
 }
+
+// Citation block helpers, shared by every article's per-article `Sources()`.
+// The label/body styling is identical across articles; only the cited
+// content differs, so that stays local while these wrappers live here.
+export function SrcLabel({ children }: { children: ReactNode }) {
+  return (
+    <div
+      className="font-mono uppercase"
+      style={{ fontSize: 10, letterSpacing: '0.14em', color: '#5C6356', marginBottom: 4 }}
+    >
+      {children}
+    </div>
+  )
+}
+
+export function SrcBody({ children }: { children: ReactNode }) {
+  return (
+    <div className="text-caddie-ink-dim" style={{ fontSize: 13, lineHeight: 1.55 }}>
+      {children}
+    </div>
+  )
+}
