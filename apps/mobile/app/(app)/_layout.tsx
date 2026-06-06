@@ -229,6 +229,8 @@ export default function AppLayout() {
           so it collapses to a single hidden tab route. This is what makes
           "← Back" from an article pop to the list instead of the Home tab. */}
       <Tabs.Screen name="learn" options={{ href: null }} />
+      {/* Drill library is pushed from the Practice tab, not its own tab. */}
+      <Tabs.Screen name="drills" options={{ href: null }} />
       <Tabs.Screen name="bag" options={{ href: null }} />
       <Tabs.Screen name="rounds" options={{ href: null }} />
       <Tabs.Screen name="round/new" options={{ href: null }} />

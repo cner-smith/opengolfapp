@@ -1,9 +1,16 @@
 import { useEffect, useMemo, useState } from 'react'
 import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from 'react-native'
 import { Link } from 'expo-router'
-import type { BlockType, PlanCategory, StoredBlock, StoredFocusArea, StoredSession } from '@oga/core'
+import type { StoredBlock, StoredFocusArea, StoredSession } from '@oga/core'
 import { AppBar } from '../../components/ui/AppBar'
 import { PressableTouch } from '../../components/ui/PressableTouch'
+import {
+  BLOCK_TYPE_LABEL,
+  CATEGORY_LABEL,
+  FACILITY_LABEL,
+  normalizeCategoryProse,
+  renderInstructions,
+} from '../../components/practice/drillDisplay'
 import { TYPE } from '../../lib/typography'
 import { usePracticePlan, type DrillCard as DrillRow } from '../../hooks/usePracticePlan'
 
@@ -26,29 +33,6 @@ const KICKER: import('react-native').TextStyle = {
 
 const FEEDBACK_MAX = 500
 
-// Display labels mirror the web Practice page (PracticePlanPage.tsx). Keep these
-// in sync — they're the human-readable face of the @oga/core enums.
-const CATEGORY_LABEL: Record<PlanCategory, string> = {
-  off_tee: 'Off the tee',
-  approach: 'Approach',
-  around_green: 'Around the green',
-  putting: 'Putting',
-}
-const BLOCK_TYPE_LABEL: Record<BlockType, string> = {
-  warmup: 'Warm-up',
-  blocked: 'Blocked',
-  random: 'Random',
-  skill_game: 'Skill game',
-  pressure_game: 'Pressure game',
-  on_course: 'On course',
-}
-const FACILITY_LABEL: Record<string, string> = {
-  range: 'Range',
-  short_game: 'Short game',
-  putting: 'Putting green',
-  sim: 'Simulator',
-}
-
 // plan.drills is jsonb `{ sessions: StoredSession[] }`; focus_areas is
 // jsonb StoredFocusArea[]. Mirror web's asDrills/asFocusAreas guards.
 function asSessions(value: unknown): StoredSession[] {
@@ -59,14 +43,6 @@ function asSessions(value: unknown): StoredSession[] {
 }
 function asFocusAreas(value: unknown): StoredFocusArea[] {
   return Array.isArray(value) ? (value as StoredFocusArea[]) : []
-}
-
-// UI safety net: rewrite any leaked raw snake_case category enums in displayed
-// prose. `approach`/`putting` are already readable words and left untouched.
-function normalizeCategoryProse(text: string): string {
-  return text
-    .replace(/\boff_tee\b/gi, 'off the tee')
-    .replace(/\baround_green\b/gi, 'around the green')
 }
 
 // `valid_until` / `generated_at` are bare date strings (YYYY-MM-DD). Compare to
@@ -84,49 +60,6 @@ function formatDate(value: string | null): string {
   const parsed = /^\d{4}-\d{2}-\d{2}$/.test(value) ? new Date(`${value}T00:00:00`) : new Date(value)
   if (Number.isNaN(parsed.getTime())) return ''
   return parsed.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
-}
-
-// Tiny markdown-ish renderer scoped to the drill `instructions` format, ported
-// from web's renderInstructions. Tokenize left-to-right into complete tokens
-// (**bold** | *italic* | plain), then group: each **bold** header starts a new
-// paragraph; following plain/italic text belongs to that section.
-type Seg = { kind: 'b' | 'i' | 't'; text: string }
-function renderInstructions(text: string) {
-  const tokens = text.match(/\*\*[^*]+\*\*|\*[^*]+\*|[^*]+/g) ?? []
-  const paras: Seg[][] = []
-  let cur: Seg[] = []
-  for (const tok of tokens) {
-    if (tok.startsWith('**')) {
-      if (cur.length) paras.push(cur)
-      cur = [{ kind: 'b', text: tok.slice(2, -2) }]
-    } else if (tok.startsWith('*')) {
-      cur.push({ kind: 'i', text: tok.slice(1, -1) })
-    } else {
-      cur.push({ kind: 't', text: tok })
-    }
-  }
-  if (cur.length) paras.push(cur)
-
-  return paras.map((para, pi) => (
-    <Text
-      key={pi}
-      style={[TYPE.body, { color: INK_DIM, fontSize: 14, lineHeight: 21, marginTop: pi === 0 ? 0 : 12 }]}
-    >
-      {para.map((seg, si) =>
-        seg.kind === 'b' ? (
-          <Text key={si} style={{ color: INK, fontWeight: '600' }}>
-            {seg.text}
-          </Text>
-        ) : seg.kind === 'i' ? (
-          <Text key={si} style={{ fontStyle: 'italic' }}>
-            {seg.text}
-          </Text>
-        ) : (
-          <Text key={si}>{seg.text}</Text>
-        ),
-      )}
-    </Text>
-  ))
 }
 
 export default function Practice() {
@@ -238,6 +171,16 @@ export default function Practice() {
                 {plan.based_on_rounds === 1 ? '' : 's'}
               </Text>
             ) : null}
+
+            <View style={{ borderTopWidth: 1, borderColor: LINE, marginTop: 28, paddingTop: 18 }}>
+              <Link href={'/(app)/drills' as never} asChild>
+                <Pressable hitSlop={6}>
+                  <Text style={[TYPE.serif, { color: ACCENT, fontSize: 17, fontStyle: 'italic', fontWeight: '500' }]}>
+                    Browse all drills →
+                  </Text>
+                </Pressable>
+              </Link>
+            </View>
           </>
         )}
       </ScrollView>
@@ -305,8 +248,15 @@ function NoPlan({
 
       <View style={{ borderTopWidth: 1, borderColor: LINE, paddingTop: 14, marginTop: 28 }}>
         <Text style={{ ...KICKER, marginBottom: 10 }}>Reference</Text>
-        <Link href={'/(app)/learn' as never} asChild>
+        <Link href={'/(app)/drills' as never} asChild>
           <Pressable>
+            <Text style={[TYPE.serif, { color: ACCENT, fontSize: 17, fontStyle: 'italic', fontWeight: '500' }]}>
+              Browse all drills →
+            </Text>
+          </Pressable>
+        </Link>
+        <Link href={'/(app)/learn' as never} asChild>
+          <Pressable style={{ marginTop: 10 }}>
             <Text style={[TYPE.serif, { color: ACCENT, fontSize: 17, fontStyle: 'italic', fontWeight: '500' }]}>
               Learn the stats →
             </Text>
