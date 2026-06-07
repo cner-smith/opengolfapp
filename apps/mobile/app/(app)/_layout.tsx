@@ -3,7 +3,6 @@ import { ActivityIndicator, Pressable, Text, View } from 'react-native'
 import { Tabs, Redirect } from 'expo-router'
 import { MaterialCommunityIcons } from '@expo/vector-icons'
 import { StatusBar } from 'expo-status-bar'
-import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
 import { ErrorBoundary } from '../../components/errors/ErrorBoundary'
@@ -21,7 +20,6 @@ export default function AppLayout() {
   const { user, loading: authLoading } = useAuth()
   const [profileState, setProfileState] = useState<ProfileState>('loading')
   const [retryNonce, setRetryNonce] = useState(0)
-  const insets = useSafeAreaInsets()
 
   useEffect(() => {
     if (authLoading) return
@@ -149,17 +147,15 @@ export default function AppLayout() {
           backgroundColor: '#FBF8F1',
           borderTopWidth: 1,
           borderTopColor: '#D9D2BF',
-          // Explicit height + paddingBottom from safe-area insets (#300).
-          // Explicit height + paddingBottom from safe-area insets (#300).
-          // Platform-neutral. height and paddingBottom carry an equal +8 over
-          // the base 54/10 so the content band [paddingTop, height-paddingBottom]
-          // is unchanged (no cramping) but the whole bar grows 8px at the bottom
-          // — lifting the icon+label ~8px off the bottom edge (device QA: label
-          // sat too low on a Galaxy S23). Keep top/bottom moving together if you
-          // retune; do NOT re-add Platform.OS bumps (the 49a283b regression).
           paddingTop: 8,
-          height: 62 + insets.bottom,
-          paddingBottom: insets.bottom + 18,
+          paddingBottom: 10,
+          // Height omitted (#300) so react-navigation/bottom-tabs adds the
+          // safe-area inset automatically — required for home-indicator / nav-bar
+          // clearance. Do NOT set an explicit `height` or hand-roll
+          // `paddingBottom: insets.bottom + N`: that double-counts the inset and
+          // pushes the label too low (the regression behind the repeated
+          // Galaxy S23 "label sits too low" reports). This is the known-good
+          // d2985ca config — restore it, don't re-nudge.
           elevation: 0,
           shadowOpacity: 0,
         },
