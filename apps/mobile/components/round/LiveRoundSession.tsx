@@ -10,7 +10,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useRouter } from 'expo-router'
 import { HoleMap, type LatLng } from './HoleMap'
 import type { ShotLoggerValue } from './ShotLogger'
-import { DEFAULT_HANDICAP } from '@oga/core'
+import { DEFAULT_HANDICAP, bearingDegrees, destinationYards } from '@oga/core'
 import { getProfile } from '@oga/supabase'
 import { supabase } from '../../lib/supabase'
 import { distanceYards } from '../../lib/maps'
@@ -40,6 +40,10 @@ import { LeftToolbar, RightRail } from './HoleMapOverlays'
 const TEE_RAIL_YARDS = [95, 85, 75, 65] as const
 const APPR_RAIL_FEET = [50, 36, 30, 24] as const
 const FEET_PER_YARD = 3
+
+// Half-width of the two-dot tee box, each side of the line of play (matches
+// PastRoundMap's dual-dot tee). Place the drive between the dots.
+const TEE_BOX_HALF_YARDS = 4
 
 interface LiveRoundSessionProps {
   roundId: string | undefined
@@ -155,6 +159,33 @@ export default function LiveRoundSession({
     data.courseCenter?.lng,
     finalState.ball?.lat,
     finalState.ball?.lng,
+  ])
+
+  // Two-dot tee box at the tee, oriented down the line of play (toward the aim,
+  // else the pin) — same visual as past-round (PastRoundMap). Hidden while the
+  // tee-placement flow is open so that flow keeps its own marker; HoleMap falls
+  // back to the single TeeBadge whenever teeBox is null.
+  const teeBox = useMemo<[LatLng, LatLng] | null>(() => {
+    const origin = data.tee
+    if (!origin || teePlacementOpen) return null
+    const toward = finalState.aim ?? data.roundPin ?? data.storedPin
+    const heading = toward
+      ? bearingDegrees(origin.lat, origin.lng, toward.lat, toward.lng)
+      : 0
+    return [
+      destinationYards(origin, heading - 90, TEE_BOX_HALF_YARDS),
+      destinationYards(origin, heading + 90, TEE_BOX_HALF_YARDS),
+    ]
+  }, [
+    data.tee?.lat,
+    data.tee?.lng,
+    teePlacementOpen,
+    finalState.aim?.lat,
+    finalState.aim?.lng,
+    data.roundPin?.lat,
+    data.roundPin?.lng,
+    data.storedPin?.lat,
+    data.storedPin?.lng,
   ])
 
   // Per-club dispersion from the player's whole history (one query/session).
@@ -452,6 +483,7 @@ export default function LiveRoundSession({
           pin={data.storedPin}
           roundPin={data.roundPin}
           tee={data.tee}
+          teeBox={teeBox}
           aim={finalState.aim}
           ball={finalState.ball}
           overlayMode={overlayMode}
