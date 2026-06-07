@@ -18,10 +18,9 @@ const HUD_KICKER = {
 
 interface TopHintProps {
   isPinMode: boolean
-  isTeeMode: boolean
 }
 
-export function TopHint({ isPinMode, isTeeMode }: TopHintProps) {
+export function TopHint({ isPinMode }: TopHintProps) {
   return (
     <View
       style={{
@@ -54,9 +53,7 @@ export function TopHint({ isPinMode, isTeeMode }: TopHintProps) {
       >
         {isPinMode
           ? 'Pin mode — tap to place flag'
-          : isTeeMode
-            ? 'Tee mode — tap to place tee box'
-            : 'Drag the ball to refine, then tap Mark ball here'}
+          : 'Drag the ball to refine, then tap Mark ball here'}
       </Text>
     </View>
   )
@@ -223,18 +220,14 @@ interface LeftToolbarProps {
   dotsVisible: boolean
   onToggleDots: () => void
   onPlacePin: () => void
-  onPlaceTee: () => void
   pinMode: boolean
-  teeMode: boolean
 }
 
 export function LeftToolbar({
   dotsVisible,
   onToggleDots,
   onPlacePin,
-  onPlaceTee,
   pinMode,
-  teeMode,
 }: LeftToolbarProps) {
   return (
     <View
@@ -273,12 +266,6 @@ export function LeftToolbar({
           label="Place pin"
           active={pinMode}
           onPress={onPlacePin}
-        />
-        <ToolbarButton
-          icon="golf-tee"
-          label="Place tee box"
-          active={teeMode}
-          onPress={onPlaceTee}
         />
       </View>
     </View>

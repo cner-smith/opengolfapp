@@ -79,7 +79,6 @@ export default function LiveRoundSession({
   // a modal left open on hole 5 doesn't reappear on hole 6.
   const [loggerOpen, setLoggerOpen] = useState(false)
   const [pinPlacementOpen, setPinPlacementOpen] = useState(false)
-  const [teePlacementOpen, setTeePlacementOpen] = useState(false)
   const [scorecardOpen, setScorecardOpen] = useState(false)
   // One mutually-exclusive confirm dialog at a time. See ActiveDialog
   // in ./hole/types for the full union + rationale (#293).
@@ -108,7 +107,6 @@ export default function LiveRoundSession({
   useEffect(() => {
     setLoggerOpen(false)
     setPinPlacementOpen(false)
-    setTeePlacementOpen(false)
     setLoggerInitial({})
     // Clear only hole-scoped dialogs (onGreen / aim). Session-scoped
     // confirms (delete / leave / end / exit) stay open across hole
@@ -161,13 +159,14 @@ export default function LiveRoundSession({
     finalState.ball?.lng,
   ])
 
-  // Two-dot tee box at the tee, oriented down the line of play (toward the aim,
-  // else the pin) — same visual as past-round (PastRoundMap). Hidden while the
-  // tee-placement flow is open so that flow keeps its own marker; HoleMap falls
-  // back to the single TeeBadge whenever teeBox is null.
+  // Two-dot tee box flanking the tee, oriented down the line of play (toward the
+  // aim, else the pin). The tee IS the first shot's start — like past-round
+  // (PastRoundMap): the course tee when known, otherwise the shot-1 ball as you
+  // place it (persisted as the hole tee on save, see useShotActions). After
+  // shot 1 it lives in data.tee, so the dots stay put on later shots.
   const teeBox = useMemo<[LatLng, LatLng] | null>(() => {
-    const origin = data.tee
-    if (!origin || teePlacementOpen) return null
+    const origin = data.tee ?? (data.shotNumber === 1 ? finalState.ball : null)
+    if (!origin) return null
     const toward = finalState.aim ?? data.roundPin ?? data.storedPin
     const heading = toward
       ? bearingDegrees(origin.lat, origin.lng, toward.lat, toward.lng)
@@ -179,7 +178,9 @@ export default function LiveRoundSession({
   }, [
     data.tee?.lat,
     data.tee?.lng,
-    teePlacementOpen,
+    data.shotNumber,
+    finalState.ball?.lat,
+    finalState.ball?.lng,
     finalState.aim?.lat,
     finalState.aim?.lng,
     data.roundPin?.lat,
@@ -264,7 +265,6 @@ export default function LiveRoundSession({
     setLoggerOpen,
     setLoggerInitial,
     setPinPlacementOpen,
-    setTeePlacementOpen,
     setActiveDialog,
     // URL sync fires here — only on user-driven navigation (Next /
     // Prev / Finish), not on every render. A reactive useEffect that
@@ -500,11 +500,9 @@ export default function LiveRoundSession({
           phase={
             pinPlacementOpen
               ? 'PIN'
-              : teePlacementOpen
-                ? 'TEE'
-                : finalState.roundState === 'SET_AIM'
-                  ? 'SET_AIM'
-                  : 'PLACE_BALL'
+              : finalState.roundState === 'SET_AIM'
+                ? 'SET_AIM'
+                : 'PLACE_BALL'
           }
           // A SET_AIM → SHOT_DETAIL/PUTTING transition is a real shot commit;
           // SET_AIM → bare PLACE_BALL ("Re-place ball") is a backout. The
@@ -540,7 +538,6 @@ export default function LiveRoundSession({
             finalState.setBall(loc)
           }}
           onPlacePin={actions.persistRoundPin}
-          onPlaceTee={actions.persistTee}
         />
         {finalState.aimHintVisible && (
           <Pressable
@@ -571,13 +568,11 @@ export default function LiveRoundSession({
           dotsVisible={dotsVisible}
           onToggleDots={() => setDotsVisible((v) => !v)}
           onPlacePin={() => setPinPlacementOpen(true)}
-          onPlaceTee={() => setTeePlacementOpen(true)}
           pinMode={pinPlacementOpen}
-          teeMode={teePlacementOpen}
         />
         {/* Tee/Appr + distance rail — appears once an aim exists, hidden
-            during pin/tee placement so it doesn't fight those flows. */}
-        {finalState.aim && !pinPlacementOpen && !teePlacementOpen && (
+            during pin placement so it doesn't fight that flow. */}
+        {finalState.aim && !pinPlacementOpen && (
           <RightRail
             mode={overlayMode}
             onSetMode={setOverlayMode}
@@ -589,7 +584,6 @@ export default function LiveRoundSession({
         <MapBottomChrome
           roundState={finalState.roundState}
           pinPlacementOpen={pinPlacementOpen}
-          teePlacementOpen={teePlacementOpen}
           ball={finalState.ball}
           aim={finalState.aim}
           saving={actions.saving}
@@ -600,7 +594,6 @@ export default function LiveRoundSession({
           par={data.currentHole.par}
           yardsLabel={data.currentHole.yards ? toDisplay(data.currentHole.yards) : null}
           onCancelPinPlacement={() => setPinPlacementOpen(false)}
-          onCancelTeePlacement={() => setTeePlacementOpen(false)}
           onClearRoundPin={actions.clearRoundPin}
           onConfirmAim={actions.confirmAim}
           onRePlaceBall={() => {

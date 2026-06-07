@@ -7,8 +7,8 @@ import { KICKER, type RoundState } from './hole/types'
 // Floating bottom chrome that replaces the old cream HoleStrip panel so the
 // satellite map runs nearly full-bleed (Shot Pattern refs: contextual CTA over
 // a thin hole-nav). All action wiring is the HoleStrip wiring verbatim — only
-// the presentation moved from a solid panel to map-floating pills. Pin/tee
-// placement + recenter live in the left toolbar now, so they're gone here.
+// the presentation moved from a solid panel to map-floating pills. Pin
+// placement lives in the left toolbar now, so it's gone here.
 //
 // The nav pill is kept narrow + centered so the Mapbox logo/attribution at the
 // bottom corners stays unobstructed (ToS).
@@ -18,7 +18,6 @@ const CREAM = '#F2EEE5'
 interface MapBottomChromeProps {
   roundState: RoundState
   pinPlacementOpen: boolean
-  teePlacementOpen: boolean
   ball: { lat: number; lng: number } | null
   aim: { lat: number; lng: number } | null
   saving: boolean
@@ -29,7 +28,6 @@ interface MapBottomChromeProps {
   par: number
   yardsLabel: string | null
   onCancelPinPlacement: () => void
-  onCancelTeePlacement: () => void
   onClearRoundPin: () => void
   onConfirmAim: () => void
   onRePlaceBall: () => void
@@ -69,9 +67,6 @@ function ContextualActions(p: MapBottomChromeProps) {
         {p.roundPin && <SecondaryPill label="Clear flag" danger onPress={p.onClearRoundPin} />}
       </View>
     )
-  }
-  if (p.teePlacementOpen) {
-    return <SecondaryPill label="Cancel" onPress={p.onCancelTeePlacement} />
   }
   if (p.roundState === 'SET_AIM') {
     return (

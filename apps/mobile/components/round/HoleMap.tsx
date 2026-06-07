@@ -120,7 +120,6 @@ interface HoleMapProps {
   onSetAim: (loc: LatLng) => void
   onSetBall: (loc: LatLng) => void
   onPlacePin?: (loc: LatLng) => void
-  onPlaceTee?: (loc: LatLng) => void
   /**
    * Whether to mount the Mapbox LocationPuck. The puck owns its own
    * native GPS subscription that bypasses expo-location, and setting
@@ -200,7 +199,6 @@ export function HoleMap({
   onSetAim,
   onSetBall,
   onPlacePin,
-  onPlaceTee,
   showLocationPuck,
   overlayMode,
   arcWidthYards,
@@ -217,7 +215,6 @@ export function HoleMap({
   const [styleLoaded, setStyleLoaded] = useState(false)
 
   const isPinMode = phase === 'PIN'
-  const isTeeMode = phase === 'TEE'
   const isAimPhase = phase === 'SET_AIM'
   const isPlaceBallPhase = phase === 'PLACE_BALL'
 
@@ -563,10 +560,6 @@ export function HoleMap({
       onPlacePin?.(c)
       return
     }
-    if (isTeeMode) {
-      onPlaceTee?.(c)
-      return
-    }
     // Tap-to-place-ball is only meaningful in PLACE_BALL. In SET_AIM we
     // don't want stray taps moving the just-confirmed ball position.
     if (isPlaceBallPhase) {
@@ -624,7 +617,7 @@ export function HoleMap({
           {/* Fixed-geometry aim overlay (T4), drawn under the aim line. Arc
               band = a wide translucent stroke (the "fill") + a thin crisp
               core, so it reads as an area, not the old invisible hairline. */}
-          {styleLoaded && !isPinMode && !isTeeMode && overlayArc && (
+          {styleLoaded && !isPinMode && overlayArc && (
             <Mapbox.ShapeSource id="overlayArc" shape={overlayArc}>
               <Mapbox.LineLayer
                 id="overlayArcFill"
@@ -650,7 +643,7 @@ export function HoleMap({
           )}
 
           {/* Approach circle ring — translucent fill + thin border. */}
-          {styleLoaded && !isPinMode && !isTeeMode && overlayCircle && (
+          {styleLoaded && !isPinMode && overlayCircle && (
             <Mapbox.ShapeSource id="overlayCircle" shape={overlayCircle}>
               <Mapbox.FillLayer
                 id="overlayCircleFill"
@@ -664,7 +657,7 @@ export function HoleMap({
           )}
 
           {/* Single-color historical-shot dots (dispersion toggle). */}
-          {styleLoaded && !isPinMode && !isTeeMode && overlayDots && (
+          {styleLoaded && !isPinMode && overlayDots && (
             <Mapbox.ShapeSource id="overlayDots" shape={overlayDots}>
               <Mapbox.CircleLayer
                 id="overlayDotsLayer"
@@ -785,7 +778,7 @@ export function HoleMap({
           )}
 
           {/* Render whenever an aim exists — NOT gated on showAim — so the
-              annotation never unmounts when the player dips into PIN/TEE
+              annotation never unmounts when the player dips into PIN
               placement. @rnmapbox PointAnnotation loses its native drag
               gesture on an unmount→remount under a reused id; keeping it
               mounted (draggable still gated to SET_AIM) preserves the drag
@@ -854,7 +847,7 @@ export function HoleMap({
           )}
 
           {/* Render whenever a ball exists — same reasoning as the aim
-              annotation above: never unmount during PIN/TEE placement, or
+              annotation above: never unmount during PIN placement, or
               the @rnmapbox drag gesture is lost on remount. draggable stays
               gated to PLACE_BALL so the ball can't be dragged mid-aim. */}
           {ball && (
@@ -898,10 +891,10 @@ export function HoleMap({
 
         {/* No hint during SET_AIM — the aim line auto-spawns to the pin with a
             draggable midpoint, so the old "long-press to set aim" reminder is
-            obsolete. Pin/tee placement + ball-drag hints still show. */}
-        {!isAimPhase && <TopHint isPinMode={isPinMode} isTeeMode={isTeeMode} />}
-        {missingHoleLayout && !isPinMode && !isTeeMode && <MissingLayoutBanner />}
-        {!isPinMode && !isTeeMode && pinDistance !== null && (
+            obsolete. Pin placement + ball-drag hints still show. */}
+        {!isAimPhase && <TopHint isPinMode={isPinMode} />}
+        {missingHoleLayout && !isPinMode && <MissingLayoutBanner />}
+        {!isPinMode && pinDistance !== null && (
           <>
             <ToHolePill display={toDisplay(pinDistance)} />
             <ExpStrokesPill value={liveStrokes.expected} />
@@ -911,7 +904,7 @@ export function HoleMap({
             expected strokes, and the dispersion overlay all need one. Skipped
             when the whole hole layout is missing (MissingLayoutBanner covers
             that case). */}
-        {!isPinMode && !isTeeMode && !effectivePin && !missingHoleLayout && (
+        {!isPinMode && !effectivePin && !missingHoleLayout && (
           <PinFirstCta />
         )}
         {isPlaceBallPhase && (
