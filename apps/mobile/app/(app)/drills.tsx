@@ -147,7 +147,7 @@ function FilterRow<T extends string>({
   return (
     <View style={{ marginBottom: 12 }}>
       <Text style={{ ...KICKER, marginBottom: 8 }}>{label}</Text>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
         {chips.map((chip) => {
           const selected = chip.value === active
           return (
@@ -177,7 +177,7 @@ function FilterRow<T extends string>({
             </Pressable>
           )
         })}
-      </ScrollView>
+      </View>
     </View>
   )
 }

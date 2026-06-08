@@ -395,19 +395,25 @@ function DrillRowItem({
         {completed ? <Text style={{ color: CREAM, fontSize: 12, fontWeight: '700' }}>✓</Text> : null}
       </Pressable>
 
-      <Text
-        style={[TYPE.serif, { color: INK_MUTE, fontSize: 24, fontStyle: 'italic', lineHeight: 26, minWidth: 30 }]}
+      {/* The whole row (everything but the checkbox) toggles expand, so a thumb
+          tap anywhere on the card opens it — not just the chevron. Matches the
+          drill-library card affordance. */}
+      <Pressable
+        onPress={() => canExpand && setOpen((o) => !o)}
+        disabled={!canExpand}
+        accessibilityRole="button"
+        accessibilityState={{ expanded: open }}
+        accessibilityLabel={`${name}${canExpand ? `, tap to ${open ? 'collapse' : 'expand'}` : ''}`}
+        style={{ flex: 1, flexDirection: 'row', gap: 12 }}
       >
-        {String(index).padStart(2, '0')}
-      </Text>
+        <Text
+          style={[TYPE.serif, { color: INK_MUTE, fontSize: 24, fontStyle: 'italic', lineHeight: 26, minWidth: 30 }]}
+        >
+          {String(index).padStart(2, '0')}
+        </Text>
 
-      <View style={{ flex: 1 }}>
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 10 }}>
-          <Pressable
-            onPress={() => canExpand && setOpen((o) => !o)}
-            disabled={!canExpand}
-            style={{ flex: 1 }}
-          >
+        <View style={{ flex: 1 }}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 10 }}>
             <Text
               style={[TYPE.serif, {
                 color: completed ? INK_MUTE : INK,
@@ -415,6 +421,7 @@ function DrillRowItem({
                 fontStyle: 'italic',
                 fontWeight: '500',
                 lineHeight: 23,
+                flex: 1,
               }]}
             >
               {name}
@@ -422,65 +429,65 @@ function DrillRowItem({
                 <Text style={{ color: INK_MUTE, fontSize: 13 }}>{open ? '  ▲' : '  ▼'}</Text>
               ) : null}
             </Text>
-          </Pressable>
 
-          {/* Right rail — minutes + block type tag + optional target. */}
-          <View style={{ alignItems: 'flex-end', minWidth: 64 }}>
-            <Text style={[TYPE.serif, { color: INK, fontSize: 18, fontStyle: 'italic', lineHeight: 20 }]}>
-              {block.minutes} min
-            </Text>
-            <Text
-              style={{ ...KICKER, color: ACCENT, fontSize: 9, letterSpacing: 1.6, marginTop: 4, textAlign: 'right' }}
-            >
-              {BLOCK_TYPE_LABEL[block.type] ?? block.type}
-            </Text>
-            {block.target != null ? (
-              <Text style={{ ...KICKER, fontSize: 9, marginTop: 6, textAlign: 'right' }}>
-                Target: {block.target}
+            {/* Right rail — minutes + block type tag + optional target. */}
+            <View style={{ alignItems: 'flex-end', minWidth: 64 }}>
+              <Text style={[TYPE.serif, { color: INK, fontSize: 18, fontStyle: 'italic', lineHeight: 20 }]}>
+                {block.minutes} min
               </Text>
-            ) : null}
-          </View>
-        </View>
-
-        {block.rationale ? (
-          <Text style={[TYPE.body, { color: INK_DIM, fontSize: 13, lineHeight: 19, marginTop: 6 }]}>
-            {block.rationale}
-          </Text>
-        ) : null}
-
-        {facilities.length > 0 ? (
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 10 }}>
-            {facilities.map((f) => (
               <Text
-                key={f}
-                style={{
-                  ...KICKER,
-                  color: INK_DIM,
-                  fontSize: 9,
-                  backgroundColor: '#E8E2D2',
-                  paddingHorizontal: 8,
-                  paddingVertical: 3,
-                  borderRadius: 2,
-                  overflow: 'hidden',
-                }}
+                style={{ ...KICKER, color: ACCENT, fontSize: 9, letterSpacing: 1.6, marginTop: 4, textAlign: 'right' }}
               >
-                {FACILITY_LABEL[f] ?? f}
+                {BLOCK_TYPE_LABEL[block.type] ?? block.type}
               </Text>
-            ))}
+              {block.target != null ? (
+                <Text style={{ ...KICKER, fontSize: 9, marginTop: 6, textAlign: 'right' }}>
+                  Target: {block.target}
+                </Text>
+              ) : null}
+            </View>
           </View>
-        ) : null}
 
-        {open && canExpand ? (
-          <View style={{ borderTopWidth: 1, borderColor: LINE, marginTop: 14, paddingTop: 14 }}>
-            {renderInstructions(instructions)}
-            {drill?.source ? (
-              <Text style={{ ...KICKER, color: INK_MUTE, fontSize: 9, marginTop: 14 }}>
-                via {drill.source}
-              </Text>
-            ) : null}
-          </View>
-        ) : null}
-      </View>
+          {block.rationale ? (
+            <Text style={[TYPE.body, { color: INK_DIM, fontSize: 13, lineHeight: 19, marginTop: 6 }]}>
+              {block.rationale}
+            </Text>
+          ) : null}
+
+          {facilities.length > 0 ? (
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 10 }}>
+              {facilities.map((f) => (
+                <Text
+                  key={f}
+                  style={{
+                    ...KICKER,
+                    color: INK_DIM,
+                    fontSize: 9,
+                    backgroundColor: '#E8E2D2',
+                    paddingHorizontal: 8,
+                    paddingVertical: 3,
+                    borderRadius: 2,
+                    overflow: 'hidden',
+                  }}
+                >
+                  {FACILITY_LABEL[f] ?? f}
+                </Text>
+              ))}
+            </View>
+          ) : null}
+
+          {open && canExpand ? (
+            <View style={{ borderTopWidth: 1, borderColor: LINE, marginTop: 14, paddingTop: 14 }}>
+              {renderInstructions(instructions)}
+              {drill?.source ? (
+                <Text style={{ ...KICKER, color: INK_MUTE, fontSize: 9, marginTop: 14 }}>
+                  via {drill.source}
+                </Text>
+              ) : null}
+            </View>
+          ) : null}
+        </View>
+      </Pressable>
     </View>
   )
 }

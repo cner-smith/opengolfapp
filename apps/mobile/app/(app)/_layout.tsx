@@ -3,6 +3,7 @@ import { ActivityIndicator, Pressable, Text, View } from 'react-native'
 import { Tabs, Redirect } from 'expo-router'
 import { MaterialCommunityIcons } from '@expo/vector-icons'
 import { StatusBar } from 'expo-status-bar'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
 import { ErrorBoundary } from '../../components/errors/ErrorBoundary'
@@ -20,6 +21,7 @@ export default function AppLayout() {
   const { user, loading: authLoading } = useAuth()
   const [profileState, setProfileState] = useState<ProfileState>('loading')
   const [retryNonce, setRetryNonce] = useState(0)
+  const insets = useSafeAreaInsets()
 
   useEffect(() => {
     if (authLoading) return
@@ -148,14 +150,14 @@ export default function AppLayout() {
           borderTopWidth: 1,
           borderTopColor: '#D9D2BF',
           paddingTop: 8,
-          paddingBottom: 10,
-          // Height omitted (#300) so react-navigation/bottom-tabs adds the
-          // safe-area inset automatically — required for home-indicator / nav-bar
-          // clearance. Do NOT set an explicit `height` or hand-roll
-          // `paddingBottom: insets.bottom + N`: that double-counts the inset and
-          // pushes the label too low (the regression behind the repeated
-          // Galaxy S23 "label sits too low" reports). This is the known-good
-          // d2985ca config — restore it, don't re-nudge.
+          // Explicit height + inset so the label never clips. Auto-height
+          // (omitting this) under-reserves space on the Galaxy S23's nav setup
+          // and the label gets cut off at the bottom. The label is lifted off
+          // the bottom by tabBarLabelStyle.marginBottom below — that moves the
+          // TEXT independent of the icon (which stays put). Two knobs:
+          // marginBottom = how high the label sits; height = clip headroom.
+          height: 64 + insets.bottom,
+          paddingBottom: insets.bottom + 6,
           elevation: 0,
           shadowOpacity: 0,
         },
@@ -163,6 +165,8 @@ export default function AppLayout() {
           fontSize: 10,
           fontWeight: '500',
           letterSpacing: 0.4,
+          // Lifts the label up off the bottom edge without moving the icon.
+          marginBottom: 8,
         },
         tabBarActiveTintColor: '#1F3D2C',
         tabBarInactiveTintColor: '#8A8B7E',
