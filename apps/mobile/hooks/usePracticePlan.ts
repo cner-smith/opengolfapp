@@ -63,7 +63,12 @@ export function usePracticePlan() {
       return
     }
     const { data, error: dErr } = await getDrillsByIds(supabase, ids)
-    if (dErr) return
+    if (dErr) {
+      // Surface it — otherwise the plan renders with every drill row stuck on
+      // the bare "Drill" fallback and no indication anything failed.
+      setError(dErr.message)
+      return
+    }
     const byId: Record<string, DrillCard> = {}
     for (const d of (data ?? []) as DrillCard[]) byId[d.id] = d
     setDrillsById(byId)

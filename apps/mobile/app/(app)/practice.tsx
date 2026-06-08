@@ -73,7 +73,10 @@ export default function Practice() {
   const { plan, drillsById, loading, generating, error, loadDrills, generate, toggleCompletion, submitFeedback } =
     usePracticePlan()
 
-  const sessions = useMemo(() => asSessions(plan?.drills), [plan])
+  // Key on plan.drills, not plan: a completion toggle replaces the plan object
+  // but leaves drills untouched, so this keeps a stable identity and avoids a
+  // redundant getDrillsByIds refetch (via drillIds) on every checkbox tap.
+  const sessions = useMemo(() => asSessions(plan?.drills), [plan?.drills])
   const focusAreas = useMemo(() => asFocusAreas(plan?.focus_areas), [plan])
   const drillIds = useMemo(
     () =>
@@ -169,7 +172,7 @@ export default function Practice() {
             ))}
 
             {plan.id ? (
-              <FeedbackSection initial={plan.feedback ?? ''} onSave={submitFeedback} />
+              <FeedbackSection key={plan.id} initial={plan.feedback ?? ''} onSave={submitFeedback} />
             ) : null}
 
             {plan.based_on_rounds ? (
