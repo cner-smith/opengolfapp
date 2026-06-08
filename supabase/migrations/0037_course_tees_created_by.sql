@@ -23,8 +23,17 @@ create policy "Users insert own course tees"
   with check (auth.role() = 'service_role' or auth.uid() = created_by);
 
 -- UPDATE: owner or service_role. Replaces the service_role-only policy from
--- 0014 so a user can still correct a tee they created.
+-- 0014 so a user can still correct a tee they created. The with check is
+-- spelled out (rather than left to Postgres's implicit reuse of using) so the
+-- post-update constraint is auditable at a glance and can't be silently
+-- relaxed by a later edit to using alone.
 drop policy if exists "Service role can update course tees" on public.course_tees;
 create policy "Users update own course tees"
   on public.course_tees for update
-  using (auth.role() = 'service_role' or auth.uid() = created_by);
+  using (auth.role() = 'service_role' or auth.uid() = created_by)
+  with check (auth.role() = 'service_role' or auth.uid() = created_by);
+
+-- DELETE is intentionally left with no policy: course_tees is shared course
+-- data, so non-service-role deletes stay denied by default (RLS-on + no
+-- permissive policy). The crawler reseeds via service_role. Do not add an
+-- owner-delete policy without a product reason.
