@@ -107,8 +107,9 @@ Notable pins:
 
 - `nativewind` is locked at `4.1.23`. Do not bump to 4.2.x — it
   transitively pulls a worklets plugin that breaks the build.
-- `react-native-worklets` is intentionally absent (different package
-  from `react-native-worklets-core`, which stays).
+- `react-native-worklets` is intentionally absent. The separate
+  `react-native-worklets-core` package was unused and was dropped in the
+  Expo SDK 53 upgrade — don't re-add either.
 
 If a mobile dep change is necessary, open a `chore/` PR for *just*
 that change so the upgrade can be reverted independently if it
