@@ -24,14 +24,8 @@ const config: ExpoConfig = {
   icon: './assets/icon.png',
   userInterfaceStyle: 'automatic',
   backgroundColor: '#1C211C',
-  splash: {
-    image: './assets/splash.png',
-    // contain (not cover): the splash asset is the paper "o." mark on a
-    // transparent field; backgroundColor (#1C211C ink) fills around it so
-    // the centred mark shows whole on every aspect ratio.
-    resizeMode: 'contain',
-    backgroundColor: '#1C211C',
-  },
+  // Splash is configured via the expo-splash-screen plugin below (SDK 53
+  // deprecates the top-level `splash` key). See the plugins array.
   ios: {
     // Reverse-DNS mirror of the production domain (oga.golf). Bundle ID
     // is permanent once registered in App Store Connect — pick deliberately.
@@ -175,6 +169,22 @@ const config: ExpoConfig = {
     ],
     'expo-font',
     'expo-secure-store',
+    [
+      'expo-splash-screen',
+      {
+        // Migrated from the deprecated top-level `splash` key (SDK 53). The
+        // asset is the paper "o." mark on a transparent field; backgroundColor
+        // (#1C211C ink) fills around it so the centred mark shows whole.
+        image: './assets/splash.png',
+        resizeMode: 'contain',
+        backgroundColor: '#1C211C',
+        // SDK 52+ Android renders the splash image as a centred icon (Android-12
+        // SplashScreen API). Keep the prior full-screen `contain` rendering so
+        // this migration is visually identical — adopting the centred-icon model
+        // is a deliberate design follow-up, not a silent migration side effect.
+        enableFullScreenImage_legacy: true,
+      },
+    ],
   ],
   experiments: {
     typedRoutes: true,
