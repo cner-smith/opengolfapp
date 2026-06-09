@@ -40,7 +40,14 @@
 
 -- Mapping of every loser → its cluster survivor. Temp; dropped at end.
 create temporary table _dedup_map as
-with ranked as (
+with hole_counts as (
+  -- Pre-aggregated once. Avoids a correlated subquery inside the window ORDER BY:
+  -- `ranked` is referenced twice below (source + the `where k in (...)` filter) and
+  -- PG inlines non-side-effecting CTEs, so an inline subquery would re-fire per row
+  -- on every reference. One grouped scan of holes is strictly cheaper and clearer.
+  select course_id, count(*) as n from public.holes group by course_id
+),
+ranked as (
   select
     c.id,
     lower(btrim(c.name)) || '|' ||
@@ -52,11 +59,12 @@ with ranked as (
         round(c.lng::numeric, 2)
       order by
         (c.external_id is not null) desc,
-        (select count(*) from public.holes h where h.course_id = c.id) desc,
+        coalesce(hc.n, 0) desc,
         (c.city is not null and c.state is not null) desc,
         c.id
     ) as rn
   from public.courses c
+  left join hole_counts hc on hc.course_id = c.id
   where c.lat is not null and c.lng is not null
 ),
 clustered as (
@@ -69,10 +77,21 @@ join clustered s on s.k = l.k and s.rn = 1
 where l.rn > 1;
 
 -- 1. Preserve user rounds: repoint any round on a loser to its survivor.
+--    Scoped to losers that will ACTUALLY be deleted (same guard as the delete in
+--    step 2). A guarded loser — kept because a round still cites its tee — must
+--    NOT have its rounds repointed: doing so would leave round.course_id pointing
+--    at the survivor while round.course_tee_id still points at the loser's tee
+--    (course_tees.course_id = loser), a FK-valid but semantically broken state.
 update public.rounds r
 set course_id = m.survivor_id
 from _dedup_map m
-where r.course_id = m.loser_id;
+where r.course_id = m.loser_id
+  and not exists (
+    select 1
+    from public.course_tees ct
+    join public.rounds r2 on r2.course_tee_id = ct.id
+    where ct.course_id = m.loser_id
+  );
 
 -- 2. Delete losers. holes + course_tees cascade. Guard: never delete a loser
 --    whose tee is still cited by a round (rounds.course_tee_id NO ACTION would
@@ -106,7 +125,14 @@ drop table _dedup_map;
 --   (select k from ranked group by k having count(*)>1))
 -- select
 --   (select count(*) from cl where rn>1) losers,
---   (select count(*) from public.rounds where course_id in (select id from cl where rn>1)) rounds_on_losers;
+--   (select count(*) from public.rounds where course_id in (select id from cl where rn>1)) rounds_on_losers,
+--   -- Direct check on hole_scores.hole_id → holes NO ACTION: a loser's holes
+--   -- cascade-delete, but if any carry hole_scores with no round on that loser
+--   -- (orphaned, or a round with course_tee_id IS NULL that bypasses the guard),
+--   -- the cascade aborts. Want 0; don't infer it from rounds_on_losers.
+--   (select count(*) from public.hole_scores hs
+--      join public.holes h on h.id = hs.hole_id
+--      where h.course_id in (select id from cl where rn>1)) hole_scores_on_loser_holes;
 --
 -- -- b) DATA-LOSS flag: clusters where the chosen survivor has fewer holes than
 -- --    a loser being deleted (review these before applying):
