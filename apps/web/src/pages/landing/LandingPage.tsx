@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../../hooks/useAuth'
 import { AppPreview } from '../../components/landing/AppPreview'
@@ -595,6 +595,9 @@ const DEMO_DOTS = [
   [248, 130], [208, 112], [230, 150], [220, 122],
 ]
 function DemoDispersion() {
+  // Unique per instance — a global <pattern id> would collide if this ever
+  // renders twice (the second fill="url(#id)" silently resolves the first).
+  const gridId = useId()
   return (
     <div
       style={{
@@ -613,11 +616,11 @@ function DemoDispersion() {
         aria-label="7-iron dispersion: the shot pattern sits a few yards right of target, so aiming slightly left centers it."
       >
         <defs>
-          <pattern id="lp-grid" width="40" height="40" patternUnits="userSpaceOnUse">
+          <pattern id={gridId} width="40" height="40" patternUnits="userSpaceOnUse">
             <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#D9D2BF" strokeWidth="0.5" />
           </pattern>
         </defs>
-        <rect width="400" height="320" fill="url(#lp-grid)" />
+        <rect width="400" height="320" fill={`url(#${gridId})`} />
         <line
           x1="200"
           y1="34"

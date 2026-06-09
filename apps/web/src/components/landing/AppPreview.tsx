@@ -26,6 +26,11 @@ const DEMO_SHOTS = [
   { shotNumber: 3, lat: 36.561432, lng: -121.940402 },
 ]
 
+// Published length of the hole — shown in the label. Kept beside DEMO_HOLE
+// so the relationship is explicit (the coords are a downhill approximation,
+// not a yardage source).
+const DEMO_YARDS = 107
+
 // Phone-shaped frame around a real Mapbox view of Pebble Beach #7. The
 // data is hardcoded but the rendering goes through the same Mapbox
 // satellite tiles + marker styling the live app uses, so what visitors
@@ -139,7 +144,7 @@ export function AppPreview() {
               className="font-mono uppercase"
               style={{ color: 'rgba(242,238,229,0.85)', fontSize: 9, letterSpacing: '0.16em' }}
             >
-              Hole {DEMO_HOLE.number} · Par {DEMO_HOLE.par} · 107 yd
+              Hole {DEMO_HOLE.number} · Par {DEMO_HOLE.par} · {DEMO_YARDS} yd
             </span>
           </div>
         </div>
