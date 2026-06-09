@@ -6,10 +6,12 @@ import {
   computeDetailedStats,
   DEFAULT_HANDICAP,
   formatSG,
+  sgStandouts,
   YARDS_TO_METERS,
   type ApproachBandStat,
   type DetailedRound,
   type DetailedStats,
+  type SGAverages,
 } from '@oga/core'
 import { getRoundsWithDetails } from '@oga/supabase'
 import { supabase } from '../../lib/supabase'
@@ -19,6 +21,14 @@ import { AppBar } from '../../components/ui/AppBar'
 import { TYPE } from '../../lib/typography'
 
 const N_OPTIONS = [5, 10, 20] as const
+// Short labels for the standout callout, keyed to SGAverages (camelCase);
+// kept identical to the web stats page so the prose reads the same. #522
+const SG_STANDOUT_LABEL: Record<keyof SGAverages, string> = {
+  offTee: 'Off tee',
+  approach: 'Approach',
+  aroundGreen: 'Around green',
+  putting: 'Putting',
+}
 // Pin x-axis to chart bottom regardless of where y=0 falls in domain.
 const CHART_HEIGHT = 260
 const CHART_BOTTOM = 28
@@ -184,6 +194,46 @@ export default function Stats() {
           </View>
         ) : (
           <>
+            {stats &&
+              (() => {
+                const { weakest, strongest } = sgStandouts(stats.sg)
+                if (!weakest) return null
+                const showStrength =
+                  strongest != null &&
+                  strongest.key !== weakest.key &&
+                  strongest.value > 0
+                const leak =
+                  weakest.value < 0
+                    ? `Your biggest leak is ${SG_STANDOUT_LABEL[weakest.key]} — ${formatSG(weakest.value)} a round.`
+                    : `Your softest area is ${SG_STANDOUT_LABEL[weakest.key]} (${formatSG(weakest.value)} a round).`
+                const strength = showStrength
+                  ? ` ${SG_STANDOUT_LABEL[strongest.key]} is a strength, ${formatSG(strongest.value)} a round.`
+                  : ''
+                return (
+                  <View
+                    style={{
+                      borderLeftWidth: 2,
+                      borderColor: '#1F3D2C',
+                      paddingLeft: 14,
+                      marginBottom: 22,
+                    }}
+                  >
+                    <Text
+                      style={[TYPE.serif, {
+                        color: '#1C211C',
+                        fontSize: 17,
+                        fontStyle: 'italic',
+                        fontWeight: '500',
+                        lineHeight: 24,
+                      }]}
+                    >
+                      {leak}
+                      {strength}
+                    </Text>
+                  </View>
+                )
+              })()}
+
             <Section kicker={`Avg — last ${rounds.length} rounds`}>
               <View
                 style={{

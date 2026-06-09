@@ -4,6 +4,7 @@ import {
   getProximityYards,
   scoringDistribution,
   scoringStats,
+  sgStandouts,
   shortGameStats,
   type DetailedHoleScore,
   type DetailedRound,
@@ -448,5 +449,37 @@ describe('combinedPuttResult', () => {
     expect(combinedPuttResult({})).toBeNull()
     expect(combinedPuttResult({ made: false })).toBeNull()
     expect(combinedPuttResult({ made: false, distance: null, direction: null })).toBeNull()
+  })
+})
+
+describe('sgStandouts', () => {
+  it('returns nulls when no category has data', () => {
+    expect(
+      sgStandouts({ offTee: null, approach: null, aroundGreen: null, putting: null }),
+    ).toEqual({ weakest: null, strongest: null })
+  })
+
+  it('picks the lowest as weakest and highest as strongest', () => {
+    const s = sgStandouts({ offTee: 0.4, approach: -0.8, aroundGreen: 0.1, putting: -0.2 })
+    expect(s.weakest).toEqual({ key: 'approach', value: -0.8 })
+    expect(s.strongest).toEqual({ key: 'offTee', value: 0.4 })
+  })
+
+  it('ignores null categories when ranking', () => {
+    const s = sgStandouts({ offTee: null, approach: -0.3, aroundGreen: null, putting: 0.5 })
+    expect(s.weakest).toEqual({ key: 'approach', value: -0.3 })
+    expect(s.strongest).toEqual({ key: 'putting', value: 0.5 })
+  })
+
+  it('weakest and strongest are the same entry when only one category has data', () => {
+    const s = sgStandouts({ offTee: null, approach: 0.2, aroundGreen: null, putting: null })
+    expect(s.weakest).toEqual({ key: 'approach', value: 0.2 })
+    expect(s.strongest).toEqual({ key: 'approach', value: 0.2 })
+  })
+
+  it('all-positive: weakest is the smallest gain, not necessarily a loss', () => {
+    const s = sgStandouts({ offTee: 0.1, approach: 0.6, aroundGreen: 0.3, putting: 0.9 })
+    expect(s.weakest).toEqual({ key: 'offTee', value: 0.1 })
+    expect(s.strongest).toEqual({ key: 'putting', value: 0.9 })
   })
 })
