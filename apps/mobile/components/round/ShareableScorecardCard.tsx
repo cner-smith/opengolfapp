@@ -1,5 +1,5 @@
 import { Text, View } from 'react-native'
-import { formatSG, formatToPar } from '@oga/core'
+import { formatSG, formatToPar, inferHoleCount } from '@oga/core'
 import type { Database } from '@oga/supabase'
 import { FONT } from '../../lib/typography'
 
@@ -73,7 +73,10 @@ export function ShareableScorecardCard({
 
   const holesByNumber = new Map<number, HoleRow>()
   for (const h of holes) holesByNumber.set(h.number, h)
-  const holeNumbers = Array.from({ length: 18 }, (_, i) => i + 1)
+  // Match the round's actual size (#525) — a 9-hole round shows one grid,
+  // not nine empty "In" cells. Empty/old rounds fall back to 18.
+  const holeCount = inferHoleCount(holes.map((h) => h.number))
+  const holeNumbers = Array.from({ length: holeCount }, (_, i) => i + 1)
 
   const totalPar = holeNumbers.reduce((sum, n) => {
     const h = holesByNumber.get(n)
@@ -143,14 +146,18 @@ export function ShareableScorecardCard({
         colors={c}
         rangeLabel="Out"
       />
-      <View style={{ height: 8 }} />
-      <ScoreGrid
-        holeNumbers={holeNumbers.slice(9)}
-        holesByNumber={holesByNumber}
-        scoresByHoleId={scoresByHoleId}
-        colors={c}
-        rangeLabel="In"
-      />
+      {holeNumbers.length > 9 && (
+        <>
+          <View style={{ height: 8 }} />
+          <ScoreGrid
+            holeNumbers={holeNumbers.slice(9)}
+            holesByNumber={holesByNumber}
+            scoresByHoleId={scoresByHoleId}
+            colors={c}
+            rangeLabel="In"
+          />
+        </>
+      )}
 
       <View
         style={{
