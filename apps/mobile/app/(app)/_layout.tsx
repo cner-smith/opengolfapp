@@ -149,17 +149,15 @@ export default function AppLayout() {
           backgroundColor: '#FBF8F1',
           borderTopWidth: 1,
           borderTopColor: '#D9D2BF',
-          // Explicit height + paddingBottom from safe-area insets (#300).
-          // Explicit height + paddingBottom from safe-area insets (#300).
-          // Platform-neutral. height and paddingBottom carry an equal +8 over
-          // the base 54/10 so the content band [paddingTop, height-paddingBottom]
-          // is unchanged (no cramping) but the whole bar grows 8px at the bottom
-          // — lifting the icon+label ~8px off the bottom edge (device QA: label
-          // sat too low on a Galaxy S23). Keep top/bottom moving together if you
-          // retune; do NOT re-add Platform.OS bumps (the 49a283b regression).
           paddingTop: 8,
-          height: 62 + insets.bottom,
-          paddingBottom: insets.bottom + 18,
+          // Explicit height + inset so the label never clips. Auto-height
+          // (omitting this) under-reserves space on the Galaxy S23's nav setup
+          // and the label gets cut off at the bottom. The label is lifted off
+          // the bottom by tabBarLabelStyle.marginBottom below — that moves the
+          // TEXT independent of the icon (which stays put). Two knobs:
+          // marginBottom = how high the label sits; height = clip headroom.
+          height: 64 + insets.bottom,
+          paddingBottom: insets.bottom + 6,
           elevation: 0,
           shadowOpacity: 0,
         },
@@ -167,6 +165,8 @@ export default function AppLayout() {
           fontSize: 10,
           fontWeight: '500',
           letterSpacing: 0.4,
+          // Lifts the label up off the bottom edge without moving the icon.
+          marginBottom: 8,
         },
         tabBarActiveTintColor: '#1F3D2C',
         tabBarInactiveTintColor: '#8A8B7E',
@@ -229,6 +229,8 @@ export default function AppLayout() {
           so it collapses to a single hidden tab route. This is what makes
           "← Back" from an article pop to the list instead of the Home tab. */}
       <Tabs.Screen name="learn" options={{ href: null }} />
+      {/* Drill library is pushed from the Practice tab, not its own tab. */}
+      <Tabs.Screen name="drills" options={{ href: null }} />
       <Tabs.Screen name="bag" options={{ href: null }} />
       <Tabs.Screen name="rounds" options={{ href: null }} />
       <Tabs.Screen name="round/new" options={{ href: null }} />
