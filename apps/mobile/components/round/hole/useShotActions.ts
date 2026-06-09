@@ -108,6 +108,7 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
     remotePuttCount,
     localPuttCount,
     shotNumber,
+    holeCount,
   } = data
   const {
     ball,
@@ -462,12 +463,15 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
 
   function navigateHole(delta: number) {
     const next = holeNumber + delta
-    if (next < 1 || next > 18) return
+    // Bound by the round's actual hole count, not a hardcoded 18 — a
+    // 9-hole course must stop at 9 or the player lands on padded holes
+    // with no hole_scores (#525).
+    if (next < 1 || next > holeCount) return
     onHoleChange(next)
   }
 
   function finishHole() {
-    if (holeNumber < 18) {
+    if (holeNumber < holeCount) {
       onHoleChange(holeNumber + 1)
     } else {
       router.replace('/(app)')

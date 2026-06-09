@@ -591,6 +591,7 @@ export default function LiveRoundSession({
           hasGps={finalState.gpsPosition != null}
           totalShotsThisHole={totalShotsThisHole}
           holeNumber={holeNumber}
+          holeCount={data.holeCount}
           par={data.currentHole.par}
           yardsLabel={data.currentHole.yards ? toDisplay(data.currentHole.yards) : null}
           onCancelPinPlacement={() => setPinPlacementOpen(false)}

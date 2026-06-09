@@ -49,6 +49,21 @@ export interface ReviewedShotRow {
   puttDirectionResult?: PuttDirectionResult
 }
 
+// Infer how many holes a course actually has from the hole NUMBERS we
+// have rows for. Golf courses are 9 or 18; `course_tees.par` would be the
+// authoritative signal but it's ~0% populated in our crawled data, so the
+// hole numbers are all we have. Keyed on max (not count) because a course
+// can have interior gaps (holes 1–4, 7–18 → still an 18) or start above 1
+// (back-nine-only mapping). An empty set means an unmapped course — assume
+// 18, the common case. A max ≤ 9 means a 9-hole course; this deliberately
+// buckets a front-9-only mapping of an 18 as a 9 (data can't distinguish
+// them, and stranding a real 9-hole player on phantom holes 10–18 is the
+// worse failure). See #525.
+export function inferHoleCount(holeNumbers: number[]): 9 | 18 {
+  if (holeNumbers.length === 0) return 18
+  return Math.max(...holeNumbers) <= 9 ? 9 : 18
+}
+
 export function buildInitialRows(
   points: PlacedPoint[],
   par: number,

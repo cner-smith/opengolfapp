@@ -13,6 +13,7 @@ import * as Location from 'expo-location'
 import {
   formatLocation,
   getOpenGolfApiCourse,
+  inferHoleCount,
   searchOpenGolfApi,
   todayLocalDate,
   type OpenGolfApiSearchResult,
@@ -188,26 +189,37 @@ export default function NewRound() {
         .order('number')
       if (holesError) throw holesError
 
-      // Most courses (private clubs, anything not OSM-mapped) have zero
-      // rows in `holes`. Without holes there are no FK targets for
-      // hole_scores, the hole screen hits "Hole not found", and the
-      // resume banner traps the user. Materialize 18 par-4 placeholders
-      // for the course on the first round there — subsequent rounds at
-      // the same course inherit them, and any later enrichment / shot
-      // logging upgrades the rows in place via tee_lat / pin_lat fills.
-      let holes = existingHoles ?? []
-      if (holes.length === 0) {
+      // Courses range from fully unmapped (most private clubs — zero
+      // `holes` rows) to partially mapped (the crawler averages ~14 of 18
+      // from OSM). Either way, every hole the round needs an FK target for
+      // must have a real `holes` row, or hole_scores can't be created for
+      // it and persistShot silently no-ops on the padded holes (#525).
+      // Materialize whichever hole numbers are missing. Hole count is
+      // inferred from the mapped numbers (course_tees.par is unpopulated in
+      // our data — see inferHoleCount); a genuine 9-hole course stays 9.
+      const existing = existingHoles ?? []
+      const expectedCount = inferHoleCount(existing.map((h) => h.number))
+      const byNumber = new Map<number, { id: string }>()
+      for (const h of existing) byNumber.set(h.number, { id: h.id })
+
+      const missing = Array.from(
+        { length: expectedCount },
+        (_, i) => i + 1,
+      ).filter((n) => !byNumber.has(n))
+      if (missing.length > 0) {
         // A direct holes insert is blocked by RLS (migration 0026) on any
         // course the user didn't create — which is every crawler/public
         // course. Materialize through the insert_synthetic_hole SECURITY
         // DEFINER RPC instead (it authorizes by round ownership), the same
-        // path the web uses via ensureRealHole. Returns the hole id; pairs
-        // with the number/par we passed in.
+        // path the web uses via ensureRealHole. The RPC is idempotent
+        // (ON CONFLICT (course_id, number) DO NOTHING → re-select), so a
+        // partial failure + retry self-heals. Par defaults to 4; later
+        // enrichment / shot logging upgrades the row in place.
         const created = await Promise.all(
-          Array.from({ length: 18 }, (_, i) =>
+          missing.map((n) =>
             supabase.rpc('insert_synthetic_hole', {
               p_course_id: courseId,
-              p_number: i + 1,
+              p_number: n,
               p_par: 4,
               p_round_id: round.id,
             }),
@@ -215,16 +227,14 @@ export default function NewRound() {
         )
         const failed = created.find((r) => r.error)
         if (failed?.error) throw failed.error
-        holes = created.map((r, i) => ({
-          id: r.data as string,
-          number: i + 1,
-          par: 4,
-        }))
+        created.forEach((r, i) => {
+          byNumber.set(missing[i]!, { id: r.data as string })
+        })
       }
 
-      // Single batch insert beats 18 sequential round-trips; round was just
+      // Single batch insert beats per-hole round-trips; round was just
       // created so there's nothing to conflict against.
-      const holeScoreRows = holes.map((h) => ({
+      const holeScoreRows = Array.from(byNumber.values()).map((h) => ({
         round_id: round.id,
         hole_id: h.id,
         score: 0,
