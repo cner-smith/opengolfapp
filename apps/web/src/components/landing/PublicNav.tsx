@@ -59,7 +59,9 @@ export function PublicNav() {
             className="font-serif"
             style={{ fontSize: 24, fontWeight: 500, fontStyle: 'italic' }}
           >
-            OGA
+            oga
+            {/* Upright forest period — the "o." brand mark, not all-caps OGA */}
+            <span style={{ fontStyle: 'normal', color: '#1F3D2C' }}>.</span>
           </span>
           <span
             className="font-mono uppercase"
