@@ -15,6 +15,7 @@
     "seed:my-data": "tsx scripts/seed-my-data.ts",
     "import:osm": "tsx scripts/import-osm-course.ts",
     "crawl:courses": "tsx scripts/crawl-courses.ts",
+    "backfill:ratings": "tsx scripts/backfill-ratings.ts",
     "email:vendor-core": "mkdir -p supabase/functions/_shared && cp packages/core/src/round-summary.ts supabase/functions/_shared/round-summary.ts",
     "vendor:practice-plan": "node scripts/vendor-practice-plan.mjs"
   },
