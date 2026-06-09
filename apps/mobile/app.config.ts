@@ -43,7 +43,9 @@ const config: ExpoConfig = {
     // appVersionSource: 'remote' in eas.json, no seed = first build errors
     // because there's no remote value to increment.
     buildNumber: '1',
-    supportsTablet: true,
+    // iPhone-only for v1: drops the App Store's 12.9" iPad screenshot
+    // requirement and iPad-layout QA. Revisit when an iPad layout is on the roadmap.
+    supportsTablet: false,
     infoPlist: {
       // Foreground-only: OGA calls requestForegroundPermissionsAsync during a
       // round and never requests background/Always location. The expo-location
