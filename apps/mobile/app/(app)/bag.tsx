@@ -9,6 +9,7 @@ import {
   View,
 } from 'react-native'
 import { useRouter } from 'expo-router'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import {
   CANONICAL_CLUBS_BY_CATEGORY,
   CLUB_CATEGORIES,
@@ -60,6 +61,7 @@ const EMPTY_DRAFT: AddDraft = {
 
 export default function BagScreen() {
   const router = useRouter()
+  const insets = useSafeAreaInsets()
   const { user } = useAuth()
   const { bag, isLoading, error, refetch } = useUserBag({
     includeBenched: true,
@@ -261,7 +263,7 @@ export default function BagScreen() {
           data={bag}
           keyExtractor={(c) => c.id}
           onDragEnd={({ data }) => onDragEnd(data)}
-          contentContainerStyle={{ padding: 18, paddingBottom: 40 }}
+          contentContainerStyle={{ padding: 18, paddingBottom: insets.bottom + 24 }}
           ListHeaderComponent={
             <View style={{ marginBottom: 18 }}>
               <Text style={[TYPE.body, { color: '#5C6356', fontSize: 14, marginBottom: 6 }]}>
@@ -347,7 +349,7 @@ export default function BagScreen() {
               borderTopLeftRadius: 12,
               borderTopRightRadius: 12,
             }}
-            contentContainerStyle={{ padding: 18, paddingBottom: 28 }}
+            contentContainerStyle={{ padding: 18, paddingBottom: insets.bottom + 28 }}
           >
             <View
               style={{
