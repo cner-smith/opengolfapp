@@ -30,6 +30,7 @@ import type { Database } from '@oga/supabase'
 import { supabase } from '../../../../lib/supabase'
 import { completeRound } from '../../../../lib/completeRound'
 import { ShareableScorecardCard } from '../../../../components/round/ShareableScorecardCard'
+import { RoundTeeSelector } from '../../../../components/round/RoundTeeSelector'
 import { PastHoleShotsSheet } from '../../../../components/round/PastHoleShotsSheet'
 import { PastRoundMap } from '../../../../components/round/PastRoundMap'
 import { ScoreCell, TabSwitcher } from '../../../../components/round/PastScorecardParts'
@@ -816,6 +817,20 @@ export default function RoundIndex() {
             )
           })}
         </View>
+
+        {user && (
+          <RoundTeeSelector
+            courseId={round.course_id}
+            roundId={round.id}
+            userId={user.id}
+            currentTeeId={round.course_tee_id}
+            onChange={(tee) =>
+              setRound((r) =>
+                r ? { ...r, course_tee_id: tee.id, tee_color: tee.color } : r,
+              )
+            }
+          />
+        )}
 
         <Pressable
           accessibilityRole="button"
