@@ -172,9 +172,9 @@ const config: ExpoConfig = {
     [
       'expo-splash-screen',
       {
-        // Migrated from the deprecated top-level `splash` key (SDK 53). The
-        // asset is the paper "o." mark on a transparent field; backgroundColor
-        // (#1C211C ink) fills around it so the centred mark shows whole.
+        // contain + ink backgroundColor: the asset is the paper "o." mark on a
+        // transparent field, so the fill frames the centred mark whole on any
+        // aspect ratio (rather than cropping it to cover).
         image: './assets/splash.png',
         resizeMode: 'contain',
         backgroundColor: '#1C211C',
