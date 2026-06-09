@@ -79,6 +79,98 @@ function pickClubForDistance(yards: number): string {
   return 'putter'
 }
 
+// Typical carry per club (yards). Used to walk a hole realistically: hit the
+// club for the distance-to-pin, advance by its carry, repeat — so approaches
+// land in iron/wedge ranges instead of every shot picking the same club.
+const TYPICAL_CARRY: Record<string, number> = {
+  driver: 255,
+  '3w': 225,
+  '5w': 210,
+  '4i': 190,
+  '5i': 178,
+  '6i': 165,
+  '7i': 152,
+  '8i': 140,
+  '9i': 128,
+  pw: 115,
+  gw: 95,
+  sw: 75,
+}
+
+// Per-club dispersion in yards, in the shot's own frame: biasLong (negative =
+// tends short, the amateur norm), biasLat (positive = push right), and the
+// 1σ spread on each axis. Short clubs are tight; driver is wide with a slice
+// bias — so the fitted 68/95 cones look like a real player's, not a blob.
+interface Disp {
+  biasLong: number
+  biasLat: number
+  sdLong: number
+  sdLat: number
+}
+const CLUB_DISPERSION: Record<string, Disp> = {
+  driver: { biasLong: -3, biasLat: 6, sdLong: 17, sdLat: 19 },
+  '3w': { biasLong: -3, biasLat: 4, sdLong: 14, sdLat: 15 },
+  '5w': { biasLong: -3, biasLat: 3, sdLong: 13, sdLat: 13 },
+  '4i': { biasLong: -4, biasLat: 3, sdLong: 12, sdLat: 12 },
+  '5i': { biasLong: -3, biasLat: 2, sdLong: 11, sdLat: 10 },
+  '6i': { biasLong: -3, biasLat: 1, sdLong: 9, sdLat: 8 },
+  '7i': { biasLong: -3, biasLat: 1, sdLong: 8, sdLat: 7 },
+  '8i': { biasLong: -2, biasLat: 0, sdLong: 7, sdLat: 6 },
+  '9i': { biasLong: -2, biasLat: 0, sdLong: 6, sdLat: 5 },
+  pw: { biasLong: -1, biasLat: 0, sdLong: 5, sdLat: 5 },
+  gw: { biasLong: -1, biasLat: 0, sdLong: 5, sdLat: 4 },
+  sw: { biasLong: -1, biasLat: 0, sdLong: 5, sdLat: 4 },
+}
+const DEFAULT_DISP: Disp = { biasLong: -2, biasLat: 0, sdLong: 9, sdLat: 8 }
+
+// Box–Muller normal sample, scaled to sd. Sums of uniforms would peak too
+// flat; a real Gaussian gives the dense centre + sparse tails a cone wants.
+function gaussian(sd: number): number {
+  const u = 1 - Math.random()
+  const v = Math.random()
+  return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v) * sd
+}
+
+function distanceYards(a: { lat: number; lng: number }, b: { lat: number; lng: number }): number {
+  const north = (b.lat - a.lat) * YARDS_PER_DEG_LAT
+  const east = (b.lng - a.lng) * yardsPerDegLng(a.lat)
+  return Math.hypot(north, east)
+}
+
+// A point `dist` yards from `from` along the line toward `toward`.
+function stepToward(
+  from: { lat: number; lng: number },
+  toward: { lat: number; lng: number },
+  dist: number,
+): { lat: number; lng: number } {
+  const north = (toward.lat - from.lat) * YARDS_PER_DEG_LAT
+  const east = (toward.lng - from.lng) * yardsPerDegLng(from.lat)
+  const mag = Math.hypot(north, east) || 1
+  return offsetCoord([from.lat, from.lng], (north / mag) * dist, (east / mag) * dist)
+}
+
+// Land the ball offLong yards along the start→aim line and offLat yards
+// perpendicular (right = +), so the miss is oriented to the actual shot
+// bearing — what computeDispersion rotates back out when fitting the cone.
+function dispersedEnd(
+  start: { lat: number; lng: number },
+  aim: { lat: number; lng: number },
+  offLong: number,
+  offLat: number,
+): { lat: number; lng: number } {
+  const north = (aim.lat - start.lat) * YARDS_PER_DEG_LAT
+  const east = (aim.lng - start.lng) * yardsPerDegLng(start.lat)
+  const mag = Math.hypot(north, east) || 1
+  const un = north / mag
+  const ue = east / mag
+  // perpendicular unit (90° clockwise = player's right)
+  const pn = -ue
+  const pe = un
+  const dn = offLong * un + offLat * pn
+  const de = offLong * ue + offLat * pe
+  return offsetCoord([aim.lat, aim.lng], dn, de)
+}
+
 async function ensureDemoUser(): Promise<string> {
   const { data: list } = await supabase.auth.admin.listUsers({ perPage: 1000 })
   const existing = list?.users?.find((u) => u.email === SEED_EMAIL)
@@ -95,44 +187,33 @@ async function ensureDemoUser(): Promise<string> {
 }
 
 async function ensureProfile(userId: string): Promise<void> {
-  const { error } = await supabase
-    .from('profiles')
-    .upsert(
-      {
-        id: userId,
-        username: SEED_USERNAME,
-        handicap_index: 12.4,
-        skill_level: 'developing',
-        goal: 'break_80',
-        play_frequency: 'weekly',
-        facilities: ['range', 'short_game', 'putting'],
-        play_style: 'mixed',
-        // Added in migration 0023; the script pre-dates it. Without
-        // this, ProfileGuard would bounce the seeded user to
-        // /onboarding on next sign-in.
-        onboarding_completed: true,
-      },
-      { onConflict: 'id' },
-    )
+  const { error } = await supabase.from('profiles').upsert(
+    {
+      id: userId,
+      username: SEED_USERNAME,
+      handicap_index: 12.4,
+      skill_level: 'developing',
+      goal: 'break_80',
+      play_frequency: 'weekly',
+      facilities: ['range', 'short_game', 'putting'],
+      play_style: 'mixed',
+      // Added in migration 0023; the script pre-dates it. Without
+      // this, ProfileGuard would bounce the seeded user to
+      // /onboarding on next sign-in.
+      onboarding_completed: true,
+    },
+    { onConflict: 'id' },
+  )
   if (error) throw error
 }
 
 async function wipeDemoData(userId: string): Promise<void> {
   // hole_scores + shots cascade off rounds
-  const { error: roundsErr } = await supabase
-    .from('rounds')
-    .delete()
-    .eq('user_id', userId)
+  const { error: roundsErr } = await supabase.from('rounds').delete().eq('user_id', userId)
   if (roundsErr) throw roundsErr
-  const { error: planErr } = await supabase
-    .from('practice_plans')
-    .delete()
-    .eq('user_id', userId)
+  const { error: planErr } = await supabase.from('practice_plans').delete().eq('user_id', userId)
   if (planErr) throw planErr
-  const { error: clubsErr } = await supabase
-    .from('user_clubs')
-    .delete()
-    .eq('user_id', userId)
+  const { error: clubsErr } = await supabase.from('user_clubs').delete().eq('user_id', userId)
   if (clubsErr) throw clubsErr
 }
 
@@ -166,9 +247,7 @@ async function fetchCourses(): Promise<CourseRow[]> {
 }
 
 async function fetchHolesByCourse(): Promise<Map<string, HoleRow[]>> {
-  const { data, error } = await supabase
-    .from('holes')
-    .select('id, number, par, yards, course_id')
+  const { data, error } = await supabase.from('holes').select('id, number, par, yards, course_id')
   if (error) throw error
   const map = new Map<string, HoleRow[]>()
   for (const row of data ?? []) {
@@ -204,8 +283,7 @@ async function insertRound(
   withShots: boolean,
 ): Promise<void> {
   const profile = pickRoundProfile()
-  const sgTotal =
-    profile.sgOffTee + profile.sgApproach + profile.sgAroundGreen + profile.sgPutting
+  const sgTotal = profile.sgOffTee + profile.sgApproach + profile.sgAroundGreen + profile.sgPutting
   const par = holes.reduce((s, h) => s + h.par, 0)
   // Score correlates roughly with sgTotal: better SG → fewer strokes.
   const score = Math.round(par - sgTotal + rand(-1, 1))
@@ -271,25 +349,59 @@ async function insertHoleShots(
   let lastEnd = teeBase
   for (let n = 1; n <= totalShots; n++) {
     const isLast = n === totalShots
-    const remainingYards = isLast ? 5 : Math.max(20, (hole.yards ?? 200) - (n - 1) * 150)
-    const aim = isLast
-      ? pinBase
-      : offsetCoord([pinBase.lat, pinBase.lng], rand(-5, 5), rand(-10, 10))
-    const dispersionLat = rand(-12, 12)
-    const dispersionLng = rand(-18, 18)
-    const end = isLast
-      ? pinBase
-      : offsetCoord([aim.lat, aim.lng], dispersionLat, dispersionLng)
-
-    const lieType: string =
-      n === 1 ? 'tee' : isLast ? 'green' : Math.random() < 0.65 ? 'fairway' : 'rough'
     const lieSlope = ['level', 'uphill', 'downhill', 'ball_above', 'ball_below'][
       Math.floor(rand(0, 5))
     ]
-    const club = lieType === 'green' ? 'putter' : pickClubForDistance(remainingYards)
-    const result = ['solid', 'push_right', 'pull_left', 'fat', 'thin'][
-      Math.floor(rand(0, 5))
-    ]
+
+    if (isLast) {
+      // Holed putt on the green.
+      const { error } = await supabase.from('shots').insert({
+        hole_score_id: holeScoreId,
+        user_id: userId,
+        shot_number: n,
+        start_lat: lastEnd.lat,
+        start_lng: lastEnd.lng,
+        aim_lat: pinBase.lat,
+        aim_lng: pinBase.lng,
+        end_lat: pinBase.lat,
+        end_lng: pinBase.lng,
+        distance_to_target: null,
+        club: 'putter',
+        lie_type: 'green',
+        lie_slope: lieSlope,
+        shot_result: null,
+        penalty: false,
+        ob: false,
+        putt_distance_ft: Math.round(rand(2, 22) * 10) / 10,
+        putt_result: 'made',
+      })
+      if (error) throw error
+      lastEnd = pinBase
+      continue
+    }
+
+    const lieType = n === 1 ? 'tee' : Math.random() < 0.68 ? 'fairway' : 'rough'
+    // Club is chosen for the distance still to the pin; the ball advances by
+    // the club's typical carry (or reaches the pin, whichever is shorter).
+    const distToPin = Math.max(8, Math.round(distanceYards(lastEnd, pinBase)))
+    const club = pickClubForDistance(distToPin)
+    const carry = TYPICAL_CARRY[club] ?? distToPin
+    const aim = stepToward(lastEnd, pinBase, Math.min(carry, distToPin))
+    const disp = CLUB_DISPERSION[club] ?? DEFAULT_DISP
+    const offLong = disp.biasLong + gaussian(disp.sdLong)
+    const offLat = disp.biasLat + gaussian(disp.sdLat)
+    const end = dispersedEnd(lastEnd, aim, offLong, offLat)
+    // Result follows the actual miss so result-based stats stay consistent.
+    const result =
+      offLat > 9
+        ? 'push_right'
+        : offLat < -9
+          ? 'pull_left'
+          : offLong < -11
+            ? 'fat'
+            : Math.random() < 0.18
+              ? 'thin'
+              : 'solid'
 
     const { error } = await supabase.from('shots').insert({
       hole_score_id: holeScoreId,
@@ -301,16 +413,15 @@ async function insertHoleShots(
       aim_lng: aim.lng,
       end_lat: end.lat,
       end_lng: end.lng,
-      distance_to_target: lieType === 'green' ? null : Math.round(remainingYards),
+      distance_to_target: distToPin,
       club,
       lie_type: lieType,
       lie_slope: lieSlope,
-      shot_result: lieType === 'green' ? null : result,
+      shot_result: result,
       penalty: false,
       ob: false,
-      putt_distance_ft:
-        lieType === 'green' ? Math.round(rand(2, 25) * 10) / 10 : null,
-      putt_result: lieType === 'green' ? (isLast ? 'made' : 'short') : null,
+      putt_distance_ft: null,
+      putt_result: null,
     })
     if (error) throw error
     lastEnd = end
@@ -372,14 +483,14 @@ async function main() {
 
   const courses = await fetchCourses()
   if (courses.length < 3) {
-    throw new Error(
-      'Demo seed needs 3 courses in the database — run `npx supabase db reset` first',
-    )
+    throw new Error('Demo seed needs 3 courses in the database — run `npx supabase db reset` first')
   }
   const holesByCourse = await fetchHolesByCourse()
 
   const TOTAL_ROUNDS = 15
-  const ROUNDS_WITH_SHOTS = 5
+  // More shot-rounds → each club clears the 5-shot floor the dispersion fit
+  // needs, so /patterns shows a real cone for the common clubs.
+  const ROUNDS_WITH_SHOTS = 8
 
   for (let i = 0; i < TOTAL_ROUNDS; i++) {
     const course = courses[i % courses.length]!

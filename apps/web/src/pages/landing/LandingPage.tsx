@@ -11,8 +11,12 @@ export function LandingPage() {
     <main style={{ paddingBottom: 0 }}>
       <Hero />
       <StatsBar />
-      <Features />
-      <SGSection />
+      <Manifesto />
+      <SGSpread />
+      <PatternsSpread />
+      <Community />
+      <Negation />
+      <Pricing />
       <LearnSection />
       <FinalCTA />
       <Footer />
@@ -74,13 +78,13 @@ function Hero() {
                 boxShadow: '0 0 0 3px rgba(31, 61, 44, 0.18)',
               }}
             />
-            Free and open source
+            Free and open source · MIT
           </span>
           <div
             className="kicker"
             style={{ color: '#A66A1F', margin: '22px 0 14px' }}
           >
-            Golf improvement platform
+            Strokes gained for everyone
           </div>
           <h1
             className="font-serif text-caddie-ink"
@@ -103,18 +107,24 @@ function Hero() {
               fontSize: 17,
               lineHeight: 1.6,
               maxWidth: 480,
-              margin: '0 0 28px',
+              margin: '0 0 24px',
             }}
           >
-            GPS shot tracking, strokes gained analysis, and coaching content —
-            built for golfers who want to get better, not just keep score.
+            GPS shot tracking, strokes gained, and shot patterns — no sensors
+            on your bag, no subscription, free forever.
           </p>
+          <div className="landing-platforms">
+            <PlatformTag>iPhone</PlatformTag>
+            <PlatformTag>Android</PlatformTag>
+            <PlatformTag>Web</PlatformTag>
+          </div>
           <div
             style={{
               display: 'flex',
               alignItems: 'center',
               gap: 18,
               flexWrap: 'wrap',
+              marginTop: 26,
             }}
           >
             {isAuthed ? (
@@ -132,11 +142,8 @@ function Hero() {
                 </span>
               </Link>
             )}
-            <span
-              className="text-caddie-ink-mute"
-              style={{ fontSize: 13 }}
-            >
-              {isAuthed ? "You're signed in." : 'No subscription required.'}
+            <span className="text-caddie-ink-mute" style={{ fontSize: 13 }}>
+              {isAuthed ? "You're signed in." : 'No subscription · no ads.'}
             </span>
           </div>
         </div>
@@ -148,25 +155,48 @@ function Hero() {
   )
 }
 
+function PlatformTag({ children }: { children: React.ReactNode }) {
+  return (
+    <span
+      className="font-mono uppercase"
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 6,
+        fontSize: 11,
+        letterSpacing: '0.12em',
+        color: '#5C6356',
+      }}
+    >
+      <span
+        aria-hidden
+        style={{ width: 6, height: 6, borderRadius: '50%', background: '#1F3D2C' }}
+      />
+      {children}
+    </span>
+  )
+}
+
 // ---------------------------------------------------------------------------
-// Stats bar
+// Stats bar (4 cells)
 // ---------------------------------------------------------------------------
 
 function StatsBar() {
   return (
     <div style={{ maxWidth: 1180, margin: '0 auto', padding: '0 28px' }}>
       <div
-        className="landing-stats"
+        className="landing-stats landing-numbers"
         style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(3, 1fr)',
-          borderTop: '1px solid #D9D2BF',
-          borderBottom: '1px solid #D9D2BF',
+          gridTemplateColumns: 'repeat(4, 1fr)',
+          borderTop: '1px solid #1C211C',
+          borderBottom: '1px solid #1C211C',
         }}
       >
-        <Stat value="15,870" label="Courses in database" mono />
+        <Stat value="15,000+" label="Courses in database" />
         <Stat value="WHS" label="Handicap tracking" mono />
-        <Stat value="100%" label="Free, forever" mono />
+        <Stat value="$0" label="Free, forever" />
+        <Stat value="MIT" label="Open source" mono />
       </div>
     </div>
   )
@@ -193,8 +223,9 @@ function Stat({
       <div
         className={mono ? 'font-mono' : 'font-serif'}
         style={{
-          fontSize: mono ? 36 : 44,
+          fontSize: mono ? 34 : 44,
           fontWeight: 500,
+          fontStyle: mono ? 'normal' : 'italic',
           letterSpacing: '-0.01em',
           lineHeight: 1,
           color: '#1C211C',
@@ -218,176 +249,167 @@ function Stat({
 }
 
 // ---------------------------------------------------------------------------
-// Features
+// Manifesto
 // ---------------------------------------------------------------------------
 
-const FEATURES = [
-  {
-    icon: TargetIcon,
-    title: 'Live GPS round tracking',
-    body: 'Track every shot on the map with GPS precision. Ball placement, aim points, and shot trails — live as you play.',
-  },
-  {
-    icon: BarsIcon,
-    title: 'Strokes gained analysis',
-    body: "Understand exactly where you're losing or gaining strokes — off the tee, approach, around the green, and putting.",
-  },
-  {
-    icon: TrendIcon,
-    title: 'Shot patterns + trends',
-    body: "See your miss patterns, club dispersion, and improvement trends across every round you've played.",
-  },
-] as const
-
-function Features() {
+function Manifesto() {
   return (
-    <section style={{ padding: '100px 0' }}>
-      <div style={{ maxWidth: 1180, margin: '0 auto', padding: '0 28px' }}>
-        <div
-          className="landing-features"
+    <section
+      style={{
+        padding: '110px 0',
+        borderTop: '1px solid #D9D2BF',
+        borderBottom: '1px solid #D9D2BF',
+        marginTop: 100,
+      }}
+    >
+      <div style={{ maxWidth: 880, margin: '0 auto', padding: '0 28px' }}>
+        <div className="kicker" style={{ color: '#8A8B7E' }}>
+          The point of this thing
+        </div>
+        <h2
+          className="font-serif text-caddie-ink"
           style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(3, 1fr)',
-            gap: 20,
+            fontSize: 'clamp(32px, 4.8vw, 48px)',
+            fontWeight: 500,
+            fontStyle: 'italic',
+            lineHeight: 1.15,
+            letterSpacing: '-0.02em',
+            margin: '20px 0 0',
           }}
         >
-          {FEATURES.map((f, i) => (
-            <FeatureCard key={f.title} index={i} {...f} />
-          ))}
+          Strokes gained is the best metric in golf. It shouldn't be{' '}
+          <span style={{ color: '#1F3D2C' }}>locked behind a subscription.</span>
+        </h2>
+        <p
+          className="font-serif text-caddie-ink"
+          style={{ fontSize: 18, lineHeight: 1.65, margin: '24px 0 0', maxWidth: 740 }}
+        >
+          The math behind professional shot tracking — strokes gained against
+          handicap baselines, per-club dispersion, where you're winning and
+          losing strokes — is decades old and well understood. Plenty of
+          products charge real money to put it in your pocket.
+        </p>
+        <p
+          className="font-serif text-caddie-ink"
+          style={{ fontSize: 18, lineHeight: 1.65, margin: '24px 0 0', maxWidth: 740 }}
+        >
+          OGA is that math,{' '}
+          <em style={{ fontWeight: 500 }}>
+            written in plain English, given away for free
+          </em>
+          , and open source so anyone can read the code, fix what's broken, or
+          build something better on top of it.
+        </p>
+      </div>
+    </section>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Spreads
+// ---------------------------------------------------------------------------
+
+function SpreadShell({
+  kicker,
+  title,
+  children,
+  figure,
+  reverse,
+  to,
+  linkLabel,
+}: {
+  kicker: string
+  title: React.ReactNode
+  children: React.ReactNode
+  figure: React.ReactNode
+  reverse?: boolean
+  to?: string
+  linkLabel?: string
+}) {
+  return (
+    <section style={{ padding: '60px 0' }}>
+      <div style={{ maxWidth: 1180, margin: '0 auto', padding: '0 28px' }}>
+        <div className={reverse ? 'landing-spread reverse' : 'landing-spread'}>
+          <div className="spread-copy">
+            <div className="kicker" style={{ color: '#A66A1F', marginBottom: 16 }}>
+              {kicker}
+            </div>
+            <h3
+              className="font-serif text-caddie-ink"
+              style={{
+                fontSize: 'clamp(30px, 3.6vw, 40px)',
+                fontWeight: 500,
+                lineHeight: 1.1,
+                letterSpacing: '-0.02em',
+                margin: '0 0 18px',
+              }}
+            >
+              {title}
+            </h3>
+            {children}
+            {to && linkLabel && (
+              <Link
+                to={to}
+                className="font-sans"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  fontSize: 13,
+                  fontWeight: 600,
+                  color: '#1F3D2C',
+                  textDecoration: 'none',
+                  borderBottom: '1px solid #1F3D2C',
+                  paddingBottom: 2,
+                  marginTop: 10,
+                }}
+              >
+                {linkLabel} <span>→</span>
+              </Link>
+            )}
+          </div>
+          <div className="spread-figure">{figure}</div>
         </div>
       </div>
     </section>
   )
 }
 
-function FeatureCard({
-  icon: Icon,
-  title,
-  body,
-  index,
-}: {
-  icon: () => JSX.Element
-  title: string
-  body: string
-  index: number
-}) {
-  const { ref, visible } = useInView<HTMLElement>(0.15)
+function SpreadParagraph({ children }: { children: React.ReactNode }) {
   return (
-    <article
-      ref={ref}
-      style={{
-        border: '1px solid #D9D2BF',
-        borderRadius: 4,
-        padding: 28,
-        background: '#FBF8F1',
-        opacity: visible ? 1 : 0,
-        transform: visible ? 'translateY(0)' : 'translateY(20px)',
-        transition: `opacity 600ms ease ${index * 100}ms, transform 600ms ease ${index * 100}ms, border-color 200ms ease`,
-      }}
+    <p
+      className="font-serif text-caddie-ink"
+      style={{ fontSize: 17, lineHeight: 1.6, margin: '0 0 14px', maxWidth: 520 }}
     >
-      <div
-        style={{
-          width: 36,
-          height: 36,
-          borderRadius: 4,
-          background: '#1F3D2C',
-          color: '#F2EEE5',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          marginBottom: 22,
-        }}
-        aria-hidden
-      >
-        <Icon />
-      </div>
-      <h3
-        className="font-serif text-caddie-ink"
-        style={{
-          fontSize: 22,
-          fontWeight: 500,
-          fontStyle: 'italic',
-          margin: '0 0 10px',
-          lineHeight: 1.2,
-        }}
-      >
-        {title}
-      </h3>
-      <p
-        className="text-caddie-ink-dim"
-        style={{ margin: 0, fontSize: 14.5, lineHeight: 1.6 }}
-      >
-        {body}
-      </p>
-    </article>
+      {children}
+    </p>
   )
 }
 
 // ---------------------------------------------------------------------------
-// SG section
+// SG spread (live demo bars)
 // ---------------------------------------------------------------------------
 
 const SG_ROWS = [
   { label: 'SG · Off tee', value: '+0.4', tone: 'pos' as const, fill: 22 },
   { label: 'SG · Approach', value: '−1.2', tone: 'neg' as const, fill: 44 },
-  {
-    label: 'SG · Around green',
-    value: '−0.1',
-    tone: 'zero' as const,
-    fill: 6,
-  },
+  { label: 'SG · Around green', value: '−0.1', tone: 'zero' as const, fill: 6 },
   { label: 'SG · Putting', value: '+1.2', tone: 'pos' as const, fill: 48 },
 ]
 
-function SGSection() {
+function SGSpread() {
   const { ref, visible } = useInView<HTMLDivElement>(0.3)
   return (
-    <section style={{ padding: '100px 0' }}>
-      <div
-        className="landing-sg"
-        style={{
-          maxWidth: 1180,
-          margin: '0 auto',
-          padding: '0 28px',
-          display: 'grid',
-          gridTemplateColumns: '1fr 1fr',
-          gap: 64,
-          alignItems: 'center',
-        }}
-      >
-        <div>
-          <div className="kicker" style={{ color: '#A66A1F', marginBottom: 12 }}>
-            Strokes gained
-          </div>
-          <h2
-            className="font-serif text-caddie-ink"
-            style={{
-              fontSize: 'clamp(32px, 4.4vw, 48px)',
-              fontWeight: 500,
-              fontStyle: 'italic',
-              lineHeight: 1.1,
-              letterSpacing: '-0.015em',
-              margin: 0,
-              maxWidth: 520,
-            }}
-          >
-            Know exactly where strokes are leaking.
-          </h2>
-          <p
-            className="text-caddie-ink-dim"
-            style={{
-              fontSize: 16,
-              lineHeight: 1.65,
-              margin: '18px 0 0',
-              maxWidth: 520,
-            }}
-          >
-            Most golfers practice their strengths. OGA shows you your
-            weaknesses — the specific categories where you're losing shots
-            to your handicap baseline, so you can practice what actually
-            matters.
-          </p>
-        </div>
+    <SpreadShell
+      kicker="Strokes gained"
+      title={
+        <>
+          Find <em>exactly</em> where the strokes go.
+        </>
+      }
+      to="/learn/strokes-gained"
+      linkLabel="How strokes gained works"
+      figure={
         <div
           ref={ref}
           style={{
@@ -397,12 +419,41 @@ function SGSection() {
             background: '#FBF8F1',
           }}
         >
+          <div className="kicker" style={{ color: '#8A8B7E', marginBottom: 18 }}>
+            Sample · last 10 rounds
+          </div>
           {SG_ROWS.map((r, i) => (
             <SGRow key={r.label} {...r} visible={visible} delayMs={i * 120} />
           ))}
+          <p
+            className="font-serif text-caddie-ink-dim"
+            style={{
+              fontSize: 13,
+              fontStyle: 'italic',
+              lineHeight: 1.55,
+              margin: '16px 0 0',
+              paddingTop: 12,
+              borderTop: '1px dotted #D9D2BF',
+            }}
+          >
+            <span style={{ color: '#1F3D2C', fontWeight: 500 }}>
+              Approach is your leak.
+            </span>{' '}
+            Fixing 150–200 yd alone could add 1.2 strokes a round.
+          </p>
         </div>
-      </div>
-    </section>
+      }
+    >
+      <SpreadParagraph>
+        Every shot you log gets graded against a baseline — what a player of
+        your handicap usually does from that distance, that lie. The difference
+        is your leak, by category.
+      </SpreadParagraph>
+      <SpreadParagraph>
+        Most golfers spend range time hitting the club they already love. OGA
+        tells you the club you should be on instead.
+      </SpreadParagraph>
+    </SpreadShell>
   )
 }
 
@@ -423,14 +474,8 @@ function SGRow({
 }) {
   const valueColor =
     tone === 'pos' ? '#1F3D2C' : tone === 'neg' ? '#A33A2A' : '#8A8B7E'
-  const fillColor = valueColor
   return (
-    <div
-      style={{
-        padding: '14px 0',
-        borderBottom: '1px solid #D9D2BF',
-      }}
-    >
+    <div style={{ padding: '14px 0', borderBottom: '1px solid #D9D2BF' }}>
       <div
         style={{
           display: 'flex',
@@ -441,11 +486,7 @@ function SGRow({
       >
         <span
           className="font-mono uppercase"
-          style={{
-            fontSize: 10,
-            letterSpacing: '0.18em',
-            color: '#8A8B7E',
-          }}
+          style={{ fontSize: 10, letterSpacing: '0.18em', color: '#8A8B7E' }}
         >
           {label}
         </span>
@@ -477,7 +518,7 @@ function SGRow({
             left: tone === 'neg' ? undefined : '50%',
             right: tone === 'neg' ? '50%' : undefined,
             width: visible ? `${fill}%` : 0,
-            background: fillColor,
+            background: valueColor,
             transition: `width 900ms cubic-bezier(0.2, 0.7, 0.2, 1) ${delayMs}ms`,
           }}
         />
@@ -487,32 +528,603 @@ function SGRow({
 }
 
 // ---------------------------------------------------------------------------
+// Shot patterns spread (live demo dispersion)
+// ---------------------------------------------------------------------------
+
+function PatternsSpread() {
+  return (
+    <SpreadShell
+      kicker="Shot patterns"
+      reverse
+      title={
+        <>
+          See <em>where</em> your ball actually goes.
+        </>
+      }
+      to="/learn"
+      linkLabel="How dispersion works"
+      figure={
+        <div
+          style={{
+            border: '1px solid #D9D2BF',
+            borderRadius: 4,
+            padding: 22,
+            background: '#FBF8F1',
+          }}
+        >
+          <DemoDispersion />
+          <p
+            className="font-serif text-caddie-ink-dim"
+            style={{
+              fontSize: 14,
+              fontStyle: 'italic',
+              textAlign: 'center',
+              margin: '14px 0 0',
+              paddingTop: 14,
+              borderTop: '1px dotted #D9D2BF',
+            }}
+          >
+            <span style={{ color: '#1F3D2C', fontWeight: 500 }}>
+              Aim 4 yards left of target
+            </span>{' '}
+            to center the pattern.
+          </p>
+        </div>
+      }
+    >
+      <SpreadParagraph>
+        Per-club dispersion centered on your aim point. The chart shows your
+        typical miss — left, right, short, long — and the small aim adjustment
+        that <em style={{ fontWeight: 500 }}>centers the whole pattern</em>.
+      </SpreadParagraph>
+      <SpreadParagraph>
+        The web app surfaces the analytics; the mobile app captures the data.
+        Same account, same numbers.
+      </SpreadParagraph>
+    </SpreadShell>
+  )
+}
+
+// Demo dispersion — a hardcoded but realistic 7-iron pattern (slight push,
+// tends short), drawn the way the live Shot Patterns chart does: 68/95%
+// cones around the mean, target centerline, aim-relative frame. Static so it
+// renders on the public page without auth or live data.
+const DEMO_DOTS = [
+  [212, 118], [224, 110], [206, 132], [232, 124], [218, 100],
+  [228, 138], [240, 116], [214, 146], [236, 102], [222, 128],
+  [248, 130], [208, 112], [230, 150], [220, 122],
+]
+function DemoDispersion() {
+  return (
+    <div
+      style={{
+        aspectRatio: '1.2 / 1',
+        background: '#F2EEE5',
+        border: '1px solid #D9D2BF',
+        borderRadius: 2,
+        overflow: 'hidden',
+      }}
+    >
+      <svg
+        viewBox="0 0 400 320"
+        width="100%"
+        height="100%"
+        role="img"
+        aria-label="7-iron dispersion: the shot pattern sits a few yards right of target, so aiming slightly left centers it."
+      >
+        <defs>
+          <pattern id="lp-grid" width="40" height="40" patternUnits="userSpaceOnUse">
+            <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#D9D2BF" strokeWidth="0.5" />
+          </pattern>
+        </defs>
+        <rect width="400" height="320" fill="url(#lp-grid)" />
+        <line
+          x1="200"
+          y1="34"
+          x2="200"
+          y2="286"
+          stroke="#9F9580"
+          strokeWidth="0.6"
+          strokeDasharray="4 5"
+        />
+        <text
+          x="200"
+          y="26"
+          fontFamily="Inconsolata, monospace"
+          fontSize="9"
+          letterSpacing="1.4"
+          fill="#8A8B7E"
+          textAnchor="middle"
+        >
+          TARGET
+        </text>
+        <ellipse
+          cx="228"
+          cy="124"
+          rx="50"
+          ry="42"
+          fill="none"
+          stroke="#1F3D2C"
+          strokeWidth="1"
+          strokeDasharray="4 4"
+          opacity="0.55"
+        />
+        <ellipse
+          cx="228"
+          cy="124"
+          rx="29"
+          ry="24"
+          fill="rgba(31,61,44,0.08)"
+          stroke="#1F3D2C"
+          strokeWidth="1"
+        />
+        {DEMO_DOTS.map(([x, y], i) => (
+          <circle key={i} cx={x} cy={y} r="2.6" fill="#A66A1F" opacity="0.85" />
+        ))}
+        <circle cx="228" cy="124" r="5.5" fill="#FBF8F1" stroke="#1F3D2C" strokeWidth="2.5" />
+        <text
+          x="284"
+          y="124"
+          fontFamily="Inconsolata, monospace"
+          fontSize="9"
+          letterSpacing="1.2"
+          fill="#5C6356"
+          textAnchor="start"
+          dominantBaseline="middle"
+        >
+          MEAN
+        </text>
+      </svg>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Community / open source
+// ---------------------------------------------------------------------------
+
+const GITHUB_REPO = 'https://github.com/cner-smith/opengolfapp'
+
+function Community() {
+  return (
+    <section
+      style={{ background: '#1C211C', color: '#F2EEE5', padding: '110px 0', marginTop: 60 }}
+    >
+      <div style={{ maxWidth: 1180, margin: '0 auto', padding: '0 28px' }}>
+        <div className="kicker" style={{ color: 'rgba(242,238,229,0.55)' }}>
+          The “open” in Open Golf App
+        </div>
+        <h2
+          className="font-serif"
+          style={{
+            fontSize: 'clamp(36px, 5vw, 56px)',
+            fontWeight: 500,
+            fontStyle: 'italic',
+            lineHeight: 1.1,
+            letterSpacing: '-0.02em',
+            margin: '16px 0 0',
+            color: '#F2EEE5',
+            maxWidth: 760,
+          }}
+        >
+          Read the code. <em>Suggest a feature. Fix what's broken.</em>
+        </h2>
+        <p
+          className="font-serif"
+          style={{
+            fontSize: 18,
+            lineHeight: 1.6,
+            color: 'rgba(242,238,229,0.85)',
+            margin: '22px 0 36px',
+            maxWidth: 680,
+          }}
+        >
+          OGA is built in public. The source is on GitHub, the roadmap is on
+          GitHub, the bugs are on GitHub.{' '}
+          <em style={{ color: '#F2EEE5', fontWeight: 500 }}>
+            If something doesn't work the way you expect
+          </em>{' '}
+          — open an issue. If you want a feature — open an issue. If you can
+          write code, open a pull request.
+        </p>
+        <div
+          className="landing-ways"
+          style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 24, marginTop: 28 }}
+        >
+          <Way
+            n="01 · For golfers"
+            title="Tell us what you want."
+            href={`${GITHUB_REPO}/issues`}
+            cta="Open an issue"
+          >
+            Open an issue describing what's missing or broken.{' '}
+            <em style={{ color: '#F2EEE5', fontWeight: 500 }}>
+              Every feature in the app started as an issue.
+            </em>
+          </Way>
+          <Way
+            n="02 · For developers"
+            title="Read the source."
+            href={GITHUB_REPO}
+            cta="Explore the repo"
+          >
+            TypeScript on web, React Native on mobile, Supabase out back.{' '}
+            <em style={{ color: '#F2EEE5', fontWeight: 500 }}>
+              Clone it, run it locally, send a pull request.
+            </em>{' '}
+            Good-first-issues are tagged.
+          </Way>
+          <Way
+            n="03 · For everyone"
+            title="Self-host if you'd rather."
+            href={`${GITHUB_REPO}/blob/main/docs/self-hosting.md`}
+            cta="Read the docs"
+          >
+            MIT license means the code is yours to use.{' '}
+            <em style={{ color: '#F2EEE5', fontWeight: 500 }}>
+              Run your own copy if you'd rather not trust a hosted app with
+              your data.
+            </em>
+          </Way>
+        </div>
+      </div>
+    </section>
+  )
+}
+
+function Way({
+  n,
+  title,
+  href,
+  cta,
+  children,
+}: {
+  n: string
+  title: string
+  href: string
+  cta: string
+  children: React.ReactNode
+}) {
+  return (
+    <div
+      style={{
+        padding: 24,
+        border: '1px solid rgba(242,238,229,0.18)',
+        borderRadius: 4,
+        background: 'rgba(242,238,229,0.04)',
+      }}
+    >
+      <div
+        className="font-mono uppercase"
+        style={{
+          fontSize: 10,
+          letterSpacing: '0.16em',
+          color: 'rgba(242,238,229,0.55)',
+          marginBottom: 10,
+        }}
+      >
+        {n}
+      </div>
+      <h4
+        className="font-serif"
+        style={{
+          fontSize: 20,
+          fontWeight: 500,
+          fontStyle: 'italic',
+          margin: '0 0 8px',
+          color: '#F2EEE5',
+          letterSpacing: '-0.01em',
+        }}
+      >
+        {title}
+      </h4>
+      <p
+        className="font-serif"
+        style={{ fontSize: 15, lineHeight: 1.55, color: 'rgba(242,238,229,0.7)', margin: 0 }}
+      >
+        {children}
+      </p>
+      <a
+        href={href}
+        target="_blank"
+        rel="noreferrer noopener"
+        className="font-sans"
+        style={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: 6,
+          marginTop: 14,
+          fontSize: 12,
+          fontWeight: 600,
+          color: '#F2EEE5',
+          textDecoration: 'none',
+          borderBottom: '1px solid rgba(242,238,229,0.45)',
+          paddingBottom: 2,
+        }}
+      >
+        {cta} →
+      </a>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// What OGA isn't
+// ---------------------------------------------------------------------------
+
+const NEGATIONS = [
+  {
+    what: 'Not a coaching service.',
+    why: (
+      <>
+        OGA gives you the data.{' '}
+        <em style={{ color: '#1C211C', fontWeight: 500 }}>
+          The lessons happen with a real coach
+        </em>{' '}
+        — we make their job easier, not replace them.
+      </>
+    ),
+  },
+  {
+    what: 'Not gamified.',
+    why: (
+      <>
+        No streaks, no leaderboards by default, no trophies for logging a
+        round. You're an adult;{' '}
+        <em style={{ color: '#1C211C', fontWeight: 500 }}>the data is the reward.</em>
+      </>
+    ),
+  },
+  {
+    what: 'Not a shop.',
+    why: (
+      <>
+        <em style={{ color: '#1C211C', fontWeight: 500 }}>
+          We don't sell clubs, balls, lessons, or training aids.
+        </em>{' '}
+        The product is the analysis, and the analysis is free.
+      </>
+    ),
+  },
+  {
+    what: 'Not a launch monitor.',
+    why: (
+      <>
+        We don't measure spin or apex with a sensor.{' '}
+        <em style={{ color: '#1C211C', fontWeight: 500 }}>
+          What we estimate, we label estimate.
+        </em>{' '}
+        Honesty about precision is part of the brand.
+      </>
+    ),
+  },
+  {
+    what: 'Not a data broker.',
+    why: (
+      <>
+        Your rounds, your shots, your patterns.{' '}
+        <em style={{ color: '#1C211C', fontWeight: 500 }}>Yours. Exportable.</em>{' '}
+        We don't sell them and don't share without your opt-in.
+      </>
+    ),
+  },
+]
+
+function Negation() {
+  return (
+    <section style={{ padding: '100px 0' }}>
+      <div
+        className="landing-negation"
+        style={{
+          maxWidth: 1180,
+          margin: '0 auto',
+          padding: '0 28px',
+          display: 'grid',
+          gridTemplateColumns: '1fr 1fr',
+          gap: 60,
+          alignItems: 'flex-start',
+        }}
+      >
+        <div>
+          <div className="kicker" style={{ color: '#8A8B7E' }}>
+            Defined by absence
+          </div>
+          <h2
+            className="font-serif text-caddie-ink"
+            style={{
+              fontSize: 'clamp(32px, 4vw, 42px)',
+              fontWeight: 500,
+              fontStyle: 'italic',
+              lineHeight: 1.1,
+              letterSpacing: '-0.02em',
+              margin: '18px 0 0',
+            }}
+          >
+            What OGA <em>isn't</em>.
+          </h2>
+          <p
+            className="font-serif text-caddie-ink-dim"
+            style={{ fontSize: 17, lineHeight: 1.6, margin: '18px 0 0', maxWidth: 480 }}
+          >
+            A short list, because half of what makes something good is what it
+            refuses to be.
+          </p>
+        </div>
+        <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+          {NEGATIONS.map((item, i) => (
+            <li
+              key={item.what}
+              style={{
+                padding: '18px 0',
+                borderBottom:
+                  i === NEGATIONS.length - 1 ? 'none' : '1px solid #D9D2BF',
+                display: 'flex',
+                gap: 18,
+                alignItems: 'flex-start',
+              }}
+            >
+              <span
+                className="font-mono"
+                style={{
+                  fontSize: 10,
+                  letterSpacing: '0.16em',
+                  color: '#A33A2A',
+                  flexShrink: 0,
+                  paddingTop: 4,
+                  width: 24,
+                }}
+              >
+                {String(i + 1).padStart(2, '0')}
+              </span>
+              <div>
+                <div
+                  className="font-serif text-caddie-ink"
+                  style={{
+                    fontSize: 18,
+                    fontWeight: 500,
+                    fontStyle: 'italic',
+                    lineHeight: 1.3,
+                    marginBottom: 4,
+                  }}
+                >
+                  {item.what}
+                </div>
+                <div
+                  className="font-serif text-caddie-ink-dim"
+                  style={{ fontSize: 14.5, lineHeight: 1.55 }}
+                >
+                  {item.why}
+                </div>
+              </div>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </section>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Pricing
+// ---------------------------------------------------------------------------
+
+function Pricing() {
+  const { user, loading } = useAuth()
+  const isAuthed = !loading && !!user
+  return (
+    <section style={{ padding: '120px 0', textAlign: 'center' }}>
+      <div style={{ maxWidth: 1180, margin: '0 auto', padding: '0 28px' }}>
+        <div className="kicker" style={{ color: '#8A8B7E', marginBottom: 18 }}>
+          The price
+        </div>
+        <h2
+          className="font-serif text-caddie-ink"
+          style={{
+            fontSize: 'clamp(56px, 8vw, 92px)',
+            fontWeight: 500,
+            fontStyle: 'italic',
+            lineHeight: 0.95,
+            letterSpacing: '-0.03em',
+            margin: 0,
+          }}
+        >
+          <span style={{ color: '#1F3D2C' }}>$0.</span> Forever.
+        </h2>
+        <p
+          className="font-serif text-caddie-ink"
+          style={{ fontSize: 19, lineHeight: 1.55, margin: '28px auto 0', maxWidth: 600 }}
+        >
+          <em style={{ fontWeight: 500 }}>
+            No subscription. No “premium” tier you'll discover at the wrong
+            moment.
+          </em>{' '}
+          If OGA helps your game and you want to keep the lights on, the tip jar
+          is open.
+        </p>
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'center',
+            gap: 40,
+            margin: '48px auto 0',
+            flexWrap: 'wrap',
+            paddingTop: 36,
+            borderTop: '1px solid #D9D2BF',
+            maxWidth: 740,
+          }}
+        >
+          <Term value="MIT licensed" label="Source on GitHub" />
+          <Term value="No ads" label="Ever" />
+          <Term value="Your data" label="Exportable anytime" />
+          <Term value="Self-hostable" label="Run your own" />
+        </div>
+        <div
+          style={{
+            marginTop: 48,
+            display: 'flex',
+            justifyContent: 'center',
+            gap: 14,
+            flexWrap: 'wrap',
+          }}
+        >
+          <Link to={isAuthed ? '/dashboard' : '/signup'} style={btnAccentLg}>
+            {isAuthed ? 'Go to app' : 'Start tracking'}{' '}
+            <span className="font-serif" style={{ fontStyle: 'italic' }}>
+              →
+            </span>
+          </Link>
+          <a
+            href="https://ko-fi.com/nartana"
+            target="_blank"
+            rel="noreferrer noopener"
+            style={btnGhostLg}
+          >
+            Tip jar · Ko-fi
+          </a>
+        </div>
+      </div>
+    </section>
+  )
+}
+
+function Term({ value, label }: { value: string; label: string }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+      <span
+        className="font-serif text-caddie-ink"
+        style={{ fontSize: 20, fontWeight: 500, fontStyle: 'italic' }}
+      >
+        {value}
+      </span>
+      <span
+        className="font-mono uppercase"
+        style={{ fontSize: 9, letterSpacing: '0.16em', color: '#8A8B7E' }}
+      >
+        {label}
+      </span>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
 // Learn section
 // ---------------------------------------------------------------------------
 
 const LEARN_CARDS = [
-  {
-    section: 'On the course',
-    title: 'Course management',
-    slug: 'course-management',
-  },
+  { section: 'On the course', title: 'Course management', slug: 'course-management' },
   {
     section: 'Improving your game',
     title: 'How to practice effectively',
     slug: 'how-to-practice',
   },
-  {
-    section: 'On the course',
-    title: 'The mental game',
-    slug: 'mental-game',
-  },
+  { section: 'On the course', title: 'The mental game', slug: 'mental-game' },
 ]
 
 function LearnSection() {
   return (
-    <section style={{ padding: '100px 0' }}>
+    <section style={{ padding: '60px 0 100px' }}>
       <div style={{ maxWidth: 1180, margin: '0 auto', padding: '0 28px' }}>
-        <div style={{ marginBottom: 56 }}>
+        <div style={{ marginBottom: 40 }}>
           <div className="kicker" style={{ color: '#A66A1F', marginBottom: 12 }}>
             Learn
           </div>
@@ -532,11 +1144,7 @@ function LearnSection() {
         </div>
         <div
           className="landing-learn"
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(3, 1fr)',
-            gap: 18,
-          }}
+          style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 18 }}
         >
           {LEARN_CARDS.map((c) => (
             <Link
@@ -550,8 +1158,7 @@ function LearnSection() {
                 textDecoration: 'none',
                 color: 'inherit',
                 display: 'block',
-                transition:
-                  'border-color 200ms ease, transform 200ms ease',
+                transition: 'border-color 200ms ease, transform 200ms ease',
               }}
               onMouseEnter={(e) => {
                 e.currentTarget.style.borderColor = '#9F9580'
@@ -575,12 +1182,7 @@ function LearnSection() {
               </div>
               <div
                 className="font-serif text-caddie-ink"
-                style={{
-                  fontSize: 22,
-                  fontWeight: 500,
-                  fontStyle: 'italic',
-                  lineHeight: 1.25,
-                }}
+                style={{ fontSize: 22, fontWeight: 500, fontStyle: 'italic', lineHeight: 1.25 }}
               >
                 {c.title}
               </div>
@@ -606,6 +1208,7 @@ function FinalCTA() {
         color: '#F2EEE5',
         textAlign: 'center',
         padding: '110px 0 100px',
+        borderTop: '1px solid rgba(242, 238, 229, 0.12)',
       }}
     >
       <div style={{ maxWidth: 1180, margin: '0 auto', padding: '0 28px' }}>
@@ -627,7 +1230,7 @@ function FinalCTA() {
             color: '#F2EEE5',
           }}
         >
-          {isAuthed ? 'Welcome back.' : 'Start tracking free.'}
+          {isAuthed ? 'Welcome back.' : 'Start tracking.'}
         </h2>
         <p
           style={{
@@ -638,7 +1241,7 @@ function FinalCTA() {
         >
           {isAuthed
             ? 'Pick up where you left off.'
-            : 'No subscription. No ads. Open source.'}
+            : 'Free forever · open source · iPhone, Android & web'}
         </p>
         <Link
           to={isAuthed ? '/dashboard' : '/signup'}
@@ -698,7 +1301,7 @@ function Footer() {
           className="font-serif"
           style={{ fontSize: 20, fontWeight: 500, fontStyle: 'italic' }}
         >
-          OGA
+          oga<span style={{ fontStyle: 'normal' }}>.</span>
         </div>
         <div
           style={{
@@ -708,11 +1311,14 @@ function Footer() {
             flexWrap: 'wrap',
           }}
         >
-          <FooterLink href="https://github.com/cner-smith/opengolfapp" external>
+          <FooterLink href={GITHUB_REPO} external>
             GitHub
           </FooterLink>
           <FooterLink href="https://ko-fi.com/nartana" external>
             Ko-fi
+          </FooterLink>
+          <FooterLink href="https://github.com/sponsors/cner-smith" external>
+            Sponsors
           </FooterLink>
           <FooterLink to="/privacy">Privacy</FooterLink>
           <FooterLink to="/support">Support</FooterLink>
@@ -838,60 +1444,18 @@ const btnAccentLg: React.CSSProperties = {
   whiteSpace: 'nowrap',
 }
 
-// ---------------------------------------------------------------------------
-// Icons
-// ---------------------------------------------------------------------------
-
-function TargetIcon() {
-  return (
-    <svg
-      width="18"
-      height="18"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={2}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <circle cx="12" cy="12" r="3" />
-      <circle cx="12" cy="12" r="9" />
-    </svg>
-  )
-}
-
-function BarsIcon() {
-  return (
-    <svg
-      width="18"
-      height="18"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={2}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <line x1="6" y1="20" x2="6" y2="10" />
-      <line x1="12" y1="20" x2="12" y2="4" />
-      <line x1="18" y1="20" x2="18" y2="14" />
-    </svg>
-  )
-}
-
-function TrendIcon() {
-  return (
-    <svg
-      width="18"
-      height="18"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={2}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M3 17l4-4 4 4 4-6 6 6" />
-    </svg>
-  )
+const btnGhostLg: React.CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: 6,
+  background: 'transparent',
+  color: '#1C211C',
+  border: '1px solid #9F9580',
+  borderRadius: 2,
+  padding: '14px 18px',
+  fontFamily: 'Epilogue, sans-serif',
+  fontWeight: 600,
+  fontSize: 14,
+  textDecoration: 'none',
+  whiteSpace: 'nowrap',
 }
