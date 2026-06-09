@@ -15,9 +15,12 @@ const KICKER: import('react-native').TextStyle = {
 // encodes editorial priority (fundamentals first), so this surfaces the
 // two flagship published articles without needing a `featured` flag or
 // dates on the model. `soon` stubs aren't tappable, so they're excluded.
-const FEATURED: LearnArticle[] = LEARN_SECTIONS.flatMap((s) => s.articles)
-  .filter((a) => a.status !== 'soon')
-  .slice(0, 3)
+const READABLE: LearnArticle[] = LEARN_SECTIONS.flatMap((s) => s.articles).filter(
+  (a) => a.status !== 'soon',
+)
+const FEATURED: LearnArticle[] = READABLE.slice(0, 3)
+// Surfaced on "See all" so the card reads as a library of N, not a page.
+const READ_COUNT = READABLE.length
 
 export function LearnPreview() {
   const router = useRouter()
@@ -39,7 +42,7 @@ export function LearnPreview() {
           onPress={() => router.push('/(app)/learn')}
           hitSlop={8}
         >
-          <Text style={[TYPE.kicker, KICKER, { color: '#1F3D2C' }]}>See all →</Text>
+          <Text style={[TYPE.kicker, KICKER, { color: '#1F3D2C' }]}>See all {READ_COUNT} →</Text>
         </Pressable>
       </View>
 

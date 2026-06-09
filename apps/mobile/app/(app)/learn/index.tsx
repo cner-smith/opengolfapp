@@ -21,6 +21,12 @@ const KICKER: import('react-native').TextStyle = {
 
 export default function LearnScreen() {
   const router = useRouter()
+  // Readable count for the library signal — 'soon' stubs aren't tappable,
+  // so they don't count toward "what's here to read".
+  const articleCount = LEARN_SECTIONS.reduce(
+    (n, s) => n + s.articles.filter((a) => a.status !== 'soon').length,
+    0,
+  )
 
   return (
     <View style={{ flex: 1, backgroundColor: C.bg }}>
@@ -51,6 +57,9 @@ export default function LearnScreen() {
         <Text style={[TYPE.body, { color: C.inkDim, fontSize: 14, lineHeight: 20 }]}>
           What they mean, why they matter, and what the numbers look like across
           the field.
+        </Text>
+        <Text style={{ ...KICKER, marginTop: 14 }}>
+          {articleCount} short reads · {LEARN_SECTIONS.length} sections
         </Text>
 
         {LEARN_SECTIONS.map((section) => (
