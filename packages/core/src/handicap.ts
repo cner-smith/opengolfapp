@@ -15,6 +15,11 @@
 const MAX_HANDICAP_INDEX = 54.0
 const RECENT_WINDOW = 20
 
+// WHS Rule 5.2a needs at least 3 acceptable score differentials before an
+// index can be computed. Below this, the stored handicap_index is whatever
+// the player entered, not a derived value — see handicapProvenance.
+export const MIN_ROUNDS_FOR_HANDICAP = 3
+
 export function calculateDifferential(
   adjustedScore: number,
   courseRating: number,
@@ -55,7 +60,7 @@ export function calculateHandicapIndex(
   differentials: number[],
 ): number | null {
   const valid = differentials.filter((d) => Number.isFinite(d))
-  if (valid.length < 3) return null
+  if (valid.length < MIN_ROUNDS_FOR_HANDICAP) return null
 
   const considered =
     valid.length >= RECENT_WINDOW ? valid.slice(0, RECENT_WINDOW) : valid
@@ -87,4 +92,25 @@ function capForHole(par: number, handicapIndex: number): number {
   if (handicapIndex <= 29) return 8
   if (handicapIndex <= 39) return 9
   return 10
+}
+
+// Provenance of a stored handicap_index: 'calculated' once the player has
+// enough rated rounds for the WHS index to have been derived (and the
+// finalize flow to have overwritten the entered value), 'provisional'
+// otherwise. The number of rounds with a non-null score_differential is
+// the signal — it's also 0 for any player who has only ever entered a
+// value (e.g. mobile, which doesn't yet compute differentials). See #521.
+export type HandicapProvenance = 'calculated' | 'provisional'
+
+export function handicapProvenance(
+  differentialsCount: number,
+): HandicapProvenance {
+  return differentialsCount >= MIN_ROUNDS_FOR_HANDICAP
+    ? 'calculated'
+    : 'provisional'
+}
+
+export const HANDICAP_PROVENANCE_LABEL: Record<HandicapProvenance, string> = {
+  calculated: 'WHS index',
+  provisional: 'Provisional',
 }

@@ -1,10 +1,13 @@
 import { useQuery } from '@tanstack/react-query'
+import { handicapProvenance } from '@oga/core'
 import { supabase } from '../lib/supabase'
 import { useAuth } from './useAuth'
 
-// Returns whether the user's handicap was last set by the auto-recompute
-// path (i.e. at least one finalized round has a score_differential), so
-// the UI can stamp an "Official" badge instead of "Manually entered".
+// Returns the provenance of the user's stored handicap_index: 'calculated'
+// once enough rated rounds exist for the WHS index to have been derived,
+// 'provisional' while it's still the entered value. The count of rounds
+// with a non-null score_differential is the signal; the threshold lives in
+// @oga/core (handicapProvenance) so web + mobile agree. See #521.
 export function useHandicapMeta() {
   const { user } = useAuth()
   return useQuery({
@@ -17,9 +20,10 @@ export function useHandicapMeta() {
         .eq('user_id', user!.id)
         .not('score_differential', 'is', null)
       if (error) throw error
+      const differentialsCount = count ?? 0
       return {
-        differentialsCount: count ?? 0,
-        official: (count ?? 0) > 0,
+        differentialsCount,
+        provenance: handicapProvenance(differentialsCount),
       }
     },
   })
