@@ -16,27 +16,28 @@ const KICKER: import('react-native').TextStyle = {
   textTransform: 'uppercase',
 }
 
-// Picks (or adds) the tee played so the finalize pass can compute a WHS
-// score differential — a tee with course rating + slope is the one input
-// the crawler can't supply, so the player records it here. Mirrors the web
-// TeeSelector; persists course_tee_id + tee_color onto the round itself.
-export function RoundTeeSelector({
+// Presentational tee picker: lists a course's tees and lets the player add
+// one (rating/slope/yards). Selection is reported via `onSelect` — it does
+// NOT persist anything to a round, so it works both before a round exists
+// (round/new.tsx setup step) and against an existing round (the scorecard
+// wrapper below). Adding a tee creates a course-level `course_tees` row and
+// immediately selects it. `busy` lets a caller disable the list while it
+// persists the selection elsewhere.
+export function TeePicker({
   courseId,
-  roundId,
-  userId,
-  currentTeeId,
-  onChange,
+  selectedTeeId,
+  onSelect,
+  busy = false,
 }: {
   courseId: string
-  roundId: string
-  userId: string
-  currentTeeId: string | null
-  onChange: (tee: { id: string; color: string }) => void
+  selectedTeeId: string | null
+  onSelect: (tee: { id: string; tee_color: string }) => void
+  busy?: boolean
 }) {
   const [tees, setTees] = useState<CourseTeeRow[]>([])
   const [loading, setLoading] = useState(true)
   const [adding, setAdding] = useState(false)
-  const [busy, setBusy] = useState(false)
+  const [addBusy, setAddBusy] = useState(false)
 
   useEffect(() => {
     let active = true
@@ -61,31 +62,13 @@ export function RoundTeeSelector({
     }
   }, [courseId])
 
-  async function selectTee(tee: { id: string; tee_color: string }) {
-    setBusy(true)
-    try {
-      const { error } = await updateRound(
-        supabase,
-        roundId,
-        { course_tee_id: tee.id, tee_color: tee.tee_color },
-        userId,
-      )
-      if (error) throw error
-      onChange({ id: tee.id, color: tee.tee_color })
-    } catch (e) {
-      Alert.alert('Could not set tee', (e as Error).message)
-    } finally {
-      setBusy(false)
-    }
-  }
-
   async function addTee(vals: {
     color: string
     rating: number | null
     slope: number | null
     yards: number | null
   }) {
-    setBusy(true)
+    setAddBusy(true)
     try {
       const { data, error } = await upsertCourseTees(supabase, [
         {
@@ -104,9 +87,122 @@ export function RoundTeeSelector({
         return [...without, created]
       })
       setAdding(false)
-      await selectTee(created)
+      onSelect({ id: created.id, tee_color: created.tee_color })
     } catch (e) {
       Alert.alert('Could not add tee', (e as Error).message)
+    } finally {
+      setAddBusy(false)
+    }
+  }
+
+  const disabled = busy || addBusy
+
+  if (loading) {
+    return (
+      <Text style={[TYPE.body, { color: '#8A8B7E', fontSize: 13 }]}>Loading tees…</Text>
+    )
+  }
+
+  return (
+    <View style={{ gap: 8 }}>
+      {tees.map((t) => {
+        const active = selectedTeeId === t.id
+        const hasRating = t.course_rating != null && t.slope_rating != null
+        return (
+          <Pressable
+            key={t.id}
+            onPress={() => onSelect({ id: t.id, tee_color: t.tee_color })}
+            disabled={disabled}
+            style={{
+              flexDirection: 'row',
+              alignItems: 'baseline',
+              justifyContent: 'space-between',
+              backgroundColor: active ? '#1F3D2C' : '#FBF8F1',
+              borderWidth: 1,
+              borderColor: active ? '#1F3D2C' : '#D9D2BF',
+              borderRadius: 2,
+              paddingVertical: 12,
+              paddingHorizontal: 14,
+              opacity: disabled ? 0.5 : 1,
+            }}
+          >
+            <Text
+              style={[TYPE.serif, {
+                color: active ? '#F2EEE5' : '#1C211C',
+                fontSize: 16,
+                fontStyle: 'italic',
+                fontWeight: '500',
+                textTransform: 'capitalize',
+              }]}
+            >
+              {t.tee_color}
+            </Text>
+            <Text
+              style={{
+                ...KICKER,
+                color: active ? 'rgba(242,238,229,0.75)' : '#5C6356',
+              }}
+            >
+              {hasRating ? `${t.course_rating?.toFixed(1)} / ${t.slope_rating}` : 'No rating'}
+            </Text>
+          </Pressable>
+        )
+      })}
+
+      {adding ? (
+        <AddTeeForm busy={addBusy} onCancel={() => setAdding(false)} onSubmit={addTee} />
+      ) : (
+        <Pressable
+          onPress={() => setAdding(true)}
+          disabled={disabled}
+          style={{
+            borderWidth: 1,
+            borderColor: '#D9D2BF',
+            borderStyle: 'dashed',
+            borderRadius: 2,
+            paddingVertical: 11,
+            alignItems: 'center',
+          }}
+        >
+          <Text style={{ ...KICKER, color: '#5C6356' }}>+ Add tee</Text>
+        </Pressable>
+      )}
+    </View>
+  )
+}
+
+// Scorecard wrapper: a labelled section that persists the picked tee onto
+// the round (course_tee_id + tee_color) so the finalize pass can compute a
+// WHS score differential. A tee with course rating + slope is the one input
+// the crawler can't supply, so the player records it here.
+export function RoundTeeSelector({
+  courseId,
+  roundId,
+  userId,
+  currentTeeId,
+  onChange,
+}: {
+  courseId: string
+  roundId: string
+  userId: string
+  currentTeeId: string | null
+  onChange: (tee: { id: string; color: string }) => void
+}) {
+  const [busy, setBusy] = useState(false)
+
+  async function persist(tee: { id: string; tee_color: string }) {
+    setBusy(true)
+    try {
+      const { error } = await updateRound(
+        supabase,
+        roundId,
+        { course_tee_id: tee.id, tee_color: tee.tee_color },
+        userId,
+      )
+      if (error) throw error
+      onChange({ id: tee.id, color: tee.tee_color })
+    } catch (e) {
+      Alert.alert('Could not set tee', (e as Error).message)
     } finally {
       setBusy(false)
     }
@@ -125,75 +221,12 @@ export function RoundTeeSelector({
       <Text style={[TYPE.body, { color: '#8A8B7E', fontSize: 12, marginBottom: 12 }]}>
         Add the tee's rating and slope to get a handicap differential.
       </Text>
-
-      {loading ? (
-        <Text style={[TYPE.body, { color: '#8A8B7E', fontSize: 13 }]}>Loading tees…</Text>
-      ) : (
-        <View style={{ gap: 8 }}>
-          {tees.map((t) => {
-            const active = currentTeeId === t.id
-            const hasRating = t.course_rating != null && t.slope_rating != null
-            return (
-              <Pressable
-                key={t.id}
-                onPress={() => selectTee(t)}
-                disabled={busy}
-                style={{
-                  flexDirection: 'row',
-                  alignItems: 'baseline',
-                  justifyContent: 'space-between',
-                  backgroundColor: active ? '#1F3D2C' : '#FBF8F1',
-                  borderWidth: 1,
-                  borderColor: active ? '#1F3D2C' : '#D9D2BF',
-                  borderRadius: 2,
-                  paddingVertical: 12,
-                  paddingHorizontal: 14,
-                  opacity: busy ? 0.5 : 1,
-                }}
-              >
-                <Text
-                  style={[TYPE.serif, {
-                    color: active ? '#F2EEE5' : '#1C211C',
-                    fontSize: 16,
-                    fontStyle: 'italic',
-                    fontWeight: '500',
-                    textTransform: 'capitalize',
-                  }]}
-                >
-                  {t.tee_color}
-                </Text>
-                <Text
-                  style={{
-                    ...KICKER,
-                    color: active ? 'rgba(242,238,229,0.75)' : '#5C6356',
-                  }}
-                >
-                  {hasRating ? `${t.course_rating?.toFixed(1)} / ${t.slope_rating}` : 'No rating'}
-                </Text>
-              </Pressable>
-            )
-          })}
-
-          {adding ? (
-            <AddTeeForm busy={busy} onCancel={() => setAdding(false)} onSubmit={addTee} />
-          ) : (
-            <Pressable
-              onPress={() => setAdding(true)}
-              disabled={busy}
-              style={{
-                borderWidth: 1,
-                borderColor: '#D9D2BF',
-                borderStyle: 'dashed',
-                borderRadius: 2,
-                paddingVertical: 11,
-                alignItems: 'center',
-              }}
-            >
-              <Text style={{ ...KICKER, color: '#5C6356' }}>+ Add tee</Text>
-            </Pressable>
-          )}
-        </View>
-      )}
+      <TeePicker
+        courseId={courseId}
+        selectedTeeId={currentTeeId}
+        onSelect={persist}
+        busy={busy}
+      />
     </View>
   )
 }
