@@ -46,7 +46,10 @@ function asFocusAreas(value: unknown): StoredFocusArea[] {
 
 // UI safety net: rewrite any leaked raw snake_case category enums in displayed
 // prose (coach_note / focus reasons). `approach`/`putting` are already readable.
-function normalizeCategoryProse(text: string): string {
+// Tolerates null/undefined — a malformed plan (e.g. a focus area missing its
+// `reason`) must degrade to empty text, never crash the whole tab.
+function normalizeCategoryProse(text: string | null | undefined): string {
+  if (!text) return ''
   return text
     .replace(/\boff_tee\b/gi, 'off the tee')
     .replace(/\baround_green\b/gi, 'around the green')
@@ -330,7 +333,7 @@ function SessionBlock({
   completed: Set<string>
   onToggle: (blockId: string) => void
 }) {
-  const blocks = [...session.blocks].sort((a, b) => a.order - b.order)
+  const blocks = [...(session.blocks ?? [])].sort((a, b) => a.order - b.order)
   const doneCount = blocks.filter((b) => completed.has(b.id)).length
   return (
     <View style={{ borderTopWidth: 1, borderColor: LINE, paddingTop: 18, marginBottom: 28 }}>

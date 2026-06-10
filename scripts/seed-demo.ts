@@ -436,6 +436,11 @@ async function insertPracticePlan(userId: string): Promise<void> {
     .limit(3)
   if (!drills || drills.length === 0) return
 
+  // Match the live storage shape (@oga/core StoredFocusArea / StoredSession):
+  // focus_areas use `reason` (not insight/sgValue) and `drills` is
+  // `{ sessions: [{ blocks }] }`. The Practice UI reads exactly these fields,
+  // so an out-of-date shape crashes the tab — keep this in lockstep.
+  const blockTypes = ['warmup', 'blocked', 'skill_game'] as const
   await supabase.from('practice_plans').insert({
     user_id: userId,
     based_on_rounds: 10,
@@ -443,28 +448,33 @@ async function insertPracticePlan(userId: string): Promise<void> {
     focus_areas: [
       {
         category: 'approach',
-        priority: 1,
-        sgValue: -1.2,
-        insight: 'Approach is your biggest opportunity — average 1.2 strokes lost per round.',
+        reason: 'Approach is your biggest opportunity — averaging 1.2 strokes lost per round.',
       },
       {
         category: 'around_green',
-        priority: 2,
-        sgValue: -0.1,
-        insight: 'Around-green play is roughly neutral; maintain with one drill.',
+        reason: 'Around-green play is roughly neutral; one drill keeps it sharp.',
       },
     ],
-    drills: drills.map((d) => ({
-      drillId: d.id,
-      name: d.name,
-      durationMin: d.duration_min,
-      facility: Array.isArray(d.facility) ? d.facility.join(', ') : '',
-      category: d.category,
-      description: d.description,
-      reason: 'Targets the lowest SG category.',
-    })),
-    ai_insight:
-      "Demo plan: putting is a real strength (+1.2 SG) so we're protecting it with one drill while loading up on approach work to chip away at the -1.2 SG gap.",
+    drills: {
+      sessions: [
+        {
+          title: 'Approach accuracy block',
+          total_minutes: drills.reduce((sum, d) => sum + (d.duration_min ?? 15), 0),
+          blocks: drills.map((d, i) => ({
+            id: `b-approach-${i}`,
+            order: i,
+            type: blockTypes[Math.min(i, blockTypes.length - 1)],
+            minutes: d.duration_min ?? 15,
+            rationale: 'Targets the lowest SG category.',
+            drill_id: d.id,
+            target: null,
+          })),
+        },
+      ],
+    },
+    ai_insight: 'Approach is the biggest drag on scoring — tighten iron dispersion this week.',
+    coach_note:
+      'Your approach game is the primary leak right now. Blocked reps to groove contact, then a skill game to transfer it under a little pressure.',
     completed_drill_ids: [],
   })
 }
