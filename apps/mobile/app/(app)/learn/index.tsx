@@ -2,6 +2,7 @@ import { Pressable, ScrollView, Text, View } from 'react-native'
 import { useRouter } from 'expo-router'
 import {
   LEARN_SECTIONS,
+  READABLE_LEARN_ARTICLES,
   readingTimeMinutes,
   type LearnArticle,
   type LearnSection,
@@ -18,6 +19,11 @@ const KICKER: import('react-native').TextStyle = {
   letterSpacing: 1.4,
   textTransform: 'uppercase',
 }
+
+// Library-signal counts — static (derived from the @oga/core catalog), so
+// they live at module scope rather than re-deriving each render.
+const ARTICLE_COUNT = READABLE_LEARN_ARTICLES.length
+const SECTION_COUNT = LEARN_SECTIONS.length
 
 export default function LearnScreen() {
   const router = useRouter()
@@ -51,6 +57,10 @@ export default function LearnScreen() {
         <Text style={[TYPE.body, { color: C.inkDim, fontSize: 14, lineHeight: 20 }]}>
           What they mean, why they matter, and what the numbers look like across
           the field.
+        </Text>
+        <Text style={{ ...KICKER, marginTop: 14 }}>
+          {ARTICLE_COUNT} short reads · {SECTION_COUNT} section
+          {SECTION_COUNT === 1 ? '' : 's'}
         </Text>
 
         {LEARN_SECTIONS.map((section) => (
