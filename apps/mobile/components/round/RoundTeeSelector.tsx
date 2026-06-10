@@ -40,21 +40,22 @@ export function RoundTeeSelector({
 
   useEffect(() => {
     let active = true
-    getCourseTees(supabase, courseId)
-      .then(({ data }) => {
+    ;(async () => {
+      try {
+        const { data } = await getCourseTees(supabase, courseId)
         if (active) {
           setTees(data ?? [])
           setLoading(false)
         }
-      })
-      .catch(() => {
+      } catch {
         // Network failure: drop to an empty list rather than stranding the
         // component on "Loading tees…" with an unhandled rejection.
         if (active) {
           setTees([])
           setLoading(false)
         }
-      })
+      }
+    })()
     return () => {
       active = false
     }
