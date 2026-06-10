@@ -126,6 +126,42 @@ export function sgAverages(rounds: DetailedRound[]): SGAverages {
   return out
 }
 
+export interface SGStandout {
+  key: keyof SGAverages
+  value: number
+}
+
+export interface SGStandouts {
+  /** Lowest-scoring category with data — the biggest leak when negative. */
+  weakest: SGStandout | null
+  /** Highest-scoring category with data — a strength when positive. */
+  strongest: SGStandout | null
+}
+
+// weakest and strongest are the same entry when only one category has
+// data, and both null when none do. Sign is left to the caller. #522
+export function sgStandouts(sg: SGAverages): SGStandouts {
+  const entries = (
+    [
+      ['offTee', sg.offTee],
+      ['approach', sg.approach],
+      ['aroundGreen', sg.aroundGreen],
+      ['putting', sg.putting],
+    ] as const
+  ).filter((e): e is [keyof SGAverages, number] => e[1] != null)
+  if (entries.length === 0) return { weakest: null, strongest: null }
+  let weakest = entries[0]!
+  let strongest = entries[0]!
+  for (const e of entries) {
+    if (e[1] < weakest[1]) weakest = e
+    if (e[1] > strongest[1]) strongest = e
+  }
+  return {
+    weakest: { key: weakest[0], value: weakest[1] },
+    strongest: { key: strongest[0], value: strongest[1] },
+  }
+}
+
 export type SGBreakdownKey =
   | 'sg_off_tee'
   | 'sg_approach'
