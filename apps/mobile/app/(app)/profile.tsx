@@ -145,7 +145,11 @@ export default function ProfileTab() {
       .select('id', { count: 'exact', head: true })
       .eq('user_id', user.id)
       .not('score_differential', 'is', null)
-      .then(({ count }) => {
+      .then(({ count, error }) => {
+        if (error) {
+          // eslint-disable-next-line no-console
+          console.warn('[profile/differentials-count]', error.message)
+        }
         if (active) setDifferentialsCount(count ?? 0)
       })
     return () => {
@@ -196,6 +200,9 @@ export default function ProfileTab() {
     )
   }
 
+  const provenance = handicapProvenance(differentialsCount)
+  const provenanceCalculated = provenance === 'calculated'
+
   return (
     <View style={{ flex: 1, backgroundColor: '#F2EEE5' }}>
       <AppBar
@@ -226,34 +233,29 @@ export default function ProfileTab() {
           >
             {profile?.handicap_index ?? '—'}
           </Text>
-          {profile?.handicap_index != null &&
-            (() => {
-              const provenance = handicapProvenance(differentialsCount)
-              const calculated = provenance === 'calculated'
-              return (
-                <View
-                  style={{
-                    marginTop: 8,
-                    paddingHorizontal: 8,
-                    paddingVertical: 3,
-                    borderRadius: 2,
-                    backgroundColor: calculated
-                      ? 'rgba(31,61,44,0.12)'
-                      : 'rgba(138,139,126,0.16)',
-                  }}
-                >
-                  <Text
-                    style={{
-                      ...KICKER,
-                      fontSize: 9,
-                      color: calculated ? '#1F3D2C' : '#8A8B7E',
-                    }}
-                  >
-                    {HANDICAP_PROVENANCE_LABEL[provenance]}
-                  </Text>
-                </View>
-              )
-            })()}
+          {profile?.handicap_index != null && (
+            <View
+              style={{
+                marginTop: 8,
+                paddingHorizontal: 8,
+                paddingVertical: 3,
+                borderRadius: 2,
+                backgroundColor: provenanceCalculated
+                  ? 'rgba(31,61,44,0.12)'
+                  : 'rgba(138,139,126,0.16)',
+              }}
+            >
+              <Text
+                style={{
+                  ...KICKER,
+                  fontSize: 9,
+                  color: provenanceCalculated ? '#1F3D2C' : '#8A8B7E',
+                }}
+              >
+                {HANDICAP_PROVENANCE_LABEL[provenance]}
+              </Text>
+            </View>
+          )}
           <Text
             style={[TYPE.body, {
               color: '#5C6356',

@@ -207,7 +207,7 @@ export function Sidebar() {
                   }}
                   title={
                     handicapMeta.provenance === 'calculated'
-                      ? `Calculated from ${handicapMeta.differentialsCount} round${handicapMeta.differentialsCount === 1 ? '' : 's'} with rated tees`
+                      ? `Calculated from ${handicapMeta.differentialsCount} rounds with rated tees`
                       : 'Self-reported — play 3+ rated rounds for a calculated WHS index'
                   }
                 >
