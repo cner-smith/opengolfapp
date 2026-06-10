@@ -67,3 +67,6 @@ PHASE_2.md
 PHASES_3_TO_8.md
 docs/internal/
 docs/superpowers/
+
+# course-rating backfill audit log
+backfill-ratings-*.jsonl
