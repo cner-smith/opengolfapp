@@ -60,8 +60,6 @@ export function useHoleData(
   // How many holes this round plays. course_tees.par is unpopulated in
   // our crawled data, so infer from the mapped hole numbers — a genuine
   // 9-hole course stays 9 instead of padding to 18 phantom holes (#525).
-  // Drives both the synthetic display padding below and the nav/finish
-  // bounds in useShotActions (consumed via the returned holeCount).
   const holeCount = useMemo(
     () => inferHoleCount(holes.map((h) => h.number)),
     [holes],
