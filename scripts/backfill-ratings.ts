@@ -234,7 +234,16 @@ function ratedTeeRows(courseId: string, api: ApiCourse): TeeRow[] {
   const byColor = new Map<string, TeeRow>()
   const add = (tees: TeeBox[] | null | undefined, isMale: boolean) => {
     for (const t of tees ?? []) {
-      if (t.course_rating == null || t.slope_rating == null || t.slope_rating <= 0) continue
+      // Both must be present AND positive — a 0.0 rating/slope from the API
+      // is invalid for any real course and would write a handicap-breaking
+      // zero.
+      if (
+        t.course_rating == null ||
+        t.course_rating <= 0 ||
+        t.slope_rating == null ||
+        t.slope_rating <= 0
+      )
+        continue
       const name = (t.tee_name ?? '').trim()
       if (!name) continue
       const color = name.toLowerCase()
@@ -331,8 +340,23 @@ async function main() {
       continue
     }
 
-    matched++
-    teesWritten += tees.length
+    // Upsert first (when writing) so the audit record can mark a failure —
+    // a logged record must reflect what actually landed, not just what was
+    // proposed.
+    let upsertError: string | null = null
+    if (WRITE) {
+      const { error } = await supabase
+        .from('course_tees')
+        .upsert(tees, { onConflict: 'course_id,tee_color' })
+      if (error) upsertError = error.message
+    }
+    if (upsertError) {
+      console.error(`  ✗ upsert failed for ${course.id}: ${upsertError}`)
+    } else {
+      matched++
+      teesWritten += tees.length
+    }
+
     const record = {
       course_id: course.id,
       ours: `${course.name} (${course.city ?? '?'}, ${course.state ?? '?'})`,
@@ -341,22 +365,12 @@ async function main() {
       score: Number(match.score.toFixed(3)),
       km: match.km == null ? null : Number(match.km.toFixed(1)),
       tees: tees.map((t) => `${t.tee_color} ${t.course_rating}/${t.slope_rating}`),
+      ...(upsertError ? { upsert_error: true } : {}),
     }
     appendFileSync(OUT, JSON.stringify(record) + '\n')
     console.log(
-      `  ✓ ${record.ours} → ${record.matched_to}  score=${record.score} km=${record.km}  [${record.tees.join(', ')}]`,
+      `  ${upsertError ? '✗' : '✓'} ${record.ours} → ${record.matched_to}  score=${record.score} km=${record.km}  [${record.tees.join(', ')}]`,
     )
-
-    if (WRITE) {
-      const { error } = await supabase
-        .from('course_tees')
-        .upsert(tees, { onConflict: 'course_id,tee_color' })
-      if (error) {
-        console.error(`  ✗ upsert failed for ${course.id}: ${error.message}`)
-        teesWritten -= tees.length
-        matched--
-      }
-    }
   }
 
   console.log('\n──── summary ────')
