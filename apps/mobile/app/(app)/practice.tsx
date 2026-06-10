@@ -222,7 +222,7 @@ function NoPlan({
           marginBottom: 8,
         }]}
       >
-        A column, not a checklist.
+        Your game, read closely.
       </Text>
       <Text style={[TYPE.body, { color: INK_DIM, fontSize: 14, lineHeight: 20, marginBottom: 22 }]}>
         Generate a plan calibrated to your recent rounds — a short read on where
