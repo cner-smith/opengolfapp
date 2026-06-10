@@ -1,13 +1,23 @@
 /**
- * Seed a demo user with realistic round / shot / practice-plan data.
+ * Seed a demo user with realistic round / shot / practice-plan data on
+ * REAL courses.
  *
- * Idempotent: re-running wipes the demo user's prior rounds + plans
- * before re-inserting, so it's safe to run after migrations or schema
- * changes.
+ * Idempotent: re-running wipes the demo user's prior rounds / plans / clubs
+ * before re-inserting. It never creates or mutates courses or holes — it
+ * attaches the demo rounds to real, fully-loaded courses already in the DB
+ * (18 holes with tee/pin coordinates + rated tees), so every round renders a
+ * scorecard AND a map, the Patterns tab shows real per-course dispersion, and
+ * the handicap/tee features have genuine rating/slope to work with.
  *
- * Requires SUPABASE_SERVICE_ROLE_KEY (admin) — auth.admin.createUser
- * and bypassing RLS for the inserts both need it. Reads from .env at
- * the repo root.
+ * Course selection (selectDemoCourses):
+ *   1. Prefer the curated PREFERRED_COURSE_IDS when present (prod) — famous
+ *      courses verified to have full hole geometry + rated tees.
+ *   2. Otherwise fill dynamically from whatever fully-loaded courses the target
+ *      DB has (so `pnpm seed:e2e` against dev still works). Degrades
+ *      gracefully: rated+geom → geom-only → any course with enough holes.
+ *
+ * Requires SUPABASE_SERVICE_ROLE_KEY (admin) — auth.admin.createUser and
+ * bypassing RLS for the inserts both need it. Reads from .env at the repo root.
  *
  *   SUPABASE_URL=http://127.0.0.1:54321
  *   SUPABASE_SERVICE_ROLE_KEY=...
@@ -35,9 +45,6 @@ const SEED_EMAIL = process.env.SEED_EMAIL ?? 'demo@oga.app'
 const SEED_PASSWORD = process.env.SEED_PASSWORD ?? 'ogademo123'
 const SEED_USERNAME = process.env.SEED_USERNAME ?? 'demo'
 
-// Course base coords (no real geometry on the seeded courses, so we
-// synthesize plausible lat/lng for shot dispersion).
-const COURSE_BASE: [number, number] = [40.05, -75.4]
 const YARDS_PER_DEG_LAT = 121_000
 
 function yardsPerDegLng(latDeg: number): number {
@@ -63,6 +70,10 @@ function dateNDaysAgo(days: number): string {
 
 function rand(min: number, max: number): number {
   return Math.random() * (max - min) + min
+}
+
+function round2(n: number): number {
+  return Math.round(n * 100) / 100
 }
 
 function pickClubForDistance(yards: number): string {
@@ -208,7 +219,9 @@ async function ensureProfile(userId: string): Promise<void> {
 }
 
 async function wipeDemoData(userId: string): Promise<void> {
-  // hole_scores + shots cascade off rounds
+  // hole_scores + shots cascade off rounds. We only ever touch the demo
+  // user's own rows — courses/holes are real, shared data and must never be
+  // deleted here.
   const { error: roundsErr } = await supabase.from('rounds').delete().eq('user_id', userId)
   if (roundsErr) throw roundsErr
   const { error: planErr } = await supabase.from('practice_plans').delete().eq('user_id', userId)
@@ -229,35 +242,245 @@ async function seedBag(userId: string): Promise<void> {
   if (error) throw error
 }
 
-interface CourseRow {
-  id: string
-  name: string
-}
+// --- Real-course selection ----------------------------------------------
+
+// Curated, verified-complete real courses (prod): 18 holes with tee+pin
+// coordinates AND rated tees with rating/slope. Resolved by id; absent on dev,
+// where selectDemoCourses falls back to a dynamic pick.
+const PREFERRED_COURSE_IDS = [
+  '0993ec94-50c9-4f30-8154-63382286a29e', // Whistling Straits — Sheboygan, WI
+  '4f5efecb-6117-439f-a8ee-5949622d4732', // Harbour Town Golf Links — Hilton Head Island, SC
+  '6cc6f3a5-c26f-4222-a375-8101e98f54f9', // Erin Hills — Erin, WI
+]
+const TARGET_COURSES = 3
+
 interface HoleRow {
   id: string
   number: number
   par: number
-  yards: number | null
+  teeLat: number | null
+  teeLng: number | null
+  pinLat: number | null
+  pinLng: number | null
 }
 
-async function fetchCourses(): Promise<CourseRow[]> {
-  const { data, error } = await supabase.from('courses').select('id, name').limit(3)
-  if (error) throw error
-  return data ?? []
+interface DemoCourse {
+  id: string
+  name: string
+  holes: HoleRow[]
+  // Real rated tee colours (rounds pick from these so the tee/handicap
+  // features show genuine data); empty when the course has no rated tees.
+  teeColors: string[]
 }
 
-async function fetchHolesByCourse(): Promise<Map<string, HoleRow[]>> {
-  const { data, error } = await supabase.from('holes').select('id, number, par, yards, course_id')
-  if (error) throw error
-  const map = new Map<string, HoleRow[]>()
-  for (const row of data ?? []) {
-    const list = map.get(row.course_id) ?? []
-    list.push({ id: row.id, number: row.number, par: row.par, yards: row.yards })
-    map.set(row.course_id, list)
+function hasGeom(h: HoleRow): boolean {
+  return h.teeLat != null && h.teeLng != null && h.pinLat != null && h.pinLng != null
+}
+
+// Load a course and validate it for the demo. Returns null unless it has at
+// least 18 distinct holes (1..18). With requireGeom, all 18 must carry tee+pin
+// coordinates (needed for the map + shot dispersion).
+async function loadCourse(id: string, requireGeom: boolean): Promise<DemoCourse | null> {
+  const { data: course, error: courseErr } = await supabase
+    .from('courses')
+    .select('id, name')
+    .eq('id', id)
+    .maybeSingle()
+  if (courseErr) throw courseErr
+  if (!course) return null
+
+  const { data: holeRows, error: holesErr } = await supabase
+    .from('holes')
+    .select('id, number, par, tee_lat, tee_lng, pin_lat, pin_lng')
+    .eq('course_id', id)
+    .order('number', { ascending: true })
+  // Throw on a real error — silently treating a transient failure as
+  // "no holes" would drop a curated course and mask the cause.
+  if (holesErr) throw holesErr
+  if (!holeRows || holeRows.length < 18) return null
+
+  // Dedupe by hole number, keep 1..18 in order.
+  const byNumber = new Map<number, HoleRow>()
+  for (const h of holeRows) {
+    if (h.number < 1 || h.number > 18 || byNumber.has(h.number)) continue
+    byNumber.set(h.number, {
+      id: h.id,
+      number: h.number,
+      par: h.par,
+      teeLat: h.tee_lat,
+      teeLng: h.tee_lng,
+      pinLat: h.pin_lat,
+      pinLng: h.pin_lng,
+    })
   }
-  for (const list of map.values()) list.sort((a, b) => a.number - b.number)
-  return map
+  const holes = [...byNumber.values()].sort((a, b) => a.number - b.number)
+  if (holes.length < 18) return null
+  if (requireGeom && holes.some((h) => !hasGeom(h))) return null
+
+  const { data: tees, error: teesErr } = await supabase
+    .from('course_tees')
+    .select('tee_color')
+    .eq('course_id', id)
+    .not('course_rating', 'is', null)
+    .not('slope_rating', 'is', null)
+  if (teesErr) throw teesErr
+  const teeColors = [...new Set((tees ?? []).map((t) => t.tee_color))]
+
+  return { id: course.id, name: course.name, holes, teeColors }
 }
+
+// Page the holes table, grouping by course to find ids with >= `min` holes that
+// (optionally) carry pin geometry. Bounded so it can't run away on prod.
+async function courseIdsWithHoles(needGeom: boolean, min: number): Promise<string[]> {
+  const counts = new Map<string, number>()
+  const page = 1000
+  const maxPages = 60
+  for (let p = 0; p < maxPages; p++) {
+    let q = supabase
+      .from('holes')
+      .select('course_id, pin_lat')
+      .order('course_id', { ascending: true })
+      .range(p * page, p * page + page - 1)
+    if (needGeom) q = q.not('pin_lat', 'is', null)
+    const { data, error } = await q
+    if (error) throw error
+    if (!data || data.length === 0) break
+    for (const h of data) counts.set(h.course_id, (counts.get(h.course_id) ?? 0) + 1)
+    if (data.length < page) break
+  }
+  return [...counts.entries()]
+    .filter(([, n]) => n >= min)
+    .map(([id]) => id)
+    .sort()
+}
+
+// Resolve the demo courses for whichever DB we're pointed at.
+async function selectDemoCourses(): Promise<DemoCourse[]> {
+  const chosen: DemoCourse[] = []
+  const taken = new Set<string>()
+
+  // 1. Curated real courses (prod).
+  for (const id of PREFERRED_COURSE_IDS) {
+    if (chosen.length >= TARGET_COURSES) break
+    const c = await loadCourse(id, true)
+    if (c) {
+      chosen.push(c)
+      taken.add(c.id)
+    }
+  }
+  if (chosen.length >= TARGET_COURSES) return chosen
+
+  // 2. Dynamic fill: fully-loaded courses (18 holes WITH pin geometry).
+  for (const id of await courseIdsWithHoles(true, 18)) {
+    if (chosen.length >= TARGET_COURSES) break
+    if (taken.has(id)) continue
+    const c = await loadCourse(id, true)
+    if (c) {
+      chosen.push(c)
+      taken.add(c.id)
+    }
+  }
+  if (chosen.length >= TARGET_COURSES) return chosen
+
+  // 3. Last resort (keeps e2e alive on sparse DBs): any course with 18 holes,
+  //    geometry optional — those rounds render a scorecard but no map/shots.
+  for (const id of await courseIdsWithHoles(false, 18)) {
+    if (chosen.length >= TARGET_COURSES) break
+    if (taken.has(id)) continue
+    const c = await loadCourse(id, false)
+    if (c) {
+      chosen.push(c)
+      taken.add(c.id)
+    }
+  }
+
+  if (chosen.length === 0) {
+    throw new Error('No course with 18 holes found in this database — cannot seed demo rounds.')
+  }
+  return chosen
+}
+
+// --- Round archetypes ----------------------------------------------------
+
+interface Archetype {
+  tee: [number, number]
+  app: [number, number]
+  arnd: [number, number]
+  putt: [number, number]
+  // Strokes over par for the round (drives the per-hole score generation).
+  over: [number, number]
+}
+
+// Distinct SG stories so the Stats page varies round to round instead of
+// telling the same weak-approach / strong-putting tale every time.
+const ARCHETYPES: Record<string, Archetype> = {
+  solid: { tee: [-0.2, 0.6], app: [0.2, 1.0], arnd: [0.0, 0.4], putt: [0.1, 0.7], over: [6, 10] },
+  bomber: {
+    tee: [0.7, 1.5],
+    app: [-0.5, 0.2],
+    arnd: [-0.3, 0.2],
+    putt: [-0.4, 0.3],
+    over: [10, 15],
+  },
+  putt_cost: {
+    tee: [-0.2, 0.5],
+    app: [-0.2, 0.5],
+    arnd: [-0.2, 0.3],
+    putt: [-1.9, -0.9],
+    over: [13, 18],
+  },
+  offtee_cost: {
+    tee: [-1.9, -0.9],
+    app: [-0.2, 0.4],
+    arnd: [-0.2, 0.3],
+    putt: [0.0, 0.6],
+    over: [14, 19],
+  },
+  approach_cost: {
+    tee: [-0.2, 0.4],
+    app: [-1.9, -0.9],
+    arnd: [-0.3, 0.2],
+    putt: [0.0, 0.6],
+    over: [14, 19],
+  },
+  blowup: {
+    tee: [-1.4, -0.5],
+    app: [-2.0, -1.0],
+    arnd: [-1.2, -0.4],
+    putt: [-1.0, -0.3],
+    over: [22, 30],
+  },
+  middling: {
+    tee: [-0.5, 0.3],
+    app: [-0.7, 0.2],
+    arnd: [-0.4, 0.3],
+    putt: [-0.4, 0.4],
+    over: [11, 16],
+  },
+}
+
+// 15-round mix: mostly middling with a couple of each story. The first 7 (the
+// ones that get full shot data) cover the widest archetype spread so the
+// Patterns tab sees varied clubs and misses.
+const ROUND_PLAN = [
+  'solid',
+  'middling',
+  'putt_cost',
+  'approach_cost',
+  'bomber',
+  'middling',
+  'blowup',
+  'solid',
+  'offtee_cost',
+  'middling',
+  'approach_cost',
+  'putt_cost',
+  'solid',
+  'middling',
+  'bomber',
+]
+const ROUNDS_WITH_SHOTS = 7
+const FALLBACK_TEE_COLORS = ['white', 'blue', 'gold']
 
 interface RoundProfile {
   sgOffTee: number
@@ -266,27 +489,60 @@ interface RoundProfile {
   sgPutting: number
 }
 
-function pickRoundProfile(): RoundProfile {
+function sampleProfile(a: Archetype): RoundProfile {
   return {
-    sgOffTee: rand(-0.4, 0.4),
-    sgApproach: rand(-1.6, -0.8),
-    sgAroundGreen: rand(-0.3, 0.3),
-    sgPutting: rand(0.8, 1.4),
+    sgOffTee: rand(a.tee[0], a.tee[1]),
+    sgApproach: rand(a.app[0], a.app[1]),
+    sgAroundGreen: rand(a.arnd[0], a.arnd[1]),
+    sgPutting: rand(a.putt[0], a.putt[1]),
   }
+}
+
+// Score on a hole: par + a Gaussian delta centred on the round's per-hole
+// difficulty. Floor at one under par (so a par-3 can't go below 2), cap at
+// quad. Sum of these IS the round total — scorecard Total stays correct.
+function genHoleScore(par: number, meanDelta: number): number {
+  let d = Math.round(meanDelta + gaussian(1.1))
+  d = Math.max(-1, Math.min(4, d))
+  return Math.max(1, par + d)
+}
+
+function samplePutts(score: number): number {
+  let p = 2
+  const r = Math.random()
+  if (r < 0.22) p = 1
+  else if (r > 0.82) p = 3
+  return Math.min(p, Math.max(1, score - 1))
 }
 
 async function insertRound(
   userId: string,
-  course: CourseRow,
-  holes: HoleRow[],
+  course: DemoCourse,
   daysAgo: number,
   withShots: boolean,
+  archetype: Archetype,
+  teeColor: string,
 ): Promise<void> {
-  const profile = pickRoundProfile()
+  const profile = sampleProfile(archetype)
   const sgTotal = profile.sgOffTee + profile.sgApproach + profile.sgAroundGreen + profile.sgPutting
-  const par = holes.reduce((s, h) => s + h.par, 0)
-  // Score correlates roughly with sgTotal: better SG → fewer strokes.
-  const score = Math.round(par - sgTotal + rand(-1, 1))
+  const meanDelta = rand(archetype.over[0], archetype.over[1]) / course.holes.length
+
+  // Generate every hole's score + putts up front so round totals are the
+  // exact sum of the scorecard — no drift between rounds.total_score and the
+  // hole_scores the scorecard renders.
+  const perHole = course.holes.map((h) => {
+    const score = genHoleScore(h.par, meanDelta)
+    const putts = samplePutts(score)
+    const fairwayHit = h.par > 3 ? Math.random() < 0.58 : null
+    const gir = score - putts <= h.par - 2
+    return { hole: h, score, putts, fairwayHit, gir }
+  })
+
+  const totalScore = perHole.reduce((s, p) => s + p.score, 0)
+  const totalPutts = perHole.reduce((s, p) => s + p.putts, 0)
+  const fairwaysTotal = course.holes.filter((h) => h.par > 3).length
+  const fairwaysHit = perHole.filter((p) => p.fairwayHit === true).length
+  const girTotal = perHole.filter((p) => p.gir).length
 
   const { data: round, error: roundError } = await supabase
     .from('rounds')
@@ -294,12 +550,12 @@ async function insertRound(
       user_id: userId,
       course_id: course.id,
       played_at: dateNDaysAgo(daysAgo),
-      tee_color: 'white',
-      total_score: score,
-      total_putts: 30 + Math.round(rand(-3, 5)),
-      fairways_hit: 7 + Math.round(rand(-2, 3)),
-      fairways_total: 14,
-      gir: 8 + Math.round(rand(-3, 4)),
+      tee_color: teeColor,
+      total_score: totalScore,
+      total_putts: totalPutts,
+      fairways_hit: fairwaysHit,
+      fairways_total: fairwaysTotal,
+      gir: girTotal,
       sg_off_tee: round2(profile.sgOffTee),
       sg_approach: round2(profile.sgApproach),
       sg_around_green: round2(profile.sgAroundGreen),
@@ -310,26 +566,25 @@ async function insertRound(
     .single()
   if (roundError || !round) throw roundError ?? new Error('round insert failed')
 
-  if (!withShots) return
-
-  // Insert hole_scores + shots for the first round of each demo course.
-  for (const hole of holes) {
-    const holeScore = Math.max(2, hole.par + Math.round(rand(-1, 2)))
+  // Every round gets hole_scores for all 18 holes (even scorecard-only ones)
+  // so the scorecard always renders against the real holes rows.
+  for (const p of perHole) {
     const { data: hs, error: hsError } = await supabase
       .from('hole_scores')
       .insert({
         round_id: round.id,
-        hole_id: hole.id,
-        score: holeScore,
-        putts: Math.min(holeScore - 1, 1 + Math.round(rand(0, 2))),
-        fairway_hit: hole.par > 3 ? Math.random() > 0.45 : null,
-        gir: Math.random() > 0.5,
+        hole_id: p.hole.id,
+        score: p.score,
+        putts: p.putts,
+        fairway_hit: p.fairwayHit,
+        gir: p.gir,
       })
       .select('id')
       .single()
     if (hsError || !hs) throw hsError ?? new Error('hole_score insert failed')
 
-    await insertHoleShots(userId, hs.id, hole, holeScore)
+    // Shots need real tee+pin coordinates to anchor dispersion to the hole.
+    if (withShots && hasGeom(p.hole)) await insertHoleShots(userId, hs.id, p.hole, p.score)
   }
 }
 
@@ -339,12 +594,8 @@ async function insertHoleShots(
   hole: HoleRow,
   totalShots: number,
 ): Promise<void> {
-  const teeBase = offsetCoord(COURSE_BASE, hole.number * 250, 0)
-  const pinBase = offsetCoord(
-    [teeBase.lat, teeBase.lng],
-    hole.yards ?? hole.par * 100,
-    rand(-15, 15),
-  )
+  const teeBase = { lat: hole.teeLat!, lng: hole.teeLng! }
+  const pinBase = { lat: hole.pinLat!, lng: hole.pinLng! }
 
   let lastEnd = teeBase
   for (let n = 1; n <= totalShots; n++) {
@@ -479,8 +730,12 @@ async function insertPracticePlan(userId: string): Promise<void> {
   })
 }
 
-function round2(n: number): number {
-  return Math.round(n * 100) / 100
+// Pick a tee colour for a round: cycle the course's real rated tees so the
+// tee/handicap features show genuine data; fall back to plausible defaults
+// when a course has no rated tees.
+function pickTeeColor(course: DemoCourse, visit: number): string {
+  const colors = course.teeColors.length > 0 ? course.teeColors : FALLBACK_TEE_COLORS
+  return colors[visit % colors.length]!
 }
 
 async function main() {
@@ -491,22 +746,28 @@ async function main() {
   await wipeDemoData(userId)
   await seedBag(userId)
 
-  const courses = await fetchCourses()
-  if (courses.length < 3) {
-    throw new Error('Demo seed needs 3 courses in the database — run `npx supabase db reset` first')
-  }
-  const holesByCourse = await fetchHolesByCourse()
+  const courses = await selectDemoCourses()
+  console.log(
+    `Demo courses (${courses.length}): ${courses
+      .map((c) => `${c.name} [${c.teeColors.length} tees]`)
+      .join(', ')}`,
+  )
 
-  const TOTAL_ROUNDS = 15
-  // More shot-rounds → each club clears the 5-shot floor the dispersion fit
-  // needs, so /patterns shows a real cone for the common clubs.
-  const ROUNDS_WITH_SHOTS = 8
-
-  for (let i = 0; i < TOTAL_ROUNDS; i++) {
+  for (let i = 0; i < ROUND_PLAN.length; i++) {
+    const archetype = ARCHETYPES[ROUND_PLAN[i]!]!
     const course = courses[i % courses.length]!
-    const holes = holesByCourse.get(course.id) ?? []
-    if (holes.length === 0) continue
-    await insertRound(userId, course, holes, i * 6 + 2, i < ROUNDS_WITH_SHOTS)
+    // nth visit to THIS course (courses are assigned round-robin), so its
+    // tees actually rotate instead of the global index landing on the same
+    // one every time.
+    const visit = Math.floor(i / courses.length)
+    await insertRound(
+      userId,
+      course,
+      i * 4 + 2,
+      i < ROUNDS_WITH_SHOTS,
+      archetype,
+      pickTeeColor(course, visit),
+    )
     process.stdout.write('.')
   }
   process.stdout.write('\n')
