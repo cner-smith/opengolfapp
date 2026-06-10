@@ -10,7 +10,13 @@ import {
   View,
 } from 'react-native'
 import { useRouter } from 'expo-router'
-import { FACILITIES, GOALS, SKILL_LEVELS } from '@oga/core'
+import {
+  FACILITIES,
+  GOALS,
+  HANDICAP_PROVENANCE_LABEL,
+  handicapProvenance,
+  SKILL_LEVELS,
+} from '@oga/core'
 import { getProfile, updateProfile } from '@oga/supabase'
 import type { Database } from '@oga/supabase'
 import { supabase } from '../../lib/supabase'
@@ -66,6 +72,11 @@ export default function ProfileTab() {
   const [facilities, setFacilities] = useState<string[]>([])
   const [unit, setUnit] = useState<'yards' | 'meters'>('yards')
   const [emailSummaries, setEmailSummaries] = useState(true)
+  // Count of rounds with a derived score_differential — the signal for
+  // whether the displayed index is a calculated WHS value or still the
+  // entered one (#521). Mobile doesn't compute differentials, so this is
+  // only ever non-zero for players who've also logged rated rounds on web.
+  const [differentialsCount, setDifferentialsCount] = useState(0)
   const [saving, setSaving] = useState(false)
   const [usernameTouched, setUsernameTouched] = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
@@ -129,6 +140,18 @@ export default function ProfileTab() {
       setUnit(data.distance_unit === 'meters' ? 'meters' : 'yards')
       setEmailSummaries(data.email_round_summaries_enabled ?? true)
     })
+    supabase
+      .from('rounds')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', user.id)
+      .not('score_differential', 'is', null)
+      .then(({ count, error }) => {
+        if (error) {
+          // eslint-disable-next-line no-console
+          console.warn('[profile/differentials-count]', error.message)
+        }
+        if (active) setDifferentialsCount(count ?? 0)
+      })
     return () => {
       active = false
     }
@@ -177,6 +200,9 @@ export default function ProfileTab() {
     )
   }
 
+  const provenance = handicapProvenance(differentialsCount)
+  const provenanceCalculated = provenance === 'calculated'
+
   return (
     <View style={{ flex: 1, backgroundColor: '#F2EEE5' }}>
       <AppBar
@@ -207,6 +233,29 @@ export default function ProfileTab() {
           >
             {profile?.handicap_index ?? '—'}
           </Text>
+          {profile?.handicap_index != null && (
+            <View
+              style={{
+                marginTop: 8,
+                paddingHorizontal: 8,
+                paddingVertical: 3,
+                borderRadius: 2,
+                backgroundColor: provenanceCalculated
+                  ? 'rgba(31,61,44,0.12)'
+                  : 'rgba(138,139,126,0.16)',
+              }}
+            >
+              <Text
+                style={{
+                  ...KICKER,
+                  fontSize: 9,
+                  color: provenanceCalculated ? '#1F3D2C' : '#8A8B7E',
+                }}
+              >
+                {HANDICAP_PROVENANCE_LABEL[provenance]}
+              </Text>
+            </View>
+          )}
           <Text
             style={[TYPE.body, {
               color: '#5C6356',

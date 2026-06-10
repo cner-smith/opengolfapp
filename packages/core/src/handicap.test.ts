@@ -3,6 +3,7 @@ import {
   adjustedScore,
   calculateDifferential,
   calculateHandicapIndex,
+  handicapProvenance,
 } from './handicap'
 
 describe('calculateDifferential', () => {
@@ -160,5 +161,35 @@ describe('adjustedScore (ESC)', () => {
   it('does not raise scores below the cap', () => {
     const easy = [{ score: 3, par: 4 }]
     expect(adjustedScore(easy, 8)).toBe(3)
+  })
+})
+
+describe('handicapProvenance', () => {
+  it('0 differentials → provisional (entered-only, e.g. mobile)', () => {
+    expect(handicapProvenance(0)).toBe('provisional')
+  })
+
+  it('1-2 differentials → provisional (below WHS minimum, index not yet derived)', () => {
+    expect(handicapProvenance(1)).toBe('provisional')
+    expect(handicapProvenance(2)).toBe('provisional')
+  })
+
+  it('exactly 3 differentials → calculated (WHS minimum)', () => {
+    expect(handicapProvenance(3)).toBe('calculated')
+  })
+
+  it('many differentials → calculated', () => {
+    expect(handicapProvenance(20)).toBe('calculated')
+  })
+
+  it('threshold matches calculateHandicapIndex returning non-null', () => {
+    // The provenance threshold and the calc minimum must agree: a count
+    // that yields a real index must be labelled calculated, and vice versa.
+    const twoDiffs = [10.1, 12.4]
+    const threeDiffs = [10.1, 12.4, 9.8]
+    expect(calculateHandicapIndex(twoDiffs)).toBeNull()
+    expect(handicapProvenance(twoDiffs.length)).toBe('provisional')
+    expect(calculateHandicapIndex(threeDiffs)).not.toBeNull()
+    expect(handicapProvenance(threeDiffs.length)).toBe('calculated')
   })
 })
