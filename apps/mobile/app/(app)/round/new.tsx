@@ -424,10 +424,15 @@ export default function NewRound() {
       </Text>
       <TextInput
         placeholder="Search courses…"
+        placeholderTextColor="#8A8B7E"
         value={query}
         onChangeText={setQuery}
         autoCapitalize="words"
         style={[TYPE.body, {
+          // Explicit ink color — without it Android falls back to the system
+          // theme's text color, which is invisible on the cream input in dark
+          // mode. Matches the manual-course inputs (inputStyle).
+          color: '#1C211C',
           backgroundColor: '#FBF8F1',
           borderWidth: 1,
           borderColor: '#D9D2BF',
