@@ -25,6 +25,7 @@ interface MapBottomChromeProps {
   hasGps: boolean
   totalShotsThisHole: number
   holeNumber: number
+  holeCount: number
   par: number
   yardsLabel: string | null
   onCancelPinPlacement: () => void
@@ -97,7 +98,7 @@ function ContextualActions(p: MapBottomChromeProps) {
       <PrimaryCta label={ballLabel} disabled={ballDisabled} onPress={p.onMarkBallHere} />
       {p.totalShotsThisHole > 0 && (
         <TextChip
-          label={p.holeNumber < 18 ? 'Finish hole · next →' : 'Finish round'}
+          label={p.holeNumber < p.holeCount ? 'Finish hole · next →' : 'Finish round'}
           onPress={p.onFinishHole}
           strong
         />
@@ -234,6 +235,7 @@ function TextChip({
 
 function HoleNavPill({
   holeNumber,
+  holeCount,
   par,
   yardsLabel,
   onPrev,
@@ -265,7 +267,7 @@ function HoleNavPill({
           Scorecard ▾
         </Text>
       </Pressable>
-      <NavChevron dir="next" disabled={holeNumber === 18} onPress={onNext} />
+      <NavChevron dir="next" disabled={holeNumber >= holeCount} onPress={onNext} />
     </View>
   )
 }

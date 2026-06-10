@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   buildInitialRows,
+  inferHoleCount,
   legacySlopeToAxes,
   type PlacedPoint,
 } from '../round'
@@ -165,5 +166,39 @@ describe('legacySlopeToAxes', () => {
       const hasBoth = out.forward !== undefined && out.side !== undefined
       expect(hasBoth).toBe(false)
     }
+  })
+})
+
+describe('inferHoleCount', () => {
+  it('empty (unmapped course) defaults to 18', () => {
+    expect(inferHoleCount([])).toBe(18)
+  })
+
+  it('contiguous 1–9 → 9', () => {
+    expect(inferHoleCount([1, 2, 3, 4, 5, 6, 7, 8, 9])).toBe(9)
+  })
+
+  it('contiguous 1–18 → 18', () => {
+    expect(inferHoleCount(Array.from({ length: 18 }, (_, i) => i + 1))).toBe(18)
+  })
+
+  it('partial 18 missing trailing holes (1–14) → 18 by max', () => {
+    expect(inferHoleCount(Array.from({ length: 14 }, (_, i) => i + 1))).toBe(18)
+  })
+
+  it('interior gaps keyed on max, not count (1–4, 7–18) → 18', () => {
+    expect(inferHoleCount([1, 2, 3, 4, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18])).toBe(18)
+  })
+
+  it('back-nine-only mapping (10–18) → 18', () => {
+    expect(inferHoleCount([10, 11, 12, 13, 14, 15, 16, 17, 18])).toBe(18)
+  })
+
+  it('sparse sub-9 mapping (1–5) → 9', () => {
+    expect(inferHoleCount([1, 2, 3, 4, 5])).toBe(9)
+  })
+
+  it('a single mapped hole 10 already implies 18', () => {
+    expect(inferHoleCount([10])).toBe(18)
   })
 })
