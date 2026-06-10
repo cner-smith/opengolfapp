@@ -30,6 +30,7 @@ import type { Database } from '@oga/supabase'
 import { supabase } from '../../../lib/supabase'
 import { useAuth } from '../../../hooks/useAuth'
 import { FONT, TYPE } from '../../../lib/typography'
+import { TeePicker } from '../../../components/round/RoundTeeSelector'
 
 type CourseRow = Database['public']['Tables']['courses']['Row']
 type HoleInsert = Database['public']['Tables']['holes']['Insert']
@@ -66,6 +67,13 @@ export default function NewRound() {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [showManualForm, setShowManualForm] = useState(false)
+  // Once a course is resolved we step to a lightweight setup view (tee pick)
+  // before creating the round — mirrors web's NewRoundPage, where tee is an
+  // up-front field. Null = still on the course-search screen.
+  const [pendingCourse, setPendingCourse] = useState<{
+    id: string
+    name: string
+  } | null>(null)
   const [gps, setGps] = useState<GpsState>({ status: 'idle' })
   const searchAbort = useRef<AbortController | null>(null)
   const insets = useSafeAreaInsets()
@@ -164,7 +172,10 @@ export default function NewRound() {
   // actually meant (#472). Mirrors web CourseSearch.
   const showAddNew = !searching && debouncedQuery.trim().length > 0
 
-  async function startWith(courseId: string) {
+  async function startWith(
+    courseId: string,
+    tee?: { courseTeeId: string | null; teeColor: string | null },
+  ) {
     if (!user) return
     setBusy(true)
     setError(null)
@@ -179,6 +190,11 @@ export default function NewRound() {
         // scorecard, never the live map state machine. Live rounds leave
         // total_score null — that's the in-progress signal. See #514.
         ...(mode === 'past' ? { total_score: 0 } : {}),
+        // Tee is optional; only record it when the player picked one in the
+        // setup step. A rated tee is the input WHS differentials need (#542).
+        ...(tee?.courseTeeId
+          ? { course_tee_id: tee.courseTeeId, tee_color: tee.teeColor }
+          : {}),
       })
       if (roundError || !round) throw roundError ?? new Error('Round insert failed')
 
@@ -263,7 +279,8 @@ export default function NewRound() {
     try {
       const { data: existing } = await getCourseByExternalId(supabase, r.id)
       if (existing) {
-        await startWith(existing.id)
+        setPendingCourse({ id: existing.id, name: existing.name })
+        setBusy(false)
         return
       }
       const detail = await getOpenGolfApiCourse(r.id)
@@ -317,7 +334,8 @@ export default function NewRound() {
           })),
         )
       }
-      await startWith(course.id)
+      setPendingCourse({ id: course.id, name: detail.name || r.name })
+      setBusy(false)
     } catch (err) {
       setError((err as Error).message)
       setBusy(false)
@@ -361,13 +379,29 @@ export default function NewRound() {
             }))
             const { error: holeErr } = await createHoles(supabase, holes)
             if (holeErr) throw holeErr
-            await startWith(course.id)
             setShowManualForm(false)
+            setPendingCourse({ id: course.id, name: name.trim() })
+            setBusy(false)
           } catch (err) {
             setError((err as Error).message)
             setBusy(false)
           }
         }}
+      />
+    )
+  }
+
+  if (pendingCourse) {
+    return (
+      <RoundSetupStep
+        courseId={pendingCourse.id}
+        courseName={pendingCourse.name}
+        mode={mode}
+        busy={busy}
+        onBack={() => setPendingCourse(null)}
+        onStart={(courseTeeId, teeColor) =>
+          startWith(pendingCourse.id, { courseTeeId, teeColor })
+        }
       />
     )
   }
@@ -416,7 +450,7 @@ export default function NewRound() {
             {localResults.map((c) => (
               <Pressable
                 key={c.id}
-                onPress={() => startWith(c.id)}
+                onPress={() => setPendingCourse({ id: c.id, name: c.name })}
                 disabled={busy}
                 style={{
                   borderTopWidth: 1,
@@ -516,6 +550,121 @@ export default function NewRound() {
           Course data from OpenGolfAPI · ODbL licensed
         </Text>
       </ScrollView>
+    </View>
+  )
+}
+
+// Setup step shown after a course is resolved but before the round is
+// created — mirrors web's NewRoundPage where the tee is an up-front field.
+// Tee is optional so it never blocks pace of play; "Start round" works with
+// no tee picked, and the scorecard can still set it later.
+function RoundSetupStep({
+  courseId,
+  courseName,
+  mode,
+  busy,
+  onBack,
+  onStart,
+}: {
+  courseId: string
+  courseName: string
+  mode: 'live' | 'past'
+  busy: boolean
+  onBack: () => void
+  onStart: (courseTeeId: string | null, teeColor: string | null) => void
+}) {
+  const insets = useSafeAreaInsets()
+  const [teeId, setTeeId] = useState<string | null>(null)
+  const [teeColor, setTeeColor] = useState<string | null>(null)
+
+  return (
+    <View
+      style={{
+        flex: 1,
+        backgroundColor: '#F2EEE5',
+        paddingTop: insets.top + 14,
+        paddingHorizontal: 18,
+      }}
+    >
+      <Text style={{ ...KICKER, marginBottom: 6 }}>
+        {mode === 'past' ? 'Log past round' : 'Start live round'}
+      </Text>
+      <Text
+        style={[TYPE.serif, {
+          color: '#1C211C',
+          fontSize: 28,
+          fontWeight: '500',
+          fontStyle: 'italic',
+          marginBottom: 18,
+        }]}
+      >
+        {courseName}
+      </Text>
+
+      <Text style={{ ...KICKER, marginBottom: 4 }}>Tee played</Text>
+      <Text style={[TYPE.body, { color: '#8A8B7E', fontSize: 12, marginBottom: 12 }]}>
+        Optional — add the tee's rating and slope for a handicap differential.
+        You can set it later from the scorecard.
+      </Text>
+
+      <ScrollView keyboardShouldPersistTaps="handled" style={{ flex: 1 }}>
+        <TeePicker
+          courseId={courseId}
+          selectedTeeId={teeId}
+          onSelect={(t) => {
+            setTeeId(t.id)
+            setTeeColor(t.tee_color)
+          }}
+          busy={busy}
+        />
+      </ScrollView>
+
+      <View
+        style={{
+          flexDirection: 'row',
+          gap: 10,
+          paddingVertical: 14,
+          paddingBottom: insets.bottom + 14,
+        }}
+      >
+        <Pressable
+          onPress={onBack}
+          disabled={busy}
+          style={{
+            flex: 1,
+            borderWidth: 1,
+            borderColor: '#D9D2BF',
+            borderRadius: 2,
+            paddingVertical: 14,
+            alignItems: 'center',
+            opacity: busy ? 0.5 : 1,
+          }}
+        >
+          <Text style={[TYPE.body, { color: '#5C6356', fontSize: 13 }]}>Back</Text>
+        </Pressable>
+        <Pressable
+          onPress={() => onStart(teeId, teeColor)}
+          disabled={busy}
+          style={{
+            flex: 2,
+            backgroundColor: busy ? '#9F9580' : '#1F3D2C',
+            borderRadius: 2,
+            paddingVertical: 14,
+            alignItems: 'center',
+          }}
+        >
+          <Text
+            style={[TYPE.bodyBold, {
+              color: '#F2EEE5',
+              fontSize: 14,
+              fontWeight: '600',
+              letterSpacing: 0.3,
+            }]}
+          >
+            {busy ? 'Starting…' : mode === 'past' ? 'Log round →' : 'Start round →'}
+          </Text>
+        </Pressable>
+      </View>
     </View>
   )
 }
