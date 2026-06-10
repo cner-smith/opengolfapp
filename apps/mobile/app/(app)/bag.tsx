@@ -263,6 +263,11 @@ export default function BagScreen() {
           data={bag}
           keyExtractor={(c) => c.id}
           onDragEnd={({ data }) => onDragEnd(data)}
+          // The list is the last child of a flex:1 root next to the AppBar.
+          // Without a bounded height it sizes to content and pushes the
+          // footer (Add club / Reset to default bag) off-screen with no
+          // scroll — react-native-draggable-flatlist needs flex:1 here (#528).
+          containerStyle={{ flex: 1 }}
           contentContainerStyle={{ padding: 18, paddingBottom: insets.bottom + 24 }}
           ListHeaderComponent={
             <View style={{ marginBottom: 18 }}>
