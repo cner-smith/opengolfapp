@@ -221,3 +221,10 @@ export function readingTimeMinutes(article: LearnArticle): number | null {
   if (!article.words) return null
   return Math.max(1, Math.ceil(article.words / WORDS_PER_MINUTE))
 }
+
+// Readable articles across every section — everything except 'soon' stubs,
+// which aren't tappable. Single source so the Learn index's count and the
+// home preview's "See all N" can never drift apart. #524
+export const READABLE_LEARN_ARTICLES: LearnArticle[] = LEARN_SECTIONS.flatMap(
+  (s) => s.articles,
+).filter((a) => a.status !== 'soon')
