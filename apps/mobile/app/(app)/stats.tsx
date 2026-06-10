@@ -601,6 +601,9 @@ function StatRow({
       }}
     >
       <Text
+        numberOfLines={1}
+        adjustsFontSizeToFit
+        minimumFontScale={0.8}
         style={[TYPE.body, {
           color: '#1C211C',
           fontSize: 15,

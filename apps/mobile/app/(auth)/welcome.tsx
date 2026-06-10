@@ -95,7 +95,7 @@ export default function Welcome() {
         onPress={handleSkip}
         style={styles.screen}
       >
-        <Animated.Text style={[styles.wordmark, logoStyle]}>OGA</Animated.Text>
+        <Animated.Text style={[styles.wordmark, logoStyle]}>oga.</Animated.Text>
         <Animated.Text style={[styles.tagline, taglineStyle]}>Track every shot.</Animated.Text>
         <Animated.Text style={[styles.support, supportStyle]}>
           Free and open source · Ko-fi support appreciated

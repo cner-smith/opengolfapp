@@ -274,7 +274,15 @@ export function PuttingSheet({
         </Pressable>
       </View>
 
-      <ScrollView contentContainerStyle={{ paddingTop: 14, paddingBottom: 8 }}>
+      {/* flexShrink:1 bounds the scroll area within the maxHeight:'90%' sheet.
+          Without it RN's default flexShrink:0 lets the ScrollView size to its
+          full content height and overflow the clamped sheet, so it isn't
+          scrollable until a state change (e.g. toggling "Holed it") forces a
+          re-layout that re-measures it. */}
+      <ScrollView
+        style={{ flexShrink: 1 }}
+        contentContainerStyle={{ paddingTop: 14, paddingBottom: 8 }}
+      >
         <GreenDiagram
           distanceFt={distance}
           aimOffsetInches={value.aimOffsetInches ?? 0}
