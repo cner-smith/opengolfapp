@@ -281,18 +281,22 @@ function hasGeom(h: HoleRow): boolean {
 // least 18 distinct holes (1..18). With requireGeom, all 18 must carry tee+pin
 // coordinates (needed for the map + shot dispersion).
 async function loadCourse(id: string, requireGeom: boolean): Promise<DemoCourse | null> {
-  const { data: course } = await supabase
+  const { data: course, error: courseErr } = await supabase
     .from('courses')
     .select('id, name')
     .eq('id', id)
     .maybeSingle()
+  if (courseErr) throw courseErr
   if (!course) return null
 
-  const { data: holeRows } = await supabase
+  const { data: holeRows, error: holesErr } = await supabase
     .from('holes')
     .select('id, number, par, tee_lat, tee_lng, pin_lat, pin_lng')
     .eq('course_id', id)
     .order('number', { ascending: true })
+  // Throw on a real error — silently treating a transient failure as
+  // "no holes" would drop a curated course and mask the cause.
+  if (holesErr) throw holesErr
   if (!holeRows || holeRows.length < 18) return null
 
   // Dedupe by hole number, keep 1..18 in order.
@@ -313,12 +317,13 @@ async function loadCourse(id: string, requireGeom: boolean): Promise<DemoCourse 
   if (holes.length < 18) return null
   if (requireGeom && holes.some((h) => !hasGeom(h))) return null
 
-  const { data: tees } = await supabase
+  const { data: tees, error: teesErr } = await supabase
     .from('course_tees')
     .select('tee_color')
     .eq('course_id', id)
     .not('course_rating', 'is', null)
     .not('slope_rating', 'is', null)
+  if (teesErr) throw teesErr
   const teeColors = [...new Set((tees ?? []).map((t) => t.tee_color))]
 
   return { id: course.id, name: course.name, holes, teeColors }
@@ -728,9 +733,9 @@ async function insertPracticePlan(userId: string): Promise<void> {
 // Pick a tee colour for a round: cycle the course's real rated tees so the
 // tee/handicap features show genuine data; fall back to plausible defaults
 // when a course has no rated tees.
-function pickTeeColor(course: DemoCourse, i: number): string {
+function pickTeeColor(course: DemoCourse, visit: number): string {
   const colors = course.teeColors.length > 0 ? course.teeColors : FALLBACK_TEE_COLORS
-  return colors[i % colors.length]!
+  return colors[visit % colors.length]!
 }
 
 async function main() {
@@ -751,13 +756,17 @@ async function main() {
   for (let i = 0; i < ROUND_PLAN.length; i++) {
     const archetype = ARCHETYPES[ROUND_PLAN[i]!]!
     const course = courses[i % courses.length]!
+    // nth visit to THIS course (courses are assigned round-robin), so its
+    // tees actually rotate instead of the global index landing on the same
+    // one every time.
+    const visit = Math.floor(i / courses.length)
     await insertRound(
       userId,
       course,
       i * 4 + 2,
       i < ROUNDS_WITH_SHOTS,
       archetype,
-      pickTeeColor(course, i),
+      pickTeeColor(course, visit),
     )
     process.stdout.write('.')
   }
