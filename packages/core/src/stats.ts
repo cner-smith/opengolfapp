@@ -138,11 +138,8 @@ export interface SGStandouts {
   strongest: SGStandout | null
 }
 
-// Picks the lowest (biggest leak) and highest (biggest strength) SG
-// category from the per-round averages, ignoring categories with no data.
 // weakest and strongest are the same entry when only one category has
-// data, and both null when none do. Sign is left to the caller: a negative
-// weakest reads as a leak, a positive strongest as a strength. #522
+// data, and both null when none do. Sign is left to the caller. #522
 export function sgStandouts(sg: SGAverages): SGStandouts {
   const entries = (
     [
