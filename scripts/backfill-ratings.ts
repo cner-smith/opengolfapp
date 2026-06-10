@@ -124,20 +124,13 @@ function nameSimilarity(a: string, b: string): number {
   const maxLen = Math.max(na.length, nb.length)
   return maxLen === 0 ? 0 : 1 - levenshtein(na, nb) / maxLen
 }
-function haversineKm(
-  aLat: number,
-  aLng: number,
-  bLat: number,
-  bLng: number,
-): number {
+function haversineKm(aLat: number, aLng: number, bLat: number, bLng: number): number {
   const R = 6371
   const dLat = ((bLat - aLat) * Math.PI) / 180
   const dLng = ((bLng - aLng) * Math.PI) / 180
   const s =
     Math.sin(dLat / 2) ** 2 +
-    Math.cos((aLat * Math.PI) / 180) *
-      Math.cos((bLat * Math.PI) / 180) *
-      Math.sin(dLng / 2) ** 2
+    Math.cos((aLat * Math.PI) / 180) * Math.cos((bLat * Math.PI) / 180) * Math.sin(dLng / 2) ** 2
   return 2 * R * Math.asin(Math.sqrt(s))
 }
 
@@ -379,7 +372,8 @@ async function main() {
   console.log(`no match:     ${noMatch}`)
   console.log(`tees ${WRITE ? 'written' : 'proposed'}: ${teesWritten}`)
   console.log(`audit log:    ${OUT}`)
-  if (!WRITE) console.log('\nDRY RUN — nothing written. Review the audit log, then re-run with --write.')
+  if (!WRITE)
+    console.log('\nDRY RUN — nothing written. Review the audit log, then re-run with --write.')
 }
 
 main().catch((e) => {
