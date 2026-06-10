@@ -40,12 +40,21 @@ export function RoundTeeSelector({
 
   useEffect(() => {
     let active = true
-    getCourseTees(supabase, courseId).then(({ data }) => {
-      if (active) {
-        setTees(data ?? [])
-        setLoading(false)
-      }
-    })
+    getCourseTees(supabase, courseId)
+      .then(({ data }) => {
+        if (active) {
+          setTees(data ?? [])
+          setLoading(false)
+        }
+      })
+      .catch(() => {
+        // Network failure: drop to an empty list rather than stranding the
+        // component on "Loading tees…" with an unhandled rejection.
+        if (active) {
+          setTees([])
+          setLoading(false)
+        }
+      })
     return () => {
       active = false
     }
@@ -274,10 +283,10 @@ function TeeField({
   ...input
 }: {
   label: string
-  width: string
+  width: import('react-native').DimensionValue
 } & React.ComponentProps<typeof TextInput>) {
   return (
-    <View style={{ width: width as `${number}%`, gap: 4 }}>
+    <View style={{ width, gap: 4 }}>
       <Text style={{ ...KICKER, fontSize: 9 }}>{label}</Text>
       <TextInput
         {...input}
