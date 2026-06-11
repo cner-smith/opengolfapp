@@ -174,7 +174,7 @@ supabase/
   migrations/       # 0001_initial_schema.sql … numbered, sequential
   functions/        # Supabase Edge Functions (practice plans, emails)
 scripts/
-  crawl-courses.ts  # Course crawler (OSM + GolfCourseAPI ratings)
+  crawl-courses.ts  # Course crawler (OSM + OpenGolfAPI)
   seed-demo.ts      # Demo user + rounds of synthetic data
 ```
 
