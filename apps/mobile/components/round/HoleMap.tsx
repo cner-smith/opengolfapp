@@ -155,6 +155,13 @@ const AIM_EXTENSION_YARDS = 250
 // Android drag jank. Gating to ~25 Hz cuts that storm while the readouts
 // still track the finger; onDragEnd always applies the final position.
 const AIM_DRAG_THROTTLE_MS = 40
+// Distance labels are @rnmapbox MarkerViews that capture touches (their content
+// wrapper hardcodes the touch responder), so a label sitting at its leg's
+// midpoint steals the drag from the aim handle when that leg is short — the
+// near-green "can't drag the aim marker" bug (#473). Hide a label once its leg
+// is under this many yards; its midpoint is then within the handle's grab zone.
+// Tune on-device — the screen overlap is zoom-dependent, this is a geo proxy.
+const MIN_LABEL_LEG_YARDS = 20
 
 function extractCoord(feature: unknown): LatLng | null {
   const geom = (feature as { geometry?: { coordinates?: unknown } } | null)?.geometry
@@ -797,7 +804,9 @@ export function HoleMap({
             </Mapbox.PointAnnotation>
           )}
 
-          {aimMidpoint && aimDistanceYards !== null && (
+          {aimMidpoint &&
+            aimDistanceYards !== null &&
+            aimDistanceYards >= MIN_LABEL_LEG_YARDS && (
             <AimDistancePill
               midpoint={aimMidpoint}
               display={toDisplay(aimDistanceYards)}
@@ -811,7 +820,9 @@ export function HoleMap({
           {/* Remaining (aim→pin) — subordinate to the hero carry pill: a
               smaller, dimmer label on the aim→pin leg. Uses the already-
               computed aimToPinYards, run through the units helper. */}
-          {remainingMidpoint && aimToPinYards !== null && (
+          {remainingMidpoint &&
+            aimToPinYards !== null &&
+            aimToPinYards >= MIN_LABEL_LEG_YARDS && (
             <Mapbox.MarkerView
               id="remainingDistance"
               coordinate={toCoord(remainingMidpoint)}
