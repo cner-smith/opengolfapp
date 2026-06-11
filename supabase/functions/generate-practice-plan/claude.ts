@@ -134,7 +134,7 @@ export function buildMessages(
   const guidance =
     `Validation failed: ${repair.errors.join('; ')}. Re-emit the tool call, corrected. ` +
     `Reference drills only by the 0-based number shown; emit no target numbers; ` +
-    `build exactly ${sessionCount} sessions; cover the top-2 weaknesses.`
+    `build exactly ${sessionCount} sessions; cover the top-2 focus areas.`
   return [
     { role: 'user', content: userPrompt },
     { role: 'assistant', content: repair.priorAssistantContent },
