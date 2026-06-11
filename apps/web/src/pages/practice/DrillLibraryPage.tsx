@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import type { BlockType, PlanCategory } from '@oga/core'
 import type { Database } from '@oga/supabase'
@@ -39,12 +39,10 @@ export function DrillLibraryPage() {
     return [...filtered].sort((a, b) => dir * a.name.localeCompare(b.name))
   }, [filtered, sort])
 
-  // Paginate so the library isn't one endless scroll. Reset to page 1 whenever
-  // the filter/sort result set changes, and clamp if the count shrinks.
+  // Paginate so the library isn't one endless scroll. The filter/sort handlers
+  // reset to page 1 on change; clampedPage guards a count that shrinks under
+  // the current page (e.g. a narrower filter) so the slice never goes blank.
   const pageCount = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE))
-  useEffect(() => {
-    setPage(0)
-  }, [category, mode, sort])
   const clampedPage = Math.min(page, pageCount - 1)
   const pageItems = sorted.slice(clampedPage * PAGE_SIZE, (clampedPage + 1) * PAGE_SIZE)
 
@@ -78,7 +76,10 @@ export function DrillLibraryPage() {
         all="all"
         options={CATEGORIES}
         labelFor={(c) => CATEGORY_LABEL[c]}
-        onPick={setCategory}
+        onPick={(c) => {
+          setCategory(c)
+          setPage(0)
+        }}
       />
       <FilterRow
         label="Practice mode"
@@ -86,7 +87,10 @@ export function DrillLibraryPage() {
         all="all"
         options={MODES}
         labelFor={(m) => BLOCK_TYPE_LABEL[m]}
-        onPick={setMode}
+        onPick={(m) => {
+          setMode(m)
+          setPage(0)
+        }}
       />
 
       {drillsQuery.isLoading ? (
@@ -121,7 +125,10 @@ export function DrillLibraryPage() {
             {sorted.length > 1 ? (
               <button
                 type="button"
-                onClick={() => setSort((s) => (s === 'az' ? 'za' : 'az'))}
+                onClick={() => {
+                  setSort((s) => (s === 'az' ? 'za' : 'az'))
+                  setPage(0)
+                }}
                 className="font-mono bg-caddie-surface text-caddie-ink-dim hover:text-caddie-ink"
                 style={{
                   fontSize: 10,
