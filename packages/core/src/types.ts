@@ -217,6 +217,21 @@ export function combinedBreakDirection(args: {
   return null
 }
 
+/** Derive the horizontal break axis from the aim-line offset (inches). The
+ *  player aims to the side the putt breaks FROM, so a right-of-hole aim plays a
+ *  right-to-left break and a left aim plays left-to-right. A 2-inch deadband
+ *  (matching the green diagram's aim label) returns `undefined` for a
+ *  dead-straight aim so the vertical slope can still carry the combined label.
+ *  Shared by the web and mobile putt sheets — both derive the line axis from
+ *  the aim handle rather than a manual chooser. */
+export function horizontalBreakFromAim(
+  offsetInches: number,
+): BreakDirectionHorizontal | undefined {
+  if (offsetInches > 2) return 'right_to_left'
+  if (offsetInches < -2) return 'left_to_right'
+  return undefined
+}
+
 /** Inverse of {@link combinedBreakDirection} — decompose a legacy
  *  BreakDirection value into the two new axes for the read-path
  *  fallback. Legacy single-letter `left` / `right` map onto the
