@@ -88,6 +88,10 @@ export default function LiveRoundSession({
   // historical-shot scatter overlay; the render lands in T4. Off by
   // default — it's a summoned planning aid, not always-on clutter.
   const [dotsVisible, setDotsVisible] = useState(false)
+  // True once the player drags the ball off its GPS-tracked position this
+  // PLACE_BALL cycle — flips the place-ball CTA from "Mark ball at my GPS"
+  // to the generic "Mark ball here". Reset on each new placement / hole.
+  const [ballMoved, setBallMoved] = useState(false)
   // Aim overlay shape + size (T3). Tee → arc band, Appr → circle ring; the
   // rail index sizes each, kept per-mode so switching modes preserves the
   // other's pick. Default Tee, widest rail.
@@ -108,6 +112,7 @@ export default function LiveRoundSession({
     setLoggerOpen(false)
     setPinPlacementOpen(false)
     setLoggerInitial({})
+    setBallMoved(false)
     // Clear only hole-scoped dialogs (onGreen / aim). Session-scoped
     // confirms (delete / leave / end / exit) stay open across hole
     // navigation — a confirmDelete dialog mid-navigation should not
@@ -137,6 +142,12 @@ export default function LiveRoundSession({
     tee: data.tee,
     hasPriorShots: data.remoteShotCount + data.localShotCount > 0,
   })
+
+  // Each fresh PLACE_BALL entry (new shot, re-place) starts GPS-tracked, so the
+  // ball is back at the GPS dot until the player drags it again.
+  useEffect(() => {
+    if (finalState.roundState === 'PLACE_BALL') setBallMoved(false)
+  }, [finalState.roundState])
 
   // Camera anchors on the tee box — the player's starting point. Pin/green
   // is intentionally NOT a fallback; it would mis-frame the hole every time.
@@ -530,6 +541,7 @@ export default function LiveRoundSession({
             // (1 m²) — strong prior so any future un-freeze still
             // resists snapping back to a noisy raw fix.
             finalState.manuallyPlacedRef.current = true
+            setBallMoved(true)
             finalState.kalmanStateRef.current = {
               lat: loc.lat,
               lng: loc.lng,
@@ -589,6 +601,12 @@ export default function LiveRoundSession({
           saving={actions.saving}
           roundPin={data.roundPin}
           hasGps={finalState.gpsPosition != null}
+          ballFromGps={
+            !isPastMode &&
+            finalState.gpsPosition != null &&
+            finalState.ball != null &&
+            !ballMoved
+          }
           totalShotsThisHole={totalShotsThisHole}
           holeNumber={holeNumber}
           holeCount={data.holeCount}

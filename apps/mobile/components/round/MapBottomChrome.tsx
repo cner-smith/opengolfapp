@@ -23,6 +23,9 @@ interface MapBottomChromeProps {
   saving: boolean
   roundPin: { lat: number; lng: number } | null
   hasGps: boolean
+  /** Live mode only: the ball marker is currently tracking the player's GPS
+   *  (not manually dragged). Drives the GPS-explicit place-ball CTA + hint. */
+  ballFromGps?: boolean
   totalShotsThisHole: number
   holeNumber: number
   holeCount: number
@@ -84,18 +87,35 @@ function ContextualActions(p: MapBottomChromeProps) {
       </>
     )
   }
-  // PLACE_BALL
+  // PLACE_BALL. When the ball is GPS-tracked (live, not yet dragged), the CTA
+  // says so explicitly — otherwise it's the generic "here" for a dragged marker.
   const ballLabel = p.saving
     ? 'Saving…'
-    : p.ball
-      ? 'Mark ball here →'
-      : p.hasGps
-        ? 'Mark ball at my GPS →'
-        : 'Waiting for GPS…'
+    : p.ballFromGps
+      ? 'Mark ball at my GPS →'
+      : p.ball
+        ? 'Mark ball here →'
+        : p.hasGps
+          ? 'Mark ball at my GPS →'
+          : 'Waiting for GPS…'
   const ballDisabled = (!p.ball && !p.hasGps) || p.saving
   return (
     <>
       <PrimaryCta label={ballLabel} disabled={ballDisabled} onPress={p.onMarkBallHere} />
+      {p.ballFromGps && !p.saving && (
+        <View
+          style={{
+            backgroundColor: CHROME_BG,
+            borderRadius: 14,
+            paddingHorizontal: 12,
+            paddingVertical: 5,
+          }}
+        >
+          <Text style={[TYPE.body, { color: CREAM, fontSize: 11, opacity: 0.85 }]}>
+            The ball follows your GPS — drag to adjust.
+          </Text>
+        </View>
+      )}
       {p.totalShotsThisHole > 0 && (
         <TextChip
           label={p.holeNumber < p.holeCount ? 'Finish hole · next →' : 'Finish round'}
