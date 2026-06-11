@@ -18,6 +18,11 @@ export interface ShareableRoundData {
   sg_putting: number | null
   sg_total: number | null
   courses?: { name: string | null } | null
+  // Played-tee detail (optional): total yardage + course/slope rating, shown
+  // alongside the tee colour when the round names a rated tee.
+  course_rating?: number | null
+  slope_rating?: number | null
+  total_yards?: number | null
 }
 
 interface ShareableScorecardCardProps {
@@ -151,6 +156,10 @@ export function ShareableScorecardCard({
         >
           {round.played_at}
           {round.tee_color ? ` · ${round.tee_color} tees` : ''}
+          {round.total_yards != null ? ` · ${round.total_yards.toLocaleString()} yd` : ''}
+          {round.course_rating != null && round.slope_rating != null
+            ? ` · ${round.course_rating.toFixed(1)}/${round.slope_rating}`
+            : ''}
         </div>
       </section>
 

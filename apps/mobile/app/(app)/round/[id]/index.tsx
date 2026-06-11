@@ -21,6 +21,7 @@ import {
 } from '@oga/core'
 import {
   deleteRound,
+  getCourseTees,
   getDrills,
   getProfile,
   updateRound,
@@ -45,6 +46,7 @@ type HoleRow = Database['public']['Tables']['holes']['Row']
 type HoleScoreRow = Database['public']['Tables']['hole_scores']['Row']
 type ShotRow = Database['public']['Tables']['shots']['Row']
 type DrillRow = Database['public']['Tables']['drills']['Row']
+type CourseTeeRow = Database['public']['Tables']['course_tees']['Row']
 
 const KICKER: import('react-native').TextStyle = {
   color: '#8A8B7E',
@@ -74,6 +76,26 @@ export default function RoundIndex() {
   const [shots, setShots] = useState<ShotRow[]>([])
   const [courseName, setCourseName] = useState<string>('Round')
   const [courseCenter, setCourseCenter] = useState<LatLng | null>(null)
+  // Played-tee detail for the share card (#562): rating/slope/yardage, matched
+  // by tee id then colour (same match the web card uses).
+  const [playedTee, setPlayedTee] = useState<CourseTeeRow | null>(null)
+  useEffect(() => {
+    const courseId = round?.course_id
+    if (!courseId) return
+    let cancelled = false
+    getCourseTees(supabase, courseId).then(({ data }) => {
+      if (cancelled || !data) return
+      const teeColor = round?.tee_color?.toLowerCase()
+      const tee =
+        data.find((t) => t.id === round?.course_tee_id) ??
+        (teeColor ? data.find((t) => t.tee_color === teeColor) : undefined) ??
+        null
+      setPlayedTee(tee)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [round?.course_id, round?.course_tee_id, round?.tee_color])
   // Scorecard ⇄ Map tabs (#514): the scorecard edits scores/putts/details,
   // the map places ball + aim geometry. `mapHole` is the hole the map is
   // focused on; its prev/next nav drives it.
@@ -574,6 +596,9 @@ export default function RoundIndex() {
               sg_putting: round.sg_putting,
               sg_total: round.sg_total,
               courseName,
+              course_rating: playedTee?.course_rating ?? null,
+              slope_rating: playedTee?.slope_rating ?? null,
+              total_yards: playedTee?.total_yards ?? null,
             }}
             holes={sortedHoles}
             scoresByHoleId={scoresByHoleId}
