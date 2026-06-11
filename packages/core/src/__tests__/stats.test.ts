@@ -483,3 +483,42 @@ describe('sgStandouts', () => {
     expect(s.strongest).toEqual({ key: 'putting', value: 0.9 })
   })
 })
+
+describe('clubAccuracy — putter exclusion', () => {
+  // A putter with full start/aim/end coords would otherwise bucket into club
+  // accuracy with a meaningless yards dispersion. Build 3 such putts + 3 real
+  // 7i shots (the n >= 3 floor) and assert only the iron survives.
+  function coordShot(overrides: Partial<ShotRow>): ShotRow {
+    return makeShot({
+      start_lat: 35.0,
+      start_lng: -97.5,
+      aim_lat: 35.001,
+      aim_lng: -97.5,
+      end_lat: 35.001,
+      end_lng: -97.4999,
+      ...overrides,
+    })
+  }
+  const round = makeRound({
+    hole_scores: [
+      makeHoleScore({
+        holes: makeHole({ id: 'h1', number: 1, par: 4 }),
+        shots: [
+          coordShot({ shot_number: 1, club: '7i', lie_type: 'fairway' }),
+          coordShot({ shot_number: 2, club: '7i', lie_type: 'fairway' }),
+          coordShot({ shot_number: 3, club: '7i', lie_type: 'fairway' }),
+          coordShot({ shot_number: 4, club: 'putter', lie_type: 'green' }),
+          coordShot({ shot_number: 5, club: 'putter', lie_type: 'green' }),
+          coordShot({ shot_number: 6, club: 'putter', lie_type: 'green' }),
+        ],
+      }),
+    ],
+  })
+
+  it('omits the putter and keeps full-swing clubs', () => {
+    const entries = computeDetailedStats([round], 15).clubAccuracy
+    const clubs = entries.map((e) => e.club)
+    expect(clubs).toContain('7i')
+    expect(clubs).not.toContain('putter')
+  })
+})
