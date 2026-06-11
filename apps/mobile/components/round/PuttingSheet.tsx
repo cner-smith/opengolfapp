@@ -11,6 +11,7 @@ import {
 import {
   FEET_TO_CM,
   combinedBreakDirection,
+  horizontalBreakFromAim,
   type BreakDirectionHorizontal,
   type BreakDirectionVertical,
   type GreenSpeed,
@@ -74,19 +75,6 @@ const BREAK_SLOPE_OPTIONS: { value: BreakDirectionVertical; label: string }[] = 
   { value: 'flat', label: 'Flat' },
   { value: 'downhill', label: 'Downhill' },
 ]
-// The horizontal break is derived from the aim line rather than chosen: the
-// player aims to the side the putt breaks FROM, so a right-of-hole aim plays a
-// right-to-left break and vice-versa. Mirrors GreenDiagram's formatAim 2-inch
-// deadband so a dead-straight aim leaves the axis unset, letting the vertical
-// slope carry the legacy combined label.
-function horizontalBreakFromAim(
-  offsetInches: number,
-): BreakDirectionHorizontal | undefined {
-  if (offsetInches > 2) return 'right_to_left'
-  if (offsetInches < -2) return 'left_to_right'
-  return undefined
-}
-
 const SLOPE_INTENSITY_LABELS = ['Flat', 'Slight', 'Moderate', 'Strong', 'Severe']
 
 const SPEED_OPTIONS: { value: GreenSpeed; label: string }[] = [

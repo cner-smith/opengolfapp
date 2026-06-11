@@ -1,4 +1,4 @@
-import { type BreakDirection, type GreenSpeed } from '@oga/core'
+import { type BreakDirectionVertical, type GreenSpeed } from '@oga/core'
 import {
   Field,
   NumericInput,
@@ -7,14 +7,11 @@ import {
 } from './formInputs'
 import type { DraftShot } from './draft'
 
-const BREAK_OPTIONS: {
-  value: Exclude<BreakDirection, 'left' | 'right'>
-  label: string
-}[] = [
-  { value: 'left_to_right', label: 'L → R' },
-  { value: 'straight', label: 'Straight' },
-  { value: 'right_to_left', label: 'R → L' },
+// Only the vertical (slope) axis is chosen manually. The horizontal (line)
+// axis is derived from the aim handle on the GreenDiagram — see ShotEntryModal.
+const BREAK_SLOPE_OPTIONS: { value: BreakDirectionVertical; label: string }[] = [
   { value: 'uphill', label: 'Uphill' },
+  { value: 'flat', label: 'Flat' },
   { value: 'downhill', label: 'Downhill' },
 ]
 
@@ -59,6 +56,13 @@ export function PuttFormFields({ draft, setDraft }: PuttFormFieldsProps) {
       ...d,
       puttMade: false,
       puttDirectionResult: d.puttDirectionResult === v ? undefined : v,
+    }))
+  }
+
+  function setBreakSlope(v: BreakDirectionVertical) {
+    setDraft((d) => ({
+      ...d,
+      breakDirectionVertical: d.breakDirectionVertical === v ? undefined : v,
     }))
   }
 
@@ -135,20 +139,24 @@ export function PuttFormFields({ draft, setDraft }: PuttFormFieldsProps) {
           Tap again to clear · leave blank if line was good
         </div>
       </Field>
-      <Field label="Break">
+      <Field label="Break (slope)">
         <div className="flex flex-wrap" style={{ gap: 6 }}>
-          {BREAK_OPTIONS.map((b) => (
+          {BREAK_SLOPE_OPTIONS.map((b) => (
             <button
               key={b.value}
               type="button"
-              onClick={() =>
-                setDraft((d) => ({ ...d, breakDirection: b.value }))
-              }
-              style={chipStyle(draft.breakDirection === b.value)}
+              onClick={() => setBreakSlope(b.value)}
+              style={chipStyle(draft.breakDirectionVertical === b.value)}
             >
               {b.label}
             </button>
           ))}
+        </div>
+        <div
+          className="font-mono uppercase text-caddie-ink-mute"
+          style={{ fontSize: 10, letterSpacing: '0.14em', marginTop: 8 }}
+        >
+          Tap again to clear · line break comes from your aim
         </div>
       </Field>
       <Field label="How much">
