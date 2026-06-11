@@ -160,7 +160,7 @@ export function RoundSummary({
               borderRadius: 2,
             }}
           >
-            Generate practice plan{' '}
+            Go to Practice{' '}
             <span className="font-serif" style={{ fontStyle: 'italic' }}>
               →
             </span>
