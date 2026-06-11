@@ -74,11 +74,18 @@ const BREAK_SLOPE_OPTIONS: { value: BreakDirectionVertical; label: string }[] = 
   { value: 'flat', label: 'Flat' },
   { value: 'downhill', label: 'Downhill' },
 ]
-const BREAK_LINE_OPTIONS: { value: BreakDirectionHorizontal; label: string }[] = [
-  { value: 'left_to_right', label: 'L → R' },
-  { value: 'straight', label: 'Straight' },
-  { value: 'right_to_left', label: 'R → L' },
-]
+// The horizontal break is derived from the aim line rather than chosen: the
+// player aims to the side the putt breaks FROM, so a right-of-hole aim plays a
+// right-to-left break and vice-versa. Mirrors GreenDiagram's formatAim 2-inch
+// deadband so a dead-straight aim leaves the axis unset, letting the vertical
+// slope carry the legacy combined label.
+function horizontalBreakFromAim(
+  offsetInches: number,
+): BreakDirectionHorizontal | undefined {
+  if (offsetInches > 2) return 'right_to_left'
+  if (offsetInches < -2) return 'left_to_right'
+  return undefined
+}
 
 const SLOPE_INTENSITY_LABELS = ['Flat', 'Slight', 'Moderate', 'Strong', 'Severe']
 
@@ -167,13 +174,6 @@ export function PuttingSheet({
     setValue((prev) => ({
       ...prev,
       breakDirectionVertical: prev.breakDirectionVertical === v ? undefined : v,
-    }))
-  }
-
-  function setBreakLine(v: BreakDirectionHorizontal) {
-    setValue((prev) => ({
-      ...prev,
-      breakDirectionHorizontal: prev.breakDirectionHorizontal === v ? undefined : v,
     }))
   }
 
@@ -292,7 +292,13 @@ export function PuttingSheet({
               horizontal: value.breakDirectionHorizontal,
             }) ?? 'straight'
           }
-          onAimChange={(n) => set('aimOffsetInches', n)}
+          onAimChange={(n) =>
+            setValue((prev) => ({
+              ...prev,
+              aimOffsetInches: n,
+              breakDirectionHorizontal: horizontalBreakFromAim(n),
+            }))
+          }
         />
 
         <View style={{ marginTop: 14 }}>
@@ -373,22 +379,6 @@ export function PuttingSheet({
           </View>
           <Text style={[TYPE.kicker, { ...KICKER, marginTop: 8, color: '#8A8B7E' }]}>
             Tap again to clear · leave blank if green was level
-          </Text>
-        </Section>
-
-        <Section title="Break (line)">
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
-            {BREAK_LINE_OPTIONS.map((b) => (
-              <Chip
-                key={b.value}
-                label={b.label}
-                active={value.breakDirectionHorizontal === b.value}
-                onPress={() => setBreakLine(b.value)}
-              />
-            ))}
-          </View>
-          <Text style={[TYPE.kicker, { ...KICKER, marginTop: 8, color: '#8A8B7E' }]}>
-            Tap again to clear · leave blank if there was no break
           </Text>
         </Section>
 
