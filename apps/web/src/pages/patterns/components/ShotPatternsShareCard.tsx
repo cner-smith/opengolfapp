@@ -89,7 +89,7 @@ export function ShotPatternsShareCard({
               color: C.ink,
             }}
           >
-            OGA
+            oga<span style={{ fontStyle: 'normal' }}>.</span>
           </div>
         </div>
         <div style={{ ...KICKER, fontSize: 12, color: C.inkMute, textAlign: 'right' }}>

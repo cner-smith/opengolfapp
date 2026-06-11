@@ -122,7 +122,7 @@ export function ShareableScorecardCard({
               color: c.ink,
             }}
           >
-            OGA
+            oga<span style={{ fontStyle: 'normal' }}>.</span>
           </div>
         </div>
         <div style={{ ...KICKER_STYLE, color: c.inkMute, textAlign: 'right' }}>
@@ -258,7 +258,7 @@ export function ShareableScorecardCard({
             color: c.inkMute,
           }}
         >
-          opengolfapp-web.vercel.app
+          oga.golf
         </div>
       </footer>
     </div>
