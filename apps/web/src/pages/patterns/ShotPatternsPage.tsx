@@ -145,7 +145,9 @@ export function ShotPatternsPage() {
 
       <Section kicker="Club">
         <div className="flex flex-wrap" style={{ gap: 6 }}>
-          {CLUBS.map((c) => (
+          {/* Putter excluded: aim-relative yards dispersion is meaningless for
+              putts (mirrors the clubAccuracy putt exclusion, #574). */}
+          {CLUBS.filter((c) => c !== 'putter').map((c) => (
             <button
               key={c}
               type="button"
