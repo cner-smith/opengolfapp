@@ -115,7 +115,7 @@ export function ShareableScorecardCard({
               color: c.ink,
             }}
           >
-            OGA
+            oga<Text style={{ fontFamily: FONT.serif }}>.</Text>
           </Text>
         </View>
         <Text style={{ ...KICKER, color: c.inkMute }}>Scorecard</Text>
@@ -252,7 +252,7 @@ export function ShareableScorecardCard({
             color: c.inkMute,
           }}
         >
-          opengolfapp
+          oga.golf
         </Text>
       </View>
     </View>
