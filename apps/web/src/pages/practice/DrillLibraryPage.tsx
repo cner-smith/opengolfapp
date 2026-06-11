@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import type { BlockType, PlanCategory } from '@oga/core'
 import type { Database } from '@oga/supabase'
@@ -9,6 +9,7 @@ import { BLOCK_TYPE_LABEL, CATEGORY_LABEL, FACILITY_LABEL, renderInstructions } 
 type Drill = Database['public']['Tables']['drills']['Row']
 
 const LINE = '#D9D2BF'
+const PAGE_SIZE = 24
 
 // Filter vocab: 'all' sentinel + the @oga/core enums. Category order mirrors a
 // round — off the tee through the green — so the chips read as a shot progression.
@@ -19,6 +20,8 @@ export function DrillLibraryPage() {
   const drillsQuery = useDrills()
   const [category, setCategory] = useState<PlanCategory | 'all'>('all')
   const [mode, setMode] = useState<BlockType | 'all'>('all')
+  const [sort, setSort] = useState<'az' | 'za'>('az')
+  const [page, setPage] = useState(0)
 
   const drills = useMemo(() => drillsQuery.data ?? [], [drillsQuery.data])
   const filtered = useMemo(
@@ -30,6 +33,20 @@ export function DrillLibraryPage() {
       ),
     [drills, category, mode],
   )
+  // Sort by name; the long library is easier to scan and find a known drill in.
+  const sorted = useMemo(() => {
+    const dir = sort === 'az' ? 1 : -1
+    return [...filtered].sort((a, b) => dir * a.name.localeCompare(b.name))
+  }, [filtered, sort])
+
+  // Paginate so the library isn't one endless scroll. Reset to page 1 whenever
+  // the filter/sort result set changes, and clamp if the count shrinks.
+  const pageCount = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE))
+  useEffect(() => {
+    setPage(0)
+  }, [category, mode, sort])
+  const clampedPage = Math.min(page, pageCount - 1)
+  const pageItems = sorted.slice(clampedPage * PAGE_SIZE, (clampedPage + 1) * PAGE_SIZE)
 
   return (
     <div>
@@ -85,25 +102,128 @@ export function DrillLibraryPage() {
         </div>
       ) : (
         <>
+          {/* Count + sort toggle */}
           <div
-            className="font-mono text-caddie-ink-mute"
-            style={{ fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', margin: '24px 0 4px' }}
+            style={{
+              display: 'flex',
+              alignItems: 'baseline',
+              justifyContent: 'space-between',
+              gap: 12,
+              margin: '24px 0 12px',
+            }}
           >
-            {filtered.length} drill{filtered.length === 1 ? '' : 's'}
+            <div
+              className="font-mono text-caddie-ink-mute"
+              style={{ fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}
+            >
+              {sorted.length} drill{sorted.length === 1 ? '' : 's'}
+            </div>
+            {sorted.length > 1 ? (
+              <button
+                type="button"
+                onClick={() => setSort((s) => (s === 'az' ? 'za' : 'az'))}
+                className="font-mono bg-caddie-surface text-caddie-ink-dim hover:text-caddie-ink"
+                style={{
+                  fontSize: 10,
+                  letterSpacing: '0.08em',
+                  textTransform: 'uppercase',
+                  padding: '5px 10px',
+                  borderRadius: 2,
+                  border: `1px solid ${LINE}`,
+                  cursor: 'pointer',
+                }}
+                aria-label={`Sort ${sort === 'az' ? 'Z to A' : 'A to Z'}`}
+              >
+                {sort === 'az' ? 'A → Z' : 'Z → A'}
+              </button>
+            ) : null}
           </div>
-          {filtered.length === 0 ? (
+
+          {sorted.length === 0 ? (
             <p className="font-serif text-caddie-ink-dim" style={{ fontSize: 17, fontStyle: 'italic', paddingTop: 16 }}>
               No drills match those filters.
             </p>
           ) : (
-            <div style={{ maxWidth: 720 }}>
-              {filtered.map((drill) => (
-                <DrillCard key={drill.id} drill={drill} />
-              ))}
-            </div>
+            <>
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
+                  alignItems: 'start',
+                  gap: 14,
+                }}
+              >
+                {pageItems.map((drill) => (
+                  <DrillCard key={drill.id} drill={drill} />
+                ))}
+              </div>
+              {pageCount > 1 ? (
+                <Pager page={clampedPage} pageCount={pageCount} onChange={setPage} />
+              ) : null}
+            </>
           )}
         </>
       )}
+    </div>
+  )
+}
+
+function Pager({
+  page,
+  pageCount,
+  onChange,
+}: {
+  page: number
+  pageCount: number
+  onChange: (page: number) => void
+}) {
+  const btn = (disabled: boolean): React.CSSProperties => ({
+    fontSize: 12,
+    fontWeight: 600,
+    letterSpacing: '0.02em',
+    padding: '6px 12px',
+    borderRadius: 2,
+    border: `1px solid ${LINE}`,
+    background: 'transparent',
+    cursor: disabled ? 'default' : 'pointer',
+    opacity: disabled ? 0.4 : 1,
+  })
+  return (
+    <div
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 16,
+        marginTop: 24,
+        paddingTop: 18,
+        borderTop: `1px solid ${LINE}`,
+      }}
+    >
+      <button
+        type="button"
+        onClick={() => onChange(Math.max(0, page - 1))}
+        disabled={page === 0}
+        className="text-caddie-ink-dim hover:text-caddie-ink"
+        style={btn(page === 0)}
+      >
+        ← Prev
+      </button>
+      <div
+        className="font-mono text-caddie-ink-mute"
+        style={{ fontSize: 11, letterSpacing: '0.08em' }}
+      >
+        {page + 1} / {pageCount}
+      </div>
+      <button
+        type="button"
+        onClick={() => onChange(Math.min(pageCount - 1, page + 1))}
+        disabled={page >= pageCount - 1}
+        className="text-caddie-ink-dim hover:text-caddie-ink"
+        style={btn(page >= pageCount - 1)}
+      >
+        Next →
+      </button>
     </div>
   )
 }
@@ -170,7 +290,7 @@ function DrillCard({ drill }: { drill: Drill }) {
   const canExpand = instructions.length > 0
 
   return (
-    <div style={{ borderBottom: `1px solid ${LINE}`, padding: '18px 0' }}>
+    <div style={{ border: `1px solid ${LINE}`, borderRadius: 4, padding: 16 }}>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 14, alignItems: 'start' }}>
         <div>
           {canExpand ? (
@@ -240,7 +360,7 @@ function DrillCard({ drill }: { drill: Drill }) {
       </div>
 
       {canExpand && open ? (
-        <div id={`drill-detail-${drill.id}`} style={{ borderTop: `1px solid ${LINE}`, marginTop: 16, paddingTop: 16, maxWidth: 660 }}>
+        <div id={`drill-detail-${drill.id}`} style={{ borderTop: `1px solid ${LINE}`, marginTop: 16, paddingTop: 16 }}>
           {renderInstructions(instructions)}
           {drill.source ? (
             <div
