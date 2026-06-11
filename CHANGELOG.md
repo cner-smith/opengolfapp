@@ -1,5 +1,43 @@
 # Changelog
 
+## [0.9.0](https://github.com/cner-smith/opengolfapp/compare/v0.8.0...v0.9.0) (2026-06-11)
+
+
+### Features
+
+* call out the standout SG category on stats pages ([#522](https://github.com/cner-smith/opengolfapp/issues/522)) ([#537](https://github.com/cner-smith/opengolfapp/issues/537)) ([860d8d3](https://github.com/cner-smith/opengolfapp/commit/860d8d30c14c0c43ac3703a46259eab5ce9ca8e2))
+* label handicap provenance — calculated vs entered ([#521](https://github.com/cner-smith/opengolfapp/issues/521)) ([#536](https://github.com/cner-smith/opengolfapp/issues/536)) ([b55f044](https://github.com/cner-smith/opengolfapp/commit/b55f04473a649aef2b73aef9a4cfc46790bfd3a0))
+* **mobile:** editable scorecard-first past-round logger ([#514](https://github.com/cner-smith/opengolfapp/issues/514)) ([#517](https://github.com/cner-smith/opengolfapp/issues/517)) ([888b621](https://github.com/cner-smith/opengolfapp/commit/888b621abf2fd8f4ea8663601dfeb0233f630f93))
+* **mobile:** handicap differential + index recompute (rated tees) ([#538](https://github.com/cner-smith/opengolfapp/issues/538)) ([41a654d](https://github.com/cner-smith/opengolfapp/commit/41a654d16183867ed265a679da5863346554bf9f))
+* **mobile:** Practice tab — plan generator + view ([#511](https://github.com/cner-smith/opengolfapp/issues/511)) [WIP] ([#519](https://github.com/cner-smith/opengolfapp/issues/519)) ([42be229](https://github.com/cner-smith/opengolfapp/commit/42be229b5988a2869bfb33586e9325ad4701d7e6))
+* **mobile:** signal Learn is a browsable library ([#524](https://github.com/cner-smith/opengolfapp/issues/524)) ([#535](https://github.com/cner-smith/opengolfapp/issues/535)) ([74a677c](https://github.com/cner-smith/opengolfapp/commit/74a677c1a3de295003a27501e257118527c93629))
+* **mobile:** tee selection at round creation ([#542](https://github.com/cner-smith/opengolfapp/issues/542)) ([#543](https://github.com/cner-smith/opengolfapp/issues/543)) ([96c641a](https://github.com/cner-smith/opengolfapp/commit/96c641a1f491276c9844f9ed976d39aa4af1f073))
+* **web:** landing v2 — editorial sections, live-mode hero, realish seed ([#529](https://github.com/cner-smith/opengolfapp/issues/529)) ([61b5a6c](https://github.com/cner-smith/opengolfapp/commit/61b5a6cfa10e3d4f70ae332f41f8f5bd9c71f9b5))
+
+
+### Bug Fixes
+
+* **db:** targeted course dedup migration ([#470](https://github.com/cner-smith/opengolfapp/issues/470)) ([#527](https://github.com/cner-smith/opengolfapp/issues/527)) ([1dc5258](https://github.com/cner-smith/opengolfapp/commit/1dc52581d797b9f4141dd98e8c2a7495c17540b3))
+* **db:** tighten course_tees INSERT policy + add created_by ([#222](https://github.com/cner-smith/opengolfapp/issues/222)) ([#518](https://github.com/cner-smith/opengolfapp/issues/518)) ([0d8a4a9](https://github.com/cner-smith/opengolfapp/commit/0d8a4a9b83a774046ecf56b98eb611753ddb0be2))
+* **mobile:** allow about:blank/about:srcdoc so iOS Turnstile loads ([#405](https://github.com/cner-smith/opengolfapp/issues/405)) ([#512](https://github.com/cner-smith/opengolfapp/issues/512)) ([b114e77](https://github.com/cner-smith/opengolfapp/commit/b114e770674a2e7cc84cfe5e70f8c6688521a4e2))
+* **mobile:** bound My Bag list height so footer is reachable ([#528](https://github.com/cner-smith/opengolfapp/issues/528)) ([#541](https://github.com/cner-smith/opengolfapp/issues/541)) ([1d45bce](https://github.com/cner-smith/opengolfapp/commit/1d45bcea041b12238cb2fde18280d195327e89bb))
+* **mobile:** deep-link email confirmation back into the app ([#510](https://github.com/cner-smith/opengolfapp/issues/510)) ([f6e6941](https://github.com/cner-smith/opengolfapp/commit/f6e6941a0ba8a118e59ee4afd45820d75769ea69))
+* **mobile:** My Bag respects bottom safe-area inset ([#528](https://github.com/cner-smith/opengolfapp/issues/528)) ([#534](https://github.com/cner-smith/opengolfapp/issues/534)) ([5351d9e](https://github.com/cner-smith/opengolfapp/commit/5351d9eae1f3950d6f017fdbeed6e4fa6ec27ffe))
+* **mobile:** on-device Android QA batch — practice, stats, splash, course search ([#544](https://github.com/cner-smith/opengolfapp/issues/544)) ([e572c2a](https://github.com/cner-smith/opengolfapp/commit/e572c2aaa5a3ad65d54df7f486dd76c4a147ab3d))
+* **mobile:** partial-course holes can't log shots ([#525](https://github.com/cner-smith/opengolfapp/issues/525)) ([#533](https://github.com/cner-smith/opengolfapp/issues/533)) ([765d814](https://github.com/cner-smith/opengolfapp/commit/765d814d1d7bdb3f978270a2331bc89f26a28fbd))
+* **mobile:** show in-progress rounds in Home + All Rounds lists ([#515](https://github.com/cner-smith/opengolfapp/issues/515)) ([d0afe6f](https://github.com/cner-smith/opengolfapp/commit/d0afe6f592158ee8212f8763856c9580e155cb2e))
+
+
+### Chores
+
+* **mobile:** Expo SDK 52 migration (RN 0.76 / React 18.3) ([#516](https://github.com/cner-smith/opengolfapp/issues/516)) ([6a376d0](https://github.com/cner-smith/opengolfapp/commit/6a376d063b228b27b20a49f97978ac43b16ec9ef))
+* **mobile:** Expo SDK 52→53 — Android 16 KB compliance ([#467](https://github.com/cner-smith/opengolfapp/issues/467) Phase 2) ([#530](https://github.com/cner-smith/opengolfapp/issues/530)) ([9d5bd84](https://github.com/cner-smith/opengolfapp/commit/9d5bd845e27836190e7f588089b0f336822e542f))
+* **mobile:** lock to iPhone-only for v1 (supportsTablet: false) ([#532](https://github.com/cner-smith/opengolfapp/issues/532)) ([efee418](https://github.com/cner-smith/opengolfapp/commit/efee4180acac74f32ffb8a67afa1def5e320ace1))
+* **release:** bump version to 0.9.0 ([#551](https://github.com/cner-smith/opengolfapp/issues/551)) ([224a6ae](https://github.com/cner-smith/opengolfapp/commit/224a6ae6032c98f47e06a7e2ca6b107cd6a38b03))
+* **scripts:** course rating/slope backfill from GolfCourseAPI ([#539](https://github.com/cner-smith/opengolfapp/issues/539)) ([4b6a546](https://github.com/cner-smith/opengolfapp/commit/4b6a5467c9c1fa7722292a1332de362ae583ba9d))
+* **scripts:** seed demo account on real courses ([#549](https://github.com/cner-smith/opengolfapp/issues/549)) ([b154850](https://github.com/cner-smith/opengolfapp/commit/b1548507eb9791006f8e83c00ca1dfcd28ef96af))
+* **seed:** realistic per-club dispersion for demo data ([#531](https://github.com/cner-smith/opengolfapp/issues/531)) ([50416ed](https://github.com/cner-smith/opengolfapp/commit/50416ed3d5d26ca4c75273511af2a86e5e00c321))
+
 ## [0.8.0](https://github.com/cner-smith/opengolfapp/compare/v0.7.0...v0.8.0) (2026-06-03)
 
 
