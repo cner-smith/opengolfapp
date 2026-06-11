@@ -22,7 +22,7 @@ export function SwingVariationsArticle() {
   return (
     <View>
       <ArticleHeader
-        kicker="Improving your game · Draft"
+        kicker="Improving your game · Swing variations"
         title="Swing your swing."
       />
 
@@ -473,7 +473,7 @@ export function SwingVariationsArticle() {
       />
 
       <ArticleFooter>
-        Last reviewed May 2026 · Draft, needs line-by-line accuracy review
+        Last reviewed May 2026
       </ArticleFooter>
     </View>
   )

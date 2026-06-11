@@ -20,7 +20,7 @@ import { FONT } from '../../../lib/typography'
 export function SelfDiagnosisArticle() {
   return (
     <View>
-      <ArticleHeader kicker="On the course · Draft" title="Self-diagnosis." />
+      <ArticleHeader kicker="On the course · Self-diagnosis" title="Self-diagnosis." />
 
       <H3>You know something is off</H3>
       <P>
@@ -295,7 +295,7 @@ export function SelfDiagnosisArticle() {
       />
 
       <ArticleFooter>
-        Last reviewed May 2026 · Draft, needs instructor review
+        Last reviewed May 2026
       </ArticleFooter>
     </View>
   )

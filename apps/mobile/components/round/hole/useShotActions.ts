@@ -34,7 +34,6 @@ interface UseShotActionsInput {
   setLoggerOpen: Dispatch<SetStateAction<boolean>>
   setLoggerInitial: Dispatch<SetStateAction<ShotLoggerValue>>
   setPinPlacementOpen: Dispatch<SetStateAction<boolean>>
-  setTeePlacementOpen: Dispatch<SetStateAction<boolean>>
   setActiveDialog: Dispatch<SetStateAction<ActiveDialog>>
   // Hole navigation is callback-driven so the parent (LiveRoundSession)
   // can keep the MapView resident across hole changes. Direct router.replace
@@ -56,7 +55,6 @@ export interface UseShotActionsResult {
   persistPutt: (v: PuttingValue) => Promise<void>
   persistRoundPin: (loc: LatLng) => Promise<void>
   clearRoundPin: () => Promise<void>
-  persistTee: (loc: LatLng) => Promise<void>
   markBallHere: () => Promise<void>
   handleOnGreenYes: () => void
   handleOnGreenNo: () => void
@@ -84,7 +82,6 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
     setLoggerOpen,
     setLoggerInitial,
     setPinPlacementOpen,
-    setTeePlacementOpen,
     setActiveDialog,
     onHoleChange,
   } = input
@@ -111,6 +108,7 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
     remotePuttCount,
     localPuttCount,
     shotNumber,
+    holeCount,
   } = data
   const {
     ball,
@@ -222,6 +220,19 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
       // Bump only on success — a failed save (caught below) shouldn't
       // remount the form and wipe the player's entry.
       setShotEntrySeq((s) => s + 1)
+
+      // First shot on a hole with no course tee → the drive's start IS the
+      // tee. Persist it so the tee box, camera, and distances have an anchor
+      // (mapped holes keep their stored course tee). Background, not awaited.
+      if (
+        shotNumber === 1 &&
+        currentHole &&
+        currentHole.tee_lat == null &&
+        payload.start_lat != null &&
+        payload.start_lng != null
+      ) {
+        void writeTee({ lat: payload.start_lat, lng: payload.start_lng })
+      }
     } catch (err) {
       // eslint-disable-next-line no-console
       console.error('shot save failed', err, payload)
@@ -289,7 +300,13 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
     }
   }
 
-  async function persistTee(loc: LatLng) {
+  // Auto-persist the tee = the first shot's start (the drive's starting point),
+  // the live analogue of past-round deriving the tee from placed[0].start.
+  // Called from persistShot on shot 1 only when the hole has no course tee, so
+  // the dual-dot tee box + camera + distances (all keyed on holes.tee_lat/lng)
+  // light up without a manual placement step. Background + non-blocking: the
+  // shot already saved, so a failure warns rather than alerting.
+  async function writeTee(loc: LatLng) {
     if (!currentHole) return
     if (!Number.isFinite(loc.lat) || !Number.isFinite(loc.lng)) return
     setHoles((prev) =>
@@ -299,13 +316,13 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
           : h,
       ),
     )
-    setTeePlacementOpen(false)
     const { error: updateErr } = await supabase
       .from('holes')
       .update({ tee_lat: loc.lat, tee_lng: loc.lng })
       .eq('id', currentHole.id)
     if (updateErr) {
-      Alert.alert('Tee save failed', updateErr.message)
+      // eslint-disable-next-line no-console
+      console.warn('[hole/tee-auto-persist]', updateErr.message)
     }
   }
 
@@ -446,12 +463,15 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
 
   function navigateHole(delta: number) {
     const next = holeNumber + delta
-    if (next < 1 || next > 18) return
+    // Bound by the round's actual hole count, not a hardcoded 18 — a
+    // 9-hole course must stop at 9 or the player lands on padded holes
+    // with no hole_scores (#525).
+    if (next < 1 || next > holeCount) return
     onHoleChange(next)
   }
 
   function finishHole() {
-    if (holeNumber < 18) {
+    if (holeNumber < holeCount) {
       onHoleChange(holeNumber + 1)
     } else {
       router.replace('/(app)')
@@ -533,7 +553,6 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
     persistPutt,
     persistRoundPin,
     clearRoundPin,
-    persistTee,
     markBallHere,
     handleOnGreenYes,
     handleOnGreenNo,

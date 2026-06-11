@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import type { PlanCategory, BlockType, StoredBlock, StoredSession, StoredFocusArea } from '@oga/core'
+import type { StoredBlock, StoredSession, StoredFocusArea } from '@oga/core'
 import {
   useDrillsByIds,
   useGeneratePlan,
@@ -9,6 +9,7 @@ import {
   useUpdatePlanProgress,
 } from '../../hooks/useDrills'
 import { toUserMessage } from '../../lib/errors'
+import { BLOCK_TYPE_LABEL, CATEGORY_LABEL, FACILITY_LABEL, renderInstructions } from './drillDisplay'
 
 // Resolved drill row from useDrillsByIds (shape mirrors getDrillsByIds' select).
 type ResolvedDrill = {
@@ -29,29 +30,6 @@ type ResolvedDrill = {
 // ---------------------------------------------------------------------------
 
 type PlanDrills = { sessions: StoredSession[] }
-
-const CATEGORY_LABEL: Record<PlanCategory, string> = {
-  off_tee: 'Off the tee',
-  approach: 'Approach',
-  around_green: 'Around the green',
-  putting: 'Putting',
-}
-
-const BLOCK_TYPE_LABEL: Record<BlockType, string> = {
-  warmup: 'Warm-up',
-  blocked: 'Blocked',
-  random: 'Random',
-  skill_game: 'Skill game',
-  pressure_game: 'Pressure game',
-  on_course: 'On course',
-}
-
-const FACILITY_LABEL: Record<string, string> = {
-  range: 'Range',
-  short_game: 'Short game',
-  putting: 'Putting green',
-  sim: 'Simulator',
-}
 
 const LINE = '#D9D2BF'
 
@@ -90,61 +68,13 @@ function asFocusAreas(value: unknown): StoredFocusArea[] {
 
 // UI safety net: rewrite any leaked raw snake_case category enums in displayed
 // prose. `approach`/`putting` are already readable words and left untouched.
-function normalizeCategoryProse(text: string): string {
+// Tolerates null/undefined — a malformed plan (e.g. a focus area missing its
+// `reason`) must degrade to empty text, never crash the whole page.
+function normalizeCategoryProse(text: string | null | undefined): string {
+  if (!text) return ''
   return text
     .replace(/\boff_tee\b/gi, 'off the tee')
     .replace(/\baround_green\b/gi, 'around the green')
-}
-
-// Tiny markdown-ish renderer scoped to the drill `instructions` format.
-// Tokenizes left-to-right into complete tokens (**bold** | *italic* | plain)
-// then groups: each **bold** header starts a new paragraph, following
-// plain/italic text belongs to that section.
-// The continuous seed format `**Why.** prose **Setup.** prose` produces one
-// paragraph per section. Complete-token matching (not a lookahead) avoids the
-// closing-**+body+opening-** ambiguity of the prior split approach.
-// No dangerouslySetInnerHTML — all text nodes + React elements only.
-function renderInstructions(text: string): React.ReactNode {
-  // Tokenize left-to-right into complete tokens: **bold** | *italic* | plain.
-  // Matching complete tokens (not a lookahead) avoids the closing-**+body+opening-**
-  // ambiguity. The seed uses **…** only for section headers and *…* for emphasis.
-  const tokens = text.match(/\*\*[^*]+\*\*|\*[^*]+\*|[^*]+/g) ?? []
-  // Group into paragraphs: each **bold** header starts a new paragraph; the
-  // following plain/italic text belongs to that section.
-  type Seg = { kind: 'b' | 'i' | 't'; text: string }
-  const paras: Seg[][] = []
-  let cur: Seg[] = []
-  for (const tok of tokens) {
-    if (tok.startsWith('**')) {
-      if (cur.length) paras.push(cur)
-      cur = [{ kind: 'b', text: tok.slice(2, -2) }]
-    } else if (tok.startsWith('*')) {
-      cur.push({ kind: 'i', text: tok.slice(1, -1) })
-    } else {
-      cur.push({ kind: 't', text: tok })
-    }
-  }
-  if (cur.length) paras.push(cur)
-
-  return paras.map((para, pi) => (
-    <p
-      key={pi}
-      className="font-serif text-caddie-ink-dim"
-      style={{ fontSize: 15, lineHeight: 1.6, marginTop: pi === 0 ? 0 : 12 }}
-    >
-      {para.map((seg, si) =>
-        seg.kind === 'b' ? (
-          <strong key={si} className="text-caddie-ink" style={{ fontWeight: 600 }}>
-            {seg.text}
-          </strong>
-        ) : seg.kind === 'i' ? (
-          <em key={si}>{seg.text}</em>
-        ) : (
-          <span key={si}>{seg.text}</span>
-        ),
-      )}
-    </p>
-  ))
 }
 
 // ---------------------------------------------------------------------------
@@ -334,12 +264,19 @@ function NoPlanState({
           Generate a week of practice sized to your strokes gained — which drills,
           in what order, with the reasoning behind each one.
         </p>
-        <div style={{ marginTop: 22 }}>
+        <div style={{ marginTop: 22, display: 'flex', alignItems: 'center', gap: 20, flexWrap: 'wrap' }}>
           <GenerateButton
             label="Generate this week's plan"
             onGenerate={onGenerate}
             isPending={isPending}
           />
+          <Link
+            to="/practice/drills"
+            className="font-serif text-caddie-accent hover:opacity-80"
+            style={{ fontSize: 16, fontStyle: 'italic', fontWeight: 500 }}
+          >
+            Browse all drills →
+          </Link>
         </div>
         {errorNotice}
       </div>
@@ -718,7 +655,7 @@ function SessionSection({
   completedIds: Set<string>
   onToggleComplete: (blockId: string) => void
 }) {
-  const blocks = [...session.blocks].sort((a, b) => a.order - b.order)
+  const blocks = [...(session.blocks ?? [])].sort((a, b) => a.order - b.order)
   const doneCount = blocks.filter((b) => b.id != null && completedIds.has(b.id)).length
   return (
     <section style={{ borderTop: `1px solid ${LINE}`, paddingTop: 18, marginBottom: 32 }}>
@@ -923,6 +860,17 @@ export function PracticePlanPage() {
           Based on your last {plan.based_on_rounds} round{plan.based_on_rounds === 1 ? '' : 's'}
         </div>
       ) : null}
+
+      <div style={{ borderTop: `1px solid ${LINE}`, marginTop: 28, paddingTop: 18 }}>
+        <Link
+          to="/practice/drills"
+          className="font-serif text-caddie-accent hover:opacity-80"
+          style={{ fontSize: 17, fontStyle: 'italic', fontWeight: 500 }}
+        >
+          Browse all drills{' '}
+          <span style={{ fontStyle: 'italic' }}>→</span>
+        </Link>
+      </div>
     </div>
   )
 }

@@ -1,8 +1,16 @@
-import { computeRoundSG, inferHoleStats } from '@oga/core'
 import {
+  adjustedScore,
+  calculateDifferential,
+  calculateHandicapIndex,
+  computeRoundSG,
+  inferHoleStats,
+} from '@oga/core'
+import {
+  getCourseTees,
   getHoleScoresForRound,
   getHolesForCourse,
   getShotsForRound,
+  updateProfile,
   updateRound,
 } from '@oga/supabase'
 import type { Database } from '@oga/supabase'
@@ -12,6 +20,7 @@ import { syncPendingShots } from './sync'
 type HoleScoreRow = Database['public']['Tables']['hole_scores']['Row']
 type ShotRow = Database['public']['Tables']['shots']['Row']
 type HoleRow = Database['public']['Tables']['holes']['Row']
+type CourseTeeRow = Database['public']['Tables']['course_tees']['Row']
 
 interface CompleteArgs {
   roundId: string
@@ -33,10 +42,16 @@ export async function completeRound({
 }: CompleteArgs): Promise<void> {
   await syncPendingShots().catch(() => undefined)
 
-  const [holesRes, holeScoresRes, shotsRes] = await Promise.all([
+  const [holesRes, holeScoresRes, shotsRes, teesRes, roundRes] = await Promise.all([
     getHolesForCourse(supabase, courseId),
     getHoleScoresForRound(supabase, roundId),
     getShotsForRound(supabase, roundId, userId),
+    getCourseTees(supabase, courseId),
+    supabase
+      .from('rounds')
+      .select('course_tee_id, tee_color')
+      .eq('id', roundId)
+      .single(),
   ])
   if (holesRes.error) throw holesRes.error
   if (holeScoresRes.error) throw holeScoresRes.error
@@ -51,6 +66,8 @@ export async function completeRound({
     return rest
   })
   const shots = (shotsRes.data ?? []) as unknown as ShotRow[]
+  const tees: CourseTeeRow[] = teesRes.data ?? []
+  const roundTee = roundRes.data ?? null
 
   // Infer fairway_hit + gir for any hole where the player didn't set
   // them manually. Mobile live mode never writes those columns
@@ -135,6 +152,41 @@ export async function completeRound({
     if (sgError) throw sgError
   }
 
+  // ---- Handicap differential ------------------------------------------
+  // Mirrors web's useCompleteRound: resolve the played tee (by id, else by
+  // colour), and if it carries a course rating + slope, compute the WHS
+  // score differential from the ESC-adjusted gross. Null when no rated tee
+  // is on the round — common, since most crawled courses have no tee data.
+  const tee =
+    (roundTee?.course_tee_id
+      ? tees.find((t) => t.id === roundTee.course_tee_id)
+      : null) ??
+    (roundTee?.tee_color
+      ? tees.find((t) => t.tee_color === roundTee.tee_color!.toLowerCase())
+      : null) ??
+    null
+  let differential: number | null = null
+  if (
+    tee &&
+    tee.course_rating != null &&
+    tee.slope_rating != null &&
+    tee.slope_rating > 0
+  ) {
+    const holeRows = holeScores
+      .map((hs) => {
+        const h = holesById.get(hs.hole_id)
+        if (!h) return null
+        return { score: hs.score, par: h.par }
+      })
+      .filter((x): x is { score: number; par: number } => !!x)
+    if (holeRows.length > 0) {
+      const adjusted = adjustedScore(holeRows, handicap ?? 18)
+      differential = round2(
+        calculateDifferential(adjusted, tee.course_rating, tee.slope_rating),
+      )
+    }
+  }
+
   const { error: roundError } = await updateRound(
     supabase,
     roundId,
@@ -151,10 +203,39 @@ export async function completeRound({
         result.totals.fairwaysTotal > 0 ? result.totals.fairwaysHit : null,
       fairways_total: result.totals.fairwaysTotal || null,
       gir: result.totals.gir,
+      course_tee_id: tee?.id ?? roundTee?.course_tee_id ?? null,
+      score_differential: differential,
     },
     userId,
   )
   if (roundError) throw roundError
+
+  // ---- Handicap index recompute --------------------------------------
+  // Once this round contributes a differential, re-derive the WHS index
+  // from the most recent 20 and write it to the profile. Below 3 total
+  // differentials calculateHandicapIndex returns null and the entered
+  // value stands. Mirrors web; this is what makes a mobile player's index
+  // become a calculated "WHS index" rather than staying "Provisional".
+  if (differential != null) {
+    const { data: recentDiffs, error: diffsError } = await supabase
+      .from('rounds')
+      .select('score_differential')
+      .eq('user_id', userId)
+      .not('score_differential', 'is', null)
+      .order('played_at', { ascending: false })
+      .limit(20)
+    if (diffsError) throw diffsError
+    const diffs = (recentDiffs ?? [])
+      .map((r) => r.score_differential)
+      .filter((d): d is number => d != null)
+    const newIndex = calculateHandicapIndex(diffs)
+    if (newIndex != null) {
+      const { error: profileError } = await updateProfile(supabase, userId, {
+        handicap_index: newIndex,
+      })
+      if (profileError) throw profileError
+    }
+  }
 }
 
 function round2(n: number): number {

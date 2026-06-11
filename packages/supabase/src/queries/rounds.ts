@@ -79,6 +79,19 @@ export function getRecentSGData(client: OgaSupabaseClient, userId: string, limit
     .limit(limit)
 }
 
+// List views include in-progress rounds; the SG dashboard intentionally
+// keeps getRecentSGData (only rounds with computed SG).
+export function getRecentRounds(client: OgaSupabaseClient, userId: string, limit = 10) {
+  return client
+    .from('rounds')
+    .select(
+      'id, played_at, sg_off_tee, sg_approach, sg_around_green, sg_putting, sg_total, total_score, courses(name)',
+    )
+    .eq('user_id', userId)
+    .order('played_at', { ascending: false })
+    .limit(limit)
+}
+
 // Rounds with full hole-score and shot detail nested. Used by the stats
 // page to compute per-band, per-club, and per-lie aggregates client-side.
 //

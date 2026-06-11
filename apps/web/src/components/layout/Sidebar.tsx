@@ -1,4 +1,5 @@
 import { NavLink } from 'react-router-dom'
+import { HANDICAP_PROVENANCE_LABEL } from '@oga/core'
 import { supabase } from '../../lib/supabase'
 import { useProfile } from '../../hooks/useProfile'
 import { useHandicapMeta } from '../../hooks/useHandicapMeta'
@@ -188,19 +189,29 @@ export function Sidebar() {
                   ? `HCP ${profile.handicap_index}`
                   : 'NO HCP'}
               </span>
-              {handicapMeta?.official && (
+              {profile?.handicap_index != null && handicapMeta && (
                 <span
                   style={{
-                    background: 'rgba(31,61,44,0.65)',
-                    color: '#F2EEE5',
+                    background:
+                      handicapMeta.provenance === 'calculated'
+                        ? 'rgba(31,61,44,0.65)'
+                        : 'rgba(138,139,126,0.3)',
+                    color:
+                      handicapMeta.provenance === 'calculated'
+                        ? '#F2EEE5'
+                        : 'rgba(242,238,229,0.85)',
                     padding: '1px 5px',
                     fontSize: 8,
                     letterSpacing: '0.14em',
                     borderRadius: 2,
                   }}
-                  title={`Calculated from ${handicapMeta.differentialsCount} round${handicapMeta.differentialsCount === 1 ? '' : 's'} with rated tees`}
+                  title={
+                    handicapMeta.provenance === 'calculated'
+                      ? `Calculated from ${handicapMeta.differentialsCount} rounds with rated tees`
+                      : 'Self-reported — play 3+ rated rounds for a calculated WHS index'
+                  }
                 >
-                  OFFICIAL
+                  {HANDICAP_PROVENANCE_LABEL[handicapMeta.provenance].toUpperCase()}
                 </span>
               )}
             </div>

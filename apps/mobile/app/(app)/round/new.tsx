@@ -13,6 +13,7 @@ import * as Location from 'expo-location'
 import {
   formatLocation,
   getOpenGolfApiCourse,
+  inferHoleCount,
   searchOpenGolfApi,
   todayLocalDate,
   type OpenGolfApiSearchResult,
@@ -29,6 +30,7 @@ import type { Database } from '@oga/supabase'
 import { supabase } from '../../../lib/supabase'
 import { useAuth } from '../../../hooks/useAuth'
 import { FONT, TYPE } from '../../../lib/typography'
+import { TeePicker } from '../../../components/round/RoundTeeSelector'
 
 type CourseRow = Database['public']['Tables']['courses']['Row']
 type HoleInsert = Database['public']['Tables']['holes']['Insert']
@@ -65,6 +67,13 @@ export default function NewRound() {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [showManualForm, setShowManualForm] = useState(false)
+  // Once a course is resolved we step to a lightweight setup view (tee pick)
+  // before creating the round — mirrors web's NewRoundPage, where tee is an
+  // up-front field. Null = still on the course-search screen.
+  const [pendingCourse, setPendingCourse] = useState<{
+    id: string
+    name: string
+  } | null>(null)
   const [gps, setGps] = useState<GpsState>({ status: 'idle' })
   const searchAbort = useRef<AbortController | null>(null)
   const insets = useSafeAreaInsets()
@@ -163,7 +172,10 @@ export default function NewRound() {
   // actually meant (#472). Mirrors web CourseSearch.
   const showAddNew = !searching && debouncedQuery.trim().length > 0
 
-  async function startWith(courseId: string) {
+  async function startWith(
+    courseId: string,
+    tee?: { courseTeeId: string | null; teeColor: string | null },
+  ) {
     if (!user) return
     setBusy(true)
     setError(null)
@@ -173,6 +185,16 @@ export default function NewRound() {
         user_id: user.id,
         course_id: courseId,
         played_at: today,
+        // Past-round entry persists a total_score sentinel (0) at creation
+        // so re-opening the round from the home list routes to the editable
+        // scorecard, never the live map state machine. Live rounds leave
+        // total_score null — that's the in-progress signal. See #514.
+        ...(mode === 'past' ? { total_score: 0 } : {}),
+        // Tee is optional; only record it when the player picked one in the
+        // setup step. A rated tee is the input WHS differentials need (#542).
+        ...(tee?.courseTeeId
+          ? { course_tee_id: tee.courseTeeId, tee_color: tee.teeColor }
+          : {}),
       })
       if (roundError || !round) throw roundError ?? new Error('Round insert failed')
 
@@ -183,26 +205,37 @@ export default function NewRound() {
         .order('number')
       if (holesError) throw holesError
 
-      // Most courses (private clubs, anything not OSM-mapped) have zero
-      // rows in `holes`. Without holes there are no FK targets for
-      // hole_scores, the hole screen hits "Hole not found", and the
-      // resume banner traps the user. Materialize 18 par-4 placeholders
-      // for the course on the first round there — subsequent rounds at
-      // the same course inherit them, and any later enrichment / shot
-      // logging upgrades the rows in place via tee_lat / pin_lat fills.
-      let holes = existingHoles ?? []
-      if (holes.length === 0) {
+      // Courses range from fully unmapped (most private clubs — zero
+      // `holes` rows) to partially mapped (the crawler averages ~14 of 18
+      // from OSM). Either way, every hole the round needs an FK target for
+      // must have a real `holes` row, or hole_scores can't be created for
+      // it and persistShot silently no-ops on the padded holes (#525).
+      // Materialize whichever hole numbers are missing. Hole count is
+      // inferred from the mapped numbers (course_tees.par is unpopulated in
+      // our data — see inferHoleCount); a genuine 9-hole course stays 9.
+      const existing = existingHoles ?? []
+      const expectedCount = inferHoleCount(existing.map((h) => h.number))
+      const byNumber = new Map<number, { id: string }>()
+      for (const h of existing) byNumber.set(h.number, { id: h.id })
+
+      const missing = Array.from(
+        { length: expectedCount },
+        (_, i) => i + 1,
+      ).filter((n) => !byNumber.has(n))
+      if (missing.length > 0) {
         // A direct holes insert is blocked by RLS (migration 0026) on any
         // course the user didn't create — which is every crawler/public
         // course. Materialize through the insert_synthetic_hole SECURITY
         // DEFINER RPC instead (it authorizes by round ownership), the same
-        // path the web uses via ensureRealHole. Returns the hole id; pairs
-        // with the number/par we passed in.
+        // path the web uses via ensureRealHole. The RPC is idempotent
+        // (ON CONFLICT (course_id, number) DO NOTHING → re-select), so a
+        // partial failure + retry self-heals. Par defaults to 4; later
+        // enrichment / shot logging upgrades the row in place.
         const created = await Promise.all(
-          Array.from({ length: 18 }, (_, i) =>
+          missing.map((n) =>
             supabase.rpc('insert_synthetic_hole', {
               p_course_id: courseId,
-              p_number: i + 1,
+              p_number: n,
               p_par: 4,
               p_round_id: round.id,
             }),
@@ -210,16 +243,14 @@ export default function NewRound() {
         )
         const failed = created.find((r) => r.error)
         if (failed?.error) throw failed.error
-        holes = created.map((r, i) => ({
-          id: r.data as string,
-          number: i + 1,
-          par: 4,
-        }))
+        created.forEach((r, i) => {
+          byNumber.set(missing[i]!, { id: r.data as string })
+        })
       }
 
-      // Single batch insert beats 18 sequential round-trips; round was just
+      // Single batch insert beats per-hole round-trips; round was just
       // created so there's nothing to conflict against.
-      const holeScoreRows = holes.map((h) => ({
+      const holeScoreRows = Array.from(byNumber.values()).map((h) => ({
         round_id: round.id,
         hole_id: h.id,
         score: 0,
@@ -248,7 +279,8 @@ export default function NewRound() {
     try {
       const { data: existing } = await getCourseByExternalId(supabase, r.id)
       if (existing) {
-        await startWith(existing.id)
+        setPendingCourse({ id: existing.id, name: existing.name })
+        setBusy(false)
         return
       }
       const detail = await getOpenGolfApiCourse(r.id)
@@ -302,7 +334,8 @@ export default function NewRound() {
           })),
         )
       }
-      await startWith(course.id)
+      setPendingCourse({ id: course.id, name: detail.name || r.name })
+      setBusy(false)
     } catch (err) {
       setError((err as Error).message)
       setBusy(false)
@@ -346,13 +379,29 @@ export default function NewRound() {
             }))
             const { error: holeErr } = await createHoles(supabase, holes)
             if (holeErr) throw holeErr
-            await startWith(course.id)
             setShowManualForm(false)
+            setPendingCourse({ id: course.id, name: name.trim() })
+            setBusy(false)
           } catch (err) {
             setError((err as Error).message)
             setBusy(false)
           }
         }}
+      />
+    )
+  }
+
+  if (pendingCourse) {
+    return (
+      <RoundSetupStep
+        courseId={pendingCourse.id}
+        courseName={pendingCourse.name}
+        mode={mode}
+        busy={busy}
+        onBack={() => setPendingCourse(null)}
+        onStart={(courseTeeId, teeColor) =>
+          startWith(pendingCourse.id, { courseTeeId, teeColor })
+        }
       />
     )
   }
@@ -375,10 +424,15 @@ export default function NewRound() {
       </Text>
       <TextInput
         placeholder="Search courses…"
+        placeholderTextColor="#8A8B7E"
         value={query}
         onChangeText={setQuery}
         autoCapitalize="words"
         style={[TYPE.body, {
+          // Explicit ink color — without it Android falls back to the system
+          // theme's text color, which is invisible on the cream input in dark
+          // mode. Matches the manual-course inputs (inputStyle).
+          color: '#1C211C',
           backgroundColor: '#FBF8F1',
           borderWidth: 1,
           borderColor: '#D9D2BF',
@@ -401,7 +455,7 @@ export default function NewRound() {
             {localResults.map((c) => (
               <Pressable
                 key={c.id}
-                onPress={() => startWith(c.id)}
+                onPress={() => setPendingCourse({ id: c.id, name: c.name })}
                 disabled={busy}
                 style={{
                   borderTopWidth: 1,
@@ -501,6 +555,121 @@ export default function NewRound() {
           Course data from OpenGolfAPI · ODbL licensed
         </Text>
       </ScrollView>
+    </View>
+  )
+}
+
+// Setup step shown after a course is resolved but before the round is
+// created — mirrors web's NewRoundPage where the tee is an up-front field.
+// Tee is optional so it never blocks pace of play; "Start round" works with
+// no tee picked, and the scorecard can still set it later.
+function RoundSetupStep({
+  courseId,
+  courseName,
+  mode,
+  busy,
+  onBack,
+  onStart,
+}: {
+  courseId: string
+  courseName: string
+  mode: 'live' | 'past'
+  busy: boolean
+  onBack: () => void
+  onStart: (courseTeeId: string | null, teeColor: string | null) => void
+}) {
+  const insets = useSafeAreaInsets()
+  const [teeId, setTeeId] = useState<string | null>(null)
+  const [teeColor, setTeeColor] = useState<string | null>(null)
+
+  return (
+    <View
+      style={{
+        flex: 1,
+        backgroundColor: '#F2EEE5',
+        paddingTop: insets.top + 14,
+        paddingHorizontal: 18,
+      }}
+    >
+      <Text style={{ ...KICKER, marginBottom: 6 }}>
+        {mode === 'past' ? 'Log past round' : 'Start live round'}
+      </Text>
+      <Text
+        style={[TYPE.serif, {
+          color: '#1C211C',
+          fontSize: 28,
+          fontWeight: '500',
+          fontStyle: 'italic',
+          marginBottom: 18,
+        }]}
+      >
+        {courseName}
+      </Text>
+
+      <Text style={{ ...KICKER, marginBottom: 4 }}>Tee played</Text>
+      <Text style={[TYPE.body, { color: '#8A8B7E', fontSize: 12, marginBottom: 12 }]}>
+        Optional — add the tee's rating and slope for a handicap differential.
+        You can set it later from the scorecard.
+      </Text>
+
+      <ScrollView keyboardShouldPersistTaps="handled" style={{ flex: 1 }}>
+        <TeePicker
+          courseId={courseId}
+          selectedTeeId={teeId}
+          onSelect={(t) => {
+            setTeeId(t.id)
+            setTeeColor(t.tee_color)
+          }}
+          busy={busy}
+        />
+      </ScrollView>
+
+      <View
+        style={{
+          flexDirection: 'row',
+          gap: 10,
+          paddingVertical: 14,
+          paddingBottom: insets.bottom + 14,
+        }}
+      >
+        <Pressable
+          onPress={onBack}
+          disabled={busy}
+          style={{
+            flex: 1,
+            borderWidth: 1,
+            borderColor: '#D9D2BF',
+            borderRadius: 2,
+            paddingVertical: 14,
+            alignItems: 'center',
+            opacity: busy ? 0.5 : 1,
+          }}
+        >
+          <Text style={[TYPE.body, { color: '#5C6356', fontSize: 13 }]}>Back</Text>
+        </Pressable>
+        <Pressable
+          onPress={() => onStart(teeId, teeColor)}
+          disabled={busy}
+          style={{
+            flex: 2,
+            backgroundColor: busy ? '#9F9580' : '#1F3D2C',
+            borderRadius: 2,
+            paddingVertical: 14,
+            alignItems: 'center',
+          }}
+        >
+          <Text
+            style={[TYPE.bodyBold, {
+              color: '#F2EEE5',
+              fontSize: 14,
+              fontWeight: '600',
+              letterSpacing: 0.3,
+            }]}
+          >
+            {busy ? 'Starting…' : mode === 'past' ? 'Log round →' : 'Start round →'}
+          </Text>
+        </Pressable>
+      </View>
     </View>
   )
 }

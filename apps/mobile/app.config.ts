@@ -8,32 +8,44 @@ const config: ExpoConfig = {
   name: 'OGA',
   slug: 'oga',
   scheme: 'oga',
-  version: '0.0.1',
+  version: '0.9.0',
   orientation: 'portrait',
+  // New Architecture stays OFF for the SDK 53 migration. SDK 53 flips it
+  // on by default, so this is an active opt-out (set during the SDK 52 step
+  // so the flip can't surprise us). @rnmapbox/maps old-arch support ends at
+  // 10.2.x, so the New-Arch-ON flip couples with the later SDK 54 / RN 0.80
+  // upgrade — done in a separate PR, not this migration. 16 KB does NOT
+  // require New Arch (it's the RN 0.77+/NDK r27 toolchain). See #467.
+  newArchEnabled: false,
   // Direction A "o." monogram (brand-mark Issue 03) — flat 1024² master;
-  // iOS clips the squircle, so no baked corners. Dark/tinted variants
-  // (icon-dark.png / icon-tinted.png) are staged in assets/ but need the
-  // ios.icon {light,dark,tinted} object, which lands in Expo SDK 52.
+  // iOS clips the squircle, so no baked corners. Universal fallback used by
+  // Android (which also has adaptiveIcon below) and web. iOS light/dark/
+  // tinted variants are wired via ios.icon below (#499, unblocked on SDK 52).
   icon: './assets/icon.png',
   userInterfaceStyle: 'automatic',
   backgroundColor: '#1C211C',
-  splash: {
-    image: './assets/splash.png',
-    // contain (not cover): the splash asset is the paper "o." mark on a
-    // transparent field; backgroundColor (#1C211C ink) fills around it so
-    // the centred mark shows whole on every aspect ratio.
-    resizeMode: 'contain',
-    backgroundColor: '#1C211C',
-  },
+  // Splash is configured via the expo-splash-screen plugin below (SDK 53
+  // deprecates the top-level `splash` key). See the plugins array.
   ios: {
     // Reverse-DNS mirror of the production domain (oga.golf). Bundle ID
     // is permanent once registered in App Store Connect — pick deliberately.
     bundleIdentifier: 'golf.oga.app',
+    // iOS app-icon variants (#499). SDK 52+ accepts an object form; light is
+    // the standard "o." mark, dark drops the paper background for iOS dark
+    // appearance, tinted is the monochrome grayscale Apple recolors. All three
+    // are 1024² masters staged in assets/.
+    icon: {
+      light: './assets/icon.png',
+      dark: './assets/icon-dark.png',
+      tinted: './assets/icon-tinted.png',
+    },
     // Seed value for EAS autoIncrement on first iOS build. With
     // appVersionSource: 'remote' in eas.json, no seed = first build errors
     // because there's no remote value to increment.
     buildNumber: '1',
-    supportsTablet: true,
+    // iPhone-only for v1: drops the App Store's 12.9" iPad screenshot
+    // requirement and iPad-layout QA. Revisit when an iPad layout is on the roadmap.
+    supportsTablet: false,
     infoPlist: {
       // Foreground-only: OGA calls requestForegroundPermissionsAsync during a
       // round and never requests background/Always location. The expo-location
@@ -159,6 +171,22 @@ const config: ExpoConfig = {
     ],
     'expo-font',
     'expo-secure-store',
+    [
+      'expo-splash-screen',
+      {
+        // contain + ink backgroundColor: the asset is the paper "o." mark on a
+        // transparent field, so the fill frames the centred mark whole on any
+        // aspect ratio (rather than cropping it to cover).
+        image: './assets/splash.png',
+        resizeMode: 'contain',
+        backgroundColor: '#1C211C',
+        // SDK 52+ Android renders the splash image as a centred icon (Android-12
+        // SplashScreen API). Keep the prior full-screen `contain` rendering so
+        // this migration is visually identical — adopting the centred-icon model
+        // is a deliberate design follow-up, not a silent migration side effect.
+        enableFullScreenImage_legacy: true,
+      },
+    ],
   ],
   experiments: {
     typedRoutes: true,

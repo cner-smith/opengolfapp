@@ -19,7 +19,7 @@ export function Operation36Article() {
   return (
     <View>
       <ArticleHeader
-        kicker="Improving your game · Draft"
+        kicker="Improving your game · Operation 36"
         title="The Operation 36 philosophy."
       />
 
@@ -280,7 +280,7 @@ export function Operation36Article() {
         ]}
       />
 
-      <ArticleFooter>Last reviewed May 2026 · Draft, needs review</ArticleFooter>
+      <ArticleFooter>Last reviewed May 2026</ArticleFooter>
     </View>
   )
 }

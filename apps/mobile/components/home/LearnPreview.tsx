@@ -1,6 +1,6 @@
 import { Pressable, Text, View } from 'react-native'
 import { useRouter } from 'expo-router'
-import { LEARN_SECTIONS, readingTimeMinutes, type LearnArticle } from '@oga/core'
+import { READABLE_LEARN_ARTICLES, readingTimeMinutes, type LearnArticle } from '@oga/core'
 import { TYPE } from '../../lib/typography'
 
 const KICKER: import('react-native').TextStyle = {
@@ -13,11 +13,10 @@ const KICKER: import('react-native').TextStyle = {
 
 // First three readable pieces in catalog order. Section order already
 // encodes editorial priority (fundamentals first), so this surfaces the
-// two flagship published articles without needing a `featured` flag or
-// dates on the model. `soon` stubs aren't tappable, so they're excluded.
-const FEATURED: LearnArticle[] = LEARN_SECTIONS.flatMap((s) => s.articles)
-  .filter((a) => a.status !== 'soon')
-  .slice(0, 3)
+// flagship published articles without needing a `featured` flag.
+const FEATURED: LearnArticle[] = READABLE_LEARN_ARTICLES.slice(0, 3)
+// Surfaced on "See all" so the card reads as a library of N, not a page.
+const READ_COUNT = READABLE_LEARN_ARTICLES.length
 
 export function LearnPreview() {
   const router = useRouter()
@@ -39,7 +38,7 @@ export function LearnPreview() {
           onPress={() => router.push('/(app)/learn')}
           hitSlop={8}
         >
-          <Text style={[TYPE.kicker, KICKER, { color: '#1F3D2C' }]}>See all →</Text>
+          <Text style={[TYPE.kicker, KICKER, { color: '#1F3D2C' }]}>See all {READ_COUNT} →</Text>
         </Pressable>
       </View>
 

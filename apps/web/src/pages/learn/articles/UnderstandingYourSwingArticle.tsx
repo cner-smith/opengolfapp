@@ -1,3 +1,4 @@
+import { SrcBody, SrcLabel } from '../components/ArticlePrimitives'
 import type { CSSProperties, ReactNode } from 'react'
 
 export function UnderstandingYourSwingArticle() {
@@ -11,7 +12,7 @@ export function UnderstandingYourSwingArticle() {
       }}
     >
       <div className="kicker" style={{ marginBottom: 14 }}>
-        Improving your game · Draft
+        Improving your game · Your swing
       </div>
       <h2
         className="font-serif text-caddie-ink"
@@ -307,25 +308,6 @@ function Sources() {
   )
 }
 
-function SrcLabel({ children }: { children: ReactNode }) {
-  return (
-    <div
-      className="font-mono uppercase"
-      style={{ fontSize: 10, letterSpacing: '0.14em', color: '#5C6356', marginBottom: 4 }}
-    >
-      {children}
-    </div>
-  )
-}
-
-function SrcBody({ children }: { children: ReactNode }) {
-  return (
-    <div className="text-caddie-ink-dim" style={{ fontSize: 13, lineHeight: 1.55 }}>
-      {children}
-    </div>
-  )
-}
-
 function Src({ href, children }: { href: string; children: ReactNode }) {
   return (
     <a
@@ -352,7 +334,7 @@ function Footer() {
         lineHeight: 1.6,
       }}
     >
-      Last reviewed May 2026 · Draft, needs coaching review
+      Last reviewed May 2026
     </div>
   )
 }

@@ -186,8 +186,7 @@ export function useHoleCamera({
     if (
       phase === 'PLACE_BALL' &&
       prevPhaseRef.current !== 'PLACE_BALL' &&
-      prevPhaseRef.current !== 'PIN' &&
-      prevPhaseRef.current !== 'TEE'
+      prevPhaseRef.current !== 'PIN'
     ) {
       reframePlaceBallRef.current = true
     }

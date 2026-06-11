@@ -8,7 +8,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
-import type { DetailedStats } from '@oga/core'
+import { formatSG, sgStandouts, type DetailedStats, type SGAverages } from '@oga/core'
 import { Insufficient, Section, Subkicker } from '../components/Section'
 import { ApproachBandTile, SgTile } from '../components/StatTiles'
 
@@ -72,8 +72,45 @@ export function StrokesGainedSection({ data }: { data: DetailedStats }) {
     putting: t.putting,
   }))
 
+  const standouts = sgStandouts(data.sg)
+  const sgLabel = (key: keyof SGAverages) =>
+    SG_SERIES.find((s) => s.key === key)?.label ?? key
+
   return (
     <Section kicker="Strokes gained">
+      {standouts.weakest && (
+        <p
+          style={{
+            fontFamily: 'Fraunces, serif',
+            fontStyle: 'italic',
+            fontSize: 15,
+            lineHeight: 1.5,
+            color: '#1C211C',
+            borderLeft: '2px solid #1F3D2C',
+            paddingLeft: 14,
+            margin: '0 0 22px',
+          }}
+        >
+          {standouts.weakest.value < 0 ? (
+            <>
+              Your biggest leak is <strong>{sgLabel(standouts.weakest.key)}</strong> — {formatSG(standouts.weakest.value)} a round.
+            </>
+          ) : (
+            <>
+              Your softest area is <strong>{sgLabel(standouts.weakest.key)}</strong> ({formatSG(standouts.weakest.value)} a round).
+            </>
+          )}
+          {standouts.strongest &&
+            standouts.strongest.key !== standouts.weakest.key &&
+            standouts.strongest.value > 0 && (
+              <>
+                {' '}
+                <strong>{sgLabel(standouts.strongest.key)}</strong> is a strength, {formatSG(standouts.strongest.value)} a round.
+              </>
+            )}
+        </p>
+      )}
+
       <div className="grid grid-cols-2 sm:grid-cols-4" style={{ gap: 14, marginBottom: 22 }}>
         {series.map((s) => (
           <SgTile key={s.key} label={s.label} color={s.color} value={s.value} />

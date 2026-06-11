@@ -18,7 +18,7 @@ import {
 export function BuildingYourBagArticle() {
   return (
     <View>
-      <ArticleHeader kicker="Your equipment · Draft" title="Building your bag." />
+      <ArticleHeader kicker="Your equipment · Building your bag" title="Building your bag." />
 
       <H3>Fourteen clubs is a budget, not a checklist</H3>
       <P>
@@ -172,7 +172,7 @@ export function BuildingYourBagArticle() {
         ]}
       />
 
-      <ArticleFooter>Last reviewed May 2026 · Draft, needs fitter review</ArticleFooter>
+      <ArticleFooter>Last reviewed May 2026</ArticleFooter>
     </View>
   )
 }

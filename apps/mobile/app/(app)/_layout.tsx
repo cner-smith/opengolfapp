@@ -150,12 +150,14 @@ export default function AppLayout() {
           borderTopWidth: 1,
           borderTopColor: '#D9D2BF',
           paddingTop: 8,
-          // Explicit height + paddingBottom from safe-area insets (#300).
-          // Removing height entirely shrank the bar to 49 px on Android and
-          // older iPhones (no home indicator), so we set the visible content
-          // band ourselves and add `insets.bottom` for iPhone X+ clearance.
-          height: 54 + insets.bottom,
-          paddingBottom: insets.bottom + 10,
+          // Explicit height + inset so the label never clips. Auto-height
+          // (omitting this) under-reserves space on the Galaxy S23's nav setup
+          // and the label gets cut off at the bottom. The label is lifted off
+          // the bottom by tabBarLabelStyle.marginBottom below — that moves the
+          // TEXT independent of the icon (which stays put). Two knobs:
+          // marginBottom = how high the label sits; height = clip headroom.
+          height: 64 + insets.bottom,
+          paddingBottom: insets.bottom + 6,
           elevation: 0,
           shadowOpacity: 0,
         },
@@ -163,6 +165,8 @@ export default function AppLayout() {
           fontSize: 10,
           fontWeight: '500',
           letterSpacing: 0.4,
+          // Lifts the label up off the bottom edge without moving the icon.
+          marginBottom: 8,
         },
         tabBarActiveTintColor: '#1F3D2C',
         tabBarInactiveTintColor: '#8A8B7E',
@@ -225,6 +229,8 @@ export default function AppLayout() {
           so it collapses to a single hidden tab route. This is what makes
           "← Back" from an article pop to the list instead of the Home tab. */}
       <Tabs.Screen name="learn" options={{ href: null }} />
+      {/* Drill library is pushed from the Practice tab, not its own tab. */}
+      <Tabs.Screen name="drills" options={{ href: null }} />
       <Tabs.Screen name="bag" options={{ href: null }} />
       <Tabs.Screen name="rounds" options={{ href: null }} />
       <Tabs.Screen name="round/new" options={{ href: null }} />

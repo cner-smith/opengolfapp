@@ -10,13 +10,8 @@
   .landing-hero-grid > div:first-child {
     text-align: left;
   }
-  .landing-features,
   .landing-learn {
     grid-template-columns: 1fr !important;
-  }
-  .landing-sg {
-    grid-template-columns: 1fr !important;
-    gap: 36px !important;
   }
   .landing-stats {
     grid-template-columns: 1fr !important;
@@ -43,10 +38,55 @@
   }
 }
 
+/* Hero platform row */
+.landing-platforms {
+  display: flex;
+  gap: 18px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+/* Editorial spreads (v2): two-up copy + figure, alternating sides. */
+.landing-spread {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 64px;
+  align-items: center;
+}
+.landing-spread.reverse .spread-copy {
+  order: 2;
+}
+
+@media (max-width: 960px) {
+  .landing-spread {
+    grid-template-columns: 1fr !important;
+    gap: 36px !important;
+  }
+  /* Copy always leads on mobile, regardless of desktop side. */
+  .landing-spread.reverse .spread-copy {
+    order: 0 !important;
+  }
+  .landing-numbers {
+    grid-template-columns: 1fr 1fr !important;
+  }
+  .landing-ways {
+    grid-template-columns: 1fr !important;
+  }
+  .landing-negation {
+    grid-template-columns: 1fr !important;
+    gap: 32px !important;
+  }
+}
+
+@media (max-width: 560px) {
+  .landing-numbers {
+    grid-template-columns: 1fr !important;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .landing-hero-grid *,
-  .landing-features *,
-  .landing-sg *,
+  .landing-spread *,
   .landing-learn * {
     transition: none !important;
     animation: none !important;

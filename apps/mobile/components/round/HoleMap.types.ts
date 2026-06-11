@@ -8,6 +8,5 @@ export interface LatLng {
  * `SET_AIM`    — ball locked, long-press drops aim, camera rotates so
  *                play direction is up.
  * `PIN`        — pin placement modality (orthogonal to the shot flow).
- * `TEE`        — tee box placement modality (orthogonal to the shot flow).
  */
-export type HoleMapPhase = 'PLACE_BALL' | 'SET_AIM' | 'PIN' | 'TEE'
+export type HoleMapPhase = 'PLACE_BALL' | 'SET_AIM' | 'PIN'
