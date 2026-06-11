@@ -680,6 +680,10 @@ export function clubAccuracy(rounds: DetailedRound[]): ClubAccuracyEntry[] {
   for (const { shots } of flatten(rounds)) {
     for (const s of shots) {
       if (!s.club) continue
+      // Club accuracy is a full-swing dispersion stat. Putts carry start/aim/
+      // end coords too, but their lateral miss in yards is meaningless and
+      // would otherwise surface the putter in "most accurate" — exclude them.
+      if (s.club === 'putter' || s.lie_type === 'green') continue
       if (
         s.start_lat == null ||
         s.start_lng == null ||
