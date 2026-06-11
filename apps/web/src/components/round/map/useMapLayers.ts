@@ -62,7 +62,6 @@ interface UseMapLayersInput {
   handicap: number
   onMovePoint: (idx: number, point: PlacedPoint) => void
   onMovePin: ((point: PlacedPoint) => void) | undefined
-  onMoveTee: ((point: PlacedPoint) => void) | undefined
   onSetAim: ((index: number, point: PlacedPoint | null) => void) | undefined
   onMoveExistingShot: ((shotId: string, point: PlacedPoint) => void) | undefined
   onMoveExistingShotAim: ((shotId: string, point: PlacedPoint) => void) | undefined
@@ -105,7 +104,6 @@ export function useMapLayers({
   handicap,
   onMovePoint,
   onMovePin,
-  onMoveTee,
   onSetAim,
   onMoveExistingShot,
   onMoveExistingShotAim,
@@ -562,7 +560,6 @@ export function useMapLayers({
     placedAims,
     onMovePoint,
     onMovePin,
-    onMoveTee,
     onSetAim,
     onMoveExistingShot,
     onMoveExistingShotAim,
