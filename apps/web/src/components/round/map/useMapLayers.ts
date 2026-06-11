@@ -2,8 +2,10 @@ import { useCallback, useEffect, useRef, type MutableRefObject } from 'react'
 import { mapboxgl } from '../../../lib/mapbox'
 import {
   arcGeoJSON,
+  bearingDegrees,
   calculateShotSG,
   circleGeoJSON,
+  destinationYards,
   getExpectedStrokes,
   haversineYards,
   NEAR_GREEN_YARDS,
@@ -16,8 +18,8 @@ import {
   makeAimMarker,
   makeDistancePill,
   makeFlagMarker,
-  makeIconMarker,
   makeNumberedMarker,
+  makeTeeDotMarker,
   MARKER_COLORS,
 } from './markerFactories'
 import {
@@ -75,6 +77,11 @@ const placedLineSourceId = 'placed-line'
 // path actually taken.
 const AIM_COLOR = '#FBF8F1'
 
+// Half-width of the tee box: each dot sits this far either side of the tee
+// shot, perpendicular to the line of play. ~4 yd ≈ a real teeing ground.
+// Mirrors the mobile redesign (PastRoundMap TEE_BOX_HALF_YARDS).
+const TEE_BOX_HALF_YARDS = 4
+
 // A single shot's aim: where the player stood (`start`) and where they
 // aimed (`aim`), both as [lng, lat]. The latest aimed shot gets the full
 // planning treatment (solid start→aim→pin bend + dotted start→pin
@@ -119,31 +126,34 @@ export function useMapLayers({
     for (const m of markerRefs.current) m.remove()
     markerRefs.current = []
 
-    // Tee marker — draggable when a parent handler is wired in.
-    if (effectiveTee) {
-      const parts = makeIconMarker('TEE', '#FBF8F1', '#5C6356')
-      const marker = new mapboxgl.Marker({
-        element: parts.outer,
-        draggable: !!onMoveTee,
-      })
-        .setLngLat([effectiveTee.lng, effectiveTee.lat])
-        .addTo(map)
-      if (onMoveTee) {
-        attachDragFx({
-          outer: parts.outer,
-          content: parts.content,
-          marker,
-          tooltip: 'Drag to move tee',
-        })
-        marker.on('dragend', () => {
-          const ll = marker.getLngLat()
-          userPlacedRef.current = true
-          onMoveTee({ lat: ll.lat, lng: ll.lng })
-        })
-      } else {
-        parts.outer.title = 'Tee box'
+    // Tee box — two understated dots flanking the tee shot, perpendicular to
+    // the line of play (mirrors the mobile redesign; no draggable tee). Origin
+    // is the first shot's start, falling back to the stored course tee; the
+    // line of play points at that shot's aim, then the pin.
+    const teeShot = [...existingShots]
+      .filter((s) => s.startLat != null && s.startLng != null)
+      .sort((a, b) => a.shotNumber - b.shotNumber)[0]
+    const teeOrigin: PlacedPoint | null =
+      placedPoints[0] ??
+      (teeShot ? { lat: teeShot.startLat!, lng: teeShot.startLng! } : null) ??
+      effectiveTee
+    if (teeOrigin) {
+      const teeToward: PlacedPoint | null =
+        placedAims?.[0] ??
+        (teeShot && teeShot.aimLat != null && teeShot.aimLng != null
+          ? { lat: teeShot.aimLat, lng: teeShot.aimLng }
+          : null) ??
+        effectivePin
+      const heading = teeToward
+        ? bearingDegrees(teeOrigin.lat, teeOrigin.lng, teeToward.lat, teeToward.lng)
+        : 0
+      for (const sign of [-90, 90]) {
+        const p = destinationYards(teeOrigin, heading + sign, TEE_BOX_HALF_YARDS)
+        const marker = new mapboxgl.Marker({ element: makeTeeDotMarker() })
+          .setLngLat([p.lng, p.lat])
+          .addTo(map)
+        markerRefs.current.push(marker)
       }
-      markerRefs.current.push(marker)
     }
 
     // Pin marker — draggable when a parent handler is wired in.

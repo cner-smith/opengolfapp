@@ -116,26 +116,8 @@ export function RoundMapInstructionStrip({
     )
   }
   const placeButtons =
-    (needsTee && onStartPlaceTee) || (needsPin && onStartPlacePin) ? (
+    needsPin && onStartPlacePin ? (
       <>
-        {needsTee && onStartPlaceTee && (
-          <button
-            type="button"
-            onClick={onStartPlaceTee}
-            style={{
-              border: '1px solid #5C6356',
-              borderRadius: 2,
-              padding: '6px 10px',
-              fontSize: 12,
-              background: 'transparent',
-              color: '#5C6356',
-              fontWeight: 600,
-              letterSpacing: '0.02em',
-            }}
-          >
-            Place tee box
-          </button>
-        )}
         {needsPin && onStartPlacePin && (
           <button
             type="button"
