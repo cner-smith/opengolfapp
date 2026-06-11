@@ -72,6 +72,26 @@ export function makeAimMarker(): HTMLElement {
   return outer
 }
 
+// Understated tee-box dot. Two of these flank the tee shot (perpendicular to
+// the line of play), mirroring the mobile redesign — deliberately quieter than
+// the old draggable 'TEE' badge. Non-interactive.
+export function makeTeeDotMarker(): HTMLElement {
+  const outer = document.createElement('div')
+  const dot = document.createElement('div')
+  dot.style.cssText = [
+    'width:9px',
+    'height:9px',
+    'border-radius:999px',
+    'background:#FBF8F1',
+    'border:1.5px solid rgba(28,33,28,0.55)',
+    'box-shadow:0 0 0 1px rgba(255,255,255,0.25)',
+    'pointer-events:none',
+  ].join(';')
+  outer.appendChild(dot)
+  outer.title = 'Tee box'
+  return outer
+}
+
 export function makeDistancePill(
   label: string,
   opts: { sublabel?: string; tone?: 'pos' | 'neg' } = {},
