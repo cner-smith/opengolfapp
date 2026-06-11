@@ -111,8 +111,9 @@ local Supabase, not `localhost`.
 ### Populate the course database (optional but recommended)
 
 The `courses` / `holes` / `course_tees` tables ship empty. The crawler
-pulls golf-course outlines from OpenStreetMap (Overpass), and tee
-ratings + slopes are matched in from GolfCourseAPI. Service-role only.
+pulls course outlines + hole geometry from OpenStreetMap (Overpass) and
+enriches course metadata from OpenGolfAPI; per-tee course rating + slope
+are then backfilled from GolfCourseAPI. Service-role only.
 
 ```bash
 SUPABASE_URL=<your-url> \
@@ -173,6 +174,7 @@ packages/
 supabase/
   migrations/       # 0001_initial_schema.sql … numbered, sequential
   functions/        # Supabase Edge Functions (practice plans, emails)
+  seed.sql          # Demo courses + drill library seed
 scripts/
   crawl-courses.ts  # Course crawler (OSM + OpenGolfAPI)
   seed-demo.ts      # Demo user + rounds of synthetic data

@@ -187,8 +187,10 @@ format: `seed: add <drill-name>`.
 
 ## Course data
 
-OGA's courses come from a one-shot crawler over OpenStreetMap +
-OpenGolfAPI; see [`scripts/crawl-courses.ts`](./scripts/crawl-courses.ts).
+OGA's courses come from a crawler over OpenStreetMap (outlines + hole
+geometry) and OpenGolfAPI (course metadata), with per-tee course rating
++ slope backfilled separately from GolfCourseAPI; see
+[`scripts/crawl-courses.ts`](./scripts/crawl-courses.ts).
 For local development, the fastest way to get realistic course data is
 a single state:
 
