@@ -555,19 +555,23 @@ function PlaneSpectrum() {
           {/* ground + ball, shared origin at lower right */}
           <line x1="20" y1="100" x2="220" y2="100" stroke="#9F9580" strokeWidth="1.5" />
           <circle cx="190" cy="100" r="3" fill="#1C211C" />
-          {/* upright (steep) plane */}
-          <line x1="190" y1="100" x2="150" y2="14" stroke="#9F9580" strokeWidth="2" />
-          {/* flat (Hogan) plane */}
-          <line x1="190" y1="100" x2="78" y2="36" stroke="#9F9580" strokeWidth="2" />
-          {/* single plane (accent) */}
-          <line x1="190" y1="100" x2="40" y2="64" stroke="#1F3D2C" strokeWidth="2.5" />
-          <text x="138" y="12" fontSize="7" fontFamily="monospace" letterSpacing="0.5" fill="#8A8B7E">
+          {/* All three are believable swing-plane angles fanning up from the
+              ball — upright steepest (~63°), flat shallower (~45°), single
+              plane the flattest (~33°). The old single-plane line sat ~13°,
+              almost flat on the ground, which read as broken. */}
+          {/* upright (steep) plane ~63° */}
+          <line x1="190" y1="100" x2="147" y2="16" stroke="#9F9580" strokeWidth="2" />
+          {/* flat (Hogan) plane ~45° */}
+          <line x1="190" y1="100" x2="108" y2="18" stroke="#9F9580" strokeWidth="2" />
+          {/* single plane (accent), flattest ~33° */}
+          <line x1="190" y1="100" x2="72" y2="24" stroke="#1F3D2C" strokeWidth="2.5" />
+          <text x="150" y="13" fontSize="7" fontFamily="monospace" letterSpacing="0.5" fill="#8A8B7E">
             UPRIGHT
           </text>
-          <text x="62" y="32" fontSize="7" fontFamily="monospace" letterSpacing="0.5" fill="#8A8B7E">
+          <text x="86" y="13" fontSize="7" fontFamily="monospace" letterSpacing="0.5" fill="#8A8B7E">
             FLAT
           </text>
-          <text x="20" y="60" fontSize="7" fontFamily="monospace" letterSpacing="0.5" fill="#1F3D2C">
+          <text x="14" y="22" fontSize="7" fontFamily="monospace" letterSpacing="0.5" fill="#1F3D2C">
             SINGLE PLANE
           </text>
         </svg>
