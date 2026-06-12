@@ -197,7 +197,13 @@ export async function completeRound({
       sg_putting: round2(result.round.putting),
       sg_total: round2(result.round.total),
       completed_at: new Date().toISOString(),
-      total_score: result.totals.totalScore || null,
+      // Store the real total (incl. 0 for a round finalized without scores) —
+      // never coerce 0 → null. A null total_score is the "never finalized"
+      // signal the round-entry screen routes on; nulling it here stranded
+      // finalized rounds in the live map. completed_at is the canonical
+      // finalized flag, but keeping total_score honest matters for any
+      // total_score-null check (Resume banner, in-progress list).
+      total_score: result.totals.totalScore,
       total_putts: result.totals.totalPutts || null,
       fairways_hit:
         result.totals.fairwaysTotal > 0 ? result.totals.fairwaysHit : null,

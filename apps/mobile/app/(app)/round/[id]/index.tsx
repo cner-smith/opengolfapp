@@ -142,12 +142,15 @@ export default function RoundIndex() {
             ? { lat: row.courses.lat, lng: row.courses.lng }
             : null,
         )
-        // Live round signal: total_score is null while a LIVE round is in
-        // progress. Past-round entry (#514) persists a total_score sentinel
-        // at creation and lands here on the editable scorecard — never the
-        // live map. The `mode !== 'past'` guard is belt-and-suspenders for
-        // the first render before the sentinel round row is re-read.
-        if (row.total_score == null && mode !== 'past') {
+        // Only redirect into the live state machine for a round that is
+        // genuinely unfinished: never finalized (completed_at null) AND has
+        // no score yet. completed_at is the canonical finalized flag, so a
+        // finalized round always opens the read-only tabbed view even if its
+        // total_score is null. The total_score guard keeps seeded past rounds
+        // (scored but no completed_at) out of the live map too; the
+        // `mode !== 'past'` guard covers the past-logger creation race.
+        const unfinished = row.completed_at == null && row.total_score == null
+        if (unfinished && mode !== 'past') {
           if (active) setRedirectToLive(true)
           return
         }

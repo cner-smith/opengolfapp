@@ -111,7 +111,12 @@ export function useHoleData(
     currentHoleScore?.pin_lat != null && currentHoleScore.pin_lng != null
       ? { lat: currentHoleScore.pin_lat, lng: currentHoleScore.pin_lng }
       : null
-  const tee: LatLng | null =
+  // The course's stored tee (OSM-mapped or synthetic). Used as the pre-shot
+  // fallback; once the player has hit, the live tee is their first shot's
+  // start (see `tee` below) — most courses now carry an OSM tee, and pinning
+  // the marker there instead of where the player actually teed off is wrong
+  // for the live round.
+  const storedTee: LatLng | null =
     currentHole?.tee_lat != null && currentHole.tee_lng != null
       ? { lat: currentHole.tee_lat, lng: currentHole.tee_lng }
       : null
@@ -219,6 +224,13 @@ export function useHoleData(
     }
     return out
   }, [remoteShotStarts, pendingForHole])
+
+  // Live tee anchor: the player's first shot's start IS the tee. Falls back to
+  // the stored course tee before the first shot (camera + pre-shot distances).
+  // useHoleData is live-round-only (past rounds use PastRoundMap), so this is
+  // the "GPS-first in live mode" anchor without touching the shared
+  // holes.tee_lat — writeTee still only persists for synthetic holes.
+  const tee: LatLng | null = previousShots[0] ?? storedTee
 
   const localPuttCount = useMemo(() => {
     let n = 0

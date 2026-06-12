@@ -145,9 +145,16 @@ export default function Home() {
     const avgScore = scoreRounds.length > 0
       ? scoreRounds.reduce((s, r) => s + (r.total_score ?? 0), 0) / scoreRounds.length
       : null
+    // total_score === 0 is the past-round-logger sentinel for "no score
+    // entered" (map-created rounds), so exclude it from the best-round min —
+    // otherwise a single unscored round always reads as a best of 0.
+    const realScores = rounds
+      .map((r) => r.total_score)
+      .filter((s): s is number => s != null && s > 0)
+    const bestScore = realScores.length > 0 ? Math.min(...realScores) : null
     const totalSG = avgs.reduce((s, a) => s + a.value, 0)
     const sorted = [...avgs].sort((a, b) => b.value - a.value)
-    return { avgScore, totalSG, weakest: sorted[sorted.length - 1]!, strongest: sorted[0]! }
+    return { avgScore, bestScore, totalSG, weakest: sorted[sorted.length - 1]!, strongest: sorted[0]! }
   }, [rounds])
 
   const eyebrow =
@@ -217,7 +224,7 @@ export default function Home() {
                   valueColor={homeStats.totalSG > 0 ? '#1F3D2C' : homeStats.totalSG < 0 ? '#A33A2A' : '#1C211C'}
                 />
                 <HomeTile label="Rounds" value={rounds.length.toString()} />
-                <HomeTile label="Categories" value={SG_KEYS.length.toString()} />
+                <HomeTile label="Best round" value={homeStats.bestScore != null ? homeStats.bestScore.toString() : '—'} />
               </View>
             </View>
           </>
