@@ -434,15 +434,8 @@ export default function RoundIndex() {
         supabase.from('hole_scores').select('*').eq('round_id', round.id),
       ])
       if (rRes.data) {
-        let saved = rRes.data as RoundRow & {
+        const saved = rRes.data as RoundRow & {
           courses?: { name: string | null } | null
-        }
-        // completeRound writes `total_score: totalScore || null`, so an
-        // all-zero past round comes back null — which would re-strand it on
-        // the live map on next open (#514). Preserve the non-null sentinel.
-        if (saved.total_score == null) {
-          await updateRound(supabase, round.id, { total_score: 0 }, user.id)
-          saved = { ...saved, total_score: 0 }
         }
         setRound(saved)
       }

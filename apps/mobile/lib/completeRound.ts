@@ -32,8 +32,10 @@ interface CompleteArgs {
 // Mobile equivalent of apps/web/src/hooks/useCompleteRound (sans the
 // react-query / handicap-index recalc plumbing). Drains the pending
 // shot queue, runs computeRoundSG over the persisted shots, and stamps
-// total_score / SG fields onto the round so total_score IS NOT NULL —
-// which removes the round from the home-screen Resume banner.
+// completed_at + SG/score fields onto the round. completed_at is what
+// marks the round finalized — it removes it from the home-screen Resume
+// banner and routes it to the read-only summary (total_score may be null
+// when no scores were entered).
 export async function completeRound({
   roundId,
   courseId,
@@ -197,13 +199,12 @@ export async function completeRound({
       sg_putting: round2(result.round.putting),
       sg_total: round2(result.round.total),
       completed_at: new Date().toISOString(),
-      // Store the real total (incl. 0 for a round finalized without scores) —
-      // never coerce 0 → null. A null total_score is the "never finalized"
-      // signal the round-entry screen routes on; nulling it here stranded
-      // finalized rounds in the live map. completed_at is the canonical
-      // finalized flag, but keeping total_score honest matters for any
-      // total_score-null check (Resume banner, in-progress list).
-      total_score: result.totals.totalScore,
+      // null when no scores were entered — total_score is the SCORE, not a
+      // lifecycle flag. completed_at (set above) is the canonical "finalized"
+      // signal for routing and the Resume banner, so a scoreless finalized
+      // round stays null here and is correctly excluded from score averages
+      // (computed stats null-filter total_score).
+      total_score: result.totals.totalScore || null,
       total_putts: result.totals.totalPutts || null,
       fairways_hit:
         result.totals.fairwaysTotal > 0 ? result.totals.fairwaysHit : null,

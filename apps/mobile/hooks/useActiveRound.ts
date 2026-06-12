@@ -9,8 +9,11 @@ export interface ActiveRound {
   currentHole: number
 }
 
-// Active = total_score IS NULL AND played_at within the last day, so a
-// round abandoned a week ago doesn't haunt the home screen forever.
+// Active = not finalized (completed_at IS NULL) AND no score yet
+// (total_score IS NULL) AND played_at within the last day, so a round
+// abandoned a week ago doesn't haunt the home screen forever. completed_at
+// is the canonical finalized flag; the total_score guard also keeps seeded
+// past rounds (scored, but no completed_at) out of the banner.
 // The current hole is the highest hole the player has logged a score
 // on, +1 (capped at 18) — so resuming jumps back to where they left
 // off, not hole 1.
@@ -34,6 +37,7 @@ export function useActiveRound(): ActiveRound | null {
           .from('rounds')
           .select('id, played_at, course_id, courses(name)')
           .eq('user_id', user.id)
+          .is('completed_at', null)
           .is('total_score', null)
           .gte('played_at', oneDayAgo)
           .order('played_at', { ascending: false })
