@@ -336,12 +336,18 @@ async function main() {
     // candidates are still scored against the original name below.
     const query = normalizeForMatch(course.name) || course.name
     const candidates = await searchApi(query)
+    // Pace every iteration, including a throttle-exhausted (null) one, to keep
+    // a steady request cadence regardless of outcome. A null call already
+    // slept ~9s across its 3 retries, so this extra DELAY_MS is negligible.
     await sleep(DELAY_MS)
     if (candidates === null) {
       consecutiveThrottled++
       if (consecutiveThrottled >= THROTTLE_GIVEUP) {
+        // Point the operator at the exact resume cursor — unmatched courses
+        // aren't in the audit log, so this is their only source for it.
         console.warn(
-          `\nStopping: ${consecutiveThrottled} courses in a row throttled — daily quota likely exhausted. Re-run to resume.`,
+          `\nStopping: ${consecutiveThrottled} courses in a row throttled — daily quota likely exhausted.` +
+            `\nRe-run with --after-id ${course.id} to resume past here.`,
         )
         break
       }
