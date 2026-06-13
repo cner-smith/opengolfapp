@@ -14,6 +14,7 @@ import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import {
   formatSG,
+  inferHoleStats,
   pickRoundFocus,
   roundFocusHeadline,
   selectNudgeDrills,
@@ -755,7 +756,13 @@ export default function RoundIndex() {
             <Text style={{ ...KICKER, width: 48, textAlign: 'right', color: '#8A8B7E' }}>
               Putts
             </Text>
-            <Text style={{ ...KICKER, width: 84, textAlign: 'right', color: '#8A8B7E' }}>
+            <Text style={{ ...KICKER, width: 28, textAlign: 'center', color: '#8A8B7E' }}>
+              FIR
+            </Text>
+            <Text style={{ ...KICKER, width: 28, textAlign: 'center', color: '#8A8B7E' }}>
+              GIR
+            </Text>
+            <Text style={{ ...KICKER, width: 76, textAlign: 'right', color: '#8A8B7E' }}>
               Shots
             </Text>
           </View>
@@ -765,6 +772,11 @@ export default function RoundIndex() {
             const putts = hs?.putts ?? null
             const d = score > 0 ? score - h.par : null
             const shotCount = hs ? holeScoreShotCount.get(hs.id) ?? 0 : 0
+            // Derive FIR/GIR from the hole's shots (par-3 fairway = null/blank).
+            const { fairway, gir } = inferHoleStats(
+              hs ? shots.filter((s) => s.hole_score_id === hs.id) : [],
+              h.par,
+            )
             const scoreColor =
               d == null
                 ? '#1C211C'
@@ -812,6 +824,19 @@ export default function RoundIndex() {
                   label={`Hole ${h.number} putts`}
                   onCommit={(n) => persistHoleScore(h.id, { putts: n > 0 ? n : null })}
                 />
+                {[fairway, gir].map((v, i) => (
+                  <Text
+                    key={i}
+                    style={[TYPE.kicker, {
+                      width: 28,
+                      textAlign: 'center',
+                      fontSize: 14,
+                      color: v === true ? '#1F3D2C' : '#C9C2B0',
+                    }]}
+                  >
+                    {v === true ? '✓' : v === false ? '·' : ''}
+                  </Text>
+                ))}
                 <PressableTouch
                   accessibilityRole="button"
                   accessibilityLabel={
@@ -821,7 +846,7 @@ export default function RoundIndex() {
                   }
                   onPress={() => setShotsForHole(h)}
                   android_ripple={{ color: '#EBE5D6' }}
-                  style={{ width: 84, paddingVertical: 12, alignItems: 'flex-end' }}
+                  style={{ width: 76, paddingVertical: 12, alignItems: 'flex-end' }}
                 >
                   <Text
                     style={[TYPE.body, {
