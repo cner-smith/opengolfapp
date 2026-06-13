@@ -1,3 +1,4 @@
+import { useCallback, useMemo } from 'react'
 import { formatDistance, formatPuttDistance, type DistanceUnit } from '@oga/core'
 import { useUnitsContext } from '../contexts/UnitsContext'
 
@@ -17,13 +18,21 @@ export interface UseUnitsResult {
 export function useUnits(): UseUnitsResult {
   const { unit } = useUnitsContext()
 
-  function toDisplay(yards: number, decimals = 0): string {
-    return formatDistance(yards, unit, decimals)
-  }
+  // Memoize the formatters (pure over `unit`) so their identity is stable
+  // across renders. A fresh identity each render silently defeats downstream
+  // memos that key on them — e.g. the map breadcrumb's segment GeoJSON
+  // (BreadcrumbLayers) would re-serialize a Mapbox ShapeSource every render.
+  const toDisplay = useCallback(
+    (yards: number, decimals = 0) => formatDistance(yards, unit, decimals),
+    [unit],
+  )
+  const toDisplayFt = useCallback(
+    (feet: number) => formatPuttDistance(feet, unit),
+    [unit],
+  )
 
-  function toDisplayFt(feet: number): string {
-    return formatPuttDistance(feet, unit)
-  }
-
-  return { unit, toDisplay, toDisplayFt }
+  return useMemo(
+    () => ({ unit, toDisplay, toDisplayFt }),
+    [unit, toDisplay, toDisplayFt],
+  )
 }

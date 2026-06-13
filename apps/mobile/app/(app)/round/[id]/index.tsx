@@ -981,11 +981,7 @@ export default function RoundIndex() {
         par={shotsForHole?.par ?? null}
         shots={
           shotsForHole
-            ? shots.filter(
-                (s) =>
-                  s.hole_score_id ===
-                  scoresByHoleId.get(shotsForHole.id)?.id,
-              )
+            ? shotsByHoleScoreId.get(scoresByHoleId.get(shotsForHole.id)?.id ?? '') ?? []
             : []
         }
         unit={unit}

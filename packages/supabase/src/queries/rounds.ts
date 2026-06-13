@@ -92,6 +92,18 @@ export function getRecentRounds(client: OgaSupabaseClient, userId: string, limit
     .limit(limit)
 }
 
+// Minimal projection for the all-rounds list screen (caps at 500). Drops the
+// per-category SG columns (off_tee/approach/around_green/putting) — only the
+// home SG breakdown reads those; the list shows total score + total SG only.
+export function getRoundsList(client: OgaSupabaseClient, userId: string, limit = 500) {
+  return client
+    .from('rounds')
+    .select('id, played_at, total_score, sg_total, courses(name)')
+    .eq('user_id', userId)
+    .order('played_at', { ascending: false })
+    .limit(limit)
+}
+
 // Rounds with full hole-score and shot detail nested. Used by the stats
 // page to compute per-band, per-club, and per-lie aggregates client-side.
 //
