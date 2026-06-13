@@ -658,7 +658,9 @@ function DeleteAccountModal({
                 opacity: busy ? 0.5 : 1,
               }}
             >
-              <Text style={[TYPE.bodyBold, { color: '#5C6356', fontSize: 13 }]}>Cancel</Text>
+              {/* regular weight — secondary Cancel, must not compete with the
+                  destructive Delete action (#598 review). */}
+              <Text style={[TYPE.body, { color: '#5C6356', fontSize: 13 }]}>Cancel</Text>
             </Pressable>
 
             {phase === 'confirm' ? (
