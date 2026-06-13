@@ -657,7 +657,7 @@ function ScoringDistBar({
         {visible.map((s) => (
           <View key={s.key} style={{ flex: s.count, backgroundColor: s.color, justifyContent: 'center', alignItems: 'center' }}>
             {s.pct >= 8 && (
-              <Text style={[TYPE.body, { color: '#F2EEE5', fontSize: 11, fontWeight: '500', fontVariant: ['tabular-nums'] }]}>
+              <Text style={[TYPE.bodyBold, { color: '#F2EEE5', fontSize: 11, fontVariant: ['tabular-nums'] }]}>
                 {s.pct.toFixed(0)}%
               </Text>
             )}

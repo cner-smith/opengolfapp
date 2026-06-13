@@ -574,7 +574,7 @@ function ClubRow({
         <Text style={[TYPE.body, { color: '#8A8B7E', fontSize: 16 }]}>⠿</Text>
       </Pressable>
       <View style={{ flex: 1 }}>
-        <Text style={[TYPE.body, { color: '#1C211C', fontSize: 16, fontWeight: '500' }]}>
+        <Text style={[TYPE.bodyBold, { color: '#1C211C', fontSize: 16 }]}>
           {club.name}
         </Text>
         <Text style={{ ...KICKER, marginTop: 2 }}>

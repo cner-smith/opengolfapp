@@ -157,7 +157,7 @@ export function RecentRoundsList({
                   alignItems: 'flex-end',
                 }}
               >
-                <Text style={[TYPE.body, { color: '#8A8B7E', fontSize: 13, fontWeight: '500' }]}>
+                <Text style={[TYPE.body, { color: '#8A8B7E', fontSize: 13 }]}>
                   See all rounds →
                 </Text>
               </Pressable>

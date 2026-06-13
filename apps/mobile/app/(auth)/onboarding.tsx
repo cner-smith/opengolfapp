@@ -245,7 +245,7 @@ export default function MobileOnboarding() {
           opacity: saving ? 0.5 : 1,
         }}
       >
-        <Text style={[TYPE.body, { color: '#FFFFFF', fontSize: 13, fontWeight: '500' }]}>
+        <Text style={[TYPE.bodyBold, { color: '#FFFFFF', fontSize: 13 }]}>
           {saving ? 'Saving…' : 'Start tracking'}
         </Text>
       </Pressable>
@@ -266,7 +266,7 @@ export default function MobileOnboarding() {
           opacity: saving ? 0.5 : 1,
         }}
       >
-        <Text style={[TYPE.body, { color: '#1F3D2C', fontSize: 13, fontWeight: '500' }]}>
+        <Text style={[TYPE.bodyBold, { color: '#1F3D2C', fontSize: 13 }]}>
           Set up later →
         </Text>
       </Pressable>

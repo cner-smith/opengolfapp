@@ -132,7 +132,7 @@ export default function Login() {
             opacity: !canSubmit ? 0.5 : 1,
           }}
         >
-          <Text style={[TYPE.body, { color: '#FFFFFF', fontSize: 13, fontWeight: '500' }]}>
+          <Text style={[TYPE.bodyBold, { color: '#FFFFFF', fontSize: 13 }]}>
             {loading ? 'Signing in…' : 'Sign in'}
           </Text>
         </Pressable>

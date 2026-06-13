@@ -106,7 +106,10 @@ export function ConfirmDialog({
                 opacity: busy ? 0.5 : 1,
               }}
             >
-              <Text style={[TYPE.body, { color: '#5C6356', fontSize: 13, fontWeight: '500' }]}>
+              {/* Cancel stays regular weight (de-emphasized) — it shouldn't
+                  compete with the destructive confirm action. The old '500'
+                  was intended de-emphasis that just never rendered on Android. */}
+              <Text style={[TYPE.body, { color: '#5C6356', fontSize: 13 }]}>
                 {cancelLabel}
               </Text>
             </Pressable>
