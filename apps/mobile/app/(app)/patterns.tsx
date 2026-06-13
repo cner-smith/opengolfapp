@@ -25,6 +25,7 @@ import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
 import { useUnits } from '../../hooks/useUnits'
 import { AppBar } from '../../components/ui/AppBar'
+import { Entrance } from '../../components/ui/Entrance'
 import { FONT, TYPE } from '../../lib/typography'
 
 const KICKER: import('react-native').TextStyle = {
@@ -155,6 +156,7 @@ export default function Patterns() {
     <View style={{ flex: 1, backgroundColor: '#F2EEE5' }}>
       <AppBar eyebrow={`Club ${club}`} title="Shot Patterns" />
       <ScrollView contentContainerStyle={{ padding: 18, paddingBottom: 40 }}>
+        <Entrance index={0}>
         <Section kicker="Club">
           <ChipRow
             value={club}
@@ -162,7 +164,9 @@ export default function Patterns() {
             onChange={(v) => v && setClub(v)}
           />
         </Section>
+        </Entrance>
 
+        <Entrance index={1}>
         <Section kicker="Lie type">
           <ChipRow
             value={lieType}
@@ -171,7 +175,9 @@ export default function Patterns() {
             labelFor={(v) => (v === ANY ? 'any' : (v as string).replace(/_/g, ' '))}
           />
         </Section>
+        </Entrance>
 
+        <Entrance index={2}>
         <Section kicker="Lie slope">
           <ChipRow
             value={lieSlope}
@@ -180,7 +186,9 @@ export default function Patterns() {
             labelFor={(v) => (v === ANY ? 'any' : (v as string).replace(/_/g, ' '))}
           />
         </Section>
+        </Entrance>
 
+        <Entrance index={3}>
         <Section kicker="Pattern">
           {loading ? (
             <Text style={[TYPE.body, { color: '#8A8B7E', fontSize: 13 }]}>Loading…</Text>
@@ -220,7 +228,9 @@ export default function Patterns() {
             </>
           )}
         </Section>
+        </Entrance>
 
+        <Entrance index={4}>
         <Section kicker="Pattern summary">
           {stats ? (
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 18 }}>
@@ -254,6 +264,7 @@ export default function Patterns() {
             </Text>
           )}
         </Section>
+        </Entrance>
 
         {stats && (
           <View

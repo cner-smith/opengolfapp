@@ -5,6 +5,7 @@ import { getDrills } from '@oga/supabase'
 import type { Database } from '@oga/supabase'
 import type { BlockType, PlanCategory } from '@oga/core'
 import { AppBar } from '../../components/ui/AppBar'
+import { Entrance } from '../../components/ui/Entrance'
 import {
   BLOCK_TYPE_LABEL,
   CATEGORY_LABEL,
@@ -73,6 +74,7 @@ export default function Drills() {
     <View style={{ flex: 1, backgroundColor: CREAM }}>
       <AppBar eyebrow="Practice" title="Drill library" />
       <ScrollView contentContainerStyle={{ padding: 18, paddingBottom: 48 }}>
+        <Entrance index={0}>
         <Pressable hitSlop={6} onPress={() => router.back()} style={{ marginBottom: 16 }}>
           <Text style={{ ...KICKER, color: INK_MUTE }}>← Practice plan</Text>
         </Pressable>
@@ -86,7 +88,9 @@ export default function Drills() {
           Every drill the plan generator can draw from. Each one explains the why,
           the how, and the rep target — no gimmicks.
         </Text>
+        </Entrance>
 
+        <Entrance index={1}>
         <FilterRow
           label="Part of the game"
           active={category}
@@ -101,6 +105,7 @@ export default function Drills() {
           labelFor={(m) => BLOCK_TYPE_LABEL[m]}
           onPick={setMode}
         />
+        </Entrance>
 
         {loading ? (
           <View style={{ paddingTop: 32, alignItems: 'center' }}>
@@ -109,7 +114,7 @@ export default function Drills() {
         ) : error ? (
           <Text style={[TYPE.body, { color: NEG, fontSize: 13, marginTop: 24 }]}>{error}</Text>
         ) : (
-          <>
+          <Entrance index={2}>
             <Text style={{ ...KICKER, marginTop: 22, marginBottom: 2 }}>
               {filtered.length} drill{filtered.length === 1 ? '' : 's'}
             </Text>
@@ -120,7 +125,7 @@ export default function Drills() {
             ) : (
               filtered.map((drill) => <DrillCard key={drill.id} drill={drill} />)
             )}
-          </>
+          </Entrance>
         )}
       </ScrollView>
     </View>

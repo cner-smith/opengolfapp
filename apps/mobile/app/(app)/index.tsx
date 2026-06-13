@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Pressable, ScrollView, Text, View } from 'react-native'
-import Animated, { FadeInDown } from 'react-native-reanimated'
 import { formatSG } from '@oga/core'
 import { deleteRound, getProfile, getRecentRounds } from '@oga/supabase'
 import type { Database } from '@oga/supabase'
@@ -11,6 +10,7 @@ import { syncPendingShots } from '../../lib/sync'
 import { pendingCount } from '../../lib/db'
 import { AppBar } from '../../components/ui/AppBar'
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
+import { Entrance } from '../../components/ui/Entrance'
 import { ResumeRoundBanner } from '../../components/home/ResumeRoundBanner'
 import { SGBreakdown } from '../../components/home/SGBreakdown'
 import { SGTrendChart } from '../../components/home/SGTrendChart'
@@ -168,7 +168,7 @@ export default function Home() {
     <View style={{ flex: 1, backgroundColor: '#F2EEE5' }}>
       <AppBar eyebrow={eyebrow} title={profile?.username ?? 'Home'} />
       <ScrollView ref={scrollRef} contentContainerStyle={{ padding: 18, paddingBottom: 40 }}>
-        <Animated.View entering={FadeInDown.duration(380)}>
+        <Entrance index={0}>
         <Text
           style={[
             TYPE.serif,
@@ -192,10 +192,10 @@ export default function Home() {
             ↓ New to a stat? The yardage book's at the bottom.
           </Text>
         </Pressable>
-        </Animated.View>
+        </Entrance>
 
         {rounds.length > 0 && (
-          <Animated.View entering={FadeInDown.duration(380).delay(80)}>
+          <Entrance index={1}>
             <Text
               style={[
                 TYPE.bodyItalic,
@@ -230,14 +230,14 @@ export default function Home() {
                 <HomeTile label="Best round" value={homeStats.bestScore != null ? homeStats.bestScore.toString() : '—'} />
               </View>
             </View>
-          </Animated.View>
+          </Entrance>
         )}
 
-        <Animated.View entering={FadeInDown.duration(380).delay(160)}>
+        <Entrance index={2}>
           {activeRound && <ResumeRoundBanner round={activeRound} />}
           {!activeRound && <StartLiveRoundCTA />}
           <LogPastRoundCTA />
-        </Animated.View>
+        </Entrance>
 
         {pending > 0 && (
           <View
@@ -256,7 +256,7 @@ export default function Home() {
           </View>
         )}
 
-        <Animated.View entering={FadeInDown.duration(380).delay(240)}>
+        <Entrance index={3}>
         {rounds.length === 0 ? (
           <View
             style={{
@@ -300,14 +300,14 @@ export default function Home() {
             <SGTrendChart data={trend} />
           </>
         )}
-        </Animated.View>
+        </Entrance>
 
-        <Animated.View entering={FadeInDown.duration(380).delay(320)}>
+        <Entrance index={4}>
           <RecentRoundsList
             rounds={rounds}
             onRequestDelete={(id, name) => setPendingDelete({ id, name })}
           />
-        </Animated.View>
+        </Entrance>
 
         <View
           onLayout={(e) => {
