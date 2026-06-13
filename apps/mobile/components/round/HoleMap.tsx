@@ -131,6 +131,13 @@ interface HoleMapProps {
    * the map).
    */
   showLocationPuck: boolean
+  /**
+   * Whether a map tap in PLACE_BALL places/moves the ball. Defaults true
+   * (live round + adding a new past shot). The past-round review stepper
+   * passes false so the selected shot's marker stays DRAGGABLE to
+   * reposition, but stray taps while reviewing don't move it (#593).
+   */
+  tapToPlaceBall?: boolean
 }
 
 function toCoord(l: LatLng): [number, number] {
@@ -207,6 +214,7 @@ export function HoleMap({
   onSetBall,
   onPlacePin,
   showLocationPuck,
+  tapToPlaceBall = true,
   overlayMode,
   arcWidthYards,
   circleRadiusYards,
@@ -568,8 +576,10 @@ export function HoleMap({
       return
     }
     // Tap-to-place-ball is only meaningful in PLACE_BALL. In SET_AIM we
-    // don't want stray taps moving the just-confirmed ball position.
-    if (isPlaceBallPhase) {
+    // don't want stray taps moving the just-confirmed ball position. The
+    // past-round review stepper also disables it (tapToPlaceBall=false) so
+    // the selected shot is drag-only while reviewing (#593).
+    if (isPlaceBallPhase && tapToPlaceBall) {
       onSetBall(c)
     }
   }

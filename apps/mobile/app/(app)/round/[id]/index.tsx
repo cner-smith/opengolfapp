@@ -114,6 +114,10 @@ export default function RoundIndex() {
   // back into the live HoleScreen route on tap (mode=past would drop
   // the player into the place-ball state machine on a finalized round).
   const [shotsForHole, setShotsForHole] = useState<HoleRow | null>(null)
+  // When the past-round map's "Edit this shot" opens the shots sheet, this
+  // jumps it straight into that shot's editor (vs the shot list). Cleared on
+  // close so the scorecard drill-down still opens to the list.
+  const [editShotId, setEditShotId] = useState<string | null>(null)
   const shareCardRef = useRef<View>(null)
   const { unit } = useUnits()
   const { user } = useAuth()
@@ -939,12 +943,21 @@ export default function RoundIndex() {
         <PastRoundMap
           roundId={round.id}
           userId={user.id}
+          completed={round.completed_at != null}
           holes={sortedHoles}
           holeScores={holeScores}
           shots={shots}
+          unit={unit}
           courseCenter={courseCenter}
           holeNumber={mapHole}
           onHoleChange={setMapHole}
+          onEditShot={(shotId) => {
+            const hole = sortedHoles.find((h) => h.number === mapHole)
+            if (hole) {
+              setEditShotId(shotId)
+              setShotsForHole(hole)
+            }
+          }}
           onShotUpserted={(s) =>
             setShots((prev) => {
               const i = prev.findIndex((x) => x.id === s.id)
@@ -976,7 +989,11 @@ export default function RoundIndex() {
             : []
         }
         unit={unit}
-        onClose={() => setShotsForHole(null)}
+        initialShotId={editShotId}
+        onClose={() => {
+          setShotsForHole(null)
+          setEditShotId(null)
+        }}
         onShotUpdated={(updated) =>
           setShots((prev) => prev.map((s) => (s.id === updated.id ? updated : s)))
         }
