@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import {
   Alert,
   Modal,
@@ -67,6 +67,14 @@ export default function BagScreen() {
     includeBenched: true,
     seedIfEmpty: true,
   })
+  // Count per club_type once — the row's "show loft to disambiguate" flag is
+  // an O(1) lookup instead of a full-bag scan per row on every list render
+  // (incl. every drag frame).
+  const clubTypeCounts = useMemo(() => {
+    const m = new Map<string, number>()
+    for (const c of bag) m.set(c.club_type, (m.get(c.club_type) ?? 0) + 1)
+    return m
+  }, [bag])
   const [showAdd, setShowAdd] = useState(false)
   const [draft, setDraft] = useState<AddDraft>(EMPTY_DRAFT)
   // Set to a club id when the modal is editing an existing row; null when
@@ -285,9 +293,7 @@ export default function BagScreen() {
             <ClubRow
               club={item}
               isActive={isActive}
-              hasDuplicateType={
-                bag.filter((c) => c.club_type === item.club_type).length > 1
-              }
+              hasDuplicateType={(clubTypeCounts.get(item.club_type) ?? 0) > 1}
               onLongPress={drag}
               onToggle={() => toggleInBag(item)}
               onDelete={() => confirmDelete(item)}

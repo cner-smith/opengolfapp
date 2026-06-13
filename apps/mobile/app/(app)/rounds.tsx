@@ -9,7 +9,7 @@ import {
 import { Link } from 'expo-router'
 import { Swipeable } from 'react-native-gesture-handler'
 import { formatSG } from '@oga/core'
-import { deleteRound, getRecentRounds } from '@oga/supabase'
+import { deleteRound, getRoundsList } from '@oga/supabase'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
 import { AppBar } from '../../components/ui/AppBar'
@@ -56,7 +56,7 @@ export default function RoundsList() {
   useEffect(() => {
     if (!user) return
     let active = true
-    getRecentRounds(supabase, user.id, 500).then(({ data, error }) => {
+    getRoundsList(supabase, user.id, 500).then(({ data, error }) => {
       if (!active) return
       if (error) {
         // eslint-disable-next-line no-console
