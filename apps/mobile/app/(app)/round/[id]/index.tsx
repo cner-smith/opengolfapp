@@ -14,6 +14,7 @@ import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import {
   formatSG,
+  inferHoleStats,
   pickRoundFocus,
   roundFocusHeadline,
   selectNudgeDrills,
@@ -225,6 +226,18 @@ export default function RoundIndex() {
   const holeScoreShotCount = useMemo(() => {
     const m = new Map<string, number>()
     for (const s of shots) m.set(s.hole_score_id, (m.get(s.hole_score_id) ?? 0) + 1)
+    return m
+  }, [shots])
+  // Shots grouped by hole_score_id, built once — the scorecard's FIR/GIR
+  // fallback reads this O(1) per row instead of filtering the full `shots`
+  // array per hole (was O(shots×holes) in the render body).
+  const shotsByHoleScoreId = useMemo(() => {
+    const m = new Map<string, ShotRow[]>()
+    for (const s of shots) {
+      const arr = m.get(s.hole_score_id)
+      if (arr) arr.push(s)
+      else m.set(s.hole_score_id, [s])
+    }
     return m
   }, [shots])
 
@@ -755,7 +768,13 @@ export default function RoundIndex() {
             <Text style={{ ...KICKER, width: 48, textAlign: 'right', color: '#8A8B7E' }}>
               Putts
             </Text>
-            <Text style={{ ...KICKER, width: 84, textAlign: 'right', color: '#8A8B7E' }}>
+            <Text style={{ ...KICKER, width: 28, textAlign: 'center', color: '#8A8B7E' }}>
+              FIR
+            </Text>
+            <Text style={{ ...KICKER, width: 28, textAlign: 'center', color: '#8A8B7E' }}>
+              GIR
+            </Text>
+            <Text style={{ ...KICKER, width: 76, textAlign: 'right', color: '#8A8B7E' }}>
               Shots
             </Text>
           </View>
@@ -765,6 +784,15 @@ export default function RoundIndex() {
             const putts = hs?.putts ?? null
             const d = score > 0 ? score - h.par : null
             const shotCount = hs ? holeScoreShotCount.get(hs.id) ?? 0 : 0
+            // FIR/GIR: prefer the persisted hole_scores columns — web parity,
+            // a manual/web-set value wins (apps/web useRoundActions) — else
+            // infer from the hole's placed shots. par-3 fairway → null (blank).
+            const inferred = inferHoleStats(
+              hs ? shotsByHoleScoreId.get(hs.id) ?? [] : [],
+              h.par,
+            )
+            const fairway = hs?.fairway_hit ?? inferred.fairway
+            const gir = hs?.gir ?? inferred.gir
             const scoreColor =
               d == null
                 ? '#1C211C'
@@ -812,6 +840,19 @@ export default function RoundIndex() {
                   label={`Hole ${h.number} putts`}
                   onCommit={(n) => persistHoleScore(h.id, { putts: n > 0 ? n : null })}
                 />
+                {([['fir', fairway], ['gir', gir]] as const).map(([k, v]) => (
+                  <Text
+                    key={k}
+                    style={[TYPE.kicker, {
+                      width: 28,
+                      textAlign: 'center',
+                      fontSize: 14,
+                      color: v === true ? '#1F3D2C' : '#C9C2B0',
+                    }]}
+                  >
+                    {v === true ? '✓' : v === false ? '·' : ''}
+                  </Text>
+                ))}
                 <PressableTouch
                   accessibilityRole="button"
                   accessibilityLabel={
@@ -821,7 +862,7 @@ export default function RoundIndex() {
                   }
                   onPress={() => setShotsForHole(h)}
                   android_ripple={{ color: '#EBE5D6' }}
-                  style={{ width: 84, paddingVertical: 12, alignItems: 'flex-end' }}
+                  style={{ width: 76, paddingVertical: 12, alignItems: 'flex-end' }}
                 >
                   <Text
                     style={[TYPE.body, {
