@@ -21,6 +21,7 @@ import {
   type Shot,
 } from '@oga/core'
 import { getShotsByClub } from '@oga/supabase'
+import { MaterialCommunityIcons } from '@expo/vector-icons'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
 import { useUnits } from '../../hooks/useUnits'
@@ -201,19 +202,32 @@ export default function Patterns() {
                   accessibilityState={{ disabled: sharing }}
                   onPress={handleShare}
                   disabled={sharing}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                   style={({ pressed }) => ({
                     alignSelf: 'flex-start',
-                    marginTop: 14,
-                    paddingVertical: 9,
-                    paddingHorizontal: 14,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: 7,
+                    marginTop: 22,
+                    marginBottom: 4,
+                    paddingVertical: 11,
+                    paddingHorizontal: 16,
+                    backgroundColor: '#EBE5D6',
                     borderWidth: 1,
                     borderColor: '#1F3D2C',
                     borderRadius: 2,
                     opacity: pressed || sharing ? 0.6 : 1,
                   })}
                 >
-                  <Text style={{ ...KICKER, color: '#1F3D2C' }}>
-                    {sharing ? 'Rendering…' : '↓ Export · 1200×630'}
+                  <MaterialCommunityIcons
+                    name="tray-arrow-down"
+                    size={15}
+                    color="#1F3D2C"
+                  />
+                  {/* fontSize +1 over the 10px KICKER: deliberate, this is a
+                      tappable action label beside an icon, not a section eyebrow. */}
+                  <Text style={{ ...KICKER, color: '#1F3D2C', fontSize: 11 }}>
+                    {sharing ? 'Rendering…' : 'Export image'}
                   </Text>
                 </Pressable>
               )}

@@ -1,5 +1,6 @@
 import { Pressable, Text } from 'react-native'
 import { Link } from 'expo-router'
+import { MaterialCommunityIcons } from '@expo/vector-icons'
 import { TYPE } from '../../lib/typography'
 
 export function StartLiveRoundCTA() {
@@ -13,10 +14,14 @@ export function StartLiveRoundCTA() {
             backgroundColor: '#1F3D2C',
             borderRadius: 2,
             paddingVertical: 18,
+            flexDirection: 'row',
             alignItems: 'center',
+            justifyContent: 'center',
+            gap: 8,
             marginBottom: 6,
           }}
         >
+          <MaterialCommunityIcons name="play" size={20} color="#F2EEE5" />
           <Text
             style={[
               TYPE.bodyBold,
@@ -28,7 +33,7 @@ export function StartLiveRoundCTA() {
               },
             ]}
           >
-            ▶  Start live round
+            Start live round
           </Text>
         </Pressable>
       </Link>
@@ -61,10 +66,14 @@ export function LogPastRoundCTA() {
           backgroundColor: 'transparent',
           borderRadius: 2,
           paddingVertical: 14,
+          flexDirection: 'row',
           alignItems: 'center',
+          justifyContent: 'center',
+          gap: 8,
           marginBottom: 22,
         }}
       >
+        <MaterialCommunityIcons name="plus" size={18} color="#1F3D2C" />
         <Text
           style={[
             TYPE.bodyBold,
@@ -76,7 +85,7 @@ export function LogPastRoundCTA() {
             },
           ]}
         >
-          +  Log past round
+          Log past round
         </Text>
       </Pressable>
     </Link>
