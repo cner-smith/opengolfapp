@@ -228,6 +228,18 @@ export default function RoundIndex() {
     for (const s of shots) m.set(s.hole_score_id, (m.get(s.hole_score_id) ?? 0) + 1)
     return m
   }, [shots])
+  // Shots grouped by hole_score_id, built once — the scorecard's FIR/GIR
+  // fallback reads this O(1) per row instead of filtering the full `shots`
+  // array per hole (was O(shots×holes) in the render body).
+  const shotsByHoleScoreId = useMemo(() => {
+    const m = new Map<string, ShotRow[]>()
+    for (const s of shots) {
+      const arr = m.get(s.hole_score_id)
+      if (arr) arr.push(s)
+      else m.set(s.hole_score_id, [s])
+    }
+    return m
+  }, [shots])
 
   // Refetch shots on screen focus. The end-round write order is:
   // total_score + hole_scores first, then pending shot inserts trickle
@@ -772,11 +784,15 @@ export default function RoundIndex() {
             const putts = hs?.putts ?? null
             const d = score > 0 ? score - h.par : null
             const shotCount = hs ? holeScoreShotCount.get(hs.id) ?? 0 : 0
-            // Derive FIR/GIR from the hole's shots (par-3 fairway = null/blank).
-            const { fairway, gir } = inferHoleStats(
-              hs ? shots.filter((s) => s.hole_score_id === hs.id) : [],
+            // FIR/GIR: prefer the persisted hole_scores columns — web parity,
+            // a manual/web-set value wins (apps/web useRoundActions) — else
+            // infer from the hole's placed shots. par-3 fairway → null (blank).
+            const inferred = inferHoleStats(
+              hs ? shotsByHoleScoreId.get(hs.id) ?? [] : [],
               h.par,
             )
+            const fairway = hs?.fairway_hit ?? inferred.fairway
+            const gir = hs?.gir ?? inferred.gir
             const scoreColor =
               d == null
                 ? '#1C211C'
@@ -824,9 +840,9 @@ export default function RoundIndex() {
                   label={`Hole ${h.number} putts`}
                   onCommit={(n) => persistHoleScore(h.id, { putts: n > 0 ? n : null })}
                 />
-                {[fairway, gir].map((v, i) => (
+                {([['fir', fairway], ['gir', gir]] as const).map(([k, v]) => (
                   <Text
-                    key={i}
+                    key={k}
                     style={[TYPE.kicker, {
                       width: 28,
                       textAlign: 'center',
