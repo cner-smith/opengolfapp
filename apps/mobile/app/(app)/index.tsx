@@ -10,6 +10,7 @@ import { syncPendingShots } from '../../lib/sync'
 import { pendingCount } from '../../lib/db'
 import { AppBar } from '../../components/ui/AppBar'
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
+import { Entrance } from '../../components/ui/Entrance'
 import { ResumeRoundBanner } from '../../components/home/ResumeRoundBanner'
 import { SGBreakdown } from '../../components/home/SGBreakdown'
 import { SGTrendChart } from '../../components/home/SGTrendChart'
@@ -167,6 +168,7 @@ export default function Home() {
     <View style={{ flex: 1, backgroundColor: '#F2EEE5' }}>
       <AppBar eyebrow={eyebrow} title={profile?.username ?? 'Home'} />
       <ScrollView ref={scrollRef} contentContainerStyle={{ padding: 18, paddingBottom: 40 }}>
+        <Entrance index={0}>
         <Text
           style={[
             TYPE.serif,
@@ -190,9 +192,10 @@ export default function Home() {
             ↓ New to a stat? The yardage book's at the bottom.
           </Text>
         </Pressable>
+        </Entrance>
 
         {rounds.length > 0 && (
-          <>
+          <Entrance index={1}>
             <Text
               style={[
                 TYPE.bodyItalic,
@@ -227,12 +230,14 @@ export default function Home() {
                 <HomeTile label="Best round" value={homeStats.bestScore != null ? homeStats.bestScore.toString() : '—'} />
               </View>
             </View>
-          </>
+          </Entrance>
         )}
 
-        {activeRound && <ResumeRoundBanner round={activeRound} />}
-        {!activeRound && <StartLiveRoundCTA />}
-        <LogPastRoundCTA />
+        <Entrance index={2}>
+          {activeRound && <ResumeRoundBanner round={activeRound} />}
+          {!activeRound && <StartLiveRoundCTA />}
+          <LogPastRoundCTA />
+        </Entrance>
 
         {pending > 0 && (
           <View
@@ -251,6 +256,7 @@ export default function Home() {
           </View>
         )}
 
+        <Entrance index={3}>
         {rounds.length === 0 ? (
           <View
             style={{
@@ -294,11 +300,14 @@ export default function Home() {
             <SGTrendChart data={trend} />
           </>
         )}
+        </Entrance>
 
-        <RecentRoundsList
-          rounds={rounds}
-          onRequestDelete={(id, name) => setPendingDelete({ id, name })}
-        />
+        <Entrance index={4}>
+          <RecentRoundsList
+            rounds={rounds}
+            onRequestDelete={(id, name) => setPendingDelete({ id, name })}
+          />
+        </Entrance>
 
         <View
           onLayout={(e) => {

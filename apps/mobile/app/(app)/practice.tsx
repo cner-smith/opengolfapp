@@ -3,6 +3,7 @@ import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from 
 import { Link } from 'expo-router'
 import type { StoredBlock, StoredFocusArea, StoredSession } from '@oga/core'
 import { AppBar } from '../../components/ui/AppBar'
+import { Entrance } from '../../components/ui/Entrance'
 import { PressableTouch } from '../../components/ui/PressableTouch'
 import {
   BLOCK_TYPE_LABEL,
@@ -115,6 +116,7 @@ export default function Practice() {
           <NoPlan generating={generating} error={error} onGenerate={generate} />
         ) : (
           <>
+            <Entrance index={0}>
             <Text style={{ ...KICKER, marginBottom: 8 }}>{kicker}</Text>
             <Text
               style={[TYPE.serif, {
@@ -158,11 +160,21 @@ export default function Practice() {
             {error ? (
               <Text style={[TYPE.body, { color: NEG, fontSize: 13, marginBottom: 14 }]}>{error}</Text>
             ) : null}
+            </Entrance>
 
-            {plan.coach_note ? <ReasoningPanel note={plan.coach_note} /> : null}
+            {plan.coach_note ? (
+              <Entrance index={1}>
+                <ReasoningPanel note={plan.coach_note} />
+              </Entrance>
+            ) : null}
 
-            {focusAreas.length > 0 ? <FocusAreas areas={focusAreas} /> : null}
+            {focusAreas.length > 0 ? (
+              <Entrance index={2}>
+                <FocusAreas areas={focusAreas} />
+              </Entrance>
+            ) : null}
 
+            <Entrance index={3}>
             {sessions.map((session, i) => (
               <SessionBlock
                 key={`session-${i}`}
@@ -173,7 +185,9 @@ export default function Practice() {
                 onToggle={toggleCompletion}
               />
             ))}
+            </Entrance>
 
+            <Entrance index={4}>
             {plan.id ? (
               <FeedbackSection key={plan.id} initial={plan.feedback ?? ''} onSave={submitFeedback} />
             ) : null}
@@ -194,6 +208,7 @@ export default function Practice() {
                 </Pressable>
               </Link>
             </View>
+            </Entrance>
           </>
         )}
       </ScrollView>

@@ -14,6 +14,7 @@ import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
 import { AppBar } from '../../components/ui/AppBar'
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
+import { Entrance } from '../../components/ui/Entrance'
 import { FONT, TYPE } from '../../lib/typography'
 
 interface RoundRow {
@@ -118,6 +119,7 @@ export default function RoundsList() {
             No rounds yet.
           </Text>
         ) : (
+          <Entrance index={0}>
           <View style={{ borderTopWidth: 1, borderColor: '#D9D2BF' }}>
             {rounds.map((r) => (
               <Swipeable
@@ -226,6 +228,7 @@ export default function RoundsList() {
               </Swipeable>
             ))}
           </View>
+          </Entrance>
         )}
       </ScrollView>
       <ConfirmDialog

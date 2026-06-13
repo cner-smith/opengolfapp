@@ -18,6 +18,7 @@ import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
 import { useUnits } from '../../hooks/useUnits'
 import { AppBar } from '../../components/ui/AppBar'
+import { Entrance } from '../../components/ui/Entrance'
 import { TYPE } from '../../lib/typography'
 
 const N_OPTIONS = [5, 10, 20] as const
@@ -196,6 +197,7 @@ export default function Stats() {
           <>
             {stats && <StandoutCallout sg={stats.sg} />}
 
+            <Entrance index={0}>
             <Section kicker={`Avg — last ${rounds.length} rounds`}>
               <View
                 style={{
@@ -253,7 +255,9 @@ export default function Stats() {
                 ))}
               </View>
             </Section>
+            </Entrance>
 
+            <Entrance index={1}>
             <Section kicker={`SG trend — last ${rounds.length} rounds`}>
               <VictoryChart
                 height={CHART_HEIGHT}
@@ -339,8 +343,10 @@ export default function Stats() {
                 ))}
               </View>
             </Section>
+            </Entrance>
 
             {stats && (
+              <Entrance index={2}>
               <Section kicker="Scoring">
                 <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginBottom: 14 }}>
                   <StatTile label="Avg score" value={fmtNum(stats.scoring.avgScore, 1)} />
@@ -357,9 +363,11 @@ export default function Stats() {
                   total={stats.scoringDistribution.total}
                 />
               </Section>
+              </Entrance>
             )}
 
             {stats && (
+              <Entrance index={3}>
               <Section kicker="Ball striking">
                 <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
                   <StatTile label="Fairways" value={fmtPct(stats.ballStriking.fairwayPct)} />
@@ -374,9 +382,11 @@ export default function Stats() {
                   />
                 </View>
               </Section>
+              </Entrance>
             )}
 
             {stats && (
+              <Entrance index={4}>
               <Section kicker="Short game">
                 <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
                   <StatTile label="Putts/round" value={fmtNum(stats.shortGame.puttsPerRound, 1)} />
@@ -387,9 +397,11 @@ export default function Stats() {
                   <StatTile label="Sand save" value={fmtPct(stats.shortGame.sandSavePct)} />
                 </View>
               </Section>
+              </Entrance>
             )}
 
             {stats && (
+              <Entrance index={5}>
               <Section kicker="Patterns">
                 <Subkicker>Miss tendency</Subkicker>
                 {stats.missTendency.length === 0 ? (
@@ -510,6 +522,7 @@ export default function Stats() {
                   </View>
                 )}
               </Section>
+              </Entrance>
             )}
           </>
         )}
