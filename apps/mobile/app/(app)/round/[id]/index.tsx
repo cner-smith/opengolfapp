@@ -945,9 +945,10 @@ export default function RoundIndex() {
 }
 
 // Co-located post-round nudge — mirrors the web RoundSummary's RoundNudge.
-// Chips are non-interactive: mobile has no drill-library route yet (the
-// practice tab is a teaser), so there's nowhere honest to send a tap.
+// Chips link to the practice library: web sends its chips to /practice/drills;
+// mobile's equivalent route is /(app)/drills (shipped #511/#519).
 function RoundNudge({ focus, picks }: { focus: RoundFocus; picks: DrillRow[] }) {
+  const router = useRouter()
   return (
     <View
       style={{
@@ -970,25 +971,29 @@ function RoundNudge({ focus, picks }: { focus: RoundFocus; picks: DrillRow[] }) 
         {roundFocusHeadline(focus)}
       </Text>
       {picks.length > 0 && (
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-          {picks.map((drill) => (
-            <View
-              key={drill.id}
-              style={{
-                borderWidth: 1,
-                borderColor: '#1F3D2C',
-                borderRadius: 2,
-                paddingVertical: 6,
-                paddingHorizontal: 10,
-              }}
-            >
-              <Text style={[TYPE.body, { color: '#1F3D2C', fontSize: 13 }]}>
-                {drill.name}
-                {drill.duration_min ? ` · ${drill.duration_min}m` : ''}
-              </Text>
-            </View>
-          ))}
-        </View>
+        <>
+          <Text style={{ ...KICKER, marginBottom: 8 }}>Suggested drills</Text>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+            {picks.map((drill) => (
+              <PressableTouch
+                key={drill.id}
+                onPress={() => router.push('/(app)/drills')}
+                style={{
+                  borderWidth: 1,
+                  borderColor: '#1F3D2C',
+                  borderRadius: 2,
+                  paddingVertical: 6,
+                  paddingHorizontal: 10,
+                }}
+              >
+                <Text style={[TYPE.body, { color: '#1F3D2C', fontSize: 13 }]}>
+                  {drill.name}
+                  {drill.duration_min ? ` · ${drill.duration_min}m` : ''} →
+                </Text>
+              </PressableTouch>
+            ))}
+          </View>
+        </>
       )}
     </View>
   )
