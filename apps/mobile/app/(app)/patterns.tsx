@@ -224,6 +224,8 @@ export default function Patterns() {
                     size={15}
                     color="#1F3D2C"
                   />
+                  {/* fontSize +1 over the 10px KICKER: deliberate, this is a
+                      tappable action label beside an icon, not a section eyebrow. */}
                   <Text style={{ ...KICKER, color: '#1F3D2C', fontSize: 11 }}>
                     {sharing ? 'Rendering…' : 'Export image'}
                   </Text>
