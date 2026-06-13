@@ -1,5 +1,7 @@
+import { useMemo } from 'react'
 import { Text, View, useWindowDimensions } from 'react-native'
 import { VictoryAxis, VictoryChart, VictoryLine } from 'victory-native'
+import { symmetricNiceTicks } from '@oga/core'
 import { FONT, TYPE } from '../../lib/typography'
 
 const KICKER: import('react-native').TextStyle = {
@@ -25,6 +27,10 @@ const X_AXIS_Y = BOTTOM
 
 export function SGTrendChart({ data }: SGTrendChartProps) {
   const { width: screenWidth } = useWindowDimensions()
+  // Symmetric Y domain + ticks scaled to the data peak so the axis labels
+  // always match the plotted line (a fixed [-0.5,0,0.5] tick set stopped
+  // matching once a round's SG total ran past it).
+  const sgAxis = useMemo(() => symmetricNiceTicks(data.map((d) => d.y)), [data])
   return (
     <View style={{ marginBottom: 28 }}>
       <View
@@ -40,6 +46,7 @@ export function SGTrendChart({ data }: SGTrendChartProps) {
       <VictoryChart
         height={HEIGHT}
         width={screenWidth - 36}
+        domain={{ y: [-sgAxis.max, sgAxis.max] }}
         padding={{ top: 12, right: 16, bottom: BOTTOM, left: 32 }}
       >
         <VictoryAxis
@@ -56,7 +63,7 @@ export function SGTrendChart({ data }: SGTrendChartProps) {
         />
         <VictoryAxis
           dependentAxis
-          tickValues={[-0.5, 0, 0.5]}
+          tickValues={sgAxis.ticks}
           style={{
             axis: { stroke: '#D9D2BF' },
             tickLabels: {

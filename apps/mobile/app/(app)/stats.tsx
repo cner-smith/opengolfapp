@@ -7,6 +7,7 @@ import {
   DEFAULT_HANDICAP,
   formatSG,
   sgStandouts,
+  symmetricNiceTicks,
   YARDS_TO_METERS,
   type ApproachBandStat,
   type DetailedRound,
@@ -109,6 +110,14 @@ export default function Stats() {
       }),
     }))
   }, [rounds])
+
+  // Symmetric Y domain + ticks scaled to the actual data peak, so the axis
+  // labels always match the plotted lines (a fixed [-1.5..1.5] tick set got
+  // crammed into the middle once an outlier round blew out the auto-domain).
+  const sgAxis = useMemo(
+    () => symmetricNiceTicks(chartSeries.flatMap((s) => s.data.map((d) => d.y))),
+    [chartSeries],
+  )
 
   const stats: DetailedStats | null = useMemo(
     () => (rounds.length > 0 ? computeDetailedStats(rounds, DEFAULT_HANDICAP) : null),
@@ -262,6 +271,7 @@ export default function Stats() {
               <VictoryChart
                 height={CHART_HEIGHT}
                 width={screenWidth - 36}
+                domain={{ y: [-sgAxis.max, sgAxis.max] }}
                 padding={{ top: 16, right: 12, bottom: CHART_BOTTOM, left: 32 }}
               >
                 <VictoryAxis
@@ -280,7 +290,7 @@ export default function Stats() {
                 />
                 <VictoryAxis
                   dependentAxis
-                  tickValues={[-1.5, -1, -0.5, 0, 0.5, 1, 1.5]}
+                  tickValues={sgAxis.ticks}
                   style={{
                     axis: { stroke: '#D9D2BF' },
                     tickLabels: { fontSize: 9, fill: '#8A8B7E' },
