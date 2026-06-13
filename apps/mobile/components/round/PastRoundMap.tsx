@@ -39,9 +39,13 @@ const KICKER: import('react-native').TextStyle = {
 // tracking the finger locally and only write the settled position.
 const AIM_PERSIST_DEBOUNCE_MS = 500
 
-// Short result labels for the review stepper's summary line (a compact echo
-// of PastHoleShotsSheet's fuller editor labels — display-only, two callers,
-// so not worth a shared export under the 3-caller rule).
+// Short result labels for the review stepper's summary line. Kept app-local
+// rather than in @oga/core because summarizeShot/SHOT_RESULT_SHORT emit a
+// display-specific, abbreviated UI string tuned for this narrow stepper — web
+// has its own formatShotSummary (ShotEntryModal) with a different shape.
+// Unifying shot-summary formatting into core is real cross-surface debt
+// (tracked separately) — the package-boundary call here is "too view-specific
+// to lift yet," not the 3-caller rule.
 const SHOT_RESULT_SHORT: Record<ShotResult, string> = {
   solid: 'Solid',
   push_right: 'Push R',

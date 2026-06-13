@@ -126,7 +126,7 @@ export function PastHoleShotsSheet({
         ? sortedShots.find((s) => s.id === initialShotId) ?? null
         : null,
     )
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- sortedShots intentionally omitted: re-saving shot details mutates `shots` and must not re-open the editor after it closes to the list
   }, [visible, initialShotId])
 
   async function handleSave(
