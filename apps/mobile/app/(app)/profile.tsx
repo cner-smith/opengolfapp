@@ -389,7 +389,7 @@ export default function ProfileTab() {
         >
           <View>
             <Text style={{ ...KICKER, marginBottom: 2 }}>Equipment</Text>
-            <Text style={[TYPE.body, { color: '#1C211C', fontSize: 16, fontWeight: '500' }]}>
+            <Text style={[TYPE.bodyBold, { color: '#1C211C', fontSize: 16 }]}>
               My Bag
             </Text>
           </View>
@@ -658,7 +658,7 @@ function DeleteAccountModal({
                 opacity: busy ? 0.5 : 1,
               }}
             >
-              <Text style={[TYPE.body, { color: '#5C6356', fontSize: 13, fontWeight: '500' }]}>Cancel</Text>
+              <Text style={[TYPE.bodyBold, { color: '#5C6356', fontSize: 13 }]}>Cancel</Text>
             </Pressable>
 
             {phase === 'confirm' ? (

@@ -174,7 +174,7 @@ export default function Signup() {
             opacity: !canSubmit ? 0.5 : 1,
           }}
         >
-          <Text style={[TYPE.body, { fontSize: 13, fontWeight: '500' }]} className="text-white">
+          <Text style={[TYPE.bodyBold, { fontSize: 13 }]} className="text-white">
             {loading ? 'Creating…' : 'Create account'}
           </Text>
         </Pressable>

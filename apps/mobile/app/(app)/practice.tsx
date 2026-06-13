@@ -308,7 +308,7 @@ function FocusAreas({ areas }: { areas: StoredFocusArea[] }) {
               asChild
             >
               <Pressable hitSlop={6} style={{ marginTop: 6 }}>
-                <Text style={[TYPE.body, { color: ACCENT, fontSize: 13, fontWeight: '600' }]}>
+                <Text style={[TYPE.bodyBold, { color: ACCENT, fontSize: 13 }]}>
                   {a.article.title} →
                 </Text>
               </Pressable>

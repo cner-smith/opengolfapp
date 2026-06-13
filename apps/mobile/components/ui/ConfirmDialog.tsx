@@ -106,7 +106,7 @@ export function ConfirmDialog({
                 opacity: busy ? 0.5 : 1,
               }}
             >
-              <Text style={[TYPE.body, { color: '#5C6356', fontSize: 13, fontWeight: '500' }]}>
+              <Text style={[TYPE.bodyBold, { color: '#5C6356', fontSize: 13 }]}>
                 {cancelLabel}
               </Text>
             </Pressable>

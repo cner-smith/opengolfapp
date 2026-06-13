@@ -318,7 +318,7 @@ function NavChevron({
         opacity: disabled ? 0.3 : 1,
       }}
     >
-      <Text style={[TYPE.body, { color: CREAM, fontSize: 20, fontWeight: '500' }]}>
+      <Text style={[TYPE.bodyBold, { color: CREAM, fontSize: 20 }]}>
         {dir === 'prev' ? '‹' : '›'}
       </Text>
     </PressableTouch>
