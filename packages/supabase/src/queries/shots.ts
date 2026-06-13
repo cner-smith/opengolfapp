@@ -14,10 +14,9 @@ type ShotUpdate = Database['public']['Tables']['shots']['Update']
 export const SHOT_COLUMNS = 'id, hole_score_id, user_id, shot_number, start_lat, start_lng, end_lat, end_lng, aim_lat, aim_lng, distance_to_target, club, lie_type, lie_slope, lie_slope_forward, lie_slope_side, shot_result, penalty, ob, aim_offset_yards, break_direction, putt_result, putt_distance_result, putt_direction_result, putt_distance_ft, putt_slope_pct, green_speed, notes' as const
 
 // Pattern/dispersion screens read far fewer columns than the full row. These
-// narrowed projections trim the per-row payload on the largest shot queries
-// (getShotsForUser caps at 1000 rows; getShotsByClub at 200). Both web and
-// mobile consumers were verified to read only these columns — TS catches any
-// over-drop because the `as const` literal types the response shape.
+// narrowed projections trim the per-row payload on the largest shot queries.
+// Both web and mobile consumers were verified to read only these columns — TS
+// catches any over-drop because the `as const` literal types the response shape.
 
 // getShotsByClub consumers (web useShotPatterns + mobile patterns): coords,
 // distance, club, lie + slope axes, result flags. Drops the 9 putt-only /
