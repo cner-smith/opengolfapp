@@ -902,6 +902,7 @@ export default function RoundIndex() {
         <PastRoundMap
           roundId={round.id}
           userId={user.id}
+          completed={round.completed_at != null}
           holes={sortedHoles}
           holeScores={holeScores}
           shots={shots}

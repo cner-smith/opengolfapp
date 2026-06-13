@@ -18,6 +18,7 @@ import { distanceYards } from '../../lib/maps'
 import { FONT, TYPE } from '../../lib/typography'
 import { ConfirmDialog } from '../ui/ConfirmDialog'
 import { HoleMap, type LatLng } from './HoleMap'
+import type { HoleMapPhase } from './HoleMap.types'
 import { PUTTING_RADIUS_YARDS } from './hole/types'
 
 type HoleRow = Database['public']['Tables']['holes']['Row']
@@ -33,9 +34,14 @@ const KICKER: import('react-native').TextStyle = {
   fontFamily: FONT.mono,
 }
 
-// Short result labels for the selected-shot summary line (a compact echo of
-// PastHoleShotsSheet's fuller editor labels — display-only, two callers, so
-// not worth a shared export under the 3-caller rule).
+// Debounce window for persisting an aim drag. The aim handle fires updates
+// at ~25 Hz while dragging (HoleMap throttles to 40ms); we keep the marker
+// tracking the finger locally and only write the settled position.
+const AIM_PERSIST_DEBOUNCE_MS = 500
+
+// Short result labels for the review stepper's summary line (a compact echo
+// of PastHoleShotsSheet's fuller editor labels — display-only, two callers,
+// so not worth a shared export under the 3-caller rule).
 const SHOT_RESULT_SHORT: Record<ShotResult, string> = {
   solid: 'Solid',
   push_right: 'Push R',
@@ -74,18 +80,28 @@ function summarizeShot(row: ShotRow | null, unit: DistanceUnit): string {
   return parts.length ? parts.join(' · ') : 'No details yet — tap Edit to add them'
 }
 
-// Past-round map = REVIEW + EDIT, not the live append flow (#593). Existing
-// shots load as a breadcrumb; a stepper walks shot-to-shot; the selected
-// marker drags to reposition (geometry) and "Edit this shot" opens the
-// shared scorecard sheet for club/lie/result/putt details. A new shot can
-// only be added off the LAST shot. Reuses HoleMap (the renderer) but NOT
-// LiveRoundSession (the live GPS state machine) — see #514.
+// The past-round map has TWO lifecycle-gated modes (#593), driven by
+// `completed` (= round.completed_at != null):
+//
+//  • LOGGING (not completed): you're still entering an old round. Full
+//    placement chrome — BALL / AIM / PIN modes (pin-setting included),
+//    "+ Shot". Geometry only; shot details are edited on the scorecard.
+//
+//  • REVIEW (completed): the round is finalized. A shot stepper walks the
+//    existing shots, the selected marker drags to reposition, "Edit this
+//    shot" opens the shared scorecard sheet, and a new shot can be added
+//    only off the last one. No pin chrome — a finalized round has its pins.
+//
+// Both share the seed / persist / score-sync plumbing below. Reuses HoleMap
+// (the renderer) but NOT LiveRoundSession (the live GPS state machine) — #514.
 interface PlacedShot {
   id: string | null
   shotNumber: number
   start: LatLng | null
   aim: LatLng | null
 }
+
+type PlacementMode = Extract<HoleMapPhase, 'PLACE_BALL' | 'SET_AIM' | 'PIN'>
 
 // Half-width of the tee box (each dot sits this far to either side of the
 // tee shot, perpendicular to the line of play). ~4 yd ≈ a real teeing ground.
@@ -94,6 +110,8 @@ const TEE_BOX_HALF_YARDS = 4
 interface PastRoundMapProps {
   roundId: string
   userId: string
+  /** round.completed_at != null — finalized → review; null → still logging. */
+  completed: boolean
   holes: HoleRow[]
   holeScores: HoleScoreRow[]
   shots: ShotRow[]
@@ -112,6 +130,7 @@ const OKC_FALLBACK: LatLng = { lat: 35.5, lng: -97.5 }
 export function PastRoundMap({
   roundId,
   userId,
+  completed,
   holes,
   holeScores,
   shots,
@@ -164,14 +183,25 @@ export function PastRoundMap({
 
   const [placed, setPlaced] = useState<PlacedShot[]>([])
   const [activeIdx, setActiveIdx] = useState(0)
-  // Review (default) = step/drag/edit existing shots, taps don't move them.
-  // Adding = a fresh trailing draft is awaiting placement (tap drops it).
+  // LOGGING placement mode (BALL/AIM/PIN). Ignored in REVIEW (forced
+  // PLACE_BALL there so the camera stays flat top-down and the marker drags).
+  const [mode, setMode] = useState<PlacementMode>('PLACE_BALL')
+  // REVIEW: a fresh trailing draft is awaiting placement (tap drops it).
   const [adding, setAdding] = useState(false)
   // When set (a shot index), the "On the green?" prompt is showing for a ball
   // just placed within putting range (mirrors the live round's prompt). Yes
   // marks it a putt; No leaves it a chip/bunker. Putt DETAILS (made /
   // short-long / left-right / break) are edited on the scorecard sheet.
   const [greenPromptIdx, setGreenPromptIdx] = useState<number | null>(null)
+  const aimTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // Clear a pending aim-debounce on unmount (e.g. switching to the Scorecard
+  // tab mid-drag) so it can't fire a write against a torn-down component.
+  useEffect(() => {
+    return () => {
+      if (aimTimerRef.current) clearTimeout(aimTimerRef.current)
+    }
+  }, [])
 
   // Re-seed the placement list whenever the hole changes (NOT on every
   // shots-prop change, which would clobber an in-progress placement). The
@@ -208,6 +238,7 @@ export function PastRoundMap({
       if (existing.length > 0 && placed.every((s) => s.id == null)) {
         setPlaced(existing)
         setActiveIdx(existing.length - 1)
+        setMode('PLACE_BALL')
         setAdding(false)
       }
       return
@@ -219,6 +250,7 @@ export function PastRoundMap({
         : [{ id: null, shotNumber: 1, start: null, aim: null }]
     setPlaced(seeded)
     setActiveIdx(seeded.length - 1)
+    setMode('PLACE_BALL')
     setAdding(false)
   }, [currentHoleScore?.id, holeNumber, shots, placed])
 
@@ -229,8 +261,8 @@ export function PastRoundMap({
   )
 
   // The actually-placed shots, paired with their index in `placed`. The
-  // stepper walks this list; an un-placed trailing draft (while adding) is
-  // excluded so "Shot N of M" counts only real shots.
+  // review stepper walks this list; an un-placed trailing draft (while
+  // adding) is excluded so "Shot N of M" counts only real shots.
   const placedReal = useMemo(
     () => placed.map((s, i) => ({ s, i })).filter((x) => x.s.start != null),
     [placed],
@@ -248,10 +280,14 @@ export function PastRoundMap({
     [placed, activeIdx],
   )
 
+  const startedCount = useMemo(
+    () => placed.filter((s) => s.start != null).length,
+    [placed],
+  )
+
   // Tee box = two dots flanking the tee shot, perpendicular to the line of
-  // play, so you see where the drive was hit from. Derived from the first
-  // placed shot (falling back to the stored course tee), oriented toward
-  // that shot's aim, then the pin.
+  // play. Derived from the first placed shot (falling back to the stored
+  // course tee), oriented toward that shot's aim, then the pin.
   const teeBox = useMemo<[LatLng, LatLng] | null>(() => {
     const origin = placed[0]?.start ?? tee
     if (!origin) return null
@@ -284,11 +320,15 @@ export function PastRoundMap({
     if (data) onHoleScoreChanged(data as HoleScoreRow)
   }
 
-  async function persistShotAt(idx: number, next: { start?: LatLng | null }) {
+  async function persistShotAt(
+    idx: number,
+    next: { start?: LatLng | null; aim?: LatLng | null },
+  ) {
     if (!currentHoleScore) return
     const shot = placed[idx]
     if (!shot) return
     const start = next.start !== undefined ? next.start : shot.start
+    const aim = next.aim !== undefined ? next.aim : shot.aim
     if (!start) return
     const distance = effectivePin
       ? Math.round(distanceYards(start, effectivePin))
@@ -299,8 +339,8 @@ export function PastRoundMap({
       shot_number: shot.shotNumber,
       start_lat: start.lat,
       start_lng: start.lng,
-      aim_lat: shot.aim?.lat ?? null,
-      aim_lng: shot.aim?.lng ?? null,
+      aim_lat: aim?.lat ?? null,
+      aim_lng: aim?.lng ?? null,
       distance_to_target: distance,
     }
     if (shot.id) {
@@ -342,10 +382,10 @@ export function PastRoundMap({
     }
   }
 
-  // Map tap (only while adding — review passes tapToPlaceBall=false) OR a
-  // marker drag (always, in PLACE_BALL) lands here. A drag on an existing
-  // shot just repositions + persists. A first placement (adding) may trip
-  // the green prompt, then drops back to review.
+  // Map tap (LOGGING, or REVIEW only while adding) OR a marker drag (always,
+  // in PLACE_BALL) lands here. A drag on an existing shot just repositions +
+  // persists. A FIRST placement may trip the green prompt, then either aims
+  // (logging) or drops back to review (completed).
   async function handleSetBall(loc: LatLng) {
     const wasInitial = active?.start == null
     setPlaced((prev) =>
@@ -356,18 +396,21 @@ export function PastRoundMap({
     await persistShotAt(activeIdx, { start: loc })
     if (!wasInitial) return
     // Within putting range of the pin → ask "On the green?" (mirrors the live
-    // prompt). Otherwise the new shot is placed; drop straight back to review.
+    // prompt) instead of forcing aim. A putt skips aiming entirely.
     if (effectivePin && distanceYards(loc, effectivePin) <= PUTTING_RADIUS_YARDS) {
       setGreenPromptIdx(activeIdx)
-    } else {
+    } else if (completed) {
+      // Review: the added shot is placed; details on the scorecard. No aim.
       setAdding(false)
+    } else {
+      // Logging: aim as usual.
+      setMode('SET_AIM')
     }
   }
 
   // "On the green?" → Yes: it's a putt. Mark lie/club + pre-fill the putt
-  // distance (start→pin) so the scorecard's putt editor is ready, then return
-  // to review. NO aim, NO inline details — made / short-long / left-right /
-  // break are set on the scorecard sheet.
+  // distance (start→pin) so the scorecard's putt editor is ready. Logging
+  // auto-advances to the next shot; review drops back to the stepper.
   async function handleGreenYes() {
     const idx = greenPromptIdx
     setGreenPromptIdx(null)
@@ -396,14 +439,64 @@ export function PastRoundMap({
       return
     }
     if (data) onShotUpserted(data as ShotRow)
-    setAdding(false)
+    if (completed) {
+      setAdding(false)
+    } else {
+      // Advance to the next shot (reuses the +Shot path) so you can place the
+      // next ball immediately — only after the putt mark persisted.
+      handleAddShot()
+    }
   }
 
-  // "On the green?" → No: not a putt (chip / bunker / fringe). It's placed;
-  // details are edited on the scorecard. Return to review.
+  // "On the green?" → No: not a putt (chip / bunker / fringe). Logging aims
+  // it as usual; review drops back to the stepper (details on the scorecard).
   function handleGreenNo() {
     setGreenPromptIdx(null)
-    setAdding(false)
+    if (completed) {
+      setAdding(false)
+    } else {
+      setMode('SET_AIM')
+    }
+  }
+
+  function handleSetAim(loc: LatLng) {
+    setPlaced((prev) =>
+      prev.map((s, i) => (i === activeIdx ? { ...s, aim: loc } : s)),
+    )
+    if (aimTimerRef.current) clearTimeout(aimTimerRef.current)
+    aimTimerRef.current = setTimeout(() => {
+      persistShotAt(activeIdx, { aim: loc })
+    }, AIM_PERSIST_DEBOUNCE_MS)
+  }
+
+  async function handleSetPin(loc: LatLng) {
+    if (!currentHoleScore) return
+    if (!Number.isFinite(loc.lat) || !Number.isFinite(loc.lng)) return
+    const { data, error } = await supabase
+      .from('hole_scores')
+      .update({ pin_lat: loc.lat, pin_lng: loc.lng })
+      .eq('id', currentHoleScore.id)
+      .eq('round_id', roundId)
+      .select()
+      .single()
+    if (error) {
+      Alert.alert('Pin save failed', error.message)
+      return
+    }
+    if (data) onHoleScoreChanged(data as HoleScoreRow)
+    setMode('PLACE_BALL')
+  }
+
+  // LOGGING "+ Shot": append a fresh draft and drop into placing it.
+  function handleAddShot() {
+    if (!active?.start) return // don't stack two empty drafts
+    if (aimTimerRef.current) clearTimeout(aimTimerRef.current)
+    setPlaced((prev) => [
+      ...prev,
+      { id: null, shotNumber: prev.length + 1, start: null, aim: null },
+    ])
+    setActiveIdx(placed.length)
+    setMode('PLACE_BALL')
   }
 
   function stepTo(pos: number) {
@@ -412,7 +505,7 @@ export function PastRoundMap({
     setActiveIdx(target.i)
   }
 
-  // Add a new shot — only reachable off the LAST shot (#593). Reuse a
+  // REVIEW "+ Add shot" — only reachable off the LAST shot (#593). Reuse a
   // trailing empty draft (the empty-hole seed) if one exists; otherwise
   // append a fresh draft and select it for placement.
   function handleStartAddShot() {
@@ -426,6 +519,7 @@ export function PastRoundMap({
       ])
       setActiveIdx(placed.length)
     }
+    setMode('PLACE_BALL')
     setAdding(true)
   }
 
@@ -443,6 +537,7 @@ export function PastRoundMap({
 
   async function handleRemoveShot() {
     if (!active) return
+    if (aimTimerRef.current) clearTimeout(aimTimerRef.current)
     if (active.id) {
       const { error } = await supabase
         .from('shots')
@@ -462,12 +557,14 @@ export function PastRoundMap({
         : [{ id: null, shotNumber: 1, start: null, aim: null }]
     setPlaced(ensured)
     setActiveIdx(Math.max(0, ensured.length - 1))
+    setMode('PLACE_BALL')
     setAdding(false)
     await syncScore(ensured.filter((s) => s.start != null).length)
   }
 
   function goToHole(next: number) {
     if (next < 1 || next > holes.length) return
+    if (aimTimerRef.current) clearTimeout(aimTimerRef.current)
     onHoleChange(next)
   }
 
@@ -531,16 +628,20 @@ export function PastRoundMap({
           aim={active?.aim ?? null}
           ball={active?.start ?? null}
           previousShots={previousStarts}
-          phase="PLACE_BALL"
-          // Review: drag-only (taps don't move the selected shot). Adding a
-          // new shot: tap the map to drop it.
-          tapToPlaceBall={adding}
+          // REVIEW is always flat top-down (PLACE_BALL) so the selected marker
+          // drags; LOGGING follows the BALL/AIM/PIN mode chips.
+          phase={completed ? 'PLACE_BALL' : mode}
+          // Review: tap-to-place only while adding a new shot (otherwise
+          // drag-only so stray taps don't move the selected shot). Logging:
+          // always tap-to-place.
+          tapToPlaceBall={completed ? adding : true}
           missingHoleLayout={!effectivePin && !tee}
           gpsPosition={null}
           courseCenter={courseCenter}
           holeNumber={holeNumber}
-          onSetAim={() => {}}
+          onSetAim={handleSetAim}
           onSetBall={handleSetBall}
+          onPlacePin={handleSetPin}
           showLocationPuck={false}
           overlayMode="tee"
           arcWidthYards={0}
@@ -551,7 +652,7 @@ export function PastRoundMap({
         />
       </View>
 
-      {/* Bottom controls — review stepper, or the add-a-shot prompt. */}
+      {/* Bottom controls */}
       <View
         style={{
           backgroundColor: '#1C211C',
@@ -563,7 +664,73 @@ export function PastRoundMap({
           gap: 12,
         }}
       >
-        {adding ? (
+        {!completed ? (
+          /* ───────── LOGGING: full placement chrome ───────── */
+          <>
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              <ModeChip
+                label="Ball"
+                active={mode === 'PLACE_BALL'}
+                onPress={() => setMode('PLACE_BALL')}
+              />
+              <ModeChip
+                label="Aim"
+                active={mode === 'SET_AIM'}
+                disabled={!active?.start}
+                onPress={() => setMode('SET_AIM')}
+              />
+              <ModeChip label="Pin" active={mode === 'PIN'} onPress={() => setMode('PIN')} />
+            </View>
+
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Remove this shot"
+                onPress={handleRemoveShot}
+                disabled={!active?.start && placed.length <= 1}
+                style={{
+                  paddingVertical: 12,
+                  paddingHorizontal: 14,
+                  borderWidth: 1,
+                  borderColor: 'rgba(242,238,229,0.3)',
+                  borderRadius: 2,
+                  opacity: !active?.start && placed.length <= 1 ? 0.4 : 1,
+                }}
+              >
+                <Text style={{ ...KICKER, color: '#E0B7AC' }}>Remove</Text>
+              </Pressable>
+              <Text
+                style={[TYPE.kicker, {
+                  flex: 1,
+                  textAlign: 'center',
+                  color: 'rgba(242,238,229,0.7)',
+                  fontSize: 12,
+                  fontVariant: ['tabular-nums'],
+                }]}
+              >
+                {startedCount === 0
+                  ? 'Tap the map to place shot 1'
+                  : `${startedCount} shot${startedCount === 1 ? '' : 's'} placed`}
+              </Text>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Add another shot"
+                onPress={handleAddShot}
+                disabled={!active?.start}
+                style={{
+                  paddingVertical: 12,
+                  paddingHorizontal: 14,
+                  backgroundColor: !active?.start ? '#3A4138' : '#2E7D52',
+                  borderRadius: 2,
+                  opacity: !active?.start ? 0.5 : 1,
+                }}
+              >
+                <Text style={{ ...KICKER, color: '#F2EEE5' }}>+ Shot</Text>
+              </Pressable>
+            </View>
+          </>
+        ) : adding ? (
+          /* ───────── REVIEW: placing a newly added shot ───────── */
           <View style={{ gap: 12 }}>
             <Text
               style={[TYPE.kicker, {
@@ -590,6 +757,7 @@ export function PastRoundMap({
             </Pressable>
           </View>
         ) : placedReal.length === 0 ? (
+          /* ───────── REVIEW: finalized hole with no shots ───────── */
           <View style={{ gap: 12 }}>
             <Text
               style={[TYPE.body, {
@@ -598,7 +766,7 @@ export function PastRoundMap({
                 fontSize: 13,
               }]}
             >
-              No shots logged for this hole yet.
+              No shots logged for this hole.
             </Text>
             <Pressable
               accessibilityRole="button"
@@ -615,8 +783,8 @@ export function PastRoundMap({
             </Pressable>
           </View>
         ) : (
+          /* ───────── REVIEW: shot stepper ───────── */
           <>
-            {/* Shot stepper */}
             <View
               style={{
                 flexDirection: 'row',
@@ -671,7 +839,6 @@ export function PastRoundMap({
               </Pressable>
             </View>
 
-            {/* Actions */}
             <View style={{ flexDirection: 'row', gap: 10 }}>
               <Pressable
                 accessibilityRole="button"
@@ -712,7 +879,6 @@ export function PastRoundMap({
               </Pressable>
             </View>
 
-            {/* Add only off the last shot (#593) */}
             {isLastSelected && (
               <Pressable
                 accessibilityRole="button"
@@ -732,9 +898,9 @@ export function PastRoundMap({
         )}
       </View>
 
-      {/* "On the green?" — only while ADDING a shot within putting range.
-          Yes → it's a putt (no aim, details on the scorecard); No → a
-          chip/bunker shot. */}
+      {/* "On the green?" — mirrors the live round prompt. Yes → it's a putt
+          (no aim, details on the scorecard); No → aim as a chip/bunker shot
+          (logging) or just place it (review). */}
       <ConfirmDialog
         visible={greenPromptIdx != null}
         title="On the green?"
@@ -745,5 +911,46 @@ export function PastRoundMap({
         onCancel={handleGreenNo}
       />
     </View>
+  )
+}
+
+function ModeChip({
+  label,
+  active,
+  disabled,
+  onPress,
+}: {
+  label: string
+  active: boolean
+  disabled?: boolean
+  onPress: () => void
+}) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityState={{ selected: active, disabled }}
+      disabled={disabled}
+      onPress={onPress}
+      style={{
+        flex: 1,
+        paddingVertical: 10,
+        alignItems: 'center',
+        borderRadius: 2,
+        backgroundColor: active ? '#F2EEE5' : 'transparent',
+        borderWidth: 1,
+        borderColor: active ? '#F2EEE5' : 'rgba(242,238,229,0.3)',
+        opacity: disabled ? 0.4 : 1,
+      }}
+    >
+      <Text
+        style={{
+          ...KICKER,
+          color: active ? '#1C211C' : 'rgba(242,238,229,0.8)',
+        }}
+      >
+        {label}
+      </Text>
+    </Pressable>
   )
 }
