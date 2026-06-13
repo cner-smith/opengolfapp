@@ -13,8 +13,10 @@ export function symmetricNiceTicks(
   // labels land on readable numbers.
   const rawStep = peak / 3
   const pow = Math.pow(10, Math.floor(Math.log10(rawStep)))
+  // rawStep/pow lands in [1, 10); pick the first nice multiple ≥ it, falling
+  // back to 10×pow for the (5, 10) range (so the ?? branch is live, not dead).
   const step =
-    [1, 2, 2.5, 5, 10].map((m) => m * pow).find((c) => c >= rawStep) ?? 10 * pow
+    [1, 2, 2.5, 5].map((m) => m * pow).find((c) => c >= rawStep) ?? 10 * pow
   const max = Math.ceil(peak / step) * step
   const ticks: number[] = []
   for (let t = -max; t <= max + step / 1000; t += step) {
