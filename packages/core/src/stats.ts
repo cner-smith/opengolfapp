@@ -542,6 +542,67 @@ export function ballStrikingStats(rounds: DetailedRound[]): BallStrikingStats {
   }
 }
 
+export interface ClubDistanceStat {
+  club: string
+  /** Shortest tracked total distance with this club, yards. */
+  min: number
+  /** Longest tracked total distance with this club, yards. */
+  max: number
+  /** Mean total distance with this club, yards. */
+  avg: number
+  /** Number of shots backing the numbers (reliability hint). */
+  count: number
+}
+
+// Min/max/avg TOTAL distance per club (start → end haversine — total, not
+// carry, since we only have ball positions). Putts and greenside shots are
+// excluded; a loose 3–450 yd clamp drops GPS-zero placements and wild
+// outliers. Sorted longest-first so a bag reads driver → wedges. Takes a flat
+// shot list so both the stats page (flattened rounds) and the per-club
+// patterns page feed it the same way.
+const CLUB_DISTANCE_MIN_YARDS = 3
+const CLUB_DISTANCE_MAX_YARDS = 450
+
+export function clubDistanceStats(
+  shots: {
+    club: string | null
+    lie_type: string | null
+    start_lat: number | null
+    start_lng: number | null
+    end_lat: number | null
+    end_lng: number | null
+  }[],
+): ClubDistanceStat[] {
+  const byClub = new Map<string, number[]>()
+  for (const s of shots) {
+    if (!s.club || s.club === 'putter' || s.lie_type === 'green') continue
+    if (
+      s.start_lat == null ||
+      s.start_lng == null ||
+      s.end_lat == null ||
+      s.end_lng == null
+    ) {
+      continue
+    }
+    const d = haversineYards(s.start_lat, s.start_lng, s.end_lat, s.end_lng)
+    if (d < CLUB_DISTANCE_MIN_YARDS || d > CLUB_DISTANCE_MAX_YARDS) continue
+    const arr = byClub.get(s.club)
+    if (arr) arr.push(d)
+    else byClub.set(s.club, [d])
+  }
+  const out: ClubDistanceStat[] = []
+  for (const [club, ds] of byClub) {
+    out.push({
+      club,
+      min: Math.min(...ds),
+      max: Math.max(...ds),
+      avg: ds.reduce((a, b) => a + b, 0) / ds.length,
+      count: ds.length,
+    })
+  }
+  return out.sort((a, b) => b.avg - a.avg)
+}
+
 // ---------------------------------------------------------------------------
 // Section 4: Short Game
 // ---------------------------------------------------------------------------

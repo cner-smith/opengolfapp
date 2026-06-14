@@ -7,6 +7,8 @@ import {
   CLUBS,
   LIE_SLOPES,
   LIE_TYPES,
+  YARDS_TO_METERS,
+  clubDistanceStats,
   computeDispersion,
   computeDispersionStats,
   dispersionVerdict,
@@ -121,6 +123,10 @@ export default function Patterns() {
   }, [shots, lieType, lieSlope])
 
   const stats = useMemo(() => computeDispersionStats(points), [points])
+
+  // Total distance for the selected club (across all its shots, not the
+  // lie-filtered dispersion set). null until there are tracked shots.
+  const clubDist = useMemo(() => clubDistanceStats(shots)[0] ?? null, [shots])
 
   const shareCardRef = useRef<View>(null)
   const [sharing, setSharing] = useState(false)
@@ -246,6 +252,22 @@ export default function Patterns() {
 
         <Entrance index={4}>
         <Section kicker="Pattern summary">
+          {clubDist && (
+            <View
+              style={{
+                flexDirection: 'row',
+                flexWrap: 'wrap',
+                gap: 18,
+                marginBottom: 18,
+              }}
+            >
+              <Stat label="Avg distance" value={toDisplay(clubDist.avg)} />
+              <Stat
+                label="Range"
+                value={`${Math.round(unit === 'meters' ? clubDist.min * YARDS_TO_METERS : clubDist.min)}–${Math.round(unit === 'meters' ? clubDist.max * YARDS_TO_METERS : clubDist.max)}`}
+              />
+            </View>
+          )}
           {stats ? (
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 18 }}>
               <Stat label="Sample" value={`${stats.sampleSize} shots`} />
