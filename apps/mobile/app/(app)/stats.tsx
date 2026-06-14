@@ -3,8 +3,10 @@ import { Pressable, ScrollView, Text, useWindowDimensions, View } from 'react-na
 import { VictoryAxis, VictoryChart, VictoryLine } from 'victory-native'
 import Svg, { Line as SvgLine } from 'react-native-svg'
 import {
+  clubDistanceStats,
   computeDetailedStats,
   DEFAULT_HANDICAP,
+  formatClubLabel,
   formatSG,
   sgStandouts,
   symmetricNiceTicks,
@@ -117,6 +119,16 @@ export default function Stats() {
   const sgAxis = useMemo(
     () => symmetricNiceTicks(chartSeries.flatMap((s) => s.data.map((d) => d.y))),
     [chartSeries],
+  )
+
+  // Per-club total distance (max/min/avg), from every tracked shot's
+  // start→end across the loaded rounds.
+  const clubDistances = useMemo(
+    () =>
+      clubDistanceStats(
+        rounds.flatMap((r) => (r.hole_scores ?? []).flatMap((hs) => hs.shots ?? [])),
+      ),
+    [rounds],
   )
 
   const stats: DetailedStats | null = useMemo(
@@ -531,6 +543,78 @@ export default function Stats() {
                     <StatTile label="Rough shots" value={String(stats.recovery.totalRoughShots)} />
                   </View>
                 )}
+              </Section>
+              </Entrance>
+            )}
+
+            {clubDistances.length > 0 && (
+              <Entrance index={6}>
+              <Section kicker="Club distances">
+                <Text
+                  style={[TYPE.body, {
+                    color: '#8A8B7E',
+                    fontSize: 12,
+                    marginTop: -4,
+                    marginBottom: 12,
+                  }]}
+                >
+                  Total distance, not carry · avg (min–max)
+                </Text>
+                <View style={{ gap: 10 }}>
+                  {clubDistances.map((c) => {
+                    const conv = (y: number) =>
+                      unit === 'meters' ? Math.round(y * YARDS_TO_METERS) : Math.round(y)
+                    return (
+                      <View
+                        key={c.club}
+                        style={{ flexDirection: 'row', alignItems: 'baseline', gap: 10 }}
+                      >
+                        <Text
+                          style={[TYPE.bodyBold, {
+                            flex: 1,
+                            color: '#1C211C',
+                            fontSize: 14,
+                            textTransform: 'capitalize',
+                          }]}
+                          numberOfLines={1}
+                        >
+                          {formatClubLabel({ club_type: c.club })}
+                        </Text>
+                        <Text
+                          style={[TYPE.serif, {
+                            color: '#1C211C',
+                            fontSize: 16,
+                            fontVariant: ['tabular-nums'],
+                          }]}
+                        >
+                          {toDisplay(c.avg)}
+                        </Text>
+                        <Text
+                          style={[TYPE.body, {
+                            width: 84,
+                            textAlign: 'right',
+                            color: '#5C6356',
+                            fontSize: 12,
+                            fontVariant: ['tabular-nums'],
+                          }]}
+                        >
+                          {conv(c.min)}–{conv(c.max)}
+                        </Text>
+                        <Text
+                          style={[TYPE.body, {
+                            width: 26,
+                            textAlign: 'right',
+                            color: '#8A8B7E',
+                            fontSize: 11,
+                            fontVariant: ['tabular-nums'],
+                          }]}
+                        >
+                          {c.count}
+                        </Text>
+                      </View>
+                    )
+                  })}
+                </View>
               </Section>
               </Entrance>
             )}
