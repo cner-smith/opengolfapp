@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   ActivityIndicator,
+  Linking,
   Pressable,
   ScrollView,
   Text,
@@ -552,7 +553,17 @@ export default function NewRound() {
         )}
 
         <Text style={{ ...KICKER, marginTop: 28, color: '#8A8B7E' }}>
-          Course data from OpenGolfAPI, GolfCourseAPI, and © OpenStreetMap
+          Course data from OpenGolfAPI, GolfCourseAPI, and ©{' '}
+          {/* OSM's ODbL attribution guidelines ask for a link to the copyright
+              page where possible — RN can, via Linking. */}
+          <Text
+            onPress={() =>
+              Linking.openURL('https://www.openstreetmap.org/copyright')
+            }
+            style={{ textDecorationLine: 'underline' }}
+          >
+            OpenStreetMap
+          </Text>{' '}
           contributors (ODbL)
         </Text>
       </ScrollView>
