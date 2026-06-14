@@ -552,7 +552,8 @@ export default function NewRound() {
         )}
 
         <Text style={{ ...KICKER, marginTop: 28, color: '#8A8B7E' }}>
-          Course data from OpenGolfAPI · ODbL licensed
+          Course data from OpenGolfAPI, GolfCourseAPI, and © OpenStreetMap
+          contributors (ODbL)
         </Text>
       </ScrollView>
     </View>
