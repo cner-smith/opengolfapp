@@ -117,7 +117,6 @@ const styles = StyleSheet.create({
     color: '#FBF8F1',
     fontFamily: FONT.serifItalic,
     fontSize: 96,
-    fontStyle: 'italic',
     letterSpacing: -2,
     lineHeight: 100,
   },
@@ -125,7 +124,6 @@ const styles = StyleSheet.create({
     color: 'rgba(242,238,229,0.85)',
     fontFamily: FONT.serifItalic,
     fontSize: 18,
-    fontStyle: 'italic',
     marginTop: 18,
   },
   support: {

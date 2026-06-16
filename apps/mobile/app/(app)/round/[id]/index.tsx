@@ -772,10 +772,10 @@ export default function RoundIndex() {
             <Text style={{ ...KICKER, width: 48, textAlign: 'right', color: '#8A8B7E' }}>
               Putts
             </Text>
-            <Text style={{ ...KICKER, width: 28, textAlign: 'center', color: '#8A8B7E' }}>
+            <Text style={{ ...KICKER, width: 40, textAlign: 'center', color: '#8A8B7E' }}>
               FIR
             </Text>
-            <Text style={{ ...KICKER, width: 28, textAlign: 'center', color: '#8A8B7E' }}>
+            <Text style={{ ...KICKER, width: 40, textAlign: 'center', color: '#8A8B7E' }}>
               GIR
             </Text>
             <Text style={{ ...KICKER, width: 76, textAlign: 'right', color: '#8A8B7E' }}>
@@ -848,7 +848,7 @@ export default function RoundIndex() {
                   <Text
                     key={k}
                     style={[TYPE.kicker, {
-                      width: 28,
+                      width: 40,
                       textAlign: 'center',
                       fontSize: 14,
                       color: v === true ? '#1F3D2C' : '#C9C2B0',
