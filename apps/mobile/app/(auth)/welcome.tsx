@@ -115,6 +115,9 @@ const styles = StyleSheet.create({
   },
   wordmark: {
     color: '#FBF8F1',
+    // No fontStyle: 'italic' — FONT.serifItalic is an already-italic named face
+    // (Fraunces-MediumItalic). On Android, layering an italic style on a face
+    // whose name encodes the italic axis breaks resolution → system-font fallback.
     fontFamily: FONT.serifItalic,
     fontSize: 96,
     letterSpacing: -2,
