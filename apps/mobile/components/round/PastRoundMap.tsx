@@ -290,8 +290,10 @@ export function PastRoundMap({
   )
 
   // Tee box = two dots flanking the tee shot, perpendicular to the line of
-  // play. Derived from the first placed shot (falling back to the stored
-  // course tee), oriented toward that shot's aim, then the pin.
+  // play. ALWAYS derived from the first placed shot's start (where the player
+  // actually teed off) — the stored course tee is consulted ONLY as a last
+  // resort when no first shot exists yet. Dragging shot 1 moves placed[0].start,
+  // so the box tracks it reactively. Oriented toward that shot's aim, then pin.
   const teeBox = useMemo<[LatLng, LatLng] | null>(() => {
     const origin = placed[0]?.start ?? tee
     if (!origin) return null
