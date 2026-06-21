@@ -98,19 +98,11 @@ export function useHoleState({
   // by AsyncStorage so it only appears the first time the player ever
   // sets an aim point on this device, then auto-dismisses after 3s.
   const [aimHintVisible, setAimHintVisible] = useState(false)
-  // Set true once the player engages the live append flow on THIS hole visit —
-  // either by pressing "Add a shot" on a revisited hole or by marking a ball
-  // (the natural shot-to-shot flow). Reset on hole change. Combined with
-  // hasPriorShots it distinguishes "navigated back to a played hole" (suppress
-  // live aids) from "actively logging on this hole" (aids on). Anchoring to
-  // an in-visit action sidesteps the async shot-count load — hasPriorShots can
-  // arrive a beat late without flipping the verdict. See #484.
+  // Set true once the player engages the live append flow on this hole visit —
+  // via "Add a shot" or by marking a ball. Reset on hole change. Anchoring to an
+  // in-visit action (not an entry-time shot-count snapshot) sidesteps the async
+  // shot-count load: hasPriorShots can arrive a beat late without flipping it.
   const [appendEngaged, setAppendEngaged] = useState(false)
-  // Revisiting = the hole already has shots AND the player hasn't engaged the
-  // append flow this visit. On a fresh hole hasPriorShots is false (aids on);
-  // after marking shot 1 appendEngaged is true (aids stay on for shot 2+);
-  // navigating back later resets appendEngaged so the played hole opens in the
-  // suppressed, breadcrumb-only posture until "Add a shot".
   const isRevisitingPlayedHole = hasPriorShots && !appendEngaged
 
   // First-aim hint: when `aim` first transitions to non-null, check

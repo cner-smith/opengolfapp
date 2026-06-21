@@ -41,8 +41,9 @@ interface MapBottomChromeProps {
   onRePlaceBall: () => void
   onSkipAim: () => void
   onMarkBallHere: () => void
-  /** Opt into the live append flow on a revisited played hole. */
-  onAddShot: () => void
+  /** Opt into the live append flow on a revisited played hole. Optional — its
+   *  partner `isRevisitingPlayedHole` is the only path that reaches it. */
+  onAddShot?: () => void
   onFinishHole: () => void
   onPrev: () => void
   onNext: () => void
@@ -99,7 +100,7 @@ function ContextualActions(p: MapBottomChromeProps) {
   if (p.isRevisitingPlayedHole) {
     return (
       <>
-        <PrimaryCta label="+ Add a shot" disabled={p.saving} onPress={p.onAddShot} />
+        <PrimaryCta label="+ Add a shot" disabled={p.saving} onPress={() => p.onAddShot?.()} />
         {p.totalShotsThisHole > 0 && (
           <TextChip
             label={p.holeNumber < p.holeCount ? 'Finish hole · next →' : 'Finish round'}
