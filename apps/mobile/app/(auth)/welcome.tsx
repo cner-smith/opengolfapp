@@ -121,7 +121,9 @@ const styles = StyleSheet.create({
     fontFamily: FONT.serifItalic,
     fontSize: 96,
     letterSpacing: -2,
-    lineHeight: 100,
+    // No tight lineHeight — Fraunces italic's deep "g" descender gets clipped to
+    // the line box on Android. Let the font's natural metrics size the box.
+    includeFontPadding: true,
   },
   tagline: {
     color: 'rgba(242,238,229,0.85)',
