@@ -126,11 +126,15 @@ export function useHoleData(
     setLoading(true)
     setError(null)
     try {
+      // maybeSingle (not single): if the round was deleted (e.g. from the home
+      // list) while this live session is still mounted, a 0-row result returns
+      // null instead of throwing PGRST116 "cannot coerce to a single JSON
+      // object" — surfaced cleanly as "Round not found" below.
       const { data: r, error: rErr } = await supabase
         .from('rounds')
         .select('*, courses(lat, lng)')
         .eq('id', id)
-        .single()
+        .maybeSingle()
       if (rErr || !r) throw rErr ?? new Error('Round not found')
       setRound(r)
       setCourseCenter(
