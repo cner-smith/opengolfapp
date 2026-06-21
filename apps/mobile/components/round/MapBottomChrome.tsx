@@ -26,6 +26,10 @@ interface MapBottomChromeProps {
   /** Live mode only: the ball marker is currently tracking the player's GPS
    *  (not manually dragged). Drives the GPS-explicit place-ball CTA + hint. */
   ballFromGps?: boolean
+  /** True when the player has navigated back to a hole that already has logged
+   *  shots and hasn't opted into adding another. The live mark-ball CTA is
+   *  replaced by an explicit "Add a shot" affordance (#484). */
+  isRevisitingPlayedHole?: boolean
   totalShotsThisHole: number
   holeNumber: number
   holeCount: number
@@ -37,6 +41,8 @@ interface MapBottomChromeProps {
   onRePlaceBall: () => void
   onSkipAim: () => void
   onMarkBallHere: () => void
+  /** Opt into the live append flow on a revisited played hole. */
+  onAddShot: () => void
   onFinishHole: () => void
   onPrev: () => void
   onNext: () => void
@@ -84,6 +90,23 @@ function ContextualActions(p: MapBottomChromeProps) {
           <TextChip label="← Re-place ball" onPress={p.onRePlaceBall} />
           <TextChip label="Skip aim" onPress={p.onSkipAim} />
         </View>
+      </>
+    )
+  }
+  // Revisiting a played hole: the live mark-ball flow is suppressed (no
+  // GPS ball, no auto-aim, no line-to-green). Show the existing-shot breadcrumb
+  // only, with an explicit "Add a shot" opt-in plus the finish affordance. #484.
+  if (p.isRevisitingPlayedHole) {
+    return (
+      <>
+        <PrimaryCta label="+ Add a shot" disabled={p.saving} onPress={p.onAddShot} />
+        {p.totalShotsThisHole > 0 && (
+          <TextChip
+            label={p.holeNumber < p.holeCount ? 'Finish hole · next →' : 'Finish round'}
+            onPress={p.onFinishHole}
+            strong
+          />
+        )}
       </>
     )
   }

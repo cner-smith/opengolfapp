@@ -47,6 +47,17 @@ export interface UseHoleStateResult {
   aimHintVisible: boolean
   setAimHintVisible: Dispatch<SetStateAction<boolean>>
   nearPin: boolean
+  /** True when the player has navigated BACK to a hole that already has
+   *  logged shots and has NOT yet opted into adding another shot. Live aids
+   *  (auto-aim spawn, GPS ball watcher/marker, line-to-green) are suppressed
+   *  while this is true — the hole shows only the existing shot breadcrumb.
+   *  Pressing "Add a shot" (or marking a ball) flips it false and re-arms the
+   *  live append flow. See #484 (live-round revisit). */
+  isRevisitingPlayedHole: boolean
+  /** Opt back into the live append flow on a revisited hole (clears
+   *  isRevisitingPlayedHole for this hole visit). markBallHere also sets it so
+   *  the natural shot-to-shot flow keeps the aids on. */
+  setAppendEngaged: Dispatch<SetStateAction<boolean>>
 }
 
 export function useHoleState({
@@ -87,6 +98,20 @@ export function useHoleState({
   // by AsyncStorage so it only appears the first time the player ever
   // sets an aim point on this device, then auto-dismisses after 3s.
   const [aimHintVisible, setAimHintVisible] = useState(false)
+  // Set true once the player engages the live append flow on THIS hole visit —
+  // either by pressing "Add a shot" on a revisited hole or by marking a ball
+  // (the natural shot-to-shot flow). Reset on hole change. Combined with
+  // hasPriorShots it distinguishes "navigated back to a played hole" (suppress
+  // live aids) from "actively logging on this hole" (aids on). Anchoring to
+  // an in-visit action sidesteps the async shot-count load — hasPriorShots can
+  // arrive a beat late without flipping the verdict. See #484.
+  const [appendEngaged, setAppendEngaged] = useState(false)
+  // Revisiting = the hole already has shots AND the player hasn't engaged the
+  // append flow this visit. On a fresh hole hasPriorShots is false (aids on);
+  // after marking shot 1 appendEngaged is true (aids stay on for shot 2+);
+  // navigating back later resets appendEngaged so the played hole opens in the
+  // suppressed, breadcrumb-only posture until "Add a shot".
+  const isRevisitingPlayedHole = hasPriorShots && !appendEngaged
 
   // First-aim hint: when `aim` first transitions to non-null, check
   // AsyncStorage. If the hint hasn't been shown on this device, mark
@@ -118,6 +143,9 @@ export function useHoleState({
   // re-fires per shot. No-pin holes fall back to long-press-to-start.
   const effectivePin = roundPin ?? storedPin ?? null
   useEffect(() => {
+    // Suppressed while revisiting a played hole — no live aim aid until the
+    // player opts into adding a shot (#484).
+    if (isRevisitingPlayedHole) return
     if (roundState !== 'SET_AIM') return
     if (aim || !ball || !effectivePin) return
     setAim({
@@ -125,6 +153,7 @@ export function useHoleState({
       lng: ball.lng + AIM_AUTOSPAWN_FRACTION * (effectivePin.lng - ball.lng),
     })
   }, [
+    isRevisitingPlayedHole,
     roundState,
     aim,
     ball?.lat,
@@ -156,6 +185,9 @@ export function useHoleState({
   useEffect(() => {
     if (!currentHoleId) return
     if (isPastMode) return
+    // Suppressed while revisiting a played hole — no GPS ball watcher/marker
+    // until the player opts into adding a shot (#484).
+    if (isRevisitingPlayedHole) return
     if (roundState !== 'PLACE_BALL') return
     let active = true
     let subscription: Location.LocationSubscription | null = null
@@ -305,7 +337,7 @@ export function useHoleState({
       kalmanStateRef.current = null
       manuallyPlacedRef.current = false
     }
-  }, [currentHoleId, isPastMode, roundState, gpsNonce])
+  }, [currentHoleId, isPastMode, isRevisitingPlayedHole, roundState, gpsNonce])
 
   // Hole change resets per-hole state. The screen is resident (#264) so
   // nothing remounts on a hole switch — without an explicit reset the
@@ -325,6 +357,10 @@ export function useHoleState({
     setBall(null)
     setAim(null)
     setRoundState('PLACE_BALL')
+    // Each hole entry starts un-engaged: a played hole opens in the
+    // breadcrumb-only review posture until the player taps "Add a shot". A
+    // fresh hole has no prior shots, so isRevisitingPlayedHole is false anyway.
+    setAppendEngaged(false)
   }, [currentHoleId])
 
   // Default shot 1's ball marker to the tee box so the player starts from a
@@ -380,5 +416,7 @@ export function useHoleState({
     aimHintVisible,
     setAimHintVisible,
     nearPin,
+    isRevisitingPlayedHole,
+    setAppendEngaged,
   }
 }
