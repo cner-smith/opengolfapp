@@ -530,7 +530,10 @@ export default function LiveRoundSession({
           }
           showLocationPuck={
             finalState.roundState !== 'SHOT_DETAIL' &&
-            finalState.roundState !== 'PUTTING'
+            finalState.roundState !== 'PUTTING' &&
+            // Hide the live GPS puck while revisiting a played hole — that hole
+            // is in breadcrumb-only review mode until "Add a shot" (#484).
+            !finalState.isRevisitingPlayedHole
           }
           onSetAim={(loc) => {
             // A user drag / long-press is an explicit aim — mark it touched so
@@ -612,6 +615,7 @@ export default function LiveRoundSession({
             finalState.ball != null &&
             !ballMoved
           }
+          isRevisitingPlayedHole={finalState.isRevisitingPlayedHole}
           totalShotsThisHole={totalShotsThisHole}
           holeNumber={holeNumber}
           holeCount={data.holeCount}
@@ -630,6 +634,12 @@ export default function LiveRoundSession({
           }}
           onSkipAim={actions.skipAim}
           onMarkBallHere={actions.markBallHere}
+          onAddShot={() => {
+            // Opt back into the live append flow on a revisited played hole:
+            // re-arm the GPS ball + auto-aim and enter PLACE_BALL (#484).
+            finalState.setAppendEngaged(true)
+            finalState.setRoundState('PLACE_BALL')
+          }}
           onFinishHole={actions.finishHole}
           onPrev={() => actions.navigateHole(-1)}
           onNext={() => actions.navigateHole(1)}
