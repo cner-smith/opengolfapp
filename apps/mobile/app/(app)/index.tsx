@@ -175,8 +175,6 @@ export default function Home() {
             {
               color: '#1C211C',
               fontSize: 28,
-              fontStyle: 'italic',
-              fontWeight: '500',
               lineHeight: 32,
               marginBottom: 6,
             },
@@ -188,7 +186,7 @@ export default function Home() {
           Last {rounds.length} round{rounds.length === 1 ? '' : 's'}
         </Text>
         <Pressable onPress={scrollToLearn} hitSlop={6} style={{ marginBottom: 22 }}>
-          <Text style={[TYPE.bodyItalic, { color: '#8A8B7E', fontSize: 13, fontStyle: 'italic' }]}>
+          <Text style={[TYPE.bodyItalic, { color: '#8A8B7E', fontSize: 13 }]}>
             ↓ New to a stat? The yardage book's at the bottom.
           </Text>
         </Pressable>
@@ -202,7 +200,6 @@ export default function Home() {
                 {
                   color: '#1C211C',
                   fontSize: 16,
-                  fontStyle: 'italic',
                   lineHeight: 24,
                   marginBottom: 22,
                 },
@@ -273,8 +270,6 @@ export default function Home() {
                 {
                   color: '#1C211C',
                   fontSize: 22,
-                  fontStyle: 'italic',
-                  fontWeight: '500',
                 },
               ]}
             >
@@ -360,7 +355,7 @@ function HomeTile({
       <Text style={[TYPE.kicker, { color: '#8A8B7E', fontSize: 10, fontWeight: '500', letterSpacing: 1.4, textTransform: 'uppercase', marginBottom: 10 }]}>
         {label}
       </Text>
-      <Text style={[TYPE.serif, { color: valueColor, fontSize: 28, fontStyle: 'italic', fontWeight: '500', fontVariant: ['tabular-nums'] }]}>
+      <Text style={[TYPE.serif, { color: valueColor, fontSize: 28 }]}>
         {value}
       </Text>
     </View>

@@ -122,8 +122,6 @@ export default function Practice() {
               style={[TYPE.serif, {
                 color: INK,
                 fontSize: 26,
-                fontStyle: 'italic',
-                fontWeight: '500',
                 lineHeight: 31,
                 marginBottom: isExpired ? 14 : 18,
               }]}
@@ -150,7 +148,7 @@ export default function Practice() {
                 {generating ? (
                   <ActivityIndicator color={CREAM} />
                 ) : (
-                  <Text style={[TYPE.serif, { color: CREAM, fontSize: 16, fontStyle: 'italic', fontWeight: '500' }]}>
+                  <Text style={[TYPE.serif, { color: CREAM, fontSize: 16 }]}>
                     Generate this week’s plan
                   </Text>
                 )}
@@ -202,7 +200,7 @@ export default function Practice() {
             <View style={{ borderTopWidth: 1, borderColor: LINE, marginTop: 28, paddingTop: 18 }}>
               <Link href={'/(app)/drills' as never} asChild>
                 <Pressable hitSlop={6}>
-                  <Text style={[TYPE.serif, { color: ACCENT, fontSize: 17, fontStyle: 'italic', fontWeight: '500' }]}>
+                  <Text style={[TYPE.serif, { color: ACCENT, fontSize: 17 }]}>
                     Browse all drills →
                   </Text>
                 </Pressable>
@@ -231,8 +229,6 @@ function NoPlan({
         style={[TYPE.serif, {
           color: INK,
           fontSize: 28,
-          fontStyle: 'italic',
-          fontWeight: '500',
           lineHeight: 32,
           marginBottom: 8,
         }]}
@@ -260,7 +256,7 @@ function NoPlan({
         {generating ? (
           <ActivityIndicator color={CREAM} />
         ) : (
-          <Text style={[TYPE.serif, { color: CREAM, fontSize: 17, fontStyle: 'italic', fontWeight: '500' }]}>
+          <Text style={[TYPE.serif, { color: CREAM, fontSize: 17 }]}>
             Generate this week’s plan
           </Text>
         )}
@@ -278,14 +274,14 @@ function NoPlan({
         <Text style={{ ...KICKER, marginBottom: 10 }}>Reference</Text>
         <Link href={'/(app)/drills' as never} asChild>
           <Pressable>
-            <Text style={[TYPE.serif, { color: ACCENT, fontSize: 17, fontStyle: 'italic', fontWeight: '500' }]}>
+            <Text style={[TYPE.serif, { color: ACCENT, fontSize: 17 }]}>
               Browse all drills →
             </Text>
           </Pressable>
         </Link>
         <Link href={'/(app)/learn' as never} asChild>
           <Pressable style={{ marginTop: 10 }}>
-            <Text style={[TYPE.serif, { color: ACCENT, fontSize: 17, fontStyle: 'italic', fontWeight: '500' }]}>
+            <Text style={[TYPE.serif, { color: ACCENT, fontSize: 17 }]}>
               Learn the stats →
             </Text>
           </Pressable>
@@ -311,7 +307,7 @@ function FocusAreas({ areas }: { areas: StoredFocusArea[] }) {
       <Text style={{ ...KICKER, marginBottom: 10 }}>What to work on</Text>
       {areas.map((a, i) => (
         <View key={`focus-${i}`} style={{ marginBottom: 14 }}>
-          <Text style={[TYPE.serif, { color: INK, fontSize: 16, fontStyle: 'italic', fontWeight: '500' }]}>
+          <Text style={[TYPE.serif, { color: INK, fontSize: 16 }]}>
             {CATEGORY_LABEL[a.category] ?? a.category}
           </Text>
           <Text style={[TYPE.body, { color: INK_DIM, fontSize: 13, lineHeight: 19, marginTop: 2 }]}>
@@ -428,7 +424,7 @@ function DrillRowItem({
         style={{ flex: 1, flexDirection: 'row', gap: 12 }}
       >
         <Text
-          style={[TYPE.serif, { color: INK_MUTE, fontSize: 24, fontStyle: 'italic', lineHeight: 26, minWidth: 30 }]}
+          style={[TYPE.serif, { color: INK_MUTE, fontSize: 24, lineHeight: 26, minWidth: 30 }]}
         >
           {String(index).padStart(2, '0')}
         </Text>
@@ -439,8 +435,6 @@ function DrillRowItem({
               style={[TYPE.serif, {
                 color: completed ? INK_MUTE : INK,
                 fontSize: 18,
-                fontStyle: 'italic',
-                fontWeight: '500',
                 lineHeight: 23,
                 flex: 1,
               }]}
@@ -453,7 +447,7 @@ function DrillRowItem({
 
             {/* Right rail — minutes + block type tag + optional target. */}
             <View style={{ alignItems: 'flex-end', minWidth: 64 }}>
-              <Text style={[TYPE.serif, { color: INK, fontSize: 18, fontStyle: 'italic', lineHeight: 20 }]}>
+              <Text style={[TYPE.serif, { color: INK, fontSize: 18, lineHeight: 20 }]}>
                 {block.minutes} min
               </Text>
               <Text

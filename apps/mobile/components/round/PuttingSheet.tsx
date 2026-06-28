@@ -220,8 +220,6 @@ export function PuttingSheet({
               {
                 color: '#1C211C',
                 fontSize: 22,
-                fontStyle: 'italic',
-                fontWeight: '500',
               },
             ]}
           >

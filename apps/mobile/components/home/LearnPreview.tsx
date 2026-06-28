@@ -80,7 +80,7 @@ function PreviewRow({
     >
       <View style={{ flex: 1, paddingRight: 12 }}>
         <View style={{ flexDirection: 'row', alignItems: 'baseline', flexWrap: 'wrap' }}>
-          <Text style={[TYPE.serif, { color: '#1C211C', fontSize: 16, fontStyle: 'italic', fontWeight: '500' }]}>
+          <Text style={[TYPE.serif, { color: '#1C211C', fontSize: 16 }]}>
             {article.title}
           </Text>
           {article.status === 'draft' && (
@@ -95,7 +95,7 @@ function PreviewRow({
         {reading != null && (
           <Text style={[TYPE.kicker, KICKER, { color: '#8A8B7E', marginBottom: 4 }]}>{reading} min</Text>
         )}
-        <Text style={[TYPE.serif, { color: '#8A8B7E', fontSize: 18, fontStyle: 'italic' }]}>→</Text>
+        <Text style={[TYPE.serif, { color: '#8A8B7E', fontSize: 18 }]}>→</Text>
       </View>
     </Pressable>
   )

@@ -333,7 +333,6 @@ function Rung({
         style={{
           fontFamily: FONT.serifItalic,
           fontSize: 18,
-          fontStyle: 'italic',
           color: goal ? '#F2EEE5' : C.ink,
           minWidth: 78,
         }}

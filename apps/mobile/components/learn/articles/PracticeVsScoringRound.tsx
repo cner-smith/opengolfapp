@@ -388,8 +388,6 @@ function ModeTable() {
               color: C.ink,
               fontFamily: FONT.serifItalic,
               fontSize: 14,
-              fontStyle: 'italic',
-              fontWeight: '500',
               marginBottom: 6,
             }}
           >

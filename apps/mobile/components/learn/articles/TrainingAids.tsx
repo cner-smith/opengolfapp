@@ -400,7 +400,7 @@ function Aid({
   return (
     <View style={{ borderTopWidth: 1, borderTopColor: C.line, paddingTop: 14, marginBottom: 14 }}>
       {svg ? <Figure caption={caption}>{svg}</Figure> : null}
-      <Text style={{ color: C.ink, fontFamily: FONT.serifItalic, fontSize: 18, fontStyle: 'italic', fontWeight: '500', marginBottom: 6 }}>
+      <Text style={{ color: C.ink, fontFamily: FONT.serifItalic, fontSize: 18, marginBottom: 6 }}>
         {name}
       </Text>
       <Text style={{ color: C.inkDim, fontFamily: FONT.body, fontSize: 14, lineHeight: 22, marginBottom: 8 }}>

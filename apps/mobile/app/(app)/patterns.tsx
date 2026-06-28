@@ -292,7 +292,6 @@ export default function Patterns() {
                 color: '#1C211C',
                 fontSize: 15,
                 lineHeight: 22,
-                fontStyle: 'italic',
               }]}
             >
               Need at least <Text style={[TYPE.bodyItalic, { fontWeight: '500' }]}>five shots</Text>{' '}

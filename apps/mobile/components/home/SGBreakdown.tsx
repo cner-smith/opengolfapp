@@ -98,8 +98,6 @@ function SGBar({
           {
             color,
             fontSize: 15,
-            fontStyle: 'italic',
-            fontWeight: '500',
             width: 56,
             textAlign: 'right',
             fontVariant: ['tabular-nums'],

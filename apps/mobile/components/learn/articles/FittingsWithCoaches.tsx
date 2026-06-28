@@ -272,7 +272,6 @@ function FitterTable() {
               color: C.ink,
               fontFamily: FONT.serifItalic,
               fontSize: 15,
-              fontStyle: 'italic',
               marginBottom: 2,
             }}
           >

@@ -575,8 +575,6 @@ export default function RoundIndex() {
             style={[TYPE.serif, {
               color: '#F2EEE5',
               fontSize: 17,
-              fontWeight: '500',
-              fontStyle: 'italic',
             }]}
           >
             {courseName}
@@ -1027,7 +1025,6 @@ function RoundNudge({ focus, picks }: { focus: RoundFocus; picks: DrillRow[] }) 
           color: '#1C211C',
           fontSize: 16,
           lineHeight: 22,
-          fontStyle: 'italic',
           marginBottom: picks.length ? 12 : 0,
         }]}
       >
