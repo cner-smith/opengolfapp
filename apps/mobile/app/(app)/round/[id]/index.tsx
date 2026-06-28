@@ -128,13 +128,22 @@ export default function RoundIndex() {
   useEffect(() => {
     if (!id) return
     let active = true
+    // Reset per-round state up front so a previously-viewed round's error or
+    // live-redirect can't leak onto the next one — e.g. after the active round
+    // is deleted from the home list, the stale `error` would otherwise keep the
+    // `if (error || !round)` guard tripped for every round opened afterward.
+    setLoading(true)
+    setError(null)
+    setRedirectToLive(false)
     ;(async () => {
       try {
+        // A deleted round returns null rather than throwing PGRST116 "cannot
+        // coerce the result to a single JSON object".
         const { data: r, error: rErr } = await supabase
           .from('rounds')
           .select('*, courses(name, lat, lng)')
           .eq('id', id)
-          .single()
+          .maybeSingle()
         if (rErr || !r) throw rErr ?? new Error('Round not found')
         if (!active) return
         const row = r as RoundRow & {
@@ -447,7 +456,7 @@ export default function RoundIndex() {
           .from('rounds')
           .select('*, courses(name, lat, lng)')
           .eq('id', round.id)
-          .single(),
+          .maybeSingle(),
         supabase.from('hole_scores').select('*').eq('round_id', round.id),
       ])
       if (rRes.data) {
