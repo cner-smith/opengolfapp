@@ -38,8 +38,8 @@ You'll also need the **service_role** key for the seed script. Treat it like a d
 ## 3. Run the migrations
 
 Migrations live in `supabase/migrations/`, numbered sequentially from
-`0001_initial_schema.sql` through `0021_shot_result_check.sql` at the
-time of writing. Highlights:
+`0001_initial_schema.sql` onward (39 at the time of writing). Apply the
+whole folder — `db push` handles ordering. Highlights:
 
 - `0001` — base schema (profiles, courses, rounds, hole_scores, shots,
   drills, practice_plans) with RLS policies on every user-owned table.
@@ -70,7 +70,7 @@ npx supabase db push
 
 Open each migration in `supabase/migrations/` (in numeric order), paste into the Supabase SQL editor, run.
 
-Then load the seed data (3 demo courses + 24 drills):
+Then load the seed data (3 demo courses + 125 drills):
 
 ```bash
 psql "<your-supabase-connection-string>" < supabase/seed.sql

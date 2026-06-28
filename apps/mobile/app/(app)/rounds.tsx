@@ -9,11 +9,12 @@ import {
 import { Link } from 'expo-router'
 import { Swipeable } from 'react-native-gesture-handler'
 import { formatSG } from '@oga/core'
-import { deleteRound, getRecentRounds } from '@oga/supabase'
+import { deleteRound, getRoundsList } from '@oga/supabase'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
 import { AppBar } from '../../components/ui/AppBar'
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
+import { Entrance } from '../../components/ui/Entrance'
 import { FONT, TYPE } from '../../lib/typography'
 
 interface RoundRow {
@@ -55,7 +56,7 @@ export default function RoundsList() {
   useEffect(() => {
     if (!user) return
     let active = true
-    getRecentRounds(supabase, user.id, 500).then(({ data, error }) => {
+    getRoundsList(supabase, user.id, 500).then(({ data, error }) => {
       if (!active) return
       if (error) {
         // eslint-disable-next-line no-console
@@ -118,6 +119,7 @@ export default function RoundsList() {
             No rounds yet.
           </Text>
         ) : (
+          <Entrance index={0}>
           <View style={{ borderTopWidth: 1, borderColor: '#D9D2BF' }}>
             {rounds.map((r) => (
               <Swipeable
@@ -181,8 +183,6 @@ export default function RoundsList() {
                         style={[TYPE.serif, {
                           color: '#1C211C',
                           fontSize: 17,
-                          fontWeight: '500',
-                          fontStyle: 'italic',
                         }]}
                       >
                         {r.courses?.name ?? 'Round'}
@@ -226,6 +226,7 @@ export default function RoundsList() {
               </Swipeable>
             ))}
           </View>
+          </Entrance>
         )}
       </ScrollView>
       <ConfirmDialog

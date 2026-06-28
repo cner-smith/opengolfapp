@@ -14,6 +14,7 @@ import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import {
   formatSG,
+  inferHoleStats,
   pickRoundFocus,
   roundFocusHeadline,
   selectNudgeDrills,
@@ -21,6 +22,7 @@ import {
 } from '@oga/core'
 import {
   deleteRound,
+  getCourseTees,
   getDrills,
   getProfile,
   updateRound,
@@ -45,6 +47,7 @@ type HoleRow = Database['public']['Tables']['holes']['Row']
 type HoleScoreRow = Database['public']['Tables']['hole_scores']['Row']
 type ShotRow = Database['public']['Tables']['shots']['Row']
 type DrillRow = Database['public']['Tables']['drills']['Row']
+type CourseTeeRow = Database['public']['Tables']['course_tees']['Row']
 
 const KICKER: import('react-native').TextStyle = {
   color: '#8A8B7E',
@@ -74,6 +77,26 @@ export default function RoundIndex() {
   const [shots, setShots] = useState<ShotRow[]>([])
   const [courseName, setCourseName] = useState<string>('Round')
   const [courseCenter, setCourseCenter] = useState<LatLng | null>(null)
+  // Played-tee detail for the share card (#562): rating/slope/yardage, matched
+  // by tee id then colour (same match the web card uses).
+  const [playedTee, setPlayedTee] = useState<CourseTeeRow | null>(null)
+  useEffect(() => {
+    const courseId = round?.course_id
+    if (!courseId) return
+    let cancelled = false
+    getCourseTees(supabase, courseId).then(({ data }) => {
+      if (cancelled || !data) return
+      const teeColor = round?.tee_color?.toLowerCase()
+      const tee =
+        data.find((t) => t.id === round?.course_tee_id) ??
+        (teeColor ? data.find((t) => t.tee_color === teeColor) : undefined) ??
+        null
+      setPlayedTee(tee)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [round?.course_id, round?.course_tee_id, round?.tee_color])
   // Scorecard ⇄ Map tabs (#514): the scorecard edits scores/putts/details,
   // the map places ball + aim geometry. `mapHole` is the hole the map is
   // focused on; its prev/next nav drives it.
@@ -91,6 +114,10 @@ export default function RoundIndex() {
   // back into the live HoleScreen route on tap (mode=past would drop
   // the player into the place-ball state machine on a finalized round).
   const [shotsForHole, setShotsForHole] = useState<HoleRow | null>(null)
+  // When the past-round map's "Edit this shot" opens the shots sheet, this
+  // jumps it straight into that shot's editor (vs the shot list). Cleared on
+  // close so the scorecard drill-down still opens to the list.
+  const [editShotId, setEditShotId] = useState<string | null>(null)
   const shareCardRef = useRef<View>(null)
   const { unit } = useUnits()
   const { user } = useAuth()
@@ -101,13 +128,22 @@ export default function RoundIndex() {
   useEffect(() => {
     if (!id) return
     let active = true
+    // Reset per-round state up front so a previously-viewed round's error or
+    // live-redirect can't leak onto the next one — e.g. after the active round
+    // is deleted from the home list, the stale `error` would otherwise keep the
+    // `if (error || !round)` guard tripped for every round opened afterward.
+    setLoading(true)
+    setError(null)
+    setRedirectToLive(false)
     ;(async () => {
       try {
+        // A deleted round returns null rather than throwing PGRST116 "cannot
+        // coerce the result to a single JSON object".
         const { data: r, error: rErr } = await supabase
           .from('rounds')
           .select('*, courses(name, lat, lng)')
           .eq('id', id)
-          .single()
+          .maybeSingle()
         if (rErr || !r) throw rErr ?? new Error('Round not found')
         if (!active) return
         const row = r as RoundRow & {
@@ -120,12 +156,15 @@ export default function RoundIndex() {
             ? { lat: row.courses.lat, lng: row.courses.lng }
             : null,
         )
-        // Live round signal: total_score is null while a LIVE round is in
-        // progress. Past-round entry (#514) persists a total_score sentinel
-        // at creation and lands here on the editable scorecard — never the
-        // live map. The `mode !== 'past'` guard is belt-and-suspenders for
-        // the first render before the sentinel round row is re-read.
-        if (row.total_score == null && mode !== 'past') {
+        // Only redirect into the live state machine for a round that is
+        // genuinely unfinished: never finalized (completed_at null) AND has
+        // no score yet. completed_at is the canonical finalized flag, so a
+        // finalized round always opens the read-only tabbed view even if its
+        // total_score is null. The total_score guard keeps seeded past rounds
+        // (scored but no completed_at) out of the live map too; the
+        // `mode !== 'past'` guard covers the past-logger creation race.
+        const unfinished = row.completed_at == null && row.total_score == null
+        if (unfinished && mode !== 'past') {
           if (active) setRedirectToLive(true)
           return
         }
@@ -200,6 +239,18 @@ export default function RoundIndex() {
   const holeScoreShotCount = useMemo(() => {
     const m = new Map<string, number>()
     for (const s of shots) m.set(s.hole_score_id, (m.get(s.hole_score_id) ?? 0) + 1)
+    return m
+  }, [shots])
+  // Shots grouped by hole_score_id, built once — the scorecard's FIR/GIR
+  // fallback reads this O(1) per row instead of filtering the full `shots`
+  // array per hole (was O(shots×holes) in the render body).
+  const shotsByHoleScoreId = useMemo(() => {
+    const m = new Map<string, ShotRow[]>()
+    for (const s of shots) {
+      const arr = m.get(s.hole_score_id)
+      if (arr) arr.push(s)
+      else m.set(s.hole_score_id, [s])
+    }
     return m
   }, [shots])
 
@@ -405,19 +456,12 @@ export default function RoundIndex() {
           .from('rounds')
           .select('*, courses(name, lat, lng)')
           .eq('id', round.id)
-          .single(),
+          .maybeSingle(),
         supabase.from('hole_scores').select('*').eq('round_id', round.id),
       ])
       if (rRes.data) {
-        let saved = rRes.data as RoundRow & {
+        const saved = rRes.data as RoundRow & {
           courses?: { name: string | null } | null
-        }
-        // completeRound writes `total_score: totalScore || null`, so an
-        // all-zero past round comes back null — which would re-strand it on
-        // the live map on next open (#514). Preserve the non-null sentinel.
-        if (saved.total_score == null) {
-          await updateRound(supabase, round.id, { total_score: 0 }, user.id)
-          saved = { ...saved, total_score: 0 }
         }
         setRound(saved)
       }
@@ -531,8 +575,6 @@ export default function RoundIndex() {
             style={[TYPE.serif, {
               color: '#F2EEE5',
               fontSize: 17,
-              fontWeight: '500',
-              fontStyle: 'italic',
             }]}
           >
             {courseName}
@@ -574,6 +616,9 @@ export default function RoundIndex() {
               sg_putting: round.sg_putting,
               sg_total: round.sg_total,
               courseName,
+              course_rating: playedTee?.course_rating ?? null,
+              slope_rating: playedTee?.slope_rating ?? null,
+              total_yards: playedTee?.total_yards ?? null,
             }}
             holes={sortedHoles}
             scoresByHoleId={scoresByHoleId}
@@ -734,7 +779,13 @@ export default function RoundIndex() {
             <Text style={{ ...KICKER, width: 48, textAlign: 'right', color: '#8A8B7E' }}>
               Putts
             </Text>
-            <Text style={{ ...KICKER, width: 84, textAlign: 'right', color: '#8A8B7E' }}>
+            <Text style={{ ...KICKER, width: 40, textAlign: 'center', color: '#8A8B7E' }}>
+              FIR
+            </Text>
+            <Text style={{ ...KICKER, width: 40, textAlign: 'center', color: '#8A8B7E' }}>
+              GIR
+            </Text>
+            <Text style={{ ...KICKER, width: 76, textAlign: 'right', color: '#8A8B7E' }}>
               Shots
             </Text>
           </View>
@@ -744,6 +795,15 @@ export default function RoundIndex() {
             const putts = hs?.putts ?? null
             const d = score > 0 ? score - h.par : null
             const shotCount = hs ? holeScoreShotCount.get(hs.id) ?? 0 : 0
+            // FIR/GIR: prefer the persisted hole_scores columns — web parity,
+            // a manual/web-set value wins (apps/web useRoundActions) — else
+            // infer from the hole's placed shots. par-3 fairway → null (blank).
+            const inferred = inferHoleStats(
+              hs ? shotsByHoleScoreId.get(hs.id) ?? [] : [],
+              h.par,
+            )
+            const fairway = hs?.fairway_hit ?? inferred.fairway
+            const gir = hs?.gir ?? inferred.gir
             const scoreColor =
               d == null
                 ? '#1C211C'
@@ -791,6 +851,19 @@ export default function RoundIndex() {
                   label={`Hole ${h.number} putts`}
                   onCommit={(n) => persistHoleScore(h.id, { putts: n > 0 ? n : null })}
                 />
+                {([['fir', fairway], ['gir', gir]] as const).map(([k, v]) => (
+                  <Text
+                    key={k}
+                    style={[TYPE.kicker, {
+                      width: 40,
+                      textAlign: 'center',
+                      fontSize: 14,
+                      color: v === true ? '#1F3D2C' : '#C9C2B0',
+                    }]}
+                  >
+                    {v === true ? '✓' : v === false ? '·' : ''}
+                  </Text>
+                ))}
                 <PressableTouch
                   accessibilityRole="button"
                   accessibilityLabel={
@@ -800,7 +873,7 @@ export default function RoundIndex() {
                   }
                   onPress={() => setShotsForHole(h)}
                   android_ripple={{ color: '#EBE5D6' }}
-                  style={{ width: 84, paddingVertical: 12, alignItems: 'flex-end' }}
+                  style={{ width: 76, paddingVertical: 12, alignItems: 'flex-end' }}
                 >
                   <Text
                     style={[TYPE.body, {
@@ -877,12 +950,21 @@ export default function RoundIndex() {
         <PastRoundMap
           roundId={round.id}
           userId={user.id}
+          completed={round.completed_at != null}
           holes={sortedHoles}
           holeScores={holeScores}
           shots={shots}
+          unit={unit}
           courseCenter={courseCenter}
           holeNumber={mapHole}
           onHoleChange={setMapHole}
+          onEditShot={(shotId) => {
+            const hole = sortedHoles.find((h) => h.number === mapHole)
+            if (hole) {
+              setEditShotId(shotId)
+              setShotsForHole(hole)
+            }
+          }}
           onShotUpserted={(s) =>
             setShots((prev) => {
               const i = prev.findIndex((x) => x.id === s.id)
@@ -906,15 +988,15 @@ export default function RoundIndex() {
         par={shotsForHole?.par ?? null}
         shots={
           shotsForHole
-            ? shots.filter(
-                (s) =>
-                  s.hole_score_id ===
-                  scoresByHoleId.get(shotsForHole.id)?.id,
-              )
+            ? shotsByHoleScoreId.get(scoresByHoleId.get(shotsForHole.id)?.id ?? '') ?? []
             : []
         }
         unit={unit}
-        onClose={() => setShotsForHole(null)}
+        initialShotId={editShotId}
+        onClose={() => {
+          setShotsForHole(null)
+          setEditShotId(null)
+        }}
         onShotUpdated={(updated) =>
           setShots((prev) => prev.map((s) => (s.id === updated.id ? updated : s)))
         }
@@ -924,9 +1006,10 @@ export default function RoundIndex() {
 }
 
 // Co-located post-round nudge — mirrors the web RoundSummary's RoundNudge.
-// Chips are non-interactive: mobile has no drill-library route yet (the
-// practice tab is a teaser), so there's nowhere honest to send a tap.
+// Chips link to the practice library: web sends its chips to /practice/drills;
+// mobile's equivalent route is /(app)/drills (shipped #511/#519).
 function RoundNudge({ focus, picks }: { focus: RoundFocus; picks: DrillRow[] }) {
+  const router = useRouter()
   return (
     <View
       style={{
@@ -942,32 +1025,35 @@ function RoundNudge({ focus, picks }: { focus: RoundFocus; picks: DrillRow[] }) 
           color: '#1C211C',
           fontSize: 16,
           lineHeight: 22,
-          fontStyle: 'italic',
           marginBottom: picks.length ? 12 : 0,
         }]}
       >
         {roundFocusHeadline(focus)}
       </Text>
       {picks.length > 0 && (
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-          {picks.map((drill) => (
-            <View
-              key={drill.id}
-              style={{
-                borderWidth: 1,
-                borderColor: '#1F3D2C',
-                borderRadius: 2,
-                paddingVertical: 6,
-                paddingHorizontal: 10,
-              }}
-            >
-              <Text style={[TYPE.body, { color: '#1F3D2C', fontSize: 13 }]}>
-                {drill.name}
-                {drill.duration_min ? ` · ${drill.duration_min}m` : ''}
-              </Text>
-            </View>
-          ))}
-        </View>
+        <>
+          <Text style={{ ...KICKER, marginBottom: 8 }}>Suggested drills</Text>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+            {picks.map((drill) => (
+              <PressableTouch
+                key={drill.id}
+                onPress={() => router.push('/(app)/drills')}
+                style={{
+                  borderWidth: 1,
+                  borderColor: '#1F3D2C',
+                  borderRadius: 2,
+                  paddingVertical: 6,
+                  paddingHorizontal: 10,
+                }}
+              >
+                <Text style={[TYPE.body, { color: '#1F3D2C', fontSize: 13 }]}>
+                  {drill.name}
+                  {drill.duration_min ? ` · ${drill.duration_min}m` : ''} →
+                </Text>
+              </PressableTouch>
+            ))}
+          </View>
+        </>
       )}
     </View>
   )

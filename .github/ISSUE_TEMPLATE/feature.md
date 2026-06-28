@@ -74,7 +74,7 @@ XS / S / M / L / XL  <!-- XS=~1hr, S=~half day, M=~1-2 days, L=~3-5 days, XL=~1+
 <!-- When picking Path A over Path B, capture the reason here so future agents
      can challenge it with full context. -->
 
-## CLAUDE.md / project rules to preserve
+## Project rules / invariants to preserve
 <!-- Project-specific invariants the implementer must not break -->
 
 ## Cross-references

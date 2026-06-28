@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   ActivityIndicator,
+  Linking,
   Pressable,
   ScrollView,
   Text,
@@ -415,9 +416,7 @@ export default function NewRound() {
         style={[TYPE.serif, {
           color: '#1C211C',
           fontSize: 28,
-          fontWeight: '500',
           marginBottom: 14,
-          fontStyle: 'italic',
         }]}
       >
         {mode === 'past' ? 'Pick the course you played' : 'Pick a course to start'}
@@ -552,7 +551,18 @@ export default function NewRound() {
         )}
 
         <Text style={{ ...KICKER, marginTop: 28, color: '#8A8B7E' }}>
-          Course data from OpenGolfAPI · ODbL licensed
+          Course data from OpenGolfAPI, GolfCourseAPI, and ©{' '}
+          {/* OSM's ODbL attribution guidelines ask for a link to the copyright
+              page where possible — RN can, via Linking. */}
+          <Text
+            onPress={() =>
+              Linking.openURL('https://www.openstreetmap.org/copyright')
+            }
+            style={{ textDecorationLine: 'underline' }}
+          >
+            OpenStreetMap
+          </Text>{' '}
+          contributors (ODbL)
         </Text>
       </ScrollView>
     </View>
@@ -598,8 +608,6 @@ function RoundSetupStep({
         style={[TYPE.serif, {
           color: '#1C211C',
           fontSize: 28,
-          fontWeight: '500',
-          fontStyle: 'italic',
           marginBottom: 18,
         }]}
       >
@@ -720,8 +728,6 @@ function ManualCourseForm({
           style={[TYPE.serif, {
             color: '#1C211C',
             fontSize: 28,
-            fontStyle: 'italic',
-            fontWeight: '500',
             marginBottom: 18,
           }]}
         >

@@ -225,9 +225,6 @@ export default function ProfileTab() {
             style={[TYPE.serif, {
               color: '#1C211C',
               fontSize: 56,
-              fontStyle: 'italic',
-              fontWeight: '500',
-              fontVariant: ['tabular-nums'],
               lineHeight: 60,
             }]}
           >
@@ -389,11 +386,11 @@ export default function ProfileTab() {
         >
           <View>
             <Text style={{ ...KICKER, marginBottom: 2 }}>Equipment</Text>
-            <Text style={[TYPE.body, { color: '#1C211C', fontSize: 16, fontWeight: '500' }]}>
+            <Text style={[TYPE.bodyBold, { color: '#1C211C', fontSize: 16 }]}>
               My Bag
             </Text>
           </View>
-          <Text style={[TYPE.bodyItalic, { color: '#1F3D2C', fontSize: 18, fontStyle: 'italic' }]}>→</Text>
+          <Text style={[TYPE.bodyItalic, { color: '#1F3D2C', fontSize: 18 }]}>→</Text>
         </Pressable>
 
         <Pressable
@@ -608,8 +605,6 @@ function DeleteAccountModal({
             style={[TYPE.serif, {
               color: '#1C211C',
               fontSize: 22,
-              fontStyle: 'italic',
-              fontWeight: '500',
               lineHeight: 28,
               marginBottom: 10,
             }]}
@@ -658,7 +653,9 @@ function DeleteAccountModal({
                 opacity: busy ? 0.5 : 1,
               }}
             >
-              <Text style={[TYPE.body, { color: '#5C6356', fontSize: 13, fontWeight: '500' }]}>Cancel</Text>
+              {/* regular weight — secondary Cancel, must not compete with the
+                  destructive Delete action (#598 review). */}
+              <Text style={[TYPE.body, { color: '#5C6356', fontSize: 13 }]}>Cancel</Text>
             </Pressable>
 
             {phase === 'confirm' ? (

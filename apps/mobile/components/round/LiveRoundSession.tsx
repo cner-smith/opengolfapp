@@ -88,6 +88,10 @@ export default function LiveRoundSession({
   // historical-shot scatter overlay; the render lands in T4. Off by
   // default — it's a summoned planning aid, not always-on clutter.
   const [dotsVisible, setDotsVisible] = useState(false)
+  // True once the player drags the ball off its GPS-tracked position this
+  // PLACE_BALL cycle — flips the place-ball CTA from "Mark ball at my GPS"
+  // to the generic "Mark ball here". Reset on each new placement / hole.
+  const [ballMoved, setBallMoved] = useState(false)
   // Aim overlay shape + size (T3). Tee → arc band, Appr → circle ring; the
   // rail index sizes each, kept per-mode so switching modes preserves the
   // other's pick. Default Tee, widest rail.
@@ -108,6 +112,7 @@ export default function LiveRoundSession({
     setLoggerOpen(false)
     setPinPlacementOpen(false)
     setLoggerInitial({})
+    setBallMoved(false)
     // Clear only hole-scoped dialogs (onGreen / aim). Session-scoped
     // confirms (delete / leave / end / exit) stay open across hole
     // navigation — a confirmDelete dialog mid-navigation should not
@@ -138,6 +143,12 @@ export default function LiveRoundSession({
     hasPriorShots: data.remoteShotCount + data.localShotCount > 0,
   })
 
+  // Each fresh PLACE_BALL entry (new shot, re-place) starts GPS-tracked, so the
+  // ball is back at the GPS dot until the player drags it again.
+  useEffect(() => {
+    if (finalState.roundState === 'PLACE_BALL') setBallMoved(false)
+  }, [finalState.roundState])
+
   // Camera anchors on the tee box — the player's starting point. Pin/green
   // is intentionally NOT a fallback; it would mis-frame the hole every time.
   // Course centroid is the next-best landing if no per-hole layout exists,
@@ -160,12 +171,17 @@ export default function LiveRoundSession({
   ])
 
   // Two-dot tee box flanking the tee, oriented down the line of play (toward the
-  // aim, else the pin). The tee IS the first shot's start — like past-round
-  // (PastRoundMap): the course tee when known, otherwise the shot-1 ball as you
-  // place it (persisted as the hole tee on save, see useShotActions). After
-  // shot 1 it lives in data.tee, so the dots stay put on later shots.
+  // aim, else the pin). The marker ALWAYS derives from where the player actually
+  // teed off — the FIRST shot's start — never the surveyed holes.tee_lat (real
+  // tee boxes move daily; the stored coord lies about where you hit from).
+  // While placing shot 1 that's the live ball as you drag it, so the marker
+  // tracks it reactively. After shot 1, `data.tee` is the SAVED first-shot
+  // start (= previousShots[0]). The stored course tee inside `data.tee` is
+  // consulted ONLY as a last resort — before any first shot exists — so the
+  // hole isn't marker-less on entry.
   const teeBox = useMemo<[LatLng, LatLng] | null>(() => {
-    const origin = data.tee ?? (data.shotNumber === 1 ? finalState.ball : null)
+    const origin =
+      (data.shotNumber === 1 ? finalState.ball : null) ?? data.tee
     if (!origin) return null
     const toward = finalState.aim ?? data.roundPin ?? data.storedPin
     const heading = toward
@@ -314,8 +330,6 @@ export default function LiveRoundSession({
             {
               color: '#1C211C',
               fontSize: 20,
-              fontStyle: 'italic',
-              fontWeight: '500',
               textAlign: 'center',
               marginBottom: 10,
             },
@@ -449,8 +463,6 @@ export default function LiveRoundSession({
               {
                 color: '#F2EEE5',
                 fontSize: 17,
-                fontWeight: '500',
-                fontStyle: 'italic',
               },
             ]}
           >
@@ -496,7 +508,6 @@ export default function LiveRoundSession({
           gpsPosition={finalState.gpsPosition}
           courseCenter={data.courseCenter}
           holeNumber={holeNumber}
-          missingHoleLayout={data.tee == null && data.storedPin == null && data.roundPin == null}
           phase={
             pinPlacementOpen
               ? 'PIN'
@@ -514,7 +525,10 @@ export default function LiveRoundSession({
           }
           showLocationPuck={
             finalState.roundState !== 'SHOT_DETAIL' &&
-            finalState.roundState !== 'PUTTING'
+            finalState.roundState !== 'PUTTING' &&
+            // Hide the live GPS puck while revisiting a played hole — that hole
+            // is in breadcrumb-only review mode until "Add a shot" (#484).
+            !finalState.isRevisitingPlayedHole
           }
           onSetAim={(loc) => {
             // A user drag / long-press is an explicit aim — mark it touched so
@@ -530,6 +544,7 @@ export default function LiveRoundSession({
             // (1 m²) — strong prior so any future un-freeze still
             // resists snapping back to a noisy raw fix.
             finalState.manuallyPlacedRef.current = true
+            setBallMoved(true)
             finalState.kalmanStateRef.current = {
               lat: loc.lat,
               lng: loc.lng,
@@ -589,6 +604,13 @@ export default function LiveRoundSession({
           saving={actions.saving}
           roundPin={data.roundPin}
           hasGps={finalState.gpsPosition != null}
+          ballFromGps={
+            !isPastMode &&
+            finalState.gpsPosition != null &&
+            finalState.ball != null &&
+            !ballMoved
+          }
+          isRevisitingPlayedHole={finalState.isRevisitingPlayedHole}
           totalShotsThisHole={totalShotsThisHole}
           holeNumber={holeNumber}
           holeCount={data.holeCount}
@@ -607,6 +629,12 @@ export default function LiveRoundSession({
           }}
           onSkipAim={actions.skipAim}
           onMarkBallHere={actions.markBallHere}
+          onAddShot={() => {
+            // Opt back into the live append flow on a revisited played hole:
+            // re-arm the GPS ball + auto-aim and enter PLACE_BALL (#484).
+            finalState.setAppendEngaged(true)
+            finalState.setRoundState('PLACE_BALL')
+          }}
           onFinishHole={actions.finishHole}
           onPrev={() => actions.navigateHole(-1)}
           onNext={() => actions.navigateHole(1)}

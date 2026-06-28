@@ -130,8 +130,6 @@ export function TeePicker({
               style={[TYPE.serif, {
                 color: active ? '#F2EEE5' : '#1C211C',
                 fontSize: 16,
-                fontStyle: 'italic',
-                fontWeight: '500',
                 textTransform: 'capitalize',
               }]}
             >

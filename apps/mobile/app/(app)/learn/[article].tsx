@@ -4,7 +4,7 @@ import { findLearnArticle } from '@oga/core'
 import { AppBar } from '../../../components/ui/AppBar'
 import { BODY, C, KICKER, TITLE } from '../../../components/learn/primitives'
 import { MOBILE_ARTICLES } from '../../../components/learn/articles'
-import { TYPE } from '../../../lib/typography'
+import { FONT, TYPE } from '../../../lib/typography'
 
 export default function ArticleScreen() {
   const router = useRouter()
@@ -51,7 +51,7 @@ function NotFound() {
   return (
     <View>
       <Text style={TITLE}>Article not found.</Text>
-      <Text style={{ ...BODY, color: C.inkDim, fontStyle: 'italic' }}>
+      <Text style={{ ...BODY, color: C.inkDim, fontFamily: FONT.bodyItalic }}>
         That guide does not exist yet.
       </Text>
     </View>
@@ -92,7 +92,7 @@ function StubBody({ title }: { title: string }) {
     <View>
       <Text style={{ ...KICKER, marginBottom: 10 }}>Coming soon</Text>
       <Text style={TITLE}>{title}</Text>
-      <Text style={{ ...BODY, color: C.mute, fontStyle: 'italic' }}>
+      <Text style={{ ...BODY, color: C.mute, fontFamily: FONT.bodyItalic }}>
         This guide is being written. Check back soon.
       </Text>
     </View>

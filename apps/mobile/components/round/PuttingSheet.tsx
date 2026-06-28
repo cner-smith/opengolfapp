@@ -11,6 +11,7 @@ import {
 import {
   FEET_TO_CM,
   combinedBreakDirection,
+  horizontalBreakFromAim,
   type BreakDirectionHorizontal,
   type BreakDirectionVertical,
   type GreenSpeed,
@@ -74,12 +75,6 @@ const BREAK_SLOPE_OPTIONS: { value: BreakDirectionVertical; label: string }[] = 
   { value: 'flat', label: 'Flat' },
   { value: 'downhill', label: 'Downhill' },
 ]
-const BREAK_LINE_OPTIONS: { value: BreakDirectionHorizontal; label: string }[] = [
-  { value: 'left_to_right', label: 'L → R' },
-  { value: 'straight', label: 'Straight' },
-  { value: 'right_to_left', label: 'R → L' },
-]
-
 const SLOPE_INTENSITY_LABELS = ['Flat', 'Slight', 'Moderate', 'Strong', 'Severe']
 
 const SPEED_OPTIONS: { value: GreenSpeed; label: string }[] = [
@@ -170,13 +165,6 @@ export function PuttingSheet({
     }))
   }
 
-  function setBreakLine(v: BreakDirectionHorizontal) {
-    setValue((prev) => ({
-      ...prev,
-      breakDirectionHorizontal: prev.breakDirectionHorizontal === v ? undefined : v,
-    }))
-  }
-
   function commit(makeOverride?: boolean) {
     const made =
       makeOverride === true ? true : makeOverride === false ? false : value.puttMade
@@ -232,8 +220,6 @@ export function PuttingSheet({
               {
                 color: '#1C211C',
                 fontSize: 22,
-                fontStyle: 'italic',
-                fontWeight: '500',
               },
             ]}
           >
@@ -292,7 +278,13 @@ export function PuttingSheet({
               horizontal: value.breakDirectionHorizontal,
             }) ?? 'straight'
           }
-          onAimChange={(n) => set('aimOffsetInches', n)}
+          onAimChange={(n) =>
+            setValue((prev) => ({
+              ...prev,
+              aimOffsetInches: n,
+              breakDirectionHorizontal: horizontalBreakFromAim(n),
+            }))
+          }
         />
 
         <View style={{ marginTop: 14 }}>
@@ -373,22 +365,6 @@ export function PuttingSheet({
           </View>
           <Text style={[TYPE.kicker, { ...KICKER, marginTop: 8, color: '#8A8B7E' }]}>
             Tap again to clear · leave blank if green was level
-          </Text>
-        </Section>
-
-        <Section title="Break (line)">
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
-            {BREAK_LINE_OPTIONS.map((b) => (
-              <Chip
-                key={b.value}
-                label={b.label}
-                active={value.breakDirectionHorizontal === b.value}
-                onPress={() => setBreakLine(b.value)}
-              />
-            ))}
-          </View>
-          <Text style={[TYPE.kicker, { ...KICKER, marginTop: 8, color: '#8A8B7E' }]}>
-            Tap again to clear · leave blank if there was no break
           </Text>
         </Section>
 

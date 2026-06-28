@@ -23,6 +23,13 @@ interface MapBottomChromeProps {
   saving: boolean
   roundPin: { lat: number; lng: number } | null
   hasGps: boolean
+  /** Live mode only: the ball marker is currently tracking the player's GPS
+   *  (not manually dragged). Drives the GPS-explicit place-ball CTA + hint. */
+  ballFromGps?: boolean
+  /** True when the player has navigated back to a hole that already has logged
+   *  shots and hasn't opted into adding another. The live mark-ball CTA is
+   *  replaced by an explicit "Add a shot" affordance (#484). */
+  isRevisitingPlayedHole?: boolean
   totalShotsThisHole: number
   holeNumber: number
   holeCount: number
@@ -34,6 +41,9 @@ interface MapBottomChromeProps {
   onRePlaceBall: () => void
   onSkipAim: () => void
   onMarkBallHere: () => void
+  /** Opt into the live append flow on a revisited played hole. Optional — its
+   *  partner `isRevisitingPlayedHole` is the only path that reaches it. */
+  onAddShot?: () => void
   onFinishHole: () => void
   onPrev: () => void
   onNext: () => void
@@ -84,18 +94,52 @@ function ContextualActions(p: MapBottomChromeProps) {
       </>
     )
   }
-  // PLACE_BALL
+  // Revisiting a played hole: the live mark-ball flow is suppressed (no
+  // GPS ball, no auto-aim, no line-to-green). Show the existing-shot breadcrumb
+  // only, with an explicit "Add a shot" opt-in plus the finish affordance. #484.
+  if (p.isRevisitingPlayedHole) {
+    return (
+      <>
+        <PrimaryCta label="+ Add a shot" disabled={p.saving} onPress={() => p.onAddShot?.()} />
+        {p.totalShotsThisHole > 0 && (
+          <TextChip
+            label={p.holeNumber < p.holeCount ? 'Finish hole · next →' : 'Finish round'}
+            onPress={p.onFinishHole}
+            strong
+          />
+        )}
+      </>
+    )
+  }
+  // PLACE_BALL. When the ball is GPS-tracked (live, not yet dragged), the CTA
+  // says so explicitly — otherwise it's the generic "here" for a dragged marker.
   const ballLabel = p.saving
     ? 'Saving…'
-    : p.ball
-      ? 'Mark ball here →'
-      : p.hasGps
-        ? 'Mark ball at my GPS →'
-        : 'Waiting for GPS…'
+    : p.ballFromGps
+      ? 'Mark ball at my GPS →'
+      : p.ball
+        ? 'Mark ball here →'
+        : p.hasGps
+          ? 'Mark ball at my GPS →'
+          : 'Waiting for GPS…'
   const ballDisabled = (!p.ball && !p.hasGps) || p.saving
   return (
     <>
       <PrimaryCta label={ballLabel} disabled={ballDisabled} onPress={p.onMarkBallHere} />
+      {p.ballFromGps && !p.saving && (
+        <View
+          style={{
+            backgroundColor: CHROME_BG,
+            borderRadius: 14,
+            paddingHorizontal: 12,
+            paddingVertical: 5,
+          }}
+        >
+          <Text style={[TYPE.body, { color: CREAM, fontSize: 11, opacity: 0.85 }]}>
+            The ball follows your GPS — drag to adjust.
+          </Text>
+        </View>
+      )}
       {p.totalShotsThisHole > 0 && (
         <TextChip
           label={p.holeNumber < p.holeCount ? 'Finish hole · next →' : 'Finish round'}
@@ -298,7 +342,7 @@ function NavChevron({
         opacity: disabled ? 0.3 : 1,
       }}
     >
-      <Text style={[TYPE.body, { color: CREAM, fontSize: 20, fontWeight: '500' }]}>
+      <Text style={[TYPE.bodyBold, { color: CREAM, fontSize: 20 }]}>
         {dir === 'prev' ? '‹' : '›'}
       </Text>
     </PressableTouch>

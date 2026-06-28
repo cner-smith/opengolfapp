@@ -5,6 +5,7 @@ import { getDrills } from '@oga/supabase'
 import type { Database } from '@oga/supabase'
 import type { BlockType, PlanCategory } from '@oga/core'
 import { AppBar } from '../../components/ui/AppBar'
+import { Entrance } from '../../components/ui/Entrance'
 import {
   BLOCK_TYPE_LABEL,
   CATEGORY_LABEL,
@@ -73,6 +74,7 @@ export default function Drills() {
     <View style={{ flex: 1, backgroundColor: CREAM }}>
       <AppBar eyebrow="Practice" title="Drill library" />
       <ScrollView contentContainerStyle={{ padding: 18, paddingBottom: 48 }}>
+        <Entrance index={0}>
         <Pressable hitSlop={6} onPress={() => router.back()} style={{ marginBottom: 16 }}>
           <Text style={{ ...KICKER, color: INK_MUTE }}>← Practice plan</Text>
         </Pressable>
@@ -86,7 +88,9 @@ export default function Drills() {
           Every drill the plan generator can draw from. Each one explains the why,
           the how, and the rep target — no gimmicks.
         </Text>
+        </Entrance>
 
+        <Entrance index={1}>
         <FilterRow
           label="Part of the game"
           active={category}
@@ -101,6 +105,7 @@ export default function Drills() {
           labelFor={(m) => BLOCK_TYPE_LABEL[m]}
           onPick={setMode}
         />
+        </Entrance>
 
         {loading ? (
           <View style={{ paddingTop: 32, alignItems: 'center' }}>
@@ -109,18 +114,18 @@ export default function Drills() {
         ) : error ? (
           <Text style={[TYPE.body, { color: NEG, fontSize: 13, marginTop: 24 }]}>{error}</Text>
         ) : (
-          <>
+          <Entrance index={2}>
             <Text style={{ ...KICKER, marginTop: 22, marginBottom: 2 }}>
               {filtered.length} drill{filtered.length === 1 ? '' : 's'}
             </Text>
             {filtered.length === 0 ? (
-              <Text style={[TYPE.serif, { color: INK_DIM, fontSize: 17, fontStyle: 'italic', paddingTop: 14 }]}>
+              <Text style={[TYPE.serif, { color: INK_DIM, fontSize: 17, paddingTop: 14 }]}>
                 No drills match those filters.
               </Text>
             ) : (
               filtered.map((drill) => <DrillCard key={drill.id} drill={drill} />)
             )}
-          </>
+          </Entrance>
         )}
       </ScrollView>
     </View>
@@ -191,14 +196,14 @@ function DrillCard({ drill }: { drill: Drill }) {
     <View style={{ borderBottomWidth: 1, borderColor: LINE, paddingVertical: 16 }}>
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 12 }}>
         <Pressable onPress={() => canExpand && setOpen((o) => !o)} disabled={!canExpand} style={{ flex: 1 }}>
-          <Text style={[TYPE.serif, { color: INK, fontSize: 18, fontStyle: 'italic', fontWeight: '500', lineHeight: 23 }]}>
+          <Text style={[TYPE.serif, { color: INK, fontSize: 18, lineHeight: 23 }]}>
             {drill.name}
             {canExpand ? <Text style={{ color: INK_MUTE, fontSize: 13 }}>{open ? '  ▲' : '  ▼'}</Text> : null}
           </Text>
         </Pressable>
         <View style={{ alignItems: 'flex-end', minWidth: 64 }}>
           {drill.duration_min != null ? (
-            <Text style={[TYPE.serif, { color: INK, fontSize: 18, fontStyle: 'italic', lineHeight: 20 }]}>
+            <Text style={[TYPE.serif, { color: INK, fontSize: 18, lineHeight: 20 }]}>
               {drill.duration_min} min
             </Text>
           ) : null}

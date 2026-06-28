@@ -103,8 +103,6 @@ export function ResumeRoundBanner({ round }: { round: ActiveRound }) {
             {
               color: '#1C211C',
               fontSize: 15,
-              fontWeight: '500',
-              fontStyle: 'italic',
             },
           ]}
         >

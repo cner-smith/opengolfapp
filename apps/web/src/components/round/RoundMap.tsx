@@ -226,7 +226,6 @@ export function RoundMap({
     handicap,
     onMovePoint,
     onMovePin,
-    onMoveTee,
     onSetAim,
     onMoveExistingShot,
     onMoveExistingShotAim,

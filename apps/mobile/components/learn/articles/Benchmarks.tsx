@@ -384,10 +384,8 @@ function BenchmarkBar({
           <Text
             style={{
               fontFamily: FONT.serifItalic,
-              fontStyle: 'italic',
               fontSize: 13,
               color: C.inkDim,
-              fontVariant: ['tabular-nums'],
             }}
           >
             Scratch · {row.format(scratchValue)}
@@ -499,8 +497,6 @@ function BenchmarkBar({
           <Text
             style={{
               fontFamily: FONT.serifItalic,
-              fontStyle: 'italic',
-              fontVariant: ['tabular-nums'],
             }}
           >
             {row.format(row.values[6]!)}
@@ -511,8 +507,6 @@ function BenchmarkBar({
           <Text
             style={{
               fontFamily: FONT.serifItalic,
-              fontStyle: 'italic',
-              fontVariant: ['tabular-nums'],
             }}
           >
             {row.format(row.values[0]!)}
@@ -534,8 +528,6 @@ function BenchmarkBar({
           <Text
             style={{
               fontFamily: FONT.serifItalic,
-              fontStyle: 'italic',
-              fontVariant: ['tabular-nums'],
             }}
           >
             {row.format(me!)}

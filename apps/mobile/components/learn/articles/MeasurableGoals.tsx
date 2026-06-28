@@ -197,7 +197,7 @@ function AnatomyTable() {
           style={{ paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: C.line }}
         >
           <Text
-            style={{ color: C.ink, fontFamily: FONT.serifItalic, fontSize: 15, fontStyle: 'italic', fontWeight: '500', marginBottom: 4 }}
+            style={{ color: C.ink, fontFamily: FONT.serifItalic, fontSize: 15, marginBottom: 4 }}
           >
             {r.part}
           </Text>

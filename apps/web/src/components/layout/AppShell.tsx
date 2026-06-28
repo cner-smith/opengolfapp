@@ -88,8 +88,26 @@ export function AppShell({ children }: { children: ReactNode }) {
               style={{ textDecoration: 'underline' }}
             >
               OpenGolfAPI
+            </a>
+            ,{' '}
+            <a
+              href="https://golfcourseapi.com"
+              target="_blank"
+              rel="noreferrer noopener"
+              style={{ textDecoration: 'underline' }}
+            >
+              GolfCourseAPI
+            </a>
+            , and ©{' '}
+            <a
+              href="https://www.openstreetmap.org/copyright"
+              target="_blank"
+              rel="noreferrer noopener"
+              style={{ textDecoration: 'underline' }}
+            >
+              OpenStreetMap
             </a>{' '}
-            · ODbL licensed
+            contributors (ODbL)
           </footer>
         </div>
       </main>

@@ -334,8 +334,6 @@ function CombineTable() {
               color: C.ink,
               fontFamily: FONT.serifItalic,
               fontSize: 15,
-              fontStyle: 'italic',
-              fontWeight: '500',
               marginBottom: 4,
             }}
           >

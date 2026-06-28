@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Modal, Pressable, ScrollView, Text, TextInput, View } from 'react-native'
 import { PressableTouch } from '../ui/PressableTouch'
 import {
@@ -87,6 +87,12 @@ interface PastHoleShotsSheetProps {
   par: number | null
   shots: ShotRow[]
   unit: DistanceUnit
+  /**
+   * When set (and `visible`), opens straight into this shot's editor rather
+   * than the shot list — the past-round map's "Edit this shot" entry (#593).
+   * Null/undefined → opens to the list (scorecard drill-down).
+   */
+  initialShotId?: string | null
   onClose: () => void
   onShotUpdated?: (shot: ShotRow) => void
 }
@@ -97,6 +103,7 @@ export function PastHoleShotsSheet({
   par,
   shots,
   unit,
+  initialShotId,
   onClose,
   onShotUpdated,
 }: PastHoleShotsSheetProps) {
@@ -107,6 +114,20 @@ export function PastHoleShotsSheet({
   const insets = useSafeAreaInsets()
 
   const sortedShots = [...shots].sort((a, b) => a.shot_number - b.shot_number)
+
+  // On open, jump into a specific shot's editor when the map's "Edit this
+  // shot" passed an id; otherwise show the list. Runs only on open / id
+  // change — deliberately NOT on `shots` changes, so saving an edit (which
+  // mutates `shots`) doesn't reopen the editor after it closes to the list.
+  useEffect(() => {
+    if (!visible) return
+    setEditingShot(
+      initialShotId
+        ? sortedShots.find((s) => s.id === initialShotId) ?? null
+        : null,
+    )
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- sortedShots intentionally omitted: re-saving shot details mutates `shots` and must not re-open the editor after it closes to the list
+  }, [visible, initialShotId])
 
   async function handleSave(
     shotId: string,
@@ -183,8 +204,6 @@ export function PastHoleShotsSheet({
               style={[TYPE.serif, {
                 color: '#1C211C',
                 fontSize: 22,
-                fontStyle: 'italic',
-                fontWeight: '500',
                 marginBottom: 14,
               }]}
             >
@@ -488,8 +507,6 @@ function EditShotSheet({
           style={[TYPE.serif, {
             color: '#1C211C',
             fontSize: 17,
-            fontStyle: 'italic',
-            fontWeight: '500',
           }]}
         >
           Shot {shot.shot_number}

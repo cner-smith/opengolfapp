@@ -3,10 +3,13 @@ import { Pressable, ScrollView, Text, useWindowDimensions, View } from 'react-na
 import { VictoryAxis, VictoryChart, VictoryLine } from 'victory-native'
 import Svg, { Line as SvgLine } from 'react-native-svg'
 import {
+  clubDistanceStats,
   computeDetailedStats,
   DEFAULT_HANDICAP,
+  formatClubLabel,
   formatSG,
   sgStandouts,
+  symmetricNiceTicks,
   YARDS_TO_METERS,
   type ApproachBandStat,
   type DetailedRound,
@@ -18,6 +21,7 @@ import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
 import { useUnits } from '../../hooks/useUnits'
 import { AppBar } from '../../components/ui/AppBar'
+import { Entrance } from '../../components/ui/Entrance'
 import { TYPE } from '../../lib/typography'
 
 const N_OPTIONS = [5, 10, 20] as const
@@ -109,6 +113,24 @@ export default function Stats() {
     }))
   }, [rounds])
 
+  // Symmetric Y domain + ticks scaled to the actual data peak, so the axis
+  // labels always match the plotted lines (a fixed [-1.5..1.5] tick set got
+  // crammed into the middle once an outlier round blew out the auto-domain).
+  const sgAxis = useMemo(
+    () => symmetricNiceTicks(chartSeries.flatMap((s) => s.data.map((d) => d.y))),
+    [chartSeries],
+  )
+
+  // Per-club total distance (max/min/avg), from every tracked shot's
+  // start→end across the loaded rounds.
+  const clubDistances = useMemo(
+    () =>
+      clubDistanceStats(
+        rounds.flatMap((r) => (r.hole_scores ?? []).flatMap((hs) => hs.shots ?? [])),
+      ),
+    [rounds],
+  )
+
   const stats: DetailedStats | null = useMemo(
     () => (rounds.length > 0 ? computeDetailedStats(rounds, DEFAULT_HANDICAP) : null),
     [rounds],
@@ -175,8 +197,6 @@ export default function Stats() {
               style={[TYPE.serif, {
                 color: '#1C211C',
                 fontSize: 22,
-                fontStyle: 'italic',
-                fontWeight: '500',
               }]}
             >
               No rounds yet.
@@ -196,6 +216,7 @@ export default function Stats() {
           <>
             {stats && <StandoutCallout sg={stats.sg} />}
 
+            <Entrance index={0}>
             <Section kicker={`Avg — last ${rounds.length} rounds`}>
               <View
                 style={{
@@ -236,8 +257,6 @@ export default function Stats() {
                     <Text
                       style={[TYPE.serif, {
                         fontSize: 26,
-                        fontStyle: 'italic',
-                        fontWeight: '500',
                         color:
                           s.value > 0
                             ? '#1F3D2C'
@@ -253,11 +272,14 @@ export default function Stats() {
                 ))}
               </View>
             </Section>
+            </Entrance>
 
+            <Entrance index={1}>
             <Section kicker={`SG trend — last ${rounds.length} rounds`}>
               <VictoryChart
                 height={CHART_HEIGHT}
                 width={screenWidth - 36}
+                domain={{ y: [-sgAxis.max, sgAxis.max] }}
                 padding={{ top: 16, right: 12, bottom: CHART_BOTTOM, left: 32 }}
               >
                 <VictoryAxis
@@ -276,7 +298,7 @@ export default function Stats() {
                 />
                 <VictoryAxis
                   dependentAxis
-                  tickValues={[-1.5, -1, -0.5, 0, 0.5, 1, 1.5]}
+                  tickValues={sgAxis.ticks}
                   style={{
                     axis: { stroke: '#D9D2BF' },
                     tickLabels: { fontSize: 9, fill: '#8A8B7E' },
@@ -339,8 +361,10 @@ export default function Stats() {
                 ))}
               </View>
             </Section>
+            </Entrance>
 
             {stats && (
+              <Entrance index={2}>
               <Section kicker="Scoring">
                 <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginBottom: 14 }}>
                   <StatTile label="Avg score" value={fmtNum(stats.scoring.avgScore, 1)} />
@@ -357,9 +381,11 @@ export default function Stats() {
                   total={stats.scoringDistribution.total}
                 />
               </Section>
+              </Entrance>
             )}
 
             {stats && (
+              <Entrance index={3}>
               <Section kicker="Ball striking">
                 <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
                   <StatTile label="Fairways" value={fmtPct(stats.ballStriking.fairwayPct)} />
@@ -374,9 +400,11 @@ export default function Stats() {
                   />
                 </View>
               </Section>
+              </Entrance>
             )}
 
             {stats && (
+              <Entrance index={4}>
               <Section kicker="Short game">
                 <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
                   <StatTile label="Putts/round" value={fmtNum(stats.shortGame.puttsPerRound, 1)} />
@@ -387,9 +415,11 @@ export default function Stats() {
                   <StatTile label="Sand save" value={fmtPct(stats.shortGame.sandSavePct)} />
                 </View>
               </Section>
+              </Entrance>
             )}
 
             {stats && (
+              <Entrance index={5}>
               <Section kicker="Patterns">
                 <Subkicker>Miss tendency</Subkicker>
                 {stats.missTendency.length === 0 ? (
@@ -510,6 +540,79 @@ export default function Stats() {
                   </View>
                 )}
               </Section>
+              </Entrance>
+            )}
+
+            {clubDistances.length > 0 && (
+              <Entrance index={6}>
+              <Section kicker="Club distances">
+                <Text
+                  style={[TYPE.body, {
+                    color: '#8A8B7E',
+                    fontSize: 12,
+                    marginTop: -4,
+                    marginBottom: 12,
+                  }]}
+                >
+                  Total distance, not carry · avg (min–max)
+                </Text>
+                <View style={{ gap: 10 }}>
+                  {clubDistances.map((c) => {
+                    const conv = (y: number) =>
+                      unit === 'meters' ? Math.round(y * YARDS_TO_METERS) : Math.round(y)
+                    return (
+                      <View
+                        key={c.club}
+                        style={{ flexDirection: 'row', alignItems: 'baseline', gap: 10 }}
+                      >
+                        <Text
+                          style={[TYPE.bodyBold, {
+                            flex: 1,
+                            color: '#1C211C',
+                            fontSize: 14,
+                            textTransform: 'capitalize',
+                          }]}
+                          numberOfLines={1}
+                        >
+                          {formatClubLabel({ club_type: c.club })}
+                        </Text>
+                        <Text
+                          style={[TYPE.serif, {
+                            color: '#1C211C',
+                            fontSize: 16,
+                            fontVariant: ['tabular-nums'],
+                          }]}
+                        >
+                          {toDisplay(c.avg)}
+                        </Text>
+                        <Text
+                          style={[TYPE.body, {
+                            width: 84,
+                            textAlign: 'right',
+                            color: '#5C6356',
+                            fontSize: 12,
+                            fontVariant: ['tabular-nums'],
+                          }]}
+                        >
+                          {conv(c.min)}–{conv(c.max)}
+                        </Text>
+                        <Text
+                          style={[TYPE.body, {
+                            width: 26,
+                            textAlign: 'right',
+                            color: '#8A8B7E',
+                            fontSize: 11,
+                            fontVariant: ['tabular-nums'],
+                          }]}
+                        >
+                          {c.count}
+                        </Text>
+                      </View>
+                    )
+                  })}
+                </View>
+              </Section>
+              </Entrance>
             )}
           </>
         )}
@@ -567,9 +670,6 @@ function StatTile({ label, value }: { label: string; value: string }) {
         style={[TYPE.serif, {
           color: '#1C211C',
           fontSize: 20,
-          fontStyle: 'italic',
-          fontWeight: '500',
-          fontVariant: ['tabular-nums'],
         }]}
       >
         {value}
@@ -620,9 +720,6 @@ function StatRow({
           style={[TYPE.serif, {
             color: valueColor,
             fontSize: 20,
-            fontStyle: 'italic',
-            fontWeight: '500',
-            fontVariant: ['tabular-nums'],
           }]}
         >
           {value}
@@ -657,7 +754,7 @@ function ScoringDistBar({
         {visible.map((s) => (
           <View key={s.key} style={{ flex: s.count, backgroundColor: s.color, justifyContent: 'center', alignItems: 'center' }}>
             {s.pct >= 8 && (
-              <Text style={[TYPE.body, { color: '#F2EEE5', fontSize: 11, fontWeight: '500', fontVariant: ['tabular-nums'] }]}>
+              <Text style={[TYPE.bodyBold, { color: '#F2EEE5', fontSize: 11, fontVariant: ['tabular-nums'] }]}>
                 {s.pct.toFixed(0)}%
               </Text>
             )}
@@ -680,7 +777,7 @@ function ScoringDistBar({
 
 function Insufficient({ note }: { note: string }) {
   return (
-    <Text style={[TYPE.bodyItalic, { color: '#8A8B7E', fontSize: 13, fontStyle: 'italic', marginBottom: 8 }]}>
+    <Text style={[TYPE.bodyItalic, { color: '#8A8B7E', fontSize: 13, marginBottom: 8 }]}>
       {note}
     </Text>
   )
@@ -718,8 +815,6 @@ function StandoutCallout({ sg }: { sg: SGAverages }) {
         style={[TYPE.serif, {
           color: '#1C211C',
           fontSize: 17,
-          fontStyle: 'italic',
-          fontWeight: '500',
           lineHeight: 24,
         }]}
       >

@@ -389,7 +389,7 @@ function SessionRows() {
           }}
         >
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
-            <Text style={{ color: C.ink, fontFamily: FONT.serifItalic, fontSize: 15, fontStyle: 'italic', fontWeight: '500' }}>
+            <Text style={{ color: C.ink, fontFamily: FONT.serifItalic, fontSize: 15 }}>
               {r.phase}
             </Text>
             <Text style={{ color: C.inkDim, fontFamily: FONT.mono, fontSize: 12, fontVariant: ['tabular-nums'] }}>

@@ -121,6 +121,7 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
     manuallyPlacedRef,
     lastSavedShotLocalIdRef,
     gpsPosition,
+    setAppendEngaged,
   } = state
 
   function buildPayload(meta: ShotLoggerValue | null): ShotPayload | null {
@@ -354,6 +355,11 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
       return
     }
     const ballSnapshot = { lat: source.lat, lng: source.lng }
+    // Marking a ball IS engaging the live append flow for this hole visit —
+    // keeps the aids on across the natural shot-to-shot loop even after the
+    // hole gains prior shots (otherwise shot 2+ on a hole would read as a
+    // revisit and suppress). See #484.
+    setAppendEngaged(true)
     manuallyPlacedRef.current = true
     const prevLocalId = lastSavedShotLocalIdRef.current
     if (prevLocalId != null) {

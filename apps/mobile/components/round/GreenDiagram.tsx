@@ -219,9 +219,6 @@ export function GreenDiagram({
               {
                 color: '#1C211C',
                 fontSize: 28,
-                fontStyle: 'italic',
-                fontWeight: '500',
-                fontVariant: ['tabular-nums'],
                 lineHeight: 30,
               },
             ]}

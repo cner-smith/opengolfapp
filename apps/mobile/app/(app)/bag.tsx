@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import {
   Alert,
   Modal,
@@ -67,6 +67,14 @@ export default function BagScreen() {
     includeBenched: true,
     seedIfEmpty: true,
   })
+  // Count per club_type once — the row's "show loft to disambiguate" flag is
+  // an O(1) lookup instead of a full-bag scan per row on every list render
+  // (incl. every drag frame).
+  const clubTypeCounts = useMemo(() => {
+    const m = new Map<string, number>()
+    for (const c of bag) m.set(c.club_type, (m.get(c.club_type) ?? 0) + 1)
+    return m
+  }, [bag])
   const [showAdd, setShowAdd] = useState(false)
   const [draft, setDraft] = useState<AddDraft>(EMPTY_DRAFT)
   // Set to a club id when the modal is editing an existing row; null when
@@ -285,9 +293,7 @@ export default function BagScreen() {
             <ClubRow
               club={item}
               isActive={isActive}
-              hasDuplicateType={
-                bag.filter((c) => c.club_type === item.club_type).length > 1
-              }
+              hasDuplicateType={(clubTypeCounts.get(item.club_type) ?? 0) > 1}
               onLongPress={drag}
               onToggle={() => toggleInBag(item)}
               onDelete={() => confirmDelete(item)}
@@ -373,8 +379,6 @@ export default function BagScreen() {
               style={[TYPE.serif, {
                 color: '#1C211C',
                 fontSize: 22,
-                fontWeight: '500',
-                fontStyle: 'italic',
                 marginBottom: 18,
               }]}
             >
@@ -574,7 +578,7 @@ function ClubRow({
         <Text style={[TYPE.body, { color: '#8A8B7E', fontSize: 16 }]}>⠿</Text>
       </Pressable>
       <View style={{ flex: 1 }}>
-        <Text style={[TYPE.body, { color: '#1C211C', fontSize: 16, fontWeight: '500' }]}>
+        <Text style={[TYPE.bodyBold, { color: '#1C211C', fontSize: 16 }]}>
           {club.name}
         </Text>
         <Text style={{ ...KICKER, marginTop: 2 }}>

@@ -152,34 +152,65 @@ highest bar.
 The practice planner picks drills from `public.drills` in Supabase.
 Adding good drills directly improves every plan generated.
 
-Schema:
+Columns you provide (`id` is auto-generated — don't set it; `created_at`
+is also automatic):
 
 ```sql
 drills (
-  id            uuid primary key,
-  name          text,                                   -- "9-shot grid"
-  description   text,                                   -- one-line summary
-  duration_min  int,                                    -- realistic minutes
-  category      'off_tee' | 'approach' | 'around_green' | 'putting',
-  facility      text[],                                 -- ['range','short_game','putting','sim','anywhere']
-  skill_levels  text[],                                 -- ['beginner','casual','developing','competitive']
-  instructions  text                                    -- 1–3 sentences with concrete reps + a measurable goal
+  name          text,        -- "9-shot grid"
+  description   text,        -- one-line summary
+  duration_min  int,         -- realistic minutes
+  category      text,        -- off_tee | approach | around_green | putting
+  drill_type    text,        -- the practice MODE (see below):
+                             --   warmup | blocked | random
+                             --   | skill_game | pressure_game | on_course
+  facility      text[],      -- any of: range, short_game, putting, sim
+                             --   ('{}' = no specific facility; there is NO 'anywhere')
+  skill_levels  text[],      -- any of: beginner, casual, developing, competitive
+  goals         text[],      -- score brackets: break_100, break_90,
+                             --   break_80, break_70s, scratch
+  targets       text[],      -- skill tags: short_putts, distance_control, lag,
+                             --   contact, dispersion, tempo, trajectory,
+                             --   chip_contact, bunker, green_reading,
+                             --   start_line, course_management
+  instructions  text,        -- structured, sourced (see below)
+  source        text,        -- where the drill comes from (book, coach, site)
+  source_url    text,        -- link to the source, if any
+  contributor   text,        -- your name / handle
+  verified      boolean      -- MUST be true (see warning below)
 )
 ```
 
+**`drill_type` is the practice mode** the corpus is organized around
+(migration `0033`): `warmup`, `blocked` (groove one motion),
+`random` (interleaved), `skill_game`, `pressure_game`, `on_course`.
+
+> ⚠️ **`source` + `verified` are required.** Migration `0039` deletes
+> any drill where `source IS NULL AND verified = false`. A contributed
+> drill MUST set a real `source` and `verified = true`, or it gets
+> pruned on the next reset.
+
 Drill checklist before submitting:
 
-- [ ] **Category is honest.** Putting drills go in putting; chip-and-runs
+- [ ] **Category is honest.** Putting drills go in `putting`; chip-and-runs
       go in `around_green` even if you hit them with an iron.
+- [ ] **Drill type matches the mode.** A groove-one-motion rep is `blocked`;
+      a randomized station rotation is `random`; a scored challenge is a
+      `skill_game` or `pressure_game`.
 - [ ] **Duration is realistic.** A drill that needs 200 balls is 30+
       minutes, not 15.
 - [ ] **Facility is the actual access required.** Don't list `range`
-      if it can be done at home; use `anywhere`.
+      if it can be done at home; use an empty array `{}` when no
+      specific facility is needed.
 - [ ] **Skill levels are appropriate.** A 9-shot shape grid is
       `developing`/`competitive` — a beginner won't get value.
-- [ ] **Instructions are specific and measurable.** Bad: "practice
-      your wedges". Good: "Hit 5 balls each at 50 / 75 / 100 yards.
-      Track carry distance and compare to your gapping chart."
+- [ ] **`source` is set and `verified = true`** — otherwise migration
+      `0039` prunes the row.
+- [ ] **Instructions are structured and sourced.** Match the existing
+      corpus: multi-section guidance (e.g. Why it works / Who it helps /
+      Setup / How / Time & frequency / Success metric / Common mistakes)
+      with a cited source — typically a few hundred words, not a single
+      sentence.
 
 To add: drop new rows into `supabase/seed.sql` following the existing
 pattern, run `npx supabase db reset` locally to verify, then PR. Title
@@ -187,8 +218,10 @@ format: `seed: add <drill-name>`.
 
 ## Course data
 
-OGA's courses come from a one-shot crawler over OpenStreetMap +
-OpenGolfAPI; see [`scripts/crawl-courses.ts`](./scripts/crawl-courses.ts).
+OGA's courses come from a crawler over OpenStreetMap (outlines + hole
+geometry) and OpenGolfAPI (course metadata), with per-tee course rating
++ slope backfilled separately from GolfCourseAPI; see
+[`scripts/crawl-courses.ts`](./scripts/crawl-courses.ts).
 For local development, the fastest way to get realistic course data is
 a single state:
 

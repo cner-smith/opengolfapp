@@ -7,6 +7,8 @@ import {
   CLUBS,
   LIE_SLOPES,
   LIE_TYPES,
+  YARDS_TO_METERS,
+  clubDistanceStats,
   computeDispersion,
   computeDispersionStats,
   dispersionVerdict,
@@ -21,10 +23,12 @@ import {
   type Shot,
 } from '@oga/core'
 import { getShotsByClub } from '@oga/supabase'
+import { MaterialCommunityIcons } from '@expo/vector-icons'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
 import { useUnits } from '../../hooks/useUnits'
 import { AppBar } from '../../components/ui/AppBar'
+import { Entrance } from '../../components/ui/Entrance'
 import { FONT, TYPE } from '../../lib/typography'
 
 const KICKER: import('react-native').TextStyle = {
@@ -120,6 +124,10 @@ export default function Patterns() {
 
   const stats = useMemo(() => computeDispersionStats(points), [points])
 
+  // Total distance for the selected club (across all its shots, not the
+  // lie-filtered dispersion set). null until there are tracked shots.
+  const clubDist = useMemo(() => clubDistanceStats(shots)[0] ?? null, [shots])
+
   const shareCardRef = useRef<View>(null)
   const [sharing, setSharing] = useState(false)
 
@@ -155,6 +163,7 @@ export default function Patterns() {
     <View style={{ flex: 1, backgroundColor: '#F2EEE5' }}>
       <AppBar eyebrow={`Club ${club}`} title="Shot Patterns" />
       <ScrollView contentContainerStyle={{ padding: 18, paddingBottom: 40 }}>
+        <Entrance index={0}>
         <Section kicker="Club">
           <ChipRow
             value={club}
@@ -162,7 +171,9 @@ export default function Patterns() {
             onChange={(v) => v && setClub(v)}
           />
         </Section>
+        </Entrance>
 
+        <Entrance index={1}>
         <Section kicker="Lie type">
           <ChipRow
             value={lieType}
@@ -171,7 +182,9 @@ export default function Patterns() {
             labelFor={(v) => (v === ANY ? 'any' : (v as string).replace(/_/g, ' '))}
           />
         </Section>
+        </Entrance>
 
+        <Entrance index={2}>
         <Section kicker="Lie slope">
           <ChipRow
             value={lieSlope}
@@ -180,7 +193,9 @@ export default function Patterns() {
             labelFor={(v) => (v === ANY ? 'any' : (v as string).replace(/_/g, ' '))}
           />
         </Section>
+        </Entrance>
 
+        <Entrance index={3}>
         <Section kicker="Pattern">
           {loading ? (
             <Text style={[TYPE.body, { color: '#8A8B7E', fontSize: 13 }]}>Loading…</Text>
@@ -201,27 +216,58 @@ export default function Patterns() {
                   accessibilityState={{ disabled: sharing }}
                   onPress={handleShare}
                   disabled={sharing}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                   style={({ pressed }) => ({
                     alignSelf: 'flex-start',
-                    marginTop: 14,
-                    paddingVertical: 9,
-                    paddingHorizontal: 14,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: 7,
+                    marginTop: 22,
+                    marginBottom: 4,
+                    paddingVertical: 11,
+                    paddingHorizontal: 16,
+                    backgroundColor: '#EBE5D6',
                     borderWidth: 1,
                     borderColor: '#1F3D2C',
                     borderRadius: 2,
                     opacity: pressed || sharing ? 0.6 : 1,
                   })}
                 >
-                  <Text style={{ ...KICKER, color: '#1F3D2C' }}>
-                    {sharing ? 'Rendering…' : '↓ Export · 1200×630'}
+                  <MaterialCommunityIcons
+                    name="tray-arrow-down"
+                    size={15}
+                    color="#1F3D2C"
+                  />
+                  {/* fontSize +1 over the 10px KICKER: deliberate, this is a
+                      tappable action label beside an icon, not a section eyebrow. */}
+                  <Text style={{ ...KICKER, color: '#1F3D2C', fontSize: 11 }}>
+                    {sharing ? 'Rendering…' : 'Export image'}
                   </Text>
                 </Pressable>
               )}
             </>
           )}
         </Section>
+        </Entrance>
 
+        <Entrance index={4}>
         <Section kicker="Pattern summary">
+          {clubDist && (
+            <View
+              style={{
+                flexDirection: 'row',
+                flexWrap: 'wrap',
+                gap: 18,
+                marginBottom: 18,
+              }}
+            >
+              <Stat label="Avg distance" value={toDisplay(clubDist.avg)} />
+              <Stat
+                label="Range"
+                value={`${Math.round(unit === 'meters' ? clubDist.min * YARDS_TO_METERS : clubDist.min)}–${Math.round(unit === 'meters' ? clubDist.max * YARDS_TO_METERS : clubDist.max)}`}
+              />
+            </View>
+          )}
           {stats ? (
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 18 }}>
               <Stat label="Sample" value={`${stats.sampleSize} shots`} />
@@ -246,7 +292,6 @@ export default function Patterns() {
                 color: '#1C211C',
                 fontSize: 15,
                 lineHeight: 22,
-                fontStyle: 'italic',
               }]}
             >
               Need at least <Text style={[TYPE.bodyItalic, { fontWeight: '500' }]}>five shots</Text>{' '}
@@ -254,6 +299,7 @@ export default function Patterns() {
             </Text>
           )}
         </Section>
+        </Entrance>
 
         {stats && (
           <View

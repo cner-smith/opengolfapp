@@ -19,6 +19,7 @@
 //   GOLFCOURSEAPI_KEY=... pnpm tsx scripts/backfill-ratings.ts --write --limit 5000
 //   flags: --write  --limit N  --delay-ms N  --threshold 0.0-1  --max-km N
 //          --has-state (only courses with a state set — likelier US/rated)
+//          --after-id UUID (resume: only courses with id > UUID)
 //          --out path.jsonl
 //
 // Env: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY (via scripts/crawl/client),
@@ -50,6 +51,7 @@ const DELAY_MS = parseInt(opt('delay-ms', '250'), 10)
 const THRESHOLD = parseFloat(opt('threshold', '0.78'))
 const MAX_KM = parseFloat(opt('max-km', '25'))
 const HAS_STATE = flag('has-state')
+const AFTER_ID = opt('after-id', '')
 const OUT = opt('out', 'backfill-ratings-matches.jsonl')
 
 // ---- GolfCourseAPI shapes (subset of its OpenAPI TeeBox / Course) ----------
@@ -137,8 +139,12 @@ function haversineKm(aLat: number, aLng: number, bLat: number, bLng: number): nu
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
 // ---- GolfCourseAPI search (resilient: retry 429/5xx, abort on 401) ---------
-async function searchApi(name: string): Promise<ApiCourse[]> {
+// Returns the candidate list, or `null` when every attempt was throttled —
+// the caller treats a run of nulls as the daily quota being exhausted and
+// stops cleanly (vs `[]` = a real empty result).
+async function searchApi(name: string): Promise<ApiCourse[] | null> {
   const url = `${API_BASE}/search?search_query=${encodeURIComponent(name)}`
+  let sawRateLimit = false
   for (let attempt = 0; attempt < 3; attempt++) {
     let res: Response
     try {
@@ -152,8 +158,12 @@ async function searchApi(name: string): Promise<ApiCourse[]> {
       process.exit(1)
     }
     if (res.status === 429) {
-      console.warn('  rate-limited (429) — backing off 60s')
-      await sleep(60_000)
+      // GolfCourseAPI sends no Retry-After header; measured recovery is
+      // sub-second, so a short backoff clears it. Pair with --delay-ms 500
+      // (≈2 req/s, measured under the limit) to avoid tripping it at all.
+      console.warn('  rate-limited (429) — backing off 3s')
+      sawRateLimit = true
+      await sleep(3_000)
       continue
     }
     if (res.status === 404) return []
@@ -164,7 +174,7 @@ async function searchApi(name: string): Promise<ApiCourse[]> {
     const body = (await res.json().catch(() => null)) as { courses?: ApiCourse[] } | null
     return body?.courses ?? []
   }
-  return []
+  return sawRateLimit ? null : []
 }
 
 // ---- match scoring ---------------------------------------------------------
@@ -288,6 +298,7 @@ async function* candidateCourses(done: Set<string>): AsyncGenerator<CourseRow> {
       .order('id', { ascending: true })
       .range(from, from + page - 1)
     if (HAS_STATE) q = q.not('state', 'is', null)
+    if (AFTER_ID) q = q.gt('id', AFTER_ID)
     const { data, error } = await q
     if (error) throw error
     if (!data || data.length === 0) break
@@ -309,6 +320,11 @@ async function main() {
   let matched = 0
   let teesWritten = 0
   let noMatch = 0
+  let consecutiveThrottled = 0
+  // After this many courses in a row that exhaust all retries on 429, assume
+  // the daily quota is gone and stop — re-running tomorrow resumes via the
+  // rated-course skip set. Avoids hours of 9s-per-course futile retries.
+  const THROTTLE_GIVEUP = 8
 
   for await (const course of candidateCourses(done)) {
     if (processed >= LIMIT) break
@@ -320,7 +336,24 @@ async function main() {
     // candidates are still scored against the original name below.
     const query = normalizeForMatch(course.name) || course.name
     const candidates = await searchApi(query)
+    // Pace every iteration, including a throttle-exhausted (null) one, to keep
+    // a steady request cadence regardless of outcome. A null call already
+    // slept ~9s across its 3 retries, so this extra DELAY_MS is negligible.
     await sleep(DELAY_MS)
+    if (candidates === null) {
+      consecutiveThrottled++
+      if (consecutiveThrottled >= THROTTLE_GIVEUP) {
+        // Point the operator at the exact resume cursor — unmatched courses
+        // aren't in the audit log, so this is their only source for it.
+        console.warn(
+          `\nStopping: ${consecutiveThrottled} courses in a row throttled — daily quota likely exhausted.` +
+            `\nRe-run with --after-id ${course.id} to resume past here.`,
+        )
+        break
+      }
+      continue
+    }
+    consecutiveThrottled = 0
     const match = bestMatch(course, candidates)
 
     if (!match) {

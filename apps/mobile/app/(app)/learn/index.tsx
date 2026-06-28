@@ -46,8 +46,6 @@ export default function LearnScreen() {
           style={[TYPE.serif, {
             color: C.ink,
             fontSize: 22,
-            fontStyle: 'italic',
-            fontWeight: '500',
             lineHeight: 28,
             marginBottom: 8,
           }]}
@@ -114,8 +112,6 @@ function ArticleRow({
             style={[TYPE.serif, {
               color: titleColor,
               fontSize: 17,
-              fontStyle: 'italic',
-              fontWeight: '500',
             }]}
           >
             {article.title}
@@ -150,7 +146,7 @@ function ArticleRow({
               </Text>
             )}
             <Text
-              style={[TYPE.serif, { color: C.mute, fontSize: 18, fontStyle: 'italic' }]}
+              style={[TYPE.serif, { color: C.mute, fontSize: 18 }]}
             >
               →
             </Text>
@@ -182,8 +178,6 @@ function SectionBlock({
         style={[TYPE.serif, {
           color: C.ink,
           fontSize: 24,
-          fontStyle: 'italic',
-          fontWeight: '500',
           lineHeight: 30,
           marginBottom: 14,
         }]}

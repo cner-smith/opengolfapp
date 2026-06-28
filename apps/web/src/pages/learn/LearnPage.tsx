@@ -13,7 +13,7 @@ export function LearnPage() {
   const filtered = useMemo(() => filterSections(LEARN_SECTIONS, query), [query])
 
   return (
-    <div style={{ maxWidth: 760 }}>
+    <div style={{ maxWidth: 760, margin: '0 auto' }}>
       <div style={{ marginBottom: 28 }}>
         <div className="kicker" style={{ marginBottom: 8 }}>
           Golf education

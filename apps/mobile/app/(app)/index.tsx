@@ -10,6 +10,7 @@ import { syncPendingShots } from '../../lib/sync'
 import { pendingCount } from '../../lib/db'
 import { AppBar } from '../../components/ui/AppBar'
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
+import { Entrance } from '../../components/ui/Entrance'
 import { ResumeRoundBanner } from '../../components/home/ResumeRoundBanner'
 import { SGBreakdown } from '../../components/home/SGBreakdown'
 import { SGTrendChart } from '../../components/home/SGTrendChart'
@@ -145,9 +146,16 @@ export default function Home() {
     const avgScore = scoreRounds.length > 0
       ? scoreRounds.reduce((s, r) => s + (r.total_score ?? 0), 0) / scoreRounds.length
       : null
+    // total_score === 0 is the past-round-logger sentinel for "no score
+    // entered" (map-created rounds), so exclude it from the best-round min —
+    // otherwise a single unscored round always reads as a best of 0.
+    const realScores = rounds
+      .map((r) => r.total_score)
+      .filter((s): s is number => s != null && s > 0)
+    const bestScore = realScores.length > 0 ? Math.min(...realScores) : null
     const totalSG = avgs.reduce((s, a) => s + a.value, 0)
     const sorted = [...avgs].sort((a, b) => b.value - a.value)
-    return { avgScore, totalSG, weakest: sorted[sorted.length - 1]!, strongest: sorted[0]! }
+    return { avgScore, bestScore, totalSG, weakest: sorted[sorted.length - 1]!, strongest: sorted[0]! }
   }, [rounds])
 
   const eyebrow =
@@ -160,14 +168,13 @@ export default function Home() {
     <View style={{ flex: 1, backgroundColor: '#F2EEE5' }}>
       <AppBar eyebrow={eyebrow} title={profile?.username ?? 'Home'} />
       <ScrollView ref={scrollRef} contentContainerStyle={{ padding: 18, paddingBottom: 40 }}>
+        <Entrance index={0}>
         <Text
           style={[
             TYPE.serif,
             {
               color: '#1C211C',
               fontSize: 28,
-              fontStyle: 'italic',
-              fontWeight: '500',
               lineHeight: 32,
               marginBottom: 6,
             },
@@ -179,20 +186,20 @@ export default function Home() {
           Last {rounds.length} round{rounds.length === 1 ? '' : 's'}
         </Text>
         <Pressable onPress={scrollToLearn} hitSlop={6} style={{ marginBottom: 22 }}>
-          <Text style={[TYPE.bodyItalic, { color: '#8A8B7E', fontSize: 13, fontStyle: 'italic' }]}>
+          <Text style={[TYPE.bodyItalic, { color: '#8A8B7E', fontSize: 13 }]}>
             ↓ New to a stat? The yardage book's at the bottom.
           </Text>
         </Pressable>
+        </Entrance>
 
         {rounds.length > 0 && (
-          <>
+          <Entrance index={1}>
             <Text
               style={[
                 TYPE.bodyItalic,
                 {
                   color: '#1C211C',
                   fontSize: 16,
-                  fontStyle: 'italic',
                   lineHeight: 24,
                   marginBottom: 22,
                 },
@@ -201,7 +208,7 @@ export default function Home() {
               {homeStats.weakest.value >= 0 ? (
                 <>Everything is net positive. <Text style={[TYPE.bodyBold, { fontWeight: '600' }]}>{homeStats.strongest.label}</Text> leads at {fmtSG(homeStats.strongest.value)} a round.</>
               ) : (
-                <><Text style={[TYPE.bodyBold, { fontWeight: '600' }]}>{homeStats.weakest.label}.</Text> Your biggest leak — costing about {fmtAbs(homeStats.weakest.value)} a round. {homeStats.strongest.label.toLowerCase()} is the bright spot at {fmtSG(homeStats.strongest.value)}.</>
+                <><Text style={[TYPE.bodyBold, { fontWeight: '600' }]}>{homeStats.weakest.label}.</Text> Your biggest leak — costing about {fmtAbs(homeStats.weakest.value)} a round. {homeStats.strongest.label} is the bright spot at {fmtSG(homeStats.strongest.value)}.</>
               )}
             </Text>
 
@@ -217,15 +224,17 @@ export default function Home() {
                   valueColor={homeStats.totalSG > 0 ? '#1F3D2C' : homeStats.totalSG < 0 ? '#A33A2A' : '#1C211C'}
                 />
                 <HomeTile label="Rounds" value={rounds.length.toString()} />
-                <HomeTile label="Categories" value={SG_KEYS.length.toString()} />
+                <HomeTile label="Best round" value={homeStats.bestScore != null ? homeStats.bestScore.toString() : '—'} />
               </View>
             </View>
-          </>
+          </Entrance>
         )}
 
-        {activeRound && <ResumeRoundBanner round={activeRound} />}
-        {!activeRound && <StartLiveRoundCTA />}
-        <LogPastRoundCTA />
+        <Entrance index={2}>
+          {activeRound && <ResumeRoundBanner round={activeRound} />}
+          {!activeRound && <StartLiveRoundCTA />}
+          <LogPastRoundCTA />
+        </Entrance>
 
         {pending > 0 && (
           <View
@@ -244,6 +253,7 @@ export default function Home() {
           </View>
         )}
 
+        <Entrance index={3}>
         {rounds.length === 0 ? (
           <View
             style={{
@@ -260,8 +270,6 @@ export default function Home() {
                 {
                   color: '#1C211C',
                   fontSize: 22,
-                  fontStyle: 'italic',
-                  fontWeight: '500',
                 },
               ]}
             >
@@ -287,11 +295,14 @@ export default function Home() {
             <SGTrendChart data={trend} />
           </>
         )}
+        </Entrance>
 
-        <RecentRoundsList
-          rounds={rounds}
-          onRequestDelete={(id, name) => setPendingDelete({ id, name })}
-        />
+        <Entrance index={4}>
+          <RecentRoundsList
+            rounds={rounds}
+            onRequestDelete={(id, name) => setPendingDelete({ id, name })}
+          />
+        </Entrance>
 
         <View
           onLayout={(e) => {
@@ -344,7 +355,7 @@ function HomeTile({
       <Text style={[TYPE.kicker, { color: '#8A8B7E', fontSize: 10, fontWeight: '500', letterSpacing: 1.4, textTransform: 'uppercase', marginBottom: 10 }]}>
         {label}
       </Text>
-      <Text style={[TYPE.serif, { color: valueColor, fontSize: 28, fontStyle: 'italic', fontWeight: '500', fontVariant: ['tabular-nums'] }]}>
+      <Text style={[TYPE.serif, { color: valueColor, fontSize: 28 }]}>
         {value}
       </Text>
     </View>

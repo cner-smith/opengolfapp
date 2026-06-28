@@ -5,8 +5,10 @@ import {
   LIE_TYPE_LABELS,
   PUTT_RESULT_LABELS,
   SHOT_RESULT_LABELS,
+  combinedBreakDirection,
   combinedPuttResult,
   formatClubLabel,
+  horizontalBreakFromAim,
   formatDistance,
   formatPuttDistance,
   haversineYards,
@@ -172,7 +174,18 @@ export function ShotEntryModal({
       putt_direction_result: isPuttSave ? directionResult : null,
       putt_slope_pct: draft.puttSlopePct ?? null,
       green_speed: draft.greenSpeed ?? null,
-      break_direction: isPuttSave ? draft.breakDirection ?? null : null,
+      break_direction: isPuttSave
+        ? combinedBreakDirection({
+            vertical: draft.breakDirectionVertical,
+            horizontal: draft.breakDirectionHorizontal,
+          })
+        : null,
+      break_direction_vertical: isPuttSave
+        ? draft.breakDirectionVertical ?? null
+        : null,
+      break_direction_horizontal: isPuttSave
+        ? draft.breakDirectionHorizontal ?? null
+        : null,
       aim_offset_yards:
         isPuttSave && draft.aimOffsetInches != null
           ? Math.round((draft.aimOffsetInches / 36) * 10) / 10
@@ -410,9 +423,18 @@ export function ShotEntryModal({
                 <GreenDiagram
                   distanceFt={draft.puttDistanceFt ?? 0}
                   aimOffsetInches={draft.aimOffsetInches ?? 0}
-                  breakDirection={draft.breakDirection ?? 'straight'}
+                  breakDirection={
+                    combinedBreakDirection({
+                      vertical: draft.breakDirectionVertical,
+                      horizontal: draft.breakDirectionHorizontal,
+                    }) ?? 'straight'
+                  }
                   onAimChange={(n) =>
-                    setDraft((d) => ({ ...d, aimOffsetInches: n }))
+                    setDraft((d) => ({
+                      ...d,
+                      aimOffsetInches: n,
+                      breakDirectionHorizontal: horizontalBreakFromAim(n),
+                    }))
                   }
                 />
               )}

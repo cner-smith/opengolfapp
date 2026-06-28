@@ -328,7 +328,6 @@ function Example({
           color: C.ink,
           fontFamily: FONT.serifItalic,
           fontSize: 16,
-          fontStyle: 'italic',
           marginBottom: 8,
         }}
       >
@@ -398,7 +397,7 @@ function FlowQ({ n, q }: { n: string; q: string }) {
         }}
       >
         <Text style={{ fontFamily: FONT.mono, fontSize: 10, letterSpacing: 1.4, color: C.mute }}>{n}</Text>
-        <Text style={{ color: C.ink, fontFamily: FONT.serifItalic, fontSize: 17, fontStyle: 'italic' }}>{q}</Text>
+        <Text style={{ color: C.ink, fontFamily: FONT.serifItalic, fontSize: 17 }}>{q}</Text>
       </View>
     </View>
   )
@@ -474,7 +473,6 @@ function Chip({
         style={{
           fontFamily: FONT.bodyItalic,
           fontSize: 14,
-          fontStyle: 'italic',
           color: accent ? '#F2EEE5' : C.ink,
         }}
       >

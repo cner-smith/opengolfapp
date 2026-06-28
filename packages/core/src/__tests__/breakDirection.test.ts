@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   combinedBreakDirection,
   decombinedBreakDirection,
+  horizontalBreakFromAim,
   type BreakDirection,
 } from '../types'
 
@@ -42,6 +43,24 @@ describe('combinedBreakDirection', () => {
     expect(
       combinedBreakDirection({ vertical: 'flat', horizontal: 'straight' }),
     ).toBe('straight')
+  })
+})
+
+describe('horizontalBreakFromAim', () => {
+  it('aim right of the hole → right_to_left break', () => {
+    expect(horizontalBreakFromAim(12)).toBe('right_to_left')
+    expect(horizontalBreakFromAim(3)).toBe('right_to_left')
+  })
+
+  it('aim left of the hole → left_to_right break', () => {
+    expect(horizontalBreakFromAim(-12)).toBe('left_to_right')
+    expect(horizontalBreakFromAim(-3)).toBe('left_to_right')
+  })
+
+  it('within the 2-inch deadband → undefined (lets vertical carry the label)', () => {
+    expect(horizontalBreakFromAim(0)).toBeUndefined()
+    expect(horizontalBreakFromAim(2)).toBeUndefined()
+    expect(horizontalBreakFromAim(-2)).toBeUndefined()
   })
 })
 

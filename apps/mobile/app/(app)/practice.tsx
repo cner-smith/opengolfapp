@@ -3,6 +3,7 @@ import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from 
 import { Link } from 'expo-router'
 import type { StoredBlock, StoredFocusArea, StoredSession } from '@oga/core'
 import { AppBar } from '../../components/ui/AppBar'
+import { Entrance } from '../../components/ui/Entrance'
 import { PressableTouch } from '../../components/ui/PressableTouch'
 import {
   BLOCK_TYPE_LABEL,
@@ -115,13 +116,12 @@ export default function Practice() {
           <NoPlan generating={generating} error={error} onGenerate={generate} />
         ) : (
           <>
+            <Entrance index={0}>
             <Text style={{ ...KICKER, marginBottom: 8 }}>{kicker}</Text>
             <Text
               style={[TYPE.serif, {
                 color: INK,
                 fontSize: 26,
-                fontStyle: 'italic',
-                fontWeight: '500',
                 lineHeight: 31,
                 marginBottom: isExpired ? 14 : 18,
               }]}
@@ -148,7 +148,7 @@ export default function Practice() {
                 {generating ? (
                   <ActivityIndicator color={CREAM} />
                 ) : (
-                  <Text style={[TYPE.serif, { color: CREAM, fontSize: 16, fontStyle: 'italic', fontWeight: '500' }]}>
+                  <Text style={[TYPE.serif, { color: CREAM, fontSize: 16 }]}>
                     Generate this week’s plan
                   </Text>
                 )}
@@ -158,11 +158,21 @@ export default function Practice() {
             {error ? (
               <Text style={[TYPE.body, { color: NEG, fontSize: 13, marginBottom: 14 }]}>{error}</Text>
             ) : null}
+            </Entrance>
 
-            {plan.coach_note ? <ReasoningPanel note={plan.coach_note} /> : null}
+            {plan.coach_note ? (
+              <Entrance index={1}>
+                <ReasoningPanel note={plan.coach_note} />
+              </Entrance>
+            ) : null}
 
-            {focusAreas.length > 0 ? <FocusAreas areas={focusAreas} /> : null}
+            {focusAreas.length > 0 ? (
+              <Entrance index={2}>
+                <FocusAreas areas={focusAreas} />
+              </Entrance>
+            ) : null}
 
+            <Entrance index={3}>
             {sessions.map((session, i) => (
               <SessionBlock
                 key={`session-${i}`}
@@ -173,7 +183,9 @@ export default function Practice() {
                 onToggle={toggleCompletion}
               />
             ))}
+            </Entrance>
 
+            <Entrance index={4}>
             {plan.id ? (
               <FeedbackSection key={plan.id} initial={plan.feedback ?? ''} onSave={submitFeedback} />
             ) : null}
@@ -188,12 +200,13 @@ export default function Practice() {
             <View style={{ borderTopWidth: 1, borderColor: LINE, marginTop: 28, paddingTop: 18 }}>
               <Link href={'/(app)/drills' as never} asChild>
                 <Pressable hitSlop={6}>
-                  <Text style={[TYPE.serif, { color: ACCENT, fontSize: 17, fontStyle: 'italic', fontWeight: '500' }]}>
+                  <Text style={[TYPE.serif, { color: ACCENT, fontSize: 17 }]}>
                     Browse all drills →
                   </Text>
                 </Pressable>
               </Link>
             </View>
+            </Entrance>
           </>
         )}
       </ScrollView>
@@ -216,8 +229,6 @@ function NoPlan({
         style={[TYPE.serif, {
           color: INK,
           fontSize: 28,
-          fontStyle: 'italic',
-          fontWeight: '500',
           lineHeight: 32,
           marginBottom: 8,
         }]}
@@ -245,7 +256,7 @@ function NoPlan({
         {generating ? (
           <ActivityIndicator color={CREAM} />
         ) : (
-          <Text style={[TYPE.serif, { color: CREAM, fontSize: 17, fontStyle: 'italic', fontWeight: '500' }]}>
+          <Text style={[TYPE.serif, { color: CREAM, fontSize: 17 }]}>
             Generate this week’s plan
           </Text>
         )}
@@ -263,14 +274,14 @@ function NoPlan({
         <Text style={{ ...KICKER, marginBottom: 10 }}>Reference</Text>
         <Link href={'/(app)/drills' as never} asChild>
           <Pressable>
-            <Text style={[TYPE.serif, { color: ACCENT, fontSize: 17, fontStyle: 'italic', fontWeight: '500' }]}>
+            <Text style={[TYPE.serif, { color: ACCENT, fontSize: 17 }]}>
               Browse all drills →
             </Text>
           </Pressable>
         </Link>
         <Link href={'/(app)/learn' as never} asChild>
           <Pressable style={{ marginTop: 10 }}>
-            <Text style={[TYPE.serif, { color: ACCENT, fontSize: 17, fontStyle: 'italic', fontWeight: '500' }]}>
+            <Text style={[TYPE.serif, { color: ACCENT, fontSize: 17 }]}>
               Learn the stats →
             </Text>
           </Pressable>
@@ -296,7 +307,7 @@ function FocusAreas({ areas }: { areas: StoredFocusArea[] }) {
       <Text style={{ ...KICKER, marginBottom: 10 }}>What to work on</Text>
       {areas.map((a, i) => (
         <View key={`focus-${i}`} style={{ marginBottom: 14 }}>
-          <Text style={[TYPE.serif, { color: INK, fontSize: 16, fontStyle: 'italic', fontWeight: '500' }]}>
+          <Text style={[TYPE.serif, { color: INK, fontSize: 16 }]}>
             {CATEGORY_LABEL[a.category] ?? a.category}
           </Text>
           <Text style={[TYPE.body, { color: INK_DIM, fontSize: 13, lineHeight: 19, marginTop: 2 }]}>
@@ -308,7 +319,7 @@ function FocusAreas({ areas }: { areas: StoredFocusArea[] }) {
               asChild
             >
               <Pressable hitSlop={6} style={{ marginTop: 6 }}>
-                <Text style={[TYPE.body, { color: ACCENT, fontSize: 13, fontWeight: '600' }]}>
+                <Text style={[TYPE.bodyBold, { color: ACCENT, fontSize: 13 }]}>
                   {a.article.title} →
                 </Text>
               </Pressable>
@@ -413,7 +424,7 @@ function DrillRowItem({
         style={{ flex: 1, flexDirection: 'row', gap: 12 }}
       >
         <Text
-          style={[TYPE.serif, { color: INK_MUTE, fontSize: 24, fontStyle: 'italic', lineHeight: 26, minWidth: 30 }]}
+          style={[TYPE.serif, { color: INK_MUTE, fontSize: 24, lineHeight: 26, minWidth: 30 }]}
         >
           {String(index).padStart(2, '0')}
         </Text>
@@ -424,8 +435,6 @@ function DrillRowItem({
               style={[TYPE.serif, {
                 color: completed ? INK_MUTE : INK,
                 fontSize: 18,
-                fontStyle: 'italic',
-                fontWeight: '500',
                 lineHeight: 23,
                 flex: 1,
               }]}
@@ -438,7 +447,7 @@ function DrillRowItem({
 
             {/* Right rail — minutes + block type tag + optional target. */}
             <View style={{ alignItems: 'flex-end', minWidth: 64 }}>
-              <Text style={[TYPE.serif, { color: INK, fontSize: 18, fontStyle: 'italic', lineHeight: 20 }]}>
+              <Text style={[TYPE.serif, { color: INK, fontSize: 18, lineHeight: 20 }]}>
                 {block.minutes} min
               </Text>
               <Text

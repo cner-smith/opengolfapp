@@ -112,8 +112,6 @@ export function RecentRoundsList({
                         {
                           color: '#1C211C',
                           fontSize: 17,
-                          fontWeight: '500',
-                          fontStyle: 'italic',
                         },
                       ]}
                     >
@@ -157,7 +155,7 @@ export function RecentRoundsList({
                   alignItems: 'flex-end',
                 }}
               >
-                <Text style={[TYPE.body, { color: '#8A8B7E', fontSize: 13, fontWeight: '500' }]}>
+                <Text style={[TYPE.body, { color: '#8A8B7E', fontSize: 13 }]}>
                   See all rounds →
                 </Text>
               </Pressable>
@@ -181,9 +179,6 @@ function SGValue({ value }: { value: number | null }) {
         {
           color,
           fontSize: 17,
-          fontStyle: 'italic',
-          fontWeight: '500',
-          fontVariant: ['tabular-nums'],
         },
       ]}
     >

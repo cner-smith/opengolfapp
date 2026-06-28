@@ -25,7 +25,6 @@ import { AimDistancePill } from './markers/AimDistancePill'
 import { useHoleCamera } from './hooks/useHoleCamera'
 import {
   ExpStrokesPill,
-  MissingLayoutBanner,
   PinFirstCta,
   TeeBadge,
   ToHolePill,
@@ -86,13 +85,6 @@ interface HoleMapProps {
   previousShots?: LatLng[]
   phase?: HoleMapPhase
   /**
-   * True when this hole has no tee or pin coordinates in the DB —
-   * surfaces a small banner under the top hint so the player knows
-   * the missing distance pill / no auto-putt switch is data-driven,
-   * not a bug.
-   */
-  missingHoleLayout?: boolean
-  /**
    * Latest smoothed GPS position. Drives the recenter button (which
    * camera-jumps to it) and the camera hook's auto-center-once
    * behavior. Null until permission granted and a fix arrives.
@@ -131,6 +123,13 @@ interface HoleMapProps {
    * the map).
    */
   showLocationPuck: boolean
+  /**
+   * Whether a map tap in PLACE_BALL places/moves the ball. Defaults true
+   * (live round + adding a new past shot). The past-round review stepper
+   * passes false so the selected shot's marker stays DRAGGABLE to
+   * reposition, but stray taps while reviewing don't move it (#593).
+   */
+  tapToPlaceBall?: boolean
 }
 
 function toCoord(l: LatLng): [number, number] {
@@ -155,6 +154,13 @@ const AIM_EXTENSION_YARDS = 250
 // Android drag jank. Gating to ~25 Hz cuts that storm while the readouts
 // still track the finger; onDragEnd always applies the final position.
 const AIM_DRAG_THROTTLE_MS = 40
+// Distance labels are @rnmapbox MarkerViews that capture touches (their content
+// wrapper hardcodes the touch responder), so a label sitting at its leg's
+// midpoint steals the drag from the aim handle when that leg is short — the
+// near-green "can't drag the aim marker" bug (#473). Hide a label once its leg
+// is under this many yards; its midpoint is then within the handle's grab zone.
+// Tune on-device — the screen overlap is zoom-dependent, this is a geo proxy.
+const MIN_LABEL_LEG_YARDS = 20
 
 function extractCoord(feature: unknown): LatLng | null {
   const geom = (feature as { geometry?: { coordinates?: unknown } } | null)?.geometry
@@ -192,7 +198,6 @@ export function HoleMap({
   previousShots,
   phase = 'PLACE_BALL',
   aimCommitted = false,
-  missingHoleLayout = false,
   gpsPosition,
   courseCenter,
   holeNumber,
@@ -200,6 +205,7 @@ export function HoleMap({
   onSetBall,
   onPlacePin,
   showLocationPuck,
+  tapToPlaceBall = true,
   overlayMode,
   arcWidthYards,
   circleRadiusYards,
@@ -561,8 +567,10 @@ export function HoleMap({
       return
     }
     // Tap-to-place-ball is only meaningful in PLACE_BALL. In SET_AIM we
-    // don't want stray taps moving the just-confirmed ball position.
-    if (isPlaceBallPhase) {
+    // don't want stray taps moving the just-confirmed ball position. The
+    // past-round review stepper also disables it (tapToPlaceBall=false) so
+    // the selected shot is drag-only while reviewing (#593).
+    if (isPlaceBallPhase && tapToPlaceBall) {
       onSetBall(c)
     }
   }
@@ -797,7 +805,9 @@ export function HoleMap({
             </Mapbox.PointAnnotation>
           )}
 
-          {aimMidpoint && aimDistanceYards !== null && (
+          {aimMidpoint &&
+            aimDistanceYards !== null &&
+            aimDistanceYards >= MIN_LABEL_LEG_YARDS && (
             <AimDistancePill
               midpoint={aimMidpoint}
               display={toDisplay(aimDistanceYards)}
@@ -811,7 +821,9 @@ export function HoleMap({
           {/* Remaining (aim→pin) — subordinate to the hero carry pill: a
               smaller, dimmer label on the aim→pin leg. Uses the already-
               computed aimToPinYards, run through the units helper. */}
-          {remainingMidpoint && aimToPinYards !== null && (
+          {remainingMidpoint &&
+            aimToPinYards !== null &&
+            aimToPinYards >= MIN_LABEL_LEG_YARDS && (
             <Mapbox.MarkerView
               id="remainingDistance"
               coordinate={toCoord(remainingMidpoint)}
@@ -893,7 +905,6 @@ export function HoleMap({
             draggable midpoint, so the old "long-press to set aim" reminder is
             obsolete. Pin placement + ball-drag hints still show. */}
         {!isAimPhase && <TopHint isPinMode={isPinMode} />}
-        {missingHoleLayout && !isPinMode && <MissingLayoutBanner />}
         {!isPinMode && pinDistance !== null && (
           <>
             <ToHolePill display={toDisplay(pinDistance)} />
@@ -901,10 +912,10 @@ export function HoleMap({
           </>
         )}
         {/* Pin-first UX (Task 7): no pin yet → prompt for it, since distances,
-            expected strokes, and the dispersion overlay all need one. Skipped
-            when the whole hole layout is missing (MissingLayoutBanner covers
-            that case). */}
-        {!isPinMode && !effectivePin && !missingHoleLayout && (
+            expected strokes, and the dispersion overlay all need one. Shown
+            on no-layout (synthetic) holes too — placing a per-hole pin is
+            exactly what lights up the HUD there. */}
+        {!isPinMode && !effectivePin && (
           <PinFirstCta />
         )}
         {isPlaceBallPhase && (

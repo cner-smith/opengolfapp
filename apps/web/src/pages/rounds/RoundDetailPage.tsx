@@ -210,6 +210,16 @@ export function RoundDetailPage() {
 
   const holesPlayed = holeScores.length
   const totalRoundsLogged = allRounds.data?.length ?? 0
+  // The played tee (by id, then by colour) supplies rating/slope/yardage for
+  // the share card — same match RoundHeader uses.
+  const playedTee =
+    (teesQuery.data ?? []).find((t) => t.id === round.data.course_tee_id) ??
+    (round.data.tee_color
+      ? (teesQuery.data ?? []).find(
+          (t) => t.tee_color === round.data.tee_color?.toLowerCase(),
+        )
+      : undefined) ??
+    null
   const switchHole = (n: number) =>
     dispatchHoleView({ type: 'SWITCH_HOLE', holeNumber: n })
 
@@ -247,7 +257,12 @@ export function RoundDetailPage() {
       >
         <div ref={shareCardRef}>
           <ShareableScorecardCard
-            round={round.data}
+            round={{
+              ...round.data,
+              course_rating: playedTee?.course_rating ?? null,
+              slope_rating: playedTee?.slope_rating ?? null,
+              total_yards: playedTee?.total_yards ?? null,
+            }}
             holes={holes}
             scoresByHoleId={scoresByHoleId}
             tone={shareTone}

@@ -21,7 +21,7 @@ export function LearnArticlePage() {
   const isDraft = article.status === 'draft'
 
   return (
-    <div style={{ maxWidth: 760 }}>
+    <div style={{ maxWidth: 760, margin: '0 auto' }}>
       <BackLink />
       <Breadcrumb section={section} />
       {isDraft && <DraftBanner slug={article.id} />}
