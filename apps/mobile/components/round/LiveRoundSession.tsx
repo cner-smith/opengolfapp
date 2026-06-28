@@ -175,12 +175,10 @@ export default function LiveRoundSession({
   // teed off — the FIRST shot's start — never the surveyed holes.tee_lat (real
   // tee boxes move daily; the stored coord lies about where you hit from).
   // While placing shot 1 that's the live ball as you drag it, so the marker
-  // tracks it reactively (this is the fix: previously `data.tee ?? …` let the
-  // stored tee win on shot 1 and the box stayed pinned to survey coords while
-  // the player adjusted their drive). After shot 1, `data.tee` is the SAVED
-  // first-shot start (= previousShots[0]). The stored course tee inside
-  // `data.tee` is consulted ONLY as a last resort — before any first shot
-  // exists — so the hole isn't marker-less on entry.
+  // tracks it reactively. After shot 1, `data.tee` is the SAVED first-shot
+  // start (= previousShots[0]). The stored course tee inside `data.tee` is
+  // consulted ONLY as a last resort — before any first shot exists — so the
+  // hole isn't marker-less on entry.
   const teeBox = useMemo<[LatLng, LatLng] | null>(() => {
     const origin =
       (data.shotNumber === 1 ? finalState.ball : null) ?? data.tee
