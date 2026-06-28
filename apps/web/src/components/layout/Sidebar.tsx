@@ -95,9 +95,13 @@ export function Sidebar() {
       >
         <div
           className="font-serif text-caddie-bg"
-          style={{ fontSize: 18, fontWeight: 500 }}
+          style={{ fontSize: 22, fontWeight: 500, fontStyle: 'italic' }}
         >
-          OGA
+          oga
+          {/* Upright period — the "o." brand mark. Cream (not forest) on the
+              dark sidebar, matching the splash treatment where the forest
+              period would vanish against #1C211C. */}
+          <span style={{ fontStyle: 'normal' }}>.</span>
         </div>
         <div
           className="font-mono uppercase text-white/45"
