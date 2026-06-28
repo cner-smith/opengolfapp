@@ -115,17 +115,20 @@ const styles = StyleSheet.create({
   },
   wordmark: {
     color: '#FBF8F1',
+    // No fontStyle: 'italic' — FONT.serifItalic is an already-italic named face
+    // (Fraunces-MediumItalic). On Android, layering an italic style on a face
+    // whose name encodes the italic axis breaks resolution → system-font fallback.
     fontFamily: FONT.serifItalic,
     fontSize: 96,
-    fontStyle: 'italic',
     letterSpacing: -2,
-    lineHeight: 100,
+    // No tight lineHeight — Fraunces italic's deep "g" descender gets clipped to
+    // the line box on Android. Let the font's natural metrics size the box.
+    includeFontPadding: true,
   },
   tagline: {
     color: 'rgba(242,238,229,0.85)',
     fontFamily: FONT.serifItalic,
     fontSize: 18,
-    fontStyle: 'italic',
     marginTop: 18,
   },
   support: {
