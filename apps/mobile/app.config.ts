@@ -8,7 +8,7 @@ const config: ExpoConfig = {
   name: 'OGA',
   slug: 'oga',
   scheme: 'oga',
-  version: '0.9.0',
+  version: '1.0.0',
   orientation: 'portrait',
   // New Architecture stays OFF for the SDK 53 migration. SDK 53 flips it
   // on by default, so this is an active opt-out (set during the SDK 52 step
