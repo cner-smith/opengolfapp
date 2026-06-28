@@ -640,7 +640,6 @@ export function PastRoundMap({
           // drag-only so stray taps don't move the selected shot). Logging:
           // always tap-to-place.
           tapToPlaceBall={completed ? adding : true}
-          missingHoleLayout={!effectivePin && !tee}
           gpsPosition={null}
           courseCenter={courseCenter}
           holeNumber={holeNumber}

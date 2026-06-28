@@ -59,31 +59,6 @@ export function TopHint({ isPinMode }: TopHintProps) {
   )
 }
 
-export function MissingLayoutBanner() {
-  return (
-    <View
-      style={{
-        position: 'absolute',
-        // Below TopHint (top:82) so the two stack rather than overlap.
-        top: 126,
-        left: 12,
-        right: 12,
-        backgroundColor: 'rgba(28,33,28,0.78)',
-        borderWidth: 1,
-        borderColor: 'rgba(217,210,191,0.4)',
-        borderRadius: 2,
-        paddingHorizontal: 10,
-        paddingVertical: 6,
-      }}
-    >
-      <Text style={[TYPE.body, { color: '#F2EEE5', fontSize: 11, lineHeight: 14 }]}>
-        No hole layout for this course. Place shots manually — the distance
-        pill and putting auto-switch stay off until tee / pin coords land.
-      </Text>
-    </View>
-  )
-}
-
 // To Hole — distance from the current ball to the pin (top-left HUD pill).
 // Replaces the old bottom-right "X to pin" pill; matches the Shot Pattern
 // top-corner HUD layout.

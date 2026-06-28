@@ -25,7 +25,6 @@ import { AimDistancePill } from './markers/AimDistancePill'
 import { useHoleCamera } from './hooks/useHoleCamera'
 import {
   ExpStrokesPill,
-  MissingLayoutBanner,
   PinFirstCta,
   TeeBadge,
   ToHolePill,
@@ -85,13 +84,6 @@ interface HoleMapProps {
    */
   previousShots?: LatLng[]
   phase?: HoleMapPhase
-  /**
-   * True when this hole has no tee or pin coordinates in the DB —
-   * surfaces a small banner under the top hint so the player knows
-   * the missing distance pill / no auto-putt switch is data-driven,
-   * not a bug.
-   */
-  missingHoleLayout?: boolean
   /**
    * Latest smoothed GPS position. Drives the recenter button (which
    * camera-jumps to it) and the camera hook's auto-center-once
@@ -206,7 +198,6 @@ export function HoleMap({
   previousShots,
   phase = 'PLACE_BALL',
   aimCommitted = false,
-  missingHoleLayout = false,
   gpsPosition,
   courseCenter,
   holeNumber,
@@ -914,7 +905,6 @@ export function HoleMap({
             draggable midpoint, so the old "long-press to set aim" reminder is
             obsolete. Pin placement + ball-drag hints still show. */}
         {!isAimPhase && <TopHint isPinMode={isPinMode} />}
-        {missingHoleLayout && !isPinMode && <MissingLayoutBanner />}
         {!isPinMode && pinDistance !== null && (
           <>
             <ToHolePill display={toDisplay(pinDistance)} />
@@ -922,10 +912,10 @@ export function HoleMap({
           </>
         )}
         {/* Pin-first UX (Task 7): no pin yet → prompt for it, since distances,
-            expected strokes, and the dispersion overlay all need one. Skipped
-            when the whole hole layout is missing (MissingLayoutBanner covers
-            that case). */}
-        {!isPinMode && !effectivePin && !missingHoleLayout && (
+            expected strokes, and the dispersion overlay all need one. Shown
+            on no-layout (synthetic) holes too — placing a per-hole pin is
+            exactly what lights up the HUD there. */}
+        {!isPinMode && !effectivePin && (
           <PinFirstCta />
         )}
         {isPlaceBallPhase && (
