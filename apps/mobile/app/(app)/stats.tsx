@@ -197,8 +197,6 @@ export default function Stats() {
               style={[TYPE.serif, {
                 color: '#1C211C',
                 fontSize: 22,
-                fontStyle: 'italic',
-                fontWeight: '500',
               }]}
             >
               No rounds yet.
@@ -259,8 +257,6 @@ export default function Stats() {
                     <Text
                       style={[TYPE.serif, {
                         fontSize: 26,
-                        fontStyle: 'italic',
-                        fontWeight: '500',
                         color:
                           s.value > 0
                             ? '#1F3D2C'
@@ -674,9 +670,6 @@ function StatTile({ label, value }: { label: string; value: string }) {
         style={[TYPE.serif, {
           color: '#1C211C',
           fontSize: 20,
-          fontStyle: 'italic',
-          fontWeight: '500',
-          fontVariant: ['tabular-nums'],
         }]}
       >
         {value}
@@ -727,9 +720,6 @@ function StatRow({
           style={[TYPE.serif, {
             color: valueColor,
             fontSize: 20,
-            fontStyle: 'italic',
-            fontWeight: '500',
-            fontVariant: ['tabular-nums'],
           }]}
         >
           {value}
@@ -787,7 +777,7 @@ function ScoringDistBar({
 
 function Insufficient({ note }: { note: string }) {
   return (
-    <Text style={[TYPE.bodyItalic, { color: '#8A8B7E', fontSize: 13, fontStyle: 'italic', marginBottom: 8 }]}>
+    <Text style={[TYPE.bodyItalic, { color: '#8A8B7E', fontSize: 13, marginBottom: 8 }]}>
       {note}
     </Text>
   )
@@ -825,8 +815,6 @@ function StandoutCallout({ sg }: { sg: SGAverages }) {
         style={[TYPE.serif, {
           color: '#1C211C',
           fontSize: 17,
-          fontStyle: 'italic',
-          fontWeight: '500',
           lineHeight: 24,
         }]}
       >

@@ -69,8 +69,6 @@ export function ConfirmDialog({
               {
                 color: '#1C211C',
                 fontSize: 22,
-                fontStyle: 'italic',
-                fontWeight: '500',
                 lineHeight: 28,
                 marginBottom: message ? 10 : 22,
               },

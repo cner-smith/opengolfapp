@@ -94,8 +94,6 @@ export default function AppLayout() {
           style={[TYPE.serif, {
             color: '#F2EEE5',
             fontSize: 20,
-            fontWeight: '500',
-            fontStyle: 'italic',
             marginBottom: 10,
             textAlign: 'center',
           }]}

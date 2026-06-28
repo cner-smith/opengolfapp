@@ -235,8 +235,6 @@ export function ShotLogger({
                   {
                     color: '#1C211C',
                     fontSize: 22,
-                    fontWeight: '500',
-                    fontStyle: 'italic',
                   },
                 ]}
               >

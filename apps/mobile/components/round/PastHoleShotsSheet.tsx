@@ -204,8 +204,6 @@ export function PastHoleShotsSheet({
               style={[TYPE.serif, {
                 color: '#1C211C',
                 fontSize: 22,
-                fontStyle: 'italic',
-                fontWeight: '500',
                 marginBottom: 14,
               }]}
             >
@@ -509,8 +507,6 @@ function EditShotSheet({
           style={[TYPE.serif, {
             color: '#1C211C',
             fontSize: 17,
-            fontStyle: 'italic',
-            fontWeight: '500',
           }]}
         >
           Shot {shot.shot_number}

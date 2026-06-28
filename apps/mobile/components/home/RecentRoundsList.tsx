@@ -112,8 +112,6 @@ export function RecentRoundsList({
                         {
                           color: '#1C211C',
                           fontSize: 17,
-                          fontWeight: '500',
-                          fontStyle: 'italic',
                         },
                       ]}
                     >
@@ -181,9 +179,6 @@ function SGValue({ value }: { value: number | null }) {
         {
           color,
           fontSize: 17,
-          fontStyle: 'italic',
-          fontWeight: '500',
-          fontVariant: ['tabular-nums'],
         },
       ]}
     >

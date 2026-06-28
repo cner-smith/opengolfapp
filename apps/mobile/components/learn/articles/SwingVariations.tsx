@@ -559,7 +559,7 @@ function HallOfFame() {
           }}
         >
           <Text
-            style={{ color: C.ink, fontFamily: FONT.serifItalic, fontSize: 16, fontStyle: 'italic', marginBottom: 6 }}
+            style={{ color: C.ink, fontFamily: FONT.serifItalic, fontSize: 16, marginBottom: 6 }}
           >
             {p.name}
           </Text>
@@ -608,7 +608,7 @@ function BodyTypeTable() {
           style={{ paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: C.line }}
         >
           <Text
-            style={{ color: C.ink, fontFamily: FONT.serifItalic, fontSize: 15, fontStyle: 'italic', marginBottom: 4 }}
+            style={{ color: C.ink, fontFamily: FONT.serifItalic, fontSize: 15, marginBottom: 4 }}
           >
             {r.type}
           </Text>

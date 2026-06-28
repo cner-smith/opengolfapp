@@ -119,7 +119,7 @@ export default function Drills() {
               {filtered.length} drill{filtered.length === 1 ? '' : 's'}
             </Text>
             {filtered.length === 0 ? (
-              <Text style={[TYPE.serif, { color: INK_DIM, fontSize: 17, fontStyle: 'italic', paddingTop: 14 }]}>
+              <Text style={[TYPE.serif, { color: INK_DIM, fontSize: 17, paddingTop: 14 }]}>
                 No drills match those filters.
               </Text>
             ) : (
@@ -196,14 +196,14 @@ function DrillCard({ drill }: { drill: Drill }) {
     <View style={{ borderBottomWidth: 1, borderColor: LINE, paddingVertical: 16 }}>
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 12 }}>
         <Pressable onPress={() => canExpand && setOpen((o) => !o)} disabled={!canExpand} style={{ flex: 1 }}>
-          <Text style={[TYPE.serif, { color: INK, fontSize: 18, fontStyle: 'italic', fontWeight: '500', lineHeight: 23 }]}>
+          <Text style={[TYPE.serif, { color: INK, fontSize: 18, lineHeight: 23 }]}>
             {drill.name}
             {canExpand ? <Text style={{ color: INK_MUTE, fontSize: 13 }}>{open ? '  ▲' : '  ▼'}</Text> : null}
           </Text>
         </Pressable>
         <View style={{ alignItems: 'flex-end', minWidth: 64 }}>
           {drill.duration_min != null ? (
-            <Text style={[TYPE.serif, { color: INK, fontSize: 18, fontStyle: 'italic', lineHeight: 20 }]}>
+            <Text style={[TYPE.serif, { color: INK, fontSize: 18, lineHeight: 20 }]}>
               {drill.duration_min} min
             </Text>
           ) : null}

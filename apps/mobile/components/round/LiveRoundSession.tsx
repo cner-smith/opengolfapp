@@ -330,8 +330,6 @@ export default function LiveRoundSession({
             {
               color: '#1C211C',
               fontSize: 20,
-              fontStyle: 'italic',
-              fontWeight: '500',
               textAlign: 'center',
               marginBottom: 10,
             },
@@ -465,8 +463,6 @@ export default function LiveRoundSession({
               {
                 color: '#F2EEE5',
                 fontSize: 17,
-                fontWeight: '500',
-                fontStyle: 'italic',
               },
             ]}
           >

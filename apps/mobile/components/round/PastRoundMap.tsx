@@ -604,8 +604,6 @@ export function PastRoundMap({
           style={[TYPE.serif, {
             color: '#F2EEE5',
             fontSize: 16,
-            fontStyle: 'italic',
-            fontWeight: '500',
           }]}
         >
           Hole {holeNumber}
@@ -811,8 +809,6 @@ export function PastRoundMap({
                   style={[TYPE.serif, {
                     color: '#F2EEE5',
                     fontSize: 16,
-                    fontStyle: 'italic',
-                    fontWeight: '500',
                   }]}
                 >
                   Shot {activePos + 1} of {placedReal.length}

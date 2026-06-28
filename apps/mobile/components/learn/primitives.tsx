@@ -48,8 +48,6 @@ export const TITLE: TextStyle = {
   color: C.ink,
   fontFamily: FONT.serifItalic,
   fontSize: 26,
-  fontStyle: 'italic',
-  fontWeight: '500',
   lineHeight: 32,
   marginBottom: 14,
 }
@@ -73,8 +71,6 @@ const H3_STYLE: TextStyle = {
   color: C.ink,
   fontFamily: FONT.serifItalic,
   fontSize: 19,
-  fontStyle: 'italic',
-  fontWeight: '500',
   lineHeight: 25,
   marginTop: 22,
   marginBottom: 12,
@@ -84,8 +80,6 @@ const H4_STYLE: TextStyle = {
   color: C.ink,
   fontFamily: FONT.serifItalic,
   fontSize: 16,
-  fontStyle: 'italic',
-  fontWeight: '500',
   lineHeight: 22,
   marginTop: 16,
   marginBottom: 8,
@@ -97,7 +91,7 @@ export function Strong({ children }: { children: ReactNode }) {
 }
 
 export function Em({ children }: { children: ReactNode }) {
-  return <Text style={{ fontFamily: FONT.bodyItalic, fontStyle: 'italic' }}>{children}</Text>
+  return <Text style={{ fontFamily: FONT.bodyItalic }}>{children}</Text>
 }
 
 export function Link({ href, children }: { href: string; children: ReactNode }) {
@@ -237,7 +231,7 @@ export function DefRow({
         borderTopColor: C.line,
       }}
     >
-      <Text style={{ color: C.ink, fontFamily: FONT.serifItalic, fontSize: 15, fontStyle: 'italic', fontWeight: '500', marginBottom: 4 }}>
+      <Text style={{ color: C.ink, fontFamily: FONT.serifItalic, fontSize: 15, marginBottom: 4 }}>
         {term}
       </Text>
       <Text style={{ color: C.inkDim, fontFamily: FONT.body, fontSize: 14, lineHeight: 20 }}>{children}</Text>
@@ -309,7 +303,7 @@ export function Sources({
       <Text style={{ ...KICKER, marginBottom: 4 }}>Sources</Text>
       {items.map((s, i) => (
         <View key={i} style={{ paddingVertical: 10, borderTopWidth: 1, borderTopColor: C.line }}>
-          <Text style={{ color: C.ink, fontFamily: FONT.serifItalic, fontSize: 14, fontStyle: 'italic', fontWeight: '500', marginBottom: 3 }}>
+          <Text style={{ color: C.ink, fontFamily: FONT.serifItalic, fontSize: 14, marginBottom: 3 }}>
             {s.href ? <Link href={s.href}>{s.name}</Link> : s.name}
           </Text>
           <Text style={{ color: C.inkDim, fontFamily: FONT.body, fontSize: 13, lineHeight: 19 }}>{s.note}</Text>
@@ -329,7 +323,7 @@ export function ResourceList({
     <View style={{ marginVertical: 6 }}>
       {items.map((r, i) => (
         <View key={i} style={{ paddingVertical: 12, borderTopWidth: 1, borderTopColor: C.line }}>
-          <Text style={{ color: C.ink, fontFamily: FONT.serifItalic, fontSize: 15, fontStyle: 'italic', fontWeight: '500' }}>
+          <Text style={{ color: C.ink, fontFamily: FONT.serifItalic, fontSize: 15 }}>
             {r.title}
             {r.by ? <Text style={{ color: C.inkDim, fontFamily: FONT.body, fontStyle: 'normal', fontWeight: '400' }}> — {r.by}</Text> : null}
           </Text>
@@ -372,7 +366,7 @@ export function DevNote({
       }}
     >
       <Text style={{ ...KICKER, color: tone, marginBottom: 4 }}>{label} · dev only</Text>
-      <Text style={{ color: C.inkDim, fontFamily: FONT.bodyItalic, fontSize: 13, fontStyle: 'italic', lineHeight: 19 }}>
+      <Text style={{ color: C.inkDim, fontFamily: FONT.bodyItalic, fontSize: 13, lineHeight: 19 }}>
         {children}
       </Text>
     </View>

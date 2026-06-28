@@ -225,9 +225,6 @@ export default function ProfileTab() {
             style={[TYPE.serif, {
               color: '#1C211C',
               fontSize: 56,
-              fontStyle: 'italic',
-              fontWeight: '500',
-              fontVariant: ['tabular-nums'],
               lineHeight: 60,
             }]}
           >
@@ -393,7 +390,7 @@ export default function ProfileTab() {
               My Bag
             </Text>
           </View>
-          <Text style={[TYPE.bodyItalic, { color: '#1F3D2C', fontSize: 18, fontStyle: 'italic' }]}>→</Text>
+          <Text style={[TYPE.bodyItalic, { color: '#1F3D2C', fontSize: 18 }]}>→</Text>
         </Pressable>
 
         <Pressable
@@ -608,8 +605,6 @@ function DeleteAccountModal({
             style={[TYPE.serif, {
               color: '#1C211C',
               fontSize: 22,
-              fontStyle: 'italic',
-              fontWeight: '500',
               lineHeight: 28,
               marginBottom: 10,
             }]}

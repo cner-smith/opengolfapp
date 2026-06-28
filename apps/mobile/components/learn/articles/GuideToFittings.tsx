@@ -362,7 +362,7 @@ function Fit({
 }) {
   return (
     <View style={{ borderTopWidth: 1, borderTopColor: C.line, paddingTop: 12, marginBottom: 12 }}>
-      <Text style={{ color: C.ink, fontFamily: FONT.serifItalic, fontSize: 18, fontStyle: 'italic', marginBottom: 6 }}>
+      <Text style={{ color: C.ink, fontFamily: FONT.serifItalic, fontSize: 18, marginBottom: 6 }}>
         {name}
       </Text>
       <Text style={{ color: C.inkDim, fontFamily: FONT.body, fontSize: 14, lineHeight: 22 }}>
@@ -386,7 +386,7 @@ function FitTag({ children }: { children: ReactNode }) {
 function QA({ lead, children }: { lead: string; children: ReactNode }) {
   return (
     <View style={{ borderTopWidth: 1, borderTopColor: C.line, paddingTop: 10, marginBottom: 10 }}>
-      <Text style={{ color: C.ink, fontFamily: FONT.serifItalic, fontSize: 15, fontStyle: 'italic', marginBottom: 4 }}>
+      <Text style={{ color: C.ink, fontFamily: FONT.serifItalic, fontSize: 15, marginBottom: 4 }}>
         {lead}
       </Text>
       <Text style={{ color: C.inkDim, fontFamily: FONT.body, fontSize: 14, lineHeight: 22 }}>{children}</Text>
@@ -421,7 +421,7 @@ function FitByHandicap() {
           key={r.stage}
           style={{ paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: C.line }}
         >
-          <Text style={{ color: C.ink, fontFamily: FONT.serifItalic, fontSize: 15, fontStyle: 'italic', marginBottom: 4 }}>
+          <Text style={{ color: C.ink, fontFamily: FONT.serifItalic, fontSize: 15, marginBottom: 4 }}>
             {r.stage}
           </Text>
           <Text style={{ color: C.inkDim, fontFamily: FONT.body, fontSize: 14, lineHeight: 21 }}>{r.advice}</Text>

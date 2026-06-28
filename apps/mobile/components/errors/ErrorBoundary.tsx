@@ -51,8 +51,6 @@ function ErrorScreen({ error, onReset }: { error: Error; onReset: () => void }) 
         <View style={{ maxWidth: 480 }}>
           <Text
             style={[TYPE.serif, {
-              fontStyle: 'italic',
-              fontWeight: '500',
               fontSize: 32,
               color: '#1C211C',
               textAlign: 'center',

@@ -136,7 +136,7 @@ function WorkedExample() {
       >
         Slightly below baseline. Hit it to <Em>10 feet</Em> instead and the
         number flips: 2.86 − 1.61 − 1 ={' '}
-        <Text style={{ fontFamily: FONT.serifItalic, fontStyle: 'italic' }}>
+        <Text style={{ fontFamily: FONT.serifItalic }}>
           +0.25
         </Text>{' '}
         — a quarter of a stroke gained on a single approach. Stack eighteen of
@@ -166,10 +166,7 @@ function ExampleStat({
           color,
           fontFamily: FONT.serifItalic,
           fontSize: 26,
-          fontStyle: 'italic',
-          fontWeight: '500',
           lineHeight: 28,
-          fontVariant: ['tabular-nums'],
         }}
       >
         {value}
@@ -220,7 +217,7 @@ function SGCategoriesTable() {
         <DefRow key={r.cat} term={r.cat}>
           <Text style={{ color: C.ink }}>{r.what}</Text>
           {'\n'}
-          <Text style={{ fontFamily: FONT.bodyItalic, fontStyle: 'italic', color: C.inkDim }}>
+          <Text style={{ fontFamily: FONT.bodyItalic, color: C.inkDim }}>
             {r.example}
           </Text>
         </DefRow>

@@ -183,8 +183,6 @@ export default function RoundsList() {
                         style={[TYPE.serif, {
                           color: '#1C211C',
                           fontSize: 17,
-                          fontWeight: '500',
-                          fontStyle: 'italic',
                         }]}
                       >
                         {r.courses?.name ?? 'Round'}

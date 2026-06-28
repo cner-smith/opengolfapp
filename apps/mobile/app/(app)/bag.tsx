@@ -379,8 +379,6 @@ export default function BagScreen() {
               style={[TYPE.serif, {
                 color: '#1C211C',
                 fontSize: 22,
-                fontWeight: '500',
-                fontStyle: 'italic',
                 marginBottom: 18,
               }]}
             >

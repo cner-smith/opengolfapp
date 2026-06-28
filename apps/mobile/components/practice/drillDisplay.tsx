@@ -1,6 +1,6 @@
 import { Text } from 'react-native'
 import type { BlockType, PlanCategory } from '@oga/core'
-import { TYPE } from '../../lib/typography'
+import { FONT, TYPE } from '../../lib/typography'
 
 // Shared drill-display vocabulary + the instructions renderer, used by both the
 // Practice plan screen (plan blocks) and the Drill library screen (browse-all).
@@ -64,7 +64,7 @@ export function renderInstructions(text: string) {
             {seg.text}
           </Text>
         ) : seg.kind === 'i' ? (
-          <Text key={si} style={{ fontStyle: 'italic' }}>
+          <Text key={si} style={{ fontFamily: FONT.bodyItalic }}>
             {seg.text}
           </Text>
         ) : (

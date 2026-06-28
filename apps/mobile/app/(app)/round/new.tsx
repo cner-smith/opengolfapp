@@ -416,9 +416,7 @@ export default function NewRound() {
         style={[TYPE.serif, {
           color: '#1C211C',
           fontSize: 28,
-          fontWeight: '500',
           marginBottom: 14,
-          fontStyle: 'italic',
         }]}
       >
         {mode === 'past' ? 'Pick the course you played' : 'Pick a course to start'}
@@ -610,8 +608,6 @@ function RoundSetupStep({
         style={[TYPE.serif, {
           color: '#1C211C',
           fontSize: 28,
-          fontWeight: '500',
-          fontStyle: 'italic',
           marginBottom: 18,
         }]}
       >
@@ -732,8 +728,6 @@ function ManualCourseForm({
           style={[TYPE.serif, {
             color: '#1C211C',
             fontSize: 28,
-            fontStyle: 'italic',
-            fontWeight: '500',
             marginBottom: 18,
           }]}
         >
