@@ -70,7 +70,7 @@ npx supabase db push
 
 Open each migration in `supabase/migrations/` (in numeric order), paste into the Supabase SQL editor, run.
 
-Then load the seed data (3 demo courses + 24 drills):
+Then load the seed data (3 demo courses + 125 drills):
 
 ```bash
 psql "<your-supabase-connection-string>" < supabase/seed.sql
