@@ -137,8 +137,8 @@ export default function RoundIndex() {
     setRedirectToLive(false)
     ;(async () => {
       try {
-        // maybeSingle (not single): a deleted round returns null rather than
-        // throwing PGRST116 "cannot coerce the result to a single JSON object".
+        // A deleted round returns null rather than throwing PGRST116 "cannot
+        // coerce the result to a single JSON object".
         const { data: r, error: rErr } = await supabase
           .from('rounds')
           .select('*, courses(name, lat, lng)')
