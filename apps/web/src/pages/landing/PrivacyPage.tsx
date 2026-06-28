@@ -116,6 +116,11 @@ export function PrivacyPage() {
             stays — it isn't yours to delete.
           </P>
           <P>
+            No longer have the app installed? Email{' '}
+            <ExtLink href="mailto:support@oga.golf">support@oga.golf</ExtLink>{' '}
+            to request deletion of your account and all of its data.
+          </P>
+          <P>
             If something goes wrong with self-service deletion, open a
             ticket on{' '}
             <ExtLink href="https://github.com/cner-smith/opengolfapp/issues">
