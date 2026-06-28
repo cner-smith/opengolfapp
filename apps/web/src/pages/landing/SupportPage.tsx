@@ -73,6 +73,16 @@ export function SupportPage() {
             permanent and immediate.
           </P>
           <P>
+            No longer have the app installed? Email{' '}
+            <a
+              href="mailto:support@oga.golf"
+              style={{ color: '#1F3D2C', textDecoration: 'underline' }}
+            >
+              support@oga.golf
+            </a>{' '}
+            to request deletion of your account and all of its data.
+          </P>
+          <P>
             For anything else about your data — a correction, an export, a
             question about what's stored — open an issue and we'll handle it.
             The full rundown of what we collect is on the{' '}
