@@ -49,5 +49,5 @@ XS / S / M / L / XL  <!-- XS=~1hr, S=~half day, M=~1-2 days, L=~3-5 days, XL=~1+
 ## Risk + rollback
 <!-- Only fill in for changes that touch shared state, RLS, sync, or auth. -->
 
-## CLAUDE.md / project rules to preserve
+## Project rules / invariants to preserve
 <!-- Anything project-specific the implementer shouldn't break -->

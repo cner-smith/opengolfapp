@@ -43,5 +43,5 @@ XS / S / M / L / XL
 - [ ] `pnpm test` passes
 - [ ] No new lint warnings
 
-## CLAUDE.md / project rules to preserve
+## Project rules / invariants to preserve
 - 3-caller extraction rule (if relevant): don't lift to `@oga/core` until ≥3 callers
