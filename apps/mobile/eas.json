@@ -34,6 +34,9 @@
     "production": {
       "autoIncrement": true,
       "node": "20.18.0",
+      "ios": {
+        "image": "macos-sequoia-15.6-xcode-26.2"
+      },
       "env": {
         "npm_config_legacy_peer_deps": "true"
       }
