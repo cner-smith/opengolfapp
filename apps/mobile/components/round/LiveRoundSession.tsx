@@ -171,12 +171,17 @@ export default function LiveRoundSession({
   ])
 
   // Two-dot tee box flanking the tee, oriented down the line of play (toward the
-  // aim, else the pin). The tee IS the first shot's start — like past-round
-  // (PastRoundMap): the course tee when known, otherwise the shot-1 ball as you
-  // place it (persisted as the hole tee on save, see useShotActions). After
-  // shot 1 it lives in data.tee, so the dots stay put on later shots.
+  // aim, else the pin). The marker ALWAYS derives from where the player actually
+  // teed off — the FIRST shot's start — never the surveyed holes.tee_lat (real
+  // tee boxes move daily; the stored coord lies about where you hit from).
+  // While placing shot 1 that's the live ball as you drag it, so the marker
+  // tracks it reactively. After shot 1, `data.tee` is the SAVED first-shot
+  // start (= previousShots[0]). The stored course tee inside `data.tee` is
+  // consulted ONLY as a last resort — before any first shot exists — so the
+  // hole isn't marker-less on entry.
   const teeBox = useMemo<[LatLng, LatLng] | null>(() => {
-    const origin = data.tee ?? (data.shotNumber === 1 ? finalState.ball : null)
+    const origin =
+      (data.shotNumber === 1 ? finalState.ball : null) ?? data.tee
     if (!origin) return null
     const toward = finalState.aim ?? data.roundPin ?? data.storedPin
     const heading = toward
