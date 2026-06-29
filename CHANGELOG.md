@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.0.1](https://github.com/cner-smith/opengolfapp/compare/v1.0.0...v1.0.1) (2026-06-29)
+
+
+### Bug Fixes
+
+* **web:** add no-app account-deletion path for Play deletion URL ([#625](https://github.com/cner-smith/opengolfapp/issues/625)) ([7c2d9cb](https://github.com/cner-smith/opengolfapp/commit/7c2d9cb9d1ea92610b8b2c355836626ffa17d302))
+* **web:** sanitize Turnstile site key in captcha WebView page ([#630](https://github.com/cner-smith/opengolfapp/issues/630)) ([c000807](https://github.com/cner-smith/opengolfapp/commit/c0008071c21ee79107e1aba37069622987e66444))
+
+
+### Chores
+
+* **eas:** pin Xcode 26 image for iOS production builds ([#628](https://github.com/cner-smith/opengolfapp/issues/628)) ([b25bbe8](https://github.com/cner-smith/opengolfapp/commit/b25bbe8064f06c2b7aa1dc3eda726c7448dfae93))
+* sync main → dev (v1.0.0 release commits) ([995b9c3](https://github.com/cner-smith/opengolfapp/commit/995b9c31dbeb99ba86f72bb36ce23236a171b1c5))
+
 ## [1.0.0](https://github.com/cner-smith/opengolfapp/compare/v0.9.0...v1.0.0) (2026-06-28)
 
 
