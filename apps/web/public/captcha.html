@@ -10,7 +10,15 @@
     body { display: flex; align-items: center; justify-content: center; }
   </style>
   <script>
-    const siteKey = new URLSearchParams(window.location.search).get('siteKey');
+    // Strip stray angle brackets / whitespace before handing the key to
+    // Turnstile. A site key copied from a "<your-key-here>" style placeholder
+    // (e.g. into the EXPO_PUBLIC_TURNSTILE_SITE_KEY env var) arrives wrapped in
+    // "<...>", which Turnstile rejects by silently failing to render — no
+    // widget, no error, submit button stuck disabled. Sanitizing here fixes
+    // already-shipped app builds without a rebuild, since the app loads this
+    // page remotely.
+    const rawSiteKey = new URLSearchParams(window.location.search).get('siteKey');
+    const siteKey = (rawSiteKey || '').replace(/[<>\s]/g, '');
 
     function initTurnstile() {
       turnstile.render('#widget', {
