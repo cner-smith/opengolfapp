@@ -29,7 +29,10 @@ export default function SGFeedbackCard({
     )
   }
 
-  const toPar = holeExpectedScore == null ? null : formatToPar(holeExpectedScore - par)
+  const toPar =
+    holeExpectedScore == null
+      ? null
+      : formatToPar(Math.round((holeExpectedScore - par) * 10) / 10)
 
   return (
     <div
