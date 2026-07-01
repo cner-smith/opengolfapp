@@ -70,7 +70,11 @@ export default function HolePlanPage() {
   // in-progress plan mid-session. Only a genuine course+hole change
   // (key !== the initialized key) reinitializes.
   useEffect(() => {
-    if (!tee || !pin) return
+    // Wait for dispersion too, not just tee/pin — otherwise, when the course's
+    // holes resolve before the shot-history fetch, the leg initializes with a
+    // null club (empty byClub) and initedKeyRef locks it, so the default club
+    // never gets set once dispersion arrives (permanent "no data" state).
+    if (!tee || !pin || dispersion.loading) return
     const key = `${courseId}/${holeNum}`
     if (initedKeyRef.current === key) return
     const teePinDist = haversineYards(tee.lat, tee.lng, pin.lat, pin.lng)
@@ -82,7 +86,7 @@ export default function HolePlanPage() {
     setFocusedLeg(0)
     initedKeyRef.current = key
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [courseId, holeNum, tee, pin, dispersion.selectClub])
+  }, [courseId, holeNum, tee, pin, dispersion.selectClub, dispersion.loading])
 
   // Passed to HoleStrategyMap, which lists this in a render-effect dep array —
   // an inline function here would tear down and rebuild every map marker on
