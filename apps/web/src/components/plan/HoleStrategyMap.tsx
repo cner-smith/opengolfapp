@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { coneRingGeoJSON, scatterGeoJSON, type GeoPoint } from '@oga/core'
+import { bearingDegrees, coneRingGeoJSON, scatterGeoJSON, type GeoPoint } from '@oga/core'
 import { mapboxgl, MAPBOX_TOKEN_PRESENT } from '../../lib/mapbox'
 import type { ClubDispersion } from '../../pages/rounds/hooks/useClubDispersion'
 
@@ -167,19 +167,31 @@ export default function HoleStrategyMap({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // Camera: jump to the tee→pin midpoint once, right after `load`. A simple
-  // lat/lng average is fine at hole scale (a few hundred yards).
-  const midpoint = useMemo<[number, number]>(
-    () => [(tee.lng + pin.lng) / 2, (tee.lat + pin.lat) / 2],
+  // Camera: frame the hole "up-the-hole" — rotate so the tee→pin line runs
+  // bottom→top (like the mobile live-round map) and fitBounds so tee + pin are
+  // both in view with padding. Re-fits when the hole changes (snap on the first
+  // paint, animate on later prev/next-hole navigation).
+  const bearing = useMemo(
+    () => bearingDegrees(tee.lat, tee.lng, pin.lat, pin.lng),
     [tee.lat, tee.lng, pin.lat, pin.lng],
   )
   useEffect(() => {
-    if (!mapLoaded || initialPositionDoneRef.current) return
+    if (!mapLoaded) return
     const map = mapRef.current
     if (!map) return
-    map.jumpTo({ center: midpoint, zoom: 17 })
+    const bounds = new mapboxgl.LngLatBounds([tee.lng, tee.lat], [tee.lng, tee.lat])
+    bounds.extend([pin.lng, pin.lat])
+    map.fitBounds(bounds, {
+      bearing,
+      // Generous top/bottom keeps tee + pin off the edges; the sides give the
+      // dispersion cone room since a 2-point bounds is near-zero-width.
+      padding: { top: 80, bottom: 80, left: 90, right: 90 },
+      maxZoom: 17.5,
+      animate: initialPositionDoneRef.current,
+      duration: 600,
+    })
     initialPositionDoneRef.current = true
-  }, [mapLoaded, midpoint])
+  }, [mapLoaded, bearing, tee.lat, tee.lng, pin.lat, pin.lng])
 
   // Per-leg overlays (dots, cone, aim marker) + the tee→…→pin route line +
   // the static tee/pin markers. Keyed on [legs, focusedLeg] per the brief;

@@ -210,53 +210,41 @@ export default function HolePlanPage() {
   const clubs = [...dispersion.byClub.values()]
 
   return (
-    <div className="mx-auto max-w-4xl">
-      <div
-        className="flex items-center justify-between"
-        style={{ marginBottom: 14 }}
-      >
-        <button
-          type="button"
-          onClick={() => goToHole(holeNum - 1)}
-          disabled={holeNum <= 1}
-          className="text-caddie-ink-dim"
-          style={{ fontSize: 13, opacity: holeNum <= 1 ? 0.4 : 1 }}
-        >
-          ← Prev hole
-        </button>
-        <div style={{ textAlign: 'center' }}>
-          <h1
-            className="text-caddie-ink"
-            style={{ fontSize: 20, fontWeight: 600, lineHeight: 1.3 }}
+    <div className="mx-auto max-w-6xl">
+      <div className="grid grid-cols-1 gap-6 items-start lg:grid-cols-[minmax(320px,380px)_1fr]">
+        {/* Controls — below the map on narrow screens, left column on desktop. */}
+        <div className="order-2 flex flex-col gap-4 lg:order-1">
+          <div className="flex items-center justify-between">
+            <button
+              type="button"
+              onClick={() => goToHole(holeNum - 1)}
+              disabled={holeNum <= 1}
+              className="text-caddie-ink-dim"
+              style={{ fontSize: 13, opacity: holeNum <= 1 ? 0.4 : 1 }}
+            >
+              ← Prev
+            </button>
+            <h1
+              className="text-caddie-ink"
+              style={{ fontSize: 19, fontWeight: 600, lineHeight: 1.3, textAlign: 'center' }}
+            >
+              Hole {hole.number} · Par {hole.par}
+            </h1>
+            <button
+              type="button"
+              onClick={() => goToHole(holeNum + 1)}
+              disabled={holeNum >= totalHoles}
+              className="text-caddie-ink-dim"
+              style={{ fontSize: 13, opacity: holeNum >= totalHoles ? 0.4 : 1 }}
+            >
+              Next →
+            </button>
+          </div>
+
+          <div
+            className="bg-caddie-surface flex flex-col gap-3"
+            style={{ border: '0.5px solid #D9D2BF', borderRadius: 10, padding: 16 }}
           >
-            Hole {hole.number} · Par {hole.par}
-          </h1>
-        </div>
-        <button
-          type="button"
-          onClick={() => goToHole(holeNum + 1)}
-          disabled={holeNum >= totalHoles}
-          className="text-caddie-ink-dim"
-          style={{ fontSize: 13, opacity: holeNum >= totalHoles ? 0.4 : 1 }}
-        >
-          Next hole →
-        </button>
-      </div>
-
-      <div style={{ height: 440, borderRadius: 10, overflow: 'hidden', marginBottom: 16 }}>
-        <HoleStrategyMap
-          tee={tee}
-          pin={pin}
-          legs={legs}
-          focusedLeg={focusedLeg}
-          onAimChange={onAimChange}
-        />
-      </div>
-
-      <div
-        className="bg-caddie-surface flex flex-col gap-3"
-        style={{ border: '0.5px solid #D9D2BF', borderRadius: 10, padding: 16, marginBottom: 16 }}
-      >
         <div className="flex items-center justify-between" style={{ flexWrap: 'wrap', gap: 10 }}>
           <div className="flex items-center" style={{ gap: 6, flexWrap: 'wrap' }}>
             {legs.map((_, i) => (
@@ -329,14 +317,30 @@ export default function HolePlanPage() {
             </select>
           </label>
         )}
-      </div>
+          </div>
 
-      <SGFeedbackCard
-        legSG={legSG}
-        clubLabel={clubLabel}
-        holeExpectedScore={holeExpectedScore}
-        par={hole.par}
-      />
+          <SGFeedbackCard
+            legSG={legSG}
+            clubLabel={clubLabel}
+            holeExpectedScore={holeExpectedScore}
+            par={hole.par}
+          />
+        </div>
+
+        {/* Map — on top on narrow screens, right column on desktop. */}
+        <div
+          className="order-1 lg:order-2"
+          style={{ height: 'min(80vh, 760px)', minHeight: 460, borderRadius: 10, overflow: 'hidden' }}
+        >
+          <HoleStrategyMap
+            tee={tee}
+            pin={pin}
+            legs={legs}
+            focusedLeg={focusedLeg}
+            onAimChange={onAimChange}
+          />
+        </div>
+      </div>
     </div>
   )
 }
