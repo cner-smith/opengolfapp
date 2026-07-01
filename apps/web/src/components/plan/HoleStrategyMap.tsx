@@ -124,6 +124,13 @@ export default function HoleStrategyMap({
   const markersRef = useRef<mapboxgl.Marker[]>([])
   const [mapLoaded, setMapLoaded] = useState(false)
   const initialPositionDoneRef = useRef(false)
+  // Highest number of legs rendered so far. `upsert` only ever
+  // adds/updates sources; when the consumer shrinks `legs.length` (e.g.
+  // "remove last shot") the dropped legs' `leg-dots-{i}` / `leg-cone-{i}`
+  // sources+layers would otherwise linger with stale geometry. We track the
+  // max so the render effect can tear those orphans down. (Per-leg aim
+  // markers don't need this — every render clears and rebuilds all markers.)
+  const renderedLegCountRef = useRef(0)
 
   // Init the map once, at a neutral world view — matches RoundMap's pattern
   // (apps/web/src/components/round/RoundMap.tsx): style loads async, camera
@@ -188,6 +195,18 @@ export default function HoleStrategyMap({
       for (const m of markersRef.current) m.remove()
       markersRef.current = []
 
+      // Tear down orphaned per-leg sources+layers for legs that no longer
+      // exist (leg count shrank). In `upsert`, layer id === source id, so
+      // removing the layer then the source by that id clears both. Existence
+      // guards keep removeLayer/removeSource from throwing when absent.
+      for (let i = legs.length; i < renderedLegCountRef.current; i++) {
+        for (const id of [`leg-dots-${i}`, `leg-cone-${i}`]) {
+          if (map.getLayer(id)) map.removeLayer(id)
+          if (map.getSource(id)) map.removeSource(id)
+        }
+      }
+      renderedLegCountRef.current = legs.length
+
       markersRef.current.push(
         new mapboxgl.Marker({ element: makeTeeDotEl() })
           .setLngLat([tee.lng, tee.lat])
@@ -239,18 +258,17 @@ export default function HoleStrategyMap({
               },
             )
           : null
-        const coneData: GeoJSON.Feature = cone
+        // When there's no club (no cone), clear the source with an empty
+        // FeatureCollection — a Polygon with an empty `coordinates` ring is
+        // invalid GeoJSON. An empty collection is valid and renders nothing.
+        const coneData: GeoJSON.Feature | GeoJSON.FeatureCollection = cone
           ? {
               ...cone,
               properties: {
                 opacity: focused ? CONE_OPACITY.focused : CONE_OPACITY.dimmed,
               },
             }
-          : {
-              type: 'Feature',
-              properties: { opacity: 0 },
-              geometry: { type: 'Polygon', coordinates: [] },
-            }
+          : { type: 'FeatureCollection', features: [] }
         upsert(map, `leg-cone-${index}`, coneData, {
           type: 'fill',
           paint: {
