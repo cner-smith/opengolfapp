@@ -38,6 +38,11 @@
   }
 }
 
+/* Hero store badges sit below the CTA row */
+.landing-store-badges {
+  margin-top: 22px;
+}
+
 /* Hero platform row */
 .landing-platforms {
   display: flex;

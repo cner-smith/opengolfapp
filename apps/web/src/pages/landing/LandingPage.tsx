@@ -2,6 +2,7 @@ import { useEffect, useId, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../../hooks/useAuth'
 import { AppPreview } from '../../components/landing/AppPreview'
+import { StoreBadges } from '../../components/landing/StoreBadges'
 import '../../components/landing/landing.css'
 
 // Marketing page served at `/`. Public, auth-aware (CTAs swap to
@@ -146,6 +147,7 @@ function Hero() {
               {isAuthed ? "You're signed in." : 'No subscription · no ads.'}
             </span>
           </div>
+          <StoreBadges align="left" className="landing-store-badges" />
         </div>
         <div className="landing-hero-preview" aria-hidden>
           <AppPreview />
@@ -1309,11 +1311,20 @@ function Footer() {
         <div
           style={{
             display: 'flex',
-            gap: 24,
-            justifyContent: 'center',
-            flexWrap: 'wrap',
+            flexDirection: 'column',
+            gap: 20,
+            alignItems: 'center',
           }}
         >
+          <StoreBadges align="center" />
+          <div
+            style={{
+              display: 'flex',
+              gap: 24,
+              justifyContent: 'center',
+              flexWrap: 'wrap',
+            }}
+          >
           <FooterLink href={GITHUB_REPO} external>
             GitHub
           </FooterLink>
@@ -1326,6 +1337,7 @@ function Footer() {
           <FooterLink to="/privacy">Privacy</FooterLink>
           <FooterLink to="/support">Support</FooterLink>
           <FooterLink to="/login">Sign in</FooterLink>
+          </div>
         </div>
         <div
           style={{
