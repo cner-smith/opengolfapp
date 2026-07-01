@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { arcGeoJSON, circleGeoJSON, destinationYards, scatterGeoJSON } from './shot-dispersion-geo'
+import {
+  arcGeoJSON,
+  circleGeoJSON,
+  coneRingGeoJSON,
+  destinationYards,
+  scatterGeoJSON,
+} from './shot-dispersion-geo'
 import { bearingDegrees, haversineYards } from './units'
 
 const ORIGIN = { lat: 40, lng: -75 }
@@ -136,5 +142,31 @@ describe('scatterGeoJSON', () => {
   it('returns an empty collection when origin and target coincide', () => {
     const fc = scatterGeoJSON(ORIGIN, ORIGIN, [{ alongYards: 5, perpYards: 5 }])
     expect(fc.features).toHaveLength(0)
+  })
+})
+
+describe('coneRingGeoJSON', () => {
+  const origin = { lat: 0, lng: 0 }
+  const aim = { lat: 0, lng: 0.0011 } // ~120 yd east
+
+  it('returns null when origin and aim coincide', () => {
+    expect(coneRingGeoJSON(origin, origin, 20, 10)).toBeNull()
+  })
+  it('returns a closed ring (first == last vertex)', () => {
+    const f = coneRingGeoJSON(origin, aim, 20, 10)!
+    const ring = f.geometry.coordinates[0]!
+    expect(ring.length).toBeGreaterThan(10)
+    expect(ring[0]).toEqual(ring[ring.length - 1])
+  })
+  it('a circular cone (along==perp) has near-constant radius from center', () => {
+    const f = coneRingGeoJSON(origin, aim, 15, 15)!
+    const ring = f.geometry.coordinates[0]!
+    // crude center = mean of vertices; all vertices ~equidistant from it
+    const cx = ring.reduce((s, p) => s + p[0], 0) / ring.length
+    const cy = ring.reduce((s, p) => s + p[1], 0) / ring.length
+    const rs = ring.map((p) => Math.hypot(p[0] - cx, p[1] - cy))
+    const min = Math.min(...rs)
+    const max = Math.max(...rs)
+    expect((max - min) / max).toBeLessThan(0.05)
   })
 })
