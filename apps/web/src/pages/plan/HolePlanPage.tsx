@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import {
   DEFAULT_HANDICAP,
@@ -29,26 +29,44 @@ export default function HolePlanPage() {
 
   const holeNum = Number(holeNumber)
   const hole = holes.find((h) => h.number === holeNum)
-  const tee: GeoPoint | undefined =
-    hole?.tee_lat != null && hole?.tee_lng != null
-      ? { lat: hole.tee_lat, lng: hole.tee_lng }
-      : undefined
-  const pin: GeoPoint | undefined =
-    hole?.pin_lat != null && hole?.pin_lng != null
-      ? { lat: hole.pin_lat, lng: hole.pin_lng }
-      : undefined
+  // Memoized on the raw coords so tee/pin keep a stable object identity across
+  // renders — HoleStrategyMap's marker-rebuild effect lists them in its
+  // by-reference dep array, so fresh literals every render would needlessly
+  // tear down and rebuild every map marker (same stability discipline as
+  // onAimChange below).
+  const tee = useMemo<GeoPoint | null>(
+    () =>
+      hole?.tee_lat != null && hole?.tee_lng != null
+        ? { lat: hole.tee_lat, lng: hole.tee_lng }
+        : null,
+    [hole?.tee_lat, hole?.tee_lng],
+  )
+  const pin = useMemo<GeoPoint | null>(
+    () =>
+      hole?.pin_lat != null && hole?.pin_lng != null
+        ? { lat: hole.pin_lat, lng: hole.pin_lng }
+        : null,
+    [hole?.pin_lat, hole?.pin_lng],
+  )
 
   const [legs, setLegs] = useState<Leg[]>([])
   const [focusedLeg, setFocusedLeg] = useState(0)
+  // The hole number whose legs are currently initialized. Guards the reset
+  // effect so an incidental dependency change (e.g. a future refetch giving
+  // dispersion.selectClub a new identity) can't re-run initialization and wipe
+  // the player's in-progress plan mid-session — only a genuine hole change does.
+  const initedHoleRef = useRef<number | null>(null)
 
-  // Reset the leg list to a single tee-to-pin leg whenever the hole changes.
-  // Keyed on holeNumber (per the brief) plus the tee/pin coords and
-  // dispersion.selectClub themselves — holes + dispersion both resolve
-  // asynchronously after a route-param change, so keying on holeNumber alone
-  // would leave a stale/empty leg list if this effect fired (as it does, on
-  // every render, same as any hook) before tee/pin/dispersion data existed.
+  // Reset the leg list to a single tee-to-pin leg when the hole changes.
+  // holes + dispersion resolve asynchronously after a route-param change, so
+  // this only rebuilds once tee/pin are actually ready — but it also guards on
+  // initedHoleRef so that once a hole's legs exist, an incidental dep change
+  // (e.g. a future dispersion refetch handing selectClub a new identity) can't
+  // re-run and wipe the player's in-progress plan mid-session. Only a genuine
+  // hole change (holeNum !== the initialized hole) reinitializes.
   useEffect(() => {
     if (!tee || !pin) return
+    if (initedHoleRef.current === holeNum) return
     const teePinDist = haversineYards(tee.lat, tee.lng, pin.lat, pin.lng)
     const club = dispersion.selectClub(teePinDist)
     const carryDist = Math.min(club?.medianCarryYards ?? teePinDist, teePinDist)
@@ -56,8 +74,9 @@ export default function HolePlanPage() {
     const aim = destinationYards(tee, bearing, carryDist)
     setLegs([{ origin: tee, club, aim }])
     setFocusedLeg(0)
+    initedHoleRef.current = holeNum
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [holeNumber, tee?.lat, tee?.lng, pin?.lat, pin?.lng, dispersion.selectClub])
+  }, [holeNum, tee, pin, dispersion.selectClub])
 
   // Passed to HoleStrategyMap, which lists this in a render-effect dep array —
   // an inline function here would tear down and rebuild every map marker on
