@@ -51,22 +51,28 @@ export default function HolePlanPage() {
 
   const [legs, setLegs] = useState<Leg[]>([])
   const [focusedLeg, setFocusedLeg] = useState(0)
-  // The hole number whose legs are currently initialized. Guards the reset
-  // effect so an incidental dependency change (e.g. a future refetch giving
-  // dispersion.selectClub a new identity) can't re-run initialization and wipe
-  // the player's in-progress plan mid-session — only a genuine hole change does.
-  const initedHoleRef = useRef<number | null>(null)
+  // The `${courseId}/${holeNum}` key whose legs are currently initialized.
+  // Guards the reset effect so an incidental dependency change (e.g. a future
+  // refetch giving dispersion.selectClub a new identity) can't re-run
+  // initialization and wipe the player's in-progress plan mid-session — only
+  // a genuine course+hole change does. Keying on holeNum alone would miss a
+  // courseId change that lands on the same hole number (component instance is
+  // reused across the /plan/:courseId/:holeNumber route), leaving a stale
+  // tee/origin from the previous course.
+  const initedKeyRef = useRef<string | null>(null)
 
-  // Reset the leg list to a single tee-to-pin leg when the hole changes.
-  // holes + dispersion resolve asynchronously after a route-param change, so
-  // this only rebuilds once tee/pin are actually ready — but it also guards on
-  // initedHoleRef so that once a hole's legs exist, an incidental dep change
-  // (e.g. a future dispersion refetch handing selectClub a new identity) can't
-  // re-run and wipe the player's in-progress plan mid-session. Only a genuine
-  // hole change (holeNum !== the initialized hole) reinitializes.
+  // Reset the leg list to a single tee-to-pin leg when the course or hole
+  // changes. holes + dispersion resolve asynchronously after a route-param
+  // change, so this only rebuilds once tee/pin are actually ready — but it
+  // also guards on initedKeyRef so that once a hole's legs exist, an
+  // incidental dep change (e.g. a future dispersion refetch handing
+  // selectClub a new identity) can't re-run and wipe the player's
+  // in-progress plan mid-session. Only a genuine course+hole change
+  // (key !== the initialized key) reinitializes.
   useEffect(() => {
     if (!tee || !pin) return
-    if (initedHoleRef.current === holeNum) return
+    const key = `${courseId}/${holeNum}`
+    if (initedKeyRef.current === key) return
     const teePinDist = haversineYards(tee.lat, tee.lng, pin.lat, pin.lng)
     const club = dispersion.selectClub(teePinDist)
     const carryDist = Math.min(club?.medianCarryYards ?? teePinDist, teePinDist)
@@ -74,9 +80,9 @@ export default function HolePlanPage() {
     const aim = destinationYards(tee, bearing, carryDist)
     setLegs([{ origin: tee, club, aim }])
     setFocusedLeg(0)
-    initedHoleRef.current = holeNum
+    initedKeyRef.current = key
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [holeNum, tee, pin, dispersion.selectClub])
+  }, [courseId, holeNum, tee, pin, dispersion.selectClub])
 
   // Passed to HoleStrategyMap, which lists this in a render-effect dep array —
   // an inline function here would tear down and rebuild every map marker on
@@ -170,7 +176,7 @@ export default function HolePlanPage() {
       <div className="mx-auto max-w-2xl">
         <div
           className="bg-caddie-surface"
-          style={{ border: '0.5px solid #E4E4E0', borderRadius: 10, padding: 20 }}
+          style={{ border: '0.5px solid #D9D2BF', borderRadius: 10, padding: 20 }}
         >
           <div className="text-caddie-ink" style={{ fontSize: 15, fontWeight: 500 }}>
             This course isn&rsquo;t mapped yet
@@ -245,7 +251,7 @@ export default function HolePlanPage() {
 
       <div
         className="bg-caddie-surface flex flex-col gap-3"
-        style={{ border: '0.5px solid #E4E4E0', borderRadius: 10, padding: 16, marginBottom: 16 }}
+        style={{ border: '0.5px solid #D9D2BF', borderRadius: 10, padding: 16, marginBottom: 16 }}
       >
         <div className="flex items-center justify-between" style={{ flexWrap: 'wrap', gap: 10 }}>
           <div className="flex items-center" style={{ gap: 6, flexWrap: 'wrap' }}>

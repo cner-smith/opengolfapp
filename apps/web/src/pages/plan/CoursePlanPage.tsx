@@ -31,7 +31,7 @@ export default function CoursePlanPage() {
 
       <div
         className="bg-caddie-surface flex flex-col gap-4"
-        style={{ border: '0.5px solid #E4E4E0', borderRadius: 10, padding: 20 }}
+        style={{ border: '0.5px solid #D9D2BF', borderRadius: 10, padding: 20 }}
       >
         <input
           type="text"
@@ -40,7 +40,7 @@ export default function CoursePlanPage() {
           onChange={(e) => setQuery(e.target.value)}
           className="w-full bg-caddie-surface-2 text-caddie-ink"
           style={{
-            border: '0.5px solid #E4E4E0',
+            border: '0.5px solid #D9D2BF',
             borderRadius: 7,
             padding: '10px 12px',
             fontSize: 14,
@@ -50,7 +50,7 @@ export default function CoursePlanPage() {
         {hasQuery && (
           <div
             className="bg-caddie-surface"
-            style={{ border: '0.5px solid #E4E4E0', borderRadius: 7, overflow: 'hidden' }}
+            style={{ border: '0.5px solid #D9D2BF', borderRadius: 7, overflow: 'hidden' }}
           >
             {isLoading && (
               <div className="text-caddie-ink-dim" style={{ padding: 14, fontSize: 13 }}>
@@ -71,7 +71,7 @@ export default function CoursePlanPage() {
                   type="button"
                   onClick={() => navigate(`/plan/${c.id}/1`)}
                   className="block w-full text-left transition-colors hover:bg-caddie-surface-2"
-                  style={{ padding: '12px 14px', borderTop: '0.5px solid #E4E4E0' }}
+                  style={{ padding: '12px 14px', borderTop: '0.5px solid #D9D2BF' }}
                 >
                   <div className="text-caddie-ink" style={{ fontSize: 15, fontWeight: 500 }}>
                     {c.name}

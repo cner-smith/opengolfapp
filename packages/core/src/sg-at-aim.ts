@@ -18,8 +18,9 @@ const HIGH_CONFIDENCE_SAMPLES = 15
  * monotonic non-decreasing function. NOTE: the around-green table at 30 yd
  * exceeds the approach table at 50 yd in every bracket (a baseline-seam
  * artifact — see the "baseline seam" ticket), so at 30 yd and beyond we floor
- * the approach curve at the around-green@30 value. The 30–~72 yd band is
- * therefore flat at that floor rather than dipping; it never rewards leaving
+ * the approach curve at the around-green@30 value. The 30-yd-and-up band is
+ * therefore flat up to where the approach curve overtakes the floor (the
+ * exact upper bound varies by handicap bracket); it never rewards leaving
  * yourself farther.
  */
 export function expectedStrokesFromPin(distanceYards: number, handicap: number): number {

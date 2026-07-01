@@ -164,6 +164,8 @@ export interface ConeRingFeature {
   geometry: { type: 'Polygon'; coordinates: [number, number][][] }
 }
 
+// Vertices around the cone ellipse. 48 is smooth at any planning zoom and
+// cheap to recompute per drag.
 const CONE_RING_SAMPLES = 48
 
 /**
