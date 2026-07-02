@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.2](https://github.com/cner-smith/opengolfapp/compare/v1.0.1...v1.0.2) (2026-07-02)
+
+
+### Bug Fixes
+
+* **mobile:** remove iOS donation CTAs (App Review 3.1.1) ([#634](https://github.com/cner-smith/opengolfapp/issues/634)) ([2d418f9](https://github.com/cner-smith/opengolfapp/commit/2d418f9e911de93d132ebffba2b317e86a519b1d))
+
 ## [1.0.1](https://github.com/cner-smith/opengolfapp/compare/v1.0.0...v1.0.1) (2026-06-29)
 
 
