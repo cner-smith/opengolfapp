@@ -3,6 +3,7 @@ import {
   Alert,
   Linking,
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   Text,
@@ -430,70 +431,114 @@ export default function ProfileTab() {
             padding: 18,
           }}
         >
-          <Text style={{ ...KICKER, marginBottom: 10 }}>Support OGA</Text>
-          <Text
-            style={[TYPE.body, {
-              color: '#1C211C',
-              fontSize: 14,
-              lineHeight: 20,
-              marginBottom: 14,
-            }]}
-          >
-            OGA is free and open source. If it helps your game,
-            consider buying us a round.
-          </Text>
-          <View style={{ flexDirection: 'row', gap: 10 }}>
-            <Pressable
-              accessibilityRole="link"
-              accessibilityLabel="Open Ko-fi sponsorship page"
-              onPress={() => Linking.openURL('https://ko-fi.com/nartana')}
-              style={{
-                flex: 1,
-                borderWidth: 1,
-                borderColor: '#1F3D2C',
-                paddingVertical: 12,
-                alignItems: 'center',
-                borderRadius: 2,
-              }}
-            >
+          {/* iOS: no donation CTAs — App Review 3.1.1 requires IAP or removal.
+              A neutral website link (no payment framing) is allowed; donors
+              find Ko-fi / GitHub Sponsors on the site. Android keeps them. */}
+          {Platform.OS === 'ios' ? (
+            <>
+              <Text style={{ ...KICKER, marginBottom: 10 }}>OGA on the web</Text>
               <Text
-                style={[TYPE.bodyBold, {
-                  color: '#1F3D2C',
-                  fontSize: 13,
-                  fontWeight: '600',
-                  letterSpacing: 0.3,
+                style={[TYPE.body, {
+                  color: '#1C211C',
+                  fontSize: 14,
+                  lineHeight: 20,
+                  marginBottom: 14,
                 }]}
               >
-                Ko-fi ↗
+                OGA is free and open source. Learn more at oga.golf.
               </Text>
-            </Pressable>
-            <Pressable
-              accessibilityRole="link"
-              accessibilityLabel="Open GitHub Sponsors page"
-              onPress={() =>
-                Linking.openURL('https://github.com/sponsors/cner-smith')
-              }
-              style={{
-                flex: 1,
-                borderWidth: 1,
-                borderColor: '#1F3D2C',
-                paddingVertical: 12,
-                alignItems: 'center',
-                borderRadius: 2,
-              }}
-            >
+              <Pressable
+                accessibilityRole="link"
+                accessibilityLabel="Open the OGA website"
+                onPress={() => Linking.openURL('https://oga.golf')}
+                style={{
+                  borderWidth: 1,
+                  borderColor: '#1F3D2C',
+                  paddingVertical: 12,
+                  alignItems: 'center',
+                  borderRadius: 2,
+                }}
+              >
+                <Text
+                  style={[TYPE.bodyBold, {
+                    color: '#1F3D2C',
+                    fontSize: 13,
+                    fontWeight: '600',
+                    letterSpacing: 0.3,
+                  }]}
+                >
+                  Website · oga.golf ↗
+                </Text>
+              </Pressable>
+            </>
+          ) : (
+            <>
+              <Text style={{ ...KICKER, marginBottom: 10 }}>Support OGA</Text>
               <Text
-                style={[TYPE.bodyBold, {
-                  color: '#1F3D2C',
-                  fontSize: 13,
-                  fontWeight: '600',
-                  letterSpacing: 0.3,
+                style={[TYPE.body, {
+                  color: '#1C211C',
+                  fontSize: 14,
+                  lineHeight: 20,
+                  marginBottom: 14,
                 }]}
               >
-                GitHub ↗
+                OGA is free and open source. If it helps your game,
+                consider buying us a round.
               </Text>
-            </Pressable>
-          </View>
+              <View style={{ flexDirection: 'row', gap: 10 }}>
+                <Pressable
+                  accessibilityRole="link"
+                  accessibilityLabel="Open Ko-fi sponsorship page"
+                  onPress={() => Linking.openURL('https://ko-fi.com/nartana')}
+                  style={{
+                    flex: 1,
+                    borderWidth: 1,
+                    borderColor: '#1F3D2C',
+                    paddingVertical: 12,
+                    alignItems: 'center',
+                    borderRadius: 2,
+                  }}
+                >
+                  <Text
+                    style={[TYPE.bodyBold, {
+                      color: '#1F3D2C',
+                      fontSize: 13,
+                      fontWeight: '600',
+                      letterSpacing: 0.3,
+                    }]}
+                  >
+                    Ko-fi ↗
+                  </Text>
+                </Pressable>
+                <Pressable
+                  accessibilityRole="link"
+                  accessibilityLabel="Open GitHub Sponsors page"
+                  onPress={() =>
+                    Linking.openURL('https://github.com/sponsors/cner-smith')
+                  }
+                  style={{
+                    flex: 1,
+                    borderWidth: 1,
+                    borderColor: '#1F3D2C',
+                    paddingVertical: 12,
+                    alignItems: 'center',
+                    borderRadius: 2,
+                  }}
+                >
+                  <Text
+                    style={[TYPE.bodyBold, {
+                      color: '#1F3D2C',
+                      fontSize: 13,
+                      fontWeight: '600',
+                      letterSpacing: 0.3,
+                    }]}
+                  >
+                    GitHub ↗
+                  </Text>
+                </Pressable>
+              </View>
+            </>
+          )}
         </View>
 
         <Pressable

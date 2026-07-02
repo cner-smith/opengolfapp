@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { BackHandler, Pressable, StyleSheet } from 'react-native'
+import { BackHandler, Platform, Pressable, StyleSheet } from 'react-native'
 import { useRouter } from 'expo-router'
 import { StatusBar } from 'expo-status-bar'
 import { FONT } from '../../lib/typography'
@@ -98,7 +98,11 @@ export default function Welcome() {
         <Animated.Text style={[styles.wordmark, logoStyle]}>oga.</Animated.Text>
         <Animated.Text style={[styles.tagline, taglineStyle]}>Track every shot.</Animated.Text>
         <Animated.Text style={[styles.support, supportStyle]}>
-          Free and open source · Ko-fi support appreciated
+          {/* iOS drops the Ko-fi mention — App Review 3.1.1 (no donation
+              steering). Android keeps it. */}
+          {Platform.OS === 'ios'
+            ? 'Free and open source'
+            : 'Free and open source · Ko-fi support appreciated'}
         </Animated.Text>
       </Pressable>
     </>
