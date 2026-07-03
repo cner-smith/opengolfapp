@@ -55,6 +55,10 @@ interface MapViewProps {
   /** True when the active hole has neither tee nor pin coordinates in
    *  the DB — drives the dismissable notice banner above the map. */
   missingHoleLayout: boolean
+  /** True when the session started in live mode. Gates the "Set pin"
+   *  placement button off during live-aim (pin stays derived/dragged);
+   *  it only appears while logging or editing a past round. */
+  isLiveEntry: boolean
   /** True while the putting sheet is open — suppresses tap-to-place so
    *  taps that hit the map under the sheet don't drop new shots. */
   puttingOpen: boolean
@@ -107,6 +111,7 @@ export function MapView({
   placedAims,
   aimMode,
   missingHoleLayout,
+  isLiveEntry,
   puttingOpen,
   focusGreenSignal,
   pinOverride,
@@ -173,10 +178,13 @@ export function MapView({
     (activeHoleGeo?.teeLat != null && activeHoleGeo?.teeLng != null
       ? { lat: activeHoleGeo.teeLat, lng: activeHoleGeo.teeLng }
       : null)
-  // Manual placement entry points only render when the active hole has
-  // no coord for that target. Tee/pin both null = course w/o hole layout.
+  // The tee is derived from the first shot (not placed manually); this flag
+  // is retained only for the existing strip plumbing.
   const needsTee = activeHoleGeo != null && effectiveTee == null
-  const needsPin = activeHoleGeo != null && effectivePin == null
+  // "Set pin" is available while logging or editing a PAST round on a
+  // geo-anchored hole — shown even when a pin coord already exists so the
+  // player can override a wrong crawled pin. Hidden during live-aim.
+  const showPinButton = !isLiveEntry && activeHoleGeo != null
   const remainingToPin =
     lastPoint && effectivePin
       ? Math.round(
@@ -269,7 +277,7 @@ export function MapView({
           aimsSet={placedAims.filter((a) => a != null).length}
           holeNumber={activeHoleNumber}
           needsTee={needsTee}
-          needsPin={needsPin}
+          showPinButton={showPinButton}
           placementMode={placementMode}
           shotDragUndoLabel={shotDragUndoLabel}
           onApplyShotDragUndo={onApplyShotDragUndo}
