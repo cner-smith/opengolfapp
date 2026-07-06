@@ -1,6 +1,9 @@
 import { useMemo, useState } from 'react'
 import { Pressable, ScrollView, Text, View } from 'react-native'
+import { GestureDetector } from 'react-native-gesture-handler'
+import Animated from 'react-native-reanimated'
 import type { Database } from '@oga/supabase'
+import { useSwipeToDismiss } from '../ui/useSwipeToDismiss'
 import { FONT, TYPE } from '../../lib/typography'
 
 type HoleRow = Database['public']['Tables']['holes']['Row']
@@ -48,32 +51,38 @@ export function ScorecardModal({
     (h) => !h.yards && h.tee_lat == null,
   )
   const [hintDismissed, setHintDismissed] = useState(false)
+  const { pan, cardStyle } = useSwipeToDismiss(onClose)
   let runningTotal = 0
   let runningPar = 0
   return (
     <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)' }}>
       <Pressable style={{ flex: 1 }} onPress={onClose} />
-      <View
-        style={{
-          backgroundColor: '#FBF8F1',
-          borderTopLeftRadius: 12,
-          borderTopRightRadius: 12,
-          paddingHorizontal: 18,
-          paddingTop: 14,
-          paddingBottom: 28,
-          maxHeight: '85%',
-        }}
+      <Animated.View
+        style={[
+          {
+            backgroundColor: '#FBF8F1',
+            borderTopLeftRadius: 12,
+            borderTopRightRadius: 12,
+            paddingHorizontal: 18,
+            paddingTop: 14,
+            paddingBottom: 28,
+            maxHeight: '85%',
+          },
+          cardStyle,
+        ]}
       >
-        <View
-          style={{
-            alignSelf: 'center',
-            width: 32,
-            height: 4,
-            borderRadius: 2,
-            backgroundColor: '#D9D2BF',
-            marginBottom: 14,
-          }}
-        />
+        <GestureDetector gesture={pan}>
+          <View style={{ alignItems: 'center', paddingBottom: 14 }}>
+            <View
+              style={{
+                width: 32,
+                height: 4,
+                borderRadius: 2,
+                backgroundColor: '#D9D2BF',
+              }}
+            />
+          </View>
+        </GestureDetector>
         <Text
           style={{
             ...KICKER,
@@ -340,7 +349,7 @@ export function ScorecardModal({
         >
           <Text style={{ ...KICKER, color: '#5C6356' }}>Close</Text>
         </Pressable>
-      </View>
+      </Animated.View>
     </View>
   )
 }

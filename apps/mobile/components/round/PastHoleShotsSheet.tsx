@@ -1,6 +1,12 @@
 import { useEffect, useState } from 'react'
 import { Modal, Pressable, ScrollView, Text, TextInput, View } from 'react-native'
+import {
+  GestureDetector,
+  GestureHandlerRootView,
+} from 'react-native-gesture-handler'
+import Animated from 'react-native-reanimated'
 import { PressableTouch } from '../ui/PressableTouch'
+import { useSwipeToDismiss } from '../ui/useSwipeToDismiss'
 import {
   DEFAULT_BAG,
   LIE_SLOPES_FORWARD,
@@ -152,6 +158,8 @@ export function PastHoleShotsSheet({
   // One <Modal> with discriminated content (list vs editor) — NOT two
   // sibling Modals. iOS allows one presented modal per presenter, so the
   // old stacked-Modal edit flow silently failed to present (#293/#495).
+  const { pan, cardStyle } = useSwipeToDismiss(onClose)
+
   return (
     <Modal
       visible={visible}
@@ -159,6 +167,9 @@ export function PastHoleShotsSheet({
       animationType="slide"
       onRequestClose={editingShot ? () => setEditingShot(null) : onClose}
     >
+      {/* GHRootView required for the swipe-to-dismiss pan: RN Modal is a
+          separate native window on Android the app-root can't reach (#496). */}
+      <GestureHandlerRootView style={{ flex: 1 }}>
       <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)' }}>
         <Pressable
           style={{ flex: 1 }}
@@ -175,27 +186,32 @@ export function PastHoleShotsSheet({
             onClose={() => setEditingShot(null)}
           />
         ) : (
-          <View
-            style={{
-              backgroundColor: '#FBF8F1',
-              borderTopLeftRadius: 12,
-              borderTopRightRadius: 12,
-              paddingHorizontal: 18,
-              paddingTop: 14,
-              paddingBottom: insets.bottom + 28,
-              maxHeight: '80%',
-            }}
+          <Animated.View
+            style={[
+              {
+                backgroundColor: '#FBF8F1',
+                borderTopLeftRadius: 12,
+                borderTopRightRadius: 12,
+                paddingHorizontal: 18,
+                paddingTop: 14,
+                paddingBottom: insets.bottom + 28,
+                maxHeight: '80%',
+              },
+              cardStyle,
+            ]}
           >
-            <View
-              style={{
-                alignSelf: 'center',
-                width: 32,
-                height: 4,
-                borderRadius: 2,
-                backgroundColor: '#D9D2BF',
-                marginBottom: 14,
-              }}
-            />
+            <GestureDetector gesture={pan}>
+              <View style={{ alignItems: 'center', paddingBottom: 14 }}>
+                <View
+                  style={{
+                    width: 32,
+                    height: 4,
+                    borderRadius: 2,
+                    backgroundColor: '#D9D2BF',
+                  }}
+                />
+              </View>
+            </GestureDetector>
             <Text style={{ ...KICKER, marginBottom: 4 }}>
               Hole {holeNumber ?? '—'}
               {par != null ? ` · Par ${par}` : ''}
@@ -243,9 +259,10 @@ export function PastHoleShotsSheet({
             >
               <Text style={{ ...KICKER, color: '#5C6356' }}>Close</Text>
             </Pressable>
-          </View>
+          </Animated.View>
         )}
       </View>
+      </GestureHandlerRootView>
     </Modal>
   )
 }
@@ -462,28 +479,35 @@ function EditShotSheet({
     onSave(buildUpdates())
   }
 
+  const { pan, cardStyle } = useSwipeToDismiss(onClose)
+
   return (
-    <View
-      style={{
-        backgroundColor: '#FBF8F1',
-        borderTopLeftRadius: 12,
-        borderTopRightRadius: 12,
-        paddingHorizontal: 18,
-        paddingTop: 14,
-        paddingBottom: insets.bottom + 28,
-        maxHeight: '90%',
-      }}
+    <Animated.View
+      style={[
+        {
+          backgroundColor: '#FBF8F1',
+          borderTopLeftRadius: 12,
+          borderTopRightRadius: 12,
+          paddingHorizontal: 18,
+          paddingTop: 14,
+          paddingBottom: insets.bottom + 28,
+          maxHeight: '90%',
+        },
+        cardStyle,
+      ]}
     >
-      <View
-        style={{
-          alignSelf: 'center',
-          width: 32,
-          height: 4,
-          borderRadius: 2,
-          backgroundColor: '#D9D2BF',
-          marginBottom: 14,
-        }}
-      />
+      <GestureDetector gesture={pan}>
+        <View style={{ alignItems: 'center', paddingBottom: 14 }}>
+          <View
+            style={{
+              width: 32,
+              height: 4,
+              borderRadius: 2,
+              backgroundColor: '#D9D2BF',
+            }}
+          />
+        </View>
+      </GestureDetector>
       <View
         style={{
           flexDirection: 'row',
@@ -665,7 +689,7 @@ function EditShotSheet({
           <Text style={{ ...KICKER, color: '#F2EEE5' }}>{saving ? 'Saving…' : 'Save'}</Text>
         </Pressable>
       </View>
-    </View>
+    </Animated.View>
   )
 }
 

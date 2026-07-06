@@ -24,6 +24,15 @@ import { GreenDiagram } from './GreenDiagram'
 import { useUnits } from '../../hooks/useUnits'
 import { TYPE } from '../../lib/typography'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import { GestureDetector } from 'react-native-gesture-handler'
+import Animated from 'react-native-reanimated'
+import { useSwipeToDismiss } from '../ui/useSwipeToDismiss'
+
+// Animated so the swipe-to-dismiss translateY drives the whole card. A
+// transform is post-layout, so it does NOT affect the ScrollView's absolute
+// maxHeight — the #643 scroll fix stays intact.
+const AnimatedKeyboardAvoidingView =
+  Animated.createAnimatedComponent(KeyboardAvoidingView)
 
 export interface PuttingValue {
   puttDistanceFt?: number
@@ -179,31 +188,37 @@ export function PuttingSheet({
 
   const insets = useSafeAreaInsets()
   const { height: windowHeight } = useWindowDimensions()
+  const { pan, cardStyle } = useSwipeToDismiss(onClose)
   const distance = value.puttDistanceFt ?? 0
 
   return (
-    <KeyboardAvoidingView
+    <AnimatedKeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      style={{
-        backgroundColor: '#FBF8F1',
-        borderTopLeftRadius: 12,
-        borderTopRightRadius: 12,
-        paddingHorizontal: 18,
-        paddingTop: 10,
-        paddingBottom: insets.bottom + 24,
-        maxHeight: '90%',
-      }}
+      style={[
+        {
+          backgroundColor: '#FBF8F1',
+          borderTopLeftRadius: 12,
+          borderTopRightRadius: 12,
+          paddingHorizontal: 18,
+          paddingTop: 10,
+          paddingBottom: insets.bottom + 24,
+          maxHeight: '90%',
+        },
+        cardStyle,
+      ]}
     >
-      <View
-        style={{
-          alignSelf: 'center',
-          width: 32,
-          height: 4,
-          borderRadius: 2,
-          backgroundColor: '#D9D2BF',
-          marginBottom: 14,
-        }}
-      />
+      <GestureDetector gesture={pan}>
+        <View style={{ alignItems: 'center', paddingBottom: 14 }}>
+          <View
+            style={{
+              width: 32,
+              height: 4,
+              borderRadius: 2,
+              backgroundColor: '#D9D2BF',
+            }}
+          />
+        </View>
+      </GestureDetector>
       <View
         style={{
           flexDirection: 'row',
@@ -463,7 +478,7 @@ export function PuttingSheet({
           </Pressable>
         </View>
       </ScrollView>
-    </KeyboardAvoidingView>
+    </AnimatedKeyboardAvoidingView>
   )
 }
 

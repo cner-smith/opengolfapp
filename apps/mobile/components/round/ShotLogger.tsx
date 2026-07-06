@@ -1,7 +1,11 @@
 import { useMemo, useState } from 'react'
 import { Modal, Pressable, ScrollView, Text, TextInput, View } from 'react-native'
 import Svg, { Circle, Line as SvgLine } from 'react-native-svg'
-import { GestureHandlerRootView } from 'react-native-gesture-handler'
+import {
+  GestureDetector,
+  GestureHandlerRootView,
+} from 'react-native-gesture-handler'
+import Animated from 'react-native-reanimated'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import {
   DEFAULT_BAG,
@@ -20,6 +24,7 @@ import {
 import { useUserBag } from '../../hooks/useUserBag'
 import { TYPE } from '../../lib/typography'
 import { PuttingSheet } from './PuttingSheet'
+import { useSwipeToDismiss } from '../ui/useSwipeToDismiss'
 
 export interface ShotLoggerValue {
   club?: Club
@@ -130,6 +135,9 @@ export function ShotLogger({
 
   const insets = useSafeAreaInsets()
   const isOnGreen = value.lieType === 'green'
+  // Swipe-dismiss for the non-putt card; the on-green branch delegates to
+  // PuttingSheet, which owns its own swipe-dismiss.
+  const { pan, cardStyle } = useSwipeToDismiss(onClose)
 
   return (
     <Modal
@@ -195,26 +203,31 @@ export function ShotLogger({
             }
           />
         ) : (
-        <View
-          style={{
-            backgroundColor: '#FBF8F1',
-            borderTopLeftRadius: 12,
-            borderTopRightRadius: 12,
-            paddingHorizontal: 18,
-            paddingTop: 10,
-            paddingBottom: insets.bottom + 28,
-          }}
+        <Animated.View
+          style={[
+            {
+              backgroundColor: '#FBF8F1',
+              borderTopLeftRadius: 12,
+              borderTopRightRadius: 12,
+              paddingHorizontal: 18,
+              paddingTop: 10,
+              paddingBottom: insets.bottom + 28,
+            },
+            cardStyle,
+          ]}
         >
-          <View
-            style={{
-              alignSelf: 'center',
-              width: 32,
-              height: 4,
-              borderRadius: 2,
-              backgroundColor: '#D9D2BF',
-              marginBottom: 14,
-            }}
-          />
+          <GestureDetector gesture={pan}>
+            <View style={{ alignItems: 'center', paddingBottom: 14 }}>
+              <View
+                style={{
+                  width: 32,
+                  height: 4,
+                  borderRadius: 2,
+                  backgroundColor: '#D9D2BF',
+                }}
+              />
+            </View>
+          </GestureDetector>
           <View
             style={{
               flexDirection: 'row',
@@ -457,7 +470,7 @@ export function ShotLogger({
               </Text>
             </Pressable>
           </View>
-        </View>
+        </Animated.View>
         )}
       </View>
       </GestureHandlerRootView>
