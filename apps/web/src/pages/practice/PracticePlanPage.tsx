@@ -745,10 +745,10 @@ function FeedbackSection({ planId, initial }: { planId: string; initial: string 
         style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 6 }}
       >
         <span
-          className="font-mono text-caddie-ink-mute"
+          className={`font-mono ${saveFeedback.isError ? 'text-caddie-neg' : 'text-caddie-ink-mute'}`}
           style={{ fontSize: 10, letterSpacing: '0.04em', textTransform: 'uppercase' }}
         >
-          {showSaved ? 'Saved' : ''}
+          {saveFeedback.isError ? "Couldn't save — try again" : showSaved ? 'Saved' : ''}
         </span>
         <span
           className="font-mono text-caddie-ink-mute"
@@ -795,7 +795,14 @@ export function PracticePlanPage() {
   }
 
   const onGenerate = () => generate.mutate()
-  const errorNotice = generate.error ? <ErrorNotice error={generate.error} /> : null
+  // Surface generate errors and failed drill-completion toggles (#664 —
+  // updateProgress was fire-and-forget; a failed toggle silently reverted
+  // on next load) in the same page-level notice slot.
+  const errorNotice = generate.error ? (
+    <ErrorNotice error={generate.error} />
+  ) : updateProgress.error ? (
+    <ErrorNotice error={updateProgress.error} />
+  ) : null
 
   if (planQuery.isLoading) {
     return <LoadingState />

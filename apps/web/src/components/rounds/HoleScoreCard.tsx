@@ -4,6 +4,7 @@ import type { Database } from '@oga/supabase'
 import { useUpsertHoleScore } from '../../hooks/useHoleScores'
 import { useUnits } from '../../hooks/useUnits'
 import { supabase } from '../../lib/supabase'
+import { toUserMessage } from '../../lib/errors'
 
 type HoleRow = Database['public']['Tables']['holes']['Row']
 type HoleScoreRow = Database['public']['Tables']['hole_scores']['Row']
@@ -94,6 +95,7 @@ export function HoleScoreCard({
   // need it (par-4 default is wrong for the par 3s and 5s) and real
   // courses occasionally have stale data the player wants to correct.
   const [parOverride, setParOverride] = useState<number | null>(null)
+  const [saveError, setSaveError] = useState<string | null>(null)
   const effectivePar = parOverride ?? hole.par
 
   // Hydrate the form from server state once per holeScore.id. Subsequent
@@ -149,26 +151,34 @@ export function HoleScoreCard({
     // pick rather than the par-4 placeholder default.
     const holeForEnsure =
       parOverride != null ? { ...hole, par: parOverride } : hole
-    const realHoleId = await ensureRealHole(holeForEnsure)
-    upsert.mutate({
-      id: holeScore?.id,
-      round_id: roundId,
-      hole_id: realHoleId,
-      score: numericScore,
-      putts:
-        next.putts !== undefined
-          ? next.putts
-          : putts === ''
+    // ensureRealHole can reject and the upsert can fail (network/RLS). Both
+    // were fire-and-forget: the typed value stayed on screen with nothing
+    // saved and no signal, so the round silently "lost" holes (#664).
+    setSaveError(null)
+    try {
+      const realHoleId = await ensureRealHole(holeForEnsure)
+      await upsert.mutateAsync({
+        id: holeScore?.id,
+        round_id: roundId,
+        hole_id: realHoleId,
+        score: numericScore,
+        putts:
+          next.putts !== undefined
+            ? next.putts
+            : putts === ''
+              ? null
+              : Number(putts),
+        fairway_hit:
+          effectivePar <= 3
             ? null
-            : Number(putts),
-      fairway_hit:
-        effectivePar <= 3
-          ? null
-          : next.fairway_hit !== undefined
-            ? next.fairway_hit
-            : fairway,
-      gir: next.gir !== undefined ? next.gir : gir,
-    })
+            : next.fairway_hit !== undefined
+              ? next.fairway_hit
+              : fairway,
+        gir: next.gir !== undefined ? next.gir : gir,
+      })
+    } catch (err) {
+      setSaveError(toUserMessage(err))
+    }
   }
 
   const isPar3 = effectivePar === 3
@@ -341,6 +351,14 @@ export function HoleScoreCard({
           {shotCount > 0 ? `${shotCount} shots` : 'Add shots'}
         </button>
       </div>
+      {saveError && (
+        <div
+          className="col-span-12 text-caddie-neg"
+          style={{ fontSize: 12, marginTop: 4 }}
+        >
+          {saveError}
+        </div>
+      )}
     </div>
   )
 }
