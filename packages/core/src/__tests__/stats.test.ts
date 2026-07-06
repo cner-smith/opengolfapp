@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
+  approachByDistance,
+  ballStrikingStats,
   computeDetailedStats,
   getProximityYards,
   scoringDistribution,
@@ -9,6 +11,7 @@ import {
   type DetailedHoleScore,
   type DetailedRound,
 } from '../stats'
+import { getExpectedStrokes } from '../sg-calculator'
 import { combinedPuttResult } from '../types'
 import type { Database } from '@oga/supabase'
 
@@ -520,5 +523,98 @@ describe('clubAccuracy — putter exclusion', () => {
     const clubs = entries.map((e) => e.club)
     expect(clubs).toContain('7i')
     expect(clubs).not.toContain('putter')
+  })
+})
+
+describe('approachByDistance', () => {
+  const HCP = 15
+  const hole = makeHole({ par: 4, number: 1 })
+  const band150 = (result: ReturnType<typeof approachByDistance>) =>
+    result.find((b) => b.minYards <= 150 && 150 < b.maxYards)!
+
+  function roundWithShots(shots: ReturnType<typeof makeShot>[]): DetailedRound {
+    return makeRound({
+      hole_scores: [makeHoleScore({ holes: hole, shots })],
+    })
+  }
+
+  it('SKIPS a shot whose next shot has no derivable position (was booked as holed, #668)', () => {
+    // 150-yd approach followed by a rough shot with NO distance data: the
+    // approach's end position is unknown — it must not score at all.
+    const rounds = [
+      roundWithShots([
+        makeShot({ shot_number: 1, lie_type: 'tee', distance_to_target: 380 }),
+        makeShot({ shot_number: 2, lie_type: 'fairway', distance_to_target: 150 }),
+        makeShot({ shot_number: 3, lie_type: 'rough', distance_to_target: null }),
+      ]),
+    ]
+    const band = band150(approachByDistance(rounds, HCP))
+    expect(band.shots).toBe(0)
+    expect(band.avgSg).toBeNull()
+  })
+
+  it('books a genuine hole-out (last shot of the hole) against expected strokes', () => {
+    const rounds = [
+      roundWithShots([
+        makeShot({ shot_number: 1, lie_type: 'tee', distance_to_target: 380 }),
+        makeShot({ shot_number: 2, lie_type: 'fairway', distance_to_target: 150 }),
+      ]),
+    ]
+    const band = band150(approachByDistance(rounds, HCP))
+    const start = getExpectedStrokes('approach', 150, undefined, HCP)!
+    expect(band.shots).toBe(1)
+    // Holed from 150: SG = E(start) − 0 − 1.
+    expect(band.avgSg).toBeCloseTo(start - 1, 5)
+  })
+
+  it('scores against the next shot when its expected strokes are derivable', () => {
+    const rounds = [
+      roundWithShots([
+        makeShot({ shot_number: 1, lie_type: 'tee', distance_to_target: 380 }),
+        makeShot({ shot_number: 2, lie_type: 'fairway', distance_to_target: 150 }),
+        makeShot({
+          shot_number: 3,
+          lie_type: 'green',
+          putt_distance_ft: 20,
+        }),
+      ]),
+    ]
+    const band = band150(approachByDistance(rounds, HCP))
+    const start = getExpectedStrokes('approach', 150, undefined, HCP)!
+    const end = getExpectedStrokes('putting', undefined, 20, HCP)!
+    expect(band.shots).toBe(1)
+    expect(band.avgSg).toBeCloseTo(start - end - 1, 5)
+  })
+})
+
+describe('ballStrikingStats — girPct', () => {
+  it('denominates on holes where GIR is known, not every hole row (#668)', () => {
+    const tracked = makeRound({
+      id: 'r-tracked',
+      hole_scores: [
+        makeHoleScore({ id: 'hs1', gir: true }),
+        makeHoleScore({ id: 'hs2', gir: true }),
+        makeHoleScore({ id: 'hs3', gir: false }),
+        makeHoleScore({ id: 'hs4', gir: false }),
+      ],
+    })
+    // Scorecard-only round: 3 holes, gir unknown everywhere — must not
+    // dilute the percentage as misses.
+    const scorecardOnly = makeRound({
+      id: 'r-card',
+      hole_scores: [
+        makeHoleScore({ id: 'hs5', gir: null }),
+        makeHoleScore({ id: 'hs6', gir: null }),
+        makeHoleScore({ id: 'hs7', gir: null }),
+      ],
+    })
+    expect(ballStrikingStats([tracked, scorecardOnly]).girPct).toBe(50)
+  })
+
+  it('returns null when no hole has a known GIR', () => {
+    const r = makeRound({
+      hole_scores: [makeHoleScore({ gir: null }), makeHoleScore({ gir: null })],
+    })
+    expect(ballStrikingStats([r]).girPct).toBeNull()
   })
 })
