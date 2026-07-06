@@ -1,4 +1,5 @@
 import { AppState, type AppStateStatus } from 'react-native'
+import { uuid } from 'expo-modules-core'
 import * as SQLite from 'expo-sqlite'
 import type { Database } from '@oga/supabase'
 
@@ -7,12 +8,14 @@ export type ShotPayload = Database['public']['Tables']['shots']['Insert']
 export interface PendingShot {
   local_id: number
   remote_id: string | null
-  // 'broken' = JSON.parse(payload) failed at least once; the row is
-  // quarantined so sync stops retrying it forever (#292). All reads
-  // filter `WHERE status = 'pending'` so broken rows become invisible
-  // to consumers. There's intentionally no CHECK constraint on this
-  // column — CREATE TABLE IF NOT EXISTS skips on existing installs, so
-  // a CHECK can't be retro-applied. The TypeScript union is the gate.
+  // 'broken' = quarantined so sync stops retrying it forever: either
+  // JSON.parse(payload) failed (#292) or the server deterministically
+  // rejects the row — constraint/data-class errors that no retry can
+  // fix (#652). All reads filter `WHERE status = 'pending'` so broken
+  // rows become invisible to consumers. There's intentionally no CHECK
+  // constraint on this column — CREATE TABLE IF NOT EXISTS skips on
+  // existing installs, so a CHECK can't be retro-applied. The
+  // TypeScript union is the gate.
   status: 'pending' | 'synced' | 'broken'
   payload: string
   created_at: number
@@ -33,6 +36,14 @@ function getDb(): Promise<SQLite.SQLiteDatabase> {
           created_at INTEGER NOT NULL
         );
       `)
+      // Purge rows that finished syncing in a previous session — nothing
+      // ever deleted them, so the table grew unbounded (#652). Synced rows
+      // are only read back within a session (setPendingShotEnd patches a
+      // just-synced shot's end coords via remote_id), and that path keys
+      // off an in-memory ref that doesn't survive a restart, so rows from
+      // prior sessions are pure dead weight. 'broken' rows are kept as
+      // diagnostic evidence; they're rare by construction.
+      await db.runAsync(`DELETE FROM pending_shots WHERE status = 'synced'`)
       return db
     })()
   }
@@ -41,9 +52,16 @@ function getDb(): Promise<SQLite.SQLiteDatabase> {
 
 export async function insertPendingShot(payload: ShotPayload): Promise<number> {
   const db = await getDb()
+  // Client-generated PK (#652). The shots table defaults to
+  // gen_random_uuid(), but a server-assigned id means a retried insert
+  // whose first attempt committed with a lost response creates a
+  // duplicate shot. Baking the id in at creation makes every sync
+  // attempt for this row idempotent — and keeps it stable through
+  // setPendingShotEnd's payload rewrites.
+  const withId: ShotPayload = payload.id ? payload : { ...payload, id: uuid.v4() }
   const result = await db.runAsync(
     `INSERT INTO pending_shots (status, payload, created_at) VALUES ('pending', ?, ?)`,
-    JSON.stringify(payload),
+    JSON.stringify(withId),
     Date.now(),
   )
   return result.lastInsertRowId
@@ -65,13 +83,15 @@ export async function markShotSynced(localId: number, remoteId: string): Promise
   )
 }
 
-// Quarantine a corrupt pending row so sync stops retrying it forever
-// (#292). Set when JSON.parse(row.payload) throws. The `WHERE status =
-// 'pending'` filter on every read keeps broken rows out of subsequent
-// passes. Internally try/catch'd so callers (which are already inside a
-// parse-fail catch) can't have the real failure masked by a downstream
-// marker-write failure — the parse error log is what actually surfaces
-// what went wrong.
+// Quarantine a poisoned pending row so sync stops retrying it forever.
+// Set when JSON.parse(row.payload) throws (#292) or when the server
+// permanently rejects the row — constraint/data-class errors a retry
+// can never fix (#652). The `WHERE status = 'pending'` filter on every
+// read keeps broken rows out of subsequent passes. Internally
+// try/catch'd so callers (which are already inside a failure path)
+// can't have the real failure masked by a downstream marker-write
+// failure — the original error log is what actually surfaces what went
+// wrong.
 export async function markShotBroken(localId: number): Promise<void> {
   try {
     const db = await getDb()
@@ -85,9 +105,20 @@ export async function markShotBroken(localId: number): Promise<void> {
   }
 }
 
-export async function deletePendingShot(localId: number): Promise<void> {
+// Rewrites a pending row's payload in place. Sync uses this to persist a
+// backfilled client id onto rows queued before insertPendingShot started
+// generating ids (#652) — without the write-back, each sync pass would
+// mint a fresh id and defeat the idempotency it exists to provide.
+export async function updatePendingShotPayload(
+  localId: number,
+  payload: string,
+): Promise<void> {
   const db = await getDb()
-  await db.runAsync(`DELETE FROM pending_shots WHERE local_id = ?`, localId)
+  await db.runAsync(
+    `UPDATE pending_shots SET payload = ? WHERE local_id = ?`,
+    payload,
+    localId,
+  )
 }
 
 export async function pendingCount(): Promise<number> {
