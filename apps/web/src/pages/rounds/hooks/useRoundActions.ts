@@ -5,6 +5,7 @@ import type { User } from '@supabase/supabase-js'
 import type { Database } from '@oga/supabase'
 import { toBlob } from 'html-to-image'
 import {
+  combinedBreakDirection,
   combinedPuttResult,
   DEFAULT_HANDICAP,
   haversineYards,
@@ -669,7 +670,28 @@ export function useRoundActions(input: UseRoundActionsInput): UseRoundActionsRes
               !isPuttRow || row.puttMade ? null : row.puttDistanceResult ?? null,
             putt_direction_result:
               !isPuttRow || row.puttMade ? null : row.puttDirectionResult ?? null,
-            notes: null,
+            // Green read — persisted regardless of make/miss. Mirrors the
+            // ShotEntryModal (past-round) writer so both surfaces store the
+            // same columns. aim_offset_yards = inches / 36 (1dp).
+            putt_slope_pct: isPuttRow ? row.puttSlopePct ?? null : null,
+            green_speed: isPuttRow ? row.greenSpeed ?? null : null,
+            break_direction: isPuttRow
+              ? combinedBreakDirection({
+                  vertical: row.breakDirectionVertical,
+                  horizontal: row.breakDirectionHorizontal,
+                })
+              : null,
+            break_direction_vertical: isPuttRow
+              ? row.breakDirectionVertical ?? null
+              : null,
+            break_direction_horizontal: isPuttRow
+              ? row.breakDirectionHorizontal ?? null
+              : null,
+            aim_offset_yards:
+              isPuttRow && row.aimOffsetInches != null
+                ? Math.round((row.aimOffsetInches / 36) * 10) / 10
+                : null,
+            notes: row.notes ?? null,
           })
         }
         // Cap auto-advance to the course's expected hole count — passing
