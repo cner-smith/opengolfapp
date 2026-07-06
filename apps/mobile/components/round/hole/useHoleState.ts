@@ -91,6 +91,10 @@ export function useHoleState({
   // local_id of the just-saved pending shot, so the next PLACE_BALL
   // can fill in that shot's end_lat/end_lng with the new ball position.
   const lastSavedShotLocalIdRef = useRef<number | null>(null)
+  // False until the hole-reset effect has run for a real hole once. Lets that
+  // effect tell the component's first mount (round resume → auto-engage) from
+  // later in-session hole switches (review posture). See #640.
+  const hasMountedHoleRef = useRef(false)
   const [roundState, setRoundState] = useState<RoundState>('PLACE_BALL')
   const [gpsPosition, setGpsPosition] = useState<LatLng | null>(null)
   const [gpsNonce, setGpsNonce] = useState(0)
@@ -177,9 +181,12 @@ export function useHoleState({
   useEffect(() => {
     if (!currentHoleId) return
     if (isPastMode) return
-    // Suppressed while revisiting a played hole — no GPS ball watcher/marker
-    // until the player opts into adding a shot (#484).
-    if (isRevisitingPlayedHole) return
+    // NOTE: the subscription runs even while revisiting a played hole so
+    // gpsPosition keeps updating — that drives the recenter button + "Mark
+    // ball" CTA, which were grey-locked when the whole effect was gated
+    // here (regression #640). The #484 review posture (no auto-place / no
+    // auto-aim) is enforced downstream at the setBall gate, not by skipping
+    // the whole watcher.
     if (roundState !== 'PLACE_BALL') return
     let active = true
     let subscription: Location.LocationSubscription | null = null
@@ -290,6 +297,11 @@ export function useHoleState({
             // strong prior — using the smoothed value would lie for
             // many readings after manual placement.
             setGpsPosition({ lat: rawPoint.lat, lng: rawPoint.lng })
+            // Review posture (#484): on a hole the player navigated BACK to,
+            // keep the GPS chip/recenter live (setGpsPosition above) but don't
+            // auto-drive the BALL marker — the hole shows only its existing
+            // shot breadcrumb until they opt into adding a shot.
+            if (isRevisitingPlayedHole) return
             // Manual placement freezes GPS-driven ball updates. Without
             // this, the next reading after a drag would re-init the
             // filter at the raw GPS point and snap ball back, wiping
@@ -349,10 +361,14 @@ export function useHoleState({
     setBall(null)
     setAim(null)
     setRoundState('PLACE_BALL')
-    // Each hole entry starts un-engaged: a played hole opens in the
-    // breadcrumb-only review posture until the player taps "Add a shot". A
-    // fresh hole has no prior shots, so isRevisitingPlayedHole is false anyway.
-    setAppendEngaged(false)
+    // The FIRST hole this component mounts with is the round's resume point
+    // (relaunch / navigate Home and back) — the player is actively on it, so
+    // engage it and let GPS auto-place resume without a "+ Add a shot" tap
+    // (regression #640). Only genuine in-session hole SWITCHES drop into the
+    // #484 breadcrumb-only review posture. A fresh hole has no prior shots, so
+    // isRevisitingPlayedHole is false regardless of this flag.
+    setAppendEngaged(!hasMountedHoleRef.current)
+    hasMountedHoleRef.current = true
   }, [currentHoleId])
 
   // Default shot 1's ball marker to the tee box so the player starts from a
