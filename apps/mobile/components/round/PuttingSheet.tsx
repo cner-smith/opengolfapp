@@ -6,6 +6,7 @@ import {
   ScrollView,
   Text,
   TextInput,
+  useWindowDimensions,
   View,
 } from 'react-native'
 import {
@@ -177,6 +178,7 @@ export function PuttingSheet({
   }
 
   const insets = useSafeAreaInsets()
+  const { height: windowHeight } = useWindowDimensions()
   const distance = value.puttDistanceFt ?? 0
 
   return (
@@ -260,13 +262,16 @@ export function PuttingSheet({
         </Pressable>
       </View>
 
-      {/* flexShrink:1 bounds the scroll area within the maxHeight:'90%' sheet.
-          Without it RN's default flexShrink:0 lets the ScrollView size to its
-          full content height and overflow the clamped sheet, so it isn't
-          scrollable until a state change (e.g. toggling "Holed it") forces a
-          re-layout that re-measures it. */}
+      {/* An ABSOLUTE maxHeight (not flexShrink deriving height from the
+          '90%' sheet) gives the ScrollView a scroll range that resolves in
+          the first layout pass — independent of the modal's slide transform
+          and the parent's percentage height. Previously the derived height
+          settled to content-height on first paint (nothing to scroll) and
+          only unlocked when a state change (toggling "Holed it") forced a
+          re-measure; app foreground re-measures made it recur (#643).
+          0.72·screen sits well under the 90% sheet so the two never fight. */}
       <ScrollView
-        style={{ flexShrink: 1 }}
+        style={{ maxHeight: windowHeight * 0.72, flexShrink: 1 }}
         contentContainerStyle={{ paddingTop: 14, paddingBottom: 8 }}
       >
         <GreenDiagram
