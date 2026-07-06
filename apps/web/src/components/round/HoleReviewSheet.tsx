@@ -129,6 +129,12 @@ export function HoleReviewSheet({
           puttMade: inline.puttMade,
           puttDistanceResult: inline.puttDistanceResult,
           puttDirectionResult: inline.puttDirectionResult,
+          breakDirectionVertical: inline.breakDirectionVertical,
+          breakDirectionHorizontal: inline.breakDirectionHorizontal,
+          puttSlopePct: inline.puttSlopePct,
+          greenSpeed: inline.greenSpeed,
+          aimOffsetInches: inline.aimOffsetInches,
+          notes: inline.notes,
           distanceYards:
             inline.puttDistanceFt != null
               ? inline.puttDistanceFt / 3

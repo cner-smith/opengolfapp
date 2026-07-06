@@ -1,9 +1,15 @@
 import { useEffect, useState } from 'react'
 import {
   FEET_TO_CM,
+  combinedBreakDirection,
+  horizontalBreakFromAim,
+  type BreakDirectionHorizontal,
+  type BreakDirectionVertical,
+  type GreenSpeed,
   type PuttDirectionResult,
   type PuttDistanceResult,
 } from '@oga/core'
+import { GreenDiagram } from './GreenDiagram'
 import { useUnits } from '../../hooks/useUnits'
 
 export interface WebPuttData {
@@ -11,6 +17,12 @@ export interface WebPuttData {
   puttDistanceFt: number | null
   puttDistanceResult?: PuttDistanceResult
   puttDirectionResult?: PuttDirectionResult
+  breakDirectionVertical?: BreakDirectionVertical
+  breakDirectionHorizontal?: BreakDirectionHorizontal
+  puttSlopePct?: number // 0-4 intensity bucket
+  greenSpeed?: GreenSpeed
+  aimOffsetInches?: number
+  notes?: string
 }
 
 interface WebPuttingSheetProps {
@@ -32,6 +44,26 @@ const DISTANCE_OPTIONS: { value: PuttDistanceResult; label: string }[] = [
 const DIRECTION_OPTIONS: { value: PuttDirectionResult; label: string }[] = [
   { value: 'left', label: 'Missed left' },
   { value: 'right', label: 'Missed right' },
+]
+
+const BREAK_SLOPE_OPTIONS: { value: BreakDirectionVertical; label: string }[] = [
+  { value: 'uphill', label: 'Uphill' },
+  { value: 'flat', label: 'Flat' },
+  { value: 'downhill', label: 'Downhill' },
+]
+
+const SLOPE_INTENSITY_OPTIONS: { value: number; label: string }[] = [
+  { value: 0, label: 'Flat' },
+  { value: 1, label: 'Slight' },
+  { value: 2, label: 'Moderate' },
+  { value: 3, label: 'Strong' },
+  { value: 4, label: 'Severe' },
+]
+
+const SPEED_OPTIONS: { value: GreenSpeed; label: string }[] = [
+  { value: 'slow', label: 'Slow' },
+  { value: 'medium', label: 'Medium' },
+  { value: 'fast', label: 'Fast' },
 ]
 
 // Minimum distance in feet a recorded putt can be — sub-1 ft tap-ins
@@ -66,6 +98,16 @@ export function WebPuttingSheet({
   const [directionResult, setDirectionResult] = useState<
     PuttDirectionResult | undefined
   >()
+  const [breakVertical, setBreakVertical] = useState<
+    BreakDirectionVertical | undefined
+  >()
+  const [breakHorizontal, setBreakHorizontal] = useState<
+    BreakDirectionHorizontal | undefined
+  >()
+  const [slopePct, setSlopePct] = useState<number>(0)
+  const [greenSpeed, setGreenSpeed] = useState<GreenSpeed | undefined>()
+  const [aimOffsetInches, setAimOffsetInches] = useState<number>(0)
+  const [notes, setNotes] = useState('')
 
   // Re-seed the form whenever a new putt is opened. `open + shotNumber`
   // is the right key — opening the sheet for shot 4 then shot 5 (without
@@ -82,22 +124,41 @@ export function WebPuttingSheet({
     setMade(seed?.puttMade ?? false)
     setDistanceResult(seed?.puttDistanceResult)
     setDirectionResult(seed?.puttDirectionResult)
+    setBreakVertical(seed?.breakDirectionVertical)
+    setBreakHorizontal(seed?.breakDirectionHorizontal)
+    setSlopePct(seed?.puttSlopePct ?? 0)
+    setGreenSpeed(seed?.greenSpeed)
+    setAimOffsetInches(seed?.aimOffsetInches ?? 0)
+    setNotes(seed?.notes ?? '')
     // feetToInput depends on `unit` which is captured in the closure;
     // eslint can't see the dependency and would request a useCallback.
     // Keeping it inline keeps the seed logic in one place.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, shotNumber, initialDistanceFt, initial, unit])
 
+  const parsedDist = Number(distanceText)
+  const distanceFt = Number.isFinite(parsedDist)
+    ? Math.max(MIN_PUTT_FT, Math.round(inputToFeet(parsedDist)))
+    : MIN_PUTT_FT
+
   function commit(makeOverride: boolean) {
-    const parsed = Number(distanceText)
-    const dist = Number.isFinite(parsed)
-      ? Math.max(MIN_PUTT_FT, Math.round(inputToFeet(parsed)))
+    const dist = Number.isFinite(parsedDist)
+      ? Math.max(MIN_PUTT_FT, Math.round(inputToFeet(parsedDist)))
       : null
     onSave({
       puttMade: makeOverride,
       puttDistanceFt: dist,
+      // Distance/direction misses only make sense on a missed putt.
       puttDistanceResult: makeOverride ? undefined : distanceResult,
       puttDirectionResult: makeOverride ? undefined : directionResult,
+      // Green read (break / slope / speed / aim / notes) is independent
+      // of the outcome — keep it whether or not the putt dropped.
+      breakDirectionVertical: breakVertical,
+      breakDirectionHorizontal: breakHorizontal,
+      puttSlopePct: slopePct,
+      greenSpeed,
+      aimOffsetInches,
+      notes: notes.trim() ? notes.trim() : undefined,
     })
   }
 
@@ -177,6 +238,21 @@ export function WebPuttingSheet({
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginTop: 14 }}>
+        <GreenDiagram
+          distanceFt={distanceFt}
+          aimOffsetInches={aimOffsetInches}
+          breakDirection={
+            combinedBreakDirection({
+              vertical: breakVertical,
+              horizontal: breakHorizontal,
+            }) ?? 'straight'
+          }
+          onAimChange={(n) => {
+            setAimOffsetInches(n)
+            setBreakHorizontal(horizontalBreakFromAim(n))
+          }}
+        />
+
         <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           <span className="kicker">Distance ({inputUnit})</span>
           <input
@@ -219,6 +295,47 @@ export function WebPuttingSheet({
             }}
           />
         </Section>
+
+        <Section title="Break (slope)">
+          <RowChips
+            options={BREAK_SLOPE_OPTIONS}
+            value={breakVertical}
+            onSelect={(v) => setBreakVertical((cur) => (cur === v ? undefined : v))}
+          />
+        </Section>
+
+        <Section title="How much">
+          <RowChips
+            options={SLOPE_INTENSITY_OPTIONS}
+            value={slopePct}
+            onSelect={(v) => setSlopePct(v)}
+          />
+        </Section>
+
+        <Section title="Speed">
+          <RowChips
+            options={SPEED_OPTIONS}
+            value={greenSpeed}
+            onSelect={(v) => setGreenSpeed((cur) => (cur === v ? undefined : v))}
+          />
+        </Section>
+
+        <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <span className="kicker">Notes</span>
+          <input
+            type="text"
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            placeholder="Optional"
+            className="bg-caddie-bg text-caddie-ink"
+            style={{
+              border: '1px solid #D9D2BF',
+              borderRadius: 2,
+              padding: '10px 12px',
+              fontSize: 15,
+            }}
+          />
+        </label>
       </div>
 
       <div
@@ -291,7 +408,7 @@ function Section({
   )
 }
 
-function RowChips<V extends string>({
+function RowChips<V extends string | number>({
   options,
   value,
   disabled,
