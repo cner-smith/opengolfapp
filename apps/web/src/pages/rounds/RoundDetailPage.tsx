@@ -397,6 +397,7 @@ export function RoundDetailPage() {
           placedAims={placedAims}
           aimMode={aimMode}
           missingHoleLayout={missingHoleLayout}
+          isLiveEntry={isLiveEntry}
           focusGreenSignal={focusGreenSignal}
           puttingOpen={puttingSheetForIdx != null}
           pinOverride={pinOverride}

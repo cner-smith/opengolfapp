@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { bearingDegrees } from '@oga/core'
 import { mapboxgl, MAPBOX_TOKEN_PRESENT } from '../../lib/mapbox'
 
 export interface ShotMiniMapProps {
@@ -91,6 +92,12 @@ export function ShotMiniMap({
       new mapboxgl.LngLatBounds(points[0]!, points[0]!),
     )
     map.fitBounds(bounds, {
+      // Rotate so the shot runs up-the-map (start bottom → end top) when an
+      // end point exists; leave north-up otherwise.
+      bearing:
+        endLat != null && endLng != null
+          ? bearingDegrees(startLat!, startLng!, endLat, endLng)
+          : undefined,
       padding: FIT_PADDING,
       maxZoom: MAX_ZOOM,
       duration: 0,
