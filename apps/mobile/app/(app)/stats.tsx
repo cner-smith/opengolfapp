@@ -67,8 +67,12 @@ export default function Stats() {
   useEffect(() => {
     if (!user) return
     let active = true
-    getProfile(supabase, user.id).then(({ data }) => {
+    getProfile(supabase, user.id).then(({ data, error }) => {
       if (!active) return
+      if (error) {
+        // eslint-disable-next-line no-console
+        console.error('[stats/getProfile]', error.message)
+      }
       setHandicap(
         (data as { handicap_index?: number | null } | null)?.handicap_index ??
           null,

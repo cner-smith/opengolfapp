@@ -89,16 +89,18 @@ export async function completeRound({
     const hole = holesById.get(hs.hole_id)
     if (!hole) continue
     const holeShots = shots.filter((s) => s.hole_score_id === hs.id)
-    // No holedOut arg: mobile has no reliable signal that the last logged
-    // shot finished in the cup (no 'holed' shot_result exists), so off-green
-    // hole-outs conservatively don't count GIR here (#669). Web's review
-    // flow, which IS holed-out by construction, passes true.
+    // holedOut when the shot log fully accounts for the score: length === score
+    // means every stroke was logged, so the last one holed. Incomplete logs
+    // (length < score) stay conservative — never a false positive. This lets
+    // off-green hole-outs (ace, holed approach, chip-in) count GIR (#669).
+    const holedOut = holeShots.length === hs.score
     const inferred = inferHoleStats(
       holeShots.map((s) => ({
         shot_number: s.shot_number,
         lie_type: s.lie_type,
       })),
       hole.par,
+      holedOut,
     )
     const nextFairway = hs.fairway_hit ?? inferred.fairway
     const nextGir = hs.gir ?? inferred.gir

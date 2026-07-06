@@ -122,7 +122,7 @@ describe('inferHoleStats — gir', () => {
     expect(inferHoleStats(shots, 4, true).gir).toBe(true)
   })
 
-  it('chip-in for par on par 4 (holedOut) → gir: FALSE (reached green on stroke 3 > par-2)', () => {
+  it('chip-in for birdie on par 4 (holedOut) → gir: FALSE (reached green on stroke 3 > par-2)', () => {
     const shots: S[] = [tee(1), lie(2, 'rough'), lie(3, 'rough')]
     expect(inferHoleStats(shots, 4, true).gir).toBe(false)
   })
