@@ -23,6 +23,7 @@ import {
   createCourse,
   createHoles,
   createRound,
+  deleteRound,
   getCourseByExternalId,
   searchCourses,
   upsertCourseTees,
@@ -77,6 +78,11 @@ export default function NewRound() {
   } | null>(null)
   const [gps, setGps] = useState<GpsState>({ status: 'idle' })
   const searchAbort = useRef<AbortController | null>(null)
+  // Synchronous double-tap guard for round creation. `busy` state updates a
+  // tick later, so a fast double-tap on "Start round" could fire startWith
+  // twice and create two rounds — a ref blocks the second call immediately.
+  // (Mirrors persistShotInFlightRef in useShotActions.) (#639)
+  const startInFlightRef = useRef(false)
   const insets = useSafeAreaInsets()
 
   // Debounce 300ms.
@@ -178,8 +184,11 @@ export default function NewRound() {
     tee?: { courseTeeId: string | null; teeColor: string | null },
   ) {
     if (!user) return
+    if (startInFlightRef.current) return
+    startInFlightRef.current = true
     setBusy(true)
     setError(null)
+    let createdRoundId: string | null = null
     try {
       const today = todayLocalDate()
       const { data: round, error: roundError } = await createRound(supabase, {
@@ -198,6 +207,7 @@ export default function NewRound() {
           : {}),
       })
       if (roundError || !round) throw roundError ?? new Error('Round insert failed')
+      createdRoundId = round.id
 
       const { data: existingHoles, error: holesError } = await supabase
         .from('holes')
@@ -263,14 +273,27 @@ export default function NewRound() {
         if (hsError) throw hsError
       }
 
+      // Setup fully succeeded — clear so the catch below won't roll it back.
+      createdRoundId = null
       router.replace({
         pathname: '/(app)/round/[id]',
         params: { id: round.id, hole: '1', mode },
       })
     } catch (err) {
+      // Roll back a partially-created round so a failed hole / hole_scores
+      // setup doesn't leave a stray blank round in the list. (#639)
+      if (createdRoundId) {
+        // best-effort rollback — ignore any delete failure
+        try {
+          await deleteRound(supabase, createdRoundId, user.id)
+        } catch {
+          /* noop */
+        }
+      }
       setError((err as Error).message)
     } finally {
       setBusy(false)
+      startInFlightRef.current = false
     }
   }
 

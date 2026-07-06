@@ -92,6 +92,10 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
   // before React commits the next render — both calls see `saving`
   // === false. The ref flips synchronously and blocks the second call.
   const persistShotInFlightRef = useRef(false)
+  // Same async-setter race as persistShot: `setEnding(true)` commits a tick
+  // late, so a fast double-tap of Finish (18th hole) or End round could fire
+  // completeRound twice. The ref flips synchronously and blocks the second.
+  const endInFlightRef = useRef(false)
   const [ending, setEnding] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [shotEntrySeq, setShotEntrySeq] = useState(0)
@@ -480,12 +484,18 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
     if (holeNumber < holeCount) {
       onHoleChange(holeNumber + 1)
     } else {
-      router.replace('/(app)')
+      // Last hole → finalize the round: completeRound writes total_score /
+      // sg_total / completed_at and routes to the summary. Without this the
+      // round stays unfinished (blank total, reappears as resumable). Same
+      // path as "End round early". (#639)
+      void handleEndRound()
     }
   }
 
   async function handleEndRound() {
     if (!round || !user) return
+    if (endInFlightRef.current) return
+    endInFlightRef.current = true
     setEnding(true)
     try {
       const { data: profile } = await getProfile(supabase, user.id)
@@ -502,6 +512,7 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
     } catch (err) {
       Alert.alert('End round failed', (err as Error).message)
     } finally {
+      endInFlightRef.current = false
       setEnding(false)
       // Guard against clobbering a different dialog the user may have
       // opened during the async window (TS agent feedback on #293).

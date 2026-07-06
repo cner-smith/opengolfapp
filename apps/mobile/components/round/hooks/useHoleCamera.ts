@@ -1,10 +1,24 @@
 import { useEffect, useRef } from 'react'
 import Mapbox from '@rnmapbox/maps'
+import { bearingDegrees } from '@oga/core'
 import { distanceYards } from '../../../lib/maps'
 import type { HoleMapPhase, LatLng } from '../HoleMap.types'
 
 function toCoord(l: LatLng): [number, number] {
   return [l.lng, l.lat]
+}
+
+// Camera heading (deg CW from N) that puts direction-of-play — origin
+// (tee/ball) → target (pin) — toward the top of the screen ("up the hole").
+// Falls back to north-up (0) with no usable target or when the two points
+// are effectively coincident (synthetic holes with no real pin geometry).
+function headingUpTheHole(
+  origin: LatLng,
+  target: LatLng | null | undefined,
+): number {
+  if (!target) return 0
+  if (distanceYards(origin, target) < 5) return 0
+  return bearingDegrees(origin.lat, origin.lng, target.lat, target.lng)
 }
 
 interface UseHoleCameraOpts {
@@ -72,6 +86,7 @@ export function useHoleCamera({
         centerCoordinate: toCoord(center),
         zoomLevel: 17,
         pitch: 0,
+        heading: headingUpTheHole(center, roundPin ?? pin),
         animationDuration: 400,
       })
       cameraInitialized.current = true
@@ -106,6 +121,7 @@ export function useHoleCamera({
         centerCoordinate: toCoord(center),
         zoomLevel: 17,
         pitch: 0,
+        heading: headingUpTheHole(center, roundPin ?? pin),
         animationDuration: 800,
       })
       lastHoleCenterRef.current = center
@@ -119,12 +135,57 @@ export function useHoleCamera({
   // at this course. Gated by distance to course centroid so testing from
   // home doesn't yank the camera to a parking lot 50 mi away.
   const autoCenteredRef = useRef(false)
+  // Pin coords the arriving PLACE_BALL heading was last applied to, so a
+  // late-loading pin re-frames the map exactly once (effect below) and GPS
+  // ticks don't re-rotate. Reset per hole alongside the auto-center latch.
+  const headingAppliedPinRef = useRef<string | null>(null)
   useEffect(() => {
     // Reset on hole change (center prop moves to new tee/centroid). When
     // the per-hole route is collapsed to one component (issue #264 fix),
     // this is still the right reset signal.
     autoCenteredRef.current = false
+    headingAppliedPinRef.current = null
   }, [center.lat, center.lng])
+
+  // The initial / hole-change frames compute the up-the-hole heading from
+  // roundPin ?? pin, which can be null when the tee/center resolves first —
+  // on synthetic holes the round pin loads from a separate fetch than the
+  // tee. Those two effects are latched (cameraInitialized / center-equality)
+  // so they won't re-fire when the pin arrives, leaving the map stuck north.
+  // Re-frame the arriving PLACE_BALL view once the pin resolves; SET_AIM and
+  // PIN own the camera in their own phases, so this is gated to PLACE_BALL.
+  // Keyed on the pin coords so it fires once per hole, not on every GPS tick.
+  useEffect(() => {
+    if (!styleLoaded) return
+    if (!cameraInitialized.current) return
+    if (phase !== 'PLACE_BALL') return
+    if (!cameraRef.current) return
+    const target = roundPin ?? pin ?? null
+    if (!target) return
+    const key = `${target.lat},${target.lng}`
+    if (headingAppliedPinRef.current === key) return
+    try {
+      cameraRef.current.setCamera({
+        centerCoordinate: toCoord(center),
+        zoomLevel: 17,
+        pitch: 0,
+        heading: headingUpTheHole(center, target),
+        animationDuration: 500,
+      })
+      headingAppliedPinRef.current = key
+    } catch {
+      // native camera released — retry on next change
+    }
+  }, [
+    styleLoaded,
+    phase,
+    center.lat,
+    center.lng,
+    roundPin?.lat,
+    roundPin?.lng,
+    pin?.lat,
+    pin?.lng,
+  ])
   useEffect(() => {
     if (!styleLoaded) return
     if (!cameraInitialized.current) return
@@ -162,7 +223,11 @@ export function useHoleCamera({
     }
     if (pinSnappedRef.current) return
     if (!cameraRef.current) return
-    const target = roundPin ?? pin ?? null
+    // Most prod courses are synthetic (no stored pin geometry), so
+    // roundPin/pin are null — without a fallback the effect early-returned
+    // and never framed the green. Fall back to where the player is (ball,
+    // else GPS) so tapping the pin tool zooms IN rather than doing nothing (#642).
+    const target = roundPin ?? pin ?? ball ?? gpsPosition ?? null
     if (!target) return
     try {
       cameraRef.current.setCamera({
@@ -174,7 +239,17 @@ export function useHoleCamera({
     } catch {
       // native camera released — retry on next pin change
     }
-  }, [isPinMode, roundPin?.lat, roundPin?.lng, pin?.lat, pin?.lng])
+  }, [
+    isPinMode,
+    roundPin?.lat,
+    roundPin?.lng,
+    pin?.lat,
+    pin?.lng,
+    ball?.lat,
+    ball?.lng,
+    gpsPosition?.lat,
+    gpsPosition?.lng,
+  ])
 
   // Mark whether we owe the camera a PLACE_BALL re-frame on the next
   // ball update. Set on phase transitions INTO PLACE_BALL (e.g. after
@@ -203,7 +278,7 @@ export function useHoleCamera({
         centerCoordinate: toCoord(ball),
         zoomLevel: 17,
         pitch: 0,
-        heading: 0,
+        heading: headingUpTheHole(ball, roundPin ?? pin),
         animationDuration: 800,
       })
       reframePlaceBallRef.current = false
@@ -236,17 +311,19 @@ export function useHoleCamera({
           lng: (ball.lng + target.lng) / 2,
         }
       : ball
-    const bearing = target
-      ? (Math.atan2(target.lng - ball.lng, target.lat - ball.lat) * 180) /
-        Math.PI
-      : 0
+    const bearing = headingUpTheHole(ball, target)
     const distYd = target ? distanceYards(ball, target) : null
+    // Short-game shots need a tighter frame — flatlining at 17 for
+    // anything under 80 yd made a 10-yd chip frame like an 80-yd
+    // approach, a jarring zoom-out from a green close-up (#642).
     const zoom =
       distYd == null ? 16
       : distYd >= 300 ? 16
       : distYd >= 150 ? 16.5
       : distYd >= 80 ? 17
-      : 17
+      : distYd >= 60 ? 17.5
+      : distYd >= 30 ? 18
+      : 19
     try {
       cameraRef.current.setCamera({
         centerCoordinate: toCoord(focus),

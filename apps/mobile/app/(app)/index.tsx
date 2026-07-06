@@ -299,7 +299,10 @@ export default function Home() {
 
         <Entrance index={4}>
           <RecentRoundsList
-            rounds={rounds}
+            // Exclude the active round — it already shows as the Resume banner
+            // above. Without this it renders in both places, so deleting it
+            // clears both and reads as "deleted two rounds". (#639)
+            rounds={rounds.filter((r) => r.id !== activeRound?.id)}
             onRequestDelete={(id, name) => setPendingDelete({ id, name })}
           />
         </Entrance>
