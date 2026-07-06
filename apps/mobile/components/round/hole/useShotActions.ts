@@ -480,7 +480,11 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
     if (holeNumber < holeCount) {
       onHoleChange(holeNumber + 1)
     } else {
-      router.replace('/(app)')
+      // Last hole → finalize the round: completeRound writes total_score /
+      // sg_total / completed_at and routes to the summary. Without this the
+      // round stays unfinished (blank total, reappears as resumable). Same
+      // path as "End round early". (#639)
+      void handleEndRound()
     }
   }
 
