@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react'
 import { useFocusEffect } from 'expo-router'
+import { inferHoleCount } from '@oga/core'
 import { supabase } from '../lib/supabase'
 import { useAuth } from './useAuth'
 
@@ -15,8 +16,8 @@ export interface ActiveRound {
 // is the canonical finalized flag; the total_score guard also keeps seeded
 // past rounds (scored, but no completed_at) out of the banner.
 // The current hole is the highest hole the player has logged a score
-// on, +1 (capped at 18) — so resuming jumps back to where they left
-// off, not hole 1.
+// on, +1 (capped at the round's hole count, not a hardcoded 18) — so
+// resuming jumps back to where they left off, not hole 1.
 //
 // Re-runs every time the host screen gains focus. Without that,
 // deleting the active round from the hole/end-round screens left a
@@ -53,18 +54,32 @@ export function useActiveRound(): ActiveRound | null {
           course_id: string
           courses?: { name: string | null } | null
         }
+        // Fetch ALL hole_scores (not just scored ones): the round's hole
+        // rows are batch-created at round start, so their hole numbers give
+        // the round's true hole count. maxHole (highest SCORED hole) drives
+        // where to resume; holeCount clamps it so a fully-played 9-hole
+        // round resumes at 9, not a phantom hole 10 whose error screen used
+        // to offer a one-tap round deletion (#650).
         const { data: hs } = await supabase
           .from('hole_scores')
           .select('score, holes(number)')
           .eq('round_id', round.id)
-          .gt('score', 0)
         if (!active) return
-        const maxHole = (hs ?? []).reduce<number>((acc, row) => {
-          const n = (row as { holes?: { number?: number | null } | null })
-            .holes?.number
-          return typeof n === 'number' && n > acc ? n : acc
+        const rows = (hs ?? []) as Array<{
+          score: number | null
+          holes?: { number?: number | null } | null
+        }>
+        const holeNumbers = rows
+          .map((row) => row.holes?.number)
+          .filter((n): n is number => typeof n === 'number')
+        const holeCount = inferHoleCount(holeNumbers)
+        const maxHole = rows.reduce<number>((acc, row) => {
+          const n = row.holes?.number
+          return (row.score ?? 0) > 0 && typeof n === 'number' && n > acc
+            ? n
+            : acc
         }, 0)
-        const next = Math.min(18, Math.max(1, maxHole + 1))
+        const next = Math.min(holeCount, Math.max(1, maxHole + 1))
         setActiveRound({
           id: round.id,
           courseName: round.courses?.name ?? 'Round',
