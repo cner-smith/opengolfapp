@@ -11,6 +11,7 @@ import { deleteRound, getProfile } from '@oga/supabase'
 import { supabase } from '../../../lib/supabase'
 import {
   insertPendingShot,
+  pendingCount,
   setPendingShotEnd,
   type ShotPayload,
 } from '../../../lib/db'
@@ -498,6 +499,46 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
     endInFlightRef.current = true
     setEnding(true)
     try {
+      // Drain the queue before finalizing (#651). syncPendingShots joins
+      // an in-flight run instead of no-oping, but a joined run may have
+      // snapshotted the queue before the final putt's row landed — if
+      // anything is still pending after the first pass, run once more now
+      // that the previous run has settled.
+      await syncPendingShots().catch(() => undefined)
+      if ((await pendingCount()) > 0) {
+        await syncPendingShots().catch(() => undefined)
+      }
+      const unsynced = await pendingCount()
+      if (unsynced > 0) {
+        // Shots that never reached the server would silently vanish from
+        // totals/SG (completeRound reads the server's shot set). Make the
+        // player choose: keep the round open and retry with a better
+        // connection, or knowingly finalize over what synced. cancelable:
+        // false so the Android back button can't dismiss without
+        // resolving.
+        const finishAnyway = await new Promise<boolean>((resolve) => {
+          Alert.alert(
+            'Some shots have not synced',
+            `${unsynced} shot${unsynced === 1 ? ' has' : 's have'} not reached the server. ` +
+              'Finishing now will compute totals and strokes gained without ' +
+              `${unsynced === 1 ? 'it' : 'them'}. You can keep the round open and finish later with a better connection.`,
+            [
+              {
+                text: 'Keep round open',
+                style: 'cancel',
+                onPress: () => resolve(false),
+              },
+              {
+                text: 'Finish anyway',
+                style: 'destructive',
+                onPress: () => resolve(true),
+              },
+            ],
+            { cancelable: false },
+          )
+        })
+        if (!finishAnyway) return
+      }
       const { data: profile } = await getProfile(supabase, user.id)
       const handicap =
         (profile as { handicap_index?: number | null } | null)?.handicap_index ??
