@@ -211,7 +211,11 @@ export function HoleModals(props: HoleModalsProps) {
         animationType="slide"
         onRequestClose={() => setScorecardOpen(false)}
       >
-        <ScorecardModal
+        {/* GHRootView required: RN Modal is a separate native window on
+            Android, so the swipe-to-dismiss pan wouldn't reach ScorecardModal
+            without its own root (#496). Mirrors the putting modal above. */}
+        <GestureHandlerRootView style={{ flex: 1 }}>
+          <ScorecardModal
           holes={holes}
           holeScores={holeScores}
           currentHoleNumber={holeNumber}
@@ -223,7 +227,8 @@ export function HoleModals(props: HoleModalsProps) {
           }}
           onChangePar={onChangePar}
           onClose={() => setScorecardOpen(false)}
-        />
+          />
+        </GestureHandlerRootView>
       </Modal>
     </>
   )
