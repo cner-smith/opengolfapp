@@ -199,6 +199,7 @@ export function RoundMap({
     cameraTarget,
     focusGreenSignal,
     effectivePin,
+    effectiveTee,
     placementMode,
     hasExistingShots,
     tapToPlaceDisabled,

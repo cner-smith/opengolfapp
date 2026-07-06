@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type RefObject } from 'react'
-import { mapboxgl, MAPBOX_TOKEN_PRESENT } from '../../../lib/mapbox'
+import { mapboxgl, MAPBOX_TOKEN_PRESENT, fitHoleUpward } from '../../../lib/mapbox'
 import type { PlacedPoint } from '../RoundMap'
 
 interface CameraTarget {
@@ -12,6 +12,10 @@ interface UseMapSetupInput {
   cameraTarget: CameraTarget
   focusGreenSignal: number | undefined
   effectivePin: PlacedPoint | null
+  /** Hole tee, when known. With effectivePin present the camera frames the
+   *  hole up-the-hole (rotated tee→pin); otherwise it falls back to the
+   *  north-up cameraTarget priority chain. */
+  effectiveTee: PlacedPoint | null
   // Click handler config
   placementMode: 'tee' | 'pin' | null | undefined
   hasExistingShots: boolean
@@ -39,6 +43,7 @@ export function useMapSetup({
   cameraTarget,
   focusGreenSignal,
   effectivePin,
+  effectiveTee,
   placementMode,
   hasExistingShots,
   tapToPlaceDisabled,
@@ -97,11 +102,15 @@ export function useMapSetup({
     if (!mapLoaded) return
     const map = mapRef.current
     if (!map) return
+    // Up-the-hole framing when both tee + pin are known (rotate tee→pin
+    // bottom→top). Falls back to the north-up cameraTarget for pin-only /
+    // course-centroid / OKC targets. Snap on the first paint, animate after.
     if (!initialPositionDoneRef.current) {
-      map.jumpTo({
-        center: cameraTarget.center,
-        zoom: cameraTarget.zoom,
-      })
+      if (effectiveTee && effectivePin) {
+        fitHoleUpward(map, effectiveTee, effectivePin, { animate: false })
+      } else {
+        map.jumpTo({ center: cameraTarget.center, zoom: cameraTarget.zoom })
+      }
       initialPositionDoneRef.current = true
       return
     }
@@ -109,12 +118,16 @@ export function useMapSetup({
       userPlacedRef.current = false
       return
     }
-    map.flyTo({
-      center: cameraTarget.center,
-      zoom: cameraTarget.zoom,
-      speed: 1.4,
-    })
-  }, [mapLoaded, cameraTarget])
+    if (effectiveTee && effectivePin) {
+      fitHoleUpward(map, effectiveTee, effectivePin, { animate: true })
+    } else {
+      map.flyTo({
+        center: cameraTarget.center,
+        zoom: cameraTarget.zoom,
+        speed: 1.4,
+      })
+    }
+  }, [mapLoaded, cameraTarget, effectiveTee, effectivePin])
 
   // After a non-holed putt save the parent bumps focusGreenSignal —
   // fly in tight on the green so the next putt placement lands on the

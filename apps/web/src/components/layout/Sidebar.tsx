@@ -16,6 +16,7 @@ const links: NavLinkDef[] = [
   { to: '/stats', label: 'Strokes Gained', section: 'menu' },
   { to: '/patterns', label: 'Shot Patterns', section: 'menu' },
   { to: '/practice', label: 'Practice', section: 'menu' },
+  { to: '/plan', label: 'Planner', section: 'menu' },
   { to: '/learn', label: 'Learn', section: 'resources' },
   { to: '/settings/bag', label: 'My Bag', section: 'resources' },
   { to: '/settings', label: 'Settings', section: 'resources' },

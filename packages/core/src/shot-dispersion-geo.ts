@@ -157,3 +157,47 @@ export function scatterGeoJSON(
   }
   return { type: 'FeatureCollection', features }
 }
+
+export interface ConeRingFeature {
+  type: 'Feature'
+  properties: Record<string, unknown>
+  geometry: { type: 'Polygon'; coordinates: [number, number][][] }
+}
+
+// Vertices around the cone ellipse. 48 is smooth at any planning zoom and
+// cheap to recompute per drag.
+const CONE_RING_SAMPLES = 48
+
+/**
+ * A dispersion cone (e.g. 95%) as a Polygon ring on the hole: an along/perp
+ * ellipse centered on the mean landing (aim shifted by the player's bias),
+ * oriented down the origin→aim line. `along95`/`perp95` are the ellipse
+ * semi-axes in yards. Returns null if origin and aim coincide.
+ */
+export function coneRingGeoJSON(
+  origin: GeoPoint,
+  aim: GeoPoint,
+  along95: number,
+  perp95: number,
+  opts: { alongMeanYards?: number; perpMeanYards?: number } = {},
+): ConeRingFeature | null {
+  const radius = haversineYards(origin.lat, origin.lng, aim.lat, aim.lng)
+  if (!Number.isFinite(radius) || radius < MIN_ARC_RADIUS_YARDS) return null
+  if (!Number.isFinite(along95) || !Number.isFinite(perp95)) return null
+  const bearing = bearingDegrees(origin.lat, origin.lng, aim.lat, aim.lng)
+  const alongMean = opts.alongMeanYards ?? 0
+  const perpMean = opts.perpMeanYards ?? 0
+  const fwd = destinationYards(aim, bearing, alongMean)
+  const center = destinationYards(fwd, bearing + 90, perpMean)
+  const ring: [number, number][] = []
+  for (let i = 0; i <= CONE_RING_SAMPLES; i++) {
+    const t = (2 * Math.PI * i) / CONE_RING_SAMPLES
+    const along = along95 * Math.cos(t)
+    const perp = perp95 * Math.sin(t)
+    const dist = Math.hypot(along, perp)
+    const angle = (Math.atan2(perp, along) * 180) / Math.PI
+    const p = destinationYards(center, bearing + angle, dist)
+    ring.push([p.lng, p.lat])
+  }
+  return { type: 'Feature', properties: {}, geometry: { type: 'Polygon', coordinates: [ring] } }
+}

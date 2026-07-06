@@ -1,5 +1,10 @@
 import { Suspense, lazy, useEffect, useState, type ReactNode } from 'react'
-import { getExpectedStrokes, haversineYards, NEAR_GREEN_YARDS } from '@oga/core'
+import {
+  getExpectedStrokes,
+  haversineYards,
+  NEAR_GREEN_YARDS,
+  type ShotMarkerCategory,
+} from '@oga/core'
 import type { Database } from '@oga/supabase'
 import {
   RoundMapInstructionStrip,
@@ -7,6 +12,7 @@ import {
   type HoleGeo,
   type PlacedPoint,
 } from '../../../components/round/RoundMap'
+import { MARKER_COLORS } from '../../../components/round/map/markerFactories'
 import { useClubDispersion } from '../hooks/useClubDispersion'
 
 // Lazy-load Mapbox GL JS only when the map tab is opened. Cuts ~2 MB off
@@ -49,6 +55,10 @@ interface MapViewProps {
   /** True when the active hole has neither tee nor pin coordinates in
    *  the DB — drives the dismissable notice banner above the map. */
   missingHoleLayout: boolean
+  /** True when the session started in live mode. Gates the "Set pin"
+   *  placement button off during live-aim (pin stays derived/dragged);
+   *  it only appears while logging or editing a past round. */
+  isLiveEntry: boolean
   /** True while the putting sheet is open — suppresses tap-to-place so
    *  taps that hit the map under the sheet don't drop new shots. */
   puttingOpen: boolean
@@ -101,6 +111,7 @@ export function MapView({
   placedAims,
   aimMode,
   missingHoleLayout,
+  isLiveEntry,
   puttingOpen,
   focusGreenSignal,
   pinOverride,
@@ -167,10 +178,13 @@ export function MapView({
     (activeHoleGeo?.teeLat != null && activeHoleGeo?.teeLng != null
       ? { lat: activeHoleGeo.teeLat, lng: activeHoleGeo.teeLng }
       : null)
-  // Manual placement entry points only render when the active hole has
-  // no coord for that target. Tee/pin both null = course w/o hole layout.
+  // The tee is derived from the first shot (not placed manually); this flag
+  // is retained only for the existing strip plumbing.
   const needsTee = activeHoleGeo != null && effectiveTee == null
-  const needsPin = activeHoleGeo != null && effectivePin == null
+  // "Set pin" is available while logging or editing a PAST round on a
+  // geo-anchored hole — shown even when a pin coord already exists so the
+  // player can override a wrong crawled pin. Hidden during live-aim.
+  const showPinButton = !isLiveEntry && activeHoleGeo != null
   const remainingToPin =
     lastPoint && effectivePin
       ? Math.round(
@@ -246,9 +260,15 @@ export function MapView({
           </button>
         </div>
       )}
-      <div style={{ marginTop: 14 }}>
-        <RoundMapInstructionStrip
-          hasExistingShots={hasExistingShots}
+      <div
+        className="flex flex-col gap-3 lg:grid lg:gap-4 lg:grid-cols-[minmax(300px,360px)_1fr]"
+        style={{ marginTop: 14 }}
+      >
+        {/* Left column: controls + per-hole shot list. Below the map on
+            narrow screens (map-first), left of it on desktop. */}
+        <div className="lg:order-1">
+          <RoundMapInstructionStrip
+            hasExistingShots={hasExistingShots}
           editing={editingOnMap}
           shotsPlaced={placedPoints.length}
           remainingToPin={remainingToPin}
@@ -257,7 +277,7 @@ export function MapView({
           aimsSet={placedAims.filter((a) => a != null).length}
           holeNumber={activeHoleNumber}
           needsTee={needsTee}
-          needsPin={needsPin}
+          showPinButton={showPinButton}
           placementMode={placementMode}
           shotDragUndoLabel={shotDragUndoLabel}
           onApplyShotDragUndo={onApplyShotDragUndo}
@@ -273,18 +293,25 @@ export function MapView({
           onClear={handlers.onClearPoints}
           onDone={handlers.onDoneWithHole}
           onDoneEditing={handlers.onDoneEditing}
-        />
-      </div>
-      <div
-        style={{
-          marginTop: 10,
-          height: 540,
-          border: '1px solid #D9D2BF',
-          borderRadius: 4,
-          overflow: 'hidden',
-          position: 'relative',
-        }}
-      >
+          />
+          <div style={{ marginTop: 16 }}>
+            <div className="kicker" style={{ marginBottom: 6 }}>
+              Shots
+            </div>
+            <ShotList shots={existingShots} />
+          </div>
+        </div>
+        {/* Right column: portrait up-the-hole map (leads on narrow). */}
+        <div
+          className="order-first lg:order-2"
+          style={{
+            height: 'min(78vh, 720px)',
+            border: '1px solid #D9D2BF',
+            borderRadius: 4,
+            overflow: 'hidden',
+            position: 'relative',
+          }}
+        >
         <Suspense fallback={<MapLoading />}>
           <RoundMap
             hole={activeHoleGeo}
@@ -331,6 +358,7 @@ export function MapView({
             onSelectRail={selectRail}
           />
         )}
+        </div>
       </div>
       {saveError && (
         <div
@@ -357,6 +385,90 @@ function MapLoading() {
       style={{ height: '100%', width: '100%', fontSize: 13 }}
     >
       Loading map…
+    </div>
+  )
+}
+
+const CATEGORY_LABEL: Record<ShotMarkerCategory, string> = {
+  tee: 'Tee',
+  approach: 'Approach',
+  'around-green': 'Around green',
+  putt: 'Putt',
+}
+
+function categoryColor(c: ShotMarkerCategory): string {
+  if (c === 'approach') return MARKER_COLORS.approach
+  if (c === 'putt' || c === 'around-green') return MARKER_COLORS.green
+  return MARKER_COLORS.tee
+}
+
+// Per-hole shot list for the map view's left column — number badge (colored
+// to match the map marker), category, and start→end distance. Reads the same
+// `existingShots` the map draws; co-located since MapView is its only caller.
+function ShotList({ shots }: { shots: ExistingShot[] }) {
+  const rows = shots
+    .filter((s) => s.startLat != null && s.startLng != null)
+    .sort((a, b) => a.shotNumber - b.shotNumber)
+  if (rows.length === 0) {
+    return (
+      <div
+        className="text-caddie-ink-mute"
+        style={{ fontSize: 12, padding: '6px 0' }}
+      >
+        No shots logged for this hole yet.
+      </div>
+    )
+  }
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column' }}>
+      {rows.map((s) => {
+        const cat = s.category ?? 'approach'
+        const dist =
+          s.endLat != null && s.endLng != null
+            ? Math.round(
+                haversineYards(s.startLat!, s.startLng!, s.endLat, s.endLng),
+              )
+            : null
+        return (
+          <div
+            key={s.id}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 10,
+              padding: '7px 0',
+              borderBottom: '1px solid #EBE5D6',
+            }}
+          >
+            <span
+              style={{
+                width: 20,
+                height: 20,
+                borderRadius: 999,
+                background: categoryColor(cat),
+                color: '#FBF8F1',
+                fontSize: 11,
+                fontWeight: 600,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0,
+              }}
+            >
+              {s.shotNumber}
+            </span>
+            <span style={{ fontSize: 13, flex: 1 }}>{CATEGORY_LABEL[cat]}</span>
+            {dist != null && (
+              <span
+                className="text-caddie-ink-dim font-mono"
+                style={{ fontSize: 12 }}
+              >
+                {dist} yd
+              </span>
+            )}
+          </div>
+        )
+      })}
     </div>
   )
 }

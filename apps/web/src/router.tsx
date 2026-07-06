@@ -48,6 +48,8 @@ const PrivacyPage = lazy(() =>
 const SupportPage = lazy(() =>
   import('./pages/landing/SupportPage').then((m) => ({ default: m.SupportPage })),
 )
+const CoursePlanPage = lazy(() => import('./pages/plan/CoursePlanPage'))
+const HolePlanPage = lazy(() => import('./pages/plan/HolePlanPage'))
 
 function RouteFallback() {
   return (
@@ -117,6 +119,8 @@ const routes: RouteObject[] = [
       { path: '/patterns', element: <ShotPatternsPage />, errorElement },
       { path: '/practice', element: <PracticePlanPage />, errorElement },
       { path: '/practice/drills', element: <DrillLibraryPage />, errorElement },
+      { path: '/plan', element: <CoursePlanPage />, errorElement },
+      { path: '/plan/:courseId/:holeNumber', element: <HolePlanPage />, errorElement },
       { path: '/settings', element: <SettingsPage />, errorElement },
       { path: '/settings/bag', element: <BagPage />, errorElement },
     ],
