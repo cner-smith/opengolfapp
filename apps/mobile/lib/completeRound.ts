@@ -89,11 +89,14 @@ export async function completeRound({
     const hole = holesById.get(hs.hole_id)
     if (!hole) continue
     const holeShots = shots.filter((s) => s.hole_score_id === hs.id)
+    // No holedOut arg: mobile has no reliable signal that the last logged
+    // shot finished in the cup (no 'holed' shot_result exists), so off-green
+    // hole-outs conservatively don't count GIR here (#669). Web's review
+    // flow, which IS holed-out by construction, passes true.
     const inferred = inferHoleStats(
       holeShots.map((s) => ({
         shot_number: s.shot_number,
         lie_type: s.lie_type,
-        shot_result: s.shot_result,
       })),
       hole.par,
     )
