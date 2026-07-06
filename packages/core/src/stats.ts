@@ -308,9 +308,11 @@ export function approachByDistance(
       )
       if (startExpected == null) continue
 
+      // endExpected 0 = holed out — legitimate only when there is NO next
+      // shot (the hole's last shot ends at the cup in both save flows).
       let endExpected = 0
       const next = shots[i + 1]
-      if (next && (next.distance_to_target != null || next.lie_type === 'green')) {
+      if (next) {
         const nextCat = getShotCategory(
           {
             lieType: (next.lie_type as LieType | null) ?? undefined,
@@ -327,7 +329,14 @@ export function approachByDistance(
           nextDistFt ?? undefined,
           handicap,
         )
-        if (nextExpected != null) endExpected = nextExpected
+        // Mirror calculateRoundSG's skip (sg-calculator.ts): a next shot
+        // whose expected strokes can't be derived (no distance data) means
+        // this shot's end position is unknown — skip it entirely rather
+        // than booking it as holed, which awarded up to +2.95 SG per
+        // data-less shot and made this chart disagree with the round SG
+        // engine on identical data (#668).
+        if (nextExpected == null) continue
+        endExpected = nextExpected
       }
       const sg = calculateShotSG(startExpected, endExpected)
       const penaltyAdjust = s.penalty || s.ob ? -1 : 0
@@ -464,13 +473,20 @@ export interface BallStrikingStats {
 export function ballStrikingStats(rounds: DetailedRound[]): BallStrikingStats {
   let fwHit = 0
   let fwTotal = 0
-  let girTotal = 0
-  let holesPlayed = 0
+  let girHit = 0
+  let girKnown = 0
   for (const r of rounds) {
     fwHit += r.fairways_hit ?? 0
     fwTotal += r.fairways_total ?? 0
-    girTotal += r.gir ?? 0
-    holesPlayed += (r.hole_scores?.length ?? 0)
+    // GIR percentage denominates on holes where GIR is actually KNOWN
+    // (hole-level gir boolean set). Counting every hole_scores row put
+    // gir-null holes — scorecard-only rounds with no shot data — in the
+    // denominator as misses, diluting the percentage (#668).
+    for (const hs of r.hole_scores ?? []) {
+      if (hs.gir == null) continue
+      girKnown += 1
+      if (hs.gir) girHit += 1
+    }
   }
 
   const driveDistances: number[] = []
@@ -528,7 +544,7 @@ export function ballStrikingStats(rounds: DetailedRound[]): BallStrikingStats {
 
   return {
     fairwayPct: pct(fwHit, fwTotal),
-    girPct: holesPlayed > 0 ? pct(girTotal, holesPlayed) : null,
+    girPct: girKnown > 0 ? pct(girHit, girKnown) : null,
     drivingDistanceAvg:
       driveDistances.length > 0
         ? driveDistances.reduce((a, b) => a + b, 0) / driveDistances.length

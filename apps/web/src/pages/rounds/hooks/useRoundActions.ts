@@ -593,13 +593,17 @@ export function useRoundActions(input: UseRoundActionsInput): UseRoundActionsRes
         // manual entries from HoleScoreCard win via the ?? — re-saving
         // the map review never silently overwrites a value the player
         // explicitly toggled on the scorecard.
+        // holedOut=true: this flow is holed-out by construction — the final
+        // marker's end is the pin and `score: rows.length` below asserts the
+        // placed shots ARE the whole hole. Lets aces / holed approaches count
+        // as GIR (#669).
         const inferred = inferHoleStats(
           rows.map((r) => ({
             shot_number: r.shotNumber,
             lie_type: r.lieType,
-            shot_result: null,
           })),
           activeHole.par,
+          true,
         )
         const hsResult = await upsertHoleScore.mutateAsync({
           id: existing?.id,
