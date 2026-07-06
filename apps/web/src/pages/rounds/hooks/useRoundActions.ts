@@ -375,7 +375,13 @@ export function useRoundActions(input: UseRoundActionsInput): UseRoundActionsRes
           updates: {
             start_lat: point.lat,
             start_lng: point.lng,
-            ...(isPutt ? {} : { distance_to_target: newDistance }),
+            // Only rewrite distance when a pin actually resolves. Without
+            // this guard, dragging a shot on an unmapped/pin-less hole wrote
+            // distance_to_target: null and destroyed a previously valid
+            // stored distance (#662).
+            ...(!isPutt && effectivePin
+              ? { distance_to_target: newDistance }
+              : {}),
           },
         })
       } catch (err) {
@@ -611,6 +617,13 @@ export function useRoundActions(input: UseRoundActionsInput): UseRoundActionsRes
           putts: puttCount,
           fairway_hit: existing?.fairway_hit ?? inferred.fairway,
           gir: existing?.gir ?? inferred.gir,
+          // Persist a manually placed pin. On unmapped courses no hole_scores
+          // row exists until this upsert, so persistRoundPin's update no-ops
+          // and the pin lived only in pinOverride state — lost on reload and
+          // then nulling shot distances on drag (#662). This is the write.
+          ...(pinOverride
+            ? { pin_lat: pinOverride.lat, pin_lng: pinOverride.lng }
+            : {}),
         })
         const hs = hsResult ?? existing
         if (!hs) throw new Error('hole_score upsert returned no row')
