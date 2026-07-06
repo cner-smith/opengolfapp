@@ -135,12 +135,57 @@ export function useHoleCamera({
   // at this course. Gated by distance to course centroid so testing from
   // home doesn't yank the camera to a parking lot 50 mi away.
   const autoCenteredRef = useRef(false)
+  // Pin coords the arriving PLACE_BALL heading was last applied to, so a
+  // late-loading pin re-frames the map exactly once (effect below) and GPS
+  // ticks don't re-rotate. Reset per hole alongside the auto-center latch.
+  const headingAppliedPinRef = useRef<string | null>(null)
   useEffect(() => {
     // Reset on hole change (center prop moves to new tee/centroid). When
     // the per-hole route is collapsed to one component (issue #264 fix),
     // this is still the right reset signal.
     autoCenteredRef.current = false
+    headingAppliedPinRef.current = null
   }, [center.lat, center.lng])
+
+  // The initial / hole-change frames compute the up-the-hole heading from
+  // roundPin ?? pin, which can be null when the tee/center resolves first —
+  // on synthetic holes the round pin loads from a separate fetch than the
+  // tee. Those two effects are latched (cameraInitialized / center-equality)
+  // so they won't re-fire when the pin arrives, leaving the map stuck north.
+  // Re-frame the arriving PLACE_BALL view once the pin resolves; SET_AIM and
+  // PIN own the camera in their own phases, so this is gated to PLACE_BALL.
+  // Keyed on the pin coords so it fires once per hole, not on every GPS tick.
+  useEffect(() => {
+    if (!styleLoaded) return
+    if (!cameraInitialized.current) return
+    if (phase !== 'PLACE_BALL') return
+    if (!cameraRef.current) return
+    const target = roundPin ?? pin ?? null
+    if (!target) return
+    const key = `${target.lat},${target.lng}`
+    if (headingAppliedPinRef.current === key) return
+    try {
+      cameraRef.current.setCamera({
+        centerCoordinate: toCoord(center),
+        zoomLevel: 17,
+        pitch: 0,
+        heading: headingUpTheHole(center, target),
+        animationDuration: 500,
+      })
+      headingAppliedPinRef.current = key
+    } catch {
+      // native camera released — retry on next change
+    }
+  }, [
+    styleLoaded,
+    phase,
+    center.lat,
+    center.lng,
+    roundPin?.lat,
+    roundPin?.lng,
+    pin?.lat,
+    pin?.lng,
+  ])
   useEffect(() => {
     if (!styleLoaded) return
     if (!cameraInitialized.current) return
