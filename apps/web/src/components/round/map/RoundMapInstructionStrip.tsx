@@ -21,11 +21,13 @@ interface RoundMapInstructionStripProps {
   /** Active hole number — surfaced in the manual-placement instruction
    *  copy so the user knows which hole they're marking up. */
   holeNumber?: number
-  /** True when no tee coordinate exists for this hole (DB null and no
-   *  session override). Drives the "Place tee box" entry button. */
+  /** Currently unused — the tee is derived from the first shot, not placed
+   *  manually. Kept for the existing placement plumbing. */
   needsTee?: boolean
-  /** True when no pin coordinate exists for this hole. */
-  needsPin?: boolean
+  /** Show the "Set pin" placement button. True while logging/editing a past
+   *  round on a geo-anchored hole — shown even when a pin coord already
+   *  exists so the player can override a wrong crawled pin. */
+  showPinButton?: boolean
   /** Active manual-placement mode. When set, the strip switches to a
    *  "tap to place …" prompt with a Cancel button. */
   placementMode?: 'tee' | 'pin' | null
@@ -54,7 +56,7 @@ export function RoundMapInstructionStrip({
   aimsSet = 0,
   holeNumber,
   needsTee = false,
-  needsPin = false,
+  showPinButton = false,
   placementMode = null,
   shotDragUndoLabel = null,
   onApplyShotDragUndo,
@@ -116,9 +118,9 @@ export function RoundMapInstructionStrip({
     )
   }
   const placeButtons =
-    needsPin && onStartPlacePin ? (
+    showPinButton && onStartPlacePin ? (
       <>
-        {needsPin && onStartPlacePin && (
+        {showPinButton && onStartPlacePin && (
           <button
             type="button"
             onClick={onStartPlacePin}
@@ -133,7 +135,7 @@ export function RoundMapInstructionStrip({
               letterSpacing: '0.02em',
             }}
           >
-            Place pin
+            Set pin
           </button>
         )}
       </>
