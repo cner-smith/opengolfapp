@@ -69,7 +69,7 @@ export interface UseShotActionsResult {
   finishHole: () => void
   handleEndRound: () => Promise<void>
   handleDeleteRound: () => Promise<void>
-  handleExitFromError: () => Promise<void>
+  handleExitFromError: () => void
 }
 
 export function useShotActions(input: UseShotActionsInput): UseShotActionsResult {
@@ -538,26 +538,15 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
     }
   }
 
-  async function handleExitFromError() {
-    if (round && user) {
-      setDeleting(true)
-      try {
-        const { error: delErr } = await deleteRound(supabase, round.id, user.id)
-        if (delErr) {
-          // eslint-disable-next-line no-console
-          console.error('[hole/exitFromError]', delErr.message)
-          Alert.alert('Could not discard round', delErr.message)
-          return
-        }
-      } finally {
-        setDeleting(false)
-        // Guard against clobbering a different dialog the user may have
-        // opened during the async window.
-        setActiveDialog(prev => (prev === 'exit' ? null : prev))
-      }
-    } else {
-      setActiveDialog(prev => (prev === 'exit' ? null : prev))
-    }
+  function handleExitFromError() {
+    // Leave to home WITHOUT deleting. A load error (network blip on a
+    // rounds-deep resume) or a missing hole means the round is still
+    // resumable — and synthetic no-layout courses are now playable (#614),
+    // so there's no "unplayable, discard it" case left to justify a delete.
+    // The old delete-on-exit destroyed a whole logged round on a transient
+    // failure, behind copy that claimed nothing was logged (#653). The
+    // round stays resumable, and is still deletable from the home list.
+    setActiveDialog(prev => (prev === 'exit' ? null : prev))
     router.replace('/(app)')
   }
 
