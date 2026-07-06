@@ -28,6 +28,7 @@ import {
 import { useAuth } from '../../hooks/useAuth'
 import { ConfirmDialog } from '../ui/ConfirmDialog'
 import { useUnits } from '../../hooks/useUnits'
+import { toUserMessage } from '../../lib/errors'
 import { GreenDiagram } from '../round/GreenDiagram'
 import { ChipGroup, Field } from './shots/formInputs'
 import {
@@ -114,6 +115,7 @@ export function ShotEntryModal({
     emptyDraft(holeShots.length + 1, holeShots.length === 0),
   )
   const [editing, setEditing] = useState<string | null>(null)
+  const [saveError, setSaveError] = useState<string | null>(null)
 
   // Read the latest holeShots count via ref so the reset effect doesn't
   // need it as a dep — a refetch ticking the count up shouldn't wipe the
@@ -140,6 +142,16 @@ export function ShotEntryModal({
 
   async function save(opts?: { madeOverride?: boolean }) {
     if (!user) return
+    setSaveError(null)
+    // Derive the shot_number from the freshest shot list at save time, not
+    // from draft.shotNumber. cancelEdit() recomputed the draft number from a
+    // stale render closure, so a second consecutive add reused the previous
+    // number and hit the unique (hole_score_id, shot_number) constraint —
+    // silently, since the old catch only rethrew (#661). holeShots is sorted
+    // ascending, so the last element carries the max.
+    const shotNumber = editing
+      ? draft.shotNumber
+      : (holeShotsRef.current.at(-1)?.shot_number ?? 0) + 1
     const isPuttSave = draft.lieType === 'green'
     const made =
       opts?.madeOverride === true
@@ -159,7 +171,7 @@ export function ShotEntryModal({
     const insert: ShotInsert = {
       hole_score_id: holeScoreId,
       user_id: user.id,
-      shot_number: draft.shotNumber,
+      shot_number: shotNumber,
       club: isPuttSave ? 'putter' : draft.club ?? null,
       lie_type: draft.lieType ?? null,
       lie_slope: null,
@@ -206,7 +218,9 @@ export function ShotEntryModal({
         // eslint-disable-next-line no-console
         console.error('[ShotEntryModal/save]', err, insert)
       }
-      throw err
+      // Surface in the modal instead of rethrowing — the onClick callers never
+      // caught, so the failure was an unhandled rejection with no user signal.
+      setSaveError(toUserMessage(err))
     }
   }
 
@@ -484,6 +498,21 @@ export function ShotEntryModal({
                 />
               </Field>
             </div>
+
+            {saveError && (
+              <div
+                className="text-caddie-neg"
+                style={{
+                  border: '1px solid #A33A2A',
+                  borderRadius: 4,
+                  padding: '10px 12px',
+                  fontSize: 13,
+                  marginTop: 16,
+                }}
+              >
+                {saveError}
+              </div>
+            )}
 
             <div
               className="flex justify-end"
