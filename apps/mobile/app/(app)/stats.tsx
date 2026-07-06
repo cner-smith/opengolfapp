@@ -16,7 +16,7 @@ import {
   type DetailedStats,
   type SGAverages,
 } from '@oga/core'
-import { getRoundsWithDetails } from '@oga/supabase'
+import { getProfile, getRoundsWithDetails } from '@oga/supabase'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
 import { useUnits } from '../../hooks/useUnits'
@@ -58,6 +58,26 @@ export default function Stats() {
   const [n, setN] = useState<number>(10)
   const [rounds, setRounds] = useState<DetailedRound[]>([])
   const [loading, setLoading] = useState(true)
+  // Player's handicap for SG baselines. Web (useDetailedStats) already uses
+  // the profile value; hardcoding DEFAULT_HANDICAP here benchmarked every
+  // player against the default bracket and made mobile disagree with web on
+  // the same rounds (#673).
+  const [handicap, setHandicap] = useState<number | null>(null)
+
+  useEffect(() => {
+    if (!user) return
+    let active = true
+    getProfile(supabase, user.id).then(({ data }) => {
+      if (!active) return
+      setHandicap(
+        (data as { handicap_index?: number | null } | null)?.handicap_index ??
+          null,
+      )
+    })
+    return () => {
+      active = false
+    }
+  }, [user?.id])
   const { width: screenWidth } = useWindowDimensions()
   const { unit, toDisplay } = useUnits()
 
@@ -132,8 +152,11 @@ export default function Stats() {
   )
 
   const stats: DetailedStats | null = useMemo(
-    () => (rounds.length > 0 ? computeDetailedStats(rounds, DEFAULT_HANDICAP) : null),
-    [rounds],
+    () =>
+      rounds.length > 0
+        ? computeDetailedStats(rounds, handicap ?? DEFAULT_HANDICAP)
+        : null,
+    [rounds, handicap],
   )
 
   return (
