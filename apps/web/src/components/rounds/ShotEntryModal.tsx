@@ -164,7 +164,6 @@ export function ShotEntryModal({
     const shotNumber = editing
       ? draft.shotNumber
       : Math.max(freshMax, lastIssuedNumberRef.current) + 1
-    if (!editing) lastIssuedNumberRef.current = shotNumber
     const isPuttSave = draft.lieType === 'green'
     const made =
       opts?.madeOverride === true
@@ -224,6 +223,11 @@ export function ShotEntryModal({
         await updateShot.mutateAsync({ id: editing, updates: insert })
       } else {
         await createShot.mutateAsync(insert)
+        // Bump the monotonic guard only AFTER a successful insert. Bumping it
+        // before would, on a failed save + retry, skip the failed number and
+        // leave a permanent gap in shot_number — breaking the editingNext
+        // lookup and stats inference (both assume contiguous numbering).
+        lastIssuedNumberRef.current = shotNumber
       }
       cancelEdit()
     } catch (err) {
