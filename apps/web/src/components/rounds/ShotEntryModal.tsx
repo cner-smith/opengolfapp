@@ -12,6 +12,7 @@ import {
   formatDistance,
   formatPuttDistance,
   haversineYards,
+  isPuttShot,
   type Club,
   type DistanceUnit,
   type LieType,
@@ -28,6 +29,7 @@ import {
 import { useAuth } from '../../hooks/useAuth'
 import { ConfirmDialog } from '../ui/ConfirmDialog'
 import { useUnits } from '../../hooks/useUnits'
+import { toUserMessage } from '../../lib/errors'
 import { GreenDiagram } from '../round/GreenDiagram'
 import { ChipGroup, Field } from './shots/formInputs'
 import {
@@ -114,6 +116,7 @@ export function ShotEntryModal({
     emptyDraft(holeShots.length + 1, holeShots.length === 0),
   )
   const [editing, setEditing] = useState<string | null>(null)
+  const [saveError, setSaveError] = useState<string | null>(null)
 
   // Read the latest holeShots count via ref so the reset effect doesn't
   // need it as a dep — a refetch ticking the count up shouldn't wipe the
@@ -122,8 +125,17 @@ export function ShotEntryModal({
   const holeShotsRef = useRef(holeShots)
   holeShotsRef.current = holeShots
 
+  // Highest shot_number this session has issued for the current hole. Guards
+  // the refetch race: useCreateShot invalidates without awaiting, so a fast
+  // second add can fire before holeShotsRef reflects the first insert — the
+  // fresh-max alone would then repeat a number. max(freshMax, lastIssued)+1
+  // stays monotonic across consecutive adds regardless of refetch timing.
+  // Reset per hole (effect below).
+  const lastIssuedNumberRef = useRef(0)
+
   useEffect(() => {
     if (editing) return
+    lastIssuedNumberRef.current = 0
     const len = holeShotsRef.current.length
     setDraft(emptyDraft(len + 1, len === 0))
   }, [holeScoreId, editing])
@@ -140,6 +152,19 @@ export function ShotEntryModal({
 
   async function save(opts?: { madeOverride?: boolean }) {
     if (!user) return
+    setSaveError(null)
+    // Derive the shot_number from the freshest shot list at save time, not
+    // from draft.shotNumber. cancelEdit() recomputed the draft number from a
+    // stale render closure, so a second consecutive add reused the previous
+    // number and hit the unique (hole_score_id, shot_number) constraint —
+    // silently, since the old catch only rethrew (#661). holeShots is sorted
+    // ascending, so the last element carries the max; lastIssuedNumberRef
+    // covers the fast-second-add-before-refetch case (see its declaration).
+    const freshMax = holeShotsRef.current.at(-1)?.shot_number ?? 0
+    const shotNumber = editing
+      ? draft.shotNumber
+      : Math.max(freshMax, lastIssuedNumberRef.current) + 1
+    if (!editing) lastIssuedNumberRef.current = shotNumber
     const isPuttSave = draft.lieType === 'green'
     const made =
       opts?.madeOverride === true
@@ -159,7 +184,7 @@ export function ShotEntryModal({
     const insert: ShotInsert = {
       hole_score_id: holeScoreId,
       user_id: user.id,
-      shot_number: draft.shotNumber,
+      shot_number: shotNumber,
       club: isPuttSave ? 'putter' : draft.club ?? null,
       lie_type: draft.lieType ?? null,
       lie_slope: null,
@@ -206,7 +231,9 @@ export function ShotEntryModal({
         // eslint-disable-next-line no-console
         console.error('[ShotEntryModal/save]', err, insert)
       }
-      throw err
+      // Surface in the modal instead of rethrowing — the onClick callers never
+      // caught, so the failure was an unhandled rejection with no user signal.
+      setSaveError(toUserMessage(err))
     }
   }
 
@@ -234,8 +261,7 @@ export function ShotEntryModal({
     // the pin so SG for this shot stays accurate. Skipped for putts
     // (distance_to_target stays null; putt_distance_ft tracks that flow
     // and isn't auto-recalculated on drag).
-    const editIsPutt =
-      editingRow.lie_type === 'green' || editingRow.club === 'putter'
+    const editIsPutt = isPuttShot(editingRow.lie_type, editingRow.club)
     const newDistance =
       !editIsPutt && pinLat != null && pinLng != null
         ? Math.round(haversineYards(point.lat, point.lng, pinLat, pinLng))
@@ -485,6 +511,21 @@ export function ShotEntryModal({
               </Field>
             </div>
 
+            {saveError && (
+              <div
+                className="text-caddie-neg"
+                style={{
+                  border: '1px solid #A33A2A',
+                  borderRadius: 4,
+                  padding: '10px 12px',
+                  fontSize: 13,
+                  marginTop: 16,
+                }}
+              >
+                {saveError}
+              </div>
+            )}
+
             <div
               className="flex justify-end"
               style={{
@@ -599,7 +640,7 @@ function formatShotSummary(
   next: ShotRow | undefined,
   unit: DistanceUnit,
 ): string {
-  if (s.lie_type === 'green' || s.club === 'putter') {
+  if (isPuttShot(s.lie_type, s.club)) {
     const result =
       (s.putt_result &&
         PUTT_RESULT_LABELS[s.putt_result as keyof typeof PUTT_RESULT_LABELS]) ??

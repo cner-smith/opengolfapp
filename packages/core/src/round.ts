@@ -79,6 +79,20 @@ export function inferHoleCount(holeNumbers: number[]): 9 | 18 {
   return Math.max(...holeNumbers) <= 9 ? 9 : 18
 }
 
+// Single source of truth for putt classification: a shot is a putt when its
+// lie is the green or its club is the putter. Feeds putt counts, the putt-only
+// persisted columns, and SG putting, so every surface must agree. Distance to
+// the pin must NOT factor in — a near-green chip isn't a putt, and unmapped
+// rows read distanceToPin 0 (#660, which was a drift between hand-copied
+// predicates). Takes raw fields (not a shaped row) so camelCase ReviewedShotRow
+// and snake_case DB rows share it.
+export function isPuttShot(
+  lieType: string | null | undefined,
+  club: string | null | undefined,
+): boolean {
+  return lieType === 'green' || club === 'putter'
+}
+
 export function buildInitialRows(
   points: PlacedPoint[],
   par: number,
