@@ -136,7 +136,7 @@ for all flags.
 
 ```bash
 # Web (http://localhost:5173)
-pnpm dev --filter web
+pnpm --filter web dev
 
 # Mobile — Expo Metro bundler, scan the QR code with the Expo Go app
 cd apps/mobile
