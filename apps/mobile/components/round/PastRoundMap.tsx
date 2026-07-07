@@ -190,7 +190,11 @@ export function PastRoundMap({
   // tee ?? courseCenter ?? ball): a hole with a round-pin but no surveyed tee
   // would otherwise resolve center == pin and re-collapse the heading. When no
   // tee resolves, courseCenter still gives a non-coincident origin.
-  const center = tee ?? courseCenter ?? OKC_FALLBACK
+  // effectivePin trails as a last resort BEFORE the OKC fallback — for a
+  // manually-added course with no tee and null lat/lng, framing on the pin
+  // (north-up, but on the hole) beats dropping the camera on Oklahoma. Pin is
+  // last, so it never wins over tee/courseCenter and can't recollapse a real hole.
+  const center = tee ?? courseCenter ?? effectivePin ?? OKC_FALLBACK
 
   const [placed, setPlaced] = useState<PlacedShot[]>([])
   const [activeIdx, setActiveIdx] = useState(0)
