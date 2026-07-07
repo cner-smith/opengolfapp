@@ -42,6 +42,13 @@ export async function completeRound({
   userId,
   handicap,
 }: CompleteArgs): Promise<void> {
+  // Drain the pending queue before reading shots. syncPendingShots joins
+  // an in-flight background run (#651), so this genuinely waits for the
+  // final hole's shots instead of no-oping while a save-triggered sync
+  // holds the lock. The caller (handleEndRound) has already drained,
+  // re-checked pendingCount, and made the player acknowledge any rows
+  // that still can't reach the server — so a failure here proceeds by
+  // design: finalizing over what synced is the acknowledged fallback.
   await syncPendingShots().catch(() => undefined)
 
   const [holesRes, holeScoresRes, shotsRes, teesRes, roundRes] = await Promise.all([

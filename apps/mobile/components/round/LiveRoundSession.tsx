@@ -312,8 +312,8 @@ export default function LiveRoundSession({
       ? 'Something went wrong loading this round.'
       : `Hole ${holeNumber} isn't set up for this round yet.`
     const subline = data.error
-      ? 'Check your connection and try again, or exit to clear the round.'
-      : 'This usually means the course was created without per-hole layout data. Exit to discard the round and start fresh.'
+      ? 'Check your connection and try again, or leave and resume this round later.'
+      : 'Try again, or leave and pick this round back up from the home screen.'
     return (
       <View
         style={{
@@ -380,10 +380,10 @@ export default function LiveRoundSession({
         </Pressable>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Exit round and discard"
+          accessibilityLabel="Leave and go to the home screen"
           onPress={() => setActiveDialog('exit')}
           style={{
-            backgroundColor: '#A33A2A',
+            backgroundColor: '#5C6356',
             borderRadius: 2,
             paddingVertical: 14,
             paddingHorizontal: 24,
@@ -400,17 +400,15 @@ export default function LiveRoundSession({
               },
             ]}
           >
-            Exit round
+            Leave to home
           </Text>
         </Pressable>
         <ConfirmDialog
           visible={activeDialog === 'exit'}
           title="Leave this round?"
-          message="Nothing's been logged yet, so the round will be discarded."
-          confirmLabel="Leave round"
+          message="Your round is saved — you can resume it from the home screen."
+          confirmLabel="Leave"
           cancelLabel="Stay"
-          destructive
-          busy={actions.deleting}
           onConfirm={actions.handleExitFromError}
           onCancel={() => setActiveDialog(null)}
         />

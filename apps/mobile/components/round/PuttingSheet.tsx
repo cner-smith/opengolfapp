@@ -6,6 +6,7 @@ import {
   ScrollView,
   Text,
   TextInput,
+  useWindowDimensions,
   View,
 } from 'react-native'
 import {
@@ -23,6 +24,15 @@ import { GreenDiagram } from './GreenDiagram'
 import { useUnits } from '../../hooks/useUnits'
 import { TYPE } from '../../lib/typography'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import { GestureDetector } from 'react-native-gesture-handler'
+import Animated from 'react-native-reanimated'
+import { useSwipeToDismiss } from '../ui/useSwipeToDismiss'
+
+// Animated so the swipe-to-dismiss translateY drives the whole card. A
+// transform is post-layout, so it does NOT affect the ScrollView's absolute
+// maxHeight — the #643 scroll fix stays intact.
+const AnimatedKeyboardAvoidingView =
+  Animated.createAnimatedComponent(KeyboardAvoidingView)
 
 export interface PuttingValue {
   puttDistanceFt?: number
@@ -177,31 +187,38 @@ export function PuttingSheet({
   }
 
   const insets = useSafeAreaInsets()
+  const { height: windowHeight } = useWindowDimensions()
+  const { pan, cardStyle } = useSwipeToDismiss(onClose)
   const distance = value.puttDistanceFt ?? 0
 
   return (
-    <KeyboardAvoidingView
+    <AnimatedKeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      style={{
-        backgroundColor: '#FBF8F1',
-        borderTopLeftRadius: 12,
-        borderTopRightRadius: 12,
-        paddingHorizontal: 18,
-        paddingTop: 10,
-        paddingBottom: insets.bottom + 24,
-        maxHeight: '90%',
-      }}
+      style={[
+        {
+          backgroundColor: '#FBF8F1',
+          borderTopLeftRadius: 12,
+          borderTopRightRadius: 12,
+          paddingHorizontal: 18,
+          paddingTop: 10,
+          paddingBottom: insets.bottom + 24,
+          maxHeight: '90%',
+        },
+        cardStyle,
+      ]}
     >
-      <View
-        style={{
-          alignSelf: 'center',
-          width: 32,
-          height: 4,
-          borderRadius: 2,
-          backgroundColor: '#D9D2BF',
-          marginBottom: 14,
-        }}
-      />
+      <GestureDetector gesture={pan}>
+        <View style={{ alignItems: 'center', paddingBottom: 14 }}>
+          <View
+            style={{
+              width: 32,
+              height: 4,
+              borderRadius: 2,
+              backgroundColor: '#D9D2BF',
+            }}
+          />
+        </View>
+      </GestureDetector>
       <View
         style={{
           flexDirection: 'row',
@@ -260,13 +277,16 @@ export function PuttingSheet({
         </Pressable>
       </View>
 
-      {/* flexShrink:1 bounds the scroll area within the maxHeight:'90%' sheet.
-          Without it RN's default flexShrink:0 lets the ScrollView size to its
-          full content height and overflow the clamped sheet, so it isn't
-          scrollable until a state change (e.g. toggling "Holed it") forces a
-          re-layout that re-measures it. */}
+      {/* An ABSOLUTE maxHeight (not flexShrink deriving height from the
+          '90%' sheet) gives the ScrollView a scroll range that resolves in
+          the first layout pass — independent of the modal's slide transform
+          and the parent's percentage height. Previously the derived height
+          settled to content-height on first paint (nothing to scroll) and
+          only unlocked when a state change (toggling "Holed it") forced a
+          re-measure; app foreground re-measures made it recur (#643).
+          0.72·screen sits well under the 90% sheet so the two never fight. */}
       <ScrollView
-        style={{ flexShrink: 1 }}
+        style={{ maxHeight: windowHeight * 0.72, flexShrink: 1 }}
         contentContainerStyle={{ paddingTop: 14, paddingBottom: 8 }}
       >
         <GreenDiagram
@@ -458,7 +478,7 @@ export function PuttingSheet({
           </Pressable>
         </View>
       </ScrollView>
-    </KeyboardAvoidingView>
+    </AnimatedKeyboardAvoidingView>
   )
 }
 

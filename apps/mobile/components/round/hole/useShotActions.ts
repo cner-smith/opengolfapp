@@ -11,6 +11,7 @@ import { deleteRound, getProfile } from '@oga/supabase'
 import { supabase } from '../../../lib/supabase'
 import {
   insertPendingShot,
+  pendingCount,
   setPendingShotEnd,
   type ShotPayload,
 } from '../../../lib/db'
@@ -69,7 +70,7 @@ export interface UseShotActionsResult {
   finishHole: () => void
   handleEndRound: () => Promise<void>
   handleDeleteRound: () => Promise<void>
-  handleExitFromError: () => Promise<void>
+  handleExitFromError: () => void
 }
 
 export function useShotActions(input: UseShotActionsInput): UseShotActionsResult {
@@ -92,6 +93,10 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
   // before React commits the next render — both calls see `saving`
   // === false. The ref flips synchronously and blocks the second call.
   const persistShotInFlightRef = useRef(false)
+  // Same async-setter race as persistShot: `setEnding(true)` commits a tick
+  // late, so a fast double-tap of Finish (18th hole) or End round could fire
+  // completeRound twice. The ref flips synchronously and blocks the second.
+  const endInFlightRef = useRef(false)
   const [ending, setEnding] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [shotEntrySeq, setShotEntrySeq] = useState(0)
@@ -480,14 +485,60 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
     if (holeNumber < holeCount) {
       onHoleChange(holeNumber + 1)
     } else {
-      router.replace('/(app)')
+      // Last hole → finalize the round: completeRound writes total_score /
+      // sg_total / completed_at and routes to the summary. Without this the
+      // round stays unfinished (blank total, reappears as resumable). Same
+      // path as "End round early". (#639)
+      void handleEndRound()
     }
   }
 
   async function handleEndRound() {
     if (!round || !user) return
+    if (endInFlightRef.current) return
+    endInFlightRef.current = true
     setEnding(true)
     try {
+      // Drain the queue before finalizing (#651). syncPendingShots joins
+      // an in-flight run instead of no-oping, but a joined run may have
+      // snapshotted the queue before the final putt's row landed — if
+      // anything is still pending after the first pass, run once more now
+      // that the previous run has settled.
+      await syncPendingShots().catch(() => undefined)
+      if ((await pendingCount()) > 0) {
+        await syncPendingShots().catch(() => undefined)
+      }
+      const unsynced = await pendingCount()
+      if (unsynced > 0) {
+        // Shots that never reached the server would silently vanish from
+        // totals/SG (completeRound reads the server's shot set). Make the
+        // player choose: keep the round open and retry with a better
+        // connection, or knowingly finalize over what synced. cancelable:
+        // false so the Android back button can't dismiss without
+        // resolving.
+        const finishAnyway = await new Promise<boolean>((resolve) => {
+          Alert.alert(
+            'Some shots have not synced',
+            `${unsynced} shot${unsynced === 1 ? ' has' : 's have'} not reached the server. ` +
+              'Finishing now will compute totals and strokes gained without ' +
+              `${unsynced === 1 ? 'it' : 'them'}. You can keep the round open and finish later with a better connection.`,
+            [
+              {
+                text: 'Keep round open',
+                style: 'cancel',
+                onPress: () => resolve(false),
+              },
+              {
+                text: 'Finish anyway',
+                style: 'destructive',
+                onPress: () => resolve(true),
+              },
+            ],
+            { cancelable: false },
+          )
+        })
+        if (!finishAnyway) return
+      }
       const { data: profile } = await getProfile(supabase, user.id)
       const handicap =
         (profile as { handicap_index?: number | null } | null)?.handicap_index ??
@@ -502,6 +553,7 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
     } catch (err) {
       Alert.alert('End round failed', (err as Error).message)
     } finally {
+      endInFlightRef.current = false
       setEnding(false)
       // Guard against clobbering a different dialog the user may have
       // opened during the async window (TS agent feedback on #293).
@@ -527,26 +579,15 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
     }
   }
 
-  async function handleExitFromError() {
-    if (round && user) {
-      setDeleting(true)
-      try {
-        const { error: delErr } = await deleteRound(supabase, round.id, user.id)
-        if (delErr) {
-          // eslint-disable-next-line no-console
-          console.error('[hole/exitFromError]', delErr.message)
-          Alert.alert('Could not discard round', delErr.message)
-          return
-        }
-      } finally {
-        setDeleting(false)
-        // Guard against clobbering a different dialog the user may have
-        // opened during the async window.
-        setActiveDialog(prev => (prev === 'exit' ? null : prev))
-      }
-    } else {
-      setActiveDialog(prev => (prev === 'exit' ? null : prev))
-    }
+  function handleExitFromError() {
+    // Leave to home WITHOUT deleting. A load error (network blip on a
+    // rounds-deep resume) or a missing hole means the round is still
+    // resumable — and synthetic no-layout courses are now playable (#614),
+    // so there's no "unplayable, discard it" case left to justify a delete.
+    // The old delete-on-exit destroyed a whole logged round on a transient
+    // failure, behind copy that claimed nothing was logged (#653). The
+    // round stays resumable, and is still deletable from the home list.
+    setActiveDialog(prev => (prev === 'exit' ? null : prev))
     router.replace('/(app)')
   }
 
