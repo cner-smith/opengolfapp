@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useLayoutEffect } from 'react'
 import { Gesture } from 'react-native-gesture-handler'
 import {
   runOnJS,
@@ -40,7 +40,10 @@ export function useSwipeToDismiss(onClose: () => void, isOpen = true) {
   const translateY = useSharedValue(0)
   const reduceMotion = useReducedMotion()
 
-  useEffect(() => {
+  // useLayoutEffect (not useEffect): apply the reset before the reopened
+  // subtree paints, so the card never shows one frame at the stale drag offset
+  // mid-open animation.
+  useLayoutEffect(() => {
     if (isOpen) translateY.value = 0
   }, [isOpen])
 
