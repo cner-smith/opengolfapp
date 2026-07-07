@@ -273,12 +273,26 @@ export function useHoleCamera({
     if (phase !== 'PLACE_BALL') return
     if (!cameraRef.current) return
     if (!ball) return
+    // Tighten the frame near the green so marking a ball on/around the green
+    // stays a green close-up. A flat zoom 17 (fairway-approach framing) read
+    // as a jarring zoom-out when marking a greenside/putt shot. Remaining
+    // distance (ball→pin) is the signal — same one SET_AIM uses. Capped at 17
+    // on the loose end so ≥80-yd approaches keep the existing framing; only
+    // the short end tightens. No pin resolvable → keep 17.
+    const target = roundPin ?? pin ?? null
+    const distYd = target ? distanceYards(ball, target) : null
+    const zoom =
+      distYd == null ? 17
+      : distYd >= 80 ? 17
+      : distYd >= 60 ? 17.5
+      : distYd >= 30 ? 18
+      : 19
     try {
       cameraRef.current.setCamera({
         centerCoordinate: toCoord(ball),
-        zoomLevel: 17,
+        zoomLevel: zoom,
         pitch: 0,
-        heading: headingUpTheHole(ball, roundPin ?? pin),
+        heading: headingUpTheHole(ball, target),
         animationDuration: 800,
       })
       reframePlaceBallRef.current = false
