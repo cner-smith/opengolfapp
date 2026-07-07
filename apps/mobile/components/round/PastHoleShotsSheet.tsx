@@ -158,7 +158,7 @@ export function PastHoleShotsSheet({
   // One <Modal> with discriminated content (list vs editor) — NOT two
   // sibling Modals. iOS allows one presented modal per presenter, so the
   // old stacked-Modal edit flow silently failed to present (#293/#495).
-  const { pan, cardStyle } = useSwipeToDismiss(onClose)
+  const { pan, cardStyle } = useSwipeToDismiss(onClose, visible)
 
   return (
     <Modal
