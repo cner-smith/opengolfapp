@@ -137,7 +137,7 @@ export function ShotLogger({
   const isOnGreen = value.lieType === 'green'
   // Swipe-dismiss for the non-putt card; the on-green branch delegates to
   // PuttingSheet, which owns its own swipe-dismiss.
-  const { pan, cardStyle } = useSwipeToDismiss(onClose)
+  const { pan, cardStyle } = useSwipeToDismiss(onClose, visible)
 
   return (
     <Modal

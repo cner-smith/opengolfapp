@@ -1,3 +1,4 @@
+import { useLayoutEffect } from 'react'
 import { Gesture } from 'react-native-gesture-handler'
 import {
   runOnJS,
@@ -23,14 +24,28 @@ import {
 //
 // On dismiss we don't animate translateY off-screen: the sheet's Modal owns
 // `animationType="slide"`, so it slides the card the rest of the way out from
-// wherever the drag left it, then unmounts its children — which disposes this
-// shared value, so the next open starts fresh at 0. No manual reset needed.
+// wherever the drag left it.
+//
+// The exit leaves translateY at the drag offset. Sheets that FULLY unmount on
+// close (rendered inside a parent <Modal>, e.g. PuttingSheet/ScorecardModal)
+// dispose this shared value and reopen fresh — they can omit `isOpen`. But
+// sheets that stay mounted and only toggle their OWN inner Modal's `visible`
+// (ShotLogger, PastHoleShotsSheet) keep the offset, so they reopen off-screen
+// (#644 residual). Pass `isOpen` and we reset to 0 on each (re)open — done
+// while hidden, so the exit animation is untouched.
 const DISMISS_DISTANCE = 120
 const DISMISS_VELOCITY = 800
 
-export function useSwipeToDismiss(onClose: () => void) {
+export function useSwipeToDismiss(onClose: () => void, isOpen = true) {
   const translateY = useSharedValue(0)
   const reduceMotion = useReducedMotion()
+
+  // useLayoutEffect (not useEffect): apply the reset before the reopened
+  // subtree paints, so the card never shows one frame at the stale drag offset
+  // mid-open animation.
+  useLayoutEffect(() => {
+    if (isOpen) translateY.value = 0
+  }, [isOpen])
 
   const pan = Gesture.Pan()
     // Only claim the gesture after a clear downward move, so a tap on the
