@@ -115,6 +115,9 @@ export default function Practice() {
             <PressableTouch
               accessibilityRole="button"
               accessibilityLabel="Learn articles"
+              // Extend the touch target to the ~44pt minimum without bloating
+              // the compact chip's visual height (padding stays 6).
+              hitSlop={{ top: 10, bottom: 10, left: 6, right: 6 }}
               style={{
                 flexDirection: 'row',
                 alignItems: 'center',
