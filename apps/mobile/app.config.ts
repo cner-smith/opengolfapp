@@ -9,6 +9,22 @@ const config: ExpoConfig = {
   slug: 'oga',
   scheme: 'oga',
   version: '1.0.0',
+  // EAS Update (OTA). Ships JS/asset-only fixes to installed builds WITHOUT an
+  // App Store / Play review — Apple/Google permit interpreted-code updates that
+  // don't add native code or change the app's purpose. Native changes (SDK/RN
+  // bumps, new modules, permission or icon changes) still need a new reviewed
+  // binary. The `fingerprint` runtimeVersion policy enforces exactly that: an
+  // OTA update only lands on a build whose native fingerprint matches, so a JS
+  // update can never reach a binary missing its native code. Channels → update
+  // branches are set per-profile in eas.json. NOTE: the FIRST expo-updates
+  // build must be submitted + approved once before OTA is live (the already-
+  // shipped store build has no updates runtime).
+  updates: {
+    url: 'https://u.expo.dev/f852bb53-02fc-46a1-b509-4b2170cb6d84',
+  },
+  runtimeVersion: {
+    policy: 'fingerprint',
+  },
   orientation: 'portrait',
   // New Architecture stays OFF for the SDK 53 migration. SDK 53 flips it
   // on by default, so this is an active opt-out (set during the SDK 52 step
