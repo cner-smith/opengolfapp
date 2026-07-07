@@ -113,6 +113,8 @@ export default function Practice() {
         right={
           <Link href={'/(app)/learn' as never} asChild>
             <PressableTouch
+              accessibilityRole="button"
+              accessibilityLabel="Learn articles"
               style={{
                 flexDirection: 'row',
                 alignItems: 'center',
@@ -124,8 +126,8 @@ export default function Practice() {
                 borderRadius: 2,
               }}
             >
-              <MaterialCommunityIcons name="book-open-variant" size={14} color="#F2EEE5" />
-              <Text style={{ color: '#F2EEE5', fontSize: 12, fontWeight: '600', letterSpacing: 0.3 }}>
+              <MaterialCommunityIcons name="book-open-variant" size={14} color={CREAM} />
+              <Text style={{ color: CREAM, fontSize: 12, fontWeight: '600', letterSpacing: 0.3 }}>
                 Learn
               </Text>
             </PressableTouch>
