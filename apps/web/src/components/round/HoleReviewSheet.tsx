@@ -5,6 +5,7 @@ import {
   buildInitialRows,
   formatClubLabel,
   haversineYards,
+  isPuttShot,
   type Club,
   type LieType,
   type PuttDirectionResult,
@@ -350,7 +351,7 @@ function ShotRow({
   // Putt-ness is user intent only — lie 'green' (set when a putt is placed)
   // or club 'putter'. Raw distance must NOT classify: a chip/bunker inside
   // 30 yd is not a putt, and unmapped rows read distanceToPin 0 (#660).
-  const isPutt = row.lieType === 'green' || row.club === 'putter'
+  const isPutt = isPuttShot(row.lieType, row.club)
   const { toDisplay, toDisplayFt } = useUnits()
   const { bag } = useUserBag()
   // Source the club options from the user's bag, falling back to

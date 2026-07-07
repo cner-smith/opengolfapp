@@ -12,6 +12,7 @@ import {
   formatDistance,
   formatPuttDistance,
   haversineYards,
+  isPuttShot,
   type Club,
   type DistanceUnit,
   type LieType,
@@ -124,8 +125,17 @@ export function ShotEntryModal({
   const holeShotsRef = useRef(holeShots)
   holeShotsRef.current = holeShots
 
+  // Highest shot_number this session has issued for the current hole. Guards
+  // the refetch race: useCreateShot invalidates without awaiting, so a fast
+  // second add can fire before holeShotsRef reflects the first insert — the
+  // fresh-max alone would then repeat a number. max(freshMax, lastIssued)+1
+  // stays monotonic across consecutive adds regardless of refetch timing.
+  // Reset per hole (effect below).
+  const lastIssuedNumberRef = useRef(0)
+
   useEffect(() => {
     if (editing) return
+    lastIssuedNumberRef.current = 0
     const len = holeShotsRef.current.length
     setDraft(emptyDraft(len + 1, len === 0))
   }, [holeScoreId, editing])
@@ -148,10 +158,13 @@ export function ShotEntryModal({
     // stale render closure, so a second consecutive add reused the previous
     // number and hit the unique (hole_score_id, shot_number) constraint —
     // silently, since the old catch only rethrew (#661). holeShots is sorted
-    // ascending, so the last element carries the max.
+    // ascending, so the last element carries the max; lastIssuedNumberRef
+    // covers the fast-second-add-before-refetch case (see its declaration).
+    const freshMax = holeShotsRef.current.at(-1)?.shot_number ?? 0
     const shotNumber = editing
       ? draft.shotNumber
-      : (holeShotsRef.current.at(-1)?.shot_number ?? 0) + 1
+      : Math.max(freshMax, lastIssuedNumberRef.current) + 1
+    if (!editing) lastIssuedNumberRef.current = shotNumber
     const isPuttSave = draft.lieType === 'green'
     const made =
       opts?.madeOverride === true
@@ -248,8 +261,7 @@ export function ShotEntryModal({
     // the pin so SG for this shot stays accurate. Skipped for putts
     // (distance_to_target stays null; putt_distance_ft tracks that flow
     // and isn't auto-recalculated on drag).
-    const editIsPutt =
-      editingRow.lie_type === 'green' || editingRow.club === 'putter'
+    const editIsPutt = isPuttShot(editingRow.lie_type, editingRow.club)
     const newDistance =
       !editIsPutt && pinLat != null && pinLng != null
         ? Math.round(haversineYards(point.lat, point.lng, pinLat, pinLng))
@@ -628,7 +640,7 @@ function formatShotSummary(
   next: ShotRow | undefined,
   unit: DistanceUnit,
 ): string {
-  if (s.lie_type === 'green' || s.club === 'putter') {
+  if (isPuttShot(s.lie_type, s.club)) {
     const result =
       (s.putt_result &&
         PUTT_RESULT_LABELS[s.putt_result as keyof typeof PUTT_RESULT_LABELS]) ??
