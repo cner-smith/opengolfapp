@@ -1,5 +1,31 @@
 # Changelog
 
+## [1.1.0](https://github.com/cner-smith/opengolfapp/compare/v1.0.2...v1.1.0) (2026-07-07)
+
+
+### Features
+
+* **mobile:** Learn access point in the Practice header ([#524](https://github.com/cner-smith/opengolfapp/issues/524)) ([#688](https://github.com/cner-smith/opengolfapp/issues/688)) ([367a21b](https://github.com/cner-smith/opengolfapp/commit/367a21bb611c2e58839ea394d6d8da1e46aa314a))
+* **mobile:** swipe-down-to-dismiss for live-round bottom sheets ([#646](https://github.com/cner-smith/opengolfapp/issues/646)) ([60c3160](https://github.com/cner-smith/opengolfapp/commit/60c316095eb58714dd38e6aba99a54c95e19bdb7))
+
+
+### Bug Fixes
+
+* **core:** stats correctness — SG inflation, GIR inference, mobile handicap baseline ([#668](https://github.com/cner-smith/opengolfapp/issues/668), [#669](https://github.com/cner-smith/opengolfapp/issues/669), [#673](https://github.com/cner-smith/opengolfapp/issues/673)) ([#680](https://github.com/cner-smith/opengolfapp/issues/680)) ([130f3d0](https://github.com/cner-smith/opengolfapp/commit/130f3d037414b611b63d036f1d650249c87f2d28))
+* **mobile:** harden shot sync queue + completeRound sync race ([#651](https://github.com/cner-smith/opengolfapp/issues/651), [#652](https://github.com/cner-smith/opengolfapp/issues/652)) ([#681](https://github.com/cner-smith/opengolfapp/issues/681)) ([62f54c5](https://github.com/cner-smith/opengolfapp/commit/62f54c56814f53f0befd83008b292cad6624b3b9))
+* **mobile:** live-round camera — past-round up-the-hole orientation + greenside PLACE_BALL zoom ([#686](https://github.com/cner-smith/opengolfapp/issues/686)) ([e342ea3](https://github.com/cner-smith/opengolfapp/commit/e342ea3226560a97d7a31a78150fc082dd641fa0))
+* **mobile:** live-round data-loss traps — 9-hole phantom resume + load-error delete ([#650](https://github.com/cner-smith/opengolfapp/issues/650), [#653](https://github.com/cner-smith/opengolfapp/issues/653)) ([#682](https://github.com/cner-smith/opengolfapp/issues/682)) ([793b3aa](https://github.com/cner-smith/opengolfapp/commit/793b3aad8e08248e604a310a5c66962801793bb0))
+* **mobile:** review polish — Learn chip hitSlop + PastRoundMap OKC guard ([#693](https://github.com/cner-smith/opengolfapp/issues/693)) ([e89e3fe](https://github.com/cner-smith/opengolfapp/commit/e89e3fe99ad37f366a025606f7cd9a8fe10e6a10))
+* **mobile:** swipe-dismissed sheets reopen off-screen ([#644](https://github.com/cner-smith/opengolfapp/issues/644) residual) ([#687](https://github.com/cner-smith/opengolfapp/issues/687)) ([3e836d8](https://github.com/cner-smith/opengolfapp/commit/3e836d819783a04ab4a66b9ce9c043c65533041d))
+* **web:** bump shot_number guard only after a successful insert ([#690](https://github.com/cner-smith/opengolfapp/issues/690)) ([1716d3e](https://github.com/cner-smith/opengolfapp/commit/1716d3e7a5efa39028b7e9ba2a16efa02594e3bf))
+* **web:** save-path data-integrity cluster ([#660](https://github.com/cner-smith/opengolfapp/issues/660), [#662](https://github.com/cner-smith/opengolfapp/issues/662), [#664](https://github.com/cner-smith/opengolfapp/issues/664), [#661](https://github.com/cner-smith/opengolfapp/issues/661)) ([#683](https://github.com/cner-smith/opengolfapp/issues/683)) ([9f619bc](https://github.com/cner-smith/opengolfapp/commit/9f619bc584031dbc824a010ddb75efebc3850ac1))
+
+
+### Chores
+
+* CI web-build job + audit doc/hygiene corrections ([#674](https://github.com/cner-smith/opengolfapp/issues/674), [#675](https://github.com/cner-smith/opengolfapp/issues/675), [#676](https://github.com/cner-smith/opengolfapp/issues/676)) ([#684](https://github.com/cner-smith/opengolfapp/issues/684)) ([8cc8c97](https://github.com/cner-smith/opengolfapp/commit/8cc8c97101d1f9cb175a95f8936efae644b5a656))
+* **mobile:** set up EAS Update (OTA) for review-free JS shipping ([#689](https://github.com/cner-smith/opengolfapp/issues/689)) ([fc180f8](https://github.com/cner-smith/opengolfapp/commit/fc180f8ff26632fad2e78c420af8b40d8d3ee23c))
+
 ## [1.0.2](https://github.com/cner-smith/opengolfapp/compare/v1.0.1...v1.0.2) (2026-07-02)
 
 
