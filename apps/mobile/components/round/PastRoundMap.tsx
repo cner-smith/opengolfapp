@@ -183,7 +183,11 @@ export function PastRoundMap({
         : null,
     [currentHole],
   )
-  const center = effectivePin ?? tee ?? courseCenter ?? OKC_FALLBACK
+  // Tee-first so the camera orients "up the hole" — useHoleCamera computes
+  // heading from center→pin, and centering on the pin (as before) made
+  // origin == target, collapsing the bearing to north-up. Mirrors the live
+  // view's center priority (LiveRoundSession: tee ?? courseCenter ?? ball).
+  const center = tee ?? effectivePin ?? courseCenter ?? OKC_FALLBACK
 
   const [placed, setPlaced] = useState<PlacedShot[]>([])
   const [activeIdx, setActiveIdx] = useState(0)
