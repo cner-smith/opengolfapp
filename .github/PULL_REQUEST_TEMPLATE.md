@@ -9,7 +9,7 @@
 - [ ] Docs
 
 ## Testing
-- [ ] pnpm typecheck passes (4/4)
+- [ ] pnpm typecheck passes (3/3 workspace packages)
 - [ ] pnpm test passes (all)
 - [ ] pnpm --filter web build passes
 - [ ] Tested in browser at localhost:5173

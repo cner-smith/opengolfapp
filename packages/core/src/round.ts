@@ -47,6 +47,21 @@ export interface ReviewedShotRow {
   /** Direction miss axis — independent of distance. Stored as
    *  putt_direction_result. */
   puttDirectionResult?: PuttDirectionResult
+  /** Aim/start-line offset in inches from the pin line (negative = left).
+   *  Stored as aim_offset_yards (inches / 36). */
+  aimOffsetInches?: number
+  /** Break slope axis — uphill / flat / downhill. Stored as
+   *  break_direction_vertical (+ combined break_direction). */
+  breakDirectionVertical?: BreakDirectionVertical
+  /** Break line axis — usually derived from the aim offset. Stored as
+   *  break_direction_horizontal (+ combined break_direction). */
+  breakDirectionHorizontal?: BreakDirectionHorizontal
+  /** Slope intensity bucket 0-4 (Flat…Severe). Stored as putt_slope_pct. */
+  puttSlopePct?: number
+  /** Green speed — slow / medium / fast. Stored as green_speed. */
+  greenSpeed?: GreenSpeed
+  /** Free-text note on the putt. Stored as notes. */
+  notes?: string
 }
 
 // Infer how many holes a course actually has from the hole NUMBERS we
@@ -62,6 +77,20 @@ export interface ReviewedShotRow {
 export function inferHoleCount(holeNumbers: number[]): 9 | 18 {
   if (holeNumbers.length === 0) return 18
   return Math.max(...holeNumbers) <= 9 ? 9 : 18
+}
+
+// Single source of truth for putt classification: a shot is a putt when its
+// lie is the green or its club is the putter. Feeds putt counts, the putt-only
+// persisted columns, and SG putting, so every surface must agree. Distance to
+// the pin must NOT factor in — a near-green chip isn't a putt, and unmapped
+// rows read distanceToPin 0 (#660, which was a drift between hand-copied
+// predicates). Takes raw fields (not a shaped row) so camelCase ReviewedShotRow
+// and snake_case DB rows share it.
+export function isPuttShot(
+  lieType: string | null | undefined,
+  club: string | null | undefined,
+): boolean {
+  return lieType === 'green' || club === 'putter'
 }
 
 export function buildInitialRows(

@@ -52,9 +52,10 @@ on EAS Cloud and install on the device via **internal (ad-hoc) distribution**; a
 simulator build is not useful here (it only runs in the macOS Simulator).
 
 ### Config status (already in place — #298/#304/#305 satisfied)
-- `eas.json` — all three profiles carry iOS keys. `development`/`preview` use
-  `ios.simulator: false` (device builds); `production` omits a platform key so
-  it builds both OSes. **No eas.json change needed.**
+- `eas.json` — all three profiles carry an `ios` key. `development`/`preview`
+  set `ios.simulator: false` (device builds); `production` pins
+  `ios.image` (the Xcode build image) and defaults to a device build.
+  **No eas.json change needed.**
 - `app.config.ts` `ios` — bundle id `golf.oga.app`, `buildNumber: '1'` (seed for
   `autoIncrement` with `appVersionSource: 'remote'`), `supportsTablet`,
   `ITSAppUsesNonExemptEncryption: false` (#304), `NSLocationWhenInUseUsage…`,
@@ -96,12 +97,10 @@ simulator build is not useful here (it only runs in the macOS Simulator).
 - [ ] App opens, brand splash → login screen, no cold-start crash.
 - [ ] Mapbox tiles render on a live-round map (validates BOTH tokens +
       `@rnmapbox/maps` iOS config).
-- [ ] Fonts: Fraunces headings render. **Known gap:** `JetBrainsMono-Medium`
-      is referenced in 2 places but is **not bundled** (no font file, not in
-      `useFonts` in `app/_layout.tsx`) — those mono labels fall back to the
-      system font on iOS *and* Android. Cosmetic, pre-existing, not a crash.
-      Decide before launch: bundle the font (OFL, add to `assets/fonts/` +
-      `useFonts`) or drop the 2 `fontFamily: 'JetBrainsMono-Medium'` refs.
+- [ ] Fonts: Fraunces headings + Inconsolata mono labels render. (The old
+      JetBrainsMono-Medium gap is closed — the typography migration replaced
+      every JetBrainsMono ref with bundled Inconsolata; no unbundled font
+      remains.)
 - [ ] VoiceOver on → navigate the rounds list, hear structured labels
       (cross-platform check of the merged a11y work).
 - [ ] iOS press feedback (#303) — controls dim on press; a non-played

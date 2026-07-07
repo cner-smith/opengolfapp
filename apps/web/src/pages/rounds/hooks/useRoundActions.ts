@@ -5,10 +5,12 @@ import type { User } from '@supabase/supabase-js'
 import type { Database } from '@oga/supabase'
 import { toBlob } from 'html-to-image'
 import {
+  combinedBreakDirection,
   combinedPuttResult,
   DEFAULT_HANDICAP,
   haversineYards,
   inferHoleStats,
+  isPuttShot,
   NEAR_GREEN_YARDS,
 } from '@oga/core'
 import type { PlacedPoint } from '../../../components/round/RoundMap'
@@ -374,7 +376,13 @@ export function useRoundActions(input: UseRoundActionsInput): UseRoundActionsRes
           updates: {
             start_lat: point.lat,
             start_lng: point.lng,
-            ...(isPutt ? {} : { distance_to_target: newDistance }),
+            // Only rewrite distance when a pin actually resolves. Without
+            // this guard, dragging a shot on an unmapped/pin-less hole wrote
+            // distance_to_target: null and destroyed a previously valid
+            // stored distance (#662).
+            ...(!isPutt && effectivePin
+              ? { distance_to_target: newDistance }
+              : {}),
           },
         })
       } catch (err) {
@@ -572,13 +580,11 @@ export function useRoundActions(input: UseRoundActionsInput): UseRoundActionsRes
         // derived from the rows so the scorecard reflects what was placed
         // without needing a manual entry.
         const existing = scoresByHoleId.get(activeHole.id)
-        // Match HoleReviewSheet's isPutt — any shot starting within 30 yd
-        // of the pin counts as a putt for the scorecard's putt total.
-        const puttCount = rows.filter(
-          (r) =>
-            r.lieType === 'green' ||
-            r.club === 'putter' ||
-            r.distanceToPin <= NEAR_GREEN_YARDS,
+        // Match HoleReviewSheet's isPutt — putt-ness is user intent (lie
+        // 'green', set when a putt is placed, or club 'putter'), never raw
+        // distance (a near-green chip isn't a putt; unmapped rows read 0).
+        const puttCount = rows.filter((r) =>
+          isPuttShot(r.lieType, r.club),
         ).length
         // Materialize the synthetic hole if needed before upserting the
         // hole_score (FK to holes.id). The RPC inserts only (course_id,
@@ -592,13 +598,17 @@ export function useRoundActions(input: UseRoundActionsInput): UseRoundActionsRes
         // manual entries from HoleScoreCard win via the ?? — re-saving
         // the map review never silently overwrites a value the player
         // explicitly toggled on the scorecard.
+        // holedOut=true: this flow is holed-out by construction — the final
+        // marker's end is the pin and `score: rows.length` below asserts the
+        // placed shots ARE the whole hole. Lets aces / holed approaches count
+        // as GIR (#669).
         const inferred = inferHoleStats(
           rows.map((r) => ({
             shot_number: r.shotNumber,
             lie_type: r.lieType,
-            shot_result: null,
           })),
           activeHole.par,
+          true,
         )
         const hsResult = await upsertHoleScore.mutateAsync({
           id: existing?.id,
@@ -608,6 +618,13 @@ export function useRoundActions(input: UseRoundActionsInput): UseRoundActionsRes
           putts: puttCount,
           fairway_hit: existing?.fairway_hit ?? inferred.fairway,
           gir: existing?.gir ?? inferred.gir,
+          // Persist a manually placed pin. On unmapped courses no hole_scores
+          // row exists until this upsert, so persistRoundPin's update no-ops
+          // and the pin lived only in pinOverride state — lost on reload and
+          // then nulling shot distances on drag (#662). This is the write.
+          ...(pinOverride
+            ? { pin_lat: pinOverride.lat, pin_lng: pinOverride.lng }
+            : {}),
         })
         const hs = hsResult ?? existing
         if (!hs) throw new Error('hole_score upsert returned no row')
@@ -625,10 +642,7 @@ export function useRoundActions(input: UseRoundActionsInput): UseRoundActionsRes
         if (delErr) throw delErr
 
         for (const row of rows) {
-          const isPuttRow =
-            row.lieType === 'green' ||
-            row.club === 'putter' ||
-            row.distanceToPin <= NEAR_GREEN_YARDS
+          const isPuttRow = isPuttShot(row.lieType, row.club)
           // Persist the aim only if the player actually set/dragged it — an
           // untouched auto-spawn suggestion is dropped so it can't enter the
           // dispersion dataset (aim must be explicit to count).
@@ -669,7 +683,28 @@ export function useRoundActions(input: UseRoundActionsInput): UseRoundActionsRes
               !isPuttRow || row.puttMade ? null : row.puttDistanceResult ?? null,
             putt_direction_result:
               !isPuttRow || row.puttMade ? null : row.puttDirectionResult ?? null,
-            notes: null,
+            // Green read — persisted regardless of make/miss. Mirrors the
+            // ShotEntryModal (past-round) writer so both surfaces store the
+            // same columns. aim_offset_yards = inches / 36 (1dp).
+            putt_slope_pct: isPuttRow ? row.puttSlopePct ?? null : null,
+            green_speed: isPuttRow ? row.greenSpeed ?? null : null,
+            break_direction: isPuttRow
+              ? combinedBreakDirection({
+                  vertical: row.breakDirectionVertical,
+                  horizontal: row.breakDirectionHorizontal,
+                })
+              : null,
+            break_direction_vertical: isPuttRow
+              ? row.breakDirectionVertical ?? null
+              : null,
+            break_direction_horizontal: isPuttRow
+              ? row.breakDirectionHorizontal ?? null
+              : null,
+            aim_offset_yards:
+              isPuttRow && row.aimOffsetInches != null
+                ? Math.round((row.aimOffsetInches / 36) * 10) / 10
+                : null,
+            notes: row.notes ?? null,
           })
         }
         // Cap auto-advance to the course's expected hole count — passing
