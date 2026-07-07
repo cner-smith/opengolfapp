@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from 'react-native'
 import { Link } from 'expo-router'
+import { MaterialCommunityIcons } from '@expo/vector-icons'
 import type { StoredBlock, StoredFocusArea, StoredSession } from '@oga/core'
 import { AppBar } from '../../components/ui/AppBar'
 import { Entrance } from '../../components/ui/Entrance'
@@ -106,7 +107,31 @@ export default function Practice() {
 
   return (
     <View style={{ flex: 1, backgroundColor: CREAM }}>
-      <AppBar eyebrow="Today's focus" title="Practice" />
+      <AppBar
+        eyebrow="Today's focus"
+        title="Practice"
+        right={
+          <Link href={'/(app)/learn' as never} asChild>
+            <PressableTouch
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 5,
+                paddingVertical: 6,
+                paddingHorizontal: 11,
+                borderWidth: 1,
+                borderColor: 'rgba(242,238,229,0.25)',
+                borderRadius: 2,
+              }}
+            >
+              <MaterialCommunityIcons name="book-open-variant" size={14} color="#F2EEE5" />
+              <Text style={{ color: '#F2EEE5', fontSize: 12, fontWeight: '600', letterSpacing: 0.3 }}>
+                Learn
+              </Text>
+            </PressableTouch>
+          </Link>
+        }
+      />
       <ScrollView contentContainerStyle={{ padding: 18, paddingBottom: 48 }}>
         {loading ? (
           <View style={{ paddingTop: 48, alignItems: 'center' }}>
