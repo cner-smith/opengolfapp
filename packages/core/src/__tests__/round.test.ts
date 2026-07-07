@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   buildInitialRows,
   inferHoleCount,
+  isPuttShot,
   legacySlopeToAxes,
   type PlacedPoint,
 } from '../round'
@@ -108,6 +109,25 @@ describe('buildInitialRows', () => {
     expect(rows).toHaveLength(1)
     expect(rows[0]!.isLastShot).toBe(true)
     expect(rows[0]!.endLat).toBe(PIN)
+  })
+})
+
+describe('isPuttShot', () => {
+  it('green lie is a putt', () => {
+    expect(isPuttShot('green', 'driver')).toBe(true)
+  })
+  it('putter club is a putt', () => {
+    expect(isPuttShot('fairway', 'putter')).toBe(true)
+  })
+  it('near-green chip (rough/wedge) is NOT a putt', () => {
+    expect(isPuttShot('rough', 'gap-wedge')).toBe(false)
+  })
+  it('sand shot is NOT a putt', () => {
+    expect(isPuttShot('sand', '56')).toBe(false)
+  })
+  it('null/undefined fields are NOT a putt', () => {
+    expect(isPuttShot(null, null)).toBe(false)
+    expect(isPuttShot(undefined, undefined)).toBe(false)
   })
 })
 

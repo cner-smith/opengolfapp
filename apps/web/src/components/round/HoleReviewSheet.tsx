@@ -2,10 +2,10 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   DEFAULT_BAG,
   LIE_TYPES,
-  NEAR_GREEN_YARDS,
   buildInitialRows,
   formatClubLabel,
   haversineYards,
+  isPuttShot,
   type Club,
   type LieType,
   type PuttDirectionResult,
@@ -124,8 +124,11 @@ export function HoleReviewSheet({
       baseRows.map((row, idx) => {
         const inline = putts[idx]
         if (!inline) return row
+        // A placed putt is on the green by definition — pin lieType so putt
+        // classification keys off real intent (lie/club), not raw distance.
         return {
           ...row,
+          lieType: 'green',
           puttMade: inline.puttMade,
           puttDistanceResult: inline.puttDistanceResult,
           puttDirectionResult: inline.puttDirectionResult,
@@ -345,12 +348,10 @@ function ShotRow({
   // Mirror mobile's PUTTING_RADIUS_YARDS — any shot starting within 30 yd
   // of the pin gets the putt entry surface (made/short/long, miss left/
   // right, distance in feet) rather than the standard club + lie row.
-  // Lie-type 'green' and club 'putter' still trigger it, so an explicit
-  // putt row stays a putt even if the start coords drifted past 30 yd.
-  const isPutt =
-    row.lieType === 'green' ||
-    row.club === 'putter' ||
-    row.distanceToPin <= NEAR_GREEN_YARDS
+  // Putt-ness is user intent only — lie 'green' (set when a putt is placed)
+  // or club 'putter'. Raw distance must NOT classify: a chip/bunker inside
+  // 30 yd is not a putt, and unmapped rows read distanceToPin 0 (#660).
+  const isPutt = isPuttShot(row.lieType, row.club)
   const { toDisplay, toDisplayFt } = useUnits()
   const { bag } = useUserBag()
   // Source the club options from the user's bag, falling back to
