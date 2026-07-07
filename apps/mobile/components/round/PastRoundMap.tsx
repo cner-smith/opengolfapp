@@ -185,9 +185,12 @@ export function PastRoundMap({
   )
   // Tee-first so the camera orients "up the hole" — useHoleCamera computes
   // heading from center→pin, and centering on the pin (as before) made
-  // origin == target, collapsing the bearing to north-up. Mirrors the live
-  // view's center priority (LiveRoundSession: tee ?? courseCenter ?? ball).
-  const center = tee ?? effectivePin ?? courseCenter ?? OKC_FALLBACK
+  // origin == target, collapsing the bearing to north-up. Pin is deliberately
+  // NOT in the fallback chain, matching the live view (LiveRoundSession:
+  // tee ?? courseCenter ?? ball): a hole with a round-pin but no surveyed tee
+  // would otherwise resolve center == pin and re-collapse the heading. When no
+  // tee resolves, courseCenter still gives a non-coincident origin.
+  const center = tee ?? courseCenter ?? OKC_FALLBACK
 
   const [placed, setPlaced] = useState<PlacedShot[]>([])
   const [activeIdx, setActiveIdx] = useState(0)
