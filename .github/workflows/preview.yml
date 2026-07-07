@@ -55,3 +55,20 @@ jobs:
         run: cd packages/core && npm install --legacy-peer-deps
       - name: Mobile typecheck
         run: cd apps/mobile && npm install --legacy-peer-deps && npm run typecheck
+
+  web-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v3
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      - run: pnpm install
+      # Exercises the real Vite/rollup production build (vercel.json's
+      # buildCommand) — tsc -b doesn't catch asset/import resolution breaks
+      # that only surface at deploy time. (#674)
+      - run: pnpm --filter @oga/web build

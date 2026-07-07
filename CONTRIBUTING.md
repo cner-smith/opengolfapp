@@ -10,7 +10,7 @@ dependencies, link a Supabase project, apply migrations, set env vars.
 Confirm a clean baseline before touching code:
 
 ```bash
-pnpm typecheck       # 4 packages must be clean
+pnpm typecheck       # 3 workspace packages (core, supabase, web) must be clean
 pnpm test            # Vitest, in @oga/core
 pnpm --filter web build
 cd apps/mobile && npm run typecheck

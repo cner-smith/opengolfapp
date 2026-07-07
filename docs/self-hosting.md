@@ -92,7 +92,7 @@ Sign in to your deployed app as `demo@oga.app` / `ogademo123`.
 
 ## 5. Deploy the web app
 
-The repo has a `vercel.json` configured for the monorepo, so the easiest path is the README's deploy button or:
+The repo has a `vercel.json` configured for the monorepo, so the easiest path is to import the repo into Vercel (it auto-detects the config) or:
 
 ```bash
 npm i -g vercel
