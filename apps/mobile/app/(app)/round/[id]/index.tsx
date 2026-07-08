@@ -416,13 +416,16 @@ export default function RoundIndex() {
           style: 'destructive',
           onPress: async () => {
             setDeleting(true)
-            const { error: delErr } = await deleteRound(supabase, round.id, user.id)
-            if (delErr) {
+            try {
+              const { error: delErr } = await deleteRound(supabase, round.id, user.id)
+              if (delErr) throw delErr
+              router.replace('/(app)')
+            } catch (e) {
+              // Reset so the `deleting` guard can't wedge the button on retry;
+              // surface the reason instead of hanging on "Deleting…" forever.
               setDeleting(false)
-              Alert.alert('Delete failed', delErr.message)
-              return
+              Alert.alert('Delete failed', (e as Error).message)
             }
-            router.replace('/(app)')
           },
         },
       ],
