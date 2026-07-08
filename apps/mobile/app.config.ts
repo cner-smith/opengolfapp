@@ -13,17 +13,25 @@ const config: ExpoConfig = {
   // App Store / Play review — Apple/Google permit interpreted-code updates that
   // don't add native code or change the app's purpose. Native changes (SDK/RN
   // bumps, new modules, permission or icon changes) still need a new reviewed
-  // binary. The `fingerprint` runtimeVersion policy enforces exactly that: an
-  // OTA update only lands on a build whose native fingerprint matches, so a JS
-  // update can never reach a binary missing its native code. Channels → update
-  // branches are set per-profile in eas.json. NOTE: the FIRST expo-updates
-  // build must be submitted + approved once before OTA is live (the already-
-  // shipped store build has no updates runtime).
+  // binary — bump `version` when you ship one so the OTA runtimeVersion moves
+  // with it (see policy note below). Channels → update branches are set
+  // per-profile in eas.json. NOTE: the FIRST expo-updates build must be
+  // submitted + approved once before OTA is live (the already-shipped store
+  // build has no updates runtime).
   updates: {
     url: 'https://u.expo.dev/f852bb53-02fc-46a1-b509-4b2170cb6d84',
   },
+  // `appVersion`, NOT `fingerprint`. The fingerprint policy makes EAS recompute
+  // a native fingerprint on its build servers ("Configure expo-updates" phase),
+  // which diverges/fails in a monorepo where node_modules/lockfile resolution
+  // differs server-side vs local — worse with expo-sqlite present (both true
+  // here). It failed both prod builds 2026-07-07 with an opaque "Unknown error";
+  // fingerprint computed fine locally but not on EAS. See expo/expo#43831 (open,
+  // no upstream fix). appVersion derives runtimeVersion from `version` (1.0.0),
+  // computed identically local + on EAS — OTA is fully retained; just remember
+  // to bump `version` on any release that changes native code.
   runtimeVersion: {
-    policy: 'fingerprint',
+    policy: 'appVersion',
   },
   orientation: 'portrait',
   // New Architecture stays OFF for the SDK 53 migration. SDK 53 flips it
