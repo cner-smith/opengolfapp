@@ -232,6 +232,7 @@ describe('computeRoundSG (sg.ts) — DB row → result adapter', () => {
       round_id: overrides.round_id ?? 'r',
       hole_id: overrides.hole_id ?? 'h1',
       score: overrides.score ?? 4,
+      par: overrides.par ?? null,
       putts: overrides.putts ?? null,
       fairway_hit: overrides.fairway_hit ?? null,
       gir: overrides.gir ?? null,
