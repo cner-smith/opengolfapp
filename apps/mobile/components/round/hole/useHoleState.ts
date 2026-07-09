@@ -42,6 +42,9 @@ export interface UseHoleStateResult {
   roundState: RoundState
   setRoundState: Dispatch<SetStateAction<RoundState>>
   gpsPosition: LatLng | null
+  /** Epoch ms of the newest fix behind gpsPosition (the fix's own
+   *  timestamp — stale cache replays report their true age). 0 = none. */
+  gpsFixAtRef: MutableRefObject<number>
   kalmanStateRef: MutableRefObject<KalmanState | null>
   manuallyPlacedRef: MutableRefObject<boolean>
   lastSavedShotLocalIdRef: MutableRefObject<number | null>
@@ -98,6 +101,10 @@ export function useHoleState({
   const hasMountedHoleRef = useRef(false)
   const [roundState, setRoundState] = useState<RoundState>('PLACE_BALL')
   const [gpsPosition, setGpsPosition] = useState<LatLng | null>(null)
+  // Epoch ms of the fix behind gpsPosition — the fix's OWN timestamp, so
+  // cache replays and last-known seeds report their true age. 0 until any
+  // fix arrives. Lets markBallHere decline a stale fallback fix (#720).
+  const gpsFixAtRef = useRef(0)
   const [gpsNonce, setGpsNonce] = useState(0)
   // First-use hint that "aim point = start line, drag to adjust." Gated
   // by AsyncStorage so it only appears the first time the player ever
@@ -231,7 +238,18 @@ export function useHoleState({
           // gpsPosition so the recenter button and "Mark ball" CTA aren't
           // greyed on hole load.
           const last = await locationManager.getLastKnownLocation()
-          if (active && last) {
+          if (
+            active &&
+            last &&
+            // Same defense-in-depth NaN guard as the listener path below
+            // (#275) — this seed flows to the recenter camera and nearPin
+            // un-gated, and (via gpsPosition) to markBallHere's fallback.
+            Number.isFinite(last.coords.latitude) &&
+            Number.isFinite(last.coords.longitude)
+          ) {
+            // Record the fix's OWN timestamp (not now) so markBallHere can
+            // decline a stale cached fix; absent timestamp = treat as stale.
+            gpsFixAtRef.current = last.timestamp ?? 0
             setGpsPosition({
               lat: last.coords.latitude,
               lng: last.coords.longitude,
@@ -271,6 +289,10 @@ export function useHoleState({
           // Functional update with an identity bailout: returning `prev` on
           // identical coords (duplicate ticks, the addListener cache replay)
           // skips the re-render entirely.
+          // Record the fix's own timestamp so markBallHere can tell a live
+          // tick from a stale cache replay when gpsPosition is its only
+          // source (#720).
+          gpsFixAtRef.current = rawPoint.timestamp
           setGpsPosition((prev) =>
             prev && prev.lat === rawPoint.lat && prev.lng === rawPoint.lng
               ? prev
@@ -313,6 +335,13 @@ export function useHoleState({
         // once is enough. At rest there are simply no ticks — a stationary
         // player's held gpsPosition is still correct, so the old 5 s
         // heartbeat has no equivalent need here.
+        // The awaits above (permission race, last-known IPC) leave a window
+        // where the app can background: the AppState handler finds
+        // gpsSubscriptionRef null (no-op), so this continuation would attach
+        // anyway — addListener unconditionally start()s the engine, leaving
+        // GPS running for the whole backgrounded stretch (#720). Bail; the
+        // foreground gpsNonce bump re-runs the effect.
+        if (!active || AppState.currentState !== 'active') return
         locationManager.setMinDisplacement(5)
         // addListener auto-starts the engine; removeListener auto-stops it
         // when the last listener detaches (both synchronous — no in-flight
@@ -430,6 +459,7 @@ export function useHoleState({
     roundState,
     setRoundState,
     gpsPosition,
+    gpsFixAtRef,
     kalmanStateRef,
     manuallyPlacedRef,
     lastSavedShotLocalIdRef,
