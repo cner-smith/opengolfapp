@@ -177,31 +177,106 @@ export function useHoleData(
   // resolve after a newer run started are silently dropped. (#284)
   const fetchNonceRef = useRef(0)
   useEffect(() => {
+    // Reset to the neutral "unknown" state synchronously, before the async
+    // fetch below resolves. Without this, a hole switch during the fetch
+    // RTT leaves the PREVIOUS hole's counts in state — e.g. `hasPriorShots`
+    // (LiveRoundSession) reads a stale true/false and the tee-default effect
+    // can place a ball marker on a hole the player is only reviewing (#720
+    // item 2). 0/[] also matches the true pre-fetch state of a fresh hole,
+    // so this isn't a behavior change for the common case.
+    setRemoteShotCount(0)
+    setRemotePuttCount(0)
+    setRemoteShotStarts([])
+    setPendingForHole([])
     if (!currentHoleScore) return
     const myNonce = ++fetchNonceRef.current
     ;(async () => {
-      const [shotsRes, local] = await Promise.all([
-        supabase
-          .from('shots')
-          .select('club, lie_type, shot_number, start_lat, start_lng')
-          .eq('hole_score_id', currentHoleScore.id)
-          .order('shot_number'),
-        pendingShotsForHoleScore(currentHoleScore.id),
-      ])
-      if (myNonce !== fetchNonceRef.current) return
-      const shots = shotsRes.data ?? []
-      setRemoteShotCount(shots.length)
-      setRemotePuttCount(
-        shots.filter((s) => s.club === 'putter' || s.lie_type === 'green').length,
-      )
-      const starts: LatLng[] = []
-      for (const r of shots) {
-        if (r.start_lat != null && r.start_lng != null) {
-          starts.push({ lat: r.start_lat, lng: r.start_lng })
+      try {
+        const fetchShots = () =>
+          supabase
+            .from('shots')
+            .select('id, club, lie_type, shot_number, start_lat, start_lng')
+            .eq('hole_score_id', currentHoleScore.id)
+            .order('shot_number')
+        const [shotsResInitial, localInitial] = await Promise.all([
+          fetchShots(),
+          // The SQLite read gets the same one-retry treatment as the remote
+          // fetch below — a transient rejection must not leave the neutral
+          // reset committed as a confident local=0 the save path could
+          // collide on (same class as the remote arm of #712).
+          pendingShotsForHoleScore(currentHoleScore.id).catch(() => null),
+        ])
+        if (myNonce !== fetchNonceRef.current) return
+        let local = localInitial
+        if (local === null) {
+          local = await pendingShotsForHoleScore(currentHoleScore.id).catch(
+            () => null,
+          )
+          if (myNonce !== fetchNonceRef.current) return
+          if (local === null) {
+            if (__DEV__) {
+              console.warn('[hole/pending-fetch] SQLite read failed twice')
+            }
+            return
+          }
+        }
+        let shotsRes = shotsResInitial
+        if (shotsRes.error) {
+          // postgrest-js returns failures in-band ({data: null, error}) —
+          // the promise resolves normally, so this can't be caught by the
+          // outer try/catch. One retry covers most transient failures
+          // (mirrors the sync.ts chunk-upsert retry); if it fails twice,
+          // leave counts at the neutral reset above rather than committing
+          // a confident remote=0 that the save path could collide on.
+          shotsRes = await fetchShots()
+          if (myNonce !== fetchNonceRef.current) return
+          if (shotsRes.error) {
+            if (__DEV__) {
+              console.warn(
+                '[hole/shots-fetch]',
+                shotsRes.error.message,
+              )
+            }
+            return
+          }
+        }
+        const shots = shotsRes.data ?? []
+        // Dedupe the sync-in-flight window: a shot whose server row just
+        // committed can still be 'pending' locally for a beat before
+        // markShotSynced runs (lib/sync.ts marks rows synced one at a time
+        // after the chunk upsert). Both payload.id (client-generated, set
+        // before every insert) and the remote row's id are compared so a
+        // mid-sync shot counts once, not twice (#714).
+        const remoteIds = new Set(shots.map((s) => s.id))
+        const dedupedLocal = local.filter((p) => {
+          try {
+            const payload = JSON.parse(p.payload) as ShotPayload
+            return !payload.id || !remoteIds.has(payload.id)
+          } catch {
+            return true
+          }
+        })
+        setRemoteShotCount(shots.length)
+        setRemotePuttCount(
+          shots.filter((s) => s.club === 'putter' || s.lie_type === 'green').length,
+        )
+        const starts: LatLng[] = []
+        for (const r of shots) {
+          if (r.start_lat != null && r.start_lng != null) {
+            starts.push({ lat: r.start_lat, lng: r.start_lng })
+          }
+        }
+        setRemoteShotStarts(starts)
+        setPendingForHole(dedupedLocal)
+      } catch (err) {
+        if (myNonce !== fetchNonceRef.current) return
+        // SQLite (pendingShotsForHoleScore) rejection, or any other thrown
+        // error — leave counts at the neutral reset above rather than a
+        // stale previous-hole value.
+        if (__DEV__) {
+          console.warn('[hole/shots-fetch]', (err as Error).message)
         }
       }
-      setRemoteShotStarts(starts)
-      setPendingForHole(local)
     })()
   }, [currentHoleScore?.id])
 
