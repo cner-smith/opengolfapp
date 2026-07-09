@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useFocusEffect } from 'expo-router'
 import { Pressable, ScrollView, Text, View } from 'react-native'
 import { formatSG } from '@oga/core'
 import { deleteRound, getProfile, getRecentRounds } from '@oga/supabase'
@@ -86,31 +87,38 @@ export default function Home() {
     [user],
   )
 
-  useEffect(() => {
-    if (!user) return
-    let active = true
-    getProfile(supabase, user.id).then(({ data, error }) => {
-      if (!active) return
-      if (error) {
-        // eslint-disable-next-line no-console
-        console.error('[home/getProfile]', error.message)
-        return
+  // Focus effect, not a mount effect: router.replace('/(app)') after a
+  // delete can land on an already-mounted home instance, and a mount-only
+  // fetch then keeps showing the deleted round until the app restarts —
+  // the user swipe-deletes a ghost that's already gone server-side (#705).
+  // Same pattern as useActiveRound's banner query directly above.
+  useFocusEffect(
+    useCallback(() => {
+      if (!user) return
+      let active = true
+      getProfile(supabase, user.id).then(({ data, error }) => {
+        if (!active) return
+        if (error) {
+          // eslint-disable-next-line no-console
+          console.error('[home/getProfile]', error.message)
+          return
+        }
+        if (data) setProfile(data as unknown as Profile)
+      })
+      getRecentRounds(supabase, user.id, 20).then(({ data, error }) => {
+        if (!active) return
+        if (error) {
+          // eslint-disable-next-line no-console
+          console.error('[home/getRecentRounds]', error.message)
+          return
+        }
+        if (data) setRounds(data as RecentRound[])
+      })
+      return () => {
+        active = false
       }
-      if (data) setProfile(data as unknown as Profile)
-    })
-    getRecentRounds(supabase, user.id, 20).then(({ data, error }) => {
-      if (!active) return
-      if (error) {
-        // eslint-disable-next-line no-console
-        console.error('[home/getRecentRounds]', error.message)
-        return
-      }
-      if (data) setRounds(data as RecentRound[])
-    })
-    return () => {
-      active = false
-    }
-  }, [user?.id])
+    }, [user?.id]),
+  )
 
   useEffect(() => {
     pendingCount().then(setPending)
