@@ -559,6 +559,18 @@ export default function LiveRoundSession({
             }
             finalState.setBall(loc)
           }}
+          onRecenterBall={(loc) => {
+            // Deliberate recenter tap = "put the ball back on me": the
+            // inverse of onSetBall above. Lift the manual freeze, restart
+            // the Kalman filter from the next fresh fix, and snap the ball
+            // to GPS now for instant feedback. ballMoved=false restores
+            // the HUD's ball-from-GPS labeling.
+            if (isPastMode) return
+            finalState.manuallyPlacedRef.current = false
+            setBallMoved(false)
+            finalState.kalmanStateRef.current = null
+            finalState.setBall(loc)
+          }}
           onPlacePin={actions.persistRoundPin}
         />
         {finalState.aimHintVisible && (
