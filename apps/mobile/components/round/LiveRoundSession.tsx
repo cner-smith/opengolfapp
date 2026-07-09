@@ -133,6 +133,15 @@ export default function LiveRoundSession({
   }, [initialHoleNumber])
 
   const data = useHoleData(roundId, holeNumber)
+  // Deep-link / refresh clamp (#718): ?hole= can name a hole past the
+  // round's actual count (e.g. hole=10 on a 9-hole round) — the
+  // Resume-banner path (useActiveRound) already clamps to the round's
+  // real hole count, this mirrors it here once data.holeCount is known,
+  // instead of stranding the player on the "isn't set up" error branch.
+  useEffect(() => {
+    if (data.loading) return
+    if (holeNumber > data.holeCount) setHoleNumber(data.holeCount)
+  }, [data.loading, data.holeCount, holeNumber])
   const finalState = useHoleState({
     currentHoleId: data.currentHole?.id ?? null,
     currentHoleScoreId: data.currentHoleScore?.id ?? null,

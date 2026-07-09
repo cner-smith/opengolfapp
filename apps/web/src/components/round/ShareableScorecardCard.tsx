@@ -1,5 +1,5 @@
 import type { Database } from '@oga/supabase'
-import { formatSG, formatToPar } from '@oga/core'
+import { formatSG, formatToPar, inferHoleCount } from '@oga/core'
 
 type HoleRow = Database['public']['Tables']['holes']['Row']
 type HoleScoreRow = Database['public']['Tables']['hole_scores']['Row']
@@ -79,12 +79,12 @@ export function ShareableScorecardCard({
   const c = COLORS[tone]
   const courseName = round.courses?.name ?? 'Round'
 
-  // Stable 1..18 layout regardless of how many holes the array carries.
-  // Synthetic holes still get rendered with par 4 placeholders if needed
-  // — keeps the card visually balanced for partial rounds.
+  // Match the round's actual size (#715) — a 9-hole round shows one grid,
+  // not nine empty "In" cells. Empty/old rounds fall back to 18.
   const holesByNumber = new Map<number, HoleRow>()
   for (const h of holes) holesByNumber.set(h.number, h)
-  const holeNumbers = Array.from({ length: 18 }, (_, i) => i + 1)
+  const holeCount = inferHoleCount(holes.map((h) => h.number))
+  const holeNumbers = Array.from({ length: holeCount }, (_, i) => i + 1)
 
   const totalPar = holeNumbers.reduce((sum, n) => {
     const h = holesByNumber.get(n)
@@ -170,14 +170,18 @@ export function ShareableScorecardCard({
         colors={c}
         rangeLabel="Out"
       />
-      <div style={{ height: 14 }} />
-      <ScoreGrid
-        holeNumbers={holeNumbers.slice(9)}
-        holesByNumber={holesByNumber}
-        scoresByHoleId={scoresByHoleId}
-        colors={c}
-        rangeLabel="In"
-      />
+      {holeNumbers.length > 9 && (
+        <>
+          <div style={{ height: 14 }} />
+          <ScoreGrid
+            holeNumbers={holeNumbers.slice(9)}
+            holesByNumber={holesByNumber}
+            scoresByHoleId={scoresByHoleId}
+            colors={c}
+            rangeLabel="In"
+          />
+        </>
+      )}
 
       <section
         style={{

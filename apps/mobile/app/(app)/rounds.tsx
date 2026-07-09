@@ -203,7 +203,7 @@ export default function RoundsList() {
                           fontVariant: ['tabular-nums'],
                         }]}
                       >
-                        {r.total_score ?? '—'}
+                        {r.total_score ? r.total_score : '—'}
                       </Text>
                       <Text
                         style={[TYPE.serifUpright, {
