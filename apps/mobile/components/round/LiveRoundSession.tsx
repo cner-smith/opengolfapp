@@ -661,16 +661,21 @@ export default function LiveRoundSession({
         routerReplace={(href) => router.replace(href as Parameters<typeof router.replace>[0])}
         id={roundId}
         onChangePar={async (holeId, newPar) => {
+          if (!roundId) return
           // Optimistic update so the cell reflects the tap immediately.
           // Roll back if the DB write fails so the UI doesn't lie.
+          // `holes` has no UPDATE RLS policy — a direct .update() filters
+          // to 0 rows and reports success (#710) — so the write goes
+          // through the authorized RPC, scoped to this round.
           const prev = data.holes.find((h) => h.id === holeId)?.par ?? 4
           data.setHoles((cur) =>
             cur.map((h) => (h.id === holeId ? { ...h, par: newPar } : h)),
           )
-          const { error: parErr } = await supabase
-            .from('holes')
-            .update({ par: newPar })
-            .eq('id', holeId)
+          const { error: parErr } = await supabase.rpc('update_hole_curation', {
+            p_hole_id: holeId,
+            p_round_id: roundId,
+            p_par: newPar,
+          })
           if (parErr) {
             data.setHoles((cur) =>
               cur.map((h) => (h.id === holeId ? { ...h, par: prev } : h)),

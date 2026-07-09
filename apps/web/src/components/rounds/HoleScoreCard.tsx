@@ -114,23 +114,28 @@ export function HoleScoreCard({
   }, [holeScore])
 
   // Cycle par 3 → 4 → 5 → 3. Synthetic placeholders are materialized via
-  // ensureRealHole so the UPDATE has a real id to target; real holes
-  // short-circuit to a plain UPDATE. Either way the change is permanent
-  // course curation — every par tap improves the dataset over time.
+  // ensureRealHole so the write has a real id to target. `holes` has no
+  // UPDATE RLS policy — a direct .update() filters to 0 rows and reports
+  // success (#710) — so curation goes through the authorized RPC, scoped
+  // to a round the caller owns on the hole's course.
   async function setPar(newPar: number) {
     setParOverride(newPar)
-    const realHoleId = await ensureRealHole({ ...hole, par: newPar })
-    const { error } = await supabase
-      .from('holes')
-      .update({ par: newPar })
-      .eq('id', realHoleId)
-    if (error) {
+    try {
+      const realHoleId = await ensureRealHole({ ...hole, par: newPar })
+      const { error } = await supabase.rpc('update_hole_curation', {
+        p_hole_id: realHoleId,
+        p_round_id: roundId,
+        p_par: newPar,
+      })
+      if (error) throw error
+    } catch (err) {
       // Roll back the optimistic override so the UI doesn't lie about
       // what's persisted. The user re-tries by tapping again.
       setParOverride(null)
+      setSaveError(toUserMessage(err))
       if (import.meta.env.DEV) {
         // eslint-disable-next-line no-console
-        console.error('[HoleScoreCard/setPar]', error)
+        console.error('[HoleScoreCard/setPar]', err)
       }
       return
     }
