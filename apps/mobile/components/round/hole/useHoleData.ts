@@ -198,11 +198,28 @@ export function useHoleData(
             .select('id, club, lie_type, shot_number, start_lat, start_lng')
             .eq('hole_score_id', currentHoleScore.id)
             .order('shot_number')
-        const [shotsResInitial, local] = await Promise.all([
+        const [shotsResInitial, localInitial] = await Promise.all([
           fetchShots(),
-          pendingShotsForHoleScore(currentHoleScore.id),
+          // The SQLite read gets the same one-retry treatment as the remote
+          // fetch below — a transient rejection must not leave the neutral
+          // reset committed as a confident local=0 the save path could
+          // collide on (same class as the remote arm of #712).
+          pendingShotsForHoleScore(currentHoleScore.id).catch(() => null),
         ])
         if (myNonce !== fetchNonceRef.current) return
+        let local = localInitial
+        if (local === null) {
+          local = await pendingShotsForHoleScore(currentHoleScore.id).catch(
+            () => null,
+          )
+          if (myNonce !== fetchNonceRef.current) return
+          if (local === null) {
+            if (__DEV__) {
+              console.warn('[hole/pending-fetch] SQLite read failed twice')
+            }
+            return
+          }
+        }
         let shotsRes = shotsResInitial
         if (shotsRes.error) {
           // postgrest-js returns failures in-band ({data: null, error}) —
