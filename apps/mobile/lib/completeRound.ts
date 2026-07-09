@@ -6,6 +6,7 @@ import {
   computeRoundSG,
   inferHoleCount,
   inferHoleStats,
+  playedRowsForDifferential,
 } from '@oga/core'
 import {
   getCourseTees,
@@ -210,14 +211,13 @@ export async function completeRound({
         return { score: hs.score, par: h.par }
       })
       .filter((x): x is { score: number; par: number } => !!x)
-    // Only a complete round produces a differential (#711). Score-0 rows
-    // are unplayed holes (early End round / unlogged holes / lost offline
-    // updates with no synced shots); adjustedScore adds 0 strokes per
-    // unplayed hole, yielding an impossible negative differential that
-    // then permanently dominates the last-20 handicap recompute.
-    const playedRows = holeRows.filter((r) => r.score > 0)
-    const holeCount = inferHoleCount(holes.map((h) => h.number))
-    if (playedRows.length === holeCount) {
+    // Only a complete round produces a differential (#711) — see
+    // playedRowsForDifferential for the sentinel/coverage contract.
+    const playedRows = playedRowsForDifferential(
+      holeRows,
+      inferHoleCount(holes.map((h) => h.number)),
+    )
+    if (playedRows) {
       const adjusted = adjustedScore(playedRows, handicap ?? DEFAULT_HANDICAP)
       differential = round2(
         calculateDifferential(adjusted, tee.course_rating, tee.slope_rating),

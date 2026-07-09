@@ -5,6 +5,7 @@ import {
   calculateHandicapIndex,
   computeRoundSG,
   inferHoleCount,
+  playedRowsForDifferential,
 } from '@oga/core'
 import type { RoundSGResult } from '@oga/core'
 import {
@@ -130,15 +131,13 @@ export function useCompleteRound() {
             return { score: hs.score, par: h.par }
           })
           .filter((x): x is { score: number; par: number } => !!x)
-        // Only a complete round produces a differential (#711). Web
-        // creates hole_scores lazily, so a partial round shows up as
-        // fewer scored rows than the course's hole count; adjustedScore
-        // over a partial round sits far below the course rating and
-        // yields an impossible negative differential that then dominates
-        // the last-20 handicap recompute.
-        const playedRows = holeRows.filter((r) => r.score > 0)
-        const holeCount = inferHoleCount(holes.map((h) => h.number))
-        if (playedRows.length === holeCount) {
+        // Only a complete round produces a differential (#711) — see
+        // playedRowsForDifferential for the sentinel/coverage contract.
+        const playedRows = playedRowsForDifferential(
+          holeRows,
+          inferHoleCount(holes.map((h) => h.number)),
+        )
+        if (playedRows) {
           const adjusted = adjustedScore(playedRows, handicap)
           differential = round2(
             calculateDifferential(adjusted, tee.course_rating, tee.slope_rating),

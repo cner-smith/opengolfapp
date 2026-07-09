@@ -79,6 +79,25 @@ export function inferHoleCount(holeNumbers: number[]): 9 | 18 {
   return Math.max(...holeNumbers) <= 9 ? 9 : 18
 }
 
+// Gate for computing a WHS-style score differential: only a fully-played
+// round qualifies. Returns the played (score > 0) rows when they cover every
+// hole of the round, else null — a partial round must produce NO differential,
+// because adjustedScore adds 0 strokes per unplayed hole and yields an
+// impossible negative value that then dominates the last-20 handicap
+// recompute (#711). Score 0 is the "not played" sentinel on both platforms.
+// Implicit contract: callers pass holeCount = inferHoleCount(course hole
+// numbers), and both materialization paths (mobile round creation's gap-fill,
+// web's ensureRealHole) create holes rows up to that same inferred count — if
+// a materialization path ever changes, this gate fails CLOSED (differential
+// stays null on a fully-played round) rather than corrupting the index.
+export function playedRowsForDifferential<T extends { score: number }>(
+  holeRows: T[],
+  holeCount: number,
+): T[] | null {
+  const played = holeRows.filter((r) => r.score > 0)
+  return played.length === holeCount ? played : null
+}
+
 // Single source of truth for putt classification: a shot is a putt when its
 // lie is the green or its club is the putter. Feeds putt counts, the putt-only
 // persisted columns, and SG putting, so every surface must agree. Distance to

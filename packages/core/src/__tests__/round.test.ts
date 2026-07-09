@@ -4,6 +4,7 @@ import {
   inferHoleCount,
   isPuttShot,
   legacySlopeToAxes,
+  playedRowsForDifferential,
   type PlacedPoint,
 } from '../round'
 import { decombinedPuttResult } from '../types'
@@ -220,5 +221,35 @@ describe('inferHoleCount', () => {
 
   it('a single mapped hole 10 already implies 18', () => {
     expect(inferHoleCount([10])).toBe(18)
+  })
+})
+
+describe('playedRowsForDifferential', () => {
+  const rows = (scores: number[]) => scores.map((score) => ({ score }))
+
+  it('returns the played rows when they cover every hole', () => {
+    expect(playedRowsForDifferential(rows([4, 5, 3]), 3)).toEqual(
+      rows([4, 5, 3]),
+    )
+  })
+
+  it('null when any hole is unplayed — score-0 sentinel rows (mobile pre-creation)', () => {
+    expect(playedRowsForDifferential(rows([4, 0, 3]), 3)).toBeNull()
+  })
+
+  it('null on a partial round — fewer scored rows than holes (web lazy creation)', () => {
+    expect(playedRowsForDifferential(rows([4, 5]), 3)).toBeNull()
+  })
+
+  it('null on an early-ended 18 — 9 played of 18 pre-created rows', () => {
+    expect(
+      playedRowsForDifferential(rows([...Array(9).fill(4), ...Array(9).fill(0)]), 18),
+    ).toBeNull()
+  })
+
+  it('sentinel rows are excluded from the returned set, not just tolerated', () => {
+    expect(playedRowsForDifferential(rows([4, 5, 3, 0]), 3)).toEqual(
+      rows([4, 5, 3]),
+    )
   })
 })
