@@ -5,6 +5,7 @@ import type { User } from '@supabase/supabase-js'
 import {
   combinedBreakDirection,
   combinedPuttResult,
+  isPuttShot,
   type LieType,
 } from '@oga/core'
 import { deleteRound, getProfile } from '@oga/supabase'
@@ -131,7 +132,7 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
 
   function buildPayload(meta: ShotLoggerValue | null): ShotPayload | null {
     if (!user || !currentHoleScore || !ball) return null
-    const isPutt = meta?.club === 'putter' || meta?.lieType === 'green'
+    const isPutt = isPuttShot(meta?.lieType, meta?.club)
     const pinTarget = roundPin ?? storedPin ?? null
     return {
       hole_score_id: currentHoleScore.id,
