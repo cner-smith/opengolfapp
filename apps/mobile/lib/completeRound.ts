@@ -66,13 +66,26 @@ export async function completeRound({
   if (holeScoresRes.error) throw holeScoresRes.error
   if (shotsRes.error) throw shotsRes.error
 
-  const holes: HoleRow[] = holesRes.data ?? []
   const holeScoreRows = (holeScoresRes.data ?? []) as Array<
     HoleScoreRow & { holes?: HoleRow | null }
   >
   const holeScores: HoleScoreRow[] = holeScoreRows.map((row) => {
     const { holes: _h, ...rest } = row
     return rest
+  })
+  // Per-round par override (#710): a hole_scores.par set during the round
+  // wins over the course hole's par for everything stamped at completion —
+  // stat inference, SG categorization, and the differential. Patching the
+  // holes array here is safe: unique (round_id, hole_id) means each hole
+  // has at most one override in this round.
+  const parOverrides = new Map(
+    holeScores
+      .filter((hs) => hs.par != null)
+      .map((hs) => [hs.hole_id, hs.par as number]),
+  )
+  const holes: HoleRow[] = (holesRes.data ?? []).map((h) => {
+    const par = parOverrides.get(h.id)
+    return par != null && par !== h.par ? { ...h, par } : h
   })
   const shots = (shotsRes.data ?? []) as unknown as ShotRow[]
   const tees: CourseTeeRow[] = teesRes.data ?? []

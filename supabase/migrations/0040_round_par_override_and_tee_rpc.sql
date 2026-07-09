@@ -1,4 +1,4 @@
--- Hole curation writes go through an authorized RPC (closes #710, #721).
+-- Per-round par override + authorized tee RPC (closes #710, #721).
 --
 -- `holes` has RLS with only SELECT + INSERT policies — no UPDATE policy
 -- exists in 0001–0039. An UPDATE under RLS with zero policies filters to
@@ -6,19 +6,25 @@
 -- correction and auto-persisted tee coordinate silently no-op'd for every
 -- user, including the course creator.
 --
--- Rather than an open UPDATE policy on a shared table, curation goes
--- through `update_hole_curation(...)` (SECURITY DEFINER, matching the
--- `insert_synthetic_hole` ownership shape): only the crowd-curation
--- columns (par, tee_lat, tee_lng) are writable, and the caller must own
--- a round on the hole's course — round-scoped authorization, same
--- auditable trail the INSERT path requires.
+-- The fix splits by what the data IS:
+--   * Par corrections are the player's per-round opinion, not global
+--     course curation — they land on `hole_scores.par` (nullable; null =
+--     use the course hole's par). `hole_scores` already has the
+--     owner-scoped FOR ALL policy from 0001, so no policy work needed.
+--   * Tee coordinates are factual GPS capture and stay global on
+--     `holes`, but writes go through `update_hole_tee(...)` (SECURITY
+--     DEFINER, matching the `insert_synthetic_hole` ownership shape):
+--     only tee_lat/tee_lng are writable, and the caller must own a round
+--     on the hole's course — round-scoped, auditable authorization.
 
-create or replace function public.update_hole_curation(
+alter table public.hole_scores
+  add column par smallint check (par between 3 and 6);
+
+create or replace function public.update_hole_tee(
   p_hole_id uuid,
   p_round_id uuid,
-  p_par integer default null,
-  p_tee_lat double precision default null,
-  p_tee_lng double precision default null
+  p_tee_lat double precision,
+  p_tee_lng double precision
 )
 returns void
 language plpgsql
@@ -32,16 +38,10 @@ begin
     raise exception 'not authenticated';
   end if;
 
-  -- Cap par to the table's CHECK range so a malformed payload returns
-  -- a clean error instead of tripping the constraint deep in the function.
-  if p_par is not null and (p_par < 3 or p_par > 6) then
-    raise exception 'par must be between 3 and 6';
-  end if;
-
-  -- Caller must own a round on the same course as the hole they're
-  -- curating. Stops a malicious client from editing arbitrary holes by
-  -- passing any owned round id — the round has to reference the hole's
-  -- course, and rounds.user_id is RLS-scoped.
+  -- Caller must own a round on the same course as the hole whose tee
+  -- they're capturing. Stops a malicious client from editing arbitrary
+  -- holes by passing any owned round id — the round has to reference the
+  -- hole's course, and rounds.user_id is RLS-scoped.
   if not exists (
     select 1 from public.rounds r
     join public.holes h on h.id = p_hole_id and h.course_id = r.course_id
@@ -52,15 +52,14 @@ begin
   end if;
 
   update public.holes set
-    par = coalesce(p_par, par),
-    tee_lat = coalesce(p_tee_lat, tee_lat),
-    tee_lng = coalesce(p_tee_lng, tee_lng)
+    tee_lat = p_tee_lat,
+    tee_lng = p_tee_lng
   where id = p_hole_id;
 end;
 $$;
 
-revoke all on function public.update_hole_curation(uuid, uuid, integer, double precision, double precision) from public;
-grant execute on function public.update_hole_curation(uuid, uuid, integer, double precision, double precision) to authenticated;
+revoke all on function public.update_hole_tee(uuid, uuid, double precision, double precision) from public;
+grant execute on function public.update_hole_tee(uuid, uuid, double precision, double precision) to authenticated;
 
 -- #721: insert_synthetic_hole's own comment claims the round must be on
 -- the target course, but the check was never implemented — any owned

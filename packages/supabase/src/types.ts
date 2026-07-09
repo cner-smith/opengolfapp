@@ -238,6 +238,7 @@ export type Database = {
           gir: boolean | null
           hole_id: string
           id: string
+          par: number | null
           pin_lat: number | null
           pin_lng: number | null
           putts: number | null
@@ -253,6 +254,7 @@ export type Database = {
           gir?: boolean | null
           hole_id: string
           id?: string
+          par?: number | null
           pin_lat?: number | null
           pin_lng?: number | null
           putts?: number | null
@@ -268,6 +270,7 @@ export type Database = {
           gir?: boolean | null
           hole_id?: string
           id?: string
+          par?: number | null
           pin_lat?: number | null
           pin_lng?: number | null
           putts?: number | null
@@ -734,13 +737,12 @@ export type Database = {
         Args: { p_club_ids: string[]; p_orders: number[]; p_user_id: string }
         Returns: undefined
       }
-      update_hole_curation: {
+      update_hole_tee: {
         Args: {
           p_hole_id: string
-          p_par?: number
           p_round_id: string
-          p_tee_lat?: number
-          p_tee_lng?: number
+          p_tee_lat: number
+          p_tee_lng: number
         }
         Returns: undefined
       }

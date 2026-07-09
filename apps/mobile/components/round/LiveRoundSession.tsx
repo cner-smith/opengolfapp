@@ -464,7 +464,7 @@ export default function LiveRoundSession({
               },
             ]}
           >
-            Par {data.currentHole.par}
+            Par {data.currentHoleScore?.par ?? data.currentHole.par}
             {data.currentHole.yards ? ` · ${toDisplay(data.currentHole.yards)}` : ''}
           </Text>
         </View>
@@ -612,7 +612,7 @@ export default function LiveRoundSession({
           totalShotsThisHole={totalShotsThisHole}
           holeNumber={holeNumber}
           holeCount={data.holeCount}
-          par={data.currentHole.par}
+          par={data.currentHoleScore?.par ?? data.currentHole.par}
           yardsLabel={data.currentHole.yards ? toDisplay(data.currentHole.yards) : null}
           onCancelPinPlacement={() => setPinPlacementOpen(false)}
           onClearRoundPin={actions.clearRoundPin}
@@ -661,24 +661,28 @@ export default function LiveRoundSession({
         routerReplace={(href) => router.replace(href as Parameters<typeof router.replace>[0])}
         id={roundId}
         onChangePar={async (holeId, newPar) => {
-          if (!roundId) return
+          // Par is a per-round override on hole_scores.par (#710) — this
+          // round's opinion, not global course curation (holes has no
+          // UPDATE policy; the old direct update silently no-op'd). The
+          // hole's hole_scores row is batch-created at round start.
+          const hs = data.holeScores.find((s) => s.hole_id === holeId)
+          if (!hs) return
           // Optimistic update so the cell reflects the tap immediately.
           // Roll back if the DB write fails so the UI doesn't lie.
-          // `holes` has no UPDATE RLS policy — a direct .update() filters
-          // to 0 rows and reports success (#710) — so the write goes
-          // through the authorized RPC, scoped to this round.
-          const prev = data.holes.find((h) => h.id === holeId)?.par ?? 4
-          data.setHoles((cur) =>
-            cur.map((h) => (h.id === holeId ? { ...h, par: newPar } : h)),
+          const prev = hs.par
+          data.setHoleScores((cur) =>
+            cur.map((s) => (s.id === hs.id ? { ...s, par: newPar } : s)),
           )
-          const { error: parErr } = await supabase.rpc('update_hole_curation', {
-            p_hole_id: holeId,
-            p_round_id: roundId,
-            p_par: newPar,
-          })
-          if (parErr) {
-            data.setHoles((cur) =>
-              cur.map((h) => (h.id === holeId ? { ...h, par: prev } : h)),
+          const { data: updated, error: parErr } = await supabase
+            .from('hole_scores')
+            .update({ par: newPar })
+            .eq('id', hs.id)
+            .select('id')
+          // 0 returned rows = RLS filtered the write while reporting
+          // success — the exact failure mode from #710. Treat as failure.
+          if (parErr || !updated || updated.length === 0) {
+            data.setHoleScores((cur) =>
+              cur.map((s) => (s.id === hs.id ? { ...s, par: prev } : s)),
             )
           }
         }}

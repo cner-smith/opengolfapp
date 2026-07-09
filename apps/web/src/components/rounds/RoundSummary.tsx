@@ -44,7 +44,9 @@ function bestWorstHole(
   for (const hs of holeScores) {
     const hole = byHoleId.get(hs.hole_id)
     if (!hole) continue
-    const diff = hs.score - hole.par
+    // Per-round par override (#710) — hole_scores.par wins over the
+    // course hole's par when the player corrected it.
+    const diff = hs.score - (hs.par ?? hole.par)
     if (!best || diff < best.diff) best = { number: hole.number, diff }
     if (!worst || diff > worst.diff) worst = { number: hole.number, diff }
   }
@@ -57,7 +59,11 @@ export function RoundSummary({
   holeScores,
   totalRoundsLogged,
 }: RoundSummaryProps) {
-  const par = holes.reduce((sum, h) => sum + h.par, 0)
+  // Per-round par override (#710) folded into the round's total par.
+  const parByHoleId = new Map(
+    holeScores.filter((hs) => hs.par != null).map((hs) => [hs.hole_id, hs.par!]),
+  )
+  const par = holes.reduce((sum, h) => sum + (parByHoleId.get(h.id) ?? h.par), 0)
   const score = round.total_score ?? holeScores.reduce((s, hs) => s + hs.score, 0)
   const toPar = score && par ? score - par : null
   const { best, worst } = bestWorstHole(holeScores, holes)

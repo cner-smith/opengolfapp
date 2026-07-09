@@ -326,7 +326,7 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
     // 0 rows and reports success (#710) — so the write goes through the
     // authorized RPC, scoped to this round. Still background enrichment:
     // the shot already saved, so a failure warns rather than alerting.
-    const { error: updateErr } = await supabase.rpc('update_hole_curation', {
+    const { error: updateErr } = await supabase.rpc('update_hole_tee', {
       p_hole_id: currentHole.id,
       p_round_id: id,
       p_tee_lat: loc.lat,
