@@ -85,7 +85,10 @@ export function ShareableScorecardCard({
 
   const totalPar = holeNumbers.reduce((sum, n) => {
     const h = holesByNumber.get(n)
-    return sum + (h?.par ?? 4)
+    // Per-round par override (#710) — hole_scores.par wins over the
+    // course hole's par when the player corrected it.
+    const hs = h ? scoresByHoleId.get(h.id) : null
+    return sum + (hs?.par ?? h?.par ?? 4)
   }, 0)
   const total = round.total_score ?? null
   const toPar = total != null ? total - totalPar : null
@@ -288,13 +291,13 @@ function ScoreGrid({
   let anyScore = false
   for (const n of holeNumbers) {
     const h = holesByNumber.get(n)
-    parSum += h?.par ?? 4
-    if (h) {
-      const hs = scoresByHoleId.get(h.id)
-      if (hs?.score != null && hs.score > 0) {
-        scoreSum += hs.score
-        anyScore = true
-      }
+    const hs = h ? scoresByHoleId.get(h.id) : null
+    // Per-round par override (#710) — hole_scores.par wins over the
+    // course hole's par when the player corrected it.
+    parSum += hs?.par ?? h?.par ?? 4
+    if (hs?.score != null && hs.score > 0) {
+      scoreSum += hs.score
+      anyScore = true
     }
   }
 
@@ -375,9 +378,10 @@ function ScoreGrid({
         <Text style={labelStyle}>Par</Text>
         {holeNumbers.map((n) => {
           const h = holesByNumber.get(n)
+          const hs = h ? scoresByHoleId.get(h.id) : null
           return (
             <Text key={`p-${n}`} style={{ ...cellNum, color: colors.inkDim }}>
-              {h?.par ?? 4}
+              {hs?.par ?? h?.par ?? 4}
             </Text>
           )
         })}
@@ -404,7 +408,7 @@ function ScoreGrid({
               key={`s-${n}`}
               cellStyle={cellNum}
               colors={colors}
-              par={h?.par ?? 4}
+              par={hs?.par ?? h?.par ?? 4}
               score={score}
             />
           )

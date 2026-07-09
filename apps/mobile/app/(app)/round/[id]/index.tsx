@@ -545,7 +545,9 @@ export default function RoundIndex() {
     const hs = scoresByHoleId.get(h.id)
     if (hs?.score != null && hs.score > 0) {
       runningScore += hs.score
-      runningPar += h.par
+      // Per-round par override (#710) — hole_scores.par wins over the
+      // course hole's par when the player corrected it.
+      runningPar += hs.par ?? h.par
     }
   }
   const diff = runningScore - runningPar
@@ -796,14 +798,17 @@ export default function RoundIndex() {
             const hs = scoresByHoleId.get(h.id)
             const score = hs?.score ?? 0
             const putts = hs?.putts ?? null
-            const d = score > 0 ? score - h.par : null
+            // Per-round par override (#710) — hole_scores.par wins over
+            // the course hole's par when the player corrected it.
+            const par = hs?.par ?? h.par
+            const d = score > 0 ? score - par : null
             const shotCount = hs ? holeScoreShotCount.get(hs.id) ?? 0 : 0
             // FIR/GIR: prefer the persisted hole_scores columns — web parity,
             // a manual/web-set value wins (apps/web useRoundActions) — else
             // infer from the hole's placed shots. par-3 fairway → null (blank).
             const inferred = inferHoleStats(
               hs ? shotsByHoleScoreId.get(hs.id) ?? [] : [],
-              h.par,
+              par,
             )
             const fairway = hs?.fairway_hit ?? inferred.fairway
             const gir = hs?.gir ?? inferred.gir
@@ -838,7 +843,7 @@ export default function RoundIndex() {
                     fontVariant: ['tabular-nums'],
                   }]}
                 >
-                  {h.par}
+                  {par}
                 </Text>
                 <ScoreCell
                   value={score}

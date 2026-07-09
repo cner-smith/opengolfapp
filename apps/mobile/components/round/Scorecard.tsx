@@ -157,11 +157,14 @@ export function ScorecardModal({
             // -71 after hole 1).
             const rawScore = hs?.score
             const score = rawScore != null && rawScore > 0 ? rawScore : null
+            // Per-round par override (#710) — hole_scores.par wins over
+            // the course hole's par when the player corrected it.
+            const par = hs?.par ?? h.par
             if (score != null) {
               runningTotal += score
-              runningPar += h.par
+              runningPar += par
             }
-            const diff = score != null ? score - h.par : null
+            const diff = score != null ? score - par : null
             const active = h.number === currentHoleNumber
             // Editable par only for holes that came back without any
             // layout data — for OSM-mapped holes par is authoritative
@@ -172,7 +175,7 @@ export function ScorecardModal({
               <Pressable
                 key={h.id}
                 accessibilityRole="button"
-                accessibilityLabel={`Jump to hole ${h.number}, par ${h.par}${score != null ? `, score ${score}` : ''}`}
+                accessibilityLabel={`Jump to hole ${h.number}, par ${par}${score != null ? `, score ${score}` : ''}`}
                 accessibilityState={{ selected: active }}
                 onPress={() => onJumpToHole(h.number)}
                 style={{
@@ -198,9 +201,9 @@ export function ScorecardModal({
                 {parEditable ? (
                   <Pressable
                     accessibilityRole="button"
-                    accessibilityLabel={`Par ${h.par}, tap to change`}
+                    accessibilityLabel={`Par ${par}, tap to change`}
                     onPress={() => {
-                      const next = h.par === 3 ? 4 : h.par === 4 ? 5 : 3
+                      const next = par === 3 ? 4 : par === 4 ? 5 : 3
                       onChangePar?.(h.id, next)
                     }}
                     hitSlop={6}
@@ -221,7 +224,7 @@ export function ScorecardModal({
                         textDecorationColor: '#9F9580',
                       }]}
                     >
-                      {h.par}
+                      {par}
                     </Text>
                   </Pressable>
                 ) : (
@@ -234,7 +237,7 @@ export function ScorecardModal({
                       fontVariant: ['tabular-nums'],
                     }]}
                   >
-                    {h.par}
+                    {par}
                   </Text>
                 )}
                 <Text
@@ -373,7 +376,7 @@ export function ScorecardPreview({
           const hs = scoresByHoleId.get(h.id)
           const active = h.number === currentHoleNumber
           const score = hs?.score && hs.score > 0 ? hs.score : null
-          const diff = score != null ? score - h.par : null
+          const diff = score != null ? score - (hs?.par ?? h.par) : null
           const isCircle = diff != null && diff <= -1
           const isSquare = diff != null && diff >= 1
           const hasDecoration = isCircle || isSquare

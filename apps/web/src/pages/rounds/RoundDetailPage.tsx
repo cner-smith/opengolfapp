@@ -416,8 +416,13 @@ export function RoundDetailPage() {
                 <HoleReviewSheet
                   open={reviewOpen}
                   holeNumber={activeHole.number}
-                  par={activeHole.par}
-                  totalPar={holes.reduce((s, h) => s + h.par, 0)}
+                  // Per-round par override (#710) — hole_scores.par wins
+                  // over the course hole's par when the player corrected it.
+                  par={scoresByHoleId.get(activeHole.id)?.par ?? activeHole.par}
+                  totalPar={holes.reduce(
+                    (s, h) => s + (scoresByHoleId.get(h.id)?.par ?? h.par),
+                    0,
+                  )}
                   pinLat={effectivePin?.lat ?? null}
                   pinLng={effectivePin?.lng ?? null}
                   placedPoints={placedPoints}

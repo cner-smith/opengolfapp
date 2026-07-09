@@ -63,13 +63,26 @@ export function useCompleteRound() {
       // needed. The holeScoreRows annotation carries the nested holes()
       // join shape that the typed select doesn't expose; that's the one
       // place a narrowing assertion still earns its keep.
-      const holes: HoleRow[] = holesRes.data ?? []
       const holeScoreRows = (holeScoresRes.data ?? []) as Array<
         HoleScoreRow & { holes?: HoleRow | null }
       >
       const holeScores: HoleScoreRow[] = holeScoreRows.map((row) => {
         const { holes: _holes, ...rest } = row
         return rest
+      })
+      // Per-round par override (#710): a hole_scores.par set during the
+      // round wins over the course hole's par for everything stamped at
+      // completion — SG categorization and the differential. Patching the
+      // holes array here is safe: unique (round_id, hole_id) means each
+      // hole has at most one override in this round.
+      const parOverrides = new Map(
+        holeScores
+          .filter((hs) => hs.par != null)
+          .map((hs) => [hs.hole_id, hs.par as number]),
+      )
+      const holes: HoleRow[] = (holesRes.data ?? []).map((h) => {
+        const par = parOverrides.get(h.id)
+        return par != null && par !== h.par ? { ...h, par } : h
       })
       // `as unknown as ShotRow[]` because getShotsForRound now narrows the
       // select to the columns the SG calc actually reads — created_at is

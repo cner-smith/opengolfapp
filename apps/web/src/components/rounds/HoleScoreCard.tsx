@@ -1,9 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
-import { useQueryClient } from '@tanstack/react-query'
 import type { Database } from '@oga/supabase'
 import { useUpsertHoleScore } from '../../hooks/useHoleScores'
 import { useUnits } from '../../hooks/useUnits'
-import { supabase } from '../../lib/supabase'
 import { toUserMessage } from '../../lib/errors'
 
 type HoleRow = Database['public']['Tables']['holes']['Row']
@@ -85,7 +83,6 @@ export function HoleScoreCard({
   onEditShots,
 }: HoleScoreCardProps) {
   const upsert = useUpsertHoleScore(roundId)
-  const queryClient = useQueryClient()
   const { toDisplay } = useUnits()
   const [score, setScore] = useState<string>(holeScore?.score?.toString() ?? '')
   const [putts, setPutts] = useState<string>(holeScore?.putts?.toString() ?? '')
@@ -94,9 +91,11 @@ export function HoleScoreCard({
   // Par is always editable on the scorecard — synthetic-fallback courses
   // need it (par-4 default is wrong for the par 3s and 5s) and real
   // courses occasionally have stale data the player wants to correct.
+  // Persisted as hole_scores.par (per-round override, #710); the course
+  // hole's par is the fallback.
   const [parOverride, setParOverride] = useState<number | null>(null)
   const [saveError, setSaveError] = useState<string | null>(null)
-  const effectivePar = parOverride ?? hole.par
+  const effectivePar = parOverride ?? holeScore?.par ?? hole.par
 
   // Hydrate the form from server state once per holeScore.id. Subsequent
   // refetches (after our own save, or another tab) must not clobber what
@@ -113,28 +112,36 @@ export function HoleScoreCard({
     setGir(holeScore.gir ?? null)
   }, [holeScore])
 
-  // Cycle par 3 → 4 → 5 → 3. Synthetic placeholders are materialized via
-  // ensureRealHole so the UPDATE has a real id to target; real holes
-  // short-circuit to a plain UPDATE. Either way the change is permanent
-  // course curation — every par tap improves the dataset over time.
+  // Cycle par 3 → 4 → 5 → 3. Par is a per-round override on
+  // hole_scores.par (#710) — this round's opinion, not global course
+  // curation (holes has no UPDATE policy; the old direct update silently
+  // no-op'd). With no score yet there's no hole_scores row to hold it
+  // (score is NOT NULL), so the override stays local and persist()
+  // carries it with the first score save.
   async function setPar(newPar: number) {
     setParOverride(newPar)
-    const realHoleId = await ensureRealHole({ ...hole, par: newPar })
-    const { error } = await supabase
-      .from('holes')
-      .update({ par: newPar })
-      .eq('id', realHoleId)
-    if (error) {
+    const existingScore = holeScore?.score ?? (score ? Number(score) : null)
+    if (!existingScore) return
+    setSaveError(null)
+    try {
+      const realHoleId = await ensureRealHole({ ...hole, par: newPar })
+      await upsert.mutateAsync({
+        id: holeScore?.id,
+        round_id: roundId,
+        hole_id: realHoleId,
+        score: existingScore,
+        par: newPar,
+      })
+    } catch (err) {
       // Roll back the optimistic override so the UI doesn't lie about
       // what's persisted. The user re-tries by tapping again.
       setParOverride(null)
+      setSaveError(toUserMessage(err))
       if (import.meta.env.DEV) {
         // eslint-disable-next-line no-console
-        console.error('[HoleScoreCard/setPar]', error)
+        console.error('[HoleScoreCard/setPar]', err)
       }
-      return
     }
-    queryClient.invalidateQueries({ queryKey: ['holes', hole.course_id] })
   }
 
   async function persist(next: {
@@ -162,6 +169,9 @@ export function HoleScoreCard({
         round_id: roundId,
         hole_id: realHoleId,
         score: numericScore,
+        // Carry a locally-held par override (tapped before any score
+        // existed) so it lands with the row's first save.
+        par: parOverride ?? undefined,
         putts:
           next.putts !== undefined
             ? next.putts

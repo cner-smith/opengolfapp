@@ -321,7 +321,7 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
   // light up without a manual placement step. Background + non-blocking: the
   // shot already saved, so a failure warns rather than alerting.
   async function writeTee(loc: LatLng) {
-    if (!currentHole) return
+    if (!currentHole || !id) return
     if (!Number.isFinite(loc.lat) || !Number.isFinite(loc.lng)) return
     setHoles((prev) =>
       prev.map((h) =>
@@ -330,10 +330,16 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
           : h,
       ),
     )
-    const { error: updateErr } = await supabase
-      .from('holes')
-      .update({ tee_lat: loc.lat, tee_lng: loc.lng })
-      .eq('id', currentHole.id)
+    // `holes` has no UPDATE RLS policy — a direct .update() filters to
+    // 0 rows and reports success (#710) — so the write goes through the
+    // authorized RPC, scoped to this round. Still background enrichment:
+    // the shot already saved, so a failure warns rather than alerting.
+    const { error: updateErr } = await supabase.rpc('update_hole_tee', {
+      p_hole_id: currentHole.id,
+      p_round_id: id,
+      p_tee_lat: loc.lat,
+      p_tee_lng: loc.lng,
+    })
     if (updateErr) {
       // eslint-disable-next-line no-console
       console.warn('[hole/tee-auto-persist]', updateErr.message)
