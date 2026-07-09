@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction, type MutableRefObject } from 'react'
 import { AppState } from 'react-native'
 import * as Location from 'expo-location'
+import { locationManager } from '@rnmapbox/maps'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { createKalmanState, updateKalman, type KalmanState } from '@oga/core'
 import type { LatLng } from '../HoleMap'
@@ -41,6 +42,9 @@ export interface UseHoleStateResult {
   roundState: RoundState
   setRoundState: Dispatch<SetStateAction<RoundState>>
   gpsPosition: LatLng | null
+  /** Epoch ms of the newest fix behind gpsPosition (the fix's own
+   *  timestamp — stale cache replays report their true age). 0 = none. */
+  gpsFixAtRef: MutableRefObject<number>
   kalmanStateRef: MutableRefObject<KalmanState | null>
   manuallyPlacedRef: MutableRefObject<boolean>
   lastSavedShotLocalIdRef: MutableRefObject<number | null>
@@ -82,7 +86,7 @@ export function useHoleState({
   // Ref so the AppState listener can remove the subscription if the app
   // backgrounds while GPS is active — prevents the native callback from
   // firing into a null JS module object after the OS tears down the app.
-  const gpsSubscriptionRef = useRef<Location.LocationSubscription | null>(null)
+  const gpsSubscriptionRef = useRef<{ remove: () => void } | null>(null)
   const kalmanStateRef = useRef<KalmanState | null>(null)
   // Set true the moment the player manually drags or taps the ball;
   // freezes the GPS callback's setBall so the next reading can't
@@ -97,6 +101,10 @@ export function useHoleState({
   const hasMountedHoleRef = useRef(false)
   const [roundState, setRoundState] = useState<RoundState>('PLACE_BALL')
   const [gpsPosition, setGpsPosition] = useState<LatLng | null>(null)
+  // Epoch ms of the fix behind gpsPosition — the fix's OWN timestamp, so
+  // cache replays and last-known seeds report their true age. 0 until any
+  // fix arrives. Lets markBallHere decline a stale fallback fix (#720).
+  const gpsFixAtRef = useRef(0)
   const [gpsNonce, setGpsNonce] = useState(0)
   // First-use hint that "aim point = start line, drag to adjust." Gated
   // by AsyncStorage so it only appears the first time the player ever
@@ -189,7 +197,7 @@ export function useHoleState({
     // the whole watcher.
     if (roundState !== 'PLACE_BALL') return
     let active = true
-    let subscription: Location.LocationSubscription | null = null
+    let subscription: { remove: () => void } | null = null
     ;(async () => {
       try {
         // expo-location's permission request can hang on Android if the
@@ -206,126 +214,146 @@ export function useHoleState({
             setTimeout(() => rej(new Error('perm-timeout')), 10_000),
           ),
         ]).catch((e: Error) => {
-          // eslint-disable-next-line no-console
+          // eslint-disable-next-line no-console -- dev-visible diagnostic for the Android permission hang (#278)
           console.warn('[useHoleState perm-timeout]', e.message)
           return { status: 'undetermined' as const }
         })
         if (perm.status !== 'granted') return
         if (!active) return
-        // Last known fix first — instant, no satellite wait. Returns null
-        // if the device has nothing cached (cold boot, location services
-        // recently toggled). Seeds gpsPosition immediately so the recenter
-        // button and "Mark ball" CTA aren't greyed on hole load.
+        // GPS source is Mapbox's location engine, NOT expo-location. All
+        // three expo-location read paths (getLastKnownPositionAsync,
+        // getCurrentPositionAsync, watchPositionAsync) silently deliver
+        // nothing on Android under SDK 53 / expo-location 18.1.6 — the
+        // native fused request never starts (expo/expo#39851; field-
+        // confirmed 2026-07-08, #704). locationManager is a Mapbox-native
+        // provider like the LocationPuck's (the puck renders via the native
+        // RNMBXNativeUserLocation view — a separate subscription, not this
+        // one); both bypass expo-location's broken fused-provider path, so
+        // this works wherever the blue dot does.
+        // expo-location stays for the permission prompt above only.
+        // Re-test expo-location at the SDK 54 / expo-location 19 bump
+        // (#704 checklist) before considering a switch back.
         try {
-          const last = await Location.getLastKnownPositionAsync()
-          if (active && last) {
+          // Last known fix first — instant, no satellite wait. Seeds
+          // gpsPosition so the recenter button and "Mark ball" CTA aren't
+          // greyed on hole load.
+          const last = await locationManager.getLastKnownLocation()
+          if (
+            active &&
+            last &&
+            // Same defense-in-depth NaN guard as the listener path below
+            // (#275) — this seed flows to the recenter camera and nearPin
+            // un-gated, and (via gpsPosition) to markBallHere's fallback.
+            Number.isFinite(last.coords.latitude) &&
+            Number.isFinite(last.coords.longitude)
+          ) {
+            // Record the fix's OWN timestamp (not now) so markBallHere can
+            // decline a stale cached fix; absent timestamp = treat as stale.
+            gpsFixAtRef.current = last.timestamp ?? 0
             setGpsPosition({
               lat: last.coords.latitude,
               lng: last.coords.longitude,
             })
           }
         } catch {
-          // ignore
+          // ignore — the listener below delivers within ~a second
         }
         if (!active) return
-        // Fire-and-forget fresh fix. AWAITING this on Android hangs the
-        // entire effect indefinitely under poor signal — the promise
-        // never resolves, try/catch doesn't save us, and
-        // watchPositionAsync below never gets installed. Mapbox's
-        // LocationPuck has its own native subscription that bypasses
-        // expo-location, which is why the puck appeared while
-        // gpsPosition stayed null.
-        Location.getCurrentPositionAsync({
-          accuracy: Location.Accuracy.Balanced,
-        })
-          .then((initial) => {
-            if (active) {
-              setGpsPosition({
-                lat: initial.coords.latitude,
-                lng: initial.coords.longitude,
-              })
-            }
-          })
-          .catch(() => {
-            // No fresh fix — watchPositionAsync still has a chance.
-          })
-        subscription = await Location.watchPositionAsync(
-          {
-            // Balanced (~100 m) returns fixes immediately on Android.
-            // High required FUSED HIGH_ACCURACY which can sit waiting
-            // for a precise lock under degraded signal — UX-wise we
-            // only need accurate-enough to (a) light up the recenter
-            // button and (b) gate the 80-yd nearPin radius. Ball
-            // placement runs the readings through Kalman downstream,
-            // so accuracy here doesn't directly drive SG precision.
-            accuracy: Location.Accuracy.Balanced,
-            // 5 m chosen over 2 m for battery — at a ~1.4 m/s walking pace
-            // that's still a fix every ~3.5 s while moving, and Kalman
-            // smooths the gap. The marker is tap/drag-confirmed before
-            // shot capture, so coarser auto-tracking is fine.
-            distanceInterval: 5,
-            // Heartbeat tick so gpsPosition refreshes even at rest. Pure
-            // distanceInterval gating meant the recenter button could
-            // never update once the player stopped walking. 5 s is plenty
-            // for that UX (the recenter button doesn't need sub-second
-            // refresh at rest) and keeps the GPS chip from being held
-            // warm by a 2 s polling cadence.
-            timeInterval: 5000,
-          },
-          (loc) => {
-            if (!active) return
-            const rawPoint = {
-              lat: loc.coords.latitude,
-              lng: loc.coords.longitude,
-              accuracy: loc.coords.accuracy ?? undefined,
-              timestamp: loc.timestamp,
-            }
-            // Defense-in-depth NaN guard (#275). Kalman's update path
-            // already drops corrupt readings safely, but gpsPosition
-            // bypasses the filter and flows directly to setPendingShotEnd
-            // via markBallHere — a NaN there hits Postgres as a double
-            // precision insert error and wedges the round.
-            if (!Number.isFinite(rawPoint.lat) || !Number.isFinite(rawPoint.lng)) {
-              return
-            }
-            // Always update gpsPosition (puck-adjacent recenter target +
-            // nearPin radius check) regardless of manual ball placement.
-            // The freeze below is solely about preventing GPS from
-            // clobbering the BALL marker after the player has dragged or
-            // tapped it. Using raw OS coords here, not Kalman-smoothed,
-            // because the manual-place handler re-anchors Kalman with a
-            // strong prior — using the smoothed value would lie for
-            // many readings after manual placement.
-            setGpsPosition({ lat: rawPoint.lat, lng: rawPoint.lng })
-            // Review posture (#484): on a hole the player navigated BACK to,
-            // keep the GPS chip/recenter live (setGpsPosition above) but don't
-            // auto-drive the BALL marker — the hole shows only its existing
-            // shot breadcrumb until they opt into adding a shot.
-            if (isRevisitingPlayedHole) return
-            // Manual placement freezes GPS-driven ball updates. Without
-            // this, the next reading after a drag would re-init the
-            // filter at the raw GPS point and snap ball back, wiping
-            // the player's refinement.
-            if (manuallyPlacedRef.current) return
-            kalmanStateRef.current = kalmanStateRef.current
-              ? updateKalman(kalmanStateRef.current, rawPoint)
-              : createKalmanState(rawPoint)
-            const smoothed = {
-              lat: kalmanStateRef.current.lat,
-              lng: kalmanStateRef.current.lng,
-            }
-            setBall(smoothed)
-          },
-        )
-        // Cleanup may have run while watchPositionAsync was in flight —
-        // the `if (!active)` guard above only covers the window before
-        // this await, not after it. Remove immediately if stale.
-        if (!active) {
-          subscription.remove()
-          return
+        const onLocation = (loc: {
+          coords: { latitude: number; longitude: number; accuracy?: number }
+          timestamp?: number
+        }) => {
+          if (!active) return
+          const rawPoint = {
+            lat: loc.coords.latitude,
+            lng: loc.coords.longitude,
+            accuracy: loc.coords.accuracy ?? undefined,
+            timestamp: loc.timestamp ?? Date.now(),
+          }
+          // Defense-in-depth NaN guard (#275). Kalman's update path
+          // already drops corrupt readings safely, but gpsPosition
+          // bypasses the filter and flows directly to setPendingShotEnd
+          // via markBallHere — a NaN there hits Postgres as a double
+          // precision insert error and wedges the round.
+          if (!Number.isFinite(rawPoint.lat) || !Number.isFinite(rawPoint.lng)) {
+            return
+          }
+          // Always update gpsPosition (puck-adjacent recenter target +
+          // nearPin radius check) regardless of manual ball placement.
+          // The freeze below is solely about preventing GPS from
+          // clobbering the BALL marker after the player has dragged or
+          // tapped it. Using raw OS coords here, not Kalman-smoothed,
+          // because the manual-place handler re-anchors Kalman with a
+          // strong prior — using the smoothed value would lie for
+          // many readings after manual placement.
+          // Functional update with an identity bailout: returning `prev` on
+          // identical coords (duplicate ticks, the addListener cache replay)
+          // skips the re-render entirely.
+          // Record the fix's own timestamp so markBallHere can tell a live
+          // tick from a stale cache replay when gpsPosition is its only
+          // source (#720).
+          gpsFixAtRef.current = rawPoint.timestamp
+          setGpsPosition((prev) =>
+            prev && prev.lat === rawPoint.lat && prev.lng === rawPoint.lng
+              ? prev
+              : { lat: rawPoint.lat, lng: rawPoint.lng },
+          )
+          // addListener synchronously replays the manager's cached last
+          // point into a new listener (library behavior). That cache can
+          // predate this PLACE_BALL cycle — previous hole, pocketed phone —
+          // so stale fixes stop here: gpsPosition only (matching the old
+          // last-known → gpsPosition-only semantics), never the ball/Kalman
+          // path below, where a stale anchor would visibly snap the marker
+          // and skew the filter until live ticks pull it back. 10 s is
+          // generous against the ~3.5 s walking-pace tick cadence.
+          if (Date.now() - rawPoint.timestamp > 10_000) return
+          // Review posture (#484): on a hole the player navigated BACK to,
+          // keep the GPS chip/recenter live (setGpsPosition above) but don't
+          // auto-drive the BALL marker — the hole shows only its existing
+          // shot breadcrumb until they opt into adding a shot.
+          if (isRevisitingPlayedHole) return
+          // Manual placement freezes GPS-driven ball updates. Without
+          // this, the next reading after a drag would re-init the
+          // filter at the raw GPS point and snap ball back, wiping
+          // the player's refinement.
+          if (manuallyPlacedRef.current) return
+          kalmanStateRef.current = kalmanStateRef.current
+            ? updateKalman(kalmanStateRef.current, rawPoint)
+            : createKalmanState(rawPoint)
+          const smoothed = {
+            lat: kalmanStateRef.current.lat,
+            lng: kalmanStateRef.current.lng,
+          }
+          setBall(smoothed)
+        }
+        // 5 m distance filter, carried over from the removed expo-location
+        // config: at a ~1.4 m/s walking pace that's a tick every ~3.5 s,
+        // Kalman smooths the gap, and the marker is tap/drag-confirmed
+        // before shot capture — battery over cadence. Without it the engine
+        // starts unfiltered (start(-1)) and ticks ~1 Hz into Kalman/setBall.
+        // The manager persists the value across its internal stop/start, so
+        // once is enough. At rest there are simply no ticks — a stationary
+        // player's held gpsPosition is still correct, so the old 5 s
+        // heartbeat has no equivalent need here.
+        // The awaits above (permission race, last-known IPC) leave a window
+        // where the app can background: the AppState handler finds
+        // gpsSubscriptionRef null (no-op), so this continuation would attach
+        // anyway — addListener unconditionally start()s the engine, leaving
+        // GPS running for the whole backgrounded stretch (#720). Bail; the
+        // foreground gpsNonce bump re-runs the effect.
+        if (!active || AppState.currentState !== 'active') return
+        locationManager.setMinDisplacement(5)
+        // addListener auto-starts the engine; removeListener auto-stops it
+        // when the last listener detaches (both synchronous — no in-flight
+        // await race to guard here).
+        locationManager.addListener(onLocation)
+        subscription = {
+          remove: () => locationManager.removeListener(onLocation),
         }
         gpsSubscriptionRef.current = subscription
-      } catch {
+      } catch (e) {
+        // eslint-disable-next-line no-console -- deliberately loud: GPS-source failures were previously silent and cost a field session to find (#704)
+        console.warn('[useHoleState gps-source]', (e as Error)?.message)
         // GPS not available — user will tap to place.
       }
     })()
@@ -333,15 +361,28 @@ export function useHoleState({
       active = false
       subscription?.remove()
       gpsSubscriptionRef.current = null
-      // Phase exit clears the filter so re-entry to PLACE_BALL on the
-      // next shot starts smoothing from a fresh fix rather than an
-      // old anchor that may now be hundreds of yards away. Also clears
-      // the manual-placement freeze so the next PLACE_BALL cycle
-      // resumes GPS auto-tracking unless the player drags again.
-      kalmanStateRef.current = null
-      manuallyPlacedRef.current = false
+      // Teardown ONLY — do NOT reset manuallyPlacedRef / kalmanStateRef
+      // here. This cleanup also fires on gpsNonce (every foreground
+      // return) and isRevisitingPlayedHole re-runs, where a manual ball
+      // placement must survive: resetting here let the next tick (or the
+      // addListener cache replay) snap a dragged ball back to raw GPS
+      // (#713). Genuine exits reset the refs elsewhere — the hole-change
+      // effect below, and the phase-exit effect keyed on roundState alone.
     }
   }, [currentHoleId, isPastMode, isRevisitingPlayedHole, roundState, gpsNonce])
+
+  // Phase exit (leaving PLACE_BALL: shot committed, logger opened, putting)
+  // clears the filter + manual-place freeze so the NEXT PLACE_BALL cycle
+  // starts smoothing from a fresh fix and resumes GPS auto-tracking unless
+  // the player drags again. Constraint: keyed on roundState ALONE — the
+  // subscription effect's cleanup can't own this reset because it also
+  // fires on gpsNonce/revisit re-runs, which must preserve a manual
+  // placement (#713).
+  useEffect(() => {
+    if (roundState === 'PLACE_BALL') return
+    kalmanStateRef.current = null
+    manuallyPlacedRef.current = false
+  }, [roundState])
 
   // Hole change resets per-hole state. The screen is resident (#264) so
   // nothing remounts on a hole switch — without an explicit reset the
@@ -385,9 +426,9 @@ export function useHoleState({
     setBall({ lat: tee.lat, lng: tee.lng })
   }, [isPastMode, hasPriorShots, roundState, ball, tee?.lat, tee?.lng])
 
-  // Stop GPS when the app backgrounds. The native location callback
-  // fires into a null JS module if the OS tears down the app while a
-  // subscription is live, causing a fatal NPE in expo-location.
+  // Stop GPS when the app backgrounds. A native location callback firing
+  // into a torn-down JS runtime is a fatal-NPE class of bug (bitten once
+  // via expo-location), and the app is foreground-only for location anyway.
   useEffect(() => {
     const sub = AppState.addEventListener('change', (state) => {
       if (state === 'background' || state === 'inactive') {
@@ -418,6 +459,7 @@ export function useHoleState({
     roundState,
     setRoundState,
     gpsPosition,
+    gpsFixAtRef,
     kalmanStateRef,
     manuallyPlacedRef,
     lastSavedShotLocalIdRef,

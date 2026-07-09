@@ -127,6 +127,7 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
     manuallyPlacedRef,
     lastSavedShotLocalIdRef,
     gpsPosition,
+    gpsFixAtRef,
     setAppendEngaged,
   } = state
 
@@ -345,7 +346,15 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
     // where the player is, even if they haven't tapped the map to drop
     // a marker first.
     const source = ball ?? gpsPosition
-    if (!source) {
+    // Stale-fix guard (#720): the last-known seed and the listener's cache
+    // replay populate gpsPosition with no freshness gate (only the
+    // ball/Kalman path has one), so after a pocketed walk to a new hole the
+    // fallback can be a fix from hundreds of meters back. Decline anything
+    // older than 30 s rather than persist it as a durable shot coordinate —
+    // same recovery as no fix at all.
+    const gpsStale =
+      ball == null && Date.now() - gpsFixAtRef.current > 30_000
+    if (!source || gpsStale) {
       Alert.alert(
         'No GPS yet',
         'Waiting for a location fix — try again in a moment, or tap the map to drop the ball manually.',
