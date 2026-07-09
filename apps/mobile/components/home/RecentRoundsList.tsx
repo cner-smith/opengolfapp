@@ -136,7 +136,7 @@ export function RecentRoundsList({
                         },
                       ]}
                     >
-                      {r.total_score ?? '—'}
+                      {r.total_score ? r.total_score : '—'}
                     </Text>
                     <SGValue value={r.sg_total} />
                   </View>

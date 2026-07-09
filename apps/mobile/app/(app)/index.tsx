@@ -142,17 +142,20 @@ export default function Home() {
       const avg = values.length === 0 ? 0 : values.reduce((a, b) => a + b, 0) / values.length
       return { ...c, value: Number(avg.toFixed(2)) }
     })
-    const scoreRounds = rounds.filter((r) => r.total_score !== null)
-    const avgScore = scoreRounds.length > 0
-      ? scoreRounds.reduce((s, r) => s + (r.total_score ?? 0), 0) / scoreRounds.length
-      : null
     // total_score === 0 is the past-round-logger sentinel for "no score
-    // entered" (map-created rounds), so exclude it from the best-round min —
-    // otherwise a single unscored round always reads as a best of 0.
-    const realScores = rounds
-      .map((r) => r.total_score)
-      .filter((s): s is number => s != null && s > 0)
-    const bestScore = realScores.length > 0 ? Math.min(...realScores) : null
+    // entered" (map-created rounds), so exclude it from avg + best-round min —
+    // otherwise an abandoned log skews the average and a single unscored
+    // round always reads as a best of 0.
+    const realScoreRounds = rounds.filter(
+      (r): r is typeof r & { total_score: number } =>
+        r.total_score != null && r.total_score > 0,
+    )
+    const avgScore = realScoreRounds.length > 0
+      ? realScoreRounds.reduce((s, r) => s + r.total_score, 0) / realScoreRounds.length
+      : null
+    const bestScore = realScoreRounds.length > 0
+      ? Math.min(...realScoreRounds.map((r) => r.total_score))
+      : null
     const totalSG = avgs.reduce((s, a) => s + a.value, 0)
     const sorted = [...avgs].sort((a, b) => b.value - a.value)
     return { avgScore, bestScore, totalSG, weakest: sorted[sorted.length - 1]!, strongest: sorted[0]! }
