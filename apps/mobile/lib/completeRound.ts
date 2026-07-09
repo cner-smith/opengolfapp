@@ -1,9 +1,12 @@
 import {
+  DEFAULT_HANDICAP,
   adjustedScore,
   calculateDifferential,
   calculateHandicapIndex,
   computeRoundSG,
+  inferHoleCount,
   inferHoleStats,
+  playedRowsForDifferential,
 } from '@oga/core'
 import {
   getCourseTees,
@@ -78,6 +81,21 @@ export async function completeRound({
   const tees: CourseTeeRow[] = teesRes.data ?? []
   const roundTee = roundRes.data ?? null
 
+  // Self-repair stale stamped zeros (#711). Round creation pre-inserts
+  // every hole_scores row with score 0; live play updates it per shot via
+  // a direct online write that is never queued, so an offline stretch
+  // loses the score even though the shots themselves sync later. Live
+  // stamping defines score = shot count, so a score-0 hole that HAS
+  // synced shots recovers exactly the value the online path would have
+  // written. Patched in place so every downstream reader (computeRoundSG
+  // totals, holedOut, the SG upsert's carried score, the differential)
+  // sees the repaired value; the SG/infer upserts below persist it.
+  for (const hs of holeScores) {
+    if (hs.score !== 0) continue
+    const shotCount = shots.filter((s) => s.hole_score_id === hs.id).length
+    if (shotCount > 0) hs.score = shotCount
+  }
+
   // Infer fairway_hit + gir for any hole where the player didn't set
   // them manually. Mobile live mode never writes those columns
   // per-shot, so without this round-level fairwaysHit/gir totals stay
@@ -135,7 +153,7 @@ export async function completeRound({
     holes,
     holeScores,
     shots,
-    handicap: handicap ?? 18,
+    handicap: handicap ?? DEFAULT_HANDICAP,
   })
 
   // Per-hole SG upsert. Mirrors useCompleteRound.ts: carry round_id /
@@ -193,8 +211,14 @@ export async function completeRound({
         return { score: hs.score, par: h.par }
       })
       .filter((x): x is { score: number; par: number } => !!x)
-    if (holeRows.length > 0) {
-      const adjusted = adjustedScore(holeRows, handicap ?? 18)
+    // Only a complete round produces a differential (#711) — see
+    // playedRowsForDifferential for the sentinel/coverage contract.
+    const playedRows = playedRowsForDifferential(
+      holeRows,
+      inferHoleCount(holes.map((h) => h.number)),
+    )
+    if (playedRows) {
+      const adjusted = adjustedScore(playedRows, handicap ?? DEFAULT_HANDICAP)
       differential = round2(
         calculateDifferential(adjusted, tee.course_rating, tee.slope_rating),
       )
@@ -243,7 +267,15 @@ export async function completeRound({
       .not('score_differential', 'is', null)
       .order('played_at', { ascending: false })
       .limit(20)
-    if (diffsError) throw diffsError
+    // The round is already finalized above — a failure in the index
+    // recompute must not surface as "End round failed" (#711 secondary
+    // bug: a corrupt differential could push the index past the profiles
+    // CHECK floor and throw here). Warn and move on; the next completed
+    // round recomputes over the same data.
+    if (diffsError) {
+      if (__DEV__) console.warn('[completeRound] differentials fetch failed', diffsError)
+      return
+    }
     const diffs = (recentDiffs ?? [])
       .map((r) => r.score_differential)
       .filter((d): d is number => d != null)
@@ -252,7 +284,9 @@ export async function completeRound({
       const { error: profileError } = await updateProfile(supabase, userId, {
         handicap_index: newIndex,
       })
-      if (profileError) throw profileError
+      if (profileError && __DEV__) {
+        console.warn('[completeRound] handicap index update failed', profileError)
+      }
     }
   }
 }
