@@ -62,6 +62,7 @@ export type Database = {
           course_id: string
           course_rating: number | null
           created_at: string
+          created_by: string | null
           id: string
           par: number | null
           slope_rating: number | null
@@ -73,6 +74,7 @@ export type Database = {
           course_id: string
           course_rating?: number | null
           created_at?: string
+          created_by?: string | null
           id?: string
           par?: number | null
           slope_rating?: number | null
@@ -84,6 +86,7 @@ export type Database = {
           course_id?: string
           course_rating?: number | null
           created_at?: string
+          created_by?: string | null
           id?: string
           par?: number | null
           slope_rating?: number | null
@@ -97,6 +100,13 @@ export type Database = {
             columns: ["course_id"]
             isOneToOne: false
             referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "course_tees_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -698,10 +708,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      delete_my_account: {
-        Args: never
-        Returns: undefined
-      }
+      delete_my_account: { Args: never; Returns: undefined }
       insert_synthetic_hole: {
         Args: {
           p_course_id: string
@@ -711,6 +718,7 @@ export type Database = {
         }
         Returns: string
       }
+      plan_generations_this_month: { Args: never; Returns: number }
       search_courses: {
         Args: { result_limit?: number; search_query: string }
         Returns: {
@@ -881,4 +889,3 @@ export const Constants = {
     Enums: {},
   },
 } as const
-
