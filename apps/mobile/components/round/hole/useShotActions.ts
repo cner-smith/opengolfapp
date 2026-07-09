@@ -131,6 +131,8 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
 
   function buildPayload(meta: ShotLoggerValue | null): ShotPayload | null {
     if (!user || !currentHoleScore || !ball) return null
+    const isPutt = meta?.club === 'putter' || meta?.lieType === 'green'
+    const pinTarget = roundPin ?? storedPin ?? null
     return {
       hole_score_id: currentHoleScore.id,
       user_id: user.id,
@@ -139,6 +141,10 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
       start_lng: ball.lng,
       end_lat: null,
       end_lng: null,
+      // Putts leave this null to match the web save path — a putt's
+      // "distance to target" is putt_distance_ft, not this column.
+      distance_to_target:
+        !isPutt && pinTarget ? Math.round(distanceYards(ball, pinTarget)) : null,
       // Persist aim only if the player set/dragged it; an untouched auto-spawn
       // suggestion is dropped so it can't enter the dispersion dataset.
       aim_lat: aimTouched ? aim?.lat ?? null : null,
