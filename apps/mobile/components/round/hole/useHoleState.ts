@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction, type MutableRefObject } from 'react'
-import { AppState } from 'react-native'
+import { AppState, PermissionsAndroid, Platform } from 'react-native'
 import * as Location from 'expo-location'
 import { locationManager } from '@rnmapbox/maps'
 import AsyncStorage from '@react-native-async-storage/async-storage'
@@ -200,25 +200,37 @@ export function useHoleState({
     let subscription: { remove: () => void } | null = null
     ;(async () => {
       try {
-        // expo-location's permission request can hang on Android if the
-        // activity is recreated mid-dialog (rotation, theme change, OEM
-        // low-memory recycle). LocationHelpers.kt uses suspendCoroutine
-        // with no cancellation hook and no host-lifecycle cleanup, so
-        // the JS promise never settles. Race against a 10s timeout —
-        // matches PROFILE_FETCH_TIMEOUT_MS pattern in (app)/_layout.tsx.
-        // On timeout we treat as not-granted; user falls back to manual
-        // tap-to-place. See #278.
-        const perm = await Promise.race([
-          Location.requestForegroundPermissionsAsync(),
+        // Permission gate. On Android this must NOT go through
+        // expo-location: its permission request hangs on real devices the
+        // same way its position APIs do (#704 class; on-device logcat
+        // 2026-07-09, S23 prod build, showed the 10 s timeout firing on
+        // every run — the Mapbox chain below never started, #729). RN
+        // core's PermissionsAndroid is its own native module: `check` is
+        // instant when permission is already granted, `request` drives the
+        // system dialog without expo-location's suspendCoroutine hang
+        // (#278). iOS keeps expo-location, which works there. The 10 s
+        // race stays as defense on both; timeout = not granted, user
+        // falls back to manual tap-to-place.
+        const granted = await Promise.race([
+          (async () => {
+            if (Platform.OS === 'android') {
+              const fine = PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION
+              if (await PermissionsAndroid.check(fine)) return true
+              const res = await PermissionsAndroid.request(fine)
+              return res === PermissionsAndroid.RESULTS.GRANTED
+            }
+            const perm = await Location.requestForegroundPermissionsAsync()
+            return perm.status === 'granted'
+          })(),
           new Promise<never>((_, rej) =>
             setTimeout(() => rej(new Error('perm-timeout')), 10_000),
           ),
         ]).catch((e: Error) => {
-          // eslint-disable-next-line no-console -- dev-visible diagnostic for the Android permission hang (#278)
+          // eslint-disable-next-line no-console -- release-visible diagnostic; how #729 was confirmed on-device
           console.warn('[useHoleState perm-timeout]', e.message)
-          return { status: 'undetermined' as const }
+          return false
         })
-        if (perm.status !== 'granted') return
+        if (!granted) return
         if (!active) return
         // GPS source is Mapbox's location engine, NOT expo-location. All
         // three expo-location read paths (getLastKnownPositionAsync,
