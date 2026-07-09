@@ -38,6 +38,14 @@ begin
     raise exception 'not authenticated';
   end if;
 
+  -- Bound the coordinates like par is bounded below — holes is shared
+  -- crowd data, and a direct RPC caller bypasses the client-side
+  -- Number.isFinite guard. NaN fails all comparisons, so this also
+  -- rejects non-finite input with a clean error.
+  if not (p_tee_lat between -90 and 90) or not (p_tee_lng between -180 and 180) then
+    raise exception 'tee coordinates out of range';
+  end if;
+
   -- Caller must own a round on the same course as the hole whose tee
   -- they're capturing. Stops a malicious client from editing arbitrary
   -- holes by passing any owned round id — the round has to reference the
