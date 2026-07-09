@@ -332,15 +332,28 @@ export function useHoleState({
       active = false
       subscription?.remove()
       gpsSubscriptionRef.current = null
-      // Phase exit clears the filter so re-entry to PLACE_BALL on the
-      // next shot starts smoothing from a fresh fix rather than an
-      // old anchor that may now be hundreds of yards away. Also clears
-      // the manual-placement freeze so the next PLACE_BALL cycle
-      // resumes GPS auto-tracking unless the player drags again.
-      kalmanStateRef.current = null
-      manuallyPlacedRef.current = false
+      // Teardown ONLY — do NOT reset manuallyPlacedRef / kalmanStateRef
+      // here. This cleanup also fires on gpsNonce (every foreground
+      // return) and isRevisitingPlayedHole re-runs, where a manual ball
+      // placement must survive: resetting here let the next tick (or the
+      // addListener cache replay) snap a dragged ball back to raw GPS
+      // (#713). Genuine exits reset the refs elsewhere — the hole-change
+      // effect below, and the phase-exit effect keyed on roundState alone.
     }
   }, [currentHoleId, isPastMode, isRevisitingPlayedHole, roundState, gpsNonce])
+
+  // Phase exit (leaving PLACE_BALL: shot committed, logger opened, putting)
+  // clears the filter + manual-place freeze so the NEXT PLACE_BALL cycle
+  // starts smoothing from a fresh fix and resumes GPS auto-tracking unless
+  // the player drags again. Constraint: keyed on roundState ALONE — the
+  // subscription effect's cleanup can't own this reset because it also
+  // fires on gpsNonce/revisit re-runs, which must preserve a manual
+  // placement (#713).
+  useEffect(() => {
+    if (roundState === 'PLACE_BALL') return
+    kalmanStateRef.current = null
+    manuallyPlacedRef.current = false
+  }, [roundState])
 
   // Hole change resets per-hole state. The screen is resident (#264) so
   // nothing remounts on a hole switch — without an explicit reset the
