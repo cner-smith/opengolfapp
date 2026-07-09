@@ -207,7 +207,7 @@ export function useHoleState({
             setTimeout(() => rej(new Error('perm-timeout')), 10_000),
           ),
         ]).catch((e: Error) => {
-          // eslint-disable-next-line no-console
+          // eslint-disable-next-line no-console -- dev-visible diagnostic for the Android permission hang (#278)
           console.warn('[useHoleState perm-timeout]', e.message)
           return { status: 'undetermined' as const }
         })
@@ -218,9 +218,11 @@ export function useHoleState({
         // getCurrentPositionAsync, watchPositionAsync) silently deliver
         // nothing on Android under SDK 53 / expo-location 18.1.6 — the
         // native fused request never starts (expo/expo#39851; field-
-        // confirmed 2026-07-08, #704). locationManager is the same native
-        // subscription that drives the LocationPuck, so it works wherever
-        // the blue dot does and gpsPosition can never disagree with it.
+        // confirmed 2026-07-08, #704). locationManager is a Mapbox-native
+        // provider like the LocationPuck's (the puck renders via the native
+        // RNMBXNativeUserLocation view — a separate subscription, not this
+        // one); both bypass expo-location's broken fused-provider path, so
+        // this works wherever the blue dot does.
         // expo-location stays for the permission prompt above only.
         // Re-test expo-location at the SDK 54 / expo-location 19 bump
         // (#704 checklist) before considering a switch back.
@@ -266,15 +268,23 @@ export function useHoleState({
           // because the manual-place handler re-anchors Kalman with a
           // strong prior — using the smoothed value would lie for
           // many readings after manual placement.
-          // Functional update with an identity bailout: the Mapbox engine
-          // ticks continuously (~1 Hz) vs expo-location's old 5 m / 5 s
-          // gating, and returning `prev` on identical coords stops at-rest
-          // ticks from re-rendering the hole screen.
+          // Functional update with an identity bailout: returning `prev` on
+          // identical coords (duplicate ticks, the addListener cache replay)
+          // skips the re-render entirely.
           setGpsPosition((prev) =>
             prev && prev.lat === rawPoint.lat && prev.lng === rawPoint.lng
               ? prev
               : { lat: rawPoint.lat, lng: rawPoint.lng },
           )
+          // addListener synchronously replays the manager's cached last
+          // point into a new listener (library behavior). That cache can
+          // predate this PLACE_BALL cycle — previous hole, pocketed phone —
+          // so stale fixes stop here: gpsPosition only (matching the old
+          // last-known → gpsPosition-only semantics), never the ball/Kalman
+          // path below, where a stale anchor would visibly snap the marker
+          // and skew the filter until live ticks pull it back. 10 s is
+          // generous against the ~3.5 s walking-pace tick cadence.
+          if (Date.now() - rawPoint.timestamp > 10_000) return
           // Review posture (#484): on a hole the player navigated BACK to,
           // keep the GPS chip/recenter live (setGpsPosition above) but don't
           // auto-drive the BALL marker — the hole shows only its existing
@@ -294,6 +304,16 @@ export function useHoleState({
           }
           setBall(smoothed)
         }
+        // 5 m distance filter, carried over from the removed expo-location
+        // config: at a ~1.4 m/s walking pace that's a tick every ~3.5 s,
+        // Kalman smooths the gap, and the marker is tap/drag-confirmed
+        // before shot capture — battery over cadence. Without it the engine
+        // starts unfiltered (start(-1)) and ticks ~1 Hz into Kalman/setBall.
+        // The manager persists the value across its internal stop/start, so
+        // once is enough. At rest there are simply no ticks — a stationary
+        // player's held gpsPosition is still correct, so the old 5 s
+        // heartbeat has no equivalent need here.
+        locationManager.setMinDisplacement(5)
         // addListener auto-starts the engine; removeListener auto-stops it
         // when the last listener detaches (both synchronous — no in-flight
         // await race to guard here).
@@ -303,7 +323,7 @@ export function useHoleState({
         }
         gpsSubscriptionRef.current = subscription
       } catch (e) {
-        // eslint-disable-next-line no-console
+        // eslint-disable-next-line no-console -- deliberately loud: GPS-source failures were previously silent and cost a field session to find (#704)
         console.warn('[useHoleState gps-source]', (e as Error)?.message)
         // GPS not available — user will tap to place.
       }
