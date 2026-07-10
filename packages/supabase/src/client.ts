@@ -14,6 +14,11 @@ export interface CreateClientOptions {
   autoRefreshToken?: boolean
   persistSession?: boolean
   detectSessionInUrl?: boolean
+  /** Auth flow. Mobile uses 'pkce' so email-confirm links return a
+   *  ?code= query param instead of a URL fragment — fragments get
+   *  stripped in some iOS mail→browser→app redirect chains (#509).
+   *  Omitted = supabase-js default (implicit), which web stays on. */
+  flowType?: 'implicit' | 'pkce'
 }
 
 export function createOgaClient(opts: CreateClientOptions): OgaSupabaseClient {
@@ -34,6 +39,7 @@ export function createOgaClient(opts: CreateClientOptions): OgaSupabaseClient {
       // injection foothold. Flip back to true (or pass explicitly) when
       // an OAuth callback route is wired up.
       detectSessionInUrl: opts.detectSessionInUrl ?? false,
+      ...(opts.flowType ? { flowType: opts.flowType } : {}),
     },
   })
 }

@@ -114,4 +114,13 @@ export const supabase = createOgaClient({
   anonKey,
   storage: SecureStoreAdapter,
   detectSessionInUrl: false,
+  // PKCE: the email-confirm redirect carries ?code= in the QUERY string,
+  // which survives the mail-app → browser → oga:// handoff that strips
+  // URL fragments on some iOS chains (#509 field reports — users stuck on
+  // "Confirming your account…" because the implicit-flow tokens never
+  // arrived in the fragment). auth-callback exchanges the code locally;
+  // the code_verifier lives in this SecureStore adapter, so the exchange
+  // only works on the device that signed up — which is also the Android
+  // scheme-hijack hardening #509 tracked.
+  flowType: 'pkce',
 })
