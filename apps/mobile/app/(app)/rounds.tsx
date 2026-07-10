@@ -8,6 +8,7 @@ import {
 } from 'react-native'
 import { Link } from 'expo-router'
 import { Swipeable } from 'react-native-gesture-handler'
+import { PressableTouch } from '../../components/ui/PressableTouch'
 import { formatSG } from '@oga/core'
 import { deleteRound, getRoundsList } from '@oga/supabase'
 import { supabase } from '../../lib/supabase'
@@ -163,7 +164,7 @@ export default function RoundsList() {
                 overshootRight={false}
               >
                 <Link href={`/(app)/round/${r.id}`} asChild>
-                  <Pressable
+                  <PressableTouch
                     onLongPress={() => openDeleteFor(r)}
                     accessibilityLabel={buildA11yLabel(r)}
                     accessibilityHint="Opens round detail"
@@ -174,7 +175,8 @@ export default function RoundsList() {
                       if (e.nativeEvent.actionName === 'delete')
                         openDeleteFor(r)
                     }}
-                    style={({ pressed }) => ({
+                    android_ripple={{ color: 'rgba(31,61,44,0.10)' }}
+                    style={{
                       flexDirection: 'row',
                       justifyContent: 'space-between',
                       alignItems: 'center',
@@ -183,8 +185,7 @@ export default function RoundsList() {
                       borderBottomWidth: 1,
                       borderColor: '#D9D2BF',
                       backgroundColor: '#F2EEE5',
-                      opacity: pressed ? 0.7 : 1,
-                    })}
+                    }}
                   >
                     <View style={{ flex: 1, paddingRight: 12 }}>
                       <Text style={{ ...KICKER, marginBottom: 4 }}>
@@ -232,7 +233,7 @@ export default function RoundsList() {
                         {r.sg_total == null ? '—' : formatSG(r.sg_total)}
                       </Text>
                     </View>
-                  </Pressable>
+                  </PressableTouch>
                 </Link>
               </Swipeable>
             ))}

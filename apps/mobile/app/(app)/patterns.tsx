@@ -24,6 +24,7 @@ import {
 } from '@oga/core'
 import { getShotsByClub } from '@oga/supabase'
 import { MaterialCommunityIcons } from '@expo/vector-icons'
+import { PressableTouch } from '../../components/ui/PressableTouch'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
 import { useUnits } from '../../hooks/useUnits'
@@ -210,14 +211,15 @@ export default function Patterns() {
               <DispersionPlot points={points} stats={stats} />
               <PatternLegend hasStats={!!stats} />
               {stats && (
-                <Pressable
+                <PressableTouch
                   accessibilityRole="button"
                   accessibilityLabel="Export shot pattern image"
                   accessibilityState={{ disabled: sharing }}
                   onPress={handleShare}
                   disabled={sharing}
                   hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                  style={({ pressed }) => ({
+                  android_ripple={{ color: 'rgba(31,61,44,0.12)' }}
+                  style={{
                     alignSelf: 'flex-start',
                     flexDirection: 'row',
                     alignItems: 'center',
@@ -230,8 +232,10 @@ export default function Patterns() {
                     borderWidth: 1,
                     borderColor: '#1F3D2C',
                     borderRadius: 2,
-                    opacity: pressed || sharing ? 0.6 : 1,
-                  })}
+                    // Disabled-while-sharing dim; PressableTouch adds the
+                    // iOS press dim on top.
+                    opacity: sharing ? 0.6 : 1,
+                  }}
                 >
                   <MaterialCommunityIcons
                     name="tray-arrow-down"
@@ -243,7 +247,7 @@ export default function Patterns() {
                   <Text style={{ ...KICKER, color: '#1F3D2C', fontSize: 11 }}>
                     {sharing ? 'Rendering…' : 'Export image'}
                   </Text>
-                </Pressable>
+                </PressableTouch>
               )}
             </>
           )}
