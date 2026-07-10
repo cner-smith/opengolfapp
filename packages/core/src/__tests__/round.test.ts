@@ -5,7 +5,10 @@ import {
   isPuttShot,
   legacySlopeToAxes,
   playedRowsForDifferential,
+  summarizePuttParts,
+  summarizeShotParts,
   type PlacedPoint,
+  type ShotSummaryFields,
 } from '../round'
 import { decombinedPuttResult } from '../types'
 
@@ -130,6 +133,115 @@ describe('isPuttShot', () => {
   it('null/undefined lie is NOT a putt', () => {
     expect(isPuttShot(null)).toBe(false)
     expect(isPuttShot(undefined)).toBe(false)
+  })
+})
+
+function summaryFields(
+  overrides: Partial<ShotSummaryFields> = {},
+): ShotSummaryFields {
+  return {
+    distance_to_target: null,
+    shot_result: null,
+    start_lat: null,
+    start_lng: null,
+    putt_distance_ft: null,
+    putt_result: null,
+    putt_distance_result: null,
+    putt_direction_result: null,
+    ...overrides,
+  }
+}
+
+describe('summarizePuttParts', () => {
+  it('made putt: distance + Made', () => {
+    expect(
+      summarizePuttParts(
+        summaryFields({ putt_distance_ft: 4, putt_result: 'made' }),
+        'yards',
+      ),
+    ).toEqual(['4 ft', 'Made'])
+  })
+  it('miss derives axes-first with capitalized labels', () => {
+    expect(
+      summarizePuttParts(
+        summaryFields({
+          putt_distance_ft: 12,
+          putt_result: 'short',
+          putt_distance_result: 'short',
+          putt_direction_result: 'left',
+        }),
+        'yards',
+      ),
+    ).toEqual(['12 ft', 'Short Left'])
+  })
+  it('single-axis miss', () => {
+    expect(
+      summarizePuttParts(
+        summaryFields({ putt_distance_ft: 12, putt_direction_result: 'right' }),
+        'yards',
+      ),
+    ).toEqual(['12 ft', 'Right'])
+  })
+  it('legacy putt_result is the fallback when axes are null', () => {
+    expect(
+      summarizePuttParts(
+        summaryFields({ putt_distance_ft: 8, putt_result: 'missed_left' }),
+        'yards',
+      ),
+    ).toEqual(['8 ft', 'Missed left'])
+  })
+  it('meters mode is unit-aware', () => {
+    expect(
+      summarizePuttParts(
+        summaryFields({ putt_distance_ft: 12, putt_result: 'made' }),
+        'meters',
+      ),
+    ).toEqual(['3.7 m', 'Made'])
+  })
+  it('falls back to distance_to_target for feet', () => {
+    expect(
+      summarizePuttParts(
+        summaryFields({ distance_to_target: 6, putt_result: 'made' }),
+        'yards',
+      ),
+    ).toEqual(['6 ft', 'Made'])
+  })
+  it('no signal → empty parts', () => {
+    expect(summarizePuttParts(summaryFields(), 'yards')).toEqual([])
+  })
+})
+
+describe('summarizeShotParts', () => {
+  it('distance + full result label', () => {
+    expect(
+      summarizeShotParts(
+        summaryFields({ distance_to_target: 152, shot_result: 'solid' }),
+        null,
+        'yards',
+      ),
+    ).toEqual(['152 yd', 'Solid'])
+  })
+  it('full label set (not abbreviated)', () => {
+    expect(
+      summarizeShotParts(
+        summaryFields({ distance_to_target: 152, shot_result: 'push_right' }),
+        null,
+        'yards',
+      ),
+    ).toEqual(['152 yd', 'Push right'])
+  })
+  it('haversines to the next shot start when distance_to_target is null', () => {
+    const parts = summarizeShotParts(
+      summaryFields({ start_lat: 35.0, start_lng: -97.0 }),
+      summaryFields({ start_lat: 35.001, start_lng: -97.0 }),
+      'yards',
+    )
+    // ~0.001° latitude ≈ 111 m ≈ 122 yd
+    expect(parts).toHaveLength(1)
+    expect(parts[0]).toMatch(/^12[0-3] yd$/)
+  })
+  it('no signal → empty parts', () => {
+    expect(summarizeShotParts(summaryFields(), null, 'yards')).toEqual([])
   })
 })
 

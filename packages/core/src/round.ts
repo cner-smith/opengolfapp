@@ -4,10 +4,13 @@
 
 import { inferShot, type InferredShot, type PlacedShot } from './shotInference'
 import type { Club, LieType, LieSlope, LieSlopeForward, LieSlopeSide, ShotResult } from './constants'
+import { PUTT_RESULT_LABELS, SHOT_RESULT_LABELS } from './constants'
+import { formatDistance, formatPuttDistance, haversineYards } from './units'
 import type {
   BreakDirection,
   BreakDirectionHorizontal,
   BreakDirectionVertical,
+  DistanceUnit,
   GreenSpeed,
   LegacyPuttResult,
   PuttDirectionResult,
@@ -109,6 +112,80 @@ export function playedRowsForDifferential<T extends { score: number }>(
 // snake_case DB rows share it.
 export function isPuttShot(lieType: string | null | undefined): boolean {
   return lieType === 'green'
+}
+
+// Structural subset of a snake_case shots row that the shot-summary
+// formatters read — web and mobile pass their own DB Row types.
+export interface ShotSummaryFields {
+  distance_to_target: number | null
+  shot_result: string | null
+  start_lat: number | null
+  start_lng: number | null
+  putt_distance_ft: number | null
+  putt_result: string | null
+  putt_distance_result: string | null
+  putt_direction_result: string | null
+}
+
+const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1)
+
+// One-line putt summary parts — unit-aware distance + result, e.g.
+// ["4 ft", "Made"] or ["12 ft", "Short Left"]. The miss is derived
+// axes-first (putt_distance_result / putt_direction_result are the canonical
+// columns; legacy combined putt_result is the back-compat fallback) so web
+// and mobile can't drift on derivation again (#601). Callers join with ' · '
+// and pick their own empty-state text.
+export function summarizePuttParts(
+  shot: ShotSummaryFields,
+  unit: DistanceUnit,
+): string[] {
+  const feet = shot.putt_distance_ft ?? shot.distance_to_target
+  const distance = feet != null ? formatPuttDistance(feet, unit) : null
+  let result: string | null
+  if (shot.putt_result === 'made') {
+    result = 'Made'
+  } else {
+    const miss = [shot.putt_distance_result, shot.putt_direction_result]
+      .filter((v): v is string => Boolean(v))
+      .map(cap)
+      .join(' ')
+    result =
+      miss ||
+      (shot.putt_result
+        ? PUTT_RESULT_LABELS[
+            shot.putt_result as keyof typeof PUTT_RESULT_LABELS
+          ] ?? shot.putt_result
+        : null)
+  }
+  return [distance, result].filter((v): v is string => Boolean(v))
+}
+
+// Non-putt summary parts — distance + full result label, e.g.
+// ["152 yd", "Solid"]. distance_to_target falls back to the haversine to the
+// next shot's start (end of shot N IS the start of shot N+1) so rows saved
+// without a pin distance still read a yardage.
+export function summarizeShotParts(
+  shot: ShotSummaryFields,
+  next: ShotSummaryFields | null | undefined,
+  unit: DistanceUnit,
+): string[] {
+  let yards = shot.distance_to_target
+  if (
+    yards == null &&
+    shot.start_lat != null &&
+    shot.start_lng != null &&
+    next?.start_lat != null &&
+    next?.start_lng != null
+  ) {
+    yards = Math.round(
+      haversineYards(shot.start_lat, shot.start_lng, next.start_lat, next.start_lng),
+    )
+  }
+  const distance = yards != null ? formatDistance(yards, unit) : null
+  const result = shot.shot_result
+    ? SHOT_RESULT_LABELS[shot.shot_result as ShotResult] ?? shot.shot_result
+    : null
+  return [distance, result].filter((v): v is string => Boolean(v))
 }
 
 export function buildInitialRows(
