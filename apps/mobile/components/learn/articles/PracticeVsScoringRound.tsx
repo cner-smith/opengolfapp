@@ -99,7 +99,8 @@ export function PracticeVsScoringRoundArticle() {
         it goes into a yardage book built on top of the detailed base book the
         event supplies, until the player has a hole-by-hole plan: the club off
         each tee, the number to leave on each approach, and the side that can't
-        be short-sided. Crucially, they practice approaches to the actual hole
+        be short-sided — missed on the side the pin sits, leaving no green to
+        work with. Crucially, they practice approaches to the actual hole
         locations planned for the four tournament days — not to wherever the
         flag happens to sit that morning.
       </P>

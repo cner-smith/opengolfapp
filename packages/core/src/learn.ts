@@ -146,7 +146,7 @@ export const LEARN_SECTIONS: LearnSection[] = [
         id: 'course-management',
         title: 'Course management guide',
         description:
-          'Way of the Playa, the Scoring Zone, planning a hole backwards. The mental side of shooting your number.',
+          'Way of the Playa, the Scoring Zone, planning a hole backwards — shooting your number with the swing you have today.',
         status: 'published',
         words: 2200,
       },

@@ -10,6 +10,7 @@ import {
   Link,
   P,
   Sources,
+  Strong,
 } from '../primitives'
 
 export function CourseManagementArticle() {
@@ -65,8 +66,8 @@ export function CourseManagementArticle() {
         ]}
       />
       <P>
-        Your OGA strokes gained data tells you this more clearly
-        than your gut does. If SG approach is -1.4 per round, your
+        If you track strokes gained, that data tells you this more
+        clearly than your gut does. If SG approach is -1.4 per round, your
         irons are leaking. If SG putting is +0.8, your putter is an
         asset. Play accordingly.
       </P>
@@ -88,7 +89,7 @@ export function CourseManagementArticle() {
         nervous — hit the other one. Every time.
       </P>
       <P>
-        Off the tee: hit the longest club you can confidently keep
+        <Strong>Off the tee:</Strong> hit the longest club you can confidently keep
         in play. That is it. You don't need a perfect drive. You
         need a ball in play. A 220-yard drive in the fairway beats a
         280-yard drive in the trees every single time. Driver is not
@@ -294,9 +295,9 @@ export function CourseManagementArticle() {
         The deeper power of this system is that it shifts your
         measure of success away from score and toward process. A
         player who reaches the Scoring Zone in two shots and
-        converts every time will shoot in the 80s almost regardless
-        of how their ball-striking looks. The system shows you what
-        actually matters hole by hole.
+        converts every time will shoot right around 90 or better
+        almost regardless of how their ball-striking looks. The
+        system shows you what actually matters hole by hole.
       </P>
       <DevNote variant="research">
         Will Robins — The Scoring Method. thescoringmethod.com and
@@ -349,7 +350,9 @@ export function CourseManagementArticle() {
         erase it. Just to get somewhere you can play a normal golf
         shot from.
       </P>
-      <P>Punch out. Accept the bogey. Move on.</P>
+      <P>
+        <Strong>Punch out. Accept the bogey. Move on.</Strong>
+      </P>
       <P>
         The double bogey that becomes a triple happens because the
         player tried to thread the needle through the trees instead

@@ -80,8 +80,8 @@ export function CourseManagementArticle() {
         <li>Where your game breaks down under pressure</li>
       </ul>
       <P>
-        Your OGA strokes gained data tells you this more clearly than
-        your gut does. If SG approach is -1.4 per round, your irons
+        If you track strokes gained, that data tells you this more clearly
+        than your gut does. If SG approach is -1.4 per round, your irons
         are leaking. If SG putting is +0.8, your putter is an asset.
         Play accordingly.
       </P>
@@ -320,9 +320,9 @@ export function CourseManagementArticle() {
         The deeper power of this system is that it shifts your
         measure of success away from score and toward process. A
         player who reaches the Scoring Zone in two shots and converts
-        every time will shoot in the 80s almost regardless of how
-        their ball-striking looks. The system shows you what actually
-        matters hole by hole.
+        every time will shoot right around 90 or better almost
+        regardless of how their ball-striking looks. The system shows
+        you what actually matters hole by hole.
       </P>
       <EditorialNote variant="research">
         Will Robins — The Scoring Method. thescoringmethod.com and
