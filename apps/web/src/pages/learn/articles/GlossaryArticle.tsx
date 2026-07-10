@@ -75,9 +75,9 @@ export function GlossaryArticle() {
       </Term>
       <Term name="Stinger">
         A low, penetrating shot hit with minimal loft, often used
-        into the wind or to punch out from under trees. Made famous
-        by Tiger Woods. Achieved by playing the ball back in the
-        stance and limiting the follow-through.
+        into the wind or to punch out from under trees. Achieved by
+        playing the ball back in the stance and limiting the
+        follow-through.
       </Term>
       <Term name="Punch shot">
         A low, controlled shot played with a shortened swing,
@@ -118,9 +118,7 @@ export function GlossaryArticle() {
         One of the hardest shots in golf due to the low loft and
         long shaft. Useful on long par 5s when you need maximum
         distance and can't reach the green with a fairway wood.
-        Requires a shallow, sweeping angle of attack. Made famous
-        by social media creator "DOD King" Carter Smith, who built
-        an entire golf persona around the shot.
+        Requires a shallow, sweeping angle of attack.
       </Term>
       <Term name="Thai Spinner">
         A low, high-spin shot around the greens popularized by Thai

@@ -68,9 +68,8 @@ the wrong line without curving.
 **Stinger**
 A low, penetrating shot hit with minimal loft,
 often used into the wind or to punch out from under
-trees. Made famous by Tiger Woods. Achieved by
-playing the ball back in the stance and limiting
-the follow-through.
+trees. Achieved by playing the ball back in the
+stance and limiting the follow-through.
 
 **Punch shot**
 A low, controlled shot played with a shortened swing,
@@ -115,9 +114,7 @@ rough. One of the hardest shots in golf due to the
 low loft and long shaft. Useful on long par 5s when
 you need maximum distance and can't reach the green
 with a fairway wood. Requires a shallow, sweeping
-angle of attack. Made famous by social media creator
-"DOD King" Carter Smith, who built an entire golf
-persona around the shot.
+angle of attack.
 
 **Thai Spinner**
 A low, high-spin shot around the greens popularized
