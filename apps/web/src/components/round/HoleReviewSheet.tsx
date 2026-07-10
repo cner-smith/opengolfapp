@@ -164,6 +164,15 @@ export function HoleReviewSheet({
 
   if (!open) return null
 
+  // Summary values, derived from the shots placed on the map — same rule
+  // saveReviewedHole persists (score = shot count, putts = green-lie shots).
+  // Shown prominently so the sheet reads as "how'd it go?" first, detail
+  // second. (Editable score/putts + penalties are a deliberate follow-up:
+  // they need a save-path/schema decision made alongside the mobile build.)
+  const shotCount = rows.length
+  const puttCount = rows.filter((r) => isPuttShot(r.lieType)).length
+  const vsPar = shotCount > 0 ? shotCount - par : null
+
   return (
     <div
       role="dialog"
@@ -205,23 +214,27 @@ export function HoleReviewSheet({
       </div>
       <div
         style={{
-          display: 'flex',
-          alignItems: 'baseline',
-          justifyContent: 'space-between',
           padding: '0 22px 14px',
           borderBottom: '1px solid #D9D2BF',
         }}
       >
-        <div>
-          <div className="kicker" style={{ marginBottom: 4 }}>
-            Hole {holeNumber} review
-          </div>
-          <div
-            className="font-serif text-caddie-ink"
-            style={{ fontSize: 22, fontWeight: 500, fontStyle: 'italic' }}
-          >
-            {rows.length} shot{rows.length === 1 ? '' : 's'} · par {par}
-          </div>
+        <div className="kicker" style={{ marginBottom: 4 }}>
+          Hole {holeNumber} · Par {par}
+        </div>
+        <div
+          className="font-serif text-caddie-ink"
+          style={{
+            fontSize: 24,
+            fontWeight: 500,
+            fontStyle: 'italic',
+            marginBottom: 14,
+          }}
+        >
+          Nice — how'd it go?
+        </div>
+        <div style={{ display: 'flex', gap: 10 }}>
+          <SummaryStat label="Score" value={shotCount} vsPar={vsPar} />
+          <SummaryStat label="Putts" value={puttCount} />
         </div>
       </div>
 
@@ -241,7 +254,14 @@ export function HoleReviewSheet({
             No placed shots. Drop pins on the map and try again.
           </div>
         ) : (
-          rows.map((row, idx) => (
+          <>
+          <div
+            className="kicker"
+            style={{ paddingTop: 10, paddingBottom: 2, color: '#8A8B7E' }}
+          >
+            Your shots · optional
+          </div>
+          {rows.map((row, idx) => (
             <ShotRow
               key={row.shotNumber}
               row={row}
@@ -282,7 +302,8 @@ export function HoleReviewSheet({
                 })
               }
             />
-          ))
+          ))}
+          </>
         )}
       </div>
 
@@ -326,7 +347,7 @@ export function HoleReviewSheet({
             letterSpacing: '0.02em',
           }}
         >
-          {saving ? 'Saving…' : 'Save hole'}{' '}
+          {saving ? 'Saving…' : 'Save & next hole'}{' '}
           {!saving && (
             <span className="font-serif" style={{ fontStyle: 'italic' }}>
               →
@@ -334,6 +355,62 @@ export function HoleReviewSheet({
           )}
         </button>
       </div>
+    </div>
+  )
+}
+
+function SummaryStat({
+  label,
+  value,
+  vsPar,
+}: {
+  label: string
+  value: number
+  vsPar?: number | null
+}) {
+  const vsParText =
+    vsPar == null ? null : vsPar === 0 ? 'E' : vsPar > 0 ? `+${vsPar}` : `${vsPar}`
+  // Muted brick over par, forest under, ink at even — never a bright red.
+  const vsParColor =
+    vsPar == null || vsPar === 0 ? '#5C6356' : vsPar > 0 ? '#A33A2A' : '#1F3D2C'
+  return (
+    <div
+      style={{
+        flex: 1,
+        background: '#F2EEE5',
+        border: '1px solid #D9D2BF',
+        borderRadius: 6,
+        padding: '10px 12px 11px',
+        display: 'flex',
+        alignItems: 'baseline',
+        gap: 8,
+      }}
+    >
+      <span
+        className="font-serif tabular text-caddie-ink"
+        style={{ fontSize: 28, fontWeight: 500, lineHeight: 1 }}
+      >
+        {value}
+      </span>
+      <span
+        className="kicker"
+        style={{ color: '#8A8B7E' }}
+      >
+        {label}
+      </span>
+      {vsParText && (
+        <span
+          className="font-serif"
+          style={{
+            marginLeft: 'auto',
+            fontSize: 14,
+            fontStyle: 'italic',
+            color: vsParColor,
+          }}
+        >
+          {vsParText}
+        </span>
+      )}
     </div>
   )
 }
