@@ -1,4 +1,4 @@
-import { SrcBody, SrcLabel } from '../components/ArticlePrimitives'
+import { Lede, SrcBody, SrcLabel } from '../components/ArticlePrimitives'
 export function GlossaryArticle() {
   return (
     <article
@@ -26,12 +26,11 @@ export function GlossaryArticle() {
         Glossary of golf terms.
       </h2>
 
-      <P>
-        The basics — birdie, bogey, par, handicap, GIR — are covered
-        in the app's stat reference section. This glossary focuses
-        on the terms that come up once you start playing regularly
-        and trying to improve.
-      </P>
+      <Lede>
+        The basics — birdie, bogey, par, handicap, GIR — are not
+        covered here. This glossary focuses on the terms that come
+        up once you start playing regularly and trying to improve.
+      </Lede>
 
       <Hr />
 
@@ -96,8 +95,8 @@ export function GlossaryArticle() {
         A shot hit with enough backspin that the ball spins back
         toward the player after landing on the green. Typically
         happens on clean contact with a wedge into a soft green. A
-        desirable shot when the pin is at the back of the green and
-        you need the ball to check up and release toward the hole.
+        desirable shot when the pin is at the front of the green —
+        fly the ball past the hole and let the spin bring it back.
       </Term>
       <Term name="Knuckleball">
         A shot with almost no spin — the ball flutters and moves
@@ -196,13 +195,6 @@ export function GlossaryArticle() {
         considered a good miss — you're putting across the slope
         rather than up or down it.
       </Term>
-      <Term name="Spinner (putting)">
-        In putting context, a spinner refers to a putt that lips
-        out spinning — the ball catches the edge of the cup, spins
-        around the rim and comes back out. One of the most
-        frustrating outcomes in golf. See also: lip out.
-      </Term>
-
       <Hr />
 
       <H3>Course and green terminology</H3>
@@ -288,14 +280,13 @@ export function GlossaryArticle() {
         down and smoothing, not by lifting the center up.
       </Term>
       <Term name="Burn mark">
-        The browning or dying of grass on one side of the hole cup,
-        caused by the grain growing away from that side and
-        exposing the roots. The burned side indicates where the
-        grain is running from — grain runs toward the healthy
-        green side of the cup. Reading burn marks is a quick way
-        to identify grain direction on Bermuda greens before
-        putting. The side with the burn is into the grain; the
-        healthy side is with the grain.
+        The browning or dying of grass on one side of the hole cup.
+        The blades on the down-grain edge hang over the hole and die
+        off, leaving a burnt, ragged edge — that side shows the
+        direction the grain grows toward. The sharp, healthy edge is
+        the up-grain side. Putts run faster and break toward the
+        burnt side. Reading burn marks is a quick way to identify
+        grain direction on Bermuda greens before putting.
       </Term>
       <Term name="Divot tool / Pitch fork">
         The small forked tool used to repair pitch marks on the
