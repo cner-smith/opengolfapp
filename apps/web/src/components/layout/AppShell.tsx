@@ -1,14 +1,21 @@
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { useLocation } from 'react-router-dom'
 import { Sidebar } from './Sidebar'
 
 export function AppShell({ children }: { children: ReactNode }) {
   const [drawerOpen, setDrawerOpen] = useState(false)
   const location = useLocation()
+  const mainRef = useRef<HTMLElement>(null)
 
-  // Close the drawer whenever the user navigates.
+  // On navigation: close the drawer and reset the scroll position. `main`
+  // is the scroll container (not the window), and the app had no scroll
+  // restoration — so long pages (Learn articles especially) kept the
+  // previous route's scroll offset instead of starting at the top. Keyed
+  // on pathname only, so query-param changes (e.g. round tab switches)
+  // don't yank the scroll.
   useEffect(() => {
     setDrawerOpen(false)
+    mainRef.current?.scrollTo({ top: 0 })
   }, [location.pathname])
 
   return (
@@ -37,6 +44,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       </div>
 
       <main
+        ref={mainRef}
         className="flex-1 overflow-y-auto"
         style={{ paddingInline: 'clamp(16px, 4vw, 32px)' }}
       >
