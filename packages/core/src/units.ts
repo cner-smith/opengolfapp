@@ -52,8 +52,12 @@ export function bearingDegrees(
 }
 
 export function formatSG(n: number): string {
-  const sign = n > 0 ? '+' : ''
-  return `${sign}${n.toFixed(2)}`
+  // Round to 2dp BEFORE picking the sign so a value that rounds to zero
+  // (e.g. -0.004) renders "0.00", not a signed "-0.00" (#672). Number()
+  // collapses the rounded -0.00 to 0, and (-0).toFixed(2) drops the sign.
+  const rounded = Number(n.toFixed(2))
+  const sign = rounded > 0 ? '+' : ''
+  return `${sign}${rounded.toFixed(2)}`
 }
 
 export function formatToPar(diff: number): string {
