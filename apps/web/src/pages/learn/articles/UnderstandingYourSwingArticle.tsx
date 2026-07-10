@@ -52,8 +52,10 @@ export function UnderstandingYourSwingArticle() {
         is mostly your face. <strong>How it curves</strong> is the gap between
         face and path. A shot that starts left and slices back right, for
         instance, means the face was pointed left of the target but still open
-        relative to an even-more-leftward path — the classic out-to-in pull-slice.
-        The ball just told you both numbers; you only had to listen.
+        relative to an even-more-leftward path — the classic out-to-in pull-slice
+        (directions throughout are for a right-handed golfer — mirror them if you
+        play left-handed). The ball just told you both numbers; you only had to
+        listen.
       </P>
 
       <BallFlightDiagram />
@@ -184,7 +186,7 @@ function FlightReadout() {
     {
       factor: 'Face angle',
       writes:
-        'Where the ball starts. At impact the face sets roughly three-quarters of the start line — more at slower speeds.',
+        'Where the ball starts. At impact the face sets roughly three-quarters of the start line with an iron — closer to 85% with the driver.',
     },
     {
       factor: 'Face vs. path',
