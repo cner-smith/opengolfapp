@@ -113,6 +113,12 @@ export function WebPuttingSheet({
   // is the right key — opening the sheet for shot 4 then shot 5 (without
   // closing in between) should restart the form from the new shot's
   // seed values, not retain shot 4's typed distance.
+  //
+  // `initialDistanceFt` is deliberately NOT a dependency: it recomputes
+  // live as the player drags the putt marker or pin while the sheet is
+  // open, and re-running this effect on every drag wipes in-progress
+  // typed input. Snapshotting it at open/shot-change is correct — the
+  // distance is only a seed, and the player is now typing the real one (#666).
   useEffect(() => {
     if (!open) return
     const seed = initial ?? null
@@ -134,7 +140,7 @@ export function WebPuttingSheet({
     // eslint can't see the dependency and would request a useCallback.
     // Keeping it inline keeps the seed logic in one place.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, shotNumber, initialDistanceFt, initial, unit])
+  }, [open, shotNumber, initial, unit])
 
   const parsedDist = Number(distanceText)
   const distanceFt = Number.isFinite(parsedDist)
