@@ -5,6 +5,7 @@ import {
 } from './sg-calculator'
 import { NEAR_GREEN_YARDS } from './constants'
 import type { LieSlopeForward, LieSlopeSide, LieType, ShotCategory, ShotResult } from './constants'
+import { isPuttShot } from './round'
 import { METERS_TO_YARDS, YARDS_TO_METERS, haversineYards, toRadians } from './units'
 import { RESULT_QUALITY } from './types'
 import type { DistanceUnit } from './types'
@@ -528,11 +529,23 @@ export function ballStrikingStats(rounds: DetailedRound[]): BallStrikingStats {
         if (
           category === 'approach' &&
           s.distance_to_target != null &&
-          s.distance_to_target > NEAR_GREEN_YARDS &&
-          s.end_lat != null &&
-          s.end_lng != null
+          s.distance_to_target > NEAR_GREEN_YARDS
         ) {
-          const prox = getProximityYards(s.end_lat, s.end_lng, hs, hole)
+          // Prefer pin geometry (needs end coords + a pin coordinate).
+          let prox: number | null =
+            s.end_lat != null && s.end_lng != null
+              ? getProximityYards(s.end_lat, s.end_lng, hs, hole)
+              : null
+          // Fallback when there's no pin — typical on synthetic-hole courses
+          // where per-round pins are optional. If the approach was followed
+          // by a putt, that putt's length from the hole IS how close the
+          // approach finished. putt_distance_ft → yards (3 ft = 1 yd). #575
+          if (prox == null) {
+            const next = shots[i + 1]
+            if (next && isPuttShot(next.lie_type) && next.putt_distance_ft != null) {
+              prox = next.putt_distance_ft / 3
+            }
+          }
           if (prox != null && prox < 100) {
             proximities.push(prox)
             roundsWithProximity.add(r.id)
