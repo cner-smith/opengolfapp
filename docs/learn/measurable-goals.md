@@ -2,7 +2,7 @@
 title: Creating Measurable Practice Goals
 section: Improving Your Game
 status: published
-last_reviewed: 2026-05
+last_reviewed: 2026-07
 contributors: []
 ---
 
@@ -127,5 +127,5 @@ goal you can't score isn't a goal. It's a hope.
 
 ---
 
-*Last reviewed: May 2026*
+*Last reviewed: July 2026*
 *To contribute: open a PR editing docs/learn/measurable-goals.md*

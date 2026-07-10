@@ -2,7 +2,7 @@
 title: How to Practice
 section: Improving Your Game
 status: published
-last_reviewed: 2026-05
+last_reviewed: 2026-07
 contributors: []
 ---
 
@@ -265,5 +265,5 @@ commit to it fully.
 
 ---
 
-*Last reviewed: May 2026*
+*Last reviewed: July 2026*
 *To contribute: open a PR editing docs/learn/how-to-practice.md*

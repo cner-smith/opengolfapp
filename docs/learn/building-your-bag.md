@@ -2,7 +2,7 @@
 title: Building Your Bag
 section: Your Equipment
 status: published
-last_reviewed: 2026-05
+last_reviewed: 2026-07
 contributors: []
 ---
 
@@ -159,5 +159,5 @@ instead of habit shoots lower without buying a thing.
 
 ---
 
-*Last reviewed: May 2026*
+*Last reviewed: July 2026*
 *To contribute: open a PR editing docs/learn/building-your-bag.md*

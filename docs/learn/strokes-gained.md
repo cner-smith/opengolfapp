@@ -2,7 +2,7 @@
 title: How Strokes Gained Works
 section: Understanding the Game
 status: published
-last_reviewed: 2026-05
+last_reviewed: 2026-07
 contributors: []
 ---
 
@@ -101,5 +101,5 @@ your bracket — fine, not a leak.
 
 ---
 
-*Last reviewed: May 2026*
+*Last reviewed: July 2026*
 *To contribute: open a PR editing docs/learn/strokes-gained.md*

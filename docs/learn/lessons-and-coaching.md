@@ -2,7 +2,7 @@
 title: Guide to Lessons and Coaching
 section: Working with Coaches
 status: published
-last_reviewed: 2026-05
+last_reviewed: 2026-07
 contributors: []
 ---
 
@@ -256,5 +256,5 @@ is to actually get better.
 
 ---
 
-*Last reviewed: May 2026*
+*Last reviewed: July 2026*
 *To contribute: open a PR editing docs/learn/lessons-and-coaching.md*
