@@ -254,7 +254,7 @@ commit to it fully.
   — variable, interleaved practice is a "desirable
   difficulty" that builds more general, robust skill.
 - **Practicing under pressure** —
-  [Gröpel & Mesagno (2019) · choking interventions, a systematic review](https://www.tandfonline.com/doi/full/10.1080/1750984X.2017.1408134)
+  [Gröpel & Mesagno, International Review of Sport & Exercise Psychology (2019) · choking interventions, a systematic review](https://www.tandfonline.com/doi/full/10.1080/1750984X.2017.1408134)
   — acclimatization and pre-performance routines help
   skills survive competitive anxiety.
 - **Deliberate practice, and its limits** —

@@ -206,7 +206,8 @@ export function PracticeModesArticle() {
             note: (
               <Text>
                 <Link href="https://www.tandfonline.com/doi/full/10.1080/1750984X.2017.1408134">
-                  Gröpel & Mesagno (2019) · choking interventions, a systematic
+                  Gröpel & Mesagno, International Review of Sport & Exercise
+                  Psychology (2019) · choking interventions, a systematic
                   review
                 </Link>{' '}
                 — acclimatization and pre-performance routines help skills survive

@@ -516,7 +516,8 @@ function Sources() {
           <SrcLabel>Practicing under pressure</SrcLabel>
           <SrcBody>
             <Src href="https://www.tandfonline.com/doi/full/10.1080/1750984X.2017.1408134">
-              Gröpel &amp; Mesagno (2019) · choking interventions, a systematic
+              Gröpel &amp; Mesagno, International Review of Sport &amp;
+              Exercise Psychology (2019) · choking interventions, a systematic
               review
             </Src>{' '}
             — acclimatization and pre-performance routines help skills survive

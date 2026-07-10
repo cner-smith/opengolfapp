@@ -345,7 +345,7 @@ over months is genuinely motivating.
   — varied, game-like practice builds a more skilled
   mental model.
 - **Why the stakes matter — practicing under pressure** —
-  [Gröpel & Mesagno (2019) · choking interventions, a systematic review](https://www.tandfonline.com/doi/full/10.1080/1750984X.2017.1408134)
+  [Gröpel & Mesagno, International Review of Sport & Exercise Psychology (2019) · choking interventions, a systematic review](https://www.tandfonline.com/doi/full/10.1080/1750984X.2017.1408134)
   — rehearsing with consequences helps skills survive
   competitive anxiety.
 
