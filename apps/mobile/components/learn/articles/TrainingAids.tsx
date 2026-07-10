@@ -308,13 +308,11 @@ export function TrainingAidsArticle() {
       <Sources
         items={[
           {
-            name: 'Why alignment is foundational',
+            name: 'PGA of America · 4 alignment mistakes',
+            href: 'https://www.pga.com/story/4-alignment-mistakes-killing-your-golf-game-and-how-to-fix-them',
             note: (
               <Text>
-                <Link href="https://www.pga.com/story/4-alignment-mistakes-killing-your-golf-game-and-how-to-fix-them">
-                  PGA of America · 4 alignment mistakes
-                </Link>{' '}
-                and{' '}
+                Why alignment is foundational — paired with{' '}
                 <Link href="https://golf.com/instruction/why-aim-alignment-poor-how-fix/">
                   Golf.com · why your aim is poor
                 </Link>{' '}
@@ -324,29 +322,27 @@ export function TrainingAidsArticle() {
             ),
           },
           {
-            name: 'Face angle sets the start line',
+            name: 'TrackMan · what is face angle',
+            href: 'https://www.trackman.com/blog/golf/what-is-face-angle',
             note: (
               <Text>
-                <Link href="https://www.trackman.com/blog/golf/what-is-face-angle">
-                  TrackMan · what is face angle
-                </Link>{' '}
-                and{' '}
+                Face angle sets the start line — paired with{' '}
                 <Link href="https://www.trackman.com/blog/golf/6-trackman-numbers-all-amateur-golfers-should-know">
                   6 numbers every amateur should know
                 </Link>{' '}
-                — the clubface controls roughly 85% of where the ball starts, which
-                is why putting and impact aids train a square strike.
+                — the clubface controls roughly 75–85% of where the ball starts
+                (most with the driver), which is why putting and impact aids
+                train a square strike.
               </Text>
             ),
           },
           {
-            name: 'Tempo — the three-to-one ratio',
+            name: 'Tour Tempo',
+            href: 'https://tourtempo.com/pages/tour-tempo-app',
             note: (
               <Text>
-                <Link href="https://tourtempo.com/pages/tour-tempo-app">
-                  Tour Tempo
-                </Link>{' '}
-                on the 3:1 backswing-to-downswing finding, and{' '}
+                Tempo, the three-to-one ratio — the 3:1 backswing-to-downswing
+                finding, paired with{' '}
                 <Link href="https://www.pga.com/story/find-a-rhythm-and-tempo-that-fits-your-game">
                   PGA of America · rhythm and tempo
                 </Link>{' '}
@@ -356,13 +352,11 @@ export function TrainingAidsArticle() {
             ),
           },
           {
-            name: 'Launch monitors — which numbers, and what they cost',
+            name: 'TrackMan · the ultimate guide to the data',
+            href: 'https://www.trackman.com/blog/golf/the-ultimate-guide-to-understanding-trackman',
             note: (
               <Text>
-                <Link href="https://www.trackman.com/blog/golf/the-ultimate-guide-to-understanding-trackman">
-                  TrackMan · the ultimate guide to the data
-                </Link>{' '}
-                and{' '}
+                Launch monitors, which numbers and what they cost — paired with{' '}
                 <Link href="https://mygolfspy.com/buyers-guide/we-tested-12-launch-monitors-ranging-from-500-to-5000-whats-the-real-difference/">
                   MyGolfSpy · $500 to $5,000 tested
                 </Link>{' '}
@@ -453,7 +447,7 @@ function NumbersTable() {
     },
     {
       num: 'Path & face angle',
-      who: 'Coaches and better players. Face angle alone sets about 85% of your start line — worth knowing, hard to change without help.',
+      who: 'Coaches and better players. Face angle alone sets about 75–85% of your start line (most with the driver) — worth knowing, hard to change without help.',
     },
   ]
   return (

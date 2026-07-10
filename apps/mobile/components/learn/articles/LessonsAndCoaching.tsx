@@ -25,6 +25,14 @@ export function LessonsAndCoachingArticle() {
         title="Lessons and coaching."
       />
 
+      <P>
+        Good instruction is the fastest way to get better — and the easiest
+        thing in golf to waste. What you do around the lesson counts for as much
+        as the lesson itself.
+      </P>
+
+      <Hr />
+
       <H3>Most golfers waste the lesson hour</H3>
       <P>
         A golf lesson is one of the highest-leverage hours you can spend on your
@@ -256,22 +264,33 @@ export function LessonsAndCoachingArticle() {
       <Sources
         items={[
           {
-            name: 'Titleist Performance Institute · About Certification',
-            href: 'https://www.mytpi.com/certification/about',
+            name: 'What the certifications mean',
             note: (
               <Text>
+                <Link href="https://www.mytpi.com/certification/about">
+                  Titleist Performance Institute · About Certification
+                </Link>{' '}
                 on the body-swing-connection approach and physical screening;{' '}
-                <Link href="https://www.pga.com/things-to-do/coaches">
-                  PGA of America · Coaches
+                <Link href="https://www.pga.com/coaches">
+                  PGA of America · Find a Coach
                 </Link>{' '}
                 for what a PGA teaching professional is and how to find one.
               </Text>
             ),
           },
           {
-            name: 'HackMotion · Worse After Golf Lessons?',
-            href: 'https://hackmotion.com/worse-after-golf-lessons/',
-            note: '— the temporary performance dip is a normal stage of overwriting a grooved motor pattern: the old swing fades before the new one takes hold, so contact gets clumsy in the middle. Expected, not a failure.',
+            name: 'Why a swing change feels worse before it feels better',
+            note: (
+              <Text>
+                <Link href="https://hackmotion.com/worse-after-golf-lessons/">
+                  HackMotion · Worse After Golf Lessons?
+                </Link>{' '}
+                — the temporary performance dip is a normal stage of overwriting
+                a grooved motor pattern: the old swing fades before the new one
+                takes hold, so contact gets clumsy in the middle. Expected, not
+                a failure.
+              </Text>
+            ),
           },
         ]}
       />
@@ -284,7 +303,8 @@ export function LessonsAndCoachingArticle() {
 // Side-by-side "look for / walk away from" cards. Single-column stacked on
 // phone. Palette stays in the house earth tones — the accent green marks the
 // column you want, a muted ink marks the one you don't. No red; the labels
-// carry the meaning. Keeps the ✓ / · glyphs and the green/amber accent split.
+// carry the meaning. Keeps the ✓ / · glyphs and the green-accent vs muted-ink
+// split.
 function FlagColumns() {
   return (
     <View style={{ marginBottom: 14, gap: 12 }}>

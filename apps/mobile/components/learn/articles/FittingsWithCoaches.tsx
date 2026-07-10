@@ -188,12 +188,8 @@ export function FittingsWithCoachesArticle() {
             name: 'Coach and fitter should be aligned',
             note: (
               <Text>
-                <Link href="https://www.mytpi.com/certification">
+                <Link href="https://www.titleist.com/learning-lab/performance/tpi-team-approach">
                   Titleist Performance Institute · the team approach
-                </Link>{' '}
-                and{' '}
-                <Link href="https://www.dennissalesgolf.com/golf-drills-and-practice-blogs/2025/3/18/why-you-should-get-fit-by-your-instructor-not-just-a-club-fitter">
-                  why getting fit by your instructor matters
                 </Link>{' '}
                 — most fitters, left alone, don't know your coach's plan; the player
                 has to connect them.
