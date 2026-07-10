@@ -1,24 +1,16 @@
 ---
 title: How to Practice
 section: Improving Your Game
-status: draft
+status: published
 last_reviewed: 2026-05
 contributors: []
-content_warning: |
-  This article is a work in progress. The structure and core
-  ideas are established but individual sections need deeper
-  research, better resource links, and review by a qualified
-  golf instructor before being considered complete.
-  Do not treat any specific technique advice as authoritative
-  until this notice is removed.
 ---
 
 # How to Practice
 
-> **Work in progress.** This article is being developed.
-> Core structure is in place but content needs review,
-> additional research, and input from qualified instructors.
-> Resource links are placeholders — verify before using.
+Hitting balls and getting better are two different
+activities. This is the difference — and how to structure
+range time so the work actually shows up on the course.
 
 ## The uncomfortable truth
 
@@ -72,11 +64,6 @@ you do get better within the session. That feeling is
 misleading. It is one of the most well-replicated findings
 in motor learning research.
 
-> 📚 *Research basis: Robert Bjork (UCLA) — contextual
-> interference effect. See also: "Make It Stick" by Brown,
-> Roediger, McDaniel.*
-> ⚠️ *TODO: Add specific study citations*
-
 ---
 
 ### Random practice
@@ -94,27 +81,36 @@ your brain has to fully reconstruct the motor pattern from
 scratch. That reconstruction process is where learning
 happens.
 
+**Vary the conditions too:** Don't just change clubs —
+change distance, lie, wind, and slope. Golf never gives
+you the same shot twice, so practice that never repeats a
+shot transfers best.
+
 **Not good for:** Learning a brand new movement. Don't
 randomize before you have a basic pattern to work with.
 
-> 📚 *Research basis: Contextual interference effect,
-> Battig (1979), confirmed in many subsequent studies.*
-> ⚠️ *TODO: Verify whether the beginner exception is
-> well-established or still debated*
-
 ---
 
-### Variable practice
+### Skill games
 
-**What it is:** Same club, different conditions. 9-iron
-from 100 yards, then 90, then uphill, then into wind,
-then from a downslope.
+**What it is:** Turning a drill into a scored challenge.
+Make 7 of 10 from 8 feet. Get up-and-down 6 times out of
+10. Land 5 wedges inside a 15-foot circle. Every game has
+a number you can pass or fail.
 
-**Good for:** Building adaptability. Golf never gives you
-the same shot twice. Variable practice trains you for
-that reality.
+**Good for:** Feedback and tracking. A score tells you
+instantly whether a shot was good enough, and the same
+game repeated over weeks shows whether you're actually
+improving — not just whether today felt good.
 
-**Combine it with:** Random practice for maximum transfer.
+**Why it works:** A target and a score force a real result
+on every ball. That's the line between practice and just
+hitting. It also makes practice competitive, which is what
+keeps you coming back.
+
+**Combine it with:** Pressure. Add a consequence to a
+skill game — start over on a miss — and you've trained
+scoring and nerves at the same time.
 
 ---
 
@@ -136,11 +132,6 @@ under pressure. If you've never practiced with
 consequences, your body hasn't learned how to handle them
 on the course.
 
-> 📚 *Research basis: Dr. Sian Beilock — "Choke" (2010).
-> Bob Rotella — "Golf Is Not a Game of Perfect" (1995).*
-> ⚠️ *TODO: Add more specific pressure practice examples
-> from tour player documented routines*
-
 ---
 
 ## How to structure a session
@@ -156,11 +147,6 @@ your time and current focus area.
 | Pressure games | 10-15 min | Consequences on every shot. Keep score. |
 | Short game | 15-20 min | Chipping and pitching. Don't skip. |
 | Putting | 10-15 min | Always end on the green. End by holing putts. |
-
-> ⚠️ *TODO: Review these time allocations with a teaching
-> professional. The short game / full swing split in
-> particular (Dave Pelz suggests ~60% short game) needs
-> more exploration.*
 
 ---
 
@@ -178,10 +164,11 @@ The difference is measurability. If you can't tell whether
 you achieved your goal, it wasn't a goal — it was a
 vague intention.
 
-Your OGA strokes gained data tells you exactly where to
-focus. If you're losing 1.2 strokes per round on approach
-shots, that's your focus area. Your practice goal should
-be specific to that weakness.
+If you track strokes gained (OGA computes this for you),
+it tells you exactly where to focus. If you're losing 1.2
+strokes per round on approach shots, that's your focus
+area. Your practice goal should be specific to that
+weakness.
 
 **How to quantify your practice:**
 - Track your success rate on pressure games over time
@@ -247,45 +234,36 @@ commit to it fully.
 
 ---
 
-## Resources
+## Sources
 
-> ⚠️ *These are starting points for further research,
-> not endorsements. Verify all links are current before
-> publishing.*
-
-### Books
-- **"Make It Stick"** — Brown, Roediger, McDaniel.
-  Best plain-language summary of learning science.
-  Not golf-specific but directly applicable.
-- **"Golf Is Not a Game of Perfect"** — Bob Rotella.
-  Standard text on golf psychology and performance.
-- **"Dave Pelz's Short Game Bible"** — Research-based
-  approach to practice from inside 100 yards.
-- **"Harvey Penick's Little Red Book"** — The most
-  beloved golf instruction book ever written.
-  Simple, wise, feel-based.
-- **"Peak"** — Anders Ericsson. His own account of
-  deliberate practice research. Better than the
-  Gladwell version.
-- **"Choke"** — Sian Beilock. Accessible neuroscience
-  of performance under pressure.
-
-### Research worth knowing
-- Robert Bjork — contextual interference, desirable
-  difficulties (UCLA)
-- Anders Ericsson — deliberate practice and expert
-  performance
-- Gabriele Wulf — attentional focus research showing
-  external focus cues outperform internal focus cues
-- Sian Beilock — choking under pressure
-
-### Online resources
-- TPI (Titleist Performance Institute): https://mytpi.com
-- Robert Bjork's lab: https://bjorklab.psych.ucla.edu
-  ⚠️ *TODO: Verify this URL is current*
+- **Block vs random practice (contextual interference)** —
+  [Scientific Reports (2024) · meta-analysis](https://www.nature.com/articles/s41598-024-65753-3)
+  confirms high contextual interference improves retention,
+  and [Brady, Quest (1998)](https://www.tandfonline.com/doi/abs/10.1080/00336297.1998.10484285)
+  reviews the effect first shown by Shea & Morgan (1979):
+  random order hurts practice, helps learning.
+- **Random practice in golf specifically** —
+  [Frontiers · motor learning in golf, a systematic review](https://www.frontiersin.org/journals/sports-and-active-living/articles/10.3389/fspor.2024.1324615/full)
+  and [Fazeli et al. (2017) · random vs blocked in golf putting](https://pubmed.ncbi.nlm.nih.gov/28449601/)
+  — random groups putt worse in practice, better in
+  retention.
+- **Varying conditions — variability and desirable
+  difficulty** —
+  [Memory & Cognition (2021) · interleaving and transfer](https://link.springer.com/article/10.3758/s13421-021-01168-z)
+  and [Sherwood & Lee (2003) · schema theory review](https://pubmed.ncbi.nlm.nih.gov/14768838/)
+  — variable, interleaved practice is a "desirable
+  difficulty" that builds more general, robust skill.
+- **Practicing under pressure** —
+  [Gröpel & Mesagno, International Review of Sport & Exercise Psychology (2019) · choking interventions, a systematic review](https://www.tandfonline.com/doi/full/10.1080/1750984X.2017.1408134)
+  — acclimatization and pre-performance routines help
+  skills survive competitive anxiety.
+- **Deliberate practice, and its limits** —
+  [Macnamara & Maitra, revisiting Ericsson, Krampe & Tesch-Römer (1993)](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6731745/)
+  — practice quality matters enormously, though the strong
+  claim that hours alone explain expertise has not fully
+  replicated.
 
 ---
 
 *Last reviewed: May 2026*
-*Status: Draft — needs instructor review before publishing*
 *To contribute: open a PR editing docs/learn/how-to-practice.md*

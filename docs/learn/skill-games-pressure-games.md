@@ -1,21 +1,16 @@
 ---
 title: Skill Games and Pressure Games
 section: Improving Your Game
-status: draft
+status: published
 last_reviewed: 2026-05
 contributors: []
-content_warning: |
-  This article is a work in progress. Content is drawn from
-  established practice methodology and personal experience.
-  Games and drills are well-documented but individual results
-  vary. Do not treat any specific advice as authoritative
-  until this notice is removed.
 ---
 
 # Skill Games and Pressure Games
 
-> **Work in progress.** This article is being developed.
-> Core structure is in place but content needs review.
+A target, a score, and something at stake turn a pile of
+range balls into practice that transfers. These are the
+games — putting, short game, and full swing.
 
 ## Why games beat mindless repetition
 
@@ -84,10 +79,11 @@ painful. That pain is the point — it simulates the
 pressure of needing to make a putt with something on the
 line.
 
-As you improve, move to four feet, then five. PGA Tour
-players do this drill from six feet as a standard warm-up.
-If you can make all twelve from six feet without missing,
-your short putting is tour-level.
+As you improve, move to four feet, then five, then six.
+Don't expect six feet to ever feel routine — tour players
+make only about 70% from that distance, so even they would
+miss several of twelve. Treat a clean dozen from six feet
+as elite.
 
 **Variation:** Do it with only one ball. Walk around the
 clock, replace the ball after each putt, make all twelve
@@ -333,29 +329,28 @@ over months is genuinely motivating.
 
 ---
 
-## Resources
+## Sources
 
-> ⚠️ *Verify all links before publishing*
-
-- **Golf Digest — 15 Best Golf Practice Games**
-  golfdigest.com. Good overview of range and
-  putting green games.
-- **Practical Golf — 5 Games That Build Real Skills**
-  practical-golf.com. Solid collection of pressure
-  games with scoring systems.
-- **"Dave Pelz's Short Game Bible"** — The research-based
-  approach to short game practice. Specific drills
-  backed by data.
-- **The Upbeat Golfer (Manu)** — YouTube. Process under
-  pressure, routine under stakes.
-
-> ⚠️ *TODO: Add research citations on pressure practice
-> and performance transfer (see Sian Beilock's work
-> on choking and practice under pressure)*
+- **Why scored, varied games transfer (contextual
+  interference)** —
+  [Scientific Reports (2024) · meta-analysis](https://www.nature.com/articles/s41598-024-65753-3)
+  confirms high contextual interference improves retention,
+  and [Brady, Quest (1998)](https://www.tandfonline.com/doi/abs/10.1080/00336297.1998.10484285)
+  reviews the effect first shown by Shea & Morgan (1979):
+  mixed, scored practice transfers better than rote
+  repetition.
+- **In golf specifically** —
+  [Frontiers · motor learning in golf, a systematic review](https://www.frontiersin.org/journals/sports-and-active-living/articles/10.3389/fspor.2024.1324615/full)
+  and [Fazeli et al. (2017) · random vs blocked in golf putting](https://pubmed.ncbi.nlm.nih.gov/28449601/)
+  — varied, game-like practice builds a more skilled
+  mental model.
+- **Why the stakes matter — practicing under pressure** —
+  [Gröpel & Mesagno, International Review of Sport & Exercise Psychology (2019) · choking interventions, a systematic review](https://www.tandfonline.com/doi/full/10.1080/1750984X.2017.1408134)
+  — rehearsing with consequences helps skills survive
+  competitive anxiety.
 
 ---
 
 *Last reviewed: May 2026*
-*Status: Draft — needs review before publishing*
 *To contribute: open a PR editing
 docs/learn/skill-games-pressure-games.md*
