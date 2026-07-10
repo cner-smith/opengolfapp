@@ -72,8 +72,8 @@ export function GuideToFittingsArticle() {
       />
       <Fit
         name="Ball"
-        measures="how compression and cover suit your speed and short game"
-        adjusts="which ball you play. Compression is matched to swing speed; the cover — soft urethane versus a firmer ionomer — trades greenside spin and feel against durability and distance. The ball is a fitting too, and the cheapest one to test."
+        measures="how the ball launches, spins, and behaves around the green with your clubs"
+        adjusts="which ball you play. Balls are marketed by compression, but fit by flight and spin — find the launch-and-spin window your clubs actually produce, not a number matched to your swing speed. The cover — soft urethane versus a firmer ionomer — trades greenside spin and feel against durability and distance. The ball is a fitting too, and the cheapest one to test."
       />
 
       <Hr />
@@ -478,7 +478,7 @@ function Sources() {
           </SrcBody>
         </div>
         <div>
-          <SrcLabel>Shaft flex and ball, matched to swing speed</SrcLabel>
+          <SrcLabel>Shaft flex and the ball</SrcLabel>
           <SrcBody>
             <Src href="https://mygolfspy.com/news-opinion/instruction/golf-driver-shaft-flex-chart-find-the-right-flex-for-your-swing-speed/">
               MyGolfSpy · shaft flex by swing speed
@@ -488,7 +488,8 @@ function Sources() {
               PGA Tour Superstore · shaft flex guide
             </Src>{' '}
             — flex changes where the face points at impact, and isn't standard
-            across brands; compression pairs to the same swing-speed logic.
+            across brands; the ball is marketed by compression but fit by
+            flight, spin, and greenside cover.
           </SrcBody>
         </div>
         <div>

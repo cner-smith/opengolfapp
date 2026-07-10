@@ -94,8 +94,8 @@ export function BuildingYourBagArticle() {
       <P style={{ color: C.inkDim, fontSize: 14, lineHeight: 22 }}>
         The bottom of the bag is where most amateurs quietly leak strokes.
         Pitching-wedge lofts have crept stronger over the years — a
-        game-improvement set may run 41–43°, where a traditional one sat at
-        45–46° — and that opens a big hole right below it, in the 30-to-50-yard
+        strong-lofted set may run 41–44°, where a traditional one sat at
+        46–48° — and that opens a big hole right below it, in the 30-to-50-yard
         range where you score.
       </P>
       <P style={{ color: C.inkDim, fontSize: 14, lineHeight: 22 }}>
@@ -145,29 +145,48 @@ export function BuildingYourBagArticle() {
       <Sources
         items={[
           {
-            name: "USGA · Rule 4, the player's equipment",
-            href: 'https://www.usga.org/content/usga/home-page/rules/rules-2019/rules-of-golf/rule-4.html',
-            note: "The fourteen-club limit — you may carry no more than fourteen clubs, but no minimum and no restriction on type.",
+            name: 'The fourteen-club limit',
+            note: (
+              <Text>
+                <Link href="https://www.usga.org/content/usga/home-page/rules/rules-2019/rules-of-golf/rule-4.html">
+                  USGA · Rule 4, the player's equipment
+                </Link>{' '}
+                — you may carry no more than fourteen clubs, but no minimum and
+                no restriction on type.
+              </Text>
+            ),
           },
           {
-            name: 'Bobby Walia Golf · club gapping guide',
-            href: 'https://www.bobbywaliagolf.com/club-gapping-guide/',
-            note: 'Distance gapping and finding the holes — aim for even 10–15 yard steps; long irons that bunch within ten yards are better replaced with hybrids.',
+            name: 'Distance gapping and finding the holes',
+            note: (
+              <Text>
+                <Link href="https://www.bobbywaliagolf.com/club-gapping-guide/">
+                  Bobby Walia Golf · club gapping guide
+                </Link>{' '}
+                and{' '}
+                <Link href="https://www.hirekogolf.com/blog/post/guide-to-gapping-your-irons-correctly-solving-iron-distance-gaps">
+                  Hireko Golf · gapping your irons
+                </Link>{' '}
+                — aim for even 10–15 yard steps; long irons that bunch within
+                ten yards are better replaced with hybrids.
+              </Text>
+            ),
           },
           {
-            name: 'Hireko Golf · gapping your irons',
-            href: 'https://www.hirekogolf.com/blog/post/guide-to-gapping-your-irons-correctly-solving-iron-distance-gaps',
-            note: 'Companion gapping reference — even steps between full clubs, no bunched long irons.',
-          },
-          {
-            name: 'Golf Digest · everything to know about wedge lofts',
-            href: 'https://www.golfdigest.com/story/everything-you-need-to-know-about-wedge-lofts',
-            note: 'Wedge lofts and the gap below the pitching wedge — strong pitching-wedge lofts open a gap; space wedges about 4–6° apart to close it.',
-          },
-          {
-            name: 'MyGolfSpy · wedge gapping by handicap',
-            href: 'https://mygolfspy.com/news-opinion/instruction/wedge-gapping-chart-by-handicap-distance-lofts-and-trends/',
-            note: 'Wedge distances and lofts by handicap — even spacing keeps the scoring range covered.',
+            name: 'Wedge lofts and the gap below the pitching wedge',
+            note: (
+              <Text>
+                <Link href="https://www.golfdigest.com/story/everything-you-need-to-know-about-wedge-lofts">
+                  Golf Digest · everything to know about wedge lofts
+                </Link>{' '}
+                and{' '}
+                <Link href="https://mygolfspy.com/news-opinion/instruction/wedge-gapping-chart-by-handicap-distance-lofts-and-trends/">
+                  MyGolfSpy · wedge gapping by handicap
+                </Link>{' '}
+                — strong pitching-wedge lofts open a gap; space wedges about
+                4–6° apart to close it.
+              </Text>
+            ),
           },
         ]}
       />

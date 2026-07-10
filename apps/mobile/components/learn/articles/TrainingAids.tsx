@@ -334,8 +334,9 @@ export function TrainingAidsArticle() {
                 <Link href="https://www.trackman.com/blog/golf/6-trackman-numbers-all-amateur-golfers-should-know">
                   6 numbers every amateur should know
                 </Link>{' '}
-                — the clubface controls roughly 85% of where the ball starts, which
-                is why putting and impact aids train a square strike.
+                — the clubface controls roughly 75–85% of where the ball starts
+                (most with the driver), which is why putting and impact aids
+                train a square strike.
               </Text>
             ),
           },
@@ -453,7 +454,7 @@ function NumbersTable() {
     },
     {
       num: 'Path & face angle',
-      who: 'Coaches and better players. Face angle alone sets about 85% of your start line — worth knowing, hard to change without help.',
+      who: 'Coaches and better players. Face angle alone sets about 75–85% of your start line (most with the driver) — worth knowing, hard to change without help.',
     },
   ]
   return (
