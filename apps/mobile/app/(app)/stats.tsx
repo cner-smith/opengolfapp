@@ -184,7 +184,7 @@ export default function Stats() {
         eyebrow="Performance"
         title="Strokes Gained"
         right={
-          <View style={{ alignItems: 'flex-end', gap: 7 }}>
+          <View style={{ alignItems: 'flex-end', gap: 10 }}>
             <Pressable
               accessibilityRole="link"
               accessibilityLabel="Open the full dashboard on the web at oga.golf"
@@ -192,12 +192,14 @@ export default function Stats() {
               hitSlop={8}
             >
               <Text
+                numberOfLines={1}
                 style={[TYPE.body, {
                   color: 'rgba(242,238,229,0.4)',
                   fontSize: 11,
+                  lineHeight: 16,
                 }]}
               >
-                oga.golf ↗
+                Full dashboard → oga.golf ↗
               </Text>
             </Pressable>
             <View
