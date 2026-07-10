@@ -38,7 +38,7 @@ interface HoleReviewSheetProps {
   saving: boolean
   /** "Edit on map" — close the sheet and let the user drag markers. */
   onEditOnMap: () => void
-  onSave: (rows: ReviewedShotRow[]) => void | Promise<void>
+  onSave: (rows: ReviewedShotRow[], penalties: number) => void | Promise<void>
 }
 
 const PUTT_DISTANCE_OPTIONS: { value: PuttDistanceResult; label: string }[] = [
@@ -67,6 +67,10 @@ export function HoleReviewSheet({
   onSave,
 }: HoleReviewSheetProps) {
   const [rows, setRows] = useState<ReviewedShotRow[]>([])
+  // Penalty strokes are the one hole-level number not derivable from placed
+  // shots (a penalty isn't a marker), so it's an editable ticker. Score and
+  // putts stay derived from the shots you placed. #791
+  const [penalties, setPenalties] = useState(0)
 
   // Read the latest placedPoints inside the effect via ref so the effect
   // doesn't re-fire (and clobber user edits) just because the parent
@@ -90,6 +94,7 @@ export function HoleReviewSheet({
     }
     if (hydratedHoleRef.current === holeNumber) return
     hydratedHoleRef.current = holeNumber
+    setPenalties(0)
     // When pin coords are unavailable (course has no OSM hole layout and
     // the user hasn't manually placed a pin), build rows directly from
     // placed points: end of shot N is the next placed point, last shot
@@ -237,6 +242,7 @@ export function HoleReviewSheet({
         <div style={{ display: 'flex', gap: 10 }}>
           <SummaryStat label="Score" value={shotCount} vsPar={vsPar} />
           <SummaryStat label="Putts" value={puttCount} />
+          <PenaltyTicker value={penalties} onChange={setPenalties} />
         </div>
       </div>
 
@@ -338,7 +344,7 @@ export function HoleReviewSheet({
         </button>
         <button
           type="button"
-          onClick={() => onSave(rows)}
+          onClick={() => onSave(rows, penalties)}
           disabled={saving || rows.length === 0}
           className="bg-caddie-accent text-caddie-accent-ink disabled:opacity-40"
           style={{
@@ -413,6 +419,73 @@ function SummaryStat({
           {vsParText}
         </span>
       )}
+    </div>
+  )
+}
+
+function PenaltyTicker({
+  value,
+  onChange,
+}: {
+  value: number
+  onChange: (n: number) => void
+}) {
+  const btn = (label: string, delta: number, disabled: boolean) => (
+    <button
+      type="button"
+      aria-label={delta < 0 ? 'Fewer penalties' : 'More penalties'}
+      onClick={() => onChange(Math.max(0, value + delta))}
+      disabled={disabled}
+      className="text-caddie-ink-dim disabled:opacity-30"
+      style={{
+        width: 26,
+        height: 26,
+        borderRadius: '50%',
+        border: '1px solid #9F9580',
+        background: 'transparent',
+        fontSize: 16,
+        lineHeight: 1,
+        cursor: disabled ? 'default' : 'pointer',
+      }}
+    >
+      {label}
+    </button>
+  )
+  return (
+    <div
+      style={{
+        flex: 1,
+        background: '#F2EEE5',
+        border: '1px solid #D9D2BF',
+        borderRadius: 6,
+        padding: '8px 10px 9px',
+        display: 'flex',
+        alignItems: 'center',
+        gap: 8,
+      }}
+    >
+      <div style={{ display: 'flex', flexDirection: 'column' }}>
+        <span
+          className="font-serif tabular text-caddie-ink"
+          style={{
+            fontSize: 26,
+            fontWeight: 500,
+            lineHeight: 1,
+            color: value > 0 ? '#A66A1F' : '#1C211C',
+          }}
+        >
+          {value}
+        </span>
+        <span className="kicker" style={{ color: '#8A8B7E', marginTop: 2 }}>
+          Penalties
+        </span>
+      </div>
+      <div
+        style={{ marginLeft: 'auto', display: 'flex', gap: 6 }}
+      >
+        {btn('−', -1, value === 0)}
+        {btn('+', 1, false)}
+      </div>
     </div>
   )
 }

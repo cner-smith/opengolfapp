@@ -103,7 +103,10 @@ export interface UseRoundActionsResult {
   handleMoveExistingShot: (shotId: string, point: PlacedPoint) => Promise<void>
   handleMoveExistingShotAim: (shotId: string, point: PlacedPoint) => Promise<void>
   applyShotDragUndo: () => Promise<void>
-  saveReviewedHole: (rows: ReviewedShotRow[]) => Promise<void>
+  saveReviewedHole: (
+    rows: ReviewedShotRow[],
+    penalties?: number,
+  ) => Promise<void>
   handleDelete: () => Promise<void>
   handleComplete: () => Promise<void>
   handleShare: () => Promise<void>
@@ -570,7 +573,7 @@ export function useRoundActions(input: UseRoundActionsInput): UseRoundActionsRes
   }, [shareCardRef, sharing, shareTone, round.data, setSharing, setCompleteError])
 
   const saveReviewedHole = useCallback(
-    async (rows: ReviewedShotRow[]) => {
+    async (rows: ReviewedShotRow[], penalties = 0) => {
       if (!user || !activeHole || !round.data) return
       setSavingHole(true)
       dispatchHoleView({ type: 'SAVE_ERROR', message: null })
@@ -614,6 +617,7 @@ export function useRoundActions(input: UseRoundActionsInput): UseRoundActionsRes
           hole_id: realHoleId,
           score: rows.length,
           putts: puttCount,
+          penalties,
           fairway_hit: existing?.fairway_hit ?? inferred.fairway,
           gir: existing?.gir ?? inferred.gir,
           // Persist a manually placed pin. On unmapped courses no hole_scores
