@@ -1,5 +1,20 @@
 # Changelog
 
+## [1.1.1](https://github.com/cner-smith/opengolfapp/compare/v1.1.0...v1.1.1) (2026-07-08)
+
+
+### Bug Fixes
+
+* **mobile:** bump version to 1.0.1 for App Store resubmission ([e6639a1](https://github.com/cner-smith/opengolfapp/commit/e6639a190974b66b54379d49c416b8c3540b4f4c))
+* **mobile:** bump version to 1.0.1 for App Store resubmission ([1763f1f](https://github.com/cner-smith/opengolfapp/commit/1763f1fe4a8315213ef14baacd4413a7b5ee79f0))
+* **mobile:** round-detail delete no longer wedges on 'Deleting…' ([#702](https://github.com/cner-smith/opengolfapp/issues/702)) ([517df3a](https://github.com/cner-smith/opengolfapp/commit/517df3ae18e58a19850ae342e888a6fbefe0bfcb)), closes [#701](https://github.com/cner-smith/opengolfapp/issues/701)
+* **mobile:** use appVersion runtimeVersion policy, not fingerprint ([#695](https://github.com/cner-smith/opengolfapp/issues/695)) ([daf8d2f](https://github.com/cner-smith/opengolfapp/commit/daf8d2f54e79ccea7de66c849e37117a4d723a0c))
+
+
+### Chores
+
+* sync main→dev (v1.0.1 version bump) ([e7e46d6](https://github.com/cner-smith/opengolfapp/commit/e7e46d67510669202489388da4cde2e46c0850fc))
+
 ## [1.1.0](https://github.com/cner-smith/opengolfapp/compare/v1.0.2...v1.1.0) (2026-07-07)
 
 
