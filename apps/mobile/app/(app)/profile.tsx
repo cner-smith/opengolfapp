@@ -22,6 +22,7 @@ import { getProfile, updateProfile } from '@oga/supabase'
 import type { Database } from '@oga/supabase'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
+import { clearScreenCache } from '../../lib/screenCache'
 import { AppBar } from '../../components/ui/AppBar'
 import { TYPE } from '../../lib/typography'
 
@@ -97,6 +98,7 @@ export default function ProfileTab() {
     // release the modal — otherwise the user is stranded in a disabled
     // "Deleting…" dialog after an irreversible delete. On success the auth
     // listener unmounts this screen and redirects to login.
+    clearScreenCache()
     const { error: signOutError } = await supabase.auth.signOut()
     if (signOutError) {
       setDeleting(false)
@@ -544,7 +546,11 @@ export default function ProfileTab() {
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Sign out"
-          onPress={() => supabase.auth.signOut()}
+          onPress={() => {
+            // Next sign-in must not render this account's cached screens.
+            clearScreenCache()
+            supabase.auth.signOut()
+          }}
           style={{
             marginTop: 22,
             paddingVertical: 12,
