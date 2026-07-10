@@ -477,6 +477,43 @@ export default function ProfileTab() {
             </>
           ) : (
             <>
+              <Text style={{ ...KICKER, marginBottom: 10 }}>OGA on the web</Text>
+              <Text
+                style={[TYPE.body, {
+                  color: '#1C211C',
+                  fontSize: 14,
+                  lineHeight: 20,
+                  marginBottom: 14,
+                }]}
+              >
+                Your rounds sync to a free web dashboard. Sign in at oga.golf
+                with the same account for bigger stats, strokes gained, and
+                shot-pattern charts.
+              </Text>
+              <Pressable
+                accessibilityRole="link"
+                accessibilityLabel="Open the OGA website"
+                onPress={() => Linking.openURL('https://oga.golf')}
+                style={{
+                  borderWidth: 1,
+                  borderColor: '#1F3D2C',
+                  paddingVertical: 12,
+                  alignItems: 'center',
+                  borderRadius: 2,
+                }}
+              >
+                <Text
+                  style={[TYPE.bodyBold, {
+                    color: '#1F3D2C',
+                    fontSize: 13,
+                    fontWeight: '600',
+                    letterSpacing: 0.3,
+                  }]}
+                >
+                  Website · oga.golf ↗
+                </Text>
+              </Pressable>
+              <View style={{ height: 1, backgroundColor: '#D9D2BF', marginVertical: 18 }} />
               <Text style={{ ...KICKER, marginBottom: 10 }}>Support OGA</Text>
               <Text
                 style={[TYPE.body, {
