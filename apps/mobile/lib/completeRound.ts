@@ -19,6 +19,7 @@ import {
 import type { Database } from '@oga/supabase'
 import { supabase } from './supabase'
 import { syncPendingShots } from './sync'
+import { clearScreenCache } from './screenCache'
 
 type HoleScoreRow = Database['public']['Tables']['hole_scores']['Row']
 type ShotRow = Database['public']['Tables']['shots']['Row']
@@ -265,6 +266,9 @@ export async function completeRound({
     userId,
   )
   if (roundError) throw roundError
+  // The finalize rewrites totals/SG that home, list, and stats render —
+  // drop every cached screen so none serves the pre-finalize version (#599).
+  clearScreenCache()
 
   // ---- Handicap index recompute --------------------------------------
   // Once this round contributes a differential, re-derive the WHS index

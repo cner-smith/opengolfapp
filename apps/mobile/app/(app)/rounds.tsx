@@ -12,6 +12,7 @@ import { formatSG } from '@oga/core'
 import { deleteRound, getRoundsList } from '@oga/supabase'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
+import { clearScreenCache, getCached, setCached } from '../../lib/screenCache'
 import { AppBar } from '../../components/ui/AppBar'
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
 import { Entrance } from '../../components/ui/Entrance'
@@ -45,7 +46,11 @@ function buildA11yLabel(r: RoundRow): string {
 
 export default function RoundsList() {
   const { user } = useAuth()
-  const [rounds, setRounds] = useState<RoundRow[]>([])
+  // Seed from the screen cache for an instant render on revisit; the mount
+  // fetch below re-runs every visit and replaces it (#599).
+  const [rounds, setRounds] = useState<RoundRow[]>(
+    () => getCached<RoundRow[]>('roundsList') ?? [],
+  )
   const [pendingDelete, setPendingDelete] = useState<{
     id: string
     name: string
@@ -63,7 +68,10 @@ export default function RoundsList() {
         console.error('[rounds/getRecentRounds]', error.message)
         return
       }
-      if (data) setRounds(data as RoundRow[])
+      if (data) {
+        setRounds(data as RoundRow[])
+        setCached('roundsList', data)
+      }
     })
     return () => {
       active = false
@@ -77,6 +85,9 @@ export default function RoundsList() {
       try {
         const { error } = await deleteRound(supabase, id, user.id)
         if (error) throw error
+        // Wipe ALL cached screens — a stale home/round-detail cache would
+        // resurrect the deleted round as a ghost (#705 redux).
+        clearScreenCache()
         setRounds((prev) => prev.filter((r) => r.id !== id))
         // Delay so VoiceOver doesn't swallow the announce while focus
         // shifts from the dismissing ConfirmDialog.

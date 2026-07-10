@@ -9,6 +9,7 @@ import { useAuth } from '../../hooks/useAuth'
 import { useActiveRound } from '../../hooks/useActiveRound'
 import { syncPendingShots } from '../../lib/sync'
 import { pendingCount } from '../../lib/db'
+import { clearScreenCache, getCached, setCached } from '../../lib/screenCache'
 import { AppBar } from '../../components/ui/AppBar'
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
 import { Entrance } from '../../components/ui/Entrance'
@@ -52,8 +53,14 @@ const KICKER: import('react-native').TextStyle = {
 
 export default function Home() {
   const { user } = useAuth()
-  const [profile, setProfile] = useState<Profile | null>(null)
-  const [rounds, setRounds] = useState<RecentRound[]>([])
+  // Seed from the screen cache so a revisit renders instantly; the focus
+  // fetch below always re-runs and replaces this (#599).
+  const [profile, setProfile] = useState<Profile | null>(
+    () => getCached<Profile>('home:profile') ?? null,
+  )
+  const [rounds, setRounds] = useState<RecentRound[]>(
+    () => getCached<RecentRound[]>('home:rounds') ?? [],
+  )
   const activeRound = useActiveRound()
   const [pending, setPending] = useState(0)
   const [pendingDelete, setPendingDelete] = useState<{
@@ -78,6 +85,9 @@ export default function Home() {
       try {
         const { error } = await deleteRound(supabase, id, user.id)
         if (error) throw error
+        // Wipe ALL cached screens — a stale rounds-list or round-detail
+        // cache would resurrect the deleted round as a ghost (#705 redux).
+        clearScreenCache()
         setRounds((prev) => prev.filter((r) => r.id !== id))
       } finally {
         setDeleting(false)
@@ -103,7 +113,10 @@ export default function Home() {
           console.error('[home/getProfile]', error.message)
           return
         }
-        if (data) setProfile(data as unknown as Profile)
+        if (data) {
+          setProfile(data as unknown as Profile)
+          setCached('home:profile', data)
+        }
       })
       getRecentRounds(supabase, user.id, 20).then(({ data, error }) => {
         if (!active) return
@@ -112,7 +125,10 @@ export default function Home() {
           console.error('[home/getRecentRounds]', error.message)
           return
         }
-        if (data) setRounds(data as RecentRound[])
+        if (data) {
+          setRounds(data as RecentRound[])
+          setCached('home:rounds', data)
+        }
       })
       return () => {
         active = false
