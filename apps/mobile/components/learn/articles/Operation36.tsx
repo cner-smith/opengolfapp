@@ -23,6 +23,14 @@ export function Operation36Article() {
         title="The Operation 36 philosophy."
       />
 
+      <P>
+        Most golfers are taught to build a swing first and play golf later.
+        Operation 36 flips that: you start 25 yards from the hole, learn to
+        score, and earn your way back to the full tees one stage at a time.
+      </P>
+
+      <Hr />
+
       <H3>Most golfers learn in the wrong order</H3>
       <P>
         The traditional path into golf goes like this: stand on a mat at the
@@ -52,9 +60,9 @@ export function Operation36Article() {
         Clear it and you move back a stage; until then, you stay where you are.
         You begin in Division 1, playing nine holes from 25 yards out, where
         every hole is reachable and every score you write down is a real score.
-        Break 36 and you step back to 50 yards, then 75, and onward in stages
-        until, eventually, you're shooting par from the full tees — the same
-        game the rest of the course is playing.
+        Shoot 36 or better and you step back to 50 yards, then 100, 150, 200,
+        and finally your full tees — the same game the rest of the course is
+        playing.
       </P>
 
       <ProgressionLadder />
@@ -256,12 +264,13 @@ export function Operation36Article() {
       <Sources
         items={[
           {
-            name: 'Operation 36 Golf · How It Works',
-            href: 'https://operation36.golf/how-it-works/',
+            name: 'The program — distance progression and the "shoot 36" rule',
             note: (
               <Text>
-                The program — distance progression and the "shoot 36" rule:
-                start at 25 yards, shoot 36 or better for nine holes to level up,
+                <Link href="https://operation36.golf/how-it-works/">
+                  Operation 36 Golf · How It Works
+                </Link>{' '}
+                — start at 25 yards, shoot 36 or better for nine holes to level up,
                 and work back through stages to the full tees.{' '}
                 <Link href="https://www.pga.com/story/operation-36-helping-golfers-find-a-love-for-the-game-for-life">
                   PGA of America
@@ -273,9 +282,18 @@ export function Operation36Article() {
             ),
           },
           {
-            name: 'Keiser University College of Golf · Developing Confidence in Beginner Golfers',
-            href: 'https://collegeofgolf.keiseruniversity.edu/developing-confidence-in-beginner-golfers-thoughts-and-recommendations/',
-            note: 'Why achievable challenges build skill and confidence — on the optimal challenge point: learning is fastest when a task is neither too easy nor too hard, so difficulty should rise step by step as competence does.',
+            name: 'Why achievable challenges build skill and confidence',
+            note: (
+              <Text>
+                <Link href="https://collegeofgolf.keiseruniversity.edu/developing-confidence-in-beginner-golfers-thoughts-and-recommendations/">
+                  Keiser University College of Golf · Developing Confidence in
+                  Beginner Golfers
+                </Link>{' '}
+                — on the optimal challenge point: learning is fastest when a task
+                is neither too easy nor too hard, so difficulty should rise step
+                by step as competence does.
+              </Text>
+            ),
           },
         ]}
       />
@@ -295,11 +313,11 @@ function ProgressionLadder() {
       <Gate />
       <Rung distance="50 yd" caption="Division 2" />
       <Gate />
-      <Rung distance="75 yd" caption="and back a stage at a time" />
-      <Gate />
-      <Rung distance="100 yd" caption="" />
+      <Rung distance="100 yd" caption="and back a stage at a time" />
       <Gate />
       <Rung distance="150 yd" caption="" />
+      <Gate />
+      <Rung distance="200 yd" caption="" />
       <Gate />
       <Rung distance="Full tees" caption="par from the back — the goal" goal />
     </View>

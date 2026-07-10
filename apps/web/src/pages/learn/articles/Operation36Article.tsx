@@ -28,6 +28,14 @@ export function Operation36Article() {
         The Operation 36 philosophy.
       </h2>
 
+      <P>
+        Most golfers are taught to build a swing first and play golf later.
+        Operation 36 flips that: you start 25 yards from the hole, learn to
+        score, and earn your way back to the full tees one stage at a time.
+      </P>
+
+      <Hr />
+
       <H3>Most golfers learn in the wrong order</H3>
       <P>
         The traditional path into golf goes like this: stand on a mat at the
@@ -57,9 +65,9 @@ export function Operation36Article() {
         Clear it and you move back a stage; until then, you stay where you are.
         You begin in Division 1, playing nine holes from 25 yards out, where
         every hole is reachable and every score you write down is a real score.
-        Break 36 and you step back to 50 yards, then 75, and onward in stages
-        until, eventually, you're shooting par from the full tees — the same
-        game the rest of the course is playing.
+        Shoot 36 or better and you step back to 50 yards, then 100, 150, 200,
+        and finally your full tees — the same game the rest of the course is
+        playing.
       </P>
 
       <ProgressionLadder />
@@ -341,11 +349,11 @@ function ProgressionLadder() {
       <Gate />
       <Rung distance="50 yd" caption="Division 2" />
       <Gate />
-      <Rung distance="75 yd" caption="and back a stage at a time" />
-      <Gate />
-      <Rung distance="100 yd" caption="" />
+      <Rung distance="100 yd" caption="and back a stage at a time" />
       <Gate />
       <Rung distance="150 yd" caption="" />
+      <Gate />
+      <Rung distance="200 yd" caption="" />
       <Gate />
       <Rung distance="Full tees" caption="par from the back — the goal" goal />
     </div>

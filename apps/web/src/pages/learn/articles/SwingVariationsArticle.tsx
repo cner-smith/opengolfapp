@@ -225,7 +225,8 @@ export function SwingVariationsArticle() {
       <Callout>
         <strong>This is general information, not medical advice.</strong> If you
         have any of the conditions below, get cleared by a medical professional
-        and work with a TPI-certified instructor <em>before</em> changing your
+        and work with a TPI-certified (Titleist Performance Institute)
+        instructor <em>before</em> changing your
         swing or starting intensive practice. The notes here are starting points
         for that conversation, not prescriptions.
       </Callout>
@@ -422,7 +423,7 @@ function HallOfFame() {
     },
     {
       name: 'Nancy Lopez',
-      quirk: 'A pronounced "flying" right elbow every textbook warns against.',
+      quirk: 'High hands and a slow, looping takeaway no textbook would draw.',
       result: '48 LPGA Tour wins and a Hall of Fame career.',
     },
     {
@@ -487,11 +488,11 @@ function BodyTypeTable() {
   const rows: { type: string; note: string }[] = [
     {
       type: 'Taller (6′2″+)',
-      note: 'Tend to stand more upright, with a flatter natural plane. Usually need longer clubs and flatter lie angles — off-the-rack clubs are built to a standard, not to you.',
+      note: 'Tend to stand more upright, with a flatter natural plane. Usually need longer clubs and more upright lie angles — off-the-rack clubs are built to a standard, not to you.',
     },
     {
       type: 'Shorter',
-      note: 'Stand closer to the ball with a more upright shaft angle; an upright plane is natural and correct here. Shorter clubs and more upright lie angles often fit better.',
+      note: 'Stand closer to the ball with a more upright shaft angle; an upright plane is natural and correct here. Shorter clubs and flatter lie angles often fit better.',
     },
     {
       type: 'Limited flexibility / older',
@@ -655,10 +656,6 @@ function Sources() {
         <div>
           <SrcLabel>The classic flatter plane (Hogan)</SrcLabel>
           <SrcBody>
-            <Src href="https://www.usgtf.com/hogans-five-lessons-in-our-modern-game/">
-              USGTF · Hogan's Five Lessons in the modern game
-            </Src>{' '}
-            and{' '}
             <Src href="https://mygolfspy.com/news-opinion/ben-hogans-swing/">
               MyGolfSpy · Ben Hogan's swing
             </Src>{' '}
