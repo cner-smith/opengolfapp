@@ -272,8 +272,8 @@ export function MentalGameArticle() {
       </P>
       <P>
         At the 1992 U.S. Open at Pebble Beach, Tom Kite had been
-        0 for 20 in U.S. Opens. Wind gusts reached 35 miles per
-        hour on Sunday. Most players didn't break 80. Kite shot
+        0 for 20 in U.S. Opens. Wind gusts topped 40 miles per
+        hour on Sunday. A lot of players couldn't break 80. Kite shot
         even par and won by two. He did it by not getting flustered.
         By staying patient. By letting others beat themselves.
       </P>
@@ -545,15 +545,22 @@ function Sources() {
           <SrcLabel>The science of performing under pressure</SrcLabel>
           <SrcBody>
             <Src href="https://www.tandfonline.com/doi/full/10.1080/1750984X.2017.1408134">
-              International Review of Sport &amp; Exercise Psychology (2018) ·
-              choking interventions, a systematic review
-            </Src>{' '}
-            and{' '}
-            <Src href="https://www.frontiersin.org/journals/psychology/articles/10.3389/fpsyg.2025.1435374/full">
-              Frontiers in Psychology (2025) · performance under pressure
+              Gröpel &amp; Mesagno, International Review of Sport &amp;
+              Exercise Psychology (2019) · choking interventions, a systematic
+              review
             </Src>{' '}
             — pre-performance routines and gradual exposure to stakes help
             skills survive competitive anxiety.
+          </SrcBody>
+        </div>
+        <div>
+          <SrcLabel>Rotella's ten rules</SrcLabel>
+          <SrcBody>
+            <Src href="https://www.golfwrx.com/5689/dr-bob-rotella-my-10-rules-on-mental-fitness/">
+              Bob Rotella, "My 10 Rules on Mental Fitness" (Golf Digest, 2009)
+            </Src>{' '}
+            — the rule numbering and the Immelman, Harrington, Kite, Strange,
+            and Hogan stories retold in this article come from this piece.
           </SrcBody>
         </div>
         <div>

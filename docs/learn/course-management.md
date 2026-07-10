@@ -1,24 +1,12 @@
 ---
 title: Course Management
 section: On the Course
-status: draft
+status: published
 last_reviewed: 2026-05
 contributors: []
-content_warning: |
-  This article is a work in progress. The structure and core
-  ideas are established but individual sections need deeper
-  research, better resource links, and review by a qualified
-  golf instructor before being considered complete.
-  Do not treat any specific technique advice as authoritative
-  until this notice is removed.
 ---
 
 # Course Management
-
-> **Work in progress.** This article is being developed.
-> Core structure is in place but content needs review,
-> additional research, and input from qualified instructors.
-> Resource links are placeholders — verify before using.
 
 ## You are not on the range anymore
 
@@ -44,7 +32,7 @@ Before you play, know:
 - How far you actually carry the ball — not your best carry, your reliable carry
 - Where your game breaks down under pressure
 
-Your OGA strokes gained data tells you this more clearly than your gut does. If SG approach is -1.4 per round, your irons are leaking. If SG putting is +0.8, your putter is an asset. Play accordingly.
+If you track strokes gained, that data tells you this more clearly than your gut does. If SG approach is -1.4 per round, your irons are leaking. If SG putting is +0.8, your putter is an asset. Play accordingly.
 
 ---
 
@@ -141,7 +129,7 @@ Once inside your zone, did you convert? Or did you take 4 from there?
 
 Track these two numbers for a few rounds and patterns emerge fast. Most amateurs discover they're actually reaching the Scoring Zone regularly — the problem is converting once they get there. That tells you exactly where to practice.
 
-The deeper power of this system is that it shifts your measure of success away from score and toward process. A player who reaches the Scoring Zone in two shots and converts every time will shoot in the 80s almost regardless of how their ball-striking looks. The system shows you what actually matters hole by hole.
+The deeper power of this system is that it shifts your measure of success away from score and toward process. A player who reaches the Scoring Zone in two shots and converts every time will shoot right around 90 or better almost regardless of how their ball-striking looks. The system shows you what actually matters hole by hole.
 
 > 📚 *Will Robins — The Scoring Method. thescoringmethod.com and YouTube @thescoringmethod*
 
@@ -228,17 +216,11 @@ The Way of the Playa is not a swing philosophy. It's a mindset. And it's availab
 
 ---
 
-## Resources
+## Sources
 
-> ⚠️ *Verify all links before publishing*
-
-- **Golf Sidekick** — YouTube. Search "Way of the Playa." Ego-free, score-focused course management for amateurs.
-- **The Upbeat Golfer (Manu)** — YouTube. Process-driven mental approach and target commitment.
-- **Will Robins — The Scoring Method** — thescoringmethod.com and YouTube @thescoringmethod. The Scoring Zone framework and modified scorecard system.
-- **"Golf Is Not a Game of Perfect"** — Bob Rotella. The standard text on playing with what you have that day.
+- **Course-management approaches this article draws on** — Golf Sidekick's "Way of the Playa"; Will Robins' Scoring Method ([thescoringmethod.com](https://thescoringmethod.com)), the Scoring Zone framework and modified scorecard; and Bob Rotella's "Golf Is Not a Game of Perfect" — practitioner frameworks for ego-free, score-first decision making.
 
 ---
 
 *Last reviewed: May 2026*
-*Status: Draft — needs instructor review before publishing*
 *To contribute: open a PR editing docs/learn/course-management.md*

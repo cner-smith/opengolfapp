@@ -359,6 +359,7 @@ function DiagnosticFlow() {
       <Arrow />
       <FlowRow>
         <Chip label="Yes" sub="tempo, not technique" />
+        <Chip label="No" sub="keep reading the pattern" />
       </FlowRow>
       <Arrow />
       <FlowQ n="04" q="One club, or all of them?" />

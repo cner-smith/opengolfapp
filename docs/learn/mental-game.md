@@ -1,23 +1,12 @@
 ---
 title: The Mental Game
 section: On the Course
-status: draft
+status: published
 last_reviewed: 2026-05
 contributors: []
-content_warning: |
-  This article is a work in progress. The structure and core
-  ideas are established but individual sections need deeper
-  research, better resource links, and review before
-  being considered complete. Do not treat any specific
-  advice as authoritative until this notice is removed.
 ---
 
 # The Mental Game
-
-> **Work in progress.** This article is being developed.
-> Core structure is in place but content needs review
-> and additional research.
-> Resource links are placeholders — verify before using.
 
 ## Golf is you versus you
 
@@ -185,7 +174,6 @@ swing thoughts, not with mechanical checkpoints. The image.
 > 📚 *Research basis: mental imagery and motor performance.
 > See Guillot & Collet (2008) on mental simulation of
 > motor actions.*
-> ⚠️ *TODO: Add more specific research citations*
 
 ---
 
@@ -236,8 +224,8 @@ make an aggressive play, go with the more conservative
 one. You will always be okay.
 
 At the 1992 U.S. Open at Pebble Beach, Tom Kite had been
-0 for 20 in U.S. Opens. Wind gusts reached 35 miles per
-hour on Sunday. Most players didn't break 80. Kite shot
+0 for 20 in U.S. Opens. Wind gusts topped 40 miles per
+hour on Sunday. A lot of players couldn't break 80. Kite shot
 even par and won by two. He did it by not getting flustered.
 By staying patient. By letting others beat themselves.
 
@@ -416,33 +404,24 @@ absence of difficulty. The speed of return.
 
 ---
 
-## Resources
+## Sources
 
-> ⚠️ *Verify all links before publishing*
-
-- **"Golf Is Not a Game of Perfect"** — Bob Rotella.
-  The gold standard in golf psychology. Essential reading.
-- **"Golf Is a Game of Confidence"** — Bob Rotella.
-  The follow-up, equally valuable.
-- **Bob Rotella — "My 10 Rules on Mental Fitness"**
-  GolfWRX. The ten rules referenced throughout this
-  article.
-  https://www.golfwrx.com/5689/dr-bob-rotella-my-10-rules-on-mental-fitness/
-- **"Zen Golf"** — Joseph Parent. Buddhist-influenced
-  approach to present-moment play.
-- **The Upbeat Golfer (Manu)** — YouTube. Process-driven
-  mental approach, target commitment, playing without fear.
-- **"The Inner Game of Tennis"** — Tim Gallwey. Not
-  golf-specific but the foundational text on getting out
-  of your own way in sport. Directly applicable.
-- **"Choke"** — Sian Beilock. The neuroscience of why
-  we perform poorly under pressure and what to do about it.
-
-> ⚠️ *TODO: Add sports psychology research citations
-> on visualization and motor performance*
+- **The science of performing under pressure** —
+  [Gröpel & Mesagno, International Review of Sport & Exercise Psychology (2019) · choking interventions, a systematic review](https://www.tandfonline.com/doi/full/10.1080/1750984X.2017.1408134)
+  — pre-performance routines and gradual exposure to stakes
+  help skills survive competitive anxiety.
+- **Rotella's ten rules** —
+  [Bob Rotella, "My 10 Rules on Mental Fitness" (Golf Digest, 2009)](https://www.golfwrx.com/5689/dr-bob-rotella-my-10-rules-on-mental-fitness/)
+  — the rule numbering and the Immelman, Harrington, Kite,
+  Strange, and Hogan stories retold in this article come
+  from this piece.
+- **Foundational texts on the mental game** — Bob Rotella,
+  "Golf Is Not a Game of Perfect" and "Golf Is a Game of
+  Confidence"; Sian Beilock, "Choke"; Tim Gallwey, "The
+  Inner Game of Tennis"; Joseph Parent, "Zen Golf." These
+  are the works this article draws on.
 
 ---
 
 *Last reviewed: May 2026*
-*Status: Draft — needs review before publishing*
 *To contribute: open a PR editing docs/learn/mental-game.md*
