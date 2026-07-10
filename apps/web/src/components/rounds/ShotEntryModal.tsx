@@ -189,12 +189,12 @@ export function ShotEntryModal({
       lie_slope_side: isPuttSave ? null : draft.lieSlopeSide ?? null,
       shot_result: isPuttSave ? null : draft.shotResult ?? null,
       distance_to_target: isPuttSave ? null : draft.distanceToTarget ?? null,
-      putt_distance_ft: draft.puttDistanceFt ?? null,
+      putt_distance_ft: isPuttSave ? draft.puttDistanceFt ?? null : null,
       putt_result: legacyPuttResult,
       putt_distance_result: isPuttSave ? distanceResult : null,
       putt_direction_result: isPuttSave ? directionResult : null,
-      putt_slope_pct: draft.puttSlopePct ?? null,
-      green_speed: draft.greenSpeed ?? null,
+      putt_slope_pct: isPuttSave ? draft.puttSlopePct ?? null : null,
+      green_speed: isPuttSave ? draft.greenSpeed ?? null : null,
       break_direction: isPuttSave
         ? combinedBreakDirection({
             vertical: draft.breakDirectionVertical,
