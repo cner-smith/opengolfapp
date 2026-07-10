@@ -618,3 +618,65 @@ describe('ballStrikingStats — girPct', () => {
     expect(ballStrikingStats([r]).girPct).toBeNull()
   })
 })
+
+describe('ballStrikingStats — proximityAvg (#575)', () => {
+  const PIN_LAT = 35.4676
+  const PIN_LNG = -97.5164
+
+  it('falls back to the following putt distance when no pin coordinate exists', () => {
+    // Synthetic-hole course: no pin on the hole or hole_score, and the
+    // approach has no end coords — but it was followed by a 15 ft putt, so
+    // proximity = 15 ft / 3 = 5 yd.
+    const r = makeRound({
+      hole_scores: [
+        makeHoleScore({
+          holes: makeHole({ par: 4, pin_lat: null, pin_lng: null }),
+          shots: [
+            makeShot({ shot_number: 1, lie_type: 'tee', distance_to_target: 400 }),
+            makeShot({ shot_number: 2, lie_type: 'fairway', distance_to_target: 150 }),
+            makeShot({ shot_number: 3, lie_type: 'green', putt_distance_ft: 15 }),
+          ],
+        }),
+      ],
+    })
+    expect(ballStrikingStats([r]).proximityAvg).toBeCloseTo(5, 5)
+  })
+
+  it('still prefers pin geometry when a pin coordinate is present', () => {
+    const r = makeRound({
+      hole_scores: [
+        makeHoleScore({
+          holes: makeHole({ par: 4, pin_lat: PIN_LAT, pin_lng: PIN_LNG }),
+          shots: [
+            makeShot({ shot_number: 1, lie_type: 'tee', distance_to_target: 400 }),
+            makeShot({
+              shot_number: 2,
+              lie_type: 'fairway',
+              distance_to_target: 150,
+              end_lat: PIN_LAT,
+              end_lng: PIN_LNG,
+            }),
+            // A putt exists but pin-based proximity (0 yd, coincident) wins.
+            makeShot({ shot_number: 3, lie_type: 'green', putt_distance_ft: 30 }),
+          ],
+        }),
+      ],
+    })
+    expect(ballStrikingStats([r]).proximityAvg).toBeCloseTo(0, 5)
+  })
+
+  it('is null when there is neither a pin nor a following putt', () => {
+    const r = makeRound({
+      hole_scores: [
+        makeHoleScore({
+          holes: makeHole({ par: 4, pin_lat: null, pin_lng: null }),
+          shots: [
+            makeShot({ shot_number: 1, lie_type: 'tee', distance_to_target: 400 }),
+            makeShot({ shot_number: 2, lie_type: 'fairway', distance_to_target: 150 }),
+          ],
+        }),
+      ],
+    })
+    expect(ballStrikingStats([r]).proximityAvg).toBeNull()
+  })
+})
