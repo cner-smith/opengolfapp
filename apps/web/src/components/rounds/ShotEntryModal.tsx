@@ -3,20 +3,17 @@ import {
   DEFAULT_BAG,
   LIE_TYPES,
   LIE_TYPE_LABELS,
-  PUTT_RESULT_LABELS,
-  SHOT_RESULT_LABELS,
   combinedBreakDirection,
   combinedPuttResult,
   formatClubLabel,
   horizontalBreakFromAim,
-  formatDistance,
-  formatPuttDistance,
   haversineYards,
   isPuttShot,
+  summarizePuttParts,
+  summarizeShotParts,
   type Club,
   type DistanceUnit,
   type LieType,
-  type ShotResult,
 } from '@oga/core'
 import { useUserBag } from '../../hooks/useUserBag'
 import type { Database } from '@oga/supabase'
@@ -633,44 +630,17 @@ export function ShotEntryModal({
   )
 }
 
-// Build the second line on each shot row in the side panel. Putts get
-// putt distance (feet/cm/in/m via formatPuttDistance) plus the
-// putt_result label. Other shots get distance_to_target with a
-// haversine fallback to the next shot's start coords, plus the
-// shot_result label. Only renders '—' when there's truly no signal —
-// stored distance, coords, and result columns all null.
+// Build the second line on each shot row in the side panel. Formatting
+// lives in @oga/core (summarizePuttParts / summarizeShotParts, shared with
+// mobile's review stepper); this wrapper only picks the branch and the
+// '—' empty state.
 function formatShotSummary(
   s: ShotRow,
   next: ShotRow | undefined,
   unit: DistanceUnit,
 ): string {
-  if (isPuttShot(s.lie_type)) {
-    const result =
-      (s.putt_result &&
-        PUTT_RESULT_LABELS[s.putt_result as keyof typeof PUTT_RESULT_LABELS]) ??
-      s.putt_result ??
-      null
-    const feet = s.putt_distance_ft ?? s.distance_to_target ?? null
-    const distance = feet != null ? formatPuttDistance(feet, unit) : null
-    const parts = [distance, result].filter(Boolean) as string[]
-    return parts.length ? parts.join(' · ') : '—'
-  }
-  let yards: number | null = s.distance_to_target ?? null
-  if (
-    yards == null &&
-    s.start_lat != null &&
-    s.start_lng != null &&
-    next?.start_lat != null &&
-    next?.start_lng != null
-  ) {
-    yards = Math.round(
-      haversineYards(s.start_lat, s.start_lng, next.start_lat, next.start_lng),
-    )
-  }
-  const distance = yards != null ? formatDistance(yards, unit) : null
-  const result = s.shot_result
-    ? SHOT_RESULT_LABELS[s.shot_result as ShotResult] ?? s.shot_result
-    : null
-  const parts = [distance, result].filter(Boolean) as string[]
+  const parts = isPuttShot(s.lie_type)
+    ? summarizePuttParts(s, unit)
+    : summarizeShotParts(s, next, unit)
   return parts.length ? parts.join(' · ') : '—'
 }
