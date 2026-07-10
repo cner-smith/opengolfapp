@@ -133,7 +133,7 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
 
   function buildPayload(meta: ShotLoggerValue | null): ShotPayload | null {
     if (!user || !currentHoleScore || !ball) return null
-    const isPutt = isPuttShot(meta?.lieType, meta?.club)
+    const isPutt = isPuttShot(meta?.lieType)
     const pinTarget = roundPin ?? storedPin ?? null
     return {
       hole_score_id: currentHoleScore.id,
@@ -196,7 +196,7 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
     try {
       const localId = await insertPendingShot(payload)
       lastSavedShotLocalIdRef.current = localId
-      const isPutt = payload.club === 'putter' || payload.lie_type === 'green'
+      const isPutt = isPuttShot(payload.lie_type)
       setPendingForHole((prev) => [
         ...prev,
         {

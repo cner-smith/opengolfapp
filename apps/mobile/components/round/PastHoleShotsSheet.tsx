@@ -18,6 +18,7 @@ import {
   combinedPuttResult,
   formatClubLabel,
   formatDistance,
+  isPuttShot,
   type BreakDirectionHorizontal,
   type BreakDirectionVertical,
   type DistanceUnit,
@@ -276,7 +277,7 @@ function ShotRowView({
   unit: DistanceUnit
   onPress: () => void
 }) {
-  const isPutt = shot.lie_type === 'green' || shot.club === 'putter'
+  const isPutt = isPuttShot(shot.lie_type)
   const clubLabel = isPutt
     ? 'Putt'
     : shot.club
@@ -426,7 +427,7 @@ function EditShotSheet({
     (shot.break_direction_horizontal as BreakDirectionHorizontal | null) ?? null,
   )
 
-  const isPutt = lieType === 'green'
+  const isPutt = isPuttShot(lieType)
 
   const idx = allShots.findIndex((s) => s.id === shot.id)
   const prevShot = idx > 0 ? allShots[idx - 1]! : null

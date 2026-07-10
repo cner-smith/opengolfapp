@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { inferHoleCount } from '@oga/core'
+import { inferHoleCount, isPuttShot } from '@oga/core'
 import type { Database } from '@oga/supabase'
 import {
   pendingShotsForHoleScore,
@@ -257,9 +257,7 @@ export function useHoleData(
           }
         })
         setRemoteShotCount(shots.length)
-        setRemotePuttCount(
-          shots.filter((s) => s.club === 'putter' || s.lie_type === 'green').length,
-        )
+        setRemotePuttCount(shots.filter((s) => isPuttShot(s.lie_type)).length)
         const starts: LatLng[] = []
         for (const r of shots) {
           if (r.start_lat != null && r.start_lng != null) {
@@ -282,7 +280,7 @@ export function useHoleData(
 
   // Derive local shot/putt counts from the pending array — single source
   // of truth, never out of sync with the underlying queue. Putts are
-  // counted as shots where club='putter' OR lie_type='green'.
+  // counted via @oga/core isPuttShot (lie_type='green').
   const localShotCount = pendingForHole.length
 
   // Shot waypoints rendered on the map: synced shot starts followed by
@@ -316,7 +314,7 @@ export function useHoleData(
     for (const r of pendingForHole) {
       try {
         const p = JSON.parse(r.payload) as ShotPayload
-        if (p.club === 'putter' || p.lie_type === 'green') n++
+        if (isPuttShot(p.lie_type)) n++
       } catch {
         // skip malformed pending payload
       }

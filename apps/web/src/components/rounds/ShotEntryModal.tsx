@@ -164,7 +164,7 @@ export function ShotEntryModal({
     const shotNumber = editing
       ? draft.shotNumber
       : Math.max(freshMax, lastIssuedNumberRef.current) + 1
-    const isPuttSave = draft.lieType === 'green'
+    const isPuttSave = isPuttShot(draft.lieType)
     const made =
       opts?.madeOverride === true
         ? true
@@ -250,7 +250,7 @@ export function ShotEntryModal({
     setPendingDeleteId(null)
   }
 
-  const isPutt = draft.lieType === 'green'
+  const isPutt = isPuttShot(draft.lieType)
 
   // Source shot row + its successor for the mini-map. Mini-map shows
   // only when editing a saved shot with start coords; new-shot drafts
@@ -265,7 +265,7 @@ export function ShotEntryModal({
     // the pin so SG for this shot stays accurate. Skipped for putts
     // (distance_to_target stays null; putt_distance_ft tracks that flow
     // and isn't auto-recalculated on drag).
-    const editIsPutt = isPuttShot(editingRow.lie_type, editingRow.club)
+    const editIsPutt = isPuttShot(editingRow.lie_type)
     const newDistance =
       !editIsPutt && pinLat != null && pinLng != null
         ? Math.round(haversineYards(point.lat, point.lng, pinLat, pinLng))
@@ -644,7 +644,7 @@ function formatShotSummary(
   next: ShotRow | undefined,
   unit: DistanceUnit,
 ): string {
-  if (isPuttShot(s.lie_type, s.club)) {
+  if (isPuttShot(s.lie_type)) {
     const result =
       (s.putt_result &&
         PUTT_RESULT_LABELS[s.putt_result as keyof typeof PUTT_RESULT_LABELS]) ??
