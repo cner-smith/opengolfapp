@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import type { Database } from '@oga/supabase'
-import { getShotMarkerCategory, inferHoleCount, type LieType } from '@oga/core'
+import { getShotMarkerCategory, type LieType } from '@oga/core'
 import type {
   ExistingShot,
   HoleGeo,
@@ -91,23 +91,20 @@ export function useRoundData({
   // if fewer rows than the course expects, fill the gap.
   //
   // Expected count comes from `course_tees.par` when present (≤36 = 9,
-  // else 18). With no tees row, infer from the round's own hole_scores
-  // hole numbers — the authoritative per-round set — instead of assuming
-  // 18, so a 9-hole unmapped course doesn't get a phantom back nine
-  // (#727). inferHoleCount returns 18 for an empty set AND for any hole
-  // number > 9, so this can never strand holes 10–18 on an 18-hole round;
-  // it only trims to 9 when every scored hole is ≤ 9.
+  // else 18); falls back to 18 when no tees row exists. A 9-hole real
+  // course with no course_tees row over-pads to 18 — accepted, because
+  // the only alternative (inferring from the round's hole_scores) breaks
+  // the common case: an in-progress 18-hole round that has only scored
+  // holes 1–9 so far would wrongly collapse to 9 and strand 10–18 (#727
+  // regression). There's no reliable 9-vs-18 signal for an unmapped
+  // course mid-round, so 18 is the safe default. Revisit via a real
+  // per-round hole_count captured at round creation.
   const expectedHoleCount = useMemo(() => {
     const tees = teesQuery.data ?? []
     const totalPar = tees[0]?.par
-    if (totalPar != null) return totalPar <= 36 ? 9 : 18
-    const scores =
-      (round.data as { hole_scores?: HSWithJoin[] })?.hole_scores ?? []
-    const nums = scores
-      .map((hs) => hs.holes?.number)
-      .filter((n): n is number => n != null)
-    return inferHoleCount(nums)
-  }, [teesQuery.data, round.data])
+    if (totalPar != null && totalPar <= 36) return 9
+    return 18
+  }, [teesQuery.data])
 
   const holes = useMemo<HoleRow[]>(() => {
     const fetched = holesQuery.data ?? []
