@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Pressable, ScrollView, Text, useWindowDimensions, View } from 'react-native'
+import { Linking, Pressable, ScrollView, Text, useWindowDimensions, View } from 'react-native'
 import { VictoryAxis, VictoryChart, VictoryLine } from 'victory-native'
 import Svg, { Line as SvgLine } from 'react-native-svg'
 import {
@@ -184,13 +184,29 @@ export default function Stats() {
         eyebrow="Performance"
         title="Strokes Gained"
         right={
-          <View
-            style={{
-              flexDirection: 'row',
-              borderWidth: 1,
-              borderColor: 'rgba(242,238,229,0.25)',
-            }}
-          >
+          <View style={{ alignItems: 'flex-end', gap: 7 }}>
+            <Pressable
+              accessibilityRole="link"
+              accessibilityLabel="Open the full dashboard on the web at oga.golf"
+              onPress={() => Linking.openURL('https://oga.golf')}
+              hitSlop={8}
+            >
+              <Text
+                style={[TYPE.body, {
+                  color: 'rgba(242,238,229,0.4)',
+                  fontSize: 11,
+                }]}
+              >
+                oga.golf ↗
+              </Text>
+            </Pressable>
+            <View
+              style={{
+                flexDirection: 'row',
+                borderWidth: 1,
+                borderColor: 'rgba(242,238,229,0.25)',
+              }}
+            >
             {N_OPTIONS.map((opt, i) => {
               const active = n === opt
               return (
@@ -218,6 +234,7 @@ export default function Stats() {
                 </Pressable>
               )
             })}
+            </View>
           </View>
         }
       />
