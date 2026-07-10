@@ -15,6 +15,7 @@ import {
   dispersionVerdict,
   filterDispersionByLie,
   getAimCorrection,
+  legacySlopeToAxes,
   type Club,
   type DispersionPoint,
   type DispersionStats,
@@ -67,6 +68,12 @@ interface ShotRowMin {
 }
 
 function rowToShot(r: ShotRowMin): Shot {
+  // Most stored shots predate the two-axis slope columns and only carry the
+  // legacy single-select `lie_slope`. Fall back to it so the slope filter
+  // matches whichever axis those shots recorded — otherwise every selection
+  // filters to zero. (A legacy shot only ever recorded one axis, so it can
+  // never match a forward AND a side selection at once — that's unrecoverable.)
+  const legacy = legacySlopeToAxes(r.lie_slope ?? null)
   return {
     id: r.id,
     holeScoreId: r.hole_score_id,
@@ -82,8 +89,8 @@ function rowToShot(r: ShotRowMin): Shot {
     club: (r.club as Shot['club']) ?? undefined,
     lieType: r.lie_type ?? undefined,
     lieSlope: r.lie_slope ?? undefined,
-    lieSlopeForward: r.lie_slope_forward ?? undefined,
-    lieSlopeSide: r.lie_slope_side ?? undefined,
+    lieSlopeForward: r.lie_slope_forward ?? legacy.forward,
+    lieSlopeSide: r.lie_slope_side ?? legacy.side,
     shotResult: (r.shot_result as Shot['shotResult']) ?? undefined,
     penalty: r.penalty,
     ob: r.ob,
