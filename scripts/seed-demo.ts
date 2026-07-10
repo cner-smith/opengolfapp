@@ -716,7 +716,9 @@ async function insertPracticePlan(userId: string): Promise<void> {
             order: i,
             type: blockTypes[Math.min(i, blockTypes.length - 1)],
             minutes: d.duration_min ?? 15,
-            rationale: 'Targets the lowest SG category.',
+            // Real per-drill copy so a seeded plan reads like a generated
+            // one — the flat placeholder here was #606's App Review risk.
+            rationale: d.description ?? 'Targets the lowest SG category.',
             drill_id: d.id,
             target: null,
           })),
