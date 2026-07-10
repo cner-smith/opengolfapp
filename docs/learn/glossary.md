@@ -18,10 +18,9 @@ content_warning: |
 > docs/learn/glossary.md
 
 The basics — birdie, bogey, par, handicap, GIR —
-are covered in the app's stat reference section.
-This glossary focuses on the terms that come up
-once you start playing regularly and trying to
-improve.
+are not covered here. This glossary focuses on the
+terms that come up once you start playing regularly
+and trying to improve.
 
 ---
 
@@ -90,8 +89,8 @@ A shot hit with enough backspin that the ball spins
 back toward the player after landing on the green.
 Typically happens on clean contact with a wedge into
 a soft green. A desirable shot when the pin is at
-the back of the green and you need the ball to check
-up and release toward the hole.
+the front of the green — fly the ball past the hole
+and let the spin bring it back.
 
 **Knuckleball**
 A shot with almost no spin — the ball flutters and
@@ -199,13 +198,6 @@ direction was off. Generally considered a good miss
 — you're putting across the slope rather than up
 or down it.
 
-**Spinner (putting)**
-In putting context, a spinner refers to a putt that
-lips out spinning — the ball catches the edge of
-the cup, spins around the rim and comes back out.
-One of the most frustrating outcomes in golf. See
-also: lip out.
-
 ---
 
 ## Course and green terminology
@@ -299,7 +291,7 @@ for everyone. Repair by pushing the edges down and
 smoothing, not by lifting the center up.
 
 **Burn mark**
-The browning or dying of grass on one side of the hole cup, caused by the grain growing away from that side and exposing the roots. The burned side indicates where the grain is running from — grain runs toward the healthy green side of the cup. Reading burn marks is a quick way to identify grain direction on Bermuda greens before putting. The side with the burn is into the grain; the healthy side is with the grain.
+The browning or dying of grass on one side of the hole cup. The blades on the down-grain edge hang over the hole and die off, leaving a burnt, ragged edge — that side shows the direction the grain grows toward. The sharp, healthy edge is the up-grain side. Putts run faster and break toward the burnt side. Reading burn marks is a quick way to identify grain direction on Bermuda greens before putting.
 
 **Divot tool / Pitch fork**
 The small forked tool used to repair pitch marks on
@@ -309,12 +301,6 @@ to level it out. Do not pry up from the center —
 this damages the roots. A ball marker (usually a
 coin) is used alongside the divot tool to mark your
 ball position on the green.
-
-**Scalp**
-To hit the top of the ball (same as thin or blade).
-Also used as a noun: "He left a big scalp on the
-fairway" — meaning a divot cut so shallow it's
-more of a skin than a proper divot.
 
 ---
 
@@ -348,8 +334,7 @@ the hole outright — no ties — wins the skin. If
 two or more players tie, the skin carries over to
 the next hole, making it worth more. Skins can
 stack up over several holes and create exciting
-swings. A popular format for casual gambling rounds
-and some professional made-for-TV events.
+swings.
 
 **Match play**
 A format where the score is tracked hole by hole
@@ -446,9 +431,6 @@ even with a good swing. Can be adjusted by a fitter.
 ---
 
 ## Slang and culture
-
-**Flush**
-See short game section above.
 
 **Worm burner**
 A shot that never gets airborne, rolling along the
@@ -586,14 +568,6 @@ had to play around or over it. Eliminated from the
 rules in 1952 when ball marking became standard.
 Still used figuratively in everyday English — "I'm
 in a bit of a stymie" — meaning blocked or stuck.
-
-**Dormie**
-While still used today in match play (see scoring
-section), dormie has its roots in early golf
-language. Some historians believe it derives from
-the French "dormir" (to sleep) — the leading player
-could sleep easy knowing the worst outcome was a
-tie. Others dispute this etymology.
 
 **Fore**
 Still very much in use — the warning shout when a
