@@ -308,11 +308,13 @@ export function TrainingAidsArticle() {
       <Sources
         items={[
           {
-            name: 'PGA of America · 4 alignment mistakes',
-            href: 'https://www.pga.com/story/4-alignment-mistakes-killing-your-golf-game-and-how-to-fix-them',
+            name: 'Why alignment is foundational',
             note: (
               <Text>
-                Why alignment is foundational — paired with{' '}
+                <Link href="https://www.pga.com/story/4-alignment-mistakes-killing-your-golf-game-and-how-to-fix-them">
+                  PGA of America · 4 alignment mistakes
+                </Link>{' '}
+                and{' '}
                 <Link href="https://golf.com/instruction/why-aim-alignment-poor-how-fix/">
                   Golf.com · why your aim is poor
                 </Link>{' '}
@@ -322,11 +324,13 @@ export function TrainingAidsArticle() {
             ),
           },
           {
-            name: 'TrackMan · what is face angle',
-            href: 'https://www.trackman.com/blog/golf/what-is-face-angle',
+            name: 'Face angle sets the start line',
             note: (
               <Text>
-                Face angle sets the start line — paired with{' '}
+                <Link href="https://www.trackman.com/blog/golf/what-is-face-angle">
+                  TrackMan · what is face angle
+                </Link>{' '}
+                and{' '}
                 <Link href="https://www.trackman.com/blog/golf/6-trackman-numbers-all-amateur-golfers-should-know">
                   6 numbers every amateur should know
                 </Link>{' '}
@@ -337,12 +341,13 @@ export function TrainingAidsArticle() {
             ),
           },
           {
-            name: 'Tour Tempo',
-            href: 'https://tourtempo.com/pages/tour-tempo-app',
+            name: 'Tempo — the three-to-one ratio',
             note: (
               <Text>
-                Tempo, the three-to-one ratio — the 3:1 backswing-to-downswing
-                finding, paired with{' '}
+                <Link href="https://tourtempo.com/pages/tour-tempo-app">
+                  Tour Tempo
+                </Link>{' '}
+                on the 3:1 backswing-to-downswing finding, and{' '}
                 <Link href="https://www.pga.com/story/find-a-rhythm-and-tempo-that-fits-your-game">
                   PGA of America · rhythm and tempo
                 </Link>{' '}
@@ -352,11 +357,13 @@ export function TrainingAidsArticle() {
             ),
           },
           {
-            name: 'TrackMan · the ultimate guide to the data',
-            href: 'https://www.trackman.com/blog/golf/the-ultimate-guide-to-understanding-trackman',
+            name: 'Launch monitors — which numbers, and what they cost',
             note: (
               <Text>
-                Launch monitors, which numbers and what they cost — paired with{' '}
+                <Link href="https://www.trackman.com/blog/golf/the-ultimate-guide-to-understanding-trackman">
+                  TrackMan · the ultimate guide to the data
+                </Link>{' '}
+                and{' '}
                 <Link href="https://mygolfspy.com/buyers-guide/we-tested-12-launch-monitors-ranging-from-500-to-5000-whats-the-real-difference/">
                   MyGolfSpy · $500 to $5,000 tested
                 </Link>{' '}

@@ -268,11 +268,13 @@ export function GuideToFittingsArticle() {
       <Sources
         items={[
           {
-            name: 'Understanding the PING fitting charts',
-            href: 'https://www.globalgolf.com/articles/pro-tip-110/',
+            name: 'Lie angle and iron fitting',
             note: (
               <Text>
-                Lie angle and iron fitting — paired with{' '}
+                <Link href="https://www.globalgolf.com/articles/pro-tip-110/">
+                  Understanding the PING fitting charts
+                </Link>{' '}
+                and{' '}
                 <Link href="https://mygolfspy.com/news-opinion/historys-mysteries-the-birth-of-pings-color-code-system/">
                   MyGolfSpy on PING's color-code system
                 </Link>{' '}
@@ -282,11 +284,13 @@ export function GuideToFittingsArticle() {
             ),
           },
           {
-            name: 'Titleist Vokey · Wedge Bounce',
-            href: 'https://www.vokey.com/explained/wedge-bounce',
+            name: 'Wedge bounce and grind',
             note: (
               <Text>
-                Wedge bounce and grind — paired with{' '}
+                <Link href="https://www.vokey.com/explained/wedge-bounce">
+                  Titleist Vokey · Wedge Bounce
+                </Link>{' '}
+                and{' '}
                 <Link href="https://www.golfdigest.com/story/wedge-bounce-versus-wedge-grind-explained">
                   Golf Digest · bounce vs grind
                 </Link>{' '}
@@ -296,11 +300,13 @@ export function GuideToFittingsArticle() {
             ),
           },
           {
-            name: 'MyGolfSpy · shaft flex by swing speed',
-            href: 'https://mygolfspy.com/news-opinion/instruction/golf-driver-shaft-flex-chart-find-the-right-flex-for-your-swing-speed/',
+            name: 'Shaft flex and the ball',
             note: (
               <Text>
-                Shaft flex and the ball — paired with{' '}
+                <Link href="https://mygolfspy.com/news-opinion/instruction/golf-driver-shaft-flex-chart-find-the-right-flex-for-your-swing-speed/">
+                  MyGolfSpy · shaft flex by swing speed
+                </Link>{' '}
+                and{' '}
                 <Link href="https://www.pgatoursuperstore.com/learning-center/ultimate-golf-club-shaft-flex-guide.html">
                   PGA Tour Superstore · shaft flex guide
                 </Link>{' '}
@@ -311,11 +317,13 @@ export function GuideToFittingsArticle() {
             ),
           },
           {
-            name: 'TrackMan · 6 numbers every amateur should know',
-            href: 'https://www.trackman.com/blog/golf/6-trackman-numbers-all-amateur-golfers-should-know',
+            name: "What the fitter's numbers mean",
             note: (
               <Text>
-                What the fitter's numbers mean — paired with{' '}
+                <Link href="https://www.trackman.com/blog/golf/6-trackman-numbers-all-amateur-golfers-should-know">
+                  TrackMan · 6 numbers every amateur should know
+                </Link>{' '}
+                and{' '}
                 <Link href="https://www.trackman.com/blog/golf/the-ultimate-guide-to-understanding-trackman">
                   the ultimate guide to TrackMan data
                 </Link>{' '}
