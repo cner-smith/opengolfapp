@@ -115,20 +115,21 @@ describe('buildInitialRows', () => {
 
 describe('isPuttShot', () => {
   it('green lie is a putt', () => {
-    expect(isPuttShot('green', 'driver')).toBe(true)
+    expect(isPuttShot('green')).toBe(true)
   })
-  it('putter club is a putt', () => {
-    expect(isPuttShot('fairway', 'putter')).toBe(true)
+  it('putter off the green (Texas wedge) is NOT a putt (#691)', () => {
+    expect(isPuttShot('fairway')).toBe(false)
+    expect(isPuttShot('fringe')).toBe(false)
   })
-  it('near-green chip (rough/wedge) is NOT a putt', () => {
-    expect(isPuttShot('rough', 'gap-wedge')).toBe(false)
+  it('near-green chip is NOT a putt', () => {
+    expect(isPuttShot('rough')).toBe(false)
   })
   it('sand shot is NOT a putt', () => {
-    expect(isPuttShot('sand', '56')).toBe(false)
+    expect(isPuttShot('sand')).toBe(false)
   })
-  it('null/undefined fields are NOT a putt', () => {
-    expect(isPuttShot(null, null)).toBe(false)
-    expect(isPuttShot(undefined, undefined)).toBe(false)
+  it('null/undefined lie is NOT a putt', () => {
+    expect(isPuttShot(null)).toBe(false)
+    expect(isPuttShot(undefined)).toBe(false)
   })
 })
 

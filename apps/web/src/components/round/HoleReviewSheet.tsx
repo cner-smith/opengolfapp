@@ -348,10 +348,10 @@ function ShotRow({
   // Mirror mobile's PUTTING_RADIUS_YARDS — any shot starting within 30 yd
   // of the pin gets the putt entry surface (made/short/long, miss left/
   // right, distance in feet) rather than the standard club + lie row.
-  // Putt-ness is user intent only — lie 'green' (set when a putt is placed)
-  // or club 'putter'. Raw distance must NOT classify: a chip/bunker inside
-  // 30 yd is not a putt, and unmapped rows read distanceToPin 0 (#660).
-  const isPutt = isPuttShot(row.lieType, row.club)
+  // Putt-ness is the green lie only (set when a putt is placed). Raw
+  // distance must NOT classify: a chip/bunker inside 30 yd is not a putt,
+  // and unmapped rows read distanceToPin 0 (#660).
+  const isPutt = isPuttShot(row.lieType)
   const { toDisplay, toDisplayFt } = useUnits()
   const { bag } = useUserBag()
   // Source the club options from the user's bag, falling back to

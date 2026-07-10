@@ -580,12 +580,10 @@ export function useRoundActions(input: UseRoundActionsInput): UseRoundActionsRes
         // derived from the rows so the scorecard reflects what was placed
         // without needing a manual entry.
         const existing = scoresByHoleId.get(activeHole.id)
-        // Match HoleReviewSheet's isPutt — putt-ness is user intent (lie
-        // 'green', set when a putt is placed, or club 'putter'), never raw
-        // distance (a near-green chip isn't a putt; unmapped rows read 0).
-        const puttCount = rows.filter((r) =>
-          isPuttShot(r.lieType, r.club),
-        ).length
+        // Match HoleReviewSheet's isPutt — putt-ness is the green lie (set
+        // when a putt is placed), never club or raw distance (a near-green
+        // chip isn't a putt; unmapped rows read 0).
+        const puttCount = rows.filter((r) => isPuttShot(r.lieType)).length
         // Materialize the synthetic hole if needed before upserting the
         // hole_score (FK to holes.id). The RPC inserts only (course_id,
         // number, par, stroke_index) — per-round tee/pin overrides
@@ -642,7 +640,7 @@ export function useRoundActions(input: UseRoundActionsInput): UseRoundActionsRes
         if (delErr) throw delErr
 
         for (const row of rows) {
-          const isPuttRow = isPuttShot(row.lieType, row.club)
+          const isPuttRow = isPuttShot(row.lieType)
           // Persist the aim only if the player actually set/dragged it — an
           // untouched auto-spawn suggestion is dropped so it can't enter the
           // dispersion dataset (aim must be explicit to count).

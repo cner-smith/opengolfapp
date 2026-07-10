@@ -98,18 +98,17 @@ export function playedRowsForDifferential<T extends { score: number }>(
   return played.length === holeCount ? played : null
 }
 
-// Single source of truth for putt classification: a shot is a putt when its
-// lie is the green or its club is the putter. Feeds putt counts, the putt-only
-// persisted columns, and SG putting, so every surface must agree. Distance to
-// the pin must NOT factor in — a near-green chip isn't a putt, and unmapped
-// rows read distanceToPin 0 (#660, which was a drift between hand-copied
-// predicates). Takes raw fields (not a shaped row) so camelCase ReviewedShotRow
-// and snake_case DB rows share it.
-export function isPuttShot(
-  lieType: string | null | undefined,
-  club: string | null | undefined,
-): boolean {
-  return lieType === 'green' || club === 'putter'
+// Single source of truth for putt classification: a shot is a putt exactly
+// when its lie is the green. A putter played from off the green (Texas wedge)
+// is a normal shot — yards, SG around-green — matching what the save paths
+// write (#691; club used to be an OR term, which made reads disagree with
+// writes). Feeds putt counts, the putt-only persisted columns, and SG putting,
+// so every surface must agree. Distance to the pin must NOT factor in — a
+// near-green chip isn't a putt, and unmapped rows read distanceToPin 0 (#660).
+// Takes the raw field (not a shaped row) so camelCase ReviewedShotRow and
+// snake_case DB rows share it.
+export function isPuttShot(lieType: string | null | undefined): boolean {
+  return lieType === 'green'
 }
 
 export function buildInitialRows(

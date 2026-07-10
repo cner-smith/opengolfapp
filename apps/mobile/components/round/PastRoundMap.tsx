@@ -8,6 +8,7 @@ import {
   destinationYards,
   formatClubLabel,
   formatDistance,
+  isPuttShot,
   type DistanceUnit,
   type LieType,
   type ShotResult,
@@ -62,7 +63,7 @@ const SHOT_RESULT_SHORT: Record<ShotResult, string> = {
 // "Putt · 12 ft · Made"; full shots read "7i · Fairway · 152 yd · Solid".
 function summarizeShot(row: ShotRow | null, unit: DistanceUnit): string {
   if (!row) return 'No details yet — tap Edit to add them'
-  const isPutt = row.lie_type === 'green' || row.club === 'putter'
+  const isPutt = isPuttShot(row.lie_type)
   if (isPutt) {
     const miss = [row.putt_distance_result, row.putt_direction_result]
       .filter(Boolean)
