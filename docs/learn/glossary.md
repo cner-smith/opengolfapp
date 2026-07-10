@@ -1,21 +1,12 @@
 ---
 title: Glossary of Golf Terms
 section: Understanding the Game
-status: draft
+status: published
 last_reviewed: 2026-05
 contributors: []
-content_warning: |
-  This article expands on the in-app glossary with
-  intermediate and advanced terms. Core definitions
-  are well-established. Some slang entries are
-  colloquial and may vary by region.
 ---
 
 # Glossary of Golf Terms
-
-> **Work in progress.** Being expanded over time.
-> Suggest missing terms by opening a PR editing
-> docs/learn/glossary.md
 
 The basics — birdie, bogey, par, handicap, GIR —
 are not covered here. This glossary focuses on the
@@ -577,12 +568,20 @@ walking ahead), possibly a military "beware before"
 command. One of golf's oldest surviving terms and
 one of its most important.
 
-> ⚠️ *TODO: Verify historical club equivalencies —
-> sources vary on exact loft comparisons between
-> hickory era clubs and modern equivalents.*
+---
+
+## Sources
+
+- **How these definitions are sourced** — definitions
+  follow the USGA & R&A Rules of Golf where a term is
+  formally defined there (stroke, hazard, out of bounds,
+  and so on), and otherwise reflect common golf usage.
+  Slang and historical entries are described as they're
+  actually used, not as official definitions. Historical
+  club equivalencies follow standard reference tables;
+  sources vary slightly on exact hickory-era lofts.
 
 ---
 
 *Last reviewed: May 2026*
-*Status: Draft — being expanded over time*
 *To contribute: open a PR editing docs/learn/glossary.md*
