@@ -599,9 +599,10 @@ interface ChipRowProps<T extends string> {
 
 function ChipRow<T extends string>({ value, options, onChange }: ChipRowProps<T>) {
   return (
-    <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-      <View style={{ flexDirection: 'row', gap: 6 }}>
-        {options.map(({ value: optValue, label }) => {
+    // Wrap to multiple rows rather than scroll horizontally — a hidden
+    // off-screen club/lie chip reads as "the list ends here" (#740).
+    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+      {options.map(({ value: optValue, label }) => {
           const active = value === optValue
           return (
             <Pressable
@@ -632,7 +633,6 @@ function ChipRow<T extends string>({ value, options, onChange }: ChipRowProps<T>
             </Pressable>
           )
         })}
-      </View>
-    </ScrollView>
+    </View>
   )
 }
