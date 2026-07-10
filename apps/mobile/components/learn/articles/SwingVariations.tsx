@@ -1,12 +1,10 @@
 import { Text, View } from 'react-native'
-import Svg, { Circle, Line, Text as SvgText } from 'react-native-svg'
 import {
   ArticleHeader,
   ArticleFooter,
   BulletList,
   Callout,
   Em,
-  Figure,
   H3,
   Hr,
   Link,
@@ -136,7 +134,6 @@ export function SwingVariationsArticle() {
         from steep and upright to flat and rotary, with single-plane methods at
         one end.
       </P>
-      <PlaneSpectrum />
       <BulletList
         items={[
           <Text key="a">
@@ -613,37 +610,5 @@ function BodyTypeTable() {
         </View>
       ))}
     </View>
-  )
-}
-
-// Editorial line-art: the shaft plane from upright to flat, with single-plane
-// shown as arms-and-shaft aligned. Same viewBox + coordinate data as the web
-// inline svg after its re-draw (all three lines are believable plane angles
-// fanning up from the ball — upright ~63°, flat ~45°, single plane ~33°),
-// re-authored in react-native-svg. Single plane in accent.
-function PlaneSpectrum() {
-  return (
-    <Figure caption='Roughly how the club travels — steep and upright through flat and rotary to a single plane. None is "correct"; each fits a different body.'>
-      <Svg width="100%" height={120} viewBox="0 0 240 120">
-        {/* ground + ball, shared origin at lower right */}
-        <Line x1={20} y1={100} x2={220} y2={100} stroke={C.mute} strokeWidth={1.5} />
-        <Circle cx={190} cy={100} r={3} fill={C.ink} />
-        {/* upright (steep) plane ~63° */}
-        <Line x1={190} y1={100} x2={147} y2={16} stroke={C.mute} strokeWidth={2} />
-        {/* flat (Hogan) plane ~45° */}
-        <Line x1={190} y1={100} x2={108} y2={18} stroke={C.mute} strokeWidth={2} />
-        {/* single plane (accent), flattest ~33° */}
-        <Line x1={190} y1={100} x2={72} y2={24} stroke={C.accent} strokeWidth={2.5} />
-        <SvgText x={150} y={13} fontSize={7} fontFamily={FONT.mono} letterSpacing={0.5} fill={C.mute}>
-          UPRIGHT
-        </SvgText>
-        <SvgText x={86} y={13} fontSize={7} fontFamily={FONT.mono} letterSpacing={0.5} fill={C.mute}>
-          FLAT
-        </SvgText>
-        <SvgText x={14} y={22} fontSize={7} fontFamily={FONT.mono} letterSpacing={0.5} fill={C.accent}>
-          SINGLE PLANE
-        </SvgText>
-      </Svg>
-    </Figure>
   )
 }

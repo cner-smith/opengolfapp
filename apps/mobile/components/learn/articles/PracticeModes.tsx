@@ -289,7 +289,7 @@ function RetentionDiagram() {
       <Line x1={24} y1={14} x2={24} y2={86} stroke={C.mute} strokeWidth={1.5} />
       <Line x1={106} y1={18} x2={106} y2={86} stroke={C.line} strokeWidth={1} strokeDasharray="3 3" />
       {/* blocked: high in practice, drops later */}
-      <Polyline points="30,44 106,30 182,68" fill="none" stroke={C.mute} strokeWidth={2} />
+      <Polyline points="30,44 106,30 182,52" fill="none" stroke={C.mute} strokeWidth={2} />
       {/* random: low in practice, best later (accent) */}
       <Polyline points="30,74 106,60 182,30" fill="none" stroke={C.accent} strokeWidth={2} />
       <SvgText x={54} y={100} fontSize={7} fontFamily={FONT.mono} letterSpacing={1} fill={C.mute}>
