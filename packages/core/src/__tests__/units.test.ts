@@ -111,11 +111,13 @@ describe('formatSG', () => {
     expect(formatSG(-1.23999)).toBe('-1.24')
   })
 
-  it('values that round to 0 keep their pre-rounding sign', () => {
-    // 0.001 is positive → renders as +0.00 even though it rounds to
-    // zero. The plus survives because it's set before toFixed.
-    expect(formatSG(0.001)).toBe('+0.00')
-    expect(formatSG(-0.001)).toBe('-0.00')
+  it('values that round to 0 render unsigned (no "-0.00"/"+0.00") (#672)', () => {
+    // Sign is picked AFTER rounding, so anything that rounds to zero shows
+    // a clean "0.00" — a −0.004 round no longer displays a signed zero.
+    expect(formatSG(0.001)).toBe('0.00')
+    expect(formatSG(-0.001)).toBe('0.00')
+    expect(formatSG(-0.004)).toBe('0.00')
+    expect(formatSG(0.004)).toBe('0.00')
   })
 
   it('handles large magnitudes', () => {
