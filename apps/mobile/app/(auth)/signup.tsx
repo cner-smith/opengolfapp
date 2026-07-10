@@ -45,19 +45,29 @@ export default function Signup() {
   const captchaTokenRef = useRef<string | null>(null)
   const attemptInFlightRef = useRef(false)
   const wantAttemptRef = useRef(false)
+  // Auto attempts (foreground returns) keep a minimum spacing so a user
+  // fidgeting between apps can't burn GoTrue's auth rate budget on
+  // speculative pre-confirmation attempts — getting rate-limited on the
+  // REAL attempt would reproduce the stuck screen this exists to fix.
+  // The manual button is exempt (explicit user intent).
+  const lastAutoAttemptAtRef = useRef(0)
 
   const captchaEnabled = Boolean(TURNSTILE_SITE_KEY)
   const canSubmit = !loading && (!captchaEnabled || captchaToken !== null)
 
   async function tryConfirmSignIn(manual: boolean) {
     if (attemptInFlightRef.current) return
+    if (!manual && Date.now() - lastAutoAttemptAtRef.current < 20_000) return
     const token = captchaTokenRef.current
     if (captchaEnabled && !token) {
       // No token yet (widget still minting after the last attempt consumed
       // one) — remember the intent; the token-arrival effect fires us.
+      // Deliberately NOT stamped as an attempt — the queued retry must not
+      // be suppressed by the auto-attempt interval.
       wantAttemptRef.current = true
       return
     }
+    if (!manual) lastAutoAttemptAtRef.current = Date.now()
     attemptInFlightRef.current = true
     wantAttemptRef.current = false
     if (manual) setChecking(true)
@@ -81,10 +91,14 @@ export default function Signup() {
       return
     }
     // "Email not confirmed" is the expected pre-confirmation result; stay
-    // quiet on auto attempts, give feedback on the button.
+    // quiet on auto attempts, give feedback on the button. Other failures
+    // (network, captcha, rate limit) show their real message — masking
+    // them as "not confirmed" would misdirect the user.
     if (manual) {
       setConfirmHint(
-        'Not confirmed yet — tap the link in your email, then try again.',
+        signInError.message.toLowerCase().includes('not confirmed')
+          ? 'Not confirmed yet — tap the link in your email, then try again.'
+          : signInError.message,
       )
     }
   }
@@ -97,6 +111,10 @@ export default function Signup() {
       if (s === 'active') void tryConfirmSignIn(false)
     })
     return () => sub.remove()
+    // tryConfirmSignIn is redefined every render; listing it would
+    // re-subscribe the listener per render. Its mutable inputs are refs;
+    // the state it reads (email/password) can't change once submitted —
+    // the form is unmounted — so the captured closure stays correct.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [submitted])
 
@@ -106,6 +124,9 @@ export default function Signup() {
     if (submitted && captchaToken && wantAttemptRef.current) {
       void tryConfirmSignIn(false)
     }
+    // tryConfirmSignIn omitted for the same reason as the AppState effect
+    // above — per-render identity, and its closure inputs are stable
+    // after submit.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [submitted, captchaToken])
 
