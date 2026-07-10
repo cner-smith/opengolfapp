@@ -20,6 +20,12 @@ export function SkillGamesArticle() {
         title="Skill games and pressure games."
       />
 
+      <P>
+        A target, a score, and something at stake turn a pile of range balls
+        into practice that transfers. These are the games — putting, short
+        game, and full swing.
+      </P>
+
       <H3>Why games beat mindless repetition</H3>
       <P>
         Hitting the same shot over and over until you run out of
@@ -79,9 +85,9 @@ export function SkillGamesArticle() {
         the line.
       </P>
       <P>
-        Move to four feet, then five. Tour players do this from
-        six feet as a warm-up. Make all twelve from six and your
-        short putting is tour-level.
+        Move to four feet, then five, then six. Even tour players
+        make only about 70% from six feet — they'd miss several of
+        twelve. Treat a clean dozen from six as elite.
       </P>
       <Kv label="Variation">
         Use one ball. Walk around the clock, replace after each
@@ -277,7 +283,7 @@ export function SkillGamesArticle() {
                 </Link>{' '}
                 confirms high contextual interference improves retention, and{' '}
                 <Link href="https://www.tandfonline.com/doi/abs/10.1080/00336297.1998.10484285">
-                  Magill & Hall, Quest (1998)
+                  Brady, Quest (1998)
                 </Link>{' '}
                 reviews the effect first shown by Shea & Morgan (1979): mixed,
                 scored practice transfers better than rote repetition.
@@ -304,12 +310,8 @@ export function SkillGamesArticle() {
             note: (
               <Text>
                 <Link href="https://www.tandfonline.com/doi/full/10.1080/1750984X.2017.1408134">
-                  International Review of Sport & Exercise Psychology (2018) ·
-                  choking interventions, a systematic review
-                </Link>{' '}
-                and{' '}
-                <Link href="https://www.frontiersin.org/journals/psychology/articles/10.3389/fpsyg.2025.1435374/full">
-                  Frontiers in Psychology (2025) · performance under pressure
+                  Gröpel & Mesagno (2019) · choking interventions, a systematic
+                  review
                 </Link>{' '}
                 — rehearsing with consequences helps skills survive competitive
                 anxiety.

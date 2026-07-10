@@ -299,18 +299,24 @@ function ScheduleDiagram() {
   const order = (seq: ('c' | 's' | 't')[]): Mark[] =>
     seq.map((t, i) => ({ t, x: xs[i] ?? 0 }))
   const blocked = order(['c', 'c', 'c', 's', 's', 's', 't', 't', 't'])
-  const random = order(['c', 's', 't', 's', 'c', 't', 't', 'c', 's'])
+  const random = order(['c', 's', 't', 's', 'c', 't', 'c', 't', 's'])
   return (
-    <SvgPanel>
-      <svg width="100%" viewBox="0 0 160 90" aria-hidden="true" style={{ display: 'block' }}>
-        {blocked.map((m, i) => (
-          <Shape key={`b-${i}`} type={m.t} x={m.x} y={28} />
-        ))}
-        {random.map((m, i) => (
-          <Shape key={`r-${i}`} type={m.t} x={m.x} y={64} />
-        ))}
-      </svg>
-    </SvgPanel>
+    <div>
+      <SvgPanel>
+        <svg width="100%" viewBox="0 0 160 90" aria-hidden="true" style={{ display: 'block' }}>
+          {blocked.map((m, i) => (
+            <Shape key={`b-${i}`} type={m.t} x={m.x} y={28} />
+          ))}
+          {random.map((m, i) => (
+            <Shape key={`r-${i}`} type={m.t} x={m.x} y={64} />
+          ))}
+        </svg>
+      </SvgPanel>
+      <div className="text-caddie-ink-mute" style={{ fontSize: 12, lineHeight: 1.5, marginTop: 6 }}>
+        Top row: blocked practice groups the same shot together. Bottom row:
+        random practice interleaves club and target every ball.
+      </div>
+    </div>
   )
 }
 
@@ -402,7 +408,7 @@ function Sources() {
             </Src>{' '}
             confirms high contextual interference improves retention, and{' '}
             <Src href="https://www.tandfonline.com/doi/abs/10.1080/00336297.1998.10484285">
-              Magill &amp; Hall, Quest (1998)
+              Brady, Quest (1998)
             </Src>{' '}
             reviews the effect first shown by Shea &amp; Morgan (1979): random
             order hurts practice, helps learning.
@@ -440,12 +446,8 @@ function Sources() {
           <SrcLabel>Practicing under pressure</SrcLabel>
           <SrcBody>
             <Src href="https://www.tandfonline.com/doi/full/10.1080/1750984X.2017.1408134">
-              International Review of Sport &amp; Exercise Psychology (2018) ·
-              choking interventions, a systematic review
-            </Src>{' '}
-            and{' '}
-            <Src href="https://www.frontiersin.org/journals/psychology/articles/10.3389/fpsyg.2025.1435374/full">
-              Frontiers in Psychology (2025) · performance under pressure
+              Gröpel &amp; Mesagno (2019) · choking interventions, a systematic
+              review
             </Src>{' '}
             — acclimatization and pre-performance routines help skills survive
             competitive anxiety.
@@ -455,7 +457,7 @@ function Sources() {
           <SrcLabel>Deliberate practice, and its limits</SrcLabel>
           <SrcBody>
             <Src href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6731745/">
-              Macnamara &amp; Hambrick, revisiting Ericsson, Krampe &amp;
+              Macnamara &amp; Maitra, revisiting Ericsson, Krampe &amp;
               Tesch-Römer (1993)
             </Src>{' '}
             — practice quality matters enormously, though the strong claim that

@@ -162,7 +162,7 @@ export function PracticeModesArticle() {
                 </Link>{' '}
                 confirms high contextual interference improves retention, and{' '}
                 <Link href="https://www.tandfonline.com/doi/abs/10.1080/00336297.1998.10484285">
-                  Magill & Hall, Quest (1998)
+                  Brady, Quest (1998)
                 </Link>{' '}
                 reviews the effect first shown by Shea & Morgan (1979): random
                 order hurts practice, helps learning.
@@ -206,12 +206,8 @@ export function PracticeModesArticle() {
             note: (
               <Text>
                 <Link href="https://www.tandfonline.com/doi/full/10.1080/1750984X.2017.1408134">
-                  International Review of Sport & Exercise Psychology (2018) ·
-                  choking interventions, a systematic review
-                </Link>{' '}
-                and{' '}
-                <Link href="https://www.frontiersin.org/journals/psychology/articles/10.3389/fpsyg.2025.1435374/full">
-                  Frontiers in Psychology (2025) · performance under pressure
+                  Gröpel & Mesagno (2019) · choking interventions, a systematic
+                  review
                 </Link>{' '}
                 — acclimatization and pre-performance routines help skills survive
                 competitive anxiety.
@@ -223,7 +219,7 @@ export function PracticeModesArticle() {
             note: (
               <Text>
                 <Link href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6731745/">
-                  Macnamara & Hambrick, revisiting Ericsson, Krampe &
+                  Macnamara & Maitra, revisiting Ericsson, Krampe &
                   Tesch-Römer (1993)
                 </Link>{' '}
                 — practice quality matters enormously, though the strong claim that
@@ -269,7 +265,7 @@ function ScheduleDiagram() {
   const order = (seq: ('c' | 's' | 't')[]): Mark[] =>
     seq.map((t, i) => ({ t, x: xs[i] ?? 0 }))
   const blocked = order(['c', 'c', 'c', 's', 's', 's', 't', 't', 't'])
-  const random = order(['c', 's', 't', 's', 'c', 't', 't', 'c', 's'])
+  const random = order(['c', 's', 't', 's', 'c', 't', 'c', 't', 's'])
   return (
     <Svg width="100%" height={90} viewBox="0 0 160 90">
       {blocked.map((m, i) => (
