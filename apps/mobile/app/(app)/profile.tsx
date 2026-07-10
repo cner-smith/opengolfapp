@@ -447,7 +447,9 @@ export default function ProfileTab() {
                   marginBottom: 14,
                 }]}
               >
-                OGA is free and open source. Learn more at oga.golf.
+                Your rounds sync to a free web dashboard. Sign in at oga.golf
+                with the same account for bigger stats, strokes gained, and
+                shot-pattern charts.
               </Text>
               <Pressable
                 accessibilityRole="link"
