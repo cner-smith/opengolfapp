@@ -181,8 +181,8 @@ export function HoleReviewSheet({
         position: 'absolute',
         left: 0,
         right: 0,
+        top: 0,
         bottom: 0,
-        maxHeight: 'min(60vh, 60%)',
         background: '#FBF8F1',
         borderTop: '1px solid #9F9580',
         borderTopLeftRadius: 12,
@@ -191,7 +191,9 @@ export function HoleReviewSheet({
         flexDirection: 'column',
         transform: slidIn ? 'translateY(0)' : 'translateY(100%)',
         transition: 'transform 220ms ease-out',
-        zIndex: 5,
+        // Fill the whole map area and sit above the map HUD (EXP / rail /
+        // PATTERN / aim overlays) so nothing bleeds over the summary. #791
+        zIndex: 40,
       }}
     >
       <div
