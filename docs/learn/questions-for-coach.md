@@ -2,7 +2,7 @@
 title: Questions to Ask Your Coach
 section: Working with Coaches
 status: published
-last_reviewed: 2026-05
+last_reviewed: 2026-07
 contributors: []
 ---
 
@@ -138,5 +138,5 @@ Saturday and a change that's still with you next season.
 
 ---
 
-*Last reviewed: May 2026*
+*Last reviewed: July 2026*
 *To contribute: open a PR editing docs/learn/questions-for-coach.md*

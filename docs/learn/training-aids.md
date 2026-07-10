@@ -2,7 +2,7 @@
 title: Training Aids Explained
 section: Your Equipment
 status: published
-last_reviewed: 2026-05
+last_reviewed: 2026-07
 contributors: []
 ---
 
@@ -286,5 +286,5 @@ down, it was a feeling — not a habit you built.
 
 ---
 
-*Last reviewed: May 2026*
+*Last reviewed: July 2026*
 *To contribute: open a PR editing docs/learn/training-aids.md*

@@ -2,7 +2,7 @@
 title: Guide to Golf Fittings
 section: Your Equipment
 status: published
-last_reviewed: 2026-05
+last_reviewed: 2026-07
 contributors: []
 ---
 
@@ -334,5 +334,5 @@ stroke-saver on this page.
 
 ---
 
-*Last reviewed: May 2026*
+*Last reviewed: July 2026*
 *To contribute: open a PR editing docs/learn/guide-to-fittings.md*

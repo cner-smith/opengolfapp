@@ -2,7 +2,7 @@
 title: Reading Your Stats
 section: Understanding the Game
 status: published
-last_reviewed: 2026-05
+last_reviewed: 2026-07
 contributors: []
 ---
 
@@ -78,5 +78,5 @@ Per round, versus a scratch baseline.
 
 ---
 
-*Last reviewed: May 2026*
+*Last reviewed: July 2026*
 *To contribute: open a PR editing docs/learn/benchmarks.md*

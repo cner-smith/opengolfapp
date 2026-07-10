@@ -2,7 +2,7 @@
 title: Swing Variations for Different Body Types
 section: Improving Your Game
 status: published
-last_reviewed: 2026-05
+last_reviewed: 2026-07
 contributors: []
 ---
 
@@ -353,5 +353,5 @@ someone else, is the actual path to better golf.
 
 ---
 
-*Last reviewed: May 2026*
+*Last reviewed: July 2026*
 *To contribute: open a PR editing docs/learn/swing-variations.md*

@@ -2,7 +2,7 @@
 title: Course Management
 section: On the Course
 status: published
-last_reviewed: 2026-05
+last_reviewed: 2026-07
 contributors: []
 ---
 
@@ -222,5 +222,5 @@ The Way of the Playa is not a swing philosophy. It's a mindset. And it's availab
 
 ---
 
-*Last reviewed: May 2026*
+*Last reviewed: July 2026*
 *To contribute: open a PR editing docs/learn/course-management.md*

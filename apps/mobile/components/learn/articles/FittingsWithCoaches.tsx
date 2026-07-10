@@ -211,7 +211,7 @@ export function FittingsWithCoachesArticle() {
         ]}
       />
 
-      <ArticleFooter>Last reviewed May 2026</ArticleFooter>
+      <ArticleFooter>Last reviewed July 2026</ArticleFooter>
     </View>
   )
 }

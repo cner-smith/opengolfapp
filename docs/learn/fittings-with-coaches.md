@@ -2,7 +2,7 @@
 title: Fittings and Your Coach
 section: Working with Coaches
 status: published
-last_reviewed: 2026-05
+last_reviewed: 2026-07
 contributors: []
 ---
 
@@ -160,5 +160,5 @@ the same plan as your lessons.
 
 ---
 
-*Last reviewed: May 2026*
+*Last reviewed: July 2026*
 *To contribute: open a PR editing docs/learn/fittings-with-coaches.md*

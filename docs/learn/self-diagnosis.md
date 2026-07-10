@@ -2,7 +2,7 @@
 title: "Self-Diagnosis: Finding Your Weaknesses"
 section: On the Course
 status: published
-last_reviewed: 2026-05
+last_reviewed: 2026-07
 contributors: []
 ---
 
@@ -269,5 +269,5 @@ with.
 
 ---
 
-*Last reviewed: May 2026*
+*Last reviewed: July 2026*
 *To contribute: open a PR editing docs/learn/self-diagnosis.md*

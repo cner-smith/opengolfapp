@@ -2,7 +2,7 @@
 title: Skill Games and Pressure Games
 section: Improving Your Game
 status: published
-last_reviewed: 2026-05
+last_reviewed: 2026-07
 contributors: []
 ---
 
@@ -351,6 +351,6 @@ over months is genuinely motivating.
 
 ---
 
-*Last reviewed: May 2026*
+*Last reviewed: July 2026*
 *To contribute: open a PR editing
 docs/learn/skill-games-pressure-games.md*

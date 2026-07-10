@@ -2,7 +2,7 @@
 title: Practice Round vs Scoring Round
 section: On the Course
 status: published
-last_reviewed: 2026-05
+last_reviewed: 2026-07
 contributors: []
 ---
 
@@ -257,5 +257,5 @@ both your scores and your practice get sharper for it.
 
 ---
 
-*Last reviewed: May 2026*
+*Last reviewed: July 2026*
 *To contribute: open a PR editing docs/learn/practice-vs-scoring-round.md*
