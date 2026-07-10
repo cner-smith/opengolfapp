@@ -138,7 +138,6 @@ export function SwingVariationsArticle() {
         from steep and upright to flat and rotary, with single-plane methods at
         one end.
       </P>
-      <PlaneSpectrum />
       <ul style={UL_STYLE}>
         <li>
           <strong>The modern tour swing.</strong> Big separation between the
@@ -541,50 +540,6 @@ function BodyTypeTable() {
 
 // Editorial line-art: the shaft plane from upright to flat, with single-plane
 // shown as arms-and-shaft aligned. Hairline strokes; the single plane in accent.
-function PlaneSpectrum() {
-  return (
-    <div style={{ maxWidth: 420, marginBottom: 18 }}>
-      <div
-        style={{
-          background: '#EBE5D6',
-          border: '1px solid #D9D2BF',
-          borderRadius: 2,
-          padding: '14px 12px 8px',
-        }}
-      >
-        <svg width="100%" viewBox="0 0 240 120" aria-hidden="true" style={{ display: 'block' }}>
-          {/* ground + ball, shared origin at lower right */}
-          <line x1="20" y1="100" x2="220" y2="100" stroke="#9F9580" strokeWidth="1.5" />
-          <circle cx="190" cy="100" r="3" fill="#1C211C" />
-          {/* All three are believable swing-plane angles fanning up from the
-              ball — upright steepest (~63°), flat shallower (~45°), single
-              plane the flattest (~33°). The old single-plane line sat ~13°,
-              almost flat on the ground, which read as broken. */}
-          {/* upright (steep) plane ~63° */}
-          <line x1="190" y1="100" x2="147" y2="16" stroke="#9F9580" strokeWidth="2" />
-          {/* flat (Hogan) plane ~45° */}
-          <line x1="190" y1="100" x2="108" y2="18" stroke="#9F9580" strokeWidth="2" />
-          {/* single plane (accent), flattest ~33° */}
-          <line x1="190" y1="100" x2="72" y2="24" stroke="#1F3D2C" strokeWidth="2.5" />
-          <text x="150" y="13" fontSize="7" fontFamily="monospace" letterSpacing="0.5" fill="#8A8B7E">
-            UPRIGHT
-          </text>
-          <text x="86" y="13" fontSize="7" fontFamily="monospace" letterSpacing="0.5" fill="#8A8B7E">
-            FLAT
-          </text>
-          <text x="14" y="22" fontSize="7" fontFamily="monospace" letterSpacing="0.5" fill="#1F3D2C">
-            SINGLE PLANE
-          </text>
-        </svg>
-      </div>
-      <div className="text-caddie-ink-mute" style={{ fontSize: 12, lineHeight: 1.5, marginTop: 6 }}>
-        Roughly how the club travels — steep and upright through flat and rotary to
-        a single plane. None is "correct"; each fits a different body.
-      </div>
-    </div>
-  )
-}
-
 function Sources() {
   return (
     <section style={{ borderTop: '1px solid #D9D2BF', paddingTop: 18, marginTop: 22 }}>
