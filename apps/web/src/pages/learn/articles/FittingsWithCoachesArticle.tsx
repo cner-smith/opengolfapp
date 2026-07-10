@@ -349,12 +349,8 @@ function Sources() {
         <div>
           <SrcLabel>Coach and fitter should be aligned</SrcLabel>
           <SrcBody>
-            <Src href="https://www.mytpi.com/certification">
+            <Src href="https://www.titleist.com/learning-lab/performance/tpi-team-approach">
               Titleist Performance Institute · the team approach
-            </Src>{' '}
-            and{' '}
-            <Src href="https://www.dennissalesgolf.com/golf-drills-and-practice-blogs/2025/3/18/why-you-should-get-fit-by-your-instructor-not-just-a-club-fitter">
-              why getting fit by your instructor matters
             </Src>{' '}
             — most fitters, left alone, don't know your coach's plan; the player
             has to connect them.
@@ -401,7 +397,7 @@ function Footer() {
         lineHeight: 1.6,
       }}
     >
-      Last reviewed May 2026
+      Last reviewed July 2026
     </div>
   )
 }

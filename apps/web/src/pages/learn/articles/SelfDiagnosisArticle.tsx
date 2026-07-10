@@ -359,6 +359,7 @@ function DiagnosticFlow() {
       <Arrow />
       <FlowRow>
         <Chip label="Yes" sub="tempo, not technique" />
+        <Chip label="No" sub="keep reading the pattern" />
       </FlowRow>
       <Arrow />
       <FlowQ n="04" q="One club, or all of them?" />
@@ -584,7 +585,7 @@ function Footer() {
         lineHeight: 1.6,
       }}
     >
-      Last reviewed May 2026
+      Last reviewed July 2026
     </div>
   )
 }

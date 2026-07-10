@@ -7,7 +7,7 @@ import {
   type DetailedStats,
 } from '@oga/core'
 import { getProfile, getRoundsWithDetails } from '@oga/supabase'
-import { ArticleHeader, C, P, Subhead } from '../primitives'
+import { ArticleHeader, C, Link, P, Sources, Subhead } from '../primitives'
 import { FONT } from '../../../lib/typography'
 import { supabase } from '../../../lib/supabase'
 import { useAuth } from '../../../hooks/useAuth'
@@ -77,8 +77,11 @@ export function BenchmarksArticle() {
   }, [user?.id])
 
   const me: DetailedStats | null = useMemo(
-    () => (rounds.length > 0 ? computeDetailedStats(rounds, DEFAULT_HANDICAP) : null),
-    [rounds],
+    () =>
+      rounds.length > 0
+        ? computeDetailedStats(rounds, handicap ?? DEFAULT_HANDICAP)
+        : null,
+    [rounds, handicap],
   )
 
   const sg = me?.sg
@@ -137,7 +140,7 @@ export function BenchmarksArticle() {
     {
       key: 'avg_score',
       label: 'Avg score',
-      values: [69.5, 72, 77, 82, 87, 92, 99],
+      values: [71.0, 72, 77, 82, 87, 92, 99],
       format: (v) => v.toFixed(1),
       lowerIsBetter: true,
       meValue: scoring?.avgScore ?? null,
@@ -178,14 +181,14 @@ export function BenchmarksArticle() {
     {
       key: 'make_5ft',
       label: 'Make % from 5 ft / 152 cm',
-      values: [96, 85, 75, 63, 52, 42, 33],
+      values: [77, 65, 58, 50, 45, 40, 35],
       format: (v) => `${v.toFixed(0)}%`,
       meValue: null,
     },
     {
       key: 'make_10ft',
       label: 'Make % from 10 ft / 305 cm',
-      values: [55, 38, 28, 20, 14, 10, 7],
+      values: [40, 30, 25, 20, 16, 13, 10],
       format: (v) => `${v.toFixed(0)}%`,
       meValue: null,
     },
@@ -195,14 +198,14 @@ export function BenchmarksArticle() {
     {
       key: 'driving',
       label: 'Driving distance',
-      values: [294, 250, 235, 220, 205, 190, 175],
+      values: [300, 262, 255, 247, 238, 227, 212],
       format: (v) => toDisplay(v),
       meValue: ball?.drivingDistanceAvg ?? null,
     },
     {
       key: 'proximity',
-      label: 'Proximity to pin',
-      values: [25, 42, 52, 65, 82, 105, 130],
+      label: 'Proximity to pin (all approaches)',
+      values: [37, 55, 65, 75, 88, 105, 125],
       format: (v) => toDisplayFt(v),
       lowerIsBetter: true,
       meValue: ball?.proximityAvg != null ? ball.proximityAvg * 3 : null,
@@ -220,10 +223,9 @@ export function BenchmarksArticle() {
 
       <P>
         These bars show where each stat lands across the bell curve, from a
-        25-handicap weekend round all the way up to the PGA Tour. Your average
-        for the last ten rounds is plotted as a burnt-amber dot — when one is
-        missing it is because the app does not have enough rounds to compute it
-        yet.
+        25-handicap weekend round all the way up to the PGA Tour. If you track
+        rounds in OGA, your ten-round average appears as an amber dot on each
+        scale.
       </P>
 
       <ViewTabs value={view} onChange={setView} />
@@ -246,6 +248,36 @@ export function BenchmarksArticle() {
           userBracketIndex={userBracketIndex}
         />
       )}
+
+      <Sources
+        items={[
+          {
+            name: 'PGA Tour benchmarks',
+            note: (
+              <Text>
+                Mark Broadie's "Every Shot Counts" (2014) and PGA Tour
+                ShotLink-era season averages — scoring average, driving
+                distance, putting make rates by distance, and approach
+                proximity.
+              </Text>
+            ),
+          },
+          {
+            name: 'Amateur ladders',
+            note: (
+              <Text>
+                Shot Scope's handicap benchmark data, built from millions of
+                tracked amateur shots (summarized at{' '}
+                <Link href="https://practical-golf.com/shotscope-handicap-data">
+                  practical-golf.com
+                </Link>
+                ). Values are rounded and smoothed so each row steps
+                consistently across brackets.
+              </Text>
+            ),
+          },
+        ]}
+      />
     </View>
   )
 }

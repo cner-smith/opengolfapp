@@ -1,12 +1,10 @@
 import { Text, View } from 'react-native'
-import Svg, { Circle, Line, Text as SvgText } from 'react-native-svg'
 import {
   ArticleHeader,
   ArticleFooter,
   BulletList,
   Callout,
   Em,
-  Figure,
   H3,
   Hr,
   Link,
@@ -136,10 +134,9 @@ export function SwingVariationsArticle() {
         from steep and upright to flat and rotary, with single-plane methods at
         one end.
       </P>
-      <PlaneSpectrum />
       <BulletList
         items={[
-          <Text>
+          <Text key="a">
             <Strong>The modern tour swing.</Strong> Big separation between the
             shoulders and hips at the top — what Jim McLean popularized in 1992 as
             the <Em>X-Factor</Em> — plus heavy use of the ground for speed. It's
@@ -149,7 +146,7 @@ export function SwingVariationsArticle() {
             lower-back stress for modest gain. Powerful, but not free, and not for
             every body.
           </Text>,
-          <Text>
+          <Text key="b">
             <Strong>The classic flatter plane (Hogan).</Strong> Ben Hogan's{' '}
             <Em>Five Lessons</Em> and its famous "pane of glass" image describe a
             flatter, on-plane move that's still hugely influential. Tellingly, even
@@ -158,7 +155,7 @@ export function SwingVariationsArticle() {
             that the most famous swing model in print still has to bend to the body
             using it.
           </Text>,
-          <Text>
+          <Text key="c">
             <Strong>The single-plane swing (Moe Norman / Graves).</Strong> Club,
             arms, and body set on essentially one plane at address and impact,
             stripping out moving parts. Moe Norman — whom Sam Snead and others
@@ -168,14 +165,14 @@ export function SwingVariationsArticle() {
             worth a look for players who fight conventional complexity or have back
             limitations.
           </Text>,
-          <Text>
+          <Text key="d">
             <Strong>Stack and Tilt.</Strong> Created by instructors Mike Bennett and
             Andy Plummer, it keeps the weight forward over the lead side throughout
             the swing to kill lateral sway. Controversial, but with real tour
             adherents over the years (Aaron Baddeley and Mike Weir among them), and
             potentially friendlier to limited hip mobility.
           </Text>,
-          <Text>
+          <Text key="e">
             <Strong>Rotary, body-driven methods.</Strong> A family of approaches
             that lead with body rotation over hand and arm manipulation, on the
             argument that fewer timing-dependent parts make the swing more
@@ -191,20 +188,20 @@ export function SwingVariationsArticle() {
       </P>
       <BulletList
         items={[
-          <Text>
+          <Text key="a">
             <Strong>Peak Performance (Don Trahan).</Strong> A short, vertical,
             limited-turn backswing — "a little turn, a lot of lift" — that Trahan
             built with orthopedic input to be easy on the back and friendly to
             players who've lost flexibility, while arguing it gives up little or no
             clubhead speed.
           </Text>,
-          <Text>
+          <Text key="b">
             <Strong>The A Swing (David Leadbetter).</Strong> An "alternative" that
             rebuilds the backswing to be simpler and more repeatable, so the
             downswing becomes mostly a reaction — aimed squarely at golfers who
             can't groove the conventional move.
           </Text>,
-          <Text>
+          <Text key="c">
             <Strong>Swing the clubhead (Manuel de la Torre).</Strong> A feel-first
             school in the Ernest Jones tradition: focus on swinging the club itself
             rather than choreographing body positions, trusting the body to follow a
@@ -228,38 +225,39 @@ export function SwingVariationsArticle() {
         <Text style={{ color: C.ink, fontFamily: FONT.body, fontSize: 14, lineHeight: 22 }}>
           <Strong>This is general information, not medical advice.</Strong> If you
           have any of the conditions below, get cleared by a medical professional
-          and work with a TPI-certified instructor <Em>before</Em> changing your
+          and work with a TPI-certified (Titleist Performance Institute)
+          instructor <Em>before</Em> changing your
           swing or starting intensive practice. The notes here are starting points
           for that conversation, not prescriptions.
         </Text>
       </Callout>
       <BulletList
         items={[
-          <Text>
+          <Text key="a">
             <Strong>Scoliosis.</Strong> Spinal curvature can make a high-torque
             rotational swing a poor fit; a flatter, more arms-based or single-plane
             motion may put less stress on the spine. This is exactly the case for a
             physical screening before any intensive change.
           </Text>,
-          <Text>
+          <Text key="b">
             <Strong>Hip replacement or hip limitations.</Strong> Weight shift and
             hip clearance are affected. Methods that reduce lateral movement (such
             as single-plane or weight-forward styles) and a wider, more stable
             stance can lower the demand on the hip.
           </Text>,
-          <Text>
+          <Text key="c">
             <Strong>Shoulder injury or limited shoulder mobility.</Strong> Backswing
             length and follow-through are the first things to give. A shorter, more
             controlled backswing that prioritizes solid contact usually beats
             forcing a full turn you don't have.
           </Text>,
-          <Text>
+          <Text key="d">
             <Strong>Back injury or fused vertebrae.</Strong> When rotation is
             restricted or gone, arms-dominant, minimal-rotation swings are the
             adaptation, and Moe Norman's low-stress single-plane motion is worth
             studying. Medical clearance first, always.
           </Text>,
-          <Text>
+          <Text key="e">
             <Strong>One-arm and adaptive golfers.</Strong> Competitive one-arm and
             adaptive players exist and thrive. The mechanics are genuinely different,
             not a tweak of the standard swing, and specialized adaptive instruction
@@ -377,10 +375,6 @@ export function SwingVariationsArticle() {
             name: 'The classic flatter plane (Hogan)',
             note: (
               <Text>
-                <Link href="https://www.usgtf.com/hogans-five-lessons-in-our-modern-game/">
-                  USGTF · Hogan's Five Lessons in the modern game
-                </Link>{' '}
-                and{' '}
                 <Link href="https://mygolfspy.com/news-opinion/ben-hogans-swing/">
                   MyGolfSpy · Ben Hogan's swing
                 </Link>{' '}
@@ -473,7 +467,7 @@ export function SwingVariationsArticle() {
       />
 
       <ArticleFooter>
-        Last reviewed May 2026
+        Last reviewed July 2026
       </ArticleFooter>
     </View>
   )
@@ -525,7 +519,7 @@ function HallOfFame() {
     },
     {
       name: 'Nancy Lopez',
-      quirk: 'A pronounced "flying" right elbow every textbook warns against.',
+      quirk: 'High hands and a slow, looping takeaway no textbook would draw.',
       result: '48 LPGA Tour wins and a Hall of Fame career.',
     },
     {
@@ -581,11 +575,11 @@ function BodyTypeTable() {
   const rows: { type: string; note: string }[] = [
     {
       type: 'Taller (6′2″+)',
-      note: 'Tend to stand more upright, with a flatter natural plane. Usually need longer clubs and flatter lie angles — off-the-rack clubs are built to a standard, not to you.',
+      note: 'Tend to stand more upright, with a flatter natural plane. Usually need longer clubs and more upright lie angles — off-the-rack clubs are built to a standard, not to you.',
     },
     {
       type: 'Shorter',
-      note: 'Stand closer to the ball with a more upright shaft angle; an upright plane is natural and correct here. Shorter clubs and more upright lie angles often fit better.',
+      note: 'Stand closer to the ball with a more upright shaft angle; an upright plane is natural and correct here. Shorter clubs and flatter lie angles often fit better.',
     },
     {
       type: 'Limited flexibility / older',
@@ -616,35 +610,5 @@ function BodyTypeTable() {
         </View>
       ))}
     </View>
-  )
-}
-
-// Editorial line-art: the shaft plane from upright to flat, with single-plane
-// shown as arms-and-shaft aligned. Same viewBox + coordinate data as the web
-// inline svg, re-authored in react-native-svg. Single plane in accent.
-function PlaneSpectrum() {
-  return (
-    <Figure caption='Roughly how the club travels — steep and upright through flat and rotary to a single plane. None is "correct"; each fits a different body.'>
-      <Svg width="100%" height={120} viewBox="0 0 240 120">
-        {/* ground + ball, shared origin at lower right */}
-        <Line x1={20} y1={100} x2={220} y2={100} stroke={C.mute} strokeWidth={1.5} />
-        <Circle cx={190} cy={100} r={3} fill={C.ink} />
-        {/* upright (steep) plane */}
-        <Line x1={190} y1={100} x2={150} y2={14} stroke={C.mute} strokeWidth={2} />
-        {/* flat (Hogan) plane */}
-        <Line x1={190} y1={100} x2={78} y2={36} stroke={C.mute} strokeWidth={2} />
-        {/* single plane (accent) */}
-        <Line x1={190} y1={100} x2={40} y2={64} stroke={C.accent} strokeWidth={2.5} />
-        <SvgText x={138} y={12} fontSize={7} fontFamily={FONT.mono} letterSpacing={0.5} fill={C.mute}>
-          UPRIGHT
-        </SvgText>
-        <SvgText x={62} y={32} fontSize={7} fontFamily={FONT.mono} letterSpacing={0.5} fill={C.mute}>
-          FLAT
-        </SvgText>
-        <SvgText x={20} y={60} fontSize={7} fontFamily={FONT.mono} letterSpacing={0.5} fill={C.accent}>
-          SINGLE PLANE
-        </SvgText>
-      </Svg>
-    </Figure>
   )
 }

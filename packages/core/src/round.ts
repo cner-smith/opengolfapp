@@ -4,10 +4,13 @@
 
 import { inferShot, type InferredShot, type PlacedShot } from './shotInference'
 import type { Club, LieType, LieSlope, LieSlopeForward, LieSlopeSide, ShotResult } from './constants'
+import { PUTT_RESULT_LABELS, SHOT_RESULT_LABELS } from './constants'
+import { formatDistance, formatPuttDistance, haversineYards } from './units'
 import type {
   BreakDirection,
   BreakDirectionHorizontal,
   BreakDirectionVertical,
+  DistanceUnit,
   GreenSpeed,
   LegacyPuttResult,
   PuttDirectionResult,
@@ -79,18 +82,110 @@ export function inferHoleCount(holeNumbers: number[]): 9 | 18 {
   return Math.max(...holeNumbers) <= 9 ? 9 : 18
 }
 
-// Single source of truth for putt classification: a shot is a putt when its
-// lie is the green or its club is the putter. Feeds putt counts, the putt-only
-// persisted columns, and SG putting, so every surface must agree. Distance to
-// the pin must NOT factor in — a near-green chip isn't a putt, and unmapped
-// rows read distanceToPin 0 (#660, which was a drift between hand-copied
-// predicates). Takes raw fields (not a shaped row) so camelCase ReviewedShotRow
-// and snake_case DB rows share it.
-export function isPuttShot(
-  lieType: string | null | undefined,
-  club: string | null | undefined,
-): boolean {
-  return lieType === 'green' || club === 'putter'
+// Gate for computing a WHS-style score differential: only a fully-played
+// round qualifies. Returns the played (score > 0) rows when they cover every
+// hole of the round, else null — a partial round must produce NO differential,
+// because adjustedScore adds 0 strokes per unplayed hole and yields an
+// impossible negative value that then dominates the last-20 handicap
+// recompute (#711). Score 0 is the "not played" sentinel on both platforms.
+// Implicit contract: callers pass holeCount = inferHoleCount(course hole
+// numbers), and both materialization paths (mobile round creation's gap-fill,
+// web's ensureRealHole) create holes rows up to that same inferred count — if
+// a materialization path ever changes, this gate fails CLOSED (differential
+// stays null on a fully-played round) rather than corrupting the index.
+export function playedRowsForDifferential<T extends { score: number }>(
+  holeRows: T[],
+  holeCount: number,
+): T[] | null {
+  const played = holeRows.filter((r) => r.score > 0)
+  return played.length === holeCount ? played : null
+}
+
+// Single source of truth for putt classification: a shot is a putt exactly
+// when its lie is the green. A putter played from off the green (Texas wedge)
+// is a normal shot — yards, SG around-green — matching what the save paths
+// write (#691; club used to be an OR term, which made reads disagree with
+// writes). Feeds putt counts, the putt-only persisted columns, and SG putting,
+// so every surface must agree. Distance to the pin must NOT factor in — a
+// near-green chip isn't a putt, and unmapped rows read distanceToPin 0 (#660).
+// Takes the raw field (not a shaped row) so camelCase ReviewedShotRow and
+// snake_case DB rows share it.
+export function isPuttShot(lieType: string | null | undefined): boolean {
+  return lieType === 'green'
+}
+
+// Structural subset of a snake_case shots row that the shot-summary
+// formatters read — web and mobile pass their own DB Row types.
+export interface ShotSummaryFields {
+  distance_to_target: number | null
+  shot_result: string | null
+  start_lat: number | null
+  start_lng: number | null
+  putt_distance_ft: number | null
+  putt_result: string | null
+  putt_distance_result: string | null
+  putt_direction_result: string | null
+}
+
+const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1)
+
+// One-line putt summary parts — unit-aware distance + result, e.g.
+// ["4 ft", "Made"] or ["12 ft", "Short Left"]. The miss is derived
+// axes-first (putt_distance_result / putt_direction_result are the canonical
+// columns; legacy combined putt_result is the back-compat fallback) so web
+// and mobile can't drift on derivation again (#601). Callers join with ' · '
+// and pick their own empty-state text.
+export function summarizePuttParts(
+  shot: ShotSummaryFields,
+  unit: DistanceUnit,
+): string[] {
+  const feet = shot.putt_distance_ft ?? shot.distance_to_target
+  const distance = feet != null ? formatPuttDistance(feet, unit) : null
+  let result: string | null
+  if (shot.putt_result === 'made') {
+    result = 'Made'
+  } else {
+    const miss = [shot.putt_distance_result, shot.putt_direction_result]
+      .filter((v): v is string => Boolean(v))
+      .map(cap)
+      .join(' ')
+    result =
+      miss ||
+      (shot.putt_result
+        ? PUTT_RESULT_LABELS[
+            shot.putt_result as keyof typeof PUTT_RESULT_LABELS
+          ] ?? shot.putt_result
+        : null)
+  }
+  return [distance, result].filter((v): v is string => Boolean(v))
+}
+
+// Non-putt summary parts — distance + full result label, e.g.
+// ["152 yd", "Solid"]. distance_to_target falls back to the haversine to the
+// next shot's start (end of shot N IS the start of shot N+1) so rows saved
+// without a pin distance still read a yardage.
+export function summarizeShotParts(
+  shot: ShotSummaryFields,
+  next: ShotSummaryFields | null | undefined,
+  unit: DistanceUnit,
+): string[] {
+  let yards = shot.distance_to_target
+  if (
+    yards == null &&
+    shot.start_lat != null &&
+    shot.start_lng != null &&
+    next?.start_lat != null &&
+    next?.start_lng != null
+  ) {
+    yards = Math.round(
+      haversineYards(shot.start_lat, shot.start_lng, next.start_lat, next.start_lng),
+    )
+  }
+  const distance = yards != null ? formatDistance(yards, unit) : null
+  const result = shot.shot_result
+    ? SHOT_RESULT_LABELS[shot.shot_result as ShotResult] ?? shot.shot_result
+    : null
+  return [distance, result].filter((v): v is string => Boolean(v))
 }
 
 export function buildInitialRows(

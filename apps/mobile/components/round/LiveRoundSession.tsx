@@ -133,6 +133,15 @@ export default function LiveRoundSession({
   }, [initialHoleNumber])
 
   const data = useHoleData(roundId, holeNumber)
+  // Deep-link / refresh clamp (#718): ?hole= can name a hole past the
+  // round's actual count (e.g. hole=10 on a 9-hole round) — the
+  // Resume-banner path (useActiveRound) already clamps to the round's
+  // real hole count, this mirrors it here once data.holeCount is known,
+  // instead of stranding the player on the "isn't set up" error branch.
+  useEffect(() => {
+    if (data.loading) return
+    if (holeNumber > data.holeCount) setHoleNumber(data.holeCount)
+  }, [data.loading, data.holeCount, holeNumber])
   const finalState = useHoleState({
     currentHoleId: data.currentHole?.id ?? null,
     currentHoleScoreId: data.currentHoleScore?.id ?? null,
@@ -464,7 +473,7 @@ export default function LiveRoundSession({
               },
             ]}
           >
-            Par {data.currentHole.par}
+            Par {data.currentHoleScore?.par ?? data.currentHole.par}
             {data.currentHole.yards ? ` · ${toDisplay(data.currentHole.yards)}` : ''}
           </Text>
         </View>
@@ -550,6 +559,18 @@ export default function LiveRoundSession({
             }
             finalState.setBall(loc)
           }}
+          onRecenterBall={(loc) => {
+            // Deliberate recenter tap = "put the ball back on me": the
+            // inverse of onSetBall above. Lift the manual freeze, restart
+            // the Kalman filter from the next fresh fix, and snap the ball
+            // to GPS now for instant feedback. ballMoved=false restores
+            // the HUD's ball-from-GPS labeling.
+            if (isPastMode) return
+            finalState.manuallyPlacedRef.current = false
+            setBallMoved(false)
+            finalState.kalmanStateRef.current = null
+            finalState.setBall(loc)
+          }}
           onPlacePin={actions.persistRoundPin}
         />
         {finalState.aimHintVisible && (
@@ -612,7 +633,7 @@ export default function LiveRoundSession({
           totalShotsThisHole={totalShotsThisHole}
           holeNumber={holeNumber}
           holeCount={data.holeCount}
-          par={data.currentHole.par}
+          par={data.currentHoleScore?.par ?? data.currentHole.par}
           yardsLabel={data.currentHole.yards ? toDisplay(data.currentHole.yards) : null}
           onCancelPinPlacement={() => setPinPlacementOpen(false)}
           onClearRoundPin={actions.clearRoundPin}
@@ -661,19 +682,28 @@ export default function LiveRoundSession({
         routerReplace={(href) => router.replace(href as Parameters<typeof router.replace>[0])}
         id={roundId}
         onChangePar={async (holeId, newPar) => {
+          // Par is a per-round override on hole_scores.par (#710) — this
+          // round's opinion, not global course curation (holes has no
+          // UPDATE policy; the old direct update silently no-op'd). The
+          // hole's hole_scores row is batch-created at round start.
+          const hs = data.holeScores.find((s) => s.hole_id === holeId)
+          if (!hs) return
           // Optimistic update so the cell reflects the tap immediately.
           // Roll back if the DB write fails so the UI doesn't lie.
-          const prev = data.holes.find((h) => h.id === holeId)?.par ?? 4
-          data.setHoles((cur) =>
-            cur.map((h) => (h.id === holeId ? { ...h, par: newPar } : h)),
+          const prev = hs.par
+          data.setHoleScores((cur) =>
+            cur.map((s) => (s.id === hs.id ? { ...s, par: newPar } : s)),
           )
-          const { error: parErr } = await supabase
-            .from('holes')
+          const { data: updated, error: parErr } = await supabase
+            .from('hole_scores')
             .update({ par: newPar })
-            .eq('id', holeId)
-          if (parErr) {
-            data.setHoles((cur) =>
-              cur.map((h) => (h.id === holeId ? { ...h, par: prev } : h)),
+            .eq('id', hs.id)
+            .select('id')
+          // 0 returned rows = RLS filtered the write while reporting
+          // success — the exact failure mode from #710. Treat as failure.
+          if (parErr || !updated || updated.length === 0) {
+            data.setHoleScores((cur) =>
+              cur.map((s) => (s.id === hs.id ? { ...s, par: prev } : s)),
             )
           }
         }}

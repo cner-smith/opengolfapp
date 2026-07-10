@@ -295,7 +295,7 @@ export function SelfDiagnosisArticle() {
       />
 
       <ArticleFooter>
-        Last reviewed May 2026
+        Last reviewed July 2026
       </ArticleFooter>
     </View>
   )
@@ -368,6 +368,7 @@ function DiagnosticFlow() {
       <Arrow />
       <FlowRow>
         <Chip label="Yes" sub="tempo, not technique" />
+        <Chip label="No" sub="keep reading the pattern" />
       </FlowRow>
       <Arrow />
       <FlowQ n="04" q="One club, or all of them?" />

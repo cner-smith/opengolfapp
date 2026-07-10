@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Modal, Pressable, ScrollView, Text, TextInput, View } from 'react-native'
 import Svg, { Circle, Line as SvgLine } from 'react-native-svg'
 import {
@@ -112,6 +112,25 @@ export function ShotLogger({
   })
   const set = <K extends keyof ShotLoggerValue>(key: K, v: ShotLoggerValue[K]) =>
     setValue((prev) => ({ ...prev, [key]: prev[key] === v ? undefined : v }))
+
+  // Re-seed `value` from `initial` each time the sheet opens. ShotLogger only
+  // remounts when shotEntryKey changes (save / hole change), but the "not
+  // putting" flows seed loggerInitial mid-cycle AFTER this instance mounted —
+  // handleOnGreenNo sets { lieType: 'rough' }, swapPuttingToShot sets the
+  // chosen lie. Without this re-seed the mounted instance never reads that
+  // prop and the shot stores lie_type null, silently degrading SG (#654).
+  useEffect(() => {
+    if (!visible) return
+    setValue({
+      ...initial,
+      lieType: isPutt ? 'green' : initial?.lieType,
+      club: isPutt ? 'putter' : initial?.club,
+    })
+    // Re-seed on open only. initial/isPutt are stable while the sheet is open
+    // (loggerInitial is set before it opens and not mutated during), and
+    // listing them would wipe in-progress edits on any identity change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visible])
 
   // Source the club picker from the user's bag. Fall back to DEFAULT_BAG
   // while the bag is loading or if the user trimmed it to nothing — never
@@ -599,9 +618,10 @@ interface ChipRowProps<T extends string> {
 
 function ChipRow<T extends string>({ value, options, onChange }: ChipRowProps<T>) {
   return (
-    <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-      <View style={{ flexDirection: 'row', gap: 6 }}>
-        {options.map(({ value: optValue, label }) => {
+    // Wrap to multiple rows rather than scroll horizontally — a hidden
+    // off-screen club/lie chip reads as "the list ends here" (#740).
+    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+      {options.map(({ value: optValue, label }) => {
           const active = value === optValue
           return (
             <Pressable
@@ -632,7 +652,6 @@ function ChipRow<T extends string>({ value, options, onChange }: ChipRowProps<T>
             </Pressable>
           )
         })}
-      </View>
-    </ScrollView>
+    </View>
   )
 }

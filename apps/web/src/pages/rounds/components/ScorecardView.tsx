@@ -113,7 +113,8 @@ export function ScorecardView({
                 onEditShots({
                   holeScoreId,
                   holeNumber: h.number,
-                  holePar: h.par,
+                  // Per-round par override (#710) — hole_scores.par wins.
+                  holePar: hs?.par ?? h.par,
                 })
               }
             />

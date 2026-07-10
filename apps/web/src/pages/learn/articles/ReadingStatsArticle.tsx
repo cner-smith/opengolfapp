@@ -3,7 +3,13 @@ import type { DetailedStats } from '@oga/core'
 import { useDetailedStats } from '../../../hooks/useDetailedStats'
 import { useProfile } from '../../../hooks/useProfile'
 import { useUnits } from '../../../hooks/useUnits'
-import { Lede, Subkicker, fmtSG } from '../components/ArticlePrimitives'
+import {
+  Lede,
+  SrcBody,
+  SrcLabel,
+  Subkicker,
+  fmtSG,
+} from '../components/ArticlePrimitives'
 
 const BRACKETS = ['PGA Tour', 'Scratch', '5', '10', '15', '20', '25+'] as const
 type BracketLabel = (typeof BRACKETS)[number]
@@ -46,7 +52,46 @@ export function ReadingStatsArticle() {
         Where you sit in the field.
       </h2>
       <BenchmarkBody me={me} />
+      <Sources />
     </article>
+  )
+}
+
+function Sources() {
+  return (
+    <section style={{ borderTop: '1px solid #D9D2BF', paddingTop: 18, marginTop: 22 }}>
+      <div className="kicker" style={{ marginBottom: 12 }}>
+        Sources
+      </div>
+      <div style={{ display: 'grid', gap: 14, maxWidth: 640 }}>
+        <div>
+          <SrcLabel>PGA Tour benchmarks</SrcLabel>
+          <SrcBody>
+            Mark Broadie's "Every Shot Counts" (2014) and PGA Tour
+            ShotLink-era season averages — scoring average, driving
+            distance, putting make rates by distance, and approach
+            proximity.
+          </SrcBody>
+        </div>
+        <div>
+          <SrcLabel>Amateur ladders</SrcLabel>
+          <SrcBody>
+            Shot Scope's handicap benchmark data, built from millions
+            of tracked amateur shots (summarized at{' '}
+            <a
+              href="https://practical-golf.com/shotscope-handicap-data"
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{ color: '#1F3D2C', textDecoration: 'underline' }}
+            >
+              practical-golf.com
+            </a>
+            ). Values are rounded and smoothed so each row steps
+            consistently across brackets.
+          </SrcBody>
+        </div>
+      </div>
+    </section>
   )
 }
 
@@ -108,7 +153,7 @@ function BenchmarkBody({ me }: { me: DetailedStats | null }) {
     {
       key: 'avg_score',
       label: 'Avg score',
-      values: [69.5, 72, 77, 82, 87, 92, 99],
+      values: [71.0, 72, 77, 82, 87, 92, 99],
       format: (v) => v.toFixed(1),
       lowerIsBetter: true,
       meValue: scoring?.avgScore ?? null,
@@ -149,14 +194,14 @@ function BenchmarkBody({ me }: { me: DetailedStats | null }) {
     {
       key: 'make_5ft',
       label: 'Make % from 5 ft / 152 cm',
-      values: [96, 85, 75, 63, 52, 42, 33],
+      values: [77, 65, 58, 50, 45, 40, 35],
       format: (v) => `${v.toFixed(0)}%`,
       meValue: null,
     },
     {
       key: 'make_10ft',
       label: 'Make % from 10 ft / 305 cm',
-      values: [55, 38, 28, 20, 14, 10, 7],
+      values: [40, 30, 25, 20, 16, 13, 10],
       format: (v) => `${v.toFixed(0)}%`,
       meValue: null,
     },
@@ -166,14 +211,14 @@ function BenchmarkBody({ me }: { me: DetailedStats | null }) {
     {
       key: 'driving',
       label: 'Driving distance',
-      values: [294, 250, 235, 220, 205, 190, 175],
+      values: [300, 262, 255, 247, 238, 227, 212],
       format: (v) => toDisplay(v),
       meValue: ball?.drivingDistanceAvg ?? null,
     },
     {
       key: 'proximity',
-      label: 'Proximity to pin',
-      values: [25, 42, 52, 65, 82, 105, 130],
+      label: 'Proximity to pin (all approaches)',
+      values: [37, 55, 65, 75, 88, 105, 125],
       format: (v) => toDisplayFt(v),
       lowerIsBetter: true,
       meValue: ball?.proximityAvg != null ? ball.proximityAvg * 3 : null,
@@ -191,9 +236,8 @@ function BenchmarkBody({ me }: { me: DetailedStats | null }) {
       <Lede>
         These bars show where each stat lands across the bell curve,
         from a 25-handicap weekend round all the way up to the PGA Tour.
-        Your average for the last ten rounds is plotted as a burnt-amber
-        dot — when one is missing it is because the app does not have
-        enough rounds to compute it yet.
+        If you track rounds in OGA, your ten-round average appears as an
+        amber dot on each scale.
       </Lede>
 
       <BenchmarkViewTabs value={view} onChange={setView} />

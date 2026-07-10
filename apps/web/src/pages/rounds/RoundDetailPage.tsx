@@ -11,7 +11,7 @@ import { ShareableScorecardCard } from '../../components/round/ShareableScorecar
 import { HoleReviewSheet } from '../../components/round/HoleReviewSheet'
 import { WebPuttingSheet } from '../../components/round/WebPuttingSheet'
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
-import { DEFAULT_HANDICAP, haversineYards } from '@oga/core'
+import { DEFAULT_HANDICAP, haversineYards, inferHoleCount } from '@oga/core'
 import { useAuth } from '../../hooks/useAuth'
 import { useProfile } from '../../hooks/useProfile'
 import { toUserMessage } from '../../lib/errors'
@@ -209,6 +209,7 @@ export function RoundDetailPage() {
   }
 
   const holesPlayed = holeScores.length
+  const holeCount = inferHoleCount(holes.map((h) => h.number))
   const totalRoundsLogged = allRounds.data?.length ?? 0
   // The played tee (by id, then by colour) supplies rating/slope/yardage for
   // the share card — same match RoundHeader uses.
@@ -229,6 +230,7 @@ export function RoundDetailPage() {
         round={round.data as unknown as RoundRow & { courses?: { name?: string | null } | null }}
         tees={teesQuery.data ?? []}
         holesPlayed={holesPlayed}
+        holeCount={holeCount}
         shareTone={shareTone}
         sharing={sharing}
         completePending={completeMutation.isPending}
@@ -416,8 +418,13 @@ export function RoundDetailPage() {
                 <HoleReviewSheet
                   open={reviewOpen}
                   holeNumber={activeHole.number}
-                  par={activeHole.par}
-                  totalPar={holes.reduce((s, h) => s + h.par, 0)}
+                  // Per-round par override (#710) — hole_scores.par wins
+                  // over the course hole's par when the player corrected it.
+                  par={scoresByHoleId.get(activeHole.id)?.par ?? activeHole.par}
+                  totalPar={holes.reduce(
+                    (s, h) => s + (scoresByHoleId.get(h.id)?.par ?? h.par),
+                    0,
+                  )}
                   pinLat={effectivePin?.lat ?? null}
                   pinLng={effectivePin?.lng ?? null}
                   placedPoints={placedPoints}

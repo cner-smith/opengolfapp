@@ -47,7 +47,7 @@ export function UnderstandingYourSwingArticle() {
       <GlanceBox label="What writes the shot">
         <DefRow term="Face angle" first>
           Where the ball starts. At impact the face sets roughly three-quarters
-          of the start line — more at slower speeds.
+          of the start line with an iron — closer to 85% with the driver.
         </DefRow>
         <DefRow term="Face vs. path">
           How the ball curves. The gap between where the face points and where
@@ -60,8 +60,10 @@ export function UnderstandingYourSwingArticle() {
         is mostly your face. <Strong>How it curves</Strong> is the gap between
         face and path. A shot that starts left and slices back right, for
         instance, means the face was pointed left of the target but still open
-        relative to an even-more-leftward path — the classic out-to-in pull-slice.
-        The ball just told you both numbers; you only had to listen.
+        relative to an even-more-leftward path — the classic out-to-in pull-slice
+        (directions throughout are for a right-handed golfer — mirror them if you
+        play left-handed). The ball just told you both numbers; you only had to
+        listen.
       </P>
 
       <Figure caption="The ball starts where the face points, then bends by the gap between face and path. Two facts, read off one shot.">
@@ -79,20 +81,20 @@ export function UnderstandingYourSwingArticle() {
       </P>
       <BulletList
         items={[
-          <Text>
+          <Text key="a">
             <Strong>Direction.</Strong> A divot pointing left of target is the
             fingerprint of an out-to-in (over-the-top) path; one pointing right
             signals in-to-out. It should roughly agree with the curve you read off
             the ball.
           </Text>,
-          <Text>
+          <Text key="b">
             <Strong>Depth and evenness.</Strong> A deep, gouged divot says your low
             point is too far forward or your attack too steep; no divot at all
             usually means you're bottoming out behind the ball. A divot deeper on
             the toe or heel side points at how the club is delivered, not just where
             it lands.
           </Text>,
-          <Text>
+          <Text key="c">
             <Strong>Where it starts.</Strong> A divot that begins well behind the
             ball is the turf-side version of fat contact — the arc bottomed out
             early.
@@ -175,7 +177,7 @@ export function UnderstandingYourSwingArticle() {
       />
 
       <ArticleFooter>
-        Last reviewed May 2026
+        Last reviewed July 2026
       </ArticleFooter>
     </View>
   )

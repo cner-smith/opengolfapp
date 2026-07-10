@@ -138,7 +138,6 @@ export function SwingVariationsArticle() {
         from steep and upright to flat and rotary, with single-plane methods at
         one end.
       </P>
-      <PlaneSpectrum />
       <ul style={UL_STYLE}>
         <li>
           <strong>The modern tour swing.</strong> Big separation between the
@@ -225,7 +224,8 @@ export function SwingVariationsArticle() {
       <Callout>
         <strong>This is general information, not medical advice.</strong> If you
         have any of the conditions below, get cleared by a medical professional
-        and work with a TPI-certified instructor <em>before</em> changing your
+        and work with a TPI-certified (Titleist Performance Institute)
+        instructor <em>before</em> changing your
         swing or starting intensive practice. The notes here are starting points
         for that conversation, not prescriptions.
       </Callout>
@@ -422,7 +422,7 @@ function HallOfFame() {
     },
     {
       name: 'Nancy Lopez',
-      quirk: 'A pronounced "flying" right elbow every textbook warns against.',
+      quirk: 'High hands and a slow, looping takeaway no textbook would draw.',
       result: '48 LPGA Tour wins and a Hall of Fame career.',
     },
     {
@@ -487,11 +487,11 @@ function BodyTypeTable() {
   const rows: { type: string; note: string }[] = [
     {
       type: 'Taller (6′2″+)',
-      note: 'Tend to stand more upright, with a flatter natural plane. Usually need longer clubs and flatter lie angles — off-the-rack clubs are built to a standard, not to you.',
+      note: 'Tend to stand more upright, with a flatter natural plane. Usually need longer clubs and more upright lie angles — off-the-rack clubs are built to a standard, not to you.',
     },
     {
       type: 'Shorter',
-      note: 'Stand closer to the ball with a more upright shaft angle; an upright plane is natural and correct here. Shorter clubs and more upright lie angles often fit better.',
+      note: 'Stand closer to the ball with a more upright shaft angle; an upright plane is natural and correct here. Shorter clubs and flatter lie angles often fit better.',
     },
     {
       type: 'Limited flexibility / older',
@@ -540,50 +540,6 @@ function BodyTypeTable() {
 
 // Editorial line-art: the shaft plane from upright to flat, with single-plane
 // shown as arms-and-shaft aligned. Hairline strokes; the single plane in accent.
-function PlaneSpectrum() {
-  return (
-    <div style={{ maxWidth: 420, marginBottom: 18 }}>
-      <div
-        style={{
-          background: '#EBE5D6',
-          border: '1px solid #D9D2BF',
-          borderRadius: 2,
-          padding: '14px 12px 8px',
-        }}
-      >
-        <svg width="100%" viewBox="0 0 240 120" aria-hidden="true" style={{ display: 'block' }}>
-          {/* ground + ball, shared origin at lower right */}
-          <line x1="20" y1="100" x2="220" y2="100" stroke="#9F9580" strokeWidth="1.5" />
-          <circle cx="190" cy="100" r="3" fill="#1C211C" />
-          {/* All three are believable swing-plane angles fanning up from the
-              ball — upright steepest (~63°), flat shallower (~45°), single
-              plane the flattest (~33°). The old single-plane line sat ~13°,
-              almost flat on the ground, which read as broken. */}
-          {/* upright (steep) plane ~63° */}
-          <line x1="190" y1="100" x2="147" y2="16" stroke="#9F9580" strokeWidth="2" />
-          {/* flat (Hogan) plane ~45° */}
-          <line x1="190" y1="100" x2="108" y2="18" stroke="#9F9580" strokeWidth="2" />
-          {/* single plane (accent), flattest ~33° */}
-          <line x1="190" y1="100" x2="72" y2="24" stroke="#1F3D2C" strokeWidth="2.5" />
-          <text x="150" y="13" fontSize="7" fontFamily="monospace" letterSpacing="0.5" fill="#8A8B7E">
-            UPRIGHT
-          </text>
-          <text x="86" y="13" fontSize="7" fontFamily="monospace" letterSpacing="0.5" fill="#8A8B7E">
-            FLAT
-          </text>
-          <text x="14" y="22" fontSize="7" fontFamily="monospace" letterSpacing="0.5" fill="#1F3D2C">
-            SINGLE PLANE
-          </text>
-        </svg>
-      </div>
-      <div className="text-caddie-ink-mute" style={{ fontSize: 12, lineHeight: 1.5, marginTop: 6 }}>
-        Roughly how the club travels — steep and upright through flat and rotary to
-        a single plane. None is "correct"; each fits a different body.
-      </div>
-    </div>
-  )
-}
-
 function Sources() {
   return (
     <section style={{ borderTop: '1px solid #D9D2BF', paddingTop: 18, marginTop: 22 }}>
@@ -655,10 +611,6 @@ function Sources() {
         <div>
           <SrcLabel>The classic flatter plane (Hogan)</SrcLabel>
           <SrcBody>
-            <Src href="https://www.usgtf.com/hogans-five-lessons-in-our-modern-game/">
-              USGTF · Hogan's Five Lessons in the modern game
-            </Src>{' '}
-            and{' '}
             <Src href="https://mygolfspy.com/news-opinion/ben-hogans-swing/">
               MyGolfSpy · Ben Hogan's swing
             </Src>{' '}
@@ -767,7 +719,7 @@ function Footer() {
         lineHeight: 1.6,
       }}
     >
-      Last reviewed May 2026
+      Last reviewed July 2026
     </div>
   )
 }

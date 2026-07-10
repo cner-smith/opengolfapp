@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useFocusEffect } from 'expo-router'
 import { Pressable, ScrollView, Text, View } from 'react-native'
 import { formatSG } from '@oga/core'
 import { deleteRound, getProfile, getRecentRounds } from '@oga/supabase'
@@ -8,6 +9,7 @@ import { useAuth } from '../../hooks/useAuth'
 import { useActiveRound } from '../../hooks/useActiveRound'
 import { syncPendingShots } from '../../lib/sync'
 import { pendingCount } from '../../lib/db'
+import { clearScreenCache, getCached, setCached } from '../../lib/screenCache'
 import { AppBar } from '../../components/ui/AppBar'
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
 import { Entrance } from '../../components/ui/Entrance'
@@ -51,8 +53,14 @@ const KICKER: import('react-native').TextStyle = {
 
 export default function Home() {
   const { user } = useAuth()
-  const [profile, setProfile] = useState<Profile | null>(null)
-  const [rounds, setRounds] = useState<RecentRound[]>([])
+  // Seed from the screen cache so a revisit renders instantly; the focus
+  // fetch below always re-runs and replaces this (#599).
+  const [profile, setProfile] = useState<Profile | null>(
+    () => getCached<Profile>('home:profile') ?? null,
+  )
+  const [rounds, setRounds] = useState<RecentRound[]>(
+    () => getCached<RecentRound[]>('home:rounds') ?? [],
+  )
   const activeRound = useActiveRound()
   const [pending, setPending] = useState(0)
   const [pendingDelete, setPendingDelete] = useState<{
@@ -77,6 +85,9 @@ export default function Home() {
       try {
         const { error } = await deleteRound(supabase, id, user.id)
         if (error) throw error
+        // Wipe ALL cached screens — a stale rounds-list or round-detail
+        // cache would resurrect the deleted round as a ghost (#705 redux).
+        clearScreenCache()
         setRounds((prev) => prev.filter((r) => r.id !== id))
       } finally {
         setDeleting(false)
@@ -86,31 +97,44 @@ export default function Home() {
     [user],
   )
 
-  useEffect(() => {
-    if (!user) return
-    let active = true
-    getProfile(supabase, user.id).then(({ data, error }) => {
-      if (!active) return
-      if (error) {
-        // eslint-disable-next-line no-console
-        console.error('[home/getProfile]', error.message)
-        return
+  // Focus effect, not a mount effect: router.replace('/(app)') after a
+  // delete can land on an already-mounted home instance, and a mount-only
+  // fetch then keeps showing the deleted round until the app restarts —
+  // the user swipe-deletes a ghost that's already gone server-side (#705).
+  // Same pattern as useActiveRound's banner query directly above.
+  useFocusEffect(
+    useCallback(() => {
+      if (!user) return
+      let active = true
+      getProfile(supabase, user.id).then(({ data, error }) => {
+        if (!active) return
+        if (error) {
+          // eslint-disable-next-line no-console
+          console.error('[home/getProfile]', error.message)
+          return
+        }
+        if (data) {
+          setProfile(data as unknown as Profile)
+          setCached('home:profile', data)
+        }
+      })
+      getRecentRounds(supabase, user.id, 20).then(({ data, error }) => {
+        if (!active) return
+        if (error) {
+          // eslint-disable-next-line no-console
+          console.error('[home/getRecentRounds]', error.message)
+          return
+        }
+        if (data) {
+          setRounds(data as RecentRound[])
+          setCached('home:rounds', data)
+        }
+      })
+      return () => {
+        active = false
       }
-      if (data) setProfile(data as unknown as Profile)
-    })
-    getRecentRounds(supabase, user.id, 20).then(({ data, error }) => {
-      if (!active) return
-      if (error) {
-        // eslint-disable-next-line no-console
-        console.error('[home/getRecentRounds]', error.message)
-        return
-      }
-      if (data) setRounds(data as RecentRound[])
-    })
-    return () => {
-      active = false
-    }
-  }, [user?.id])
+    }, [user?.id]),
+  )
 
   useEffect(() => {
     pendingCount().then(setPending)
@@ -142,17 +166,20 @@ export default function Home() {
       const avg = values.length === 0 ? 0 : values.reduce((a, b) => a + b, 0) / values.length
       return { ...c, value: Number(avg.toFixed(2)) }
     })
-    const scoreRounds = rounds.filter((r) => r.total_score !== null)
-    const avgScore = scoreRounds.length > 0
-      ? scoreRounds.reduce((s, r) => s + (r.total_score ?? 0), 0) / scoreRounds.length
-      : null
     // total_score === 0 is the past-round-logger sentinel for "no score
-    // entered" (map-created rounds), so exclude it from the best-round min —
-    // otherwise a single unscored round always reads as a best of 0.
-    const realScores = rounds
-      .map((r) => r.total_score)
-      .filter((s): s is number => s != null && s > 0)
-    const bestScore = realScores.length > 0 ? Math.min(...realScores) : null
+    // entered" (map-created rounds), so exclude it from avg + best-round min —
+    // otherwise an abandoned log skews the average and a single unscored
+    // round always reads as a best of 0.
+    const realScoreRounds = rounds.filter(
+      (r): r is typeof r & { total_score: number } =>
+        r.total_score != null && r.total_score > 0,
+    )
+    const avgScore = realScoreRounds.length > 0
+      ? realScoreRounds.reduce((s, r) => s + r.total_score, 0) / realScoreRounds.length
+      : null
+    const bestScore = realScoreRounds.length > 0
+      ? Math.min(...realScoreRounds.map((r) => r.total_score))
+      : null
     const totalSG = avgs.reduce((s, a) => s + a.value, 0)
     const sorted = [...avgs].sort((a, b) => b.value - a.value)
     return { avgScore, bestScore, totalSG, weakest: sorted[sorted.length - 1]!, strongest: sorted[0]! }

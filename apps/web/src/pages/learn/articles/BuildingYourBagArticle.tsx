@@ -90,8 +90,8 @@ export function BuildingYourBagArticle() {
         <AidBody>
           The bottom of the bag is where most amateurs quietly leak strokes.
           Pitching-wedge lofts have crept stronger over the years — a
-          game-improvement set may run 41–43°, where a traditional one sat at
-          45–46° — and that opens a big hole right below it, in the 30-to-50-yard
+          strong-lofted set may run 41–44°, where a traditional one sat at
+          46–48° — and that opens a big hole right below it, in the 30-to-50-yard
           range where you score.
         </AidBody>
         <AidBody>
@@ -468,7 +468,7 @@ function Footer() {
         lineHeight: 1.6,
       }}
     >
-      Last reviewed May 2026
+      Last reviewed July 2026
     </div>
   )
 }

@@ -169,7 +169,7 @@ export function RoundsPage() {
                       className="font-serif tabular text-caddie-ink"
                       style={{ fontSize: 28, fontWeight: 500, lineHeight: 1 }}
                     >
-                      {r.total_score ?? '—'}
+                      {r.total_score ? r.total_score : '—'}
                     </div>
                   </div>
                   <div className="text-right hidden sm:block" style={{ minWidth: 80 }}>

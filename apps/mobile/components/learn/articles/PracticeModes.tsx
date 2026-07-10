@@ -162,7 +162,7 @@ export function PracticeModesArticle() {
                 </Link>{' '}
                 confirms high contextual interference improves retention, and{' '}
                 <Link href="https://www.tandfonline.com/doi/abs/10.1080/00336297.1998.10484285">
-                  Magill & Hall, Quest (1998)
+                  Brady, Quest (1998)
                 </Link>{' '}
                 reviews the effect first shown by Shea & Morgan (1979): random
                 order hurts practice, helps learning.
@@ -206,12 +206,9 @@ export function PracticeModesArticle() {
             note: (
               <Text>
                 <Link href="https://www.tandfonline.com/doi/full/10.1080/1750984X.2017.1408134">
-                  International Review of Sport & Exercise Psychology (2018) ·
-                  choking interventions, a systematic review
-                </Link>{' '}
-                and{' '}
-                <Link href="https://www.frontiersin.org/journals/psychology/articles/10.3389/fpsyg.2025.1435374/full">
-                  Frontiers in Psychology (2025) · performance under pressure
+                  Gröpel & Mesagno, International Review of Sport & Exercise
+                  Psychology (2019) · choking interventions, a systematic
+                  review
                 </Link>{' '}
                 — acclimatization and pre-performance routines help skills survive
                 competitive anxiety.
@@ -223,7 +220,7 @@ export function PracticeModesArticle() {
             note: (
               <Text>
                 <Link href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6731745/">
-                  Macnamara & Hambrick, revisiting Ericsson, Krampe &
+                  Macnamara & Maitra, revisiting Ericsson, Krampe &
                   Tesch-Römer (1993)
                 </Link>{' '}
                 — practice quality matters enormously, though the strong claim that
@@ -235,7 +232,7 @@ export function PracticeModesArticle() {
       />
 
       <ArticleFooter>
-        Last reviewed May 2026
+        Last reviewed July 2026
       </ArticleFooter>
     </View>
   )
@@ -269,7 +266,7 @@ function ScheduleDiagram() {
   const order = (seq: ('c' | 's' | 't')[]): Mark[] =>
     seq.map((t, i) => ({ t, x: xs[i] ?? 0 }))
   const blocked = order(['c', 'c', 'c', 's', 's', 's', 't', 't', 't'])
-  const random = order(['c', 's', 't', 's', 'c', 't', 't', 'c', 's'])
+  const random = order(['c', 's', 't', 's', 'c', 't', 'c', 't', 's'])
   return (
     <Svg width="100%" height={90} viewBox="0 0 160 90">
       {blocked.map((m, i) => (
@@ -292,7 +289,7 @@ function RetentionDiagram() {
       <Line x1={24} y1={14} x2={24} y2={86} stroke={C.mute} strokeWidth={1.5} />
       <Line x1={106} y1={18} x2={106} y2={86} stroke={C.line} strokeWidth={1} strokeDasharray="3 3" />
       {/* blocked: high in practice, drops later */}
-      <Polyline points="30,44 106,30 182,68" fill="none" stroke={C.mute} strokeWidth={2} />
+      <Polyline points="30,44 106,30 182,52" fill="none" stroke={C.mute} strokeWidth={2} />
       {/* random: low in practice, best later (accent) */}
       <Polyline points="30,74 106,60 182,30" fill="none" stroke={C.accent} strokeWidth={2} />
       <SvgText x={54} y={100} fontSize={7} fontFamily={FONT.mono} letterSpacing={1} fill={C.mute}>

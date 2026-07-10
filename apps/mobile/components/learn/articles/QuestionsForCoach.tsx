@@ -63,8 +63,7 @@ export function QuestionsForCoachArticle() {
             change tied to an outcome you can see, not just a body position.
             Research on where golfers aim their attention is unusually consistent:
             focusing on the <Em>effect</Em> of a movement — what the ball does —
-            produces better and more durable results than focusing on the body
-            part making it. If the answer is only "get your hands here," ask what
+            produces better results than focusing on the body part making it. If the answer is only "get your hands here," ask what
             "here" is supposed to <Em>produce</Em>.
           </P>,
           <P style={{ marginBottom: 0 }}>
@@ -188,11 +187,6 @@ export function QuestionsForCoachArticle() {
             ),
           },
           {
-            name: 'And it holds up over days',
-            href: 'https://pmc.ncbi.nlm.nih.gov/articles/PMC11246618/',
-            note: 'Internal vs external focus on golf putting accuracy over multiple days (2024) — the external-focus advantage persists on delayed retention, not just in the moment.',
-          },
-          {
             name: 'Space the practice you’re given',
             href: 'https://www.sciencedirect.com/science/article/abs/pii/S016794570000021X',
             note: 'Shea et al., Human Movement Science (2000) · spacing practice across days — the same reps spread over several days produce far better retention than the same total packed into one session.',
@@ -201,7 +195,7 @@ export function QuestionsForCoachArticle() {
       />
 
       <ArticleFooter>
-        Last reviewed May 2026
+        Last reviewed July 2026
       </ArticleFooter>
     </View>
   )

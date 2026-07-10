@@ -5,7 +5,8 @@ import { captureRef } from 'react-native-view-shot'
 import * as Sharing from 'expo-sharing'
 import {
   CLUBS,
-  LIE_SLOPES,
+  LIE_SLOPES_FORWARD,
+  LIE_SLOPES_SIDE,
   LIE_TYPES,
   YARDS_TO_METERS,
   clubDistanceStats,
@@ -14,16 +15,20 @@ import {
   dispersionVerdict,
   filterDispersionByLie,
   getAimCorrection,
+  legacySlopeToAxes,
   type Club,
   type DispersionPoint,
   type DispersionStats,
   type DistanceUnit,
   type LieSlope,
+  type LieSlopeForward,
+  type LieSlopeSide,
   type LieType,
   type Shot,
 } from '@oga/core'
 import { getShotsByClub } from '@oga/supabase'
 import { MaterialCommunityIcons } from '@expo/vector-icons'
+import { PressableTouch } from '../../components/ui/PressableTouch'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
 import { useUnits } from '../../hooks/useUnits'
@@ -55,12 +60,20 @@ interface ShotRowMin {
   club: string | null
   lie_type: LieType | null
   lie_slope: LieSlope | null
+  lie_slope_forward: LieSlopeForward | null
+  lie_slope_side: LieSlopeSide | null
   shot_result: string | null
   penalty: boolean
   ob: boolean
 }
 
 function rowToShot(r: ShotRowMin): Shot {
+  // Most stored shots predate the two-axis slope columns and only carry the
+  // legacy single-select `lie_slope`. Fall back to it so the slope filter
+  // matches whichever axis those shots recorded — otherwise every selection
+  // filters to zero. (A legacy shot only ever recorded one axis, so it can
+  // never match a forward AND a side selection at once — that's unrecoverable.)
+  const legacy = legacySlopeToAxes(r.lie_slope ?? null)
   return {
     id: r.id,
     holeScoreId: r.hole_score_id,
@@ -76,6 +89,8 @@ function rowToShot(r: ShotRowMin): Shot {
     club: (r.club as Shot['club']) ?? undefined,
     lieType: r.lie_type ?? undefined,
     lieSlope: r.lie_slope ?? undefined,
+    lieSlopeForward: r.lie_slope_forward ?? legacy.forward,
+    lieSlopeSide: r.lie_slope_side ?? legacy.side,
     shotResult: (r.shot_result as Shot['shotResult']) ?? undefined,
     penalty: r.penalty,
     ob: r.ob,
@@ -89,7 +104,12 @@ export default function Patterns() {
   const { unit, toDisplay } = useUnits()
   const [club, setClub] = useState<Club>('7i')
   const [lieType, setLieType] = useState<LieType | typeof ANY>(ANY)
-  const [lieSlope, setLieSlope] = useState<LieSlope | typeof ANY>(ANY)
+  // Two-axis slope filter, multi-select. Empty array on an axis = "any"
+  // (no constraint). Replaces the old single-select LIE_SLOPES chip row,
+  // which filtered the legacy lie_slope column (null on every shot logged
+  // since the two-axis migration → matched nothing) (#746).
+  const [forwardSel, setForwardSel] = useState<LieSlopeForward[]>([])
+  const [sideSel, setSideSel] = useState<LieSlopeSide[]>([])
   const [shots, setShots] = useState<ShotRowMin[]>([])
   const [loading, setLoading] = useState(false)
 
@@ -113,14 +133,23 @@ export default function Patterns() {
 
   const points = useMemo(() => {
     let pts = computeDispersion(shots.map(rowToShot))
-    if (lieType !== ANY || lieSlope !== ANY) {
-      pts = filterDispersionByLie(pts, {
-        lieSlope: lieSlope === ANY ? undefined : lieSlope,
-        lieType: lieType === ANY ? undefined : lieType,
-      })
+    if (lieType !== ANY) {
+      pts = filterDispersionByLie(pts, { lieType })
+    }
+    // Multi-select per axis: a point passes when the axis has no selection
+    // (any) OR its value is among the selected. The two axes AND together.
+    if (forwardSel.length > 0) {
+      pts = pts.filter(
+        (p) => p.lieSlopeForward != null && forwardSel.includes(p.lieSlopeForward),
+      )
+    }
+    if (sideSel.length > 0) {
+      pts = pts.filter(
+        (p) => p.lieSlopeSide != null && sideSel.includes(p.lieSlopeSide),
+      )
     }
     return pts
-  }, [shots, lieType, lieSlope])
+  }, [shots, lieType, forwardSel, sideSel])
 
   const stats = useMemo(() => computeDispersionStats(points), [points])
 
@@ -186,12 +215,24 @@ export default function Patterns() {
 
         <Entrance index={2}>
         <Section kicker="Lie slope">
-          <ChipRow
-            value={lieSlope}
-            options={[ANY, ...LIE_SLOPES] as const}
-            onChange={(v) => setLieSlope(v as LieSlope | typeof ANY)}
-            labelFor={(v) => (v === ANY ? 'any' : (v as string).replace(/_/g, ' '))}
-          />
+          {/* Two independent axes, each multi-select (tap several to see
+              them together). No selection on an axis = any. Fixes the old
+              single-select filter that read the always-null legacy column
+              (#746). */}
+          <View style={{ gap: 8 }}>
+            <MultiChipRow
+              options={LIE_SLOPES_FORWARD}
+              selected={forwardSel}
+              onToggle={(v) => setForwardSel(toggleSel(forwardSel, v))}
+              labelFor={slopeLabel}
+            />
+            <MultiChipRow
+              options={LIE_SLOPES_SIDE}
+              selected={sideSel}
+              onToggle={(v) => setSideSel(toggleSel(sideSel, v))}
+              labelFor={slopeLabel}
+            />
+          </View>
         </Section>
         </Entrance>
 
@@ -203,21 +244,25 @@ export default function Patterns() {
             <Text style={[TYPE.body, { color: '#8A8B7E', fontSize: 13 }]}>
               No shots yet for {club}
               {lieType !== ANY ? ` (${lieType})` : ''}
-              {lieSlope !== ANY ? ` (${lieSlope})` : ''}.
+              {forwardSel.length + sideSel.length > 0
+                ? ` (${[...forwardSel, ...sideSel].map(slopeLabel).join(', ')})`
+                : ''}
+              .
             </Text>
           ) : (
             <>
               <DispersionPlot points={points} stats={stats} />
               <PatternLegend hasStats={!!stats} />
               {stats && (
-                <Pressable
+                <PressableTouch
                   accessibilityRole="button"
                   accessibilityLabel="Export shot pattern image"
                   accessibilityState={{ disabled: sharing }}
                   onPress={handleShare}
                   disabled={sharing}
                   hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                  style={({ pressed }) => ({
+                  android_ripple={{ color: 'rgba(31,61,44,0.12)' }}
+                  style={{
                     alignSelf: 'flex-start',
                     flexDirection: 'row',
                     alignItems: 'center',
@@ -230,8 +275,10 @@ export default function Patterns() {
                     borderWidth: 1,
                     borderColor: '#1F3D2C',
                     borderRadius: 2,
-                    opacity: pressed || sharing ? 0.6 : 1,
-                  })}
+                    // Disabled-while-sharing dim; PressableTouch adds the
+                    // iOS press dim on top.
+                    opacity: sharing ? 0.6 : 1,
+                  }}
                 >
                   <MaterialCommunityIcons
                     name="tray-arrow-down"
@@ -243,7 +290,7 @@ export default function Patterns() {
                   <Text style={{ ...KICKER, color: '#1F3D2C', fontSize: 11 }}>
                     {sharing ? 'Rendering…' : 'Export image'}
                   </Text>
-                </Pressable>
+                </PressableTouch>
               )}
             </>
           )}
@@ -582,9 +629,10 @@ interface ChipRowProps<T extends string> {
 
 function ChipRow<T extends string>({ value, options, onChange, labelFor }: ChipRowProps<T>) {
   return (
-    <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-      <View style={{ flexDirection: 'row', gap: 6 }}>
-        {options.map((opt) => {
+    // Wrap rather than scroll horizontally — the club list is long enough
+    // that off-screen chips read as the end of the list (#740).
+    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+      {options.map((opt) => {
           const active = value === opt
           return (
             <Pressable
@@ -609,8 +657,65 @@ function ChipRow<T extends string>({ value, options, onChange, labelFor }: ChipR
             </Pressable>
           )
         })}
-      </View>
-    </ScrollView>
+    </View>
+  )
+}
+
+// Toggle a value in/out of a multi-select array.
+function toggleSel<T>(arr: T[], v: T): T[] {
+  return arr.includes(v) ? arr.filter((x) => x !== v) : [...arr, v]
+}
+
+// 'ball_above' → 'ball above'. Shared by the slope chips + empty-state text.
+function slopeLabel(v: string): string {
+  return v.replace(/_/g, ' ')
+}
+
+interface MultiChipRowProps<T extends string> {
+  options: readonly T[]
+  selected: T[]
+  onToggle: (v: T) => void
+  labelFor?: (v: T) => string
+}
+
+// Like ChipRow but multi-select: every chip in `selected` is highlighted,
+// tapping toggles. No "any" chip — an empty selection IS "any".
+function MultiChipRow<T extends string>({
+  options,
+  selected,
+  onToggle,
+  labelFor,
+}: MultiChipRowProps<T>) {
+  return (
+    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+      {options.map((opt) => {
+        const active = selected.includes(opt)
+        return (
+          <Pressable
+            key={opt}
+            accessibilityRole="checkbox"
+            accessibilityState={{ checked: active }}
+            onPress={() => onToggle(opt)}
+            style={{
+              paddingHorizontal: 10,
+              paddingVertical: 8,
+              borderRadius: 2,
+              backgroundColor: active ? '#1F3D2C' : '#EBE5D6',
+            }}
+          >
+            <Text
+              style={[TYPE.body, {
+                color: active ? '#F2EEE5' : '#1C211C',
+                fontSize: 12,
+                fontWeight: active ? '500' : '400',
+              }]}
+            >
+              {labelFor ? labelFor(opt) : opt}
+            </Text>
+          </Pressable>
+        )
+      })}
+    </View>
   )
 }
 

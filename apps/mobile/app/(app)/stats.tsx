@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Pressable, ScrollView, Text, useWindowDimensions, View } from 'react-native'
+import { Linking, Pressable, ScrollView, Text, useWindowDimensions, View } from 'react-native'
 import { VictoryAxis, VictoryChart, VictoryLine } from 'victory-native'
 import Svg, { Line as SvgLine } from 'react-native-svg'
 import {
@@ -19,6 +19,7 @@ import {
 import { getProfile, getRoundsWithDetails } from '@oga/supabase'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
+import { getCached, setCached } from '../../lib/screenCache'
 import { useUnits } from '../../hooks/useUnits'
 import { AppBar } from '../../components/ui/AppBar'
 import { Entrance } from '../../components/ui/Entrance'
@@ -56,8 +57,15 @@ const KICKER: import('react-native').TextStyle = {
 export default function Stats() {
   const { user } = useAuth()
   const [n, setN] = useState<number>(10)
-  const [rounds, setRounds] = useState<DetailedRound[]>([])
-  const [loading, setLoading] = useState(true)
+  // Fetch the max window (L20) once and slice client-side per toggle — the
+  // L5/L10/L20 chips used to refire the whole nested query (#599). Seeded
+  // from the screen cache so a revisit renders instantly.
+  const [allRounds, setAllRounds] = useState<DetailedRound[]>(
+    () => getCached<DetailedRound[]>('stats:rounds') ?? [],
+  )
+  const [loading, setLoading] = useState(
+    () => getCached<DetailedRound[]>('stats:rounds') == null,
+  )
   // Player's handicap for SG baselines. Web (useDetailedStats) already uses
   // the profile value; hardcoding DEFAULT_HANDICAP here benchmarked every
   // player against the default bracket and made mobile disagree with web on
@@ -88,20 +96,27 @@ export default function Stats() {
   useEffect(() => {
     if (!user) return
     let active = true
-    setLoading(true)
-    getRoundsWithDetails(supabase, user.id, n).then(({ data, error }) => {
+    // Spinner only on a cold cache — a cached render revalidates silently.
+    if (getCached<DetailedRound[]>('stats:rounds') == null) setLoading(true)
+    getRoundsWithDetails(supabase, user.id, 20).then(({ data, error }) => {
       if (!active) return
       if (error) {
         // eslint-disable-next-line no-console
         console.error('[stats/getRoundsWithDetails]', error.message)
       }
-      setRounds((data as unknown as DetailedRound[] | null) ?? [])
+      const rows = (data as unknown as DetailedRound[] | null) ?? []
+      setAllRounds(rows)
+      if (!error) setCached('stats:rounds', rows)
       setLoading(false)
     })
     return () => {
       active = false
     }
-  }, [user?.id, n])
+  }, [user?.id])
+
+  // The visible window. getRoundsWithDetails orders played_at desc, so
+  // slice(0, n) is exactly what a limit-n fetch returned.
+  const rounds = useMemo(() => allRounds.slice(0, n), [allRounds, n])
 
   const avgs = useMemo(
     () =>
@@ -169,13 +184,31 @@ export default function Stats() {
         eyebrow="Performance"
         title="Strokes Gained"
         right={
-          <View
-            style={{
-              flexDirection: 'row',
-              borderWidth: 1,
-              borderColor: 'rgba(242,238,229,0.25)',
-            }}
-          >
+          <View style={{ alignItems: 'flex-end', gap: 10 }}>
+            <Pressable
+              accessibilityRole="link"
+              accessibilityLabel="Open the full dashboard on the web at oga.golf"
+              onPress={() => Linking.openURL('https://oga.golf')}
+              hitSlop={8}
+            >
+              <Text
+                numberOfLines={1}
+                style={[TYPE.body, {
+                  color: 'rgba(242,238,229,0.4)',
+                  fontSize: 11,
+                  lineHeight: 16,
+                }]}
+              >
+                Full dashboard → oga.golf ↗
+              </Text>
+            </Pressable>
+            <View
+              style={{
+                flexDirection: 'row',
+                borderWidth: 1,
+                borderColor: 'rgba(242,238,229,0.25)',
+              }}
+            >
             {N_OPTIONS.map((opt, i) => {
               const active = n === opt
               return (
@@ -203,6 +236,7 @@ export default function Stats() {
                 </Pressable>
               )
             })}
+            </View>
           </View>
         }
       />

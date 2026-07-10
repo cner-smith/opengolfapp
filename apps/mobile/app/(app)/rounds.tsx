@@ -8,10 +8,12 @@ import {
 } from 'react-native'
 import { Link } from 'expo-router'
 import { Swipeable } from 'react-native-gesture-handler'
+import { PressableTouch } from '../../components/ui/PressableTouch'
 import { formatSG } from '@oga/core'
 import { deleteRound, getRoundsList } from '@oga/supabase'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
+import { clearScreenCache, getCached, setCached } from '../../lib/screenCache'
 import { AppBar } from '../../components/ui/AppBar'
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
 import { Entrance } from '../../components/ui/Entrance'
@@ -45,7 +47,11 @@ function buildA11yLabel(r: RoundRow): string {
 
 export default function RoundsList() {
   const { user } = useAuth()
-  const [rounds, setRounds] = useState<RoundRow[]>([])
+  // Seed from the screen cache for an instant render on revisit; the mount
+  // fetch below re-runs every visit and replaces it (#599).
+  const [rounds, setRounds] = useState<RoundRow[]>(
+    () => getCached<RoundRow[]>('roundsList') ?? [],
+  )
   const [pendingDelete, setPendingDelete] = useState<{
     id: string
     name: string
@@ -63,7 +69,10 @@ export default function RoundsList() {
         console.error('[rounds/getRecentRounds]', error.message)
         return
       }
-      if (data) setRounds(data as RoundRow[])
+      if (data) {
+        setRounds(data as RoundRow[])
+        setCached('roundsList', data)
+      }
     })
     return () => {
       active = false
@@ -77,6 +86,9 @@ export default function RoundsList() {
       try {
         const { error } = await deleteRound(supabase, id, user.id)
         if (error) throw error
+        // Wipe ALL cached screens — a stale home/round-detail cache would
+        // resurrect the deleted round as a ghost (#705 redux).
+        clearScreenCache()
         setRounds((prev) => prev.filter((r) => r.id !== id))
         // Delay so VoiceOver doesn't swallow the announce while focus
         // shifts from the dismissing ConfirmDialog.
@@ -152,7 +164,7 @@ export default function RoundsList() {
                 overshootRight={false}
               >
                 <Link href={`/(app)/round/${r.id}`} asChild>
-                  <Pressable
+                  <PressableTouch
                     onLongPress={() => openDeleteFor(r)}
                     accessibilityLabel={buildA11yLabel(r)}
                     accessibilityHint="Opens round detail"
@@ -163,7 +175,8 @@ export default function RoundsList() {
                       if (e.nativeEvent.actionName === 'delete')
                         openDeleteFor(r)
                     }}
-                    style={({ pressed }) => ({
+                    android_ripple={{ color: 'rgba(31,61,44,0.10)' }}
+                    style={{
                       flexDirection: 'row',
                       justifyContent: 'space-between',
                       alignItems: 'center',
@@ -172,8 +185,7 @@ export default function RoundsList() {
                       borderBottomWidth: 1,
                       borderColor: '#D9D2BF',
                       backgroundColor: '#F2EEE5',
-                      opacity: pressed ? 0.7 : 1,
-                    })}
+                    }}
                   >
                     <View style={{ flex: 1, paddingRight: 12 }}>
                       <Text style={{ ...KICKER, marginBottom: 4 }}>
@@ -203,7 +215,7 @@ export default function RoundsList() {
                           fontVariant: ['tabular-nums'],
                         }]}
                       >
-                        {r.total_score ?? '—'}
+                        {r.total_score ? r.total_score : '—'}
                       </Text>
                       <Text
                         style={[TYPE.serifUpright, {
@@ -221,7 +233,7 @@ export default function RoundsList() {
                         {r.sg_total == null ? '—' : formatSG(r.sg_total)}
                       </Text>
                     </View>
-                  </Pressable>
+                  </PressableTouch>
                 </Link>
               </Swipeable>
             ))}

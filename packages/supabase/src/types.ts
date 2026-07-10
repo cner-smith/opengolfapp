@@ -62,6 +62,7 @@ export type Database = {
           course_id: string
           course_rating: number | null
           created_at: string
+          created_by: string | null
           id: string
           par: number | null
           slope_rating: number | null
@@ -73,6 +74,7 @@ export type Database = {
           course_id: string
           course_rating?: number | null
           created_at?: string
+          created_by?: string | null
           id?: string
           par?: number | null
           slope_rating?: number | null
@@ -84,6 +86,7 @@ export type Database = {
           course_id?: string
           course_rating?: number | null
           created_at?: string
+          created_by?: string | null
           id?: string
           par?: number | null
           slope_rating?: number | null
@@ -97,6 +100,13 @@ export type Database = {
             columns: ["course_id"]
             isOneToOne: false
             referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "course_tees_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -238,6 +248,7 @@ export type Database = {
           gir: boolean | null
           hole_id: string
           id: string
+          par: number | null
           pin_lat: number | null
           pin_lng: number | null
           putts: number | null
@@ -253,6 +264,7 @@ export type Database = {
           gir?: boolean | null
           hole_id: string
           id?: string
+          par?: number | null
           pin_lat?: number | null
           pin_lng?: number | null
           putts?: number | null
@@ -268,6 +280,7 @@ export type Database = {
           gir?: boolean | null
           hole_id?: string
           id?: string
+          par?: number | null
           pin_lat?: number | null
           pin_lng?: number | null
           putts?: number | null
@@ -695,10 +708,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      delete_my_account: {
-        Args: never
-        Returns: undefined
-      }
+      delete_my_account: { Args: never; Returns: undefined }
       insert_synthetic_hole: {
         Args: {
           p_course_id: string
@@ -708,6 +718,7 @@ export type Database = {
         }
         Returns: string
       }
+      plan_generations_this_month: { Args: never; Returns: number }
       search_courses: {
         Args: { result_limit?: number; search_query: string }
         Returns: {
@@ -732,6 +743,15 @@ export type Database = {
       show_trgm: { Args: { "": string }; Returns: string[] }
       update_club_order: {
         Args: { p_club_ids: string[]; p_orders: number[]; p_user_id: string }
+        Returns: undefined
+      }
+      update_hole_tee: {
+        Args: {
+          p_hole_id: string
+          p_round_id: string
+          p_tee_lat: number
+          p_tee_lng: number
+        }
         Returns: undefined
       }
     }
@@ -869,4 +889,3 @@ export const Constants = {
     Enums: {},
   },
 } as const
-

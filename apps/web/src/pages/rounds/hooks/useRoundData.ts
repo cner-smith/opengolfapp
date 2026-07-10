@@ -91,9 +91,14 @@ export function useRoundData({
   // if fewer rows than the course expects, fill the gap.
   //
   // Expected count comes from `course_tees.par` when present (≤36 = 9,
-  // else 18); falls back to 18 when no tees row exists. 9-hole real
-  // courses with no course_tees row would over-pad — that combination
-  // is rare enough to leave for a follow-up.
+  // else 18); falls back to 18 when no tees row exists. A 9-hole real
+  // course with no course_tees row over-pads to 18 — accepted, because
+  // the only alternative (inferring from the round's hole_scores) breaks
+  // the common case: an in-progress 18-hole round that has only scored
+  // holes 1–9 so far would wrongly collapse to 9 and strand 10–18 (#727
+  // regression). There's no reliable 9-vs-18 signal for an unmapped
+  // course mid-round, so 18 is the safe default. Revisit via a real
+  // per-round hole_count captured at round creation.
   const expectedHoleCount = useMemo(() => {
     const tees = teesQuery.data ?? []
     const totalPar = tees[0]?.par

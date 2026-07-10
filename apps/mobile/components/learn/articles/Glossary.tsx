@@ -9,10 +9,9 @@ export function GlossaryArticle() {
         title="Glossary of golf terms."
       />
       <P>
-        The basics — birdie, bogey, par, handicap, GIR — are covered
-        in the app's stat reference section. This glossary focuses
-        on the terms that come up once you start playing regularly
-        and trying to improve.
+        The basics — birdie, bogey, par, handicap, GIR — are not
+        covered here. This glossary focuses on the terms that come
+        up once you start playing regularly and trying to improve.
       </P>
 
       {GLOSSARY_GROUPS.map((group) => (
@@ -38,7 +37,7 @@ export function GlossaryArticle() {
       />
 
       <ArticleFooter>
-        Last reviewed May 2026
+        Last reviewed July 2026
       </ArticleFooter>
     </View>
   )
@@ -65,14 +64,14 @@ const GLOSSARY_GROUPS: GlossaryGroup[] = [
       { name: 'Slice', body: 'An uncontrolled, exaggerated fade. The most common miss for amateurs — open face plus out-to-in path.' },
       { name: 'Push', body: 'A shot that flies straight but to the right of the target with no curve. Different from a fade — wrong line, no shape.' },
       { name: 'Pull', body: 'A shot that flies straight but to the left of the target with no curve. Different from a hook.' },
-      { name: 'Stinger', body: 'A low, penetrating shot hit with minimal loft, played into wind or under trees. Made famous by Tiger Woods.' },
+      { name: 'Stinger', body: 'A low, penetrating shot hit with minimal loft, played into wind or under trees.' },
       { name: 'Punch shot', body: 'A low, controlled shot played with a shortened swing. Stays low, runs out after landing.' },
       { name: 'Flier', body: 'A shot that travels farther than expected because grass gets between face and ball, reducing backspin. Common from rough.' },
-      { name: 'Spinner', body: 'A wedge struck cleanly into a soft green that spins back toward the player after landing. Useful when the pin is at the back of the green.' },
+      { name: 'Spinner', body: 'A wedge struck cleanly into a soft green that spins back toward the player after landing. Useful when the pin is at the front — fly it past and let the spin bring it back.' },
       { name: 'Knuckleball', body: 'A shot with almost no spin — the ball flutters unpredictably. Often happens out of thick rough.' },
       { name: 'Texas Wedge', body: 'Using a putter from off the green — fringe, apron, or even light rough. Highest-percentage shot when the ground between ball and hole is firm and flat.' },
-      { name: 'DOD (Driver Off the Deck)', body: 'Hitting a driver without a tee, from the fairway or rough. One of the hardest shots in golf. Made famous by social media creator "DOD King" Carter Smith.' },
-      { name: 'Thai Spinner', body: 'A low, high-spin shot popularized by Kiradech Aphibarnrat — steep outside-in lob wedge from a tight or grainy lie. Reached wider audiences when Keith Mitchell pulled it off at the 2025 Houston Open.' },
+      { name: 'DOD (Driver Off the Deck)', body: 'Hitting a driver without a tee, from the fairway or rough. One of the hardest shots in golf.' },
+      { name: 'Thai Spinner', body: 'A low, high-spin shot popularized by Kiradech Aphibarnrat — steep outside-in lob wedge from a tight or grainy lie. Reached wider audiences when Keith Mitchell pulled it off at the 2025 Texas Children\'s Houston Open.' },
     ],
   },
   {
@@ -91,7 +90,6 @@ const GLOSSARY_GROUPS: GlossaryGroup[] = [
     heading: 'Putting terms',
     terms: [
       { name: 'Pin high / Hole high', body: 'Approach finishes level with the pin (correct distance, off line). Generally a good miss — putting across slope, not up or down it.' },
-      { name: 'Spinner (putting)', body: 'A putt that lips out spinning — catches the edge, spins around the rim, comes back out. See also: lip out.' },
     ],
   },
   {
@@ -114,7 +112,7 @@ const GLOSSARY_GROUPS: GlossaryGroup[] = [
     terms: [
       { name: 'Divot', body: 'The chunk of turf displaced (or the hole left). Replace it, or fill with sand-mix where provided. Hitting from a divot is no relief — play it as it lies.' },
       { name: 'Pitch mark / Ball mark', body: 'The indentation an approach leaves on the green. Repair yours and any nearby. Push edges down and smooth — do not lift the center.' },
-      { name: 'Burn mark', body: 'Browning on one side of the cup where grain grows away from the cup edge. The healthy side is with the grain; the burned side is into it. Quick read for grain on Bermuda greens.' },
+      { name: 'Burn mark', body: 'Browning on one side of the cup — the burnt, ragged edge shows the direction the grain grows toward; the sharp, healthy edge is up-grain. Putts run faster and break toward the burnt side. Quick read for grain on Bermuda greens.' },
       { name: 'Divot tool / Pitch fork', body: 'Tool for repairing pitch marks. Insert tines at the edges, push inward. Never pry up from the center.' },
     ],
   },

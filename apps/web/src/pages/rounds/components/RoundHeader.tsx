@@ -7,6 +7,7 @@ interface RoundHeaderProps {
   round: RoundRow & { courses?: { name?: string | null } | null }
   tees: CourseTeeRow[]
   holesPlayed: number
+  holeCount: number
   shareTone: 'light' | 'dark'
   sharing: boolean
   completePending: boolean
@@ -22,6 +23,7 @@ export function RoundHeader({
   round,
   tees,
   holesPlayed,
+  holeCount,
   shareTone,
   sharing,
   completePending,
@@ -71,7 +73,7 @@ export function RoundHeader({
           >
             {round.played_at}
             {round.tee_color ? ` · ${round.tee_color} tees` : ''} ·{' '}
-            {holesPlayed}/18 holes scored
+            {holesPlayed}/{holeCount} holes scored
           </div>
           <RoundRatingLine round={round} tees={tees} />
         </div>

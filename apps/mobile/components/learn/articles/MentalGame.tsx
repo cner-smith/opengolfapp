@@ -198,8 +198,8 @@ export function MentalGameArticle() {
       </P>
       <P>
         At the 1992 U.S. Open at Pebble Beach, Tom Kite had been
-        0 for 20 in U.S. Opens. Wind gusts reached 35 miles per
-        hour on Sunday. Most players didn't break 80. Kite shot
+        0 for 20 in U.S. Opens. Wind gusts topped 40 miles per
+        hour on Sunday. A lot of players couldn't break 80. Kite shot
         even par and won by two. He did it by not getting flustered.
         By staying patient. By letting others beat themselves.
       </P>
@@ -333,15 +333,26 @@ export function MentalGameArticle() {
             note: (
               <Text>
                 <Link href="https://www.tandfonline.com/doi/full/10.1080/1750984X.2017.1408134">
-                  International Review of Sport & Exercise Psychology (2018) ·
-                  choking interventions, a systematic review
-                </Link>{' '}
-                and{' '}
-                <Link href="https://www.frontiersin.org/journals/psychology/articles/10.3389/fpsyg.2025.1435374/full">
-                  Frontiers in Psychology (2025) · performance under pressure
+                  Gröpel & Mesagno, International Review of Sport & Exercise
+                  Psychology (2019) · choking interventions, a systematic
+                  review
                 </Link>{' '}
                 — pre-performance routines and gradual exposure to stakes help
                 skills survive competitive anxiety.
+              </Text>
+            ),
+          },
+          {
+            name: "Rotella's ten rules",
+            note: (
+              <Text>
+                <Link href="https://www.golfwrx.com/5689/dr-bob-rotella-my-10-rules-on-mental-fitness/">
+                  Bob Rotella, "My 10 Rules on Mental Fitness" (Golf Digest,
+                  2009)
+                </Link>{' '}
+                — the rule numbering and the Immelman, Harrington, Kite,
+                Strange, and Hogan stories retold in this article come from
+                this piece.
               </Text>
             ),
           },
@@ -360,7 +371,7 @@ export function MentalGameArticle() {
       />
 
       <ArticleFooter>
-        Last reviewed May 2026
+        Last reviewed July 2026
       </ArticleFooter>
     </View>
   )

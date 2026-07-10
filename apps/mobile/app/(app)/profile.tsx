@@ -22,6 +22,7 @@ import { getProfile, updateProfile } from '@oga/supabase'
 import type { Database } from '@oga/supabase'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
+import { clearScreenCache } from '../../lib/screenCache'
 import { AppBar } from '../../components/ui/AppBar'
 import { TYPE } from '../../lib/typography'
 
@@ -97,6 +98,7 @@ export default function ProfileTab() {
     // release the modal — otherwise the user is stranded in a disabled
     // "Deleting…" dialog after an irreversible delete. On success the auth
     // listener unmounts this screen and redirects to login.
+    clearScreenCache()
     const { error: signOutError } = await supabase.auth.signOut()
     if (signOutError) {
       setDeleting(false)
@@ -445,7 +447,9 @@ export default function ProfileTab() {
                   marginBottom: 14,
                 }]}
               >
-                OGA is free and open source. Learn more at oga.golf.
+                Your rounds sync to a free web dashboard. Sign in at oga.golf
+                with the same account for bigger stats, strokes gained, and
+                shot-pattern charts.
               </Text>
               <Pressable
                 accessibilityRole="link"
@@ -473,6 +477,43 @@ export default function ProfileTab() {
             </>
           ) : (
             <>
+              <Text style={{ ...KICKER, marginBottom: 10 }}>OGA on the web</Text>
+              <Text
+                style={[TYPE.body, {
+                  color: '#1C211C',
+                  fontSize: 14,
+                  lineHeight: 20,
+                  marginBottom: 14,
+                }]}
+              >
+                Your rounds sync to a free web dashboard. Sign in at oga.golf
+                with the same account for bigger stats, strokes gained, and
+                shot-pattern charts.
+              </Text>
+              <Pressable
+                accessibilityRole="link"
+                accessibilityLabel="Open the OGA website"
+                onPress={() => Linking.openURL('https://oga.golf')}
+                style={{
+                  borderWidth: 1,
+                  borderColor: '#1F3D2C',
+                  paddingVertical: 12,
+                  alignItems: 'center',
+                  borderRadius: 2,
+                }}
+              >
+                <Text
+                  style={[TYPE.bodyBold, {
+                    color: '#1F3D2C',
+                    fontSize: 13,
+                    fontWeight: '600',
+                    letterSpacing: 0.3,
+                  }]}
+                >
+                  Website · oga.golf ↗
+                </Text>
+              </Pressable>
+              <View style={{ height: 1, backgroundColor: '#D9D2BF', marginVertical: 18 }} />
               <Text style={{ ...KICKER, marginBottom: 10 }}>Support OGA</Text>
               <Text
                 style={[TYPE.body, {
@@ -544,7 +585,11 @@ export default function ProfileTab() {
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Sign out"
-          onPress={() => supabase.auth.signOut()}
+          onPress={() => {
+            // Next sign-in must not render this account's cached screens.
+            clearScreenCache()
+            supabase.auth.signOut()
+          }}
           style={{
             marginTop: 22,
             paddingVertical: 12,

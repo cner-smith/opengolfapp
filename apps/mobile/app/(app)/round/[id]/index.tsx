@@ -31,6 +31,11 @@ import {
 import type { Database } from '@oga/supabase'
 import { supabase } from '../../../../lib/supabase'
 import { completeRound } from '../../../../lib/completeRound'
+import {
+  clearScreenCache,
+  getCached,
+  setCached,
+} from '../../../../lib/screenCache'
 import { ShareableScorecardCard } from '../../../../components/round/ShareableScorecardCard'
 import { RoundTeeSelector } from '../../../../components/round/RoundTeeSelector'
 import { PastHoleShotsSheet } from '../../../../components/round/PastHoleShotsSheet'
@@ -48,6 +53,17 @@ type HoleScoreRow = Database['public']['Tables']['hole_scores']['Row']
 type ShotRow = Database['public']['Tables']['shots']['Row']
 type DrillRow = Database['public']['Tables']['drills']['Row']
 type CourseTeeRow = Database['public']['Tables']['course_tees']['Row']
+
+// Everything the summary view needs for a first paint, bundled under one
+// `round:${id}` screen-cache key (#599).
+interface RoundDetailCache {
+  round: RoundRow
+  courseName: string
+  courseCenter: LatLng | null
+  holes: HoleRow[]
+  holeScores: HoleScoreRow[]
+  shots: ShotRow[]
+}
 
 const KICKER: import('react-native').TextStyle = {
   color: '#8A8B7E',
@@ -132,7 +148,21 @@ export default function RoundIndex() {
     // live-redirect can't leak onto the next one — e.g. after the active round
     // is deleted from the home list, the stale `error` would otherwise keep the
     // `if (error || !round)` guard tripped for every round opened afterward.
-    setLoading(true)
+    // Seed from the screen cache when we have this round — instant render,
+    // and the fetch below still runs and replaces everything (#599).
+    // Unfinished rounds are never cached (they redirect to the live session).
+    const cached = getCached<RoundDetailCache>(`round:${id}`)
+    if (cached) {
+      setRound(cached.round)
+      setCourseName(cached.courseName)
+      setCourseCenter(cached.courseCenter)
+      setHoles(cached.holes)
+      setHoleScores(cached.holeScores)
+      setShots(cached.shots)
+      setLoading(false)
+    } else {
+      setLoading(true)
+    }
     setError(null)
     setRedirectToLive(false)
     ;(async () => {
@@ -282,6 +312,32 @@ export default function RoundIndex() {
     }, [holeScores]),
   )
 
+  // Mirror the settled screen state into the cache — covers both the fetch
+  // AND local edits (scorecard/sheet mutations setState here), so a revisit
+  // seeds post-edit data instead of a stale flash (#599).
+  useEffect(() => {
+    if (!id || loading || error || redirectToLive || !round) return
+    setCached(`round:${id}`, {
+      round,
+      courseName,
+      courseCenter,
+      holes,
+      holeScores,
+      shots,
+    } satisfies RoundDetailCache)
+  }, [
+    id,
+    loading,
+    error,
+    redirectToLive,
+    round,
+    courseName,
+    courseCenter,
+    holes,
+    holeScores,
+    shots,
+  ])
+
   // Stable across renders — passing an inline arrow caused
   // LiveRoundSession's onHoleChange-keyed effect to re-fire on every
   // parent render, looping with router.setParams.
@@ -419,6 +475,9 @@ export default function RoundIndex() {
             try {
               const { error: delErr } = await deleteRound(supabase, round.id, user.id)
               if (delErr) throw delErr
+              // Wipe ALL cached screens — home/list/detail caches would
+              // resurrect the deleted round as a ghost (#705 redux).
+              clearScreenCache()
               router.replace('/(app)')
             } catch (e) {
               // Reset so the `deleting` guard can't wedge the button on retry;
@@ -545,7 +604,9 @@ export default function RoundIndex() {
     const hs = scoresByHoleId.get(h.id)
     if (hs?.score != null && hs.score > 0) {
       runningScore += hs.score
-      runningPar += h.par
+      // Per-round par override (#710) — hole_scores.par wins over the
+      // course hole's par when the player corrected it.
+      runningPar += hs.par ?? h.par
     }
   }
   const diff = runningScore - runningPar
@@ -796,14 +857,17 @@ export default function RoundIndex() {
             const hs = scoresByHoleId.get(h.id)
             const score = hs?.score ?? 0
             const putts = hs?.putts ?? null
-            const d = score > 0 ? score - h.par : null
+            // Per-round par override (#710) — hole_scores.par wins over
+            // the course hole's par when the player corrected it.
+            const par = hs?.par ?? h.par
+            const d = score > 0 ? score - par : null
             const shotCount = hs ? holeScoreShotCount.get(hs.id) ?? 0 : 0
             // FIR/GIR: prefer the persisted hole_scores columns — web parity,
             // a manual/web-set value wins (apps/web useRoundActions) — else
             // infer from the hole's placed shots. par-3 fairway → null (blank).
             const inferred = inferHoleStats(
               hs ? shotsByHoleScoreId.get(hs.id) ?? [] : [],
-              h.par,
+              par,
             )
             const fairway = hs?.fairway_hit ?? inferred.fairway
             const gir = hs?.gir ?? inferred.gir
@@ -838,7 +902,7 @@ export default function RoundIndex() {
                     fontVariant: ['tabular-nums'],
                   }]}
                 >
-                  {h.par}
+                  {par}
                 </Text>
                 <ScoreCell
                   value={score}

@@ -7,10 +7,11 @@ import {
   bearingDegrees,
   destinationYards,
   formatClubLabel,
-  formatDistance,
+  isPuttShot,
+  summarizePuttParts,
+  summarizeShotParts,
   type DistanceUnit,
   type LieType,
-  type ShotResult,
 } from '@oga/core'
 import type { Database } from '@oga/supabase'
 import { supabase } from '../../lib/supabase'
@@ -39,48 +40,25 @@ const KICKER: import('react-native').TextStyle = {
 // tracking the finger locally and only write the settled position.
 const AIM_PERSIST_DEBOUNCE_MS = 500
 
-// Short result labels for the review stepper's summary line. Kept app-local
-// rather than in @oga/core because summarizeShot/SHOT_RESULT_SHORT emit a
-// display-specific, abbreviated UI string tuned for this narrow stepper — web
-// has its own formatShotSummary (ShotEntryModal) with a different shape.
-// Unifying shot-summary formatting into core is real cross-surface debt
-// (tracked separately) — the package-boundary call here is "too view-specific
-// to lift yet," not the 3-caller rule.
-const SHOT_RESULT_SHORT: Record<ShotResult, string> = {
-  solid: 'Solid',
-  push_right: 'Push R',
-  pull_left: 'Pull L',
-  fat: 'Fat',
-  thin: 'Thin',
-  shank: 'Shank',
-  topped: 'Topped',
-  penalty: 'Penalty',
-  ob: 'OB',
-}
-
 // One-line summary of the selected shot for the review stepper. Putts read
 // "Putt · 12 ft · Made"; full shots read "7i · Fairway · 152 yd · Solid".
-function summarizeShot(row: ShotRow | null, unit: DistanceUnit): string {
+// Distance/result formatting lives in @oga/core (summarizePuttParts /
+// summarizeShotParts, shared with web's ShotEntryModal); this wrapper adds
+// the club·lie prefix (web shows those on their own row line) and the
+// empty-state text.
+function summarizeShot(
+  row: ShotRow | null,
+  next: ShotRow | null,
+  unit: DistanceUnit,
+): string {
   if (!row) return 'No details yet — tap Edit to add them'
-  const isPutt = row.lie_type === 'green' || row.club === 'putter'
-  if (isPutt) {
-    const miss = [row.putt_distance_result, row.putt_direction_result]
-      .filter(Boolean)
-      .join(' ')
-    return [
-      'Putt',
-      row.putt_distance_ft != null ? `${row.putt_distance_ft} ft` : null,
-      row.putt_result === 'made' ? 'Made' : miss || null,
-    ]
-      .filter(Boolean)
-      .join(' · ')
-  }
-  const parts = [
-    row.club ? formatClubLabel({ club_type: row.club }) : null,
-    row.lie_type ? LIE_TYPE_LABELS[row.lie_type as LieType] : null,
-    row.distance_to_target != null ? formatDistance(row.distance_to_target, unit) : null,
-    row.shot_result ? SHOT_RESULT_SHORT[row.shot_result as ShotResult] : null,
-  ].filter(Boolean)
+  const parts = isPuttShot(row.lie_type)
+    ? ['Putt', ...summarizePuttParts(row, unit)]
+    : ([
+        row.club ? formatClubLabel({ club_type: row.club }) : null,
+        row.lie_type ? LIE_TYPE_LABELS[row.lie_type as LieType] : null,
+        ...summarizeShotParts(row, next, unit),
+      ].filter(Boolean) as string[])
   return parts.length ? parts.join(' · ') : 'No details yet — tap Edit to add them'
 }
 
@@ -273,6 +251,21 @@ export function PastRoundMap({
   const activeShotRow = useMemo(
     () => (active?.id ? shots.find((s) => s.id === active.id) ?? null : null),
     [shots, active?.id],
+  )
+  // Next shot after the active one — its start is the active shot's end, so
+  // core's summarizeShotParts can haversine a distance when
+  // distance_to_target is null.
+  const activeShotNext = useMemo(
+    () =>
+      activeShotRow
+        ? shots.find(
+            (s) =>
+              // `shots` is round-wide; shot_number restarts per hole.
+              s.hole_score_id === activeShotRow.hole_score_id &&
+              s.shot_number === activeShotRow.shot_number + 1,
+          ) ?? null
+        : null,
+    [shots, activeShotRow],
   )
 
   // The actually-placed shots, paired with their index in `placed`. The
@@ -832,7 +825,7 @@ export function PastRoundMap({
                   }]}
                   numberOfLines={1}
                 >
-                  {summarizeShot(activeShotRow, unit)}
+                  {summarizeShot(activeShotRow, activeShotNext, unit)}
                 </Text>
               </View>
               <Pressable

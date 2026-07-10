@@ -18,6 +18,7 @@ import {
   combinedPuttResult,
   formatClubLabel,
   formatDistance,
+  isPuttShot,
   type BreakDirectionHorizontal,
   type BreakDirectionVertical,
   type DistanceUnit,
@@ -276,7 +277,7 @@ function ShotRowView({
   unit: DistanceUnit
   onPress: () => void
 }) {
-  const isPutt = shot.lie_type === 'green' || shot.club === 'putter'
+  const isPutt = isPuttShot(shot.lie_type)
   const clubLabel = isPutt
     ? 'Putt'
     : shot.club
@@ -356,29 +357,29 @@ function ChipRow<T extends string>({
   return (
     <View style={{ marginBottom: 18 }}>
       <Text style={{ ...KICKER, marginBottom: 8 }}>{label}</Text>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-        <View style={{ flexDirection: 'row', gap: 6 }}>
-          {options.map((o) => {
-            const active = value === o.value
-            return (
-              <Pressable
-                key={o.value}
-                onPress={() => onSelect(o.value)}
-                style={{
-                  paddingHorizontal: 10,
-                  paddingVertical: 8,
-                  borderRadius: 2,
-                  backgroundColor: active ? '#1F3D2C' : '#EBE5D6',
-                }}
-              >
-                <Text style={[TYPE.body, { color: active ? '#F2EEE5' : '#1C211C', fontSize: 12 }]}>
-                  {o.label}
-                </Text>
-              </Pressable>
-            )
-          })}
-        </View>
-      </ScrollView>
+      {/* Wrap rather than scroll horizontally — off-screen chips read as
+          the end of the list in the edit sheet (#740). */}
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+        {options.map((o) => {
+          const active = value === o.value
+          return (
+            <Pressable
+              key={o.value}
+              onPress={() => onSelect(o.value)}
+              style={{
+                paddingHorizontal: 10,
+                paddingVertical: 8,
+                borderRadius: 2,
+                backgroundColor: active ? '#1F3D2C' : '#EBE5D6',
+              }}
+            >
+              <Text style={[TYPE.body, { color: active ? '#F2EEE5' : '#1C211C', fontSize: 12 }]}>
+                {o.label}
+              </Text>
+            </Pressable>
+          )
+        })}
+      </View>
     </View>
   )
 }
@@ -426,7 +427,7 @@ function EditShotSheet({
     (shot.break_direction_horizontal as BreakDirectionHorizontal | null) ?? null,
   )
 
-  const isPutt = lieType === 'green'
+  const isPutt = isPuttShot(lieType)
 
   const idx = allShots.findIndex((s) => s.id === shot.id)
   const prevShot = idx > 0 ? allShots[idx - 1]! : null

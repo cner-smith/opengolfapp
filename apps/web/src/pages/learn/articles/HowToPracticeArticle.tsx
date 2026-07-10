@@ -28,6 +28,12 @@ export function HowToPracticeArticle() {
         How to practice.
       </h2>
 
+      <P>
+        Hitting balls and getting better are two different activities. This is
+        the difference — and how to structure range time so the work actually
+        shows up on the course.
+      </P>
+
       <H3>The uncomfortable truth</H3>
       <P>
         Most golfers practice in a way that feels productive but
@@ -224,8 +230,8 @@ export function HowToPracticeArticle() {
         intention.
       </P>
       <P>
-        Your OGA strokes gained data tells you exactly where to
-        focus. If you're losing 1.2 strokes per round on approach
+        If you track strokes gained (OGA computes this for you), it
+        tells you exactly where to focus. If you're losing 1.2 strokes per round on approach
         shots, that's your focus area. Your practice goal should be
         specific to that weakness.
       </P>
@@ -473,7 +479,7 @@ function Sources() {
             </Src>{' '}
             confirms high contextual interference improves retention, and{' '}
             <Src href="https://www.tandfonline.com/doi/abs/10.1080/00336297.1998.10484285">
-              Magill &amp; Hall, Quest (1998)
+              Brady, Quest (1998)
             </Src>{' '}
             reviews the effect first shown by Shea &amp; Morgan (1979): random
             order hurts practice, helps learning.
@@ -510,12 +516,9 @@ function Sources() {
           <SrcLabel>Practicing under pressure</SrcLabel>
           <SrcBody>
             <Src href="https://www.tandfonline.com/doi/full/10.1080/1750984X.2017.1408134">
-              International Review of Sport &amp; Exercise Psychology (2018) ·
-              choking interventions, a systematic review
-            </Src>{' '}
-            and{' '}
-            <Src href="https://www.frontiersin.org/journals/psychology/articles/10.3389/fpsyg.2025.1435374/full">
-              Frontiers in Psychology (2025) · performance under pressure
+              Gröpel &amp; Mesagno, International Review of Sport &amp;
+              Exercise Psychology (2019) · choking interventions, a systematic
+              review
             </Src>{' '}
             — acclimatization and pre-performance routines help skills survive
             competitive anxiety.
@@ -525,7 +528,7 @@ function Sources() {
           <SrcLabel>Deliberate practice, and its limits</SrcLabel>
           <SrcBody>
             <Src href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6731745/">
-              Macnamara &amp; Hambrick, revisiting Ericsson, Krampe &amp;
+              Macnamara &amp; Maitra, revisiting Ericsson, Krampe &amp;
               Tesch-Römer (1993)
             </Src>{' '}
             — practice quality matters enormously, though the strong claim that
@@ -621,7 +624,7 @@ function Footer() {
         lineHeight: 1.6,
       }}
     >
-      Last reviewed May 2026
+      Last reviewed July 2026
     </div>
   )
 }

@@ -582,8 +582,14 @@ export function useMapLayers({
     if (!map) return
     // Wait for style.
     if (!map.isStyleLoaded()) {
-      map.once('styledata', () => renderLayers())
-      return
+      const handler = () => renderLayers()
+      map.once('styledata', handler)
+      // Replace, don't stack (#719) — without this teardown, each effect
+      // re-run during the load window queues another once-listener with a
+      // stale renderLayers closure that fires after the fresh render.
+      return () => {
+        map.off('styledata', handler)
+      }
     }
     renderLayers()
   }, [mapRef, renderLayers])

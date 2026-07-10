@@ -73,8 +73,8 @@ export function GuideToFittingsArticle() {
       />
       <Fit
         name="Ball"
-        measures="how compression and cover suit your speed and short game"
-        adjusts="which ball you play. Compression is matched to swing speed; the cover — soft urethane versus a firmer ionomer — trades greenside spin and feel against durability and distance. The ball is a fitting too, and the cheapest one to test."
+        measures="how the ball launches, spins, and behaves around the green with your clubs"
+        adjusts="which ball you play. Balls are marketed by compression, but fit by flight and spin — find the launch-and-spin window your clubs actually produce, not a number matched to your swing speed. The cover — soft urethane versus a firmer ionomer — trades greenside spin and feel against durability and distance. The ball is a fitting too, and the cheapest one to test."
       />
 
       <Hr />
@@ -268,15 +268,13 @@ export function GuideToFittingsArticle() {
       <Sources
         items={[
           {
-            name: 'Understanding the PING fitting charts',
-            href: 'https://www.globalgolf.com/articles/pro-tip-110/',
+            name: 'Lie angle and iron fitting',
             note: (
               <Text>
-                <Text style={{ ...KICKER, color: C.inkDim }}>
-                  Lie angle and iron fitting
-                </Text>
-                {'  '}
-                Paired with{' '}
+                <Link href="https://www.globalgolf.com/articles/pro-tip-110/">
+                  Understanding the PING fitting charts
+                </Link>{' '}
+                and{' '}
                 <Link href="https://mygolfspy.com/news-opinion/historys-mysteries-the-birth-of-pings-color-code-system/">
                   MyGolfSpy on PING's color-code system
                 </Link>{' '}
@@ -286,15 +284,13 @@ export function GuideToFittingsArticle() {
             ),
           },
           {
-            name: 'Titleist Vokey · Wedge Bounce',
-            href: 'https://www.vokey.com/explained/wedge-bounce',
+            name: 'Wedge bounce and grind',
             note: (
               <Text>
-                <Text style={{ ...KICKER, color: C.inkDim }}>
-                  Wedge bounce and grind
-                </Text>
-                {'  '}
-                Paired with{' '}
+                <Link href="https://www.vokey.com/explained/wedge-bounce">
+                  Titleist Vokey · Wedge Bounce
+                </Link>{' '}
+                and{' '}
                 <Link href="https://www.golfdigest.com/story/wedge-bounce-versus-wedge-grind-explained">
                   Golf Digest · bounce vs grind
                 </Link>{' '}
@@ -304,34 +300,30 @@ export function GuideToFittingsArticle() {
             ),
           },
           {
-            name: 'MyGolfSpy · shaft flex by swing speed',
-            href: 'https://mygolfspy.com/news-opinion/instruction/golf-driver-shaft-flex-chart-find-the-right-flex-for-your-swing-speed/',
+            name: 'Shaft flex and the ball',
             note: (
               <Text>
-                <Text style={{ ...KICKER, color: C.inkDim }}>
-                  Shaft flex and ball, matched to swing speed
-                </Text>
-                {'  '}
-                Paired with{' '}
+                <Link href="https://mygolfspy.com/news-opinion/instruction/golf-driver-shaft-flex-chart-find-the-right-flex-for-your-swing-speed/">
+                  MyGolfSpy · shaft flex by swing speed
+                </Link>{' '}
+                and{' '}
                 <Link href="https://www.pgatoursuperstore.com/learning-center/ultimate-golf-club-shaft-flex-guide.html">
                   PGA Tour Superstore · shaft flex guide
                 </Link>{' '}
                 — flex changes where the face points at impact, and isn't
-                standard across brands; compression pairs to the same
-                swing-speed logic.
+                standard across brands; the ball is marketed by compression but
+                fit by flight, spin, and greenside cover.
               </Text>
             ),
           },
           {
-            name: 'TrackMan · 6 numbers every amateur should know',
-            href: 'https://www.trackman.com/blog/golf/6-trackman-numbers-all-amateur-golfers-should-know',
+            name: "What the fitter's numbers mean",
             note: (
               <Text>
-                <Text style={{ ...KICKER, color: C.inkDim }}>
-                  What the fitter's numbers mean
-                </Text>
-                {'  '}
-                Paired with{' '}
+                <Link href="https://www.trackman.com/blog/golf/6-trackman-numbers-all-amateur-golfers-should-know">
+                  TrackMan · 6 numbers every amateur should know
+                </Link>{' '}
+                and{' '}
                 <Link href="https://www.trackman.com/blog/golf/the-ultimate-guide-to-understanding-trackman">
                   the ultimate guide to TrackMan data
                 </Link>{' '}
@@ -343,7 +335,7 @@ export function GuideToFittingsArticle() {
         ]}
       />
 
-      <ArticleFooter>Last reviewed May 2026</ArticleFooter>
+      <ArticleFooter>Last reviewed July 2026</ArticleFooter>
     </View>
   )
 }

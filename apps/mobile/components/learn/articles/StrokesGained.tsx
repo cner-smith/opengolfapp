@@ -8,6 +8,7 @@ import {
   GlanceBox,
   KICKER,
   P,
+  Sources,
   Subhead,
 } from '../primitives'
 
@@ -20,11 +21,12 @@ export function StrokesGainedArticle() {
       />
 
       <P>
-        <Em>Strokes gained</Em> measures every shot against an expectation. Hit
-        a shot from the same lie and distance as a pro might, beat the expected
-        outcome, and you gained strokes; come up short, you lost some. Sum the
-        deltas across a round and you get a precise read on where your strokes
-        are actually coming from — or going.
+        <Em>Strokes gained</Em> measures every shot against an expectation.
+        From every lie and distance there's an expected outcome — what a player
+        at your level typically does from there. Beat it and you gained
+        strokes; come up short, you lost some. Sum the deltas across a round
+        and you get a precise read on where your strokes are actually coming
+        from — or going.
       </P>
       <P>
         Score alone tells you the result. Strokes gained tells you <Em>why</Em>.
@@ -40,12 +42,13 @@ export function StrokesGainedArticle() {
           Tee shots on par 4s and par 5s. Your driver swing, essentially.
         </DefRow>
         <DefRow term="Approach">
-          Shots from outside 30 yards that aren't tee shots — the bulk of your
-          iron and hybrid play.
+          Shots from more than 30 yards out (measured to the edge of the green)
+          that aren't par-4 or par-5 tee shots — a par-3 tee shot counts as
+          approach.
         </DefRow>
         <DefRow term="Around the green">
-          Shots from within 30 yards that are not on the green — chips, pitches,
-          bunker shots.
+          Shots from within 30 yards of the green's edge that are not on the
+          putting surface — chips, pitches, bunker shots.
         </DefRow>
         <DefRow term="Putting">Every shot taken from the green.</DefRow>
       </GlanceBox>
@@ -61,13 +64,30 @@ export function StrokesGainedArticle() {
         means your irons are leaking 1.4 strokes a round.
       </P>
       <P>
-        The forest in this app is always positive territory. The brick is where
-        strokes leak. If a category sits at zero you are the average for your
-        bracket — fine, not a leak.
+        Green numbers are gained strokes; red is where they leak. If a category
+        sits at zero you are the average for your bracket — fine, not a leak.
       </P>
 
       <Subhead>What counts where</Subhead>
       <SGCategoriesTable />
+
+      <Sources
+        items={[
+          {
+            name: 'Strokes-gained framework and baselines',
+            note: (
+              <Text>
+                Mark Broadie's "Every Shot Counts" (2014) and the PGA Tour's
+                ShotLink-derived strokes-gained statistics define the
+                framework. The worked example uses OGA's 10-handicap bracket
+                baselines, which adapt Broadie's scratch tables with published
+                amateur shot data — so the expectations are for a player at
+                your level, not a tour pro.
+              </Text>
+            ),
+          },
+        ]}
+      />
     </View>
   )
 }
@@ -111,19 +131,19 @@ function WorkedExample() {
       >
         <ExampleStat
           label="Expected from 155 yd"
-          value="2.86"
+          value="3.67"
           note="Strokes a 10-handicap typically takes to hole out from there."
         />
         <ExampleStat
           label="Expected from 22 ft"
-          value="1.97"
-          note="What it usually takes to two-putt from that distance."
+          value="2.02"
+          note="What it usually takes to hole out from that distance — about a two-putt."
         />
         <ExampleStat
           label="Strokes gained"
-          value="−0.11"
-          note="2.86 − 1.97 − 1 (the shot you just hit)."
-          tone="neg"
+          value="+0.65"
+          note="3.67 − 2.02 − 1 (the shot you just hit)."
+          tone="pos"
         />
       </View>
       <Text
@@ -134,13 +154,16 @@ function WorkedExample() {
           lineHeight: 20,
         }}
       >
-        Slightly below baseline. Hit it to <Em>10 feet</Em> instead and the
-        number flips: 2.86 − 1.61 − 1 ={' '}
+        Well above baseline — for a 10-handicap, finding the green at all from
+        155 beats the expectation. Chunk the same swing 40 yards instead,
+        leaving <Em>115 in the fairway</Em>, and the sign flips: 3.67 − 3.39 −
+        1 ={' '}
         <Text style={{ fontFamily: FONT.serifItalic }}>
-          +0.25
+          −0.72
         </Text>{' '}
-        — a quarter of a stroke gained on a single approach. Stack eighteen of
-        those across a round and the difference is 4–5 strokes.
+        — nearly three-quarters of a stroke lost on one swing. Three of those
+        in a round and you have handed back more than two strokes before a putt
+        even drops.
       </Text>
     </GlanceBox>
   )
@@ -197,12 +220,12 @@ function SGCategoriesTable() {
     },
     {
       cat: 'Approach',
-      what: 'Anything outside 30 yd that isn’t a tee shot.',
+      what: 'Anything more than 30 yd from the green’s edge that isn’t a par-4 or par-5 tee shot.',
       example: '155 yd 7-iron from the fairway. Tee shot on a par-3.',
     },
     {
       cat: 'Around the green',
-      what: 'Inside 30 yd of the green, not on the putting surface.',
+      what: 'Inside 30 yd of the green’s edge, not on the putting surface.',
       example: 'Chip from the fringe; 20 yd flop from rough.',
     },
     {

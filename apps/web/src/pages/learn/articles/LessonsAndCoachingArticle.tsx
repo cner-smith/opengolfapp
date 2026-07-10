@@ -28,6 +28,14 @@ export function LessonsAndCoachingArticle() {
         Lessons and coaching.
       </h2>
 
+      <P>
+        Good instruction is the fastest way to get better — and the easiest
+        thing in golf to waste. What you do around the lesson counts for as much
+        as the lesson itself.
+      </P>
+
+      <Hr />
+
       <H3>Most golfers waste the lesson hour</H3>
       <P>
         A golf lesson is one of the highest-leverage hours you can spend on your
@@ -436,8 +444,8 @@ function Sources() {
               Titleist Performance Institute · About Certification
             </Src>{' '}
             on the body-swing-connection approach and physical screening;{' '}
-            <Src href="https://www.pga.com/things-to-do/coaches">
-              PGA of America · Coaches
+            <Src href="https://www.pga.com/coaches">
+              PGA of America · Find a Coach
             </Src>{' '}
             for what a PGA teaching professional is and how to find one.
           </SrcBody>
@@ -484,7 +492,7 @@ function Footer() {
         lineHeight: 1.6,
       }}
     >
-      Last reviewed May 2026
+      Last reviewed July 2026
     </div>
   )
 }

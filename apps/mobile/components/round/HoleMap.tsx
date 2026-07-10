@@ -111,6 +111,14 @@ interface HoleMapProps {
   aimCommitted?: boolean
   onSetAim: (loc: LatLng) => void
   onSetBall: (loc: LatLng) => void
+  /**
+   * Called with the current GPS fix when the recenter button is tapped
+   * during PLACE_BALL — a deliberate tap is explicit intent to put the
+   * ball back on the player, unlike the silent GPS clobber the manual-
+   * placement freeze exists to prevent (#713). Parent resumes GPS-driven
+   * ball tracking. Optional: past-round review passes nothing.
+   */
+  onRecenterBall?: (loc: LatLng) => void
   onPlacePin?: (loc: LatLng) => void
   /**
    * Whether to mount the Mapbox LocationPuck. The puck owns its own
@@ -203,6 +211,7 @@ export function HoleMap({
   holeNumber,
   onSetAim,
   onSetBall,
+  onRecenterBall,
   onPlacePin,
   showLocationPuck,
   tapToPlaceBall = true,
@@ -243,7 +252,10 @@ export function HoleMap({
       pitch: 0,
       animationDuration: 600,
     })
-  }, [gpsPosition, cameraRef])
+    // During ball placement the tap also snaps the ball back onto the
+    // player — the only way to resume GPS tracking after a manual drag.
+    if (isPlaceBallPhase) onRecenterBall?.(gpsPosition)
+  }, [gpsPosition, cameraRef, isPlaceBallPhase, onRecenterBall])
 
   const { aimGhosts, aimGhostFeatures } = useAimGhosts({
     ball,
@@ -921,7 +933,11 @@ export function HoleMap({
         {isPlaceBallPhase && (
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Center map on my location"
+            accessibilityLabel={
+              isPlaceBallPhase && onRecenterBall
+                ? 'Center map and ball on my location'
+                : 'Center map on my location'
+            }
             disabled={!gpsPosition}
             onPress={recenterOnGps}
             hitSlop={8}
