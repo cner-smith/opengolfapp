@@ -251,6 +251,7 @@ export type Database = {
           par: number | null
           pin_lat: number | null
           pin_lng: number | null
+          penalties: number
           putts: number | null
           round_id: string
           score: number
@@ -267,6 +268,7 @@ export type Database = {
           par?: number | null
           pin_lat?: number | null
           pin_lng?: number | null
+          penalties?: number
           putts?: number | null
           round_id: string
           score: number
@@ -283,6 +285,7 @@ export type Database = {
           par?: number | null
           pin_lat?: number | null
           pin_lng?: number | null
+          penalties?: number
           putts?: number | null
           round_id?: string
           score?: number

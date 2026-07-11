@@ -10,8 +10,7 @@ import {
   DEFAULT_HANDICAP,
   haversineYards,
   inferHoleStats,
-  isPuttShot,
-  NEAR_GREEN_YARDS,
+  isPuttEntry,
 } from '@oga/core'
 import type { PlacedPoint } from '../../../components/round/RoundMap'
 import type { ReviewedShotRow } from '../../../components/round/HoleReviewSheet'
@@ -75,7 +74,6 @@ interface UseRoundActionsInput {
   setConfirmDelete: (b: boolean) => void
   setCompleteError: (s: string | null) => void
   setSharing: (b: boolean) => void
-  setOnGreenPrompt: (p: PlacedPoint | null) => void
   setAimPromptOpen: (b: boolean) => void
 }
 
@@ -84,9 +82,6 @@ export interface UseRoundActionsResult {
   persistRoundPin: (point: PlacedPoint) => Promise<void>
   placeHandlers: {
     onPlace: (p: PlacedPoint) => void
-    /** Push a confirmed non-putt shot (used by the on-green "No" branch)
-     *  through the same auto-spawn / aim-prompt path as a fresh tap. */
-    onConfirmNonPutt: (p: PlacedPoint) => void
     onMovePoint: (idx: number, p: PlacedPoint) => void
     onMovePin: (p: PlacedPoint) => void
     onMoveTee: (p: PlacedPoint) => void
@@ -103,7 +98,10 @@ export interface UseRoundActionsResult {
   handleMoveExistingShot: (shotId: string, point: PlacedPoint) => Promise<void>
   handleMoveExistingShotAim: (shotId: string, point: PlacedPoint) => Promise<void>
   applyShotDragUndo: () => Promise<void>
-  saveReviewedHole: (rows: ReviewedShotRow[]) => Promise<void>
+  saveReviewedHole: (
+    rows: ReviewedShotRow[],
+    summary?: { score: number; putts: number; penalties: number },
+  ) => Promise<void>
   handleDelete: () => Promise<void>
   handleComplete: () => Promise<void>
   handleShare: () => Promise<void>
@@ -135,7 +133,6 @@ export function useRoundActions(input: UseRoundActionsInput): UseRoundActionsRes
     setConfirmDelete,
     setCompleteError,
     setSharing,
-    setOnGreenPrompt,
     setAimPromptOpen,
   } = input
   const navigate = useNavigate()
@@ -227,12 +224,13 @@ export function useRoundActions(input: UseRoundActionsInput): UseRoundActionsRes
     [activeHoleScore, roundId, dispatchHoleView],
   )
 
-  // Push a confirmed non-putt shot, then either auto-spawn its aim (live
-  // entry) or prompt the player to set it (past-round review). The aim
-  // seeds on the straight start→pin line so the aim path + carry/remaining
-  // render immediately. SET_AIM targets the slot PUSH_POINT just appended
+  // Push a placed shot, then either auto-spawn its aim (live entry) or
+  // prompt the player to set it (past-round review). The aim seeds on the
+  // straight start→pin line so the aim path + carry/remaining render
+  // immediately. SET_AIM targets the slot PUSH_POINT just appended
   // (`placedAims.length` before the push), so it always lands on the new
-  // shot. Shared by onPlace and the on-green "No" branch.
+  // shot. Every placement flows through here now — a near-green shot is no
+  // longer special-cased; its putt-ness is decided at the end-of-hole review.
   const pushShotWithAim = useCallback(
     (p: PlacedPoint) => {
       dispatchHoleView({ type: 'PUSH_POINT', point: p, openPuttSheet: false })
@@ -256,26 +254,13 @@ export function useRoundActions(input: UseRoundActionsInput): UseRoundActionsRes
   )
 
   const placeHandlers = {
-    onPlace: useCallback(
-      (p: PlacedPoint) => {
-        // Within ~30 yd of the pin, ask before opening the putting
-        // sheet — the prior auto-switch was wrong on chips, bunkers,
-        // and fringe lies, and forced the player to back out and re-
-        // place to log a non-putt. The point goes into a holding cell
-        // until the prompt resolves.
-        const nearGreen =
-          effectivePin != null &&
-          haversineYards(p.lat, p.lng, effectivePin.lat, effectivePin.lng) <=
-            NEAR_GREEN_YARDS
-        if (nearGreen) {
-          setOnGreenPrompt(p)
-          return
-        }
-        pushShotWithAim(p)
-      },
-      [effectivePin, setOnGreenPrompt, pushShotWithAim],
-    ),
-    onConfirmNonPutt: pushShotWithAim,
+    // Placing a shot just records its location. Putt-vs-not — and all shot
+    // detail — is decided at the end-of-hole review, where the summary infers
+    // a putt from the ball's position (green lie) and the club chip overrides
+    // it. The old on-green "are you putting?" prompt + inline WebPuttingSheet
+    // were redundant with that surface and were dropped for lock-step with
+    // mobile (#791).
+    onPlace: pushShotWithAim,
     onMovePoint: useCallback(
       (idx: number, p: PlacedPoint) =>
         dispatchHoleView({ type: 'MOVE_POINT', index: idx, point: p }),
@@ -570,7 +555,10 @@ export function useRoundActions(input: UseRoundActionsInput): UseRoundActionsRes
   }, [shareCardRef, sharing, shareTone, round.data, setSharing, setCompleteError])
 
   const saveReviewedHole = useCallback(
-    async (rows: ReviewedShotRow[]) => {
+    async (
+      rows: ReviewedShotRow[],
+      summary?: { score: number; putts: number; penalties: number },
+    ) => {
       if (!user || !activeHole || !round.data) return
       setSavingHole(true)
       dispatchHoleView({ type: 'SAVE_ERROR', message: null })
@@ -583,7 +571,7 @@ export function useRoundActions(input: UseRoundActionsInput): UseRoundActionsRes
         // Match HoleReviewSheet's isPutt — putt-ness is the green lie (set
         // when a putt is placed), never club or raw distance (a near-green
         // chip isn't a putt; unmapped rows read 0).
-        const puttCount = rows.filter((r) => isPuttShot(r.lieType)).length
+        const puttCount = rows.filter((r) => isPuttEntry(r.lieType, r.club)).length
         // Materialize the synthetic hole if needed before upserting the
         // hole_score (FK to holes.id). The RPC inserts only (course_id,
         // number, par, stroke_index) — per-round tee/pin overrides
@@ -612,8 +600,9 @@ export function useRoundActions(input: UseRoundActionsInput): UseRoundActionsRes
           id: existing?.id,
           round_id: round.data.id,
           hole_id: realHoleId,
-          score: rows.length,
-          putts: puttCount,
+          score: summary?.score ?? rows.length,
+          putts: summary?.putts ?? puttCount,
+          penalties: summary?.penalties ?? 0,
           fairway_hit: existing?.fairway_hit ?? inferred.fairway,
           gir: existing?.gir ?? inferred.gir,
           // Persist a manually placed pin. On unmapped courses no hole_scores
@@ -640,7 +629,7 @@ export function useRoundActions(input: UseRoundActionsInput): UseRoundActionsRes
         if (delErr) throw delErr
 
         for (const row of rows) {
-          const isPuttRow = isPuttShot(row.lieType)
+          const isPuttRow = isPuttEntry(row.lieType, row.club)
           // Persist the aim only if the player actually set/dragged it — an
           // untouched auto-spawn suggestion is dropped so it can't enter the
           // dispersion dataset (aim must be explicit to count).
@@ -659,7 +648,9 @@ export function useRoundActions(input: UseRoundActionsInput): UseRoundActionsRes
             distance_to_target: isPuttRow ? null : Math.round(row.distanceToPin),
             club: row.club,
             lie_type: row.lieType,
-            shot_result: null,
+            lie_slope_forward: isPuttRow ? null : row.lieSlopeForward ?? null,
+            lie_slope_side: isPuttRow ? null : row.lieSlopeSide ?? null,
+            shot_result: isPuttRow ? null : row.shotResult ?? null,
             penalty: false,
             ob: false,
             // Putt-specific fields. distanceYards on a putt row is the

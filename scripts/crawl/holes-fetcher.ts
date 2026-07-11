@@ -21,18 +21,18 @@ import {
 } from './db-writer'
 import type { CourseGeo, OgaHoleGeo, OverpassGeomElement, OverpassGeomResponse } from './types'
 
-interface Pt {
+export interface Pt {
   lat: number
   lng: number
 }
-interface HoleWay {
+export interface HoleWay {
   ref: number
   par: number | null
   first: Pt
   last: Pt
   centroid: Pt
 }
-interface HoleFeatures {
+export interface HoleFeatures {
   holeWays: HoleWay[]
   greens: Pt[]
   tees: Pt[]
@@ -64,7 +64,7 @@ function nearest(pt: Pt, arr: Pt[]): { d: number; pt: Pt | null } {
   return { d: best, pt: bestPt }
 }
 
-function parseHoleFeatures(elements: OverpassGeomElement[]): HoleFeatures {
+export function parseHoleFeatures(elements: OverpassGeomElement[]): HoleFeatures {
   const holeWays: HoleWay[] = []
   const greens: Pt[] = []
   const tees: Pt[] = []
@@ -174,36 +174,39 @@ function buildHolesForCourses(courses: CourseGeo[], f: HoleFeatures): Map<string
 
   const out = new Map<string, OgaHoleGeo[]>()
   for (const [courseId, refs] of byCourse) {
-    const holes: OgaHoleGeo[] = []
-    for (const { hw } of refs.values()) {
-      // Orient: whichever endpoint is nearer a green is the green/pin end.
-      const gFirst = nearest(hw.first, f.greens).d
-      const gLast = nearest(hw.last, f.greens).d
-      const greenEnd = gLast <= gFirst ? hw.last : hw.first
-      const teeEnd = gLast <= gFirst ? hw.first : hw.last
-      // Snap to an explicit tee/green feature when one sits right on the end.
-      const ng = nearest(greenEnd, f.greens)
-      const nt = nearest(teeEnd, f.tees)
-      const pin = ng.pt && ng.d < SNAP_M ? ng.pt : greenEnd
-      const tee = nt.pt && nt.d < SNAP_M ? nt.pt : teeEnd
-      const yards = Math.round(haversineMeters(tee.lat, tee.lng, pin.lat, pin.lng) * 1.09361)
-      // holes.par CHECK is 3..6 — clamp the occasional out-of-range OSM par
-      // (pitch-and-putt 2s, mistagged 7s) rather than failing the whole batch.
-      const par = Math.min(6, Math.max(3, hw.par ?? 4))
-      holes.push({
-        number: hw.ref,
-        par,
-        yards: yards > 0 ? yards : undefined,
-        teeLat: +tee.lat.toFixed(6),
-        teeLng: +tee.lng.toFixed(6),
-        pinLat: +pin.lat.toFixed(6),
-        pinLng: +pin.lng.toFixed(6),
-      })
-    }
+    const holes = [...refs.values()].map(({ hw }) => buildOrientedHole(hw, f))
     holes.sort((a, b) => a.number - b.number)
     if (holes.length > 0) out.set(courseId, holes)
   }
   return out
+}
+
+// Build one numbered hole with oriented tee/pin geometry from a hole way:
+// whichever endpoint is nearer a green is the pin end; snap to an explicit
+// golf=tee/green feature when one sits on the endpoint. Shared by the
+// nearest-centroid osm-holes pass and the containment-based completion pass.
+export function buildOrientedHole(hw: HoleWay, f: HoleFeatures): OgaHoleGeo {
+  const gFirst = nearest(hw.first, f.greens).d
+  const gLast = nearest(hw.last, f.greens).d
+  const greenEnd = gLast <= gFirst ? hw.last : hw.first
+  const teeEnd = gLast <= gFirst ? hw.first : hw.last
+  const ng = nearest(greenEnd, f.greens)
+  const nt = nearest(teeEnd, f.tees)
+  const pin = ng.pt && ng.d < SNAP_M ? ng.pt : greenEnd
+  const tee = nt.pt && nt.d < SNAP_M ? nt.pt : teeEnd
+  const yards = Math.round(haversineMeters(tee.lat, tee.lng, pin.lat, pin.lng) * 1.09361)
+  // holes.par CHECK is 3..6 — clamp the occasional out-of-range OSM par
+  // (pitch-and-putt 2s, mistagged 7s) rather than failing the whole batch.
+  const par = Math.min(6, Math.max(3, hw.par ?? 4))
+  return {
+    number: hw.ref,
+    par,
+    yards: yards > 0 ? yards : undefined,
+    teeLat: +tee.lat.toFixed(6),
+    teeLng: +tee.lng.toFixed(6),
+    pinLat: +pin.lat.toFixed(6),
+    pinLng: +pin.lng.toFixed(6),
+  }
 }
 
 export async function crawlOsmHoles(

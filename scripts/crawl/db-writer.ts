@@ -126,6 +126,156 @@ export async function fetchCourseGeoForState(state: string): Promise<CourseGeo[]
   return all
 }
 
+// Courses that have a centroid but no city. The geocode pass reverse-geocodes
+// each one's coordinates (OSM Nominatim) to fill the city. Optional cap so a
+// rate-limited run stays bounded.
+export async function fetchCitylessCourses(
+  limit: number | null,
+): Promise<{ id: string; name: string; lat: number; lng: number }[]> {
+  const PAGE_SIZE = 500
+  const out: { id: string; name: string; lat: number; lng: number }[] = []
+  let from = 0
+  while (true) {
+    const to = limit != null ? Math.min(from + PAGE_SIZE, limit) - 1 : from + PAGE_SIZE - 1
+    const { data, error } = await supabase
+      .from('courses')
+      .select('id, name, lat, lng')
+      .is('city', null)
+      .not('lat', 'is', null)
+      .not('lng', 'is', null)
+      .range(from, to)
+    if (error) {
+      throw new Error(
+        `cityless fetch failed (range=${from}-${to}): ${error.message ?? JSON.stringify(error)}`,
+      )
+    }
+    const rows = (data ?? []) as {
+      id: string
+      name: string
+      lat: number | null
+      lng: number | null
+    }[]
+    for (const r of rows) {
+      if (r.lat != null && r.lng != null)
+        out.push({ id: r.id, name: r.name, lat: r.lat, lng: r.lng })
+    }
+    if (rows.length < PAGE_SIZE) break
+    if (limit != null && out.length >= limit) break
+    from += PAGE_SIZE
+  }
+  return limit != null ? out.slice(0, limit) : out
+}
+
+// Fill a course's city (and optionally rewrite its "Golf Course" fallback
+// name). Used by the geocode pass only.
+export async function updateCourseCity(id: string, city: string, name?: string): Promise<void> {
+  const patch: { city: string; name?: string } = { city }
+  if (name) patch.name = name
+  const { error } = await supabase.from('courses').update(patch).eq('id', id)
+  if (error) {
+    throw new Error(`city update failed (course=${id}): ${error.message ?? JSON.stringify(error)}`)
+  }
+}
+
+export interface CourseFull {
+  id: string
+  externalId: string | null
+  name: string
+  city: string | null
+  lat: number
+  lng: number
+}
+
+// All coord-bearing courses in a state with the fields the completion pass
+// needs to reconcile them against OSM polygons (identity, name, city, centroid).
+export async function fetchCoursesForState(state: string): Promise<CourseFull[]> {
+  const PAGE_SIZE = 500
+  const all: CourseFull[] = []
+  let from = 0
+  while (true) {
+    const { data, error } = await supabase
+      .from('courses')
+      .select('id, external_id, name, city, lat, lng')
+      .eq('state', state)
+      .not('lat', 'is', null)
+      .not('lng', 'is', null)
+      .range(from, from + PAGE_SIZE - 1)
+    if (error) {
+      throw new Error(
+        `courses fetch failed (state=${state}): ${error.message ?? JSON.stringify(error)}`,
+      )
+    }
+    const rows = (data ?? []) as {
+      id: string
+      external_id: string | null
+      name: string
+      city: string | null
+      lat: number | null
+      lng: number | null
+    }[]
+    for (const r of rows) {
+      if (r.lat != null && r.lng != null) {
+        all.push({
+          id: r.id,
+          externalId: r.external_id,
+          name: r.name,
+          city: r.city,
+          lat: r.lat,
+          lng: r.lng,
+        })
+      }
+    }
+    if (rows.length < PAGE_SIZE) break
+    from += PAGE_SIZE
+  }
+  return all
+}
+
+// Fold a duplicate course (a non-OSM centroid inside a real OSM polygon,
+// confirmed by a name match) into the real course. Order matters so a failure
+// can never lose data: (1) move user rounds, (2) MOVE tee ratings — real
+// enrichment, never deleted; the real course came from a bare OSM polygon and
+// normally has no tees, so an onConflict(course_id,tee_color) collision is rare
+// and surfaced if it hits — (3) delete the duplicate's holes (the real course
+// now carries exact containment geometry), then the duplicate row.
+export async function mergeAndDeletePhantom(phantomId: string, realId: string): Promise<void> {
+  const rounds = await supabase
+    .from('rounds')
+    .update({ course_id: realId })
+    .eq('course_id', phantomId)
+  if (rounds.error) {
+    throw new Error(`merge: move rounds ${phantomId}->${realId} failed: ${rounds.error.message}`)
+  }
+  // A tee_color the real course already carries can't be moved (unique
+  // course_id,tee_color) — drop the duplicate's copy (real course wins), then
+  // move the rest.
+  const realTees = await supabase.from('course_tees').select('tee_color').eq('course_id', realId)
+  if (realTees.error)
+    throw new Error(`merge: read real tees ${realId} failed: ${realTees.error.message}`)
+  const haveColors = (realTees.data ?? []).map((r) => r.tee_color as string)
+  if (haveColors.length) {
+    const dropDup = await supabase
+      .from('course_tees')
+      .delete()
+      .eq('course_id', phantomId)
+      .in('tee_color', haveColors)
+    if (dropDup.error)
+      throw new Error(`merge: drop dup tees ${phantomId} failed: ${dropDup.error.message}`)
+  }
+  const tees = await supabase
+    .from('course_tees')
+    .update({ course_id: realId })
+    .eq('course_id', phantomId)
+  if (tees.error)
+    throw new Error(`merge: move tees ${phantomId}->${realId} failed: ${tees.error.message}`)
+  const holes = await supabase.from('holes').delete().eq('course_id', phantomId)
+  if (holes.error)
+    throw new Error(`merge: delete dup holes ${phantomId} failed: ${holes.error.message}`)
+  const course = await supabase.from('courses').delete().eq('id', phantomId)
+  if (course.error)
+    throw new Error(`merge: delete dup course ${phantomId} failed: ${course.error.message}`)
+}
+
 // Course ids that already have at least one hole carrying coordinates. The
 // osm-holes pass skips these so it never clobbers hand-curated or previously
 // imported geometry (idempotent + safe to re-run). Chunked like the tee lookup.
