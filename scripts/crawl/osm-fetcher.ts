@@ -1,16 +1,7 @@
 // OSM Overpass — state-level course discovery (centroid only).
-import {
-  OSM_DELAY_MS,
-  OVERPASS_ENDPOINTS,
-  STATE_BBOX,
-  sleep,
-} from './util'
+import { OSM_DELAY_MS, OVERPASS_ENDPOINTS, STATE_BBOX, sleep } from './util'
 import type { OsmCourseLite, OverpassResponse } from './types'
-import {
-  getCrawlState,
-  setCrawlState,
-  upsertCourse,
-} from './db-writer'
+import { getCrawlState, setCrawlState, upsertCourse } from './db-writer'
 
 export async function fetchOsmCoursesInState(state: string): Promise<OsmCourseLite[]> {
   const bbox = STATE_BBOX[state]
@@ -56,8 +47,6 @@ out center tags;
         const out: OsmCourseLite[] = []
         for (const el of data.elements) {
           const tags = el.tags ?? {}
-          const name = tags['name']
-          if (!name) continue
           let lat: number | undefined
           let lng: number | undefined
           if (el.type === 'node') {
@@ -71,6 +60,11 @@ out center tags;
           }
           if (lat == null || lng == null) continue
           const city = (tags['addr:city'] ?? '').trim() || undefined
+          // ~20% of golf_course ways in OSM carry no name tag (a mapper drew
+          // the outline but never named it). They're real courses — keep them
+          // with a location fallback instead of dropping. Upsert-on-external_id
+          // patches the real name in if OSM gets one on a later crawl.
+          const name = tags['name'] || `Golf Course${city ? ` (${city})` : ''}`
           out.push({
             osmType: el.type,
             osmId: el.id,
@@ -109,9 +103,7 @@ export async function crawlOsm(
     const crawlId = `osm:state:${state}`
     const prev = await getCrawlState(crawlId)
     if (prev?.status === 'done' && !force) {
-      console.log(
-        `[osm:${state}] skip — already done (${prev.items_processed} courses)`,
-      )
+      console.log(`[osm:${state}] skip — already done (${prev.items_processed} courses)`)
       continue
     }
     await setCrawlState(crawlId, { status: 'in_progress', errorMessage: null })
@@ -157,9 +149,7 @@ export async function crawlOsm(
         itemsProcessed: stateCount,
         errorMessage: null,
       })
-      console.log(
-        `[osm:${state}] done — ${stateCount} processed, ${stateErrors} errors`,
-      )
+      console.log(`[osm:${state}] done — ${stateCount} processed, ${stateErrors} errors`)
     } catch (err) {
       console.error(`[osm:${state}] fatal: ${(err as Error).message}`)
       await setCrawlState(crawlId, {
