@@ -10,7 +10,7 @@ import {
   DEFAULT_HANDICAP,
   haversineYards,
   inferHoleStats,
-  isPuttShot,
+  isPuttEntry,
   NEAR_GREEN_YARDS,
 } from '@oga/core'
 import type { PlacedPoint } from '../../../components/round/RoundMap'
@@ -589,7 +589,7 @@ export function useRoundActions(input: UseRoundActionsInput): UseRoundActionsRes
         // Match HoleReviewSheet's isPutt — putt-ness is the green lie (set
         // when a putt is placed), never club or raw distance (a near-green
         // chip isn't a putt; unmapped rows read 0).
-        const puttCount = rows.filter((r) => isPuttShot(r.lieType)).length
+        const puttCount = rows.filter((r) => isPuttEntry(r.lieType, r.club)).length
         // Materialize the synthetic hole if needed before upserting the
         // hole_score (FK to holes.id). The RPC inserts only (course_id,
         // number, par, stroke_index) — per-round tee/pin overrides
@@ -647,7 +647,7 @@ export function useRoundActions(input: UseRoundActionsInput): UseRoundActionsRes
         if (delErr) throw delErr
 
         for (const row of rows) {
-          const isPuttRow = isPuttShot(row.lieType)
+          const isPuttRow = isPuttEntry(row.lieType, row.club)
           // Persist the aim only if the player actually set/dragged it — an
           // untouched auto-spawn suggestion is dropped so it can't enter the
           // dispersion dataset (aim must be explicit to count).

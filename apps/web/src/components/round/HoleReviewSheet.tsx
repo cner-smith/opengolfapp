@@ -12,7 +12,7 @@ import {
   formatClubLabel,
   haversineYards,
   horizontalBreakFromAim,
-  isPuttShot,
+  isPuttEntry,
   type BreakDirectionHorizontal,
   type BreakDirectionVertical,
   type Club,
@@ -190,7 +190,7 @@ export function HoleReviewSheet({
       })
     setRows(merged)
     setScore(merged.length)
-    setPutts(merged.filter((r) => isPuttShot(r.lieType)).length)
+    setPutts(merged.filter((r) => isPuttEntry(r.lieType, r.club)).length)
     setPenalties(0)
   }, [open, holeNumber, par, pinLat, pinLng])
 
@@ -520,7 +520,7 @@ function ShotRow({
   // Putt-ness is the green lie only (set when a putt is placed). Raw
   // distance must NOT classify: a chip/bunker inside 30 yd is not a putt,
   // and unmapped rows read distanceToPin 0 (#660).
-  const isPutt = isPuttShot(row.lieType)
+  const isPutt = isPuttEntry(row.lieType, row.club)
   const { toDisplay, toDisplayFt } = useUnits()
   const { bag } = useUserBag()
   // Source the club options from the user's bag, falling back to
@@ -615,6 +615,12 @@ function ShotRow({
       {isPutt ? (
         <>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+            <FieldChip
+              label={clubLabel}
+              filled
+              active={open === 'club'}
+              onClick={() => toggle('club')}
+            />
             <button
               type="button"
               onClick={() =>
@@ -657,6 +663,17 @@ function ShotRow({
             />
             <FieldChip label="Read ▸" filled={hasRead} onClick={onOpenAimer} />
           </div>
+          {open === 'club' && (
+            <ChipExpand
+              label="Club"
+              options={clubOptions}
+              value={row.club}
+              onSelect={(v) => {
+                onChange({ ...row, club: v as Club })
+                setOpen(null)
+              }}
+            />
+          )}
           {open === 'break' && <BreakExpand row={row} onChange={onChange} />}
           {open === 'speed' && (
             <ChipExpand

@@ -120,6 +120,18 @@ export function isPuttShot(lieType: string | null | undefined): boolean {
   return lieType === 'green'
 }
 
+// Entry-surface classification for the end-of-hole review: show the PUTT UI
+// only when the player putted (green lie AND the putter). This deliberately
+// differs from isPuttShot (lie-only): the rare "on the green but chipped/bladed
+// a wedge" shot keeps a normal club + result. Its inverse, a Texas wedge off
+// the green (putter, non-green lie), also stays a normal shot. #691/#732.
+export function isPuttEntry(
+  lieType: string | null | undefined,
+  club: string | null | undefined,
+): boolean {
+  return lieType === 'green' && club === 'putter'
+}
+
 // Structural subset of a snake_case shots row that the shot-summary
 // formatters read — web and mobile pass their own DB Row types.
 export interface ShotSummaryFields {
