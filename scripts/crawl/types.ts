@@ -127,6 +127,8 @@ export interface OverpassGeomElement {
   lat?: number
   lon?: number
   geometry?: { lat: number; lon: number }[]
+  // Present on relations from `out geom`: member ways carry role + geometry.
+  members?: { type: string; ref: number; role?: string; geometry?: { lat: number; lon: number }[] }[]
   tags?: Record<string, string>
 }
 export interface OverpassGeomResponse {

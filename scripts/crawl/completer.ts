@@ -23,27 +23,96 @@ import {
   mergeAndDeletePhantom,
   upsertCourse,
   upsertHoleGeometry,
+  type CourseFull,
 } from './db-writer'
 import type { OgaHoleGeo, OverpassGeomElement, OverpassGeomResponse } from './types'
 
 const USER_AGENT = 'oga-course-crawler/0.1 (https://github.com/cner-smith/opengolfapp)'
 
 interface CoursePolygon {
+  osmType: 'way' | 'relation'
   osmId: number
   name?: string
   city?: string
-  ring: Pt[]
+  rings: Pt[][] // a way = one ring; a relation multipolygon = its outer ring(s)
   centroid: Pt
 }
 
-function ringCentroid(ring: Pt[]): Pt {
+function polyCentroid(rings: Pt[][]): Pt {
   let lat = 0
   let lng = 0
-  for (const p of ring) {
-    lat += p.lat
-    lng += p.lng
+  let n = 0
+  for (const ring of rings)
+    for (const p of ring) {
+      lat += p.lat
+      lng += p.lng
+      n++
+    }
+  return { lat: lat / n, lng: lng / n }
+}
+
+function inAnyRing(pt: Pt, rings: Pt[][]): boolean {
+  return rings.some((r) => pointInPolygon(pt, r))
+}
+
+// A real golf course spans hundreds of metres end to end; a single tee/green
+// (sometimes mis-tagged leisure=golf_course in OSM, e.g. "#8 White Tee") is
+// ~20-60m. Polygons whose bbox diagonal is below this are dropped as mistags.
+const MIN_COURSE_DIAGONAL_M = 150
+function bboxDiagonalM(rings: Pt[][]): number {
+  let minLat = Infinity
+  let maxLat = -Infinity
+  let minLng = Infinity
+  let maxLng = -Infinity
+  for (const r of rings)
+    for (const p of r) {
+      if (p.lat < minLat) minLat = p.lat
+      if (p.lat > maxLat) maxLat = p.lat
+      if (p.lng < minLng) minLng = p.lng
+      if (p.lng > maxLng) maxLng = p.lng
+    }
+  return haversineMeters(minLat, minLng, maxLat, maxLng)
+}
+
+function ptsClose(a: Pt, b: Pt): boolean {
+  return Math.abs(a.lat - b.lat) < 1e-7 && Math.abs(a.lng - b.lng) < 1e-7
+}
+
+// Stitch relation outer member ways (often split into segments) into closed
+// rings, greedily matching endpoints. Good enough for OSM golf-course
+// multipolygons; unclosable/degenerate segments are dropped.
+function assembleRings(segments: Pt[][]): Pt[][] {
+  const segs = segments.filter((s) => s.length >= 2).map((s) => [...s])
+  const used = new Array(segs.length).fill(false)
+  const rings: Pt[][] = []
+  for (let i = 0; i < segs.length; i++) {
+    if (used[i]) continue
+    used[i] = true
+    const ring = [...segs[i]]
+    let extended = true
+    while (extended && !ptsClose(ring[0], ring[ring.length - 1])) {
+      extended = false
+      for (let j = 0; j < segs.length; j++) {
+        if (used[j]) continue
+        const s = segs[j]
+        const last = ring[ring.length - 1]
+        if (ptsClose(s[0], last)) {
+          ring.push(...s.slice(1))
+          used[j] = true
+          extended = true
+          break
+        }
+        if (ptsClose(s[s.length - 1], last)) {
+          ring.push(...s.slice(0, -1).reverse())
+          used[j] = true
+          extended = true
+          break
+        }
+      }
+    }
+    if (ring.length >= 3) rings.push(ring)
   }
-  return { lat: lat / ring.length, lng: lng / ring.length }
+  return rings
 }
 
 // Reduce a course name to its distinguishing tokens (drop generic golf words +
@@ -69,45 +138,118 @@ function nameTokens(name: string): Set<string> {
   )
 }
 
-// Jaccard overlap of distinguishing tokens ≥ 0.5. Only a confident match
-// auto-merges a duplicate; anything else is flagged for human review. Empty
-// token sets (e.g. a bare "Golf Course" fallback) never match → always flagged.
-function namesMatch(a: string, b: string): boolean {
-  const ta = nameTokens(a)
-  const tb = nameTokens(b)
+// Jaccard overlap of two token sets ≥ 0.5. Empty sets never match. Used for
+// DEDUP (fuzzy: "Tulsa CC" ≈ "Tulsa Country Club").
+function jaccard(ta: Set<string>, tb: Set<string>): boolean {
   if (ta.size === 0 || tb.size === 0) return false
   let inter = 0
   for (const t of ta) if (tb.has(t)) inter++
   return inter / (ta.size + tb.size - inter) >= 0.5
 }
 
-// Way polygons only. Relation (multipolygon) golf courses carry member
-// geometry, not a single ring — v1 counts + skips them (they still get holes
-// via the nearest-centroid osm-holes pass); handle if they prove common.
+// Exact token-set equality. Used for GROUPING fragments of one course, which
+// share an identical name (Centennial Valley ×7). Fuzzy match would wrongly
+// cluster different courses at a resort ("Desert Mountain Outlaw" vs "Cochise").
+function sameTokenSet(a: Set<string>, b: Set<string>): boolean {
+  if (a.size === 0 || a.size !== b.size) return false
+  for (const t of a) if (!b.has(t)) return false
+  return true
+}
+
+// Only a confident name match auto-merges a duplicate; anything else is flagged
+// for human review. A bare "Golf Course" fallback tokenizes to empty → never
+// matches → always flagged.
+function namesMatch(a: string, b: string): boolean {
+  return jaccard(nameTokens(a), nameTokens(b))
+}
+
+// A hole belongs to a polygon if its centroid OR either endpoint (tee/green) is
+// inside. Testing the centroid alone drops dogleg holes whose average point
+// falls off the corridor of a concave boundary (e.g. Ken McDonald #16) — the
+// endpoints sit on the course, so this recovers them.
+function holeInPolygon(hw: HoleWay, rings: Pt[][]): boolean {
+  return inAnyRing(hw.centroid, rings) || inAnyRing(hw.first, rings) || inAnyRing(hw.last, rings)
+}
+
+// OSM sometimes maps one course as several adjacent same-named golf_course ways
+// (e.g. Centennial Valley = 7 consecutive ways, 18 holes scattered across them).
+// Union-find groups such polygons by close name match + proximity so they become
+// ONE course. Nameless polygons tokenize to empty → never cluster, so distinct
+// courses are never wrongly folded. Returns the group root index per polygon.
+const GROUP_RADIUS_M = 3000
+function groupPolygons(polygons: CoursePolygon[]): number[] {
+  const tokens = polygons.map((p) => (p.name ? nameTokens(p.name) : new Set<string>()))
+  const parent = polygons.map((_, i) => i)
+  const find = (x: number): number => {
+    while (parent[x] !== x) {
+      parent[x] = parent[parent[x]]
+      x = parent[x]
+    }
+    return x
+  }
+  // ponytail: O(n²) over a state's polygons (~1.5k worst case = a few seconds in
+  // a multi-hour run). Bucket by first token if it ever matters.
+  for (let i = 0; i < polygons.length; i++) {
+    if (tokens[i].size === 0) continue
+    for (let j = i + 1; j < polygons.length; j++) {
+      if (!sameTokenSet(tokens[i], tokens[j])) continue
+      const d = haversineMeters(
+        polygons[i].centroid.lat,
+        polygons[i].centroid.lng,
+        polygons[j].centroid.lat,
+        polygons[j].centroid.lng,
+      )
+      if (d <= GROUP_RADIUS_M) parent[find(i)] = find(j)
+    }
+  }
+  return polygons.map((_, i) => find(i))
+}
+
+// Parse golf_course polygons: a way = one ring; a relation multipolygon =
+// its outer ring(s), stitched from member ways. Mis-tagged single features
+// (tiny bbox) and relations with no usable outer geometry are counted + dropped.
 function parsePolygons(elements: OverpassGeomElement[]): {
   polygons: CoursePolygon[]
   relationsSkipped: number
+  junkSkipped: number
 } {
   const polygons: CoursePolygon[] = []
   let relationsSkipped = 0
+  let junkSkipped = 0
   for (const el of elements) {
     const tags = el.tags ?? {}
     if (tags['leisure'] !== 'golf_course') continue
-    if (el.type === 'relation') {
-      relationsSkipped++
+    let rings: Pt[][] = []
+    if (el.type === 'way' && el.geometry && el.geometry.length >= 3) {
+      rings = [el.geometry.map((g) => ({ lat: g.lat, lng: g.lon }))]
+    } else if (el.type === 'relation') {
+      // Multipolygon: stitch the outer member ways into the boundary ring(s).
+      const outers = (el.members ?? [])
+        .filter(
+          (m) => m.type === 'way' && m.role === 'outer' && m.geometry && m.geometry.length >= 2,
+        )
+        .map((m) => m.geometry!.map((g) => ({ lat: g.lat, lng: g.lon })))
+      rings = assembleRings(outers)
+    }
+    if (rings.length === 0) {
+      if (el.type === 'relation') relationsSkipped++
       continue
     }
-    if (el.type !== 'way' || !el.geometry || el.geometry.length < 3) continue
-    const ring = el.geometry.map((g) => ({ lat: g.lat, lng: g.lon }))
+    // Drop mis-tagged single features (a tee/green tagged golf_course).
+    if (bboxDiagonalM(rings) < MIN_COURSE_DIAGONAL_M) {
+      junkSkipped++
+      continue
+    }
     polygons.push({
+      osmType: el.type === 'relation' ? 'relation' : 'way',
       osmId: el.id,
       name: tags['name'],
       city: (tags['addr:city'] ?? '').trim() || undefined,
-      ring,
-      centroid: ringCentroid(ring),
+      rings,
+      centroid: polyCentroid(rings),
     })
   }
-  return { polygons, relationsSkipped }
+  return { polygons, relationsSkipped, junkSkipped }
 }
 
 // One Overpass query per state for course polygons + hole/green/tee geometry,
@@ -128,7 +270,7 @@ async function fetchStateGeom(state: string): Promise<OverpassGeomElement[]> {
   node["golf"="tee"](${s},${w},${n},${e});
   way["golf"="tee"](${s},${w},${n},${e});
 );
-out geom tags;`.trim()
+out geom;`.trim()
 
   const BACKOFFS_MS = [5_000, 15_000, 45_000]
   let lastErr: Error | null = null
@@ -174,10 +316,11 @@ export async function crawlComplete(
   let totalHoles = 0
   let totalMerged = 0
   const flagged: string[] = []
+  const oddCount: string[] = []
   for (const state of states) {
     console.log(`[complete:${state}] querying Overpass (polygons + holes)…`)
     const elements = await fetchStateGeom(state)
-    const { polygons, relationsSkipped } = parsePolygons(elements)
+    const { polygons, relationsSkipped, junkSkipped } = parsePolygons(elements)
     const features = parseHoleFeatures(elements)
     const existing = await fetchCoursesForState(state)
     const byExt = new Map(
@@ -187,23 +330,23 @@ export async function crawlComplete(
       existing.map((c) => c.id),
       `complete:${state}`,
     )
+    const skips: string[] = []
+    if (relationsSkipped) skips.push(`${relationsSkipped} relations unparseable`)
+    if (junkSkipped) skips.push(`${junkSkipped} mistags dropped`)
     console.log(
-      `[complete:${state}] ${polygons.length} way polygons, ${features.holeWays.length} holes, ${existing.length} existing courses` +
-        (relationsSkipped ? ` (${relationsSkipped} relation courses skipped)` : ''),
+      `[complete:${state}] ${polygons.length} polygons, ${features.holeWays.length} holes, ` +
+        `${existing.length} existing courses${skips.length ? ` (${skips.join(', ')})` : ''}`,
     )
 
-    // Assign each hole to EXACTLY ONE polygon — the containing polygon whose
-    // centroid is nearest — so a multi-course club (each course its own polygon)
-    // splits cleanly and overlapping rings never double-count a hole. Holes with
-    // ref outside 1..18 were already dropped by parseHoleFeatures (a 27-hole
-    // course mapped as one polygon keeps 1..18; our model is one 18-hole course
-    // per row).
+    // Assign each hole to the polygon that contains it (centroid or endpoint,
+    // via holeInPolygon), nearest-centroid tiebreak when it sits inside more than
+    // one. Holes with ref outside 1..18 were already dropped by parseHoleFeatures.
     const holesByPoly = new Map<number, HoleWay[]>()
     for (const hw of features.holeWays) {
       let bestIdx = -1
       let bestD = Infinity
       for (let i = 0; i < polygons.length; i++) {
-        if (!pointInPolygon(hw.centroid, polygons[i].ring)) continue
+        if (!holeInPolygon(hw, polygons[i].rings)) continue
         const d = haversineMeters(
           hw.centroid.lat,
           hw.centroid.lng,
@@ -221,19 +364,68 @@ export async function crawlComplete(
       holesByPoly.set(bestIdx, arr)
     }
 
-    const targets = limit != null ? polygons.slice(0, limit) : polygons
-    for (let pi = 0; pi < targets.length; pi++) {
-      const poly = targets[pi]
-      const extId = `osm_way_${poly.osmId}`
+    // Group polygons that are one course mapped as several same-named ways, so
+    // each group becomes a single course row with all its holes.
+    const groupRoot = groupPolygons(polygons)
+    const groups = new Map<number, number[]>()
+    for (let i = 0; i < polygons.length; i++) {
+      const arr = groups.get(groupRoot[i]) ?? []
+      arr.push(i)
+      groups.set(groupRoot[i], arr)
+    }
+
+    // Split a same-name group apart if its polygons have OVERLAPPING hole refs —
+    // that's a multi-loop facility (e.g. three nines all numbered 1-9), not one
+    // fragmented course. True fragments have disjoint refs (Centennial Valley =
+    // 1-18 spread across ways) and stay consolidated so no holes are lost.
+    // Split only on SUBSTANTIAL ref overlap: a real second loop duplicates a
+    // whole nine (~9 refs), whereas a fragmented course with a stray OSM
+    // duplicate ref overlaps by 1-2 and should stay consolidated (dedup drops
+    // the stray). overlap = holes that would be lost to dedup if we merged.
+    const MULTILOOP_OVERLAP = 4
+    const units: number[][] = []
+    for (const idxs of groups.values()) {
+      if (idxs.length > 1) {
+        const refs = new Set<number>()
+        let total = 0
+        for (const i of idxs)
+          for (const hw of holesByPoly.get(i) ?? []) {
+            total++
+            refs.add(hw.ref)
+          }
+        if (total - refs.size >= MULTILOOP_OVERLAP) {
+          for (const i of idxs) units.push([i])
+          flagged.push(
+            `${state}: multi-loop "${polygons[idxs[0]].name ?? '?'}" kept as ${idxs.length} separate courses`,
+          )
+          continue
+        }
+      }
+      units.push(idxs)
+    }
+    const unitList = limit != null ? units.slice(0, limit) : units
+    for (const idxs of unitList) {
+      // Canonical polygon = the one with the most holes (tiebreak: lowest osmId),
+      // so identity is stable across runs.
+      let canon = idxs[0]
+      for (const i of idxs) {
+        const ni = holesByPoly.get(i)?.length ?? 0
+        const nc = holesByPoly.get(canon)?.length ?? 0
+        if (ni > nc || (ni === nc && polygons[i].osmId < polygons[canon].osmId)) canon = i
+      }
+      const poly = polygons[canon]
+      const extId = `osm_${poly.osmType}_${poly.osmId}`
       const existingCourse = byExt.get(extId)
 
-      // This polygon's holes (deduped by ref, keeping the first).
+      // Union holes from every polygon in the group (dedup by ref).
       const seen = new Set<number>()
       const holes: OgaHoleGeo[] = []
-      for (const hw of holesByPoly.get(pi) ?? []) {
-        if (seen.has(hw.ref)) continue
-        seen.add(hw.ref)
-        holes.push(buildOrientedHole(hw, features))
+      for (const i of idxs) {
+        for (const hw of holesByPoly.get(i) ?? []) {
+          if (seen.has(hw.ref)) continue
+          seen.add(hw.ref)
+          holes.push(buildOrientedHole(hw, features))
+        }
       }
       holes.sort((a, b) => a.number - b.number)
 
@@ -242,37 +434,72 @@ export async function crawlComplete(
       // the dedicated `--source geocode` pass fills any remaining cities (and
       // rewrites bare "Golf Course" fallbacks to "Golf Course (City)") afterward.
       const city = poly.city ?? existingCourse?.city ?? undefined
-      // Name: OSM name wins; else keep an existing real (non-fallback) name; else fallback.
+
+      // Sibling OSM rows (the group's other polygons) fold into the canonical.
+      const siblings = idxs
+        .filter((i) => i !== canon)
+        .map((i) => byExt.get(`osm_${polygons[i].osmType}_${polygons[i].osmId}`))
+        .filter((c): c is CourseFull => !!c)
+
+      // Non-OSM courses whose centroid sits inside any polygon of the group.
+      const inside = existing.filter(
+        (c) =>
+          !(c.externalId ?? '').startsWith('osm_') &&
+          idxs.some((i) => inAnyRing({ lat: c.lat, lng: c.lng }, polygons[i].rings)),
+      )
+
+      // Name: OSM name → an existing real (non-fallback) name → adopt the name
+      // of a single named course sitting inside a NAMELESS polygon (usually the
+      // real course; flagged so a wrong adoption can be caught) → fallback.
       const existingReal =
         existingCourse && !existingCourse.name.startsWith('Golf Course')
           ? existingCourse.name
           : undefined
-      const name = poly.name ?? existingReal ?? `Golf Course${city ? ` (${city})` : ''}`
+      let derived = poly.name ?? existingReal
+      let adopted: string | undefined
+      if (!derived) {
+        const named = inside.filter((c) => !c.name.startsWith('Golf Course'))
+        if (named.length === 1) {
+          derived = named[0].name
+          adopted = named[0].name
+        }
+      }
+      const name = derived ?? `Golf Course${city ? ` (${city})` : ''}`
 
-      // Duplicates: non-OSM course centroids inside this polygon. Auto-merge ONLY
-      // a confident name match; flag the rest for review (a coord-error course
-      // from elsewhere can land inside an unrelated polygon — never auto-delete it).
-      const inside = existing.filter(
-        (c) =>
-          c.externalId !== extId &&
-          !(c.externalId ?? '').startsWith('osm_') &&
-          pointInPolygon({ lat: c.lat, lng: c.lng }, poly.ring),
-      )
+      // Auto-merge a duplicate on a confident name match; flag the rest (never
+      // auto-delete a mismatch — a coord-error course can land inside an
+      // unrelated polygon).
       const toMerge = inside.filter((c) => namesMatch(c.name, name))
       const toFlag = inside.filter((c) => !namesMatch(c.name, name))
       for (const c of toFlag) flagged.push(`${state}: "${name}" (${extId}) ⊃ "${c.name}"`)
+      if (adopted)
+        flagged.push(`${state}: adopted name "${adopted}" for nameless ${extId} — verify`)
+
+      // Real courses are 9 / 18 (/27/36, but we cap at 18). Anything 1-17 except
+      // 9 means dropped or still-fragmented holes — surface it loudly.
+      const suspicious = holes.length > 0 && holes.length !== 9 && holes.length < 18
+      if (suspicious) oddCount.push(`${state}: "${name}" — ${holes.length} holes (${extId})`)
+      const foldCount = siblings.length + toMerge.length
 
       const hasGeom = existingCourse ? withGeom.has(existingCourse.id) : false
       const willWriteHoles = holes.length > 0 && (force || !hasGeom)
 
+      const changes: string[] = []
+      if (willWriteHoles || (dryRun && holes.length > 0)) {
+        changes.push(
+          `${holes.length} holes${!willWriteHoles && !dryRun ? ' (skip: has geom)' : ''}`,
+        )
+      }
+      if (idxs.length > 1) changes.push(`consolidated ${idxs.length} polygons`)
+      if (toMerge.length) changes.push(`merged ${toMerge.map((p) => p.name).join(' + ')}`)
+      if (toFlag.length) changes.push(`FLAG ${toFlag.length}`)
+      if (suspicious) changes.push('⚠ odd hole count')
+
       if (dryRun) {
-        const bits = [`${holes.length} holes${willWriteHoles ? '' : ' (skip: has geom)'}`]
-        if (toMerge.length) bits.push(`auto-merge: ${toMerge.map((p) => p.name).join(', ')}`)
-        if (toFlag.length) bits.push(`FLAG: ${toFlag.map((p) => p.name).join(', ')}`)
-        console.log(`[dry] ${extId} "${name}"${city ? ` — ${city}` : ''}: ${bits.join('; ')}`)
+        console.log(`[dry] ${extId} "${name}"${city ? ` — ${city}` : ''}: ${changes.join('; ')}`)
         totalCourses++
         if (willWriteHoles) totalHoles += holes.length
-        totalMerged += toMerge.length
+        totalMerged += foldCount
         continue
       }
 
@@ -289,25 +516,24 @@ export async function crawlComplete(
         await upsertHoleGeometry(courseId, holes)
         totalHoles += holes.length
       }
-      for (const p of toMerge) {
-        await mergeAndDeletePhantom(p.id, courseId)
+      for (const c of [...siblings, ...toMerge]) {
+        await mergeAndDeletePhantom(c.id, courseId)
         totalMerged++
       }
-      // Live progress: one line per course that actually changed, so a run is
-      // watchable instead of silent-until-the-state-summary.
-      const did: string[] = []
-      if (willWriteHoles) did.push(`${holes.length} holes`)
-      if (toMerge.length) did.push(`merged ${toMerge.map((p) => p.name).join(' + ')}`)
-      if (toFlag.length) did.push(`flagged ${toFlag.length}`)
-      if (did.length) console.log(`[complete:${state}] ✓ ${name} — ${did.join(', ')}`)
+      // Live progress: one line per course that actually changed.
+      if (changes.length) console.log(`[complete:${state}] ✓ ${name} — ${changes.join('; ')}`)
     }
     await sleep(OSM_DELAY_MS)
   }
   console.log(
-    `\ncomplete${dryRun ? ' (DRY-RUN)' : ''}: ${totalCourses} courses, ${totalHoles} holes, ${totalMerged} auto-merged, ${flagged.length} flagged for review`,
+    `\ncomplete${dryRun ? ' (DRY-RUN)' : ''}: ${totalCourses} courses, ${totalHoles} holes, ${totalMerged} folded, ${flagged.length} flagged, ${oddCount.length} odd hole counts`,
   )
+  if (oddCount.length) {
+    console.log('\n⚠ ODD HOLE COUNTS (not 9 or 18 — dropped holes or OSM gaps, review):')
+    for (const o of oddCount) console.log('  - ' + o)
+  }
   if (flagged.length) {
-    console.log('\nFLAGGED duplicates (name mismatch — reviewed, NOT auto-merged):')
+    console.log('\nFLAGGED duplicates (name mismatch — NOT auto-merged, review):')
     for (const f of flagged) console.log('  - ' + f)
   }
 }
