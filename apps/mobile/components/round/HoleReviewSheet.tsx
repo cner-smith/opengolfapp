@@ -258,6 +258,13 @@ export function HoleReviewSheet({
           <PressableTouch
             accessibilityRole="button"
             accessibilityLabel="Edit shots on the map"
+            // Disabled while a save is in flight: onEditOnMap drops roundState
+            // to PLACE_BALL and closes the sheet, but an in-flight saveHoleSummary
+            // (async) still finishes and would then advanceAfterHole() out from
+            // under the player — mirror the Save button's guard so the two can't
+            // race.
+            accessibilityState={{ disabled: saving }}
+            disabled={saving}
             onPress={onEditOnMap}
             style={{
               borderWidth: 1,
@@ -265,6 +272,7 @@ export function HoleReviewSheet({
               borderRadius: 2,
               paddingVertical: 12,
               paddingHorizontal: 16,
+              opacity: saving ? 0.4 : 1,
             }}
           >
             <Text

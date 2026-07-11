@@ -742,7 +742,11 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
         })
         .eq('id', currentHoleScore.id)
       if (hsErr) {
-        // eslint-disable-next-line no-console
+        // Non-fatal: the shots (with their metadata) already re-queued and
+        // will sync; only the hole_scores tally write failed. Warn for
+        // diagnostics rather than alerting — completeRound self-repairs score
+        // from the shot count at round end.
+        // eslint-disable-next-line no-console -- diagnostic for a non-fatal tally-write failure
         console.warn('[hole/summary-score-update]', hsErr.message)
       }
 
