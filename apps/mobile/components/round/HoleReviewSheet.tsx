@@ -13,7 +13,7 @@ import {
   combinedBreakDirection,
   formatClubLabel,
   horizontalBreakFromAim,
-  isPuttShot,
+  isPuttEntry,
   type BreakDirectionHorizontal,
   type BreakDirectionVertical,
   type Club,
@@ -138,7 +138,7 @@ export function HoleReviewSheet({
     const next = initialRowsRef.current
     setRows(next)
     setScore(next.length)
-    setPutts(next.filter((r) => isPuttShot(r.lieType)).length)
+    setPutts(next.filter((r) => isPuttEntry(r.lieType, r.club)).length)
     setPenalties(0)
   }, [visible, holeNumber])
 
@@ -409,7 +409,7 @@ function ShotRow({
 }) {
   // Putt-ness is the green lie only (set when a putt is placed). Raw distance
   // must NOT classify — a chip/bunker inside 30 yd is not a putt (#660).
-  const isPutt = isPuttShot(row.lieType)
+  const isPutt = isPuttEntry(row.lieType, row.club)
   const { toDisplay, toDisplayFt } = useUnits()
   const { bag } = useUserBag()
   // Source the club options from the user's bag, falling back to DEFAULT_BAG
@@ -490,6 +490,12 @@ function ShotRow({
       {isPutt ? (
         <>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+            <FieldChip
+              label={clubLabel}
+              filled
+              active={open === 'club'}
+              onPress={() => toggle('club')}
+            />
             <PressableTouch
               accessibilityRole="button"
               accessibilityLabel="Made the putt"
@@ -538,6 +544,17 @@ function ShotRow({
             />
             <FieldChip label="Read ▸" filled={hasRead} onPress={onOpenAimer} />
           </View>
+          {open === 'club' && (
+            <ChipExpand
+              label="Club"
+              options={clubOptions}
+              value={row.club}
+              onSelect={(v) => {
+                onChange({ ...row, club: v as Club })
+                setOpen(null)
+              }}
+            />
+          )}
           {open === 'break' && <BreakExpand row={row} onChange={onChange} />}
           {open === 'speed' && (
             <ChipExpand
