@@ -41,8 +41,6 @@ import { countCourses, fetchAllCrawlState } from './crawl/db-writer'
 import { crawlOsm } from './crawl/osm-fetcher'
 import { crawlOsmHoles } from './crawl/holes-fetcher'
 import { crawlEnrich, crawlOpenGolfApi } from './crawl/enricher'
-import { crawlComplete } from './crawl/completer'
-import { crawlGeocode } from './crawl/geocoder'
 import type { Args, Source } from './crawl/types'
 
 function parseArgs(argv: string[]): Args {
@@ -52,20 +50,11 @@ function parseArgs(argv: string[]): Args {
   let status = false
   let limit: number | null = null
   let maxCourses: number | null = null
-  let dryRun = false
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i]
     const next = argv[i + 1]
     if (a === '--source' && next) {
-      const allowed = [
-        'opengolfapi',
-        'osm',
-        'osm-first',
-        'enrich',
-        'osm-holes',
-        'geocode',
-        'complete',
-      ] as const
+      const allowed = ['opengolfapi', 'osm', 'osm-first', 'enrich', 'osm-holes'] as const
       if (!allowed.includes(next as Source)) {
         throw new Error(`--source must be one of ${allowed.join(', ')} (got: ${next})`)
       }
@@ -79,8 +68,6 @@ function parseArgs(argv: string[]): Args {
       i++
     } else if (a === '--force') {
       force = true
-    } else if (a === '--dry-run') {
-      dryRun = true
     } else if (a === '--status') {
       status = true
     } else if (a === '--limit' && next) {
@@ -95,7 +82,7 @@ function parseArgs(argv: string[]): Args {
       i++
     }
   }
-  return { source, states, force, status, limit, maxCourses, dryRun }
+  return { source, states, force, status, limit, maxCourses }
 }
 
 async function showStatus(): Promise<void> {
@@ -133,10 +120,8 @@ async function main(): Promise<void> {
         '  tsx scripts/crawl-courses.ts --source osm-first [--states TX,OK] [--force] [--limit N]\n' +
         '  tsx scripts/crawl-courses.ts --source osm [--states TX,OK] [--force]\n' +
         '  tsx scripts/crawl-courses.ts --source osm-holes [--states TX,OK] [--force] [--limit N]\n' +
-        '  tsx scripts/crawl-courses.ts --source complete [--states TX,OK] [--force] [--dry-run]\n' +
         '  tsx scripts/crawl-courses.ts --source enrich [--states TX,OK] [--force]\n' +
         '  tsx scripts/crawl-courses.ts --source opengolfapi [--states TX,OK] [--force]\n' +
-        '  tsx scripts/crawl-courses.ts --source geocode [--limit N]\n' +
         '  tsx scripts/crawl-courses.ts --status',
     )
     process.exit(1)
@@ -149,14 +134,6 @@ async function main(): Promise<void> {
     return
   }
 
-  // Geocode operates on the whole courses table (any coord course with a null
-  // city), so it needs no state bbox.
-  if (args.source === 'geocode') {
-    console.log(`Geocode crawl${args.limit != null ? ` (limit ${args.limit})` : ''}`)
-    await crawlGeocode(args.limit)
-    return
-  }
-
   // The remaining sources all rely on the OSM bbox table.
   const configured = Object.keys(STATE_BBOX)
   const states = args.states ?? configured
@@ -165,12 +142,7 @@ async function main(): Promise<void> {
     throw new Error(`OSM bbox not configured for: ${unsupported.join(', ')}. Add to STATE_BBOX.`)
   }
 
-  if (args.source === 'complete') {
-    console.log(
-      `Completion pass: ${states.length} state(s)${args.force ? ' (force)' : ''}${args.dryRun ? ' [dry-run]' : ''}`,
-    )
-    await crawlComplete(states, args.force, args.limit, args.dryRun)
-  } else if (args.source === 'osm') {
+  if (args.source === 'osm') {
     console.log(`OSM crawl: ${states.length} state(s)${args.force ? ' (force)' : ''}`)
     await crawlOsm(states, args.force, args.limit)
   } else if (args.source === 'osm-holes') {
