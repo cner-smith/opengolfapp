@@ -93,14 +93,7 @@ export interface OsmCourseLite {
 
 export type CrawlStatus = 'pending' | 'in_progress' | 'done' | 'error'
 
-export type Source =
-  | 'opengolfapi'
-  | 'osm'
-  | 'osm-first'
-  | 'enrich'
-  | 'osm-holes'
-  | 'geocode'
-  | 'complete'
+export type Source = 'opengolfapi' | 'osm' | 'osm-first' | 'enrich' | 'osm-holes'
 
 /** A hole with optional per-hole geometry, written by the osm-holes pass. */
 export interface OgaHoleGeo {
@@ -122,7 +115,7 @@ export interface CourseGeo {
 
 /** Overpass element from an `out geom` query (ways carry a node list). */
 export interface OverpassGeomElement {
-  type: 'way' | 'node' | 'relation'
+  type: 'way' | 'node'
   id: number
   lat?: number
   lon?: number
@@ -140,7 +133,6 @@ export interface Args {
   status: boolean
   limit: number | null // optional cap on courses per state (for testing)
   maxCourses: number | null // global cap on API-processed courses this run (enrich rate-limit budget)
-  dryRun: boolean // completion pass: report changes without writing
 }
 
 export interface CrawlStateRow {
