@@ -262,6 +262,9 @@ function ModeChip({
       }
       style={{
         flex: 1,
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'flex-start',
         textAlign: 'left',
         border: active ? '0.5px solid transparent' : '0.5px solid #E4E4E0',
         borderRadius: 10,
