@@ -105,7 +105,7 @@ export interface UseRoundActionsResult {
   applyShotDragUndo: () => Promise<void>
   saveReviewedHole: (
     rows: ReviewedShotRow[],
-    penalties?: number,
+    summary?: { score: number; putts: number; penalties: number },
   ) => Promise<void>
   handleDelete: () => Promise<void>
   handleComplete: () => Promise<void>
@@ -573,7 +573,10 @@ export function useRoundActions(input: UseRoundActionsInput): UseRoundActionsRes
   }, [shareCardRef, sharing, shareTone, round.data, setSharing, setCompleteError])
 
   const saveReviewedHole = useCallback(
-    async (rows: ReviewedShotRow[], penalties = 0) => {
+    async (
+      rows: ReviewedShotRow[],
+      summary?: { score: number; putts: number; penalties: number },
+    ) => {
       if (!user || !activeHole || !round.data) return
       setSavingHole(true)
       dispatchHoleView({ type: 'SAVE_ERROR', message: null })
@@ -615,9 +618,9 @@ export function useRoundActions(input: UseRoundActionsInput): UseRoundActionsRes
           id: existing?.id,
           round_id: round.data.id,
           hole_id: realHoleId,
-          score: rows.length,
-          putts: puttCount,
-          penalties,
+          score: summary?.score ?? rows.length,
+          putts: summary?.putts ?? puttCount,
+          penalties: summary?.penalties ?? 0,
           fairway_hit: existing?.fairway_hit ?? inferred.fairway,
           gir: existing?.gir ?? inferred.gir,
           // Persist a manually placed pin. On unmapped courses no hole_scores
@@ -663,7 +666,9 @@ export function useRoundActions(input: UseRoundActionsInput): UseRoundActionsRes
             distance_to_target: isPuttRow ? null : Math.round(row.distanceToPin),
             club: row.club,
             lie_type: row.lieType,
-            shot_result: null,
+            lie_slope_forward: isPuttRow ? null : row.lieSlopeForward ?? null,
+            lie_slope_side: isPuttRow ? null : row.lieSlopeSide ?? null,
+            shot_result: isPuttRow ? null : row.shotResult ?? null,
             penalty: false,
             ob: false,
             // Putt-specific fields. distanceYards on a putt row is the

@@ -65,6 +65,12 @@ export interface ReviewedShotRow {
   greenSpeed?: GreenSpeed
   /** Free-text note on the putt. Stored as notes. */
   notes?: string
+  /** Shot outcome — solid / push_right / thin / … Stored as shot_result. */
+  shotResult?: ShotResult
+  /** Lie slope, uphill axis (uphill/level/downhill). Stored as lie_slope_forward. */
+  lieSlopeForward?: LieSlopeForward
+  /** Lie slope, side axis (ball_above/ball_below). Stored as lie_slope_side. */
+  lieSlopeSide?: LieSlopeSide
 }
 
 // Infer how many holes a course actually has from the hole NUMBERS we
