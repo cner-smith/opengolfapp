@@ -13,6 +13,7 @@ import {
   haversineYards,
   horizontalBreakFromAim,
   isPuttEntry,
+  isPuttShot,
   type BreakDirectionHorizontal,
   type BreakDirectionVertical,
   type Club,
@@ -190,7 +191,11 @@ export function HoleReviewSheet({
       })
     setRows(merged)
     setScore(merged.length)
-    setPutts(merged.filter((r) => isPuttEntry(r.lieType, r.club)).length)
+    // Putt TALLY counts any green-lie shot (isPuttShot), matching the SG
+    // putting engine + putt-count readers — a bladed wedge on the green still
+    // counts as a putt here even though its row shows normal-shot UI (the
+    // per-row isPutt gate below stays isPuttEntry). User-overridable ticker.
+    setPutts(merged.filter((r) => isPuttShot(r.lieType)).length)
     setPenalties(0)
   }, [open, holeNumber, par, pinLat, pinLng])
 

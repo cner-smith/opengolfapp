@@ -223,3 +223,56 @@ export async function pendingShotsForHoleScore(holeScoreId: string): Promise<Pen
     holeScoreId,
   )
 }
+
+// Like pendingShotsForHoleScore but includes already-synced rows. The
+// end-of-hole review pairs each reviewed row back to the shot the player
+// placed live so it can attach metadata by the shot's client id — and by
+// EOH most shots have synced (status='synced', still in the table this
+// session; purge only runs at next getDb() init). 'broken' rows stay
+// excluded — they carry corrupt data with nothing to attach to.
+export async function allShotsForHoleScore(holeScoreId: string): Promise<PendingShot[]> {
+  const db = await getDb()
+  return db.getAllAsync<PendingShot>(
+    `SELECT * FROM pending_shots
+     WHERE status IN ('pending', 'synced')
+       AND json_extract(payload, '$.hole_score_id') = ?
+     ORDER BY created_at ASC`,
+    holeScoreId,
+  )
+}
+
+// Attach end-of-hole metadata to a shot the player logged live. Keyed on the
+// client-generated payload.id: an existing local row (pending OR synced) is
+// rewritten in place and flipped back to 'pending' so the next sync re-upserts
+// it (idempotent on id — the server row updates, never duplicates, #652); a
+// shot whose local row was purged after an earlier session's sync is
+// re-inserted carrying the same id, which likewise updates the server row on
+// sync. This is the mobile equivalent of the web review sheet's replace-all
+// save, minus the delete — a delete-then-reinsert would strand duplicate
+// server rows whenever the save happens offline (there's no delete queue).
+export async function upsertReviewedShot(payload: ShotPayload): Promise<void> {
+  const db = await getDb()
+  const withId: ShotPayload = payload.id ? payload : { ...payload, id: uuid.v4() }
+  // Exclude 'broken' rows: a quarantined shot's id must not be reactivated
+  // into 'pending' here (it would just re-poison on the next sync). Matching
+  // only pending/synced means a poisoned id falls through to a fresh insert.
+  const existing = await db.getFirstAsync<{ local_id: number }>(
+    `SELECT local_id FROM pending_shots
+     WHERE json_extract(payload, '$.id') = ?
+       AND status IN ('pending', 'synced')`,
+    withId.id!,
+  )
+  if (existing) {
+    await db.runAsync(
+      `UPDATE pending_shots SET payload = ?, status = 'pending' WHERE local_id = ?`,
+      JSON.stringify(withId),
+      existing.local_id,
+    )
+  } else {
+    await db.runAsync(
+      `INSERT INTO pending_shots (status, payload, created_at) VALUES ('pending', ?, ?)`,
+      JSON.stringify(withId),
+      Date.now(),
+    )
+  }
+}
