@@ -11,7 +11,6 @@ import {
   haversineYards,
   inferHoleStats,
   isPuttEntry,
-  NEAR_GREEN_YARDS,
 } from '@oga/core'
 import type { PlacedPoint } from '../../../components/round/RoundMap'
 import type { ReviewedShotRow } from '../../../components/round/HoleReviewSheet'
@@ -75,7 +74,6 @@ interface UseRoundActionsInput {
   setConfirmDelete: (b: boolean) => void
   setCompleteError: (s: string | null) => void
   setSharing: (b: boolean) => void
-  setOnGreenPrompt: (p: PlacedPoint | null) => void
   setAimPromptOpen: (b: boolean) => void
 }
 
@@ -84,9 +82,6 @@ export interface UseRoundActionsResult {
   persistRoundPin: (point: PlacedPoint) => Promise<void>
   placeHandlers: {
     onPlace: (p: PlacedPoint) => void
-    /** Push a confirmed non-putt shot (used by the on-green "No" branch)
-     *  through the same auto-spawn / aim-prompt path as a fresh tap. */
-    onConfirmNonPutt: (p: PlacedPoint) => void
     onMovePoint: (idx: number, p: PlacedPoint) => void
     onMovePin: (p: PlacedPoint) => void
     onMoveTee: (p: PlacedPoint) => void
@@ -138,7 +133,6 @@ export function useRoundActions(input: UseRoundActionsInput): UseRoundActionsRes
     setConfirmDelete,
     setCompleteError,
     setSharing,
-    setOnGreenPrompt,
     setAimPromptOpen,
   } = input
   const navigate = useNavigate()
@@ -230,12 +224,13 @@ export function useRoundActions(input: UseRoundActionsInput): UseRoundActionsRes
     [activeHoleScore, roundId, dispatchHoleView],
   )
 
-  // Push a confirmed non-putt shot, then either auto-spawn its aim (live
-  // entry) or prompt the player to set it (past-round review). The aim
-  // seeds on the straight start→pin line so the aim path + carry/remaining
-  // render immediately. SET_AIM targets the slot PUSH_POINT just appended
+  // Push a placed shot, then either auto-spawn its aim (live entry) or
+  // prompt the player to set it (past-round review). The aim seeds on the
+  // straight start→pin line so the aim path + carry/remaining render
+  // immediately. SET_AIM targets the slot PUSH_POINT just appended
   // (`placedAims.length` before the push), so it always lands on the new
-  // shot. Shared by onPlace and the on-green "No" branch.
+  // shot. Every placement flows through here now — a near-green shot is no
+  // longer special-cased; its putt-ness is decided at the end-of-hole review.
   const pushShotWithAim = useCallback(
     (p: PlacedPoint) => {
       dispatchHoleView({ type: 'PUSH_POINT', point: p, openPuttSheet: false })
@@ -259,26 +254,13 @@ export function useRoundActions(input: UseRoundActionsInput): UseRoundActionsRes
   )
 
   const placeHandlers = {
-    onPlace: useCallback(
-      (p: PlacedPoint) => {
-        // Within ~30 yd of the pin, ask before opening the putting
-        // sheet — the prior auto-switch was wrong on chips, bunkers,
-        // and fringe lies, and forced the player to back out and re-
-        // place to log a non-putt. The point goes into a holding cell
-        // until the prompt resolves.
-        const nearGreen =
-          effectivePin != null &&
-          haversineYards(p.lat, p.lng, effectivePin.lat, effectivePin.lng) <=
-            NEAR_GREEN_YARDS
-        if (nearGreen) {
-          setOnGreenPrompt(p)
-          return
-        }
-        pushShotWithAim(p)
-      },
-      [effectivePin, setOnGreenPrompt, pushShotWithAim],
-    ),
-    onConfirmNonPutt: pushShotWithAim,
+    // Placing a shot just records its location. Putt-vs-not — and all shot
+    // detail — is decided at the end-of-hole review, where the summary infers
+    // a putt from the ball's position (green lie) and the club chip overrides
+    // it. The old on-green "are you putting?" prompt + inline WebPuttingSheet
+    // were redundant with that surface and were dropped for lock-step with
+    // mobile (#791).
+    onPlace: pushShotWithAim,
     onMovePoint: useCallback(
       (idx: number, p: PlacedPoint) =>
         dispatchHoleView({ type: 'MOVE_POINT', index: idx, point: p }),
