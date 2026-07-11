@@ -293,6 +293,13 @@ export async function crawlComplete(
         await mergeAndDeletePhantom(p.id, courseId)
         totalMerged++
       }
+      // Live progress: one line per course that actually changed, so a run is
+      // watchable instead of silent-until-the-state-summary.
+      const did: string[] = []
+      if (willWriteHoles) did.push(`${holes.length} holes`)
+      if (toMerge.length) did.push(`merged ${toMerge.map((p) => p.name).join(' + ')}`)
+      if (toFlag.length) did.push(`flagged ${toFlag.length}`)
+      if (did.length) console.log(`[complete:${state}] ✓ ${name} — ${did.join(', ')}`)
     }
     await sleep(OSM_DELAY_MS)
   }
