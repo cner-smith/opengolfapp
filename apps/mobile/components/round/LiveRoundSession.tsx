@@ -9,8 +9,14 @@ import { PressableTouch } from '../ui/PressableTouch'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useRouter } from 'expo-router'
 import { HoleMap, type LatLng } from './HoleMap'
+import { HoleReviewSheet } from './HoleReviewSheet'
 import type { ShotLoggerValue } from './ShotLogger'
-import { DEFAULT_HANDICAP, bearingDegrees, destinationYards } from '@oga/core'
+import {
+  DEFAULT_HANDICAP,
+  bearingDegrees,
+  buildInitialRows,
+  destinationYards,
+} from '@oga/core'
 import { getProfile } from '@oga/supabase'
 import { supabase } from '../../lib/supabase'
 import { distanceYards } from '../../lib/maps'
@@ -280,6 +286,28 @@ export default function LiveRoundSession({
     data.remoteShotCount + data.localShotCount > 0
       ? data.remoteShotCount + data.localShotCount
       : 0
+
+  // End-of-hole review rows. Built from the shots placed live (their start
+  // coords, in order) via the shared @oga/core inference — same call the web
+  // review sheet uses. Only computed while the summary is open. The pin
+  // anchors the last shot's end + every shot's distance-to-pin; with no pin
+  // (unmapped hole, none placed) the last placed point stands in so distances
+  // degrade to ~0 rather than exploding off [0,0].
+  const summaryRows = useMemo(() => {
+    if (finalState.roundState !== 'SUMMARY') return []
+    const pts = data.previousShots
+    if (pts.length === 0) return []
+    const pin = data.roundPin ?? data.storedPin ?? pts[pts.length - 1]!
+    const par = data.currentHoleScore?.par ?? data.currentHole?.par ?? 4
+    return buildInitialRows(pts, par, pin.lat, pin.lng)
+  }, [
+    finalState.roundState,
+    data.previousShots,
+    data.roundPin,
+    data.storedPin,
+    data.currentHoleScore?.par,
+    data.currentHole?.par,
+  ])
 
   const actions = useShotActions({
     id: roundId,
@@ -731,6 +759,20 @@ export default function LiveRoundSession({
         onGreenNo={actions.handleOnGreenNo}
         onAimPromptConfirm={actions.handleAimPromptConfirm}
         onAimPromptSkip={actions.handleAimPromptSkip}
+      />
+
+      {/* End-of-hole review — full-screen overlay (zIndex 40). Confirms each
+          shot's club / lie / result + putt read for the shots logged
+          location-only during play, then writes metadata + hole_scores and
+          advances (#791). */}
+      <HoleReviewSheet
+        visible={finalState.roundState === 'SUMMARY'}
+        holeNumber={holeNumber}
+        par={data.currentHoleScore?.par ?? data.currentHole.par}
+        initialRows={summaryRows}
+        saving={actions.saving}
+        onSave={actions.saveHoleSummary}
+        onEditOnMap={actions.editHoleOnMap}
       />
 
       {/* Round-options popover. Full-screen transparent backdrop catches the
