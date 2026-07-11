@@ -93,7 +93,7 @@ export interface OsmCourseLite {
 
 export type CrawlStatus = 'pending' | 'in_progress' | 'done' | 'error'
 
-export type Source = 'opengolfapi' | 'osm' | 'osm-first' | 'enrich' | 'osm-holes'
+export type Source = 'opengolfapi' | 'osm' | 'osm-first' | 'enrich' | 'osm-holes' | 'geocode'
 
 /** A hole with optional per-hole geometry, written by the osm-holes pass. */
 export interface OgaHoleGeo {

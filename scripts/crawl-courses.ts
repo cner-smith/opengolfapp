@@ -41,6 +41,7 @@ import { countCourses, fetchAllCrawlState } from './crawl/db-writer'
 import { crawlOsm } from './crawl/osm-fetcher'
 import { crawlOsmHoles } from './crawl/holes-fetcher'
 import { crawlEnrich, crawlOpenGolfApi } from './crawl/enricher'
+import { crawlGeocode } from './crawl/geocoder'
 import type { Args, Source } from './crawl/types'
 
 function parseArgs(argv: string[]): Args {
@@ -54,7 +55,7 @@ function parseArgs(argv: string[]): Args {
     const a = argv[i]
     const next = argv[i + 1]
     if (a === '--source' && next) {
-      const allowed = ['opengolfapi', 'osm', 'osm-first', 'enrich', 'osm-holes'] as const
+      const allowed = ['opengolfapi', 'osm', 'osm-first', 'enrich', 'osm-holes', 'geocode'] as const
       if (!allowed.includes(next as Source)) {
         throw new Error(`--source must be one of ${allowed.join(', ')} (got: ${next})`)
       }
@@ -122,6 +123,7 @@ async function main(): Promise<void> {
         '  tsx scripts/crawl-courses.ts --source osm-holes [--states TX,OK] [--force] [--limit N]\n' +
         '  tsx scripts/crawl-courses.ts --source enrich [--states TX,OK] [--force]\n' +
         '  tsx scripts/crawl-courses.ts --source opengolfapi [--states TX,OK] [--force]\n' +
+        '  tsx scripts/crawl-courses.ts --source geocode [--limit N]\n' +
         '  tsx scripts/crawl-courses.ts --status',
     )
     process.exit(1)
@@ -131,6 +133,14 @@ async function main(): Promise<void> {
     const states = args.states ?? [...ALL_STATES]
     console.log(`OpenGolfAPI crawl: ${states.length} state(s)${args.force ? ' (force)' : ''}`)
     await crawlOpenGolfApi(states, args.force, args.limit)
+    return
+  }
+
+  // Geocode operates on the whole courses table (any coord course with a null
+  // city), so it needs no state bbox.
+  if (args.source === 'geocode') {
+    console.log(`Geocode crawl${args.limit != null ? ` (limit ${args.limit})` : ''}`)
+    await crawlGeocode(args.limit)
     return
   }
 

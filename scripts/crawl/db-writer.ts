@@ -126,6 +126,51 @@ export async function fetchCourseGeoForState(state: string): Promise<CourseGeo[]
   return all
 }
 
+// Courses that have a centroid but no city. The geocode pass reverse-geocodes
+// each one's coordinates (OSM Nominatim) to fill the city. Optional cap so a
+// rate-limited run stays bounded.
+export async function fetchCitylessCourses(
+  limit: number | null,
+): Promise<{ id: string; name: string; lat: number; lng: number }[]> {
+  const PAGE_SIZE = 500
+  const out: { id: string; name: string; lat: number; lng: number }[] = []
+  let from = 0
+  while (true) {
+    const to = limit != null ? Math.min(from + PAGE_SIZE, limit) - 1 : from + PAGE_SIZE - 1
+    const { data, error } = await supabase
+      .from('courses')
+      .select('id, name, lat, lng')
+      .is('city', null)
+      .not('lat', 'is', null)
+      .not('lng', 'is', null)
+      .range(from, to)
+    if (error) {
+      throw new Error(
+        `cityless fetch failed (range=${from}-${to}): ${error.message ?? JSON.stringify(error)}`,
+      )
+    }
+    const rows = (data ?? []) as { id: string; name: string; lat: number | null; lng: number | null }[]
+    for (const r of rows) {
+      if (r.lat != null && r.lng != null) out.push({ id: r.id, name: r.name, lat: r.lat, lng: r.lng })
+    }
+    if (rows.length < PAGE_SIZE) break
+    if (limit != null && out.length >= limit) break
+    from += PAGE_SIZE
+  }
+  return limit != null ? out.slice(0, limit) : out
+}
+
+// Fill a course's city (and optionally rewrite its "Golf Course" fallback
+// name). Used by the geocode pass only.
+export async function updateCourseCity(id: string, city: string, name?: string): Promise<void> {
+  const patch: { city: string; name?: string } = { city }
+  if (name) patch.name = name
+  const { error } = await supabase.from('courses').update(patch).eq('id', id)
+  if (error) {
+    throw new Error(`city update failed (course=${id}): ${error.message ?? JSON.stringify(error)}`)
+  }
+}
+
 // Course ids that already have at least one hole carrying coordinates. The
 // osm-holes pass skips these so it never clobbers hand-curated or previously
 // imported geometry (idempotent + safe to re-run). Chunked like the tee lookup.
