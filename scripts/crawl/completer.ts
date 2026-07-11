@@ -205,9 +205,26 @@ function groupPolygons(polygons: CoursePolygon[]): number[] {
   return polygons.map((_, i) => find(i))
 }
 
+// Names that are golf SUB-FEATURES mis-tagged as a whole course (a fairway,
+// green, tee, or numbered hole) — dropped so they don't become junk rows. A
+// long fairway passes the size guard, so this catches it by name.
+function isFeatureName(name: string): boolean {
+  const t = name.trim().toLowerCase()
+  if (/^#|^hole\s*\d/.test(t)) return true
+  if (
+    /^(fairway|green|tee|rough|bunker|driving range|putting green|practice green|cart path)s?$/.test(
+      t,
+    )
+  )
+    return true
+  if (/\b(green|tee)\s*#?\s*\d/.test(t)) return true
+  return false
+}
+
 // Parse golf_course polygons: a way = one ring; a relation multipolygon =
 // its outer ring(s), stitched from member ways. Mis-tagged single features
-// (tiny bbox) and relations with no usable outer geometry are counted + dropped.
+// (tiny bbox or a feature name) and relations with no usable outer geometry are
+// counted + dropped; sub-area polygons nested inside a larger course are too.
 function parsePolygons(elements: OverpassGeomElement[]): {
   polygons: CoursePolygon[]
   relationsSkipped: number
@@ -235,8 +252,9 @@ function parsePolygons(elements: OverpassGeomElement[]): {
       if (el.type === 'relation') relationsSkipped++
       continue
     }
-    // Drop mis-tagged single features (a tee/green tagged golf_course).
-    if (bboxDiagonalM(rings) < MIN_COURSE_DIAGONAL_M) {
+    // Drop mis-tagged single features: tiny bbox (a tee/green) or a feature name.
+    const nm = tags['name']
+    if (bboxDiagonalM(rings) < MIN_COURSE_DIAGONAL_M || (nm && isFeatureName(nm))) {
       junkSkipped++
       continue
     }
@@ -249,7 +267,22 @@ function parsePolygons(elements: OverpassGeomElement[]): {
       centroid: polyCentroid(rings),
     })
   }
-  return { polygons, relationsSkipped, junkSkipped }
+  // Drop polygons nested inside a LARGER golf_course polygon — they're sub-areas
+  // (a course drawn as boundary + inner regions), whose holes belong to the
+  // enclosing course, not to a separate row. Without this the small inner
+  // polygons steal holes via the nearest-centroid tiebreak and become junk rows.
+  // ponytail: O(n²), but the size prefilter (only larger polygons can enclose)
+  // prunes hard; fine for a per-state batch.
+  const diag = polygons.map((p) => bboxDiagonalM(p.rings))
+  const kept = polygons.filter((p, i) => {
+    for (let j = 0; j < polygons.length; j++) {
+      if (i === j || diag[j] <= diag[i]) continue
+      if (inAnyRing(p.centroid, polygons[j].rings)) return false
+    }
+    return true
+  })
+  junkSkipped += polygons.length - kept.length
+  return { polygons: kept, relationsSkipped, junkSkipped }
 }
 
 // One Overpass query per state for course polygons + hole/green/tee geometry,
