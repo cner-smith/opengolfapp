@@ -253,8 +253,13 @@ export async function allShotsForHoleScore(holeScoreId: string): Promise<Pending
 export async function upsertReviewedShot(payload: ShotPayload): Promise<void> {
   const db = await getDb()
   const withId: ShotPayload = payload.id ? payload : { ...payload, id: uuid.v4() }
+  // Exclude 'broken' rows: a quarantined shot's id must not be reactivated
+  // into 'pending' here (it would just re-poison on the next sync). Matching
+  // only pending/synced means a poisoned id falls through to a fresh insert.
   const existing = await db.getFirstAsync<{ local_id: number }>(
-    `SELECT local_id FROM pending_shots WHERE json_extract(payload, '$.id') = ?`,
+    `SELECT local_id FROM pending_shots
+     WHERE json_extract(payload, '$.id') = ?
+       AND status IN ('pending', 'synced')`,
     withId.id!,
   )
   if (existing) {

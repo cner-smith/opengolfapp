@@ -2,7 +2,6 @@ import { useRef, useState, type Dispatch, type SetStateAction } from 'react'
 import { Alert } from 'react-native'
 import { useRouter } from 'expo-router'
 import type { User } from '@supabase/supabase-js'
-import { uuid } from 'expo-modules-core'
 import {
   combinedBreakDirection,
   combinedPuttResult,
@@ -585,10 +584,18 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
       // Pair reviewed rows to the live shots by shot_number. Local queue
       // (pending + synced) is the primary source for id + live aim; the
       // remote table is the fallback for a shot whose local row was purged
-      // after a prior session's sync (restart mid-hole).
-      const localRows = await allShotsForHoleScore(currentHoleScore.id).catch(
-        () => [] as Awaited<ReturnType<typeof allShotsForHoleScore>>,
+      // after a prior session's sync (restart mid-hole). BOTH reads get a
+      // one-retry (mirrors useHoleData's SQLite/remote reads) — a transient
+      // failure that empties either map must not silently strand a shot on
+      // the abort path below.
+      let localRows = await allShotsForHoleScore(currentHoleScore.id).catch(
+        () => null,
       )
+      if (localRows === null) {
+        localRows = await allShotsForHoleScore(currentHoleScore.id).catch(
+          () => [] as Awaited<ReturnType<typeof allShotsForHoleScore>>,
+        )
+      }
       const localByNum = new Map<number, ShotPayload>()
       for (const r of localRows) {
         try {
@@ -602,11 +609,17 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
         number,
         { id: string; aim_lat: number | null; aim_lng: number | null }
       >()
-      const { data: remoteShots } = await supabase
+      let remote = await supabase
         .from('shots')
         .select('id, shot_number, aim_lat, aim_lng')
         .eq('hole_score_id', currentHoleScore.id)
-      for (const s of remoteShots ?? []) {
+      if (remote.error) {
+        remote = await supabase
+          .from('shots')
+          .select('id, shot_number, aim_lat, aim_lng')
+          .eq('hole_score_id', currentHoleScore.id)
+      }
+      for (const s of remote.data ?? []) {
         remoteByNum.set(s.shot_number, {
           id: s.id,
           aim_lat: s.aim_lat,
@@ -616,16 +629,28 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
 
       for (const row of rows) {
         const isPuttRow = isPuttEntry(row.lieType, row.club)
-        const local = localByNum.get(row.shotNumber)
-        const remote = remoteByNum.get(row.shotNumber)
-        // Preserve the live shot's id so the re-sync upserts (updates) it;
-        // fall back to a fresh id only for a shot that exists in neither
-        // store (shouldn't happen — the rows were built from these shots).
-        const id = local?.id ?? remote?.id ?? uuid.v4()
+        const existing =
+          localByNum.get(row.shotNumber) ?? remoteByNum.get(row.shotNumber)
+        // The reviewed rows were built from these very shots, so each MUST
+        // pair back to one. If both reads came up empty for this shot_number
+        // (both transiently failed above), fabricating a fresh id would queue
+        // a row that collides with the existing shot on unique(hole_score_id,
+        // shot_number) — a novel id isn't arbitrated by the sync upsert's
+        // onConflict:'id', so it 23505s and gets silently quarantined, losing
+        // this shot's metadata. Abort loudly instead: the sheet stays open
+        // with the player's edits intact (hydration is gated), so Save simply
+        // retries once the read recovers. Never mint a colliding id.
+        if (!existing?.id) {
+          throw new Error(
+            "Couldn't reach this hole's shots — check your connection and save again.",
+          )
+        }
+        const id = existing.id
         // Keep the aim captured live (SET_AIM); the review sheet doesn't edit
-        // non-putt aim, so the live value is authoritative.
-        const aimLat = local?.aim_lat ?? remote?.aim_lat ?? null
-        const aimLng = local?.aim_lng ?? remote?.aim_lng ?? null
+        // non-putt aim, so the live value is authoritative. `existing` is a
+        // queued payload or the remote row — both carry aim_lat/aim_lng.
+        const aimLat = existing.aim_lat ?? null
+        const aimLng = existing.aim_lng ?? null
         const payload: ShotPayload = {
           id,
           hole_score_id: currentHoleScore.id,

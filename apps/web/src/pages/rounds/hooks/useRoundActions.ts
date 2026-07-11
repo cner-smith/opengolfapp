@@ -11,6 +11,7 @@ import {
   haversineYards,
   inferHoleStats,
   isPuttEntry,
+  isPuttShot,
 } from '@oga/core'
 import type { PlacedPoint } from '../../../components/round/RoundMap'
 import type { ReviewedShotRow } from '../../../components/round/HoleReviewSheet'
@@ -571,7 +572,11 @@ export function useRoundActions(input: UseRoundActionsInput): UseRoundActionsRes
         // Match HoleReviewSheet's isPutt — putt-ness is the green lie (set
         // when a putt is placed), never club or raw distance (a near-green
         // chip isn't a putt; unmapped rows read 0).
-        const puttCount = rows.filter((r) => isPuttEntry(r.lieType, r.club)).length
+        // Putt tally matches the SG putting engine + putt-count readers
+        // (isPuttShot = green lie), so hole_scores.putts stays consistent with
+        // stats. The per-row column gate below stays isPuttEntry. This is only
+        // a fallback — the review sheet always passes summary.putts.
+        const puttCount = rows.filter((r) => isPuttShot(r.lieType)).length
         // Materialize the synthetic hole if needed before upserting the
         // hole_score (FK to holes.id). The RPC inserts only (course_id,
         // number, par, stroke_index) — per-round tee/pin overrides
