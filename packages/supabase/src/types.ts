@@ -461,6 +461,7 @@ export type Database = {
       }
       rounds: {
         Row: {
+          capture_mode: string
           completed_at: string | null
           course_id: string
           course_tee_id: string | null
@@ -484,6 +485,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          capture_mode?: string
           completed_at?: string | null
           course_id: string
           course_tee_id?: string | null
@@ -507,6 +509,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          capture_mode?: string
           completed_at?: string | null
           course_id?: string
           course_tee_id?: string | null

@@ -12,6 +12,7 @@ import {
   inferHoleStats,
   isPuttEntry,
   isPuttShot,
+  type CaptureMode,
 } from '@oga/core'
 import type { PlacedPoint } from '../../../components/round/RoundMap'
 import type { ReviewedShotRow } from '../../../components/round/HoleReviewSheet'
@@ -59,6 +60,9 @@ interface UseRoundActionsInput {
    *  map view). Live entry auto-spawns the aim point; past-round review
    *  keeps the explicit aim prompt. Captured once at mount by the page. */
   isLiveEntry: boolean
+  /** Live capture mode (rounds.capture_mode). 'track_patterns' auto-spawns an
+   *  aim per shot; 'just_track' records location only — no aim. */
+  captureMode: CaptureMode
   pinOverride: PlacedPoint | null
   teeOverride: PlacedPoint | null
   placedAims: (PlacedPoint | null)[]
@@ -120,6 +124,7 @@ export function useRoundActions(input: UseRoundActionsInput): UseRoundActionsRes
     profile,
     data,
     isLiveEntry,
+    captureMode,
     pinOverride,
     teeOverride,
     placedAims,
@@ -235,7 +240,11 @@ export function useRoundActions(input: UseRoundActionsInput): UseRoundActionsRes
   const pushShotWithAim = useCallback(
     (p: PlacedPoint) => {
       dispatchHoleView({ type: 'PUSH_POINT', point: p, openPuttSheet: false })
-      if (isLiveEntry && effectivePin) {
+      if (isLiveEntry && captureMode === 'just_track') {
+        // Just-track mode records the location only — no aim capture. The
+        // end-of-hole review still infers putts and lets the player fill
+        // club/lie/result; aim is simply never prompted or spawned.
+      } else if (isLiveEntry && effectivePin) {
         dispatchHoleView({
           type: 'SET_AIM',
           index: placedAims.length,
@@ -251,7 +260,7 @@ export function useRoundActions(input: UseRoundActionsInput): UseRoundActionsRes
         setAimPromptOpen(true)
       }
     },
-    [isLiveEntry, effectivePin, placedAims.length, dispatchHoleView, setAimPromptOpen],
+    [isLiveEntry, captureMode, effectivePin, placedAims.length, dispatchHoleView, setAimPromptOpen],
   )
 
   const placeHandlers = {

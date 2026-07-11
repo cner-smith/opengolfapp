@@ -16,6 +16,7 @@ import {
   bearingDegrees,
   buildInitialRows,
   destinationYards,
+  type CaptureMode,
 } from '@oga/core'
 import { getProfile } from '@oga/supabase'
 import { supabase } from '../../lib/supabase'
@@ -55,6 +56,10 @@ interface LiveRoundSessionProps {
   roundId: string | undefined
   initialHoleNumber: number
   mode: 'live' | 'past'
+  // Live capture mode (rounds.capture_mode). 'just_track' saves ball
+  // locations only; 'track_patterns' captures an aim per shot. Defaults to
+  // 'track_patterns' at the call site.
+  captureMode: CaptureMode
   // Called whenever the player navigates to a new hole. The parent uses
   // this to keep the URL in sync (router.setParams) — but never to
   // remount the screen, which is the whole point of this component.
@@ -70,6 +75,7 @@ export default function LiveRoundSession({
   roundId,
   initialHoleNumber,
   mode,
+  captureMode,
   onHoleChange: syncHoleToUrl,
 }: LiveRoundSessionProps) {
   const isPastMode = mode === 'past'
@@ -313,6 +319,7 @@ export default function LiveRoundSession({
     id: roundId,
     user,
     holeNumber,
+    captureMode,
     data,
     state: finalState,
     setLoggerOpen,

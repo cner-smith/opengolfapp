@@ -12,11 +12,14 @@ import { useLocalSearchParams, useRouter } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import * as Location from 'expo-location'
 import {
+  CAPTURE_MODES,
+  CAPTURE_MODE_LABELS,
   formatLocation,
   getOpenGolfApiCourse,
   inferHoleCount,
   searchOpenGolfApi,
   todayLocalDate,
+  type CaptureMode,
   type OpenGolfApiSearchResult,
 } from '@oga/core'
 import {
@@ -182,6 +185,7 @@ export default function NewRound() {
   async function startWith(
     courseId: string,
     tee?: { courseTeeId: string | null; teeColor: string | null },
+    captureMode?: CaptureMode,
   ) {
     if (!user) return
     if (startInFlightRef.current) return
@@ -205,6 +209,9 @@ export default function NewRound() {
         ...(tee?.courseTeeId
           ? { course_tee_id: tee.courseTeeId, tee_color: tee.teeColor }
           : {}),
+        // Capture mode steers the live flow only; past entry keeps the
+        // 'track_patterns' column default.
+        ...(mode === 'live' && captureMode ? { capture_mode: captureMode } : {}),
       })
       if (roundError || !round) throw roundError ?? new Error('Round insert failed')
       createdRoundId = round.id
@@ -423,8 +430,8 @@ export default function NewRound() {
         mode={mode}
         busy={busy}
         onBack={() => setPendingCourse(null)}
-        onStart={(courseTeeId, teeColor) =>
-          startWith(pendingCourse.id, { courseTeeId, teeColor })
+        onStart={(courseTeeId, teeColor, captureMode) =>
+          startWith(pendingCourse.id, { courseTeeId, teeColor }, captureMode)
         }
       />
     )
@@ -609,11 +616,16 @@ function RoundSetupStep({
   mode: 'live' | 'past'
   busy: boolean
   onBack: () => void
-  onStart: (courseTeeId: string | null, teeColor: string | null) => void
+  onStart: (
+    courseTeeId: string | null,
+    teeColor: string | null,
+    captureMode: CaptureMode,
+  ) => void
 }) {
   const insets = useSafeAreaInsets()
   const [teeId, setTeeId] = useState<string | null>(null)
   const [teeColor, setTeeColor] = useState<string | null>(null)
+  const [captureMode, setCaptureMode] = useState<CaptureMode>('track_patterns')
 
   return (
     <View
@@ -637,13 +649,57 @@ function RoundSetupStep({
         {courseName}
       </Text>
 
-      <Text style={{ ...KICKER, marginBottom: 4 }}>Tee played</Text>
-      <Text style={[TYPE.body, { color: '#8A8B7E', fontSize: 12, marginBottom: 12 }]}>
-        Optional — add the tee's rating and slope for a handicap differential.
-        You can set it later from the scorecard.
-      </Text>
-
       <ScrollView keyboardShouldPersistTaps="handled" style={{ flex: 1 }}>
+        {mode === 'live' && (
+          <View style={{ marginBottom: 22 }}>
+            <Text style={{ ...KICKER, marginBottom: 8 }}>
+              How do you want to track it?
+            </Text>
+            {CAPTURE_MODES.map((cm) => {
+              const active = captureMode === cm
+              return (
+                <Pressable
+                  key={cm}
+                  onPress={() => setCaptureMode(cm)}
+                  style={{
+                    borderWidth: 1,
+                    borderColor: active ? '#1F3D2C' : '#D9D2BF',
+                    backgroundColor: active ? '#1F3D2C' : '#FBF8F1',
+                    borderRadius: 2,
+                    padding: 14,
+                    marginBottom: 8,
+                  }}
+                >
+                  <Text
+                    style={[TYPE.bodyBold, {
+                      color: active ? '#F2EEE5' : '#1C211C',
+                      fontSize: 15,
+                      fontWeight: '600',
+                      marginBottom: 2,
+                    }]}
+                  >
+                    {CAPTURE_MODE_LABELS[cm].title}
+                  </Text>
+                  <Text
+                    style={[TYPE.body, {
+                      color: active ? '#C7D3C0' : '#8A8B7E',
+                      fontSize: 12,
+                    }]}
+                  >
+                    {CAPTURE_MODE_LABELS[cm].subtitle}
+                  </Text>
+                </Pressable>
+              )
+            })}
+          </View>
+        )}
+
+        <Text style={{ ...KICKER, marginBottom: 4 }}>Tee played</Text>
+        <Text style={[TYPE.body, { color: '#8A8B7E', fontSize: 12, marginBottom: 12 }]}>
+          Optional — add the tee's rating and slope for a handicap differential.
+          You can set it later from the scorecard.
+        </Text>
+
         <TeePicker
           courseId={courseId}
           selectedTeeId={teeId}
@@ -679,7 +735,7 @@ function RoundSetupStep({
           <Text style={[TYPE.body, { color: '#5C6356', fontSize: 13 }]}>Back</Text>
         </Pressable>
         <Pressable
-          onPress={() => onStart(teeId, teeColor)}
+          onPress={() => onStart(teeId, teeColor, captureMode)}
           disabled={busy}
           style={{
             flex: 2,

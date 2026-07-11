@@ -8,6 +8,7 @@ import {
   inferHoleStats,
   isPuttEntry,
   isPuttShot,
+  type CaptureMode,
   type LieType,
   type ReviewedShotRow,
 } from '@oga/core'
@@ -35,6 +36,10 @@ interface UseShotActionsInput {
   id: string | undefined
   user: User | null
   holeNumber: number
+  // Live capture mode (rounds.capture_mode). In 'just_track', markBallHere
+  // saves the location immediately and never enters SET_AIM; 'track_patterns'
+  // keeps the aim step.
+  captureMode: CaptureMode
   data: UseHoleDataResult
   state: UseHoleStateResult
   // Component-level UI state setters.
@@ -93,6 +98,7 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
     id,
     user,
     holeNumber,
+    captureMode,
     data,
     state,
     setLoggerOpen,
@@ -151,9 +157,13 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
 
   function buildPayload(
     meta: ShotLoggerValue | null,
-    opts?: { forceAim?: boolean },
+    opts?: { forceAim?: boolean; ball?: LatLng },
   ): ShotPayload | null {
-    if (!user || !currentHoleScore || !ball) return null
+    // `ball` state is set async, so a caller that just placed the ball (e.g.
+    // markBallHere in just-track mode) passes it explicitly to avoid reading
+    // the pre-update value out of the closure.
+    const effectiveBall = opts?.ball ?? ball
+    if (!user || !currentHoleScore || !effectiveBall) return null
     const isPutt = isPuttShot(meta?.lieType)
     const pinTarget = roundPin ?? storedPin ?? null
     // Confirm-aim forces persist (the player accepted even an unadjusted
@@ -164,14 +174,16 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
       hole_score_id: currentHoleScore.id,
       user_id: user.id,
       shot_number: shotNumber,
-      start_lat: ball.lat,
-      start_lng: ball.lng,
+      start_lat: effectiveBall.lat,
+      start_lng: effectiveBall.lng,
       end_lat: null,
       end_lng: null,
       // Putts leave this null to match the web save path — a putt's
       // "distance to target" is putt_distance_ft, not this column.
       distance_to_target:
-        !isPutt && pinTarget ? Math.round(distanceYards(ball, pinTarget)) : null,
+        !isPutt && pinTarget
+          ? Math.round(distanceYards(effectiveBall, pinTarget))
+          : null,
       // Persist aim only if the player set/dragged it (or explicitly confirmed);
       // an untouched auto-spawn suggestion is dropped so it can't enter the
       // dispersion dataset.
@@ -215,7 +227,7 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
 
   async function persistShot(
     meta: ShotLoggerValue | null,
-    opts?: { forceAim?: boolean },
+    opts?: { forceAim?: boolean; ball?: LatLng },
   ) {
     if (persistShotInFlightRef.current) return
     const payload = buildPayload(meta, opts)
@@ -440,10 +452,18 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
     }
     setBall(ballSnapshot)
     setAim(null)
-    // Every shot goes straight into aiming — the on-green "are you putting?"
-    // prompt was dropped (#791). During play a putt is just another location;
-    // whether it WAS a putt is decided at the end-of-hole review from the
-    // ball's position (green lie → putter), where the break / speed / aimer
+    // Just-track mode (#791 step 3): no aim step. Save the location right away
+    // — passing the fresh ball since setBall hasn't committed — and persistShot
+    // loops back to PLACE_BALL for the next ball. Putt-ness / club / lie are
+    // still decided at the end-of-hole review.
+    if (captureMode === 'just_track') {
+      await persistShot(null, { forceAim: false, ball: ballSnapshot })
+      return
+    }
+    // Track-patterns mode: every shot goes into aiming — the on-green "are you
+    // putting?" prompt was dropped (#791). During play a putt is just another
+    // location; whether it WAS a putt is decided at the end-of-hole review from
+    // the ball's position (green lie → putter), where the break / speed / aimer
     // now live. The aim line auto-spawns to the pin (useHoleState) with a
     // draggable midpoint; "Skip aim" stays in the SET_AIM chrome for a tap-in
     // the player won't bother aiming.
