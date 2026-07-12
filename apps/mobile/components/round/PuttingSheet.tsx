@@ -128,6 +128,11 @@ export function PuttingSheet({
   const [distanceText, setDistanceText] = useState(
     String(feetToInput(initial?.puttDistanceFt ?? initialDistanceFt ?? 0)),
   )
+  // Opt-in read (#791 step 4). The green leads with distance + make-% + the
+  // Made/Missed action; the read (aim/break/speed) and miss detail stay
+  // collapsed behind "Set my read" until the player asks — pace of play first.
+  // Anything skipped is still fillable in the end-of-hole review.
+  const [readOpen, setReadOpen] = useState(false)
 
   function commitDistance(text: string) {
     setDistanceText(text)
@@ -319,6 +324,27 @@ export function PuttingSheet({
           </View>
         )}
 
+        {!readOpen && (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Set my read — aim, break, speed, and miss detail"
+            onPress={() => setReadOpen(true)}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            style={{ marginTop: 6, paddingVertical: 12, alignItems: 'center' }}
+          >
+            <Text
+              style={[
+                TYPE.bodyBold,
+                { color: '#1F3D2C', fontSize: 13, fontWeight: '600', letterSpacing: 0.3 },
+              ]}
+            >
+              Set my read →
+            </Text>
+          </Pressable>
+        )}
+
+        {readOpen && (
+          <>
         <GreenDiagram
           distanceFt={distance}
           aimOffsetInches={value.aimOffsetInches ?? 0}
@@ -452,6 +478,8 @@ export function PuttingSheet({
             placeholder="Optional"
           />
         </Section>
+          </>
+        )}
 
         <View style={{ marginTop: 22 }}>
           <Pressable
