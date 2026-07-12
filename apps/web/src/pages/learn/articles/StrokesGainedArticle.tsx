@@ -92,7 +92,26 @@ export function StrokesGainedArticle() {
       <SGCategoriesTable />
 
       <Sources />
+      <Footer />
     </article>
+  )
+}
+
+function Footer() {
+  return (
+    <div
+      className="font-mono uppercase text-caddie-ink-mute"
+      style={{
+        fontSize: 10,
+        letterSpacing: '0.14em',
+        borderTop: '1px solid #D9D2BF',
+        paddingTop: 18,
+        marginTop: 22,
+        lineHeight: 1.6,
+      }}
+    >
+      Last reviewed July 2026
+    </div>
   )
 }
 

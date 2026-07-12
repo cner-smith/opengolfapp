@@ -1,6 +1,7 @@
 import { Text, View } from 'react-native'
 import { FONT } from '../../../lib/typography'
 import {
+  ArticleFooter,
   ArticleHeader,
   C,
   DefRow,
@@ -88,6 +89,8 @@ export function StrokesGainedArticle() {
           },
         ]}
       />
+
+      <ArticleFooter>Last reviewed July 2026</ArticleFooter>
     </View>
   )
 }

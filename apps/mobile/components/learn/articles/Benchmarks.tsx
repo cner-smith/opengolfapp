@@ -7,7 +7,7 @@ import {
   type DetailedStats,
 } from '@oga/core'
 import { getProfile, getRoundsWithDetails } from '@oga/supabase'
-import { ArticleHeader, C, Link, P, Sources, Subhead } from '../primitives'
+import { ArticleFooter, ArticleHeader, C, Link, P, Sources, Subhead } from '../primitives'
 import { FONT } from '../../../lib/typography'
 import { supabase } from '../../../lib/supabase'
 import { useAuth } from '../../../hooks/useAuth'
@@ -278,6 +278,8 @@ export function BenchmarksArticle() {
           },
         ]}
       />
+
+      <ArticleFooter>Last reviewed July 2026</ArticleFooter>
     </View>
   )
 }
