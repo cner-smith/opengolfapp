@@ -317,8 +317,9 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
     // Made IS the hole-out (#791 step 4): the putt that drops ends the hole,
     // so go straight to the end-of-hole summary rather than back to PLACE_BALL.
     // A miss falls through — persistShot already returned to PLACE_BALL for the
-    // next putt. (previousShots is ≥1 here — the tee shot precedes any putt —
-    // so finishHole opens the summary, never the empty-hole advance.)
+    // next putt. The "On the green" chip is gated on totalShotsThisHole > 0
+    // (MapBottomChrome), so a putt is never the hole's first shot: previousShots
+    // is ≥1 here and finishHole opens the summary, never the empty-hole advance.
     if (v.puttMade === true) finishHole()
   }
 

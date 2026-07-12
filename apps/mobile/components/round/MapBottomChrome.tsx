@@ -129,7 +129,11 @@ function ContextualActions(p: MapBottomChromeProps) {
   return (
     <>
       <PrimaryCta label={ballLabel} disabled={ballDisabled} onPress={p.onMarkBallHere} />
-      {(p.ball != null || p.hasGps) && !p.saving && (
+      {/* Gated on a prior shot this hole (#791 step 4): as the FIRST tap it
+          would skip persisting the stroke that reached the green — the putt
+          would save as shot 1 (a phantom ace) and finishHole would skip the
+          review. A putt always follows the shot that got you there. */}
+      {p.totalShotsThisHole > 0 && (p.ball != null || p.hasGps) && !p.saving && (
         <TextChip label="⛳ On the green" onPress={p.onOnGreen} />
       )}
       {p.ballFromGps && !p.saving && (
