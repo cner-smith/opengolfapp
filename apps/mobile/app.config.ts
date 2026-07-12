@@ -8,7 +8,7 @@ const config: ExpoConfig = {
   name: 'OGA',
   slug: 'oga',
   scheme: 'oga',
-  version: '1.0.1',
+  version: '1.1.0',
   // EAS Update (OTA). Ships JS/asset-only fixes to installed builds WITHOUT an
   // App Store / Play review — Apple/Google permit interpreted-code updates that
   // don't add native code or change the app's purpose. Native changes (SDK/RN
