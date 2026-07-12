@@ -18,6 +18,7 @@ import {
 } from './util'
 import { buildOrientedHole, parseHoleFeatures, type HoleWay, type Pt } from './holes-fetcher'
 import {
+  courseHasUserData,
   fetchCoursesForState,
   fetchCoursesWithHoleGeometry,
   mergeAndDeletePhantom,
@@ -550,6 +551,12 @@ export async function crawlComplete(
         totalHoles += holes.length
       }
       for (const c of [...siblings, ...toMerge]) {
+        // Never fold a course a user has played — deleting its holes would
+        // orphan their scorecards (and the FK aborts the whole run). Flag it.
+        if (await courseHasUserData(c.id)) {
+          flagged.push(`${state}: NOT merged "${c.name}" into "${name}" — has user data (manual)`)
+          continue
+        }
         await mergeAndDeletePhantom(c.id, courseId)
         totalMerged++
       }

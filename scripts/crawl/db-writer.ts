@@ -231,6 +231,28 @@ export async function fetchCoursesForState(state: string): Promise<CourseFull[]>
   return all
 }
 
+// True if a course has any user activity — a logged round, or a hole score on
+// one of its holes (the exact FK that aborts a merge's hole delete). A course a
+// user has played is never auto-merged; it's flagged for manual handling.
+export async function courseHasUserData(courseId: string): Promise<boolean> {
+  const r = await supabase
+    .from('rounds')
+    .select('id', { count: 'exact', head: true })
+    .eq('course_id', courseId)
+  if (r.error) throw new Error(`rounds check failed (${courseId}): ${r.error.message}`)
+  if ((r.count ?? 0) > 0) return true
+  const h = await supabase.from('holes').select('id').eq('course_id', courseId)
+  if (h.error) throw new Error(`holes fetch failed (${courseId}): ${h.error.message}`)
+  const holeIds = (h.data ?? []).map((x) => x.id as string)
+  if (holeIds.length === 0) return false
+  const hs = await supabase
+    .from('hole_scores')
+    .select('id', { count: 'exact', head: true })
+    .in('hole_id', holeIds)
+  if (hs.error) throw new Error(`hole_scores check failed (${courseId}): ${hs.error.message}`)
+  return (hs.count ?? 0) > 0
+}
+
 // Fold a duplicate course (a non-OSM centroid inside a real OSM polygon,
 // confirmed by a name match) into the real course. Order matters so a failure
 // can never lose data: (1) move user rounds, (2) MOVE tee ratings — real
