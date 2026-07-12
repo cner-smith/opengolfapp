@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { StyleSheet } from 'react-native'
+import { StyleSheet, Text, TextInput } from 'react-native'
 import { Stack } from 'expo-router'
 import { StatusBar } from 'expo-status-bar'
 import { GestureHandlerRootView } from 'react-native-gesture-handler'
@@ -24,6 +24,19 @@ import '../global.css'
 void SplashScreen.preventAutoHideAsync().catch(() => {
   // No-op: another path may have already hidden it (HMR reload, fast refresh).
 })
+
+// Cap accessibility font scaling (#808). At max iOS Larger-Text / Display-Zoom,
+// every <Text> scales unbounded and overflows the fixed-size live-round overlays
+// until the floating HUD pills overlap and the interface is unusable. 1.3× still
+// honors larger-text users while staying within what the layouts can absorb.
+// Text.defaultProps is the standard RN global for this (deprecation-warns under
+// React 19 but still applies to every Text/TextInput that doesn't override it).
+const MAX_FONT_SCALE = 1.3
+for (const Comp of [Text, TextInput] as unknown as Array<{
+  defaultProps?: { maxFontSizeMultiplier?: number }
+}>) {
+  Comp.defaultProps = { ...Comp.defaultProps, maxFontSizeMultiplier: MAX_FONT_SCALE }
+}
 
 const FADE_OUT_DURATION = 350
 
