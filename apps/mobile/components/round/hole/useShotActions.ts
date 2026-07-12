@@ -67,7 +67,7 @@ export interface UseShotActionsResult {
   persistPutt: (v: PuttingValue) => Promise<void>
   persistRoundPin: (loc: LatLng) => Promise<void>
   clearRoundPin: () => Promise<void>
-  markBallHere: () => Promise<void>
+  markBallHere: (opts?: { toGreen?: boolean }) => Promise<void>
   handleOnGreenYes: () => void
   handleOnGreenNo: () => void
   confirmAim: () => void
@@ -314,6 +314,13 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
       notes: v.notes,
     }
     await persistShot(meta)
+    // Made IS the hole-out (#791 step 4): the putt that drops ends the hole,
+    // so go straight to the end-of-hole summary rather than back to PLACE_BALL.
+    // A miss falls through — persistShot already returned to PLACE_BALL for the
+    // next putt. The "On the green" chip is gated on totalShotsThisHole > 0
+    // (MapBottomChrome), so a putt is never the hole's first shot: previousShots
+    // is ≥1 here and finishHole opens the summary, never the empty-hole advance.
+    if (v.puttMade === true) finishHole()
   }
 
   async function persistRoundPin(loc: LatLng) {
@@ -387,7 +394,7 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
     }
   }
 
-  async function markBallHere() {
+  async function markBallHere(opts?: { toGreen?: boolean }) {
     // Use the dragged ball if the player set one, otherwise fall back to
     // raw GPS — "Mark ball here" should always work as long as we know
     // where the player is, even if they haven't tapped the map to drop
@@ -452,6 +459,15 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
     }
     setBall(ballSnapshot)
     setAim(null)
+    // On the green (#791 step 4): the marked ball is the putt's start. Skip
+    // aiming entirely — Made/Missed is the action. Seed lie=green/putter so
+    // persistPutt writes a putt; the make-% readout + read live in PuttingSheet.
+    // Overrides capture mode (a putt is a putt in either mode).
+    if (opts?.toGreen) {
+      setLoggerInitial({ lieType: 'green', club: 'putter' })
+      setRoundState('PUTTING')
+      return
+    }
     // Just-track mode (#791 step 3): no aim step. Save the location right away
     // — passing the fresh ball since setBall hasn't committed — and persistShot
     // loops back to PLACE_BALL for the next ball. Putt-ness / club / lie are

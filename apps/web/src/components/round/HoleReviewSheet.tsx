@@ -14,6 +14,7 @@ import {
   horizontalBreakFromAim,
   isPuttEntry,
   isPuttShot,
+  tourMakePercent,
   type BreakDirectionHorizontal,
   type BreakDirectionVertical,
   type Club,
@@ -526,6 +527,12 @@ function ShotRow({
   // distance must NOT classify: a chip/bunker inside 30 yd is not a putt,
   // and unmapped rows read distanceToPin 0 (#660).
   const isPutt = isPuttEntry(row.lieType, row.club)
+  // Tour make-% readout (#791 step 4) — parity with mobile's putting sheet.
+  // Only meaningful with a real distance (0 = no pin known).
+  const puttTourPct =
+    isPutt && row.distanceYards > 0
+      ? tourMakePercent(row.distanceYards * 3)
+      : null
   const { toDisplay, toDisplayFt } = useUnits()
   const { bag } = useUserBag()
   // Source the club options from the user's bag, falling back to
@@ -609,6 +616,11 @@ function ShotRow({
             ? `${toDisplayFt(row.distanceYards * 3)} putt`
             : toDisplay(row.distanceYards)}
         </span>
+        {puttTourPct != null && (
+          <span className="text-caddie-ink-mute" style={{ fontSize: 12 }}>
+            tour {puttTourPct}%
+          </span>
+        )}
         <span
           className="text-caddie-ink-mute"
           style={{ fontSize: 12, marginLeft: 'auto' }}

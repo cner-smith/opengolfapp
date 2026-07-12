@@ -683,6 +683,7 @@ export default function LiveRoundSession({
           }}
           onSkipAim={actions.skipAim}
           onMarkBallHere={actions.markBallHere}
+          onOnGreen={() => actions.markBallHere({ toGreen: true })}
           onAddShot={() => {
             // Opt back into the live append flow on a revisited played hole:
             // re-arm the GPS ball + auto-aim and enter PLACE_BALL (#484).
