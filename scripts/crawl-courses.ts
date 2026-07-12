@@ -43,6 +43,7 @@ import { crawlOsmHoles } from './crawl/holes-fetcher'
 import { crawlEnrich, crawlOpenGolfApi } from './crawl/enricher'
 import { crawlComplete } from './crawl/completer'
 import { crawlGeocode } from './crawl/geocoder'
+import { crawlReconcile } from './crawl/reconciler'
 import type { Args, Source } from './crawl/types'
 
 function parseArgs(argv: string[]): Args {
@@ -53,6 +54,7 @@ function parseArgs(argv: string[]): Args {
   let limit: number | null = null
   let maxCourses: number | null = null
   let dryRun = false
+  let apply = false
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i]
     const next = argv[i + 1]
@@ -65,6 +67,7 @@ function parseArgs(argv: string[]): Args {
         'osm-holes',
         'geocode',
         'complete',
+        'reconcile',
       ] as const
       if (!allowed.includes(next as Source)) {
         throw new Error(`--source must be one of ${allowed.join(', ')} (got: ${next})`)
@@ -81,6 +84,8 @@ function parseArgs(argv: string[]): Args {
       force = true
     } else if (a === '--dry-run') {
       dryRun = true
+    } else if (a === '--apply') {
+      apply = true
     } else if (a === '--status') {
       status = true
     } else if (a === '--limit' && next) {
@@ -95,7 +100,7 @@ function parseArgs(argv: string[]): Args {
       i++
     }
   }
-  return { source, states, force, status, limit, maxCourses, dryRun }
+  return { source, states, force, status, limit, maxCourses, dryRun, apply }
 }
 
 async function showStatus(): Promise<void> {
@@ -137,6 +142,7 @@ async function main(): Promise<void> {
         '  tsx scripts/crawl-courses.ts --source enrich [--states TX,OK] [--force]\n' +
         '  tsx scripts/crawl-courses.ts --source opengolfapi [--states TX,OK] [--force]\n' +
         '  tsx scripts/crawl-courses.ts --source geocode [--limit N]\n' +
+        '  tsx scripts/crawl-courses.ts --source reconcile [--states RI] [--apply]\n' +
         '  tsx scripts/crawl-courses.ts --status',
     )
     process.exit(1)
@@ -154,6 +160,16 @@ async function main(): Promise<void> {
   if (args.source === 'geocode') {
     console.log(`Geocode crawl${args.limit != null ? ` (limit ${args.limit})` : ''}`)
     await crawlGeocode(args.limit)
+    return
+  }
+
+  // Reconcile queries the courses table by state string (no bbox needed).
+  if (args.source === 'reconcile') {
+    const states = args.states ?? Object.keys(STATE_BBOX)
+    console.log(
+      `Reconcile (exact-dup): ${states.length} state(s)${args.apply ? ' [APPLY]' : ' [dry-run]'}`,
+    )
+    await crawlReconcile(states, args.apply)
     return
   }
 

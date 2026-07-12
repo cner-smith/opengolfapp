@@ -101,6 +101,7 @@ export type Source =
   | 'osm-holes'
   | 'geocode'
   | 'complete'
+  | 'reconcile'
 
 /** A hole with optional per-hole geometry, written by the osm-holes pass. */
 export interface OgaHoleGeo {
@@ -143,6 +144,7 @@ export interface Args {
   limit: number | null // optional cap on courses per state (for testing)
   maxCourses: number | null // global cap on API-processed courses this run (enrich rate-limit budget)
   dryRun: boolean // completion pass: report changes without writing
+  apply: boolean // reconcile pass: actually merge/delete (default is dry)
 }
 
 export interface CrawlStateRow {
