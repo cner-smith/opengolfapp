@@ -27,6 +27,23 @@ import {
   type CourseFull,
 } from './db-writer'
 import type { OgaHoleGeo, OverpassGeomElement, OverpassGeomResponse } from './types'
+import { writeFileSync } from 'node:fs'
+
+// Structured flag record for the reconciliation pass. Written to disk per-state
+// so a mid-run crash (the WI/Deertrak FK abort lost the whole national flag set)
+// never strands the flags in memory. Reconcile consumes this JSON directly —
+// no log→regex step. Override the path with FLAGS_OUT.
+interface FlagRecord {
+  kind: 'dup' | 'adopt' | 'odd' | 'multiloop' | 'userdata'
+  state: string
+  extId?: string
+  name?: string // canonical polygon/course name
+  other?: string // the duplicate / adopted / user-data course name
+  otherId?: string // duplicate course DB id (dup only — the row to act on)
+  holes?: number
+  lat?: number
+  lng?: number
+}
 
 const USER_AGENT = 'oga-course-crawler/0.1 (https://github.com/cner-smith/opengolfapp)'
 
@@ -351,6 +368,9 @@ export async function crawlComplete(
   let totalMerged = 0
   const flagged: string[] = []
   const oddCount: string[] = []
+  const flagRecords: FlagRecord[] = []
+  const flagsPath = process.env.FLAGS_OUT ?? '/tmp/reconcile-flags.json'
+  const flushFlags = () => writeFileSync(flagsPath, JSON.stringify(flagRecords, null, 2))
   for (const state of states) {
     console.log(`[complete:${state}] querying Overpass (polygons + holes)…`)
     const elements = await fetchStateGeom(state)
@@ -429,6 +449,14 @@ export async function crawlComplete(
           }
         if (total - refs.size >= MULTILOOP_OVERLAP) {
           for (const i of idxs) units.push([i])
+          flagRecords.push({
+            kind: 'multiloop',
+            state,
+            name: polygons[idxs[0]].name ?? undefined,
+            holes: idxs.length,
+            lat: polygons[idxs[0]].centroid.lat,
+            lng: polygons[idxs[0]].centroid.lng,
+          })
           flagged.push(
             `${state}: multi-loop "${polygons[idxs[0]].name ?? '?'}" kept as ${idxs.length} separate courses`,
           )
@@ -505,14 +533,47 @@ export async function crawlComplete(
       // unrelated polygon).
       const toMerge = inside.filter((c) => namesMatch(c.name, name))
       const toFlag = inside.filter((c) => !namesMatch(c.name, name))
-      for (const c of toFlag) flagged.push(`${state}: "${name}" (${extId}) ⊃ "${c.name}"`)
-      if (adopted)
+      for (const c of toFlag) {
+        flagRecords.push({
+          kind: 'dup',
+          state,
+          extId,
+          name,
+          other: c.name,
+          otherId: c.id,
+          lat: poly.centroid.lat,
+          lng: poly.centroid.lng,
+        })
+        flagged.push(`${state}: "${name}" (${extId}) ⊃ "${c.name}"`)
+      }
+      if (adopted) {
+        flagRecords.push({
+          kind: 'adopt',
+          state,
+          extId,
+          name,
+          other: adopted,
+          lat: poly.centroid.lat,
+          lng: poly.centroid.lng,
+        })
         flagged.push(`${state}: adopted name "${adopted}" for nameless ${extId} — verify`)
+      }
 
       // Real courses are 9 / 18 (/27/36, but we cap at 18). Anything 1-17 except
       // 9 means dropped or still-fragmented holes — surface it loudly.
       const suspicious = holes.length > 0 && holes.length !== 9 && holes.length < 18
-      if (suspicious) oddCount.push(`${state}: "${name}" — ${holes.length} holes (${extId})`)
+      if (suspicious) {
+        flagRecords.push({
+          kind: 'odd',
+          state,
+          extId,
+          name,
+          holes: holes.length,
+          lat: poly.centroid.lat,
+          lng: poly.centroid.lng,
+        })
+        oddCount.push(`${state}: "${name}" — ${holes.length} holes (${extId})`)
+      }
       const foldCount = siblings.length + toMerge.length
 
       const hasGeom = existingCourse ? withGeom.has(existingCourse.id) : false
@@ -554,6 +615,7 @@ export async function crawlComplete(
         // Never fold a course a user has played — deleting its holes would
         // orphan their scorecards (and the FK aborts the whole run). Flag it.
         if (await courseHasUserData(c.id)) {
+          flagRecords.push({ kind: 'userdata', state, extId, name, other: c.name, otherId: c.id })
           flagged.push(`${state}: NOT merged "${c.name}" into "${name}" — has user data (manual)`)
           continue
         }
@@ -563,8 +625,11 @@ export async function crawlComplete(
       // Live progress: one line per course that actually changed.
       if (changes.length) console.log(`[complete:${state}] ✓ ${name} — ${changes.join('; ')}`)
     }
+    flushFlags() // crash-safe: persist after every state
     await sleep(OSM_DELAY_MS)
   }
+  flushFlags()
+  console.log(`\n${flagRecords.length} flag records → ${flagsPath}`)
   console.log(
     `\ncomplete${dryRun ? ' (DRY-RUN)' : ''}: ${totalCourses} courses, ${totalHoles} holes, ${totalMerged} folded, ${flagged.length} flagged, ${oddCount.length} odd hole counts`,
   )
