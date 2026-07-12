@@ -41,6 +41,9 @@ interface MapBottomChromeProps {
   onRePlaceBall: () => void
   onSkipAim: () => void
   onMarkBallHere: () => void
+  /** Quiet, non-blocking on-green entry (#791 step 4): marks the ball where
+   *  it lies and enters the putting flow (Made/Missed + make-%). */
+  onOnGreen: () => void
   /** Opt into the live append flow on a revisited played hole. Optional — its
    *  partner `isRevisitingPlayedHole` is the only path that reaches it. */
   onAddShot?: () => void
@@ -126,6 +129,9 @@ function ContextualActions(p: MapBottomChromeProps) {
   return (
     <>
       <PrimaryCta label={ballLabel} disabled={ballDisabled} onPress={p.onMarkBallHere} />
+      {(p.ball != null || p.hasGps) && !p.saving && (
+        <TextChip label="⛳ On the green" onPress={p.onOnGreen} />
+      )}
       {p.ballFromGps && !p.saving && (
         <View
           style={{

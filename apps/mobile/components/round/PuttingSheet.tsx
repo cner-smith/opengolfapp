@@ -13,6 +13,7 @@ import {
   FEET_TO_CM,
   combinedBreakDirection,
   horizontalBreakFromAim,
+  tourMakePercent,
   type BreakDirectionHorizontal,
   type BreakDirectionVertical,
   type GreenSpeed,
@@ -190,6 +191,10 @@ export function PuttingSheet({
   const { height: windowHeight } = useWindowDimensions()
   const { pan, cardStyle } = useSwipeToDismiss(onClose)
   const distance = value.puttDistanceFt ?? 0
+  // Make-% readout (#791 step 4). Tour make rate from this distance, shown the
+  // moment the ball is marked. Only meaningful with a real distance (a pin was
+  // known) — hidden at 0 ft. The player's own "You" rate blends in later.
+  const tourPct = distance > 0 ? tourMakePercent(distance) : null
 
   return (
     <AnimatedKeyboardAvoidingView
@@ -289,6 +294,31 @@ export function PuttingSheet({
         style={{ maxHeight: windowHeight * 0.72, flexShrink: 1 }}
         contentContainerStyle={{ paddingTop: 14, paddingBottom: 8 }}
       >
+        {tourPct != null && (
+          <View
+            style={{
+              flexDirection: 'row',
+              alignItems: 'baseline',
+              justifyContent: 'center',
+              gap: 8,
+              paddingVertical: 10,
+              marginBottom: 4,
+              borderRadius: 8,
+              backgroundColor: '#EBE5D6',
+            }}
+          >
+            <Text style={[TYPE.serifUpright, { color: '#1C211C', fontSize: 22, fontVariant: ['tabular-nums'] }]}>
+              {Math.round(distance)} ft
+            </Text>
+            <Text style={[TYPE.body, { color: '#5C6356', fontSize: 13 }]}>
+              · tour makes{' '}
+              <Text style={[TYPE.bodyBold, { color: '#1F3D2C', fontWeight: '600' }]}>
+                {tourPct}%
+              </Text>
+            </Text>
+          </View>
+        )}
+
         <GreenDiagram
           distanceFt={distance}
           aimOffsetInches={value.aimOffsetInches ?? 0}
