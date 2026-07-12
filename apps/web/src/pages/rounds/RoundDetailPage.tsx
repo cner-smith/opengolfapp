@@ -11,7 +11,12 @@ import { ShareableScorecardCard } from '../../components/round/ShareableScorecar
 import { HoleReviewSheet } from '../../components/round/HoleReviewSheet'
 import { WebPuttingSheet } from '../../components/round/WebPuttingSheet'
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
-import { DEFAULT_HANDICAP, haversineYards, inferHoleCount } from '@oga/core'
+import {
+  DEFAULT_HANDICAP,
+  haversineYards,
+  inferHoleCount,
+  type CaptureMode,
+} from '@oga/core'
 import { useAuth } from '../../hooks/useAuth'
 import { useProfile } from '../../hooks/useProfile'
 import { toUserMessage } from '../../lib/errors'
@@ -35,10 +40,6 @@ export function RoundDetailPage() {
   const { user } = useAuth()
 
   const [confirmDelete, setConfirmDelete] = useState(false)
-  // "On the green?" confirmation. Holds the placed point while the
-  // dialog is open. Cleared on either response — Yes pushes with the
-  // putting sheet, No pushes without it.
-  const [onGreenPrompt, setOnGreenPrompt] = useState<PlacedPoint | null>(null)
   // "Set an aim point?" prompt — opens after every non-putt PUSH_POINT
   // so the player decides explicitly whether this shot has aim data.
   // Replaces the easy-to-miss "Set aim" button on the strip as the
@@ -151,6 +152,7 @@ export function RoundDetailPage() {
     profile,
     data,
     isLiveEntry,
+    captureMode: (round.data?.capture_mode ?? 'track_patterns') as CaptureMode,
     pinOverride,
     teeOverride,
     placedAims,
@@ -165,7 +167,6 @@ export function RoundDetailPage() {
     setConfirmDelete,
     setCompleteError,
     setSharing,
-    setOnGreenPrompt,
     setAimPromptOpen,
   })
   const {
@@ -283,32 +284,6 @@ export function RoundDetailPage() {
         onCancel={() => setConfirmDelete(false)}
       />
 
-      <ConfirmDialog
-        open={onGreenPrompt != null}
-        title="On the green?"
-        message="Within 30 yd of the pin — were you putting, or chipping/in a bunker?"
-        confirmLabel="Yes, I'm putting"
-        cancelLabel="No"
-        onConfirm={() => {
-          if (onGreenPrompt) {
-            dispatchHoleView({
-              type: 'PUSH_POINT',
-              point: onGreenPrompt,
-              openPuttSheet: true,
-            })
-          }
-          setOnGreenPrompt(null)
-        }}
-        onCancel={() => {
-          if (onGreenPrompt) {
-            // Not putting (chip / bunker / fringe) — push as a normal shot
-            // through the shared path so live entry auto-spawns the aim and
-            // past-round entry gets the explicit aim prompt.
-            placeHandlers.onConfirmNonPutt(onGreenPrompt)
-          }
-          setOnGreenPrompt(null)
-        }}
-      />
 
       <ConfirmDialog
         open={aimPromptOpen}

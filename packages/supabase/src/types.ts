@@ -251,6 +251,7 @@ export type Database = {
           par: number | null
           pin_lat: number | null
           pin_lng: number | null
+          penalties: number
           putts: number | null
           round_id: string
           score: number
@@ -267,6 +268,7 @@ export type Database = {
           par?: number | null
           pin_lat?: number | null
           pin_lng?: number | null
+          penalties?: number
           putts?: number | null
           round_id: string
           score: number
@@ -283,6 +285,7 @@ export type Database = {
           par?: number | null
           pin_lat?: number | null
           pin_lng?: number | null
+          penalties?: number
           putts?: number | null
           round_id?: string
           score?: number
@@ -458,6 +461,7 @@ export type Database = {
       }
       rounds: {
         Row: {
+          capture_mode: string
           completed_at: string | null
           course_id: string
           course_tee_id: string | null
@@ -481,6 +485,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          capture_mode?: string
           completed_at?: string | null
           course_id: string
           course_tee_id?: string | null
@@ -504,6 +509,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          capture_mode?: string
           completed_at?: string | null
           course_id?: string
           course_tee_id?: string | null

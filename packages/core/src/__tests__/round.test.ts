@@ -3,6 +3,7 @@ import {
   buildInitialRows,
   inferHoleCount,
   isPuttShot,
+  isPuttEntry,
   legacySlopeToAxes,
   playedRowsForDifferential,
   summarizePuttParts,
@@ -133,6 +134,24 @@ describe('isPuttShot', () => {
   it('null/undefined lie is NOT a putt', () => {
     expect(isPuttShot(null)).toBe(false)
     expect(isPuttShot(undefined)).toBe(false)
+  })
+})
+
+describe('isPuttEntry', () => {
+  it('green lie with the putter is a putt', () => {
+    expect(isPuttEntry('green', 'putter')).toBe(true)
+  })
+  it('green lie with a wedge is NOT a putt (on-green chip)', () => {
+    expect(isPuttEntry('green', 'lw')).toBe(false)
+    expect(isPuttEntry('green', '9i')).toBe(false)
+  })
+  it('putter off the green (Texas wedge) is NOT a putt', () => {
+    expect(isPuttEntry('fringe', 'putter')).toBe(false)
+    expect(isPuttEntry('fairway', 'putter')).toBe(false)
+  })
+  it('null lie or club is NOT a putt', () => {
+    expect(isPuttEntry(null, 'putter')).toBe(false)
+    expect(isPuttEntry('green', null)).toBe(false)
   })
 })
 

@@ -65,6 +65,12 @@ export interface ReviewedShotRow {
   greenSpeed?: GreenSpeed
   /** Free-text note on the putt. Stored as notes. */
   notes?: string
+  /** Shot outcome — solid / push_right / thin / … Stored as shot_result. */
+  shotResult?: ShotResult
+  /** Lie slope, uphill axis (uphill/level/downhill). Stored as lie_slope_forward. */
+  lieSlopeForward?: LieSlopeForward
+  /** Lie slope, side axis (ball_above/ball_below). Stored as lie_slope_side. */
+  lieSlopeSide?: LieSlopeSide
 }
 
 // Infer how many holes a course actually has from the hole NUMBERS we
@@ -112,6 +118,18 @@ export function playedRowsForDifferential<T extends { score: number }>(
 // snake_case DB rows share it.
 export function isPuttShot(lieType: string | null | undefined): boolean {
   return lieType === 'green'
+}
+
+// Entry-surface classification for the end-of-hole review: show the PUTT UI
+// only when the player putted (green lie AND the putter). This deliberately
+// differs from isPuttShot (lie-only): the rare "on the green but chipped/bladed
+// a wedge" shot keeps a normal club + result. Its inverse, a Texas wedge off
+// the green (putter, non-green lie), also stays a normal shot. #691/#732.
+export function isPuttEntry(
+  lieType: string | null | undefined,
+  club: string | null | undefined,
+): boolean {
+  return lieType === 'green' && club === 'putter'
 }
 
 // Structural subset of a snake_case shots row that the shot-summary

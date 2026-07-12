@@ -9,8 +9,15 @@ import { PressableTouch } from '../ui/PressableTouch'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useRouter } from 'expo-router'
 import { HoleMap, type LatLng } from './HoleMap'
+import { HoleReviewSheet } from './HoleReviewSheet'
 import type { ShotLoggerValue } from './ShotLogger'
-import { DEFAULT_HANDICAP, bearingDegrees, destinationYards } from '@oga/core'
+import {
+  DEFAULT_HANDICAP,
+  bearingDegrees,
+  buildInitialRows,
+  destinationYards,
+  type CaptureMode,
+} from '@oga/core'
 import { getProfile } from '@oga/supabase'
 import { supabase } from '../../lib/supabase'
 import { distanceYards } from '../../lib/maps'
@@ -49,6 +56,10 @@ interface LiveRoundSessionProps {
   roundId: string | undefined
   initialHoleNumber: number
   mode: 'live' | 'past'
+  // Live capture mode (rounds.capture_mode). 'just_track' saves ball
+  // locations only; 'track_patterns' captures an aim per shot. Defaults to
+  // 'track_patterns' at the call site.
+  captureMode: CaptureMode
   // Called whenever the player navigates to a new hole. The parent uses
   // this to keep the URL in sync (router.setParams) — but never to
   // remount the screen, which is the whole point of this component.
@@ -64,6 +75,7 @@ export default function LiveRoundSession({
   roundId,
   initialHoleNumber,
   mode,
+  captureMode,
   onHoleChange: syncHoleToUrl,
 }: LiveRoundSessionProps) {
   const isPastMode = mode === 'past'
@@ -281,10 +293,33 @@ export default function LiveRoundSession({
       ? data.remoteShotCount + data.localShotCount
       : 0
 
+  // End-of-hole review rows. Built from the shots placed live (their start
+  // coords, in order) via the shared @oga/core inference — same call the web
+  // review sheet uses. Only computed while the summary is open. The pin
+  // anchors the last shot's end + every shot's distance-to-pin; with no pin
+  // (unmapped hole, none placed) the last placed point stands in so distances
+  // degrade to ~0 rather than exploding off [0,0].
+  const summaryRows = useMemo(() => {
+    if (finalState.roundState !== 'SUMMARY') return []
+    const pts = data.previousShots
+    if (pts.length === 0) return []
+    const pin = data.roundPin ?? data.storedPin ?? pts[pts.length - 1]!
+    const par = data.currentHoleScore?.par ?? data.currentHole?.par ?? 4
+    return buildInitialRows(pts, par, pin.lat, pin.lng)
+  }, [
+    finalState.roundState,
+    data.previousShots,
+    data.roundPin,
+    data.storedPin,
+    data.currentHoleScore?.par,
+    data.currentHole?.par,
+  ])
+
   const actions = useShotActions({
     id: roundId,
     user,
     holeNumber,
+    captureMode,
     data,
     state: finalState,
     setLoggerOpen,
@@ -648,6 +683,7 @@ export default function LiveRoundSession({
           }}
           onSkipAim={actions.skipAim}
           onMarkBallHere={actions.markBallHere}
+          onOnGreen={() => actions.markBallHere({ toGreen: true })}
           onAddShot={() => {
             // Opt back into the live append flow on a revisited played hole:
             // re-arm the GPS ball + auto-aim and enter PLACE_BALL (#484).
@@ -731,6 +767,20 @@ export default function LiveRoundSession({
         onGreenNo={actions.handleOnGreenNo}
         onAimPromptConfirm={actions.handleAimPromptConfirm}
         onAimPromptSkip={actions.handleAimPromptSkip}
+      />
+
+      {/* End-of-hole review — full-screen overlay (zIndex 40). Confirms each
+          shot's club / lie / result + putt read for the shots logged
+          location-only during play, then writes metadata + hole_scores and
+          advances (#791). */}
+      <HoleReviewSheet
+        visible={finalState.roundState === 'SUMMARY'}
+        holeNumber={holeNumber}
+        par={data.currentHoleScore?.par ?? data.currentHole.par}
+        initialRows={summaryRows}
+        saving={actions.saving}
+        onSave={actions.saveHoleSummary}
+        onEditOnMap={actions.editHoleOnMap}
       />
 
       {/* Round-options popover. Full-screen transparent backdrop catches the

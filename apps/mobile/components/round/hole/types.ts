@@ -7,7 +7,16 @@
 // SHOT_DETAIL: ShotLogger sheet open; save returns to PLACE_BALL.
 // PUTTING: PuttingSheet open with green diagram; save returns to PLACE_BALL
 //   (player loops here for each successive putt).
-export type RoundState = 'PLACE_BALL' | 'SET_AIM' | 'SHOT_DETAIL' | 'PUTTING'
+// SUMMARY: end-of-hole review sheet (HoleReviewSheet) open — the player
+//   confirms/annotates every placed shot's club/lie/result + putt read, then
+//   save writes the metadata + hole_scores and advances. Shots are logged
+//   location-only during play; their details are captured here (#791).
+export type RoundState =
+  | 'PLACE_BALL'
+  | 'SET_AIM'
+  | 'SHOT_DETAIL'
+  | 'PUTTING'
+  | 'SUMMARY'
 
 // Mutually exclusive confirm dialog for the live-round screen. Only one
 // can be on screen at a time by construction — solves the "back button

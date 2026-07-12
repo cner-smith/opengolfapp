@@ -5,15 +5,21 @@ import type { User } from '@supabase/supabase-js'
 import {
   combinedBreakDirection,
   combinedPuttResult,
+  inferHoleStats,
+  isPuttEntry,
   isPuttShot,
+  type CaptureMode,
   type LieType,
+  type ReviewedShotRow,
 } from '@oga/core'
 import { deleteRound, getProfile } from '@oga/supabase'
 import { supabase } from '../../../lib/supabase'
 import {
+  allShotsForHoleScore,
   insertPendingShot,
   pendingCount,
   setPendingShotEnd,
+  upsertReviewedShot,
   type ShotPayload,
 } from '../../../lib/db'
 import { syncPendingShots } from '../../../lib/sync'
@@ -22,7 +28,7 @@ import { completeRound } from '../../../lib/completeRound'
 import type { LatLng } from '../HoleMap'
 import type { ShotLoggerValue } from '../ShotLogger'
 import type { PuttingValue } from '../PuttingSheet'
-import { PUTTING_RADIUS_YARDS, type ActiveDialog } from './types'
+import { type ActiveDialog } from './types'
 import type { UseHoleDataResult } from './useHoleData'
 import type { UseHoleStateResult } from './useHoleState'
 
@@ -30,6 +36,10 @@ interface UseShotActionsInput {
   id: string | undefined
   user: User | null
   holeNumber: number
+  // Live capture mode (rounds.capture_mode). In 'just_track', markBallHere
+  // saves the location immediately and never enters SET_AIM; 'track_patterns'
+  // keeps the aim step.
+  captureMode: CaptureMode
   data: UseHoleDataResult
   state: UseHoleStateResult
   // Component-level UI state setters.
@@ -57,7 +67,7 @@ export interface UseShotActionsResult {
   persistPutt: (v: PuttingValue) => Promise<void>
   persistRoundPin: (loc: LatLng) => Promise<void>
   clearRoundPin: () => Promise<void>
-  markBallHere: () => Promise<void>
+  markBallHere: (opts?: { toGreen?: boolean }) => Promise<void>
   handleOnGreenYes: () => void
   handleOnGreenNo: () => void
   confirmAim: () => void
@@ -69,6 +79,15 @@ export interface UseShotActionsResult {
   swapPuttingToShot: (lieType: LieType) => void
   navigateHole: (delta: number) => void
   finishHole: () => void
+  // End-of-hole review save: attach the confirmed metadata to every shot
+  // logged live on this hole, write the hole_scores tallies, then advance.
+  saveHoleSummary: (
+    rows: ReviewedShotRow[],
+    summary: { score: number; putts: number; penalties: number },
+  ) => Promise<void>
+  // Dismiss the summary back to the live map so the player can fix ball
+  // positions (add / re-place a shot) before reopening the review.
+  editHoleOnMap: () => void
   handleEndRound: () => Promise<void>
   handleDeleteRound: () => Promise<void>
   handleExitFromError: () => void
@@ -79,6 +98,7 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
     id,
     user,
     holeNumber,
+    captureMode,
     data,
     state,
     setLoggerOpen,
@@ -113,9 +133,13 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
     roundPin,
     remotePuttCount,
     localPuttCount,
+    previousShots,
     shotNumber,
     holeCount,
   } = data
+  // Guards a double-fire of the end-of-hole save the same way persistShot
+  // guards its own — the `saving` state setter commits a tick late.
+  const saveSummaryInFlightRef = useRef(false)
   const {
     ball,
     setBall,
@@ -131,26 +155,40 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
     setAppendEngaged,
   } = state
 
-  function buildPayload(meta: ShotLoggerValue | null): ShotPayload | null {
-    if (!user || !currentHoleScore || !ball) return null
+  function buildPayload(
+    meta: ShotLoggerValue | null,
+    opts?: { forceAim?: boolean; ball?: LatLng },
+  ): ShotPayload | null {
+    // `ball` state is set async, so a caller that just placed the ball (e.g.
+    // markBallHere in just-track mode) passes it explicitly to avoid reading
+    // the pre-update value out of the closure.
+    const effectiveBall = opts?.ball ?? ball
+    if (!user || !currentHoleScore || !effectiveBall) return null
     const isPutt = isPuttShot(meta?.lieType)
     const pinTarget = roundPin ?? storedPin ?? null
+    // Confirm-aim forces persist (the player accepted even an unadjusted
+    // auto-spawn); skip-aim forces drop; anything else falls back to the
+    // touched flag. `false ?? x === false`, so an explicit false wins.
+    const persistAim = opts?.forceAim ?? aimTouched
     return {
       hole_score_id: currentHoleScore.id,
       user_id: user.id,
       shot_number: shotNumber,
-      start_lat: ball.lat,
-      start_lng: ball.lng,
+      start_lat: effectiveBall.lat,
+      start_lng: effectiveBall.lng,
       end_lat: null,
       end_lng: null,
       // Putts leave this null to match the web save path — a putt's
       // "distance to target" is putt_distance_ft, not this column.
       distance_to_target:
-        !isPutt && pinTarget ? Math.round(distanceYards(ball, pinTarget)) : null,
-      // Persist aim only if the player set/dragged it; an untouched auto-spawn
-      // suggestion is dropped so it can't enter the dispersion dataset.
-      aim_lat: aimTouched ? aim?.lat ?? null : null,
-      aim_lng: aimTouched ? aim?.lng ?? null : null,
+        !isPutt && pinTarget
+          ? Math.round(distanceYards(effectiveBall, pinTarget))
+          : null,
+      // Persist aim only if the player set/dragged it (or explicitly confirmed);
+      // an untouched auto-spawn suggestion is dropped so it can't enter the
+      // dispersion dataset.
+      aim_lat: persistAim ? aim?.lat ?? null : null,
+      aim_lng: persistAim ? aim?.lng ?? null : null,
       club: meta?.club ?? null,
       lie_type: meta?.lieType ?? null,
       lie_slope: null,
@@ -187,9 +225,12 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
     }
   }
 
-  async function persistShot(meta: ShotLoggerValue | null) {
+  async function persistShot(
+    meta: ShotLoggerValue | null,
+    opts?: { forceAim?: boolean; ball?: LatLng },
+  ) {
     if (persistShotInFlightRef.current) return
-    const payload = buildPayload(meta)
+    const payload = buildPayload(meta, opts)
     if (!payload) return
     persistShotInFlightRef.current = true
     setSaving(true)
@@ -273,6 +314,13 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
       notes: v.notes,
     }
     await persistShot(meta)
+    // Made IS the hole-out (#791 step 4): the putt that drops ends the hole,
+    // so go straight to the end-of-hole summary rather than back to PLACE_BALL.
+    // A miss falls through — persistShot already returned to PLACE_BALL for the
+    // next putt. The "On the green" chip is gated on totalShotsThisHole > 0
+    // (MapBottomChrome), so a putt is never the hole's first shot: previousShots
+    // is ≥1 here and finishHole opens the summary, never the empty-hole advance.
+    if (v.puttMade === true) finishHole()
   }
 
   async function persistRoundPin(loc: LatLng) {
@@ -346,7 +394,7 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
     }
   }
 
-  async function markBallHere() {
+  async function markBallHere(opts?: { toGreen?: boolean }) {
     // Use the dragged ball if the player set one, otherwise fall back to
     // raw GPS — "Mark ball here" should always work as long as we know
     // where the player is, even if they haven't tapped the map to drop
@@ -411,15 +459,30 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
     }
     setBall(ballSnapshot)
     setAim(null)
-    const pinTarget = roundPin ?? storedPin ?? null
-    if (pinTarget && distanceYards(ballSnapshot, pinTarget) <= PUTTING_RADIUS_YARDS) {
-      setActiveDialog('onGreen')
+    // On the green (#791 step 4): the marked ball is the putt's start. Skip
+    // aiming entirely — Made/Missed is the action. Seed lie=green/putter so
+    // persistPutt writes a putt; the make-% readout + read live in PuttingSheet.
+    // Overrides capture mode (a putt is a putt in either mode).
+    if (opts?.toGreen) {
+      setLoggerInitial({ lieType: 'green', club: 'putter' })
+      setRoundState('PUTTING')
       return
     }
-    // Go straight into aiming — no "Set aim point?" prompt. The aim line
-    // auto-spawns to the pin (useHoleState) with a draggable midpoint; "Skip
-    // aim" stays available in the SET_AIM bottom chrome. (The on-green prompt
-    // above is kept.)
+    // Just-track mode (#791 step 3): no aim step. Save the location right away
+    // — passing the fresh ball since setBall hasn't committed — and persistShot
+    // loops back to PLACE_BALL for the next ball. Putt-ness / club / lie are
+    // still decided at the end-of-hole review.
+    if (captureMode === 'just_track') {
+      await persistShot(null, { forceAim: false, ball: ballSnapshot })
+      return
+    }
+    // Track-patterns mode: every shot goes into aiming — the on-green "are you
+    // putting?" prompt was dropped (#791). During play a putt is just another
+    // location; whether it WAS a putt is decided at the end-of-hole review from
+    // the ball's position (green lie → putter), where the break / speed / aimer
+    // now live. The aim line auto-spawns to the pin (useHoleState) with a
+    // draggable midpoint; "Skip aim" stays in the SET_AIM chrome for a tap-in
+    // the player won't bother aiming.
     setRoundState('SET_AIM')
   }
 
@@ -449,18 +512,20 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
   }
 
   function confirmAim() {
-    // Confirming is an explicit acceptance of the aim — even the unadjusted
-    // auto-suggestion — so mark it touched and persist it. ('Skip aim' clears
-    // the aim instead, so that path stays unpersisted.)
-    setAimTouched(true)
-    setRoundState('SHOT_DETAIL')
-    setLoggerOpen(true)
+    // Location-now, details-at-EOH (#791): confirming the aim saves the shot
+    // as a location (+ this accepted aim) and loops straight back to placing
+    // the next ball — no ShotLogger. forceAim:true persists even an unadjusted
+    // auto-spawn, since the player explicitly accepted it. persistShot clears
+    // the aim and returns to PLACE_BALL. Club / lie / result are captured in
+    // the end-of-hole review.
+    void persistShot(null, { forceAim: true })
   }
 
   function skipAim() {
-    setAim(null)
-    setRoundState('SHOT_DETAIL')
-    setLoggerOpen(true)
+    // Same location-only save, minus the aim — a tap-in or a shot the player
+    // won't bother aiming. forceAim:false drops the auto-spawn suggestion so it
+    // can't enter the dispersion dataset.
+    void persistShot(null, { forceAim: false })
   }
 
   function handleAimPromptConfirm() {
@@ -504,6 +569,19 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
   }
 
   function finishHole() {
+    // Nothing placed on this hole → nothing to review; advance straight on
+    // (a skipped / walked hole). Otherwise open the end-of-hole review so the
+    // player confirms each shot's details before moving on (#791).
+    if (previousShots.length === 0) {
+      advanceAfterHole()
+      return
+    }
+    setRoundState('SUMMARY')
+  }
+
+  // Post-hole navigation, shared by finishHole (empty hole) and
+  // saveHoleSummary (after the review saves).
+  function advanceAfterHole() {
     if (holeNumber < holeCount) {
       onHoleChange(holeNumber + 1)
     } else {
@@ -512,6 +590,209 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
       // round stays unfinished (blank total, reappears as resumable). Same
       // path as "End round early". (#639)
       void handleEndRound()
+    }
+  }
+
+  // Back out of the review to the live map so the player can add or re-place a
+  // ball, then reopen the summary. Mobile has no drag-existing-marker mode, so
+  // "edit on map" drops to PLACE_BALL — the append flow, which can add / re-mark
+  // a shot before finishing again.
+  function editHoleOnMap() {
+    setRoundState('PLACE_BALL')
+  }
+
+  // End-of-hole save. Mirrors the web review sheet's replace-all write, but
+  // attaches metadata to the shots the player already logged live rather than
+  // recreating them: each reviewed row is paired back to its live shot by
+  // shot_number so the shot's client id (and its live-captured aim) carry
+  // through, and the merged payload is re-queued via upsertReviewedShot →
+  // idempotent re-sync updates the same server row (no delete, no duplicates
+  // offline). Then the hole_scores tallies are written and the hole advances.
+  async function saveHoleSummary(
+    rows: ReviewedShotRow[],
+    summary: { score: number; putts: number; penalties: number },
+  ) {
+    if (!user || !currentHoleScore || !currentHole) return
+    if (saveSummaryInFlightRef.current) return
+    saveSummaryInFlightRef.current = true
+    setSaving(true)
+    try {
+      // Pair reviewed rows to the live shots by shot_number. Local queue
+      // (pending + synced) is the primary source for id + live aim; the
+      // remote table is the fallback for a shot whose local row was purged
+      // after a prior session's sync (restart mid-hole). BOTH reads get a
+      // one-retry (mirrors useHoleData's SQLite/remote reads) — a transient
+      // failure that empties either map must not silently strand a shot on
+      // the abort path below.
+      let localRows = await allShotsForHoleScore(currentHoleScore.id).catch(
+        () => null,
+      )
+      if (localRows === null) {
+        localRows = await allShotsForHoleScore(currentHoleScore.id).catch(
+          () => [] as Awaited<ReturnType<typeof allShotsForHoleScore>>,
+        )
+      }
+      const localByNum = new Map<number, ShotPayload>()
+      for (const r of localRows) {
+        try {
+          const p = JSON.parse(r.payload) as ShotPayload
+          if (p.id && p.shot_number != null) localByNum.set(p.shot_number, p)
+        } catch {
+          // skip malformed pending payload
+        }
+      }
+      const remoteByNum = new Map<
+        number,
+        { id: string; aim_lat: number | null; aim_lng: number | null }
+      >()
+      let remote = await supabase
+        .from('shots')
+        .select('id, shot_number, aim_lat, aim_lng')
+        .eq('hole_score_id', currentHoleScore.id)
+      if (remote.error) {
+        remote = await supabase
+          .from('shots')
+          .select('id, shot_number, aim_lat, aim_lng')
+          .eq('hole_score_id', currentHoleScore.id)
+      }
+      for (const s of remote.data ?? []) {
+        remoteByNum.set(s.shot_number, {
+          id: s.id,
+          aim_lat: s.aim_lat,
+          aim_lng: s.aim_lng,
+        })
+      }
+
+      for (const row of rows) {
+        const isPuttRow = isPuttEntry(row.lieType, row.club)
+        const existing =
+          localByNum.get(row.shotNumber) ?? remoteByNum.get(row.shotNumber)
+        // The reviewed rows were built from these very shots, so each MUST
+        // pair back to one. If both reads came up empty for this shot_number
+        // (both transiently failed above), fabricating a fresh id would queue
+        // a row that collides with the existing shot on unique(hole_score_id,
+        // shot_number) — a novel id isn't arbitrated by the sync upsert's
+        // onConflict:'id', so it 23505s and gets silently quarantined, losing
+        // this shot's metadata. Abort loudly instead: the sheet stays open
+        // with the player's edits intact (hydration is gated), so Save simply
+        // retries once the read recovers. Never mint a colliding id.
+        if (!existing?.id) {
+          throw new Error(
+            "Couldn't reach this hole's shots — check your connection and save again.",
+          )
+        }
+        const id = existing.id
+        // Keep the aim captured live (SET_AIM); the review sheet doesn't edit
+        // non-putt aim, so the live value is authoritative. `existing` is a
+        // queued payload or the remote row — both carry aim_lat/aim_lng.
+        const aimLat = existing.aim_lat ?? null
+        const aimLng = existing.aim_lng ?? null
+        const payload: ShotPayload = {
+          id,
+          hole_score_id: currentHoleScore.id,
+          user_id: user.id,
+          shot_number: row.shotNumber,
+          start_lat: row.startLat,
+          start_lng: row.startLng,
+          end_lat: row.endLat,
+          end_lng: row.endLng,
+          aim_lat: aimLat,
+          aim_lng: aimLng,
+          distance_to_target: isPuttRow ? null : Math.round(row.distanceToPin),
+          club: row.club,
+          lie_type: row.lieType,
+          lie_slope: null,
+          lie_slope_forward: isPuttRow ? null : row.lieSlopeForward ?? null,
+          lie_slope_side: isPuttRow ? null : row.lieSlopeSide ?? null,
+          shot_result: isPuttRow ? null : row.shotResult ?? null,
+          penalty: false,
+          ob: false,
+          // Putt tap-to-tap distance is in yards; * 3 = feet (US convention),
+          // and putt_distance_ft is what the rest of the app reads.
+          putt_distance_ft: isPuttRow ? Math.round(row.distanceYards * 3) : null,
+          putt_result: !isPuttRow
+            ? null
+            : combinedPuttResult({
+                made: row.puttMade,
+                distance: row.puttDistanceResult ?? null,
+                direction: row.puttDirectionResult ?? null,
+              }),
+          putt_distance_result:
+            !isPuttRow || row.puttMade ? null : row.puttDistanceResult ?? null,
+          putt_direction_result:
+            !isPuttRow || row.puttMade ? null : row.puttDirectionResult ?? null,
+          putt_slope_pct: isPuttRow ? row.puttSlopePct ?? null : null,
+          green_speed: isPuttRow ? row.greenSpeed ?? null : null,
+          break_direction: isPuttRow
+            ? combinedBreakDirection({
+                vertical: row.breakDirectionVertical,
+                horizontal: row.breakDirectionHorizontal,
+              })
+            : null,
+          break_direction_vertical: isPuttRow
+            ? row.breakDirectionVertical ?? null
+            : null,
+          break_direction_horizontal: isPuttRow
+            ? row.breakDirectionHorizontal ?? null
+            : null,
+          aim_offset_yards:
+            isPuttRow && row.aimOffsetInches != null
+              ? Math.round((row.aimOffsetInches / 36) * 10) / 10
+              : null,
+          notes: row.notes ?? null,
+        }
+        await upsertReviewedShot(payload)
+      }
+      // Background sync — the re-queued rows carry their metadata now.
+      syncPendingShots().catch(() => undefined)
+
+      // Authoritative hole_scores tallies from the review. fairway/gir are
+      // inferred from the placed lies; holedOut=true because this flow ends at
+      // the pin by construction (matches web's saveReviewedHole). An explicit
+      // scorecard toggle is never overwritten (?? guards).
+      const inferred = inferHoleStats(
+        rows.map((r) => ({ shot_number: r.shotNumber, lie_type: r.lieType })),
+        currentHole.par,
+        true,
+      )
+      setHoleScores((prev) =>
+        prev.map((hs) =>
+          hs.id === currentHoleScore.id
+            ? {
+                ...hs,
+                score: summary.score,
+                putts: summary.putts,
+                penalties: summary.penalties,
+              }
+            : hs,
+        ),
+      )
+      const { error: hsErr } = await supabase
+        .from('hole_scores')
+        .update({
+          score: summary.score,
+          putts: summary.putts,
+          penalties: summary.penalties,
+          fairway_hit: currentHoleScore.fairway_hit ?? inferred.fairway,
+          gir: currentHoleScore.gir ?? inferred.gir,
+        })
+        .eq('id', currentHoleScore.id)
+      if (hsErr) {
+        // Non-fatal: the shots (with their metadata) already re-queued and
+        // will sync; only the hole_scores tally write failed. Warn for
+        // diagnostics rather than alerting — completeRound self-repairs score
+        // from the shot count at round end.
+        // eslint-disable-next-line no-console -- diagnostic for a non-fatal tally-write failure
+        console.warn('[hole/summary-score-update]', hsErr.message)
+      }
+
+      setRoundState('PLACE_BALL')
+      advanceAfterHole()
+    } catch (err) {
+      Alert.alert('Save failed', (err as Error).message)
+    } finally {
+      saveSummaryInFlightRef.current = false
+      setSaving(false)
     }
   }
 
@@ -634,6 +915,8 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
     swapPuttingToShot,
     navigateHole,
     finishHole,
+    saveHoleSummary,
+    editHoleOnMap,
     handleEndRound,
     handleDeleteRound,
     handleExitFromError,

@@ -38,4 +38,16 @@ describe('@oga/core barrel', () => {
     expect(Array.isArray(OgaCore.DEFAULT_BAG)).toBe(true)
     expect(OgaCore.DEFAULT_BAG.length).toBeGreaterThan(0)
   })
+
+  it('exports CAPTURE_MODES as a non-empty array', () => {
+    expect(Array.isArray(OgaCore.CAPTURE_MODES)).toBe(true)
+    expect(OgaCore.CAPTURE_MODES.length).toBeGreaterThan(0)
+  })
+
+  it('exports CAPTURE_MODE_LABELS with a title + subtitle per mode', () => {
+    for (const mode of OgaCore.CAPTURE_MODES) {
+      expect(typeof OgaCore.CAPTURE_MODE_LABELS[mode].title).toBe('string')
+      expect(typeof OgaCore.CAPTURE_MODE_LABELS[mode].subtitle).toBe('string')
+    }
+  })
 })
