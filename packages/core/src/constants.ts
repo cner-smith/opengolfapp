@@ -211,6 +211,11 @@ export const FACILITIES = ['range', 'short_game', 'putting', 'sim'] as const
 
 export const SHOT_CATEGORIES = ['off_tee', 'approach', 'around_green', 'putting'] as const
 
+// Live-round capture mode (#791 step 3). 'track_patterns' prompts for an
+// explicit aim per shot (dispersion data); 'just_track' records ball
+// locations only — score + GPS distances, no aim. Column: rounds.capture_mode.
+export const CAPTURE_MODES = ['just_track', 'track_patterns'] as const
+
 // ---------------------------------------------------------------------------
 // Display label maps. Stored values stay snake_case + lowercase so the DB
 // constraints don't break; render code looks the labels up here so the UI
@@ -229,6 +234,18 @@ export type SkillLevel = (typeof SKILL_LEVELS)[number]
 export type Goal = (typeof GOALS)[number]
 export type Facility = (typeof FACILITIES)[number]
 export type ShotCategory = (typeof SHOT_CATEGORIES)[number]
+export type CaptureMode = (typeof CAPTURE_MODES)[number]
+
+export const CAPTURE_MODE_LABELS: Record<CaptureMode, { title: string; subtitle: string }> = {
+  just_track: {
+    title: 'Just track my round',
+    subtitle: 'Score + GPS distances. Fastest — tap where the ball is, keep moving.',
+  },
+  track_patterns: {
+    title: 'Track shot patterns',
+    subtitle: 'Set an aim per shot to build your dispersion data.',
+  },
+}
 
 // LegacyPuttResultKey mirrors LegacyPuttResult in types.ts (which can't
 // import from this file without a cycle); the union duplication locks

@@ -1,6 +1,11 @@
 import { useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { todayLocalDate } from '@oga/core'
+import {
+  CAPTURE_MODES,
+  CAPTURE_MODE_LABELS,
+  todayLocalDate,
+  type CaptureMode,
+} from '@oga/core'
 import { CourseSearch } from '../../components/courses/CourseSearch'
 import { TeeSelector } from '../../components/courses/TeeSelector'
 import { useCreateRound } from '../../hooks/useRounds'
@@ -22,6 +27,7 @@ export function NewRoundPage() {
   const [teeColor, setTeeColor] = useState<string>('white')
   const [courseTeeId, setCourseTeeId] = useState<string | null>(null)
   const [mode, setMode] = useState<RoundMode>('past')
+  const [captureMode, setCaptureMode] = useState<CaptureMode>('track_patterns')
   const [error, setError] = useState<string | null>(null)
 
   async function handleSubmit(e: FormEvent) {
@@ -61,6 +67,9 @@ export function NewRoundPage() {
         played_at: playedAt,
         tee_color: teeColor,
         course_tee_id: courseTeeId,
+        // Capture mode only steers the live flow; past-round entry leaves the
+        // column at its 'track_patterns' default.
+        ...(mode === 'live' ? { capture_mode: captureMode } : {}),
       })
       if (!round) throw new Error('Round insert returned no row')
       // Live rounds open the map view directly so the user can start
@@ -108,6 +117,23 @@ export function NewRoundPage() {
             />
           </div>
         </section>
+
+        {mode === 'live' && (
+          <section>
+            <FieldLabel>How do you want to track it?</FieldLabel>
+            <div style={{ display: 'flex', gap: 8 }}>
+              {CAPTURE_MODES.map((cm) => (
+                <ModeChip
+                  key={cm}
+                  active={captureMode === cm}
+                  onClick={() => setCaptureMode(cm)}
+                  title={CAPTURE_MODE_LABELS[cm].title}
+                  subtitle={CAPTURE_MODE_LABELS[cm].subtitle}
+                />
+              ))}
+            </div>
+          </section>
+        )}
 
         <section>
           <FieldLabel>Course</FieldLabel>
@@ -236,6 +262,9 @@ function ModeChip({
       }
       style={{
         flex: 1,
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'flex-start',
         textAlign: 'left',
         border: active ? '0.5px solid transparent' : '0.5px solid #E4E4E0',
         borderRadius: 10,

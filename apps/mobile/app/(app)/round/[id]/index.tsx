@@ -18,6 +18,7 @@ import {
   pickRoundFocus,
   roundFocusHeadline,
   selectNudgeDrills,
+  type CaptureMode,
   type RoundFocus,
 } from '@oga/core'
 import {
@@ -364,6 +365,7 @@ export default function RoundIndex() {
         // The LiveRoundSession `mode`/isPastMode plumbing is now dead and can
         // be removed in a follow-up cleanup.
         mode="live"
+        captureMode={(round?.capture_mode ?? 'track_patterns') as CaptureMode}
         onHoleChange={syncHoleToUrl}
       />
     )

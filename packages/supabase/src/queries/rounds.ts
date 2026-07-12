@@ -11,7 +11,7 @@ type RoundUpdate = Database['public']['Tables']['rounds']['Update']
 // no longer ships every audit column for every shot in every round.
 // Single literal so supabase-js's select-type inference doesn't collapse
 // to GenericStringError.
-const ROUND_COLUMNS = 'id, user_id, course_id, played_at, tee_color, total_score, total_putts, fairways_hit, fairways_total, gir, sg_off_tee, sg_approach, sg_around_green, sg_putting, sg_total, course_tee_id, score_differential' as const
+const ROUND_COLUMNS = 'id, user_id, course_id, played_at, tee_color, total_score, total_putts, fairways_hit, fairways_total, gir, sg_off_tee, sg_approach, sg_around_green, sg_putting, sg_total, course_tee_id, score_differential, capture_mode' as const
 
 export function getRounds(client: OgaSupabaseClient, userId: string, limit = 20) {
   return client

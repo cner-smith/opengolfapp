@@ -11,7 +11,12 @@ import { ShareableScorecardCard } from '../../components/round/ShareableScorecar
 import { HoleReviewSheet } from '../../components/round/HoleReviewSheet'
 import { WebPuttingSheet } from '../../components/round/WebPuttingSheet'
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
-import { DEFAULT_HANDICAP, haversineYards, inferHoleCount } from '@oga/core'
+import {
+  DEFAULT_HANDICAP,
+  haversineYards,
+  inferHoleCount,
+  type CaptureMode,
+} from '@oga/core'
 import { useAuth } from '../../hooks/useAuth'
 import { useProfile } from '../../hooks/useProfile'
 import { toUserMessage } from '../../lib/errors'
@@ -147,6 +152,7 @@ export function RoundDetailPage() {
     profile,
     data,
     isLiveEntry,
+    captureMode: (round.data?.capture_mode ?? 'track_patterns') as CaptureMode,
     pinOverride,
     teeOverride,
     placedAims,
