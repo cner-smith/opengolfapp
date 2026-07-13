@@ -28,7 +28,9 @@ const svg = (children: React.ReactNode) => (
 const HomeIcon = (_: IconProps) => svg(<><path d="M3 10.5 12 3l9 7.5" /><path d="M5 9.5V21h14V9.5" /></>)
 const StatsIcon = (_: IconProps) => svg(<><path d="M4 5v14h16" /><path d="m7 14 3-4 3 3 4-6" /></>)
 const PatternsIcon = (_: IconProps) => svg(<><circle cx="12" cy="12" r="8" /><circle cx="12" cy="12" r="3.4" /><circle cx="12" cy="12" r="0.6" fill="currentColor" /></>)
-const PracticeIcon = (_: IconProps) => svg(<><path d="M6 21V3" /><path d="M6 4h11l-3 3 3 3H6" /></>)
+// Golf ball on a tee (matches the native app's MDI golf-tee tab icon): ball on
+// top, a cupped tee cradling it, tapering to a point.
+const PracticeIcon = (_: IconProps) => svg(<><circle cx="12" cy="6.5" r="3" /><path d="M9.2 10c.5 1.2 1.6 1.9 2.8 1.9s2.3-.7 2.8-1.9" /><path d="M10.8 12 12 20l1.2-8" /></>)
 const ProfileIcon = (_: IconProps) => svg(<><circle cx="12" cy="8" r="4" /><path d="M4.5 20.5c1-3.6 4-5.5 7.5-5.5s6.5 1.9 7.5 5.5" /></>)
 
 const tabs: { to: string; label: string; Icon: (p: IconProps) => React.ReactNode; end?: boolean }[] = [
