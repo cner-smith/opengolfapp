@@ -1,46 +1,38 @@
 import { NavLink } from 'react-router-dom'
+import {
+  mdiHomeOutline,
+  mdiChartLine,
+  mdiTargetVariant,
+  mdiGolfTee,
+  mdiAccountCircleOutline,
+} from '@mdi/js'
 
 // Phase 1 of the mobile-web redesign: on phone viewports the desktop sidebar is
-// replaced by this fixed bottom tab bar, mirroring the native app's five tabs
-// (Home / Stats / Patterns / Practice / Profile). Secondary routes (Rounds,
+// replaced by this fixed bottom tab bar, mirroring the native app's five tabs.
+// Icons are the SAME Material Community Icons the native app renders via
+// @expo/vector-icons (home-outline / chart-line / target-variant / golf-tee /
+// account-circle-outline) — pulled here as SVG path data from @mdi/js so the
+// two platforms draw identical glyphs with no drift. Secondary routes (Rounds,
 // Learn, My Bag, Settings) stay reachable via the top-bar menu until Phase 2
 // folds them into the Home + Profile pages. Hidden on md+ (desktop keeps the
 // sidebar).
 
-type IconProps = { active: boolean }
+function MdiIcon({ path }: { path: string }) {
+  return (
+    <svg width={24} height={24} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d={path} />
+    </svg>
+  )
+}
 
-const svg = (children: React.ReactNode) => (
-  <svg
-    width={22}
-    height={22}
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth={1.6}
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    aria-hidden="true"
-  >
-    {children}
-  </svg>
-)
-
-const HomeIcon = (_: IconProps) => svg(<><path d="M3 10.5 12 3l9 7.5" /><path d="M5 9.5V21h14V9.5" /></>)
-const StatsIcon = (_: IconProps) => svg(<><path d="M4 5v14h16" /><path d="m7 14 3-4 3 3 4-6" /></>)
-const PatternsIcon = (_: IconProps) => svg(<><circle cx="12" cy="12" r="8" /><circle cx="12" cy="12" r="3.4" /><circle cx="12" cy="12" r="0.6" fill="currentColor" /></>)
-// Golf ball on a tee (matches the native app's MDI golf-tee tab icon): ball on
-// top, a cupped tee cradling it, tapering to a point.
-const PracticeIcon = (_: IconProps) => svg(<><circle cx="12" cy="6.5" r="3" /><path d="M9.2 10c.5 1.2 1.6 1.9 2.8 1.9s2.3-.7 2.8-1.9" /><path d="M10.8 12 12 20l1.2-8" /></>)
-const ProfileIcon = (_: IconProps) => svg(<><circle cx="12" cy="8" r="4" /><path d="M4.5 20.5c1-3.6 4-5.5 7.5-5.5s6.5 1.9 7.5 5.5" /></>)
-
-const tabs: { to: string; label: string; Icon: (p: IconProps) => React.ReactNode; end?: boolean }[] = [
-  { to: '/dashboard', label: 'Home', Icon: HomeIcon, end: true },
-  { to: '/stats', label: 'Stats', Icon: StatsIcon },
-  { to: '/patterns', label: 'Patterns', Icon: PatternsIcon },
-  { to: '/practice', label: 'Practice', Icon: PracticeIcon },
+const tabs: { to: string; label: string; icon: string; end?: boolean }[] = [
+  { to: '/dashboard', label: 'Home', icon: mdiHomeOutline, end: true },
+  { to: '/stats', label: 'Stats', icon: mdiChartLine },
+  { to: '/patterns', label: 'Patterns', icon: mdiTargetVariant },
+  { to: '/practice', label: 'Practice', icon: mdiGolfTee },
   // Profile maps to Settings (the native "Profile" tab is the account/settings
   // area). No `end`, so /settings/bag also keeps Profile lit.
-  { to: '/settings', label: 'Profile', Icon: ProfileIcon },
+  { to: '/settings', label: 'Profile', icon: mdiAccountCircleOutline },
 ]
 
 export function MobileTabBar() {
@@ -55,7 +47,7 @@ export function MobileTabBar() {
         paddingBottom: 'env(safe-area-inset-bottom, 0px)',
       }}
     >
-      {tabs.map(({ to, label, Icon, end }) => (
+      {tabs.map(({ to, label, icon, end }) => (
         <NavLink
           key={to}
           to={to}
@@ -71,7 +63,7 @@ export function MobileTabBar() {
         >
           {({ isActive }) => (
             <>
-              <Icon active={isActive} />
+              <MdiIcon path={icon} />
               <span
                 className="font-mono uppercase"
                 style={{ fontSize: 9, letterSpacing: '0.1em', fontWeight: isActive ? 600 : 500 }}
