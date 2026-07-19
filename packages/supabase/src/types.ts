@@ -117,33 +117,45 @@ export type Database = {
           created_at: string
           created_by: string | null
           external_id: string | null
+          hole_count: number | null
           id: string
           lat: number | null
           lng: number | null
           name: string
+          needs_remap: boolean
           state: string | null
+          total_par: number | null
+          total_yards: number | null
         }
         Insert: {
           city?: string | null
           created_at?: string
           created_by?: string | null
           external_id?: string | null
+          hole_count?: number | null
           id?: string
           lat?: number | null
           lng?: number | null
           name: string
+          needs_remap?: boolean
           state?: string | null
+          total_par?: number | null
+          total_yards?: number | null
         }
         Update: {
           city?: string | null
           created_at?: string
           created_by?: string | null
           external_id?: string | null
+          hole_count?: number | null
           id?: string
           lat?: number | null
           lng?: number | null
           name?: string
+          needs_remap?: boolean
           state?: string | null
+          total_par?: number | null
+          total_yards?: number | null
         }
         Relationships: [
           {
@@ -249,9 +261,9 @@ export type Database = {
           hole_id: string
           id: string
           par: number | null
+          penalties: number
           pin_lat: number | null
           pin_lng: number | null
-          penalties: number
           putts: number | null
           round_id: string
           score: number
@@ -266,9 +278,9 @@ export type Database = {
           hole_id: string
           id?: string
           par?: number | null
+          penalties?: number
           pin_lat?: number | null
           pin_lng?: number | null
-          penalties?: number
           putts?: number | null
           round_id: string
           score: number
@@ -283,9 +295,9 @@ export type Database = {
           hole_id?: string
           id?: string
           par?: number | null
+          penalties?: number
           pin_lat?: number | null
           pin_lng?: number | null
-          penalties?: number
           putts?: number | null
           round_id?: string
           score?: number
@@ -732,11 +744,15 @@ export type Database = {
           created_at: string
           created_by: string | null
           external_id: string | null
+          hole_count: number | null
           id: string
           lat: number | null
           lng: number | null
           name: string
+          needs_remap: boolean
           state: string | null
+          total_par: number | null
+          total_yards: number | null
         }[]
         SetofOptions: {
           from: "*"
