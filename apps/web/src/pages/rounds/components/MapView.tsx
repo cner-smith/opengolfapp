@@ -541,7 +541,7 @@ function OverlayRail({
     flexDirection: 'column' as const,
     gap: 2,
     padding: 3,
-    borderRadius: 12,
+    borderRadius: 16,
     background: 'rgba(28,33,28,0.82)',
   }
   return (
@@ -590,7 +590,7 @@ function ExpStrokesHud({ value }: { value: number }) {
         right: 12,
         zIndex: 5,
         background: 'rgba(28,33,28,0.82)',
-        borderRadius: 6,
+        borderRadius: 20,
         padding: '6px 12px',
         textAlign: 'right',
         pointerEvents: 'none',
@@ -604,7 +604,7 @@ function ExpStrokesHud({ value }: { value: number }) {
       </div>
       <div
         className="tabular"
-        style={{ color: '#F2EEE5', fontSize: 18, fontWeight: 600, lineHeight: 1.2 }}
+        style={{ color: 'var(--caddie-accent-ink)', fontSize: 18, fontWeight: 600, lineHeight: 1.2 }}
       >
         {value.toFixed(1)}
       </div>
@@ -641,11 +641,11 @@ function DotsToggle({
         className="font-mono uppercase"
         style={{
           padding: '8px 12px',
-          borderRadius: 12,
+          borderRadius: 15,
           border: 'none',
           cursor: 'pointer',
           background: active ? '#FBF8F1' : 'rgba(28,33,28,0.82)',
-          color: active ? '#1C211C' : '#F2EEE5',
+          color: active ? 'var(--caddie-ink)' : 'var(--caddie-accent-ink)',
           fontSize: 10,
           fontWeight: active ? 700 : 500,
           letterSpacing: '0.12em',
