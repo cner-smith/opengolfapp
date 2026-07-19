@@ -267,39 +267,10 @@ export function MapView({
         {/* Left column: controls + per-hole shot list. Below the map on
             narrow screens (map-first), left of it on desktop. */}
         <div className="lg:order-1">
-          <MapBottomChrome
-            hasExistingShots={hasExistingShots}
-          editing={editingOnMap}
-          shotsPlaced={placedPoints.length}
-          remainingToPin={remainingToPin}
-          pinAvailable={effectivePin != null}
-          aimMode={aimMode}
-          aimsSet={placedAims.filter((a) => a != null).length}
-          holeNumber={activeHoleNumber}
-          needsTee={needsTee}
-          showPinButton={showPinButton}
-          placementMode={placementMode}
-          shotDragUndoLabel={shotDragUndoLabel}
-          onApplyShotDragUndo={onApplyShotDragUndo}
-          onStartPlaceTee={handlers.onStartPlaceTee}
-          onStartPlacePin={handlers.onStartPlacePin}
-          onCancelPlacement={handlers.onCancelPlacement}
-          onToggleAimMode={handlers.onToggleAimMode}
-          onClearLastAim={() => {
-            const idx = placedAims.length - 1
-            if (idx >= 0) handlers.onSetAim(idx, null)
-          }}
-          onUndo={handlers.onUndoPoint}
-          onClear={handlers.onClearPoints}
-          onDone={handlers.onDoneWithHole}
-          onDoneEditing={handlers.onDoneEditing}
-          />
-          <div style={{ marginTop: 16 }}>
-            <div className="kicker" style={{ marginBottom: 6 }}>
-              Shots
-            </div>
-            <ShotList shots={existingShots} />
+          <div className="kicker" style={{ marginBottom: 6 }}>
+            Shots
           </div>
+          <ShotList shots={existingShots} />
         </div>
         {/* Right column: portrait up-the-hole map (leads on narrow). */}
         <div
@@ -358,6 +329,33 @@ export function MapView({
             onSelectRail={selectRail}
           />
         )}
+        <MapBottomChrome
+          hasExistingShots={hasExistingShots}
+          editing={editingOnMap}
+          shotsPlaced={placedPoints.length}
+          remainingToPin={remainingToPin}
+          pinAvailable={effectivePin != null}
+          aimMode={aimMode}
+          aimsSet={placedAims.filter((a) => a != null).length}
+          holeNumber={activeHoleNumber}
+          needsTee={needsTee}
+          showPinButton={showPinButton}
+          placementMode={placementMode}
+          shotDragUndoLabel={shotDragUndoLabel}
+          onApplyShotDragUndo={onApplyShotDragUndo}
+          onStartPlaceTee={handlers.onStartPlaceTee}
+          onStartPlacePin={handlers.onStartPlacePin}
+          onCancelPlacement={handlers.onCancelPlacement}
+          onToggleAimMode={handlers.onToggleAimMode}
+          onClearLastAim={() => {
+            const idx = placedAims.length - 1
+            if (idx >= 0) handlers.onSetAim(idx, null)
+          }}
+          onUndo={handlers.onUndoPoint}
+          onClear={handlers.onClearPoints}
+          onDone={handlers.onDoneWithHole}
+          onDoneEditing={handlers.onDoneEditing}
+        />
         </div>
       </div>
       {saveError && (

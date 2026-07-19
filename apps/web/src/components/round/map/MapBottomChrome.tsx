@@ -42,10 +42,106 @@ interface MapBottomChromeProps {
   onDoneEditing?: () => void
 }
 
-// Strip used to live inside the map as an absolute overlay, but the
-// "Done" button kept colliding with Mapbox's zoom controls. It now
-// renders as a separate full-width bar above the map. See MapView in
-// RoundDetailPage for the layout.
+// Map-only dark chrome (see DESIGN.md "Map surface / on-course HUD"). Renders
+// as an absolute, bottom-anchored overlay INSIDE the map box (see MapView) —
+// not a full-width bar above it. The instruction card is pointer-events:none
+// (text only) so taps reach the Mapbox canvas listener underneath; only the
+// button row (and only when a button actually matters) is pointer-events:auto.
+const MAP_DARK = 'rgba(28,33,28,0.82)'
+const MAP_CREAM = '#FBF8F1'
+const FOREST = 'var(--caddie-accent)'
+
+const wrapperStyle = {
+  position: 'absolute' as const,
+  left: 12,
+  right: 12,
+  bottom: 12,
+  display: 'flex' as const,
+  flexDirection: 'column' as const,
+  gap: 9,
+  alignItems: 'center' as const,
+  pointerEvents: 'none' as const,
+  zIndex: 5,
+}
+
+const cardStyle = {
+  pointerEvents: 'none' as const,
+  maxWidth: '92%',
+  background: MAP_DARK,
+  borderRadius: 12,
+  padding: '8px 13px',
+  textAlign: 'center' as const,
+}
+
+const kickerStyle = { color: '#C9C7B8', marginBottom: 2 }
+const bodyStyle = { color: MAP_CREAM, fontSize: 13 }
+const bodyDimStyle = { color: 'rgba(251,248,241,0.68)', fontSize: 12 }
+
+const buttonRowStyle = {
+  pointerEvents: 'auto' as const,
+  display: 'flex' as const,
+  gap: 9,
+  justifyContent: 'center' as const,
+  flexWrap: 'wrap' as const,
+}
+
+const primaryStyle = {
+  pointerEvents: 'auto' as const,
+  background: MAP_CREAM,
+  color: FOREST,
+  border: `1px solid ${FOREST}`,
+  borderRadius: 26,
+  padding: '11px 20px',
+  fontWeight: 700,
+  fontSize: 14,
+  boxShadow: '0 6px 16px rgba(28,33,28,0.25)',
+}
+
+function primaryDisabledStyle(disabled: boolean) {
+  return { ...primaryStyle, opacity: disabled ? 0.5 : 1 }
+}
+
+const secondaryStyle = {
+  pointerEvents: 'auto' as const,
+  background: 'rgba(251,248,241,0.92)',
+  color: 'var(--caddie-ink)',
+  border: '1px solid var(--caddie-line)',
+  borderRadius: 22,
+  padding: '9px 13px',
+  fontSize: 12,
+  fontWeight: 600,
+}
+
+function secondaryDisabledStyle(disabled: boolean) {
+  return { ...secondaryStyle, opacity: disabled ? 0.4 : 1 }
+}
+
+function amberStyle(active: boolean) {
+  return {
+    pointerEvents: 'auto' as const,
+    border: '1px solid var(--caddie-warn)',
+    borderRadius: 22,
+    padding: '9px 13px',
+    fontSize: 12,
+    background: active ? 'var(--caddie-warn)' : 'transparent',
+    color: active ? MAP_CREAM : 'var(--caddie-warn)',
+    fontWeight: 600,
+    letterSpacing: '0.02em',
+  }
+}
+
+const brickStyle = {
+  pointerEvents: 'auto' as const,
+  border: '1px solid var(--caddie-neg)',
+  borderRadius: 22,
+  padding: '9px 13px',
+  fontSize: 12,
+  background: 'transparent',
+  color: 'var(--caddie-neg)',
+  fontWeight: 600,
+  letterSpacing: '0.02em',
+}
+
 export function MapBottomChrome({
   hasExistingShots,
   editing,
@@ -77,42 +173,25 @@ export function MapBottomChrome({
     const targetLabel =
       placementMode === 'tee' ? 'tee box' : 'pin'
     return (
-      <div
-        style={{
-          background: '#FBF8F1',
-          border: '1px solid #D9D2BF',
-          borderRadius: 2,
-          padding: '10px 14px',
-          display: 'flex',
-          gap: 14,
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          flexWrap: 'wrap',
-        }}
-      >
-        <div style={{ minWidth: 200 }}>
-          <div className="kicker" style={{ marginBottom: 2 }}>
+      <div style={wrapperStyle}>
+        <div style={cardStyle}>
+          <div className="kicker" style={kickerStyle}>
             Place {targetLabel}
           </div>
-          <div className="text-caddie-ink" style={{ fontSize: 13 }}>
+          <div style={bodyStyle}>
             Tap to place the {targetLabel}{holeLabel}.
           </div>
         </div>
         {onCancelPlacement && (
-          <button
-            type="button"
-            onClick={onCancelPlacement}
-            className="text-caddie-ink-dim"
-            style={{
-              border: '1px solid #D9D2BF',
-              borderRadius: 2,
-              padding: '6px 10px',
-              fontSize: 12,
-              background: 'transparent',
-            }}
-          >
-            Cancel
-          </button>
+          <div style={buttonRowStyle}>
+            <button
+              type="button"
+              onClick={onCancelPlacement}
+              style={secondaryStyle}
+            >
+              Cancel
+            </button>
+          </div>
         )}
       </div>
     )
@@ -121,55 +200,30 @@ export function MapBottomChrome({
     showPinButton && onStartPlacePin ? (
       <>
         {showPinButton && onStartPlacePin && (
-          <button
-            type="button"
-            onClick={onStartPlacePin}
-            style={{
-              border: '1px solid #A33A2A',
-              borderRadius: 2,
-              padding: '6px 10px',
-              fontSize: 12,
-              background: 'transparent',
-              color: '#A33A2A',
-              fontWeight: 600,
-              letterSpacing: '0.02em',
-            }}
-          >
+          <button type="button" onClick={onStartPlacePin} style={brickStyle}>
             Set pin
           </button>
         )}
       </>
     ) : null
   return (
-    <div
-      style={{
-        background: '#FBF8F1',
-        border: '1px solid #D9D2BF',
-        borderRadius: 2,
-        padding: '10px 14px',
-        display: 'flex',
-        gap: 14,
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        flexWrap: 'wrap',
-      }}
-    >
-      <div style={{ minWidth: 200 }}>
+    <div style={wrapperStyle}>
+      <div style={cardStyle}>
         {editing ? (
           <>
-            <div className="kicker" style={{ marginBottom: 2 }}>
+            <div className="kicker" style={kickerStyle}>
               Edit on map
             </div>
-            <div className="text-caddie-ink" style={{ fontSize: 13 }}>
+            <div style={bodyStyle}>
               Drag any marker to adjust where the shot was hit from.
             </div>
           </>
         ) : hasExistingShots ? (
           <>
-            <div className="kicker" style={{ marginBottom: 2 }}>
+            <div className="kicker" style={kickerStyle}>
               Logged hole
             </div>
-            <div className="text-caddie-ink" style={{ fontSize: 13 }}>
+            <div style={bodyStyle}>
               {shotDragUndoLabel
                 ? `${shotDragUndoLabel} updated.`
                 : 'Drag any marker to adjust its position.'}
@@ -177,23 +231,20 @@ export function MapBottomChrome({
           </>
         ) : aimMode ? (
           <>
-            <div className="kicker" style={{ marginBottom: 2 }}>
+            <div className="kicker" style={kickerStyle}>
               Aim line — shot {shotsPlaced}
             </div>
-            <div className="text-caddie-ink" style={{ fontSize: 13 }}>
+            <div style={bodyStyle}>
               Tap your aim line — where you started shot {shotsPlaced}, not
               where it finished.
             </div>
           </>
         ) : (
           <>
-            <div className="kicker" style={{ marginBottom: 2 }}>
+            <div className="kicker" style={kickerStyle}>
               Tap where you hit shot {placingNumber} from
             </div>
-            <div
-              className="text-caddie-ink-dim"
-              style={{ fontSize: 12 }}
-            >
+            <div style={bodyDimStyle}>
               {shotsPlaced === 0
                 ? 'Start at the tee box.'
                 : `${shotsPlaced} shot${shotsPlaced === 1 ? '' : 's'} placed${
@@ -209,129 +260,75 @@ export function MapBottomChrome({
           </>
         )}
       </div>
-      {editing ? (
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          {placeButtons}
-          <button
-            type="button"
-            onClick={onDoneEditing}
-            className="bg-caddie-accent text-caddie-accent-ink"
-            style={{
-              borderRadius: 2,
-              padding: '6px 12px',
-              fontSize: 13,
-              fontWeight: 600,
-              letterSpacing: '0.02em',
-            }}
-          >
-            Done editing →
-          </button>
-        </div>
-      ) : !hasExistingShots ? (
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          {placeButtons}
-          {onToggleAimMode && shotsPlaced > 0 && (
-            <button
-              type="button"
-              onClick={() => onToggleAimMode(!aimMode)}
-              aria-pressed={aimMode}
-              style={{
-                border: '1px solid #A66A1F',
-                borderRadius: 2,
-                padding: '6px 10px',
-                fontSize: 12,
-                background: aimMode ? '#A66A1F' : 'transparent',
-                color: aimMode ? '#F2EEE5' : '#A66A1F',
-                fontWeight: 600,
-                letterSpacing: '0.02em',
-              }}
-            >
-              {aimMode ? 'Cancel aim' : 'Set aim'}
-            </button>
-          )}
-          {onClearLastAim && aimsSet > 0 && !aimMode && (
-            <button
-              type="button"
-              onClick={onClearLastAim}
-              className="text-caddie-ink-dim"
-              style={{
-                border: '1px solid #D9D2BF',
-                borderRadius: 2,
-                padding: '6px 10px',
-                fontSize: 12,
-                background: 'transparent',
-              }}
-            >
-              Clear aim
-            </button>
-          )}
-          <button
-            type="button"
-            disabled={shotsPlaced === 0}
-            onClick={onUndo}
-            className="text-caddie-ink-dim disabled:opacity-40"
-            style={{
-              border: '1px solid #D9D2BF',
-              borderRadius: 2,
-              padding: '6px 10px',
-              fontSize: 12,
-              background: 'transparent',
-            }}
-          >
-            Undo
-          </button>
-          <button
-            type="button"
-            disabled={shotsPlaced === 0}
-            onClick={onClear}
-            className="text-caddie-ink-dim disabled:opacity-40"
-            style={{
-              border: '1px solid #D9D2BF',
-              borderRadius: 2,
-              padding: '6px 10px',
-              fontSize: 12,
-              background: 'transparent',
-            }}
-          >
-            Clear
-          </button>
-          <button
-            type="button"
-            disabled={shotsPlaced === 0}
-            onClick={onDone}
-            className="bg-caddie-accent text-caddie-accent-ink disabled:opacity-40"
-            style={{
-              borderRadius: 2,
-              padding: '6px 12px',
-              fontSize: 13,
-              fontWeight: 600,
-              letterSpacing: '0.02em',
-            }}
-          >
-            Done with hole →
-          </button>
-        </div>
-      ) : (placeButtons || (shotDragUndoLabel && onApplyShotDragUndo)) ? (
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          {placeButtons}
-          {shotDragUndoLabel && onApplyShotDragUndo && (
-            <button
-              type="button"
-              onClick={onApplyShotDragUndo}
-              className="text-caddie-ink-dim"
-              style={{
-                border: '1px solid #D9D2BF',
-                borderRadius: 2,
-                padding: '6px 10px',
-                fontSize: 12,
-                background: 'transparent',
-              }}
-            >
-              Undo
-            </button>
+      {(shotsPlaced > 0 || editing || placeButtons ||
+        (shotDragUndoLabel && onApplyShotDragUndo)) && (
+        <div style={buttonRowStyle}>
+          {editing ? (
+            <>
+              {placeButtons}
+              <button type="button" onClick={onDoneEditing} style={primaryStyle}>
+                Done editing →
+              </button>
+            </>
+          ) : !hasExistingShots ? (
+            <>
+              {placeButtons}
+              {onToggleAimMode && shotsPlaced > 0 && (
+                <button
+                  type="button"
+                  onClick={() => onToggleAimMode(!aimMode)}
+                  aria-pressed={aimMode}
+                  style={amberStyle(aimMode)}
+                >
+                  {aimMode ? 'Cancel aim' : 'Set aim'}
+                </button>
+              )}
+              {onClearLastAim && aimsSet > 0 && !aimMode && (
+                <button type="button" onClick={onClearLastAim} style={secondaryStyle}>
+                  Clear aim
+                </button>
+              )}
+              <button
+                type="button"
+                disabled={shotsPlaced === 0}
+                onClick={onUndo}
+                style={secondaryDisabledStyle(shotsPlaced === 0)}
+              >
+                Undo
+              </button>
+              <button
+                type="button"
+                disabled={shotsPlaced === 0}
+                onClick={onClear}
+                style={secondaryDisabledStyle(shotsPlaced === 0)}
+              >
+                Clear
+              </button>
+              <button
+                type="button"
+                disabled={shotsPlaced === 0}
+                onClick={onDone}
+                style={primaryDisabledStyle(shotsPlaced === 0)}
+              >
+                Done with hole →
+              </button>
+            </>
+          ) : (
+            <>
+              {placeButtons}
+              {shotDragUndoLabel && onApplyShotDragUndo && (
+                <button
+                  type="button"
+                  onClick={onApplyShotDragUndo}
+                  style={secondaryStyle}
+                >
+                  Undo
+                </button>
+              )}
+            </>
           )}
         </div>
-      ) : null}
+      )}
     </div>
   )
 }
