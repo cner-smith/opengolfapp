@@ -4,9 +4,9 @@ import { MAPBOX_TOKEN_PRESENT } from '../../lib/mapbox'
 import { useMapSetup } from './map/useMapSetup'
 import { useMapLayers, type ClubPick } from './map/useMapLayers'
 
-// Re-export the instruction strip so existing imports
-// (`{ RoundMapInstructionStrip } from '.../RoundMap'`) keep working.
-export { RoundMapInstructionStrip } from './map/RoundMapInstructionStrip'
+// Re-export the map bottom chrome so existing imports
+// (`{ MapBottomChrome } from '.../RoundMap'`) keep working.
+export { MapBottomChrome } from './map/MapBottomChrome'
 
 // Stable no-op default for the optional `selectClub` prop. A module constant so
 // the identity never changes — an inline `() => null` default would be a fresh

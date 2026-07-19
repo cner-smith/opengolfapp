@@ -7,7 +7,7 @@ import {
 } from '@oga/core'
 import type { Database } from '@oga/supabase'
 import {
-  RoundMapInstructionStrip,
+  MapBottomChrome,
   type ExistingShot,
   type HoleGeo,
   type PlacedPoint,
@@ -267,7 +267,7 @@ export function MapView({
         {/* Left column: controls + per-hole shot list. Below the map on
             narrow screens (map-first), left of it on desktop. */}
         <div className="lg:order-1">
-          <RoundMapInstructionStrip
+          <MapBottomChrome
             hasExistingShots={hasExistingShots}
           editing={editingOnMap}
           shotsPlaced={placedPoints.length}

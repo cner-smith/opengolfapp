@@ -1,6 +1,6 @@
 import { useUnits } from '../../../hooks/useUnits'
 
-interface RoundMapInstructionStripProps {
+interface MapBottomChromeProps {
   hasExistingShots: boolean
   /** True while the user is dragging-to-correct from the review sheet. */
   editing?: boolean
@@ -46,7 +46,7 @@ interface RoundMapInstructionStripProps {
 // "Done" button kept colliding with Mapbox's zoom controls. It now
 // renders as a separate full-width bar above the map. See MapView in
 // RoundDetailPage for the layout.
-export function RoundMapInstructionStrip({
+export function MapBottomChrome({
   hasExistingShots,
   editing,
   shotsPlaced,
@@ -69,7 +69,7 @@ export function RoundMapInstructionStrip({
   onClear,
   onDone,
   onDoneEditing,
-}: RoundMapInstructionStripProps) {
+}: MapBottomChromeProps) {
   const placingNumber = shotsPlaced + 1
   const { toDisplay } = useUnits()
   if (placementMode) {
