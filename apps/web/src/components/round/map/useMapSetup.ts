@@ -75,13 +75,12 @@ export function useMapSetup({
     })
     map.addControl(
       new mapboxgl.AttributionControl({ compact: true }),
-      'bottom-right',
+      'top-left',
     )
-    // Zoom + / – live in the bottom-right corner so they don't fight the
-    // instruction strip across the top of the map.
+    // Zoom +/– and attribution live top-left (top-right = ExpStrokesHud); the chrome owns the bottom.
     map.addControl(
       new mapboxgl.NavigationControl({ showCompass: false }),
-      'bottom-right',
+      'top-left',
     )
     map.on('load', () => setMapLoaded(true))
     mapRef.current = map
