@@ -6,7 +6,10 @@ type HoleInsert = Database['public']['Tables']['holes']['Insert']
 
 // Cards / pickers only ever render name + city/state and need lat/lng for
 // the hole-map fallback; external_id keeps the OpenGolfAPI link reachable.
-const COURSE_COLUMNS = 'id, name, city, state, lat, lng, external_id'
+const COURSE_COLUMNS =
+  'id, name, city, state, lat, lng, external_id, facility_id, unit_name, unit_order'
+
+const FACILITY_COLUMNS = 'id, name, city, state, lat, lng'
 
 export function searchCourses(
   client: OgaSupabaseClient,
@@ -35,6 +38,37 @@ export function searchCourses(
   // completion regardless of cancellation, retaining response buffers
   // until the JS .then chain settles. Issue #291.
   return signal ? builder.abortSignal(signal) : builder
+}
+
+// Facility-first picker: match facilities by name (ilike; facilities are few, no
+// trgm index needed yet). Empty query browses alphabetically.
+export function searchFacilities(
+  client: OgaSupabaseClient,
+  query: string,
+  limit = 10,
+  signal?: AbortSignal,
+) {
+  const trimmed = query.trim()
+  const builder = trimmed
+    ? client.from('facilities').select(FACILITY_COLUMNS).ilike('name', `%${trimmed}%`).order('name').limit(limit)
+    : client.from('facilities').select(FACILITY_COLUMNS).order('name').limit(limit)
+  return signal ? builder.abortSignal(signal) : builder
+}
+
+// The units (course rows) that make up a facility, in display order.
+export function getFacilityUnits(client: OgaSupabaseClient, facilityId: string) {
+  return client
+    .from('courses')
+    .select(COURSE_COLUMNS)
+    .eq('facility_id', facilityId)
+    .order('unit_order', { ascending: true, nullsFirst: false })
+    .order('name')
+}
+
+// Re-anchor matched units to their facility: fetch the facilities for a set of
+// facility_ids pulled off unit course rows in the search results.
+export function getFacilitiesByIds(client: OgaSupabaseClient, ids: string[]) {
+  return client.from('facilities').select(FACILITY_COLUMNS).in('id', ids)
 }
 
 export function getCourseById(client: OgaSupabaseClient, courseId: string) {
