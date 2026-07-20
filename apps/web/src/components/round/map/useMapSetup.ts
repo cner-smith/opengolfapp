@@ -158,7 +158,7 @@ export function useMapSetup({
     function onClick(e: mapboxgl.MapMouseEvent) {
       // Pin placement wins over every other click outcome — even when shots
       // already exist, the user explicitly entered placement mode from the
-      // strip and the next tap should land the marker. (The tee is no longer
+      // bottom chrome and the next tap should land the marker. (The tee is no longer
       // placed manually — it's derived from the first shot, mirroring mobile.)
       if (placementMode === 'pin' && onMovePin) {
         userPlacedRef.current = true
