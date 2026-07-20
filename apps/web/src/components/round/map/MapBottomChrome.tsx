@@ -7,7 +7,7 @@ interface MapBottomChromeProps {
   shotsPlaced: number
   remainingToPin: number | null
   /** Label for the most recent saved-shot drag — when non-null, render
-   *  an Undo button on the logged-hole strip. The parent owns the 5s
+   *  an Undo button on the logged-hole chrome. The parent owns the 5s
    *  fade timer and clears the label by passing null. */
   shotDragUndoLabel?: string | null
   onApplyShotDragUndo?: () => void
@@ -28,7 +28,7 @@ interface MapBottomChromeProps {
    *  round on a geo-anchored hole — shown even when a pin coord already
    *  exists so the player can override a wrong crawled pin. */
   showPinButton?: boolean
-  /** Active manual-placement mode. When set, the strip switches to a
+  /** Active manual-placement mode. When set, the chrome switches to a
    *  "tap to place …" prompt with a Cancel button. */
   placementMode?: 'tee' | 'pin' | null
   onStartPlaceTee?: () => void
@@ -42,8 +42,9 @@ interface MapBottomChromeProps {
   onDoneEditing?: () => void
 }
 
-// Map-only dark chrome (see DESIGN.md "Map surface / on-course HUD"). Renders
-// as an absolute, bottom-anchored overlay INSIDE the map box (see MapView) —
+// Map-only dark chrome — the on-course HUD treatment for surfaces rendered over
+// Mapbox satellite imagery. Renders as an absolute, bottom-anchored overlay
+// INSIDE the map box (see MapView) —
 // not a full-width bar above it. The instruction card is pointer-events:none
 // (text only) so taps reach the Mapbox canvas listener underneath; only the
 // button row (and only when a button actually matters) is pointer-events:auto.

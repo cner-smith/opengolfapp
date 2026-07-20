@@ -91,7 +91,7 @@ interface MapViewProps {
   /** Drag-end on a saved shot's aim ghost. */
   onMoveExistingShotAim: (shotId: string, point: PlacedPoint) => void
   /** Label for the most recent saved-shot drag, or null when no recent
-   *  edit exists. Drives the Undo affordance on the logged-hole strip. */
+   *  edit exists. Drives the Undo affordance on the logged-hole chrome. */
   shotDragUndoLabel: string | null
   onApplyShotDragUndo: () => void
   reviewSheet?: ReactNode
@@ -179,7 +179,7 @@ export function MapView({
       ? { lat: activeHoleGeo.teeLat, lng: activeHoleGeo.teeLng }
       : null)
   // The tee is derived from the first shot (not placed manually); this flag
-  // is retained only for the existing strip plumbing.
+  // is retained only for the existing chrome plumbing.
   const needsTee = activeHoleGeo != null && effectiveTee == null
   // "Set pin" is available while logging or editing a PAST round on a
   // geo-anchored hole — shown even when a pin coord already exists so the
@@ -576,11 +576,11 @@ function OverlayRail({
   )
 }
 
-// Live expected-strokes HUD pill (Phase D), top-right of the map clear of the
-// bottom-right Mapbox controls and the vertically-centered rail. The To Hole /
-// remaining readouts already live in the instruction strip + aim pills on web
-// (Option 1 keeps the strip), so this surfaces the one new value — expected
-// strokes to hole out from the current ball. Best-case SG rides the carry pill.
+// Live expected-strokes HUD pill (Phase D), top-right of the map (the Mapbox
+// controls sit top-left and the rail is vertically centered, so it's clear of
+// both). The To Hole / remaining readouts already live in the bottom chrome +
+// aim pills on web, so this surfaces the one new value — expected strokes to
+// hole out from the current ball. Best-case SG rides the carry pill.
 function ExpStrokesHud({ value }: { value: number }) {
   return (
     <div
