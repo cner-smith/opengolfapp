@@ -1,5 +1,6 @@
-import { lazy, Suspense, useMemo } from 'react'
+import { lazy, Suspense, useMemo, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
+import { mdiPlay, mdiPlus } from '@mdi/js'
 import { formatSG } from '@oga/core'
 import { useRecentSG } from '../../hooks/useRounds'
 import { useProfile } from '../../hooks/useProfile'
@@ -91,6 +92,8 @@ export function DashboardPage() {
         }`}
       />
 
+      <StartRoundCTAs />
+
       <Lede strongest={strongest} weakest={weakest} />
 
       <Section kicker="By the numbers">
@@ -132,7 +135,18 @@ export function DashboardPage() {
         </div>
       </Section>
 
-      <Section kicker="Recent rounds">
+      <Section
+        kicker="Recent rounds"
+        action={
+          <Link
+            to="/rounds"
+            className="font-mono uppercase text-caddie-ink-mute hover:text-caddie-ink tabular"
+            style={{ fontSize: 10, letterSpacing: '0.14em' }}
+          >
+            See all →
+          </Link>
+        }
+      >
         <ul>
           {rounds.slice(0, 5).map((r, i) => (
             <li
@@ -247,14 +261,17 @@ function Lede({
 
 function Section({
   kicker,
+  action,
   children,
 }: {
   kicker: string
+  action?: ReactNode
   children: React.ReactNode
 }) {
   return (
     <section style={{ marginBottom: 28 }}>
       <div
+        className="flex items-center justify-between"
         style={{
           borderTop: '1px solid #D9D2BF',
           paddingTop: 14,
@@ -262,9 +279,62 @@ function Section({
         }}
       >
         <div className="kicker">{kicker}</div>
+        {action}
       </div>
       {children}
     </section>
+  )
+}
+
+// Mirrors the native Home CTAs (components/home/RoundCTAs.tsx): a filled
+// "Start live round" over an outline "Log past round". Both route to
+// /rounds/new with a mode param NewRoundPage reads to preselect the tab.
+function StartRoundCTAs() {
+  return (
+    <div style={{ marginBottom: 28 }}>
+      <Link
+        to="/rounds/new?mode=live"
+        className="bg-caddie-accent text-caddie-accent-ink hover:opacity-90 flex items-center justify-center"
+        style={{
+          gap: 8,
+          padding: '15px 16px',
+          borderRadius: 2,
+          fontSize: 16,
+          fontWeight: 700,
+          letterSpacing: '0.02em',
+        }}
+      >
+        <svg width={20} height={20} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+          <path d={mdiPlay} />
+        </svg>
+        Start live round
+      </Link>
+      <div
+        className="text-caddie-ink-dim text-center"
+        style={{ fontSize: 12, marginTop: 6, marginBottom: 12 }}
+      >
+        Track shots in real time with GPS
+      </div>
+      <Link
+        to="/rounds/new?mode=past"
+        className="hover:opacity-80 flex items-center justify-center"
+        style={{
+          gap: 8,
+          padding: '11px 16px',
+          borderRadius: 2,
+          border: '1px solid #1F3D2C',
+          color: '#1F3D2C',
+          fontSize: 14,
+          fontWeight: 600,
+          letterSpacing: '0.02em',
+        }}
+      >
+        <svg width={18} height={18} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+          <path d={mdiPlus} />
+        </svg>
+        Log past round
+      </Link>
+    </div>
   )
 }
 
