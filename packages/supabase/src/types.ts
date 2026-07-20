@@ -117,6 +117,7 @@ export type Database = {
           created_at: string
           created_by: string | null
           external_id: string | null
+          facility_id: string | null
           hole_count: number | null
           id: string
           lat: number | null
@@ -126,12 +127,15 @@ export type Database = {
           state: string | null
           total_par: number | null
           total_yards: number | null
+          unit_name: string | null
+          unit_order: number | null
         }
         Insert: {
           city?: string | null
           created_at?: string
           created_by?: string | null
           external_id?: string | null
+          facility_id?: string | null
           hole_count?: number | null
           id?: string
           lat?: number | null
@@ -141,12 +145,15 @@ export type Database = {
           state?: string | null
           total_par?: number | null
           total_yards?: number | null
+          unit_name?: string | null
+          unit_order?: number | null
         }
         Update: {
           city?: string | null
           created_at?: string
           created_by?: string | null
           external_id?: string | null
+          facility_id?: string | null
           hole_count?: number | null
           id?: string
           lat?: number | null
@@ -156,6 +163,8 @@ export type Database = {
           state?: string | null
           total_par?: number | null
           total_yards?: number | null
+          unit_name?: string | null
+          unit_order?: number | null
         }
         Relationships: [
           {
@@ -163,6 +172,13 @@ export type Database = {
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "courses_facility_id_fkey"
+            columns: ["facility_id"]
+            isOneToOne: false
+            referencedRelation: "facilities"
             referencedColumns: ["id"]
           },
         ]
@@ -251,6 +267,36 @@ export type Database = {
           target_template?: Json | null
           targets?: string[]
           verified?: boolean
+        }
+        Relationships: []
+      }
+      facilities: {
+        Row: {
+          city: string | null
+          created_at: string
+          id: string
+          lat: number | null
+          lng: number | null
+          name: string
+          state: string | null
+        }
+        Insert: {
+          city?: string | null
+          created_at?: string
+          id?: string
+          lat?: number | null
+          lng?: number | null
+          name: string
+          state?: string | null
+        }
+        Update: {
+          city?: string | null
+          created_at?: string
+          id?: string
+          lat?: number | null
+          lng?: number | null
+          name?: string
+          state?: string | null
         }
         Relationships: []
       }
@@ -744,6 +790,7 @@ export type Database = {
           created_at: string
           created_by: string | null
           external_id: string | null
+          facility_id: string | null
           hole_count: number | null
           id: string
           lat: number | null
@@ -753,6 +800,8 @@ export type Database = {
           state: string | null
           total_par: number | null
           total_yards: number | null
+          unit_name: string | null
+          unit_order: number | null
         }[]
         SetofOptions: {
           from: "*"

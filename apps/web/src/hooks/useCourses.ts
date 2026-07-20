@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
+  resolveFacilityResults,
   searchOpenGolfApi,
   getOpenGolfApiCourse,
   type OpenGolfApiCourse,
@@ -12,8 +13,10 @@ import {
   getCourseByExternalId,
   getCourseById,
   getCourseTees,
+  getFacilitiesByIds,
   getHolesForCourse,
   searchCourses,
+  searchFacilities,
   upsertCourseTees,
 } from '@oga/supabase'
 import type { Database } from '@oga/supabase'
@@ -22,12 +25,20 @@ import { useDebounce } from './useDebounce'
 import { useAuth } from './useAuth'
 
 type CourseRow = Database['public']['Tables']['courses']['Row']
+type FacilityRow = Database['public']['Tables']['facilities']['Row']
 type HoleInsert = Database['public']['Tables']['holes']['Insert']
 
 // Hybrid search: queries OpenGolfAPI for global hits, plus the local
 // Supabase courses table so already-imported / user-created courses
 // always surface even if OpenGolfAPI has no match. Deduped by
 // external_id and name.
+//
+// Facility-first: local results are split into standalone courses (no
+// facility_id) and facility units. Units are never dropped from the
+// result set — a unit's facility is re-anchored in via getFacilitiesByIds
+// so a search for "Lake Hefner South" still surfaces the "Lake Hefner
+// Golf Club" facility card even when the name match wasn't on the
+// facility row itself.
 export function useCourseSearch(query: string) {
   const debounced = useDebounce(query, 300)
 
@@ -35,9 +46,10 @@ export function useCourseSearch(query: string) {
     queryKey: ['courses', 'search', debounced],
     enabled: debounced.trim().length > 0,
     queryFn: async ({ signal }) => {
-      const [api, local] = await Promise.allSettled([
+      const [api, local, facilitySearch] = await Promise.allSettled([
         searchOpenGolfApi(debounced, signal),
         searchCourses(supabase, debounced, 10),
+        searchFacilities(supabase, debounced, 10),
       ])
       const apiHits: OpenGolfApiSearchResult[] =
         api.status === 'fulfilled' ? api.value : []
@@ -49,9 +61,29 @@ export function useCourseSearch(query: string) {
         local.status === 'fulfilled'
           ? ((local.value.data ?? []) as unknown as CourseRow[])
           : []
+      const facilityRows =
+        facilitySearch.status === 'fulfilled'
+          ? (facilitySearch.value.data ?? [])
+          : []
+
+      const { standalone, facilities } = await resolveFacilityResults(
+        localRows,
+        facilityRows as unknown as FacilityRow[],
+        async (ids) => {
+          const r = await getFacilitiesByIds(supabase, ids)
+          return (r.data ?? []) as unknown as FacilityRow[]
+        },
+      )
+
       return {
         api: apiHits,
+        // `local` keeps ALL matching local courses (incl. facility units) for
+        // consumers that just need a course row to route on (e.g. CoursePlanPage).
+        // `standalone` excludes units — the facility-first picker renders those
+        // under their facility card instead.
         local: localRows,
+        standalone,
+        facilities,
         apiAvailable: api.status === 'fulfilled',
       }
     },
