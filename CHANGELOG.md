@@ -1,5 +1,20 @@
 # Changelog
 
+## [1.3.0](https://github.com/cner-smith/opengolfapp/compare/v1.2.0...v1.3.0) (2026-07-12)
+
+
+### Bug Fixes
+
+* **core:** proximity stat falls back to following putt distance when no pin ([#575](https://github.com/cner-smith/opengolfapp/issues/575)) ([#790](https://github.com/cner-smith/opengolfapp/issues/790)) ([9af123b](https://github.com/cner-smith/opengolfapp/commit/9af123bbc3c40d1636543d034419268cc7f4c312))
+* **learn:** add missing 'Last reviewed' footer to Strokes Gained + Benchmarks (web + mobile) ([#807](https://github.com/cner-smith/opengolfapp/issues/807)) ([141cc17](https://github.com/cner-smith/opengolfapp/commit/141cc17fddb338dbf7e8bb3b768489d4c5aa8abd))
+* **mobile:** cap accessibility font scaling at 1.3x ([#808](https://github.com/cner-smith/opengolfapp/issues/808)) ([#809](https://github.com/cner-smith/opengolfapp/issues/809)) ([c035f55](https://github.com/cner-smith/opengolfapp/commit/c035f556b01f4037a28fe379355f09cac7ebc7fe))
+
+
+### Chores
+
+* **mobile:** bump version 1.0.1 → 1.1.0 for the feature release ([#812](https://github.com/cner-smith/opengolfapp/issues/812)) ([061a223](https://github.com/cner-smith/opengolfapp/commit/061a2238f25dc70830b6afe3c976c6a7709f2d2b))
+* strip crawler WIP that leaked into dev via [#795](https://github.com/cner-smith/opengolfapp/issues/795) ([#799](https://github.com/cner-smith/opengolfapp/issues/799)) ([701ba4e](https://github.com/cner-smith/opengolfapp/commit/701ba4ec8adcedee6ea86551d9b471bf381991e8))
+
 ## [1.2.0](https://github.com/cner-smith/opengolfapp/compare/v1.1.1...v1.2.0) (2026-07-10)
 
 
