@@ -80,6 +80,10 @@ export default function NewRound() {
   // until the query changes or the user taps Back. Mirrors web CourseSearch.
   const [facility, setFacility] = useState<FacilityRow | null>(null)
   const [units, setUnits] = useState<CourseRow[]>([])
+  const [facilityError, setFacilityError] = useState(false)
+  // Monotonic token so a slow getFacilityUnits response from an earlier
+  // facility tap can't overwrite the units of a facility tapped later.
+  const facilityReqRef = useRef(0)
   const [searching, setSearching] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -110,8 +114,12 @@ export default function NewRound() {
   // query could strand the picker inside a stale facility whose units no
   // longer match what was typed. Mirrors web CourseSearch.
   useEffect(() => {
+    // Invalidate any in-flight openFacility so a late response can't re-open
+    // a facility the user has navigated away from.
+    facilityReqRef.current++
     setFacility(null)
     setUnits([])
+    setFacilityError(false)
   }, [query])
 
   // Capture GPS once (best-effort) so manual / API course creation can
@@ -232,13 +240,21 @@ export default function NewRound() {
   const showAddNew = !searching && debouncedQuery.trim().length > 0
 
   async function openFacility(f: FacilityRow) {
+    const reqId = ++facilityReqRef.current
     const { data, error } = await getFacilityUnits(supabase, f.id)
+    // A newer facility tap bumped the counter — drop this stale response.
+    if (facilityReqRef.current !== reqId) return
+    setFacility(f)
     if (error) {
+      // Surface fetch failure as an error state instead of an empty facility.
       // eslint-disable-next-line no-console
       console.warn('[round/new getFacilityUnits]', error.message)
+      setUnits([])
+      setFacilityError(true)
+      return
     }
+    setFacilityError(false)
     setUnits((data ?? []) as unknown as CourseRow[])
-    setFacility(f)
   }
 
   async function startWith(
@@ -540,7 +556,14 @@ export default function NewRound() {
         {facility ? (
           <View style={{ marginBottom: 14 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-              <PressableTouch onPress={() => setFacility(null)}>
+              <PressableTouch
+                onPress={() => {
+                  facilityReqRef.current++
+                  setFacility(null)
+                  setUnits([])
+                  setFacilityError(false)
+                }}
+              >
                 <Text style={{ ...KICKER, color: '#1F3D2C' }}>‹ Back</Text>
               </PressableTouch>
               <Text style={KICKER}>{facility.name}</Text>
@@ -573,6 +596,19 @@ export default function NewRound() {
                 </Text>
               </PressableTouch>
             ))}
+            {units.length === 0 && (
+              <Text
+                style={[TYPE.body, {
+                  color: facilityError ? '#A33A2A' : '#8A8B7E',
+                  fontSize: 13,
+                  paddingVertical: 14,
+                }]}
+              >
+                {facilityError
+                  ? "Couldn't load courses — go back and try again."
+                  : 'No courses listed.'}
+              </Text>
+            )}
           </View>
         ) : (
           <>

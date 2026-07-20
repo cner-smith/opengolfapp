@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { formatLocation } from '@oga/core'
 import { getFacilityUnits } from '@oga/supabase'
 import type { Database } from '@oga/supabase'
@@ -38,6 +38,10 @@ export function CourseSearch({
   const [gps, setGps] = useState<GpsState>({ status: 'idle' })
   const [facility, setFacility] = useState<FacilityRow | null>(null)
   const [units, setUnits] = useState<CourseRow[]>([])
+  const [facilityError, setFacilityError] = useState(false)
+  // Monotonic token so a slow getFacilityUnits response from an earlier
+  // facility tap can't overwrite the units of a facility tapped later.
+  const facilityReqRef = useRef(0)
   const search = useCourseSearch(query)
   const importApi = useImportApiCourse()
 
@@ -56,17 +60,28 @@ export function CourseSearch({
   // otherwise a fresh query could strand the picker inside a stale facility
   // whose units no longer match what was typed.
   useEffect(() => {
+    // Invalidate any in-flight openFacility so a late response can't re-open
+    // a facility the user has navigated away from.
+    facilityReqRef.current++
     setFacility(null)
     setUnits([])
+    setFacilityError(false)
   }, [query])
 
   async function openFacility(f: FacilityRow) {
+    const reqId = ++facilityReqRef.current
     const { data, error } = await getFacilityUnits(supabase, f.id)
+    // A newer facility tap bumped the counter — drop this stale response.
+    if (facilityReqRef.current !== reqId) return
+    setFacility(f)
     if (error) {
       console.warn('[CourseSearch getFacilityUnits]', error.message)
+      setUnits([])
+      setFacilityError(true)
+      return
     }
+    setFacilityError(false)
     setUnits((data ?? []) as unknown as CourseRow[])
-    setFacility(f)
   }
 
   // Capture GPS once when the parent has opted in (live-round mode) so
@@ -144,8 +159,10 @@ export function CourseSearch({
             <SearchGroup
               label={facility.name}
               onBack={() => {
+                facilityReqRef.current++
                 setFacility(null)
                 setUnits([])
+                setFacilityError(false)
               }}
             >
               {units.map((unit) => (
@@ -159,6 +176,16 @@ export function CourseSearch({
                   }}
                 />
               ))}
+              {units.length === 0 && (
+                <div
+                  className="text-caddie-ink-mute"
+                  style={{ padding: 14, fontSize: 13 }}
+                >
+                  {facilityError
+                    ? "Couldn't load courses — go back and try again."
+                    : 'No courses listed.'}
+                </div>
+              )}
             </SearchGroup>
           ) : (
             <>
