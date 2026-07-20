@@ -86,7 +86,12 @@ export function useCourseSearch(query: string) {
 
       return {
         api: apiHits,
-        local: standalone,
+        // `local` keeps ALL matching local courses (incl. facility units) for
+        // consumers that just need a course row to route on (e.g. CoursePlanPage).
+        // `standalone` excludes units — the facility-first picker renders those
+        // under their facility card instead.
+        local: localRows,
+        standalone,
         facilities,
         apiAvailable: api.status === 'fulfilled',
       }

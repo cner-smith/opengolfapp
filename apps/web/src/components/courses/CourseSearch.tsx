@@ -42,7 +42,7 @@ export function CourseSearch({
   const importApi = useImportApiCourse()
 
   const apiResults = search.data?.api ?? []
-  const localResults = search.data?.local ?? []
+  const localResults = search.data?.standalone ?? []
   const facilityResults = search.data?.facilities ?? []
   const hasResults =
     apiResults.length > 0 || localResults.length > 0 || facilityResults.length > 0
