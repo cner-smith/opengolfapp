@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import {
   CAPTURE_MODES,
   CAPTURE_MODE_LABELS,
@@ -19,6 +19,7 @@ type RoundMode = 'live' | 'past'
 
 export function NewRoundPage() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const { user } = useAuth()
   const createRoundMutation = useCreateRound()
   const [courseId, setCourseId] = useState<string | null>(null)
@@ -26,7 +27,11 @@ export function NewRoundPage() {
   const [playedAt, setPlayedAt] = useState(() => todayLocalDate())
   const [teeColor, setTeeColor] = useState<string>('white')
   const [courseTeeId, setCourseTeeId] = useState<string | null>(null)
-  const [mode, setMode] = useState<RoundMode>('past')
+  // Seed from ?mode=live|past so the Home CTAs land on the right mode
+  // (defaults to past for a bare /rounds/new).
+  const [mode, setMode] = useState<RoundMode>(
+    searchParams.get('mode') === 'live' ? 'live' : 'past',
+  )
   const [captureMode, setCaptureMode] = useState<CaptureMode>('track_patterns')
   const [error, setError] = useState<string | null>(null)
 
