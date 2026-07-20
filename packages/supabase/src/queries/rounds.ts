@@ -16,7 +16,7 @@ const ROUND_COLUMNS = 'id, user_id, course_id, played_at, tee_color, total_score
 export function getRounds(client: OgaSupabaseClient, userId: string, limit = 20) {
   return client
     .from('rounds')
-    .select(`${ROUND_COLUMNS}, courses(name, city, state)`)
+    .select(`${ROUND_COLUMNS}, courses(name, city, state, facilities(name))`)
     .eq('user_id', userId)
     .order('played_at', { ascending: false })
     .limit(limit)
@@ -33,7 +33,7 @@ export function getRound(
   return client
     .from('rounds')
     .select(
-      `${ROUND_COLUMNS}, courses(name, city, state, lat, lng), hole_scores(*, holes(*), shots(${SHOT_COLUMNS}))`,
+      `${ROUND_COLUMNS}, courses(name, city, state, lat, lng, facilities(name)), hole_scores(*, holes(*), shots(${SHOT_COLUMNS}))`,
     )
     .eq('id', roundId)
     .eq('user_id', userId)

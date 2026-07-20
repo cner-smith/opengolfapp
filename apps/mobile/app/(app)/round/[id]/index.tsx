@@ -172,16 +172,25 @@ export default function RoundIndex() {
         // coerce the result to a single JSON object".
         const { data: r, error: rErr } = await supabase
           .from('rounds')
-          .select('*, courses(name, lat, lng)')
+          .select('*, courses(name, lat, lng, facilities(name))')
           .eq('id', id)
           .maybeSingle()
         if (rErr || !r) throw rErr ?? new Error('Round not found')
         if (!active) return
         const row = r as RoundRow & {
-          courses?: { name: string | null; lat: number | null; lng: number | null } | null
+          courses?: {
+            name: string | null
+            lat: number | null
+            lng: number | null
+            facilities?: { name: string | null } | null
+          } | null
         }
         setRound(row)
-        setCourseName(row.courses?.name ?? 'Round')
+        setCourseName(
+          row.courses?.facilities?.name
+            ? `${row.courses.facilities.name} — ${row.courses.name}`
+            : (row.courses?.name ?? 'Round'),
+        )
         setCourseCenter(
           row.courses?.lat != null && row.courses?.lng != null
             ? { lat: row.courses.lat, lng: row.courses.lng }
@@ -518,7 +527,7 @@ export default function RoundIndex() {
       const [rRes, hsRes] = await Promise.all([
         supabase
           .from('rounds')
-          .select('*, courses(name, lat, lng)')
+          .select('*, courses(name, lat, lng, facilities(name))')
           .eq('id', round.id)
           .maybeSingle(),
         supabase.from('hole_scores').select('*').eq('round_id', round.id),
