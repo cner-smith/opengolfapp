@@ -61,7 +61,10 @@ export function CourseSearch({
   }, [query])
 
   async function openFacility(f: FacilityRow) {
-    const { data } = await getFacilityUnits(supabase, f.id)
+    const { data, error } = await getFacilityUnits(supabase, f.id)
+    if (error) {
+      console.warn('[CourseSearch getFacilityUnits]', error.message)
+    }
     setUnits((data ?? []) as unknown as CourseRow[])
     setFacility(f)
   }

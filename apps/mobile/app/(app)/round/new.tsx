@@ -17,6 +17,7 @@ import {
   formatLocation,
   getOpenGolfApiCourse,
   inferHoleCount,
+  resolveFacilityResults,
   searchOpenGolfApi,
   todayLocalDate,
   type CaptureMode,
@@ -202,27 +203,19 @@ export default function NewRound() {
       if (ctrl.signal.aborted) return
       setApiResults(api.status === 'fulfilled' ? api.value : [])
       const localRows: CourseRow[] = local.status === 'fulfilled' ? local.value : []
-      setLocalResults(localRows.filter((c) => !c.facility_id))
-
-      const unitFacilityIds = [
-        ...new Set(
-          localRows
-            .filter((c) => c.facility_id)
-            .map((c) => c.facility_id as string),
-        ),
-      ]
       const byName: FacilityRow[] =
         facilitySearch.status === 'fulfilled' ? facilitySearch.value : []
-      const byUnit: FacilityRow[] = unitFacilityIds.length
-        ? ((
-            (await getFacilitiesByIds(supabase, unitFacilityIds)).data ?? []
-          ) as unknown as FacilityRow[])
-        : []
-      const seen = new Set<string>()
-      const merged = [...byName, ...byUnit].filter((f) =>
-        seen.has(f.id) ? false : (seen.add(f.id), true),
+      const { standalone, facilities } = await resolveFacilityResults(
+        localRows,
+        byName,
+        async (ids) => {
+          const r = await getFacilitiesByIds(supabase, ids)
+          return (r.data ?? []) as unknown as FacilityRow[]
+        },
       )
-      if (!ctrl.signal.aborted) setFacilityResults(merged)
+      if (ctrl.signal.aborted) return
+      setLocalResults(standalone)
+      setFacilityResults(facilities)
     })().finally(() => {
       if (!ctrl.signal.aborted) setSearching(false)
     })
@@ -239,7 +232,11 @@ export default function NewRound() {
   const showAddNew = !searching && debouncedQuery.trim().length > 0
 
   async function openFacility(f: FacilityRow) {
-    const { data } = await getFacilityUnits(supabase, f.id)
+    const { data, error } = await getFacilityUnits(supabase, f.id)
+    if (error) {
+      // eslint-disable-next-line no-console
+      console.warn('[round/new getFacilityUnits]', error.message)
+    }
     setUnits((data ?? []) as unknown as CourseRow[])
     setFacility(f)
   }

@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
+  resolveFacilityResults,
   searchOpenGolfApi,
   getOpenGolfApiCourse,
   type OpenGolfApiCourse,
@@ -65,23 +66,13 @@ export function useCourseSearch(query: string) {
           ? (facilitySearch.value.data ?? [])
           : []
 
-      const standalone = localRows.filter((c) => !c.facility_id)
-      const unitFacilityIds = [
-        ...new Set(
-          localRows
-            .filter((c) => c.facility_id)
-            .map((c) => c.facility_id as string),
-        ),
-      ]
-      const byName = facilityRows as unknown as FacilityRow[]
-      const byUnit = unitFacilityIds.length
-        ? ((
-            (await getFacilitiesByIds(supabase, unitFacilityIds)).data ?? []
-          ) as unknown as FacilityRow[])
-        : []
-      const seen = new Set<string>()
-      const facilities = [...byName, ...byUnit].filter((f) =>
-        seen.has(f.id) ? false : (seen.add(f.id), true),
+      const { standalone, facilities } = await resolveFacilityResults(
+        localRows,
+        facilityRows as unknown as FacilityRow[],
+        async (ids) => {
+          const r = await getFacilitiesByIds(supabase, ids)
+          return (r.data ?? []) as unknown as FacilityRow[]
+        },
       )
 
       return {
