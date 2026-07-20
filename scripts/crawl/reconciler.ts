@@ -18,11 +18,10 @@ import {
   mergeAndDeletePhantom,
   type CourseFull,
 } from './db-writer'
-import { haversineMeters } from './util'
+import { haversineMeters, isFallbackName } from './util'
 
 const norm = (s: string | null) => (s ?? '').trim().toLowerCase()
 const isOsm = (c: CourseFull) => (c.externalId ?? '').startsWith('osm_')
-const isFallback = (name: string) => name.startsWith('Golf Course')
 
 // A matched-name ghost this far from its OSM twin isn't the same course — it's a
 // name+city collision (two "Springfield" cities) or a bad OpenGolfAPI coordinate.
@@ -40,7 +39,7 @@ export async function crawlReconcile(states: string[], apply: boolean): Promise<
     const courses = await fetchCoursesForState(state)
     const groups = new Map<string, CourseFull[]>()
     for (const c of courses) {
-      if (isFallback(c.name)) continue
+      if (isFallbackName(c.name)) continue
       const key = `${norm(c.name)}|${norm(c.city)}`
       const g = groups.get(key)
       if (g) g.push(c)

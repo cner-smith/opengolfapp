@@ -261,6 +261,11 @@ export async function courseHasUserData(courseId: string): Promise<boolean> {
 // and surfaced if it hits — (3) delete the duplicate's holes (the real course
 // now carries exact containment geometry), then the duplicate row.
 export async function mergeAndDeletePhantom(phantomId: string, realId: string): Promise<void> {
+  if (await courseHasUserData(phantomId)) {
+    throw new Error(
+      `refusing to merge ${phantomId}: it has user data (rounds/hole_scores); flag for manual handling`,
+    )
+  }
   const rounds = await supabase
     .from('rounds')
     .update({ course_id: realId })

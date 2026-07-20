@@ -119,6 +119,12 @@ export const STATE_BBOX: Record<string, [number, number, number, number]> = {
 
 export const MATCH_THRESHOLD = 0.7
 
+// The crawler's fallback names are exactly "Golf Course" or "Golf Course (City)".
+// Anchor the match so real names beginning with "Golf Course" (e.g. "Golf Course
+// at the Bluffs") are NOT treated as fallbacks.
+export const isFallbackName = (name: string): boolean =>
+  name === 'Golf Course' || /^Golf Course \(.+\)$/.test(name)
+
 export function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }

@@ -13,6 +13,7 @@ import {
   OVERPASS_ENDPOINTS,
   STATE_BBOX,
   haversineMeters,
+  isFallbackName,
   pointInPolygon,
   sleep,
 } from './util'
@@ -514,13 +515,11 @@ export async function crawlComplete(
       // of a single named course sitting inside a NAMELESS polygon (usually the
       // real course; flagged so a wrong adoption can be caught) → fallback.
       const existingReal =
-        existingCourse && !existingCourse.name.startsWith('Golf Course')
-          ? existingCourse.name
-          : undefined
+        existingCourse && !isFallbackName(existingCourse.name) ? existingCourse.name : undefined
       let derived = poly.name ?? existingReal
       let adopted: string | undefined
       if (!derived) {
-        const named = inside.filter((c) => !c.name.startsWith('Golf Course'))
+        const named = inside.filter((c) => !isFallbackName(c.name))
         if (named.length === 1) {
           derived = named[0].name
           adopted = named[0].name

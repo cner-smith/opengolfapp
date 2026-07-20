@@ -2,7 +2,7 @@
 // Most OSM golf_course ways carry no addr:city, so osm-fetcher can only give
 // them a bare "Golf Course" fallback name. This pass reverse-geocodes those
 // coordinates to a real city so courses become locatable without hand-editing.
-import { sleep } from './util'
+import { isFallbackName, sleep } from './util'
 import { fetchCitylessCourses, updateCourseCity } from './db-writer'
 
 const NOMINATIM_REVERSE = 'https://nominatim.openstreetmap.org/reverse'
@@ -19,13 +19,20 @@ export async function reverseGeocodeCity(lat: number, lng: number): Promise<stri
   const url = `${NOMINATIM_REVERSE}?format=jsonv2&lat=${lat}&lon=${lng}&addressdetails=1`
   let attempts = 0
   const MAX_ATTEMPTS = 2
+  let rateLimitHits = 0
+  const MAX_RATE_LIMIT = 6
   while (true) {
     try {
       const res = await fetch(url, {
         headers: { 'User-Agent': USER_AGENT, Accept: 'application/json' },
       })
       if (res.status === 429) {
-        console.warn('[geocode] rate limited — waiting 30s')
+        rateLimitHits++
+        if (rateLimitHits > MAX_RATE_LIMIT) {
+          console.warn('[geocode] rate limited too many times — giving up on this course')
+          return null
+        }
+        console.warn(`[geocode] rate limited — waiting 30s (${rateLimitHits}/${MAX_RATE_LIMIT})`)
         await sleep(30000)
         continue
       }
@@ -67,7 +74,7 @@ export async function crawlGeocode(limit: number | null): Promise<void> {
     if (!c) continue
     const city = await reverseGeocodeCity(c.lat, c.lng)
     if (city) {
-      const name = c.name.startsWith('Golf Course') ? `Golf Course (${city})` : undefined
+      const name = isFallbackName(c.name) ? `Golf Course (${city})` : undefined
       await updateCourseCity(c.id, city, name)
       filled++
     } else {
