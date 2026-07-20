@@ -35,7 +35,7 @@ type HoleRow = Database['public']['Tables']['holes']['Row']
 const AIM_AUTOSPAWN_FRACTION = 0.65
 
 // Last drag-edit on a saved shot. Surfaces the Undo button on the
-// logged-hole strip for 5s after every drag, then clears itself.
+// bottom chrome for 5s after every drag, then clears itself.
 // Holds the previous coords so the undo can restore them via the same
 // mutation path the drag took. `field` is the column the drag
 // touched ('start' = start_lat/lng + distance_to_target, 'aim' =

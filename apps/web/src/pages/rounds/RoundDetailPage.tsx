@@ -42,7 +42,7 @@ export function RoundDetailPage() {
   const [confirmDelete, setConfirmDelete] = useState(false)
   // "Set an aim point?" prompt — opens after every non-putt PUSH_POINT
   // so the player decides explicitly whether this shot has aim data.
-  // Replaces the easy-to-miss "Set aim" button on the strip as the
+  // Replaces the easy-to-miss "Set aim" button on the bottom chrome as the
   // primary aim-collection moment. Putt placements skip it (putts
   // capture aim through the putting sheet's break/aim-offset fields).
   const [aimPromptOpen, setAimPromptOpen] = useState(false)
