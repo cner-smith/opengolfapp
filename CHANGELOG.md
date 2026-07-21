@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.3.1](https://github.com/cner-smith/opengolfapp/compare/v1.3.0...v1.3.1) (2026-07-21)
+
+
+### Bug Fixes
+
+* **facilities:** lock curated course columns + guard facility drill-down race ([#822](https://github.com/cner-smith/opengolfapp/issues/822)) ([932ccd5](https://github.com/cner-smith/opengolfapp/commit/932ccd52f619b68c0d751e70f96a3bca327aba4c))
+
 ## [1.3.0](https://github.com/cner-smith/opengolfapp/compare/v1.2.0...v1.3.0) (2026-07-12)
 
 
