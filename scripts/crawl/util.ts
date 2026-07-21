@@ -119,6 +119,12 @@ export const STATE_BBOX: Record<string, [number, number, number, number]> = {
 
 export const MATCH_THRESHOLD = 0.7
 
+// The crawler's fallback names are exactly "Golf Course" or "Golf Course (City)".
+// Anchor the match so real names beginning with "Golf Course" (e.g. "Golf Course
+// at the Bluffs") are NOT treated as fallbacks.
+export const isFallbackName = (name: string): boolean =>
+  name === 'Golf Course' || /^Golf Course \(.+\)$/.test(name)
+
 export function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
@@ -139,6 +145,31 @@ export function asNumber(v: unknown): number | undefined {
     if (Number.isFinite(n)) return n
   }
   return undefined
+}
+
+// Ray-casting point-in-polygon test. ring is the polygon's ordered vertices
+// ({lat,lng}); returns true if the point lies inside. Used by the completion
+// pass to assign each OSM hole to the course polygon that actually contains it
+// (exact), instead of the nearest centroid (a guess that bleeds holes between
+// adjacent courses).
+export function pointInPolygon(
+  pt: { lat: number; lng: number },
+  ring: { lat: number; lng: number }[],
+): boolean {
+  let inside = false
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+    const yi = ring[i].lat
+    const xi = ring[i].lng
+    const yj = ring[j].lat
+    const xj = ring[j].lng
+    // Casts a ray in +lat at x=pt.lng; the xi>lng!==xj>lng test excludes
+    // vertical edges (and guards the divide), so horizontal edges must NOT be
+    // skipped — they're resolved by the formula. Matches the validated variant.
+    if (xi > pt.lng !== xj > pt.lng && pt.lat < ((yj - yi) * (pt.lng - xi)) / (xj - xi) + yi) {
+      inside = !inside
+    }
+  }
+  return inside
 }
 
 // Great-circle distance in metres. Used by the osm-holes pass to assign each

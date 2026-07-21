@@ -75,13 +75,12 @@ export function useMapSetup({
     })
     map.addControl(
       new mapboxgl.AttributionControl({ compact: true }),
-      'bottom-right',
+      'top-left',
     )
-    // Zoom + / – live in the bottom-right corner so they don't fight the
-    // instruction strip across the top of the map.
+    // Zoom +/– and attribution live top-left (top-right = ExpStrokesHud); the chrome owns the bottom.
     map.addControl(
       new mapboxgl.NavigationControl({ showCompass: false }),
-      'bottom-right',
+      'top-left',
     )
     map.on('load', () => setMapLoaded(true))
     mapRef.current = map
@@ -159,7 +158,7 @@ export function useMapSetup({
     function onClick(e: mapboxgl.MapMouseEvent) {
       // Pin placement wins over every other click outcome — even when shots
       // already exist, the user explicitly entered placement mode from the
-      // strip and the next tap should land the marker. (The tee is no longer
+      // bottom chrome and the next tap should land the marker. (The tee is no longer
       // placed manually — it's derived from the first shot, mirroring mobile.)
       if (placementMode === 'pin' && onMovePin) {
         userPlacedRef.current = true

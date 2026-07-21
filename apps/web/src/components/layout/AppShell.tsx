@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { useLocation } from 'react-router-dom'
 import { Sidebar } from './Sidebar'
+import { MobileTabBar } from './MobileTabBar'
 
 export function AppShell({ children }: { children: ReactNode }) {
   const [drawerOpen, setDrawerOpen] = useState(false)
@@ -43,9 +44,39 @@ export function AppShell({ children }: { children: ReactNode }) {
         <Sidebar />
       </div>
 
+      {/* Mobile top bar — brand + menu (opens the same drawer). Fixed so it
+          stays on scroll; hidden on md+ where the sidebar takes over. */}
+      <div
+        className="md:hidden fixed top-0 left-0 right-0 z-30 bg-caddie-surface flex items-center justify-between"
+        style={{ height: 52, borderBottom: '1px solid #D9D2BF', paddingInline: 16 }}
+      >
+        <div
+          className="font-serif text-caddie-ink"
+          style={{ fontSize: 20, fontWeight: 500, fontStyle: 'italic' }}
+        >
+          oga<span style={{ fontStyle: 'normal', color: '#1F3D2C' }}>.</span>
+        </div>
+        <button
+          type="button"
+          onClick={() => setDrawerOpen(true)}
+          aria-label="Open menu"
+          className="font-mono uppercase text-caddie-ink"
+          style={{
+            border: '1px solid #D9D2BF',
+            borderRadius: 2,
+            padding: '7px 10px',
+            fontSize: 11,
+            letterSpacing: '0.14em',
+            fontWeight: 600,
+          }}
+        >
+          ☰ Menu
+        </button>
+      </div>
+
       <main
         ref={mainRef}
-        className="flex-1 overflow-y-auto"
+        className="flex-1 overflow-y-auto pt-[52px] md:pt-0"
         style={{ paddingInline: 'clamp(16px, 4vw, 32px)' }}
       >
         <div
@@ -58,25 +89,6 @@ export function AppShell({ children }: { children: ReactNode }) {
             paddingBlock: 'clamp(18px, 3vw, 28px)',
           }}
         >
-          <button
-            type="button"
-            onClick={() => setDrawerOpen(true)}
-            aria-label="Open menu"
-            className="md:hidden self-start"
-            style={{
-              background: 'transparent',
-              border: '1px solid #D9D2BF',
-              borderRadius: 2,
-              padding: '8px 10px',
-              fontSize: 12,
-              letterSpacing: '0.14em',
-              fontWeight: 600,
-              color: '#1C211C',
-              marginBottom: 16,
-            }}
-          >
-            ☰ MENU
-          </button>
           <div style={{ flex: 1 }}>{children}</div>
           <footer
             className="font-mono uppercase text-caddie-ink-mute"
@@ -117,8 +129,14 @@ export function AppShell({ children }: { children: ReactNode }) {
             </a>{' '}
             contributors (ODbL)
           </footer>
+          {/* Clears the fixed bottom tab bar (mobile only). */}
+          <div
+            className="md:hidden"
+            style={{ height: 'calc(56px + env(safe-area-inset-bottom, 0px))' }}
+          />
         </div>
       </main>
+      <MobileTabBar />
     </div>
   )
 }

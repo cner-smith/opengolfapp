@@ -7,7 +7,7 @@ import {
 } from '@oga/core'
 import type { Database } from '@oga/supabase'
 import {
-  RoundMapInstructionStrip,
+  MapBottomChrome,
   type ExistingShot,
   type HoleGeo,
   type PlacedPoint,
@@ -91,7 +91,7 @@ interface MapViewProps {
   /** Drag-end on a saved shot's aim ghost. */
   onMoveExistingShotAim: (shotId: string, point: PlacedPoint) => void
   /** Label for the most recent saved-shot drag, or null when no recent
-   *  edit exists. Drives the Undo affordance on the logged-hole strip. */
+   *  edit exists. Drives the Undo affordance on the logged-hole chrome. */
   shotDragUndoLabel: string | null
   onApplyShotDragUndo: () => void
   reviewSheet?: ReactNode
@@ -179,7 +179,7 @@ export function MapView({
       ? { lat: activeHoleGeo.teeLat, lng: activeHoleGeo.teeLng }
       : null)
   // The tee is derived from the first shot (not placed manually); this flag
-  // is retained only for the existing strip plumbing.
+  // is retained only for the existing chrome plumbing.
   const needsTee = activeHoleGeo != null && effectiveTee == null
   // "Set pin" is available while logging or editing a PAST round on a
   // geo-anchored hole — shown even when a pin coord already exists so the
@@ -267,39 +267,10 @@ export function MapView({
         {/* Left column: controls + per-hole shot list. Below the map on
             narrow screens (map-first), left of it on desktop. */}
         <div className="lg:order-1">
-          <RoundMapInstructionStrip
-            hasExistingShots={hasExistingShots}
-          editing={editingOnMap}
-          shotsPlaced={placedPoints.length}
-          remainingToPin={remainingToPin}
-          pinAvailable={effectivePin != null}
-          aimMode={aimMode}
-          aimsSet={placedAims.filter((a) => a != null).length}
-          holeNumber={activeHoleNumber}
-          needsTee={needsTee}
-          showPinButton={showPinButton}
-          placementMode={placementMode}
-          shotDragUndoLabel={shotDragUndoLabel}
-          onApplyShotDragUndo={onApplyShotDragUndo}
-          onStartPlaceTee={handlers.onStartPlaceTee}
-          onStartPlacePin={handlers.onStartPlacePin}
-          onCancelPlacement={handlers.onCancelPlacement}
-          onToggleAimMode={handlers.onToggleAimMode}
-          onClearLastAim={() => {
-            const idx = placedAims.length - 1
-            if (idx >= 0) handlers.onSetAim(idx, null)
-          }}
-          onUndo={handlers.onUndoPoint}
-          onClear={handlers.onClearPoints}
-          onDone={handlers.onDoneWithHole}
-          onDoneEditing={handlers.onDoneEditing}
-          />
-          <div style={{ marginTop: 16 }}>
-            <div className="kicker" style={{ marginBottom: 6 }}>
-              Shots
-            </div>
-            <ShotList shots={existingShots} />
+          <div className="kicker" style={{ marginBottom: 6 }}>
+            Shots
           </div>
+          <ShotList shots={existingShots} />
         </div>
         {/* Right column: portrait up-the-hole map (leads on narrow). */}
         <div
@@ -358,6 +329,33 @@ export function MapView({
             onSelectRail={selectRail}
           />
         )}
+        <MapBottomChrome
+          hasExistingShots={hasExistingShots}
+          editing={editingOnMap}
+          shotsPlaced={placedPoints.length}
+          remainingToPin={remainingToPin}
+          pinAvailable={effectivePin != null}
+          aimMode={aimMode}
+          aimsSet={placedAims.filter((a) => a != null).length}
+          holeNumber={activeHoleNumber}
+          needsTee={needsTee}
+          showPinButton={showPinButton}
+          placementMode={placementMode}
+          shotDragUndoLabel={shotDragUndoLabel}
+          onApplyShotDragUndo={onApplyShotDragUndo}
+          onStartPlaceTee={handlers.onStartPlaceTee}
+          onStartPlacePin={handlers.onStartPlacePin}
+          onCancelPlacement={handlers.onCancelPlacement}
+          onToggleAimMode={handlers.onToggleAimMode}
+          onClearLastAim={() => {
+            const idx = placedAims.length - 1
+            if (idx >= 0) handlers.onSetAim(idx, null)
+          }}
+          onUndo={handlers.onUndoPoint}
+          onClear={handlers.onClearPoints}
+          onDone={handlers.onDoneWithHole}
+          onDoneEditing={handlers.onDoneEditing}
+        />
         </div>
       </div>
       {saveError && (
@@ -543,7 +541,7 @@ function OverlayRail({
     flexDirection: 'column' as const,
     gap: 2,
     padding: 3,
-    borderRadius: 12,
+    borderRadius: 16,
     background: 'rgba(28,33,28,0.82)',
   }
   return (
@@ -578,11 +576,11 @@ function OverlayRail({
   )
 }
 
-// Live expected-strokes HUD pill (Phase D), top-right of the map clear of the
-// bottom-right Mapbox controls and the vertically-centered rail. The To Hole /
-// remaining readouts already live in the instruction strip + aim pills on web
-// (Option 1 keeps the strip), so this surfaces the one new value — expected
-// strokes to hole out from the current ball. Best-case SG rides the carry pill.
+// Live expected-strokes HUD pill (Phase D), top-right of the map (the Mapbox
+// controls sit top-left and the rail is vertically centered, so it's clear of
+// both). The To Hole / remaining readouts already live in the bottom chrome +
+// aim pills on web, so this surfaces the one new value — expected strokes to
+// hole out from the current ball. Best-case SG rides the carry pill.
 function ExpStrokesHud({ value }: { value: number }) {
   return (
     <div
@@ -592,7 +590,7 @@ function ExpStrokesHud({ value }: { value: number }) {
         right: 12,
         zIndex: 5,
         background: 'rgba(28,33,28,0.82)',
-        borderRadius: 6,
+        borderRadius: 20,
         padding: '6px 12px',
         textAlign: 'right',
         pointerEvents: 'none',
@@ -606,7 +604,7 @@ function ExpStrokesHud({ value }: { value: number }) {
       </div>
       <div
         className="tabular"
-        style={{ color: '#F2EEE5', fontSize: 18, fontWeight: 600, lineHeight: 1.2 }}
+        style={{ color: 'var(--caddie-accent-ink)', fontSize: 18, fontWeight: 600, lineHeight: 1.2 }}
       >
         {value.toFixed(1)}
       </div>
@@ -643,11 +641,11 @@ function DotsToggle({
         className="font-mono uppercase"
         style={{
           padding: '8px 12px',
-          borderRadius: 12,
+          borderRadius: 15,
           border: 'none',
           cursor: 'pointer',
           background: active ? '#FBF8F1' : 'rgba(28,33,28,0.82)',
-          color: active ? '#1C211C' : '#F2EEE5',
+          color: active ? 'var(--caddie-ink)' : 'var(--caddie-accent-ink)',
           fontSize: 10,
           fontWeight: active ? 700 : 500,
           letterSpacing: '0.12em',

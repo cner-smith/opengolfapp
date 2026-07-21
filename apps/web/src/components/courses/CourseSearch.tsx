@@ -1,11 +1,17 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { formatLocation } from '@oga/core'
+import { getFacilityUnits } from '@oga/supabase'
+import type { Database } from '@oga/supabase'
 import {
   useCourseSearch,
   useCreateManualCourse,
   useImportApiCourse,
 } from '../../hooks/useCourses'
 import { toUserMessage } from '../../lib/errors'
+import { supabase } from '../../lib/supabase'
+
+type FacilityRow = Database['public']['Tables']['facilities']['Row']
+type CourseRow = Database['public']['Tables']['courses']['Row']
 
 interface CourseSearchProps {
   selectedCourseId: string | null
@@ -30,17 +36,53 @@ export function CourseSearch({
   const [query, setQuery] = useState('')
   const [creatingManual, setCreatingManual] = useState(false)
   const [gps, setGps] = useState<GpsState>({ status: 'idle' })
+  const [facility, setFacility] = useState<FacilityRow | null>(null)
+  const [units, setUnits] = useState<CourseRow[]>([])
+  const [facilityError, setFacilityError] = useState(false)
+  // Monotonic token so a slow getFacilityUnits response from an earlier
+  // facility tap can't overwrite the units of a facility tapped later.
+  const facilityReqRef = useRef(0)
   const search = useCourseSearch(query)
   const importApi = useImportApiCourse()
 
   const apiResults = search.data?.api ?? []
-  const localResults = search.data?.local ?? []
-  const hasResults = apiResults.length > 0 || localResults.length > 0
+  const localResults = search.data?.standalone ?? []
+  const facilityResults = search.data?.facilities ?? []
+  const hasResults =
+    apiResults.length > 0 || localResults.length > 0 || facilityResults.length > 0
   // The "Add it" affordance is pinned to the bottom of the results
   // whenever there's a query to name the course from — not only when the
   // search came back empty. Fuzzy/near-but-wrong matches used to trap the
   // user with no way to add the course they actually meant (#472).
   const showAddNew = !search.isLoading && query.trim().length > 0
+
+  // A new search or a closed dropdown always clears facility drill-down —
+  // otherwise a fresh query could strand the picker inside a stale facility
+  // whose units no longer match what was typed.
+  useEffect(() => {
+    // Invalidate any in-flight openFacility so a late response can't re-open
+    // a facility the user has navigated away from.
+    facilityReqRef.current++
+    setFacility(null)
+    setUnits([])
+    setFacilityError(false)
+  }, [query])
+
+  async function openFacility(f: FacilityRow) {
+    const reqId = ++facilityReqRef.current
+    const { data, error } = await getFacilityUnits(supabase, f.id)
+    // A newer facility tap bumped the counter — drop this stale response.
+    if (facilityReqRef.current !== reqId) return
+    setFacility(f)
+    if (error) {
+      console.warn('[CourseSearch getFacilityUnits]', error.message)
+      setUnits([])
+      setFacilityError(true)
+      return
+    }
+    setFacilityError(false)
+    setUnits((data ?? []) as unknown as CourseRow[])
+  }
 
   // Capture GPS once when the parent has opted in (live-round mode) so
   // manual + API imports can stamp the user's tee location on hole 1.
@@ -104,7 +146,7 @@ export function CourseSearch({
             overflowY: 'auto',
           }}
         >
-          {search.isLoading && (
+          {search.isLoading && !facility && (
             <div
               className="text-caddie-ink-mute"
               style={{ padding: 14, fontSize: 13 }}
@@ -113,41 +155,93 @@ export function CourseSearch({
             </div>
           )}
 
-          {!search.isLoading && localResults.length > 0 && (
-            <SearchGroup label="Already imported">
-              {localResults.map((c) => (
+          {facility ? (
+            <SearchGroup
+              label={facility.name}
+              onBack={() => {
+                facilityReqRef.current++
+                setFacility(null)
+                setUnits([])
+                setFacilityError(false)
+              }}
+            >
+              {units.map((unit) => (
                 <SearchRow
-                  key={c.id}
-                  selected={selectedCourseId === c.id}
-                  title={c.name}
-                  subtitle={
-                    [c.city, c.state].filter((s) => !!s).join(', ') || undefined
-                  }
+                  key={unit.id}
+                  selected={selectedCourseId === unit.id}
+                  title={unit.unit_name ?? unit.name}
                   onClick={() => {
-                    onSelect(c.id, c.name)
+                    onSelect(unit.id, `${facility.name} — ${unit.unit_name ?? unit.name}`)
                     setQuery('')
                   }}
                 />
               ))}
+              {units.length === 0 && (
+                <div
+                  className="text-caddie-ink-mute"
+                  style={{ padding: 14, fontSize: 13 }}
+                >
+                  {facilityError
+                    ? "Couldn't load courses — go back and try again."
+                    : 'No courses listed.'}
+                </div>
+              )}
             </SearchGroup>
+          ) : (
+            <>
+              {!search.isLoading && facilityResults.length > 0 && (
+                <SearchGroup label="Facilities">
+                  {facilityResults.map((f) => (
+                    <SearchRow
+                      key={f.id}
+                      selected={false}
+                      title={f.name}
+                      subtitle={
+                        [f.city, f.state].filter((s) => !!s).join(', ') || undefined
+                      }
+                      onClick={() => openFacility(f)}
+                    />
+                  ))}
+                </SearchGroup>
+              )}
+
+              {!search.isLoading && localResults.length > 0 && (
+                <SearchGroup label="Already imported">
+                  {localResults.map((c) => (
+                    <SearchRow
+                      key={c.id}
+                      selected={selectedCourseId === c.id}
+                      title={c.name}
+                      subtitle={
+                        [c.city, c.state].filter((s) => !!s).join(', ') || undefined
+                      }
+                      onClick={() => {
+                        onSelect(c.id, c.name)
+                        setQuery('')
+                      }}
+                    />
+                  ))}
+                </SearchGroup>
+              )}
+
+              {!search.isLoading && apiResults.length > 0 && (
+                <SearchGroup label="OpenGolfAPI">
+                  {apiResults.map((r) => (
+                    <SearchRow
+                      key={r.id}
+                      selected={false}
+                      title={r.name}
+                      subtitle={formatLocation(r) || undefined}
+                      busy={importApi.isPending}
+                      onClick={() => handleSelectApi(r.id, r.name, formatLocation(r))}
+                    />
+                  ))}
+                </SearchGroup>
+              )}
+            </>
           )}
 
-          {!search.isLoading && apiResults.length > 0 && (
-            <SearchGroup label="OpenGolfAPI">
-              {apiResults.map((r) => (
-                <SearchRow
-                  key={r.id}
-                  selected={false}
-                  title={r.name}
-                  subtitle={formatLocation(r) || undefined}
-                  busy={importApi.isPending}
-                  onClick={() => handleSelectApi(r.id, r.name, formatLocation(r))}
-                />
-              ))}
-            </SearchGroup>
-          )}
-
-          {showAddNew && (
+          {!facility && showAddNew && (
             <button
               type="button"
               onClick={() => setCreatingManual(true)}
@@ -201,9 +295,11 @@ export function CourseSearch({
 
 function SearchGroup({
   label,
+  onBack,
   children,
 }: {
   label: string
+  onBack?: () => void
   children: React.ReactNode
 }) {
   return (
@@ -213,9 +309,22 @@ function SearchGroup({
         style={{
           padding: '10px 14px 6px',
           borderBottom: '1px solid #D9D2BF',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 8,
         }}
       >
-        {label}
+        {onBack && (
+          <button
+            type="button"
+            onClick={onBack}
+            className="text-caddie-accent"
+            style={{ background: 'transparent', border: 'none', padding: 0, fontSize: 11 }}
+          >
+            ‹ Back
+          </button>
+        )}
+        <span>{label}</span>
       </div>
       {children}
     </div>

@@ -4,7 +4,12 @@ type RoundRow = Database['public']['Tables']['rounds']['Row']
 type CourseTeeRow = Database['public']['Tables']['course_tees']['Row']
 
 interface RoundHeaderProps {
-  round: RoundRow & { courses?: { name?: string | null } | null }
+  round: RoundRow & {
+    courses?: {
+      name?: string | null
+      facilities?: { name?: string | null } | null
+    } | null
+  }
   tees: CourseTeeRow[]
   holesPlayed: number
   holeCount: number
@@ -61,8 +66,16 @@ export function RoundHeader({
             className="font-serif text-caddie-ink"
             style={{ fontSize: 28, fontWeight: 500, lineHeight: 1.15 }}
           >
-            {round.courses?.name ?? 'Round'}
+            {round.courses?.facilities?.name ?? round.courses?.name ?? 'Round'}
           </h1>
+          {round.courses?.facilities?.name && (
+            <div
+              className="font-serif text-caddie-ink-mute"
+              style={{ fontSize: 15, marginTop: 2 }}
+            >
+              {round.courses?.name}
+            </div>
+          )}
           <div
             className="font-mono uppercase tabular text-caddie-ink-mute"
             style={{

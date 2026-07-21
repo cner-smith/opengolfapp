@@ -17,6 +17,7 @@ import {
   formatLocation,
   getOpenGolfApiCourse,
   inferHoleCount,
+  resolveFacilityResults,
   searchOpenGolfApi,
   todayLocalDate,
   type CaptureMode,
@@ -28,7 +29,10 @@ import {
   createRound,
   deleteRound,
   getCourseByExternalId,
+  getFacilitiesByIds,
+  getFacilityUnits,
   searchCourses,
+  searchFacilities,
   upsertCourseTees,
 } from '@oga/supabase'
 import type { Database } from '@oga/supabase'
@@ -36,8 +40,10 @@ import { supabase } from '../../../lib/supabase'
 import { useAuth } from '../../../hooks/useAuth'
 import { FONT, TYPE } from '../../../lib/typography'
 import { TeePicker } from '../../../components/round/RoundTeeSelector'
+import { PressableTouch } from '../../../components/ui/PressableTouch'
 
 type CourseRow = Database['public']['Tables']['courses']['Row']
+type FacilityRow = Database['public']['Tables']['facilities']['Row']
 type HoleInsert = Database['public']['Tables']['holes']['Insert']
 
 const KICKER: import('react-native').TextStyle = {
@@ -68,6 +74,16 @@ export default function NewRound() {
   const [debouncedQuery, setDebouncedQuery] = useState('')
   const [apiResults, setApiResults] = useState<OpenGolfApiSearchResult[]>([])
   const [localResults, setLocalResults] = useState<CourseRow[]>([])
+  const [facilityResults, setFacilityResults] = useState<FacilityRow[]>([])
+  // Facility-first drill-down: tapping a facility card fetches its units and
+  // sets `facility` — the results list swaps to just that facility's units
+  // until the query changes or the user taps Back. Mirrors web CourseSearch.
+  const [facility, setFacility] = useState<FacilityRow | null>(null)
+  const [units, setUnits] = useState<CourseRow[]>([])
+  const [facilityError, setFacilityError] = useState(false)
+  // Monotonic token so a slow getFacilityUnits response from an earlier
+  // facility tap can't overwrite the units of a facility tapped later.
+  const facilityReqRef = useRef(0)
   const [searching, setSearching] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -92,6 +108,18 @@ export default function NewRound() {
   useEffect(() => {
     const id = setTimeout(() => setDebouncedQuery(query), 300)
     return () => clearTimeout(id)
+  }, [query])
+
+  // A new search always clears facility drill-down — otherwise a fresh
+  // query could strand the picker inside a stale facility whose units no
+  // longer match what was typed. Mirrors web CourseSearch.
+  useEffect(() => {
+    // Invalidate any in-flight openFacility so a late response can't re-open
+    // a facility the user has navigated away from.
+    facilityReqRef.current++
+    setFacility(null)
+    setUnits([])
+    setFacilityError(false)
   }, [query])
 
   // Capture GPS once (best-effort) so manual / API course creation can
@@ -134,53 +162,100 @@ export default function NewRound() {
     })()
   }, [gps.status, mode])
 
-  // Run search whenever debounced query changes.
+  // Run search whenever debounced query changes. Facility-first: local
+  // results split into standalone courses (no facility_id) and facility
+  // units. Units are never dropped from the result set — a unit's facility
+  // is re-anchored in via getFacilitiesByIds so a search for e.g. "Lake
+  // Hefner South" still surfaces the "Lake Hefner Golf Club" facility card
+  // even when the name match wasn't on the facility row itself. Mirrors
+  // web's useCourseSearch exactly.
   useEffect(() => {
     const term = debouncedQuery.trim()
     searchAbort.current?.abort()
     if (!term) {
       setApiResults([])
       setLocalResults([])
+      setFacilityResults([])
       setSearching(false)
       return
     }
     const ctrl = new AbortController()
     searchAbort.current = ctrl
     setSearching(true)
-    Promise.allSettled([
-      searchOpenGolfApi(term, ctrl.signal),
-      searchCourses(supabase, term, 10, ctrl.signal).then(({ data, error }) => {
-        // Abort propagates here as a PostgrestError shape with code:'' and
-        // message starting "AbortError:" — but the cleanest gate is the
-        // signal itself, robust to postgrest-js error-shape drift. See
-        // #291.
-        if (ctrl.signal.aborted) return [] as CourseRow[]
-        if (error) {
-          // eslint-disable-next-line no-console
-          console.warn('[round/new searchCourses]', error.message)
-          return [] as CourseRow[]
-        }
-        return (data ?? []) as CourseRow[]
-      }),
-    ])
-      .then(([api, local]) => {
-        if (ctrl.signal.aborted) return
-        setApiResults(api.status === 'fulfilled' ? api.value : [])
-        setLocalResults(local.status === 'fulfilled' ? local.value : [])
-      })
-      .finally(() => {
-        if (!ctrl.signal.aborted) setSearching(false)
-      })
+    ;(async () => {
+      const [api, local, facilitySearch] = await Promise.allSettled([
+        searchOpenGolfApi(term, ctrl.signal),
+        searchCourses(supabase, term, 10, ctrl.signal).then(({ data, error }) => {
+          // Abort propagates here as a PostgrestError shape with code:'' and
+          // message starting "AbortError:" — but the cleanest gate is the
+          // signal itself, robust to postgrest-js error-shape drift. See
+          // #291.
+          if (ctrl.signal.aborted) return [] as CourseRow[]
+          if (error) {
+            // eslint-disable-next-line no-console
+            console.warn('[round/new searchCourses]', error.message)
+            return [] as CourseRow[]
+          }
+          return (data ?? []) as unknown as CourseRow[]
+        }),
+        searchFacilities(supabase, term, 10, ctrl.signal).then(({ data, error }) => {
+          if (ctrl.signal.aborted) return [] as FacilityRow[]
+          if (error) {
+            // eslint-disable-next-line no-console
+            console.warn('[round/new searchFacilities]', error.message)
+            return [] as FacilityRow[]
+          }
+          return (data ?? []) as unknown as FacilityRow[]
+        }),
+      ])
+      if (ctrl.signal.aborted) return
+      setApiResults(api.status === 'fulfilled' ? api.value : [])
+      const localRows: CourseRow[] = local.status === 'fulfilled' ? local.value : []
+      const byName: FacilityRow[] =
+        facilitySearch.status === 'fulfilled' ? facilitySearch.value : []
+      const { standalone, facilities } = await resolveFacilityResults(
+        localRows,
+        byName,
+        async (ids) => {
+          const r = await getFacilitiesByIds(supabase, ids)
+          return (r.data ?? []) as unknown as FacilityRow[]
+        },
+      )
+      if (ctrl.signal.aborted) return
+      setLocalResults(standalone)
+      setFacilityResults(facilities)
+    })().finally(() => {
+      if (!ctrl.signal.aborted) setSearching(false)
+    })
     return () => ctrl.abort()
   }, [debouncedQuery])
 
   const gpsCoords = gps.status === 'ok' ? { lat: gps.lat!, lng: gps.lng! } : null
-  const hasResults = apiResults.length > 0 || localResults.length > 0
+  const hasResults =
+    apiResults.length > 0 || localResults.length > 0 || facilityResults.length > 0
   // Pin "Add it" below the results whenever there's a query to name the
   // course from — not only on an empty search. Near-but-wrong fuzzy
   // matches used to trap the user with no way to add the course they
   // actually meant (#472). Mirrors web CourseSearch.
   const showAddNew = !searching && debouncedQuery.trim().length > 0
+
+  async function openFacility(f: FacilityRow) {
+    const reqId = ++facilityReqRef.current
+    const { data, error } = await getFacilityUnits(supabase, f.id)
+    // A newer facility tap bumped the counter — drop this stale response.
+    if (facilityReqRef.current !== reqId) return
+    setFacility(f)
+    if (error) {
+      // Surface fetch failure as an error state instead of an empty facility.
+      // eslint-disable-next-line no-console
+      console.warn('[round/new getFacilityUnits]', error.message)
+      setUnits([])
+      setFacilityError(true)
+      return
+    }
+    setFacilityError(false)
+    setUnits((data ?? []) as unknown as CourseRow[])
+  }
 
   async function startWith(
     courseId: string,
@@ -478,13 +553,30 @@ export default function NewRound() {
       )}
 
       <ScrollView keyboardShouldPersistTaps="handled">
-        {localResults.length > 0 && (
+        {facility ? (
           <View style={{ marginBottom: 14 }}>
-            <Text style={{ ...KICKER, marginBottom: 8 }}>Already imported</Text>
-            {localResults.map((c) => (
-              <Pressable
-                key={c.id}
-                onPress={() => setPendingCourse({ id: c.id, name: c.name })}
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+              <PressableTouch
+                onPress={() => {
+                  facilityReqRef.current++
+                  setFacility(null)
+                  setUnits([])
+                  setFacilityError(false)
+                }}
+              >
+                <Text style={{ ...KICKER, color: '#1F3D2C' }}>‹ Back</Text>
+              </PressableTouch>
+              <Text style={KICKER}>{facility.name}</Text>
+            </View>
+            {units.map((unit) => (
+              <PressableTouch
+                key={unit.id}
+                onPress={() =>
+                  setPendingCourse({
+                    id: unit.id,
+                    name: `${facility.name} — ${unit.unit_name ?? unit.name}`,
+                  })
+                }
                 disabled={busy}
                 style={{
                   borderTopWidth: 1,
@@ -500,56 +592,137 @@ export default function NewRound() {
                     fontWeight: '500',
                   }]}
                 >
-                  {c.name}
+                  {unit.unit_name ?? unit.name}
                 </Text>
-                {(() => {
-                  const where = [c.city, c.state].filter((s) => !!s).join(', ')
-                  return where ? (
-                    <Text style={[TYPE.body, { color: '#5C6356', fontSize: 12, marginTop: 2 }]}>
-                      {where}
+              </PressableTouch>
+            ))}
+            {units.length === 0 && (
+              <Text
+                style={[TYPE.body, {
+                  color: facilityError ? '#A33A2A' : '#8A8B7E',
+                  fontSize: 13,
+                  paddingVertical: 14,
+                }]}
+              >
+                {facilityError
+                  ? "Couldn't load courses — go back and try again."
+                  : 'No courses listed.'}
+              </Text>
+            )}
+          </View>
+        ) : (
+          <>
+            {facilityResults.length > 0 && (
+              <View style={{ marginBottom: 14 }}>
+                <Text style={{ ...KICKER, marginBottom: 8 }}>Facilities</Text>
+                {facilityResults.map((f) => (
+                  <PressableTouch
+                    key={f.id}
+                    onPress={() => openFacility(f)}
+                    disabled={busy}
+                    style={{
+                      borderTopWidth: 1,
+                      borderColor: '#D9D2BF',
+                      paddingVertical: 14,
+                      opacity: busy ? 0.4 : 1,
+                    }}
+                  >
+                    <Text
+                      style={[TYPE.bodyBold, {
+                        color: '#1C211C',
+                        fontSize: 15,
+                        fontWeight: '500',
+                      }]}
+                    >
+                      {f.name}
                     </Text>
-                  ) : null
-                })()}
-              </Pressable>
-            ))}
-          </View>
+                    {(() => {
+                      const where = [f.city, f.state].filter((s) => !!s).join(', ')
+                      return where ? (
+                        <Text style={[TYPE.body, { color: '#5C6356', fontSize: 12, marginTop: 2 }]}>
+                          {where}
+                        </Text>
+                      ) : null
+                    })()}
+                  </PressableTouch>
+                ))}
+              </View>
+            )}
+
+            {localResults.length > 0 && (
+              <View style={{ marginBottom: 14 }}>
+                <Text style={{ ...KICKER, marginBottom: 8 }}>Already imported</Text>
+                {localResults.map((c) => (
+                  <Pressable
+                    key={c.id}
+                    onPress={() => setPendingCourse({ id: c.id, name: c.name })}
+                    disabled={busy}
+                    style={{
+                      borderTopWidth: 1,
+                      borderColor: '#D9D2BF',
+                      paddingVertical: 14,
+                      opacity: busy ? 0.4 : 1,
+                    }}
+                  >
+                    <Text
+                      style={[TYPE.bodyBold, {
+                        color: '#1C211C',
+                        fontSize: 15,
+                        fontWeight: '500',
+                      }]}
+                    >
+                      {c.name}
+                    </Text>
+                    {(() => {
+                      const where = [c.city, c.state].filter((s) => !!s).join(', ')
+                      return where ? (
+                        <Text style={[TYPE.body, { color: '#5C6356', fontSize: 12, marginTop: 2 }]}>
+                          {where}
+                        </Text>
+                      ) : null
+                    })()}
+                  </Pressable>
+                ))}
+              </View>
+            )}
+
+            {apiResults.length > 0 && (
+              <View style={{ marginBottom: 14 }}>
+                <Text style={{ ...KICKER, marginBottom: 8 }}>OpenGolfAPI</Text>
+                {apiResults.map((r) => (
+                  <Pressable
+                    key={r.id}
+                    onPress={() => startWithApiCourse(r)}
+                    disabled={busy}
+                    style={{
+                      borderTopWidth: 1,
+                      borderColor: '#D9D2BF',
+                      paddingVertical: 14,
+                      opacity: busy ? 0.4 : 1,
+                    }}
+                  >
+                    <Text
+                      style={[TYPE.bodyBold, {
+                        color: '#1C211C',
+                        fontSize: 15,
+                        fontWeight: '500',
+                      }]}
+                    >
+                      {r.name}
+                    </Text>
+                    {formatLocation(r) ? (
+                      <Text style={[TYPE.body, { color: '#5C6356', fontSize: 12, marginTop: 2 }]}>
+                        {formatLocation(r)}
+                      </Text>
+                    ) : null}
+                  </Pressable>
+                ))}
+              </View>
+            )}
+          </>
         )}
 
-        {apiResults.length > 0 && (
-          <View style={{ marginBottom: 14 }}>
-            <Text style={{ ...KICKER, marginBottom: 8 }}>OpenGolfAPI</Text>
-            {apiResults.map((r) => (
-              <Pressable
-                key={r.id}
-                onPress={() => startWithApiCourse(r)}
-                disabled={busy}
-                style={{
-                  borderTopWidth: 1,
-                  borderColor: '#D9D2BF',
-                  paddingVertical: 14,
-                  opacity: busy ? 0.4 : 1,
-                }}
-              >
-                <Text
-                  style={[TYPE.bodyBold, {
-                    color: '#1C211C',
-                    fontSize: 15,
-                    fontWeight: '500',
-                  }]}
-                >
-                  {r.name}
-                </Text>
-                {formatLocation(r) ? (
-                  <Text style={[TYPE.body, { color: '#5C6356', fontSize: 12, marginTop: 2 }]}>
-                    {formatLocation(r)}
-                  </Text>
-                ) : null}
-              </Pressable>
-            ))}
-          </View>
-        )}
-
-        {showAddNew && (
+        {!facility && showAddNew && (
           <Pressable
             onPress={() => setShowManualForm(true)}
             style={{

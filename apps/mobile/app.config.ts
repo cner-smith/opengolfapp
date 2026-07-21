@@ -63,10 +63,10 @@ const config: ExpoConfig = {
       dark: './assets/icon-dark.png',
       tinted: './assets/icon-tinted.png',
     },
-    // Seed value for EAS autoIncrement on first iOS build. With
-    // appVersionSource: 'remote' in eas.json, no seed = first build errors
-    // because there's no remote value to increment.
-    buildNumber: '1',
+    // buildNumber / versionCode are managed remotely by EAS (appVersionSource:
+    // 'remote' + autoIncrement in eas.json) now that a remote value exists — no
+    // local seed. (A seed was only needed for the very first build, before EAS
+    // had a value to increment.)
     // iPhone-only for v1: drops the App Store's 12.9" iPad screenshot
     // requirement and iPad-layout QA. Revisit when an iPad layout is on the roadmap.
     supportsTablet: false,
