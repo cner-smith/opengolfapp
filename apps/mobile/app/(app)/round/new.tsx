@@ -226,7 +226,7 @@ export default function NewRound() {
         api.status === 'fulfilled' ? api.value : []
       const apiDeduped = apiRaw.filter(
         (h) =>
-          !standalone.some((c) => isProbableSameCourse(h, c)) &&
+          !localRows.some((c) => isProbableSameCourse(h, c)) &&
           !facilities.some((f) =>
             isProbableSameCourse(h, { name: f.name, state: f.state }),
           ),
