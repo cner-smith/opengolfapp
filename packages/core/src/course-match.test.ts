@@ -1,5 +1,9 @@
 import { describe, it, expect } from 'vitest'
-import { normalizeCourseName, isProbableSameCourse } from './course-match'
+import {
+  normalizeCourseName,
+  normalizeState,
+  isProbableSameCourse,
+} from './course-match'
 
 describe('normalizeCourseName', () => {
   it('strips golf noise words, punctuation, and case', () => {
@@ -8,6 +12,23 @@ describe('normalizeCourseName', () => {
   })
   it('returns empty when only noise words remain', () => {
     expect(normalizeCourseName('The Golf Club')).toBe('')
+  })
+})
+
+describe('normalizeState', () => {
+  it('maps a full state name to its 2-letter code', () => {
+    expect(normalizeState('Oklahoma')).toBe('ok')
+    expect(normalizeState('New York')).toBe('ny')
+  })
+  it('passes an existing 2-letter code through (lowercased)', () => {
+    expect(normalizeState('OK')).toBe('ok')
+  })
+  it('returns empty for null/blank', () => {
+    expect(normalizeState(null)).toBe('')
+    expect(normalizeState('  ')).toBe('')
+  })
+  it('passes unknown values through lowercased', () => {
+    expect(normalizeState('Ontario')).toBe('ontario')
   })
 })
 
@@ -28,11 +49,27 @@ describe('isProbableSameCourse', () => {
       ),
     ).toBe(true)
   })
+  it('matches when one side spells the state out and the other abbreviates', () => {
+    expect(
+      isProbableSameCourse(
+        { name: 'Lake Hefner Golf Club', state: 'Oklahoma' },
+        { name: 'Lake Hefner Golf Course', state: 'OK' },
+      ),
+    ).toBe(true)
+  })
   it('rejects same name in different states', () => {
     expect(
       isProbableSameCourse(
         { name: 'Pine Valley', state: 'NJ' },
         { name: 'Pine Valley', state: 'NY' },
+      ),
+    ).toBe(false)
+  })
+  it('rejects same name where one full-name state differs from the other code', () => {
+    expect(
+      isProbableSameCourse(
+        { name: 'Riverside', state: 'Texas' },
+        { name: 'Riverside', state: 'OK' },
       ),
     ).toBe(false)
   })
