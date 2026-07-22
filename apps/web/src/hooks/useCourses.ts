@@ -190,6 +190,20 @@ export function useImportApiCourse() {
           commaIdx >= 0 ? trimmed.slice(commaIdx + 1).trim() || null : null
       }
 
+      // Backstop: the external_id check above only catches a prior import of
+      // THIS exact API id. A course we already crawled has an OSM external_id
+      // and won't match, so fuzzy-match the name against local before inserting
+      // a duplicate. On a confident match, reuse the existing row.
+      const candidateName = detail?.name ?? args.fallbackName
+      const { data: localMatches } = await searchCourses(supabase, candidateName, 5)
+      const dupe = (localMatches ?? []).find((c) =>
+        isProbableSameCourse(
+          { name: candidateName, state },
+          { name: c.name, state: c.state },
+        ),
+      )
+      if (dupe) return dupe as unknown as CourseRow
+
       // `created_by` is required by the holes INSERT policy (migration
       // 0026): the immediate `createHoles` call below RLS-fails on
       // courses with `created_by IS NULL`. Stamp the caller's user id
