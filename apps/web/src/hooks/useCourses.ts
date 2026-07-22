@@ -3,6 +3,7 @@ import {
   resolveFacilityResults,
   searchOpenGolfApi,
   getOpenGolfApiCourse,
+  isProbableSameCourse,
   type OpenGolfApiCourse,
   type OpenGolfApiSearchResult,
 } from '@oga/core'
@@ -75,8 +76,20 @@ export function useCourseSearch(query: string) {
         },
       )
 
+      // Drop API hits that duplicate a course we already have (crawled rows
+      // won't match by external_id since their id is OSM-based, so match on
+      // normalized name + state). Facility names are matched too, so an API
+      // hit doesn't shadow its own facility card.
+      const dedupedApi = apiHits.filter(
+        (h) =>
+          !localRows.some((c) => isProbableSameCourse(h, c)) &&
+          !facilities.some((f) =>
+            isProbableSameCourse(h, { name: f.name, state: f.state }),
+          ),
+      )
+
       return {
-        api: apiHits,
+        api: dedupedApi,
         // `local` keeps ALL matching local courses (incl. facility units) for
         // consumers that just need a course row to route on (e.g. CoursePlanPage).
         // `standalone` excludes units — the facility-first picker renders those
