@@ -205,39 +205,38 @@ export function CourseSearch({
                 </SearchGroup>
               )}
 
-              {!search.isLoading && localResults.length > 0 && (
-                <SearchGroup label="Already imported">
-                  {localResults.map((c) => (
-                    <SearchRow
-                      key={c.id}
-                      selected={selectedCourseId === c.id}
-                      title={c.name}
-                      subtitle={
-                        [c.city, c.state].filter((s) => !!s).join(', ') || undefined
-                      }
-                      onClick={() => {
-                        onSelect(c.id, c.name)
-                        setQuery('')
-                      }}
-                    />
-                  ))}
-                </SearchGroup>
-              )}
-
-              {!search.isLoading && apiResults.length > 0 && (
-                <SearchGroup label="OpenGolfAPI">
-                  {apiResults.map((r) => (
-                    <SearchRow
-                      key={r.id}
-                      selected={false}
-                      title={r.name}
-                      subtitle={formatLocation(r) || undefined}
-                      busy={importApi.isPending}
-                      onClick={() => handleSelectApi(r.id, r.name, formatLocation(r))}
-                    />
-                  ))}
-                </SearchGroup>
-              )}
+              {!search.isLoading &&
+                (localResults.length > 0 || apiResults.length > 0) && (
+                  <SearchGroup label="Courses">
+                    {localResults.map((c) => (
+                      <SearchRow
+                        key={c.id}
+                        selected={selectedCourseId === c.id}
+                        title={c.name}
+                        subtitle={
+                          [c.city, c.state].filter((s) => !!s).join(', ') ||
+                          undefined
+                        }
+                        onClick={() => {
+                          onSelect(c.id, c.name)
+                          setQuery('')
+                        }}
+                      />
+                    ))}
+                    {apiResults.map((r) => (
+                      <SearchRow
+                        key={r.id}
+                        selected={false}
+                        title={r.name}
+                        subtitle={formatLocation(r) || undefined}
+                        busy={importApi.isPending}
+                        onClick={() =>
+                          handleSelectApi(r.id, r.name, formatLocation(r))
+                        }
+                      />
+                    ))}
+                  </SearchGroup>
+                )}
             </>
           )}
 
