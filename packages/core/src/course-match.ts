@@ -47,16 +47,22 @@ export function normalizeState(state: string | null | undefined): string {
 }
 
 export function isProbableSameCourse(
-  a: { name: string; state?: string | null },
-  b: { name: string; state?: string | null },
+  a: { name: string; state?: string | null; city?: string | null },
+  b: { name: string; state?: string | null; city?: string | null },
 ): boolean {
   const na = normalizeCourseName(a.name)
   const nb = normalizeCourseName(b.name)
   if (!na || !nb) return false
   if (na !== nb) return false
-  // Names match; only reject if BOTH sides name a state and they disagree.
+  // Names match; only reject on a field BOTH sides carry and disagree on.
+  // City matters most on the import path: generic names ("Riverside Golf
+  // Club") repeat within a state, so without a city check a user importing
+  // course B could be silently reused into unrelated course A's holes/tees.
   const sa = normalizeState(a.state)
   const sb = normalizeState(b.state)
   if (sa && sb && sa !== sb) return false
+  const ca = (a.city ?? '').trim().toLowerCase()
+  const cb = (b.city ?? '').trim().toLowerCase()
+  if (ca && cb && ca !== cb) return false
   return true
 }

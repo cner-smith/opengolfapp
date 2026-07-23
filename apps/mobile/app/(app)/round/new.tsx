@@ -228,7 +228,7 @@ export default function NewRound() {
         (h) =>
           !localRows.some((c) => isProbableSameCourse(h, c)) &&
           !facilities.some((f) =>
-            isProbableSameCourse(h, { name: f.name, state: f.state }),
+            isProbableSameCourse(h, { name: f.name, state: f.state, city: f.city }),
           ),
       )
       setApiResults(apiDeduped)
@@ -406,8 +406,8 @@ export default function NewRound() {
       const { data: localMatches } = await searchCourses(supabase, candidateName, 5)
       const dupe = (localMatches ?? []).find((c) =>
         isProbableSameCourse(
-          { name: candidateName, state },
-          { name: c.name, state: c.state },
+          { name: candidateName, state, city },
+          { name: c.name, state: c.state, city: c.city },
         ),
       )
       if (dupe) {

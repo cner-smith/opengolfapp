@@ -84,7 +84,7 @@ export function useCourseSearch(query: string) {
         (h) =>
           !localRows.some((c) => isProbableSameCourse(h, c)) &&
           !facilities.some((f) =>
-            isProbableSameCourse(h, { name: f.name, state: f.state }),
+            isProbableSameCourse(h, { name: f.name, state: f.state, city: f.city }),
           ),
       )
 
@@ -198,8 +198,8 @@ export function useImportApiCourse() {
       const { data: localMatches } = await searchCourses(supabase, candidateName, 5)
       const dupe = (localMatches ?? []).find((c) =>
         isProbableSameCourse(
-          { name: candidateName, state },
-          { name: c.name, state: c.state },
+          { name: candidateName, state, city },
+          { name: c.name, state: c.state, city: c.city },
         ),
       )
       if (dupe) return dupe as unknown as CourseRow

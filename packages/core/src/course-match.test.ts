@@ -73,6 +73,22 @@ describe('isProbableSameCourse', () => {
       ),
     ).toBe(false)
   })
+  it('rejects generic same-name same-state courses in different cities', () => {
+    expect(
+      isProbableSameCourse(
+        { name: 'Riverside Golf Club', state: 'OK', city: 'Tulsa' },
+        { name: 'Riverside Golf Club', state: 'OK', city: 'Norman' },
+      ),
+    ).toBe(false)
+  })
+  it('treats a missing city as non-disqualifying', () => {
+    expect(
+      isProbableSameCourse(
+        { name: 'Riverside Golf Club', state: 'OK', city: 'Tulsa' },
+        { name: 'Riverside Golf Club', state: 'OK', city: null },
+      ),
+    ).toBe(true)
+  })
   it('rejects different courses', () => {
     expect(
       isProbableSameCourse(
