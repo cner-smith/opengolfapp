@@ -3,6 +3,7 @@ import {
   resolveFacilityResults,
   searchOpenGolfApi,
   getOpenGolfApiCourse,
+  isProbableSameCourse,
   type OpenGolfApiCourse,
   type OpenGolfApiSearchResult,
 } from '@oga/core'
@@ -75,8 +76,20 @@ export function useCourseSearch(query: string) {
         },
       )
 
+      // Drop API hits that duplicate a course we already have (crawled rows
+      // won't match by external_id since their id is OSM-based, so match on
+      // normalized name + state). Facility names are matched too, so an API
+      // hit doesn't shadow its own facility card.
+      const dedupedApi = apiHits.filter(
+        (h) =>
+          !localRows.some((c) => isProbableSameCourse(h, c)) &&
+          !facilities.some((f) =>
+            isProbableSameCourse(h, { name: f.name, state: f.state, city: f.city }),
+          ),
+      )
+
       return {
-        api: apiHits,
+        api: dedupedApi,
         // `local` keeps ALL matching local courses (incl. facility units) for
         // consumers that just need a course row to route on (e.g. CoursePlanPage).
         // `standalone` excludes units — the facility-first picker renders those
@@ -176,6 +189,20 @@ export function useImportApiCourse() {
         state =
           commaIdx >= 0 ? trimmed.slice(commaIdx + 1).trim() || null : null
       }
+
+      // Backstop: the external_id check above only catches a prior import of
+      // THIS exact API id. A course we already crawled has an OSM external_id
+      // and won't match, so fuzzy-match the name against local before inserting
+      // a duplicate. On a confident match, reuse the existing row.
+      const candidateName = detail?.name ?? args.fallbackName
+      const { data: localMatches } = await searchCourses(supabase, candidateName, 5)
+      const dupe = (localMatches ?? []).find((c) =>
+        isProbableSameCourse(
+          { name: candidateName, state, city },
+          { name: c.name, state: c.state, city: c.city },
+        ),
+      )
+      if (dupe) return dupe as unknown as CourseRow
 
       // `created_by` is required by the holes INSERT policy (migration
       // 0026): the immediate `createHoles` call below RLS-fails on

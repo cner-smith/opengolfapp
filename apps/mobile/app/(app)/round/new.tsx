@@ -17,6 +17,7 @@ import {
   formatLocation,
   getOpenGolfApiCourse,
   inferHoleCount,
+  isProbableSameCourse,
   resolveFacilityResults,
   searchOpenGolfApi,
   todayLocalDate,
@@ -209,7 +210,6 @@ export default function NewRound() {
         }),
       ])
       if (ctrl.signal.aborted) return
-      setApiResults(api.status === 'fulfilled' ? api.value : [])
       const localRows: CourseRow[] = local.status === 'fulfilled' ? local.value : []
       const byName: FacilityRow[] =
         facilitySearch.status === 'fulfilled' ? facilitySearch.value : []
@@ -222,6 +222,16 @@ export default function NewRound() {
         },
       )
       if (ctrl.signal.aborted) return
+      const apiRaw: OpenGolfApiSearchResult[] =
+        api.status === 'fulfilled' ? api.value : []
+      const apiDeduped = apiRaw.filter(
+        (h) =>
+          !localRows.some((c) => isProbableSameCourse(h, c)) &&
+          !facilities.some((f) =>
+            isProbableSameCourse(h, { name: f.name, state: f.state, city: f.city }),
+          ),
+      )
+      setApiResults(apiDeduped)
       setLocalResults(standalone)
       setFacilityResults(facilities)
     })().finally(() => {
@@ -392,6 +402,19 @@ export default function NewRound() {
       const detail = await getOpenGolfApiCourse(r.id)
       const city = detail.city ?? r.city ?? null
       const state = detail.state ?? r.state ?? null
+      const candidateName = detail.name || r.name
+      const { data: localMatches } = await searchCourses(supabase, candidateName, 5)
+      const dupe = (localMatches ?? []).find((c) =>
+        isProbableSameCourse(
+          { name: candidateName, state, city },
+          { name: c.name, state: c.state, city: c.city },
+        ),
+      )
+      if (dupe) {
+        setPendingCourse({ id: dupe.id, name: dupe.name })
+        setBusy(false)
+        return
+      }
       // `created_by` required by holes INSERT policy (migration 0026):
       // the followup createHoles call below RLS-fails on courses with
       // created_by IS NULL.
@@ -649,9 +672,9 @@ export default function NewRound() {
               </View>
             )}
 
-            {localResults.length > 0 && (
+            {(localResults.length > 0 || apiResults.length > 0) && (
               <View style={{ marginBottom: 14 }}>
-                <Text style={{ ...KICKER, marginBottom: 8 }}>Already imported</Text>
+                <Text style={{ ...KICKER, marginBottom: 8 }}>Courses</Text>
                 {localResults.map((c) => (
                   <Pressable
                     key={c.id}
@@ -683,12 +706,6 @@ export default function NewRound() {
                     })()}
                   </Pressable>
                 ))}
-              </View>
-            )}
-
-            {apiResults.length > 0 && (
-              <View style={{ marginBottom: 14 }}>
-                <Text style={{ ...KICKER, marginBottom: 8 }}>OpenGolfAPI</Text>
                 {apiResults.map((r) => (
                   <Pressable
                     key={r.id}
