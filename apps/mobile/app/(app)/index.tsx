@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useFocusEffect } from 'expo-router'
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router'
 import { Pressable, ScrollView, Text, View } from 'react-native'
 import { formatSG } from '@oga/core'
 import { deleteRound, getProfile, getRecentRounds } from '@oga/supabase'
@@ -25,6 +25,8 @@ import {
   type RecentRoundRow,
 } from '../../components/home/RecentRoundsList'
 import { LearnPreview } from '../../components/home/LearnPreview'
+import { IntroTour } from '../../components/onboarding/IntroTour'
+import { introTourSeen, markIntroTourSeen } from '../../lib/introTour'
 import { TYPE } from '../../lib/typography'
 
 type Profile = Database['public']['Tables']['profiles']['Row']
@@ -53,6 +55,8 @@ const KICKER: import('react-native').TextStyle = {
 
 export default function Home() {
   const { user } = useAuth()
+  const router = useRouter()
+  const { replayTour } = useLocalSearchParams<{ replayTour?: string }>()
   // Seed from the screen cache so a revisit renders instantly; the focus
   // fetch below always re-runs and replaces this (#599).
   const [profile, setProfile] = useState<Profile | null>(
@@ -61,6 +65,12 @@ export default function Home() {
   const [rounds, setRounds] = useState<RecentRound[]>(
     () => getCached<RecentRound[]>('home:rounds') ?? [],
   )
+  // A genuinely-new user has no cache → starts true (rounds not loaded yet);
+  // a returning user with cache → starts false, harmless since their
+  // rounds.length === 0 is already false. Drives the intro-tour anti-race gate.
+  const [roundsLoading, setRoundsLoading] = useState(
+    () => getCached<RecentRound[]>('home:rounds') == null,
+  )
   const activeRound = useActiveRound()
   const [pending, setPending] = useState(0)
   const [pendingDelete, setPendingDelete] = useState<{
@@ -68,6 +78,7 @@ export default function Home() {
     name: string
   } | null>(null)
   const [deleting, setDeleting] = useState(false)
+  const [tourSeen, setTourSeen] = useState<boolean | null>(null) // null = not yet read
 
   // The "yardage book" preview lives at the bottom of the scroll; the hint
   // up top scrolls to it (captured y is relative to the scroll content
@@ -123,18 +134,53 @@ export default function Home() {
         if (error) {
           // eslint-disable-next-line no-console
           console.error('[home/getRecentRounds]', error.message)
+          setRoundsLoading(false)
           return
         }
         if (data) {
           setRounds(data as RecentRound[])
           setCached('home:rounds', data)
         }
+        setRoundsLoading(false)
       })
       return () => {
         active = false
       }
     }, [user?.id]),
   )
+
+  useFocusEffect(
+    useCallback(() => {
+      let active = true
+      introTourSeen().then((seen) => {
+        if (active) setTourSeen(seen)
+      })
+      return () => {
+        active = false
+      }
+    }, []),
+  )
+
+  // Auto-show ONLY for a genuinely-new user: flag unseen AND a fully-LOADED
+  // Home with zero rounds and no active round. Gating on the flag alone would
+  // show the tour to the entire existing base (the flag is brand-new); and an
+  // activeRound is excluded from the rounds list, so check it explicitly —
+  // otherwise a mid-round user sees "Start my first round" and orphans their
+  // live round into a duplicate. Do NOT trigger before rounds load
+  // (empty-initial-state != zero rounds), so require the loading flag false.
+  const autoShow =
+    tourSeen === false && !roundsLoading && rounds.length === 0 && !activeRound
+  // Replay (Task 6) navigates here with ?replayTour=1 and bypasses the
+  // zero-data gate — an explicit request works for any user. `!pendingDelete`
+  // keeps the tour Modal from co-presenting with the delete ConfirmDialog (#293).
+  const showTour = !pendingDelete && (replayTour === '1' || autoShow)
+  // Synchronous hide (recomputes showTour=false); markIntroTourSeen() persists
+  // fire-and-forget, and clearing the replay param stops a re-focus re-firing it.
+  const dismissTour = () => {
+    setTourSeen(true)
+    markIntroTourSeen()
+    router.setParams({ replayTour: undefined })
+  }
 
   useEffect(() => {
     pendingCount().then(setPending)
@@ -193,6 +239,14 @@ export default function Home() {
 
   return (
     <View style={{ flex: 1, backgroundColor: '#F2EEE5' }}>
+      <IntroTour
+        visible={showTour}
+        onDismiss={dismissTour}
+        onStartRound={() => {
+          dismissTour()
+          router.push('/(app)/round/new?mode=live')
+        }}
+      />
       <AppBar eyebrow={eyebrow} title={profile?.username ?? 'Home'} />
       <ScrollView ref={scrollRef} contentContainerStyle={{ padding: 18, paddingBottom: 40 }}>
         <Entrance index={0}>
