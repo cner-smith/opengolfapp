@@ -23,6 +23,7 @@ import { getCached, setCached } from '../../lib/screenCache'
 import { useUnits } from '../../hooks/useUnits'
 import { AppBar } from '../../components/ui/AppBar'
 import { Entrance } from '../../components/ui/Entrance'
+import { HelpButton } from '../../components/help/HelpButton'
 import { TYPE } from '../../lib/typography'
 
 const N_OPTIONS = [5, 10, 20] as const
@@ -185,6 +186,7 @@ export default function Stats() {
         title="Strokes Gained"
         right={
           <View style={{ alignItems: 'flex-end', gap: 10 }}>
+            <HelpButton topicId="stats" />
             <Pressable
               accessibilityRole="link"
               accessibilityLabel="Open the full dashboard on the web at oga.golf"
