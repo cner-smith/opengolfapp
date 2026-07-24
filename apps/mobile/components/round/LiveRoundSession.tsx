@@ -248,6 +248,11 @@ export default function LiveRoundSession({
     data.storedPin?.lat,
     data.storedPin?.lng,
   ])
+  // Putt distance in feet, mirrored from HoleModals' ShotLogger puttDistanceFt
+  // calc (yards × 3 = feet). Feeds both the on-green make-% pill and the
+  // persisted putt_distance_ft on Made/Missed.
+  const puttDistanceFt =
+    ballToPinYards != null ? Math.round(ballToPinYards * 3) : null
   // Single-color dispersion dots for the selected club (left-toolbar toggle).
   // Computed only when the dots are shown; sparse clubs → null (no dots).
   const dispersionPoints = useMemo(() => {
@@ -682,8 +687,27 @@ export default function LiveRoundSession({
             finalState.setRoundState('PLACE_BALL')
           }}
           onSkipAim={actions.skipAim}
+          // Auto-detect on-green entry lives inside markBallHere itself
+          // (restored from pre-#791 — see useShotActions comment); this
+          // stays a plain pass-through. The chip below still forces toGreen
+          // explicitly as the fallback.
           onMarkBallHere={actions.markBallHere}
           onOnGreen={() => actions.markBallHere({ toGreen: true })}
+          onGreenActive={finalState.roundState === 'PUTTING'}
+          puttDistanceFt={puttDistanceFt}
+          onPuttMade={() =>
+            actions.persistPutt({
+              puttMade: true,
+              puttDistanceFt: puttDistanceFt ?? undefined,
+            })
+          }
+          onPuttMissed={() =>
+            actions.persistPutt({
+              puttMade: false,
+              puttDistanceFt: puttDistanceFt ?? undefined,
+            })
+          }
+          onNotOnGreen={actions.notOnGreen}
           onAddShot={() => {
             // Opt back into the live append flow on a revisited played hole:
             // re-arm the GPS ball + auto-aim and enter PLACE_BALL (#484).
@@ -710,7 +734,6 @@ export default function LiveRoundSession({
         ball={finalState.ball}
         roundPin={data.roundPin}
         storedPin={data.storedPin}
-        roundState={finalState.roundState}
         scorecardOpen={scorecardOpen}
         holes={data.holes}
         holeScores={data.holeScores}
@@ -750,10 +773,7 @@ export default function LiveRoundSession({
         deleting={actions.deleting}
         saving={actions.saving}
         onPersistShot={actions.persistShot}
-        onPersistPutt={actions.persistPutt}
         onCloseLogger={actions.closeLogger}
-        onClosePuttingSheet={actions.closePuttingSheet}
-        onSwapPuttingToShot={actions.swapPuttingToShot}
         onConfirmDelete={actions.handleDeleteRound}
         onCancelDelete={() => setActiveDialog(null)}
         onConfirmLeave={() => {

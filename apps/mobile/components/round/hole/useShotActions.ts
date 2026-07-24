@@ -28,7 +28,7 @@ import { completeRound } from '../../../lib/completeRound'
 import type { LatLng } from '../HoleMap'
 import type { ShotLoggerValue } from '../ShotLogger'
 import type { PuttingValue } from '../PuttingSheet'
-import { type ActiveDialog } from './types'
+import { PUTTING_RADIUS_YARDS, type ActiveDialog } from './types'
 import type { UseHoleDataResult } from './useHoleData'
 import type { UseHoleStateResult } from './useHoleState'
 
@@ -70,6 +70,7 @@ export interface UseShotActionsResult {
   markBallHere: (opts?: { toGreen?: boolean }) => Promise<void>
   handleOnGreenYes: () => void
   handleOnGreenNo: () => void
+  notOnGreen: () => void
   confirmAim: () => void
   skipAim: () => void
   handleAimPromptConfirm: () => void
@@ -459,11 +460,23 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
     }
     setBall(ballSnapshot)
     setAim(null)
-    // On the green (#791 step 4): the marked ball is the putt's start. Skip
-    // aiming entirely — Made/Missed is the action. Seed lie=green/putter so
-    // persistPutt writes a putt; the make-% readout + read live in PuttingSheet.
-    // Overrides capture mode (a putt is a putt in either mode).
-    if (opts?.toGreen) {
+    // On-green auto-detect, restored from pre-#791 (b0f123b removed it when
+    // the on-green flow moved behind the explicit "⛳ On the green" chip):
+    // a ball marked within PUTTING_RADIUS_YARDS of the pin enters the
+    // putting flow on its own, same as if the player had tapped the chip.
+    // The chip (opts?.toGreen) stays as the fallback for when there's no pin
+    // yet or the auto-detect misses.
+    const pinTarget = roundPin ?? storedPin ?? null
+    const autoGreen =
+      pinTarget != null &&
+      distanceYards(ballSnapshot, pinTarget) <= PUTTING_RADIUS_YARDS
+    // On the green (#791 step 4 rework): the marked ball is the putt's start.
+    // Skip aiming entirely — Made/Missed is the action (bottom-chrome
+    // overlays, not a modal). Seed lie=green/putter so persistPutt writes a
+    // putt; the make-% pill lives in MapBottomChrome, the detailed read in
+    // the end-of-hole summary. Overrides capture mode (a putt is a putt in
+    // either mode).
+    if (opts?.toGreen || autoGreen) {
       setLoggerInitial({ lieType: 'green', club: 'putter' })
       setRoundState('PUTTING')
       return
@@ -508,6 +521,16 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
     // Chips and pitches still benefit from explicit aim capture for the
     // shot-pattern dataset; the aim line auto-spawns and "Skip aim" stays
     // available in the SET_AIM chrome.
+    setRoundState('SET_AIM')
+  }
+
+  // Escape from the on-green Made/Missed overlays (#791 step 4 rework): the
+  // ball marked into PUTTING wasn't actually on the green after all. Same
+  // seed as handleOnGreenNo — 'rough' is the safest near-green default, the
+  // player overrides in ShotLogger — but there is no dialog to clear here
+  // (the overlay isn't a Modal/ConfirmDialog, just bottom chrome).
+  function notOnGreen() {
+    setLoggerInitial({ lieType: 'rough' })
     setRoundState('SET_AIM')
   }
 
@@ -906,6 +929,7 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
     markBallHere,
     handleOnGreenYes,
     handleOnGreenNo,
+    notOnGreen,
     confirmAim,
     skipAim,
     handleAimPromptConfirm,

@@ -1,20 +1,20 @@
 import { Modal, View } from 'react-native'
 import { GestureHandlerRootView } from 'react-native-gesture-handler'
 import type { Database } from '@oga/supabase'
-import type { LieType } from '@oga/core'
 import {
+  // ShotLogger is mounted below but currently unreachable: its only entry
+  // point was PuttingSheet's "Not a putt?" escape (swapPuttingToShot), and
+  // PuttingSheet's live modal was retired in the #791 step-4 rework (Made/
+  // Missed bottom overlays replaced it). Left in place rather than removed
+  // to keep this diff focused — follow-up cleanup ticket, not this change.
   ShotLogger,
   type ShotLoggerValue,
 } from '../ShotLogger'
-import {
-  PuttingSheet,
-  type PuttingValue,
-} from '../PuttingSheet'
 import { ScorecardModal } from '../Scorecard'
 import { ConfirmDialog } from '../../ui/ConfirmDialog'
 import type { LatLng } from '../HoleMap'
 import { distanceYards } from '../../../lib/maps'
-import type { ActiveDialog, RoundState } from './types'
+import type { ActiveDialog } from './types'
 
 type HoleRow = Database['public']['Tables']['holes']['Row']
 type HoleScoreRow = Database['public']['Tables']['hole_scores']['Row']
@@ -32,7 +32,6 @@ interface HoleModalsProps {
   ball: LatLng | null
   roundPin: LatLng | null
   storedPin: LatLng | null
-  roundState: RoundState
   scorecardOpen: boolean
   holes: HoleRow[]
   holeScores: HoleScoreRow[]
@@ -49,10 +48,7 @@ interface HoleModalsProps {
   deleting: boolean
   saving: boolean
   onPersistShot: (v: ShotLoggerValue | null) => void
-  onPersistPutt: (v: PuttingValue) => Promise<void>
   onCloseLogger: () => void
-  onClosePuttingSheet: () => void
-  onSwapPuttingToShot: (lieType: LieType) => void
   onConfirmDelete: () => void
   onCancelDelete: () => void
   onConfirmLeave: () => void
@@ -74,7 +70,6 @@ export function HoleModals(props: HoleModalsProps) {
     ball,
     roundPin,
     storedPin,
-    roundState,
     scorecardOpen,
     holes,
     holeScores,
@@ -89,10 +84,7 @@ export function HoleModals(props: HoleModalsProps) {
     deleting,
     saving,
     onPersistShot,
-    onPersistPutt,
     onCloseLogger,
-    onClosePuttingSheet,
-    onSwapPuttingToShot,
     onConfirmDelete,
     onCancelDelete,
     onConfirmLeave,
@@ -123,35 +115,12 @@ export function HoleModals(props: HoleModalsProps) {
         onClose={onCloseLogger}
       />
 
-      <Modal
-        visible={roundState === 'PUTTING'}
-        transparent
-        animationType="slide"
-        onRequestClose={onClosePuttingSheet}
-      >
-        {/* React Native's <Modal> renders to a separate native window on
-            Android, so the app-root GestureHandlerRootView doesn't apply
-            inside. Wrap the modal contents in their own root to restore
-            the GreenDiagram aim-handle pan gesture. */}
-        <GestureHandlerRootView style={{ flex: 1 }}>
-          <View style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.4)' }}>
-            <PuttingSheet
-              key={shotEntryKey}
-              shotNumber={shotNumber}
-              initialDistanceFt={
-                ball && (roundPin ?? storedPin)
-                  ? Math.round(
-                      distanceYards(ball, (roundPin ?? storedPin) as LatLng) * 3,
-                    )
-                  : undefined
-              }
-              onSave={onPersistPutt}
-              onClose={onClosePuttingSheet}
-              onChangeLie={onSwapPuttingToShot}
-            />
-          </View>
-        </GestureHandlerRootView>
-      </Modal>
+      {/* PuttingSheet's live-round modal was retired here (#791 step-4
+          rework): on-green now uses the Made/Missed bottom overlays
+          (MapBottomChrome) instead of a full sheet. The detailed putt read
+          (aim/break/speed) moved to the end-of-hole summary, which has its
+          own AimerOverlay + Read ▸ (HoleReviewSheet.tsx) — a parallel
+          implementation, not a reuse of the PuttingSheet component. */}
 
       <ConfirmDialog
         visible={activeDialog === 'delete'}
