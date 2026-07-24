@@ -467,7 +467,13 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
     // The chip (opts?.toGreen) stays as the fallback for when there's no pin
     // yet or the auto-detect misses.
     const pinTarget = roundPin ?? storedPin ?? null
+    // Never auto-enter putting on the hole's FIRST shot — you can't putt a tee
+    // shot. A par-3 / drivable tee shot landing within PUTTING_RADIUS_YARDS
+    // would otherwise pop Made/Missed and let one tap record a phantom ace.
+    // Mirrors the "⛳ On the green" chip's own `totalShotsThisHole > 0` gate
+    // (MapBottomChrome); the explicit chip (opts.toGreen) is already gated there.
     const autoGreen =
+      previousShots.length > 0 &&
       pinTarget != null &&
       distanceYards(ballSnapshot, pinTarget) <= PUTTING_RADIUS_YARDS
     // On the green (#791 step 4 rework): the marked ball is the putt's start.
