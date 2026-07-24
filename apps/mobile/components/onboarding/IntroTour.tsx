@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Modal, ScrollView, Text, View, useWindowDimensions } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { TYPE } from '../../lib/typography'
@@ -50,6 +50,15 @@ export function IntroTour({ visible, onDismiss, onStartRound }: IntroTourProps) 
     scrollRef.current?.scrollTo({ x: next * width, animated: true })
     setPage(next)
   }
+
+  useEffect(() => {
+    if (visible) {
+      setPage(0)
+      // Modal mounts async — the ScrollView may not be laid out yet on this tick,
+      // so a synchronous scrollTo can no-op. Defer to the next frame.
+      requestAnimationFrame(() => scrollRef.current?.scrollTo({ x: 0, animated: false }))
+    }
+  }, [visible])
 
   return (
     <Modal visible={visible} animationType="fade" onRequestClose={onDismiss}>
