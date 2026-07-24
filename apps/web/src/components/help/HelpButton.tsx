@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { getHelpTopic, type HelpTopicId } from '@oga/core'
 
@@ -7,9 +7,18 @@ import { getHelpTopic, type HelpTopicId } from '@oga/core'
 // panel precedent). Closes on Escape or outside click.
 // topicId is the HelpTopicId union (compile error on an unknown id, not a
 // silently-missing "?").
+// Below this viewport width the panel switches from button-anchored (left:0)
+// to viewport-anchored (left/right:16) — the anchored width (300, or 90vw
+// on truly tiny viewports) can otherwise run past the right edge (#panel
+// clipping — see the useLayoutEffect below).
+const NARROW_BREAKPOINT = 480
+
 export function HelpButton({ topicId }: { topicId: HelpTopicId }) {
   const [open, setOpen] = useState(false)
   const wrapRef = useRef<HTMLDivElement>(null)
+  const [narrow, setNarrow] = useState(
+    () => typeof window !== 'undefined' && window.innerWidth < NARROW_BREAKPOINT,
+  )
   const topic = getHelpTopic(topicId)
 
   useEffect(() => {
@@ -26,6 +35,13 @@ export function HelpButton({ topicId }: { topicId: HelpTopicId }) {
     }
   }, [open])
 
+  // Re-measure on every open (viewport width can change between opens, e.g.
+  // rotation or a resized window) rather than once on mount.
+  useLayoutEffect(() => {
+    if (!open) return
+    setNarrow(window.innerWidth < NARROW_BREAKPOINT)
+  }, [open])
+
   if (!topic) return null
 
   return (
@@ -33,6 +49,7 @@ export function HelpButton({ topicId }: { topicId: HelpTopicId }) {
       <button
         type="button"
         aria-label={`Help: ${topic.title}`}
+        aria-expanded={open}
         onClick={() => setOpen((o) => !o)}
         className="text-caddie-ink-mute hover:text-caddie-ink"
         style={{
@@ -46,15 +63,25 @@ export function HelpButton({ topicId }: { topicId: HelpTopicId }) {
         <div
           role="dialog"
           className="bg-caddie-surface text-caddie-ink"
-          style={{
-            // Opens rightward from the button (left:0). The "?" sits just
-            // right of the <h1> (left of the header), so a right:0 panel would
-            // clip off-screen — especially at mobile width where the header
-            // stacks flex-col. left:0 keeps it on-screen.
-            position: 'absolute', top: 30, left: 0, width: 300, maxWidth: '90vw', zIndex: 40,
-            border: '1px solid #D9D2BF', borderRadius: 4, padding: 16,
-            boxShadow: '0 6px 24px rgba(0,0,0,0.12)',
-          }}
+          style={
+            narrow
+              ? // Viewport-anchored below the breakpoint: fixed left/right
+                // margins guarantee the panel never runs past either edge,
+                // regardless of where the "?" button sits in the header.
+                {
+                  position: 'fixed', top: 64, left: 16, right: 16, zIndex: 40,
+                  border: '1px solid #D9D2BF', borderRadius: 4, padding: 16,
+                  boxShadow: '0 6px 24px rgba(0,0,0,0.12)',
+                }
+              : {
+                  // Opens rightward from the button (left:0). The "?" sits
+                  // just right of the <h1> (left of the header), so a
+                  // right:0 panel would clip off-screen at desktop widths.
+                  position: 'absolute', top: 30, left: 0, width: 300, maxWidth: '90vw', zIndex: 40,
+                  border: '1px solid #D9D2BF', borderRadius: 4, padding: 16,
+                  boxShadow: '0 6px 24px rgba(0,0,0,0.12)',
+                }
+          }
         >
           <div className="font-serif" style={{ fontSize: 16, fontWeight: 500, marginBottom: 8 }}>
             {topic.title}
