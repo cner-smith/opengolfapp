@@ -45,6 +45,8 @@ export function HelpButton({ topicId }: { topicId: HelpTopicId }) {
             </Text>
             {topic.articleId && (
               <PressableTouch
+                accessibilityRole="button"
+                accessibilityLabel={`Read more: ${topic.title}`}
                 onPress={() => {
                   setOpen(false)
                   router.push({
@@ -57,7 +59,12 @@ export function HelpButton({ topicId }: { topicId: HelpTopicId }) {
                 <Text style={[TYPE.bodyBold, { color: '#1F3D2C', fontSize: 14 }]}>Learn more →</Text>
               </PressableTouch>
             )}
-            <PressableTouch onPress={() => setOpen(false)} style={{ marginTop: 18, alignSelf: 'flex-end' }}>
+            <PressableTouch
+              accessibilityRole="button"
+              accessibilityLabel="Close"
+              onPress={() => setOpen(false)}
+              style={{ marginTop: 18, alignSelf: 'flex-end' }}
+            >
               <Text style={[TYPE.bodyBold, { color: '#5C6356', fontSize: 14 }]}>Close</Text>
             </PressableTouch>
           </Pressable>

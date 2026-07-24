@@ -134,7 +134,9 @@ export default function Home() {
         if (error) {
           // eslint-disable-next-line no-console
           console.error('[home/getRecentRounds]', error.message)
-          setRoundsLoading(false)
+          // Deliberately leave roundsLoading=true here — a fetch error means we
+          // don't actually know the round count, so keep the intro-tour gate
+          // suppressed (fail closed) rather than risk a false zero-data trigger.
           return
         }
         if (data) {
@@ -160,6 +162,18 @@ export default function Home() {
       }
     }, []),
   )
+
+  // A user with any round history (or a live round) is not a first-run user;
+  // persist "seen" so deleting down to zero rounds can't re-trigger the intro
+  // tour. This runs independently of the tourSeen read above, so it also
+  // covers an existing user whose "seen" flag was never set (the flag is
+  // brand-new — see autoShow comment below).
+  useEffect(() => {
+    if (rounds.length > 0 || activeRound) {
+      setTourSeen(true)
+      markIntroTourSeen()
+    }
+  }, [rounds.length, activeRound])
 
   // Auto-show ONLY for a genuinely-new user: flag unseen AND a fully-LOADED
   // Home with zero rounds and no active round. Gating on the flag alone would

@@ -65,6 +65,8 @@ export function IntroTour({ visible, onDismiss, onStartRound }: IntroTourProps) 
       <View style={{ flex: 1, backgroundColor: '#F7F3E9' }}>
         {page < LAST_PAGE && (
           <PressableTouch
+            accessibilityRole="button"
+            accessibilityLabel="Skip intro tour"
             onPress={onDismiss}
             hitSlop={10}
             style={{ position: 'absolute', top: insets.top + 14, right: 18, zIndex: 1 }}
@@ -107,6 +109,8 @@ export function IntroTour({ visible, onDismiss, onStartRound }: IntroTourProps) 
         <View style={{ paddingHorizontal: 28, paddingBottom: insets.bottom + 24 }}>
           {page < LAST_PAGE ? (
             <PressableTouch
+              accessibilityRole="button"
+              accessibilityLabel="Next card"
               onPress={goNext}
               style={{ backgroundColor: '#1F3D2C', borderRadius: 2, paddingVertical: 16, alignItems: 'center' }}
             >
@@ -117,6 +121,8 @@ export function IntroTour({ visible, onDismiss, onStartRound }: IntroTourProps) 
           ) : (
             <>
               <PressableTouch
+                accessibilityRole="button"
+                accessibilityLabel="Start my first round"
                 onPress={onStartRound}
                 style={{
                   backgroundColor: '#1F3D2C',
@@ -130,7 +136,12 @@ export function IntroTour({ visible, onDismiss, onStartRound }: IntroTourProps) 
                   Start my first round
                 </Text>
               </PressableTouch>
-              <PressableTouch onPress={onDismiss} style={{ alignItems: 'center', paddingVertical: 10 }}>
+              <PressableTouch
+                accessibilityRole="button"
+                accessibilityLabel="Skip — I'll explore first"
+                onPress={onDismiss}
+                style={{ alignItems: 'center', paddingVertical: 10 }}
+              >
                 <Text style={[TYPE.body, { color: '#5C6356', fontSize: 14 }]}>I'll explore first</Text>
               </PressableTouch>
             </>
