@@ -472,7 +472,12 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
     // would otherwise pop Made/Missed and let one tap record a phantom ace.
     // Mirrors the "⛳ On the green" chip's own `totalShotsThisHole > 0` gate
     // (MapBottomChrome); the explicit chip (opts.toGreen) is already gated there.
+    // Only auto-force the overlay in track_patterns. just_track's contract is
+    // "save the location, never prompt" — auto-popping Made/Missed there breaks
+    // it. The explicit "⛳ On the green" chip (opts.toGreen) still works in
+    // either mode for a just_track player who wants to log the putt.
     const autoGreen =
+      captureMode === 'track_patterns' &&
       previousShots.length > 0 &&
       pinTarget != null &&
       distanceYards(ballSnapshot, pinTarget) <= PUTTING_RADIUS_YARDS
@@ -536,6 +541,14 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
   // player overrides in ShotLogger — but there is no dialog to clear here
   // (the overlay isn't a Modal/ConfirmDialog, just bottom chrome).
   function notOnGreen() {
+    // just_track never enters aiming — mirror markBallHere's just_track path:
+    // save the already-marked ball's location and loop back to PLACE_BALL,
+    // rather than stranding the player in a SET_AIM chrome their mode never
+    // shows. track_patterns re-routes the ball into the normal aim flow.
+    if (captureMode === 'just_track') {
+      void persistShot(null, { forceAim: false })
+      return
+    }
     setLoggerInitial({ lieType: 'rough' })
     setRoundState('SET_AIM')
   }

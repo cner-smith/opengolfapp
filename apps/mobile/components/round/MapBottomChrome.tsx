@@ -208,8 +208,8 @@ function OnGreenActions(p: MapBottomChromeProps) {
         </View>
       )}
       <View style={{ flexDirection: 'row', gap: 10 }}>
-        <PuttResultButton label="Missed" onPress={p.onPuttMissed} />
-        <PuttResultButton label="Made" primary onPress={p.onPuttMade} />
+        <PuttResultButton label="Missed" onPress={p.onPuttMissed} disabled={p.saving} />
+        <PuttResultButton label="Made" primary onPress={p.onPuttMade} disabled={p.saving} />
       </View>
       <TextChip label="Not on the green" onPress={p.onNotOnGreen} />
     </>
@@ -220,15 +220,19 @@ function PuttResultButton({
   label,
   primary,
   onPress,
+  disabled,
 }: {
   label: string
   primary?: boolean
   onPress: () => void
+  disabled?: boolean
 }) {
   return (
     <PressableTouch
       accessibilityRole="button"
       accessibilityLabel={label}
+      accessibilityState={{ disabled: !!disabled }}
+      disabled={disabled}
       onPress={onPress}
       android_ripple={{ color: 'rgba(242,238,229,0.18)' }}
       // Static style object (see PrimaryCta) — a function `style` is dropped
@@ -241,6 +245,7 @@ function PuttResultButton({
         paddingVertical: 15,
         paddingHorizontal: 34,
         alignItems: 'center',
+        opacity: disabled ? 0.5 : 1,
         shadowColor: '#000',
         shadowOpacity: 0.3,
         shadowRadius: 6,
