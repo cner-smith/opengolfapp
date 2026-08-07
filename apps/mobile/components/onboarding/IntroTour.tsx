@@ -29,7 +29,7 @@ const CARDS = [
   },
   {
     title: 'On the course, keep it light',
-    body: 'Before the shot: set your aim and drop your ball. After (while walking): club, lie, slope — or skip it. Metadata is always optional.',
+    body: 'Before the shot: aim, then drop your ball. Details like club and lie come later, in a quick end-of-hole summary — always optional.',
   },
   {
     title: "Then see where you're losing strokes",
