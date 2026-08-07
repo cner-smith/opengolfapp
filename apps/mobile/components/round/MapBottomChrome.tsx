@@ -149,14 +149,25 @@ function ContextualActions(p: MapBottomChromeProps) {
     <>
       <PrimaryCta label={ballLabel} disabled={ballDisabled} onPress={p.onMarkBallHere} />
       {/* One chip row for the secondary actions — stacking them one-per-line
-          read as clutter over the satellite (QA 2026-08). The GPS drag hint
-          that used to sit here was a duplicate of the top map banner; the
-          banner is the single home for that instruction now.
+          read as clutter over the satellite (QA 2026-08). flexWrap: at the
+          1.3x font cap on narrow devices the two chips can exceed the row
+          width; wrapping beats an untappable off-screen chip. The GPS drag
+          hint that used to sit here duplicated TopHint (HoleMapOverlays.tsx,
+          rendered unconditionally whenever !isAimPhase in HoleMap.tsx) —
+          TopHint covers every state the hint showed in, and the CTA label
+          ("Mark ball at my GPS") carries the GPS-tracking cue.
           On-green gate (#791 step 4): requires a prior shot this hole — as the
           FIRST tap it would skip persisting the stroke that reached the green
           (phantom ace) and finishHole would skip the review. */}
       {p.totalShotsThisHole > 0 && (
-        <View style={{ flexDirection: 'row', gap: 10 }}>
+        <View
+          style={{
+            flexDirection: 'row',
+            flexWrap: 'wrap',
+            justifyContent: 'center',
+            gap: 10,
+          }}
+        >
           {(p.ball != null || p.hasGps) && !p.saving && (
             <TextChip label="⛳ On the green" onPress={p.onOnGreen} />
           )}
