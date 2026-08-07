@@ -8,7 +8,7 @@ const config: ExpoConfig = {
   name: 'OGA',
   slug: 'oga',
   scheme: 'oga',
-  version: '1.1.0',
+  version: '1.2.0',
   // EAS Update (OTA). Ships JS/asset-only fixes to installed builds WITHOUT an
   // App Store / Play review — Apple/Google permit interpreted-code updates that
   // don't add native code or change the app's purpose. Native changes (SDK/RN
@@ -34,13 +34,11 @@ const config: ExpoConfig = {
     policy: 'appVersion',
   },
   orientation: 'portrait',
-  // New Architecture stays OFF for the SDK 53 migration. SDK 53 flips it
-  // on by default, so this is an active opt-out (set during the SDK 52 step
-  // so the flip can't surprise us). @rnmapbox/maps old-arch support ends at
-  // 10.2.x, so the New-Arch-ON flip couples with the later SDK 54 / RN 0.80
-  // upgrade — done in a separate PR, not this migration. 16 KB does NOT
-  // require New Arch (it's the RN 0.77+/NDK r27 toolchain). See #467.
-  newArchEnabled: false,
+  // New Architecture is ON — required by Reanimated 4 + rnmapbox >=10.3, and
+  // mandatory from SDK 55 on. 16 KB does NOT require New Arch (it's the RN
+  // 0.77+/NDK r27 toolchain, already satisfied) — this flip is purely to
+  // unblock Reanimated 4 / rnmapbox's New-Arch-only path. See #467.
+  newArchEnabled: true,
   // Direction A "o." monogram (brand-mark Issue 03) — flat 1024² master;
   // iOS clips the squircle, so no baked corners. Universal fallback used by
   // Android (which also has adaptiveIcon below) and web. iOS light/dark/
@@ -168,6 +166,7 @@ const config: ExpoConfig = {
   },
   plugins: [
     'expo-router',
+    'expo-sqlite',
     [
       'expo-location',
       {
