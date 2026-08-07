@@ -148,33 +148,35 @@ function ContextualActions(p: MapBottomChromeProps) {
   return (
     <>
       <PrimaryCta label={ballLabel} disabled={ballDisabled} onPress={p.onMarkBallHere} />
-      {/* Gated on a prior shot this hole (#791 step 4): as the FIRST tap it
-          would skip persisting the stroke that reached the green — the putt
-          would save as shot 1 (a phantom ace) and finishHole would skip the
-          review. A putt always follows the shot that got you there. */}
-      {p.totalShotsThisHole > 0 && (p.ball != null || p.hasGps) && !p.saving && (
-        <TextChip label="⛳ On the green" onPress={p.onOnGreen} />
-      )}
-      {p.ballFromGps && !p.saving && (
+      {/* One chip row for the secondary actions — stacking them one-per-line
+          read as clutter over the satellite (QA 2026-08). flexWrap: at the
+          1.3x font cap on narrow devices the two chips can exceed the row
+          width; wrapping beats an untappable off-screen chip. The GPS drag
+          hint that used to sit here duplicated TopHint (HoleMapOverlays.tsx,
+          rendered unconditionally whenever !isAimPhase in HoleMap.tsx) —
+          TopHint covers every state the hint showed in, and the CTA label
+          ("Mark ball at my GPS") carries the GPS-tracking cue.
+          On-green gate (#791 step 4): requires a prior shot this hole — as the
+          FIRST tap it would skip persisting the stroke that reached the green
+          (phantom ace) and finishHole would skip the review. */}
+      {p.totalShotsThisHole > 0 && (
         <View
           style={{
-            backgroundColor: CHROME_BG,
-            borderRadius: 14,
-            paddingHorizontal: 12,
-            paddingVertical: 5,
+            flexDirection: 'row',
+            flexWrap: 'wrap',
+            justifyContent: 'center',
+            gap: 10,
           }}
         >
-          <Text style={[TYPE.body, { color: CREAM, fontSize: 11, opacity: 0.85 }]}>
-            The ball follows your GPS — drag to adjust.
-          </Text>
+          {(p.ball != null || p.hasGps) && !p.saving && (
+            <TextChip label="⛳ On the green" onPress={p.onOnGreen} />
+          )}
+          <TextChip
+            label={p.holeNumber < p.holeCount ? 'Finish hole · next →' : 'Finish round'}
+            onPress={p.onFinishHole}
+            strong
+          />
         </View>
-      )}
-      {p.totalShotsThisHole > 0 && (
-        <TextChip
-          label={p.holeNumber < p.holeCount ? 'Finish hole · next →' : 'Finish round'}
-          onPress={p.onFinishHole}
-          strong
-        />
       )}
     </>
   )
