@@ -401,7 +401,7 @@ export default function Stats() {
                   strokeWidth={1}
                 />
                 {/* Zero reference line */}
-                {chartAllX.length >= 2 && (
+                {chartSeries.some((s) => s.data.length >= 2) && (
                   <SvgLine
                     x1={chartPad.left}
                     x2={chartWidth - chartPad.right}
@@ -413,7 +413,7 @@ export default function Stats() {
                   />
                 )}
                 {/* first/last date ticks, across the combined X domain */}
-                {chartAllX.length >= 2 && (
+                {chartSeries.some((s) => s.data.length >= 2) && (
                   <>
                     <SvgText
                       x={chartPx(chartXMin)}

@@ -25,7 +25,7 @@ const config: ExpoConfig = {
   // differs server-side vs local — worse with expo-sqlite present (both true
   // here). It failed both prod builds 2026-07-07 with an opaque "Unknown error";
   // fingerprint computed fine locally but not on EAS. See expo/expo#43831 (open,
-  // no upstream fix). appVersion derives runtimeVersion from `version` (1.0.0),
+  // no upstream fix). appVersion derives runtimeVersion from `version`,
   // computed identically local + on EAS — OTA is fully retained; just remember
   // to bump `version` on any release that changes native code.
   runtimeVersion: {
