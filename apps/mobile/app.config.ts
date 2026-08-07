@@ -1,9 +1,7 @@
 import type { ExpoConfig } from 'expo/config'
 
-// Dynamic Expo config. Replaces app.json so the @rnmapbox/maps plugin can
-// read MAPBOX_DOWNLOADS_TOKEN from the environment (EAS secret) at prebuild
-// time — required for iOS Mapbox SDK CocoaPods fetch (Android uses a
-// different distribution path and works without it).
+// Dynamic Expo config. Replaces app.json for Mapbox plugin setup and
+// runtime configuration.
 const config: ExpoConfig = {
   name: 'OGA',
   slug: 'oga',
@@ -182,14 +180,6 @@ const config: ExpoConfig = {
       '@rnmapbox/maps',
       {
         RNMapboxMapsImpl: 'mapbox',
-        // Secret download token for the iOS Mapbox SDK CocoaPod. Set via
-        // EAS project secret: `eas secret:create --scope project --name
-        // MAPBOX_DOWNLOADS_TOKEN --value sk.ey...`. Spread-conditionally
-        // so local prebuild without the env var doesn't pass `undefined`
-        // through to the plugin.
-        ...(process.env.MAPBOX_DOWNLOADS_TOKEN
-          ? { RNMapboxMapsDownloadToken: process.env.MAPBOX_DOWNLOADS_TOKEN }
-          : {}),
       },
     ],
     'expo-font',
