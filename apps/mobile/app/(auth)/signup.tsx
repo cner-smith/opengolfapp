@@ -150,6 +150,10 @@ export default function Signup() {
       setError(signUpError.message)
       captchaTokenRef.current = null
       setCaptchaToken(null)
+      // Token was consumed by the failed attempt — remount the widget so a
+      // fresh one can mint; otherwise Create account stays disabled (same
+      // single-use mechanism as the check-email screen + login).
+      setCaptchaNonce((n) => n + 1)
       return
     }
     // Email confirmation is required, so signUp returns no session yet. Show a
@@ -295,6 +299,7 @@ export default function Signup() {
         />
         {captchaEnabled && (
           <WebView
+            key={captchaNonce}
             source={{ uri: `https://oga.golf/captcha.html?siteKey=${encodeURIComponent(TURNSTILE_SITE_KEY ?? '')}` }}
             // about:blank + about:srcdoc required for the Turnstile challenge
             // iframe to load inside iOS WKWebView — without them iOS filters the

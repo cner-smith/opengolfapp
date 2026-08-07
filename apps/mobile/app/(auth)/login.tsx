@@ -25,7 +25,7 @@ export default function Login() {
   // Turnstile tokens are single-use; a failed sign-in consumes the token, so
   // the widget must be remounted (key bump) to mint a fresh one — otherwise
   // the submit button stays disabled until the screen remounts. Same pattern
-  // as signup.tsx (#738).
+  // as signup's check-email screen introduced in #738.
   const [captchaNonce, setCaptchaNonce] = useState(0)
 
   const captchaEnabled = Boolean(TURNSTILE_SITE_KEY)
