@@ -20,4 +20,23 @@ config.resolver.nodeModulesPaths = [
 // build end-to-end.
 config.resolver.disableHierarchicalLookup = true
 
+// disableHierarchicalLookup guards app/workspace source from resolving RN
+// packages out of the pnpm workspace root (duplicate-React). But it also
+// blocks nested node_modules copies (Reanimated 4's semver@7,
+// simple-swizzle's is-arrayish, ...) that npm legitimately nests. Restore
+// true Node semantics for modules ALREADY inside our own node_modules —
+// walk-up from there hits apps/mobile/node_modules first, so the guard's
+// protection is preserved where it matters.
+const ownNodeModules = path.join(projectRoot, 'node_modules') + path.sep
+config.resolver.resolveRequest = (context, moduleName, platform) => {
+  if (context.originModulePath.startsWith(ownNodeModules)) {
+    return context.resolveRequest(
+      { ...context, disableHierarchicalLookup: false },
+      moduleName,
+      platform,
+    )
+  }
+  return context.resolveRequest(context, moduleName, platform)
+}
+
 module.exports = config
