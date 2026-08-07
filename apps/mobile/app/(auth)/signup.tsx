@@ -169,20 +169,17 @@ export default function Signup() {
 
   if (submitted) {
     return (
-      <View className="flex-1 bg-oga-bg-page items-center justify-center px-6">
+      <View style={{ flex: 1, backgroundColor: '#F2EEE5', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24 }}>
         <View
-          className="border-oga-border bg-oga-bg-card"
-          style={{ borderRadius: 10, borderWidth: 0.5, padding: 20, width: '100%' }}
+          style={{ borderColor: '#D9D2BF', backgroundColor: '#FBF8F1', borderRadius: 10, borderWidth: 0.5, padding: 20, width: '100%' }}
         >
           <Text
-            style={[TYPE.bodyBold, { fontSize: 22, fontWeight: '600', marginBottom: 12 }]}
-            className="text-oga-text-primary"
+            style={[TYPE.bodyBold, { fontSize: 22, fontWeight: '600', marginBottom: 12, color: '#1C211C' }]}
           >
             Check your email
           </Text>
           <Text
-            style={[TYPE.body, { fontSize: 14, lineHeight: 20 }]}
-            className="text-oga-text-muted"
+            style={[TYPE.body, { fontSize: 14, lineHeight: 20, color: '#5C6356' }]}
           >
             We sent a confirmation link to {email}. Open it on this device to
             finish setting up your account — or confirm anywhere and come back
@@ -213,8 +210,7 @@ export default function Signup() {
           )}
           {confirmHint && (
             <Text
-              style={[TYPE.body, { fontSize: 13, marginTop: 12 }]}
-              className="text-oga-text-muted"
+              style={[TYPE.body, { fontSize: 13, marginTop: 12, color: '#5C6356' }]}
             >
               {confirmHint}
             </Text>
@@ -222,8 +218,8 @@ export default function Signup() {
           <Pressable
             onPress={() => void tryConfirmSignIn(true)}
             disabled={checking || (captchaEnabled && !captchaToken)}
-            className="bg-oga-black"
             style={{
+              backgroundColor: '#1C211C',
               borderRadius: 10,
               paddingVertical: 13,
               alignItems: 'center',
@@ -231,14 +227,13 @@ export default function Signup() {
               opacity: checking || (captchaEnabled && !captchaToken) ? 0.5 : 1,
             }}
           >
-            <Text style={[TYPE.bodyBold, { fontSize: 13 }]} className="text-white">
+            <Text style={[TYPE.bodyBold, { fontSize: 13, color: '#FFFFFF' }]}>
               {checking ? 'Checking…' : "I've confirmed it"}
             </Text>
           </Pressable>
           <Link href="/(auth)/login" asChild>
             <Text
-              style={[TYPE.body, { fontSize: 13, marginTop: 14, textAlign: 'center' }]}
-              className="text-oga-green"
+              style={[TYPE.body, { fontSize: 13, marginTop: 14, textAlign: 'center', color: '#1F3D2C' }]}
             >
               Back to sign in
             </Text>
@@ -250,7 +245,7 @@ export default function Signup() {
 
   return (
     <KeyboardAvoidingView
-      className="flex-1 bg-oga-bg-page"
+      style={{ flex: 1, backgroundColor: '#F2EEE5' }}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <ScrollView
@@ -263,12 +258,10 @@ export default function Signup() {
         keyboardShouldPersistTaps="handled"
       >
       <View
-        className="border-oga-border bg-oga-bg-card"
-        style={{ borderRadius: 10, borderWidth: 0.5, padding: 20 }}
+        style={{ borderColor: '#D9D2BF', backgroundColor: '#FBF8F1', borderRadius: 10, borderWidth: 0.5, padding: 20 }}
       >
         <Text
-          style={[TYPE.bodyBold, { fontSize: 22, fontWeight: '600', marginBottom: 16 }]}
-          className="text-oga-text-primary"
+          style={[TYPE.bodyBold, { fontSize: 22, fontWeight: '600', marginBottom: 16, color: '#1C211C' }]}
         >
           Create your OGA account
         </Text>
@@ -277,7 +270,6 @@ export default function Signup() {
           autoCapitalize="none"
           value={username}
           onChangeText={setUsername}
-          className="bg-oga-bg-input border-oga-border text-oga-text-primary"
           style={inputStyle}
         />
         <FieldLabel>Email</FieldLabel>
@@ -286,7 +278,6 @@ export default function Signup() {
           keyboardType="email-address"
           value={email}
           onChangeText={setEmail}
-          className="bg-oga-bg-input border-oga-border text-oga-text-primary"
           style={inputStyle}
         />
         <FieldLabel>Password</FieldLabel>
@@ -294,7 +285,6 @@ export default function Signup() {
           secureTextEntry
           value={password}
           onChangeText={setPassword}
-          className="bg-oga-bg-input border-oga-border text-oga-text-primary"
           style={{ ...inputStyle, marginBottom: 14 }}
         />
         {captchaEnabled && (
@@ -325,29 +315,28 @@ export default function Signup() {
           />
         )}
         {error && (
-          <Text style={[TYPE.body, { fontSize: 13, marginBottom: 10 }]} className="text-oga-red">
+          <Text style={[TYPE.body, { fontSize: 13, marginBottom: 10, color: '#A33A2A' }]}>
             {error}
           </Text>
         )}
         <Pressable
           onPress={handleSubmit}
           disabled={!canSubmit}
-          className="bg-oga-black"
           style={{
+            backgroundColor: '#1C211C',
             borderRadius: 10,
             paddingVertical: 13,
             alignItems: 'center',
             opacity: !canSubmit ? 0.5 : 1,
           }}
         >
-          <Text style={[TYPE.bodyBold, { fontSize: 13 }]} className="text-white">
+          <Text style={[TYPE.bodyBold, { fontSize: 13, color: '#FFFFFF' }]}>
             {loading ? 'Creating…' : 'Create account'}
           </Text>
         </Pressable>
         <Link href="/(auth)/login" asChild>
           <Text
-            style={[TYPE.body, { fontSize: 13, marginTop: 14, textAlign: 'center' }]}
-            className="text-oga-green"
+            style={[TYPE.body, { fontSize: 13, marginTop: 14, textAlign: 'center', color: '#1F3D2C' }]}
           >
             Have an account? Sign in
           </Text>
@@ -358,10 +347,10 @@ export default function Signup() {
   )
 }
 
-// Colors come from the design tokens applied via className on each input
-// (bg-oga-bg-input / border-oga-border / text-oga-text-primary); this holds
-// the shared layout only.
 const inputStyle = {
+  backgroundColor: '#FBF8F1',
+  borderColor: '#D9D2BF',
+  color: '#1C211C',
   borderWidth: 0.5,
   borderRadius: 7,
   paddingHorizontal: 10,
@@ -379,8 +368,8 @@ function FieldLabel({ children }: { children: React.ReactNode }) {
         letterSpacing: 0.4,
         textTransform: 'uppercase',
         marginBottom: 6,
+        color: '#8A8B7E',
       }]}
-      className="text-oga-text-hint"
     >
       {children}
     </Text>
