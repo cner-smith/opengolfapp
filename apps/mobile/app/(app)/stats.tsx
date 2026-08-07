@@ -186,6 +186,9 @@ export default function Stats() {
         title="Strokes Gained"
         right={
           <View style={{ alignItems: 'flex-end', gap: 10 }}>
+            {/* "?" sits inline with the web link so the header keeps its
+                two-row height (QA 2026-08 — a third stacked row grew the bar). */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
             <HelpButton topicId="stats" />
             <Pressable
               accessibilityRole="link"
@@ -204,6 +207,7 @@ export default function Stats() {
                 Full dashboard → oga.golf ↗
               </Text>
             </Pressable>
+            </View>
             <View
               style={{
                 flexDirection: 'row',
