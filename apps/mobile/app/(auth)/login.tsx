@@ -22,6 +22,11 @@ export default function Login() {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [captchaToken, setCaptchaToken] = useState<string | null>(null)
+  // Turnstile tokens are single-use; a failed sign-in consumes the token, so
+  // the widget must be remounted (key bump) to mint a fresh one — otherwise
+  // the submit button stays disabled until the screen remounts. Same pattern
+  // as signup.tsx (#738).
+  const [captchaNonce, setCaptchaNonce] = useState(0)
 
   const captchaEnabled = Boolean(TURNSTILE_SITE_KEY)
   const canSubmit = !loading && (!captchaEnabled || captchaToken !== null)
@@ -40,6 +45,7 @@ export default function Login() {
     if (signInError) {
       setError(signInError.message)
       setCaptchaToken(null)
+      setCaptchaNonce((n) => n + 1)
       return
     }
     // Route through the brand splash (plays on every login), which then
@@ -97,6 +103,7 @@ export default function Login() {
         />
         {captchaEnabled && (
           <WebView
+            key={captchaNonce}
             source={{ uri: `https://oga.golf/captcha.html?siteKey=${encodeURIComponent(TURNSTILE_SITE_KEY ?? '')}` }}
             // about:blank + about:srcdoc required for the Turnstile challenge
             // iframe to load inside iOS WKWebView — without them iOS filters the
