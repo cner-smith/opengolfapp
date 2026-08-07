@@ -1,6 +1,7 @@
 import { Pressable, Text, View } from 'react-native'
 import { PressableTouch } from '../ui/PressableTouch'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import { tourMakePercent } from '@oga/core'
 import { TYPE } from '../../lib/typography'
 import { KICKER, type RoundState } from './hole/types'
 
@@ -51,6 +52,17 @@ interface MapBottomChromeProps {
   onPrev: () => void
   onNext: () => void
   onOpenScorecard: () => void
+  /** On-green rework: true while `roundState === 'PUTTING'`. Swaps the whole
+   *  contextual-action block for the Made/Missed overlay — the detailed aim
+   *  line read moved to the end-of-hole summary (HoleReviewSheet), so there
+   *  is nothing else to show here. */
+  onGreenActive: boolean
+  /** Ball→pin distance in feet, for the make-% pill and as the persisted
+   *  putt distance. Null when there's no pin to measure against. */
+  puttDistanceFt: number | null
+  onPuttMade: () => void
+  onPuttMissed: () => void
+  onNotOnGreen: () => void
 }
 
 export function MapBottomChrome(props: MapBottomChromeProps) {
@@ -81,6 +93,13 @@ function ContextualActions(p: MapBottomChromeProps) {
         {p.roundPin && <SecondaryPill label="Clear flag" danger onPress={p.onClearRoundPin} />}
       </View>
     )
+  }
+  // On-green (#791 step 4 rework): Made/Missed replace the whole chrome for
+  // this state — no place/mark/on-green CTA while putting. Checked ahead of
+  // SET_AIM/isRevisitingPlayedHole since PUTTING is its own roundState, not a
+  // variant of either.
+  if (p.onGreenActive) {
+    return <OnGreenActions {...p} />
   }
   if (p.roundState === 'SET_AIM') {
     return (
@@ -158,6 +177,91 @@ function ContextualActions(p: MapBottomChromeProps) {
         />
       )}
     </>
+  )
+}
+
+// On-green overlay (#791 step 4 rework): make-% pill + Made/Missed + a quiet
+// escape. The detailed read (aim/break/speed) is gone from here — it now
+// lives in the end-of-hole summary (HoleReviewSheet's Read ▸ / AimerOverlay).
+function OnGreenActions(p: MapBottomChromeProps) {
+  const ft = p.puttDistanceFt
+  const tourPct = ft != null && ft > 0 ? tourMakePercent(ft) : null
+  return (
+    <>
+      {ft != null && ft > 0 && (
+        <View
+          style={{
+            backgroundColor: CHROME_BG,
+            borderRadius: 14,
+            paddingHorizontal: 14,
+            paddingVertical: 8,
+          }}
+        >
+          <Text style={[TYPE.body, { color: CREAM, fontSize: 13 }]}>
+            {Math.round(ft)} ft
+            {tourPct != null ? (
+              <Text style={[TYPE.bodyBold, { color: CREAM, fontWeight: '700' }]}>
+                {' '}· tour makes {tourPct}%
+              </Text>
+            ) : null}
+          </Text>
+        </View>
+      )}
+      <View style={{ flexDirection: 'row', gap: 10 }}>
+        <PuttResultButton label="Missed" onPress={p.onPuttMissed} disabled={p.saving} />
+        <PuttResultButton label="Made" primary onPress={p.onPuttMade} disabled={p.saving} />
+      </View>
+      <TextChip label="Not on the green" onPress={p.onNotOnGreen} />
+    </>
+  )
+}
+
+function PuttResultButton({
+  label,
+  primary,
+  onPress,
+  disabled,
+}: {
+  label: string
+  primary?: boolean
+  onPress: () => void
+  disabled?: boolean
+}) {
+  return (
+    <PressableTouch
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityState={{ disabled: !!disabled }}
+      disabled={disabled}
+      onPress={onPress}
+      android_ripple={{ color: 'rgba(242,238,229,0.18)' }}
+      // Static style object (see PrimaryCta) — a function `style` is dropped
+      // by NativeWind/css-interop.
+      style={{
+        backgroundColor: primary ? '#1F3D2C' : CHROME_BG,
+        borderColor: primary ? '#1F3D2C' : 'rgba(242,238,229,0.4)',
+        borderWidth: 1,
+        borderRadius: 26,
+        paddingVertical: 15,
+        paddingHorizontal: 34,
+        alignItems: 'center',
+        opacity: disabled ? 0.5 : 1,
+        shadowColor: '#000',
+        shadowOpacity: 0.3,
+        shadowRadius: 6,
+        shadowOffset: { width: 0, height: 2 },
+        elevation: 4,
+      }}
+    >
+      <Text
+        style={[
+          TYPE.bodyBold,
+          { color: CREAM, fontSize: 16, fontWeight: '700', letterSpacing: 0.3 },
+        ]}
+      >
+        {label}
+      </Text>
+    </PressableTouch>
   )
 }
 
