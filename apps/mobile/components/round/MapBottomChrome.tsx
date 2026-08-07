@@ -148,33 +148,24 @@ function ContextualActions(p: MapBottomChromeProps) {
   return (
     <>
       <PrimaryCta label={ballLabel} disabled={ballDisabled} onPress={p.onMarkBallHere} />
-      {/* Gated on a prior shot this hole (#791 step 4): as the FIRST tap it
-          would skip persisting the stroke that reached the green — the putt
-          would save as shot 1 (a phantom ace) and finishHole would skip the
-          review. A putt always follows the shot that got you there. */}
-      {p.totalShotsThisHole > 0 && (p.ball != null || p.hasGps) && !p.saving && (
-        <TextChip label="⛳ On the green" onPress={p.onOnGreen} />
-      )}
-      {p.ballFromGps && !p.saving && (
-        <View
-          style={{
-            backgroundColor: CHROME_BG,
-            borderRadius: 14,
-            paddingHorizontal: 12,
-            paddingVertical: 5,
-          }}
-        >
-          <Text style={[TYPE.body, { color: CREAM, fontSize: 11, opacity: 0.85 }]}>
-            The ball follows your GPS — drag to adjust.
-          </Text>
-        </View>
-      )}
+      {/* One chip row for the secondary actions — stacking them one-per-line
+          read as clutter over the satellite (QA 2026-08). The GPS drag hint
+          that used to sit here was a duplicate of the top map banner; the
+          banner is the single home for that instruction now.
+          On-green gate (#791 step 4): requires a prior shot this hole — as the
+          FIRST tap it would skip persisting the stroke that reached the green
+          (phantom ace) and finishHole would skip the review. */}
       {p.totalShotsThisHole > 0 && (
-        <TextChip
-          label={p.holeNumber < p.holeCount ? 'Finish hole · next →' : 'Finish round'}
-          onPress={p.onFinishHole}
-          strong
-        />
+        <View style={{ flexDirection: 'row', gap: 10 }}>
+          {(p.ball != null || p.hasGps) && !p.saving && (
+            <TextChip label="⛳ On the green" onPress={p.onOnGreen} />
+          )}
+          <TextChip
+            label={p.holeNumber < p.holeCount ? 'Finish hole · next →' : 'Finish round'}
+            onPress={p.onFinishHole}
+            strong
+          />
+        </View>
       )}
     </>
   )
