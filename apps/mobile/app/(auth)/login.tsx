@@ -55,7 +55,7 @@ export default function Login() {
 
   return (
     <KeyboardAvoidingView
-      className="flex-1 bg-oga-bg-page"
+      style={{ flex: 1, backgroundColor: '#F2EEE5' }}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <ScrollView

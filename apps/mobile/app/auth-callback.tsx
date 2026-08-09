@@ -100,18 +100,16 @@ export default function AuthCallback() {
       : 'Confirming your account…'
 
   return (
-    <View className="flex-1 items-center justify-center bg-oga-bg-page px-6">
+    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#F2EEE5', paddingHorizontal: 24 }}>
       <Text
-        style={TYPE.body}
-        className="text-oga-text-muted text-sm text-center"
+        style={[TYPE.body, { color: '#5C6356', fontSize: 14, textAlign: 'center' }]}
       >
         {message}
       </Text>
       {(error || fallback) && (
         <Pressable onPress={() => router.replace('/(auth)/login')}>
           <Text
-            style={[TYPE.body, { fontSize: 13, marginTop: 16 }]}
-            className="text-oga-green"
+            style={[TYPE.body, { fontSize: 13, marginTop: 16, color: '#1F3D2C' }]}
           >
             Back to sign in
           </Text>

@@ -7,8 +7,8 @@ export default function Index() {
   const { user, loading } = useAuth()
   if (loading) {
     return (
-      <View className="flex-1 items-center justify-center bg-oga-bg-page">
-        <Text style={TYPE.body} className="text-oga-text-muted text-sm">Loading…</Text>
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#F2EEE5' }}>
+        <Text style={[TYPE.body, { color: '#5C6356', fontSize: 14 }]}>Loading…</Text>
       </View>
     )
   }

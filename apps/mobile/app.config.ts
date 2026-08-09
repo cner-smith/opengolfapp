@@ -1,14 +1,12 @@
 import type { ExpoConfig } from 'expo/config'
 
-// Dynamic Expo config. Replaces app.json so the @rnmapbox/maps plugin can
-// read MAPBOX_DOWNLOADS_TOKEN from the environment (EAS secret) at prebuild
-// time — required for iOS Mapbox SDK CocoaPods fetch (Android uses a
-// different distribution path and works without it).
+// Dynamic Expo config. Replaces app.json for Mapbox plugin setup and
+// runtime configuration.
 const config: ExpoConfig = {
   name: 'OGA',
   slug: 'oga',
   scheme: 'oga',
-  version: '1.1.0',
+  version: '1.2.0',
   // EAS Update (OTA). Ships JS/asset-only fixes to installed builds WITHOUT an
   // App Store / Play review — Apple/Google permit interpreted-code updates that
   // don't add native code or change the app's purpose. Native changes (SDK/RN
@@ -27,20 +25,18 @@ const config: ExpoConfig = {
   // differs server-side vs local — worse with expo-sqlite present (both true
   // here). It failed both prod builds 2026-07-07 with an opaque "Unknown error";
   // fingerprint computed fine locally but not on EAS. See expo/expo#43831 (open,
-  // no upstream fix). appVersion derives runtimeVersion from `version` (1.0.0),
+  // no upstream fix). appVersion derives runtimeVersion from `version`,
   // computed identically local + on EAS — OTA is fully retained; just remember
   // to bump `version` on any release that changes native code.
   runtimeVersion: {
     policy: 'appVersion',
   },
   orientation: 'portrait',
-  // New Architecture stays OFF for the SDK 53 migration. SDK 53 flips it
-  // on by default, so this is an active opt-out (set during the SDK 52 step
-  // so the flip can't surprise us). @rnmapbox/maps old-arch support ends at
-  // 10.2.x, so the New-Arch-ON flip couples with the later SDK 54 / RN 0.80
-  // upgrade — done in a separate PR, not this migration. 16 KB does NOT
-  // require New Arch (it's the RN 0.77+/NDK r27 toolchain). See #467.
-  newArchEnabled: false,
+  // New Architecture is ON — required by Reanimated 4 + rnmapbox >=10.3, and
+  // mandatory from SDK 55 on. 16 KB does NOT require New Arch (it's the RN
+  // 0.77+/NDK r27 toolchain, already satisfied) — this flip is purely to
+  // unblock Reanimated 4 / rnmapbox's New-Arch-only path. See #467.
+  newArchEnabled: true,
   // Direction A "o." monogram (brand-mark Issue 03) — flat 1024² master;
   // iOS clips the squircle, so no baked corners. Universal fallback used by
   // Android (which also has adaptiveIcon below) and web. iOS light/dark/
@@ -168,6 +164,7 @@ const config: ExpoConfig = {
   },
   plugins: [
     'expo-router',
+    'expo-sqlite',
     [
       'expo-location',
       {
@@ -183,14 +180,6 @@ const config: ExpoConfig = {
       '@rnmapbox/maps',
       {
         RNMapboxMapsImpl: 'mapbox',
-        // Secret download token for the iOS Mapbox SDK CocoaPod. Set via
-        // EAS project secret: `eas secret:create --scope project --name
-        // MAPBOX_DOWNLOADS_TOKEN --value sk.ey...`. Spread-conditionally
-        // so local prebuild without the env var doesn't pass `undefined`
-        // through to the plugin.
-        ...(process.env.MAPBOX_DOWNLOADS_TOKEN
-          ? { RNMapboxMapsDownloadToken: process.env.MAPBOX_DOWNLOADS_TOKEN }
-          : {}),
       },
     ],
     'expo-font',
