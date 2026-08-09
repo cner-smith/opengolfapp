@@ -20,6 +20,11 @@ interface CourseSearchProps {
    *  Only meaningful for live rounds; defaults to false so past-round
    *  entry doesn't trigger a permission prompt. */
   requestGps?: boolean
+  /** Pre-seeds the search box, e.g. with an imported payload's course_name
+   *  hint, so the user lands on likely matches immediately instead of an
+   *  empty field. Only used as the initial value — later prop changes
+   *  don't reset an in-progress search. */
+  initialQuery?: string
 }
 
 interface GpsState {
@@ -32,8 +37,9 @@ export function CourseSearch({
   selectedCourseId,
   onSelect,
   requestGps = false,
+  initialQuery = '',
 }: CourseSearchProps) {
-  const [query, setQuery] = useState('')
+  const [query, setQuery] = useState(initialQuery)
   const [creatingManual, setCreatingManual] = useState(false)
   const [gps, setGps] = useState<GpsState>({ status: 'idle' })
   const [facility, setFacility] = useState<FacilityRow | null>(null)

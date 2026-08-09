@@ -37,22 +37,38 @@ export function RoundsPage() {
             </div>
           )}
         </div>
-        <Link
-          to="/rounds/new"
-          className="bg-caddie-accent text-caddie-accent-ink hover:opacity-90"
-          style={{
-            padding: '12px 16px',
-            fontSize: 14,
-            fontWeight: 600,
-            letterSpacing: '0.02em',
-            borderRadius: 2,
-          }}
-        >
-          New round{' '}
-          <span className="font-serif" style={{ fontStyle: 'italic' }}>
-            →
-          </span>
-        </Link>
+        <div className="flex" style={{ gap: 8 }}>
+          <Link
+            to="/rounds/import"
+            className="bg-caddie-surface text-caddie-ink hover:bg-caddie-surface-2"
+            style={{
+              padding: '12px 16px',
+              fontSize: 14,
+              fontWeight: 600,
+              letterSpacing: '0.02em',
+              borderRadius: 2,
+              border: '0.5px solid #E4E4E0',
+            }}
+          >
+            Import from data
+          </Link>
+          <Link
+            to="/rounds/new"
+            className="bg-caddie-accent text-caddie-accent-ink hover:opacity-90"
+            style={{
+              padding: '12px 16px',
+              fontSize: 14,
+              fontWeight: 600,
+              letterSpacing: '0.02em',
+              borderRadius: 2,
+            }}
+          >
+            New round{' '}
+            <span className="font-serif" style={{ fontStyle: 'italic' }}>
+              →
+            </span>
+          </Link>
+        </div>
       </div>
 
       {isLoading && (
