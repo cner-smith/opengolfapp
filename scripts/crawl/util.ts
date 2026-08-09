@@ -115,7 +115,33 @@ export const STATE_BBOX: Record<string, [number, number, number, number]> = {
   WV: [37.2, -82.65, 40.64, -77.72],
   WI: [42.49, -92.89, 47.08, -86.25],
   WY: [40.99, -111.06, 45.01, -104.05],
+  // British Isles fetch tiles (opt-in via --states, NOT in ALL_STATES so the
+  // US default/cron is untouched). Keys double as the rough courses.state
+  // label at fetch time; label-uk-ie.cjs then PIP-corrects each course to its
+  // true constituent country (Scotland/England/Wales/Northern Ireland/Ireland)
+  // via Natural Earth admin-1 `geonunit`. Tiles deliberately OVERLAP at the
+  // borders (Scotland↔England-North, England↔Wales, Ireland island covers NI) —
+  // upsert-on-external_id dedups and the PIP pass is authoritative, so overlap
+  // is harmless. England is split N/S purely to keep each Overpass query under
+  // the 90s timeout (England alone is ~1,900 courses). If a tile times out on
+  // re-run, split its bbox further — same pattern.
+  // ponytail: 5 hand-tuned tiles, not a general grid — split a tile if it times out.
+  Scotland: [54.6, -8.7, 60.9, -0.7],
+  Wales: [51.3, -5.4, 53.5, -2.6],
+  Ireland: [51.3, -10.7, 55.5, -5.3], // whole island (ROI + NI); PIP splits them
+  'England-South': [49.9, -6.5, 52.9, 1.8],
+  'England-North': [52.9, -3.7, 55.9, 0.3],
 }
+
+// Convenience list for the British Isles discovery run — pass as the --states
+// comma value to the osm + osm-holes passes. Not wired into ALL_STATES (opt-in).
+export const UK_IE_TILES = [
+  'Scotland',
+  'Wales',
+  'Ireland',
+  'England-South',
+  'England-North',
+] as const
 
 export const MATCH_THRESHOLD = 0.7
 
