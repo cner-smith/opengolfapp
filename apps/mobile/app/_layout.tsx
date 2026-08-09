@@ -15,7 +15,6 @@ import Animated, {
 import { AuthProvider } from '../contexts/AuthContext'
 import { useAuth } from '../hooks/useAuth'
 import { ErrorBoundary } from '../components/errors/ErrorBoundary'
-import '../global.css'
 
 // Native splash stays up until our JS-side font load finishes so the brand
 // mark never renders in a fallback serif. The animated brand splash now lives

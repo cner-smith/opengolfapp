@@ -398,6 +398,31 @@ export default function ProfileTab() {
 
         <Pressable
           accessibilityRole="button"
+          accessibilityLabel="Replay intro tour"
+          onPress={() => router.navigate({ pathname: '/(app)', params: { replayTour: '1' } })}
+          style={{
+            marginTop: 18,
+            paddingVertical: 16,
+            paddingHorizontal: 4,
+            borderTopWidth: 1,
+            borderBottomWidth: 1,
+            borderColor: '#D9D2BF',
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+          }}
+        >
+          <View>
+            <Text style={{ ...KICKER, marginBottom: 2 }}>Getting started</Text>
+            <Text style={[TYPE.bodyBold, { color: '#1C211C', fontSize: 16 }]}>
+              Replay intro tour
+            </Text>
+          </View>
+          <Text style={[TYPE.bodyItalic, { color: '#1F3D2C', fontSize: 18 }]}>→</Text>
+        </Pressable>
+
+        <Pressable
+          accessibilityRole="button"
           accessibilityLabel={saving ? 'Saving profile' : 'Save profile changes'}
           accessibilityState={{ disabled: saving || usernameInvalid }}
           onPress={save}

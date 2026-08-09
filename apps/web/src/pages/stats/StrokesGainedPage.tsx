@@ -9,6 +9,7 @@ import { BallStrikingSection } from './sections/BallStrikingSection'
 import { ShortGameSection } from './sections/ShortGameSection'
 import { PatternsSection } from './sections/PatternsSection'
 import { ClubDistancesSection } from './sections/ClubDistancesSection'
+import { HelpButton } from '../../components/help/HelpButton'
 
 const N_OPTIONS: readonly number[] = [5, 10, 20]
 
@@ -37,12 +38,15 @@ export function StrokesGainedPage() {
           <div className="kicker" style={{ marginBottom: 8 }}>
             Performance ledger
           </div>
-          <h1
-            className="font-serif text-caddie-ink"
-            style={{ fontSize: 28, fontWeight: 500, lineHeight: 1.15 }}
-          >
-            Stats
-          </h1>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <h1
+              className="font-serif text-caddie-ink"
+              style={{ fontSize: 28, fontWeight: 500, lineHeight: 1.15 }}
+            >
+              Stats
+            </h1>
+            <HelpButton topicId="stats" />
+          </div>
           <div
             className="text-caddie-ink-dim"
             style={{ fontSize: 15, marginTop: 6, maxWidth: 560 }}

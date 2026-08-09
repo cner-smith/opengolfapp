@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Linking, Pressable, ScrollView, Text, useWindowDimensions, View } from 'react-native'
-import { VictoryAxis, VictoryChart, VictoryLine } from 'victory-native'
-import Svg, { Line as SvgLine } from 'react-native-svg'
+import Svg, { Line as SvgLine, Polyline, Text as SvgText } from 'react-native-svg'
 import {
   clubDistanceStats,
   computeDetailedStats,
@@ -23,6 +22,7 @@ import { getCached, setCached } from '../../lib/screenCache'
 import { useUnits } from '../../hooks/useUnits'
 import { AppBar } from '../../components/ui/AppBar'
 import { Entrance } from '../../components/ui/Entrance'
+import { HelpButton } from '../../components/help/HelpButton'
 import { TYPE } from '../../lib/typography'
 
 const N_OPTIONS = [5, 10, 20] as const
@@ -160,6 +160,22 @@ export default function Stats() {
     [chartSeries],
   )
 
+  // Chart plot geometry. X domain spans every series' data — series skip
+  // null rounds, so first/last x differ per series and a single-series
+  // domain would clip the others.
+  const chartWidth = screenWidth - 36
+  const chartPad = { top: 16, right: 12, bottom: CHART_BOTTOM, left: 32 }
+  const chartPlotW = chartWidth - chartPad.left - chartPad.right
+  const chartPlotH = CHART_HEIGHT - chartPad.top - chartPad.bottom
+  const chartAllX = chartSeries.flatMap((s) => s.data.map((d) => d.x))
+  const chartXMin = chartAllX.length ? Math.min(...chartAllX) : 0
+  const chartXMax = chartAllX.length ? Math.max(...chartAllX) : 1
+  const chartXSpan = chartXMax - chartXMin || 1
+  const chartYMax = sgAxis.max || 1
+  const chartPx = (x: number) => chartPad.left + ((x - chartXMin) / chartXSpan) * chartPlotW
+  const chartPy = (y: number) =>
+    chartPad.top + (1 - (y + chartYMax) / (2 * chartYMax)) * chartPlotH
+
   // Per-club total distance (max/min/avg), from every tracked shot's
   // start→end across the loaded rounds.
   const clubDistances = useMemo(
@@ -185,6 +201,10 @@ export default function Stats() {
         title="Strokes Gained"
         right={
           <View style={{ alignItems: 'flex-end', gap: 10 }}>
+            {/* "?" sits inline with the web link so the header keeps its
+                two-row height (QA 2026-08 — a third stacked row grew the bar). */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+            <HelpButton topicId="stats" />
             <Pressable
               accessibilityRole="link"
               accessibilityLabel="Open the full dashboard on the web at oga.golf"
@@ -202,6 +222,7 @@ export default function Stats() {
                 Full dashboard → oga.golf ↗
               </Text>
             </Pressable>
+            </View>
             <View
               style={{
                 flexDirection: 'row',
@@ -337,60 +358,98 @@ export default function Stats() {
 
             <Entrance index={1}>
             <Section kicker={`SG trend — last ${rounds.length} rounds`}>
-              <VictoryChart
-                height={CHART_HEIGHT}
-                width={screenWidth - 36}
-                domain={{ y: [-sgAxis.max, sgAxis.max] }}
-                padding={{ top: 16, right: 12, bottom: CHART_BOTTOM, left: 32 }}
-              >
-                <VictoryAxis
-                  offsetY={CHART_BOTTOM}
-                  tickFormat={(t) =>
-                    new Date(t).toLocaleDateString('en-US', {
-                      month: 'short',
-                      day: 'numeric',
-                    })
-                  }
-                  style={{
-                    axis: { stroke: '#D9D2BF' },
-                    tickLabels: { fontSize: 9, fill: '#8A8B7E' },
-                    grid: { stroke: 'transparent' },
-                  }}
-                />
-                <VictoryAxis
-                  dependentAxis
-                  tickValues={sgAxis.ticks}
-                  style={{
-                    axis: { stroke: '#D9D2BF' },
-                    tickLabels: { fontSize: 9, fill: '#8A8B7E' },
-                    grid: { stroke: '#EBE5D6' },
-                  }}
-                />
-                {/* Zero reference line */}
-                {(chartSeries[0]?.data.length ?? 0) >= 2 && (
-                  <VictoryLine
-                    data={[
-                      { x: chartSeries[0]!.data[0]!.x, y: 0 },
-                      { x: chartSeries[0]!.data[chartSeries[0]!.data.length - 1]!.x, y: 0 },
-                    ]}
-                    style={{ data: { stroke: '#9F9580', strokeWidth: 1, strokeDasharray: '3,3' } }}
-                  />
-                )}
-                {chartSeries.map((s) => (
-                  <VictoryLine
-                    key={s.key}
-                    data={s.data}
-                    interpolation="monotoneX"
-                    style={{
-                      data: {
-                        stroke: s.color,
-                        strokeWidth: 1.5,
-                        strokeDasharray: s.dash,
-                      },
-                    }}
+              <Svg width={chartWidth} height={CHART_HEIGHT}>
+                {/* Y gridlines + tick labels */}
+                {sgAxis.ticks.map((t) => (
+                  <SvgLine
+                    key={`g${t}`}
+                    x1={chartPad.left}
+                    x2={chartWidth - chartPad.right}
+                    y1={chartPy(t)}
+                    y2={chartPy(t)}
+                    stroke="#EBE5D6"
+                    strokeWidth={1}
                   />
                 ))}
-              </VictoryChart>
+                {sgAxis.ticks.map((t) => (
+                  <SvgText
+                    key={`l${t}`}
+                    x={chartPad.left - 6}
+                    y={chartPy(t) + 3}
+                    fontSize={9}
+                    fill="#8A8B7E"
+                    textAnchor="end"
+                  >
+                    {String(t)}
+                  </SvgText>
+                ))}
+                {/* axes */}
+                <SvgLine
+                  x1={chartPad.left}
+                  x2={chartWidth - chartPad.right}
+                  y1={CHART_HEIGHT - chartPad.bottom}
+                  y2={CHART_HEIGHT - chartPad.bottom}
+                  stroke="#D9D2BF"
+                  strokeWidth={1}
+                />
+                <SvgLine
+                  x1={chartPad.left}
+                  x2={chartPad.left}
+                  y1={chartPad.top}
+                  y2={CHART_HEIGHT - chartPad.bottom}
+                  stroke="#D9D2BF"
+                  strokeWidth={1}
+                />
+                {/* Zero reference line */}
+                {chartSeries.some((s) => s.data.length >= 2) && (
+                  <SvgLine
+                    x1={chartPad.left}
+                    x2={chartWidth - chartPad.right}
+                    y1={chartPy(0)}
+                    y2={chartPy(0)}
+                    stroke="#9F9580"
+                    strokeWidth={1}
+                    strokeDasharray="3,3"
+                  />
+                )}
+                {/* first/last date ticks, across the combined X domain */}
+                {chartSeries.some((s) => s.data.length >= 2) && (
+                  <>
+                    <SvgText
+                      x={chartPx(chartXMin)}
+                      y={CHART_HEIGHT - chartPad.bottom + 14}
+                      fontSize={9}
+                      fill="#8A8B7E"
+                      textAnchor="start"
+                    >
+                      {new Date(chartXMin).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                    </SvgText>
+                    <SvgText
+                      x={chartPx(chartXMax)}
+                      y={CHART_HEIGHT - chartPad.bottom + 14}
+                      fontSize={9}
+                      fill="#8A8B7E"
+                      textAnchor="end"
+                    >
+                      {new Date(chartXMax).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                    </SvgText>
+                  </>
+                )}
+                {/* SG lines, one per category */}
+                {chartSeries.map(
+                  (s) =>
+                    s.data.length >= 2 && (
+                      <Polyline
+                        key={s.key}
+                        points={s.data.map((d) => `${chartPx(d.x)},${chartPy(d.y)}`).join(' ')}
+                        fill="none"
+                        stroke={s.color}
+                        strokeWidth={1.5}
+                        strokeDasharray={s.dash}
+                      />
+                    ),
+                )}
+              </Svg>
               <View
                 style={{
                   flexDirection: 'row',

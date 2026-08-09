@@ -1,6 +1,7 @@
 import { Pressable, Text, View } from 'react-native'
 import { PressableTouch } from '../ui/PressableTouch'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import { tourMakePercent } from '@oga/core'
 import { TYPE } from '../../lib/typography'
 import { KICKER, type RoundState } from './hole/types'
 
@@ -51,6 +52,17 @@ interface MapBottomChromeProps {
   onPrev: () => void
   onNext: () => void
   onOpenScorecard: () => void
+  /** On-green rework: true while `roundState === 'PUTTING'`. Swaps the whole
+   *  contextual-action block for the Made/Missed overlay — the detailed aim
+   *  line read moved to the end-of-hole summary (HoleReviewSheet), so there
+   *  is nothing else to show here. */
+  onGreenActive: boolean
+  /** Ball→pin distance in feet, for the make-% pill and as the persisted
+   *  putt distance. Null when there's no pin to measure against. */
+  puttDistanceFt: number | null
+  onPuttMade: () => void
+  onPuttMissed: () => void
+  onNotOnGreen: () => void
 }
 
 export function MapBottomChrome(props: MapBottomChromeProps) {
@@ -81,6 +93,13 @@ function ContextualActions(p: MapBottomChromeProps) {
         {p.roundPin && <SecondaryPill label="Clear flag" danger onPress={p.onClearRoundPin} />}
       </View>
     )
+  }
+  // On-green (#791 step 4 rework): Made/Missed replace the whole chrome for
+  // this state — no place/mark/on-green CTA while putting. Checked ahead of
+  // SET_AIM/isRevisitingPlayedHole since PUTTING is its own roundState, not a
+  // variant of either.
+  if (p.onGreenActive) {
+    return <OnGreenActions {...p} />
   }
   if (p.roundState === 'SET_AIM') {
     return (
@@ -129,35 +148,122 @@ function ContextualActions(p: MapBottomChromeProps) {
   return (
     <>
       <PrimaryCta label={ballLabel} disabled={ballDisabled} onPress={p.onMarkBallHere} />
-      {/* Gated on a prior shot this hole (#791 step 4): as the FIRST tap it
-          would skip persisting the stroke that reached the green — the putt
-          would save as shot 1 (a phantom ace) and finishHole would skip the
-          review. A putt always follows the shot that got you there. */}
-      {p.totalShotsThisHole > 0 && (p.ball != null || p.hasGps) && !p.saving && (
-        <TextChip label="⛳ On the green" onPress={p.onOnGreen} />
+      {/* One chip row for the secondary actions — stacking them one-per-line
+          read as clutter over the satellite (QA 2026-08). flexWrap: at the
+          1.3x font cap on narrow devices the two chips can exceed the row
+          width; wrapping beats an untappable off-screen chip. The GPS drag
+          hint that used to sit here duplicated TopHint (HoleMapOverlays.tsx,
+          rendered unconditionally whenever !isAimPhase in HoleMap.tsx) —
+          TopHint covers every state the hint showed in, and the CTA label
+          ("Mark ball at my GPS") carries the GPS-tracking cue.
+          On-green gate (#791 step 4): requires a prior shot this hole — as the
+          FIRST tap it would skip persisting the stroke that reached the green
+          (phantom ace) and finishHole would skip the review. */}
+      {p.totalShotsThisHole > 0 && (
+        <View
+          style={{
+            flexDirection: 'row',
+            flexWrap: 'wrap',
+            justifyContent: 'center',
+            gap: 10,
+          }}
+        >
+          {(p.ball != null || p.hasGps) && !p.saving && (
+            <TextChip label="⛳ On the green" onPress={p.onOnGreen} />
+          )}
+          <TextChip
+            label={p.holeNumber < p.holeCount ? 'Finish hole · next →' : 'Finish round'}
+            onPress={p.onFinishHole}
+            strong
+          />
+        </View>
       )}
-      {p.ballFromGps && !p.saving && (
+    </>
+  )
+}
+
+// On-green overlay (#791 step 4 rework): make-% pill + Made/Missed + a quiet
+// escape. The detailed read (aim/break/speed) is gone from here — it now
+// lives in the end-of-hole summary (HoleReviewSheet's Read ▸ / AimerOverlay).
+function OnGreenActions(p: MapBottomChromeProps) {
+  const ft = p.puttDistanceFt
+  const tourPct = ft != null && ft > 0 ? tourMakePercent(ft) : null
+  return (
+    <>
+      {ft != null && ft > 0 && (
         <View
           style={{
             backgroundColor: CHROME_BG,
             borderRadius: 14,
-            paddingHorizontal: 12,
-            paddingVertical: 5,
+            paddingHorizontal: 14,
+            paddingVertical: 8,
           }}
         >
-          <Text style={[TYPE.body, { color: CREAM, fontSize: 11, opacity: 0.85 }]}>
-            The ball follows your GPS — drag to adjust.
+          <Text style={[TYPE.body, { color: CREAM, fontSize: 13 }]}>
+            {Math.round(ft)} ft
+            {tourPct != null ? (
+              <Text style={[TYPE.bodyBold, { color: CREAM, fontWeight: '700' }]}>
+                {' '}· tour makes {tourPct}%
+              </Text>
+            ) : null}
           </Text>
         </View>
       )}
-      {p.totalShotsThisHole > 0 && (
-        <TextChip
-          label={p.holeNumber < p.holeCount ? 'Finish hole · next →' : 'Finish round'}
-          onPress={p.onFinishHole}
-          strong
-        />
-      )}
+      <View style={{ flexDirection: 'row', gap: 10 }}>
+        <PuttResultButton label="Missed" onPress={p.onPuttMissed} disabled={p.saving} />
+        <PuttResultButton label="Made" primary onPress={p.onPuttMade} disabled={p.saving} />
+      </View>
+      <TextChip label="Not on the green" onPress={p.onNotOnGreen} />
     </>
+  )
+}
+
+function PuttResultButton({
+  label,
+  primary,
+  onPress,
+  disabled,
+}: {
+  label: string
+  primary?: boolean
+  onPress: () => void
+  disabled?: boolean
+}) {
+  return (
+    <PressableTouch
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityState={{ disabled: !!disabled }}
+      disabled={disabled}
+      onPress={onPress}
+      android_ripple={{ color: 'rgba(242,238,229,0.18)' }}
+      // Static style object (see PrimaryCta) — a function `style` is dropped
+      // by NativeWind/css-interop.
+      style={{
+        backgroundColor: primary ? '#1F3D2C' : CHROME_BG,
+        borderColor: primary ? '#1F3D2C' : 'rgba(242,238,229,0.4)',
+        borderWidth: 1,
+        borderRadius: 26,
+        paddingVertical: 15,
+        paddingHorizontal: 34,
+        alignItems: 'center',
+        opacity: disabled ? 0.5 : 1,
+        shadowColor: '#000',
+        shadowOpacity: 0.3,
+        shadowRadius: 6,
+        shadowOffset: { width: 0, height: 2 },
+        elevation: 4,
+      }}
+    >
+      <Text
+        style={[
+          TYPE.bodyBold,
+          { color: CREAM, fontSize: 16, fontWeight: '700', letterSpacing: 0.3 },
+        ]}
+      >
+        {label}
+      </Text>
+    </PressableTouch>
   )
 }
 

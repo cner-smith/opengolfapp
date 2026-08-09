@@ -28,7 +28,7 @@ import { completeRound } from '../../../lib/completeRound'
 import type { LatLng } from '../HoleMap'
 import type { ShotLoggerValue } from '../ShotLogger'
 import type { PuttingValue } from '../PuttingSheet'
-import { type ActiveDialog } from './types'
+import { PUTTING_RADIUS_YARDS, type ActiveDialog } from './types'
 import type { UseHoleDataResult } from './useHoleData'
 import type { UseHoleStateResult } from './useHoleState'
 
@@ -70,6 +70,7 @@ export interface UseShotActionsResult {
   markBallHere: (opts?: { toGreen?: boolean }) => Promise<void>
   handleOnGreenYes: () => void
   handleOnGreenNo: () => void
+  notOnGreen: () => void
   confirmAim: () => void
   skipAim: () => void
   handleAimPromptConfirm: () => void
@@ -459,11 +460,34 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
     }
     setBall(ballSnapshot)
     setAim(null)
-    // On the green (#791 step 4): the marked ball is the putt's start. Skip
-    // aiming entirely — Made/Missed is the action. Seed lie=green/putter so
-    // persistPutt writes a putt; the make-% readout + read live in PuttingSheet.
-    // Overrides capture mode (a putt is a putt in either mode).
-    if (opts?.toGreen) {
+    // On-green auto-detect, restored from pre-#791 (b0f123b removed it when
+    // the on-green flow moved behind the explicit "⛳ On the green" chip):
+    // a ball marked within PUTTING_RADIUS_YARDS of the pin enters the
+    // putting flow on its own, same as if the player had tapped the chip.
+    // The chip (opts?.toGreen) stays as the fallback for when there's no pin
+    // yet or the auto-detect misses.
+    const pinTarget = roundPin ?? storedPin ?? null
+    // Never auto-enter putting on the hole's FIRST shot — you can't putt a tee
+    // shot. A par-3 / drivable tee shot landing within PUTTING_RADIUS_YARDS
+    // would otherwise pop Made/Missed and let one tap record a phantom ace.
+    // Mirrors the "⛳ On the green" chip's own `totalShotsThisHole > 0` gate
+    // (MapBottomChrome); the explicit chip (opts.toGreen) is already gated there.
+    // Only auto-force the overlay in track_patterns. just_track's contract is
+    // "save the location, never prompt" — auto-popping Made/Missed there breaks
+    // it. The explicit "⛳ On the green" chip (opts.toGreen) still works in
+    // either mode for a just_track player who wants to log the putt.
+    const autoGreen =
+      captureMode === 'track_patterns' &&
+      previousShots.length > 0 &&
+      pinTarget != null &&
+      distanceYards(ballSnapshot, pinTarget) <= PUTTING_RADIUS_YARDS
+    // On the green (#791 step 4 rework): the marked ball is the putt's start.
+    // Skip aiming entirely — Made/Missed is the action (bottom-chrome
+    // overlays, not a modal). Seed lie=green/putter so persistPutt writes a
+    // putt; the make-% pill lives in MapBottomChrome, the detailed read in
+    // the end-of-hole summary. Overrides capture mode (a putt is a putt in
+    // either mode).
+    if (opts?.toGreen || autoGreen) {
       setLoggerInitial({ lieType: 'green', club: 'putter' })
       setRoundState('PUTTING')
       return
@@ -508,6 +532,24 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
     // Chips and pitches still benefit from explicit aim capture for the
     // shot-pattern dataset; the aim line auto-spawns and "Skip aim" stays
     // available in the SET_AIM chrome.
+    setRoundState('SET_AIM')
+  }
+
+  // Escape from the on-green Made/Missed overlays (#791 step 4 rework): the
+  // ball marked into PUTTING wasn't actually on the green after all. Same
+  // seed as handleOnGreenNo — 'rough' is the safest near-green default, the
+  // player overrides in ShotLogger — but there is no dialog to clear here
+  // (the overlay isn't a Modal/ConfirmDialog, just bottom chrome).
+  function notOnGreen() {
+    // just_track never enters aiming — mirror markBallHere's just_track path:
+    // save the already-marked ball's location and loop back to PLACE_BALL,
+    // rather than stranding the player in a SET_AIM chrome their mode never
+    // shows. track_patterns re-routes the ball into the normal aim flow.
+    if (captureMode === 'just_track') {
+      void persistShot(null, { forceAim: false })
+      return
+    }
+    setLoggerInitial({ lieType: 'rough' })
     setRoundState('SET_AIM')
   }
 
@@ -906,6 +948,7 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
     markBallHere,
     handleOnGreenYes,
     handleOnGreenNo,
+    notOnGreen,
     confirmAim,
     skipAim,
     handleAimPromptConfirm,

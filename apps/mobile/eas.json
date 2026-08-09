@@ -8,7 +8,7 @@
       "developmentClient": true,
       "distribution": "internal",
       "channel": "development",
-      "node": "20.18.0",
+      "node": "20.19.4",
       "android": {
         "buildType": "apk"
       },
@@ -22,7 +22,7 @@
     "preview": {
       "distribution": "internal",
       "channel": "preview",
-      "node": "20.18.0",
+      "node": "20.19.4",
       "android": {
         "buildType": "apk"
       },
@@ -36,7 +36,7 @@
     "production": {
       "autoIncrement": true,
       "channel": "production",
-      "node": "20.18.0",
+      "node": "20.19.4",
       "ios": {
         "image": "macos-sequoia-15.6-xcode-26.2"
       },
