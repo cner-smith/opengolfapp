@@ -7,7 +7,7 @@ Estimated time: 30–45 minutes the first time.
 ## What you'll need
 
 - A [GitHub](https://github.com) account (for the fork).
-- A [Supabase](https://supabase.com) account — the free tier is plenty.
+- A [Supabase](https://supabase.com) account — the free tier is plenty. (Or Docker + the Supabase CLI, if you'd rather run Supabase locally — see "Alternative: run Supabase locally" below.)
 - A [Vercel](https://vercel.com) account — also free tier.
 - A [Mapbox](https://mapbox.com) account if you want the live round map (web is fine without it; mobile needs it).
 - Node 20+ and `pnpm` 10+ locally.
@@ -34,6 +34,25 @@ Once it's provisioned, grab two values from **Project Settings → API**:
 - `anon public` key → this is your `SUPABASE_ANON_KEY`.
 
 You'll also need the **service_role** key for the seed script. Treat it like a database password — never commit it, never put it in client-side env vars.
+
+### Alternative: run Supabase locally
+
+Instead of a hosted project, `supabase start` runs the whole stack (Postgres, Auth, Storage, a local Studio dashboard) in Docker on your machine — no account needed for this step, but you do need Docker running and the [Supabase CLI](https://supabase.com/docs/guides/cli) installed (`brew install supabase/tap/supabase`, or `npx supabase`).
+
+```bash
+supabase start
+```
+
+On a fresh project this applies every migration in `supabase/migrations/` plus `supabase/seed.sql` automatically — no separate `db push` needed locally (that command is for syncing to a *hosted* project). `supabase status` prints the local API URL, anon key, and Studio URL to use in place of the hosted dashboard values below.
+
+The two Edge Functions (`round-summary-email`, `generate-practice-plan`) import shared code vendored out of `packages/core` — Deno can't resolve workspace-package imports the way the web app does, so `supabase start` fails to boot them until you generate those files:
+
+```bash
+pnpm email:vendor-core
+pnpm vendor:practice-plan
+```
+
+Run both before `supabase start` (or a retry after installing/updating the CLI). Neither is wired as an automatic pre-step yet.
 
 ## 3. Run the migrations
 
@@ -135,6 +154,10 @@ You'll need an [Expo account](https://expo.dev) — also free for development bu
 **"profile is null after onboarding"** — check that the `handle_new_user` trigger from the migration ran. Without it the profile row never gets created on signup.
 
 **"unauthorized" on every query** — the Supabase client isn't attaching the auth token. Make sure you set `VITE_SUPABASE_ANON_KEY` (web) or `EXPO_PUBLIC_SUPABASE_ANON_KEY` (mobile), not the service role key.
+
+**`supabase start` fails with `failed to read file: open supabase/functions/_shared/round-summary.ts` (or `.../_shared/practice-plan/...`)** — the Edge Functions' vendored dependencies haven't been generated yet. Run `pnpm email:vendor-core && pnpm vendor:practice-plan`, then retry.
+
+**`supabase start` fails with a `profile` error (e.g. `NotFound: FileSystem.readFile (~/.supabase/profile)`)** — a CLI config-file quirk, not specific to this project. Try `mkdir -p ~/.supabase && supabase login` once, then retry `supabase start`. If it persists, it's likely a bug in whatever CLI version you just pulled — pin an older known-good release rather than always grabbing latest via `npx supabase`.
 
 **Mobile EAS build fails on `gradle-plugin`** — `apps/mobile` uses npm separately from the pnpm workspace; the React Native Gradle plugin can't resolve transitive deps through pnpm's symlinked layout. Run `cd apps/mobile && npm install --legacy-peer-deps` before any EAS build, and let EAS regenerate `android/` via prebuild.
 
