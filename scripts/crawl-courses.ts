@@ -77,8 +77,18 @@ function parseArgs(argv: string[]): Args {
     } else if (a === '--states' && next) {
       states = next
         .split(',')
-        .map((s) => s.trim().toUpperCase())
-        .filter((s) => s.length === 2)
+        .map((s) => s.trim())
+        .filter(Boolean)
+        // Resolve each token to its canonical STATE_BBOX key, case-insensitively:
+        // US codes are 2-char upper ("ok"→"OK"); British Isles tiles are multi-char
+        // mixed-case ("scotland"→"Scotland", "england-south"→"England-South"). An
+        // unknown token falls through to uppercase and errors in the fetcher with
+        // "bbox not configured" rather than being silently dropped.
+        .map(
+          (s) =>
+            Object.keys(STATE_BBOX).find((k) => k.toLowerCase() === s.toLowerCase()) ??
+            s.toUpperCase(),
+        )
       i++
     } else if (a === '--force') {
       force = true
