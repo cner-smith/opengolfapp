@@ -131,6 +131,12 @@ export const STATE_BBOX: Record<string, [number, number, number, number]> = {
   Ireland: [51.3, -10.7, 55.5, -5.3], // whole island (ROI + NI); PIP splits them
   'England-South': [49.9, -6.5, 52.9, 1.8],
   'England-North': [52.9, -3.7, 55.9, 0.3],
+  // Combined England bbox (union of the two split tiles). The osm-holes pass
+  // looks courses up by their `state` value, so once label-uk-ie.cjs has
+  // rewritten the England-South/North placeholders to "England", the hole pass
+  // must key on "England" — hence this entry. (Cleaner is to run osm-holes
+  // BEFORE the label step; this covers the label-first ordering.)
+  England: [49.9, -6.5, 55.9, 1.8],
 }
 
 // Convenience list for the British Isles discovery run — pass as the --states
