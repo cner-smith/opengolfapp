@@ -99,7 +99,30 @@ function findCountry(lng, lat, indexed) {
     if (lng < minX || lng > maxX || lat < minY || lat > maxY) continue;
     if (booleanPointInPolygon(pt, entry.feature)) return entry;
   }
-  return null;
+  // Coastal/island fallback. NE admin-1 polygons are 1:10m-coarse, so a links
+  // course on the shoreline or a small isle (Troon, Elie, Skye, Orkney...) can
+  // sit just outside every polygon and fail the exact PIP. Assign the nearest
+  // admin-1 whose bbox — expanded ~0.4deg (~30km, covers Hebrides/Orkney gaps) —
+  // still brackets the point, by cos-lat-weighted bbox-centre distance. Outcome
+  // is country-level only (adjacent regions share a country), so this is robust
+  // everywhere except the England<->Scotland / Ireland<->NI land borders, which
+  // the dry-run's transition list surfaces for review before --apply.
+  const BUF = 0.4;
+  const cosLat = Math.cos((lat * Math.PI) / 180);
+  let best = null;
+  let bestD = Infinity;
+  for (const entry of indexed) {
+    const [minX, minY, maxX, maxY] = entry.bbox;
+    if (lng < minX - BUF || lng > maxX + BUF || lat < minY - BUF || lat > maxY + BUF) continue;
+    const dx = (lng - (minX + maxX) / 2) * cosLat;
+    const dy = lat - (minY + maxY) / 2;
+    const d = dx * dx + dy * dy;
+    if (d < bestD) {
+      bestD = d;
+      best = entry;
+    }
+  }
+  return best; // still null only if nothing is even near — a true hold (offshore)
 }
 
 async function main() {
