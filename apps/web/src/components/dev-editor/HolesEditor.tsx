@@ -149,6 +149,7 @@ export function HolesEditor({
   const [teeDirty, setTeeDirty] = useState<Set<number>>(new Set())
   const [focused, setFocused] = useState<number | null>(null)
   const [placing, setPlacing] = useState<'tee' | 'pin'>('tee')
+  const [justSaved, setJustSaved] = useState(false)
   const upsert = useUpsertHoles()
   const del = useDeleteHole()
   const upsertHoleTees = useUpsertHoleTees()
@@ -167,6 +168,13 @@ export function HolesEditor({
     setSelectedTee('base')
   }, [courseId])
 
+  // Auto-hide the "Saved" confirmation a couple seconds after it appears.
+  useEffect(() => {
+    if (!justSaved) return
+    const t = window.setTimeout(() => setJustSaved(false), 2500)
+    return () => window.clearTimeout(t)
+  }, [justSaved])
+
   // Once a primary tee exists, it stands in for 'base' — auto-select it the
   // first time it becomes available (e.g. on load) rather than leaving the
   // editor sitting on the no-longer-shown 'base' sentinel. Only fires while
@@ -184,6 +192,7 @@ export function HolesEditor({
   // override rows — selecting it edits `rows` (base) directly, same as the
   // old 'base' sentinel did.
   useEffect(() => {
+    setJustSaved(false)
     if (selectedTee === 'base' || selectedTee === primaryTee?.id) {
       setTeeRows([])
       setTeeDirty(new Set())
@@ -199,11 +208,15 @@ export function HolesEditor({
 
   function updateRow(number: number, patch: Partial<EditableHole>) {
     setRows((prev) => prev.map((r) => (r.number === number ? { ...r, ...patch } : r)))
+    // A field just changed — the "Saved" confirmation no longer reflects
+    // what's on screen, so drop it rather than let it linger stale.
+    setJustSaved(false)
   }
 
   function updateTeeRow(number: number, patch: Partial<EditableHoleTee>) {
     setTeeRows((prev) => prev.map((r) => (r.number === number ? { ...r, ...patch } : r)))
     setTeeDirty((prev) => new Set(prev).add(number))
+    setJustSaved(false)
   }
 
   function addHole() {
@@ -215,6 +228,7 @@ export function HolesEditor({
         (a, b) => a.number - b.number,
       ),
     )
+    setJustSaved(false)
   }
 
   async function saveAll() {
@@ -236,6 +250,7 @@ export function HolesEditor({
         return saved ? { ...r, id: saved.id } : r
       }),
     )
+    setJustSaved(true)
   }
 
   async function saveTeeOverrides() {
@@ -258,6 +273,7 @@ export function HolesEditor({
       }),
     )
     setTeeDirty(new Set())
+    setJustSaved(true)
   }
 
   async function clearOverride(row: EditableHoleTee) {
@@ -276,6 +292,7 @@ export function HolesEditor({
       next.delete(row.number)
       return next
     })
+    setJustSaved(false)
   }
 
   async function deleteRow(row: EditableHole) {
@@ -284,6 +301,7 @@ export function HolesEditor({
     }
     setRows((prev) => prev.filter((r) => r.number !== row.number))
     if (focused === row.number) setFocused(null)
+    setJustSaved(false)
   }
 
   const inTeeMode = selectedTee !== 'base' && !isPrimarySelected
@@ -564,7 +582,12 @@ export function HolesEditor({
         </div>
       )}
 
-      <div className="flex" style={{ justifyContent: 'flex-end' }}>
+      <div className="flex" style={{ justifyContent: 'flex-end', alignItems: 'center', gap: 10 }}>
+        {justSaved && (
+          <span className="text-caddie-accent" style={{ fontSize: 12, fontWeight: 500 }}>
+            ✓ Saved
+          </span>
+        )}
         {inTeeMode ? (
           <button
             type="button"
