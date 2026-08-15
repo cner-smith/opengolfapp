@@ -7,7 +7,7 @@ import { useHandicapMeta } from '../../hooks/useHandicapMeta'
 interface NavLinkDef {
   to: string
   label: string
-  section: 'menu' | 'resources'
+  section: 'menu' | 'resources' | 'dev'
 }
 
 const links: NavLinkDef[] = [
@@ -23,6 +23,12 @@ const links: NavLinkDef[] = [
   { to: '/learn', label: 'Learn', section: 'resources' },
   { to: '/settings/bag', label: 'My Bag', section: 'resources' },
   { to: '/settings', label: 'Settings', section: 'resources' },
+  // Only reachable when the /dev/courses route itself exists — router.tsx
+  // gates that on import.meta.env.DEV, so this link (and the route) is
+  // absent from production builds entirely.
+  ...(import.meta.env.DEV
+    ? [{ to: '/dev/courses', label: 'Course Editor', section: 'dev' as const }]
+    : []),
 ]
 
 function SidebarSection({
@@ -124,6 +130,12 @@ export function Sidebar() {
           label="Resources"
           links={links.filter((l) => l.section === 'resources')}
         />
+        {import.meta.env.DEV && (
+          <SidebarSection
+            label="Dev"
+            links={links.filter((l) => l.section === 'dev')}
+          />
+        )}
       </nav>
 
       <div style={{ padding: '12px 14px 6px' }}>

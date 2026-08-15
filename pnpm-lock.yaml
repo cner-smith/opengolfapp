@@ -7,6 +7,10 @@ settings:
 importers:
 
   .:
+    dependencies:
+      '@oga/supabase':
+        specifier: workspace:*
+        version: link:packages/supabase
     devDependencies:
       '@supabase/supabase-js':
         specifier: ^2.45.0

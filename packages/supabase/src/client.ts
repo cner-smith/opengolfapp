@@ -43,3 +43,14 @@ export function createOgaClient(opts: CreateClientOptions): OgaSupabaseClient {
     },
   })
 }
+
+// For trusted, non-browser callers only (dev tooling, CLI scripts) — the
+// service role key bypasses RLS entirely. Never construct this from
+// browser-reachable code.
+export function createOgaServiceClient(url: string, serviceRoleKey: string): OgaSupabaseClient {
+  if (!url) throw new Error('Missing Supabase URL')
+  if (!serviceRoleKey) throw new Error('Missing Supabase service role key')
+  return createClient<Database>(url, serviceRoleKey, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  })
+}

@@ -1,6 +1,12 @@
 import { useMemo } from 'react'
 import type { Database } from '@oga/supabase'
-import { getShotMarkerCategory, type LieType } from '@oga/core'
+import {
+  getShotMarkerCategory,
+  resolveCourseTee,
+  resolveHole,
+  type LieType,
+  type ResolvedHole,
+} from '@oga/core'
 import type {
   ExistingShot,
   HoleGeo,
@@ -10,12 +16,14 @@ import { useRound, useRounds } from '../../../hooks/useRounds'
 import {
   useCourse,
   useCourseTees,
+  useHoleTeesForCourse,
   useHolesForCourse,
 } from '../../../hooks/useCourses'
 import { useHoleScores } from '../../../hooks/useHoleScores'
 import { useShotsForRound } from '../../../hooks/useShots'
 
 type HoleRow = Database['public']['Tables']['holes']['Row']
+type HoleTeeRow = Database['public']['Tables']['hole_tees']['Row']
 type HoleScoreRow = Database['public']['Tables']['hole_scores']['Row']
 type RoundRow = Database['public']['Tables']['rounds']['Row']
 type ShotRow = Database['public']['Tables']['shots']['Row']
@@ -31,6 +39,7 @@ export interface UseRoundDataResult {
   round: ReturnType<typeof useRound>
   holesQuery: ReturnType<typeof useHolesForCourse>
   teesQuery: ReturnType<typeof useCourseTees>
+  holeTeesQuery: ReturnType<typeof useHoleTeesForCourse>
   courseQuery: ReturnType<typeof useCourse>
   holeScoresQuery: ReturnType<typeof useHoleScores>
   shotsQuery: ReturnType<typeof useShotsForRound>
@@ -47,6 +56,18 @@ export interface UseRoundDataResult {
   persistedRoundPin: PlacedPoint | null
   effectivePin: PlacedPoint | null
   effectiveTee: PlacedPoint | null
+  // Tee-resolved par/yards/stroke_index for the active hole — hole_tees
+  // override (if the round's selected tee has one) applied over the base
+  // holes row, with the per-round hole_scores.par override on top. Null
+  // only when there's no active hole. Prefer these over raw activeHole.par
+  // /.yards/.stroke_index everywhere a tee-aware value is wanted.
+  resolvedPar: number | null
+  resolvedYards: number | null
+  resolvedStrokeIndex: number | null
+  // Same resolution, keyed by hole number, for every hole in the round —
+  // for consumers that render/sum over all holes (ScorecardView, the
+  // scorecard's total-par line) rather than just the active one.
+  resolvedHoleByNumber: Map<number, ResolvedHole>
   courseFallbackLat: number | null
   courseFallbackLng: number | null
   activeHoleGeo: HoleGeo | null
@@ -68,6 +89,7 @@ export function useRoundData({
   const courseId = round.data?.course_id
   const holesQuery = useHolesForCourse(courseId)
   const teesQuery = useCourseTees(courseId)
+  const holeTeesQuery = useHoleTeesForCourse(courseId)
   // Direct fetch — the joined courses(...) field on the round query has
   // been intermittently flat (no lat/lng) for reasons that haven't
   // panned out in PostgREST. A standalone course read is unambiguous.
@@ -210,11 +232,56 @@ export function useRoundData({
     (activeHole?.pin_lat != null && activeHole?.pin_lng != null
       ? { lat: activeHole.pin_lat, lng: activeHole.pin_lng }
       : null)
+
+  // Resolve which course_tees row this round is playing (id preferred,
+  // tee_color as legacy fallback — same convention used to pick a
+  // course_tees row for the handicap differential), then look up that
+  // tee's hole_tees override (if any) for the active hole. hole_tees is
+  // sparse by design — most courses have none yet, so this is a no-op for
+  // the common case and everything falls straight through to the base
+  // `holes` row, exactly as before this wiring landed.
+  const resolvedCourseTee = useMemo(
+    () => resolveCourseTee(teesQuery.data ?? [], round.data?.course_tee_id, round.data?.tee_color),
+    [teesQuery.data, round.data?.course_tee_id, round.data?.tee_color],
+  )
+  const holeTeeByHoleId = useMemo(() => {
+    const m = new Map<string, HoleTeeRow>()
+    if (!resolvedCourseTee) return m
+    for (const ht of holeTeesQuery.data ?? []) {
+      if (ht.course_tee_id === resolvedCourseTee.id) m.set(ht.hole_id, ht)
+    }
+    return m
+  }, [holeTeesQuery.data, resolvedCourseTee])
+  // Resolved par/yards/stroke_index/tee-location for every hole (no live
+  // drag override — that only ever applies to whichever hole is currently
+  // being edited). ScorecardView/HoleReviewSheet render or sum over the
+  // full holes array, not just the active one, so they need this rather
+  // than a single-hole result.
+  const resolvedHoleByNumber = useMemo(() => {
+    const m = new Map<number, ResolvedHole>()
+    for (const h of holes) {
+      const teeOverrideRow = holeTeeByHoleId.get(h.id) ?? null
+      m.set(h.number, resolveHole(h, teeOverrideRow, { par: scoresByHoleId.get(h.id)?.par }))
+    }
+    return m
+  }, [holes, holeTeeByHoleId, scoresByHoleId])
+
+  const resolvedActiveHole = activeHole
+    ? resolveHole(
+        activeHole,
+        holeTeeByHoleId.get(activeHole.id) ?? null,
+        { par: activeHoleScore?.par },
+        teeOverride ? { tee_lat: teeOverride.lat, tee_lng: teeOverride.lng } : undefined,
+      )
+    : null
+  const resolvedPar = resolvedActiveHole?.par ?? null
+  const resolvedYards = resolvedActiveHole?.yards ?? null
+  const resolvedStrokeIndex = resolvedActiveHole?.strokeIndex ?? null
+
   const effectiveTee: PlacedPoint | null =
-    teeOverride ??
-    (activeHole?.tee_lat != null && activeHole?.tee_lng != null
-      ? { lat: activeHole.tee_lat, lng: activeHole.tee_lng }
-      : null)
+    resolvedActiveHole?.teeLat != null && resolvedActiveHole?.teeLng != null
+      ? { lat: resolvedActiveHole.teeLat, lng: resolvedActiveHole.teeLng }
+      : null
   // Course-level lat/lng pulled from the dedicated course query. The
   // joined courses(...) field on the round query also exposes lat/lng,
   // but reading both lets us pick whichever is non-null first — useful
@@ -227,8 +294,8 @@ export function useRoundData({
     ? {
         id: activeHole.id,
         number: activeHole.number,
-        par: activeHole.par,
-        yards: activeHole.yards,
+        par: resolvedPar ?? activeHole.par,
+        yards: resolvedYards,
         teeLat: effectiveTee?.lat ?? null,
         teeLng: effectiveTee?.lng ?? null,
         pinLat: effectivePin?.lat ?? null,
@@ -239,10 +306,13 @@ export function useRoundData({
     : null
   // True when the active hole has no per-hole layout in the DB. Drives
   // the dismissable notice banner above the map and the "— yd to pin"
-  // strip text so the player understands why distances are missing.
+  // strip text so the player understands why distances are missing. Tee
+  // half of the check reads the resolved (tee-override-aware) location —
+  // a course with no base tee_lat but a tee-specific override now counts
+  // as mapped. Pin stays on the base value; hole_tees never covers pin.
   const missingHoleLayout =
     activeHole != null &&
-    activeHole.tee_lat == null &&
+    resolvedActiveHole?.teeLat == null &&
     activeHole.pin_lat == null
 
   const activeHoleShots = useMemo<ExistingShot[]>(() => {
@@ -263,17 +333,18 @@ export function useRoundData({
             lieType: (s.lie_type ?? undefined) as LieType | undefined,
             distanceToTarget: s.distance_to_target ?? undefined,
           },
-          activeHole?.par ?? 4,
+          resolvedPar ?? 4,
           s.shot_number,
         ),
       }))
       .sort((a, b) => a.shotNumber - b.shotNumber)
-  }, [activeHoleScore, shotsQuery.data, activeHole?.par])
+  }, [activeHoleScore, shotsQuery.data, resolvedPar])
 
   return {
     round,
     holesQuery,
     teesQuery,
+    holeTeesQuery,
     courseQuery,
     holeScoresQuery,
     shotsQuery,
@@ -290,6 +361,10 @@ export function useRoundData({
     persistedRoundPin,
     effectivePin,
     effectiveTee,
+    resolvedPar,
+    resolvedYards,
+    resolvedStrokeIndex,
+    resolvedHoleByNumber,
     courseFallbackLat,
     courseFallbackLng,
     activeHoleGeo,

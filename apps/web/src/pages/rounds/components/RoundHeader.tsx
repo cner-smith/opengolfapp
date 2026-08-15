@@ -1,4 +1,5 @@
 import type { Database } from '@oga/supabase'
+import { resolveCourseTee } from '@oga/core'
 
 type RoundRow = Database['public']['Tables']['rounds']['Row']
 type CourseTeeRow = Database['public']['Tables']['course_tees']['Row']
@@ -171,11 +172,7 @@ function RoundRatingLine({
   round: RoundRow
   tees: CourseTeeRow[]
 }) {
-  const teeColor = round.tee_color?.toLowerCase()
-  const tee =
-    tees.find((t) => t.id === round.course_tee_id) ??
-    (teeColor ? tees.find((t) => t.tee_color === teeColor) : null) ??
-    null
+  const tee = resolveCourseTee(tees, round.course_tee_id, round.tee_color)
   const hasRating =
     tee && tee.course_rating != null && tee.slope_rating != null
   const diff = round.score_differential

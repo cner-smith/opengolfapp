@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import type { Database } from '@oga/supabase'
+import type { ResolvedHole } from '@oga/core'
 import { HoleScoreCard } from '../../../components/rounds/HoleScoreCard'
 
 type HoleRow = Database['public']['Tables']['holes']['Row']
@@ -9,6 +10,7 @@ interface ScorecardViewProps {
   holes: HoleRow[]
   scoresByHoleId: Map<string, HoleScoreRow>
   shotCountByHoleScore: Map<string, number>
+  resolvedHoleByNumber: Map<number, ResolvedHole>
   roundId: string
   /** Materialize a synthetic-id hole into a real `holes` row before
    *  any hole_scores write. No-op for real holes. */
@@ -24,6 +26,7 @@ export function ScorecardView({
   holes,
   scoresByHoleId,
   shotCountByHoleScore,
+  resolvedHoleByNumber,
   roundId,
   ensureRealHole,
   onEditShots,
@@ -101,6 +104,7 @@ export function ScorecardView({
         </div>
         {holes.map((h) => {
           const hs = scoresByHoleId.get(h.id)
+          const resolved = resolvedHoleByNumber.get(h.number)
           return (
             <HoleScoreCard
               key={h.id}
@@ -108,13 +112,16 @@ export function ScorecardView({
               hole={h}
               holeScore={hs}
               shotCount={hs ? (shotCountByHoleScore.get(hs.id) ?? 0) : 0}
+              resolvedPar={resolved?.par ?? hs?.par ?? h.par}
+              resolvedYards={resolved?.yards ?? null}
               ensureRealHole={ensureRealHole}
               onEditShots={(holeScoreId) =>
                 onEditShots({
                   holeScoreId,
                   holeNumber: h.number,
-                  // Per-round par override (#710) — hole_scores.par wins.
-                  holePar: hs?.par ?? h.par,
+                  // Per-round par override (#710), then tee-resolved par —
+                  // resolvedHoleByNumber already folds the round override in.
+                  holePar: resolved?.par ?? hs?.par ?? h.par,
                 })
               }
             />

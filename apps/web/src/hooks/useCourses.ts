@@ -14,6 +14,7 @@ import {
   getCourseById,
   getCourseTees,
   getFacilitiesByIds,
+  getHoleTeesForCourse,
   getHolesForCourse,
   searchCourses,
   searchFacilities,
@@ -27,6 +28,7 @@ import { useAuth } from './useAuth'
 type CourseRow = Database['public']['Tables']['courses']['Row']
 type FacilityRow = Database['public']['Tables']['facilities']['Row']
 type HoleInsert = Database['public']['Tables']['holes']['Insert']
+type HoleTeeRow = Database['public']['Tables']['hole_tees']['Row']
 
 // Hybrid search: queries OpenGolfAPI for global hits, plus the local
 // Supabase courses table so already-imported / user-created courses
@@ -224,6 +226,26 @@ export function useCourseTees(courseId: string | null | undefined) {
       const { data, error } = await getCourseTees(supabase, courseId!)
       if (error) throw error
       return data ?? []
+    },
+  })
+}
+
+// Per-tee overrides for hole yardage/par/stroke_index/tee location. Sparse —
+// most courses have none yet — callers should treat a missing entry as "use
+// the base holes row," via resolveHole() from @oga/core.
+export function useHoleTeesForCourse(courseId: string | null | undefined) {
+  return useQuery({
+    queryKey: ['hole-tees', courseId],
+    enabled: !!courseId,
+    queryFn: async () => {
+      const { data, error } = await getHoleTeesForCourse(supabase, courseId!)
+      if (error) throw error
+      // getHoleTeesForCourse joins through `holes` to scope by course_id
+      // (hole_tees has no course_id column of its own) — strip the nested
+      // object rather than leaking the join shape to consumers.
+      return ((data ?? []) as Array<HoleTeeRow & { holes?: unknown }>).map(
+        ({ holes: _holes, ...row }) => row as HoleTeeRow,
+      )
     },
   })
 }

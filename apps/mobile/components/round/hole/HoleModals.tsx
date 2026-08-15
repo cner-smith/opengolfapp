@@ -1,7 +1,7 @@
 import { Modal, View } from 'react-native'
 import { GestureHandlerRootView } from 'react-native-gesture-handler'
 import type { Database } from '@oga/supabase'
-import type { LieType } from '@oga/core'
+import type { LieType, ResolvedHole } from '@oga/core'
 import {
   ShotLogger,
   type ShotLoggerValue,
@@ -36,6 +36,7 @@ interface HoleModalsProps {
   scorecardOpen: boolean
   holes: HoleRow[]
   holeScores: HoleScoreRow[]
+  resolvedHoleByNumber: Map<number, ResolvedHole>
   holeNumber: number
   routerReplace: (href: string) => void
   id: string | undefined
@@ -78,6 +79,7 @@ export function HoleModals(props: HoleModalsProps) {
     scorecardOpen,
     holes,
     holeScores,
+    resolvedHoleByNumber,
     holeNumber,
     routerReplace,
     id,
@@ -218,6 +220,7 @@ export function HoleModals(props: HoleModalsProps) {
           <ScorecardModal
           holes={holes}
           holeScores={holeScores}
+          resolvedHoleByNumber={resolvedHoleByNumber}
           currentHoleNumber={holeNumber}
           onJumpToHole={(n) => {
             setScorecardOpen(false)

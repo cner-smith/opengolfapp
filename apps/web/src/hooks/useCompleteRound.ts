@@ -6,6 +6,7 @@ import {
   computeRoundSG,
   inferHoleCount,
   playedRowsForDifferential,
+  resolveCourseTee,
 } from '@oga/core'
 import type { RoundSGResult } from '@oga/core'
 import {
@@ -123,12 +124,7 @@ export function useCompleteRound() {
       }
 
       // ---- Handicap differential ------------------------------------------
-      const tee =
-        (courseTeeId ? tees.find((t) => t.id === courseTeeId) : null) ??
-        (teeColor
-          ? tees.find((t) => t.tee_color === teeColor.toLowerCase())
-          : null) ??
-        null
+      const tee = resolveCourseTee(tees, courseTeeId, teeColor)
       let differential: number | null = null
       if (
         tee &&

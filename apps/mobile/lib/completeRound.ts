@@ -7,6 +7,7 @@ import {
   inferHoleCount,
   inferHoleStats,
   playedRowsForDifferential,
+  resolveCourseTee,
 } from '@oga/core'
 import {
   getCourseTees,
@@ -203,14 +204,7 @@ export async function completeRound({
   // colour), and if it carries a course rating + slope, compute the WHS
   // score differential from the ESC-adjusted gross. Null when no rated tee
   // is on the round — common, since most crawled courses have no tee data.
-  const tee =
-    (roundTee?.course_tee_id
-      ? tees.find((t) => t.id === roundTee.course_tee_id)
-      : null) ??
-    (roundTee?.tee_color
-      ? tees.find((t) => t.tee_color === roundTee.tee_color!.toLowerCase())
-      : null) ??
-    null
+  const tee = resolveCourseTee(tees, roundTee?.course_tee_id, roundTee?.tee_color)
   let differential: number | null = null
   if (
     tee &&

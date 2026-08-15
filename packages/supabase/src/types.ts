@@ -64,6 +64,7 @@ export type Database = {
           created_at: string
           created_by: string | null
           id: string
+          is_primary: boolean
           par: number | null
           slope_rating: number | null
           tee_color: string
@@ -76,6 +77,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           id?: string
+          is_primary?: boolean
           par?: number | null
           slope_rating?: number | null
           tee_color: string
@@ -88,6 +90,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           id?: string
+          is_primary?: boolean
           par?: number | null
           slope_rating?: number | null
           tee_color?: string
@@ -113,7 +116,9 @@ export type Database = {
       }
       courses: {
         Row: {
+          address: string | null
           city: string | null
+          country: string | null
           created_at: string
           created_by: string | null
           external_id: string | null
@@ -129,9 +134,12 @@ export type Database = {
           total_yards: number | null
           unit_name: string | null
           unit_order: number | null
+          website: string | null
         }
         Insert: {
+          address?: string | null
           city?: string | null
+          country?: string | null
           created_at?: string
           created_by?: string | null
           external_id?: string | null
@@ -147,9 +155,12 @@ export type Database = {
           total_yards?: number | null
           unit_name?: string | null
           unit_order?: number | null
+          website?: string | null
         }
         Update: {
+          address?: string | null
           city?: string | null
+          country?: string | null
           created_at?: string
           created_by?: string | null
           external_id?: string | null
@@ -165,6 +176,7 @@ export type Database = {
           total_yards?: number | null
           unit_name?: string | null
           unit_order?: number | null
+          website?: string | null
         }
         Relationships: [
           {
@@ -272,31 +284,40 @@ export type Database = {
       }
       facilities: {
         Row: {
+          address: string | null
           city: string | null
+          country: string | null
           created_at: string
           id: string
           lat: number | null
           lng: number | null
           name: string
           state: string | null
+          website: string | null
         }
         Insert: {
+          address?: string | null
           city?: string | null
+          country?: string | null
           created_at?: string
           id?: string
           lat?: number | null
           lng?: number | null
           name: string
           state?: string | null
+          website?: string | null
         }
         Update: {
+          address?: string | null
           city?: string | null
+          country?: string | null
           created_at?: string
           id?: string
           lat?: number | null
           lng?: number | null
           name?: string
           state?: string | null
+          website?: string | null
         }
         Relationships: []
       }
@@ -365,6 +386,54 @@ export type Database = {
             columns: ["round_id"]
             isOneToOne: false
             referencedRelation: "rounds"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      hole_tees: {
+        Row: {
+          course_tee_id: string
+          hole_id: string
+          id: string
+          par: number | null
+          stroke_index: number | null
+          tee_lat: number | null
+          tee_lng: number | null
+          yards: number | null
+        }
+        Insert: {
+          course_tee_id: string
+          hole_id: string
+          id?: string
+          par?: number | null
+          stroke_index?: number | null
+          tee_lat?: number | null
+          tee_lng?: number | null
+          yards?: number | null
+        }
+        Update: {
+          course_tee_id?: string
+          hole_id?: string
+          id?: string
+          par?: number | null
+          stroke_index?: number | null
+          tee_lat?: number | null
+          tee_lng?: number | null
+          yards?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hole_tees_course_tee_id_fkey"
+            columns: ["course_tee_id"]
+            isOneToOne: false
+            referencedRelation: "course_tees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hole_tees_hole_id_fkey"
+            columns: ["hole_id"]
+            isOneToOne: false
+            referencedRelation: "holes"
             referencedColumns: ["id"]
           },
         ]
@@ -786,7 +855,9 @@ export type Database = {
       search_courses: {
         Args: { result_limit?: number; search_query: string }
         Returns: {
+          address: string | null
           city: string | null
+          country: string | null
           created_at: string
           created_by: string | null
           external_id: string | null
@@ -802,6 +873,7 @@ export type Database = {
           total_yards: number | null
           unit_name: string | null
           unit_order: number | null
+          website: string | null
         }[]
         SetofOptions: {
           from: "*"
@@ -960,3 +1032,4 @@ export const Constants = {
     Enums: {},
   },
 } as const
+

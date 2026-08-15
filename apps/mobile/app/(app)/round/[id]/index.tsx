@@ -16,6 +16,7 @@ import {
   formatSG,
   inferHoleStats,
   pickRoundFocus,
+  resolveCourseTee,
   roundFocusHeadline,
   selectNudgeDrills,
   type CaptureMode,
@@ -25,6 +26,7 @@ import {
   deleteRound,
   getCourseTees,
   getDrills,
+  getHoleTeesForCourse,
   getProfile,
   updateRound,
   upsertHoleScore,
@@ -54,6 +56,7 @@ type HoleScoreRow = Database['public']['Tables']['hole_scores']['Row']
 type ShotRow = Database['public']['Tables']['shots']['Row']
 type DrillRow = Database['public']['Tables']['drills']['Row']
 type CourseTeeRow = Database['public']['Tables']['course_tees']['Row']
+type HoleTeeRow = Database['public']['Tables']['hole_tees']['Row']
 
 // Everything the summary view needs for a first paint, bundled under one
 // `round:${id}` screen-cache key (#599).
@@ -95,21 +98,32 @@ export default function RoundIndex() {
   const [courseName, setCourseName] = useState<string>('Round')
   const [courseCenter, setCourseCenter] = useState<LatLng | null>(null)
   // Played-tee detail for the share card (#562): rating/slope/yardage, matched
-  // by tee id then colour (same match the web card uses).
+  // by tee id then colour (same match the web card uses) — resolveCourseTee
+  // (@oga/core) is the shared version of that fallback.
   const [playedTee, setPlayedTee] = useState<CourseTeeRow | null>(null)
+  // Per-tee hole overrides (yards/par/stroke_index/tee location) for the
+  // resolved played tee — sparse, most courses have none yet. Fed into
+  // PastRoundMap so the map/scorecard shows tee-specific data when present.
+  const [holeTees, setHoleTees] = useState<HoleTeeRow[]>([])
   useEffect(() => {
     const courseId = round?.course_id
     if (!courseId) return
     let cancelled = false
-    getCourseTees(supabase, courseId).then(({ data }) => {
-      if (cancelled || !data) return
-      const teeColor = round?.tee_color?.toLowerCase()
-      const tee =
-        data.find((t) => t.id === round?.course_tee_id) ??
-        (teeColor ? data.find((t) => t.tee_color === teeColor) : undefined) ??
-        null
-      setPlayedTee(tee)
-    })
+    Promise.all([getCourseTees(supabase, courseId), getHoleTeesForCourse(supabase, courseId)]).then(
+      ([teesRes, holeTeesRes]) => {
+        if (cancelled) return
+        const tee = resolveCourseTee(teesRes.data ?? [], round?.course_tee_id, round?.tee_color)
+        setPlayedTee(tee)
+        // getHoleTeesForCourse joins through `holes` to scope by course_id
+        // (hole_tees has no course_id column of its own) — strip the
+        // nested object rather than leaking the join shape to consumers.
+        setHoleTees(
+          ((holeTeesRes.data ?? []) as Array<HoleTeeRow & { holes?: unknown }>).map(
+            ({ holes: _h, ...row }) => row as HoleTeeRow,
+          ),
+        )
+      },
+    )
     return () => {
       cancelled = true
     }
@@ -1031,6 +1045,8 @@ export default function RoundIndex() {
           completed={round.completed_at != null}
           holes={sortedHoles}
           holeScores={holeScores}
+          holeTees={holeTees}
+          resolvedCourseTeeId={playedTee?.id ?? null}
           shots={shots}
           unit={unit}
           courseCenter={courseCenter}

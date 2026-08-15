@@ -157,6 +157,7 @@ export function useRoundActions(input: UseRoundActionsInput): UseRoundActionsRes
     activeHoleScore,
     activeHoleShots,
     effectivePin,
+    resolvedPar,
     scoresByHoleId,
     shotsQuery,
   } = data
@@ -607,7 +608,7 @@ export function useRoundActions(input: UseRoundActionsInput): UseRoundActionsRes
             shot_number: r.shotNumber,
             lie_type: r.lieType,
           })),
-          activeHole.par,
+          resolvedPar ?? activeHole.par,
           true,
         )
         const hsResult = await upsertHoleScore.mutateAsync({

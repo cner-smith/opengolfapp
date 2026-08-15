@@ -15,6 +15,7 @@ import {
   DEFAULT_HANDICAP,
   haversineYards,
   inferHoleCount,
+  resolveCourseTee,
   type CaptureMode,
 } from '@oga/core'
 import { useAuth } from '../../hooks/useAuth'
@@ -143,6 +144,7 @@ export function RoundDetailPage() {
     activeHoleGeo,
     missingHoleLayout,
     activeHoleShots,
+    resolvedHoleByNumber,
     allRounds,
   } = data
 
@@ -214,14 +216,11 @@ export function RoundDetailPage() {
   const totalRoundsLogged = allRounds.data?.length ?? 0
   // The played tee (by id, then by colour) supplies rating/slope/yardage for
   // the share card — same match RoundHeader uses.
-  const playedTee =
-    (teesQuery.data ?? []).find((t) => t.id === round.data.course_tee_id) ??
-    (round.data.tee_color
-      ? (teesQuery.data ?? []).find(
-          (t) => t.tee_color === round.data.tee_color?.toLowerCase(),
-        )
-      : undefined) ??
-    null
+  const playedTee = resolveCourseTee(
+    teesQuery.data ?? [],
+    round.data.course_tee_id,
+    round.data.tee_color,
+  )
   const switchHole = (n: number) =>
     dispatchHoleView({ type: 'SWITCH_HOLE', holeNumber: n })
 
@@ -355,6 +354,7 @@ export function RoundDetailPage() {
           holes={holes}
           scoresByHoleId={scoresByHoleId}
           shotCountByHoleScore={shotCountByHoleScore}
+          resolvedHoleByNumber={resolvedHoleByNumber}
           roundId={round.data.id}
           ensureRealHole={ensureRealHole}
           onEditShots={(args) => setShotsModalFor(args)}
@@ -393,11 +393,12 @@ export function RoundDetailPage() {
                 <HoleReviewSheet
                   open={reviewOpen}
                   holeNumber={activeHole.number}
-                  // Per-round par override (#710) — hole_scores.par wins
-                  // over the course hole's par when the player corrected it.
-                  par={scoresByHoleId.get(activeHole.id)?.par ?? activeHole.par}
+                  // Tee-resolved par (round override, then tee override,
+                  // then base — see resolveHole in @oga/core) for the
+                  // active hole and the running total.
+                  par={resolvedHoleByNumber.get(activeHole.number)?.par ?? activeHole.par}
                   totalPar={holes.reduce(
-                    (s, h) => s + (scoresByHoleId.get(h.id)?.par ?? h.par),
+                    (s, h) => s + (resolvedHoleByNumber.get(h.number)?.par ?? h.par),
                     0,
                   )}
                   pinLat={effectivePin?.lat ?? null}

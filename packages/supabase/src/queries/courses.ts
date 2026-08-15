@@ -1,8 +1,15 @@
+import type { PostgrestError } from '@supabase/supabase-js'
 import type { OgaSupabaseClient } from '../client'
 import type { Database } from '../types'
 
+type CourseTeeRow = Database['public']['Tables']['course_tees']['Row']
+
 type CourseInsert = Database['public']['Tables']['courses']['Insert']
+type CourseUpdate = Database['public']['Tables']['courses']['Update']
 type HoleInsert = Database['public']['Tables']['holes']['Insert']
+type HoleUpdate = Database['public']['Tables']['holes']['Update']
+type FacilityInsert = Database['public']['Tables']['facilities']['Insert']
+type FacilityUpdate = Database['public']['Tables']['facilities']['Update']
 
 // Cards / pickers only ever render name + city/state and need lat/lng for
 // the hole-map fallback; external_id keeps the OpenGolfAPI link reachable.
@@ -71,6 +78,18 @@ export function getFacilitiesByIds(client: OgaSupabaseClient, ids: string[]) {
   return client.from('facilities').select(FACILITY_COLUMNS).in('id', ids)
 }
 
+export function getFullFacilityById(client: OgaSupabaseClient, facilityId: string) {
+  return client.from('facilities').select('*').eq('id', facilityId).maybeSingle()
+}
+
+export function createFacility(client: OgaSupabaseClient, facility: FacilityInsert) {
+  return client.from('facilities').insert(facility).select().single()
+}
+
+export function updateFacility(client: OgaSupabaseClient, id: string, patch: FacilityUpdate) {
+  return client.from('facilities').update(patch).eq('id', id).select().single()
+}
+
 export function getCourseById(client: OgaSupabaseClient, courseId: string) {
   return client
     .from('courses')
@@ -91,8 +110,37 @@ export function createCourse(client: OgaSupabaseClient, course: CourseInsert) {
   return client.from('courses').insert(course).select().single()
 }
 
+// Full-row read for the dev-only Course Editor — unlike COURSE_COLUMNS above
+// (a narrow projection for search/picker UI), the editor needs every field,
+// including website/address.
+export function getFullCourseById(client: OgaSupabaseClient, courseId: string) {
+  return client.from('courses').select('*').eq('id', courseId).maybeSingle()
+}
+
+export function updateCourse(client: OgaSupabaseClient, id: string, patch: CourseUpdate) {
+  return client.from('courses').update(patch).eq('id', id).select().single()
+}
+
 export function createHoles(client: OgaSupabaseClient, holes: HoleInsert[]) {
   return client.from('holes').insert(holes).select()
+}
+
+export function updateHole(client: OgaSupabaseClient, id: string, patch: HoleUpdate) {
+  return client.from('holes').update(patch).eq('id', id).select().single()
+}
+
+// Upsert on (course_id, number) so the Course Editor can freely add/edit
+// hole rows — including regenerating a default template — without first
+// checking which numbers already exist.
+export function upsertHoles(client: OgaSupabaseClient, holes: HoleInsert[]) {
+  if (holes.length === 0) {
+    return Promise.resolve({ data: [] as unknown[], error: null })
+  }
+  return client.from('holes').upsert(holes, { onConflict: 'course_id,number' }).select()
+}
+
+export function deleteHole(client: OgaSupabaseClient, id: string) {
+  return client.from('holes').delete().eq('id', id)
 }
 
 const DEFAULT_PAR_72: Array<{ number: number; par: number }> = [
@@ -157,4 +205,81 @@ export function upsertCourseTees(
     .from('course_tees')
     .upsert(rows, { onConflict: 'course_id,tee_color' })
     .select()
+}
+
+export function deleteCourseTee(client: OgaSupabaseClient, id: string) {
+  return client.from('course_tees').delete().eq('id', id)
+}
+
+type CourseTeeUpdate = Database['public']['Tables']['course_tees']['Update']
+
+export function updateCourseTee(client: OgaSupabaseClient, id: string, patch: CourseTeeUpdate) {
+  return client.from('course_tees').update(patch).eq('id', id).select().single()
+}
+
+// Designates `teeId` as the course's primary tee (the one whose data IS
+// the base `holes` row in the Course Editor) and un-sets any previous
+// primary. Two sequential updates, not a single transaction — the unique
+// partial index (course_tees_one_primary_per_course) never sees more than
+// one true per course at either statement boundary: clearing first drops
+// to zero (allowed), then setting the target goes to exactly one.
+export async function setPrimaryCourseTee(
+  client: OgaSupabaseClient,
+  courseId: string,
+  teeId: string,
+): Promise<{ data: CourseTeeRow | null; error: PostgrestError | null }> {
+  const { error: clearError } = await client
+    .from('course_tees')
+    .update({ is_primary: false })
+    .eq('course_id', courseId)
+  if (clearError) return { data: null, error: clearError }
+  return client.from('course_tees').update({ is_primary: true }).eq('id', teeId).select().single()
+}
+
+// Promotes `teeId` to primary ONLY if the course has no primary tee yet —
+// used right after creating a course's first tee, so it becomes primary
+// automatically. Deliberately re-checks against the database rather than
+// trusting the caller's belief that "this is the first tee": a client-side
+// `tees.length === 0` check trusts a fetched array that can be stale (e.g.
+// mid-refetch after an earlier tee was set primary), and a stale check here
+// would silently steal primary status from an existing tee. Checking the
+// DB directly makes this call idempotent and race-safe regardless of what
+// the caller's local state thinks.
+export async function setPrimaryIfNone(
+  client: OgaSupabaseClient,
+  courseId: string,
+  teeId: string,
+): Promise<{ data: CourseTeeRow | null; error: PostgrestError | null }> {
+  const { data: existing, error: checkError } = await client
+    .from('course_tees')
+    .select('id')
+    .eq('course_id', courseId)
+    .eq('is_primary', true)
+    .maybeSingle()
+  if (checkError) return { data: null, error: checkError }
+  if (existing) return { data: null, error: null }
+  return client.from('course_tees').update({ is_primary: true }).eq('id', teeId).select().single()
+}
+
+type HoleTeeInsert = Database['public']['Tables']['hole_tees']['Insert']
+
+// hole_tees has no course_id column — join through holes to scope by course.
+export function getHoleTeesForCourse(client: OgaSupabaseClient, courseId: string) {
+  return client
+    .from('hole_tees')
+    .select('*, holes!inner(course_id)')
+    .eq('holes.course_id', courseId)
+}
+
+// Upsert on (hole_id, course_tee_id) — sparse by design, only rows the
+// Course Editor actually wrote as a tee-specific override exist here.
+export function upsertHoleTees(client: OgaSupabaseClient, rows: HoleTeeInsert[]) {
+  if (rows.length === 0) {
+    return Promise.resolve({ data: [] as unknown[], error: null })
+  }
+  return client.from('hole_tees').upsert(rows, { onConflict: 'hole_id,course_tee_id' }).select()
+}
+
+export function deleteHoleTee(client: OgaSupabaseClient, id: string) {
+  return client.from('hole_tees').delete().eq('id', id)
 }
