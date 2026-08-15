@@ -30,10 +30,22 @@ export function StoreBadges({
         justifyContent: align === 'center' ? 'center' : 'flex-start',
       }}
     >
-      <a href={APP_STORE_URL} style={badgeLink} aria-label="Download on the App Store">
+      <a
+        href={APP_STORE_URL}
+        target="_blank"
+        rel="noopener noreferrer"
+        style={badgeLink}
+        aria-label="Download on the App Store"
+      >
         <AppStoreBadge />
       </a>
-      <a href={PLAY_STORE_URL} style={badgeLink} aria-label="Get it on Google Play">
+      <a
+        href={PLAY_STORE_URL}
+        target="_blank"
+        rel="noopener noreferrer"
+        style={badgeLink}
+        aria-label="Get it on Google Play"
+      >
         <GooglePlayBadge />
       </a>
     </div>
