@@ -1,10 +1,8 @@
 // App Store + Google Play badges for the landing page. Official-style
 // black badges drawn as inline SVG (no external assets, no CSP change).
-// ponytail: hrefs are '#' placeholders until the apps are published —
-// swap in the real store URLs when the listings go live.
 
-const APP_STORE_URL = '#'
-const PLAY_STORE_URL = '#'
+const APP_STORE_URL = 'https://apps.apple.com/us/app/oga-open-golf-app/id6785314918'
+const PLAY_STORE_URL = 'https://play.google.com/store/apps/details?id=app.opengolf.oga'
 
 const badgeLink: React.CSSProperties = {
   display: 'inline-flex',
