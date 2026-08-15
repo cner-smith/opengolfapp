@@ -10,10 +10,21 @@ import type { Database } from '@oga/supabase'
 // separate file so it's obvious which functions are prod-safe (useCourses)
 // vs. dev-only (here).
 //
-// Query keys intentionally reuse useCourses.ts's conventions (['course', id],
-// ['holes', courseId], ['course-tees', courseId]) so editing a course here
-// invalidates the same cache entries the rest of the app reads from — e.g.
-// RoundDetailPage picks up a corrected course name/location on next visit.
+// Query keys mostly reuse useCourses.ts's conventions (['holes', courseId],
+// ['course-tees', courseId], ['hole-tees', courseId]) so editing a course
+// here invalidates the same cache entries the rest of the app reads from —
+// those are safe to share because both the prod and dev-editor queries
+// fetch the same full row shape for holes/tees.
+//
+// Courses are the one exception: the prod useCourse hook (useCourses.ts)
+// intentionally selects a NARROW column subset (COURSE_COLUMNS — no
+// website/address/country), while the editor needs every column. Sharing
+// ['course', id] between them meant whichever query last populated the
+// cache "won" for both — if a round-detail view cached the narrow shape
+// first, opening the editor within staleTime showed blank website/address/
+// country instead of refetching. useEditorCourse uses its own key
+// (['editor-course', id]) to avoid that; useUpdateCourse still invalidates
+// both keys so the rest of the app still picks up edits made here.
 
 type CourseRow = Database['public']['Tables']['courses']['Row']
 type CourseUpdate = Database['public']['Tables']['courses']['Update']
@@ -61,7 +72,7 @@ async function devFetch<T>(path: string, init?: RequestInit): Promise<T> {
 
 export function useEditorCourse(id: string | undefined) {
   return useQuery({
-    queryKey: ['course', id],
+    queryKey: ['editor-course', id],
     enabled: !!id,
     queryFn: () => devFetch<CourseRow>(`/courses/${id}`),
   })
@@ -82,6 +93,7 @@ export function useUpdateCourse() {
     mutationFn: ({ id, patch }: { id: string; patch: CourseUpdate }) =>
       devFetch<CourseRow>(`/courses/${id}`, { method: 'PATCH', body: JSON.stringify(patch) }),
     onSuccess: (_data, vars) => {
+      qc.invalidateQueries({ queryKey: ['editor-course', vars.id] })
       qc.invalidateQueries({ queryKey: ['course', vars.id] })
       qc.invalidateQueries({ queryKey: ['courses'] })
     },
@@ -292,6 +304,7 @@ export function useRefetchOsm() {
       }),
     onSuccess: (_data, vars) => {
       qc.invalidateQueries({ queryKey: ['holes', vars.courseId] })
+      qc.invalidateQueries({ queryKey: ['editor-course', vars.courseId] })
       qc.invalidateQueries({ queryKey: ['course', vars.courseId] })
     },
   })
