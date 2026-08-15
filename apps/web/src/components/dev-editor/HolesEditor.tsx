@@ -175,6 +175,24 @@ export function HolesEditor({
     return () => window.clearTimeout(t)
   }, [justSaved])
 
+  // A newly-focused hole should default to whichever marker still needs
+  // placing, not whatever mode was left over from the previous hole (e.g.
+  // having just cycled to "pin" on hole 6, opening hole 7's map should
+  // still start on "tee" if hole 7's tee isn't set yet). Only fires when
+  // the focused hole itself changes, not on every edit, so it doesn't
+  // fight a placing mode already deliberately chosen for the current hole.
+  useEffect(() => {
+    if (focused == null) return
+    const inTee = selectedTee !== 'base' && !(primaryTee && selectedTee === primaryTee.id)
+    const baseRow = rows.find((r) => r.number === focused)
+    const teeRow = teeRows.find((r) => r.number === focused)
+    const teeLat = inTee ? teeRow?.teeLat : baseRow?.tee_lat
+    const teeLng = inTee ? teeRow?.teeLng : baseRow?.tee_lng
+    const teeSet = teeLat != null && teeLng != null
+    setPlacing(teeSet ? 'pin' : 'tee')
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focused])
+
   // Once a primary tee exists, it stands in for 'base' — auto-select it the
   // first time it becomes available (e.g. on load) rather than leaving the
   // editor sitting on the no-longer-shown 'base' sentinel. Only fires while
@@ -415,7 +433,12 @@ export function HolesEditor({
               <th style={{ padding: '4px 6px' }}>Par</th>
               <th style={{ padding: '4px 6px' }}>Yards</th>
               <th style={{ padding: '4px 6px' }}>Stroke idx</th>
-              <th style={{ padding: '4px 6px' }} />
+              <th
+                style={{ padding: '4px 6px' }}
+                title="Dots show whether a tee (green) and pin (red) location are set — filled = set"
+              >
+                Loc
+              </th>
               <th style={{ padding: '4px 6px' }} />
             </tr>
           </thead>
@@ -443,7 +466,7 @@ export function HolesEditor({
                       onChange={(e) => updateRow(row.number, { stroke_index: e.target.value })}
                     />
                   </td>
-                  <td style={{ padding: '4px 6px' }}>
+                  <td style={{ padding: '4px 6px', whiteSpace: 'nowrap' }}>
                     <button
                       type="button"
                       onClick={() => setFocused(focused === row.number ? null : row.number)}
@@ -452,6 +475,10 @@ export function HolesEditor({
                     >
                       Map
                     </button>
+                    <LocationDots
+                      tee={row.tee_lat != null && row.tee_lng != null}
+                      pin={row.pin_lat != null && row.pin_lng != null}
+                    />
                   </td>
                   <td style={{ padding: '4px 6px' }}>
                     <button
@@ -467,7 +494,11 @@ export function HolesEditor({
               ))}
 
             {inTeeMode &&
-              teeRows.map((row) => (
+              teeRows.map((row) => {
+                // Pin isn't tee-specific — its fill status always reflects
+                // the base hole row, same as what the map picker shows.
+                const basePin = rows.find((r) => r.number === row.number)
+                return (
                 <tr
                   key={row.number}
                   style={{ borderTop: '1px solid #D9D2BF', backgroundColor: teeDirty.has(row.number) ? 'rgba(31,61,44,0.06)' : undefined }}
@@ -498,7 +529,7 @@ export function HolesEditor({
                       onChange={(e) => updateTeeRow(row.number, { strokeIndex: e.target.value })}
                     />
                   </td>
-                  <td style={{ padding: '4px 6px' }}>
+                  <td style={{ padding: '4px 6px', whiteSpace: 'nowrap' }}>
                     <button
                       type="button"
                       onClick={() => setFocused(focused === row.number ? null : row.number)}
@@ -507,6 +538,10 @@ export function HolesEditor({
                     >
                       Map
                     </button>
+                    <LocationDots
+                      tee={row.teeLat != null && row.teeLng != null}
+                      pin={basePin?.pin_lat != null && basePin?.pin_lng != null}
+                    />
                   </td>
                   <td style={{ padding: '4px 6px' }}>
                     {row.hasOverride && (
@@ -521,7 +556,8 @@ export function HolesEditor({
                     )}
                   </td>
                 </tr>
-              ))}
+                )
+              })}
           </tbody>
         </table>
       </div>
@@ -557,7 +593,7 @@ export function HolesEditor({
             markers={focusedMarkers}
             fallbackCenter={courseLocation ?? undefined}
             clickToPlaceId={placing}
-            onMarkerMove={(id, point) => {
+            onMarkerMove={(id, point, source) => {
               if (id === 'pin') {
                 updateRow(focusedBaseRow.number, { pin_lat: point.lat, pin_lng: point.lng })
                 return
@@ -566,6 +602,14 @@ export function HolesEditor({
                 updateTeeRow(focusedBaseRow.number, { teeLat: point.lat, teeLng: point.lng })
               } else {
                 updateRow(focusedBaseRow.number, { tee_lat: point.lat, tee_lng: point.lng })
+              }
+              // Clicking to place the tee is almost always immediately
+              // followed by placing the pin — cycle automatically so that's
+              // a second click, not a click-back-to-the-chip-then-click.
+              // Dragging an existing tee marker to fine-tune it shouldn't
+              // kick you out of tee mode, so this only fires for 'click'.
+              if (source === 'click' && placing === 'tee') {
+                setPlacing('pin')
               }
             }}
           />
@@ -611,6 +655,30 @@ export function HolesEditor({
         )}
       </div>
     </div>
+  )
+}
+
+// Tee/pin fill status at a glance, without opening the map for every hole.
+// Colors match the map markers themselves (CourseMapPicker: tee green,
+// pin red) so the dot color already means something by the time you've
+// used the map once.
+function LocationDots({ tee, pin }: { tee: boolean; pin: boolean }) {
+  const dot = (filled: boolean, color: string): React.CSSProperties => ({
+    width: 7,
+    height: 7,
+    borderRadius: '50%',
+    display: 'inline-block',
+    backgroundColor: filled ? color : 'transparent',
+    border: `1px solid ${color}`,
+  })
+  return (
+    <span
+      style={{ display: 'inline-flex', gap: 3, marginLeft: 8 }}
+      title={`Tee location ${tee ? 'set' : 'not set'} · Pin location ${pin ? 'set' : 'not set'}`}
+    >
+      <span style={dot(tee, '#1F3D2C')} />
+      <span style={dot(pin, '#B23B3B')} />
+    </span>
   )
 }
 

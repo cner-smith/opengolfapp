@@ -10,7 +10,11 @@ export interface MapMarkerSpec {
 
 interface CourseMapPickerProps {
   markers: MapMarkerSpec[]
-  onMarkerMove: (id: string, point: { lat: number; lng: number }) => void
+  /** `source` distinguishes a fresh click-to-place from fine-tuning an
+   *  existing marker by drag — callers that auto-advance to the next
+   *  marker (e.g. tee → pin) after a placement should only do so for
+   *  'click', not every drag adjustment. */
+  onMarkerMove: (id: string, point: { lat: number; lng: number }, source: 'click' | 'drag') => void
   fallbackCenter?: { lat: number; lng: number }
   height?: number
   /** When set, clicking anywhere on the map places/moves the marker with
@@ -62,7 +66,7 @@ export function CourseMapPicker({
     map.on('click', (e) => {
       const id = clickToPlaceIdRef.current
       if (!id) return
-      onMarkerMoveRef.current(id, { lat: e.lngLat.lat, lng: e.lngLat.lng })
+      onMarkerMoveRef.current(id, { lat: e.lngLat.lat, lng: e.lngLat.lng }, 'click')
     })
     mapRef.current = map
     return () => {
@@ -88,7 +92,7 @@ export function CourseMapPicker({
           .addTo(map)
         marker.on('dragend', () => {
           const ll = marker.getLngLat()
-          onMarkerMove(spec.id, { lat: ll.lat, lng: ll.lng })
+          onMarkerMoveRef.current(spec.id, { lat: ll.lat, lng: ll.lng }, 'drag')
         })
         markerRefs.current.set(spec.id, marker)
       } else {
