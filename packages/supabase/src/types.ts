@@ -64,6 +64,7 @@ export type Database = {
           created_at: string
           created_by: string | null
           id: string
+          is_primary: boolean
           par: number | null
           slope_rating: number | null
           tee_color: string
@@ -76,6 +77,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           id?: string
+          is_primary?: boolean
           par?: number | null
           slope_rating?: number | null
           tee_color: string
@@ -88,6 +90,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           id?: string
+          is_primary?: boolean
           par?: number | null
           slope_rating?: number | null
           tee_color?: string
@@ -853,7 +856,9 @@ export type Database = {
       search_courses: {
         Args: { result_limit?: number; search_query: string }
         Returns: {
+          address: string | null
           city: string | null
+          country: string | null
           created_at: string
           created_by: string | null
           external_id: string | null
@@ -869,6 +874,7 @@ export type Database = {
           total_yards: number | null
           unit_name: string | null
           unit_order: number | null
+          website: string | null
         }[]
         SetofOptions: {
           from: "*"

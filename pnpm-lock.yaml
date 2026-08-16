@@ -7,6 +7,10 @@ settings:
 importers:
 
   .:
+    dependencies:
+      '@oga/supabase':
+        specifier: workspace:*
+        version: link:packages/supabase
     devDependencies:
       '@supabase/supabase-js':
         specifier: ^2.45.0
@@ -143,6 +147,9 @@ importers:
       typescript:
         specifier: ^5.4.0
         version: 5.9.3
+      vitest:
+        specifier: ^1.6.0
+        version: 1.6.1(@types/node@25.6.0)(lightningcss@1.27.0)(terser@5.46.2)
 
 packages:
 
