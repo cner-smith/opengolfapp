@@ -3,6 +3,7 @@ import { Pressable, ScrollView, Text, View } from 'react-native'
 import { GestureDetector } from 'react-native-gesture-handler'
 import Animated from 'react-native-reanimated'
 import type { Database } from '@oga/supabase'
+import type { ResolvedHole } from '@oga/core'
 import { useSwipeToDismiss } from '../ui/useSwipeToDismiss'
 import { FONT, TYPE } from '../../lib/typography'
 
@@ -21,6 +22,11 @@ const KICKER: import('react-native').TextStyle = {
 interface ScorecardModalProps {
   holes: HoleRow[]
   holeScores: HoleScoreRow[]
+  /** Tee-resolved par (hole_tees override for the round's selected tee,
+   *  if any, over base holes.par), keyed by hole number. Renders all
+   *  holes, not just the active one, so it needs the full map rather
+   *  than useHoleData's single-hole resolvedHole. */
+  resolvedHoleByNumber: Map<number, ResolvedHole>
   currentHoleNumber: number
   onJumpToHole: (n: number) => void
   /** Tap-to-cycle par 3 → 4 → 5 → 3 for holes that came back with no
@@ -34,6 +40,7 @@ interface ScorecardModalProps {
 export function ScorecardModal({
   holes,
   holeScores,
+  resolvedHoleByNumber,
   currentHoleNumber,
   onJumpToHole,
   onChangePar,
@@ -157,9 +164,9 @@ export function ScorecardModal({
             // -71 after hole 1).
             const rawScore = hs?.score
             const score = rawScore != null && rawScore > 0 ? rawScore : null
-            // Per-round par override (#710) — hole_scores.par wins over
-            // the course hole's par when the player corrected it.
-            const par = hs?.par ?? h.par
+            // Per-round par override (#710), then tee-resolved par —
+            // resolvedHoleByNumber already folds the round override in.
+            const par = resolvedHoleByNumber.get(h.number)?.par ?? hs?.par ?? h.par
             if (score != null) {
               runningTotal += score
               runningPar += par

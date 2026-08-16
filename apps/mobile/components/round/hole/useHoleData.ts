@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { inferHoleCount, isPuttShot } from '@oga/core'
+import { inferHoleCount, isPuttShot, resolveCourseTee, resolveHole, type ResolvedHole } from '@oga/core'
+import { getHoleTeesForCourse } from '@oga/supabase'
 import type { Database } from '@oga/supabase'
 import {
   pendingShotsForHoleScore,
@@ -12,6 +13,8 @@ import type { LatLng } from '../HoleMap'
 type HoleRow = Database['public']['Tables']['holes']['Row']
 type HoleScoreRow = Database['public']['Tables']['hole_scores']['Row']
 type RoundRow = Database['public']['Tables']['rounds']['Row']
+type CourseTeeRow = Database['public']['Tables']['course_tees']['Row']
+type HoleTeeRow = Database['public']['Tables']['hole_tees']['Row']
 
 export interface UseHoleDataResult {
   round: RoundRow | null
@@ -27,6 +30,14 @@ export interface UseHoleDataResult {
   effectiveHoles: HoleRow[]
   currentHole: HoleRow | null
   currentHoleScore: HoleScoreRow | null
+  /** Tee-resolved par/yards/stroke_index/tee-location for currentHole —
+   *  hole_tees override for the round's selected tee (if any) over the
+   *  base holes row, with hole_scores.par folded in. Additive: consumers
+   *  that need raw base values keep reading currentHole directly. */
+  resolvedHole: ResolvedHole | null
+  /** Same resolution keyed by hole number, for every hole — ScorecardModal
+   *  renders all holes, not just currentHole. */
+  resolvedHoleByNumber: Map<number, ResolvedHole>
   storedPin: LatLng | null
   roundPin: LatLng | null
   tee: LatLng | null
@@ -52,6 +63,8 @@ export function useHoleData(
   const [courseCenter, setCourseCenter] = useState<LatLng | null>(null)
   const [holes, setHoles] = useState<HoleRow[]>([])
   const [holeScores, setHoleScores] = useState<HoleScoreRow[]>([])
+  const [courseTees, setCourseTees] = useState<CourseTeeRow[]>([])
+  const [holeTees, setHoleTees] = useState<HoleTeeRow[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [remoteShotCount, setRemoteShotCount] = useState(0)
@@ -108,6 +121,47 @@ export function useHoleData(
     [holeScores, currentHole?.id],
   )
 
+  // Resolve which course_tees row this round is playing (id preferred,
+  // tee_color as legacy fallback), then that tee's hole_tees override (if
+  // any) for the current hole. Sparse by design — most courses have none
+  // yet, so this is a no-op for the common case and everything falls
+  // through to the base `holes` row.
+  const resolvedCourseTee = useMemo(
+    () => resolveCourseTee(courseTees, round?.course_tee_id, round?.tee_color),
+    [courseTees, round?.course_tee_id, round?.tee_color],
+  )
+  const holeTeeByHoleId = useMemo(() => {
+    const m = new Map<string, HoleTeeRow>()
+    if (!resolvedCourseTee) return m
+    for (const ht of holeTees) {
+      if (ht.course_tee_id === resolvedCourseTee.id) m.set(ht.hole_id, ht)
+    }
+    return m
+  }, [holeTees, resolvedCourseTee])
+  const resolvedHole = useMemo(
+    () =>
+      currentHole
+        ? resolveHole(currentHole, holeTeeByHoleId.get(currentHole.id) ?? null, {
+            par: currentHoleScore?.par,
+          })
+        : null,
+    [currentHole, holeTeeByHoleId, currentHoleScore?.par],
+  )
+
+  // Same resolution for every hole (no live drag override — that only
+  // applies to whichever hole is currently being edited) — for consumers
+  // that render/sum over all holes (ScorecardModal) rather than just the
+  // current one.
+  const resolvedHoleByNumber = useMemo(() => {
+    const m = new Map<number, ResolvedHole>()
+    for (const h of effectiveHoles) {
+      const teeOverride = holeTeeByHoleId.get(h.id) ?? null
+      const hs = holeScores.find((s) => s.hole_id === h.id)
+      m.set(h.number, resolveHole(h, teeOverride, { par: hs?.par }))
+    }
+    return m
+  }, [effectiveHoles, holeTeeByHoleId, holeScores])
+
   const storedPin: LatLng | null =
     currentHole?.pin_lat != null && currentHole.pin_lng != null
       ? { lat: currentHole.pin_lat, lng: currentHole.pin_lng }
@@ -116,14 +170,15 @@ export function useHoleData(
     currentHoleScore?.pin_lat != null && currentHoleScore.pin_lng != null
       ? { lat: currentHoleScore.pin_lat, lng: currentHoleScore.pin_lng }
       : null
-  // The course's stored tee (OSM-mapped or synthetic). Used as the pre-shot
-  // fallback; once the player has hit, the live tee is their first shot's
-  // start (see `tee` below) — most courses now carry an OSM tee, and pinning
-  // the marker there instead of where the player actually teed off is wrong
-  // for the live round.
+  // The course's stored tee (OSM-mapped or synthetic, tee-resolved — a
+  // hole_tees override for this tee wins over the base holes.tee_lat/lng).
+  // Used as the pre-shot fallback; once the player has hit, the live tee
+  // is their first shot's start (see `tee` below) — most courses now
+  // carry an OSM tee, and pinning the marker there instead of where the
+  // player actually teed off is wrong for the live round.
   const storedTee: LatLng | null =
-    currentHole?.tee_lat != null && currentHole.tee_lng != null
-      ? { lat: currentHole.tee_lat, lng: currentHole.tee_lng }
+    resolvedHole?.teeLat != null && resolvedHole?.teeLng != null
+      ? { lat: resolvedHole.teeLat, lng: resolvedHole.teeLng }
       : null
 
   const loadAll = useCallback(async () => {
@@ -148,14 +203,20 @@ export function useHoleData(
           : null,
       )
 
-      const [hRes, hsRes] = await Promise.all([
+      const [hRes, hsRes, ctRes, htRes] = await Promise.all([
         supabase.from('holes').select('*').eq('course_id', r.course_id).order('number'),
         supabase.from('hole_scores').select('*').eq('round_id', r.id),
+        supabase.from('course_tees').select('*').eq('course_id', r.course_id),
+        getHoleTeesForCourse(supabase, r.course_id),
       ])
       if (hRes.error) throw hRes.error
       if (hsRes.error) throw hsRes.error
+      if (ctRes.error) throw ctRes.error
+      if (htRes.error) throw htRes.error
       setHoles(hRes.data ?? [])
       setHoleScores(hsRes.data ?? [])
+      setCourseTees(ctRes.data ?? [])
+      setHoleTees(htRes.data ?? [])
     } catch (err) {
       setError((err as Error).message)
     } finally {
@@ -379,6 +440,8 @@ export function useHoleData(
     effectiveHoles,
     currentHole,
     currentHoleScore,
+    resolvedHole,
+    resolvedHoleByNumber,
     storedPin,
     roundPin,
     tee,

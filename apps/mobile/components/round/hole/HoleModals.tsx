@@ -1,6 +1,7 @@
 import { Modal, View } from 'react-native'
 import { GestureHandlerRootView } from 'react-native-gesture-handler'
 import type { Database } from '@oga/supabase'
+import type { LieType, ResolvedHole } from '@oga/core'
 import {
   // ShotLogger is mounted below but currently unreachable: its only entry
   // point was PuttingSheet's "Not a putt?" escape (swapPuttingToShot), and
@@ -35,6 +36,7 @@ interface HoleModalsProps {
   scorecardOpen: boolean
   holes: HoleRow[]
   holeScores: HoleScoreRow[]
+  resolvedHoleByNumber: Map<number, ResolvedHole>
   holeNumber: number
   routerReplace: (href: string) => void
   id: string | undefined
@@ -73,6 +75,7 @@ export function HoleModals(props: HoleModalsProps) {
     scorecardOpen,
     holes,
     holeScores,
+    resolvedHoleByNumber,
     holeNumber,
     routerReplace,
     id,
@@ -187,6 +190,7 @@ export function HoleModals(props: HoleModalsProps) {
           <ScorecardModal
           holes={holes}
           holeScores={holeScores}
+          resolvedHoleByNumber={resolvedHoleByNumber}
           currentHoleNumber={holeNumber}
           onJumpToHole={(n) => {
             setScorecardOpen(false)
