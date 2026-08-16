@@ -113,7 +113,9 @@ export type Database = {
       }
       courses: {
         Row: {
+          address: string | null
           city: string | null
+          country: string | null
           created_at: string
           created_by: string | null
           external_id: string | null
@@ -129,9 +131,12 @@ export type Database = {
           total_yards: number | null
           unit_name: string | null
           unit_order: number | null
+          website: string | null
         }
         Insert: {
+          address?: string | null
           city?: string | null
+          country?: string | null
           created_at?: string
           created_by?: string | null
           external_id?: string | null
@@ -147,9 +152,12 @@ export type Database = {
           total_yards?: number | null
           unit_name?: string | null
           unit_order?: number | null
+          website?: string | null
         }
         Update: {
+          address?: string | null
           city?: string | null
+          country?: string | null
           created_at?: string
           created_by?: string | null
           external_id?: string | null
@@ -165,6 +173,7 @@ export type Database = {
           total_yards?: number | null
           unit_name?: string | null
           unit_order?: number | null
+          website?: string | null
         }
         Relationships: [
           {
@@ -272,31 +281,40 @@ export type Database = {
       }
       facilities: {
         Row: {
+          address: string | null
           city: string | null
+          country: string | null
           created_at: string
           id: string
           lat: number | null
           lng: number | null
           name: string
           state: string | null
+          website: string | null
         }
         Insert: {
+          address?: string | null
           city?: string | null
+          country?: string | null
           created_at?: string
           id?: string
           lat?: number | null
           lng?: number | null
           name: string
           state?: string | null
+          website?: string | null
         }
         Update: {
+          address?: string | null
           city?: string | null
+          country?: string | null
           created_at?: string
           id?: string
           lat?: number | null
           lng?: number | null
           name?: string
           state?: string | null
+          website?: string | null
         }
         Relationships: []
       }
