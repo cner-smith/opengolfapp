@@ -244,17 +244,39 @@ export function HoleMap({
     courseCenter,
   })
 
-  const recenterOnGps = useCallback(() => {
-    if (!gpsPosition || !cameraRef.current) return
+  const recenterOnGps = useCallback(async () => {
+    if (!cameraRef.current) return
+    // Recenter on the FRESHEST fix, not the state gpsPosition. That value is
+    // throttled by the listener's 5 m displacement filter (useHoleState), so
+    // "center on me" could land the camera up to ~5 m off the live native
+    // LocationPuck — the puck ended up off-centre and it read as "the camera
+    // moved but the dot didn't." getLastKnownLocation reads the same native
+    // engine the puck renders from. Falls back to the state value if it's
+    // null / throws.
+    let target = gpsPosition
+    try {
+      const last = await Mapbox.locationManager.getLastKnownLocation()
+      if (
+        last &&
+        Number.isFinite(last.coords.latitude) &&
+        Number.isFinite(last.coords.longitude)
+      ) {
+        target = { lat: last.coords.latitude, lng: last.coords.longitude }
+      }
+    } catch {
+      // fall back to gpsPosition
+    }
+    // Re-check the ref: the await gives the component a window to unmount.
+    if (!target || !cameraRef.current) return
     cameraRef.current.setCamera({
-      centerCoordinate: toCoord(gpsPosition),
+      centerCoordinate: toCoord(target),
       zoomLevel: 17,
       pitch: 0,
       animationDuration: 600,
     })
-    // During ball placement the tap also snaps the ball back onto the
-    // player — the only way to resume GPS tracking after a manual drag.
-    if (isPlaceBallPhase) onRecenterBall?.(gpsPosition)
+    // During ball placement the tap also snaps the ball onto the player —
+    // the way to resume GPS tracking after a manual drag.
+    if (isPlaceBallPhase) onRecenterBall?.(target)
   }, [gpsPosition, cameraRef, isPlaceBallPhase, onRecenterBall])
 
   const { aimGhosts, aimGhostFeatures } = useAimGhosts({
