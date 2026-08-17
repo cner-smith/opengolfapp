@@ -157,7 +157,15 @@ export function useHoleCamera({
   // Keyed on the pin coords so it fires once per hole, not on every GPS tick.
   useEffect(() => {
     if (!styleLoaded) return
-    if (!cameraInitialized.current) return
+    // NB: do NOT gate on cameraInitialized here. When the pin resolves
+    // BEFORE the first-frame init runs (its deps are style+center, not pin),
+    // an early bail on !cameraInitialized left this effect never re-firing —
+    // its own deps hadn't changed — so the map stayed stuck north-up. That's
+    // the "first hole opens with the pin not at the top" bug. The init effect
+    // is defined first, so on the common path it still frames first; this is
+    // the safety net that guarantees the up-the-hole heading lands once the
+    // pin is known, whatever the load order. (A redundant re-frame to the same
+    // heading is a visual no-op — the camera is already there.)
     if (phase !== 'PLACE_BALL') return
     if (!cameraRef.current) return
     const target = roundPin ?? pin ?? null
