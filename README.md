@@ -1,6 +1,8 @@
 # OGA — Open Golf App
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-1D9E75.svg)](./LICENSE)
+[![Download on the App Store](https://img.shields.io/badge/App_Store-Download-black?logo=apple&logoColor=white)](https://apps.apple.com/us/app/oga-open-golf-app/id6785314918)
+[![Get it on Google Play](https://img.shields.io/badge/Google_Play-Download-black?logo=googleplay&logoColor=white)](https://play.google.com/store/apps/details?id=app.opengolf.oga)
 
 Free, open source golf tracking and improvement platform.
 
@@ -12,8 +14,8 @@ better at golf shouldn't be paywalled.
 ## Live app
 
 - Web: https://oga.golf — live
-- Android & iOS: in pre-launch (dual-store). The app is built and running
-  on device; store listings are in final prep.
+- **iOS:** [Download on the App Store](https://apps.apple.com/us/app/oga-open-golf-app/id6785314918) — live
+- **Android:** [Get it on Google Play](https://play.google.com/store/apps/details?id=app.opengolf.oga) — live
 
 ## Features
 
