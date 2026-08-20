@@ -189,8 +189,7 @@ type IconName = ComponentProps<typeof MaterialCommunityIcons>['name']
 // centered; the full-height wrapper is box-none so only the strip itself
 // catches touches — map pan/long-press underneath stay live.
 //
-// green-map (slope heatmap) is a dimmed v1.1 stub. The dispersion button
-// toggles the single-color historical-shot dots (render lands in T4).
+// The dispersion button toggles the single-color historical-shot dots.
 interface LeftToolbarProps {
   dotsVisible: boolean
   onToggleDots: () => void
@@ -225,11 +224,6 @@ export function LeftToolbar({
           alignItems: 'center',
         }}
       >
-        <ToolbarButton
-          icon="terrain"
-          label="Green slope heatmap (coming soon)"
-          disabled
-        />
         <ToolbarButton
           icon="grain"
           label={dotsVisible ? 'Hide shot pattern' : 'Show shot pattern'}
