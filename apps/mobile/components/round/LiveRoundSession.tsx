@@ -801,6 +801,8 @@ export default function LiveRoundSession({
         saving={actions.saving}
         onSave={actions.saveHoleSummary}
         onEditOnMap={actions.editHoleOnMap}
+        shotIds={data.previousShotIds}
+        onDeleteShot={actions.deleteShot}
       />
 
       {/* Round-options popover. Full-screen transparent backdrop catches the
