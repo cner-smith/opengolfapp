@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState, type JSX } from 'react'
-import { ScrollView, Text, View, type TextStyle } from 'react-native'
+import { Alert, ScrollView, Text, View, type TextStyle } from 'react-native'
 import { GestureHandlerRootView } from 'react-native-gesture-handler'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import { MaterialCommunityIcons } from '@expo/vector-icons'
 import {
   DEFAULT_BAG,
   LIE_TYPES,
@@ -47,7 +48,13 @@ export interface HoleReviewSheetProps {
   ) => void
   /** Dismiss to let the user drag markers on the map. */
   onEditOnMap: () => void
+  /** Shot client-ids aligned 1:1 with initialRows (same order). */
+  shotIds: string[]
+  /** Delete a shot by id; resolves true on success, false on failure. */
+  onDeleteShot: (shotId: string) => Promise<boolean>
 }
+
+type EditableRow = ReviewedShotRow & { _shotId: string | undefined }
 
 // Palette — mirrors the web review sheet hexes exactly. Static objects only;
 // NativeWind css-interop drops function styles on iOS (#303).
@@ -107,9 +114,11 @@ export function HoleReviewSheet({
   saving,
   onSave,
   onEditOnMap,
+  shotIds,
+  onDeleteShot,
 }: HoleReviewSheetProps): JSX.Element | null {
   const insets = useSafeAreaInsets()
-  const [rows, setRows] = useState<ReviewedShotRow[]>([])
+  const [rows, setRows] = useState<EditableRow[]>([])
   // Score / putts / penalties are editable tickers. Score and putts pre-fill
   // from the placed shots (shot count, green-lie shots); penalties is the one
   // number no marker implies. All three become the hole_scores values on save.
@@ -125,6 +134,8 @@ export function HoleReviewSheet({
   // a new array reference.
   const initialRowsRef = useRef(initialRows)
   initialRowsRef.current = initialRows
+  const shotIdsRef = useRef(shotIds)
+  shotIdsRef.current = shotIds
 
   // Hydrate rows once per (hole, visible). After hydration the user's edits
   // are the source of truth — the sheet re-hydrates fresh on next open.
@@ -137,7 +148,8 @@ export function HoleReviewSheet({
     if (hydratedHoleRef.current === holeNumber) return
     hydratedHoleRef.current = holeNumber
     const next = initialRowsRef.current
-    setRows(next)
+    const ids = shotIdsRef.current
+    setRows(next.map((r, i) => ({ ...r, _shotId: ids[i] })))
     setScore(next.length)
     // Putt TALLY counts any green-lie shot (isPuttShot), matching the SG
     // putting engine + putt-count readers — a bladed wedge on the green still
@@ -154,9 +166,33 @@ export function HoleReviewSheet({
   const setRow = (idx: number, nextRow: ReviewedShotRow) =>
     setRows((prev) => {
       const copy = prev.slice()
-      copy[idx] = nextRow
+      copy[idx] = { ...nextRow, _shotId: prev[idx]?._shotId }
       return copy
     })
+
+  const confirmDelete = (row: EditableRow) => {
+    if (!row._shotId || saving) return
+    Alert.alert(
+      'Delete this shot?',
+      'This removes the shot and renumbers the rest of the hole.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            const ok = await onDeleteShot(row._shotId!)
+            if (!ok) return // handler already showed the connection alert; keep the row
+            setRows((prev) => prev.filter((r) => r._shotId !== row._shotId))
+            // Keep the tickers honest: one fewer shot, and one fewer putt if it
+            // was a green-lie shot (matches the RPC's re-tally).
+            setScore((s) => Math.max(0, s - 1))
+            if (isPuttShot(row.lieType)) setPutts((p) => Math.max(0, p - 1))
+          },
+        },
+      ],
+    )
+  }
 
   return (
     // RN <Modal> is intentionally NOT used — the web sheet is an absolute-fill
@@ -236,6 +272,8 @@ export function HoleReviewSheet({
                   row={row}
                   onOpenAimer={() => setAimingShot(row.shotNumber)}
                   onChange={(nextRow) => setRow(idx, nextRow)}
+                  onDelete={() => confirmDelete(row)}
+                  deleteDisabled={saving || !row._shotId}
                 />
               ))}
             </>
@@ -414,11 +452,16 @@ function ShotRow({
   row,
   onChange,
   onOpenAimer,
+  onDelete,
+  deleteDisabled,
 }: {
   row: ReviewedShotRow
   onChange: (next: ReviewedShotRow) => void
   /** Open the full-screen green aimer for this putt row. */
   onOpenAimer: () => void
+  /** Delete this shot (confirm dialog owned by the parent). */
+  onDelete: () => void
+  deleteDisabled: boolean
 }) {
   // Putt-ness is the green lie only (set when a putt is placed). Raw distance
   // must NOT classify — a chip/bunker inside 30 yd is not a putt (#660).
@@ -498,6 +541,16 @@ function ShotRow({
         <Text style={[TYPE.body, { color: C.mute, fontSize: 12, marginLeft: 'auto' }]}>
           {toDisplay(row.distanceToPin)} to pin
         </Text>
+        <PressableTouch
+          accessibilityRole="button"
+          accessibilityLabel={`Delete shot ${row.shotNumber}`}
+          disabled={deleteDisabled}
+          onPress={onDelete}
+          hitSlop={8}
+          style={{ padding: 6, alignSelf: 'center', opacity: deleteDisabled ? 0.4 : 1 }}
+        >
+          <MaterialCommunityIcons name="trash-can-outline" size={18} color={C.brick} />
+        </PressableTouch>
       </View>
 
       {isPutt ? (
