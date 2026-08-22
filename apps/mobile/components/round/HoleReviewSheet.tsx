@@ -281,7 +281,11 @@ export function HoleReviewSheet({
               </Text>
               {rows.map((row, idx) => (
                 <ShotRow
-                  key={row.shotNumber}
+                  // Key on the stable shot id, not shotNumber: confirmDelete
+                  // renumbers survivors, so a shotNumber key would shift every
+                  // row below a deletion and reattach each ShotRow's local
+                  // picker-open state to the wrong shot.
+                  key={row._shotId ?? `shot-${row.shotNumber}`}
                   row={row}
                   onOpenAimer={() => setAimingShot(row.shotNumber)}
                   onChange={(nextRow) => setRow(idx, nextRow)}
