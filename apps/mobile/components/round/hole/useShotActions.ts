@@ -16,6 +16,7 @@ import { deleteRound, getProfile } from '@oga/supabase'
 import { supabase } from '../../../lib/supabase'
 import {
   allShotsForHoleScore,
+  deletePendingShotById,
   insertPendingShot,
   pendingCount,
   setPendingShotEnd,
@@ -92,6 +93,10 @@ export interface UseShotActionsResult {
   handleEndRound: () => Promise<void>
   handleDeleteRound: () => Promise<void>
   handleExitFromError: () => void
+  // Online-first single-shot delete: flush pending, call the delete_shot RPC,
+  // refresh the hole's shot state. Returns true on success, false (with an
+  // alert already shown) on network/error.
+  deleteShot: (shotId: string) => Promise<boolean>
 }
 
 export function useShotActions(input: UseShotActionsInput): UseShotActionsResult {
@@ -924,6 +929,29 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
     }
   }
 
+  async function deleteShot(shotId: string): Promise<boolean> {
+    try {
+      // Flush any not-yet-synced shots so the target has a server row to delete.
+      await syncPendingShots()
+      const { data: deleted, error } = await supabase.rpc('delete_shot', {
+        p_shot_id: shotId,
+      })
+      if (error) throw error
+      // If the RPC found nothing on the server (false), the shot never synced —
+      // drop its local pending row so it actually disappears.
+      if (deleted === false) await deletePendingShotById(shotId)
+      data.refreshShots()
+      return true
+    } catch (e) {
+      if (__DEV__) console.warn('[hole/deleteShot]', (e as Error)?.message)
+      Alert.alert(
+        "Couldn't delete that shot",
+        'Deleting a shot needs a connection. Try again when you’re back online.',
+      )
+      return false
+    }
+  }
+
   function handleExitFromError() {
     // Leave to home WITHOUT deleting. A load error (network blip on a
     // rounds-deep resume) or a missing hole means the round is still
@@ -963,5 +991,6 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
     handleEndRound,
     handleDeleteRound,
     handleExitFromError,
+    deleteShot,
   }
 }

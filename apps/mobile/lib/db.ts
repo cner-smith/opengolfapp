@@ -241,6 +241,18 @@ export async function allShotsForHoleScore(holeScoreId: string): Promise<Pending
   )
 }
 
+// Drop a not-yet-synced local shot by its client id. Used by the online
+// delete path for a shot that never reached the server (the synced case goes
+// through the delete_shot RPC + refetch instead). This is the simple,
+// non-tombstone local removal — offline delete of a SYNCED shot is Phase 1.5.
+export async function deletePendingShotById(clientId: string): Promise<void> {
+  const db = await getDb()
+  await db.runAsync(
+    `delete from pending_shots where json_extract(payload, '$.id') = ?`,
+    [clientId],
+  )
+}
+
 // Attach end-of-hole metadata to a shot the player logged live. Keyed on the
 // client-generated payload.id: an existing local row (pending OR synced) is
 // rewritten in place and flipped back to 'pending' so the next sync re-upserts
