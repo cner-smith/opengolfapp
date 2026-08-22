@@ -183,7 +183,20 @@ export function HoleReviewSheet({
           onPress: async () => {
             const ok = await onDeleteShot(row._shotId!)
             if (!ok) return // handler already showed the connection alert; keep the row
-            setRows((prev) => prev.filter((r) => r._shotId !== row._shotId))
+            // Filter + renumber in one atomic update: the server RPC renumbers
+            // survivors to stay contiguous (delete #2 of [1,2,3,4] -> [1,2,3]),
+            // and this sheet's hydration is gated once per (hole, visible) — a
+            // delete changes neither, so without this the sheet would keep
+            // stale numbers and saveHoleSummary would re-persist the gap.
+            setRows((prev) =>
+              prev
+                .filter((r) => r._shotId !== row._shotId)
+                .map((r) =>
+                  r.shotNumber > row.shotNumber
+                    ? { ...r, shotNumber: r.shotNumber - 1 }
+                    : r,
+                ),
+            )
             // Keep the tickers honest: one fewer shot, and one fewer putt if it
             // was a green-lie shot (matches the RPC's re-tally).
             setScore((s) => Math.max(0, s - 1))

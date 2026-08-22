@@ -241,15 +241,6 @@ export async function allShotsForHoleScore(holeScoreId: string): Promise<Pending
   )
 }
 
-// Attach end-of-hole metadata to a shot the player logged live. Keyed on the
-// client-generated payload.id: an existing local row (pending OR synced) is
-// rewritten in place and flipped back to 'pending' so the next sync re-upserts
-// it (idempotent on id — the server row updates, never duplicates, #652); a
-// shot whose local row was purged after an earlier session's sync is
-// re-inserted carrying the same id, which likewise updates the server row on
-// sync. This is the mobile equivalent of the web review sheet's replace-all
-// save, minus the delete — a delete-then-reinsert would strand duplicate
-// server rows whenever the save happens offline (there's no delete queue).
 // Drop a not-yet-synced local shot by its client id. Used by the online
 // delete path for a shot that never reached the server (the synced case goes
 // through the delete_shot RPC + refetch instead). This is the simple,
@@ -262,6 +253,15 @@ export async function deletePendingShotById(clientId: string): Promise<void> {
   )
 }
 
+// Attach end-of-hole metadata to a shot the player logged live. Keyed on the
+// client-generated payload.id: an existing local row (pending OR synced) is
+// rewritten in place and flipped back to 'pending' so the next sync re-upserts
+// it (idempotent on id — the server row updates, never duplicates, #652); a
+// shot whose local row was purged after an earlier session's sync is
+// re-inserted carrying the same id, which likewise updates the server row on
+// sync. This is the mobile equivalent of the web review sheet's replace-all
+// save, minus the delete — a delete-then-reinsert would strand duplicate
+// server rows whenever the save happens offline (there's no delete queue).
 export async function upsertReviewedShot(payload: ShotPayload): Promise<void> {
   const db = await getDb()
   const withId: ShotPayload = payload.id ? payload : { ...payload, id: uuid.v4() }
