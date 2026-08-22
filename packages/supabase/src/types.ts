@@ -773,6 +773,7 @@ export type Database = {
     }
     Functions: {
       delete_my_account: { Args: never; Returns: undefined }
+      delete_shot: { Args: { p_shot_id: string }; Returns: boolean }
       insert_synthetic_hole: {
         Args: {
           p_course_id: string

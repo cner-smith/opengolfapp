@@ -37,6 +37,8 @@ export interface UseHoleDataResult {
   pendingForHole: PendingShot[]
   setPendingForHole: React.Dispatch<React.SetStateAction<PendingShot[]>>
   previousShots: LatLng[]
+  previousShotIds: string[]
+  refreshShots: () => void
   localShotCount: number
   localPuttCount: number
   shotNumber: number
@@ -56,6 +58,9 @@ export function useHoleData(
   const [remotePuttCount, setRemotePuttCount] = useState(0)
   const [pendingForHole, setPendingForHole] = useState<PendingShot[]>([])
   const [remoteShotStarts, setRemoteShotStarts] = useState<LatLng[]>([])
+  const [remoteShotIds, setRemoteShotIds] = useState<string[]>([])
+  const [shotsRefreshNonce, setShotsRefreshNonce] = useState(0)
+  const refreshShots = useCallback(() => setShotsRefreshNonce((n) => n + 1), [])
 
   // How many holes this round plays. course_tees.par is unpopulated in
   // our crawled data, so infer from the mapped hole numbers — a genuine
@@ -187,6 +192,7 @@ export function useHoleData(
     setRemoteShotCount(0)
     setRemotePuttCount(0)
     setRemoteShotStarts([])
+    setRemoteShotIds([])
     setPendingForHole([])
     if (!currentHoleScore) return
     const myNonce = ++fetchNonceRef.current
@@ -259,12 +265,15 @@ export function useHoleData(
         setRemoteShotCount(shots.length)
         setRemotePuttCount(shots.filter((s) => isPuttShot(s.lie_type)).length)
         const starts: LatLng[] = []
+        const ids: string[] = []
         for (const r of shots) {
           if (r.start_lat != null && r.start_lng != null) {
             starts.push({ lat: r.start_lat, lng: r.start_lng })
+            ids.push(r.id)
           }
         }
         setRemoteShotStarts(starts)
+        setRemoteShotIds(ids)
         setPendingForHole(dedupedLocal)
       } catch (err) {
         if (myNonce !== fetchNonceRef.current) return
@@ -276,7 +285,7 @@ export function useHoleData(
         }
       }
     })()
-  }, [currentHoleScore?.id])
+  }, [currentHoleScore?.id, shotsRefreshNonce])
 
   // Derive local shot/putt counts from the pending array — single source
   // of truth, never out of sync with the underlying queue. Putts are
@@ -301,6 +310,24 @@ export function useHoleData(
     }
     return out
   }, [remoteShotStarts, pendingForHole])
+
+  // Shot client-ids aligned 1:1 with `previousShots` (same order + length), so
+  // the summary can map a row to its shot for delete_shot. Remote ids come from
+  // the server rows; pending ids from payload.id (always set on insert, db.ts).
+  const previousShotIds = useMemo(() => {
+    const out: string[] = [...remoteShotIds]
+    for (const r of pendingForHole) {
+      try {
+        const p = JSON.parse(r.payload) as ShotPayload
+        if (p.start_lat != null && p.start_lng != null && p.id) {
+          out.push(p.id)
+        }
+      } catch {
+        // skip malformed pending payload (matches previousShots)
+      }
+    }
+    return out
+  }, [remoteShotIds, pendingForHole])
 
   // Live tee anchor: the player's first shot's start IS the tee. Falls back to
   // the stored course tee before the first shot (camera + pre-shot distances).
@@ -347,6 +374,8 @@ export function useHoleData(
     pendingForHole,
     setPendingForHole,
     previousShots,
+    previousShotIds,
+    refreshShots,
     localShotCount,
     localPuttCount,
     shotNumber,

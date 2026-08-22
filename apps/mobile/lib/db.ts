@@ -250,6 +250,18 @@ export async function allShotsForHoleScore(holeScoreId: string): Promise<Pending
 // sync. This is the mobile equivalent of the web review sheet's replace-all
 // save, minus the delete — a delete-then-reinsert would strand duplicate
 // server rows whenever the save happens offline (there's no delete queue).
+// Drop a not-yet-synced local shot by its client id. Used by the online
+// delete path for a shot that never reached the server (the synced case goes
+// through the delete_shot RPC + refetch instead). This is the simple,
+// non-tombstone local removal — offline delete of a SYNCED shot is Phase 1.5.
+export async function deletePendingShotById(clientId: string): Promise<void> {
+  const db = await getDb()
+  await db.runAsync(
+    `delete from pending_shots where json_extract(payload, '$.id') = ?`,
+    [clientId],
+  )
+}
+
 export async function upsertReviewedShot(payload: ShotPayload): Promise<void> {
   const db = await getDb()
   const withId: ShotPayload = payload.id ? payload : { ...payload, id: uuid.v4() }
