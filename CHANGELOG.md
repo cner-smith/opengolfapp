@@ -1,5 +1,29 @@
 # Changelog
 
+## [1.4.0](https://github.com/cner-smith/opengolfapp/compare/v1.3.1...v1.4.0) (2026-08-20)
+
+
+### Features
+
+* learnability layer Phase 1 — intro tour + contextual '?' help ([#825](https://github.com/cner-smith/opengolfapp/issues/825)) ([e269f85](https://github.com/cner-smith/opengolfapp/commit/e269f8544daf4d43f403e0ade8d5f7c8ec1c7320))
+* **web:** live store badges on landing + README download links ([#846](https://github.com/cner-smith/opengolfapp/issues/846)) ([d62ddc1](https://github.com/cner-smith/opengolfapp/commit/d62ddc1d3ce92bd9cd98c202b634e048c6aa69d1))
+
+
+### Bug Fixes
+
+* **mobile:** consolidate live-round bottom chrome (5 stacked pills → 3 layers) ([#830](https://github.com/cner-smith/opengolfapp/issues/830)) ([17dd38c](https://github.com/cner-smith/opengolfapp/commit/17dd38cf4ce0506ff00da4fbff735b90336555f3))
+* **mobile:** green rework — on-green Made/Missed overlays + auto-detect, capture-mode aware ([#826](https://github.com/cner-smith/opengolfapp/issues/826)) ([8d3118f](https://github.com/cner-smith/opengolfapp/commit/8d3118f32bc9d5e8b57c97801694b1be130adc2f))
+* **mobile:** intro-tour card 3 copy — metadata moved to the end-of-hole summary ([#791](https://github.com/cner-smith/opengolfapp/issues/791)) ([#829](https://github.com/cner-smith/opengolfapp/issues/829)) ([8a60cc7](https://github.com/cner-smith/opengolfapp/commit/8a60cc7d460902783a91415786617dbb28a11c73))
+* **mobile:** live-round on-course fixes — green-slope button, first-hole framing, GPS recenter ([#848](https://github.com/cner-smith/opengolfapp/issues/848)) ([936bed1](https://github.com/cner-smith/opengolfapp/commit/936bed1261ebc73b7e436d08fedca3e2d801e0d5))
+* **mobile:** re-mint Turnstile widget after failed auth (login + signup form) ([#828](https://github.com/cner-smith/opengolfapp/issues/828)) ([3e93f71](https://github.com/cner-smith/opengolfapp/commit/3e93f71ab28023e97b32d422e4b520cab4ff73b6))
+* **mobile:** Stats '?' inline with the oga.golf link — header keeps two-row height ([#831](https://github.com/cner-smith/opengolfapp/issues/831)) ([f658137](https://github.com/cner-smith/opengolfapp/commit/f658137a2b0725fe28afee93876439dfbf6e5352))
+* **seed:** make seed.sql drill insert idempotent against migrations ([#833](https://github.com/cner-smith/opengolfapp/issues/833)) ([fb60170](https://github.com/cner-smith/opengolfapp/commit/fb6017041fd2ec73b03a8af9f60771e8d3468467))
+
+
+### Chores
+
+* **mobile:** Expo SDK 54 / RN 0.81 — target Android 16 (API 36), New Arch, Reanimated 4 ([#827](https://github.com/cner-smith/opengolfapp/issues/827)) ([0d5d7a5](https://github.com/cner-smith/opengolfapp/commit/0d5d7a5416ba67db397ecdb23df477345e9af198))
+
 ## [1.3.1](https://github.com/cner-smith/opengolfapp/compare/v1.3.0...v1.3.1) (2026-07-21)
 
 
