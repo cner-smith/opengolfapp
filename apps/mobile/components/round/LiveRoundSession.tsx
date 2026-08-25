@@ -88,18 +88,18 @@ export default function LiveRoundSession({
 
   const [holeNumber, setHoleNumber] = useState(initialHoleNumber)
 
-  // Monotonic high-water mark of holes reached this session — the "active
-  // capture hole" signal for editMode below. Unlike `holeNumber` (which
-  // moves freely as the player peeks at other holes via the nav chevrons),
-  // this only ever increases: initialized to the round's resume point and
-  // bumped whenever `holeNumber` advances past it. Peeking `‹` back to an
-  // earlier hole and `›` returning does NOT move it, so the hole the player
-  // is actively capturing can never read as behind the furthest hole and
-  // get edit-mode-locked out of its own capture chrome (fix round 1, C1).
+  // Monotonic high-water mark of the finish-advance frontier — the "active
+  // capture hole" signal for editMode below. Deliberately NOT ratcheted off
+  // `holeNumber` in a generic effect (fix round 1 did that, and it was still
+  // wrong — see fix round 2): peeking `‹`/`›` or jumping via the scorecard
+  // moves `holeNumber` freely without this changing, so a forward peek/jump
+  // can never advance the frontier either. It only moves in the ONE place a
+  // hole is genuinely finished and the round advances — `onAdvanceHole`
+  // below, passed to useShotActions and invoked from its `advanceAfterHole`
+  // — plus the deliberate synthetic bump in `handleEditHoleOnMap` (edit mode
+  // entry from a hole's own summary, not a peek). Initialized to the round's
+  // resume point, same seed `holeNumber` uses.
   const [furthestHoleReached, setFurthestHoleReached] = useState(initialHoleNumber)
-  useEffect(() => {
-    setFurthestHoleReached((f) => Math.max(f, holeNumber))
-  }, [holeNumber])
 
   // Per-hole UI state — modal/dialog flags + logger seed. These are
   // explicitly reset when holeNumber changes (see useEffect below) so
@@ -364,21 +364,32 @@ export default function LiveRoundSession({
       setHoleNumber(next)
       syncHoleToUrl?.(next)
     },
+    // Fires ONLY from advanceAfterHole (a genuine finish) — see the prop's
+    // own doc comment in useShotActions.ts. This is the one place
+    // `furthestHoleReached` is allowed to move off a `holeNumber` change;
+    // navigateHole's peeks go through `onHoleChange` above instead, which
+    // never touches it (fix round 2, C1 residual).
+    onAdvanceHole: (next) => {
+      setFurthestHoleReached((f) => Math.max(f, next))
+      setHoleNumber(next)
+      syncHoleToUrl?.(next)
+    },
   })
 
   // Played-hole on-map EDIT mode (vs. live capture): true when the shown
-  // hole is BEHIND the furthest hole this session has reached AND has ≥1
-  // logged shot. `furthestHoleReached` (above) is the monotonic "active
-  // capture hole" signal — it never decreases when the player peeks `‹` at
-  // an earlier hole, so returning `›` to the hole they're actively logging
-  // always reads `holeNumber === furthestHoleReached` → editMode false,
-  // capture chrome intact. (Fix round 1, C1: the original predicate used
-  // `isRevisitingPlayedHole`/`appendEngaged`, which resets on every hole
-  // switch — including a peek-and-return to the live hole — and could
-  // append-lock the player out of their own capture CTAs.) ANDed with
-  // `previousShots.length > 0` since Step 3 below indexes directly into the
-  // previousShots/previousShotIds arrays. See task-4-report.md §Fix round 1
-  // for the verified case list.
+  // hole is BEHIND the finish-advance frontier AND has ≥1 logged shot — i.e.
+  // a hole is editable IFF the player has finished PAST it. `furthestHoleReached`
+  // only moves via a genuine finish (`onAdvanceHole` above) or the deliberate
+  // synthetic bump in `handleEditHoleOnMap`, never off a bare `holeNumber`
+  // change — so neither a backward peek (`‹`), a forward peek (`›` to an
+  // untouched next hole), nor a scorecard jump ahead can move it. The active
+  // hole, and any hole merely peeked/jumped to (even one with shots logged),
+  // therefore always satisfies `holeNumber >= furthestHoleReached` →
+  // editMode false, capture chrome intact — the append-lock trap (fix round
+  // 1's C1, and its forward-peek/jump residual in fix round 2) is
+  // structurally impossible. ANDed with `previousShots.length > 0` since
+  // Step 3 below indexes directly into the previousShots/previousShotIds
+  // arrays. See task-4-report.md §Fix round 2 for the verified case list.
   const editMode = holeNumber < furthestHoleReached && data.previousShots.length > 0
 
   // Which of this hole's played shots is selected in edit mode. Reset to the

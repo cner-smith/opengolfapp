@@ -54,6 +54,14 @@ interface UseShotActionsInput {
   // can keep the MapView resident across hole changes. Direct router.replace
   // would fully unmount + remount the screen — see #264.
   onHoleChange: (next: number) => void
+  // Fires ONLY on a genuine finish-advance (advanceAfterHole — a hole was
+  // completed/skipped and the round moves to the next one), never on a
+  // peek/jump (navigateHole / scorecard hole-jump both go through
+  // `onHoleChange` above, not this). LiveRoundSession uses this to ratchet
+  // its `furthestHoleReached` high-water mark — the played-hole edit-mode
+  // predicate's "active capture hole" signal (fix round 2, C1 residual):
+  // only a real finish should ever make a hole editable, not a peek ahead.
+  onAdvanceHole: (next: number) => void
 }
 
 export interface UseShotActionsResult {
@@ -122,6 +130,7 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
     setPinPlacementOpen,
     setActiveDialog,
     onHoleChange,
+    onAdvanceHole,
   } = input
   const router = useRouter()
   const [saving, setSaving] = useState(false)
@@ -644,10 +653,14 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
   }
 
   // Post-hole navigation, shared by finishHole (empty hole) and
-  // saveHoleSummary (after the review saves).
+  // saveHoleSummary (after the review saves). This is the ONLY genuine
+  // finish-advance path — onAdvanceHole (not onHoleChange) so the caller can
+  // ratchet its "furthest hole reached" high-water mark here specifically,
+  // not on a peek/jump (navigateHole below uses onHoleChange, deliberately
+  // not this).
   function advanceAfterHole() {
     if (holeNumber < holeCount) {
-      onHoleChange(holeNumber + 1)
+      onAdvanceHole(holeNumber + 1)
     } else {
       // Last hole → finalize the round: completeRound writes total_score /
       // sg_total / completed_at and routes to the summary. Without this the
