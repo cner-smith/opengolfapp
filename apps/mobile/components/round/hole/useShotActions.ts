@@ -1,6 +1,7 @@
 import { useRef, useState, type Dispatch, type SetStateAction } from 'react'
 import { Alert } from 'react-native'
 import { useRouter } from 'expo-router'
+import { uuid } from 'expo-modules-core'
 import type { User } from '@supabase/supabase-js'
 import {
   combinedBreakDirection,
@@ -236,8 +237,14 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
     opts?: { forceAim?: boolean; ball?: LatLng },
   ) {
     if (persistShotInFlightRef.current) return
-    const payload = buildPayload(meta, opts)
-    if (!payload) return
+    const base = buildPayload(meta, opts)
+    if (!base) return
+    // Stamp the client id up front so the optimistic pending entry below carries
+    // the SAME id that insertPendingShot persists to SQLite. Without it, the
+    // in-memory payload has no `id`, so previousShotIds skips this shot (its
+    // `&& p.id` guard) while previousShots keeps it — misaligning the summary's
+    // row→shot map and leaving the delete affordance disabled until a refetch.
+    const payload = base.id ? base : { ...base, id: uuid.v4() }
     persistShotInFlightRef.current = true
     setSaving(true)
     try {
