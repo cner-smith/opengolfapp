@@ -279,7 +279,7 @@ export function HoleMap({
     } catch {
       // native camera released — retry on next focus change
     }
-  }, [focusOn?.lat, focusOn?.lng, cameraRef])
+  }, [focusOn?.lat, focusOn?.lng])
 
   const recenterOnGps = useCallback(async () => {
     if (!cameraRef.current) return

@@ -1001,6 +1001,10 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
   ): Promise<boolean> {
     if (!user) return false
     try {
+      // Flush any not-yet-synced shots first (mirrors deleteShot) — the shot's
+      // client-generated id is stable, so once flushed the update below hits
+      // the real server row instead of matching 0 rows.
+      await syncPendingShots()
       // The shot's lie_type (putt vs. full shot) isn't held in memory for an
       // already-synced shot — only pending (not-yet-synced) shots carry it,
       // via their queued payload, and even there it's commonly null (live
@@ -1046,12 +1050,25 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
       if (proj.distanceToTarget !== undefined) {
         updates.distance_to_target = proj.distanceToTarget
       }
-      const { error } = await supabase
+      const { data: updatedRows, error } = await supabase
         .from('shots')
         .update(updates)
         .eq('id', shotId)
         .eq('user_id', user.id)
+        .select('id')
       if (error) throw error
+      // A matched-0-rows update returns error === null with empty data — the
+      // synced shot still isn't on the server (or belongs to another user).
+      // Surface it as a failure rather than silently "succeeding" while the
+      // move is lost (mirrors the Alert path below).
+      if (!updatedRows || updatedRows.length === 0) {
+        if (__DEV__) console.warn('[hole/moveShot] update matched 0 rows', shotId)
+        Alert.alert(
+          "Couldn't move that shot",
+          'Moving a shot needs a connection. Try again when you’re back online.',
+        )
+        return false
+      }
       data.refreshShots()
       return true
     } catch (e) {
