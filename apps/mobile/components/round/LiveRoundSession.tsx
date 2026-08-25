@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
   ActivityIndicator,
+  Alert,
   Pressable,
   Text,
   View,
@@ -10,6 +11,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useRouter } from 'expo-router'
 import { HoleMap, type LatLng } from './HoleMap'
 import { HoleReviewSheet } from './HoleReviewSheet'
+import { ShotStepper } from './ShotStepper'
 import type { ShotLoggerValue } from './ShotLogger'
 import {
   DEFAULT_HANDICAP,
@@ -342,6 +344,59 @@ export default function LiveRoundSession({
     },
   })
 
+  // Played-hole on-map EDIT mode (vs. live capture): true when the shown
+  // hole is NOT the hole the player is actively capturing AND has ≥1 logged
+  // shot. Reuses `isRevisitingPlayedHole` (useHoleState, #484) as the
+  // "not the active capture hole" signal — it is already exactly that: it's
+  // false on the round's resume hole and on any hole while the player is
+  // mid-capture on it (`markBallHere` / the "+Add a shot" opt-in both flip
+  // `appendEngaged` true for that hole visit), and only becomes true when
+  // the player navigates to a DIFFERENT hole that already has shots. ANDed
+  // with `previousShots.length > 0` since Step 3 below indexes directly into
+  // the previousShots/previousShotIds arrays. See task-4-report.md for the
+  // full argument for why this can't be true on the live hole.
+  const editMode = finalState.isRevisitingPlayedHole && data.previousShots.length > 0
+
+  // Which of this hole's played shots is selected in edit mode. Reset to the
+  // first shot on a hole switch; clamped into bounds whenever the shot count
+  // changes (e.g. after a delete shrinks it).
+  const [activeShotIdx, setActiveShotIdx] = useState(0)
+  useEffect(() => {
+    setActiveShotIdx(0)
+  }, [holeNumber])
+  useEffect(() => {
+    setActiveShotIdx((i) => Math.min(i, Math.max(0, data.previousShots.length - 1)))
+  }, [data.previousShots.length])
+
+  // Edit-mode marker drag → reposition via the online-first moveShot (reuses
+  // HoleMap's existing 5-yd-ignore threshold on the ball annotation's
+  // onDragEnd — this is just a different onSetBall handler, not new drag
+  // logic).
+  const handleEditModeMove = async (loc: LatLng) => {
+    const shotId = data.previousShotIds[activeShotIdx]
+    if (!shotId) return
+    await actions.moveShot(shotId, loc)
+  }
+
+  const handleDeleteActiveShot = () => {
+    const shotId = data.previousShotIds[activeShotIdx]
+    if (!shotId) return
+    Alert.alert(
+      'Delete this shot?',
+      'This removes the shot and renumbers the rest of the hole.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => {
+            void actions.deleteShot(shotId)
+          },
+        },
+      ],
+    )
+  }
+
   if (data.loading) {
     return (
       <View
@@ -544,23 +599,31 @@ export default function LiveRoundSession({
           tee={data.tee}
           teeBox={teeBox}
           aim={finalState.aim}
-          ball={finalState.ball}
+          ball={editMode ? data.previousShots[activeShotIdx] ?? null : finalState.ball}
           overlayMode={overlayMode}
           arcWidthYards={arcWidthYards}
           circleRadiusYards={circleRadiusYards}
           dotsVisible={dotsVisible}
           dispersionPoints={dispersionPoints}
           handicap={handicap}
-          previousShots={data.previousShots}
+          // Edit mode: only the shots BEFORE the active one form the
+          // breadcrumb (mirrors PastRoundMap's review stepper) — the active
+          // shot itself is the `ball` above, and shots after it aren't drawn
+          // while stepping through an earlier one.
+          previousShots={
+            editMode ? data.previousShots.slice(0, activeShotIdx) : data.previousShots
+          }
           gpsPosition={finalState.gpsPosition}
           courseCenter={data.courseCenter}
           holeNumber={holeNumber}
           phase={
             pinPlacementOpen
               ? 'PIN'
-              : finalState.roundState === 'SET_AIM'
-                ? 'SET_AIM'
-                : 'PLACE_BALL'
+              : editMode
+                ? 'PLACE_BALL'
+                : finalState.roundState === 'SET_AIM'
+                  ? 'SET_AIM'
+                  : 'PLACE_BALL'
           }
           // A SET_AIM → SHOT_DETAIL/PUTTING transition is a real shot commit;
           // SET_AIM → bare PLACE_BALL ("Re-place ball") is a backout. The
@@ -577,6 +640,9 @@ export default function LiveRoundSession({
             // is in breadcrumb-only review mode until "Add a shot" (#484).
             !finalState.isRevisitingPlayedHole
           }
+          tapToPlaceBall={!editMode}
+          focusOn={editMode ? data.previousShots[activeShotIdx] ?? null : null}
+          showRecenterButton={!editMode}
           onSetAim={(loc) => {
             // A user drag / long-press is an explicit aim — mark it touched so
             // it persists (an untouched auto-spawn suggestion is dropped on
@@ -584,21 +650,25 @@ export default function LiveRoundSession({
             finalState.setAim(loc)
             finalState.setAimTouched(true)
           }}
-          onSetBall={(loc) => {
-            // Manual drag/tap is an explicit override. Freeze GPS
-            // updates for this PLACE_BALL cycle and re-anchor the
-            // Kalman filter at the manual point with a low variance
-            // (1 m²) — strong prior so any future un-freeze still
-            // resists snapping back to a noisy raw fix.
-            finalState.manuallyPlacedRef.current = true
-            setBallMoved(true)
-            finalState.kalmanStateRef.current = {
-              lat: loc.lat,
-              lng: loc.lng,
-              variance: 1,
-            }
-            finalState.setBall(loc)
-          }}
+          onSetBall={
+            editMode
+              ? handleEditModeMove
+              : (loc) => {
+                  // Manual drag/tap is an explicit override. Freeze GPS
+                  // updates for this PLACE_BALL cycle and re-anchor the
+                  // Kalman filter at the manual point with a low variance
+                  // (1 m²) — strong prior so any future un-freeze still
+                  // resists snapping back to a noisy raw fix.
+                  finalState.manuallyPlacedRef.current = true
+                  setBallMoved(true)
+                  finalState.kalmanStateRef.current = {
+                    lat: loc.lat,
+                    lng: loc.lng,
+                    variance: 1,
+                  }
+                  finalState.setBall(loc)
+                }
+          }
           onRecenterBall={(loc) => {
             // Deliberate recenter tap = "put the ball back on me": the
             // inverse of onSetBall above. Lift the manual freeze, restart
@@ -670,6 +740,7 @@ export default function LiveRoundSession({
             !ballMoved
           }
           isRevisitingPlayedHole={finalState.isRevisitingPlayedHole}
+          editMode={editMode}
           totalShotsThisHole={totalShotsThisHole}
           holeNumber={holeNumber}
           holeCount={data.holeCount}
@@ -719,6 +790,32 @@ export default function LiveRoundSession({
           onNext={() => actions.navigateHole(1)}
           onOpenScorecard={() => setScorecardOpen(true)}
         />
+        {/* Played-hole edit HUD (Step 3) — replaces MapBottomChrome's
+            contextual-action row (suppressed via editMode above) while the
+            hole-nav pill stays mounted underneath it. */}
+        {editMode && (
+          <View
+            pointerEvents="box-none"
+            style={{
+              position: 'absolute',
+              left: 0,
+              right: 0,
+              bottom: insets.bottom + 68,
+              alignItems: 'center',
+            }}
+          >
+            <ShotStepper
+              index={activeShotIdx}
+              count={data.previousShots.length}
+              onPrev={() => setActiveShotIdx((i) => Math.max(0, i - 1))}
+              onNext={() =>
+                setActiveShotIdx((i) => Math.min(data.previousShots.length - 1, i + 1))
+              }
+              onDelete={handleDeleteActiveShot}
+              deleteDisabled={data.previousShots.length === 0}
+            />
+          </View>
+        )}
       </View>
 
       <HoleModals

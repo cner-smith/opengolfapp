@@ -31,6 +31,13 @@ interface MapBottomChromeProps {
    *  shots and hasn't opted into adding another. The live mark-ball CTA is
    *  replaced by an explicit "Add a shot" affordance (#484). */
   isRevisitingPlayedHole?: boolean
+  /** True while the shown hole is in the played-hole on-map EDIT surface
+   *  (ShotStepper, drag-to-move, delete) rather than live capture — a
+   *  stricter, non-appendable sibling of `isRevisitingPlayedHole`. When set,
+   *  the whole contextual-action row (mark-ball / "+Add a shot" / on-green /
+   *  finish) is suppressed; LiveRoundSession renders the stepper separately
+   *  and the hole-nav pill (below) stays the only way to leave. */
+  editMode?: boolean
   totalShotsThisHole: number
   holeNumber: number
   holeCount: number
@@ -94,6 +101,10 @@ function ContextualActions(p: MapBottomChromeProps) {
       </View>
     )
   }
+  // Played-hole edit mode: no mark-ball / "+Add a shot" / on-green / finish
+  // row here — LiveRoundSession renders the ShotStepper instead. The
+  // hole-nav pill (HoleNavPill, below) stays mounted regardless.
+  if (p.editMode) return null
   // On-green (#791 step 4 rework): Made/Missed replace the whole chrome for
   // this state — no place/mark/on-green CTA while putting. Checked ahead of
   // SET_AIM/isRevisitingPlayedHole since PUTTING is its own roundState, not a

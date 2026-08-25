@@ -657,12 +657,19 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
     }
   }
 
-  // Back out of the review to the live map so the player can add or re-place a
-  // ball, then reopen the summary. Mobile has no drag-existing-marker mode, so
-  // "edit on map" drops to PLACE_BALL — the append flow, which can add / re-mark
-  // a shot before finishing again.
+  // Back out of the review to the live map, into the played-hole EDIT surface
+  // (stepper + drag-to-move + delete) rather than back into live capture —
+  // this hole is already played by construction (the summary only opens once
+  // previousShots is non-empty). setRoundState('PLACE_BALL') closes the
+  // SUMMARY overlay; setAppendEngaged(false) is what actually flips
+  // isRevisitingPlayedHole (→ editMode in LiveRoundSession) true for this
+  // hole — without it, appendEngaged is still true from the live capture
+  // that just finished, which is exactly the "re-enters live capture" bug
+  // this replaces. currentHoleId hasn't changed (same hole), so nothing else
+  // resets it.
   function editHoleOnMap() {
     setRoundState('PLACE_BALL')
+    setAppendEngaged(false)
   }
 
   // End-of-hole save. Mirrors the web review sheet's replace-all write, but
