@@ -9,6 +9,7 @@ import {
   inferHoleStats,
   isPuttEntry,
   isPuttShot,
+  projectShotMove,
   type CaptureMode,
   type LieType,
   type ReviewedShotRow,
@@ -98,6 +99,14 @@ export interface UseShotActionsResult {
   // refresh the hole's shot state. Returns true on success, false (with an
   // alert already shown) on network/error.
   deleteShot: (shotId: string) => Promise<boolean>
+  // Online-first single-shot reposition: recompute start coords (+
+  // distance_to_target via projectShotMove) and write them directly.
+  // Returns true on success, false (with an alert already shown) on
+  // network/error.
+  moveShot: (
+    shotId: string,
+    newStart: { lat: number; lng: number },
+  ) => Promise<boolean>
 }
 
 export function useShotActions(input: UseShotActionsInput): UseShotActionsResult {
@@ -136,6 +145,7 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
     setHoles,
     setHoleScores,
     setPendingForHole,
+    pendingForHole,
     storedPin,
     roundPin,
     remotePuttCount,
@@ -959,6 +969,81 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
     }
   }
 
+  // Online-first single-shot reposition: recompute the shot's start coords
+  // (+ distance_to_target, via the pure projectShotMove) and write them
+  // directly with a `.update()` — no RPC, since a move only touches columns
+  // on the shot's own row (unlike delete_shot's renumber/re-tally fan-out).
+  // Mirrors deleteShot's online-only pattern: try → Alert + return false on
+  // error → data.refreshShots() → return boolean.
+  async function moveShot(
+    shotId: string,
+    newStart: { lat: number; lng: number },
+  ): Promise<boolean> {
+    if (!user) return false
+    try {
+      // The shot's lie_type (putt vs. full shot) isn't held in memory for an
+      // already-synced shot — only pending (not-yet-synced) shots carry it,
+      // via their queued payload, and even there it's commonly null (live
+      // shots are location-only until the end-of-hole review fills it in —
+      // so a `null` from the loop below is a real found value, not a
+      // "keep looking" signal). Fall back to a direct read only when the
+      // shotId genuinely isn't in the pending queue (already synced).
+      let lieType: string | null = null
+      let foundLocally = false
+      for (const p of pendingForHole) {
+        try {
+          const payload = JSON.parse(p.payload) as ShotPayload
+          if (payload.id === shotId) {
+            lieType = payload.lie_type ?? null
+            foundLocally = true
+            break
+          }
+        } catch {
+          // skip malformed pending payload
+        }
+      }
+      if (!foundLocally) {
+        const { data: shotRow, error: shotErr } = await supabase
+          .from('shots')
+          .select('lie_type')
+          .eq('id', shotId)
+          .single()
+        if (shotErr || !shotRow) throw shotErr ?? new Error('Shot not found')
+        lieType = shotRow.lie_type
+      }
+      // Same pin source buildPayload uses for a fresh shot's distance_to_target.
+      const pinTarget = roundPin ?? storedPin ?? null
+      const proj = projectShotMove({
+        newStart,
+        pin: pinTarget,
+        isPutt: isPuttShot(lieType),
+      })
+      const updates: { start_lat: number; start_lng: number; distance_to_target?: number | null } = {
+        start_lat: proj.startLat,
+        start_lng: proj.startLng,
+      }
+      // undefined = leave distance_to_target untouched (#662 no-pin guard)
+      if (proj.distanceToTarget !== undefined) {
+        updates.distance_to_target = proj.distanceToTarget
+      }
+      const { error } = await supabase
+        .from('shots')
+        .update(updates)
+        .eq('id', shotId)
+        .eq('user_id', user.id)
+      if (error) throw error
+      data.refreshShots()
+      return true
+    } catch (e) {
+      if (__DEV__) console.warn('[hole/moveShot]', (e as Error)?.message)
+      Alert.alert(
+        "Couldn't move that shot",
+        'Moving a shot needs a connection. Try again when you’re back online.',
+      )
+      return false
+    }
+  }
+
   function handleExitFromError() {
     // Leave to home WITHOUT deleting. A load error (network blip on a
     // rounds-deep resume) or a missing hole means the round is still
@@ -999,5 +1084,6 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
     handleDeleteRound,
     handleExitFromError,
     deleteShot,
+    moveShot,
   }
 }
