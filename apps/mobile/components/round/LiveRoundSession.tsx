@@ -88,6 +88,19 @@ export default function LiveRoundSession({
 
   const [holeNumber, setHoleNumber] = useState(initialHoleNumber)
 
+  // Monotonic high-water mark of holes reached this session — the "active
+  // capture hole" signal for editMode below. Unlike `holeNumber` (which
+  // moves freely as the player peeks at other holes via the nav chevrons),
+  // this only ever increases: initialized to the round's resume point and
+  // bumped whenever `holeNumber` advances past it. Peeking `‹` back to an
+  // earlier hole and `›` returning does NOT move it, so the hole the player
+  // is actively capturing can never read as behind the furthest hole and
+  // get edit-mode-locked out of its own capture chrome (fix round 1, C1).
+  const [furthestHoleReached, setFurthestHoleReached] = useState(initialHoleNumber)
+  useEffect(() => {
+    setFurthestHoleReached((f) => Math.max(f, holeNumber))
+  }, [holeNumber])
+
   // Per-hole UI state — modal/dialog flags + logger seed. These are
   // explicitly reset when holeNumber changes (see useEffect below) so
   // a modal left open on hole 5 doesn't reappear on hole 6.
@@ -154,7 +167,16 @@ export default function LiveRoundSession({
   // instead of stranding the player on the "isn't set up" error branch.
   useEffect(() => {
     if (data.loading) return
-    if (holeNumber > data.holeCount) setHoleNumber(data.holeCount)
+    if (holeNumber > data.holeCount) {
+      setHoleNumber(data.holeCount)
+      // furthestHoleReached may have been seeded from the same bad
+      // initialHoleNumber (its own useState mirrors holeNumber's initial
+      // value) — its ratchet effect only ever raises it, so a downward
+      // clamp here needs its own explicit correction, or the just-clamped
+      // hole could transiently read as "behind the furthest" (→ editMode)
+      // on load, even though it's the round's real current hole.
+      setFurthestHoleReached((f) => Math.min(f, data.holeCount))
+    }
   }, [data.loading, data.holeCount, holeNumber])
   const finalState = useHoleState({
     currentHoleId: data.currentHole?.id ?? null,
@@ -345,17 +367,19 @@ export default function LiveRoundSession({
   })
 
   // Played-hole on-map EDIT mode (vs. live capture): true when the shown
-  // hole is NOT the hole the player is actively capturing AND has ≥1 logged
-  // shot. Reuses `isRevisitingPlayedHole` (useHoleState, #484) as the
-  // "not the active capture hole" signal — it is already exactly that: it's
-  // false on the round's resume hole and on any hole while the player is
-  // mid-capture on it (`markBallHere` / the "+Add a shot" opt-in both flip
-  // `appendEngaged` true for that hole visit), and only becomes true when
-  // the player navigates to a DIFFERENT hole that already has shots. ANDed
-  // with `previousShots.length > 0` since Step 3 below indexes directly into
-  // the previousShots/previousShotIds arrays. See task-4-report.md for the
-  // full argument for why this can't be true on the live hole.
-  const editMode = finalState.isRevisitingPlayedHole && data.previousShots.length > 0
+  // hole is BEHIND the furthest hole this session has reached AND has ≥1
+  // logged shot. `furthestHoleReached` (above) is the monotonic "active
+  // capture hole" signal — it never decreases when the player peeks `‹` at
+  // an earlier hole, so returning `›` to the hole they're actively logging
+  // always reads `holeNumber === furthestHoleReached` → editMode false,
+  // capture chrome intact. (Fix round 1, C1: the original predicate used
+  // `isRevisitingPlayedHole`/`appendEngaged`, which resets on every hole
+  // switch — including a peek-and-return to the live hole — and could
+  // append-lock the player out of their own capture CTAs.) ANDed with
+  // `previousShots.length > 0` since Step 3 below indexes directly into the
+  // previousShots/previousShotIds arrays. See task-4-report.md §Fix round 1
+  // for the verified case list.
+  const editMode = holeNumber < furthestHoleReached && data.previousShots.length > 0
 
   // Which of this hole's played shots is selected in edit mode. Reset to the
   // first shot on a hole switch; clamped into bounds whenever the shot count
@@ -395,6 +419,23 @@ export default function LiveRoundSession({
         },
       ],
     )
+  }
+
+  // "Edit on map" from the summary: the just-finished hole is still ===
+  // furthestHoleReached (the player hasn't advanced past it yet), so the
+  // editMode predicate above would read false for it — same "furthest hole
+  // is always capture mode" invariant that fixes C1, just now working
+  // against us for the ONE hole that's simultaneously the furthest AND
+  // wants edit mode. Bump the high-water mark past it so
+  // `holeNumber < furthestHoleReached` reads true here too.
+  // `furthestHoleReached` feeds nothing else (hole-count bounds are
+  // separately governed by data.holeCount in navigateHole), so bumping it
+  // synthetically is safe. actions.editHoleOnMap() still closes the SUMMARY
+  // overlay and clears appendEngaged (suppresses the GPS/aim live-capture
+  // aids inside useHoleState via isRevisitingPlayedHole).
+  const handleEditHoleOnMap = () => {
+    setFurthestHoleReached((f) => Math.max(f, holeNumber + 1))
+    actions.editHoleOnMap()
   }
 
   if (data.loading) {
@@ -897,7 +938,7 @@ export default function LiveRoundSession({
         initialRows={summaryRows}
         saving={actions.saving}
         onSave={actions.saveHoleSummary}
-        onEditOnMap={actions.editHoleOnMap}
+        onEditOnMap={handleEditHoleOnMap}
         shotIds={data.previousShotIds}
         onDeleteShot={actions.deleteShot}
       />

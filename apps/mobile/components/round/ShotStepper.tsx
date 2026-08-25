@@ -34,8 +34,14 @@ export function ShotStepper({
   onDelete,
   deleteDisabled,
 }: ShotStepperProps) {
-  const atStart = index <= 0
-  const atEnd = index >= count - 1
+  // Defensive display-only clamp: the caller's `activeShotIdx` is reclamped
+  // to the fresh `previousShots.length` in an effect (LiveRoundSession), but
+  // a delete can commit a shorter `count` one render ahead of that effect
+  // running — clamp here too so that frame can't render "Shot 3 of 2" (or
+  // chevron-disabled state computed against an out-of-range index).
+  const displayIndex = count > 0 ? Math.min(Math.max(index, 0), count - 1) : 0
+  const atStart = displayIndex <= 0
+  const atEnd = displayIndex >= count - 1
   return (
     <View
       style={{
@@ -64,7 +70,7 @@ export function ShotStepper({
           },
         ]}
       >
-        {`Shot ${index + 1} of ${count}`}
+        {`Shot ${displayIndex + 1} of ${count}`}
       </Text>
       <StepperChevron dir="next" disabled={atEnd} onPress={onNext} />
       <View
