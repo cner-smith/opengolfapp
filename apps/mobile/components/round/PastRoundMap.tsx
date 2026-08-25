@@ -8,6 +8,7 @@ import {
   destinationYards,
   formatClubLabel,
   isPuttShot,
+  projectShotMove,
   summarizePuttParts,
   summarizeShotParts,
   type DistanceUnit,
@@ -339,18 +340,28 @@ export function PastRoundMap({
     const start = next.start !== undefined ? next.start : shot.start
     const aim = next.aim !== undefined ? next.aim : shot.aim
     if (!start) return
-    const distance = effectivePin
-      ? Math.round(distanceYards(start, effectivePin))
-      : null
-    const row = {
+    // A shot only becomes a putt via handleGreenYes's own direct update (lie_type
+    // + club) — this move/aim path never sets lie_type, so the existing server
+    // row (if any) is the source of truth for whether this is a putt.
+    const existingRow = shot.id ? shots.find((s) => s.id === shot.id) ?? null : null
+    const proj = projectShotMove({
+      newStart: start,
+      pin: effectivePin ?? null,
+      isPutt: isPuttShot(existingRow?.lie_type ?? null),
+    })
+    const row: Database['public']['Tables']['shots']['Insert'] = {
       hole_score_id: currentHoleScore.id,
       user_id: userId,
       shot_number: shot.shotNumber,
-      start_lat: start.lat,
-      start_lng: start.lng,
+      start_lat: proj.startLat,
+      start_lng: proj.startLng,
       aim_lat: aim?.lat ?? null,
       aim_lng: aim?.lng ?? null,
-      distance_to_target: distance,
+      // #662 guard: undefined (pin-less non-putt) leaves distance_to_target
+      // untouched instead of nulling a previously-valid value.
+      ...(proj.distanceToTarget !== undefined
+        ? { distance_to_target: proj.distanceToTarget }
+        : {}),
     }
     if (shot.id) {
       const { data, error } = await supabase
@@ -548,11 +559,12 @@ export function PastRoundMap({
     if (!active) return
     if (aimTimerRef.current) clearTimeout(aimTimerRef.current)
     if (active.id) {
-      const { error } = await supabase
-        .from('shots')
-        .delete()
-        .eq('id', active.id)
-        .eq('user_id', userId)
+      // delete_shot is atomic on the server: deletes the row, renumbers the
+      // surviving shots' shot_number, and re-tallies hole_scores (score/putts/
+      // penalties/fairway_hit/gir) in one transaction — a client syncScore
+      // after this would fight that re-tally, so it's deliberately not called
+      // below.
+      const { error } = await supabase.rpc('delete_shot', { p_shot_id: active.id })
       if (error) {
         Alert.alert('Remove failed', error.message)
         return
@@ -568,7 +580,6 @@ export function PastRoundMap({
     setActiveIdx(Math.max(0, ensured.length - 1))
     setMode('PLACE_BALL')
     setAdding(false)
-    await syncScore(ensured.filter((s) => s.start != null).length)
   }
 
   function goToHole(next: number) {
