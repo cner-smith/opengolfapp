@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.4.1](https://github.com/cner-smith/opengolfapp/compare/v1.4.0...v1.4.1) (2026-08-26)
+
+
+### Bug Fixes
+
+* **mobile:** refresh hole_scores after live edit-mode shot delete ([#857](https://github.com/cner-smith/opengolfapp/issues/857)) ([4199d59](https://github.com/cner-smith/opengolfapp/commit/4199d595a4c4631a032dad259bd94755224aab76))
+* **mobile:** summary shot-delete disabled on first open — stamp client id on optimistic pending shot ([#852](https://github.com/cner-smith/opengolfapp/issues/852)) ([d430559](https://github.com/cner-smith/opengolfapp/commit/d4305599d5320f5442e10b0481924468096ac9db))
+
 ## [1.4.0](https://github.com/cner-smith/opengolfapp/compare/v1.3.1...v1.4.0) (2026-08-20)
 
 
