@@ -181,19 +181,34 @@ export function useHoleData(
   // ref's latest value is allowed to commit setState. Stale fetches that
   // resolve after a newer run started are silently dropped. (#284)
   const fetchNonceRef = useRef(0)
+  // Tracks which hole_score id the reset-to-neutral block below has already
+  // run for, so a same-hole refresh (shotsRefreshNonce bump, e.g. after
+  // moveShot/deleteShot from the live-round edit-mode stepper) doesn't
+  // re-trigger it. Without this scoping, previousShots/previousShotIds would
+  // flash to empty for the whole fetch RTT on every move/delete — dropping
+  // `hasPriorShots` to false and kicking the player briefly out of edit mode
+  // mid-action (previousShots.length > 0 is part of that predicate).
+  const resetForHoleScoreIdRef = useRef<string | null>(null)
   useEffect(() => {
-    // Reset to the neutral "unknown" state synchronously, before the async
-    // fetch below resolves. Without this, a hole switch during the fetch
-    // RTT leaves the PREVIOUS hole's counts in state — e.g. `hasPriorShots`
-    // (LiveRoundSession) reads a stale true/false and the tee-default effect
-    // can place a ball marker on a hole the player is only reviewing (#720
-    // item 2). 0/[] also matches the true pre-fetch state of a fresh hole,
-    // so this isn't a behavior change for the common case.
-    setRemoteShotCount(0)
-    setRemotePuttCount(0)
-    setRemoteShotStarts([])
-    setRemoteShotIds([])
-    setPendingForHole([])
+    const holeScoreId = currentHoleScore?.id ?? null
+    if (resetForHoleScoreIdRef.current !== holeScoreId) {
+      resetForHoleScoreIdRef.current = holeScoreId
+      // Reset to the neutral "unknown" state synchronously, before the async
+      // fetch below resolves. Without this, a hole switch during the fetch
+      // RTT leaves the PREVIOUS hole's counts in state — e.g. `hasPriorShots`
+      // (LiveRoundSession) reads a stale true/false and the tee-default effect
+      // can place a ball marker on a hole the player is only reviewing (#720
+      // item 2). 0/[] also matches the true pre-fetch state of a fresh hole,
+      // so this isn't a behavior change for the common case. Scoped to an
+      // actual hole_score id change (see ref above) — a same-hole refresh
+      // keeps showing the last-known-good shots while the refetch is in
+      // flight instead.
+      setRemoteShotCount(0)
+      setRemotePuttCount(0)
+      setRemoteShotStarts([])
+      setRemoteShotIds([])
+      setPendingForHole([])
+    }
     if (!currentHoleScore) return
     const myNonce = ++fetchNonceRef.current
     ;(async () => {

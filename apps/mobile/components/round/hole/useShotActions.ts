@@ -9,6 +9,7 @@ import {
   inferHoleStats,
   isPuttEntry,
   isPuttShot,
+  projectShotMove,
   type CaptureMode,
   type LieType,
   type ReviewedShotRow,
@@ -53,6 +54,14 @@ interface UseShotActionsInput {
   // can keep the MapView resident across hole changes. Direct router.replace
   // would fully unmount + remount the screen — see #264.
   onHoleChange: (next: number) => void
+  // Fires ONLY on a genuine finish-advance (advanceAfterHole — a hole was
+  // completed/skipped and the round moves to the next one), never on a
+  // peek/jump (navigateHole / scorecard hole-jump both go through
+  // `onHoleChange` above, not this). LiveRoundSession uses this to ratchet
+  // its `furthestHoleReached` high-water mark — the played-hole edit-mode
+  // predicate's "active capture hole" signal (fix round 2, C1 residual):
+  // only a real finish should ever make a hole editable, not a peek ahead.
+  onAdvanceHole: (next: number) => void
 }
 
 export interface UseShotActionsResult {
@@ -98,6 +107,14 @@ export interface UseShotActionsResult {
   // refresh the hole's shot state. Returns true on success, false (with an
   // alert already shown) on network/error.
   deleteShot: (shotId: string) => Promise<boolean>
+  // Online-first single-shot reposition: recompute start coords (+
+  // distance_to_target via projectShotMove) and write them directly.
+  // Returns true on success, false (with an alert already shown) on
+  // network/error.
+  moveShot: (
+    shotId: string,
+    newStart: { lat: number; lng: number },
+  ) => Promise<boolean>
 }
 
 export function useShotActions(input: UseShotActionsInput): UseShotActionsResult {
@@ -113,6 +130,7 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
     setPinPlacementOpen,
     setActiveDialog,
     onHoleChange,
+    onAdvanceHole,
   } = input
   const router = useRouter()
   const [saving, setSaving] = useState(false)
@@ -136,6 +154,7 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
     setHoles,
     setHoleScores,
     setPendingForHole,
+    pendingForHole,
     storedPin,
     roundPin,
     remotePuttCount,
@@ -634,10 +653,14 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
   }
 
   // Post-hole navigation, shared by finishHole (empty hole) and
-  // saveHoleSummary (after the review saves).
+  // saveHoleSummary (after the review saves). This is the ONLY genuine
+  // finish-advance path — onAdvanceHole (not onHoleChange) so the caller can
+  // ratchet its "furthest hole reached" high-water mark here specifically,
+  // not on a peek/jump (navigateHole below uses onHoleChange, deliberately
+  // not this).
   function advanceAfterHole() {
     if (holeNumber < holeCount) {
-      onHoleChange(holeNumber + 1)
+      onAdvanceHole(holeNumber + 1)
     } else {
       // Last hole → finalize the round: completeRound writes total_score /
       // sg_total / completed_at and routes to the summary. Without this the
@@ -647,12 +670,19 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
     }
   }
 
-  // Back out of the review to the live map so the player can add or re-place a
-  // ball, then reopen the summary. Mobile has no drag-existing-marker mode, so
-  // "edit on map" drops to PLACE_BALL — the append flow, which can add / re-mark
-  // a shot before finishing again.
+  // Back out of the review to the live map, into the played-hole EDIT surface
+  // (stepper + drag-to-move + delete) rather than back into live capture —
+  // this hole is already played by construction (the summary only opens once
+  // previousShots is non-empty). setRoundState('PLACE_BALL') closes the
+  // SUMMARY overlay; setAppendEngaged(false) is what actually flips
+  // isRevisitingPlayedHole (→ editMode in LiveRoundSession) true for this
+  // hole — without it, appendEngaged is still true from the live capture
+  // that just finished, which is exactly the "re-enters live capture" bug
+  // this replaces. currentHoleId hasn't changed (same hole), so nothing else
+  // resets it.
   function editHoleOnMap() {
     setRoundState('PLACE_BALL')
+    setAppendEngaged(false)
   }
 
   // End-of-hole save. Mirrors the web review sheet's replace-all write, but
@@ -959,6 +989,98 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
     }
   }
 
+  // Online-first single-shot reposition: recompute the shot's start coords
+  // (+ distance_to_target, via the pure projectShotMove) and write them
+  // directly with a `.update()` — no RPC, since a move only touches columns
+  // on the shot's own row (unlike delete_shot's renumber/re-tally fan-out).
+  // Mirrors deleteShot's online-only pattern: try → Alert + return false on
+  // error → data.refreshShots() → return boolean.
+  async function moveShot(
+    shotId: string,
+    newStart: { lat: number; lng: number },
+  ): Promise<boolean> {
+    if (!user) return false
+    try {
+      // Flush any not-yet-synced shots first (mirrors deleteShot) — the shot's
+      // client-generated id is stable, so once flushed the update below hits
+      // the real server row instead of matching 0 rows.
+      await syncPendingShots()
+      // The shot's lie_type (putt vs. full shot) isn't held in memory for an
+      // already-synced shot — only pending (not-yet-synced) shots carry it,
+      // via their queued payload, and even there it's commonly null (live
+      // shots are location-only until the end-of-hole review fills it in —
+      // so a `null` from the loop below is a real found value, not a
+      // "keep looking" signal). Fall back to a direct read only when the
+      // shotId genuinely isn't in the pending queue (already synced).
+      let lieType: string | null = null
+      let foundLocally = false
+      for (const p of pendingForHole) {
+        try {
+          const payload = JSON.parse(p.payload) as ShotPayload
+          if (payload.id === shotId) {
+            lieType = payload.lie_type ?? null
+            foundLocally = true
+            break
+          }
+        } catch {
+          // skip malformed pending payload
+        }
+      }
+      if (!foundLocally) {
+        const { data: shotRow, error: shotErr } = await supabase
+          .from('shots')
+          .select('lie_type')
+          .eq('id', shotId)
+          .single()
+        if (shotErr || !shotRow) throw shotErr ?? new Error('Shot not found')
+        lieType = shotRow.lie_type
+      }
+      // Same pin source buildPayload uses for a fresh shot's distance_to_target.
+      const pinTarget = roundPin ?? storedPin ?? null
+      const proj = projectShotMove({
+        newStart,
+        pin: pinTarget,
+        isPutt: isPuttShot(lieType),
+      })
+      const updates: { start_lat: number; start_lng: number; distance_to_target?: number | null } = {
+        start_lat: proj.startLat,
+        start_lng: proj.startLng,
+      }
+      // undefined = leave distance_to_target untouched (#662 no-pin guard)
+      if (proj.distanceToTarget !== undefined) {
+        updates.distance_to_target = proj.distanceToTarget
+      }
+      const { data: updatedRows, error } = await supabase
+        .from('shots')
+        .update(updates)
+        .eq('id', shotId)
+        .eq('user_id', user.id)
+        .select('id')
+      if (error) throw error
+      // A matched-0-rows update returns error === null with empty data — the
+      // synced shot still isn't on the server (or belongs to another user).
+      // Surface it as a failure rather than silently "succeeding" while the
+      // move is lost (mirrors the Alert path below).
+      if (!updatedRows || updatedRows.length === 0) {
+        if (__DEV__) console.warn('[hole/moveShot] update matched 0 rows', shotId)
+        Alert.alert(
+          "Couldn't move that shot",
+          'Moving a shot needs a connection. Try again when you’re back online.',
+        )
+        return false
+      }
+      data.refreshShots()
+      return true
+    } catch (e) {
+      if (__DEV__) console.warn('[hole/moveShot]', (e as Error)?.message)
+      Alert.alert(
+        "Couldn't move that shot",
+        'Moving a shot needs a connection. Try again when you’re back online.',
+      )
+      return false
+    }
+  }
+
   function handleExitFromError() {
     // Leave to home WITHOUT deleting. A load error (network blip on a
     // rounds-deep resume) or a missing hole means the round is still
@@ -999,5 +1121,6 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
     handleDeleteRound,
     handleExitFromError,
     deleteShot,
+    moveShot,
   }
 }

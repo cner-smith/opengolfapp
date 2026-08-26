@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Pressable, Text, View } from 'react-native'
 import Mapbox from '@rnmapbox/maps'
 import {
@@ -138,6 +138,21 @@ interface HoleMapProps {
    * reposition, but stray taps while reviewing don't move it (#593).
    */
   tapToPlaceBall?: boolean
+  /**
+   * When set, the camera flies here whenever the point changes — independent
+   * of `center`/GPS/phase, so it can't be fought by the auto-center-on-GPS
+   * effect inside useHoleCamera. Used by the played-hole edit-mode stepper
+   * (LiveRoundSession) to snap the camera to the active shot as the player
+   * steps through a hole's history. Null/omitted → no-op.
+   */
+  focusOn?: LatLng | null
+  /**
+   * Whether to render the bottom-right "center on my GPS" button during
+   * PLACE_BALL. Defaults true. The played-hole edit-mode stepper passes
+   * false — recentering on live GPS while browsing/editing a past shot
+   * would yank the camera away from the shot being edited.
+   */
+  showRecenterButton?: boolean
 }
 
 function toCoord(l: LatLng): [number, number] {
@@ -215,6 +230,8 @@ export function HoleMap({
   onPlacePin,
   showLocationPuck,
   tapToPlaceBall = true,
+  focusOn,
+  showRecenterButton = true,
   overlayMode,
   arcWidthYards,
   circleRadiusYards,
@@ -243,6 +260,26 @@ export function HoleMap({
     gpsPosition,
     courseCenter,
   })
+
+  // Explicit camera focus, independent of useHoleCamera's `center`/GPS/phase
+  // machinery — those effects are tightly interlocked (auto-center-on-GPS
+  // re-fires whenever `center` changes) and re-purposing `center` for this
+  // would risk the camera being yanked back to the player's live GPS fix
+  // right after snapping to a shot (#484-adjacent GPS-clobber class). A
+  // dedicated effect on `focusOn` sidesteps that entirely.
+  useEffect(() => {
+    if (!focusOn || !cameraRef.current) return
+    try {
+      cameraRef.current.setCamera({
+        centerCoordinate: toCoord(focusOn),
+        zoomLevel: 18,
+        pitch: 0,
+        animationDuration: 500,
+      })
+    } catch {
+      // native camera released — retry on next focus change
+    }
+  }, [focusOn?.lat, focusOn?.lng])
 
   const recenterOnGps = useCallback(async () => {
     if (!cameraRef.current) return
@@ -952,7 +989,7 @@ export function HoleMap({
         {!isPinMode && !effectivePin && (
           <PinFirstCta />
         )}
-        {isPlaceBallPhase && (
+        {isPlaceBallPhase && showRecenterButton && (
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={
