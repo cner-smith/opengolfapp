@@ -597,6 +597,7 @@ export type Database = {
           fairways_total: number | null
           gir: number | null
           id: string
+          import_id: string | null
           notes: string | null
           played_at: string
           score_differential: number | null
@@ -621,6 +622,7 @@ export type Database = {
           fairways_total?: number | null
           gir?: number | null
           id?: string
+          import_id?: string | null
           notes?: string | null
           played_at: string
           score_differential?: number | null
@@ -645,6 +647,7 @@ export type Database = {
           fairways_total?: number | null
           gir?: number | null
           id?: string
+          import_id?: string | null
           notes?: string | null
           played_at?: string
           score_differential?: number | null

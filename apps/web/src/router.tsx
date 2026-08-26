@@ -34,6 +34,9 @@ const ShotPatternsPage = lazy(() =>
 const RoundDetailPage = lazy(() =>
   import('./pages/rounds/RoundDetailPage').then((m) => ({ default: m.RoundDetailPage })),
 )
+const ImportDataPage = lazy(() =>
+  import('./pages/rounds/ImportDataPage').then((m) => ({ default: m.ImportDataPage })),
+)
 const LearnPage = lazy(() =>
   import('./pages/learn/LearnPage').then((m) => ({ default: m.LearnPage })),
 )
@@ -120,6 +123,7 @@ const routes: RouteObject[] = [
       { path: '/dashboard', element: <DashboardPage />, errorElement },
       { path: '/rounds', element: <RoundsPage />, errorElement },
       { path: '/rounds/new', element: <NewRoundPage />, errorElement },
+      { path: '/rounds/import', element: <ImportDataPage />, errorElement },
       { path: '/rounds/:id', element: <RoundDetailPage />, errorElement },
       { path: '/stats', element: <StrokesGainedPage />, errorElement },
       { path: '/patterns', element: <ShotPatternsPage />, errorElement },
