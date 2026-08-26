@@ -570,6 +570,17 @@ export function PastRoundMap({
         return
       }
       onShotRemoved(active.id)
+      // The RPC re-tallied hole_scores server-side; READ the updated row (do NOT
+      // overwrite it) and propagate so the parent's shown hole score/round total
+      // reflect the delete instead of going stale until a refetch/remount.
+      if (currentHoleScore) {
+        const { data: updatedHs } = await supabase
+          .from('hole_scores')
+          .select('*')
+          .eq('id', currentHoleScore.id)
+          .single()
+        if (updatedHs) onHoleScoreChanged(updatedHs as HoleScoreRow)
+      }
     }
     const nextPlaced = placed.filter((_, i) => i !== activeIdx)
     const ensured =
