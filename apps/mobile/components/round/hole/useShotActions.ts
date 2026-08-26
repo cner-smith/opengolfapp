@@ -978,6 +978,23 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
       // drop its local pending row so it actually disappears.
       if (deleted === false) await deletePendingShotById(shotId)
       data.refreshShots()
+      // refreshShots only refetches SHOTS; the RPC also re-tallied hole_scores
+      // (score/putts/penalties/fairway_hit/gir) server-side, and that row is
+      // fetched by a separate effect refreshShots doesn't trigger. Refetch it so
+      // the scorecard score updates instead of staying stale after the delete.
+      const hsId = data.currentHoleScore?.id
+      if (hsId) {
+        const { data: updatedHs } = await supabase
+          .from('hole_scores')
+          .select('*')
+          .eq('id', hsId)
+          .single()
+        if (updatedHs) {
+          setHoleScores((prev) =>
+            prev.map((hs) => (hs.id === hsId ? { ...hs, ...updatedHs } : hs)),
+          )
+        }
+      }
       return true
     } catch (e) {
       if (__DEV__) console.warn('[hole/deleteShot]', (e as Error)?.message)
