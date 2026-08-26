@@ -434,6 +434,54 @@ export type Database = {
           },
         ]
       }
+      hole_tees: {
+        Row: {
+          course_tee_id: string
+          hole_id: string
+          id: string
+          par: number | null
+          stroke_index: number | null
+          tee_lat: number | null
+          tee_lng: number | null
+          yards: number | null
+        }
+        Insert: {
+          course_tee_id: string
+          hole_id: string
+          id?: string
+          par?: number | null
+          stroke_index?: number | null
+          tee_lat?: number | null
+          tee_lng?: number | null
+          yards?: number | null
+        }
+        Update: {
+          course_tee_id?: string
+          hole_id?: string
+          id?: string
+          par?: number | null
+          stroke_index?: number | null
+          tee_lat?: number | null
+          tee_lng?: number | null
+          yards?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hole_tees_course_tee_id_fkey"
+            columns: ["course_tee_id"]
+            isOneToOne: false
+            referencedRelation: "course_tees"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hole_tees_hole_id_fkey"
+            columns: ["hole_id"]
+            isOneToOne: false
+            referencedRelation: "holes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       practice_plans: {
         Row: {
           ai_insight: string | null

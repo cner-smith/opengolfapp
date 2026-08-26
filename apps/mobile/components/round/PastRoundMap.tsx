@@ -9,6 +9,7 @@ import {
   formatClubLabel,
   isPuttShot,
   projectShotMove,
+  resolveHole,
   summarizePuttParts,
   summarizeShotParts,
   type DistanceUnit,
@@ -25,6 +26,7 @@ import { PUTTING_RADIUS_YARDS } from './hole/types'
 
 type HoleRow = Database['public']['Tables']['holes']['Row']
 type HoleScoreRow = Database['public']['Tables']['hole_scores']['Row']
+type HoleTeeRow = Database['public']['Tables']['hole_tees']['Row']
 type ShotRow = Database['public']['Tables']['shots']['Row']
 
 const KICKER: import('react-native').TextStyle = {
@@ -97,6 +99,13 @@ interface PastRoundMapProps {
   completed: boolean
   holes: HoleRow[]
   holeScores: HoleScoreRow[]
+  /** Per-tee hole overrides for the whole course — sparse, filtered to
+   *  resolvedCourseTeeId below. Yards/par/stroke_index/tee location. */
+  holeTees: HoleTeeRow[]
+  /** The round's resolved course_tees.id (id-then-tee_color fallback,
+   *  already computed by the parent via resolveCourseTee), or null if the
+   *  round has no resolvable tee. */
+  resolvedCourseTeeId: string | null
   shots: ShotRow[]
   unit: DistanceUnit
   courseCenter: LatLng | null
@@ -116,6 +125,8 @@ export function PastRoundMap({
   completed,
   holes,
   holeScores,
+  holeTees,
+  resolvedCourseTeeId,
   shots,
   unit,
   courseCenter,
@@ -140,6 +151,20 @@ export function PastRoundMap({
     [holeScores, currentHole],
   )
 
+  // Tee-resolved par/yards/stroke_index/tee-location — hole_tees override
+  // for the round's resolved tee (if any) over the base holes row, with
+  // hole_scores.par folded in. Sparse by design; falls through to base
+  // values for the common case (no override yet).
+  const resolvedHole = useMemo(() => {
+    if (!currentHole) return null
+    const teeOverride = resolvedCourseTeeId
+      ? holeTees.find(
+          (ht) => ht.hole_id === currentHole.id && ht.course_tee_id === resolvedCourseTeeId,
+        ) ?? null
+      : null
+    return resolveHole(currentHole, teeOverride, { par: currentHoleScore?.par })
+  }, [currentHole, currentHoleScore?.par, holeTees, resolvedCourseTeeId])
+
   const storedPin: LatLng | null = useMemo(
     () =>
       currentHole?.pin_lat != null && currentHole?.pin_lng != null
@@ -157,10 +182,10 @@ export function PastRoundMap({
   const effectivePin = roundPin ?? storedPin
   const tee: LatLng | null = useMemo(
     () =>
-      currentHole?.tee_lat != null && currentHole?.tee_lng != null
-        ? { lat: currentHole.tee_lat, lng: currentHole.tee_lng }
+      resolvedHole?.teeLat != null && resolvedHole?.teeLng != null
+        ? { lat: resolvedHole.teeLat, lng: resolvedHole.teeLng }
         : null,
-    [currentHole],
+    [resolvedHole],
   )
   // Tee-first so the camera orients "up the hole" — useHoleCamera computes
   // heading from center→pin, and centering on the pin (as before) made
@@ -599,7 +624,7 @@ export function PastRoundMap({
     onHoleChange(next)
   }
 
-  const par = currentHole?.par ?? null
+  const par = resolvedHole?.par ?? currentHole?.par ?? null
 
   return (
     <View style={{ flex: 1, backgroundColor: '#1C211C' }}>

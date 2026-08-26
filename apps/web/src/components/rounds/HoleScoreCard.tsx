@@ -12,6 +12,12 @@ interface HoleScoreCardProps {
   hole: HoleRow
   holeScore?: HoleScoreRow
   shotCount: number
+  /** Tee-resolved par/yards for this hole (hole_tees override for the
+   *  round's selected tee, if any, over the base `holes` row — the
+   *  per-round hole_scores.par override is already folded in). Prefer
+   *  these over hole.par/hole.yards. */
+  resolvedPar: number
+  resolvedYards: number | null
   /** Materialize a synthetic-id hole into a real `holes` row before
    *  the hole_scores upsert (FK requirement). No-op for real holes. */
   ensureRealHole: (hole: HoleRow) => Promise<string>
@@ -79,6 +85,8 @@ export function HoleScoreCard({
   hole,
   holeScore,
   shotCount,
+  resolvedPar,
+  resolvedYards,
   ensureRealHole,
   onEditShots,
 }: HoleScoreCardProps) {
@@ -91,11 +99,12 @@ export function HoleScoreCard({
   // Par is always editable on the scorecard — synthetic-fallback courses
   // need it (par-4 default is wrong for the par 3s and 5s) and real
   // courses occasionally have stale data the player wants to correct.
-  // Persisted as hole_scores.par (per-round override, #710); the course
-  // hole's par is the fallback.
+  // Persisted as hole_scores.par (per-round override, #710); resolvedPar
+  // (tee-override-aware, with the round override already folded in) is
+  // the fallback ahead of any local optimistic edit.
   const [parOverride, setParOverride] = useState<number | null>(null)
   const [saveError, setSaveError] = useState<string | null>(null)
-  const effectivePar = parOverride ?? holeScore?.par ?? hole.par
+  const effectivePar = parOverride ?? resolvedPar
 
   // Hydrate the form from server state once per holeScore.id. Subsequent
   // refetches (after our own save, or another tab) must not clobber what
@@ -236,7 +245,7 @@ export function HoleScoreCard({
         >
           Par {effectivePar}
         </button>
-        {hole.yards && (
+        {resolvedYards && (
           <div
             className="font-mono tabular text-caddie-ink-mute"
             style={{
@@ -245,7 +254,7 @@ export function HoleScoreCard({
               textTransform: 'uppercase',
             }}
           >
-            {toDisplay(hole.yards)}
+            {toDisplay(resolvedYards)}
           </div>
         )}
       </div>

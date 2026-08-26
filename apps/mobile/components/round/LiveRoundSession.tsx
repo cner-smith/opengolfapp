@@ -333,13 +333,14 @@ export default function LiveRoundSession({
     const pts = data.previousShots
     if (pts.length === 0) return []
     const pin = data.roundPin ?? data.storedPin ?? pts[pts.length - 1]!
-    const par = data.currentHoleScore?.par ?? data.currentHole?.par ?? 4
+    const par = data.resolvedHole?.par ?? data.currentHoleScore?.par ?? data.currentHole?.par ?? 4
     return buildInitialRows(pts, par, pin.lat, pin.lng)
   }, [
     finalState.roundState,
     data.previousShots,
     data.roundPin,
     data.storedPin,
+    data.resolvedHole?.par,
     data.currentHoleScore?.par,
     data.currentHole?.par,
   ])
@@ -620,8 +621,8 @@ export default function LiveRoundSession({
               },
             ]}
           >
-            Par {data.currentHoleScore?.par ?? data.currentHole.par}
-            {data.currentHole.yards ? ` · ${toDisplay(data.currentHole.yards)}` : ''}
+            Par {data.resolvedHole?.par ?? data.currentHole.par}
+            {data.resolvedHole?.yards ? ` · ${toDisplay(data.resolvedHole.yards)}` : ''}
           </Text>
         </View>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
@@ -796,8 +797,8 @@ export default function LiveRoundSession({
           totalShotsThisHole={totalShotsThisHole}
           holeNumber={holeNumber}
           holeCount={data.holeCount}
-          par={data.currentHoleScore?.par ?? data.currentHole.par}
-          yardsLabel={data.currentHole.yards ? toDisplay(data.currentHole.yards) : null}
+          par={data.resolvedHole?.par ?? data.currentHole.par}
+          yardsLabel={data.resolvedHole?.yards ? toDisplay(data.resolvedHole.yards) : null}
           onCancelPinPlacement={() => setPinPlacementOpen(false)}
           onClearRoundPin={actions.clearRoundPin}
           onConfirmAim={actions.confirmAim}
@@ -886,6 +887,7 @@ export default function LiveRoundSession({
         scorecardOpen={scorecardOpen}
         holes={data.holes}
         holeScores={data.holeScores}
+        resolvedHoleByNumber={data.resolvedHoleByNumber}
         holeNumber={holeNumber}
         routerReplace={(href) => router.replace(href as Parameters<typeof router.replace>[0])}
         id={roundId}
@@ -945,7 +947,7 @@ export default function LiveRoundSession({
       <HoleReviewSheet
         visible={finalState.roundState === 'SUMMARY'}
         holeNumber={holeNumber}
-        par={data.currentHoleScore?.par ?? data.currentHole.par}
+        par={data.resolvedHole?.par ?? data.currentHole.par}
         initialRows={summaryRows}
         saving={actions.saving}
         onSave={actions.saveHoleSummary}

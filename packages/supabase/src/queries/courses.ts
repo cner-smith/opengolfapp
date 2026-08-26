@@ -3,6 +3,7 @@ import type { Database } from '../types'
 
 type CourseInsert = Database['public']['Tables']['courses']['Insert']
 type HoleInsert = Database['public']['Tables']['holes']['Insert']
+type HoleTeeRow = Database['public']['Tables']['hole_tees']['Row']
 
 // Cards / pickers only ever render name + city/state and need lat/lng for
 // the hole-map fallback; external_id keeps the OpenGolfAPI link reachable.
@@ -157,4 +158,19 @@ export function upsertCourseTees(
     .from('course_tees')
     .upsert(rows, { onConflict: 'course_id,tee_color' })
     .select()
+}
+
+// hole_tees has no course_id column — join through holes to scope by course.
+// The join shape (`holes!inner(course_id)`) is stripped here so callers get
+// plain HoleTeeRow[] and don't each need to know to remove it.
+export async function getHoleTeesForCourse(client: OgaSupabaseClient, courseId: string) {
+  const { data, error } = await client
+    .from('hole_tees')
+    .select('*, holes!inner(course_id)')
+    .eq('holes.course_id', courseId)
+  if (error) return { data: null, error }
+  const rows = (data as Array<HoleTeeRow & { holes?: unknown }>).map(
+    ({ holes: _holes, ...row }) => row as HoleTeeRow,
+  )
+  return { data: rows, error: null }
 }

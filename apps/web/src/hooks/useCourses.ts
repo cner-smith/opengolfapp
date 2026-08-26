@@ -15,6 +15,7 @@ import {
   getCourseById,
   getCourseTees,
   getFacilitiesByIds,
+  getHoleTeesForCourse,
   getHolesForCourse,
   searchCourses,
   searchFacilities,
@@ -249,6 +250,21 @@ export function useCourseTees(courseId: string | null | undefined) {
     enabled: !!courseId,
     queryFn: async () => {
       const { data, error } = await getCourseTees(supabase, courseId!)
+      if (error) throw error
+      return data ?? []
+    },
+  })
+}
+
+// Per-tee overrides for hole yardage/par/stroke_index/tee location. Sparse —
+// most courses have none yet — callers should treat a missing entry as "use
+// the base holes row," via resolveHole() from @oga/core.
+export function useHoleTeesForCourse(courseId: string | null | undefined) {
+  return useQuery({
+    queryKey: ['hole-tees', courseId],
+    enabled: !!courseId,
+    queryFn: async () => {
+      const { data, error } = await getHoleTeesForCourse(supabase, courseId!)
       if (error) throw error
       return data ?? []
     },
