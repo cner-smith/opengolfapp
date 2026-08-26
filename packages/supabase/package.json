@@ -12,12 +12,14 @@
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "gen-types": "supabase gen types typescript --local > src/types.ts"
+    "gen-types": "supabase gen types typescript --local > src/types.ts",
+    "test": "vitest run"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.0"
   },
   "devDependencies": {
-    "typescript": "^5.4.0"
+    "typescript": "^5.4.0",
+    "vitest": "^1.6.0"
   }
 }

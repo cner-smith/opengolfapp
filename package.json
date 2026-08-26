@@ -19,6 +19,9 @@
     "email:vendor-core": "mkdir -p supabase/functions/_shared && cp packages/core/src/round-summary.ts supabase/functions/_shared/round-summary.ts",
     "vendor:practice-plan": "node scripts/vendor-practice-plan.mjs"
   },
+  "dependencies": {
+    "@oga/supabase": "workspace:*"
+  },
   "devDependencies": {
     "@supabase/supabase-js": "^2.45.0",
     "@types/node": "^20.12.0",

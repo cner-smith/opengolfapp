@@ -50,6 +50,12 @@ const SupportPage = lazy(() =>
 )
 const CoursePlanPage = lazy(() => import('./pages/plan/CoursePlanPage'))
 const HolePlanPage = lazy(() => import('./pages/plan/HolePlanPage'))
+// Dev-only Course Editor — its backend (vite-plugins/dev-course-api.ts) only
+// exists under `vite dev`, so the route itself is gated on import.meta.env.DEV
+// below. That check is statically replaced + tree-shaken by Vite at build
+// time, so these lazy imports don't appear in a production bundle at all.
+const CourseEditorIndexPage = lazy(() => import('./pages/dev-editor/CourseEditorIndexPage'))
+const CourseEditorPage = lazy(() => import('./pages/dev-editor/CourseEditorPage'))
 
 function RouteFallback() {
   return (
@@ -123,6 +129,12 @@ const routes: RouteObject[] = [
       { path: '/plan/:courseId/:holeNumber', element: <HolePlanPage />, errorElement },
       { path: '/settings', element: <SettingsPage />, errorElement },
       { path: '/settings/bag', element: <BagPage />, errorElement },
+      ...(import.meta.env.DEV
+        ? [
+            { path: '/dev/courses', element: <CourseEditorIndexPage />, errorElement },
+            { path: '/dev/courses/:id/edit', element: <CourseEditorPage />, errorElement },
+          ]
+        : []),
     ],
   },
   { path: '*', element: <NotFoundPage />, errorElement },
