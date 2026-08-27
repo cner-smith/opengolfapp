@@ -64,6 +64,10 @@ const config: ExpoConfig = {
     // Reverse-DNS mirror of the production domain (oga.golf). Bundle ID
     // is permanent once registered in App Store Connect — pick deliberately.
     bundleIdentifier: 'golf.oga.app',
+    // Sign in with Apple entitlement (#859). Requires BOTH this flag (injects
+    // com.apple.developer.applesignin) AND the 'expo-apple-authentication'
+    // plugin below — neither alone is sufficient.
+    usesAppleSignIn: true,
     // iOS app-icon variants (#499). SDK 52+ accepts an object form; light is
     // the standard "o." mark, dark drops the paper background for iOS dark
     // appearance, tinted is the monochrome grayscale Apple recolors. All three
@@ -198,6 +202,7 @@ const config: ExpoConfig = {
     ],
     'expo-font',
     'expo-secure-store',
+    'expo-apple-authentication',
     [
       'expo-splash-screen',
       {
