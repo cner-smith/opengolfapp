@@ -1,5 +1,5 @@
-import { useCallback, useEffect } from 'react'
-import { Text, View } from 'react-native'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { Text, TextInput, View } from 'react-native'
 import Svg, { Circle, Ellipse, Line, Path } from 'react-native-svg'
 import {
   Gesture,
@@ -13,6 +13,7 @@ import Animated, {
 import type { BreakDirection } from '@oga/core'
 import { useUnits } from '../../hooks/useUnits'
 import { TYPE } from '../../lib/typography'
+import { PressableTouch } from '../ui/PressableTouch'
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle)
 const AnimatedPath = Animated.createAnimatedComponent(Path)
@@ -46,6 +47,31 @@ const CENTER_X = 150
 // updating the stored value while the handle stopped, producing drift.
 const HANDLE_MIN_X = 50
 const HANDLE_MAX_X = 250
+// Max aim offset the handle (and therefore the numeric input) can reach,
+// derived from the handle's visual range so the two controls can never
+// disagree — typing 40 clamps to the same edge dragging past it does.
+const MAX_OFFSET_INCHES = Math.round((HANDLE_MAX_X - CENTER_X) / PX_PER_INCH)
+
+type AimDir = 'left' | 'straight' | 'right'
+const SEG_LABEL: Record<AimDir, string> = {
+  left: 'Left',
+  straight: 'Straight',
+  right: 'Right',
+}
+
+// Left = negative offset, right = positive, straight = 0 — the same sign
+// convention formatAim() and core's horizontalBreakFromAim() use. The ±2in
+// deadband matches formatAim so the number reads 0/"Straight" wherever the
+// diagram label does.
+function dirFromOffset(offsetInches: number): AimDir {
+  const r = Math.round(offsetInches)
+  if (Math.abs(r) <= 2) return 'straight'
+  return r < 0 ? 'left' : 'right'
+}
+function magFromOffset(offsetInches: number): string {
+  const r = Math.round(offsetInches)
+  return Math.abs(r) <= 2 ? '0' : String(Math.abs(r))
+}
 
 // Editorial perspective view from behind the ball, mobile flavor.
 // Drag the amber handle horizontally to bias aim left/right of the
@@ -113,6 +139,56 @@ export function GreenDiagram({
       onAimChange(next)
     },
     [onAimChange],
+  )
+
+  // Numeric input + Left/Straight/Right toggle, two-way synced with the
+  // handle. On a phone the fat handle can't reliably land on an exact small
+  // value or dead-center, so this is the way to dial in "straight" or "3in
+  // left" precisely (#861). Local state owns the text so typing "05" isn't
+  // reformatted mid-edit; `lastCommitted` suppresses our own onAimChange
+  // echo so only OUTSIDE changes (a handle drag, a new row) resync the input.
+  const [magText, setMagText] = useState(() => magFromOffset(aimOffsetInches))
+  const [dir, setDir] = useState<AimDir>(() => dirFromOffset(aimOffsetInches))
+  const lastCommitted = useRef(aimOffsetInches)
+
+  useEffect(() => {
+    if (aimOffsetInches === lastCommitted.current) return
+    lastCommitted.current = aimOffsetInches
+    setMagText(magFromOffset(aimOffsetInches))
+    setDir(dirFromOffset(aimOffsetInches))
+  }, [aimOffsetInches])
+
+  const commitInputs = useCallback(
+    (mag: number, d: AimDir) => {
+      const next = d === 'straight' ? 0 : d === 'left' ? -mag : mag
+      lastCommitted.current = next
+      onAimChange(next)
+    },
+    [onAimChange],
+  )
+
+  const onMagText = useCallback(
+    (t: string) => {
+      const digits = t.replace(/[^0-9]/g, '')
+      const mag = Math.min(MAX_OFFSET_INCHES, parseInt(digits || '0', 10))
+      // Typing a break while "Straight" is selected picks a side (default
+      // right); clearing to 0 falls back to straight.
+      const nextDir: AimDir = mag === 0 ? 'straight' : dir === 'straight' ? 'right' : dir
+      setMagText(digits)
+      setDir(nextDir)
+      commitInputs(mag, nextDir)
+    },
+    [dir, commitInputs],
+  )
+
+  const onDir = useCallback(
+    (d: AimDir) => {
+      const mag = d === 'straight' ? 0 : parseInt(magText || '0', 10) || 0
+      setDir(d)
+      if (d === 'straight') setMagText('0')
+      commitInputs(mag, d)
+    },
+    [magText, commitInputs],
   )
 
   const pan = Gesture.Pan()
@@ -297,8 +373,74 @@ export function GreenDiagram({
       >
         {aimLabel}
       </Text>
+
+      <View
+        style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          marginTop: 12,
+          gap: 10,
+        }}
+      >
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          <TextInput
+            keyboardType="number-pad"
+            value={magText}
+            onChangeText={onMagText}
+            selectTextOnFocus
+            accessibilityLabel="Break amount in inches"
+            style={NUM_INPUT}
+          />
+          <Text style={[TYPE.body, { color: '#5C6356', fontSize: 14, marginLeft: 6 }]}>in</Text>
+        </View>
+        <View style={{ flexDirection: 'row', gap: 6 }}>
+          {(['left', 'straight', 'right'] as const).map((d) => (
+            <SegCell key={d} label={SEG_LABEL[d]} on={dir === d} onPress={() => onDir(d)} />
+          ))}
+        </View>
+      </View>
     </View>
   )
+}
+
+function SegCell({
+  label,
+  on,
+  onPress,
+}: {
+  label: string
+  on: boolean
+  onPress: () => void
+}) {
+  return (
+    <PressableTouch
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      onPress={onPress}
+      style={{
+        paddingVertical: 8,
+        paddingHorizontal: 10,
+        borderRadius: 2,
+        backgroundColor: on ? '#1F3D2C' : '#EBE5D6',
+      }}
+    >
+      <Text style={[TYPE.body, { color: on ? '#F2EEE5' : '#1C211C', fontSize: 12 }]}>{label}</Text>
+    </PressableTouch>
+  )
+}
+
+const NUM_INPUT: import('react-native').TextStyle = {
+  backgroundColor: '#FBF8F1',
+  borderWidth: 1,
+  borderColor: '#D9D2BF',
+  borderRadius: 2,
+  paddingHorizontal: 12,
+  paddingVertical: 10,
+  fontSize: 15,
+  color: '#1C211C',
+  minWidth: 56,
+  textAlign: 'center',
 }
 
 // Worklet-flagged clamp so the Pan onEnd / useAnimatedProps math can
