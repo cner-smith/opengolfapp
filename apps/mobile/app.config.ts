@@ -6,6 +6,20 @@ const config: ExpoConfig = {
   name: 'OGA',
   slug: 'oga',
   scheme: 'oga',
+  // This is the MOBILE STORE version and it is load-bearing: runtimeVersion
+  // derives from it (policy 'appVersion' below), so OTA updates only reach
+  // installs whose native binary shipped this exact `version`. It must equal
+  // the version currently live on the App Store / Play — bump it ONLY when you
+  // submit a new native build, never to match a repo tag.
+  //
+  // Two independent version streams, by design (#862):
+  //   • GitHub / release-please tags (v1.x) — the REPO + web stream. Auto-bumps
+  //     from conventional commits on every merge to main; drives the changelog
+  //     and the continuously-deployed web app. Currently ahead (v1.4.x).
+  //   • This `version` — the MOBILE store stream. Only moves on a native submit.
+  //     Currently 1.2.0; everything since launch shipped as OTA on runtime 1.2.0.
+  // They reconverge naturally: at the NEXT native build, set this `version` to
+  // the then-current release-please number, and the store == GitHub tag again.
   version: '1.2.0',
   // EAS Update (OTA). Ships JS/asset-only fixes to installed builds WITHOUT an
   // App Store / Play review — Apple/Google permit interpreted-code updates that
