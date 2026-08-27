@@ -1,8 +1,10 @@
 import { useState } from 'react'
-import { Text, View } from 'react-native'
+import { Platform, Text, View } from 'react-native'
 import { router } from 'expo-router'
 import * as WebBrowser from 'expo-web-browser'
 import * as Linking from 'expo-linking'
+import * as AppleAuthentication from 'expo-apple-authentication'
+import * as Crypto from 'expo-crypto'
 import { PressableTouch } from '../ui/PressableTouch'
 import { supabase } from '../../lib/supabase'
 import { TYPE } from '../../lib/typography'
@@ -52,6 +54,42 @@ export function OAuthButtons() {
     }
   }
 
+  async function signInWithApple() {
+    if (busy) return
+    setError(null)
+    setBusy(true)
+    try {
+      const rawNonce = Crypto.randomUUID() // CSPRNG
+      const hashedNonce = await Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, rawNonce)
+      const credential = await AppleAuthentication.signInAsync({
+        requestedScopes: [
+          AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+          AppleAuthentication.AppleAuthenticationScope.EMAIL,
+        ],
+        nonce: hashedNonce,
+      })
+      if (!credential.identityToken) {
+        setError('Could not sign in with Apple.')
+        return
+      }
+      const { error: idError } = await supabase.auth.signInWithIdToken({
+        provider: 'apple',
+        token: credential.identityToken,
+        nonce: rawNonce,
+      })
+      if (idError) {
+        setError('Could not sign in with Apple.')
+        return
+      }
+      router.replace('/(auth)/welcome')
+    } catch (e) {
+      if ((e as { code?: string }).code === 'ERR_REQUEST_CANCELED') return // user cancel — no-op
+      setError('Could not sign in with Apple.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
   return (
     <View style={{ gap: 10 }}>
       <PressableTouch
@@ -63,6 +101,17 @@ export function OAuthButtons() {
       >
         <Text style={[TYPE.body, { color: '#1C211C', fontSize: 15 }]}>Continue with Google</Text>
       </PressableTouch>
+      {Platform.OS === 'ios' && (
+        <View pointerEvents={busy ? 'none' : 'auto'} style={{ opacity: busy ? 0.5 : 1 }}>
+          <AppleAuthentication.AppleAuthenticationButton
+            buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
+            buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.BLACK}
+            cornerRadius={2}
+            style={{ width: '100%', height: 44 }}
+            onPress={signInWithApple}
+          />
+        </View>
+      )}
       {error && <Text style={[TYPE.body, { color: '#A33A2A', fontSize: 13 }]}>{error}</Text>}
     </View>
   )
