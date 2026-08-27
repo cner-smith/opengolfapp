@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { toUserMessage } from '../../lib/errors'
@@ -11,6 +11,13 @@ import { toUserMessage } from '../../lib/errors'
 export function AuthCallbackPage() {
   const navigate = useNavigate()
   const [error, setError] = useState<string | null>(null)
+  // PKCE codes are single-use. StrictMode (main.tsx) double-invokes this
+  // effect on mount in dev, so `active` alone (which only guards a stale
+  // *state update*) isn't enough — without this ref, the second effect
+  // instance fires a second exchangeCodeForSession with the same code,
+  // which GoTrue rejects, and that failure is what ends up rendered.
+  // Mirrors the `handled` ref in apps/mobile/app/auth-callback.tsx.
+  const handledRef = useRef(false)
 
   useEffect(() => {
     let active = true
@@ -19,6 +26,8 @@ export function AuthCallbackPage() {
       setError('Missing sign-in code. Please try signing in again.')
       return
     }
+    if (handledRef.current) return
+    handledRef.current = true
     supabase.auth.exchangeCodeForSession(code).then(({ error: exchangeError }) => {
       if (!active) return
       if (exchangeError) {
