@@ -335,13 +335,6 @@ export default function Signup() {
             {loading ? 'Creating…' : 'Create account'}
           </Text>
         </Pressable>
-        <Link href="/(auth)/login" asChild>
-          <Text
-            style={[TYPE.body, { fontSize: 13, marginTop: 14, textAlign: 'center', color: '#1F3D2C' }]}
-          >
-            Have an account? Sign in
-          </Text>
-        </Link>
         <View style={{ flexDirection: 'row', alignItems: 'center', marginVertical: 18 }}>
           <View style={{ flex: 1, height: 0.5, backgroundColor: '#D9D2BF' }} />
           <Text
@@ -358,6 +351,13 @@ export default function Signup() {
           <View style={{ flex: 1, height: 0.5, backgroundColor: '#D9D2BF' }} />
         </View>
         <OAuthButtons />
+        <Link href="/(auth)/login" asChild>
+          <Text
+            style={[TYPE.body, { fontSize: 13, marginTop: 14, textAlign: 'center', color: '#1F3D2C' }]}
+          >
+            Have an account? Sign in
+          </Text>
+        </Link>
       </View>
       </ScrollView>
     </KeyboardAvoidingView>
