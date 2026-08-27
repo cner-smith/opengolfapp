@@ -10,6 +10,7 @@ import {
 } from 'react-native'
 import { Link, useRouter } from 'expo-router'
 import { WebView } from 'react-native-webview'
+import { OAuthButtons } from '../../components/auth/OAuthButtons'
 import { supabase } from '../../lib/supabase'
 import { TYPE } from '../../lib/typography'
 
@@ -154,6 +155,22 @@ export default function Login() {
         >
           No account? Sign up
         </Link>
+        <View style={{ flexDirection: 'row', alignItems: 'center', marginVertical: 18 }}>
+          <View style={{ flex: 1, height: 0.5, backgroundColor: '#D9D2BF' }} />
+          <Text
+            style={[TYPE.kicker, {
+              color: '#8A8B7E',
+              fontSize: 10,
+              letterSpacing: 1.4,
+              textTransform: 'uppercase',
+              marginHorizontal: 10,
+            }]}
+          >
+            Or
+          </Text>
+          <View style={{ flex: 1, height: 0.5, backgroundColor: '#D9D2BF' }} />
+        </View>
+        <OAuthButtons />
       </View>
       </ScrollView>
     </KeyboardAvoidingView>
