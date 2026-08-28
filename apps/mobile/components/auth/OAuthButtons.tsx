@@ -38,7 +38,16 @@ function GoogleGlyph() {
   )
 }
 
-const REDIRECT = 'oga://auth-callback'
+// Own redirect path, distinct from the email-confirm callback
+// (`oga://auth-callback`). On Android, expo-web-browser has no native
+// auth-session support (_authSessionIsNativelySupported() is iOS-only), so
+// the redirect arrives via the ordinary RN `Linking` emitter — which Expo
+// Router also listens to. If this reused `auth-callback`'s path, Router
+// would navigate to that screen and it would independently exchange the
+// same single-use PKCE code this handler is already consuming. A dedicated
+// path + the passive `app/oauth-callback.tsx` screen keeps that navigation
+// harmless.
+const REDIRECT = 'oga://oauth-callback'
 
 export function OAuthButtons() {
   const [error, setError] = useState<string | null>(null)
