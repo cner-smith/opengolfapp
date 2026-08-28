@@ -12,6 +12,7 @@ import {
 import { Link, useRouter } from 'expo-router'
 import * as Linking from 'expo-linking'
 import { WebView } from 'react-native-webview'
+import { OAuthButtons } from '../../components/auth/OAuthButtons'
 import { supabase } from '../../lib/supabase'
 import { TYPE } from '../../lib/typography'
 
@@ -334,6 +335,22 @@ export default function Signup() {
             {loading ? 'Creating…' : 'Create account'}
           </Text>
         </Pressable>
+        <View style={{ flexDirection: 'row', alignItems: 'center', marginVertical: 18 }}>
+          <View style={{ flex: 1, height: 0.5, backgroundColor: '#D9D2BF' }} />
+          <Text
+            style={[TYPE.kicker, {
+              color: '#8A8B7E',
+              fontSize: 10,
+              letterSpacing: 1.4,
+              textTransform: 'uppercase',
+              marginHorizontal: 10,
+            }]}
+          >
+            Or
+          </Text>
+          <View style={{ flex: 1, height: 0.5, backgroundColor: '#D9D2BF' }} />
+        </View>
+        <OAuthButtons />
         <Link href="/(auth)/login" asChild>
           <Text
             style={[TYPE.body, { fontSize: 13, marginTop: 14, textAlign: 'center', color: '#1F3D2C' }]}

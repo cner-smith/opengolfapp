@@ -11,4 +11,5 @@ if (!url || !anonKey) {
 export const supabase = createOgaClient({
   url: url ?? '',
   anonKey: anonKey ?? '',
+  flowType: 'pkce',
 })

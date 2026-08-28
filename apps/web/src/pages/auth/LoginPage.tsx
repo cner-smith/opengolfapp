@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Turnstile } from '@marsidev/react-turnstile'
 import { supabase } from '../../lib/supabase'
+import { GoogleSignInButton } from '../../components/auth/GoogleSignInButton'
 
 // Vite exposes only env vars prefixed `VITE_` to the client bundle, so
 // the Turnstile site key has to follow that convention. Set
@@ -129,6 +130,17 @@ export function LoginPage() {
         >
           {loading ? 'Signing in…' : 'Sign in'}
         </button>
+        <div className="flex items-center" style={{ margin: '16px 0', gap: 10 }}>
+          <div style={{ flex: 1, height: 1, backgroundColor: '#E4E4E0' }} />
+          <span
+            className="text-caddie-ink-mute uppercase"
+            style={{ fontSize: 11, letterSpacing: '0.08em' }}
+          >
+            or
+          </span>
+          <div style={{ flex: 1, height: 1, backgroundColor: '#E4E4E0' }} />
+        </div>
+        <GoogleSignInButton />
         <p
           className="text-caddie-ink-dim text-center"
           style={{ fontSize: 13, marginTop: 14 }}
