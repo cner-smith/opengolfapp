@@ -383,12 +383,21 @@ export function useHoleData(
   // pending shot starts (in pending insertion order). The current ball
   // is intentionally excluded — HoleMap appends it as the line's final
   // segment so the ball can move while the breadcrumb stays.
+  //
+  // INVARIANT: this filter and those of `previousShotIds` / `previousShotObs`
+  // below must stay IDENTICAL — the three arrays are consumed by index, and a
+  // payload admitted by one but not another shifts every later index. That
+  // alignment now decides which shot markLastShotOb writes `ob: true` to,
+  // which waypoint wears the OB badge, and which row summaryRows stamps —
+  // the row that then sets the hole score (#839). `p.id` is redundant today
+  // (insertPendingShot always stamps one) but is kept here so the invariant
+  // is structural rather than a coincidence of three call sites.
   const previousShots = useMemo(() => {
     const out: LatLng[] = [...remoteShotStarts]
     for (const r of pendingForHole) {
       try {
         const p = JSON.parse(r.payload) as ShotPayload
-        if (p.start_lat != null && p.start_lng != null) {
+        if (p.start_lat != null && p.start_lng != null && p.id) {
           out.push({ lat: p.start_lat, lng: p.start_lng })
         }
       } catch {
@@ -401,6 +410,7 @@ export function useHoleData(
   // Shot client-ids aligned 1:1 with `previousShots` (same order + length), so
   // the summary can map a row to its shot for delete_shot. Remote ids come from
   // the server rows; pending ids from payload.id (always set on insert, db.ts).
+  // Same filter as `previousShots` above — see the invariant note there.
   const previousShotIds = useMemo(() => {
     const out: string[] = [...remoteShotIds]
     for (const r of pendingForHole) {
@@ -416,9 +426,10 @@ export function useHoleData(
     return out
   }, [remoteShotIds, pendingForHole])
 
-  // OB flag per shot, built with the SAME filters as previousShotIds above so
-  // the two stay index-aligned (a shot's id and its OB state must never drift
-  // apart). Pending payloads carry `ob` themselves — buildPayload writes it,
+  // OB flag per shot, built with the SAME filters as previousShots /
+  // previousShotIds above so all three stay index-aligned (a shot's position,
+  // id and OB state must never drift apart — see the invariant note on
+  // previousShots). Pending payloads carry `ob` themselves — buildPayload writes it,
   // and the live OB chip patches it back into SQLite so this stays true for a
   // shot flagged after it was queued (#839).
   const previousShotObs = useMemo(() => {
