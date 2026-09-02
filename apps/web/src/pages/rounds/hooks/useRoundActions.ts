@@ -608,6 +608,9 @@ export function useRoundActions(input: UseRoundActionsInput): UseRoundActionsRes
           rows.map((r) => ({
             shot_number: r.shotNumber,
             lie_type: r.lieType,
+            // Required: shot_number is not the stroke number on an OB hole, so
+            // inferGir needs the penalty strokes to size its thresholds (#839).
+            shotResult: r.shotResult,
           })),
           resolvedPar ?? activeHole.par,
           true,

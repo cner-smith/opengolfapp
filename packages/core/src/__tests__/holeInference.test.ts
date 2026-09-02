@@ -4,6 +4,8 @@ import { inferHoleStats } from '../holeInference'
 interface S {
   shot_number: number
   lie_type: string | null
+  ob?: boolean | null
+  shotResult?: string | null
 }
 
 const tee = (n: number): S => ({ shot_number: n, lie_type: 'tee' })
@@ -138,5 +140,51 @@ describe('inferHoleStats — gir', () => {
 
   it('empty shots → gir: null', () => {
     expect(inferHoleStats([], 4).gir).toBeNull()
+  })
+
+  // Struck-shot numbering is preserved across an OB (#839), so shot_number
+  // undercounts strokes by one per stroke-and-distance penalty.
+  it('par 4, tee OB then re-tee then green-start shot 3 → gir: FALSE (arrived on stroke 3)', () => {
+    const shots: S[] = [
+      { shot_number: 1, lie_type: 'tee', ob: true },
+      lie(2, 'tee'),
+      lie(3, 'green'),
+    ]
+    expect(inferHoleStats(shots, 4).gir).toBe(false)
+  })
+
+  // `shotResult: 'ob'` is the review-row representation; obCount reads either.
+  it('par 3, tee OB then a green-start shot 2 → gir: FALSE (was 2 <= par-1)', () => {
+    const shots: S[] = [
+      { shot_number: 1, lie_type: 'tee', shotResult: 'ob' },
+      lie(2, 'green'),
+    ]
+    expect(inferHoleStats(shots, 3).gir).toBe(false)
+  })
+
+  it('par 3, tee OB then re-tee then green-start shot 3 → gir: FALSE', () => {
+    const shots: S[] = [
+      { shot_number: 1, lie_type: 'tee', ob: true },
+      lie(2, 'tee'),
+      lie(3, 'green'),
+    ]
+    expect(inferHoleStats(shots, 3).gir).toBe(false)
+  })
+
+  it('par 5, tee OB then green-start shot 3 → gir: true (arrived on stroke 3 = par-2)', () => {
+    const shots: S[] = [
+      { shot_number: 1, lie_type: 'tee', ob: true },
+      lie(2, 'tee'),
+      lie(3, 'green'),
+    ]
+    expect(inferHoleStats(shots, 5).gir).toBe(true)
+  })
+
+  it('par 4, tee OB then holed re-tee approach → gir: FALSE (holedOut branch)', () => {
+    const shots: S[] = [
+      { shot_number: 1, lie_type: 'tee', ob: true },
+      lie(2, 'tee'),
+    ]
+    expect(inferHoleStats(shots, 4, true).gir).toBe(false)
   })
 })

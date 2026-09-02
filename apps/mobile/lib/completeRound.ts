@@ -146,6 +146,9 @@ export async function completeRound({
       holeShots.map((s) => ({
         shot_number: s.shot_number,
         lie_type: s.lie_type,
+        // Required: shot_number is not the stroke number on an OB hole, so
+        // inferGir needs the penalty strokes to size its thresholds (#839).
+        ob: s.ob,
       })),
       hole.par,
       holedOut,

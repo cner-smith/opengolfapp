@@ -926,7 +926,13 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
       // the pin by construction (matches web's saveReviewedHole). An explicit
       // scorecard toggle is never overwritten (?? guards).
       const inferred = inferHoleStats(
-        rows.map((r) => ({ shot_number: r.shotNumber, lie_type: r.lieType })),
+        rows.map((r) => ({
+          shot_number: r.shotNumber,
+          lie_type: r.lieType,
+          // Required: shot_number is not the stroke number on an OB hole, so
+          // inferGir needs the penalty strokes to size its thresholds (#839).
+          shotResult: r.shotResult,
+        })),
         currentHole.par,
         true,
       )
