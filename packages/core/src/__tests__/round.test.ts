@@ -5,6 +5,7 @@ import {
   isPuttShot,
   isPuttEntry,
   legacySlopeToAxes,
+  obCount,
   playedRowsForDifferential,
   summarizePuttParts,
   summarizeShotParts,
@@ -383,5 +384,23 @@ describe('playedRowsForDifferential', () => {
     expect(playedRowsForDifferential(rows([4, 5, 3, 0]), 3)).toEqual(
       rows([4, 5, 3]),
     )
+  })
+})
+
+describe('obCount', () => {
+  it('counts rows, not booleans — two OBs on a hole is 2', () => {
+    expect(obCount([{ ob: true }, { ob: false }, { ob: true }])).toBe(2)
+  })
+  it('counts a ReviewedShotRow-shaped row, which has no ob field', () => {
+    expect(obCount([{ shotResult: 'ob' }, { shotResult: 'solid' }])).toBe(1)
+  })
+  it('does not double-count a row carrying both representations', () => {
+    expect(obCount([{ ob: true, shotResult: 'ob' }])).toBe(1)
+  })
+  it('treats null and undefined as not-OB', () => {
+    expect(obCount([{ ob: null }, { ob: undefined }, {}])).toBe(0)
+  })
+  it('is 0 for an empty hole', () => {
+    expect(obCount([])).toBe(0)
   })
 })
