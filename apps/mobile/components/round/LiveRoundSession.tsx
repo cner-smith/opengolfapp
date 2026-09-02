@@ -832,13 +832,14 @@ export default function LiveRoundSession({
             })
           }
           onNotOnGreen={actions.notOnGreen}
-          // Live OB (#839). State is DERIVED from the stored rows — a mid-hole
-          // reload must not offer to flag an already-OB shot again and charge
-          // the penalty twice.
+          // Live OB (#839). Both props come from useShotActions so the label
+          // and the toggle's direction share one source — the fetched flag,
+          // overridden by our own last write until the refetch catches up.
+          // Reading data.previousShotObs directly here would reintroduce the
+          // window where the chip still invites a tap that charges a second
+          // penalty stroke.
           onMarkLastShotOb={() => void actions.markLastShotOb()}
-          lastShotIsOb={
-            data.previousShotObs[data.previousShotObs.length - 1] ?? false
-          }
+          lastShotIsOb={actions.lastShotIsOb}
           onAddShot={() => {
             // Opt back into the live append flow on a revisited played hole:
             // re-arm the GPS ball + auto-aim and enter PLACE_BALL (#484).
