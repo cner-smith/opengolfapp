@@ -13,6 +13,13 @@ interface BreadcrumbLayersProps {
   styleLoaded: boolean
   isPinMode: boolean
   toDisplay: (yards: number) => string
+  /**
+   * Out-of-bounds flag per shot, index-aligned with `previousShots` (#839).
+   * Optional/undefined-safe so callers that haven't threaded OB data yet
+   * (there are none left, but keep this defensive) still render plain
+   * waypoints.
+   */
+  obs?: boolean[]
 }
 
 // Renders the orange breadcrumb line through prior shot starts, numbered
@@ -28,17 +35,18 @@ export function BreadcrumbLayers({
   styleLoaded,
   isPinMode,
   toDisplay,
+  obs,
 }: BreadcrumbLayersProps) {
   const waypointFeatures = useMemo<GeoJSON.FeatureCollection<GeoJSON.Point>>(
     () => ({
       type: 'FeatureCollection',
       features: previousShots.map((p, i) => ({
         type: 'Feature',
-        properties: { n: i + 1 },
+        properties: { n: i + 1, ob: obs?.[i] === true },
         geometry: { type: 'Point', coordinates: toCoord(p) },
       })),
     }),
-    [previousShots],
+    [previousShots, obs],
   )
 
   const segmentFeatures = useMemo<GeoJSON.FeatureCollection<GeoJSON.Point>>(
@@ -76,11 +84,35 @@ export function BreadcrumbLayers({
       </Mapbox.ShapeSource>
 
       <Mapbox.ShapeSource id="prevShotsWaypoints" shape={waypointFeatures}>
+        {/* OB badge ring (#839). An OB shot's re-hit starts from the exact
+            same coordinates (stroke-and-distance — no renumbering, the
+            re-hit is just the next struck-shot number), so its waypoint
+            disc lands directly on top of the OB shot's disc below. A same-
+            radius recolor alone would just have one circle silently win the
+            stacking order and look like a rendering glitch. This wider
+            stroked ring is declared BELOW the disc/number layers (rendered
+            first = underneath) and sized past the disc's radius, so its red
+            edge always peeks out around whichever disc ends up on top —
+            reading as an intentional "penalty happened here" badge rather
+            than a double-render. Renders only for the OB shot's own
+            feature; the covering re-hit disc has ob=false and gets no ring. */}
+        <Mapbox.CircleLayer
+          id="prevShotsObRing"
+          filter={['==', ['get', 'ob'], true]}
+          style={{
+            circleRadius: 15,
+            circleColor: 'rgba(0,0,0,0)',
+            circleStrokeColor: '#A33A2A',
+            circleStrokeWidth: 3,
+          }}
+        />
         <Mapbox.CircleLayer
           id="prevShotsWaypointDisc"
           style={{
             circleRadius: 10,
-            circleColor: '#A66A1F',
+            // caddie-neg (#A33A2A) for the shot that went OB, matching the
+            // live chip / scorecard penalty color; amber for everything else.
+            circleColor: ['case', ['==', ['get', 'ob'], true], '#A33A2A', '#A66A1F'],
             circleStrokeColor: '#FBF8F1',
             circleStrokeWidth: 2,
           }}

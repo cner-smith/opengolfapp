@@ -1,4 +1,4 @@
-import { useRef, useState, type Dispatch, type SetStateAction } from 'react'
+import { useMemo, useRef, useState, type Dispatch, type SetStateAction } from 'react'
 import { Alert } from 'react-native'
 import { useRouter } from 'expo-router'
 import { uuid } from 'expo-modules-core'
@@ -22,6 +22,7 @@ import {
   insertPendingShot,
   pendingCount,
   setPendingShotEnd,
+  setPendingShotOb,
   upsertReviewedShot,
   type ShotPayload,
 } from '../../../lib/db'
@@ -50,6 +51,13 @@ interface UseShotActionsInput {
   setLoggerInitial: Dispatch<SetStateAction<ShotLoggerValue>>
   setPinPlacementOpen: Dispatch<SetStateAction<boolean>>
   setActiveDialog: Dispatch<SetStateAction<ActiveDialog>>
+  // The component's manual ball-placement path — the very handler a map
+  // drag/tap goes through (freezes GPS tracking for this PLACE_BALL cycle,
+  // re-anchors the Kalman filter, flips the CTA off its "at my GPS"
+  // labelling). Passed in rather than reimplemented here because part of
+  // that state (ballMoved) lives in LiveRoundSession. markLastShotOb uses
+  // it to drop the ball back on the OB shot's origin.
+  placeBallManually: (loc: LatLng) => void
   // Hole navigation is callback-driven so the parent (LiveRoundSession)
   // can keep the MapView resident across hole changes. Direct router.replace
   // would fully unmount + remount the screen — see #264.
@@ -115,6 +123,21 @@ export interface UseShotActionsResult {
     shotId: string,
     newStart: { lat: number; lng: number },
   ) => Promise<boolean>
+  // Online-first toggle of the OB flag on this hole's most recent shot, plus
+  // its stroke-and-distance bookkeeping (#839). See the implementation for
+  // why it writes two representations of the same fact.
+  markLastShotOb: () => Promise<void>
+  // Whether that most recent shot is currently flagged OB — the chip's
+  // set-vs-undo label. Exposed from here rather than read off the fetched
+  // data directly so the label and the toggle's direction can never disagree
+  // (they share one source, including the just-written optimistic value).
+  lastShotIsOb: boolean
+  // The same OB truth for EVERY shot on the hole, index-aligned with
+  // data.previousShots / previousShotIds. Exposed for the same reason
+  // lastShotIsOb is: the end-of-hole summary seeds its rows from this, and
+  // reading the fetched flags directly would let it re-seed the score ticker
+  // to the struck count during the window before a just-written OB refetches.
+  shotObs: boolean[]
 }
 
 export function useShotActions(input: UseShotActionsInput): UseShotActionsResult {
@@ -129,6 +152,7 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
     setLoggerInitial,
     setPinPlacementOpen,
     setActiveDialog,
+    placeBallManually,
     onHoleChange,
     onAdvanceHole,
   } = input
@@ -143,6 +167,31 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
   // late, so a fast double-tap of Finish (18th hole) or End round could fire
   // completeRound twice. The ref flips synchronously and blocks the second.
   const endInFlightRef = useRef(false)
+  // Serializes OB toggles: blocks a tap that arrives while one is in flight,
+  // and (because the hole_scores write below is awaited inside the same
+  // window) guarantees a set→undo pair reaches the server in the order it was
+  // issued rather than in whatever order two unordered writes happen to land.
+  const obInFlightRef = useRef(false)
+  // The OB flag we last WROTE for a shot, which outranks the fetched value
+  // until the refetch catches up. `previousShotObs` only refreshes when the
+  // post-write `refreshShots` round-trip lands — a whole extra RTT after the
+  // write resolved and the in-flight gate released. Reading the fetched value
+  // in that window is what made the penalty chargeable twice: a second tap
+  // recomputed `next = true` against stale data, the update matched its (still
+  // ob=true) row so the 0-row guard passed, and the score took a second +1.
+  // Ref = the synchronous truth the next toggle's direction is computed from
+  // (a state setter commits a tick late, which is the whole double-tap
+  // problem); state = the render-visible mirror, so the chip's label flips the
+  // instant the write succeeds instead of an RTT later. Same ref-for-decisions
+  // / state-for-render split as persistShotInFlightRef vs `saving` above.
+  // Keyed on the shot id, so it simply stops applying once a newer shot is
+  // logged, and needs no explicit invalidation: by the time the refetch lands
+  // it agrees with the fetched value anyway.
+  const obOverrideRef = useRef<{ shotId: string; ob: boolean } | null>(null)
+  const [obOverride, setObOverride] = useState<{
+    shotId: string
+    ob: boolean
+  } | null>(null)
   const [ending, setEnding] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [shotEntrySeq, setShotEntrySeq] = useState(0)
@@ -160,9 +209,29 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
     remotePuttCount,
     localPuttCount,
     previousShots,
+    previousShotIds,
+    previousShotObs,
     shotNumber,
     holeCount,
   } = data
+  // Effective OB flag per shot on this hole, index-aligned with
+  // previousShotIds: our own last write for a shot outranks the fetched value
+  // until the refetch catches up (see obOverrideRef above). One array so the
+  // chip's label and every score term below read the same truth.
+  // Memoized so consumers can use it as a dependency (the end-of-hole
+  // summary rebuilds its rows off it) without recomputing every render.
+  const shotObs = useMemo(
+    () =>
+      previousShotIds.map((shotId, i) =>
+        obOverride?.shotId === shotId ? obOverride.ob : previousShotObs[i] ?? false,
+      ),
+    [previousShotIds, previousShotObs, obOverride],
+  )
+  // Penalty strokes already recorded on THIS hole (scoped to one
+  // hole_score_id — never round-wide). A stroke-and-distance OB has no shot
+  // row of its own, so anywhere a struck-row count becomes hole_scores.score
+  // has to add these back or the OB chip's bump is silently reverted (#839).
+  const holeObStrokes = shotObs.filter(Boolean).length
   // Guards a double-fire of the end-of-hole save the same way persistShot
   // guards its own — the `saving` state setter commits a tick late.
   const saveSummaryInFlightRef = useRef(false)
@@ -287,9 +356,16 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
       // Background sync — don't await.
       syncPendingShots().catch(() => undefined)
       const newPutts = remotePuttCount + localPuttCount + (isPutt ? 1 : 0)
+      // score = struck rows + penalty strokes. `shotNumber` IS the struck
+      // count once this row lands, so without the OB term the very next shot
+      // overwrites the chip's bump with the raw count. `payload.ob` covers
+      // this row itself being saved OB — it isn't in shotObs yet, which is
+      // built from the already-stored rows. Applied exactly once per save:
+      // the score is written absolutely, never incremented.
+      const newScore = shotNumber + holeObStrokes + (payload.ob ? 1 : 0)
       supabase
         .from('hole_scores')
-        .update({ score: shotNumber, putts: newPutts })
+        .update({ score: newScore, putts: newPutts })
         .eq('id', payload.hole_score_id)
         .then(({ error }) => {
           if (error) {
@@ -300,7 +376,7 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
       setHoleScores((prev) =>
         prev.map((hs) =>
           hs.id === payload.hole_score_id
-            ? { ...hs, score: shotNumber, putts: newPutts }
+            ? { ...hs, score: newScore, putts: newPutts }
             : hs,
         ),
       )
@@ -727,16 +803,22 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
       }
       const remoteByNum = new Map<
         number,
-        { id: string; aim_lat: number | null; aim_lng: number | null }
+        {
+          id: string
+          aim_lat: number | null
+          aim_lng: number | null
+          ob: boolean
+          penalty: boolean
+        }
       >()
       let remote = await supabase
         .from('shots')
-        .select('id, shot_number, aim_lat, aim_lng')
+        .select('id, shot_number, aim_lat, aim_lng, ob, penalty')
         .eq('hole_score_id', currentHoleScore.id)
       if (remote.error) {
         remote = await supabase
           .from('shots')
-          .select('id, shot_number, aim_lat, aim_lng')
+          .select('id, shot_number, aim_lat, aim_lng, ob, penalty')
           .eq('hole_score_id', currentHoleScore.id)
       }
       for (const s of remote.data ?? []) {
@@ -744,6 +826,8 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
           id: s.id,
           aim_lat: s.aim_lat,
           aim_lng: s.aim_lng,
+          ob: s.ob,
+          penalty: s.penalty,
         })
       }
 
@@ -789,8 +873,25 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
           lie_slope_forward: isPuttRow ? null : row.lieSlopeForward ?? null,
           lie_slope_side: isPuttRow ? null : row.lieSlopeSide ?? null,
           shot_result: isPuttRow ? null : row.shotResult ?? null,
-          penalty: false,
-          ob: false,
+          // The reviewed ROW is authoritative for OB — no `existing.ob ||`
+          // fallback. The sheet renders SHOT_RESULTS as a single-select
+          // picker, so a fallback would let one tap ("it was a pull") write
+          // shot_result='pull' while ob stayed true, leaving a row that SG
+          // charges −2 and the map badges red but whose label says pull, with
+          // no path from the sheet to clear it.
+          //
+          // Safe because the row genuinely arrives carrying the flag:
+          // useHoleData's remoteShotObs/previousShotObs read the fetched
+          // `shots.ob` (so it survives a mid-hole reload) → useShotActions'
+          // `shotObs` (obOverride wins over a lagging refetch) →
+          // LiveRoundSession's `summaryRows` stamps `shotResult: 'ob'` →
+          // HoleReviewSheet hydrates `rows` from those `initialRows` →
+          // back here as `rows`. saveHoleSummary has exactly one caller (that
+          // sheet, for the live hole), so the seed always fires. If that seed
+          // path is ever broken, this line silently drops every OB flag —
+          // keep the two in step (#839).
+          penalty: existing.penalty ?? false,
+          ob: row.shotResult === 'ob',
           // Putt tap-to-tap distance is in yards; * 3 = feet (US convention),
           // and putt_distance_ft is what the rest of the app reads.
           putt_distance_ft: isPuttRow ? Math.round(row.distanceYards * 3) : null,
@@ -835,7 +936,13 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
       // the pin by construction (matches web's saveReviewedHole). An explicit
       // scorecard toggle is never overwritten (?? guards).
       const inferred = inferHoleStats(
-        rows.map((r) => ({ shot_number: r.shotNumber, lie_type: r.lieType })),
+        rows.map((r) => ({
+          shot_number: r.shotNumber,
+          lie_type: r.lieType,
+          // Required: shot_number is not the stroke number on an OB hole, so
+          // inferGir needs the penalty strokes to size its thresholds (#839).
+          shotResult: r.shotResult,
+        })),
         currentHole.par,
         true,
       )
@@ -1098,6 +1205,130 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
     }
   }
 
+  // Live out-of-bounds (#839). The affordance can exist at all because
+  // persistShot writes the shot row on confirmAim/skipAim — BEFORE the ball
+  // is struck — with `start` = the ball the player just marked. So when a
+  // shot flies OB the player is still standing at that shot's origin, and
+  // stroke-and-distance is nothing more than "flag it, charge the stroke,
+  // put the ball back where it was".
+  //
+  // Online-first, exactly like its siblings deleteShot / moveShot: flush the
+  // pending queue so the target has a server row, write it directly, and fail
+  // visibly on a 0-row response rather than pretending it worked. Second tap
+  // undoes.
+  async function markLastShotOb() {
+    if (!user || !currentHoleScore) return
+    if (obInFlightRef.current) return
+    // The hole's most recent shot. previousShotIds/previousShotObs/previousShots
+    // are built index-aligned in useHoleData, and #852's up-front id stamp is
+    // what puts a just-saved (still pending) shot in them at all — its payload
+    // carries the client id from the moment it is queued, so the shot the
+    // player is standing at IS the last entry here. No id is derived or minted.
+    const idx = previousShotIds.length - 1
+    const shotId = previousShotIds[idx]
+    if (!shotId) return
+    const start = previousShots[idx] ?? null
+    // Direction comes from the last value WE WROTE when there is one for this
+    // shot, never from the possibly-stale fetched value — see obOverrideRef.
+    const currentlyOb =
+      obOverrideRef.current?.shotId === shotId
+        ? obOverrideRef.current.ob
+        : previousShotObs[idx] ?? false
+    const next = !currentlyOb
+    obInFlightRef.current = true
+    try {
+      // Flush first (mirrors moveShot): the client id is stable, so once the
+      // shot has synced the update below hits the real row instead of 0 rows.
+      await syncPendingShots()
+      const { data: updatedRows, error } = await supabase
+        .from('shots')
+        // BOTH representations of the same fact, deliberately:
+        //   `ob`          — what the SG engine reads (sg-calculator charges
+        //                   an OB shot exactly −2, stroke and distance).
+        //   `shot_result` — what round-trips through ReviewedShotRow, the row
+        //                   type the end-of-hole review sheet is built from,
+        //                   which has NO `ob` field at all. The score ticker
+        //                   can only see the penalty through this string.
+        // buildPayload derives the boolean from the string on the way in, so
+        // writing both keeps one consistent fact rather than two sources of
+        // truth. Clearing restores shot_result to null: SHOT_RESULTS is
+        // single-select, so 'ob' had already displaced any ball-flight result
+        // and there is nothing to restore it from — undo is lossy that way.
+        .update({ ob: next, shot_result: next ? 'ob' : null })
+        .eq('id', shotId)
+        .eq('user_id', user.id)
+        .select('id')
+      if (error) throw error
+      // Matched 0 rows: error === null with empty data (same silent-success
+      // shape moveShot guards against, #710). Surface it instead of leaving
+      // the player believing the penalty was recorded.
+      if (!updatedRows || updatedRows.length === 0) {
+        if (__DEV__) console.warn('[hole/markLastShotOb] update matched 0 rows', shotId)
+        Alert.alert(
+          "Couldn't record that penalty",
+          'Marking a shot OB needs a connection. Try again when you’re back online.',
+        )
+        return
+      }
+      // The write landed — record it as the authoritative flag for this shot
+      // BEFORE anything can be tapped again, so the next toggle reverses it
+      // instead of repeating it. The ref is what the decision above reads; the
+      // state mirror is what re-renders the chip's label.
+      obOverrideRef.current = { shotId, ob: next }
+      setObOverride({ shotId, ob: next })
+      // Patch the local queue copy too. saveHoleSummary pairs each reviewed
+      // row back to its LOCAL payload first and only falls back to the remote
+      // row — so without this the stale local `ob: false` would erase the flag
+      // at the very next end-of-hole save.
+      await setPendingShotOb(shotId, next).catch(() => undefined)
+      // Score ±1 for the penalty stroke, mirrored optimistically the way
+      // persistShot does — but AWAITED, unlike persistShot's fire-and-forget.
+      // Two score writes issued back to back (set then undo) are unordered
+      // otherwise, and the last to ARRIVE wins, which need not be the last
+      // issued. Awaiting it inside the in-flight window makes the next tap
+      // wait, so the server sees them in the order the player tapped them.
+      // A failure still only warns: the shot flag above is the authoritative
+      // record and the tally is re-derived downstream.
+      const nextScore = Math.max(0, currentHoleScore.score + (next ? 1 : -1))
+      setHoleScores((prev) =>
+        prev.map((hs) =>
+          hs.id === currentHoleScore.id ? { ...hs, score: nextScore } : hs,
+        ),
+      )
+      const { error: scoreErr } = await supabase
+        .from('hole_scores')
+        .update({ score: nextScore })
+        .eq('id', currentHoleScore.id)
+      if (scoreErr) {
+        // eslint-disable-next-line no-console
+        console.warn('[hole/ob-score-update]', scoreErr.message)
+      }
+      data.refreshShots()
+      // Stroke and distance: the re-hit starts where the OB shot started, so
+      // drop the ball back there and freeze GPS on it (the same manual-
+      // placement path a drag uses) or the next fix would drag it away. On
+      // UNDO the ball is left exactly where it is — reversing the flag and
+      // the stroke is the undo; moving the player's map is not.
+      if (next && start) placeBallManually(start)
+    } catch (e) {
+      if (__DEV__) console.warn('[hole/markLastShotOb]', (e as Error)?.message)
+      Alert.alert(
+        "Couldn't record that penalty",
+        'Marking a shot OB needs a connection. Try again when you’re back online.',
+      )
+    } finally {
+      obInFlightRef.current = false
+    }
+  }
+
+  // The chip's label, read off the SAME shotObs array markLastShotOb resolves
+  // the toggle's direction from: our own last write for this shot wins over
+  // the fetched value until the refetch catches up. Sharing one rule is the
+  // point — a label saying "Last shot went OB" while the handler would treat
+  // it as an undo (or vice versa) is exactly how a second tap became a second
+  // penalty.
+  const lastShotIsOb = shotObs[shotObs.length - 1] ?? false
+
   function handleExitFromError() {
     // Leave to home WITHOUT deleting. A load error (network blip on a
     // rounds-deep resume) or a missing hole means the round is still
@@ -1139,5 +1370,8 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
     handleExitFromError,
     deleteShot,
     moveShot,
+    markLastShotOb,
+    lastShotIsOb,
+    shotObs,
   }
 }

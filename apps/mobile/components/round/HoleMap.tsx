@@ -83,6 +83,11 @@ interface HoleMapProps {
    * current position. Pass an empty array (or omit) on shot 1.
    */
   previousShots?: LatLng[]
+  /**
+   * Out-of-bounds flag per shot, index-aligned with `previousShots` (#839).
+   * Undefined/short arrays are treated as "not OB" — see BreadcrumbLayers.
+   */
+  previousShotObs?: boolean[]
   phase?: HoleMapPhase
   /**
    * Latest smoothed GPS position. Drives the recenter button (which
@@ -219,6 +224,7 @@ export function HoleMap({
   ball,
   handicap,
   previousShots,
+  previousShotObs,
   phase = 'PLACE_BALL',
   aimCommitted = false,
   gpsPosition,
@@ -684,6 +690,7 @@ export function HoleMap({
             styleLoaded={styleLoaded}
             isPinMode={isPinMode}
             toDisplay={toDisplay}
+            obs={previousShotObs}
           />
 
           <AimGhostLayers

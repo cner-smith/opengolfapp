@@ -106,7 +106,17 @@ export function calculateRoundSG(
     if (startExpected === null) continue
 
     let endExpected: number
-    if (shot.isLastShot || holedOut(shot)) {
+    // Out of bounds / lost ball is stroke-and-distance: the ball returns to
+    // where it was played from, so the end position IS the start position.
+    // Stated as a rule rather than read off the next row, because (a) the next
+    // row often does not exist — "Skip all, just track location" is always
+    // visible, so a player who drops without logging the recovery is normal
+    // use, and the positional isLastShot below would then zero endExpected and
+    // return a large POSITIVE sg; and (b) on web the two positions are
+    // independent taps that never match to the yard.
+    if (shot.ob) {
+      endExpected = startExpected
+    } else if (shot.isLastShot || holedOut(shot)) {
       endExpected = 0
     } else {
       const next = shots[i + 1]

@@ -322,28 +322,22 @@ export default function LiveRoundSession({
       ? data.remoteShotCount + data.localShotCount
       : 0
 
-  // End-of-hole review rows. Built from the shots placed live (their start
-  // coords, in order) via the shared @oga/core inference — same call the web
-  // review sheet uses. Only computed while the summary is open. The pin
-  // anchors the last shot's end + every shot's distance-to-pin; with no pin
-  // (unmapped hole, none placed) the last placed point stands in so distances
-  // degrade to ~0 rather than exploding off [0,0].
-  const summaryRows = useMemo(() => {
-    if (finalState.roundState !== 'SUMMARY') return []
-    const pts = data.previousShots
-    if (pts.length === 0) return []
-    const pin = data.roundPin ?? data.storedPin ?? pts[pts.length - 1]!
-    const par = data.resolvedHole?.par ?? data.currentHoleScore?.par ?? data.currentHole?.par ?? 4
-    return buildInitialRows(pts, par, pin.lat, pin.lng)
-  }, [
-    finalState.roundState,
-    data.previousShots,
-    data.roundPin,
-    data.storedPin,
-    data.resolvedHole?.par,
-    data.currentHoleScore?.par,
-    data.currentHole?.par,
-  ])
+  // Manual ball placement: an explicit override of the GPS-tracked marker.
+  // Freeze GPS updates for this PLACE_BALL cycle and re-anchor the Kalman
+  // filter at the manual point with a low variance (1 m²) — strong prior so
+  // any future un-freeze still resists snapping back to a noisy raw fix.
+  // Used by the map drag/tap AND by the OB chip's stroke-and-distance snap
+  // (#839), so both freeze GPS identically rather than through two paths.
+  const placeBallManually = (loc: LatLng) => {
+    finalState.manuallyPlacedRef.current = true
+    setBallMoved(true)
+    finalState.kalmanStateRef.current = {
+      lat: loc.lat,
+      lng: loc.lng,
+      variance: 1,
+    }
+    finalState.setBall(loc)
+  }
 
   const actions = useShotActions({
     id: roundId,
@@ -356,6 +350,7 @@ export default function LiveRoundSession({
     setLoggerInitial,
     setPinPlacementOpen,
     setActiveDialog,
+    placeBallManually,
     // URL sync fires here — only on user-driven navigation (Next /
     // Prev / Finish), not on every render. A reactive useEffect that
     // depended on the parent's onHoleChange prop looped because the
@@ -376,6 +371,48 @@ export default function LiveRoundSession({
       syncHoleToUrl?.(next)
     },
   })
+
+  // End-of-hole review rows. Built from the shots placed live (their start
+  // coords, in order) via the shared @oga/core inference — same call the web
+  // review sheet uses. Only computed while the summary is open. The pin
+  // anchors the last shot's end + every shot's distance-to-pin; with no pin
+  // (unmapped hole, none placed) the last placed point stands in so distances
+  // degrade to ~0 rather than exploding off [0,0].
+  //
+  // Declared below `actions` (rather than with the other data derivations
+  // above) because the OB seeding needs actions.shotObs — see below.
+  const summaryRows = useMemo(() => {
+    if (finalState.roundState !== 'SUMMARY') return []
+    const pts = data.previousShots
+    if (pts.length === 0) return []
+    const pin = data.roundPin ?? data.storedPin ?? pts[pts.length - 1]!
+    const par = data.resolvedHole?.par ?? data.currentHoleScore?.par ?? data.currentHole?.par ?? 4
+    // Carry the OB flag onto the rows (#839). buildInitialRows is geometry
+    // only — it never sets shotResult — and ReviewedShotRow has no `ob` field
+    // at all, so this string is the ONLY way a penalty reaches the sheet.
+    // Without it the sheet is blind to an OB the player already marked: the
+    // score ticker re-seeds to the struck count and Save persists that back
+    // over the chip's bump, the row shows no OB chip, and saveHoleSummary
+    // (which sources shot_result from the reviewed row, never from the stored
+    // one) writes null over the 'ob' the chip wrote.
+    //
+    // Read off `actions.shotObs`, not data.previousShotObs, for the same
+    // reason the chip's label is (see the OB props below): the fetched flags
+    // lag our own write by a refetch, and finishing the hole inside that
+    // window would seed the sheet without the penalty.
+    return buildInitialRows(pts, par, pin.lat, pin.lng).map((r, i) =>
+      actions.shotObs[i] ? { ...r, shotResult: 'ob' as const } : r,
+    )
+  }, [
+    finalState.roundState,
+    data.previousShots,
+    actions.shotObs,
+    data.roundPin,
+    data.storedPin,
+    data.resolvedHole?.par,
+    data.currentHoleScore?.par,
+    data.currentHole?.par,
+  ])
 
   // Played-hole on-map EDIT mode (vs. live capture): true when the shown
   // hole is BEHIND the finish-advance frontier AND has ≥1 logged shot — i.e.
@@ -666,6 +703,14 @@ export default function LiveRoundSession({
           previousShots={
             editMode ? data.previousShots.slice(0, activeShotIdx) : data.previousShots
           }
+          // Read off `actions.shotObs`, not `data.previousShotObs`, for the
+          // same reason the chip/summary do (see summaryRows above) — our own
+          // last OB write outranks the fetched flags until the refetch lands.
+          // Sliced identically to previousShots so the two stay index-aligned
+          // in edit mode too (#839).
+          previousShotObs={
+            editMode ? actions.shotObs.slice(0, activeShotIdx) : actions.shotObs
+          }
           gpsPosition={finalState.gpsPosition}
           courseCenter={data.courseCenter}
           holeNumber={holeNumber}
@@ -703,25 +748,7 @@ export default function LiveRoundSession({
             finalState.setAim(loc)
             finalState.setAimTouched(true)
           }}
-          onSetBall={
-            editMode
-              ? handleEditModeMove
-              : (loc) => {
-                  // Manual drag/tap is an explicit override. Freeze GPS
-                  // updates for this PLACE_BALL cycle and re-anchor the
-                  // Kalman filter at the manual point with a low variance
-                  // (1 m²) — strong prior so any future un-freeze still
-                  // resists snapping back to a noisy raw fix.
-                  finalState.manuallyPlacedRef.current = true
-                  setBallMoved(true)
-                  finalState.kalmanStateRef.current = {
-                    lat: loc.lat,
-                    lng: loc.lng,
-                    variance: 1,
-                  }
-                  finalState.setBall(loc)
-                }
-          }
+          onSetBall={editMode ? handleEditModeMove : placeBallManually}
           onRecenterBall={(loc) => {
             // Deliberate recenter tap = "put the ball back on me": the
             // inverse of onSetBall above. Lift the manual freeze, restart
@@ -832,6 +859,14 @@ export default function LiveRoundSession({
             })
           }
           onNotOnGreen={actions.notOnGreen}
+          // Live OB (#839). Both props come from useShotActions so the label
+          // and the toggle's direction share one source — the fetched flag,
+          // overridden by our own last write until the refetch catches up.
+          // Reading data.previousShotObs directly here would reintroduce the
+          // window where the chip still invites a tap that charges a second
+          // penalty stroke.
+          onMarkLastShotOb={() => void actions.markLastShotOb()}
+          lastShotIsOb={actions.lastShotIsOb}
           onAddShot={() => {
             // Opt back into the live append flow on a revisited played hole:
             // re-arm the GPS ball + auto-aim and enter PLACE_BALL (#484).

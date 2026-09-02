@@ -12,6 +12,7 @@ import {
   inferHoleStats,
   isPuttEntry,
   isPuttShot,
+  obCount,
   type CaptureMode,
 } from '@oga/core'
 import type { PlacedPoint } from '../../../components/round/RoundMap'
@@ -600,13 +601,16 @@ export function useRoundActions(input: UseRoundActionsInput): UseRoundActionsRes
         // the map review never silently overwrites a value the player
         // explicitly toggled on the scorecard.
         // holedOut=true: this flow is holed-out by construction — the final
-        // marker's end is the pin and `score: rows.length` below asserts the
-        // placed shots ARE the whole hole. Lets aces / holed approaches count
-        // as GIR (#669).
+        // marker's end is the pin and the score term below asserts the
+        // placed shots (+ any OB penalty strokes) ARE the whole hole. Lets
+        // aces / holed approaches count as GIR (#669).
         const inferred = inferHoleStats(
           rows.map((r) => ({
             shot_number: r.shotNumber,
             lie_type: r.lieType,
+            // Required: shot_number is not the stroke number on an OB hole, so
+            // inferGir needs the penalty strokes to size its thresholds (#839).
+            shotResult: r.shotResult,
           })),
           resolvedPar ?? activeHole.par,
           true,
@@ -615,7 +619,19 @@ export function useRoundActions(input: UseRoundActionsInput): UseRoundActionsRes
           id: existing?.id,
           round_id: round.data.id,
           hole_id: realHoleId,
-          score: summary?.score ?? rows.length,
+          // A stroke-and-distance OB has no shot row of its own (the re-hit
+          // is just the next struck shot number), so the struck-row count
+          // alone undercounts the hole by one stroke per OB. `summary.score`
+          // is the ticker the player edited on the review sheet — left alone
+          // here NOT because it's re-seeded OB-aware (it isn't: web has no
+          // live capture, so obCount is always 0 at the sheet's hydration
+          // time), but because the sheet bumps that ticker ±1 itself the
+          // moment a row's result flips to/from 'ob' via the chip — the only
+          // path that can set shotResult 'ob' on web (see HoleReviewSheet's
+          // ShotRow onChange). This fallback term (rows.length +
+          // obCount(rows)) only fires when the sheet didn't pass a summary
+          // at all.
+          score: summary?.score ?? rows.length + obCount(rows),
           putts: summary?.putts ?? puttCount,
           penalties: summary?.penalties ?? 0,
           fairway_hit: existing?.fairway_hit ?? inferred.fairway,
@@ -630,6 +646,35 @@ export function useRoundActions(input: UseRoundActionsInput): UseRoundActionsRes
         })
         const hs = hsResult ?? existing
         if (!hs) throw new Error('hole_score upsert returned no row')
+
+        // Snapshot the ob/penalty flags of the shots about to be replaced,
+        // keyed by shot_number, BEFORE the delete-all below wipes them —
+        // ONLY when the shot count hasn't changed. `rows` (this save's
+        // placements) are numbered 1..M purely from THIS session's own
+        // taps: placedPoints is never seeded from stored shots
+        // (holeViewReducer resets it to [] on SWITCH_HOLE/AFTER_SAVE and
+        // only ever appends/moves/pops), so a re-placement that adds or
+        // drops even one tap re-numbers every later shot with zero
+        // positional correspondence to the stored 1..N it's replacing —
+        // keying by shot_number in that case would attach a stored OB flag
+        // to a physically different, clean shot (silent SG corruption,
+        // worse than the flag-loss bug this fix exists to prevent). Equal
+        // counts don't strictly guarantee the same shots in the same order,
+        // but "re-review without adding/dropping a tap" is the overwhelming
+        // real case, and it's strictly better than the prior always-erase
+        // behavior. A count mismatch falls back to the empty map, so every
+        // row's `ob`/`penalty` below reads as unset except what THIS save's
+        // own result picker set via `shotResult === 'ob'` — never carrying a
+        // stored flag across a renumbering (#797, #839).
+        const existingByShotNumber =
+          activeHoleShots.length === rows.length
+            ? new Map(
+                activeHoleShots.map((s) => [
+                  s.shotNumber,
+                  { ob: s.ob ?? false, penalty: s.penalty ?? false },
+                ]),
+              )
+            : new Map<number, { ob: boolean; penalty: boolean }>()
 
         // Replace-all save: drop any shots already attached to this
         // hole_score before inserting the freshly reviewed rows. Without
@@ -666,8 +711,16 @@ export function useRoundActions(input: UseRoundActionsInput): UseRoundActionsRes
             lie_slope_forward: isPuttRow ? null : row.lieSlopeForward ?? null,
             lie_slope_side: isPuttRow ? null : row.lieSlopeSide ?? null,
             shot_result: isPuttRow ? null : row.shotResult ?? null,
-            penalty: false,
-            ob: false,
+            // The review sheet has no OB control, so the previously stored
+            // value is authoritative unless this save's own result picker
+            // set it (mirrors mobile's useShotActions fix, #797/#839). A
+            // hole with no prior shots at this number (new hole, or the
+            // shot count changed) reads as not-ob/not-penalty, matching a
+            // fresh row's real state.
+            penalty: existingByShotNumber.get(row.shotNumber)?.penalty ?? false,
+            ob:
+              (existingByShotNumber.get(row.shotNumber)?.ob ?? false) ||
+              row.shotResult === 'ob',
             // Putt-specific fields. distanceYards on a putt row is the
             // tap-to-tap distance in yards; * 3 = feet (US convention),
             // and putt_distance_ft is what the rest of the app reads.
@@ -727,6 +780,7 @@ export function useRoundActions(input: UseRoundActionsInput): UseRoundActionsRes
     [
       user,
       activeHole,
+      activeHoleShots,
       round.data,
       scoresByHoleId,
       ensureRealHole,

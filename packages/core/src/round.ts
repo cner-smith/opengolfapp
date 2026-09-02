@@ -88,6 +88,21 @@ export function inferHoleCount(holeNumbers: number[]): 9 | 18 {
   return Math.max(...holeNumbers) <= 9 ? 9 : 18
 }
 
+// Penalty strokes on a hole, derived from the rows themselves — a stroke-
+// and-distance OB has no shot row of its own, so a hole's score is
+// "struck rows + obCount(rows)". Counts ROWS, not a boolean test: a hole
+// with two OBs adds two strokes. Reads two fields because callers pass two
+// row shapes and neither has both — raw `shots` rows carry the `ob`
+// boolean but no camelCase `shotResult`, while `ReviewedShotRow` carries
+// `shotResult` and has no `ob` field at all. A row carrying both (once a
+// later task writes both representations on the same row) must still
+// count once, hence `||` not addition.
+export function obCount(
+  rows: ReadonlyArray<{ ob?: boolean | null; shotResult?: string | null }>,
+): number {
+  return rows.reduce((n, r) => (r.ob || r.shotResult === 'ob' ? n + 1 : n), 0)
+}
+
 // Gate for computing a WHS-style score differential: only a fully-played
 // round qualifies. Returns the played (score > 0) rows when they cover every
 // hole of the round, else null — a partial round must produce NO differential,

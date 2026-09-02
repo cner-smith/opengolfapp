@@ -14,6 +14,7 @@ import {
   horizontalBreakFromAim,
   isPuttEntry,
   isPuttShot,
+  obCount,
   tourMakePercent,
   type BreakDirectionHorizontal,
   type BreakDirectionVertical,
@@ -191,7 +192,18 @@ export function HoleReviewSheet({
         }
       })
     setRows(merged)
-    setScore(merged.length)
+    // Score seeds from the rows: struck rows + obCount(merged). On THIS
+    // platform obCount(merged) is always 0 here — web has no live capture,
+    // so at hydration time no row has shotResult set yet (buildInitialRows /
+    // the no-pin fallback / the putt merge above never set it; only the
+    // result-picker chip does, and that only fires after this effect has
+    // already run). The term is kept for the same reason mobile's is: it's
+    // the correct general formula, and it stops being a no-op the moment a
+    // row IS pre-populated with a result (e.g. a future re-open-same-hole
+    // path). What actually keeps the ticker accurate for THIS platform is
+    // downstream — the ±1 bump in the result-picker's onChange below, fired
+    // every time a row's shotResult flips to/from 'ob' (#839).
+    setScore(merged.length + obCount(merged))
     // Putt TALLY counts any green-lie shot (isPuttShot), matching the SG
     // putting engine + putt-count readers — a bladed wedge on the green still
     // counts as a putt here even though its row shows normal-shot UI (the
@@ -315,7 +327,30 @@ export function HoleReviewSheet({
               key={row.shotNumber}
               row={row}
               onOpenAimer={() => setAimingShot(row.shotNumber)}
-              onChange={(next) =>
+              onChange={(next) => {
+                // The score ticker starts at struck-count (obCount is always
+                // 0 at seed time — see the hydration effect above) and stays
+                // accurate from here on by bumping ±1 every time THIS row's
+                // shotResult flips to/from 'ob'. This is the only place
+                // shotResult can become 'ob' on web (the result-picker chip
+                // in ShotRow), so a flip here is the complete signal — no
+                // other write path needs to feed this counter (#839).
+                // Compared here against `row` (this render's rows[idx]) in
+                // the plain event-handler body, deliberately NOT inside the
+                // setRows updater below — a setState call as a side effect
+                // of another state's updater function would double-fire
+                // under dev Strict Mode's intentional double-invocation of
+                // updaters, actually incrementing the score twice.
+                if (next.shotResult !== row.shotResult) {
+                  if (next.shotResult === 'ob' && row.shotResult !== 'ob') {
+                    setScore((s) => s + 1)
+                  } else if (
+                    row.shotResult === 'ob' &&
+                    next.shotResult !== 'ob'
+                  ) {
+                    setScore((s) => Math.max(0, s - 1))
+                  }
+                }
                 setRows((prev) => {
                   const copy = prev.slice()
                   copy[idx] = next
@@ -350,7 +385,7 @@ export function HoleReviewSheet({
                   }
                   return copy
                 })
-              }
+              }}
             />
           ))}
           </>

@@ -8,6 +8,7 @@ import {
   destinationYards,
   formatClubLabel,
   isPuttShot,
+  obCount,
   projectShotMove,
   resolveHole,
   summarizePuttParts,
@@ -84,6 +85,9 @@ interface PlacedShot {
   shotNumber: number
   start: LatLng | null
   aim: LatLng | null
+  /** Out-of-bounds flag (#839). Optional — fresh drafts (new/unplaced shots)
+   *  omit it and read as false; only the seed-from-`shots` site below sets it. */
+  ob?: boolean
 }
 
 type PlacementMode = Extract<HoleMapPhase, 'PLACE_BALL' | 'SET_AIM' | 'PIN'>
@@ -245,6 +249,7 @@ export function PastRoundMap({
               s.aim_lat != null && s.aim_lng != null
                 ? { lat: s.aim_lat, lng: s.aim_lng }
                 : null,
+            ob: s.ob === true,
           }))
       : []
     if (seededForRef.current === key) {
@@ -314,6 +319,19 @@ export function PastRoundMap({
     [placed, activeIdx],
   )
 
+  // OB flag per breadcrumb waypoint (#839), index-aligned with
+  // `previousStarts` — built with the identical slice(0, activeIdx) +
+  // "has a start" filter so a dropped entry drops from both arrays at the
+  // same index, never just one.
+  const previousShotObs = useMemo(
+    () =>
+      placed
+        .slice(0, activeIdx)
+        .filter((s) => s.start != null)
+        .map((s) => s.ob === true),
+    [placed, activeIdx],
+  )
+
   const startedCount = useMemo(
     () => placed.filter((s) => s.start != null).length,
     [placed],
@@ -337,13 +355,19 @@ export function PastRoundMap({
   }, [placed, tee, effectivePin])
 
   // Keep hole_scores.score honest with the placed-shot count (a placed shot
-  // IS a stroke). Pure score-only entry on the scorecard is untouched —
-  // this only fires when the map owns shot creation for the hole.
+  // IS a stroke) plus this hole's penalty strokes — a stroke-and-distance OB
+  // has no row of its own, so a raw row count would silently revert it
+  // (#839). Scoped to this hole_score_id, never round-wide. Pure score-only
+  // entry on the scorecard is untouched — this only fires when the map owns
+  // shot creation for the hole.
   async function syncScore(count: number) {
     if (!currentHoleScore) return
+    const obStrokes = obCount(
+      shots.filter((s) => s.hole_score_id === currentHoleScore.id),
+    )
     const { data, error } = await supabase
       .from('hole_scores')
-      .update({ score: count })
+      .update({ score: count + obStrokes })
       .eq('id', currentHoleScore.id)
       .eq('round_id', roundId)
       .select()
@@ -682,6 +706,7 @@ export function PastRoundMap({
           aim={active?.aim ?? null}
           ball={active?.start ?? null}
           previousShots={previousStarts}
+          previousShotObs={previousShotObs}
           // REVIEW is always flat top-down (PLACE_BALL) so the selected marker
           // drags; LOGGING follows the BALL/AIM/PIN mode chips.
           phase={completed ? 'PLACE_BALL' : mode}

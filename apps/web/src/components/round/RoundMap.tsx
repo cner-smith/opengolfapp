@@ -42,6 +42,12 @@ export interface ExistingShot {
   aimLat?: number | null
   aimLng?: number | null
   category?: ShotMarkerCategory | null
+  /** Out-of-bounds flag (#839) — recolors the map marker + draws the badge
+   *  ring in useMapLayers. */
+  ob?: boolean | null
+  /** Penalty-stroke flag. Read (not re-derived) so saveReviewedHole's
+   *  replace-all rewrite can preserve it — see useRoundActions. */
+  penalty?: boolean | null
 }
 
 export interface PlacedPoint {

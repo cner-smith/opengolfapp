@@ -49,6 +49,12 @@ export interface UseHoleDataResult {
   setPendingForHole: React.Dispatch<React.SetStateAction<PendingShot[]>>
   previousShots: LatLng[]
   previousShotIds: string[]
+  /** Out-of-bounds flag per shot, aligned 1:1 with `previousShotIds` (same
+   *  order, same length, same filters). Drives the live OB chip's
+   *  set-vs-undo state so it is DERIVED from the stored rows rather than
+   *  remembered in component state — a mid-hole reload must not offer to
+   *  mark an already-OB shot again and double-charge the penalty (#839). */
+  previousShotObs: boolean[]
   refreshShots: () => void
   localShotCount: number
   localPuttCount: number
@@ -72,6 +78,7 @@ export function useHoleData(
   const [pendingForHole, setPendingForHole] = useState<PendingShot[]>([])
   const [remoteShotStarts, setRemoteShotStarts] = useState<LatLng[]>([])
   const [remoteShotIds, setRemoteShotIds] = useState<string[]>([])
+  const [remoteShotObs, setRemoteShotObs] = useState<boolean[]>([])
   const [shotsRefreshNonce, setShotsRefreshNonce] = useState(0)
   const refreshShots = useCallback(() => setShotsRefreshNonce((n) => n + 1), [])
 
@@ -268,6 +275,7 @@ export function useHoleData(
       setRemotePuttCount(0)
       setRemoteShotStarts([])
       setRemoteShotIds([])
+      setRemoteShotObs([])
       setPendingForHole([])
     }
     if (!currentHoleScore) return
@@ -277,7 +285,7 @@ export function useHoleData(
         const fetchShots = () =>
           supabase
             .from('shots')
-            .select('id, club, lie_type, shot_number, start_lat, start_lng')
+            .select('id, club, lie_type, shot_number, start_lat, start_lng, ob')
             .eq('hole_score_id', currentHoleScore.id)
             .order('shot_number')
         const [shotsResInitial, localInitial] = await Promise.all([
@@ -342,14 +350,17 @@ export function useHoleData(
         setRemotePuttCount(shots.filter((s) => isPuttShot(s.lie_type)).length)
         const starts: LatLng[] = []
         const ids: string[] = []
+        const obs: boolean[] = []
         for (const r of shots) {
           if (r.start_lat != null && r.start_lng != null) {
             starts.push({ lat: r.start_lat, lng: r.start_lng })
             ids.push(r.id)
+            obs.push(r.ob === true)
           }
         }
         setRemoteShotStarts(starts)
         setRemoteShotIds(ids)
+        setRemoteShotObs(obs)
         setPendingForHole(dedupedLocal)
       } catch (err) {
         if (myNonce !== fetchNonceRef.current) return
@@ -372,12 +383,21 @@ export function useHoleData(
   // pending shot starts (in pending insertion order). The current ball
   // is intentionally excluded — HoleMap appends it as the line's final
   // segment so the ball can move while the breadcrumb stays.
+  //
+  // INVARIANT: this filter and those of `previousShotIds` / `previousShotObs`
+  // below must stay IDENTICAL — the three arrays are consumed by index, and a
+  // payload admitted by one but not another shifts every later index. That
+  // alignment now decides which shot markLastShotOb writes `ob: true` to,
+  // which waypoint wears the OB badge, and which row summaryRows stamps —
+  // the row that then sets the hole score (#839). `p.id` is redundant today
+  // (insertPendingShot always stamps one) but is kept here so the invariant
+  // is structural rather than a coincidence of three call sites.
   const previousShots = useMemo(() => {
     const out: LatLng[] = [...remoteShotStarts]
     for (const r of pendingForHole) {
       try {
         const p = JSON.parse(r.payload) as ShotPayload
-        if (p.start_lat != null && p.start_lng != null) {
+        if (p.start_lat != null && p.start_lng != null && p.id) {
           out.push({ lat: p.start_lat, lng: p.start_lng })
         }
       } catch {
@@ -390,6 +410,7 @@ export function useHoleData(
   // Shot client-ids aligned 1:1 with `previousShots` (same order + length), so
   // the summary can map a row to its shot for delete_shot. Remote ids come from
   // the server rows; pending ids from payload.id (always set on insert, db.ts).
+  // Same filter as `previousShots` above — see the invariant note there.
   const previousShotIds = useMemo(() => {
     const out: string[] = [...remoteShotIds]
     for (const r of pendingForHole) {
@@ -404,6 +425,27 @@ export function useHoleData(
     }
     return out
   }, [remoteShotIds, pendingForHole])
+
+  // OB flag per shot, built with the SAME filters as previousShots /
+  // previousShotIds above so all three stay index-aligned (a shot's position,
+  // id and OB state must never drift apart — see the invariant note on
+  // previousShots). Pending payloads carry `ob` themselves — buildPayload writes it,
+  // and the live OB chip patches it back into SQLite so this stays true for a
+  // shot flagged after it was queued (#839).
+  const previousShotObs = useMemo(() => {
+    const out: boolean[] = [...remoteShotObs]
+    for (const r of pendingForHole) {
+      try {
+        const p = JSON.parse(r.payload) as ShotPayload
+        if (p.start_lat != null && p.start_lng != null && p.id) {
+          out.push(p.ob === true)
+        }
+      } catch {
+        // skip malformed pending payload (matches previousShotIds)
+      }
+    }
+    return out
+  }, [remoteShotObs, pendingForHole])
 
   // Live tee anchor: the player's first shot's start IS the tee. Falls back to
   // the stored course tee before the first shot (camera + pre-shot distances).
@@ -453,6 +495,7 @@ export function useHoleData(
     setPendingForHole,
     previousShots,
     previousShotIds,
+    previousShotObs,
     refreshShots,
     localShotCount,
     localPuttCount,
