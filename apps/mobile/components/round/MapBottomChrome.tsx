@@ -55,6 +55,13 @@ interface MapBottomChromeProps {
   /** Opt into the live append flow on a revisited played hole. Optional — its
    *  partner `isRevisitingPlayedHole` is the only path that reaches it. */
   onAddShot?: () => void
+  /** Live out-of-bounds: flag the hole's most recent shot as OB (or clear it),
+   *  charge the penalty stroke, and drop the ball back on that shot's origin
+   *  for the stroke-and-distance re-hit (#839). */
+  onMarkLastShotOb: () => void
+  /** True when that most recent shot is ALREADY flagged OB — flips the chip
+   *  into its undo label. Derived from the stored rows, not remembered. */
+  lastShotIsOb: boolean
   onFinishHole: () => void
   onPrev: () => void
   onNext: () => void
@@ -181,6 +188,20 @@ function ContextualActions(p: MapBottomChromeProps) {
         >
           {(p.ball != null || p.hasGps) && !p.saving && (
             <TextChip label="⛳ On the green" onPress={p.onOnGreen} />
+          )}
+          {/* Live OB (#839). Deliberately in the PLACE_BALL row and nowhere
+              else: every earlier branch above returns first, so the chip can
+              never appear during pin placement, played-hole edit mode, the
+              on-green Made/Missed overlay, aiming, or a played-hole revisit.
+              Gated on a shot existing this hole by the enclosing
+              totalShotsThisHole > 0 — there is no "last shot" before the
+              first one. */}
+          {!p.saving && (
+            <TextChip
+              label={p.lastShotIsOb ? '⚠ OB — tap to undo' : '⚠ Last shot went OB'}
+              onPress={p.onMarkLastShotOb}
+              danger
+            />
           )}
           <TextChip
             label={p.holeNumber < p.holeCount ? 'Finish hole · next →' : 'Finish round'}
@@ -371,10 +392,14 @@ function TextChip({
   label,
   onPress,
   strong,
+  danger,
 }: {
   label: string
   onPress: () => void
   strong?: boolean
+  /** Penalty action — caddie-neg (#A33A2A) border + tint, mirroring
+   *  SecondaryPill's own danger variant. */
+  danger?: boolean
 }) {
   return (
     <PressableTouch
@@ -387,7 +412,7 @@ function TextChip({
       // css-interop, so the chip background + border would silently drop.
       style={{
         backgroundColor: 'rgba(28,33,28,0.92)',
-        borderColor: 'rgba(242,238,229,0.45)',
+        borderColor: danger ? 'rgba(163,58,42,0.9)' : 'rgba(242,238,229,0.45)',
         borderWidth: 1,
         borderRadius: 16,
         paddingVertical: 10,
@@ -399,7 +424,17 @@ function TextChip({
         elevation: 3,
       }}
     >
-      <Text style={[TYPE.kicker, { ...KICKER, color: strong ? CREAM : 'rgba(242,238,229,0.85)' }]}>{label}</Text>
+      <Text
+        style={[
+          TYPE.kicker,
+          {
+            ...KICKER,
+            color: danger ? '#E6A99C' : strong ? CREAM : 'rgba(242,238,229,0.85)',
+          },
+        ]}
+      >
+        {label}
+      </Text>
     </PressableTouch>
   )
 }

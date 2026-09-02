@@ -345,6 +345,23 @@ export default function LiveRoundSession({
     data.currentHole?.par,
   ])
 
+  // Manual ball placement: an explicit override of the GPS-tracked marker.
+  // Freeze GPS updates for this PLACE_BALL cycle and re-anchor the Kalman
+  // filter at the manual point with a low variance (1 m²) — strong prior so
+  // any future un-freeze still resists snapping back to a noisy raw fix.
+  // Used by the map drag/tap AND by the OB chip's stroke-and-distance snap
+  // (#839), so both freeze GPS identically rather than through two paths.
+  const placeBallManually = (loc: LatLng) => {
+    finalState.manuallyPlacedRef.current = true
+    setBallMoved(true)
+    finalState.kalmanStateRef.current = {
+      lat: loc.lat,
+      lng: loc.lng,
+      variance: 1,
+    }
+    finalState.setBall(loc)
+  }
+
   const actions = useShotActions({
     id: roundId,
     user,
@@ -356,6 +373,7 @@ export default function LiveRoundSession({
     setLoggerInitial,
     setPinPlacementOpen,
     setActiveDialog,
+    placeBallManually,
     // URL sync fires here — only on user-driven navigation (Next /
     // Prev / Finish), not on every render. A reactive useEffect that
     // depended on the parent's onHoleChange prop looped because the
@@ -703,25 +721,7 @@ export default function LiveRoundSession({
             finalState.setAim(loc)
             finalState.setAimTouched(true)
           }}
-          onSetBall={
-            editMode
-              ? handleEditModeMove
-              : (loc) => {
-                  // Manual drag/tap is an explicit override. Freeze GPS
-                  // updates for this PLACE_BALL cycle and re-anchor the
-                  // Kalman filter at the manual point with a low variance
-                  // (1 m²) — strong prior so any future un-freeze still
-                  // resists snapping back to a noisy raw fix.
-                  finalState.manuallyPlacedRef.current = true
-                  setBallMoved(true)
-                  finalState.kalmanStateRef.current = {
-                    lat: loc.lat,
-                    lng: loc.lng,
-                    variance: 1,
-                  }
-                  finalState.setBall(loc)
-                }
-          }
+          onSetBall={editMode ? handleEditModeMove : placeBallManually}
           onRecenterBall={(loc) => {
             // Deliberate recenter tap = "put the ball back on me": the
             // inverse of onSetBall above. Lift the manual freeze, restart
@@ -832,6 +832,13 @@ export default function LiveRoundSession({
             })
           }
           onNotOnGreen={actions.notOnGreen}
+          // Live OB (#839). State is DERIVED from the stored rows — a mid-hole
+          // reload must not offer to flag an already-OB shot again and charge
+          // the penalty twice.
+          onMarkLastShotOb={() => void actions.markLastShotOb()}
+          lastShotIsOb={
+            data.previousShotObs[data.previousShotObs.length - 1] ?? false
+          }
           onAddShot={() => {
             // Opt back into the live append flow on a revisited played hole:
             // re-arm the GPS ball + auto-aim and enter PLACE_BALL (#484).

@@ -22,6 +22,7 @@ import {
   insertPendingShot,
   pendingCount,
   setPendingShotEnd,
+  setPendingShotOb,
   upsertReviewedShot,
   type ShotPayload,
 } from '../../../lib/db'
@@ -50,6 +51,13 @@ interface UseShotActionsInput {
   setLoggerInitial: Dispatch<SetStateAction<ShotLoggerValue>>
   setPinPlacementOpen: Dispatch<SetStateAction<boolean>>
   setActiveDialog: Dispatch<SetStateAction<ActiveDialog>>
+  // The component's manual ball-placement path — the very handler a map
+  // drag/tap goes through (freezes GPS tracking for this PLACE_BALL cycle,
+  // re-anchors the Kalman filter, flips the CTA off its "at my GPS"
+  // labelling). Passed in rather than reimplemented here because part of
+  // that state (ballMoved) lives in LiveRoundSession. markLastShotOb uses
+  // it to drop the ball back on the OB shot's origin.
+  placeBallManually: (loc: LatLng) => void
   // Hole navigation is callback-driven so the parent (LiveRoundSession)
   // can keep the MapView resident across hole changes. Direct router.replace
   // would fully unmount + remount the screen — see #264.
@@ -115,6 +123,10 @@ export interface UseShotActionsResult {
     shotId: string,
     newStart: { lat: number; lng: number },
   ) => Promise<boolean>
+  // Online-first toggle of the OB flag on this hole's most recent shot, plus
+  // its stroke-and-distance bookkeeping (#839). See the implementation for
+  // why it writes two representations of the same fact.
+  markLastShotOb: () => Promise<void>
 }
 
 export function useShotActions(input: UseShotActionsInput): UseShotActionsResult {
@@ -129,6 +141,7 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
     setLoggerInitial,
     setPinPlacementOpen,
     setActiveDialog,
+    placeBallManually,
     onHoleChange,
     onAdvanceHole,
   } = input
@@ -143,6 +156,11 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
   // late, so a fast double-tap of Finish (18th hole) or End round could fire
   // completeRound twice. The ref flips synchronously and blocks the second.
   const endInFlightRef = useRef(false)
+  // Same synchronous double-tap gate for the OB chip. It has no `saving`
+  // flag of its own, and its state (`previousShotObs`) only refreshes after
+  // the refetch lands — so two quick taps would both read "not OB yet",
+  // write ob=true twice and charge the penalty stroke twice.
+  const obInFlightRef = useRef(false)
   const [ending, setEnding] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [shotEntrySeq, setShotEntrySeq] = useState(0)
@@ -160,6 +178,8 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
     remotePuttCount,
     localPuttCount,
     previousShots,
+    previousShotIds,
+    previousShotObs,
     shotNumber,
     holeCount,
   } = data
@@ -1113,6 +1133,107 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
     }
   }
 
+  // Live out-of-bounds (#839). The affordance can exist at all because
+  // persistShot writes the shot row on confirmAim/skipAim — BEFORE the ball
+  // is struck — with `start` = the ball the player just marked. So when a
+  // shot flies OB the player is still standing at that shot's origin, and
+  // stroke-and-distance is nothing more than "flag it, charge the stroke,
+  // put the ball back where it was".
+  //
+  // Online-first, exactly like its siblings deleteShot / moveShot: flush the
+  // pending queue so the target has a server row, write it directly, and fail
+  // visibly on a 0-row response rather than pretending it worked. Second tap
+  // undoes.
+  async function markLastShotOb() {
+    if (!user || !currentHoleScore) return
+    if (obInFlightRef.current) return
+    // The hole's most recent shot. previousShotIds/previousShotObs/previousShots
+    // are built index-aligned in useHoleData, and #852's up-front id stamp is
+    // what puts a just-saved (still pending) shot in them at all — its payload
+    // carries the client id from the moment it is queued, so the shot the
+    // player is standing at IS the last entry here. No id is derived or minted.
+    const idx = previousShotIds.length - 1
+    const shotId = previousShotIds[idx]
+    if (!shotId) return
+    const start = previousShots[idx] ?? null
+    const next = !(previousShotObs[idx] ?? false)
+    obInFlightRef.current = true
+    try {
+      // Flush first (mirrors moveShot): the client id is stable, so once the
+      // shot has synced the update below hits the real row instead of 0 rows.
+      await syncPendingShots()
+      const { data: updatedRows, error } = await supabase
+        .from('shots')
+        // BOTH representations of the same fact, deliberately:
+        //   `ob`          — what the SG engine reads (sg-calculator charges
+        //                   an OB shot exactly −2, stroke and distance).
+        //   `shot_result` — what round-trips through ReviewedShotRow, the row
+        //                   type the end-of-hole review sheet is built from,
+        //                   which has NO `ob` field at all. The score ticker
+        //                   can only see the penalty through this string.
+        // buildPayload derives the boolean from the string on the way in, so
+        // writing both keeps one consistent fact rather than two sources of
+        // truth. Clearing restores shot_result to null: SHOT_RESULTS is
+        // single-select, so 'ob' had already displaced any ball-flight result
+        // and there is nothing to restore it from — undo is lossy that way.
+        .update({ ob: next, shot_result: next ? 'ob' : null })
+        .eq('id', shotId)
+        .eq('user_id', user.id)
+        .select('id')
+      if (error) throw error
+      // Matched 0 rows: error === null with empty data (same silent-success
+      // shape moveShot guards against, #710). Surface it instead of leaving
+      // the player believing the penalty was recorded.
+      if (!updatedRows || updatedRows.length === 0) {
+        if (__DEV__) console.warn('[hole/markLastShotOb] update matched 0 rows', shotId)
+        Alert.alert(
+          "Couldn't record that penalty",
+          'Marking a shot OB needs a connection. Try again when you’re back online.',
+        )
+        return
+      }
+      // Patch the local queue copy too. saveHoleSummary pairs each reviewed
+      // row back to its LOCAL payload first and only falls back to the remote
+      // row — so without this the stale local `ob: false` would erase the flag
+      // at the very next end-of-hole save.
+      await setPendingShotOb(shotId, next).catch(() => undefined)
+      // Score ±1 for the penalty stroke, written and mirrored the way
+      // persistShot does both (background write + warn, optimistic mirror) —
+      // the shot flag above is the authoritative record.
+      const nextScore = Math.max(0, currentHoleScore.score + (next ? 1 : -1))
+      supabase
+        .from('hole_scores')
+        .update({ score: nextScore })
+        .eq('id', currentHoleScore.id)
+        .then(({ error: scoreErr }) => {
+          if (scoreErr) {
+            // eslint-disable-next-line no-console
+            console.warn('[hole/ob-score-update]', scoreErr.message)
+          }
+        })
+      setHoleScores((prev) =>
+        prev.map((hs) =>
+          hs.id === currentHoleScore.id ? { ...hs, score: nextScore } : hs,
+        ),
+      )
+      data.refreshShots()
+      // Stroke and distance: the re-hit starts where the OB shot started, so
+      // drop the ball back there and freeze GPS on it (the same manual-
+      // placement path a drag uses) or the next fix would drag it away. On
+      // UNDO the ball is left exactly where it is — reversing the flag and
+      // the stroke is the undo; moving the player's map is not.
+      if (next && start) placeBallManually(start)
+    } catch (e) {
+      if (__DEV__) console.warn('[hole/markLastShotOb]', (e as Error)?.message)
+      Alert.alert(
+        "Couldn't record that penalty",
+        'Marking a shot OB needs a connection. Try again when you’re back online.',
+      )
+    } finally {
+      obInFlightRef.current = false
+    }
+  }
+
   function handleExitFromError() {
     // Leave to home WITHOUT deleting. A load error (network blip on a
     // rounds-deep resume) or a missing hole means the round is still
@@ -1154,5 +1275,6 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
     handleExitFromError,
     deleteShot,
     moveShot,
+    markLastShotOb,
   }
 }

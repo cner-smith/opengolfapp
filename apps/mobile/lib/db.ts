@@ -175,6 +175,56 @@ export async function setPendingShotEnd(
   return { status: row.status, remote_id: row.remote_id }
 }
 
+/**
+ * Rewrites BOTH out-of-bounds representations on a locally-queued shot —
+ * pending OR already synced — keyed on the client-generated payload id.
+ *
+ * The live OB chip (#839) writes the server row directly, but that write is
+ * not the last word: `saveHoleSummary` pairs each reviewed row back to its
+ * LOCAL payload first (`allShotsForHoleScore`, which includes synced rows)
+ * and only falls back to the remote row. A server-only write would therefore
+ * be overwritten by the stale local `ob: false` at the very next end-of-hole
+ * save. Status is deliberately left untouched: the server already has the
+ * value, so there is nothing to re-sync — flipping back to 'pending' would
+ * queue a pointless re-upsert.
+ */
+export async function setPendingShotOb(
+  clientId: string,
+  ob: boolean,
+): Promise<void> {
+  const db = await getDb()
+  const row = await db.getFirstAsync<{ local_id: number; payload: string }>(
+    `SELECT local_id, payload FROM pending_shots
+     WHERE json_extract(payload, '$.id') = ?
+       AND status IN ('pending', 'synced')`,
+    clientId,
+  )
+  if (!row) return
+  let payload: ShotPayload
+  try {
+    payload = JSON.parse(row.payload) as ShotPayload
+  } catch (e) {
+    // eslint-disable-next-line no-console
+    console.error(
+      '[db/payload-corrupt] local_id=%d msg=%s',
+      row.local_id,
+      (e as Error).message,
+    )
+    await markShotBroken(row.local_id)
+    return
+  }
+  payload.ob = ob
+  // Clearing restores shot_result to null rather than to whatever ball-flight
+  // result was there before — SHOT_RESULTS is single-select, so 'ob' had
+  // already replaced any prior value and there is nothing to restore it from.
+  payload.shot_result = ob ? 'ob' : null
+  await db.runAsync(
+    `UPDATE pending_shots SET payload = ? WHERE local_id = ?`,
+    JSON.stringify(payload),
+    row.local_id,
+  )
+}
+
 // Flush WAL frames to the main DB file when the app moves to the
 // background. expo-sqlite 14 keeps writes in -wal until checkpointed,
 // and a long-running session can grow the WAL file unbounded — frames
