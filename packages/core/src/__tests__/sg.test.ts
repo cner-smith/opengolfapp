@@ -341,32 +341,32 @@ describe('calculateRoundSG — penalty / OB attribution', () => {
     expect(b.approach).toBeCloseTo(a.approach, 6)
   })
 
-  it('OB stroke subtracts 1 from the affected category SG', () => {
-    // OB is graded the same as a one-stroke penalty in the SG impl
-    // (penaltyAdjust = penalty || ob). Stroke-and-distance is not
-    // separately modeled — the dropped re-tee just becomes the next
-    // shot in the array. This pin makes sure the OB branch stays
-    // wired up and doesn't silently zero out.
+  it('OB stroke is exactly -2, independent of the next shot', () => {
+    // Stroke-and-distance: the OB shot's endExpected is defined as its own
+    // startExpected (they cancel), so the category SG contribution is a flat
+    // -1, then penaltyAdjust (penalty || ob) subtracts the second stroke —
+    // exactly -2, regardless of where the next logged shot (if any) sits.
     const withOB: ShotWithContext[] = [
       shot({ shotNumber: 1, par: 4, isLastShot: false, lieType: 'tee', distanceToTarget: 380, ob: true }),
       shot({ shotNumber: 2, par: 4, isLastShot: true, lieType: 'fairway', distanceToTarget: 50 }),
     ]
-    const a = calculateRoundSG(buildClean(), 15)
     const b = calculateRoundSG(withOB, 15)
-    expect(b.offTee).toBeCloseTo(a.offTee - 1, 6)
+    expect(b.offTee).toBeCloseTo(-2, 6)
+    // The next shot (not itself OB) is unaffected — still scored on its own terms.
+    const a = calculateRoundSG(buildClean(), 15)
     expect(b.approach).toBeCloseTo(a.approach, 6)
   })
 
-  it('OB and penalty stack — both flags subtract together', () => {
+  it('OB and penalty stack — both flags subtract together, not double', () => {
     // The impl uses `penalty || ob`, so a shot flagged with both still
-    // takes only ONE -1 adjustment, not two. Lock this in so a future
-    // refactor that splits them doesn't accidentally double-count.
+    // takes only ONE -1 penaltyAdjust on top of the cancelled -1 endExpected
+    // term — exactly -2, not -3. Lock this in so a future refactor that
+    // splits them doesn't accidentally double-count.
     const both: ShotWithContext[] = [
       shot({ shotNumber: 1, par: 4, isLastShot: false, lieType: 'tee', distanceToTarget: 380, penalty: true, ob: true }),
       shot({ shotNumber: 2, par: 4, isLastShot: true, lieType: 'fairway', distanceToTarget: 50 }),
     ]
-    const a = calculateRoundSG(buildClean(), 15)
     const b = calculateRoundSG(both, 15)
-    expect(b.offTee).toBeCloseTo(a.offTee - 1, 6)
+    expect(b.offTee).toBeCloseTo(-2, 6)
   })
 })

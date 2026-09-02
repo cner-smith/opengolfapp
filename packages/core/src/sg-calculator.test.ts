@@ -181,3 +181,75 @@ describe('calculateRoundSG', () => {
   })
 })
 
+describe('OB / stroke and distance', () => {
+  // startExpected cancels against endExpected by construction, so -2 is exact
+  // and independent of every baseline value. Do not hardcode baselines here.
+  it('yields exactly -2 when the recovery shot IS logged', () => {
+    const sg = calculateRoundSG(
+      [
+        shotCtx({ shotNumber: 1, par: 4, isLastShot: false, distanceToTarget: 400, lieType: 'tee' }),
+        shotCtx({ shotNumber: 2, par: 4, isLastShot: false, distanceToTarget: 150, lieType: 'fairway', ob: true }),
+        shotCtx({ shotNumber: 3, par: 4, isLastShot: false, distanceToTarget: 150, lieType: 'fairway' }),
+        shotCtx({ shotNumber: 4, par: 4, isLastShot: true, distanceToTarget: 10, lieType: 'green', puttResult: 'made' }),
+      ],
+      15,
+    )
+    const clean = calculateRoundSG(
+      [
+        shotCtx({ shotNumber: 1, par: 4, isLastShot: false, distanceToTarget: 400, lieType: 'tee' }),
+        shotCtx({ shotNumber: 2, par: 4, isLastShot: false, distanceToTarget: 150, lieType: 'fairway' }),
+        shotCtx({ shotNumber: 3, par: 4, isLastShot: true, distanceToTarget: 10, lieType: 'green', puttResult: 'made' }),
+      ],
+      15,
+    )
+    expect(sg.total).toBeCloseTo(clean.total - 2, 5)
+  })
+
+  // THE REGRESSION THAT MOTIVATED THIS RULE. Positionally last => the old code
+  // took endExpected = 0 and returned a large POSITIVE number.
+  it('yields exactly -2 when the OB shot is the last logged row', () => {
+    const sg = calculateRoundSG(
+      [
+        shotCtx({ shotNumber: 1, par: 4, isLastShot: false, distanceToTarget: 400, lieType: 'tee' }),
+        shotCtx({ shotNumber: 2, par: 4, isLastShot: true, distanceToTarget: 150, lieType: 'fairway', ob: true }),
+      ],
+      15,
+    )
+    expect(sg.approach).toBeCloseTo(-2, 5)
+    expect(sg.approach).toBeLessThan(0)
+  })
+
+  it('yields exactly -2 for a par-3 tee shot going OB', () => {
+    const sg = calculateRoundSG(
+      [shotCtx({ shotNumber: 1, par: 3, isLastShot: true, distanceToTarget: 165, lieType: 'tee', ob: true })],
+      15,
+    )
+    expect(sg.approach).toBeCloseTo(-2, 5)
+  })
+
+  it('charges two OBs on one hole as -4', () => {
+    const sg = calculateRoundSG(
+      [
+        shotCtx({ shotNumber: 1, par: 4, isLastShot: false, distanceToTarget: 400, lieType: 'tee', ob: true }),
+        shotCtx({ shotNumber: 2, par: 4, isLastShot: true, distanceToTarget: 400, lieType: 'tee', ob: true }),
+      ],
+      15,
+    )
+    // The re-tee (shotNumber 2) is categorized 'approach', not 'off_tee' —
+    // getShotCategory keys off_tee on shotNumber === 1 only (pre-existing,
+    // out of scope here). Assert the combined total: -2 per OB shot holds
+    // regardless of which SG bucket absorbs it.
+    expect(sg.total).toBeCloseTo(-4, 5)
+  })
+
+  it('leaves a non-OB penalty shot on the existing path', () => {
+    const sg = calculateRoundSG(
+      [shotCtx({ shotNumber: 1, par: 4, isLastShot: true, distanceToTarget: 400, lieType: 'tee', penalty: true })],
+      15,
+    )
+    // isLastShot => endExpected 0 => startExpected - 1, then penaltyAdjust -1.
+    // Asserting only that the existing penalty path is untouched by this change.
+    expect(sg.offTee).toBeGreaterThan(-2)
+  })
+})
+
