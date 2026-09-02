@@ -873,15 +873,25 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
           lie_slope_forward: isPuttRow ? null : row.lieSlopeForward ?? null,
           lie_slope_side: isPuttRow ? null : row.lieSlopeSide ?? null,
           shot_result: isPuttRow ? null : row.shotResult ?? null,
-          // The review sheet has no OB control, so the live value is
-          // authoritative (same reasoning as aim, above). `shotResult === 'ob'`
-          // additionally lets the retrospective result picker set it — that
-          // path wrote the string but not the boolean, which is why prod has
-          // shot_result='ob' on exactly the rows that already had ob=true.
-          // Known limitation: the sheet cannot UNSET ob; the live chip's
-          // second tap is the undo (Task 4).
+          // The reviewed ROW is authoritative for OB — no `existing.ob ||`
+          // fallback. The sheet renders SHOT_RESULTS as a single-select
+          // picker, so a fallback would let one tap ("it was a pull") write
+          // shot_result='pull' while ob stayed true, leaving a row that SG
+          // charges −2 and the map badges red but whose label says pull, with
+          // no path from the sheet to clear it.
+          //
+          // Safe because the row genuinely arrives carrying the flag:
+          // useHoleData's remoteShotObs/previousShotObs read the fetched
+          // `shots.ob` (so it survives a mid-hole reload) → useShotActions'
+          // `shotObs` (obOverride wins over a lagging refetch) →
+          // LiveRoundSession's `summaryRows` stamps `shotResult: 'ob'` →
+          // HoleReviewSheet hydrates `rows` from those `initialRows` →
+          // back here as `rows`. saveHoleSummary has exactly one caller (that
+          // sheet, for the live hole), so the seed always fires. If that seed
+          // path is ever broken, this line silently drops every OB flag —
+          // keep the two in step (#839).
           penalty: existing.penalty ?? false,
-          ob: (existing.ob ?? false) || row.shotResult === 'ob',
+          ob: row.shotResult === 'ob',
           // Putt tap-to-tap distance is in yards; * 3 = feet (US convention),
           // and putt_distance_ft is what the rest of the app reads.
           putt_distance_ft: isPuttRow ? Math.round(row.distanceYards * 3) : null,
