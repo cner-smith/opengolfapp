@@ -727,16 +727,22 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
       }
       const remoteByNum = new Map<
         number,
-        { id: string; aim_lat: number | null; aim_lng: number | null }
+        {
+          id: string
+          aim_lat: number | null
+          aim_lng: number | null
+          ob: boolean
+          penalty: boolean
+        }
       >()
       let remote = await supabase
         .from('shots')
-        .select('id, shot_number, aim_lat, aim_lng')
+        .select('id, shot_number, aim_lat, aim_lng, ob, penalty')
         .eq('hole_score_id', currentHoleScore.id)
       if (remote.error) {
         remote = await supabase
           .from('shots')
-          .select('id, shot_number, aim_lat, aim_lng')
+          .select('id, shot_number, aim_lat, aim_lng, ob, penalty')
           .eq('hole_score_id', currentHoleScore.id)
       }
       for (const s of remote.data ?? []) {
@@ -744,6 +750,8 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
           id: s.id,
           aim_lat: s.aim_lat,
           aim_lng: s.aim_lng,
+          ob: s.ob,
+          penalty: s.penalty,
         })
       }
 
@@ -789,8 +797,15 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
           lie_slope_forward: isPuttRow ? null : row.lieSlopeForward ?? null,
           lie_slope_side: isPuttRow ? null : row.lieSlopeSide ?? null,
           shot_result: isPuttRow ? null : row.shotResult ?? null,
-          penalty: false,
-          ob: false,
+          // The review sheet has no OB control, so the live value is
+          // authoritative (same reasoning as aim, above). `shotResult === 'ob'`
+          // additionally lets the retrospective result picker set it — that
+          // path wrote the string but not the boolean, which is why prod has
+          // shot_result='ob' on exactly the rows that already had ob=true.
+          // Known limitation: the sheet cannot UNSET ob; the live chip's
+          // second tap is the undo (Task 4).
+          penalty: existing.penalty ?? false,
+          ob: (existing.ob ?? false) || row.shotResult === 'ob',
           // Putt tap-to-tap distance is in yards; * 3 = feet (US convention),
           // and putt_distance_ft is what the rest of the app reads.
           putt_distance_ft: isPuttRow ? Math.round(row.distanceYards * 3) : null,
