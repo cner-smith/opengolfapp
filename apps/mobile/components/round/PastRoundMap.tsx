@@ -8,6 +8,7 @@ import {
   destinationYards,
   formatClubLabel,
   isPuttShot,
+  obCount,
   projectShotMove,
   resolveHole,
   summarizePuttParts,
@@ -337,13 +338,19 @@ export function PastRoundMap({
   }, [placed, tee, effectivePin])
 
   // Keep hole_scores.score honest with the placed-shot count (a placed shot
-  // IS a stroke). Pure score-only entry on the scorecard is untouched —
-  // this only fires when the map owns shot creation for the hole.
+  // IS a stroke) plus this hole's penalty strokes — a stroke-and-distance OB
+  // has no row of its own, so a raw row count would silently revert it
+  // (#839). Scoped to this hole_score_id, never round-wide. Pure score-only
+  // entry on the scorecard is untouched — this only fires when the map owns
+  // shot creation for the hole.
   async function syncScore(count: number) {
     if (!currentHoleScore) return
+    const obStrokes = obCount(
+      shots.filter((s) => s.hole_score_id === currentHoleScore.id),
+    )
     const { data, error } = await supabase
       .from('hole_scores')
-      .update({ score: count })
+      .update({ score: count + obStrokes })
       .eq('id', currentHoleScore.id)
       .eq('round_id', roundId)
       .select()

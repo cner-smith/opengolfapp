@@ -6,6 +6,7 @@ import {
   computeRoundSG,
   inferHoleCount,
   inferHoleStats,
+  obCount,
   playedRowsForDifferential,
   resolveCourseTee,
 } from '@oga/core'
@@ -107,8 +108,12 @@ export async function completeRound({
   // sees the repaired value; the SG/infer upserts below persist it.
   for (const hs of holeScores) {
     if (hs.score !== 0) continue
-    const shotCount = shots.filter((s) => s.hole_score_id === hs.id).length
-    if (shotCount > 0) hs.score = shotCount
+    const holeShots = shots.filter((s) => s.hole_score_id === hs.id)
+    // Live stamping defines score = struck rows + penalty strokes, so the
+    // repair has to include the OB term too — a stroke-and-distance penalty
+    // has no shot row of its own, and rebuilding from the raw count alone
+    // would drop it (#839). obCount is per-hole: only this hole's rows.
+    if (holeShots.length > 0) hs.score = holeShots.length + obCount(holeShots)
   }
 
   // Infer fairway_hit + gir for any hole where the player didn't set
@@ -129,11 +134,14 @@ export async function completeRound({
     const hole = holesById.get(hs.hole_id)
     if (!hole) continue
     const holeShots = shots.filter((s) => s.hole_score_id === hs.id)
-    // holedOut when the shot log fully accounts for the score: length === score
-    // means every stroke was logged, so the last one holed. Incomplete logs
-    // (length < score) stay conservative — never a false positive. This lets
-    // off-green hole-outs (ace, holed approach, chip-in) count GIR (#669).
-    const holedOut = holeShots.length === hs.score
+    // holedOut when the shot log fully accounts for the score: every stroke
+    // was logged, so the last one holed. Incomplete logs (fewer strokes
+    // accounted for than the score) stay conservative — never a false
+    // positive. This lets off-green hole-outs (ace, holed approach, chip-in)
+    // count GIR (#669). A penalty stroke has no shot row, so it has to be
+    // added back or an OB hole could never read as holed out — permanently
+    // false, silently degrading GIR and fairway inference (#839).
+    const holedOut = holeShots.length + obCount(holeShots) === hs.score
     const inferred = inferHoleStats(
       holeShots.map((s) => ({
         shot_number: s.shot_number,
