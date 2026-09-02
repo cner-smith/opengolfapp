@@ -703,6 +703,14 @@ export default function LiveRoundSession({
           previousShots={
             editMode ? data.previousShots.slice(0, activeShotIdx) : data.previousShots
           }
+          // Read off `actions.shotObs`, not `data.previousShotObs`, for the
+          // same reason the chip/summary do (see summaryRows above) — our own
+          // last OB write outranks the fetched flags until the refetch lands.
+          // Sliced identically to previousShots so the two stay index-aligned
+          // in edit mode too (#839).
+          previousShotObs={
+            editMode ? actions.shotObs.slice(0, activeShotIdx) : actions.shotObs
+          }
           gpsPosition={finalState.gpsPosition}
           courseCenter={data.courseCenter}
           holeNumber={holeNumber}

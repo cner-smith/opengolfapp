@@ -85,6 +85,9 @@ interface PlacedShot {
   shotNumber: number
   start: LatLng | null
   aim: LatLng | null
+  /** Out-of-bounds flag (#839). Optional — fresh drafts (new/unplaced shots)
+   *  omit it and read as false; only the seed-from-`shots` site below sets it. */
+  ob?: boolean
 }
 
 type PlacementMode = Extract<HoleMapPhase, 'PLACE_BALL' | 'SET_AIM' | 'PIN'>
@@ -246,6 +249,7 @@ export function PastRoundMap({
               s.aim_lat != null && s.aim_lng != null
                 ? { lat: s.aim_lat, lng: s.aim_lng }
                 : null,
+            ob: s.ob === true,
           }))
       : []
     if (seededForRef.current === key) {
@@ -312,6 +316,19 @@ export function PastRoundMap({
         .slice(0, activeIdx)
         .map((s) => s.start)
         .filter((p): p is LatLng => p != null),
+    [placed, activeIdx],
+  )
+
+  // OB flag per breadcrumb waypoint (#839), index-aligned with
+  // `previousStarts` — built with the identical slice(0, activeIdx) +
+  // "has a start" filter so a dropped entry drops from both arrays at the
+  // same index, never just one.
+  const previousShotObs = useMemo(
+    () =>
+      placed
+        .slice(0, activeIdx)
+        .filter((s) => s.start != null)
+        .map((s) => s.ob === true),
     [placed, activeIdx],
   )
 
@@ -689,6 +706,7 @@ export function PastRoundMap({
           aim={active?.aim ?? null}
           ball={active?.start ?? null}
           previousShots={previousStarts}
+          previousShotObs={previousShotObs}
           // REVIEW is always flat top-down (PLACE_BALL) so the selected marker
           // drags; LOGGING follows the BALL/AIM/PIN mode chips.
           phase={completed ? 'PLACE_BALL' : mode}
