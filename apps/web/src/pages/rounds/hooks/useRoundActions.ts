@@ -620,9 +620,14 @@ export function useRoundActions(input: UseRoundActionsInput): UseRoundActionsRes
           // is just the next struck shot number), so the struck-row count
           // alone undercounts the hole by one stroke per OB. `summary.score`
           // is the ticker the player edited on the review sheet — left alone
-          // here because HoleReviewSheet now seeds that ticker OB-aware
-          // itself (#839; it has no per-row delete to keep in sync). This
-          // fallback only fires when the sheet didn't pass a summary at all.
+          // here NOT because it's re-seeded OB-aware (it isn't: web has no
+          // live capture, so obCount is always 0 at the sheet's hydration
+          // time), but because the sheet bumps that ticker ±1 itself the
+          // moment a row's result flips to/from 'ob' via the chip — the only
+          // path that can set shotResult 'ob' on web (see HoleReviewSheet's
+          // ShotRow onChange). This fallback term (rows.length +
+          // obCount(rows)) only fires when the sheet didn't pass a summary
+          // at all.
           score: summary?.score ?? rows.length + obCount(rows),
           putts: summary?.putts ?? puttCount,
           penalties: summary?.penalties ?? 0,
@@ -640,19 +645,33 @@ export function useRoundActions(input: UseRoundActionsInput): UseRoundActionsRes
         if (!hs) throw new Error('hole_score upsert returned no row')
 
         // Snapshot the ob/penalty flags of the shots about to be replaced,
-        // keyed by shot_number, BEFORE the delete-all below wipes them. The
-        // review sheet has no OB control of its own — `shotResult === 'ob'`
-        // only reflects the retrospective result-picker path (ShotEntryModal
-        // sets both `ob` and `shot_result` together; this row shape only
-        // carries `shotResult`) — so without this snapshot a re-save of an
-        // already-reviewed hole would silently drop a flag set some other
-        // way (e.g. mobile) (#797, #839).
-        const existingByShotNumber = new Map(
-          activeHoleShots.map((s) => [
-            s.shotNumber,
-            { ob: s.ob ?? false, penalty: s.penalty ?? false },
-          ]),
-        )
+        // keyed by shot_number, BEFORE the delete-all below wipes them —
+        // ONLY when the shot count hasn't changed. `rows` (this save's
+        // placements) are numbered 1..M purely from THIS session's own
+        // taps: placedPoints is never seeded from stored shots
+        // (holeViewReducer resets it to [] on SWITCH_HOLE/AFTER_SAVE and
+        // only ever appends/moves/pops), so a re-placement that adds or
+        // drops even one tap re-numbers every later shot with zero
+        // positional correspondence to the stored 1..N it's replacing —
+        // keying by shot_number in that case would attach a stored OB flag
+        // to a physically different, clean shot (silent SG corruption,
+        // worse than the flag-loss bug this fix exists to prevent). Equal
+        // counts don't strictly guarantee the same shots in the same order,
+        // but "re-review without adding/dropping a tap" is the overwhelming
+        // real case, and it's strictly better than the prior always-erase
+        // behavior. A count mismatch falls back to the empty map, so every
+        // row's `ob`/`penalty` below reads as unset except what THIS save's
+        // own result picker set via `shotResult === 'ob'` — never carrying a
+        // stored flag across a renumbering (#797, #839).
+        const existingByShotNumber =
+          activeHoleShots.length === rows.length
+            ? new Map(
+                activeHoleShots.map((s) => [
+                  s.shotNumber,
+                  { ob: s.ob ?? false, penalty: s.penalty ?? false },
+                ]),
+              )
+            : new Map<number, { ob: boolean; penalty: boolean }>()
 
         // Replace-all save: drop any shots already attached to this
         // hole_score before inserting the freshly reviewed rows. Without
