@@ -585,6 +585,44 @@ describe('approachByDistance', () => {
     expect(band.shots).toBe(1)
     expect(band.avgSg).toBeCloseTo(start - end - 1, 5)
   })
+
+  // OB is stroke-and-distance: endExpected = startExpected, so the terms
+  // cancel and penaltyAdjust supplies the second stroke — exactly −2,
+  // independent of the baseline tables, matching calculateRoundSG (#839).
+  it('books an OB approach with NO logged recovery at exactly −2', () => {
+    const rounds = [
+      roundWithShots([
+        makeShot({ shot_number: 1, lie_type: 'tee', distance_to_target: 380 }),
+        makeShot({
+          shot_number: 2,
+          lie_type: 'fairway',
+          distance_to_target: 150,
+          ob: true,
+        }),
+      ]),
+    ]
+    const band = band150(approachByDistance(rounds, HCP))
+    expect(band.shots).toBe(1)
+    expect(band.avgSg).toBeCloseTo(-2, 5)
+  })
+
+  it('books an OB approach at −2 even when the next row has no position', () => {
+    const rounds = [
+      roundWithShots([
+        makeShot({ shot_number: 1, lie_type: 'tee', distance_to_target: 380 }),
+        makeShot({
+          shot_number: 2,
+          lie_type: 'fairway',
+          distance_to_target: 150,
+          ob: true,
+        }),
+        makeShot({ shot_number: 3, lie_type: 'fairway', distance_to_target: null }),
+      ]),
+    ]
+    const band = band150(approachByDistance(rounds, HCP))
+    expect(band.shots).toBe(1)
+    expect(band.avgSg).toBeCloseTo(-2, 5)
+  })
 })
 
 describe('ballStrikingStats — girPct', () => {

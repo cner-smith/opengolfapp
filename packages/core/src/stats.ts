@@ -311,9 +311,25 @@ export function approachByDistance(
 
       // endExpected 0 = holed out — legitimate only when there is NO next
       // shot (the hole's last shot ends at the cup in both save flows).
+      //
+      // This inner loop is a DELIBERATE DUPLICATE of calculateRoundSG's
+      // (sg-calculator.ts): both walk a hole's shots and book
+      // calculateShotSG(start, end) + penaltyAdjust. The two must be kept in
+      // step — when they drift, the Stats page's approach chart silently
+      // disagrees with the round SG engine on identical data (#668, #839).
       let endExpected = 0
       const next = shots[i + 1]
-      if (next) {
+      // OB is stroke-and-distance: the ball returns to where it was played
+      // from, so end position IS start position. Stated as a rule, not read
+      // off the next row, because the recovery shot often isn't logged
+      // ("Skip all, just track location" is always visible) — the next-shot
+      // branch below would then leave endExpected at 0 and book a large
+      // POSITIVE sg for a shot the player marked out of bounds. With this
+      // rule the terms cancel and penaltyAdjust makes it exactly −2, matching
+      // calculateRoundSG (#839).
+      if (s.ob) {
+        endExpected = startExpected
+      } else if (next) {
         const nextCat = getShotCategory(
           {
             lieType: (next.lie_type as LieType | null) ?? undefined,
