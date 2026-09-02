@@ -328,6 +328,8 @@ export function useRoundData({
         startLng: s.start_lng,
         aimLat: s.aim_lat,
         aimLng: s.aim_lng,
+        ob: s.ob,
+        penalty: s.penalty,
         category: getShotMarkerCategory(
           {
             lieType: (s.lie_type ?? undefined) as LieType | undefined,

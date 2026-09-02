@@ -19,6 +19,7 @@ import {
   makeDistancePill,
   makeFlagMarker,
   makeNumberedMarker,
+  makeObRingMarker,
   makeTeeDotMarker,
   MARKER_COLORS,
 } from './markerFactories'
@@ -199,15 +200,36 @@ export function useMapLayers({
         (s.startLat != null && s.startLng != null) ||
         (s.endLat != null && s.endLng != null),
     )
+
+    // OB badge rings (#839) — added to the map BEFORE the numbered-marker
+    // loop below so they paint underneath (see makeObRingMarker). Rendered
+    // as a separate pass rather than inline in the main loop so every ring
+    // for the hole lands ahead of every disc, even though an OB shot's
+    // covering re-hit disc is a LATER entry in `existingValid`.
     for (const s of existingValid) {
+      if (s.ob !== true) continue
+      const lng = s.startLng ?? s.endLng!
+      const lat = s.startLat ?? s.endLat!
+      const ring = new mapboxgl.Marker({ element: makeObRingMarker() })
+        .setLngLat([lng, lat])
+        .addTo(map)
+      markerRefs.current.push(ring)
+    }
+
+    for (const s of existingValid) {
+      // caddie-neg overrides the category color for the shot that went OB —
+      // matches the live chip / scorecard penalty color (mirrors mobile's
+      // BreadcrumbLayers disc recolor).
       const color =
-        s.category === 'tee'
-          ? MARKER_COLORS.tee
-          : s.category === 'approach'
-            ? MARKER_COLORS.approach
-            : s.category === 'around-green'
+        s.ob === true
+          ? MARKER_COLORS.ob
+          : s.category === 'tee'
+            ? MARKER_COLORS.tee
+            : s.category === 'approach'
               ? MARKER_COLORS.approach
-              : MARKER_COLORS.green
+              : s.category === 'around-green'
+                ? MARKER_COLORS.approach
+                : MARKER_COLORS.green
       const parts = makeNumberedMarker(s.shotNumber, color, '#FBF8F1')
       const lng = s.startLng ?? s.endLng!
       const lat = s.startLat ?? s.endLat!

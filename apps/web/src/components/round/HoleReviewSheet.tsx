@@ -14,6 +14,7 @@ import {
   horizontalBreakFromAim,
   isPuttEntry,
   isPuttShot,
+  obCount,
   tourMakePercent,
   type BreakDirectionHorizontal,
   type BreakDirectionVertical,
@@ -191,7 +192,13 @@ export function HoleReviewSheet({
         }
       })
     setRows(merged)
-    setScore(merged.length)
+    // Score seeds from the rows: struck rows + penalty strokes. A
+    // stroke-and-distance OB has no row of its own — the result picker
+    // marks it on the row it belongs to (shotResult 'ob') — so without this
+    // term the ticker would re-seed to the struck count and Save would
+    // persist that under-count over whatever the player already knows about
+    // the hole (#839).
+    setScore(merged.length + obCount(merged))
     // Putt TALLY counts any green-lie shot (isPuttShot), matching the SG
     // putting engine + putt-count readers — a bladed wedge on the green still
     // counts as a putt here even though its row shows normal-shot UI (the

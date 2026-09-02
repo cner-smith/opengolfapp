@@ -12,6 +12,7 @@ import {
   inferHoleStats,
   isPuttEntry,
   isPuttShot,
+  obCount,
   type CaptureMode,
 } from '@oga/core'
 import type { PlacedPoint } from '../../../components/round/RoundMap'
@@ -600,9 +601,9 @@ export function useRoundActions(input: UseRoundActionsInput): UseRoundActionsRes
         // the map review never silently overwrites a value the player
         // explicitly toggled on the scorecard.
         // holedOut=true: this flow is holed-out by construction — the final
-        // marker's end is the pin and `score: rows.length` below asserts the
-        // placed shots ARE the whole hole. Lets aces / holed approaches count
-        // as GIR (#669).
+        // marker's end is the pin and the score term below asserts the
+        // placed shots (+ any OB penalty strokes) ARE the whole hole. Lets
+        // aces / holed approaches count as GIR (#669).
         const inferred = inferHoleStats(
           rows.map((r) => ({
             shot_number: r.shotNumber,
@@ -615,7 +616,14 @@ export function useRoundActions(input: UseRoundActionsInput): UseRoundActionsRes
           id: existing?.id,
           round_id: round.data.id,
           hole_id: realHoleId,
-          score: summary?.score ?? rows.length,
+          // A stroke-and-distance OB has no shot row of its own (the re-hit
+          // is just the next struck shot number), so the struck-row count
+          // alone undercounts the hole by one stroke per OB. `summary.score`
+          // is the ticker the player edited on the review sheet — left alone
+          // here because HoleReviewSheet now seeds that ticker OB-aware
+          // itself (#839; it has no per-row delete to keep in sync). This
+          // fallback only fires when the sheet didn't pass a summary at all.
+          score: summary?.score ?? rows.length + obCount(rows),
           putts: summary?.putts ?? puttCount,
           penalties: summary?.penalties ?? 0,
           fairway_hit: existing?.fairway_hit ?? inferred.fairway,
@@ -630,6 +638,21 @@ export function useRoundActions(input: UseRoundActionsInput): UseRoundActionsRes
         })
         const hs = hsResult ?? existing
         if (!hs) throw new Error('hole_score upsert returned no row')
+
+        // Snapshot the ob/penalty flags of the shots about to be replaced,
+        // keyed by shot_number, BEFORE the delete-all below wipes them. The
+        // review sheet has no OB control of its own — `shotResult === 'ob'`
+        // only reflects the retrospective result-picker path (ShotEntryModal
+        // sets both `ob` and `shot_result` together; this row shape only
+        // carries `shotResult`) — so without this snapshot a re-save of an
+        // already-reviewed hole would silently drop a flag set some other
+        // way (e.g. mobile) (#797, #839).
+        const existingByShotNumber = new Map(
+          activeHoleShots.map((s) => [
+            s.shotNumber,
+            { ob: s.ob ?? false, penalty: s.penalty ?? false },
+          ]),
+        )
 
         // Replace-all save: drop any shots already attached to this
         // hole_score before inserting the freshly reviewed rows. Without
@@ -666,8 +689,16 @@ export function useRoundActions(input: UseRoundActionsInput): UseRoundActionsRes
             lie_slope_forward: isPuttRow ? null : row.lieSlopeForward ?? null,
             lie_slope_side: isPuttRow ? null : row.lieSlopeSide ?? null,
             shot_result: isPuttRow ? null : row.shotResult ?? null,
-            penalty: false,
-            ob: false,
+            // The review sheet has no OB control, so the previously stored
+            // value is authoritative unless this save's own result picker
+            // set it (mirrors mobile's useShotActions fix, #797/#839). A
+            // hole with no prior shots at this number (new hole, or the
+            // shot count changed) reads as not-ob/not-penalty, matching a
+            // fresh row's real state.
+            penalty: existingByShotNumber.get(row.shotNumber)?.penalty ?? false,
+            ob:
+              (existingByShotNumber.get(row.shotNumber)?.ob ?? false) ||
+              row.shotResult === 'ob',
             // Putt-specific fields. distanceYards on a putt row is the
             // tap-to-tap distance in yards; * 3 = feet (US convention),
             // and putt_distance_ft is what the rest of the app reads.
@@ -727,6 +758,7 @@ export function useRoundActions(input: UseRoundActionsInput): UseRoundActionsRes
     [
       user,
       activeHole,
+      activeHoleShots,
       round.data,
       scoresByHoleId,
       ensureRealHole,

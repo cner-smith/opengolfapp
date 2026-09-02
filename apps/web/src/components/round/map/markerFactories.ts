@@ -7,6 +7,9 @@ export const MARKER_COLORS = {
   putt: '#1F3D2C',
   ball: '#1F3D2C',
   pin: '#A33A2A',
+  // caddie-neg — the shot that went OB (#839). Same hex as `pin`, kept as
+  // its own key for readability at call sites that mean "OB", not "pin".
+  ob: '#A33A2A',
 } as const
 
 // ---------------------------------------------------------------------------
@@ -177,6 +180,30 @@ export function makeFlagMarker(color: string): FlagParts {
   content.appendChild(base)
   outer.appendChild(content)
   return { outer, content, flag }
+}
+
+// OB badge ring (#839, mirrors mobile's BreadcrumbLayers `prevShotsObRing`).
+// A stroke-and-distance OB's re-hit starts from the exact same coordinates
+// as the OB shot itself (no renumbering — the re-hit is just the next
+// struck-shot number), so the re-hit's numbered marker lands directly on
+// top of the OB shot's own marker. A same-radius recolor alone would just
+// have whichever marker got added to the map last silently win the DOM
+// stacking order and read as a rendering glitch. This wider transparent-
+// fill ring is added to the map BEFORE any numbered-marker discs for the
+// hole (Mapbox markers paint in DOM-insertion order, so earlier-added
+// elements render underneath), sized past a disc's radius, so its red edge
+// always peeks out around whichever disc ends up on top.
+export function makeObRingMarker(): HTMLElement {
+  const ring = document.createElement('div')
+  ring.style.cssText = [
+    'width:34px',
+    'height:34px',
+    'border-radius:999px',
+    'background:transparent',
+    `border:3px solid ${MARKER_COLORS.ob}`,
+    'pointer-events:none',
+  ].join(';')
+  return ring
 }
 
 export function attachDragFx(opts: {
