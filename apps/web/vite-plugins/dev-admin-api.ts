@@ -335,6 +335,42 @@ export function devAdminApi(): Plugin {
             return sendJson(res, 200, stats)
           }
 
+          if (
+            segments[0] === 'courses' &&
+            segments.length === 3 &&
+            segments[2] === 'approve' &&
+            method === 'POST'
+          ) {
+            const { data, error } = await client
+              .from('courses')
+              .update({ approved_at: new Date().toISOString() })
+              .eq('id', segments[1]!)
+              .is('approved_at', null)
+              .select('id')
+            if (error) return sendJson(res, 400, { error: error.message })
+            if (!data || data.length === 0) {
+              return sendJson(res, 409, { error: 'Not found, or already approved' })
+            }
+            return sendJson(res, 200, { ok: true })
+          }
+
+          // The `.is('approved_at', null)` guard is the point: a button click made
+          // against a stale page cannot delete a course that has been approved since
+          // the page loaded.
+          if (segments[0] === 'courses' && segments.length === 2 && method === 'DELETE') {
+            const { data, error } = await client
+              .from('courses')
+              .delete()
+              .eq('id', segments[1]!)
+              .is('approved_at', null)
+              .select('id')
+            if (error) return sendJson(res, 400, { error: error.message })
+            if (!data || data.length === 0) {
+              return sendJson(res, 409, { error: 'Not found, or already approved' })
+            }
+            return sendJson(res, 200, { ok: true })
+          }
+
           next()
         } catch (err) {
           sendJson(res, 500, { error: err instanceof Error ? err.message : String(err) })

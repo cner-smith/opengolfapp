@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 // Declared here, not imported from vite-plugins/dev-admin-api: that file lives
 // in the tsconfig.node.json project (it imports node:http and vite), and
@@ -62,6 +62,22 @@ function useAdminStats() {
   })
 }
 
+function useCourseAction() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id, action }: { id: string; action: 'approve' | 'reject' }) => {
+      const res = await fetch(
+        action === 'approve' ? `/api/dev-admin/courses/${id}/approve` : `/api/dev-admin/courses/${id}`,
+        { method: action === 'approve' ? 'POST' : 'DELETE' },
+      )
+      const body = await res.json()
+      if (!res.ok) throw new Error(body?.error ?? `HTTP ${res.status}`)
+      return body
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['dev-admin', 'stats'] }),
+  })
+}
+
 function Card({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section
@@ -122,6 +138,7 @@ function Row({ label, value }: { label: string; value: string | number }) {
 
 export default function AdminDashboardPage() {
   const stats = useAdminStats()
+  const action = useCourseAction()
 
   if (stats.isLoading) {
     return (
@@ -201,12 +218,36 @@ export default function AdminDashboardPage() {
                           — {c.city ?? '—'}, {c.state ?? '—'}
                         </span>
                       </span>
-                      <span className="text-caddie-ink-mute">
-                        {new Date(c.created_at).toLocaleDateString()}
+                      <span style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                        <span className="text-caddie-ink-mute">
+                          {new Date(c.created_at).toLocaleDateString()}
+                        </span>
+                        <button
+                          type="button"
+                          disabled={action.isPending}
+                          onClick={() => action.mutate({ id: c.id, action: 'approve' })}
+                        >
+                          Approve
+                        </button>
+                        <button
+                          type="button"
+                          disabled={action.isPending}
+                          onClick={() => {
+                            if (!confirm(`Delete "${c.name}"? This cannot be undone.`)) return
+                            action.mutate({ id: c.id, action: 'reject' })
+                          }}
+                        >
+                          Reject
+                        </button>
                       </span>
                     </li>
                   ))}
                 </ul>
+              )}
+              {action.isError && (
+                <div style={{ fontSize: 13, color: '#b4291f' }}>
+                  {action.error instanceof Error ? action.error.message : 'Action failed'}
+                </div>
               )}
             </>
           )}

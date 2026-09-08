@@ -117,6 +117,7 @@ export type Database = {
       courses: {
         Row: {
           address: string | null
+          approved_at: string | null
           city: string | null
           country: string | null
           created_at: string
@@ -138,6 +139,7 @@ export type Database = {
         }
         Insert: {
           address?: string | null
+          approved_at?: string | null
           city?: string | null
           country?: string | null
           created_at?: string
@@ -159,6 +161,7 @@ export type Database = {
         }
         Update: {
           address?: string | null
+          approved_at?: string | null
           city?: string | null
           country?: string | null
           created_at?: string
