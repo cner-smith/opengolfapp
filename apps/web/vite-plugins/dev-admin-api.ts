@@ -12,6 +12,16 @@ type CrawlStateRow = Database['public']['Tables']['crawl_state']['Row']
 const DEV_PROJECT_REF = 'txquvfeyvkaetqlamqlz'
 const DAY_MS = 86_400_000
 
+// PostgREST's default page size (unset db-max-rows still defaults to 1000 on
+// Supabase-hosted projects) truncates any unranged select silently — no
+// error, just a 206 with a Content-Range header nothing here reads. Verified
+// live against oga-dev: an unranged `holes.select('course_id')` came back
+// capped at 1000 of 159,748 rows, silently feeding a wrong number into
+// oddHoleCount below with no error to catch it (see task-1-report.md).
+// Anywhere a select's row count is unbounded (user-generated, not capped by
+// something structural like geography), page through it with this size.
+const POSTGREST_PAGE_SIZE = 1000
+
 export interface PendingCourse {
   id: string
   name: string
@@ -89,6 +99,12 @@ async function pendingPanel(client: OgaSupabaseClient): Promise<PendingPanel> {
 }
 
 async function crawlerPanel(client: OgaSupabaseClient): Promise<CrawlerPanel> {
+  // Deliberately unranged (unlike fetchAllCourseIds / activeIn below): unlike
+  // `holes` or `rounds`, crawl_state is one row per `source:scope` written
+  // only by our own crawler — currently ~50 rows, bounded by geography, not
+  // by user activity. It cannot grow past PostgREST's 1000-row default page
+  // on its own, so pagination here would be defending against a size the
+  // data structurally can't reach.
   const { data, error } = await client
     .from('crawl_state')
     .select('id,status,last_crawled_at,error_message')
@@ -128,15 +144,27 @@ async function usagePanel(client: OgaSupabaseClient): Promise<UsagePanel> {
         .lt('created_at', to),
     )
 
-  // PostgREST has no count(distinct), and a week of rounds is small, so dedupe here.
+  // PostgREST has no count(distinct), so dedupe here. rounds is user-generated
+  // and unbounded — this dashboard is meant to run against production too,
+  // where a busy week could plausibly exceed 1000 rows — so this paginates
+  // (see POSTGREST_PAGE_SIZE above) rather than trusting one unranged select.
   const activeIn = async (from: string, to: string): Promise<number> => {
-    const { data, error } = await client
-      .from('rounds')
-      .select('user_id')
-      .gte('created_at', from)
-      .lt('created_at', to)
-    if (error) throw new Error(error.message)
-    return new Set((data ?? []).map((r) => r.user_id)).size
+    const userIds = new Set<string>()
+    let start = 0
+    for (;;) {
+      const { data, error } = await client
+        .from('rounds')
+        .select('user_id')
+        .gte('created_at', from)
+        .lt('created_at', to)
+        .range(start, start + POSTGREST_PAGE_SIZE - 1)
+      if (error) throw new Error(error.message)
+      const page = data ?? []
+      for (const row of page) userIds.add(row.user_id)
+      if (page.length < POSTGREST_PAGE_SIZE) break
+      start += POSTGREST_PAGE_SIZE
+    }
+    return userIds.size
   }
 
   const [profilesNow, profilesPrior, roundsNow, roundsPrior, activeNow, activePrior] =
@@ -155,14 +183,6 @@ async function usagePanel(client: OgaSupabaseClient): Promise<UsagePanel> {
     activeUsers: { current: activeNow, prior: activePrior },
   }
 }
-
-// PostgREST's default page size (unset db-max-rows still defaults to 1000 on
-// Supabase-hosted projects) truncates any unranged select silently — no
-// error, just a 206 with a Content-Range header nothing here was reading.
-// Verified live against oga-dev: an unranged `holes.select('course_id')`
-// came back capped at 1000 of 159,748 rows, which fed the wrong number into
-// oddHoleCount below with no error to catch it (see task-1-report.md).
-const POSTGREST_PAGE_SIZE = 1000
 
 async function fetchAllCourseIds(client: OgaSupabaseClient): Promise<string[]> {
   const ids: string[] = []
