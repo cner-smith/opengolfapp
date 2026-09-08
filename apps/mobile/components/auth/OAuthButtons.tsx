@@ -51,9 +51,8 @@ const REDIRECT = 'oga://oauth-callback'
 
 export function OAuthButtons() {
   const [error, setError] = useState<string | null>(null)
-  // Shared in-flight guard: covers Google here and the Apple handler Task 5
-  // adds to this same component, so only one provider sheet can be open
-  // (and one button dimmed) at a time.
+  // Shared in-flight guard across both providers, so only one auth sheet can
+  // be open (and one button dimmed) at a time.
   const [busy, setBusy] = useState(false)
 
   async function signInWithGoogle() {
