@@ -169,12 +169,26 @@ export function HoleReviewSheet({
 
   const vsPar = score > 0 ? score - par : null
 
-  const setRow = (idx: number, nextRow: ReviewedShotRow) =>
+  const setRow = (idx: number, nextRow: ReviewedShotRow) => {
+    // Keep the Score ticker in step when the result picker flips a row into
+    // or out of 'ob'. An OB row is worth two strokes (the shot plus its
+    // rowless stroke-and-distance penalty), and hydration already counted
+    // any seeded OB — so without this, clearing OB on a row leaves the
+    // score a stroke high and setting it leaves the score a stroke low.
+    // Transition-driven, not value-driven: re-selecting the same result is
+    // a no-op and cannot double-count. Mirrors web's bump in
+    // apps/web/src/components/round/HoleReviewSheet.tsx (#839).
+    const prevRow = rows[idx]
+    if (prevRow && nextRow.shotResult !== prevRow.shotResult) {
+      if (nextRow.shotResult === 'ob') setScore((s) => s + 1)
+      else if (prevRow.shotResult === 'ob') setScore((s) => Math.max(0, s - 1))
+    }
     setRows((prev) => {
       const copy = prev.slice()
       copy[idx] = { ...nextRow, _shotId: prev[idx]?._shotId }
       return copy
     })
+  }
 
   const confirmDelete = (row: EditableRow) => {
     if (!row._shotId || saving) return
