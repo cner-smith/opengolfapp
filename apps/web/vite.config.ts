@@ -1,6 +1,7 @@
 import { defineConfig, loadEnv, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
 import { devCourseApi } from './vite-plugins/dev-course-api'
+import { devAdminApi } from './vite-plugins/dev-admin-api'
 
 // index.html's CSP meta tag ships to production, so its connect-src only
 // allowlists prod hosts (*.supabase.co etc) — it has no reason to know
@@ -32,7 +33,7 @@ export default defineConfig(({ mode }) => {
   process.env.SUPABASE_SERVICE_ROLE_KEY ??= env.SUPABASE_SERVICE_ROLE_KEY
 
   return {
-    plugins: [react(), devCsp(), devCourseApi()],
+    plugins: [react(), devCsp(), devCourseApi(), devAdminApi()],
     server: {
       port: 5173,
     },
