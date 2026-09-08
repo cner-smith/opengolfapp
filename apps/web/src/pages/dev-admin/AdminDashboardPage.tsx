@@ -224,14 +224,14 @@ export default function AdminDashboardPage() {
                         </span>
                         <button
                           type="button"
-                          disabled={action.isPending}
+                          disabled={action.isPending || stats.isFetching}
                           onClick={() => action.mutate({ id: c.id, action: 'approve' })}
                         >
                           Approve
                         </button>
                         <button
                           type="button"
-                          disabled={action.isPending}
+                          disabled={action.isPending || stats.isFetching}
                           onClick={() => {
                             if (!confirm(`Delete "${c.name}"? This cannot be undone.`)) return
                             action.mutate({ id: c.id, action: 'reject' })
@@ -300,7 +300,10 @@ export default function AdminDashboardPage() {
             <>
               <Row label="Courses missing state" value={d.missingState} />
               <Row label="Courses missing coordinates" value={d.missingCoords} />
-              <Row label="Courses with an odd hole count" value={d.oddHoleCount} />
+              <Row
+                label="Courses with partial hole geometry (excludes zero-hole courses)"
+                value={d.oddHoleCount}
+              />
             </>
           )}
         />
