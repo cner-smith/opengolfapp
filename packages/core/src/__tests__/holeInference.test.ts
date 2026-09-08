@@ -1,15 +1,23 @@
 import { describe, it, expect } from 'vitest'
 import { inferHoleStats } from '../holeInference'
 
+// `ob` is required, mirroring inferHoleStats's ShotLike union: a caller that
+// supplies neither OB representation silently gets the pre-#839 (inflated)
+// GIR thresholds, so the type forbids it. These fixtures say `ob: false`
+// rather than omitting it — which is also just true of them.
 interface S {
   shot_number: number
   lie_type: string | null
-  ob?: boolean | null
+  ob: boolean | null
   shotResult?: string | null
 }
 
-const tee = (n: number): S => ({ shot_number: n, lie_type: 'tee' })
-const lie = (n: number, lt: string): S => ({ shot_number: n, lie_type: lt })
+const tee = (n: number): S => ({ shot_number: n, lie_type: 'tee', ob: false })
+const lie = (n: number, lt: string): S => ({
+  shot_number: n,
+  lie_type: lt,
+  ob: false,
+})
 
 describe('inferHoleStats — fairway', () => {
   it('par 4, shot 2 lie=fairway → fairway: true', () => {
@@ -156,7 +164,7 @@ describe('inferHoleStats — gir', () => {
   // `shotResult: 'ob'` is the review-row representation; obCount reads either.
   it('par 3, tee OB then a green-start shot 2 → gir: FALSE (was 2 <= par-1)', () => {
     const shots: S[] = [
-      { shot_number: 1, lie_type: 'tee', shotResult: 'ob' },
+      { shot_number: 1, lie_type: 'tee', ob: false, shotResult: 'ob' },
       lie(2, 'green'),
     ]
     expect(inferHoleStats(shots, 3).gir).toBe(false)

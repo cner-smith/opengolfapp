@@ -15,18 +15,20 @@ export interface HoleInferred {
   fairway: boolean | null
 }
 
-interface ShotLike {
+interface ShotBase {
   shot_number: number
   lie_type: string | null
-  /** OB flag, in either of the two row shapes `obCount` accepts. Optional
-   *  only because two of the four callers pass one representation and two
-   *  pass the other — every caller MUST supply one of them, or the GIR
-   *  thresholds below silently revert to the pre-#839 (inflated) behaviour
-   *  with a clean typecheck. Raw `shots` rows carry `ob`; the review flows'
-   *  `ReviewedShotRow`s carry `shotResult`. */
-  ob?: boolean | null
-  shotResult?: string | null
 }
+
+/** The OB flag, in either of the two row shapes `obCount` accepts: raw
+ *  `shots` rows carry `ob`, the review flows' `ReviewedShotRow`s carry
+ *  `shotResult`. Expressed as a union so the COMPILER requires one of them —
+ *  a caller supplying neither would silently revert the GIR thresholds below
+ *  to the pre-#839 (inflated) behaviour, which is the exact bug class #839
+ *  fixed, and an optional pair could not catch it. */
+type ShotLike =
+  | (ShotBase & { ob: boolean | null; shotResult?: string | null })
+  | (ShotBase & { ob?: boolean | null; shotResult: string | null | undefined })
 
 /**
  * `holedOut` = the LAST shot in `shots` finished in the cup. Only the
