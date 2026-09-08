@@ -60,9 +60,8 @@ const HolePlanPage = lazy(() => import('./pages/plan/HolePlanPage'))
 //
 // The lazy() calls themselves live inside that same gate (see the IIFE at
 // the route-array callsite), not just the JSX that renders them. Proved
-// against the built artifact
-// (.superpowers/sdd/2026-09-08-admin-ops-dashboard/task-4-report.md) that
-// declaring `const X = lazy(() => import('./X'))` up here, outside the
+// against the built artifact that declaring
+// `const X = lazy(() => import('./X'))` up here, outside the
 // gate, does NOT tree-shake out of a production build even though the JSX
 // using X does: React.lazy() is a plain function call, not something
 // Rollup can prove is free of side effects, so it keeps the call — and
