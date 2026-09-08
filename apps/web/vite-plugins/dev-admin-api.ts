@@ -80,10 +80,29 @@ async function panel<T>(fn: () => Promise<T>): Promise<Panel<T>> {
 }
 
 async function countOf(
-  query: PromiseLike<{ count: number | null; error: { message: string } | null }>,
+  query: PromiseLike<{
+    count: number | null
+    error: { message: string } | null
+    status: number
+    statusText: string
+  }>,
 ): Promise<number> {
-  const { count, error } = await query
-  if (error) throw new Error(error.message)
+  const { count, error, status, statusText } = await query
+  if (error) {
+    // Every call site here uses { head: true } for an efficient count-only request. Per the
+    // Fetch spec, a HEAD response never carries a body — verified live (curl -I against this
+    // exact query, and reading @supabase/postgrest-js's PostgrestBuilder.processResponse):
+    // even though PostgREST computes and sends a real JSON error, the client-side body comes
+    // back '', JSON.parse('') throws, and postgrest-js's catch falls through to
+    // `error = { message: body }` i.e. `{ message: '' }`. No amount of retrying or reading
+    // `error` harder recovers that text — it was never delivered. So when message is empty,
+    // surface the one thing that *did* arrive (the HTTP status) and say plainly why the rest
+    // is missing, rather than let the caller render a blank, unexplained error box.
+    const message = error.message.trim()
+      ? error.message
+      : `Count query failed: HTTP ${status} ${statusText}. HEAD responses carry no error body, so PostgREST's message wasn't delivered — re-run the same query without head:true (e.g. via curl) to see the actual cause.`
+    throw new Error(message)
+  }
   return count ?? 0
 }
 
