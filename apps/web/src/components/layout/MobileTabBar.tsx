@@ -39,10 +39,15 @@ export function MobileTabBar() {
   return (
     <nav
       aria-label="Primary"
-      className="md:hidden fixed bottom-0 left-0 right-0 z-30 bg-caddie-surface"
+      // `flex` belongs in the class list, NOT in the style object below: an
+      // inline `display` beats any stylesheet rule short of !important, so
+      // `style={{ display: 'flex' }}` silently overrode `md:hidden` and the
+      // bar rendered at EVERY width — including desktop, alongside the
+      // sidebar. Both display values must live in the same cascade layer for
+      // the breakpoint to win.
+      className="flex md:hidden fixed bottom-0 left-0 right-0 z-30 bg-caddie-surface"
       style={{
         borderTop: '1px solid #D9D2BF',
-        display: 'flex',
         // Respect the iOS/Android home-indicator inset in mobile browsers.
         paddingBottom: 'env(safe-area-inset-bottom, 0px)',
       }}
