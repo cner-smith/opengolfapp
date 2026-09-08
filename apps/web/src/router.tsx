@@ -60,6 +60,7 @@ const HolePlanPage = lazy(() => import('./pages/plan/HolePlanPage'))
 // time, so these lazy imports don't appear in a production bundle at all.
 const CourseEditorIndexPage = lazy(() => import('./pages/dev-editor/CourseEditorIndexPage'))
 const CourseEditorPage = lazy(() => import('./pages/dev-editor/CourseEditorPage'))
+const AdminDashboardPage = lazy(() => import('./pages/dev-admin/AdminDashboardPage'))
 
 function RouteFallback() {
   return (
@@ -139,6 +140,7 @@ const routes: RouteObject[] = [
         ? [
             { path: '/dev/courses', element: <CourseEditorIndexPage />, errorElement },
             { path: '/dev/courses/:id/edit', element: <CourseEditorPage />, errorElement },
+            { path: '/dev/admin', element: <AdminDashboardPage />, errorElement },
           ]
         : []),
     ],
