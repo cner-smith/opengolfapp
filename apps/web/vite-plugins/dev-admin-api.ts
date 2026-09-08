@@ -304,6 +304,19 @@ export function devAdminApi(): Plugin {
     name: 'dev-admin-api',
     apply: 'serve',
     configureServer(server) {
+      // Unconditional, fires at server startup (not per-request or after any
+      // query resolves) so it covers the loading window, the error path, and
+      // every route this plugin serves — including /dev/courses' Course
+      // Editor writes, which have no on-page banner of their own. This is the
+      // one warning that can never be silenced by a slow query or a page that
+      // hasn't rendered yet.
+      const startupUrl = process.env.SUPABASE_URL || 'http://127.0.0.1:54321'
+      const startupRef = refFromUrl(startupUrl)
+      if (startupRef !== DEV_PROJECT_REF && startupRef !== 'local') {
+        server.config.logger.warn(
+          `[dev-admin-api] SUPABASE_URL resolves to project "${startupRef}", not the dev project (${DEV_PROJECT_REF}). The ops dashboard at /dev/admin will read PRODUCTION data, and the Course Editor's write endpoints at /dev/courses are ALSO live against production.`,
+        )
+      }
       server.middlewares.use('/api/dev-admin', async (req, res, next) => {
         const client = await getClient(server)
         if (!client) {
@@ -364,7 +377,20 @@ export function devAdminApi(): Plugin {
               .eq('id', segments[1]!)
               .is('approved_at', null)
               .select('id')
-            if (error) return sendJson(res, 400, { error: error.message })
+            if (error) {
+              // rounds.course_id -> courses is NO ACTION (unlike holes/course_tees,
+              // which cascade — see 0038's FK inventory), and 0053's backfill leaves
+              // pending exactly the courses most likely to have a round attached
+              // (someone created it to log a round there). Name what happened instead
+              // of surfacing Postgres's raw FK-violation text.
+              if (error.code === '23503') {
+                return sendJson(res, 400, {
+                  error:
+                    'Rounds have been logged on this course, so it cannot be deleted. Nothing was changed.',
+                })
+              }
+              return sendJson(res, 400, { error: error.message })
+            }
             if (!data || data.length === 0) {
               return sendJson(res, 409, { error: 'Not found, or already approved' })
             }
