@@ -106,25 +106,57 @@ export function BreadcrumbLayers({
             circleStrokeWidth: 3,
           }}
         />
+        {/* Non-OB discs/numbers. The OB shot is split into its own pair of
+            layers below so it can be nudged aside: the ring above marks the
+            true origin, but the re-hit's disc lands on the exact same
+            coordinate and was covering the OB shot's number entirely, so the
+            map could show THAT a penalty happened but never WHICH shot took
+            it. `circle-translate` / `text-translate` are pixel offsets and
+            are NOT data-driven, which is why this needs separate layers
+            rather than an expression (#839). */}
         <Mapbox.CircleLayer
           id="prevShotsWaypointDisc"
+          filter={['!=', ['get', 'ob'], true]}
           style={{
             circleRadius: 10,
-            // caddie-neg (#A33A2A) for the shot that went OB, matching the
-            // live chip / scorecard penalty color; amber for everything else.
-            circleColor: ['case', ['==', ['get', 'ob'], true], '#A33A2A', '#A66A1F'],
+            circleColor: '#A66A1F',
             circleStrokeColor: '#FBF8F1',
             circleStrokeWidth: 2,
           }}
         />
         <Mapbox.SymbolLayer
           id="prevShotsWaypointNumber"
+          filter={['!=', ['get', 'ob'], true]}
           style={{
             textField: ['get', 'n'],
             textSize: 11,
             textColor: '#FBF8F1',
             textAllowOverlap: true,
             textIgnorePlacement: true,
+          }}
+        />
+        <Mapbox.CircleLayer
+          id="prevShotsObDisc"
+          filter={['==', ['get', 'ob'], true]}
+          style={{
+            circleRadius: 10,
+            // caddie-neg — matches the live chip / scorecard penalty colour.
+            circleColor: '#A33A2A',
+            circleStrokeColor: '#FBF8F1',
+            circleStrokeWidth: 2,
+            circleTranslate: [-20, 0],
+          }}
+        />
+        <Mapbox.SymbolLayer
+          id="prevShotsObNumber"
+          filter={['==', ['get', 'ob'], true]}
+          style={{
+            textField: ['get', 'n'],
+            textSize: 11,
+            textColor: '#FBF8F1',
+            textAllowOverlap: true,
+            textIgnorePlacement: true,
+            textTranslate: [-20, 0],
           }}
         />
       </Mapbox.ShapeSource>

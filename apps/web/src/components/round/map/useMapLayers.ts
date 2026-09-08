@@ -216,6 +216,19 @@ export function useMapLayers({
       markerRefs.current.push(ring)
     }
 
+    // An OB shot and its stroke-and-distance re-hit are BY RULE at the same
+    // coordinate, so their discs land on the same pixel and whichever Mapbox
+    // adds last wins the stacking — in practice the re-hit, which left the OB
+    // shot's own number completely invisible with only the ring to hint at it.
+    // Count coincident starts so the OB disc can be nudged aside below. The
+    // ring stays on the true origin, so the position is still told honestly;
+    // only the label moves (#839).
+    const coincidentCount = new Map<string, number>()
+    for (const s of existingValid) {
+      const k = `${s.startLng ?? s.endLng},${s.startLat ?? s.endLat}`
+      coincidentCount.set(k, (coincidentCount.get(k) ?? 0) + 1)
+    }
+
     for (const s of existingValid) {
       // caddie-neg overrides the category color for the shot that went OB —
       // matches the live chip / scorecard penalty color (mirrors mobile's
@@ -238,9 +251,15 @@ export function useMapLayers({
       // silently coerce it into a start coord on save.
       const draggable =
         !!onMoveExistingShot && s.startLat != null && s.startLng != null
+      // Only the OB disc moves, and only when something else really is on top
+      // of it — a lone OB shot stays dead centre in its ring.
+      const shareCount = coincidentCount.get(`${lng},${lat}`) ?? 0
+      const offset: [number, number] =
+        s.ob === true && shareCount > 1 ? [-20, 0] : [0, 0]
       const marker = new mapboxgl.Marker({
         element: parts.outer,
         draggable,
+        offset,
       })
         .setLngLat([lng, lat])
         .addTo(map)
