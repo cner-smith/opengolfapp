@@ -93,6 +93,8 @@ alter table public.courses alter column created_by set default auth.uid();
 do $$
 declare
   approved_count bigint;
+  total_approved bigint;
+  total_courses bigint;
 begin
   -- `approved_at is null` makes this the one re-runnable statement it was
   -- not: a second application would otherwise overwrite every existing
@@ -116,13 +118,26 @@ begin
 
   get diagnostics approved_count = row_count;
 
-  -- A correct run approves ~20.7k rows. Anything far below that means the
-  -- predicate is wrong (a stray AND, a dropped clause in a rebase) and would
-  -- hide the corpus from every user. Fail the migration instead of shipping it.
-  if approved_count < 20000 then
+  select count(*) filter (where approved_at is not null), count(*)
+    into total_approved, total_courses
+    from public.courses;
+
+  -- The guard asserts the RESULTING STATE, not the rows this run happened to
+  -- touch, and it is relative rather than an absolute count. Both matter:
+  --   * absolute (the old `approved_count < 20000`) was tuned to prod's
+  --     corpus, so this migration could never be rehearsed anywhere smaller.
+  --     Dev has ~15.3k courses and would have aborted, which meant PROD would
+  --     have been the first and only place this ever ran.
+  --   * counting rows-touched breaks the moment the update above is re-run:
+  --     it correctly approves 0 the second time, which an absolute floor
+  --     would read as catastrophic failure.
+  -- What it still catches is the thing it was written for — a predicate that
+  -- lost a branch in a rebase approves a handful of rows, leaving the corpus
+  -- overwhelmingly unapproved and invisible to every user.
+  if total_courses > 0 and total_approved < (total_courses * 0.9) then
     raise exception
-      'Backfill approved only % course rows; expected >20000. Predicate is wrong — aborting migration.',
-      approved_count;
+      'Only %/% courses are approved after backfill (<90%%); predicate is wrong — aborting migration. Rows touched this run: %.',
+      total_approved, total_courses, approved_count;
   end if;
 
   raise notice 'Backfill approved % course rows.', approved_count;
