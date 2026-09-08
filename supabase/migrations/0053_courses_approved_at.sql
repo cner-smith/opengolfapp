@@ -78,18 +78,40 @@ alter table public.courses alter column created_by set default auth.uid();
 --
 -- `now()` is honest here: these rows are approved *as of this migration*.
 -- Using `created_at` would falsely imply a human reviewed them back then.
+--
+-- CAVEAT on `created_by is null` == "crawler corpus": that equivalence is
+-- true at backfill time (all current user-submitted rows carry a submitter)
+-- but is NOT identity-tight going forward. `courses.created_by` is
+-- `on delete set null` (0001), and `public.delete_my_account()` (0036)
+-- deletes the auth user, cascading to `profiles` and nulling `created_by` on
+-- that submitter's courses WITHOUT deleting the course rows. Such a row is
+-- benign rather than a leak — it keeps `approved_at = null`, the trigger
+-- below is INSERT-only, and this backfill has already run, so the SELECT
+-- policy (`created_by = auth.uid()`, NULL for everyone) renders it invisible
+-- cruft rather than auto-publishing it. Do not read a null submitter as
+-- proof of crawler provenance in any FUTURE policy or job.
 do $$
 declare
   approved_count bigint;
 begin
+  -- `approved_at is null` makes this the one re-runnable statement it was
+  -- not: a second application would otherwise overwrite every existing
+  -- approval instant with a fresh now(), losing when each course was
+  -- actually approved. The OR below MUST stay parenthesised — without it
+  -- the guard binds only to the first branch and crawler rows re-stamp.
+  -- On the first run every row has approved_at null, so the count the
+  -- assertion below checks is unchanged.
   update public.courses
      set approved_at = now()
-   where created_by is null
-      or exists (
-           select 1
-             from public.rounds r
-            where r.course_id = courses.id
-              and r.user_id <> courses.created_by
+   where approved_at is null
+     and (
+              created_by is null
+           or exists (
+                select 1
+                  from public.rounds r
+                 where r.course_id = courses.id
+                   and r.user_id <> courses.created_by
+              )
          );
 
   get diagnostics approved_count = row_count;
