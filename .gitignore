@@ -18,6 +18,7 @@ build/
 .env.staging
 apps/web/.env.development
 apps/web/.env.production
+apps/web/.env.adminprod
 apps/mobile/.env.development
 apps/mobile/.env.production
 !.env.example
