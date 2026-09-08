@@ -891,7 +891,13 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
           // path is ever broken, this line silently drops every OB flag —
           // keep the two in step (#839).
           penalty: existing.penalty ?? false,
-          ob: row.shotResult === 'ob',
+          // A putt cannot be out of bounds. `shot_result` is already
+          // putt-gated one line up, so without the same gate here a row
+          // whose result was 'ob' and whose lie was THEN changed to green
+          // persists ob=true with shot_result=null — and sg-calculator's
+          // OB branch sits ahead of holedOut, so a made putt on that row
+          // books -2 putting instead of ~+0.1 (#839).
+          ob: isPuttRow ? false : row.shotResult === 'ob',
           // Putt tap-to-tap distance is in yards; * 3 = feet (US convention),
           // and putt_distance_ft is what the rest of the app reads.
           putt_distance_ft: isPuttRow ? Math.round(row.distanceYards * 3) : null,
