@@ -314,13 +314,49 @@ function ShotRowView({
         alignItems: 'center',
       }}
     >
-      <Text style={[TYPE.kicker, { width: 24, color: '#8A8B7E', fontSize: 14, fontVariant: ['tabular-nums'] }]}>
+      <Text
+        style={[
+          TYPE.kicker,
+          {
+            width: 24,
+            color: shot.ob === true ? '#A33A2A' : '#8A8B7E',
+            fontSize: 14,
+            fontVariant: ['tabular-nums'],
+          },
+        ]}
+      >
         {shot.shot_number}
       </Text>
       <View style={{ flex: 1 }}>
-        <Text style={[TYPE.bodyBold, { color: '#1C211C', fontSize: 15, fontWeight: '500', textTransform: 'capitalize' }]}>
-          {clubLabel}
-        </Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          <Text style={[TYPE.bodyBold, { color: '#1C211C', fontSize: 15, fontWeight: '500', textTransform: 'capitalize' }]}>
+            {clubLabel}
+          </Text>
+          {shot.ob === true && (
+            /* An OB shot and its stroke-and-distance re-hit sit on the same
+               coordinate, so their map discs overlap and neither number is
+               reliably legible. This row is the unambiguous answer to which
+               shot went out of bounds (#839). */
+            <Text
+              style={[
+                TYPE.kicker,
+                {
+                  color: '#FBF8F1',
+                  backgroundColor: '#A33A2A',
+                  fontSize: 10,
+                  fontWeight: '700',
+                  letterSpacing: 0.5,
+                  paddingHorizontal: 6,
+                  paddingVertical: 1,
+                  borderRadius: 4,
+                  overflow: 'hidden',
+                },
+              ]}
+            >
+              OB
+            </Text>
+          )}
+        </View>
         {sub.length > 0 && (
           <Text style={[TYPE.body, { color: '#5C6356', fontSize: 12, marginTop: 2 }]}>
             {sub}

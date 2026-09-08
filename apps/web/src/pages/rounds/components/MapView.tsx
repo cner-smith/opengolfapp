@@ -443,7 +443,10 @@ function ShotList({ shots }: { shots: ExistingShot[] }) {
                 width: 20,
                 height: 20,
                 borderRadius: 999,
-                background: categoryColor(cat),
+                // OB overrides the category colour, exactly as the map marker
+                // does — the list and the map must never disagree about which
+                // shot went out of bounds (#839).
+                background: s.ob === true ? MARKER_COLORS.ob : categoryColor(cat),
                 color: '#FBF8F1',
                 fontSize: 11,
                 fontWeight: 600,
@@ -455,7 +458,30 @@ function ShotList({ shots }: { shots: ExistingShot[] }) {
             >
               {s.shotNumber}
             </span>
-            <span style={{ fontSize: 13, flex: 1 }}>{CATEGORY_LABEL[cat]}</span>
+            <span style={{ fontSize: 13, flex: 1 }}>
+              {CATEGORY_LABEL[cat]}
+              {s.ob === true && (
+                // On the map an OB shot and its re-hit sit on the same
+                // coordinate, so the two discs overlap and neither number is
+                // reliably legible. This row is the unambiguous answer to
+                // "which shot went OB" (#839).
+                <span
+                  style={{
+                    marginLeft: 8,
+                    padding: '1px 6px',
+                    borderRadius: 4,
+                    background: MARKER_COLORS.ob,
+                    color: '#FBF8F1',
+                    fontSize: 10,
+                    fontWeight: 700,
+                    letterSpacing: 0.5,
+                    verticalAlign: 'middle',
+                  }}
+                >
+                  OB
+                </span>
+              )}
+            </span>
             {dist != null && (
               <span
                 className="text-caddie-ink-dim font-mono"
