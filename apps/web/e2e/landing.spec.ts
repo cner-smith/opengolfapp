@@ -6,10 +6,14 @@ test.describe('Landing page (signed out)', () => {
     await expect(
       page.getByRole('heading', { name: /Track every shot/i }),
     ).toBeVisible()
-    // Exact-match the badge text — there's also a footer "Free and open
-    // source · MIT License" div that loose-matches under strict mode.
+    // Exact-match the hero badge — the footer carries the longer "Free and
+    // open source · MIT License", which a loose match would also hit under
+    // strict mode. Exact on the hero's own string separates them.
+    // (Was 'Free and open source'; the badge gained "· MIT" in #846 and this
+    // assertion has been failing ever since. e2e is not in CI, so nothing
+    // caught it.)
     await expect(
-      page.getByText('Free and open source', { exact: true }),
+      page.getByText('Free and open source · MIT', { exact: true }),
     ).toBeVisible()
   })
 })
