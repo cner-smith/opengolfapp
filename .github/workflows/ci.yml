@@ -74,3 +74,9 @@ jobs:
       # buildCommand) — tsc -b doesn't catch asset/import resolution breaks
       # that only surface at deploy time. (#674)
       - run: pnpm --filter @oga/web build
+      # The dev-only Course Editor + ops dashboard (router.tsx) must never
+      # reach a production bundle — that gate already failed silently once
+      # on already-merged code. Fail the build instead of depending on
+      # someone remembering to grep dist/ by hand.
+      - name: Dev-admin bundle-leak guard
+        run: '! grep -rqE ''dev-admin|dev-editor|/dev/courses|/dev/admin'' apps/web/dist'
