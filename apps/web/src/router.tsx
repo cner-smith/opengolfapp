@@ -54,13 +54,24 @@ const SupportPage = lazy(() =>
 )
 const CoursePlanPage = lazy(() => import('./pages/plan/CoursePlanPage'))
 const HolePlanPage = lazy(() => import('./pages/plan/HolePlanPage'))
-// Dev-only Course Editor — its backend (vite-plugins/dev-course-api.ts) only
-// exists under `vite dev`, so the route itself is gated on import.meta.env.DEV
-// below. That check is statically replaced + tree-shaken by Vite at build
-// time, so these lazy imports don't appear in a production bundle at all.
-const CourseEditorIndexPage = lazy(() => import('./pages/dev-editor/CourseEditorIndexPage'))
-const CourseEditorPage = lazy(() => import('./pages/dev-editor/CourseEditorPage'))
-const AdminDashboardPage = lazy(() => import('./pages/dev-admin/AdminDashboardPage'))
+// Dev-only Course Editor + ops dashboard — their backends (vite-plugins/
+// dev-course-api.ts, vite-plugins/dev-admin-api.ts) only exist under
+// `vite dev`, so the routes are gated on import.meta.env.DEV below.
+//
+// The lazy() calls themselves live inside that same gate (see the IIFE at
+// the route-array callsite), not just the JSX that renders them. Proved
+// against the built artifact
+// (.superpowers/sdd/2026-09-08-admin-ops-dashboard/task-4-report.md) that
+// declaring `const X = lazy(() => import('./X'))` up here, outside the
+// gate, does NOT tree-shake out of a production build even though the JSX
+// using X does: React.lazy() is a plain function call, not something
+// Rollup can prove is free of side effects, so it keeps the call — and
+// the dynamic import() inside it still forces its own chunk into
+// dist/assets, fully populated with that page's copy and API paths,
+// reachable by direct request on any static host serving the build. Only
+// wrapping the declaration itself in the same statically-false branch as
+// the JSX removes it: dead-branch elimination doesn't need purity, it
+// just deletes code that provably can't run.
 
 function RouteFallback() {
   return (
@@ -137,11 +148,18 @@ const routes: RouteObject[] = [
       { path: '/settings', element: <SettingsPage />, errorElement },
       { path: '/settings/bag', element: <BagPage />, errorElement },
       ...(import.meta.env.DEV
-        ? [
-            { path: '/dev/courses', element: <CourseEditorIndexPage />, errorElement },
-            { path: '/dev/courses/:id/edit', element: <CourseEditorPage />, errorElement },
-            { path: '/dev/admin', element: <AdminDashboardPage />, errorElement },
-          ]
+        ? (() => {
+            const CourseEditorIndexPage = lazy(
+              () => import('./pages/dev-editor/CourseEditorIndexPage'),
+            )
+            const CourseEditorPage = lazy(() => import('./pages/dev-editor/CourseEditorPage'))
+            const AdminDashboardPage = lazy(() => import('./pages/dev-admin/AdminDashboardPage'))
+            return [
+              { path: '/dev/courses', element: <CourseEditorIndexPage />, errorElement },
+              { path: '/dev/courses/:id/edit', element: <CourseEditorPage />, errorElement },
+              { path: '/dev/admin', element: <AdminDashboardPage />, errorElement },
+            ]
+          })()
         : []),
     ],
   },
