@@ -403,6 +403,7 @@ export function RoundDetailPage() {
                   )}
                   pinLat={effectivePin?.lat ?? null}
                   pinLng={effectivePin?.lng ?? null}
+                  storedShots={activeHoleShots}
                   placedPoints={placedPoints}
                   placedPutts={placedPutts}
                   saving={savingHole}

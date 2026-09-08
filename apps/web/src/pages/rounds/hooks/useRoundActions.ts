@@ -711,16 +711,21 @@ export function useRoundActions(input: UseRoundActionsInput): UseRoundActionsRes
             lie_slope_forward: isPuttRow ? null : row.lieSlopeForward ?? null,
             lie_slope_side: isPuttRow ? null : row.lieSlopeSide ?? null,
             shot_result: isPuttRow ? null : row.shotResult ?? null,
-            // The review sheet has no OB control, so the previously stored
-            // value is authoritative unless this save's own result picker
-            // set it (mirrors mobile's useShotActions fix, #797/#839). A
-            // hole with no prior shots at this number (new hole, or the
-            // shot count changed) reads as not-ob/not-penalty, matching a
-            // fresh row's real state.
+            // `penalty` is distinct from `ob` and has no control anywhere in
+            // this sheet, so the stored value is the only source and is
+            // carried through the replace-all rewrite. A hole with no prior
+            // shot at this number — a new hole, or a re-placement with a
+            // different shot count — reads as not-penalty, matching a fresh
+            // row's real state.
             penalty: existingByShotNumber.get(row.shotNumber)?.penalty ?? false,
-            ob:
-              (existingByShotNumber.get(row.shotNumber)?.ob ?? false) ||
-              row.shotResult === 'ob',
+            // Derived from the row alone, matching mobile. The sheet seeds
+            // `shotResult: 'ob'` from the stored shots at hydration, so the
+            // row is authoritative — OR-ing the stored flag back in here
+            // would make a stored `ob` unclearable: the result picker is
+            // single-select, so re-tagging that shot 'pull' would persist
+            // ob=true alongside shot_result='pull', charging SG -2 on a row
+            // the label and map badge show as a normal shot (#839).
+            ob: row.shotResult === 'ob',
             // Putt-specific fields. distanceYards on a putt row is the
             // tap-to-tap distance in yards; * 3 = feet (US convention),
             // and putt_distance_ft is what the rest of the app reads.
