@@ -126,6 +126,30 @@ Numbered sequentially: `000X_descriptive_snake_case.sql`. The next
 migration goes in the next free number. No date prefixes, no skipped
 numbers. RLS policies must be defined for every user-owned table.
 
+### Versioning — two streams, on purpose
+
+There are two version numbers and they are allowed to differ.
+
+**The repo stream** is the git tag (`v1.5.0`), managed by release-please
+from conventional commits on every merge to `main`. It drives the
+changelog and the continuously deployed web app, and it also sets the
+`version` field in each `package.json` automatically — those packages are
+all private, so the field is informational.
+
+**The mobile store stream** is `version` in `apps/mobile/app.config.ts`.
+It moves only when a new native build is submitted to the App Store and
+Play, so it normally sits behind the tag.
+
+Do not "tidy" the mobile version to match the tag. It is load-bearing:
+the OTA `runtimeVersion` policy is `appVersion`, so the runtime version
+*is* that string, and an update only reaches binaries whose runtime
+version matches it exactly. Editing it without shipping a new native
+build cuts OTA delivery to every install already out there, until a
+replacement binary is submitted *and* approved.
+
+The two reconverge on their own: when you do ship a native build, set
+`version` to the then-current tag.
+
 ## Reporting bugs
 
 Open a [GitHub issue](https://github.com/cner-smith/opengolfapp/issues).
