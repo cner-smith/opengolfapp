@@ -130,6 +130,113 @@ async function countOf(
   return count ?? 0
 }
 
+// ~1 km, as a latitude delta for a cheap bounding box before the exact
+// haversine filter. Longitude degrees shrink with latitude, hence the cosine:
+// without it the box is far too narrow in Scotland and too wide near the
+// equator. The clamp stops a division blowup at the poles.
+const NEARBY_LAT_DELTA = 0.01
+const NEARBY_MAX_M = 1000
+
+interface CandidateRow {
+  id: string
+  name: string
+  city: string | null
+  state: string | null
+  lat: number | null
+  lng: number | null
+  approved_at: string | null
+}
+
+function toMatch(c: CandidateRow): Omit<DuplicateMatch, 'tier' | 'reason'> {
+  return {
+    id: c.id,
+    name: c.name,
+    city: c.city,
+    state: c.state,
+    pending: c.approved_at === null,
+  }
+}
+
+async function findDuplicates(
+  client: OgaSupabaseClient,
+  core: OgaCoreModule,
+  row: PendingCourse,
+): Promise<DuplicateMatch[]> {
+  const matches = new Map<string, DuplicateMatch>()
+  const self = { name: row.name, city: row.city, state: row.state }
+
+  // --- by name --------------------------------------------------------
+  // Queries ALL courses, not just approved: "The Bel Short Course" appears
+  // twice in this queue today, same submitter, 0 m apart. An approved-only
+  // query flags neither of them.
+  const token = core.distinctiveToken(row.name)
+  if (token) {
+    const { data, error, count } = await client
+      .from('courses')
+      .select('id,name,city,state,lat,lng,approved_at', { count: 'exact' })
+      .ilike('name', `%${token}%`)
+      .neq('id', row.id)
+      .limit(200)
+    if (error) throw new Error(error.message)
+    const candidates = (data ?? []) as unknown as CandidateRow[]
+    if ((count ?? 0) > candidates.length) {
+      // Surfaced, not swallowed: a silent truncation here is a false
+      // negative, which is the failure this panel exists to prevent.
+      matches.set('__truncated__', {
+        id: '__truncated__',
+        name: `${count} name candidates for "${token}", only ${candidates.length} checked`,
+        city: null,
+        state: null,
+        pending: false,
+        tier: 'possible',
+        reason: 'name-containment',
+      })
+    }
+    const a = core.normalizeCourseName(row.name)
+    for (const c of candidates) {
+      const b = core.normalizeCourseName(c.name)
+      if (core.isProbableSameCourse(self, { name: c.name, city: c.city, state: c.state })) {
+        matches.set(c.id, { ...toMatch(c), tier: 'likely', reason: 'exact-name' })
+      } else if (a && b && (a.includes(b) || b.includes(a))) {
+        matches.set(c.id, { ...toMatch(c), tier: 'possible', reason: 'name-containment' })
+      }
+    }
+  }
+
+  // --- by geography ----------------------------------------------------
+  // Catches what names cannot: "Sundridge Park West" is 513 m from the
+  // approved "Sundridge Park Golf Course" and shares no normalized name.
+  if (row.centroid) {
+    const { lat, lng } = row.centroid
+    const lngDelta = NEARBY_LAT_DELTA / Math.max(Math.cos((lat * Math.PI) / 180), 0.01)
+    const { data, error } = await client
+      .from('courses')
+      .select('id,name,city,state,lat,lng,approved_at')
+      .neq('id', row.id)
+      .gte('lat', lat - NEARBY_LAT_DELTA)
+      .lte('lat', lat + NEARBY_LAT_DELTA)
+      .gte('lng', lng - lngDelta)
+      .lte('lng', lng + lngDelta)
+      .limit(50)
+    if (error) throw new Error(error.message)
+    for (const c of (data ?? []) as unknown as CandidateRow[]) {
+      if (c.lat == null || c.lng == null) continue
+      const metres = core.haversineYards(lat, lng, c.lat, c.lng) * core.YARDS_TO_METERS
+      if (metres > NEARBY_MAX_M) continue
+      // Never downgrade an exact-name hit to a proximity one.
+      if (matches.get(c.id)?.tier === 'likely') continue
+      matches.set(c.id, {
+        ...toMatch(c),
+        tier: 'possible',
+        reason: 'proximity',
+        metres: Math.round(metres),
+      })
+    }
+  }
+
+  return [...matches.values()]
+}
+
 async function pendingPanel(
   client: OgaSupabaseClient,
   core: OgaCoreModule,
@@ -220,7 +327,13 @@ async function pendingPanel(
       a.name.localeCompare(b.name),
   )
 
-  return { total: rows.length, rows: rows.slice(0, 50) }
+  const shown = rows.slice(0, 50)
+  // Sequential, not Promise.all: up to 100 queries against production, and a
+  // burst buys nothing on a page one person loads.
+  for (const row of shown) {
+    row.duplicates = await findDuplicates(client, core, row)
+  }
+  return { total: rows.length, rows: shown }
 }
 
 async function crawlerPanel(client: OgaSupabaseClient): Promise<CrawlerPanel> {
