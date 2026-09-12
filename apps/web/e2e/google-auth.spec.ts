@@ -1,6 +1,16 @@
 import { test, expect } from '@playwright/test'
 
-// TEMPORARY verification of the Google OAuth wiring (#859/#866).
+// Regression guard for the Google sign-in wiring (#859/#866) and for the
+// #509 failure mode, where a callback with no usable code sat on
+// "Signing you in…" forever instead of failing.
+//
+// These assert the *shape* of the wiring rather than one project's literal
+// config — client id, Supabase URL and app origin all come from the
+// environment — so the suite runs against a self-hosted deployment, not
+// only the maintainer's project. The network-dependent test below hits
+// live accounts.google.com and the live Supabase project, which is fine
+// while e2e is local-only; it would need to be made hermetic before
+// moving into CI.
 test.describe('Google sign-in wiring', () => {
   for (const path of ['/login', '/signup']) {
     test(`button renders on ${path}`, async ({ page }) => {
@@ -9,29 +19,46 @@ test.describe('Google sign-in wiring', () => {
     })
   }
 
-  test('clicking it reaches Google with our client + an allow-listed return URL', async ({ page }) => {
+  test('clicking it reaches Google with our client + an allow-listed return URL', async ({
+    page,
+    baseURL,
+  }) => {
     await page.goto('/login')
     await page.getByRole('button', { name: 'Continue with Google' }).click()
     await page.waitForURL(/accounts\.google\.com/, { timeout: 20_000 })
-    const url = page.url()
-    console.log('LANDED ON:', url.slice(0, 80))
-    expect(url).toContain('accounts.google.com')
-    // Supabase silently swaps redirect_to for Site URL when it is NOT
-    // allow-listed, so its survival here proves localhost is allow-listed.
-    // Google nests this several encodings deep; decode until it stops changing
-    // rather than guessing a fixed number of passes.
-    let decoded = url
+
+    const authorizeUrl = new URL(page.url())
+    expect(authorizeUrl.hostname).toBe('accounts.google.com')
+
+    // Whatever Google client this Supabase project is configured with —
+    // assert it is present and well-formed, not that it is one specific
+    // project's.
+    const clientId = authorizeUrl.searchParams.get('client_id')
+    expect(clientId, 'no client_id on the Google authorize URL').toBeTruthy()
+    expect(clientId).toMatch(/\.apps\.googleusercontent\.com$/)
+
+    // Google must hand the code back to *our* Supabase project.
+    const supabaseUrl = process.env.VITE_SUPABASE_URL
+    expect(supabaseUrl, 'VITE_SUPABASE_URL must be set (apps/web/.env.test.local)').toBeTruthy()
+    expect(authorizeUrl.searchParams.get('redirect_uri')).toBe(
+      `${supabaseUrl!.replace(/\/$/, '')}/auth/v1/callback`,
+    )
+
+    const scope = authorizeUrl.searchParams.get('scope') ?? ''
+    expect(scope).toContain('email')
+    expect(scope).toContain('profile')
+
+    // Supabase silently swaps redirect_to for the project's Site URL when the
+    // value is NOT allow-listed, so our own origin surviving here proves it IS
+    // allow-listed. Google nests this several encodings deep; decode until it
+    // stops changing rather than guessing a fixed number of passes.
+    let decoded = page.url()
     for (let i = 0; i < 6; i++) {
       const next = decodeURIComponent(decoded)
       if (next === decoded) break
       decoded = next
     }
-    expect(decoded).toContain(`client_id=594879721243-`)
-    expect(decoded).toContain('redirect_uri=https://txquvfeyvkaetqlamqlz.supabase.co/auth/v1/callback')
-    expect(decoded).toContain('scope=email+profile')
-    // Supabase silently swaps redirect_to for Site URL when it is NOT
-    // allow-listed, so its survival proves localhost IS allow-listed.
-    expect(decoded).toContain('localhost:5173/auth/callback')
+    expect(decoded).toContain(`${baseURL}/auth/callback`)
   })
 
   test('callback with no code fails fast instead of hanging', async ({ page }) => {
