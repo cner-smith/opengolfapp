@@ -1,5 +1,38 @@
 # Changelog
 
+## [1.5.0](https://github.com/cner-smith/opengolfapp/compare/v1.4.0...v1.5.0) (2026-09-12)
+
+
+### Features
+
+* **course-editor:** dev-only Course Editor UI + backend ([#845](https://github.com/cner-smith/opengolfapp/issues/845)) ([ce71dc2](https://github.com/cner-smith/opengolfapp/commit/ce71dc2e4689d81d92aba65311f7c9e057478773))
+* **crawl:** British Isles course discovery ([#540](https://github.com/cner-smith/opengolfapp/issues/540)) ([#863](https://github.com/cner-smith/opengolfapp/issues/863)) ([8601478](https://github.com/cner-smith/opengolfapp/commit/8601478e9637edf8279cf650cf509a07f6ab3c3d))
+* **db:** add website/address/country columns to courses and facilities ([#843](https://github.com/cner-smith/opengolfapp/issues/843)) ([61bbd36](https://github.com/cner-smith/opengolfapp/commit/61bbd3652b57ec760d8477828bb14413319e7fab))
+* **db:** gate user-submitted courses behind approval (0053) ([#868](https://github.com/cner-smith/opengolfapp/issues/868)) ([3625f60](https://github.com/cner-smith/opengolfapp/commit/3625f6050530cb87f78ccd5175579050e77a80c8))
+* Google + Apple sign-in ([#859](https://github.com/cner-smith/opengolfapp/issues/859)) ([#866](https://github.com/cner-smith/opengolfapp/issues/866)) ([cf10c2e](https://github.com/cner-smith/opengolfapp/commit/cf10c2e534fe7c9c94710f4e99572fabd8b4b0de))
+* live OB / stroke-and-distance ([#839](https://github.com/cner-smith/opengolfapp/issues/839)) ([#871](https://github.com/cner-smith/opengolfapp/issues/871)) ([7219e9f](https://github.com/cner-smith/opengolfapp/commit/7219e9f8b1642a9c64cf3efff154de532c9fedb7))
+* **rounds:** add provider-agnostic round import from JSON ([#836](https://github.com/cner-smith/opengolfapp/issues/836)) ([115d739](https://github.com/cner-smith/opengolfapp/commit/115d7394fdc8502f4ca55d97499a7a8a9c9278ae))
+* **rounds:** per-tee hole overrides (hole_tees table + resolveHole/resolveCourseTee) ([#844](https://github.com/cner-smith/opengolfapp/issues/844)) ([310a06f](https://github.com/cner-smith/opengolfapp/commit/310a06fd2058b0658c7cc26a75b0a9d4063e7de6))
+* **web:** dev-only admin/ops dashboard ([#860](https://github.com/cner-smith/opengolfapp/issues/860)) ([#876](https://github.com/cner-smith/opengolfapp/issues/876)) ([5cefe6c](https://github.com/cner-smith/opengolfapp/commit/5cefe6c5c9fb5ac1507e8ef44944cc37e7611417))
+* **web:** make the pending-course queue decidable (Phase 1) ([#881](https://github.com/cner-smith/opengolfapp/issues/881)) ([266c78d](https://github.com/cner-smith/opengolfapp/commit/266c78d6b3c77df8f48b5be801eec6761220e031))
+
+
+### Bug Fixes
+
+* close the OB review findings blocking dev→main ([#839](https://github.com/cner-smith/opengolfapp/issues/839)) ([#872](https://github.com/cner-smith/opengolfapp/issues/872)) ([428855d](https://github.com/cner-smith/opengolfapp/commit/428855d6d8f309ccf3b17db9e7678444f9e26aad))
+* **db:** grant table access to anon/authenticated/service_role ([#842](https://github.com/cner-smith/opengolfapp/issues/842)) ([99232e1](https://github.com/cner-smith/opengolfapp/commit/99232e1e0d64f6bfe4ea17d71525095fcf3d5a8d))
+* **mobile:** numeric break input + L/Straight/R toggle on putt aimer ([#861](https://github.com/cner-smith/opengolfapp/issues/861)) ([#864](https://github.com/cner-smith/opengolfapp/issues/864)) ([490cc27](https://github.com/cner-smith/opengolfapp/commit/490cc27eb5dc4f2d8794492f69f7e8adfb36bf8e))
+* **mobile:** refresh hole_scores after live edit-mode shot delete ([#857](https://github.com/cner-smith/opengolfapp/issues/857)) ([4199d59](https://github.com/cner-smith/opengolfapp/commit/4199d595a4c4631a032dad259bd94755224aab76))
+* **mobile:** summary shot-delete disabled on first open — stamp client id on optimistic pending shot ([#852](https://github.com/cner-smith/opengolfapp/issues/852)) ([d430559](https://github.com/cner-smith/opengolfapp/commit/d4305599d5320f5442e10b0481924468096ac9db))
+* OB marker occlusion, shot-list OB, putt gating, 0053 guard ([#839](https://github.com/cner-smith/opengolfapp/issues/839)) ([#873](https://github.com/cner-smith/opengolfapp/issues/873)) ([8149a72](https://github.com/cner-smith/opengolfapp/commit/8149a723423958132acc87eea37f8cad45c0191f))
+* **web:** dev-only API routes bypassed Vite's host check ([#880](https://github.com/cner-smith/opengolfapp/issues/880)) ([0e0fe70](https://github.com/cner-smith/opengolfapp/commit/0e0fe700453abe00a2214e3401ea5538109221e7))
+* **web:** mobile tab bar was rendering on desktop ([#815](https://github.com/cner-smith/opengolfapp/issues/815) regression) ([#875](https://github.com/cner-smith/opengolfapp/issues/875)) ([e0382b2](https://github.com/cner-smith/opengolfapp/commit/e0382b238da76907260078a12b5f4b33727fb78d))
+
+
+### Chores
+
+* **mobile:** document store-vs-GitHub version streams + reconverge rule ([#862](https://github.com/cner-smith/opengolfapp/issues/862)) ([#865](https://github.com/cner-smith/opengolfapp/issues/865)) ([2ec92c9](https://github.com/cner-smith/opengolfapp/commit/2ec92c9b2553120cb9653efb7b6cc2c2aeeeec28))
+
 ## [1.4.0](https://github.com/cner-smith/opengolfapp/compare/v1.3.1...v1.4.0) (2026-08-20)
 
 
