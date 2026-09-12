@@ -3,10 +3,13 @@ import type { Plugin, ViteDevServer } from 'vite'
 // Type-only, so it is erased at build time and never triggers a runtime
 // resolution of '@oga/supabase' from vite.config.ts's module graph.
 import type { Database } from '@oga/supabase'
+import type { GeoPoint } from '@oga/core'
+
 import { rejectNonLocalRequest } from './dev-local-only'
 
 type OgaSupabaseModule = typeof import('@oga/supabase')
 type OgaSupabaseClient = ReturnType<OgaSupabaseModule['createOgaServiceClient']>
+type OgaCoreModule = typeof import('@oga/core')
 type CrawlStateRow = Database['public']['Tables']['crawl_state']['Row']
 
 /** The dev Supabase project. Anything else is production — the page paints a red banner. */
@@ -23,6 +26,17 @@ const DAY_MS = 86_400_000
 // something structural like geography), page through it with this size.
 const POSTGREST_PAGE_SIZE = 1000
 
+export interface DuplicateMatch {
+  id: string
+  name: string
+  city: string | null
+  state: string | null
+  pending: boolean
+  tier: string
+  reason: string
+  metres?: number
+}
+
 export interface PendingCourse {
   id: string
   name: string
@@ -30,6 +44,15 @@ export interface PendingCourse {
   state: string | null
   created_by: string | null
   created_at: string
+  rounds: number
+  roundsByOthers: number
+  holes: number
+  holesMapped: number
+  holeSpanM: number
+  centroid: { lat: number; lng: number } | null
+  tees: number
+  submitterPending: number
+  duplicates: DuplicateMatch[]
 }
 
 export interface PendingPanel {
@@ -107,15 +130,90 @@ async function countOf(
   return count ?? 0
 }
 
-async function pendingPanel(client: OgaSupabaseClient): Promise<PendingPanel> {
-  const { data, error, count } = await client
-    .from('courses')
-    .select('id,name,city,state,created_by,created_at', { count: 'exact' })
-    .is('approved_at', null)
-    .order('created_at', { ascending: false })
-    .limit(50)
-  if (error) throw new Error(error.message)
-  return { total: count ?? 0, rows: (data ?? []) as unknown as PendingCourse[] }
+async function pendingPanel(
+  client: OgaSupabaseClient,
+  core: OgaCoreModule,
+): Promise<PendingPanel> {
+  // One embedded query instead of a per-row fan-out. Paginated for the same
+  // reason as everything else here: an unranged select silently truncates at
+  // PostgREST's 1000-row default (see POSTGREST_PAGE_SIZE above).
+  type Row = {
+    id: string
+    name: string
+    city: string | null
+    state: string | null
+    created_by: string | null
+    created_at: string
+    holes: { number: number; tee_lat: number | null; tee_lng: number | null }[] | null
+    rounds: { user_id: string }[] | null
+    course_tees: { id: string }[] | null
+  }
+
+  const raw: Row[] = []
+  let start = 0
+  for (;;) {
+    const { data, error } = await client
+      .from('courses')
+      .select(
+        'id,name,city,state,created_by,created_at,holes(number,tee_lat,tee_lng),rounds(user_id),course_tees(id)',
+      )
+      .is('approved_at', null)
+      .range(start, start + POSTGREST_PAGE_SIZE - 1)
+    if (error) throw new Error(error.message)
+    const page = (data ?? []) as unknown as Row[]
+    raw.push(...page)
+    if (page.length < POSTGREST_PAGE_SIZE) break
+    start += POSTGREST_PAGE_SIZE
+  }
+
+  // "Other submissions by this submitter" means other rows in THIS queue.
+  // Flood detection is about the queue, and queue-scoping makes it free —
+  // it falls out of the rows already fetched instead of a query per submitter.
+  const pendingBySubmitter = new Map<string, number>()
+  for (const r of raw) {
+    if (!r.created_by) continue
+    pendingBySubmitter.set(r.created_by, (pendingBySubmitter.get(r.created_by) ?? 0) + 1)
+  }
+
+  const rows: PendingCourse[] = raw.map((r) => {
+    const holes = r.holes ?? []
+    const mapped: GeoPoint[] = holes
+      .filter((h) => h.tee_lat != null && h.tee_lng != null)
+      .map((h) => ({ lat: h.tee_lat as number, lng: h.tee_lng as number }))
+    const roundRows = r.rounds ?? []
+    return {
+      id: r.id,
+      name: r.name,
+      city: r.city,
+      state: r.state,
+      created_by: r.created_by,
+      created_at: r.created_at,
+      rounds: roundRows.length,
+      // 0053 gated on rounds by SOMEONE ELSE ("self-evidently real"). Every
+      // rounds-bearing row in this queue is self-logged today, so collapsing
+      // the two numbers would present self-attestation as corroboration.
+      roundsByOthers: roundRows.filter((x) => x.user_id !== r.created_by).length,
+      holes: holes.length,
+      holesMapped: mapped.length,
+      holeSpanM: Math.round(core.pointSetDiameter(mapped)),
+      centroid: core.courseCentroid(mapped),
+      tees: (r.course_tees ?? []).length,
+      submitterPending: r.created_by ? (pendingBySubmitter.get(r.created_by) ?? 1) - 1 : 0,
+      duplicates: [],
+    }
+  })
+
+  // Sort by evidence, not recency. 0027 permits 50 submissions per user per
+  // day, so a created_at sort lets one account push real rows off the page.
+  rows.sort(
+    (a, b) =>
+      b.roundsByOthers - a.roundsByOthers ||
+      b.rounds - a.rounds ||
+      b.holesMapped - a.holesMapped ||
+      a.name.localeCompare(b.name),
+  )
+
+  return { total: rows.length, rows: rows.slice(0, 50) }
 }
 
 async function crawlerPanel(client: OgaSupabaseClient): Promise<CrawlerPanel> {
@@ -279,10 +377,18 @@ function refFromUrl(url: string): string {
 export function devAdminApi(): Plugin {
   let modPromise: Promise<OgaSupabaseModule> | null = null
   let clientPromise: Promise<OgaSupabaseClient | null> | null = null
+  let corePromise: Promise<OgaCoreModule> | null = null
 
   function loadOgaModule(server: ViteDevServer): Promise<OgaSupabaseModule> {
     modPromise ??= server.ssrLoadModule('@oga/supabase') as Promise<OgaSupabaseModule>
     return modPromise
+  }
+
+  function loadCore(server: ViteDevServer): Promise<OgaCoreModule> {
+    // Same reasoning as loadOgaModule above: @oga/core is raw TS with
+    // extensionless relative imports, which Node's loader cannot follow.
+    corePromise ??= server.ssrLoadModule('@oga/core') as Promise<OgaCoreModule>
+    return corePromise
   }
 
   function getClient(server: ViteDevServer): Promise<OgaSupabaseClient | null> {
@@ -335,8 +441,9 @@ export function devAdminApi(): Plugin {
           if (segments[0] === 'stats' && segments.length === 1 && method === 'GET') {
             const url = process.env.SUPABASE_URL || 'http://127.0.0.1:54321'
             const projectRef = refFromUrl(url)
+            const core = await loadCore(server)
             const [pending, crawler, usage, quality] = await Promise.all([
-              panel(() => pendingPanel(client)),
+              panel(() => pendingPanel(client, core)),
               panel(() => crawlerPanel(client)),
               panel(() => usagePanel(client)),
               panel(() => qualityPanel(client)),
