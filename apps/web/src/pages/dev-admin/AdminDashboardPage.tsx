@@ -5,6 +5,16 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 // pulling it into the app program breaks `pnpm typecheck`. Same reason
 // src/hooks/useCourseEditor.ts declares its own types instead of importing
 // dev-course-api's. Field names must match that plugin's interfaces exactly.
+interface DuplicateMatch {
+  id: string
+  name: string
+  city: string | null
+  state: string | null
+  pending: boolean
+  tier: 'likely' | 'possible'
+  reason: 'exact-name' | 'name-containment' | 'proximity'
+  metres?: number
+}
 interface PendingCourse {
   id: string
   name: string
@@ -12,6 +22,15 @@ interface PendingCourse {
   state: string | null
   created_by: string | null
   created_at: string
+  rounds: number
+  roundsByOthers: number
+  holes: number
+  holesMapped: number
+  holeSpanM: number
+  centroid: { lat: number; lng: number } | null
+  tees: number
+  submitterPending: number
+  duplicates: DuplicateMatch[]
 }
 interface PendingPanel {
   total: number
@@ -136,6 +155,77 @@ function Row({ label, value }: { label: string; value: string | number }) {
   )
 }
 
+function formatSpan(metres: number): string {
+  if (metres >= 10_000) return `${Math.round(metres / 1000).toLocaleString()} km`
+  if (metres >= 1000) return `${(metres / 1000).toFixed(1)} km`
+  return `${metres} m`
+}
+
+function EvidenceLine({ c }: { c: PendingCourse }) {
+  const parts: string[] = []
+  parts.push(
+    c.rounds === 0
+      ? 'no rounds'
+      : `${c.rounds} round${c.rounds === 1 ? '' : 's'}` +
+          (c.roundsByOthers > 0 ? ` (${c.roundsByOthers} by others)` : ' (all self-logged)'),
+  )
+  parts.push(
+    c.holesMapped === 0
+      ? `0/${c.holes} holes mapped`
+      : `${c.holesMapped}/${c.holes} mapped, spanning ${formatSpan(c.holeSpanM)}`,
+  )
+  if (c.tees > 0) parts.push(`${c.tees} tee${c.tees === 1 ? '' : 's'}`)
+  if (c.submitterPending > 0) parts.push(`submitter has ${c.submitterPending} more pending`)
+  return (
+    <div className="text-caddie-ink-mute" style={{ fontSize: 12 }}>
+      {parts.join(' · ')}
+    </div>
+  )
+}
+
+function RowLinks({ c }: { c: PendingCourse }) {
+  const q = encodeURIComponent(
+    `${[c.name, c.city, c.state].filter(Boolean).join(' ')} golf course`,
+  )
+  const style = { fontSize: 12, marginRight: 10 }
+  return (
+    <div style={{ marginTop: 2 }}>
+      <a href={`https://duckduckgo.com/?q=${q}`} target="_blank" rel="noreferrer" style={style}>
+        search the web
+      </a>
+      {c.centroid && (
+        <a
+          href={`https://www.openstreetmap.org/?mlat=${c.centroid.lat}&mlon=${c.centroid.lng}#map=15/${c.centroid.lat}/${c.centroid.lng}`}
+          target="_blank"
+          rel="noreferrer"
+          style={style}
+        >
+          map
+        </a>
+      )}
+      <a href={`/dev/courses/${c.id}/edit`} style={style}>
+        edit
+      </a>
+    </div>
+  )
+}
+
+function DuplicateFlags({ matches }: { matches: DuplicateMatch[] }) {
+  if (matches.length === 0) return null
+  return (
+    <>
+      {matches.map((m) => (
+        <div key={m.id} className="text-caddie-neg" style={{ fontSize: 12 }}>
+          ⚠ {m.tier === 'likely' ? 'duplicate of' : 'possibly'} “{m.name}”
+          {m.city ? ` — ${m.city}` : ''}
+          {m.pending ? ' (also pending)' : ''}
+          {m.metres != null ? ` · ${m.metres} m away` : ` · ${m.reason}`}
+        </div>
+      ))}
+    </>
+  )
+}
+
 export default function AdminDashboardPage() {
   const stats = useAdminStats()
   const action = useCourseAction()
@@ -193,7 +283,10 @@ export default function AdminDashboardPage() {
           panel={pending}
           render={(d) => (
             <>
-              <Row label="Awaiting review" value={d.total} />
+              <Row
+                label="Awaiting review"
+                value={d.rows.length === d.total ? d.total : `${d.rows.length} of ${d.total}`}
+              />
               {d.rows.length === 0 ? (
                 <div className="text-caddie-ink-mute" style={{ fontSize: 13 }}>
                   Nothing pending.
@@ -207,18 +300,24 @@ export default function AdminDashboardPage() {
                         display: 'flex',
                         justifyContent: 'space-between',
                         gap: 12,
-                        padding: '6px 0',
+                        padding: '10px 0',
+                        borderTop: '1px solid #efece6',
                         fontSize: 13,
                       }}
                     >
-                      <span className="text-caddie-ink">
-                        {c.name}
-                        <span className="text-caddie-ink-mute">
-                          {' '}
-                          — {c.city ?? '—'}, {c.state ?? '—'}
-                        </span>
-                      </span>
-                      <span style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                      <div style={{ minWidth: 0 }}>
+                        <div className="text-caddie-ink">
+                          {c.name}
+                          <span className="text-caddie-ink-mute">
+                            {' '}
+                            — {c.city ?? '—'}, {c.state ?? '—'}
+                          </span>
+                        </div>
+                        <EvidenceLine c={c} />
+                        <DuplicateFlags matches={c.duplicates} />
+                        <RowLinks c={c} />
+                      </div>
+                      <span style={{ display: 'flex', gap: 8, alignItems: 'flex-start', flexShrink: 0 }}>
                         <span className="text-caddie-ink-mute">
                           {new Date(c.created_at).toLocaleDateString()}
                         </span>
