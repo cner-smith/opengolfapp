@@ -3,6 +3,7 @@ import {
   normalizeCourseName,
   normalizeState,
   isProbableSameCourse,
+  distinctiveToken,
 } from './course-match'
 
 describe('normalizeCourseName', () => {
@@ -101,5 +102,24 @@ describe('isProbableSameCourse', () => {
     expect(
       isProbableSameCourse({ name: 'The Golf Club' }, { name: 'The Club' }),
     ).toBe(false)
+  })
+})
+
+describe('distinctiveToken', () => {
+  it('breaks a length tie alphabetically so the choice is deterministic', () => {
+    // "of" is NOT a noise word, so this normalizes to "merchants of edinburgh";
+    // "merchants" and "edinburgh" are both 9 characters.
+    expect(distinctiveToken('Merchants of Edinburgh Golf Club')).toBe('edinburgh')
+  })
+
+  it('picks the longest token', () => {
+    expect(distinctiveToken('Bell Sh')).toBe('bell')
+    expect(distinctiveToken('Sundridge Park West')).toBe('sundridge')
+  })
+
+  it('returns null for an all-noise-word name', () => {
+    // Otherwise the caller builds ilike '%%' across the whole courses table.
+    expect(distinctiveToken('The Golf Club')).toBeNull()
+    expect(distinctiveToken('   ')).toBeNull()
   })
 })

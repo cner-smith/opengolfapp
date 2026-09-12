@@ -66,3 +66,19 @@ export function isProbableSameCourse(
   if (ca && cb && ca !== cb) return false
   return true
 }
+
+/**
+ * The most distinctive token of a normalized course name, for use as an
+ * `ilike` probe when hunting duplicate candidates. Longest token wins; ties
+ * break alphabetically so the choice is deterministic rather than dependent
+ * on sort stability.
+ *
+ * Returns null when the name is entirely noise words — otherwise the caller
+ * builds `ilike '%%'` and scans the whole courses table for nothing.
+ */
+export function distinctiveToken(name: string): string | null {
+  const tokens = normalizeCourseName(name).split(' ').filter(Boolean)
+  if (tokens.length === 0) return null
+  const sorted = [...tokens].sort((a, b) => b.length - a.length || a.localeCompare(b))
+  return sorted[0]!
+}
