@@ -32,8 +32,8 @@ export interface DuplicateMatch {
   city: string | null
   state: string | null
   pending: boolean
-  tier: string
-  reason: string
+  tier: 'likely' | 'possible'
+  reason: 'exact-name' | 'name-containment' | 'proximity'
   metres?: number
 }
 
