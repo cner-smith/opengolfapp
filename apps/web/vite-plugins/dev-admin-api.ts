@@ -3,6 +3,7 @@ import type { Plugin, ViteDevServer } from 'vite'
 // Type-only, so it is erased at build time and never triggers a runtime
 // resolution of '@oga/supabase' from vite.config.ts's module graph.
 import type { Database } from '@oga/supabase'
+import { rejectNonLocalRequest } from './dev-local-only'
 
 type OgaSupabaseModule = typeof import('@oga/supabase')
 type OgaSupabaseClient = ReturnType<OgaSupabaseModule['createOgaServiceClient']>
@@ -318,6 +319,9 @@ export function devAdminApi(): Plugin {
         )
       }
       server.middlewares.use('/api/dev-admin', async (req, res, next) => {
+        // First, before anything reaches the service-role client: these routes
+        // run ahead of Vite's own host check, so they must do it themselves.
+        if (rejectNonLocalRequest(req, res, 'dev-admin-api')) return
         const client = await getClient(server)
         if (!client) {
           sendJson(res, 500, { error: 'SUPABASE_SERVICE_ROLE_KEY not set on the dev server' })

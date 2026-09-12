@@ -3,6 +3,7 @@ import type { Plugin, ViteDevServer } from 'vite'
 // Type-only, same reasoning as OgaSupabaseModule below — erased at build
 // time, never a runtime resolution of '@oga/supabase'.
 import type { Database } from '@oga/supabase'
+import { rejectNonLocalRequest } from './dev-local-only'
 
 // Type-only — erased at build time, so this never triggers a runtime
 // resolution of '@oga/supabase' from vite.config.ts's own module graph
@@ -70,6 +71,11 @@ export function devCourseApi(): Plugin {
       // this whole plugin is dev-server-only (see file header); anything
       // reachable at `vite dev` gets unauthenticated write access to the DB.
       server.middlewares.use('/api/dev', async (req, res, next) => {
+        // First, before anything reaches the service-role client: these routes
+        // run ahead of Vite's own host check, so they must do it themselves.
+        // This plugin has WRITE endpoints, and `pnpm dev:admin` aims them at
+        // production.
+        if (rejectNonLocalRequest(req, res, 'dev-course-api')) return
         const client = await getClient(server)
         if (!client) {
           sendJson(res, 500, { error: 'SUPABASE_SERVICE_ROLE_KEY not set on the dev server' })
