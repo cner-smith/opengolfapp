@@ -15,12 +15,15 @@ const config: ExpoConfig = {
   // Two independent version streams, by design (#862):
   //   • GitHub / release-please tags (v1.x) — the REPO + web stream. Auto-bumps
   //     from conventional commits on every merge to main; drives the changelog
-  //     and the continuously-deployed web app. Currently ahead (v1.4.x).
+  //     and the continuously-deployed web app.
   //   • This `version` — the MOBILE store stream. Only moves on a native submit.
-  //     Currently 1.2.0; everything since launch shipped as OTA on runtime 1.2.0.
-  // They reconverge naturally: at the NEXT native build, set this `version` to
-  // the then-current release-please number, and the store == GitHub tag again.
-  version: '1.2.0',
+  // Relinked at 1.5.0 (#862): the 1.2.0 binary predated the Google/Apple
+  // sign-in work, which added three native modules and the Apple entitlement
+  // WITHOUT moving this field — so runtimeVersion stayed 1.2.0 and an OTA from
+  // main would have delivered JS needing native code those binaries lack.
+  // Branch `ota/rt-1.2.0` is pinned before that merge if anything ever needs
+  // shipping to the old installed base.
+  version: '1.5.0',
   // EAS Update (OTA). Ships JS/asset-only fixes to installed builds WITHOUT an
   // App Store / Play review — Apple/Google permit interpreted-code updates that
   // don't add native code or change the app's purpose. Native changes (SDK/RN
