@@ -169,10 +169,15 @@ function EvidenceLine({ c }: { c: PendingCourse }) {
       : `${c.rounds} round${c.rounds === 1 ? '' : 's'}` +
           (c.roundsByOthers > 0 ? ` (${c.roundsByOthers} by others)` : ' (all self-logged)'),
   )
+  // A single mapped hole has a diameter of 0, which reads as a very tight
+  // real course when it actually means no span could be measured. Say that
+  // instead of printing "spanning 0 m".
   parts.push(
     c.holesMapped === 0
       ? `0/${c.holes} holes mapped`
-      : `${c.holesMapped}/${c.holes} mapped, spanning ${formatSpan(c.holeSpanM)}`,
+      : c.holesMapped === 1
+        ? `1/${c.holes} mapped (single point, no span)`
+        : `${c.holesMapped}/${c.holes} mapped, spanning ${formatSpan(c.holeSpanM)}`,
   )
   if (c.tees > 0) parts.push(`${c.tees} tee${c.tees === 1 ? '' : 's'}`)
   if (c.submitterPending > 0) parts.push(`submitter has ${c.submitterPending} more pending`)
@@ -301,7 +306,7 @@ export default function AdminDashboardPage() {
                         justifyContent: 'space-between',
                         gap: 12,
                         padding: '10px 0',
-                        borderTop: '1px solid #efece6',
+                        borderTop: '1px solid var(--caddie-line)',
                         fontSize: 13,
                       }}
                     >
