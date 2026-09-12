@@ -192,7 +192,14 @@ async function pendingPanel(
       // 0053 gated on rounds by SOMEONE ELSE ("self-evidently real"). Every
       // rounds-bearing row in this queue is self-logged today, so collapsing
       // the two numbers would present self-attestation as corroboration.
-      roundsByOthers: roundRows.filter((x) => x.user_id !== r.created_by).length,
+      // A null created_by is an ORPHAN, not a third party: 0001 declares
+      // created_by `on delete set null`, so deleting an account empties it
+      // while approved_at stays null and the row stays queued. Without the
+      // null check every round counts as corroboration and the least
+      // attributable row in the queue sorts to the top of it.
+      roundsByOthers: roundRows.filter(
+        (x) => r.created_by != null && x.user_id !== r.created_by,
+      ).length,
       holes: holes.length,
       holesMapped: mapped.length,
       holeSpanM: Math.round(core.pointSetDiameter(mapped)),
