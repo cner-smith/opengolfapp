@@ -209,9 +209,9 @@ async function findDuplicates(
   if (row.centroid) {
     const { lat, lng } = row.centroid
     const lngDelta = NEARBY_LAT_DELTA / Math.max(Math.cos((lat * Math.PI) / 180), 0.01)
-    const { data, error } = await client
+    const { data, error, count } = await client
       .from('courses')
-      .select('id,name,city,state,lat,lng,approved_at')
+      .select('id,name,city,state,lat,lng,approved_at', { count: 'exact' })
       .neq('id', row.id)
       .gte('lat', lat - NEARBY_LAT_DELTA)
       .lte('lat', lat + NEARBY_LAT_DELTA)
@@ -219,7 +219,21 @@ async function findDuplicates(
       .lte('lng', lng + lngDelta)
       .limit(50)
     if (error) throw new Error(error.message)
-    for (const c of (data ?? []) as unknown as CandidateRow[]) {
+    const near = (data ?? []) as unknown as CandidateRow[]
+    if ((count ?? 0) > near.length) {
+      // Same invariant the name branch defends: a silent truncation is a
+      // false negative, which is the failure this panel exists to prevent.
+      matches.set('__truncated-geo__', {
+        id: '__truncated-geo__',
+        name: `${count} courses inside the 1 km box, only ${near.length} checked`,
+        city: null,
+        state: null,
+        pending: false,
+        tier: 'possible',
+        reason: 'proximity',
+      })
+    }
+    for (const c of near) {
       if (c.lat == null || c.lng == null) continue
       const metres = core.haversineYards(lat, lng, c.lat, c.lng) * core.YARDS_TO_METERS
       if (metres > NEARBY_MAX_M) continue

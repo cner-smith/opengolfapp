@@ -215,18 +215,33 @@ function RowLinks({ c }: { c: PendingCourse }) {
   )
 }
 
+const REASON_LABEL: Record<DuplicateMatch['reason'], string> = {
+  'exact-name': 'same name',
+  'name-containment': 'similar name',
+  proximity: 'nearby',
+}
+
 function DuplicateFlags({ matches }: { matches: DuplicateMatch[] }) {
   if (matches.length === 0) return null
   return (
     <>
-      {matches.map((m) => (
-        <div key={m.id} className="text-caddie-neg" style={{ fontSize: 12 }}>
-          ⚠ {m.tier === 'likely' ? 'duplicate of' : 'possibly'} “{m.name}”
-          {m.city ? ` — ${m.city}` : ''}
-          {m.pending ? ' (also pending)' : ''}
-          {m.metres != null ? ` · ${m.metres} m away` : ` · ${m.reason}`}
-        </div>
-      ))}
+      {matches.map((m) =>
+        // The truncation sentinels already read as a sentence; wrapping them
+        // in `possibly "…"` turns a warning about hidden rows into what looks
+        // like the name of a course.
+        m.id.startsWith('__truncated') ? (
+          <div key={m.id} className="text-caddie-neg" style={{ fontSize: 12 }}>
+            ⚠ {m.name} — some duplicates may be hidden
+          </div>
+        ) : (
+          <div key={m.id} className="text-caddie-neg" style={{ fontSize: 12 }}>
+            ⚠ {m.tier === 'likely' ? 'duplicate of' : 'possibly'} “{m.name}”
+            {m.city ? ` — ${m.city}` : ''}
+            {m.pending ? ' (also pending)' : ''}
+            {m.metres != null ? ` · ${m.metres} m away` : ` · ${REASON_LABEL[m.reason]}`}
+          </div>
+        ),
+      )}
     </>
   )
 }
