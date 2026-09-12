@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.5.1](https://github.com/cner-smith/opengolfapp/compare/v1.5.0...v1.5.1) (2026-09-12)
+
+
+### Chores
+
+* align package versions with the release tag and document the two streams ([#888](https://github.com/cner-smith/opengolfapp/issues/888)) ([e81d884](https://github.com/cner-smith/opengolfapp/commit/e81d884e80e4869b74ea8c33e2a4a440ed658a5f))
+* **mobile:** bump store version to 1.5.0 for the native relink ([#891](https://github.com/cner-smith/opengolfapp/issues/891)) ([76b503b](https://github.com/cner-smith/opengolfapp/commit/76b503b1da24fcc0ba8b06e7d48977b1b6a17b5a))
+
 ## [1.5.0](https://github.com/cner-smith/opengolfapp/compare/v1.4.0...v1.5.0) (2026-09-12)
 
 
