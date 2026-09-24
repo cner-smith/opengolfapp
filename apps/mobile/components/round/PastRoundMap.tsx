@@ -721,8 +721,10 @@ export function PastRoundMap({
           onSetBall={handleSetBall}
           onPlacePin={handleSetPin}
           showLocationPuck={false}
-          // No GPS here.
+          // No GPS here, and nothing floats over this map's bottom edge —
+          // its controls are a solid panel below it.
           showRecenterButton={false}
+          aimBallInset={50}
           overlayMode="tee"
           arcWidthYards={0}
           circleRadiusYards={0}

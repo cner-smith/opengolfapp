@@ -118,6 +118,7 @@ export function HoleMap({
   focusOn,
   showRecenterButton = true,
   bottomChromeHeight = 0,
+  aimBallInset,
   overlayMode,
   arcWidthYards,
   circleRadiusYards,
@@ -184,6 +185,10 @@ export function HoleMap({
     styleLoaded,
     gpsPosition,
     courseCenter,
+    mapViewRef,
+    mapHeight: mapSize?.h ?? null,
+    // Clear of the SET_AIM controls (Confirm aim + Re-place / Skip chips).
+    ballInset: aimBallInset ?? insets.bottom + 150,
   })
 
   // Explicit camera focus, independent of useHoleCamera's `center`/GPS/phase
