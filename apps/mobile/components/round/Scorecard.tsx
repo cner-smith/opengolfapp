@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { Pressable, ScrollView, Text, View } from 'react-native'
 import { GestureDetector } from 'react-native-gesture-handler'
 import Animated from 'react-native-reanimated'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import type { Database } from '@oga/supabase'
 import type { ResolvedHole } from '@oga/core'
 import { useSwipeToDismiss } from '../ui/useSwipeToDismiss'
@@ -59,6 +60,7 @@ export function ScorecardModal({
   )
   const [hintDismissed, setHintDismissed] = useState(false)
   const { pan, cardStyle } = useSwipeToDismiss(onClose)
+  const insets = useSafeAreaInsets()
   let runningTotal = 0
   let runningPar = 0
   return (
@@ -72,7 +74,7 @@ export function ScorecardModal({
             borderTopRightRadius: 12,
             paddingHorizontal: 18,
             paddingTop: 14,
-            paddingBottom: 28,
+            paddingBottom: insets.bottom + 28,
             maxHeight: '85%',
           },
           cardStyle,
