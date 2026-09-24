@@ -6,7 +6,9 @@ import {
   getProximityYards,
   scoringDistribution,
   scoringStats,
+  sgAverages,
   sgStandouts,
+  sgTrend,
   shortGameStats,
   type DetailedHoleScore,
   type DetailedRound,
@@ -324,6 +326,27 @@ describe('unplayed holes and unscored rounds', () => {
     const s = scoringStats([unscored, scored])
     expect(s.bestRound).toBe(84)
     expect(s.avgScore).toBe(84)
+  })
+
+  it('a partial round stays out of avg / best / SG, but its holes still count', () => {
+    const full = makeRound({
+      id: 'full',
+      total_score: 90,
+      sg_total: -2,
+      sg_putting: -1,
+      played_at: '2026-01-01',
+      hole_scores: Array.from({ length: 18 }, (_, i) =>
+        makeHoleScore({ id: `f${i}`, score: 5, holes: makeHole({ id: `f${i}`, number: i + 1, par: 4 }), shots: [] }),
+      ),
+    })
+    const withSg = { ...partial, sg_total: 3, sg_putting: 2, played_at: '2026-01-02' }
+    const s = scoringStats([full, withSg])
+    expect(s.bestRound).toBe(90)
+    expect(s.avgScore).toBe(90)
+    expect(sgAverages([full, withSg]).putting).toBe(-1)
+    expect(sgTrend([full, withSg]).map((p) => p.date)).toEqual(['2026-01-01'])
+    expect(scoringDistribution([full, withSg]).total).toBe(24)
+    expect(computeDetailedStats([full, withSg], 12).holesPlayed).toBe(24)
   })
 
   it('shortGameStats 3-putt rate counts played holes only', () => {

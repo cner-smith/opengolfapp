@@ -106,6 +106,39 @@ export function resumeHoleNumber(
   return Math.min(inferHoleCount(rows.map((r) => r.number)), next)
 }
 
+type HoleScoreForCount = { score: number | null; holes?: { number: number } | null }
+
+// How much of a round was played (#911): holes with a score (> 0, the
+// not-played sentinel) against the round's 9 or 18, inferred from its rows'
+// hole numbers — mobile pre-creates every row, web creates them as entered.
+// Null for a round with no rows (a bare total), which callers count as whole.
+export function roundHolesPlayed(
+  holeScores: readonly HoleScoreForCount[] | null | undefined,
+): { played: number; of: 9 | 18 } | null {
+  if (!holeScores?.length) return null
+  return {
+    played: holeScores.filter((hs) => hs.score != null && hs.score > 0).length,
+    of: inferHoleCount(holeScores.flatMap((hs) => (hs.holes ? [hs.holes.number] : []))),
+  }
+}
+
+// Ended early — kept out of round-level stats (avg / best / SG per round),
+// whose values only compare across whole rounds.
+export function isPartialRound(
+  holeScores: readonly HoleScoreForCount[] | null | undefined,
+): boolean {
+  const c = roundHolesPlayed(holeScores)
+  return c != null && c.played < c.of
+}
+
+// Suffix for a round's date line in the rounds lists: " · partial · 6 of 18".
+export function partialRoundLabel(
+  holeScores: readonly HoleScoreForCount[] | null | undefined,
+): string {
+  const c = roundHolesPlayed(holeScores)
+  return c && c.played < c.of ? ` · partial · ${c.played} of ${c.of}` : ''
+}
+
 // Penalty strokes on a hole, derived from the rows themselves — a stroke-
 // and-distance OB has no shot row of its own, so a hole's score is
 // "struck rows + obCount(rows)". Counts ROWS, not a boolean test: a hole

@@ -9,7 +9,7 @@ import {
 import { Link } from 'expo-router'
 import { Swipeable } from 'react-native-gesture-handler'
 import { PressableTouch } from '../../components/ui/PressableTouch'
-import { formatSG } from '@oga/core'
+import { formatSG, partialRoundLabel } from '@oga/core'
 import { deleteRound, getRoundsList } from '@oga/supabase'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
@@ -25,6 +25,7 @@ interface RoundRow {
   total_score: number | null
   sg_total: number | null
   courses?: { name: string | null } | null
+  hole_scores?: { score: number; holes: { number: number } | null }[] | null
 }
 
 const KICKER: import('react-native').TextStyle = {
@@ -190,6 +191,7 @@ export default function RoundsList() {
                     <View style={{ flex: 1, paddingRight: 12 }}>
                       <Text style={{ ...KICKER, marginBottom: 4 }}>
                         {r.played_at}
+                        {partialRoundLabel(r.hole_scores)}
                       </Text>
                       <Text
                         style={[TYPE.serif, {

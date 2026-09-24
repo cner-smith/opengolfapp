@@ -1,7 +1,7 @@
 import { lazy, Suspense, useMemo, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { mdiPlay, mdiPlus } from '@mdi/js'
-import { formatSG } from '@oga/core'
+import { formatSG, isPartialRound, partialRoundLabel } from '@oga/core'
 import { useRecentSG } from '../../hooks/useRounds'
 import { useProfile } from '../../hooks/useProfile'
 
@@ -34,8 +34,10 @@ export function DashboardPage() {
   // from scratch. Hook stays above the early returns to keep call order
   // stable across renders.
   const stats = useMemo(() => {
+    // Rounds ended early stay out of the per-round numbers (#911).
+    const whole = rounds.filter((r) => !isPartialRound(r.hole_scores))
     const avgs = SG_KEYS.map((c) => {
-      const values = rounds
+      const values = whole
         .map((r) => r[c.key])
         .filter((v): v is number => v !== null)
       const avg =
@@ -43,12 +45,12 @@ export function DashboardPage() {
       return { ...c, value: Number(avg.toFixed(2)) }
     })
     const maxAbs = Math.max(...avgs.map((a) => Math.abs(a.value)), 0.5)
-    const trendData = [...rounds].reverse().map((r) => ({
+    const trendData = [...whole].reverse().map((r) => ({
       date: r.played_at,
       sg: r.sg_total ?? 0,
     }))
     // total_score 0 = the past-round logger's "no score yet" sentinel (#910).
-    const scored = rounds.filter((r) => (r.total_score ?? 0) > 0)
+    const scored = whole.filter((r) => (r.total_score ?? 0) > 0)
     const totalScore = scored.reduce((s, r) => s + (r.total_score ?? 0), 0)
     const totalScoreCount = scored.length
     const avgScore = totalScoreCount > 0 ? totalScore / totalScoreCount : 0
@@ -174,6 +176,7 @@ export function DashboardPage() {
                     style={{ fontSize: 10, letterSpacing: '0.14em', marginTop: 4 }}
                   >
                     {r.played_at}
+                    {partialRoundLabel(r.hole_scores)}
                   </div>
                 </div>
                 <div className="flex items-baseline" style={{ gap: 18 }}>

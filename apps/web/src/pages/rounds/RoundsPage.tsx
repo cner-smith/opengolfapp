@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
+import { partialRoundLabel } from '@oga/core'
 import { useDeleteRound, useRounds } from '../../hooks/useRounds'
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
 import { toUserMessage } from '../../lib/errors'
@@ -161,6 +162,7 @@ export function RoundsPage() {
                   >
                     {r.played_at}
                     {r.tee_color ? ` · ${r.tee_color} tees` : ''}
+                    {partialRoundLabel(r.hole_scores)}
                   </div>
                   <div
                     className="font-serif text-caddie-ink truncate"
