@@ -129,6 +129,9 @@ export default function RoundIndex() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [redirectToLive, setRedirectToLive] = useState(false)
+  // Bumped when the live session finalizes the round: re-runs the loader,
+  // which now finds completed_at set and renders the summary (#909).
+  const [loadSeq, setLoadSeq] = useState(0)
   const [sharing, setSharing] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [savingSG, setSavingSG] = useState(false)
@@ -242,7 +245,7 @@ export default function RoundIndex() {
     return () => {
       active = false
     }
-  }, [id])
+  }, [id, loadSeq])
 
   // "Today's focus" nudge (parity with web RoundSummary). No react-query on
   // mobile — gate the profile + drills fetch by hand, like web's
@@ -362,6 +365,7 @@ export default function RoundIndex() {
     (next: number) => router.setParams({ hole: String(next) }),
     [router],
   )
+  const onRoundCompleted = useCallback(() => setLoadSeq((n) => n + 1), [])
 
   // In-progress rounds mount the live session here — the path-segmented
   // hole route is deprecated, see #264. holeNumber is component state
@@ -383,6 +387,7 @@ export default function RoundIndex() {
         mode="live"
         captureMode={(round?.capture_mode ?? 'track_patterns') as CaptureMode}
         onHoleChange={syncHoleToUrl}
+        onRoundCompleted={onRoundCompleted}
       />
     )
   }

@@ -67,6 +67,8 @@ interface LiveRoundSessionProps {
   // remount the screen, which is the whole point of this component.
   // Optional so the component can be tested or driven without URL sync.
   onHoleChange?: (next: number) => void
+  // The round was finalized — the parent swaps to the summary (#909).
+  onRoundCompleted: () => void
 }
 
 // Resident live-round screen. Owns the MapView for the full round so
@@ -79,6 +81,7 @@ export default function LiveRoundSession({
   mode,
   captureMode,
   onHoleChange: syncHoleToUrl,
+  onRoundCompleted,
 }: LiveRoundSessionProps) {
   const isPastMode = mode === 'past'
   const router = useRouter()
@@ -370,6 +373,7 @@ export default function LiveRoundSession({
       setHoleNumber(next)
       syncHoleToUrl?.(next)
     },
+    onRoundCompleted,
   })
 
   // End-of-hole review rows. Built from the shots placed live (their start
