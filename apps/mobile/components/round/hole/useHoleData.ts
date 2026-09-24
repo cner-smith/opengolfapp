@@ -203,13 +203,6 @@ export function useHoleData(
         .eq('id', id)
         .maybeSingle()
       if (rErr || !r) throw rErr ?? new Error('Round not found')
-      setRound(r)
-      setCourseCenter(
-        r.courses && r.courses.lat != null && r.courses.lng != null
-          ? { lat: r.courses.lat, lng: r.courses.lng }
-          : null,
-      )
-
       const [hRes, hsRes, ctRes, htRes] = await Promise.all([
         supabase.from('holes').select('*').eq('course_id', r.course_id).order('number'),
         supabase.from('hole_scores').select('*').eq('round_id', r.id),
@@ -220,6 +213,16 @@ export function useHoleData(
       if (hsRes.error) throw hsRes.error
       if (ctRes.error) throw ctRes.error
       if (htRes.error) throw htRes.error
+      // Set together with holes, not before the fetch above: a render with a
+      // round but no holes yet pads to synthetic placeholders, and the
+      // synthetic → real id swap for the SAME hole reads as a hole switch to
+      // useHoleState, dropping a resumed mid-hole into "+ Add a shot" (#902).
+      setRound(r)
+      setCourseCenter(
+        r.courses && r.courses.lat != null && r.courses.lng != null
+          ? { lat: r.courses.lat, lng: r.courses.lng }
+          : null,
+      )
       setHoles(hRes.data ?? [])
       setHoleScores(hsRes.data ?? [])
       setCourseTees(ctRes.data ?? [])

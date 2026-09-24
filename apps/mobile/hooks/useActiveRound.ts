@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react'
 import { useFocusEffect } from 'expo-router'
-import { inferHoleCount } from '@oga/core'
+import { resumeHoleNumber } from '@oga/core'
 import { supabase } from '../lib/supabase'
 import { useAuth } from './useAuth'
 
@@ -15,9 +15,9 @@ export interface ActiveRound {
 // abandoned a week ago doesn't haunt the home screen forever. completed_at
 // is the canonical finalized flag; the total_score guard also keeps seeded
 // past rounds (scored, but no completed_at) out of the banner.
-// The current hole is the highest hole the player has logged a score
-// on, +1 (capped at the round's hole count, not a hardcoded 18) — so
-// resuming jumps back to where they left off, not hole 1.
+// The current hole is resumeHoleNumber's pick — the hole the player was
+// actually on, mid-hole included (#902) — so resuming jumps back to where
+// they left off, not hole 1.
 //
 // Re-runs every time the host screen gains focus. Without that,
 // deleting the active round from the hole/end-round screens left a
@@ -56,30 +56,24 @@ export function useActiveRound(): ActiveRound | null {
         }
         // Fetch ALL hole_scores (not just scored ones): the round's hole
         // rows are batch-created at round start, so their hole numbers give
-        // the round's true hole count. maxHole (highest SCORED hole) drives
-        // where to resume; holeCount clamps it so a fully-played 9-hole
-        // round resumes at 9, not a phantom hole 10 whose error screen used
-        // to offer a one-tap round deletion (#650).
+        // resumeHoleNumber the round's true hole count to clamp against.
         const { data: hs } = await supabase
           .from('hole_scores')
-          .select('score, holes(number)')
+          .select('score, finished_at, holes(number)')
           .eq('round_id', round.id)
         if (!active) return
         const rows = (hs ?? []) as Array<{
           score: number | null
+          finished_at: string | null
           holes?: { number?: number | null } | null
         }>
-        const holeNumbers = rows
-          .map((row) => row.holes?.number)
-          .filter((n): n is number => typeof n === 'number')
-        const holeCount = inferHoleCount(holeNumbers)
-        const maxHole = rows.reduce<number>((acc, row) => {
-          const n = row.holes?.number
-          return (row.score ?? 0) > 0 && typeof n === 'number' && n > acc
-            ? n
-            : acc
-        }, 0)
-        const next = Math.min(holeCount, Math.max(1, maxHole + 1))
+        const next = resumeHoleNumber(
+          rows.flatMap((row) =>
+            typeof row.holes?.number === 'number'
+              ? [{ number: row.holes.number, score: row.score, finished_at: row.finished_at }]
+              : [],
+          ),
+        )
         setActiveRound({
           id: round.id,
           courseName: round.courses?.name ?? 'Round',

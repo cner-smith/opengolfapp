@@ -327,6 +327,7 @@ export type Database = {
       hole_scores: {
         Row: {
           fairway_hit: boolean | null
+          finished_at: string | null
           gir: boolean | null
           hole_id: string
           id: string
@@ -344,6 +345,7 @@ export type Database = {
         }
         Insert: {
           fairway_hit?: boolean | null
+          finished_at?: string | null
           gir?: boolean | null
           hole_id: string
           id?: string
@@ -361,6 +363,7 @@ export type Database = {
         }
         Update: {
           fairway_hit?: boolean | null
+          finished_at?: string | null
           gir?: boolean | null
           hole_id?: string
           id?: string

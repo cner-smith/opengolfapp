@@ -88,6 +88,24 @@ export function inferHoleCount(holeNumbers: number[]): 9 | 18 {
   return Math.max(...holeNumbers) <= 9 ? 9 : 18
 }
 
+// Where a live round picks back up after the app restarts: the hole after the
+// last FINISHED one, or the last hole with shots if that's further along. A
+// score alone can't mean finished — live mode rewrites a running score on
+// every shot, so a hole with one shot already reads as played (#902). Rows
+// written before finished_at existed resume on the last hole with shots.
+// Clamped to the round's length so a finished 9-hole round doesn't resume on
+// a phantom hole 10 (#650).
+export function resumeHoleNumber(
+  rows: ReadonlyArray<{ number: number; score: number | null; finished_at: string | null }>,
+): number {
+  let next = 1
+  for (const r of rows) {
+    if (r.finished_at) next = Math.max(next, r.number + 1)
+    if ((r.score ?? 0) > 0) next = Math.max(next, r.number)
+  }
+  return Math.min(inferHoleCount(rows.map((r) => r.number)), next)
+}
+
 // Penalty strokes on a hole, derived from the rows themselves — a stroke-
 // and-distance OB has no shot row of its own, so a hole's score is
 // "struck rows + obCount(rows)". Counts ROWS, not a boolean test: a hole

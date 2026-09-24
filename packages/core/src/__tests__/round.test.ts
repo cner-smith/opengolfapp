@@ -7,6 +7,7 @@ import {
   legacySlopeToAxes,
   obCount,
   playedRowsForDifferential,
+  resumeHoleNumber,
   summarizePuttParts,
   summarizeShotParts,
   type PlacedPoint,
@@ -402,5 +403,41 @@ describe('obCount', () => {
   })
   it('is 0 for an empty hole', () => {
     expect(obCount([])).toBe(0)
+  })
+})
+
+describe('resumeHoleNumber', () => {
+  const row = (number: number, score: number, finished = false) => ({
+    number,
+    score,
+    finished_at: finished ? '2026-09-24T12:00:00Z' : null,
+  })
+  const played = (n: number) => Array.from({ length: n }, (_, i) => row(i + 1, 4, true))
+  const unplayed = (from: number, to: number) =>
+    Array.from({ length: to - from + 1 }, (_, i) => row(from + i, 0))
+
+  it('fresh round → hole 1', () => {
+    expect(resumeHoleNumber(unplayed(1, 18))).toBe(1)
+  })
+
+  it('mid-hole (running score, not finished) → stays on that hole (#902)', () => {
+    expect(resumeHoleNumber([...played(3), row(4, 1), ...unplayed(5, 18)])).toBe(4)
+  })
+
+  it('last hole finished, next not started → the next hole', () => {
+    expect(resumeHoleNumber([...played(4), ...unplayed(5, 18)])).toBe(5)
+  })
+
+  it('a walked (empty) hole that was finished still advances', () => {
+    expect(resumeHoleNumber([...played(4), row(5, 0, true), ...unplayed(6, 18)])).toBe(6)
+  })
+
+  it('rows from before finished_at existed → last hole with shots', () => {
+    const legacy = [1, 2, 3, 4].map((n) => row(n, 4))
+    expect(resumeHoleNumber([...legacy, ...unplayed(5, 18)])).toBe(4)
+  })
+
+  it('clamps to the round length, not a phantom hole 10', () => {
+    expect(resumeHoleNumber(played(9))).toBe(9)
   })
 })
