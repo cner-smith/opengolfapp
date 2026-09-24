@@ -10,6 +10,7 @@ import { PressableTouch } from '../ui/PressableTouch'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useRouter } from 'expo-router'
 import { HoleMap, type LatLng } from './HoleMap'
+import type { OffscreenArrow } from './HoleMap.types'
 import { HoleReviewSheet } from './HoleReviewSheet'
 import { ShotStepper } from './ShotStepper'
 import type { ShotLoggerValue } from './ShotLogger'
@@ -123,6 +124,9 @@ export default function LiveRoundSession({
   // PLACE_BALL cycle — flips the place-ball CTA from "Mark ball at my GPS"
   // to the generic "Mark ball here". Reset on each new placement / hole.
   const [ballMoved, setBallMoved] = useState(false)
+  // Where the most recent shot's marker is when it's off-screen (HoleMap
+  // measures it) — picks the OB prompt's form below (#895 B2).
+  const [lastShotArrow, setLastShotArrow] = useState<OffscreenArrow | null>(null)
   // Aim overlay shape + size (T3). Tee → arc band, Appr → circle ring; the
   // rail index sizes each, kept per-mode so switching modes preserves the
   // other's pick. Default Tee, widest rail.
@@ -435,6 +439,18 @@ export default function LiveRoundSession({
   // arrays. See task-4-report.md §Fix round 2 for the verified case list.
   const editMode = holeNumber < furthestHoleReached && data.previousShots.length > 0
 
+  // Live OB prompt (#895 B2) — offered while placing the ball with a shot
+  // already on this hole, the states the old bottom-row chip showed in. It
+  // rides on the last shot's marker while that's on-screen (HoleMap), and is
+  // an edge tab above the CTA while it isn't (MapBottomChrome).
+  const obPromptActive =
+    finalState.roundState === 'PLACE_BALL' &&
+    !pinPlacementOpen &&
+    !editMode &&
+    !finalState.isRevisitingPlayedHole &&
+    totalShotsThisHole > 0 &&
+    !actions.saving
+
   // Which of this hole's played shots is selected in edit mode. Reset to the
   // first shot on a hole switch; clamped into bounds whenever the shot count
   // changes (e.g. after a delete shrinks it).
@@ -644,6 +660,12 @@ export default function LiveRoundSession({
           circleRadiusYards={circleRadiusYards}
           dotsVisible={dotsVisible}
           dispersionPoints={dispersionPoints}
+          obCallout={
+            obPromptActive
+              ? { isOb: actions.lastShotIsOb, onPress: () => void actions.markLastShotOb() }
+              : null
+          }
+          onLastShotOffscreen={setLastShotArrow}
           handicap={handicap}
           // Edit mode: only the shots BEFORE the active one form the
           // breadcrumb (mirrors PastRoundMap's review stepper) — the active
@@ -814,6 +836,7 @@ export default function LiveRoundSession({
           // penalty stroke.
           onMarkLastShotOb={() => void actions.markLastShotOb()}
           lastShotIsOb={actions.lastShotIsOb}
+          obTabArrow={obPromptActive ? lastShotArrow : null}
           onAddShot={() => {
             // Opt back into the live append flow on a revisited played hole:
             // re-arm the GPS ball + auto-aim and enter PLACE_BALL (#484).

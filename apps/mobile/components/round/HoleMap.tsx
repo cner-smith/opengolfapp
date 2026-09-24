@@ -14,6 +14,7 @@ import {
 import { MaterialCommunityIcons } from '@expo/vector-icons'
 import { Gesture, GestureDetector } from 'react-native-gesture-handler'
 import { runOnJS } from 'react-native-reanimated'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { distanceYards, ensureMapboxInitialized } from '../../lib/maps'
 import { useUnits } from '../../hooks/useUnits'
 import { TYPE } from '../../lib/typography'
@@ -22,6 +23,8 @@ import { FlagMarker } from './markers/FlagMarker'
 import { AimGhostLayers, useAimGhosts } from './markers/AimGhost'
 import { BreadcrumbLayers } from './markers/BreadcrumbLayers'
 import { AimDistancePill } from './markers/AimDistancePill'
+import { RemainingDistancePill } from './markers/RemainingDistancePill'
+import { DragHint, ObCallout, offscreenArrow } from './markers/Callouts'
 import { useHoleCamera } from './hooks/useHoleCamera'
 import {
   ExpStrokesPill,
@@ -30,135 +33,11 @@ import {
   ToHolePill,
   TopHint,
 } from './HoleMapOverlays'
-import type { HoleMapPhase, LatLng } from './HoleMap.types'
+import type { HoleMapPhase, HoleMapProps, LatLng, OffscreenArrow } from './HoleMap.types'
 
 ensureMapboxInitialized()
 
 export type { HoleMapPhase, LatLng }
-
-interface HoleMapProps {
-  center: LatLng
-  pin?: LatLng | null
-  /**
-   * Per-round pin position captured during live play. Renders as the
-   * flag marker. Falls back visually to the `pin` (stored) coords when
-   * absent.
-   */
-  roundPin?: LatLng | null
-  tee?: LatLng | null
-  // Two dots framing the tee shot (perpendicular to the line of play), used
-  // by the past-round logger in place of the single TeeBadge. The caller
-  // (PastRoundMap) computes the positions; we only render them. When set,
-  // it supersedes the `tee` badge.
-  teeBox?: [LatLng, LatLng] | null
-  aim?: LatLng | null
-  ball?: LatLng | null
-  /**
-   * Fixed-geometry aim overlay (always on while aiming). Tee → an arc band
-   * across the aim line; Appr → a circle ring on the pin. NOT data-driven —
-   * the rail sizes it, the toggle shapes it.
-   */
-  overlayMode: 'tee' | 'appr'
-  /** Tee arc TOTAL lateral width in yards (rail value); half each side of aim. */
-  arcWidthYards: number
-  /** Appr circle radius in yards (rail diameter ÷ 2, feet→yards). */
-  circleRadiusYards: number
-  /**
-   * Single-color historical-shot dots, toggled by the left-toolbar dispersion
-   * button. The selected club's aim-relative offsets; placed around the aim
-   * and shown only when `dotsVisible`. Null / empty → no dots (sparse data).
-   */
-  dotsVisible: boolean
-  dispersionPoints?: { alongYards: number; perpYards: number }[] | null
-  /**
-   * Player handicap index, for the live expected-strokes / SG readouts.
-   * Defaults handled by the caller (falls back to DEFAULT_HANDICAP).
-   */
-  handicap: number
-  /**
-   * Previously-logged shot start positions, in shot order. Rendered as
-   * small amber waypoints with a line connecting consecutive points
-   * AND a final segment from the last waypoint to the current ball, so
-   * the player has a visible breadcrumb of how they got to the
-   * current position. Pass an empty array (or omit) on shot 1.
-   */
-  previousShots?: LatLng[]
-  /**
-   * Out-of-bounds flag per shot, index-aligned with `previousShots` (#839).
-   * Undefined/short arrays are treated as "not OB" — see BreadcrumbLayers.
-   */
-  previousShotObs?: boolean[]
-  phase?: HoleMapPhase
-  /**
-   * Latest smoothed GPS position. Drives the recenter button (which
-   * camera-jumps to it) and the camera hook's auto-center-once
-   * behavior. Null until permission granted and a fix arrives.
-   */
-  gpsPosition?: LatLng | null
-  /**
-   * Course centroid (courses.lat/lng). Used as a proximity gate so
-   * auto-center only fires when the player is actually at the course.
-   */
-  courseCenter?: LatLng | null
-  /**
-   * Active hole number, used as the hole-change signal for resident
-   * children (aim ghosts, anything else that needs to reset per hole).
-   * The map itself stays mounted across the whole round — see #264.
-   */
-  holeNumber: number
-  /**
-   * True when the current SET_AIM exit is a real shot commit (raw
-   * roundState → SHOT_DETAIL / PUTTING) rather than a "Re-place ball"
-   * backout. The `phase` prop collapses both to PLACE_BALL, so the aim-ghost
-   * promotion needs this separate signal to record a ghost on commit without
-   * leaving a stray one on re-place. Defaults false.
-   */
-  aimCommitted?: boolean
-  onSetAim: (loc: LatLng) => void
-  onSetBall: (loc: LatLng) => void
-  /**
-   * Called with the current GPS fix when the recenter button is tapped
-   * during PLACE_BALL — a deliberate tap is explicit intent to put the
-   * ball back on the player, unlike the silent GPS clobber the manual-
-   * placement freeze exists to prevent (#713). Parent resumes GPS-driven
-   * ball tracking. Optional: past-round review passes nothing.
-   */
-  onRecenterBall?: (loc: LatLng) => void
-  onPlacePin?: (loc: LatLng) => void
-  /**
-   * Whether to mount the Mapbox LocationPuck. The puck owns its own
-   * native GPS subscription that bypasses expo-location, and setting
-   * `visible={false}` keeps that subscription alive (verified in
-   * @rnmapbox/maps source — see PR notes for #330). Conditional
-   * mount/unmount is the only way to actually pause the drain. Pass
-   * true during PLACE_BALL and SET_AIM (player on course, puck is
-   * meaningful) and false during SHOT_DETAIL / PUTTING (modals cover
-   * the map).
-   */
-  showLocationPuck: boolean
-  /**
-   * Whether a map tap in PLACE_BALL places/moves the ball. Defaults true
-   * (live round + adding a new past shot). The past-round review stepper
-   * passes false so the selected shot's marker stays DRAGGABLE to
-   * reposition, but stray taps while reviewing don't move it (#593).
-   */
-  tapToPlaceBall?: boolean
-  /**
-   * When set, the camera flies here whenever the point changes — independent
-   * of `center`/GPS/phase, so it can't be fought by the auto-center-on-GPS
-   * effect inside useHoleCamera. Used by the played-hole edit-mode stepper
-   * (LiveRoundSession) to snap the camera to the active shot as the player
-   * steps through a hole's history. Null/omitted → no-op.
-   */
-  focusOn?: LatLng | null
-  /**
-   * Whether to render the bottom-right "center on my GPS" button during
-   * PLACE_BALL. Defaults true. The played-hole edit-mode stepper passes
-   * false — recentering on live GPS while browsing/editing a past shot
-   * would yank the camera away from the shot being edited.
-   */
-  showRecenterButton?: boolean
-}
 
 function toCoord(l: LatLng): [number, number] {
   return [l.lng, l.lat]
@@ -243,8 +122,11 @@ export function HoleMap({
   circleRadiusYards,
   dotsVisible,
   dispersionPoints,
+  obCallout,
+  onLastShotOffscreen,
 }: HoleMapProps) {
   const { toDisplay, toDisplayFt } = useUnits()
+  const insets = useSafeAreaInsets()
   const mapViewRef = useRef<Mapbox.MapView>(null)
   // Native side fires "Source X is not in style" when a ShapeSource /
   // LineLayer mounts before the satellite style has finished loading.
@@ -255,6 +137,40 @@ export function HoleMap({
   const isPinMode = phase === 'PIN'
   const isAimPhase = phase === 'SET_AIM'
   const isPlaceBallPhase = phase === 'PLACE_BALL'
+
+  // Is the most recent shot's marker in view (#895 B2)? Measured with
+  // getPointInView on each camera settle rather than computed, so heading,
+  // pitch and viewport offsets come for free.
+  const lastShot = previousShots?.[previousShots.length - 1] ?? null
+  const [mapSize, setMapSize] = useState<{ w: number; h: number } | null>(null)
+  const [lastShotArrow, setLastShotArrow] = useState<OffscreenArrow | null>(null)
+  // Camera centre + heading as of the last settle — the only way to tell
+  // which way an off-screen point lies (see offscreenArrow).
+  const settledCamRef = useRef<{ lng: number; lat: number; heading: number } | null>(null)
+  const measureLastShot = useCallback(async () => {
+    const map = mapViewRef.current
+    if (!lastShot || !mapSize || !map) {
+      setLastShotArrow(null)
+      return
+    }
+    try {
+      const [x, y] = await map.getPointInView(toCoord(lastShot))
+      const cam = settledCamRef.current
+      // No settle yet → assume behind the player, the usual case.
+      const relBearing = cam
+        ? bearingDegrees(cam.lat, cam.lng, lastShot.lat, lastShot.lng) - cam.heading
+        : 180
+      setLastShotArrow(offscreenArrow(x, y, mapSize.w, mapSize.h, relBearing))
+    } catch {
+      // Map not ready yet — the next onMapIdle re-measures.
+    }
+  }, [lastShot?.lat, lastShot?.lng, mapSize])
+  useEffect(() => {
+    void measureLastShot()
+  }, [measureLastShot])
+  useEffect(() => {
+    onLastShotOffscreen?.(lastShotArrow)
+  }, [lastShotArrow, onLastShotOffscreen])
 
   const cameraRef = useHoleCamera({
     center,
@@ -654,7 +570,12 @@ export function HoleMap({
 
   return (
     <GestureDetector gesture={longPress}>
-      <View style={{ flex: 1, position: 'relative' }}>
+      <View
+        style={{ flex: 1, position: 'relative' }}
+        onLayout={(e) =>
+          setMapSize({ w: e.nativeEvent.layout.width, h: e.nativeEvent.layout.height })
+        }
+      >
         <Mapbox.MapView
           ref={mapViewRef}
           style={{ flex: 1 }}
@@ -665,6 +586,13 @@ export function HoleMap({
           scaleBarEnabled={false}
           onPress={handleTap}
           onDidFinishLoadingStyle={() => setStyleLoaded(true)}
+          onMapIdle={(state) => {
+            const [lng, lat] = state.properties.center
+            if (lng != null && lat != null) {
+              settledCamRef.current = { lng, lat, heading: state.properties.heading }
+            }
+            void measureLastShot()
+          }}
         >
           <Mapbox.Camera
             ref={cameraRef}
@@ -896,44 +824,19 @@ export function HoleMap({
             />
           )}
 
-          {/* Remaining (aim→pin) — subordinate to the hero carry pill: a
-              smaller, dimmer label on the aim→pin leg. Uses the already-
-              computed aimToPinYards, run through the units helper. */}
+          {/* Remaining (aim→pin) — subordinate to the hero carry pill. Inside
+              the green-radius it reads in feet (greens are a feet game). */}
           {remainingMidpoint &&
             aimToPinYards !== null &&
             aimToPinYards >= MIN_LABEL_LEG_YARDS && (
-            <Mapbox.MarkerView
-              id="remainingDistance"
-              coordinate={toCoord(remainingMidpoint)}
-              allowOverlap
-            >
-              <View
-                style={{
-                  backgroundColor: 'rgba(28,33,28,0.92)',
-                  borderRadius: 9,
-                  paddingHorizontal: 9,
-                  paddingVertical: 3,
-                }}
-              >
-                <Text
-                  style={[
-                    TYPE.serifUpright,
-                    {
-                      color: '#E8E2D4',
-                      fontSize: 14,
-                      fontWeight: '600',
-                      fontVariant: ['tabular-nums'],
-                    },
-                  ]}
-                >
-                  {/* Inside the green-radius the approach leg reads in feet
-                      (greens are a feet game); toDisplayFt respects metric. */}
-                  {aimToPinYards <= NEAR_GREEN_YARDS
-                    ? toDisplayFt(aimToPinYards * 3)
-                    : toDisplay(aimToPinYards)}
-                </Text>
-              </View>
-            </Mapbox.MarkerView>
+            <RemainingDistancePill
+              midpoint={remainingMidpoint}
+              display={
+                aimToPinYards <= NEAR_GREEN_YARDS
+                  ? toDisplayFt(aimToPinYards * 3)
+                  : toDisplay(aimToPinYards)
+              }
+            />
           )}
 
           {/* Render whenever a ball exists — same reasoning as the aim
@@ -977,34 +880,10 @@ export function HoleMap({
               </View>
             </Mapbox.PointAnnotation>
           )}
-          {/* "Drag to adjust" (#901 H3) — replaces the full-width caps banner
-              while placing the ball. Hangs below the 44pt grab disc, and
-              pointerEvents="none" keeps this MarkerView (which otherwise
-              captures touches, see MIN_LABEL_LEG_YARDS) off the ball drag. */}
-          {ball && isPlaceBallPhase && (
-            <Mapbox.MarkerView
-              id="dragHint"
-              coordinate={toCoord(ball)}
-              anchor={{ x: 0.5, y: 0 }}
-              allowOverlap
-              // The GPS-tracked ball sits on the location puck, and MarkerViews
-              // near the puck are hidden by default.
-              allowOverlapWithPuck
-              pointerEvents="none"
-            >
-              <View pointerEvents="none" style={{ paddingTop: 26, alignItems: 'center' }}>
-                <View
-                  style={{
-                    backgroundColor: 'rgba(28,33,28,0.82)',
-                    borderRadius: 4,
-                    paddingHorizontal: 8,
-                    paddingVertical: 3,
-                  }}
-                >
-                  <Text style={[TYPE.body, { color: '#F2EEE5', fontSize: 12 }]}>Drag to adjust</Text>
-                </View>
-              </View>
-            </Mapbox.MarkerView>
+          {/* "Drag to adjust" (#901 H3) — replaces the caps banner while placing the ball. */}
+          {ball && isPlaceBallPhase && <DragHint ball={ball} />}
+          {obCallout && lastShot && lastShotArrow == null && (
+            <ObCallout at={lastShot} isOb={obCallout.isOb} onPress={obCallout.onPress} />
           )}
         </Mapbox.MapView>
 
@@ -1036,7 +915,10 @@ export function HoleMap({
             style={{
               position: 'absolute',
               right: 12,
-              bottom: 52,
+              // Beside the primary CTA, clear of LiveRoundSession's chip row
+              // (On the green · Finish) that now sits at the bottom edge
+              // since hole nav moved to the header (#901).
+              bottom: insets.bottom + 56,
               width: 44,
               height: 44,
               borderRadius: 22,

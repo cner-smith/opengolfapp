@@ -4,6 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { tourMakePercent } from '@oga/core'
 import { TYPE } from '../../lib/typography'
 import { KICKER, type RoundState } from './hole/types'
+import type { OffscreenArrow } from './HoleMap.types'
 
 // Floating bottom chrome that replaces the old cream HoleStrip panel so the
 // satellite map runs nearly full-bleed. All action wiring is the HoleStrip
@@ -57,9 +58,13 @@ interface MapBottomChromeProps {
    *  charge the penalty stroke, and drop the ball back on that shot's origin
    *  for the stroke-and-distance re-hit (#839). */
   onMarkLastShotOb: () => void
-  /** True when that most recent shot is ALREADY flagged OB — flips the chip
-   *  into its undo label. Derived from the stored rows, not remembered. */
+  /** True when that most recent shot is ALREADY flagged OB — flips the
+   *  prompt into its undo label. Derived from the stored rows, not remembered. */
   lastShotIsOb: boolean
+  /** Set while the OB prompt is offered AND the last shot's marker is
+   *  off-screen (#895 B2): the direction to it, shown on the edge tab. Null
+   *  otherwise — on-screen, the prompt rides on the marker (HoleMap). */
+  obTabArrow: OffscreenArrow | null
   onFinishHole: () => void
   /** On-green rework: true while `roundState === 'PUTTING'`. Swaps the whole
    *  contextual-action block for the Made/Missed overlay — the detailed aim
@@ -156,15 +161,25 @@ function ContextualActions(p: MapBottomChromeProps) {
   const ballDisabled = (!p.ball && !p.hasGps) || p.saving
   return (
     <>
+      {/* Live OB (#839) edge tab (#895 B2): when you reach your ball the last
+          shot's marker is usually well behind you and off-screen, so its
+          "went OB?" callout can't be seen — the tab asks instead. */}
+      {p.obTabArrow && (
+        <TextChip
+          label={`${p.obTabArrow} Shot ${p.totalShotsThisHole} · ${p.lastShotIsOb ? 'OB — tap to undo' : 'went OB?'}`}
+          onPress={p.onMarkLastShotOb}
+          danger
+        />
+      )}
       <PrimaryCta label={ballLabel} disabled={ballDisabled} onPress={p.onMarkBallHere} />
       {/* One chip row for the secondary actions — stacking them one-per-line
           read as clutter over the satellite (QA 2026-08). flexWrap: at the
           1.3x font cap on narrow devices the two chips can exceed the row
-          width; wrapping beats an untappable off-screen chip. The GPS drag
-          hint that used to sit here duplicated TopHint (HoleMapOverlays.tsx,
-          rendered unconditionally whenever !isAimPhase in HoleMap.tsx) —
-          TopHint covers every state the hint showed in, and the CTA label
-          ("Mark ball at my GPS") carries the GPS-tracking cue.
+          width; wrapping beats an untappable off-screen chip. OB left this
+          row for the last shot's marker / the edge tab above (#895 B2) —
+          three chips always wrapped to two lines. The drag hint lives on
+          the ball (HoleMap's DragHint), and the CTA label ("Mark ball at my
+          GPS") carries the GPS-tracking cue.
           On-green gate (#791 step 4): requires a prior shot this hole — as the
           FIRST tap it would skip persisting the stroke that reached the green
           (phantom ace) and finishHole would skip the review. */}
@@ -179,20 +194,6 @@ function ContextualActions(p: MapBottomChromeProps) {
         >
           {(p.ball != null || p.hasGps) && !p.saving && (
             <TextChip label="⛳ On the green" onPress={p.onOnGreen} />
-          )}
-          {/* Live OB (#839). Deliberately in the PLACE_BALL row and nowhere
-              else: every earlier branch above returns first, so the chip can
-              never appear during pin placement, played-hole edit mode, the
-              on-green Made/Missed overlay, aiming, or a played-hole revisit.
-              Gated on a shot existing this hole by the enclosing
-              totalShotsThisHole > 0 — there is no "last shot" before the
-              first one. */}
-          {!p.saving && (
-            <TextChip
-              label={p.lastShotIsOb ? '⚠ OB — tap to undo' : '⚠ Last shot went OB'}
-              onPress={p.onMarkLastShotOb}
-              danger
-            />
           )}
           <TextChip
             label={p.holeNumber < p.holeCount ? 'Finish hole · next →' : 'Finish round'}
