@@ -44,6 +44,18 @@ function getDb(): Promise<SQLite.SQLiteDatabase> {
       // prior sessions are pure dead weight. 'broken' rows are kept as
       // diagnostic evidence; they're rare by construction.
       await db.runAsync(`DELETE FROM pending_shots WHERE status = 'synced'`)
+      // hole_scores writes made during a live round (#226). An append-only log
+      // rather than one merged row per hole: the drain merges a hole's rows in
+      // local_id order and deletes only up to the highest id it sent, so a
+      // write enqueued while a drain is in flight survives for the next pass.
+      await db.execAsync(`
+        CREATE TABLE IF NOT EXISTS pending_hole_score_patches (
+          local_id INTEGER PRIMARY KEY AUTOINCREMENT,
+          hole_score_id TEXT NOT NULL,
+          round_id TEXT NOT NULL,
+          patch TEXT NOT NULL
+        );
+      `)
       return db
     })()
   }
@@ -337,4 +349,47 @@ export async function upsertReviewedShot(payload: ShotPayload): Promise<void> {
       Date.now(),
     )
   }
+}
+
+export type HoleScorePatch = Database['public']['Tables']['hole_scores']['Update']
+
+export interface PendingHoleScorePatch {
+  local_id: number
+  hole_score_id: string
+  round_id: string
+  patch: string
+}
+
+// Every value is absolute (score is written, never incremented), so the drain
+// can merge a hole's queued patches last-write-wins.
+export async function enqueueHoleScorePatch(
+  holeScore: { id: string; round_id: string },
+  patch: HoleScorePatch,
+): Promise<void> {
+  const db = await getDb()
+  await db.runAsync(
+    `INSERT INTO pending_hole_score_patches (hole_score_id, round_id, patch) VALUES (?, ?, ?)`,
+    holeScore.id,
+    holeScore.round_id,
+    JSON.stringify(patch),
+  )
+}
+
+export async function listHoleScorePatches(): Promise<PendingHoleScorePatch[]> {
+  const db = await getDb()
+  return db.getAllAsync<PendingHoleScorePatch>(
+    `SELECT * FROM pending_hole_score_patches ORDER BY local_id ASC`,
+  )
+}
+
+export async function deleteHoleScorePatches(
+  holeScoreId: string,
+  throughLocalId: number,
+): Promise<void> {
+  const db = await getDb()
+  await db.runAsync(
+    `DELETE FROM pending_hole_score_patches WHERE hole_score_id = ? AND local_id <= ?`,
+    holeScoreId,
+    throughLocalId,
+  )
 }
