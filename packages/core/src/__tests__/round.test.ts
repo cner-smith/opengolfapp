@@ -8,6 +8,9 @@ import {
   obCount,
   playedRowsForDifferential,
   resumeHoleNumber,
+  roundHolesPlayed,
+  isPartialRound,
+  partialRoundLabel,
   summarizePuttParts,
   summarizeShotParts,
   type PlacedPoint,
@@ -355,6 +358,35 @@ describe('inferHoleCount', () => {
 
   it('a single mapped hole 10 already implies 18', () => {
     expect(inferHoleCount([10])).toBe(18)
+  })
+})
+
+describe('roundHolesPlayed / isPartialRound', () => {
+  const rows = (scores: number[]) =>
+    scores.map((score, i) => ({ score, holes: { number: i + 1 } }))
+
+  it('an 18 ended after 6 (mobile pre-created rows) is partial', () => {
+    const hs = rows([...Array(6).fill(5), ...Array(12).fill(0)])
+    expect(roundHolesPlayed(hs)).toEqual({ played: 6, of: 18 })
+    expect(isPartialRound(hs)).toBe(true)
+  })
+
+  it('a full 9 (web rows for holes 1-9 only) is not partial', () => {
+    expect(isPartialRound(rows(Array(9).fill(4)))).toBe(false)
+  })
+
+  it('web rows for holes 1-12 all scored is a partial 18', () => {
+    expect(roundHolesPlayed(rows(Array(12).fill(4)))).toEqual({ played: 12, of: 18 })
+  })
+
+  it('partialRoundLabel names the played count, empty when whole', () => {
+    expect(partialRoundLabel(rows([...Array(6).fill(5), ...Array(12).fill(0)]))).toBe(' · partial · 6 of 18')
+    expect(partialRoundLabel(rows(Array(18).fill(4)))).toBe('')
+  })
+
+  it('no rows (bare total) counts as whole', () => {
+    expect(roundHolesPlayed([])).toBeNull()
+    expect(isPartialRound(undefined)).toBe(false)
   })
 })
 

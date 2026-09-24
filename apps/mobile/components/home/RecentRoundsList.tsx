@@ -2,7 +2,7 @@ import { useRef } from 'react'
 import { Pressable, Text, View } from 'react-native'
 import { Link } from 'expo-router'
 import { Swipeable } from 'react-native-gesture-handler'
-import { formatSG } from '@oga/core'
+import { formatSG, partialRoundLabel } from '@oga/core'
 import { TYPE } from '../../lib/typography'
 
 const KICKER: import('react-native').TextStyle = {
@@ -19,6 +19,7 @@ export interface RecentRoundRow {
   total_score: number | null
   sg_total: number | null
   courses?: { name: string | null } | null
+  hole_scores?: { score: number; holes: { number: number } | null }[] | null
 }
 
 interface RecentRoundsListProps {
@@ -105,6 +106,7 @@ export function RecentRoundsList({
                   <View style={{ flex: 1, paddingRight: 12 }}>
                     <Text style={[TYPE.kicker, KICKER, { color: '#8A8B7E', marginBottom: 4 }]}>
                       {r.played_at}
+                      {partialRoundLabel(r.hole_scores)}
                     </Text>
                     <Text
                       style={[

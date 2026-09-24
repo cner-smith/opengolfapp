@@ -5,7 +5,7 @@ import {
 } from './sg-calculator'
 import { NEAR_GREEN_YARDS } from './constants'
 import type { LieSlopeForward, LieSlopeSide, LieType, ShotCategory, ShotResult } from './constants'
-import { isPuttShot } from './round'
+import { isPartialRound, isPuttShot } from './round'
 import { METERS_TO_YARDS, YARDS_TO_METERS, haversineYards, toRadians } from './units'
 import { RESULT_QUALITY } from './types'
 import type { DistanceUnit } from './types'
@@ -113,6 +113,13 @@ export interface SGAverages {
   putting: number | null
 }
 
+// Round-level numbers (avg score, best/worst, SG per round) only compare
+// across whole rounds; a round ended early stays out of them (#911). Its holes
+// still feed the per-hole stats.
+function wholeRounds(rounds: DetailedRound[]): DetailedRound[] {
+  return rounds.filter((r) => !isPartialRound(r.hole_scores))
+}
+
 export function sgAverages(rounds: DetailedRound[]): SGAverages {
   const keys: Array<['sg_off_tee' | 'sg_approach' | 'sg_around_green' | 'sg_putting', keyof SGAverages]> = [
     ['sg_off_tee', 'offTee'],
@@ -122,7 +129,7 @@ export function sgAverages(rounds: DetailedRound[]): SGAverages {
   ]
   const out: SGAverages = { offTee: null, approach: null, aroundGreen: null, putting: null }
   for (const [col, label] of keys) {
-    const values = rounds
+    const values = wholeRounds(rounds)
       .map((r) => r[col])
       .filter((v): v is number => v != null)
     if (values.length === 0) {
@@ -233,7 +240,7 @@ export interface SGTrendPoint {
 }
 
 export function sgTrend(rounds: DetailedRound[]): SGTrendPoint[] {
-  return [...rounds]
+  return wholeRounds(rounds)
     .reverse()
     .filter((r) => r.sg_total != null)
     .map((r) => ({
@@ -395,7 +402,7 @@ export interface ScoringStats {
 }
 
 export function scoringStats(rounds: DetailedRound[]): ScoringStats {
-  const totalScores = rounds
+  const totalScores = wholeRounds(rounds)
     .map((r) => r.total_score)
     // 0 = the past-round logger's "no score yet" sentinel (#910).
     .filter((v): v is number => v != null && v > 0)
@@ -950,10 +957,7 @@ export function computeDetailedStats(
   rounds: DetailedRound[],
   handicap: number,
 ): DetailedStats {
-  const holesPlayed = rounds.reduce(
-    (sum, r) => sum + (r.hole_scores?.length ?? 0),
-    0,
-  )
+  const holesPlayed = flatten(rounds).filter(({ hs }) => isPlayed(hs)).length
   return {
     rounds: rounds.length,
     holesPlayed,

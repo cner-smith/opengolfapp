@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router'
 import { Pressable, ScrollView, Text, View } from 'react-native'
-import { formatSG } from '@oga/core'
+import { formatSG, isPartialRound } from '@oga/core'
 import { deleteRound, getProfile, getRecentRounds } from '@oga/supabase'
 import type { Database } from '@oga/supabase'
 import { supabase } from '../../lib/supabase'
@@ -211,18 +211,22 @@ export default function Home() {
   // the full reversed array including null-filtered entries, which
   // would otherwise produce sparse ordinals like [1, 3, 5] and a
   // visually gapped axis.
+  // Rounds ended early stay out of the per-round numbers below (avg, best,
+  // SG averages, trend) — a 6-hole total isn't comparable to a whole round (#911).
+  const wholeRounds = useMemo(() => rounds.filter((r) => !isPartialRound(r.hole_scores)), [rounds])
+
   const trend = useMemo(() => {
     let seq = 0
-    return [...rounds]
+    return [...wholeRounds]
       .reverse()
       .flatMap((r) =>
         r.sg_total == null ? [] : [{ x: ++seq, y: r.sg_total }],
       )
-  }, [rounds])
+  }, [wholeRounds])
 
   const homeStats = useMemo(() => {
     const avgs = SG_KEYS.map((c) => {
-      const values = rounds.map((r) => r[c.key]).filter((v): v is number => v !== null)
+      const values = wholeRounds.map((r) => r[c.key]).filter((v): v is number => v !== null)
       const avg = values.length === 0 ? 0 : values.reduce((a, b) => a + b, 0) / values.length
       return { ...c, value: Number(avg.toFixed(2)) }
     })
@@ -230,7 +234,7 @@ export default function Home() {
     // entered" (map-created rounds), so exclude it from avg + best-round min —
     // otherwise an abandoned log skews the average and a single unscored
     // round always reads as a best of 0.
-    const realScoreRounds = rounds.filter(
+    const realScoreRounds = wholeRounds.filter(
       (r): r is typeof r & { total_score: number } =>
         r.total_score != null && r.total_score > 0,
     )
@@ -243,7 +247,7 @@ export default function Home() {
     const totalSG = avgs.reduce((s, a) => s + a.value, 0)
     const sorted = [...avgs].sort((a, b) => b.value - a.value)
     return { avgScore, bestScore, totalSG, weakest: sorted[sorted.length - 1]!, strongest: sorted[0]! }
-  }, [rounds])
+  }, [wholeRounds])
 
   const eyebrow =
     profile?.handicap_index != null
@@ -386,7 +390,7 @@ export default function Home() {
           </View>
         ) : (
           <>
-            <SGBreakdown rounds={rounds} />
+            <SGBreakdown rounds={wholeRounds} />
             <SGTrendChart data={trend} />
           </>
         )}
