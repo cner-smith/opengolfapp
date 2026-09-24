@@ -47,8 +47,10 @@ export function DashboardPage() {
       date: r.played_at,
       sg: r.sg_total ?? 0,
     }))
-    const totalScore = rounds.reduce((s, r) => s + (r.total_score ?? 0), 0)
-    const totalScoreCount = rounds.filter((r) => r.total_score !== null).length
+    // total_score 0 = the past-round logger's "no score yet" sentinel (#910).
+    const scored = rounds.filter((r) => (r.total_score ?? 0) > 0)
+    const totalScore = scored.reduce((s, r) => s + (r.total_score ?? 0), 0)
+    const totalScoreCount = scored.length
     const avgScore = totalScoreCount > 0 ? totalScore / totalScoreCount : 0
     const totalSG = avgs.reduce((s, a) => s + a.value, 0)
     const sortedDesc = [...avgs].sort((a, b) => b.value - a.value)

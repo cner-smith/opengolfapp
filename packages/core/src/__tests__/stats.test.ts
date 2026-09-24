@@ -284,6 +284,59 @@ describe('scoringDistribution', () => {
   })
 })
 
+// Score 0 is the "not played" sentinel: mobile creates every hole_scores row
+// at round start with score 0, and the past-round logger writes total_score 0
+// until a score is entered (#910).
+describe('unplayed holes and unscored rounds', () => {
+  // 6 played par 4s in 5 + 12 untouched rows.
+  const partial: DetailedRound = makeRound({
+    id: 'partial',
+    total_score: 30,
+    hole_scores: Array.from({ length: 18 }, (_, i) =>
+      makeHoleScore({
+        id: `hs${i + 1}`,
+        score: i < 6 ? 5 : 0,
+        putts: i < 6 ? 2 : null,
+        holes: makeHole({ id: `h${i + 1}`, number: i + 1, par: 4 }),
+        shots: [],
+      }),
+    ),
+  })
+
+  it('scoringDistribution ignores unplayed holes', () => {
+    const dist = scoringDistribution([partial])
+    const counts = Object.fromEntries(dist.slices.map((s) => [s.key, s.count]))
+    expect(counts.eagleOrBetter).toBe(0)
+    expect(counts.bogey).toBe(6)
+    expect(dist.total).toBe(6)
+  })
+
+  it('scoringStats per-hole averages ignore unplayed holes', () => {
+    const s = scoringStats([partial])
+    expect(s.avgPar4).toBe(5)
+    expect(s.front9Avg).toBe(5)
+    expect(s.back9Avg).toBeNull()
+  })
+
+  it('scoringStats ignores total_score 0 rounds', () => {
+    const unscored = makeRound({ id: 'unscored', total_score: 0, hole_scores: [] })
+    const scored = makeRound({ id: 'scored', total_score: 84, hole_scores: [] })
+    const s = scoringStats([unscored, scored])
+    expect(s.bestRound).toBe(84)
+    expect(s.avgScore).toBe(84)
+  })
+
+  it('shortGameStats 3-putt rate counts played holes only', () => {
+    const round = makeRound({
+      hole_scores: [
+        makeHoleScore({ id: 'a', score: 5, putts: 3, holes: makeHole({ id: 'a', number: 1 }), shots: [] }),
+        makeHoleScore({ id: 'b', score: 0, putts: null, holes: makeHole({ id: 'b', number: 2 }), shots: [] }),
+      ],
+    })
+    expect(shortGameStats([round]).threePuttPct).toBe(100)
+  })
+})
+
 describe('shortGameStats — putts and 3-putts', () => {
   const round: DetailedRound = makeRound({
     total_putts: 35,
