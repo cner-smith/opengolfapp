@@ -369,11 +369,13 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
       // the score is written absolutely, never incremented.
       const newScore = shotNumber + holeObStrokes + (payload.ob ? 1 : 0)
       // Queued, not written directly, so an offline stretch can't lose it
-      // (#226). Enqueued before the sync kick so this run's drain picks it up.
+      // (#226). Awaited before the sync kick so this run's drain picks it up —
+      // a completeRound joining that run would otherwise finalize without it.
       if (currentHoleScore) {
-        enqueueHoleScorePatch(currentHoleScore, { score: newScore, putts: newPutts }).catch(
-          () => undefined,
-        )
+        await enqueueHoleScorePatch(currentHoleScore, {
+          score: newScore,
+          putts: newPutts,
+        }).catch(() => undefined)
       }
       // Background sync — don't await.
       syncPendingShots().catch(() => undefined)

@@ -211,7 +211,9 @@ async function drainHoleScorePatches(): Promise<void> {
     let patch: HoleScorePatch
     try {
       patch = JSON.parse(row.patch) as HoleScorePatch
-    } catch {
+    } catch (e) {
+      // eslint-disable-next-line no-console
+      console.error('[sync/hole-scores] corrupt patch local_id=%d msg=%s', row.local_id, (e as Error).message)
       patch = {}
     }
     const acc = byHole.get(row.hole_score_id)
