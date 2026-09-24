@@ -184,6 +184,10 @@ export function HoleMap({
     styleLoaded,
     gpsPosition,
     courseCenter,
+    mapViewRef,
+    mapHeight: mapSize?.h ?? null,
+    // Clear of the SET_AIM controls (Confirm aim + Re-place / Skip chips).
+    ballInset: insets.bottom + 150,
   })
 
   // Explicit camera focus, independent of useHoleCamera's `center`/GPS/phase

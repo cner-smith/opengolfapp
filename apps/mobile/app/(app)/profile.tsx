@@ -23,6 +23,7 @@ import type { Database } from '@oga/supabase'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
 import { clearScreenCache } from '../../lib/screenCache'
+import { getAimTilt, setAimTilt, type AimTilt } from '../../lib/aimTilt'
 import { AppBar } from '../../components/ui/AppBar'
 import { TYPE } from '../../lib/typography'
 
@@ -74,6 +75,16 @@ export default function ProfileTab() {
   const [facilities, setFacilities] = useState<string[]>([])
   const [unit, setUnit] = useState<'yards' | 'meters'>('yards')
   const [emailSummaries, setEmailSummaries] = useState(true)
+  // Device-local (lib/aimTilt), so it saves on tap rather than with the
+  // profile row below.
+  const [aimTilt, setAimTiltState] = useState<AimTilt>(0)
+  useEffect(() => {
+    void getAimTilt().then(setAimTiltState)
+  }, [])
+  const chooseAimTilt = (t: AimTilt) => {
+    setAimTiltState(t)
+    void setAimTilt(t)
+  }
   // Count of rounds with a derived score_differential — the signal for
   // whether the displayed index is a calculated WHS value or still the
   // entered one (#521). Mobile doesn't compute differentials, so this is
@@ -353,6 +364,13 @@ export default function ProfileTab() {
               active={unit === 'meters'}
               onPress={() => setUnit('meters')}
             />
+          </View>
+        </Field>
+
+        <Field label="Aim view">
+          <View style={{ flexDirection: 'row', gap: 6 }}>
+            <Chip label="Flat" active={aimTilt === 0} onPress={() => chooseAimTilt(0)} />
+            <Chip label="Flyover" active={aimTilt === 60} onPress={() => chooseAimTilt(60)} />
           </View>
         </Field>
 
