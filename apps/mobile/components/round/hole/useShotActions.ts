@@ -735,6 +735,22 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
   // not on a peek/jump (navigateHole below uses onHoleChange, deliberately
   // not this).
   function advanceAfterHole() {
+    // Marks the hole finished for the resume point (#902) — its running score
+    // can't, since every logged shot rewrites that. Background, like the
+    // score write in persistShot; if it's lost offline, resume falls back to
+    // the last hole with shots.
+    if (currentHoleScore) {
+      supabase
+        .from('hole_scores')
+        .update({ finished_at: new Date().toISOString() })
+        .eq('id', currentHoleScore.id)
+        .then(({ error }) => {
+          if (error) {
+            // eslint-disable-next-line no-console
+            console.warn('[hole/finished-at]', error.message)
+          }
+        })
+    }
     if (holeNumber < holeCount) {
       onAdvanceHole(holeNumber + 1)
     } else {
