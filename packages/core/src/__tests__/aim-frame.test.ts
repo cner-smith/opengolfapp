@@ -4,7 +4,9 @@ import { bearingDegrees, haversineYards, toRadians } from '../units'
 import { destinationYards, type GeoPoint } from '../shot-dispersion-geo'
 
 // Forward projection with the same pinhole model: where does `point` land,
-// in dp from the map top, under `frame`?
+// in dp from the map top, under `frame`? It shares aim-frame's camera
+// constants (eye distance, fov), so this checks the algebra only — those
+// constants were validated against Mapbox on-device (#899), not here.
 function screenY(frame: AimFrame, point: GeoPoint, i: AimFrameInput): number {
   const metresPerPx =
     (40075016.686 * Math.cos(toRadians(frame.center.lat))) / (512 * 2 ** frame.zoom)
@@ -25,7 +27,7 @@ const input = (holeYards: number, pitch: number, extra: Partial<AimFrameInput> =
   mapHeight: 760,
   pitch,
   topInset: 10,
-  flagHeight: 35,
+  flagHeight: 37, // FLAG_TOP_DP in useHoleCamera
   ballInset: 200,
   greenDepthYards: 15,
   ...extra,
