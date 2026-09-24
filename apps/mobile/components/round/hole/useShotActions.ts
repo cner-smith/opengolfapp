@@ -70,6 +70,11 @@ interface UseShotActionsInput {
   // predicate's "active capture hole" signal (fix round 2, C1 residual):
   // only a real finish should ever make a hole editable, not a peek ahead.
   onAdvanceHole: (next: number) => void
+  // The round was just finalized (End early / last hole). The host swaps to
+  // the completed-round summary. Not a router.replace: the host is that same
+  // route, and a replace onto it is a tab JUMP_TO that keeps the mounted
+  // screen, so the live session stayed up on a completed round (#909).
+  onRoundCompleted: () => void
 }
 
 export interface UseShotActionsResult {
@@ -155,6 +160,7 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
     placeBallManually,
     onHoleChange,
     onAdvanceHole,
+    onRoundCompleted,
   } = input
   const router = useRouter()
   const [saving, setSaving] = useState(false)
@@ -1065,7 +1071,7 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
         userId: user.id,
         handicap,
       })
-      router.replace({ pathname: '/(app)/round/[id]', params: { id: round.id } })
+      onRoundCompleted()
     } catch (err) {
       Alert.alert('End round failed', (err as Error).message)
     } finally {
