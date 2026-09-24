@@ -220,7 +220,7 @@ export default function Home() {
     return [...wholeRounds]
       .reverse()
       .flatMap((r) =>
-        r.sg_total == null ? [] : [{ x: ++seq, y: r.sg_total }],
+        r.sg_total == null ? [] : [{ x: ++seq, y: r.sg_total, date: r.played_at }],
       )
   }, [wholeRounds])
 
