@@ -732,20 +732,14 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
   // not this).
   function advanceAfterHole() {
     // Marks the hole finished for the resume point (#902) — its running score
-    // can't, since every logged shot rewrites that. Background, like the
-    // score write in persistShot; if it's lost offline, resume falls back to
-    // the last hole with shots.
+    // can't, since every logged shot rewrites that. Queued (#226) so it
+    // survives offline play. Not awaited: on the last hole, a patch that
+    // misses completeRound's drain is dropped as stale, which is harmless —
+    // a completed round is never resumed.
     if (currentHoleScore) {
-      supabase
-        .from('hole_scores')
-        .update({ finished_at: new Date().toISOString() })
-        .eq('id', currentHoleScore.id)
-        .then(({ error }) => {
-          if (error) {
-            // eslint-disable-next-line no-console
-            console.warn('[hole/finished-at]', error.message)
-          }
-        })
+      enqueueHoleScorePatch(currentHoleScore, { finished_at: new Date().toISOString() })
+        .then(() => syncPendingShots())
+        .catch(() => undefined)
     }
     if (holeNumber < holeCount) {
       onAdvanceHole(holeNumber + 1)
