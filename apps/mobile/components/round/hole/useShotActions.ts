@@ -19,6 +19,7 @@ import { supabase } from '../../../lib/supabase'
 import {
   allShotsForHoleScore,
   deletePendingShotById,
+  enqueueHoleScorePatch,
   insertPendingShot,
   pendingCount,
   setPendingShotEnd,
@@ -359,8 +360,6 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
       setLoggerOpen(false)
       setLoggerInitial({})
       setRoundState('PLACE_BALL')
-      // Background sync — don't await.
-      syncPendingShots().catch(() => undefined)
       const newPutts = remotePuttCount + localPuttCount + (isPutt ? 1 : 0)
       // score = struck rows + penalty strokes. `shotNumber` IS the struck
       // count once this row lands, so without the OB term the very next shot
@@ -369,16 +368,15 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
       // built from the already-stored rows. Applied exactly once per save:
       // the score is written absolutely, never incremented.
       const newScore = shotNumber + holeObStrokes + (payload.ob ? 1 : 0)
-      supabase
-        .from('hole_scores')
-        .update({ score: newScore, putts: newPutts })
-        .eq('id', payload.hole_score_id)
-        .then(({ error }) => {
-          if (error) {
-            // eslint-disable-next-line no-console
-            console.warn('[hole/score-update]', error.message)
-          }
-        })
+      // Queued, not written directly, so an offline stretch can't lose it
+      // (#226). Enqueued before the sync kick so this run's drain picks it up.
+      if (currentHoleScore) {
+        enqueueHoleScorePatch(currentHoleScore, { score: newScore, putts: newPutts }).catch(
+          () => undefined,
+        )
+      }
+      // Background sync — don't await.
+      syncPendingShots().catch(() => undefined)
       setHoleScores((prev) =>
         prev.map((hs) =>
           hs.id === payload.hole_score_id
@@ -448,13 +446,8 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
       ),
     )
     setPinPlacementOpen(false)
-    const { error: updateErr } = await supabase
-      .from('hole_scores')
-      .update({ pin_lat: loc.lat, pin_lng: loc.lng })
-      .eq('id', currentHoleScore.id)
-    if (updateErr) {
-      Alert.alert('Pin save failed', updateErr.message)
-    }
+    await enqueueHoleScorePatch(currentHoleScore, { pin_lat: loc.lat, pin_lng: loc.lng })
+    syncPendingShots().catch(() => undefined)
   }
 
   async function clearRoundPin() {
@@ -467,13 +460,8 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
       ),
     )
     setPinPlacementOpen(false)
-    const { error: updateErr } = await supabase
-      .from('hole_scores')
-      .update({ pin_lat: null, pin_lng: null })
-      .eq('id', currentHoleScore.id)
-    if (updateErr) {
-      Alert.alert('Pin clear failed', updateErr.message)
-    }
+    await enqueueHoleScorePatch(currentHoleScore, { pin_lat: null, pin_lng: null })
+    syncPendingShots().catch(() => undefined)
   }
 
   // Auto-persist the tee = the first shot's start (the drive's starting point),
@@ -986,24 +974,14 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
             : hs,
         ),
       )
-      const { error: hsErr } = await supabase
-        .from('hole_scores')
-        .update({
-          score: summary.score,
-          putts: summary.putts,
-          penalties: summary.penalties,
-          fairway_hit: currentHoleScore.fairway_hit ?? inferred.fairway,
-          gir: currentHoleScore.gir ?? inferred.gir,
-        })
-        .eq('id', currentHoleScore.id)
-      if (hsErr) {
-        // Non-fatal: the shots (with their metadata) already re-queued and
-        // will sync; only the hole_scores tally write failed. Warn for
-        // diagnostics rather than alerting — completeRound self-repairs score
-        // from the shot count at round end.
-        // eslint-disable-next-line no-console -- diagnostic for a non-fatal tally-write failure
-        console.warn('[hole/summary-score-update]', hsErr.message)
-      }
+      await enqueueHoleScorePatch(currentHoleScore, {
+        score: summary.score,
+        putts: summary.putts,
+        penalties: summary.penalties,
+        fairway_hit: currentHoleScore.fairway_hit ?? inferred.fairway,
+        gir: currentHoleScore.gir ?? inferred.gir,
+      })
+      syncPendingShots().catch(() => undefined)
 
       setRoundState('PLACE_BALL')
       advanceAfterHole()
@@ -1310,27 +1288,17 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
       // at the very next end-of-hole save.
       await setPendingShotOb(shotId, next).catch(() => undefined)
       // Score ±1 for the penalty stroke, mirrored optimistically the way
-      // persistShot does — but AWAITED, unlike persistShot's fire-and-forget.
-      // Two score writes issued back to back (set then undo) are unordered
-      // otherwise, and the last to ARRIVE wins, which need not be the last
-      // issued. Awaiting it inside the in-flight window makes the next tap
-      // wait, so the server sees them in the order the player tapped them.
-      // A failure still only warns: the shot flag above is the authoritative
-      // record and the tally is re-derived downstream.
+      // persistShot does. Queued (#226): the drain merges a hole's patches in
+      // enqueue order, so a set-then-undo reaches the server as the last tap,
+      // never whichever request happened to arrive last.
       const nextScore = Math.max(0, currentHoleScore.score + (next ? 1 : -1))
       setHoleScores((prev) =>
         prev.map((hs) =>
           hs.id === currentHoleScore.id ? { ...hs, score: nextScore } : hs,
         ),
       )
-      const { error: scoreErr } = await supabase
-        .from('hole_scores')
-        .update({ score: nextScore })
-        .eq('id', currentHoleScore.id)
-      if (scoreErr) {
-        // eslint-disable-next-line no-console
-        console.warn('[hole/ob-score-update]', scoreErr.message)
-      }
+      await enqueueHoleScorePatch(currentHoleScore, { score: nextScore })
+      syncPendingShots().catch(() => undefined)
       data.refreshShots()
       // Stroke and distance: the re-hit starts where the OB shot started, so
       // drop the ball back there and freeze GPS on it (the same manual-
