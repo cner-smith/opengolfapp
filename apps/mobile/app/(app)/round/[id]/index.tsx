@@ -365,6 +365,7 @@ export default function RoundIndex() {
     (next: number) => router.setParams({ hole: String(next) }),
     [router],
   )
+  const onRoundCompleted = useCallback(() => setLoadSeq((n) => n + 1), [])
 
   // In-progress rounds mount the live session here — the path-segmented
   // hole route is deprecated, see #264. holeNumber is component state
@@ -386,7 +387,7 @@ export default function RoundIndex() {
         mode="live"
         captureMode={(round?.capture_mode ?? 'track_patterns') as CaptureMode}
         onHoleChange={syncHoleToUrl}
-        onRoundCompleted={() => setLoadSeq((n) => n + 1)}
+        onRoundCompleted={onRoundCompleted}
       />
     )
   }
