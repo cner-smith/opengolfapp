@@ -353,6 +353,11 @@ export function useHoleCamera({
       }
     }
     if (target && distYd != null && distYd >= 150 && mapHeight) {
+      // The awaits below can outlive this effect run (aim confirmed, ball
+      // re-placed, pin moved). A superseded run must not fly the camera, and
+      // un-marks the snap so a re-run that is still in aim frames afresh.
+      let cancelled = false
+      let flown = false
       void (async () => {
         // Where the camera centre really renders: viewport / padding offsets
         // move it off the map's middle (the #899 mock found a constant 24 dp).
@@ -381,9 +386,15 @@ export function useHoleCamera({
           ballInset,
           greenDepthYards: 15,
         })
+        if (cancelled) return
+        flown = true
         fly({ centerCoordinate: toCoord(f.center), zoomLevel: f.zoom, pitch: tilt, heading: f.heading })
       })()
-      return
+      return () => {
+        if (flown) return
+        cancelled = true
+        aimSnappedRef.current = false
+      }
     }
     const focus = target
       ? {
@@ -404,7 +415,11 @@ export function useHoleCamera({
       : distYd >= 30 ? 18
       : 19
     fly({ centerCoordinate: toCoord(focus), zoomLevel: zoom, pitch: 20, heading: headingUpTheHole(ball, target) })
+    // A ≥150 yd shot only lands here unmeasured — leave the snap open so the
+    // rule framing above takes over once `mapHeight` arrives.
+    if (distYd != null && distYd >= 150) aimSnappedRef.current = false
   }, [
+    mapHeight,
     isAimPhase,
     ball?.lat,
     ball?.lng,
