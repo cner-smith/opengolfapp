@@ -77,6 +77,9 @@ interface MapBottomChromeProps {
   onPuttMade: () => void
   onPuttMissed: () => void
   onNotOnGreen: () => void
+  /** Reports the chrome's rendered height so the map controls beside it can
+   *  sit above it — it grows with the chip row wrapping at large text. */
+  onHeight: (height: number) => void
 }
 
 export function MapBottomChrome(props: MapBottomChromeProps) {
@@ -84,6 +87,7 @@ export function MapBottomChrome(props: MapBottomChromeProps) {
   return (
     <View
       pointerEvents="box-none"
+      onLayout={(e) => props.onHeight(e.nativeEvent.layout.height)}
       style={{ position: 'absolute', left: 0, right: 0, bottom: 0, alignItems: 'center' }}
     >
       <View

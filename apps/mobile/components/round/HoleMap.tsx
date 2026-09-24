@@ -117,6 +117,7 @@ export function HoleMap({
   tapToPlaceBall = true,
   focusOn,
   showRecenterButton = true,
+  bottomChromeHeight = 0,
   overlayMode,
   arcWidthYards,
   circleRadiusYards,
@@ -144,6 +145,8 @@ export function HoleMap({
   const lastShot = previousShots?.[previousShots.length - 1] ?? null
   const [mapSize, setMapSize] = useState<{ w: number; h: number } | null>(null)
   const [lastShotArrow, setLastShotArrow] = useState<OffscreenArrow | null>(null)
+  // Measured OB callout width — its label and the font scale both change it.
+  const [obPillWidth, setObPillWidth] = useState(120)
   // Camera centre + heading as of the last settle — the only way to tell
   // which way an off-screen point lies (see offscreenArrow).
   const settledCamRef = useRef<{ lng: number; lat: number; heading: number } | null>(null)
@@ -160,11 +163,11 @@ export function HoleMap({
       const relBearing = cam
         ? bearingDegrees(cam.lat, cam.lng, lastShot.lat, lastShot.lng) - cam.heading
         : 180
-      setLastShotArrow(offscreenArrow(x, y, mapSize.w, mapSize.h, relBearing))
+      setLastShotArrow(offscreenArrow(x, y, mapSize.w, mapSize.h, relBearing, obPillWidth / 2 + 4))
     } catch {
       // Map not ready yet — the next onMapIdle re-measures.
     }
-  }, [lastShot?.lat, lastShot?.lng, mapSize])
+  }, [lastShot?.lat, lastShot?.lng, mapSize, obPillWidth])
   useEffect(() => {
     void measureLastShot()
   }, [measureLastShot])
@@ -883,7 +886,12 @@ export function HoleMap({
           {/* "Drag to adjust" (#901 H3) — replaces the caps banner while placing the ball. */}
           {ball && isPlaceBallPhase && <DragHint ball={ball} />}
           {obCallout && lastShot && lastShotArrow == null && (
-            <ObCallout at={lastShot} isOb={obCallout.isOb} onPress={obCallout.onPress} />
+            <ObCallout
+              at={lastShot}
+              isOb={obCallout.isOb}
+              onPress={obCallout.onPress}
+              onWidth={setObPillWidth}
+            />
           )}
         </Mapbox.MapView>
 
@@ -915,10 +923,9 @@ export function HoleMap({
             style={{
               position: 'absolute',
               right: 12,
-              // Beside the primary CTA, clear of LiveRoundSession's chip row
-              // (On the green · Finish) that now sits at the bottom edge
-              // since hole nav moved to the header (#901).
-              bottom: insets.bottom + 56,
+              // Above the bottom chrome, not beside it: the CTA and chip row
+              // widen and wrap with large text and ran into a fixed offset.
+              bottom: bottomChromeHeight + 8,
               width: 44,
               height: 44,
               borderRadius: 22,

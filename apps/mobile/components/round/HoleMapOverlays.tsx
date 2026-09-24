@@ -189,6 +189,7 @@ interface LeftToolbarProps {
   onToggleDots: () => void
   onPlacePin: () => void
   pinMode: boolean
+  bottom: number
 }
 
 export function LeftToolbar({
@@ -196,6 +197,7 @@ export function LeftToolbar({
   onToggleDots,
   onPlacePin,
   pinMode,
+  bottom,
 }: LeftToolbarProps) {
   return (
     <View
@@ -205,7 +207,7 @@ export function LeftToolbar({
       style={{
         position: 'absolute',
         left: 12,
-        bottom: 150,
+        bottom,
       }}
     >
       <View
@@ -293,6 +295,7 @@ interface RightRailProps {
   railLabels: string[]
   railIndex: number
   onSelectRail: (index: number) => void
+  bottom: number
 }
 
 export function RightRail({
@@ -301,6 +304,7 @@ export function RightRail({
   railLabels,
   railIndex,
   onSelectRail,
+  bottom,
 }: RightRailProps) {
   return (
     <View
@@ -309,7 +313,7 @@ export function RightRail({
       style={{
         position: 'absolute',
         right: 12,
-        bottom: 150,
+        bottom,
         alignItems: 'flex-end',
         gap: 10,
       }}

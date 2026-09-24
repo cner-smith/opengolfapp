@@ -721,6 +721,8 @@ export function PastRoundMap({
           onSetBall={handleSetBall}
           onPlacePin={handleSetPin}
           showLocationPuck={false}
+          // No GPS here.
+          showRecenterButton={false}
           overlayMode="tee"
           arcWidthYards={0}
           circleRadiusYards={0}

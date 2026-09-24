@@ -46,13 +46,15 @@ export function DragHint({ ball }: { ball: LatLng }) {
 // `relBearing` (bearing from the map centre to the point, minus the camera
 // heading) can say which way it is. The margins keep a point under the corner
 // HUD pills or the bottom chrome counting as off-screen: its callout would be
-// covered.
+// covered. `sideMargin` is half the callout's measured width — it centres on
+// the point, so any closer to a side edge and it clips.
 export function offscreenArrow(
   x: number,
   y: number,
   w: number,
   h: number,
   relBearing: number,
+  sideMargin: number,
 ): OffscreenArrow | null {
   if (x < 0 || y < 0) {
     const b = ((relBearing % 360) + 360) % 360
@@ -60,8 +62,8 @@ export function offscreenArrow(
   }
   if (y > h - 190) return '↓'
   if (y < 70) return '↑'
-  if (x < 30) return '←'
-  if (x > w - 30) return '→'
+  if (x < sideMargin) return '←'
+  if (x > w - sideMargin) return '→'
   return null
 }
 
@@ -69,7 +71,17 @@ export function offscreenArrow(
 // marker is on-screen; MapBottomChrome's edge tab takes over when it isn't.
 // The pill sits above the marker; box-none keeps the gap under it tappable
 // for the map.
-export function ObCallout({ at, isOb, onPress }: { at: LatLng; isOb: boolean; onPress: () => void }) {
+export function ObCallout({
+  at,
+  isOb,
+  onPress,
+  onWidth,
+}: {
+  at: LatLng
+  isOb: boolean
+  onPress: () => void
+  onWidth: (width: number) => void
+}) {
   const label = isOb ? '⚠ OB — tap to undo' : '⚠ Went OB?'
   return (
     <Mapbox.MarkerView
@@ -85,6 +97,7 @@ export function ObCallout({ at, isOb, onPress }: { at: LatLng; isOb: boolean; on
           accessibilityRole="button"
           accessibilityLabel={label}
           onPress={onPress}
+          onLayout={(e) => onWidth(e.nativeEvent.layout.width)}
           hitSlop={6}
           android_ripple={{ color: 'rgba(242,238,229,0.18)' }}
           style={{

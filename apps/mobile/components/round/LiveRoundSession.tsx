@@ -127,6 +127,10 @@ export default function LiveRoundSession({
   // Where the most recent shot's marker is when it's off-screen (HoleMap
   // measures it) — picks the OB prompt's form below (#895 B2).
   const [lastShotArrow, setLastShotArrow] = useState<OffscreenArrow | null>(null)
+  // MapBottomChrome's measured height — the map controls stack above it.
+  const [chromeHeight, setChromeHeight] = useState(0)
+  // The toolbars keep their thumb-reach spot unless the chrome grows into it.
+  const toolbarBottom = Math.max(150, chromeHeight + 12)
   // Aim overlay shape + size (T3). Tee → arc band, Appr → circle ring; the
   // rail index sizes each, kept per-mode so switching modes preserves the
   // other's pick. Default Tee, widest rail.
@@ -712,6 +716,7 @@ export default function LiveRoundSession({
           tapToPlaceBall={!editMode}
           focusOn={editMode ? data.previousShots[activeShotIdx] ?? null : null}
           showRecenterButton={!editMode}
+          bottomChromeHeight={chromeHeight}
           onSetAim={(loc) => {
             // A user drag / long-press is an explicit aim — mark it touched so
             // it persists (an untouched auto-spawn suggestion is dropped on
@@ -764,6 +769,7 @@ export default function LiveRoundSession({
           onToggleDots={() => setDotsVisible((v) => !v)}
           onPlacePin={() => setPinPlacementOpen(true)}
           pinMode={pinPlacementOpen}
+          bottom={toolbarBottom}
         />
         {/* Tee/Appr + distance rail — appears once an aim exists, hidden
             during pin placement so it doesn't fight that flow. */}
@@ -774,6 +780,7 @@ export default function LiveRoundSession({
             railLabels={railLabels}
             railIndex={railIndex}
             onSelectRail={selectRail}
+            bottom={toolbarBottom}
           />
         )}
         <MapBottomChrome
@@ -844,6 +851,7 @@ export default function LiveRoundSession({
             finalState.setRoundState('PLACE_BALL')
           }}
           onFinishHole={actions.finishHole}
+          onHeight={setChromeHeight}
         />
         {/* Played-hole edit HUD (Step 3) — replaces MapBottomChrome's
             contextual-action row (suppressed via editMode above), in the

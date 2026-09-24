@@ -136,6 +136,9 @@ export interface HoleMapProps {
    * would yank the camera away from the shot being edited.
    */
   showRecenterButton?: boolean
+  /** Measured height of the chrome floating over the map's bottom edge; the
+   *  recenter button sits just above it (it grows with large text). */
+  bottomChromeHeight?: number
   /** Live OB prompt (#895 B2) for the most recent shot: drawn on its marker
    *  while that marker is on-screen. Null when the prompt isn't offered. */
   obCallout?: { isOb: boolean; onPress: () => void } | null
