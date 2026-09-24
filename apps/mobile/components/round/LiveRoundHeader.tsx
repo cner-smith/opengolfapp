@@ -45,9 +45,9 @@ export function LiveRoundHeader(p: LiveRoundHeaderProps) {
         hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
         style={{ padding: 6 }}
       >
-        <Text style={[TYPE.kicker, { ...KICKER, color: 'rgba(242,238,229,0.6)' }]}>
-          ← Home
-        </Text>
+        {/* Arrow only: "Home" pushed the ⋮ off a 360 dp screen at 1.3× text.
+            The a11y label still says where it goes. */}
+        <Text style={[TYPE.kicker, { ...KICKER, color: 'rgba(242,238,229,0.6)' }]}>←</Text>
       </Pressable>
       <View style={{ alignItems: 'center' }}>
         <Text style={[TYPE.kicker, { ...KICKER, color: 'rgba(242,238,229,0.45)', marginBottom: 4 }]}>
