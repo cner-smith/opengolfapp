@@ -16,11 +16,9 @@ const HUD_KICKER = {
   marginBottom: 2,
 }
 
-interface TopHintProps {
-  isPinMode: boolean
-}
-
-export function TopHint({ isPinMode }: TopHintProps) {
+// Pin-mode instruction banner. The ball-placement banner that shared this slot
+// became a "Drag to adjust" tooltip on the ball itself (#901 H3, in HoleMap).
+export function TopHint() {
   return (
     <View
       style={{
@@ -31,9 +29,7 @@ export function TopHint({ isPinMode }: TopHintProps) {
         top: 82,
         left: 12,
         right: 12,
-        backgroundColor: isPinMode
-          ? 'rgba(166,106,31,0.92)'
-          : 'rgba(28,33,28,0.78)',
+        backgroundColor: 'rgba(166,106,31,0.92)',
         borderRadius: 2,
         paddingHorizontal: 10,
         paddingVertical: 6,
@@ -51,9 +47,7 @@ export function TopHint({ isPinMode }: TopHintProps) {
           },
         ]}
       >
-        {isPinMode
-          ? 'Pin mode — tap to place flag'
-          : 'Drag the ball to refine, then tap Mark ball here'}
+        Pin mode — tap to place flag
       </Text>
     </View>
   )

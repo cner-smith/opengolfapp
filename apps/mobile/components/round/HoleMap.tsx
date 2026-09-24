@@ -977,12 +977,38 @@ export function HoleMap({
               </View>
             </Mapbox.PointAnnotation>
           )}
+          {/* "Drag to adjust" (#901 H3) — replaces the full-width caps banner
+              while placing the ball. Hangs below the 44pt grab disc, and
+              pointerEvents="none" keeps this MarkerView (which otherwise
+              captures touches, see MIN_LABEL_LEG_YARDS) off the ball drag. */}
+          {ball && isPlaceBallPhase && (
+            <Mapbox.MarkerView
+              id="dragHint"
+              coordinate={toCoord(ball)}
+              anchor={{ x: 0.5, y: 0 }}
+              allowOverlap
+              // The GPS-tracked ball sits on the location puck, and MarkerViews
+              // near the puck are hidden by default.
+              allowOverlapWithPuck
+              pointerEvents="none"
+            >
+              <View pointerEvents="none" style={{ paddingTop: 26, alignItems: 'center' }}>
+                <View
+                  style={{
+                    backgroundColor: 'rgba(28,33,28,0.82)',
+                    borderRadius: 4,
+                    paddingHorizontal: 8,
+                    paddingVertical: 3,
+                  }}
+                >
+                  <Text style={[TYPE.body, { color: '#F2EEE5', fontSize: 12 }]}>Drag to adjust</Text>
+                </View>
+              </View>
+            </Mapbox.MarkerView>
+          )}
         </Mapbox.MapView>
 
-        {/* No hint during SET_AIM — the aim line auto-spawns to the pin with a
-            draggable midpoint, so the old "long-press to set aim" reminder is
-            obsolete. Pin placement + ball-drag hints still show. */}
-        {!isAimPhase && <TopHint isPinMode={isPinMode} />}
+        {isPinMode && <TopHint />}
         {!isPinMode && pinDistance !== null && (
           <>
             <ToHolePill display={toDisplay(pinDistance)} />

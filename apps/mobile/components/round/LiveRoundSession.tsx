@@ -39,6 +39,7 @@ import { useHoleState } from './hole/useHoleState'
 import { useShotActions } from './hole/useShotActions'
 import { HoleModals } from './hole/HoleModals'
 import { MapBottomChrome } from './MapBottomChrome'
+import { LiveRoundHeader, RoundOptionsMenu } from './LiveRoundHeader'
 import { LeftToolbar, RightRail } from './HoleMapOverlays'
 
 // Distance-rail presets (Shot Pattern refs ux-10/11). Tee = arc TOTAL width
@@ -616,74 +617,18 @@ export default function LiveRoundSession({
 
   return (
     <View style={{ flex: 1, backgroundColor: '#F2EEE5' }}>
-      <View
-        style={{
-          backgroundColor: '#1C211C',
-          // Was a hardcoded 52 (Android ~24dp status bar + 28 gap); use the
-          // real top inset so the header clears the Dynamic Island (#494).
-          paddingTop: insets.top + 28,
-          paddingBottom: 14,
-          paddingHorizontal: 18,
-          flexDirection: 'row',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-        }}
-      >
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Leave round and return home"
-          onPress={() => setActiveDialog('leave')}
-          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-          style={{ padding: 6 }}
-        >
-          <Text style={[TYPE.kicker, { ...KICKER, color: 'rgba(242,238,229,0.6)' }]}>
-            ← Home
-          </Text>
-        </Pressable>
-        <View style={{ alignItems: 'center' }}>
-          <Text
-            style={[
-              TYPE.kicker,
-              {
-                ...KICKER,
-                color: 'rgba(242,238,229,0.45)',
-                marginBottom: 4,
-              },
-            ]}
-          >
-            Hole {holeNumber}
-          </Text>
-          <Text
-            style={[
-              TYPE.serif,
-              {
-                color: '#F2EEE5',
-                fontSize: 17,
-              },
-            ]}
-          >
-            Par {data.resolvedHole?.par ?? data.currentHole.par}
-            {data.resolvedHole?.yards ? ` · ${toDisplay(data.resolvedHole.yards)}` : ''}
-          </Text>
-        </View>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-          <Text style={[TYPE.kicker, { ...KICKER, color: 'rgba(242,238,229,0.45)' }]}>
-            Shot {data.shotNumber}
-          </Text>
-          <PressableTouch
-            accessibilityRole="button"
-            accessibilityLabel="Round options"
-            onPress={() => setMenuOpen(true)}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-            android_ripple={{ color: 'rgba(242,238,229,0.2)', borderless: true, radius: 18 }}
-            style={{ paddingHorizontal: 6, paddingVertical: 2 }}
-          >
-            <Text style={[TYPE.bodyBold, { color: '#F2EEE5', fontSize: 22, fontWeight: '600', lineHeight: 24 }]}>
-              ⋮
-            </Text>
-          </PressableTouch>
-        </View>
-      </View>
+      <LiveRoundHeader
+        holeNumber={holeNumber}
+        holeCount={data.holeCount}
+        par={data.resolvedHole?.par ?? data.currentHole.par}
+        yardsLabel={data.resolvedHole?.yards ? toDisplay(data.resolvedHole.yards) : null}
+        shotNumber={data.shotNumber}
+        onLeave={() => setActiveDialog('leave')}
+        onPrev={() => actions.navigateHole(-1)}
+        onNext={() => actions.navigateHole(1)}
+        onOpenScorecard={() => setScorecardOpen(true)}
+        onOpenMenu={() => setMenuOpen(true)}
+      />
 
       <View style={{ flex: 1 }}>
         <HoleMap
@@ -828,8 +773,6 @@ export default function LiveRoundSession({
           totalShotsThisHole={totalShotsThisHole}
           holeNumber={holeNumber}
           holeCount={data.holeCount}
-          par={data.resolvedHole?.par ?? data.currentHole.par}
-          yardsLabel={data.resolvedHole?.yards ? toDisplay(data.resolvedHole.yards) : null}
           onCancelPinPlacement={() => setPinPlacementOpen(false)}
           onClearRoundPin={actions.clearRoundPin}
           onConfirmAim={actions.confirmAim}
@@ -878,13 +821,10 @@ export default function LiveRoundSession({
             finalState.setRoundState('PLACE_BALL')
           }}
           onFinishHole={actions.finishHole}
-          onPrev={() => actions.navigateHole(-1)}
-          onNext={() => actions.navigateHole(1)}
-          onOpenScorecard={() => setScorecardOpen(true)}
         />
         {/* Played-hole edit HUD (Step 3) — replaces MapBottomChrome's
-            contextual-action row (suppressed via editMode above) while the
-            hole-nav pill stays mounted underneath it. */}
+            contextual-action row (suppressed via editMode above), in the
+            slot that row would occupy. Hole nav is in the header (#901). */}
         {editMode && (
           <View
             pointerEvents="box-none"
@@ -892,7 +832,7 @@ export default function LiveRoundSession({
               position: 'absolute',
               left: 0,
               right: 0,
-              bottom: insets.bottom + 68,
+              bottom: insets.bottom + 10,
               alignItems: 'center',
             }}
           >
@@ -995,76 +935,18 @@ export default function LiveRoundSession({
         onDeleteShot={actions.deleteShot}
       />
 
-      {/* Round-options popover. Full-screen transparent backdrop catches the
-          outside-tap to dismiss; the card is right-aligned under the header.
-          Static styles only (function `style` is dropped by css-interop). */}
       {menuOpen && (
-        <>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Close menu"
-            onPress={() => setMenuOpen(false)}
-            style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 20 }}
-          />
-          <View
-            style={{
-              position: 'absolute',
-              // Drops just below the header; was 96 = ~24dp status bar + 72.
-              // Derive from the inset so it stays flush under the header
-              // when it grows on notched devices (#494).
-              top: insets.top + 72,
-              right: 12,
-              zIndex: 21,
-              minWidth: 184,
-              backgroundColor: '#1C211C',
-              borderRadius: 12,
-              borderWidth: 1,
-              borderColor: 'rgba(242,238,229,0.15)',
-              paddingVertical: 6,
-              shadowColor: '#000',
-              shadowOpacity: 0.4,
-              shadowRadius: 10,
-              shadowOffset: { width: 0, height: 4 },
-              elevation: 8,
-            }}
-          >
-            <PressableTouch
-              accessibilityRole="button"
-              accessibilityLabel="End round early"
-              onPress={() => {
-                setMenuOpen(false)
-                setActiveDialog('end')
-              }}
-              android_ripple={{ color: 'rgba(242,238,229,0.15)' }}
-              style={{ paddingVertical: 12, paddingHorizontal: 16 }}
-            >
-              <Text style={[TYPE.bodyBold, { color: '#F2EEE5', fontSize: 15, fontWeight: '600' }]}>
-                End round early
-              </Text>
-            </PressableTouch>
-            <View
-              style={{
-                height: 1,
-                backgroundColor: 'rgba(242,238,229,0.1)',
-                marginHorizontal: 8,
-              }}
-            />
-            <PressableTouch
-              accessibilityRole="button"
-              accessibilityLabel="Delete round"
-              onPress={() => {
-                setMenuOpen(false)
-                setActiveDialog('delete')
-              }}
-              android_ripple={{ color: 'rgba(163,58,42,0.22)' }}
-              style={{ paddingVertical: 12, paddingHorizontal: 16 }}
-            >
-              <Text style={[TYPE.bodyBold, { color: '#E0796B', fontSize: 15, fontWeight: '600' }]}>
-                Delete round
-              </Text>
-            </PressableTouch>
-          </View>
-        </>
+        <RoundOptionsMenu
+          onClose={() => setMenuOpen(false)}
+          onEndRound={() => {
+            setMenuOpen(false)
+            setActiveDialog('end')
+          }}
+          onDeleteRound={() => {
+            setMenuOpen(false)
+            setActiveDialog('delete')
+          }}
+        />
       )}
     </View>
   )

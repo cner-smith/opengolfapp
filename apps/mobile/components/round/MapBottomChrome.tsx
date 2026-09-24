@@ -1,4 +1,4 @@
-import { Pressable, Text, View } from 'react-native'
+import { Text, View } from 'react-native'
 import { PressableTouch } from '../ui/PressableTouch'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { tourMakePercent } from '@oga/core'
@@ -6,12 +6,12 @@ import { TYPE } from '../../lib/typography'
 import { KICKER, type RoundState } from './hole/types'
 
 // Floating bottom chrome that replaces the old cream HoleStrip panel so the
-// satellite map runs nearly full-bleed (Shot Pattern refs: contextual CTA over
-// a thin hole-nav). All action wiring is the HoleStrip wiring verbatim — only
-// the presentation moved from a solid panel to map-floating pills. Pin
-// placement lives in the left toolbar now, so it's gone here.
+// satellite map runs nearly full-bleed. All action wiring is the HoleStrip
+// wiring verbatim — only the presentation moved from a solid panel to
+// map-floating pills. Pin placement lives in the left toolbar, hole nav in
+// the header (#901).
 //
-// The nav pill is kept narrow + centered so the Mapbox logo/attribution at the
+// Everything stays narrow + centered so the Mapbox logo/attribution at the
 // bottom corners stays unobstructed (ToS).
 const CHROME_BG = 'rgba(28,33,28,0.82)'
 const CREAM = '#F2EEE5'
@@ -36,13 +36,11 @@ interface MapBottomChromeProps {
    *  stricter, non-appendable sibling of `isRevisitingPlayedHole`. When set,
    *  the whole contextual-action row (mark-ball / "+Add a shot" / on-green /
    *  finish) is suppressed; LiveRoundSession renders the stepper separately
-   *  and the hole-nav pill (below) stays the only way to leave. */
+   *  and the header's hole nav is the way to leave. */
   editMode?: boolean
   totalShotsThisHole: number
   holeNumber: number
   holeCount: number
-  par: number
-  yardsLabel: string | null
   onCancelPinPlacement: () => void
   onClearRoundPin: () => void
   onConfirmAim: () => void
@@ -63,9 +61,6 @@ interface MapBottomChromeProps {
    *  into its undo label. Derived from the stored rows, not remembered. */
   lastShotIsOb: boolean
   onFinishHole: () => void
-  onPrev: () => void
-  onNext: () => void
-  onOpenScorecard: () => void
   /** On-green rework: true while `roundState === 'PUTTING'`. Swaps the whole
    *  contextual-action block for the Made/Missed overlay — the detailed aim
    *  line read moved to the end-of-hole summary (HoleReviewSheet), so there
@@ -88,12 +83,9 @@ export function MapBottomChrome(props: MapBottomChromeProps) {
     >
       <View
         pointerEvents="box-none"
-        style={{ alignItems: 'center', gap: 8, marginBottom: 10, paddingHorizontal: 16 }}
+        style={{ alignItems: 'center', gap: 8, paddingHorizontal: 16, paddingBottom: insets.bottom + 10 }}
       >
         <ContextualActions {...props} />
-      </View>
-      <View style={{ alignItems: 'center', paddingBottom: insets.bottom + 10 }}>
-        <HoleNavPill {...props} />
       </View>
     </View>
   )
@@ -109,8 +101,7 @@ function ContextualActions(p: MapBottomChromeProps) {
     )
   }
   // Played-hole edit mode: no mark-ball / "+Add a shot" / on-green / finish
-  // row here — LiveRoundSession renders the ShotStepper instead. The
-  // hole-nav pill (HoleNavPill, below) stays mounted regardless.
+  // row here — LiveRoundSession renders the ShotStepper instead.
   if (p.editMode) return null
   // On-green (#791 step 4 rework): Made/Missed replace the whole chrome for
   // this state — no place/mark/on-green CTA while putting. Checked ahead of
@@ -434,78 +425,6 @@ function TextChip({
         ]}
       >
         {label}
-      </Text>
-    </PressableTouch>
-  )
-}
-
-function HoleNavPill({
-  holeNumber,
-  holeCount,
-  par,
-  yardsLabel,
-  onPrev,
-  onNext,
-  onOpenScorecard,
-}: MapBottomChromeProps) {
-  return (
-    <View
-      style={{
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: CHROME_BG,
-        borderRadius: 22,
-        paddingHorizontal: 4,
-        paddingVertical: 4,
-      }}
-    >
-      <NavChevron dir="prev" disabled={holeNumber === 1} onPress={onPrev} />
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel="Open scorecard"
-        onPress={onOpenScorecard}
-        style={{ alignItems: 'center', paddingHorizontal: 8 }}
-      >
-        <Text style={[TYPE.serifUpright, { fontSize: 14, color: CREAM }]}>
-          {`Hole ${holeNumber} · Par ${par}${yardsLabel ? ` · ${yardsLabel}` : ''}`}
-        </Text>
-        <Text style={[TYPE.kicker, { ...KICKER, color: 'rgba(242,238,229,0.6)', marginTop: 2 }]}>
-          Scorecard ▾
-        </Text>
-      </Pressable>
-      <NavChevron dir="next" disabled={holeNumber >= holeCount} onPress={onNext} />
-    </View>
-  )
-}
-
-function NavChevron({
-  dir,
-  disabled,
-  onPress,
-}: {
-  dir: 'prev' | 'next'
-  disabled: boolean
-  onPress: () => void
-}) {
-  return (
-    <PressableTouch
-      accessibilityRole="button"
-      accessibilityLabel={dir === 'prev' ? 'Previous hole' : 'Next hole'}
-      accessibilityState={{ disabled }}
-      disabled={disabled}
-      onPress={onPress}
-      hitSlop={10}
-      android_ripple={{ color: 'rgba(242,238,229,0.2)', borderless: true, radius: 22 }}
-      // Static style (see PrimaryCta): a function `style` here silently dropped
-      // the padding (hit area) and the disabled dim under css-interop.
-      style={{
-        paddingVertical: 6,
-        paddingHorizontal: 16,
-        opacity: disabled ? 0.3 : 1,
-      }}
-    >
-      <Text style={[TYPE.bodyBold, { color: CREAM, fontSize: 20 }]}>
-        {dir === 'prev' ? '‹' : '›'}
       </Text>
     </PressableTouch>
   )
