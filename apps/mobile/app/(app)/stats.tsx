@@ -7,6 +7,7 @@ import {
   DEFAULT_HANDICAP,
   formatClubLabel,
   formatSG,
+  isPartialRound,
   sgStandouts,
   symmetricNiceTicks,
   YARDS_TO_METERS,
@@ -98,7 +99,9 @@ export default function Stats() {
     let active = true
     // Spinner only on a cold cache — a cached render revalidates silently.
     if (getCached<DetailedRound[]>('stats:rounds') == null) setLoading(true)
-    getRoundsWithDetails(supabase, user.id, 20).then(({ data, error }) => {
+    // 2× buffer so L20 can still reach 20 whole rounds past any partials;
+    // a user with >20 partials in their last 40 gets a shorter L20.
+    getRoundsWithDetails(supabase, user.id, 40).then(({ data, error }) => {
       if (!active) return
       if (error) {
         // eslint-disable-next-line no-console
@@ -114,18 +117,28 @@ export default function Stats() {
     }
   }, [user?.id])
 
-  // The visible window. getRoundsWithDetails orders played_at desc, so
-  // slice(0, n) is exactly what a limit-n fetch returned.
-  const rounds = useMemo(() => allRounds.slice(0, n), [allRounds, n])
+  // The visible window runs back to the n-th most recent WHOLE round (#932).
+  // Round-level numbers (SG cards, trend, headline) read only the whole
+  // rounds; partials inside the span still feed per-hole stats, matching
+  // computeDetailedStats' contract (packages/core/src/stats.ts).
+  const rounds = useMemo(() => {
+    let whole = 0
+    const end = allRounds.findIndex((r) => !isPartialRound(r.hole_scores) && ++whole === n)
+    return end === -1 ? allRounds : allRounds.slice(0, end + 1)
+  }, [allRounds, n])
+  const wholeRounds = useMemo(
+    () => rounds.filter((r) => !isPartialRound(r.hole_scores)),
+    [rounds],
+  )
 
   const avgs = useMemo(
     () =>
       SERIES.map((s) => {
-        const values = rounds.map((r) => r[s.key]).filter((v): v is number => v !== null)
+        const values = wholeRounds.map((r) => r[s.key]).filter((v): v is number => v !== null)
         const a = values.length === 0 ? 0 : values.reduce((x, y) => x + y, 0) / values.length
         return { ...s, value: a }
       }),
-    [rounds],
+    [wholeRounds],
   )
 
   // Pre-build the chart series once per rounds change. The inline
@@ -140,7 +153,7 @@ export default function Stats() {
   // rounds up to and including that date, so the rightmost point matches
   // the card value exactly.
   const chartSeries = useMemo(() => {
-    const ordered = [...rounds].reverse()
+    const ordered = [...wholeRounds].reverse()
     return SERIES.map((s) => ({
       key: s.key,
       color: s.color,
@@ -150,7 +163,7 @@ export default function Stats() {
         return v == null ? [] : [{ x: new Date(`${r.played_at}T00:00:00`).getTime(), y: v }]  // played_at is a DATE; bare 'YYYY-MM-DD' parses as UTC → a day early in US zones
       }),
     }))
-  }, [rounds])
+  }, [wholeRounds])
 
   // Symmetric Y domain + ticks scaled to the actual data peak, so the axis
   // labels always match the plotted lines (a fixed [-1.5..1.5] tick set got
@@ -299,7 +312,7 @@ export default function Stats() {
             {stats && <StandoutCallout sg={stats.sg} />}
 
             <Entrance index={0}>
-            <Section kicker={`Avg — last ${rounds.length} rounds`}>
+            <Section kicker={`Avg — last ${wholeRounds.length} rounds`}>
               <View
                 style={{
                   flexDirection: 'row',
@@ -357,7 +370,7 @@ export default function Stats() {
             </Entrance>
 
             <Entrance index={1}>
-            <Section kicker={`SG trend — last ${rounds.length} rounds`}>
+            <Section kicker={`SG trend — last ${wholeRounds.length} rounds`}>
               <Svg width={chartWidth} height={CHART_HEIGHT}>
                 {/* Y gridlines + tick labels */}
                 {sgAxis.ticks.map((t) => (
