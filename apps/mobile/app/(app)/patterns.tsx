@@ -8,6 +8,7 @@ import {
   LIE_SLOPES_FORWARD,
   LIE_SLOPES_SIDE,
   LIE_TYPES,
+  formatSignedPuttDistance,
   YARDS_TO_METERS,
   clubDistanceStats,
   computeDispersion,
@@ -101,14 +102,12 @@ const ANY = '__any__' as const
 
 export default function Patterns() {
   const { user } = useAuth()
-  const { unit, toDisplay, toDisplayFt } = useUnits()
+  const { unit, toDisplay } = useUnits()
   const [club, setClub] = useState<Club>('7i')
-  // Putter patterns read in feet like every other green distance (#923).
-  // formatPuttDistance is unsigned, so offsets carry their sign here.
+  // Putter patterns read in feet like every other green distance (#923);
+  // its formatter picks its own precision, so `decimals` is yards/metres only.
   const dist = (yards: number, decimals = 0) =>
-    club === 'putter'
-      ? (yards < 0 ? '-' : '') + toDisplayFt(Math.abs(yards) * 3)
-      : toDisplay(yards, decimals)
+    club === 'putter' ? formatSignedPuttDistance(yards * 3, unit) : toDisplay(yards, decimals)
   const [lieType, setLieType] = useState<LieType | typeof ANY>(ANY)
   // Two-axis slope filter, multi-select. Empty array on an axis = "any"
   // (no constraint). Replaces the old single-select LIE_SLOPES chip row,
@@ -525,7 +524,7 @@ function ShotPatternsShareCard({
               value={`±${toDisplay(stats.cone68.lateral, 1)} / ${toDisplay(stats.cone68.distance, 1)}`}
               c={c}
             />
-            <ShareStat label="Dominant miss" value={stats.dominantMiss} c={c} />
+            <ShareStat label="Dominant miss" value={stats.dominantMiss[0]!.toUpperCase() + stats.dominantMiss.slice(1)} c={c} />
           </View>
           <Text
             style={{
