@@ -77,7 +77,9 @@ export default function AuthCallback() {
           return
         }
         router.replace('/(auth)/welcome')
-      })
+        // handled is already true, so the 8 s watchdog won't fire: a rejection
+        // must reach the manual path itself or the screen hangs on Confirming…
+      }).catch(() => setFallback(true))
       return
     }
 
