@@ -386,11 +386,11 @@ export default function LiveRoundSession({
     onRoundCompleted,
   })
 
-  // Android Back (#915): menu / pin placement / aim step aren't Modals, so
-  // without this the router pops out of the round. Runs before the router's
-  // listener (RN calls newest first); Modals use onRequestClose instead.
+  // Android Back (#915): menu / pin / aim aren't Modals, so the router (called after us —
+  // RN runs listeners newest first) would pop out of the round. Loading/error screens: router.
   useEffect(() => {
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (data.loading || data.error || !data.round || !data.currentHole || !data.currentHoleScore) return false
       if (menuOpen) setMenuOpen(false)
       else if (pinPlacementOpen) setPinPlacementOpen(false)
       else if (finalState.roundState !== 'SET_AIM') setActiveDialog('leave')
@@ -398,7 +398,7 @@ export default function LiveRoundSession({
       return true
     })
     return () => sub.remove()
-  }, [menuOpen, pinPlacementOpen, finalState])
+  }, [menuOpen, pinPlacementOpen, finalState, data])
 
   // End-of-hole review rows. Built from the shots placed live (their start
   // coords, in order) via the shared @oga/core inference — same call the web
