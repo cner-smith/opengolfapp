@@ -38,6 +38,8 @@ import { TYPE } from '../../lib/typography'
 export interface HoleReviewSheetProps {
   visible: boolean
   holeNumber: number
+  /** Saving the last hole ends the round, so the button says so. */
+  isLastHole: boolean
   par: number
   /** Prebuilt by the caller via @oga/core buildInitialRows. The component
    *  owns editing state, hydrating from these once per (hole, visible). */
@@ -110,6 +112,7 @@ const SPEED_OPTIONS: { value: GreenSpeed; label: string }[] = [
 export function HoleReviewSheet({
   visible,
   holeNumber,
+  isLastHole,
   par,
   initialRows,
   saving,
@@ -364,7 +367,7 @@ export function HoleReviewSheet({
           </PressableTouch>
           <PressableTouch
             accessibilityRole="button"
-            accessibilityLabel="Save hole and continue to next hole"
+            accessibilityLabel={isLastHole ? 'Save hole and finish round' : 'Save hole and continue to next hole'}
             accessibilityState={{ disabled: saving || rows.length === 0 }}
             disabled={saving || rows.length === 0}
             onPress={() => onSave(rows, { score, putts, penalties })}
@@ -382,7 +385,7 @@ export function HoleReviewSheet({
                 { color: C.accentInk, fontSize: 14, fontWeight: '600', letterSpacing: 0.3 },
               ]}
             >
-              {saving ? 'Saving…' : 'Save & next hole →'}
+              {saving ? 'Saving…' : isLastHole ? 'Save & finish round' : 'Save & next hole →'}
             </Text>
           </PressableTouch>
         </View>

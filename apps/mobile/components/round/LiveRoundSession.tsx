@@ -972,6 +972,7 @@ export default function LiveRoundSession({
       <HoleReviewSheet
         visible={finalState.roundState === 'SUMMARY'}
         holeNumber={holeNumber}
+        isLastHole={holeNumber >= data.holeCount}
         par={data.resolvedHole?.par ?? data.currentHole.par}
         initialRows={summaryRows}
         saving={actions.saving}
