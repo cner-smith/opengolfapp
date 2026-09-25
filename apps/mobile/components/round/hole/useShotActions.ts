@@ -70,7 +70,9 @@ interface UseShotActionsInput {
   // its `furthestHoleReached` high-water mark — the played-hole edit-mode
   // predicate's "active capture hole" signal (fix round 2, C1 residual):
   // only a real finish should ever make a hole editable, not a peek ahead.
-  onAdvanceHole: (next: number) => void
+  // `rewind` sets the mark TO `next` instead of ratcheting it (#940: going
+  // back to an unfinished hole must open it for live capture, not edit mode).
+  onAdvanceHole: (next: number, rewind?: boolean) => void
   // The round was just finalized (End early / last hole). The host swaps to
   // the completed-round summary. Not a router.replace: the host is that same
   // route, and a replace onto it is a tab JUMP_TO that keeps the mounted
@@ -105,6 +107,9 @@ export interface UseShotActionsResult {
   swapPuttingToShot: (lieType: LieType) => void
   navigateHole: (delta: number) => void
   finishHole: () => void
+  continueToHole: (n: number) => void
+  unfinishedOthers: number[]
+  finishesRound: boolean
   // End-of-hole review save: attach the confirmed metadata to every shot
   // logged live on this hole, write the hole_scores tallies, then advance.
   saveHoleSummary: (
@@ -220,7 +225,19 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
     previousShotObs,
     shotNumber,
     holeCount,
+    effectiveHoles,
+    holeScores,
   } = data
+  // Holes other than this one not yet finished (#940), by the one-way
+  // finished_at mark (#902). A hole with no score row counts as unfinished.
+  const unfinishedOthers = useMemo(() => {
+    const finished = new Set(holeScores.filter((s) => s.finished_at).map((s) => s.hole_id))
+    return effectiveHoles
+      .filter((h) => h.number !== holeNumber && !finished.has(h.id))
+      .map((h) => h.number)
+      .sort((a, b) => a - b)
+  }, [effectiveHoles, holeScores, holeNumber])
+  const nextUnfinished = unfinishedOthers.find((n) => n > holeNumber)
   // Effective OB flag per shot on this hole, index-aligned with
   // previousShotIds: our own last write for a shot outranks the fetched value
   // until the refetch catches up (see obOverrideRef above). One array so the
@@ -735,21 +752,40 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
     // can't, since every logged shot rewrites that. Queued (#226) so it
     // survives offline play. Not awaited: on the last hole, a patch that
     // misses completeRound's drain is dropped as stale, which is harmless —
-    // a completed round is never resumed.
+    // a completed round is never resumed. Mirrored into local state so this
+    // session's routing below sees it too.
     if (currentHoleScore) {
-      enqueueHoleScorePatch(currentHoleScore, { finished_at: new Date().toISOString() })
+      const finishedAt = new Date().toISOString()
+      setHoleScores((cur) =>
+        cur.map((s) => (s.id === currentHoleScore.id ? { ...s, finished_at: finishedAt } : s)),
+      )
+      enqueueHoleScorePatch(currentHoleScore, { finished_at: finishedAt })
         .then(() => syncPendingShots())
         .catch(() => undefined)
     }
-    if (holeNumber < holeCount) {
-      onAdvanceHole(holeNumber + 1)
+    // Next UNFINISHED hole, not holeNumber + 1: after a peek-finish or a
+    // shotgun start the following hole may already be done (#940). In order,
+    // this is always holeNumber + 1.
+    if (nextUnfinished != null) {
+      onAdvanceHole(nextUnfinished)
+    } else if (unfinishedOthers.length > 0) {
+      // Nothing left AFTER this hole but earlier ones are unfinished — the
+      // last-hole peek or a shotgun start. Ask instead of ending (#940).
+      setActiveDialog('unfinished')
     } else {
-      // Last hole → finalize the round: completeRound writes total_score /
+      // Every hole done → finalize the round: completeRound writes total_score /
       // sg_total / completed_at and routes to the summary. Without this the
       // round stays unfinished (blank total, reappears as resumable). Same
       // path as "End round early". (#639)
       void handleEndRound()
     }
+  }
+
+  // "Continue to hole N" from the #940 prompt: rewind the frontier to it so
+  // it opens for live capture rather than the played-hole edit surface.
+  function continueToHole(n: number) {
+    setActiveDialog(null)
+    onAdvanceHole(n, true)
   }
 
   // Back out of the review to the live map, into the played-hole EDIT surface
@@ -1355,6 +1391,10 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
     swapPuttingToShot,
     navigateHole,
     finishHole,
+    continueToHole,
+    unfinishedOthers,
+    // Saving this hole ends the round (or asks, #940) rather than moving on.
+    finishesRound: nextUnfinished == null,
     saveHoleSummary,
     editHoleOnMap,
     handleEndRound,

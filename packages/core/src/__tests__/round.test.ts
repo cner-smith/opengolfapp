@@ -8,6 +8,7 @@ import {
   obCount,
   playedRowsForDifferential,
   resumeHoleNumber,
+  formatHoleList,
   roundHolesPlayed,
   isPartialRound,
   partialRoundLabel,
@@ -471,5 +472,21 @@ describe('resumeHoleNumber', () => {
 
   it('clamps to the round length, not a phantom hole 10', () => {
     expect(resumeHoleNumber(played(9))).toBe(9)
+  })
+})
+
+describe('formatHoleList', () => {
+  it('collapses consecutive runs', () => {
+    expect(formatHoleList([3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17])).toBe('3–17')
+  })
+  it('joins separate holes with "and"', () => {
+    expect(formatHoleList([3, 7])).toBe('3 and 7')
+  })
+  it('mixes runs and singles', () => {
+    expect(formatHoleList([1, 3, 4, 5, 9])).toBe('1, 3–5 and 9')
+  })
+  it('single hole / empty', () => {
+    expect(formatHoleList([5])).toBe('5')
+    expect(formatHoleList([])).toBe('')
   })
 })

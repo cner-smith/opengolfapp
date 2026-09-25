@@ -106,6 +106,21 @@ export function resumeHoleNumber(
   return Math.min(inferHoleCount(rows.map((r) => r.number)), next)
 }
 
+// Sorted hole numbers as prose with consecutive runs collapsed, for copy like
+// "Holes 3–17 aren't finished" (#940): [3,4,5] → "3–5", [3,7] → "3 and 7",
+// [1,3,4,5,9] → "1, 3–5 and 9".
+export function formatHoleList(holes: readonly number[]): string {
+  const runs: string[] = []
+  for (let i = 0; i < holes.length; ) {
+    let j = i
+    while (j + 1 < holes.length && holes[j + 1] === holes[j]! + 1) j++
+    runs.push(j > i ? `${holes[i]}–${holes[j]}` : `${holes[i]}`)
+    i = j + 1
+  }
+  if (runs.length <= 1) return runs[0] ?? ''
+  return `${runs.slice(0, -1).join(', ')} and ${runs[runs.length - 1]}`
+}
+
 type HoleScoreForCount = { score: number | null; holes?: { number: number } | null }
 
 // How much of a round was played (#911): holes with a score (> 0, the
