@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Pressable, Text, View } from 'react-native'
-import { router } from 'expo-router'
+import { router, useLocalSearchParams } from 'expo-router'
 import * as Linking from 'expo-linking'
 import { supabase } from '../lib/supabase'
 import { TYPE } from '../lib/typography'
@@ -24,6 +24,10 @@ import { TYPE } from '../lib/typography'
 // hanging on "Confirming…" forever.
 export default function AuthCallback() {
   const url = Linking.useURL()
+  // useURL() subscribes after mount, so when the app is already running it
+  // misses the very link that routed here; route params carry the query
+  // either way (#917). The URL is still needed for the legacy # fragment.
+  const params = useLocalSearchParams<{ code?: string; error_description?: string }>()
   const handled = useRef(false)
   const [error, setError] = useState<string | null>(null)
   // Payload never arrived (or the URL itself never arrived) — offer the
@@ -40,44 +44,42 @@ export default function AuthCallback() {
   }, [])
 
   useEffect(() => {
-    if (!url || handled.current) return
-    const [base, fragment] = url.split('#')
+    if (handled.current || (!url && !params.code && !params.error_description)) return
+    const [base, fragment] = (url ?? '').split('#')
     const queryStart = base!.indexOf('?')
     const query = new URLSearchParams(queryStart >= 0 ? base!.slice(queryStart + 1) : '')
     const frag = new URLSearchParams(fragment ?? '')
 
-    const code = query.get('code')
+    const code = params.code ?? query.get('code')
     const accessToken = frag.get('access_token')
     const refreshToken = frag.get('refresh_token')
     const errDescription =
-      query.get('error_description') ?? frag.get('error_description')
+      params.error_description ?? query.get('error_description') ?? frag.get('error_description')
 
-    if (code) {
+    if (code || (accessToken && refreshToken)) {
       handled.current = true
-      supabase.auth.exchangeCodeForSession(code).then(({ error: exchangeError }) => {
-        if (exchangeError) {
-          // Most common cause: the code_verifier isn't on this install
+      // An Android activity recreate (font / display size change) replays the
+      // process's LAUNCH url, landing here again with an already-spent code
+      // (#917). Signed in means there's nothing left to confirm.
+      supabase.auth.getSession().then(async ({ data }) => {
+        if (data.session) {
+          router.replace('/(app)')
+          return
+        }
+        const { error: authError } = code
+          ? await supabase.auth.exchangeCodeForSession(code)
+          : await supabase.auth.setSession({ access_token: accessToken!, refresh_token: refreshToken! })
+        if (authError) {
+          // Most common PKCE cause: the code_verifier isn't on this install
           // (link tapped after a reinstall, or minted pre-PKCE). The email
           // is verified regardless — steer to a normal sign-in.
-          setError(exchangeError.message)
+          setError(authError.message)
           return
         }
         router.replace('/(auth)/welcome')
-      })
-      return
-    }
-
-    if (accessToken && refreshToken) {
-      handled.current = true
-      supabase.auth
-        .setSession({ access_token: accessToken, refresh_token: refreshToken })
-        .then(({ error: sessionError }) => {
-          if (sessionError) {
-            setError(sessionError.message)
-            return
-          }
-          router.replace('/(auth)/welcome')
-        })
+        // handled is already true, so the 8 s watchdog won't fire: a rejection
+        // must reach the manual path itself or the screen hangs on Confirming…
+      }).catch(() => setFallback(true))
       return
     }
 
@@ -91,7 +93,7 @@ export default function AuthCallback() {
     // stuck-at-"Confirming…" case from the field. Go straight to the
     // manual path.
     setFallback(true)
-  }, [url])
+  }, [url, params.code, params.error_description])
 
   const message = error
     ? error
