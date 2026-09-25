@@ -378,16 +378,15 @@ export default function LiveRoundSession({
     // `furthestHoleReached` is allowed to move off a `holeNumber` change;
     // navigateHole's peeks go through `onHoleChange` above instead, which
     // never touches it (fix round 2, C1 residual).
-    onAdvanceHole: (next) => {
-      setFurthestHoleReached((f) => Math.max(f, next))
+    onAdvanceHole: (next, rewind) => {
+      setFurthestHoleReached((f) => (rewind ? next : Math.max(f, next)))
       setHoleNumber(next)
       syncHoleToUrl?.(next)
     },
     onRoundCompleted,
   })
 
-  // Android Back (#915): menu / pin / aim aren't Modals, so the router (called after us —
-  // RN runs listeners newest first) would pop out of the round. Loading/error screens: router.
+  // Android Back (#915): menu/pin/aim aren't Modals; runs before the router's listener (newest first).
   useEffect(() => {
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {
       if (data.loading || data.error || !data.round || !data.currentHole || !data.currentHoleScore) return false
@@ -815,8 +814,7 @@ export default function LiveRoundSession({
           isRevisitingPlayedHole={finalState.isRevisitingPlayedHole}
           editMode={editMode}
           totalShotsThisHole={totalShotsThisHole}
-          holeNumber={holeNumber}
-          holeCount={data.holeCount}
+          finishesRound={actions.finishesRound}
           onCancelPinPlacement={() => setPinPlacementOpen(false)}
           onClearRoundPin={actions.clearRoundPin}
           onConfirmAim={actions.confirmAim}
@@ -958,6 +956,7 @@ export default function LiveRoundSession({
         }}
         onCancelLeave={() => setActiveDialog(null)}
         onConfirmEnd={actions.handleEndRound}
+        unfinished={{ holes: actions.unfinishedOthers, onContinue: actions.continueToHole }}
         onCancelEnd={() => setActiveDialog(null)}
         onGreenYes={actions.handleOnGreenYes}
         onGreenNo={actions.handleOnGreenNo}
@@ -972,7 +971,7 @@ export default function LiveRoundSession({
       <HoleReviewSheet
         visible={finalState.roundState === 'SUMMARY'}
         holeNumber={holeNumber}
-        isLastHole={holeNumber >= data.holeCount}
+        isLastHole={actions.finishesRound}
         par={data.resolvedHole?.par ?? data.currentHole.par}
         initialRows={summaryRows}
         saving={actions.saving}

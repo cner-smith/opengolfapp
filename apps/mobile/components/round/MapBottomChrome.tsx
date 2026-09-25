@@ -40,8 +40,8 @@ interface MapBottomChromeProps {
    *  and the header's hole nav is the way to leave. */
   editMode?: boolean
   totalShotsThisHole: number
-  holeNumber: number
-  holeCount: number
+  // Saving this hole ends the round rather than moving on (#940).
+  finishesRound: boolean
   onCancelPinPlacement: () => void
   onClearRoundPin: () => void
   onConfirmAim: () => void
@@ -143,7 +143,7 @@ function ContextualActions(p: MapBottomChromeProps) {
         <PrimaryCta label="+ Add a shot" disabled={p.saving} onPress={() => p.onAddShot?.()} />
         {p.totalShotsThisHole > 0 && (
           <TextChip
-            label={p.holeNumber < p.holeCount ? 'Finish hole · next →' : 'Finish round'}
+            label={p.finishesRound ? 'Finish round' : 'Finish hole · next →'}
             onPress={p.onFinishHole}
             strong
           />
@@ -200,7 +200,7 @@ function ContextualActions(p: MapBottomChromeProps) {
             <TextChip label="⛳ On the green" onPress={p.onOnGreen} />
           )}
           <TextChip
-            label={p.holeNumber < p.holeCount ? 'Finish hole · next →' : 'Finish round'}
+            label={p.finishesRound ? 'Finish round' : 'Finish hole · next →'}
             onPress={p.onFinishHole}
             strong
           />
