@@ -78,11 +78,20 @@ const KICKER: import('react-native').TextStyle = {
   fontFamily: FONT.mono,
 }
 
+// This route is a hidden Tabs screen (app/(app)/_layout.tsx), and tab screens
+// stay mounted: opening another round only changes `id`, so every useState /
+// useRef below would carry the previous round's tab, map hole, sheets and
+// data over (#944). Keying on id remounts the screen per round.
+export default function RoundIndex() {
+  const { id } = useLocalSearchParams<{ id: string }>()
+  return <RoundScreen key={id} />
+}
+
 // Round entry route. Live (incomplete) rounds redirect into the hole
 // flow; completed rounds render a read-only summary so a player viewing
 // a past round from the home list isn't dropped back into the
 // Mark-ball / Set-aim state machine.
-export default function RoundIndex() {
+function RoundScreen() {
   const { id, hole, mode } = useLocalSearchParams<{
     id: string
     hole?: string
