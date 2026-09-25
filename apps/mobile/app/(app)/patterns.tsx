@@ -8,6 +8,7 @@ import {
   LIE_SLOPES_FORWARD,
   LIE_SLOPES_SIDE,
   LIE_TYPES,
+  formatSignedPuttDistance,
   YARDS_TO_METERS,
   clubDistanceStats,
   computeDispersion,
@@ -103,6 +104,10 @@ export default function Patterns() {
   const { user } = useAuth()
   const { unit, toDisplay } = useUnits()
   const [club, setClub] = useState<Club>('7i')
+  // Putter patterns read in feet like every other green distance (#923);
+  // its formatter picks its own precision, so `decimals` is yards/metres only.
+  const dist = (yards: number, decimals = 0) =>
+    club === 'putter' ? formatSignedPuttDistance(yards * 3, unit) : toDisplay(yards, decimals)
   const [lieType, setLieType] = useState<LieType | typeof ANY>(ANY)
   // Two-axis slope filter, multi-select. Empty array on an axis = "any"
   // (no constraint). Replaces the old single-select LIE_SLOPES chip row,
@@ -308,10 +313,14 @@ export default function Patterns() {
                 marginBottom: 18,
               }}
             >
-              <Stat label="Avg distance" value={toDisplay(clubDist.avg)} />
+              <Stat label="Avg distance" value={dist(clubDist.avg)} />
               <Stat
                 label="Range"
-                value={`${Math.round(unit === 'meters' ? clubDist.min * YARDS_TO_METERS : clubDist.min)}–${Math.round(unit === 'meters' ? clubDist.max * YARDS_TO_METERS : clubDist.max)}`}
+                value={
+                  club === 'putter'
+                    ? `${dist(clubDist.min)}–${dist(clubDist.max)}`
+                    : `${Math.round(unit === 'meters' ? clubDist.min * YARDS_TO_METERS : clubDist.min)}–${Math.round(unit === 'meters' ? clubDist.max * YARDS_TO_METERS : clubDist.max)}`
+                }
               />
             </View>
           )}
@@ -320,17 +329,17 @@ export default function Patterns() {
               <Stat label="Sample" value={`${stats.sampleSize} shots`} />
               <Stat
                 label="Avg lateral"
-                value={toDisplay(stats.avgLateralOffset, 1)}
+                value={dist(stats.avgLateralOffset, 1)}
               />
               <Stat
                 label="Distance bias"
-                value={toDisplay(stats.avgDistanceOffset, 1)}
+                value={dist(stats.avgDistanceOffset, 1)}
               />
-              <Stat label="Shape" value={stats.shotShape} />
-              <Stat label="Dominant miss" value={stats.dominantMiss} />
+              <Stat label="Shape" value={stats.shotShape[0]!.toUpperCase() + stats.shotShape.slice(1)} />
+              <Stat label="Dominant miss" value={stats.dominantMiss[0]!.toUpperCase() + stats.dominantMiss.slice(1)} />
               <Stat
                 label="68% spread"
-                value={`±${toDisplay(stats.cone68.lateral, 1)} / ${toDisplay(stats.cone68.distance, 1)}`}
+                value={`±${dist(stats.cone68.lateral, 1)} / ${dist(stats.cone68.distance, 1)}`}
               />
             </View>
           ) : (
@@ -385,7 +394,7 @@ export default function Patterns() {
               stats={stats}
               club={club}
               unit={unit}
-              toDisplay={toDisplay}
+              toDisplay={dist}
             />
           </View>
         </View>
@@ -515,7 +524,7 @@ function ShotPatternsShareCard({
               value={`±${toDisplay(stats.cone68.lateral, 1)} / ${toDisplay(stats.cone68.distance, 1)}`}
               c={c}
             />
-            <ShareStat label="Dominant miss" value={stats.dominantMiss} c={c} />
+            <ShareStat label="Dominant miss" value={stats.dominantMiss[0]!.toUpperCase() + stats.dominantMiss.slice(1)} c={c} />
           </View>
           <Text
             style={{
@@ -610,7 +619,6 @@ function Stat({ label, value }: { label: string; value: string }) {
           color: '#1C211C',
           fontSize: 17,
           fontWeight: '500',
-          textTransform: 'capitalize',
           fontVariant: ['tabular-nums'],
         }]}
       >
