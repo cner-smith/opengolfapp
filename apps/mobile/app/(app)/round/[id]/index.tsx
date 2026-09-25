@@ -970,7 +970,11 @@ function RoundScreen() {
                       ? `Hole ${h.number}, ${shotCount} shots, edit`
                       : `Hole ${h.number}, add shots`
                   }
-                  onPress={() => setShotsForHole(h)}
+                  onPress={() => {
+                    setShotsForHole(h)
+                    // The empty sheet points to the Map tab — open it on this hole (#918).
+                    setMapHole(h.number)
+                  }}
                   android_ripple={{ color: '#EBE5D6' }}
                   style={{ width: 76, paddingVertical: 12, alignItems: 'flex-end' }}
                 >
