@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import {
   ActivityIndicator,
   Alert,
+  BackHandler,
   Pressable,
   Text,
   View,
@@ -384,6 +385,20 @@ export default function LiveRoundSession({
     },
     onRoundCompleted,
   })
+
+  // Android Back (#915): menu / pin / aim aren't Modals, so the router (called after us —
+  // RN runs listeners newest first) would pop out of the round. Loading/error screens: router.
+  useEffect(() => {
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (data.loading || data.error || !data.round || !data.currentHole || !data.currentHoleScore) return false
+      if (menuOpen) setMenuOpen(false)
+      else if (pinPlacementOpen) setPinPlacementOpen(false)
+      else if (finalState.roundState !== 'SET_AIM') setActiveDialog('leave')
+      else { finalState.setAim(null); finalState.setRoundState('PLACE_BALL') } // = onRePlaceBall
+      return true
+    })
+    return () => sub.remove()
+  }, [menuOpen, pinPlacementOpen, finalState, data])
 
   // End-of-hole review rows. Built from the shots placed live (their start
   // coords, in order) via the shared @oga/core inference — same call the web
