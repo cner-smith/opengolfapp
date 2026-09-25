@@ -857,11 +857,11 @@ export function PastRoundMap({
               style={{
                 paddingVertical: 12,
                 alignItems: 'center',
-                backgroundColor: '#2E7D52',
+                backgroundColor: '#FBF8F1',
                 borderRadius: 2,
               }}
             >
-              <Text style={{ ...KICKER, color: '#F2EEE5' }}>+ Add shot</Text>
+              <Text style={{ ...KICKER, color: '#1C211C' }}>+ Add shot</Text>
             </Pressable>
           </View>
         ) : (
@@ -967,11 +967,11 @@ export function PastRoundMap({
                 style={{
                   paddingVertical: 12,
                   alignItems: 'center',
-                  backgroundColor: '#2E7D52',
+                  backgroundColor: '#FBF8F1',
                   borderRadius: 2,
                 }}
               >
-                <Text style={{ ...KICKER, color: '#F2EEE5' }}>+ Add shot</Text>
+                <Text style={{ ...KICKER, color: '#1C211C' }}>+ Add shot</Text>
               </Pressable>
             )}
           </>

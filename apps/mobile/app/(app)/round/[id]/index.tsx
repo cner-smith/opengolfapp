@@ -967,7 +967,7 @@ function RoundScreen() {
                   accessibilityRole="button"
                   accessibilityLabel={
                     shotCount > 0
-                      ? `Hole ${h.number}, ${shotCount} shots, edit`
+                      ? `Hole ${h.number}, ${shotCount} shot${shotCount === 1 ? '' : 's'}, edit`
                       : `Hole ${h.number}, add shots`
                   }
                   onPress={() => {
