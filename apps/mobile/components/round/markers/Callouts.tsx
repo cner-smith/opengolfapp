@@ -1,43 +1,13 @@
 import { Text, View } from 'react-native'
 import Mapbox from '@rnmapbox/maps'
-import { PressableTouch } from '../../ui/PressableTouch'
 import type { LatLng, OffscreenArrow } from '../HoleMap.types'
 import { TYPE } from '../../../lib/typography'
-import { KICKER } from '../hole/types'
+import { Key } from '../../paper/Paper'
+import { Icon } from '../../paper/icons'
+import { P } from '../../paper/tokens'
 
 function toCoord(l: LatLng): [number, number] {
   return [l.lng, l.lat]
-}
-
-// "Drag to adjust" (#901 H3) — hangs below the ball's 44pt grab disc while
-// placing it. pointerEvents="none" keeps this MarkerView (which otherwise
-// captures touches) off the ball drag; allowOverlapWithPuck because the
-// GPS-tracked ball sits on the location puck, and MarkerViews near the puck
-// are hidden by default.
-export function DragHint({ ball }: { ball: LatLng }) {
-  return (
-    <Mapbox.MarkerView
-      id="dragHint"
-      coordinate={toCoord(ball)}
-      anchor={{ x: 0.5, y: 0 }}
-      allowOverlap
-      allowOverlapWithPuck
-      pointerEvents="none"
-    >
-      <View pointerEvents="none" style={{ paddingTop: 26, alignItems: 'center' }}>
-        <View
-          style={{
-            backgroundColor: 'rgba(28,33,28,0.82)',
-            borderRadius: 4,
-            paddingHorizontal: 8,
-            paddingVertical: 3,
-          }}
-        >
-          <Text style={[TYPE.body, { color: '#F2EEE5', fontSize: 12 }]}>Drag to adjust</Text>
-        </View>
-      </View>
-    </Mapbox.MarkerView>
-  )
 }
 
 // Where a map point sits relative to the usable map area, or null when it's
@@ -67,22 +37,19 @@ export function offscreenArrow(
   return null
 }
 
-// "Went OB?" on the most recent shot's marker (#895 B2), shown while that
-// marker is on-screen; MapBottomChrome's edge tab takes over when it isn't.
-// The pill sits above the marker; box-none keeps the gap under it tappable
-// for the map.
+// "Went OB?" on the most recent shot's marker (#895 B2, #611 §7): a raised
+// key with a brick edge whose bottom sits 11 above the marker's grab disc.
+// Shown while that marker is on-screen; the dock's voice line asks when it
+// isn't. box-none keeps the gap under it tappable for the map.
 export function ObCallout({
   at,
-  isOb,
   onPress,
   onWidth,
 }: {
   at: LatLng
-  isOb: boolean
   onPress: () => void
   onWidth: (width: number) => void
 }) {
-  const label = isOb ? '⚠ OB — tap to undo' : '⚠ Went OB?'
   return (
     <Mapbox.MarkerView
       id="obCallout"
@@ -92,25 +59,18 @@ export function ObCallout({
       allowOverlapWithPuck
       pointerEvents="box-none"
     >
-      <View pointerEvents="box-none" style={{ paddingBottom: 16 }}>
-        <PressableTouch
-          accessibilityRole="button"
-          accessibilityLabel={label}
+      <View pointerEvents="box-none" style={{ paddingBottom: 33 }} onLayout={(e) => onWidth(e.nativeEvent.layout.width)}>
+        <Key
+          accessibilityLabel="Did this shot go out of bounds?"
           onPress={onPress}
-          onLayout={(e) => onWidth(e.nativeEvent.layout.width)}
+          edge={P.neg}
+          borderWidth={1.5}
           hitSlop={6}
-          android_ripple={{ color: 'rgba(242,238,229,0.18)' }}
-          style={{
-            backgroundColor: 'rgba(28,33,28,0.92)',
-            borderColor: 'rgba(163,58,42,0.9)',
-            borderWidth: 1,
-            borderRadius: 14,
-            paddingVertical: 7,
-            paddingHorizontal: 12,
-          }}
+          faceStyle={{ minHeight: 44, flexDirection: 'row', gap: 8, paddingLeft: 12, paddingRight: 14 }}
         >
-          <Text style={[TYPE.kicker, { ...KICKER, color: '#E6A99C' }]}>{label}</Text>
-        </PressableTouch>
+          <Icon.warn size={17} color={P.neg} />
+          <Text style={[TYPE.bodyBold, { fontSize: 15, color: P.neg }]}>Went OB?</Text>
+        </Key>
       </View>
     </Mapbox.MarkerView>
   )
