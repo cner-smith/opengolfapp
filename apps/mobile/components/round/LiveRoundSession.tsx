@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useTagMode } from './markers/TagModeMock'
+import { RING_MIN_SHOTS } from './markers/DispersionLayers'
 import { ActivityIndicator, Alert, BackHandler, Dimensions, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useFocusEffect, useRouter } from 'expo-router'
@@ -377,6 +379,7 @@ export default function LiveRoundSession({
   // It opens on the auto pick every shot; a manual pick lasts one shot.
   const [clubOverride, setClubOverride] = useState<Club | null>(null)
   useEffect(() => setClubOverride(null), [holeNumber, totalShotsThisHole])
+  const tagMode = useTagMode()
   const wheelRows = useMemo(() => {
     const seen = new Set<string>()
     return (bag.length > 0 ? bag : DEFAULT_BAG)
@@ -391,9 +394,13 @@ export default function LiveRoundSession({
           carryYards: d?.medianCarryYards ?? null,
           shots: d?.points.length ?? 0,
           sparse: !d?.dispersion,
+          spread:
+            tagMode === '1' && dotsVisible && d?.dispersion && d.dispersion.sampleSize >= RING_MIN_SHOTS
+              ? `±${Math.round(d.dispersion.perp68)} × ±${Math.round(d.dispersion.along68)}`
+              : undefined,
         }
       })
-  }, [bag, byClub])
+  }, [bag, byClub, tagMode, dotsVisible])
   const autoClub = useMemo(
     () => selectClub(ballToPinYards, new Set(wheelRows.map((r) => r.club)))?.club ?? null,
     [selectClub, ballToPinYards, wheelRows],

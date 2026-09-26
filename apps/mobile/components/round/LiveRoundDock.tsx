@@ -305,6 +305,8 @@ export interface WheelRow {
   shots: number
   /** Below the 5 shots a pattern needs. */
   sparse: boolean
+  /** THROWAWAY mock 1: "±7 × ±13" (wide × long) in place of the shot count. */
+  spread?: string
 }
 
 export interface WheelProps {
@@ -547,7 +549,7 @@ function WheelRowView({
               </Text>
             )}
             <Text numberOfLines={1} style={[TYPE.body, { fontSize: 12, lineHeight: 15, color: P.ink }]}>
-              {autoPick ? 'auto pick' : `${row.shots} shots`}
+              {row.spread ?? (autoPick ? 'auto pick' : `${row.shots} shots`)}
             </Text>
           </>
         )}

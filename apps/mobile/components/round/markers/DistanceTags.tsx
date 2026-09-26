@@ -124,6 +124,7 @@ export function CarryTag({
   lie,
   sg,
   lefty,
+  then,
 }: {
   at: LatLng
   /** e.g. "101.4 yd" */
@@ -131,6 +132,8 @@ export function CarryTag({
   lie: string | null
   sg: number | null
   lefty: boolean
+  /** THROWAWAY mock 2: the remaining leg folded in, e.g. "39.0 yd". */
+  then?: string
 }) {
   const { whole, dec, unit } = split(display)
   const colH = Math.round(32 * FIG)
@@ -152,6 +155,11 @@ export function CarryTag({
           <Text style={[TYPE.kicker, { fontSize: 11, lineHeight: 9, color: P.ink }]}>{unit}</Text>
         </View>
       </View>
+      {then && (
+        <Text style={[TYPE.body, { fontSize: 13, lineHeight: 17, color: P.ink }]}>
+          then <Text style={[TYPE.serif, { fontSize: 16 }]}>{then.split(' ')[0]}</Text> {then.split(' ')[1]} to the pin
+        </Text>
+      )}
       {lie != null && sg != null && (
         <Text style={[TYPE.body, { fontSize: 12, lineHeight: 15, color: P.ink }]}>
           {lie} ·{' '}

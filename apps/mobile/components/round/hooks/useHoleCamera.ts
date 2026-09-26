@@ -3,6 +3,7 @@ import Mapbox from '@rnmapbox/maps'
 import { aimFrame, bearingDegrees } from '@oga/core'
 import { distanceYards } from '../../../lib/maps'
 import { getAimTilt } from '../../../lib/aimTilt'
+import { useTagMode } from '../markers/TagModeMock'
 import type { HoleMapPhase, LatLng } from '../HoleMap.types'
 
 function toCoord(l: LatLng): [number, number] {
@@ -338,6 +339,11 @@ export function useHoleCamera({
   // Fires ONCE per SET_AIM session — re-snapping on every aim drag or
   // pin nudge wiped out the player's pinch-zoom.
   const aimSnappedRef = useRef(false)
+  const tagMode = useTagMode()
+  useEffect(() => {
+    aimSnappedRef.current = false
+    userGesturedRef.current = false
+  }, [tagMode])
   // Re-fit when the dock top moves (voice line in/out, large text) — #611 §13
   // — but only until the player first pans or pinches: a re-fit after that
   // would wipe their zoom, the very thing the once-per-session snap prevents.
@@ -362,7 +368,8 @@ export function useHoleCamera({
         aimSnappedRef.current = false // native camera released — retry on next aim/pin change
       }
     }
-    if (target && distYd != null && distYd >= 150 && mapHeight) {
+    // THROWAWAY mock 4: every distance gets the rule framing.
+    if (target && distYd != null && (distYd >= 150 || tagMode === '4') && mapHeight) {
       // The awaits below can outlive this effect run (aim confirmed, ball
       // re-placed, pin moved). A superseded run must not fly the camera, and
       // un-marks the snap so a re-run that is still in aim frames afresh.
@@ -452,6 +459,7 @@ export function useHoleCamera({
     roundPin?.lng,
     pin?.lat,
     pin?.lng,
+    tagMode,
   ])
 
   return cameraRef
