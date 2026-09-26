@@ -424,10 +424,24 @@ export function useHoleCamera({
       : distYd >= 60 ? 17.5
       : distYd >= 30 ? 18
       : 19
-    fly({ centerCoordinate: toCoord(focus), zoomLevel: zoom, pitch: 20, heading: headingUpTheHole(ball, target) })
-    // A ≥150 yd shot only lands here unmeasured — leave the snap open so the
-    // rule framing above takes over once `mapHeight` arrives.
-    if (distYd != null && distYd >= 150) aimSnappedRef.current = false
+    // Same tilt as full shots: a hard-coded pitch here flipped the view when
+    // ball→pin crossed 150 yd between aim entries (pin mode in/out).
+    let cancelled = false
+    let flown = false
+    void (async () => {
+      const tilt = await getAimTilt()
+      if (cancelled) return
+      flown = true
+      fly({ centerCoordinate: toCoord(focus), zoomLevel: zoom, pitch: tilt, heading: headingUpTheHole(ball, target) })
+      // A ≥150 yd shot only lands here unmeasured — leave the snap open so the
+      // rule framing above takes over once `mapHeight` arrives.
+      if (distYd != null && distYd >= 150) aimSnappedRef.current = false
+    })()
+    return () => {
+      if (flown) return
+      cancelled = true
+      aimSnappedRef.current = false
+    }
   }, [
     mapHeight,
     ballInset,
