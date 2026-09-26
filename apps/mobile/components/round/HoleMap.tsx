@@ -17,7 +17,7 @@ import { FlagMarker } from './markers/FlagMarker'
 import { AimGhostLayers, useAimGhosts } from './markers/AimGhost'
 import { BreadcrumbLayers, SelectedCrumb } from './markers/BreadcrumbLayers'
 import { CarryTag, RemainingTag } from './markers/DistanceTags'
-import { DispersionLayers, RING_MIN_SHOTS } from './markers/DispersionLayers'
+import { DispersionLayers, RING_MIN_SHOTS, TagModeChip } from './markers/DispersionLayers'
 import { AimOverlay } from './markers/AimOverlay'
 import { ObCallout, offscreenArrow } from './markers/Callouts'
 import { useHoleCamera } from './hooks/useHoleCamera'
@@ -269,17 +269,19 @@ export function HoleMap({
   }, [gpsPosition, cameraRef, isPlaceBallPhase, onRecenterBall])
   // The recenter key lives in the caller's dock (#611 §5); hand it the action.
   if (recenterRef) recenterRef.current = recenterOnGps
-  if (projectRef) {
-    projectRef.current = async (pts) => {
-      const map = mapViewRef.current
-      if (!map) return null
-      try {
-        return await Promise.all(pts.map((p) => map.getPointInView(toCoord(p)) as Promise<[number, number]>))
-      } catch {
-        return null
-      }
+  // THROWAWAY (declutter mock): DispersionLayers projects its tag candidates.
+  const [camIdle, setCamIdle] = useState(0)
+  const projectInternalRef = useRef<((pts: LatLng[]) => Promise<[number, number][] | null>) | null>(null)
+  projectInternalRef.current = async (pts) => {
+    const map = mapViewRef.current
+    if (!map) return null
+    try {
+      return await Promise.all(pts.map((p) => map.getPointInView(toCoord(p)) as Promise<[number, number]>))
+    } catch {
+      return null
     }
   }
+  if (projectRef) projectRef.current = projectInternalRef.current
 
   const { aimGhosts, aimGhostFeatures } = useAimGhosts({
     ball,
@@ -638,6 +640,7 @@ export function HoleMap({
               settledCamRef.current = { lng, lat, heading: state.properties.heading }
             }
             void measureLastShot()
+            if (pattern) setCamIdle((n) => n + 1)
           }}
           // Subscribed only while needed (it fires every frame): the past
           // round's callout, and the aim view's gesture latch.
@@ -715,7 +718,17 @@ export function HoleMap({
           )}
 
           {styleLoaded && !isPinMode && showAim && ball && aim && pattern && (
-            <DispersionLayers ball={ball} aim={aim} pattern={pattern} />
+            <DispersionLayers
+              ball={ball}
+              aim={aim}
+              pattern={pattern}
+              carryAt={aimMidpoint}
+              remainingAt={remainingMidpoint}
+              lefty={lefty}
+              projectRef={projectInternalRef}
+              camKey={camIdle}
+              mapH={mapSize?.h ?? 0}
+            />
           )}
 
           {/* Straight ball→pin reference, dotted cream hairline — the
@@ -925,6 +938,7 @@ export function HoleMap({
             <ObCallout at={lastShot} onPress={obCallout.onPress} onWidth={setObPillWidth} />
           )}
         </Mapbox.MapView>
+        {pattern && showAim && <TagModeChip />}
 
       </View>
     </GestureDetector>
