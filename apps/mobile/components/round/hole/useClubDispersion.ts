@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
+  aimRelativeOffsets,
   computeAimRelativeDispersion,
   haversineYards,
   type AimRelativeDispersion,
@@ -9,30 +10,32 @@ import {
 import { getShotsForUser } from '@oga/supabase'
 import { supabase } from '../../../lib/supabase'
 
-// One club's dispersion, derived from the player's own history. Only clubs
-// with enough aim-relative samples (computeAimRelativeDispersion returns null
-// below MIN_SAMPLES_FOR_STATS) appear in the map — sparse clubs get no overlay.
+// One club's shot pattern from the player's own history. Every club with a
+// shot appears; `dispersion` is null below MIN_SAMPLES_FOR_STATS (the wheel's
+// "4 more" row), and only clubs with one can be the auto pick.
 export interface ClubDispersion {
   club: Club
-  dispersion: AimRelativeDispersion
+  dispersion: AimRelativeDispersion | null
+  /** Aim-relative landings, most recent first (getShotsForUser is created_at desc). */
+  points: { alongYards: number; perpYards: number }[]
   /** Median start→end carry for this club, yards. Drives club auto-selection.
-   *  Null only if no shot had both start+end coords (rare — dispersion already
-   *  requires start+end+aim, so a present dispersion implies carries exist). */
+   *  Null when no shot had both start+end coords. */
   medianCarryYards: number | null
-  sampleSize: number
 }
 
 export interface UseClubDispersionResult {
   loading: boolean
-  /** Clubs with a usable dispersion, keyed by club. */
+  /** Every club with a logged shot, keyed by club. */
   byClub: Map<Club, ClubDispersion>
   /**
    * The club to overlay for a given origin→target distance. Matches by
    * |median carry − distance|. A null/non-finite distance (tee shot, no aim
-   * yet) falls back to the longest-carry club. Returns null when no club has
+   * yet) falls back to the longest-carry club. Only clubs with a dispersion
+   * compete, and only those in `among` when given (the wheel's rows, so the
+   * pick is always a club the wheel can show). Returns null when no club has
    * enough data.
    */
-  selectClub: (distanceToTargetYards: number | null) => ClubDispersion | null
+  selectClub: (distanceToTargetYards: number | null, among?: ReadonlySet<Club>) => ClubDispersion | null
 }
 
 // Minimal row shape from getShotsForUser (a subset of SHOT_COLUMNS). Only the
@@ -129,8 +132,11 @@ export function useClubDispersion(
 
     const out = new Map<Club, ClubDispersion>()
     for (const [club, shots] of grouped) {
-      const dispersion = computeAimRelativeDispersion(shots)
-      if (!dispersion) continue // below MIN_SAMPLES_FOR_STATS — no overlay
+      const points: ClubDispersion['points'] = []
+      for (const s of shots) {
+        const o = aimRelativeOffsets(s)
+        if (o) points.push(o)
+      }
       const carries: number[] = []
       for (const s of shots) {
         if (
@@ -144,17 +150,17 @@ export function useClubDispersion(
       }
       out.set(club, {
         club,
-        dispersion,
+        dispersion: computeAimRelativeDispersion(shots),
+        points,
         medianCarryYards: median(carries),
-        sampleSize: dispersion.sampleSize,
       })
     }
     return out
   }, [rows])
 
   const selectClub = useCallback(
-    (distanceToTargetYards: number | null): ClubDispersion | null => {
-      const candidates = [...byClub.values()]
+    (distanceToTargetYards: number | null, among?: ReadonlySet<Club>): ClubDispersion | null => {
+      const candidates = [...byClub.values()].filter((c) => c.dispersion && (!among || among.has(c.club)))
       if (candidates.length === 0) return null
 
       // Tee shot / no aim yet → the player's longest club.

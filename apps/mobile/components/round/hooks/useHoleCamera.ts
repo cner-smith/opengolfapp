@@ -49,6 +49,9 @@ interface UseHoleCameraOpts {
   /** Where the aim view keeps the ball: dp above the map bottom, clear of
    *  the bottom controls. */
   ballInset: number
+  /** Set true by the map when the player pans/pinches; a dock-height change
+   *  re-fits the aim view only until then. */
+  userGesturedRef: RefObject<boolean>
 }
 
 // The flag icon's top, dp above the pin coordinate: FlagMarker's 38 dp glyph
@@ -58,6 +61,8 @@ const FLAG_TOP_DP = 37
 // 1000 m gating threshold for auto-center, expressed as yards because
 // the only haversine helper imported here returns yards. 1000 m / 0.9144.
 const AUTO_CENTER_GATE_YARDS = 1094
+// Closest the aim view zooms: satellite tiles go soft past it (#642 chips).
+const MAX_AIM_ZOOM = 19
 
 // Owns every camera positioning side-effect for HoleMap. The hook
 // returns the camera ref so HoleMap can mount it on the Mapbox.Camera
@@ -74,6 +79,7 @@ export function useHoleCamera({
   mapViewRef,
   mapHeight,
   ballInset,
+  userGesturedRef,
 }: UseHoleCameraOpts) {
   const cameraRef = useRef<Mapbox.Camera>(null)
   const cameraInitialized = useRef(false)
@@ -309,7 +315,7 @@ export function useHoleCamera({
       : distYd >= 80 ? 17
       : distYd >= 60 ? 17.5
       : distYd >= 30 ? 18
-      : 19
+      : MAX_AIM_ZOOM
     try {
       cameraRef.current.setCamera({
         centerCoordinate: toCoord(ball),
@@ -325,21 +331,28 @@ export function useHoleCamera({
   }, [ball?.lat, ball?.lng, phase])
 
   // SET_AIM: rotate the camera so direction-of-play (ball → pin) is toward
-  // the top of the screen. Full shots (≥150 yd) frame by rule (#899): the
-  // higher of the flag's top and the green's back edge 10 dp below the map
-  // top, the ball just above the bottom controls — solved in closed form by
-  // aimFrame at the player's tilt (0° flat / 60° flyover, lib/aimTilt).
-  // Short-game shots keep the stepped zoom tuned in #642.
+  // the top of the screen. Every shot frames by rule (#899): the higher of
+  // the flag's top and the green's back edge 10 dp below the map top, the
+  // ball just above the bottom controls — solved in closed form by aimFrame
+  // at the player's tilt (0° flat / 60° flyover, lib/aimTilt). Approaches
+  // used a stepped zoom (#642) that sat the dispersion ring level with the
+  // dock and crowded its tags (#611); chips keep that zoom's cap.
   //
   // Fires ONCE per SET_AIM session — re-snapping on every aim drag or
   // pin nudge wiped out the player's pinch-zoom.
   const aimSnappedRef = useRef(false)
+  // Re-fit when the dock top moves (voice line in/out, large text) — #611 §13
+  // — but only until the player first pans or pinches: a re-fit after that
+  // would wipe their zoom, the very thing the once-per-session snap prevents.
+  const aimInsetRef = useRef(ballInset)
   useEffect(() => {
     if (!isAimPhase) {
       aimSnappedRef.current = false
+      userGesturedRef.current = false
       return
     }
-    if (aimSnappedRef.current) return
+    if (aimSnappedRef.current && (aimInsetRef.current === ballInset || userGesturedRef.current)) return
+    aimInsetRef.current = ballInset
     if (!cameraRef.current) return
     if (!ball) return
     const target = roundPin ?? pin ?? null
@@ -352,7 +365,7 @@ export function useHoleCamera({
         aimSnappedRef.current = false // native camera released — retry on next aim/pin change
       }
     }
-    if (target && distYd != null && distYd >= 150 && mapHeight) {
+    if (target && mapHeight) {
       // The awaits below can outlive this effect run (aim confirmed, ball
       // re-placed, pin moved). A superseded run must not fly the camera, and
       // un-marks the snap so a re-run that is still in aim frames afresh.
@@ -388,7 +401,7 @@ export function useHoleCamera({
         })
         if (cancelled) return
         flown = true
-        fly({ centerCoordinate: toCoord(f.center), zoomLevel: f.zoom, pitch: tilt, heading: f.heading })
+        fly({ centerCoordinate: toCoord(f.center), zoomLevel: Math.min(f.zoom, MAX_AIM_ZOOM), pitch: tilt, heading: f.heading })
       })()
       return () => {
         if (flown) return
@@ -402,10 +415,8 @@ export function useHoleCamera({
           lng: (ball.lng + target.lng) / 2,
         }
       : ball
-    // Short-game shots need a tighter frame — flatlining at 17 for
-    // anything under 80 yd made a 10-yd chip frame like an 80-yd
-    // approach, a jarring zoom-out from a green close-up (#642). The
-    // ≥150 rows only apply before the map has been measured.
+    // Before the map is measured (or with no pin): a stepped zoom, tighter
+    // for short-game shots (#642).
     const zoom =
       distYd == null ? 16
       : distYd >= 300 ? 16
@@ -413,13 +424,28 @@ export function useHoleCamera({
       : distYd >= 80 ? 17
       : distYd >= 60 ? 17.5
       : distYd >= 30 ? 18
-      : 19
-    fly({ centerCoordinate: toCoord(focus), zoomLevel: zoom, pitch: 20, heading: headingUpTheHole(ball, target) })
-    // A ≥150 yd shot only lands here unmeasured — leave the snap open so the
-    // rule framing above takes over once `mapHeight` arrives.
-    if (distYd != null && distYd >= 150) aimSnappedRef.current = false
+      : MAX_AIM_ZOOM
+    // Same tilt as full shots: a hard-coded pitch here flipped the view when
+    // ball→pin crossed 150 yd between aim entries (pin mode in/out).
+    let cancelled = false
+    let flown = false
+    void (async () => {
+      const tilt = await getAimTilt()
+      if (cancelled) return
+      flown = true
+      fly({ centerCoordinate: toCoord(focus), zoomLevel: zoom, pitch: tilt, heading: headingUpTheHole(ball, target) })
+      // Unmeasured — leave the snap open so the rule framing above takes
+      // over once `mapHeight` arrives.
+      if (target) aimSnappedRef.current = false
+    })()
+    return () => {
+      if (flown) return
+      cancelled = true
+      aimSnappedRef.current = false
+    }
   }, [
     mapHeight,
+    ballInset,
     isAimPhase,
     ball?.lat,
     ball?.lng,
