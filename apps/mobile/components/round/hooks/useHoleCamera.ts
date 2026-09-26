@@ -334,12 +334,15 @@ export function useHoleCamera({
   // Fires ONCE per SET_AIM session — re-snapping on every aim drag or
   // pin nudge wiped out the player's pinch-zoom.
   const aimSnappedRef = useRef(false)
+  // Re-fit when the dock top moves (voice line in/out, large text) — #611 §13.
+  const aimInsetRef = useRef(ballInset)
   useEffect(() => {
     if (!isAimPhase) {
       aimSnappedRef.current = false
       return
     }
-    if (aimSnappedRef.current) return
+    if (aimSnappedRef.current && aimInsetRef.current === ballInset) return
+    aimInsetRef.current = ballInset
     if (!cameraRef.current) return
     if (!ball) return
     const target = roundPin ?? pin ?? null
@@ -420,6 +423,7 @@ export function useHoleCamera({
     if (distYd != null && distYd >= 150) aimSnappedRef.current = false
   }, [
     mapHeight,
+    ballInset,
     isAimPhase,
     ball?.lat,
     ball?.lng,
