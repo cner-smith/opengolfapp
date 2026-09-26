@@ -778,8 +778,6 @@ export function PastRoundMap({
           overlayMode="tee"
           arcWidthYards={0}
           circleRadiusYards={0}
-          dotsVisible={false}
-          dispersionPoints={null}
           handicap={handicap}
         />
         {callout && active?.start && mode !== 'PIN' && (

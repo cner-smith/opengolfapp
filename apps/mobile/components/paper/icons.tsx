@@ -30,6 +30,11 @@ export const Icon = {
       <Path d="M9.2 5.4 15.7 12l-6.6 6.7" {...stroke(color, 1.9)} />
     </Svg>
   ),
+  reset: ({ size, color = P.ink }: IconProps) => (
+    <Svg width={size} height={size} viewBox="0 0 24 24">
+      <Path d="M4.5 12.5a7.6 7.6 0 1 0 2.6-6.1M4.6 3.8v4.6h4.6" {...stroke(color, 2)} />
+    </Svg>
+  ),
   more: ({ size, color = P.ink }: IconProps) => (
     <Svg width={size} height={size} viewBox="0 0 24 24">
       <Circle cx={12} cy={5} r={1.9} fill={color} />

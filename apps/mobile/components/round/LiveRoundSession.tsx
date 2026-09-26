@@ -8,19 +8,23 @@ import { HoleReviewSheet } from './HoleReviewSheet'
 import { ShotStepper } from './ShotStepper'
 import type { ShotLoggerValue } from './ShotLogger'
 import {
+  DEFAULT_BAG,
   DEFAULT_HANDICAP,
   NEAR_GREEN_YARDS,
   bearingDegrees,
   buildInitialRows,
   destinationYards,
+  formatClubLabel,
   getExpectedStrokes,
   type CaptureMode,
+  type Club,
 } from '@oga/core'
 import { getProfile } from '@oga/supabase'
 import { supabase } from '../../lib/supabase'
 import { distanceYards } from '../../lib/maps'
 import { useAuth } from '../../hooks/useAuth'
 import { useClubDispersion } from './hole/useClubDispersion'
+import { useUserBag } from '../../hooks/useUserBag'
 import { useUnits } from '../../hooks/useUnits'
 import { getLeftHand } from '../../lib/leftHand'
 import { FALLBACK_CENTER, HOLE_SCOPED_DIALOGS, type ActiveDialog } from './hole/types'
@@ -260,7 +264,8 @@ export default function LiveRoundSession({
   // The overlay shows the club whose median carry best matches the current
   // ball→aim distance; a tee shot with no aim yet falls back to the longest
   // club. Clubs with too little data simply produce no overlay (null).
-  const { selectClub } = useClubDispersion(user?.id)
+  const { selectClub, byClub } = useClubDispersion(user?.id)
+  const { bag } = useUserBag({ seedIfEmpty: true })
   // The dots' club is chosen by the SHOT distance (ball→pin), not ball→aim —
   // so nudging the aim doesn't swap clubs and make the pattern flicker. The
   // dots are still PLACED around the aim (in HoleMap); only WHICH club's
@@ -283,13 +288,6 @@ export default function LiveRoundSession({
   // persisted putt_distance_ft on Made/Missed.
   const puttDistanceFt =
     ballToPinYards != null ? Math.round(ballToPinYards * 3) : null
-  // Single-color dispersion dots for the selected club (left-toolbar toggle).
-  // Computed only when the dots are shown; sparse clubs → null (no dots).
-  const dispersionPoints = useMemo(() => {
-    if (!dotsVisible) return null
-    const selected = selectClub(ballToPinYards)
-    return selected ? selected.dispersion.points : null
-  }, [dotsVisible, selectClub, ballToPinYards])
 
   // Overlay sizing from the active rail pick (fallbacks guard the indexed
   // access). Arc width = the yard preset; circle radius = diameter-ft ÷ 2 ÷ 3.
@@ -347,6 +345,33 @@ export default function LiveRoundSession({
     data.remoteShotCount + data.localShotCount > 0
       ? data.remoteShotCount + data.localShotCount
       : 0
+
+  // Club wheel (#611 §4): the bag minus the putter, one row per club type.
+  // It opens on the auto pick every shot; a manual pick lasts one shot.
+  const [clubOverride, setClubOverride] = useState<Club | null>(null)
+  useEffect(() => setClubOverride(null), [holeNumber, totalShotsThisHole])
+  const autoClub = selectClub(ballToPinYards)?.club ?? null
+  const wheelRows = useMemo(() => {
+    const seen = new Set<string>()
+    return (bag.length > 0 ? bag : DEFAULT_BAG)
+      .filter((c) => c.club_type !== 'putter' && !seen.has(c.club_type) && !!seen.add(c.club_type))
+      .map((c) => {
+        const d = byClub.get(c.club_type as Club)
+        return {
+          club: c.club_type as Club,
+          label: formatClubLabel(c),
+          carryYards: d?.medianCarryYards ?? null,
+          shots: d?.points.length ?? 0,
+          sparse: !d?.dispersion,
+        }
+      })
+  }, [bag, byClub])
+  const wheelClub = clubOverride ?? autoClub ?? wheelRows[0]?.club ?? null
+  // The Pattern key draws the wheel club's shots around the aim.
+  const pattern = useMemo(() => {
+    const d = dotsVisible && wheelClub ? byClub.get(wheelClub) : undefined
+    return d ? { points: d.points, dispersion: d.dispersion } : null
+  }, [dotsVisible, wheelClub, byClub])
 
   // Manual ball placement: an explicit override of the GPS-tracked marker.
   // Freeze GPS updates for this PLACE_BALL cycle and re-anchor the Kalman
@@ -583,8 +608,7 @@ export default function LiveRoundSession({
           overlayMode={overlayMode}
           arcWidthYards={arcWidthYards}
           circleRadiusYards={circleRadiusYards}
-          dotsVisible={dotsVisible}
-          dispersionPoints={dispersionPoints}
+          pattern={pattern}
           obCallout={
             obPromptActive && !actions.lastShotIsOb
               ? { onPress: () => void actions.markLastShotOb() }
@@ -692,6 +716,12 @@ export default function LiveRoundSession({
           }
           patternOn={dotsVisible}
           onTogglePattern={() => setDotsVisible((v) => !v)}
+          wheel={{
+            rows: wheelRows,
+            selected: wheelClub,
+            auto: autoClub,
+            onPick: (c) => setClubOverride(c === autoClub ? null : c),
+          }}
           onTogglePin={() => setPinPlacementOpen((o) => !o)}
           overlayMode={overlayMode}
           onSetOverlayMode={setOverlayMode}

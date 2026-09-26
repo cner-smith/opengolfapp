@@ -1,12 +1,16 @@
-import type { ReactNode } from 'react'
+import { useEffect, useRef, type ReactNode } from 'react'
 import { Pressable, Text, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { tourMakePercent } from '@oga/core'
+import { Gesture, GestureDetector } from 'react-native-gesture-handler'
+import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withSpring, type SharedValue } from 'react-native-reanimated'
+import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg'
+import { tourMakePercent, type Club } from '@oga/core'
+import { useUnits } from '../../hooks/useUnits'
 import { TYPE } from '../../lib/typography'
 import { Key, KeyText, PaperSurface, Rocker } from '../paper/Paper'
 import { Em, NoPinVoice, Primary, Secondary, SmallKey, Voice } from '../paper/Dock'
 import { Icon } from '../paper/icons'
-import { GAP, MARGIN, P } from '../paper/tokens'
+import { GAP, MARGIN, P, R } from '../paper/tokens'
 import { RulerCard } from './HoleMapOverlays'
 import type { RoundState } from './hole/types'
 import type { OffscreenArrow } from './HoleMap.types'
@@ -35,6 +39,8 @@ export interface LiveRoundDockProps {
 
   patternOn: boolean
   onTogglePattern: () => void
+  /** Club wheel (§4); hidden while putting or with no pin. */
+  wheel: WheelProps
   onTogglePin: () => void
   overlayMode: 'tee' | 'appr'
   onSetOverlayMode: (m: 'tee' | 'appr') => void
@@ -152,7 +158,10 @@ export function LiveRoundDock(p: LiveRoundDockProps) {
             paddingBottom: GAP,
           }}
         >
-          {keys}
+          <View style={{ width: 124, gap: GAP }}>
+            {keys}
+            {!putting && p.hasPin && <ClubWheel {...p.wheel} />}
+          </View>
           {right}
         </View>
       )}
@@ -273,4 +282,251 @@ function bottomRow(p: LiveRoundDockProps): ReactNode[] {
     onGreen,
     <Primary key="mark" label={label} sub={sub} onPress={p.onMarkBallHere} disabled={waiting || p.saving} />,
   ].filter(Boolean)
+}
+
+export interface WheelRow {
+  club: Club
+  label: string
+  carryYards: number | null
+  /** Usable (aim-tracked) shots with this club. */
+  shots: number
+  /** Below the 5 shots a pattern needs. */
+  sparse: boolean
+}
+
+export interface WheelProps {
+  rows: WheelRow[]
+  selected: Club | null
+  /** The app's pick for this shot; null when no club has a pattern yet. */
+  auto: Club | null
+  onPick: (club: Club) => void
+}
+
+const MIN_SHOTS = 5
+// Row centres at rest: a 49 neighbour + half the 60 centre block (F6).
+const PITCH = 54
+const VIEW_H = 158
+const CENTRE_H = 60
+const SPRING = { stiffness: 420, damping: 32, mass: 1 }
+
+// Club wheel (§4, settle §15): the whole card is one vertical pan target
+// that snaps row to row; a tap picks the row under it. The pick commits on
+// release (state first, spring after). Opens on the auto pick every shot; a
+// manual pick lasts one shot and shows "Back to auto" above the card.
+function ClubWheel({ rows, selected, auto, onPick }: WheelProps) {
+  const { toDisplay } = useUnits()
+  const sel = Math.max(0, rows.findIndex((r) => r.club === selected))
+  const autoIdx = rows.findIndex((r) => r.club === auto)
+  const manual = autoIdx >= 0 && sel !== autoIdx
+  const last = rows.length - 1
+  const pos = useSharedValue(sel)
+  const start = useSharedValue(0)
+  // The index the wheel is heading to, so our own commit doesn't re-spring
+  // (and kill the fling's velocity) when `selected` comes back around.
+  const target = useRef(sel)
+  useEffect(() => {
+    if (sel === target.current) return
+    target.current = sel
+    pos.value = withSpring(sel, SPRING)
+  }, [sel, pos])
+
+  const commit = (i: number) => {
+    target.current = i
+    const row = rows[i]
+    if (row && i !== sel) onPick(row.club)
+  }
+  const pan = Gesture.Pan()
+    .activeOffsetY([-6, 6])
+    .onBegin(() => {
+      start.value = pos.value
+    })
+    .onUpdate((e) => {
+      pos.value = Math.min(last + 0.3, Math.max(-0.3, start.value - e.translationY / PITCH))
+    })
+    .onEnd((e) => {
+      // Fling projection 80 ms, then the one spring in the app (§15).
+      const i = Math.round(Math.min(last, Math.max(0, pos.value - (e.velocityY * 0.08) / PITCH)))
+      pos.value = withSpring(i, { ...SPRING, velocity: -e.velocityY / PITCH })
+      runOnJS(commit)(i)
+    })
+  const tap = Gesture.Tap().onEnd((e) => {
+    const i = Math.round(Math.min(last, Math.max(0, pos.value + (e.y - VIEW_H / 2) / PITCH)))
+    pos.value = withSpring(i, SPRING)
+    runOnJS(commit)(i)
+  })
+  const step = (d: number) => {
+    const i = Math.min(last, Math.max(0, sel + d))
+    pos.value = withSpring(i, SPRING)
+    commit(i)
+  }
+
+  // The tab shows once the wheel has settled on the pick (|Δ| < 2.5 dp).
+  const tabStyle = useAnimatedStyle(() => ({
+    opacity: Math.abs(pos.value - sel) * PITCH < 2.5 ? 1 : 0,
+  }))
+  const ruleTop = (VIEW_H - CENTRE_H) / 2
+  const row = rows[sel]
+
+  return (
+    <View
+      style={{
+        width: 124,
+        backgroundColor: P.glass,
+        borderWidth: 1,
+        borderColor: P.ink,
+        borderRadius: R,
+        paddingVertical: 2,
+      }}
+    >
+      {manual && auto && (
+        <Key
+          accessibilityLabel="Back to the auto club"
+          onPress={() => onPick(auto)}
+          style={{ marginTop: 7, marginHorizontal: 7, marginBottom: 6 }}
+          faceStyle={{ minHeight: 44, flexDirection: 'row', gap: 5, paddingHorizontal: 4 }}
+        >
+          <Icon.reset size={15} color={P.warn} />
+          <Text numberOfLines={1} style={[TYPE.body, { fontSize: 13, color: P.ink }]}>
+            Back to auto
+          </Text>
+        </Key>
+      )}
+      <GestureDetector gesture={Gesture.Race(pan, tap)}>
+        <View
+          accessible
+          accessibilityRole="adjustable"
+          accessibilityLabel="Club"
+          accessibilityValue={{ text: row ? `${row.label}${sel === autoIdx ? ', auto pick' : ''}` : '' }}
+          accessibilityActions={[{ name: 'increment' }, { name: 'decrement' }]}
+          onAccessibilityAction={(e) => step(e.nativeEvent.actionName === 'increment' ? 1 : -1)}
+          style={{ height: VIEW_H, overflow: 'hidden' }}
+        >
+          {rows.map((r, i) => (
+            <WheelRowView
+              key={r.club}
+              row={r}
+              index={i}
+              pos={pos}
+              carry={r.carryYards != null ? toDisplay(r.carryYards) : null}
+              autoPick={manual && i === autoIdx}
+            />
+          ))}
+          <Svg pointerEvents="none" width="100%" height={VIEW_H} style={{ position: 'absolute' }}>
+            <Defs>
+              <LinearGradient id="wheelTop" x1="0" y1="0" x2="0" y2="1">
+                <Stop offset="0" stopColor={P.raised} stopOpacity={0.68} />
+                <Stop offset="1" stopColor={P.raised} stopOpacity={0} />
+              </LinearGradient>
+              <LinearGradient id="wheelBottom" x1="0" y1="1" x2="0" y2="0">
+                <Stop offset="0" stopColor={P.raised} stopOpacity={0.68} />
+                <Stop offset="1" stopColor={P.raised} stopOpacity={0} />
+              </LinearGradient>
+            </Defs>
+            <Rect x="0" y="0" width="100%" height={16} fill="url(#wheelTop)" />
+            <Rect x="0" y={VIEW_H - 8} width="100%" height={8} fill="url(#wheelBottom)" />
+          </Svg>
+          <View pointerEvents="none" style={{ position: 'absolute', top: ruleTop, left: 6, right: 6, height: 1, backgroundColor: P.ink }} />
+          <View pointerEvents="none" style={{ position: 'absolute', top: ruleTop + CENTRE_H, left: 6, right: 6, height: 1, backgroundColor: P.ink }} />
+          {autoIdx >= 0 && (
+            <Animated.View
+              pointerEvents="none"
+              style={[
+                {
+                  position: 'absolute',
+                  top: ruleTop - 8,
+                  left: 16,
+                  height: 15,
+                  paddingHorizontal: 5,
+                  borderRadius: 2,
+                  justifyContent: 'center',
+                  backgroundColor: manual ? P.raised : P.brass,
+                  borderWidth: manual ? 1.5 : 1,
+                  borderColor: manual ? P.warn : P.brassEdge,
+                },
+                tabStyle,
+              ]}
+            >
+              {manual ? (
+                <Text style={[TYPE.body, { fontSize: 11, lineHeight: 13, color: P.ink }]}>just this shot</Text>
+              ) : (
+                <Text style={[TYPE.kicker, { fontSize: 11, lineHeight: 13, letterSpacing: 1.2, color: P.ink }]}>AUTO</Text>
+              )}
+            </Animated.View>
+          )}
+        </View>
+      </GestureDetector>
+    </View>
+  )
+}
+
+// One wheel row, drawn at the centre size and scaled down with its distance
+// from the centre (glyph scale 1 − 0.2|d|, opacity 1 − 0.15|d|).
+function WheelRowView({
+  row,
+  index,
+  pos,
+  carry,
+  autoPick,
+}: {
+  row: WheelRow
+  index: number
+  pos: SharedValue<number>
+  carry: string | null
+  autoPick: boolean
+}) {
+  const rowStyle = useAnimatedStyle(() => {
+    const d = index - pos.value
+    return { opacity: Math.abs(d) > 1.6 ? 0 : 1 - 0.15 * Math.abs(d), transform: [{ translateY: d * PITCH }] }
+  })
+  const scaleStyle = useAnimatedStyle(() => ({ transform: [{ scale: 1 - 0.2 * Math.min(1, Math.abs(index - pos.value)) }] }))
+  const [num = '', unit = ''] = (carry ?? '').split(' ')
+  return (
+    <Animated.View
+      style={[
+        {
+          position: 'absolute',
+          top: (VIEW_H - CENTRE_H) / 2,
+          left: 0,
+          right: 0,
+          height: CENTRE_H,
+          flexDirection: 'row',
+          alignItems: 'center',
+          paddingLeft: 11,
+          paddingRight: 10,
+        },
+        rowStyle,
+      ]}
+    >
+      <Animated.View style={[{ transformOrigin: 'left center' }, scaleStyle]}>
+        <Text style={[TYPE.serif, { fontSize: 32, lineHeight: 38, color: row.sparse ? P.ink45 : P.ink }]}>{row.label}</Text>
+      </Animated.View>
+      <Animated.View style={[{ marginLeft: 'auto', alignItems: 'flex-end', transformOrigin: 'right center' }, scaleStyle]}>
+        {row.sparse ? (
+          <>
+            <Text style={[TYPE.body, { fontSize: 12, lineHeight: 15, color: P.ink }]}>{MIN_SHOTS - row.shots} more</Text>
+            <View style={{ flexDirection: 'row', gap: 3, marginTop: 2 }}>
+              {Array.from({ length: MIN_SHOTS }, (_, i) => (
+                <View
+                  key={i}
+                  style={{ width: 6, height: 6, borderRadius: 3, borderWidth: 1, borderColor: P.ink, backgroundColor: i < row.shots ? P.ink : 'transparent' }}
+                />
+              ))}
+            </View>
+          </>
+        ) : (
+          <>
+            {carry != null && (
+              <Text numberOfLines={1} style={[TYPE.serif, { fontSize: 20, lineHeight: 24, color: P.ink }]}>
+                {num}
+                <Text style={[TYPE.kicker, { fontSize: 13 }]}>{'\u2009'}{unit}</Text>
+              </Text>
+            )}
+            <Text numberOfLines={1} style={[TYPE.body, { fontSize: 12, lineHeight: 15, color: P.ink }]}>
+              {autoPick ? 'auto pick' : `${row.shots} shots`}
+            </Text>
+          </>
+        )}
+      </Animated.View>
+    </Animated.View>
+  )
 }
