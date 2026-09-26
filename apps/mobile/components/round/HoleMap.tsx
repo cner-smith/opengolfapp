@@ -5,6 +5,7 @@ import {
   bearingDegrees,
   calculateShotSG,
   destinationYards,
+  flagCupK,
   getExpectedStrokes,
   NEAR_GREEN_YARDS,
 } from '@oga/core'
@@ -13,7 +14,7 @@ import { runOnJS } from 'react-native-reanimated'
 import { distanceYards, ensureMapboxInitialized } from '../../lib/maps'
 import { useUnits } from '../../hooks/useUnits'
 import { Marker } from './markers/Marker'
-import { FLAG_ANCHOR, FlagMarker, flagCupK } from './markers/FlagMarker'
+import { FLAG_ANCHOR, FlagMarker } from './markers/FlagMarker'
 import { AimGhostLayers, useAimGhosts } from './markers/AimGhost'
 import { BreadcrumbLayers, SelectedCrumb } from './markers/BreadcrumbLayers'
 import { CarryTag, RemainingTag } from './markers/DistanceTags'

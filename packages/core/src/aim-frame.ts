@@ -62,3 +62,13 @@ export function aimFrame(i: AimFrameInput): AimFrame {
   )
   return { center, zoom, heading }
 }
+
+/** The flag's cup squash (#611 §9) for a camera pitch: cos(pitch) clamped to
+ *  0.45–0.8, in 0.05 steps so a pitch sweep repaints the marker rarely.
+ *  Non-finite pitch reads as top-down — a NaN reaching the native SVG path
+ *  parser crashes the app. */
+export function flagCupK(pitchDeg: number): number {
+  if (!Number.isFinite(pitchDeg)) return 0.8
+  const k = Math.min(0.8, Math.max(0.45, Math.cos((pitchDeg * Math.PI) / 180)))
+  return Math.round(k * 20) / 20
+}

@@ -16,14 +16,6 @@ export const FLAG_ANCHOR = { x: 12 / 44, y: 38 / 44 }
 const CLOTH = '#A33A2A'
 const POLE_IN_CUP = '#6E7266'
 
-/** Cup squash for a camera pitch: cos(pitch) in 0.45–0.8, in 0.05 steps. */
-export function flagCupK(pitchDeg: number): number {
-  // A NaN would reach the native path parser and crash the app.
-  if (!Number.isFinite(pitchDeg)) return 0.8
-  const k = Math.min(0.8, Math.max(0.45, Math.cos((pitchDeg * Math.PI) / 180)))
-  return Math.round(k * 20) / 20
-}
-
 // The native path parser rejects long float tails — round what goes into `d`.
 const f = (n: number) => Math.round(n * 100) / 100
 

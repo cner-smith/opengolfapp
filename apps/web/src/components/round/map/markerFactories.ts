@@ -177,6 +177,8 @@ export function makeFlagMarker({ hole, strong }: { hole: number; strong: boolean
   const end = wide ? 34.4 : 29.9
   const [c1, c2] = wide ? [15.52, 20.36] : [14.53, 18.47]
   const cloth = `M10.2 1.4 C${c1} 0.2 ${c2} 2.8 ${end} 1.4 L${end} 17.4 C${c2} 18.8 ${c1} 16.2 10.2 17.6 Z`
+  // Must match mobile's paper tokens (apps/mobile/components/paper/tokens.ts:
+  // P.ink, P.raised) — the two flags are meant to be the same glyph.
   const ink = '#1C211C'
   const cream = '#FBF8F1'
   const cup = strong
