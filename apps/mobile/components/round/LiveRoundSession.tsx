@@ -350,7 +350,6 @@ export default function LiveRoundSession({
   // It opens on the auto pick every shot; a manual pick lasts one shot.
   const [clubOverride, setClubOverride] = useState<Club | null>(null)
   useEffect(() => setClubOverride(null), [holeNumber, totalShotsThisHole])
-  const autoClub = selectClub(ballToPinYards)?.club ?? null
   const wheelRows = useMemo(() => {
     const seen = new Set<string>()
     return (bag.length > 0 ? bag : DEFAULT_BAG)
@@ -366,6 +365,10 @@ export default function LiveRoundSession({
         }
       })
   }, [bag, byClub])
+  const autoClub = useMemo(
+    () => selectClub(ballToPinYards, new Set(wheelRows.map((r) => r.club)))?.club ?? null,
+    [selectClub, ballToPinYards, wheelRows],
+  )
   const wheelClub = clubOverride ?? autoClub ?? wheelRows[0]?.club ?? null
   // The Pattern key draws the wheel club's shots around the aim.
   const pattern = useMemo(() => {

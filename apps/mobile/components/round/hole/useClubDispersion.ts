@@ -31,9 +31,11 @@ export interface UseClubDispersionResult {
    * The club to overlay for a given origin→target distance. Matches by
    * |median carry − distance|. A null/non-finite distance (tee shot, no aim
    * yet) falls back to the longest-carry club. Only clubs with a dispersion
-   * compete. Returns null when no club has enough data.
+   * compete, and only those in `among` when given (the wheel's rows, so the
+   * pick is always a club the wheel can show). Returns null when no club has
+   * enough data.
    */
-  selectClub: (distanceToTargetYards: number | null) => ClubDispersion | null
+  selectClub: (distanceToTargetYards: number | null, among?: ReadonlySet<Club>) => ClubDispersion | null
 }
 
 // Minimal row shape from getShotsForUser (a subset of SHOT_COLUMNS). Only the
@@ -157,8 +159,8 @@ export function useClubDispersion(
   }, [rows])
 
   const selectClub = useCallback(
-    (distanceToTargetYards: number | null): ClubDispersion | null => {
-      const candidates = [...byClub.values()].filter((c) => c.dispersion)
+    (distanceToTargetYards: number | null, among?: ReadonlySet<Club>): ClubDispersion | null => {
+      const candidates = [...byClub.values()].filter((c) => c.dispersion && (!among || among.has(c.club)))
       if (candidates.length === 0) return null
 
       // Tee shot / no aim yet → the player's longest club.
