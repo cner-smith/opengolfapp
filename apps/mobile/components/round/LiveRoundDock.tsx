@@ -11,7 +11,7 @@ import { Key, KeyText, PaperSurface, Rocker } from '../paper/Paper'
 import { Em, NoPinVoice, Primary, Secondary, SmallKey, Voice } from '../paper/Dock'
 import { Icon } from '../paper/icons'
 import { GAP, MARGIN, P, R } from '../paper/tokens'
-import { RulerCard } from './HoleMapOverlays'
+import { RulerCard, RulerFeelChip } from './HoleMapOverlays'
 import type { RoundState } from './hole/types'
 import type { OffscreenArrow } from './HoleMap.types'
 
@@ -45,7 +45,10 @@ export interface LiveRoundDockProps {
   overlayMode: 'tee' | 'appr'
   onSetOverlayMode: (m: 'tee' | 'appr') => void
   rulerIndex: number
+  /** Fractional while a finger is on the size. */
+  rulerPos: number
   onSelectRuler: (i: number) => void
+  onScrubRuler: (pos: number | null) => void
   showRecenter: boolean
   onRecenter: () => void
 
@@ -115,6 +118,7 @@ export function LiveRoundDock(p: LiveRoundDockProps) {
 
   const right = aimLike ? (
     <View style={{ width: 96, gap: GAP }}>
+      <RulerFeelChip />
       <Rocker
         options={[
           { value: 'tee', label: 'Tee' },
@@ -123,7 +127,14 @@ export function LiveRoundDock(p: LiveRoundDockProps) {
         value={p.overlayMode}
         onChange={(v) => v && p.onSetOverlayMode(v)}
       />
-      <RulerCard mode={p.overlayMode} index={p.rulerIndex} onSelect={p.onSelectRuler} lefty={p.lefty} />
+      <RulerCard
+        mode={p.overlayMode}
+        index={p.rulerIndex}
+        pos={p.rulerPos}
+        onSelect={p.onSelectRuler}
+        onScrub={p.onScrubRuler}
+        lefty={p.lefty}
+      />
     </View>
   ) : p.showRecenter ? (
     <Key

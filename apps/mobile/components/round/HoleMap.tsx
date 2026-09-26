@@ -2,10 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { View } from 'react-native'
 import Mapbox from '@rnmapbox/maps'
 import {
-  arcGeoJSON,
   bearingDegrees,
   calculateShotSG,
-  circleGeoJSON,
   destinationYards,
   getExpectedStrokes,
   NEAR_GREEN_YARDS,
@@ -20,6 +18,7 @@ import { AimGhostLayers, useAimGhosts } from './markers/AimGhost'
 import { BreadcrumbLayers, SelectedCrumb } from './markers/BreadcrumbLayers'
 import { CarryTag, RemainingTag } from './markers/DistanceTags'
 import { DispersionLayers, RING_MIN_SHOTS } from './markers/DispersionLayers'
+import { AimOverlay } from './markers/AimOverlay'
 import { ObCallout, offscreenArrow } from './markers/Callouts'
 import { useHoleCamera } from './hooks/useHoleCamera'
 import { TeeBadge } from './HoleMapOverlays'
@@ -113,6 +112,8 @@ export function HoleMap({
   overlayMode,
   arcWidthYards,
   circleRadiusYards,
+  overlayLive = false,
+  overlayHandles = null,
   pattern,
   obCallout,
   onLastShotOffscreen,
@@ -414,21 +415,6 @@ export function HoleMap({
     }
   }, [ball, aim, effectivePin, showAim])
 
-  // Fixed-geometry aim overlay (T4), always on while aiming. Tee → an arc
-  // band across the aim line at the rail's chosen width (half each side);
-  // Appr → a circle ring on the pin at the rail's diameter. Drawn under the
-  // aim line so the line + crosshair read on top.
-  const overlayArc = useMemo(() => {
-    if (!showAim || overlayMode !== 'tee' || !ball || !aim) return null
-    return arcGeoJSON(ball, aim, arcWidthYards / 2)
-  }, [showAim, overlayMode, ball, aim, arcWidthYards])
-
-  // Circle centers on the AIM (where you're aiming the approach), not the pin
-  // — your dispersion ring around the target, consistent with the Tee arc.
-  const overlayCircle = useMemo(() => {
-    if (!showAim || overlayMode !== 'appr' || !aim) return null
-    return circleGeoJSON(aim, circleRadiusYards)
-  }, [showAim, overlayMode, aim, circleRadiusYards])
 
   // The ring's rods say the spread; the rail's arc steps back to a hairline.
   const patternRing = !!pattern?.dispersion && pattern.dispersion.sampleSize >= RING_MIN_SHOTS
@@ -715,46 +701,18 @@ export function HoleMap({
             isPinMode={isPinMode}
           />
 
-          {/* Fixed-geometry aim overlay (T4), drawn under the aim line. Arc
-              band = a wide translucent stroke (the "fill") + a thin crisp
-              core, so it reads as an area, not the old invisible hairline. */}
-          {styleLoaded && !isPinMode && overlayArc && (
-            <Mapbox.ShapeSource id="overlayArc" shape={overlayArc}>
-              <Mapbox.LineLayer
-                id="overlayArcFill"
-                style={{
-                  lineColor: '#FBF8F1',
-                  lineWidth: 14,
-                  lineOpacity: patternRing ? 0 : 0.15,
-                  lineCap: 'round',
-                  lineJoin: 'round',
-                }}
-              />
-              <Mapbox.LineLayer
-                id="overlayArcCore"
-                style={{
-                  lineColor: '#FBF8F1',
-                  lineWidth: 2,
-                  lineOpacity: patternRing ? 0.5 : 0.9,
-                  lineCap: 'round',
-                  lineJoin: 'round',
-                }}
-              />
-            </Mapbox.ShapeSource>
-          )}
-
-          {/* Approach circle ring — translucent fill + thin border. */}
-          {styleLoaded && !isPinMode && overlayCircle && (
-            <Mapbox.ShapeSource id="overlayCircle" shape={overlayCircle}>
-              <Mapbox.FillLayer
-                id="overlayCircleFill"
-                style={{ fillColor: '#FBF8F1', fillOpacity: 0.12 }}
-              />
-              <Mapbox.LineLayer
-                id="overlayCircleBorder"
-                style={{ lineColor: '#FBF8F1', lineWidth: 2, lineOpacity: 0.9 }}
-              />
-            </Mapbox.ShapeSource>
+          {/* Ruler overlay (arc / circle), drawn under the aim line. */}
+          {styleLoaded && !isPinMode && showAim && ball && aim && (
+            <AimOverlay
+              ball={ball}
+              aim={aim}
+              mode={overlayMode}
+              arcWidthYards={arcWidthYards}
+              circleRadiusYards={circleRadiusYards}
+              live={overlayLive}
+              dimArc={patternRing}
+              handles={isAimPhase ? overlayHandles : null}
+            />
           )}
 
           {styleLoaded && !isPinMode && showAim && ball && aim && pattern && (
