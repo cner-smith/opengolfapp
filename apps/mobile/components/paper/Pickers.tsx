@@ -18,7 +18,7 @@ import {
 import { getLeftHand } from '../../lib/leftHand'
 import { TYPE } from '../../lib/typography'
 import { Key, KeyText, Rocker } from './Paper'
-import { GAP, P, R } from './tokens'
+import { FONT_CAP, GAP, P, R } from './tokens'
 
 // Choose-one pickers (#611 §19.9 "P2: grouped rockers"), shared by the live
 // hole-review sheet and the past-round edit sheet.
@@ -34,12 +34,12 @@ export function useStackedLabels() {
 export function PickerRow({ label, stacked, children }: { label: string; stacked: boolean; children: ReactNode }) {
   return stacked ? (
     <View>
-      <Text style={[TYPE.body, { fontSize: 12, color: P.ink, marginBottom: 3 }]}>{label}</Text>
+      <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { fontSize: 12, color: P.ink, marginBottom: 3 }]}>{label}</Text>
       {children}
     </View>
   ) : (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-      <Text style={[TYPE.body, { width: 52, fontSize: 12, color: P.ink }]}>{label}</Text>
+      <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { width: 60, fontSize: 12, color: P.ink }]}>{label}</Text>
       <View style={{ flex: 1 }}>{children}</View>
     </View>
   )
@@ -54,7 +54,7 @@ export interface Opt<T extends string> {
 export function PickerField({ title, children }: { title: string; children: ReactNode }) {
   return (
     <View style={{ paddingVertical: 12, borderTopWidth: 1, borderColor: P.line, gap: 7 }}>
-      <Text style={[TYPE.serif, { fontSize: 16, color: P.ink }]}>{title}</Text>
+      <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.serif, { fontSize: 16, color: P.ink }]}>{title}</Text>
       {children}
     </View>
   )
@@ -233,7 +233,7 @@ export function Chip({
           marginBottom: 3,
         }}
       >
-        <Text style={[TYPE.body, { fontSize: 13, color: P.inkDim }]}>{label}</Text>
+        <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { fontSize: 13, color: P.inkDim }]}>{label}</Text>
       </Pressable>
     )
   }
@@ -338,8 +338,8 @@ export function ResultPicker({
   return (
     <View style={{ paddingVertical: 12, borderTopWidth: 1, borderColor: P.line, gap: 7 }}>
       <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 8 }}>
-        <Text style={[TYPE.serif, { fontSize: 16, color: P.ink }]}>Result</Text>
-        <Text style={[TYPE.body, { fontSize: 12, color: P.inkDim }]}>all optional</Text>
+        <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.serif, { fontSize: 16, color: P.ink }]}>Result</Text>
+        <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { fontSize: 12, color: P.inkDim }]}>all optional</Text>
         {any ? (
           <Pressable
             accessibilityRole="button"
@@ -348,7 +348,7 @@ export function ResultPicker({
             hitSlop={{ top: 12, bottom: 12, left: 8, right: 8 }}
             style={{ marginLeft: 'auto' }}
           >
-            <Text style={[TYPE.body, { fontSize: 13, color: P.ink, textDecorationLine: 'underline' }]}>Clear</Text>
+            <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { fontSize: 13, color: P.ink, textDecorationLine: 'underline' }]}>Clear</Text>
           </Pressable>
         ) : null}
       </View>

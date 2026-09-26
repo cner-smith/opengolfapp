@@ -48,7 +48,7 @@ import {
   type ResultValue,
 } from '../paper/Pickers'
 import { Icon } from '../paper/icons'
-import { GAP, P, R } from '../paper/tokens'
+import { FONT_CAP, GAP, P, R } from '../paper/tokens'
 
 type ShotRow = Database['public']['Tables']['shots']['Row']
 type ShotUpdate = Database['public']['Tables']['shots']['Update']
@@ -193,10 +193,10 @@ export function PastHoleShotsSheet({
               <GestureDetector gesture={pan}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', minHeight: 64, paddingLeft: 22 }}>
                   <View style={{ flex: 1, paddingVertical: 10 }}>
-                    <Text style={[TYPE.serif, { fontSize: 26, lineHeight: 30, color: P.ink }]}>
+                    <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.serif, { fontSize: 26, lineHeight: 30, color: P.ink }]}>
                       Hole {holeNumber ?? '—'}
                     </Text>
-                    <Text style={[TYPE.body, { fontSize: 13, color: P.ink }]}>
+                    <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { fontSize: 13, color: P.ink }]}>
                       {par != null ? `Par ${par} · ` : ''}
                       {sortedShots.length} shot{sortedShots.length === 1 ? '' : 's'}
                     </Text>
@@ -213,7 +213,7 @@ export function PastHoleShotsSheet({
               </GestureDetector>
 
               {sortedShots.length === 0 ? (
-                <Text
+                <Text maxFontSizeMultiplier={FONT_CAP}
                   style={[
                     TYPE.body,
                     { color: P.ink, fontSize: 15, lineHeight: 21, paddingHorizontal: 22, paddingTop: 12, paddingBottom: 18, borderTopWidth: 1, borderColor: P.line },
@@ -289,18 +289,18 @@ function ShotRowView({
         alignItems: 'center',
       }}
     >
-      <Text style={[TYPE.body, { width: 48, color: shot.ob === true ? P.neg : P.ink, fontSize: 13 }]}>
+      <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { width: 48, color: shot.ob === true ? P.neg : P.ink, fontSize: 13 }]}>
         Shot {shot.shot_number}
       </Text>
       <View style={{ flex: 1 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-          <Text style={[TYPE.serif, { color: P.ink, fontSize: 20 }]}>{clubLabel}</Text>
+          <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.serif, { color: P.ink, fontSize: 20 }]}>{clubLabel}</Text>
           {shot.ob === true && (
             /* An OB shot and its stroke-and-distance re-hit sit on the same
                coordinate, so their map discs overlap and neither number is
                reliably legible. This row is the unambiguous answer to which
                shot went out of bounds (#839). */
-            <Text
+            <Text maxFontSizeMultiplier={FONT_CAP}
               style={[
                 TYPE.bodyBold,
                 {
@@ -319,11 +319,11 @@ function ShotRowView({
           )}
         </View>
         {sub.length > 0 && (
-          <Text style={[TYPE.body, { color: P.ink, fontSize: 13 }]}>{sub}</Text>
+          <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { color: P.ink, fontSize: 13 }]}>{sub}</Text>
         )}
       </View>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}>
-        <Text style={[TYPE.body, { color: P.ink, fontSize: 13 }]}>Edit</Text>
+        <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { color: P.ink, fontSize: 13 }]}>Edit</Text>
         <Icon.next size={14} />
       </View>
     </Pressable>
@@ -507,11 +507,11 @@ function EditShotSheet({
         <GestureDetector gesture={pan}>
           <View style={{ flexDirection: 'row', alignItems: 'center', minHeight: 72, paddingLeft: 22, paddingRight: 8, gap: GAP }}>
             <View style={{ flex: 1, minWidth: 0, paddingVertical: 10 }}>
-              <Text style={[TYPE.serif, { fontSize: 26, lineHeight: 30, color: P.ink }]}>
+              <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.serif, { fontSize: 26, lineHeight: 30, color: P.ink }]}>
                 Shot {shot.shot_number}
-                {allShots.length > 1 ? <Text style={{ fontSize: 18 }}>{` of ${allShots.length}`}</Text> : null}
+                {allShots.length > 1 ? <Text maxFontSizeMultiplier={FONT_CAP} style={{ fontSize: 18 }}>{` of ${allShots.length}`}</Text> : null}
               </Text>
-              {subtitle.length > 0 && <Text style={[TYPE.body, { fontSize: 13, color: P.ink }]}>{subtitle}</Text>}
+              {subtitle.length > 0 && <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { fontSize: 13, color: P.ink }]}>{subtitle}</Text>}
             </View>
             {stepKey('prev', prevShot)}
             {stepKey('next', nextShot)}
@@ -544,7 +544,7 @@ function EditShotSheet({
                   onChange={(v) => v && setPuttMade(v === 'made')}
                 />
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                  <Text style={[TYPE.body, { width: 52, fontSize: 12, color: P.ink }]}>Length</Text>
+                  <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { width: 52, fontSize: 12, color: P.ink }]}>Length</Text>
                   <TextInput
                     value={puttDistanceFt}
                     onChangeText={(t) => setPuttDistanceFt(t.replace(/[^0-9]/g, '').slice(0, 3))}
@@ -568,7 +568,7 @@ function EditShotSheet({
                       },
                     ]}
                   />
-                  <Text style={[TYPE.kicker, { fontSize: 14, color: P.ink }]}>ft</Text>
+                  <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.kicker, { fontSize: 14, color: P.ink }]}>ft</Text>
                 </View>
               </PickerField>
 

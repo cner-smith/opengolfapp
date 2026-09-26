@@ -63,7 +63,7 @@ interface HoleReviewSheetProps {
    *  saveReviewedHole's snapshot is: `placedPoints` is never seeded from
    *  stored shots, so a re-placement with a different shot count has no
    *  correspondence to them and a stale flag would land on the wrong shot. */
-  storedShots?: ReadonlyArray<{ shotNumber: number; ob?: boolean | null }>
+  storedShots?: ReadonlyArray<{ shotNumber: number; ob?: boolean | null; penalty?: boolean | null }>
   saving: boolean
   /** "Edit on map" — close the sheet and let the user drag markers. */
   onEditOnMap: () => void
@@ -219,10 +219,17 @@ export function HoleReviewSheet({
     const stored = storedShotsRef.current ?? []
     let seeded = merged
     if (stored.length === merged.length) {
-      const obByNumber = new Map(stored.map((s) => [s.shotNumber, s.ob === true]))
-      seeded = merged.map((row) =>
-        obByNumber.get(row.shotNumber) ? { ...row, shotResult: 'ob' as const } : row,
-      )
+      const byNumber = new Map(stored.map((s) => [s.shotNumber, s]))
+      // Penalty too: the result picker sends its full value, so an unseeded
+      // row would write penalty:false over a stored true once touched.
+      seeded = merged.map((row) => {
+        const s = byNumber.get(row.shotNumber)
+        return {
+          ...row,
+          ...(s?.ob === true ? { shotResult: 'ob' as const } : {}),
+          ...(s?.penalty === true ? { penalty: true } : {}),
+        }
+      })
     }
     setRows(seeded)
     // Struck rows + penalty strokes. obCount reads the `shotResult: 'ob'`

@@ -7,7 +7,7 @@ import { TYPE } from '../../../lib/typography'
 import { Key, KeyText } from '../../paper/Paper'
 import { GolfMark } from '../../paper/GolfMark'
 import { Icon } from '../../paper/icons'
-import { P } from '../../paper/tokens'
+import { FONT_CAP, P } from '../../paper/tokens'
 
 type RoundRow = Database['public']['Tables']['rounds']['Row']
 type HoleRow = Database['public']['Tables']['holes']['Row']
@@ -68,19 +68,19 @@ export function RoundScorecardTab({
     <ScrollView contentContainerStyle={{ paddingHorizontal: 22, paddingTop: 18, paddingBottom: 40 }}>
       {/* Totals: the score at hero size, to-par beside it, SG on the right. */}
       <View style={{ flexDirection: 'row', alignItems: 'flex-end', marginBottom: 18 }}>
-        <Text style={[TYPE.serif, { fontSize: 54, lineHeight: 62, letterSpacing: -1.5, color: runningPar === 0 ? P.ink35 : P.ink }]}>
+        <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.serif, { fontSize: 54, lineHeight: 62, letterSpacing: -1.5, color: runningPar === 0 ? P.ink35 : P.ink }]}>
           {runningPar === 0 ? '—' : runningScore}
         </Text>
         <View style={{ flex: 1, paddingLeft: 10, paddingBottom: 8 }}>
           {runningPar > 0 && (
             <>
-              <Text style={[TYPE.serif, { fontSize: 22, lineHeight: 26, color: P.ink }]}>{signed(diff)}</Text>
-              <Text style={[TYPE.body, { fontSize: 12, color: P.ink }]}>to par · {runningPar}</Text>
+              <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.serif, { fontSize: 22, lineHeight: 26, color: P.ink }]}>{signed(diff)}</Text>
+              <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { fontSize: 12, color: P.ink }]}>to par · {runningPar}</Text>
             </>
           )}
         </View>
         <View style={{ alignItems: 'flex-end', paddingBottom: 8 }}>
-          <Text
+          <Text maxFontSizeMultiplier={FONT_CAP}
             style={[
               TYPE.serif,
               {
@@ -92,7 +92,7 @@ export function RoundScorecardTab({
           >
             {round.sg_total == null ? '—' : sg(round.sg_total)}
           </Text>
-          <Text style={[TYPE.body, { fontSize: 12, lineHeight: 15, color: P.ink, textAlign: 'right' }]}>
+          <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { fontSize: 12, lineHeight: 15, color: P.ink, textAlign: 'right' }]}>
             strokes gained{handicap != null ? `\nvs a ${handicap} handicap` : ''}
           </Text>
         </View>
@@ -111,8 +111,8 @@ export function RoundScorecardTab({
               borderColor: P.line,
             }}
           >
-            <Text style={[TYPE.body, { fontSize: 15, color: P.ink }]}>{row.label}</Text>
-            <Text
+            <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { fontSize: 15, color: P.ink }]}>{row.label}</Text>
+            <Text maxFontSizeMultiplier={FONT_CAP}
               style={[
                 TYPE.kicker,
                 { fontSize: 15, color: row.value == null ? P.ink35 : row.value < 0 ? P.neg : P.ink },
@@ -147,10 +147,10 @@ function RoundNudge({ focus, picks }: { focus: RoundFocus; picks: DrillRow[] }) 
   const router = useRouter()
   return (
     <View style={{ marginTop: 28 }}>
-      <Text style={[TYPE.serif, { fontSize: 22, lineHeight: 28, color: P.ink }]}>{roundFocusHeadline(focus)}</Text>
+      <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.serif, { fontSize: 22, lineHeight: 28, color: P.ink }]}>{roundFocusHeadline(focus)}</Text>
       {picks.length > 0 && (
         <>
-          <Text style={[TYPE.body, { fontSize: 14, color: P.ink, marginTop: 6, marginBottom: 10 }]}>
+          <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { fontSize: 14, color: P.ink, marginTop: 6, marginBottom: 10 }]}>
             {picks.length === 1 ? 'One drill' : `${picks.length === 2 ? 'Two' : picks.length} drills`} for your next
             range session:
           </Text>
@@ -162,10 +162,10 @@ function RoundNudge({ focus, picks }: { focus: RoundFocus; picks: DrillRow[] }) 
                 onPress={() => router.push('/(app)/drills')}
                 faceStyle={{ minHeight: 46, paddingHorizontal: 14, flexDirection: 'row', gap: 8 }}
               >
-                <Text style={[TYPE.body, { flex: 1, fontSize: 15, color: P.ink }]}>
+                <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { flex: 1, fontSize: 15, color: P.ink }]}>
                   {drill.name}
                   {drill.duration_min ? (
-                    <Text style={[TYPE.kicker, { fontSize: 13 }]}>{`  ·  ${drill.duration_min} min`}</Text>
+                    <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.kicker, { fontSize: 13 }]}>{`  ·  ${drill.duration_min} min`}</Text>
                   ) : null}
                 </Text>
                 <Icon.next size={16} />
@@ -214,18 +214,18 @@ function HoleTable({
   if (back) parts.push({ label: 'In', t: back })
 
   const head = (label: string, width: number, align: 'left' | 'center' = 'center') => (
-    <Text style={[TYPE.body, { width, textAlign: align, fontSize: 12, color: P.ink }]}>{label}</Text>
+    <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { width, textAlign: align, fontSize: 12, color: P.ink }]}>{label}</Text>
   )
 
   return (
     <View style={{ marginTop: 28 }}>
       <View style={{ flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', gap: 8 }}>
-        <Text style={[TYPE.serif, { fontSize: 24, color: P.ink }]}>Your card</Text>
-        <Text style={[TYPE.body, { flexShrink: 1, fontSize: 13, color: P.ink, textAlign: 'right' }]}>
+        <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.serif, { fontSize: 24, color: P.ink }]}>Your card</Text>
+        <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { flexShrink: 1, fontSize: 13, color: P.ink, textAlign: 'right' }]}>
           {parts.map((p, i) => (
-            <Text key={p.label}>
+            <Text maxFontSizeMultiplier={FONT_CAP} key={p.label}>
               {i > 0 ? '  ·  ' : ''}
-              {p.label} · <Text style={[TYPE.serif, { fontSize: 15 }]}>{p.t.score}</Text> ({signed(p.t.toPar)})
+              {p.label} · <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.serif, { fontSize: 15 }]}>{p.t.score}</Text> ({signed(p.t.toPar)})
             </Text>
           ))}
         </Text>
@@ -246,7 +246,7 @@ function HoleTable({
         {head('Putts', COL.putts)}
         {head('Fwy', COL.fwy)}
         {head('Green', COL.green)}
-        <Text style={[TYPE.body, { flex: 1, textAlign: 'right', fontSize: 12, color: P.ink }]}>Shots</Text>
+        <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { flex: 1, textAlign: 'right', fontSize: 12, color: P.ink }]}>Shots</Text>
       </View>
       {holes.map((h) => {
         const hs = scoresByHoleId.get(h.id)
@@ -266,8 +266,8 @@ function HoleTable({
             key={h.id}
             style={{ flexDirection: 'row', alignItems: 'center', minHeight: 48, borderBottomWidth: 1, borderColor: P.line }}
           >
-            <Text style={[TYPE.body, { width: COL.hole, fontSize: 15, color: P.ink }]}>{h.number}</Text>
-            <Text style={[TYPE.kicker, { width: COL.par, textAlign: 'center', fontSize: 15, color: P.ink }]}>{par}</Text>
+            <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { width: COL.hole, fontSize: 15, color: P.ink }]}>{h.number}</Text>
+            <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.kicker, { width: COL.par, textAlign: 'center', fontSize: 15, color: P.ink }]}>{par}</Text>
             <View style={{ width: COL.score, alignItems: 'center', justifyContent: 'center' }}>
               {score > 0 && <GolfMark toPar={score - par} seed={h.number} />}
               <ScoreCell
@@ -285,7 +285,7 @@ function HoleTable({
               onCommit={(n) => onCommit(h.id, { putts: n > 0 ? n : null })}
             />
             {([fairway, gir] as const).map((v, i) => (
-              <Text
+              <Text maxFontSizeMultiplier={FONT_CAP}
                 key={i}
                 style={[
                   TYPE.body,

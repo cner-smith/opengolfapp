@@ -4,7 +4,7 @@ import { GolfMark } from '../../paper/GolfMark'
 import { HeroRow } from '../../paper/HeroRow'
 import { Icon } from '../../paper/icons'
 import { PaperSurface } from '../../paper/Paper'
-import { P } from '../../paper/tokens'
+import { FONT_CAP, P } from '../../paper/tokens'
 import { NavButton } from '../LiveRoundHeader'
 
 export type HoleResult =
@@ -41,13 +41,13 @@ export function PastHoleBlock(p: PastHoleBlockProps) {
           <Icon.prev size={20} />
         </NavButton>
         <View style={{ flex: 1, alignItems: 'center', paddingVertical: 3 }}>
-          <Text
+          <Text maxFontSizeMultiplier={FONT_CAP}
             numberOfLines={1}
             style={[TYPE.serif, { alignSelf: 'stretch', textAlign: 'center', fontSize: 22, lineHeight: 26, color: P.ink }]}
           >
             {`Hole ${p.holeNumber}`}
           </Text>
-          <Text style={[TYPE.body, { fontSize: 13, lineHeight: 17, color: P.ink, textAlign: 'center' }]}>{sub}</Text>
+          <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { fontSize: 13, lineHeight: 17, color: P.ink, textAlign: 'center' }]}>{sub}</Text>
         </View>
         <NavButton label="Next hole" onPress={p.onNext} disabled={p.holeNumber >= p.holeCount}>
           <Icon.next size={20} />
@@ -75,7 +75,7 @@ function ResultCorner({ result, holeNumber }: { result: HoleResult; holeNumber: 
     >
       {result.scored ? (
         <View style={{ width: 36, height: 36, alignItems: 'center', justifyContent: 'center' }}>
-          <Text maxFontSizeMultiplier={1} style={[TYPE.serif, { fontSize: 24, lineHeight: 30, color: P.ink }]}>
+          <Text allowFontScaling={false} style={[TYPE.serif, { fontSize: 24, lineHeight: 30, color: P.ink }]}>
             {result.score}
           </Text>
           {result.toPar != null && <GolfMark toPar={result.toPar} seed={holeNumber} />}
@@ -92,13 +92,13 @@ function ResultCorner({ result, holeNumber }: { result: HoleResult; holeNumber: 
             justifyContent: 'center',
           }}
         >
-          <Text maxFontSizeMultiplier={1} style={[TYPE.serif, { fontSize: 20, color: P.ink35 }]}>
+          <Text allowFontScaling={false} style={[TYPE.serif, { fontSize: 20, color: P.ink35 }]}>
             —
           </Text>
         </View>
       )}
       {lines.length > 0 && (
-        <Text style={[TYPE.body, { fontSize: 12, lineHeight: 15, color: P.ink }]}>{lines.join('\n')}</Text>
+        <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { fontSize: 12, lineHeight: 15, color: P.ink }]}>{lines.join('\n')}</Text>
       )}
     </View>
   )

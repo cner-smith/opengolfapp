@@ -350,7 +350,7 @@ function PaperCrumb({
             }}
           >
             <Text
-              maxFontSizeMultiplier={1}
+              allowFontScaling={false}
               style={[TYPE.serif, { fontSize: 12, lineHeight: 15, color: ob ? P.raised : P.ink }]}
             >
               {n}
@@ -390,7 +390,7 @@ export function SelectedCrumb({ n }: { n: number | null }) {
           justifyContent: 'center',
         }}
       >
-        <Text maxFontSizeMultiplier={1} style={[TYPE.serif, { fontSize: 15, lineHeight: 18, color: P.raised }]}>
+        <Text allowFontScaling={false} style={[TYPE.serif, { fontSize: 15, lineHeight: 18, color: P.raised }]}>
           {n ?? ''}
         </Text>
       </View>

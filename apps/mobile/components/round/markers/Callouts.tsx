@@ -4,7 +4,7 @@ import type { LatLng, OffscreenArrow } from '../HoleMap.types'
 import { TYPE } from '../../../lib/typography'
 import { Key } from '../../paper/Paper'
 import { Icon } from '../../paper/icons'
-import { P } from '../../paper/tokens'
+import { FONT_CAP, P } from '../../paper/tokens'
 
 function toCoord(l: LatLng): [number, number] {
   return [l.lng, l.lat]
@@ -69,7 +69,7 @@ export function ObCallout({
           faceStyle={{ minHeight: 44, flexDirection: 'row', gap: 8, paddingLeft: 12, paddingRight: 14 }}
         >
           <Icon.warn size={17} color={P.neg} />
-          <Text style={[TYPE.bodyBold, { fontSize: 15, color: P.neg }]}>Went OB?</Text>
+          <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.bodyBold, { fontSize: 15, color: P.neg }]}>Went OB?</Text>
         </Key>
       </View>
     </Mapbox.MarkerView>

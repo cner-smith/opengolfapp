@@ -5,7 +5,7 @@ import Svg, { Path, Rect } from 'react-native-svg'
 import type { LatLng } from '../HoleMap.types'
 import { TYPE } from '../../../lib/typography'
 import { HardShadow } from '../../paper/Paper'
-import { P, R } from '../../paper/tokens'
+import { FONT_CAP, P, R } from '../../paper/tokens'
 
 function toCoord(l: LatLng): [number, number] {
   return [l.lng, l.lat]
@@ -137,7 +137,7 @@ export function CarryTag({
   return (
     <LegTag id="aimDistance" at={at} lefty={lefty} padding={[3, 11, 5, 12]}>
       <View style={{ flexDirection: 'row', alignItems: 'flex-end' }}>
-        <Text style={[TYPE.serif, { fontSize: 32, lineHeight: 34, letterSpacing: -0.9, color: P.ink }]}>{whole}</Text>
+        <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.serif, { fontSize: 32, lineHeight: 34, letterSpacing: -0.9, color: P.ink }]}>{whole}</Text>
         <View
           style={{
             height: colH,
@@ -147,15 +147,15 @@ export function CarryTag({
           }}
         >
           {dec !== undefined && (
-            <Text style={[TYPE.serif, { fontSize: 15, lineHeight: 12, color: P.ink }]}>.{dec}</Text>
+            <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.serif, { fontSize: 15, lineHeight: 12, color: P.ink }]}>.{dec}</Text>
           )}
-          <Text style={[TYPE.kicker, { fontSize: 11, lineHeight: 9, color: P.ink }]}>{unit}</Text>
+          <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.kicker, { fontSize: 11, lineHeight: 9, color: P.ink }]}>{unit}</Text>
         </View>
       </View>
       {lie != null && sg != null && (
-        <Text style={[TYPE.body, { fontSize: 12, lineHeight: 15, color: P.ink }]}>
+        <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { fontSize: 12, lineHeight: 15, color: P.ink }]}>
           {lie} ·{' '}
-          <Text style={{ color: sg < 0 ? P.neg : P.ink }}>
+          <Text maxFontSizeMultiplier={FONT_CAP} style={{ color: sg < 0 ? P.neg : P.ink }}>
             {sg < 0 ? '−' : '+'}
             {Math.abs(sg).toFixed(1)}
           </Text>
@@ -171,10 +171,10 @@ export function RemainingTag({ at, display, lefty }: { at: LatLng; display: stri
   const { whole, dec, unit } = split(display)
   return (
     <LegTag id="remainingDistance" at={at} lefty={lefty} padding={[2, 10, 3, 11]}>
-      <Text style={[TYPE.serif, { fontSize: 22, lineHeight: 26, letterSpacing: -0.5, color: P.ink }]}>
+      <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.serif, { fontSize: 22, lineHeight: 26, letterSpacing: -0.5, color: P.ink }]}>
         {whole}
-        {dec !== undefined && <Text style={{ fontSize: 13, letterSpacing: 0 }}>.{dec}</Text>}
-        <Text style={[TYPE.kicker, { fontSize: 14, letterSpacing: 0 }]}> {unit}</Text>
+        {dec !== undefined && <Text maxFontSizeMultiplier={FONT_CAP} style={{ fontSize: 13, letterSpacing: 0 }}>.{dec}</Text>}
+        <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.kicker, { fontSize: 14, letterSpacing: 0 }]}> {unit}</Text>
       </Text>
     </LegTag>
   )

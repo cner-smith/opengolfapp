@@ -92,6 +92,9 @@ export interface HoleMapProps {
    * leaving a stray one on re-place. Defaults false.
    */
   aimCommitted?: boolean
+  /** Live round is in PUTTING. `phase` stays PLACE_BALL there, so the camera
+   *  needs this to frame the putt when "On the green" moves the ball. */
+  putting?: boolean
   onSetAim: (loc: LatLng) => void
   onSetBall: (loc: LatLng) => void
   /**

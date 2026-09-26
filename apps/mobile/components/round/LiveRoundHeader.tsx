@@ -5,7 +5,7 @@ import { TYPE } from '../../lib/typography'
 import { HardShadow, Key, KeyText, PaperSurface } from '../paper/Paper'
 import { HeroRow } from '../paper/HeroRow'
 import { Icon } from '../paper/icons'
-import { P, R } from '../paper/tokens'
+import { FONT_CAP, P, R } from '../paper/tokens'
 
 const ORDINAL = ['first', 'second', 'third', 'fourth', 'fifth', 'sixth', 'seventh', 'eighth', 'ninth', 'tenth']
 
@@ -41,13 +41,13 @@ export function LiveRoundHeader(p: LiveRoundHeaderProps) {
         <View style={{ flex: 1, alignItems: 'center', paddingVertical: 3 }}>
           {/* Full row width: sized to its content, Android under-measures the
               italic Fraunces title and wraps the number onto a clipped line. */}
-          <Text
+          <Text maxFontSizeMultiplier={FONT_CAP}
             numberOfLines={1}
             style={[TYPE.serif, { alignSelf: 'stretch', textAlign: 'center', fontSize: 24, lineHeight: 28, color: P.ink }]}
           >
             {`Hole ${p.holeNumber}`}
           </Text>
-          <Text style={[TYPE.body, { fontSize: 13, lineHeight: 17, color: P.ink, textAlign: 'center' }]}>
+          <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { fontSize: 13, lineHeight: 17, color: P.ink, textAlign: 'center' }]}>
             Par {p.par}
             {p.yardsLabel ? ` · ${p.yardsLabel}` : ''} · {ordinal} shot
           </Text>
@@ -157,7 +157,7 @@ function MenuRow({
         borderBottomColor: P.line,
       }}
     >
-      <Text style={[TYPE.body, { fontSize: 15, color }]}>{label}</Text>
+      <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { fontSize: 15, color }]}>{label}</Text>
     </Pressable>
   )
 }

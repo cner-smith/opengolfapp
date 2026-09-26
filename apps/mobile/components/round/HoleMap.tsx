@@ -97,6 +97,7 @@ export function HoleMap({
   previousShotObs,
   phase = 'PLACE_BALL',
   aimCommitted = false,
+  putting = false,
   gpsPosition,
   courseCenter,
   holeNumber,
@@ -187,6 +188,7 @@ export function HoleMap({
     // The caller knows where its bottom controls end (the live dock).
     ballInset: aimBallInset ?? 150,
     userGesturedRef,
+    putting,
   })
 
   // Whole-hole framing for the past-round map (#611 §19.2: "fit tee→pin"):

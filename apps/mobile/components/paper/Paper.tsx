@@ -14,7 +14,7 @@ import {
 } from 'react-native'
 import Animated, { Easing, interpolateColor, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated'
 import { TYPE } from '../../lib/typography'
-import { LEDGE, P, R } from './tokens'
+import { FONT_CAP, LEDGE, P, R } from './tokens'
 
 const GRAIN = require('../../assets/grain.png')
 
@@ -223,7 +223,7 @@ export function KeyText({
   numberOfLines?: number
 }) {
   return (
-    <Text
+    <Text maxFontSizeMultiplier={FONT_CAP}
       numberOfLines={numberOfLines}
       style={[
         bold ? TYPE.bodyBold : TYPE.body,
@@ -334,7 +334,7 @@ export function Rocker<T extends string>({
               />
             )}
             {o.icon?.(on)}
-            <Text
+            <Text maxFontSizeMultiplier={FONT_CAP}
               style={[
                 on ? TYPE.bodyBold : TYPE.body,
                 { fontSize, lineHeight: Math.round(fontSize * (stacked ? 1.05 : 1.2)), color: P.ink, textAlign: 'center' },

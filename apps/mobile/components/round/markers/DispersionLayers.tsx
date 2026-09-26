@@ -7,7 +7,7 @@ import type { LatLng } from '../HoleMap.types'
 import { useUnits } from '../../../hooks/useUnits'
 import { TYPE } from '../../../lib/typography'
 import { HardShadow } from '../../paper/Paper'
-import { P } from '../../paper/tokens'
+import { FONT_CAP, P } from '../../paper/tokens'
 
 // The ring, bias line and rods need this many shots to mean anything (§8).
 export const RING_MIN_SHOTS = 10
@@ -210,8 +210,8 @@ function RodTag({ id, at, display }: { id: string; at: LatLng; display: string }
               paddingBottom: 1,
             }}
           >
-            <Text style={[TYPE.serif, { fontSize: 15, lineHeight: 20, color: P.ink }]}>±{num}</Text>
-            <Text style={[TYPE.kicker, { fontSize: 11, color: P.ink }]}> {unit}</Text>
+            <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.serif, { fontSize: 15, lineHeight: 20, color: P.ink }]}>±{num}</Text>
+            <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.kicker, { fontSize: 11, color: P.ink }]}> {unit}</Text>
           </View>
         </HardShadow>
       </View>

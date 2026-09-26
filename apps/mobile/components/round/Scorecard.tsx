@@ -10,7 +10,7 @@ import { TYPE } from '../../lib/typography'
 import { PaperSurface, Rocker } from '../paper/Paper'
 import { GolfMark } from '../paper/GolfMark'
 import { Icon } from '../paper/icons'
-import { P, R } from '../paper/tokens'
+import { FONT_CAP, P, R } from '../paper/tokens'
 
 type HoleRow = Database['public']['Tables']['holes']['Row']
 type HoleScoreRow = Database['public']['Tables']['hole_scores']['Row']
@@ -119,10 +119,10 @@ export function ScorecardModal({
           <GestureDetector gesture={pan}>
             <View style={{ flexDirection: 'row', alignItems: 'center', minHeight: 64, paddingLeft: 22 }}>
               <View style={{ flex: 1, paddingVertical: 8 }}>
-                <Text style={[TYPE.serif, { fontSize: 26, lineHeight: 30, color: P.ink }]}>
+                <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.serif, { fontSize: 26, lineHeight: 30, color: P.ink }]}>
                   {!eighteen ? 'Your card' : nine === 'front' ? 'Front nine' : 'Back nine'}
                 </Text>
-                <Text style={[TYPE.body, { fontSize: 13, color: P.ink }]}>{sub}</Text>
+                <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { fontSize: 13, color: P.ink }]}>{sub}</Text>
               </View>
               <Pressable
                 accessibilityRole="button"
@@ -147,7 +147,7 @@ export function ScorecardModal({
           )}
           {hasSyntheticHoles && !hintDismissed && onChangePar && (
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 22, paddingBottom: 8 }}>
-              <Text style={[TYPE.body, { flex: 1, fontSize: 13, lineHeight: 18, color: P.ink }]}>
+              <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { flex: 1, fontSize: 13, lineHeight: 18, color: P.ink }]}>
                 No course layout found. Par defaults to 4 — tap a par to change it.
               </Text>
               <Pressable accessibilityRole="button" accessibilityLabel="Dismiss notice" onPress={() => setHintDismissed(true)} hitSlop={12}>
@@ -156,10 +156,10 @@ export function ScorecardModal({
             </View>
           )}
           <View style={{ flexDirection: 'row', paddingTop: 8, paddingBottom: 6, paddingHorizontal: 22, borderBottomWidth: 1, borderColor: P.ink }}>
-            <Text style={[TYPE.body, { flex: 1, fontSize: 12, color: P.ink }]}>Hole</Text>
-            <Text style={[TYPE.body, { width: COL.par, textAlign: 'center', fontSize: 12, color: P.ink }]}>Par</Text>
-            <Text style={[TYPE.body, { width: COL.score, textAlign: 'center', fontSize: 12, color: P.ink }]}>Score</Text>
-            <Text style={[TYPE.body, { width: COL.toPar, textAlign: 'right', fontSize: 12, color: P.ink }]}>To par</Text>
+            <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { flex: 1, fontSize: 12, color: P.ink }]}>Hole</Text>
+            <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { width: COL.par, textAlign: 'center', fontSize: 12, color: P.ink }]}>Par</Text>
+            <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { width: COL.score, textAlign: 'center', fontSize: 12, color: P.ink }]}>Score</Text>
+            <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { width: COL.toPar, textAlign: 'right', fontSize: 12, color: P.ink }]}>To par</Text>
           </View>
           <ScrollView style={{ flexShrink: 1 }} showsVerticalScrollIndicator={false}>
             {shown.map(({ h, par, score, run: runAt }) => {
@@ -186,9 +186,9 @@ export function ScorecardModal({
                   {now && (
                     <View style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 4, backgroundColor: P.brass }} />
                   )}
-                  <Text style={[TYPE.body, { flex: 1, fontSize: 15, color: P.ink }]}>
+                  <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { flex: 1, fontSize: 15, color: P.ink }]}>
                     {h.number}
-                    {now && <Text style={[TYPE.serif, { fontSize: 14 }]}>{'   '}you’re here</Text>}
+                    {now && <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.serif, { fontSize: 14 }]}>{'   '}you’re here</Text>}
                   </Text>
                   {parEditable ? (
                     <Pressable
@@ -197,7 +197,7 @@ export function ScorecardModal({
                       onPress={() => onChangePar?.(h.id, par === 3 ? 4 : par === 4 ? 5 : 3)}
                       style={{ width: COL.par, minHeight: 40, alignItems: 'center', justifyContent: 'center' }}
                     >
-                      <Text
+                      <Text maxFontSizeMultiplier={FONT_CAP}
                         style={[
                           TYPE.kicker,
                           { fontSize: 15, color: P.ink, textDecorationLine: 'underline', textDecorationStyle: 'dotted' },
@@ -207,15 +207,15 @@ export function ScorecardModal({
                       </Text>
                     </Pressable>
                   ) : (
-                    <Text style={[TYPE.kicker, { width: COL.par, textAlign: 'center', fontSize: 15, color: P.ink }]}>{par}</Text>
+                    <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.kicker, { width: COL.par, textAlign: 'center', fontSize: 15, color: P.ink }]}>{par}</Text>
                   )}
                   <View style={{ width: COL.score, alignItems: 'center', justifyContent: 'center' }}>
-                    <Text style={[TYPE.serif, { fontSize: 20, lineHeight: 26, color: score != null ? P.ink : P.ink35 }]}>
+                    <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.serif, { fontSize: 20, lineHeight: 26, color: score != null ? P.ink : P.ink35 }]}>
                       {score ?? '—'}
                     </Text>
                     {score != null && <GolfMark toPar={score - par} seed={h.number} animate={fresh.has(`${h.number}:${score}`)} />}
                   </View>
-                  <Text
+                  <Text maxFontSizeMultiplier={FONT_CAP}
                     style={[
                       TYPE.kicker,
                       {
@@ -233,14 +233,14 @@ export function ScorecardModal({
             })}
           </ScrollView>
           <View style={{ flexDirection: 'row', alignItems: 'center', minHeight: 52, paddingHorizontal: 22, borderTopWidth: 1, borderColor: P.ink }}>
-            <Text style={[TYPE.serif, { flex: 1, fontSize: 18, color: P.ink }]}>
+            <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.serif, { flex: 1, fontSize: 18, color: P.ink }]}>
               {!eighteen ? 'Total' : nine === 'front' ? 'Out' : 'In'}
             </Text>
-            <Text style={[TYPE.kicker, { width: COL.par, textAlign: 'center', fontSize: 15, color: P.ink }]}>{sumPar}</Text>
-            <Text style={[TYPE.serif, { width: COL.score, textAlign: 'center', fontSize: 22, color: P.ink }]}>
+            <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.kicker, { width: COL.par, textAlign: 'center', fontSize: 15, color: P.ink }]}>{sumPar}</Text>
+            <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.serif, { width: COL.score, textAlign: 'center', fontSize: 22, color: P.ink }]}>
               {sumScore > 0 ? sumScore : '—'}
             </Text>
-            <Text
+            <Text maxFontSizeMultiplier={FONT_CAP}
               style={[
                 TYPE.kicker,
                 { width: COL.toPar, textAlign: 'right', fontSize: 15, color: sumScore === 0 ? P.ink35 : sumToPar < 0 ? P.neg : P.ink },

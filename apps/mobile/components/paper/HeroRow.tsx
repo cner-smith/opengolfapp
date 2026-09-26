@@ -37,7 +37,7 @@ function HeroNumber({ value, unit }: { value: string; unit: string }) {
   return (
     <View style={{ width: 152, height: m ? Math.ceil(m.base + 3) : 42, opacity: m ? 1 : 0 }}>
       <Text
-        maxFontSizeMultiplier={1}
+        allowFontScaling={false}
         onTextLayout={(e) => {
           const l = e.nativeEvent.lines[0]
           if (l) setM({ w: l.width, base: l.y + l.ascender })
@@ -92,22 +92,22 @@ export function HeroRow({
         ) : (
           <>
             <Text
-              maxFontSizeMultiplier={1}
+              allowFontScaling={false}
               style={[TYPE.serif, { fontSize: S, lineHeight: S * 0.9, letterSpacing: LS, color: P.ink35 }]}
             >
               —
             </Text>
-            <Text style={[TYPE.body, { fontSize: 12, lineHeight: 15, color: P.ink, paddingBottom: 4 }]}>
+            <Text allowFontScaling={false} style={[TYPE.body, { fontSize: 12, lineHeight: 15, color: P.ink, paddingBottom: 4 }]}>
               {'no pin\nset yet'}
             </Text>
           </>
         )}
       </View>
       <View style={{ flex: 1, minWidth: 0, paddingLeft: 8, paddingBottom: 3 }}>
-        <Text style={[TYPE.serif, { fontSize: 22, lineHeight: 24, color: expected == null ? P.ink35 : P.ink }]}>
+        <Text allowFontScaling={false} style={[TYPE.serif, { fontSize: 22, lineHeight: 24, color: expected == null ? P.ink35 : P.ink }]}>
           {expected == null ? '—' : expected.toFixed(1)}
         </Text>
-        <Text style={[TYPE.body, { fontSize: 12, lineHeight: 15, color: P.ink }]}>strokes to hole out</Text>
+        <Text allowFontScaling={false} style={[TYPE.body, { fontSize: 12, lineHeight: 15, color: P.ink }]}>strokes to hole out</Text>
       </View>
       {trailing}
     </View>

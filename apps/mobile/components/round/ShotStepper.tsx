@@ -2,7 +2,7 @@ import { Text, View } from 'react-native'
 import { TYPE } from '../../lib/typography'
 import { Key, KeyText } from '../paper/Paper'
 import { Icon } from '../paper/icons'
-import { GAP, P } from '../paper/tokens'
+import { FONT_CAP, GAP, P } from '../paper/tokens'
 
 export interface ShotStepperProps {
   /** 0-based index of the active shot within the hole's played shots. */
@@ -29,7 +29,7 @@ export function ShotStepper({ index, count, onPrev, onNext, onDelete, deleteDisa
       <Key accessibilityLabel="Previous shot" onPress={onPrev} disabled={atStart} faceStyle={{ width: 44, height: 46 }}>
         <Icon.prev size={20} color={atStart ? P.ink35 : P.ink} />
       </Key>
-      <Text style={[TYPE.serif, { flex: 1, textAlign: 'center', fontSize: 18, color: P.ink }]}>
+      <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.serif, { flex: 1, textAlign: 'center', fontSize: 18, color: P.ink }]}>
         Shot {displayIndex + 1} of {count}
       </Text>
       <Key accessibilityLabel="Next shot" onPress={onNext} disabled={atEnd} faceStyle={{ width: 44, height: 46 }}>

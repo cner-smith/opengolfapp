@@ -52,6 +52,7 @@ interface UseHoleCameraOpts {
   /** Set true by the map when the player pans/pinches; a dock-height change
    *  re-fits the aim view only until then. */
   userGesturedRef: RefObject<boolean>
+  putting: boolean
 }
 
 // The flag icon's top, dp above the pin coordinate: (42 − 0.6) × 38 / 48 for
@@ -80,6 +81,7 @@ export function useHoleCamera({
   mapHeight,
   ballInset,
   userGesturedRef,
+  putting,
 }: UseHoleCameraOpts) {
   const cameraRef = useRef<Mapbox.Camera>(null)
   const cameraInitialized = useRef(false)
@@ -296,6 +298,14 @@ export function useHoleCamera({
     }
     prevPhaseRef.current = phase
   }, [phase])
+  // "On the green" moves the ball and enters putting without leaving
+  // PLACE_BALL, after the flag above was already spent on the post-aim ball
+  // — so the map stayed wherever the last shot was. Re-arm it on entry.
+  const prevPuttingRef = useRef(putting)
+  useEffect(() => {
+    if (putting && !prevPuttingRef.current) reframePlaceBallRef.current = true
+    prevPuttingRef.current = putting
+  }, [putting])
 
   useEffect(() => {
     if (!reframePlaceBallRef.current) return
@@ -328,7 +338,7 @@ export function useHoleCamera({
     } catch {
       // native camera released — retry on next ball update
     }
-  }, [ball?.lat, ball?.lng, phase])
+  }, [ball?.lat, ball?.lng, phase, putting])
 
   // SET_AIM: rotate the camera so direction-of-play (ball → pin) is toward
   // the top of the screen. Every shot frames by rule (#899): the higher of

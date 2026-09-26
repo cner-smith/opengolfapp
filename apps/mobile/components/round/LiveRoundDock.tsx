@@ -20,7 +20,7 @@ import { Em, NoPinVoice, Primary, Secondary, SmallKey, Voice } from '../paper/Do
 import { Icon } from '../paper/icons'
 import { marksPath, pencilEllipse } from '../paper/pencil'
 import { haptic } from '../../lib/haptics'
-import { GAP, MARGIN, P, R } from '../paper/tokens'
+import { FONT_CAP, GAP, MARGIN, P, R } from '../paper/tokens'
 import { RulerCard } from './HoleMapOverlays'
 import type { RoundState } from './hole/types'
 import type { OffscreenArrow } from './HoleMap.types'
@@ -427,7 +427,7 @@ function ClubWheel({ rows, selected, auto, onPick }: WheelProps) {
           faceStyle={{ minHeight: 44, flexDirection: 'row', gap: 5, paddingHorizontal: 4 }}
         >
           <Icon.reset size={15} color={P.warn} />
-          <Text numberOfLines={1} style={[TYPE.body, { fontSize: 13, color: P.ink }]}>
+          <Text allowFontScaling={false} numberOfLines={1} style={[TYPE.body, { fontSize: 13, color: P.ink }]}>
             Back to auto
           </Text>
         </Key>
@@ -475,10 +475,10 @@ function ClubWheel({ rows, selected, auto, onPick }: WheelProps) {
             <>
               <AutoRing manual={manual} top={ruleTop - 8 - 9} />
               <Animated.View pointerEvents="none" style={[tabBox(ruleTop, false), autoTabStyle]}>
-                <Text style={[TYPE.kicker, { fontSize: 11, lineHeight: 13, letterSpacing: 1.2, color: P.ink }]}>AUTO</Text>
+                <Text allowFontScaling={false} style={[TYPE.kicker, { fontSize: 11, lineHeight: 13, letterSpacing: 1.2, color: P.ink }]}>AUTO</Text>
               </Animated.View>
               <Animated.View pointerEvents="none" style={[tabBox(ruleTop, true), manualTabStyle]}>
-                <Text style={[TYPE.body, { fontSize: 11, lineHeight: 13, color: P.ink }]}>just this shot</Text>
+                <Text allowFontScaling={false} numberOfLines={1} style={[TYPE.body, { fontSize: 11, lineHeight: 13, color: P.ink }]}>just this shot</Text>
               </Animated.View>
             </>
           )}
@@ -585,7 +585,7 @@ function WheelRowView({
     >
       <Animated.View style={[{ transformOrigin: 'left center' }, scaleStyle]}>
         {/* A long custom name ("wedge") steps down so the meta keeps its room. */}
-        <Text
+        <Text allowFontScaling={false}
           numberOfLines={1}
           style={[TYPE.serif, { fontSize: row.label.length > 3 ? 24 : 32, lineHeight: 38, color: row.sparse ? P.ink45 : P.ink }]}
         >
@@ -595,7 +595,7 @@ function WheelRowView({
       <Animated.View style={[{ marginLeft: 'auto', alignItems: 'flex-end', transformOrigin: 'right center' }, scaleStyle]}>
         {row.sparse ? (
           <>
-            <Text style={[TYPE.body, { fontSize: 12, lineHeight: 15, color: P.ink }]}>{MIN_SHOTS - row.shots} more</Text>
+            <Text allowFontScaling={false} style={[TYPE.body, { fontSize: 12, lineHeight: 15, color: P.ink }]}>{MIN_SHOTS - row.shots} more</Text>
             <View style={{ flexDirection: 'row', gap: 3, marginTop: 2 }}>
               {Array.from({ length: MIN_SHOTS }, (_, i) => (
                 <View
@@ -608,12 +608,12 @@ function WheelRowView({
         ) : (
           <>
             {carry != null && (
-              <Text numberOfLines={1} style={[TYPE.serif, { fontSize: 20, lineHeight: 24, color: P.ink }]}>
+              <Text allowFontScaling={false} numberOfLines={1} style={[TYPE.serif, { fontSize: 20, lineHeight: 24, color: P.ink }]}>
                 {num}
-                <Text style={[TYPE.kicker, { fontSize: 13 }]}>{'\u2009'}{unit}</Text>
+                <Text allowFontScaling={false} style={[TYPE.kicker, { fontSize: 13 }]}>{'\u2009'}{unit}</Text>
               </Text>
             )}
-            <Text numberOfLines={1} style={[TYPE.body, { fontSize: 12, lineHeight: 15, color: P.ink }]}>
+            <Text allowFontScaling={false} numberOfLines={1} style={[TYPE.body, { fontSize: 12, lineHeight: 15, color: P.ink }]}>
               {autoPick ? 'auto pick' : `${row.shots} shots`}
             </Text>
           </>

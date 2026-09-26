@@ -30,3 +30,7 @@ export const R = 3
 export const LEDGE = 3
 export const MARGIN = 12
 export const GAP = 8
+
+// Large-text cap for the fixed-size paper chrome (#808). React 19 ignores
+// Text.defaultProps on function components, so each Text carries it.
+export const FONT_CAP = 1.3

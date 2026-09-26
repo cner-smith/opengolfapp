@@ -688,6 +688,7 @@ export default function LiveRoundSession({
             finalState.roundState === 'SHOT_DETAIL' ||
             finalState.roundState === 'PUTTING'
           }
+          putting={finalState.roundState === 'PUTTING'}
           showLocationPuck={
             finalState.roundState !== 'SHOT_DETAIL' &&
             finalState.roundState !== 'PUTTING' &&
