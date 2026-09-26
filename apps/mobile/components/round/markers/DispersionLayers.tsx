@@ -8,7 +8,6 @@ import { useUnits } from '../../../hooks/useUnits'
 import { TYPE } from '../../../lib/typography'
 import { HardShadow } from '../../paper/Paper'
 import { P } from '../../paper/tokens'
-import { useTagMode } from './TagModeMock'
 
 // The ring, bias line and rods need this many shots to mean anything (§8).
 export const RING_MIN_SHOTS = 10
@@ -32,8 +31,6 @@ export interface PatternOverlay {
 // bias line, and two ground-space rods stating the true spread.
 export function DispersionLayers({ ball, aim, pattern }: { ball: LatLng; aim: LatLng; pattern: PatternOverlay }) {
   const { toDisplay } = useUnits()
-  const mode = useTagMode()
-  const rodTags = mode === '0' || mode === '2' || mode === '4'
   const dots = useMemo(() => {
     const pts = pattern.points.slice(0, MAX_DOTS)
     const fc = scatterGeoJSON(ball, aim, pts)
@@ -185,8 +182,8 @@ export function DispersionLayers({ ball, aim, pattern }: { ball: LatLng; aim: La
               style={{ lineColor: P.ink, lineWidth: 3, lineOpacity: late ? 1 : 0, lineOpacityTransition: FADE }}
             />
           </Mapbox.ShapeSource>
-          {late && rodTags && <RodTag id="patternLengthTag" at={ring.rods.lengthTag} display={toDisplay(ring.along68)} />}
-          {late && rodTags && <RodTag id="patternWidthTag" at={ring.rods.widthTag} display={toDisplay(ring.perp68)} />}
+          {late && <RodTag id="patternLengthTag" at={ring.rods.lengthTag} display={toDisplay(ring.along68)} />}
+          {late && <RodTag id="patternWidthTag" at={ring.rods.widthTag} display={toDisplay(ring.perp68)} />}
         </>
       )}
     </>

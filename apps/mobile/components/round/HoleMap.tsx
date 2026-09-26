@@ -19,7 +19,6 @@ import { BreadcrumbLayers, SelectedCrumb } from './markers/BreadcrumbLayers'
 import { CarryTag, RemainingTag } from './markers/DistanceTags'
 import { DispersionLayers, RING_MIN_SHOTS } from './markers/DispersionLayers'
 import { AimOverlay } from './markers/AimOverlay'
-import { CalloutLane, TagModeChip, useTagMode } from './markers/TagModeMock'
 import { ObCallout, offscreenArrow } from './markers/Callouts'
 import { useHoleCamera } from './hooks/useHoleCamera'
 import { TeeBadge } from './HoleMapOverlays'
@@ -270,20 +269,17 @@ export function HoleMap({
   }, [gpsPosition, cameraRef, isPlaceBallPhase, onRecenterBall])
   // The recenter key lives in the caller's dock (#611 §5); hand it the action.
   if (recenterRef) recenterRef.current = recenterOnGps
-  const projectInternalRef = useRef<((pts: LatLng[]) => Promise<[number, number][] | null>) | null>(null)
-  projectInternalRef.current = async (pts) => {
-    const map = mapViewRef.current
-    if (!map) return null
-    try {
-      return await Promise.all(pts.map((p) => map.getPointInView(toCoord(p)) as Promise<[number, number]>))
-    } catch {
-      return null
+  if (projectRef) {
+    projectRef.current = async (pts) => {
+      const map = mapViewRef.current
+      if (!map) return null
+      try {
+        return await Promise.all(pts.map((p) => map.getPointInView(toCoord(p)) as Promise<[number, number]>))
+      } catch {
+        return null
+      }
     }
   }
-  if (projectRef) projectRef.current = projectInternalRef.current
-  // THROWAWAY (declutter mock): the tag mode, and a tick per settled camera.
-  const tagMode = useTagMode()
-  const [camIdle, setCamIdle] = useState(0)
 
   const { aimGhosts, aimGhostFeatures } = useAimGhosts({
     ball,
@@ -618,13 +614,6 @@ export function HoleMap({
     if (isAimPhase && tapToSetAim) onSetAim(c)
   }
 
-  const remainingText =
-    aimToPinYards == null
-      ? null
-      : aimToPinYards <= NEAR_GREEN_YARDS
-        ? toDisplayFt(aimToPinYards * 3)
-        : toDisplay(aimToPinYards, 1)
-
   return (
     <GestureDetector gesture={longPress}>
       <View
@@ -649,7 +638,6 @@ export function HoleMap({
               settledCamRef.current = { lng, lat, heading: state.properties.heading }
             }
             void measureLastShot()
-            if (tagMode === '3') setCamIdle((n) => n + 1)
           }}
           // Subscribed only while needed (it fires every frame): the past
           // round's callout, and the aim view's gesture latch.
@@ -861,15 +849,9 @@ export function HoleMap({
           {!pastCrumbs &&
             aimMidpoint &&
             aimDistanceYards !== null &&
-            aimDistanceYards >= MIN_LABEL_LEG_YARDS &&
-            tagMode !== '3' && (
+            aimDistanceYards >= MIN_LABEL_LEG_YARDS && (
             <CarryTag
-              at={
-                tagMode === '2' && ball && aim
-                  ? { lat: ball.lat + (aim.lat - ball.lat) * 0.3, lng: ball.lng + (aim.lng - ball.lng) * 0.3 }
-                  : aimMidpoint
-              }
-              then={tagMode === '2' && remainingText ? remainingText : undefined}
+              at={aimMidpoint}
               display={toDisplay(aimDistanceYards, 1)}
               lie={liveStrokes.lieLabel}
               sg={liveStrokes.sg}
@@ -882,13 +864,14 @@ export function HoleMap({
           {!pastCrumbs &&
             remainingMidpoint &&
             aimToPinYards !== null &&
-            aimToPinYards >= MIN_LABEL_LEG_YARDS &&
-            remainingText &&
-            tagMode !== '2' &&
-            tagMode !== '3' && (
+            aimToPinYards >= MIN_LABEL_LEG_YARDS && (
             <RemainingTag
               at={remainingMidpoint}
-              display={remainingText}
+              display={
+                aimToPinYards <= NEAR_GREEN_YARDS
+                  ? toDisplayFt(aimToPinYards * 3)
+                  : toDisplay(aimToPinYards, 1)
+              }
               lefty={lefty}
             />
           )}
@@ -942,23 +925,6 @@ export function HoleMap({
             <ObCallout at={lastShot} onPress={obCallout.onPress} onWidth={setObPillWidth} />
           )}
         </Mapbox.MapView>
-        {tagMode === '3' && showAim && ball && aim && !pastCrumbs && (
-          <CalloutLane
-            ball={ball}
-            aim={aim}
-            pattern={pattern ?? null}
-            carryAt={aimMidpoint}
-            carryText={aimDistanceYards != null ? toDisplay(aimDistanceYards, 1) : null}
-            carrySub={liveStrokes.lieLabel}
-            remainingAt={remainingMidpoint}
-            remainingText={remainingText}
-            lefty={lefty}
-            projectRef={projectInternalRef}
-            camKey={camIdle}
-            mapH={mapSize?.h ?? 0}
-          />
-        )}
-        {showAim && ball && aim && !pastCrumbs && <TagModeChip />}
 
       </View>
     </GestureDetector>
