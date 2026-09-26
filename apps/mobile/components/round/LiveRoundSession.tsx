@@ -1,57 +1,47 @@
-import { useEffect, useMemo, useState } from 'react'
-import {
-  ActivityIndicator,
-  Alert,
-  BackHandler,
-  Pressable,
-  Text,
-  View,
-} from 'react-native'
-import { PressableTouch } from '../ui/PressableTouch'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { ActivityIndicator, Alert, BackHandler, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { useRouter } from 'expo-router'
+import { useFocusEffect, useRouter } from 'expo-router'
 import { HoleMap, type LatLng } from './HoleMap'
 import type { OffscreenArrow } from './HoleMap.types'
 import { HoleReviewSheet } from './HoleReviewSheet'
 import { ShotStepper } from './ShotStepper'
 import type { ShotLoggerValue } from './ShotLogger'
 import {
+  DEFAULT_BAG,
   DEFAULT_HANDICAP,
+  NEAR_GREEN_YARDS,
   bearingDegrees,
   buildInitialRows,
   destinationYards,
+  formatClubLabel,
+  getExpectedStrokes,
   type CaptureMode,
+  type Club,
 } from '@oga/core'
 import { getProfile } from '@oga/supabase'
 import { supabase } from '../../lib/supabase'
 import { distanceYards } from '../../lib/maps'
 import { useAuth } from '../../hooks/useAuth'
 import { useClubDispersion } from './hole/useClubDispersion'
-import { ConfirmDialog } from '../ui/ConfirmDialog'
+import { useUserBag } from '../../hooks/useUserBag'
 import { useUnits } from '../../hooks/useUnits'
-import { TYPE } from '../../lib/typography'
-import {
-  FALLBACK_CENTER,
-  HOLE_SCOPED_DIALOGS,
-  KICKER,
-  type ActiveDialog,
-} from './hole/types'
+import { getLeftHand } from '../../lib/leftHand'
+import { FALLBACK_CENTER, HOLE_SCOPED_DIALOGS, type ActiveDialog } from './hole/types'
 import { useHoleData } from './hole/useHoleData'
 import { useHoleState } from './hole/useHoleState'
 import { useShotActions } from './hole/useShotActions'
 import { HoleModals } from './hole/HoleModals'
-import { MapBottomChrome } from './MapBottomChrome'
+import { LiveRoundDock, MIN_BOTTOM_STRIP } from './LiveRoundDock'
 import { LiveRoundHeader, RoundOptionsMenu } from './LiveRoundHeader'
-import { LeftToolbar, RightRail } from './HoleMapOverlays'
+import { APPR_RULER_FEET, TEE_RULER_YARDS } from './HoleMapOverlays'
+import { LiveRoundError } from './LiveRoundError'
+import { P } from '../paper/tokens'
 
-// Distance-rail presets (Shot Pattern refs ux-10/11). Tee = arc TOTAL width
-// in yards (half each side of the aim line); Appr = circle diameter in feet
-// (greens use feet). Fixed presets, not a club picker. Shown in their native
-// unit even on a meters profile — these are discrete golf-standard widths,
-// not measured distances; a metric preset set is a deferred follow-up.
-const TEE_RAIL_YARDS = [95, 85, 75, 65] as const
-const APPR_RAIL_FEET = [50, 36, 30, 24] as const
 const FEET_PER_YARD = 3
+// Aim framing (#611 §13): the ball sits this far above the dock top, so its
+// 44 dp grab disc clears the footer by 12.
+const BALL_ABOVE_DOCK = 34
 
 // Half-width of the two-dot tee box, each side of the line of play (matches
 // PastRoundMap's dual-dot tee). Place the drive between the dots.
@@ -89,7 +79,7 @@ export default function LiveRoundSession({
   const isPastMode = mode === 'past'
   const router = useRouter()
   const { user } = useAuth()
-  const { toDisplay } = useUnits()
+  const { unit, toDisplay } = useUnits()
   const insets = useSafeAreaInsets()
 
   const [holeNumber, setHoleNumber] = useState(initialHoleNumber)
@@ -128,10 +118,17 @@ export default function LiveRoundSession({
   // Where the most recent shot's marker is when it's off-screen (HoleMap
   // measures it) — picks the OB prompt's form below (#895 B2).
   const [lastShotArrow, setLastShotArrow] = useState<OffscreenArrow | null>(null)
-  // MapBottomChrome's measured height — the map controls stack above it.
-  const [chromeHeight, setChromeHeight] = useState(0)
-  // The toolbars keep their thumb-reach spot unless the chrome grows into it.
-  const toolbarBottom = Math.max(150, chromeHeight + 12)
+  // The dock footer's measured height — the aim frame keeps the ball above it.
+  const [footerHeight, setFooterHeight] = useState(0)
+  const recenterRef = useRef<(() => void) | null>(null)
+  // Left-hand layout (§12), device-local; re-read on focus since Profile is
+  // a tab away while this screen stays mounted.
+  const [lefty, setLefty] = useState(false)
+  useFocusEffect(
+    useCallback(() => {
+      void getLeftHand().then(setLefty)
+    }, []),
+  )
   // Aim overlay shape + size (T3). Tee → arc band, Appr → circle ring; the
   // rail index sizes each, kept per-mode so switching modes preserves the
   // other's pick. Default Tee, widest rail.
@@ -267,7 +264,8 @@ export default function LiveRoundSession({
   // The overlay shows the club whose median carry best matches the current
   // ball→aim distance; a tee shot with no aim yet falls back to the longest
   // club. Clubs with too little data simply produce no overlay (null).
-  const { selectClub } = useClubDispersion(user?.id)
+  const { selectClub, byClub } = useClubDispersion(user?.id)
+  const { bag } = useUserBag({ seedIfEmpty: true })
   // The dots' club is chosen by the SHOT distance (ball→pin), not ball→aim —
   // so nudging the aim doesn't swap clubs and make the pattern flicker. The
   // dots are still PLACED around the aim (in HoleMap); only WHICH club's
@@ -290,23 +288,12 @@ export default function LiveRoundSession({
   // persisted putt_distance_ft on Made/Missed.
   const puttDistanceFt =
     ballToPinYards != null ? Math.round(ballToPinYards * 3) : null
-  // Single-color dispersion dots for the selected club (left-toolbar toggle).
-  // Computed only when the dots are shown; sparse clubs → null (no dots).
-  const dispersionPoints = useMemo(() => {
-    if (!dotsVisible) return null
-    const selected = selectClub(ballToPinYards)
-    return selected ? selected.dispersion.points : null
-  }, [dotsVisible, selectClub, ballToPinYards])
 
   // Overlay sizing from the active rail pick (fallbacks guard the indexed
   // access). Arc width = the yard preset; circle radius = diameter-ft ÷ 2 ÷ 3.
-  const arcWidthYards = TEE_RAIL_YARDS[teeRailIdx] ?? TEE_RAIL_YARDS[0]
-  const circleDiaFeet = APPR_RAIL_FEET[apprRailIdx] ?? APPR_RAIL_FEET[0]
+  const arcWidthYards = TEE_RULER_YARDS[teeRailIdx] ?? TEE_RULER_YARDS[0]
+  const circleDiaFeet = APPR_RULER_FEET[apprRailIdx] ?? APPR_RULER_FEET[0]
   const circleRadiusYards = circleDiaFeet / 2 / FEET_PER_YARD
-  const railLabels =
-    overlayMode === 'tee'
-      ? TEE_RAIL_YARDS.map((y) => `${y} yd`)
-      : APPR_RAIL_FEET.map((f) => `${f} ft`)
   const railIndex = overlayMode === 'tee' ? teeRailIdx : apprRailIdx
   const selectRail = (i: number) =>
     overlayMode === 'tee' ? setTeeRailIdx(i) : setApprRailIdx(i)
@@ -330,10 +317,64 @@ export default function LiveRoundSession({
     }
   }, [user?.id])
 
+  // Header hero (§3): ball → pin with one decimal, in feet (or metres) while
+  // putting, plus expected strokes to hole out from there.
+  const putting = finalState.roundState === 'PUTTING'
+  const heroDistance = useMemo(() => {
+    if (ballToPinYards == null) return null
+    const text =
+      putting && unit !== 'meters'
+        ? `${(ballToPinYards * FEET_PER_YARD).toFixed(1)} ft`
+        : toDisplay(ballToPinYards, 1)
+    const [value = '', u = ''] = text.split(' ')
+    return { value, unit: u }
+  }, [ballToPinYards, putting, unit, toDisplay])
+  const expectedStrokes =
+    ballToPinYards == null
+      ? null
+      : putting
+        ? getExpectedStrokes('putting', undefined, ballToPinYards * FEET_PER_YARD, handicap)
+        : getExpectedStrokes(
+            ballToPinYards <= NEAR_GREEN_YARDS ? 'around_green' : 'approach',
+            Math.round(ballToPinYards),
+            undefined,
+            handicap,
+          )
+
   const totalShotsThisHole =
     data.remoteShotCount + data.localShotCount > 0
       ? data.remoteShotCount + data.localShotCount
       : 0
+
+  // Club wheel (#611 §4): the bag minus the putter, one row per club type.
+  // It opens on the auto pick every shot; a manual pick lasts one shot.
+  const [clubOverride, setClubOverride] = useState<Club | null>(null)
+  useEffect(() => setClubOverride(null), [holeNumber, totalShotsThisHole])
+  const wheelRows = useMemo(() => {
+    const seen = new Set<string>()
+    return (bag.length > 0 ? bag : DEFAULT_BAG)
+      .filter((c) => c.club_type !== 'putter' && !seen.has(c.club_type) && !!seen.add(c.club_type))
+      .map((c) => {
+        const d = byClub.get(c.club_type as Club)
+        return {
+          club: c.club_type as Club,
+          label: formatClubLabel(c),
+          carryYards: d?.medianCarryYards ?? null,
+          shots: d?.points.length ?? 0,
+          sparse: !d?.dispersion,
+        }
+      })
+  }, [bag, byClub])
+  const autoClub = useMemo(
+    () => selectClub(ballToPinYards, new Set(wheelRows.map((r) => r.club)))?.club ?? null,
+    [selectClub, ballToPinYards, wheelRows],
+  )
+  const wheelClub = clubOverride ?? autoClub ?? wheelRows[0]?.club ?? null
+  // The Pattern key draws the wheel club's shots around the aim.
+  const pattern = useMemo(() => {
+    const d = dotsVisible && wheelClub ? byClub.get(wheelClub) : undefined
+    return d ? { points: d.points, dispersion: d.dispersion } : null
+  }, [dotsVisible, wheelClub, byClub])
 
   // Manual ball placement: an explicit override of the GPS-tracked marker.
   // Freeze GPS updates for this PLACE_BALL cycle and re-anchor the Kalman
@@ -526,137 +567,31 @@ export default function LiveRoundSession({
     actions.editHoleOnMap()
   }
 
-  if (data.loading) {
+  if (data.loading || data.error || !data.round || !data.currentHole || !data.currentHoleScore) {
     return (
-      <View
-        style={{
-          flex: 1,
-          alignItems: 'center',
-          justifyContent: 'center',
-          backgroundColor: '#F2EEE5',
-        }}
-      >
-        <ActivityIndicator color="#1F3D2C" />
-      </View>
-    )
-  }
-  if (data.error || !data.round || !data.currentHole || !data.currentHoleScore) {
-    const headline = data.error
-      ? 'Something went wrong loading this round.'
-      : `Hole ${holeNumber} isn't set up for this round yet.`
-    const subline = data.error
-      ? 'Check your connection and try again, or leave and resume this round later.'
-      : 'Try again, or leave and pick this round back up from the home screen.'
-    return (
-      <View
-        style={{
-          flex: 1,
-          alignItems: 'center',
-          justifyContent: 'center',
-          backgroundColor: '#F2EEE5',
-          padding: 22,
-        }}
-      >
-        <Text
-          style={[
-            TYPE.serif,
-            {
-              color: '#1C211C',
-              fontSize: 20,
-              textAlign: 'center',
-              marginBottom: 10,
-            },
-          ]}
-        >
-          {headline}
-        </Text>
-        <Text
-          style={[
-            TYPE.body,
-            {
-              color: '#5C6356',
-              fontSize: 13,
-              lineHeight: 18,
-              textAlign: 'center',
-              marginBottom: 22,
-            },
-          ]}
-        >
-          {subline}
-        </Text>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Try again"
-          onPress={data.loadAll}
-          style={{
-            borderWidth: 1,
-            borderColor: '#1F3D2C',
-            borderRadius: 2,
-            paddingVertical: 12,
-            paddingHorizontal: 22,
-            marginBottom: 10,
-          }}
-        >
-          <Text
-            style={[
-              TYPE.bodyBold,
-              {
-                color: '#1F3D2C',
-                fontSize: 13,
-                fontWeight: '600',
-                letterSpacing: 0.3,
-              },
-            ]}
-          >
-            Try again
-          </Text>
-        </Pressable>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Leave and go to the home screen"
-          onPress={() => setActiveDialog('exit')}
-          style={{
-            backgroundColor: '#5C6356',
-            borderRadius: 2,
-            paddingVertical: 14,
-            paddingHorizontal: 24,
-          }}
-        >
-          <Text
-            style={[
-              TYPE.bodyBold,
-              {
-                color: '#F2EEE5',
-                fontSize: 14,
-                fontWeight: '600',
-                letterSpacing: 0.3,
-              },
-            ]}
-          >
-            Leave to home
-          </Text>
-        </Pressable>
-        <ConfirmDialog
-          visible={activeDialog === 'exit'}
-          title="Leave this round?"
-          message="Your round is saved — you can resume it from the home screen."
-          confirmLabel="Leave"
-          cancelLabel="Stay"
-          onConfirm={actions.handleExitFromError}
-          onCancel={() => setActiveDialog(null)}
-        />
-      </View>
+      <LiveRoundError
+        loading={data.loading}
+        error={!!data.error}
+        holeNumber={holeNumber}
+        onRetry={data.loadAll}
+        exitOpen={activeDialog === 'exit'}
+        onAskExit={() => setActiveDialog('exit')}
+        onCancelExit={() => setActiveDialog(null)}
+        onConfirmExit={actions.handleExitFromError}
+      />
     )
   }
 
   return (
-    <View style={{ flex: 1, backgroundColor: '#F2EEE5' }}>
+    <View style={{ flex: 1, backgroundColor: P.chrome }}>
       <LiveRoundHeader
         holeNumber={holeNumber}
         holeCount={data.holeCount}
         par={data.resolvedHole?.par ?? data.currentHole.par}
         yardsLabel={data.resolvedHole?.yards ? toDisplay(data.resolvedHole.yards) : null}
         shotNumber={data.shotNumber}
+        distance={heroDistance}
+        expected={expectedStrokes}
         onLeave={() => setActiveDialog('leave')}
         onPrev={() => actions.navigateHole(-1)}
         onNext={() => actions.navigateHole(1)}
@@ -676,11 +611,10 @@ export default function LiveRoundSession({
           overlayMode={overlayMode}
           arcWidthYards={arcWidthYards}
           circleRadiusYards={circleRadiusYards}
-          dotsVisible={dotsVisible}
-          dispersionPoints={dispersionPoints}
+          pattern={pattern}
           obCallout={
-            obPromptActive
-              ? { isOb: actions.lastShotIsOb, onPress: () => void actions.markLastShotOb() }
+            obPromptActive && !actions.lastShotIsOb
+              ? { onPress: () => void actions.markLastShotOb() }
               : null
           }
           onLastShotOffscreen={setLastShotArrow}
@@ -729,8 +663,9 @@ export default function LiveRoundSession({
           }
           tapToPlaceBall={!editMode}
           focusOn={editMode ? data.previousShots[activeShotIdx] ?? null : null}
-          showRecenterButton={!editMode}
-          bottomChromeHeight={chromeHeight}
+          recenterRef={recenterRef}
+          lefty={lefty}
+          aimBallInset={Math.max(insets.bottom, MIN_BOTTOM_STRIP) + footerHeight + BALL_ABOVE_DOCK}
           onSetAim={(loc) => {
             // A user drag / long-press is an explicit aim — mark it touched so
             // it persists (an untouched auto-spawn suggestion is dropped on
@@ -753,70 +688,61 @@ export default function LiveRoundSession({
           }}
           onPlacePin={actions.persistRoundPin}
         />
-        {finalState.aimHintVisible && (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Dismiss aim point hint"
-            onPress={() => finalState.setAimHintVisible(false)}
-            style={{
-              position: 'absolute',
-              // Tracks the header offset (was 48 = ~24dp status bar + 24) so
-              // it shifts down with the header on notched devices (#494).
-              top: insets.top + 24,
-              left: 12,
-              right: 12,
-              backgroundColor: 'rgba(28,33,28,0.92)',
-              borderColor: 'rgba(159,149,128,0.6)',
-              borderWidth: 1,
-              borderRadius: 4,
-              paddingHorizontal: 14,
-              paddingVertical: 10,
-            }}
-          >
-            <Text style={[TYPE.body, { color: '#F2EEE5', fontSize: 13, lineHeight: 18 }]}>
-              Aim point = start line. Drag to adjust.
-            </Text>
-          </Pressable>
-        )}
-        <LeftToolbar
-          dotsVisible={dotsVisible}
-          onToggleDots={() => setDotsVisible((v) => !v)}
-          onPlacePin={() => setPinPlacementOpen(true)}
-          pinMode={pinPlacementOpen}
-          bottom={toolbarBottom}
-        />
-        {/* Tee/Appr + distance rail — appears once an aim exists, hidden
-            during pin placement so it doesn't fight that flow. */}
-        {finalState.aim && !pinPlacementOpen && (
-          <RightRail
-            mode={overlayMode}
-            onSetMode={setOverlayMode}
-            railLabels={railLabels}
-            railIndex={railIndex}
-            onSelectRail={selectRail}
-            bottom={toolbarBottom}
-          />
-        )}
-        <MapBottomChrome
+        <LiveRoundDock
           roundState={finalState.roundState}
           pinPlacementOpen={pinPlacementOpen}
+          hasPin={(data.roundPin ?? data.storedPin) != null}
           ball={finalState.ball}
           aim={finalState.aim}
           saving={actions.saving}
-          roundPin={data.roundPin}
           hasGps={finalState.gpsPosition != null}
           ballFromGps={
-            !isPastMode &&
-            finalState.gpsPosition != null &&
-            finalState.ball != null &&
-            !ballMoved
+            !isPastMode && finalState.gpsPosition != null && finalState.ball != null && !ballMoved
           }
           isRevisitingPlayedHole={finalState.isRevisitingPlayedHole}
-          editMode={editMode}
           totalShotsThisHole={totalShotsThisHole}
           finishesRound={actions.finishesRound}
+          lefty={lefty}
+          // Played-hole edit surface (Step 3) — in the footer in place of the
+          // bottom row. Hole nav is in the header (#901).
+          editStepper={
+            editMode ? (
+              <ShotStepper
+                index={activeShotIdx}
+                count={data.previousShots.length}
+                onPrev={() => setActiveShotIdx((i) => Math.max(0, i - 1))}
+                onNext={() => setActiveShotIdx((i) => Math.min(data.previousShots.length - 1, i + 1))}
+                onDelete={handleDeleteActiveShot}
+                deleteDisabled={data.previousShots.length === 0}
+              />
+            ) : null
+          }
+          patternOn={dotsVisible}
+          onTogglePattern={() => setDotsVisible((v) => !v)}
+          wheel={{
+            rows: wheelRows,
+            selected: wheelClub,
+            auto: autoClub,
+            onPick: (c) => setClubOverride(c === autoClub ? null : c),
+          }}
+          onTogglePin={() => setPinPlacementOpen((o) => !o)}
+          overlayMode={overlayMode}
+          onSetOverlayMode={setOverlayMode}
+          rulerIndex={railIndex}
+          onSelectRuler={selectRail}
+          showRecenter={!editMode}
+          onRecenter={() => recenterRef.current?.()}
+          aimHintVisible={finalState.aimHintVisible}
+          onDismissAimHint={() => finalState.setAimHintVisible(false)}
+          puttDistanceFt={puttDistanceFt}
+          // Live OB (#839): label + toggle share one source in useShotActions
+          // (the fetched flag, overridden by our own last write until the
+          // refetch lands) — reading data.previousShotObs here would reopen
+          // the window where a second tap charges a second penalty.
+          obPromptActive={obPromptActive}
+          lastShotIsOb={actions.lastShotIsOb}
+          obArrow={lastShotArrow}
           onCancelPinPlacement={() => setPinPlacementOpen(false)}
-          onClearRoundPin={actions.clearRoundPin}
           onConfirmAim={actions.confirmAim}
           onRePlaceBall={() => {
             // Clear the aim when backing out to re-place — otherwise the
@@ -827,71 +753,27 @@ export default function LiveRoundSession({
             finalState.setRoundState('PLACE_BALL')
           }}
           onSkipAim={actions.skipAim}
-          // Auto-detect on-green entry lives inside markBallHere itself
-          // (restored from pre-#791 — see useShotActions comment); this
-          // stays a plain pass-through. The chip below still forces toGreen
-          // explicitly as the fallback.
+          // Auto-detect on-green entry lives inside markBallHere itself; "On
+          // the green" forces toGreen explicitly as the fallback.
           onMarkBallHere={actions.markBallHere}
           onOnGreen={() => actions.markBallHere({ toGreen: true })}
-          onGreenActive={finalState.roundState === 'PUTTING'}
-          puttDistanceFt={puttDistanceFt}
-          onPuttMade={() =>
-            actions.persistPutt({
-              puttMade: true,
-              puttDistanceFt: puttDistanceFt ?? undefined,
-            })
-          }
-          onPuttMissed={() =>
-            actions.persistPutt({
-              puttMade: false,
-              puttDistanceFt: puttDistanceFt ?? undefined,
-            })
-          }
-          onNotOnGreen={actions.notOnGreen}
-          // Live OB (#839). Both props come from useShotActions so the label
-          // and the toggle's direction share one source — the fetched flag,
-          // overridden by our own last write until the refetch catches up.
-          // Reading data.previousShotObs directly here would reintroduce the
-          // window where the chip still invites a tap that charges a second
-          // penalty stroke.
-          onMarkLastShotOb={() => void actions.markLastShotOb()}
-          lastShotIsOb={actions.lastShotIsOb}
-          obTabArrow={obPromptActive ? lastShotArrow : null}
           onAddShot={() => {
             // Opt back into the live append flow on a revisited played hole:
             // re-arm the GPS ball + auto-aim and enter PLACE_BALL (#484).
             finalState.setAppendEngaged(true)
             finalState.setRoundState('PLACE_BALL')
           }}
+          onMarkLastShotOb={() => void actions.markLastShotOb()}
           onFinishHole={actions.finishHole}
-          onHeight={setChromeHeight}
+          onPuttMade={() =>
+            actions.persistPutt({ puttMade: true, puttDistanceFt: puttDistanceFt ?? undefined })
+          }
+          onPuttMissed={() =>
+            actions.persistPutt({ puttMade: false, puttDistanceFt: puttDistanceFt ?? undefined })
+          }
+          onNotOnGreen={actions.notOnGreen}
+          onFooterHeight={setFooterHeight}
         />
-        {/* Played-hole edit HUD (Step 3) — replaces MapBottomChrome's
-            contextual-action row (suppressed via editMode above), in the
-            slot that row would occupy. Hole nav is in the header (#901). */}
-        {editMode && (
-          <View
-            pointerEvents="box-none"
-            style={{
-              position: 'absolute',
-              left: 0,
-              right: 0,
-              bottom: insets.bottom + 10,
-              alignItems: 'center',
-            }}
-          >
-            <ShotStepper
-              index={activeShotIdx}
-              count={data.previousShots.length}
-              onPrev={() => setActiveShotIdx((i) => Math.max(0, i - 1))}
-              onNext={() =>
-                setActiveShotIdx((i) => Math.min(data.previousShots.length - 1, i + 1))
-              }
-              onDelete={handleDeleteActiveShot}
-              deleteDisabled={data.previousShots.length === 0}
-            />
-          </View>
-        )}
       </View>
 
       <HoleModals

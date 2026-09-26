@@ -1,3 +1,5 @@
+import type { PatternOverlay } from './markers/DispersionLayers'
+
 export interface LatLng {
   lat: number
   lng: number
@@ -41,13 +43,9 @@ export interface HoleMapProps {
   arcWidthYards: number
   /** Appr circle radius in yards (rail diameter ÷ 2, feet→yards). */
   circleRadiusYards: number
-  /**
-   * Single-color historical-shot dots, toggled by the left-toolbar dispersion
-   * button. The selected club's aim-relative offsets; placed around the aim
-   * and shown only when `dotsVisible`. Null / empty → no dots (sparse data).
-   */
-  dotsVisible: boolean
-  dispersionPoints?: { alongYards: number; perpYards: number }[] | null
+  /** Shot-pattern overlay (Pattern key on) for the wheel's club, drawn around
+   *  the aim while aiming. Null = off. */
+  pattern?: PatternOverlay | null
   /**
    * Player handicap index, for the live expected-strokes / SG readouts.
    * Defaults handled by the caller (falls back to DEFAULT_HANDICAP).
@@ -129,24 +127,46 @@ export interface HoleMapProps {
    * steps through a hole's history. Null/omitted → no-op.
    */
   focusOn?: LatLng | null
-  /**
-   * Whether to render the bottom-right "center on my GPS" button during
-   * PLACE_BALL. Defaults true. The played-hole edit-mode stepper passes
-   * false — recentering on live GPS while browsing/editing a past shot
-   * would yank the camera away from the shot being edited.
-   */
-  showRecenterButton?: boolean
-  /** Measured height of the chrome floating over the map's bottom edge; the
-   *  recenter button sits just above it (it grows with large text). */
-  bottomChromeHeight?: number
+  /** Receives the recenter-on-GPS action; the recenter key lives in the
+   *  caller's dock (#611 §5). */
+  recenterRef?: { current: (() => void) | null }
+  /** Frame the whole hole, first point at the bottom (past round: tee →
+   *  pin). Re-frames when the points change (hole change). */
+  fitHole?: [LatLng, LatLng] | null
+  /** Left-hand layout (#611 §12): map tags sit left of the aim line. */
+  lefty?: boolean
   /** Map-bottom → ball distance for the aim-view frame. Defaults to clearing
    *  the live round's floating SET_AIM controls; a map with nothing over its
    *  bottom edge (past round) passes a small value. */
   aimBallInset?: number
   /** Live OB prompt (#895 B2) for the most recent shot: drawn on its marker
    *  while that marker is on-screen. Null when the prompt isn't offered. */
-  obCallout?: { isOb: boolean; onPress: () => void } | null
+  obCallout?: { onPress: () => void } | null
   /** Reports where the most recent shot's marker is when it's off-screen
    *  (null = in view, or no shot), so the chrome can show the edge tab. */
   onLastShotOffscreen?: (arrow: OffscreenArrow | null) => void
+  /** Past-round breadcrumbs (#611 §19.3). When set, replaces the
+   *  previousShots trail + segment labels + carry/remaining tags, and the
+   *  ball draws as the selected crumb. */
+  pastCrumbs?: PastCrumbs | null
+  /** A map tap in SET_AIM sets the aim (the past round's Aim mode, §19.4). */
+  tapToSetAim?: boolean
+  /** Fires on every camera frame (screen-space overlays re-project). */
+  onCameraChanged?: () => void
+  /** Receives a projector: map coordinates → map-view points (dp), null
+   *  where the map isn't ready. */
+  projectRef?: { current: ((pts: LatLng[]) => Promise<[number, number][] | null>) | null }
+}
+
+export interface PastCrumbs {
+  /** Every placed shot start except the selected one (that's `ball`). */
+  crumbs: { at: LatLng; n: number; ob: boolean }[]
+  /** All placed starts in shot order — the dotted path. */
+  path: LatLng[]
+  /** The selected shot's leg (start → next start, or the pin), drawn solid. */
+  segment: [LatLng, LatLng] | null
+  /** Numeral on the selected crumb (the ball). */
+  selectedN: number | null
+  /** Tapping a crumb selects it (index into `crumbs`). Omit = not tappable. */
+  onSelect?: (i: number) => void
 }
