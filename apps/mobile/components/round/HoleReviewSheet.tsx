@@ -414,7 +414,8 @@ function ShotRow({
     startLine: row.startLine ?? null,
     penalty: !!row.penalty,
   }
-  const resultText = resultSummary(result)
+  // OB is set from the map flow, not this picker, but the chip still says so.
+  const resultText = resultSummary({ ...result, ob: row.shotResult === 'ob' })
   const slopeText = [row.lieSlopeForward && slopeLabel(row.lieSlopeForward), row.lieSlopeSide && slopeLabel(row.lieSlopeSide)]
     .filter(Boolean)
     .join(' · ')

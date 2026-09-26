@@ -654,6 +654,7 @@ async function insertHoleShots(
               ? 'thin'
               : 'solid'
 
+    const axes = shotAxesFromLegacy(result)
     const { error } = await supabase.from('shots').insert({
       hole_score_id: holeScoreId,
       user_id: userId,
@@ -669,8 +670,8 @@ async function insertHoleShots(
       lie_type: lieType,
       lie_slope: lieSlope,
       shot_result: result,
-      contact: shotAxesFromLegacy(result).contact,
-      start_line: shotAxesFromLegacy(result).startLine,
+      contact: axes.contact,
+      start_line: axes.startLine,
       penalty: false,
       ob: false,
       putt_distance_ft: null,
