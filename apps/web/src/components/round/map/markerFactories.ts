@@ -156,29 +156,51 @@ export function makeIconMarker(
 }
 
 export interface FlagParts extends MarkerParts {
-  flag: HTMLElement
+  /** The cloth — tinted while dragging. */
+  flag: SVGPathElement
 }
 
-export function makeFlagMarker(color: string): FlagParts {
+// G4 flag (#611 LOCKED-SPEC §9, #904) — the same glyph as mobile's
+// FlagMarker, drawn top-down (cup squash k 0.8; the web map doesn't tilt).
+// viewBox 38×48 at 38 px tall; the pin point (cup centre) is (9, 42), so
+// the marker needs FLAG_OFFSET with anchor 'top-left'. `strong` = this
+// round's pin is set; otherwise the course default is drawn hollow.
+export const FLAG_CLOTH = '#A33A2A'
+const FLAG_SCALE = 38 / 48
+export const FLAG_OFFSET: [number, number] = [-9 * FLAG_SCALE, -42 * FLAG_SCALE]
+
+export function makeFlagMarker({ hole, strong }: { hole: number; strong: boolean }): FlagParts {
   const outer = document.createElement('div')
   const content = document.createElement('div')
-  content.style.width = '16px'
-  content.style.height = '24px'
-  content.style.position = 'relative'
-  content.style.transition =
-    'transform 120ms ease, box-shadow 120ms ease'
-  const pole = document.createElement('div')
-  pole.style.cssText =
-    'position:absolute;left:6px;top:0;width:2px;height:24px;background:#FBF8F1'
-  const flag = document.createElement('div')
-  flag.style.cssText = `position:absolute;left:8px;top:1px;width:9px;height:7px;background:${color};transition:background 120ms ease`
-  const base = document.createElement('div')
-  base.style.cssText =
-    'position:absolute;left:5px;top:22px;width:4px;height:2px;border-radius:1px;background:#FBF8F1'
-  content.appendChild(pole)
-  content.appendChild(flag)
-  content.appendChild(base)
+  content.style.cssText = 'width:30.08px;height:38px;transition:transform 120ms ease'
+  const wide = hole >= 10
+  const end = wide ? 34.4 : 29.9
+  const [c1, c2] = wide ? [15.52, 20.36] : [14.53, 18.47]
+  const cloth = `M10.2 1.4 C${c1} 0.2 ${c2} 2.8 ${end} 1.4 L${end} 17.4 C${c2} 18.8 ${c1} 16.2 10.2 17.6 Z`
+  const ink = '#1C211C'
+  const cream = '#FBF8F1'
+  const cup = strong
+    ? `<ellipse cx="9" cy="42" rx="7.2" ry="5.76" fill="${ink}"/>
+       <path d="M3.38 41.71 A5.76 4.15 0 0 1 14.62 41.71 A5.76 2.59 0 0 0 3.38 41.71 Z" fill="${cream}" opacity=".85"/>
+       <path d="M1.8 42 A7.2 5.76 0 0 1 16.2 42" fill="none" stroke="${cream}" stroke-width="1.6"/>`
+    : `<ellipse cx="9" cy="42" rx="7.2" ry="5.76" fill="${ink}" opacity=".28"/>
+       <ellipse cx="9" cy="42" rx="7.2" ry="5.76" fill="none" stroke="${ink}" stroke-width="2.8" opacity=".5"/>
+       <ellipse cx="9" cy="42" rx="7.2" ry="5.76" fill="none" stroke="${cream}" stroke-width="1.6" stroke-dasharray="3 2.2"/>`
+  const pole = strong
+    ? `<rect x="7.8" y="1.4" width="2.4" height="34.84" fill="${cream}"/>
+       <rect x="7.8" y="36.24" width="2.4" height="5.76" fill="#6E7266"/>
+       <path d="M16.2 42 A7.2 5.76 0 0 1 1.8 42" fill="none" stroke="${cream}" stroke-width="1.6"/>`
+    : `<rect x="7.8" y="1.4" width="2.4" height="40.6" fill="${cream}"/>`
+  content.innerHTML = `<svg viewBox="0 0 38 48" width="30.08" height="38" style="overflow:visible;display:block">
+    <ellipse cx="10.2" cy="44.02" rx="9.8" ry="7.84" fill="${ink}" opacity="${strong ? 0.22 : 0.14}"/>
+    ${cup}
+    <rect x="7" y="0.6" width="4" height="41.4" fill="${ink}"/>
+    ${pole}
+    <path data-cloth d="${cloth}" fill="${strong ? FLAG_CLOTH : '#F2EEE5'}" stroke="${strong ? ink : FLAG_CLOTH}" stroke-width="${strong ? 0.8 : 1.5}" style="transition:fill 120ms ease"/>
+    <text x="${(10.2 + end) / 2}" y="14.6" text-anchor="middle" font-family="Fraunces, Georgia, serif" font-style="italic" font-weight="500" font-size="13.5" letter-spacing="${wide ? -0.3 : 0}" fill="${strong ? cream : FLAG_CLOTH}">${hole}</text>
+  </svg>`
   outer.appendChild(content)
+  const flag = content.querySelector('path[data-cloth]') as SVGPathElement
   return { outer, content, flag }
 }
 

@@ -13,7 +13,7 @@ import { runOnJS } from 'react-native-reanimated'
 import { distanceYards, ensureMapboxInitialized } from '../../lib/maps'
 import { useUnits } from '../../hooks/useUnits'
 import { Marker } from './markers/Marker'
-import { FlagMarker } from './markers/FlagMarker'
+import { FLAG_ANCHOR, FlagMarker, flagCupK } from './markers/FlagMarker'
 import { AimGhostLayers, useAimGhosts } from './markers/AimGhost'
 import { BreadcrumbLayers, SelectedCrumb } from './markers/BreadcrumbLayers'
 import { CarryTag, RemainingTag } from './markers/DistanceTags'
@@ -280,6 +280,17 @@ export function HoleMap({
       }
     }
   }
+
+  // The flag's cup follows the camera pitch (§9). Android paints a
+  // PointAnnotation into a bitmap that only redraws on a layout change, and
+  // neither the cup nor the tone changes layout — so repaint it by hand.
+  const [cupK, setCupK] = useState(0.8)
+  const flagTone = roundPin ? 'strong' : 'dim'
+  const flagRef = useRef<Mapbox.PointAnnotation>(null)
+  useEffect(() => {
+    const t = setTimeout(() => flagRef.current?.refresh(), 50)
+    return () => clearTimeout(t)
+  }, [cupK, flagTone])
 
   const { aimGhosts, aimGhostFeatures } = useAimGhosts({
     ball,
@@ -638,6 +649,7 @@ export function HoleMap({
               settledCamRef.current = { lng, lat, heading: state.properties.heading }
             }
             void measureLastShot()
+            setCupK(flagCupK(state.properties.pitch))
           }}
           // Subscribed only while needed (it fires every frame): the past
           // round's callout, and the aim view's gesture latch.
@@ -798,7 +810,8 @@ export function HoleMap({
             <Mapbox.PointAnnotation
               id="effectivePin"
               coordinate={toCoord(effectivePin)}
-              anchor={{ x: 0.28, y: 0.91 }}
+              ref={flagRef}
+              anchor={FLAG_ANCHOR}
               draggable={isPinMode}
               onDragEnd={(e: unknown) => {
                 if (!isPinMode) return
@@ -806,21 +819,7 @@ export function HoleMap({
                 if (c) onPlacePin?.(c)
               }}
             >
-              {/* 44pt transparent hit area in PIN mode so the flag is
-                  comfortable to drag — matches the ball/aim marker
-                  pattern (Apple HIG minimum target). Outside PIN mode
-                  the visual flag is the entire annotation; the halo
-                  has no behavioral effect. */}
-              <View
-                style={{
-                  width: 44,
-                  height: 44,
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-              >
-                <FlagMarker tone={roundPin ? 'strong' : 'dim'} />
-              </View>
+              <FlagMarker tone={flagTone} hole={holeNumber} k={cupK} />
             </Mapbox.PointAnnotation>
           )}
 

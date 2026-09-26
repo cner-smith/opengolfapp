@@ -18,6 +18,8 @@ import {
   makeAimMarker,
   makeDistancePill,
   makeFlagMarker,
+  FLAG_CLOTH,
+  FLAG_OFFSET,
   makeNumberedMarker,
   makeObRingMarker,
   makeTeeDotMarker,
@@ -46,6 +48,9 @@ interface UseMapLayersInput {
   placedPoints: PlacedPoint[]
   placedAims: (PlacedPoint | null)[] | undefined
   effectivePin: PlacedPoint | null
+  /** The round's own pin is set (strong flag) vs the course default (dim). */
+  pinStrong: boolean
+  holeNumber: number
   effectiveTee: PlacedPoint | null
   /** Shot-pattern overlay (always-on while aiming), anchored on the active
    *  aimed shot. 'tee' → dispersion arc band of arcWidthYards total width;
@@ -96,6 +101,8 @@ export function useMapLayers({
   placedPoints,
   placedAims,
   effectivePin,
+  pinStrong,
+  holeNumber,
   effectiveTee,
   overlayMode,
   arcWidthYards,
@@ -157,10 +164,12 @@ export function useMapLayers({
 
     // Pin marker — draggable when a parent handler is wired in.
     if (effectivePin) {
-      const parts = makeFlagMarker(MARKER_COLORS.pin)
+      const parts = makeFlagMarker({ hole: holeNumber, strong: pinStrong })
+      const clothFill = parts.flag.getAttribute('fill') ?? FLAG_CLOTH
       const marker = new mapboxgl.Marker({
         element: parts.outer,
-        anchor: 'bottom',
+        anchor: 'top-left',
+        offset: FLAG_OFFSET,
         draggable: !!onMovePin,
       })
         .setLngLat([effectivePin.lng, effectivePin.lat])
@@ -174,9 +183,7 @@ export function useMapLayers({
           // Pin tints to caddie-warn while dragging so the user can
           // tell "the flag is grabbed" from "the flag is just hovered."
           onDragColor: (active) => {
-            parts.flag.style.background = active
-              ? '#A66A1F'
-              : MARKER_COLORS.pin
+            parts.flag.setAttribute('fill', active ? '#A66A1F' : clothFill)
           },
         })
         marker.on('dragend', () => {
@@ -605,6 +612,8 @@ export function useMapLayers({
     onMoveExistingShot,
     onMoveExistingShotAim,
     effectivePin,
+    pinStrong,
+    holeNumber,
     effectiveTee,
     overlayMode,
     arcWidthYards,
