@@ -170,6 +170,7 @@ export function HoleMap({
     onLastShotOffscreen?.(lastShotArrow)
   }, [lastShotArrow, onLastShotOffscreen])
 
+  const userGesturedRef = useRef(false)
   const cameraRef = useHoleCamera({
     center,
     ball,
@@ -183,6 +184,7 @@ export function HoleMap({
     mapHeight: mapSize?.h ?? null,
     // The caller knows where its bottom controls end (the live dock).
     ballInset: aimBallInset ?? 150,
+    userGesturedRef,
   })
 
   // Whole-hole framing for the past-round map (#611 §19.2: "fit tee→pin"):
@@ -659,7 +661,16 @@ export function HoleMap({
             }
             void measureLastShot()
           }}
-          onCameraChanged={onCameraChanged}
+          // Subscribed only while needed (it fires every frame): the past
+          // round's callout, and the aim view's gesture latch.
+          onCameraChanged={
+            onCameraChanged || isAimPhase
+              ? (state) => {
+                  if (state.gestures.isGestureActive) userGesturedRef.current = true
+                  onCameraChanged?.()
+                }
+              : undefined
+          }
         >
           <Mapbox.Camera
             ref={cameraRef}
