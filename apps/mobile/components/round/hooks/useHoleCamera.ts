@@ -54,9 +54,9 @@ interface UseHoleCameraOpts {
   userGesturedRef: RefObject<boolean>
 }
 
-// The flag icon's top, dp above the pin coordinate: FlagMarker's 38 dp glyph
-// sits centred in a 44 dp hit box anchored at y 0.91 (HoleMap).
-const FLAG_TOP_DP = 37
+// The flag icon's top, dp above the pin coordinate: (42 − 0.6) × 38 / 48 for
+// the G4 glyph (FlagMarker, §9).
+const FLAG_TOP_DP = 32.8
 
 // 1000 m gating threshold for auto-center, expressed as yards because
 // the only haversine helper imported here returns yards. 1000 m / 0.9144.
