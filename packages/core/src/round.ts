@@ -3,7 +3,17 @@
 // behind one function avoids the inevitable drift.
 
 import { inferShot, type InferredShot, type PlacedShot } from './shotInference'
-import type { Club, LieType, LieSlope, LieSlopeForward, LieSlopeSide, ShotResult } from './constants'
+import type {
+  Club,
+  LieType,
+  LieSlope,
+  LieSlopeForward,
+  LieSlopeSide,
+  ShotContact,
+  ShotResult,
+  ShotShape,
+  ShotStartLine,
+} from './constants'
 import { PUTT_RESULT_LABELS, SHOT_RESULT_LABELS } from './constants'
 import { formatDistance, formatPuttDistance, haversineYards } from './units'
 import type {
@@ -16,7 +26,7 @@ import type {
   PuttDirectionResult,
   PuttDistanceResult,
 } from './types'
-import { decombinedBreakDirection } from './types'
+import { decombinedBreakDirection, shotAxesFromLegacy } from './types'
 import type { Database } from '@oga/supabase'
 
 type ShotRow = Database['public']['Tables']['shots']['Row']
@@ -65,8 +75,16 @@ export interface ReviewedShotRow {
   greenSpeed?: GreenSpeed
   /** Free-text note on the putt. Stored as notes. */
   notes?: string
-  /** Shot outcome — solid / push_right / thin / … Stored as shot_result. */
+  /** Legacy single outcome, derived from the axes below + the OB / penalty
+   *  flags via legacyShotResult (OB is stamped here as 'ob'). Stored as
+   *  shot_result. */
   shotResult?: ShotResult
+  /** Result axes (#951). Stored as contact / shape / start_line. */
+  contact?: ShotContact | null
+  shape?: ShotShape | null
+  startLine?: ShotStartLine | null
+  /** Penalty stroke on this shot. Stored as penalty. */
+  penalty?: boolean
   /** Lie slope, uphill axis (uphill/level/downhill). Stored as lie_slope_forward. */
   lieSlopeForward?: LieSlopeForward
   /** Lie slope, side axis (ball_above/ball_below). Stored as lie_slope_side. */
@@ -363,6 +381,13 @@ export interface DraftShot {
   lieSlopeForward?: LieSlopeForward
   lieSlopeSide?: LieSlopeSide
   shotResult?: ShotResult
+  /** Result axes (#951) + flags. Rows from before 0057 fall back to the
+   *  legacy value's axes. */
+  contact?: ShotContact | null
+  shape?: ShotShape | null
+  startLine?: ShotStartLine | null
+  penalty?: boolean
+  ob?: boolean
   distanceToTarget?: number
   puttDistanceFt?: number
   puttMade?: boolean
@@ -390,6 +415,14 @@ export function shotRowToDraft(s: ShotRow): DraftShot {
   let shotResult: ShotResult | undefined = (s.shot_result as ShotResult | null) ?? undefined
   if (!shotResult && s.ob) shotResult = 'ob'
   else if (!shotResult && s.penalty) shotResult = 'penalty'
+  const axes =
+    s.contact || s.shape || s.start_line
+      ? {
+          contact: s.contact as ShotContact | null,
+          shape: s.shape as ShotShape | null,
+          startLine: s.start_line as ShotStartLine | null,
+        }
+      : shotAxesFromLegacy(s.shot_result)
   const legacy = legacySlopeToAxes(s.lie_slope as LieSlope | null)
   const puttResult = s.putt_result as LegacyPuttResult | null
   const breakAxes = decombinedBreakDirection(s.break_direction as BreakDirection | null)
@@ -401,6 +434,9 @@ export function shotRowToDraft(s: ShotRow): DraftShot {
     lieSlopeForward: (s.lie_slope_forward as LieSlopeForward | null) ?? legacy.forward,
     lieSlopeSide: (s.lie_slope_side as LieSlopeSide | null) ?? legacy.side,
     shotResult,
+    ...axes,
+    penalty: s.penalty || s.shot_result === 'penalty',
+    ob: s.ob || s.shot_result === 'ob',
     distanceToTarget: s.distance_to_target ?? undefined,
     puttDistanceFt: s.putt_distance_ft ?? undefined,
     puttMade: puttResult === 'made' ? true : undefined,

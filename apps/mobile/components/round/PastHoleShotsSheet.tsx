@@ -10,13 +10,14 @@ import {
   DEFAULT_BAG,
   LIE_TYPE_LABELS,
   LIE_TYPES,
-  SHOT_RESULTS,
   combinedBreakDirection,
   combinedPuttResult,
   formatClubLabel,
   formatDistance,
   formatPuttDistance,
   isPuttShot,
+  legacyShotResult,
+  shotAxesFromLegacy,
   type BreakDirectionHorizontal,
   type BreakDirectionVertical,
   type DistanceUnit,
@@ -26,7 +27,9 @@ import {
   type LieType,
   type PuttDirectionResult,
   type PuttDistanceResult,
-  type ShotResult,
+  type ShotContact,
+  type ShotShape,
+  type ShotStartLine,
 } from '@oga/core'
 import type { Database } from '@oga/supabase'
 import { supabase } from '../../lib/supabase'
@@ -37,28 +40,18 @@ import { Key, KeyText, PaperSurface, Rocker } from '../paper/Paper'
 import {
   ClubPicker,
   PickerField,
+  ResultPicker,
   RockerRows,
   SlopeGrid,
   useStackedLabels,
   type Opt,
+  type ResultValue,
 } from '../paper/Pickers'
 import { Icon } from '../paper/icons'
 import { GAP, P, R } from '../paper/tokens'
 
 type ShotRow = Database['public']['Tables']['shots']['Row']
 type ShotUpdate = Database['public']['Tables']['shots']['Update']
-
-const SHOT_RESULT_LABELS: Record<ShotResult, string> = {
-  solid: 'Solid',
-  push_right: 'Push R',
-  pull_left: 'Pull L',
-  fat: 'Fat',
-  thin: 'Thin',
-  shank: 'Shank',
-  topped: 'Topped',
-  penalty: 'Penalty',
-  ob: 'OB',
-}
 
 // Putt vocab mirrors the live hole-review sheet so the two surfaces read alike.
 const PUTT_DISTANCE_OPTIONS: Opt<PuttDistanceResult>[] = [
@@ -368,9 +361,18 @@ function EditShotSheet({
   const [lieType, setLieType] = useState<LieType | null>(
     (shot.lie_type as LieType | null) ?? null,
   )
-  const [shotResult, setShotResult] = useState<ShotResult | null>(
-    (shot.shot_result as ShotResult | null) ?? null,
-  )
+  // Rows saved before 0057 carry only the legacy value.
+  const [result, setResult] = useState<ResultValue>(() => {
+    const axes =
+      shot.contact || shot.shape || shot.start_line
+        ? {
+            contact: (shot.contact as ShotContact | null) ?? null,
+            shape: (shot.shape as ShotShape | null) ?? null,
+            startLine: (shot.start_line as ShotStartLine | null) ?? null,
+          }
+        : shotAxesFromLegacy(shot.shot_result)
+    return { ...axes, penalty: !!shot.penalty || shot.shot_result === 'penalty', ob: !!shot.ob || shot.shot_result === 'ob' }
+  })
   const [slopeForward, setSlopeForward] = useState<LieSlopeForward | null>(
     (shot.lie_slope_forward as LieSlopeForward | null) ?? null,
   )
@@ -438,6 +440,9 @@ function EditShotSheet({
         lie_slope_forward: null,
         lie_slope_side: null,
         shot_result: null,
+        contact: null,
+        shape: null,
+        start_line: null,
         penalty: false,
         ob: false,
         putt_distance_ft: puttDistanceFt === '' ? null : Number(puttDistanceFt),
@@ -455,9 +460,12 @@ function EditShotSheet({
       lie_type: lieType,
       lie_slope_forward: slopeForward,
       lie_slope_side: slopeSide,
-      shot_result: shotResult,
-      penalty: shotResult === 'penalty',
-      ob: shotResult === 'ob',
+      shot_result: legacyShotResult(result),
+      contact: result.contact,
+      shape: result.shape,
+      start_line: result.startLine,
+      penalty: result.penalty,
+      ob: !!result.ob,
       // Clear putt-only columns when this isn't a putt.
       putt_distance_ft: null,
       putt_result: null,
@@ -589,13 +597,7 @@ function EditShotSheet({
               <PickerField title="Slope">
                 <SlopeGrid forward={slopeForward} side={slopeSide} onForward={setSlopeForward} onSide={setSlopeSide} />
               </PickerField>
-              <PickerField title="Result">
-                <RockerRows
-                  options={SHOT_RESULTS.map((r) => ({ value: r, label: SHOT_RESULT_LABELS[r] }))}
-                  value={shotResult}
-                  onChange={setShotResult}
-                />
-              </PickerField>
+              <ResultPicker value={result} onChange={setResult} withOb />
             </>
           )}
         </ScrollView>

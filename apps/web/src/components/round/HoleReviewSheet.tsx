@@ -5,8 +5,10 @@ import {
   LIE_TYPE_LABELS,
   LIE_SLOPES_FORWARD,
   LIE_SLOPES_SIDE,
-  SHOT_RESULTS,
-  SHOT_RESULT_LABELS,
+  legacyShotResult,
+  SHOT_CONTACT_LABELS,
+  SHOT_SHAPE_LABELS,
+  SHOT_START_LINE_LABELS,
   buildInitialRows,
   combinedBreakDirection,
   formatClubLabel,
@@ -26,7 +28,6 @@ import {
   type PuttDirectionResult,
   type PuttDistanceResult,
   type ReviewedShotRow,
-  type ShotResult,
 } from '@oga/core'
 import { GreenDiagram } from './GreenDiagram'
 import type { PlacedPoint } from './RoundMap'
@@ -34,6 +35,7 @@ import type { WebPuttData } from './WebPuttingSheet'
 import { useUnits } from '../../hooks/useUnits'
 import { useUserBag } from '../../hooks/useUserBag'
 
+import { ResultAxes } from '../rounds/shots/ResultAxes'
 export type { ReviewedShotRow }
 
 interface HoleReviewSheetProps {
@@ -635,6 +637,22 @@ function ShotRow({
     clubOptions.find((c) => c.value === row.club)?.label ?? String(row.club)
   const clubLabel = rawClubLabel.charAt(0).toUpperCase() + rawClubLabel.slice(1)
   const slopeSet = row.lieSlopeForward != null || row.lieSlopeSide != null
+  const result = {
+    contact: row.contact ?? null,
+    shape: row.shape ?? null,
+    startLine: row.startLine ?? null,
+    penalty: !!row.penalty,
+    ob: row.shotResult === 'ob',
+  }
+  const resultText = [
+    result.contact && SHOT_CONTACT_LABELS[result.contact],
+    result.shape && SHOT_SHAPE_LABELS[result.shape],
+    result.startLine && SHOT_START_LINE_LABELS[result.startLine],
+    result.penalty && 'Penalty',
+    result.ob && 'OB',
+  ]
+    .filter(Boolean)
+    .join(' · ')
   const slopeText = [
     row.lieSlopeForward && slopeLabel(row.lieSlopeForward),
     row.lieSlopeSide && slopeLabel(row.lieSlopeSide),
@@ -794,12 +812,8 @@ function ShotRow({
               onClick={() => toggle('slope')}
             />
             <FieldChip
-              label={
-                row.shotResult
-                  ? SHOT_RESULT_LABELS[row.shotResult]
-                  : '+ result'
-              }
-              filled={!!row.shotResult}
+              label={resultText || '+ result'}
+              filled={!!resultText}
               active={open === 'result'}
               onClick={() => toggle('result')}
             />
@@ -831,22 +845,23 @@ function ShotRow({
           )}
           {open === 'slope' && <SlopeExpand row={row} onChange={onChange} />}
           {open === 'result' && (
-            <ChipExpand
-              label="Result"
-              options={SHOT_RESULTS.map((r) => ({
-                value: r,
-                label: SHOT_RESULT_LABELS[r],
-              }))}
-              value={row.shotResult}
-              onSelect={(v) => {
-                onChange({
-                  ...row,
-                  shotResult:
-                    row.shotResult === v ? undefined : (v as ShotResult),
-                })
-                setOpen(null)
-              }}
-            />
+            <div style={{ marginTop: 9, background: '#EBE5D6', borderRadius: 8, padding: '9px 10px' }}>
+              <ResultAxes
+                value={result}
+                onChange={(v) =>
+                  onChange({
+                    ...row,
+                    contact: v.contact,
+                    shape: v.shape,
+                    startLine: v.startLine,
+                    penalty: v.penalty,
+                    // The legacy value carries OB for the sheet's ticker and
+                    // the save (`ob = shotResult === 'ob'`).
+                    shotResult: legacyShotResult(v) ?? undefined,
+                  })
+                }
+              />
+            </div>
           )}
         </>
       )}

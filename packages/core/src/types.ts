@@ -7,7 +7,10 @@ import type {
   LieSlopeSide,
   LieType,
   ShotCategory,
+  ShotContact,
   ShotResult,
+  ShotShape,
+  ShotStartLine,
   SkillLevel,
 } from './constants'
 
@@ -182,6 +185,41 @@ export function combinedPuttResult(args: {
   if (args.direction === 'left') return 'missed_left'
   if (args.direction === 'right') return 'missed_right'
   return null
+}
+
+/** The three result axes (#951). Each is independently optional. */
+export interface ShotResultAxes {
+  contact: ShotContact | null
+  shape: ShotShape | null
+  startLine: ShotStartLine | null
+}
+
+/** The legacy single `shot_result` for a shot's axes + flags, so writers
+ *  keep that column (which stats, SG and patterns read) populated. OB and
+ *  penalty win; then a contact miss (the more diagnostic axis); then a
+ *  start-line miss; then solid. Shape has no legacy value — a draw or fade
+ *  is an intended shape. Mirrors {@link combinedPuttResult}. */
+export function legacyShotResult(
+  axes: Partial<ShotResultAxes> & { penalty?: boolean; ob?: boolean },
+): ShotResult | null {
+  if (axes.ob) return 'ob'
+  if (axes.penalty) return 'penalty'
+  if (axes.contact && axes.contact !== 'solid') return axes.contact
+  if (axes.startLine === 'pull') return 'pull_left'
+  if (axes.startLine === 'push') return 'push_right'
+  if (axes.contact === 'solid') return 'solid'
+  return null
+}
+
+/** Axes for a legacy `shot_result` — for rows and imports that predate
+ *  the split (0057 backfills the same mapping in SQL). */
+export function shotAxesFromLegacy(result: string | null | undefined): ShotResultAxes {
+  const contact =
+    result === 'solid' || result === 'fat' || result === 'thin' || result === 'topped' || result === 'shank'
+      ? result
+      : null
+  const startLine = result === 'pull_left' ? 'pull' : result === 'push_right' ? 'push' : null
+  return { contact, shape: null, startLine }
 }
 
 /** Inverse of combinedPuttResult — render a human-readable label from

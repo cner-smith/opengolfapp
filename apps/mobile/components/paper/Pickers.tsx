@@ -1,7 +1,21 @@
-import type { ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { Pressable, Text, View, useWindowDimensions } from 'react-native'
-import Svg, { Circle, Line } from 'react-native-svg'
-import type { LieSlopeForward, LieSlopeSide } from '@oga/core'
+import Svg, { Circle, Line, Path } from 'react-native-svg'
+import {
+  SHOT_CONTACT_LABELS,
+  SHOT_CONTACTS,
+  SHOT_SHAPE_LABELS,
+  SHOT_SHAPES,
+  SHOT_START_LINE_LABELS,
+  SHOT_START_LINES,
+  type LieSlopeForward,
+  type LieSlopeSide,
+  type ShotContact,
+  type ShotResultAxes,
+  type ShotShape,
+  type ShotStartLine,
+} from '@oga/core'
+import { getLeftHand } from '../../lib/leftHand'
 import { TYPE } from '../../lib/typography'
 import { Key, KeyText, Rocker } from './Paper'
 import { GAP, P, R } from './tokens'
@@ -235,5 +249,183 @@ export function Chip({
         {label}
       </KeyText>
     </Key>
+  )
+}
+
+// Result glyphs (§19.10), viewBox 28×18. `on` thickens the stroke.
+const STRIKE_MARK: Record<ShotContact, string> = {
+  solid: 'M9 13.5 L12 11',
+  fat: 'M3 16 Q6 13 10 15',
+  thin: 'M8 9.5 H12',
+  topped: 'M9 5 L13 6.5',
+  shank: 'M20 12 L24 6',
+}
+function StrikeGlyph({ kind, on }: { kind: ShotContact; on: boolean }) {
+  const sw = on ? 1.8 : 1.4
+  return (
+    <Svg width={28} height={18} viewBox="0 0 28 18">
+      <Path d="M1 14 H27" stroke={P.ink} strokeWidth={sw} />
+      <Circle cx={16} cy={9.5} r={4.2} fill={P.raised} stroke={P.ink} strokeWidth={sw} />
+      <Path d={STRIKE_MARK[kind]} stroke={P.ink} strokeWidth={2.2} strokeLinecap="round" fill="none" />
+    </Svg>
+  )
+}
+const SHAPE_BEND: Record<ShotShape, number> = { hook: -9, draw: -4.5, straight: 0, fade: 4.5, slice: 9 }
+function FlightGlyph({ b, on }: { b: number; on: boolean }) {
+  return (
+    <Svg width={28} height={18} viewBox="0 0 28 18">
+      <Circle cx={14} cy={16} r={1.8} fill={P.ink} />
+      <Path d={`M14 15 Q${14 - b * 0.2} 8 ${14 + b} 2`} fill="none" stroke={P.ink} strokeWidth={on ? 2 : 1.5} strokeLinecap="round" />
+      <Path d="M14 1v3" stroke={P.ink35} strokeWidth={1} />
+    </Svg>
+  )
+}
+const START_OFF: Record<ShotStartLine, number> = { pull: -7, on_line: 0, push: 7 }
+function StartGlyph({ a, on }: { a: number; on: boolean }) {
+  return (
+    <Svg width={28} height={18} viewBox="0 0 28 18">
+      <Path d="M14 1 V17" stroke={P.ink35} strokeWidth={1} strokeDasharray="1.5 2" />
+      <Circle cx={14} cy={16} r={1.8} fill={P.ink} />
+      <Path d={`M14 15 L${14 + a} 3`} stroke={P.ink} strokeWidth={on ? 2 : 1.5} strokeLinecap="round" />
+    </Svg>
+  )
+}
+
+export type ResultValue = ShotResultAxes & { penalty: boolean; ob?: boolean }
+
+/** "solid · draw · on line" — the review chip's label once anything is set. */
+export function resultSummary(v: ResultValue): string {
+  return [
+    v.contact && SHOT_CONTACT_LABELS[v.contact],
+    v.shape && SHOT_SHAPE_LABELS[v.shape],
+    v.startLine && SHOT_START_LINE_LABELS[v.startLine],
+    v.penalty && 'penalty',
+    v.ob && 'OB',
+  ]
+    .filter(Boolean)
+    .join(' · ')
+    .replace(/[A-Z][a-z]/g, (m) => m.toLowerCase())
+}
+
+// Shot result (§19.10 "R5 with the Start row", #951): three optional axes
+// as glyph rockers — tap to set, tap again to clear — plus a Penalty stroke
+// key (owner pick; penalties had no other way in) and, where the map has no
+// OB flow (past round), an Out of bounds key. Nothing is pre-selected.
+// Shape / start glyphs mirror for a left-handed player so left stays left.
+export function ResultPicker({
+  value,
+  onChange,
+  withOb = false,
+}: {
+  value: ResultValue
+  onChange: (v: ResultValue) => void
+  withOb?: boolean
+}) {
+  const stacked = useStackedLabels()
+  const [lefty, setLefty] = useState(false)
+  useEffect(() => {
+    void getLeftHand().then(setLefty)
+  }, [])
+  const flip = lefty ? -1 : 1
+  const shapes = lefty ? [...SHOT_SHAPES].reverse() : SHOT_SHAPES
+  const starts = lefty ? [...SHOT_START_LINES].reverse() : SHOT_START_LINES
+  const any = value.contact || value.shape || value.startLine || value.penalty || value.ob
+  const row = (label: string, rocker: ReactNode) => (
+    <PickerRow label={label} stacked={stacked}>
+      {rocker}
+    </PickerRow>
+  )
+  return (
+    <View style={{ paddingVertical: 12, borderTopWidth: 1, borderColor: P.line, gap: 7 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 8 }}>
+        <Text style={[TYPE.serif, { fontSize: 16, color: P.ink }]}>Result</Text>
+        <Text style={[TYPE.body, { fontSize: 12, color: P.inkDim }]}>all optional</Text>
+        {any ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Clear result"
+            onPress={() => onChange({ contact: null, shape: null, startLine: null, penalty: false, ob: false })}
+            hitSlop={{ top: 12, bottom: 12, left: 8, right: 8 }}
+            style={{ marginLeft: 'auto' }}
+          >
+            <Text style={[TYPE.body, { fontSize: 13, color: P.ink, textDecorationLine: 'underline' }]}>Clear</Text>
+          </Pressable>
+        ) : null}
+      </View>
+      {row(
+        'Contact',
+        <Rocker
+          options={SHOT_CONTACTS.map((c) => ({
+            value: c,
+            label: SHOT_CONTACT_LABELS[c],
+            icon: (on: boolean) => <StrikeGlyph kind={c} on={on} />,
+          }))}
+          value={value.contact}
+          onChange={(contact) => onChange({ ...value, contact })}
+          clearable
+          height={48}
+          fontSize={13.5}
+        />,
+      )}
+      {row(
+        'Shape',
+        <Rocker
+          options={shapes.map((sh) => ({
+            value: sh,
+            label: SHOT_SHAPE_LABELS[sh],
+            icon: (on: boolean) => <FlightGlyph b={SHAPE_BEND[sh] * flip} on={on} />,
+          }))}
+          value={value.shape}
+          onChange={(shape) => onChange({ ...value, shape })}
+          clearable
+          height={48}
+          fontSize={13.5}
+        />,
+      )}
+      {row(
+        'Start',
+        <Rocker
+          options={starts.map((st) => ({
+            value: st,
+            label: SHOT_START_LINE_LABELS[st],
+            icon: (on: boolean) => <StartGlyph a={START_OFF[st] * flip} on={on} />,
+          }))}
+          value={value.startLine}
+          onChange={(startLine) => onChange({ ...value, startLine })}
+          clearable
+          height={48}
+          fontSize={13.5}
+        />,
+      )}
+      {row(
+        '',
+        <View style={{ flexDirection: 'row', gap: GAP }}>
+          <Key
+            accessibilityLabel="Penalty stroke"
+            latched={value.penalty}
+            onPress={() => onChange({ ...value, penalty: !value.penalty })}
+            style={{ flex: 1 }}
+            faceStyle={{ minHeight: 44 }}
+          >
+            <KeyText size={13.5} bold={value.penalty}>
+              Penalty stroke
+            </KeyText>
+          </Key>
+          {withOb && (
+            <Key
+              accessibilityLabel="Out of bounds"
+              latched={!!value.ob}
+              onPress={() => onChange({ ...value, ob: !value.ob })}
+              style={{ flex: 1 }}
+              faceStyle={{ minHeight: 44 }}
+            >
+              <KeyText size={13.5} bold={!!value.ob}>
+                Out of bounds
+              </KeyText>
+            </Key>
+          )}
+        </View>,
+      )}
+    </View>
   )
 }

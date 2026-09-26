@@ -185,3 +185,22 @@ describe('shotRowToDraft', () => {
     })
   })
 })
+
+describe('shotRowToDraft result axes (#951)', () => {
+  it('reads the axis columns when any is set', () => {
+    const d = shotRowToDraft(row({ contact: 'thin', shape: 'draw', start_line: 'on_line', shot_result: 'thin' }))
+    expect([d.contact, d.shape, d.startLine]).toEqual(['thin', 'draw', 'on_line'])
+  })
+
+  it('falls back to the legacy value for rows from before 0057', () => {
+    const d = shotRowToDraft(row({ shot_result: 'pull_left' }))
+    expect([d.contact, d.shape, d.startLine]).toEqual([null, null, 'pull'])
+  })
+
+  it('carries the penalty / OB flags, legacy value or column', () => {
+    expect(shotRowToDraft(row({ penalty: true })).penalty).toBe(true)
+    expect(shotRowToDraft(row({ shot_result: 'penalty' })).penalty).toBe(true)
+    expect(shotRowToDraft(row({ ob: true })).ob).toBe(true)
+    expect(shotRowToDraft(row({})).ob).toBe(false)
+  })
+})

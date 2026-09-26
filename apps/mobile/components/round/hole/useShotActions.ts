@@ -915,6 +915,9 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
           lie_slope_forward: isPuttRow ? null : row.lieSlopeForward ?? null,
           lie_slope_side: isPuttRow ? null : row.lieSlopeSide ?? null,
           shot_result: isPuttRow ? null : row.shotResult ?? null,
+          contact: isPuttRow ? null : row.contact ?? null,
+          shape: isPuttRow ? null : row.shape ?? null,
+          start_line: isPuttRow ? null : row.startLine ?? null,
           // The reviewed ROW is authoritative for OB — no `existing.ob ||`
           // fallback. The sheet renders SHOT_RESULTS as a single-select
           // picker, so a fallback would let one tap ("it was a pull") write
@@ -932,7 +935,7 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
           // sheet, for the live hole), so the seed always fires. If that seed
           // path is ever broken, this line silently drops every OB flag —
           // keep the two in step (#839).
-          penalty: existing.penalty ?? false,
+          penalty: row.penalty ?? existing.penalty ?? false,
           // A putt cannot be out of bounds. `shot_result` is already
           // putt-gated one line up, so without the same gate here a row
           // whose result was 'ob' and whose lie was THEN changed to green
