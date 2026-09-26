@@ -360,9 +360,12 @@ function ClubWheel({ rows, selected, auto, onPick }: WheelProps) {
     commit(i)
   }
 
-  // The tab shows once the wheel has settled on the pick (|Δ| < 2.5 dp).
-  const tabStyle = useAnimatedStyle(() => ({
-    opacity: Math.abs(pos.value - sel) * PITCH < 2.5 ? 1 : 0,
+  // A tab shows once the wheel has settled on the pick (|Δ| < 2.5 dp).
+  const autoTabStyle = useAnimatedStyle(() => ({
+    opacity: !manual && Math.abs(pos.value - sel) * PITCH < 2.5 ? 1 : 0,
+  }))
+  const manualTabStyle = useAnimatedStyle(() => ({
+    opacity: manual && Math.abs(pos.value - sel) * PITCH < 2.5 ? 1 : 0,
   }))
   const ruleTop = (VIEW_H - CENTRE_H) / 2
   const row = rows[sel]
@@ -427,36 +430,39 @@ function ClubWheel({ rows, selected, auto, onPick }: WheelProps) {
           </Svg>
           <View pointerEvents="none" style={{ position: 'absolute', top: ruleTop, left: 6, right: 6, height: 1, backgroundColor: P.ink }} />
           <View pointerEvents="none" style={{ position: 'absolute', top: ruleTop + CENTRE_H, left: 6, right: 6, height: 1, backgroundColor: P.ink }} />
+          {/* Both tabs stay mounted and only fade: swapping the text in place
+              (or remounting) left Android with a stale layout that clipped
+              "just this shot" to "just this". */}
           {autoIdx >= 0 && (
-            <Animated.View
-              pointerEvents="none"
-              style={[
-                {
-                  position: 'absolute',
-                  top: ruleTop - 8,
-                  left: 16,
-                  height: 15,
-                  paddingHorizontal: 5,
-                  borderRadius: 2,
-                  justifyContent: 'center',
-                  backgroundColor: manual ? P.raised : P.brass,
-                  borderWidth: manual ? 1.5 : 1,
-                  borderColor: manual ? P.warn : P.brassEdge,
-                },
-                tabStyle,
-              ]}
-            >
-              {manual ? (
-                <Text style={[TYPE.body, { fontSize: 11, lineHeight: 13, color: P.ink }]}>just this shot</Text>
-              ) : (
+            <>
+              <Animated.View pointerEvents="none" style={[tabBox(ruleTop, false), autoTabStyle]}>
                 <Text style={[TYPE.kicker, { fontSize: 11, lineHeight: 13, letterSpacing: 1.2, color: P.ink }]}>AUTO</Text>
-              )}
-            </Animated.View>
+              </Animated.View>
+              <Animated.View pointerEvents="none" style={[tabBox(ruleTop, true), manualTabStyle]}>
+                <Text style={[TYPE.body, { fontSize: 11, lineHeight: 13, color: P.ink }]}>just this shot</Text>
+              </Animated.View>
+            </>
           )}
         </View>
       </GestureDetector>
     </View>
   )
+}
+
+// The AUTO / "just this shot" tab sitting on the centre block's top rule.
+function tabBox(ruleTop: number, manual: boolean) {
+  return {
+    position: 'absolute' as const,
+    top: ruleTop - 8,
+    left: 16,
+    height: 15,
+    paddingHorizontal: 5,
+    borderRadius: 2,
+    justifyContent: 'center' as const,
+    backgroundColor: manual ? P.raised : P.brass,
+    borderWidth: manual ? 1.5 : 1,
+    borderColor: manual ? P.warn : P.brassEdge,
+  }
 }
 
 // One wheel row, drawn at the centre size and scaled down with its distance
