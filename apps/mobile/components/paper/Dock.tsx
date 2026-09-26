@@ -63,14 +63,16 @@ export function SmallKey({
   onPress,
   color,
   a11y,
+  pressHaptic,
 }: {
   label: string
   onPress: () => void
   color?: string
   a11y?: string
+  pressHaptic?: boolean
 }) {
   return (
-    <Key accessibilityLabel={a11y ?? label} onPress={onPress} faceStyle={{ width: 76, height: 44 }}>
+    <Key accessibilityLabel={a11y ?? label} onPress={onPress} pressHaptic={pressHaptic} faceStyle={{ width: 76, height: 44 }}>
       <KeyText style={color ? { color } : undefined}>{label}</KeyText>
     </Key>
   )
@@ -83,6 +85,7 @@ export function Secondary({
   color,
   icon,
   a11y,
+  pressHaptic,
 }: {
   label: string
   onPress: () => void
@@ -91,11 +94,13 @@ export function Secondary({
   color?: string
   icon?: ReactNode
   a11y?: string
+  pressHaptic?: boolean
 }) {
   return (
     <Key
       accessibilityLabel={a11y ?? label}
       onPress={onPress}
+      pressHaptic={pressHaptic}
       disabled={disabled}
       stretch
       style={{ flexShrink: 1, maxWidth: 120 }}
@@ -116,6 +121,7 @@ export function Primary({
   disabled,
   plus,
   a11y,
+  pressHaptic,
 }: {
   label: string
   sub?: string
@@ -124,9 +130,11 @@ export function Primary({
   /** Leading + glyph ("Add shot"). */
   plus?: boolean
   a11y?: string
+  pressHaptic?: boolean
 }) {
   return (
     <Key
+      pressHaptic={pressHaptic}
       accessibilityLabel={a11y ?? (sub ? `${label} ${sub}` : label)}
       tone="primary"
       onPress={onPress}

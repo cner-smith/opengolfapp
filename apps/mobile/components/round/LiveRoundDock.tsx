@@ -105,6 +105,7 @@ export function LiveRoundDock(p: LiveRoundDockProps) {
           p.onTogglePattern()
         }}
         latched={p.patternOn && !putting && p.hasPin}
+        pressHaptic={false}
         disabled={putting || !p.hasPin}
         style={{ flex: 1 }}
         faceStyle={{ height: 46, gap: 1 }}
@@ -121,6 +122,7 @@ export function LiveRoundDock(p: LiveRoundDockProps) {
           p.onTogglePin()
         }}
         latched={p.pinPlacementOpen}
+        pressHaptic={false}
         style={{ flex: 1 }}
         faceStyle={{ height: 46, gap: 1 }}
       >
@@ -230,7 +232,7 @@ function voiceLine(p: LiveRoundDockProps): ReactNode {
   }
   if (p.obPromptActive && p.obArrow) {
     return (
-      <Voice trailing={<SmallKey label="OB" color={P.neg} onPress={p.onMarkLastShotOb} />}>
+      <Voice trailing={<SmallKey label="OB" color={P.neg} onPress={p.onMarkLastShotOb} pressHaptic={false} />}>
         {p.obArrow} Did shot {p.totalShotsThisHole} go out of bounds?
       </Voice>
     )
@@ -298,7 +300,7 @@ function bottomRow(p: LiveRoundDockProps): ReactNode[] {
   }
   const onGreen =
     p.totalShotsThisHole > 0 && (p.ball != null || p.hasGps) && !p.saving ? (
-      <Secondary key="green" label="On the green" onPress={p.onOnGreen} />
+      <Secondary key="green" label="On the green" onPress={p.onOnGreen} pressHaptic={false} />
     ) : null
   const waiting = !p.ball && !p.hasGps
   const label = p.saving ? 'Saving…' : waiting ? 'Waiting for GPS…' : 'Mark my ball'
@@ -306,7 +308,7 @@ function bottomRow(p: LiveRoundDockProps): ReactNode[] {
   return [
     finish,
     onGreen,
-    <Primary key="mark" label={label} sub={sub} onPress={p.onMarkBallHere} disabled={waiting || p.saving} />,
+    <Primary key="mark" label={label} sub={sub} onPress={p.onMarkBallHere} disabled={waiting || p.saving} pressHaptic={false} />,
   ].filter(Boolean)
 }
 

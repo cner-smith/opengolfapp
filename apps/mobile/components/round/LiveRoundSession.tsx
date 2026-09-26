@@ -810,7 +810,8 @@ export default function LiveRoundSession({
             finalState.setRoundState('PLACE_BALL')
           }}
           onMarkLastShotOb={() => {
-            haptic('penalty')
+            // Taking the penalty, not undoing it (the same key toggles).
+            if (!actions.lastShotIsOb) haptic('penalty')
             void actions.markLastShotOb()
           }}
           onFinishHole={actions.finishHole}

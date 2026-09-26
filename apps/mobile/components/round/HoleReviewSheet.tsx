@@ -302,6 +302,7 @@ export function HoleReviewSheet({
             accessibilityLabel={isLastHole ? 'Save hole and finish round' : 'Save hole and continue to next hole'}
             tone="primary"
             disabled={saving || rows.length === 0}
+            pressHaptic={false}
             onPress={() => {
               haptic('confirm')
               onSave(rows, { score, putts, penalties })

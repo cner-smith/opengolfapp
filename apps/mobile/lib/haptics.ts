@@ -45,8 +45,11 @@ async function android(H: HapticsModule, keys: AndroidKey[]) {
     try {
       await H.performAndroidHapticsAsync(H.AndroidHaptics[k])
       return
-    } catch {
-      unsupported.add(k)
+    } catch (e) {
+      // Only a constant this OS lacks is skipped for good; any other failure
+      // just falls through to the next one this time.
+      // expo-haptics: ERR_HAPTIC_TYPE_NOT_SUPPORTED (HapticsRecord.kt).
+      if ((e as { code?: string })?.code === 'ERR_HAPTIC_TYPE_NOT_SUPPORTED') unsupported.add(k)
     }
   }
 }

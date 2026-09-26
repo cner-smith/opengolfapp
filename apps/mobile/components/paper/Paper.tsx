@@ -95,6 +95,10 @@ export interface KeyProps {
   stretch?: boolean
   style?: StyleProp<ViewStyle>
   faceStyle?: StyleProp<ViewStyle>
+  /** The press-in haptic. Off where onPress fires the moment's own haptic
+   *  (confirm, toggle, penalty): iOS can't cancel a played impact, so both
+   *  would land as a double pulse. */
+  pressHaptic?: boolean
   children: ReactNode
 }
 
@@ -113,6 +117,7 @@ export function Key({
   stretch = false,
   style,
   faceStyle,
+  pressHaptic = true,
   children,
 }: KeyProps) {
   const [pressed, setPressed] = useState(false)
@@ -146,7 +151,7 @@ export function Key({
       disabled={disabled || !onPress}
       onPress={onPress}
       onPressIn={() => {
-        haptic('press')
+        if (pressHaptic) haptic('press')
         setPressed(true)
         tint.value = 1
         sink.value = withTiming(1, { duration: 40, easing: Easing.out(Easing.quad) })
