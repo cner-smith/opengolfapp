@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { haptic } from '../../lib/haptics'
+import { playCup } from '../../lib/sounds'
 import { ActivityIndicator, Alert, BackHandler, Dimensions, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useFocusEffect, useRouter } from 'expo-router'
@@ -36,7 +38,7 @@ import { LiveRoundDock, MIN_BOTTOM_STRIP } from './LiveRoundDock'
 import { LiveRoundHeader, RoundOptionsMenu } from './LiveRoundHeader'
 import { APPR_RULER_FEET, TEE_RULER_YARDS, rulerValueAt } from './HoleMapOverlays'
 import { LiveRoundError } from './LiveRoundError'
-import { PuttDrop, PUTT_DROP_SHEET_DELAY_MS } from './markers/PuttDrop'
+import { PuttDrop, PUTT_DROP_SHEET_DELAY_MS, ROLL_MS } from './markers/PuttDrop'
 import { useReducedMotion } from 'react-native-reanimated'
 import { P } from '../paper/tokens'
 
@@ -718,7 +720,10 @@ export default function LiveRoundSession({
             finalState.kalmanStateRef.current = null
             finalState.setBall(loc)
           }}
-          onPlacePin={actions.persistRoundPin}
+          onPlacePin={(c) => {
+            haptic('confirm')
+            return actions.persistRoundPin(c)
+          }}
         />
         {puttDrop && <PuttDrop from={puttDrop.from} to={puttDrop.to} onDone={endPuttDrop} />}
         <LiveRoundDock
@@ -790,19 +795,33 @@ export default function LiveRoundSession({
           onSkipAim={actions.skipAim}
           // Auto-detect on-green entry lives inside markBallHere itself; "On
           // the green" forces toGreen explicitly as the fallback.
-          onMarkBallHere={actions.markBallHere}
-          onOnGreen={() => actions.markBallHere({ toGreen: true })}
+          onMarkBallHere={() => {
+            haptic('confirm')
+            void actions.markBallHere()
+          }}
+          onOnGreen={() => {
+            haptic('confirm')
+            return actions.markBallHere({ toGreen: true })
+          }}
           onAddShot={() => {
             // Opt back into the live append flow on a revisited played hole:
             // re-arm the GPS ball + auto-aim and enter PLACE_BALL (#484).
             finalState.setAppendEngaged(true)
             finalState.setRoundState('PLACE_BALL')
           }}
-          onMarkLastShotOb={() => void actions.markLastShotOb()}
+          onMarkLastShotOb={() => {
+            haptic('penalty')
+            void actions.markLastShotOb()
+          }}
           onFinishHole={actions.finishHole}
           onPuttMade={() => {
             void actions.persistPutt({ puttMade: true, puttDistanceFt: puttDistanceFt ?? undefined })
             void playPuttDrop()
+            // At the drop frame (§15): success + the cup sound, together.
+            setTimeout(() => {
+              haptic('success')
+              void playCup()
+            }, reduceMotion ? 0 : ROLL_MS)
           }}
           onPuttMissed={() =>
             actions.persistPutt({ puttMade: false, puttDistanceFt: puttDistanceFt ?? undefined })

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { haptic } from '../../lib/haptics'
 import { View } from 'react-native'
 import Mapbox from '@rnmapbox/maps'
 import {
@@ -814,6 +815,7 @@ export function HoleMap({
               ref={flagRef}
               anchor={FLAG_ANCHOR}
               draggable={isPinMode}
+              onDragStart={() => haptic('grab')}
               onDragEnd={(e: unknown) => {
                 if (!isPinMode) return
                 const c = extractCoord(e)
@@ -837,6 +839,7 @@ export function HoleMap({
               id="aim"
               coordinate={aimCoordMemo}
               draggable={isAimPhase}
+              onDragStart={() => haptic('grab')}
               onDrag={onAimDrag}
               onDragEnd={onAimDragEnd}
             >

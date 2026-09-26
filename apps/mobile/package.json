@@ -21,11 +21,13 @@
     "@supabase/supabase-js": "^2.45.0",
     "expo": "54.0.36",
     "expo-apple-authentication": "8.0.8",
+    "expo-audio": "1.1.1",
     "expo-constants": "18.0.13",
     "expo-crypto": "15.0.9",
     "expo-dev-client": "6.0.21",
     "expo-file-system": "19.0.23",
     "expo-font": "14.0.12",
+    "expo-haptics": "15.0.8",
     "expo-linking": "8.0.12",
     "expo-location": "19.0.8",
     "expo-router": "6.0.24",
@@ -63,6 +65,13 @@
       "exclude": [
         "react-native-view-shot"
       ]
+    },
+    "autolinking": {
+      "android": {
+        "exclude": [
+          "expo-audio"
+        ]
+      }
     }
   }
 }

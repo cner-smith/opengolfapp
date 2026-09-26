@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type JSX } from 'react'
+import { haptic } from '../../lib/haptics'
 import { Alert, Pressable, ScrollView, Text, View } from 'react-native'
 import { GestureHandlerRootView } from 'react-native-gesture-handler'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
@@ -301,7 +302,10 @@ export function HoleReviewSheet({
             accessibilityLabel={isLastHole ? 'Save hole and finish round' : 'Save hole and continue to next hole'}
             tone="primary"
             disabled={saving || rows.length === 0}
-            onPress={() => onSave(rows, { score, putts, penalties })}
+            onPress={() => {
+              haptic('confirm')
+              onSave(rows, { score, putts, penalties })
+            }}
             faceStyle={{ minHeight: 50 }}
           >
             <KeyText tone="primary" bold size={16} disabled={saving || rows.length === 0}>

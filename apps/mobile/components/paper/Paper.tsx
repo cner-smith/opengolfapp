@@ -1,4 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react'
+import { haptic } from '../../lib/haptics'
 import {
   Image,
   Pressable,
@@ -145,6 +146,7 @@ export function Key({
       disabled={disabled || !onPress}
       onPress={onPress}
       onPressIn={() => {
+        haptic('press')
         setPressed(true)
         tint.value = 1
         sink.value = withTiming(1, { duration: 40, easing: Easing.out(Easing.quad) })
@@ -291,6 +293,7 @@ export function Rocker<T extends string>({
             accessibilityLabel={o.accessibilityLabel ?? o.label}
             accessibilityState={{ selected: on, disabled: !!o.disabled }}
             disabled={o.disabled}
+            onPressIn={() => haptic('press')}
             onPress={() => onChange(on ? (clearable ? null : o.value) : o.value)}
             style={{
               flex: 1,
