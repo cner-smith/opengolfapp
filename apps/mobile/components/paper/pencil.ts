@@ -328,6 +328,12 @@ export function marksFor(toPar: number, seed: number): { m: Mark; at: number }[]
   return []
 }
 
+/** A quick pencil ring of half-axes a × b (dp at scale 1), drawn in `dur` ms
+ *  — the loop round the wheel's AUTO tab on landing home (§15 Tier 3). */
+export function pencilEllipse(a: number, b: number, dur: number, seed: number): { m: Mark; at: number }[] {
+  return [{ m: circle({ ...varyCircle(C1, seed), a, b, dur, tilt: -6 }, seed), at: 0 }]
+}
+
 export const marksDuration = (ms: { m: Mark; at: number }[]) => Math.max(0, ...ms.map((x) => x.at + x.m.dur))
 
 // perfect-freehand settings from the harness: size 2·w0·1.2, thinning .9,

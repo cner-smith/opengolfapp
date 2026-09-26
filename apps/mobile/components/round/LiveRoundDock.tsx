@@ -1,15 +1,23 @@
-import { useEffect, useRef, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Pressable, Text, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Gesture, GestureDetector } from 'react-native-gesture-handler'
-import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withSpring, type SharedValue } from 'react-native-reanimated'
-import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg'
+import Animated, {
+  runOnJS,
+  useAnimatedStyle,
+  useReducedMotion,
+  useSharedValue,
+  withSpring,
+  type SharedValue,
+} from 'react-native-reanimated'
+import Svg, { Defs, LinearGradient, Path, Rect, Stop } from 'react-native-svg'
 import { tourMakePercent, type Club } from '@oga/core'
 import { useUnits } from '../../hooks/useUnits'
 import { TYPE } from '../../lib/typography'
 import { Key, KeyText, PaperSurface, Rocker } from '../paper/Paper'
 import { Em, NoPinVoice, Primary, Secondary, SmallKey, Voice } from '../paper/Dock'
 import { Icon } from '../paper/icons'
+import { marksPath, pencilEllipse } from '../paper/pencil'
 import { GAP, MARGIN, P, R } from '../paper/tokens'
 import { RulerCard } from './HoleMapOverlays'
 import type { RoundState } from './hole/types'
@@ -448,6 +456,7 @@ function ClubWheel({ rows, selected, auto, onPick }: WheelProps) {
               "just this shot" to "just this". */}
           {autoIdx >= 0 && (
             <>
+              <AutoRing manual={manual} top={ruleTop - 8 - 9} />
               <Animated.View pointerEvents="none" style={[tabBox(ruleTop, false), autoTabStyle]}>
                 <Text style={[TYPE.kicker, { fontSize: 11, lineHeight: 13, letterSpacing: 1.2, color: P.ink }]}>AUTO</Text>
               </Animated.View>
@@ -458,6 +467,47 @@ function ClubWheel({ rows, selected, auto, onPick }: WheelProps) {
           )}
         </View>
       </GestureDetector>
+    </View>
+  )
+}
+
+// Tier 3 (§15): a pencil loop round the AUTO tab when the wheel lands back
+// home — 220 ms draw, 600 ms hold, 200 ms fade. Not on first mount, and not
+// with reduce motion.
+const RING_W = 70
+const RING_H = 33
+function AutoRing({ manual, top }: { manual: boolean; top: number }) {
+  const reduce = useReducedMotion()
+  const wasManual = useRef(manual)
+  const [t, setT] = useState<number | null>(null)
+  const marks = useMemo(() => pencilEllipse(29, 12, 220, 7), [])
+  useEffect(() => {
+    const landed = wasManual.current && !manual
+    wasManual.current = manual
+    if (!landed || reduce) return
+    let raf = 0
+    let t0 = 0
+    const step = (now: number) => {
+      if (!t0) t0 = now
+      const e = now - t0
+      setT(e)
+      if (e < 1020) raf = requestAnimationFrame(step)
+      else setT(null)
+    }
+    raf = requestAnimationFrame(step)
+    return () => {
+      cancelAnimationFrame(raf)
+      setT(null)
+    }
+  }, [manual, reduce])
+  if (t == null) return null
+  const d = marksPath(marks, Math.min(t, 220))
+  const opacity = t < 820 ? 0.9 : 0.9 * Math.max(0, 1 - (t - 820) / 200)
+  return (
+    <View pointerEvents="none" style={{ position: 'absolute', top, left: 4, width: RING_W, height: RING_H }}>
+      <Svg width={RING_W} height={RING_H} viewBox={`${-RING_W / 2} ${-RING_H / 2} ${RING_W} ${RING_H}`}>
+        {d ? <Path d={d} fill="#353430" opacity={opacity} /> : null}
+      </Svg>
     </View>
   )
 }
