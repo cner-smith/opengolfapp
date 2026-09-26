@@ -113,7 +113,6 @@ export function HoleMap({
   arcWidthYards,
   circleRadiusYards,
   overlayLive = false,
-  overlayHandles = null,
   pattern,
   obCallout,
   onLastShotOffscreen,
@@ -711,7 +710,6 @@ export function HoleMap({
               circleRadiusYards={circleRadiusYards}
               live={overlayLive}
               dimArc={patternRing}
-              handles={isAimPhase ? overlayHandles : null}
             />
           )}
 

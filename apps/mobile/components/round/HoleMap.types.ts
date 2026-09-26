@@ -1,5 +1,4 @@
 import type { PatternOverlay } from './markers/DispersionLayers'
-import type { OverlayHandles } from './markers/AimOverlay'
 
 export interface LatLng {
   lat: number
@@ -44,10 +43,8 @@ export interface HoleMapProps {
   arcWidthYards: number
   /** Appr circle radius in yards (rail diameter ÷ 2, feet→yards). */
   circleRadiusYards: number
-  /** A finger is on the size (ruler scrub / handle drag): no easing. */
+  /** A finger is dragging the ruler: the size follows it, no easing. */
   overlayLive?: boolean
-  /** Drag handles on the arc ends / circle edge (ruler feel C). */
-  overlayHandles?: OverlayHandles | null
   /** Shot-pattern overlay (Pattern key on) for the wheel's club, drawn around
    *  the aim while aiming. Null = off. */
   pattern?: PatternOverlay | null

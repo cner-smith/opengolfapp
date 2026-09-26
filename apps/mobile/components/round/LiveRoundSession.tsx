@@ -34,7 +34,7 @@ import { useShotActions } from './hole/useShotActions'
 import { HoleModals } from './hole/HoleModals'
 import { LiveRoundDock, MIN_BOTTOM_STRIP } from './LiveRoundDock'
 import { LiveRoundHeader, RoundOptionsMenu } from './LiveRoundHeader'
-import { APPR_RULER_FEET, TEE_RULER_YARDS, rulerPosOf, rulerValueAt, useRulerFeel } from './HoleMapOverlays'
+import { APPR_RULER_FEET, TEE_RULER_YARDS, rulerValueAt } from './HoleMapOverlays'
 import { LiveRoundError } from './LiveRoundError'
 import { P } from '../paper/tokens'
 
@@ -290,10 +290,8 @@ export default function LiveRoundSession({
     ballToPinYards != null ? Math.round(ballToPinYards * 3) : null
 
   // Overlay sizing from the ruler. At rest it's the preset; while a finger
-  // is on the size (ruler scrub, or the map handles) it's a fractional
-  // ruler position for the active mode. Circle radius = diameter-ft ÷ 2 ÷ 3.
+  // drags the ruler it's a fractional ruler position for the active mode. Circle radius = diameter-ft ÷ 2 ÷ 3.
   const [scrubPos, setScrubPos] = useState<number | null>(null)
-  const rulerFeel = useRulerFeel()
   const railIndex = overlayMode === 'tee' ? teeRailIdx : apprRailIdx
   const railPos = scrubPos ?? railIndex
   const arcWidthYards = rulerValueAt(TEE_RULER_YARDS, overlayMode === 'tee' ? railPos : teeRailIdx)
@@ -304,16 +302,6 @@ export default function LiveRoundSession({
     if (overlayMode === 'tee') setTeeRailIdx(i)
     else setApprRailIdx(i)
   }
-  // Handle size (Tee width / Appr radius, yards) → ruler position.
-  const sizeToPos = (y: number) =>
-    overlayMode === 'tee' ? rulerPosOf(TEE_RULER_YARDS, y) : rulerPosOf(APPR_RULER_FEET, y * 2 * FEET_PER_YARD)
-  const overlayHandles =
-    rulerFeel === 'C'
-      ? {
-          onDrag: (y: number) => setScrubPos(sizeToPos(y)),
-          onDragEnd: (y: number) => selectRail(Math.round(sizeToPos(y))),
-        }
-      : null
 
   // Handicap for the live expected-strokes / SG readouts. Read once from the
   // canonical profiles.handicap_index (player-entered, refined by the web
@@ -629,7 +617,6 @@ export default function LiveRoundSession({
           arcWidthYards={arcWidthYards}
           circleRadiusYards={circleRadiusYards}
           overlayLive={scrubPos != null}
-          overlayHandles={overlayHandles}
           pattern={pattern}
           obCallout={
             obPromptActive && !actions.lastShotIsOb

@@ -11,7 +11,7 @@ import { Key, KeyText, PaperSurface, Rocker } from '../paper/Paper'
 import { Em, NoPinVoice, Primary, Secondary, SmallKey, Voice } from '../paper/Dock'
 import { Icon } from '../paper/icons'
 import { GAP, MARGIN, P, R } from '../paper/tokens'
-import { RulerCard, RulerFeelChip } from './HoleMapOverlays'
+import { RulerCard } from './HoleMapOverlays'
 import type { RoundState } from './hole/types'
 import type { OffscreenArrow } from './HoleMap.types'
 
@@ -48,7 +48,7 @@ export interface LiveRoundDockProps {
   /** Fractional while a finger is on the size. */
   rulerPos: number
   onSelectRuler: (i: number) => void
-  onScrubRuler: (pos: number | null) => void
+  onScrubRuler: (pos: number) => void
   showRecenter: boolean
   onRecenter: () => void
 
@@ -118,7 +118,6 @@ export function LiveRoundDock(p: LiveRoundDockProps) {
 
   const right = aimLike ? (
     <View style={{ width: 96, gap: GAP }}>
-      <RulerFeelChip />
       <Rocker
         options={[
           { value: 'tee', label: 'Tee' },

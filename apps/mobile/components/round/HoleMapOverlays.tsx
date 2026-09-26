@@ -1,7 +1,6 @@
-import { useSyncExternalStore } from 'react'
-import { Pressable, Text, View } from 'react-native'
+import { Text, View } from 'react-native'
 import { Gesture, GestureDetector } from 'react-native-gesture-handler'
-import { runOnJS } from 'react-native-reanimated'
+import { runOnJS, useSharedValue } from 'react-native-reanimated'
 import Svg, { Path } from 'react-native-svg'
 import { TYPE } from '../../lib/typography'
 import { P, R } from '../paper/tokens'
@@ -13,62 +12,12 @@ export const TEE_RULER_YARDS = [95, 85, 75, 65] as const
 export const APPR_RULER_FEET = [60, 45, 30, 15] as const
 
 // A ruler value at a fractional position between presets (the presets are
-// evenly spaced, so this is linear), and back.
+// evenly spaced, so this is linear).
 export function rulerValueAt(values: readonly number[], pos: number): number {
   const i = Math.max(0, Math.min(values.length - 1, pos))
   const lo = Math.floor(i)
   const hi = Math.min(values.length - 1, lo + 1)
   return values[lo]! + (values[hi]! - values[lo]!) * (i - lo)
-}
-export function rulerPosOf(values: readonly number[], value: number): number {
-  const step = values[1]! - values[0]!
-  return Math.max(0, Math.min(values.length - 1, (value - values[0]!) / step))
-}
-
-// THROWAWAY (#611 PR4 mock): how the ruler feels, flipped at runtime from a
-// chip over the ruler so each can be tried live. The owner picks one; the
-// switch and the losers get deleted.
-//   A = snap + tween: the ruler steps, the arc/circle eases to the new size.
-//   B = sticky slider: the ruler scrubs continuously, snaps to a value on release.
-//   C = on the map: drag handles on the arc ends / circle edge; the ruler follows.
-export type RulerFeel = 'A' | 'B' | 'C'
-let feel: RulerFeel = 'A'
-const feelSubs = new Set<() => void>()
-export function useRulerFeel(): RulerFeel {
-  return useSyncExternalStore(
-    (cb) => {
-      feelSubs.add(cb)
-      return () => feelSubs.delete(cb)
-    },
-    () => feel,
-  )
-}
-export function RulerFeelChip() {
-  const f = useRulerFeel()
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={`Ruler feel ${f}, tap to switch`}
-      onPress={() => {
-        feel = f === 'A' ? 'B' : f === 'B' ? 'C' : 'A'
-        feelSubs.forEach((cb) => cb())
-      }}
-      style={{
-        alignSelf: 'stretch',
-        height: 28,
-        borderRadius: R,
-        borderWidth: 1,
-        borderColor: P.warn,
-        backgroundColor: P.raised,
-        alignItems: 'center',
-        justifyContent: 'center',
-      }}
-    >
-      <Text style={[TYPE.body, { fontSize: 12, color: P.ink }]}>
-        feel {f} · {f === 'A' ? 'tween' : f === 'B' ? 'sticky' : 'on map'}
-      </Text>
-    </Pressable>
-  )
 }
 
 export function TeeBadge() {
@@ -93,8 +42,8 @@ const TOP0 = 38
 const SPAN = RH - TOP0 - 16
 const STEP = SPAN / 3
 
-// Ruler card (§5): translucent glass plate, one pan target that snaps to the
-// four values — a tap picks the nearest. Mirrors for the left-hand layout.
+// Ruler card (§5): translucent glass plate, one pan target that settles on
+// the four values — a tap picks the nearest. Mirrors for the left-hand layout.
 export function RulerCard({
   mode,
   index,
@@ -108,30 +57,30 @@ export function RulerCard({
   /** Where the pointer sits: `index` at rest, fractional while scrubbing. */
   pos: number
   onSelect: (i: number) => void
-  /** Continuous position while the finger is down (feel B); null on release. */
-  onScrub: (pos: number | null) => void
+  /** Continuous position while a finger drags the ruler. */
+  onScrub: (pos: number) => void
   lefty: boolean
 }) {
   const values = mode === 'tee' ? TEE_RULER_YARDS : APPR_RULER_FEET
-  const sticky = useRulerFeel() === 'B'
   const at = (y: number) => Math.max(0, Math.min(values.length - 1, (y - TOP0) / STEP))
-  const pick = (y: number) => {
-    if (sticky) return onScrub(at(y))
-    const clamped = Math.round(at(y))
-    if (clamped !== index) onSelect(clamped)
-  }
-  const release = (y: number) => {
-    if (!sticky) return
-    onSelect(Math.round(at(y)))
-    onScrub(null)
-  }
+  const scrub = (y: number) => onScrub(at(y))
+  const commit = (y: number) => onSelect(Math.round(at(y)))
+  // A drag scrubs: the pointer and the overlay follow the finger between
+  // values. Any release commits the nearest value, and the overlay eases
+  // there, so a tap reads as a step and a drag settles like a detent.
   // Gesture-handler, not the JS responder: the map and the wheel run on it,
   // and a responder here lost taps to them. minDistance 0 = a tap is a pan.
+  const moved = useSharedValue(false)
   const pan = Gesture.Pan()
     .minDistance(0)
-    .onBegin((e) => runOnJS(pick)(e.y))
-    .onUpdate((e) => runOnJS(pick)(e.y))
-    .onFinalize((e) => runOnJS(release)(e.y))
+    .onBegin(() => {
+      moved.value = false
+    })
+    .onUpdate((e) => {
+      if (Math.abs(e.translationY) > 4) moved.value = true
+      if (moved.value) runOnJS(scrub)(e.y)
+    })
+    .onFinalize((e) => runOnJS(commit)(e.y))
   const shown = Math.round(pos)
   const side = lefty ? 'left' : 'right'
   return (
