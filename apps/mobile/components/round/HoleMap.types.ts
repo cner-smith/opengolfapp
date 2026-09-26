@@ -158,6 +158,8 @@ export interface HoleMapProps {
   /** Receives a projector: map coordinates → map-view points (dp), null
    *  where the map isn't ready. */
   projectRef?: { current: ((pts: LatLng[]) => Promise<[number, number][] | null>) | null }
+  /** The putt-drop animation is drawing the ball (#611 §15). */
+  hideBall?: boolean
 }
 
 export interface PastCrumbs {

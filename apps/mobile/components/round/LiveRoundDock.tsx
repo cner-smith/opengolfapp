@@ -296,7 +296,10 @@ function bottomRow(p: LiveRoundDockProps): ReactNode[] {
 
 export interface WheelRow {
   club: Club
+  /** Glyph on the wheel ("dr", "6i"). */
   label: string
+  /** Spoken name ("driver"). */
+  name: string
   carryYards: number | null
   /** Usable (aim-tracked) shots with this club. */
   shots: number
@@ -409,7 +412,7 @@ function ClubWheel({ rows, selected, auto, onPick }: WheelProps) {
           accessible
           accessibilityRole="adjustable"
           accessibilityLabel="Club"
-          accessibilityValue={{ text: row ? `${row.label}${sel === autoIdx ? ', auto pick' : ''}` : '' }}
+          accessibilityValue={{ text: row ? `${row.name}${sel === autoIdx ? ', auto pick' : ''}` : '' }}
           accessibilityActions={[{ name: 'increment' }, { name: 'decrement' }]}
           onAccessibilityAction={(e) => step(e.nativeEvent.actionName === 'increment' ? 1 : -1)}
           style={{ height: VIEW_H, overflow: 'hidden' }}
@@ -514,7 +517,13 @@ function WheelRowView({
       ]}
     >
       <Animated.View style={[{ transformOrigin: 'left center' }, scaleStyle]}>
-        <Text style={[TYPE.serif, { fontSize: 32, lineHeight: 38, color: row.sparse ? P.ink45 : P.ink }]}>{row.label}</Text>
+        {/* A long custom name ("wedge") steps down so the meta keeps its room. */}
+        <Text
+          numberOfLines={1}
+          style={[TYPE.serif, { fontSize: row.label.length > 3 ? 24 : 32, lineHeight: 38, color: row.sparse ? P.ink45 : P.ink }]}
+        >
+          {row.label}
+        </Text>
       </Animated.View>
       <Animated.View style={[{ marginLeft: 'auto', alignItems: 'flex-end', transformOrigin: 'right center' }, scaleStyle]}>
         {row.sparse ? (

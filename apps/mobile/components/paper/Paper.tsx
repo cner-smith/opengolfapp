@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import {
   Image,
   Pressable,
@@ -11,6 +11,7 @@ import {
   type ViewProps,
   type ViewStyle,
 } from 'react-native'
+import Animated, { Easing, interpolateColor, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated'
 import { TYPE } from '../../lib/typography'
 import { LEDGE, P, R } from './tokens'
 
@@ -117,6 +118,25 @@ export function Key({
   const t = TONES[tone]
   const down = pressed || latched || disabled
   const edgeColor = disabled ? P.ink35 : edge ?? t.edge
+  // Motion (§15): press-in sinks 3 dp in 40 ms (out-quad), release rises in
+  // 110 ms (out-cubic); the face colour swaps at once. A latch sinks in
+  // 120 ms (out-cubic) and darkens over 75 ms; unlatching rises in 90 ms.
+  const sink = useSharedValue(latched || disabled ? 1 : 0)
+  const tint = useSharedValue(latched ? 1 : 0)
+  useEffect(() => {
+    if (disabled) {
+      sink.value = 1
+      return
+    }
+    sink.value = latched
+      ? withTiming(1, { duration: 120, easing: Easing.out(Easing.cubic) })
+      : withTiming(0, { duration: 90, easing: Easing.in(Easing.quad) })
+    tint.value = withTiming(latched ? 1 : 0, { duration: 75 })
+  }, [latched, disabled, sink, tint])
+  const faceMotion = useAnimatedStyle(() => ({
+    transform: [{ translateY: sink.value * LEDGE }],
+    backgroundColor: disabled ? P.chrome : interpolateColor(tint.value, [0, 1], [t.face, t.pressed]),
+  }))
   return (
     <Pressable
       accessibilityRole="button"
@@ -124,8 +144,17 @@ export function Key({
       accessibilityState={{ disabled, selected: latched }}
       disabled={disabled || !onPress}
       onPress={onPress}
-      onPressIn={() => setPressed(true)}
-      onPressOut={() => setPressed(false)}
+      onPressIn={() => {
+        setPressed(true)
+        tint.value = 1
+        sink.value = withTiming(1, { duration: 40, easing: Easing.out(Easing.quad) })
+      }}
+      onPressOut={() => {
+        setPressed(false)
+        if (latched) return
+        tint.value = 0
+        sink.value = withTiming(0, { duration: 110, easing: Easing.out(Easing.cubic) })
+      }}
       hitSlop={hitSlop}
       style={[{ paddingBottom: LEDGE }, style]}
     >
@@ -142,20 +171,19 @@ export function Key({
           }}
         />
       )}
-      <View
+      <Animated.View
         style={[
           {
             flexGrow: stretch ? 1 : 0,
             borderRadius: R,
             borderWidth: latched ? 2 : borderWidth,
             borderColor: edgeColor,
-            backgroundColor: disabled ? P.chrome : down ? t.pressed : t.face,
             alignItems: 'center',
             justifyContent: 'center',
             overflow: 'hidden',
-            transform: [{ translateY: down ? LEDGE : 0 }],
           },
           faceStyle,
+          faceMotion,
         ]}
       >
         {down && !disabled && (
@@ -164,7 +192,7 @@ export function Key({
           />
         )}
         {children}
-      </View>
+      </Animated.View>
     </Pressable>
   )
 }

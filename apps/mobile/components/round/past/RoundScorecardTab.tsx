@@ -269,7 +269,7 @@ function HoleTable({
             <Text style={[TYPE.body, { width: COL.hole, fontSize: 15, color: P.ink }]}>{h.number}</Text>
             <Text style={[TYPE.kicker, { width: COL.par, textAlign: 'center', fontSize: 15, color: P.ink }]}>{par}</Text>
             <View style={{ width: COL.score, alignItems: 'center', justifyContent: 'center' }}>
-              {score > 0 && <GolfMark toPar={score - par} />}
+              {score > 0 && <GolfMark toPar={score - par} seed={h.number} />}
               <ScoreCell
                 value={score}
                 width={COL.score}

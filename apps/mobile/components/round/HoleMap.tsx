@@ -120,6 +120,7 @@ export function HoleMap({
   tapToSetAim = false,
   onCameraChanged,
   projectRef,
+  hideBall = false,
 }: HoleMapProps) {
   const { toDisplay, toDisplayFt } = useUnits()
   const mapViewRef = useRef<Mapbox.MapView>(null)
@@ -879,7 +880,7 @@ export function HoleMap({
               annotation above: never unmount during PIN placement, or
               the @rnmapbox drag gesture is lost on remount. draggable stays
               gated to PLACE_BALL so the ball can't be dragged mid-aim. */}
-          {ball && (
+          {ball && !hideBall && (
             <Mapbox.PointAnnotation
               id="ball"
               coordinate={toCoord(ball)}
