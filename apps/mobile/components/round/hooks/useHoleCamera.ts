@@ -49,6 +49,9 @@ interface UseHoleCameraOpts {
   /** Where the aim view keeps the ball: dp above the map bottom, clear of
    *  the bottom controls. */
   ballInset: number
+  /** Set true by the map when the player pans/pinches; a dock-height change
+   *  re-fits the aim view only until then. */
+  userGesturedRef: RefObject<boolean>
 }
 
 // The flag icon's top, dp above the pin coordinate: FlagMarker's 38 dp glyph
@@ -74,6 +77,7 @@ export function useHoleCamera({
   mapViewRef,
   mapHeight,
   ballInset,
+  userGesturedRef,
 }: UseHoleCameraOpts) {
   const cameraRef = useRef<Mapbox.Camera>(null)
   const cameraInitialized = useRef(false)
@@ -334,12 +338,18 @@ export function useHoleCamera({
   // Fires ONCE per SET_AIM session — re-snapping on every aim drag or
   // pin nudge wiped out the player's pinch-zoom.
   const aimSnappedRef = useRef(false)
+  // Re-fit when the dock top moves (voice line in/out, large text) — #611 §13
+  // — but only until the player first pans or pinches: a re-fit after that
+  // would wipe their zoom, the very thing the once-per-session snap prevents.
+  const aimInsetRef = useRef(ballInset)
   useEffect(() => {
     if (!isAimPhase) {
       aimSnappedRef.current = false
+      userGesturedRef.current = false
       return
     }
-    if (aimSnappedRef.current) return
+    if (aimSnappedRef.current && (aimInsetRef.current === ballInset || userGesturedRef.current)) return
+    aimInsetRef.current = ballInset
     if (!cameraRef.current) return
     if (!ball) return
     const target = roundPin ?? pin ?? null
@@ -420,6 +430,7 @@ export function useHoleCamera({
     if (distYd != null && distYd >= 150) aimSnappedRef.current = false
   }, [
     mapHeight,
+    ballInset,
     isAimPhase,
     ball?.lat,
     ball?.lng,

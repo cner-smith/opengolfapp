@@ -1,6 +1,9 @@
 import { useMemo } from 'react'
+import { Pressable, Text, View } from 'react-native'
 import Mapbox from '@rnmapbox/maps'
 import type { LatLng } from '../HoleMap.types'
+import { TYPE } from '../../../lib/typography'
+import { P } from '../../paper/tokens'
 
 // Pixel nudge for the OB disc when a re-hit covers it, matching web's
 // [-20, 0] in useMapLayers.ts. `circle-translate` / `text-translate` are
@@ -42,6 +45,14 @@ interface BreadcrumbLayersProps {
    * waypoints.
    */
   obs?: boolean[]
+  /** Past-round paper look (#611 §19.3): numbered paper discs, a dotted
+   *  cream trail and the selected leg drawn solid. No segment labels. */
+  paper?: {
+    /** Shot number per `previousShots` entry. */
+    numbers: number[]
+    segment: GeoJSON.Feature | null
+    onSelect?: (i: number) => void
+  }
 }
 
 // Renders the orange breadcrumb line through prior shot starts, numbered
@@ -58,6 +69,7 @@ export function BreadcrumbLayers({
   isPinMode,
   toDisplay,
   obs,
+  paper,
 }: BreadcrumbLayersProps) {
   const waypointFeatures = useMemo<GeoJSON.FeatureCollection<GeoJSON.Point>>(() => {
     const coords = previousShots.map(toCoord)
@@ -106,6 +118,61 @@ export function BreadcrumbLayers({
   // "Source X is not in style" if mounted before the satellite style
   // finishes loading. Gate every layer behind this flag.
   if (!styleLoaded) return null
+
+  if (paper) {
+    const features = waypointFeatures.features
+    return (
+      <>
+        <Mapbox.ShapeSource
+          id="prevShotsLine"
+          shape={previousShotsLine ?? { type: 'FeatureCollection', features: [] }}
+        >
+          {/* Round-capped near-zero dashes read as dots (dasharray is in
+              line widths). */}
+          <Mapbox.LineLayer
+            id="prevShotsLineLayer"
+            style={{ lineColor: P.raised, lineWidth: 1.5, lineDasharray: [0.01, 2.7], lineCap: 'round' }}
+          />
+        </Mapbox.ShapeSource>
+        <Mapbox.ShapeSource
+          id="pastSegment"
+          shape={paper.segment ?? { type: 'FeatureCollection', features: [] }}
+        >
+          <Mapbox.LineLayer
+            id="pastSegmentCasing"
+            style={{ lineColor: P.ink, lineWidth: 4, lineOpacity: 0.35, lineCap: 'round' }}
+          />
+          <Mapbox.LineLayer
+            id="pastSegmentLine"
+            style={{ lineColor: P.raised, lineWidth: 2, lineCap: 'round' }}
+          />
+        </Mapbox.ShapeSource>
+        <Mapbox.ShapeSource id="prevShotsWaypoints" shape={waypointFeatures}>
+          <Mapbox.CircleLayer
+            id="prevShotsObRing"
+            filter={['==', ['get', 'ob'], true]}
+            style={{
+              circleRadius: 15,
+              circleColor: 'rgba(0,0,0,0)',
+              circleStrokeColor: P.neg,
+              circleStrokeWidth: 3,
+            }}
+          />
+        </Mapbox.ShapeSource>
+        {features.map((f, i) => (
+          <PaperCrumb
+            key={`crumb-${i}`}
+            id={`crumb-${i}`}
+            coordinate={f.geometry.coordinates as [number, number]}
+            n={paper.numbers[i] ?? i + 1}
+            ob={f.properties?.ob === true}
+            shifted={f.properties?.obShifted === true}
+            onPress={paper.onSelect ? () => paper.onSelect?.(i) : undefined}
+          />
+        ))}
+      </>
+    )
+  }
 
   return (
     <>
@@ -215,5 +282,118 @@ export function BreadcrumbLayers({
         />
       </Mapbox.ShapeSource>
     </>
+  )
+}
+
+// Unselected paper crumb (§19.3): 20 dp raised disc, 1.5 ink ring, a 1 dp
+// cream keyline, Fraunces-it numeral. MarkerView (not a GL symbol) because the
+// numeral is Fraunces, which the satellite style's glyph server doesn't have.
+// An OB shot keeps its brick disc (#839) and the -20 nudge when a re-hit sits
+// on it. The 44 dp box is the tap target when tappable; otherwise the marker
+// passes touches through to the map.
+function PaperCrumb({
+  id,
+  coordinate,
+  n,
+  ob,
+  shifted,
+  onPress,
+}: {
+  id: string
+  coordinate: [number, number]
+  n: number
+  ob: boolean
+  shifted: boolean
+  onPress?: () => void
+}) {
+  return (
+    <Mapbox.MarkerView
+      id={id}
+      coordinate={coordinate}
+      anchor={{ x: 0.5, y: 0.5 }}
+      allowOverlap
+      pointerEvents={onPress ? 'auto' : 'none'}
+    >
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={`Shot ${n}`}
+        disabled={!onPress}
+        onPress={onPress}
+        style={{
+          width: 44,
+          height: 44,
+          alignItems: 'center',
+          justifyContent: 'center',
+          transform: [{ translateX: shifted ? OB_NUDGE[0] : 0 }],
+        }}
+      >
+        <View
+          style={{
+            width: 22,
+            height: 22,
+            borderRadius: 11,
+            backgroundColor: 'rgba(251,248,241,0.6)',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <View
+            style={{
+              width: 20,
+              height: 20,
+              borderRadius: 10,
+              backgroundColor: ob ? P.neg : P.raised,
+              borderWidth: 1.5,
+              borderColor: ob ? P.raised : P.ink,
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <Text
+              maxFontSizeMultiplier={1}
+              style={[TYPE.serif, { fontSize: 12, lineHeight: 15, color: ob ? P.raised : P.ink }]}
+            >
+              {n}
+            </Text>
+          </View>
+        </View>
+      </Pressable>
+    </Mapbox.MarkerView>
+  )
+}
+
+// The past round's selected breadcrumb (#611 §19.3): a 26 dp ink disc with a
+// cream numeral inside the live ball's 44 dp grab disc.
+export function SelectedCrumb({ n }: { n: number | null }) {
+  return (
+    <View
+      style={{
+        width: 44,
+        height: 44,
+        borderRadius: 22,
+        backgroundColor: 'rgba(28,33,28,0.28)',
+        borderWidth: 1.5,
+        borderColor: 'rgba(251,248,241,0.9)',
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}
+    >
+      <View
+        style={{
+          width: 26,
+          height: 26,
+          borderRadius: 13,
+          backgroundColor: P.ink,
+          borderWidth: 2,
+          borderColor: P.raised,
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        <Text maxFontSizeMultiplier={1} style={[TYPE.serif, { fontSize: 15, lineHeight: 18, color: P.raised }]}>
+          {n ?? ''}
+        </Text>
+      </View>
+    </View>
   )
 }
