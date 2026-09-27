@@ -19,6 +19,7 @@ import { Key, KeyText, PaperSurface, Rocker } from '../paper/Paper'
 import { Em, NoPinVoice, Primary, Secondary, SmallKey, Voice } from '../paper/Dock'
 import { Icon } from '../paper/icons'
 import { marksPath, pencilEllipse } from '../paper/pencil'
+import { CoachTarget } from '../help/CoachMarks'
 import { haptic } from '../../lib/haptics'
 import { FONT_CAP, GAP, MARGIN, P, R } from '../paper/tokens'
 import { RulerCard } from './HoleMapOverlays'
@@ -100,6 +101,7 @@ export function LiveRoundDock(p: LiveRoundDockProps) {
 
   const keys = (
     <View style={{ flexDirection: 'row', gap: GAP, width: 124 }}>
+      <CoachTarget id="live.pattern" style={{ flex: 1 }}>
       <Key
         accessibilityLabel={p.patternOn ? 'Hide shot pattern' : 'Show shot pattern'}
         onPress={() => {
@@ -117,6 +119,8 @@ export function LiveRoundDock(p: LiveRoundDockProps) {
           Pattern
         </KeyText>
       </Key>
+      </CoachTarget>
+      <CoachTarget id="live.pin" style={{ flex: 1 }}>
       <Key
         accessibilityLabel={p.pinPlacementOpen ? 'Cancel pin placement' : 'Place pin'}
         onPress={() => {
@@ -133,11 +137,12 @@ export function LiveRoundDock(p: LiveRoundDockProps) {
           Pin
         </KeyText>
       </Key>
+      </CoachTarget>
     </View>
   )
 
   const right = aimLike ? (
-    <View style={{ width: 96, gap: GAP }}>
+    <CoachTarget id="live.ruler" style={{ width: 96, gap: GAP }}>
       <Rocker
         options={[
           { value: 'tee', label: 'Tee' },
@@ -154,16 +159,18 @@ export function LiveRoundDock(p: LiveRoundDockProps) {
         onScrub={p.onScrubRuler}
         lefty={p.lefty}
       />
-    </View>
+    </CoachTarget>
   ) : p.showRecenter ? (
-    <Key
-      accessibilityLabel="Put the ball on my GPS spot"
-      onPress={p.onRecenter}
-      disabled={!p.hasGps}
-      faceStyle={{ width: 48, height: 48 }}
-    >
-      <Icon.gps size={24} color={p.hasGps ? P.ink : P.ink35} />
-    </Key>
+    <CoachTarget id="live.recenter">
+      <Key
+        accessibilityLabel="Put the ball on my GPS spot"
+        onPress={p.onRecenter}
+        disabled={!p.hasGps}
+        faceStyle={{ width: 48, height: 48 }}
+      >
+        <Icon.gps size={24} color={p.hasGps ? P.ink : P.ink35} />
+      </Key>
+    </CoachTarget>
   ) : (
     <View />
   )
@@ -191,7 +198,11 @@ export function LiveRoundDock(p: LiveRoundDockProps) {
         >
           <View style={{ width: 124, gap: GAP }}>
             {keys}
-            {!putting && p.hasPin && <ClubWheel {...p.wheel} />}
+            {!putting && p.hasPin && (
+              <CoachTarget id="live.wheel">
+                <ClubWheel {...p.wheel} />
+              </CoachTarget>
+            )}
           </View>
           {right}
         </View>
@@ -206,9 +217,14 @@ export function LiveRoundDock(p: LiveRoundDockProps) {
           paddingBottom: 7,
         }}
       >
-        {voice}
+        {voice && <CoachTarget id="live.voice">{voice}</CoachTarget>}
         {p.editStepper ?? (
-          <View style={{ flexDirection: 'row', gap: GAP, alignItems: 'stretch' }}>{buttons}</View>
+          <CoachTarget
+            id={putting ? 'live.row.putt' : p.roundState === 'SET_AIM' ? 'live.row.aim' : 'live.row.place'}
+            style={{ flexDirection: 'row', gap: GAP, alignItems: 'stretch' }}
+          >
+            {buttons}
+          </CoachTarget>
         )}
       </PaperSurface>
     </View>

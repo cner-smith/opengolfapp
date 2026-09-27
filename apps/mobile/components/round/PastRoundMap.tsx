@@ -31,6 +31,7 @@ import type { HoleMapPhase, PastCrumbs } from './HoleMap.types'
 import { PUTTING_RADIUS_YARDS } from './hole/types'
 import { Em, NoPinVoice, Primary, Secondary, SmallKey, Voice } from '../paper/Dock'
 import { ButtonRow, ModeRocker, PastFooter, ShotStepperRow } from './past/PastFooter'
+import { CoachTarget } from '../help/CoachMarks'
 import { PastHoleBlock, type HoleResult } from './past/PastHoleBlock'
 import { ShotCallout, type Projector } from './past/ShotCallout'
 
@@ -731,6 +732,7 @@ export function PastRoundMap({
 
   return (
     <View style={{ flex: 1, backgroundColor: P.chrome }}>
+      <CoachTarget id="past.hole">
       <PastHoleBlock
         holeNumber={holeNumber}
         holeCount={holes.length}
@@ -743,6 +745,7 @@ export function PastRoundMap({
         onPrev={() => goToHole(holeNumber - 1)}
         onNext={() => goToHole(holeNumber + 1)}
       />
+      </CoachTarget>
 
       <View style={{ flex: 1 }}>
         <HoleMap
@@ -798,11 +801,14 @@ export function PastRoundMap({
         {!completed && (
           // Bottom-left over the map, lifted clear of the Mapbox logo (ToS).
           <View style={{ position: 'absolute', left: MARGIN, bottom: ROCKER_BOTTOM }}>
-            <ModeRocker value={mode} onChange={setMode} aimDisabled={!active?.start} />
+            <CoachTarget id="past.modes">
+              <ModeRocker value={mode} onChange={setMode} aimDisabled={!active?.start} />
+            </CoachTarget>
           </View>
         )}
       </View>
 
+      <CoachTarget id="past.footer">
       <PastFooter>
         {!completed ? (
           /* ───────── LOGGING (§19.4) ───────── */
@@ -899,6 +905,7 @@ export function PastRoundMap({
           </>
         )}
       </PastFooter>
+      </CoachTarget>
 
       {/* "On the green?" — mirrors the live round prompt. Yes → it's a putt
           (no aim, details on the scorecard); No → aim as a chip/bunker shot

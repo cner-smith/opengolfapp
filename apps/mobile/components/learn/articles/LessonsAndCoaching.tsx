@@ -16,6 +16,8 @@ import {
   BODY,
 } from '../primitives'
 import { FONT } from '../../../lib/typography'
+import { PaperTile } from '../../paper/Section'
+import { FONT_CAP } from '../../paper/tokens'
 
 export function LessonsAndCoachingArticle() {
   return (
@@ -344,16 +346,8 @@ function FlagCard({
 }) {
   const edge = accent ? C.accent : C.line
   return (
-    <View
-      style={{
-        borderWidth: 1,
-        borderColor: edge,
-        backgroundColor: C.boxBg,
-        borderRadius: 2,
-        padding: 14,
-      }}
-    >
-      <Text
+    <PaperTile innerStyle={accent ? { borderLeftWidth: 4, borderLeftColor: C.accent } : undefined}>
+      <Text maxFontSizeMultiplier={FONT_CAP}
         style={{
           ...KICKER,
           color: accent ? C.accent : C.inkDim,
@@ -371,7 +365,7 @@ function FlagCard({
             key={item}
             style={{ flexDirection: 'row', gap: 8, marginBottom: 8 }}
           >
-            <Text
+            <Text maxFontSizeMultiplier={FONT_CAP}
               style={{
                 color: accent ? C.accent : C.mute,
                 fontFamily: FONT.body,
@@ -381,7 +375,7 @@ function FlagCard({
             >
               {accent ? '✓' : '·'}
             </Text>
-            <Text
+            <Text maxFontSizeMultiplier={FONT_CAP}
               style={{ color: C.ink, fontFamily: FONT.body, fontSize: 13.5, lineHeight: 20, flex: 1 }}
             >
               {item}
@@ -389,6 +383,6 @@ function FlagCard({
           </View>
         ))}
       </View>
-    </View>
+    </PaperTile>
   )
 }

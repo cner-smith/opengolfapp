@@ -1,5 +1,7 @@
 import { Text, View } from 'react-native'
 import { FONT } from '../../../lib/typography'
+import { PaperTile } from '../../paper/Section'
+import { FONT_CAP } from '../../paper/tokens'
 import {
   ArticleHeader,
   ArticleFooter,
@@ -242,17 +244,7 @@ function FitterTable() {
     },
   ]
   return (
-    <View
-      style={{
-        backgroundColor: C.boxBg,
-        borderWidth: 1,
-        borderColor: C.line,
-        borderRadius: 2,
-        paddingVertical: 14,
-        paddingHorizontal: 18,
-        marginBottom: 18,
-      }}
-    >
+    <PaperTile style={{ marginBottom: 18 }} innerStyle={{ paddingVertical: 14, paddingHorizontal: 18 }}>
       {rows.map((r, i) => (
         <View
           key={r.who}
@@ -263,7 +255,7 @@ function FitterTable() {
             borderTopColor: C.line,
           }}
         >
-          <Text
+          <Text maxFontSizeMultiplier={FONT_CAP}
             style={{
               color: C.ink,
               fontFamily: FONT.serifItalic,
@@ -273,14 +265,14 @@ function FitterTable() {
           >
             {r.who}
           </Text>
-          <Text style={{ color: C.ink, fontFamily: FONT.body, fontSize: 14, lineHeight: 20 }}>
+          <Text maxFontSizeMultiplier={FONT_CAP} style={{ color: C.ink, fontFamily: FONT.body, fontSize: 14, lineHeight: 20 }}>
             {r.knows} · {r.neutral}
           </Text>
-          <Text style={{ color: C.inkDim, fontFamily: FONT.body, fontSize: 13, lineHeight: 19, marginTop: 2 }}>
+          <Text maxFontSizeMultiplier={FONT_CAP} style={{ color: C.inkDim, fontFamily: FONT.body, fontSize: 13, lineHeight: 19, marginTop: 2 }}>
             Best: {r.best}
           </Text>
         </View>
       ))}
-    </View>
+    </PaperTile>
   )
 }

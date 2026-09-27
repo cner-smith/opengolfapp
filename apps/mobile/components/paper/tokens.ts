@@ -11,6 +11,8 @@ export const P = {
   ink85: 'rgba(28,33,28,.85)',
   ink45: 'rgba(28,33,28,.45)',
   ink35: 'rgba(28,33,28,.35)',
+  /** Pencil graphite: golf marks, ticks and the handwritten scorecard figures. */
+  graphite: '#353430',
   line: '#D9D2BF',
   lineStrong: '#9F9580',
   forest: '#1F3D2C',

@@ -28,6 +28,9 @@ import { LearnPreview } from '../../components/home/LearnPreview'
 import { IntroTour } from '../../components/onboarding/IntroTour'
 import { introTourSeen, markIntroTourSeen } from '../../lib/introTour'
 import { TYPE } from '../../lib/typography'
+import { PaperTile, SectionHead, StatTile } from '../../components/paper/Section'
+import { FONT_CAP, P } from '../../components/paper/tokens'
+import { PaperSurface } from '../../components/paper/Paper'
 
 type Profile = Database['public']['Tables']['profiles']['Row']
 
@@ -44,14 +47,6 @@ const SG_KEYS = [
   { key: 'sg_around_green', label: 'Around green' },
   { key: 'sg_putting', label: 'Putting' },
 ] as const
-
-const KICKER: import('react-native').TextStyle = {
-  color: '#8A8B7E',
-  fontSize: 10,
-  fontWeight: '500',
-  letterSpacing: 1.4,
-  textTransform: 'uppercase',
-}
 
 export default function Home() {
   const { user } = useAuth()
@@ -256,7 +251,7 @@ export default function Home() {
   const firstName = profile?.username?.split(/\s+/)[0]
 
   return (
-    <View style={{ flex: 1, backgroundColor: '#F2EEE5' }}>
+    <PaperSurface style={{ flex: 1 }}>
       <IntroTour
         visible={showTour}
         onDismiss={dismissTour}
@@ -305,25 +300,24 @@ export default function Home() {
               ]}
             >
               {homeStats.weakest.value >= 0 ? (
-                <>Everything is net positive. <Text style={[TYPE.bodyBold, { fontWeight: '600' }]}>{homeStats.strongest.label}</Text> leads at {fmtSG(homeStats.strongest.value)} a round.</>
+                <>Everything is net positive. <Text maxFontSizeMultiplier={FONT_CAP} style={TYPE.bodyBold}>{homeStats.strongest.label}</Text> leads at {fmtSG(homeStats.strongest.value)} a round.</>
               ) : (
-                <><Text style={[TYPE.bodyBold, { fontWeight: '600' }]}>{homeStats.weakest.label}.</Text> Your biggest leak — costing about {fmtAbs(homeStats.weakest.value)} a round. {homeStats.strongest.label} is the bright spot at {fmtSG(homeStats.strongest.value)}.</>
+                <><Text maxFontSizeMultiplier={FONT_CAP} style={TYPE.bodyBold}>{homeStats.weakest.label}.</Text> Your biggest leak — costing about {fmtAbs(homeStats.weakest.value)} a round. {homeStats.strongest.label} is the bright spot at {fmtSG(homeStats.strongest.value)}.</>
               )}
             </Text>
 
             <View style={{ marginBottom: 28 }}>
-              <View style={{ borderTopWidth: 1, borderColor: '#D9D2BF', paddingTop: 14, marginBottom: 14 }}>
-                <Text style={[TYPE.kicker, KICKER]}>By the numbers</Text>
-              </View>
+              <SectionHead title="By the numbers" />
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
-                <HomeTile label="Avg score" value={homeStats.avgScore != null ? homeStats.avgScore.toFixed(1) : '—'} />
-                <HomeTile
+                <StatTile style={TILE} label="Avg score" value={homeStats.avgScore != null ? homeStats.avgScore.toFixed(1) : '—'} />
+                <StatTile
+                  style={TILE}
                   label="SG total"
                   value={formatSG(homeStats.totalSG)}
-                  valueColor={homeStats.totalSG > 0 ? '#1F3D2C' : homeStats.totalSG < 0 ? '#A33A2A' : '#1C211C'}
+                  valueColor={homeStats.totalSG > 0 ? P.forest : homeStats.totalSG < 0 ? P.neg : P.ink}
                 />
-                <HomeTile label="Rounds" value={rounds.length.toString()} />
-                <HomeTile label="Best round" value={homeStats.bestScore != null ? homeStats.bestScore.toString() : '—'} />
+                <StatTile style={TILE} label="Rounds" value={rounds.length.toString()} />
+                <StatTile style={TILE} label="Best round" value={homeStats.bestScore != null ? homeStats.bestScore.toString() : '—'} />
               </View>
             </View>
           </Entrance>
@@ -336,17 +330,9 @@ export default function Home() {
         </Entrance>
 
         {pending > 0 && (
-          <View
-            style={{
-              borderTopWidth: 1,
-              borderBottomWidth: 1,
-              borderColor: '#D9D2BF',
-              paddingVertical: 12,
-              marginBottom: 18,
-            }}
-          >
-            <Text style={[TYPE.kicker, KICKER, { marginBottom: 4 }]}>Sync queue</Text>
-            <Text style={[TYPE.body, { color: '#A66A1F', fontSize: 13 }]}>
+          <View style={{ marginBottom: 18 }}>
+            <SectionHead title="Sync queue" style={{ marginBottom: 4 }} />
+            <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { color: P.warn, fontSize: 13 }]}>
               {pending} shot{pending === 1 ? '' : 's'} waiting to sync.
             </Text>
           </View>
@@ -354,20 +340,13 @@ export default function Home() {
 
         <Entrance index={3}>
         {rounds.length === 0 ? (
-          <View
-            style={{
-              borderWidth: 1,
-              borderColor: '#D9D2BF',
-              backgroundColor: '#FBF8F1',
-              padding: 22,
-              borderRadius: 4,
-            }}
-          >
+          <PaperTile style={{ marginBottom: 28 }} innerStyle={{ padding: 22 }}>
             <Text
+              maxFontSizeMultiplier={FONT_CAP}
               style={[
                 TYPE.serif,
                 {
-                  color: '#1C211C',
+                  color: P.ink,
                   fontSize: 22,
                 },
               ]}
@@ -375,10 +354,11 @@ export default function Home() {
               No rounds yet.
             </Text>
             <Text
+              maxFontSizeMultiplier={FONT_CAP}
               style={[
                 TYPE.body,
                 {
-                  color: '#5C6356',
+                  color: P.inkDim,
                   fontSize: 14,
                   marginTop: 8,
                   lineHeight: 20,
@@ -387,7 +367,7 @@ export default function Home() {
             >
               Log your first round to start tracking strokes gained.
             </Text>
-          </View>
+          </PaperTile>
         ) : (
           <>
             <SGBreakdown rounds={wholeRounds} />
@@ -430,39 +410,11 @@ export default function Home() {
         }}
         onCancel={() => setPendingDelete(null)}
       />
-    </View>
+    </PaperSurface>
   )
 }
 
-function HomeTile({
-  label,
-  value,
-  valueColor = '#1C211C',
-}: {
-  label: string
-  value: string
-  valueColor?: string
-}) {
-  return (
-    <View
-      style={{
-        width: '47%',
-        backgroundColor: '#FBF8F1',
-        borderWidth: 1,
-        borderColor: '#D9D2BF',
-        borderRadius: 4,
-        padding: 14,
-      }}
-    >
-      <Text style={[TYPE.kicker, { color: '#8A8B7E', fontSize: 10, fontWeight: '500', letterSpacing: 1.4, textTransform: 'uppercase', marginBottom: 10 }]}>
-        {label}
-      </Text>
-      <Text style={[TYPE.serif, { color: valueColor, fontSize: 28 }]}>
-        {value}
-      </Text>
-    </View>
-  )
-}
+const TILE = { width: '47%' } as const
 
 function fmtSG(value: number): string {
   return value === 0 ? 'even' : `${formatSG(value)} strokes`

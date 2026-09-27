@@ -2,6 +2,7 @@ import { Text, View } from 'react-native'
 import { formatSG, formatToPar, inferHoleCount } from '@oga/core'
 import type { Database } from '@oga/supabase'
 import { FONT } from '../../lib/typography'
+import { GolfMark } from '../paper/GolfMark'
 
 type HoleRow = Database['public']['Tables']['holes']['Row']
 type HoleScoreRow = Database['public']['Tables']['hole_scores']['Row']
@@ -59,12 +60,10 @@ const COLORS = {
 
 type ColorPalette = (typeof COLORS)[keyof typeof COLORS]
 
+// Paper style: sentence-case Epilogue labels (was mono caps).
 const KICKER: import('react-native').TextStyle = {
-  fontSize: 9,
-  fontWeight: '500',
-  letterSpacing: 1.3,
-  textTransform: 'uppercase',
-  fontFamily: FONT.mono,
+  fontSize: 10,
+  fontFamily: FONT.body,
 }
 
 export function ShareableScorecardCard({
@@ -228,7 +227,7 @@ export function ShareableScorecardCard({
           }}
         >
           <Text style={{ ...KICKER, color: c.inkMute, marginBottom: 10 }}>
-            Strokes Gained
+            Strokes gained
           </Text>
           <View
             style={{
@@ -312,21 +311,18 @@ function ScoreGrid({
   }
   const labelStyle: import('react-native').TextStyle = {
     width: 38,
-    fontFamily: FONT.mono,
+    fontFamily: FONT.body,
     fontSize: 9,
     fontWeight: '500',
     color: colors.inkMute,
-    textTransform: 'uppercase',
-    letterSpacing: 1.2,
     paddingVertical: 6,
     paddingLeft: 4,
   }
   const totalCell: import('react-native').TextStyle = {
     width: 32,
     textAlign: 'center',
-    fontFamily: FONT.serifItalic,
-    fontSize: 13,
-    fontWeight: '500',
+    fontFamily: FONT.hand,
+    fontSize: 16,
     color: colors.ink,
     paddingVertical: 6,
   }
@@ -410,6 +406,7 @@ function ScoreGrid({
               colors={colors}
               par={hs?.par ?? h?.par ?? 4}
               score={score}
+              hole={n}
             />
           )
         })}
@@ -424,59 +421,22 @@ interface ScoreCellProps {
   colors: ColorPalette
   par: number
   score: number | null
+  hole: number
 }
 
-function ScoreCell({ cellStyle, colors, par, score }: ScoreCellProps) {
+// Pencilled in like the app's scorecard: Kalam figure, pencil golf mark (the
+// same seeded marks, drawn smaller for the card's grid).
+function ScoreCell({ cellStyle, colors, par, score, hole }: ScoreCellProps) {
   if (score == null) {
     return <Text style={{ ...cellStyle, color: colors.inkMute }}>—</Text>
   }
-  const diff = score - par
-  const isCircle = diff <= -1
-  const isSquare = diff >= 1
-  const decorationCount = Math.abs(diff) >= 2 ? 2 : 1
-  const color = diff < 0 ? colors.accent : diff > 0 ? colors.neg : colors.ink
-
-  if (!isCircle && !isSquare) {
-    return <Text style={{ ...cellStyle, color }}>{score}</Text>
-  }
-
-  // RN can't overlay shapes inside flexed Text the way web can; wrap
-  // in a positioned View so the decoration sits behind the digit.
-  const sizes = decorationCount === 1 ? [16] : [16, 22]
   return (
-    <View
-      style={{
-        flex: 1,
-        position: 'relative',
-        alignItems: 'center',
-        justifyContent: 'center',
-        paddingVertical: 6,
-      }}
-    >
-      {sizes.map((size) => (
-        <View
-          key={size}
-          style={{
-            position: 'absolute',
-            width: size,
-            height: size,
-            borderRadius: isCircle ? size / 2 : 1,
-            borderWidth: 1.2,
-            borderColor: color,
-          }}
-        />
-      ))}
-      <Text
-        style={{
-          fontFamily: FONT.mono,
-          fontSize: 11,
-          fontWeight: '500',
-          color,
-          fontVariant: ['tabular-nums'],
-        }}
-      >
-        {score}
-      </Text>
+    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 6 }}>
+      <Text style={{ fontFamily: FONT.hand, fontSize: 15, lineHeight: 22, color: colors.ink }}>{score}</Text>
+      {/* Kalam figures sit low in a small line box: drop the mark 1 px. */}
+      <View style={{ position: 'absolute', left: 0, right: 0, top: 1, bottom: -1 }}>
+        <GolfMark toPar={score - par} seed={hole} scale={0.66} ink={colors.ink} />
+      </View>
     </View>
   )
 }

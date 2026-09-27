@@ -20,6 +20,8 @@ export const FONT = {
   bodyItalic: 'Epilogue-Italic',
   /** Inconsolata 500 — kickers, metadata, codes (the yardage-book mono). */
   mono: 'Inconsolata-Medium',
+  /** Kalam 400 (OFL) — handwritten scorecard figures, beside the pencil marks. */
+  hand: 'Kalam-Regular',
 } as const
 
 /**
@@ -44,4 +46,6 @@ export const TYPE = {
   bodyItalic: { fontFamily: FONT.bodyItalic },
   /** Kickers + metadata/codes (hole #, par, distance, timestamps). */
   kicker: { fontFamily: FONT.mono },
+  /** Pencilled-in scorecard numbers (score, putts, totals). */
+  hand: { fontFamily: FONT.hand },
 } as const

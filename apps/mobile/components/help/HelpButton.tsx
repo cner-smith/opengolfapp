@@ -1,8 +1,10 @@
 import { useState } from 'react'
-import { Modal, Pressable, Text } from 'react-native'
+import { Modal, Pressable, Text, View } from 'react-native'
 import { useRouter } from 'expo-router'
 import { getHelpTopic, type HelpTopicId } from '@oga/core'
 import { TYPE } from '../../lib/typography'
+import { HardShadow, Key, KeyText, PaperSurface } from '../paper/Paper'
+import { FONT_CAP, P, R } from '../paper/tokens'
 import { PressableTouch } from '../ui/PressableTouch'
 
 // Pull-only contextual help. A "?" pill opens a centered fade Modal with the
@@ -21,52 +23,52 @@ export function HelpButton({ topicId }: { topicId: HelpTopicId }) {
         accessibilityLabel={`Help: ${topic.title}`}
         onPress={() => setOpen(true)}
         style={{
-          width: 30, height: 30, borderRadius: 999, borderWidth: 1,
-          borderColor: '#D9D2BF', alignItems: 'center', justifyContent: 'center',
+          width: 30, height: 30, borderRadius: R, borderWidth: 1,
+          borderColor: P.line, alignItems: 'center', justifyContent: 'center',
         }}
       >
-        <Text style={[TYPE.body, { color: '#5C6356', fontSize: 15 }]}>?</Text>
+        <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { color: P.inkDim, fontSize: 15 }]}>?</Text>
       </PressableTouch>
 
       <Modal transparent animationType="fade" visible={open} onRequestClose={() => setOpen(false)}>
         <Pressable
           onPress={() => setOpen(false)}
-          style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 24 }}
+          style={{ flex: 1, backgroundColor: P.scrim, justifyContent: 'center', padding: 24 }}
         >
-          <Pressable
-            onPress={(e) => e.stopPropagation()}
-            style={{ backgroundColor: '#F7F3E9', borderRadius: 8, padding: 22 }}
-          >
-            <Text style={[TYPE.serif, { fontSize: 19, color: '#1C211C', marginBottom: 10 }]}>
-              {topic.title}
-            </Text>
-            <Text style={[TYPE.body, { fontSize: 14, lineHeight: 21, color: '#3A3F36' }]}>
-              {topic.body}
-            </Text>
-            {topic.articleId && (
-              <PressableTouch
-                accessibilityRole="button"
-                accessibilityLabel={`Read more: ${topic.title}`}
-                onPress={() => {
-                  setOpen(false)
-                  router.push({
-                    pathname: '/(app)/learn/[article]',
-                    params: { article: topic.articleId! },
-                  })
-                }}
-                style={{ marginTop: 16 }}
+          <Pressable onPress={(e) => e.stopPropagation()}>
+            <HardShadow>
+              <PaperSurface
+                fill={P.raised}
+                style={{ borderWidth: 1, borderColor: P.ink, borderRadius: R, padding: 22, overflow: 'hidden' }}
               >
-                <Text style={[TYPE.bodyBold, { color: '#1F3D2C', fontSize: 14 }]}>Learn more →</Text>
-              </PressableTouch>
-            )}
-            <PressableTouch
-              accessibilityRole="button"
-              accessibilityLabel="Close"
-              onPress={() => setOpen(false)}
-              style={{ marginTop: 18, alignSelf: 'flex-end' }}
-            >
-              <Text style={[TYPE.bodyBold, { color: '#5C6356', fontSize: 14 }]}>Close</Text>
-            </PressableTouch>
+                <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.serif, { fontSize: 20, lineHeight: 26, color: P.ink, marginBottom: 10 }]}>
+                  {topic.title}
+                </Text>
+                <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { fontSize: 14, lineHeight: 21, color: P.ink }]}>
+                  {topic.body}
+                </Text>
+                <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 10, marginTop: 20 }}>
+                  {topic.articleId && (
+                    <Key
+                      accessibilityLabel={`Read more: ${topic.title}`}
+                      onPress={() => {
+                        setOpen(false)
+                        router.push({
+                          pathname: '/(app)/learn/[article]',
+                          params: { article: topic.articleId! },
+                        })
+                      }}
+                      faceStyle={{ minHeight: 42, paddingHorizontal: 14 }}
+                    >
+                      <KeyText size={14} bold style={{ color: P.forest }}>Learn more →</KeyText>
+                    </Key>
+                  )}
+                  <Key accessibilityLabel="Close" onPress={() => setOpen(false)} faceStyle={{ minHeight: 42, paddingHorizontal: 16 }}>
+                    <KeyText size={14}>Close</KeyText>
+                  </Key>
+                </View>
+              </PaperSurface>
+            </HardShadow>
           </Pressable>
         </Pressable>
       </Modal>

@@ -366,8 +366,9 @@ function ScoreCell({
       selectTextOnFocus
       accessibilityLabel={label}
       style={[
-        serif ? TYPE.serif : TYPE.kicker,
-        { width, minHeight: 44, textAlign: 'center', fontSize: serif ? 20 : 15, paddingVertical: 0, color: P.ink },
+        // Pencilled in (Kalam), like the golf marks and ticks around them.
+        TYPE.hand,
+        { width, minHeight: 44, textAlign: 'center', fontSize: serif ? 28 : 22, paddingVertical: 0, color: P.graphite },
       ]}
     />
   )

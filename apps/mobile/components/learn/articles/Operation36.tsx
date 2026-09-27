@@ -14,6 +14,8 @@ import {
   C,
 } from '../primitives'
 import { FONT } from '../../../lib/typography'
+import { PaperTile } from '../../paper/Section'
+import { FONT_CAP, P as PAPER } from '../../paper/tokens'
 
 export function Operation36Article() {
   return (
@@ -334,24 +336,22 @@ function Rung({
   goal?: boolean
 }) {
   return (
-    <View
-      style={{
+    <PaperTile
+      innerStyle={{
         flexDirection: 'row',
         alignItems: 'center',
         gap: 12,
-        borderWidth: 1,
-        borderColor: goal ? C.accent : C.line,
-        backgroundColor: goal ? C.accent : C.boxBg,
-        borderRadius: 2,
+        backgroundColor: goal ? C.accent : PAPER.raised,
         paddingVertical: 10,
         paddingHorizontal: 16,
       }}
     >
       <Text
+        maxFontSizeMultiplier={FONT_CAP}
         style={{
           fontFamily: FONT.serifItalic,
           fontSize: 18,
-          color: goal ? '#F2EEE5' : C.ink,
+          color: goal ? PAPER.chrome : C.ink,
           minWidth: 78,
         }}
       >
@@ -359,6 +359,7 @@ function Rung({
       </Text>
       {caption ? (
         <Text
+          maxFontSizeMultiplier={FONT_CAP}
           style={{
             fontFamily: FONT.body,
             fontSize: 12,
@@ -369,7 +370,7 @@ function Rung({
           {caption}
         </Text>
       ) : null}
-    </View>
+    </PaperTile>
   )
 }
 
@@ -379,20 +380,17 @@ function Gate() {
   return (
     <View style={{ alignItems: 'center', paddingVertical: 6 }}>
       <Text
+        maxFontSizeMultiplier={FONT_CAP}
         style={{
-          ...{
-            fontFamily: FONT.mono,
-            fontSize: 9,
-            letterSpacing: 1.3,
-            textTransform: 'uppercase' as const,
-            color: C.inkDim,
-            paddingVertical: 2,
-          },
+          fontFamily: FONT.body,
+          fontSize: 12,
+          color: PAPER.inkDim,
+          paddingVertical: 2,
         }}
       >
         Shoot 36 to advance
       </Text>
-      <Text style={{ fontFamily: FONT.body, fontSize: 13, lineHeight: 13, color: '#9F9580' }}>⌄</Text>
+      <Text maxFontSizeMultiplier={FONT_CAP} style={{ fontFamily: FONT.body, fontSize: 13, lineHeight: 13, color: PAPER.lineStrong }}>⌄</Text>
     </View>
   )
 }

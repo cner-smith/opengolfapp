@@ -6,7 +6,8 @@ import * as Linking from 'expo-linking'
 import * as AppleAuthentication from 'expo-apple-authentication'
 import * as Crypto from 'expo-crypto'
 import Svg, { Path } from 'react-native-svg'
-import { PressableTouch } from '../ui/PressableTouch'
+import { Key } from '../paper/Paper'
+import { FONT_CAP, P } from '../paper/tokens'
 import { supabase } from '../../lib/supabase'
 import { TYPE } from '../../lib/typography'
 
@@ -129,25 +130,17 @@ export function OAuthButtons() {
 
   return (
     <View style={{ gap: 10 }}>
-      <PressableTouch
-        accessibilityRole="button"
+      <Key
         accessibilityLabel="Continue with Google"
         onPress={signInWithGoogle}
         disabled={busy}
-        style={{
-          flexDirection: 'row',
-          borderWidth: 1,
-          borderColor: '#D9D2BF',
-          borderRadius: 2,
-          paddingVertical: 12,
-          alignItems: 'center',
-          justifyContent: 'center',
-          opacity: busy ? 0.5 : 1,
-        }}
+        faceStyle={{ flexDirection: 'row', minHeight: 46 }}
       >
         <GoogleGlyph />
-        <Text style={[TYPE.body, { color: '#1C211C', fontSize: 15, marginLeft: 10 }]}>Continue with Google</Text>
-      </PressableTouch>
+        <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { color: busy ? P.ink45 : P.ink, fontSize: 15, marginLeft: 10 }]}>
+          Continue with Google
+        </Text>
+      </Key>
       {Platform.OS === 'ios' && (
         <View pointerEvents={busy ? 'none' : 'auto'} style={{ opacity: busy ? 0.5 : 1 }}>
           <AppleAuthentication.AppleAuthenticationButton
@@ -159,7 +152,7 @@ export function OAuthButtons() {
           />
         </View>
       )}
-      {error && <Text style={[TYPE.body, { color: '#A33A2A', fontSize: 13 }]}>{error}</Text>}
+      {error && <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { color: P.neg, fontSize: 13 }]}>{error}</Text>}
     </View>
   )
 }

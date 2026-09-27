@@ -4,11 +4,15 @@ import Animated, { useReducedMotion, useSharedValue, withTiming, useAnimatedStyl
 import Svg, { Path } from 'react-native-svg'
 import { marksDuration, marksFor, marksPath, pencilTick } from './pencil'
 
-const GRAPHITE = '#353430'
+import { P } from './tokens'
+
+const GRAPHITE = P.graphite
 // The harness draws marks at 0.86 around a 15 sp digit; the box holds a
 // double-bogey outer square with its overshoot.
-const SCALE = 0.86
-const BOX = 52
+// Kalam figures run larger than the old Fraunces ones: the inner double-bogey
+// square crowded a 7's top bar at 0.86.
+const SCALE = 1.02
+const BOX = 62
 // The score digit prints first (90 ms); the mark starts 240 ms after that.
 const MARK_DELAY_MS = 330
 
@@ -17,9 +21,22 @@ const MARK_DELAY_MS = 330
 // squares — pencil-drawn, seeded by hole number so each is its own and stays
 // the same across renders. Nothing at par. `animate` draws it by hand once
 // (the hole just scored); otherwise it shows the finished mark. Centred on
-// its parent, nudged up 1 dp (measured on device: a 7 dp nudge sat the
-// squares high, the digit riding their bottom edge).
-export function GolfMark({ toPar, seed, animate = false }: { toPar: number; seed: number; animate?: boolean }) {
+// its parent, nudged up 3 dp to sit on the Kalam figures' visual centre
+// (measured on device).
+export function GolfMark({
+  toPar,
+  seed,
+  animate = false,
+  scale = 1,
+  ink = GRAPHITE,
+}: {
+  toPar: number
+  seed: number
+  animate?: boolean
+  /** Smaller figures (the share card's 360-wide grid) draw the marks smaller. */
+  scale?: number
+  ink?: string
+}) {
   const marks = useMemo(() => marksFor(toPar, seed), [toPar, seed])
   const final = useMemo(() => marksPath(marks, 1e9), [marks])
   const reduce = useReducedMotion()
@@ -46,15 +63,16 @@ export function GolfMark({ toPar, seed, animate = false }: { toPar: number; seed
   const fadeStyle = useAnimatedStyle(() => ({ opacity: fade.value }))
   if (!marks.length) return null
   const d = t >= 1e9 ? final : marksPath(marks, t)
-  const half = BOX / 2
+  const box = BOX * scale
+  const half = box / 2
   return (
     <Animated.View
       pointerEvents="none"
-      style={[{ position: 'absolute', left: '50%', top: '50%', marginLeft: -half, marginTop: -half - 1 }, fadeStyle]}
+      style={[{ position: 'absolute', left: '50%', top: '50%', marginLeft: -half, marginTop: -half - 3 * scale }, fadeStyle]}
     >
-      <View style={{ width: BOX, height: BOX }}>
-        <Svg width={BOX} height={BOX} viewBox={`${-half / SCALE} ${-half / SCALE} ${BOX / SCALE} ${BOX / SCALE}`}>
-          {d ? <Path d={d} fill={GRAPHITE} opacity={0.9} /> : null}
+      <View style={{ width: box, height: box }}>
+        <Svg width={box} height={box} viewBox={`${-BOX / 2 / SCALE} ${-BOX / 2 / SCALE} ${BOX / SCALE} ${BOX / SCALE}`}>
+          {d ? <Path d={d} fill={ink} opacity={0.9} /> : null}
         </Svg>
       </View>
     </Animated.View>

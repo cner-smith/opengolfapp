@@ -353,6 +353,14 @@ export function pencilTick(seed: number): { m: Mark; at: number }[] {
   return [{ m: { strokes: [{ pts: kinematics(resample(raw, 0.3), o, r), t0: 0 }], dur: o.dur, w0: o.w }, at: 0 }]
 }
 
+/** A short pencil underline (the active tab in the bottom bar). */
+export function pencilUnderline(): Mark {
+  const r = rng(11)
+  const raw = [{ x: -14, y: 1 }, { x: -4, y: 0.2 }, { x: 6, y: -0.4 }, { x: 14, y: -1.4 }]
+  const o: Opts = { dur: 160, w: 1.3, in0: 0.5, out0: 0.7 }
+  return { strokes: [{ pts: kinematics(resample(raw, 0.3), o, r), t0: 0 }], dur: o.dur, w0: o.w }
+}
+
 export const marksDuration = (ms: { m: Mark; at: number }[]) => Math.max(0, ...ms.map((x) => x.at + x.m.dur))
 
 // perfect-freehand settings from the harness: size 2·w0·1.2, thinning .9,

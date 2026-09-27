@@ -4,7 +4,20 @@ import { findLearnArticle } from '@oga/core'
 import { AppBar } from '../../../components/ui/AppBar'
 import { BODY, C, KICKER, TITLE } from '../../../components/learn/primitives'
 import { MOBILE_ARTICLES } from '../../../components/learn/articles'
+import { PaperSurface } from '../../../components/paper/Paper'
+import { PaperTile } from '../../../components/paper/Section'
+import { FONT_CAP, P } from '../../../components/paper/tokens'
 import { FONT, TYPE } from '../../../lib/typography'
+
+// The dark AppBar keeps its mono-caps back link.
+const BACK: import('react-native').TextStyle = {
+  fontFamily: FONT.mono,
+  color: 'rgba(242,238,229,0.6)',
+  fontSize: 10,
+  letterSpacing: 1.4,
+  textTransform: 'uppercase',
+  padding: 4,
+}
 
 export default function ArticleScreen() {
   const router = useRouter()
@@ -12,13 +25,13 @@ export default function ArticleScreen() {
   const found = slug ? findLearnArticle(slug) : null
 
   return (
-    <View style={{ flex: 1, backgroundColor: C.bg }}>
+    <PaperSurface style={{ flex: 1 }}>
       <AppBar
         eyebrow={found?.section.title ?? 'Yardage book'}
         title={found?.article.title ?? 'Article'}
         right={
           <Pressable onPress={() => router.back()}>
-            <Text style={{ ...KICKER, color: 'rgba(242,238,229,0.6)', padding: 4 }}>
+            <Text maxFontSizeMultiplier={FONT_CAP} style={BACK}>
               ← Back
             </Text>
           </Pressable>
@@ -36,7 +49,7 @@ export default function ArticleScreen() {
           </>
         )}
       </ScrollView>
-    </View>
+    </PaperSurface>
   )
 }
 
@@ -50,8 +63,8 @@ function LiveArticle({ id }: { id: string }) {
 function NotFound() {
   return (
     <View>
-      <Text style={TITLE}>Article not found.</Text>
-      <Text style={{ ...BODY, color: C.inkDim, fontFamily: FONT.bodyItalic }}>
+      <Text maxFontSizeMultiplier={FONT_CAP} style={TITLE}>Article not found.</Text>
+      <Text maxFontSizeMultiplier={FONT_CAP} style={{ ...BODY, color: P.inkDim, fontFamily: FONT.bodyItalic }}>
         That guide does not exist yet.
       </Text>
     </View>
@@ -60,39 +73,24 @@ function NotFound() {
 
 function DraftBanner() {
   return (
-    <View
-      style={{
-        borderLeftWidth: 3,
-        borderLeftColor: C.amber,
-        borderTopWidth: 1,
-        borderRightWidth: 1,
-        borderBottomWidth: 1,
-        borderTopColor: C.line,
-        borderRightColor: C.line,
-        borderBottomColor: C.line,
-        borderRadius: 2,
-        backgroundColor: C.surface,
-        padding: 14,
-        marginBottom: 18,
-      }}
-    >
-      <Text style={{ ...KICKER, color: C.amber, marginBottom: 6 }}>
+    <PaperTile style={{ marginBottom: 20 }} innerStyle={{ borderLeftWidth: 4, borderLeftColor: P.warn }}>
+      <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.serif, { color: P.warn, fontSize: 16, lineHeight: 22, marginBottom: 6 }]}>
         Work in progress
       </Text>
-      <Text style={[TYPE.body, { color: C.ink, fontSize: 13, lineHeight: 19 }]}>
+      <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { color: P.ink, fontSize: 13, lineHeight: 19 }]}>
         This guide is being reviewed for accuracy. Treat specific technique
         advice as provisional until the notice is removed.
       </Text>
-    </View>
+    </PaperTile>
   )
 }
 
 function StubBody({ title }: { title: string }) {
   return (
     <View>
-      <Text style={{ ...KICKER, marginBottom: 10 }}>Coming soon</Text>
-      <Text style={TITLE}>{title}</Text>
-      <Text style={{ ...BODY, color: C.mute, fontFamily: FONT.bodyItalic }}>
+      <Text maxFontSizeMultiplier={FONT_CAP} style={{ ...KICKER, marginBottom: 10 }}>Coming soon</Text>
+      <Text maxFontSizeMultiplier={FONT_CAP} style={TITLE}>{title}</Text>
+      <Text maxFontSizeMultiplier={FONT_CAP} style={{ ...BODY, color: C.mute, fontFamily: FONT.bodyItalic }}>
         This guide is being written. Check back soon.
       </Text>
     </View>

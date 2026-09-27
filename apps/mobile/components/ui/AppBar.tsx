@@ -33,7 +33,8 @@ export function AppBar({ eyebrow, title, right }: AppBarProps) {
         justifyContent: 'space-between',
       }}
     >
-      <View>
+      {/* flex + gap so a long title wraps instead of running under `right`. */}
+      <View style={{ flex: 1, marginRight: right ? 12 : 0 }}>
         {eyebrow && (
           <Text
             style={[
@@ -56,7 +57,6 @@ export function AppBar({ eyebrow, title, right }: AppBarProps) {
             {
               color: '#F2EEE5',
               fontSize: 17,
-              fontWeight: '500',
             },
           ]}
         >

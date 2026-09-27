@@ -7,6 +7,7 @@ import { HeroRow } from '../paper/HeroRow'
 import { Icon } from '../paper/icons'
 import { FONT_CAP, P, R } from '../paper/tokens'
 import { PressableTouch } from '../ui/PressableTouch'
+import { CoachTarget } from '../help/CoachMarks'
 
 const ORDINAL = ['first', 'second', 'third', 'fourth', 'fifth', 'sixth', 'seventh', 'eighth', 'ninth', 'tenth']
 
@@ -25,6 +26,8 @@ interface LiveRoundHeaderProps {
   onNext: () => void
   onOpenScorecard: () => void
   onOpenMenu: () => void
+  /** "?" — walk through what's on this screen (#900). */
+  onHelp: () => void
 }
 
 // Live-round header (#611 §3): paper, hole nav row over the hero row
@@ -34,7 +37,7 @@ export function LiveRoundHeader(p: LiveRoundHeaderProps) {
   const ordinal = ORDINAL[p.shotNumber - 1] ?? `${p.shotNumber}th`
   return (
     <PaperSurface style={{ paddingTop: insets.top, borderBottomWidth: 1, borderBottomColor: P.ink, zIndex: 2 }}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', minHeight: 52, paddingHorizontal: 2 }}>
+      <CoachTarget id="live.holes" style={{ flexDirection: 'row', alignItems: 'center', minHeight: 52, paddingHorizontal: 2 }}>
         <NavButton label="Leave round and return home" onPress={p.onLeave}>
           <Icon.back size={22} />
         </NavButton>
@@ -58,25 +61,32 @@ export function LiveRoundHeader(p: LiveRoundHeaderProps) {
         <NavButton label="Next hole" onPress={p.onNext} disabled={p.holeNumber >= p.holeCount}>
           <Icon.next size={20} color={P.inkDim} />
         </NavButton>
+        <NavButton label="What's on this screen" onPress={p.onHelp}>
+          <Text maxFontSizeMultiplier={1} style={[TYPE.serif, { fontSize: 20, lineHeight: 24, color: P.inkDim }]}>?</Text>
+        </NavButton>
         <NavButton label="Round options" onPress={p.onOpenMenu}>
           <Icon.more size={20} />
         </NavButton>
-      </View>
+      </CoachTarget>
+      <CoachTarget id="live.hero">
       <HeroRow
         distance={p.distance}
         emptyLabel={p.noBall ? 'mark your\nball' : undefined}
         expected={p.expected}
         trailing={
-          <Key
-            accessibilityLabel="Open scorecard"
-            onPress={p.onOpenScorecard}
-            faceStyle={{ minHeight: 44, flexDirection: 'row', gap: 6, paddingLeft: 9, paddingRight: 10 }}
-          >
-            <Icon.card size={18} />
-            <KeyText>Card</KeyText>
-          </Key>
+          <CoachTarget id="live.card">
+            <Key
+              accessibilityLabel="Open scorecard"
+              onPress={p.onOpenScorecard}
+              faceStyle={{ minHeight: 44, flexDirection: 'row', gap: 6, paddingLeft: 9, paddingRight: 10 }}
+            >
+              <Icon.card size={18} />
+              <KeyText>Card</KeyText>
+            </Key>
+          </CoachTarget>
         }
       />
+      </CoachTarget>
     </PaperSurface>
   )
 }

@@ -20,28 +20,29 @@ import type { ReactNode } from 'react'
 import { Linking, Text, View } from 'react-native'
 import type { TextStyle, ViewStyle } from 'react-native'
 import { FONT } from '../../lib/typography'
+import { PaperTile } from '../paper/Section'
+import { FONT_CAP, P as PAPER, R } from '../paper/tokens'
 
-// ── palette (matches web tokens + the existing mobile [article].tsx) ──────────
+// ── palette (paper tokens; mute + boxBg have no paper equivalent) ─────────────
 export const C = {
-  ink: '#1C211C',
-  inkDim: '#5C6356',
+  ink: PAPER.ink,
+  inkDim: PAPER.inkDim,
   mute: '#8A8B7E',
-  line: '#D9D2BF',
+  line: PAPER.line,
   boxBg: '#EBE5D6',
-  surface: '#FBF8F1',
-  accent: '#1F3D2C',
-  amber: '#A66A1F',
-  bg: '#F2EEE5',
+  surface: PAPER.raised,
+  accent: PAPER.forest,
+  amber: PAPER.warn,
+  bg: PAPER.chrome,
 } as const
 
 // ── text styles ───────────────────────────────────────────────────────────
+// Paper option B: small labels / eyebrows are sentence-case Epilogue, not mono caps.
 export const KICKER: TextStyle = {
-  color: C.mute,
-  fontFamily: FONT.mono,
-  fontSize: 10,
-  fontWeight: '500',
-  letterSpacing: 1.4,
-  textTransform: 'uppercase',
+  color: C.inkDim,
+  fontFamily: FONT.body,
+  fontSize: 12,
+  lineHeight: 16,
 }
 
 export const TITLE: TextStyle = {
@@ -61,10 +62,12 @@ export const BODY: TextStyle = {
 }
 
 export const SUBKICKER: TextStyle = {
-  ...KICKER,
-  color: C.inkDim,
+  color: C.ink,
+  fontFamily: FONT.serifItalic,
+  fontSize: 16,
+  lineHeight: 22,
   marginTop: 14,
-  marginBottom: 10,
+  marginBottom: 8,
 }
 
 const H3_STYLE: TextStyle = {
@@ -87,16 +90,17 @@ const H4_STYLE: TextStyle = {
 
 // ── inline spans (nest inside <P>, <H3>, list items, etc.) ──────────────────
 export function Strong({ children }: { children: ReactNode }) {
-  return <Text style={{ fontFamily: FONT.bodyBold, fontWeight: '700' }}>{children}</Text>
+  return <Text maxFontSizeMultiplier={FONT_CAP} style={{ fontFamily: FONT.bodyBold }}>{children}</Text>
 }
 
 export function Em({ children }: { children: ReactNode }) {
-  return <Text style={{ fontFamily: FONT.bodyItalic }}>{children}</Text>
+  return <Text maxFontSizeMultiplier={FONT_CAP} style={{ fontFamily: FONT.bodyItalic }}>{children}</Text>
 }
 
 export function Link({ href, children }: { href: string; children: ReactNode }) {
   return (
     <Text
+      maxFontSizeMultiplier={FONT_CAP}
       style={{ color: C.accent, textDecorationLine: 'underline' }}
       onPress={() => Linking.openURL(href)}
     >
@@ -109,26 +113,26 @@ export function Link({ href, children }: { href: string; children: ReactNode }) 
 export function ArticleHeader({ kicker, title }: { kicker: string; title: string }) {
   return (
     <View>
-      <Text style={{ ...KICKER, marginBottom: 10 }}>{kicker}</Text>
-      <Text style={TITLE}>{title}</Text>
+      <Text maxFontSizeMultiplier={FONT_CAP} style={{ ...KICKER, marginBottom: 10 }}>{kicker}</Text>
+      <Text maxFontSizeMultiplier={FONT_CAP} style={TITLE}>{title}</Text>
     </View>
   )
 }
 
 export function P({ children, style }: { children: ReactNode; style?: TextStyle }) {
-  return <Text style={[BODY, style]}>{children}</Text>
+  return <Text maxFontSizeMultiplier={FONT_CAP} style={[BODY, style]}>{children}</Text>
 }
 
 export function H3({ children }: { children: ReactNode }) {
-  return <Text style={H3_STYLE}>{children}</Text>
+  return <Text maxFontSizeMultiplier={FONT_CAP} style={H3_STYLE}>{children}</Text>
 }
 
 export function H4({ children }: { children: ReactNode }) {
-  return <Text style={H4_STYLE}>{children}</Text>
+  return <Text maxFontSizeMultiplier={FONT_CAP} style={H4_STYLE}>{children}</Text>
 }
 
 export function Subhead({ children }: { children: ReactNode }) {
-  return <Text style={SUBKICKER}>{children}</Text>
+  return <Text maxFontSizeMultiplier={FONT_CAP} style={SUBKICKER}>{children}</Text>
 }
 
 export function Hr() {
@@ -143,8 +147,8 @@ export function BulletList({ items }: { items: ReactNode[] }) {
     <View style={{ marginBottom: 14, marginTop: 2 }}>
       {items.map((item, i) => (
         <View key={i} style={{ flexDirection: 'row', gap: 8, marginBottom: 6 }}>
-          <Text style={{ ...BODY, marginBottom: 0 }}>{'•'}</Text>
-          <Text style={{ ...BODY, marginBottom: 0, flex: 1 }}>{item}</Text>
+          <Text maxFontSizeMultiplier={FONT_CAP} style={{ ...BODY, marginBottom: 0 }}>{'•'}</Text>
+          <Text maxFontSizeMultiplier={FONT_CAP} style={{ ...BODY, marginBottom: 0, flex: 1 }}>{item}</Text>
         </View>
       ))}
     </View>
@@ -157,15 +161,15 @@ export function NumberList({ items }: { items: ReactNode[] }) {
     <View style={{ marginBottom: 14, marginTop: 2 }}>
       {items.map((item, i) => (
         <View key={i} style={{ flexDirection: 'row', gap: 8, marginBottom: 6 }}>
-          <Text style={{ ...BODY, marginBottom: 0, fontFamily: FONT.bodyBold, fontWeight: '600' }}>{i + 1}.</Text>
-          <Text style={{ ...BODY, marginBottom: 0, flex: 1 }}>{item}</Text>
+          <Text maxFontSizeMultiplier={FONT_CAP} style={{ ...BODY, marginBottom: 0, fontFamily: FONT.bodyBold }}>{i + 1}.</Text>
+          <Text maxFontSizeMultiplier={FONT_CAP} style={{ ...BODY, marginBottom: 0, flex: 1 }}>{item}</Text>
         </View>
       ))}
     </View>
   )
 }
 
-/** Left-accent callout box. tone: 'accent' (green) | 'amber'. */
+/** Paper tile with a left accent rule. tone: 'accent' (green) | 'amber'. */
 export function Callout({
   children,
   tone = 'accent',
@@ -174,22 +178,16 @@ export function Callout({
   tone?: 'accent' | 'amber'
 }) {
   return (
-    <View
-      style={{
-        borderLeftWidth: 3,
-        borderLeftColor: tone === 'amber' ? C.amber : C.accent,
-        backgroundColor: C.boxBg,
-        padding: 14,
-        marginBottom: 14,
-        borderRadius: 2,
-      }}
+    <PaperTile
+      style={{ marginBottom: 16 }}
+      innerStyle={{ borderLeftWidth: 4, borderLeftColor: tone === 'amber' ? C.amber : C.accent }}
     >
       {children}
-    </View>
+    </PaperTile>
   )
 }
 
-/** Tinted "glance" box: optional small-caps label + arbitrary rows/content. */
+/** "Glance" paper tile: optional label + arbitrary rows/content. */
 export function GlanceBox({
   label,
   children,
@@ -200,15 +198,19 @@ export function GlanceBox({
   style?: ViewStyle
 }) {
   return (
-    <View
-      style={[
-        { backgroundColor: C.boxBg, padding: 14, marginBottom: 14, borderRadius: 2 },
-        style,
-      ]}
+    // Callers' style (padding, fills from before the paper tiles) belongs on
+    // the tile face; on the shadow wrapper it drew a grey slab round the tile.
+    <PaperTile
+      style={{ marginBottom: 16, marginTop: style?.marginTop }}
+      innerStyle={[style, { backgroundColor: PAPER.raised, borderColor: PAPER.ink, borderRadius: R, marginTop: 0 }]}
     >
-      {label ? <Text style={{ ...KICKER, color: C.inkDim, marginBottom: 8 }}>{label}</Text> : null}
+      {label ? (
+        <Text maxFontSizeMultiplier={FONT_CAP} style={{ ...SUBKICKER, marginTop: 0 }}>
+          {label}
+        </Text>
+      ) : null}
       {children}
-    </View>
+    </PaperTile>
   )
 }
 
@@ -231,10 +233,10 @@ export function DefRow({
         borderTopColor: C.line,
       }}
     >
-      <Text style={{ color: C.ink, fontFamily: FONT.serifItalic, fontSize: 15, marginBottom: 4 }}>
+      <Text maxFontSizeMultiplier={FONT_CAP} style={{ color: C.ink, fontFamily: FONT.serifItalic, fontSize: 15, marginBottom: 4 }}>
         {term}
       </Text>
-      <Text style={{ color: C.inkDim, fontFamily: FONT.body, fontSize: 14, lineHeight: 20 }}>{children}</Text>
+      <Text maxFontSizeMultiplier={FONT_CAP} style={{ color: C.inkDim, fontFamily: FONT.body, fontSize: 14, lineHeight: 20 }}>{children}</Text>
     </View>
   )
 }
@@ -242,24 +244,27 @@ export function DefRow({
 /** Inline label + body paragraph (web "Kv"). */
 export function Kv({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <Text style={BODY}>
-      <Text style={{ fontFamily: FONT.bodyBold, fontWeight: '700' }}>{label} </Text>
+    <Text maxFontSizeMultiplier={FONT_CAP} style={BODY}>
+      <Text maxFontSizeMultiplier={FONT_CAP} style={{ fontFamily: FONT.bodyBold }}>{label} </Text>
       {children}
     </Text>
   )
 }
 
-/** Small-caps pill tag. */
+/** Outlined paper tag (a label, not a button). */
 export function Tag({ children }: { children: ReactNode }) {
   return (
     <Text
+      maxFontSizeMultiplier={FONT_CAP}
       style={{
         ...KICKER,
         color: C.accent,
-        backgroundColor: C.boxBg,
+        backgroundColor: C.surface,
+        borderWidth: 1,
+        borderColor: C.ink,
         paddingHorizontal: 8,
         paddingVertical: 3,
-        borderRadius: 2,
+        borderRadius: R,
         overflow: 'hidden',
       }}
     >
@@ -284,7 +289,7 @@ export function Figure({ caption, children }: { caption?: string; children: Reac
         {children}
       </View>
       {caption ? (
-        <Text style={{ ...KICKER, color: C.mute, marginTop: 8, textAlign: 'center' }}>
+        <Text maxFontSizeMultiplier={FONT_CAP} style={{ ...KICKER, marginTop: 8, textAlign: 'center' }}>
           {caption}
         </Text>
       ) : null}
@@ -300,13 +305,13 @@ export function Sources({
 }) {
   return (
     <View style={{ marginTop: 6 }}>
-      <Text style={{ ...KICKER, marginBottom: 4 }}>Sources</Text>
+      <Text maxFontSizeMultiplier={FONT_CAP} style={{ ...SUBKICKER, marginTop: 0, marginBottom: 4 }}>Sources</Text>
       {items.map((s, i) => (
         <View key={i} style={{ paddingVertical: 10, borderTopWidth: 1, borderTopColor: C.line }}>
-          <Text style={{ color: C.ink, fontFamily: FONT.serifItalic, fontSize: 14, marginBottom: 3 }}>
+          <Text maxFontSizeMultiplier={FONT_CAP} style={{ color: C.ink, fontFamily: FONT.serifItalic, fontSize: 14, marginBottom: 3 }}>
             {s.href ? <Link href={s.href}>{s.name}</Link> : s.name}
           </Text>
-          <Text style={{ color: C.inkDim, fontFamily: FONT.body, fontSize: 13, lineHeight: 19 }}>{s.note}</Text>
+          <Text maxFontSizeMultiplier={FONT_CAP} style={{ color: C.inkDim, fontFamily: FONT.body, fontSize: 13, lineHeight: 19 }}>{s.note}</Text>
         </View>
       ))}
     </View>
@@ -323,11 +328,11 @@ export function ResourceList({
     <View style={{ marginVertical: 6 }}>
       {items.map((r, i) => (
         <View key={i} style={{ paddingVertical: 12, borderTopWidth: 1, borderTopColor: C.line }}>
-          <Text style={{ color: C.ink, fontFamily: FONT.serifItalic, fontSize: 15 }}>
+          <Text maxFontSizeMultiplier={FONT_CAP} style={{ color: C.ink, fontFamily: FONT.serifItalic, fontSize: 15 }}>
             {r.title}
-            {r.by ? <Text style={{ color: C.inkDim, fontFamily: FONT.body, fontStyle: 'normal', fontWeight: '400' }}> — {r.by}</Text> : null}
+            {r.by ? <Text maxFontSizeMultiplier={FONT_CAP} style={{ color: C.inkDim, fontFamily: FONT.body }}> — {r.by}</Text> : null}
           </Text>
-          <Text style={{ color: C.inkDim, fontFamily: FONT.body, fontSize: 14, lineHeight: 20, marginTop: 4 }}>{r.note}</Text>
+          <Text maxFontSizeMultiplier={FONT_CAP} style={{ color: C.inkDim, fontFamily: FONT.body, fontSize: 14, lineHeight: 20, marginTop: 4 }}>{r.note}</Text>
         </View>
       ))}
     </View>
@@ -350,7 +355,7 @@ export function DevNote({
   const label = variant === 'research' ? 'Source' : 'Todo'
   if (inline) {
     return (
-      <Text style={{ ...KICKER, color: tone, marginTop: 4 }}>
+      <Text maxFontSizeMultiplier={FONT_CAP} style={{ ...KICKER, color: tone, marginTop: 4 }}>
         [{label}] {children}
       </Text>
     )
@@ -365,8 +370,8 @@ export function DevNote({
         marginBottom: 12,
       }}
     >
-      <Text style={{ ...KICKER, color: tone, marginBottom: 4 }}>{label} · dev only</Text>
-      <Text style={{ color: C.inkDim, fontFamily: FONT.bodyItalic, fontSize: 13, lineHeight: 19 }}>
+      <Text maxFontSizeMultiplier={FONT_CAP} style={{ ...KICKER, color: tone, marginBottom: 4 }}>{label} · dev only</Text>
+      <Text maxFontSizeMultiplier={FONT_CAP} style={{ color: C.inkDim, fontFamily: FONT.bodyItalic, fontSize: 13, lineHeight: 19 }}>
         {children}
       </Text>
     </View>
@@ -377,14 +382,13 @@ export function DevNote({
 export function ArticleFooter({ children }: { children: ReactNode }) {
   return (
     <Text
+      maxFontSizeMultiplier={FONT_CAP}
       style={{
         ...KICKER,
-        color: C.mute,
         borderTopWidth: 1,
         borderTopColor: C.line,
         paddingTop: 18,
         marginTop: 22,
-        lineHeight: 16,
       }}
     >
       {children}

@@ -1,15 +1,13 @@
 import { Text } from 'react-native'
 import type { BlockType, PlanCategory } from '@oga/core'
 import { FONT, TYPE } from '../../lib/typography'
+import { FONT_CAP, P } from '../paper/tokens'
 
 // Shared drill-display vocabulary + the instructions renderer, used by both the
 // Practice plan screen (plan blocks) and the Drill library screen (browse-all).
 // Mirrors apps/web/src/pages/practice/drillDisplay.tsx — keep the two in sync.
 // Extracted because renderInstructions is substantial and must render drills
 // identically across the two surfaces.
-
-const INK = '#1C211C'
-const INK_DIM = '#5C6356'
 
 export const CATEGORY_LABEL: Record<PlanCategory, string> = {
   off_tee: 'Off the tee',
@@ -56,11 +54,12 @@ export function renderInstructions(text: string) {
   return paras.map((para, pi) => (
     <Text
       key={pi}
-      style={[TYPE.body, { color: INK_DIM, fontSize: 14, lineHeight: 21, marginTop: pi === 0 ? 0 : 12 }]}
+      maxFontSizeMultiplier={FONT_CAP}
+      style={[TYPE.body, { color: P.inkDim, fontSize: 14, lineHeight: 21, marginTop: pi === 0 ? 0 : 12 }]}
     >
       {para.map((seg, si) =>
         seg.kind === 'b' ? (
-          <Text key={si} style={{ color: INK, fontWeight: '600' }}>
+          <Text key={si} style={{ color: P.ink, fontFamily: FONT.bodyBold }}>
             {seg.text}
           </Text>
         ) : seg.kind === 'i' ? (
