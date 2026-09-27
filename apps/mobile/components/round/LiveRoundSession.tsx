@@ -643,7 +643,8 @@ export default function LiveRoundSession({
         holeCount={data.holeCount}
         par={data.resolvedHole?.par ?? data.currentHole.par}
         yardsLabel={data.resolvedHole?.yards ? toDisplay(data.resolvedHole.yards) : null}
-        shotNumber={data.shotNumber}
+        // Strokes, not shots: an OB adds its penalty stroke ("hitting 4").
+        shotNumber={data.shotNumber + actions.shotObs.filter(Boolean).length}
         distance={heroDistance}
         noBall={!finalState.ball && !!(data.roundPin ?? data.storedPin)}
         expected={expectedStrokes}
