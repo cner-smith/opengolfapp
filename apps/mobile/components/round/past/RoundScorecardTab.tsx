@@ -1,6 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { ScrollView, Text, TextInput, View } from 'react-native'
 import { useRouter } from 'expo-router'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { formatSG, inferHoleStats, roundFocusHeadline, type RoundFocus } from '@oga/core'
 import type { Database } from '@oga/supabase'
 import { TYPE } from '../../../lib/typography'
@@ -57,6 +58,8 @@ export function RoundScorecardTab({
   children: ReactNode
 }) {
   const diff = runningScore - runningPar
+  // Edge-to-edge: the system nav bar sits over the end of the scroll.
+  const insets = useSafeAreaInsets()
   const sgRows: { label: string; value: number | null }[] = [
     { label: 'Off the tee', value: round.sg_off_tee },
     { label: 'Approach', value: round.sg_approach },
@@ -65,7 +68,7 @@ export function RoundScorecardTab({
   ]
 
   return (
-    <ScrollView contentContainerStyle={{ paddingHorizontal: 22, paddingTop: 18, paddingBottom: 40 }}>
+    <ScrollView contentContainerStyle={{ paddingHorizontal: 22, paddingTop: 18, paddingBottom: 40 + insets.bottom }}>
       {/* Totals: the score at hero size, to-par beside it, SG on the right. */}
       <View style={{ flexDirection: 'row', alignItems: 'flex-end', marginBottom: 18 }}>
         <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.serif, { fontSize: 54, lineHeight: 62, letterSpacing: -1.5, color: runningPar === 0 ? P.ink35 : P.ink }]}>
