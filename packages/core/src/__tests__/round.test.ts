@@ -268,6 +268,17 @@ describe('summarizeShotParts', () => {
   it('no signal → empty parts', () => {
     expect(summarizeShotParts(summaryFields(), null, 'yards')).toEqual([])
   })
+  it('axes win over the legacy value, in contact · shape · start order', () => {
+    expect(
+      summarizeShotParts(
+        summaryFields({ distance_to_target: 150, shot_result: 'thin', contact: 'thin', shape: 'draw', start_line: 'push' }),
+        null,
+        'yards',
+      ),
+    ).toEqual(['150 yd', 'Thin · Draw · Push'])
+    // A shape alone has no legacy value but still shows.
+    expect(summarizeShotParts(summaryFields({ shape: 'fade' }), null, 'yards')).toEqual(['Fade'])
+  })
 })
 
 describe('decombinedPuttResult', () => {

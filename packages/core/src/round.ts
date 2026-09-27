@@ -14,7 +14,13 @@ import type {
   ShotShape,
   ShotStartLine,
 } from './constants'
-import { PUTT_RESULT_LABELS, SHOT_RESULT_LABELS } from './constants'
+import {
+  PUTT_RESULT_LABELS,
+  SHOT_CONTACT_LABELS,
+  SHOT_RESULT_LABELS,
+  SHOT_SHAPE_LABELS,
+  SHOT_START_LINE_LABELS,
+} from './constants'
 import { formatDistance, formatPuttDistance, haversineYards } from './units'
 import type {
   BreakDirection,
@@ -242,6 +248,10 @@ export interface ShotSummaryFields {
   putt_result: string | null
   putt_distance_result: string | null
   putt_direction_result: string | null
+  /** #951 axes. Optional so pre-0057 row shapes still type-check. */
+  contact?: string | null
+  shape?: string | null
+  start_line?: string | null
 }
 
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1)
@@ -299,9 +309,18 @@ export function summarizeShotParts(
     )
   }
   const distance = yards != null ? formatDistance(yards, unit) : null
-  const result = shot.shot_result
-    ? SHOT_RESULT_LABELS[shot.shot_result as ShotResult] ?? shot.shot_result
-    : null
+  // The axes when any is set (a shape alone has no legacy value), else the
+  // legacy single result.
+  const axes = [
+    shot.contact && SHOT_CONTACT_LABELS[shot.contact as ShotContact],
+    shot.shape && SHOT_SHAPE_LABELS[shot.shape as ShotShape],
+    shot.start_line && SHOT_START_LINE_LABELS[shot.start_line as ShotStartLine],
+  ].filter((v): v is string => Boolean(v))
+  const result = axes.length
+    ? axes.join(' · ')
+    : shot.shot_result
+      ? SHOT_RESULT_LABELS[shot.shot_result as ShotResult] ?? shot.shot_result
+      : null
   return [distance, result].filter((v): v is string => Boolean(v))
 }
 
