@@ -87,14 +87,19 @@ export function ScorecardModal({
   const rows = sorted.map((h) => {
     const hs = scoresByHoleId.get(h.id)
     // 0 = pre-created, unplayed (counting it pulled the running total to -71).
-    const score = hs?.score != null && hs.score > 0 ? hs.score : null
+    const raw = hs?.score != null && hs.score > 0 ? hs.score : null
+    // The hole being played holds a running shot count, not a score: shown
+    // dim with no golf mark and left out of the totals until it's finished
+    // (it drew an albatross circle and "8 under so far" one shot in).
+    const inProgress = raw != null && h.number === currentHoleNumber && !hs?.finished_at
+    const score = inProgress ? null : raw
     // Per-round par override (#710), then tee-resolved par.
     const par = resolvedHoleByNumber.get(h.number)?.par ?? hs?.par ?? h.par
     if (score != null) {
       run += score - par
       played = true
     }
-    return { h, par, score, run: score != null ? run : null }
+    return { h, par, score, running: inProgress ? raw : null, run: score != null ? run : null }
   })
   const shown = eighteen ? rows.filter((r) => (nine === 'front' ? r.h.number <= 9 : r.h.number > 9)) : rows
   const sumPar = shown.reduce((a, r) => a + r.par, 0)
@@ -162,7 +167,7 @@ export function ScorecardModal({
             <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { width: COL.toPar, textAlign: 'right', fontSize: 12, color: P.ink }]}>To par</Text>
           </View>
           <ScrollView style={{ flexShrink: 1 }} showsVerticalScrollIndicator={false}>
-            {shown.map(({ h, par, score, run: runAt }) => {
+            {shown.map(({ h, par, score, running, run: runAt }) => {
               const now = h.number === currentHoleNumber
               // Par is editable only on holes with no layout data — OSM par is authoritative.
               const parEditable = !!onChangePar && !h.yards && h.tee_lat == null
@@ -211,7 +216,7 @@ export function ScorecardModal({
                   )}
                   <View style={{ width: COL.score, alignItems: 'center', justifyContent: 'center' }}>
                     <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.hand, { fontSize: 26, lineHeight: 34, color: score != null ? P.graphite : P.ink35 }]}>
-                      {score ?? '—'}
+                      {score ?? running ?? '—'}
                     </Text>
                     {score != null && <GolfMark toPar={score - par} seed={h.number} animate={fresh.has(`${h.number}:${score}`)} />}
                   </View>
