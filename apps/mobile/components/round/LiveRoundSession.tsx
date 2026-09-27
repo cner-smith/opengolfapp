@@ -554,6 +554,8 @@ export default function LiveRoundSession({
     !editMode &&
     !finalState.isRevisitingPlayedHole &&
     totalShotsThisHole > 0 &&
+    // A putt can't go out of bounds.
+    !data.lastShotPutt &&
     !actions.saving
 
   // Which of this hole's played shots is selected in edit mode. Reset to the

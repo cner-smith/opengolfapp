@@ -833,7 +833,9 @@ export function PastRoundMap({
               )
             ) : (
               <Voice>
-                Shot {n} is on the map. <Em>Drag to fine-tune</Em>, or add shot {n + 1}.
+                {/* The primary below says "Add shot N+1"; repeating it here
+                    orphaned the number onto a second line. */}
+                Shot {n} is on the map. <Em>Drag to fine-tune.</Em>
               </Voice>
             )}
             <ButtonRow>

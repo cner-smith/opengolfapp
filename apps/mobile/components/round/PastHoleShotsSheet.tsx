@@ -584,7 +584,7 @@ function EditShotSheet({
                 <RockerRows options={SPEED_OPTIONS} value={greenSpeed} onChange={setGreenSpeed} />
               </PickerField>
               <PickerField title="Break">
-                <RockerRows label="Break" options={BREAK_LINE_OPTIONS} value={breakH} onChange={setBreakH} stacked={stacked} />
+                <RockerRows label="Line" options={BREAK_LINE_OPTIONS} value={breakH} onChange={setBreakH} stacked={stacked} />
                 <RockerRows label="Slope" options={BREAK_SLOPE_OPTIONS} value={breakV} onChange={setBreakV} stacked={stacked} />
               </PickerField>
             </>

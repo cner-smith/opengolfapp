@@ -57,6 +57,8 @@ export interface UseHoleDataResult {
   previousShotObs: boolean[]
   /** The hole's latest shot is a made putt (remote or still queued). */
   lastShotHoled: boolean
+  /** The hole's latest shot was played from the green. */
+  lastShotPutt: boolean
   refreshShots: () => void
   localShotCount: number
   localPuttCount: number
@@ -84,6 +86,7 @@ export function useHoleData(
   // Hole score whose latest remote shot is a made putt. An id, not a bool: on a
   // hole switch the caller sees the new hole before this resets.
   const [remoteHoledFor, setRemoteHoledFor] = useState<string | null>(null)
+  const [remotePuttFor, setRemotePuttFor] = useState<string | null>(null)
   const [shotsRefreshNonce, setShotsRefreshNonce] = useState(0)
   const refreshShots = useCallback(() => setShotsRefreshNonce((n) => n + 1), [])
 
@@ -285,6 +288,7 @@ export function useHoleData(
       setRemoteShotIds([])
       setRemoteShotObs([])
       setRemoteHoledFor(null)
+      setRemotePuttFor(null)
       setPendingForHole([])
     }
     if (!currentHoleScore) return
@@ -370,7 +374,9 @@ export function useHoleData(
         setRemoteShotStarts(starts)
         setRemoteShotIds(ids)
         setRemoteShotObs(obs)
-        setRemoteHoledFor(shots[shots.length - 1]?.putt_result === 'made' ? currentHoleScore.id : null)
+        const lastRemote = shots[shots.length - 1]
+        setRemoteHoledFor(lastRemote?.putt_result === 'made' ? currentHoleScore.id : null)
+        setRemotePuttFor(lastRemote && isPuttShot(lastRemote.lie_type) ? currentHoleScore.id : null)
         setPendingForHole(dedupedLocal)
       } catch (err) {
         if (myNonce !== fetchNonceRef.current) return
@@ -458,18 +464,19 @@ export function useHoleData(
   }, [remoteShotObs, pendingForHole])
 
   // Queued shots come after the remote ones, so the last queued one wins.
-  const lastShotHoled = useMemo(() => {
+  const { lastShotHoled, lastShotPutt } = useMemo(() => {
     const id = currentHoleScore?.id
-    if (!id) return false
+    if (!id) return { lastShotHoled: false, lastShotPutt: false }
     const last = pendingForHole[pendingForHole.length - 1]
-    if (!last) return remoteHoledFor === id
+    if (!last) return { lastShotHoled: remoteHoledFor === id, lastShotPutt: remotePuttFor === id }
     try {
       const p = JSON.parse(last.payload) as ShotPayload
-      return p.hole_score_id === id && p.putt_result === 'made'
+      const mine = p.hole_score_id === id
+      return { lastShotHoled: mine && p.putt_result === 'made', lastShotPutt: mine && isPuttShot(p.lie_type) }
     } catch {
-      return false
+      return { lastShotHoled: false, lastShotPutt: false }
     }
-  }, [remoteHoledFor, pendingForHole, currentHoleScore?.id])
+  }, [remoteHoledFor, remotePuttFor, pendingForHole, currentHoleScore?.id])
 
   // Live tee anchor: the player's first shot's start IS the tee. Falls back to
   // the stored course tee before the first shot (camera + pre-shot distances).
@@ -521,6 +528,7 @@ export function useHoleData(
     previousShotIds,
     previousShotObs,
     lastShotHoled,
+    lastShotPutt,
     refreshShots,
     localShotCount,
     localPuttCount,

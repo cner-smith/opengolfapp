@@ -852,7 +852,7 @@ function ShotRow({
           )}
           {open === 'slope' && <SlopeExpand row={row} onChange={onChange} />}
           {open === 'result' && (
-            <div style={{ marginTop: 9, background: '#EBE5D6', borderRadius: 8, padding: '9px 10px' }}>
+            <div style={{ marginTop: 9, background: '#EBE5D6', borderRadius: 3, padding: '9px 10px' }}>
               <ResultAxes
                 value={result}
                 onChange={(v) =>
@@ -967,7 +967,7 @@ function ChipExpand<V extends string>({
       style={{
         marginTop: 9,
         background: '#EBE5D6',
-        borderRadius: 8,
+        borderRadius: 3,
         padding: '9px 10px',
       }}
     >
@@ -1002,7 +1002,7 @@ function SlopeExpand({
       style={{
         marginTop: 9,
         background: '#EBE5D6',
-        borderRadius: 8,
+        borderRadius: 3,
         padding: '9px 10px',
         display: 'flex',
         flexDirection: 'column',
@@ -1071,7 +1071,7 @@ function BreakExpand({
       style={{
         marginTop: 9,
         background: '#EBE5D6',
-        borderRadius: 8,
+        borderRadius: 3,
         padding: '9px 10px',
         display: 'flex',
         flexDirection: 'column',
