@@ -104,7 +104,9 @@ export function BreadcrumbLayers({
   const segmentFeatures = useMemo<GeoJSON.FeatureCollection<GeoJSON.Point>>(
     () => ({
       type: 'FeatureCollection',
-      features: segments.map((s) => ({
+      // A leg under 10 yd puts its midpoint label on the markers themselves
+      // ("0 yd" over shot 1 right after Confirm aim, "2 yd" on the green).
+      features: segments.filter((s) => s.yards >= 10).map((s) => ({
         type: 'Feature',
         properties: { label: toDisplay(s.yards) },
         geometry: { type: 'Point', coordinates: toCoord(s.midpoint) },
