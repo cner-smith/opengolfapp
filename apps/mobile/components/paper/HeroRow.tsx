@@ -109,7 +109,7 @@ export function HeroRow({
           </>
         )}
       </View>
-      <View style={{ flex: 1, minWidth: 0, paddingLeft: 8, paddingBottom: 3 }}>
+      <View style={{ flex: 1, minWidth: 0, paddingLeft: 8, paddingRight: 8, paddingBottom: 3 }}>
         <Text allowFontScaling={false} style={[TYPE.serif, { fontSize: 22, lineHeight: 24, color: expected == null ? P.ink35 : P.ink }]}>
           {expected == null ? '—' : expected.toFixed(1)}
         </Text>
