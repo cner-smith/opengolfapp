@@ -5,6 +5,7 @@ import { captureRef } from 'react-native-view-shot'
 import * as Sharing from 'expo-sharing'
 import {
   CLUBS,
+  DEFAULT_BAG,
   LIE_SLOPES_FORWARD,
   LIE_SLOPES_SIDE,
   LIE_TYPES,
@@ -33,6 +34,7 @@ import { PressableTouch } from '../../components/ui/PressableTouch'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
 import { useUnits } from '../../hooks/useUnits'
+import { useUserBag } from '../../hooks/useUserBag'
 import { AppBar } from '../../components/ui/AppBar'
 import { Entrance } from '../../components/ui/Entrance'
 import { FONT, TYPE } from '../../lib/typography'
@@ -104,6 +106,17 @@ export default function Patterns() {
   const { user } = useAuth()
   const { unit, toDisplay } = useUnits()
   const [club, setClub] = useState<Club>('7i')
+  // Only the player's bag (DEFAULT_BAG while it loads / if empty), in
+  // catalog order so the row reads driver → putter.
+  const { bag } = useUserBag()
+  const clubOptions = useMemo(() => {
+    const have = new Set<string>((bag.length ? bag : DEFAULT_BAG).map((c) => c.club_type))
+    return CLUBS.filter((c) => have.has(c))
+  }, [bag])
+  // The default 7i may not be in the bag: fall back to its first club.
+  useEffect(() => {
+    if (clubOptions.length && !clubOptions.includes(club)) setClub(clubOptions[0]!)
+  }, [clubOptions, club])
   // Putter patterns read in feet like every other green distance (#923);
   // its formatter picks its own precision, so `decimals` is yards/metres only.
   const dist = (yards: number, decimals = 0) =>
@@ -201,7 +214,7 @@ export default function Patterns() {
         <Section kicker="Club">
           <ChipRow
             value={club}
-            options={CLUBS}
+            options={clubOptions}
             onChange={(v) => v && setClub(v)}
           />
         </Section>
