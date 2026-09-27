@@ -225,6 +225,8 @@ describe('dispersionRodsGeoJSON', () => {
     expect(local(toLngLat(dispersionRodsGeoJSON(ORIGIN, AIM, { ...D, perpMean: -2 })!.widthTag)).perp).toBeCloseTo(-2 - 8, 0)
     // A narrow rod keeps the tag on it (half the half-width).
     expect(local(toLngLat(dispersionRodsGeoJSON(ORIGIN, AIM, { ...D, perp68: 6 })!.widthTag)).perp).toBeCloseTo(2 + 3, 0)
+    // An explicit side overrides the pattern's own (live screen: away from its aim-line tags).
+    expect(local(toLngLat(dispersionRodsGeoJSON(ORIGIN, AIM, D, -1)!.widthTag)).perp).toBeCloseTo(2 - 8, 0)
   })
 })
 

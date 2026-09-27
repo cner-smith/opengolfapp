@@ -142,6 +142,8 @@ export function HoleMap({
   // pitch and viewport offsets come for free.
   const lastShot = previousShots?.[previousShots.length - 1] ?? null
   const [mapSize, setMapSize] = useState<{ w: number; h: number } | null>(null)
+  // Bumped on every camera settle; screen-clamped map tags re-measure on it.
+  const [idleTick, setIdleTick] = useState(0)
   const [lastShotArrow, setLastShotArrow] = useState<OffscreenArrow | null>(null)
   // Measured OB callout width — its label and the font scale both change it.
   const [obPillWidth, setObPillWidth] = useState(120)
@@ -654,6 +656,7 @@ export function HoleMap({
             }
             void measureLastShot()
             setCupK(flagCupK(state.properties.pitch))
+            setIdleTick((t) => t + 1)
           }}
           // Subscribed only while needed (it fires every frame): the past
           // round's callout, and the aim view's gesture latch.
@@ -731,7 +734,12 @@ export function HoleMap({
           )}
 
           {styleLoaded && !isPinMode && showAim && ball && aim && pattern && (
-            <DispersionLayers ball={ball} aim={aim} pattern={pattern} />
+            <DispersionLayers
+              ball={ball}
+              aim={aim}
+              pattern={pattern}
+              frame={{ map: mapViewRef, mapWidth: mapSize?.w ?? null, idleTick, lefty }}
+            />
           )}
 
           {/* Straight ball→pin reference, dotted cream hairline — the
