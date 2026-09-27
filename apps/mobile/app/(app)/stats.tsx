@@ -25,6 +25,9 @@ import { AppBar } from '../../components/ui/AppBar'
 import { Entrance } from '../../components/ui/Entrance'
 import { HelpButton } from '../../components/help/HelpButton'
 import { TYPE } from '../../lib/typography'
+import { PaperTile, SectionHead, StatTile } from '../../components/paper/Section'
+import { PaperSurface } from '../../components/paper/Paper'
+import { FONT_CAP, P } from '../../components/paper/tokens'
 
 const N_OPTIONS = [5, 10, 20] as const
 // Short labels for the standout callout, keyed to SGAverages (camelCase);
@@ -39,21 +42,15 @@ const SG_STANDOUT_LABEL: Record<keyof SGAverages, string> = {
 const CHART_HEIGHT = 260
 const CHART_BOTTOM = 28
 
+// Two stat tiles per row.
+const TILE = { width: '47%' } as const
+
 const SERIES = [
   { key: 'sg_off_tee', label: 'Off tee', color: '#1F3D2C', dash: '0' },
   { key: 'sg_approach', label: 'Approach', color: '#A33A2A', dash: '6,3' },
   { key: 'sg_around_green', label: 'Around green', color: '#A66A1F', dash: '2,3' },
   { key: 'sg_putting', label: 'Putting', color: '#1C211C', dash: '6,3,2,3' },
 ] as const
-
-const KICKER: import('react-native').TextStyle = {
-  ...TYPE.kicker,
-  color: '#8A8B7E',
-  fontSize: 10,
-  fontWeight: '500',
-  letterSpacing: 1.4,
-  textTransform: 'uppercase',
-}
 
 export default function Stats() {
   const { user } = useAuth()
@@ -208,7 +205,7 @@ export default function Stats() {
   )
 
   return (
-    <View style={{ flex: 1, backgroundColor: '#F2EEE5' }}>
+    <PaperSurface style={{ flex: 1 }}>
       <AppBar
         eyebrow="Performance"
         title="Strokes Gained"
@@ -279,26 +276,20 @@ export default function Stats() {
         {loading ? (
           <Text style={[TYPE.body, { color: '#8A8B7E', fontSize: 13 }]}>Loading…</Text>
         ) : rounds.length === 0 ? (
-          <View
-            style={{
-              backgroundColor: '#FBF8F1',
-              borderWidth: 1,
-              borderColor: '#D9D2BF',
-              borderRadius: 4,
-              padding: 22,
-            }}
-          >
+          <PaperTile innerStyle={{ padding: 22 }}>
             <Text
+              maxFontSizeMultiplier={FONT_CAP}
               style={[TYPE.serif, {
-                color: '#1C211C',
+                color: P.ink,
                 fontSize: 22,
               }]}
             >
               No rounds yet.
             </Text>
             <Text
+              maxFontSizeMultiplier={FONT_CAP}
               style={[TYPE.body, {
-                color: '#5C6356',
+                color: P.inkDim,
                 fontSize: 14,
                 marginTop: 8,
                 lineHeight: 20,
@@ -306,13 +297,13 @@ export default function Stats() {
             >
               Finalize a round to see SG trends per category.
             </Text>
-          </View>
+          </PaperTile>
         ) : (
           <>
             {stats && <StandoutCallout sg={stats.sg} />}
 
             <Entrance index={0}>
-            <Section kicker={`Avg — last ${wholeRounds.length} rounds`}>
+            <Section title={`Avg — last ${wholeRounds.length} rounds`}>
               <View
                 style={{
                   flexDirection: 'row',
@@ -321,17 +312,7 @@ export default function Stats() {
                 }}
               >
                 {avgs.map((s) => (
-                  <View
-                    key={s.key}
-                    style={{
-                      width: '47%',
-                      backgroundColor: '#FBF8F1',
-                      borderWidth: 1,
-                      borderColor: '#D9D2BF',
-                      borderRadius: 4,
-                      padding: 14,
-                    }}
-                  >
+                  <PaperTile key={s.key} style={{ width: '47%' }}>
                     <View
                       style={{
                         flexDirection: 'row',
@@ -347,30 +328,33 @@ export default function Stats() {
                           backgroundColor: s.color,
                         }}
                       />
-                      <Text style={KICKER}>{s.label}</Text>
+                      <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { color: P.inkDim, fontSize: 12 }]}>
+                        {s.label}
+                      </Text>
                     </View>
                     <Text
+                      maxFontSizeMultiplier={FONT_CAP}
                       style={[TYPE.serif, {
                         fontSize: 26,
                         color:
                           s.value > 0
-                            ? '#1F3D2C'
+                            ? P.forest
                             : s.value < 0
-                              ? '#A33A2A'
-                              : '#5C6356',
+                              ? P.neg
+                              : P.inkDim,
                         fontVariant: ['tabular-nums'],
                       }]}
                     >
                       {formatSG(s.value)}
                     </Text>
-                  </View>
+                  </PaperTile>
                 ))}
               </View>
             </Section>
             </Entrance>
 
             <Entrance index={1}>
-            <Section kicker={`SG trend — last ${wholeRounds.length} rounds`}>
+            <Section title={`SG trend — last ${wholeRounds.length} rounds`}>
               <Svg width={chartWidth} height={CHART_HEIGHT}>
                 {/* Y gridlines + tick labels */}
                 {sgAxis.ticks.map((t) => (
@@ -498,16 +482,16 @@ export default function Stats() {
 
             {stats && (
               <Entrance index={2}>
-              <Section kicker="Scoring">
+              <Section title="Scoring">
                 <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginBottom: 14 }}>
-                  <StatTile label="Avg score" value={fmtNum(stats.scoring.avgScore, 1)} />
-                  <StatTile label="Par 3 avg" value={fmtNum(stats.scoring.avgPar3, 2)} />
-                  <StatTile label="Par 4 avg" value={fmtNum(stats.scoring.avgPar4, 2)} />
-                  <StatTile label="Par 5 avg" value={fmtNum(stats.scoring.avgPar5, 2)} />
-                  <StatTile label="Front 9" value={fmtNum(stats.scoring.front9Avg, 1)} />
-                  <StatTile label="Back 9" value={fmtNum(stats.scoring.back9Avg, 1)} />
-                  <StatTile label="Best round" value={fmtInt(stats.scoring.bestRound)} />
-                  <StatTile label="Worst round" value={fmtInt(stats.scoring.worstRound)} />
+                  <StatTile style={TILE} label="Avg score" value={fmtNum(stats.scoring.avgScore, 1)} />
+                  <StatTile style={TILE} label="Par 3 avg" value={fmtNum(stats.scoring.avgPar3, 2)} />
+                  <StatTile style={TILE} label="Par 4 avg" value={fmtNum(stats.scoring.avgPar4, 2)} />
+                  <StatTile style={TILE} label="Par 5 avg" value={fmtNum(stats.scoring.avgPar5, 2)} />
+                  <StatTile style={TILE} label="Front 9" value={fmtNum(stats.scoring.front9Avg, 1)} />
+                  <StatTile style={TILE} label="Back 9" value={fmtNum(stats.scoring.back9Avg, 1)} />
+                  <StatTile style={TILE} label="Best round" value={fmtInt(stats.scoring.bestRound)} />
+                  <StatTile style={TILE} label="Worst round" value={fmtInt(stats.scoring.worstRound)} />
                 </View>
                 <ScoringDistBar
                   slices={stats.scoringDistribution.slices}
@@ -519,15 +503,17 @@ export default function Stats() {
 
             {stats && (
               <Entrance index={3}>
-              <Section kicker="Ball striking">
+              <Section title="Ball striking">
                 <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
-                  <StatTile label="Fairways" value={fmtPct(stats.ballStriking.fairwayPct)} />
-                  <StatTile label="GIR" value={fmtPct(stats.ballStriking.girPct)} />
+                  <StatTile style={TILE} label="Fairways" value={fmtPct(stats.ballStriking.fairwayPct)} />
+                  <StatTile style={TILE} label="GIR" value={fmtPct(stats.ballStriking.girPct)} />
                   <StatTile
+                    style={TILE}
                     label="Drive avg"
                     value={stats.ballStriking.drivingDistanceAvg != null ? toDisplay(stats.ballStriking.drivingDistanceAvg) : '—'}
                   />
                   <StatTile
+                    style={TILE}
                     label="Proximity"
                     value={stats.ballStriking.proximityAvg != null ? toDisplay(stats.ballStriking.proximityAvg, 1) : '—'}
                   />
@@ -538,14 +524,14 @@ export default function Stats() {
 
             {stats && (
               <Entrance index={4}>
-              <Section kicker="Short game">
+              <Section title="Short game">
                 <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
-                  <StatTile label="Putts/round" value={fmtNum(stats.shortGame.puttsPerRound, 1)} />
-                  <StatTile label="Putts/GIR" value={fmtNum(stats.shortGame.puttsPerGir, 2)} />
-                  <StatTile label="3-putt rate" value={fmtPct(stats.shortGame.threePuttPct)} />
-                  <StatTile label="Up & down" value={fmtPct(stats.shortGame.upAndDownPct)} />
-                  <StatTile label="Scrambling" value={fmtPct(stats.shortGame.scramblingPct)} />
-                  <StatTile label="Sand save" value={fmtPct(stats.shortGame.sandSavePct)} />
+                  <StatTile style={TILE} label="Putts/round" value={fmtNum(stats.shortGame.puttsPerRound, 1)} />
+                  <StatTile style={TILE} label="Putts/GIR" value={fmtNum(stats.shortGame.puttsPerGir, 2)} />
+                  <StatTile style={TILE} label="3-putt rate" value={fmtPct(stats.shortGame.threePuttPct)} />
+                  <StatTile style={TILE} label="Up & down" value={fmtPct(stats.shortGame.upAndDownPct)} />
+                  <StatTile style={TILE} label="Scrambling" value={fmtPct(stats.shortGame.scramblingPct)} />
+                  <StatTile style={TILE} label="Sand save" value={fmtPct(stats.shortGame.sandSavePct)} />
                 </View>
               </Section>
               </Entrance>
@@ -553,12 +539,12 @@ export default function Stats() {
 
             {stats && (
               <Entrance index={5}>
-              <Section kicker="Patterns">
-                <Subkicker>Miss tendency</Subkicker>
+              <Section title="Patterns">
+                <SubHead>Miss tendency</SubHead>
                 {stats.missTendency.length === 0 ? (
                   <Insufficient note="Need shot results logged to detect a tendency." />
                 ) : (
-                  <View style={{ borderTopWidth: 1, borderColor: '#D9D2BF' }}>
+                  <View style={{ borderTopWidth: 1, borderColor: P.line }}>
                     {stats.missTendency.map((e) => (
                       <StatRow
                         key={e.result}
@@ -570,31 +556,31 @@ export default function Stats() {
                   </View>
                 )}
 
-                <Subkicker style={{ marginTop: 18 }}>Most costly lies</Subkicker>
+                <SubHead style={{ marginTop: 18 }}>Most costly lies</SubHead>
                 {stats.costlyLies.length === 0 ? (
                   <Insufficient note="Need ≥5 shots per lie type with results." />
                 ) : (
-                  <View style={{ borderTopWidth: 1, borderColor: '#D9D2BF' }}>
+                  <View style={{ borderTopWidth: 1, borderColor: P.line }}>
                     {stats.costlyLies.slice(0, 5).map((e) => (
                       <StatRow
                         key={e.lie}
                         label={e.lie.replace(/_/g, ' ')}
                         sub={`${e.shots} shots`}
                         value={e.avgQuality.toFixed(2)}
-                        valueColor={e.avgQuality < 0 ? '#A33A2A' : '#5C6356'}
+                        valueColor={e.avgQuality < 0 ? P.neg : P.inkDim}
                       />
                     ))}
                   </View>
                 )}
 
-                <Subkicker style={{ marginTop: 18 }}>Club accuracy</Subkicker>
+                <SubHead style={{ marginTop: 18 }}>Club accuracy</SubHead>
                 {stats.clubAccuracy.length === 0 ? (
                   <Insufficient note="Need shots with start, aim, and end coords (≥3 per club)." />
                 ) : (
                   <View style={{ flexDirection: 'row', gap: 14 }}>
                     <View style={{ flex: 1 }}>
-                      <Text style={{ ...KICKER, marginBottom: 8 }}>Most accurate</Text>
-                      <View style={{ borderTopWidth: 1, borderColor: '#D9D2BF' }}>
+                      <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { color: P.inkDim, fontSize: 12, marginBottom: 8 }]}>Most accurate</Text>
+                      <View style={{ borderTopWidth: 1, borderColor: P.line }}>
                         {stats.clubAccuracy.slice(0, 5).map((e) => (
                           <StatRow
                             key={e.club}
@@ -607,8 +593,8 @@ export default function Stats() {
                     </View>
                     {stats.clubAccuracy.length > 5 && (
                       <View style={{ flex: 1 }}>
-                        <Text style={{ ...KICKER, marginBottom: 8 }}>Least accurate</Text>
-                        <View style={{ borderTopWidth: 1, borderColor: '#D9D2BF' }}>
+                        <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { color: P.inkDim, fontSize: 12, marginBottom: 8 }]}>Least accurate</Text>
+                        <View style={{ borderTopWidth: 1, borderColor: P.line }}>
                           {[...stats.clubAccuracy].reverse().slice(0, 5).map((e) => (
                             <StatRow
                               key={e.club}
@@ -623,22 +609,22 @@ export default function Stats() {
                   </View>
                 )}
 
-                <Subkicker style={{ marginTop: 18 }}>Slope impact</Subkicker>
+                <SubHead style={{ marginTop: 18 }}>Slope impact</SubHead>
                 {stats.slopeImpact.forward.length === 0 && stats.slopeImpact.side.length === 0 ? (
                   <Insufficient note="Need shots with slope logged (≥3 per type)." />
                 ) : (
                   <View style={{ flexDirection: 'row', gap: 14 }}>
                     {stats.slopeImpact.forward.length > 0 && (
                       <View style={{ flex: 1 }}>
-                        <Text style={{ ...KICKER, marginBottom: 8 }}>Forward</Text>
-                        <View style={{ borderTopWidth: 1, borderColor: '#D9D2BF' }}>
+                        <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { color: P.inkDim, fontSize: 12, marginBottom: 8 }]}>Forward</Text>
+                        <View style={{ borderTopWidth: 1, borderColor: P.line }}>
                           {stats.slopeImpact.forward.map((e) => (
                             <StatRow
                               key={e.slope}
                               label={e.slope.replace(/_/g, ' ')}
                               sub={`${e.shots} shots`}
                               value={e.avgQuality.toFixed(2)}
-                              valueColor={e.avgQuality < 0 ? '#A33A2A' : '#5C6356'}
+                              valueColor={e.avgQuality < 0 ? P.neg : P.inkDim}
                             />
                           ))}
                         </View>
@@ -646,15 +632,15 @@ export default function Stats() {
                     )}
                     {stats.slopeImpact.side.length > 0 && (
                       <View style={{ flex: 1 }}>
-                        <Text style={{ ...KICKER, marginBottom: 8 }}>Side</Text>
-                        <View style={{ borderTopWidth: 1, borderColor: '#D9D2BF' }}>
+                        <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { color: P.inkDim, fontSize: 12, marginBottom: 8 }]}>Side</Text>
+                        <View style={{ borderTopWidth: 1, borderColor: P.line }}>
                           {stats.slopeImpact.side.map((e) => (
                             <StatRow
                               key={e.slope}
                               label={e.slope.replace(/_/g, ' ')}
                               sub={`${e.shots} shots`}
                               value={e.avgQuality.toFixed(2)}
-                              valueColor={e.avgQuality < 0 ? '#A33A2A' : '#5C6356'}
+                              valueColor={e.avgQuality < 0 ? P.neg : P.inkDim}
                             />
                           ))}
                         </View>
@@ -663,13 +649,13 @@ export default function Stats() {
                   </View>
                 )}
 
-                <Subkicker style={{ marginTop: 18 }}>Recovery from rough</Subkicker>
+                <SubHead style={{ marginTop: 18 }}>Recovery from rough</SubHead>
                 {stats.recovery.totalRoughShots === 0 ? (
                   <Insufficient note="Need rough shots logged to compute recovery rate." />
                 ) : (
                   <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
-                    <StatTile label="Recovery rate" value={fmtPct(stats.recovery.recoveryPct)} />
-                    <StatTile label="Rough shots" value={String(stats.recovery.totalRoughShots)} />
+                    <StatTile style={TILE} label="Recovery rate" value={fmtPct(stats.recovery.recoveryPct)} />
+                    <StatTile style={TILE} label="Rough shots" value={String(stats.recovery.totalRoughShots)} />
                   </View>
                 )}
               </Section>
@@ -678,7 +664,7 @@ export default function Stats() {
 
             {clubDistances.length > 0 && (
               <Entrance index={6}>
-              <Section kicker="Club distances">
+              <Section title="Club distances">
                 <Text
                   style={[TYPE.body, {
                     color: '#8A8B7E',
@@ -750,62 +736,30 @@ export default function Stats() {
           </>
         )}
       </ScrollView>
-    </View>
+    </PaperSurface>
   )
 }
 
 function Section({
-  kicker,
+  title,
   children,
 }: {
-  kicker: string
+  title: string
   children: React.ReactNode
 }) {
   return (
     <View style={{ marginBottom: 28 }}>
-      <View
-        style={{
-          borderTopWidth: 1,
-          borderColor: '#D9D2BF',
-          paddingTop: 14,
-          marginBottom: 14,
-        }}
-      >
-        <Text style={KICKER}>{kicker}</Text>
-      </View>
+      <SectionHead title={title} />
       {children}
     </View>
   )
 }
 
-function Subkicker({ children, style }: { children: React.ReactNode; style?: import('react-native').ViewStyle }) {
+function SubHead({ children, style }: { children: React.ReactNode; style?: import('react-native').ViewStyle }) {
   return (
     <View style={style}>
-      <Text style={{ ...KICKER, marginBottom: 8 }}>{children}</Text>
-    </View>
-  )
-}
-
-function StatTile({ label, value }: { label: string; value: string }) {
-  return (
-    <View
-      style={{
-        width: '47%',
-        backgroundColor: '#FBF8F1',
-        borderWidth: 1,
-        borderColor: '#D9D2BF',
-        borderRadius: 4,
-        padding: 12,
-      }}
-    >
-      <Text style={{ ...KICKER, marginBottom: 6 }}>{label}</Text>
-      <Text
-        style={[TYPE.serif, {
-          color: '#1C211C',
-          fontSize: 20,
-        }]}
-      >
-        {value}
+      <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.serif, { color: P.ink, fontSize: 16, marginBottom: 8 }]}>
+        {children}
       </Text>
     </View>
   )
@@ -815,7 +769,7 @@ function StatRow({
   label,
   sub,
   value,
-  valueColor = '#1C211C',
+  valueColor = P.ink,
 }: {
   label: string
   sub: string
@@ -829,18 +783,18 @@ function StatRow({
         alignItems: 'baseline',
         justifyContent: 'space-between',
         borderBottomWidth: 1,
-        borderColor: '#D9D2BF',
+        borderColor: P.line,
         paddingVertical: 10,
       }}
     >
       <Text
+        maxFontSizeMultiplier={FONT_CAP}
         numberOfLines={1}
         adjustsFontSizeToFit
         minimumFontScale={0.8}
         style={[TYPE.body, {
-          color: '#1C211C',
+          color: P.ink,
           fontSize: 15,
-          fontWeight: '500',
           textTransform: 'capitalize',
           flex: 1,
         }]}
@@ -848,8 +802,9 @@ function StatRow({
         {label}
       </Text>
       <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 10 }}>
-        <Text style={{ ...KICKER, color: '#8A8B7E' }}>{sub}</Text>
+        <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { color: P.inkDim, fontSize: 12 }]}>{sub}</Text>
         <Text
+          maxFontSizeMultiplier={FONT_CAP}
           style={[TYPE.serif, {
             color: valueColor,
             fontSize: 20,

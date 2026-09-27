@@ -42,19 +42,18 @@ import { useAuth } from '../../../hooks/useAuth'
 import { FONT, TYPE } from '../../../lib/typography'
 import { TeePicker } from '../../../components/round/RoundTeeSelector'
 import { PressableTouch } from '../../../components/ui/PressableTouch'
+import { Key, KeyText, PaperSurface } from '../../../components/paper/Paper'
+import { SectionHead } from '../../../components/paper/Section'
+import { FONT_CAP, P, R } from '../../../components/paper/tokens'
 
 type CourseRow = Database['public']['Tables']['courses']['Row']
 type FacilityRow = Database['public']['Tables']['facilities']['Row']
 type HoleInsert = Database['public']['Tables']['holes']['Insert']
 
-const KICKER: import('react-native').TextStyle = {
-  color: '#8A8B7E',
-  fontSize: 10,
-  fontWeight: '500',
-  letterSpacing: 1.4,
-  textTransform: 'uppercase',
-  fontFamily: FONT.mono,
-}
+// Small sentence-case meta line (screen eyebrow, attribution).
+const META: import('react-native').TextStyle = { ...TYPE.body, color: P.inkDim, fontSize: 12 }
+const ROW_TITLE: import('react-native').TextStyle = { ...TYPE.bodyBold, color: P.ink, fontSize: 15 }
+const ROW_SUB: import('react-native').TextStyle = { ...TYPE.body, color: P.inkDim, fontSize: 12, marginTop: 2 }
 
 interface GpsState {
   status: 'idle' | 'pending' | 'ok' | 'denied'
@@ -536,13 +535,14 @@ export default function NewRound() {
   }
 
   return (
-    <View style={{ flex: 1, backgroundColor: '#F2EEE5', paddingTop: insets.top + 14, paddingHorizontal: 18, paddingBottom: 18 }}>
-      <Text style={{ ...KICKER, marginBottom: 6 }}>
+    <PaperSurface style={{ flex: 1, paddingTop: insets.top + 14, paddingHorizontal: 18, paddingBottom: 18 }}>
+      <Text maxFontSizeMultiplier={FONT_CAP} style={{ ...META, marginBottom: 6 }}>
         {mode === 'past' ? 'Log past round' : 'Start live round'}
       </Text>
       <Text
+        maxFontSizeMultiplier={FONT_CAP}
         style={[TYPE.serif, {
-          color: '#1C211C',
+          color: P.ink,
           fontSize: 28,
           marginBottom: 14,
         }]}
@@ -559,11 +559,11 @@ export default function NewRound() {
           // Explicit ink color — without it Android falls back to the system
           // theme's text color, which is invisible on the cream input in dark
           // mode. Matches the manual-course inputs (inputStyle).
-          color: '#1C211C',
-          backgroundColor: '#FBF8F1',
+          color: P.ink,
+          backgroundColor: P.raised,
           borderWidth: 1,
-          borderColor: '#D9D2BF',
-          borderRadius: 2,
+          borderColor: P.ink,
+          borderRadius: R,
           paddingHorizontal: 12,
           paddingVertical: 12,
           fontSize: 15,
@@ -572,7 +572,7 @@ export default function NewRound() {
       />
 
       {searching && (
-        <ActivityIndicator color="#1F3D2C" style={{ marginVertical: 8 }} />
+        <ActivityIndicator color={P.forest} style={{ marginVertical: 8 }} />
       )}
 
       <ScrollView keyboardShouldPersistTaps="handled">
@@ -587,11 +587,11 @@ export default function NewRound() {
                   setFacilityError(false)
                 }}
               >
-                <Text style={{ ...KICKER, color: '#1F3D2C' }}>‹ Back</Text>
+                <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.bodyBold, { color: P.forest, fontSize: 13 }]}>‹ Back</Text>
               </PressableTouch>
-              <Text style={KICKER}>{facility.name}</Text>
+              <Text maxFontSizeMultiplier={FONT_CAP} style={META}>{facility.name}</Text>
             </View>
-            {units.map((unit) => (
+            {units.map((unit, i) => (
               <PressableTouch
                 key={unit.id}
                 onPress={() =>
@@ -602,27 +602,22 @@ export default function NewRound() {
                 }
                 disabled={busy}
                 style={{
-                  borderTopWidth: 1,
-                  borderColor: '#D9D2BF',
+                  borderTopWidth: i === 0 ? 0 : 1,
+                  borderColor: P.line,
                   paddingVertical: 14,
                   opacity: busy ? 0.4 : 1,
                 }}
               >
-                <Text
-                  style={[TYPE.bodyBold, {
-                    color: '#1C211C',
-                    fontSize: 15,
-                    fontWeight: '500',
-                  }]}
-                >
+                <Text maxFontSizeMultiplier={FONT_CAP} style={ROW_TITLE}>
                   {unit.unit_name ?? unit.name}
                 </Text>
               </PressableTouch>
             ))}
             {units.length === 0 && (
               <Text
+                maxFontSizeMultiplier={FONT_CAP}
                 style={[TYPE.body, {
-                  color: facilityError ? '#A33A2A' : '#8A8B7E',
+                  color: facilityError ? P.neg : P.inkDim,
                   fontSize: 13,
                   paddingVertical: 14,
                 }]}
@@ -637,32 +632,26 @@ export default function NewRound() {
           <>
             {facilityResults.length > 0 && (
               <View style={{ marginBottom: 14 }}>
-                <Text style={{ ...KICKER, marginBottom: 8 }}>Facilities</Text>
-                {facilityResults.map((f) => (
+                <SectionHead title="Facilities" />
+                {facilityResults.map((f, i) => (
                   <PressableTouch
                     key={f.id}
                     onPress={() => openFacility(f)}
                     disabled={busy}
                     style={{
-                      borderTopWidth: 1,
-                      borderColor: '#D9D2BF',
+                      borderTopWidth: i === 0 ? 0 : 1,
+                      borderColor: P.line,
                       paddingVertical: 14,
                       opacity: busy ? 0.4 : 1,
                     }}
                   >
-                    <Text
-                      style={[TYPE.bodyBold, {
-                        color: '#1C211C',
-                        fontSize: 15,
-                        fontWeight: '500',
-                      }]}
-                    >
+                    <Text maxFontSizeMultiplier={FONT_CAP} style={ROW_TITLE}>
                       {f.name}
                     </Text>
                     {(() => {
                       const where = [f.city, f.state].filter((s) => !!s).join(', ')
                       return where ? (
-                        <Text style={[TYPE.body, { color: '#5C6356', fontSize: 12, marginTop: 2 }]}>
+                        <Text maxFontSizeMultiplier={FONT_CAP} style={ROW_SUB}>
                           {where}
                         </Text>
                       ) : null
@@ -674,61 +663,49 @@ export default function NewRound() {
 
             {(localResults.length > 0 || apiResults.length > 0) && (
               <View style={{ marginBottom: 14 }}>
-                <Text style={{ ...KICKER, marginBottom: 8 }}>Courses</Text>
-                {localResults.map((c) => (
+                <SectionHead title="Courses" />
+                {localResults.map((c, i) => (
                   <Pressable
                     key={c.id}
                     onPress={() => setPendingCourse({ id: c.id, name: c.name })}
                     disabled={busy}
                     style={{
-                      borderTopWidth: 1,
-                      borderColor: '#D9D2BF',
+                      borderTopWidth: i === 0 ? 0 : 1,
+                      borderColor: P.line,
                       paddingVertical: 14,
                       opacity: busy ? 0.4 : 1,
                     }}
                   >
-                    <Text
-                      style={[TYPE.bodyBold, {
-                        color: '#1C211C',
-                        fontSize: 15,
-                        fontWeight: '500',
-                      }]}
-                    >
+                    <Text maxFontSizeMultiplier={FONT_CAP} style={ROW_TITLE}>
                       {c.name}
                     </Text>
                     {(() => {
                       const where = [c.city, c.state].filter((s) => !!s).join(', ')
                       return where ? (
-                        <Text style={[TYPE.body, { color: '#5C6356', fontSize: 12, marginTop: 2 }]}>
+                        <Text maxFontSizeMultiplier={FONT_CAP} style={ROW_SUB}>
                           {where}
                         </Text>
                       ) : null
                     })()}
                   </Pressable>
                 ))}
-                {apiResults.map((r) => (
+                {apiResults.map((r, i) => (
                   <Pressable
                     key={r.id}
                     onPress={() => startWithApiCourse(r)}
                     disabled={busy}
                     style={{
-                      borderTopWidth: 1,
-                      borderColor: '#D9D2BF',
+                      borderTopWidth: i === 0 && localResults.length === 0 ? 0 : 1,
+                      borderColor: P.line,
                       paddingVertical: 14,
                       opacity: busy ? 0.4 : 1,
                     }}
                   >
-                    <Text
-                      style={[TYPE.bodyBold, {
-                        color: '#1C211C',
-                        fontSize: 15,
-                        fontWeight: '500',
-                      }]}
-                    >
+                    <Text maxFontSizeMultiplier={FONT_CAP} style={ROW_TITLE}>
                       {r.name}
                     </Text>
                     {formatLocation(r) ? (
-                      <Text style={[TYPE.body, { color: '#5C6356', fontSize: 12, marginTop: 2 }]}>
+                      <Text maxFontSizeMultiplier={FONT_CAP} style={ROW_SUB}>
                         {formatLocation(r)}
                       </Text>
                     ) : null}
@@ -740,37 +717,25 @@ export default function NewRound() {
         )}
 
         {!facility && showAddNew && (
-          <Pressable
+          <Key
+            accessibilityLabel={hasResults ? "Don't see your course? Add it →" : 'Course not found? Add it →'}
             onPress={() => setShowManualForm(true)}
-            style={{
-              borderWidth: 1,
-              borderColor: '#1F3D2C',
-              borderRadius: 2,
-              paddingVertical: 14,
-              alignItems: 'center',
-              marginTop: hasResults ? 8 : 0,
-            }}
+            style={{ marginTop: hasResults ? 8 : 0 }}
+            faceStyle={{ minHeight: 48 }}
           >
-            <Text
-              style={[TYPE.bodyBold, {
-                color: '#1F3D2C',
-                fontSize: 14,
-                fontWeight: '600',
-                letterSpacing: 0.3,
-              }]}
-            >
+            <KeyText bold>
               {hasResults ? "Don't see your course? Add it →" : 'Course not found? Add it →'}
-            </Text>
-          </Pressable>
+            </KeyText>
+          </Key>
         )}
 
         {error && (
-          <Text style={[TYPE.body, { color: '#A33A2A', fontSize: 13, marginTop: 12 }]}>
+          <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { color: P.neg, fontSize: 13, marginTop: 12 }]}>
             {error}
           </Text>
         )}
 
-        <Text style={{ ...KICKER, marginTop: 28, color: '#8A8B7E' }}>
+        <Text maxFontSizeMultiplier={FONT_CAP} style={{ ...META, fontSize: 11, marginTop: 28 }}>
           Course data from OpenGolfAPI, GolfCourseAPI, and ©{' '}
           {/* OSM's ODbL attribution guidelines ask for a link to the copyright
               page where possible — RN can, via Linking. */}
@@ -785,7 +750,7 @@ export default function NewRound() {
           contributors (ODbL)
         </Text>
       </ScrollView>
-    </View>
+    </PaperSurface>
   )
 }
 
@@ -821,17 +786,18 @@ function RoundSetupStep({
     <View
       style={{
         flex: 1,
-        backgroundColor: '#F2EEE5',
+        backgroundColor: P.chrome,
         paddingTop: insets.top + 14,
         paddingHorizontal: 18,
       }}
     >
-      <Text style={{ ...KICKER, marginBottom: 6 }}>
+      <Text maxFontSizeMultiplier={FONT_CAP} style={{ ...META, marginBottom: 6 }}>
         {mode === 'past' ? 'Log past round' : 'Start live round'}
       </Text>
       <Text
+        maxFontSizeMultiplier={FONT_CAP}
         style={[TYPE.serif, {
-          color: '#1C211C',
+          color: P.ink,
           fontSize: 28,
           marginBottom: 18,
         }]}
@@ -842,50 +808,32 @@ function RoundSetupStep({
       <ScrollView keyboardShouldPersistTaps="handled" style={{ flex: 1 }}>
         {mode === 'live' && (
           <View style={{ marginBottom: 22 }}>
-            <Text style={{ ...KICKER, marginBottom: 8 }}>
-              How do you want to track it?
-            </Text>
+            <SectionHead title="How do you want to track it?" />
             {CAPTURE_MODES.map((cm) => {
               const active = captureMode === cm
               return (
-                <Pressable
+                <Key
                   key={cm}
+                  accessibilityLabel={CAPTURE_MODE_LABELS[cm].title}
+                  latched={active}
                   onPress={() => setCaptureMode(cm)}
-                  style={{
-                    borderWidth: 1,
-                    borderColor: active ? '#1F3D2C' : '#D9D2BF',
-                    backgroundColor: active ? '#1F3D2C' : '#FBF8F1',
-                    borderRadius: 2,
-                    padding: 14,
-                    marginBottom: 8,
-                  }}
+                  style={{ marginBottom: 8 }}
+                  faceStyle={{ alignItems: 'stretch', padding: 14 }}
                 >
-                  <Text
-                    style={[TYPE.bodyBold, {
-                      color: active ? '#F2EEE5' : '#1C211C',
-                      fontSize: 15,
-                      fontWeight: '600',
-                      marginBottom: 2,
-                    }]}
-                  >
+                  <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.bodyBold, { color: P.ink, fontSize: 15, marginBottom: 2 }]}>
                     {CAPTURE_MODE_LABELS[cm].title}
                   </Text>
-                  <Text
-                    style={[TYPE.body, {
-                      color: active ? '#C7D3C0' : '#8A8B7E',
-                      fontSize: 12,
-                    }]}
-                  >
+                  <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { color: P.inkDim, fontSize: 12 }]}>
                     {CAPTURE_MODE_LABELS[cm].subtitle}
                   </Text>
-                </Pressable>
+                </Key>
               )
             })}
           </View>
         )}
 
-        <Text style={{ ...KICKER, marginBottom: 4 }}>Tee played</Text>
-        <Text style={[TYPE.body, { color: '#8A8B7E', fontSize: 12, marginBottom: 12 }]}>
+        <SectionHead title="Tee played" style={{ marginBottom: 4 }} />
+        <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { color: P.inkDim, fontSize: 12, marginBottom: 12 }]}>
           Optional — add the tee's rating and slope for a handicap differential.
           You can set it later from the scorecard.
         </Text>
@@ -909,43 +857,21 @@ function RoundSetupStep({
           paddingBottom: insets.bottom + 14,
         }}
       >
-        <Pressable
-          onPress={onBack}
-          disabled={busy}
-          style={{
-            flex: 1,
-            borderWidth: 1,
-            borderColor: '#D9D2BF',
-            borderRadius: 2,
-            paddingVertical: 14,
-            alignItems: 'center',
-            opacity: busy ? 0.5 : 1,
-          }}
-        >
-          <Text style={[TYPE.body, { color: '#5C6356', fontSize: 13 }]}>Back</Text>
-        </Pressable>
-        <Pressable
+        <Key accessibilityLabel="Back" onPress={onBack} disabled={busy} style={{ flex: 1 }} faceStyle={{ minHeight: 48 }}>
+          <KeyText size={13} disabled={busy}>Back</KeyText>
+        </Key>
+        <Key
+          tone="primary"
+          accessibilityLabel={busy ? 'Starting…' : mode === 'past' ? 'Log round →' : 'Start round →'}
           onPress={() => onStart(teeId, teeColor, captureMode)}
           disabled={busy}
-          style={{
-            flex: 2,
-            backgroundColor: busy ? '#9F9580' : '#1F3D2C',
-            borderRadius: 2,
-            paddingVertical: 14,
-            alignItems: 'center',
-          }}
+          style={{ flex: 2 }}
+          faceStyle={{ minHeight: 48 }}
         >
-          <Text
-            style={[TYPE.bodyBold, {
-              color: '#F2EEE5',
-              fontSize: 14,
-              fontWeight: '600',
-              letterSpacing: 0.3,
-            }]}
-          >
+          <KeyText tone="primary" bold disabled={busy}>
             {busy ? 'Starting…' : mode === 'past' ? 'Log round →' : 'Start round →'}
-          </Text>
-        </Pressable>
+          </KeyText>
+        </Key>
       </View>
     </View>
   )
@@ -987,15 +913,16 @@ function ManualCourseForm({
   }
 
   return (
-    <View style={{ flex: 1, backgroundColor: '#F2EEE5' }}>
+    <PaperSurface style={{ flex: 1 }}>
       <ScrollView
         contentContainerStyle={{ padding: 18, paddingBottom: 40 }}
         keyboardShouldPersistTaps="handled"
       >
-        <Text style={{ ...KICKER, marginBottom: 8 }}>Add course</Text>
+        <Text maxFontSizeMultiplier={FONT_CAP} style={{ ...META, marginBottom: 8 }}>Add course</Text>
         <Text
+          maxFontSizeMultiplier={FONT_CAP}
           style={[TYPE.serif, {
-            color: '#1C211C',
+            color: P.ink,
             fontSize: 28,
             marginBottom: 18,
           }]}
@@ -1003,7 +930,7 @@ function ManualCourseForm({
           New course
         </Text>
 
-        <Text style={{ ...KICKER, marginBottom: 8 }}>Name</Text>
+        <SectionHead title="Name" />
         <TextInput
           value={name}
           onChangeText={setName}
@@ -1011,9 +938,7 @@ function ManualCourseForm({
           style={inputStyle}
         />
 
-        <Text style={{ ...KICKER, marginTop: 18, marginBottom: 8 }}>
-          City, state (optional)
-        </Text>
+        <SectionHead title="City, state (optional)" style={{ marginTop: 18 }} />
         <TextInput
           value={location}
           onChangeText={setLocation}
@@ -1021,7 +946,7 @@ function ManualCourseForm({
           style={inputStyle}
         />
 
-        <Text style={{ ...KICKER, marginTop: 22, marginBottom: 8 }}>Holes</Text>
+        <SectionHead title="Holes" style={{ marginTop: 22 }} />
         <View style={{ flexDirection: 'row', gap: 8 }}>
           <Chip
             label="18 holes"
@@ -1035,9 +960,7 @@ function ManualCourseForm({
           />
         </View>
 
-        <Text style={{ ...KICKER, marginTop: 22, marginBottom: 12 }}>
-          Par per hole — tap to cycle
-        </Text>
+        <SectionHead title="Par per hole — tap to cycle" style={{ marginTop: 22 }} />
         <View
           style={{
             flexDirection: 'row',
@@ -1055,13 +978,7 @@ function ManualCourseForm({
                 gap: 4,
               }}
             >
-              <Text
-                style={{
-                  ...KICKER,
-                  fontSize: 9,
-                  letterSpacing: 0.6,
-                }}
-              >
+              <Text maxFontSizeMultiplier={FONT_CAP} style={{ ...META, fontSize: 11 }}>
                 {idx + 1}
               </Text>
               <View
@@ -1069,16 +986,16 @@ function ManualCourseForm({
                   width: 32,
                   height: 32,
                   borderRadius: 999,
-                  backgroundColor: '#EBE5D6',
+                  backgroundColor: P.well,
                   alignItems: 'center',
                   justifyContent: 'center',
                 }}
               >
                 <Text
+                  maxFontSizeMultiplier={FONT_CAP}
                   style={[TYPE.serifUpright, {
-                    color: '#1C211C',
+                    color: P.ink,
                     fontSize: 15,
-                    fontWeight: '500',
                     fontVariant: ['tabular-nums'],
                   }]}
                 >
@@ -1090,8 +1007,9 @@ function ManualCourseForm({
         </View>
 
         <Text
+          maxFontSizeMultiplier={FONT_CAP}
           style={[TYPE.body, {
-            color: '#8A8B7E',
+            color: P.inkDim,
             fontSize: 12,
             marginTop: 18,
           }]}
@@ -1102,46 +1020,26 @@ function ManualCourseForm({
         </Text>
 
         <View style={{ flexDirection: 'row', gap: 10, marginTop: 22 }}>
-          <Pressable
-            onPress={onCancel}
-            style={{
-              flex: 1,
-              borderWidth: 1,
-              borderColor: '#D9D2BF',
-              borderRadius: 2,
-              paddingVertical: 14,
-              alignItems: 'center',
-            }}
-          >
-            <Text style={[TYPE.body, { color: '#5C6356', fontSize: 13 }]}>Cancel</Text>
-          </Pressable>
-          <Pressable
+          <Key accessibilityLabel="Cancel" onPress={onCancel} style={{ flex: 1 }} faceStyle={{ minHeight: 48 }}>
+            <KeyText size={13}>Cancel</KeyText>
+          </Key>
+          <Key
+            tone="primary"
+            accessibilityLabel={busy ? 'Creating…' : 'Create course →'}
             onPress={() =>
               onCreate({ name, location, pars: visiblePars })
             }
             disabled={busy || !name.trim()}
-            style={{
-              flex: 2,
-              backgroundColor: busy || !name.trim() ? '#9F9580' : '#1F3D2C',
-              borderRadius: 2,
-              paddingVertical: 14,
-              alignItems: 'center',
-            }}
+            style={{ flex: 2 }}
+            faceStyle={{ minHeight: 48 }}
           >
-            <Text
-              style={[TYPE.bodyBold, {
-                color: '#F2EEE5',
-                fontSize: 14,
-                fontWeight: '600',
-                letterSpacing: 0.3,
-              }]}
-            >
+            <KeyText tone="primary" bold disabled={busy || !name.trim()}>
               {busy ? 'Creating…' : 'Create course →'}
-            </Text>
-          </Pressable>
+            </KeyText>
+          </Key>
         </View>
       </ScrollView>
-    </View>
+    </PaperSurface>
   )
 }
 
@@ -1155,36 +1053,22 @@ function Chip({
   onPress: () => void
 }) {
   return (
-    <Pressable
-      onPress={onPress}
-      style={{
-        paddingHorizontal: 14,
-        paddingVertical: 10,
-        borderRadius: 2,
-        backgroundColor: active ? '#1F3D2C' : '#EBE5D6',
-      }}
-    >
-      <Text
-        style={[active ? TYPE.bodyBold : TYPE.body, {
-          color: active ? '#F2EEE5' : '#1C211C',
-          fontSize: 13,
-          fontWeight: active ? '600' : '400',
-        }]}
-      >
+    <Key accessibilityLabel={label} latched={active} onPress={onPress} faceStyle={{ minHeight: 40, paddingHorizontal: 14 }}>
+      <KeyText size={13} bold={active}>
         {label}
-      </Text>
-    </Pressable>
+      </KeyText>
+    </Key>
   )
 }
 
 const inputStyle = {
-  backgroundColor: '#FBF8F1',
+  backgroundColor: P.raised,
   borderWidth: 1,
-  borderColor: '#D9D2BF',
-  borderRadius: 2,
+  borderColor: P.ink,
+  borderRadius: R,
   paddingHorizontal: 12,
   paddingVertical: 12,
   fontSize: 15,
-  color: '#1C211C',
+  color: P.ink,
   fontFamily: FONT.body,
 } as const

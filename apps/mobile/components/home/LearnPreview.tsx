@@ -2,6 +2,8 @@ import { Pressable, Text, View } from 'react-native'
 import { useRouter } from 'expo-router'
 import { READABLE_LEARN_ARTICLES, readingTimeMinutes, type LearnArticle } from '@oga/core'
 import { TYPE } from '../../lib/typography'
+import { SectionHead } from '../paper/Section'
+import { FONT_CAP, P } from '../paper/tokens'
 
 const KICKER: import('react-native').TextStyle = {
   color: '#8A8B7E',
@@ -22,25 +24,22 @@ export function LearnPreview() {
   const router = useRouter()
 
   return (
-    <View style={{ borderTopWidth: 2, borderColor: '#9F9580', paddingTop: 18, marginTop: 8 }}>
-      <View
-        style={{
-          flexDirection: 'row',
-          alignItems: 'baseline',
-          justifyContent: 'space-between',
-          marginBottom: 12,
-        }}
-      >
-        <Text style={[TYPE.kicker, KICKER]}>From the yardage book</Text>
-        <Pressable
-          accessibilityRole="link"
-          accessibilityLabel="See all Learn articles"
-          onPress={() => router.push('/(app)/learn')}
-          hitSlop={8}
-        >
-          <Text style={[TYPE.kicker, KICKER, { color: '#1F3D2C' }]}>See all {READ_COUNT} →</Text>
-        </Pressable>
-      </View>
+    <View style={{ marginTop: 8 }}>
+      <SectionHead
+        title="From the yardage book"
+        trailing={
+          <Pressable
+            accessibilityRole="link"
+            accessibilityLabel="See all Learn articles"
+            onPress={() => router.push('/(app)/learn')}
+            hitSlop={8}
+          >
+            <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { color: P.forest, fontSize: 13 }]}>
+              See all {READ_COUNT} →
+            </Text>
+          </Pressable>
+        }
+      />
 
       {FEATURED.map((article) => (
         <PreviewRow

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Alert, Pressable, ScrollView, Text, useWindowDimensions, View } from 'react-native'
+import { Alert, ScrollView, Text, useWindowDimensions, View } from 'react-native'
 import Svg, { Circle, Ellipse, Line, Rect, Text as SvgText } from 'react-native-svg'
 import { captureRef } from 'react-native-view-shot'
 import * as Sharing from 'expo-sharing'
@@ -30,7 +30,6 @@ import {
 } from '@oga/core'
 import { getShotsByClub } from '@oga/supabase'
 import { MaterialCommunityIcons } from '@expo/vector-icons'
-import { PressableTouch } from '../../components/ui/PressableTouch'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
 import { useUnits } from '../../hooks/useUnits'
@@ -38,15 +37,9 @@ import { useUserBag } from '../../hooks/useUserBag'
 import { AppBar } from '../../components/ui/AppBar'
 import { Entrance } from '../../components/ui/Entrance'
 import { FONT, TYPE } from '../../lib/typography'
-
-const KICKER: import('react-native').TextStyle = {
-  ...TYPE.kicker,
-  color: '#8A8B7E',
-  fontSize: 10,
-  fontWeight: '500',
-  letterSpacing: 1.4,
-  textTransform: 'uppercase',
-}
+import { Key, KeyText, PaperSurface } from '../../components/paper/Paper'
+import { SectionHead } from '../../components/paper/Section'
+import { FONT_CAP, P } from '../../components/paper/tokens'
 
 interface ShotRowMin {
   id: string
@@ -207,11 +200,11 @@ export default function Patterns() {
   }
 
   return (
-    <View style={{ flex: 1, backgroundColor: '#F2EEE5' }}>
+    <PaperSurface style={{ flex: 1 }}>
       <AppBar eyebrow={`Club ${club}`} title="Shot Patterns" />
       <ScrollView contentContainerStyle={{ padding: 18, paddingBottom: 40 }}>
         <Entrance index={0}>
-        <Section kicker="Club">
+        <Section title="Club">
           <ChipRow
             value={club}
             options={clubOptions}
@@ -221,7 +214,7 @@ export default function Patterns() {
         </Entrance>
 
         <Entrance index={1}>
-        <Section kicker="Lie type">
+        <Section title="Lie type">
           <ChipRow
             value={lieType}
             options={[ANY, ...LIE_TYPES] as const}
@@ -232,7 +225,7 @@ export default function Patterns() {
         </Entrance>
 
         <Entrance index={2}>
-        <Section kicker="Lie slope">
+        <Section title="Lie slope">
           {/* Two independent axes, each multi-select (tap several to see
               them together). No selection on an axis = any. Fixes the old
               single-select filter that read the always-null legacy column
@@ -255,7 +248,7 @@ export default function Patterns() {
         </Entrance>
 
         <Entrance index={3}>
-        <Section kicker="Pattern">
+        <Section title="Pattern">
           {loading ? (
             <Text style={[TYPE.body, { color: '#8A8B7E', fontSize: 13 }]}>Loading…</Text>
           ) : points.length === 0 ? (
@@ -272,43 +265,23 @@ export default function Patterns() {
               <DispersionPlot points={points} stats={stats} />
               <PatternLegend hasStats={!!stats} />
               {stats && (
-                <PressableTouch
-                  accessibilityRole="button"
+                <Key
                   accessibilityLabel="Export shot pattern image"
-                  accessibilityState={{ disabled: sharing }}
                   onPress={handleShare}
                   disabled={sharing}
-                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                  android_ripple={{ color: 'rgba(31,61,44,0.12)' }}
-                  style={{
-                    alignSelf: 'flex-start',
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    gap: 7,
-                    marginTop: 22,
-                    marginBottom: 4,
-                    paddingVertical: 11,
-                    paddingHorizontal: 16,
-                    backgroundColor: '#EBE5D6',
-                    borderWidth: 1,
-                    borderColor: '#1F3D2C',
-                    borderRadius: 2,
-                    // Disabled-while-sharing dim; PressableTouch adds the
-                    // iOS press dim on top.
-                    opacity: sharing ? 0.6 : 1,
-                  }}
+                  hitSlop={8}
+                  style={{ alignSelf: 'flex-start', marginTop: 22, marginBottom: 4 }}
+                  faceStyle={{ flexDirection: 'row', gap: 7, minHeight: 40, paddingHorizontal: 16 }}
                 >
                   <MaterialCommunityIcons
                     name="tray-arrow-down"
                     size={15}
-                    color="#1F3D2C"
+                    color={sharing ? P.ink35 : P.ink}
                   />
-                  {/* fontSize +1 over the 10px KICKER: deliberate, this is a
-                      tappable action label beside an icon, not a section eyebrow. */}
-                  <Text style={{ ...KICKER, color: '#1F3D2C', fontSize: 11 }}>
+                  <KeyText size={13} disabled={sharing}>
                     {sharing ? 'Rendering…' : 'Export image'}
-                  </Text>
-                </PressableTouch>
+                  </KeyText>
+                </Key>
               )}
             </>
           )}
@@ -316,7 +289,7 @@ export default function Patterns() {
         </Entrance>
 
         <Entrance index={4}>
-        <Section kicker="Pattern summary">
+        <Section title="Pattern summary">
           {clubDist && (
             <View
               style={{
@@ -371,17 +344,12 @@ export default function Patterns() {
         </Entrance>
 
         {stats && (
-          <View
-            style={{
-              borderTopWidth: 1,
-              borderColor: '#D9D2BF',
-              paddingTop: 14,
-            }}
-          >
-            <Text style={{ ...KICKER, marginBottom: 10 }}>Aim correction</Text>
+          <View>
+            <SectionHead title="Aim correction" />
             <Text
+              maxFontSizeMultiplier={FONT_CAP}
               style={[TYPE.body, {
-                color: '#1C211C',
+                color: P.ink,
                 fontSize: 15,
                 lineHeight: 22,
               }]}
@@ -412,7 +380,7 @@ export default function Patterns() {
           </View>
         </View>
       )}
-    </View>
+    </PaperSurface>
   )
 }
 
@@ -600,24 +568,15 @@ function ShareStat({
 }
 
 function Section({
-  kicker,
+  title,
   children,
 }: {
-  kicker: string
+  title: string
   children: React.ReactNode
 }) {
   return (
     <View style={{ marginBottom: 22 }}>
-      <View
-        style={{
-          borderTopWidth: 1,
-          borderColor: '#D9D2BF',
-          paddingTop: 14,
-          marginBottom: 12,
-        }}
-      >
-        <Text style={KICKER}>{kicker}</Text>
-      </View>
+      <SectionHead title={title} />
       {children}
     </View>
   )
@@ -626,12 +585,14 @@ function Section({
 function Stat({ label, value }: { label: string; value: string }) {
   return (
     <View style={{ minWidth: 110 }}>
-      <Text style={{ ...KICKER, marginBottom: 6 }}>{label}</Text>
+      <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { color: P.inkDim, fontSize: 12, marginBottom: 6 }]}>
+        {label}
+      </Text>
       <Text
+        maxFontSizeMultiplier={FONT_CAP}
         style={[TYPE.serifUpright, {
-          color: '#1C211C',
+          color: P.ink,
           fontSize: 17,
-          fontWeight: '500',
           fontVariant: ['tabular-nums'],
         }]}
       >
@@ -652,32 +613,10 @@ function ChipRow<T extends string>({ value, options, onChange, labelFor }: ChipR
   return (
     // Wrap rather than scroll horizontally — the club list is long enough
     // that off-screen chips read as the end of the list (#740).
-    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
-      {options.map((opt) => {
-          const active = value === opt
-          return (
-            <Pressable
-              key={opt}
-              onPress={() => onChange(opt)}
-              style={{
-                paddingHorizontal: 10,
-                paddingVertical: 8,
-                borderRadius: 2,
-                backgroundColor: active ? '#1F3D2C' : '#EBE5D6',
-              }}
-            >
-              <Text
-                style={[TYPE.body, {
-                  color: active ? '#F2EEE5' : '#1C211C',
-                  fontSize: 12,
-                  fontWeight: active ? '500' : '400',
-                }]}
-              >
-                {labelFor ? labelFor(opt) : opt}
-              </Text>
-            </Pressable>
-          )
-        })}
+    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+      {options.map((opt) => (
+        <Chip key={opt} label={labelFor ? labelFor(opt) : opt} active={value === opt} onPress={() => onChange(opt)} />
+      ))}
     </View>
   )
 }
@@ -708,35 +647,27 @@ function MultiChipRow<T extends string>({
   labelFor,
 }: MultiChipRowProps<T>) {
   return (
-    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
-      {options.map((opt) => {
-        const active = selected.includes(opt)
-        return (
-          <Pressable
-            key={opt}
-            accessibilityRole="checkbox"
-            accessibilityState={{ checked: active }}
-            onPress={() => onToggle(opt)}
-            style={{
-              paddingHorizontal: 10,
-              paddingVertical: 8,
-              borderRadius: 2,
-              backgroundColor: active ? '#1F3D2C' : '#EBE5D6',
-            }}
-          >
-            <Text
-              style={[TYPE.body, {
-                color: active ? '#F2EEE5' : '#1C211C',
-                fontSize: 12,
-                fontWeight: active ? '500' : '400',
-              }]}
-            >
-              {labelFor ? labelFor(opt) : opt}
-            </Text>
-          </Pressable>
-        )
-      })}
+    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+      {options.map((opt) => (
+        <Chip
+          key={opt}
+          label={labelFor ? labelFor(opt) : opt}
+          active={selected.includes(opt)}
+          onPress={() => onToggle(opt)}
+        />
+      ))}
     </View>
+  )
+}
+
+// Paper filter chip: a latched key when active (matches Profile's Chip).
+function Chip({ label, active, onPress }: { label: string; active: boolean; onPress: () => void }) {
+  return (
+    <Key accessibilityLabel={label} latched={active} onPress={onPress} faceStyle={{ minHeight: 40, paddingHorizontal: 12 }}>
+      <KeyText size={13} bold={active} style={{ textTransform: 'capitalize' }}>
+        {label}
+      </KeyText>
+    </Key>
   )
 }
 

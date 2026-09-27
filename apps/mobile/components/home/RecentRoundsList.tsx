@@ -4,6 +4,7 @@ import { Link } from 'expo-router'
 import { Swipeable } from 'react-native-gesture-handler'
 import { formatSG, partialRoundLabel } from '@oga/core'
 import { TYPE } from '../../lib/typography'
+import { SectionHead } from '../paper/Section'
 
 const KICKER: import('react-native').TextStyle = {
   color: '#8A8B7E',
@@ -35,16 +36,7 @@ export function RecentRoundsList({
 
   return (
     <View style={{ marginBottom: 28 }}>
-      <View
-        style={{
-          borderTopWidth: 1,
-          borderColor: '#D9D2BF',
-          paddingTop: 14,
-          marginBottom: 14,
-        }}
-      >
-        <Text style={[TYPE.kicker, KICKER]}>Recent rounds</Text>
-      </View>
+      <SectionHead title="Recent rounds" />
       {rounds.length === 0 ? (
         <Text style={[TYPE.body, { color: '#8A8B7E', fontSize: 13 }]}>No rounds yet.</Text>
       ) : (

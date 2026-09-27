@@ -28,7 +28,8 @@ import { getAimTilt, setAimTilt, type AimTilt } from '../../lib/aimTilt'
 import { getLeftHand, setLeftHand } from '../../lib/leftHand'
 import { getSoundsOn, setSoundsOn } from '../../lib/sounds'
 import { AppBar } from '../../components/ui/AppBar'
-import { Key, KeyText } from '../../components/paper/Paper'
+import { Key, KeyText, PaperSurface } from '../../components/paper/Paper'
+import { SectionHead } from '../../components/paper/Section'
 import { TYPE } from '../../lib/typography'
 
 type Profile = Database['public']['Tables']['profiles']['Row']
@@ -244,7 +245,7 @@ export default function ProfileTab() {
   const provenanceCalculated = provenance === 'calculated'
 
   return (
-    <View style={{ flex: 1, backgroundColor: '#F2EEE5' }}>
+    <PaperSurface style={{ flex: 1 }}>
       <AppBar
         eyebrow={profile?.username ? `@${profile.username}` : 'Account'}
         title="Profile"
@@ -698,7 +699,7 @@ export default function ProfileTab() {
         onConfirm={deleteAccount}
         onCancel={() => setDeleteOpen(false)}
       />
-    </View>
+    </PaperSurface>
   )
 }
 
@@ -868,15 +869,8 @@ function DeleteAccountModal({
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <View
-      style={{
-        borderTopWidth: 1,
-        borderColor: '#D9D2BF',
-        paddingTop: 14,
-        marginBottom: 18,
-      }}
-    >
-      <Text style={{ ...KICKER, marginBottom: 12 }}>{label}</Text>
+    <View style={{ marginBottom: 18 }}>
+      <SectionHead title={label} />
       {children}
     </View>
   )

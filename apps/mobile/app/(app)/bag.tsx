@@ -24,6 +24,8 @@ import DraggableFlatList, {
 import { GestureHandlerRootView } from 'react-native-gesture-handler'
 import { AppBar } from '../../components/ui/AppBar'
 import { TYPE } from '../../lib/typography'
+import { Key, KeyText, PaperSurface } from '../../components/paper/Paper'
+import { FONT_CAP, P, R } from '../../components/paper/tokens'
 import { useAuth } from '../../hooks/useAuth'
 import {
   deleteClub,
@@ -34,14 +36,7 @@ import {
   type UserClub,
 } from '../../hooks/useUserBag'
 
-const KICKER: import('react-native').TextStyle = {
-  ...TYPE.kicker,
-  color: '#8A8B7E',
-  fontSize: 10,
-  fontWeight: '500',
-  letterSpacing: 1.4,
-  textTransform: 'uppercase',
-}
+const META: import('react-native').TextStyle = { ...TYPE.body, color: P.inkDim, fontSize: 12 }
 
 interface AddDraft {
   name: string
@@ -233,6 +228,7 @@ export default function BagScreen() {
 
   return (
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: '#F2EEE5' }}>
+      <PaperSurface style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />
       <AppBar
         eyebrow="Equipment"
         title="My bag."
@@ -302,39 +298,23 @@ export default function BagScreen() {
           )}
           ListFooterComponent={
             <View style={{ marginTop: 22, gap: 12 }}>
-              <Pressable
-                accessibilityRole="button"
+              <Key
+                tone="primary"
                 accessibilityLabel="Add club"
                 onPress={() => setShowAdd(true)}
-                style={{
-                  backgroundColor: '#1F3D2C',
-                  paddingVertical: 14,
-                  alignItems: 'center',
-                  borderRadius: 2,
-                }}
+                faceStyle={{ minHeight: 48 }}
               >
-                <Text
-                  style={[TYPE.bodyBold, { color: '#F2EEE5', fontSize: 14, fontWeight: '600' }]}
-                >
+                <KeyText tone="primary" bold>
                   Add club →
-                </Text>
-              </Pressable>
-              <Pressable
-                accessibilityRole="button"
+                </KeyText>
+              </Key>
+              <Key
                 accessibilityLabel="Reset to default bag"
                 onPress={confirmReset}
-                style={{
-                  borderWidth: 1,
-                  borderColor: '#1F3D2C',
-                  paddingVertical: 12,
-                  alignItems: 'center',
-                  borderRadius: 2,
-                }}
+                faceStyle={{ minHeight: 44 }}
               >
-                <Text style={[TYPE.body, { color: '#1F3D2C', fontSize: 13 }]}>
-                  Reset to default bag
-                </Text>
-              </Pressable>
+                <KeyText size={13}>Reset to default bag</KeyText>
+              </Key>
             </View>
           }
         />
@@ -356,9 +336,11 @@ export default function BagScreen() {
           <ScrollView
             keyboardShouldPersistTaps="handled"
             style={{
-              backgroundColor: '#FBF8F1',
-              borderTopLeftRadius: 12,
-              borderTopRightRadius: 12,
+              backgroundColor: P.raised,
+              borderTopLeftRadius: R,
+              borderTopRightRadius: R,
+              borderTopWidth: 1,
+              borderColor: P.ink,
             }}
             contentContainerStyle={{ padding: 18, paddingBottom: insets.bottom + 28 }}
           >
@@ -368,16 +350,17 @@ export default function BagScreen() {
                 width: 32,
                 height: 4,
                 borderRadius: 2,
-                backgroundColor: '#D9D2BF',
+                backgroundColor: P.line,
                 marginBottom: 14,
               }}
             />
-            <Text style={{ ...KICKER, marginBottom: 4 }}>
+            <Text maxFontSizeMultiplier={FONT_CAP} style={{ ...META, marginBottom: 4 }}>
               {editingId ? 'Edit club' : 'New club'}
             </Text>
             <Text
+              maxFontSizeMultiplier={FONT_CAP}
               style={[TYPE.serif, {
-                color: '#1C211C',
+                color: P.ink,
                 fontSize: 22,
                 marginBottom: 18,
               }]}
@@ -506,32 +489,20 @@ export default function BagScreen() {
             )}
 
             <View style={{ flexDirection: 'row', gap: 8, marginTop: 18 }}>
-              <Pressable
+              <Key
+                tone="primary"
+                accessibilityLabel={editingId ? 'Save changes →' : 'Add to bag →'}
                 onPress={handleSave}
-                style={{
-                  flex: 1,
-                  backgroundColor: '#1F3D2C',
-                  paddingVertical: 14,
-                  alignItems: 'center',
-                  borderRadius: 2,
-                }}
+                style={{ flex: 1 }}
+                faceStyle={{ minHeight: 48 }}
               >
-                <Text
-                  style={[TYPE.bodyBold, { color: '#F2EEE5', fontSize: 14, fontWeight: '600' }]}
-                >
+                <KeyText tone="primary" bold>
                   {editingId ? 'Save changes →' : 'Add to bag →'}
-                </Text>
-              </Pressable>
-              <Pressable
-                onPress={closeForm}
-                style={{
-                  paddingVertical: 14,
-                  paddingHorizontal: 18,
-                  alignItems: 'center',
-                }}
-              >
-                <Text style={[TYPE.body, { color: '#5C6356', fontSize: 13 }]}>Cancel</Text>
-              </Pressable>
+                </KeyText>
+              </Key>
+              <Key accessibilityLabel="Cancel" onPress={closeForm} faceStyle={{ minHeight: 48, paddingHorizontal: 18 }}>
+                <KeyText size={13}>Cancel</KeyText>
+              </Key>
             </View>
           </ScrollView>
         </View>
@@ -565,8 +536,8 @@ function ClubRow({
         gap: 10,
         paddingVertical: 14,
         borderBottomWidth: 1,
-        borderColor: '#D9D2BF',
-        backgroundColor: isActive ? '#EBE5D6' : '#F2EEE5',
+        borderColor: P.line,
+        backgroundColor: isActive ? P.well : P.chrome,
       }}
     >
       <Pressable
@@ -581,7 +552,7 @@ function ClubRow({
         <Text style={[TYPE.bodyBold, { color: '#1C211C', fontSize: 16 }]}>
           {club.name}
         </Text>
-        <Text style={{ ...KICKER, marginTop: 2 }}>
+        <Text maxFontSizeMultiplier={FONT_CAP} style={{ ...META, marginTop: 2 }}>
           {formatClubLabel(club, { hasDuplicateType })}
           {club.loft != null &&
           club.club_type !== 'cw' &&
@@ -594,31 +565,16 @@ function ClubRow({
             : ''}
         </Text>
       </View>
-      <Pressable
+      <Key
         onPress={onToggle}
-        accessibilityRole="button"
         accessibilityLabel={club.in_bag ? 'Bench club' : 'Put in bag'}
-        style={{
-          paddingVertical: 4,
-          paddingHorizontal: 10,
-          borderRadius: 2,
-          borderWidth: 1,
-          borderColor: '#D9D2BF',
-          backgroundColor: club.in_bag ? '#1F3D2C' : 'transparent',
-        }}
+        latched={club.in_bag}
+        faceStyle={{ minHeight: 30, paddingHorizontal: 10 }}
       >
-        <Text
-          style={[TYPE.kicker, {
-            color: club.in_bag ? '#F2EEE5' : '#5C6356',
-            fontSize: 10,
-            letterSpacing: 1.4,
-            textTransform: 'uppercase',
-            fontWeight: '500',
-          }]}
-        >
+        <KeyText size={12} bold={club.in_bag}>
           {club.in_bag ? 'In bag' : 'Benched'}
-        </Text>
-      </Pressable>
+        </KeyText>
+      </Key>
       <Pressable
         onPress={onEdit}
         accessibilityLabel={`Edit ${club.name}`}
@@ -670,25 +626,11 @@ function Chip({
   onPress: () => void
 }) {
   return (
-    <Pressable
-      onPress={onPress}
-      style={{
-        backgroundColor: active ? '#1F3D2C' : '#EBE5D6',
-        paddingVertical: 6,
-        paddingHorizontal: 10,
-        borderRadius: 2,
-      }}
-    >
-      <Text
-        style={[TYPE.body, {
-          color: active ? '#F2EEE5' : '#1C211C',
-          fontSize: 12,
-          fontWeight: active ? '500' : '400',
-        }]}
-      >
+    <Key accessibilityLabel={label} latched={active} onPress={onPress} faceStyle={{ minHeight: 36, paddingHorizontal: 10 }}>
+      <KeyText size={12} bold={active}>
         {label}
-      </Text>
-    </Pressable>
+      </KeyText>
+    </Key>
   )
 }
 
@@ -701,7 +643,9 @@ function Field({
 }) {
   return (
     <View style={{ marginBottom: 14 }}>
-      <Text style={{ ...KICKER, marginBottom: 6 }}>{label}</Text>
+      <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.bodyBold, { color: P.inkDim, fontSize: 12, marginBottom: 6 }]}>
+        {label}
+      </Text>
       {children}
     </View>
   )
@@ -710,12 +654,12 @@ function Field({
 const inputStyle: import('react-native').TextStyle = {
   ...TYPE.body,
   borderWidth: 1,
-  borderColor: '#D9D2BF',
-  backgroundColor: '#FBF8F1',
-  borderRadius: 2,
+  borderColor: P.ink,
+  backgroundColor: P.raised,
+  borderRadius: R,
   paddingHorizontal: 10,
   paddingVertical: 8,
   fontSize: 14,
-  color: '#1C211C',
+  color: P.ink,
 }
 
