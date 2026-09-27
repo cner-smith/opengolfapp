@@ -1,6 +1,9 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react'
-import { Pressable, ScrollView, Text, View } from 'react-native'
+import { ScrollView, Text, View } from 'react-native'
 import { TYPE } from '../../lib/typography'
+import { Key, KeyText, PaperSurface } from '../paper/Paper'
+import { PaperTile } from '../paper/Section'
+import { FONT_CAP, P } from '../paper/tokens'
 
 interface Props {
   children: ReactNode
@@ -39,7 +42,7 @@ export class ErrorBoundary extends Component<Props, State> {
 
 function ErrorScreen({ error, onReset }: { error: Error; onReset: () => void }) {
   return (
-    <View style={{ flex: 1, backgroundColor: '#F2EEE5' }}>
+    <PaperSurface style={{ flex: 1 }}>
       <ScrollView
         contentContainerStyle={{
           flexGrow: 1,
@@ -50,18 +53,22 @@ function ErrorScreen({ error, onReset }: { error: Error; onReset: () => void }) 
       >
         <View style={{ maxWidth: 480 }}>
           <Text
+            maxFontSizeMultiplier={FONT_CAP}
             style={[TYPE.serif, {
               fontSize: 32,
-              color: '#1C211C',
+              lineHeight: 40,
+              color: P.ink,
               textAlign: 'center',
             }]}
           >
             Something went wrong.
           </Text>
           <Text
+            maxFontSizeMultiplier={FONT_CAP}
             style={[TYPE.body, {
               fontSize: 15,
-              color: '#5C6356',
+              lineHeight: 21,
+              color: P.inkDim,
               textAlign: 'center',
               marginTop: 14,
               marginBottom: 22,
@@ -70,45 +77,26 @@ function ErrorScreen({ error, onReset }: { error: Error; onReset: () => void }) 
             The screen hit an unexpected error. Tap below to retry.
           </Text>
           {__DEV__ && (
-            <Text
-              style={[TYPE.kicker, {
-                fontSize: 11,
-                color: '#A33A2A',
-                backgroundColor: '#FBF8F1',
-                borderColor: '#D9D2BF',
-                borderWidth: 1,
-                borderRadius: 4,
-                padding: 14,
-                marginBottom: 22,
-              }]}
-            >
-              {error.message}
-              {error.stack ? `\n\n${error.stack}` : ''}
-            </Text>
+            <PaperTile style={{ marginBottom: 22 }}>
+              <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.kicker, { fontSize: 11, color: P.neg }]}>
+                {error.message}
+                {error.stack ? `\n\n${error.stack}` : ''}
+              </Text>
+            </PaperTile>
           )}
-          <Pressable
+          <Key
+            tone="primary"
+            accessibilityLabel="Try again"
             onPress={onReset}
-            style={{
-              backgroundColor: '#1F3D2C',
-              borderRadius: 2,
-              paddingVertical: 14,
-              paddingHorizontal: 18,
-              alignSelf: 'center',
-            }}
+            style={{ alignSelf: 'center' }}
+            faceStyle={{ minHeight: 48, paddingHorizontal: 22 }}
           >
-            <Text
-              style={[TYPE.bodyBold, {
-                fontSize: 14,
-                fontWeight: '600',
-                letterSpacing: 0.28,
-                color: '#F2EEE5',
-              }]}
-            >
+            <KeyText tone="primary" bold size={15}>
               Try again
-            </Text>
-          </Pressable>
+            </KeyText>
+          </Key>
         </View>
       </ScrollView>
-    </View>
+    </PaperSurface>
   )
 }

@@ -17,7 +17,10 @@ import { clearScreenCache, getCached, setCached } from '../../lib/screenCache'
 import { AppBar } from '../../components/ui/AppBar'
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
 import { Entrance } from '../../components/ui/Entrance'
-import { FONT, TYPE } from '../../lib/typography'
+import { TYPE } from '../../lib/typography'
+import { PaperSurface } from '../../components/paper/Paper'
+import { PaperTile } from '../../components/paper/Section'
+import { FONT_CAP, P } from '../../components/paper/tokens'
 
 interface RoundRow {
   id: string
@@ -26,15 +29,6 @@ interface RoundRow {
   sg_total: number | null
   courses?: { name: string | null } | null
   hole_scores?: { score: number; holes: { number: number } | null }[] | null
-}
-
-const KICKER: import('react-native').TextStyle = {
-  color: '#8A8B7E',
-  fontSize: 10,
-  fontWeight: '500',
-  letterSpacing: 1.4,
-  textTransform: 'uppercase',
-  fontFamily: FONT.mono,
 }
 
 // Screen-reader label for a round row. TalkBack and VoiceOver read visible
@@ -118,7 +112,7 @@ export default function RoundsList() {
   }, [])
 
   return (
-    <View style={{ flex: 1, backgroundColor: '#F2EEE5' }}>
+    <PaperSurface style={{ flex: 1 }}>
       <AppBar title="All rounds" />
       <ScrollView
         contentContainerStyle={{
@@ -128,12 +122,14 @@ export default function RoundsList() {
         }}
       >
         {rounds.length === 0 ? (
-          <Text style={[TYPE.body, { color: '#8A8B7E', fontSize: 13, marginTop: 18 }]}>
-            No rounds yet.
-          </Text>
+          <PaperTile style={{ marginTop: 18 }} innerStyle={{ padding: 22 }}>
+            <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.serif, { color: P.ink, fontSize: 22 }]}>
+              No rounds yet.
+            </Text>
+          </PaperTile>
         ) : (
           <Entrance index={0}>
-          <View style={{ borderTopWidth: 1, borderColor: '#D9D2BF' }}>
+          <View style={{ borderTopWidth: 1, borderColor: P.ink }}>
             {rounds.map((r) => (
               <Swipeable
                 key={r.id}
@@ -144,17 +140,17 @@ export default function RoundsList() {
                   <Pressable
                     onPress={() => openDeleteFor(r)}
                     style={{
-                      backgroundColor: '#A33A2A',
+                      backgroundColor: P.neg,
                       justifyContent: 'center',
                       alignItems: 'center',
                       paddingHorizontal: 22,
                     }}
                   >
                     <Text
+                      maxFontSizeMultiplier={FONT_CAP}
                       style={[TYPE.bodyBold, {
-                        color: '#F2EEE5',
+                        color: P.raised,
                         fontSize: 13,
-                        fontWeight: '600',
                         letterSpacing: 0.3,
                       }]}
                     >
@@ -164,6 +160,7 @@ export default function RoundsList() {
                 )}
                 overshootRight={false}
               >
+                <PaperSurface>
                 <Link href={`/(app)/round/${r.id}`} asChild>
                   <PressableTouch
                     onLongPress={() => openDeleteFor(r)}
@@ -184,18 +181,18 @@ export default function RoundsList() {
                       paddingVertical: 14,
                       paddingHorizontal: 4,
                       borderBottomWidth: 1,
-                      borderColor: '#D9D2BF',
-                      backgroundColor: '#F2EEE5',
+                      borderColor: P.line,
                     }}
                   >
                     <View style={{ flex: 1, paddingRight: 12 }}>
-                      <Text style={{ ...KICKER, marginBottom: 4 }}>
+                      <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { color: P.inkDim, fontSize: 12, marginBottom: 4 }]}>
                         {r.played_at}
                         {partialRoundLabel(r.hole_scores)}
                       </Text>
                       <Text
+                        maxFontSizeMultiplier={FONT_CAP}
                         style={[TYPE.serif, {
-                          color: '#1C211C',
+                          color: P.ink,
                           fontSize: 17,
                         }]}
                       >
@@ -210,25 +207,25 @@ export default function RoundsList() {
                       }}
                     >
                       <Text
+                        maxFontSizeMultiplier={FONT_CAP}
                         style={[TYPE.serifUpright, {
-                          color: '#1C211C',
+                          color: P.ink,
                           fontSize: 22,
-                          fontWeight: '500',
                           fontVariant: ['tabular-nums'],
                         }]}
                       >
                         {r.total_score ? r.total_score : '—'}
                       </Text>
                       <Text
+                        maxFontSizeMultiplier={FONT_CAP}
                         style={[TYPE.serifUpright, {
                           color:
                             r.sg_total == null
-                              ? '#8A8B7E'
+                              ? P.inkDim
                               : r.sg_total >= 0
-                                ? '#1F3D2C'
-                                : '#A33A2A',
+                                ? P.forest
+                                : P.neg,
                           fontSize: 13,
-                          fontWeight: '500',
                           fontVariant: ['tabular-nums'],
                         }]}
                       >
@@ -237,6 +234,7 @@ export default function RoundsList() {
                     </View>
                   </PressableTouch>
                 </Link>
+                </PaperSurface>
               </Swipeable>
             ))}
           </View>
@@ -260,6 +258,6 @@ export default function RoundsList() {
         }}
         onCancel={() => setPendingDelete(null)}
       />
-    </View>
+    </PaperSurface>
   )
 }

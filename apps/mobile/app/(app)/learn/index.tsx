@@ -8,16 +8,20 @@ import {
   type LearnSection,
 } from '@oga/core'
 import { AppBar } from '../../../components/ui/AppBar'
-import { C } from '../../../components/learn/primitives'
+import { KICKER } from '../../../components/learn/primitives'
+import { PaperSurface } from '../../../components/paper/Paper'
+import { SectionHead } from '../../../components/paper/Section'
 import { FONT, TYPE } from '../../../lib/typography'
+import { FONT_CAP, P } from '../../../components/paper/tokens'
 
-const KICKER: import('react-native').TextStyle = {
+// The dark AppBar keeps its mono-caps back link.
+const BACK: import('react-native').TextStyle = {
   fontFamily: FONT.mono,
-  color: C.mute,
+  color: 'rgba(242,238,229,0.6)',
   fontSize: 10,
-  fontWeight: '500',
   letterSpacing: 1.4,
   textTransform: 'uppercase',
+  padding: 4,
 }
 
 // Library-signal counts — static (derived from the @oga/core catalog), so
@@ -29,13 +33,13 @@ export default function LearnScreen() {
   const router = useRouter()
 
   return (
-    <View style={{ flex: 1, backgroundColor: C.bg }}>
+    <PaperSurface style={{ flex: 1 }}>
       <AppBar
         eyebrow="Yardage book"
         title="Learn"
         right={
           <Pressable onPress={() => router.back()}>
-            <Text style={{ ...KICKER, color: 'rgba(242,238,229,0.6)', padding: 4 }}>
+            <Text maxFontSizeMultiplier={FONT_CAP} style={BACK}>
               ← Back
             </Text>
           </Pressable>
@@ -43,8 +47,9 @@ export default function LearnScreen() {
       />
       <ScrollView contentContainerStyle={{ padding: 18, paddingBottom: 64 }}>
         <Text
+          maxFontSizeMultiplier={FONT_CAP}
           style={[TYPE.serif, {
-            color: C.ink,
+            color: P.ink,
             fontSize: 22,
             lineHeight: 28,
             marginBottom: 8,
@@ -52,11 +57,11 @@ export default function LearnScreen() {
         >
           A coach's column on the stats this app tracks.
         </Text>
-        <Text style={[TYPE.body, { color: C.inkDim, fontSize: 14, lineHeight: 20 }]}>
+        <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { color: P.inkDim, fontSize: 14, lineHeight: 20 }]}>
           What they mean, why they matter, and what the numbers look like across
           the field.
         </Text>
-        <Text style={{ ...KICKER, marginTop: 14 }}>
+        <Text maxFontSizeMultiplier={FONT_CAP} style={{ ...KICKER, marginTop: 14 }}>
           {ARTICLE_COUNT} short reads · {SECTION_COUNT} section
           {SECTION_COUNT === 1 ? '' : 's'}
         </Text>
@@ -71,7 +76,7 @@ export default function LearnScreen() {
           />
         ))}
       </ScrollView>
-    </View>
+    </PaperSurface>
   )
 }
 
@@ -85,7 +90,7 @@ function ArticleRow({
   const isSoon = article.status === 'soon'
   const isDraft = article.status === 'draft'
   const reading = readingTimeMinutes(article)
-  const titleColor = isSoon ? C.inkDim : C.ink
+  const titleColor = isSoon ? P.inkDim : P.ink
 
   return (
     <Pressable
@@ -93,7 +98,7 @@ function ArticleRow({
       disabled={isSoon}
       style={{
         borderTopWidth: 1,
-        borderColor: C.line,
+        borderColor: P.line,
         paddingVertical: 16,
         flexDirection: 'row',
         alignItems: 'flex-start',
@@ -109,6 +114,7 @@ function ArticleRow({
           }}
         >
           <Text
+            maxFontSizeMultiplier={FONT_CAP}
             style={[TYPE.serif, {
               color: titleColor,
               fontSize: 17,
@@ -118,15 +124,17 @@ function ArticleRow({
           </Text>
           {isDraft && (
             <Text
-              style={{ ...KICKER, color: C.amber, marginLeft: 8 }}
+              maxFontSizeMultiplier={FONT_CAP}
+              style={{ ...KICKER, color: P.warn, marginLeft: 8 }}
             >
               Draft
             </Text>
           )}
         </View>
         <Text
+          maxFontSizeMultiplier={FONT_CAP}
           style={[TYPE.body, {
-            color: C.inkDim,
+            color: P.inkDim,
             fontSize: 13,
             lineHeight: 18,
             marginTop: 4,
@@ -137,16 +145,17 @@ function ArticleRow({
       </View>
       <View style={{ alignItems: 'flex-end' }}>
         {isSoon ? (
-          <Text style={{ ...KICKER, color: C.mute }}>Soon</Text>
+          <Text maxFontSizeMultiplier={FONT_CAP} style={KICKER}>Soon</Text>
         ) : (
           <>
             {reading != null && (
-              <Text style={{ ...KICKER, color: C.mute, marginBottom: 4 }}>
+              <Text maxFontSizeMultiplier={FONT_CAP} style={{ ...KICKER, marginBottom: 4 }}>
                 {reading} min
               </Text>
             )}
             <Text
-              style={[TYPE.serif, { color: C.mute, fontSize: 18 }]}
+              maxFontSizeMultiplier={FONT_CAP}
+              style={[TYPE.serif, { color: P.inkDim, fontSize: 18 }]}
             >
               →
             </Text>
@@ -165,25 +174,15 @@ function SectionBlock({
   onSelect: (article: LearnArticle) => void
 }) {
   return (
-    <View
-      style={{
-        borderTopWidth: 2,
-        borderColor: '#9F9580',
-        paddingTop: 22,
-        marginTop: 28,
-      }}
-    >
-      <Text style={{ ...KICKER, marginBottom: 8 }}>{section.number}</Text>
-      <Text
-        style={[TYPE.serif, {
-          color: C.ink,
-          fontSize: 24,
-          lineHeight: 30,
-          marginBottom: 14,
-        }]}
-      >
-        {section.title}
-      </Text>
+    <View style={{ marginTop: 28 }}>
+      <SectionHead
+        title={section.title}
+        trailing={
+          <Text maxFontSizeMultiplier={FONT_CAP} style={KICKER}>
+            {section.number}
+          </Text>
+        }
+      />
       <View>
         {section.articles.map((article) => (
           <ArticleRow

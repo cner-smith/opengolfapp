@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Alert, Pressable, ScrollView, Text, TextInput, View } from 'react-native'
+import { Alert, ScrollView, Text, TextInput, View } from 'react-native'
 import { useRouter } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import {
@@ -12,7 +12,10 @@ import {
 import { seedDefaultBag, updateProfile } from '@oga/supabase'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
-import { TYPE } from '../../lib/typography'
+import { FONT, TYPE } from '../../lib/typography'
+import { Key, KeyText, PaperSurface } from '../../components/paper/Paper'
+import { SectionHead } from '../../components/paper/Section'
+import { FONT_CAP, P, R } from '../../components/paper/tokens'
 
 const SKILL_LABEL: Record<SkillLevel, string> = {
   beginner: 'Just starting out',
@@ -110,35 +113,19 @@ export default function MobileOnboarding() {
   }
 
   return (
+    <PaperSurface style={{ flex: 1 }}>
     <ScrollView
-      style={{ flex: 1, backgroundColor: '#F4F4F0' }}
+      style={{ flex: 1 }}
       contentContainerStyle={{ padding: 16, paddingTop: insets.top + 14, paddingBottom: 32 }}
       keyboardShouldPersistTaps="handled"
     >
-      <Text
-        style={[TYPE.kicker, {
-          color: '#888880',
-          fontSize: 10,
-          fontWeight: '500',
-          letterSpacing: 0.5,
-          textTransform: 'uppercase',
-          marginBottom: 8,
-        }]}
-      >
+      <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { color: P.inkDim, fontSize: 12, marginBottom: 6 }]}>
         Welcome to OGA
       </Text>
-      <Text
-        style={[TYPE.bodyBold, {
-          color: '#111111',
-          fontSize: 22,
-          fontWeight: '600',
-          lineHeight: 28,
-          marginBottom: 4,
-        }]}
-      >
+      <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.serif, { color: P.ink, fontSize: 28, lineHeight: 34, marginBottom: 4 }]}>
         Three quick questions
       </Text>
-      <Text style={[TYPE.body, { color: '#888880', fontSize: 13, marginBottom: 20 }]}>
+      <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { color: P.inkDim, fontSize: 13, lineHeight: 18, marginBottom: 22 }]}>
         Calibrates strokes-gained baselines. You can edit these in Profile later.
       </Text>
 
@@ -160,15 +147,17 @@ export default function MobileOnboarding() {
           keyboardType="decimal-pad"
           value={handicap}
           onChangeText={setHandicap}
+          maxFontSizeMultiplier={FONT_CAP}
           style={{
-            backgroundColor: '#F9F9F6',
-            borderWidth: 0.5,
-            borderColor: '#E4E4E0',
-            borderRadius: 7,
-            paddingHorizontal: 10,
-            paddingVertical: 9,
-            fontSize: 13,
-            color: '#111111',
+            backgroundColor: P.raised,
+            borderWidth: 1,
+            borderColor: P.ink,
+            borderRadius: R,
+            paddingHorizontal: 12,
+            paddingVertical: 11,
+            fontSize: 15,
+            color: P.ink,
+            fontFamily: FONT.body,
           }}
         />
       </Field>
@@ -186,28 +175,9 @@ export default function MobileOnboarding() {
         </View>
       </Field>
 
-      <View
-        style={{
-          marginTop: 8,
-          marginBottom: 18,
-          paddingTop: 18,
-          borderTopWidth: 0.5,
-          borderColor: '#E4E4E0',
-        }}
-      >
-        <Text
-          style={[TYPE.body, {
-            color: '#888880',
-            fontSize: 11,
-            fontWeight: '500',
-            letterSpacing: 0.4,
-            textTransform: 'uppercase',
-            marginBottom: 6,
-          }]}
-        >
-          Bag (optional)
-        </Text>
-        <Text style={[TYPE.body, { color: '#888880', fontSize: 12, marginBottom: 10 }]}>
+      <View style={{ marginTop: 4, marginBottom: 18 }}>
+        <SectionHead title="Bag (optional)" style={{ marginBottom: 6 }} />
+        <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { color: P.inkDim, fontSize: 12, lineHeight: 17, marginBottom: 12 }]}>
           Select the clubs you carry. You can customize your bag fully in
           Settings → My Bag later.
         </Text>
@@ -221,79 +191,50 @@ export default function MobileOnboarding() {
             />
           ))}
         </View>
-        <Text
-          style={[TYPE.body, {
-            color: '#888880',
-            fontSize: 11,
-            marginTop: 8,
-            letterSpacing: 0.3,
-          }]}
-        >
+        <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { color: P.inkDim, fontSize: 12, marginTop: 8 }]}>
           {bagSelection.size} of {DEFAULT_BAG.length} selected
         </Text>
       </View>
 
-      <Pressable
+      <Key
+        tone="primary"
+        accessibilityLabel="Start tracking"
         onPress={() => save({ seedBag: true })}
         disabled={saving}
-        style={{
-          marginTop: 8,
-          backgroundColor: '#111111',
-          borderRadius: 10,
-          paddingVertical: 14,
-          alignItems: 'center',
-          opacity: saving ? 0.5 : 1,
-        }}
+        style={{ marginTop: 8 }}
+        faceStyle={{ minHeight: 50 }}
       >
-        <Text style={[TYPE.bodyBold, { color: '#FFFFFF', fontSize: 13 }]}>
+        <KeyText tone="primary" bold size={15} disabled={saving}>
           {saving ? 'Saving…' : 'Start tracking'}
-        </Text>
-      </Pressable>
+        </KeyText>
+      </Key>
 
-      <Pressable
+      <Key
+        accessibilityLabel="Set up bag later"
         onPress={() => save({ seedBag: false })}
         disabled={saving}
-        accessibilityRole="button"
-        accessibilityLabel="Set up bag later"
-        style={{
-          marginTop: 10,
-          borderRadius: 10,
-          paddingVertical: 12,
-          alignItems: 'center',
-          borderWidth: 1,
-          borderColor: '#1F3D2C',
-          backgroundColor: 'transparent',
-          opacity: saving ? 0.5 : 1,
-        }}
+        style={{ marginTop: 12 }}
+        faceStyle={{ minHeight: 46 }}
       >
-        <Text style={[TYPE.bodyBold, { color: '#1F3D2C', fontSize: 13 }]}>
+        <KeyText size={14} disabled={saving}>
           Set up later →
-        </Text>
-      </Pressable>
+        </KeyText>
+      </Key>
     </ScrollView>
+    </PaperSurface>
   )
 }
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <View style={{ marginBottom: 16 }}>
-      <Text
-        style={[TYPE.body, {
-          color: '#888880',
-          fontSize: 11,
-          fontWeight: '500',
-          letterSpacing: 0.4,
-          textTransform: 'uppercase',
-          marginBottom: 6,
-        }]}
-      >
-        {label}
-      </Text>
+    <View style={{ marginBottom: 18 }}>
+      <SectionHead title={label} />
       {children}
     </View>
   )
 }
 
+// Latched paper key, as on Profile.
 function Chip({
   label,
   active,
@@ -304,26 +245,10 @@ function Chip({
   onPress: () => void
 }) {
   return (
-    <Pressable
-      onPress={onPress}
-      style={{
-        paddingHorizontal: 10,
-        paddingVertical: 7,
-        borderRadius: 7,
-        backgroundColor: active ? '#E1F5EE' : '#F4F4F0',
-        borderWidth: 0.5,
-        borderColor: active ? '#1D9E75' : '#E0E0DA',
-      }}
-    >
-      <Text
-        style={[TYPE.body, {
-          color: active ? '#0F6E56' : '#111111',
-          fontSize: 12,
-          fontWeight: active ? '500' : '400',
-        }]}
-      >
+    <Key accessibilityLabel={label} latched={active} onPress={onPress} faceStyle={{ minHeight: 40, paddingHorizontal: 12 }}>
+      <KeyText size={13} bold={active}>
         {label}
-      </Text>
-    </Pressable>
+      </KeyText>
+    </Key>
   )
 }

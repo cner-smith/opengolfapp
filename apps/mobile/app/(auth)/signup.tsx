@@ -3,7 +3,6 @@ import {
   AppState,
   KeyboardAvoidingView,
   Platform,
-  Pressable,
   ScrollView,
   Text,
   TextInput,
@@ -14,7 +13,10 @@ import * as Linking from 'expo-linking'
 import { WebView } from 'react-native-webview'
 import { OAuthButtons } from '../../components/auth/OAuthButtons'
 import { supabase } from '../../lib/supabase'
-import { TYPE } from '../../lib/typography'
+import { FONT, TYPE } from '../../lib/typography'
+import { Key, KeyText, PaperSurface } from '../../components/paper/Paper'
+import { PaperTile } from '../../components/paper/Section'
+import { FONT_CAP, P, R } from '../../components/paper/tokens'
 
 const TURNSTILE_SITE_KEY = process.env.EXPO_PUBLIC_TURNSTILE_SITE_KEY
 
@@ -170,18 +172,12 @@ export default function Signup() {
 
   if (submitted) {
     return (
-      <View style={{ flex: 1, backgroundColor: '#F2EEE5', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24 }}>
-        <View
-          style={{ borderColor: '#D9D2BF', backgroundColor: '#FBF8F1', borderRadius: 10, borderWidth: 0.5, padding: 20, width: '100%' }}
-        >
-          <Text
-            style={[TYPE.bodyBold, { fontSize: 22, fontWeight: '600', marginBottom: 12, color: '#1C211C' }]}
-          >
+      <PaperSurface style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24 }}>
+        <PaperTile style={{ width: '100%' }} innerStyle={{ padding: 20 }}>
+          <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.serif, { fontSize: 26, lineHeight: 32, marginBottom: 12, color: P.ink }]}>
             Check your email
           </Text>
-          <Text
-            style={[TYPE.body, { fontSize: 14, lineHeight: 20, color: '#5C6356' }]}
-          >
+          <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { fontSize: 14, lineHeight: 20, color: P.inkDim }]}>
             We sent a confirmation link to {email}. Open it on this device to
             finish setting up your account — or confirm anywhere and come back
             here.
@@ -210,43 +206,39 @@ export default function Signup() {
             />
           )}
           {confirmHint && (
-            <Text
-              style={[TYPE.body, { fontSize: 13, marginTop: 12, color: '#5C6356' }]}
-            >
+            <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { fontSize: 13, marginTop: 12, color: P.inkDim }]}>
               {confirmHint}
             </Text>
           )}
-          <Pressable
+          <Key
+            tone="primary"
+            accessibilityLabel="I've confirmed it"
             onPress={() => void tryConfirmSignIn(true)}
             disabled={checking || (captchaEnabled && !captchaToken)}
-            style={{
-              backgroundColor: '#1C211C',
-              borderRadius: 10,
-              paddingVertical: 13,
-              alignItems: 'center',
-              marginTop: 16,
-              opacity: checking || (captchaEnabled && !captchaToken) ? 0.5 : 1,
-            }}
+            style={{ marginTop: 16 }}
+            faceStyle={{ minHeight: 48 }}
           >
-            <Text style={[TYPE.bodyBold, { fontSize: 13, color: '#FFFFFF' }]}>
+            <KeyText tone="primary" bold size={15} disabled={checking || (captchaEnabled && !captchaToken)}>
               {checking ? 'Checking…' : "I've confirmed it"}
-            </Text>
-          </Pressable>
+            </KeyText>
+          </Key>
           <Link href="/(auth)/login" asChild>
             <Text
-              style={[TYPE.body, { fontSize: 13, marginTop: 14, textAlign: 'center', color: '#1F3D2C' }]}
+              maxFontSizeMultiplier={FONT_CAP}
+              style={[TYPE.body, { fontSize: 13, marginTop: 14, textAlign: 'center', color: P.forest }]}
             >
               Back to sign in
             </Text>
           </Link>
-        </View>
-      </View>
+        </PaperTile>
+      </PaperSurface>
     )
   }
 
   return (
+    <PaperSurface style={{ flex: 1 }}>
     <KeyboardAvoidingView
-      style={{ flex: 1, backgroundColor: '#F2EEE5' }}
+      style={{ flex: 1 }}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <ScrollView
@@ -258,12 +250,8 @@ export default function Signup() {
         }}
         keyboardShouldPersistTaps="handled"
       >
-      <View
-        style={{ borderColor: '#D9D2BF', backgroundColor: '#FBF8F1', borderRadius: 10, borderWidth: 0.5, padding: 20 }}
-      >
-        <Text
-          style={[TYPE.bodyBold, { fontSize: 22, fontWeight: '600', marginBottom: 16, color: '#1C211C' }]}
-        >
+      <PaperTile innerStyle={{ padding: 20 }}>
+        <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.serif, { fontSize: 26, lineHeight: 32, marginBottom: 16, color: P.ink }]}>
           Create your OGA account
         </Text>
         <FieldLabel>Username</FieldLabel>
@@ -271,6 +259,7 @@ export default function Signup() {
           autoCapitalize="none"
           value={username}
           onChangeText={setUsername}
+          maxFontSizeMultiplier={FONT_CAP}
           style={inputStyle}
         />
         <FieldLabel>Email</FieldLabel>
@@ -279,6 +268,7 @@ export default function Signup() {
           keyboardType="email-address"
           value={email}
           onChangeText={setEmail}
+          maxFontSizeMultiplier={FONT_CAP}
           style={inputStyle}
         />
         <FieldLabel>Password</FieldLabel>
@@ -286,6 +276,7 @@ export default function Signup() {
           secureTextEntry
           value={password}
           onChangeText={setPassword}
+          maxFontSizeMultiplier={FONT_CAP}
           style={{ ...inputStyle, marginBottom: 14 }}
         />
         {captchaEnabled && (
@@ -316,78 +307,60 @@ export default function Signup() {
           />
         )}
         {error && (
-          <Text style={[TYPE.body, { fontSize: 13, marginBottom: 10, color: '#A33A2A' }]}>
+          <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { fontSize: 13, marginBottom: 10, color: P.neg }]}>
             {error}
           </Text>
         )}
-        <Pressable
+        <Key
+          tone="primary"
+          accessibilityLabel="Create account"
           onPress={handleSubmit}
           disabled={!canSubmit}
-          style={{
-            backgroundColor: '#1C211C',
-            borderRadius: 10,
-            paddingVertical: 13,
-            alignItems: 'center',
-            opacity: !canSubmit ? 0.5 : 1,
-          }}
+          faceStyle={{ minHeight: 48 }}
         >
-          <Text style={[TYPE.bodyBold, { fontSize: 13, color: '#FFFFFF' }]}>
+          <KeyText tone="primary" bold size={15} disabled={!canSubmit}>
             {loading ? 'Creating…' : 'Create account'}
-          </Text>
-        </Pressable>
+          </KeyText>
+        </Key>
         <View style={{ flexDirection: 'row', alignItems: 'center', marginVertical: 18 }}>
-          <View style={{ flex: 1, height: 0.5, backgroundColor: '#D9D2BF' }} />
-          <Text
-            style={[TYPE.kicker, {
-              color: '#8A8B7E',
-              fontSize: 10,
-              letterSpacing: 1.4,
-              textTransform: 'uppercase',
-              marginHorizontal: 10,
-            }]}
-          >
+          <View style={{ flex: 1, height: 1, backgroundColor: P.line }} />
+          <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { color: P.inkDim, fontSize: 12, marginHorizontal: 10 }]}>
             Or
           </Text>
-          <View style={{ flex: 1, height: 0.5, backgroundColor: '#D9D2BF' }} />
+          <View style={{ flex: 1, height: 1, backgroundColor: P.line }} />
         </View>
         <OAuthButtons />
         <Link href="/(auth)/login" asChild>
           <Text
-            style={[TYPE.body, { fontSize: 13, marginTop: 14, textAlign: 'center', color: '#1F3D2C' }]}
+            maxFontSizeMultiplier={FONT_CAP}
+            style={[TYPE.body, { fontSize: 13, marginTop: 14, textAlign: 'center', color: P.forest }]}
           >
             Have an account? Sign in
           </Text>
         </Link>
-      </View>
+      </PaperTile>
       </ScrollView>
     </KeyboardAvoidingView>
+    </PaperSurface>
   )
 }
 
 const inputStyle = {
-  backgroundColor: '#FBF8F1',
-  borderColor: '#D9D2BF',
-  color: '#1C211C',
-  borderWidth: 0.5,
-  borderRadius: 7,
-  paddingHorizontal: 10,
-  paddingVertical: 9,
-  fontSize: 13,
+  backgroundColor: P.raised,
+  borderWidth: 1,
+  borderColor: P.ink,
+  borderRadius: R,
+  paddingHorizontal: 12,
+  paddingVertical: 11,
+  fontSize: 15,
+  color: P.ink,
+  fontFamily: FONT.body,
   marginBottom: 12,
 } as const
 
 function FieldLabel({ children }: { children: React.ReactNode }) {
   return (
-    <Text
-      style={[TYPE.body, {
-        fontSize: 11,
-        fontWeight: '500',
-        letterSpacing: 0.4,
-        textTransform: 'uppercase',
-        marginBottom: 6,
-        color: '#8A8B7E',
-      }]}
-    >
+    <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { color: P.inkDim, fontSize: 12, marginBottom: 6 }]}>
       {children}
     </Text>
   )
