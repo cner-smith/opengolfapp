@@ -5,6 +5,7 @@ import { Swipeable } from 'react-native-gesture-handler'
 import { formatSG, partialRoundLabel } from '@oga/core'
 import { TYPE } from '../../lib/typography'
 import { SectionHead } from '../paper/Section'
+import { PaperSurface } from '../paper/Paper'
 import { FONT_CAP, P } from '../paper/tokens'
 
 export interface RecentRoundRow {
@@ -62,7 +63,6 @@ export function RecentRoundsList({
                       {
                         color: '#F2EEE5',
                         fontSize: 13,
-                        fontWeight: '600',
                         letterSpacing: 0.3,
                       },
                     ]}
@@ -73,6 +73,9 @@ export function RecentRoundsList({
               )}
               overshootRight={false}
             >
+              {/* Opaque paper (grain included) so the swipe's red Delete stays
+                  hidden behind the row, matching the all-rounds list. */}
+              <PaperSurface>
               <Link href={`/(app)/round/${r.id}`} asChild>
                 <Pressable
                   accessibilityRole="button"
@@ -84,8 +87,7 @@ export function RecentRoundsList({
                     paddingVertical: 14,
                     paddingHorizontal: 4,
                     borderBottomWidth: 1,
-                    borderColor: '#D9D2BF',
-                    backgroundColor: '#F2EEE5',
+                    borderColor: P.line,
                   }}
                 >
                   <View style={{ flex: 1, paddingRight: 12 }}>
@@ -129,6 +131,7 @@ export function RecentRoundsList({
                   </View>
                 </Pressable>
               </Link>
+              </PaperSurface>
             </Swipeable>
           ))}
           {rounds.length > 5 && (
