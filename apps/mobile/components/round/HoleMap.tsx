@@ -295,16 +295,15 @@ export function HoleMap({
 
   // The flag's cup follows the camera pitch (§9). Android paints a
   // PointAnnotation into a bitmap that only redraws on a layout change, and
-  // neither the cup nor the tone changes layout — so repaint it by hand. iOS
-  // snapshots the marker once and never redraws on its own, so the hole
-  // number needs the same nudge there.
+  // neither the cup nor the tone changes layout — so repaint it by hand. The
+  // hole number is handled by remounting per hole (key below).
   const [cupK, setCupK] = useState(0.8)
   const flagTone = roundPin ? 'strong' : 'dim'
   const flagRef = useRef<Mapbox.PointAnnotation>(null)
   useEffect(() => {
     const t = setTimeout(() => flagRef.current?.refresh(), 50)
     return () => clearTimeout(t)
-  }, [cupK, flagTone, holeNumber])
+  }, [cupK, flagTone])
 
   const { aimGhosts, aimGhostFeatures } = useAimGhosts({
     ball,
@@ -830,6 +829,9 @@ export function HoleMap({
               isn't ergonomic. */}
           {effectivePin && (
             <Mapbox.PointAnnotation
+              // Remount per hole: the snapshot kept the previous hole's number
+              // (the 50 ms refresh below can beat the SVG repaint).
+              key={`pin-${holeNumber}`}
               id="effectivePin"
               coordinate={toCoord(effectivePin)}
               ref={flagRef}
