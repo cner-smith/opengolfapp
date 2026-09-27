@@ -37,7 +37,7 @@ import { useUserBag } from '../../hooks/useUserBag'
 import { AppBar } from '../../components/ui/AppBar'
 import { Entrance } from '../../components/ui/Entrance'
 import { FONT, TYPE } from '../../lib/typography'
-import { Key, KeyText, PaperSurface } from '../../components/paper/Paper'
+import { Key, KeyText, PaperSurface, HardShadow } from '../../components/paper/Paper'
 import { SectionHead } from '../../components/paper/Section'
 import { FONT_CAP, P } from '../../components/paper/tokens'
 
@@ -397,11 +397,10 @@ const SHARE_C = {
   accent: '#1F3D2C',
 } as const
 
+// Paper style, like the app and the scorecard share card: sentence-case
+// Epilogue labels, Fraunces-italic figures, ink rules.
 const SHARE_KICKER: import('react-native').TextStyle = {
-  ...TYPE.kicker,
-  fontWeight: '500',
-  letterSpacing: 2,
-  textTransform: 'uppercase',
+  ...TYPE.body,
 }
 
 function ShotPatternsShareCard({
@@ -435,7 +434,7 @@ function ShotPatternsShareCard({
           alignItems: 'flex-start',
           paddingBottom: 22,
           borderBottomWidth: 1,
-          borderColor: c.line,
+          borderColor: c.ink,
         }}
       >
         <View>
@@ -444,19 +443,12 @@ function ShotPatternsShareCard({
           >
             Open Golf App
           </Text>
-          <Text
-            style={{
-              ...TYPE.serif,
-              fontWeight: '500',
-              fontSize: 44,
-              color: c.ink,
-            }}
-          >
-            OGA
+          <Text style={{ ...TYPE.serif, fontSize: 44, color: c.ink }}>
+            oga<Text style={{ ...TYPE.serifUpright }}>.</Text>
           </Text>
         </View>
         <Text style={{ ...SHARE_KICKER, fontSize: 14, color: c.inkMute }}>
-          Shot Pattern
+          Shot pattern
         </Text>
       </View>
 
@@ -469,17 +461,11 @@ function ShotPatternsShareCard({
           paddingVertical: 16,
         }}
       >
-        <View
-          style={{
-            padding: 14,
-            backgroundColor: c.surface,
-            borderWidth: 1,
-            borderColor: c.line,
-            borderRadius: 4,
-          }}
-        >
-          <DispersionPlot points={points} stats={stats} size={350} />
-        </View>
+        <HardShadow dx={3} dy={3}>
+          <View style={{ padding: 14, backgroundColor: c.surface, borderWidth: 1, borderColor: c.ink, borderRadius: 3 }}>
+            <DispersionPlot points={points} stats={stats} size={350} />
+          </View>
+        </HardShadow>
 
         <View style={{ flex: 1 }}>
           <Text
@@ -489,9 +475,9 @@ function ShotPatternsShareCard({
           </Text>
           <Text
             style={{
-              ...TYPE.serifUpright,
-              fontWeight: '500',
+              ...TYPE.serif,
               fontSize: 46,
+              lineHeight: 54,
               color: c.ink,
               marginBottom: 30,
             }}
@@ -527,7 +513,7 @@ function ShotPatternsShareCard({
           alignItems: 'center',
           paddingTop: 20,
           borderTopWidth: 1,
-          borderColor: c.line,
+          borderColor: c.ink,
         }}
       >
         <Text style={{ ...SHARE_KICKER, fontSize: 15, color: c.accent }}>oga.golf</Text>
@@ -555,9 +541,8 @@ function ShareStat({
       </Text>
       <Text
         style={{
-          ...TYPE.serifUpright,
-          fontWeight: '500',
-          fontSize: 26,
+          ...TYPE.serif,
+          fontSize: 28,
           color: c.ink,
         }}
       >
