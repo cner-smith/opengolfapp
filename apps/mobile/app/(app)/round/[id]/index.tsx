@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { ActivityIndicator, Alert, Pressable, Text, View } from 'react-native'
+import { ActivityIndicator, Alert, Pressable, StatusBar, Text, View } from 'react-native'
 import { captureRef } from 'react-native-view-shot'
 import * as Sharing from 'expo-sharing'
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router'
@@ -37,7 +37,7 @@ import LiveRoundSession from '../../../../components/round/LiveRoundSession'
 import { ConfirmDialog } from '../../../../components/ui/ConfirmDialog'
 import { Key, KeyText, PaperSurface, Rocker } from '../../../../components/paper/Paper'
 import { Icon } from '../../../../components/paper/icons'
-import { P } from '../../../../components/paper/tokens'
+import { FONT_CAP, P } from '../../../../components/paper/tokens'
 import { useAuth } from '../../../../hooks/useAuth'
 import { useUnits } from '../../../../hooks/useUnits'
 import { TYPE } from '../../../../lib/typography'
@@ -82,6 +82,16 @@ function RoundScreen() {
   }>()
   const router = useRouter()
   const insets = useSafeAreaInsets()
+  // Paper headers are cream in both themes, so the icons stay dark; the root's
+  // `auto` would turn them white in dark mode. A pushed entry sits on top of
+  // the root's (which only replaces itself in place), and this screen is a
+  // Tabs screen that stays mounted, so push/pop on focus, not on mount.
+  useFocusEffect(
+    useCallback(() => {
+      const entry = StatusBar.pushStackEntry({ barStyle: 'dark-content', animated: true })
+      return () => StatusBar.popStackEntry(entry)
+    }, []),
+  )
 
   const [round, setRound] = useState<RoundRow | null>(null)
   const [holes, setHoles] = useState<HoleRow[]>([])
@@ -401,7 +411,7 @@ function RoundScreen() {
   if (error || !round) {
     return (
       <PaperSurface style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 22 }}>
-        <Text style={[TYPE.body, { color: P.neg, fontSize: 15, textAlign: 'center' }]}>
+        <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { color: P.neg, fontSize: 15, textAlign: 'center' }]}>
           {error ?? 'Round not found'}
         </Text>
       </PaperSurface>
@@ -617,16 +627,16 @@ function RoundScreen() {
             <Icon.back size={24} />
           </Pressable>
           <View style={{ flex: 1, minWidth: 0, paddingLeft: 4, paddingRight: 8 }}>
-            <Text numberOfLines={1} style={[TYPE.serif, { fontSize: 20, lineHeight: 25, color: P.ink }]}>
+            <Text maxFontSizeMultiplier={FONT_CAP} numberOfLines={1} style={[TYPE.serif, { fontSize: 20, lineHeight: 25, color: P.ink }]}>
               {courseName}
             </Text>
-            <Text numberOfLines={1} style={[TYPE.body, { fontSize: 13, color: P.ink }]}>
+            <Text maxFontSizeMultiplier={FONT_CAP} numberOfLines={1} style={[TYPE.body, { fontSize: 13, color: P.ink }]}>
               {dateLabel}
               {sortedHoles.length > 0 ? ` · ${sortedHoles.length} holes` : ''}
               {runningPar > 0 && (
                 <>
                   {' · '}
-                  <Text style={[TYPE.serif, { fontSize: 15 }]}>{runningScore}</Text> ({signed(runningScore - runningPar)})
+                  <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.serif, { fontSize: 15 }]}>{runningScore}</Text> ({signed(runningScore - runningPar)})
                 </>
               )}
             </Text>

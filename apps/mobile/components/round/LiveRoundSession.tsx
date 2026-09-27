@@ -202,6 +202,21 @@ export default function LiveRoundSession({
     hasPriorShots: data.remoteShotCount + data.localShotCount > 0,
   })
 
+  // A holed putt whose review was never saved (app killed / relaunched with the
+  // sheet up) resumes in PLACE_BALL as "next shot". Reopen the review once per
+  // hole instead. Decided on the first evaluation where the made putt is
+  // known, so closing the sheet in-session never re-pops it.
+  const holedReviewCheckedRef = useRef<string | null>(null)
+  const holeScoreId = data.currentHoleScore?.id ?? null
+  useEffect(() => {
+    if (!data.lastShotHoled || !holeScoreId) return
+    if (holedReviewCheckedRef.current === holeScoreId) return
+    holedReviewCheckedRef.current = holeScoreId
+    if (finalState.roundState === 'PLACE_BALL' && !data.currentHoleScore?.finished_at) {
+      finalState.setRoundState('SUMMARY')
+    }
+  }, [data.lastShotHoled, holeScoreId])
+
   // Each fresh PLACE_BALL entry (new shot, re-place) starts GPS-tracked, so the
   // ball is back at the GPS dot until the player drags it again.
   useEffect(() => {
@@ -539,6 +554,8 @@ export default function LiveRoundSession({
     !editMode &&
     !finalState.isRevisitingPlayedHole &&
     totalShotsThisHole > 0 &&
+    // A putt can't go out of bounds.
+    !data.lastShotPutt &&
     !actions.saving
 
   // Which of this hole's played shots is selected in edit mode. Reset to the
@@ -622,6 +639,7 @@ export default function LiveRoundSession({
         yardsLabel={data.resolvedHole?.yards ? toDisplay(data.resolvedHole.yards) : null}
         shotNumber={data.shotNumber}
         distance={heroDistance}
+        noBall={!finalState.ball && !!(data.roundPin ?? data.storedPin)}
         expected={expectedStrokes}
         onLeave={() => setActiveDialog('leave')}
         onPrev={() => actions.navigateHole(-1)}
@@ -688,6 +706,8 @@ export default function LiveRoundSession({
             finalState.roundState === 'SHOT_DETAIL' ||
             finalState.roundState === 'PUTTING'
           }
+          putting={finalState.roundState === 'PUTTING'}
+          ornamentsTop
           showLocationPuck={
             finalState.roundState !== 'SHOT_DETAIL' &&
             finalState.roundState !== 'PUTTING' &&

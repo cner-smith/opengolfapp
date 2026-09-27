@@ -4,6 +4,7 @@ import Mapbox from '@rnmapbox/maps'
 import type { LatLng } from '../HoleMap.types'
 import { TYPE } from '../../../lib/typography'
 import { P } from '../../paper/tokens'
+import { MARKER_PRESS_RETENTION } from './Callouts'
 
 // Pixel nudge for the OB disc when a re-hit covers it, matching web's
 // [-20, 0] in useMapLayers.ts. `circle-translate` / `text-translate` are
@@ -104,7 +105,9 @@ export function BreadcrumbLayers({
   const segmentFeatures = useMemo<GeoJSON.FeatureCollection<GeoJSON.Point>>(
     () => ({
       type: 'FeatureCollection',
-      features: segments.map((s) => ({
+      // A leg under 10 yd puts its midpoint label on the markers themselves
+      // ("0 yd" over shot 1 right after Confirm aim, "2 yd" on the green).
+      features: segments.filter((s) => s.yards >= 10).map((s) => ({
         type: 'Feature',
         properties: { label: toDisplay(s.yards) },
         geometry: { type: 'Point', coordinates: toCoord(s.midpoint) },
@@ -319,6 +322,7 @@ function PaperCrumb({
         accessibilityLabel={`Shot ${n}`}
         disabled={!onPress}
         onPress={onPress}
+        pressRetentionOffset={MARKER_PRESS_RETENTION}
         style={{
           width: 44,
           height: 44,
@@ -350,7 +354,7 @@ function PaperCrumb({
             }}
           >
             <Text
-              maxFontSizeMultiplier={1}
+              allowFontScaling={false}
               style={[TYPE.serif, { fontSize: 12, lineHeight: 15, color: ob ? P.raised : P.ink }]}
             >
               {n}
@@ -390,7 +394,7 @@ export function SelectedCrumb({ n }: { n: number | null }) {
           justifyContent: 'center',
         }}
       >
-        <Text maxFontSizeMultiplier={1} style={[TYPE.serif, { fontSize: 15, lineHeight: 18, color: P.raised }]}>
+        <Text allowFontScaling={false} style={[TYPE.serif, { fontSize: 15, lineHeight: 18, color: P.raised }]}>
           {n ?? ''}
         </Text>
       </View>

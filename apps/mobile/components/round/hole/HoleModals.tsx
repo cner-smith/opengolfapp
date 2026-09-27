@@ -102,6 +102,12 @@ export function HoleModals(props: HoleModalsProps) {
     onAimPromptConfirm,
     onAimPromptSkip,
   } = props
+  // Holes with anything logged — counted, not assumed from the hole number:
+  // #940's "Continue to hole N" makes out-of-order play common.
+  const currentHoleId = holes.find((h) => h.number === holeNumber)?.id
+  const detailedHoles = holeScores.filter(
+    (s) => s.score > 0 || (s.hole_id === currentHoleId && totalShotsThisHole > 0),
+  ).length
   return (
     <>
       <ShotLogger
@@ -152,7 +158,7 @@ export function HoleModals(props: HoleModalsProps) {
       <ConfirmDialog
         visible={activeDialog === 'end'}
         title={`End round after hole ${holeNumber}?`}
-        message={`Your round will be saved with ${totalShotsThisHole > 0 ? holeNumber : holeNumber - 1} hole(s) of detail. SG and totals are computed from what's logged so far.`}
+        message={`Your round will be saved with ${detailedHoles} hole(s) of detail. SG and totals are computed from what's logged so far.`}
         confirmLabel="End round"
         cancelLabel="Cancel"
         busy={ending}

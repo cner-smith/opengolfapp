@@ -97,6 +97,8 @@ export function HoleMap({
   previousShotObs,
   phase = 'PLACE_BALL',
   aimCommitted = false,
+  putting = false,
+  ornamentsTop = false,
   gpsPosition,
   courseCenter,
   holeNumber,
@@ -141,6 +143,8 @@ export function HoleMap({
   // pitch and viewport offsets come for free.
   const lastShot = previousShots?.[previousShots.length - 1] ?? null
   const [mapSize, setMapSize] = useState<{ w: number; h: number } | null>(null)
+  // Bumped on every camera settle; screen-clamped map tags re-measure on it.
+  const [idleTick, setIdleTick] = useState(0)
   const [lastShotArrow, setLastShotArrow] = useState<OffscreenArrow | null>(null)
   // Measured OB callout width — its label and the font scale both change it.
   const [obPillWidth, setObPillWidth] = useState(120)
@@ -187,6 +191,7 @@ export function HoleMap({
     // The caller knows where its bottom controls end (the live dock).
     ballInset: aimBallInset ?? 150,
     userGesturedRef,
+    putting,
   })
 
   // Whole-hole framing for the past-round map (#611 §19.2: "fit tee→pin"):
@@ -285,14 +290,16 @@ export function HoleMap({
 
   // The flag's cup follows the camera pitch (§9). Android paints a
   // PointAnnotation into a bitmap that only redraws on a layout change, and
-  // neither the cup nor the tone changes layout — so repaint it by hand.
+  // neither the cup nor the tone changes layout — so repaint it by hand. iOS
+  // snapshots the marker once and never redraws on its own, so the hole
+  // number needs the same nudge there.
   const [cupK, setCupK] = useState(0.8)
   const flagTone = roundPin ? 'strong' : 'dim'
   const flagRef = useRef<Mapbox.PointAnnotation>(null)
   useEffect(() => {
     const t = setTimeout(() => flagRef.current?.refresh(), 50)
     return () => clearTimeout(t)
-  }, [cupK, flagTone])
+  }, [cupK, flagTone, holeNumber])
 
   const { aimGhosts, aimGhostFeatures } = useAimGhosts({
     ball,
@@ -643,6 +650,8 @@ export function HoleMap({
           // overlay on the satellite HUD and gets mistaken for the
           // dispersion arc. Attribution/logo stay (Mapbox ToS).
           scaleBarEnabled={false}
+          logoPosition={ornamentsTop ? { top: 8, left: 8 } : undefined}
+          attributionPosition={ornamentsTop ? { top: 8, right: 8 } : undefined}
           onPress={handleTap}
           onDidFinishLoadingStyle={() => setStyleLoaded(true)}
           onMapIdle={(state) => {
@@ -652,6 +661,7 @@ export function HoleMap({
             }
             void measureLastShot()
             setCupK(flagCupK(state.properties.pitch))
+            setIdleTick((t) => t + 1)
           }}
           // Subscribed only while needed (it fires every frame): the past
           // round's callout, and the aim view's gesture latch.
@@ -729,7 +739,12 @@ export function HoleMap({
           )}
 
           {styleLoaded && !isPinMode && showAim && ball && aim && pattern && (
-            <DispersionLayers ball={ball} aim={aim} pattern={pattern} />
+            <DispersionLayers
+              ball={ball}
+              aim={aim}
+              pattern={pattern}
+              frame={{ map: mapViewRef, mapWidth: mapSize?.w ?? null, idleTick, lefty }}
+            />
           )}
 
           {/* Straight ball→pin reference, dotted cream hairline — the

@@ -83,6 +83,8 @@ interface RoundMapProps {
    *  reviewing a hole. When set, these win over the values inside
    *  `hole.pinLat/pinLng` / `hole.teeLat/teeLng`. */
   pinOverride?: PlacedPoint | null
+  /** The round's own pin (hole_scores) — strong flag like mobile, not dim. */
+  roundPinSet?: boolean
   teeOverride?: PlacedPoint | null
   /** Suppress tap-to-place. Used in "Edit on map" mode so the user can
    *  drag existing markers without accidentally dropping new ones. */
@@ -126,6 +128,7 @@ export function RoundMap({
   aimMode,
   focusGreenSignal,
   pinOverride,
+  roundPinSet = false,
   teeOverride,
   tapToPlaceDisabled,
   placementMode,
@@ -224,7 +227,7 @@ export function RoundMap({
     placedPoints,
     placedAims,
     effectivePin,
-    pinStrong: pinOverride != null,
+    pinStrong: pinOverride != null || roundPinSet,
     holeNumber: hole?.number ?? 1,
     effectiveTee,
     overlayMode,

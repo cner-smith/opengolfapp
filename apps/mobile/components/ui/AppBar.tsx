@@ -1,4 +1,6 @@
-import { Text, View } from 'react-native'
+import { useCallback } from 'react'
+import { StatusBar, Text, View } from 'react-native'
+import { useFocusEffect } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { TYPE } from '../../lib/typography'
 
@@ -10,6 +12,15 @@ interface AppBarProps {
 
 export function AppBar({ eyebrow, title, right }: AppBarProps) {
   const insets = useSafeAreaInsets()
+  // The bar is near-black in both themes, so its status icons stay light; the
+  // root's `auto` gave dark-on-dark in light mode. Tab screens stay mounted,
+  // so push/pop on focus (same as the round screen).
+  useFocusEffect(
+    useCallback(() => {
+      const entry = StatusBar.pushStackEntry({ barStyle: 'light-content', animated: true })
+      return () => StatusBar.popStackEntry(entry)
+    }, []),
+  )
   return (
     <View
       style={{

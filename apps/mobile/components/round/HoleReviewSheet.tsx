@@ -40,7 +40,7 @@ import {
   type ResultValue,
 } from '../paper/Pickers'
 import { Icon } from '../paper/icons'
-import { GAP, P, R } from '../paper/tokens'
+import { FONT_CAP, GAP, P, R } from '../paper/tokens'
 
 export interface HoleReviewSheetProps {
   visible: boolean
@@ -239,8 +239,8 @@ export function HoleReviewSheet({
       >
         <View style={{ flexDirection: 'row', alignItems: 'flex-start', paddingTop: 16, paddingRight: 8, paddingBottom: 10, paddingLeft: 22 }}>
           <View style={{ flex: 1 }}>
-            <Text style={[TYPE.serif, { color: P.ink, fontSize: 26, lineHeight: 30 }]}>Nice — how’d it go?</Text>
-            <Text style={[TYPE.body, { color: P.ink, fontSize: 13, marginTop: 2 }]}>
+            <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.serif, { color: P.ink, fontSize: 26, lineHeight: 30 }]}>Nice — how’d it go?</Text>
+            <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { color: P.ink, fontSize: 13, marginTop: 2 }]}>
               Hole {holeNumber} · par {par}
             </Text>
           </View>
@@ -271,13 +271,13 @@ export function HoleReviewSheet({
           contentContainerStyle={{ paddingHorizontal: 22, paddingBottom: 14 }}
         >
           {rows.length === 0 ? (
-            <Text style={[TYPE.body, { color: P.ink, paddingVertical: 22, fontSize: 14 }]}>
+            <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { color: P.ink, paddingVertical: 22, fontSize: 14 }]}>
               No placed shots. Drop them on the map and try again.
             </Text>
           ) : (
             <>
-              <Text style={[TYPE.serif, { color: P.ink, fontSize: 16, paddingTop: 12 }]}>
-                Your shots <Text style={[TYPE.body, { fontSize: 13 }]}>· optional</Text>
+              <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.serif, { color: P.ink, fontSize: 16, paddingTop: 12 }]}>
+                Your shots <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { fontSize: 13 }]}>· optional</Text>
               </Text>
               {rows.map((row, idx) => (
                 <ShotRow
@@ -353,7 +353,7 @@ function Ticker({
       onPress={() => onChange(Math.max(0, value + delta))}
       style={{ width: 40, height: 44, alignItems: 'center', justifyContent: 'center', opacity: disabled ? 0.3 : 1 }}
     >
-      <Text style={[TYPE.body, { color: P.ink, fontSize: 22 }]}>{delta < 0 ? '−' : '+'}</Text>
+      <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { color: P.ink, fontSize: 22 }]}>{delta < 0 ? '−' : '+'}</Text>
     </Pressable>
   )
   return (
@@ -361,10 +361,10 @@ function Ticker({
       fill={P.raised}
       style={{ flex: 1, borderWidth: 1, borderColor: P.ink, borderRadius: R, paddingTop: 6, paddingBottom: 4 }}
     >
-      <Text style={[TYPE.body, { color: P.ink, fontSize: 12, textAlign: 'center', paddingHorizontal: 8 }]}>{label}</Text>
+      <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { color: P.ink, fontSize: 12, textAlign: 'center', paddingHorizontal: 8 }]}>{label}</Text>
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
         <Step delta={-1} disabled={value === 0} />
-        <Text style={[TYPE.serif, { fontSize: 30, lineHeight: 34, color: warn && value > 0 ? P.warn : P.ink }]}>{value}</Text>
+        <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.serif, { fontSize: 30, lineHeight: 34, color: warn && value > 0 ? P.warn : P.ink }]}>{value}</Text>
         <Step delta={1} disabled={false} />
       </View>
     </PaperSurface>
@@ -438,11 +438,11 @@ function ShotRow({
   return (
     <View style={{ paddingVertical: 12, borderBottomWidth: 1, borderColor: P.line }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 9 }}>
-        <Text style={[TYPE.body, { color: P.ink, fontSize: 13 }]}>Shot {row.shotNumber}</Text>
-        <Text style={[TYPE.serif, { color: P.ink, fontSize: 20 }]}>
+        <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { color: P.ink, fontSize: 13 }]}>Shot {row.shotNumber}</Text>
+        <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.serif, { color: P.ink, fontSize: 20 }]}>
           {isPutt ? `${toDisplayFt(row.distanceYards * 3)} putt` : toDisplay(row.distanceYards)}
         </Text>
-        <Text style={[TYPE.body, { color: P.ink, fontSize: 13, marginLeft: 'auto' }]}>
+        <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { color: P.ink, fontSize: 13, marginLeft: 'auto' }]}>
           {toDisplay(row.distanceToPin)} to pin
         </Text>
         <Pressable
@@ -463,7 +463,8 @@ function ShotRow({
             <Chip label={clubLabel} state="set" onPress={() => toggle('club')} />
             <Chip
               label={row.puttMade ? 'Made it ✓' : 'Made it'}
-              state={row.puttMade ? 'on' : 'set'}
+              // Off is the dashed empty chip: a raised "Made it" read as holed.
+              state={row.puttMade ? 'on' : 'empty'}
               accessibilityLabel="Made the putt"
               onPress={() =>
                 onChange({
@@ -635,8 +636,8 @@ function AimerOverlay({
   return (
     <PaperSurface style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 50, paddingTop: insets.top }}>
       <View style={{ paddingHorizontal: 22, paddingTop: 16, paddingBottom: 12, borderBottomWidth: 1, borderColor: P.ink }}>
-        <Text style={[TYPE.serif, { color: P.ink, fontSize: 26, lineHeight: 30 }]}>Aim & break</Text>
-        <Text style={[TYPE.body, { color: P.ink, fontSize: 13, marginTop: 2 }]}>Shot {row.shotNumber} · read the green</Text>
+        <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.serif, { color: P.ink, fontSize: 26, lineHeight: 30 }]}>Aim & break</Text>
+        <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { color: P.ink, fontSize: 13, marginTop: 2 }]}>Shot {row.shotNumber} · read the green</Text>
       </View>
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: 22, paddingVertical: 18 }}>
         <GreenDiagram

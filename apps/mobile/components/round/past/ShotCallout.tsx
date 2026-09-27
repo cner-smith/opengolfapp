@@ -3,7 +3,7 @@ import { Text, View } from 'react-native'
 import Svg, { Line } from 'react-native-svg'
 import { FONT, TYPE } from '../../../lib/typography'
 import { HardShadow } from '../../paper/Paper'
-import { P, R } from '../../paper/tokens'
+import { FONT_CAP, P, R } from '../../paper/tokens'
 import type { LatLng } from '../HoleMap.types'
 
 type Pt = [number, number]
@@ -198,11 +198,11 @@ export function ShotCallout(p: ShotCalloutProps) {
             paddingLeft: 10,
           }}
         >
-          <Text numberOfLines={1} style={[TYPE.serif, { fontSize: 24, lineHeight: 26, color: P.ink }]}>
+          <Text maxFontSizeMultiplier={FONT_CAP} numberOfLines={1} style={[TYPE.serif, { fontSize: 24, lineHeight: 26, color: P.ink }]}>
             {p.value}
-            <Text style={{ fontFamily: FONT.mono, fontSize: 13 }}> {p.unit}</Text>
+            <Text maxFontSizeMultiplier={FONT_CAP} style={{ fontFamily: FONT.mono, fontSize: 13 }}> {p.unit}</Text>
           </Text>
-          <Text numberOfLines={1} style={[TYPE.body, { fontSize: 12, lineHeight: 15, color: P.ink }]}>
+          <Text maxFontSizeMultiplier={FONT_CAP} numberOfLines={1} style={[TYPE.body, { fontSize: 12, lineHeight: 15, color: P.ink }]}>
             {p.sub}
           </Text>
         </View>

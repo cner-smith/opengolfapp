@@ -237,6 +237,10 @@ export function dispersionRodsGeoJSON(
   origin: GeoPoint,
   aim: GeoPoint,
   d: { alongMean: number; perpMean: number; along68: number; perp68: number },
+  /** Side (+1 right / -1 left of the aim line) for the width tag. Defaults to
+   *  the pattern's own side; the live screen passes the side opposite its
+   *  aim-line tags so the two never overlap. */
+  widthTagSide?: 1 | -1,
 ): DispersionRods | null {
   const radius = haversineYards(origin.lat, origin.lng, aim.lat, aim.lng)
   if (!Number.isFinite(radius) || radius < MIN_ARC_RADIUS_YARDS) return null
@@ -275,7 +279,7 @@ export function dispersionRodsGeoJSON(
   rod(d.perpMean, perp68, widthAlong, (u, v) => at(v, u))
   // Width tag slides off the rod's centre, away from the aim line, so it
   // never sits across the line (F6: ~30 dp right of centre).
-  const side = d.perpMean < 0 ? -1 : 1
+  const side = widthTagSide ?? (d.perpMean < 0 ? -1 : 1)
   const widthTagPerp = d.perpMean + side * Math.min(WIDTH_TAG_OFFSET_YARDS, perp68 / 2)
   const [lLng, lLat] = at(d.alongMean, lengthPerp)
   const [wLng, wLat] = at(widthAlong, widthTagPerp)

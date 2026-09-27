@@ -29,22 +29,28 @@ export async function setSoundsOn(on: boolean): Promise<void> {
   }
 }
 
-type Player = { volume: number; seekTo: (s: number) => Promise<void>; play: () => void }
-let iosPlayer: Player | null | undefined
+type Player = { volume: number; play: () => void; remove: () => void }
+let iosPlayer: Player | null = null
+let iosModeSet = false
 
-function cupPlayerIos(): Player | null {
-  if (iosPlayer === undefined) {
-    try {
-      const A = require('expo-audio') as typeof import('expo-audio')
+// A fresh player per putt instead of seekTo(0) on one: expo-audio 1.1.1's
+// seekTo can crash natively on iOS (EXC_BAD_ACCESS in its continuation,
+// expo/expo#43034), which no try/catch catches. The clip is 4 KB.
+function newCupPlayerIos(): Player | null {
+  try {
+    const A = require('expo-audio') as typeof import('expo-audio')
+    if (!iosModeSet) {
+      iosModeSet = true
       void A.setAudioModeAsync({ playsInSilentMode: false, interruptionMode: 'mixWithOthers' })
-      const p = A.createAudioPlayer(require('../assets/sounds/cup.m4a'))
-      p.volume = VOLUME
-      iosPlayer = p
-    } catch {
-      iosPlayer = null
     }
+    iosPlayer?.remove()
+    const p = A.createAudioPlayer(require('../assets/sounds/cup.m4a'))
+    p.volume = VOLUME
+    iosPlayer = p
+    return p
+  } catch {
+    return null
   }
-  return iosPlayer
 }
 
 export async function playCup(): Promise<void> {
@@ -54,10 +60,7 @@ export async function playCup(): Promise<void> {
       requireOptionalNativeModule<{ playCup: (v: number) => boolean }>('OgaFeedback')?.playCup(VOLUME)
       return
     }
-    const p = cupPlayerIos()
-    if (!p) return
-    await p.seekTo(0)
-    p.play()
+    newCupPlayerIos()?.play()
   } catch {
     // Never let a sound break the putt flow.
   }

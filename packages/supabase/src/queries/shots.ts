@@ -11,7 +11,7 @@ type ShotUpdate = Database['public']['Tables']['shots']['Update']
 // Kept as a single literal so supabase-js's PostgrestBuilder can parse
 // it at the type level (concatenation/`+` widens to plain `string`,
 // which collapses the response shape to GenericStringError).
-export const SHOT_COLUMNS = 'id, hole_score_id, user_id, shot_number, start_lat, start_lng, end_lat, end_lng, aim_lat, aim_lng, distance_to_target, club, lie_type, lie_slope, lie_slope_forward, lie_slope_side, shot_result, penalty, ob, aim_offset_yards, break_direction, putt_result, putt_distance_result, putt_direction_result, putt_distance_ft, putt_slope_pct, green_speed, notes' as const
+export const SHOT_COLUMNS = 'id, hole_score_id, user_id, shot_number, start_lat, start_lng, end_lat, end_lng, aim_lat, aim_lng, distance_to_target, club, lie_type, lie_slope, lie_slope_forward, lie_slope_side, shot_result, contact, shape, start_line, penalty, ob, aim_offset_yards, break_direction, putt_result, putt_distance_result, putt_direction_result, putt_distance_ft, putt_slope_pct, green_speed, notes' as const
 
 // Pattern/dispersion screens read far fewer columns than the full row. These
 // narrowed projections trim the per-row payload on the largest shot queries.

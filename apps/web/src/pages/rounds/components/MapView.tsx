@@ -66,6 +66,8 @@ interface MapViewProps {
    *  for the next putt placement. */
   focusGreenSignal: number
   pinOverride: PlacedPoint | null
+  /** The round has its own pin here (hole_scores), so the flag draws strong. */
+  roundPinSet: boolean
   teeOverride: PlacedPoint | null
   /** Active manual-placement mode for courses missing hole layout. */
   placementMode: 'tee' | 'pin' | null
@@ -115,6 +117,7 @@ export function MapView({
   puttingOpen,
   focusGreenSignal,
   pinOverride,
+  roundPinSet,
   teeOverride,
   placementMode,
   handlers,
@@ -294,6 +297,7 @@ export function MapView({
             aimMode={aimMode}
             focusGreenSignal={focusGreenSignal}
             pinOverride={pinOverride}
+            roundPinSet={roundPinSet}
             teeOverride={teeOverride}
             tapToPlaceDisabled={editingOnMap || puttingOpen}
             placementMode={placementMode}

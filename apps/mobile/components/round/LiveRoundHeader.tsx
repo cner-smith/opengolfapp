@@ -5,7 +5,8 @@ import { TYPE } from '../../lib/typography'
 import { HardShadow, Key, KeyText, PaperSurface } from '../paper/Paper'
 import { HeroRow } from '../paper/HeroRow'
 import { Icon } from '../paper/icons'
-import { P, R } from '../paper/tokens'
+import { FONT_CAP, P, R } from '../paper/tokens'
+import { PressableTouch } from '../ui/PressableTouch'
 
 const ORDINAL = ['first', 'second', 'third', 'fourth', 'fifth', 'sixth', 'seventh', 'eighth', 'ninth', 'tenth']
 
@@ -16,6 +17,8 @@ interface LiveRoundHeaderProps {
   yardsLabel: string | null
   shotNumber: number
   distance: { value: string; unit: string } | null
+  /** A pin is set but there's no ball to measure from yet. */
+  noBall?: boolean
   expected: number | null
   onLeave: () => void
   onPrev: () => void
@@ -41,13 +44,13 @@ export function LiveRoundHeader(p: LiveRoundHeaderProps) {
         <View style={{ flex: 1, alignItems: 'center', paddingVertical: 3 }}>
           {/* Full row width: sized to its content, Android under-measures the
               italic Fraunces title and wraps the number onto a clipped line. */}
-          <Text
+          <Text maxFontSizeMultiplier={FONT_CAP}
             numberOfLines={1}
             style={[TYPE.serif, { alignSelf: 'stretch', textAlign: 'center', fontSize: 24, lineHeight: 28, color: P.ink }]}
           >
             {`Hole ${p.holeNumber}`}
           </Text>
-          <Text style={[TYPE.body, { fontSize: 13, lineHeight: 17, color: P.ink, textAlign: 'center' }]}>
+          <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { fontSize: 13, lineHeight: 17, color: P.ink, textAlign: 'center' }]}>
             Par {p.par}
             {p.yardsLabel ? ` · ${p.yardsLabel}` : ''} · {ordinal} shot
           </Text>
@@ -61,6 +64,7 @@ export function LiveRoundHeader(p: LiveRoundHeaderProps) {
       </View>
       <HeroRow
         distance={p.distance}
+        emptyLabel={p.noBall ? 'mark your\nball' : undefined}
         expected={p.expected}
         trailing={
           <Key
@@ -89,16 +93,17 @@ export function NavButton({
   children: ReactNode
 }) {
   return (
-    <Pressable
+    <PressableTouch
       accessibilityRole="button"
       accessibilityLabel={label}
       accessibilityState={{ disabled: !!disabled }}
       disabled={disabled}
       onPress={onPress}
+      android_ripple={{ color: P.well }}
       style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center', opacity: disabled ? 0.3 : 1 }}
     >
       {children}
-    </Pressable>
+    </PressableTouch>
   )
 }
 
@@ -144,7 +149,7 @@ function MenuRow({
   divider?: boolean
 }) {
   return (
-    <Pressable
+    <PressableTouch
       accessibilityRole="button"
       accessibilityLabel={label}
       onPress={onPress}
@@ -157,7 +162,7 @@ function MenuRow({
         borderBottomColor: P.line,
       }}
     >
-      <Text style={[TYPE.body, { fontSize: 15, color }]}>{label}</Text>
-    </Pressable>
+      <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { fontSize: 15, color }]}>{label}</Text>
+    </PressableTouch>
   )
 }

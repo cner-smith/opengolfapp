@@ -2,7 +2,7 @@ import { ActivityIndicator, Text } from 'react-native'
 import { TYPE } from '../../lib/typography'
 import { ConfirmDialog } from '../ui/ConfirmDialog'
 import { Key, KeyText, PaperSurface } from '../paper/Paper'
-import { P } from '../paper/tokens'
+import { FONT_CAP, P } from '../paper/tokens'
 
 // Live round's loading spinner and its "couldn't load" screen, split out of
 // LiveRoundSession to keep that file under the size cap.
@@ -34,10 +34,10 @@ export function LiveRoundError({
   }
   return (
     <PaperSurface style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 22 }}>
-      <Text style={[TYPE.serif, { color: P.ink, fontSize: 24, textAlign: 'center', marginBottom: 10 }]}>
+      <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.serif, { color: P.ink, fontSize: 24, textAlign: 'center', marginBottom: 10 }]}>
         {error ? 'Something went wrong loading this round.' : `Hole ${holeNumber} isn't set up for this round yet.`}
       </Text>
-      <Text style={[TYPE.body, { color: P.ink, fontSize: 15, lineHeight: 21, textAlign: 'center', marginBottom: 22 }]}>
+      <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { color: P.ink, fontSize: 15, lineHeight: 21, textAlign: 'center', marginBottom: 22 }]}>
         {error
           ? 'Check your connection and try again, or leave and resume this round later.'
           : 'Try again, or leave and pick this round back up from the home screen.'}

@@ -106,6 +106,10 @@ const config: ExpoConfig = {
         'OGA may use the camera to attach photos to round notes.',
       NSPhotoLibraryAddUsageDescription:
         'OGA may save round summary cards to your photo library.',
+      // expo-audio (cup sound, playback only) compiles its recorder, which
+      // references the microphone API; App Store Connect rejects the upload
+      // without this string (ITMS-90683, expo/expo#33761). OGA never asks.
+      NSMicrophoneUsageDescription: 'OGA does not record audio.',
     },
     // App Privacy Manifest (required for App Store uploads since May 2024).
     // Hand-placing a PrivacyInfo.xcprivacy is futile here — CNG regenerates

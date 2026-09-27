@@ -1,7 +1,7 @@
 import { Modal, Pressable, Text, View } from 'react-native'
 import { TYPE } from '../../lib/typography'
 import { HardShadow, Key, KeyText, PaperSurface } from '../paper/Paper'
-import { GAP, P, R } from '../paper/tokens'
+import { FONT_CAP, GAP, P, R } from '../paper/tokens'
 
 interface ConfirmDialogProps {
   visible: boolean
@@ -43,9 +43,9 @@ export function ConfirmDialog({
             fill={P.raised}
             style={{ borderWidth: 1, borderColor: P.ink, borderRadius: R, paddingTop: 22, paddingHorizontal: 22, paddingBottom: 25 }}
           >
-            <Text style={[TYPE.serif, { color: P.ink, fontSize: 24, lineHeight: 29 }]}>{title}</Text>
+            <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.serif, { color: P.ink, fontSize: 24, lineHeight: 29 }]}>{title}</Text>
             {message ? (
-              <Text style={[TYPE.body, { color: P.ink, fontSize: 15, lineHeight: 21, marginTop: 8 }]}>{message}</Text>
+              <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { color: P.ink, fontSize: 15, lineHeight: 21, marginTop: 8 }]}>{message}</Text>
             ) : null}
             <View style={{ flexDirection: 'row', gap: GAP, marginTop: 22 }}>
               <Key

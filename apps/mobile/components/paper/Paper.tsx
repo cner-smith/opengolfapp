@@ -14,7 +14,7 @@ import {
 } from 'react-native'
 import Animated, { Easing, interpolateColor, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated'
 import { TYPE } from '../../lib/typography'
-import { LEDGE, P, R } from './tokens'
+import { FONT_CAP, LEDGE, P, R } from './tokens'
 
 const GRAIN = require('../../assets/grain.png')
 
@@ -89,6 +89,8 @@ export interface KeyProps {
   latched?: boolean
   disabled?: boolean
   hitSlop?: number | Insets
+  /** How far the finger may drift before the press cancels. */
+  pressRetentionOffset?: number | Insets
   /** Fill a row-stretched outer box (a bottom row of keys of unequal text
    *  height). Opt-in: a growing face inside a ScrollView column measured
    *  to hundreds of dp tall. */
@@ -114,6 +116,7 @@ export function Key({
   latched = false,
   disabled = false,
   hitSlop,
+  pressRetentionOffset,
   stretch = false,
   style,
   faceStyle,
@@ -163,6 +166,7 @@ export function Key({
         sink.value = withTiming(0, { duration: 110, easing: Easing.out(Easing.cubic) })
       }}
       hitSlop={hitSlop}
+      pressRetentionOffset={pressRetentionOffset}
       style={[{ paddingBottom: LEDGE }, style]}
     >
       {!disabled && (
@@ -223,7 +227,7 @@ export function KeyText({
   numberOfLines?: number
 }) {
   return (
-    <Text
+    <Text maxFontSizeMultiplier={FONT_CAP}
       numberOfLines={numberOfLines}
       style={[
         bold ? TYPE.bodyBold : TYPE.body,
@@ -334,7 +338,7 @@ export function Rocker<T extends string>({
               />
             )}
             {o.icon?.(on)}
-            <Text
+            <Text maxFontSizeMultiplier={FONT_CAP}
               style={[
                 on ? TYPE.bodyBold : TYPE.body,
                 { fontSize, lineHeight: Math.round(fontSize * (stacked ? 1.05 : 1.2)), color: P.ink, textAlign: 'center' },

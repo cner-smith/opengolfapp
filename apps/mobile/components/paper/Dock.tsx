@@ -4,7 +4,7 @@ import Animated, { Easing, useAnimatedStyle, useSharedValue, withDelay, withTimi
 import { TYPE } from '../../lib/typography'
 import { Key, KeyText } from './Paper'
 import { Icon } from './icons'
-import { P } from './tokens'
+import { FONT_CAP, P } from './tokens'
 
 // Footer pieces (#611 §6) shared by the live dock and the past-round footer:
 // the voice line and the bottom row's keys.
@@ -32,14 +32,14 @@ export function Voice({
         paddingLeft: 4,
       }}
     >
-      <Text style={[TYPE.body, { flex: 1, fontSize: 14, lineHeight: 18, color: P.ink }]}>{children}</Text>
+      <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { flex: 1, fontSize: 14, lineHeight: 18, color: P.ink }]}>{children}</Text>
       {trailing}
     </View>
   )
 }
 
 export function Em({ children }: { children: ReactNode }) {
-  return <Text style={[TYPE.serif, { fontSize: 17 }]}>{children}</Text>
+  return <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.serif, { fontSize: 17 }]}>{children}</Text>
 }
 
 // §6 no-pin line; the whole line opens Pin mode.
@@ -48,7 +48,7 @@ export function NoPinVoice({ onPress }: { onPress: () => void }) {
     <Pressable accessibilityRole="button" accessibilityLabel="No flag yet. Set the pin." onPress={onPress}>
       <Voice trailing={<Icon.next size={22} color={P.warn} />}>
         No flag yet —{' '}
-        <Text style={{ textDecorationLine: 'underline', textDecorationColor: P.warn, textDecorationStyle: 'solid' }}>
+        <Text maxFontSizeMultiplier={FONT_CAP} style={{ textDecorationLine: 'underline', textDecorationColor: P.warn, textDecorationStyle: 'solid' }}>
           set the pin
         </Text>{' '}
         and I’ll show your distance, odds and pattern.
@@ -140,9 +140,10 @@ export function Primary({
       onPress={onPress}
       disabled={disabled}
       stretch
-      // Keeps its natural width and lets the secondaries wrap instead: as a
-      // flex:1 leftover it wrapped "Mark my ball" to four lines at 1.3×.
-      style={{ flexGrow: 1, flexShrink: 0, maxWidth: '60%' }}
+      // Grows into the row (§6: flex 1) from its natural width, and shrinks no
+      // further than 45%: as a flex:1 leftover it wrapped "Mark my ball" to
+      // four lines at 1.3×, and a 60% cap left two-button rows short of the edge.
+      style={{ flexGrow: 1, flexShrink: 1, flexBasis: 'auto', minWidth: '45%' }}
       faceStyle={{ minHeight: 49, paddingHorizontal: 8, paddingVertical: 3 }}
     >
       <LabelSwap

@@ -92,6 +92,12 @@ export interface HoleMapProps {
    * leaving a stray one on re-place. Defaults false.
    */
   aimCommitted?: boolean
+  /** Live round is in PUTTING. `phase` stays PLACE_BALL there, so the camera
+   *  needs this to frame the putt when "On the green" moves the ball. */
+  putting?: boolean
+  /** The map runs under the caller's bottom dock (live round): pin the Mapbox
+   *  logo + attribution to the top so they stay visible (Mapbox terms). */
+  ornamentsTop?: boolean
   onSetAim: (loc: LatLng) => void
   onSetBall: (loc: LatLng) => void
   /**

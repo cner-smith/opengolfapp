@@ -4,7 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { TYPE } from '../../../lib/typography'
 import { Icon } from '../../paper/icons'
 import { Key, PaperSurface, Rocker } from '../../paper/Paper'
-import { GAP, MARGIN, P } from '../../paper/tokens'
+import { FONT_CAP, GAP, MARGIN, P } from '../../paper/tokens'
 
 export type PastMode = 'PLACE_BALL' | 'SET_AIM' | 'PIN'
 
@@ -50,10 +50,10 @@ export function ShotStepperRow({
         <Icon.prev size={20} color={pos <= 0 ? P.ink35 : P.ink} />
       </Key>
       <View style={{ flex: 1, minWidth: 0, alignItems: 'center' }}>
-        <Text numberOfLines={1} style={[TYPE.serif, { fontSize: 18, lineHeight: 22, color: P.ink }]}>
+        <Text maxFontSizeMultiplier={FONT_CAP} numberOfLines={1} style={[TYPE.serif, { fontSize: 18, lineHeight: 22, color: P.ink }]}>
           Shot {pos + 1} of {count}
         </Text>
-        <Text numberOfLines={1} style={[TYPE.body, { fontSize: 13, lineHeight: 17, color: P.ink, textAlign: 'center' }]}>
+        <Text maxFontSizeMultiplier={FONT_CAP} numberOfLines={1} style={[TYPE.body, { fontSize: 13, lineHeight: 17, color: P.ink, textAlign: 'center' }]}>
           {summary}
         </Text>
       </View>
