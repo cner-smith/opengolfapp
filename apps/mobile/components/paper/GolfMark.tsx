@@ -17,7 +17,8 @@ const MARK_DELAY_MS = 330
 // squares — pencil-drawn, seeded by hole number so each is its own and stays
 // the same across renders. Nothing at par. `animate` draws it by hand once
 // (the hole just scored); otherwise it shows the finished mark. Centred on
-// its parent, nudged up since Fraunces figures sit high in their line box.
+// its parent, nudged up 1 dp (measured on device: a 7 dp nudge sat the
+// squares high, the digit riding their bottom edge).
 export function GolfMark({ toPar, seed, animate = false }: { toPar: number; seed: number; animate?: boolean }) {
   const marks = useMemo(() => marksFor(toPar, seed), [toPar, seed])
   const final = useMemo(() => marksPath(marks, 1e9), [marks])
@@ -49,7 +50,7 @@ export function GolfMark({ toPar, seed, animate = false }: { toPar: number; seed
   return (
     <Animated.View
       pointerEvents="none"
-      style={[{ position: 'absolute', left: '50%', top: '50%', marginLeft: -half, marginTop: -half - 7 }, fadeStyle]}
+      style={[{ position: 'absolute', left: '50%', top: '50%', marginLeft: -half, marginTop: -half - 1 }, fadeStyle]}
     >
       <View style={{ width: BOX, height: BOX }}>
         <Svg width={BOX} height={BOX} viewBox={`${-half / SCALE} ${-half / SCALE} ${BOX / SCALE} ${BOX / SCALE}`}>
