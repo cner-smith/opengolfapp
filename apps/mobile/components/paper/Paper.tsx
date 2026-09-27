@@ -1,4 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react'
+import { haptic } from '../../lib/haptics'
 import {
   Image,
   Pressable,
@@ -94,6 +95,10 @@ export interface KeyProps {
   stretch?: boolean
   style?: StyleProp<ViewStyle>
   faceStyle?: StyleProp<ViewStyle>
+  /** The press-in haptic. Off where onPress fires the moment's own haptic
+   *  (confirm, toggle, penalty): iOS can't cancel a played impact, so both
+   *  would land as a double pulse. */
+  pressHaptic?: boolean
   children: ReactNode
 }
 
@@ -112,6 +117,7 @@ export function Key({
   stretch = false,
   style,
   faceStyle,
+  pressHaptic = true,
   children,
 }: KeyProps) {
   const [pressed, setPressed] = useState(false)
@@ -145,6 +151,7 @@ export function Key({
       disabled={disabled || !onPress}
       onPress={onPress}
       onPressIn={() => {
+        if (pressHaptic) haptic('press')
         setPressed(true)
         tint.value = 1
         sink.value = withTiming(1, { duration: 40, easing: Easing.out(Easing.quad) })
@@ -291,6 +298,7 @@ export function Rocker<T extends string>({
             accessibilityLabel={o.accessibilityLabel ?? o.label}
             accessibilityState={{ selected: on, disabled: !!o.disabled }}
             disabled={o.disabled}
+            onPressIn={() => haptic('press')}
             onPress={() => onChange(on ? (clearable ? null : o.value) : o.value)}
             style={{
               flex: 1,

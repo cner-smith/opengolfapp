@@ -4,6 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Gesture, GestureDetector } from 'react-native-gesture-handler'
 import Animated, {
   runOnJS,
+  useAnimatedReaction,
   useAnimatedStyle,
   useReducedMotion,
   useSharedValue,
@@ -18,6 +19,7 @@ import { Key, KeyText, PaperSurface, Rocker } from '../paper/Paper'
 import { Em, NoPinVoice, Primary, Secondary, SmallKey, Voice } from '../paper/Dock'
 import { Icon } from '../paper/icons'
 import { marksPath, pencilEllipse } from '../paper/pencil'
+import { haptic } from '../../lib/haptics'
 import { GAP, MARGIN, P, R } from '../paper/tokens'
 import { RulerCard } from './HoleMapOverlays'
 import type { RoundState } from './hole/types'
@@ -98,8 +100,12 @@ export function LiveRoundDock(p: LiveRoundDockProps) {
     <View style={{ flexDirection: 'row', gap: GAP, width: 124 }}>
       <Key
         accessibilityLabel={p.patternOn ? 'Hide shot pattern' : 'Show shot pattern'}
-        onPress={p.onTogglePattern}
+        onPress={() => {
+          haptic(p.patternOn ? 'toggleOff' : 'toggleOn')
+          p.onTogglePattern()
+        }}
         latched={p.patternOn && !putting && p.hasPin}
+        pressHaptic={false}
         disabled={putting || !p.hasPin}
         style={{ flex: 1 }}
         faceStyle={{ height: 46, gap: 1 }}
@@ -111,8 +117,12 @@ export function LiveRoundDock(p: LiveRoundDockProps) {
       </Key>
       <Key
         accessibilityLabel={p.pinPlacementOpen ? 'Cancel pin placement' : 'Place pin'}
-        onPress={p.onTogglePin}
+        onPress={() => {
+          haptic(p.pinPlacementOpen ? 'toggleOff' : 'toggleOn')
+          p.onTogglePin()
+        }}
         latched={p.pinPlacementOpen}
+        pressHaptic={false}
         style={{ flex: 1 }}
         faceStyle={{ height: 46, gap: 1 }}
       >
@@ -222,7 +232,7 @@ function voiceLine(p: LiveRoundDockProps): ReactNode {
   }
   if (p.obPromptActive && p.obArrow) {
     return (
-      <Voice trailing={<SmallKey label="OB" color={P.neg} onPress={p.onMarkLastShotOb} />}>
+      <Voice trailing={<SmallKey label="OB" color={P.neg} onPress={p.onMarkLastShotOb} pressHaptic={false} />}>
         {p.obArrow} Did shot {p.totalShotsThisHole} go out of bounds?
       </Voice>
     )
@@ -290,7 +300,7 @@ function bottomRow(p: LiveRoundDockProps): ReactNode[] {
   }
   const onGreen =
     p.totalShotsThisHole > 0 && (p.ball != null || p.hasGps) && !p.saving ? (
-      <Secondary key="green" label="On the green" onPress={p.onOnGreen} />
+      <Secondary key="green" label="On the green" onPress={p.onOnGreen} pressHaptic={false} />
     ) : null
   const waiting = !p.ball && !p.hasGps
   const label = p.saving ? 'Saving…' : waiting ? 'Waiting for GPS…' : 'Mark my ball'
@@ -298,7 +308,7 @@ function bottomRow(p: LiveRoundDockProps): ReactNode[] {
   return [
     finish,
     onGreen,
-    <Primary key="mark" label={label} sub={sub} onPress={p.onMarkBallHere} disabled={waiting || p.saving} />,
+    <Primary key="mark" label={label} sub={sub} onPress={p.onMarkBallHere} disabled={waiting || p.saving} pressHaptic={false} />,
   ].filter(Boolean)
 }
 
@@ -341,6 +351,13 @@ function ClubWheel({ rows, selected, auto, onPick }: WheelProps) {
   const manual = autoIdx >= 0 && sel !== autoIdx
   const last = rows.length - 1
   const pos = useSharedValue(sel)
+  // A detent tick each time a row crosses the centre (§15 native phase).
+  useAnimatedReaction(
+    () => Math.round(pos.value),
+    (row, prev) => {
+      if (prev !== null && row !== prev) runOnJS(haptic)('tick')
+    },
+  )
   const start = useSharedValue(0)
   // The index the wheel is heading to, so our own commit doesn't re-spring
   // (and kill the fling's velocity) when `selected` comes back around.

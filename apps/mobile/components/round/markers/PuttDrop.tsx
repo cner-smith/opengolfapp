@@ -10,7 +10,8 @@ import Animated, {
 } from 'react-native-reanimated'
 import { P } from '../../paper/tokens'
 
-const ROLL_MS = 240
+/** Release → the drop frame (the ball reaches the cup). */
+export const ROLL_MS = 240
 const DROP_MS = 90
 const RIPPLE_MS = 300
 const BALL = 12

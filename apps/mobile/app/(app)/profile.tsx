@@ -25,6 +25,7 @@ import { useAuth } from '../../hooks/useAuth'
 import { clearScreenCache } from '../../lib/screenCache'
 import { getAimTilt, setAimTilt, type AimTilt } from '../../lib/aimTilt'
 import { getLeftHand, setLeftHand } from '../../lib/leftHand'
+import { getSoundsOn, setSoundsOn } from '../../lib/sounds'
 import { AppBar } from '../../components/ui/AppBar'
 import { TYPE } from '../../lib/typography'
 
@@ -93,6 +94,14 @@ export default function ProfileTab() {
   const chooseLeftHand = (on: boolean) => {
     setLeftHandState(on)
     void setLeftHand(on)
+  }
+  const [sounds, setSoundsState] = useState(true)
+  useEffect(() => {
+    void getSoundsOn().then(setSoundsState)
+  }, [])
+  const chooseSounds = (on: boolean) => {
+    setSoundsState(on)
+    void setSoundsOn(on)
   }
   // Count of rounds with a derived score_differential — the signal for
   // whether the displayed index is a calculated WHS value or still the
@@ -387,6 +396,13 @@ export default function ProfileTab() {
           <View style={{ flexDirection: 'row', gap: 6 }}>
             <Chip label="Right-handed" active={!leftHand} onPress={() => chooseLeftHand(false)} />
             <Chip label="Left-handed" active={leftHand} onPress={() => chooseLeftHand(true)} />
+          </View>
+        </Field>
+
+        <Field label="Sounds">
+          <View style={{ flexDirection: 'row', gap: 6 }}>
+            <Chip label="On" active={sounds} onPress={() => chooseSounds(true)} />
+            <Chip label="Off" active={!sounds} onPress={() => chooseSounds(false)} />
           </View>
         </Field>
 
