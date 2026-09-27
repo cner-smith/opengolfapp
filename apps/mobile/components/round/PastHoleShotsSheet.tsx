@@ -18,6 +18,7 @@ import {
   isPuttShot,
   legacyShotResult,
   shotAxesFromLegacy,
+  summarizeShotParts,
   type BreakDirectionHorizontal,
   type BreakDirectionVertical,
   type DistanceUnit,
@@ -259,11 +260,10 @@ function ShotRowView({
       ? formatClubLabel({ club_type: shot.club })
       : '—'
   const lieLabel = shot.lie_type ? LIE_TYPE_LABELS[shot.lie_type as LieType] : null
-  const distanceLabel =
-    shot.distance_to_target != null ? formatDistance(shot.distance_to_target, unit) : null
   const sub = isPutt
     ? [
-        shot.putt_distance_ft != null ? `${shot.putt_distance_ft} ft` : null,
+        // formatPuttDistance: metres mode read "6 ft" here.
+        shot.putt_distance_ft != null ? formatPuttDistance(shot.putt_distance_ft, unit) : null,
         shot.putt_result === 'made'
           ? 'Made'
           : [shot.putt_distance_result, shot.putt_direction_result]
@@ -272,7 +272,8 @@ function ShotRowView({
       ]
         .filter(Boolean)
         .join(' · ')
-    : [lieLabel, distanceLabel].filter(Boolean).join(' · ')
+    : // Distance + the result axes ("Thin · Draw"), same helper as web's list.
+      [lieLabel, ...summarizeShotParts(shot, null, unit)].filter(Boolean).join(' · ')
 
   return (
     <Pressable
