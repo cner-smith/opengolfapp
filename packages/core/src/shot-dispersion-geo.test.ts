@@ -4,6 +4,7 @@ import {
   circleGeoJSON,
   coneRingGeoJSON,
   destinationYards,
+  dispersionRodsGeoJSON,
   scatterGeoJSON,
 } from './shot-dispersion-geo'
 import { bearingDegrees, haversineYards } from './units'
@@ -170,3 +171,63 @@ describe('coneRingGeoJSON', () => {
     expect((max - min) / max).toBeLessThan(0.05)
   })
 })
+
+describe('dispersionRodsGeoJSON', () => {
+  // Aim due north of the origin, so along = north and perp (+ = right) = east.
+  const AIM = destinationYards(ORIGIN, 0, 150)
+  const D = { alongMean: -3, perpMean: 2, along68: 9, perp68: 21 }
+  const yd = (a: [number, number], b: [number, number]) => haversineYards(a[1], a[0], b[1], b[0])
+  // Planar (along, perp) of a [lng, lat] relative to the aim, in yards.
+  const local = ([lng, lat]: [number, number]) => {
+    const along = haversineYards(AIM.lat, AIM.lng, lat, AIM.lng) * Math.sign(lat - AIM.lat)
+    const perp = haversineYards(AIM.lat, AIM.lng, AIM.lat, lng) * Math.sign(lng - AIM.lng)
+    return { along, perp }
+  }
+
+  it('returns null when origin and aim coincide or a stat is non-finite', () => {
+    expect(dispersionRodsGeoJSON(ORIGIN, ORIGIN, D)).toBeNull()
+    expect(dispersionRodsGeoJSON(ORIGIN, AIM, { ...D, perp68: NaN })).toBeNull()
+  })
+
+  it('places the length rod right of the ring and the width rod on its near side', () => {
+    const r = dispersionRodsGeoJSON(ORIGIN, AIM, D)!
+    const [len, wid] = r.lines.features.filter((f) => f.properties.k === 'rod')
+    const l0 = local(len!.geometry.coordinates[0]!)
+    const l1 = local(len!.geometry.coordinates[1]!)
+    expect(l0.perp).toBeCloseTo(2 + 21 + 4, 0)
+    expect(l0.along).toBeCloseTo(-3 - 9, 0)
+    expect(l1.along).toBeCloseTo(-3 + 9, 0)
+    const w0 = local(wid!.geometry.coordinates[0]!)
+    const w1 = local(wid!.geometry.coordinates[1]!)
+    expect(w0.along).toBeCloseTo(-3 - 9 - 4, 0)
+    expect(w0.perp).toBeCloseTo(2 - 21, 0)
+    expect(w1.perp).toBeCloseTo(2 + 21, 0)
+  })
+
+  it('checks tile each rod exactly, 3 yd each, cream at the centre', () => {
+    const r = dispersionRodsGeoJSON(ORIGIN, AIM, D)!
+    const checks = r.lines.features.filter((f) => f.properties.k === 'check')
+    const total = checks.reduce((s, f) => s + yd(f.geometry.coordinates[0]!, f.geometry.coordinates[1]!), 0)
+    expect(total).toBeCloseTo(2 * 9 + 2 * 21, 0)
+    for (const f of checks) expect(yd(f.geometry.coordinates[0]!, f.geometry.coordinates[1]!)).toBeLessThanOrEqual(3.01)
+    // Each check that starts at a rod centre is cream; the next one out is ink.
+    const atCentre = checks.filter((f) => {
+      const p = local(f.geometry.coordinates[0]!)
+      return Math.abs(p.along - D.alongMean) < 0.1 || Math.abs(p.perp - D.perpMean) < 0.1
+    })
+    expect(atCentre.length).toBe(4)
+    expect(atCentre.every((f) => f.properties.c === 0)).toBe(true)
+    expect(checks.some((f) => f.properties.c === 1)).toBe(true)
+  })
+
+  it('slides the width tag away from the aim line, toward the bias side', () => {
+    expect(local(toLngLat(dispersionRodsGeoJSON(ORIGIN, AIM, D)!.widthTag)).perp).toBeCloseTo(2 + 8, 0)
+    expect(local(toLngLat(dispersionRodsGeoJSON(ORIGIN, AIM, { ...D, perpMean: -2 })!.widthTag)).perp).toBeCloseTo(-2 - 8, 0)
+    // A narrow rod keeps the tag on it (half the half-width).
+    expect(local(toLngLat(dispersionRodsGeoJSON(ORIGIN, AIM, { ...D, perp68: 6 })!.widthTag)).perp).toBeCloseTo(2 + 3, 0)
+  })
+})
+
+function toLngLat(p: { lat: number; lng: number }): [number, number] {
+  return [p.lng, p.lat]
+}

@@ -201,3 +201,87 @@ export function coneRingGeoJSON(
   }
   return { type: 'Feature', properties: {}, geometry: { type: 'Polygon', coordinates: [ring] } }
 }
+
+export interface RodFeature {
+  type: 'Feature'
+  /** `k`: the full rod (casing), one check segment, or an end tick. `c`
+   *  alternates 0 (cream) / 1 (ink) along the checks, 0 at the rod's centre. */
+  properties: { k: 'rod' | 'check' | 'tick'; c?: 0 | 1 }
+  geometry: { type: 'LineString'; coordinates: [number, number][] }
+}
+
+export interface DispersionRods {
+  lines: { type: 'FeatureCollection'; features: RodFeature[] }
+  /** Where the "±along68" tag sits (centre of the length rod). */
+  lengthTag: GeoPoint
+  /** Where the "±perp68" tag sits (on the width rod, off the aim line). */
+  widthTag: GeoPoint
+}
+
+// Rod layout (#611 LOCKED-SPEC §8, frame F6-aim), all ground yards.
+const ROD_GAP_YARDS = 4
+const ROD_CHECK_YARDS = 3
+const ROD_TICK_HALF_YARDS = 1.5
+const WIDTH_TAG_OFFSET_YARDS = 8
+
+/**
+ * The checkered "dimension rods" that frame a club's 68% ring: a length rod
+ * beside it (right, down the shot line) and a width rod across it, on the
+ * near (ball) side as frame F6-aim draws it. Drawn in ground space so they
+ * tilt with a pitched camera and state the true spread where the ring
+ * foreshortens. Checks are 3 yd, mirrored out from each rod's centre like a
+ * range pole. Same along/perp frame and sign convention as scatterGeoJSON.
+ * Returns null when origin and aim coincide or a stat is non-finite.
+ */
+export function dispersionRodsGeoJSON(
+  origin: GeoPoint,
+  aim: GeoPoint,
+  d: { alongMean: number; perpMean: number; along68: number; perp68: number },
+): DispersionRods | null {
+  const radius = haversineYards(origin.lat, origin.lng, aim.lat, aim.lng)
+  if (!Number.isFinite(radius) || radius < MIN_ARC_RADIUS_YARDS) return null
+  if (![d.alongMean, d.perpMean, d.along68, d.perp68].every(Number.isFinite)) return null
+  const bearing = bearingDegrees(origin.lat, origin.lng, aim.lat, aim.lng)
+  const at = (along: number, perp: number): [number, number] => {
+    const p = destinationYards(destinationYards(aim, bearing, along), bearing + 90, perp)
+    return [p.lng, p.lat]
+  }
+  const features: RodFeature[] = []
+  // One rod from centre−half to centre+half on axis `u`, at `fixed` on the
+  // other axis. `pt(u, v)` maps rod space back to (along, perp).
+  const rod = (centre: number, half: number, fixed: number, pt: (u: number, v: number) => [number, number]) => {
+    const seg = (u0: number, u1: number, v = fixed) => [pt(u0, v), pt(u1, v)]
+    features.push({ type: 'Feature', properties: { k: 'rod' }, geometry: { type: 'LineString', coordinates: seg(centre - half, centre + half) } })
+    for (const dir of [1, -1]) {
+      for (let i = 0; i * ROD_CHECK_YARDS < half; i++) {
+        const a = centre + dir * i * ROD_CHECK_YARDS
+        const b = centre + dir * Math.min((i + 1) * ROD_CHECK_YARDS, half)
+        features.push({ type: 'Feature', properties: { k: 'check', c: (i % 2) as 0 | 1 }, geometry: { type: 'LineString', coordinates: seg(a, b) } })
+      }
+    }
+    for (const end of [centre - half, centre + half]) {
+      features.push({
+        type: 'Feature',
+        properties: { k: 'tick' },
+        geometry: { type: 'LineString', coordinates: [pt(end, fixed - ROD_TICK_HALF_YARDS), pt(end, fixed + ROD_TICK_HALF_YARDS)] },
+      })
+    }
+  }
+  const along68 = Math.abs(d.along68)
+  const perp68 = Math.abs(d.perp68)
+  const lengthPerp = d.perpMean + perp68 + ROD_GAP_YARDS
+  const widthAlong = d.alongMean - along68 - ROD_GAP_YARDS
+  rod(d.alongMean, along68, lengthPerp, (u, v) => at(u, v))
+  rod(d.perpMean, perp68, widthAlong, (u, v) => at(v, u))
+  // Width tag slides off the rod's centre, away from the aim line, so it
+  // never sits across the line (F6: ~30 dp right of centre).
+  const side = d.perpMean < 0 ? -1 : 1
+  const widthTagPerp = d.perpMean + side * Math.min(WIDTH_TAG_OFFSET_YARDS, perp68 / 2)
+  const [lLng, lLat] = at(d.alongMean, lengthPerp)
+  const [wLng, wLat] = at(widthAlong, widthTagPerp)
+  return {
+    lines: { type: 'FeatureCollection', features },
+    lengthTag: { lat: lLat, lng: lLng },
+    widthTag: { lat: wLat, lng: wLng },
+  }
+}

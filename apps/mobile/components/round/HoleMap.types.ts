@@ -1,3 +1,5 @@
+import type { PatternOverlay } from './markers/DispersionLayers'
+
 export interface LatLng {
   lat: number
   lng: number
@@ -41,13 +43,9 @@ export interface HoleMapProps {
   arcWidthYards: number
   /** Appr circle radius in yards (rail diameter ÷ 2, feet→yards). */
   circleRadiusYards: number
-  /**
-   * Single-color historical-shot dots, toggled by the left-toolbar dispersion
-   * button. The selected club's aim-relative offsets; placed around the aim
-   * and shown only when `dotsVisible`. Null / empty → no dots (sparse data).
-   */
-  dotsVisible: boolean
-  dispersionPoints?: { alongYards: number; perpYards: number }[] | null
+  /** Shot-pattern overlay (Pattern key on) for the wheel's club, drawn around
+   *  the aim while aiming. Null = off. */
+  pattern?: PatternOverlay | null
   /**
    * Player handicap index, for the live expected-strokes / SG readouts.
    * Defaults handled by the caller (falls back to DEFAULT_HANDICAP).

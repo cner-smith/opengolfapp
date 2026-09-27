@@ -9,7 +9,6 @@ import {
   destinationYards,
   getExpectedStrokes,
   NEAR_GREEN_YARDS,
-  scatterGeoJSON,
 } from '@oga/core'
 import { Gesture, GestureDetector } from 'react-native-gesture-handler'
 import { runOnJS } from 'react-native-reanimated'
@@ -20,6 +19,7 @@ import { FlagMarker } from './markers/FlagMarker'
 import { AimGhostLayers, useAimGhosts } from './markers/AimGhost'
 import { BreadcrumbLayers, SelectedCrumb } from './markers/BreadcrumbLayers'
 import { CarryTag, RemainingTag } from './markers/DistanceTags'
+import { DispersionLayers, RING_MIN_SHOTS } from './markers/DispersionLayers'
 import { ObCallout, offscreenArrow } from './markers/Callouts'
 import { useHoleCamera } from './hooks/useHoleCamera'
 import { TeeBadge } from './HoleMapOverlays'
@@ -113,8 +113,7 @@ export function HoleMap({
   overlayMode,
   arcWidthYards,
   circleRadiusYards,
-  dotsVisible,
-  dispersionPoints,
+  pattern,
   obCallout,
   onLastShotOffscreen,
   pastCrumbs,
@@ -431,15 +430,8 @@ export function HoleMap({
     return circleGeoJSON(aim, circleRadiusYards)
   }, [showAim, overlayMode, aim, circleRadiusYards])
 
-  // Single-color dispersion dots (left-toolbar toggle): the selected club's
-  // aim-relative offsets, rotated to the live ball→aim bearing and scattered
-  // around the aim. Null until the player has enough data for that club.
-  const overlayDots = useMemo(() => {
-    if (!dotsVisible || !showAim || !ball || !aim) return null
-    if (!dispersionPoints || dispersionPoints.length === 0) return null
-    const fc = scatterGeoJSON(ball, aim, dispersionPoints)
-    return fc.features.length > 0 ? fc : null
-  }, [dotsVisible, showAim, ball, aim, dispersionPoints])
+  // The ring's rods say the spread; the rail's arc steps back to a hairline.
+  const patternRing = !!pattern?.dispersion && pattern.dispersion.sampleSize >= RING_MIN_SHOTS
 
   // Perpendicular crosshair tick at the aim — the draggable handle's
   // visual. A short geo segment perpendicular to the ball→aim bearing, so
@@ -733,7 +725,7 @@ export function HoleMap({
                 style={{
                   lineColor: '#FBF8F1',
                   lineWidth: 14,
-                  lineOpacity: 0.15,
+                  lineOpacity: patternRing ? 0 : 0.15,
                   lineCap: 'round',
                   lineJoin: 'round',
                 }}
@@ -743,7 +735,7 @@ export function HoleMap({
                 style={{
                   lineColor: '#FBF8F1',
                   lineWidth: 2,
-                  lineOpacity: 0.9,
+                  lineOpacity: patternRing ? 0.5 : 0.9,
                   lineCap: 'round',
                   lineJoin: 'round',
                 }}
@@ -765,20 +757,8 @@ export function HoleMap({
             </Mapbox.ShapeSource>
           )}
 
-          {/* Single-color historical-shot dots (dispersion toggle). */}
-          {styleLoaded && !isPinMode && overlayDots && (
-            <Mapbox.ShapeSource id="overlayDots" shape={overlayDots}>
-              <Mapbox.CircleLayer
-                id="overlayDotsLayer"
-                style={{
-                  circleRadius: 4,
-                  circleColor: '#FBF8F1',
-                  circleOpacity: 0.7,
-                  circleStrokeWidth: 1,
-                  circleStrokeColor: 'rgba(28,33,28,0.55)',
-                }}
-              />
-            </Mapbox.ShapeSource>
+          {styleLoaded && !isPinMode && showAim && ball && aim && pattern && (
+            <DispersionLayers ball={ball} aim={aim} pattern={pattern} />
           )}
 
           {/* Straight ball→pin reference, dotted cream hairline — the
