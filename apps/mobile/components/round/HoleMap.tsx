@@ -22,7 +22,7 @@ import { CarryTag, RemainingTag } from './markers/DistanceTags'
 import { DispersionLayers, RING_MIN_SHOTS } from './markers/DispersionLayers'
 import { AimOverlay } from './markers/AimOverlay'
 import { ObCallout, offscreenArrow } from './markers/Callouts'
-import { useHoleCamera } from './hooks/useHoleCamera'
+import { headingUpTheHole, useHoleCamera } from './hooks/useHoleCamera'
 import { TeeBadge } from './HoleMapOverlays'
 import type { HoleMapPhase, HoleMapProps, LatLng, OffscreenArrow } from './HoleMap.types'
 
@@ -269,16 +269,20 @@ export function HoleMap({
     }
     // Re-check the ref: the await gives the component a window to unmount.
     if (!target || !cameraRef.current) return
+    // Up the hole (#903): without a heading, recenter kept whatever rotation
+    // the map had.
+    const upHole = roundPin ?? pin ?? null
     cameraRef.current.setCamera({
       centerCoordinate: toCoord(target),
       zoomLevel: 17,
       pitch: 0,
+      ...(upHole ? { heading: headingUpTheHole(target, upHole) } : {}),
       animationDuration: 600,
     })
     // During ball placement the tap also snaps the ball onto the player —
     // the way to resume GPS tracking after a manual drag.
     if (isPlaceBallPhase) onRecenterBall?.(target)
-  }, [gpsPosition, cameraRef, isPlaceBallPhase, onRecenterBall])
+  }, [gpsPosition, cameraRef, isPlaceBallPhase, onRecenterBall, roundPin, pin])
   // The recenter key lives in the caller's dock (#611 §5); hand it the action.
   if (recenterRef) recenterRef.current = recenterOnGps
   if (projectRef) {

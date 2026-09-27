@@ -13,7 +13,7 @@ function toCoord(l: LatLng): [number, number] {
 // (tee/ball) → target (pin) — toward the top of the screen ("up the hole").
 // Falls back to north-up (0) with no usable target or when the two points
 // are effectively coincident (synthetic holes with no real pin geometry).
-function headingUpTheHole(
+export function headingUpTheHole(
   origin: LatLng,
   target: LatLng | null | undefined,
 ): number {
@@ -259,12 +259,14 @@ export function useHoleCamera({
     }
     if (pinSnappedRef.current) return
     if (!cameraRef.current) return
-    // Most prod courses are synthetic (no stored pin geometry), so
-    // roundPin/pin are null — without a fallback the effect early-returned
-    // and never framed the green. Fall back to where the player is (ball,
-    // else GPS) so tapping the pin tool zooms IN rather than doing nothing (#642).
-    const target = roundPin ?? pin ?? ball ?? gpsPosition ?? null
-    if (!target) return
+    // No stored pin (#959): leave the camera where it is. Zooming onto the
+    // ball put the green off-screen, and with no pin the direction to the
+    // green is unknown, so the live view's framing is the best guess.
+    const target = roundPin ?? pin ?? null
+    if (!target) {
+      pinSnappedRef.current = true
+      return
+    }
     try {
       cameraRef.current.setCamera({
         centerCoordinate: toCoord(target),
@@ -275,17 +277,7 @@ export function useHoleCamera({
     } catch {
       // native camera released — retry on next pin change
     }
-  }, [
-    isPinMode,
-    roundPin?.lat,
-    roundPin?.lng,
-    pin?.lat,
-    pin?.lng,
-    ball?.lat,
-    ball?.lng,
-    gpsPosition?.lat,
-    gpsPosition?.lng,
-  ])
+  }, [isPinMode, roundPin?.lat, roundPin?.lng, pin?.lat, pin?.lng])
 
   // Mark whether we owe the camera a PLACE_BALL re-frame on the next
   // ball update. Set on phase transitions INTO PLACE_BALL (e.g. after

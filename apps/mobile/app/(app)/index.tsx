@@ -299,7 +299,7 @@ export default function Home() {
                 },
               ]}
             >
-              {homeStats.weakest.value >= 0 ? (
+              {homeStats.weakest.value > -0.05 ? (
                 <>Everything is net positive. <Text maxFontSizeMultiplier={FONT_CAP} style={TYPE.bodyBold}>{homeStats.strongest.label}</Text> leads at {fmtSG(homeStats.strongest.value)} a round.</>
               ) : (
                 <><Text maxFontSizeMultiplier={FONT_CAP} style={TYPE.bodyBold}>{homeStats.weakest.label}.</Text> Your biggest leak — costing about {fmtAbs(homeStats.weakest.value)} a round. {homeStats.strongest.label} is the bright spot at {fmtSG(homeStats.strongest.value)}.</>

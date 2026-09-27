@@ -140,20 +140,35 @@ export function GreenDiagram({
   // left" precisely (#861). Local state owns the text so typing "05" isn't
   // reformatted mid-edit; `lastCommitted` suppresses our own onAimChange
   // echo so only OUTSIDE changes (a handle drag, a new row) resync the input.
+  // The toggle reads the committed offset, so it can't disagree with the
+  // handle or the label (#896). `side` / `lastMag` remember the break a
+  // Straight tap (or a sub-deadband value) hides, so Left/Right bring it back.
   const [magText, setMagText] = useState(() => magFromOffset(aimOffsetInches))
-  const [dir, setDir] = useState<AimDir>(() => dirFromOffset(aimOffsetInches))
+  const dir = dirFromOffset(aimOffsetInches)
+  const side = useRef<'left' | 'right'>(aimOffsetInches < 0 ? 'left' : 'right')
+  const lastMag = useRef(Math.abs(Math.round(aimOffsetInches)))
   const lastCommitted = useRef(aimOffsetInches)
+
+  const remember = (offset: number) => {
+    const r = Math.round(offset)
+    if (Math.abs(r) <= 2) return
+    side.current = r < 0 ? 'left' : 'right'
+    lastMag.current = Math.abs(r)
+  }
 
   useEffect(() => {
     if (aimOffsetInches === lastCommitted.current) return
     lastCommitted.current = aimOffsetInches
+    remember(aimOffsetInches)
     setMagText(magFromOffset(aimOffsetInches))
-    setDir(dirFromOffset(aimOffsetInches))
   }, [aimOffsetInches])
 
-  const commitInputs = useCallback(
-    (mag: number, d: AimDir) => {
-      const next = d === 'straight' ? 0 : d === 'left' ? -mag : mag
+  // The ±2in deadband applies on the way in too: 1–2in commits as straight,
+  // matching what formatAim / the toggle show.
+  const commit = useCallback(
+    (mag: number, d: 'left' | 'right' | 'straight') => {
+      const next = d === 'straight' || mag <= 2 ? 0 : d === 'left' ? -mag : mag
+      remember(next)
       lastCommitted.current = next
       onAimChange(next)
     },
@@ -164,24 +179,29 @@ export function GreenDiagram({
     (t: string) => {
       const digits = t.replace(/[^0-9]/g, '')
       const mag = Math.min(MAX_OFFSET_INCHES, parseInt(digits || '0', 10))
-      // Typing a break while "Straight" is selected picks a side (default
-      // right); clearing to 0 falls back to straight.
-      const nextDir: AimDir = mag === 0 ? 'straight' : dir === 'straight' ? 'right' : dir
+      // Typed digits keep the remembered side (default right) — "2" on the
+      // way to "25" commits straight without forgetting it was left.
       setMagText(digits)
-      setDir(nextDir)
-      commitInputs(mag, nextDir)
+      commit(mag, side.current)
     },
-    [dir, commitInputs],
+    [commit],
   )
 
   const onDir = useCallback(
     (d: AimDir) => {
-      const mag = d === 'straight' ? 0 : parseInt(magText || '0', 10) || 0
-      setDir(d)
-      if (d === 'straight') setMagText('0')
-      commitInputs(mag, d)
+      if (d === 'straight') {
+        setMagText('0')
+        commit(0, d)
+        return
+      }
+      side.current = d
+      const typed = parseInt(magText || '0', 10) || 0
+      // ponytail: 3in = the smallest break outside the deadband, when none is remembered.
+      const mag = typed > 2 ? typed : lastMag.current > 2 ? lastMag.current : 3
+      setMagText(String(mag))
+      commit(mag, d)
     },
-    [magText, commitInputs],
+    [magText, commit],
   )
 
   const pan = Gesture.Pan()
@@ -195,7 +215,6 @@ export function GreenDiagram({
     .onBegin(() => {
       'worklet'
       isGestureActive.value = true
-      startOffset.value = aimOffsetInches
       offsetX.value = 0
     })
     .onUpdate((e) => {

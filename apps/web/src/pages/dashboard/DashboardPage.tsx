@@ -229,7 +229,8 @@ function Lede({
   strongest: { label: string; value: number }
   weakest: { label: string; value: number }
 }) {
-  if (weakest.value >= 0) {
+  // A leak that rounds to 0.0 reads as even, not "costing about 0.0 strokes" (#911).
+  if (weakest.value > -0.05) {
     return (
       <p
         className="font-serif text-caddie-ink"
