@@ -432,10 +432,10 @@ function ScoreCell({ cellStyle, colors, par, score, hole }: ScoreCellProps) {
   }
   return (
     <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 6 }}>
-      <Text style={{ fontFamily: FONT.hand, fontSize: 16, lineHeight: 22, color: colors.ink }}>{score}</Text>
-      {/* Kalam figures sit low in a small line box: drop the mark 3 px. */}
-      <View style={{ position: 'absolute', left: 0, right: 0, top: 3, bottom: -3 }}>
-        <GolfMark toPar={score - par} seed={hole} scale={0.58} ink={colors.ink} />
+      <Text style={{ fontFamily: FONT.hand, fontSize: 15, lineHeight: 22, color: colors.ink }}>{score}</Text>
+      {/* Kalam figures sit low in a small line box: drop the mark 1 px. */}
+      <View style={{ position: 'absolute', left: 0, right: 0, top: 1, bottom: -1 }}>
+        <GolfMark toPar={score - par} seed={hole} scale={0.66} ink={colors.ink} />
       </View>
     </View>
   )
