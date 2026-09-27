@@ -34,8 +34,11 @@ function HeroNumber({ value, unit }: { value: string; unit: string }) {
       ? decY + (capY - CAP_ASC * CS - decY - MONO_ASC * US) / 2 + MONO_ASC * US
       : top + MONO_ASC * US
   const x0 = (m?.w ?? 0) + 5
+  const w = Math.max(152, Math.ceil(x0 + 56))
   return (
-    <View style={{ width: 152, height: m ? Math.ceil(m.base + 3) : 42, opacity: m ? 1 : 0 }}>
+    // A wide 3-digit number pushes the column past 152 ("to the pi"), so the
+    // box grows to the measured number + the caption.
+    <View style={{ width: w, height: m ? Math.ceil(m.base + 3) : 42, opacity: m ? 1 : 0 }}>
       <Text
         allowFontScaling={false}
         onTextLayout={(e) => {
@@ -47,7 +50,7 @@ function HeroNumber({ value, unit }: { value: string; unit: string }) {
         {whole}
       </Text>
       {m && (
-        <Svg width={152} height={Math.ceil(m.base + 3)} style={{ position: 'absolute', left: 0, top: 0 }}>
+        <Svg width={w} height={Math.ceil(m.base + 3)} style={{ position: 'absolute', left: 0, top: 0 }}>
           {dec !== undefined && (
             <SvgText x={x0} y={decY} fill={P.ink} fontFamily={FONT.serifItalic} fontSize={DS}>
               {`.${dec}`}
@@ -72,20 +75,23 @@ export function HeroRow({
   distance,
   expected,
   trailing,
+  emptyLabel = 'no pin\nset yet',
 }: {
-  /** Already converted + formatted, e.g. { value: '156.4', unit: 'yd' }; null = no pin. */
+  /** Already converted + formatted, e.g. { value: '156.4', unit: 'yd' }; null = no distance. */
   distance: { value: string; unit: string } | null
   expected: number | null
   trailing?: ReactNode
+  /** Beside the "—" when there's no distance: why (no pin / no ball). */
+  emptyLabel?: string
 }) {
   return (
     <View
       style={{ flexDirection: 'row', alignItems: 'flex-end', minHeight: 58, paddingHorizontal: 12, paddingBottom: 8 }}
     >
       <View
-        style={{ width: 152, flexDirection: 'row', alignItems: 'flex-end', gap: 6 }}
+        style={{ minWidth: 152, flexDirection: 'row', alignItems: 'flex-end', gap: 6 }}
         accessible
-        accessibilityLabel={distance ? `${distance.value} ${distance.unit} to the pin` : 'No pin set yet'}
+        accessibilityLabel={distance ? `${distance.value} ${distance.unit} to the pin` : emptyLabel.replace('\n', ' ')}
       >
         {distance ? (
           <HeroNumber value={distance.value} unit={distance.unit} />
@@ -98,7 +104,7 @@ export function HeroRow({
               —
             </Text>
             <Text allowFontScaling={false} style={[TYPE.body, { fontSize: 12, lineHeight: 15, color: P.ink, paddingBottom: 4 }]}>
-              {'no pin\nset yet'}
+              {emptyLabel}
             </Text>
           </>
         )}

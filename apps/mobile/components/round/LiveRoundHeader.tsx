@@ -16,6 +16,8 @@ interface LiveRoundHeaderProps {
   yardsLabel: string | null
   shotNumber: number
   distance: { value: string; unit: string } | null
+  /** A pin is set but there's no ball to measure from yet. */
+  noBall?: boolean
   expected: number | null
   onLeave: () => void
   onPrev: () => void
@@ -61,6 +63,7 @@ export function LiveRoundHeader(p: LiveRoundHeaderProps) {
       </View>
       <HeroRow
         distance={p.distance}
+        emptyLabel={p.noBall ? 'mark your\nball' : undefined}
         expected={p.expected}
         trailing={
           <Key
