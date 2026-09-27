@@ -98,6 +98,7 @@ export function HoleMap({
   phase = 'PLACE_BALL',
   aimCommitted = false,
   putting = false,
+  ornamentsTop = false,
   gpsPosition,
   courseCenter,
   holeNumber,
@@ -647,6 +648,8 @@ export function HoleMap({
           // overlay on the satellite HUD and gets mistaken for the
           // dispersion arc. Attribution/logo stay (Mapbox ToS).
           scaleBarEnabled={false}
+          logoPosition={ornamentsTop ? { top: 8, left: 8 } : undefined}
+          attributionPosition={ornamentsTop ? { top: 8, right: 8 } : undefined}
           onPress={handleTap}
           onDidFinishLoadingStyle={() => setStyleLoaded(true)}
           onMapIdle={(state) => {

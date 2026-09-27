@@ -705,6 +705,7 @@ export default function LiveRoundSession({
             finalState.roundState === 'PUTTING'
           }
           putting={finalState.roundState === 'PUTTING'}
+          ornamentsTop
           showLocationPuck={
             finalState.roundState !== 'SHOT_DETAIL' &&
             finalState.roundState !== 'PUTTING' &&
