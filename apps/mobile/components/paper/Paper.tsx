@@ -101,6 +101,9 @@ export interface KeyProps {
    *  (confirm, toggle, penalty): iOS can't cancel a played impact, so both
    *  would land as a double pulse. */
   pressHaptic?: boolean
+  /** Multi-select toggle: announce as a checkbox (checked) instead of a
+   *  selected button. */
+  checkbox?: boolean
   children: ReactNode
 }
 
@@ -121,6 +124,7 @@ export function Key({
   style,
   faceStyle,
   pressHaptic = true,
+  checkbox = false,
   children,
 }: KeyProps) {
   const [pressed, setPressed] = useState(false)
@@ -148,9 +152,9 @@ export function Key({
   }))
   return (
     <Pressable
-      accessibilityRole="button"
+      accessibilityRole={checkbox ? 'checkbox' : 'button'}
       accessibilityLabel={accessibilityLabel}
-      accessibilityState={{ disabled, selected: latched }}
+      accessibilityState={checkbox ? { disabled, checked: latched } : { disabled, selected: latched }}
       disabled={disabled || !onPress}
       onPress={onPress}
       onPressIn={() => {

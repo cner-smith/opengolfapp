@@ -639,6 +639,7 @@ function MultiChipRow<T extends string>({
           label={labelFor ? labelFor(opt) : opt}
           active={selected.includes(opt)}
           onPress={() => onToggle(opt)}
+          checkbox
         />
       ))}
     </View>
@@ -646,9 +647,9 @@ function MultiChipRow<T extends string>({
 }
 
 // Paper filter chip: a latched key when active (matches Profile's Chip).
-function Chip({ label, active, onPress }: { label: string; active: boolean; onPress: () => void }) {
+function Chip({ label, active, onPress, checkbox }: { label: string; active: boolean; onPress: () => void; checkbox?: boolean }) {
   return (
-    <Key accessibilityLabel={label} latched={active} onPress={onPress} faceStyle={{ minHeight: 40, paddingHorizontal: 12 }}>
+    <Key accessibilityLabel={label} latched={active} onPress={onPress} checkbox={checkbox} faceStyle={{ minHeight: 40, paddingHorizontal: 12 }}>
       <KeyText size={13} bold={active} style={{ textTransform: 'capitalize' }}>
         {label}
       </KeyText>
