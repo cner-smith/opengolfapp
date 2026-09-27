@@ -1,5 +1,6 @@
 import { useMemo, useRef, useState, type ChangeEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { shotAxesFromLegacy } from '@oga/core'
 import {
   summarizeImportDataQuality,
   validateImportPayload,
@@ -174,6 +175,7 @@ export function ImportDataPage() {
         })
         if (!savedHoleScore) continue
         for (const shot of hole.shots) {
+          const axes = shotAxesFromLegacy(shot.shot_result)
           await createShot.mutateAsync({
             hole_score_id: savedHoleScore.id,
             user_id: user.id,
@@ -183,6 +185,9 @@ export function ImportDataPage() {
             lie_slope_forward: shot.lie_slope_forward ?? null,
             lie_slope_side: shot.lie_slope_side ?? null,
             shot_result: shot.shot_result ?? null,
+            contact: axes.contact,
+            shape: axes.shape,
+            start_line: axes.startLine,
             start_lat: shot.start_lat ?? null,
             start_lng: shot.start_lng ?? null,
             end_lat: shot.end_lat ?? null,

@@ -6,8 +6,7 @@ import {
   DEFAULT_BAG,
   LIE_TYPES,
   LIE_TYPE_LABELS,
-  SHOT_RESULTS,
-  SHOT_RESULT_LABELS,
+  legacyShotResult,
   combinedBreakDirection,
   formatClubLabel,
   horizontalBreakFromAim,
@@ -22,14 +21,23 @@ import {
   type PuttDirectionResult,
   type PuttDistanceResult,
   type ReviewedShotRow,
-  type ShotResult,
 } from '@oga/core'
 import { GreenDiagram } from './GreenDiagram'
 import { useUnits } from '../../hooks/useUnits'
 import { useUserBag } from '../../hooks/useUserBag'
 import { TYPE } from '../../lib/typography'
 import { Key, KeyText, PaperSurface } from '../paper/Paper'
-import { Chip, ClubPicker, RockerRows, SlopeGrid, useStackedLabels, type Opt } from '../paper/Pickers'
+import {
+  Chip,
+  ClubPicker,
+  ResultPicker,
+  RockerRows,
+  SlopeGrid,
+  resultSummary,
+  useStackedLabels,
+  type Opt,
+  type ResultValue,
+} from '../paper/Pickers'
 import { Icon } from '../paper/icons'
 import { GAP, P, R } from '../paper/tokens'
 
@@ -400,6 +408,14 @@ function ShotRow({
   const rawClubLabel = clubOptions.find((c) => c.value === row.club)?.label ?? String(row.club)
   const clubLabel = rawClubLabel.charAt(0).toUpperCase() + rawClubLabel.slice(1)
   const slopeSet = row.lieSlopeForward != null || row.lieSlopeSide != null
+  const result: ResultValue = {
+    contact: row.contact ?? null,
+    shape: row.shape ?? null,
+    startLine: row.startLine ?? null,
+    penalty: !!row.penalty,
+  }
+  // OB is set from the map flow, not this picker, but the chip still says so.
+  const resultText = resultSummary({ ...result, ob: row.shotResult === 'ob' })
   const slopeText = [row.lieSlopeForward && slopeLabel(row.lieSlopeForward), row.lieSlopeSide && slopeLabel(row.lieSlopeSide)]
     .filter(Boolean)
     .join(' · ')
@@ -528,8 +544,8 @@ function ShotRow({
             <Chip label={LIE_TYPE_LABELS[row.lieType]} state="set" onPress={() => toggle('lie')} />
             <Chip label={slopeSet ? slopeText : '+ slope'} state={slopeSet ? 'set' : 'empty'} onPress={() => toggle('slope')} />
             <Chip
-              label={row.shotResult ? SHOT_RESULT_LABELS[row.shotResult] : '+ result'}
-              state={row.shotResult ? 'set' : 'empty'}
+              label={resultText || '+ result'}
+              state={resultText ? 'set' : 'empty'}
               onPress={() => toggle('result')}
             />
           </View>
@@ -568,15 +584,16 @@ function ShotRow({
             )}
           {open === 'result' &&
             expand(
-              <RockerRows
-                label="Result"
-                options={SHOT_RESULTS.map((r) => ({ value: r, label: SHOT_RESULT_LABELS[r] }))}
-                value={row.shotResult ?? null}
-                onChange={(v) => {
-                  onChange({ ...row, shotResult: (v as ShotResult | null) ?? undefined })
-                  setOpen(null)
-                }}
-                stacked={stacked}
+              <ResultPicker
+                value={result}
+                onChange={(v) =>
+                  onChange({
+                    ...row,
+                    ...v,
+                    // Keep the legacy value (and the OB stamp) in step.
+                    shotResult: legacyShotResult({ ...v, ob: row.shotResult === 'ob' }) ?? undefined,
+                  })
+                }
               />,
             )}
         </>

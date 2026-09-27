@@ -9,6 +9,7 @@ import {
   horizontalBreakFromAim,
   haversineYards,
   isPuttShot,
+  legacyShotResult,
   summarizePuttParts,
   summarizeShotParts,
   type Club,
@@ -187,7 +188,10 @@ export function ShotEntryModal({
       // Slope grid is hidden in putting mode — clear both axes.
       lie_slope_forward: isPuttSave ? null : draft.lieSlopeForward ?? null,
       lie_slope_side: isPuttSave ? null : draft.lieSlopeSide ?? null,
-      shot_result: isPuttSave ? null : draft.shotResult ?? null,
+      shot_result: isPuttSave ? null : legacyShotResult(draft),
+      contact: isPuttSave ? null : draft.contact ?? null,
+      shape: isPuttSave ? null : draft.shape ?? null,
+      start_line: isPuttSave ? null : draft.startLine ?? null,
       distance_to_target: isPuttSave ? null : draft.distanceToTarget ?? null,
       putt_distance_ft: isPuttSave ? draft.puttDistanceFt ?? null : null,
       putt_result: legacyPuttResult,
@@ -211,8 +215,8 @@ export function ShotEntryModal({
         isPuttSave && draft.aimOffsetInches != null
           ? Math.round((draft.aimOffsetInches / 36) * 10) / 10
           : null,
-      penalty: draft.shotResult === 'penalty',
-      ob: draft.shotResult === 'ob',
+      penalty: !isPuttSave && !!draft.penalty,
+      ob: !isPuttSave && !!draft.ob,
       notes: draft.notes ?? null,
     }
     try {

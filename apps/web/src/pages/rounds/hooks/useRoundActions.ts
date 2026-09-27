@@ -711,13 +711,13 @@ export function useRoundActions(input: UseRoundActionsInput): UseRoundActionsRes
             lie_slope_forward: isPuttRow ? null : row.lieSlopeForward ?? null,
             lie_slope_side: isPuttRow ? null : row.lieSlopeSide ?? null,
             shot_result: isPuttRow ? null : row.shotResult ?? null,
-            // `penalty` is distinct from `ob` and has no control anywhere in
-            // this sheet, so the stored value is the only source and is
-            // carried through the replace-all rewrite. A hole with no prior
-            // shot at this number — a new hole, or a re-placement with a
-            // different shot count — reads as not-penalty, matching a fresh
-            // row's real state.
-            penalty: existingByShotNumber.get(row.shotNumber)?.penalty ?? false,
+            contact: isPuttRow ? null : row.contact ?? null,
+            shape: isPuttRow ? null : row.shape ?? null,
+            start_line: isPuttRow ? null : row.startLine ?? null,
+            // The result picker's Penalty key when touched; otherwise the
+            // stored value is carried through the replace-all rewrite. A hole
+            // with no prior shot at this number reads as not-penalty.
+            penalty: row.penalty ?? existingByShotNumber.get(row.shotNumber)?.penalty ?? false,
             // Derived from the row alone, matching mobile. The sheet seeds
             // `shotResult: 'ob'` from the stored shots at hydration, so the
             // row is authoritative — OR-ing the stored flag back in here

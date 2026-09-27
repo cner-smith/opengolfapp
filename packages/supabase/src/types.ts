@@ -722,6 +722,9 @@ export type Database = {
           putt_slope_pct: number | null
           shot_number: number
           shot_result: string | null
+          contact: string | null
+          shape: string | null
+          start_line: string | null
           start_lat: number | null
           start_lng: number | null
           user_id: string
@@ -755,6 +758,9 @@ export type Database = {
           putt_slope_pct?: number | null
           shot_number: number
           shot_result?: string | null
+          contact?: string | null
+          shape?: string | null
+          start_line?: string | null
           start_lat?: number | null
           start_lng?: number | null
           user_id: string
@@ -788,6 +794,9 @@ export type Database = {
           putt_slope_pct?: number | null
           shot_number?: number
           shot_result?: string | null
+          contact?: string | null
+          shape?: string | null
+          start_line?: string | null
           start_lat?: number | null
           start_lng?: number | null
           user_id?: string

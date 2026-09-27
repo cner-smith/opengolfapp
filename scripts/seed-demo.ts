@@ -25,7 +25,7 @@
  */
 import 'dotenv/config'
 import { createClient } from '@supabase/supabase-js'
-import { DEFAULT_BAG } from '@oga/core'
+import { DEFAULT_BAG, shotAxesFromLegacy } from '@oga/core'
 
 const URL = process.env.SUPABASE_URL ?? 'http://127.0.0.1:54321'
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -654,6 +654,7 @@ async function insertHoleShots(
               ? 'thin'
               : 'solid'
 
+    const axes = shotAxesFromLegacy(result)
     const { error } = await supabase.from('shots').insert({
       hole_score_id: holeScoreId,
       user_id: userId,
@@ -669,6 +670,8 @@ async function insertHoleShots(
       lie_type: lieType,
       lie_slope: lieSlope,
       shot_result: result,
+      contact: axes.contact,
+      start_line: axes.startLine,
       penalty: false,
       ob: false,
       putt_distance_ft: null,
