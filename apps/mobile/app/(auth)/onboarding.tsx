@@ -113,10 +113,12 @@ export default function MobileOnboarding() {
   }
 
   return (
-    <PaperSurface style={{ flex: 1 }}>
+    // Top inset on the frame, not the content: scrolled text slid under the
+    // status bar. Bottom inset clears the 3-button nav bar.
+    <PaperSurface style={{ flex: 1, paddingTop: insets.top }}>
     <ScrollView
       style={{ flex: 1 }}
-      contentContainerStyle={{ padding: 16, paddingTop: insets.top + 14, paddingBottom: 32 }}
+      contentContainerStyle={{ padding: 16, paddingTop: 14, paddingBottom: insets.bottom + 32 }}
       keyboardShouldPersistTaps="handled"
     >
       <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { color: P.inkDim, fontSize: 12, marginBottom: 6 }]}>

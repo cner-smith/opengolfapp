@@ -1,3 +1,4 @@
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useEffect, useRef, useState } from 'react'
 import {
   AppState,
@@ -21,6 +22,7 @@ import { FONT_CAP, P, R } from '../../components/paper/tokens'
 const TURNSTILE_SITE_KEY = process.env.EXPO_PUBLIC_TURNSTILE_SITE_KEY
 
 export default function Signup() {
+  const insets = useSafeAreaInsets()
   const router = useRouter()
   const [username, setUsername] = useState('')
   const [email, setEmail] = useState('')
@@ -235,7 +237,9 @@ export default function Signup() {
   }
 
   return (
-    <PaperSurface style={{ flex: 1 }}>
+    // Frame insets so a scrolled form (small phone, keyboard up) never runs
+    // under the status bar or the nav bar.
+    <PaperSurface style={{ flex: 1, paddingTop: insets.top, paddingBottom: insets.bottom }}>
     <KeyboardAvoidingView
       style={{ flex: 1 }}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
