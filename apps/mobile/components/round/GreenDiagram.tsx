@@ -13,7 +13,8 @@ import Animated, {
 import type { BreakDirection } from '@oga/core'
 import { useUnits } from '../../hooks/useUnits'
 import { TYPE } from '../../lib/typography'
-import { PressableTouch } from '../ui/PressableTouch'
+import { Rocker } from '../paper/Paper'
+import { FONT_CAP, P, R } from '../paper/tokens'
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle)
 const AnimatedPath = Animated.createAnimatedComponent(Path)
@@ -25,14 +26,6 @@ export interface GreenDiagramProps {
   aimOffsetInches: number
   breakDirection?: BreakDirection
   onAimChange: (offsetInches: number) => void
-}
-
-const KICKER: import('react-native').TextStyle = {
-  color: '#8A8B7E',
-  fontSize: 10,
-  fontWeight: '500',
-  letterSpacing: 1.4,
-  textTransform: 'uppercase',
 }
 
 const SVG_WIDTH = 300
@@ -259,9 +252,13 @@ export function GreenDiagram({
       HANDLE_MIN_X,
       HANDLE_MAX_X,
     )
-    const curveControlX = handleX * 0.6 + CENTER_X * 0.4
+    // Control point chosen so the curve passes THROUGH the aim disc at its
+    // midpoint (C = 2H − (P0+P2)/2). The old 60 % blend only reached ~30 % of
+    // the way to the disc, so the line never went where the player aimed.
+    const cx = 2 * handleX - (ballX + CENTER_X) / 2
+    const cy = 2 * handleY - (ballY + trajectoryEndY) / 2
     return {
-      d: `M${ballX} ${ballY} Q ${curveControlX} ${handleY} ${CENTER_X} ${trajectoryEndY}`,
+      d: `M${ballX} ${ballY} Q ${cx} ${cy} ${CENTER_X} ${trajectoryEndY}`,
     }
   })
 
@@ -272,10 +269,10 @@ export function GreenDiagram({
   return (
     <View
       style={{
-        backgroundColor: '#FBF8F1',
+        backgroundColor: P.raised,
         borderWidth: 1,
-        borderColor: '#D9D2BF',
-        borderRadius: 4,
+        borderColor: P.ink,
+        borderRadius: R,
         padding: 14,
       }}
     >
@@ -288,24 +285,15 @@ export function GreenDiagram({
         }}
       >
         <View>
-          <Text style={[TYPE.kicker, KICKER]}>To pin</Text>
-          <Text
-            style={[
-              TYPE.serif,
-              {
-                color: '#1C211C',
-                fontSize: 28,
-                lineHeight: 30,
-              },
-            ]}
-          >
+          <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.serif, { color: P.ink, fontSize: 28, lineHeight: 32 }]}>
             {toDisplayFt(distanceFt)}
           </Text>
+          <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { color: P.ink, fontSize: 12 }]}>to the pin</Text>
         </View>
-        <Text style={[TYPE.kicker, { ...KICKER, color: '#8A8B7E' }]}>
+        <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { color: P.inkDim, fontSize: 13 }]}>
           {breakDirection === 'straight'
             ? 'Straight'
-            : breakDirection.replace(/_/g, ' ')}
+            : (s => s.charAt(0).toUpperCase() + s.slice(1))(breakDirection.replace(/_/g, ' '))}
         </Text>
       </View>
 
@@ -360,16 +348,8 @@ export function GreenDiagram({
       </GestureDetector>
 
       <Text
-        style={[
-          TYPE.body,
-          {
-            color: '#1C211C',
-            fontSize: 17,
-            fontWeight: '500',
-            textAlign: 'center',
-            marginTop: 6,
-          },
-        ]}
+        maxFontSizeMultiplier={FONT_CAP}
+        style={[TYPE.serif, { color: P.ink, fontSize: 20, lineHeight: 26, textAlign: 'center', marginTop: 6 }]}
       >
         {aimLabel}
       </Text>
@@ -392,49 +372,24 @@ export function GreenDiagram({
             accessibilityLabel="Break amount in inches"
             style={NUM_INPUT}
           />
-          <Text style={[TYPE.body, { color: '#5C6356', fontSize: 14, marginLeft: 6 }]}>in</Text>
+          <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { color: P.inkDim, fontSize: 14, marginLeft: 6 }]}>in</Text>
         </View>
-        <View style={{ flexDirection: 'row', gap: 6 }}>
-          {(['left', 'straight', 'right'] as const).map((d) => (
-            <SegCell key={d} label={SEG_LABEL[d]} on={dir === d} onPress={() => onDir(d)} />
-          ))}
-        </View>
+        <Rocker
+          options={(['left', 'straight', 'right'] as const).map((d) => ({ value: d, label: SEG_LABEL[d] }))}
+          value={dir}
+          onChange={(d) => d && onDir(d)}
+          style={{ flex: 1 }}
+        />
       </View>
     </View>
   )
 }
 
-function SegCell({
-  label,
-  on,
-  onPress,
-}: {
-  label: string
-  on: boolean
-  onPress: () => void
-}) {
-  return (
-    <PressableTouch
-      accessibilityRole="button"
-      accessibilityLabel={label}
-      onPress={onPress}
-      style={{
-        paddingVertical: 8,
-        paddingHorizontal: 10,
-        borderRadius: 2,
-        backgroundColor: on ? '#1F3D2C' : '#EBE5D6',
-      }}
-    >
-      <Text style={[TYPE.body, { color: on ? '#F2EEE5' : '#1C211C', fontSize: 12 }]}>{label}</Text>
-    </PressableTouch>
-  )
-}
-
 const NUM_INPUT: import('react-native').TextStyle = {
-  backgroundColor: '#FBF8F1',
+  backgroundColor: P.raised,
   borderWidth: 1,
-  borderColor: '#D9D2BF',
-  borderRadius: 2,
+  borderColor: P.ink,
+  borderRadius: R,
   paddingHorizontal: 12,
   paddingVertical: 10,
   fontSize: 15,
