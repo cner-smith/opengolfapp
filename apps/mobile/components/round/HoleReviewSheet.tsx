@@ -107,8 +107,8 @@ export function HoleReviewSheet({
   const insets = useSafeAreaInsets()
   const [rows, setRows] = useState<EditableRow[]>([])
   // Score / putts / penalties are editable tickers. Score and putts pre-fill
-  // from the placed shots (shot count, green-lie shots); penalties is the one
-  // number no marker implies. All three become the hole_scores values on save.
+  // from the placed shots (shot count, green-lie shots); penalties from the
+  // OB-marked shots. All three become the hole_scores values on save.
   const [score, setScore] = useState(0)
   const [putts, setPutts] = useState(0)
   const [penalties, setPenalties] = useState(0)
@@ -161,7 +161,9 @@ export function HoleReviewSheet({
     // counts as a putt here even though its row shows normal-shot UI (the
     // per-row isPutt gate below stays isPuttEntry). User-overridable ticker.
     setPutts(next.filter((r) => isPuttShot(r.lieType)).length)
-    setPenalties(0)
+    // An OB's stroke is already in the score above; the penalties ticker has
+    // to say so too (it read 0 next to a score that counted it).
+    setPenalties(obCount(next))
   }, [visible, holeNumber])
 
   if (!visible) return null
@@ -177,8 +179,13 @@ export function HoleReviewSheet({
     // apps/web/src/components/round/HoleReviewSheet.tsx (#839).
     const prevRow = rows[idx]
     if (prevRow && nextRow.shotResult !== prevRow.shotResult) {
-      if (nextRow.shotResult === 'ob') setScore((s) => s + 1)
-      else if (prevRow.shotResult === 'ob') setScore((s) => Math.max(0, s - 1))
+      if (nextRow.shotResult === 'ob') {
+        setScore((s) => s + 1)
+        setPenalties((n) => n + 1)
+      } else if (prevRow.shotResult === 'ob') {
+        setScore((s) => Math.max(0, s - 1))
+        setPenalties((n) => Math.max(0, n - 1))
+      }
     }
     setRows((prev) => {
       const copy = prev.slice()
@@ -220,6 +227,7 @@ export function HoleReviewSheet({
             // penalty, which has no row of its own — so deleting it drops 2,
             // matching what delete_shot re-tallies server-side.
             setScore((s) => Math.max(0, s - (row.shotResult === 'ob' ? 2 : 1)))
+            if (row.shotResult === 'ob') setPenalties((n) => Math.max(0, n - 1))
             if (isPuttShot(row.lieType)) setPutts((p) => Math.max(0, p - 1))
           },
         },

@@ -99,6 +99,7 @@ export function HoleMap({
   aimCommitted = false,
   putting = false,
   ornamentsTop = false,
+  tagClearBottom,
   gpsPosition,
   courseCenter,
   holeNumber,
@@ -145,6 +146,10 @@ export function HoleMap({
   const [mapSize, setMapSize] = useState<{ w: number; h: number } | null>(null)
   // Bumped on every camera settle; screen-clamped map tags re-measure on it.
   const [idleTick, setIdleTick] = useState(0)
+  // Carry tag keeps clear of the dock's stacks (it slid under the ruler at
+  // approach zoom): the lowest screen y its box may reach, in map dp.
+  const legTagClamp =
+    tagClearBottom != null && mapSize ? { map: mapViewRef, maxY: mapSize.h - tagClearBottom, idleTick } : undefined
   const [lastShotArrow, setLastShotArrow] = useState<OffscreenArrow | null>(null)
   // Measured OB callout width — its label and the font scale both change it.
   const [obPillWidth, setObPillWidth] = useState(120)
@@ -290,16 +295,15 @@ export function HoleMap({
 
   // The flag's cup follows the camera pitch (§9). Android paints a
   // PointAnnotation into a bitmap that only redraws on a layout change, and
-  // neither the cup nor the tone changes layout — so repaint it by hand. iOS
-  // snapshots the marker once and never redraws on its own, so the hole
-  // number needs the same nudge there.
+  // neither the cup nor the tone changes layout — so repaint it by hand. The
+  // hole number is handled by remounting per hole (key below).
   const [cupK, setCupK] = useState(0.8)
   const flagTone = roundPin ? 'strong' : 'dim'
   const flagRef = useRef<Mapbox.PointAnnotation>(null)
   useEffect(() => {
     const t = setTimeout(() => flagRef.current?.refresh(), 50)
     return () => clearTimeout(t)
-  }, [cupK, flagTone, holeNumber])
+  }, [cupK, flagTone])
 
   const { aimGhosts, aimGhostFeatures } = useAimGhosts({
     ball,
@@ -825,6 +829,9 @@ export function HoleMap({
               isn't ergonomic. */}
           {effectivePin && (
             <Mapbox.PointAnnotation
+              // Remount per hole: the snapshot kept the previous hole's number
+              // (the 50 ms refresh below can beat the SVG repaint).
+              key={`pin-${holeNumber}`}
               id="effectivePin"
               coordinate={toCoord(effectivePin)}
               ref={flagRef}
@@ -874,6 +881,8 @@ export function HoleMap({
               lie={liveStrokes.lieLabel}
               sg={liveStrokes.sg}
               lefty={lefty}
+              toward={aim ?? undefined}
+              clamp={legTagClamp}
             />
           )}
 

@@ -11,6 +11,7 @@ import {
   type ShotStartLine,
 } from '@oga/core'
 import type { ReactNode } from 'react'
+import { useProfile } from '../../../hooks/useProfile'
 import { chipStyle } from './formInputs'
 
 export type ResultValue = ShotResultAxes & { penalty: boolean; ob: boolean }
@@ -71,6 +72,12 @@ function AxisRow<T extends string>({
 // set, tap again to clear; nothing is pre-selected.
 export function ResultAxes({ value, onChange }: { value: ResultValue; onChange: (v: ResultValue) => void }) {
   const any = value.contact || value.shape || value.startLine || value.penalty || value.ob
+  // A left-hander's hook curves right: mirror the shape + start keys (same
+  // as mobile's ResultPicker), from Settings → Plays.
+  const { data: profile } = useProfile()
+  const flip = profile?.plays_left_handed ? -1 : 1
+  const shapes = flip < 0 ? [...SHOT_SHAPES].reverse() : SHOT_SHAPES
+  const starts = flip < 0 ? [...SHOT_START_LINES].reverse() : SHOT_START_LINES
   return (
     <div style={{ display: 'grid', gap: 6 }}>
       <AxisRow
@@ -93,16 +100,19 @@ export function ResultAxes({ value, onChange }: { value: ResultValue; onChange: 
         label="Shape"
         value={value.shape}
         onChange={(shape) => onChange({ ...value, shape })}
-        options={SHOT_SHAPES.map((sh) => {
-          const b = SHAPE_BEND[sh]
+        options={shapes.map((sh) => {
+          const b = SHAPE_BEND[sh] * flip
           return {
             value: sh,
             label: SHOT_SHAPE_LABELS[sh],
             glyph: (
               <Glyph>
-                <circle cx={14} cy={16} r={1.8} fill="currentColor" stroke="none" />
-                <path d={`M14 15 Q${14 - b * 0.2} 8 ${14 + b} 2`} strokeWidth={1.5} />
-                <path d="M14 1v3" strokeWidth={1} opacity={0.35} />
+                {/* Shifted by half the lean so it sits centred (as mobile). */}
+                <g transform={`translate(${-b / 2} 0)`}>
+                  <circle cx={14} cy={16} r={1.8} fill="currentColor" stroke="none" />
+                  <path d={`M14 15 Q${14 - b * 0.2} 8 ${14 + b} 2`} strokeWidth={1.5} />
+                  <path d="M14 1v3" strokeWidth={1} opacity={0.35} />
+                </g>
               </Glyph>
             ),
           }
@@ -112,14 +122,16 @@ export function ResultAxes({ value, onChange }: { value: ResultValue; onChange: 
         label="Start"
         value={value.startLine}
         onChange={(startLine) => onChange({ ...value, startLine })}
-        options={SHOT_START_LINES.map((st) => ({
+        options={starts.map((st) => ({
           value: st,
           label: SHOT_START_LINE_LABELS[st],
           glyph: (
             <Glyph>
-              <path d="M14 1 V17" strokeWidth={1} strokeDasharray="1.5 2" opacity={0.35} />
-              <circle cx={14} cy={16} r={1.8} fill="currentColor" stroke="none" />
-              <path d={`M14 15 L${14 + START_OFF[st]} 3`} strokeWidth={1.5} />
+              <g transform={`translate(${(-START_OFF[st] * flip) / 2} 0)`}>
+                <path d="M14 1 V17" strokeWidth={1} strokeDasharray="1.5 2" opacity={0.35} />
+                <circle cx={14} cy={16} r={1.8} fill="currentColor" stroke="none" />
+                <path d={`M14 15 L${14 + START_OFF[st] * flip} 3`} strokeWidth={1.5} />
+              </g>
             </Glyph>
           ),
         }))}

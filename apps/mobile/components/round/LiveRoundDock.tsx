@@ -85,6 +85,8 @@ export interface LiveRoundDockProps {
   onNotOnGreen: () => void
   /** Height of the paper footer (voice line + buttons), for camera framing. */
   onFooterHeight: (h: number) => void
+  /** Whole dock (stacks + footer), so map tags can stay above it. */
+  onDockHeight?: (h: number) => void
 }
 
 // Live-round dock (#611 §4–§6): the side stacks standing 8 above a paper
@@ -173,6 +175,7 @@ export function LiveRoundDock(p: LiveRoundDockProps) {
   return (
     <View
       pointerEvents="box-none"
+      onLayout={(e) => p.onDockHeight?.(e.nativeEvent.layout.height)}
       style={{ position: 'absolute', left: 0, right: 0, bottom: Math.max(insets.bottom, MIN_BOTTOM_STRIP) }}
     >
       {showStacks && (
@@ -583,7 +586,8 @@ function WheelRowView({
         rowStyle,
       ]}
     >
-      <Animated.View style={[{ transformOrigin: 'left center' }, scaleStyle]}>
+      {/* paddingRight: Fraunces italic overhangs its box ("3w206"). */}
+      <Animated.View style={[{ transformOrigin: 'left center', paddingRight: 4 }, scaleStyle]}>
         {/* A long custom name ("wedge") steps down so the meta keeps its room. */}
         <Text allowFontScaling={false}
           numberOfLines={1}

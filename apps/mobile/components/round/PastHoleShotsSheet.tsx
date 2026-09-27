@@ -18,6 +18,7 @@ import {
   isPuttShot,
   legacyShotResult,
   shotAxesFromLegacy,
+  summarizeShotParts,
   type BreakDirectionHorizontal,
   type BreakDirectionVertical,
   type DistanceUnit,
@@ -116,6 +117,10 @@ export function PastHoleShotsSheet({
   const { bag } = useUserBag({ seedIfEmpty: false })
   const clubs = bag.length > 0 ? bag : DEFAULT_BAG
   const [editingShot, setEditingShot] = useState<ShotRow | null>(null)
+  // Return where the player came from: opened straight into a shot (the
+  // past-round map's "Edit shot N") → closing the editor closes the sheet;
+  // opened on the list (scorecard "Shots ›") → back to the list.
+  const closeEditor = () => (initialShotId ? onClose() : setEditingShot(null))
   const [saving, setSaving] = useState(false)
   const insets = useSafeAreaInsets()
 
@@ -150,8 +155,9 @@ export function PastHoleShotsSheet({
     setSaving(false)
     if (!error && data) {
       onShotUpdated?.(data as ShotRow)
-      // next set by the editor's prev/next nav; null closes the editor.
-      setEditingShot(next ?? null)
+      // next set by the editor's prev/next nav; none closes the editor.
+      if (next) setEditingShot(next)
+      else closeEditor()
     }
   }
 
@@ -165,7 +171,7 @@ export function PastHoleShotsSheet({
       visible={visible}
       transparent
       animationType="slide"
-      onRequestClose={editingShot ? () => setEditingShot(null) : onClose}
+      onRequestClose={editingShot ? closeEditor : onClose}
     >
       {/* GHRootView required for the swipe-to-dismiss pan: RN Modal is a
           separate native window on Android the app-root can't reach (#496). */}
@@ -173,7 +179,7 @@ export function PastHoleShotsSheet({
       <View style={{ flex: 1, backgroundColor: P.scrim }}>
         <Pressable
           style={{ flex: 1 }}
-          onPress={editingShot ? () => setEditingShot(null) : onClose}
+          onPress={editingShot ? closeEditor : onClose}
         />
         {editingShot ? (
           <EditShotSheet
@@ -185,7 +191,7 @@ export function PastHoleShotsSheet({
             clubs={clubs}
             saving={saving}
             onSave={(updates, next) => handleSave(editingShot.id, updates, next)}
-            onClose={() => setEditingShot(null)}
+            onClose={closeEditor}
           />
         ) : (
           <Animated.View style={[{ maxHeight: '80%' }, cardStyle]}>
@@ -259,11 +265,10 @@ function ShotRowView({
       ? formatClubLabel({ club_type: shot.club })
       : '—'
   const lieLabel = shot.lie_type ? LIE_TYPE_LABELS[shot.lie_type as LieType] : null
-  const distanceLabel =
-    shot.distance_to_target != null ? formatDistance(shot.distance_to_target, unit) : null
   const sub = isPutt
     ? [
-        shot.putt_distance_ft != null ? `${shot.putt_distance_ft} ft` : null,
+        // formatPuttDistance: metres mode read "6 ft" here.
+        shot.putt_distance_ft != null ? formatPuttDistance(shot.putt_distance_ft, unit) : null,
         shot.putt_result === 'made'
           ? 'Made'
           : [shot.putt_distance_result, shot.putt_direction_result]
@@ -272,7 +277,8 @@ function ShotRowView({
       ]
         .filter(Boolean)
         .join(' · ')
-    : [lieLabel, distanceLabel].filter(Boolean).join(' · ')
+    : // Distance + the result axes ("Thin · Draw"), same helper as web's list.
+      [lieLabel, ...summarizeShotParts(shot, null, unit)].filter(Boolean).join(' · ')
 
   return (
     <Pressable

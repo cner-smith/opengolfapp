@@ -243,7 +243,8 @@ export function HoleReviewSheet({
     // counts as a putt here even though its row shows normal-shot UI (the
     // per-row isPutt gate below stays isPuttEntry). User-overridable ticker.
     setPutts(merged.filter((r) => isPuttShot(r.lieType)).length)
-    setPenalties(0)
+    // Same OB rows the score just counted (#963).
+    setPenalties(obCount(seeded))
   }, [open, holeNumber, par, pinLat, pinLng])
 
   // Slide-in: mount at translateY(100%), flip to 0 next frame so CSS
@@ -378,11 +379,13 @@ export function HoleReviewSheet({
                 if (next.shotResult !== row.shotResult) {
                   if (next.shotResult === 'ob' && row.shotResult !== 'ob') {
                     setScore((s) => s + 1)
+                    setPenalties((n) => n + 1)
                   } else if (
                     row.shotResult === 'ob' &&
                     next.shotResult !== 'ob'
                   ) {
                     setScore((s) => Math.max(0, s - 1))
+                    setPenalties((n) => Math.max(0, n - 1))
                   }
                 }
                 setRows((prev) => {

@@ -98,6 +98,8 @@ export interface HoleMapProps {
   /** The map runs under the caller's bottom dock (live round): pin the Mapbox
    *  logo + attribution to the top so they stay visible (Mapbox terms). */
   ornamentsTop?: boolean
+  /** dp from the map bottom the caller's dock covers; leg tags stay above it. */
+  tagClearBottom?: number
   onSetAim: (loc: LatLng) => void
   onSetBall: (loc: LatLng) => void
   /**

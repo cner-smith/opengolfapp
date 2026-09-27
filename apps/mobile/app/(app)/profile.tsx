@@ -22,11 +22,13 @@ import { getProfile, updateProfile } from '@oga/supabase'
 import type { Database } from '@oga/supabase'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
+import { useUnitsContext } from '../../contexts/UnitsContext'
 import { clearScreenCache } from '../../lib/screenCache'
 import { getAimTilt, setAimTilt, type AimTilt } from '../../lib/aimTilt'
 import { getLeftHand, setLeftHand } from '../../lib/leftHand'
 import { getSoundsOn, setSoundsOn } from '../../lib/sounds'
 import { AppBar } from '../../components/ui/AppBar'
+import { Key, KeyText } from '../../components/paper/Paper'
 import { TYPE } from '../../lib/typography'
 
 type Profile = Database['public']['Tables']['profiles']['Row']
@@ -76,6 +78,8 @@ export default function ProfileTab() {
   const [goal, setGoal] = useState<Goal>(null)
   const [facilities, setFacilities] = useState<string[]>([])
   const [unit, setUnit] = useState<'yards' | 'meters'>('yards')
+  const { setUnit: setAppUnit, setPlaysLeftHanded: setAppLefty } = useUnitsContext()
+  const [playsLefty, setPlaysLefty] = useState(false)
   const [emailSummaries, setEmailSummaries] = useState(true)
   // Device-local (lib/aimTilt), so it saves on tap rather than with the
   // profile row below.
@@ -170,6 +174,7 @@ export default function ProfileTab() {
       setGoal(data.goal ?? null)
       setFacilities(data.facilities ?? [])
       setUnit(data.distance_unit === 'meters' ? 'meters' : 'yards')
+      setPlaysLefty(data.plays_left_handed === true)
       setEmailSummaries(data.email_round_summaries_enabled ?? true)
     })
     supabase
@@ -213,6 +218,7 @@ export default function ProfileTab() {
       goal,
       facilities,
       distance_unit: unit,
+      plays_left_handed: playsLefty,
       email_round_summaries_enabled: emailSummaries,
     })
     setSaving(false)
@@ -223,7 +229,9 @@ export default function ProfileTab() {
       return
     }
     if (data) setProfile(data)
-    Alert.alert('Saved', 'Profile updated. SG benchmarks will use the new handicap.')
+    setAppUnit(unit)
+    setAppLefty(playsLefty)
+    Alert.alert('Saved', 'Profile updated.')
   }
 
   function toggleFacility(f: string) {
@@ -385,6 +393,13 @@ export default function ProfileTab() {
           </View>
         </Field>
 
+        <Field label="Plays">
+          <View style={{ flexDirection: 'row', gap: 6 }}>
+            <Chip label="Right-handed" active={!playsLefty} onPress={() => setPlaysLefty(false)} />
+            <Chip label="Left-handed" active={playsLefty} onPress={() => setPlaysLefty(true)} />
+          </View>
+        </Field>
+
         <Field label="Aim view">
           <View style={{ flexDirection: 'row', gap: 6 }}>
             <Chip label="Flat" active={aimTilt === 0} onPress={() => chooseAimTilt(0)} />
@@ -471,32 +486,18 @@ export default function ProfileTab() {
           <Text style={[TYPE.bodyItalic, { color: '#1F3D2C', fontSize: 18 }]}>→</Text>
         </Pressable>
 
-        <Pressable
-          accessibilityRole="button"
+        <Key
           accessibilityLabel={saving ? 'Saving profile' : 'Save profile changes'}
-          accessibilityState={{ disabled: saving || usernameInvalid }}
+          tone="primary"
           onPress={save}
           disabled={saving || usernameInvalid}
-          style={{
-            marginTop: 18,
-            backgroundColor: '#1F3D2C',
-            borderRadius: 2,
-            paddingVertical: 14,
-            alignItems: 'center',
-            opacity: saving || usernameInvalid ? 0.5 : 1,
-          }}
+          style={{ marginTop: 18 }}
+          faceStyle={{ minHeight: 50 }}
         >
-          <Text
-            style={[TYPE.bodyBold, {
-              color: '#F2EEE5',
-              fontSize: 14,
-              fontWeight: '600',
-              letterSpacing: 0.3,
-            }]}
-          >
+          <KeyText tone="primary" bold size={15} disabled={saving || usernameInvalid}>
             {saving ? 'Saving…' : 'Save changes'}
-          </Text>
-        </Pressable>
+          </KeyText>
+        </Key>
 
         <View
           style={{
@@ -881,6 +882,8 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   )
 }
 
+// Option chips in the paper style of the round screens (#611): a key that
+// sits latched (pressed in) while chosen.
 function Chip({
   label,
   active,
@@ -891,28 +894,10 @@ function Chip({
   onPress: () => void
 }) {
   return (
-    <Pressable
-      accessibilityRole="radio"
-      accessibilityLabel={label}
-      accessibilityState={{ selected: active }}
-      onPress={onPress}
-      style={{
-        paddingHorizontal: 10,
-        paddingVertical: 8,
-        borderRadius: 2,
-        backgroundColor: active ? '#1F3D2C' : '#EBE5D6',
-      }}
-    >
-      <Text
-        style={[TYPE.body, {
-          color: active ? '#F2EEE5' : '#1C211C',
-          fontSize: 12,
-          fontWeight: active ? '500' : '400',
-          textTransform: 'capitalize',
-        }]}
-      >
+    <Key accessibilityLabel={label} latched={active} onPress={onPress} faceStyle={{ minHeight: 40, paddingHorizontal: 12 }}>
+      <KeyText size={13} bold={active} style={{ textTransform: 'capitalize' }}>
         {label}
-      </Text>
-    </Pressable>
+      </KeyText>
+    </Key>
   )
 }
