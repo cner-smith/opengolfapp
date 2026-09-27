@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type JSX } from 'react'
 import { haptic } from '../../lib/haptics'
-import { Alert, Pressable, ScrollView, Text, View } from 'react-native'
+import { Alert, BackHandler, Pressable, ScrollView, Text, View } from 'react-native'
 import { GestureHandlerRootView } from 'react-native-gesture-handler'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import {
@@ -115,6 +115,19 @@ export function HoleReviewSheet({
   // Which putt row (by shotNumber) has the on-demand aimer open, if any. The
   // read tool is a full-screen overlay — never auto-opens.
   const [aimingShot, setAimingShot] = useState<number | null>(null)
+
+  // Android Back. The sheet and the aimer are overlays, not Modals, so Back
+  // fell through to the live round's handler and asked "Leave round?". Newest
+  // listener runs first: close the aimer, else the sheet (= its ✕).
+  useEffect(() => {
+    if (!visible) return
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (aimingShot != null) setAimingShot(null)
+      else onEditOnMap()
+      return true
+    })
+    return () => sub.remove()
+  }, [visible, aimingShot, onEditOnMap])
 
   // Read the latest initialRows inside the effect via ref so the effect
   // doesn't re-fire (and clobber user edits) just because the parent returned

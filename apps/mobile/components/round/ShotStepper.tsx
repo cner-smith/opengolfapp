@@ -13,38 +13,75 @@ export interface ShotStepperProps {
   onNext: () => void
   onDelete: () => void
   deleteDisabled?: boolean
+  /** The hole isn't saved yet: a way back to its review (#938). */
+  onDone?: () => void
 }
 
 // Played-hole edit row (#611 paper): "‹ Shot N of M ›" plus Delete, sitting
 // in the live dock's footer in place of the bottom row. Pure presentational —
 // the caller owns activeShotIdx / moveShot / deleteShot wiring.
-export function ShotStepper({ index, count, onPrev, onNext, onDelete, deleteDisabled }: ShotStepperProps) {
+export function ShotStepper({
+  index,
+  count,
+  onPrev,
+  onNext,
+  onDelete,
+  deleteDisabled,
+  onDone,
+}: ShotStepperProps) {
   // Display-only clamp: a delete can commit a shorter `count` one render
   // ahead of the caller's reclamp effect — never render "Shot 3 of 2".
   const displayIndex = count > 0 ? Math.min(Math.max(index, 0), count - 1) : 0
   const atStart = displayIndex <= 0
   const atEnd = displayIndex >= count - 1
   return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: GAP, paddingTop: 2 }}>
-      <Key accessibilityLabel="Previous shot" onPress={onPrev} disabled={atStart} faceStyle={{ width: 44, height: 46 }}>
-        <Icon.prev size={20} color={atStart ? P.ink35 : P.ink} />
-      </Key>
-      <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.serif, { flex: 1, textAlign: 'center', fontSize: 18, color: P.ink }]}>
-        Shot {displayIndex + 1} of {count}
-      </Text>
-      <Key accessibilityLabel="Next shot" onPress={onNext} disabled={atEnd} faceStyle={{ width: 44, height: 46 }}>
-        <Icon.next size={20} color={atEnd ? P.ink35 : P.ink} />
-      </Key>
-      <Key
-        accessibilityLabel="Delete this shot"
-        onPress={onDelete}
-        disabled={deleteDisabled}
-        faceStyle={{ height: 46, paddingHorizontal: 12 }}
-      >
-        <KeyText disabled={deleteDisabled} style={deleteDisabled ? undefined : { color: P.neg }}>
-          Delete
-        </KeyText>
-      </Key>
+    <View style={{ gap: GAP }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: GAP, paddingTop: 2 }}>
+        <Key
+          accessibilityLabel="Previous shot"
+          onPress={onPrev}
+          disabled={atStart}
+          faceStyle={{ width: 44, height: 46 }}
+        >
+          <Icon.prev size={20} color={atStart ? P.ink35 : P.ink} />
+        </Key>
+        <Text
+          maxFontSizeMultiplier={FONT_CAP}
+          style={[TYPE.serif, { flex: 1, textAlign: 'center', fontSize: 18, color: P.ink }]}
+        >
+          Shot {displayIndex + 1} of {count}
+        </Text>
+        <Key
+          accessibilityLabel="Next shot"
+          onPress={onNext}
+          disabled={atEnd}
+          faceStyle={{ width: 44, height: 46 }}
+        >
+          <Icon.next size={20} color={atEnd ? P.ink35 : P.ink} />
+        </Key>
+        <Key
+          accessibilityLabel="Delete this shot"
+          onPress={onDelete}
+          disabled={deleteDisabled}
+          faceStyle={{ height: 46, paddingHorizontal: 12 }}
+        >
+          <KeyText disabled={deleteDisabled} style={deleteDisabled ? undefined : { color: P.neg }}>
+            Delete
+          </KeyText>
+        </Key>
+      </View>
+      {onDone && (
+        <Key
+          accessibilityLabel="Back to the hole review"
+          tone="primary"
+          onPress={onDone}
+          faceStyle={{ minHeight: 49 }}
+        >
+          <KeyText tone="primary" bold size={16}>
+            Back to review
+          </KeyText>
+        </Key>
+      )}
     </View>
   )
 }

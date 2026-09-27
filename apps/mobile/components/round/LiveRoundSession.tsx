@@ -477,14 +477,19 @@ export default function LiveRoundSession({
   useEffect(() => {
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {
       if (data.loading || data.error || !data.round || !data.currentHole || !data.currentHoleScore) return false
+      // Editing a hole that isn't saved yet (review ✕ / Back): Back returns
+      // to its review rather than asking to leave the round (#938).
+      const editingUnsaved =
+        holeNumber < furthestHoleReached && data.previousShots.length > 0 && !data.currentHoleScore.finished_at
       if (menuOpen) setMenuOpen(false)
       else if (pinPlacementOpen) setPinPlacementOpen(false)
+      else if (editingUnsaved && finalState.roundState === 'PLACE_BALL') finalState.setRoundState('SUMMARY')
       else if (finalState.roundState !== 'SET_AIM') setActiveDialog('leave')
       else { finalState.setAim(null); finalState.setRoundState('PLACE_BALL') } // = onRePlaceBall
       return true
     })
     return () => sub.remove()
-  }, [menuOpen, pinPlacementOpen, finalState, data])
+  }, [menuOpen, pinPlacementOpen, finalState, data, holeNumber, furthestHoleReached])
 
   // End-of-hole review rows. Built from the shots placed live (their start
   // coords, in order) via the shared @oga/core inference — same call the web
@@ -772,6 +777,7 @@ export default function LiveRoundSession({
                 onNext={() => setActiveShotIdx((i) => Math.min(data.previousShots.length - 1, i + 1))}
                 onDelete={handleDeleteActiveShot}
                 deleteDisabled={data.previousShots.length === 0}
+                onDone={data.currentHoleScore.finished_at ? undefined : () => finalState.setRoundState('SUMMARY')}
               />
             ) : null
           }
