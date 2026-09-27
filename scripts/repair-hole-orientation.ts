@@ -9,9 +9,10 @@
 // tee/pin per hole id — which is the rollback.
 //
 //   DOTENV_CONFIG_PATH=apps/web/.env.test.local tsx scripts/repair-hole-orientation.ts [--states PA,ME] [--apply]
+//   … --apply-log <dry-run log>   apply a reviewed dry run without re-fetching OSM
 //
 // Root .env points at PROD. The target host is printed before anything runs.
-import { mkdirSync, writeFileSync } from 'node:fs'
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { supabase } from './crawl/client'
 import { buildHolesForCourses, fetchHoleFeaturesInState } from './crawl/holes-fetcher'
 import { fetchCourseGeoForState } from './crawl/db-writer'
@@ -59,9 +60,43 @@ async function storedHoles(courseIds: string[]): Promise<StoredHole[]> {
 const near = (aLat: number, aLng: number, bLat: number, bLng: number) =>
   haversineMeters(aLat, aLng, bLat, bLng) <= MATCH_M
 
+async function swap(flips: StoredHole[]) {
+  let done = 0
+  for (const h of flips) {
+    const { data, error } = await supabase
+      .from('holes')
+      .update({ tee_lat: h.pin_lat, tee_lng: h.pin_lng, pin_lat: h.tee_lat, pin_lng: h.tee_lng })
+      .eq('id', h.id)
+      // Only if still exactly as logged — never swap a hole twice.
+      .eq('tee_lat', h.tee_lat)
+      .eq('pin_lat', h.pin_lat)
+      .select('id')
+    if (error) console.error(`hole ${h.id}: ${error.message}`)
+    else if (data?.length === 1) done++
+    else console.error(`hole ${h.id}: changed since the dry run — skipped`)
+  }
+  console.log(`swapped ${done}/${flips.length}`)
+}
+
+// --apply-log <file>: apply a reviewed dry run's flips without re-fetching OSM.
+async function applyLog(file: string) {
+  const logged = JSON.parse(readFileSync(file, 'utf8')) as { host: string; flips: StoredHole[] }
+  if (logged.host !== host) throw new Error(`log is for ${logged.host}, target is ${host}`)
+  console.log(`applying ${logged.flips.length} flips from ${file}`)
+  await swap(logged.flips)
+}
+
 async function main() {
+  if (args.includes('--apply-log')) return applyLog(args[args.indexOf('--apply-log') + 1])
   const flips: (StoredHole & { region: string })[] = []
-  const tally = { checked: 0, match: 0, reversed: 0, other: 0, noOsm: 0, failedRegions: [] as string[] }
+  const tally = {
+    checked: 0,
+    match: 0,
+    reversed: 0,
+    other: 0,
+    noOsm: 0,
+    failedRegions: [] as string[],
+  }
 
   for (const region of states) {
     try {
@@ -77,9 +112,15 @@ async function main() {
           tally.noOsm++
           continue
         }
-        if (near(h.tee_lat, h.tee_lng, osm.teeLat, osm.teeLng!) && near(h.pin_lat, h.pin_lng, osm.pinLat, osm.pinLng!)) {
+        if (
+          near(h.tee_lat, h.tee_lng, osm.teeLat, osm.teeLng!) &&
+          near(h.pin_lat, h.pin_lng, osm.pinLat, osm.pinLng!)
+        ) {
           tally.match++
-        } else if (near(h.tee_lat, h.tee_lng, osm.pinLat, osm.pinLng!) && near(h.pin_lat, h.pin_lng, osm.teeLat, osm.teeLng!)) {
+        } else if (
+          near(h.tee_lat, h.tee_lng, osm.pinLat, osm.pinLng!) &&
+          near(h.pin_lat, h.pin_lng, osm.teeLat, osm.teeLng!)
+        ) {
           tally.reversed++
           regionFlips++
           flips.push({ ...h, region })
@@ -100,23 +141,7 @@ async function main() {
   writeFileSync(log, JSON.stringify({ host, apply, tally, flips }, null, 1))
   console.log(`\n${JSON.stringify(tally)}\nlog: ${log}`)
 
-  if (apply) {
-    let done = 0
-    for (const h of flips) {
-      const { data, error } = await supabase
-        .from('holes')
-        .update({ tee_lat: h.pin_lat, tee_lng: h.pin_lng, pin_lat: h.tee_lat, pin_lng: h.tee_lng })
-        .eq('id', h.id)
-        // Only if still exactly as logged — never swap a hole twice.
-        .eq('tee_lat', h.tee_lat)
-        .eq('pin_lat', h.pin_lat)
-        .select('id')
-      if (error) console.error(`hole ${h.id}: ${error.message}`)
-      else if (data?.length === 1) done++
-      else console.error(`hole ${h.id}: changed since the dry run — skipped`)
-    }
-    console.log(`swapped ${done}/${flips.length}`)
-  }
+  if (apply) await swap(flips)
 }
 
 main().catch((err) => {
