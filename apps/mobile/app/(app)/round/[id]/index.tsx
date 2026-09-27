@@ -34,6 +34,8 @@ import { PastRoundMap } from '../../../../components/round/PastRoundMap'
 import { RoundScorecardTab, signed } from '../../../../components/round/past/RoundScorecardTab'
 import type { LatLng } from '../../../../components/round/HoleMap'
 import LiveRoundSession from '../../../../components/round/LiveRoundSession'
+import { CoachOverlay, CoachProvider, CoachTarget, useCoach } from '../../../../components/help/CoachMarks'
+import { PAST_STEPS } from '../../../../components/round/coachSteps'
 import { ConfirmDialog } from '../../../../components/ui/ConfirmDialog'
 import { Key, KeyText, PaperSurface, Rocker } from '../../../../components/paper/Paper'
 import { Icon } from '../../../../components/paper/icons'
@@ -157,6 +159,9 @@ function RoundScreen() {
   const [handicap, setHandicap] = useState<number | null>(null)
   // One paper confirm at a time — iOS presents one modal per presenter (#293).
   const [dialog, setDialog] = useState<'leave' | 'delete' | null>(null)
+  // Coach marks (#900) on the Map tab: first-time tips open on their own,
+  // "?" shows them all. Nothing while the shot sheet or a dialog is up.
+  const coach = useCoach(view === 'map' && !shotsForHole && !dialog ? PAST_STEPS : null)
 
   useEffect(() => {
     if (!id) return
@@ -607,6 +612,7 @@ function RoundScreen() {
     : `${DAYS[played.getDay()]} ${played.getDate()} ${MONTHS[played.getMonth()]}`
 
   return (
+    <CoachProvider>
     <PaperSurface style={{ flex: 1 }}>
       {/* Round header (#611 §19.1), above both tabs. On the Map tab it runs
           on into PastRoundMap's hole block, which draws the rule under both. */}
@@ -650,16 +656,20 @@ function RoundScreen() {
             <Icon.share size={18} color={sharing ? P.ink35 : P.ink} />
             <KeyText disabled={sharing}>{sharing ? 'Rendering…' : 'Share'}</KeyText>
           </Key>
+          <Key accessibilityLabel="What's on this screen" onPress={coach.openHelp} style={{ marginLeft: 8 }} faceStyle={{ width: 44, minHeight: 44 }}>
+            <Text maxFontSizeMultiplier={1} style={[TYPE.serif, { fontSize: 20, lineHeight: 24, color: P.ink }]}>?</Text>
+          </Key>
         </View>
-        <Rocker
-          options={[
-            { value: 'scorecard', label: 'Scorecard' },
-            { value: 'map', label: 'Map' },
-          ]}
-          value={view}
-          onChange={(v) => v && setView(v)}
-          style={{ marginTop: 2, marginHorizontal: 12, marginBottom: 13 }}
-        />
+        <CoachTarget id="past.tabs" style={{ marginTop: 2, marginHorizontal: 12, marginBottom: 13 }}>
+          <Rocker
+            options={[
+              { value: 'scorecard', label: 'Scorecard' },
+              { value: 'map', label: 'Map' },
+            ]}
+            value={view}
+            onChange={(v) => v && setView(v)}
+          />
+        </CoachTarget>
       </View>
 
       {/* Off-screen render target for react-native-view-shot. The View
@@ -834,7 +844,9 @@ function RoundScreen() {
         onConfirm={confirmDelete}
         onCancel={() => setDialog(null)}
       />
+      <CoachOverlay steps={coach.steps} onClose={coach.close} />
     </PaperSurface>
+    </CoachProvider>
   )
 }
 

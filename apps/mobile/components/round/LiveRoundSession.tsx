@@ -35,6 +35,8 @@ import { useHoleState } from './hole/useHoleState'
 import { useShotActions } from './hole/useShotActions'
 import { HoleModals } from './hole/HoleModals'
 import { LiveRoundDock, MIN_BOTTOM_STRIP } from './LiveRoundDock'
+import { CoachOverlay, CoachProvider, useCoach } from '../help/CoachMarks'
+import { LIVE_AIM_STEPS, LIVE_PLACE_STEPS, LIVE_PUTT_STEPS } from './coachSteps'
 import { LiveRoundHeader, RoundOptionsMenu } from './LiveRoundHeader'
 import { APPR_RULER_FEET, TEE_RULER_YARDS, rulerValueAt } from './HoleMapOverlays'
 import { LiveRoundError } from './LiveRoundError'
@@ -621,6 +623,16 @@ export default function LiveRoundSession({
     actions.editHoleOnMap()
   }
 
+  // Coach marks (#900): what's on screen in this state; first-time tips open
+  // on their own, "?" shows them all. Nothing while a sheet / dialog / menu
+  // is up or a played hole is being edited.
+  const rs = finalState.roundState
+  const coach = useCoach(
+    menuOpen || pinPlacementOpen || editMode || activeDialog || loggerOpen
+      ? null
+      : rs === 'PLACE_BALL' ? LIVE_PLACE_STEPS : rs === 'SET_AIM' ? LIVE_AIM_STEPS : rs === 'PUTTING' ? LIVE_PUTT_STEPS : null,
+  )
+
   if (data.loading || data.error || !data.round || !data.currentHole || !data.currentHoleScore) {
     return (
       <LiveRoundError
@@ -637,8 +649,10 @@ export default function LiveRoundSession({
   }
 
   return (
+    <CoachProvider>
     <View style={{ flex: 1, backgroundColor: P.chrome }}>
       <LiveRoundHeader
+        onHelp={coach.openHelp}
         holeNumber={holeNumber}
         holeCount={data.holeCount}
         par={data.resolvedHole?.par ?? data.currentHole.par}
@@ -962,6 +976,8 @@ export default function LiveRoundSession({
           }}
         />
       )}
+      <CoachOverlay steps={coach.steps} onClose={coach.close} />
     </View>
+    </CoachProvider>
   )
 }
