@@ -1,4 +1,4 @@
-import { Text, View } from 'react-native'
+import { Platform, Text, View } from 'react-native'
 import Mapbox from '@rnmapbox/maps'
 import type { LatLng, OffscreenArrow } from '../HoleMap.types'
 import { TYPE } from '../../../lib/typography'
@@ -18,6 +18,11 @@ function toCoord(l: LatLng): [number, number] {
 // HUD pills or the bottom chrome counting as off-screen: its callout would be
 // covered. `sideMargin` is half the callout's measured width — it centres on
 // the point, so any closer to a side edge and it clips.
+// Buttons inside a MarkerView: on iOS the press rect is measured from the
+// React layout, where the marker sits at the map's corner, so any finger roll
+// cancelled the tap (rnmapbox fixes this for Android only). Keep it generous.
+export const MARKER_PRESS_RETENTION = Platform.OS === 'ios' ? 10000 : undefined
+
 export function offscreenArrow(
   x: number,
   y: number,
@@ -66,6 +71,7 @@ export function ObCallout({
           edge={P.neg}
           borderWidth={1.5}
           hitSlop={6}
+          pressRetentionOffset={MARKER_PRESS_RETENTION}
           faceStyle={{ minHeight: 44, flexDirection: 'row', gap: 8, paddingLeft: 12, paddingRight: 14 }}
         >
           <Icon.warn size={17} color={P.neg} />

@@ -89,6 +89,8 @@ export interface KeyProps {
   latched?: boolean
   disabled?: boolean
   hitSlop?: number | Insets
+  /** How far the finger may drift before the press cancels. */
+  pressRetentionOffset?: number | Insets
   /** Fill a row-stretched outer box (a bottom row of keys of unequal text
    *  height). Opt-in: a growing face inside a ScrollView column measured
    *  to hundreds of dp tall. */
@@ -114,6 +116,7 @@ export function Key({
   latched = false,
   disabled = false,
   hitSlop,
+  pressRetentionOffset,
   stretch = false,
   style,
   faceStyle,
@@ -163,6 +166,7 @@ export function Key({
         sink.value = withTiming(0, { duration: 110, easing: Easing.out(Easing.cubic) })
       }}
       hitSlop={hitSlop}
+      pressRetentionOffset={pressRetentionOffset}
       style={[{ paddingBottom: LEDGE }, style]}
     >
       {!disabled && (

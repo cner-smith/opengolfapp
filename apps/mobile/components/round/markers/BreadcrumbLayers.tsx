@@ -4,6 +4,7 @@ import Mapbox from '@rnmapbox/maps'
 import type { LatLng } from '../HoleMap.types'
 import { TYPE } from '../../../lib/typography'
 import { P } from '../../paper/tokens'
+import { MARKER_PRESS_RETENTION } from './Callouts'
 
 // Pixel nudge for the OB disc when a re-hit covers it, matching web's
 // [-20, 0] in useMapLayers.ts. `circle-translate` / `text-translate` are
@@ -321,6 +322,7 @@ function PaperCrumb({
         accessibilityLabel={`Shot ${n}`}
         disabled={!onPress}
         onPress={onPress}
+        pressRetentionOffset={MARKER_PRESS_RETENTION}
         style={{
           width: 44,
           height: 44,
