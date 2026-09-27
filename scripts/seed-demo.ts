@@ -550,6 +550,9 @@ async function insertRound(
       user_id: userId,
       course_id: course.id,
       played_at: dateNDaysAgo(daysAgo),
+      // Finished rounds, like the app's completeRound writes — without it the
+      // past-round map reads every hole as "N shots so far" (still logging).
+      completed_at: new Date(`${dateNDaysAgo(daysAgo)}T18:00:00Z`).toISOString(),
       tee_color: teeColor,
       total_score: totalScore,
       total_putts: totalPutts,
