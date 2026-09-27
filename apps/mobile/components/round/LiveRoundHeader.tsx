@@ -6,6 +6,7 @@ import { HardShadow, Key, KeyText, PaperSurface } from '../paper/Paper'
 import { HeroRow } from '../paper/HeroRow'
 import { Icon } from '../paper/icons'
 import { FONT_CAP, P, R } from '../paper/tokens'
+import { PressableTouch } from '../ui/PressableTouch'
 
 const ORDINAL = ['first', 'second', 'third', 'fourth', 'fifth', 'sixth', 'seventh', 'eighth', 'ninth', 'tenth']
 
@@ -92,16 +93,17 @@ export function NavButton({
   children: ReactNode
 }) {
   return (
-    <Pressable
+    <PressableTouch
       accessibilityRole="button"
       accessibilityLabel={label}
       accessibilityState={{ disabled: !!disabled }}
       disabled={disabled}
       onPress={onPress}
+      android_ripple={{ color: P.well }}
       style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center', opacity: disabled ? 0.3 : 1 }}
     >
       {children}
-    </Pressable>
+    </PressableTouch>
   )
 }
 
@@ -147,7 +149,7 @@ function MenuRow({
   divider?: boolean
 }) {
   return (
-    <Pressable
+    <PressableTouch
       accessibilityRole="button"
       accessibilityLabel={label}
       onPress={onPress}
@@ -161,6 +163,6 @@ function MenuRow({
       }}
     >
       <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { fontSize: 15, color }]}>{label}</Text>
-    </Pressable>
+    </PressableTouch>
   )
 }
