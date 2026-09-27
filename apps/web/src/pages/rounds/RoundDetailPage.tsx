@@ -139,6 +139,7 @@ export function RoundDetailPage() {
     shotCountByHoleScore,
     activeHole,
     effectivePin,
+    persistedRoundPin,
     courseFallbackLat,
     courseFallbackLng,
     activeHoleGeo,
@@ -378,6 +379,7 @@ export function RoundDetailPage() {
           focusGreenSignal={focusGreenSignal}
           puttingOpen={puttingSheetForIdx != null}
           pinOverride={pinOverride}
+          roundPinSet={persistedRoundPin != null}
           teeOverride={teeOverride}
           placementMode={placementMode}
           handlers={placeHandlers}
