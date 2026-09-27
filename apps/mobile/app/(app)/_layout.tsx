@@ -3,6 +3,11 @@ import { ActivityIndicator, Pressable, Text, View } from 'react-native'
 import { Tabs, Redirect } from 'expo-router'
 import { MaterialCommunityIcons } from '@expo/vector-icons'
 import { StatusBar } from 'expo-status-bar'
+import { P } from '../../components/paper/tokens'
+import { FONT } from '../../lib/typography'
+import Svg, { Path } from 'react-native-svg'
+import { marksPath, pencilUnderline } from '../../components/paper/pencil'
+import type { BottomTabBarButtonProps } from '@react-navigation/bottom-tabs'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
@@ -146,7 +151,7 @@ export default function AppLayout() {
         tabBarStyle: {
           backgroundColor: '#FBF8F1',
           borderTopWidth: 1,
-          borderTopColor: '#D9D2BF',
+          borderTopColor: P.ink,
           paddingTop: 8,
           // Explicit height + inset so the label never clips. Auto-height
           // (omitting this) under-reserves space on the Galaxy S23's nav setup
@@ -160,14 +165,15 @@ export default function AppLayout() {
           shadowOpacity: 0,
         },
         tabBarLabelStyle: {
-          fontSize: 10,
-          fontWeight: '500',
-          letterSpacing: 0.4,
+          // Epilogue by family (a bare fontWeight fell back to Roboto).
+          fontFamily: FONT.body,
+          fontSize: 11,
           // Lifts the label up off the bottom edge without moving the icon.
           marginBottom: 8,
         },
         tabBarActiveTintColor: '#1F3D2C',
-        tabBarInactiveTintColor: '#8A8B7E',
+        tabBarInactiveTintColor: P.inkDim,
+        tabBarButton: (props) => <PencilTabButton {...props} />,
       }}
     >
       <Tabs.Screen
@@ -243,3 +249,24 @@ export default function AppLayout() {
     </ErrorBoundary>
   )
 }
+
+// Tab button with a pencil underline under the active tab — the same hand as
+// the scorecard's golf marks and ticks.
+function PencilTabButton(props: BottomTabBarButtonProps) {
+  // ref is a legacy union the RN Pressable type rejects; the tab bar doesn't need it.
+  const { children, style, ref: _ref, ...rest } = props
+  const active = props['aria-selected']
+  return (
+    <Pressable {...rest} style={[style, { alignItems: 'center', justifyContent: 'center' }]}>
+      {children}
+      {active && (
+        <View pointerEvents="none" style={{ position: 'absolute', bottom: 2 }}>
+          <Svg width={34} height={8} viewBox="-17 -4 34 8">
+            <Path d={UNDERLINE} fill={P.graphite} opacity={0.9} />
+          </Svg>
+        </View>
+      )}
+    </Pressable>
+  )
+}
+const UNDERLINE = marksPath([{ m: pencilUnderline(), at: 0 }], 1e9)
