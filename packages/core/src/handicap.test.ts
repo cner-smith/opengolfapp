@@ -124,43 +124,55 @@ describe('calculateHandicapIndex (WHS)', () => {
   })
 })
 
-describe('adjustedScore (ESC)', () => {
-  const holes = [
-    { score: 4, par: 4 }, // par
-    { score: 6, par: 4 }, // double bogey
-    { score: 9, par: 4 }, // triple bogey + 2 — will get capped
-    { score: 5, par: 5 },
-    { score: 8, par: 3 }, // very bad par 3
-  ]
+describe('adjustedScore (net double bogey)', () => {
+  // Rating = par keeps the Course Handicap at index × slope / 113.
+  const tee = (courseRating: number, slopeRating = 113) => ({ courseRating, slopeRating })
+  const eighteen = (strokeIndex?: boolean) =>
+    Array.from({ length: 18 }, (_, i) => ({
+      score: 10,
+      par: 4,
+      strokeIndex: strokeIndex ? i + 1 : null,
+    }))
 
-  it('caps to par + 2 for single-digit handicaps', () => {
-    // Hole 3: par 4 → cap 6 (lost 3 strokes)
-    // Hole 5: par 3 → cap 5 (lost 3 strokes)
-    // Total raw = 32; capped = 4 + 6 + 6 + 5 + 5 = 26
-    expect(adjustedScore(holes, 8)).toBe(26)
+  it('caps a scratch player at par + 2', () => {
+    expect(adjustedScore(eighteen(), 0, tee(72))).toBe(18 * 6)
   })
 
-  it('caps to 7 for handicap 10–19', () => {
-    // Hole 3 → 7, hole 5 → 7
-    // Total = 4 + 6 + 7 + 5 + 7 = 29
-    expect(adjustedScore(holes, 15)).toBe(29)
+  it('the #670 example: 15-index, par 3, receiving 1 stroke → 6, not 7', () => {
+    const holes = eighteen(true).map((h, i) => (i === 0 ? { ...h, par: 3, score: 7 } : { ...h, score: 4 }))
+    // CH 15 on par 71 / rating 71 → stroke index 1 (hole 1) receives a stroke.
+    expect(adjustedScore(holes, 15, tee(71))).toBe(6 + 17 * 4)
   })
 
-  it('caps to 8 for handicap 20–29', () => {
-    expect(adjustedScore(holes, 24)).toBe(4 + 6 + 8 + 5 + 8)
+  it('allocates strokes by stroke index', () => {
+    // CH 20: every hole gets 1, stroke index 1–2 get a second.
+    const total = adjustedScore(eighteen(true), 20, tee(72))
+    expect(total).toBe(2 * 8 + 16 * 7)
   })
 
-  it('caps to 9 for handicap 30–39', () => {
-    expect(adjustedScore(holes, 35)).toBe(4 + 6 + 9 + 5 + 8)
+  it('without a stroke index, gives each hole only its guaranteed share', () => {
+    // CH 20 → floor(20 / 18) = 1 per hole.
+    expect(adjustedScore(eighteen(), 20, tee(72))).toBe(18 * 7)
   })
 
-  it('caps to 10 for handicap 40+', () => {
-    expect(adjustedScore(holes, 45)).toBe(4 + 6 + 9 + 5 + 8)
+  it('uses slope and rating for the Course Handicap', () => {
+    // 10 × 130/113 + (74 − 72) = 13.5 → 14: stroke index 1–14 get 1.
+    expect(adjustedScore(eighteen(true), 10, tee(74, 130))).toBe(14 * 7 + 4 * 6)
+  })
+
+  it('a plus handicap gives strokes back on the highest stroke index', () => {
+    // CH −2: stroke index 17 and 18 cap at par + 1.
+    expect(adjustedScore(eighteen(true), -2, tee(72))).toBe(16 * 6 + 2 * 5)
+  })
+
+  it('a 9-hole round uses half the index', () => {
+    const nine = eighteen(true).slice(0, 9)
+    // 18 / 2 = 9 on par 36 / rating 36 → 1 stroke per hole.
+    expect(adjustedScore(nine, 18, tee(36))).toBe(9 * 7)
   })
 
   it('does not raise scores below the cap', () => {
-    const easy = [{ score: 3, par: 4 }]
-    expect(adjustedScore(easy, 8)).toBe(3)
+    expect(adjustedScore([{ score: 3, par: 4 }], 8, tee(4))).toBe(3)
   })
 })
 

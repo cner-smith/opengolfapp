@@ -213,7 +213,7 @@ export async function completeRound({
   // ---- Handicap differential ------------------------------------------
   // Mirrors web's useCompleteRound: resolve the played tee (by id, else by
   // colour), and if it carries a course rating + slope, compute the WHS
-  // score differential from the ESC-adjusted gross. Null when no rated tee
+  // score differential from the net-double-bogey-adjusted gross. Null when no rated tee
   // is on the round — common, since most crawled courses have no tee data.
   const tee = resolveCourseTee(tees, roundTee?.course_tee_id, roundTee?.tee_color)
   let differential: number | null = null
@@ -227,9 +227,9 @@ export async function completeRound({
       .map((hs) => {
         const h = holesById.get(hs.hole_id)
         if (!h) return null
-        return { score: hs.score, par: h.par }
+        return { score: hs.score, par: h.par, strokeIndex: h.stroke_index }
       })
-      .filter((x): x is { score: number; par: number } => !!x)
+      .filter((x): x is { score: number; par: number; strokeIndex: number | null } => !!x)
     // Only a complete round produces a differential (#711) — see
     // playedRowsForDifferential for the sentinel/coverage contract.
     const playedRows = playedRowsForDifferential(
@@ -237,7 +237,10 @@ export async function completeRound({
       inferHoleCount(holes.map((h) => h.number)),
     )
     if (playedRows) {
-      const adjusted = adjustedScore(playedRows, handicap ?? DEFAULT_HANDICAP)
+      const adjusted = adjustedScore(playedRows, handicap ?? DEFAULT_HANDICAP, {
+        courseRating: tee.course_rating,
+        slopeRating: tee.slope_rating,
+      })
       differential = round2(
         calculateDifferential(adjusted, tee.course_rating, tee.slope_rating),
       )
