@@ -112,6 +112,17 @@ export function inferHoleCount(holeNumbers: number[]): 9 | 18 {
   return Math.max(...holeNumbers) <= 9 ? 9 : 18
 }
 
+// Par for a hole whose source has none (an OSM hole way with no `par` tag),
+// from its length: under 250 yd → 3, over 470 → 5, else 4 (#912). Crawled
+// lengths are tee→pin straight lines, so a dogleg reads short. Store the
+// result with par_source 'inferred' so it's never mistaken for a real par.
+export function inferParFromYards(yards: number | null | undefined): 3 | 4 | 5 {
+  if (yards == null || !(yards > 0)) return 4
+  if (yards < 250) return 3
+  if (yards > 470) return 5
+  return 4
+}
+
 // Where a live round picks back up after the app restarts: the hole after the
 // last FINISHED one, or the last hole with shots if that's further along. A
 // score alone can't mean finished — live mode rewrites a running score on
