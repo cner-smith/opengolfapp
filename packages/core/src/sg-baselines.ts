@@ -29,14 +29,19 @@ export const APPROACH_BASELINES: Record<HandicapBracket, Record<number, number>>
   30: { 50: 3.76, 75: 4.1, 100: 4.44, 125: 4.74, 150: 5.01, 175: 5.25, 200: 5.47, 225: 5.66 },
 }
 
+// Around-green runs to 30 yd, where getShotCategory hands over to approach
+// (whose table clamps to its 50-yd value below 50). Each row is the original
+// curve's shape from 5 yd, rescaled so 30 yd meets approach@50 — the old rows
+// sat above it in every bracket, so a shot from 30 yd "expected" more
+// strokes than one from 50 (#632).
 export const AROUND_GREEN_BASELINES: Record<HandicapBracket, Record<number, number>> = {
-  0: { 5: 2.18, 10: 2.3, 15: 2.4, 20: 2.52, 30: 2.64 },
-  5: { 5: 2.3, 10: 2.44, 15: 2.56, 20: 2.7, 30: 2.84 },
-  10: { 5: 2.44, 10: 2.6, 15: 2.74, 20: 2.9, 30: 3.06 },
-  15: { 5: 2.6, 10: 2.78, 15: 2.94, 20: 3.12, 30: 3.3 },
-  20: { 5: 2.78, 10: 2.98, 15: 3.16, 20: 3.36, 30: 3.56 },
-  25: { 5: 2.98, 10: 3.2, 15: 3.4, 20: 3.62, 30: 3.84 },
-  30: { 5: 3.2, 10: 3.44, 15: 3.66, 20: 3.9, 30: 4.14 },
+  0: { 5: 2.18, 10: 2.29, 15: 2.38, 20: 2.49, 30: 2.6 },
+  5: { 5: 2.3, 10: 2.42, 15: 2.52, 20: 2.63, 30: 2.75 },
+  10: { 5: 2.44, 10: 2.56, 15: 2.67, 20: 2.8, 30: 2.92 },
+  15: { 5: 2.6, 10: 2.73, 15: 2.84, 20: 2.97, 30: 3.1 },
+  20: { 5: 2.78, 10: 2.91, 15: 3.03, 20: 3.17, 30: 3.3 },
+  25: { 5: 2.98, 10: 3.12, 15: 3.24, 20: 3.38, 30: 3.52 },
+  30: { 5: 3.2, 10: 3.34, 15: 3.47, 20: 3.62, 30: 3.76 },
 }
 
 export function getHandicapBracket(handicap: number): HandicapBracket {
