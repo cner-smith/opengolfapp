@@ -24,6 +24,7 @@ import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
 import { clearScreenCache } from '../../lib/screenCache'
 import { getAimTilt, setAimTilt, type AimTilt } from '../../lib/aimTilt'
+import { getLeftHand, setLeftHand } from '../../lib/leftHand'
 import { AppBar } from '../../components/ui/AppBar'
 import { TYPE } from '../../lib/typography'
 
@@ -84,6 +85,14 @@ export default function ProfileTab() {
   const chooseAimTilt = (t: AimTilt) => {
     setAimTiltState(t)
     void setAimTilt(t)
+  }
+  const [leftHand, setLeftHandState] = useState(false)
+  useEffect(() => {
+    void getLeftHand().then(setLeftHandState)
+  }, [])
+  const chooseLeftHand = (on: boolean) => {
+    setLeftHandState(on)
+    void setLeftHand(on)
   }
   // Count of rounds with a derived score_differential — the signal for
   // whether the displayed index is a calculated WHS value or still the
@@ -371,6 +380,13 @@ export default function ProfileTab() {
           <View style={{ flexDirection: 'row', gap: 6 }}>
             <Chip label="Flat" active={aimTilt === 0} onPress={() => chooseAimTilt(0)} />
             <Chip label="Flyover" active={aimTilt === 60} onPress={() => chooseAimTilt(60)} />
+          </View>
+        </Field>
+
+        <Field label="Live round layout">
+          <View style={{ flexDirection: 'row', gap: 6 }}>
+            <Chip label="Right-handed" active={!leftHand} onPress={() => chooseLeftHand(false)} />
+            <Chip label="Left-handed" active={leftHand} onPress={() => chooseLeftHand(true)} />
           </View>
         </Field>
 

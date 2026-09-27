@@ -1,26 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import {
-  ActivityIndicator,
-  Alert,
-  Pressable,
-  ScrollView,
-  Text,
-  View,
-} from 'react-native'
-import { PressableTouch } from '../../../../components/ui/PressableTouch'
+import { ActivityIndicator, Alert, Pressable, Text, View } from 'react-native'
 import { captureRef } from 'react-native-view-shot'
 import * as Sharing from 'expo-sharing'
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import {
-  formatSG,
-  inferHoleStats,
   pickRoundFocus,
   resolveCourseTee,
-  roundFocusHeadline,
   selectNudgeDrills,
   type CaptureMode,
-  type RoundFocus,
 } from '@oga/core'
 import {
   deleteRound,
@@ -43,12 +31,16 @@ import { ShareableScorecardCard } from '../../../../components/round/ShareableSc
 import { RoundTeeSelector } from '../../../../components/round/RoundTeeSelector'
 import { PastHoleShotsSheet } from '../../../../components/round/PastHoleShotsSheet'
 import { PastRoundMap } from '../../../../components/round/PastRoundMap'
-import { ScoreCell, TabSwitcher } from '../../../../components/round/PastScorecardParts'
+import { RoundScorecardTab, signed } from '../../../../components/round/past/RoundScorecardTab'
 import type { LatLng } from '../../../../components/round/HoleMap'
 import LiveRoundSession from '../../../../components/round/LiveRoundSession'
+import { ConfirmDialog } from '../../../../components/ui/ConfirmDialog'
+import { Key, KeyText, PaperSurface, Rocker } from '../../../../components/paper/Paper'
+import { Icon } from '../../../../components/paper/icons'
+import { P } from '../../../../components/paper/tokens'
 import { useAuth } from '../../../../hooks/useAuth'
 import { useUnits } from '../../../../hooks/useUnits'
-import { FONT, TYPE } from '../../../../lib/typography'
+import { TYPE } from '../../../../lib/typography'
 
 type RoundRow = Database['public']['Tables']['rounds']['Row']
 type HoleRow = Database['public']['Tables']['holes']['Row']
@@ -67,15 +59,6 @@ interface RoundDetailCache {
   holes: HoleRow[]
   holeScores: HoleScoreRow[]
   shots: ShotRow[]
-}
-
-const KICKER: import('react-native').TextStyle = {
-  color: '#8A8B7E',
-  fontSize: 10,
-  fontWeight: '500',
-  letterSpacing: 1.4,
-  textTransform: 'uppercase',
-  fontFamily: FONT.mono,
 }
 
 // This route is a hidden Tabs screen (app/(app)/_layout.tsx), and tab screens
@@ -160,6 +143,10 @@ function RoundScreen() {
   // "Today's focus" nudge data — fetched lazily, only when the round has a leak.
   const [nudgeFacilities, setNudgeFacilities] = useState<string[]>([])
   const [nudgeDrills, setNudgeDrills] = useState<DrillRow[]>([])
+  // Captions the SG total ("vs a 14 handicap"); read off the same profile fetch.
+  const [handicap, setHandicap] = useState<number | null>(null)
+  // One paper confirm at a time — iOS presents one modal per presenter (#293).
+  const [dialog, setDialog] = useState<'leave' | 'delete' | null>(null)
 
   useEffect(() => {
     if (!id) return
@@ -262,11 +249,14 @@ function RoundScreen() {
   useEffect(() => {
     if (!round || round.total_score == null || !user) return
     const focus = pickRoundFocus(round)
-    if (!focus) return
     let active = true
     ;(async () => {
       const { data: profile, error: pErr } = await getProfile(supabase, user.id)
       if (!active || pErr || !profile) return
+      setHandicap(
+        (profile as { handicap_index?: number | null }).handicap_index ?? null,
+      )
+      if (!focus) return
       setNudgeFacilities(profile.facilities ?? [])
       const { data: drills, error: dErr } = await getDrills(supabase, {
         category: focus.category,
@@ -403,33 +393,18 @@ function RoundScreen() {
 
   if (loading) {
     return (
-      <View
-        style={{
-          flex: 1,
-          alignItems: 'center',
-          justifyContent: 'center',
-          backgroundColor: '#F2EEE5',
-        }}
-      >
-        <ActivityIndicator color="#1F3D2C" />
-      </View>
+      <PaperSurface style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+        <ActivityIndicator color={P.forest} />
+      </PaperSurface>
     )
   }
   if (error || !round) {
     return (
-      <View
-        style={{
-          flex: 1,
-          alignItems: 'center',
-          justifyContent: 'center',
-          backgroundColor: '#F2EEE5',
-          padding: 18,
-        }}
-      >
-        <Text style={[TYPE.body, { color: '#A33A2A', fontSize: 13 }]}>
+      <PaperSurface style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 22 }}>
+        <Text style={[TYPE.body, { color: P.neg, fontSize: 15, textAlign: 'center' }]}>
           {error ?? 'Round not found'}
         </Text>
-      </View>
+      </PaperSurface>
     )
   }
 
@@ -472,18 +447,7 @@ function RoundScreen() {
   // round otherwise looks like a finished "0" round in the list (#514 QA).
   function handleLeave() {
     if (round && round.completed_at == null) {
-      Alert.alert(
-        'Leave this round?',
-        "It isn't finished. Your scores and shots are saved — resume it anytime from Recent rounds on the Home screen.",
-        [
-          { text: 'Keep logging', style: 'cancel' },
-          {
-            text: 'Leave',
-            style: 'destructive',
-            onPress: () => router.replace('/(app)'),
-          },
-        ],
-      )
+      setDialog('leave')
       return
     }
     router.replace('/(app)')
@@ -492,35 +456,24 @@ function RoundScreen() {
   // Delete the whole round. Mirrors web RoundHeader's Delete (RLS-gated
   // on user_id via deleteRound). No "End round early" here — this is the
   // past-round / review surface, not the live tracker (#514).
-  function handleDelete() {
+  async function confirmDelete() {
     if (!round || !user || deleting) return
-    Alert.alert(
-      'Delete round?',
-      'This permanently removes the round and all its shots.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            setDeleting(true)
-            try {
-              const { error: delErr } = await deleteRound(supabase, round.id, user.id)
-              if (delErr) throw delErr
-              // Wipe ALL cached screens — home/list/detail caches would
-              // resurrect the deleted round as a ghost (#705 redux).
-              clearScreenCache()
-              router.replace('/(app)')
-            } catch (e) {
-              // Reset so the `deleting` guard can't wedge the button on retry;
-              // surface the reason instead of hanging on "Deleting…" forever.
-              setDeleting(false)
-              Alert.alert('Delete failed', (e as Error).message)
-            }
-          },
-        },
-      ],
-    )
+    setDeleting(true)
+    try {
+      const { error: delErr } = await deleteRound(supabase, round.id, user.id)
+      if (delErr) throw delErr
+      // Wipe ALL cached screens — home/list/detail caches would
+      // resurrect the deleted round as a ghost (#705 redux).
+      clearScreenCache()
+      setDialog(null)
+      router.replace('/(app)')
+    } catch (e) {
+      // Reset so the `deleting` guard can't wedge the button on retry;
+      // surface the reason instead of hanging on "Deleting…" forever.
+      setDeleting(false)
+      setDialog(null)
+      Alert.alert('Delete failed', (e as Error).message)
+    }
   }
 
   // Save SG / finalize (#514). Mirrors web's "Save SG + finalize" — runs
@@ -622,12 +575,6 @@ function RoundScreen() {
     }
   }
 
-  const sgRows: { label: string; value: number | null }[] = [
-    { label: 'Off tee', value: round.sg_off_tee },
-    { label: 'Approach', value: round.sg_approach },
-    { label: 'Around green', value: round.sg_around_green },
-    { label: 'Putting', value: round.sg_putting },
-  ]
   const focus = pickRoundFocus(round)
 
   let runningScore = 0
@@ -641,54 +588,68 @@ function RoundScreen() {
       runningPar += hs.par ?? h.par
     }
   }
-  const diff = runningScore - runningPar
+
+  // "Fri 25 Sep". played_at is a DATE; a bare 'YYYY-MM-DD' parses as UTC,
+  // which is a day early in US zones — pin it to local midnight.
+  const played = new Date(`${round.played_at}T00:00:00`)
+  const dateLabel = Number.isNaN(played.getTime())
+    ? round.played_at
+    : `${DAYS[played.getDay()]} ${played.getDate()} ${MONTHS[played.getMonth()]}`
 
   return (
-    <View style={{ flex: 1, backgroundColor: '#F2EEE5' }}>
+    <PaperSurface style={{ flex: 1 }}>
+      {/* Round header (#611 §19.1), above both tabs. On the Map tab it runs
+          on into PastRoundMap's hole block, which draws the rule under both. */}
       <View
         style={{
-          backgroundColor: '#1C211C',
-          paddingTop: insets.top + 14,
-          paddingBottom: 14,
-          paddingHorizontal: 18,
-          flexDirection: 'row',
-          alignItems: 'center',
-          justifyContent: 'space-between',
+          paddingTop: insets.top,
+          borderBottomWidth: view === 'scorecard' ? 1 : 0,
+          borderColor: P.ink,
         }}
       >
-        <Pressable
-          onPress={handleLeave}
-          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-          style={{ padding: 6 }}
-        >
-          <Text style={{ ...KICKER, color: 'rgba(242,238,229,0.6)' }}>← Home</Text>
-        </Pressable>
-        <View style={{ alignItems: 'center' }}>
-          <Text style={{ ...KICKER, color: 'rgba(242,238,229,0.45)', marginBottom: 4 }}>
-            {round.played_at}
-          </Text>
-          <Text
-            style={[TYPE.serif, {
-              color: '#F2EEE5',
-              fontSize: 17,
-            }]}
+        <View style={{ flexDirection: 'row', alignItems: 'center', minHeight: 56, paddingRight: 8 }}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Back to Home"
+            onPress={handleLeave}
+            style={{ width: 44, height: 44, marginLeft: 2, alignItems: 'center', justifyContent: 'center' }}
           >
-            {courseName}
-          </Text>
+            <Icon.back size={24} />
+          </Pressable>
+          <View style={{ flex: 1, minWidth: 0, paddingLeft: 4, paddingRight: 8 }}>
+            <Text numberOfLines={1} style={[TYPE.serif, { fontSize: 20, lineHeight: 25, color: P.ink }]}>
+              {courseName}
+            </Text>
+            <Text numberOfLines={1} style={[TYPE.body, { fontSize: 13, color: P.ink }]}>
+              {dateLabel}
+              {sortedHoles.length > 0 ? ` · ${sortedHoles.length} holes` : ''}
+              {runningPar > 0 && (
+                <>
+                  {' · '}
+                  <Text style={[TYPE.serif, { fontSize: 15 }]}>{runningScore}</Text> ({signed(runningScore - runningPar)})
+                </>
+              )}
+            </Text>
+          </View>
+          <Key
+            accessibilityLabel="Share scorecard"
+            onPress={handleShare}
+            disabled={sharing}
+            faceStyle={{ minHeight: 44, paddingHorizontal: 10, flexDirection: 'row', gap: 6 }}
+          >
+            <Icon.share size={18} color={sharing ? P.ink35 : P.ink} />
+            <KeyText disabled={sharing}>{sharing ? 'Rendering…' : 'Share'}</KeyText>
+          </Key>
         </View>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Share scorecard"
-          accessibilityState={{ disabled: sharing }}
-          onPress={handleShare}
-          disabled={sharing}
-          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-          style={{ padding: 6, opacity: sharing ? 0.5 : 1 }}
-        >
-          <Text style={{ ...KICKER, color: 'rgba(242,238,229,0.6)' }}>
-            {sharing ? 'Rendering…' : 'Share →'}
-          </Text>
-        </Pressable>
+        <Rocker
+          options={[
+            { value: 'scorecard', label: 'Scorecard' },
+            { value: 'map', label: 'Map' },
+          ]}
+          value={view}
+          onChange={(v) => v && setView(v)}
+          style={{ marginTop: 2, marginHorizontal: 12, marginBottom: 13 }}
+        />
       </View>
 
       {/* Off-screen render target for react-native-view-shot. The View
@@ -723,330 +684,64 @@ function RoundScreen() {
         </View>
       </View>
 
-      <TabSwitcher view={view} onChange={setView} />
-
       {view === 'scorecard' && (
-      <ScrollView contentContainerStyle={{ padding: 18, paddingBottom: 40 }}>
-        <View
-          style={{
-            flexDirection: 'row',
-            alignItems: 'baseline',
-            justifyContent: 'space-between',
-            marginBottom: 18,
+        <RoundScorecardTab
+          round={round}
+          holes={sortedHoles}
+          scoresByHoleId={scoresByHoleId}
+          shotCountByHoleScoreId={holeScoreShotCount}
+          shotsByHoleScoreId={shotsByHoleScoreId}
+          runningScore={runningScore}
+          runningPar={runningPar}
+          handicap={handicap}
+          focus={focus}
+          drills={focus ? selectNudgeDrills(nudgeDrills, nudgeFacilities) : []}
+          onCommit={persistHoleScore}
+          onOpenShots={(h) => {
+            setShotsForHole(h)
+            // The empty sheet points to the Map tab — open it on this hole (#918).
+            setMapHole(h.number)
           }}
         >
-          <View>
-            <Text style={{ ...KICKER, marginBottom: 4 }}>Total</Text>
-            <Text
-              style={[TYPE.serifUpright, {
-                color: '#1C211C',
-                fontSize: 36,
-                fontWeight: '500',
-                fontVariant: ['tabular-nums'],
-              }]}
-            >
-              {runningPar === 0 ? '—' : runningScore}
-            </Text>
-          </View>
-          <View style={{ alignItems: 'flex-end' }}>
-            <Text style={{ ...KICKER, marginBottom: 4 }}>To par</Text>
-            <Text
-              style={[TYPE.serifUpright, {
-                color:
-                  diff < 0 ? '#1F3D2C' : diff > 0 ? '#A33A2A' : '#5C6356',
-                fontSize: 28,
-                fontWeight: '500',
-                fontVariant: ['tabular-nums'],
-              }]}
-            >
-              {runningPar === 0
-                ? '—'
-                : diff === 0
-                  ? 'E'
-                  : diff > 0
-                    ? `+${diff}`
-                    : `${diff}`}
-            </Text>
-          </View>
-        </View>
+          {user && (
+            <RoundTeeSelector
+              courseId={round.course_id}
+              roundId={round.id}
+              userId={user.id}
+              currentTeeId={round.course_tee_id}
+              onChange={(tee) =>
+                setRound((r) =>
+                  r ? { ...r, course_tee_id: tee.id, tee_color: tee.color } : r,
+                )
+              }
+            />
+          )}
 
-        <View
-          style={{
-            borderTopWidth: 1,
-            borderColor: '#D9D2BF',
-            paddingTop: 14,
-            marginBottom: 18,
-          }}
-        >
-          <Text style={{ ...KICKER, marginBottom: 12 }}>Strokes gained</Text>
-          {sgRows.map((row) => (
-            <View
-              key={row.label}
-              style={{
-                flexDirection: 'row',
-                justifyContent: 'space-between',
-                paddingVertical: 6,
-              }}
-            >
-              <Text style={[TYPE.body, { color: '#1C211C', fontSize: 13 }]}>{row.label}</Text>
-              <Text
-                style={[TYPE.kicker, {
-                  color:
-                    row.value == null
-                      ? '#8A8B7E'
-                      : row.value > 0
-                        ? '#1F3D2C'
-                        : row.value < 0
-                          ? '#A33A2A'
-                          : '#5C6356',
-                  fontSize: 13,
-                  fontVariant: ['tabular-nums'],
-                  fontWeight: '500',
-                }]}
-              >
-                {row.value == null ? '—' : formatSG(row.value)}
-              </Text>
-            </View>
-          ))}
-          <View
-            style={{
-              flexDirection: 'row',
-              justifyContent: 'space-between',
-              paddingTop: 8,
-              marginTop: 4,
-              borderTopWidth: 1,
-              borderColor: '#EBE5D6',
-            }}
+          <Key
+            accessibilityLabel="Save strokes gained"
+            tone="primary"
+            onPress={handleSaveSG}
+            disabled={savingSG}
+            style={{ marginTop: 28 }}
+            faceStyle={{ minHeight: 50, paddingHorizontal: 12 }}
           >
-            <Text style={[TYPE.bodyBold, { color: '#1C211C', fontSize: 14, fontWeight: '600' }]}>
-              Total
-            </Text>
-            <Text
-              style={[TYPE.kicker, {
-                color:
-                  round.sg_total == null
-                    ? '#8A8B7E'
-                    : round.sg_total > 0
-                      ? '#1F3D2C'
-                      : round.sg_total < 0
-                        ? '#A33A2A'
-                        : '#5C6356',
-                fontSize: 14,
-                fontVariant: ['tabular-nums'],
-                fontWeight: '600',
-              }]}
-            >
-              {round.sg_total == null ? '—' : formatSG(round.sg_total)}
-            </Text>
-          </View>
-        </View>
+            <KeyText tone="primary" bold size={16} disabled={savingSG}>
+              {savingSG ? 'Saving…' : 'Save SG'}
+            </KeyText>
+          </Key>
 
-        {focus && (
-          <RoundNudge
-            focus={focus}
-            picks={selectNudgeDrills(nudgeDrills, nudgeFacilities)}
-          />
-        )}
-
-        <View
-          style={{
-            borderTopWidth: 1,
-            borderColor: '#D9D2BF',
-            paddingTop: 14,
-          }}
-        >
-          <Text style={{ ...KICKER, marginBottom: 8 }}>Scorecard</Text>
-          <View
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              paddingVertical: 8,
-              borderBottomWidth: 1,
-              borderColor: '#D9D2BF',
-            }}
+          <Key
+            accessibilityLabel="Delete round"
+            onPress={() => !deleting && user && setDialog('delete')}
+            disabled={deleting}
+            style={{ marginTop: 14, alignSelf: 'flex-start' }}
+            faceStyle={{ minHeight: 44, paddingHorizontal: 14 }}
           >
-            <Text style={{ ...KICKER, flex: 1, color: '#8A8B7E' }}>Hole</Text>
-            <Text style={{ ...KICKER, width: 32, textAlign: 'right', color: '#8A8B7E' }}>
-              Par
-            </Text>
-            <Text style={{ ...KICKER, width: 52, textAlign: 'right', color: '#8A8B7E' }}>
-              Score
-            </Text>
-            <Text style={{ ...KICKER, width: 48, textAlign: 'right', color: '#8A8B7E' }}>
-              Putts
-            </Text>
-            <Text style={{ ...KICKER, width: 40, textAlign: 'center', color: '#8A8B7E' }}>
-              FIR
-            </Text>
-            <Text style={{ ...KICKER, width: 40, textAlign: 'center', color: '#8A8B7E' }}>
-              GIR
-            </Text>
-            <Text style={{ ...KICKER, width: 76, textAlign: 'right', color: '#8A8B7E' }}>
-              Shots
-            </Text>
-          </View>
-          {sortedHoles.map((h) => {
-            const hs = scoresByHoleId.get(h.id)
-            const score = hs?.score ?? 0
-            const putts = hs?.putts ?? null
-            // Per-round par override (#710) — hole_scores.par wins over
-            // the course hole's par when the player corrected it.
-            const par = hs?.par ?? h.par
-            const d = score > 0 ? score - par : null
-            const shotCount = hs ? holeScoreShotCount.get(hs.id) ?? 0 : 0
-            // FIR/GIR: prefer the persisted hole_scores columns — web parity,
-            // a manual/web-set value wins (apps/web useRoundActions) — else
-            // infer from the hole's placed shots. par-3 fairway → null (blank).
-            const inferred = inferHoleStats(
-              hs ? shotsByHoleScoreId.get(hs.id) ?? [] : [],
-              par,
-            )
-            const fairway = hs?.fairway_hit ?? inferred.fairway
-            const gir = hs?.gir ?? inferred.gir
-            const scoreColor =
-              d == null
-                ? '#1C211C'
-                : d < 0
-                  ? '#1F3D2C'
-                  : d > 0
-                    ? '#A33A2A'
-                    : '#5C6356'
-            return (
-              <View
-                key={h.id}
-                style={{
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  borderBottomWidth: 1,
-                  borderColor: '#EBE5D6',
-                  paddingHorizontal: 6,
-                }}
-              >
-                <Text style={[TYPE.kicker, { flex: 1, fontSize: 15, color: '#1C211C' }]}>
-                  {h.number}
-                </Text>
-                <Text
-                  style={[TYPE.kicker, {
-                    width: 32,
-                    textAlign: 'right',
-                    fontSize: 15,
-                    color: '#5C6356',
-                    fontVariant: ['tabular-nums'],
-                  }]}
-                >
-                  {par}
-                </Text>
-                <ScoreCell
-                  value={score}
-                  width={52}
-                  color={scoreColor}
-                  label={`Hole ${h.number} score`}
-                  onCommit={(n) => persistHoleScore(h.id, { score: n })}
-                />
-                <ScoreCell
-                  value={putts}
-                  width={48}
-                  color="#5C6356"
-                  label={`Hole ${h.number} putts`}
-                  onCommit={(n) => persistHoleScore(h.id, { putts: n > 0 ? n : null })}
-                />
-                {([['fir', fairway], ['gir', gir]] as const).map(([k, v]) => (
-                  <Text
-                    key={k}
-                    style={[TYPE.kicker, {
-                      width: 40,
-                      textAlign: 'center',
-                      fontSize: 14,
-                      color: v === true ? '#1F3D2C' : '#C9C2B0',
-                    }]}
-                  >
-                    {v === true ? '✓' : v === false ? '·' : ''}
-                  </Text>
-                ))}
-                <PressableTouch
-                  accessibilityRole="button"
-                  accessibilityLabel={
-                    shotCount > 0
-                      ? `Hole ${h.number}, ${shotCount} shot${shotCount === 1 ? '' : 's'}, edit`
-                      : `Hole ${h.number}, add shots`
-                  }
-                  onPress={() => {
-                    setShotsForHole(h)
-                    // The empty sheet points to the Map tab — open it on this hole (#918).
-                    setMapHole(h.number)
-                  }}
-                  android_ripple={{ color: '#EBE5D6' }}
-                  style={{ width: 76, paddingVertical: 12, alignItems: 'flex-end' }}
-                >
-                  <Text
-                    style={[TYPE.body, {
-                      fontSize: 13,
-                      color: shotCount > 0 ? '#1F3D2C' : '#8A8B7E',
-                    }]}
-                  >
-                    {shotCount > 0
-                      ? `${shotCount} shot${shotCount === 1 ? '' : 's'} →`
-                      : '+ add →'}
-                  </Text>
-                </PressableTouch>
-              </View>
-            )
-          })}
-        </View>
-
-        {user && (
-          <RoundTeeSelector
-            courseId={round.course_id}
-            roundId={round.id}
-            userId={user.id}
-            currentTeeId={round.course_tee_id}
-            onChange={(tee) =>
-              setRound((r) =>
-                r ? { ...r, course_tee_id: tee.id, tee_color: tee.color } : r,
-              )
-            }
-          />
-        )}
-
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Save strokes gained"
-          accessibilityState={{ disabled: savingSG }}
-          onPress={handleSaveSG}
-          disabled={savingSG}
-          style={{
-            marginTop: 28,
-            paddingVertical: 14,
-            alignItems: 'center',
-            backgroundColor: savingSG ? '#5C6356' : '#1F3D2C',
-            borderRadius: 2,
-            opacity: savingSG ? 0.7 : 1,
-          }}
-        >
-          <Text style={{ ...KICKER, color: '#F2EEE5' }}>
-            {savingSG ? 'Saving…' : 'Save SG'}
-          </Text>
-        </Pressable>
-
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Delete round"
-          accessibilityState={{ disabled: deleting }}
-          onPress={handleDelete}
-          disabled={deleting}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          style={{
-            marginTop: 16,
-            paddingVertical: 12,
-            alignItems: 'center',
-            opacity: deleting ? 0.5 : 1,
-          }}
-        >
-          <Text style={{ ...KICKER, color: '#A33A2A' }}>
-            {deleting ? 'Deleting…' : 'Delete round'}
-          </Text>
-        </Pressable>
-      </ScrollView>
+            <KeyText disabled={deleting} style={deleting ? undefined : { color: P.neg }}>
+              {deleting ? 'Deleting…' : 'Delete round'}
+            </KeyText>
+          </Key>
+        </RoundScorecardTab>
       )}
 
       {view === 'map' && round && user && (
@@ -1106,60 +801,32 @@ function RoundScreen() {
           setShots((prev) => prev.map((s) => (s.id === updated.id ? updated : s)))
         }
       />
-    </View>
+      <ConfirmDialog
+        visible={dialog === 'leave'}
+        title="Leave this round?"
+        message="It isn't finished. Your scores and shots are saved — resume it anytime from Recent rounds on the Home screen."
+        cancelLabel="Keep logging"
+        confirmLabel="Leave"
+        destructive
+        onConfirm={() => {
+          setDialog(null)
+          router.replace('/(app)')
+        }}
+        onCancel={() => setDialog(null)}
+      />
+      <ConfirmDialog
+        visible={dialog === 'delete'}
+        title="Delete round?"
+        message="This permanently removes the round and all its shots."
+        confirmLabel="Delete"
+        destructive
+        busy={deleting}
+        onConfirm={confirmDelete}
+        onCancel={() => setDialog(null)}
+      />
+    </PaperSurface>
   )
 }
 
-// Co-located post-round nudge — mirrors the web RoundSummary's RoundNudge.
-// Chips link to the practice library: web sends its chips to /practice/drills;
-// mobile's equivalent route is /(app)/drills (shipped #511/#519).
-function RoundNudge({ focus, picks }: { focus: RoundFocus; picks: DrillRow[] }) {
-  const router = useRouter()
-  return (
-    <View
-      style={{
-        borderTopWidth: 1,
-        borderColor: '#D9D2BF',
-        paddingTop: 14,
-        marginBottom: 18,
-      }}
-    >
-      <Text style={{ ...KICKER, marginBottom: 8 }}>Today's focus</Text>
-      <Text
-        style={[TYPE.serif, {
-          color: '#1C211C',
-          fontSize: 16,
-          lineHeight: 22,
-          marginBottom: picks.length ? 12 : 0,
-        }]}
-      >
-        {roundFocusHeadline(focus)}
-      </Text>
-      {picks.length > 0 && (
-        <>
-          <Text style={{ ...KICKER, marginBottom: 8 }}>Suggested drills</Text>
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-            {picks.map((drill) => (
-              <PressableTouch
-                key={drill.id}
-                onPress={() => router.push('/(app)/drills')}
-                style={{
-                  borderWidth: 1,
-                  borderColor: '#1F3D2C',
-                  borderRadius: 2,
-                  paddingVertical: 6,
-                  paddingHorizontal: 10,
-                }}
-              >
-                <Text style={[TYPE.body, { color: '#1F3D2C', fontSize: 13 }]}>
-                  {drill.name}
-                  {drill.duration_min ? ` · ${drill.duration_min}m` : ''} →
-                </Text>
-              </PressableTouch>
-            ))}
-          </View>
-        </>
-      )}
-    </View>
-  )
-}
+const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']

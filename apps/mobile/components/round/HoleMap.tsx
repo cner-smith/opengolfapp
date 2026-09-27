@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Pressable, Text, View } from 'react-native'
+import { View } from 'react-native'
 import Mapbox from '@rnmapbox/maps'
 import {
   arcGeoJSON,
@@ -11,28 +11,18 @@ import {
   NEAR_GREEN_YARDS,
   scatterGeoJSON,
 } from '@oga/core'
-import { MaterialCommunityIcons } from '@expo/vector-icons'
 import { Gesture, GestureDetector } from 'react-native-gesture-handler'
 import { runOnJS } from 'react-native-reanimated'
-import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { distanceYards, ensureMapboxInitialized } from '../../lib/maps'
 import { useUnits } from '../../hooks/useUnits'
-import { TYPE } from '../../lib/typography'
 import { Marker } from './markers/Marker'
 import { FlagMarker } from './markers/FlagMarker'
 import { AimGhostLayers, useAimGhosts } from './markers/AimGhost'
-import { BreadcrumbLayers } from './markers/BreadcrumbLayers'
-import { AimDistancePill } from './markers/AimDistancePill'
-import { RemainingDistancePill } from './markers/RemainingDistancePill'
-import { DragHint, ObCallout, offscreenArrow } from './markers/Callouts'
+import { BreadcrumbLayers, SelectedCrumb } from './markers/BreadcrumbLayers'
+import { CarryTag, RemainingTag } from './markers/DistanceTags'
+import { ObCallout, offscreenArrow } from './markers/Callouts'
 import { useHoleCamera } from './hooks/useHoleCamera'
-import {
-  ExpStrokesPill,
-  PinFirstCta,
-  TeeBadge,
-  ToHolePill,
-  TopHint,
-} from './HoleMapOverlays'
+import { TeeBadge } from './HoleMapOverlays'
 import type { HoleMapPhase, HoleMapProps, LatLng, OffscreenArrow } from './HoleMap.types'
 
 ensureMapboxInitialized()
@@ -116,8 +106,9 @@ export function HoleMap({
   showLocationPuck,
   tapToPlaceBall = true,
   focusOn,
-  showRecenterButton = true,
-  bottomChromeHeight = 0,
+  recenterRef,
+  lefty = false,
+  fitHole,
   aimBallInset,
   overlayMode,
   arcWidthYards,
@@ -126,9 +117,12 @@ export function HoleMap({
   dispersionPoints,
   obCallout,
   onLastShotOffscreen,
+  pastCrumbs,
+  tapToSetAim = false,
+  onCameraChanged,
+  projectRef,
 }: HoleMapProps) {
   const { toDisplay, toDisplayFt } = useUnits()
-  const insets = useSafeAreaInsets()
   const mapViewRef = useRef<Mapbox.MapView>(null)
   // Native side fires "Source X is not in style" when a ShapeSource /
   // LineLayer mounts before the satellite style has finished loading.
@@ -176,6 +170,7 @@ export function HoleMap({
     onLastShotOffscreen?.(lastShotArrow)
   }, [lastShotArrow, onLastShotOffscreen])
 
+  const userGesturedRef = useRef(false)
   const cameraRef = useHoleCamera({
     center,
     ball,
@@ -187,9 +182,36 @@ export function HoleMap({
     courseCenter,
     mapViewRef,
     mapHeight: mapSize?.h ?? null,
-    // Clear of the SET_AIM controls (Confirm aim + Re-place / Skip chips).
-    ballInset: aimBallInset ?? insets.bottom + 150,
+    // The caller knows where its bottom controls end (the live dock).
+    ballInset: aimBallInset ?? 150,
+    userGesturedRef,
   })
+
+  // Whole-hole framing for the past-round map (#611 §19.2: "fit tee→pin"):
+  // up the hole, both ends inside the map, once per hole. Runs after
+  // useHoleCamera's own first frame, so it's the one that sticks.
+  const fitKey = fitHole ? `${fitHole[0].lat},${fitHole[0].lng},${fitHole[1].lat},${fitHole[1].lng}` : null
+  useEffect(() => {
+    if (!fitHole || !styleLoaded || !cameraRef.current) return
+    const [a, b] = fitHole
+    try {
+      cameraRef.current.setCamera({
+        bounds: {
+          ne: [Math.max(a.lng, b.lng), Math.max(a.lat, b.lat)],
+          sw: [Math.min(a.lng, b.lng), Math.min(a.lat, b.lat)],
+          paddingTop: 48,
+          paddingBottom: 100,
+          paddingLeft: 40,
+          paddingRight: 40,
+        },
+        heading: bearingDegrees(a.lat, a.lng, b.lat, b.lng),
+        pitch: 0,
+        animationDuration: 600,
+      })
+    } catch {
+      // native camera released — the next hole change re-frames
+    }
+  }, [fitKey, styleLoaded])
 
   // Explicit camera focus, independent of useHoleCamera's `center`/GPS/phase
   // machinery — those effects are tightly interlocked (auto-center-on-GPS
@@ -245,6 +267,19 @@ export function HoleMap({
     // the way to resume GPS tracking after a manual drag.
     if (isPlaceBallPhase) onRecenterBall?.(target)
   }, [gpsPosition, cameraRef, isPlaceBallPhase, onRecenterBall])
+  // The recenter key lives in the caller's dock (#611 §5); hand it the action.
+  if (recenterRef) recenterRef.current = recenterOnGps
+  if (projectRef) {
+    projectRef.current = async (pts) => {
+      const map = mapViewRef.current
+      if (!map) return null
+      try {
+        return await Promise.all(pts.map((p) => map.getPointInView(toCoord(p)) as Promise<[number, number]>))
+      } catch {
+        return null
+      }
+    }
+  }
 
   const { aimGhosts, aimGhostFeatures } = useAimGhosts({
     ball,
@@ -316,7 +351,7 @@ export function HoleMap({
   // pinDistance (Ds). Both feed the live SG readout.
   const aimToPinYards = useMemo(() => {
     if (!effectivePin || !aim) return null
-    return Math.round(distanceYards(aim, effectivePin))
+    return distanceYards(aim, effectivePin)
   }, [effectivePin, aim])
 
   // Live strokes readout: expected strokes to hole out from the ball, and
@@ -338,15 +373,10 @@ export function HoleMap({
     return {
       expected,
       sg: calculateShotSG(expected, targetExpected),
-      lieLabel: targetCat === 'around_green' ? 'GRN' : 'FWY',
+      lieLabel: targetCat === 'around_green' ? 'green' : 'fairway',
     }
   }, [pinDistance, aimToPinYards, handicap])
 
-  // SG sub-line for the carry pill ("+0.3 · FWY"), pos/neg colored.
-  const sgSublabel =
-    liveStrokes.sg != null && liveStrokes.lieLabel != null
-      ? `${liveStrokes.sg >= 0 ? '+' : ''}${liveStrokes.sg.toFixed(1)} · ${liveStrokes.lieLabel}`
-      : null
 
   const showAim = isAimPhase || isPlaceBallPhase
 
@@ -440,7 +470,7 @@ export function HoleMap({
 
   const aimDistanceYards = useMemo(() => {
     if (!showAim || !ball || !aim) return null
-    return Math.round(distanceYards(ball, aim))
+    return distanceYards(ball, aim)
   }, [showAim, ball, aim])
 
   const aimMidpoint: LatLng | null = useMemo(() => {
@@ -560,6 +590,35 @@ export function HoleMap({
     return out
   }, [previousShots, ball?.lat, ball?.lng])
 
+  // Past-round trail (#611 §19.3): every placed start, not just the earlier
+  // ones, plus the selected shot's leg as its own solid line.
+  const pastPath = pastCrumbs?.path
+  const pastPathLine = useMemo(
+    () =>
+      pastPath && pastPath.length >= 2
+        ? {
+            type: 'Feature' as const,
+            properties: {},
+            geometry: { type: 'LineString' as const, coordinates: pastPath.map(toCoord) },
+          }
+        : null,
+    [pastPath],
+  )
+  const pastSeg = pastCrumbs?.segment
+  const pastSegmentLine = useMemo(
+    () =>
+      pastSeg
+        ? {
+            type: 'Feature' as const,
+            properties: {},
+            geometry: { type: 'LineString' as const, coordinates: pastSeg.map(toCoord) },
+          }
+        : null,
+    [pastSeg],
+  )
+  const pastCrumbPoints = useMemo(() => pastCrumbs?.crumbs.map((c) => c.at), [pastCrumbs?.crumbs])
+  const pastCrumbObs = useMemo(() => pastCrumbs?.crumbs.map((c) => c.ob), [pastCrumbs?.crumbs])
+
   function handleTap(feature: unknown) {
     const c = extractCoord(feature)
     if (!c) return
@@ -574,6 +633,7 @@ export function HoleMap({
     if (isPlaceBallPhase && tapToPlaceBall) {
       onSetBall(c)
     }
+    if (isAimPhase && tapToSetAim) onSetAim(c)
   }
 
   return (
@@ -601,6 +661,16 @@ export function HoleMap({
             }
             void measureLastShot()
           }}
+          // Subscribed only while needed (it fires every frame): the past
+          // round's callout, and the aim view's gesture latch.
+          onCameraChanged={
+            onCameraChanged || isAimPhase
+              ? (state) => {
+                  if (state.gestures.isGestureActive) userGesturedRef.current = true
+                  onCameraChanged?.()
+                }
+              : undefined
+          }
         >
           <Mapbox.Camera
             ref={cameraRef}
@@ -619,15 +689,32 @@ export function HoleMap({
               pause the native GPS subscription — see HoleMapProps.showLocationPuck. */}
           {showLocationPuck && <Mapbox.LocationPuck visible />}
 
-          <BreadcrumbLayers
-            previousShots={previousShots ?? []}
-            previousShotsLine={previousShotsLine}
-            segments={previousShotSegments}
-            styleLoaded={styleLoaded}
-            isPinMode={isPinMode}
-            toDisplay={toDisplay}
-            obs={previousShotObs}
-          />
+          {pastCrumbs ? (
+            <BreadcrumbLayers
+              previousShots={pastCrumbPoints ?? []}
+              previousShotsLine={pastPathLine}
+              segments={[]}
+              styleLoaded={styleLoaded}
+              isPinMode={isPinMode}
+              toDisplay={toDisplay}
+              obs={pastCrumbObs}
+              paper={{
+                numbers: pastCrumbs.crumbs.map((c) => c.n),
+                segment: pastSegmentLine,
+                onSelect: pastCrumbs.onSelect,
+              }}
+            />
+          ) : (
+            <BreadcrumbLayers
+              previousShots={previousShots ?? []}
+              previousShotsLine={previousShotsLine}
+              segments={previousShotSegments}
+              styleLoaded={styleLoaded}
+              isPinMode={isPinMode}
+              toDisplay={toDisplay}
+              obs={previousShotObs}
+            />
+          )}
 
           <AimGhostLayers
             aimGhosts={aimGhosts}
@@ -747,7 +834,8 @@ export function HoleMap({
             </Mapbox.ShapeSource>
           )}
 
-          {!isPinMode && teeBox && (
+          {/* Past round: the numbered shot-1 crumb marks the tee (§19.3). */}
+          {!isPinMode && !pastCrumbs && teeBox && (
             <>
               <Mapbox.PointAnnotation id="teeL" coordinate={toCoord(teeBox[0])}>
                 <View style={TEE_DOT} />
@@ -757,7 +845,7 @@ export function HoleMap({
               </Mapbox.PointAnnotation>
             </>
           )}
-          {!isPinMode && !teeBox && tee && (
+          {!isPinMode && !pastCrumbs && !teeBox && tee && (
             <Mapbox.PointAnnotation id="tee" coordinate={toCoord(tee)}>
               <TeeBadge />
             </Mapbox.PointAnnotation>
@@ -819,31 +907,35 @@ export function HoleMap({
             </Mapbox.PointAnnotation>
           )}
 
-          {aimMidpoint &&
+          {/* The past round's flag callout carries the leg distance instead
+              (§19.9 C), so its map shows no leg tags. */}
+          {!pastCrumbs &&
+            aimMidpoint &&
             aimDistanceYards !== null &&
             aimDistanceYards >= MIN_LABEL_LEG_YARDS && (
-            <AimDistancePill
-              midpoint={aimMidpoint}
-              display={toDisplay(aimDistanceYards)}
-              sublabel={sgSublabel}
-              sublabelTone={
-                liveStrokes.sg != null && liveStrokes.sg < 0 ? 'neg' : 'pos'
-              }
+            <CarryTag
+              at={aimMidpoint}
+              display={toDisplay(aimDistanceYards, 1)}
+              lie={liveStrokes.lieLabel}
+              sg={liveStrokes.sg}
+              lefty={lefty}
             />
           )}
 
           {/* Remaining (aim→pin) — subordinate to the hero carry pill. Inside
               the green-radius it reads in feet (greens are a feet game). */}
-          {remainingMidpoint &&
+          {!pastCrumbs &&
+            remainingMidpoint &&
             aimToPinYards !== null &&
             aimToPinYards >= MIN_LABEL_LEG_YARDS && (
-            <RemainingDistancePill
-              midpoint={remainingMidpoint}
+            <RemainingTag
+              at={remainingMidpoint}
               display={
                 aimToPinYards <= NEAR_GREEN_YARDS
                   ? toDisplayFt(aimToPinYards * 3)
-                  : toDisplay(aimToPinYards)
+                  : toDisplay(aimToPinYards, 1)
               }
+              lefty={lefty}
             />
           )}
 
@@ -868,6 +960,9 @@ export function HoleMap({
               {/* Translucent 44pt grab disc. PointAnnotation hit-tests the
                   opaque bitmap pixels, not the View frame, so a transparent
                   pad isn't grabbable — the filled disc IS the touch target. */}
+              {pastCrumbs ? (
+                <SelectedCrumb n={pastCrumbs.selectedN} />
+              ) : (
               <View
                 style={{
                   width: 44,
@@ -886,70 +981,16 @@ export function HoleMap({
                   size={isPlaceBallPhase ? 18 : 14}
                 />
               </View>
+              )}
             </Mapbox.PointAnnotation>
           )}
-          {/* "Drag to adjust" (#901 H3) — replaces the caps banner while placing the ball. */}
-          {ball && isPlaceBallPhase && <DragHint ball={ball} />}
           {obCallout && lastShot && lastShotArrow == null && (
-            <ObCallout
-              at={lastShot}
-              isOb={obCallout.isOb}
-              onPress={obCallout.onPress}
-              onWidth={setObPillWidth}
-            />
+            <ObCallout at={lastShot} onPress={obCallout.onPress} onWidth={setObPillWidth} />
           )}
         </Mapbox.MapView>
 
-        {isPinMode && <TopHint />}
-        {!isPinMode && pinDistance !== null && (
-          <>
-            <ToHolePill display={toDisplay(pinDistance)} />
-            <ExpStrokesPill value={liveStrokes.expected} />
-          </>
-        )}
-        {/* Pin-first UX (Task 7): no pin yet → prompt for it, since distances,
-            expected strokes, and the dispersion overlay all need one. Shown
-            on no-layout (synthetic) holes too — placing a per-hole pin is
-            exactly what lights up the HUD there. */}
-        {!isPinMode && !effectivePin && (
-          <PinFirstCta />
-        )}
-        {isPlaceBallPhase && showRecenterButton && (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={
-              isPlaceBallPhase && onRecenterBall
-                ? 'Center map and ball on my location'
-                : 'Center map on my location'
-            }
-            disabled={!gpsPosition}
-            onPress={recenterOnGps}
-            hitSlop={8}
-            style={{
-              position: 'absolute',
-              right: 12,
-              // Above the bottom chrome, not beside it: the CTA and chip row
-              // widen and wrap with large text and ran into a fixed offset.
-              bottom: bottomChromeHeight + 8,
-              width: 44,
-              height: 44,
-              borderRadius: 22,
-              backgroundColor: '#FBF8F1',
-              borderWidth: 1,
-              borderColor: '#1F3D2C',
-              alignItems: 'center',
-              justifyContent: 'center',
-              opacity: gpsPosition ? 1 : 0.5,
-            }}
-          >
-            <MaterialCommunityIcons
-              name="crosshairs-gps"
-              size={22}
-              color="#1F3D2C"
-            />
-          </Pressable>
-        )}
       </View>
     </GestureDetector>
   )
 }
+

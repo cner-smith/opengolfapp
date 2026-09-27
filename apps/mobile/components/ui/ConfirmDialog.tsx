@@ -1,5 +1,7 @@
 import { Modal, Pressable, Text, View } from 'react-native'
 import { TYPE } from '../../lib/typography'
+import { HardShadow, Key, KeyText, PaperSurface } from '../paper/Paper'
+import { GAP, P, R } from '../paper/tokens'
 
 interface ConfirmDialogProps {
   visible: boolean
@@ -13,14 +15,9 @@ interface ConfirmDialogProps {
   onCancel: () => void
 }
 
-const KICKER: import('react-native').TextStyle = {
-  color: '#8A8B7E',
-  fontSize: 10,
-  fontWeight: '500',
-  letterSpacing: 1.4,
-  textTransform: 'uppercase',
-}
-
+// Paper confirm dialog (#611 §11): raised paper with grain, hard 3/3 shadow,
+// two equal keys — the confirm is the only filled control on screen (forest,
+// or brick when destructive). A scrim tap or Back cancels.
 export function ConfirmDialog({
   visible,
   title,
@@ -32,112 +29,51 @@ export function ConfirmDialog({
   onConfirm,
   onCancel,
 }: ConfirmDialogProps) {
-  const confirmBg = destructive ? '#A33A2A' : '#1F3D2C'
+  const tone = destructive ? 'danger' : 'primary'
   return (
-    <Modal
-      transparent
-      animationType="fade"
-      visible={visible}
-      onRequestClose={onCancel}
-    >
-      <View
-        style={{
-          flex: 1,
-          backgroundColor: 'rgba(28,33,28,0.55)',
-          alignItems: 'center',
-          justifyContent: 'center',
-          padding: 18,
-        }}
-      >
-        <View
-          style={{
-            backgroundColor: '#FBF8F1',
-            borderColor: '#9F9580',
-            borderWidth: 1,
-            borderRadius: 4,
-            padding: 22,
-            width: '100%',
-            maxWidth: 360,
-          }}
-        >
-          <Text style={[TYPE.kicker, KICKER, { marginBottom: 8 }]}>
-            {destructive ? 'Confirm delete' : 'Confirm'}
-          </Text>
-          <Text
-            style={[
-              TYPE.serif,
-              {
-                color: '#1C211C',
-                fontSize: 22,
-                lineHeight: 28,
-                marginBottom: message ? 10 : 22,
-              },
-            ]}
+    <Modal transparent statusBarTranslucent navigationBarTranslucent animationType="fade" visible={visible} onRequestClose={onCancel}>
+      <View style={{ flex: 1, backgroundColor: P.scrim, justifyContent: 'center', paddingHorizontal: 24 }}>
+        <Pressable
+          accessibilityLabel="Dismiss"
+          onPress={busy ? undefined : onCancel}
+          style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
+        />
+        <HardShadow dx={3} dy={3} style={{ alignSelf: 'center', width: '100%', maxWidth: 420 }}>
+          <PaperSurface
+            fill={P.raised}
+            style={{ borderWidth: 1, borderColor: P.ink, borderRadius: R, paddingTop: 22, paddingHorizontal: 22, paddingBottom: 25 }}
           >
-            {title}
-          </Text>
-          {message && (
-            <Text
-              style={[
-                TYPE.body,
-                {
-                  color: '#5C6356',
-                  fontSize: 14,
-                  lineHeight: 20,
-                  marginBottom: 22,
-                },
-              ]}
-            >
-              {message}
-            </Text>
-          )}
-          <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 10 }}>
-            <Pressable
-              onPress={onCancel}
-              disabled={busy}
-              style={{
-                borderWidth: 1,
-                borderColor: '#D9D2BF',
-                borderRadius: 2,
-                paddingHorizontal: 14,
-                paddingVertical: 10,
-                opacity: busy ? 0.5 : 1,
-              }}
-            >
-              {/* Cancel stays regular weight (de-emphasized) — it shouldn't
-                  compete with the destructive confirm action. The old '500'
-                  was intended de-emphasis that just never rendered on Android. */}
-              <Text style={[TYPE.body, { color: '#5C6356', fontSize: 13 }]}>
-                {cancelLabel}
-              </Text>
-            </Pressable>
-            <Pressable
-              onPress={onConfirm}
-              disabled={busy}
-              style={{
-                backgroundColor: confirmBg,
-                borderRadius: 2,
-                paddingHorizontal: 16,
-                paddingVertical: 10,
-                opacity: busy ? 0.5 : 1,
-              }}
-            >
-              <Text
-                style={[
-                  TYPE.bodyBold,
-                  {
-                    color: '#F2EEE5',
-                    fontSize: 14,
-                    fontWeight: '600',
-                    letterSpacing: 0.3,
-                  },
-                ]}
+            <Text style={[TYPE.serif, { color: P.ink, fontSize: 24, lineHeight: 29 }]}>{title}</Text>
+            {message ? (
+              <Text style={[TYPE.body, { color: P.ink, fontSize: 15, lineHeight: 21, marginTop: 8 }]}>{message}</Text>
+            ) : null}
+            <View style={{ flexDirection: 'row', gap: GAP, marginTop: 22 }}>
+              <Key
+                accessibilityLabel={cancelLabel}
+                onPress={onCancel}
+                disabled={busy}
+                style={{ flex: 1 }}
+                faceStyle={{ minHeight: 48, paddingHorizontal: 8 }}
               >
-                {busy ? 'Working…' : confirmLabel}
-              </Text>
-            </Pressable>
-          </View>
-        </View>
+                <KeyText size={15} disabled={busy}>
+                  {cancelLabel}
+                </KeyText>
+              </Key>
+              <Key
+                accessibilityLabel={confirmLabel}
+                tone={tone}
+                onPress={onConfirm}
+                disabled={busy}
+                style={{ flex: 1 }}
+                faceStyle={{ minHeight: 48, paddingHorizontal: 8 }}
+              >
+                <KeyText tone={tone} bold size={15} disabled={busy}>
+                  {busy ? 'Working…' : confirmLabel}
+                </KeyText>
+              </Key>
+            </View>
+          </PaperSurface>
+        </HardShadow>
       </View>
     </Modal>
   )

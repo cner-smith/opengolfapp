@@ -195,6 +195,8 @@ export function HoleModals(props: HoleModalsProps) {
       <Modal
         visible={scorecardOpen}
         transparent
+        statusBarTranslucent
+        navigationBarTranslucent
         animationType="slide"
         onRequestClose={() => setScorecardOpen(false)}
       >

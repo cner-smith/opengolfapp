@@ -1,16 +1,13 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Modal, Pressable, ScrollView, Text, TextInput, View } from 'react-native'
 import {
   GestureDetector,
   GestureHandlerRootView,
 } from 'react-native-gesture-handler'
 import Animated from 'react-native-reanimated'
-import { PressableTouch } from '../ui/PressableTouch'
 import { useSwipeToDismiss } from '../ui/useSwipeToDismiss'
 import {
   DEFAULT_BAG,
-  LIE_SLOPES_FORWARD,
-  LIE_SLOPES_SIDE,
   LIE_TYPE_LABELS,
   LIE_TYPES,
   SHOT_RESULTS,
@@ -18,6 +15,7 @@ import {
   combinedPuttResult,
   formatClubLabel,
   formatDistance,
+  formatPuttDistance,
   isPuttShot,
   type BreakDirectionHorizontal,
   type BreakDirectionVertical,
@@ -34,19 +32,21 @@ import type { Database } from '@oga/supabase'
 import { supabase } from '../../lib/supabase'
 import { useUserBag } from '../../hooks/useUserBag'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { FONT, TYPE } from '../../lib/typography'
+import { TYPE } from '../../lib/typography'
+import { Key, KeyText, PaperSurface, Rocker } from '../paper/Paper'
+import {
+  ClubPicker,
+  PickerField,
+  RockerRows,
+  SlopeGrid,
+  useStackedLabels,
+  type Opt,
+} from '../paper/Pickers'
+import { Icon } from '../paper/icons'
+import { GAP, P, R } from '../paper/tokens'
 
 type ShotRow = Database['public']['Tables']['shots']['Row']
 type ShotUpdate = Database['public']['Tables']['shots']['Update']
-
-const KICKER: import('react-native').TextStyle = {
-  color: '#8A8B7E',
-  fontSize: 10,
-  fontWeight: '500',
-  letterSpacing: 1.4,
-  textTransform: 'uppercase',
-  fontFamily: FONT.mono,
-}
 
 const SHOT_RESULT_LABELS: Record<ShotResult, string> = {
   solid: 'Solid',
@@ -60,33 +60,30 @@ const SHOT_RESULT_LABELS: Record<ShotResult, string> = {
   ob: 'OB',
 }
 
-const FORWARD_LABELS: Record<LieSlopeForward, string> = {
-  uphill: 'Uphill',
-  level: 'Level',
-  downhill: 'Downhill',
-}
-const SIDE_LABELS: Record<LieSlopeSide, string> = {
-  ball_above: 'Ball above',
-  ball_below: 'Ball below',
-}
-const GREEN_SPEEDS: GreenSpeed[] = ['slow', 'medium', 'fast']
-const GREEN_SPEED_LABELS: Record<GreenSpeed, string> = {
-  slow: 'Slow',
-  medium: 'Medium',
-  fast: 'Fast',
-}
-const BREAK_V: BreakDirectionVertical[] = ['uphill', 'downhill', 'flat']
-const BREAK_V_LABELS: Record<BreakDirectionVertical, string> = {
-  uphill: 'Uphill',
-  downhill: 'Downhill',
-  flat: 'Flat',
-}
-const BREAK_H: BreakDirectionHorizontal[] = ['left_to_right', 'right_to_left', 'straight']
-const BREAK_H_LABELS: Record<BreakDirectionHorizontal, string> = {
-  left_to_right: 'L → R',
-  right_to_left: 'R → L',
-  straight: 'Straight',
-}
+// Putt vocab mirrors the live hole-review sheet so the two surfaces read alike.
+const PUTT_DISTANCE_OPTIONS: Opt<PuttDistanceResult>[] = [
+  { value: 'short', label: 'Short' },
+  { value: 'long', label: 'Long' },
+]
+const PUTT_DIRECTION_OPTIONS: Opt<PuttDirectionResult>[] = [
+  { value: 'left', label: 'Left' },
+  { value: 'right', label: 'Right' },
+]
+const SPEED_OPTIONS: Opt<GreenSpeed>[] = [
+  { value: 'slow', label: 'Slow' },
+  { value: 'medium', label: 'Medium' },
+  { value: 'fast', label: 'Fast' },
+]
+const BREAK_LINE_OPTIONS: Opt<BreakDirectionHorizontal>[] = [
+  { value: 'left_to_right', label: 'L → R' },
+  { value: 'right_to_left', label: 'R → L' },
+  { value: 'straight', label: 'Straight' },
+]
+const BREAK_SLOPE_OPTIONS: Opt<BreakDirectionVertical>[] = [
+  { value: 'uphill', label: 'Uphill' },
+  { value: 'flat', label: 'Level' },
+  { value: 'downhill', label: 'Downhill' },
+]
 
 interface PastHoleShotsSheetProps {
   visible: boolean
@@ -103,6 +100,15 @@ interface PastHoleShotsSheetProps {
   onClose: () => void
   onShotUpdated?: (shot: ShotRow) => void
 }
+
+// Paper sheet chrome (#611 §19.6): chrome + grain, square top corners, one
+// ink top border. The scrim sits behind it in the Modal.
+const SHEET = {
+  borderTopWidth: 1,
+  borderColor: P.ink,
+  borderTopLeftRadius: R,
+  borderTopRightRadius: R,
+} as const
 
 export function PastHoleShotsSheet({
   visible,
@@ -171,7 +177,7 @@ export function PastHoleShotsSheet({
       {/* GHRootView required for the swipe-to-dismiss pan: RN Modal is a
           separate native window on Android the app-root can't reach (#496). */}
       <GestureHandlerRootView style={{ flex: 1 }}>
-      <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)' }}>
+      <View style={{ flex: 1, backgroundColor: P.scrim }}>
         <Pressable
           style={{ flex: 1 }}
           onPress={editingShot ? () => setEditingShot(null) : onClose}
@@ -181,85 +187,61 @@ export function PastHoleShotsSheet({
             key={editingShot.id}
             shot={editingShot}
             allShots={sortedShots}
+            holeNumber={holeNumber}
+            unit={unit}
             clubs={clubs}
             saving={saving}
             onSave={(updates, next) => handleSave(editingShot.id, updates, next)}
             onClose={() => setEditingShot(null)}
           />
         ) : (
-          <Animated.View
-            style={[
-              {
-                backgroundColor: '#FBF8F1',
-                borderTopLeftRadius: 12,
-                borderTopRightRadius: 12,
-                paddingHorizontal: 18,
-                paddingTop: 14,
-                paddingBottom: insets.bottom + 28,
-                maxHeight: '80%',
-              },
-              cardStyle,
-            ]}
-          >
-            <GestureDetector gesture={pan}>
-              <View style={{ alignItems: 'center', paddingBottom: 14 }}>
-                <View
-                  style={{
-                    width: 32,
-                    height: 4,
-                    borderRadius: 2,
-                    backgroundColor: '#D9D2BF',
-                  }}
-                />
-              </View>
-            </GestureDetector>
-            <Text style={{ ...KICKER, marginBottom: 4 }}>
-              Hole {holeNumber ?? '—'}
-              {par != null ? ` · Par ${par}` : ''}
-            </Text>
-            <Text
-              style={[TYPE.serif, {
-                color: '#1C211C',
-                fontSize: 22,
-                marginBottom: 14,
-              }]}
-            >
-              {sortedShots.length} shot{sortedShots.length === 1 ? '' : 's'}
-            </Text>
+          <Animated.View style={[{ maxHeight: '80%' }, cardStyle]}>
+            <PaperSurface style={[SHEET, { paddingBottom: insets.bottom + 12, flexShrink: 1 }]}>
+              <GestureDetector gesture={pan}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', minHeight: 64, paddingLeft: 22 }}>
+                  <View style={{ flex: 1, paddingVertical: 10 }}>
+                    <Text style={[TYPE.serif, { fontSize: 26, lineHeight: 30, color: P.ink }]}>
+                      Hole {holeNumber ?? '—'}
+                    </Text>
+                    <Text style={[TYPE.body, { fontSize: 13, color: P.ink }]}>
+                      {par != null ? `Par ${par} · ` : ''}
+                      {sortedShots.length} shot{sortedShots.length === 1 ? '' : 's'}
+                    </Text>
+                  </View>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Close hole shots"
+                    onPress={onClose}
+                    style={{ width: 44, height: 44, marginRight: 8, alignItems: 'center', justifyContent: 'center' }}
+                  >
+                    <Icon.x size={20} />
+                  </Pressable>
+                </View>
+              </GestureDetector>
 
-            {sortedShots.length === 0 ? (
-              <Text style={[TYPE.body, { color: '#5C6356', fontSize: 14, lineHeight: 20 }]}>
-                No shots logged for this hole. Place them on the Map tab, then
-                edit their details here.
-              </Text>
-            ) : (
-              <ScrollView style={{ maxHeight: '85%' }}>
-                {sortedShots.map((s) => (
-                  <ShotRowView
-                    key={s.id}
-                    shot={s}
-                    unit={unit}
-                    onPress={() => setEditingShot(s)}
-                  />
-                ))}
-              </ScrollView>
-            )}
-
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Close hole shots"
-              onPress={onClose}
-              style={{
-                marginTop: 14,
-                paddingVertical: 12,
-                alignItems: 'center',
-                borderWidth: 1,
-                borderColor: '#D9D2BF',
-                borderRadius: 2,
-              }}
-            >
-              <Text style={{ ...KICKER, color: '#5C6356' }}>Close</Text>
-            </Pressable>
+              {sortedShots.length === 0 ? (
+                <Text
+                  style={[
+                    TYPE.body,
+                    { color: P.ink, fontSize: 15, lineHeight: 21, paddingHorizontal: 22, paddingTop: 12, paddingBottom: 18, borderTopWidth: 1, borderColor: P.line },
+                  ]}
+                >
+                  No shots logged for this hole. Place them on the Map tab, then
+                  edit their details here.
+                </Text>
+              ) : (
+                <ScrollView style={{ flexShrink: 1 }} contentContainerStyle={{ paddingHorizontal: 22 }}>
+                  {sortedShots.map((s) => (
+                    <ShotRowView
+                      key={s.id}
+                      shot={s}
+                      unit={unit}
+                      onPress={() => setEditingShot(s)}
+                    />
+                  ))}
+                </ScrollView>
+              )}
+            </PaperSurface>
           </Animated.View>
         )}
       </View>
@@ -300,38 +282,26 @@ function ShotRowView({
     : [lieLabel, distanceLabel].filter(Boolean).join(' · ')
 
   return (
-    <PressableTouch
-      android_ripple={{ color: '#EBE5D6' }}
+    <Pressable
       accessibilityRole="button"
       accessibilityLabel={`Edit shot ${shot.shot_number}: ${clubLabel}`}
       onPress={onPress}
       style={{
         flexDirection: 'row',
-        paddingVertical: 10,
-        borderBottomWidth: 1,
-        borderColor: '#EBE5D6',
+        minHeight: 56,
+        paddingVertical: 8,
+        borderTopWidth: 1,
+        borderColor: P.line,
         gap: 12,
         alignItems: 'center',
       }}
     >
-      <Text
-        style={[
-          TYPE.kicker,
-          {
-            width: 24,
-            color: shot.ob === true ? '#A33A2A' : '#8A8B7E',
-            fontSize: 14,
-            fontVariant: ['tabular-nums'],
-          },
-        ]}
-      >
-        {shot.shot_number}
+      <Text style={[TYPE.body, { width: 48, color: shot.ob === true ? P.neg : P.ink, fontSize: 13 }]}>
+        Shot {shot.shot_number}
       </Text>
       <View style={{ flex: 1 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-          <Text style={[TYPE.bodyBold, { color: '#1C211C', fontSize: 15, fontWeight: '500', textTransform: 'capitalize' }]}>
-            {clubLabel}
-          </Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <Text style={[TYPE.serif, { color: P.ink, fontSize: 20 }]}>{clubLabel}</Text>
           {shot.ob === true && (
             /* An OB shot and its stroke-and-distance re-hit sit on the same
                coordinate, so their map discs overlap and neither number is
@@ -339,17 +309,15 @@ function ShotRowView({
                shot went out of bounds (#839). */
             <Text
               style={[
-                TYPE.kicker,
+                TYPE.bodyBold,
                 {
-                  color: '#FBF8F1',
-                  backgroundColor: '#A33A2A',
-                  fontSize: 10,
-                  fontWeight: '700',
-                  letterSpacing: 0.5,
-                  paddingHorizontal: 6,
+                  color: P.neg,
+                  fontSize: 11,
+                  borderWidth: 1.5,
+                  borderColor: P.neg,
+                  borderRadius: 2,
+                  paddingHorizontal: 5,
                   paddingVertical: 1,
-                  borderRadius: 4,
-                  overflow: 'hidden',
                 },
               ]}
             >
@@ -358,77 +326,44 @@ function ShotRowView({
           )}
         </View>
         {sub.length > 0 && (
-          <Text style={[TYPE.body, { color: '#5C6356', fontSize: 12, marginTop: 2 }]}>
-            {sub}
-          </Text>
+          <Text style={[TYPE.body, { color: P.ink, fontSize: 13 }]}>{sub}</Text>
         )}
       </View>
-      <Text style={[TYPE.body, { color: '#8A8B7E', fontSize: 12 }]}>Edit</Text>
-    </PressableTouch>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}>
+        <Text style={[TYPE.body, { color: P.ink, fontSize: 13 }]}>Edit</Text>
+        <Icon.next size={14} />
+      </View>
+    </Pressable>
   )
 }
 
 interface EditShotSheetProps {
   shot: ShotRow
   allShots: ShotRow[]
-  clubs: readonly { club_type: string; name?: string | null }[]
+  holeNumber: number | null
+  unit: DistanceUnit
+  clubs: readonly { club_type: string; name?: string | null; loft?: number | null }[]
   saving: boolean
   onSave: (updates: ShotUpdate, next?: ShotRow | null) => void
   onClose: () => void
 }
 
-// Reusable horizontal chip selector — the editor has ~10 of these so a
-// shared row keeps it readable.
-function ChipRow<T extends string>({
-  label,
-  options,
-  value,
-  onSelect,
-}: {
-  label: string
-  options: { value: T; label: string }[]
-  value: T | null
-  onSelect: (v: T) => void
-}) {
-  return (
-    <View style={{ marginBottom: 18 }}>
-      <Text style={{ ...KICKER, marginBottom: 8 }}>{label}</Text>
-      {/* Wrap rather than scroll horizontally — off-screen chips read as
-          the end of the list in the edit sheet (#740). */}
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
-        {options.map((o) => {
-          const active = value === o.value
-          return (
-            <Pressable
-              key={o.value}
-              onPress={() => onSelect(o.value)}
-              style={{
-                paddingHorizontal: 10,
-                paddingVertical: 8,
-                borderRadius: 2,
-                backgroundColor: active ? '#1F3D2C' : '#EBE5D6',
-              }}
-            >
-              <Text style={[TYPE.body, { color: active ? '#F2EEE5' : '#1C211C', fontSize: 12 }]}>
-                {o.label}
-              </Text>
-            </Pressable>
-          )
-        })}
-      </View>
-    </View>
-  )
-}
-
+// Edit-shot sheet (#611 §19.6 as amended by §19.9): P2 grouped rockers for
+// every choose-one field, the fixed 3×2 slope grid, putt fields as rockers.
+// Every axis is nullable, so tapping the active segment clears it — except
+// Made/Missed, which is a boolean.
 function EditShotSheet({
   shot,
   allShots,
+  holeNumber,
+  unit,
   clubs,
   saving,
   onSave,
   onClose,
 }: EditShotSheetProps) {
   const insets = useSafeAreaInsets()
+  const stacked = useStackedLabels()
   const [club, setClub] = useState<string | null>(shot.club ?? null)
   const [lieType, setLieType] = useState<LieType | null>(
     (shot.lie_type as LieType | null) ?? null,
@@ -465,10 +400,33 @@ function EditShotSheet({
 
   const isPutt = isPuttShot(lieType)
 
+  // The bag in its own order, plus the shot's club when it isn't in the bag,
+  // so the picker always shows what was saved (same as the live review sheet).
+  const clubOptions = useMemo<Opt<string>[]>(() => {
+    const typeCounts = new Map<string, number>()
+    for (const c of clubs) typeCounts.set(c.club_type, (typeCounts.get(c.club_type) ?? 0) + 1)
+    const base = clubs.map((c) => ({
+      value: c.club_type,
+      label: formatClubLabel(c, { hasDuplicateType: (typeCounts.get(c.club_type) ?? 0) > 1 }),
+    }))
+    if (shot.club && !base.some((o) => o.value === shot.club)) {
+      return [{ value: shot.club, label: formatClubLabel({ club_type: shot.club }) }, ...base]
+    }
+    return base
+  }, [clubs, shot.club])
+
   const idx = allShots.findIndex((s) => s.id === shot.id)
   const prevShot = idx > 0 ? allShots[idx - 1]! : null
   const nextShot =
     idx >= 0 && idx < allShots.length - 1 ? allShots[idx + 1]! : null
+
+  const toPin =
+    isPuttShot(shot.lie_type) && shot.putt_distance_ft != null
+      ? `${formatPuttDistance(shot.putt_distance_ft, unit)} to the hole`
+      : shot.distance_to_target != null
+        ? `${formatDistance(shot.distance_to_target, unit)} to the pin`
+        : null
+  const subtitle = [holeNumber != null ? `Hole ${holeNumber}` : null, toPin].filter(Boolean).join(' · ')
 
   function buildUpdates(): ShotUpdate {
     if (isPutt) {
@@ -512,250 +470,164 @@ function EditShotSheet({
     }
   }
 
-  function handleSavePress() {
-    onSave(buildUpdates())
-  }
-
   const { pan, cardStyle } = useSwipeToDismiss(onClose)
 
-  return (
-    <Animated.View
-      style={[
-        {
-          backgroundColor: '#FBF8F1',
-          borderTopLeftRadius: 12,
-          borderTopRightRadius: 12,
-          paddingHorizontal: 18,
-          paddingTop: 14,
-          paddingBottom: insets.bottom + 28,
-          maxHeight: '90%',
-        },
-        cardStyle,
-      ]}
-    >
-      <GestureDetector gesture={pan}>
-        <View style={{ alignItems: 'center', paddingBottom: 14 }}>
-          <View
-            style={{
-              width: 32,
-              height: 4,
-              borderRadius: 2,
-              backgroundColor: '#D9D2BF',
-            }}
-          />
-        </View>
-      </GestureDetector>
-      <View
-        style={{
-          flexDirection: 'row',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          marginBottom: 18,
-        }}
-      >
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Previous shot"
-          accessibilityState={{ disabled: !prevShot || saving }}
-          disabled={!prevShot || saving}
-          onPress={() => onSave(buildUpdates(), prevShot)}
-          hitSlop={8}
-          style={{ padding: 4, opacity: prevShot ? 1 : 0.3 }}
-        >
-          <Text style={{ ...KICKER, color: '#5C6356' }}>‹ Prev</Text>
-        </Pressable>
-        <Text
-          style={[TYPE.serif, {
-            color: '#1C211C',
-            fontSize: 17,
-          }]}
-        >
-          Shot {shot.shot_number}
-          {allShots.length > 1 ? ` of ${allShots.length}` : ''}
-        </Text>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Next shot"
-          accessibilityState={{ disabled: !nextShot || saving }}
-          disabled={!nextShot || saving}
-          onPress={() => onSave(buildUpdates(), nextShot)}
-          hitSlop={8}
-          style={{ padding: 4, opacity: nextShot ? 1 : 0.3 }}
-        >
-          <Text style={{ ...KICKER, color: '#5C6356' }}>Next ›</Text>
-        </Pressable>
-      </View>
-
-      <ScrollView showsVerticalScrollIndicator={false}>
-        <ChipRow
-          label="Lie"
-          options={LIE_TYPES.map((lt) => ({ value: lt, label: LIE_TYPE_LABELS[lt] }))}
-          value={lieType}
-          onSelect={(lt) => setLieType(lt)}
-        />
-
-        {isPutt ? (
-          <>
-            <View style={{ flexDirection: 'row', gap: 8, marginBottom: 18 }}>
-              <ResultToggle label="Made" active={puttMade} onPress={() => setPuttMade(true)} />
-              <ResultToggle label="Missed" active={!puttMade} onPress={() => setPuttMade(false)} />
-            </View>
-
-            <Text style={{ ...KICKER, marginBottom: 8 }}>Putt distance (ft)</Text>
-            <TextInput
-              value={puttDistanceFt}
-              onChangeText={(t) => setPuttDistanceFt(t.replace(/[^0-9]/g, '').slice(0, 3))}
-              keyboardType="number-pad"
-              placeholder="—"
-              placeholderTextColor="#C4BCA8"
-              accessibilityLabel="Putt distance in feet"
-              style={[TYPE.body, {
-                backgroundColor: '#EBE5D6',
-                borderRadius: 2,
-                paddingHorizontal: 12,
-                paddingVertical: 10,
-                fontSize: 15,
-                color: '#1C211C',
-                marginBottom: 18,
-              }]}
-            />
-
-            {!puttMade && (
-              <>
-                <ChipRow
-                  label="Miss — distance"
-                  options={[
-                    { value: 'short' as PuttDistanceResult, label: 'Short' },
-                    { value: 'long' as PuttDistanceResult, label: 'Long' },
-                  ]}
-                  value={distanceResult}
-                  onSelect={(v) => setDistanceResult(v)}
-                />
-                <ChipRow
-                  label="Miss — direction"
-                  options={[
-                    { value: 'left' as PuttDirectionResult, label: 'Left' },
-                    { value: 'right' as PuttDirectionResult, label: 'Right' },
-                  ]}
-                  value={directionResult}
-                  onSelect={(v) => setDirectionResult(v)}
-                />
-              </>
-            )}
-
-            <ChipRow
-              label="Green speed"
-              options={GREEN_SPEEDS.map((g) => ({ value: g, label: GREEN_SPEED_LABELS[g] }))}
-              value={greenSpeed}
-              onSelect={(v) => setGreenSpeed(v)}
-            />
-            <ChipRow
-              label="Break — vertical"
-              options={BREAK_V.map((b) => ({ value: b, label: BREAK_V_LABELS[b] }))}
-              value={breakV}
-              onSelect={(v) => setBreakV(v)}
-            />
-            <ChipRow
-              label="Break — horizontal"
-              options={BREAK_H.map((b) => ({ value: b, label: BREAK_H_LABELS[b] }))}
-              value={breakH}
-              onSelect={(v) => setBreakH(v)}
-            />
-          </>
-        ) : (
-          <>
-            <ChipRow
-              label="Club"
-              options={clubs.map((c) => ({
-                value: c.club_type,
-                label: formatClubLabel({ club_type: c.club_type }),
-              }))}
-              value={club}
-              onSelect={(v) => setClub(v)}
-            />
-            <ChipRow
-              label="Lie slope — forward"
-              options={LIE_SLOPES_FORWARD.map((s) => ({ value: s, label: FORWARD_LABELS[s] }))}
-              value={slopeForward}
-              onSelect={(v) => setSlopeForward(v)}
-            />
-            <ChipRow
-              label="Lie slope — side"
-              options={LIE_SLOPES_SIDE.map((s) => ({ value: s, label: SIDE_LABELS[s] }))}
-              value={slopeSide}
-              onSelect={(v) => setSlopeSide(v)}
-            />
-            <ChipRow
-              label="Result"
-              options={SHOT_RESULTS.map((r) => ({ value: r, label: SHOT_RESULT_LABELS[r] }))}
-              value={shotResult}
-              onSelect={(v) => setShotResult(v)}
-            />
-          </>
-        )}
-      </ScrollView>
-
-      <View style={{ flexDirection: 'row', gap: 10, marginTop: 8 }}>
-        <Pressable
-          onPress={onClose}
-          style={{
-            flex: 1,
-            paddingVertical: 12,
-            alignItems: 'center',
-            borderWidth: 1,
-            borderColor: '#D9D2BF',
-            borderRadius: 2,
-          }}
-        >
-          <Text style={{ ...KICKER, color: '#5C6356' }}>Cancel</Text>
-        </Pressable>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Save shot edits"
-          disabled={saving}
-          onPress={handleSavePress}
-          style={{
-            flex: 2,
-            paddingVertical: 12,
-            alignItems: 'center',
-            backgroundColor: saving ? '#5C6356' : '#1F3D2C',
-            borderRadius: 2,
-            opacity: saving ? 0.6 : 1,
-          }}
-        >
-          <Text style={{ ...KICKER, color: '#F2EEE5' }}>{saving ? 'Saving…' : 'Save'}</Text>
-        </Pressable>
-      </View>
-    </Animated.View>
+  const lieField = (
+    <PickerField title="Lie">
+      <RockerRows options={LIE_TYPES.map((lt) => ({ value: lt, label: LIE_TYPE_LABELS[lt] }))} value={lieType} onChange={setLieType} />
+    </PickerField>
   )
-}
 
-function ResultToggle({
-  label,
-  active,
-  onPress,
-}: {
-  label: string
-  active: boolean
-  onPress: () => void
-}) {
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityState={{ selected: active }}
-      accessibilityLabel={label}
-      onPress={onPress}
-      style={{
-        flex: 1,
-        paddingVertical: 12,
-        alignItems: 'center',
-        borderRadius: 2,
-        backgroundColor: active ? '#1F3D2C' : '#EBE5D6',
-      }}
+  const stepKey = (dir: 'prev' | 'next', target: ShotRow | null) => (
+    <Key
+      accessibilityLabel={dir === 'prev' ? 'Previous shot' : 'Next shot'}
+      disabled={!target || saving}
+      onPress={() => onSave(buildUpdates(), target)}
+      faceStyle={{ width: 44, height: 44 }}
     >
-      <Text style={[TYPE.body, { color: active ? '#F2EEE5' : '#1C211C', fontSize: 13 }]}>
-        {label}
-      </Text>
-    </Pressable>
+      {dir === 'prev' ? (
+        <Icon.prev size={22} color={!target || saving ? P.ink35 : P.ink} />
+      ) : (
+        <Icon.next size={22} color={!target || saving ? P.ink35 : P.ink} />
+      )}
+    </Key>
+  )
+
+  return (
+    <Animated.View style={[{ maxHeight: '90%' }, cardStyle]}>
+      <PaperSurface style={[SHEET, { flexShrink: 1 }]}>
+        <GestureDetector gesture={pan}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', minHeight: 72, paddingLeft: 22, paddingRight: 8, gap: GAP }}>
+            <View style={{ flex: 1, minWidth: 0, paddingVertical: 10 }}>
+              <Text style={[TYPE.serif, { fontSize: 26, lineHeight: 30, color: P.ink }]}>
+                Shot {shot.shot_number}
+                {allShots.length > 1 ? <Text style={{ fontSize: 18 }}>{` of ${allShots.length}`}</Text> : null}
+              </Text>
+              {subtitle.length > 0 && <Text style={[TYPE.body, { fontSize: 13, color: P.ink }]}>{subtitle}</Text>}
+            </View>
+            {stepKey('prev', prevShot)}
+            {stepKey('next', nextShot)}
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Close shot editor"
+              onPress={onClose}
+              style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}
+            >
+              <Icon.x size={20} />
+            </Pressable>
+          </View>
+        </GestureDetector>
+
+        <ScrollView
+          style={{ flexShrink: 1 }}
+          contentContainerStyle={{ paddingHorizontal: 22, paddingBottom: 8 }}
+          showsVerticalScrollIndicator={false}
+        >
+          {isPutt ? (
+            <>
+              {lieField}
+              <PickerField title="Putt">
+                <Rocker
+                  options={[
+                    { value: 'made', label: 'Made' },
+                    { value: 'missed', label: 'Missed' },
+                  ]}
+                  value={puttMade ? 'made' : 'missed'}
+                  onChange={(v) => v && setPuttMade(v === 'made')}
+                />
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <Text style={[TYPE.body, { width: 52, fontSize: 12, color: P.ink }]}>Length</Text>
+                  <TextInput
+                    value={puttDistanceFt}
+                    onChangeText={(t) => setPuttDistanceFt(t.replace(/[^0-9]/g, '').slice(0, 3))}
+                    keyboardType="number-pad"
+                    placeholder="—"
+                    placeholderTextColor={P.ink35}
+                    accessibilityLabel="Putt distance in feet"
+                    style={[
+                      TYPE.kicker,
+                      {
+                        width: 80,
+                        minHeight: 44,
+                        paddingHorizontal: 12,
+                        paddingVertical: 0,
+                        fontSize: 15,
+                        color: P.ink,
+                        backgroundColor: P.raised,
+                        borderWidth: 1,
+                        borderColor: P.ink,
+                        borderRadius: R,
+                      },
+                    ]}
+                  />
+                  <Text style={[TYPE.kicker, { fontSize: 14, color: P.ink }]}>ft</Text>
+                </View>
+              </PickerField>
+
+              {/* Putt miss = two independent axes (CLAUDE.md) — never one picker. */}
+              {!puttMade && (
+                <PickerField title="Miss">
+                  <RockerRows label="Distance" options={PUTT_DISTANCE_OPTIONS} value={distanceResult} onChange={setDistanceResult} stacked={stacked} />
+                  <RockerRows label="Missed" options={PUTT_DIRECTION_OPTIONS} value={directionResult} onChange={setDirectionResult} stacked={stacked} />
+                </PickerField>
+              )}
+
+              <PickerField title="Green speed">
+                <RockerRows options={SPEED_OPTIONS} value={greenSpeed} onChange={setGreenSpeed} />
+              </PickerField>
+              <PickerField title="Break">
+                <RockerRows label="Break" options={BREAK_LINE_OPTIONS} value={breakH} onChange={setBreakH} stacked={stacked} />
+                <RockerRows label="Slope" options={BREAK_SLOPE_OPTIONS} value={breakV} onChange={setBreakV} stacked={stacked} />
+              </PickerField>
+            </>
+          ) : (
+            <>
+              <PickerField title="Club">
+                <ClubPicker clubs={clubOptions} value={club} onChange={setClub} />
+              </PickerField>
+              {lieField}
+              <PickerField title="Slope">
+                <SlopeGrid forward={slopeForward} side={slopeSide} onForward={setSlopeForward} onSide={setSlopeSide} />
+              </PickerField>
+              <PickerField title="Result">
+                <RockerRows
+                  options={SHOT_RESULTS.map((r) => ({ value: r, label: SHOT_RESULT_LABELS[r] }))}
+                  value={shotResult}
+                  onChange={setShotResult}
+                />
+              </PickerField>
+            </>
+          )}
+        </ScrollView>
+
+        <View
+          style={{
+            flexDirection: 'row',
+            gap: GAP,
+            paddingHorizontal: 12,
+            paddingTop: 10,
+            paddingBottom: insets.bottom + 10,
+            borderTopWidth: 1,
+            borderColor: P.ink,
+          }}
+        >
+          <Key accessibilityLabel="Cancel" onPress={onClose} style={{ flex: 1 }} faceStyle={{ minHeight: 49 }}>
+            <KeyText>Cancel</KeyText>
+          </Key>
+          <Key
+            accessibilityLabel="Save shot edits"
+            tone="primary"
+            disabled={saving}
+            onPress={() => onSave(buildUpdates())}
+            style={{ flex: 1 }}
+            faceStyle={{ minHeight: 49 }}
+          >
+            <KeyText tone="primary" bold size={16} disabled={saving}>
+              {saving ? 'Saving…' : 'Save'}
+            </KeyText>
+          </Key>
+        </View>
+      </PaperSurface>
+    </Animated.View>
   )
 }

@@ -6,19 +6,14 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import type { Database } from '@oga/supabase'
 import type { ResolvedHole } from '@oga/core'
 import { useSwipeToDismiss } from '../ui/useSwipeToDismiss'
-import { FONT, TYPE } from '../../lib/typography'
+import { TYPE } from '../../lib/typography'
+import { PaperSurface, Rocker } from '../paper/Paper'
+import { GolfMark } from '../paper/GolfMark'
+import { Icon } from '../paper/icons'
+import { P, R } from '../paper/tokens'
 
 type HoleRow = Database['public']['Tables']['holes']['Row']
 type HoleScoreRow = Database['public']['Tables']['hole_scores']['Row']
-
-const KICKER: import('react-native').TextStyle = {
-  color: '#8A8B7E',
-  fontSize: 10,
-  fontWeight: '500',
-  letterSpacing: 1.4,
-  textTransform: 'uppercase',
-  fontFamily: FONT.mono,
-}
 
 interface ScorecardModalProps {
   holes: HoleRow[]
@@ -38,6 +33,13 @@ interface ScorecardModalProps {
   onClose: () => void
 }
 
+const COL = { par: 56, score: 64, toPar: 56 }
+
+const signed = (n: number) => (n === 0 ? 'E' : n > 0 ? `+${n}` : `−${-n}`)
+
+// Live scorecard sheet (#611 §10): paper, square top corners, golf marks
+// around the scores, the current hole on raised paper with a brass bar.
+// Close with ✕, a scrim tap, a swipe down, or Back.
 export function ScorecardModal({
   holes,
   holeScores,
@@ -47,320 +49,184 @@ export function ScorecardModal({
   onChangePar,
   onClose,
 }: ScorecardModalProps) {
-  const scoresByHoleId = useMemo(
-    () => new Map(holeScores.map((hs) => [hs.hole_id, hs])),
-    [holeScores],
-  )
-  const sorted = useMemo(
-    () => [...holes].sort((a, b) => a.number - b.number),
-    [holes],
-  )
-  const hasSyntheticHoles = sorted.some(
-    (h) => !h.yards && h.tee_lat == null,
-  )
+  const scoresByHoleId = useMemo(() => new Map(holeScores.map((hs) => [hs.hole_id, hs])), [holeScores])
+  const sorted = useMemo(() => [...holes].sort((a, b) => a.number - b.number), [holes])
+  const hasSyntheticHoles = sorted.some((h) => !h.yards && h.tee_lat == null)
   const [hintDismissed, setHintDismissed] = useState(false)
+  const eighteen = sorted.length > 9
+  const [nine, setNine] = useState<'front' | 'back'>(currentHoleNumber > 9 ? 'back' : 'front')
   const { pan, cardStyle } = useSwipeToDismiss(onClose)
   const insets = useSafeAreaInsets()
-  let runningTotal = 0
-  let runningPar = 0
+
+  // Every hole's par / score, and the running to-par over the whole round.
+  let run = 0
+  let played = false
+  const rows = sorted.map((h) => {
+    const hs = scoresByHoleId.get(h.id)
+    // 0 = pre-created, unplayed (counting it pulled the running total to -71).
+    const score = hs?.score != null && hs.score > 0 ? hs.score : null
+    // Per-round par override (#710), then tee-resolved par.
+    const par = resolvedHoleByNumber.get(h.number)?.par ?? hs?.par ?? h.par
+    if (score != null) {
+      run += score - par
+      played = true
+    }
+    return { h, par, score, run: score != null ? run : null }
+  })
+  const shown = eighteen ? rows.filter((r) => (nine === 'front' ? r.h.number <= 9 : r.h.number > 9)) : rows
+  const sumPar = shown.reduce((a, r) => a + r.par, 0)
+  const sumScore = shown.reduce((a, r) => a + (r.score ?? 0), 0)
+  const sumToPar = shown.reduce((a, r) => a + (r.score != null ? r.score - r.par : 0), 0)
+  const sub = !played ? 'No holes scored yet' : run === 0 ? 'Even so far' : `${Math.abs(run)} ${run < 0 ? 'under' : 'over'} so far`
+
   return (
-    <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)' }}>
-      <Pressable style={{ flex: 1 }} onPress={onClose} />
-      <Animated.View
-        style={[
-          {
-            backgroundColor: '#FBF8F1',
-            borderTopLeftRadius: 12,
-            borderTopRightRadius: 12,
-            paddingHorizontal: 18,
-            paddingTop: 14,
-            paddingBottom: insets.bottom + 28,
-            maxHeight: '85%',
-          },
-          cardStyle,
-        ]}
-      >
-        <GestureDetector gesture={pan}>
-          <View style={{ alignItems: 'center', paddingBottom: 14 }}>
-            <View
-              style={{
-                width: 32,
-                height: 4,
-                borderRadius: 2,
-                backgroundColor: '#D9D2BF',
-              }}
-            />
-          </View>
-        </GestureDetector>
-        <Text
+    <View style={{ flex: 1, backgroundColor: P.scrim }}>
+      <Pressable style={{ flex: 1 }} onPress={onClose} accessibilityLabel="Close scorecard" />
+      <Animated.View style={[{ maxHeight: '85%' }, cardStyle]}>
+        <PaperSurface
           style={{
-            ...KICKER,
-            color: '#8A8B7E',
-            marginBottom: 6,
+            borderTopWidth: 1,
+            borderColor: P.ink,
+            borderTopLeftRadius: R,
+            borderTopRightRadius: R,
+            paddingBottom: insets.bottom,
+            flexShrink: 1,
           }}
         >
-          Scorecard
-        </Text>
-        {hasSyntheticHoles && !hintDismissed && onChangePar && (
-          <View
-            style={{
-              marginBottom: 10,
-              paddingHorizontal: 12,
-              paddingVertical: 8,
-              borderWidth: 1,
-              borderColor: '#D9D2BF',
-              borderRadius: 2,
-              flexDirection: 'row',
-              alignItems: 'flex-start',
-              gap: 12,
-            }}
-          >
-            <Text style={[TYPE.body, { flex: 1, fontSize: 13, color: '#5C6356', lineHeight: 18 }]}>
-              No course layout found. Par defaults to 4 — tap to edit.
-            </Text>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Dismiss notice"
-              onPress={() => setHintDismissed(true)}
-              hitSlop={8}
-            >
-              <Text style={{ ...KICKER, color: '#8A8B7E' }}>Dismiss</Text>
-            </Pressable>
-          </View>
-        )}
-        <ScrollView
-          style={{ maxHeight: '90%' }}
-          showsVerticalScrollIndicator={false}
-        >
-          <View
-            style={{
-              flexDirection: 'row',
-              paddingVertical: 8,
-              borderBottomWidth: 1,
-              borderColor: '#D9D2BF',
-            }}
-          >
-            <Text style={{ ...KICKER, flex: 1, color: '#8A8B7E' }}>Hole</Text>
-            <Text
-              style={{ ...KICKER, width: 44, textAlign: 'right', color: '#8A8B7E' }}
-            >
-              Par
-            </Text>
-            <Text
-              style={{ ...KICKER, width: 56, textAlign: 'right', color: '#8A8B7E' }}
-            >
-              Score
-            </Text>
-            <Text
-              style={{ ...KICKER, width: 56, textAlign: 'right', color: '#8A8B7E' }}
-            >
-              +/−
-            </Text>
-          </View>
-          {sorted.map((h) => {
-            const hs = scoresByHoleId.get(h.id)
-            // Treat 0 the same as null — `hole_scores` rows can be
-            // pre-created with score=0 before any shots are logged, and
-            // counting those as played pulls the running total deeply
-            // under par for unplayed holes (the live round looked like
-            // -71 after hole 1).
-            const rawScore = hs?.score
-            const score = rawScore != null && rawScore > 0 ? rawScore : null
-            // Per-round par override (#710), then tee-resolved par —
-            // resolvedHoleByNumber already folds the round override in.
-            const par = resolvedHoleByNumber.get(h.number)?.par ?? hs?.par ?? h.par
-            if (score != null) {
-              runningTotal += score
-              runningPar += par
-            }
-            const diff = score != null ? score - par : null
-            const active = h.number === currentHoleNumber
-            // Editable par only for holes that came back without any
-            // layout data — for OSM-mapped holes par is authoritative
-            // and should be display-only.
-            const isSynthetic = !h.yards && h.tee_lat == null
-            const parEditable = !!onChangePar && isSynthetic
-            return (
+          <GestureDetector gesture={pan}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', minHeight: 64, paddingLeft: 22 }}>
+              <View style={{ flex: 1, paddingVertical: 8 }}>
+                <Text style={[TYPE.serif, { fontSize: 26, lineHeight: 30, color: P.ink }]}>
+                  {!eighteen ? 'Your card' : nine === 'front' ? 'Front nine' : 'Back nine'}
+                </Text>
+                <Text style={[TYPE.body, { fontSize: 13, color: P.ink }]}>{sub}</Text>
+              </View>
               <Pressable
-                key={h.id}
                 accessibilityRole="button"
-                accessibilityLabel={`Jump to hole ${h.number}, par ${par}${score != null ? `, score ${score}` : ''}`}
-                accessibilityState={{ selected: active }}
-                onPress={() => onJumpToHole(h.number)}
-                style={{
-                  flexDirection: 'row',
-                  paddingVertical: 10,
-                  borderBottomWidth: 1,
-                  borderColor: '#EBE5D6',
-                  backgroundColor: active ? '#EBE5D6' : 'transparent',
-                  paddingHorizontal: 6,
-                  borderRadius: 2,
-                }}
+                accessibilityLabel="Close scorecard"
+                onPress={onClose}
+                style={{ width: 44, height: 44, marginRight: 8, alignItems: 'center', justifyContent: 'center' }}
               >
-                <Text
-                  style={[TYPE.kicker, {
-                    flex: 1,
-                    fontSize: 15,
-                    color: '#1C211C',
-                    fontWeight: active ? '600' : '400',
-                  }]}
-                >
-                  {h.number}
-                </Text>
-                {parEditable ? (
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel={`Par ${par}, tap to change`}
-                    onPress={() => {
-                      const next = par === 3 ? 4 : par === 4 ? 5 : 3
-                      onChangePar?.(h.id, next)
-                    }}
-                    hitSlop={6}
-                    style={{
-                      width: 44,
-                      alignItems: 'flex-end',
-                      paddingVertical: 2,
-                      paddingHorizontal: 4,
-                    }}
-                  >
-                    <Text
-                      style={[TYPE.kicker, {
-                        fontSize: 15,
-                        color: '#5C6356',
-                        fontVariant: ['tabular-nums'],
-                        textDecorationLine: 'underline',
-                        textDecorationStyle: 'dotted',
-                        textDecorationColor: '#9F9580',
-                      }]}
-                    >
-                      {par}
-                    </Text>
-                  </Pressable>
-                ) : (
-                  <Text
-                    style={[TYPE.kicker, {
-                      width: 44,
-                      textAlign: 'right',
-                      fontSize: 15,
-                      color: '#5C6356',
-                      fontVariant: ['tabular-nums'],
-                    }]}
-                  >
-                    {par}
-                  </Text>
-                )}
-                <Text
-                  style={[TYPE.kicker, {
-                    width: 56,
-                    textAlign: 'right',
-                    fontSize: 15,
-                    color: score != null ? '#1C211C' : '#8A8B7E',
-                    fontVariant: ['tabular-nums'],
-                    fontWeight: '500',
-                  }]}
-                >
-                  {score ?? '—'}
-                </Text>
-                <Text
-                  style={[TYPE.kicker, {
-                    width: 56,
-                    textAlign: 'right',
-                    fontSize: 15,
-                    color:
-                      diff == null
-                        ? '#8A8B7E'
-                        : diff < 0
-                          ? '#1F3D2C'
-                          : diff > 0
-                            ? '#A33A2A'
-                            : '#5C6356',
-                    fontVariant: ['tabular-nums'],
-                  }]}
-                >
-                  {diff == null ? '—' : diff === 0 ? 'E' : diff > 0 ? `+${diff}` : `${diff}`}
-                </Text>
+                <Icon.x size={20} />
               </Pressable>
-            )
-          })}
-          <View
-            style={{
-              flexDirection: 'row',
-              paddingVertical: 12,
-              borderTopWidth: 1,
-              borderColor: '#9F9580',
-              marginTop: 4,
-              paddingHorizontal: 6,
-            }}
-          >
-            <Text style={[TYPE.bodyBold, { flex: 1, fontSize: 14, fontWeight: '600', color: '#1C211C' }]}>
-              Total played
+            </View>
+          </GestureDetector>
+          {eighteen && (
+            <Rocker
+              options={[
+                { value: 'front', label: 'Front nine' },
+                { value: 'back', label: 'Back nine' },
+              ]}
+              value={nine}
+              onChange={(v) => v && setNine(v)}
+              style={{ marginHorizontal: 22, marginBottom: 8 }}
+            />
+          )}
+          {hasSyntheticHoles && !hintDismissed && onChangePar && (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 22, paddingBottom: 8 }}>
+              <Text style={[TYPE.body, { flex: 1, fontSize: 13, lineHeight: 18, color: P.ink }]}>
+                No course layout found. Par defaults to 4 — tap a par to change it.
+              </Text>
+              <Pressable accessibilityRole="button" accessibilityLabel="Dismiss notice" onPress={() => setHintDismissed(true)} hitSlop={12}>
+                <Icon.x size={16} />
+              </Pressable>
+            </View>
+          )}
+          <View style={{ flexDirection: 'row', paddingTop: 8, paddingBottom: 6, paddingHorizontal: 22, borderBottomWidth: 1, borderColor: P.ink }}>
+            <Text style={[TYPE.body, { flex: 1, fontSize: 12, color: P.ink }]}>Hole</Text>
+            <Text style={[TYPE.body, { width: COL.par, textAlign: 'center', fontSize: 12, color: P.ink }]}>Par</Text>
+            <Text style={[TYPE.body, { width: COL.score, textAlign: 'center', fontSize: 12, color: P.ink }]}>Score</Text>
+            <Text style={[TYPE.body, { width: COL.toPar, textAlign: 'right', fontSize: 12, color: P.ink }]}>To par</Text>
+          </View>
+          <ScrollView style={{ flexShrink: 1 }} showsVerticalScrollIndicator={false}>
+            {shown.map(({ h, par, score, run: runAt }) => {
+              const now = h.number === currentHoleNumber
+              // Par is editable only on holes with no layout data — OSM par is authoritative.
+              const parEditable = !!onChangePar && !h.yards && h.tee_lat == null
+              return (
+                <Pressable
+                  key={h.id}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Go to hole ${h.number}, par ${par}${score != null ? `, score ${score}` : ''}`}
+                  accessibilityState={{ selected: now }}
+                  onPress={() => onJumpToHole(h.number)}
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    minHeight: now ? 46 : 40,
+                    paddingHorizontal: 22,
+                    borderBottomWidth: 1,
+                    borderColor: P.line,
+                    backgroundColor: now ? P.raised : 'transparent',
+                  }}
+                >
+                  {now && (
+                    <View style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 4, backgroundColor: P.brass }} />
+                  )}
+                  <Text style={[TYPE.body, { flex: 1, fontSize: 15, color: P.ink }]}>
+                    {h.number}
+                    {now && <Text style={[TYPE.serif, { fontSize: 14 }]}>{'   '}you’re here</Text>}
+                  </Text>
+                  {parEditable ? (
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel={`Par ${par}, tap to change`}
+                      onPress={() => onChangePar?.(h.id, par === 3 ? 4 : par === 4 ? 5 : 3)}
+                      style={{ width: COL.par, minHeight: 40, alignItems: 'center', justifyContent: 'center' }}
+                    >
+                      <Text
+                        style={[
+                          TYPE.kicker,
+                          { fontSize: 15, color: P.ink, textDecorationLine: 'underline', textDecorationStyle: 'dotted' },
+                        ]}
+                      >
+                        {par}
+                      </Text>
+                    </Pressable>
+                  ) : (
+                    <Text style={[TYPE.kicker, { width: COL.par, textAlign: 'center', fontSize: 15, color: P.ink }]}>{par}</Text>
+                  )}
+                  <View style={{ width: COL.score, alignItems: 'center', justifyContent: 'center' }}>
+                    <Text style={[TYPE.serif, { fontSize: 20, lineHeight: 26, color: score != null ? P.ink : P.ink35 }]}>
+                      {score ?? '—'}
+                    </Text>
+                    {score != null && <GolfMark toPar={score - par} />}
+                  </View>
+                  <Text
+                    style={[
+                      TYPE.kicker,
+                      {
+                        width: COL.toPar,
+                        textAlign: 'right',
+                        fontSize: 15,
+                        color: runAt == null ? P.ink35 : runAt < 0 ? P.neg : P.ink,
+                      },
+                    ]}
+                  >
+                    {runAt == null ? '—' : signed(runAt)}
+                  </Text>
+                </Pressable>
+              )
+            })}
+          </ScrollView>
+          <View style={{ flexDirection: 'row', alignItems: 'center', minHeight: 52, paddingHorizontal: 22, borderTopWidth: 1, borderColor: P.ink }}>
+            <Text style={[TYPE.serif, { flex: 1, fontSize: 18, color: P.ink }]}>
+              {!eighteen ? 'Total' : nine === 'front' ? 'Out' : 'In'}
+            </Text>
+            <Text style={[TYPE.kicker, { width: COL.par, textAlign: 'center', fontSize: 15, color: P.ink }]}>{sumPar}</Text>
+            <Text style={[TYPE.serif, { width: COL.score, textAlign: 'center', fontSize: 22, color: P.ink }]}>
+              {sumScore > 0 ? sumScore : '—'}
             </Text>
             <Text
-              style={[TYPE.kicker, {
-                width: 44,
-                textAlign: 'right',
-                fontSize: 14,
-                fontWeight: '600',
-                color: '#1C211C',
-                fontVariant: ['tabular-nums'],
-              }]}
+              style={[
+                TYPE.kicker,
+                { width: COL.toPar, textAlign: 'right', fontSize: 15, color: sumScore === 0 ? P.ink35 : sumToPar < 0 ? P.neg : P.ink },
+              ]}
             >
-              {runningPar}
-            </Text>
-            <Text
-              style={[TYPE.kicker, {
-                width: 56,
-                textAlign: 'right',
-                fontSize: 14,
-                fontWeight: '600',
-                color: '#1C211C',
-                fontVariant: ['tabular-nums'],
-              }]}
-            >
-              {runningTotal}
-            </Text>
-            <Text
-              style={[TYPE.kicker, {
-                width: 56,
-                textAlign: 'right',
-                fontSize: 14,
-                fontWeight: '600',
-                color:
-                  runningPar === 0
-                    ? '#8A8B7E'
-                    : runningTotal - runningPar < 0
-                      ? '#1F3D2C'
-                      : runningTotal - runningPar > 0
-                        ? '#A33A2A'
-                        : '#5C6356',
-                fontVariant: ['tabular-nums'],
-              }]}
-            >
-              {runningPar === 0
-                ? '—'
-                : runningTotal === runningPar
-                  ? 'E'
-                  : runningTotal - runningPar > 0
-                    ? `+${runningTotal - runningPar}`
-                    : `${runningTotal - runningPar}`}
+              {sumScore > 0 ? signed(sumToPar) : '—'}
             </Text>
           </View>
-        </ScrollView>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Close scorecard"
-          onPress={onClose}
-          style={{
-            marginTop: 14,
-            paddingVertical: 12,
-            alignItems: 'center',
-            borderWidth: 1,
-            borderColor: '#D9D2BF',
-            borderRadius: 2,
-          }}
-        >
-          <Text style={{ ...KICKER, color: '#5C6356' }}>Close</Text>
-        </Pressable>
+        </PaperSurface>
       </Animated.View>
     </View>
   )
