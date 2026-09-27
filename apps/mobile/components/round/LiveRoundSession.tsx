@@ -681,7 +681,6 @@ export default function LiveRoundSession({
           pin={data.storedPin}
           roundPin={data.roundPin}
           tee={data.tee}
-          holeYards={data.resolvedHole?.yards ?? null}
           teeBox={teeBox}
           aim={finalState.aim}
           ball={editMode ? data.previousShots[activeShotIdx] ?? null : finalState.ball}

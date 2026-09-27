@@ -26,8 +26,6 @@ export interface HoleMapProps {
    */
   roundPin?: LatLng | null
   tee?: LatLng | null
-  /** Tee-resolved hole length; frames pin mode on a hole with no pin (#959). */
-  holeYards?: number | null
   // Two dots framing the tee shot (perpendicular to the line of play), used
   // by the past-round logger in place of the single TeeBadge. The caller
   // (PastRoundMap) computes the positions; we only render them. When set,

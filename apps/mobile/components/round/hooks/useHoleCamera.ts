@@ -1,6 +1,6 @@
 import { useEffect, useRef, type RefObject } from 'react'
 import Mapbox from '@rnmapbox/maps'
-import { aimFrame, bearingDegrees, destinationYards } from '@oga/core'
+import { aimFrame, bearingDegrees } from '@oga/core'
 import { distanceYards } from '../../../lib/maps'
 import { getAimTilt } from '../../../lib/aimTilt'
 import type { HoleMapPhase, LatLng } from '../HoleMap.types'
@@ -27,10 +27,6 @@ interface UseHoleCameraOpts {
   ball?: LatLng | null
   pin?: LatLng | null
   roundPin?: LatLng | null
-  /** Tee + tee-resolved length: where the green can be on a hole with no
-   *  stored pin (pin mode frames it, #959). */
-  tee?: LatLng | null
-  holeYards?: number | null
   phase: HoleMapPhase
   styleLoaded: boolean
   /**
@@ -77,8 +73,6 @@ export function useHoleCamera({
   ball,
   pin,
   roundPin,
-  tee,
-  holeYards,
   phase,
   styleLoaded,
   gpsPosition,
@@ -265,54 +259,25 @@ export function useHoleCamera({
     }
     if (pinSnappedRef.current) return
     if (!cameraRef.current) return
-    // Most prod courses are synthetic (no stored pin geometry), so
-    // roundPin/pin are null — without a fallback the effect early-returned
-    // and never framed the green. Fall back to where the player is (ball,
-    // else GPS) so tapping the pin tool zooms IN rather than doing nothing (#642).
-    const target = roundPin ?? pin ?? ball ?? gpsPosition ?? null
-    if (!target) return
-    // No pin but a known length (#959): the green is ~the remaining yards
-    // from the player in an unknown direction, so fit that circle instead of
-    // zooming onto the ball, where the green is off-screen.
-    const origin = ball ?? gpsPosition ?? tee ?? null
-    const reach =
-      !roundPin && !pin && origin && holeYards
-        ? Math.max(40, holeYards - (tee ? distanceYards(tee, origin) : 0)) + 20
-        : null
+    // No stored pin (#959): leave the camera where it is. Zooming onto the
+    // ball put the green off-screen, and with no pin the direction to the
+    // green is unknown, so the live view's framing is the best guess.
+    const target = roundPin ?? pin ?? null
+    if (!target) {
+      pinSnappedRef.current = true
+      return
+    }
     try {
-      if (reach && origin) {
-        const ne = destinationYards(origin, 45, reach * Math.SQRT2)
-        const sw = destinationYards(origin, 225, reach * Math.SQRT2)
-        cameraRef.current.setCamera({
-          bounds: { ne: [ne.lng, ne.lat], sw: [sw.lng, sw.lat], paddingTop: 48, paddingBottom: ballInset, paddingLeft: 16, paddingRight: 16 },
-          animationDuration: 400,
-        })
-      } else {
-        cameraRef.current.setCamera({
-          centerCoordinate: toCoord(target),
-          zoomLevel: 19,
-          animationDuration: 400,
-        })
-      }
+      cameraRef.current.setCamera({
+        centerCoordinate: toCoord(target),
+        zoomLevel: 19,
+        animationDuration: 400,
+      })
       pinSnappedRef.current = true
     } catch {
       // native camera released — retry on next pin change
     }
-  }, [
-    isPinMode,
-    roundPin?.lat,
-    roundPin?.lng,
-    pin?.lat,
-    pin?.lng,
-    ball?.lat,
-    ball?.lng,
-    gpsPosition?.lat,
-    gpsPosition?.lng,
-    tee?.lat,
-    tee?.lng,
-    holeYards,
-    ballInset,
-  ])
+  }, [isPinMode, roundPin?.lat, roundPin?.lng, pin?.lat, pin?.lng])
 
   // Mark whether we owe the camera a PLACE_BALL re-frame on the next
   // ball update. Set on phase transitions INTO PLACE_BALL (e.g. after
