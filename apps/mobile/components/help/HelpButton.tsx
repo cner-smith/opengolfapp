@@ -23,7 +23,7 @@ export function HelpButton({ topicId }: { topicId: HelpTopicId }) {
         accessibilityLabel={`Help: ${topic.title}`}
         onPress={() => setOpen(true)}
         style={{
-          width: 30, height: 30, borderRadius: 999, borderWidth: 1,
+          width: 30, height: 30, borderRadius: R, borderWidth: 1,
           borderColor: P.line, alignItems: 'center', justifyContent: 'center',
         }}
       >
