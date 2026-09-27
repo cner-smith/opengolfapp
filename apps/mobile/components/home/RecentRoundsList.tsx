@@ -5,14 +5,7 @@ import { Swipeable } from 'react-native-gesture-handler'
 import { formatSG, partialRoundLabel } from '@oga/core'
 import { TYPE } from '../../lib/typography'
 import { SectionHead } from '../paper/Section'
-
-const KICKER: import('react-native').TextStyle = {
-  color: '#8A8B7E',
-  fontSize: 10,
-  fontWeight: '500',
-  letterSpacing: 1.4,
-  textTransform: 'uppercase',
-}
+import { FONT_CAP, P } from '../paper/tokens'
 
 export interface RecentRoundRow {
   id: string
@@ -96,7 +89,7 @@ export function RecentRoundsList({
                   }}
                 >
                   <View style={{ flex: 1, paddingRight: 12 }}>
-                    <Text style={[TYPE.kicker, KICKER, { color: '#8A8B7E', marginBottom: 4 }]}>
+                    <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { color: P.inkDim, fontSize: 12, marginBottom: 4 }]}>
                       {r.played_at}
                       {partialRoundLabel(r.hole_scores)}
                     </Text>

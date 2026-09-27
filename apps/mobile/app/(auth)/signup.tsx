@@ -222,14 +222,13 @@ export default function Signup() {
               {checking ? 'Checking…' : "I've confirmed it"}
             </KeyText>
           </Key>
-          <Link href="/(auth)/login" asChild>
-            <Text
-              maxFontSizeMultiplier={FONT_CAP}
-              style={[TYPE.body, { fontSize: 13, marginTop: 14, textAlign: 'center', color: P.forest }]}
-            >
-              Back to sign in
-            </Text>
-          </Link>
+          <Link
+          href="/(auth)/login"
+          maxFontSizeMultiplier={FONT_CAP}
+          style={[TYPE.body, { color: P.forest, fontSize: 13, marginTop: 14, textAlign: 'center' }]}
+        >
+          Have an account? Sign in
+        </Link>
         </PaperTile>
       </PaperSurface>
     )
@@ -330,13 +329,12 @@ export default function Signup() {
           <View style={{ flex: 1, height: 1, backgroundColor: P.line }} />
         </View>
         <OAuthButtons />
-        <Link href="/(auth)/login" asChild>
-          <Text
-            maxFontSizeMultiplier={FONT_CAP}
-            style={[TYPE.body, { fontSize: 13, marginTop: 14, textAlign: 'center', color: P.forest }]}
-          >
-            Have an account? Sign in
-          </Text>
+        <Link
+          href="/(auth)/login"
+          maxFontSizeMultiplier={FONT_CAP}
+          style={[TYPE.body, { color: P.forest, fontSize: 13, marginTop: 14, textAlign: 'center' }]}
+        >
+          Have an account? Sign in
         </Link>
       </PaperTile>
       </ScrollView>

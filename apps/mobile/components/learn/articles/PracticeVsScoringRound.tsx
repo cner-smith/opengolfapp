@@ -15,6 +15,8 @@ import {
   KICKER,
 } from '../primitives'
 import { FONT } from '../../../lib/typography'
+import { PaperTile } from '../../paper/Section'
+import { FONT_CAP } from '../../paper/tokens'
 
 export function PracticeVsScoringRoundArticle() {
   return (
@@ -363,17 +365,7 @@ function ModeTable() {
     },
   ]
   return (
-    <View
-      style={{
-        backgroundColor: C.boxBg,
-        borderWidth: 1,
-        borderColor: C.line,
-        borderRadius: 2,
-        paddingVertical: 14,
-        paddingHorizontal: 16,
-        marginBottom: 18,
-      }}
-    >
+    <PaperTile style={{ marginBottom: 18 }} innerStyle={{ paddingVertical: 14, paddingHorizontal: 16 }}>
       {rows.map((r, i) => (
         <View
           key={r.dim}
@@ -384,7 +376,7 @@ function ModeTable() {
             borderTopColor: C.line,
           }}
         >
-          <Text
+          <Text maxFontSizeMultiplier={FONT_CAP}
             style={{
               color: C.ink,
               fontFamily: FONT.serifItalic,
@@ -396,20 +388,20 @@ function ModeTable() {
           </Text>
           <View style={{ flexDirection: 'row', gap: 12 }}>
             <View style={{ flex: 1 }}>
-              <Text style={{ ...KICKER, color: C.inkDim, marginBottom: 3 }}>
+              <Text maxFontSizeMultiplier={FONT_CAP} style={{ ...KICKER, marginBottom: 3 }}>
                 Practice round
               </Text>
-              <Text style={{ color: C.ink, fontFamily: FONT.body, fontSize: 13, lineHeight: 19 }}>{r.practice}</Text>
+              <Text maxFontSizeMultiplier={FONT_CAP} style={{ color: C.ink, fontFamily: FONT.body, fontSize: 13, lineHeight: 19 }}>{r.practice}</Text>
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={{ ...KICKER, color: C.inkDim, marginBottom: 3 }}>
+              <Text maxFontSizeMultiplier={FONT_CAP} style={{ ...KICKER, marginBottom: 3 }}>
                 Scoring round
               </Text>
-              <Text style={{ color: C.ink, fontFamily: FONT.body, fontSize: 13, lineHeight: 19 }}>{r.scoring}</Text>
+              <Text maxFontSizeMultiplier={FONT_CAP} style={{ color: C.ink, fontFamily: FONT.body, fontSize: 13, lineHeight: 19 }}>{r.scoring}</Text>
             </View>
           </View>
         </View>
       ))}
-    </View>
+    </PaperTile>
   )
 }

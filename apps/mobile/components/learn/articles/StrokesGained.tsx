@@ -1,5 +1,6 @@
 import { Text, View } from 'react-native'
 import { FONT } from '../../../lib/typography'
+import { FONT_CAP, P as PAPER } from '../../paper/tokens'
 import {
   ArticleFooter,
   ArticleHeader,
@@ -103,16 +104,9 @@ function WorkedExample() {
   return (
     <GlanceBox
       label="A worked example"
-      style={{
-        borderWidth: 1,
-        borderColor: C.line,
-        backgroundColor: C.surface,
-        padding: 22,
-        marginTop: 18,
-        borderRadius: 4,
-      }}
+      style={{ padding: 22, marginTop: 18 }}
     >
-      <Text
+      <Text maxFontSizeMultiplier={FONT_CAP}
         style={{
           color: C.ink,
           fontFamily: FONT.body,
@@ -149,7 +143,7 @@ function WorkedExample() {
           tone="pos"
         />
       </View>
-      <Text
+      <Text maxFontSizeMultiplier={FONT_CAP}
         style={{
           color: C.inkDim,
           fontFamily: FONT.body,
@@ -161,7 +155,7 @@ function WorkedExample() {
         155 beats the expectation. Chunk the same swing 40 yards instead,
         leaving <Em>115 in the fairway</Em>, and the sign flips: 3.67 − 3.39 −
         1 ={' '}
-        <Text style={{ fontFamily: FONT.serifItalic }}>
+        <Text maxFontSizeMultiplier={FONT_CAP} style={{ fontFamily: FONT.serifItalic }}>
           −0.72
         </Text>{' '}
         — nearly three-quarters of a stroke lost on one swing. Three of those
@@ -183,11 +177,11 @@ function ExampleStat({
   note: string
   tone?: 'pos' | 'neg'
 }) {
-  const color = tone === 'pos' ? '#1F3D2C' : tone === 'neg' ? '#A33A2A' : '#1C211C'
+  const color = tone === 'pos' ? PAPER.forest : tone === 'neg' ? PAPER.neg : PAPER.ink
   return (
     <View style={{ minWidth: 120, flex: 1 }}>
-      <Text style={{ ...KICKER, marginBottom: 6 }}>{label}</Text>
-      <Text
+      <Text maxFontSizeMultiplier={FONT_CAP} style={{ ...KICKER, marginBottom: 6 }}>{label}</Text>
+      <Text maxFontSizeMultiplier={FONT_CAP}
         style={{
           color,
           fontFamily: FONT.serifItalic,
@@ -197,7 +191,7 @@ function ExampleStat({
       >
         {value}
       </Text>
-      <Text
+      <Text maxFontSizeMultiplier={FONT_CAP}
         style={{
           color: C.inkDim,
           fontFamily: FONT.body,

@@ -5,14 +5,6 @@ import { TYPE } from '../../lib/typography'
 import { SectionHead } from '../paper/Section'
 import { FONT_CAP, P } from '../paper/tokens'
 
-const KICKER: import('react-native').TextStyle = {
-  color: '#8A8B7E',
-  fontSize: 10,
-  fontWeight: '500',
-  letterSpacing: 1.4,
-  textTransform: 'uppercase',
-}
-
 // First three readable pieces in catalog order. Section order already
 // encodes editorial priority (fundamentals first), so this surfaces the
 // flagship published articles without needing a `featured` flag.
@@ -83,7 +75,12 @@ function PreviewRow({
             {article.title}
           </Text>
           {article.status === 'draft' && (
-            <Text style={[TYPE.kicker, KICKER, { color: '#A66A1F', marginLeft: 8 }]}>Draft</Text>
+            <Text
+              maxFontSizeMultiplier={FONT_CAP}
+              style={[TYPE.body, { color: P.warn, fontSize: 11, backgroundColor: P.well, borderRadius: 2, overflow: 'hidden', paddingHorizontal: 6, paddingVertical: 1, marginLeft: 8 }]}
+            >
+              Draft
+            </Text>
           )}
         </View>
         <Text style={[TYPE.body, { color: '#5C6356', fontSize: 13, lineHeight: 18, marginTop: 4 }]}>
@@ -92,7 +89,7 @@ function PreviewRow({
       </View>
       <View style={{ alignItems: 'flex-end' }}>
         {reading != null && (
-          <Text style={[TYPE.kicker, KICKER, { color: '#8A8B7E', marginBottom: 4 }]}>{reading} min</Text>
+          <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { color: P.inkDim, fontSize: 12, marginBottom: 4 }]}>{reading} min</Text>
         )}
         <Text style={[TYPE.serif, { color: '#8A8B7E', fontSize: 18 }]}>→</Text>
       </View>
