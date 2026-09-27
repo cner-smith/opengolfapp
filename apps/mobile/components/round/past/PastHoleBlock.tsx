@@ -53,12 +53,12 @@ export function PastHoleBlock(p: PastHoleBlockProps) {
           <Icon.next size={20} />
         </NavButton>
       </View>
-      <HeroRow distance={p.distance} expected={p.expected} trailing={<ResultCorner result={p.result} />} />
+      <HeroRow distance={p.distance} expected={p.expected} trailing={<ResultCorner result={p.result} holeNumber={p.holeNumber} />} />
     </PaperSurface>
   )
 }
 
-function ResultCorner({ result }: { result: HoleResult }) {
+function ResultCorner({ result, holeNumber }: { result: HoleResult; holeNumber: number }) {
   const lines = result.scored
     ? [
         result.toPar == null ? null : result.toPar === 0 ? 'E' : result.toPar > 0 ? `+${result.toPar}` : `−${-result.toPar}`,
@@ -78,7 +78,7 @@ function ResultCorner({ result }: { result: HoleResult }) {
           <Text maxFontSizeMultiplier={1} style={[TYPE.serif, { fontSize: 24, lineHeight: 30, color: P.ink }]}>
             {result.score}
           </Text>
-          {result.toPar != null && <GolfMark toPar={result.toPar} />}
+          {result.toPar != null && <GolfMark toPar={result.toPar} seed={holeNumber} />}
         </View>
       ) : (
         <View

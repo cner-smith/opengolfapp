@@ -35,6 +35,28 @@ interface ScorecardModalProps {
 
 const COL = { par: 56, score: 64, toPar: 56 }
 
+// Scores this card has already shown, per round, for this app session. A mark
+// draws by hand only for a score that's new since the card last showed it (the
+// hole just finished); ones already on the card at first sight print finished.
+const shownScores = new Map<string, Set<string>>()
+function useFreshScores(
+  roundId: string | undefined,
+  holes: HoleRow[],
+  scoresByHoleId: Map<string, HoleScoreRow>,
+): Set<string> {
+  return useMemo(() => {
+    const keys = holes.flatMap((h) => {
+      const s = scoresByHoleId.get(h.id)?.score
+      return s != null && s > 0 ? [`${h.number}:${s}`] : []
+    })
+    if (!roundId) return new Set<string>()
+    const seen = shownScores.get(roundId)
+    const fresh = new Set(seen ? keys.filter((k) => !seen.has(k)) : [])
+    shownScores.set(roundId, new Set([...(seen ?? []), ...keys]))
+    return fresh
+  }, [roundId, holes, scoresByHoleId])
+}
+
 const signed = (n: number) => (n === 0 ? 'E' : n > 0 ? `+${n}` : `−${-n}`)
 
 // Live scorecard sheet (#611 §10): paper, square top corners, golf marks
@@ -51,6 +73,7 @@ export function ScorecardModal({
 }: ScorecardModalProps) {
   const scoresByHoleId = useMemo(() => new Map(holeScores.map((hs) => [hs.hole_id, hs])), [holeScores])
   const sorted = useMemo(() => [...holes].sort((a, b) => a.number - b.number), [holes])
+  const fresh = useFreshScores(holeScores[0]?.round_id, sorted, scoresByHoleId)
   const hasSyntheticHoles = sorted.some((h) => !h.yards && h.tee_lat == null)
   const [hintDismissed, setHintDismissed] = useState(false)
   const eighteen = sorted.length > 9
@@ -190,7 +213,7 @@ export function ScorecardModal({
                     <Text style={[TYPE.serif, { fontSize: 20, lineHeight: 26, color: score != null ? P.ink : P.ink35 }]}>
                       {score ?? '—'}
                     </Text>
-                    {score != null && <GolfMark toPar={score - par} />}
+                    {score != null && <GolfMark toPar={score - par} seed={h.number} animate={fresh.has(`${h.number}:${score}`)} />}
                   </View>
                   <Text
                     style={[

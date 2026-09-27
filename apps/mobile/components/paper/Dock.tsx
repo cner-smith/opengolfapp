@@ -1,5 +1,6 @@
-import type { ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { Pressable, Text, View } from 'react-native'
+import Animated, { Easing, useAnimatedStyle, useSharedValue, withDelay, withTiming } from 'react-native-reanimated'
 import { TYPE } from '../../lib/typography'
 import { Key, KeyText } from './Paper'
 import { Icon } from './icons'
@@ -136,17 +137,62 @@ export function Primary({
       style={{ flexGrow: 1, flexShrink: 0, maxWidth: '60%' }}
       faceStyle={{ minHeight: 49, paddingHorizontal: 8, paddingVertical: 3 }}
     >
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-        {plus && <Icon.plus size={18} color={disabled ? P.ink35 : P.raised} />}
-        <KeyText tone="primary" bold size={16} disabled={disabled} numberOfLines={2} style={{ flexShrink: 1 }}>
-          {label}
-        </KeyText>
-      </View>
-      {sub ? (
-        <KeyText tone="primary" size={12} style={{ opacity: 0.9 }}>
-          {sub}
-        </KeyText>
-      ) : null}
+      <LabelSwap
+        id={`${label}|${sub ?? ''}`}
+        render={(l) => {
+          const [text, subText] = l.split('|')
+          return (
+            <>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                {plus && <Icon.plus size={18} color={disabled ? P.ink35 : P.raised} />}
+                <KeyText tone="primary" bold size={16} disabled={disabled} numberOfLines={2} style={{ flexShrink: 1 }}>
+                  {text}
+                </KeyText>
+              </View>
+              {subText ? (
+                <KeyText tone="primary" size={12} style={{ opacity: 0.9 }}>
+                  {subText}
+                </KeyText>
+              ) : null}
+            </>
+          )
+        }}
+      />
     </Key>
+  )
+}
+
+// Primary label swap (§15): the old label lifts 5 dp and fades in 60 ms; the
+// new one rises from +5 dp and fades in over 110 ms (out-cubic), from 40 ms.
+// Each label mounts fresh (keyed), so Android never re-lays out old text.
+function LabelSwap({ id, render }: { id: string; render: (id: string) => ReactNode }) {
+  const [labels, setLabels] = useState({ cur: id, old: null as string | null, n: 0 })
+  const inP = useSharedValue(1)
+  const outP = useSharedValue(1)
+  useEffect(() => {
+    if (id === labels.cur) return
+    setLabels((l) => ({ cur: id, old: l.cur, n: l.n + 1 }))
+    outP.value = 0
+    outP.value = withTiming(1, { duration: 60 })
+    inP.value = 0
+    inP.value = withDelay(40, withTiming(1, { duration: 110, easing: Easing.out(Easing.cubic) }))
+  }, [id, labels.cur, inP, outP])
+  const inStyle = useAnimatedStyle(() => ({ opacity: inP.value, transform: [{ translateY: (1 - inP.value) * 5 }] }))
+  const outStyle = useAnimatedStyle(() => ({ opacity: 1 - outP.value, transform: [{ translateY: -5 * outP.value }] }))
+  return (
+    <>
+      <Animated.View key={`in${labels.n}`} style={[{ alignItems: 'center' }, inStyle]}>
+        {render(labels.cur)}
+      </Animated.View>
+      {labels.old != null && (
+        <Animated.View
+          key={`out${labels.n}`}
+          pointerEvents="none"
+          style={[{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, alignItems: 'center', justifyContent: 'center' }, outStyle]}
+        >
+          {render(labels.old)}
+        </Animated.View>
+      )}
+    </>
   )
 }

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { ActivityIndicator, Alert, BackHandler, View } from 'react-native'
+import { ActivityIndicator, Alert, BackHandler, Dimensions, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useFocusEffect, useRouter } from 'expo-router'
 import { HoleMap, type LatLng } from './HoleMap'
@@ -34,8 +34,10 @@ import { useShotActions } from './hole/useShotActions'
 import { HoleModals } from './hole/HoleModals'
 import { LiveRoundDock, MIN_BOTTOM_STRIP } from './LiveRoundDock'
 import { LiveRoundHeader, RoundOptionsMenu } from './LiveRoundHeader'
-import { APPR_RULER_FEET, TEE_RULER_YARDS } from './HoleMapOverlays'
+import { APPR_RULER_FEET, TEE_RULER_YARDS, rulerValueAt } from './HoleMapOverlays'
 import { LiveRoundError } from './LiveRoundError'
+import { PuttDrop, PUTT_DROP_SHEET_DELAY_MS } from './markers/PuttDrop'
+import { useReducedMotion } from 'react-native-reanimated'
 import { P } from '../paper/tokens'
 
 const FEET_PER_YARD = 3
@@ -289,14 +291,19 @@ export default function LiveRoundSession({
   const puttDistanceFt =
     ballToPinYards != null ? Math.round(ballToPinYards * 3) : null
 
-  // Overlay sizing from the active rail pick (fallbacks guard the indexed
-  // access). Arc width = the yard preset; circle radius = diameter-ft ÷ 2 ÷ 3.
-  const arcWidthYards = TEE_RULER_YARDS[teeRailIdx] ?? TEE_RULER_YARDS[0]
-  const circleDiaFeet = APPR_RULER_FEET[apprRailIdx] ?? APPR_RULER_FEET[0]
-  const circleRadiusYards = circleDiaFeet / 2 / FEET_PER_YARD
+  // Overlay sizing from the ruler. At rest it's the preset; while a finger
+  // drags the ruler it's a fractional ruler position for the active mode. Circle radius = diameter-ft ÷ 2 ÷ 3.
+  const [scrubPos, setScrubPos] = useState<number | null>(null)
   const railIndex = overlayMode === 'tee' ? teeRailIdx : apprRailIdx
-  const selectRail = (i: number) =>
-    overlayMode === 'tee' ? setTeeRailIdx(i) : setApprRailIdx(i)
+  const railPos = scrubPos ?? railIndex
+  const arcWidthYards = rulerValueAt(TEE_RULER_YARDS, overlayMode === 'tee' ? railPos : teeRailIdx)
+  const circleRadiusYards =
+    rulerValueAt(APPR_RULER_FEET, overlayMode === 'appr' ? railPos : apprRailIdx) / 2 / FEET_PER_YARD
+  const selectRail = (i: number) => {
+    setScrubPos(null)
+    if (overlayMode === 'tee') setTeeRailIdx(i)
+    else setApprRailIdx(i)
+  }
 
   // Handicap for the live expected-strokes / SG readouts. Read once from the
   // canonical profiles.handicap_index (player-entered, refined by the web
@@ -341,6 +348,26 @@ export default function LiveRoundSession({
             handicap,
           )
 
+  // "Made it" (#611 §15): the ball rolls into the cup over the committed
+  // state; the review sheet waits until 100 ms after the drop. Skipped under
+  // reduce motion or when the ball / cup can't be put on screen.
+  const projectRef = useRef<((pts: LatLng[]) => Promise<[number, number][] | null>) | null>(null)
+  const [puttDrop, setPuttDrop] = useState<{ from: [number, number]; to: [number, number] } | null>(null)
+  const [sheetHeld, setSheetHeld] = useState(false)
+  const reduceMotion = useReducedMotion()
+  const endPuttDrop = useCallback(() => setPuttDrop(null), [])
+  const playPuttDrop = async () => {
+    const cup = data.roundPin ?? data.storedPin
+    if (reduceMotion || !finalState.ball || !cup) return
+    setSheetHeld(true)
+    setTimeout(() => setSheetHeld(false), PUTT_DROP_SHEET_DELAY_MS)
+    const pts = await projectRef.current?.([finalState.ball, cup]).catch(() => null)
+    const { width, height } = Dimensions.get('window')
+    const onScreen = (p?: [number, number]) => !!p && p[0] >= 0 && p[0] <= width && p[1] >= 0 && p[1] <= height
+    if (onScreen(pts?.[0]) && onScreen(pts?.[1])) setPuttDrop({ from: pts![0]!, to: pts![1]! })
+    else setSheetHeld(false)
+  }
+
   const totalShotsThisHole =
     data.remoteShotCount + data.localShotCount > 0
       ? data.remoteShotCount + data.localShotCount
@@ -358,7 +385,9 @@ export default function LiveRoundSession({
         const d = byClub.get(c.club_type as Club)
         return {
           club: c.club_type as Club,
-          label: formatClubLabel(c),
+          name: formatClubLabel(c),
+          // The wheel is 124 wide: "driver" at 32 sp pushed the meta off the card.
+          label: c.club_type === 'driver' ? 'dr' : formatClubLabel(c),
           carryYards: d?.medianCarryYards ?? null,
           shots: d?.points.length ?? 0,
           sparse: !d?.dispersion,
@@ -601,6 +630,8 @@ export default function LiveRoundSession({
 
       <View style={{ flex: 1 }}>
         <HoleMap
+          projectRef={projectRef}
+          hideBall={puttDrop != null}
           center={center}
           pin={data.storedPin}
           roundPin={data.roundPin}
@@ -611,6 +642,7 @@ export default function LiveRoundSession({
           overlayMode={overlayMode}
           arcWidthYards={arcWidthYards}
           circleRadiusYards={circleRadiusYards}
+          overlayLive={scrubPos != null}
           pattern={pattern}
           obCallout={
             obPromptActive && !actions.lastShotIsOb
@@ -688,6 +720,7 @@ export default function LiveRoundSession({
           }}
           onPlacePin={actions.persistRoundPin}
         />
+        {puttDrop && <PuttDrop from={puttDrop.from} to={puttDrop.to} onDone={endPuttDrop} />}
         <LiveRoundDock
           roundState={finalState.roundState}
           pinPlacementOpen={pinPlacementOpen}
@@ -729,7 +762,9 @@ export default function LiveRoundSession({
           overlayMode={overlayMode}
           onSetOverlayMode={setOverlayMode}
           rulerIndex={railIndex}
+          rulerPos={railPos}
           onSelectRuler={selectRail}
+          onScrubRuler={setScrubPos}
           showRecenter={!editMode}
           onRecenter={() => recenterRef.current?.()}
           aimHintVisible={finalState.aimHintVisible}
@@ -765,9 +800,10 @@ export default function LiveRoundSession({
           }}
           onMarkLastShotOb={() => void actions.markLastShotOb()}
           onFinishHole={actions.finishHole}
-          onPuttMade={() =>
-            actions.persistPutt({ puttMade: true, puttDistanceFt: puttDistanceFt ?? undefined })
-          }
+          onPuttMade={() => {
+            void actions.persistPutt({ puttMade: true, puttDistanceFt: puttDistanceFt ?? undefined })
+            void playPuttDrop()
+          }}
           onPuttMissed={() =>
             actions.persistPutt({ puttMade: false, puttDistanceFt: puttDistanceFt ?? undefined })
           }
@@ -851,7 +887,7 @@ export default function LiveRoundSession({
           location-only during play, then writes metadata + hole_scores and
           advances (#791). */}
       <HoleReviewSheet
-        visible={finalState.roundState === 'SUMMARY'}
+        visible={finalState.roundState === 'SUMMARY' && !sheetHeld}
         holeNumber={holeNumber}
         isLastHole={actions.finishesRound}
         par={data.resolvedHole?.par ?? data.currentHole.par}

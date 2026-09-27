@@ -36,6 +36,7 @@
     "expo-status-bar": "3.0.9",
     "expo-updates": "29.0.19",
     "expo-web-browser": "15.0.11",
+    "perfect-freehand": "1.2.3",
     "react": "19.1.0",
     "react-dom": "19.1.0",
     "react-native": "0.81.5",
