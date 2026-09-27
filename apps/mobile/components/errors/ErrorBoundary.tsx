@@ -1,3 +1,4 @@
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Component, type ErrorInfo, type ReactNode } from 'react'
 import { ScrollView, Text, View } from 'react-native'
 import { TYPE } from '../../lib/typography'
@@ -41,6 +42,8 @@ export class ErrorBoundary extends Component<Props, State> {
 }
 
 function ErrorScreen({ error, onReset }: { error: Error; onReset: () => void }) {
+  // Clear of the status bar / nav bar (edge-to-edge): the title sat under it.
+  const insets = useSafeAreaInsets()
   return (
     <PaperSurface style={{ flex: 1 }}>
       <ScrollView
@@ -49,6 +52,8 @@ function ErrorScreen({ error, onReset }: { error: Error; onReset: () => void }) 
           alignItems: 'center',
           justifyContent: 'center',
           padding: 28,
+          paddingTop: insets.top + 28,
+          paddingBottom: insets.bottom + 28,
         }}
       >
         <View style={{ maxWidth: 480 }}>
@@ -78,7 +83,7 @@ function ErrorScreen({ error, onReset }: { error: Error; onReset: () => void }) 
           </Text>
           {__DEV__ && (
             <PaperTile style={{ marginBottom: 22 }}>
-              <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.kicker, { fontSize: 11, color: P.neg }]}>
+              <Text numberOfLines={14} maxFontSizeMultiplier={FONT_CAP} style={[TYPE.kicker, { fontSize: 11, color: P.neg }]}>
                 {error.message}
                 {error.stack ? `\n\n${error.stack}` : ''}
               </Text>
