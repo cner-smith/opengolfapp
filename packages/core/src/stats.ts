@@ -474,7 +474,7 @@ export function scoringDistribution(rounds: DetailedRound[]): {
     label: string
     color: string
   }> = [
-    { key: 'eagleOrBetter', label: 'Eagle+', color: '#1F3D2C' },
+    { key: 'eagleOrBetter', label: 'Eagle+', color: '#C9A24E' }, // brass: must differ from birdie's forest
     { key: 'birdie', label: 'Birdie', color: '#1F3D2C' },
     { key: 'par', label: 'Par', color: '#9F9580' },
     { key: 'bogey', label: 'Bogey', color: '#A66A1F' },
