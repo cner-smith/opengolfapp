@@ -22,6 +22,7 @@ import { getProfile, updateProfile } from '@oga/supabase'
 import type { Database } from '@oga/supabase'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
+import { useUnitsContext } from '../../contexts/UnitsContext'
 import { clearScreenCache } from '../../lib/screenCache'
 import { getAimTilt, setAimTilt, type AimTilt } from '../../lib/aimTilt'
 import { getLeftHand, setLeftHand } from '../../lib/leftHand'
@@ -76,6 +77,7 @@ export default function ProfileTab() {
   const [goal, setGoal] = useState<Goal>(null)
   const [facilities, setFacilities] = useState<string[]>([])
   const [unit, setUnit] = useState<'yards' | 'meters'>('yards')
+  const { setUnit: setAppUnit } = useUnitsContext()
   const [emailSummaries, setEmailSummaries] = useState(true)
   // Device-local (lib/aimTilt), so it saves on tap rather than with the
   // profile row below.
@@ -223,7 +225,8 @@ export default function ProfileTab() {
       return
     }
     if (data) setProfile(data)
-    Alert.alert('Saved', 'Profile updated. SG benchmarks will use the new handicap.')
+    setAppUnit(unit)
+    Alert.alert('Saved', 'Profile updated.')
   }
 
   function toggleFacility(f: string) {

@@ -19,12 +19,16 @@ interface UnitsContextValue {
   unit: DistanceUnit
   isYards: boolean
   isMetres: boolean
+  /** Profile calls this after a successful save; the provider only fetches
+   *  once per sign-in, so without it a unit change needed an app restart. */
+  setUnit: (u: DistanceUnit) => void
 }
 
 const DEFAULT: UnitsContextValue = {
   unit: 'yards',
   isYards: true,
   isMetres: false,
+  setUnit: () => {},
 }
 
 const UnitsContext = createContext<UnitsContextValue>(DEFAULT)
@@ -55,6 +59,7 @@ export function UnitsProvider({ children }: { children: ReactNode }) {
     unit,
     isYards: unit === 'yards',
     isMetres: unit === 'meters',
+    setUnit,
   }
   return <UnitsContext.Provider value={value}>{children}</UnitsContext.Provider>
 }
