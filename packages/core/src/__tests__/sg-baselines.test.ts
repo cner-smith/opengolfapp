@@ -197,8 +197,17 @@ describe('interpolateBaseline — around-green baselines (yards)', () => {
     expect(interpolateBaseline(scratch, 5)).toBe(2.18)
   })
 
-  it('scratch around-green from 30 yd ≈ 2.64 strokes', () => {
-    expect(interpolateBaseline(scratch, 30)).toBe(2.64)
+  it('scratch around-green from 30 yd ≈ 2.60 strokes', () => {
+    expect(interpolateBaseline(scratch, 30)).toBe(2.6)
+  })
+
+  it('meets approach@50 at the 30-yd hand-over, never above it (#632)', () => {
+    for (const b of HANDICAP_BRACKETS) {
+      const ag = AROUND_GREEN_BASELINES[b]
+      expect(ag[30]).toBe(APPROACH_BASELINES[b][50])
+      const keys = Object.keys(ag).map(Number).sort((x, y) => x - y)
+      for (let i = 1; i < keys.length; i++) expect(ag[keys[i]!]!).toBeGreaterThan(ag[keys[i - 1]!]!)
+    }
   })
 
   it('40 yd clamps to 30 yd value (around-green tops out at 30)', () => {

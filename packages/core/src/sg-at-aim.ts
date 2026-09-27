@@ -14,22 +14,15 @@ const HIGH_CONFIDENCE_SAMPLES = 15
 
 /**
  * Expected strokes to hole out from `distanceYards` to the pin, keyed on
- * distance only (no lie data yet). Stitches the real SG baselines into a
- * monotonic non-decreasing function. NOTE: the around-green table at 30 yd
- * exceeds the approach table at 50 yd in every bracket (a baseline-seam
- * artifact — see the "baseline seam" ticket), so at 30 yd and beyond we floor
- * the approach curve at the around-green@30 value. The 30-yd-and-up band is
- * therefore flat up to where the approach curve overtakes the floor (the
- * exact upper bound varies by handicap bracket); it never rewards leaving
- * yourself farther.
+ * distance only (no lie data yet): putting inside 5 yd, around-green to 30,
+ * approach beyond. The tables meet at 30 yd (#632), so the stitched curve is
+ * non-decreasing.
  */
 export function expectedStrokesFromPin(distanceYards: number, handicap: number): number {
   const d = Math.max(0, distanceYards)
   if (d < 5) return getExpectedStrokes('putting', undefined, d * 3, handicap) ?? 0
   if (d < 30) return getExpectedStrokes('around_green', d, undefined, handicap) ?? 0
-  const floor = getExpectedStrokes('around_green', 30, undefined, handicap) ?? 0
-  const approach = getExpectedStrokes('approach', d, undefined, handicap) ?? 0
-  return Math.max(approach, floor)
+  return getExpectedStrokes('approach', d, undefined, handicap) ?? 0
 }
 
 /**

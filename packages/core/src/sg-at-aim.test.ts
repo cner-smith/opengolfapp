@@ -20,17 +20,6 @@ describe('expectedStrokesFromPin', () => {
     for (const v of vals) expect(Number.isFinite(v)).toBe(true)
     for (let i = 1; i < vals.length; i++) expect(vals[i]!).toBeGreaterThanOrEqual(vals[i - 1]! - 1e-9)
   })
-  it('floors the 30–50 yd seam flat (never dips below the around-green@30 value)', () => {
-    // The around-green table at 30 yd exceeds the approach table at 50 yd in
-    // every bracket, so the stitched band is clamped flat at the 30 yd floor.
-    const at30 = expectedStrokesFromPin(30, HCP)
-    const at40 = expectedStrokesFromPin(40, HCP)
-    const at50 = expectedStrokesFromPin(50, HCP)
-    expect(at40).toBe(at30)
-    expect(at50).toBe(at30)
-    // …and beyond the clamp the approach curve resumes rising.
-    expect(expectedStrokesFromPin(150, HCP)).toBeGreaterThan(at50)
-  })
 })
 
 describe('sgAtAim', () => {
