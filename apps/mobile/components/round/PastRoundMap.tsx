@@ -738,6 +738,7 @@ export function PastRoundMap({
         yardsLabel={resolvedHole?.yards ? formatDistance(resolvedHole.yards, unit) : null}
         result={result}
         distance={heroDistance}
+        emptyLabel={effectivePin ? 'no shot\nplaced yet' : undefined}
         expected={expected}
         onPrev={() => goToHole(holeNumber - 1)}
         onNext={() => goToHole(holeNumber + 1)}
@@ -837,7 +838,8 @@ export function PastRoundMap({
             )}
             <ButtonRow>
               <Secondary
-                label={`Remove shot ${n}`}
+                // Broken on purpose: at maxWidth 120 it wrapped as "Remove shot / 1".
+                label={`Remove\nshot ${n}`}
                 a11y="Remove this shot"
                 onPress={handleRemoveShot}
                 disabled={!active?.start && placed.length <= 1}

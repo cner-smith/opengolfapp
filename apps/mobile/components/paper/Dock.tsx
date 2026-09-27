@@ -140,9 +140,10 @@ export function Primary({
       onPress={onPress}
       disabled={disabled}
       stretch
-      // Keeps its natural width and lets the secondaries wrap instead: as a
-      // flex:1 leftover it wrapped "Mark my ball" to four lines at 1.3×.
-      style={{ flexGrow: 1, flexShrink: 0, maxWidth: '60%' }}
+      // Grows into the row (§6: flex 1) from its natural width, and shrinks no
+      // further than 45%: as a flex:1 leftover it wrapped "Mark my ball" to
+      // four lines at 1.3×, and a 60% cap left two-button rows short of the edge.
+      style={{ flexGrow: 1, flexShrink: 1, flexBasis: 'auto', minWidth: '45%' }}
       faceStyle={{ minHeight: 49, paddingHorizontal: 8, paddingVertical: 3 }}
     >
       <LabelSwap

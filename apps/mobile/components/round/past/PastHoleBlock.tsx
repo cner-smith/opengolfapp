@@ -18,6 +18,8 @@ interface PastHoleBlockProps {
   yardsLabel: string | null
   result: HoleResult
   distance: { value: string; unit: string } | null
+  /** Hero label with no distance (default: no pin). */
+  emptyLabel?: string
   expected: number | null
   onPrev: () => void
   onNext: () => void
@@ -53,7 +55,7 @@ export function PastHoleBlock(p: PastHoleBlockProps) {
           <Icon.next size={20} />
         </NavButton>
       </View>
-      <HeroRow distance={p.distance} expected={p.expected} trailing={<ResultCorner result={p.result} holeNumber={p.holeNumber} />} />
+      <HeroRow distance={p.distance} emptyLabel={p.emptyLabel} expected={p.expected} trailing={<ResultCorner result={p.result} holeNumber={p.holeNumber} />} />
     </PaperSurface>
   )
 }
