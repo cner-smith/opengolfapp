@@ -28,6 +28,7 @@ import { getAimTilt, setAimTilt, type AimTilt } from '../../lib/aimTilt'
 import { getLeftHand, setLeftHand } from '../../lib/leftHand'
 import { getSoundsOn, setSoundsOn } from '../../lib/sounds'
 import { AppBar } from '../../components/ui/AppBar'
+import { Key, KeyText } from '../../components/paper/Paper'
 import { TYPE } from '../../lib/typography'
 
 type Profile = Database['public']['Tables']['profiles']['Row']
@@ -485,32 +486,18 @@ export default function ProfileTab() {
           <Text style={[TYPE.bodyItalic, { color: '#1F3D2C', fontSize: 18 }]}>→</Text>
         </Pressable>
 
-        <Pressable
-          accessibilityRole="button"
+        <Key
           accessibilityLabel={saving ? 'Saving profile' : 'Save profile changes'}
-          accessibilityState={{ disabled: saving || usernameInvalid }}
+          tone="primary"
           onPress={save}
           disabled={saving || usernameInvalid}
-          style={{
-            marginTop: 18,
-            backgroundColor: '#1F3D2C',
-            borderRadius: 2,
-            paddingVertical: 14,
-            alignItems: 'center',
-            opacity: saving || usernameInvalid ? 0.5 : 1,
-          }}
+          style={{ marginTop: 18 }}
+          faceStyle={{ minHeight: 50 }}
         >
-          <Text
-            style={[TYPE.bodyBold, {
-              color: '#F2EEE5',
-              fontSize: 14,
-              fontWeight: '600',
-              letterSpacing: 0.3,
-            }]}
-          >
+          <KeyText tone="primary" bold size={15} disabled={saving || usernameInvalid}>
             {saving ? 'Saving…' : 'Save changes'}
-          </Text>
-        </Pressable>
+          </KeyText>
+        </Key>
 
         <View
           style={{
@@ -895,6 +882,8 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   )
 }
 
+// Option chips in the paper style of the round screens (#611): a key that
+// sits latched (pressed in) while chosen.
 function Chip({
   label,
   active,
@@ -905,28 +894,10 @@ function Chip({
   onPress: () => void
 }) {
   return (
-    <Pressable
-      accessibilityRole="radio"
-      accessibilityLabel={label}
-      accessibilityState={{ selected: active }}
-      onPress={onPress}
-      style={{
-        paddingHorizontal: 10,
-        paddingVertical: 8,
-        borderRadius: 2,
-        backgroundColor: active ? '#1F3D2C' : '#EBE5D6',
-      }}
-    >
-      <Text
-        style={[TYPE.body, {
-          color: active ? '#F2EEE5' : '#1C211C',
-          fontSize: 12,
-          fontWeight: active ? '500' : '400',
-          textTransform: 'capitalize',
-        }]}
-      >
+    <Key accessibilityLabel={label} latched={active} onPress={onPress} faceStyle={{ minHeight: 40, paddingHorizontal: 12 }}>
+      <KeyText size={13} bold={active} style={{ textTransform: 'capitalize' }}>
         {label}
-      </Text>
-    </Pressable>
+      </KeyText>
+    </Key>
   )
 }
