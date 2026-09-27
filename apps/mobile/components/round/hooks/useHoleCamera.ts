@@ -225,10 +225,15 @@ export function useHoleCamera({
     if (distanceYards(gpsPosition, courseCenter) > AUTO_CENTER_GATE_YARDS) return
     if (!cameraRef.current) return
     try {
+      // Heading too: this lands in the same tick as the pin-arrival frame
+      // above, and a setCamera without one cancelled that frame's rotation —
+      // a resumed hole came up north-up.
+      const target = roundPin ?? pin ?? null
       cameraRef.current.setCamera({
         centerCoordinate: toCoord(gpsPosition),
         zoomLevel: 17,
         pitch: 0,
+        ...(target ? { heading: headingUpTheHole(gpsPosition, target) } : {}),
         animationDuration: 800,
       })
       autoCenteredRef.current = true
