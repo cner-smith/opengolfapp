@@ -217,6 +217,7 @@ describe('computeRoundSG (sg.ts) — DB row → result adapter', () => {
       course_id: overrides.course_id ?? 'c',
       number: overrides.number ?? 1,
       par: overrides.par ?? 4,
+      par_source: overrides.par_source ?? null,
       yards: overrides.yards ?? 380,
       stroke_index: overrides.stroke_index ?? 1,
       tee_lat: overrides.tee_lat ?? null,

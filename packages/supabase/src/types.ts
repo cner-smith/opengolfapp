@@ -402,6 +402,7 @@ export type Database = {
           id: string
           number: number
           par: number
+          par_source: string | null
           pin_lat: number | null
           pin_lng: number | null
           stroke_index: number | null
@@ -414,6 +415,7 @@ export type Database = {
           id?: string
           number: number
           par: number
+          par_source?: string | null
           pin_lat?: number | null
           pin_lng?: number | null
           stroke_index?: number | null
@@ -426,6 +428,7 @@ export type Database = {
           id?: string
           number?: number
           par?: number
+          par_source?: string | null
           pin_lat?: number | null
           pin_lng?: number | null
           stroke_index?: number | null

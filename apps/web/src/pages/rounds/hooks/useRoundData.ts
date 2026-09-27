@@ -171,6 +171,7 @@ export function useRoundData({
           tee_lng: null,
           pin_lat: null,
           pin_lng: null,
+          par_source: null,
         }
       }
       return {
@@ -184,6 +185,7 @@ export function useRoundData({
         tee_lng: null,
         pin_lat: null,
         pin_lng: null,
+        par_source: null,
       }
     })
   }, [holesQuery.data, round.data, expectedHoleCount])

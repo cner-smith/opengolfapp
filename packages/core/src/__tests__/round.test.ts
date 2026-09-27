@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   buildInitialRows,
   inferHoleCount,
+  inferParFromYards,
   isPuttShot,
   isPuttEntry,
   legacySlopeToAxes,
@@ -336,6 +337,20 @@ describe('legacySlopeToAxes', () => {
       const hasBoth = out.forward !== undefined && out.side !== undefined
       expect(hasBoth).toBe(false)
     }
+  })
+})
+
+describe('inferParFromYards', () => {
+  it('buckets by length, with the boundaries on par 4', () => {
+    expect(inferParFromYards(176)).toBe(3)
+    expect(inferParFromYards(249)).toBe(3)
+    expect(inferParFromYards(250)).toBe(4)
+    expect(inferParFromYards(470)).toBe(4)
+    expect(inferParFromYards(471)).toBe(5)
+  })
+  it('falls back to 4 with no usable length', () => {
+    expect(inferParFromYards(null)).toBe(4)
+    expect(inferParFromYards(0)).toBe(4)
   })
 })
 
