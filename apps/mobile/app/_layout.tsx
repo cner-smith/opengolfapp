@@ -39,6 +39,7 @@ function RootLayoutContent() {
     'Fraunces-Medium': require('../assets/fonts/Fraunces-Medium.ttf'),
     'Fraunces-MediumItalic': require('../assets/fonts/Fraunces-MediumItalic.ttf'),
     'Inconsolata-Medium': require('../assets/fonts/Inconsolata-Medium.ttf'),
+    'Kalam-Regular': require('../assets/fonts/Kalam-Regular.ttf'),
     'Epilogue-Regular': require('../assets/fonts/Epilogue-Regular.ttf'),
     'Epilogue-Bold': require('../assets/fonts/Epilogue-Bold.ttf'),
     'Epilogue-Italic': require('../assets/fonts/Epilogue-Italic.ttf'),

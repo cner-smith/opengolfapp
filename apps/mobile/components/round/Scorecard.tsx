@@ -210,7 +210,7 @@ export function ScorecardModal({
                     <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.kicker, { width: COL.par, textAlign: 'center', fontSize: 15, color: P.ink }]}>{par}</Text>
                   )}
                   <View style={{ width: COL.score, alignItems: 'center', justifyContent: 'center' }}>
-                    <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.serif, { fontSize: 20, lineHeight: 26, color: score != null ? P.ink : P.ink35 }]}>
+                    <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.hand, { fontSize: 26, lineHeight: 34, color: score != null ? P.graphite : P.ink35 }]}>
                       {score ?? '—'}
                     </Text>
                     {score != null && <GolfMark toPar={score - par} seed={h.number} animate={fresh.has(`${h.number}:${score}`)} />}
@@ -237,7 +237,7 @@ export function ScorecardModal({
               {!eighteen ? 'Total' : nine === 'front' ? 'Out' : 'In'}
             </Text>
             <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.kicker, { width: COL.par, textAlign: 'center', fontSize: 15, color: P.ink }]}>{sumPar}</Text>
-            <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.serif, { width: COL.score, textAlign: 'center', fontSize: 22, color: P.ink }]}>
+            <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.hand, { width: COL.score, textAlign: 'center', fontSize: 28, lineHeight: 36, color: P.graphite }]}>
               {sumScore > 0 ? sumScore : '—'}
             </Text>
             <Text maxFontSizeMultiplier={FONT_CAP}

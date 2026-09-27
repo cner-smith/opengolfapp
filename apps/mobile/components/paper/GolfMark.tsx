@@ -4,7 +4,9 @@ import Animated, { useReducedMotion, useSharedValue, withTiming, useAnimatedStyl
 import Svg, { Path } from 'react-native-svg'
 import { marksDuration, marksFor, marksPath, pencilTick } from './pencil'
 
-const GRAPHITE = '#353430'
+import { P } from './tokens'
+
+const GRAPHITE = P.graphite
 // The harness draws marks at 0.86 around a 15 sp digit; the box holds a
 // double-bogey outer square with its overshoot.
 const SCALE = 0.86
