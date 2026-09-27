@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { aimFrame, type AimFrame, type AimFrameInput } from '../aim-frame'
+import { aimFrame, flagCupK, type AimFrame, type AimFrameInput } from '../aim-frame'
 import { bearingDegrees, haversineYards, toRadians } from '../units'
 import { destinationYards, type GeoPoint } from '../shot-dispersion-geo'
 
@@ -74,5 +74,21 @@ describe('aimFrame', () => {
     const f = aimFrame(i)
     expect(Math.min(tops(f, i).flag, tops(f, i).greenBack)).toBeCloseTo(10, 1)
     expect(screenY(f, i.ball, i)).toBeCloseTo(760 - 200, 1)
+  })
+})
+
+describe('flagCupK', () => {
+  it('clamps top-down to 0.8 and steep to 0.45', () => {
+    expect(flagCupK(0)).toBe(0.8)
+    expect(flagCupK(85)).toBe(0.45)
+  })
+  it('is cos(pitch) in 0.05 steps between', () => {
+    expect(flagCupK(60)).toBe(0.5)
+    expect(flagCupK(45)).toBe(0.7)
+    expect(flagCupK(52)).toBe(0.6)
+  })
+  it('reads a non-finite pitch as top-down', () => {
+    expect(flagCupK(NaN)).toBe(0.8)
+    expect(flagCupK(Infinity)).toBe(0.8)
   })
 })

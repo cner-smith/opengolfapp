@@ -224,6 +224,8 @@ export function RoundMap({
     placedPoints,
     placedAims,
     effectivePin,
+    pinStrong: pinOverride != null,
+    holeNumber: hole?.number ?? 1,
     effectiveTee,
     overlayMode,
     arcWidthYards,
