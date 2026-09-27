@@ -480,6 +480,10 @@ export default function LiveRoundSession({
   useEffect(() => {
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {
       if (data.loading || data.error || !data.round || !data.currentHole || !data.currentHoleScore) return false
+      // The review sheet owns Back while it shows. This effect re-subscribes on
+      // most renders, and RN runs the newest listener first, so without this
+      // it jumped ahead of the sheet's and asked "Leave round?" (#971).
+      if (finalState.roundState === 'SUMMARY' && !sheetHeld) return false
       // Editing a hole that isn't saved yet (review ✕ / Back): Back returns
       // to its review rather than asking to leave the round (#938).
       const editingUnsaved =
@@ -492,7 +496,7 @@ export default function LiveRoundSession({
       return true
     })
     return () => sub.remove()
-  }, [menuOpen, pinPlacementOpen, finalState, data, holeNumber, furthestHoleReached])
+  }, [menuOpen, pinPlacementOpen, finalState, data, holeNumber, furthestHoleReached, sheetHeld])
 
   // End-of-hole review rows. Built from the shots placed live (their start
   // coords, in order) via the shared @oga/core inference — same call the web
