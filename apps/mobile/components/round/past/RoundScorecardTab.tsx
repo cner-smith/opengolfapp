@@ -6,7 +6,7 @@ import { formatSG, inferHoleStats, roundFocusHeadline, type RoundFocus } from '@
 import type { Database } from '@oga/supabase'
 import { TYPE } from '../../../lib/typography'
 import { Key, KeyText } from '../../paper/Paper'
-import { GolfMark } from '../../paper/GolfMark'
+import { GolfMark, PencilTick } from '../../paper/GolfMark'
 import { Icon } from '../../paper/icons'
 import { FONT_CAP, P } from '../../paper/tokens'
 
@@ -287,17 +287,26 @@ function HoleTable({
               label={`Hole ${h.number} putts`}
               onCommit={(n) => onCommit(h.id, { putts: n > 0 ? n : null })}
             />
-            {([fairway, gir] as const).map((v, i) => (
-              <Text maxFontSizeMultiplier={FONT_CAP}
-                key={i}
-                style={[
-                  TYPE.body,
-                  { width: i === 0 ? COL.fwy : COL.green, textAlign: 'center', fontSize: 15, color: v === true ? P.ink : P.ink35 },
-                ]}
-              >
-                {v === true ? '✓' : v === false ? '·' : '—'}
-              </Text>
-            ))}
+            {([fairway, gir] as const).map((v, i) =>
+              v === true ? (
+                // Pencil tick like the golf marks; seeded per hole + column.
+                <View
+                  key={i}
+                  accessible
+                  accessibilityLabel={i === 0 ? 'Fairway hit' : 'Green in regulation'}
+                  style={{ width: i === 0 ? COL.fwy : COL.green, alignItems: 'center' }}
+                >
+                  <PencilTick seed={h.number * 2 + i} />
+                </View>
+              ) : (
+                <Text maxFontSizeMultiplier={FONT_CAP}
+                  key={i}
+                  style={[TYPE.body, { width: i === 0 ? COL.fwy : COL.green, textAlign: 'center', fontSize: 15, color: P.ink35 }]}
+                >
+                  {v === false ? '·' : '—'}
+                </Text>
+              ),
+            )}
             <View style={{ flex: 1, alignItems: 'flex-end' }}>
               <Key
                 accessibilityLabel={

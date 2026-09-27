@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { View } from 'react-native'
 import Animated, { useReducedMotion, useSharedValue, withTiming, useAnimatedStyle } from 'react-native-reanimated'
 import Svg, { Path } from 'react-native-svg'
-import { marksDuration, marksFor, marksPath } from './pencil'
+import { marksDuration, marksFor, marksPath, pencilTick } from './pencil'
 
 const GRAPHITE = '#353430'
 // The harness draws marks at 0.86 around a 15 sp digit; the box holds a
@@ -58,5 +58,18 @@ export function GolfMark({ toPar, seed, animate = false }: { toPar: number; seed
         </Svg>
       </View>
     </Animated.View>
+  )
+}
+
+// Fairway / green hit on the scorecard, in the same pencil as the golf marks.
+// Drawn at 1.4× so its weight matches the golf marks beside it.
+const TICK = 24
+const TICK_VIEW = TICK / 1.4
+export function PencilTick({ seed }: { seed: number }) {
+  const d = useMemo(() => marksPath(pencilTick(seed), 1e9), [seed])
+  return (
+    <Svg width={TICK} height={TICK} viewBox={`${-TICK_VIEW / 2} ${-TICK_VIEW / 2} ${TICK_VIEW} ${TICK_VIEW}`}>
+      <Path d={d} fill={GRAPHITE} opacity={0.9} />
+    </Svg>
   )
 }

@@ -334,6 +334,25 @@ export function pencilEllipse(a: number, b: number, dur: number, seed: number): 
   return [{ m: circle({ ...varyCircle(C1, seed), a, b, dur, tilt: -6 }, seed), at: 0 }]
 }
 
+/** A pencil check mark (fairway / green hit), seeded so each tick is its own:
+ *  a short stroke down into the corner, then a longer flick up-right. Units
+ *  are dp at scale 1, centred on (0, 0). */
+export function pencilTick(seed: number): { m: Mark; at: number }[] {
+  const r = rng(seed * 7 + 3)
+  const j = (k: number) => (r() - 0.5) * k
+  const corner = { x: -1.2 + j(1), y: 4.2 + j(0.8) }
+  const raw = [
+    { x: -5.2 + j(1.2), y: -0.2 + j(1.4) },
+    { x: -3 + j(0.6), y: 2.6 + j(0.6) },
+    corner,
+    // bowed flick: a mid point pushed off the straight line
+    { x: 2.4 + j(1), y: -2 + j(1.2) },
+    { x: 6.2 + j(1), y: -7.2 + j(1.2) },
+  ]
+  const o: Opts = { dur: 190, w: 1.7, in0: 0.45, out0: 0.8, tapOut: 0.3, tipOut: 0.2 }
+  return [{ m: { strokes: [{ pts: kinematics(resample(raw, 0.3), o, r), t0: 0 }], dur: o.dur, w0: o.w }, at: 0 }]
+}
+
 export const marksDuration = (ms: { m: Mark; at: number }[]) => Math.max(0, ...ms.map((x) => x.at + x.m.dur))
 
 // perfect-freehand settings from the harness: size 2·w0·1.2, thinning .9,
