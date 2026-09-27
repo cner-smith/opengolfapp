@@ -1,6 +1,6 @@
 import { useEffect, useRef, type RefObject } from 'react'
 import Mapbox from '@rnmapbox/maps'
-import { aimFrame, bearingDegrees } from '@oga/core'
+import { aimFrame, bearingDegrees, destinationYards } from '@oga/core'
 import { distanceYards } from '../../../lib/maps'
 import { getAimTilt } from '../../../lib/aimTilt'
 import type { HoleMapPhase, LatLng } from '../HoleMap.types'
@@ -13,7 +13,7 @@ function toCoord(l: LatLng): [number, number] {
 // (tee/ball) → target (pin) — toward the top of the screen ("up the hole").
 // Falls back to north-up (0) with no usable target or when the two points
 // are effectively coincident (synthetic holes with no real pin geometry).
-function headingUpTheHole(
+export function headingUpTheHole(
   origin: LatLng,
   target: LatLng | null | undefined,
 ): number {
@@ -27,6 +27,10 @@ interface UseHoleCameraOpts {
   ball?: LatLng | null
   pin?: LatLng | null
   roundPin?: LatLng | null
+  /** Tee + tee-resolved length: where the green can be on a hole with no
+   *  stored pin (pin mode frames it, #959). */
+  tee?: LatLng | null
+  holeYards?: number | null
   phase: HoleMapPhase
   styleLoaded: boolean
   /**
@@ -73,6 +77,8 @@ export function useHoleCamera({
   ball,
   pin,
   roundPin,
+  tee,
+  holeYards,
   phase,
   styleLoaded,
   gpsPosition,
@@ -265,12 +271,29 @@ export function useHoleCamera({
     // else GPS) so tapping the pin tool zooms IN rather than doing nothing (#642).
     const target = roundPin ?? pin ?? ball ?? gpsPosition ?? null
     if (!target) return
+    // No pin but a known length (#959): the green is ~the remaining yards
+    // from the player in an unknown direction, so fit that circle instead of
+    // zooming onto the ball, where the green is off-screen.
+    const origin = ball ?? gpsPosition ?? tee ?? null
+    const reach =
+      !roundPin && !pin && origin && holeYards
+        ? Math.max(40, holeYards - (tee ? distanceYards(tee, origin) : 0)) + 20
+        : null
     try {
-      cameraRef.current.setCamera({
-        centerCoordinate: toCoord(target),
-        zoomLevel: 19,
-        animationDuration: 400,
-      })
+      if (reach && origin) {
+        const ne = destinationYards(origin, 45, reach * Math.SQRT2)
+        const sw = destinationYards(origin, 225, reach * Math.SQRT2)
+        cameraRef.current.setCamera({
+          bounds: { ne: [ne.lng, ne.lat], sw: [sw.lng, sw.lat], paddingTop: 48, paddingBottom: ballInset, paddingLeft: 16, paddingRight: 16 },
+          animationDuration: 400,
+        })
+      } else {
+        cameraRef.current.setCamera({
+          centerCoordinate: toCoord(target),
+          zoomLevel: 19,
+          animationDuration: 400,
+        })
+      }
       pinSnappedRef.current = true
     } catch {
       // native camera released — retry on next pin change
@@ -285,6 +308,10 @@ export function useHoleCamera({
     ball?.lng,
     gpsPosition?.lat,
     gpsPosition?.lng,
+    tee?.lat,
+    tee?.lng,
+    holeYards,
+    ballInset,
   ])
 
   // Mark whether we owe the camera a PLACE_BALL re-frame on the next
