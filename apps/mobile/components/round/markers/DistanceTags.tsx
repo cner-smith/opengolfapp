@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode, type RefObject } from 'react'
 import { Text, View } from 'react-native'
 import Mapbox from '@rnmapbox/maps'
 import Svg, { Path, Rect } from 'react-native-svg'
@@ -19,22 +19,61 @@ const GAP = 8
 // Paper tag on an aim-line leg (#611 §7): an 18×3 ink tick across the line
 // at the leg's midpoint, then a raised tag whose pointer notch touches it.
 // Right of the line; the left-hand layout flips it (tag left, pointer right).
+export type LegTagClamp = { map: RefObject<Mapbox.MapView | null>; maxY: number; idleTick: number }
+
 function LegTag({
   id,
   at,
   lefty,
   padding,
+  toward,
+  clamp,
   children,
 }: {
   id: string
   at: LatLng
   lefty: boolean
   padding: [number, number, number, number]
+  /** Far end of the leg: where the tag slides to stay above `clamp.maxY`. */
+  toward?: LatLng
+  clamp?: LegTagClamp
   children: ReactNode
 }) {
   // The MarkerView anchors a fraction of its own width; pin the tick's
   // centre on the coordinate once the width is known.
   const [w, setW] = useState(0)
+  const [h, setH] = useState(0)
+  // After each camera settle: if the tag's box dips below maxY (into the
+  // dock's stacks), binary-search along the leg toward its far end for the
+  // lowest spot that clears. Stays on the line, so the tick still marks it.
+  const [pos, setPos] = useState(at)
+  useEffect(() => {
+    let live = true
+    const map = clamp?.map.current
+    if (!map || !clamp || !toward || !h) {
+      setPos(at)
+      return
+    }
+    const lerp = (t: number): LatLng => ({ lat: at.lat + (toward.lat - at.lat) * t, lng: at.lng + (toward.lng - at.lng) * t })
+    const fits = async (p: LatLng) => {
+      const [, y = -1] = await map.getPointInView([p.lng, p.lat])
+      return y >= 0 && y + h / 2 <= clamp.maxY
+    }
+    void (async () => {
+      if ((await fits(at)) || !(await fits(toward))) return live && setPos(at)
+      let lo = 0
+      let hi = 1
+      for (let i = 0; i < 7; i++) {
+        const mid = (lo + hi) / 2
+        if (await fits(lerp(mid))) hi = mid
+        else lo = mid
+      }
+      if (live) setPos(lerp(hi))
+    })().catch(() => live && setPos(at))
+    return () => {
+      live = false
+    }
+  }, [at.lat, at.lng, toward?.lat, toward?.lng, h, clamp?.maxY, clamp?.idleTick])
   const tickX = lefty ? w - TICK / 2 : TICK / 2
   const pointer = (
     <Svg
@@ -59,12 +98,15 @@ function LegTag({
   return (
     <Mapbox.MarkerView
       id={id}
-      coordinate={toCoord(at)}
+      coordinate={toCoord(pos)}
       anchor={{ x: w > 0 ? tickX / w : 0, y: 0.5 }}
       allowOverlap
     >
       <View
-        onLayout={(e) => setW(e.nativeEvent.layout.width)}
+        onLayout={(e) => {
+          setW(e.nativeEvent.layout.width)
+          setH(e.nativeEvent.layout.height)
+        }}
         style={{
           flexDirection: lefty ? 'row-reverse' : 'row',
           alignItems: 'center',
@@ -124,8 +166,12 @@ export function CarryTag({
   lie,
   sg,
   lefty,
+  toward,
+  clamp,
 }: {
   at: LatLng
+  toward?: LatLng
+  clamp?: LegTagClamp
   /** e.g. "101.4 yd" */
   display: string
   lie: string | null
@@ -135,7 +181,7 @@ export function CarryTag({
   const { whole, dec, unit } = split(display)
   const colH = Math.round(32 * FIG)
   return (
-    <LegTag id="aimDistance" at={at} lefty={lefty} padding={[3, 11, 5, 12]}>
+    <LegTag id="aimDistance" at={at} lefty={lefty} padding={[3, 11, 5, 12]} toward={toward} clamp={clamp}>
       <View style={{ flexDirection: 'row', alignItems: 'flex-end' }}>
         <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.serif, { fontSize: 32, lineHeight: 34, letterSpacing: -0.9, color: P.ink }]}>{whole}</Text>
         <View

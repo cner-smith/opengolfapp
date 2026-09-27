@@ -124,6 +124,7 @@ export default function LiveRoundSession({
   const [lastShotArrow, setLastShotArrow] = useState<OffscreenArrow | null>(null)
   // The dock footer's measured height — the aim frame keeps the ball above it.
   const [footerHeight, setFooterHeight] = useState(0)
+  const [dockHeight, setDockHeight] = useState(0)
   const recenterRef = useRef<(() => void) | null>(null)
   // Left-hand layout (§12), device-local; re-read on focus since Profile is
   // a tab away while this screen stays mounted.
@@ -725,6 +726,7 @@ export default function LiveRoundSession({
           recenterRef={recenterRef}
           lefty={lefty}
           aimBallInset={Math.max(insets.bottom, MIN_BOTTOM_STRIP) + footerHeight + BALL_ABOVE_DOCK}
+          tagClearBottom={dockHeight ? Math.max(insets.bottom, MIN_BOTTOM_STRIP) + dockHeight + 6 : undefined}
           onSetAim={(loc) => {
             // A user drag / long-press is an explicit aim — mark it touched so
             // it persists (an untouched auto-spawn suggestion is dropped on
@@ -855,6 +857,7 @@ export default function LiveRoundSession({
           }
           onNotOnGreen={actions.notOnGreen}
           onFooterHeight={setFooterHeight}
+          onDockHeight={setDockHeight}
         />
       </View>
 

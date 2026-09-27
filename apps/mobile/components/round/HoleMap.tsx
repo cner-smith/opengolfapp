@@ -99,6 +99,7 @@ export function HoleMap({
   aimCommitted = false,
   putting = false,
   ornamentsTop = false,
+  tagClearBottom,
   gpsPosition,
   courseCenter,
   holeNumber,
@@ -145,6 +146,10 @@ export function HoleMap({
   const [mapSize, setMapSize] = useState<{ w: number; h: number } | null>(null)
   // Bumped on every camera settle; screen-clamped map tags re-measure on it.
   const [idleTick, setIdleTick] = useState(0)
+  // Carry tag keeps clear of the dock's stacks (it slid under the ruler at
+  // approach zoom): the lowest screen y its box may reach, in map dp.
+  const legTagClamp =
+    tagClearBottom != null && mapSize ? { map: mapViewRef, maxY: mapSize.h - tagClearBottom, idleTick } : undefined
   const [lastShotArrow, setLastShotArrow] = useState<OffscreenArrow | null>(null)
   // Measured OB callout width — its label and the font scale both change it.
   const [obPillWidth, setObPillWidth] = useState(120)
@@ -874,6 +879,8 @@ export function HoleMap({
               lie={liveStrokes.lieLabel}
               sg={liveStrokes.sg}
               lefty={lefty}
+              toward={aim ?? undefined}
+              clamp={legTagClamp}
             />
           )}
 
