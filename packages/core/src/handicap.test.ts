@@ -150,9 +150,15 @@ describe('adjustedScore (net double bogey)', () => {
     expect(total).toBe(2 * 8 + 16 * 7)
   })
 
-  it('without a stroke index, gives each hole only its guaranteed share', () => {
-    // CH 20 → floor(20 / 18) = 1 per hole.
-    expect(adjustedScore(eighteen(), 20, tee(72))).toBe(18 * 7)
+  it('without a stroke index, gives each hole the average share', () => {
+    // CH 20 → 20 / 18 per hole: the caps add up to par + 36 + 20.
+    expect(adjustedScore(eighteen(), 20, tee(72))).toBeCloseTo(72 + 36 + 20, 9)
+  })
+
+  it('without a stroke index, a 15-handicap is not held to par + 2 (#670 review)', () => {
+    const holes = eighteen().map((h, i) => (i === 0 ? { ...h, par: 3, score: 7 } : { ...h, score: 4 }))
+    // CH 15 on par 71 / rating 71 → 15/18 of a stroke on hole 1: cap 5.83, not 5.
+    expect(adjustedScore(holes, 15, tee(71))).toBeCloseTo(5 + 15 / 18 + 17 * 4, 9)
   })
 
   it('uses slope and rating for the Course Handicap', () => {

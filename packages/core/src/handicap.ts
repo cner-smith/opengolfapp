@@ -84,9 +84,11 @@ export interface AdjustHole {
 // strokes received there. Strokes come from the Course Handicap (Rule 6.1:
 // index × slope/113 + rating − par; a 9-hole round uses half the index),
 // allocated by stroke index (Rule 6.2) — plus handicaps give strokes back on
-// the highest-index holes. Without a stroke index on every hole, each hole
-// gets floor(CH / holes): the share it is guaranteed under any allocation,
-// so no score gets through that WHS would have capped (#670).
+// the highest-index holes. Without a stroke index on every hole the
+// allocation is unknown, so each hole gets the average share, CH / holes
+// (unrounded): over the round that is exactly the Course Handicap, so the
+// adjusted total is biased neither up nor down. Rounding it down instead
+// capped a 15-handicap at par + 2 on every hole (#670 review).
 export function adjustedScore(
   holes: AdjustHole[],
   handicapIndex: number,
@@ -104,7 +106,7 @@ export function adjustedScore(
     [...holes].sort((a, b) => a.strokeIndex! - b.strokeIndex!).map((h, i) => [h, i + 1] as const),
   )
   return holes.reduce((total, h) => {
-    const strokes = base + (withSi && rank.get(h)! <= extra ? 1 : 0)
+    const strokes = withSi ? base + (rank.get(h)! <= extra ? 1 : 0) : ch / n
     return total + Math.min(h.score, h.par + 2 + strokes)
   }, 0)
 }
