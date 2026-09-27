@@ -77,7 +77,8 @@ export default function ProfileTab() {
   const [goal, setGoal] = useState<Goal>(null)
   const [facilities, setFacilities] = useState<string[]>([])
   const [unit, setUnit] = useState<'yards' | 'meters'>('yards')
-  const { setUnit: setAppUnit } = useUnitsContext()
+  const { setUnit: setAppUnit, setPlaysLeftHanded: setAppLefty } = useUnitsContext()
+  const [playsLefty, setPlaysLefty] = useState(false)
   const [emailSummaries, setEmailSummaries] = useState(true)
   // Device-local (lib/aimTilt), so it saves on tap rather than with the
   // profile row below.
@@ -172,6 +173,7 @@ export default function ProfileTab() {
       setGoal(data.goal ?? null)
       setFacilities(data.facilities ?? [])
       setUnit(data.distance_unit === 'meters' ? 'meters' : 'yards')
+      setPlaysLefty(data.plays_left_handed === true)
       setEmailSummaries(data.email_round_summaries_enabled ?? true)
     })
     supabase
@@ -215,6 +217,7 @@ export default function ProfileTab() {
       goal,
       facilities,
       distance_unit: unit,
+      plays_left_handed: playsLefty,
       email_round_summaries_enabled: emailSummaries,
     })
     setSaving(false)
@@ -226,6 +229,7 @@ export default function ProfileTab() {
     }
     if (data) setProfile(data)
     setAppUnit(unit)
+    setAppLefty(playsLefty)
     Alert.alert('Saved', 'Profile updated.')
   }
 
@@ -385,6 +389,13 @@ export default function ProfileTab() {
               active={unit === 'meters'}
               onPress={() => setUnit('meters')}
             />
+          </View>
+        </Field>
+
+        <Field label="Plays">
+          <View style={{ flexDirection: 'row', gap: 6 }}>
+            <Chip label="Right-handed" active={!playsLefty} onPress={() => setPlaysLefty(false)} />
+            <Chip label="Left-handed" active={playsLefty} onPress={() => setPlaysLefty(true)} />
           </View>
         </Field>
 

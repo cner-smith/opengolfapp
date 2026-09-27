@@ -22,6 +22,10 @@ interface UnitsContextValue {
   /** Profile calls this after a successful save; the provider only fetches
    *  once per sign-in, so without it a unit change needed an app restart. */
   setUnit: (u: DistanceUnit) => void
+  /** Profile "Plays": the result pickers mirror shape / start for a lefty.
+   *  Lives here because this is the app's one profile fetch. */
+  playsLeftHanded: boolean
+  setPlaysLeftHanded: (v: boolean) => void
 }
 
 const DEFAULT: UnitsContextValue = {
@@ -29,6 +33,8 @@ const DEFAULT: UnitsContextValue = {
   isYards: true,
   isMetres: false,
   setUnit: () => {},
+  playsLeftHanded: false,
+  setPlaysLeftHanded: () => {},
 }
 
 const UnitsContext = createContext<UnitsContextValue>(DEFAULT)
@@ -36,6 +42,7 @@ const UnitsContext = createContext<UnitsContextValue>(DEFAULT)
 export function UnitsProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth()
   const [unit, setUnit] = useState<DistanceUnit>('yards')
+  const [playsLeftHanded, setPlaysLeftHanded] = useState(false)
 
   useEffect(() => {
     if (!user) return
@@ -49,6 +56,7 @@ export function UnitsProvider({ children }: { children: ReactNode }) {
       }
       if (!data) return
       setUnit(data.distance_unit === 'meters' ? 'meters' : 'yards')
+      setPlaysLeftHanded(data.plays_left_handed === true)
     })
     return () => {
       active = false
@@ -60,6 +68,8 @@ export function UnitsProvider({ children }: { children: ReactNode }) {
     isYards: unit === 'yards',
     isMetres: unit === 'meters',
     setUnit,
+    playsLeftHanded,
+    setPlaysLeftHanded,
   }
   return <UnitsContext.Provider value={value}>{children}</UnitsContext.Provider>
 }

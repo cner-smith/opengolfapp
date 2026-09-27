@@ -548,6 +548,7 @@ export type Database = {
         Row: {
           created_at: string
           distance_unit: string
+          plays_left_handed: boolean
           email_round_summaries_enabled: boolean
           facilities: string[] | null
           goal: string | null
@@ -563,6 +564,7 @@ export type Database = {
         Insert: {
           created_at?: string
           distance_unit?: string
+          plays_left_handed?: boolean
           email_round_summaries_enabled?: boolean
           facilities?: string[] | null
           goal?: string | null
@@ -578,6 +580,7 @@ export type Database = {
         Update: {
           created_at?: string
           distance_unit?: string
+          plays_left_handed?: boolean
           email_round_summaries_enabled?: boolean
           facilities?: string[] | null
           goal?: string | null

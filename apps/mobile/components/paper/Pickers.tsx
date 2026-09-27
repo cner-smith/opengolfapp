@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react'
+import type { ReactNode } from 'react'
 import { Pressable, Text, View, useWindowDimensions } from 'react-native'
 import Svg, { Circle, Line, Path } from 'react-native-svg'
 import {
@@ -15,7 +15,7 @@ import {
   type ShotShape,
   type ShotStartLine,
 } from '@oga/core'
-import { getLeftHand } from '../../lib/leftHand'
+import { useUnitsContext } from '../../contexts/UnitsContext'
 import { TYPE } from '../../lib/typography'
 import { Key, KeyText, Rocker } from './Paper'
 import { FONT_CAP, GAP, P, R } from './tokens'
@@ -271,9 +271,11 @@ function StrikeGlyph({ kind, on }: { kind: ShotContact; on: boolean }) {
   )
 }
 const SHAPE_BEND: Record<ShotShape, number> = { hook: -9, draw: -4.5, straight: 0, fade: 4.5, slice: 9 }
+// Both glyphs start at the ball and lean to one side, so they're shifted by
+// half their lean to sit centred in the key (Slice / Hook read off-centre).
 function FlightGlyph({ b, on }: { b: number; on: boolean }) {
   return (
-    <Svg width={28} height={18} viewBox="0 0 28 18">
+    <Svg width={28} height={18} viewBox={`${b / 2} 0 28 18`}>
       <Circle cx={14} cy={16} r={1.8} fill={P.ink} />
       <Path d={`M14 15 Q${14 - b * 0.2} 8 ${14 + b} 2`} fill="none" stroke={P.ink} strokeWidth={on ? 2 : 1.5} strokeLinecap="round" />
       <Path d="M14 1v3" stroke={P.ink35} strokeWidth={1} />
@@ -283,7 +285,7 @@ function FlightGlyph({ b, on }: { b: number; on: boolean }) {
 const START_OFF: Record<ShotStartLine, number> = { pull: -7, on_line: 0, push: 7 }
 function StartGlyph({ a, on }: { a: number; on: boolean }) {
   return (
-    <Svg width={28} height={18} viewBox="0 0 28 18">
+    <Svg width={28} height={18} viewBox={`${a / 2} 0 28 18`}>
       <Path d="M14 1 V17" stroke={P.ink35} strokeWidth={1} strokeDasharray="1.5 2" />
       <Circle cx={14} cy={16} r={1.8} fill={P.ink} />
       <Path d={`M14 15 L${14 + a} 3`} stroke={P.ink} strokeWidth={on ? 2 : 1.5} strokeLinecap="round" />
@@ -322,10 +324,8 @@ export function ResultPicker({
   withOb?: boolean
 }) {
   const stacked = useStackedLabels()
-  const [lefty, setLefty] = useState(false)
-  useEffect(() => {
-    void getLeftHand().then(setLefty)
-  }, [])
+  // The player's swing (Profile → Plays), not the phone-layout mirror.
+  const { playsLeftHanded: lefty } = useUnitsContext()
   const flip = lefty ? -1 : 1
   const shapes = lefty ? [...SHOT_SHAPES].reverse() : SHOT_SHAPES
   const starts = lefty ? [...SHOT_START_LINES].reverse() : SHOT_START_LINES
