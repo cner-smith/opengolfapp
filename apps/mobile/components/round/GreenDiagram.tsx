@@ -265,6 +265,7 @@ export function GreenDiagram({
   // Aim label only reflects committed values; intentional trade-off so
   // the React tree stays still during the drag. Updates on release.
   const aimLabel = formatAim(aimOffsetInches)
+  const breakLabel = breakDirection.replace(/_/g, ' ')
 
   return (
     <View
@@ -293,7 +294,7 @@ export function GreenDiagram({
         <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { color: P.inkDim, fontSize: 13 }]}>
           {breakDirection === 'straight'
             ? 'Straight'
-            : (s => s.charAt(0).toUpperCase() + s.slice(1))(breakDirection.replace(/_/g, ' '))}
+            : breakLabel.charAt(0).toUpperCase() + breakLabel.slice(1)}
         </Text>
       </View>
 
