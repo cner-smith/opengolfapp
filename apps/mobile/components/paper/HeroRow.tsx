@@ -16,6 +16,7 @@ const DS = 17
 const US = 13
 const CS = 11
 const LS = -1.5
+const numStyle = [TYPE.serif, { position: 'absolute' as const, left: 0, top: 0, fontSize: S, letterSpacing: LS, color: P.ink }]
 
 // F5g "flush rectangle" hero (§3.1): the number and its [.4 / unit / caption]
 // column form one box — column top on the digit top, caption baseline on the
@@ -45,9 +46,15 @@ function HeroNumber({ value, unit }: { value: string; unit: string }) {
           const l = e.nativeEvent.lines[0]
           if (l) setM({ w: l.width, base: l.y + l.ascender })
         }}
-        style={[TYPE.serif, { position: 'absolute', left: 0, top: 0, fontSize: S, letterSpacing: LS, color: P.ink }]}
+        style={[numStyle, { opacity: 0 }]}
       >
         {whole}
+      </Text>
+      {/* Android clips an italic glyph at its text layout's edge (shaved the
+          top of a trailing 8; paddingRight doesn't help). The trailing space
+          widens the drawn layout; the invisible copy above measures x0 without it. */}
+      <Text allowFontScaling={false} style={numStyle}>
+        {`${whole} `}
       </Text>
       {m && (
         <Svg width={w} height={Math.ceil(m.base + 3)} style={{ position: 'absolute', left: 0, top: 0 }}>
