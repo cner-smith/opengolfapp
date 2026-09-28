@@ -23,7 +23,7 @@ const config: ExpoConfig = {
   // main would have delivered JS needing native code those binaries lack.
   // Branch `ota/rt-1.2.0` is pinned before that merge if anything ever needs
   // shipping to the old installed base.
-  version: '1.5.0',
+  version: '1.6.0',
   // EAS Update (OTA). Ships JS/asset-only fixes to installed builds WITHOUT an
   // App Store / Play review — Apple/Google permit interpreted-code updates that
   // don't add native code or change the app's purpose. Native changes (SDK/RN

@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type JSX } from 'react'
 import { haptic } from '../../lib/haptics'
 import {
-  Alert,
   BackHandler,
   KeyboardAvoidingView,
   Platform,
@@ -34,6 +33,7 @@ import {
   type ReviewedShotRow,
 } from '@oga/core'
 import { GreenDiagram } from './GreenDiagram'
+import { ConfirmDialog } from '../ui/ConfirmDialog'
 import { useUnits } from '../../hooks/useUnits'
 import { useUserBag } from '../../hooks/useUserBag'
 import { TYPE } from '../../lib/typography'
@@ -126,6 +126,8 @@ export function HoleReviewSheet({
   // Which putt row (by shotNumber) has the on-demand aimer open, if any. The
   // read tool is a full-screen overlay — never auto-opens.
   const [aimingShot, setAimingShot] = useState<number | null>(null)
+  // The row a delete is waiting on — confirmed in the paper dialog below.
+  const [pendingDelete, setPendingDelete] = useState<EditableRow | null>(null)
 
   // Android Back. The sheet and the aimer are overlays, not Modals, so Back
   // fell through to the live round's handler and asked "Leave round?". Newest
@@ -207,43 +209,35 @@ export function HoleReviewSheet({
 
   const confirmDelete = (row: EditableRow) => {
     if (!row._shotId || saving) return
-    Alert.alert(
-      'Delete this shot?',
-      'This removes the shot and renumbers the rest of the hole.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            const ok = await onDeleteShot(row._shotId!)
-            if (!ok) return // handler already showed the connection alert; keep the row
-            // Filter + renumber in one atomic update: the server RPC renumbers
-            // survivors to stay contiguous (delete #2 of [1,2,3,4] -> [1,2,3]),
-            // and this sheet's hydration is gated once per (hole, visible) — a
-            // delete changes neither, so without this the sheet would keep
-            // stale numbers and saveHoleSummary would re-persist the gap.
-            setRows((prev) =>
-              prev
-                .filter((r) => r._shotId !== row._shotId)
-                .map((r) =>
-                  r.shotNumber > row.shotNumber
-                    ? { ...r, shotNumber: r.shotNumber - 1 }
-                    : r,
-                ),
-            )
-            // Keep the tickers honest: one fewer shot, and one fewer putt if it
-            // was a green-lie shot (matches the RPC's re-tally). An OB row is
-            // worth TWO strokes — the shot plus its stroke-and-distance
-            // penalty, which has no row of its own — so deleting it drops 2,
-            // matching what delete_shot re-tallies server-side.
-            setScore((s) => Math.max(0, s - (row.shotResult === 'ob' ? 2 : 1)))
-            if (row.shotResult === 'ob') setPenalties((n) => Math.max(0, n - 1))
-            if (isPuttShot(row.lieType)) setPutts((p) => Math.max(0, p - 1))
-          },
-        },
-      ],
+    setPendingDelete(row)
+  }
+
+  const runDelete = async (row: EditableRow) => {
+    setPendingDelete(null)
+    const ok = await onDeleteShot(row._shotId!)
+    if (!ok) return // handler already showed the connection alert; keep the row
+    // Filter + renumber in one atomic update: the server RPC renumbers
+    // survivors to stay contiguous (delete #2 of [1,2,3,4] -> [1,2,3]),
+    // and this sheet's hydration is gated once per (hole, visible) — a
+    // delete changes neither, so without this the sheet would keep
+    // stale numbers and saveHoleSummary would re-persist the gap.
+    setRows((prev) =>
+      prev
+        .filter((r) => r._shotId !== row._shotId)
+        .map((r) =>
+          r.shotNumber > row.shotNumber
+            ? { ...r, shotNumber: r.shotNumber - 1 }
+            : r,
+        ),
     )
+    // Keep the tickers honest: one fewer shot, and one fewer putt if it
+    // was a green-lie shot (matches the RPC's re-tally). An OB row is
+    // worth TWO strokes — the shot plus its stroke-and-distance
+    // penalty, which has no row of its own — so deleting it drops 2,
+    // matching what delete_shot re-tallies server-side.
+    setScore((s) => Math.max(0, s - (row.shotResult === 'ob' ? 2 : 1)))
+    if (row.shotResult === 'ob') setPenalties((n) => Math.max(0, n - 1))
+    if (isPuttShot(row.lieType)) setPutts((p) => Math.max(0, p - 1))
   }
 
   return (
@@ -360,6 +354,17 @@ export function HoleReviewSheet({
             />
           )
         })()}
+      <ConfirmDialog
+        visible={pendingDelete != null}
+        title="Delete this shot?"
+        message="This removes the shot and renumbers the rest of the hole."
+        confirmLabel="Delete"
+        destructive
+        onConfirm={() => {
+          if (pendingDelete) void runDelete(pendingDelete)
+        }}
+        onCancel={() => setPendingDelete(null)}
+      />
     </GestureHandlerRootView>
   )
 }

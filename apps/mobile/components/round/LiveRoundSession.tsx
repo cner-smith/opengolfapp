@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { haptic } from '../../lib/haptics'
 import { playCup } from '../../lib/sounds'
-import { ActivityIndicator, Alert, BackHandler, Dimensions, View } from 'react-native'
+import { ActivityIndicator, BackHandler, Dimensions, View } from 'react-native'
 import { useFocusEffect, useRouter } from 'expo-router'
 import { HoleMap, type LatLng } from './HoleMap'
 import type { OffscreenArrow } from './HoleMap.types'
@@ -34,6 +34,7 @@ import { useHoleState } from './hole/useHoleState'
 import { useShotActions } from './hole/useShotActions'
 import { HoleModals } from './hole/HoleModals'
 import { LiveRoundDock } from './LiveRoundDock'
+import { ConfirmDialog } from '../ui/ConfirmDialog'
 import { CoachOverlay, CoachProvider, useCoach } from '../help/CoachMarks'
 import { LIVE_AIM_STEPS, LIVE_PLACE_STEPS, LIVE_PUTT_STEPS } from './coachSteps'
 import { LiveRoundHeader, RoundOptionsMenu } from './LiveRoundHeader'
@@ -323,6 +324,15 @@ export default function LiveRoundSession({
     else setApprRailIdx(i)
   }
 
+  // Each new shot opens on the ruler its shot calls for (#964): the Tee arc
+  // only for a par 4/5 drive, the Appr circle for everything else — a par-3
+  // tee shot included, which strokes gained counts as an approach. A manual
+  // switch holds for the rest of that shot.
+  const holePar = data.resolvedHole?.par ?? 4
+  useEffect(() => {
+    setOverlayMode(data.shotNumber === 1 && holePar >= 4 ? 'tee' : 'appr')
+  }, [holeNumber, data.shotNumber, holePar])
+
   // Handicap for the live expected-strokes / SG readouts. Read once from the
   // canonical profiles.handicap_index (player-entered, refined by the web
   // round-complete recompute); falls back to DEFAULT_HANDICAP until it loads
@@ -589,24 +599,9 @@ export default function LiveRoundSession({
     await actions.moveShot(shotId, loc)
   }
 
-  const handleDeleteActiveShot = () => {
-    const shotId = data.previousShotIds[activeShotIdx]
-    if (!shotId) return
-    Alert.alert(
-      'Delete this shot?',
-      'This removes the shot and renumbers the rest of the hole.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: () => {
-            void actions.deleteShot(shotId)
-          },
-        },
-      ],
-    )
-  }
+  // Confirmed in the paper dialog (a brick Delete beside a plain Cancel).
+  const [deleteShotId, setDeleteShotId] = useState<string | null>(null)
+  const handleDeleteActiveShot = () => setDeleteShotId(data.previousShotIds[activeShotIdx] ?? null)
 
   // "Edit on map" from the summary: the just-finished hole is still ===
   // furthestHoleReached (the player hasn't advanced past it yet), so the
@@ -952,6 +947,18 @@ export default function LiveRoundSession({
           shot's club / lie / result + putt read for the shots logged
           location-only during play, then writes metadata + hole_scores and
           advances (#791). */}
+      <ConfirmDialog
+        visible={deleteShotId != null}
+        title="Delete this shot?"
+        message="This removes the shot and renumbers the rest of the hole."
+        confirmLabel="Delete"
+        destructive
+        onConfirm={() => {
+          if (deleteShotId) void actions.deleteShot(deleteShotId)
+          setDeleteShotId(null)
+        }}
+        onCancel={() => setDeleteShotId(null)}
+      />
       <HoleReviewSheet
         visible={finalState.roundState === 'SUMMARY' && !sheetHeld}
         holeNumber={holeNumber}
