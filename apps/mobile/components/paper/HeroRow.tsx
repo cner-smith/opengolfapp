@@ -119,8 +119,8 @@ export function HeroRow({
             it's dropped only then — 3 digits keep the tuned baseline. */}
         <Text
           allowFontScaling={false}
-          numberOfLines={1}
-          adjustsFontSizeToFit
+          numberOfLines={long ? 1 : undefined}
+          adjustsFontSizeToFit={long}
           minimumFontScale={0.75}
           style={[TYPE.body, { fontSize: 12, color: P.ink }, !long && { lineHeight: 15 }]}
         >
