@@ -507,12 +507,13 @@ function genHoleScore(par: number, meanDelta: number): number {
   return Math.max(1, par + d)
 }
 
-function samplePutts(score: number): number {
+function samplePutts(score: number, par: number): number {
   let p = 2
   const r = Math.random()
   if (r < 0.22) p = 1
   else if (r > 0.82) p = 3
-  return Math.min(p, Math.max(1, score - 1))
+  // Leave at least par-2 full shots to reach the green (no driving a 489-yd par 4).
+  return Math.max(1, Math.min(p, score - Math.max(1, par - 2)))
 }
 
 async function insertRound(
@@ -532,7 +533,7 @@ async function insertRound(
   // hole_scores the scorecard renders.
   const perHole = course.holes.map((h) => {
     const score = genHoleScore(h.par, meanDelta)
-    const putts = samplePutts(score)
+    const putts = samplePutts(score, h.par)
     const fairwayHit = h.par > 3 ? Math.random() < 0.58 : null
     const gir = score - putts <= h.par - 2
     return { hole: h, score, putts, fairwayHit, gir }
