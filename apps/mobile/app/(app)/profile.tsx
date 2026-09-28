@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import {
   Alert,
+  KeyboardAvoidingView,
   Linking,
   Modal,
   Platform,
@@ -568,7 +569,12 @@ function DeleteAccountModal({
 
   return (
     <Modal transparent animationType="fade" visible={visible} onRequestClose={onCancel}>
-      <View style={{ flex: 1, backgroundColor: P.scrim, alignItems: 'center', justifyContent: 'center', padding: 18 }}>
+      {/* iOS: re-centre the dialog above the keyboard so Delete stays tappable
+          on the type-to-confirm step (App Review exercises this path). */}
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={{ flex: 1, backgroundColor: P.scrim, alignItems: 'center', justifyContent: 'center', padding: 18 }}
+      >
         <HardShadow style={{ width: '100%', maxWidth: 360 }}>
           <PaperSurface fill={P.raised} style={{ borderColor: P.ink, borderWidth: 1, borderRadius: R, padding: 22, overflow: 'hidden' }}>
             <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { color: P.inkDim, fontSize: 12, marginBottom: 6 }]}>
@@ -638,7 +644,7 @@ function DeleteAccountModal({
             </View>
           </PaperSurface>
         </HardShadow>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   )
 }

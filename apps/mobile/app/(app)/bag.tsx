@@ -1,7 +1,9 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import {
   Alert,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   Text,
@@ -57,6 +59,7 @@ const EMPTY_DRAFT: AddDraft = {
 export default function BagScreen() {
   const router = useRouter()
   const insets = useSafeAreaInsets()
+  const formScrollRef = useRef<ScrollView>(null)
   const { user } = useAuth()
   const { bag, isLoading, error, refetch } = useUserBag({
     includeBenched: true,
@@ -326,7 +329,9 @@ export default function BagScreen() {
         transparent
         onRequestClose={closeForm}
       >
-        <View
+        {/* iOS: padding lifts the sheet above the keyboard (Android pans). */}
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           style={{
             flex: 1,
             justifyContent: 'flex-end',
@@ -334,6 +339,13 @@ export default function BagScreen() {
           }}
         >
           <ScrollView
+            ref={formScrollRef}
+            // The sheet shrinks when the keyboard opens but keeps offset 0, so
+            // the fields + Save sat under the fold. The inputs are the sheet's
+            // last rows, so scrolling to the end shows the focused one + Save.
+            onLayout={() => {
+              if (TextInput.State.currentlyFocusedInput()) formScrollRef.current?.scrollToEnd({ animated: false })
+            }}
             keyboardShouldPersistTaps="handled"
             style={{
               backgroundColor: P.raised,
@@ -505,7 +517,7 @@ export default function BagScreen() {
               </Key>
             </View>
           </ScrollView>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
     </GestureHandlerRootView>
   )

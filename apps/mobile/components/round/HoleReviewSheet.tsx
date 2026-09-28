@@ -1,6 +1,16 @@
 import { useEffect, useMemo, useRef, useState, type JSX } from 'react'
 import { haptic } from '../../lib/haptics'
-import { Alert, BackHandler, Pressable, ScrollView, Text, View } from 'react-native'
+import {
+  Alert,
+  BackHandler,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  Text,
+  TextInput,
+  View,
+} from 'react-native'
 import { GestureHandlerRootView } from 'react-native-gesture-handler'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import {
@@ -649,6 +659,7 @@ function AimerOverlay({
   onClose: () => void
 }) {
   const insets = useSafeAreaInsets()
+  const scrollRef = useRef<ScrollView>(null)
   const distanceFt = row.distanceYards * 3
   const breakDirection =
     combinedBreakDirection({
@@ -661,7 +672,20 @@ function AimerOverlay({
         <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.serif, { color: P.ink, fontSize: 26, lineHeight: 30 }]}>Aim & break</Text>
         <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { color: P.ink, fontSize: 13, marginTop: 2 }]}>Shot {row.shotNumber} · read the green</Text>
       </View>
-      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: 22, paddingVertical: 18 }}>
+      {/* iOS: padding keeps "Save read" above the break-inches number pad
+          (Android pans). The overlay fills the screen from y=0, so the KAV's
+          parent-relative frame matches the keyboard's screen coords. */}
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
+      <ScrollView
+        ref={scrollRef}
+        style={{ flex: 1 }}
+        contentContainerStyle={{ paddingHorizontal: 22, paddingVertical: 18 }}
+        // The inches field is the diagram's last row; once the keyboard
+        // shrinks the scroller, bring it back into view.
+        onLayout={() => {
+          if (TextInput.State.currentlyFocusedInput()) scrollRef.current?.scrollToEnd({ animated: false })
+        }}
+      >
         <GreenDiagram
           distanceFt={distanceFt}
           aimOffsetInches={row.aimOffsetInches ?? 0}
@@ -682,6 +706,7 @@ function AimerOverlay({
           </KeyText>
         </Key>
       </View>
+      </KeyboardAvoidingView>
     </PaperSurface>
   )
 }
