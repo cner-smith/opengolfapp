@@ -14,6 +14,7 @@ export function PhoneShot({
   alt,
   tag,
   arrow,
+  priority = false,
 }: {
   src: string
   alt: string
@@ -21,11 +22,21 @@ export function PhoneShot({
   tag?: { text: ReactNode; left: number; top: number; width?: number }
   /** Pencil arrow from [x1, y1] to [x2, y2] (the head), in frame units. */
   arrow?: [number, number, number, number]
+  /** Above the fold (the hero): load eagerly at high priority — it's the LCP. */
+  priority?: boolean
 }) {
   return (
     <div className="phone-shot" style={{ aspectRatio: `${W} / ${H}` }}>
       <div className="phone-shot-device">
-        <img src={src} alt={alt} width={540} height={1200} loading="lazy" decoding="async" />
+        <img
+          src={src}
+          alt={alt}
+          width={540}
+          height={1200}
+          loading={priority ? 'eager' : 'lazy'}
+          fetchPriority={priority ? 'high' : 'auto'}
+          decoding="async"
+        />
       </div>
       {arrow && <PencilArrow points={arrow} />}
       {tag && (

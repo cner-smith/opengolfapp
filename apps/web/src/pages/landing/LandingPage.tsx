@@ -160,6 +160,7 @@ function Hero() {
         </div>
         <div className="landing-hero-preview">
           <PhoneShot
+            priority
             src="/landing/hero.webp"
             alt="Live round on the 8th at Whistling Straits: driver aimed at the fairway, with the player's real driver pattern drawn around the aim"
             tag={{ text: <>your driver:<br />97 real shots</>, left: 194, top: 262, width: 104 }}
