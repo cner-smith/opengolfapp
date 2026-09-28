@@ -587,7 +587,7 @@ async function insertRound(
     if (hsError || !hs) throw hsError ?? new Error('hole_score insert failed')
 
     // Shots need real tee+pin coordinates to anchor dispersion to the hole.
-    if (withShots && hasGeom(p.hole)) await insertHoleShots(userId, hs.id, p.hole, p.score)
+    if (withShots && hasGeom(p.hole)) await insertHoleShots(userId, hs.id, p.hole, p.score, p.putts, p.fairwayHit)
   }
 }
 
@@ -596,66 +596,57 @@ async function insertHoleShots(
   holeScoreId: string,
   hole: HoleRow,
   totalShots: number,
+  putts: number,
+  fairwayHit: boolean | null,
 ): Promise<void> {
   const teeBase = { lat: hole.teeLat!, lng: hole.teeLng! }
   const pinBase = { lat: hole.pinLat!, lng: hole.pinLng! }
+  // The shots must tell the same story as the scorecard row (store screenshots
+  // replay them): `full` strokes to reach the green, then exactly `putts` putts
+  // whose lengths are the real distance from where the ball lies.
+  const full = totalShots - putts
+  const puttFeet =
+    putts === 1 ? [rand(3, 18)] : putts === 2 ? [rand(14, 40), rand(1.5, 5)] : [rand(30, 55), rand(5, 10), rand(1, 3)]
 
   let lastEnd = teeBase
-  for (let n = 1; n <= totalShots; n++) {
-    const isLast = n === totalShots
+  for (let n = 1; n <= full; n++) {
     const lieSlope = ['level', 'uphill', 'downhill', 'ball_above', 'ball_below'][
       Math.floor(rand(0, 5))
     ]
-
-    if (isLast) {
-      // Holed putt on the green.
-      const { error } = await supabase.from('shots').insert({
-        hole_score_id: holeScoreId,
-        user_id: userId,
-        shot_number: n,
-        start_lat: lastEnd.lat,
-        start_lng: lastEnd.lng,
-        aim_lat: pinBase.lat,
-        aim_lng: pinBase.lng,
-        end_lat: pinBase.lat,
-        end_lng: pinBase.lng,
-        distance_to_target: null,
-        club: 'putter',
-        lie_type: 'green',
-        lie_slope: lieSlope,
-        shot_result: null,
-        penalty: false,
-        ob: false,
-        putt_distance_ft: Math.round(rand(2, 22) * 10) / 10,
-        putt_result: 'made',
-      })
-      if (error) throw error
-      lastEnd = pinBase
-      continue
-    }
-
-    const lieType = n === 1 ? 'tee' : Math.random() < 0.68 ? 'fairway' : 'rough'
-    // Club is chosen for the distance still to the pin; the ball advances by
-    // the club's typical carry (or reaches the pin, whichever is shorter).
+    const lieType =
+      n === 1 ? 'tee' : n === 2 && fairwayHit !== null ? (fairwayHit ? 'fairway' : 'rough') : Math.random() < 0.68 ? 'fairway' : 'rough'
     const distToPin = Math.max(8, Math.round(distanceYards(lastEnd, pinBase)))
-    const club = pickClubForDistance(distToPin)
-    const carry = TYPICAL_CARRY[club] ?? distToPin
-    const aim = stepToward(lastEnd, pinBase, Math.min(carry, distToPin))
-    const disp = CLUB_DISPERSION[club] ?? DEFAULT_DISP
-    const offLong = disp.biasLong + gaussian(disp.sdLong)
-    const offLat = disp.biasLat + gaussian(disp.sdLat)
-    const end = dispersedEnd(lastEnd, aim, offLong, offLat)
-    // Result follows the actual miss so result-based stats stay consistent.
-    const result =
-      offLat > 9
-        ? 'push_right'
-        : offLat < -9
-          ? 'pull_left'
-          : offLong < -11
-            ? 'fat'
-            : Math.random() < 0.18
-              ? 'thin'
-              : 'solid'
+    const toGreen = n === full
+    // Leave ~25 yd per stroke still to come so the next shot isn't a putt from
+    // the fairway; the last full shot plays at the flag.
+    const advance = toGreen ? distToPin : Math.max(20, Math.min(distToPin - 25 * (full - n), TYPICAL_CARRY[pickClubForDistance(distToPin)] ?? distToPin))
+    const club = toGreen ? pickApproachClub(distToPin) : pickClubForDistance(advance) === 'putter' ? 'sw' : pickClubForDistance(advance)
+    const aim = stepToward(lastEnd, pinBase, advance)
+    let end: { lat: number; lng: number }
+    let result: string
+    if (toGreen) {
+      // On the green, first-putt length from the flag, slightly off-line.
+      const back = stepToward(pinBase, lastEnd, puttFeet[0]! / 3)
+      end = dispersedEnd(lastEnd, back, 0, gaussian(0.8))
+      result = Math.random() < 0.7 ? 'solid' : 'thin'
+    } else {
+      const disp = CLUB_DISPERSION[club] ?? DEFAULT_DISP
+      const offLong = disp.biasLong + gaussian(disp.sdLong)
+      // A missed fairway is a real miss off the tee.
+      const offLat = n === 1 && fairwayHit === false ? Math.sign(gaussian(1) || 1) * rand(20, 35) : disp.biasLat + gaussian(disp.sdLat)
+      end = dispersedEnd(lastEnd, aim, offLong, offLat)
+      // Result follows the actual miss so result-based stats stay consistent.
+      result =
+        offLat > 9
+          ? 'push_right'
+          : offLat < -9
+            ? 'pull_left'
+            : offLong < -11
+              ? 'fat'
+              : Math.random() < 0.18
+                ? 'thin'
+                : 'solid'
+    }
 
     const axes = shotAxesFromLegacy(result)
     const { error } = await supabase.from('shots').insert({
@@ -664,8 +655,8 @@ async function insertHoleShots(
       shot_number: n,
       start_lat: lastEnd.lat,
       start_lng: lastEnd.lng,
-      aim_lat: aim.lat,
-      aim_lng: aim.lng,
+      aim_lat: toGreen ? pinBase.lat : aim.lat,
+      aim_lng: toGreen ? pinBase.lng : aim.lng,
       end_lat: end.lat,
       end_lng: end.lng,
       distance_to_target: distToPin,
@@ -683,15 +674,77 @@ async function insertHoleShots(
     if (error) throw error
     lastEnd = end
   }
+
+  for (let i = 0; i < putts; i++) {
+    const n = full + i + 1
+    const made = i === putts - 1
+    const feet = Math.round((distanceYards(lastEnd, pinBase) * 3) * 10) / 10
+    // Missed putts finish the next putt's length from the hole, short or long.
+    const long = Math.random() < 0.4
+    const nextFeet = made ? 0 : puttFeet[i + 1]!
+    const end = made
+      ? pinBase
+      : long
+        ? stepToward(pinBase, lastEnd, -nextFeet / 3)
+        : stepToward(pinBase, lastEnd, nextFeet / 3)
+    const distanceResult = made ? null : long ? 'long' : 'short'
+    const { error } = await supabase.from('shots').insert({
+      hole_score_id: holeScoreId,
+      user_id: userId,
+      shot_number: n,
+      start_lat: lastEnd.lat,
+      start_lng: lastEnd.lng,
+      aim_lat: pinBase.lat,
+      aim_lng: pinBase.lng,
+      end_lat: end.lat,
+      end_lng: end.lng,
+      distance_to_target: null,
+      club: 'putter',
+      lie_type: 'green',
+      lie_slope: 'level',
+      shot_result: null,
+      penalty: false,
+      ob: false,
+      putt_distance_ft: feet,
+      putt_distance_result: distanceResult,
+      putt_result: made ? 'made' : distanceResult,
+    })
+    if (error) throw error
+    lastEnd = end
+  }
+}
+
+// Club for the shot that finds the green: a real approach club, never a putter
+// from off the green.
+function pickApproachClub(yards: number): string {
+  const c = pickClubForDistance(yards)
+  if (c === 'driver') return '3w' // off the deck
+  return c === 'putter' ? (yards >= 10 ? 'sw' : 'lw') : c
 }
 
 async function insertPracticePlan(userId: string): Promise<void> {
-  const { data: drills } = await supabase
+  // A warm-up → blocked → skill-game session that matches the plan's "tighten
+  // iron dispersion" focus, picked by name so screenshots never show a drill
+  // named after a tour pro.
+  const names = ['Half-to-Full Iron Tempo Ramp', 'Tee-Gate Center-Face', 'Iron Scoring Game']
+  const { data: found } = await supabase
     .from('drills')
     .select('id, name, description, duration_min, category, facility')
-    .eq('category', 'approach')
-    .limit(3)
-  if (!drills || drills.length === 0) return
+    .in('name', names)
+  const drills = names.flatMap((n) => found?.filter((d) => d.name === n) ?? [])
+  if (drills.length === 0) return
+
+  // The reason quotes the same number Stats shows (last 10 rounds' average).
+  const { data: recent } = await supabase
+    .from('rounds')
+    .select('sg_approach')
+    .eq('user_id', userId)
+    .not('sg_approach', 'is', null)
+    .order('played_at', { ascending: false })
+    .limit(10)
+  const lost = recent?.length
+    ? -recent.reduce((s, r) => s + (r.sg_approach ?? 0), 0) / recent.length
+    : 0
 
   // Match the live storage shape (@oga/core StoredFocusArea / StoredSession):
   // focus_areas use `reason` (not insight/sgValue) and `drills` is
@@ -705,7 +758,7 @@ async function insertPracticePlan(userId: string): Promise<void> {
     focus_areas: [
       {
         category: 'approach',
-        reason: 'Approach is your biggest opportunity — averaging 1.2 strokes lost per round.',
+        reason: `Approach is your biggest opportunity — averaging ${lost.toFixed(2)} strokes lost per round.`,
       },
       {
         category: 'around_green',
