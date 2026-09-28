@@ -3,12 +3,15 @@ import { useFocusEffect } from 'expo-router'
 import { resumeHoleNumber } from '@oga/core'
 import { supabase } from '../lib/supabase'
 import { useAuth } from './useAuth'
+import { dropRoundCaches, isNetworkFailure, offlineKeys, readCache, writeCache } from '../lib/offlineCache'
 
 export interface ActiveRound {
   id: string
   courseName: string
   currentHole: number
 }
+
+type CachedActiveRound = ActiveRound & { playedAt: string }
 
 // Active = not finalized (completed_at IS NULL) AND no score yet
 // (total_score IS NULL) AND played_at within the last day, so a round
@@ -34,7 +37,8 @@ export function useActiveRound(): ActiveRound | null {
         const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000)
           .toISOString()
           .slice(0, 10)
-        const { data, error } = await supabase
+        const cacheKey = offlineKeys.activeRound(user.id)
+        const { data, error, status } = await supabase
           .from('rounds')
           .select('id, played_at, course_id, courses(name)')
           .eq('user_id', user.id)
@@ -44,8 +48,18 @@ export function useActiveRound(): ActiveRound | null {
           .order('played_at', { ascending: false })
           .limit(1)
         if (!active) return
+        if (error && isNetworkFailure(error, status)) {
+          // Offline (#993): show the last banner this device saw, under the
+          // same one-day window as the query.
+          const cached = await readCache<CachedActiveRound>(cacheKey)
+          if (!active) return
+          setActiveRound(cached && cached.playedAt >= oneDayAgo ? cached : null)
+          return
+        }
         if (error || !data?.[0]) {
           setActiveRound(null)
+          // No active round: drop every cached round of this user.
+          if (!error) void dropRoundCaches(user.id, () => true)
           return
         }
         const round = data[0] as {
@@ -74,11 +88,17 @@ export function useActiveRound(): ActiveRound | null {
               : [],
           ),
         )
-        setActiveRound({
+        const found: CachedActiveRound = {
           id: round.id,
           courseName: round.courses?.name ?? 'Round',
           currentHole: next,
-        })
+          playedAt: round.played_at,
+        }
+        setActiveRound(found)
+        // Sequential: the drop reads the banner entry back.
+        void writeCache(cacheKey, found).then(() =>
+          dropRoundCaches(user.id, (roundId) => roundId !== round.id),
+        )
       })()
       return () => {
         active = false

@@ -21,6 +21,7 @@ import {
 } from '@oga/supabase'
 import type { Database } from '@oga/supabase'
 import { supabase } from '../../../../lib/supabase'
+import { isNetworkFailure, offlineKeys, readCache } from '../../../../lib/offlineCache'
 import { completeRound } from '../../../../lib/completeRound'
 import {
   clearScreenCache,
@@ -248,6 +249,17 @@ function RoundScreen() {
         // See #246.
       } catch (err) {
         if (!active) return
+        // Offline (#993): a live round this device has loaded before reopens
+        // from its cache (useHoleData hydrates the rest the same way).
+        if (user && mode !== 'past' && isNetworkFailure(err)) {
+          const cached = await readCache<{ round: RoundRow }>(offlineKeys.round(user.id, id))
+          if (!active) return
+          if (cached && cached.round.completed_at == null && cached.round.total_score == null) {
+            setRound(cached.round)
+            setRedirectToLive(true)
+            return
+          }
+        }
         setError((err as Error).message)
       } finally {
         if (active) setLoading(false)
