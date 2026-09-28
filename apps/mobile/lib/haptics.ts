@@ -1,16 +1,20 @@
 import { Platform } from 'react-native'
+import { requireOptionalNativeModule } from 'expo'
 
 // Haptics (#611 JUICE-SPEC §1). Fire-and-forget — never awaited, never
 // blocking: every haptic is redundant with something on screen.
 //
-// expo-haptics is a native module the 1.5.0 store binaries don't have, so
-// it's required lazily: on those binaries the require throws and every call
-// is a no-op (the JS still ships by OTA).
+// expo-haptics is a native module the 1.5.0 store binaries don't have. Its JS
+// loads it with requireOptionalNativeModule (src/ExpoHaptics.ts), so the
+// require itself succeeds there; every call then rejects (UnavailabilityError
+// or a TypeError on the null module), caught below — a no-op, so the JS still
+// ships by OTA.
 //
-// Android uses performAndroidHapticsAsync (the device's tuned primitives and
-// the system haptic setting), never impactAsync & co — those are 40–60 ms
-// Vibrator buzzes. Newer constants reject on older OS versions, so each
-// semantic lists fallbacks and the ones that failed are remembered.
+// Android uses the performHapticsAsync primitives (the device's tuned
+// View.performHapticFeedback and the system haptic setting), never impactAsync
+// & co — those are 40–60 ms Vibrator buzzes. Newer constants reject on older OS
+// versions, so each semantic lists fallbacks and the ones that failed are
+// remembered.
 export type Haptic = 'tick' | 'press' | 'toggleOn' | 'toggleOff' | 'grab' | 'confirm' | 'penalty' | 'success'
 
 type HapticsModule = typeof import('expo-haptics')
@@ -39,17 +43,28 @@ const ANDROID: Record<Haptic, AndroidKey[]> = {
 }
 const unsupported = new Set<AndroidKey>()
 
+// expo-haptics 15.0.8's performAndroidHapticsAsync calls the native
+// performHapticsAsync WITHOUT awaiting or returning it (src/Haptics.ts:59-64),
+// so its rejection never reaches a caller (and is logged as unhandled). The
+// native function is called directly to get that promise.
+// The only rejections are thrown by HapticType.toHapticFeedbackType
+// (android/.../HapticsRecord.kt): the HapticFeedbackConstants field is missing
+// on this OS version, or not accessible — fixed for the device, so a constant
+// that rejects once is skipped for good. (Both arrive as
+// ERR_UNSPECIFIED_ANDROID_EXCEPTION: they extend the legacy
+// expo.modules.core.errors.CodedException, whose getCode() is that default.)
+type NativeHaptics = { performHapticsAsync: (type: string) => Promise<void> }
+
 async function android(H: HapticsModule, keys: AndroidKey[]) {
+  const N = requireOptionalNativeModule<NativeHaptics>('ExpoHaptics')
+  if (!N) return
   for (const k of keys) {
     if (unsupported.has(k)) continue
     try {
-      await H.performAndroidHapticsAsync(H.AndroidHaptics[k])
+      await N.performHapticsAsync(H.AndroidHaptics[k])
       return
-    } catch (e) {
-      // Only a constant this OS lacks is skipped for good; any other failure
-      // just falls through to the next one this time.
-      // expo-haptics: ERR_HAPTIC_TYPE_NOT_SUPPORTED (HapticsRecord.kt).
-      if ((e as { code?: string })?.code === 'ERR_HAPTIC_TYPE_NOT_SUPPORTED') unsupported.add(k)
+    } catch {
+      unsupported.add(k)
     }
   }
 }
