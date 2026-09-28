@@ -1,5 +1,28 @@
 # Changelog
 
+## [1.7.0](https://github.com/cner-smith/opengolfapp/compare/v1.6.0...v1.7.0) (2026-09-28)
+
+
+### Features
+
+* **web:** landing page in the store-listing style ([8e67084](https://github.com/cner-smith/opengolfapp/commit/8e670844f1b31c0b9f5b351307c84c55bbdb72fc))
+* **web:** landing page in the store-listing style — real screenshots, paper tags ([16a4a55](https://github.com/cner-smith/opengolfapp/commit/16a4a55bac88c51ed23958416e50097edd871eea))
+
+
+### Bug Fixes
+
+* **web:** hero screenshot loads eagerly at high priority (LCP) ([f071f7c](https://github.com/cner-smith/opengolfapp/commit/f071f7c74d80ce7fcd65d91558e5404f9513e7c6))
+* **web:** lowercase fetchpriority (React 18 warns on the camelCase prop) ([0901bf7](https://github.com/cner-smith/opengolfapp/commit/0901bf74d0ca6d55e13c2eb8e408fa0b09b0d506))
+
+
+### Chores
+
+* back-merge main (v1.6.0 release bumps) into dev ([3f68105](https://github.com/cner-smith/opengolfapp/commit/3f6810577e53c1cf5e69a940dabc66052c662f0b))
+* **scripts:** recompute SG against previous engines loaded from git ([#998](https://github.com/cner-smith/opengolfapp/issues/998)) ([cad3f10](https://github.com/cner-smith/opengolfapp/commit/cad3f1043649a7b3241cda3f794457986592adb4))
+* **scripts:** review nits — engine wording, remove temp dirs ([eed70b0](https://github.com/cner-smith/opengolfapp/commit/eed70b064e9c278ddbe058226cff2754d0cbad76))
+* **scripts:** SG recompute for [#998](https://github.com/cner-smith/opengolfapp/issues/998) (previous engines from git) ([0b37412](https://github.com/cner-smith/opengolfapp/commit/0b374129e1af62b2274b862322b257e2add8238c))
+* **web:** drop the unused scorecard landing screenshot ([fec1050](https://github.com/cner-smith/opengolfapp/commit/fec1050a21df5fb6d0fee7193e6a5ee571470e58))
+
 ## [1.6.0](https://github.com/cner-smith/opengolfapp/compare/v1.5.1...v1.6.0) (2026-09-28)
 
 
