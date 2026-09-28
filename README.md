@@ -11,6 +11,8 @@ shot tracking, strokes gained analysis, shot pattern dispersion,
 lie-aware filtering — and charges nothing. The core belief: getting
 better at golf shouldn't be paywalled.
 
+<p align="center"><img src="docs/images/screens.jpg" alt="OGA screens: aim with your real shot pattern, per-club dispersion, a pencilled scorecard, and a shot-by-shot hole replay" width="100%"></p>
+
 ## Live app
 
 - Web: https://oga.golf — live
