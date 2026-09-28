@@ -168,6 +168,9 @@ export interface HoleMapProps {
   projectRef?: { current: ((pts: LatLng[]) => Promise<[number, number][] | null>) | null }
   /** The putt-drop animation is drawing the ball (#611 §15). */
   hideBall?: boolean
+  /** The ball is on the tee of a par 4/5: the live SG readout starts from the
+   *  tee line, not the approach table (#998). */
+  teeShot?: boolean
 }
 
 export interface PastCrumbs {

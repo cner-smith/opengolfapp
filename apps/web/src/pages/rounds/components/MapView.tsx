@@ -1,8 +1,8 @@
 import { Suspense, lazy, useEffect, useState, type ReactNode } from 'react'
 import {
   getExpectedStrokes,
+  startCategory,
   haversineYards,
-  NEAR_GREEN_YARDS,
   type ShotMarkerCategory,
 } from '@oga/core'
 import type { Database } from '@oga/supabase'
@@ -206,7 +206,8 @@ export function MapView({
   const expectedStrokes =
     remainingToPin != null
       ? getExpectedStrokes(
-          remainingToPin <= NEAR_GREEN_YARDS ? 'around_green' : 'approach',
+          // Only the first marker placed on a fresh hole is the tee (#998).
+          startCategory(remainingToPin, placedPoints.length === 1 && existingShots.length === 0 && (activeHoleGeo?.par === 4 || activeHoleGeo?.par === 5)),
           remainingToPin,
           undefined,
           handicap,

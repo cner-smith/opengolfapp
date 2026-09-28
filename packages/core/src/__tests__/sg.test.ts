@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   calculateRoundSG,
+  startCategory,
   calculateShotSG,
   getExpectedStrokes,
   type ShotWithContext,
@@ -42,9 +43,31 @@ describe('getExpectedStrokes — direct', () => {
     expect(getExpectedStrokes('approach', 150, undefined, 0)).toBe(3.12)
   })
 
-  it('off_tee uses the approach baseline table for the start distance', () => {
-    // Tee shots share the approach interpolation.
-    expect(getExpectedStrokes('off_tee', 150, undefined, 0)).toBe(3.12)
+  it('startCategory: around-green inside 30 yd, tee line only for the tee shot', () => {
+    expect(startCategory(20, true)).toBe('around_green')
+    expect(startCategory(400, true)).toBe('off_tee')
+    expect(startCategory(400, false)).toBe('approach')
+  })
+
+  it("off_tee uses Broadie's tee line, not the approach table (#998)", () => {
+    // bracket 0: (2.38 + 0.41·0.25) + (0.0041 + 0.0025·0.25)·150 = 3.19125
+    expect(getExpectedStrokes('off_tee', 150, undefined, 0)).toBeCloseTo(3.19125, 6)
+  })
+
+  it('a good drive on a long par 4 gains a little for every bracket (#998)', () => {
+    // 470-yd par 4, 250-yd drive to the fairway (220 left). Before #998 the tee
+    // clamped at the approach table's 225-yd value and this read ~−1.0.
+    for (const h of [0, 5, 10, 15, 20, 25, 30]) {
+      const sg = calculateRoundSG(
+        [
+          shot({ shotNumber: 1, par: 4, isLastShot: false, lieType: 'tee', distanceToTarget: 470 }),
+          shot({ shotNumber: 2, par: 4, isLastShot: false, lieType: 'fairway', distanceToTarget: 220 }),
+        ],
+        h,
+      )
+      expect(sg.offTee).toBeGreaterThan(-0.1)
+      expect(sg.offTee).toBeLessThan(1)
+    }
   })
 
   it('around_green 5 yd for scratch player → 2.18', () => {
@@ -95,12 +118,12 @@ describe('calculateRoundSG — driveable par 4', () => {
     ]
   }
 
-  it('off-tee SG = 0.31 for hcp 20 — drive cleared 280 yd', () => {
-    // start (off_tee, 350 yd → APPROACH[20] clamped 225) = 4.82
+  it('off-tee SG = 0.91 for hcp 20 — drive cleared 280 yd', () => {
+    // start (off_tee, 350 yd → tee line, w = 25/20) = 2.8925 + 0.007225·350 = 5.42125
     // end (next shot from 70 yd fairway, APPROACH[20][70] interp) = 3.508
-    // SG = 4.82 − 3.508 − 1 = 0.312
+    // SG = 5.42125 − 3.508 − 1 = 0.913 (a 280-yd drive is a big gain for a 20)
     const sg = calculateRoundSG(buildRound(), 20)
-    expect(sg.offTee).toBeCloseTo(0.312, 2)
+    expect(sg.offTee).toBeCloseTo(0.913, 2)
   })
 
   it('approach SG = 0.75 for hcp 20 — wedge to 10 ft', () => {
@@ -153,10 +176,12 @@ describe('calculateRoundSG — 3-putt from 6 feet (handicap 0)', () => {
     expect(sg.putting).toBeCloseTo(-1.807, 2)
   })
 
-  it('round total ≈ -1.55 strokes lost — 3-putt drags it negative', () => {
-    // offTee(-0.67) + approach(0.927) + putting(-1.807) ≈ -1.55
+  it('round total ≈ -0.72 strokes lost — 3-putt drags it negative', () => {
+    // offTee: tee line 380 yd (bracket 0) = 2.4825 + 0.004725·380 = 4.278 → 150 yd
+    // fairway 3.12 → +0.158 (was −0.67 when the tee clamped at 225, #998)
+    // offTee(0.158) + approach(0.927) + putting(-1.807) ≈ -0.72
     const sg = calculateRoundSG(ROUND, 0)
-    expect(sg.total).toBeCloseTo(-1.55, 1)
+    expect(sg.total).toBeCloseTo(-0.72, 1)
   })
 })
 

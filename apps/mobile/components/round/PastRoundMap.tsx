@@ -3,13 +3,13 @@ import { Alert, View } from 'react-native'
 import {
   DEFAULT_HANDICAP,
   LIE_TYPE_LABELS,
-  NEAR_GREEN_YARDS,
   SHOT_RESULT_LABELS,
   bearingDegrees,
   destinationYards,
   formatClubLabel,
   formatDistance,
   getExpectedStrokes,
+  startCategory,
   isPuttShot,
   obCount,
   projectShotMove,
@@ -649,6 +649,7 @@ export function PastRoundMap({
   const heroYards =
     heroShot?.start && effectivePin ? distanceYards(heroShot.start, effectivePin) : null
   const heroPutt = isPuttShot(heroRow?.lie_type ?? null)
+  const heroTee = (par === 4 || par === 5) && (heroRow ? heroRow.shot_number === 1 : placedReal.length === 0)
   const heroDistance =
     heroYards == null
       ? null
@@ -662,12 +663,7 @@ export function PastRoundMap({
       ? null
       : heroPutt
         ? getExpectedStrokes('putting', undefined, heroYards * 3, handicap)
-        : getExpectedStrokes(
-            heroYards <= NEAR_GREEN_YARDS ? 'around_green' : 'approach',
-            Math.round(heroYards),
-            undefined,
-            handicap,
-          )
+        : getExpectedStrokes(startCategory(heroYards, heroTee), Math.round(heroYards), undefined, handicap)
 
   // Corner (§19.9 A). While logging, the map keeps hole_scores.score equal
   // to the placed shots + penalties (syncScore), so that running tally reads
@@ -749,6 +745,7 @@ export function PastRoundMap({
 
       <View style={{ flex: 1 }}>
         <HoleMap
+          teeShot={heroTee}
           center={center}
           fitHole={(placed[0]?.start ?? tee) && effectivePin ? [(placed[0]?.start ?? tee)!, effectivePin] : null}
           pin={storedPin}
