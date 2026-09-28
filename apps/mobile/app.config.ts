@@ -191,6 +191,19 @@ const config: ExpoConfig = {
     'expo-router',
     'expo-sqlite',
     [
+      // R8 on Android release builds: Play Console flagged 1.5.0 for DEX
+      // obfuscation at 1% ("below our threshold … may impact visibility").
+      // Shrinking also cuts APK size. Needs a release-build smoke before a
+      // store submit — R8 can strip classes reached only by reflection.
+      'expo-build-properties',
+      {
+        android: {
+          enableMinifyInReleaseBuilds: true,
+          enableShrinkResourcesInReleaseBuilds: true,
+        },
+      },
+    ],
+    [
       'expo-location',
       {
         // false → the plugin DELETES these keys from Info.plist

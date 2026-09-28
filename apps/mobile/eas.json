@@ -50,6 +50,12 @@
       "env": {
         "npm_config_legacy_peer_deps": "true"
       }
+    },
+    "production-android": {
+      "extends": "production",
+      "buildArtifactPaths": [
+        "android/app/build/outputs/mapping/release/mapping.txt"
+      ]
     }
   },
   "submit": {
