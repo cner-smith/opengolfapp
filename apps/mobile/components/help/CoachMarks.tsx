@@ -1,7 +1,8 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
 import { BackHandler, Pressable, Text, View, useWindowDimensions, type StyleProp, type ViewStyle } from 'react-native'
-import AsyncStorage from '@react-native-async-storage/async-storage'
 import Svg, { Path } from 'react-native-svg'
+import { useAuth } from '../../hooks/useAuth'
+import { markSeenFlags, seenFlags } from '../../lib/seenFlags'
 import { TYPE } from '../../lib/typography'
 import { HardShadow, Key, KeyText } from '../paper/Paper'
 import { FONT_CAP, P, R } from '../paper/tokens'
@@ -53,17 +54,10 @@ export function CoachTarget({ id, children, style }: { id: string; children: Rea
 
 const SEEN_KEY = (id: string) => `oga.coach-v1.${id}`
 
-/** Steps of `steps` the player hasn't been shown yet (device-local). */
-export async function unseenSteps(steps: CoachStep[]): Promise<CoachStep[]> {
-  try {
-    const got = await AsyncStorage.multiGet(steps.map((s) => SEEN_KEY(s.id)))
-    return steps.filter((_, i) => got[i]?.[1] !== '1')
-  } catch {
-    return [] // on storage error, don't nag
-  }
-}
-function markSeen(steps: CoachStep[]) {
-  void AsyncStorage.multiSet(steps.map((s) => [SEEN_KEY(s.id), '1'])).catch(() => {})
+/** Steps of `steps` this account hasn't been shown yet (see lib/seenFlags). */
+export async function unseenSteps(userId: string, steps: CoachStep[]): Promise<CoachStep[]> {
+  const seen = await seenFlags(userId, steps.map((s) => SEEN_KEY(s.id)))
+  return steps.filter((_, i) => !seen[i])
 }
 
 const PAD = 6
@@ -75,6 +69,7 @@ const NOTE_W = 300
  */
 export function CoachOverlay({ steps, onClose }: { steps: CoachStep[] | null; onClose: () => void }) {
   const registry = useContext(Ctx)
+  const { user } = useAuth()
   const { width: W, height: H } = useWindowDimensions()
   const rootRef = useRef<View>(null)
   const [shown, setShown] = useState<{ step: CoachStep; rect: Rect }[] | null>(null)
@@ -105,10 +100,10 @@ export function CoachOverlay({ steps, onClose }: { steps: CoachStep[] | null; on
   }, [steps, registry])
 
   const close = useCallback(() => {
-    if (shown) markSeen(shown.map((s) => s.step))
+    if (shown && user) void markSeenFlags(user.id, shown.map((s) => SEEN_KEY(s.step.id)))
     setShown(null)
     onClose()
-  }, [shown, onClose])
+  }, [shown, onClose, user])
 
   // Android Back closes the tips (newest listener runs first, so the
   // screen's own "Leave round?" handler doesn't see it).
@@ -234,17 +229,19 @@ function Note(p: {
  */
 export function useCoach(steps: CoachStep[] | null) {
   const [open, setOpen] = useState<CoachStep[] | null>(null)
+  const { user } = useAuth()
+  const userId = user?.id
   useEffect(() => {
-    if (!steps) return
+    if (!steps || !userId) return
     let live = true
     const t = setTimeout(() => {
-      void unseenSteps(steps).then((u) => live && u.length && setOpen((cur) => cur ?? u))
+      void unseenSteps(userId, steps).then((u) => live && u.length && setOpen((cur) => cur ?? u))
     }, 700)
     return () => {
       live = false
       clearTimeout(t)
     }
-  }, [steps])
+  }, [steps, userId])
   return {
     steps: open,
     openHelp: () => steps && setOpen(steps),

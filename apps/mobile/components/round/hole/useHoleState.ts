@@ -2,11 +2,14 @@ import { useEffect, useMemo, useRef, useState, type Dispatch, type SetStateActio
 import { AppState, PermissionsAndroid, Platform } from 'react-native'
 import * as Location from 'expo-location'
 import { locationManager } from '@rnmapbox/maps'
-import AsyncStorage from '@react-native-async-storage/async-storage'
 import { createKalmanState, updateKalman, type KalmanState } from '@oga/core'
 import type { LatLng } from '../HoleMap'
 import { distanceYards } from '../../../lib/maps'
 import { PIN_PROMPT_RADIUS_YARDS, type RoundState } from './types'
+import { useAuth } from '../../../hooks/useAuth'
+import { markSeenFlags, seenFlags } from '../../../lib/seenFlags'
+
+const AIM_HINT_KEY = 'oga.aim-hint-shown'
 
 // Fraction of the straight ball→pin line where the aim auto-spawns when
 // the player enters SET_AIM without having dropped one yet. ~0.65 puts the
@@ -107,9 +110,10 @@ export function useHoleState({
   const gpsFixAtRef = useRef(0)
   const [gpsNonce, setGpsNonce] = useState(0)
   // First-use hint that "aim point = start line, drag to adjust." Gated
-  // by AsyncStorage so it only appears the first time the player ever
-  // sets an aim point on this device, then auto-dismisses after 3s.
+  // by a per-account flag (lib/seenFlags) so it only appears the first time
+  // the player ever sets an aim point, then auto-dismisses after 3s.
   const [aimHintVisible, setAimHintVisible] = useState(false)
+  const userId = useAuth().user?.id
   // Set true once the player engages the live append flow on this hole visit —
   // via "Add a shot" or by marking a ball. Reset on hole change. Anchoring to an
   // in-visit action (not an entry-time shot-count snapshot) sidesteps the async
@@ -117,26 +121,24 @@ export function useHoleState({
   const [appendEngaged, setAppendEngaged] = useState(false)
   const isRevisitingPlayedHole = hasPriorShots && !appendEngaged
 
-  // First-aim hint: when `aim` first transitions to non-null, check
-  // AsyncStorage. If the hint hasn't been shown on this device, mark
+  // First-aim hint: when `aim` first transitions to non-null, check the
+  // flag. If the hint hasn't been shown to this account, mark
   // it shown and surface the toast for 3s.
   useEffect(() => {
-    if (!aim) return
+    if (!aim || !userId) return
     let cancelled = false
     let timer: ReturnType<typeof setTimeout> | null = null
-    AsyncStorage.getItem('oga.aim-hint-shown')
-      .then((v) => {
-        if (cancelled || v) return
-        AsyncStorage.setItem('oga.aim-hint-shown', '1').catch(() => {})
-        setAimHintVisible(true)
-        timer = setTimeout(() => setAimHintVisible(false), 3000)
-      })
-      .catch(() => {})
+    void seenFlags(userId, [AIM_HINT_KEY]).then(([seen]) => {
+      if (cancelled || seen) return
+      void markSeenFlags(userId, [AIM_HINT_KEY])
+      setAimHintVisible(true)
+      timer = setTimeout(() => setAimHintVisible(false), 3000)
+    })
     return () => {
       cancelled = true
       if (timer) clearTimeout(timer)
     }
-  }, [aim?.lat, aim?.lng])
+  }, [aim?.lat, aim?.lng, userId])
 
   // Auto-spawn the aim target when the player enters SET_AIM. With a ball
   // and a pin but no aim yet, seed one on the straight ball→pin line at

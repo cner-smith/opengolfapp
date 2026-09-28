@@ -6,8 +6,10 @@
 // store lives for the JS session only.
 //
 // clearScreenCache() is the only invalidation: called on round delete,
-// round finalize, and sign-out — the mutations where even a one-fetch
-// stale flash is wrong (ghost deleted round, cross-account leak).
+// round finalize, and whenever the signed-in user id changes (AuthProvider,
+// plus Profile's sign-out / delete-account) — the cases where even a
+// one-fetch stale flash is wrong (ghost deleted round, cross-account leak).
+// Keys aren't per user; that clear is what keeps them from leaking.
 // Coarse full-clear on purpose; add per-key invalidation only if the
 // full clear demonstrably thrashes.
 //

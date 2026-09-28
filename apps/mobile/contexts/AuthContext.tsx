@@ -7,6 +7,7 @@ import {
 } from 'react'
 import type { User } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabase'
+import { clearScreenCache } from '../lib/screenCache'
 
 interface AuthState {
   user: User | null
@@ -26,11 +27,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let mounted = true
+    // The screen cache's keys aren't per user, so drop it whenever the
+    // signed-in account changes (to/from null too) — covers a token-refresh
+    // SIGNED_OUT and signing in as someone else, not just Profile's sign-out.
+    // undefined = nothing seen yet (the cache is empty at launch anyway).
+    let lastUserId: string | null | undefined
+    const apply = (next: User | null) => {
+      const id = next?.id ?? null
+      if (lastUserId !== undefined && id !== lastUserId) clearScreenCache()
+      lastUserId = id
+      setUser(next)
+      setLoading(false)
+    }
 
     supabase.auth.getSession().then(({ data }) => {
       if (!mounted) return
-      setUser(data.session?.user ?? null)
-      setLoading(false)
+      apply(data.session?.user ?? null)
     })
 
     // Always flip loading off on the first auth event, including the
@@ -42,8 +54,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, nextSession) => {
       if (!mounted) return
-      setUser(nextSession?.user ?? null)
-      setLoading(false)
+      apply(nextSession?.user ?? null)
     })
 
     return () => {
