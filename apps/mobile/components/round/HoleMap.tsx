@@ -8,6 +8,7 @@ import {
   destinationYards,
   flagCupK,
   getExpectedStrokes,
+  startCategory,
   NEAR_GREEN_YARDS,
 } from '@oga/core'
 import { Gesture, GestureDetector } from 'react-native-gesture-handler'
@@ -126,6 +127,7 @@ export function HoleMap({
   onCameraChanged,
   projectRef,
   hideBall = false,
+  teeShot = false,
 }: HoleMapProps) {
   const { toDisplay, toDisplayFt } = useUnits()
   const mapViewRef = useRef<Mapbox.MapView>(null)
@@ -390,7 +392,7 @@ export function HoleMap({
   // dispersion-weighted SG. Null (→ "—") until a pin + baseline resolve.
   const liveStrokes = useMemo(() => {
     if (pinDistance == null) return { expected: null, sg: null, lieLabel: null }
-    const startCat = pinDistance <= NEAR_GREEN_YARDS ? 'around_green' : 'approach'
+    const startCat = startCategory(pinDistance, teeShot)
     const expected = getExpectedStrokes(startCat, pinDistance, undefined, handicap)
     if (aimToPinYards == null || expected == null) {
       return { expected, sg: null, lieLabel: null }

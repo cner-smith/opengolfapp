@@ -11,12 +11,12 @@ import type { ShotLoggerValue } from './ShotLogger'
 import {
   DEFAULT_BAG,
   DEFAULT_HANDICAP,
-  NEAR_GREEN_YARDS,
   bearingDegrees,
   buildInitialRows,
   destinationYards,
   formatClubLabel,
   getExpectedStrokes,
+  startCategory,
   type CaptureMode,
   type Club,
 } from '@oga/core'
@@ -330,9 +330,10 @@ export default function LiveRoundSession({
   // switch holds for the rest of that shot.
   // Skipped until the hole loads, so a par 3 is never first guessed as a 4.
   const holePar = data.resolvedHole?.par ?? data.currentHoleScore?.par ?? data.currentHole?.par
+  const teeShot = data.shotNumber === 1 && (holePar ?? 0) >= 4
   useEffect(() => {
     if (holePar == null) return
-    setOverlayMode(data.shotNumber === 1 && holePar >= 4 ? 'tee' : 'appr')
+    setOverlayMode(teeShot ? 'tee' : 'appr')
   }, [holeNumber, data.shotNumber, holePar])
 
   // Handicap for the live expected-strokes / SG readouts. Read once from the
@@ -371,12 +372,7 @@ export default function LiveRoundSession({
       ? null
       : putting
         ? getExpectedStrokes('putting', undefined, ballToPinYards * FEET_PER_YARD, handicap)
-        : getExpectedStrokes(
-            ballToPinYards <= NEAR_GREEN_YARDS ? 'around_green' : 'approach',
-            Math.round(ballToPinYards),
-            undefined,
-            handicap,
-          )
+        : getExpectedStrokes(startCategory(ballToPinYards, teeShot), Math.round(ballToPinYards), undefined, handicap)
 
   // "Made it" (#611 §15): the ball rolls into the cup over the committed
   // state; the review sheet waits until 100 ms after the drop. Skipped under
@@ -672,6 +668,7 @@ export default function LiveRoundSession({
         <HoleMap
           projectRef={projectRef}
           hideBall={puttDrop != null}
+          teeShot={teeShot}
           center={center}
           pin={data.storedPin}
           roundPin={data.roundPin}
