@@ -902,11 +902,13 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
         // this shot's metadata. Abort loudly instead: the sheet stays open
         // with the player's edits intact (hydration is gated), so Save simply
         // retries once the read recovers. Never mint a colliding id.
-        // Both reads answered and neither has this shot at its number: it's gone
+        // Both reads answered and neither has this shot (by id or number): it's gone
         // (quarantined by the sync queue — #994), not unreachable. A fresh id
         // can't collide on unique(hole_score_id, shot_number) then, so re-create
         // it from the reviewed row instead of stranding the hole unsaveable.
-        const lost = !existing?.id && localOk && !remote.error
+        const lost =
+          !existing?.id && localOk && !remote.error &&
+          !localByNum.has(row.shotNumber) && !remoteByNum.has(row.shotNumber)
         if (!existing?.id && !lost) {
           throw new Error(
             "Couldn't reach this hole's shots — check your connection and save again.",
