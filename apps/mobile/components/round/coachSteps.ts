@@ -83,8 +83,14 @@ export const LIVE_PUTT_STEPS: CoachStep[] = [
   card,
 ]
 
+const pastTabs: CoachStep = {
+  id: 'past.tabs',
+  title: 'Card or map',
+  body: 'The scorecard, or each hole on the map with every shot where you hit it.',
+}
+
 export const PAST_STEPS: CoachStep[] = [
-  { id: 'past.tabs', title: 'Card or map', body: 'The scorecard, or each hole on the map with every shot where you hit it.' },
+  pastTabs,
   {
     id: 'past.hole',
     title: 'This hole',
@@ -105,7 +111,7 @@ export const PAST_STEPS: CoachStep[] = [
 // The Scorecard tab's own tips: the "?" there showed nothing, since the map
 // tips only exist on the Map tab.
 export const PAST_CARD_STEPS: CoachStep[] = [
-  PAST_STEPS[0]!,
+  pastTabs,
   {
     id: 'past.totals',
     title: 'Score and strokes gained',
