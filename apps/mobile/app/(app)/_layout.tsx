@@ -13,6 +13,7 @@ import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
 import { ErrorBoundary } from '../../components/errors/ErrorBoundary'
 import { UnitsProvider } from '../../contexts/UnitsContext'
+import { isNetworkFailure, offlineKeys, readCache, writeCache } from '../../lib/offlineCache'
 import { TYPE } from '../../lib/typography'
 
 const ICON_SIZE = 18
@@ -35,8 +36,18 @@ export default function AppLayout() {
     let active = true
     setProfileState('loading')
 
+    // Offline (#993): a player who has passed this gate before on this device
+    // gets through it without signal, so they can reach their live round.
+    // Only a network failure or the timeout falls back — a real error still
+    // shows the retry screen.
+    const onboardedKey = offlineKeys.onboarded(user.id)
+    const fallBack = () => {
+      readCache<string>(onboardedKey).then((flag) => {
+        if (active) setProfileState(flag === '1' ? 'complete' : 'error')
+      })
+    }
     const timeoutId = setTimeout(() => {
-      if (active) setProfileState('error')
+      if (active) fallBack()
     }, PROFILE_FETCH_TIMEOUT_MS)
 
     supabase
@@ -44,19 +55,21 @@ export default function AppLayout() {
       .select('onboarding_completed')
       .eq('id', user.id)
       .maybeSingle()
-      .then(({ data, error }) => {
+      .then(({ data, error, status }) => {
         if (!active) return
         clearTimeout(timeoutId)
         if (error) {
           // eslint-disable-next-line no-console
           console.error('[(app)/_layout]', error.message)
-          setProfileState('error')
+          if (isNetworkFailure(error, status)) fallBack()
+          else setProfileState('error')
           return
         }
         if (!data || !data.onboarding_completed) {
           setProfileState('incomplete')
         } else {
           setProfileState('complete')
+          void writeCache(onboardedKey, '1')
         }
       })
     return () => {

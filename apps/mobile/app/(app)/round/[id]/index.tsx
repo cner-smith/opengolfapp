@@ -21,6 +21,7 @@ import {
 } from '@oga/supabase'
 import type { Database } from '@oga/supabase'
 import { supabase } from '../../../../lib/supabase'
+import { isNetworkFailure, offlineKeys, readCache } from '../../../../lib/offlineCache'
 import { completeRound } from '../../../../lib/completeRound'
 import {
   clearScreenCache,
@@ -187,15 +188,17 @@ function RoundScreen() {
     }
     setError(null)
     setRedirectToLive(false)
+    let status: number | undefined
     ;(async () => {
       try {
         // A deleted round returns null rather than throwing PGRST116 "cannot
         // coerce the result to a single JSON object".
-        const { data: r, error: rErr } = await supabase
+        const { data: r, error: rErr, status: rStatus } = await supabase
           .from('rounds')
           .select('*, courses(name, lat, lng, facilities(name))')
           .eq('id', id)
           .maybeSingle()
+        status = rStatus
         if (rErr || !r) throw rErr ?? new Error('Round not found')
         if (!active) return
         const row = r as RoundRow & {
@@ -248,6 +251,17 @@ function RoundScreen() {
         // See #246.
       } catch (err) {
         if (!active) return
+        // Offline (#993): a live round this device has loaded before reopens
+        // from its cache (useHoleData hydrates the rest the same way).
+        if (user && mode !== 'past' && isNetworkFailure(err, status)) {
+          const cached = await readCache<{ round: RoundRow }>(offlineKeys.round(user.id, id))
+          if (!active) return
+          if (cached && cached.round.completed_at == null && cached.round.total_score == null) {
+            setRound(cached.round)
+            setRedirectToLive(true)
+            return
+          }
+        }
         setError((err as Error).message)
       } finally {
         if (active) setLoading(false)
