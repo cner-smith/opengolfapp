@@ -1,22 +1,29 @@
 // Recompute the strokes gained stamped on completed rounds (rounds.sg_* and
-// hole_scores.sg_*) with the current baselines — after a baseline change such
-// as the #632 seam fix. Mirrors the SG step of the finish flow
-// (apps/mobile/lib/completeRound.ts): per-round par overrides, the player's
-// handicap (DEFAULT_HANDICAP when unset). Rounds don't record the handicap SG
-// was first computed with, so the current profile value is used.
+// hole_scores.sg_*) with the current engine — after a baseline change such as
+// #632 (around-green seam) or #998 (tee lines + approach table to 600 yd).
+// Mirrors the SG step of the finish flow (apps/mobile/lib/completeRound.ts):
+// per-round par overrides, the player's handicap (DEFAULT_HANDICAP when unset).
+// Rounds don't record the handicap SG was first computed with, so the current
+// profile value is used.
 //
-// Only rounds whose stored SG the PREVIOUS around-green rows reproduce (to the
-// cent) are rewritten — that proves the stored numbers came from this engine
-// with this handicap, so the seam fix is the only change. Rounds without
-// shots (scorecard-only, imported, seeded) and any other mismatch are
+// A round is rewritten only when one of the PREVIOUS engines (loaded from git
+// history, see PREVIOUS) reproduces its stored SG to the cent — proof the stored
+// numbers came from this engine with this handicap, so the baseline change is
+// the only difference. Prod never got the #632 recompute, so its rounds match
+// the pre-#632 engine; dev's #632-recomputed rounds match pre-#998. Rounds
+// without shots (scorecard-only, imported, seeded) and any other mismatch are
 // reported and left alone.
 //
 // Dry run by default: prints each round whose SG would change and logs old +
 // new values to docs/internal/data-repair/ (the rollback).
 //
 //   DOTENV_CONFIG_PATH=apps/web/.env.test.local tsx scripts/recompute-round-sg.ts [--apply]
-import { mkdirSync, writeFileSync } from 'node:fs'
-import { AROUND_GREEN_BASELINES, DEFAULT_HANDICAP, computeRoundSG } from '@oga/core'
+import { execSync } from 'node:child_process'
+import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { pathToFileURL } from 'node:url'
+import { DEFAULT_HANDICAP, computeRoundSG } from '@oga/core'
 import type { Database } from '@oga/supabase'
 import { supabase } from './crawl/client'
 
@@ -36,28 +43,27 @@ const stamp = (b: { offTee: number; approach: number; aroundGreen: number; putti
   sg_total: round2(b.total),
 })
 
-// The around-green rows before #632 (origin/dev sg-baselines.ts).
-const PREVIOUS_AROUND_GREEN: typeof AROUND_GREEN_BASELINES = {
-  0: { 5: 2.18, 10: 2.3, 15: 2.4, 20: 2.52, 30: 2.64 },
-  5: { 5: 2.3, 10: 2.44, 15: 2.56, 20: 2.7, 30: 2.84 },
-  10: { 5: 2.44, 10: 2.6, 15: 2.74, 20: 2.9, 30: 3.06 },
-  15: { 5: 2.6, 10: 2.78, 15: 2.94, 20: 3.12, 30: 3.3 },
-  20: { 5: 2.78, 10: 2.98, 15: 3.16, 20: 3.36, 30: 3.56 },
-  25: { 5: 2.98, 10: 3.2, 15: 3.4, 20: 3.62, 30: 3.84 },
-  30: { 5: 3.2, 10: 3.44, 15: 3.66, 20: 3.9, 30: 4.14 },
-}
-const CURRENT_AROUND_GREEN = structuredClone(AROUND_GREEN_BASELINES)
-function withAroundGreen<T>(rows: typeof AROUND_GREEN_BASELINES, fn: () => T): T {
-  Object.assign(AROUND_GREEN_BASELINES, structuredClone(rows))
-  try {
-    return fn()
-  } finally {
-    Object.assign(AROUND_GREEN_BASELINES, structuredClone(CURRENT_AROUND_GREEN))
-  }
+// Engines stored SG may have been computed with, newest first: the commit
+// before each baseline change. Each is @oga/core's src extracted from git.
+const PREVIOUS = [
+  { label: 'pre-#998', rev: 'a19a508^' },
+  { label: 'pre-#632', rev: 'abb25c3^' },
+]
+type Engine = { label: string; computeRoundSG: typeof computeRoundSG }
+async function loadEngines(): Promise<Engine[]> {
+  return Promise.all(
+    PREVIOUS.map(async ({ label, rev }) => {
+      const dir = mkdtempSync(join(tmpdir(), 'oga-sg-'))
+      execSync(`git archive ${rev} packages/core/src | tar -x -C ${dir}`)
+      const mod = await import(pathToFileURL(join(dir, 'packages/core/src/sg.ts')).href)
+      return { label, computeRoundSG: mod.computeRoundSG as typeof computeRoundSG }
+    }),
+  )
 }
 
 async function main() {
   console.log(`target ${host} · ${apply ? 'APPLY' : 'dry run'}`)
+  const engines = await loadEngines()
   const { data: rounds, error } = await supabase
     .from('rounds')
     .select('id, user_id, course_id, sg_off_tee, sg_approach, sg_around_green, sg_putting, sg_total')
@@ -90,12 +96,16 @@ async function main() {
       continue
     }
     const input = { holes, holeScores, shots, handicap: profRes.data?.handicap_index ?? DEFAULT_HANDICAP }
-    const before = withAroundGreen(PREVIOUS_AROUND_GREEN, () => computeRoundSG(input))
-    const was = stamp(before.round)
-    if ((Object.keys(was) as (keyof typeof was)[]).some((k) => was[k] !== r[k])) {
-      skipped.notReproduced.push({ round: r.id, stored: r, reproduced: was })
+    const matches = (b: ReturnType<typeof computeRoundSG>) => {
+      const was = stamp(b.round)
+      return (Object.keys(was) as (keyof typeof was)[]).every((k) => was[k] === r[k])
+    }
+    const found = engines.map((e) => ({ e, out: e.computeRoundSG(input) })).find(({ out }) => matches(out))
+    if (!found) {
+      skipped.notReproduced.push({ round: r.id, stored: r })
       continue
     }
+    const before = found.out
     const result = computeRoundSG(input)
     const next = stamp(result.round)
     const roundChanged = (Object.keys(next) as (keyof typeof next)[]).some((k) => r[k] !== next[k])
@@ -113,8 +123,8 @@ async function main() {
       return SG.some((k) => old[k] !== nextHole[k]) ? [{ id, old, next: nextHole }] : []
     })
     if (!roundChanged && holesChanged.length === 0) continue
-    console.log(`${r.id}  sg_total ${r.sg_total} → ${next.sg_total}  (${holesChanged.length} holes)`)
-    changes.push({ round: r.id, old: r, next, holes: holesChanged })
+    console.log(`${r.id}  [${found.e.label}]  sg_total ${r.sg_total} → ${next.sg_total}  (${holesChanged.length} holes)`)
+    changes.push({ round: r.id, engine: found.e.label, old: r, next, holes: holesChanged })
 
     if (apply) {
       const u = await supabase.from('rounds').update(next).eq('id', r.id)
