@@ -192,11 +192,12 @@ export default function Home() {
   }
 
   useEffect(() => {
-    pendingCount().then(setPending)
+    if (!user) return
+    pendingCount(user.id).then(setPending)
     syncPendingShots()
-      .then(() => pendingCount().then(setPending))
+      .then(() => pendingCount(user.id).then(setPending))
       .catch(() => undefined)
-  }, [])
+  }, [user?.id])
 
   // Skip rounds with no sg_total — null → 0 would anchor the line
   // at zero on rounds the user never finalized SG for, and the SG
