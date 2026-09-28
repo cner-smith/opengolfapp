@@ -1,0 +1,84 @@
+# iOS visual smoke on Maestro Cloud (simulator build: eas build -p ios --profile simulator).
+# Signs in as the DEV e2e user and screenshots the main screens. E2E_EMAIL / E2E_PASSWORD are
+# passed as env at run time — never commit them.
+appId: golf.oga.app
+name: iOS smoke — sign in, tabs, live round
+---
+- launchApp:
+    clearState: true
+    permissions:
+      all: allow
+- extendedWaitUntil:
+    visible: "Sign in to OGA"
+    timeout: 60000
+- takeScreenshot: 01-login
+- tapOn:
+    below: "Email"
+- inputText: ${E2E_EMAIL}
+- tapOn:
+    below: "Password"
+- inputText: ${E2E_PASSWORD}
+# hideKeyboard can't dismiss the iOS keyboard here; tapping the heading does.
+- tapOn: "Sign in to OGA"
+- tapOn: "Sign in"
+- extendedWaitUntil:
+    visible: "Skip splash|By the numbers|Skip intro tour"
+    timeout: 60000
+- takeScreenshot: 02-after-sign-in
+- runFlow:
+    when:
+      visible: "Skip splash"
+    commands:
+      - tapOn: "Skip splash"
+# The intro tour is a Modal: on iOS nothing under it is visible until it closes.
+# iOS reads a tab as "Home, tab, 1 of 5", so match headings / use Name.* for tabs.
+- extendedWaitUntil:
+    visible: "By the numbers|Skip intro tour"
+    timeout: 60000
+- runFlow:
+    when:
+      visible: "Skip intro tour"
+    commands:
+      - takeScreenshot: 02b-intro-tour
+      - tapOn: "Skip intro tour"
+- extendedWaitUntil:
+    visible: "By the numbers"
+    timeout: 30000
+- takeScreenshot: 03-home
+- scroll
+- takeScreenshot: 04-home-scrolled
+- tapOn: "Stats.*"
+- extendedWaitUntil:
+    notVisible: "Loading.*"
+    timeout: 30000
+- takeScreenshot: 05-stats
+- tapOn: "Patterns.*"
+- takeScreenshot: 06-patterns
+- tapOn: "Practice.*"
+- takeScreenshot: 07-practice
+- tapOn: "Profile.*"
+- takeScreenshot: 08-profile
+- tapOn: "Home.*"
+# Home kept its scroll from step 04: swipe back to the top so the resume card isn't under the header.
+- swipe:
+    direction: DOWN
+- swipe:
+    direction: DOWN
+- runFlow:
+    when:
+      visible: "Resume.*"
+    commands:
+      - tapOn: "Resume.*"
+      - extendedWaitUntil:
+          visible: "Open scorecard|Card"
+          timeout: 30000
+      - takeScreenshot: 09-live-round
+      # First visit: the round-screen tips (#900) open over everything.
+      - runFlow:
+          when:
+            visible: "1 of 9"
+          commands:
+            - tapOn: "Skip tips"
+            - takeScreenshot: 09b-live-round-no-tips
+      - tapOn: "Open scorecard|Card"
+      - takeScreenshot: 10-live-scorecard
