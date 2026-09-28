@@ -656,16 +656,25 @@ async function insertHoleShots(
     } else {
       const disp = CLUB_DISPERSION[club] ?? DEFAULT_DISP
       const offLong = disp.biasLong + gaussian(disp.sdLong)
-      // A missed fairway is a real miss off the tee.
-      const offLat = n === 1 && fairwayHit === false ? Math.sign(gaussian(1) || 1) * rand(20, 35) : disp.biasLat + gaussian(disp.sdLat)
+      // Tee shots honour the card: a hit fairway stays within ~15 yd of the
+      // aim line, a miss lands 15–40 yd off it (right 65% of the time — this
+      // player's slice). Everything else follows the club's own spread.
+      const offLat =
+        n === 1 && fairwayHit === true
+          ? Math.max(-15, Math.min(15, disp.biasLat + gaussian(disp.sdLat * 0.6)))
+          : n === 1 && fairwayHit === false
+            ? (Math.random() < 0.65 ? 1 : -1) * rand(15, 40)
+            : disp.biasLat + gaussian(disp.sdLat)
       end = dispersedEnd(lastEnd, aim, offLong, offLat)
       // Result follows the actual miss so result-based stats stay consistent.
+      // Labels scale with the club: 10 yd offline is a fine drive but a
+      // pulled wedge.
       result =
-        offLat > 9
+        offLat > disp.sdLat * 1.2
           ? 'push_right'
-          : offLat < -9
+          : offLat < -disp.sdLat * 1.2
             ? 'pull_left'
-            : offLong < -11
+            : offLong < -disp.sdLong * 1.3
               ? 'fat'
               : Math.random() < 0.18
                 ? 'thin'
