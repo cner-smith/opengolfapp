@@ -33,27 +33,38 @@ export async function setSoundsOn(on: boolean): Promise<void> {
 }
 
 type Player = { volume: number; play: () => void; remove: () => void }
+type Audio = typeof import('expo-audio')
 let iosPlayer: Player | null = null
-let iosModeSet = false
+let iosMode: Promise<boolean> | null = null
+
+// The ambient + mixWithOthers mode must be in place BEFORE the first play:
+// expo-audio 1.1.1's play() is a synchronous native Function that calls
+// AVAudioSession.setActive(true) at once (ios/AudioModule.swift:173-176), while
+// setAudioModeAsync is an AsyncFunction run later on the module queue
+// (AudioModule.swift:30-32 → setCategory at :577-581). Fired and forgotten, the
+// first play could activate the session in iOS's default solo-ambient category,
+// which stops the player's music. So it's awaited once; if it fails the sound
+// is skipped (and the mode retried on the next putt) rather than risk that.
+function audioModeIos(A: Audio): Promise<boolean> {
+  iosMode ??= A.setAudioModeAsync({ playsInSilentMode: false, interruptionMode: 'mixWithOthers' }).then(
+    () => true,
+    () => {
+      iosMode = null
+      return false
+    },
+  )
+  return iosMode
+}
 
 // A fresh player per putt instead of seekTo(0) on one: expo-audio 1.1.1's
 // seekTo can crash natively on iOS (EXC_BAD_ACCESS in its continuation,
 // expo/expo#43034), which no try/catch catches. The clip is 12 KB.
-function newCupPlayerIos(): Player | null {
-  try {
-    const A = require('expo-audio') as typeof import('expo-audio')
-    if (!iosModeSet) {
-      iosModeSet = true
-      void A.setAudioModeAsync({ playsInSilentMode: false, interruptionMode: 'mixWithOthers' })
-    }
-    iosPlayer?.remove()
-    const p = A.createAudioPlayer(require('../assets/sounds/cup.m4a'))
-    p.volume = VOLUME
-    iosPlayer = p
-    return p
-  } catch {
-    return null
-  }
+function newCupPlayerIos(A: Audio): Player {
+  iosPlayer?.remove()
+  const p = A.createAudioPlayer(require('../assets/sounds/cup.m4a'))
+  p.volume = VOLUME
+  iosPlayer = p
+  return p
 }
 
 export async function playCup(): Promise<void> {
@@ -63,7 +74,10 @@ export async function playCup(): Promise<void> {
       requireOptionalNativeModule<{ playCup: (v: number) => boolean }>('OgaFeedback')?.playCup(VOLUME)
       return
     }
-    newCupPlayerIos()?.play()
+    // Throws on binaries without ExpoAudio (src/AudioModule.ts: requireNativeModule).
+    const A = require('expo-audio') as Audio
+    if (!(await audioModeIos(A))) return
+    newCupPlayerIos(A).play()
   } catch {
     // Never let a sound break the putt flow.
   }
