@@ -52,8 +52,9 @@ export interface HoleReviewSheetProps {
    *  owns editing state, hydrating from these once per (hole, visible). */
   initialRows: ReviewedShotRow[]
   saving: boolean
+  /** Rows keep `_shotId` so the save pairs by id, not by (renumbered) number. */
   onSave: (
-    rows: ReviewedShotRow[],
+    rows: EditableRow[],
     summary: { score: number; putts: number; penalties: number },
   ) => void
   /** Dismiss to let the user drag markers on the map. */

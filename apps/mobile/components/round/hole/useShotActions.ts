@@ -22,6 +22,7 @@ import {
   enqueueHoleScorePatch,
   insertPendingShot,
   pendingCount,
+  removeLocalShotAndRenumber,
   setPendingShotEnd,
   setPendingShotOb,
   upsertReviewedShot,
@@ -36,6 +37,10 @@ import type { PuttingValue } from '../PuttingSheet'
 import { PUTTING_RADIUS_YARDS, type ActiveDialog } from './types'
 import type { UseHoleDataResult } from './useHoleData'
 import type { UseHoleStateResult } from './useHoleState'
+
+// HoleReviewSheet's rows carry the id of the shot each was built from, so the
+// save can pair by id after a delete renumbers them (see saveHoleSummary).
+type ReviewedRowWithId = ReviewedShotRow & { _shotId?: string }
 
 interface UseShotActionsInput {
   id: string | undefined
@@ -113,7 +118,7 @@ export interface UseShotActionsResult {
   // End-of-hole review save: attach the confirmed metadata to every shot
   // logged live on this hole, write the hole_scores tallies, then advance.
   saveHoleSummary: (
-    rows: ReviewedShotRow[],
+    rows: ReviewedRowWithId[],
     summary: { score: number; putts: number; penalties: number },
   ) => Promise<void>
   // Dismiss the summary back to the live map so the player can fix ball
@@ -811,7 +816,7 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
   // idempotent re-sync updates the same server row (no delete, no duplicates
   // offline). Then the hole_scores tallies are written and the hole advances.
   async function saveHoleSummary(
-    rows: ReviewedShotRow[],
+    rows: ReviewedRowWithId[],
     summary: { score: number; putts: number; penalties: number },
   ) {
     if (!user || !currentHoleScore || !currentHole) return
@@ -819,7 +824,12 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
     saveSummaryInFlightRef.current = true
     setSaving(true)
     try {
-      // Pair reviewed rows to the live shots by shot_number. Local queue
+      // Pair reviewed rows to the live shots by the shot's id (the sheet's
+      // _shotId), falling back to shot_number only for a row without one.
+      // Not by number alone: a delete in the sheet renumbers its rows (and
+      // delete_shot renumbers the server), so row N would pair to the shot
+      // that USED to be N, and the upsert would collide on
+      // unique(hole_score_id, shot_number) and get quarantined. Local queue
       // (pending + synced) is the primary source for id + live aim; the
       // remote table is the fallback for a shot whose local row was purged
       // after a prior session's sync (restart mid-hole). BOTH reads get a
@@ -835,24 +845,25 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
         )
       }
       const localByNum = new Map<number, ShotPayload>()
+      const localById = new Map<string, ShotPayload>()
       for (const r of localRows) {
         try {
           const p = JSON.parse(r.payload) as ShotPayload
+          if (p.id) localById.set(p.id, p)
           if (p.id && p.shot_number != null) localByNum.set(p.shot_number, p)
         } catch {
           // skip malformed pending payload
         }
       }
-      const remoteByNum = new Map<
-        number,
-        {
-          id: string
-          aim_lat: number | null
-          aim_lng: number | null
-          ob: boolean
-          penalty: boolean
-        }
-      >()
+      type RemoteShot = {
+        id: string
+        aim_lat: number | null
+        aim_lng: number | null
+        ob: boolean
+        penalty: boolean
+      }
+      const remoteByNum = new Map<number, RemoteShot>()
+      const remoteById = new Map<string, RemoteShot>()
       let remote = await supabase
         .from('shots')
         .select('id, shot_number, aim_lat, aim_lng, ob, penalty')
@@ -864,19 +875,22 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
           .eq('hole_score_id', currentHoleScore.id)
       }
       for (const s of remote.data ?? []) {
-        remoteByNum.set(s.shot_number, {
+        const shot = {
           id: s.id,
           aim_lat: s.aim_lat,
           aim_lng: s.aim_lng,
           ob: s.ob,
           penalty: s.penalty,
-        })
+        }
+        remoteByNum.set(s.shot_number, shot)
+        remoteById.set(s.id, shot)
       }
 
       for (const row of rows) {
         const isPuttRow = isPuttEntry(row.lieType, row.club)
-        const existing =
-          localByNum.get(row.shotNumber) ?? remoteByNum.get(row.shotNumber)
+        const existing = row._shotId
+          ? localById.get(row._shotId) ?? remoteById.get(row._shotId)
+          : localByNum.get(row.shotNumber) ?? remoteByNum.get(row.shotNumber)
         // The reviewed rows were built from these very shots, so each MUST
         // pair back to one. If both reads came up empty for this shot_number
         // (both transiently failed above), fabricating a fresh id would queue
@@ -1040,10 +1054,10 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
       // anything is still pending after the first pass, run once more now
       // that the previous run has settled.
       await syncPendingShots().catch(() => undefined)
-      if ((await pendingCount()) > 0) {
+      if ((await pendingCount(user.id)) > 0) {
         await syncPendingShots().catch(() => undefined)
       }
-      const unsynced = await pendingCount()
+      const unsynced = await pendingCount(user.id)
       if (unsynced > 0) {
         // Shots that never reached the server would silently vanish from
         // totals/SG (completeRound reads the server's shot set). Make the
@@ -1123,8 +1137,10 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
       })
       if (error) throw error
       // If the RPC found nothing on the server (false), the shot never synced —
-      // drop its local pending row so it actually disappears.
+      // drop its local pending row so it actually disappears. Otherwise mirror
+      // the RPC's delete + renumber onto the local queue copies.
       if (deleted === false) await deletePendingShotById(shotId)
+      else await removeLocalShotAndRenumber(shotId)
       data.refreshShots()
       // refreshShots only refetches SHOTS; the RPC also re-tallied hole_scores
       // (score/putts/penalties/fairway_hit/gir) server-side, and that row is

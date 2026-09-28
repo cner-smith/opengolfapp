@@ -79,10 +79,18 @@ export async function insertPendingShot(payload: ShotPayload): Promise<number> {
   return result.lastInsertRowId
 }
 
-export async function listPendingShots(): Promise<PendingShot[]> {
+// Scoped to one account: the queue is device-wide, and on a shared device
+// another account's leftover rows fail RLS (42501, treated as transient) on
+// every pass — sent in the same chunk, they'd block this user's shots forever.
+// They stay queued until their owner signs back in.
+export async function listPendingShots(userId: string): Promise<PendingShot[]> {
   const db = await getDb()
   return db.getAllAsync<PendingShot>(
-    `SELECT * FROM pending_shots WHERE status = 'pending' ORDER BY created_at ASC`,
+    `SELECT * FROM pending_shots
+     WHERE status = 'pending'
+       AND json_extract(payload, '$.user_id') = ?
+     ORDER BY created_at ASC`,
+    userId,
   )
 }
 
@@ -133,10 +141,15 @@ export async function updatePendingShotPayload(
   )
 }
 
-export async function pendingCount(): Promise<number> {
+// Same per-account scope as listPendingShots, so another account's rows
+// (which this user's sync never sends) can't hold "unsynced" above zero.
+export async function pendingCount(userId: string): Promise<number> {
   const db = await getDb()
   const row = await db.getFirstAsync<{ count: number }>(
-    `SELECT COUNT(*) as count FROM pending_shots WHERE status = 'pending'`,
+    `SELECT COUNT(*) as count FROM pending_shots
+     WHERE status = 'pending'
+       AND json_extract(payload, '$.user_id') = ?`,
+    userId,
   )
   return row?.count ?? 0
 }
@@ -312,6 +325,32 @@ export async function deletePendingShotById(clientId: string): Promise<void> {
   await db.runAsync(
     `delete from pending_shots where json_extract(payload, '$.id') = ?`,
     [clientId],
+  )
+}
+
+// Mirror a successful delete_shot RPC locally: the RPC deletes the row and
+// renumbers the hole's later shots server-side, but the local copies (synced
+// rows live on until the next launch) kept the deleted row and the old
+// numbers. Anything that later pairs local rows by shot_number would then
+// attach a row to the wrong shot and collide on unique(hole_score_id,
+// shot_number). No-op when the shot has no local row (purged last session).
+export async function removeLocalShotAndRenumber(clientId: string): Promise<void> {
+  const db = await getDb()
+  const row = await db.getFirstAsync<{ hs: string | null; num: number | null }>(
+    `SELECT json_extract(payload, '$.hole_score_id') AS hs,
+            json_extract(payload, '$.shot_number') AS num
+     FROM pending_shots WHERE json_extract(payload, '$.id') = ?`,
+    clientId,
+  )
+  await db.runAsync(`DELETE FROM pending_shots WHERE json_extract(payload, '$.id') = ?`, clientId)
+  if (!row?.hs || row.num == null) return
+  await db.runAsync(
+    `UPDATE pending_shots
+     SET payload = json_set(payload, '$.shot_number', json_extract(payload, '$.shot_number') - 1)
+     WHERE json_extract(payload, '$.hole_score_id') = ?
+       AND json_extract(payload, '$.shot_number') > ?`,
+    row.hs,
+    row.num,
   )
 }
 
