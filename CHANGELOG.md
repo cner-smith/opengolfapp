@@ -1,5 +1,313 @@
 # Changelog
 
+## [1.6.0](https://github.com/cner-smith/opengolfapp/compare/v1.5.1...v1.6.0) (2026-09-28)
+
+
+### Features
+
+* "Plays left-handed" profile setting mirrors the shot shape keys ([6591dc6](https://github.com/cner-smith/opengolfapp/commit/6591dc664f68e7ebf2b476474e2776b018ca43d1))
+* [#611](https://github.com/cner-smith/opengolfapp/issues/611) PR3 — G4 flag ([#904](https://github.com/cner-smith/opengolfapp/issues/904)) ([c5bcd04](https://github.com/cner-smith/opengolfapp/commit/c5bcd048f490778f6ebd6b7fe674b1557345e18c))
+* [#611](https://github.com/cner-smith/opengolfapp/issues/611) PR3 — G4 flag ([#904](https://github.com/cner-smith/opengolfapp/issues/904)) ([ddc08e9](https://github.com/cner-smith/opengolfapp/commit/ddc08e911ee9a72ac36ae3007ed61615dfd9d457))
+* [#951](https://github.com/cner-smith/opengolfapp/issues/951) shot result as three axes — contact, shape, start line ([ada0076](https://github.com/cner-smith/opengolfapp/commit/ada0076933952ed19345ae014892f98d5b652a61))
+* [#951](https://github.com/cner-smith/opengolfapp/issues/951) shot result as three axes (contact, shape, start line) ([f231a56](https://github.com/cner-smith/opengolfapp/commit/f231a560bc3a3c56be7930cca55d5636c7052da0))
+* **mobile:** [#611](https://github.com/cner-smith/opengolfapp/issues/611) approach shots use the full-shot aim framing ([aad5621](https://github.com/cner-smith/opengolfapp/commit/aad5621b860eb32d05b5f188cb9e74a868159b56))
+* **mobile:** [#611](https://github.com/cner-smith/opengolfapp/issues/611) native phase — haptics + ball-in-cup sound ([d169097](https://github.com/cner-smith/opengolfapp/commit/d16909705ea7650dbf274a4ba0f5f713c1062c7c))
+* **mobile:** [#611](https://github.com/cner-smith/opengolfapp/issues/611) native phase — haptics + the cup sound ([d889dbb](https://github.com/cner-smith/opengolfapp/commit/d889dbbe641181ebceb0ff41d99b081b16a7b020))
+* **mobile:** [#611](https://github.com/cner-smith/opengolfapp/issues/611) PR1 — paper chrome for the live and past-round screens ([04dacc8](https://github.com/cner-smith/opengolfapp/commit/04dacc82bf994357ecd6421412f4db9f9fa8444d))
+* **mobile:** [#611](https://github.com/cner-smith/opengolfapp/issues/611) PR1 — paper chrome for the live and past-round screens ([ffd520b](https://github.com/cner-smith/opengolfapp/commit/ffd520b12406d77a2c270b62b86476e69f72f5ac))
+* **mobile:** [#611](https://github.com/cner-smith/opengolfapp/issues/611) PR2 — club wheel, pattern overlay B + checkered rods ([8d75d85](https://github.com/cner-smith/opengolfapp/commit/8d75d85b441e469d204d8d17f6d6a163123cca4a))
+* **mobile:** [#611](https://github.com/cner-smith/opengolfapp/issues/611) PR2 — club wheel, pattern overlay B and checkered rods ([df61eb6](https://github.com/cner-smith/opengolfapp/commit/df61eb643cc40a008ed2708a834783d3adac92df))
+* **mobile:** [#611](https://github.com/cner-smith/opengolfapp/issues/611) PR4 — declutter mock round 2: numbers in wheel, one leg tag, callout lane, reframe ([0e18343](https://github.com/cner-smith/opengolfapp/commit/0e18343dcc84b4ebf2f1d125e79430ca385136b0))
+* **mobile:** [#611](https://github.com/cner-smith/opengolfapp/issues/611) PR4 — juice (motion + feel) ([0010c68](https://github.com/cner-smith/opengolfapp/commit/0010c68f59fbcb8da5ee134c70fa77ea1e6e579a))
+* **mobile:** [#611](https://github.com/cner-smith/opengolfapp/issues/611) PR4 — letterpress press, label swap, pencil marks, putt drop ([2512455](https://github.com/cner-smith/opengolfapp/commit/25124557ef37eeea640af9c5552620e60f5148b9))
+* **mobile:** [#611](https://github.com/cner-smith/opengolfapp/issues/611) PR4 — map-tag declutter mock: priority layout (A), zoom rule (B), merged tag (C) ([a189459](https://github.com/cner-smith/opengolfapp/commit/a18945987d961bbc5a320a14a7ccf90fce2ed332))
+* **mobile:** [#611](https://github.com/cner-smith/opengolfapp/issues/611) PR4 — pattern draw-in ([f97873f](https://github.com/cner-smith/opengolfapp/commit/f97873f5101a8f1072f5bdb22a86111d2e5f6eed))
+* **mobile:** [#611](https://github.com/cner-smith/opengolfapp/issues/611) PR4 — pencil ring round AUTO when the wheel lands home ([43734ca](https://github.com/cner-smith/opengolfapp/commit/43734ca94e1eb70b6adec18e91bd29f4539e505f))
+* **mobile:** [#611](https://github.com/cner-smith/opengolfapp/issues/611) PR4 — ruler feel mock: tween (A), sticky slider (B), on-map handles (C) ([b0ef24c](https://github.com/cner-smith/opengolfapp/commit/b0ef24c86475039703a9a5bbb482785866185ea6))
+* **mobile:** finishing the last hole with others unfinished asks instead of ending the round ([#940](https://github.com/cner-smith/opengolfapp/issues/940)) ([#946](https://github.com/cner-smith/opengolfapp/issues/946)) ([9b98124](https://github.com/cner-smith/opengolfapp/commit/9b981244abd0baf5d70986cc02faf0f4fe83684b))
+* **mobile:** frame the aim view by rule, with a flat / flyover tilt setting ([#899](https://github.com/cner-smith/opengolfapp/issues/899)) ([#928](https://github.com/cner-smith/opengolfapp/issues/928)) ([bc881e6](https://github.com/cner-smith/opengolfapp/commit/bc881e6e7aec8422304e945858bf40d701bd2237))
+* **mobile:** live-round UX pass — header hole nav, drag hint, OB on the marker, aim framing + tilt ([#908](https://github.com/cner-smith/opengolfapp/issues/908)) ([225ef31](https://github.com/cner-smith/opengolfapp/commit/225ef317cf7507c5308e25d4dac34440f544017e))
+* **mobile:** real ball-in-cup sound (replaces the synth placeholder) ([f6c1fb7](https://github.com/cner-smith/opengolfapp/commit/f6c1fb7f16bfd025fdfd80b8f40ed2a357c02289))
+* **mobile:** real ball-in-cup sound replaces the synth placeholder ([d18810d](https://github.com/cner-smith/opengolfapp/commit/d18810dc7c1713b98fffdbd691615b191254a1ea))
+* **mobile:** round-screen tips + "?" help (coach marks, [#900](https://github.com/cner-smith/opengolfapp/issues/900)) ([43206c2](https://github.com/cner-smith/opengolfapp/commit/43206c2a7457ae25ec3c2d686f01ad5f3b2555b2))
+* **mobile:** ruler — drag scrubs (B), a tap eases (A); drop the on-map knobs (C) ([f6a8e95](https://github.com/cner-smith/opengolfapp/commit/f6a8e95f8f8656cb0d75a6105ebd844975624dcd))
+
+
+### Bug Fixes
+
+* [#611](https://github.com/cner-smith/opengolfapp/issues/611) pre-release blockers (session-9 triage) ([471b599](https://github.com/cner-smith/opengolfapp/commit/471b5997129467555959831622cba37977dcd143))
+* [#611](https://github.com/cner-smith/opengolfapp/issues/611) pre-release blockers from the session-9 triage ([8f77a4f](https://github.com/cner-smith/opengolfapp/commit/8f77a4f1e6117933245970f70e8823655649777b))
+* **core:** around-green baselines meet approach at 30 yd ([#632](https://github.com/cner-smith/opengolfapp/issues/632)) ([abb25c3](https://github.com/cner-smith/opengolfapp/commit/abb25c376b60070a9ecf58a00b7b7ee3582d7ca9))
+* **core:** handicap caps holes at net double bogey, not the retired ESC table ([#670](https://github.com/cner-smith/opengolfapp/issues/670)) ([3213eff](https://github.com/cner-smith/opengolfapp/commit/3213effde5f1d7c379a443e5528591f57b2c15ad))
+* **core:** net double bogey handicap caps + SG around-green seam ([#670](https://github.com/cner-smith/opengolfapp/issues/670), [#632](https://github.com/cner-smith/opengolfapp/issues/632)) ([5537914](https://github.com/cner-smith/opengolfapp/commit/553791430b49ed1a3b8d9551aae5af5816fe1b7d))
+* **core:** no-stroke-index holes get the average stroke share, not floor ([#670](https://github.com/cner-smith/opengolfapp/issues/670)) ([6fcfcaa](https://github.com/cner-smith/opengolfapp/commit/6fcfcaadcc63d12b5a185d057a3d7de2451ff1cc))
+* **core:** stats skip unplayed holes and unscored rounds ([#926](https://github.com/cner-smith/opengolfapp/issues/926)) ([2ea894c](https://github.com/cner-smith/opengolfapp/commit/2ea894cd7d1f4579087cd1ce739da366215e5ed7)), closes [#910](https://github.com/cner-smith/opengolfapp/issues/910)
+* **crawl:** hole direction + inferred par, with a repair script ([#905](https://github.com/cner-smith/opengolfapp/issues/905), [#912](https://github.com/cner-smith/opengolfapp/issues/912)) ([70f9f7f](https://github.com/cner-smith/opengolfapp/commit/70f9f7f506bdf5c080d4861567a227b84320788d))
+* **crawl:** trust OSM hole direction; infer a missing par from length ([#905](https://github.com/cner-smith/opengolfapp/issues/905), [#912](https://github.com/cner-smith/opengolfapp/issues/912)) ([8bbd87d](https://github.com/cner-smith/opengolfapp/commit/8bbd87ded9daa6128792656b96f889917ff10e35))
+* **db:** course search treats % and _ literally ([#919](https://github.com/cner-smith/opengolfapp/issues/919)) ([#947](https://github.com/cner-smith/opengolfapp/issues/947)) ([12f07e4](https://github.com/cner-smith/opengolfapp/commit/12f07e430f635fcd5f296d31d118f82f88a53eef))
+* emulator bug hunt 2 — units, carry tag, OB penalties, flag number, stats colours ([253dcd6](https://github.com/cner-smith/opengolfapp/commit/253dcd65b35ccdd180182a70d1d288ee3afafecc))
+* Home/dashboard lede no longer says a leak costs "0.0 strokes" ([#911](https://github.com/cner-smith/opengolfapp/issues/911)) ([e7ac352](https://github.com/cner-smith/opengolfapp/commit/e7ac3522888843411445baf3890c579f73161b0a))
+* **mobile:** 'strokes to hole out' stays on one line beside a 4-digit hero ([3799d3b](https://github.com/cner-smith/opengolfapp/commit/3799d3b3565d6318902abbe900dfd9348ee83928))
+* **mobile:** a far-off putt no longer poisons the queue and traps the hole ([#994](https://github.com/cner-smith/opengolfapp/issues/994)) ([a8e081d](https://github.com/cner-smith/opengolfapp/commit/a8e081d6a8427fabf38d50dd66576392fe0190a4))
+* **mobile:** a resumed hole keeps the up-the-hole heading ([c23b573](https://github.com/cner-smith/opengolfapp/commit/c23b573e3d907b7824229835cc57d06af3136674))
+* **mobile:** a saved distance unit applies at once ([f20d0e1](https://github.com/cner-smith/opengolfapp/commit/f20d0e11bd6c2f7f8f68feffc7a8108d39232a45))
+* **mobile:** aim view re-fits on a dock change only until the player pans or pinches ([40c3ac2](https://github.com/cner-smith/opengolfapp/commit/40c3ac25303e34d204fe96019290297aad65fbf2))
+* **mobile:** Android Back on the hole review closes the sheet, not "Leave round?" ([#971](https://github.com/cner-smith/opengolfapp/issues/971)) ([3021b91](https://github.com/cner-smith/opengolfapp/commit/3021b914a5abe18a3d25deb811141bb1710dae95))
+* **mobile:** Android Back steps through the live round instead of exiting ([#915](https://github.com/cner-smith/opengolfapp/issues/915)) ([#936](https://github.com/cner-smith/opengolfapp/issues/936)) ([3614281](https://github.com/cner-smith/opengolfapp/commit/3614281ceff9f109c86b87caeb363393d3085c4c))
+* **mobile:** Android haptic fallbacks actually fall back ([609c4e0](https://github.com/cner-smith/opengolfapp/commit/609c4e04f856c476f26fb8b75d6a08a08e615a96))
+* **mobile:** Appr ruler on approach shots, paper delete confirm, store version 1.6.0 ([c286eb5](https://github.com/cner-smith/opengolfapp/commit/c286eb5cea301df00a6cb611b053a2b4fb0b2291))
+* **mobile:** approach shots open on the Appr ruler; shot delete confirms in the paper dialog; store version 1.6.0 ([c44a5e4](https://github.com/cner-smith/opengolfapp/commit/c44a5e460d311793b224502ee01348fb25705e68))
+* **mobile:** audio mode before first cup sound; haptics fallback; expo-asset + SDK 54 patch alignment ([5d37be3](https://github.com/cner-smith/opengolfapp/commit/5d37be3cee5135481e613cb42ed12001a4d4884b))
+* **mobile:** await the iOS audio mode before the first cup sound ([dea2a51](https://github.com/cner-smith/opengolfapp/commit/dea2a51c0c4cdce046c22c1deb7bdb885228fd8b))
+* **mobile:** bottom-row primary fills two-button rows; past-round copy ([feca12a](https://github.com/cner-smith/opengolfapp/commit/feca12a6c3dad99ff19c1c72ea528379268a9323))
+* **mobile:** cap the hole map at zoom 20 (blank satellite on tight fits) ([b2053f2](https://github.com/cner-smith/opengolfapp/commit/b2053f26613b43131c0a39a4c4be33a87254affc))
+* **mobile:** cap the hole map at zoom 20 so a tight fit can't blank the satellite ([338b07b](https://github.com/cner-smith/opengolfapp/commit/338b07bef880e72ccb2ebef9fc8f3cfd71ac05e7))
+* **mobile:** carry tag stays above the dock's stacks; wheel label gutter ([11a3374](https://github.com/cner-smith/opengolfapp/commit/11a33742421546e0bf2b5e9c5fce4f10e284a2e1))
+* **mobile:** clear the edit-on-map hole on hole change ([11fdd8b](https://github.com/cner-smith/opengolfapp/commit/11fdd8b4cf0dce36084b837813daa95f4d8abe9a))
+* **mobile:** clear the screen cache whenever the signed-in user changes ([76e5946](https://github.com/cner-smith/opengolfapp/commit/76e5946baf3ae16ff163944b7b7561c957be1b52))
+* **mobile:** club wheel auto pick only from the wheel's rows ([355e5b8](https://github.com/cner-smith/opengolfapp/commit/355e5b851102a7fe941181ca030278ab106ec28d))
+* **mobile:** email-confirm link works on a running app and can't be replayed ([#917](https://github.com/cner-smith/opengolfapp/issues/917)) ([#941](https://github.com/cner-smith/opengolfapp/issues/941)) ([3a9ae4f](https://github.com/cner-smith/opengolfapp/commit/3a9ae4f794ff7574125bf695bea59069b2790e4a))
+* **mobile:** end-round dialog counts the holes actually logged ([05990c6](https://github.com/cner-smith/opengolfapp/commit/05990c6a0ed57e2f530af8ef7cb1a535a7c055fa))
+* **mobile:** ending a round shows its summary instead of staying in the live round ([#925](https://github.com/cner-smith/opengolfapp/issues/925)) ([ab8ee82](https://github.com/cner-smith/opengolfapp/commit/ab8ee82e0df1a404686c0d09a811b94b472ce7e2))
+* **mobile:** error screen clears the status bar; dev stack capped at 14 lines ([f7e5495](https://github.com/cner-smith/opengolfapp/commit/f7e5495413e4405012becb5b96b9b722c30a395b))
+* **mobile:** far-off putt no longer poisons the queue and traps the hole ([#994](https://github.com/cner-smith/opengolfapp/issues/994)) ([6eaa7d2](https://github.com/cner-smith/opengolfapp/commit/6eaa7d258f5f11c75b226906ab564bf0a5b2edc1))
+* **mobile:** first-run tour, coach marks and aim hint are per account ([961bcfd](https://github.com/cner-smith/opengolfapp/commit/961bcfd291dc1f51bad2cc2c5a95d0bbcd635dc5))
+* **mobile:** flag shows the current hole's number after a hole switch ([f6fd37f](https://github.com/cner-smith/opengolfapp/commit/f6fd37f261d8cb2dc5fc84857fff3b2077503a32))
+* **mobile:** font fallbacks (Roboto/system) + iOS/Android weight mismatch ([9d3b867](https://github.com/cner-smith/opengolfapp/commit/9d3b867a23c81525e6fd025876a8eeef419c0557))
+* **mobile:** hero caption no longer wraps beside a 4-digit distance ([372630e](https://github.com/cner-smith/opengolfapp/commit/372630ec6422b500b4d0778d4dcee7c0b8f50518))
+* **mobile:** hero distance's last italic digit no longer clipped on Android ([693ac2e](https://github.com/cner-smith/opengolfapp/commit/693ac2e80795de2901e0daecf05743231d5e3bf4))
+* **mobile:** hero empty state + width, reopen an unsaved holed review ([aef0a57](https://github.com/cner-smith/opengolfapp/commit/aef0a5741764f1d06911396afc60a391dcbaf94e))
+* **mobile:** hero's strokes column keeps a gutter before the Card key ([ce0ec6e](https://github.com/cner-smith/opengolfapp/commit/ce0ec6ed77a9cc9163b51eceafcb49e13b3bbb7f))
+* **mobile:** iOS keyboard no longer hides inputs/Save; past-shot save errors surface ([150c3d5](https://github.com/cner-smith/opengolfapp/commit/150c3d5b8d08b51db4d5a152071608966582d817))
+* **mobile:** iOS marker fixes — flag number refresh, in-marker taps ([dbfbc90](https://github.com/cner-smith/opengolfapp/commit/dbfbc90d4dc0c02a8efafd3d68465e310a25c0e9))
+* **mobile:** iOS-safe cup sound, mic purpose string, map ornaments on top ([e9fc7ae](https://github.com/cner-smith/opengolfapp/commit/e9fc7ae5b38288012191f4357bb516747911655d))
+* **mobile:** italic glyphs clipped on Android (hero digit, header ?) ([30d4fbf](https://github.com/cner-smith/opengolfapp/commit/30d4fbfb6e356451bdb7052aa059405df616d716))
+* **mobile:** jump (not animate) to the focused field on keyboard relayout ([3553f7e](https://github.com/cner-smith/opengolfapp/commit/3553f7e5bea2c79bedb47a94926ca28bfce80c17))
+* **mobile:** keep inputs and Save above the iOS keyboard; past-shot save errors alert ([8ae8d38](https://github.com/cner-smith/opengolfapp/commit/8ae8d38b71cbc08c3d40c1a3e1305757ce770831))
+* **mobile:** last hole's review button says it finishes the round ([#916](https://github.com/cner-smith/opengolfapp/issues/916)) ([#937](https://github.com/cner-smith/opengolfapp/issues/937)) ([f7acd39](https://github.com/cner-smith/opengolfapp/commit/f7acd398c72ecd041ab4ba0ac726d34d715a6c0a))
+* **mobile:** light status icons on the dark AppBar screens ([509a0d3](https://github.com/cner-smith/opengolfapp/commit/509a0d36c8fbdd0c08a89be06d08704c63167c8d))
+* **mobile:** live card treats the hole in play as a running count ([b972073](https://github.com/cner-smith/opengolfapp/commit/b9720733470fec1bc7b1aafe65c36da3e77eb897))
+* **mobile:** live dock paper runs to the screen edge (no map strip under it) ([443e620](https://github.com/cner-smith/opengolfapp/commit/443e6201747040c68ac494dce7d7553a7acd8f48))
+* **mobile:** live header buttons and ⋮ menu rows give press feedback on iOS ([361d7bb](https://github.com/cner-smith/opengolfapp/commit/361d7bb63f93178859ce1265ee6447ab770fa1ad))
+* **mobile:** live header counts OB penalty strokes in the shot ordinal ([2026260](https://github.com/cner-smith/opengolfapp/commit/2026260be313c60388912c526a37692b1498d2b2))
+* **mobile:** live result chip still shows OB; seed computes axes once ([a89c7a2](https://github.com/cner-smith/opengolfapp/commit/a89c7a2984c6696d0984e2bc865609b9b611feb3))
+* **mobile:** live-round dock paper runs to the screen edge on iOS ([2d0729a](https://github.com/cner-smith/opengolfapp/commit/2d0729a4f24dcff900c1261c39f1eddce026b436))
+* **mobile:** logging a skipped earlier hole no longer locks it into edit-on-map ([cabdedd](https://github.com/cner-smith/opengolfapp/commit/cabdedd46794714490e32dd6628f07eb8821f1ef))
+* **mobile:** long AppBar titles wrap instead of running under the right slot; Home rows on paper ([d5ed4c8](https://github.com/cner-smith/opengolfapp/commit/d5ed4c890a1831b3c936f4a381fd8c0b26cc57c0))
+* **mobile:** no leg label on legs under 10 yd ([b988019](https://github.com/cner-smith/opengolfapp/commit/b988019e80deedca1440580d4a1571e4888558ce))
+* **mobile:** no more system-font fallbacks; iOS and Android weights match ([5f30d3f](https://github.com/cner-smith/opengolfapp/commit/5f30d3fd6ce705caf152ee5dfc241c59f46684db))
+* **mobile:** offline round route also checks status 0 ([7c65cae](https://github.com/cner-smith/opengolfapp/commit/7c65caee2c1d8718984fa3e044f30115b89b8493))
+* **mobile:** onboarding / login / signup keep clear of the system bars ([180b90a](https://github.com/cner-smith/opengolfapp/commit/180b90afcd55e66f7f25411f772cd4962f92b1f0))
+* **mobile:** one haptic per tap where the moment has its own; undo OB is quiet ([128cff3](https://github.com/cner-smith/opengolfapp/commit/128cff3ccd2aa7675d8709ccc9e05968f01c0f78))
+* **mobile:** one-line caption only beside a 4-digit hero ([f48385d](https://github.com/cner-smith/opengolfapp/commit/f48385d0157acb60dede2889b4db6a62a2f2ed8f))
+* **mobile:** only a not-supported haptic rejection disables that type ([fb7aba6](https://github.com/cner-smith/opengolfapp/commit/fb7aba65a862ed9078c0adbdf46a9cb99e27ceb5))
+* **mobile:** opening another round starts fresh instead of inheriting the last one's tab + map hole ([#944](https://github.com/cner-smith/opengolfapp/issues/944)) ([#945](https://github.com/cner-smith/opengolfapp/issues/945)) ([5f4483c](https://github.com/cner-smith/opengolfapp/commit/5f4483c2352135083a8880cb8873f1a5a367cdee))
+* **mobile:** pad the scorecard sheet by the bottom safe-area inset ([#894](https://github.com/cner-smith/opengolfapp/issues/894)) ([#906](https://github.com/cner-smith/opengolfapp/issues/906)) ([33f235b](https://github.com/cner-smith/opengolfapp/commit/33f235b60277004cfec9c5a6722932ab9b463e8a))
+* **mobile:** past-round '?' opens tips on the Scorecard tab too ([eb155e1](https://github.com/cner-smith/opengolfapp/commit/eb155e1031f7f1584bd2f3ce8806cafa79e35143))
+* **mobile:** past-round Map tab opens on the scorecard hole you tapped ([#918](https://github.com/cner-smith/opengolfapp/issues/918)) ([#943](https://github.com/cner-smith/opengolfapp/issues/943)) ([219ad3e](https://github.com/cner-smith/opengolfapp/commit/219ad3ebbfdbc63545a5437d8c9c2c5d9dea70c1))
+* **mobile:** past-round Scorecard tab clears the nav bar at the end ([116541d](https://github.com/cner-smith/opengolfapp/commit/116541d4ab09e84bb61fb635cafcf3d7c85eff6a))
+* **mobile:** past-round shot edit returns where it was opened ([713ecb3](https://github.com/cner-smith/opengolfapp/commit/713ecb300d276de0ea0cc8fece3108434bd408fe))
+* **mobile:** past-round shot list shows results; putt length follows units ([34c15e8](https://github.com/cner-smith/opengolfapp/commit/34c15e800f9d6a1f5c089df7938f27440d1ab8bf))
+* **mobile:** pattern rod tags stay on screen and off the aim-line tags ([1fb683a](https://github.com/cner-smith/opengolfapp/commit/1fb683a9843cb3389de0cdf002dabd81ea8182c0))
+* **mobile:** Patterns multi-select chips announce as checkboxes again ([2f67bb7](https://github.com/cner-smith/opengolfapp/commit/2f67bb70bf5ed1487eb97b24ed9bfa9f5eea47fb))
+* **mobile:** pin mode on a no-pin hole keeps the live framing ([#959](https://github.com/cner-smith/opengolfapp/issues/959)) ([78251e4](https://github.com/cner-smith/opengolfapp/commit/78251e49d4ff8856154421670b074388a638250f))
+* **mobile:** putt aimer toggle, number and handle stay in sync ([#896](https://github.com/cner-smith/opengolfapp/issues/896)) ([71446fc](https://github.com/cner-smith/opengolfapp/commit/71446fc9ea888437c3ad4f5e3a0f757b54210ad8))
+* **mobile:** putting read + edit-on-map way back ([#938](https://github.com/cner-smith/opengolfapp/issues/938)) ([#965](https://github.com/cner-smith/opengolfapp/issues/965)) ([456c0ed](https://github.com/cner-smith/opengolfapp/commit/456c0eddbfbebae4d0ab0d41b85bad3fb68778cc))
+* **mobile:** QA polish — past-round Add shot colour, a11y plural, putter patterns in feet ([#923](https://github.com/cner-smith/opengolfapp/issues/923)) ([#948](https://github.com/cner-smith/opengolfapp/issues/948)) ([c823cd3](https://github.com/cner-smith/opengolfapp/commit/c823cd360af558a5fc96679a9ffa48ff8d83c285))
+* **mobile:** queue live-round hole score writes so offline play can't lose them ([#930](https://github.com/cner-smith/opengolfapp/issues/930)) ([cea9ff9](https://github.com/cner-smith/opengolfapp/commit/cea9ff94e3622cada71388ab7195a33ea90cb8d0))
+* **mobile:** re-create a lost shot only when its number is free too ([f332502](https://github.com/cner-smith/opengolfapp/commit/f332502986c15c45b3eeaeba9be93d9f1b34f41a))
+* **mobile:** recenter keeps the pin at the top; pin mode frames the green on no-pin holes ([#903](https://github.com/cner-smith/opengolfapp/issues/903), [#959](https://github.com/cner-smith/opengolfapp/issues/959)) ([cb0646f](https://github.com/cner-smith/opengolfapp/commit/cb0646fdf564c4177222a8c7d55387286d4fbc9f))
+* **mobile:** reopen the app and resume a live round offline ([#993](https://github.com/cner-smith/opengolfapp/issues/993)) ([d9c7ce3](https://github.com/cner-smith/opengolfapp/commit/d9c7ce33113670164cfd1c52d78acca02c2facd9))
+* **mobile:** reopen the app and resume a live round offline ([#993](https://github.com/cner-smith/opengolfapp/issues/993)) ([f24831e](https://github.com/cner-smith/opengolfapp/commit/f24831e6d2cf3bff2d117fac3a60d9876fec0554))
+* **mobile:** resume a live round on the hole the player was actually on ([#902](https://github.com/cner-smith/opengolfapp/issues/902)) ([#907](https://github.com/cner-smith/opengolfapp/issues/907)) ([f22b574](https://github.com/cner-smith/opengolfapp/commit/f22b574d8efbc08302ac921f67d5a7c31a81129f))
+* **mobile:** ruler mode waits for the hole's par (full fallback chain) ([3c8b19f](https://github.com/cner-smith/opengolfapp/commit/3c8b19f98a3a099e5083e1d83e7b41edf233a9c6))
+* **mobile:** scorecard golf marks centred on the score ([12a6f78](https://github.com/cner-smith/opengolfapp/commit/12a6f7851e7fbcc1913ac507364cad5568591a11))
+* **mobile:** screen cache and first-run tips are per account ([89a1a6b](https://github.com/cner-smith/opengolfapp/commit/89a1a6b6624f416b934f2d665609bb2f60d4d38a))
+* **mobile:** short-shot aim framing honours the Flat/Flyover tilt ([31bd630](https://github.com/cner-smith/opengolfapp/commit/31bd630db2e9a19a668f86f679976b712c58e14d))
+* **mobile:** shot/score sync data-loss fixes ([9061697](https://github.com/cner-smith/opengolfapp/commit/9061697c4a48bf9993393fc3a8370a15edeb0a53))
+* **mobile:** shot/score sync data-loss fixes (review delete, signed-out drain, per-user queue) ([3cc582c](https://github.com/cner-smith/opengolfapp/commit/3cc582c519f67feba980d2858c01fe6247339e39))
+* **mobile:** skipped earlier hole no longer locks into edit-on-map ([12c9dd5](https://github.com/cner-smith/opengolfapp/commit/12c9dd554449ec6c2b07dac4930a76ad762e3c03))
+* **mobile:** Stats windows count whole rounds only ([#932](https://github.com/cner-smith/opengolfapp/issues/932)) ([#933](https://github.com/cner-smith/opengolfapp/issues/933)) ([ef32824](https://github.com/cner-smith/opengolfapp/commit/ef328247b8578cac2437e67170c8e1d53fe39d3a))
+* **mobile:** the header '?' hook no longer clipped on Android ([0d97015](https://github.com/cner-smith/opengolfapp/commit/0d970155b3537f546c337f68b3a2eae8623cc1cf))
+* **mobile:** the past-round '?' works on the Scorecard tab ([90d45e5](https://github.com/cner-smith/opengolfapp/commit/90d45e5271cd79e2096fab3942d8067c02c4308d))
+* **mobile:** trend charts label real round dates ([#914](https://github.com/cner-smith/opengolfapp/issues/914)) ([#931](https://github.com/cner-smith/opengolfapp/issues/931)) ([a792e01](https://github.com/cner-smith/opengolfapp/commit/a792e017bf87c506e347c037238de005dc7c6dd0))
+* **mobile:** wheel tab no longer clips "just this shot" on Android ([ed35f1f](https://github.com/cner-smith/opengolfapp/commit/ed35f1fd4918edf5740a7d746f012911ef2c02ab))
+* Patterns club row shows only clubs in the player's bag (mobile + web) ([add4d62](https://github.com/cner-smith/opengolfapp/commit/add4d62a9649caa872989e875f8d92230a2d22f3))
+* pre-release bugs — recenter heading, no-pin pin mode, putt aimer sync, review Back, 0.0-strokes lede ([5eac2fa](https://github.com/cner-smith/opengolfapp/commit/5eac2fabb1909ed9ec19f3f4aceb18231514f75f))
+* review sheet Penalties ticker counts OB strokes (mobile + web) ([2c1a12d](https://github.com/cner-smith/opengolfapp/commit/2c1a12d5c02239f91eb1781e29d49a84722e9477)), closes [#963](https://github.com/cner-smith/opengolfapp/issues/963)
+* rounds ended early stay out of round-level stats and are marked partial ([#927](https://github.com/cner-smith/opengolfapp/issues/927)) ([34ea8fb](https://github.com/cner-smith/opengolfapp/commit/34ea8fbfcc0bbe483adbd5bb7e840e8f90909c5f)), closes [#911](https://github.com/cner-smith/opengolfapp/issues/911)
+* **sg:** readouts use the tee line only on par 4/5, like the engine ([3445b04](https://github.com/cner-smith/opengolfapp/commit/3445b04bf26310d06c14b7f50026f731c482b58f))
+* **sg:** tee shots use Broadie's tee lines; approach table reaches 600 yd ([#998](https://github.com/cner-smith/opengolfapp/issues/998)) ([a19a508](https://github.com/cner-smith/opengolfapp/commit/a19a5086c7a239ed92acf270bc158e4279f86fac))
+* **sg:** tee shots use Broadie's tee lines; approach table to 600 yd ([#998](https://github.com/cner-smith/opengolfapp/issues/998)) ([68a2a69](https://github.com/cner-smith/opengolfapp/commit/68a2a69c632029244dfe09992c4692abc768d1ad))
+* shot summaries read the result axes ([5ee8bad](https://github.com/cner-smith/opengolfapp/commit/5ee8bad3582a0e8a3120ed5de9b6507f1844e127))
+* small style + copy nits ([e72a5cb](https://github.com/cner-smith/opengolfapp/commit/e72a5cb74d161c24b43f1e5b490e27345d19ab39))
+* **stats:** Eagle+ gets its own colour in the score distribution ([d46f3a8](https://github.com/cner-smith/opengolfapp/commit/d46f3a834e067613bc125a972c16cedfb45d0f90))
+* **web:** round pin draws the strong flag after reload ([cb71bad](https://github.com/cner-smith/opengolfapp/commit/cb71badc44d420dffa68ac3086a376155c7b71bf))
+
+
+### Refactors
+
+* flagCupK moves to @oga/core with tests; web flag notes its token source ([c21d31a](https://github.com/cner-smith/opengolfapp/commit/c21d31a7c6d1e78b54dab71dd32924d7899e3877))
+* **mobile:** shared past-round tabs tip is a named const ([d0a2f54](https://github.com/cner-smith/opengolfapp/commit/d0a2f5459e01d95a724f4dd37be95043a8ef6e62))
+
+
+### Chores
+
+* link preview + meta description for oga.golf; README screenshots ([999aadb](https://github.com/cner-smith/opengolfapp/commit/999aadb1f81789139dcee48a2730054744ae6659))
+* link-preview image + meta description for oga.golf; screenshots in the README ([6eaf045](https://github.com/cner-smith/opengolfapp/commit/6eaf0450afac63a77bdf3a4ac37ba2822c8a1f6a))
+* **mobile:** add expo-asset peer; align SDK 54 patch versions ([adffdc1](https://github.com/cner-smith/opengolfapp/commit/adffdc13c847370a9989dd38271fc5db07fa5ab9))
+* **mobile:** EAS 'simulator' profile — iOS simulator build for Maestro Cloud ([c177c08](https://github.com/cner-smith/opengolfapp/commit/c177c08da4b95b4d54e151529e06fe24fa53ff20))
+* **mobile:** EAS simulator profile for iOS on Maestro Cloud ([908ba88](https://github.com/cner-smith/opengolfapp/commit/908ba88abf6b380e1bd61f64b8c60b598c305363))
+* **mobile:** Maestro iOS smoke flow (sign in, tabs, live round, scorecard) ([8587845](https://github.com/cner-smith/opengolfapp/commit/85878452cc61d1816d33222174892443385b7cbe))
+* **scripts:** hole-orientation repair can apply a reviewed dry-run log ([7a43298](https://github.com/cner-smith/opengolfapp/commit/7a4329850559bc2de979e1012ccf1fc257e7965a))
+* **seed:** demo shots match the scorecard (store screenshots) ([fa62d21](https://github.com/cner-smith/opengolfapp/commit/fa62d2131fdc1743fd5766691dcbf15203856651))
+* **seed:** demo shots tell the same story as the scorecard ([c2fdd83](https://github.com/cner-smith/opengolfapp/commit/c2fdd838b4a85ae1378e1d23d6ce50d797a25dac))
+* **seed:** don't promise a drill the session doesn't contain ([21b9870](https://github.com/cner-smith/opengolfapp/commit/21b98704693f4d94f06fbd6d971118167af1cf31))
+* **seed:** drop two app files swept into the previous commit by mistake ([ceec886](https://github.com/cner-smith/opengolfapp/commit/ceec8868d8afdf59185000afc397018918bd921b))
+* **seed:** putts leave room for par-2 full shots ([93e5d54](https://github.com/cner-smith/opengolfapp/commit/93e5d5407787254f83bf5a36288edcf41f7e6345))
+* **seed:** realistic driver pattern and club-scaled miss labels ([ca93f50](https://github.com/cner-smith/opengolfapp/commit/ca93f507f7953b5cf61d628e5371ce4768e47d42))
+* **seed:** seeded rounds are completed ([a13b836](https://github.com/cner-smith/opengolfapp/commit/a13b8367dc2bff997c7a5020d4da6373bb090f79))
+* **seed:** SG agrees with the score; the practice plan follows the data ([803c986](https://github.com/cner-smith/opengolfapp/commit/803c986b0b3d03694f87183b7d4de71b05114831))
+* **seed:** split each round's SG shift unevenly across categories ([6d02605](https://github.com/cner-smith/opengolfapp/commit/6d026055490ca7e523222c61c315223fac5ab136))
+
+## [1.5.1](https://github.com/cner-smith/opengolfapp/compare/v1.5.0...v1.5.1) (2026-09-12)
+
+
+### Chores
+
+* align package versions with the release tag and document the two streams ([#888](https://github.com/cner-smith/opengolfapp/issues/888)) ([e81d884](https://github.com/cner-smith/opengolfapp/commit/e81d884e80e4869b74ea8c33e2a4a440ed658a5f))
+* **mobile:** bump store version to 1.5.0 for the native relink ([#891](https://github.com/cner-smith/opengolfapp/issues/891)) ([76b503b](https://github.com/cner-smith/opengolfapp/commit/76b503b1da24fcc0ba8b06e7d48977b1b6a17b5a))
+
+## [1.5.0](https://github.com/cner-smith/opengolfapp/compare/v1.4.0...v1.5.0) (2026-09-12)
+
+
+### Features
+
+* **course-editor:** dev-only Course Editor UI + backend ([#845](https://github.com/cner-smith/opengolfapp/issues/845)) ([ce71dc2](https://github.com/cner-smith/opengolfapp/commit/ce71dc2e4689d81d92aba65311f7c9e057478773))
+* **crawl:** British Isles course discovery ([#540](https://github.com/cner-smith/opengolfapp/issues/540)) ([#863](https://github.com/cner-smith/opengolfapp/issues/863)) ([8601478](https://github.com/cner-smith/opengolfapp/commit/8601478e9637edf8279cf650cf509a07f6ab3c3d))
+* **db:** add website/address/country columns to courses and facilities ([#843](https://github.com/cner-smith/opengolfapp/issues/843)) ([61bbd36](https://github.com/cner-smith/opengolfapp/commit/61bbd3652b57ec760d8477828bb14413319e7fab))
+* **db:** gate user-submitted courses behind approval (0053) ([#868](https://github.com/cner-smith/opengolfapp/issues/868)) ([3625f60](https://github.com/cner-smith/opengolfapp/commit/3625f6050530cb87f78ccd5175579050e77a80c8))
+* Google + Apple sign-in ([#859](https://github.com/cner-smith/opengolfapp/issues/859)) ([#866](https://github.com/cner-smith/opengolfapp/issues/866)) ([cf10c2e](https://github.com/cner-smith/opengolfapp/commit/cf10c2e534fe7c9c94710f4e99572fabd8b4b0de))
+* live OB / stroke-and-distance ([#839](https://github.com/cner-smith/opengolfapp/issues/839)) ([#871](https://github.com/cner-smith/opengolfapp/issues/871)) ([7219e9f](https://github.com/cner-smith/opengolfapp/commit/7219e9f8b1642a9c64cf3efff154de532c9fedb7))
+* **rounds:** add provider-agnostic round import from JSON ([#836](https://github.com/cner-smith/opengolfapp/issues/836)) ([115d739](https://github.com/cner-smith/opengolfapp/commit/115d7394fdc8502f4ca55d97499a7a8a9c9278ae))
+* **rounds:** per-tee hole overrides (hole_tees table + resolveHole/resolveCourseTee) ([#844](https://github.com/cner-smith/opengolfapp/issues/844)) ([310a06f](https://github.com/cner-smith/opengolfapp/commit/310a06fd2058b0658c7cc26a75b0a9d4063e7de6))
+* **web:** dev-only admin/ops dashboard ([#860](https://github.com/cner-smith/opengolfapp/issues/860)) ([#876](https://github.com/cner-smith/opengolfapp/issues/876)) ([5cefe6c](https://github.com/cner-smith/opengolfapp/commit/5cefe6c5c9fb5ac1507e8ef44944cc37e7611417))
+* **web:** make the pending-course queue decidable (Phase 1) ([#881](https://github.com/cner-smith/opengolfapp/issues/881)) ([266c78d](https://github.com/cner-smith/opengolfapp/commit/266c78d6b3c77df8f48b5be801eec6761220e031))
+
+
+### Bug Fixes
+
+* close the OB review findings blocking dev→main ([#839](https://github.com/cner-smith/opengolfapp/issues/839)) ([#872](https://github.com/cner-smith/opengolfapp/issues/872)) ([428855d](https://github.com/cner-smith/opengolfapp/commit/428855d6d8f309ccf3b17db9e7678444f9e26aad))
+* **db:** grant table access to anon/authenticated/service_role ([#842](https://github.com/cner-smith/opengolfapp/issues/842)) ([99232e1](https://github.com/cner-smith/opengolfapp/commit/99232e1e0d64f6bfe4ea17d71525095fcf3d5a8d))
+* **mobile:** numeric break input + L/Straight/R toggle on putt aimer ([#861](https://github.com/cner-smith/opengolfapp/issues/861)) ([#864](https://github.com/cner-smith/opengolfapp/issues/864)) ([490cc27](https://github.com/cner-smith/opengolfapp/commit/490cc27eb5dc4f2d8794492f69f7e8adfb36bf8e))
+* **mobile:** refresh hole_scores after live edit-mode shot delete ([#857](https://github.com/cner-smith/opengolfapp/issues/857)) ([4199d59](https://github.com/cner-smith/opengolfapp/commit/4199d595a4c4631a032dad259bd94755224aab76))
+* **mobile:** summary shot-delete disabled on first open — stamp client id on optimistic pending shot ([#852](https://github.com/cner-smith/opengolfapp/issues/852)) ([d430559](https://github.com/cner-smith/opengolfapp/commit/d4305599d5320f5442e10b0481924468096ac9db))
+* OB marker occlusion, shot-list OB, putt gating, 0053 guard ([#839](https://github.com/cner-smith/opengolfapp/issues/839)) ([#873](https://github.com/cner-smith/opengolfapp/issues/873)) ([8149a72](https://github.com/cner-smith/opengolfapp/commit/8149a723423958132acc87eea37f8cad45c0191f))
+* **web:** dev-only API routes bypassed Vite's host check ([#880](https://github.com/cner-smith/opengolfapp/issues/880)) ([0e0fe70](https://github.com/cner-smith/opengolfapp/commit/0e0fe700453abe00a2214e3401ea5538109221e7))
+* **web:** mobile tab bar was rendering on desktop ([#815](https://github.com/cner-smith/opengolfapp/issues/815) regression) ([#875](https://github.com/cner-smith/opengolfapp/issues/875)) ([e0382b2](https://github.com/cner-smith/opengolfapp/commit/e0382b238da76907260078a12b5f4b33727fb78d))
+
+
+### Chores
+
+* **mobile:** document store-vs-GitHub version streams + reconverge rule ([#862](https://github.com/cner-smith/opengolfapp/issues/862)) ([#865](https://github.com/cner-smith/opengolfapp/issues/865)) ([2ec92c9](https://github.com/cner-smith/opengolfapp/commit/2ec92c9b2553120cb9653efb7b6cc2c2aeeeec28))
+
+## [1.4.0](https://github.com/cner-smith/opengolfapp/compare/v1.3.1...v1.4.0) (2026-08-20)
+
+
+### Features
+
+* learnability layer Phase 1 — intro tour + contextual '?' help ([#825](https://github.com/cner-smith/opengolfapp/issues/825)) ([e269f85](https://github.com/cner-smith/opengolfapp/commit/e269f8544daf4d43f403e0ade8d5f7c8ec1c7320))
+* **web:** live store badges on landing + README download links ([#846](https://github.com/cner-smith/opengolfapp/issues/846)) ([d62ddc1](https://github.com/cner-smith/opengolfapp/commit/d62ddc1d3ce92bd9cd98c202b634e048c6aa69d1))
+
+
+### Bug Fixes
+
+* **mobile:** consolidate live-round bottom chrome (5 stacked pills → 3 layers) ([#830](https://github.com/cner-smith/opengolfapp/issues/830)) ([17dd38c](https://github.com/cner-smith/opengolfapp/commit/17dd38cf4ce0506ff00da4fbff735b90336555f3))
+* **mobile:** green rework — on-green Made/Missed overlays + auto-detect, capture-mode aware ([#826](https://github.com/cner-smith/opengolfapp/issues/826)) ([8d3118f](https://github.com/cner-smith/opengolfapp/commit/8d3118f32bc9d5e8b57c97801694b1be130adc2f))
+* **mobile:** intro-tour card 3 copy — metadata moved to the end-of-hole summary ([#791](https://github.com/cner-smith/opengolfapp/issues/791)) ([#829](https://github.com/cner-smith/opengolfapp/issues/829)) ([8a60cc7](https://github.com/cner-smith/opengolfapp/commit/8a60cc7d460902783a91415786617dbb28a11c73))
+* **mobile:** live-round on-course fixes — green-slope button, first-hole framing, GPS recenter ([#848](https://github.com/cner-smith/opengolfapp/issues/848)) ([936bed1](https://github.com/cner-smith/opengolfapp/commit/936bed1261ebc73b7e436d08fedca3e2d801e0d5))
+* **mobile:** re-mint Turnstile widget after failed auth (login + signup form) ([#828](https://github.com/cner-smith/opengolfapp/issues/828)) ([3e93f71](https://github.com/cner-smith/opengolfapp/commit/3e93f71ab28023e97b32d422e4b520cab4ff73b6))
+* **mobile:** Stats '?' inline with the oga.golf link — header keeps two-row height ([#831](https://github.com/cner-smith/opengolfapp/issues/831)) ([f658137](https://github.com/cner-smith/opengolfapp/commit/f658137a2b0725fe28afee93876439dfbf6e5352))
+* **seed:** make seed.sql drill insert idempotent against migrations ([#833](https://github.com/cner-smith/opengolfapp/issues/833)) ([fb60170](https://github.com/cner-smith/opengolfapp/commit/fb6017041fd2ec73b03a8af9f60771e8d3468467))
+
+
+### Chores
+
+* **mobile:** Expo SDK 54 / RN 0.81 — target Android 16 (API 36), New Arch, Reanimated 4 ([#827](https://github.com/cner-smith/opengolfapp/issues/827)) ([0d5d7a5](https://github.com/cner-smith/opengolfapp/commit/0d5d7a5416ba67db397ecdb23df477345e9af198))
+
+## [1.3.1](https://github.com/cner-smith/opengolfapp/compare/v1.3.0...v1.3.1) (2026-07-21)
+
+
+### Bug Fixes
+
+* **facilities:** lock curated course columns + guard facility drill-down race ([#822](https://github.com/cner-smith/opengolfapp/issues/822)) ([932ccd5](https://github.com/cner-smith/opengolfapp/commit/932ccd52f619b68c0d751e70f96a3bca327aba4c))
+
+## [1.3.0](https://github.com/cner-smith/opengolfapp/compare/v1.2.0...v1.3.0) (2026-07-12)
+
+
+### Bug Fixes
+
+* **core:** proximity stat falls back to following putt distance when no pin ([#575](https://github.com/cner-smith/opengolfapp/issues/575)) ([#790](https://github.com/cner-smith/opengolfapp/issues/790)) ([9af123b](https://github.com/cner-smith/opengolfapp/commit/9af123bbc3c40d1636543d034419268cc7f4c312))
+* **learn:** add missing 'Last reviewed' footer to Strokes Gained + Benchmarks (web + mobile) ([#807](https://github.com/cner-smith/opengolfapp/issues/807)) ([141cc17](https://github.com/cner-smith/opengolfapp/commit/141cc17fddb338dbf7e8bb3b768489d4c5aa8abd))
+* **mobile:** cap accessibility font scaling at 1.3x ([#808](https://github.com/cner-smith/opengolfapp/issues/808)) ([#809](https://github.com/cner-smith/opengolfapp/issues/809)) ([c035f55](https://github.com/cner-smith/opengolfapp/commit/c035f556b01f4037a28fe379355f09cac7ebc7fe))
+
+
+### Chores
+
+* **mobile:** bump version 1.0.1 → 1.1.0 for the feature release ([#812](https://github.com/cner-smith/opengolfapp/issues/812)) ([061a223](https://github.com/cner-smith/opengolfapp/commit/061a2238f25dc70830b6afe3c976c6a7709f2d2b))
+* strip crawler WIP that leaked into dev via [#795](https://github.com/cner-smith/opengolfapp/issues/795) ([#799](https://github.com/cner-smith/opengolfapp/issues/799)) ([701ba4e](https://github.com/cner-smith/opengolfapp/commit/701ba4ec8adcedee6ea86551d9b471bf381991e8))
+
+## [1.2.0](https://github.com/cner-smith/opengolfapp/compare/v1.1.1...v1.2.0) (2026-07-10)
+
+
+### Features
+
+* **mobile:** surface the web companion (Profile copy + Stats rider) ([#743](https://github.com/cner-smith/opengolfapp/issues/743)) ([6ab943a](https://github.com/cner-smith/opengolfapp/commit/6ab943a0a2e5471a950c970a7e5d335200835ae2))
+
+
+### Bug Fixes
+
+* **core:** formatSG rounds before picking sign — no more signed zero ([#672](https://github.com/cner-smith/opengolfapp/issues/672)) ([#739](https://github.com/cner-smith/opengolfapp/issues/739)) ([8dbd45a](https://github.com/cner-smith/opengolfapp/commit/8dbd45a11bf21449a291b880813fccdfbf88066b))
+* **learn:** drop misleading swing-plane figure; correct retention-curve endpoint ([#780](https://github.com/cner-smith/opengolfapp/issues/780)) ([3542d46](https://github.com/cner-smith/opengolfapp/commit/3542d46efce06c31683b76b4aad3a42ca462b16f))
+* **learn:** equipment + coaching article corrections ([#776](https://github.com/cner-smith/opengolfapp/issues/776)) ([8436585](https://github.com/cner-smith/opengolfapp/commit/843658516596cdf9f100c16c0a9e0c8882ad40e5))
+* **learn:** glossary audit fixes — burn-mark grain read, spinner entries, general-audience lede ([#750](https://github.com/cner-smith/opengolfapp/issues/750), [#758](https://github.com/cner-smith/opengolfapp/issues/758)) ([#771](https://github.com/cner-smith/opengolfapp/issues/771)) ([f84e8b2](https://github.com/cner-smith/opengolfapp/commit/f84e8b20a32668047b2ad17bfea7606a445d761b))
+* **learn:** on-course corrections — 1992 US Open claim, Rotella source, conditional SG copy, mirrors + registry desc ([#762](https://github.com/cner-smith/opengolfapp/issues/762)) ([#774](https://github.com/cner-smith/opengolfapp/issues/774)) ([1b3b973](https://github.com/cner-smith/opengolfapp/commit/1b3b9731a9711c07a35417d850a361d1e895f06b))
+* **learn:** practice-article corrections + docs mirrors resync ([#773](https://github.com/cner-smith/opengolfapp/issues/773)) ([6bac8c2](https://github.com/cner-smith/opengolfapp/commit/6bac8c2cf4afaee894382a477dfaf2743b78f094))
+* **learn:** stats articles — bracket-true SG example, corrected benchmarks + Sources, handicap-true You dot ([#751](https://github.com/cner-smith/opengolfapp/issues/751), [#752](https://github.com/cner-smith/opengolfapp/issues/752), [#757](https://github.com/cner-smith/opengolfapp/issues/757), [#761](https://github.com/cner-smith/opengolfapp/issues/761)) ([#775](https://github.com/cner-smith/opengolfapp/issues/775)) ([fe824e2](https://github.com/cner-smith/opengolfapp/commit/fe824e29a3efcb9243549c99cef1e0fd6b33bf5c))
+* **learn:** swing + Op36 corrections — real Op36 ladder, lie-angle swap, face-dominance, plane figure parity ([#753](https://github.com/cner-smith/opengolfapp/issues/753), [#754](https://github.com/cner-smith/opengolfapp/issues/754), [#760](https://github.com/cner-smith/opengolfapp/issues/760), [#763](https://github.com/cner-smith/opengolfapp/issues/763), [#765](https://github.com/cner-smith/opengolfapp/issues/765)) ([#772](https://github.com/cner-smith/opengolfapp/issues/772)) ([6379af9](https://github.com/cner-smith/opengolfapp/commit/6379af976373c88098c5016923afdf761ab12cf7))
+* **mobile:** chip rows wrap instead of scrolling horizontally ([#740](https://github.com/cner-smith/opengolfapp/issues/740)) ([#741](https://github.com/cner-smith/opengolfapp/issues/741)) ([387d2bc](https://github.com/cner-smith/opengolfapp/commit/387d2bcac5b06289cab0f98fc8bf47b33f2e035b))
+* **mobile:** convert two dropped function-styles to PressableTouch ([#655](https://github.com/cner-smith/opengolfapp/issues/655)) ([#745](https://github.com/cner-smith/opengolfapp/issues/745)) ([29c9f62](https://github.com/cner-smith/opengolfapp/commit/29c9f6216ff8900d0e5c2dc8584a0d110d88d9d5))
+* **mobile:** Shot Patterns lie-slope filter is two-axis multi-select ([#746](https://github.com/cner-smith/opengolfapp/issues/746)) ([#748](https://github.com/cner-smith/opengolfapp/issues/748)) ([6b9a774](https://github.com/cner-smith/opengolfapp/commit/6b9a774e17ae84a263132de7d4f17bf0e767042d))
+* **mobile:** shot-pattern slope filter falls back to legacy lie_slope ([#779](https://github.com/cner-smith/opengolfapp/issues/779)) ([4708d9b](https://github.com/cner-smith/opengolfapp/commit/4708d9bdba7774c5f5451d058bac435492836fb0))
+* **mobile:** ShotLogger re-seeds lie from initial on open ([#654](https://github.com/cner-smith/opengolfapp/issues/654)) ([#744](https://github.com/cner-smith/opengolfapp/issues/744)) ([642032b](https://github.com/cner-smith/opengolfapp/commit/642032ba3c91b33d7d81edd286b0492d27910ab3))
+* **mobile:** surface web-dashboard CTA on Android profile + expand/raise stats rider ([#781](https://github.com/cner-smith/opengolfapp/issues/781)) ([645f2a0](https://github.com/cner-smith/opengolfapp/commit/645f2a0b35fb0c5206d9ea1c270e249dda059014))
+* **web:** infer hole count from hole_scores when no course_tees row ([#727](https://github.com/cner-smith/opengolfapp/issues/727)) ([#783](https://github.com/cner-smith/opengolfapp/issues/783)) ([7f5a68f](https://github.com/cner-smith/opengolfapp/commit/7f5a68feffa0d2fef284088da58dec814ca5fafb))
+* **web:** putt-entry data integrity — clear putt columns on non-putt save; snapshot putt distance on open ([#782](https://github.com/cner-smith/opengolfapp/issues/782)) ([c06864e](https://github.com/cner-smith/opengolfapp/commit/c06864e669314ed90986085a97d74b99278be6e8))
+* **web:** revert [#727](https://github.com/cner-smith/opengolfapp/issues/727) hole-count inference — it collapsed 18-hole rounds to 9 ([#786](https://github.com/cner-smith/opengolfapp/issues/786)) ([3844dc5](https://github.com/cner-smith/opengolfapp/commit/3844dc58859c05ffce56c550780185f6449ab708))
+* **web:** scroll to top on navigation ([#787](https://github.com/cner-smith/opengolfapp/issues/787)) ([fec85f8](https://github.com/cner-smith/opengolfapp/commit/fec85f89d30ccc891a755a8356b3637b6bc93e0d))
+
+
+### Chores
+
+* **learn:** drop inaccurate 'Made famous by' lines for Stinger + DOD ([#749](https://github.com/cner-smith/opengolfapp/issues/749)) ([acd4325](https://github.com/cner-smith/opengolfapp/commit/acd43252b39f2adf813d4d67ba3f5c496c6786b3))
+* **mobile:** remove dead ScorecardPreview component ([#742](https://github.com/cner-smith/opengolfapp/issues/742)) ([a8cf2ef](https://github.com/cner-smith/opengolfapp/commit/a8cf2efb1e90c5298553f7c13cf008f5419c1a52))
+* **web:** hide Planner from nav until redesign ([#785](https://github.com/cner-smith/opengolfapp/issues/785)) ([175c313](https://github.com/cner-smith/opengolfapp/commit/175c313c344b4a0972ad3df078486b6f27219939))
+
+## [1.1.1](https://github.com/cner-smith/opengolfapp/compare/v1.1.0...v1.1.1) (2026-07-08)
+
+
+### Bug Fixes
+
+* **mobile:** bump version to 1.0.1 for App Store resubmission ([e6639a1](https://github.com/cner-smith/opengolfapp/commit/e6639a190974b66b54379d49c416b8c3540b4f4c))
+* **mobile:** bump version to 1.0.1 for App Store resubmission ([1763f1f](https://github.com/cner-smith/opengolfapp/commit/1763f1fe4a8315213ef14baacd4413a7b5ee79f0))
+* **mobile:** round-detail delete no longer wedges on 'Deleting…' ([#702](https://github.com/cner-smith/opengolfapp/issues/702)) ([517df3a](https://github.com/cner-smith/opengolfapp/commit/517df3ae18e58a19850ae342e888a6fbefe0bfcb)), closes [#701](https://github.com/cner-smith/opengolfapp/issues/701)
+* **mobile:** use appVersion runtimeVersion policy, not fingerprint ([#695](https://github.com/cner-smith/opengolfapp/issues/695)) ([daf8d2f](https://github.com/cner-smith/opengolfapp/commit/daf8d2f54e79ccea7de66c849e37117a4d723a0c))
+
+
+### Chores
+
+* sync main→dev (v1.0.1 version bump) ([e7e46d6](https://github.com/cner-smith/opengolfapp/commit/e7e46d67510669202489388da4cde2e46c0850fc))
+
 ## [1.1.0](https://github.com/cner-smith/opengolfapp/compare/v1.0.2...v1.1.0) (2026-07-07)
 
 
