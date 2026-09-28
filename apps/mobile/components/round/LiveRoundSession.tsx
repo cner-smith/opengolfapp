@@ -330,7 +330,7 @@ export default function LiveRoundSession({
   // switch holds for the rest of that shot.
   // Skipped until the hole loads, so a par 3 is never first guessed as a 4.
   const holePar = data.resolvedHole?.par ?? data.currentHoleScore?.par ?? data.currentHole?.par
-  const teeShot = data.shotNumber === 1 && (holePar ?? 0) >= 4
+  const teeShot = data.shotNumber === 1 && (holePar === 4 || holePar === 5)
   useEffect(() => {
     if (holePar == null) return
     setOverlayMode(teeShot ? 'tee' : 'appr')

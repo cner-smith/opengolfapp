@@ -207,7 +207,7 @@ export function MapView({
     remainingToPin != null
       ? getExpectedStrokes(
           // Only the first marker placed on a fresh hole is the tee (#998).
-          startCategory(remainingToPin, placedPoints.length === 1 && existingShots.length === 0 && (activeHoleGeo?.par ?? 0) >= 4),
+          startCategory(remainingToPin, placedPoints.length === 1 && existingShots.length === 0 && (activeHoleGeo?.par === 4 || activeHoleGeo?.par === 5)),
           remainingToPin,
           undefined,
           handicap,

@@ -548,7 +548,7 @@ export function useMapLayers({
           pinLngLat[0],
         )
         // The tee shot of a par 4/5 starts from Broadie's tee line (#998).
-        const startCat = startCategory(startToPin, activeSeg.first && (par ?? 0) >= 4)
+        const startCat = startCategory(startToPin, activeSeg.first && (par === 4 || par === 5))
         const targetCat = aimToPin <= NEAR_GREEN_YARDS ? 'around_green' : 'approach'
         const expected = getExpectedStrokes(startCat, startToPin, undefined, handicap)
         const targetExpected = getExpectedStrokes(targetCat, aimToPin, undefined, handicap)

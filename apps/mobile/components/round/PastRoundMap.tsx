@@ -649,7 +649,7 @@ export function PastRoundMap({
   const heroYards =
     heroShot?.start && effectivePin ? distanceYards(heroShot.start, effectivePin) : null
   const heroPutt = isPuttShot(heroRow?.lie_type ?? null)
-  const heroTee = (par ?? 0) >= 4 && (heroRow ? heroRow.shot_number === 1 : placedReal.length === 0)
+  const heroTee = (par === 4 || par === 5) && (heroRow ? heroRow.shot_number === 1 : placedReal.length === 0)
   const heroDistance =
     heroYards == null
       ? null
