@@ -91,6 +91,7 @@ export function HeroRow({
   /** Beside the "—" when there's no distance: why (no pin / no ball). */
   emptyLabel?: string
 }) {
+  const long = (distance?.value.split('.')[0]?.length ?? 0) >= 4
   return (
     <View
       style={{ flexDirection: 'row', alignItems: 'flex-end', minHeight: 58, paddingHorizontal: 12, paddingBottom: 8 }}
@@ -120,7 +121,18 @@ export function HeroRow({
         <Text allowFontScaling={false} style={[TYPE.serif, { fontSize: 22, lineHeight: 24, color: expected == null ? P.ink35 : P.ink }]}>
           {expected == null ? '—' : expected.toFixed(1)}
         </Text>
-        <Text allowFontScaling={false} style={[TYPE.body, { fontSize: 12, lineHeight: 15, color: P.ink }]}>strokes to hole out</Text>
+        {/* A 4-digit hero (ball far off the hole) squeezes this column: shrink the
+            caption onto one line. The fixed lineHeight blocks Android's shrink, so
+            it's dropped only then — 3 digits keep the tuned baseline. */}
+        <Text
+          allowFontScaling={false}
+          numberOfLines={long ? 1 : undefined}
+          adjustsFontSizeToFit={long}
+          minimumFontScale={0.75}
+          style={[TYPE.body, { fontSize: 12, color: P.ink }, !long && { lineHeight: 15 }]}
+        >
+          strokes to hole out
+        </Text>
       </View>
       {trailing}
     </View>
