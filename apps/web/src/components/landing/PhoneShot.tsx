@@ -34,7 +34,8 @@ export function PhoneShot({
           width={540}
           height={1200}
           loading={priority ? 'eager' : 'lazy'}
-          fetchPriority={priority ? 'high' : 'auto'}
+          // Lowercase: React 18 warns on the camelCase prop (React 19 knows it).
+          {...{ fetchpriority: priority ? 'high' : 'auto' }}
           decoding="async"
         />
       </div>
