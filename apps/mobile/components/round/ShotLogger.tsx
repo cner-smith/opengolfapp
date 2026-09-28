@@ -498,6 +498,7 @@ export function ShotLogger({
 }
 
 const inputStyle = {
+  ...TYPE.body,
   backgroundColor: '#FBF8F1',
   borderWidth: 1,
   borderColor: '#D9D2BF',
@@ -590,7 +591,6 @@ function gridButtonTextStyle(active: boolean) {
   return {
     color: active ? '#F2EEE5' : '#1C211C',
     fontSize: 12,
-    fontWeight: (active ? '500' : '400') as '400' | '500',
   }
 }
 
@@ -643,7 +643,6 @@ function ChipRow<T extends string>({ value, options, onChange }: ChipRowProps<T>
                   {
                     color: active ? '#F2EEE5' : '#1C211C',
                     fontSize: 12,
-                    fontWeight: active ? '500' : '400',
                   },
                 ]}
               >

@@ -694,7 +694,6 @@ function BenchmarkTable({
                       <Text
                         style={{
                           fontFamily: g.isSg ? FONT.serifItalic : FONT.serif,
-                          fontStyle: g.isSg ? 'italic' : 'normal',
                           fontSize: 14,
                           textAlign: 'right',
                           color: tone,

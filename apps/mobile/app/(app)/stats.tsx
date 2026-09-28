@@ -24,7 +24,7 @@ import { useUnits } from '../../hooks/useUnits'
 import { AppBar } from '../../components/ui/AppBar'
 import { Entrance } from '../../components/ui/Entrance'
 import { HelpButton } from '../../components/help/HelpButton'
-import { TYPE } from '../../lib/typography'
+import { FONT, TYPE } from '../../lib/typography'
 import { PaperTile, SectionHead, StatTile } from '../../components/paper/Section'
 import { PaperSurface } from '../../components/paper/Paper'
 import { FONT_CAP, P } from '../../components/paper/tokens'
@@ -374,6 +374,7 @@ export default function Stats() {
                     x={chartPad.left - 6}
                     y={chartPy(t) + 3}
                     fontSize={9}
+                    fontFamily={FONT.mono}
                     fill="#8A8B7E"
                     textAnchor="end"
                   >
@@ -416,6 +417,7 @@ export default function Stats() {
                       x={chartPx(chartXMin)}
                       y={CHART_HEIGHT - chartPad.bottom + 14}
                       fontSize={9}
+                      fontFamily={FONT.mono}
                       fill="#8A8B7E"
                       textAnchor="start"
                     >
@@ -425,6 +427,7 @@ export default function Stats() {
                       x={chartPx(chartXMax)}
                       y={CHART_HEIGHT - chartPad.bottom + 14}
                       fontSize={9}
+                      fontFamily={FONT.mono}
                       fill="#8A8B7E"
                       textAnchor="end"
                     >

@@ -266,7 +266,6 @@ export function PuttingSheet({
                   {
                     color: '#A66A1F',
                     fontSize: 12,
-                    fontWeight: '500',
                     letterSpacing: 0.2,
                   },
                 ]}
@@ -526,7 +525,6 @@ export function PuttingSheet({
                 {
                   color: '#F2EEE5',
                   fontSize: 16,
-                  fontWeight: '700',
                   letterSpacing: 0.4,
                 },
               ]}
@@ -590,7 +588,6 @@ function Chip({
           {
             color: active ? '#F2EEE5' : '#1C211C',
             fontSize: 12,
-            fontWeight: active ? '600' : '400',
           },
         ]}
       >
@@ -642,7 +639,6 @@ function ResultCell({
           {
             color: fg,
             fontSize: 14,
-            fontWeight: active ? '600' : '500',
             letterSpacing: 0.3,
           },
         ]}
@@ -654,6 +650,7 @@ function ResultCell({
 }
 
 const inputStyle = {
+  ...TYPE.body,
   backgroundColor: '#FBF8F1',
   borderWidth: 1,
   borderColor: '#D9D2BF',

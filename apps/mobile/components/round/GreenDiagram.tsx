@@ -406,6 +406,7 @@ export function GreenDiagram({
 }
 
 const NUM_INPUT: import('react-native').TextStyle = {
+  ...TYPE.body,
   backgroundColor: P.raised,
   borderWidth: 1,
   borderColor: P.ink,

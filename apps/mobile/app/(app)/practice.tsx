@@ -127,7 +127,7 @@ export default function Practice() {
               }}
             >
               <MaterialCommunityIcons name="book-open-variant" size={14} color={CREAM} />
-              <Text style={{ color: CREAM, fontSize: 12, fontWeight: '600', letterSpacing: 0.3 }}>
+              <Text style={[TYPE.bodyBold, { color: CREAM, fontSize: 12, letterSpacing: 0.3 }]}>
                 Learn
               </Text>
             </PressableTouch>
@@ -426,7 +426,7 @@ function DrillRowItem({
           justifyContent: 'center',
         }}
       >
-        {completed ? <Text maxFontSizeMultiplier={FONT_CAP} style={{ color: CREAM, fontSize: 12, fontWeight: '700' }}>✓</Text> : null}
+        {completed ? <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.bodyBold, { color: CREAM, fontSize: 12 }]}>✓</Text> : null}
       </Pressable>
 
       {/* The whole row (everything but the checkbox) toggles expand, so a thumb
