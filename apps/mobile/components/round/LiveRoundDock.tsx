@@ -26,7 +26,6 @@ import { RulerCard } from './HoleMapOverlays'
 import type { RoundState } from './hole/types'
 import type { OffscreenArrow } from './HoleMap.types'
 
-
 export interface LiveRoundDockProps {
   roundState: RoundState
   pinPlacementOpen: boolean
