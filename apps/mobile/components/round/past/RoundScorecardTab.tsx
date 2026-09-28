@@ -9,6 +9,7 @@ import { Key, KeyText } from '../../paper/Paper'
 import { GolfMark, PencilTick } from '../../paper/GolfMark'
 import { Icon } from '../../paper/icons'
 import { FONT_CAP, P } from '../../paper/tokens'
+import { CoachTarget } from '../../help/CoachMarks'
 
 type RoundRow = Database['public']['Tables']['rounds']['Row']
 type HoleRow = Database['public']['Tables']['holes']['Row']
@@ -70,6 +71,7 @@ export function RoundScorecardTab({
   return (
     <ScrollView contentContainerStyle={{ paddingHorizontal: 22, paddingTop: 18, paddingBottom: 40 + insets.bottom }}>
       {/* Totals: the score at hero size, to-par beside it, SG on the right. */}
+      <CoachTarget id="past.totals">
       <View style={{ flexDirection: 'row', alignItems: 'flex-end', marginBottom: 18 }}>
         <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.serif, { fontSize: 54, lineHeight: 62, letterSpacing: -1.5, color: runningPar === 0 ? P.ink35 : P.ink }]}>
           {runningPar === 0 ? '—' : runningScore}
@@ -126,6 +128,7 @@ export function RoundScorecardTab({
           </View>
         ))}
       </View>
+      </CoachTarget>
 
       {focus && <RoundNudge focus={focus} picks={drills} />}
 
@@ -222,6 +225,7 @@ function HoleTable({
 
   return (
     <View style={{ marginTop: 28 }}>
+      <CoachTarget id="past.card">
       <View style={{ flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', gap: 8 }}>
         <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.serif, { fontSize: 24, color: P.ink }]}>Your card</Text>
         <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { flexShrink: 1, fontSize: 13, color: P.ink, textAlign: 'right' }]}>
@@ -233,6 +237,7 @@ function HoleTable({
           ))}
         </Text>
       </View>
+      </CoachTarget>
       <View
         style={{
           flexDirection: 'row',
