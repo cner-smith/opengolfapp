@@ -32,11 +32,6 @@
   }
 }
 
-@media (max-width: 560px) {
-  .landing-hero-preview {
-    display: none !important;
-  }
-}
 
 /* Hero store badges sit below the CTA row */
 .landing-store-badges {
@@ -96,4 +91,48 @@
     transition: none !important;
     animation: none !important;
   }
+}
+
+/* Store-style phone screenshots (PhoneShot). One frame space so the tag and
+   arrow scale with the phone. */
+.phone-shot {
+  position: relative;
+  width: min(300px, 74vw);
+  margin: 0 auto;
+  container-type: inline-size;
+}
+.phone-shot-device {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  background: #141a15;
+  border: 3.33cqw solid #141a15;
+  border-radius: 12cqw;
+  box-shadow: 0 30px 70px rgba(28, 33, 28, 0.28);
+}
+.phone-shot-device img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 8.7cqw;
+}
+.phone-shot-arrow {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+.phone-shot-tag {
+  position: absolute;
+  padding: 1.6cqw 2.6cqw;
+  background: #f7f2e7;
+  border: 0.8cqw solid #1c211c;
+  box-shadow: 1.6cqw 1.6cqw 0 #1c211c;
+  font-family: 'Kalam', cursive;
+  font-size: 6cqw;
+  line-height: 1.08;
+  color: #1c211c;
+  transform: rotate(-3deg);
 }
