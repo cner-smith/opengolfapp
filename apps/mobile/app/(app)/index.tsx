@@ -148,14 +148,16 @@ export default function Home() {
 
   useFocusEffect(
     useCallback(() => {
+      // The flag is per account: re-read when the signed-in user changes.
+      if (!user) return
       let active = true
-      introTourSeen().then((seen) => {
+      introTourSeen(user.id).then((seen) => {
         if (active) setTourSeen(seen)
       })
       return () => {
         active = false
       }
-    }, []),
+    }, [user?.id]),
   )
 
   // A user with any round history (or a live round) is not a first-run user;
@@ -164,11 +166,11 @@ export default function Home() {
   // covers an existing user whose "seen" flag was never set (the flag is
   // brand-new — see autoShow comment below).
   useEffect(() => {
-    if (rounds.length > 0 || activeRound) {
+    if (user && (rounds.length > 0 || activeRound)) {
       setTourSeen(true)
-      markIntroTourSeen()
+      markIntroTourSeen(user.id)
     }
-  }, [rounds.length, activeRound])
+  }, [user?.id, rounds.length, activeRound])
 
   // Auto-show ONLY for a genuinely-new user: flag unseen AND a fully-LOADED
   // Home with zero rounds and no active round. Gating on the flag alone would
@@ -187,7 +189,7 @@ export default function Home() {
   // fire-and-forget, and clearing the replay param stops a re-focus re-firing it.
   const dismissTour = () => {
     setTourSeen(true)
-    markIntroTourSeen()
+    if (user) markIntroTourSeen(user.id)
     router.setParams({ replayTour: undefined })
   }
 
