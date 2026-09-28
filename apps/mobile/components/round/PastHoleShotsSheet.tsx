@@ -201,7 +201,8 @@ export function PastHoleShotsSheet({
           style={{ flex: 1 }}
           onPress={() => {
             // Tapping the scrim is how people dismiss a number pad (it has no
-            // return key) — close the keyboard, don't discard the edit.
+            // return key) — close the keyboard, don't discard the edit. Both
+            // platforms on purpose: Android loses the edit the same way.
             if (Keyboard.isVisible()) Keyboard.dismiss()
             else if (editingShot) closeEditor()
             else onClose()

@@ -682,7 +682,7 @@ function AimerOverlay({
         // The inches field is the diagram's last row; once the keyboard
         // shrinks the scroller, bring it back into view.
         onLayout={() => {
-          if (TextInput.State.currentlyFocusedInput()) scrollRef.current?.scrollToEnd()
+          if (TextInput.State.currentlyFocusedInput()) scrollRef.current?.scrollToEnd({ animated: false })
         }}
       >
         <GreenDiagram

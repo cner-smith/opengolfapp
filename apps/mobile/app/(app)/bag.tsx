@@ -344,7 +344,7 @@ export default function BagScreen() {
             // the fields + Save sat under the fold. The inputs are the sheet's
             // last rows, so scrolling to the end shows the focused one + Save.
             onLayout={() => {
-              if (TextInput.State.currentlyFocusedInput()) formScrollRef.current?.scrollToEnd()
+              if (TextInput.State.currentlyFocusedInput()) formScrollRef.current?.scrollToEnd({ animated: false })
             }}
             keyboardShouldPersistTaps="handled"
             style={{
