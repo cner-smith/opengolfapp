@@ -657,7 +657,7 @@ function RoundScreen() {
             <KeyText disabled={sharing}>{sharing ? 'Rendering…' : 'Share'}</KeyText>
           </Key>
           <Key accessibilityLabel="What's on this screen" onPress={coach.openHelp} style={{ marginLeft: 8 }} faceStyle={{ width: 44, minHeight: 44 }}>
-            <Text maxFontSizeMultiplier={1} style={[TYPE.serif, { fontSize: 20, lineHeight: 24, color: P.ink }]}>?</Text>
+            <Text maxFontSizeMultiplier={1} style={[TYPE.serif, { fontSize: 20, lineHeight: 24, color: P.ink }]}>{'?\u2009'}</Text>
           </Key>
         </View>
         <CoachTarget id="past.tabs" style={{ marginTop: 2, marginHorizontal: 12, marginBottom: 13 }}>
