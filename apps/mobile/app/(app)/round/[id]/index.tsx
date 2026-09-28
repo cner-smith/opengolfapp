@@ -35,7 +35,7 @@ import { RoundScorecardTab, signed } from '../../../../components/round/past/Rou
 import type { LatLng } from '../../../../components/round/HoleMap'
 import LiveRoundSession from '../../../../components/round/LiveRoundSession'
 import { CoachOverlay, CoachProvider, CoachTarget, useCoach } from '../../../../components/help/CoachMarks'
-import { PAST_STEPS } from '../../../../components/round/coachSteps'
+import { PAST_CARD_STEPS, PAST_STEPS } from '../../../../components/round/coachSteps'
 import { ConfirmDialog } from '../../../../components/ui/ConfirmDialog'
 import { Key, KeyText, PaperSurface, Rocker } from '../../../../components/paper/Paper'
 import { Icon } from '../../../../components/paper/icons'
@@ -159,9 +159,9 @@ function RoundScreen() {
   const [handicap, setHandicap] = useState<number | null>(null)
   // One paper confirm at a time — iOS presents one modal per presenter (#293).
   const [dialog, setDialog] = useState<'leave' | 'delete' | null>(null)
-  // Coach marks (#900) on the Map tab: first-time tips open on their own,
+  // Coach marks (#900), one set per tab: first-time tips open on their own,
   // "?" shows them all. Nothing while the shot sheet or a dialog is up.
-  const coach = useCoach(view === 'map' && !shotsForHole && !dialog ? PAST_STEPS : null)
+  const coach = useCoach(shotsForHole || dialog ? null : view === 'map' ? PAST_STEPS : PAST_CARD_STEPS)
 
   useEffect(() => {
     if (!id) return

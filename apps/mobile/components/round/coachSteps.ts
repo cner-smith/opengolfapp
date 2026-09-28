@@ -83,8 +83,14 @@ export const LIVE_PUTT_STEPS: CoachStep[] = [
   card,
 ]
 
+const pastTabs: CoachStep = {
+  id: 'past.tabs',
+  title: 'Card or map',
+  body: 'The scorecard, or each hole on the map with every shot where you hit it.',
+}
+
 export const PAST_STEPS: CoachStep[] = [
-  { id: 'past.tabs', title: 'Card or map', body: 'The scorecard, or each hole on the map with every shot where you hit it.' },
+  pastTabs,
   {
     id: 'past.hole',
     title: 'This hole',
@@ -99,5 +105,21 @@ export const PAST_STEPS: CoachStep[] = [
     id: 'past.footer',
     title: 'Shots',
     body: 'Add or remove shots, step through them, and edit a shot’s club, lie and result.',
+  },
+]
+
+// The Scorecard tab's own tips: the "?" there showed nothing, since the map
+// tips only exist on the Map tab.
+export const PAST_CARD_STEPS: CoachStep[] = [
+  pastTabs,
+  {
+    id: 'past.totals',
+    title: 'Score and strokes gained',
+    body: 'Your score against par, and strokes gained against golfers of your handicap — then where they came from: off the tee, approach, around the green, putting.',
+  },
+  {
+    id: 'past.card',
+    title: 'Your card',
+    body: 'Circles are under par, squares over — two squares for a double. Ticks are fairways and greens hit. Shots › opens a hole to edit its shots.',
   },
 ]
