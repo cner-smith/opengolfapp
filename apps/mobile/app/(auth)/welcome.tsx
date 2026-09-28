@@ -136,6 +136,7 @@ const styles = StyleSheet.create({
     marginTop: 18,
   },
   support: {
+    fontFamily: FONT.body,
     color: 'rgba(242,238,229,0.45)',
     fontSize: 11,
     letterSpacing: 1,

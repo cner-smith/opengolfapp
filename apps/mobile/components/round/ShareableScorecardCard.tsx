@@ -313,7 +313,6 @@ function ScoreGrid({
     width: 38,
     fontFamily: FONT.body,
     fontSize: 9,
-    fontWeight: '500',
     color: colors.inkMute,
     paddingVertical: 6,
     paddingLeft: 4,
