@@ -328,8 +328,10 @@ export default function LiveRoundSession({
   // only for a par 4/5 drive, the Appr circle for everything else — a par-3
   // tee shot included, which strokes gained counts as an approach. A manual
   // switch holds for the rest of that shot.
-  const holePar = data.resolvedHole?.par ?? 4
+  // Skipped until the hole loads, so a par 3 is never first guessed as a 4.
+  const holePar = data.resolvedHole?.par ?? data.currentHoleScore?.par ?? data.currentHole?.par
   useEffect(() => {
+    if (holePar == null) return
     setOverlayMode(data.shotNumber === 1 && holePar >= 4 ? 'tee' : 'appr')
   }, [holeNumber, data.shotNumber, holePar])
 
