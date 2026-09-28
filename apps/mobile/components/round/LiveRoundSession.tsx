@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { haptic } from '../../lib/haptics'
 import { playCup } from '../../lib/sounds'
 import { ActivityIndicator, Alert, BackHandler, Dimensions, View } from 'react-native'
-import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useFocusEffect, useRouter } from 'expo-router'
 import { HoleMap, type LatLng } from './HoleMap'
 import type { OffscreenArrow } from './HoleMap.types'
@@ -34,7 +33,7 @@ import { useHoleData } from './hole/useHoleData'
 import { useHoleState } from './hole/useHoleState'
 import { useShotActions } from './hole/useShotActions'
 import { HoleModals } from './hole/HoleModals'
-import { LiveRoundDock, MIN_BOTTOM_STRIP } from './LiveRoundDock'
+import { LiveRoundDock } from './LiveRoundDock'
 import { CoachOverlay, CoachProvider, useCoach } from '../help/CoachMarks'
 import { LIVE_AIM_STEPS, LIVE_PLACE_STEPS, LIVE_PUTT_STEPS } from './coachSteps'
 import { LiveRoundHeader, RoundOptionsMenu } from './LiveRoundHeader'
@@ -86,7 +85,6 @@ export default function LiveRoundSession({
   const router = useRouter()
   const { user } = useAuth()
   const { unit, toDisplay } = useUnits()
-  const insets = useSafeAreaInsets()
 
   const [holeNumber, setHoleNumber] = useState(initialHoleNumber)
 
@@ -744,8 +742,8 @@ export default function LiveRoundSession({
           focusOn={editMode ? data.previousShots[activeShotIdx] ?? null : null}
           recenterRef={recenterRef}
           lefty={lefty}
-          aimBallInset={Math.max(insets.bottom, MIN_BOTTOM_STRIP) + footerHeight + BALL_ABOVE_DOCK}
-          tagClearBottom={dockHeight ? Math.max(insets.bottom, MIN_BOTTOM_STRIP) + dockHeight + 6 : undefined}
+          aimBallInset={footerHeight + BALL_ABOVE_DOCK}
+          tagClearBottom={dockHeight ? dockHeight + 6 : undefined}
           onSetAim={(loc) => {
             // A user drag / long-press is an explicit aim — mark it touched so
             // it persists (an untouched auto-spawn suggestion is dropped on

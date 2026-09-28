@@ -26,9 +26,6 @@ import { RulerCard } from './HoleMapOverlays'
 import type { RoundState } from './hole/types'
 import type { OffscreenArrow } from './HoleMap.types'
 
-// The Mapbox logo + attribution live in the strip under the footer (ToS);
-// gesture-nav insets are too thin to show them, so keep at least this much.
-export const MIN_BOTTOM_STRIP = 26
 
 export interface LiveRoundDockProps {
   roundState: RoundState
@@ -183,7 +180,7 @@ export function LiveRoundDock(p: LiveRoundDockProps) {
     <View
       pointerEvents="box-none"
       onLayout={(e) => p.onDockHeight?.(e.nativeEvent.layout.height)}
-      style={{ position: 'absolute', left: 0, right: 0, bottom: Math.max(insets.bottom, MIN_BOTTOM_STRIP) }}
+      style={{ position: 'absolute', left: 0, right: 0, bottom: 0 }}
     >
       {showStacks && (
         <View
@@ -214,7 +211,10 @@ export function LiveRoundDock(p: LiveRoundDockProps) {
           borderTopColor: P.ink,
           paddingTop: voice ? 0 : 6,
           paddingHorizontal: MARGIN,
-          paddingBottom: 7,
+          // Paper runs to the screen edge, under the home indicator / nav bar.
+          // (The strip that used to sit here held the Mapbox logo; the live map
+          // pins it to its top corners now.)
+          paddingBottom: 7 + insets.bottom,
         }}
       >
         {voice && <CoachTarget id="live.voice">{voice}</CoachTarget>}
