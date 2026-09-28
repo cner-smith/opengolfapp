@@ -62,8 +62,7 @@ export function LiveRoundHeader(p: LiveRoundHeaderProps) {
           <Icon.next size={20} color={P.inkDim} />
         </NavButton>
         <NavButton label="What's on this screen" onPress={p.onHelp}>
-          {/* Thin space after: Android clips the italic ?'s hook at its layout edge. */}
-          <Text maxFontSizeMultiplier={1} style={[TYPE.serif, { fontSize: 20, lineHeight: 24, color: P.inkDim }]}>{'?\u2009'}</Text>
+          <Text maxFontSizeMultiplier={1} style={[TYPE.serif, { fontSize: 20, lineHeight: 24, color: P.inkDim }]}>?</Text>
         </NavButton>
         <NavButton label="Round options" onPress={p.onOpenMenu}>
           <Icon.more size={20} />

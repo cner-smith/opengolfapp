@@ -16,7 +16,6 @@ const DS = 17
 const US = 13
 const CS = 11
 const LS = -1.5
-const numStyle = [TYPE.serif, { position: 'absolute' as const, left: 0, top: 0, fontSize: S, letterSpacing: LS, color: P.ink }]
 
 // F5g "flush rectangle" hero (§3.1): the number and its [.4 / unit / caption]
 // column form one box — column top on the digit top, caption baseline on the
@@ -46,15 +45,9 @@ function HeroNumber({ value, unit }: { value: string; unit: string }) {
           const l = e.nativeEvent.lines[0]
           if (l) setM({ w: l.width, base: l.y + l.ascender })
         }}
-        style={[numStyle, { opacity: 0 }]}
+        style={[TYPE.serif, { position: 'absolute', left: 0, top: 0, fontSize: S, letterSpacing: LS, color: P.ink }]}
       >
         {whole}
-      </Text>
-      {/* Android clips an italic glyph at its text layout's edge (shaved the
-          top of a trailing 8; paddingRight doesn't help). The trailing space
-          widens the drawn layout; the invisible copy above measures x0 without it. */}
-      <Text allowFontScaling={false} style={numStyle}>
-        {`${whole} `}
       </Text>
       {m && (
         <Svg width={w} height={Math.ceil(m.base + 3)} style={{ position: 'absolute', left: 0, top: 0 }}>
@@ -91,7 +84,6 @@ export function HeroRow({
   /** Beside the "—" when there's no distance: why (no pin / no ball). */
   emptyLabel?: string
 }) {
-  const long = (distance?.value.split('.')[0]?.length ?? 0) >= 4
   return (
     <View
       style={{ flexDirection: 'row', alignItems: 'flex-end', minHeight: 58, paddingHorizontal: 12, paddingBottom: 8 }}
@@ -121,18 +113,7 @@ export function HeroRow({
         <Text allowFontScaling={false} style={[TYPE.serif, { fontSize: 22, lineHeight: 24, color: expected == null ? P.ink35 : P.ink }]}>
           {expected == null ? '—' : expected.toFixed(1)}
         </Text>
-        {/* A 4-digit hero (ball far off the hole) squeezes this column: shrink the
-            caption onto one line. The fixed lineHeight blocks Android's shrink, so
-            it's dropped only then — 3 digits keep the tuned baseline. */}
-        <Text
-          allowFontScaling={false}
-          numberOfLines={1}
-          adjustsFontSizeToFit
-          minimumFontScale={0.75}
-          style={[TYPE.body, { fontSize: 12, color: P.ink }, !long && { lineHeight: 15 }]}
-        >
-          strokes to hole out
-        </Text>
+        <Text allowFontScaling={false} style={[TYPE.body, { fontSize: 12, lineHeight: 15, color: P.ink }]}>strokes to hole out</Text>
       </View>
       {trailing}
     </View>
