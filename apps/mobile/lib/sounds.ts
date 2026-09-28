@@ -3,6 +3,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage'
 import { requireOptionalNativeModule } from 'expo'
 
 // The one sound in the app (#611 §15): the ball-in-cup rattle on a made putt.
+// Clip: "Minigolf putt, right into the hole!" by pfranzen, Freesound #512505,
+// CC0 1.0 — cut to the drop and rattles (the putter strike and roll removed),
+// 1.3 s, peak −16 dBFS. The same file is res/raw/oga_cup.m4a in the Android module.
 // A device-local preference (Profile → Sounds), on by default. Silent mode
 // wins on both platforms: iOS plays in the ambient category (the silent
 // switch mutes it), Android plays only when the ringer mode is NORMAL
@@ -35,7 +38,7 @@ let iosModeSet = false
 
 // A fresh player per putt instead of seekTo(0) on one: expo-audio 1.1.1's
 // seekTo can crash natively on iOS (EXC_BAD_ACCESS in its continuation,
-// expo/expo#43034), which no try/catch catches. The clip is 4 KB.
+// expo/expo#43034), which no try/catch catches. The clip is 12 KB.
 function newCupPlayerIos(): Player | null {
   try {
     const A = require('expo-audio') as typeof import('expo-audio')
