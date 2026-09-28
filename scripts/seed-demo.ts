@@ -830,7 +830,7 @@ async function insertPracticePlan(userId: string): Promise<void> {
     valid_until: dateNDaysAgo(-7),
     focus_areas: [
       { category: worst.category, reason: `${copy.label} is your biggest opportunity — ${lost(worst.sg)} over your last 10 rounds.` },
-      { category: next.category, reason: `${PLAN_COPY[next.category]!.label} is next — ${lost(next.sg)}; one drill keeps it sharp.` },
+      { category: next.category, reason: `${PLAN_COPY[next.category]!.label} is next — ${lost(next.sg)}; keep an eye on it.` },
     ],
     drills: {
       sessions: [
