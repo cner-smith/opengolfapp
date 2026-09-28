@@ -47,12 +47,15 @@ const unsupported = new Set<AndroidKey>()
 // performHapticsAsync WITHOUT awaiting or returning it (src/Haptics.ts:59-64),
 // so its rejection never reaches a caller (and is logged as unhandled). The
 // native function is called directly to get that promise.
-// The only rejections are thrown by HapticType.toHapticFeedbackType
-// (android/.../HapticsRecord.kt): the HapticFeedbackConstants field is missing
-// on this OS version, or not accessible — fixed for the device, so a constant
-// that rejects once is skipped for good. (Both arrive as
-// ERR_UNSPECIFIED_ANDROID_EXCEPTION: they extend the legacy
-// expo.modules.core.errors.CodedException, whose getCode() is that default.)
+// HapticType.toHapticFeedbackType (android/.../HapticsRecord.kt) rejects when
+// the HapticFeedbackConstants field is missing on this OS version or not
+// accessible — fixed for the device, so that constant is skipped for good.
+// Both of its exceptions extend the legacy expo.modules.core.errors.
+// CodedException and arrive with its default code (below); any other native
+// throw becomes UnexpectedException → ERR_UNEXPECTED (expo-modules-core
+// kotlin/exception/CodedException.kt toCodedException), which only falls
+// through to the next constant this time.
+const NOT_SUPPORTED = 'ERR_UNSPECIFIED_ANDROID_EXCEPTION'
 type NativeHaptics = { performHapticsAsync: (type: string) => Promise<void> }
 
 async function android(H: HapticsModule, keys: AndroidKey[]) {
@@ -63,8 +66,8 @@ async function android(H: HapticsModule, keys: AndroidKey[]) {
     try {
       await N.performHapticsAsync(H.AndroidHaptics[k])
       return
-    } catch {
-      unsupported.add(k)
+    } catch (e) {
+      if ((e as { code?: string })?.code === NOT_SUPPORTED) unsupported.add(k)
     }
   }
 }
