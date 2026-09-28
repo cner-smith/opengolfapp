@@ -525,7 +525,6 @@ async function insertRound(
   teeColor: string,
 ): Promise<void> {
   const profile = sampleProfile(archetype)
-  const sgTotal = profile.sgOffTee + profile.sgApproach + profile.sgAroundGreen + profile.sgPutting
   const meanDelta = rand(archetype.over[0], archetype.over[1]) / course.holes.length
 
   // Generate every hole's score + putts up front so round totals are the
@@ -544,6 +543,24 @@ async function insertRound(
   const fairwaysTotal = course.holes.filter((h) => h.par > 3).length
   const fairwaysHit = perHole.filter((p) => p.fairwayHit === true).length
   const girTotal = perHole.filter((p) => p.gir).length
+
+  // SG must agree with the score (a 90 can't gain strokes on a 78): the total
+  // follows ~0 at +14 for this 12.4 player on these championship courses, and
+  // the archetype's categories are shifted evenly to meet it, keeping its story.
+  // (Not computeRoundSG over the seeded shots: tee shots clamp at the 225-yd
+  // end of the approach table and read ~-0.7 per drive — see the SG issue.)
+  const over = totalScore - course.holes.reduce((s, h) => s + h.par, 0)
+  // Alex's standing game under every round's story: iron play is the leak,
+  // the driver a small strength — so Home, Stats and the practice plan agree.
+  profile.sgOffTee += 0.4
+  profile.sgApproach -= 1.0
+  profile.sgPutting += 0.2
+  const d = ((14 - over) * 0.9 + gaussian(0.4) - (profile.sgOffTee + profile.sgApproach + profile.sgAroundGreen + profile.sgPutting)) / 4
+  profile.sgOffTee += d
+  profile.sgApproach += d
+  profile.sgAroundGreen += d
+  profile.sgPutting += d
+  const sgTotal = profile.sgOffTee + profile.sgApproach + profile.sgAroundGreen + profile.sgPutting
 
   const { data: round, error: roundError } = await supabase
     .from('rounds')
@@ -621,7 +638,9 @@ async function insertHoleShots(
     // Leave ~25 yd per stroke still to come so the next shot isn't a putt from
     // the fairway; the last full shot plays at the flag.
     const advance = toGreen ? distToPin : Math.max(20, Math.min(distToPin - 25 * (full - n), TYPICAL_CARRY[pickClubForDistance(distToPin)] ?? distToPin))
-    const club = toGreen ? pickApproachClub(distToPin) : pickClubForDistance(advance) === 'putter' ? 'sw' : pickClubForDistance(advance)
+    const pick = pickClubForDistance(advance)
+    // Driver only off the tee; a putter never from off the green.
+    const club = toGreen ? pickApproachClub(distToPin) : pick === 'putter' ? 'sw' : pick === 'driver' && n > 1 ? '3w' : pick
     const aim = stepToward(lastEnd, pinBase, advance)
     let end: { lat: number; lng: number }
     let result: string
@@ -723,56 +742,90 @@ function pickApproachClub(yards: number): string {
   return c === 'putter' ? (yards >= 10 ? 'sw' : 'lw') : c
 }
 
-async function insertPracticePlan(userId: string): Promise<void> {
-  // A warm-up → blocked → skill-game session that matches the plan's "tighten
-  // iron dispersion" focus, picked by name so screenshots never show a drill
-  // named after a tour pro.
-  const names = ['Half-to-Full Iron Tempo Ramp', 'Tee-Gate Center-Face', 'Iron Scoring Game']
-  const { data: found } = await supabase
-    .from('drills')
-    .select('id, name, description, duration_min, category, facility')
-    .in('name', names)
-  const drills = names.flatMap((n) => found?.filter((d) => d.name === n) ?? [])
-  if (drills.length === 0) return
+// The plan reads like a generated one for THIS data: focus = the worst SG
+// category over the last 10 rounds, with the number Stats shows, and a
+// warm-up → blocked → skill-game session from that category. Drills named
+// after a tour pro (DJ, Spieth, Hogan, Pelz…) are skipped — they end up in
+// store screenshots.
+const PLAN_COPY: Record<string, { label: string; insight: string; note: string; title: string }> = {
+  approach: {
+    label: 'Approach',
+    insight: 'Approach is the biggest drag on scoring — tighten iron dispersion this week.',
+    note: 'Your approach game is the primary leak right now. Blocked reps to groove contact, then a skill game to transfer it under a little pressure.',
+    title: 'Approach accuracy block',
+  },
+  off_tee: {
+    label: 'Off the tee',
+    insight: 'The tee shot is costing you most — find more fairways before chasing distance.',
+    note: 'Misses off the tee are putting you in recovery. Groove a start line on the range, then play the fairway-finder game.',
+    title: 'Fairway finder block',
+  },
+  around_green: {
+    label: 'Around the green',
+    insight: 'Short game is the leak — get chips and pitches inside six feet.',
+    note: 'Too many up-and-downs are slipping. Contact first, then distance control with a scoring game.',
+    title: 'Up-and-down block',
+  },
+  putting: {
+    label: 'Putting',
+    insight: 'Putting is where the strokes go — own your speed from 20 feet.',
+    note: 'Three-putts and missed short ones are adding up. Start-line reps, then a lag ladder under pressure.',
+    title: 'Speed and start-line block',
+  },
+}
+const PRO_NAMED = /\b(DJ|Spieth|Hogan|Pelz|Tiger|Woods|Mickelson|Stricker|Rory|Scheffler|TrackMan|Como)\b/i
 
-  // The reason quotes the same number Stats shows (last 10 rounds' average).
+async function insertPracticePlan(userId: string): Promise<void> {
   const { data: recent } = await supabase
     .from('rounds')
-    .select('sg_approach')
+    .select('sg_off_tee, sg_approach, sg_around_green, sg_putting')
     .eq('user_id', userId)
-    .not('sg_approach', 'is', null)
     .order('played_at', { ascending: false })
     .limit(10)
-  const lost = recent?.length
-    ? -recent.reduce((s, r) => s + (r.sg_approach ?? 0), 0) / recent.length
-    : 0
+  const avg = (k: 'sg_off_tee' | 'sg_approach' | 'sg_around_green' | 'sg_putting') =>
+    (recent ?? []).reduce((s, r) => s + (r[k] ?? 0), 0) / Math.max(1, recent?.length ?? 0)
+  const cats = [
+    { category: 'off_tee', sg: avg('sg_off_tee') },
+    { category: 'approach', sg: avg('sg_approach') },
+    { category: 'around_green', sg: avg('sg_around_green') },
+    { category: 'putting', sg: avg('sg_putting') },
+  ].sort((a, b) => a.sg - b.sg)
+  const [worst, next] = [cats[0]!, cats[1]!]
+  const copy = PLAN_COPY[worst.category]!
 
-  // Match the live storage shape (@oga/core StoredFocusArea / StoredSession):
-  // focus_areas use `reason` (not insight/sgValue) and `drills` is
-  // `{ sessions: [{ blocks }] }`. The Practice UI reads exactly these fields,
-  // so an out-of-date shape crashes the tab — keep this in lockstep.
+  const { data: pool } = await supabase
+    .from('drills')
+    .select('id, name, description, duration_min, category, facility')
+    .eq('category', worst.category)
+    .order('name')
+  // Approach (Alex's seeded leak) gets a hand-ordered warm-up → blocked → game.
+  const curated = ['Half-to-Full Iron Tempo Ramp', 'Tee-Gate Center-Face', 'Iron Scoring Game']
+  const drills =
+    worst.category === 'approach'
+      ? curated.flatMap((n) => pool?.filter((d) => d.name === n) ?? [])
+      : (pool ?? [])
+          .filter((d) => !PRO_NAMED.test(`${d.name} ${d.description ?? ''}`) && (d.duration_min ?? 15) <= 30)
+          .slice(0, 3)
+  if (drills.length === 0) return
+
+  const lost = (n: number) =>
+    Math.abs(n) < 0.05 ? 'about even with your handicap' : `${Math.abs(n).toFixed(2)} strokes ${n < 0 ? 'lost' : 'gained'} per round`
   const blockTypes = ['warmup', 'blocked', 'skill_game'] as const
   await supabase.from('practice_plans').insert({
     user_id: userId,
     based_on_rounds: 10,
     valid_until: dateNDaysAgo(-7),
     focus_areas: [
-      {
-        category: 'approach',
-        reason: `Approach is your biggest opportunity — averaging ${lost.toFixed(2)} strokes lost per round.`,
-      },
-      {
-        category: 'around_green',
-        reason: 'Around-green play is roughly neutral; one drill keeps it sharp.',
-      },
+      { category: worst.category, reason: `${copy.label} is your biggest opportunity — ${lost(worst.sg)} over your last 10 rounds.` },
+      { category: next.category, reason: `${PLAN_COPY[next.category]!.label} is next — ${lost(next.sg)}; one drill keeps it sharp.` },
     ],
     drills: {
       sessions: [
         {
-          title: 'Approach accuracy block',
+          title: copy.title,
           total_minutes: drills.reduce((sum, d) => sum + (d.duration_min ?? 15), 0),
           blocks: drills.map((d, i) => ({
-            id: `b-approach-${i}`,
+            id: `b-${worst.category}-${i}`,
             order: i,
             type: blockTypes[Math.min(i, blockTypes.length - 1)],
             minutes: d.duration_min ?? 15,
@@ -785,9 +838,8 @@ async function insertPracticePlan(userId: string): Promise<void> {
         },
       ],
     },
-    ai_insight: 'Approach is the biggest drag on scoring — tighten iron dispersion this week.',
-    coach_note:
-      'Your approach game is the primary leak right now. Blocked reps to groove contact, then a skill game to transfer it under a little pressure.',
+    ai_insight: copy.insight,
+    coach_note: copy.note,
     completed_drill_ids: [],
   })
 }
@@ -836,7 +888,7 @@ async function main() {
 
   await insertPracticePlan(userId)
 
-  console.log(`Seed user ready — sign in as ${SEED_EMAIL} / ${SEED_PASSWORD}`)
+  console.log(`Seed user ready — sign in as ${SEED_EMAIL} (password: SEED_PASSWORD in the env file)`)
 }
 
 main().catch((err) => {
