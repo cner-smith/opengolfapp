@@ -321,7 +321,9 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
       shot_result: meta?.shotResult ?? null,
       penalty: meta?.shotResult === 'penalty',
       ob: meta?.shotResult === 'ob',
-      putt_distance_ft: meta?.puttDistanceFt ?? null,
+      // numeric(4,1): a "putt" from 333+ yd (On the green tapped off the green)
+      // overflows, and the queue quarantines the shot (#994). Drop the length.
+      putt_distance_ft: (meta?.puttDistanceFt ?? 0) > 999.9 ? null : meta?.puttDistanceFt ?? null,
       putt_result: combinedPuttResult({
         made: meta?.puttMade,
         distance: meta?.puttDistanceResult ?? null,
@@ -840,10 +842,10 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
         () => null,
       )
       if (localRows === null) {
-        localRows = await allShotsForHoleScore(currentHoleScore.id).catch(
-          () => [] as Awaited<ReturnType<typeof allShotsForHoleScore>>,
-        )
+        localRows = await allShotsForHoleScore(currentHoleScore.id).catch(() => null)
       }
+      const localOk = localRows !== null
+      localRows ??= []
       const localByNum = new Map<number, ShotPayload>()
       const localById = new Map<string, ShotPayload>()
       for (const r of localRows) {
@@ -900,17 +902,22 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
         // this shot's metadata. Abort loudly instead: the sheet stays open
         // with the player's edits intact (hydration is gated), so Save simply
         // retries once the read recovers. Never mint a colliding id.
-        if (!existing?.id) {
+        // Both reads answered and neither has this shot at its number: it's gone
+        // (quarantined by the sync queue — #994), not unreachable. A fresh id
+        // can't collide on unique(hole_score_id, shot_number) then, so re-create
+        // it from the reviewed row instead of stranding the hole unsaveable.
+        const lost = !existing?.id && localOk && !remote.error
+        if (!existing?.id && !lost) {
           throw new Error(
             "Couldn't reach this hole's shots — check your connection and save again.",
           )
         }
-        const id = existing.id
+        const id = existing?.id ?? uuid.v4()
         // Keep the aim captured live (SET_AIM); the review sheet doesn't edit
         // non-putt aim, so the live value is authoritative. `existing` is a
         // queued payload or the remote row — both carry aim_lat/aim_lng.
-        const aimLat = existing.aim_lat ?? null
-        const aimLng = existing.aim_lng ?? null
+        const aimLat = existing?.aim_lat ?? null
+        const aimLng = existing?.aim_lng ?? null
         const payload: ShotPayload = {
           id,
           hole_score_id: currentHoleScore.id,
@@ -949,7 +956,7 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
           // sheet, for the live hole), so the seed always fires. If that seed
           // path is ever broken, this line silently drops every OB flag —
           // keep the two in step (#839).
-          penalty: row.penalty ?? existing.penalty ?? false,
+          penalty: row.penalty ?? existing?.penalty ?? false,
           // A putt cannot be out of bounds. `shot_result` is already
           // putt-gated one line up, so without the same gate here a row
           // whose result was 'ob' and whose lie was THEN changed to green
@@ -959,7 +966,7 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
           ob: isPuttRow ? false : row.shotResult === 'ob',
           // Putt tap-to-tap distance is in yards; * 3 = feet (US convention),
           // and putt_distance_ft is what the rest of the app reads.
-          putt_distance_ft: isPuttRow ? Math.round(row.distanceYards * 3) : null,
+          putt_distance_ft: isPuttRow && row.distanceYards * 3 <= 999.9 ? Math.round(row.distanceYards * 3) : null,
           putt_result: !isPuttRow
             ? null
             : combinedPuttResult({
