@@ -19,7 +19,7 @@
 //
 //   DOTENV_CONFIG_PATH=apps/web/.env.test.local tsx scripts/recompute-round-sg.ts [--apply]
 import { execSync } from 'node:child_process'
-import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -56,6 +56,7 @@ async function loadEngines(): Promise<Engine[]> {
       const dir = mkdtempSync(join(tmpdir(), 'oga-sg-'))
       execSync(`git archive ${rev} packages/core/src | tar -x -C ${dir}`)
       const mod = await import(pathToFileURL(join(dir, 'packages/core/src/sg.ts')).href)
+      rmSync(dir, { recursive: true })
       return { label, computeRoundSG: mod.computeRoundSG as typeof computeRoundSG }
     }),
   )
@@ -109,7 +110,7 @@ async function main() {
     const result = computeRoundSG(input)
     const next = stamp(result.round)
     const roundChanged = (Object.keys(next) as (keyof typeof next)[]).some((k) => r[k] !== next[k])
-    // A hole is rewritten only when the old rows reproduce its stored values too.
+    // A hole is rewritten only when the same previous engine reproduces its stored values too.
     const holesChanged = Object.entries(result.perHoleScore).flatMap(([id, sg]) => {
       const stored = holeScores.find((h) => h.id === id)
       const prev = before.perHoleScore[id]
