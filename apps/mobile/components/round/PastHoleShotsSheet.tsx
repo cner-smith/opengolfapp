@@ -1,5 +1,16 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Modal, Pressable, ScrollView, Text, TextInput, View } from 'react-native'
+import {
+  Alert,
+  Keyboard,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  Pressable,
+  ScrollView,
+  Text,
+  TextInput,
+  View,
+} from 'react-native'
 import {
   GestureDetector,
   GestureHandlerRootView,
@@ -153,12 +164,16 @@ export function PastHoleShotsSheet({
       .select()
       .single()
     setSaving(false)
-    if (!error && data) {
-      onShotUpdated?.(data as ShotRow)
-      // next set by the editor's prev/next nav; none closes the editor.
-      if (next) setEditingShot(next)
-      else closeEditor()
+    if (error || !data) {
+      // Keep the editor open (edits intact) but say so — the sheet used to
+      // just sit there, reading as a dead Save button.
+      Alert.alert('Save failed', error?.message ?? 'Could not save shot')
+      return
     }
+    onShotUpdated?.(data as ShotRow)
+    // next set by the editor's prev/next nav; none closes the editor.
+    if (next) setEditingShot(next)
+    else closeEditor()
   }
 
   // One <Modal> with discriminated content (list vs editor) — NOT two
@@ -176,10 +191,21 @@ export function PastHoleShotsSheet({
       {/* GHRootView required for the swipe-to-dismiss pan: RN Modal is a
           separate native window on Android the app-root can't reach (#496). */}
       <GestureHandlerRootView style={{ flex: 1 }}>
-      <View style={{ flex: 1, backgroundColor: P.scrim }}>
+      {/* iOS: padding lifts the whole bottom sheet (putt Length field + Save
+          footer) above the keyboard. Android pans the window itself. */}
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={{ flex: 1, backgroundColor: P.scrim }}
+      >
         <Pressable
           style={{ flex: 1 }}
-          onPress={editingShot ? closeEditor : onClose}
+          onPress={() => {
+            // Tapping the scrim is how people dismiss a number pad (it has no
+            // return key) — close the keyboard, don't discard the edit.
+            if (Keyboard.isVisible()) Keyboard.dismiss()
+            else if (editingShot) closeEditor()
+            else onClose()
+          }}
         />
         {editingShot ? (
           <EditShotSheet
@@ -243,7 +269,7 @@ export function PastHoleShotsSheet({
             </PaperSurface>
           </Animated.View>
         )}
-      </View>
+      </KeyboardAvoidingView>
       </GestureHandlerRootView>
     </Modal>
   )
