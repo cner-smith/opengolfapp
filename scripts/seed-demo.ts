@@ -555,11 +555,15 @@ async function insertRound(
   profile.sgOffTee += 0.4
   profile.sgApproach -= 1.0
   profile.sgPutting += 0.2
-  const d = ((14 - over) * 0.9 + gaussian(0.4) - (profile.sgOffTee + profile.sgApproach + profile.sgAroundGreen + profile.sgPutting)) / 4
-  profile.sgOffTee += d
-  profile.sgApproach += d
-  profile.sgAroundGreen += d
-  profile.sgPutting += d
+  const d = (14 - over) * 0.9 + gaussian(0.4) - (profile.sgOffTee + profile.sgApproach + profile.sgAroundGreen + profile.sgPutting)
+  // Split unevenly: an even split moved all four category lines in lockstep on
+  // the Stats trend chart, which no real player's rounds do.
+  const w = [0, 0, 0, 0].map(() => Math.max(0.05, 0.25 + gaussian(0.15)))
+  const wSum = w.reduce((s, x) => s + x, 0)
+  profile.sgOffTee += (d * w[0]!) / wSum
+  profile.sgApproach += (d * w[1]!) / wSum
+  profile.sgAroundGreen += (d * w[2]!) / wSum
+  profile.sgPutting += (d * w[3]!) / wSum
   const sgTotal = profile.sgOffTee + profile.sgApproach + profile.sgAroundGreen + profile.sgPutting
 
   const { data: round, error: roundError } = await supabase
