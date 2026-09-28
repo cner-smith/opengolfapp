@@ -158,6 +158,7 @@ export default function LiveRoundSession({
     setPinPlacementOpen(false)
     setLoggerInitial({})
     setBallMoved(false)
+    setEditHole(null)
     // Clear only hole-scoped dialogs (onGreen / aim). Session-scoped
     // confirms (delete / leave / end / exit) stay open across hole
     // navigation — a confirmDelete dialog mid-navigation should not
@@ -566,8 +567,7 @@ export default function LiveRoundSession({
   // structurally impossible. ANDed with `previousShots.length > 0` since
   // Step 3 below indexes directly into the previousShots/previousShotIds
   // arrays. See task-4-report.md §Fix round 2 for the verified case list.
-  // Only a FINISHED hole or the one chosen via editHoleOnMap: a skipped hole
-  // logged later is behind the frontier too, and its first shot flipped it here.
+  // Only a FINISHED hole or the one chosen via editHoleOnMap (cleared on hole change).
   const editMode = holeNumber < furthestHoleReached && data.previousShots.length > 0 &&
     (!!data.currentHoleScore?.finished_at || editHole === holeNumber)
 
