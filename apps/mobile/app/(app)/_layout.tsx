@@ -3,11 +3,17 @@ import { ActivityIndicator, Pressable, Text, View } from 'react-native'
 import { Tabs, Redirect } from 'expo-router'
 import { MaterialCommunityIcons } from '@expo/vector-icons'
 import { StatusBar } from 'expo-status-bar'
+import { P } from '../../components/paper/tokens'
+import { FONT } from '../../lib/typography'
+import Svg, { Path } from 'react-native-svg'
+import { marksPath, pencilUnderline } from '../../components/paper/pencil'
+import type { BottomTabBarButtonProps } from '@react-navigation/bottom-tabs'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
 import { ErrorBoundary } from '../../components/errors/ErrorBoundary'
 import { UnitsProvider } from '../../contexts/UnitsContext'
+import { isNetworkFailure, offlineKeys, readCache, writeCache } from '../../lib/offlineCache'
 import { TYPE } from '../../lib/typography'
 
 const ICON_SIZE = 18
@@ -30,8 +36,18 @@ export default function AppLayout() {
     let active = true
     setProfileState('loading')
 
+    // Offline (#993): a player who has passed this gate before on this device
+    // gets through it without signal, so they can reach their live round.
+    // Only a network failure or the timeout falls back — a real error still
+    // shows the retry screen.
+    const onboardedKey = offlineKeys.onboarded(user.id)
+    const fallBack = () => {
+      readCache<string>(onboardedKey).then((flag) => {
+        if (active) setProfileState(flag === '1' ? 'complete' : 'error')
+      })
+    }
     const timeoutId = setTimeout(() => {
-      if (active) setProfileState('error')
+      if (active) fallBack()
     }, PROFILE_FETCH_TIMEOUT_MS)
 
     supabase
@@ -39,19 +55,21 @@ export default function AppLayout() {
       .select('onboarding_completed')
       .eq('id', user.id)
       .maybeSingle()
-      .then(({ data, error }) => {
+      .then(({ data, error, status }) => {
         if (!active) return
         clearTimeout(timeoutId)
         if (error) {
           // eslint-disable-next-line no-console
           console.error('[(app)/_layout]', error.message)
-          setProfileState('error')
+          if (isNetworkFailure(error, status)) fallBack()
+          else setProfileState('error')
           return
         }
         if (!data || !data.onboarding_completed) {
           setProfileState('incomplete')
         } else {
           setProfileState('complete')
+          void writeCache(onboardedKey, '1')
         }
       })
     return () => {
@@ -146,7 +164,7 @@ export default function AppLayout() {
         tabBarStyle: {
           backgroundColor: '#FBF8F1',
           borderTopWidth: 1,
-          borderTopColor: '#D9D2BF',
+          borderTopColor: P.ink,
           paddingTop: 8,
           // Explicit height + inset so the label never clips. Auto-height
           // (omitting this) under-reserves space on the Galaxy S23's nav setup
@@ -160,14 +178,15 @@ export default function AppLayout() {
           shadowOpacity: 0,
         },
         tabBarLabelStyle: {
-          fontSize: 10,
-          fontWeight: '500',
-          letterSpacing: 0.4,
+          // Epilogue by family (a bare fontWeight fell back to Roboto).
+          fontFamily: FONT.body,
+          fontSize: 11,
           // Lifts the label up off the bottom edge without moving the icon.
           marginBottom: 8,
         },
         tabBarActiveTintColor: '#1F3D2C',
-        tabBarInactiveTintColor: '#8A8B7E',
+        tabBarInactiveTintColor: P.inkDim,
+        tabBarButton: (props) => <PencilTabButton {...props} />,
       }}
     >
       <Tabs.Screen
@@ -243,3 +262,24 @@ export default function AppLayout() {
     </ErrorBoundary>
   )
 }
+
+// Tab button with a pencil underline under the active tab — the same hand as
+// the scorecard's golf marks and ticks.
+function PencilTabButton(props: BottomTabBarButtonProps) {
+  // ref is a legacy union the RN Pressable type rejects; the tab bar doesn't need it.
+  const { children, style, ref: _ref, ...rest } = props
+  const active = props['aria-selected']
+  return (
+    <Pressable {...rest} style={[style, { alignItems: 'center', justifyContent: 'center' }]}>
+      {children}
+      {active && (
+        <View pointerEvents="none" style={{ position: 'absolute', bottom: 2 }}>
+          <Svg width={34} height={8} viewBox="-17 -4 34 8">
+            <Path d={UNDERLINE} fill={P.graphite} opacity={0.9} />
+          </Svg>
+        </View>
+      )}
+    </Pressable>
+  )
+}
+const UNDERLINE = marksPath([{ m: pencilUnderline(), at: 0 }], 1e9)

@@ -44,6 +44,18 @@ function getDb(): Promise<SQLite.SQLiteDatabase> {
       // prior sessions are pure dead weight. 'broken' rows are kept as
       // diagnostic evidence; they're rare by construction.
       await db.runAsync(`DELETE FROM pending_shots WHERE status = 'synced'`)
+      // hole_scores writes made during a live round (#226). An append-only log
+      // rather than one merged row per hole: the drain merges a hole's rows in
+      // local_id order and deletes only up to the highest id it sent, so a
+      // write enqueued while a drain is in flight survives for the next pass.
+      await db.execAsync(`
+        CREATE TABLE IF NOT EXISTS pending_hole_score_patches (
+          local_id INTEGER PRIMARY KEY AUTOINCREMENT,
+          hole_score_id TEXT NOT NULL,
+          round_id TEXT NOT NULL,
+          patch TEXT NOT NULL
+        );
+      `)
       return db
     })()
   }
@@ -67,10 +79,18 @@ export async function insertPendingShot(payload: ShotPayload): Promise<number> {
   return result.lastInsertRowId
 }
 
-export async function listPendingShots(): Promise<PendingShot[]> {
+// Scoped to one account: the queue is device-wide, and on a shared device
+// another account's leftover rows fail RLS (42501, treated as transient) on
+// every pass — sent in the same chunk, they'd block this user's shots forever.
+// They stay queued until their owner signs back in.
+export async function listPendingShots(userId: string): Promise<PendingShot[]> {
   const db = await getDb()
   return db.getAllAsync<PendingShot>(
-    `SELECT * FROM pending_shots WHERE status = 'pending' ORDER BY created_at ASC`,
+    `SELECT * FROM pending_shots
+     WHERE status = 'pending'
+       AND json_extract(payload, '$.user_id') = ?
+     ORDER BY created_at ASC`,
+    userId,
   )
 }
 
@@ -121,10 +141,15 @@ export async function updatePendingShotPayload(
   )
 }
 
-export async function pendingCount(): Promise<number> {
+// Same per-account scope as listPendingShots, so another account's rows
+// (which this user's sync never sends) can't hold "unsynced" above zero.
+export async function pendingCount(userId: string): Promise<number> {
   const db = await getDb()
   const row = await db.getFirstAsync<{ count: number }>(
-    `SELECT COUNT(*) as count FROM pending_shots WHERE status = 'pending'`,
+    `SELECT COUNT(*) as count FROM pending_shots
+     WHERE status = 'pending'
+       AND json_extract(payload, '$.user_id') = ?`,
+    userId,
   )
   return row?.count ?? 0
 }
@@ -303,6 +328,32 @@ export async function deletePendingShotById(clientId: string): Promise<void> {
   )
 }
 
+// Mirror a successful delete_shot RPC locally: the RPC deletes the row and
+// renumbers the hole's later shots server-side, but the local copies (synced
+// rows live on until the next launch) kept the deleted row and the old
+// numbers. Anything that later pairs local rows by shot_number would then
+// attach a row to the wrong shot and collide on unique(hole_score_id,
+// shot_number). No-op when the shot has no local row (purged last session).
+export async function removeLocalShotAndRenumber(clientId: string): Promise<void> {
+  const db = await getDb()
+  const row = await db.getFirstAsync<{ hs: string | null; num: number | null }>(
+    `SELECT json_extract(payload, '$.hole_score_id') AS hs,
+            json_extract(payload, '$.shot_number') AS num
+     FROM pending_shots WHERE json_extract(payload, '$.id') = ?`,
+    clientId,
+  )
+  await db.runAsync(`DELETE FROM pending_shots WHERE json_extract(payload, '$.id') = ?`, clientId)
+  if (!row?.hs || row.num == null) return
+  await db.runAsync(
+    `UPDATE pending_shots
+     SET payload = json_set(payload, '$.shot_number', json_extract(payload, '$.shot_number') - 1)
+     WHERE json_extract(payload, '$.hole_score_id') = ?
+       AND json_extract(payload, '$.shot_number') > ?`,
+    row.hs,
+    row.num,
+  )
+}
+
 // Attach end-of-hole metadata to a shot the player logged live. Keyed on the
 // client-generated payload.id: an existing local row (pending OR synced) is
 // rewritten in place and flipped back to 'pending' so the next sync re-upserts
@@ -337,4 +388,47 @@ export async function upsertReviewedShot(payload: ShotPayload): Promise<void> {
       Date.now(),
     )
   }
+}
+
+export type HoleScorePatch = Database['public']['Tables']['hole_scores']['Update']
+
+export interface PendingHoleScorePatch {
+  local_id: number
+  hole_score_id: string
+  round_id: string
+  patch: string
+}
+
+// Every value is absolute (score is written, never incremented), so the drain
+// can merge a hole's queued patches last-write-wins.
+export async function enqueueHoleScorePatch(
+  holeScore: { id: string; round_id: string },
+  patch: HoleScorePatch,
+): Promise<void> {
+  const db = await getDb()
+  await db.runAsync(
+    `INSERT INTO pending_hole_score_patches (hole_score_id, round_id, patch) VALUES (?, ?, ?)`,
+    holeScore.id,
+    holeScore.round_id,
+    JSON.stringify(patch),
+  )
+}
+
+export async function listHoleScorePatches(): Promise<PendingHoleScorePatch[]> {
+  const db = await getDb()
+  return db.getAllAsync<PendingHoleScorePatch>(
+    `SELECT * FROM pending_hole_score_patches ORDER BY local_id ASC`,
+  )
+}
+
+export async function deleteHoleScorePatches(
+  holeScoreId: string,
+  throughLocalId: number,
+): Promise<void> {
+  const db = await getDb()
+  await db.runAsync(
+    `DELETE FROM pending_hole_score_patches WHERE hole_score_id = ? AND local_id <= ?`,
+    holeScoreId,
+    throughLocalId,
+  )
 }

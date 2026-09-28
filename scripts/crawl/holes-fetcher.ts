@@ -11,6 +11,7 @@
 // courses, imperfect for adjacent multi-course facilities (see #267). Runs are
 // idempotent: courses that already have hole geometry are skipped, so it never
 // clobbers hand-curated data and is safe to re-run / resume.
+import { inferParFromYards } from '@oga/core'
 import { OSM_DELAY_MS, OVERPASS_ENDPOINTS, STATE_BBOX, asInt, haversineMeters, sleep } from './util'
 import {
   fetchCoursesWithHoleGeometry,
@@ -40,6 +41,7 @@ export interface HoleFeatures {
 
 const HOLE_TO_COURSE_MAX_M = 1500 // a hole must be within this of a course centroid to attach
 const SNAP_M = 45 // snap a hole endpoint to an explicit golf=tee/green feature within this
+const ON_GREEN_M = 15 // an endpoint this close to a green centroid is on that green
 
 function geomCentroid(geom: { lat: number; lon: number }[]): Pt {
   let lat = 0
@@ -96,7 +98,7 @@ export function parseHoleFeatures(elements: OverpassGeomElement[]): HoleFeatures
 
 // One Overpass query per state for all golf hole/green/tee geometry, with the
 // same endpoint-cycle + backoff sweep the course crawl uses.
-async function fetchHoleFeaturesInState(state: string): Promise<HoleFeatures> {
+export async function fetchHoleFeaturesInState(state: string): Promise<HoleFeatures> {
   const bbox = STATE_BBOX[state]
   if (!bbox) throw new Error(`OSM bbox not configured for state "${state}".`)
   const [s, w, n, e] = bbox
@@ -148,7 +150,7 @@ out geom tags;
 
 // Assign each hole way to its nearest course centroid (within radius), keeping
 // the nearest hole per ref, then build numbered holes with oriented geometry.
-function buildHolesForCourses(courses: CourseGeo[], f: HoleFeatures): Map<string, OgaHoleGeo[]> {
+export function buildHolesForCourses(courses: CourseGeo[], f: HoleFeatures): Map<string, OgaHoleGeo[]> {
   // course id -> ref -> { hole way, distance to that course }
   const byCourse = new Map<string, Map<number, { hw: HoleWay; d: number }>>()
   for (const hw of f.holeWays) {
@@ -181,26 +183,30 @@ function buildHolesForCourses(courses: CourseGeo[], f: HoleFeatures): Map<string
   return out
 }
 
-// Build one numbered hole with oriented tee/pin geometry from a hole way:
-// whichever endpoint is nearer a green is the pin end; snap to an explicit
-// golf=tee/green feature when one sits on the endpoint. Shared by the
+// Build one numbered hole from a hole way. OSM draws golf=hole from the tee to
+// the pin, so the way's direction is trusted (#905): the old rule — whichever
+// endpoint is nearer a green ANYWHERE is the pin — flipped correct ways,
+// because a tee usually sits beside the previous hole's green. Flip only when
+// the first node is on a green and the last is nowhere near one. Each end then snaps to an
+// explicit golf=tee/green feature when one sits on it. Shared by the
 // nearest-centroid osm-holes pass and the containment-based completion pass.
 export function buildOrientedHole(hw: HoleWay, f: HoleFeatures): OgaHoleGeo {
-  const gFirst = nearest(hw.first, f.greens).d
-  const gLast = nearest(hw.last, f.greens).d
-  const greenEnd = gLast <= gFirst ? hw.last : hw.first
-  const teeEnd = gLast <= gFirst ? hw.first : hw.last
+  const reversed = nearest(hw.first, f.greens).d < ON_GREEN_M && nearest(hw.last, f.greens).d > SNAP_M
+  const greenEnd = reversed ? hw.first : hw.last
+  const teeEnd = reversed ? hw.last : hw.first
   const ng = nearest(greenEnd, f.greens)
   const nt = nearest(teeEnd, f.tees)
   const pin = ng.pt && ng.d < SNAP_M ? ng.pt : greenEnd
   const tee = nt.pt && nt.d < SNAP_M ? nt.pt : teeEnd
   const yards = Math.round(haversineMeters(tee.lat, tee.lng, pin.lat, pin.lng) * 1.09361)
-  // holes.par CHECK is 3..6 — clamp the occasional out-of-range OSM par
-  // (pitch-and-putt 2s, mistagged 7s) rather than failing the whole batch.
-  const par = Math.min(6, Math.max(3, hw.par ?? 4))
+  // No par tag: infer it from the length and say so, instead of a silent 4
+  // (#912). holes.par CHECK is 3..6 — clamp the occasional out-of-range OSM
+  // par (pitch-and-putt 2s, mistagged 7s) rather than failing the whole batch.
+  const par = hw.par != null ? Math.min(6, Math.max(3, hw.par)) : inferParFromYards(yards)
   return {
     number: hw.ref,
     par,
+    parSource: hw.par != null ? 'osm' : 'inferred',
     yards: yards > 0 ? yards : undefined,
     teeLat: +tee.lat.toFixed(6),
     teeLng: +tee.lng.toFixed(6),

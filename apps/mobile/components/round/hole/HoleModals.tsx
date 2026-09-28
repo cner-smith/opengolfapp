@@ -1,7 +1,7 @@
 import { Modal, View } from 'react-native'
 import { GestureHandlerRootView } from 'react-native-gesture-handler'
 import type { Database } from '@oga/supabase'
-import type { LieType, ResolvedHole } from '@oga/core'
+import { formatHoleList, type LieType, type ResolvedHole } from '@oga/core'
 import {
   // ShotLogger is mounted below but currently unreachable: its only entry
   // point was PuttingSheet's "Not a putt?" escape (swapPuttingToShot), and
@@ -56,6 +56,8 @@ interface HoleModalsProps {
   onConfirmLeave: () => void
   onCancelLeave: () => void
   onConfirmEnd: () => void
+  // #940 prompt: other holes still unfinished when the last one to play is saved.
+  unfinished: { holes: number[]; onContinue: (hole: number) => void }
   onCancelEnd: () => void
   onGreenYes: () => void
   onGreenNo: () => void
@@ -93,12 +95,19 @@ export function HoleModals(props: HoleModalsProps) {
     onConfirmLeave,
     onCancelLeave,
     onConfirmEnd,
+    unfinished,
     onCancelEnd,
     onGreenYes,
     onGreenNo,
     onAimPromptConfirm,
     onAimPromptSkip,
   } = props
+  // Holes with anything logged — counted, not assumed from the hole number:
+  // #940's "Continue to hole N" makes out-of-order play common.
+  const currentHoleId = holes.find((h) => h.number === holeNumber)?.id
+  const detailedHoles = holeScores.filter(
+    (s) => s.score > 0 || (s.hole_id === currentHoleId && totalShotsThisHole > 0),
+  ).length
   return (
     <>
       <ShotLogger
@@ -149,12 +158,24 @@ export function HoleModals(props: HoleModalsProps) {
       <ConfirmDialog
         visible={activeDialog === 'end'}
         title={`End round after hole ${holeNumber}?`}
-        message={`Your round will be saved with ${totalShotsThisHole > 0 ? holeNumber : holeNumber - 1} hole(s) of detail. SG and totals are computed from what's logged so far.`}
+        message={`Your round will be saved with ${detailedHoles} hole(s) of detail. SG and totals are computed from what's logged so far.`}
         confirmLabel="End round"
         cancelLabel="Cancel"
         busy={ending}
         onConfirm={onConfirmEnd}
         onCancel={onCancelEnd}
+      />
+
+      {/* #940: Back / dismiss = Continue, the safe choice — never ends the round. */}
+      <ConfirmDialog
+        visible={activeDialog === 'unfinished'}
+        title={`Hole${unfinished.holes.length === 1 ? '' : 's'} ${formatHoleList(unfinished.holes)} ${unfinished.holes.length === 1 ? "isn't" : "aren't"} finished`}
+        message="Keep playing, or finish the round now with what's logged."
+        confirmLabel="Finish round"
+        cancelLabel={`Continue to hole ${unfinished.holes[0] ?? ''}`}
+        busy={ending}
+        onConfirm={onConfirmEnd}
+        onCancel={() => unfinished.holes[0] != null && unfinished.onContinue(unfinished.holes[0])}
       />
 
       <ConfirmDialog
@@ -180,6 +201,8 @@ export function HoleModals(props: HoleModalsProps) {
       <Modal
         visible={scorecardOpen}
         transparent
+        statusBarTranslucent
+        navigationBarTranslucent
         animationType="slide"
         onRequestClose={() => setScorecardOpen(false)}
       >

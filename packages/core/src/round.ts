@@ -3,8 +3,24 @@
 // behind one function avoids the inevitable drift.
 
 import { inferShot, type InferredShot, type PlacedShot } from './shotInference'
-import type { Club, LieType, LieSlope, LieSlopeForward, LieSlopeSide, ShotResult } from './constants'
-import { PUTT_RESULT_LABELS, SHOT_RESULT_LABELS } from './constants'
+import type {
+  Club,
+  LieType,
+  LieSlope,
+  LieSlopeForward,
+  LieSlopeSide,
+  ShotContact,
+  ShotResult,
+  ShotShape,
+  ShotStartLine,
+} from './constants'
+import {
+  PUTT_RESULT_LABELS,
+  SHOT_CONTACT_LABELS,
+  SHOT_RESULT_LABELS,
+  SHOT_SHAPE_LABELS,
+  SHOT_START_LINE_LABELS,
+} from './constants'
 import { formatDistance, formatPuttDistance, haversineYards } from './units'
 import type {
   BreakDirection,
@@ -16,7 +32,7 @@ import type {
   PuttDirectionResult,
   PuttDistanceResult,
 } from './types'
-import { decombinedBreakDirection } from './types'
+import { decombinedBreakDirection, shotAxesFromLegacy } from './types'
 import type { Database } from '@oga/supabase'
 
 type ShotRow = Database['public']['Tables']['shots']['Row']
@@ -65,8 +81,16 @@ export interface ReviewedShotRow {
   greenSpeed?: GreenSpeed
   /** Free-text note on the putt. Stored as notes. */
   notes?: string
-  /** Shot outcome — solid / push_right / thin / … Stored as shot_result. */
+  /** Legacy single outcome, derived from the axes below + the OB / penalty
+   *  flags via legacyShotResult (OB is stamped here as 'ob'). Stored as
+   *  shot_result. */
   shotResult?: ShotResult
+  /** Result axes (#951). Stored as contact / shape / start_line. */
+  contact?: ShotContact | null
+  shape?: ShotShape | null
+  startLine?: ShotStartLine | null
+  /** Penalty stroke on this shot. Stored as penalty. */
+  penalty?: boolean
   /** Lie slope, uphill axis (uphill/level/downhill). Stored as lie_slope_forward. */
   lieSlopeForward?: LieSlopeForward
   /** Lie slope, side axis (ball_above/ball_below). Stored as lie_slope_side. */
@@ -86,6 +110,83 @@ export interface ReviewedShotRow {
 export function inferHoleCount(holeNumbers: number[]): 9 | 18 {
   if (holeNumbers.length === 0) return 18
   return Math.max(...holeNumbers) <= 9 ? 9 : 18
+}
+
+// Par for a hole whose source has none (an OSM hole way with no `par` tag),
+// from its length: under 250 yd → 3, over 470 → 5, else 4 (#912). Crawled
+// lengths are tee→pin straight lines, so a dogleg reads short. Store the
+// result with par_source 'inferred' so it's never mistaken for a real par.
+export function inferParFromYards(yards: number | null | undefined): 3 | 4 | 5 {
+  if (yards == null || !(yards > 0)) return 4
+  if (yards < 250) return 3
+  if (yards > 470) return 5
+  return 4
+}
+
+// Where a live round picks back up after the app restarts: the hole after the
+// last FINISHED one, or the last hole with shots if that's further along. A
+// score alone can't mean finished — live mode rewrites a running score on
+// every shot, so a hole with one shot already reads as played (#902). Rows
+// written before finished_at existed resume on the last hole with shots.
+// Clamped to the round's length so a finished 9-hole round doesn't resume on
+// a phantom hole 10 (#650).
+export function resumeHoleNumber(
+  rows: ReadonlyArray<{ number: number; score: number | null; finished_at: string | null }>,
+): number {
+  let next = 1
+  for (const r of rows) {
+    if (r.finished_at) next = Math.max(next, r.number + 1)
+    if ((r.score ?? 0) > 0) next = Math.max(next, r.number)
+  }
+  return Math.min(inferHoleCount(rows.map((r) => r.number)), next)
+}
+
+// Sorted hole numbers as prose with consecutive runs collapsed, for copy like
+// "Holes 3–17 aren't finished" (#940): [3,4,5] → "3–5", [3,7] → "3 and 7",
+// [1,3,4,5,9] → "1, 3–5 and 9".
+export function formatHoleList(holes: readonly number[]): string {
+  const runs: string[] = []
+  for (let i = 0; i < holes.length; ) {
+    let j = i
+    while (j + 1 < holes.length && holes[j + 1] === holes[j]! + 1) j++
+    runs.push(j > i ? `${holes[i]}–${holes[j]}` : `${holes[i]}`)
+    i = j + 1
+  }
+  if (runs.length <= 1) return runs[0] ?? ''
+  return `${runs.slice(0, -1).join(', ')} and ${runs[runs.length - 1]}`
+}
+
+type HoleScoreForCount = { score: number | null; holes?: { number: number } | null }
+
+// How much of a round was played (#911): holes with a score (> 0, the
+// not-played sentinel) against the round's 9 or 18, inferred from its rows'
+// hole numbers — mobile pre-creates every row, web creates them as entered.
+// Null for a round with no rows (a bare total), which callers count as whole.
+export function roundHolesPlayed(
+  holeScores: readonly HoleScoreForCount[] | null | undefined,
+): { played: number; of: 9 | 18 } | null {
+  if (!holeScores?.length) return null
+  return {
+    played: holeScores.filter((hs) => hs.score != null && hs.score > 0).length,
+    of: inferHoleCount(holeScores.flatMap((hs) => (hs.holes ? [hs.holes.number] : []))),
+  }
+}
+
+// Ended early — kept out of round-level stats (avg / best / SG per round),
+// whose values only compare across whole rounds.
+export function isPartialRound(
+  holeScores: readonly HoleScoreForCount[] | null | undefined,
+): boolean {
+  const c = roundHolesPlayed(holeScores)
+  return c != null && c.played < c.of
+}
+
+// Suffix for a round's date line in the rounds lists: " · partial · 6 of 18".
+export function partialRoundLabel(
+  holeScores: readonly HoleScoreForCount[] | null | undefined,
+): string {
+  const c = roundHolesPlayed(holeScores)
+  return c && c.played < c.of ? ` · partial · ${c.played} of ${c.of}` : ''
 }
 
 // Penalty strokes on a hole, derived from the rows themselves — a stroke-
@@ -158,6 +259,10 @@ export interface ShotSummaryFields {
   putt_result: string | null
   putt_distance_result: string | null
   putt_direction_result: string | null
+  /** #951 axes. Optional so pre-0057 row shapes still type-check. */
+  contact?: string | null
+  shape?: string | null
+  start_line?: string | null
 }
 
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1)
@@ -215,9 +320,18 @@ export function summarizeShotParts(
     )
   }
   const distance = yards != null ? formatDistance(yards, unit) : null
-  const result = shot.shot_result
-    ? SHOT_RESULT_LABELS[shot.shot_result as ShotResult] ?? shot.shot_result
-    : null
+  // The axes when any is set (a shape alone has no legacy value), else the
+  // legacy single result.
+  const axes = [
+    shot.contact && SHOT_CONTACT_LABELS[shot.contact as ShotContact],
+    shot.shape && SHOT_SHAPE_LABELS[shot.shape as ShotShape],
+    shot.start_line && SHOT_START_LINE_LABELS[shot.start_line as ShotStartLine],
+  ].filter((v): v is string => Boolean(v))
+  const result = axes.length
+    ? axes.join(' · ')
+    : shot.shot_result
+      ? SHOT_RESULT_LABELS[shot.shot_result as ShotResult] ?? shot.shot_result
+      : null
   return [distance, result].filter((v): v is string => Boolean(v))
 }
 
@@ -297,6 +411,13 @@ export interface DraftShot {
   lieSlopeForward?: LieSlopeForward
   lieSlopeSide?: LieSlopeSide
   shotResult?: ShotResult
+  /** Result axes (#951) + flags. Rows from before 0057 fall back to the
+   *  legacy value's axes. */
+  contact?: ShotContact | null
+  shape?: ShotShape | null
+  startLine?: ShotStartLine | null
+  penalty?: boolean
+  ob?: boolean
   distanceToTarget?: number
   puttDistanceFt?: number
   puttMade?: boolean
@@ -324,6 +445,14 @@ export function shotRowToDraft(s: ShotRow): DraftShot {
   let shotResult: ShotResult | undefined = (s.shot_result as ShotResult | null) ?? undefined
   if (!shotResult && s.ob) shotResult = 'ob'
   else if (!shotResult && s.penalty) shotResult = 'penalty'
+  const axes =
+    s.contact || s.shape || s.start_line
+      ? {
+          contact: s.contact as ShotContact | null,
+          shape: s.shape as ShotShape | null,
+          startLine: s.start_line as ShotStartLine | null,
+        }
+      : shotAxesFromLegacy(s.shot_result)
   const legacy = legacySlopeToAxes(s.lie_slope as LieSlope | null)
   const puttResult = s.putt_result as LegacyPuttResult | null
   const breakAxes = decombinedBreakDirection(s.break_direction as BreakDirection | null)
@@ -335,6 +464,9 @@ export function shotRowToDraft(s: ShotRow): DraftShot {
     lieSlopeForward: (s.lie_slope_forward as LieSlopeForward | null) ?? legacy.forward,
     lieSlopeSide: (s.lie_slope_side as LieSlopeSide | null) ?? legacy.side,
     shotResult,
+    ...axes,
+    penalty: s.penalty || s.shot_result === 'penalty',
+    ob: s.ob || s.shot_result === 'ob',
     distanceToTarget: s.distance_to_target ?? undefined,
     puttDistanceFt: s.putt_distance_ft ?? undefined,
     puttMade: puttResult === 'made' ? true : undefined,

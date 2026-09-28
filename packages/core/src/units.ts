@@ -90,6 +90,14 @@ export function formatPuttDistance(feet: number, unit: DistanceUnit): string {
   return Math.round(feet) + ' ft'
 }
 
+// Signed putt offsets (putter pattern lateral / distance bias, #923). Formats
+// the magnitude first and signs only a non-zero result, so a value that
+// rounds away reads "0 in", not "-0 in" (same rule as formatSG, #672).
+export function formatSignedPuttDistance(feet: number, unit: DistanceUnit): string {
+  const magnitude = formatPuttDistance(Math.abs(feet), unit)
+  return feet < 0 && /[1-9]/.test(magnitude) ? `-${magnitude}` : magnitude
+}
+
 // Today's date as YYYY-MM-DD in the player's LOCAL timezone. The naive
 // `new Date().toISOString().slice(0, 10)` returns UTC, which records the
 // wrong date for evening play in any timezone west of UTC (after ~7 pm

@@ -5,7 +5,7 @@ import {
 } from './sg-calculator'
 import { NEAR_GREEN_YARDS } from './constants'
 import type { LieSlopeForward, LieSlopeSide, LieType, ShotCategory, ShotResult } from './constants'
-import { isPuttShot } from './round'
+import { isPartialRound, isPuttShot } from './round'
 import { METERS_TO_YARDS, YARDS_TO_METERS, haversineYards, toRadians } from './units'
 import { RESULT_QUALITY } from './types'
 import type { DistanceUnit } from './types'
@@ -90,6 +90,13 @@ function flatten(rounds: DetailedRound[]): FlatHoleScore[] {
   return out
 }
 
+// Every hole_scores row exists from round start with score 0; 0 means not
+// played (same sentinel as playedRowsForDifferential). Counting those rows
+// made each unplayed par 4 an eagle (#910).
+function isPlayed(hs: { score: number | null }): boolean {
+  return hs.score != null && hs.score > 0
+}
+
 function pct(numerator: number, denominator: number): number | null {
   if (denominator <= 0) return null
   return (numerator / denominator) * 100
@@ -106,6 +113,13 @@ export interface SGAverages {
   putting: number | null
 }
 
+// Round-level numbers (avg score, best/worst, SG per round) only compare
+// across whole rounds; a round ended early stays out of them (#911). Its holes
+// still feed the per-hole stats.
+function wholeRounds(rounds: DetailedRound[]): DetailedRound[] {
+  return rounds.filter((r) => !isPartialRound(r.hole_scores))
+}
+
 export function sgAverages(rounds: DetailedRound[]): SGAverages {
   const keys: Array<['sg_off_tee' | 'sg_approach' | 'sg_around_green' | 'sg_putting', keyof SGAverages]> = [
     ['sg_off_tee', 'offTee'],
@@ -115,7 +129,7 @@ export function sgAverages(rounds: DetailedRound[]): SGAverages {
   ]
   const out: SGAverages = { offTee: null, approach: null, aroundGreen: null, putting: null }
   for (const [col, label] of keys) {
-    const values = rounds
+    const values = wholeRounds(rounds)
       .map((r) => r[col])
       .filter((v): v is number => v != null)
     if (values.length === 0) {
@@ -226,7 +240,7 @@ export interface SGTrendPoint {
 }
 
 export function sgTrend(rounds: DetailedRound[]): SGTrendPoint[] {
-  return [...rounds]
+  return wholeRounds(rounds)
     .reverse()
     .filter((r) => r.sg_total != null)
     .map((r) => ({
@@ -388,9 +402,10 @@ export interface ScoringStats {
 }
 
 export function scoringStats(rounds: DetailedRound[]): ScoringStats {
-  const totalScores = rounds
+  const totalScores = wholeRounds(rounds)
     .map((r) => r.total_score)
-    .filter((v): v is number => v != null)
+    // 0 = the past-round logger's "no score yet" sentinel (#910).
+    .filter((v): v is number => v != null && v > 0)
   const avgScore = totalScores.length
     ? totalScores.reduce((a, b) => a + b, 0) / totalScores.length
     : null
@@ -399,7 +414,7 @@ export function scoringStats(rounds: DetailedRound[]): ScoringStats {
   const front: number[] = []
   const back: number[] = []
   for (const { hs, hole } of flatten(rounds)) {
-    if (hs.score == null) continue
+    if (!isPlayed(hs)) continue
     if (hole.par === 3 || hole.par === 4 || hole.par === 5) {
       byPar[hole.par as 3 | 4 | 5].push(hs.score)
     }
@@ -444,7 +459,7 @@ export function scoringDistribution(rounds: DetailedRound[]): {
   }
   let total = 0
   for (const { hs, hole } of flatten(rounds)) {
-    if (hs.score == null) continue
+    if (!isPlayed(hs)) continue
     total += 1
     const d = hs.score - hole.par
     if (d <= -2) counts.eagleOrBetter += 1
@@ -459,7 +474,7 @@ export function scoringDistribution(rounds: DetailedRound[]): {
     label: string
     color: string
   }> = [
-    { key: 'eagleOrBetter', label: 'Eagle+', color: '#1F3D2C' },
+    { key: 'eagleOrBetter', label: 'Eagle+', color: '#C9A24E' }, // brass: must differ from birdie's forest
     { key: 'birdie', label: 'Birdie', color: '#1F3D2C' },
     { key: 'par', label: 'Par', color: '#9F9580' },
     { key: 'bogey', label: 'Bogey', color: '#A66A1F' },
@@ -680,6 +695,7 @@ export function shortGameStats(rounds: DetailedRound[]): ShortGameStats {
   let sandMakes = 0
 
   for (const { hs, hole, shots } of flatten(rounds)) {
+    if (!isPlayed(hs)) continue
     totalHoles += 1
     if (hs.gir === true) {
       girHoleCount += 1
@@ -941,10 +957,7 @@ export function computeDetailedStats(
   rounds: DetailedRound[],
   handicap: number,
 ): DetailedStats {
-  const holesPlayed = rounds.reduce(
-    (sum, r) => sum + (r.hole_scores?.length ?? 0),
-    0,
-  )
+  const holesPlayed = flatten(rounds).filter(({ hs }) => isPlayed(hs)).length
   return {
     rounds: rounds.length,
     holesPlayed,

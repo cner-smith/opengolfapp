@@ -15,6 +15,8 @@ import {
   C,
 } from '../primitives'
 import { FONT } from '../../../lib/typography'
+import { PaperTile } from '../../paper/Section'
+import { FONT_CAP } from '../../paper/tokens'
 
 export function SwingVariationsArticle() {
   return (
@@ -473,33 +475,23 @@ export function SwingVariationsArticle() {
   )
 }
 
-// The self-awareness questions to run before taking a generic tip. A tinted
-// card with a "?"-glyph before each item, mirroring the web Checklist.
+// The self-awareness questions to run before taking a generic tip. A paper
+// tile with a "?"-glyph before each item, mirroring the web Checklist.
 function Checklist({ items }: { items: string[] }) {
   return (
-    <View
-      style={{
-        backgroundColor: C.boxBg,
-        borderWidth: 1,
-        borderColor: C.line,
-        borderRadius: 2,
-        paddingVertical: 14,
-        paddingHorizontal: 18,
-        marginBottom: 18,
-      }}
-    >
-      <Text style={{ ...KICKER, color: C.inkDim, marginBottom: 12 }}>
+    <PaperTile style={{ marginBottom: 18 }} innerStyle={{ paddingVertical: 14, paddingHorizontal: 18 }}>
+      <Text maxFontSizeMultiplier={FONT_CAP} style={{ ...KICKER, marginBottom: 12 }}>
         Run this before you copy a tip
       </Text>
       {items.map((item) => (
         <View key={item} style={{ flexDirection: 'row', gap: 8, marginBottom: 9 }}>
-          <Text style={{ color: C.accent, fontFamily: FONT.body, fontSize: 14, lineHeight: 21 }}>?</Text>
-          <Text style={{ color: C.ink, fontFamily: FONT.body, fontSize: 14, lineHeight: 21, flex: 1 }}>
+          <Text maxFontSizeMultiplier={FONT_CAP} style={{ color: C.accent, fontFamily: FONT.body, fontSize: 14, lineHeight: 21 }}>?</Text>
+          <Text maxFontSizeMultiplier={FONT_CAP} style={{ color: C.ink, fontFamily: FONT.body, fontSize: 14, lineHeight: 21, flex: 1 }}>
             {item}
           </Text>
         </View>
       ))}
-    </View>
+    </PaperTile>
   )
 }
 
@@ -541,29 +533,20 @@ function HallOfFame() {
   return (
     <View style={{ gap: 12, marginBottom: 16 }}>
       {players.map((p) => (
-        <View
-          key={p.name}
-          style={{
-            borderWidth: 1,
-            borderColor: C.line,
-            backgroundColor: C.boxBg,
-            borderRadius: 2,
-            paddingVertical: 12,
-            paddingHorizontal: 14,
-          }}
-        >
+        <PaperTile key={p.name} innerStyle={{ paddingVertical: 12, paddingHorizontal: 14 }}>
           <Text
+            maxFontSizeMultiplier={FONT_CAP}
             style={{ color: C.ink, fontFamily: FONT.serifItalic, fontSize: 16, marginBottom: 6 }}
           >
             {p.name}
           </Text>
-          <Text style={{ color: C.inkDim, fontFamily: FONT.body, fontSize: 13, lineHeight: 20, marginBottom: 6 }}>
+          <Text maxFontSizeMultiplier={FONT_CAP} style={{ color: C.inkDim, fontFamily: FONT.body, fontSize: 13, lineHeight: 20, marginBottom: 6 }}>
             {p.quirk}
           </Text>
-          <Text style={{ color: C.accent, fontFamily: FONT.bodyBold, fontSize: 13, lineHeight: 20, fontWeight: '500' }}>
+          <Text maxFontSizeMultiplier={FONT_CAP} style={{ color: C.accent, fontFamily: FONT.bodyBold, fontSize: 13, lineHeight: 20 }}>
             {p.result}
           </Text>
-        </View>
+        </PaperTile>
       ))}
     </View>
   )

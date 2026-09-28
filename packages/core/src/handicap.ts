@@ -6,8 +6,8 @@
 // - calculateHandicapIndex: averages the lowest N differentials per
 //   the WHS table (Rule 5.2a) and applies the low-round adjustment.
 //   Replaces the legacy 0.96 multiplier — WHS does not use one.
-// - adjustedScore: Equitable Stroke Control caps each hole's score
-//   for handicap purposes based on the player's index.
+// - adjustedScore: net double bogey (Rule 3.1) caps each hole's score
+//   at par + 2 + the strokes the player receives on it.
 //
 // Pure module — no DB, no React. Used by web + mobile finalize flows
 // and any future server-side handicap recompute.
@@ -74,24 +74,41 @@ export function calculateHandicapIndex(
   return Math.min(rounded, MAX_HANDICAP_INDEX)
 }
 
-// ESC: cap each hole's gross score before computing the adjusted
-// total used in the differential formula.
-export function adjustedScore(
-  holes: { score: number; par: number }[],
-  handicapIndex: number,
-): number {
-  return holes.reduce((total, hole) => {
-    const max = capForHole(hole.par, handicapIndex)
-    return total + Math.min(hole.score, max)
-  }, 0)
+export interface AdjustHole {
+  score: number
+  par: number
+  strokeIndex?: number | null
 }
 
-function capForHole(par: number, handicapIndex: number): number {
-  if (handicapIndex <= 9) return par + 2
-  if (handicapIndex <= 19) return 7
-  if (handicapIndex <= 29) return 8
-  if (handicapIndex <= 39) return 9
-  return 10
+// Net double bogey (WHS Rule 3.1): each hole is capped at par + 2 + the
+// strokes received there. Strokes come from the Course Handicap (Rule 6.1:
+// index × slope/113 + rating − par; a 9-hole round uses half the index),
+// allocated by stroke index (Rule 6.2) — plus handicaps give strokes back on
+// the highest-index holes. Without a stroke index on every hole the
+// allocation is unknown, so each hole gets the average share, CH / holes
+// (unrounded): over the round that is exactly the Course Handicap, so the
+// adjusted total is biased neither up nor down. Rounding it down instead
+// capped a 15-handicap at par + 2 on every hole (#670 review).
+export function adjustedScore(
+  holes: AdjustHole[],
+  handicapIndex: number,
+  tee: { courseRating: number; slopeRating: number },
+): number {
+  const n = holes.length
+  if (n === 0) return 0
+  const par = holes.reduce((t, h) => t + h.par, 0)
+  const index = n <= 9 ? handicapIndex / 2 : handicapIndex
+  const ch = Math.round((index * tee.slopeRating) / 113 + (tee.courseRating - par))
+  const base = Math.floor(ch / n)
+  const extra = ((ch % n) + n) % n
+  const withSi = holes.every((h) => h.strokeIndex != null)
+  const rank = new Map(
+    [...holes].sort((a, b) => a.strokeIndex! - b.strokeIndex!).map((h, i) => [h, i + 1] as const),
+  )
+  return holes.reduce((total, h) => {
+    const strokes = withSi ? base + (rank.get(h)! <= extra ? 1 : 0) : ch / n
+    return total + Math.min(h.score, h.par + 2 + strokes)
+  }, 0)
 }
 
 // Provenance of a stored handicap_index: 'calculated' once the player has

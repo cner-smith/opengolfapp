@@ -6,7 +6,30 @@ import {
   PUTTING_BASELINES,
   getHandicapBracket,
   interpolateBaseline,
+  teeBaseline,
 } from '../sg-baselines'
+
+describe('teeBaseline — Broadie tee lines (#998)', () => {
+  it('a tour pro (+5) sits on the PGA TOUR line 2.38 + 0.0041·d', () => {
+    // bracket −5 isn't a bracket; check the line through the published anchors:
+    // bracket 0 is a quarter of the way from tour to the 90-golfer (15).
+    expect(teeBaseline(0, 400)).toBeCloseTo(2.38 + 0.41 * 0.25 + (0.0041 + 0.0025 * 0.25) * 400, 6)
+  })
+
+  it('the 15 bracket (90-golfer) matches Broadie 2008: 2.79 + 0.0066·d', () => {
+    expect(teeBaseline(15, 400)).toBeCloseTo(2.79 + 0.0066 * 400, 6)
+  })
+
+  it('rises with distance and with handicap', () => {
+    for (const b of HANDICAP_BRACKETS) expect(teeBaseline(b, 450)!).toBeGreaterThan(teeBaseline(b, 350)!)
+    for (let i = 1; i < HANDICAP_BRACKETS.length; i++)
+      expect(teeBaseline(HANDICAP_BRACKETS[i]!, 400)!).toBeGreaterThan(teeBaseline(HANDICAP_BRACKETS[i - 1]!, 400)!)
+  })
+
+  it('non-finite distance → null', () => {
+    expect(teeBaseline(10, Number.NaN)).toBeNull()
+  })
+})
 
 describe('getHandicapBracket', () => {
   // Bracket cutoffs documented in sg-baselines.ts:
@@ -173,8 +196,19 @@ describe('interpolateBaseline — approach baselines (yards)', () => {
     expect(interpolateBaseline(scratch, 30)).toBe(scratch[50])
   })
 
-  it('300 yd clamps to the 225 yd value (table maximum)', () => {
-    expect(interpolateBaseline(scratch, 300)).toBe(scratch[225])
+  it('reads past 225 yd (#998: used to clamp there) and clamps at 600', () => {
+    expect(interpolateBaseline(scratch, 300)).toBe(scratch[300])
+    expect(scratch[300]).toBeGreaterThan(scratch[225]!)
+    expect(interpolateBaseline(scratch, 700)).toBe(scratch[600])
+  })
+
+  it('every bracket is non-decreasing from 50 to 600 yd', () => {
+    for (const b of HANDICAP_BRACKETS) {
+      const row = APPROACH_BASELINES[b]
+      const keys = Object.keys(row).map(Number).sort((x, y) => x - y)
+      expect(keys.at(-1)).toBe(600)
+      for (let i = 1; i < keys.length; i++) expect(row[keys[i]!]).toBeGreaterThanOrEqual(row[keys[i - 1]!]!)
+    }
   })
 
   it('150 yd interp is strictly monotone across handicap brackets', () => {
@@ -197,8 +231,17 @@ describe('interpolateBaseline — around-green baselines (yards)', () => {
     expect(interpolateBaseline(scratch, 5)).toBe(2.18)
   })
 
-  it('scratch around-green from 30 yd ≈ 2.64 strokes', () => {
-    expect(interpolateBaseline(scratch, 30)).toBe(2.64)
+  it('scratch around-green from 30 yd ≈ 2.60 strokes', () => {
+    expect(interpolateBaseline(scratch, 30)).toBe(2.6)
+  })
+
+  it('meets approach@50 at the 30-yd hand-over, never above it (#632)', () => {
+    for (const b of HANDICAP_BRACKETS) {
+      const ag = AROUND_GREEN_BASELINES[b]
+      expect(ag[30]).toBe(APPROACH_BASELINES[b][50])
+      const keys = Object.keys(ag).map(Number).sort((x, y) => x - y)
+      for (let i = 1; i < keys.length; i++) expect(ag[keys[i]!]!).toBeGreaterThan(ag[keys[i - 1]!]!)
+    }
   })
 
   it('40 yd clamps to 30 yd value (around-green tops out at 30)', () => {

@@ -23,7 +23,7 @@ const config: ExpoConfig = {
   // main would have delivered JS needing native code those binaries lack.
   // Branch `ota/rt-1.2.0` is pinned before that merge if anything ever needs
   // shipping to the old installed base.
-  version: '1.5.0',
+  version: '1.6.0',
   // EAS Update (OTA). Ships JS/asset-only fixes to installed builds WITHOUT an
   // App Store / Play review — Apple/Google permit interpreted-code updates that
   // don't add native code or change the app's purpose. Native changes (SDK/RN
@@ -106,6 +106,10 @@ const config: ExpoConfig = {
         'OGA may use the camera to attach photos to round notes.',
       NSPhotoLibraryAddUsageDescription:
         'OGA may save round summary cards to your photo library.',
+      // expo-audio (cup sound, playback only) compiles its recorder, which
+      // references the microphone API; App Store Connect rejects the upload
+      // without this string (ITMS-90683, expo/expo#33761). OGA never asks.
+      NSMicrophoneUsageDescription: 'OGA does not record audio.',
     },
     // App Privacy Manifest (required for App Store uploads since May 2024).
     // Hand-placing a PrivacyInfo.xcprivacy is futile here — CNG regenerates
@@ -186,6 +190,19 @@ const config: ExpoConfig = {
   plugins: [
     'expo-router',
     'expo-sqlite',
+    [
+      // R8 on Android release builds: Play Console flagged 1.5.0 for DEX
+      // obfuscation at 1% ("below our threshold … may impact visibility").
+      // Shrinking also cuts APK size. Needs a release-build smoke before a
+      // store submit — R8 can strip classes reached only by reflection.
+      'expo-build-properties',
+      {
+        android: {
+          enableMinifyInReleaseBuilds: true,
+          enableShrinkResourcesInReleaseBuilds: true,
+        },
+      },
+    ],
     [
       'expo-location',
       {

@@ -203,6 +203,14 @@ export const SHOT_RESULTS = [
   'ob',
 ] as const
 
+// The shot result as three independent, optional axes (#951, migration
+// 0057). Left → right is the picker's order. Draw / fade are intended
+// shapes, not misses. SHOT_RESULTS above stays as the legacy single value,
+// written through legacyShotResult (types.ts).
+export const SHOT_CONTACTS = ['solid', 'fat', 'thin', 'topped', 'shank'] as const
+export const SHOT_SHAPES = ['hook', 'draw', 'straight', 'fade', 'slice'] as const
+export const SHOT_START_LINES = ['pull', 'on_line', 'push'] as const
+
 export const SKILL_LEVELS = ['beginner', 'casual', 'developing', 'competitive'] as const
 
 export const GOALS = ['break_100', 'break_90', 'break_80', 'break_70s', 'scratch'] as const
@@ -230,6 +238,9 @@ export type LieSlope = (typeof LIE_SLOPES)[number]
 export type LieSlopeForward = (typeof LIE_SLOPES_FORWARD)[number]
 export type LieSlopeSide = (typeof LIE_SLOPES_SIDE)[number]
 export type ShotResult = (typeof SHOT_RESULTS)[number]
+export type ShotContact = (typeof SHOT_CONTACTS)[number]
+export type ShotShape = (typeof SHOT_SHAPES)[number]
+export type ShotStartLine = (typeof SHOT_START_LINES)[number]
 export type SkillLevel = (typeof SKILL_LEVELS)[number]
 export type Goal = (typeof GOALS)[number]
 export type Facility = (typeof FACILITIES)[number]
@@ -278,6 +289,28 @@ export const SHOT_RESULT_LABELS: Record<ShotResult, string> = {
   topped: 'Topped',
   penalty: 'Penalty',
   ob: 'OB',
+}
+
+export const SHOT_CONTACT_LABELS: Record<ShotContact, string> = {
+  solid: 'Solid',
+  fat: 'Fat',
+  thin: 'Thin',
+  topped: 'Topped',
+  shank: 'Shank',
+}
+
+export const SHOT_SHAPE_LABELS: Record<ShotShape, string> = {
+  hook: 'Hook',
+  draw: 'Draw',
+  straight: 'Straight',
+  fade: 'Fade',
+  slice: 'Slice',
+}
+
+export const SHOT_START_LINE_LABELS: Record<ShotStartLine, string> = {
+  pull: 'Pull',
+  on_line: 'On line',
+  push: 'Push',
 }
 
 export const LIE_TYPE_LABELS: Record<LieType, string> = {

@@ -27,6 +27,7 @@ export type ActiveDialog =
   | 'delete'    // Delete round confirm
   | 'leave'     // Leave round confirm
   | 'end'       // End round confirm
+  | 'unfinished' // Last hole to play, but others aren't finished (#940)
   | 'exit'      // Exit live mode (from error state) confirm
   | 'onGreen'   // "On the green?" prompt
   | 'aim'       // "Set aim point?" prompt

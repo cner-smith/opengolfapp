@@ -25,7 +25,7 @@
  */
 import 'dotenv/config'
 import { createClient } from '@supabase/supabase-js'
-import { DEFAULT_BAG } from '@oga/core'
+import { DEFAULT_BAG, shotAxesFromLegacy } from '@oga/core'
 
 const URL = process.env.SUPABASE_URL ?? 'http://127.0.0.1:54321'
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -507,12 +507,13 @@ function genHoleScore(par: number, meanDelta: number): number {
   return Math.max(1, par + d)
 }
 
-function samplePutts(score: number): number {
+function samplePutts(score: number, par: number): number {
   let p = 2
   const r = Math.random()
   if (r < 0.22) p = 1
   else if (r > 0.82) p = 3
-  return Math.min(p, Math.max(1, score - 1))
+  // Leave at least par-2 full shots to reach the green (no driving a 489-yd par 4).
+  return Math.max(1, Math.min(p, score - Math.max(1, par - 2)))
 }
 
 async function insertRound(
@@ -524,7 +525,6 @@ async function insertRound(
   teeColor: string,
 ): Promise<void> {
   const profile = sampleProfile(archetype)
-  const sgTotal = profile.sgOffTee + profile.sgApproach + profile.sgAroundGreen + profile.sgPutting
   const meanDelta = rand(archetype.over[0], archetype.over[1]) / course.holes.length
 
   // Generate every hole's score + putts up front so round totals are the
@@ -532,7 +532,7 @@ async function insertRound(
   // hole_scores the scorecard renders.
   const perHole = course.holes.map((h) => {
     const score = genHoleScore(h.par, meanDelta)
-    const putts = samplePutts(score)
+    const putts = samplePutts(score, h.par)
     const fairwayHit = h.par > 3 ? Math.random() < 0.58 : null
     const gir = score - putts <= h.par - 2
     return { hole: h, score, putts, fairwayHit, gir }
@@ -544,12 +544,37 @@ async function insertRound(
   const fairwaysHit = perHole.filter((p) => p.fairwayHit === true).length
   const girTotal = perHole.filter((p) => p.gir).length
 
+  // SG must agree with the score (a 90 can't gain strokes on a 78): the total
+  // follows ~0 at +14 for this 12.4 player on these championship courses, and
+  // the archetype's categories are shifted evenly to meet it, keeping its story.
+  // (Not computeRoundSG over the seeded shots: tee shots clamp at the 225-yd
+  // end of the approach table and read ~-0.7 per drive — see the SG issue.)
+  const over = totalScore - course.holes.reduce((s, h) => s + h.par, 0)
+  // Alex's standing game under every round's story: iron play is the leak,
+  // the driver a small strength — so Home, Stats and the practice plan agree.
+  profile.sgOffTee += 0.4
+  profile.sgApproach -= 1.0
+  profile.sgPutting += 0.2
+  const d = (14 - over) * 0.9 + gaussian(0.4) - (profile.sgOffTee + profile.sgApproach + profile.sgAroundGreen + profile.sgPutting)
+  // Split unevenly: an even split moved all four category lines in lockstep on
+  // the Stats trend chart, which no real player's rounds do.
+  const w = [0, 0, 0, 0].map(() => Math.max(0.05, 0.25 + gaussian(0.15)))
+  const wSum = w.reduce((s, x) => s + x, 0)
+  profile.sgOffTee += (d * w[0]!) / wSum
+  profile.sgApproach += (d * w[1]!) / wSum
+  profile.sgAroundGreen += (d * w[2]!) / wSum
+  profile.sgPutting += (d * w[3]!) / wSum
+  const sgTotal = profile.sgOffTee + profile.sgApproach + profile.sgAroundGreen + profile.sgPutting
+
   const { data: round, error: roundError } = await supabase
     .from('rounds')
     .insert({
       user_id: userId,
       course_id: course.id,
       played_at: dateNDaysAgo(daysAgo),
+      // Finished rounds, like the app's completeRound writes — without it the
+      // past-round map reads every hole as "N shots so far" (still logging).
+      completed_at: new Date(`${dateNDaysAgo(daysAgo)}T18:00:00Z`).toISOString(),
       tee_color: teeColor,
       total_score: totalScore,
       total_putts: totalPutts,
@@ -584,7 +609,7 @@ async function insertRound(
     if (hsError || !hs) throw hsError ?? new Error('hole_score insert failed')
 
     // Shots need real tee+pin coordinates to anchor dispersion to the hole.
-    if (withShots && hasGeom(p.hole)) await insertHoleShots(userId, hs.id, p.hole, p.score)
+    if (withShots && hasGeom(p.hole)) await insertHoleShots(userId, hs.id, p.hole, p.score, p.putts, p.fairwayHit)
   }
 }
 
@@ -593,75 +618,78 @@ async function insertHoleShots(
   holeScoreId: string,
   hole: HoleRow,
   totalShots: number,
+  putts: number,
+  fairwayHit: boolean | null,
 ): Promise<void> {
   const teeBase = { lat: hole.teeLat!, lng: hole.teeLng! }
   const pinBase = { lat: hole.pinLat!, lng: hole.pinLng! }
+  // The shots must tell the same story as the scorecard row (store screenshots
+  // replay them): `full` strokes to reach the green, then exactly `putts` putts
+  // whose lengths are the real distance from where the ball lies.
+  const full = totalShots - putts
+  const puttFeet =
+    putts === 1 ? [rand(3, 18)] : putts === 2 ? [rand(14, 40), rand(1.5, 5)] : [rand(30, 55), rand(5, 10), rand(1, 3)]
 
   let lastEnd = teeBase
-  for (let n = 1; n <= totalShots; n++) {
-    const isLast = n === totalShots
+  for (let n = 1; n <= full; n++) {
     const lieSlope = ['level', 'uphill', 'downhill', 'ball_above', 'ball_below'][
       Math.floor(rand(0, 5))
     ]
-
-    if (isLast) {
-      // Holed putt on the green.
-      const { error } = await supabase.from('shots').insert({
-        hole_score_id: holeScoreId,
-        user_id: userId,
-        shot_number: n,
-        start_lat: lastEnd.lat,
-        start_lng: lastEnd.lng,
-        aim_lat: pinBase.lat,
-        aim_lng: pinBase.lng,
-        end_lat: pinBase.lat,
-        end_lng: pinBase.lng,
-        distance_to_target: null,
-        club: 'putter',
-        lie_type: 'green',
-        lie_slope: lieSlope,
-        shot_result: null,
-        penalty: false,
-        ob: false,
-        putt_distance_ft: Math.round(rand(2, 22) * 10) / 10,
-        putt_result: 'made',
-      })
-      if (error) throw error
-      lastEnd = pinBase
-      continue
+    const lieType =
+      n === 1 ? 'tee' : n === 2 && fairwayHit !== null ? (fairwayHit ? 'fairway' : 'rough') : Math.random() < 0.68 ? 'fairway' : 'rough'
+    const distToPin = Math.max(8, Math.round(distanceYards(lastEnd, pinBase)))
+    const toGreen = n === full
+    // Leave ~25 yd per stroke still to come so the next shot isn't a putt from
+    // the fairway; the last full shot plays at the flag.
+    const advance = toGreen ? distToPin : Math.max(20, Math.min(distToPin - 25 * (full - n), TYPICAL_CARRY[pickClubForDistance(distToPin)] ?? distToPin))
+    const pick = pickClubForDistance(advance)
+    // Driver only off the tee; a putter never from off the green.
+    const club = toGreen ? pickApproachClub(distToPin) : pick === 'putter' ? 'sw' : pick === 'driver' && n > 1 ? '3w' : pick
+    const aim = stepToward(lastEnd, pinBase, advance)
+    let end: { lat: number; lng: number }
+    let result: string
+    if (toGreen) {
+      // On the green, first-putt length from the flag, slightly off-line.
+      const back = stepToward(pinBase, lastEnd, puttFeet[0]! / 3)
+      end = dispersedEnd(lastEnd, back, 0, gaussian(0.8))
+      result = Math.random() < 0.7 ? 'solid' : 'thin'
+    } else {
+      const disp = CLUB_DISPERSION[club] ?? DEFAULT_DISP
+      const offLong = disp.biasLong + gaussian(disp.sdLong)
+      // Tee shots honour the card: a hit fairway stays within ~15 yd of the
+      // aim line, a miss lands 15–40 yd off it (right 65% of the time — this
+      // player's slice). Everything else follows the club's own spread.
+      const offLat =
+        n === 1 && fairwayHit === true
+          ? Math.max(-15, Math.min(15, disp.biasLat + gaussian(disp.sdLat * 0.6)))
+          : n === 1 && fairwayHit === false
+            ? (Math.random() < 0.65 ? 1 : -1) * rand(15, 40)
+            : disp.biasLat + gaussian(disp.sdLat)
+      end = dispersedEnd(lastEnd, aim, offLong, offLat)
+      // Result follows the actual miss so result-based stats stay consistent.
+      // Labels scale with the club: 10 yd offline is a fine drive but a
+      // pulled wedge.
+      result =
+        offLat > disp.sdLat * 1.2
+          ? 'push_right'
+          : offLat < -disp.sdLat * 1.2
+            ? 'pull_left'
+            : offLong < -disp.sdLong * 1.3
+              ? 'fat'
+              : Math.random() < 0.18
+                ? 'thin'
+                : 'solid'
     }
 
-    const lieType = n === 1 ? 'tee' : Math.random() < 0.68 ? 'fairway' : 'rough'
-    // Club is chosen for the distance still to the pin; the ball advances by
-    // the club's typical carry (or reaches the pin, whichever is shorter).
-    const distToPin = Math.max(8, Math.round(distanceYards(lastEnd, pinBase)))
-    const club = pickClubForDistance(distToPin)
-    const carry = TYPICAL_CARRY[club] ?? distToPin
-    const aim = stepToward(lastEnd, pinBase, Math.min(carry, distToPin))
-    const disp = CLUB_DISPERSION[club] ?? DEFAULT_DISP
-    const offLong = disp.biasLong + gaussian(disp.sdLong)
-    const offLat = disp.biasLat + gaussian(disp.sdLat)
-    const end = dispersedEnd(lastEnd, aim, offLong, offLat)
-    // Result follows the actual miss so result-based stats stay consistent.
-    const result =
-      offLat > 9
-        ? 'push_right'
-        : offLat < -9
-          ? 'pull_left'
-          : offLong < -11
-            ? 'fat'
-            : Math.random() < 0.18
-              ? 'thin'
-              : 'solid'
-
+    const axes = shotAxesFromLegacy(result)
     const { error } = await supabase.from('shots').insert({
       hole_score_id: holeScoreId,
       user_id: userId,
       shot_number: n,
       start_lat: lastEnd.lat,
       start_lng: lastEnd.lng,
-      aim_lat: aim.lat,
-      aim_lng: aim.lng,
+      aim_lat: toGreen ? pinBase.lat : aim.lat,
+      aim_lng: toGreen ? pinBase.lng : aim.lng,
       end_lat: end.lat,
       end_lng: end.lng,
       distance_to_target: distToPin,
@@ -669,6 +697,8 @@ async function insertHoleShots(
       lie_type: lieType,
       lie_slope: lieSlope,
       shot_result: result,
+      contact: axes.contact,
+      start_line: axes.startLine,
       penalty: false,
       ob: false,
       putt_distance_ft: null,
@@ -677,42 +707,138 @@ async function insertHoleShots(
     if (error) throw error
     lastEnd = end
   }
+
+  for (let i = 0; i < putts; i++) {
+    const n = full + i + 1
+    const made = i === putts - 1
+    const feet = Math.round((distanceYards(lastEnd, pinBase) * 3) * 10) / 10
+    // Missed putts finish the next putt's length from the hole, short or long.
+    const long = Math.random() < 0.4
+    const nextFeet = made ? 0 : puttFeet[i + 1]!
+    const end = made
+      ? pinBase
+      : long
+        ? stepToward(pinBase, lastEnd, -nextFeet / 3)
+        : stepToward(pinBase, lastEnd, nextFeet / 3)
+    const distanceResult = made ? null : long ? 'long' : 'short'
+    const { error } = await supabase.from('shots').insert({
+      hole_score_id: holeScoreId,
+      user_id: userId,
+      shot_number: n,
+      start_lat: lastEnd.lat,
+      start_lng: lastEnd.lng,
+      aim_lat: pinBase.lat,
+      aim_lng: pinBase.lng,
+      end_lat: end.lat,
+      end_lng: end.lng,
+      distance_to_target: null,
+      club: 'putter',
+      lie_type: 'green',
+      lie_slope: 'level',
+      shot_result: null,
+      penalty: false,
+      ob: false,
+      putt_distance_ft: feet,
+      putt_distance_result: distanceResult,
+      putt_result: made ? 'made' : distanceResult,
+    })
+    if (error) throw error
+    lastEnd = end
+  }
 }
 
+// Club for the shot that finds the green: a real approach club, never a putter
+// from off the green.
+function pickApproachClub(yards: number): string {
+  const c = pickClubForDistance(yards)
+  if (c === 'driver') return '3w' // off the deck
+  return c === 'putter' ? (yards >= 10 ? 'sw' : 'lw') : c
+}
+
+// The plan reads like a generated one for THIS data: focus = the worst SG
+// category over the last 10 rounds, with the number Stats shows, and a
+// warm-up → blocked → skill-game session from that category. Drills named
+// after a tour pro (DJ, Spieth, Hogan, Pelz…) are skipped — they end up in
+// store screenshots.
+const PLAN_COPY: Record<string, { label: string; insight: string; note: string; title: string }> = {
+  approach: {
+    label: 'Approach',
+    insight: 'Approach is the biggest drag on scoring — tighten iron dispersion this week.',
+    note: 'Your approach game is the primary leak right now. Blocked reps to groove contact, then a skill game to transfer it under a little pressure.',
+    title: 'Approach accuracy block',
+  },
+  off_tee: {
+    label: 'Off the tee',
+    insight: 'The tee shot is costing you most — find more fairways before chasing distance.',
+    note: 'Misses off the tee are putting you in recovery. Groove a start line on the range, then play the fairway-finder game.',
+    title: 'Fairway finder block',
+  },
+  around_green: {
+    label: 'Around the green',
+    insight: 'Short game is the leak — get chips and pitches inside six feet.',
+    note: 'Too many up-and-downs are slipping. Contact first, then distance control with a scoring game.',
+    title: 'Up-and-down block',
+  },
+  putting: {
+    label: 'Putting',
+    insight: 'Putting is where the strokes go — own your speed from 20 feet.',
+    note: 'Three-putts and missed short ones are adding up. Start-line reps, then a lag ladder under pressure.',
+    title: 'Speed and start-line block',
+  },
+}
+const PRO_NAMED = /\b(DJ|Spieth|Hogan|Pelz|Tiger|Woods|Mickelson|Stricker|Rory|Scheffler|TrackMan|Como)\b/i
+
 async function insertPracticePlan(userId: string): Promise<void> {
-  const { data: drills } = await supabase
+  const { data: recent } = await supabase
+    .from('rounds')
+    .select('sg_off_tee, sg_approach, sg_around_green, sg_putting')
+    .eq('user_id', userId)
+    .order('played_at', { ascending: false })
+    .limit(10)
+  const avg = (k: 'sg_off_tee' | 'sg_approach' | 'sg_around_green' | 'sg_putting') =>
+    (recent ?? []).reduce((s, r) => s + (r[k] ?? 0), 0) / Math.max(1, recent?.length ?? 0)
+  const cats = [
+    { category: 'off_tee', sg: avg('sg_off_tee') },
+    { category: 'approach', sg: avg('sg_approach') },
+    { category: 'around_green', sg: avg('sg_around_green') },
+    { category: 'putting', sg: avg('sg_putting') },
+  ].sort((a, b) => a.sg - b.sg)
+  const [worst, next] = [cats[0]!, cats[1]!]
+  const copy = PLAN_COPY[worst.category]!
+
+  const { data: pool } = await supabase
     .from('drills')
     .select('id, name, description, duration_min, category, facility')
-    .eq('category', 'approach')
-    .limit(3)
-  if (!drills || drills.length === 0) return
+    .eq('category', worst.category)
+    .order('name')
+  // Approach (Alex's seeded leak) gets a hand-ordered warm-up → blocked → game.
+  const curated = ['Half-to-Full Iron Tempo Ramp', 'Tee-Gate Center-Face', 'Iron Scoring Game']
+  const drills =
+    worst.category === 'approach'
+      ? curated.flatMap((n) => pool?.filter((d) => d.name === n) ?? [])
+      : (pool ?? [])
+          .filter((d) => !PRO_NAMED.test(`${d.name} ${d.description ?? ''}`) && (d.duration_min ?? 15) <= 30)
+          .slice(0, 3)
+  if (drills.length === 0) return
 
-  // Match the live storage shape (@oga/core StoredFocusArea / StoredSession):
-  // focus_areas use `reason` (not insight/sgValue) and `drills` is
-  // `{ sessions: [{ blocks }] }`. The Practice UI reads exactly these fields,
-  // so an out-of-date shape crashes the tab — keep this in lockstep.
+  const lost = (n: number) =>
+    Math.abs(n) < 0.05 ? 'about even with your handicap' : `${Math.abs(n).toFixed(2)} strokes ${n < 0 ? 'lost' : 'gained'} per round`
   const blockTypes = ['warmup', 'blocked', 'skill_game'] as const
   await supabase.from('practice_plans').insert({
     user_id: userId,
     based_on_rounds: 10,
     valid_until: dateNDaysAgo(-7),
     focus_areas: [
-      {
-        category: 'approach',
-        reason: 'Approach is your biggest opportunity — averaging 1.2 strokes lost per round.',
-      },
-      {
-        category: 'around_green',
-        reason: 'Around-green play is roughly neutral; one drill keeps it sharp.',
-      },
+      { category: worst.category, reason: `${copy.label} is your biggest opportunity — ${lost(worst.sg)} over your last 10 rounds.` },
+      { category: next.category, reason: `${PLAN_COPY[next.category]!.label} is next — ${lost(next.sg)}; keep an eye on it.` },
     ],
     drills: {
       sessions: [
         {
-          title: 'Approach accuracy block',
+          title: copy.title,
           total_minutes: drills.reduce((sum, d) => sum + (d.duration_min ?? 15), 0),
           blocks: drills.map((d, i) => ({
-            id: `b-approach-${i}`,
+            id: `b-${worst.category}-${i}`,
             order: i,
             type: blockTypes[Math.min(i, blockTypes.length - 1)],
             minutes: d.duration_min ?? 15,
@@ -725,9 +851,8 @@ async function insertPracticePlan(userId: string): Promise<void> {
         },
       ],
     },
-    ai_insight: 'Approach is the biggest drag on scoring — tighten iron dispersion this week.',
-    coach_note:
-      'Your approach game is the primary leak right now. Blocked reps to groove contact, then a skill game to transfer it under a little pressure.',
+    ai_insight: copy.insight,
+    coach_note: copy.note,
     completed_drill_ids: [],
   })
 }
@@ -776,7 +901,7 @@ async function main() {
 
   await insertPracticePlan(userId)
 
-  console.log(`Seed user ready — sign in as ${SEED_EMAIL} / ${SEED_PASSWORD}`)
+  console.log(`Seed user ready — sign in as ${SEED_EMAIL} (password: SEED_PASSWORD in the env file)`)
 }
 
 main().catch((err) => {

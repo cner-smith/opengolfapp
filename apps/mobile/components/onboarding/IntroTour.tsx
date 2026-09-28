@@ -1,21 +1,15 @@
 import { useEffect, useRef, useState } from 'react'
-import { Modal, ScrollView, Text, View, useWindowDimensions } from 'react-native'
+import { Modal, ScrollView, Text, View, useWindowDimensions, StatusBar } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { TYPE } from '../../lib/typography'
 import { PressableTouch } from '../ui/PressableTouch'
+import { Key, KeyText, PaperSurface } from '../paper/Paper'
+import { FONT_CAP, P } from '../paper/tokens'
 
 interface IntroTourProps {
   visible: boolean
   onDismiss: () => void
   onStartRound: () => void
-}
-
-const KICKER: import('react-native').TextStyle = {
-  color: '#8A8B7E',
-  fontSize: 10,
-  fontWeight: '500',
-  letterSpacing: 1.4,
-  textTransform: 'uppercase',
 }
 
 const CARDS = [
@@ -60,9 +54,32 @@ export function IntroTour({ visible, onDismiss, onStartRound }: IntroTourProps) 
     }
   }, [visible])
 
+  // Cream tour over a dark-header screen. An Android Modal copies the
+  // activity's status-bar style when it opens, and RN applies StatusBar
+  // entries asynchronously — so push dark icons first, then open.
+  const [shown, setShown] = useState(false)
+  useEffect(() => {
+    if (!visible) {
+      setShown(false)
+      return
+    }
+    // After the screen underneath has pushed its own entry (Home's AppBar
+    // focuses in the same tick), so ours is on top.
+    let entry: ReturnType<typeof StatusBar.pushStackEntry> | null = null
+    const t1 = setTimeout(() => {
+      entry = StatusBar.pushStackEntry({ barStyle: 'dark-content' })
+    }, 50)
+    const t2 = setTimeout(() => setShown(true), 120)
+    return () => {
+      clearTimeout(t1)
+      clearTimeout(t2)
+      if (entry) StatusBar.popStackEntry(entry)
+    }
+  }, [visible])
   return (
-    <Modal visible={visible} animationType="fade" onRequestClose={onDismiss}>
-      <View style={{ flex: 1, backgroundColor: '#F7F3E9' }}>
+    <>
+    <Modal visible={shown} animationType="fade" onRequestClose={onDismiss}>
+      <PaperSurface style={{ flex: 1 }}>
         {page < LAST_PAGE && (
           <PressableTouch
             accessibilityRole="button"
@@ -71,7 +88,7 @@ export function IntroTour({ visible, onDismiss, onStartRound }: IntroTourProps) 
             hitSlop={10}
             style={{ position: 'absolute', top: insets.top + 14, right: 18, zIndex: 1 }}
           >
-            <Text style={[TYPE.kicker, KICKER]}>Skip</Text>
+            <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { color: P.inkDim, fontSize: 14 }]}>Skip</Text>
           </PressableTouch>
         )}
         <ScrollView
@@ -95,11 +112,12 @@ export function IntroTour({ visible, onDismiss, onStartRound }: IntroTourProps) 
               }}
             >
               <Text
-                style={[TYPE.serif, { color: '#1C211C', fontSize: 30, lineHeight: 36, marginBottom: 16 }]}
+                maxFontSizeMultiplier={FONT_CAP}
+                style={[TYPE.serif, { color: P.ink, fontSize: 30, lineHeight: 36, marginBottom: 16 }]}
               >
                 {card.title}
               </Text>
-              <Text style={[TYPE.body, { color: '#5C6356', fontSize: 16, lineHeight: 24 }]}>
+              <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { color: P.inkDim, fontSize: 16, lineHeight: 24 }]}>
                 {card.body}
               </Text>
             </View>
@@ -108,46 +126,32 @@ export function IntroTour({ visible, onDismiss, onStartRound }: IntroTourProps) 
 
         <View style={{ paddingHorizontal: 28, paddingBottom: insets.bottom + 24 }}>
           {page < LAST_PAGE ? (
-            <PressableTouch
-              accessibilityRole="button"
-              accessibilityLabel="Next card"
-              onPress={goNext}
-              style={{ backgroundColor: '#1F3D2C', borderRadius: 2, paddingVertical: 16, alignItems: 'center' }}
-            >
-              <Text style={[TYPE.bodyBold, { color: '#F2EEE5', fontSize: 15, letterSpacing: 0.3 }]}>
+            <Key tone="primary" accessibilityLabel="Next card" onPress={goNext} faceStyle={{ minHeight: 52 }}>
+              <KeyText tone="primary" bold size={15}>
                 Next
-              </Text>
-            </PressableTouch>
+              </KeyText>
+            </Key>
           ) : (
             <>
-              <PressableTouch
-                accessibilityRole="button"
+              <Key
+                tone="primary"
                 accessibilityLabel="Start my first round"
                 onPress={onStartRound}
-                style={{
-                  backgroundColor: '#1F3D2C',
-                  borderRadius: 2,
-                  paddingVertical: 16,
-                  alignItems: 'center',
-                  marginBottom: 10,
-                }}
+                style={{ marginBottom: 12 }}
+                faceStyle={{ minHeight: 52 }}
               >
-                <Text style={[TYPE.bodyBold, { color: '#F2EEE5', fontSize: 15, letterSpacing: 0.3 }]}>
+                <KeyText tone="primary" bold size={15}>
                   Start my first round
-                </Text>
-              </PressableTouch>
-              <PressableTouch
-                accessibilityRole="button"
-                accessibilityLabel="Skip — I'll explore first"
-                onPress={onDismiss}
-                style={{ alignItems: 'center', paddingVertical: 10 }}
-              >
-                <Text style={[TYPE.body, { color: '#5C6356', fontSize: 14 }]}>I'll explore first</Text>
-              </PressableTouch>
+                </KeyText>
+              </Key>
+              <Key accessibilityLabel="Skip — I'll explore first" onPress={onDismiss} faceStyle={{ minHeight: 46 }}>
+                <KeyText size={14}>I'll explore first</KeyText>
+              </Key>
             </>
           )}
         </View>
-      </View>
+      </PaperSurface>
     </Modal>
+    </>
   )
 }

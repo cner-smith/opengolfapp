@@ -58,6 +58,7 @@ export function SettingsPage() {
   const [saved, setSaved] = useState(false)
   const [usernameTouched, setUsernameTouched] = useState(false)
   const unit = profile?.distance_unit ?? 'yards'
+  const playsLeftHanded = profile?.plays_left_handed ?? false
   const emailSummaries = profile?.email_round_summaries_enabled ?? true
 
   // Only validate non-empty values — username is nullable in the DB so
@@ -94,6 +95,15 @@ export function SettingsPage() {
     setError(null)
     try {
       await updateProfile.mutateAsync({ distance_unit: value })
+    } catch (err) {
+      setError(toUserMessage(err))
+    }
+  }
+
+  async function setPlaysLeftHanded(value: boolean) {
+    setError(null)
+    try {
+      await updateProfile.mutateAsync({ plays_left_handed: value })
     } catch (err) {
       setError(toUserMessage(err))
     }
@@ -351,6 +361,52 @@ export function SettingsPage() {
         >
           Switches the display of distances throughout the app.
           Stored values stay in yards/feet — only formatting changes.
+        </p>
+      </section>
+
+      <section
+        style={{
+          borderTop: '1px solid #D9D2BF',
+          paddingTop: 18,
+          marginBottom: 28,
+        }}
+      >
+        <div className="kicker" style={{ marginBottom: 12 }}>
+          Plays
+        </div>
+        <div className="flex flex-wrap" style={{ gap: 8 }}>
+          {([false, true] as const).map((lefty) => {
+            const active = playsLeftHanded === lefty
+            return (
+              <button
+                key={String(lefty)}
+                type="button"
+                onClick={() => setPlaysLeftHanded(lefty)}
+                disabled={updateProfile.isPending}
+                style={{
+                  background: active ? '#1F3D2C' : '#EBE5D6',
+                  color: active ? '#F2EEE5' : '#1C211C',
+                  border: 'none',
+                  borderRadius: 2,
+                  padding: '10px 16px',
+                  fontSize: 13,
+                  fontWeight: active ? 600 : 500,
+                  letterSpacing: '0.02em',
+                  cursor: 'pointer',
+                  opacity: updateProfile.isPending ? 0.5 : 1,
+                }}
+              >
+                {lefty ? 'Left-handed' : 'Right-handed'}
+              </button>
+            )
+          })}
+        </div>
+        <p
+          className="text-caddie-ink-dim"
+          style={{ fontSize: 13, marginTop: 10, lineHeight: 1.5 }}
+        >
+          Mirrors the shot shape and start-line buttons: a left-hander's draw
+          curves the other way.
         </p>
       </section>
 

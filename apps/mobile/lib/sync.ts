@@ -2,10 +2,13 @@ import { AppState } from 'react-native'
 import { uuid } from 'expo-modules-core'
 import NetInfo from '@react-native-community/netinfo'
 import {
+  deleteHoleScorePatches,
+  listHoleScorePatches,
   listPendingShots,
   markShotBroken,
   markShotSynced,
   updatePendingShotPayload,
+  type HoleScorePatch,
   type PendingShot,
   type ShotPayload,
 } from './db'
@@ -111,7 +114,14 @@ export function syncPendingShots(): Promise<SyncResult> {
 async function runSync(): Promise<SyncResult> {
   let synced = 0
   let failed = 0
-  const pending = await listPendingShots()
+  // Signed out, RLS turns every read into [] and every update into 0 rows
+  // with no error — which the patch drain reads as "row gone" and deletes
+  // (score/putts/finished_at lost). Nothing can land without a session, so
+  // leave the whole queue for the next trigger after sign-in.
+  const { data: auth } = await supabase.auth.getSession()
+  const userId = auth.session?.user.id
+  if (!userId) return { synced, failed }
+  const pending = await listPendingShots(userId)
   for (let i = 0; i < pending.length; i += CHUNK_SIZE) {
     const chunk = pending.slice(i, i + CHUNK_SIZE)
     // Parallel arrays: payloads[j] parsed from validRows[j]. The
@@ -187,7 +197,73 @@ async function runSync(): Promise<SyncResult> {
       }
     }
   }
+  await drainHoleScorePatches(userId).catch((err) => {
+    // eslint-disable-next-line no-console
+    console.warn('[sync/hole-scores] drain failed, leaving queued:', err)
+  })
   return { synced, failed }
+}
+
+// Live-round hole_scores writes (#226). Runs inside the shot run's lock, so
+// completeRound — which awaits syncPendingShots before reading — sees every
+// patch that can land. A patch still queued once its round is completed is
+// dropped, never sent: completeRound re-derived that round's totals/SG from
+// the server state, and a mid-round score landing afterwards would overwrite
+// the finalized hole with a stale value.
+async function drainHoleScorePatches(userId: string): Promise<void> {
+  const rows = await listHoleScorePatches()
+  if (rows.length === 0) return
+  const byHole = new Map<string, { roundId: string; patch: HoleScorePatch; through: number }>()
+  for (const row of rows) {
+    let patch: HoleScorePatch
+    try {
+      patch = JSON.parse(row.patch) as HoleScorePatch
+    } catch (e) {
+      // eslint-disable-next-line no-console
+      console.error('[sync/hole-scores] corrupt patch local_id=%d msg=%s', row.local_id, (e as Error).message)
+      patch = {}
+    }
+    const acc = byHole.get(row.hole_score_id)
+    byHole.set(row.hole_score_id, {
+      roundId: row.round_id,
+      patch: { ...acc?.patch, ...patch },
+      through: row.local_id,
+    })
+  }
+  const roundIds = [...new Set([...byHole.values()].map((h) => h.roundId))]
+  const { data: owned, error: ownedErr } = await supabase
+    .from('rounds')
+    .select('id, completed_at')
+    .in('id', roundIds)
+    .eq('user_id', userId)
+  if (ownedErr) throw ownedErr
+  const mine = new Set((owned ?? []).map((r) => r.id))
+  const completed = new Set((owned ?? []).filter((r) => r.completed_at != null).map((r) => r.id))
+  for (const [holeScoreId, { roundId, patch, through }] of byHole) {
+    // Not this user's round (another account on a shared device, or a round
+    // since deleted): keep the patch. Sending it would hit RLS and 0 rows,
+    // which the branch below can't tell apart from "row gone" — dropping it
+    // would lose that account's score.
+    if (!mine.has(roundId)) continue
+    if (completed.has(roundId) || Object.keys(patch).length === 0) {
+      await deleteHoleScorePatches(holeScoreId, through)
+      continue
+    }
+    const { data, error } = await supabase
+      .from('hole_scores')
+      .update(patch)
+      .eq('id', holeScoreId)
+      .select('id')
+    if (error && !isPermanentError(error)) continue // transient: next trigger retries
+    if (error || !data || data.length === 0) {
+      // Deterministic rejection, or 0 rows = the row is gone (#710) — the
+      // round is this user's, so it isn't RLS. Retrying can't succeed, so
+      // drop rather than block the queue.
+      // eslint-disable-next-line no-console
+      console.warn('[sync/hole-scores] dropping patch for', holeScoreId, error?.code ?? '0 rows')
+    }
+    await deleteHoleScorePatches(holeScoreId, through)
+  }
 }
 
 // Auto-trigger sync on network reconnect and app foreground. Failures

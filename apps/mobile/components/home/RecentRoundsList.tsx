@@ -2,16 +2,11 @@ import { useRef } from 'react'
 import { Pressable, Text, View } from 'react-native'
 import { Link } from 'expo-router'
 import { Swipeable } from 'react-native-gesture-handler'
-import { formatSG } from '@oga/core'
+import { formatSG, partialRoundLabel } from '@oga/core'
 import { TYPE } from '../../lib/typography'
-
-const KICKER: import('react-native').TextStyle = {
-  color: '#8A8B7E',
-  fontSize: 10,
-  fontWeight: '500',
-  letterSpacing: 1.4,
-  textTransform: 'uppercase',
-}
+import { SectionHead } from '../paper/Section'
+import { PaperSurface } from '../paper/Paper'
+import { FONT_CAP, P } from '../paper/tokens'
 
 export interface RecentRoundRow {
   id: string
@@ -19,6 +14,7 @@ export interface RecentRoundRow {
   total_score: number | null
   sg_total: number | null
   courses?: { name: string | null } | null
+  hole_scores?: { score: number; holes: { number: number } | null }[] | null
 }
 
 interface RecentRoundsListProps {
@@ -34,16 +30,7 @@ export function RecentRoundsList({
 
   return (
     <View style={{ marginBottom: 28 }}>
-      <View
-        style={{
-          borderTopWidth: 1,
-          borderColor: '#D9D2BF',
-          paddingTop: 14,
-          marginBottom: 14,
-        }}
-      >
-        <Text style={[TYPE.kicker, KICKER]}>Recent rounds</Text>
-      </View>
+      <SectionHead title="Recent rounds" />
       {rounds.length === 0 ? (
         <Text style={[TYPE.body, { color: '#8A8B7E', fontSize: 13 }]}>No rounds yet.</Text>
       ) : (
@@ -76,7 +63,6 @@ export function RecentRoundsList({
                       {
                         color: '#F2EEE5',
                         fontSize: 13,
-                        fontWeight: '600',
                         letterSpacing: 0.3,
                       },
                     ]}
@@ -87,6 +73,9 @@ export function RecentRoundsList({
               )}
               overshootRight={false}
             >
+              {/* Opaque paper (grain included) so the swipe's red Delete stays
+                  hidden behind the row, matching the all-rounds list. */}
+              <PaperSurface>
               <Link href={`/(app)/round/${r.id}`} asChild>
                 <Pressable
                   accessibilityRole="button"
@@ -98,13 +87,13 @@ export function RecentRoundsList({
                     paddingVertical: 14,
                     paddingHorizontal: 4,
                     borderBottomWidth: 1,
-                    borderColor: '#D9D2BF',
-                    backgroundColor: '#F2EEE5',
+                    borderColor: P.line,
                   }}
                 >
                   <View style={{ flex: 1, paddingRight: 12 }}>
-                    <Text style={[TYPE.kicker, KICKER, { color: '#8A8B7E', marginBottom: 4 }]}>
+                    <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { color: P.inkDim, fontSize: 12, marginBottom: 4 }]}>
                       {r.played_at}
+                      {partialRoundLabel(r.hole_scores)}
                     </Text>
                     <Text
                       style={[
@@ -142,6 +131,7 @@ export function RecentRoundsList({
                   </View>
                 </Pressable>
               </Link>
+              </PaperSurface>
             </Swipeable>
           ))}
           {rounds.length > 5 && (

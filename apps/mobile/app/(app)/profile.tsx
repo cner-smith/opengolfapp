@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import {
   Alert,
+  KeyboardAvoidingView,
   Linking,
   Modal,
   Platform,
-  Pressable,
   ScrollView,
   Text,
   TextInput,
@@ -22,22 +22,20 @@ import { getProfile, updateProfile } from '@oga/supabase'
 import type { Database } from '@oga/supabase'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
+import { useUnitsContext } from '../../contexts/UnitsContext'
 import { clearScreenCache } from '../../lib/screenCache'
+import { getAimTilt, setAimTilt, type AimTilt } from '../../lib/aimTilt'
+import { getLeftHand, setLeftHand } from '../../lib/leftHand'
+import { getSoundsOn, setSoundsOn } from '../../lib/sounds'
 import { AppBar } from '../../components/ui/AppBar'
+import { PaperTile, SectionHead } from '../../components/paper/Section'
+import { FONT_CAP, P, R } from '../../components/paper/tokens'
+import { HardShadow, Key, KeyText, PaperSurface } from '../../components/paper/Paper'
 import { TYPE } from '../../lib/typography'
 
 type Profile = Database['public']['Tables']['profiles']['Row']
 type SkillLevel = Profile['skill_level']
 type Goal = Profile['goal']
-
-const KICKER: import('react-native').TextStyle = {
-  ...TYPE.kicker,
-  color: '#8A8B7E',
-  fontSize: 10,
-  fontWeight: '500',
-  letterSpacing: 1.4,
-  textTransform: 'uppercase',
-}
 
 // Mirrors the server-side username constraint: alphanumerics, hyphen,
 // underscore; 3–32 chars. Empty string is also valid (username is
@@ -73,7 +71,35 @@ export default function ProfileTab() {
   const [goal, setGoal] = useState<Goal>(null)
   const [facilities, setFacilities] = useState<string[]>([])
   const [unit, setUnit] = useState<'yards' | 'meters'>('yards')
+  const { setUnit: setAppUnit, setPlaysLeftHanded: setAppLefty } = useUnitsContext()
+  const [playsLefty, setPlaysLefty] = useState(false)
   const [emailSummaries, setEmailSummaries] = useState(true)
+  // Device-local (lib/aimTilt), so it saves on tap rather than with the
+  // profile row below.
+  const [aimTilt, setAimTiltState] = useState<AimTilt>(0)
+  useEffect(() => {
+    void getAimTilt().then(setAimTiltState)
+  }, [])
+  const chooseAimTilt = (t: AimTilt) => {
+    setAimTiltState(t)
+    void setAimTilt(t)
+  }
+  const [leftHand, setLeftHandState] = useState(false)
+  useEffect(() => {
+    void getLeftHand().then(setLeftHandState)
+  }, [])
+  const chooseLeftHand = (on: boolean) => {
+    setLeftHandState(on)
+    void setLeftHand(on)
+  }
+  const [sounds, setSoundsState] = useState(true)
+  useEffect(() => {
+    void getSoundsOn().then(setSoundsState)
+  }, [])
+  const chooseSounds = (on: boolean) => {
+    setSoundsState(on)
+    void setSoundsOn(on)
+  }
   // Count of rounds with a derived score_differential — the signal for
   // whether the displayed index is a calculated WHS value or still the
   // entered one (#521). Mobile doesn't compute differentials, so this is
@@ -141,6 +167,7 @@ export default function ProfileTab() {
       setGoal(data.goal ?? null)
       setFacilities(data.facilities ?? [])
       setUnit(data.distance_unit === 'meters' ? 'meters' : 'yards')
+      setPlaysLefty(data.plays_left_handed === true)
       setEmailSummaries(data.email_round_summaries_enabled ?? true)
     })
     supabase
@@ -184,6 +211,7 @@ export default function ProfileTab() {
       goal,
       facilities,
       distance_unit: unit,
+      plays_left_handed: playsLefty,
       email_round_summaries_enabled: emailSummaries,
     })
     setSaving(false)
@@ -194,7 +222,9 @@ export default function ProfileTab() {
       return
     }
     if (data) setProfile(data)
-    Alert.alert('Saved', 'Profile updated. SG benchmarks will use the new handicap.')
+    setAppUnit(unit)
+    setAppLefty(playsLefty)
+    Alert.alert('Saved', 'Profile updated.')
   }
 
   function toggleFacility(f: string) {
@@ -207,30 +237,17 @@ export default function ProfileTab() {
   const provenanceCalculated = provenance === 'calculated'
 
   return (
-    <View style={{ flex: 1, backgroundColor: '#F2EEE5' }}>
+    <PaperSurface style={{ flex: 1 }}>
       <AppBar
         eyebrow={profile?.username ? `@${profile.username}` : 'Account'}
         title="Profile"
       />
       <ScrollView contentContainerStyle={{ padding: 18, paddingBottom: 40 }}>
-        <View
-          style={{
-            borderTopWidth: 1,
-            borderBottomWidth: 1,
-            borderColor: '#D9D2BF',
-            paddingVertical: 28,
-            alignItems: 'center',
-            marginBottom: 22,
-          }}
-        >
-          <Text style={{ ...KICKER, marginBottom: 8 }}>Handicap index</Text>
-          <Text
-            style={[TYPE.serif, {
-              color: '#1C211C',
-              fontSize: 56,
-              lineHeight: 60,
-            }]}
-          >
+        <PaperTile style={{ marginBottom: 22 }} innerStyle={{ paddingVertical: 24, alignItems: 'center' }}>
+          <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { color: P.inkDim, fontSize: 12, marginBottom: 6 }]}>
+            Handicap index
+          </Text>
+          <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.serif, { color: P.ink, fontSize: 56, lineHeight: 64 }]}>
             {profile?.handicap_index ?? '—'}
           </Text>
           {profile?.handicap_index != null && (
@@ -240,33 +257,25 @@ export default function ProfileTab() {
                 paddingHorizontal: 8,
                 paddingVertical: 3,
                 borderRadius: 2,
-                backgroundColor: provenanceCalculated
-                  ? 'rgba(31,61,44,0.12)'
-                  : 'rgba(138,139,126,0.16)',
+                borderWidth: 1,
+                borderColor: provenanceCalculated ? P.forest : P.lineStrong,
               }}
             >
               <Text
-                style={{
-                  ...KICKER,
-                  fontSize: 9,
-                  color: provenanceCalculated ? '#1F3D2C' : '#8A8B7E',
-                }}
+                maxFontSizeMultiplier={FONT_CAP}
+                style={[TYPE.body, { fontSize: 12, color: provenanceCalculated ? P.forest : P.inkDim }]}
               >
                 {HANDICAP_PROVENANCE_LABEL[provenance]}
               </Text>
             </View>
           )}
           <Text
-            style={[TYPE.body, {
-              color: '#5C6356',
-              fontSize: 14,
-              marginTop: 6,
-              textTransform: 'capitalize',
-            }]}
+            maxFontSizeMultiplier={FONT_CAP}
+            style={[TYPE.body, { color: P.inkDim, fontSize: 14, marginTop: 8, textTransform: 'capitalize' }]}
           >
             {profile?.skill_level ?? 'No skill level set'}
           </Text>
-        </View>
+        </PaperTile>
 
         <Field label="Username">
           <TextInput
@@ -279,13 +288,14 @@ export default function ProfileTab() {
             }}
             style={{
               ...inputStyle,
-              borderColor: showUsernameError ? '#A33A2A' : '#D9D2BF',
+              borderColor: showUsernameError ? P.neg : P.ink,
             }}
           />
           <Text
+            maxFontSizeMultiplier={FONT_CAP}
             style={[TYPE.body, {
-              color: showUsernameError ? '#A33A2A' : '#8A8B7E',
-              fontSize: 11,
+              color: showUsernameError ? P.neg : P.inkDim,
+              fontSize: 12,
               marginTop: 6,
             }]}
           >
@@ -356,6 +366,34 @@ export default function ProfileTab() {
           </View>
         </Field>
 
+        <Field label="Plays">
+          <View style={{ flexDirection: 'row', gap: 6 }}>
+            <Chip label="Right-handed" active={!playsLefty} onPress={() => setPlaysLefty(false)} />
+            <Chip label="Left-handed" active={playsLefty} onPress={() => setPlaysLefty(true)} />
+          </View>
+        </Field>
+
+        <Field label="Aim view">
+          <View style={{ flexDirection: 'row', gap: 6 }}>
+            <Chip label="Flat" active={aimTilt === 0} onPress={() => chooseAimTilt(0)} />
+            <Chip label="Flyover" active={aimTilt === 60} onPress={() => chooseAimTilt(60)} />
+          </View>
+        </Field>
+
+        <Field label="Live round layout">
+          <View style={{ flexDirection: 'row', gap: 6 }}>
+            <Chip label="Right-handed" active={!leftHand} onPress={() => chooseLeftHand(false)} />
+            <Chip label="Left-handed" active={leftHand} onPress={() => chooseLeftHand(true)} />
+          </View>
+        </Field>
+
+        <Field label="Sounds">
+          <View style={{ flexDirection: 'row', gap: 6 }}>
+            <Chip label="On" active={sounds} onPress={() => chooseSounds(true)} />
+            <Chip label="Off" active={!sounds} onPress={() => chooseSounds(false)} />
+          </View>
+        </Field>
+
         <Field label="Email round summaries">
           <View style={{ flexDirection: 'row', gap: 6 }}>
             <Chip
@@ -371,274 +409,96 @@ export default function ProfileTab() {
           </View>
         </Field>
 
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Open My Bag"
-          onPress={() => router.push('/(app)/bag')}
-          style={{
-            marginTop: 18,
-            paddingVertical: 16,
-            paddingHorizontal: 4,
-            borderTopWidth: 1,
-            borderBottomWidth: 1,
-            borderColor: '#D9D2BF',
-            flexDirection: 'row',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-          }}
-        >
-          <View>
-            <Text style={{ ...KICKER, marginBottom: 2 }}>Equipment</Text>
-            <Text style={[TYPE.bodyBold, { color: '#1C211C', fontSize: 16 }]}>
-              My Bag
-            </Text>
-          </View>
-          <Text style={[TYPE.bodyItalic, { color: '#1F3D2C', fontSize: 18 }]}>→</Text>
-        </Pressable>
+        <View style={{ marginTop: 18 }}>
+          <SectionHead title="Equipment" />
+          <LinkKey accessibilityLabel="Open My Bag" label="My Bag" onPress={() => router.push('/(app)/bag')} />
+        </View>
 
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Replay intro tour"
-          onPress={() => router.navigate({ pathname: '/(app)', params: { replayTour: '1' } })}
-          style={{
-            marginTop: 18,
-            paddingVertical: 16,
-            paddingHorizontal: 4,
-            borderTopWidth: 1,
-            borderBottomWidth: 1,
-            borderColor: '#D9D2BF',
-            flexDirection: 'row',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-          }}
-        >
-          <View>
-            <Text style={{ ...KICKER, marginBottom: 2 }}>Getting started</Text>
-            <Text style={[TYPE.bodyBold, { color: '#1C211C', fontSize: 16 }]}>
-              Replay intro tour
-            </Text>
-          </View>
-          <Text style={[TYPE.bodyItalic, { color: '#1F3D2C', fontSize: 18 }]}>→</Text>
-        </Pressable>
+        <View style={{ marginTop: 18 }}>
+          <SectionHead title="Getting started" />
+          <LinkKey
+            accessibilityLabel="Replay intro tour"
+            label="Replay intro tour"
+            onPress={() => router.navigate({ pathname: '/(app)', params: { replayTour: '1' } })}
+          />
+        </View>
 
-        <Pressable
-          accessibilityRole="button"
+        <Key
           accessibilityLabel={saving ? 'Saving profile' : 'Save profile changes'}
-          accessibilityState={{ disabled: saving || usernameInvalid }}
+          tone="primary"
           onPress={save}
           disabled={saving || usernameInvalid}
-          style={{
-            marginTop: 18,
-            backgroundColor: '#1F3D2C',
-            borderRadius: 2,
-            paddingVertical: 14,
-            alignItems: 'center',
-            opacity: saving || usernameInvalid ? 0.5 : 1,
-          }}
+          style={{ marginTop: 18 }}
+          faceStyle={{ minHeight: 50 }}
         >
-          <Text
-            style={[TYPE.bodyBold, {
-              color: '#F2EEE5',
-              fontSize: 14,
-              fontWeight: '600',
-              letterSpacing: 0.3,
-            }]}
-          >
+          <KeyText tone="primary" bold size={15} disabled={saving || usernameInvalid}>
             {saving ? 'Saving…' : 'Save changes'}
-          </Text>
-        </Pressable>
+          </KeyText>
+        </Key>
 
-        <View
-          style={{
-            marginTop: 28,
-            backgroundColor: '#FBF8F1',
-            borderWidth: 1,
-            borderColor: '#D9D2BF',
-            borderRadius: 2,
-            padding: 18,
-          }}
-        >
+        <PaperTile style={{ marginTop: 28 }} innerStyle={{ padding: 18 }}>
+          <SectionHead title="OGA on the web" style={{ borderTopWidth: 0, paddingTop: 0, marginBottom: 8 }} />
+          <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { color: P.ink, fontSize: 14, lineHeight: 20, marginBottom: 14 }]}>
+            Your rounds sync to a free web dashboard. Sign in at oga.golf
+            with the same account for bigger stats, strokes gained, and
+            shot-pattern charts.
+          </Text>
+          <Key accessibilityLabel="Open the OGA website" onPress={() => Linking.openURL('https://oga.golf')} faceStyle={{ minHeight: 44 }}>
+            <KeyText size={13} bold>Website · oga.golf ↗</KeyText>
+          </Key>
           {/* iOS: no donation CTAs — App Review 3.1.1 requires IAP or removal.
               A neutral website link (no payment framing) is allowed; donors
               find Ko-fi / GitHub Sponsors on the site. Android keeps them. */}
-          {Platform.OS === 'ios' ? (
+          {Platform.OS !== 'ios' && (
             <>
-              <Text style={{ ...KICKER, marginBottom: 10 }}>OGA on the web</Text>
-              <Text
-                style={[TYPE.body, {
-                  color: '#1C211C',
-                  fontSize: 14,
-                  lineHeight: 20,
-                  marginBottom: 14,
-                }]}
-              >
-                Your rounds sync to a free web dashboard. Sign in at oga.golf
-                with the same account for bigger stats, strokes gained, and
-                shot-pattern charts.
-              </Text>
-              <Pressable
-                accessibilityRole="link"
-                accessibilityLabel="Open the OGA website"
-                onPress={() => Linking.openURL('https://oga.golf')}
-                style={{
-                  borderWidth: 1,
-                  borderColor: '#1F3D2C',
-                  paddingVertical: 12,
-                  alignItems: 'center',
-                  borderRadius: 2,
-                }}
-              >
-                <Text
-                  style={[TYPE.bodyBold, {
-                    color: '#1F3D2C',
-                    fontSize: 13,
-                    fontWeight: '600',
-                    letterSpacing: 0.3,
-                  }]}
-                >
-                  Website · oga.golf ↗
-                </Text>
-              </Pressable>
-            </>
-          ) : (
-            <>
-              <Text style={{ ...KICKER, marginBottom: 10 }}>OGA on the web</Text>
-              <Text
-                style={[TYPE.body, {
-                  color: '#1C211C',
-                  fontSize: 14,
-                  lineHeight: 20,
-                  marginBottom: 14,
-                }]}
-              >
-                Your rounds sync to a free web dashboard. Sign in at oga.golf
-                with the same account for bigger stats, strokes gained, and
-                shot-pattern charts.
-              </Text>
-              <Pressable
-                accessibilityRole="link"
-                accessibilityLabel="Open the OGA website"
-                onPress={() => Linking.openURL('https://oga.golf')}
-                style={{
-                  borderWidth: 1,
-                  borderColor: '#1F3D2C',
-                  paddingVertical: 12,
-                  alignItems: 'center',
-                  borderRadius: 2,
-                }}
-              >
-                <Text
-                  style={[TYPE.bodyBold, {
-                    color: '#1F3D2C',
-                    fontSize: 13,
-                    fontWeight: '600',
-                    letterSpacing: 0.3,
-                  }]}
-                >
-                  Website · oga.golf ↗
-                </Text>
-              </Pressable>
-              <View style={{ height: 1, backgroundColor: '#D9D2BF', marginVertical: 18 }} />
-              <Text style={{ ...KICKER, marginBottom: 10 }}>Support OGA</Text>
-              <Text
-                style={[TYPE.body, {
-                  color: '#1C211C',
-                  fontSize: 14,
-                  lineHeight: 20,
-                  marginBottom: 14,
-                }]}
-              >
+              <SectionHead title="Support OGA" style={{ marginTop: 18, marginBottom: 8 }} />
+              <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { color: P.ink, fontSize: 14, lineHeight: 20, marginBottom: 14 }]}>
                 OGA is free and open source. If it helps your game,
                 consider buying us a round.
               </Text>
               <View style={{ flexDirection: 'row', gap: 10 }}>
-                <Pressable
-                  accessibilityRole="link"
+                <Key
                   accessibilityLabel="Open Ko-fi sponsorship page"
                   onPress={() => Linking.openURL('https://ko-fi.com/nartana')}
-                  style={{
-                    flex: 1,
-                    borderWidth: 1,
-                    borderColor: '#1F3D2C',
-                    paddingVertical: 12,
-                    alignItems: 'center',
-                    borderRadius: 2,
-                  }}
+                  style={{ flex: 1 }}
+                  faceStyle={{ minHeight: 44 }}
                 >
-                  <Text
-                    style={[TYPE.bodyBold, {
-                      color: '#1F3D2C',
-                      fontSize: 13,
-                      fontWeight: '600',
-                      letterSpacing: 0.3,
-                    }]}
-                  >
-                    Ko-fi ↗
-                  </Text>
-                </Pressable>
-                <Pressable
-                  accessibilityRole="link"
+                  <KeyText size={13} bold>Ko-fi ↗</KeyText>
+                </Key>
+                <Key
                   accessibilityLabel="Open GitHub Sponsors page"
-                  onPress={() =>
-                    Linking.openURL('https://github.com/sponsors/cner-smith')
-                  }
-                  style={{
-                    flex: 1,
-                    borderWidth: 1,
-                    borderColor: '#1F3D2C',
-                    paddingVertical: 12,
-                    alignItems: 'center',
-                    borderRadius: 2,
-                  }}
+                  onPress={() => Linking.openURL('https://github.com/sponsors/cner-smith')}
+                  style={{ flex: 1 }}
+                  faceStyle={{ minHeight: 44 }}
                 >
-                  <Text
-                    style={[TYPE.bodyBold, {
-                      color: '#1F3D2C',
-                      fontSize: 13,
-                      fontWeight: '600',
-                      letterSpacing: 0.3,
-                    }]}
-                  >
-                    GitHub ↗
-                  </Text>
-                </Pressable>
+                  <KeyText size={13} bold>GitHub ↗</KeyText>
+                </Key>
               </View>
             </>
           )}
-        </View>
+        </PaperTile>
 
-        <Pressable
-          accessibilityRole="button"
+        <Key
           accessibilityLabel="Sign out"
           onPress={() => {
             // Next sign-in must not render this account's cached screens.
             clearScreenCache()
             supabase.auth.signOut()
           }}
-          style={{
-            marginTop: 22,
-            paddingVertical: 12,
-            alignItems: 'center',
-          }}
+          style={{ marginTop: 28 }}
+          faceStyle={{ minHeight: 46 }}
         >
-          <Text
-            style={{
-              ...KICKER,
-              color: '#8A8B7E',
-            }}
-          >
-            Sign out
-          </Text>
-        </Pressable>
+          <KeyText size={14} style={{ color: P.neg }}>Sign out</KeyText>
+        </Key>
 
-        <Pressable
-          accessibilityRole="button"
+        <Key
           accessibilityLabel="Delete account"
           onPress={() => setDeleteOpen(true)}
-          style={{ paddingVertical: 12, alignItems: 'center' }}
+          style={{ marginTop: 12 }}
+          faceStyle={{ minHeight: 46 }}
         >
-          <Text style={{ ...KICKER, color: '#A33A2A' }}>Delete account</Text>
-        </Pressable>
+          <KeyText size={14} bold style={{ color: P.neg }}>Delete account</KeyText>
+        </Key>
       </ScrollView>
 
       <DeleteAccountModal
@@ -647,21 +507,35 @@ export default function ProfileTab() {
         onConfirm={deleteAccount}
         onCancel={() => setDeleteOpen(false)}
       />
-    </View>
+    </PaperSurface>
   )
 }
 
 const inputStyle = {
   ...TYPE.body,
-  backgroundColor: '#FBF8F1',
+  backgroundColor: P.raised,
   borderWidth: 1,
-  borderColor: '#D9D2BF',
-  borderRadius: 2,
+  borderColor: P.ink,
+  borderRadius: R,
   paddingHorizontal: 12,
   paddingVertical: 10,
   fontSize: 15,
-  color: '#1C211C',
+  color: P.ink,
 } as const
+
+// A raised paper key standing in for a navigation row.
+function LinkKey({ label, accessibilityLabel, onPress }: { label: string; accessibilityLabel: string; onPress: () => void }) {
+  return (
+    <Key
+      accessibilityLabel={accessibilityLabel}
+      onPress={onPress}
+      faceStyle={{ minHeight: 50, flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 14 }}
+    >
+      <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.bodyBold, { color: P.ink, fontSize: 16 }]}>{label}</Text>
+      <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { color: P.forest, fontSize: 18 }]}>→</Text>
+    </Key>
+  )
+}
 
 // Two-phase confirmation for the irreversible account delete, in a SINGLE
 // Modal (never two stacked — iOS allows one presented modal per presenter,
@@ -695,142 +569,97 @@ function DeleteAccountModal({
 
   return (
     <Modal transparent animationType="fade" visible={visible} onRequestClose={onCancel}>
-      <View
-        style={{
-          flex: 1,
-          backgroundColor: 'rgba(28,33,28,0.55)',
-          alignItems: 'center',
-          justifyContent: 'center',
-          padding: 18,
-        }}
+      {/* iOS: re-centre the dialog above the keyboard so Delete stays tappable
+          on the type-to-confirm step (App Review exercises this path). */}
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={{ flex: 1, backgroundColor: P.scrim, alignItems: 'center', justifyContent: 'center', padding: 18 }}
       >
-        <View
-          style={{
-            backgroundColor: '#FBF8F1',
-            borderColor: '#9F9580',
-            borderWidth: 1,
-            borderRadius: 4,
-            padding: 22,
-            width: '100%',
-            maxWidth: 360,
-          }}
-        >
-          <Text style={{ ...KICKER, marginBottom: 8 }}>Confirm delete</Text>
-          <Text
-            style={[TYPE.serif, {
-              color: '#1C211C',
-              fontSize: 22,
-              lineHeight: 28,
-              marginBottom: 10,
-            }]}
-          >
-            {phase === 'confirm' ? 'Delete your OGA account?' : 'Type to confirm'}
-          </Text>
-
-          {phase === 'confirm' ? (
-            <Text style={[TYPE.body, { color: '#5C6356', fontSize: 14, lineHeight: 20, marginBottom: 22 }]}>
-              This will permanently delete your account and all rounds, shots,
-              and saved data. This cannot be undone.
+        <HardShadow style={{ width: '100%', maxWidth: 360 }}>
+          <PaperSurface fill={P.raised} style={{ borderColor: P.ink, borderWidth: 1, borderRadius: R, padding: 22, overflow: 'hidden' }}>
+            <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { color: P.inkDim, fontSize: 12, marginBottom: 6 }]}>
+              Confirm delete
             </Text>
-          ) : (
-            <>
-              <Text style={[TYPE.body, { color: '#5C6356', fontSize: 14, lineHeight: 20, marginBottom: 14 }]}>
-                Type{' '}
-                <Text style={[TYPE.bodyBold, { fontWeight: '700', color: '#1C211C' }]}>{DELETE_PHRASE}</Text>{' '}
-                below to permanently delete your account.
-              </Text>
-              <TextInput
-                value={text}
-                onChangeText={setText}
-                editable={!busy}
-                autoCapitalize="none"
-                autoCorrect={false}
-                placeholder={DELETE_PHRASE}
-                placeholderTextColor="#8A8B7E"
-                style={{ ...inputStyle, marginBottom: 22 }}
-                accessibilityLabel="Type delete my account to confirm"
-              />
-            </>
-          )}
-
-          <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 10 }}>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Cancel"
-              onPress={onCancel}
-              disabled={busy}
-              style={{
-                borderWidth: 1,
-                borderColor: '#D9D2BF',
-                borderRadius: 2,
-                paddingHorizontal: 14,
-                paddingVertical: 10,
-                opacity: busy ? 0.5 : 1,
-              }}
-            >
-              {/* regular weight — secondary Cancel, must not compete with the
-                  destructive Delete action (#598 review). */}
-              <Text style={[TYPE.body, { color: '#5C6356', fontSize: 13 }]}>Cancel</Text>
-            </Pressable>
+            <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.serif, { color: P.ink, fontSize: 22, lineHeight: 28, marginBottom: 10 }]}>
+              {phase === 'confirm' ? 'Delete your OGA account?' : 'Type to confirm'}
+            </Text>
 
             {phase === 'confirm' ? (
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Continue to type-to-confirm step"
-                onPress={() => setPhase('type')}
-                style={{
-                  backgroundColor: '#A33A2A',
-                  borderRadius: 2,
-                  paddingHorizontal: 16,
-                  paddingVertical: 10,
-                }}
-              >
-                <Text style={[TYPE.bodyBold, { color: '#F2EEE5', fontSize: 14, fontWeight: '600', letterSpacing: 0.3 }]}>
-                  Continue
-                </Text>
-              </Pressable>
+              <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { color: P.inkDim, fontSize: 14, lineHeight: 20, marginBottom: 22 }]}>
+                This will permanently delete your account and all rounds, shots,
+                and saved data. This cannot be undone.
+              </Text>
             ) : (
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Delete account"
-                onPress={onConfirm}
-                disabled={busy || !matches}
-                style={{
-                  backgroundColor: '#A33A2A',
-                  borderRadius: 2,
-                  paddingHorizontal: 16,
-                  paddingVertical: 10,
-                  opacity: busy || !matches ? 0.5 : 1,
-                }}
-              >
-                <Text style={[TYPE.bodyBold, { color: '#F2EEE5', fontSize: 14, fontWeight: '600', letterSpacing: 0.3 }]}>
-                  {busy ? 'Deleting…' : 'Delete account'}
+              <>
+                <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { color: P.inkDim, fontSize: 14, lineHeight: 20, marginBottom: 14 }]}>
+                  Type{' '}
+                  <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.bodyBold, { color: P.ink }]}>{DELETE_PHRASE}</Text>{' '}
+                  below to permanently delete your account.
                 </Text>
-              </Pressable>
+                <TextInput
+                  value={text}
+                  onChangeText={setText}
+                  editable={!busy}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  placeholder={DELETE_PHRASE}
+                  placeholderTextColor={P.ink45}
+                  maxFontSizeMultiplier={FONT_CAP}
+                  style={{ ...inputStyle, marginBottom: 22 }}
+                  accessibilityLabel="Type delete my account to confirm"
+                />
+              </>
             )}
-          </View>
-        </View>
-      </View>
+
+            <View style={{ flexDirection: 'row', gap: 10 }}>
+              {/* regular weight — secondary Cancel, must not compete with the
+                  destructive Delete action (#598 review). */}
+              <Key accessibilityLabel="Cancel" onPress={onCancel} disabled={busy} style={{ flex: 1 }} faceStyle={{ minHeight: 46 }}>
+                <KeyText size={13} disabled={busy}>Cancel</KeyText>
+              </Key>
+              {phase === 'confirm' ? (
+                <Key
+                  tone="danger"
+                  accessibilityLabel="Continue to type-to-confirm step"
+                  onPress={() => setPhase('type')}
+                  style={{ flex: 1 }}
+                  faceStyle={{ minHeight: 46 }}
+                >
+                  <KeyText tone="danger" bold size={14}>Continue</KeyText>
+                </Key>
+              ) : (
+                <Key
+                  tone="danger"
+                  accessibilityLabel="Delete account"
+                  onPress={onConfirm}
+                  disabled={busy || !matches}
+                  style={{ flex: 1 }}
+                  faceStyle={{ minHeight: 46 }}
+                >
+                  <KeyText tone="danger" bold size={14} disabled={busy || !matches}>
+                    {busy ? 'Deleting…' : 'Delete account'}
+                  </KeyText>
+                </Key>
+              )}
+            </View>
+          </PaperSurface>
+        </HardShadow>
+      </KeyboardAvoidingView>
     </Modal>
   )
 }
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <View
-      style={{
-        borderTopWidth: 1,
-        borderColor: '#D9D2BF',
-        paddingTop: 14,
-        marginBottom: 18,
-      }}
-    >
-      <Text style={{ ...KICKER, marginBottom: 12 }}>{label}</Text>
+    <View style={{ marginBottom: 18 }}>
+      <SectionHead title={label} />
       {children}
     </View>
   )
 }
 
+// Option chips in the paper style of the round screens (#611): a key that
+// sits latched (pressed in) while chosen.
 function Chip({
   label,
   active,
@@ -841,28 +670,10 @@ function Chip({
   onPress: () => void
 }) {
   return (
-    <Pressable
-      accessibilityRole="radio"
-      accessibilityLabel={label}
-      accessibilityState={{ selected: active }}
-      onPress={onPress}
-      style={{
-        paddingHorizontal: 10,
-        paddingVertical: 8,
-        borderRadius: 2,
-        backgroundColor: active ? '#1F3D2C' : '#EBE5D6',
-      }}
-    >
-      <Text
-        style={[TYPE.body, {
-          color: active ? '#F2EEE5' : '#1C211C',
-          fontSize: 12,
-          fontWeight: active ? '500' : '400',
-          textTransform: 'capitalize',
-        }]}
-      >
+    <Key accessibilityLabel={label} latched={active} onPress={onPress} faceStyle={{ minHeight: 40, paddingHorizontal: 12 }}>
+      <KeyText size={13} bold={active} style={{ textTransform: 'capitalize' }}>
         {label}
-      </Text>
-    </Pressable>
+      </KeyText>
+    </Key>
   )
 }

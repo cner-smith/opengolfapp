@@ -1,8 +1,8 @@
 import { Suspense, lazy, useEffect, useState, type ReactNode } from 'react'
 import {
   getExpectedStrokes,
+  startCategory,
   haversineYards,
-  NEAR_GREEN_YARDS,
   type ShotMarkerCategory,
 } from '@oga/core'
 import type { Database } from '@oga/supabase'
@@ -66,6 +66,8 @@ interface MapViewProps {
    *  for the next putt placement. */
   focusGreenSignal: number
   pinOverride: PlacedPoint | null
+  /** The round has its own pin here (hole_scores), so the flag draws strong. */
+  roundPinSet: boolean
   teeOverride: PlacedPoint | null
   /** Active manual-placement mode for courses missing hole layout. */
   placementMode: 'tee' | 'pin' | null
@@ -115,6 +117,7 @@ export function MapView({
   puttingOpen,
   focusGreenSignal,
   pinOverride,
+  roundPinSet,
   teeOverride,
   placementMode,
   handlers,
@@ -203,7 +206,8 @@ export function MapView({
   const expectedStrokes =
     remainingToPin != null
       ? getExpectedStrokes(
-          remainingToPin <= NEAR_GREEN_YARDS ? 'around_green' : 'approach',
+          // Only the first marker placed on a fresh hole is the tee (#998).
+          startCategory(remainingToPin, placedPoints.length === 1 && existingShots.length === 0 && (activeHoleGeo?.par === 4 || activeHoleGeo?.par === 5)),
           remainingToPin,
           undefined,
           handicap,
@@ -294,6 +298,7 @@ export function MapView({
             aimMode={aimMode}
             focusGreenSignal={focusGreenSignal}
             pinOverride={pinOverride}
+            roundPinSet={roundPinSet}
             teeOverride={teeOverride}
             tapToPlaceDisabled={editingOnMap || puttingOpen}
             placementMode={placementMode}

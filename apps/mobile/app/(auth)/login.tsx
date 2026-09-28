@@ -1,8 +1,8 @@
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useState } from 'react'
 import {
   KeyboardAvoidingView,
   Platform,
-  Pressable,
   ScrollView,
   Text,
   TextInput,
@@ -12,11 +12,15 @@ import { Link, useRouter } from 'expo-router'
 import { WebView } from 'react-native-webview'
 import { OAuthButtons } from '../../components/auth/OAuthButtons'
 import { supabase } from '../../lib/supabase'
-import { TYPE } from '../../lib/typography'
+import { FONT, TYPE } from '../../lib/typography'
+import { Key, KeyText, PaperSurface } from '../../components/paper/Paper'
+import { PaperTile } from '../../components/paper/Section'
+import { FONT_CAP, P, R } from '../../components/paper/tokens'
 
 const TURNSTILE_SITE_KEY = process.env.EXPO_PUBLIC_TURNSTILE_SITE_KEY
 
 export default function Login() {
+  const insets = useSafeAreaInsets()
   const router = useRouter()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -55,8 +59,11 @@ export default function Login() {
   }
 
   return (
+    // Frame insets so a scrolled form (small phone, keyboard up) never runs
+    // under the status bar or the nav bar.
+    <PaperSurface style={{ flex: 1, paddingTop: insets.top, paddingBottom: insets.bottom }}>
     <KeyboardAvoidingView
-      style={{ flex: 1, backgroundColor: '#F2EEE5' }}
+      style={{ flex: 1 }}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <ScrollView
@@ -68,23 +75,8 @@ export default function Login() {
         }}
         keyboardShouldPersistTaps="handled"
       >
-      <View
-        style={{
-          backgroundColor: '#FFFFFF',
-          borderRadius: 10,
-          borderWidth: 0.5,
-          borderColor: '#E4E4E0',
-          padding: 20,
-        }}
-      >
-        <Text
-          style={[TYPE.bodyBold, {
-            color: '#111111',
-            fontSize: 22,
-            fontWeight: '600',
-            marginBottom: 16,
-          }]}
-        >
+      <PaperTile innerStyle={{ padding: 20 }}>
+        <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.serif, { color: P.ink, fontSize: 26, lineHeight: 32, marginBottom: 16 }]}>
           Sign in to OGA
         </Text>
         <FieldLabel>Email</FieldLabel>
@@ -93,6 +85,7 @@ export default function Login() {
           keyboardType="email-address"
           value={email}
           onChangeText={setEmail}
+          maxFontSizeMultiplier={FONT_CAP}
           style={inputStyle}
         />
         <FieldLabel>Password</FieldLabel>
@@ -100,6 +93,7 @@ export default function Login() {
           secureTextEntry
           value={password}
           onChangeText={setPassword}
+          maxFontSizeMultiplier={FONT_CAP}
           style={{ ...inputStyle, marginBottom: 14 }}
         />
         {captchaEnabled && (
@@ -125,45 +119,34 @@ export default function Login() {
           />
         )}
         {error && (
-          <Text style={[TYPE.body, { color: '#A32D2D', fontSize: 13, marginBottom: 10 }]}>
+          <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { color: P.neg, fontSize: 13, marginBottom: 10 }]}>
             {error}
           </Text>
         )}
-        <Pressable
+        <Key
+          tone="primary"
+          accessibilityLabel="Sign in"
           onPress={handleSubmit}
           disabled={!canSubmit}
-          style={{
-            backgroundColor: '#111111',
-            borderRadius: 10,
-            paddingVertical: 13,
-            alignItems: 'center',
-            opacity: !canSubmit ? 0.5 : 1,
-          }}
+          faceStyle={{ minHeight: 48 }}
         >
-          <Text style={[TYPE.bodyBold, { color: '#FFFFFF', fontSize: 13 }]}>
+          <KeyText tone="primary" bold size={15} disabled={!canSubmit}>
             {loading ? 'Signing in…' : 'Sign in'}
-          </Text>
-        </Pressable>
+          </KeyText>
+        </Key>
         <View style={{ flexDirection: 'row', alignItems: 'center', marginVertical: 18 }}>
-          <View style={{ flex: 1, height: 0.5, backgroundColor: '#D9D2BF' }} />
-          <Text
-            style={[TYPE.kicker, {
-              color: '#8A8B7E',
-              fontSize: 10,
-              letterSpacing: 1.4,
-              textTransform: 'uppercase',
-              marginHorizontal: 10,
-            }]}
-          >
+          <View style={{ flex: 1, height: 1, backgroundColor: P.line }} />
+          <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { color: P.inkDim, fontSize: 12, marginHorizontal: 10 }]}>
             Or
           </Text>
-          <View style={{ flex: 1, height: 0.5, backgroundColor: '#D9D2BF' }} />
+          <View style={{ flex: 1, height: 1, backgroundColor: P.line }} />
         </View>
         <OAuthButtons />
         <Link
           href="/(auth)/signup"
+          maxFontSizeMultiplier={FONT_CAP}
           style={[TYPE.body, {
-            color: '#0F6E56',
+            color: P.forest,
             fontSize: 13,
             marginTop: 14,
             textAlign: 'center',
@@ -171,36 +154,29 @@ export default function Login() {
         >
           No account? Sign up
         </Link>
-      </View>
+      </PaperTile>
       </ScrollView>
     </KeyboardAvoidingView>
+    </PaperSurface>
   )
 }
 
 const inputStyle = {
-  backgroundColor: '#F9F9F6',
-  borderWidth: 0.5,
-  borderColor: '#E4E4E0',
-  borderRadius: 7,
-  paddingHorizontal: 10,
-  paddingVertical: 9,
-  fontSize: 13,
-  color: '#111111',
+  backgroundColor: P.raised,
+  borderWidth: 1,
+  borderColor: P.ink,
+  borderRadius: R,
+  paddingHorizontal: 12,
+  paddingVertical: 11,
+  fontSize: 15,
+  color: P.ink,
+  fontFamily: FONT.body,
   marginBottom: 12,
 } as const
 
 function FieldLabel({ children }: { children: React.ReactNode }) {
   return (
-    <Text
-      style={[TYPE.body, {
-        color: '#888880',
-        fontSize: 11,
-        fontWeight: '500',
-        letterSpacing: 0.4,
-        textTransform: 'uppercase',
-        marginBottom: 6,
-      }]}
-    >
+    <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { color: P.inkDim, fontSize: 12, marginBottom: 6 }]}>
       {children}
     </Text>
   )

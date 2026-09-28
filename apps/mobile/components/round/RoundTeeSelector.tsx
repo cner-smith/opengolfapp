@@ -1,20 +1,16 @@
 import { useEffect, useState } from 'react'
-import { Alert, Pressable, Text, TextInput, View } from 'react-native'
+import { Alert, Text, TextInput, View } from 'react-native'
 import { getCourseTees, updateRound, upsertCourseTees } from '@oga/supabase'
 import type { Database } from '@oga/supabase'
 import { supabase } from '../../lib/supabase'
-import { FONT, TYPE } from '../../lib/typography'
+import { TYPE } from '../../lib/typography'
+import { Key, KeyText } from '../paper/Paper'
+import { PaperTile, SectionHead } from '../paper/Section'
+import { FONT_CAP, P, R } from '../paper/tokens'
 
 type CourseTeeRow = Database['public']['Tables']['course_tees']['Row']
 
-const KICKER: import('react-native').TextStyle = {
-  fontFamily: FONT.mono,
-  color: '#8A8B7E',
-  fontSize: 10,
-  fontWeight: '500',
-  letterSpacing: 1.4,
-  textTransform: 'uppercase',
-}
+const META: import('react-native').TextStyle = { ...TYPE.body, color: P.inkDim, fontSize: 12 }
 
 // Presentational tee picker: lists a course's tees and lets the player add
 // one (rating/slope/yards). Selection is reported via `onSelect` — it does
@@ -99,7 +95,7 @@ export function TeePicker({
 
   if (loading) {
     return (
-      <Text style={[TYPE.body, { color: '#8A8B7E', fontSize: 13 }]}>Loading tees…</Text>
+      <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { color: P.inkDim, fontSize: 13 }]}>Loading tees…</Text>
     )
   }
 
@@ -108,62 +104,50 @@ export function TeePicker({
       {tees.map((t) => {
         const active = selectedTeeId === t.id
         const hasRating = t.course_rating != null && t.slope_rating != null
+        const rating = hasRating ? `${t.course_rating?.toFixed(1)} / ${t.slope_rating}` : 'No rating'
         return (
-          <Pressable
+          <Key
             key={t.id}
+            accessibilityLabel={`${t.tee_color} tee, ${rating}`}
+            latched={active}
             onPress={() => onSelect({ id: t.id, tee_color: t.tee_color })}
             disabled={disabled}
-            style={{
+            faceStyle={{
               flexDirection: 'row',
               alignItems: 'baseline',
               justifyContent: 'space-between',
-              backgroundColor: active ? '#1F3D2C' : '#FBF8F1',
-              borderWidth: 1,
-              borderColor: active ? '#1F3D2C' : '#D9D2BF',
-              borderRadius: 2,
               paddingVertical: 12,
               paddingHorizontal: 14,
-              opacity: disabled ? 0.5 : 1,
             }}
           >
             <Text
-              style={[TYPE.serif, {
-                color: active ? '#F2EEE5' : '#1C211C',
-                fontSize: 16,
+              maxFontSizeMultiplier={FONT_CAP}
+              style={[active ? TYPE.bodyBold : TYPE.body, {
+                color: disabled ? P.ink35 : P.ink,
+                fontSize: 15,
                 textTransform: 'capitalize',
               }]}
             >
               {t.tee_color}
             </Text>
-            <Text
-              style={{
-                ...KICKER,
-                color: active ? 'rgba(242,238,229,0.75)' : '#5C6356',
-              }}
-            >
-              {hasRating ? `${t.course_rating?.toFixed(1)} / ${t.slope_rating}` : 'No rating'}
+            <Text maxFontSizeMultiplier={FONT_CAP} style={{ ...META, color: disabled ? P.ink35 : P.inkDim }}>
+              {rating}
             </Text>
-          </Pressable>
+          </Key>
         )
       })}
 
       {adding ? (
         <AddTeeForm busy={addBusy} onCancel={() => setAdding(false)} onSubmit={addTee} />
       ) : (
-        <Pressable
+        <Key
+          accessibilityLabel="Add tee"
           onPress={() => setAdding(true)}
           disabled={disabled}
-          style={{
-            borderWidth: 1,
-            borderColor: '#D9D2BF',
-            borderStyle: 'dashed',
-            borderRadius: 2,
-            paddingVertical: 11,
-            alignItems: 'center',
-          }}
+          faceStyle={{ minHeight: 44 }}
         >
-          <Text style={{ ...KICKER, color: '#5C6356' }}>+ Add tee</Text>
-        </Pressable>
+          <KeyText size={13} disabled={disabled}>+ Add tee</KeyText>
+        </Key>
       )}
     </View>
   )
@@ -207,16 +191,9 @@ export function RoundTeeSelector({
   }
 
   return (
-    <View
-      style={{
-        borderTopWidth: 1,
-        borderColor: '#D9D2BF',
-        paddingTop: 14,
-        marginTop: 8,
-      }}
-    >
-      <Text style={{ ...KICKER, marginBottom: 4 }}>Tee played</Text>
-      <Text style={[TYPE.body, { color: '#8A8B7E', fontSize: 12, marginBottom: 12 }]}>
+    <View style={{ marginTop: 8 }}>
+      <SectionHead title="Tee played" style={{ marginBottom: 4 }} />
+      <Text maxFontSizeMultiplier={FONT_CAP} style={{ ...META, marginBottom: 12 }}>
         Add the tee's rating and slope to get a handicap differential.
       </Text>
       <TeePicker
@@ -257,55 +234,36 @@ function AddTeeForm({
   }
 
   return (
-    <View
-      style={{
-        backgroundColor: '#FBF8F1',
-        borderWidth: 1,
-        borderColor: '#D9D2BF',
-        borderRadius: 2,
-        padding: 14,
-        gap: 10,
-      }}
-    >
-      <Text style={{ ...KICKER }}>Add tee</Text>
+    <PaperTile innerStyle={{ gap: 10 }}>
+      <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.serif, { color: P.ink, fontSize: 18, lineHeight: 23 }]}>
+        Add tee
+      </Text>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
         <TeeField label="Color" value={color} onChangeText={setColor} width="100%" autoCapitalize="none" />
         <TeeField label="Rating" value={rating} onChangeText={setRating} placeholder="71.2" keyboardType="decimal-pad" width="31%" />
         <TeeField label="Slope" value={slope} onChangeText={setSlope} placeholder="124" keyboardType="number-pad" width="31%" />
         <TeeField label="Yards" value={yards} onChangeText={setYards} placeholder="6450" keyboardType="number-pad" width="31%" />
       </View>
-      <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 8 }}>
-        <Pressable
-          onPress={onCancel}
-          style={{
-            borderWidth: 1,
-            borderColor: '#D9D2BF',
-            borderRadius: 2,
-            paddingVertical: 9,
-            paddingHorizontal: 14,
-          }}
-        >
-          <Text style={[TYPE.body, { color: '#5C6356', fontSize: 13 }]}>Cancel</Text>
-        </Pressable>
-        <Pressable
+      <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 8, marginTop: 4 }}>
+        <Key accessibilityLabel="Cancel" onPress={onCancel} faceStyle={{ minHeight: 40, paddingHorizontal: 14 }}>
+          <KeyText size={13}>Cancel</KeyText>
+        </Key>
+        <Key
+          tone="primary"
+          accessibilityLabel={busy ? 'Saving…' : 'Add tee'}
           onPress={() =>
             color.trim() &&
             onSubmit({ color, rating: num(rating), slope: num(slope), yards: num(yards) })
           }
           disabled={busy || !color.trim()}
-          style={{
-            backgroundColor: busy || !color.trim() ? '#9F9580' : '#1F3D2C',
-            borderRadius: 2,
-            paddingVertical: 9,
-            paddingHorizontal: 16,
-          }}
+          faceStyle={{ minHeight: 40, paddingHorizontal: 16 }}
         >
-          <Text style={[TYPE.bodyBold, { color: '#F2EEE5', fontSize: 13, fontWeight: '600' }]}>
+          <KeyText tone="primary" bold size={13} disabled={busy || !color.trim()}>
             {busy ? 'Saving…' : 'Add tee'}
-          </Text>
-        </Pressable>
+          </KeyText>
+        </Key>
       </View>
-    </View>
+    </PaperTile>
   )
 }
 
@@ -319,18 +277,20 @@ function TeeField({
 } & React.ComponentProps<typeof TextInput>) {
   return (
     <View style={{ width, gap: 4 }}>
-      <Text style={{ ...KICKER, fontSize: 9 }}>{label}</Text>
+      <Text maxFontSizeMultiplier={FONT_CAP} style={META}>{label}</Text>
       <TextInput
         {...input}
+        maxFontSizeMultiplier={FONT_CAP}
+        placeholderTextColor={P.ink45}
         style={[TYPE.body, {
-          backgroundColor: '#FFFFFF',
+          backgroundColor: P.raised,
           borderWidth: 1,
-          borderColor: '#D9D2BF',
-          borderRadius: 2,
+          borderColor: P.ink,
+          borderRadius: R,
           paddingHorizontal: 10,
           paddingVertical: 8,
           fontSize: 14,
-          color: '#1C211C',
+          color: P.ink,
         }]}
       />
     </View>

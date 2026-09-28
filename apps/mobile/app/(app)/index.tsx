@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router'
 import { Pressable, ScrollView, Text, View } from 'react-native'
-import { formatSG } from '@oga/core'
+import { formatSG, isPartialRound } from '@oga/core'
 import { deleteRound, getProfile, getRecentRounds } from '@oga/supabase'
 import type { Database } from '@oga/supabase'
 import { supabase } from '../../lib/supabase'
@@ -28,6 +28,9 @@ import { LearnPreview } from '../../components/home/LearnPreview'
 import { IntroTour } from '../../components/onboarding/IntroTour'
 import { introTourSeen, markIntroTourSeen } from '../../lib/introTour'
 import { TYPE } from '../../lib/typography'
+import { PaperTile, SectionHead, StatTile } from '../../components/paper/Section'
+import { FONT_CAP, P } from '../../components/paper/tokens'
+import { PaperSurface } from '../../components/paper/Paper'
 
 type Profile = Database['public']['Tables']['profiles']['Row']
 
@@ -44,14 +47,6 @@ const SG_KEYS = [
   { key: 'sg_around_green', label: 'Around green' },
   { key: 'sg_putting', label: 'Putting' },
 ] as const
-
-const KICKER: import('react-native').TextStyle = {
-  color: '#8A8B7E',
-  fontSize: 10,
-  fontWeight: '500',
-  letterSpacing: 1.4,
-  textTransform: 'uppercase',
-}
 
 export default function Home() {
   const { user } = useAuth()
@@ -153,14 +148,16 @@ export default function Home() {
 
   useFocusEffect(
     useCallback(() => {
+      // The flag is per account: re-read when the signed-in user changes.
+      if (!user) return
       let active = true
-      introTourSeen().then((seen) => {
+      introTourSeen(user.id).then((seen) => {
         if (active) setTourSeen(seen)
       })
       return () => {
         active = false
       }
-    }, []),
+    }, [user?.id]),
   )
 
   // A user with any round history (or a live round) is not a first-run user;
@@ -169,11 +166,11 @@ export default function Home() {
   // covers an existing user whose "seen" flag was never set (the flag is
   // brand-new — see autoShow comment below).
   useEffect(() => {
-    if (rounds.length > 0 || activeRound) {
+    if (user && (rounds.length > 0 || activeRound)) {
       setTourSeen(true)
-      markIntroTourSeen()
+      markIntroTourSeen(user.id)
     }
-  }, [rounds.length, activeRound])
+  }, [user?.id, rounds.length, activeRound])
 
   // Auto-show ONLY for a genuinely-new user: flag unseen AND a fully-LOADED
   // Home with zero rounds and no active round. Gating on the flag alone would
@@ -192,16 +189,17 @@ export default function Home() {
   // fire-and-forget, and clearing the replay param stops a re-focus re-firing it.
   const dismissTour = () => {
     setTourSeen(true)
-    markIntroTourSeen()
+    if (user) markIntroTourSeen(user.id)
     router.setParams({ replayTour: undefined })
   }
 
   useEffect(() => {
-    pendingCount().then(setPending)
+    if (!user) return
+    pendingCount(user.id).then(setPending)
     syncPendingShots()
-      .then(() => pendingCount().then(setPending))
+      .then(() => pendingCount(user.id).then(setPending))
       .catch(() => undefined)
-  }, [])
+  }, [user?.id])
 
   // Skip rounds with no sg_total — null → 0 would anchor the line
   // at zero on rounds the user never finalized SG for, and the SG
@@ -211,18 +209,22 @@ export default function Home() {
   // the full reversed array including null-filtered entries, which
   // would otherwise produce sparse ordinals like [1, 3, 5] and a
   // visually gapped axis.
+  // Rounds ended early stay out of the per-round numbers below (avg, best,
+  // SG averages, trend) — a 6-hole total isn't comparable to a whole round (#911).
+  const wholeRounds = useMemo(() => rounds.filter((r) => !isPartialRound(r.hole_scores)), [rounds])
+
   const trend = useMemo(() => {
     let seq = 0
-    return [...rounds]
+    return [...wholeRounds]
       .reverse()
       .flatMap((r) =>
-        r.sg_total == null ? [] : [{ x: ++seq, y: r.sg_total }],
+        r.sg_total == null ? [] : [{ x: ++seq, y: r.sg_total, date: r.played_at }],
       )
-  }, [rounds])
+  }, [wholeRounds])
 
   const homeStats = useMemo(() => {
     const avgs = SG_KEYS.map((c) => {
-      const values = rounds.map((r) => r[c.key]).filter((v): v is number => v !== null)
+      const values = wholeRounds.map((r) => r[c.key]).filter((v): v is number => v !== null)
       const avg = values.length === 0 ? 0 : values.reduce((a, b) => a + b, 0) / values.length
       return { ...c, value: Number(avg.toFixed(2)) }
     })
@@ -230,7 +232,7 @@ export default function Home() {
     // entered" (map-created rounds), so exclude it from avg + best-round min —
     // otherwise an abandoned log skews the average and a single unscored
     // round always reads as a best of 0.
-    const realScoreRounds = rounds.filter(
+    const realScoreRounds = wholeRounds.filter(
       (r): r is typeof r & { total_score: number } =>
         r.total_score != null && r.total_score > 0,
     )
@@ -243,7 +245,7 @@ export default function Home() {
     const totalSG = avgs.reduce((s, a) => s + a.value, 0)
     const sorted = [...avgs].sort((a, b) => b.value - a.value)
     return { avgScore, bestScore, totalSG, weakest: sorted[sorted.length - 1]!, strongest: sorted[0]! }
-  }, [rounds])
+  }, [wholeRounds])
 
   const eyebrow =
     profile?.handicap_index != null
@@ -252,7 +254,7 @@ export default function Home() {
   const firstName = profile?.username?.split(/\s+/)[0]
 
   return (
-    <View style={{ flex: 1, backgroundColor: '#F2EEE5' }}>
+    <PaperSurface style={{ flex: 1 }}>
       <IntroTour
         visible={showTour}
         onDismiss={dismissTour}
@@ -300,26 +302,25 @@ export default function Home() {
                 },
               ]}
             >
-              {homeStats.weakest.value >= 0 ? (
-                <>Everything is net positive. <Text style={[TYPE.bodyBold, { fontWeight: '600' }]}>{homeStats.strongest.label}</Text> leads at {fmtSG(homeStats.strongest.value)} a round.</>
+              {homeStats.weakest.value > -0.05 ? (
+                <>Everything is net positive. <Text maxFontSizeMultiplier={FONT_CAP} style={TYPE.bodyBold}>{homeStats.strongest.label}</Text> leads at {fmtSG(homeStats.strongest.value)} a round.</>
               ) : (
-                <><Text style={[TYPE.bodyBold, { fontWeight: '600' }]}>{homeStats.weakest.label}.</Text> Your biggest leak — costing about {fmtAbs(homeStats.weakest.value)} a round. {homeStats.strongest.label} is the bright spot at {fmtSG(homeStats.strongest.value)}.</>
+                <><Text maxFontSizeMultiplier={FONT_CAP} style={TYPE.bodyBold}>{homeStats.weakest.label}.</Text> Your biggest leak — costing about {fmtAbs(homeStats.weakest.value)} a round. {homeStats.strongest.label} is the bright spot at {fmtSG(homeStats.strongest.value)}.</>
               )}
             </Text>
 
             <View style={{ marginBottom: 28 }}>
-              <View style={{ borderTopWidth: 1, borderColor: '#D9D2BF', paddingTop: 14, marginBottom: 14 }}>
-                <Text style={[TYPE.kicker, KICKER]}>By the numbers</Text>
-              </View>
+              <SectionHead title="By the numbers" />
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
-                <HomeTile label="Avg score" value={homeStats.avgScore != null ? homeStats.avgScore.toFixed(1) : '—'} />
-                <HomeTile
+                <StatTile style={TILE} label="Avg score" value={homeStats.avgScore != null ? homeStats.avgScore.toFixed(1) : '—'} />
+                <StatTile
+                  style={TILE}
                   label="SG total"
                   value={formatSG(homeStats.totalSG)}
-                  valueColor={homeStats.totalSG > 0 ? '#1F3D2C' : homeStats.totalSG < 0 ? '#A33A2A' : '#1C211C'}
+                  valueColor={homeStats.totalSG > 0 ? P.forest : homeStats.totalSG < 0 ? P.neg : P.ink}
                 />
-                <HomeTile label="Rounds" value={rounds.length.toString()} />
-                <HomeTile label="Best round" value={homeStats.bestScore != null ? homeStats.bestScore.toString() : '—'} />
+                <StatTile style={TILE} label="Rounds" value={rounds.length.toString()} />
+                <StatTile style={TILE} label="Best round" value={homeStats.bestScore != null ? homeStats.bestScore.toString() : '—'} />
               </View>
             </View>
           </Entrance>
@@ -332,17 +333,9 @@ export default function Home() {
         </Entrance>
 
         {pending > 0 && (
-          <View
-            style={{
-              borderTopWidth: 1,
-              borderBottomWidth: 1,
-              borderColor: '#D9D2BF',
-              paddingVertical: 12,
-              marginBottom: 18,
-            }}
-          >
-            <Text style={[TYPE.kicker, KICKER, { marginBottom: 4 }]}>Sync queue</Text>
-            <Text style={[TYPE.body, { color: '#A66A1F', fontSize: 13 }]}>
+          <View style={{ marginBottom: 18 }}>
+            <SectionHead title="Sync queue" style={{ marginBottom: 4 }} />
+            <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { color: P.warn, fontSize: 13 }]}>
               {pending} shot{pending === 1 ? '' : 's'} waiting to sync.
             </Text>
           </View>
@@ -350,20 +343,13 @@ export default function Home() {
 
         <Entrance index={3}>
         {rounds.length === 0 ? (
-          <View
-            style={{
-              borderWidth: 1,
-              borderColor: '#D9D2BF',
-              backgroundColor: '#FBF8F1',
-              padding: 22,
-              borderRadius: 4,
-            }}
-          >
+          <PaperTile style={{ marginBottom: 28 }} innerStyle={{ padding: 22 }}>
             <Text
+              maxFontSizeMultiplier={FONT_CAP}
               style={[
                 TYPE.serif,
                 {
-                  color: '#1C211C',
+                  color: P.ink,
                   fontSize: 22,
                 },
               ]}
@@ -371,10 +357,11 @@ export default function Home() {
               No rounds yet.
             </Text>
             <Text
+              maxFontSizeMultiplier={FONT_CAP}
               style={[
                 TYPE.body,
                 {
-                  color: '#5C6356',
+                  color: P.inkDim,
                   fontSize: 14,
                   marginTop: 8,
                   lineHeight: 20,
@@ -383,10 +370,10 @@ export default function Home() {
             >
               Log your first round to start tracking strokes gained.
             </Text>
-          </View>
+          </PaperTile>
         ) : (
           <>
-            <SGBreakdown rounds={rounds} />
+            <SGBreakdown rounds={wholeRounds} />
             <SGTrendChart data={trend} />
           </>
         )}
@@ -426,39 +413,11 @@ export default function Home() {
         }}
         onCancel={() => setPendingDelete(null)}
       />
-    </View>
+    </PaperSurface>
   )
 }
 
-function HomeTile({
-  label,
-  value,
-  valueColor = '#1C211C',
-}: {
-  label: string
-  value: string
-  valueColor?: string
-}) {
-  return (
-    <View
-      style={{
-        width: '47%',
-        backgroundColor: '#FBF8F1',
-        borderWidth: 1,
-        borderColor: '#D9D2BF',
-        borderRadius: 4,
-        padding: 14,
-      }}
-    >
-      <Text style={[TYPE.kicker, { color: '#8A8B7E', fontSize: 10, fontWeight: '500', letterSpacing: 1.4, textTransform: 'uppercase', marginBottom: 10 }]}>
-        {label}
-      </Text>
-      <Text style={[TYPE.serif, { color: valueColor, fontSize: 28 }]}>
-        {value}
-      </Text>
-    </View>
-  )
-}
+const TILE = { width: '47%' } as const
 
 function fmtSG(value: number): string {
   return value === 0 ? 'even' : `${formatSG(value)} strokes`

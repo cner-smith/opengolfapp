@@ -5,8 +5,10 @@ import {
   LIE_TYPE_LABELS,
   LIE_SLOPES_FORWARD,
   LIE_SLOPES_SIDE,
-  SHOT_RESULTS,
-  SHOT_RESULT_LABELS,
+  legacyShotResult,
+  SHOT_CONTACT_LABELS,
+  SHOT_SHAPE_LABELS,
+  SHOT_START_LINE_LABELS,
   buildInitialRows,
   combinedBreakDirection,
   formatClubLabel,
@@ -26,7 +28,6 @@ import {
   type PuttDirectionResult,
   type PuttDistanceResult,
   type ReviewedShotRow,
-  type ShotResult,
 } from '@oga/core'
 import { GreenDiagram } from './GreenDiagram'
 import type { PlacedPoint } from './RoundMap'
@@ -34,6 +35,7 @@ import type { WebPuttData } from './WebPuttingSheet'
 import { useUnits } from '../../hooks/useUnits'
 import { useUserBag } from '../../hooks/useUserBag'
 
+import { ResultAxes } from '../rounds/shots/ResultAxes'
 export type { ReviewedShotRow }
 
 interface HoleReviewSheetProps {
@@ -61,7 +63,7 @@ interface HoleReviewSheetProps {
    *  saveReviewedHole's snapshot is: `placedPoints` is never seeded from
    *  stored shots, so a re-placement with a different shot count has no
    *  correspondence to them and a stale flag would land on the wrong shot. */
-  storedShots?: ReadonlyArray<{ shotNumber: number; ob?: boolean | null }>
+  storedShots?: ReadonlyArray<{ shotNumber: number; ob?: boolean | null; penalty?: boolean | null }>
   saving: boolean
   /** "Edit on map" — close the sheet and let the user drag markers. */
   onEditOnMap: () => void
@@ -217,10 +219,17 @@ export function HoleReviewSheet({
     const stored = storedShotsRef.current ?? []
     let seeded = merged
     if (stored.length === merged.length) {
-      const obByNumber = new Map(stored.map((s) => [s.shotNumber, s.ob === true]))
-      seeded = merged.map((row) =>
-        obByNumber.get(row.shotNumber) ? { ...row, shotResult: 'ob' as const } : row,
-      )
+      const byNumber = new Map(stored.map((s) => [s.shotNumber, s]))
+      // Penalty too: the result picker sends its full value, so an unseeded
+      // row would write penalty:false over a stored true once touched.
+      seeded = merged.map((row) => {
+        const s = byNumber.get(row.shotNumber)
+        return {
+          ...row,
+          ...(s?.ob === true ? { shotResult: 'ob' as const } : {}),
+          ...(s?.penalty === true ? { penalty: true } : {}),
+        }
+      })
     }
     setRows(seeded)
     // Struck rows + penalty strokes. obCount reads the `shotResult: 'ob'`
@@ -234,7 +243,8 @@ export function HoleReviewSheet({
     // counts as a putt here even though its row shows normal-shot UI (the
     // per-row isPutt gate below stays isPuttEntry). User-overridable ticker.
     setPutts(merged.filter((r) => isPuttShot(r.lieType)).length)
-    setPenalties(0)
+    // Same OB rows the score just counted (#963).
+    setPenalties(obCount(seeded))
   }, [open, holeNumber, par, pinLat, pinLng])
 
   // Slide-in: mount at translateY(100%), flip to 0 next frame so CSS
@@ -369,11 +379,13 @@ export function HoleReviewSheet({
                 if (next.shotResult !== row.shotResult) {
                   if (next.shotResult === 'ob' && row.shotResult !== 'ob') {
                     setScore((s) => s + 1)
+                    setPenalties((n) => n + 1)
                   } else if (
                     row.shotResult === 'ob' &&
                     next.shotResult !== 'ob'
                   ) {
                     setScore((s) => Math.max(0, s - 1))
+                    setPenalties((n) => Math.max(0, n - 1))
                   }
                 }
                 setRows((prev) => {
@@ -635,6 +647,22 @@ function ShotRow({
     clubOptions.find((c) => c.value === row.club)?.label ?? String(row.club)
   const clubLabel = rawClubLabel.charAt(0).toUpperCase() + rawClubLabel.slice(1)
   const slopeSet = row.lieSlopeForward != null || row.lieSlopeSide != null
+  const result = {
+    contact: row.contact ?? null,
+    shape: row.shape ?? null,
+    startLine: row.startLine ?? null,
+    penalty: !!row.penalty,
+    ob: row.shotResult === 'ob',
+  }
+  const resultText = [
+    result.contact && SHOT_CONTACT_LABELS[result.contact],
+    result.shape && SHOT_SHAPE_LABELS[result.shape],
+    result.startLine && SHOT_START_LINE_LABELS[result.startLine],
+    result.penalty && 'Penalty',
+    result.ob && 'OB',
+  ]
+    .filter(Boolean)
+    .join(' · ')
   const slopeText = [
     row.lieSlopeForward && slopeLabel(row.lieSlopeForward),
     row.lieSlopeSide && slopeLabel(row.lieSlopeSide),
@@ -794,12 +822,8 @@ function ShotRow({
               onClick={() => toggle('slope')}
             />
             <FieldChip
-              label={
-                row.shotResult
-                  ? SHOT_RESULT_LABELS[row.shotResult]
-                  : '+ result'
-              }
-              filled={!!row.shotResult}
+              label={resultText || '+ result'}
+              filled={!!resultText}
               active={open === 'result'}
               onClick={() => toggle('result')}
             />
@@ -831,22 +855,23 @@ function ShotRow({
           )}
           {open === 'slope' && <SlopeExpand row={row} onChange={onChange} />}
           {open === 'result' && (
-            <ChipExpand
-              label="Result"
-              options={SHOT_RESULTS.map((r) => ({
-                value: r,
-                label: SHOT_RESULT_LABELS[r],
-              }))}
-              value={row.shotResult}
-              onSelect={(v) => {
-                onChange({
-                  ...row,
-                  shotResult:
-                    row.shotResult === v ? undefined : (v as ShotResult),
-                })
-                setOpen(null)
-              }}
-            />
+            <div style={{ marginTop: 9, background: '#EBE5D6', borderRadius: 3, padding: '9px 10px' }}>
+              <ResultAxes
+                value={result}
+                onChange={(v) =>
+                  onChange({
+                    ...row,
+                    contact: v.contact,
+                    shape: v.shape,
+                    startLine: v.startLine,
+                    penalty: v.penalty,
+                    // The legacy value carries OB for the sheet's ticker and
+                    // the save (`ob = shotResult === 'ob'`).
+                    shotResult: legacyShotResult(v) ?? undefined,
+                  })
+                }
+              />
+            </div>
           )}
         </>
       )}
@@ -945,7 +970,7 @@ function ChipExpand<V extends string>({
       style={{
         marginTop: 9,
         background: '#EBE5D6',
-        borderRadius: 8,
+        borderRadius: 3,
         padding: '9px 10px',
       }}
     >
@@ -980,7 +1005,7 @@ function SlopeExpand({
       style={{
         marginTop: 9,
         background: '#EBE5D6',
-        borderRadius: 8,
+        borderRadius: 3,
         padding: '9px 10px',
         display: 'flex',
         flexDirection: 'column',
@@ -1049,7 +1074,7 @@ function BreakExpand({
       style={{
         marginTop: 9,
         background: '#EBE5D6',
-        borderRadius: 8,
+        borderRadius: 3,
         padding: '9px 10px',
         display: 'flex',
         flexDirection: 'column',

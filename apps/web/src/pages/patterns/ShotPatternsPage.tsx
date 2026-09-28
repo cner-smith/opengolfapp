@@ -1,7 +1,8 @@
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { toBlob } from 'html-to-image'
 import {
   CLUBS,
+  DEFAULT_BAG,
   LIE_TYPES,
   getAimCorrection,
   type Club,
@@ -14,6 +15,7 @@ import {
 import { useShotPatterns } from '../../hooks/useShotPatterns'
 import { LieSlopeGrid } from '../../components/forms/LieSlopeGrid'
 import { useUnits } from '../../hooks/useUnits'
+import { useUserBag } from '../../hooks/useUserBag'
 import {
   DispersionPlot,
   pointColor,
@@ -34,6 +36,15 @@ const SHARE_CARD_H = 630
 export function ShotPatternsPage() {
   const { unit, toDisplay } = useUnits()
   const [club, setClub] = useState<Club>('7i')
+  // Only the player's bag (DEFAULT_BAG while it loads / if empty), catalog order.
+  const { bag } = useUserBag()
+  const clubOptions = useMemo(() => {
+    const have = new Set<string>((bag.length ? bag : DEFAULT_BAG).map((c) => c.club_type))
+    return CLUBS.filter((c) => c !== 'putter' && have.has(c))
+  }, [bag])
+  useEffect(() => {
+    if (clubOptions.length && !clubOptions.includes(club)) setClub(clubOptions[0]!)
+  }, [clubOptions, club])
   const [lieType, setLieType] = useState<LieType | ''>('')
   const [lieSlopeForward, setLieSlopeForward] = useState<
     LieSlopeForward | undefined
@@ -147,7 +158,7 @@ export function ShotPatternsPage() {
         <div className="flex flex-wrap" style={{ gap: 6 }}>
           {/* Putter excluded: aim-relative yards dispersion is meaningless for
               putts (mirrors the clubAccuracy putt exclusion, #574). */}
-          {CLUBS.filter((c) => c !== 'putter').map((c) => (
+          {clubOptions.map((c) => (
             <button
               key={c}
               type="button"

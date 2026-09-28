@@ -107,6 +107,7 @@ export type Source =
 export interface OgaHoleGeo {
   number: number
   par: number
+  parSource: 'osm' | 'inferred'
   yards?: number
   teeLat?: number
   teeLng?: number

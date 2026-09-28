@@ -72,6 +72,7 @@ export async function upsertHoles(courseId: string, holes: OgaHole[]): Promise<v
     course_id: courseId,
     number: h.number,
     par: h.par,
+    par_source: 'api',
     yards: h.yards ?? null,
   }))
   const { error } = await supabase.from('holes').upsert(rows, { onConflict: 'course_id,number' })
@@ -86,6 +87,7 @@ export async function upsertHoleGeometry(courseId: string, holes: OgaHoleGeo[]):
     course_id: courseId,
     number: h.number,
     par: h.par,
+    par_source: h.parSource,
     yards: h.yards ?? null,
     tee_lat: h.teeLat ?? null,
     tee_lng: h.teeLng ?? null,

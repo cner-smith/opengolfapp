@@ -19,13 +19,17 @@
     "@react-native-community/netinfo": "11.4.1",
     "@rnmapbox/maps": "10.3.5",
     "@supabase/supabase-js": "^2.45.0",
-    "expo": "54.0.36",
+    "expo": "54.0.37",
     "expo-apple-authentication": "8.0.8",
-    "expo-constants": "18.0.13",
+    "expo-asset": "12.0.13",
+    "expo-audio": "1.1.1",
+    "expo-build-properties": "1.0.10",
+    "expo-constants": "18.0.14",
     "expo-crypto": "15.0.9",
     "expo-dev-client": "6.0.21",
-    "expo-file-system": "19.0.23",
+    "expo-file-system": "19.0.24",
     "expo-font": "14.0.12",
+    "expo-haptics": "15.0.8",
     "expo-linking": "8.0.12",
     "expo-location": "19.0.8",
     "expo-router": "6.0.24",
@@ -34,8 +38,9 @@
     "expo-splash-screen": "31.0.13",
     "expo-sqlite": "16.0.10",
     "expo-status-bar": "3.0.9",
-    "expo-updates": "29.0.19",
+    "expo-updates": "29.0.20",
     "expo-web-browser": "15.0.11",
+    "perfect-freehand": "1.2.3",
     "react": "19.1.0",
     "react-dom": "19.1.0",
     "react-native": "0.81.5",
@@ -62,6 +67,13 @@
       "exclude": [
         "react-native-view-shot"
       ]
+    },
+    "autolinking": {
+      "android": {
+        "exclude": [
+          "expo-audio"
+        ]
+      }
     }
   }
 }

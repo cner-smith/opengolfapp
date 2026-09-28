@@ -8,6 +8,8 @@ import {
   type ShotPayload,
 } from '../../../lib/db'
 import { supabase } from '../../../lib/supabase'
+import { isNetworkFailure, offlineKeys, readCache, writeCache } from '../../../lib/offlineCache'
+import { useAuth } from '../../../hooks/useAuth'
 import type { LatLng } from '../HoleMap'
 
 type HoleRow = Database['public']['Tables']['holes']['Row']
@@ -55,16 +57,44 @@ export interface UseHoleDataResult {
    *  remembered in component state — a mid-hole reload must not offer to
    *  mark an already-OB shot again and double-charge the penalty (#839). */
   previousShotObs: boolean[]
+  /** The hole's latest shot is a made putt (remote or still queued). */
+  lastShotHoled: boolean
+  /** The hole's latest shot was played from the green. */
+  lastShotPutt: boolean
   refreshShots: () => void
   localShotCount: number
   localPuttCount: number
   shotNumber: number
 }
 
+type CachedRoundData = {
+  round: RoundRow & { courses: { lat: number | null; lng: number | null } | null }
+  holes: HoleRow[]
+  holeScores: HoleScoreRow[]
+  courseTees: CourseTeeRow[]
+  holeTees: HoleTeeRow[]
+}
+
+// The shot columns the hole screen reads (the select below).
+type LiteShot = Pick<
+  Database['public']['Tables']['shots']['Row'],
+  'id' | 'club' | 'lie_type' | 'shot_number' | 'start_lat' | 'start_lng' | 'ob' | 'putt_result'
+>
+
+function payloadOf(row: PendingShot): ShotPayload | null {
+  try {
+    return JSON.parse(row.payload) as ShotPayload
+  } catch {
+    return null
+  }
+}
+
 export function useHoleData(
   id: string | undefined,
   holeNumber: number,
 ): UseHoleDataResult {
+  const { user } = useAuth()
+  const userId = user?.id
   const [round, setRound] = useState<RoundRow | null>(null)
   const [courseCenter, setCourseCenter] = useState<LatLng | null>(null)
   const [holes, setHoles] = useState<HoleRow[]>([])
@@ -79,6 +109,10 @@ export function useHoleData(
   const [remoteShotStarts, setRemoteShotStarts] = useState<LatLng[]>([])
   const [remoteShotIds, setRemoteShotIds] = useState<string[]>([])
   const [remoteShotObs, setRemoteShotObs] = useState<boolean[]>([])
+  // Hole score whose latest remote shot is a made putt. An id, not a bool: on a
+  // hole switch the caller sees the new hole before this resets.
+  const [remoteHoledFor, setRemoteHoledFor] = useState<string | null>(null)
+  const [remotePuttFor, setRemotePuttFor] = useState<string | null>(null)
   const [shotsRefreshNonce, setShotsRefreshNonce] = useState(0)
   const refreshShots = useCallback(() => setShotsRefreshNonce((n) => n + 1), [])
 
@@ -192,6 +226,22 @@ export function useHoleData(
     if (!id) return
     setLoading(true)
     setError(null)
+    // Set together, not before the fetch below: a render with a round but no
+    // holes yet pads to synthetic placeholders, and the synthetic → real id
+    // swap for the SAME hole reads as a hole switch to useHoleState, dropping
+    // a resumed mid-hole into "+ Add a shot" (#902).
+    const apply = (p: CachedRoundData) => {
+      setRound(p.round)
+      setCourseCenter(
+        p.round.courses && p.round.courses.lat != null && p.round.courses.lng != null
+          ? { lat: p.round.courses.lat, lng: p.round.courses.lng }
+          : null,
+      )
+      setHoles(p.holes)
+      setHoleScores(p.holeScores)
+      setCourseTees(p.courseTees)
+      setHoleTees(p.holeTees)
+    }
     try {
       // If the round was deleted (e.g. from the home list) while this live
       // session is still mounted, a 0-row result returns null instead of
@@ -203,13 +253,6 @@ export function useHoleData(
         .eq('id', id)
         .maybeSingle()
       if (rErr || !r) throw rErr ?? new Error('Round not found')
-      setRound(r)
-      setCourseCenter(
-        r.courses && r.courses.lat != null && r.courses.lng != null
-          ? { lat: r.courses.lat, lng: r.courses.lng }
-          : null,
-      )
-
       const [hRes, hsRes, ctRes, htRes] = await Promise.all([
         supabase.from('holes').select('*').eq('course_id', r.course_id).order('number'),
         supabase.from('hole_scores').select('*').eq('round_id', r.id),
@@ -220,20 +263,45 @@ export function useHoleData(
       if (hsRes.error) throw hsRes.error
       if (ctRes.error) throw ctRes.error
       if (htRes.error) throw htRes.error
-      setHoles(hRes.data ?? [])
-      setHoleScores(hsRes.data ?? [])
-      setCourseTees(ctRes.data ?? [])
-      setHoleTees(htRes.data ?? [])
+      const payload: CachedRoundData = {
+        round: r,
+        holes: hRes.data ?? [],
+        holeScores: hsRes.data ?? [],
+        courseTees: ctRes.data ?? [],
+        holeTees: htRes.data ?? [],
+      }
+      apply(payload)
     } catch (err) {
-      setError((err as Error).message)
+      // Offline (#993): reopen the round from its last successful load.
+      const cached =
+        userId && isNetworkFailure(err)
+          ? await readCache<CachedRoundData>(offlineKeys.round(userId, id))
+          : null
+      if (cached) apply(cached)
+      else setError((err as Error).message)
     } finally {
       setLoading(false)
     }
-  }, [id])
+  }, [id, userId])
 
   useEffect(() => {
     loadAll()
   }, [loadAll])
+
+  // Persist the loaded round for a cold start without signal (#993). Follows
+  // the in-memory state rather than only loadAll's fetch, so the scores, pins
+  // and tees edited during play are what an offline reopen gets back.
+  useEffect(() => {
+    if (!userId || !round) return
+    const payload: CachedRoundData = {
+      round: round as CachedRoundData['round'],
+      holes,
+      holeScores,
+      courseTees,
+      holeTees,
+    }
+    void writeCache(offlineKeys.round(userId, round.id), payload)
+  }, [userId, round, holes, holeScores, courseTees, holeTees])
 
   // Reload remote + local shot/putt counts whenever the active hole_score
   // changes. Putts are counted as shots where club='putter' OR lie_type='green'.
@@ -257,6 +325,9 @@ export function useHoleData(
   // `hasPriorShots` to false and kicking the player briefly out of edit mode
   // mid-action (previousShots.length > 0 is part of that predicate).
   const resetForHoleScoreIdRef = useRef<string | null>(null)
+  // The shots the last load of a hole treated as remote (server rows, or the
+  // offline cache's), for the offline cache write below.
+  const remoteShotsRef = useRef<{ holeScoreId: string; shots: LiteShot[] } | null>(null)
   useEffect(() => {
     const holeScoreId = currentHoleScore?.id ?? null
     if (resetForHoleScoreIdRef.current !== holeScoreId) {
@@ -276,6 +347,8 @@ export function useHoleData(
       setRemoteShotStarts([])
       setRemoteShotIds([])
       setRemoteShotObs([])
+      setRemoteHoledFor(null)
+      setRemotePuttFor(null)
       setPendingForHole([])
     }
     if (!currentHoleScore) return
@@ -285,7 +358,7 @@ export function useHoleData(
         const fetchShots = () =>
           supabase
             .from('shots')
-            .select('id, club, lie_type, shot_number, start_lat, start_lng, ob')
+            .select('id, club, lie_type, shot_number, start_lat, start_lng, ob, putt_result')
             .eq('hole_score_id', currentHoleScore.id)
             .order('shot_number')
         const [shotsResInitial, localInitial] = await Promise.all([
@@ -311,26 +384,37 @@ export function useHoleData(
           }
         }
         let shotsRes = shotsResInitial
-        if (shotsRes.error) {
-          // postgrest-js returns failures in-band ({data: null, error}) —
-          // the promise resolves normally, so this can't be caught by the
-          // outer try/catch. One retry covers most transient failures
-          // (mirrors the sync.ts chunk-upsert retry); if it fails twice,
-          // leave counts at the neutral reset above rather than committing
-          // a confident remote=0 that the save path could collide on.
+        // postgrest-js returns failures in-band ({data: null, error}) — the
+        // promise resolves normally, so this can't be caught by the outer
+        // try/catch. One retry covers most transient failures (mirrors the
+        // sync.ts chunk-upsert retry); a network failure skips it, since
+        // postgrest-js has already retried the GET itself.
+        if (shotsRes.error && !isNetworkFailure(shotsRes.error, shotsRes.status)) {
           shotsRes = await fetchShots()
           if (myNonce !== fetchNonceRef.current) return
-          if (shotsRes.error) {
-            if (__DEV__) {
-              console.warn(
-                '[hole/shots-fetch]',
-                shotsRes.error.message,
-              )
-            }
-            return
-          }
         }
-        const shots = shotsRes.data ?? []
+        let shots: LiteShot[]
+        if (!shotsRes.error) {
+          shots = shotsRes.data ?? []
+        } else if (userId && id && isNetworkFailure(shotsRes.error, shotsRes.status)) {
+          // Offline (#993): the shots this device last knew for the hole
+          // (server rows + ones it queued, written below), minus the ones
+          // still queued — those come from `local` like online.
+          const cached = await readCache<LiteShot[]>(
+            offlineKeys.holeShots(userId, id, currentHoleScore.id),
+          )
+          if (myNonce !== fetchNonceRef.current) return
+          const queuedIds = new Set(local.flatMap((p) => payloadOf(p)?.id ?? []))
+          shots = (cached ?? []).filter((s) => !queuedIds.has(s.id))
+        } else {
+          // Failed twice: leave counts at the neutral reset above rather
+          // than committing a confident remote=0 that the save path could
+          // collide on.
+          if (__DEV__) {
+            console.warn('[hole/shots-fetch]', shotsRes.error.message)
+          }
+          return
+        }
         // Dedupe the sync-in-flight window: a shot whose server row just
         // committed can still be 'pending' locally for a beat before
         // markShotSynced runs (lib/sync.ts marks rows synced one at a time
@@ -339,13 +423,10 @@ export function useHoleData(
         // mid-sync shot counts once, not twice (#714).
         const remoteIds = new Set(shots.map((s) => s.id))
         const dedupedLocal = local.filter((p) => {
-          try {
-            const payload = JSON.parse(p.payload) as ShotPayload
-            return !payload.id || !remoteIds.has(payload.id)
-          } catch {
-            return true
-          }
+          const payload = payloadOf(p)
+          return !payload?.id || !remoteIds.has(payload.id)
         })
+        remoteShotsRef.current = { holeScoreId: currentHoleScore.id, shots }
         setRemoteShotCount(shots.length)
         setRemotePuttCount(shots.filter((s) => isPuttShot(s.lie_type)).length)
         const starts: LatLng[] = []
@@ -361,6 +442,9 @@ export function useHoleData(
         setRemoteShotStarts(starts)
         setRemoteShotIds(ids)
         setRemoteShotObs(obs)
+        const lastRemote = shots[shots.length - 1]
+        setRemoteHoledFor(lastRemote?.putt_result === 'made' ? currentHoleScore.id : null)
+        setRemotePuttFor(lastRemote && isPuttShot(lastRemote.lie_type) ? currentHoleScore.id : null)
         setPendingForHole(dedupedLocal)
       } catch (err) {
         if (myNonce !== fetchNonceRef.current) return
@@ -372,7 +456,33 @@ export function useHoleData(
         }
       }
     })()
-  }, [currentHoleScore?.id, shotsRefreshNonce])
+  }, [currentHoleScore?.id, shotsRefreshNonce, userId, id])
+
+  // Persist the current hole's shots — the loaded remote ones plus every
+  // queued one — so a cold start without signal (#993) still knows them,
+  // including queued shots that sync and are purged from SQLite before then.
+  // Runs on each load and on every queue change (the save path appends to
+  // pendingForHole without a refetch). Skips until this hole has loaded.
+  useEffect(() => {
+    const hsId = currentHoleScore?.id
+    const remote = remoteShotsRef.current
+    if (!userId || !id || !hsId || remote?.holeScoreId !== hsId) return
+    const queued = pendingForHole.flatMap((row): LiteShot[] => {
+      const p = payloadOf(row)
+      if (!p?.id) return []
+      return [{
+        id: p.id,
+        club: p.club ?? null,
+        lie_type: p.lie_type ?? null,
+        shot_number: p.shot_number,
+        start_lat: p.start_lat ?? null,
+        start_lng: p.start_lng ?? null,
+        ob: p.ob ?? false,
+        putt_result: p.putt_result ?? null,
+      }]
+    })
+    void writeCache(offlineKeys.holeShots(userId, id, hsId), [...remote.shots, ...queued])
+  }, [pendingForHole, currentHoleScore?.id, userId, id])
 
   // Derive local shot/putt counts from the pending array — single source
   // of truth, never out of sync with the underlying queue. Putts are
@@ -447,6 +557,21 @@ export function useHoleData(
     return out
   }, [remoteShotObs, pendingForHole])
 
+  // Queued shots come after the remote ones, so the last queued one wins.
+  const { lastShotHoled, lastShotPutt } = useMemo(() => {
+    const id = currentHoleScore?.id
+    if (!id) return { lastShotHoled: false, lastShotPutt: false }
+    const last = pendingForHole[pendingForHole.length - 1]
+    if (!last) return { lastShotHoled: remoteHoledFor === id, lastShotPutt: remotePuttFor === id }
+    try {
+      const p = JSON.parse(last.payload) as ShotPayload
+      const mine = p.hole_score_id === id
+      return { lastShotHoled: mine && p.putt_result === 'made', lastShotPutt: mine && isPuttShot(p.lie_type) }
+    } catch {
+      return { lastShotHoled: false, lastShotPutt: false }
+    }
+  }, [remoteHoledFor, remotePuttFor, pendingForHole, currentHoleScore?.id])
+
   // Live tee anchor: the player's first shot's start IS the tee. Falls back to
   // the stored course tee before the first shot (camera + pre-shot distances).
   // useHoleData is live-round-only (past rounds use PastRoundMap), so this is
@@ -496,6 +621,8 @@ export function useHoleData(
     previousShots,
     previousShotIds,
     previousShotObs,
+    lastShotHoled,
+    lastShotPutt,
     refreshShots,
     localShotCount,
     localPuttCount,

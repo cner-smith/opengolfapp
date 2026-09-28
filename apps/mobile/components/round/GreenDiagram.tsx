@@ -13,7 +13,8 @@ import Animated, {
 import type { BreakDirection } from '@oga/core'
 import { useUnits } from '../../hooks/useUnits'
 import { TYPE } from '../../lib/typography'
-import { PressableTouch } from '../ui/PressableTouch'
+import { Rocker } from '../paper/Paper'
+import { FONT_CAP, P, R } from '../paper/tokens'
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle)
 const AnimatedPath = Animated.createAnimatedComponent(Path)
@@ -25,14 +26,6 @@ export interface GreenDiagramProps {
   aimOffsetInches: number
   breakDirection?: BreakDirection
   onAimChange: (offsetInches: number) => void
-}
-
-const KICKER: import('react-native').TextStyle = {
-  color: '#8A8B7E',
-  fontSize: 10,
-  fontWeight: '500',
-  letterSpacing: 1.4,
-  textTransform: 'uppercase',
 }
 
 const SVG_WIDTH = 300
@@ -147,20 +140,35 @@ export function GreenDiagram({
   // left" precisely (#861). Local state owns the text so typing "05" isn't
   // reformatted mid-edit; `lastCommitted` suppresses our own onAimChange
   // echo so only OUTSIDE changes (a handle drag, a new row) resync the input.
+  // The toggle reads the committed offset, so it can't disagree with the
+  // handle or the label (#896). `side` / `lastMag` remember the break a
+  // Straight tap (or a sub-deadband value) hides, so Left/Right bring it back.
   const [magText, setMagText] = useState(() => magFromOffset(aimOffsetInches))
-  const [dir, setDir] = useState<AimDir>(() => dirFromOffset(aimOffsetInches))
+  const dir = dirFromOffset(aimOffsetInches)
+  const side = useRef<'left' | 'right'>(aimOffsetInches < 0 ? 'left' : 'right')
+  const lastMag = useRef(Math.abs(Math.round(aimOffsetInches)))
   const lastCommitted = useRef(aimOffsetInches)
+
+  const remember = (offset: number) => {
+    const r = Math.round(offset)
+    if (Math.abs(r) <= 2) return
+    side.current = r < 0 ? 'left' : 'right'
+    lastMag.current = Math.abs(r)
+  }
 
   useEffect(() => {
     if (aimOffsetInches === lastCommitted.current) return
     lastCommitted.current = aimOffsetInches
+    remember(aimOffsetInches)
     setMagText(magFromOffset(aimOffsetInches))
-    setDir(dirFromOffset(aimOffsetInches))
   }, [aimOffsetInches])
 
-  const commitInputs = useCallback(
-    (mag: number, d: AimDir) => {
-      const next = d === 'straight' ? 0 : d === 'left' ? -mag : mag
+  // The ±2in deadband applies on the way in too: 1–2in commits as straight,
+  // matching what formatAim / the toggle show.
+  const commit = useCallback(
+    (mag: number, d: 'left' | 'right' | 'straight') => {
+      const next = d === 'straight' || mag <= 2 ? 0 : d === 'left' ? -mag : mag
+      remember(next)
       lastCommitted.current = next
       onAimChange(next)
     },
@@ -171,24 +179,29 @@ export function GreenDiagram({
     (t: string) => {
       const digits = t.replace(/[^0-9]/g, '')
       const mag = Math.min(MAX_OFFSET_INCHES, parseInt(digits || '0', 10))
-      // Typing a break while "Straight" is selected picks a side (default
-      // right); clearing to 0 falls back to straight.
-      const nextDir: AimDir = mag === 0 ? 'straight' : dir === 'straight' ? 'right' : dir
+      // Typed digits keep the remembered side (default right) — "2" on the
+      // way to "25" commits straight without forgetting it was left.
       setMagText(digits)
-      setDir(nextDir)
-      commitInputs(mag, nextDir)
+      commit(mag, side.current)
     },
-    [dir, commitInputs],
+    [commit],
   )
 
   const onDir = useCallback(
     (d: AimDir) => {
-      const mag = d === 'straight' ? 0 : parseInt(magText || '0', 10) || 0
-      setDir(d)
-      if (d === 'straight') setMagText('0')
-      commitInputs(mag, d)
+      if (d === 'straight') {
+        setMagText('0')
+        commit(0, d)
+        return
+      }
+      side.current = d
+      const typed = parseInt(magText || '0', 10) || 0
+      // ponytail: 3in = the smallest break outside the deadband, when none is remembered.
+      const mag = typed > 2 ? typed : lastMag.current > 2 ? lastMag.current : 3
+      setMagText(String(mag))
+      commit(mag, d)
     },
-    [magText, commitInputs],
+    [magText, commit],
   )
 
   const pan = Gesture.Pan()
@@ -202,7 +215,6 @@ export function GreenDiagram({
     .onBegin(() => {
       'worklet'
       isGestureActive.value = true
-      startOffset.value = aimOffsetInches
       offsetX.value = 0
     })
     .onUpdate((e) => {
@@ -259,23 +271,28 @@ export function GreenDiagram({
       HANDLE_MIN_X,
       HANDLE_MAX_X,
     )
-    const curveControlX = handleX * 0.6 + CENTER_X * 0.4
+    // Control point chosen so the curve passes THROUGH the aim disc at its
+    // midpoint (C = 2H − (P0+P2)/2). The old 60 % blend only reached ~30 % of
+    // the way to the disc, so the line never went where the player aimed.
+    const cx = 2 * handleX - (ballX + CENTER_X) / 2
+    const cy = 2 * handleY - (ballY + trajectoryEndY) / 2
     return {
-      d: `M${ballX} ${ballY} Q ${curveControlX} ${handleY} ${CENTER_X} ${trajectoryEndY}`,
+      d: `M${ballX} ${ballY} Q ${cx} ${cy} ${CENTER_X} ${trajectoryEndY}`,
     }
   })
 
   // Aim label only reflects committed values; intentional trade-off so
   // the React tree stays still during the drag. Updates on release.
   const aimLabel = formatAim(aimOffsetInches)
+  const breakLabel = breakDirection.replace(/_/g, ' ')
 
   return (
     <View
       style={{
-        backgroundColor: '#FBF8F1',
+        backgroundColor: P.raised,
         borderWidth: 1,
-        borderColor: '#D9D2BF',
-        borderRadius: 4,
+        borderColor: P.ink,
+        borderRadius: R,
         padding: 14,
       }}
     >
@@ -288,24 +305,15 @@ export function GreenDiagram({
         }}
       >
         <View>
-          <Text style={[TYPE.kicker, KICKER]}>To pin</Text>
-          <Text
-            style={[
-              TYPE.serif,
-              {
-                color: '#1C211C',
-                fontSize: 28,
-                lineHeight: 30,
-              },
-            ]}
-          >
+          <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.serif, { color: P.ink, fontSize: 28, lineHeight: 32 }]}>
             {toDisplayFt(distanceFt)}
           </Text>
+          <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { color: P.ink, fontSize: 12 }]}>to the pin</Text>
         </View>
-        <Text style={[TYPE.kicker, { ...KICKER, color: '#8A8B7E' }]}>
+        <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { color: P.inkDim, fontSize: 13 }]}>
           {breakDirection === 'straight'
             ? 'Straight'
-            : breakDirection.replace(/_/g, ' ')}
+            : breakLabel.charAt(0).toUpperCase() + breakLabel.slice(1)}
         </Text>
       </View>
 
@@ -360,16 +368,8 @@ export function GreenDiagram({
       </GestureDetector>
 
       <Text
-        style={[
-          TYPE.body,
-          {
-            color: '#1C211C',
-            fontSize: 17,
-            fontWeight: '500',
-            textAlign: 'center',
-            marginTop: 6,
-          },
-        ]}
+        maxFontSizeMultiplier={FONT_CAP}
+        style={[TYPE.serif, { color: P.ink, fontSize: 20, lineHeight: 26, textAlign: 'center', marginTop: 6 }]}
       >
         {aimLabel}
       </Text>
@@ -392,49 +392,25 @@ export function GreenDiagram({
             accessibilityLabel="Break amount in inches"
             style={NUM_INPUT}
           />
-          <Text style={[TYPE.body, { color: '#5C6356', fontSize: 14, marginLeft: 6 }]}>in</Text>
+          <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { color: P.inkDim, fontSize: 14, marginLeft: 6 }]}>in</Text>
         </View>
-        <View style={{ flexDirection: 'row', gap: 6 }}>
-          {(['left', 'straight', 'right'] as const).map((d) => (
-            <SegCell key={d} label={SEG_LABEL[d]} on={dir === d} onPress={() => onDir(d)} />
-          ))}
-        </View>
+        <Rocker
+          options={(['left', 'straight', 'right'] as const).map((d) => ({ value: d, label: SEG_LABEL[d] }))}
+          value={dir}
+          onChange={(d) => d && onDir(d)}
+          style={{ flex: 1 }}
+        />
       </View>
     </View>
   )
 }
 
-function SegCell({
-  label,
-  on,
-  onPress,
-}: {
-  label: string
-  on: boolean
-  onPress: () => void
-}) {
-  return (
-    <PressableTouch
-      accessibilityRole="button"
-      accessibilityLabel={label}
-      onPress={onPress}
-      style={{
-        paddingVertical: 8,
-        paddingHorizontal: 10,
-        borderRadius: 2,
-        backgroundColor: on ? '#1F3D2C' : '#EBE5D6',
-      }}
-    >
-      <Text style={[TYPE.body, { color: on ? '#F2EEE5' : '#1C211C', fontSize: 12 }]}>{label}</Text>
-    </PressableTouch>
-  )
-}
-
 const NUM_INPUT: import('react-native').TextStyle = {
-  backgroundColor: '#FBF8F1',
+  ...TYPE.body,
+  backgroundColor: P.raised,
   borderWidth: 1,
-  borderColor: '#D9D2BF',
-  borderRadius: 2,
+  borderColor: P.ink,
+  borderRadius: R,
   paddingHorizontal: 12,
   paddingVertical: 10,
   fontSize: 15,

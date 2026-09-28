@@ -5,6 +5,7 @@ import {
   PUTTING_BASELINES,
   getHandicapBracket,
   interpolateBaseline,
+  teeBaseline,
 } from './sg-baselines'
 import type { SGBreakdown, Shot } from './types'
 
@@ -44,6 +45,14 @@ export function getShotMarkerCategory(
   return 'approach'
 }
 
+/** Category for the expected-strokes readout from a ball `distanceYards` from the
+ *  pin, with no lie data: around-green inside NEAR_GREEN_YARDS, the tee line for
+ *  the tee shot of a par 4/5 (#998), otherwise approach. */
+export function startCategory(distanceYards: number, teeShot: boolean): ShotCategory {
+  if (distanceYards <= NEAR_GREEN_YARDS) return 'around_green'
+  return teeShot ? 'off_tee' : 'approach'
+}
+
 export function getExpectedStrokes(
   category: ShotCategory,
   distanceYards: number | undefined,
@@ -57,7 +66,10 @@ export function getExpectedStrokes(
   if (category === 'around_green' && distanceYards !== undefined) {
     return interpolateBaseline(AROUND_GREEN_BASELINES[bracket], distanceYards)
   }
-  if ((category === 'approach' || category === 'off_tee') && distanceYards !== undefined) {
+  if (category === 'off_tee' && distanceYards !== undefined) {
+    return teeBaseline(bracket, distanceYards)
+  }
+  if (category === 'approach' && distanceYards !== undefined) {
     return interpolateBaseline(APPROACH_BASELINES[bracket], distanceYards)
   }
   return null

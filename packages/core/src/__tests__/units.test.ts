@@ -8,6 +8,7 @@ import {
   bearingDegrees,
   formatDistance,
   formatPuttDistance,
+  formatSignedPuttDistance,
   formatSG,
   formatToPar,
   haversineYards,
@@ -286,5 +287,21 @@ describe('bearingDegrees', () => {
     const ab = bearingDegrees(40, -75, 41, -74)
     const ba = bearingDegrees(41, -74, 40, -75)
     expect(Math.abs(ab - ba)).toBeGreaterThan(1)
+  })
+})
+
+describe('formatSignedPuttDistance', () => {
+  it('keeps the sign on a real offset', () => {
+    expect(formatSignedPuttDistance(-5, 'yards')).toBe('-5 ft')
+    expect(formatSignedPuttDistance(-0.4, 'yards')).toBe('-5 in')
+    expect(formatSignedPuttDistance(-2, 'meters')).toBe('-61 cm')
+  })
+  it('drops the sign when the value rounds to zero (no "-0 in")', () => {
+    expect(formatSignedPuttDistance(-0.03, 'yards')).toBe('0 in')
+    expect(formatSignedPuttDistance(-0.01, 'meters')).toBe('0 cm')
+  })
+  it('positive and non-finite values pass through', () => {
+    expect(formatSignedPuttDistance(3, 'yards')).toBe('3 ft')
+    expect(formatSignedPuttDistance(Number.NaN, 'yards')).toBe('—')
   })
 })

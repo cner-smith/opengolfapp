@@ -137,9 +137,9 @@ export function useCompleteRound() {
           .map((hs) => {
             const h = holesById.get(hs.hole_id)
             if (!h) return null
-            return { score: hs.score, par: h.par }
+            return { score: hs.score, par: h.par, strokeIndex: h.stroke_index }
           })
-          .filter((x): x is { score: number; par: number } => !!x)
+          .filter((x): x is { score: number; par: number; strokeIndex: number | null } => !!x)
         // Only a complete round produces a differential (#711) — see
         // playedRowsForDifferential for the sentinel/coverage contract.
         const playedRows = playedRowsForDifferential(
@@ -147,7 +147,10 @@ export function useCompleteRound() {
           inferHoleCount(holes.map((h) => h.number)),
         )
         if (playedRows) {
-          const adjusted = adjustedScore(playedRows, handicap)
+          const adjusted = adjustedScore(playedRows, handicap, {
+            courseRating: tee.course_rating,
+            slopeRating: tee.slope_rating,
+          })
           differential = round2(
             calculateDifferential(adjusted, tee.course_rating, tee.slope_rating),
           )

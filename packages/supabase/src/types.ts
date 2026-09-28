@@ -327,6 +327,7 @@ export type Database = {
       hole_scores: {
         Row: {
           fairway_hit: boolean | null
+          finished_at: string | null
           gir: boolean | null
           hole_id: string
           id: string
@@ -344,6 +345,7 @@ export type Database = {
         }
         Insert: {
           fairway_hit?: boolean | null
+          finished_at?: string | null
           gir?: boolean | null
           hole_id: string
           id?: string
@@ -361,6 +363,7 @@ export type Database = {
         }
         Update: {
           fairway_hit?: boolean | null
+          finished_at?: string | null
           gir?: boolean | null
           hole_id?: string
           id?: string
@@ -399,6 +402,7 @@ export type Database = {
           id: string
           number: number
           par: number
+          par_source: string | null
           pin_lat: number | null
           pin_lng: number | null
           stroke_index: number | null
@@ -411,6 +415,7 @@ export type Database = {
           id?: string
           number: number
           par: number
+          par_source?: string | null
           pin_lat?: number | null
           pin_lng?: number | null
           stroke_index?: number | null
@@ -423,6 +428,7 @@ export type Database = {
           id?: string
           number?: number
           par?: number
+          par_source?: string | null
           pin_lat?: number | null
           pin_lng?: number | null
           stroke_index?: number | null
@@ -545,6 +551,7 @@ export type Database = {
         Row: {
           created_at: string
           distance_unit: string
+          plays_left_handed: boolean
           email_round_summaries_enabled: boolean
           facilities: string[] | null
           goal: string | null
@@ -560,6 +567,7 @@ export type Database = {
         Insert: {
           created_at?: string
           distance_unit?: string
+          plays_left_handed?: boolean
           email_round_summaries_enabled?: boolean
           facilities?: string[] | null
           goal?: string | null
@@ -575,6 +583,7 @@ export type Database = {
         Update: {
           created_at?: string
           distance_unit?: string
+          plays_left_handed?: boolean
           email_round_summaries_enabled?: boolean
           facilities?: string[] | null
           goal?: string | null
@@ -719,6 +728,9 @@ export type Database = {
           putt_slope_pct: number | null
           shot_number: number
           shot_result: string | null
+          contact: string | null
+          shape: string | null
+          start_line: string | null
           start_lat: number | null
           start_lng: number | null
           user_id: string
@@ -752,6 +764,9 @@ export type Database = {
           putt_slope_pct?: number | null
           shot_number: number
           shot_result?: string | null
+          contact?: string | null
+          shape?: string | null
+          start_line?: string | null
           start_lat?: number | null
           start_lng?: number | null
           user_id: string
@@ -785,6 +800,9 @@ export type Database = {
           putt_slope_pct?: number | null
           shot_number?: number
           shot_result?: string | null
+          contact?: string | null
+          shape?: string | null
+          start_line?: string | null
           start_lat?: number | null
           start_lng?: number | null
           user_id?: string

@@ -1,15 +1,8 @@
-import {
-  SHOT_RESULTS,
-  SHOT_RESULT_LABELS,
-  type ShotResult,
-} from '@oga/core'
 import { LieSlopeGrid } from '../../forms/LieSlopeGrid'
 import type { DistanceUnit } from '@oga/core'
-import { ChipGroup, Field, NumericInput } from './formInputs'
+import { Field, NumericInput } from './formInputs'
+import { ResultAxes } from './ResultAxes'
 import type { DraftShot } from './draft'
-
-const SHOT_RESULT_OPTIONS: { value: ShotResult; label: string }[] =
-  SHOT_RESULTS.map((r) => ({ value: r, label: SHOT_RESULT_LABELS[r] }))
 
 interface ShotFormFieldsProps {
   draft: DraftShot
@@ -59,10 +52,15 @@ export function ShotFormFields({
       </Field>
 
       <Field label="Shot result">
-        <ChipGroup
-          value={draft.shotResult}
-          options={SHOT_RESULT_OPTIONS}
-          onChange={(v) => setDraft((d) => ({ ...d, shotResult: v }))}
+        <ResultAxes
+          value={{
+            contact: draft.contact ?? null,
+            shape: draft.shape ?? null,
+            startLine: draft.startLine ?? null,
+            penalty: !!draft.penalty,
+            ob: !!draft.ob,
+          }}
+          onChange={(v) => setDraft((d) => ({ ...d, ...v }))}
         />
       </Field>
     </>

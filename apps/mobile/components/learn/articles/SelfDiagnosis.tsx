@@ -16,6 +16,8 @@ import {
   C,
 } from '../primitives'
 import { FONT } from '../../../lib/typography'
+import { PaperTile } from '../../paper/Section'
+import { FONT_CAP, P as PAPER } from '../../paper/tokens'
 
 export function SelfDiagnosisArticle() {
   return (
@@ -302,7 +304,7 @@ export function SelfDiagnosisArticle() {
 }
 
 // Worked example: a real-world miss, what it tells you, and where to focus.
-// Local one-off (single article) — accent-bordered card, palette C.
+// Local one-off (single article) — paper tile with a left accent rule.
 function Example({
   flight,
   read,
@@ -313,17 +315,12 @@ function Example({
   focus: string
 }) {
   return (
-    <View
-      style={{
-        backgroundColor: C.boxBg,
-        borderLeftWidth: 3,
-        borderLeftColor: C.accent,
-        padding: 14,
-        marginBottom: 14,
-        borderRadius: 2,
-      }}
+    <PaperTile
+      style={{ marginBottom: 14 }}
+      innerStyle={{ borderLeftWidth: 4, borderLeftColor: C.accent }}
     >
       <Text
+        maxFontSizeMultiplier={FONT_CAP}
         style={{
           color: C.ink,
           fontFamily: FONT.serifItalic,
@@ -333,13 +330,13 @@ function Example({
       >
         “{flight}”
       </Text>
-      <Text style={{ color: C.inkDim, fontFamily: FONT.body, fontSize: 14, lineHeight: 22, marginBottom: 8 }}>
+      <Text maxFontSizeMultiplier={FONT_CAP} style={{ color: C.inkDim, fontFamily: FONT.body, fontSize: 14, lineHeight: 22, marginBottom: 8 }}>
         <Strong>What it reads as:</Strong> {read}
       </Text>
-      <Text style={{ color: C.inkDim, fontFamily: FONT.body, fontSize: 14, lineHeight: 22 }}>
+      <Text maxFontSizeMultiplier={FONT_CAP} style={{ color: C.inkDim, fontFamily: FONT.body, fontSize: 14, lineHeight: 22 }}>
         <Strong>Where to focus:</Strong> {focus}
       </Text>
-    </View>
+    </PaperTile>
   )
 }
 
@@ -384,22 +381,12 @@ function DiagnosticFlow() {
 function FlowQ({ n, q }: { n: string; q: string }) {
   return (
     <View style={{ alignItems: 'center' }}>
-      <View
-        style={{
-          flexDirection: 'row',
-          alignItems: 'baseline',
-          gap: 10,
-          borderWidth: 1,
-          borderColor: '#9F9580',
-          borderRadius: 2,
-          backgroundColor: C.surface,
-          paddingVertical: 10,
-          paddingHorizontal: 16,
-        }}
+      <PaperTile
+        innerStyle={{ flexDirection: 'row', alignItems: 'baseline', gap: 10, paddingVertical: 10, paddingHorizontal: 16 }}
       >
-        <Text style={{ fontFamily: FONT.mono, fontSize: 10, letterSpacing: 1.4, color: C.mute }}>{n}</Text>
-        <Text style={{ color: C.ink, fontFamily: FONT.serifItalic, fontSize: 17 }}>{q}</Text>
-      </View>
+        <Text maxFontSizeMultiplier={FONT_CAP} style={{ fontFamily: FONT.body, fontSize: 12, color: PAPER.inkDim }}>{n}</Text>
+        <Text maxFontSizeMultiplier={FONT_CAP} style={{ color: C.ink, fontFamily: FONT.serifItalic, fontSize: 17 }}>{q}</Text>
+      </PaperTile>
     </View>
   )
 }
@@ -408,7 +395,7 @@ function FlowQ({ n, q }: { n: string; q: string }) {
 function Arrow() {
   return (
     <View style={{ alignItems: 'center', marginVertical: 7 }}>
-      <View style={{ width: 2, height: 12, backgroundColor: '#9F9580' }} />
+      <View style={{ width: 2, height: 12, backgroundColor: PAPER.lineStrong }} />
       <Svg width={11} height={7} viewBox="0 0 11 7">
         <Path d="M1 1 L5.5 6 L10 1" fill="none" stroke="#9F9580" strokeWidth={1.5} />
       </Svg>
@@ -445,42 +432,39 @@ function Chip({
   accent?: boolean
 }) {
   return (
-    <View
-      style={{
-        flex: 1,
-        minWidth: 140,
-        maxWidth: 210,
-        borderWidth: 1,
-        borderColor: accent ? C.accent : C.line,
-        backgroundColor: accent ? C.accent : C.boxBg,
-        borderRadius: 2,
+    <PaperTile
+      style={{ flex: 1, minWidth: 140, maxWidth: 210 }}
+      innerStyle={{
+        flexGrow: 1,
+        backgroundColor: accent ? C.accent : PAPER.raised,
         paddingVertical: 9,
         paddingHorizontal: 12,
       }}
     >
       <Text
+        maxFontSizeMultiplier={FONT_CAP}
         style={{
-          fontFamily: FONT.mono,
-          fontSize: 10,
-          letterSpacing: 1.4,
-          textTransform: 'uppercase',
-          color: accent ? '#F2EEE5' : C.inkDim,
+          fontFamily: FONT.body,
+          fontSize: 12,
+          color: accent ? PAPER.chrome : PAPER.inkDim,
           marginBottom: 3,
         }}
       >
         {label}
       </Text>
       <Text
+        maxFontSizeMultiplier={FONT_CAP}
         style={{
           fontFamily: FONT.bodyItalic,
           fontSize: 14,
-          color: accent ? '#F2EEE5' : C.ink,
+          color: accent ? PAPER.chrome : C.ink,
         }}
       >
         {sub}
       </Text>
       {hint ? (
         <Text
+          maxFontSizeMultiplier={FONT_CAP}
           style={{
             fontFamily: FONT.body,
             fontSize: 11,
@@ -491,6 +475,6 @@ function Chip({
           {hint}
         </Text>
       ) : null}
-    </View>
+    </PaperTile>
   )
 }

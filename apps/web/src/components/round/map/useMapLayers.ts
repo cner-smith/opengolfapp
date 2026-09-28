@@ -7,6 +7,7 @@ import {
   circleGeoJSON,
   destinationYards,
   getExpectedStrokes,
+  startCategory,
   haversineYards,
   NEAR_GREEN_YARDS,
   scatterGeoJSON,
@@ -18,6 +19,8 @@ import {
   makeAimMarker,
   makeDistancePill,
   makeFlagMarker,
+  FLAG_CLOTH,
+  FLAG_OFFSET,
   makeNumberedMarker,
   makeObRingMarker,
   makeTeeDotMarker,
@@ -46,6 +49,11 @@ interface UseMapLayersInput {
   placedPoints: PlacedPoint[]
   placedAims: (PlacedPoint | null)[] | undefined
   effectivePin: PlacedPoint | null
+  /** The round's own pin is set (strong flag) vs the course default (dim). */
+  pinStrong: boolean
+  holeNumber: number
+  /** The active hole's par (tee-line SG for a par-4/5 tee shot, #998). */
+  par: number | null
   effectiveTee: PlacedPoint | null
   /** Shot-pattern overlay (always-on while aiming), anchored on the active
    *  aimed shot. 'tee' → dispersion arc band of arcWidthYards total width;
@@ -87,7 +95,7 @@ const TEE_BOX_HALF_YARDS = 4
 // planning treatment (solid start→aim→pin bend + dotted start→pin
 // reference + carry/remaining pills); the rest render as a dashed
 // start→aim line.
-type AimSeg = { start: [number, number]; aim: [number, number] }
+type AimSeg = { start: [number, number]; aim: [number, number]; first: boolean }
 
 export function useMapLayers({
   mapRef,
@@ -96,6 +104,9 @@ export function useMapLayers({
   placedPoints,
   placedAims,
   effectivePin,
+  pinStrong,
+  holeNumber,
+  par,
   effectiveTee,
   overlayMode,
   arcWidthYards,
@@ -157,10 +168,12 @@ export function useMapLayers({
 
     // Pin marker — draggable when a parent handler is wired in.
     if (effectivePin) {
-      const parts = makeFlagMarker(MARKER_COLORS.pin)
+      const parts = makeFlagMarker({ hole: holeNumber, strong: pinStrong })
+      const clothFill = parts.flag.getAttribute('fill') ?? FLAG_CLOTH
       const marker = new mapboxgl.Marker({
         element: parts.outer,
-        anchor: 'bottom',
+        anchor: 'top-left',
+        offset: FLAG_OFFSET,
         draggable: !!onMovePin,
       })
         .setLngLat([effectivePin.lng, effectivePin.lat])
@@ -174,9 +187,7 @@ export function useMapLayers({
           // Pin tints to caddie-warn while dragging so the user can
           // tell "the flag is grabbed" from "the flag is just hovered."
           onDragColor: (active) => {
-            parts.flag.style.background = active
-              ? '#A66A1F'
-              : MARKER_COLORS.pin
+            parts.flag.setAttribute('fill', active ? '#A66A1F' : clothFill)
           },
         })
         marker.on('dragend', () => {
@@ -313,6 +324,7 @@ export function useMapLayers({
           savedAimSegs.push({
             start: [startLng, startLat],
             aim: [s.aimLng, s.aimLat],
+            first: s.shotNumber === 1,
           })
         }
       }
@@ -410,7 +422,7 @@ export function useMapLayers({
         })
       }
       markerRefs.current.push(aimMarker)
-      placedAimSegs.push({ start: [p.lng, p.lat], aim: [aim.lng, aim.lat] })
+      placedAimSegs.push({ start: [p.lng, p.lat], aim: [aim.lng, aim.lat], first: idx === 0 && existingShots.length === 0 })
     })
 
     // ---- Aim lines + pills (placed + saved, unified) ----
@@ -535,7 +547,8 @@ export function useMapLayers({
           pinLngLat[1],
           pinLngLat[0],
         )
-        const startCat = startToPin <= NEAR_GREEN_YARDS ? 'around_green' : 'approach'
+        // The tee shot of a par 4/5 starts from Broadie's tee line (#998).
+        const startCat = startCategory(startToPin, activeSeg.first && (par === 4 || par === 5))
         const targetCat = aimToPin <= NEAR_GREEN_YARDS ? 'around_green' : 'approach'
         const expected = getExpectedStrokes(startCat, startToPin, undefined, handicap)
         const targetExpected = getExpectedStrokes(targetCat, aimToPin, undefined, handicap)
@@ -605,6 +618,9 @@ export function useMapLayers({
     onMoveExistingShot,
     onMoveExistingShotAim,
     effectivePin,
+    pinStrong,
+    holeNumber,
+    par,
     effectiveTee,
     overlayMode,
     arcWidthYards,

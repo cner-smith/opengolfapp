@@ -2,11 +2,17 @@ import { describe, expect, it } from 'vitest'
 import {
   buildInitialRows,
   inferHoleCount,
+  inferParFromYards,
   isPuttShot,
   isPuttEntry,
   legacySlopeToAxes,
   obCount,
   playedRowsForDifferential,
+  resumeHoleNumber,
+  formatHoleList,
+  roundHolesPlayed,
+  isPartialRound,
+  partialRoundLabel,
   summarizePuttParts,
   summarizeShotParts,
   type PlacedPoint,
@@ -263,6 +269,17 @@ describe('summarizeShotParts', () => {
   it('no signal → empty parts', () => {
     expect(summarizeShotParts(summaryFields(), null, 'yards')).toEqual([])
   })
+  it('axes win over the legacy value, in contact · shape · start order', () => {
+    expect(
+      summarizeShotParts(
+        summaryFields({ distance_to_target: 150, shot_result: 'thin', contact: 'thin', shape: 'draw', start_line: 'push' }),
+        null,
+        'yards',
+      ),
+    ).toEqual(['150 yd', 'Thin · Draw · Push'])
+    // A shape alone has no legacy value but still shows.
+    expect(summarizeShotParts(summaryFields({ shape: 'fade' }), null, 'yards')).toEqual(['Fade'])
+  })
 })
 
 describe('decombinedPuttResult', () => {
@@ -323,6 +340,20 @@ describe('legacySlopeToAxes', () => {
   })
 })
 
+describe('inferParFromYards', () => {
+  it('buckets by length, with the boundaries on par 4', () => {
+    expect(inferParFromYards(176)).toBe(3)
+    expect(inferParFromYards(249)).toBe(3)
+    expect(inferParFromYards(250)).toBe(4)
+    expect(inferParFromYards(470)).toBe(4)
+    expect(inferParFromYards(471)).toBe(5)
+  })
+  it('falls back to 4 with no usable length', () => {
+    expect(inferParFromYards(null)).toBe(4)
+    expect(inferParFromYards(0)).toBe(4)
+  })
+})
+
 describe('inferHoleCount', () => {
   it('empty (unmapped course) defaults to 18', () => {
     expect(inferHoleCount([])).toBe(18)
@@ -354,6 +385,35 @@ describe('inferHoleCount', () => {
 
   it('a single mapped hole 10 already implies 18', () => {
     expect(inferHoleCount([10])).toBe(18)
+  })
+})
+
+describe('roundHolesPlayed / isPartialRound', () => {
+  const rows = (scores: number[]) =>
+    scores.map((score, i) => ({ score, holes: { number: i + 1 } }))
+
+  it('an 18 ended after 6 (mobile pre-created rows) is partial', () => {
+    const hs = rows([...Array(6).fill(5), ...Array(12).fill(0)])
+    expect(roundHolesPlayed(hs)).toEqual({ played: 6, of: 18 })
+    expect(isPartialRound(hs)).toBe(true)
+  })
+
+  it('a full 9 (web rows for holes 1-9 only) is not partial', () => {
+    expect(isPartialRound(rows(Array(9).fill(4)))).toBe(false)
+  })
+
+  it('web rows for holes 1-12 all scored is a partial 18', () => {
+    expect(roundHolesPlayed(rows(Array(12).fill(4)))).toEqual({ played: 12, of: 18 })
+  })
+
+  it('partialRoundLabel names the played count, empty when whole', () => {
+    expect(partialRoundLabel(rows([...Array(6).fill(5), ...Array(12).fill(0)]))).toBe(' · partial · 6 of 18')
+    expect(partialRoundLabel(rows(Array(18).fill(4)))).toBe('')
+  })
+
+  it('no rows (bare total) counts as whole', () => {
+    expect(roundHolesPlayed([])).toBeNull()
+    expect(isPartialRound(undefined)).toBe(false)
   })
 })
 
@@ -402,5 +462,57 @@ describe('obCount', () => {
   })
   it('is 0 for an empty hole', () => {
     expect(obCount([])).toBe(0)
+  })
+})
+
+describe('resumeHoleNumber', () => {
+  const row = (number: number, score: number, finished = false) => ({
+    number,
+    score,
+    finished_at: finished ? '2026-09-24T12:00:00Z' : null,
+  })
+  const played = (n: number) => Array.from({ length: n }, (_, i) => row(i + 1, 4, true))
+  const unplayed = (from: number, to: number) =>
+    Array.from({ length: to - from + 1 }, (_, i) => row(from + i, 0))
+
+  it('fresh round → hole 1', () => {
+    expect(resumeHoleNumber(unplayed(1, 18))).toBe(1)
+  })
+
+  it('mid-hole (running score, not finished) → stays on that hole (#902)', () => {
+    expect(resumeHoleNumber([...played(3), row(4, 1), ...unplayed(5, 18)])).toBe(4)
+  })
+
+  it('last hole finished, next not started → the next hole', () => {
+    expect(resumeHoleNumber([...played(4), ...unplayed(5, 18)])).toBe(5)
+  })
+
+  it('a walked (empty) hole that was finished still advances', () => {
+    expect(resumeHoleNumber([...played(4), row(5, 0, true), ...unplayed(6, 18)])).toBe(6)
+  })
+
+  it('rows from before finished_at existed → last hole with shots', () => {
+    const legacy = [1, 2, 3, 4].map((n) => row(n, 4))
+    expect(resumeHoleNumber([...legacy, ...unplayed(5, 18)])).toBe(4)
+  })
+
+  it('clamps to the round length, not a phantom hole 10', () => {
+    expect(resumeHoleNumber(played(9))).toBe(9)
+  })
+})
+
+describe('formatHoleList', () => {
+  it('collapses consecutive runs', () => {
+    expect(formatHoleList([3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17])).toBe('3–17')
+  })
+  it('joins separate holes with "and"', () => {
+    expect(formatHoleList([3, 7])).toBe('3 and 7')
+  })
+  it('mixes runs and singles', () => {
+    expect(formatHoleList([1, 3, 4, 5, 9])).toBe('1, 3–5 and 9')
+  })
+  it('single hole / empty', () => {
+    expect(formatHoleList([5])).toBe('5')
+    expect(formatHoleList([])).toBe('')
   })
 })

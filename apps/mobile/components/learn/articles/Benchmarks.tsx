@@ -9,6 +9,7 @@ import {
 import { getProfile, getRoundsWithDetails } from '@oga/supabase'
 import { ArticleFooter, ArticleHeader, C, Link, P, Sources, Subhead } from '../primitives'
 import { FONT } from '../../../lib/typography'
+import { FONT_CAP, P as PAPER, R } from '../../paper/tokens'
 import { supabase } from '../../../lib/supabase'
 import { useAuth } from '../../../hooks/useAuth'
 import { useUnits } from '../../../hooks/useUnits'
@@ -317,15 +318,14 @@ function ViewTabs({
             }}
           >
             <Text
+              maxFontSizeMultiplier={FONT_CAP}
               style={{
-                fontFamily: FONT.mono,
-                fontSize: 10,
-                letterSpacing: 1.4,
-                textTransform: 'uppercase',
-                color: active ? C.ink : C.mute,
+                fontFamily: FONT.body,
+                fontSize: 12,
+                color: active ? C.ink : PAPER.inkDim,
               }}
             >
-              {v}
+              {v === 'chart' ? 'Chart' : 'Table'}
             </Text>
           </Pressable>
         )
@@ -403,12 +403,11 @@ function BenchmarkBar({
         }}
       >
         <Text
+          maxFontSizeMultiplier={FONT_CAP}
           style={{
-            fontFamily: FONT.mono,
-            fontSize: 10,
-            letterSpacing: 1.4,
-            textTransform: 'uppercase',
-            color: C.mute,
+            fontFamily: FONT.body,
+            fontSize: 12,
+            color: PAPER.inkDim,
             flexShrink: 1,
           }}
         >
@@ -416,6 +415,7 @@ function BenchmarkBar({
         </Text>
         {highlightScratch && (
           <Text
+            maxFontSizeMultiplier={FONT_CAP}
             style={{
               fontFamily: FONT.serifItalic,
               fontSize: 13,
@@ -435,10 +435,10 @@ function BenchmarkBar({
         style={{
           position: 'relative',
           height: TRACK_HEIGHT,
-          backgroundColor: C.surface,
+          backgroundColor: PAPER.raised,
           borderWidth: 1,
-          borderColor: C.line,
-          borderRadius: 2,
+          borderColor: PAPER.ink,
+          borderRadius: R,
           overflow: 'hidden',
         }}
       >
@@ -449,7 +449,7 @@ function BenchmarkBar({
             right: 0,
             top: 0,
             bottom: 0,
-            backgroundColor: C.boxBg,
+            backgroundColor: PAPER.well,
           }}
         />
         <View
@@ -472,7 +472,7 @@ function BenchmarkBar({
                 top: 0,
                 bottom: 0,
                 width: 1,
-                backgroundColor: 'rgba(28,33,28,0.35)',
+                backgroundColor: PAPER.ink35,
               }}
             />
           ))}
@@ -499,16 +499,15 @@ function BenchmarkBar({
           ordered.map((b) => (
             <Text
               key={b.bracket}
+              maxFontSizeMultiplier={FONT_CAP}
               style={{
                 position: 'absolute',
                 left: pxFor(b.pct) - 14,
                 width: 28,
                 textAlign: 'center',
-                fontFamily: FONT.mono,
-                fontSize: 9,
-                letterSpacing: 1.4,
-                textTransform: 'uppercase',
-                color: C.mute,
+                fontFamily: FONT.body,
+                fontSize: 10,
+                color: PAPER.inkDim,
                 fontVariant: ['tabular-nums'],
               }}
             >
@@ -554,7 +553,6 @@ function BenchmarkBar({
             color: C.amber,
             fontFamily: FONT.body,
             fontSize: 12,
-            fontWeight: '500',
             marginTop: 6,
           }}
         >
@@ -607,11 +605,11 @@ function BenchmarkTable({
           style={{
             flexDirection: 'row',
             borderBottomWidth: 1,
-            borderBottomColor: '#9F9580',
+            borderBottomColor: PAPER.lineStrong,
           }}
         >
           <View style={{ width: STAT_COL_WIDTH, paddingVertical: 10, paddingHorizontal: 8 }}>
-            <Text style={MONO_HEAD}>Stat</Text>
+            <Text maxFontSizeMultiplier={FONT_CAP} style={HEAD_LABEL}>Stat</Text>
           </View>
           {headerLabels.map((h, i) => {
             const highlighted = userBracketIndex != null && i === userBracketIndex
@@ -625,7 +623,7 @@ function BenchmarkTable({
                   backgroundColor: highlighted ? 'rgba(31,61,44,0.15)' : 'transparent',
                 }}
               >
-                <Text style={[MONO_HEAD, { textAlign: 'right', fontVariant: ['tabular-nums'] }]}>
+                <Text maxFontSizeMultiplier={FONT_CAP} style={[HEAD_LABEL, { textAlign: 'right', fontVariant: ['tabular-nums'] }]}>
                   {h}
                 </Text>
               </View>
@@ -646,12 +644,11 @@ function BenchmarkTable({
               }}
             >
               <Text
+                maxFontSizeMultiplier={FONT_CAP}
                 style={{
-                  fontFamily: FONT.mono,
-                  fontSize: 10,
-                  letterSpacing: 1.4,
-                  textTransform: 'uppercase',
-                  color: C.mute,
+                  fontFamily: FONT.body,
+                  fontSize: 12,
+                  color: PAPER.inkDim,
                 }}
               >
                 {g.title}
@@ -665,7 +662,6 @@ function BenchmarkTable({
                     style={{
                       fontFamily: FONT.serif,
                       fontSize: 14,
-                      fontWeight: '500',
                       color: C.ink,
                     }}
                   >
@@ -678,8 +674,8 @@ function BenchmarkTable({
                     ? v > 0
                       ? C.accent
                       : v < 0
-                        ? '#A33A2A'
-                        : '#5C6356'
+                        ? PAPER.neg
+                        : PAPER.inkDim
                     : C.ink
                   const highlighted =
                     userBracketIndex != null && headIdx === userBracketIndex
@@ -698,7 +694,6 @@ function BenchmarkTable({
                       <Text
                         style={{
                           fontFamily: g.isSg ? FONT.serifItalic : FONT.serif,
-                          fontStyle: g.isSg ? 'italic' : 'normal',
                           fontSize: 14,
                           textAlign: 'right',
                           color: tone,
@@ -719,12 +714,10 @@ function BenchmarkTable({
   )
 }
 
-const MONO_HEAD = {
-  fontFamily: FONT.mono,
-  fontSize: 10,
-  letterSpacing: 1.4,
-  textTransform: 'uppercase',
-  color: C.mute,
+const HEAD_LABEL = {
+  fontFamily: FONT.body,
+  fontSize: 12,
+  color: PAPER.inkDim,
 } as const
 
 function bracketIndexForHandicap(h: number | null): number | null {

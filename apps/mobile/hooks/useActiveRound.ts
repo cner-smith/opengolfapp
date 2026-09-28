@@ -1,8 +1,9 @@
 import { useCallback, useState } from 'react'
 import { useFocusEffect } from 'expo-router'
-import { inferHoleCount } from '@oga/core'
+import { resumeHoleNumber } from '@oga/core'
 import { supabase } from '../lib/supabase'
 import { useAuth } from './useAuth'
+import { dropRoundCaches, isNetworkFailure, offlineKeys, readCache, writeCache } from '../lib/offlineCache'
 
 export interface ActiveRound {
   id: string
@@ -10,14 +11,16 @@ export interface ActiveRound {
   currentHole: number
 }
 
+type CachedActiveRound = ActiveRound & { playedAt: string }
+
 // Active = not finalized (completed_at IS NULL) AND no score yet
 // (total_score IS NULL) AND played_at within the last day, so a round
 // abandoned a week ago doesn't haunt the home screen forever. completed_at
 // is the canonical finalized flag; the total_score guard also keeps seeded
 // past rounds (scored, but no completed_at) out of the banner.
-// The current hole is the highest hole the player has logged a score
-// on, +1 (capped at the round's hole count, not a hardcoded 18) — so
-// resuming jumps back to where they left off, not hole 1.
+// The current hole is resumeHoleNumber's pick — the hole the player was
+// actually on, mid-hole included (#902) — so resuming jumps back to where
+// they left off, not hole 1.
 //
 // Re-runs every time the host screen gains focus. Without that,
 // deleting the active round from the hole/end-round screens left a
@@ -34,7 +37,8 @@ export function useActiveRound(): ActiveRound | null {
         const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000)
           .toISOString()
           .slice(0, 10)
-        const { data, error } = await supabase
+        const cacheKey = offlineKeys.activeRound(user.id)
+        const { data, error, status } = await supabase
           .from('rounds')
           .select('id, played_at, course_id, courses(name)')
           .eq('user_id', user.id)
@@ -44,8 +48,18 @@ export function useActiveRound(): ActiveRound | null {
           .order('played_at', { ascending: false })
           .limit(1)
         if (!active) return
+        if (error && isNetworkFailure(error, status)) {
+          // Offline (#993): show the last banner this device saw, under the
+          // same one-day window as the query.
+          const cached = await readCache<CachedActiveRound>(cacheKey)
+          if (!active) return
+          setActiveRound(cached && cached.playedAt >= oneDayAgo ? cached : null)
+          return
+        }
         if (error || !data?.[0]) {
           setActiveRound(null)
+          // No active round: drop every cached round of this user.
+          if (!error) void dropRoundCaches(user.id, () => true)
           return
         }
         const round = data[0] as {
@@ -56,35 +70,35 @@ export function useActiveRound(): ActiveRound | null {
         }
         // Fetch ALL hole_scores (not just scored ones): the round's hole
         // rows are batch-created at round start, so their hole numbers give
-        // the round's true hole count. maxHole (highest SCORED hole) drives
-        // where to resume; holeCount clamps it so a fully-played 9-hole
-        // round resumes at 9, not a phantom hole 10 whose error screen used
-        // to offer a one-tap round deletion (#650).
+        // resumeHoleNumber the round's true hole count to clamp against.
         const { data: hs } = await supabase
           .from('hole_scores')
-          .select('score, holes(number)')
+          .select('score, finished_at, holes(number)')
           .eq('round_id', round.id)
         if (!active) return
         const rows = (hs ?? []) as Array<{
           score: number | null
+          finished_at: string | null
           holes?: { number?: number | null } | null
         }>
-        const holeNumbers = rows
-          .map((row) => row.holes?.number)
-          .filter((n): n is number => typeof n === 'number')
-        const holeCount = inferHoleCount(holeNumbers)
-        const maxHole = rows.reduce<number>((acc, row) => {
-          const n = row.holes?.number
-          return (row.score ?? 0) > 0 && typeof n === 'number' && n > acc
-            ? n
-            : acc
-        }, 0)
-        const next = Math.min(holeCount, Math.max(1, maxHole + 1))
-        setActiveRound({
+        const next = resumeHoleNumber(
+          rows.flatMap((row) =>
+            typeof row.holes?.number === 'number'
+              ? [{ number: row.holes.number, score: row.score, finished_at: row.finished_at }]
+              : [],
+          ),
+        )
+        const found: CachedActiveRound = {
           id: round.id,
           courseName: round.courses?.name ?? 'Round',
           currentHole: next,
-        })
+          playedAt: round.played_at,
+        }
+        setActiveRound(found)
+        // Sequential: the drop reads the banner entry back.
+        void writeCache(cacheKey, found).then(() =>
+          dropRoundCaches(user.id, (roundId) => roundId !== round.id),
+        )
       })()
       return () => {
         active = false
