@@ -689,6 +689,10 @@ export function HoleMap({
               zoomLevel: 17,
               pitch: 0,
             }}
+            // Past 20 there's no satellite imagery, just the style's plain
+            // background — a fit over points a few yards apart (first shot
+            // logged at the pin) zoomed there and blanked the map.
+            maxZoomLevel={20}
           />
 
           {/* Bearing intentionally not enabled — drives the magnetometer
