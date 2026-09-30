@@ -1,0 +1,15 @@
+[
+  {
+    "relation": [
+      "delegate_permission/common.handle_all_urls",
+      "delegate_permission/common.get_login_creds"
+    ],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "app.opengolf.oga",
+      "sha256_cert_fingerprints": [
+        "8B:57:7F:DA:17:99:AD:37:60:E1:30:3E:C3:AC:61:44:37:55:E1:D1:C1:16:05:AD:D7:E1:0F:34:E0:D8:25:48"
+      ]
+    }
+  }
+]
