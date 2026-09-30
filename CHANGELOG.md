@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.7.1](https://github.com/cner-smith/opengolfapp/compare/v1.7.0...v1.7.1) (2026-09-30)
+
+
+### Chores
+
+* back-merge main (v1.7.0) into dev ([918dc6b](https://github.com/cner-smith/opengolfapp/commit/918dc6bcede05aef18b980c9efc2fc3c2e9da394))
+* **web:** Android Digital Asset Links (assetlinks.json) ([7d3f095](https://github.com/cner-smith/opengolfapp/commit/7d3f0953fc98874e4a3bf8fcdb4069d7df50d18d))
+* **web:** serve Android Digital Asset Links at /.well-known/assetlinks.json ([dae7ac5](https://github.com/cner-smith/opengolfapp/commit/dae7ac5fd4735d3345bb440e1f76464d3c8d540e))
+
 ## [1.7.0](https://github.com/cner-smith/opengolfapp/compare/v1.6.0...v1.7.0) (2026-09-28)
 
 
