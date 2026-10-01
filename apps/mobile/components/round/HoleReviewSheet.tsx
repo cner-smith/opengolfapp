@@ -85,8 +85,7 @@ const PUTT_DIRECTION_OPTIONS: Opt<PuttDirectionResult>[] = [
   { value: 'left', label: 'Left' },
   { value: 'right', label: 'Right' },
 ]
-// Putt read vocab — mirrors PuttingSheet so the summary and the old sheet
-// stay in sync. Break line = the horizontal read, slope = up/down.
+// Putt read vocab. Break line = the horizontal read, slope = up/down.
 const BREAK_LINE_OPTIONS: Opt<BreakDirectionHorizontal>[] = [
   { value: 'left_to_right', label: 'L → R' },
   { value: 'right_to_left', label: 'R → L' },
@@ -244,7 +243,7 @@ export function HoleReviewSheet({
     // RN <Modal> is intentionally NOT used — it's an absolute-fill overlay
     // above the map HUD, and the caller mounts this inside the map's gesture
     // root. Our own GestureHandlerRootView lets the aimer overlay's
-    // GreenDiagram pan work (mirrors ShotLogger; #496).
+    // GreenDiagram pan work (#496).
     <GestureHandlerRootView
       style={{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, backgroundColor: P.scrim, zIndex: 40 }}
     >

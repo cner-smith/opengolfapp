@@ -11,7 +11,6 @@ import {
   isPuttShot,
   projectShotMove,
   type CaptureMode,
-  type LieType,
   type ReviewedShotRow,
 } from '@oga/core'
 import { deleteRound, getProfile } from '@oga/supabase'
@@ -32,9 +31,7 @@ import { syncPendingShots } from '../../../lib/sync'
 import { distanceYards } from '../../../lib/maps'
 import { completeRound } from '../../../lib/completeRound'
 import type { LatLng } from '../HoleMap'
-import type { ShotLoggerValue } from '../ShotLogger'
-import type { PuttingValue } from '../PuttingSheet'
-import { PUTTING_RADIUS_YARDS, type ActiveDialog } from './types'
+import { PUTTING_RADIUS_YARDS, type ActiveDialog, type PuttingValue, type ShotLoggerValue } from './types'
 import type { UseHoleDataResult } from './useHoleData'
 import type { UseHoleStateResult } from './useHoleState'
 
@@ -53,8 +50,6 @@ interface UseShotActionsInput {
   data: UseHoleDataResult
   state: UseHoleStateResult
   // Component-level UI state setters.
-  setLoggerOpen: Dispatch<SetStateAction<boolean>>
-  setLoggerInitial: Dispatch<SetStateAction<ShotLoggerValue>>
   setPinPlacementOpen: Dispatch<SetStateAction<boolean>>
   setActiveDialog: Dispatch<SetStateAction<ActiveDialog>>
   // The component's manual ball-placement path — the very handler a map
@@ -89,27 +84,14 @@ export interface UseShotActionsResult {
   saving: boolean
   ending: boolean
   deleting: boolean
-  // Monotonic counter that bumps once per successful persistShot.
-  // Used by HoleModals as the ShotLogger key so the form remounts
-  // (= resets) exactly when a shot saves — and not on incidental
-  // shotNumber recomputation from stale fetches or background sync.
-  // See #284 for the original symptom.
-  shotEntrySeq: number
   persistShot: (meta: ShotLoggerValue | null) => Promise<void>
   persistPutt: (v: PuttingValue) => Promise<void>
   persistRoundPin: (loc: LatLng) => Promise<void>
   clearRoundPin: () => Promise<void>
   markBallHere: (opts?: { toGreen?: boolean }) => Promise<void>
-  handleOnGreenYes: () => void
-  handleOnGreenNo: () => void
   notOnGreen: () => void
   confirmAim: () => void
   skipAim: () => void
-  handleAimPromptConfirm: () => void
-  handleAimPromptSkip: () => void
-  closeLogger: () => void
-  closePuttingSheet: () => void
-  swapPuttingToShot: (lieType: LieType) => void
   navigateHole: (delta: number) => void
   finishHole: () => void
   continueToHole: (n: number) => void
@@ -164,8 +146,6 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
     captureMode,
     data,
     state,
-    setLoggerOpen,
-    setLoggerInitial,
     setPinPlacementOpen,
     setActiveDialog,
     placeBallManually,
@@ -211,7 +191,6 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
   } | null>(null)
   const [ending, setEnding] = useState(false)
   const [deleting, setDeleting] = useState(false)
-  const [shotEntrySeq, setShotEntrySeq] = useState(0)
 
   const {
     round,
@@ -381,8 +360,6 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
         },
       ])
       setAim(null)
-      setLoggerOpen(false)
-      setLoggerInitial({})
       setRoundState('PLACE_BALL')
       const newPutts = remotePuttCount + localPuttCount + (isPutt ? 1 : 0)
       // score = struck rows + penalty strokes. `shotNumber` IS the struck
@@ -410,10 +387,6 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
             : hs,
         ),
       )
-      // Bump only on success — a failed save (caught below) shouldn't
-      // remount the form and wipe the player's entry.
-      setShotEntrySeq((s) => s + 1)
-
       // First shot on a hole with no course tee → the drive's start IS the
       // tee. Persist it so the tee box, camera, and distances have an anchor
       // (mapped holes keep their stored course tee). Background, not awaited.
@@ -609,13 +582,11 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
       pinTarget != null &&
       distanceYards(ballSnapshot, pinTarget) <= PUTTING_RADIUS_YARDS
     // On the green (#791 step 4 rework): the marked ball is the putt's start.
-    // Skip aiming entirely — Made/Missed is the action (bottom-chrome
-    // overlays, not a modal). Seed lie=green/putter so persistPutt writes a
-    // putt; the make-% pill lives in MapBottomChrome, the detailed read in
-    // the end-of-hole summary. Overrides capture mode (a putt is a putt in
+    // Skip aiming entirely — Made/Missed is the action (dock keys, not a
+    // modal). persistPutt writes the putt; the detailed read lives in the
+    // end-of-hole summary. Overrides capture mode (a putt is a putt in
     // either mode).
     if (opts?.toGreen || autoGreen) {
-      setLoggerInitial({ lieType: 'green', club: 'putter' })
       setRoundState('PUTTING')
       return
     }
@@ -637,36 +608,8 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
     setRoundState('SET_AIM')
   }
 
-  function handleOnGreenYes() {
-    setActiveDialog(prev => (prev === 'onGreen' ? null : prev))
-    // Drop straight into the dedicated PuttingSheet — there is no
-    // club/lie picker on that sheet, so there is nothing for the
-    // player to select after confirming "Yes, I'm putting". persistPutt
-    // hard-codes club='putter' + lie='green' on the way to the DB.
-    setLoggerInitial({ lieType: 'green', club: 'putter' })
-    setRoundState('PUTTING')
-  }
-
-  function handleOnGreenNo() {
-    // Not on the green → close the prompt and go straight into aiming (no
-    // separate "Set aim point?" prompt). Synchronous, so React batches the
-    // dialog-clear with the phase change.
-    setActiveDialog(prev => (prev === 'onGreen' ? null : prev))
-    // 'rough' is the safest near-green default — fairway/fringe/sand
-    // are common but rough is the modal answer for "near green but
-    // not putting". Player overrides in ShotLogger.
-    setLoggerInitial({ lieType: 'rough' })
-    // Chips and pitches still benefit from explicit aim capture for the
-    // shot-pattern dataset; the aim line auto-spawns and "Skip aim" stays
-    // available in the SET_AIM chrome.
-    setRoundState('SET_AIM')
-  }
-
   // Escape from the on-green Made/Missed overlays (#791 step 4 rework): the
-  // ball marked into PUTTING wasn't actually on the green after all. Same
-  // seed as handleOnGreenNo — 'rough' is the safest near-green default, the
-  // player overrides in ShotLogger — but there is no dialog to clear here
-  // (the overlay isn't a Modal/ConfirmDialog, just bottom chrome).
+  // ball marked into PUTTING wasn't actually on the green after all.
   function notOnGreen() {
     // just_track never enters aiming — mirror markBallHere's just_track path:
     // save the already-marked ball's location and loop back to PLACE_BALL,
@@ -676,14 +619,13 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
       void persistShot(null, { forceAim: false })
       return
     }
-    setLoggerInitial({ lieType: 'rough' })
     setRoundState('SET_AIM')
   }
 
   function confirmAim() {
     // Location-now, details-at-EOH (#791): confirming the aim saves the shot
     // as a location (+ this accepted aim) and loops straight back to placing
-    // the next ball — no ShotLogger. forceAim:true persists even an unadjusted
+    // the next ball. forceAim:true persists even an unadjusted
     // auto-spawn, since the player explicitly accepted it. persistShot clears
     // the aim and returns to PLACE_BALL. Club / lie / result are captured in
     // the end-of-hole review.
@@ -695,37 +637,6 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
     // won't bother aiming. forceAim:false drops the auto-spawn suggestion so it
     // can't enter the dispersion dataset.
     void persistShot(null, { forceAim: false })
-  }
-
-  function handleAimPromptConfirm() {
-    setActiveDialog(prev => (prev === 'aim' ? null : prev))
-    setRoundState('SET_AIM')
-  }
-
-  function handleAimPromptSkip() {
-    setActiveDialog(prev => (prev === 'aim' ? null : prev))
-    skipAim()
-  }
-
-  function closeLogger() {
-    setLoggerOpen(false)
-    setLoggerInitial({})
-    setRoundState('PLACE_BALL')
-  }
-
-  function closePuttingSheet() {
-    setRoundState('PLACE_BALL')
-  }
-
-  // Recover from a mistaken "Yes, I'm putting" tap. PuttingSheet has
-  // no club/lie picker — without this escape, a player who's actually
-  // chipping from the fringe or in a bunker has no way out except
-  // Close, which drops them back to PLACE_BALL and loses the ball
-  // position. Mirrors handleOnGreenNo's seed.
-  function swapPuttingToShot(lieType: LieType) {
-    setLoggerInitial({ lieType })
-    setRoundState('SHOT_DETAIL')
-    setLoggerOpen(true)
   }
 
   function navigateHole(delta: number) {
@@ -1401,22 +1312,14 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
     saving,
     ending,
     deleting,
-    shotEntrySeq,
     persistShot,
     persistPutt,
     persistRoundPin,
     clearRoundPin,
     markBallHere,
-    handleOnGreenYes,
-    handleOnGreenNo,
     notOnGreen,
     confirmAim,
     skipAim,
-    handleAimPromptConfirm,
-    handleAimPromptSkip,
-    closeLogger,
-    closePuttingSheet,
-    swapPuttingToShot,
     navigateHole,
     finishHole,
     continueToHole,

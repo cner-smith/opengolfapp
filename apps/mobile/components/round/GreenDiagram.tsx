@@ -87,7 +87,7 @@ export function GreenDiagram({
   const layoutWidth = useSharedValue(SVG_WIDTH)
   // Tracks whether a Pan is currently active so the prop-mirror effect
   // below doesn't clobber `startOffset.value` mid-drag. Without this,
-  // a parent re-render during an active gesture (e.g. ShotLogger
+  // a parent re-render during an active gesture (e.g. the review sheet
   // refreshing) would write the stale committed value back into the
   // shared value while `offsetX.value` is non-zero, snapping the
   // handle to a wrong position in the middle of a drag.
@@ -206,7 +206,7 @@ export function GreenDiagram({
 
   const pan = Gesture.Pan()
     .activeOffsetX([-2, 2])
-    // The diagram is rendered inside a ScrollView in PuttingSheet.
+    // The diagram is rendered inside a ScrollView.
     // Without `failOffsetY`, RNGH races the parent ScrollView for the
     // initial touch and a slightly-diagonal drag can be claimed by the
     // ScrollView, never activating the handle. Yield to vertical scroll

@@ -68,7 +68,7 @@ export function useAimGhosts({
   useEffect(() => {
     // Promote only on a COMMITTED exit. Both a real shot commit and a
     // "Re-place ball" backout leave SET_AIM for HoleMap-phase PLACE_BALL
-    // (the phase enum collapses SHOT_DETAIL/PUTTING into PLACE_BALL), so the
+    // (the phase enum collapses PUTTING into PLACE_BALL), so the
     // phase string can't distinguish them — that collision is why promotion
     // was dead. `aimCommitted` (from the raw roundState) does distinguish:
     //   - commit (confirmAim / on-green) → aimCommitted true, aim still set
