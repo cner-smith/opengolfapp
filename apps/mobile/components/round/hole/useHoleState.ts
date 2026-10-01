@@ -15,8 +15,8 @@ const AIM_HINT_KEY = 'oga.aim-hint-shown'
 // the player enters SET_AIM without having dropped one yet. ~0.65 puts the
 // target two-thirds up the hole — a sensible default carry the player then
 // drags to refine (refs ux-09). A long-press still repositions it freely.
-// Capped at the auto-picked club's carry so it never asks for a shot the
-// club can't hit (#1006).
+// Capped at the auto-picked club's carry when that is known at spawn time,
+// so it doesn't ask for a shot the club can't hit (#1006).
 const AIM_AUTOSPAWN_FRACTION = 0.65
 
 interface UseHoleStateInput {
