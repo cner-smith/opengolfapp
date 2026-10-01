@@ -7,7 +7,6 @@ import { HoleMap, type LatLng } from './HoleMap'
 import type { OffscreenArrow } from './HoleMap.types'
 import { HoleReviewSheet } from './HoleReviewSheet'
 import { ShotStepper } from './ShotStepper'
-import type { ShotLoggerValue } from './ShotLogger'
 import {
   DEFAULT_BAG,
   DEFAULT_HANDICAP,
@@ -28,7 +27,7 @@ import { useClubDispersion } from './hole/useClubDispersion'
 import { useUserBag } from '../../hooks/useUserBag'
 import { useUnits } from '../../hooks/useUnits'
 import { getLeftHand } from '../../lib/leftHand'
-import { FALLBACK_CENTER, HOLE_SCOPED_DIALOGS, type ActiveDialog } from './hole/types'
+import { FALLBACK_CENTER, type ActiveDialog } from './hole/types'
 import { useHoleData } from './hole/useHoleData'
 import { useHoleState } from './hole/useHoleState'
 import { useShotActions } from './hole/useShotActions'
@@ -104,16 +103,14 @@ export default function LiveRoundSession({
   // The unfinished hole the player chose to edit on the map (review ✕ / Back).
   const [editHole, setEditHole] = useState<number | null>(null)
 
-  // Per-hole UI state — modal/dialog flags + logger seed. These are
+  // Per-hole UI state — modal/dialog flags. These are
   // explicitly reset when holeNumber changes (see useEffect below) so
   // a modal left open on hole 5 doesn't reappear on hole 6.
-  const [loggerOpen, setLoggerOpen] = useState(false)
   const [pinPlacementOpen, setPinPlacementOpen] = useState(false)
   const [scorecardOpen, setScorecardOpen] = useState(false)
   // One mutually-exclusive confirm dialog at a time. See ActiveDialog
   // in ./hole/types for the full union + rationale (#293).
   const [activeDialog, setActiveDialog] = useState<ActiveDialog>(null)
-  const [loggerInitial, setLoggerInitial] = useState<ShotLoggerValue>({})
   // Left-toolbar dispersion-dots toggle (T2). Drives the single-color
   // historical-shot scatter overlay; the render lands in T4. Off by
   // default — it's a summoned planning aid, not always-on clutter.
@@ -154,18 +151,11 @@ export default function LiveRoundSession({
   // duplicate that here. This effect covers the component-owned UI
   // state machine that those hooks can't see.
   useEffect(() => {
-    setLoggerOpen(false)
     setPinPlacementOpen(false)
-    setLoggerInitial({})
     setBallMoved(false)
     setEditHole(null)
-    // Clear only hole-scoped dialogs (onGreen / aim). Session-scoped
-    // confirms (delete / leave / end / exit) stay open across hole
-    // navigation — a confirmDelete dialog mid-navigation should not
-    // vanish out from under the user.
-    setActiveDialog(prev =>
-      prev !== null && HOLE_SCOPED_DIALOGS.has(prev) ? null : prev,
-    )
+    // Confirm dialogs (delete / leave / end / exit) are session-scoped and
+    // stay open across hole navigation.
   }, [holeNumber])
 
   // External URL change → internal state. The scorecard hole-jump
@@ -309,8 +299,7 @@ export default function LiveRoundSession({
     data.storedPin?.lat,
     data.storedPin?.lng,
   ])
-  // Putt distance in feet, mirrored from HoleModals' ShotLogger puttDistanceFt
-  // calc (yards × 3 = feet). Feeds both the on-green make-% pill and the
+  // Putt distance in feet (yards × 3). Feeds both the on-green make-% pill and the
   // persisted putt_distance_ft on Made/Missed.
   const puttDistanceFt =
     ballToPinYards != null ? Math.round(ballToPinYards * 3) : null
@@ -461,8 +450,6 @@ export default function LiveRoundSession({
     captureMode,
     data,
     state: finalState,
-    setLoggerOpen,
-    setLoggerInitial,
     setPinPlacementOpen,
     setActiveDialog,
     placeBallManually,
@@ -632,7 +619,7 @@ export default function LiveRoundSession({
   // is up or a played hole is being edited.
   const rs = finalState.roundState
   const coach = useCoach(
-    menuOpen || pinPlacementOpen || editMode || activeDialog || loggerOpen
+    menuOpen || pinPlacementOpen || editMode || activeDialog
       ? null
       : rs === 'PLACE_BALL' ? LIVE_PLACE_STEPS : rs === 'SET_AIM' ? LIVE_AIM_STEPS : rs === 'PUTTING' ? LIVE_PUTT_STEPS : null,
   )
@@ -724,18 +711,14 @@ export default function LiveRoundSession({
                   ? 'SET_AIM'
                   : 'PLACE_BALL'
           }
-          // A SET_AIM → SHOT_DETAIL/PUTTING transition is a real shot commit;
+          // A SET_AIM → PUTTING transition is a real shot commit;
           // SET_AIM → bare PLACE_BALL ("Re-place ball") is a backout. The
           // collapsed `phase` above can't tell them apart, so the aim-ghost
           // promotion reads this raw-roundState signal instead.
-          aimCommitted={
-            finalState.roundState === 'SHOT_DETAIL' ||
-            finalState.roundState === 'PUTTING'
-          }
+          aimCommitted={finalState.roundState === 'PUTTING'}
           putting={finalState.roundState === 'PUTTING'}
           ornamentsTop
           showLocationPuck={
-            finalState.roundState !== 'SHOT_DETAIL' &&
             finalState.roundState !== 'PUTTING' &&
             // Hide the live GPS puck while revisiting a played hole — that hole
             // is in breadcrumb-only review mode until "Add a shot" (#484).
@@ -882,18 +865,6 @@ export default function LiveRoundSession({
       </View>
 
       <HoleModals
-        shotNumber={data.shotNumber}
-        // Compound key: hole_score id + per-save counter. Changes
-        // only on a real "new shot entry" event — a legitimate save
-        // (counter bumps in useShotActions) or a hole change (id
-        // changes). Never on incidental shotNumber recomputation
-        // from background fetches or sync. See #284.
-        shotEntryKey={`${data.currentHoleScore?.id ?? 'init'}-${actions.shotEntrySeq}`}
-        loggerOpen={loggerOpen}
-        loggerInitial={loggerInitial}
-        ball={finalState.ball}
-        roundPin={data.roundPin}
-        storedPin={data.storedPin}
         scorecardOpen={scorecardOpen}
         holes={data.holes}
         holeScores={data.holeScores}
@@ -932,9 +903,6 @@ export default function LiveRoundSession({
         totalShotsThisHole={totalShotsThisHole}
         ending={actions.ending}
         deleting={actions.deleting}
-        saving={actions.saving}
-        onPersistShot={actions.persistShot}
-        onCloseLogger={actions.closeLogger}
         onConfirmDelete={actions.handleDeleteRound}
         onCancelDelete={() => setActiveDialog(null)}
         onConfirmLeave={() => {
@@ -945,10 +913,6 @@ export default function LiveRoundSession({
         onConfirmEnd={actions.handleEndRound}
         unfinished={{ holes: actions.unfinishedOthers, onContinue: actions.continueToHole }}
         onCancelEnd={() => setActiveDialog(null)}
-        onGreenYes={actions.handleOnGreenYes}
-        onGreenNo={actions.handleOnGreenNo}
-        onAimPromptConfirm={actions.handleAimPromptConfirm}
-        onAimPromptSkip={actions.handleAimPromptSkip}
       />
 
       {/* End-of-hole review — full-screen overlay (zIndex 40). Confirms each

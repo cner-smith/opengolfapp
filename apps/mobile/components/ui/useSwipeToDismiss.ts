@@ -27,10 +27,10 @@ import {
 // wherever the drag left it.
 //
 // The exit leaves translateY at the drag offset. Sheets that FULLY unmount on
-// close (rendered inside a parent <Modal>, e.g. PuttingSheet/ScorecardModal)
+// close (rendered inside a parent <Modal>, e.g. ScorecardModal)
 // dispose this shared value and reopen fresh — they can omit `isOpen`. But
 // sheets that stay mounted and only toggle their OWN inner Modal's `visible`
-// (ShotLogger, PastHoleShotsSheet) keep the offset, so they reopen off-screen
+// (PastHoleShotsSheet) keep the offset, so they reopen off-screen
 // (#644 residual). Pass `isOpen` and we reset to 0 on each (re)open — done
 // while hidden, so the exit animation is untouched.
 const DISMISS_DISTANCE = 120

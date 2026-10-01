@@ -86,7 +86,7 @@ export interface HoleMapProps {
   holeNumber: number
   /**
    * True when the current SET_AIM exit is a real shot commit (raw
-   * roundState → SHOT_DETAIL / PUTTING) rather than a "Re-place ball"
+   * roundState → PUTTING) rather than a "Re-place ball"
    * backout. The `phase` prop collapses both to PLACE_BALL, so the aim-ghost
    * promotion needs this separate signal to record a ghost on commit without
    * leaving a stray one on re-place. Defaults false.
@@ -118,8 +118,7 @@ export interface HoleMapProps {
    * @rnmapbox/maps source — see PR notes for #330). Conditional
    * mount/unmount is the only way to actually pause the drain. Pass
    * true during PLACE_BALL and SET_AIM (player on course, puck is
-   * meaningful) and false during SHOT_DETAIL / PUTTING (modals cover
-   * the map).
+   * meaningful) and false during PUTTING.
    */
   showLocationPuck: boolean
   /**
