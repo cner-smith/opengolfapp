@@ -197,7 +197,9 @@ export default function LiveRoundSession({
       setFurthestHoleReached((f) => Math.min(f, data.holeCount))
     }
   }, [data.loading, data.holeCount, holeNumber])
+  const autoCarryYardsRef = useRef<number | null>(null)
   const finalState = useHoleState({
+    autoCarryYardsRef,
     currentHoleId: data.currentHole?.id ?? null,
     currentHoleScoreId: data.currentHoleScore?.id ?? null,
     isPastMode,
@@ -427,6 +429,7 @@ export default function LiveRoundSession({
     () => selectClub(ballToPinYards, new Set(wheelRows.map((r) => r.club)))?.club ?? null,
     [selectClub, ballToPinYards, wheelRows],
   )
+  autoCarryYardsRef.current = wheelRows.find((r) => r.club === autoClub)?.carryYards ?? null
   const wheelClub = clubOverride ?? autoClub ?? wheelRows[0]?.club ?? null
   // The Pattern key draws the wheel club's shots around the aim.
   const pattern = useMemo(() => {
