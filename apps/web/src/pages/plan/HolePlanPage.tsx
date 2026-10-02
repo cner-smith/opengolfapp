@@ -79,9 +79,9 @@ export default function HolePlanPage() {
     if (initedKeyRef.current === key) return
     const teePinDist = haversineYards(tee.lat, tee.lng, pin.lat, pin.lng)
     const club = dispersion.selectClub(teePinDist)
-    const carryDist = Math.min(club?.medianCarryYards ?? teePinDist, teePinDist)
+    const legDist = Math.min(club?.medianDistanceYards ?? teePinDist, teePinDist)
     const bearing = bearingDegrees(tee.lat, tee.lng, pin.lat, pin.lng)
-    const aim = destinationYards(tee, bearing, carryDist)
+    const aim = destinationYards(tee, bearing, legDist)
     setLegs([{ origin: tee, club, aim }])
     setFocusedLeg(0)
     initedKeyRef.current = key
@@ -110,9 +110,9 @@ export default function HolePlanPage() {
     if (!prevLeg) return
     const distToPin = haversineYards(prevLeg.aim.lat, prevLeg.aim.lng, pin.lat, pin.lng)
     const club = dispersion.selectClub(distToPin)
-    const carryDist = Math.min(club?.medianCarryYards ?? distToPin, distToPin)
+    const legDist = Math.min(club?.medianDistanceYards ?? distToPin, distToPin)
     const bearing = bearingDegrees(prevLeg.aim.lat, prevLeg.aim.lng, pin.lat, pin.lng)
-    const aim = destinationYards(prevLeg.aim, bearing, carryDist)
+    const aim = destinationYards(prevLeg.aim, bearing, legDist)
     const newLeg: Leg = { origin: prevLeg.aim, club, aim }
     setLegs((prev) => [...prev, newLeg])
     setFocusedLeg(legs.length)

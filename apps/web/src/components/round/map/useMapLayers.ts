@@ -66,7 +66,7 @@ interface UseMapLayersInput {
    *  aim. selectClub falls back to the longest club for a null distance. */
   dotsVisible: boolean
   selectClub: (distanceToTargetYards: number | null) => ClubPick | null
-  /** Player handicap index for the live best-case-SG readout on the carry
+  /** Player handicap index for the live best-case-SG readout on the aim
    *  pill (expected strokes are calibrated to the bracket). */
   handicap: number
   onMovePoint: (idx: number, point: PlacedPoint) => void
@@ -93,7 +93,7 @@ const TEE_BOX_HALF_YARDS = 4
 // A single shot's aim: where the player stood (`start`) and where they
 // aimed (`aim`), both as [lng, lat]. The latest aimed shot gets the full
 // planning treatment (solid start→aim→pin bend + dotted start→pin
-// reference + carry/remaining pills); the rest render as a dashed
+// reference + aim/remaining pills); the rest render as a dashed
 // start→aim line.
 type AimSeg = { start: [number, number]; aim: [number, number]; first: boolean }
 
@@ -428,7 +428,7 @@ export function useMapLayers({
     // ---- Aim lines + pills (placed + saved, unified) ----
     // The latest aimed shot — the placed flow while logging, otherwise the
     // last saved aim — gets the full planning treatment: solid start→aim→
-    // pin bend, dotted start→pin reference, and carry + remaining pills.
+    // pin bend, dotted start→pin reference, and aim + remaining pills.
     // Every other aimed shot renders as a plain dashed start→aim line so a
     // multi-shot hole doesn't clutter with overlapping bends.
     const pinLngLat: [number, number] | null = effectivePin
@@ -463,7 +463,7 @@ export function useMapLayers({
         : []
     upsertCircleFill(map, 'aim-circle', circleRing, AIM_COLOR)
 
-    // Single-color dispersion dots: the club whose median carry best matches
+    // Single-color dispersion dots: the club whose median distance best matches
     // the active shot's ball→pin distance (longest club when no pin), scattered
     // aim-relative around the active aim. Sparse clubs resolve to null → no
     // dots (silent). Always upserted so toggling off / switching shots clears.
@@ -528,7 +528,7 @@ export function useMapLayers({
     )
     if (activeSeg) {
       // Best-case SG of advancing ball→aim toward the pin: expected(start→pin)
-      // − expected(aim→pin) − 1 (calculateShotSG), as the carry pill's sublabel.
+      // − expected(aim→pin) − 1 (calculateShotSG), as the aim pill's sublabel.
       // Distance-band category (no polygons): within NEAR_GREEN_YARDS →
       // around_green (GRN), else approach (FWY). HONEST: value of reaching the
       // aim if struck clean, not dispersion-weighted. Needs a pin + baseline.
@@ -560,7 +560,7 @@ export function useMapLayers({
           }`
         }
       }
-      const carry = Math.round(
+      const toAim = Math.round(
         haversineYards(
           activeSeg.start[1],
           activeSeg.start[0],
@@ -568,14 +568,14 @@ export function useMapLayers({
           activeSeg.aim[0],
         ),
       )
-      if (carry > 0) {
+      if (toAim > 0) {
         const mid: [number, number] = [
           (activeSeg.start[0] + activeSeg.aim[0]) / 2,
           (activeSeg.start[1] + activeSeg.aim[1]) / 2,
         ]
         markerRefs.current.push(
           new mapboxgl.Marker({
-            element: makeDistancePill(`CARRY ${toDisplay(carry)}`, {
+            element: makeDistancePill(`TO AIM ${toDisplay(toAim)}`, {
               sublabel: sgSublabel,
               tone: sgTone,
             }),

@@ -117,7 +117,7 @@ export function makeDistancePill(
   const main = document.createElement('div')
   main.textContent = label
   el.appendChild(main)
-  // Optional second line — the live best-case SG on the carry pill
+  // Optional second line — the live best-case SG on the aim pill
   // ("+0.3 · FWY"), tinted positive/negative.
   if (opts.sublabel) {
     const sub = document.createElement('div')

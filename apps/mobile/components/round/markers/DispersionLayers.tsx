@@ -69,7 +69,7 @@ export function DispersionLayers({
       perpMeanYards: d.perpMean,
     })
     const mean = scatterGeoJSON(ball, aim, [{ alongYards: d.alongMean, perpYards: d.perpMean }]).features[0]
-    // The width tag goes opposite the carry / remaining tags (right of the
+    // The width tag goes opposite the aim / remaining tags (right of the
     // line; left when lefty), which it collided with on short approaches.
     const rods = dispersionRodsGeoJSON(ball, aim, d, frame.lefty ? 1 : -1)
     if (!ring68 || !mean || !rods) return null

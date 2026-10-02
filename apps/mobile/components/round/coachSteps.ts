@@ -28,7 +28,7 @@ const pin: CoachStep = {
 const wheel: CoachStep = {
   id: 'live.wheel',
   title: 'Club',
-  body: 'Flick to change club. AUTO is the suggestion for this distance; a club you pick lasts one shot.',
+  body: 'Flick to change club. The number is your typical distance with it — where your shots finished. AUTO is the suggestion for this distance; a club you pick lasts one shot.',
 }
 const recenter: CoachStep = {
   id: 'live.recenter',

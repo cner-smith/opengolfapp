@@ -187,9 +187,9 @@ export default function LiveRoundSession({
       setFurthestHoleReached((f) => Math.min(f, data.holeCount))
     }
   }, [data.loading, data.holeCount, holeNumber])
-  const autoCarryYardsRef = useRef<number | null>(null)
+  const autoClubYardsRef = useRef<number | null>(null)
   const finalState = useHoleState({
-    autoCarryYardsRef,
+    autoClubYardsRef,
     currentHoleId: data.currentHole?.id ?? null,
     currentHoleScoreId: data.currentHoleScore?.id ?? null,
     isPastMode,
@@ -277,7 +277,7 @@ export default function LiveRoundSession({
   ])
 
   // Per-club dispersion from the player's whole history (one query/session).
-  // The overlay shows the club whose median carry best matches the current
+  // The overlay shows the club whose median distance best matches the current
   // ball→aim distance; a tee shot with no aim yet falls back to the longest
   // club. Clubs with too little data simply produce no overlay (null).
   const { selectClub, byClub } = useClubDispersion(user?.id)
@@ -408,7 +408,7 @@ export default function LiveRoundSession({
           name: formatClubLabel(c),
           // The wheel is 124 wide: "driver" at 32 sp pushed the meta off the card.
           label: c.club_type === 'driver' ? 'dr' : formatClubLabel(c),
-          carryYards: d?.medianCarryYards ?? null,
+          typicalYards: d?.medianDistanceYards ?? null,
           shots: d?.points.length ?? 0,
           sparse: !d?.dispersion,
         }
@@ -418,7 +418,7 @@ export default function LiveRoundSession({
     () => selectClub(ballToPinYards, new Set(wheelRows.map((r) => r.club)))?.club ?? null,
     [selectClub, ballToPinYards, wheelRows],
   )
-  autoCarryYardsRef.current = wheelRows.find((r) => r.club === autoClub)?.carryYards ?? null
+  autoClubYardsRef.current = wheelRows.find((r) => r.club === autoClub)?.typicalYards ?? null
   const wheelClub = clubOverride ?? autoClub ?? wheelRows[0]?.club ?? null
   // The Pattern key draws the wheel club's shots around the aim.
   const pattern = useMemo(() => {
