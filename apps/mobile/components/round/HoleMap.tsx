@@ -151,6 +151,7 @@ export function HoleMap({
   // onMapIdle can fail to fire after the aim camera's last move (seen after a
   // hole auto-advance, #1018), which left the carry tag under the ruler. The
   // aim view also re-measures once the camera has been still for a moment.
+  // When onMapIdle does fire, both bump the tick; the re-measure is idempotent.
   const camStillTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   useEffect(() => () => clearTimeout(camStillTimer.current ?? undefined), [])
   // Carry tag keeps clear of the dock's stacks (it slid under the ruler at
