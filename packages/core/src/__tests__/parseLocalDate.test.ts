@@ -1,7 +1,5 @@
-// A zone west of Greenwich, set before any Date is built: this is where a
+// Runs under America/Chicago (vitest.config.ts): west of Greenwich is where a
 // bare 'YYYY-MM-DD' parsed as UTC lands on the previous day (#914).
-process.env.TZ = 'America/Chicago'
-
 import { describe, expect, it } from 'vitest'
 import { parseLocalDate } from '../units'
 

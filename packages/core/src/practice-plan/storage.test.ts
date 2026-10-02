@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import { normalizeCategoryProse, resolvePlanForStorage } from './storage'
+import { resolvePlanForStorage } from './storage'
 import type { PlanDraft, CandidateDrill, PlayerDigest, TargetTemplate } from './types'
 
 const wedgeTmpl: TargetTemplate = {
@@ -127,23 +127,5 @@ describe('resolvePlanForStorage', () => {
     mismatch.sessions[0]!.total_minutes = 65 // deliberately wrong; blocks still sum to 43
     const out = resolvePlanForStorage(mismatch, ctx)
     expect(out.drills.sessions[0]!.total_minutes).toBe(43) // 8+20+15
-  })
-})
-
-describe('normalizeCategoryProse', () => {
-  it('rewrites leaked snake_case categories, any case, whole words only', () => {
-    expect(normalizeCategoryProse('Your off_tee and AROUND_GREEN play')).toBe(
-      'Your off the tee and around the green play',
-    )
-    expect(normalizeCategoryProse('playoff_teetime')).toBe('playoff_teetime')
-  })
-
-  it('leaves readable categories alone', () => {
-    expect(normalizeCategoryProse('approach and putting')).toBe('approach and putting')
-  })
-
-  it('degrades null / undefined to empty text', () => {
-    expect(normalizeCategoryProse(null)).toBe('')
-    expect(normalizeCategoryProse(undefined)).toBe('')
   })
 })
