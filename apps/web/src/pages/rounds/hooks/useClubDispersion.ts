@@ -98,6 +98,7 @@ export function useClubDispersion(
   useEffect(() => {
     if (!userId) {
       setRows([])
+      setLoadedFor(undefined)
       return
     }
     let active = true
