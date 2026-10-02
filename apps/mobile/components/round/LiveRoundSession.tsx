@@ -749,6 +749,7 @@ export default function LiveRoundSession({
             // the HUD's ball-from-GPS labeling.
             if (isPastMode) return
             finalState.manuallyPlacedRef.current = false
+            finalState.ballDraggingRef.current = false
             setBallMoved(false)
             finalState.kalmanStateRef.current = null
             finalState.setBall(loc)
