@@ -128,7 +128,8 @@ export function upsertArcBand(
     src.setData(data)
     return
   }
-  map.addSource(sourceId, { type: 'geojson', data })
+  // tolerance 0: the default (0.375) simplification drops curve vertices (#1026, mobile #736).
+  map.addSource(sourceId, { type: 'geojson', data, tolerance: 0 })
   map.addLayer({
     id: bandLayerId,
     type: 'line',
@@ -166,7 +167,8 @@ export function upsertCircleFill(
     src.setData(data)
     return
   }
-  map.addSource(sourceId, { type: 'geojson', data })
+  // tolerance 0: see the arc above (#1026).
+  map.addSource(sourceId, { type: 'geojson', data, tolerance: 0 })
   map.addLayer({
     id: fillLayerId,
     type: 'fill',

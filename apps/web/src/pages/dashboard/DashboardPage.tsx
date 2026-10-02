@@ -259,7 +259,7 @@ function Lede({
       }}
     >
       <em>{weakest.label}.</em> Your biggest leak — costing about{' '}
-      {fmtAbs(weakest.value)} a round. {strongest.label.toLowerCase()} is the
+      {fmtAbs(weakest.value)} a round. {strongest.label} is the
       one bright spot at {fmtSG(strongest.value)}.
     </p>
   )
