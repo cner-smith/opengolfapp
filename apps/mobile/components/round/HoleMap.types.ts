@@ -102,6 +102,8 @@ export interface HoleMapProps {
   tagClearBottom?: number
   onSetAim: (loc: LatLng) => void
   onSetBall: (loc: LatLng) => void
+  /** True while the ball marker is under the finger, so a GPS tick can't move it mid-drag (#659). */
+  ballDraggingRef?: { current: boolean }
   /**
    * Called with the current GPS fix when the recenter button is tapped
    * during PLACE_BALL — a deliberate tap is explicit intent to put the

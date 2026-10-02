@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { ActivityIndicator, Alert, Pressable, StatusBar, Text, View } from 'react-native'
+import { ActivityIndicator, Alert, DeviceEventEmitter, Pressable, StatusBar, Text, View } from 'react-native'
 import { captureRef } from 'react-native-view-shot'
 import * as Sharing from 'expo-sharing'
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router'
@@ -118,6 +118,11 @@ function RoundScreen() {
     Promise.all([getCourseTees(supabase, courseId), getHoleTeesForCourse(supabase, courseId)]).then(
       ([teesRes, holeTeesRes]) => {
         if (cancelled) return
+        // PostgREST resolves with { error } rather than rejecting; without
+        // this the share card just lost its rating/slope silently (#620).
+        const teeErr = teesRes.error ?? holeTeesRes.error
+        // eslint-disable-next-line no-console
+        if (teeErr) console.warn('[round/tees]', teeErr.message)
         const tee = resolveCourseTee(teesRes.data ?? [], round?.course_tee_id, round?.tee_color)
         setPlayedTee(tee)
         setHoleTees(holeTeesRes.data ?? [])
@@ -402,6 +407,15 @@ function RoundScreen() {
     [router],
   )
   const onRoundCompleted = useCallback(() => setLoadSeq((n) => n + 1), [])
+  // This round deleted from Home / the rounds list while this screen is still
+  // mounted behind it: reload, so the loader finds nothing and the live
+  // session (and its GPS listener) unmounts (#613).
+  useEffect(() => {
+    const sub = DeviceEventEmitter.addListener('oga:roundDeleted', (deleted: string) => {
+      if (deleted === id) setLoadSeq((n) => n + 1)
+    })
+    return () => sub.remove()
+  }, [id])
 
   // In-progress rounds mount the live session here — the path-segmented
   // hole route is deprecated, see #264. holeNumber is component state
