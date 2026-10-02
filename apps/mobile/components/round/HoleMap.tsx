@@ -19,7 +19,7 @@ import { Marker } from './markers/Marker'
 import { FLAG_ANCHOR, FlagMarker } from './markers/FlagMarker'
 import { AimGhostLayers, useAimGhosts } from './markers/AimGhost'
 import { BreadcrumbLayers, SelectedCrumb } from './markers/BreadcrumbLayers'
-import { CarryTag, RemainingTag } from './markers/DistanceTags'
+import { AimTag, RemainingTag } from './markers/DistanceTags'
 import { DispersionLayers, RING_MIN_SHOTS } from './markers/DispersionLayers'
 import { AimOverlay } from './markers/AimOverlay'
 import { ObCallout, offscreenArrow } from './markers/Callouts'
@@ -149,12 +149,12 @@ export function HoleMap({
   // Bumped on every camera settle; screen-clamped map tags re-measure on it.
   const [idleTick, setIdleTick] = useState(0)
   // onMapIdle can fail to fire after the aim camera's last move (seen after a
-  // hole auto-advance, #1018), which left the carry tag under the ruler. The
+  // hole auto-advance, #1018), which left the aim tag under the ruler. The
   // aim view also re-measures once the camera has been still for a moment.
   // When onMapIdle does fire, both bump the tick; the re-measure is idempotent.
   const camStillTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   useEffect(() => () => clearTimeout(camStillTimer.current ?? undefined), [])
-  // Carry tag keeps clear of the dock's stacks (it slid under the ruler at
+  // Aim tag keeps clear of the dock's stacks (it slid under the ruler at
   // approach zoom): the lowest screen y its box may reach, in map dp.
   const legTagClamp =
     tagClearBottom != null && mapSize ? { map: mapViewRef, maxY: mapSize.h - tagClearBottom, idleTick } : undefined
@@ -554,7 +554,7 @@ export function HoleMap({
   )
 
   // Midpoint of the aim→pin leg, where the subordinate "remaining" label
-  // sits — mirrors the carry pill on the ball→aim leg.
+  // sits — mirrors the aim pill on the ball→aim leg.
   const remainingMidpoint: LatLng | null = useMemo(() => {
     if (!showAim || !aim || !effectivePin) return null
     return {
@@ -895,7 +895,7 @@ export function HoleMap({
             aimMidpoint &&
             aimDistanceYards !== null &&
             aimDistanceYards >= MIN_LABEL_LEG_YARDS && (
-            <CarryTag
+            <AimTag
               at={aimMidpoint}
               display={toDisplay(aimDistanceYards, 1)}
               lie={liveStrokes.lieLabel}
@@ -906,7 +906,7 @@ export function HoleMap({
             />
           )}
 
-          {/* Remaining (aim→pin) — subordinate to the hero carry pill. Inside
+          {/* Remaining (aim→pin) — subordinate to the hero aim pill. Inside
               the green-radius it reads in feet (greens are a feet game). */}
           {!pastCrumbs &&
             remainingMidpoint &&

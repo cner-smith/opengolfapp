@@ -158,9 +158,9 @@ function split(display: string): { whole: string; dec?: string; unit: string } {
   return { whole, dec, unit }
 }
 
-// Carry (ball → aim), §3.2: number at 32 with the stacked [.4 / yd] column
+// Aim (ball → aim), §3.2: number at 32 with the stacked [.4 / yd] column
 // the height of its figures, then "fairway · −0.1".
-export function CarryTag({
+export function AimTag({
   at,
   display,
   lie,

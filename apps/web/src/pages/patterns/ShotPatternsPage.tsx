@@ -361,7 +361,7 @@ export function ShotPatternsPage() {
           className="text-caddie-ink-dim"
           style={{ fontSize: 13, marginBottom: 14, maxWidth: 560 }}
         >
-          Each shot at its true carry up the range; the curve shows shape
+          Each shot at its true distance up the range; the curve shows shape
           (draw/fade). Thick line is your average.
         </div>
         <div
@@ -585,8 +585,8 @@ function PatternLegend({ hasEllipses }: { hasEllipses: boolean }) {
 // Top-down ball-flight view (mockup spec). Distinct from DispersionPlot: a
 // full-flight chart with the tee at the bottom and the target line up to the
 // pin. Each shot is a bezier tee → aim (control) → landing, so shot shape
-// reads geometrically. Within one club, carries cluster, so all shots
-// normalize to a common tee at the average carry; only lateral is to-scale.
+// reads geometrically. Within one club, aim distances cluster, so all shots
+// normalize to a common tee at the average aim distance; only lateral is to-scale.
 function BallFlightChart({
   points,
   stats,
@@ -596,23 +596,23 @@ function BallFlightChart({
 }) {
   const { toDisplay } = useUnits()
 
-  const { avgCarry, scale, maxDist, viewCenterLat } = useMemo(() => {
-    const carries = points
+  const { avgAimDistance, scale, maxDist, viewCenterLat } = useMemo(() => {
+    const aimDistances = points
       .map((p) => p.startDistanceOffsetYards)
       .filter((v): v is number => v != null)
-      .map((d) => -d) // start sits ~carry yards short of aim
-    const carry = carries.length
-      ? carries.reduce((a, b) => a + b, 0) / carries.length
+      .map((d) => -d) // start sits that far short of aim
+    const avgAimDistance = aimDistances.length
+      ? aimDistances.reduce((a, b) => a + b, 0) / aimDistances.length
       : 0
-    // True distance from the tee per shot = its own carry + long/short vs aim.
-    // Shots without a recorded start fall back to the average carry.
+    // True distance from the tee per shot = its own aim distance + long/short vs aim.
+    // Shots without a recorded start fall back to the average aim distance.
     const dists = points.map(
       (p) =>
         (p.startDistanceOffsetYards != null
           ? -p.startDistanceOffsetYards
-          : carry) + p.distanceOffsetYards,
+          : avgAimDistance) + p.distanceOffsetYards,
     )
-    const max = Math.max(...dists, carry, 1) * 1.08
+    const max = Math.max(...dists, avgAimDistance, 1) * 1.08
     // Re-center the horizontal view on where the shots actually go, not on the
     // aim line. A player who misses consistently to one side should see that
     // cluster centered, with the aim line (lateral 0) sitting off to the side.
@@ -630,14 +630,14 @@ function BallFlightChart({
     // proportion. Vertical fits the longest shot; shrink only if lateral would
     // overflow the width.
     const s = Math.min((FLIGHT_H - 40 - 28) / max, (FLIGHT_W / 2 - 16) / lateralExtent)
-    return { avgCarry: carry, scale: s, maxDist: max, viewCenterLat }
+    return { avgAimDistance, scale: s, maxDist: max, viewCenterLat }
   }, [points, stats])
 
   const cx = FLIGHT_W / 2
   const teeY = FLIGHT_H - 40
 
-  // Degenerate when shots start ~at the target (no meaningful carry to plot).
-  if (avgCarry < 5) {
+  // Degenerate when shots start ~at the target (no meaningful distance to plot).
+  if (avgAimDistance < 5) {
     return (
       <div
         className="flex items-center justify-center text-caddie-ink-mute"
@@ -661,8 +661,8 @@ function BallFlightChart({
   // shot cluster this is no longer the chart center.
   const teeX = x(0)
   // Each shot's true forward distance from the tee.
-  const carryOf = (p: DispersionPoint) =>
-    p.startDistanceOffsetYards != null ? -p.startDistanceOffsetYards : avgCarry
+  const aimDistanceOf = (p: DispersionPoint) =>
+    p.startDistanceOffsetYards != null ? -p.startDistanceOffsetYards : avgAimDistance
 
   // Driving-range yardage gridlines: finer spacing for short clubs.
   const step = maxDist <= 160 ? 25 : 50
@@ -720,7 +720,7 @@ function BallFlightChart({
         {points.map((p) => (
           <path
             key={`flight-${p.id}`}
-            d={`M ${teeX} ${teeY} Q ${x(p.lateralOffsetYards)} ${y(carryOf(p))} ${x(p.lateralOffsetYards)} ${y(carryOf(p) + p.distanceOffsetYards)}`}
+            d={`M ${teeX} ${teeY} Q ${x(p.lateralOffsetYards)} ${y(aimDistanceOf(p))} ${x(p.lateralOffsetYards)} ${y(aimDistanceOf(p) + p.distanceOffsetYards)}`}
             stroke={pointColor(p.shotResult).fill}
             strokeOpacity={0.3}
             strokeWidth={1.2}
@@ -728,7 +728,7 @@ function BallFlightChart({
         ))}
         {stats && (
           <path
-            d={`M ${teeX} ${teeY} Q ${x(stats.avgLateralOffset)} ${y(avgCarry)} ${x(stats.avgLateralOffset)} ${y(avgCarry + stats.avgDistanceOffset)}`}
+            d={`M ${teeX} ${teeY} Q ${x(stats.avgLateralOffset)} ${y(avgAimDistance)} ${x(stats.avgLateralOffset)} ${y(avgAimDistance + stats.avgDistanceOffset)}`}
             stroke="#1F3D2C"
             strokeWidth={3}
             strokeOpacity={0.9}
@@ -743,7 +743,7 @@ function BallFlightChart({
           <circle
             key={`land-${p.id}`}
             cx={x(p.lateralOffsetYards)}
-            cy={y(carryOf(p) + p.distanceOffsetYards)}
+            cy={y(aimDistanceOf(p) + p.distanceOffsetYards)}
             r={2.5}
             fill={c.fill}
             fillOpacity={c.opacity}
@@ -755,7 +755,7 @@ function BallFlightChart({
       {stats && (
         <circle
           cx={x(stats.avgLateralOffset)}
-          cy={y(avgCarry + stats.avgDistanceOffset)}
+          cy={y(avgAimDistance + stats.avgDistanceOffset)}
           r={4}
           fill="#FBF8F1"
           stroke="#1F3D2C"

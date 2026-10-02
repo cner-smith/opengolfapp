@@ -155,7 +155,7 @@ export interface HoleMapProps {
    *  (null = in view, or no shot), so the chrome can show the edge tab. */
   onLastShotOffscreen?: (arrow: OffscreenArrow | null) => void
   /** Past-round breadcrumbs (#611 §19.3). When set, replaces the
-   *  previousShots trail + segment labels + carry/remaining tags, and the
+   *  previousShots trail + segment labels + aim/remaining tags, and the
    *  ball draws as the selected crumb. */
   pastCrumbs?: PastCrumbs | null
   /** A map tap in SET_AIM sets the aim (the past round's Aim mode, §19.4). */

@@ -13,9 +13,9 @@ const AIM_HINT_KEY = 'oga.aim-hint-shown'
 
 // Fraction of the straight ball→pin line where the aim auto-spawns when
 // the player enters SET_AIM without having dropped one yet. ~0.65 puts the
-// target two-thirds up the hole — a sensible default carry the player then
+// target two-thirds up the hole — a sensible default aim the player then
 // drags to refine (refs ux-09). A long-press still repositions it freely.
-// Capped at the auto-picked club's carry when that is known at spawn time,
+// Capped at the auto-picked club's typical distance when that is known at spawn time,
 // so it doesn't ask for a shot the club can't hit (#1006).
 const AIM_AUTOSPAWN_FRACTION = 0.65
 
@@ -32,9 +32,9 @@ interface UseHoleStateInput {
   /** Whether any shot has been logged on this hole yet (remote + pending).
    *  The tee default only applies on shot 1 (no prior shots). */
   hasPriorShots: boolean
-  /** Median carry of the wheel's auto-picked club; null until one is known.
+  /** Median distance of the wheel's auto-picked club; null until one is known.
    *  A ref because the pick is derived from this hook's own `ball`. */
-  autoCarryYardsRef: MutableRefObject<number | null>
+  autoClubYardsRef: MutableRefObject<number | null>
 }
 
 export interface UseHoleStateResult {
@@ -80,7 +80,7 @@ export function useHoleState({
   roundPin,
   tee,
   hasPriorShots,
-  autoCarryYardsRef,
+  autoClubYardsRef,
 }: UseHoleStateInput): UseHoleStateResult {
   const [aim, setAim] = useState<LatLng | null>(null)
   // Auto-spawned aims start untouched; flipped true by a user drag/long-press
@@ -148,7 +148,7 @@ export function useHoleState({
 
   // Auto-spawn the aim target when the player enters SET_AIM. With a ball
   // and a pin but no aim yet, seed one on the straight ball→pin line at
-  // AIM_AUTOSPAWN_FRACTION so the aim line, crosshair, and carry/remaining
+  // AIM_AUTOSPAWN_FRACTION so the aim line, crosshair, and aim/remaining
   // readouts appear immediately — no long-press needed to start (refs
   // ux-09). Guarded on `!aim` so a dragged or long-pressed aim is never
   // overwritten; markBallHere resets aim to null for the next shot, so this
@@ -160,9 +160,9 @@ export function useHoleState({
     if (isRevisitingPlayedHole) return
     if (roundState !== 'SET_AIM') return
     if (aim || !ball || !effectivePin) return
-    const carry = autoCarryYardsRef.current
+    const clubYards = autoClubYardsRef.current
     const toPin = distanceYards(ball, effectivePin)
-    const f = carry && toPin > 0 ? Math.min(AIM_AUTOSPAWN_FRACTION, carry / toPin) : AIM_AUTOSPAWN_FRACTION
+    const f = clubYards && toPin > 0 ? Math.min(AIM_AUTOSPAWN_FRACTION, clubYards / toPin) : AIM_AUTOSPAWN_FRACTION
     setAim({
       lat: ball.lat + f * (effectivePin.lat - ball.lat),
       lng: ball.lng + f * (effectivePin.lng - ball.lng),

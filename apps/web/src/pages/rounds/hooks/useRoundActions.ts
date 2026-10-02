@@ -31,7 +31,7 @@ type HoleRow = Database['public']['Tables']['holes']['Row']
 
 // Fraction of the start→pin line where a live-round shot's aim auto-spawns.
 // Mirrors the mobile redesign (useHoleState `AIM_AUTOSPAWN_FRACTION`) so the
-// aim line + carry/remaining readouts appear the moment a shot is placed —
+// aim line + aim/remaining readouts appear the moment a shot is placed —
 // no extra tap. Past-round entry keeps the explicit "Set an aim point?" prompt.
 const AIM_AUTOSPAWN_FRACTION = 0.65
 
@@ -234,7 +234,7 @@ export function useRoundActions(input: UseRoundActionsInput): UseRoundActionsRes
 
   // Push a placed shot, then either auto-spawn its aim (live entry) or
   // prompt the player to set it (past-round review). The aim seeds on the
-  // straight start→pin line so the aim path + carry/remaining render
+  // straight start→pin line so the aim path + aim/remaining render
   // immediately. SET_AIM targets the slot PUSH_POINT just appended
   // (`placedAims.length` before the push), so it always lands on the new
   // shot. Every placement flows through here now — a near-green shot is no

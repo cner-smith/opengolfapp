@@ -336,7 +336,7 @@ export interface WheelRow {
   label: string
   /** Spoken name ("driver"). */
   name: string
-  carryYards: number | null
+  typicalYards: number | null
   /** Usable (aim-tracked) shots with this club. */
   shots: number
   /** Below the 5 shots a pattern needs. */
@@ -455,7 +455,11 @@ function ClubWheel({ rows, selected, auto, onPick }: WheelProps) {
           accessible
           accessibilityRole="adjustable"
           accessibilityLabel="Club"
-          accessibilityValue={{ text: row ? `${row.name}${sel === autoIdx ? ', auto pick' : ''}` : '' }}
+          accessibilityValue={{
+            text: row
+              ? `${row.name}${row.typicalYards != null && !row.sparse ? `, typical distance ${toDisplay(row.typicalYards)}` : ''}${sel === autoIdx ? ', auto pick' : ''}`
+              : '',
+          }}
           accessibilityActions={[{ name: 'increment' }, { name: 'decrement' }]}
           onAccessibilityAction={(e) => step(e.nativeEvent.actionName === 'increment' ? 1 : -1)}
           style={{ height: VIEW_H, overflow: 'hidden' }}
@@ -466,7 +470,7 @@ function ClubWheel({ rows, selected, auto, onPick }: WheelProps) {
               row={r}
               index={i}
               pos={pos}
-              carry={r.carryYards != null ? toDisplay(r.carryYards) : null}
+              distance={r.typicalYards != null ? toDisplay(r.typicalYards) : null}
               autoPick={manual && i === autoIdx}
             />
           ))}
@@ -569,13 +573,13 @@ function WheelRowView({
   row,
   index,
   pos,
-  carry,
+  distance,
   autoPick,
 }: {
   row: WheelRow
   index: number
   pos: SharedValue<number>
-  carry: string | null
+  distance: string | null
   autoPick: boolean
 }) {
   const rowStyle = useAnimatedStyle(() => {
@@ -583,7 +587,7 @@ function WheelRowView({
     return { opacity: Math.abs(d) > 1.6 ? 0 : 1 - 0.15 * Math.abs(d), transform: [{ translateY: d * PITCH }] }
   })
   const scaleStyle = useAnimatedStyle(() => ({ transform: [{ scale: 1 - 0.2 * Math.min(1, Math.abs(index - pos.value)) }] }))
-  const [num = '', unit = ''] = (carry ?? '').split(' ')
+  const [num = '', unit = ''] = (distance ?? '').split(' ')
   return (
     <Animated.View
       style={[
@@ -626,7 +630,7 @@ function WheelRowView({
           </>
         ) : (
           <>
-            {carry != null && (
+            {distance != null && (
               <Text allowFontScaling={false} numberOfLines={1} style={[TYPE.serif, { fontSize: 20, lineHeight: 24, color: P.ink }]}>
                 {num}
                 <Text allowFontScaling={false} style={[TYPE.kicker, { fontSize: 13 }]}>{'\u2009'}{unit}</Text>

@@ -90,10 +90,10 @@ function pickClubForDistance(yards: number): string {
   return 'putter'
 }
 
-// Typical carry per club (yards). Used to walk a hole realistically: hit the
-// club for the distance-to-pin, advance by its carry, repeat — so approaches
+// Typical distance per club (yards). Used to walk a hole realistically: hit the
+// club for the distance-to-pin, advance by its distance, repeat — so approaches
 // land in iron/wedge ranges instead of every shot picking the same club.
-const TYPICAL_CARRY: Record<string, number> = {
+const TYPICAL_DISTANCE: Record<string, number> = {
   driver: 255,
   '3w': 225,
   '5w': 210,
@@ -641,7 +641,7 @@ async function insertHoleShots(
     const toGreen = n === full
     // Leave ~25 yd per stroke still to come so the next shot isn't a putt from
     // the fairway; the last full shot plays at the flag.
-    const advance = toGreen ? distToPin : Math.max(20, Math.min(distToPin - 25 * (full - n), TYPICAL_CARRY[pickClubForDistance(distToPin)] ?? distToPin))
+    const advance = toGreen ? distToPin : Math.max(20, Math.min(distToPin - 25 * (full - n), TYPICAL_DISTANCE[pickClubForDistance(distToPin)] ?? distToPin))
     const pick = pickClubForDistance(advance)
     // Driver only off the tee; a putter never from off the green.
     const club = toGreen ? pickApproachClub(distToPin) : pick === 'putter' ? 'sw' : pick === 'driver' && n > 1 ? '3w' : pick

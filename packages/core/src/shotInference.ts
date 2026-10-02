@@ -9,7 +9,7 @@ import { haversineYards } from './units'
 /** A user-bag entry the inference layer can match against. Values mirror
  *  the `user_clubs` row but the inference engine never imports
  *  @oga/supabase, so we accept the minimal shape. `typical_distance_yards`
- *  is the user's measured carry; when present we prefer it over the
+ *  is the user's typical distance; when present we prefer it over the
  *  static lookup table. */
 export interface UserBagClub {
   club_type: string
@@ -35,7 +35,7 @@ export interface PlacedShot {
   /** Optional user bag. When supplied, club suggestion restricts to
    *  clubs the user actually carries; if rows include
    *  `typical_distance_yards`, the suggester picks the nearest match
-   *  by user-measured carry instead of the static table. */
+   *  by user-measured distance instead of the static table. */
   userBag?: readonly UserBagClub[]
 }
 

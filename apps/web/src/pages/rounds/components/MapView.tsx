@@ -611,7 +611,7 @@ function OverlayRail({
 // controls sit top-left and the rail is vertically centered, so it's clear of
 // both). The To Hole / remaining readouts already live in the bottom chrome +
 // aim pills on web, so this surfaces the one new value — expected strokes to
-// hole out from the current ball. Best-case SG rides the carry pill.
+// hole out from the current ball. Best-case SG rides the aim pill.
 function ExpStrokesHud({ value }: { value: number }) {
   return (
     <div
