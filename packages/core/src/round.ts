@@ -32,10 +32,16 @@ import type {
   PuttDirectionResult,
   PuttDistanceResult,
 } from './types'
-import { decombinedBreakDirection, shotAxesFromLegacy } from './types'
+import {
+  combinedBreakDirection,
+  combinedPuttResult,
+  decombinedBreakDirection,
+  shotAxesFromLegacy,
+} from './types'
 import type { Database } from '@oga/supabase'
 
 type ShotRow = Database['public']['Tables']['shots']['Row']
+type ShotInsert = Database['public']['Tables']['shots']['Insert']
 
 export interface PlacedPoint {
   lat: number
@@ -383,6 +389,123 @@ export function buildInitialRows(
     })
   })
   return rows
+}
+
+// The `shots` columns the end-of-hole review owns. Derived from the insert
+// type, not hand-written: both save paths spread this into their payload, a
+// spread is exempt from excess-property checks, so this type is the only thing
+// tying the keys to real columns. Required (not a bare Pick) makes a caller
+// key that collides with a spread key a compile error.
+export type ReviewedShotFields = Required<
+  Pick<
+    ShotInsert,
+    | 'shot_number'
+    | 'start_lat'
+    | 'start_lng'
+    | 'end_lat'
+    | 'end_lng'
+    | 'distance_to_target'
+    | 'club'
+    | 'lie_type'
+    | 'lie_slope'
+    | 'lie_slope_forward'
+    | 'lie_slope_side'
+    | 'shot_result'
+    | 'contact'
+    | 'shape'
+    | 'start_line'
+    | 'penalty'
+    | 'ob'
+    | 'putt_distance_ft'
+    | 'putt_result'
+    | 'putt_distance_result'
+    | 'putt_direction_result'
+    | 'putt_slope_pct'
+    | 'green_speed'
+    | 'break_direction'
+    | 'break_direction_vertical'
+    | 'break_direction_horizontal'
+    | 'aim_offset_yards'
+    | 'notes'
+  >
+>
+
+// One reviewed row → its `shots` columns, shared by the web and mobile review
+// saves (#798). Ids, the hole score, the user and the aim stay with the caller.
+export function reviewedRowToShotFields(
+  row: ReviewedShotRow,
+  storedPenalty: boolean | null | undefined,
+): ReviewedShotFields {
+  // isPuttEntry (green lie AND putter), not green-lie-alone: a wedge played
+  // from the green keeps its club result, a Texas wedge stays a full shot.
+  const isPutt = isPuttEntry(row.lieType, row.club)
+  // Tap-to-tap distance is in yards; × 3 = feet, which is what the rest of the
+  // app reads.
+  const puttFeet = Math.round(row.distanceYards * 3)
+  return {
+    shot_number: row.shotNumber,
+    start_lat: row.startLat,
+    start_lng: row.startLng,
+    end_lat: row.endLat,
+    end_lng: row.endLng,
+    distance_to_target: isPutt ? null : Math.round(row.distanceToPin),
+    club: row.club,
+    lie_type: row.lieType,
+    lie_slope: null,
+    lie_slope_forward: isPutt ? null : row.lieSlopeForward ?? null,
+    lie_slope_side: isPutt ? null : row.lieSlopeSide ?? null,
+    shot_result: isPutt ? null : row.shotResult ?? null,
+    contact: isPutt ? null : row.contact ?? null,
+    shape: isPutt ? null : row.shape ?? null,
+    start_line: isPutt ? null : row.startLine ?? null,
+    // The row's own value when set, else the stored value the caller passes
+    // (a sheet that doesn't edit the flag must not clear it), else false.
+    penalty: row.penalty ?? storedPenalty ?? false,
+    // A putt cannot be out of bounds: sg-calculator's OB branch runs ahead of
+    // holed-out, so ob=true on a made putt would book −2 putting (#839).
+    // The row is authoritative — no stored-flag fallback: a fallback would
+    // keep ob=true after the player cleared it in the sheet, with no way to
+    // clear it from there.
+    ob: isPutt ? false : row.shotResult === 'ob',
+    // The column is numeric(4,1), so 1000 overflows. Capped on the ROUNDED
+    // feet: 999.6 passes an unrounded check and then rounds to 1000.
+    putt_distance_ft: isPutt && puttFeet <= 999 ? puttFeet : null,
+    // Legacy combined column, rebuilt from the axes for back-compat readers.
+    putt_result: isPutt
+      ? combinedPuttResult({
+          made: row.puttMade,
+          distance: row.puttDistanceResult ?? null,
+          direction: row.puttDirectionResult ?? null,
+        })
+      : null,
+    putt_distance_result:
+      !isPutt || row.puttMade ? null : row.puttDistanceResult ?? null,
+    putt_direction_result:
+      !isPutt || row.puttMade ? null : row.puttDirectionResult ?? null,
+    // The green read (slope, speed, break, aim offset) is stored whether the
+    // putt was made or missed.
+    putt_slope_pct: isPutt ? row.puttSlopePct ?? null : null,
+    green_speed: isPutt ? row.greenSpeed ?? null : null,
+    break_direction: isPutt
+      ? combinedBreakDirection({
+          vertical: row.breakDirectionVertical,
+          horizontal: row.breakDirectionHorizontal,
+        })
+      : null,
+    break_direction_vertical: isPutt ? row.breakDirectionVertical ?? null : null,
+    break_direction_horizontal: isPutt ? row.breakDirectionHorizontal ?? null : null,
+    aim_offset_yards:
+      isPutt && row.aimOffsetInches != null
+        ? Math.round((row.aimOffsetInches / 36) * 10) / 10
+        : null,
+    notes: row.notes ?? null,
+  }
+}
+
+// 'ball_above' → 'Ball above'. Not named slopeLabel: mobile's patterns screen
+// keeps a private slopeLabel that does not capitalise.
+export function lieSlopeLabel(v: string): string {
+  return cap(v.replace(/_/g, ' '))
 }
 
 // Move legacy lie_slope (single-axis) onto the new forward + side axes
