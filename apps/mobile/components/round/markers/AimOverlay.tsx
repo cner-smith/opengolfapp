@@ -63,7 +63,7 @@ export function AimOverlay({
     <>
       {/* Arc band = a wide translucent stroke (the "fill") + a thin crisp core. */}
       {arc && (
-        <Mapbox.ShapeSource id="overlayArc" shape={arc}>
+        <Mapbox.ShapeSource id="overlayArc" tolerance={0} shape={arc}>
           <Mapbox.LineLayer
             id="overlayArcFill"
             style={{ lineColor: P.raised, lineWidth: 14, lineOpacity: dimArc ? 0 : 0.15, lineCap: 'round', lineJoin: 'round' }}
@@ -75,7 +75,7 @@ export function AimOverlay({
         </Mapbox.ShapeSource>
       )}
       {circle && (
-        <Mapbox.ShapeSource id="overlayCircle" shape={circle}>
+        <Mapbox.ShapeSource id="overlayCircle" tolerance={0} shape={circle}>
           <Mapbox.FillLayer id="overlayCircleFill" style={{ fillColor: P.raised, fillOpacity: 0.12 }} />
           <Mapbox.LineLayer id="overlayCircleBorder" style={{ lineColor: P.raised, lineWidth: 2, lineOpacity: 0.9 }} />
         </Mapbox.ShapeSource>

@@ -144,14 +144,14 @@ export function DispersionLayers({
       )}
       {ring && (
         <>
-          <Mapbox.ShapeSource id="patternRing" shape={ring.ring68}>
+          <Mapbox.ShapeSource id="patternRing" tolerance={0} shape={ring.ring68}>
             <Mapbox.FillLayer
               id="patternRingFill"
               style={{ fillColor: P.raised, fillOpacity: t > 0 ? 0.14 : 0, fillOpacityTransition: { duration: 200, delay: 0 } }}
             />
           </Mapbox.ShapeSource>
           {ringLine && (
-            <Mapbox.ShapeSource id="patternRingLine" shape={ringLine}>
+            <Mapbox.ShapeSource id="patternRingLine" tolerance={0} shape={ringLine}>
               <Mapbox.LineLayer id="patternRingHalo" style={{ lineColor: P.ink, lineWidth: 4, lineOpacity: 0.35 }} />
               <Mapbox.LineLayer id="patternRingLine" style={{ lineColor: P.raised, lineWidth: 2, lineOpacity: 0.95 }} />
             </Mapbox.ShapeSource>
