@@ -148,6 +148,12 @@ export function HoleMap({
   const [mapSize, setMapSize] = useState<{ w: number; h: number } | null>(null)
   // Bumped on every camera settle; screen-clamped map tags re-measure on it.
   const [idleTick, setIdleTick] = useState(0)
+  // onMapIdle can fail to fire after the aim camera's last move (seen after a
+  // hole auto-advance, #1018), which left the carry tag under the ruler. The
+  // aim view also re-measures once the camera has been still for a moment.
+  // When onMapIdle does fire, both bump the tick; the re-measure is idempotent.
+  const camStillTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useEffect(() => () => clearTimeout(camStillTimer.current ?? undefined), [])
   // Carry tag keeps clear of the dock's stacks (it slid under the ruler at
   // approach zoom): the lowest screen y its box may reach, in map dp.
   const legTagClamp =
@@ -679,6 +685,10 @@ export function HoleMap({
             onCameraChanged || isAimPhase
               ? (state) => {
                   if (state.gestures.isGestureActive) userGesturedRef.current = true
+                  if (isAimPhase) {
+                    clearTimeout(camStillTimer.current ?? undefined)
+                    camStillTimer.current = setTimeout(() => setIdleTick((t) => t + 1), 200)
+                  }
                   onCameraChanged?.()
                 }
               : undefined
