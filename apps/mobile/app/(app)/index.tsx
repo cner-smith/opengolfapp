@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router'
 import { DeviceEventEmitter, Pressable, ScrollView, Text, View } from 'react-native'
-import { formatSG, isPartialRound } from '@oga/core'
+import { formatSG, isPartialRound, sgBreakdown } from '@oga/core'
 import { deleteRound, getProfile, getRecentRounds } from '@oga/supabase'
 import type { Database } from '@oga/supabase'
 import { supabase } from '../../lib/supabase'
@@ -230,11 +230,8 @@ export default function Home() {
   }, [wholeRounds])
 
   const homeStats = useMemo(() => {
-    const avgs = SG_KEYS.map((c) => {
-      const values = wholeRounds.map((r) => r[c.key]).filter((v): v is number => v !== null)
-      const avg = values.length === 0 ? 0 : values.reduce((a, b) => a + b, 0) / values.length
-      return { ...c, value: Number(avg.toFixed(2)) }
-    })
+    const { breakdown } = sgBreakdown(wholeRounds)
+    const avgs = SG_KEYS.map((c) => ({ ...c, value: breakdown.find((b) => b.key === c.key)?.value ?? 0 }))
     // total_score === 0 is the past-round-logger sentinel for "no score
     // entered" (map-created rounds), so exclude it from avg + best-round min —
     // otherwise an abandoned log skews the average and a single unscored
