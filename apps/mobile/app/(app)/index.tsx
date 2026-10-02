@@ -124,7 +124,8 @@ export default function Home() {
           setCached('home:profile', data)
         }
       })
-      getRecentRounds(supabase, user.id, 20).then(({ data, error }) => {
+      // 2× buffer so the stats can reach 20 whole rounds past any partials (#935).
+      getRecentRounds(supabase, user.id, 40).then(({ data, error }) => {
         if (!active) return
         if (error) {
           // eslint-disable-next-line no-console
@@ -211,7 +212,11 @@ export default function Home() {
   // visually gapped axis.
   // Rounds ended early stay out of the per-round numbers below (avg, best,
   // SG averages, trend) — a 6-hole total isn't comparable to a whole round (#911).
-  const wholeRounds = useMemo(() => rounds.filter((r) => !isPartialRound(r.hole_scores)), [rounds])
+  // The window is the 20 most recent WHOLE rounds, like Stats' L20 (#935).
+  const wholeRounds = useMemo(
+    () => rounds.filter((r) => !isPartialRound(r.hole_scores)).slice(0, 20),
+    [rounds],
+  )
 
   const trend = useMemo(() => {
     let seq = 0
@@ -280,7 +285,9 @@ export default function Home() {
           {firstName ? `Good round, ${firstName}.` : 'Good round.'}
         </Text>
         <Text style={[TYPE.body, { color: '#5C6356', fontSize: 14, marginBottom: 10 }]}>
-          Last {rounds.length} round{rounds.length === 1 ? '' : 's'}
+          {wholeRounds.length === 0
+            ? 'No full rounds yet'
+            : `Last ${wholeRounds.length} round${wholeRounds.length === 1 ? '' : 's'}`}
         </Text>
         <Pressable onPress={scrollToLearn} hitSlop={6} style={{ marginBottom: 22 }}>
           <Text style={[TYPE.bodyItalic, { color: '#8A8B7E', fontSize: 13 }]}>
@@ -289,7 +296,7 @@ export default function Home() {
         </Pressable>
         </Entrance>
 
-        {rounds.length > 0 && (
+        {wholeRounds.length > 0 && (
           <Entrance index={1}>
             <Text
               style={[
@@ -319,7 +326,7 @@ export default function Home() {
                   value={formatSG(homeStats.totalSG)}
                   valueColor={homeStats.totalSG > 0 ? P.forest : homeStats.totalSG < 0 ? P.neg : P.ink}
                 />
-                <StatTile style={TILE} label="Rounds" value={rounds.length.toString()} />
+                <StatTile style={TILE} label="Rounds" value={wholeRounds.length.toString()} />
                 <StatTile style={TILE} label="Best round" value={homeStats.bestScore != null ? homeStats.bestScore.toString() : '—'} />
               </View>
             </View>
@@ -342,7 +349,7 @@ export default function Home() {
         )}
 
         <Entrance index={3}>
-        {rounds.length === 0 ? (
+        {wholeRounds.length === 0 ? (
           <PaperTile style={{ marginBottom: 28 }} innerStyle={{ padding: 22 }}>
             <Text
               maxFontSizeMultiplier={FONT_CAP}
@@ -354,7 +361,7 @@ export default function Home() {
                 },
               ]}
             >
-              No rounds yet.
+              {rounds.length === 0 ? 'No rounds yet.' : 'No full rounds yet.'}
             </Text>
             <Text
               maxFontSizeMultiplier={FONT_CAP}
@@ -368,7 +375,9 @@ export default function Home() {
                 },
               ]}
             >
-              Log your first round to start tracking strokes gained.
+              {rounds.length === 0
+                ? 'Log your first round to start tracking strokes gained.'
+                : 'Finish a full round to see your strokes gained.'}
             </Text>
           </PaperTile>
         ) : (
