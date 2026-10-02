@@ -106,6 +106,7 @@ export function HoleMap({
   holeNumber,
   onSetAim,
   onSetBall,
+  ballDraggingRef,
   onRecenterBall,
   onPlacePin,
   showLocationPuck,
@@ -280,13 +281,17 @@ export function HoleMap({
     // Up the hole (#903): without a heading, recenter kept whatever rotation
     // the map had.
     const upHole = roundPin ?? pin ?? null
-    cameraRef.current.setCamera({
-      centerCoordinate: toCoord(target),
-      zoomLevel: 17,
-      pitch: 0,
-      ...(upHole ? { heading: headingUpTheHole(target, upHole) } : {}),
-      animationDuration: 600,
-    })
+    try {
+      cameraRef.current.setCamera({
+        centerCoordinate: toCoord(target),
+        zoomLevel: 17,
+        pitch: 0,
+        ...(upHole ? { heading: headingUpTheHole(target, upHole) } : {}),
+        animationDuration: 600,
+      })
+    } catch {
+      // native camera released — the ball snap below still applies
+    }
     // During ball placement the tap also snaps the ball onto the player —
     // the way to resume GPS tracking after a manual drag.
     if (isPlaceBallPhase) onRecenterBall?.(target)
@@ -932,7 +937,11 @@ export function HoleMap({
               id="ball"
               coordinate={toCoord(ball)}
               draggable={isPlaceBallPhase}
+              onDragStart={() => {
+                if (ballDraggingRef) ballDraggingRef.current = true
+              }}
               onDragEnd={(e: unknown) => {
+                if (ballDraggingRef) ballDraggingRef.current = false
                 const c = extractCoord(e)
                 // Ignore micro-drags (< 5 yd) — finger tremor or an
                 // accidental press-and-release would otherwise freeze

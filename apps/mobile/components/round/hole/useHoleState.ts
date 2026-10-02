@@ -55,6 +55,7 @@ export interface UseHoleStateResult {
   gpsFixAtRef: MutableRefObject<number>
   kalmanStateRef: MutableRefObject<KalmanState | null>
   manuallyPlacedRef: MutableRefObject<boolean>
+  ballDraggingRef: MutableRefObject<boolean>
   lastSavedShotLocalIdRef: MutableRefObject<number | null>
   aimHintVisible: boolean
   setAimHintVisible: Dispatch<SetStateAction<boolean>>
@@ -101,6 +102,8 @@ export function useHoleState({
   // freezes the GPS callback's setBall so the next reading can't
   // clobber the manual placement.
   const manuallyPlacedRef = useRef(false)
+  // True while the ball marker is under the finger (#659).
+  const ballDraggingRef = useRef(false)
   // local_id of the just-saved pending shot, so the next PLACE_BALL
   // can fill in that shot's end_lat/end_lng with the new ball position.
   const lastSavedShotLocalIdRef = useRef<number | null>(null)
@@ -339,7 +342,7 @@ export function useHoleState({
           // this, the next reading after a drag would re-init the
           // filter at the raw GPS point and snap ball back, wiping
           // the player's refinement.
-          if (manuallyPlacedRef.current) return
+          if (manuallyPlacedRef.current || ballDraggingRef.current) return
           kalmanStateRef.current = kalmanStateRef.current
             ? updateKalman(kalmanStateRef.current, rawPoint)
             : createKalmanState(rawPoint)
@@ -405,6 +408,7 @@ export function useHoleState({
     if (roundState === 'PLACE_BALL') return
     kalmanStateRef.current = null
     manuallyPlacedRef.current = false
+    ballDraggingRef.current = false
   }, [roundState])
 
   // Hole change resets per-hole state. The screen is resident (#264) so
@@ -422,6 +426,7 @@ export function useHoleState({
     if (!currentHoleId) return
     kalmanStateRef.current = null
     manuallyPlacedRef.current = false
+    ballDraggingRef.current = false
     setBall(null)
     setAim(null)
     setRoundState('PLACE_BALL')
@@ -485,6 +490,7 @@ export function useHoleState({
     gpsFixAtRef,
     kalmanStateRef,
     manuallyPlacedRef,
+    ballDraggingRef,
     lastSavedShotLocalIdRef,
     aimHintVisible,
     setAimHintVisible,

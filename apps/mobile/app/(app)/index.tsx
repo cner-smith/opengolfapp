@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router'
-import { Pressable, ScrollView, Text, View } from 'react-native'
+import { DeviceEventEmitter, Pressable, ScrollView, Text, View } from 'react-native'
 import { formatSG, isPartialRound } from '@oga/core'
 import { deleteRound, getProfile, getRecentRounds } from '@oga/supabase'
 import type { Database } from '@oga/supabase'
@@ -94,6 +94,8 @@ export default function Home() {
         // Wipe ALL cached screens — a stale rounds-list or round-detail
         // cache would resurrect the deleted round as a ghost (#705 redux).
         clearScreenCache()
+        // The round screen stays mounted behind this one; tell it (#613).
+        DeviceEventEmitter.emit('oga:roundDeleted', id)
         setRounds((prev) => prev.filter((r) => r.id !== id))
       } finally {
         setDeleting(false)

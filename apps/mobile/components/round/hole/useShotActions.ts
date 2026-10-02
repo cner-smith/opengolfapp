@@ -452,11 +452,19 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
     manuallyPlacedRef.current = true
     const prevLocalId = lastSavedShotLocalIdRef.current
     if (prevLocalId != null) {
+      // A thrown local write keeps the ref, so marking the ball again
+      // retries it; "not found" / quarantined (null) has nothing to retry.
+      let writeFailed = false
       const result = await setPendingShotEnd(
         prevLocalId,
         ballSnapshot.lat,
         ballSnapshot.lng,
-      ).catch(() => null)
+      ).catch((e) => {
+        writeFailed = true
+        // eslint-disable-next-line no-console
+        console.warn('[hole/end-coord-local]', (e as Error).message)
+        return null
+      })
       if (result?.status === 'synced' && result.remote_id) {
         supabase
           .from('shots')
@@ -469,7 +477,7 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
             }
           })
       }
-      lastSavedShotLocalIdRef.current = null
+      if (!writeFailed) lastSavedShotLocalIdRef.current = null
     }
     setBall(ballSnapshot)
     setAim(null)

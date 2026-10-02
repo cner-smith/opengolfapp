@@ -476,7 +476,9 @@ export default function LiveRoundSession({
   })
 
   // Android Back (#915): menu/pin/aim aren't Modals; runs before the router's listener (newest first).
-  useEffect(() => {
+  // Only while this screen is focused: the session stays mounted behind Home
+  // after Leave, and its "Leave round?" Modal would show over Home (#1032).
+  useFocusEffect(useCallback(() => {
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {
       if (data.loading || data.error || !data.round || !data.currentHole || !data.currentHoleScore) return false
       // The review sheet owns Back while it shows. This effect re-subscribes on
@@ -495,7 +497,7 @@ export default function LiveRoundSession({
       return true
     })
     return () => sub.remove()
-  }, [menuOpen, pinPlacementOpen, finalState, data, holeNumber, furthestHoleReached, editHole, sheetHeld])
+  }, [menuOpen, pinPlacementOpen, finalState, data, holeNumber, furthestHoleReached, editHole, sheetHeld]))
 
   // End-of-hole review rows. Built from the shots placed live (their start
   // coords, in order) via the shared @oga/core inference — same call the web
@@ -738,6 +740,7 @@ export default function LiveRoundSession({
             finalState.setAimTouched(true)
           }}
           onSetBall={editMode ? handleEditModeMove : placeBallManually}
+          ballDraggingRef={finalState.ballDraggingRef}
           onRecenterBall={(loc) => {
             // Deliberate recenter tap = "put the ball back on me": the
             // inverse of onSetBall above. Lift the manual freeze, restart
@@ -746,6 +749,7 @@ export default function LiveRoundSession({
             // the HUD's ball-from-GPS labeling.
             if (isPastMode) return
             finalState.manuallyPlacedRef.current = false
+            finalState.ballDraggingRef.current = false
             setBallMoved(false)
             finalState.kalmanStateRef.current = null
             finalState.setBall(loc)
