@@ -8,7 +8,8 @@ export const MAX_COURSE_SPAN_M = 3000
 
 /**
  * Maximum pairwise separation of a point set, in metres. 0 for fewer than two
- * points.
+ * points; NaN when any coordinate is not finite (a NaN distance compares
+ * false against every maximum, so it used to read as 0 m apart).
  *
  * Doubles as review evidence: "5 of 9 holes mapped, spanning 5,949 km" reads
  * as junk instantly, where "8 of 9, spanning 634 m" reads as real.
@@ -16,6 +17,7 @@ export const MAX_COURSE_SPAN_M = 3000
  * O(n²), which is fine — n is a course's hole count, at most 18.
  */
 export function pointSetDiameter(points: GeoPoint[]): number {
+  if (points.some((p) => !Number.isFinite(p.lat) || !Number.isFinite(p.lng))) return Number.NaN
   let max = 0
   for (let i = 0; i < points.length; i += 1) {
     for (let j = i + 1; j < points.length; j += 1) {
@@ -36,7 +38,8 @@ export function pointSetDiameter(points: GeoPoint[]): number {
  * corroboration, and a stray tap reverse-geocodes to a real, plausible,
  * wrong place that no human reviewer can catch.
  *
- * Null for a set spanning more than MAX_COURSE_SPAN_M.
+ * Null for a set spanning more than MAX_COURSE_SPAN_M, or holding a
+ * coordinate that is not finite.
  *
  * Deliberately NOT a median. A live pending row has two holes in Paris and
  * three near Philadelphia; a median picks the three-point cluster and is
@@ -44,7 +47,8 @@ export function pointSetDiameter(points: GeoPoint[]): number {
  */
 export function courseCentroid(points: GeoPoint[]): GeoPoint | null {
   if (points.length < 2) return null
-  if (pointSetDiameter(points) > MAX_COURSE_SPAN_M) return null
+  // Written as "not within" so a NaN diameter refuses too.
+  if (!(pointSetDiameter(points) <= MAX_COURSE_SPAN_M)) return null
   const lat = points.reduce((sum, p) => sum + p.lat, 0) / points.length
   const lng = points.reduce((sum, p) => sum + p.lng, 0) / points.length
   return { lat, lng }
