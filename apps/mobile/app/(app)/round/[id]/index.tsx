@@ -9,6 +9,7 @@ import {
   resolveCourseTee,
   selectNudgeDrills,
   type CaptureMode,
+  parseLocalDate,
 } from '@oga/core'
 import {
   deleteRound,
@@ -640,9 +641,8 @@ function RoundScreen() {
     }
   }
 
-  // "Fri 25 Sep". played_at is a DATE; a bare 'YYYY-MM-DD' parses as UTC,
-  // which is a day early in US zones — pin it to local midnight.
-  const played = new Date(`${round.played_at}T00:00:00`)
+  // "Fri 25 Sep".
+  const played = parseLocalDate(round.played_at)
   const dateLabel = Number.isNaN(played.getTime())
     ? round.played_at
     : `${DAYS[played.getDay()]} ${played.getDate()} ${MONTHS[played.getMonth()]}`

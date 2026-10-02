@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from 'react-native'
 import { Link } from 'expo-router'
 import { MaterialCommunityIcons } from '@expo/vector-icons'
+import { normalizeCategoryProse, parseLocalDate, todayLocalDate } from '@oga/core'
 import type { StoredBlock, StoredFocusArea, StoredSession } from '@oga/core'
 import { AppBar } from '../../components/ui/AppBar'
 import { Entrance } from '../../components/ui/Entrance'
@@ -43,30 +44,11 @@ function asFocusAreas(value: unknown): StoredFocusArea[] {
   return Array.isArray(value) ? (value as StoredFocusArea[]) : []
 }
 
-// UI safety net: rewrite any leaked raw snake_case category enums in displayed
-// prose (coach_note / focus reasons). `approach`/`putting` are already readable.
-// Tolerates null/undefined — a malformed plan (e.g. a focus area missing its
-// `reason`) must degrade to empty text, never crash the whole tab.
-function normalizeCategoryProse(text: string | null | undefined): string {
-  if (!text) return ''
-  return text
-    .replace(/\boff_tee\b/gi, 'off the tee')
-    .replace(/\baround_green\b/gi, 'around the green')
-}
-
-// `valid_until` / `generated_at` are bare date strings (YYYY-MM-DD). Compare to
-// today's *local* date so a plan stays current through the whole of its final day.
-function todayDateString(): string {
-  const now = new Date()
-  const y = now.getFullYear()
-  const m = String(now.getMonth() + 1).padStart(2, '0')
-  const d = String(now.getDate()).padStart(2, '0')
-  return `${y}-${m}-${d}`
-}
+// `valid_until` / `generated_at` are bare date strings (YYYY-MM-DD), compared
+// to today's *local* date so a plan stays current through its final day.
 function formatDate(value: string | null): string {
   if (!value) return ''
-  // Parse a bare date string as local, not UTC, to avoid an off-by-one day.
-  const parsed = /^\d{4}-\d{2}-\d{2}$/.test(value) ? new Date(`${value}T00:00:00`) : new Date(value)
+  const parsed = parseLocalDate(value)
   if (Number.isNaN(parsed.getTime())) return ''
   return parsed.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
 }
@@ -95,7 +77,7 @@ export default function Practice() {
   const completed = new Set(plan?.completed_drill_ids ?? [])
 
   // No-regenerate-within-window: only offer Generate once the plan's date passed.
-  const isExpired = !!plan?.valid_until && plan.valid_until < todayDateString()
+  const isExpired = !!plan?.valid_until && plan.valid_until < todayLocalDate()
   const kicker = !plan
     ? ''
     : isExpired

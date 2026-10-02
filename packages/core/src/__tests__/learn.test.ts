@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   LEARN_SECTIONS,
+  READABLE_LEARN_ARTICLES,
   findLearnArticle,
   readingTimeMinutes,
   type LearnArticle,
@@ -76,5 +77,14 @@ describe('LEARN_SECTIONS', () => {
   it('has unique section ids', () => {
     const ids = LEARN_SECTIONS.map((s) => s.id)
     expect(new Set(ids).size).toBe(ids.length)
+  })
+})
+
+describe('READABLE_LEARN_ARTICLES', () => {
+  it('holds every article that is not a "soon" stub, and nothing else', () => {
+    const all = LEARN_SECTIONS.flatMap((s) => s.articles)
+    expect(READABLE_LEARN_ARTICLES.length).toBeGreaterThan(0)
+    expect(READABLE_LEARN_ARTICLES.some((a) => a.status === 'soon')).toBe(false)
+    expect(READABLE_LEARN_ARTICLES).toHaveLength(all.filter((a) => a.status !== 'soon').length)
   })
 })
