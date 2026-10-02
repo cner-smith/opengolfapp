@@ -88,15 +88,20 @@ export function useClubDispersion(
   userId: string | undefined,
 ): UseClubDispersionResult {
   const [rows, setRows] = useState<ShotRow[]>([])
-  const [loading, setLoading] = useState(false)
+  // The user whose shots `rows` holds. `loading` is derived from it so it is
+  // already true on the first render with a userId: a flag set inside the
+  // effect read false for that one commit, and the planner initialised its
+  // first leg against an empty byClub and locked it (#665).
+  const [loadedFor, setLoadedFor] = useState<string | undefined>(undefined)
+  const loading = !!userId && loadedFor !== userId
 
   useEffect(() => {
     if (!userId) {
       setRows([])
+      setLoadedFor(undefined)
       return
     }
     let active = true
-    setLoading(true)
     getShotsForUser(supabase, userId).then(({ data, error }) => {
       if (!active) return
       if (error && import.meta.env.DEV) {
@@ -104,7 +109,7 @@ export function useClubDispersion(
         console.error('[useClubDispersion/getShotsForUser]', error.message)
       }
       setRows((data as ShotRow[] | null) ?? [])
-      setLoading(false)
+      setLoadedFor(userId)
     })
     return () => {
       active = false

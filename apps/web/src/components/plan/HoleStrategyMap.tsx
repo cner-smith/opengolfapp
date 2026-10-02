@@ -47,7 +47,8 @@ function upsert(
     existing.setData(data)
     return
   }
-  map.addSource(id, { type: 'geojson', data })
+  // tolerance 0: the default (0.375) simplification drops curve vertices (#1026).
+  map.addSource(id, { type: 'geojson', data, tolerance: 0 })
   map.addLayer({ id, source: id, ...layerSpec } as mapboxgl.AnyLayer)
 }
 
