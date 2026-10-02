@@ -22,6 +22,7 @@ import {
   horizontalBreakFromAim,
   isPuttEntry,
   isPuttShot,
+  lieSlopeLabel,
   obCount,
   type BreakDirectionHorizontal,
   type BreakDirectionVertical,
@@ -457,7 +458,7 @@ function ShotRow({
   }
   // OB is set from the map flow, not this picker, but the chip still says so.
   const resultText = resultSummary({ ...result, ob: row.shotResult === 'ob' })
-  const slopeText = [row.lieSlopeForward && slopeLabel(row.lieSlopeForward), row.lieSlopeSide && slopeLabel(row.lieSlopeSide)]
+  const slopeText = [row.lieSlopeForward && lieSlopeLabel(row.lieSlopeForward), row.lieSlopeSide && lieSlopeLabel(row.lieSlopeSide)]
     .filter(Boolean)
     .join(' · ')
   const breakSet = row.breakDirectionHorizontal != null || row.breakDirectionVertical != null
@@ -642,12 +643,6 @@ function ShotRow({
       )}
     </View>
   )
-}
-
-// 'ball_above' → 'Ball above', 'uphill' → 'Uphill'.
-function slopeLabel(v: string): string {
-  const s = v.replace(/_/g, ' ')
-  return s.charAt(0).toUpperCase() + s.slice(1)
 }
 
 // The on-demand read tool: a full-screen overlay hosting the draggable green

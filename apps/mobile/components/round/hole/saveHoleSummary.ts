@@ -1,10 +1,8 @@
 import { uuid } from 'expo-modules-core'
 import type { User } from '@supabase/supabase-js'
 import {
-  combinedBreakDirection,
-  combinedPuttResult,
   inferHoleStats,
-  isPuttEntry,
+  reviewedRowToShotFields,
   type ReviewedShotRow,
 } from '@oga/core'
 import { supabase } from '../../../lib/supabase'
@@ -102,7 +100,6 @@ export async function writeHoleSummary(args: {
   }
 
   for (const row of rows) {
-    const isPuttRow = isPuttEntry(row.lieType, row.club)
     const existing = row._shotId
       ? localById.get(row._shotId) ?? remoteById.get(row._shotId)
       : localByNum.get(row.shotNumber) ?? remoteByNum.get(row.shotNumber)
@@ -137,81 +134,19 @@ export async function writeHoleSummary(args: {
       id,
       hole_score_id: currentHoleScore.id,
       user_id: user.id,
-      shot_number: row.shotNumber,
-      start_lat: row.startLat,
-      start_lng: row.startLng,
-      end_lat: row.endLat,
-      end_lng: row.endLng,
       aim_lat: aimLat,
       aim_lng: aimLng,
-      distance_to_target: isPuttRow ? null : Math.round(row.distanceToPin),
-      club: row.club,
-      lie_type: row.lieType,
-      lie_slope: null,
-      lie_slope_forward: isPuttRow ? null : row.lieSlopeForward ?? null,
-      lie_slope_side: isPuttRow ? null : row.lieSlopeSide ?? null,
-      shot_result: isPuttRow ? null : row.shotResult ?? null,
-      contact: isPuttRow ? null : row.contact ?? null,
-      shape: isPuttRow ? null : row.shape ?? null,
-      start_line: isPuttRow ? null : row.startLine ?? null,
-      // The reviewed ROW is authoritative for OB — no `existing.ob ||`
-      // fallback. The sheet renders SHOT_RESULTS as a single-select
-      // picker, so a fallback would let one tap ("it was a pull") write
-      // shot_result='pull' while ob stayed true, leaving a row that SG
-      // charges −2 and the map badges red but whose label says pull, with
-      // no path from the sheet to clear it.
-      //
-      // Safe because the row genuinely arrives carrying the flag:
-      // useHoleData's remoteShotObs/previousShotObs read the fetched
-      // `shots.ob` (so it survives a mid-hole reload) → useShotActions'
-      // `shotObs` (obOverride wins over a lagging refetch) →
+      // The reviewed row is authoritative for OB (reviewedRowToShotFields
+      // takes no stored `ob`). Safe because the row genuinely arrives
+      // carrying the flag: useHoleData's remoteShotObs/previousShotObs read
+      // the fetched `shots.ob` (so it survives a mid-hole reload) →
+      // useShotActions' `shotObs` (obOverride wins over a lagging refetch) →
       // LiveRoundSession's `summaryRows` stamps `shotResult: 'ob'` →
-      // HoleReviewSheet hydrates `rows` from those `initialRows` →
-      // back here as `rows`. saveHoleSummary has exactly one caller (that
-      // sheet, for the live hole), so the seed always fires. If that seed
-      // path is ever broken, this line silently drops every OB flag —
-      // keep the two in step (#839).
-      penalty: row.penalty ?? existing?.penalty ?? false,
-      // A putt cannot be out of bounds. `shot_result` is already
-      // putt-gated one line up, so without the same gate here a row
-      // whose result was 'ob' and whose lie was THEN changed to green
-      // persists ob=true with shot_result=null — and sg-calculator's
-      // OB branch sits ahead of holedOut, so a made putt on that row
-      // books -2 putting instead of ~+0.1 (#839).
-      ob: isPuttRow ? false : row.shotResult === 'ob',
-      // Putt tap-to-tap distance is in yards; * 3 = feet (US convention),
-      // and putt_distance_ft is what the rest of the app reads.
-      putt_distance_ft: isPuttRow && row.distanceYards * 3 <= 999.9 ? Math.round(row.distanceYards * 3) : null,
-      putt_result: !isPuttRow
-        ? null
-        : combinedPuttResult({
-            made: row.puttMade,
-            distance: row.puttDistanceResult ?? null,
-            direction: row.puttDirectionResult ?? null,
-          }),
-      putt_distance_result:
-        !isPuttRow || row.puttMade ? null : row.puttDistanceResult ?? null,
-      putt_direction_result:
-        !isPuttRow || row.puttMade ? null : row.puttDirectionResult ?? null,
-      putt_slope_pct: isPuttRow ? row.puttSlopePct ?? null : null,
-      green_speed: isPuttRow ? row.greenSpeed ?? null : null,
-      break_direction: isPuttRow
-        ? combinedBreakDirection({
-            vertical: row.breakDirectionVertical,
-            horizontal: row.breakDirectionHorizontal,
-          })
-        : null,
-      break_direction_vertical: isPuttRow
-        ? row.breakDirectionVertical ?? null
-        : null,
-      break_direction_horizontal: isPuttRow
-        ? row.breakDirectionHorizontal ?? null
-        : null,
-      aim_offset_yards:
-        isPuttRow && row.aimOffsetInches != null
-          ? Math.round((row.aimOffsetInches / 36) * 10) / 10
-          : null,
-      notes: row.notes ?? null,
+      // HoleReviewSheet hydrates `rows` from those `initialRows` → back here.
+      // If that seed path is ever broken, every OB flag is silently dropped —
+      // keep the two in step (#839). Nothing seeds `row.penalty`, so the
+      // stored flag is passed as the fallback.
+      ...reviewedRowToShotFields(row, existing?.penalty),
     }
     await upsertReviewedShot(payload)
   }

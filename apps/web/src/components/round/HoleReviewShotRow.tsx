@@ -11,6 +11,7 @@ import {
   SHOT_START_LINE_LABELS,
   formatClubLabel,
   isPuttEntry,
+  lieSlopeLabel,
   tourMakePercent,
   type BreakDirectionHorizontal,
   type BreakDirectionVertical,
@@ -139,8 +140,8 @@ export function ShotRow({
     .filter(Boolean)
     .join(' · ')
   const slopeText = [
-    row.lieSlopeForward && slopeLabel(row.lieSlopeForward),
-    row.lieSlopeSide && slopeLabel(row.lieSlopeSide),
+    row.lieSlopeForward && lieSlopeLabel(row.lieSlopeForward),
+    row.lieSlopeSide && lieSlopeLabel(row.lieSlopeSide),
   ]
     .filter(Boolean)
     .join(' · ')
@@ -354,12 +355,6 @@ export function ShotRow({
   )
 }
 
-// 'ball_above' → 'Ball above', 'uphill' → 'Uphill'.
-function slopeLabel(v: string): string {
-  const s = v.replace(/_/g, ' ')
-  return s.charAt(0).toUpperCase() + s.slice(1)
-}
-
 // A field entry on a shot row: filled (forest), blank ("+ field", dashed), or
 // active (unfolded — light forest). Tapping unfolds/collapses its options.
 function FieldChip({
@@ -495,7 +490,7 @@ function SlopeExpand({
           {LIE_SLOPES_FORWARD.map((f) => (
             <OptChip
               key={f}
-              label={slopeLabel(f)}
+              label={lieSlopeLabel(f)}
               on={row.lieSlopeForward === f}
               onClick={() =>
                 onChange({
@@ -518,7 +513,7 @@ function SlopeExpand({
           {LIE_SLOPES_SIDE.map((s) => (
             <OptChip
               key={s}
-              label={slopeLabel(s)}
+              label={lieSlopeLabel(s)}
               on={row.lieSlopeSide === s}
               onClick={() =>
                 onChange({

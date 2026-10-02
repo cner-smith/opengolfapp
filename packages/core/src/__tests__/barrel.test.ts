@@ -18,6 +18,8 @@ describe('@oga/core barrel', () => {
     ['decombinedBreakDirection'],
     ['legacySlopeToAxes'],
     ['buildInitialRows'],
+    ['reviewedRowToShotFields'],
+    ['lieSlopeLabel'],
     ['computeRoundSG'],
     ['calculateRoundSG'],
     ['calculateShotSG'],
