@@ -363,7 +363,7 @@ const SPRING = { stiffness: 420, damping: 32, mass: 1 }
 // release (state first, spring after). Opens on the auto pick every shot; a
 // manual pick lasts one shot and shows "Back to auto" above the card.
 function ClubWheel({ rows, selected, auto, onPick }: WheelProps) {
-  const { toDisplay } = useUnits()
+  const { toDisplay, unit } = useUnits()
   const sel = Math.max(0, rows.findIndex((r) => r.club === selected))
   const autoIdx = rows.findIndex((r) => r.club === auto)
   const manual = autoIdx >= 0 && sel !== autoIdx
@@ -457,7 +457,8 @@ function ClubWheel({ rows, selected, auto, onPick }: WheelProps) {
           accessibilityLabel="Club"
           accessibilityValue={{
             text: row
-              ? `${row.name}${row.typicalYards != null && !row.sparse ? `, typical distance ${toDisplay(row.typicalYards)}` : ''}${sel === autoIdx ? ', auto pick' : ''}`
+              ? // The unit as a word: TalkBack can spell "yd" out letter by letter.
+                `${row.name}${row.typicalYards != null && !row.sparse ? `, typical distance ${toDisplay(row.typicalYards).split(' ')[0]} ${unit}` : ''}${sel === autoIdx ? ', auto pick' : ''}`
               : '',
           }}
           accessibilityActions={[{ name: 'increment' }, { name: 'decrement' }]}
