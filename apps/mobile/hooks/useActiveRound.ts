@@ -13,6 +13,29 @@ export interface ActiveRound {
 
 type CachedActiveRound = ActiveRound & { playedAt: string }
 
+// The hole a live round reopens on. Fetches ALL hole_scores (not just scored
+// ones): the round's hole rows are batch-created at round start, so their
+// hole numbers give resumeHoleNumber the round's true hole count to clamp
+// against. A failed fetch reads as a fresh round (hole 1).
+export async function fetchResumeHole(roundId: string): Promise<number> {
+  const { data: hs } = await supabase
+    .from('hole_scores')
+    .select('score, finished_at, holes(number)')
+    .eq('round_id', roundId)
+  const rows = (hs ?? []) as Array<{
+    score: number | null
+    finished_at: string | null
+    holes?: { number?: number | null } | null
+  }>
+  return resumeHoleNumber(
+    rows.flatMap((row) =>
+      typeof row.holes?.number === 'number'
+        ? [{ number: row.holes.number, score: row.score, finished_at: row.finished_at }]
+        : [],
+    ),
+  )
+}
+
 // Active = not finalized (completed_at IS NULL) AND no score yet
 // (total_score IS NULL) AND played_at within the last day, so a round
 // abandoned a week ago doesn't haunt the home screen forever. completed_at
@@ -68,26 +91,8 @@ export function useActiveRound(): ActiveRound | null {
           course_id: string
           courses?: { name: string | null } | null
         }
-        // Fetch ALL hole_scores (not just scored ones): the round's hole
-        // rows are batch-created at round start, so their hole numbers give
-        // resumeHoleNumber the round's true hole count to clamp against.
-        const { data: hs } = await supabase
-          .from('hole_scores')
-          .select('score, finished_at, holes(number)')
-          .eq('round_id', round.id)
+        const next = await fetchResumeHole(round.id)
         if (!active) return
-        const rows = (hs ?? []) as Array<{
-          score: number | null
-          finished_at: string | null
-          holes?: { number?: number | null } | null
-        }>
-        const next = resumeHoleNumber(
-          rows.flatMap((row) =>
-            typeof row.holes?.number === 'number'
-              ? [{ number: row.holes.number, score: row.score, finished_at: row.finished_at }]
-              : [],
-          ),
-        )
         const found: CachedActiveRound = {
           id: round.id,
           courseName: round.courses?.name ?? 'Round',

@@ -22,6 +22,7 @@ import {
 import type { Database } from '@oga/supabase'
 import { supabase } from '../../../../lib/supabase'
 import { isNetworkFailure, offlineKeys, readCache } from '../../../../lib/offlineCache'
+import { fetchResumeHole } from '../../../../hooks/useActiveRound'
 import { completeRound } from '../../../../lib/completeRound'
 import {
   clearScreenCache,
@@ -134,6 +135,7 @@ function RoundScreen() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [redirectToLive, setRedirectToLive] = useState(false)
+  const [resumeHole, setResumeHole] = useState<number | null>(null)
   // Bumped when the live session finalizes the round: re-runs the loader,
   // which now finds completed_at set and renders the summary (#909).
   const [loadSeq, setLoadSeq] = useState(0)
@@ -229,7 +231,13 @@ function RoundScreen() {
         // `mode !== 'past'` guard covers the past-logger creation race.
         const unfinished = row.completed_at == null && row.total_score == null
         if (unfinished && mode !== 'past') {
-          if (active) setRedirectToLive(true)
+          // No ?hole= (rounds list, deep link): open where the player left
+          // off, same pick as the Home banner (#324).
+          const resumeAt = hole ? null : await fetchResumeHole(row.id)
+          if (active) {
+            setResumeHole(resumeAt)
+            setRedirectToLive(true)
+          }
           return
         }
         const [hRes, hsRes] = await Promise.all([
@@ -402,7 +410,7 @@ function RoundScreen() {
   if (redirectToLive && id) {
     const initialHole = (() => {
       const n = Number(hole)
-      return Number.isFinite(n) && n >= 1 && n <= 18 ? n : 1
+      return Number.isFinite(n) && n >= 1 && n <= 18 ? n : (resumeHole ?? 1)
     })()
     return (
       <LiveRoundSession
