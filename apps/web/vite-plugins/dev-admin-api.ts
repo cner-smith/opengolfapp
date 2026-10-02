@@ -355,7 +355,7 @@ async function pendingPanel(
       row.duplicates = [
         {
           id: '__truncated-failed__',
-          name: `duplicate check failed: ${(err as Error).message}`,
+          name: `duplicate check failed: ${err instanceof Error ? err.message : String(err)}`,
           city: null,
           state: null,
           pending: false,
