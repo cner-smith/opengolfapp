@@ -296,7 +296,7 @@ export default function Home() {
         </Pressable>
         </Entrance>
 
-        {rounds.length > 0 && (
+        {wholeRounds.length > 0 && (
           <Entrance index={1}>
             <Text
               style={[
@@ -349,7 +349,7 @@ export default function Home() {
         )}
 
         <Entrance index={3}>
-        {rounds.length === 0 ? (
+        {wholeRounds.length === 0 ? (
           <PaperTile style={{ marginBottom: 28 }} innerStyle={{ padding: 22 }}>
             <Text
               maxFontSizeMultiplier={FONT_CAP}
@@ -361,7 +361,7 @@ export default function Home() {
                 },
               ]}
             >
-              No rounds yet.
+              {rounds.length === 0 ? 'No rounds yet.' : 'No full rounds yet.'}
             </Text>
             <Text
               maxFontSizeMultiplier={FONT_CAP}
@@ -375,7 +375,9 @@ export default function Home() {
                 },
               ]}
             >
-              Log your first round to start tracking strokes gained.
+              {rounds.length === 0
+                ? 'Log your first round to start tracking strokes gained.'
+                : 'Finish a full round to see your strokes gained.'}
             </Text>
           </PaperTile>
         ) : (
