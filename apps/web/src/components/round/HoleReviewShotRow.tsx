@@ -333,6 +333,7 @@ export function ShotRow({
           {open === 'result' && (
             <div style={{ marginTop: 9, background: '#EBE5D6', borderRadius: 3, padding: '9px 10px' }}>
               <ResultAxes
+                penaltyCountsStroke
                 value={result}
                 onChange={(v) =>
                   onChange({

@@ -318,10 +318,13 @@ export function ResultPicker({
   value,
   onChange,
   withOb = false,
+  penaltyCountsStroke = false,
 }: {
   value: ResultValue
   onChange: (v: ResultValue) => void
   withOb?: boolean
+  /** The end-of-hole review adds the stroke to the hole score; say so. */
+  penaltyCountsStroke?: boolean
 }) {
   const stacked = useStackedLabels()
   // The player's swing (Profile → Plays), not the phone-layout mirror.
@@ -426,6 +429,11 @@ export function ResultPicker({
           )}
         </View>,
       )}
+      {penaltyCountsStroke ? (
+        <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { fontSize: 12.5, color: P.inkDim, textAlign: 'center' }]}>
+          {value.penalty ? 'One stroke added to the hole score.' : 'Adds one stroke to the hole score.'}
+        </Text>
+      ) : null}
     </View>
   )
 }

@@ -334,6 +334,18 @@ export function HoleReviewSheet({
                     setPenalties((n) => Math.max(0, n - 1))
                   }
                 }
+                // A penalty stroke has no row of its own either, so the
+                // Penalty key is worth one stroke on both tickers (#1039).
+                const pen = Number(!!next.penalty) - Number(!!row.penalty)
+                if (pen !== 0) {
+                  setScore((s) => Math.max(0, s + pen))
+                  setPenalties((n) => Math.max(0, n + pen))
+                }
+                // Putts follows the rows: a lie moved onto or off the green
+                // is a putt more or fewer.
+                const putt =
+                  Number(isPuttShot(next.lieType)) - Number(isPuttShot(row.lieType))
+                if (putt !== 0) setPutts((p) => Math.max(0, p + putt))
                 setRows((prev) => {
                   const copy = prev.slice()
                   copy[idx] = next
