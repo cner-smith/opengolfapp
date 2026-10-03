@@ -10,6 +10,7 @@ import { ShotStepper } from './ShotStepper'
 import {
   DEFAULT_BAG,
   DEFAULT_HANDICAP,
+  applyCapturedShots,
   bearingDegrees,
   buildInitialRows,
   destinationYards,
@@ -527,12 +528,15 @@ export default function LiveRoundSession({
     // reason the chip's label is (see the OB props below): the fetched flags
     // lag our own write by a refetch, and finishing the hole inside that
     // window would seed the sheet without the penalty.
-    return buildInitialRows(pts, par, pin.lat, pin.lng).map((r, i) =>
-      actions.shotObs[i] ? { ...r, shotResult: 'ob' as const } : r,
-    )
+    // What the round already stored (a live putt) beats the distance guess.
+    return applyCapturedShots(
+      buildInitialRows(pts, par, pin.lat, pin.lng),
+      data.previousShotCaptured,
+    ).map((r, i) => (actions.shotObs[i] ? { ...r, shotResult: 'ob' as const } : r))
   }, [
     finalState.roundState,
     data.previousShots,
+    data.previousShotCaptured,
     actions.shotObs,
     data.roundPin,
     data.storedPin,
