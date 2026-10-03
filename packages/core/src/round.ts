@@ -512,7 +512,9 @@ export interface CapturedShot {
 // buildInitialRows guesses club and lie from distance alone, and only calls a
 // shot a putt within 15 yd of the pin. Where the live round stored the
 // player's own answer it wins — today that is a putt logged with "On the
-// green": putter, green lie, made or missed. Without this a putt over 45 ft
+// green": putter, green lie, and whether it dropped. The live round stores
+// nothing else about a putt (no miss direction, no green read), so there is
+// nothing more to carry. Without this a putt over 45 ft
 // came back as a wedge and the review save overwrote it (#1038). `captured`
 // is aligned to `rows` by index.
 export function applyCapturedShots(

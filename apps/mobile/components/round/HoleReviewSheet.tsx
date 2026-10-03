@@ -78,7 +78,6 @@ export interface HoleReviewSheetProps {
 
 type EditableRow = ReviewedShotRow & { _shotId: string | undefined }
 
-
 const PUTT_DISTANCE_OPTIONS: Opt<PuttDistanceResult>[] = [
   { value: 'short', label: 'Short' },
   { value: 'long', label: 'Long' },
