@@ -200,6 +200,19 @@ export function HoleReviewSheet({
         setPenalties((n) => Math.max(0, n - 1))
       }
     }
+    if (prevRow) {
+      // A penalty stroke has no row of its own either, so the Penalty key is
+      // worth one stroke on both tickers (#1039). Same transition rule as OB.
+      const pen = Number(!!nextRow.penalty) - Number(!!prevRow.penalty)
+      if (pen !== 0) {
+        setScore((s) => Math.max(0, s + pen))
+        setPenalties((n) => Math.max(0, n + pen))
+      }
+      // Putts follows the rows: a lie moved onto or off the green is a putt
+      // more or fewer.
+      const putt = Number(isPuttShot(nextRow.lieType)) - Number(isPuttShot(prevRow.lieType))
+      if (putt !== 0) setPutts((p) => Math.max(0, p + putt))
+    }
     setRows((prev) => {
       const copy = prev.slice()
       copy[idx] = { ...nextRow, _shotId: prev[idx]?._shotId }
@@ -234,9 +247,11 @@ export function HoleReviewSheet({
     // was a green-lie shot (matches the RPC's re-tally). An OB row is
     // worth TWO strokes — the shot plus its stroke-and-distance
     // penalty, which has no row of its own — so deleting it drops 2,
-    // matching what delete_shot re-tallies server-side.
-    setScore((s) => Math.max(0, s - (row.shotResult === 'ob' ? 2 : 1)))
-    if (row.shotResult === 'ob') setPenalties((n) => Math.max(0, n - 1))
+    // matching what delete_shot re-tallies server-side. A Penalty-key
+    // stroke set in this sheet goes with its row the same way.
+    const penaltyStrokes = (row.shotResult === 'ob' ? 1 : 0) + (row.penalty ? 1 : 0)
+    setScore((s) => Math.max(0, s - 1 - penaltyStrokes))
+    if (penaltyStrokes > 0) setPenalties((n) => Math.max(0, n - penaltyStrokes))
     if (isPuttShot(row.lieType)) setPutts((p) => Math.max(0, p - 1))
   }
 
@@ -628,6 +643,7 @@ function ShotRow({
           {open === 'result' &&
             expand(
               <ResultPicker
+                penaltyCountsStroke
                 value={result}
                 onChange={(v) =>
                   onChange({

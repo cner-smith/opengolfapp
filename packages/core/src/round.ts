@@ -502,6 +502,41 @@ export function reviewedRowToShotFields(
   }
 }
 
+// What a live round already stored for a shot before the end-of-hole review.
+export interface CapturedShot {
+  club: string | null
+  lie_type: string | null
+  putt_result: string | null
+}
+
+// buildInitialRows guesses club and lie from distance alone, and only calls a
+// shot a putt within 15 yd of the pin. Where the live round stored the
+// player's own answer it wins — today that is a putt logged with "On the
+// green": putter, green lie, and whether it dropped. The live round stores
+// nothing else about a putt (no miss direction, no green read), so there is
+// nothing more to carry. Without this a putt over 45 ft
+// came back as a wedge and the review save overwrote it (#1038). `captured`
+// is aligned to `rows` by index.
+export function applyCapturedShots(
+  rows: ReviewedShotRow[],
+  captured: ReadonlyArray<CapturedShot | undefined>,
+): ReviewedShotRow[] {
+  return rows.map((row, i) => {
+    const c = captured[i]
+    if (!c || (c.club == null && c.lie_type == null)) return row
+    const next: ReviewedShotRow = {
+      ...row,
+      club: c.club ?? row.club,
+      lieType: (c.lie_type as LieType | null) ?? row.lieType,
+    }
+    // The stored result, not the "last putt was holed" guess.
+    if (isPuttEntry(next.lieType, next.club)) {
+      next.puttMade = c.putt_result === 'made' ? true : undefined
+    }
+    return next
+  })
+}
+
 // 'ball_above' → 'Ball above'. Not named slopeLabel: mobile's patterns screen
 // keeps a private slopeLabel that does not capitalise.
 export function lieSlopeLabel(v: string): string {

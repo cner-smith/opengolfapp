@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { inferHoleCount, isPuttShot, resolveCourseTee, resolveHole, type ResolvedHole } from '@oga/core'
+import { inferHoleCount, isPuttShot, resolveCourseTee, resolveHole, type CapturedShot, type ResolvedHole } from '@oga/core'
 import { getHoleTeesForCourse } from '@oga/supabase'
 import type { Database } from '@oga/supabase'
 import {
@@ -57,6 +57,10 @@ export interface UseHoleDataResult {
    *  remembered in component state — a mid-hole reload must not offer to
    *  mark an already-OB shot again and double-charge the penalty (#839). */
   previousShotObs: boolean[]
+  /** Club, lie and putt result already stored per shot, aligned 1:1 with
+   *  `previousShotIds`. Seeds the end-of-hole review so a live putt isn't
+   *  re-guessed from distance (#1038). */
+  previousShotCaptured: CapturedShot[]
   /** The hole's latest shot is a made putt (remote or still queued). */
   lastShotHoled: boolean
   /** The hole's latest shot was played from the green. */
@@ -109,6 +113,7 @@ export function useHoleData(
   const [remoteShotStarts, setRemoteShotStarts] = useState<LatLng[]>([])
   const [remoteShotIds, setRemoteShotIds] = useState<string[]>([])
   const [remoteShotObs, setRemoteShotObs] = useState<boolean[]>([])
+  const [remoteShotCaptured, setRemoteShotCaptured] = useState<CapturedShot[]>([])
   // Hole score whose latest remote shot is a made putt. An id, not a bool: on a
   // hole switch the caller sees the new hole before this resets.
   const [remoteHoledFor, setRemoteHoledFor] = useState<string | null>(null)
@@ -347,6 +352,7 @@ export function useHoleData(
       setRemoteShotStarts([])
       setRemoteShotIds([])
       setRemoteShotObs([])
+      setRemoteShotCaptured([])
       setRemoteHoledFor(null)
       setRemotePuttFor(null)
       setPendingForHole([])
@@ -432,16 +438,19 @@ export function useHoleData(
         const starts: LatLng[] = []
         const ids: string[] = []
         const obs: boolean[] = []
+        const captured: CapturedShot[] = []
         for (const r of shots) {
           if (r.start_lat != null && r.start_lng != null) {
             starts.push({ lat: r.start_lat, lng: r.start_lng })
             ids.push(r.id)
             obs.push(r.ob === true)
+            captured.push({ club: r.club, lie_type: r.lie_type, putt_result: r.putt_result })
           }
         }
         setRemoteShotStarts(starts)
         setRemoteShotIds(ids)
         setRemoteShotObs(obs)
+        setRemoteShotCaptured(captured)
         const lastRemote = shots[shots.length - 1]
         setRemoteHoledFor(lastRemote?.putt_result === 'made' ? currentHoleScore.id : null)
         setRemotePuttFor(lastRemote && isPuttShot(lastRemote.lie_type) ? currentHoleScore.id : null)
@@ -557,6 +566,26 @@ export function useHoleData(
     return out
   }, [remoteShotObs, pendingForHole])
 
+  // Same filters again (see the invariant note on previousShots).
+  const previousShotCaptured = useMemo(() => {
+    const out: CapturedShot[] = [...remoteShotCaptured]
+    for (const r of pendingForHole) {
+      try {
+        const p = JSON.parse(r.payload) as ShotPayload
+        if (p.start_lat != null && p.start_lng != null && p.id) {
+          out.push({
+            club: p.club ?? null,
+            lie_type: p.lie_type ?? null,
+            putt_result: p.putt_result ?? null,
+          })
+        }
+      } catch {
+        // skip malformed pending payload (matches previousShotIds)
+      }
+    }
+    return out
+  }, [remoteShotCaptured, pendingForHole])
+
   // Queued shots come after the remote ones, so the last queued one wins.
   const { lastShotHoled, lastShotPutt } = useMemo(() => {
     const id = currentHoleScore?.id
@@ -621,6 +650,7 @@ export function useHoleData(
     previousShots,
     previousShotIds,
     previousShotObs,
+    previousShotCaptured,
     lastShotHoled,
     lastShotPutt,
     refreshShots,
