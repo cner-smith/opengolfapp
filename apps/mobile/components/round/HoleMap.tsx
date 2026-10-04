@@ -19,7 +19,7 @@ import { Marker } from './markers/Marker'
 import { FLAG_ANCHOR, FlagMarker } from './markers/FlagMarker'
 import { AimGhostLayers, useAimGhosts } from './markers/AimGhost'
 import { BreadcrumbLayers, SelectedCrumb } from './markers/BreadcrumbLayers'
-import { CarryTag, RemainingTag } from './markers/DistanceTags'
+import { AimTag, RemainingTag } from './markers/DistanceTags'
 import { DispersionLayers, RING_MIN_SHOTS } from './markers/DispersionLayers'
 import { AimOverlay } from './markers/AimOverlay'
 import { ObCallout, offscreenArrow } from './markers/Callouts'
@@ -106,6 +106,7 @@ export function HoleMap({
   holeNumber,
   onSetAim,
   onSetBall,
+  ballDraggingRef,
   onRecenterBall,
   onPlacePin,
   showLocationPuck,
@@ -148,7 +149,13 @@ export function HoleMap({
   const [mapSize, setMapSize] = useState<{ w: number; h: number } | null>(null)
   // Bumped on every camera settle; screen-clamped map tags re-measure on it.
   const [idleTick, setIdleTick] = useState(0)
-  // Carry tag keeps clear of the dock's stacks (it slid under the ruler at
+  // onMapIdle can fail to fire after the aim camera's last move (seen after a
+  // hole auto-advance, #1018), which left the aim tag under the ruler. The
+  // aim view also re-measures once the camera has been still for a moment.
+  // When onMapIdle does fire, both bump the tick; the re-measure is idempotent.
+  const camStillTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useEffect(() => () => clearTimeout(camStillTimer.current ?? undefined), [])
+  // Aim tag keeps clear of the dock's stacks (it slid under the ruler at
   // approach zoom): the lowest screen y its box may reach, in map dp.
   const legTagClamp =
     tagClearBottom != null && mapSize ? { map: mapViewRef, maxY: mapSize.h - tagClearBottom, idleTick } : undefined
@@ -274,13 +281,17 @@ export function HoleMap({
     // Up the hole (#903): without a heading, recenter kept whatever rotation
     // the map had.
     const upHole = roundPin ?? pin ?? null
-    cameraRef.current.setCamera({
-      centerCoordinate: toCoord(target),
-      zoomLevel: 17,
-      pitch: 0,
-      ...(upHole ? { heading: headingUpTheHole(target, upHole) } : {}),
-      animationDuration: 600,
-    })
+    try {
+      cameraRef.current.setCamera({
+        centerCoordinate: toCoord(target),
+        zoomLevel: 17,
+        pitch: 0,
+        ...(upHole ? { heading: headingUpTheHole(target, upHole) } : {}),
+        animationDuration: 600,
+      })
+    } catch {
+      // native camera released — the ball snap below still applies
+    }
     // During ball placement the tap also snaps the ball onto the player —
     // the way to resume GPS tracking after a manual drag.
     if (isPlaceBallPhase) onRecenterBall?.(target)
@@ -548,7 +559,7 @@ export function HoleMap({
   )
 
   // Midpoint of the aim→pin leg, where the subordinate "remaining" label
-  // sits — mirrors the carry pill on the ball→aim leg.
+  // sits — mirrors the aim pill on the ball→aim leg.
   const remainingMidpoint: LatLng | null = useMemo(() => {
     if (!showAim || !aim || !effectivePin) return null
     return {
@@ -679,6 +690,10 @@ export function HoleMap({
             onCameraChanged || isAimPhase
               ? (state) => {
                   if (state.gestures.isGestureActive) userGesturedRef.current = true
+                  if (isAimPhase) {
+                    clearTimeout(camStillTimer.current ?? undefined)
+                    camStillTimer.current = setTimeout(() => setIdleTick((t) => t + 1), 200)
+                  }
                   onCameraChanged?.()
                 }
               : undefined
@@ -885,7 +900,7 @@ export function HoleMap({
             aimMidpoint &&
             aimDistanceYards !== null &&
             aimDistanceYards >= MIN_LABEL_LEG_YARDS && (
-            <CarryTag
+            <AimTag
               at={aimMidpoint}
               display={toDisplay(aimDistanceYards, 1)}
               lie={liveStrokes.lieLabel}
@@ -896,7 +911,7 @@ export function HoleMap({
             />
           )}
 
-          {/* Remaining (aim→pin) — subordinate to the hero carry pill. Inside
+          {/* Remaining (aim→pin) — subordinate to the hero aim pill. Inside
               the green-radius it reads in feet (greens are a feet game). */}
           {!pastCrumbs &&
             remainingMidpoint &&
@@ -922,7 +937,11 @@ export function HoleMap({
               id="ball"
               coordinate={toCoord(ball)}
               draggable={isPlaceBallPhase}
+              onDragStart={() => {
+                if (ballDraggingRef) ballDraggingRef.current = true
+              }}
               onDragEnd={(e: unknown) => {
+                if (ballDraggingRef) ballDraggingRef.current = false
                 const c = extractCoord(e)
                 // Ignore micro-drags (< 5 yd) — finger tremor or an
                 // accidental press-and-release would otherwise freeze

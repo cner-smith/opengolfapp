@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { ActivityIndicator, Alert, Pressable, StatusBar, Text, View } from 'react-native'
+import { ActivityIndicator, Alert, DeviceEventEmitter, Pressable, StatusBar, Text, View } from 'react-native'
 import { captureRef } from 'react-native-view-shot'
 import * as Sharing from 'expo-sharing'
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router'
@@ -9,6 +9,7 @@ import {
   resolveCourseTee,
   selectNudgeDrills,
   type CaptureMode,
+  parseLocalDate,
 } from '@oga/core'
 import {
   deleteRound,
@@ -22,6 +23,7 @@ import {
 import type { Database } from '@oga/supabase'
 import { supabase } from '../../../../lib/supabase'
 import { isNetworkFailure, offlineKeys, readCache } from '../../../../lib/offlineCache'
+import { fetchResumeHole } from '../../../../hooks/useActiveRound'
 import { completeRound } from '../../../../lib/completeRound'
 import {
   clearScreenCache,
@@ -117,6 +119,11 @@ function RoundScreen() {
     Promise.all([getCourseTees(supabase, courseId), getHoleTeesForCourse(supabase, courseId)]).then(
       ([teesRes, holeTeesRes]) => {
         if (cancelled) return
+        // PostgREST resolves with { error } rather than rejecting; without
+        // this the share card just lost its rating/slope silently (#620).
+        const teeErr = teesRes.error ?? holeTeesRes.error
+        // eslint-disable-next-line no-console
+        if (teeErr) console.warn('[round/tees]', teeErr.message)
         const tee = resolveCourseTee(teesRes.data ?? [], round?.course_tee_id, round?.tee_color)
         setPlayedTee(tee)
         setHoleTees(holeTeesRes.data ?? [])
@@ -134,6 +141,7 @@ function RoundScreen() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [redirectToLive, setRedirectToLive] = useState(false)
+  const [resumeHole, setResumeHole] = useState<number | null>(null)
   // Bumped when the live session finalizes the round: re-runs the loader,
   // which now finds completed_at set and renders the summary (#909).
   const [loadSeq, setLoadSeq] = useState(0)
@@ -229,7 +237,13 @@ function RoundScreen() {
         // `mode !== 'past'` guard covers the past-logger creation race.
         const unfinished = row.completed_at == null && row.total_score == null
         if (unfinished && mode !== 'past') {
-          if (active) setRedirectToLive(true)
+          // No ?hole= (rounds list, deep link): open where the player left
+          // off, same pick as the Home banner (#324).
+          const resumeAt = hole ? null : await fetchResumeHole(row.id)
+          if (active) {
+            setResumeHole(resumeAt)
+            setRedirectToLive(true)
+          }
           return
         }
         const [hRes, hsRes] = await Promise.all([
@@ -394,6 +408,15 @@ function RoundScreen() {
     [router],
   )
   const onRoundCompleted = useCallback(() => setLoadSeq((n) => n + 1), [])
+  // This round deleted from Home / the rounds list while this screen is still
+  // mounted behind it: reload, so the loader finds nothing and the live
+  // session (and its GPS listener) unmounts (#613).
+  useEffect(() => {
+    const sub = DeviceEventEmitter.addListener('oga:roundDeleted', (deleted: string) => {
+      if (deleted === id) setLoadSeq((n) => n + 1)
+    })
+    return () => sub.remove()
+  }, [id])
 
   // In-progress rounds mount the live session here — the path-segmented
   // hole route is deprecated, see #264. holeNumber is component state
@@ -402,7 +425,7 @@ function RoundScreen() {
   if (redirectToLive && id) {
     const initialHole = (() => {
       const n = Number(hole)
-      return Number.isFinite(n) && n >= 1 && n <= 18 ? n : 1
+      return Number.isFinite(n) && n >= 1 && n <= 18 ? n : (resumeHole ?? 1)
     })()
     return (
       <LiveRoundSession
@@ -618,9 +641,8 @@ function RoundScreen() {
     }
   }
 
-  // "Fri 25 Sep". played_at is a DATE; a bare 'YYYY-MM-DD' parses as UTC,
-  // which is a day early in US zones — pin it to local midnight.
-  const played = new Date(`${round.played_at}T00:00:00`)
+  // "Fri 25 Sep".
+  const played = parseLocalDate(round.played_at)
   const dateLabel = Number.isNaN(played.getTime())
     ? round.played_at
     : `${DAYS[played.getDay()]} ${played.getDate()} ${MONTHS[played.getMonth()]}`

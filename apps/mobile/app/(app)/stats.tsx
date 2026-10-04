@@ -15,6 +15,7 @@ import {
   type DetailedRound,
   type DetailedStats,
   type SGAverages,
+  parseLocalDate,
 } from '@oga/core'
 import { getProfile, getRoundsWithDetails } from '@oga/supabase'
 import { supabase } from '../../lib/supabase'
@@ -157,7 +158,7 @@ export default function Stats() {
       dash: s.dash,
       data: ordered.flatMap((r) => {
         const v = r[s.key]
-        return v == null ? [] : [{ x: new Date(`${r.played_at}T00:00:00`).getTime(), y: v }]  // played_at is a DATE; bare 'YYYY-MM-DD' parses as UTC → a day early in US zones
+        return v == null ? [] : [{ x: parseLocalDate(r.played_at).getTime(), y: v }]
       }),
     }))
   }, [wholeRounds])

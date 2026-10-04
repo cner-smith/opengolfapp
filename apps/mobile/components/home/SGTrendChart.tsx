@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import { View, useWindowDimensions } from 'react-native'
 import Svg, { Line, Polyline, Text as SvgText } from 'react-native-svg'
-import { symmetricNiceTicks } from '@oga/core'
+import { parseLocalDate, symmetricNiceTicks } from '@oga/core'
 import { FONT } from '../../lib/typography'
 import { SectionHead } from '../paper/Section'
 
@@ -55,7 +55,7 @@ export function SGTrendChart({ data }: SGTrendChartProps) {
         {data.length >= 2 &&
           [data[0]!, data[data.length - 1]!].map((d, i) => (
             <SvgText key={`d${i}`} x={px(d.x)} y={HEIGHT - PAD.bottom + 14} fontSize={9} fill="#8A8B7E" fontFamily={FONT.mono} textAnchor={i === 0 ? 'start' : 'end'}>
-              {new Date(`${d.date}T00:00:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+              {parseLocalDate(d.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
             </SvgText>
           ))}
         {/* SG line */}

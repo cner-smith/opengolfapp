@@ -5,14 +5,12 @@ import type { User } from '@supabase/supabase-js'
 import type { Database } from '@oga/supabase'
 import { toBlob } from 'html-to-image'
 import {
-  combinedBreakDirection,
-  combinedPuttResult,
   DEFAULT_HANDICAP,
   haversineYards,
   inferHoleStats,
-  isPuttEntry,
   isPuttShot,
   obCount,
+  reviewedRowToShotFields,
   type CaptureMode,
 } from '@oga/core'
 import type { PlacedPoint } from '../../../components/round/RoundMap'
@@ -31,7 +29,7 @@ type HoleRow = Database['public']['Tables']['holes']['Row']
 
 // Fraction of the start→pin line where a live-round shot's aim auto-spawns.
 // Mirrors the mobile redesign (useHoleState `AIM_AUTOSPAWN_FRACTION`) so the
-// aim line + carry/remaining readouts appear the moment a shot is placed —
+// aim line + aim/remaining readouts appear the moment a shot is placed —
 // no extra tap. Past-round entry keeps the explicit "Set an aim point?" prompt.
 const AIM_AUTOSPAWN_FRACTION = 0.65
 
@@ -234,7 +232,7 @@ export function useRoundActions(input: UseRoundActionsInput): UseRoundActionsRes
 
   // Push a placed shot, then either auto-spawn its aim (live entry) or
   // prompt the player to set it (past-round review). The aim seeds on the
-  // straight start→pin line so the aim path + carry/remaining render
+  // straight start→pin line so the aim path + aim/remaining render
   // immediately. SET_AIM targets the slot PUSH_POINT just appended
   // (`placedAims.length` before the push), so it always lands on the new
   // shot. Every placement flows through here now — a near-green shot is no
@@ -585,8 +583,9 @@ export function useRoundActions(input: UseRoundActionsInput): UseRoundActionsRes
         // chip isn't a putt; unmapped rows read 0).
         // Putt tally matches the SG putting engine + putt-count readers
         // (isPuttShot = green lie), so hole_scores.putts stays consistent with
-        // stats. The per-row column gate below stays isPuttEntry. This is only
-        // a fallback — the review sheet always passes summary.putts.
+        // stats. The per-row column gate (green lie AND putter) lives in
+        // reviewedRowToShotFields. This is only a fallback — the review sheet
+        // always passes summary.putts.
         const puttCount = rows.filter((r) => isPuttShot(r.lieType)).length
         // Materialize the synthetic hole if needed before upserting the
         // hole_score (FK to holes.id). The RPC inserts only (course_id,
@@ -662,10 +661,10 @@ export function useRoundActions(input: UseRoundActionsInput): UseRoundActionsRes
         // counts don't strictly guarantee the same shots in the same order,
         // but "re-review without adding/dropping a tap" is the overwhelming
         // real case, and it's strictly better than the prior always-erase
-        // behavior. A count mismatch falls back to the empty map, so every
-        // row's `ob`/`penalty` below reads as unset except what THIS save's
-        // own result picker set via `shotResult === 'ob'` — never carrying a
-        // stored flag across a renumbering (#797, #839).
+        // behavior. A count mismatch falls back to the empty map, so
+        // reviewedRowToShotFields gets no stored penalty and each row's flags
+        // come only from what THIS save's own result picker set — never
+        // carrying a stored flag across a renumbering (#797, #839).
         const existingByShotNumber =
           activeHoleShots.length === rows.length
             ? new Map(
@@ -689,7 +688,6 @@ export function useRoundActions(input: UseRoundActionsInput): UseRoundActionsRes
         if (delErr) throw delErr
 
         for (const row of rows) {
-          const isPuttRow = isPuttEntry(row.lieType, row.club)
           // Persist the aim only if the player actually set/dragged it — an
           // untouched auto-spawn suggestion is dropped so it can't enter the
           // dispersion dataset (aim must be explicit to count).
@@ -698,81 +696,16 @@ export function useRoundActions(input: UseRoundActionsInput): UseRoundActionsRes
           await createShot.mutateAsync({
             hole_score_id: hs.id,
             user_id: user.id,
-            shot_number: row.shotNumber,
-            start_lat: row.startLat,
-            start_lng: row.startLng,
-            end_lat: row.endLat,
-            end_lng: row.endLng,
             aim_lat: aim?.lat ?? null,
             aim_lng: aim?.lng ?? null,
-            distance_to_target: isPuttRow ? null : Math.round(row.distanceToPin),
-            club: row.club,
-            lie_type: row.lieType,
-            lie_slope_forward: isPuttRow ? null : row.lieSlopeForward ?? null,
-            lie_slope_side: isPuttRow ? null : row.lieSlopeSide ?? null,
-            shot_result: isPuttRow ? null : row.shotResult ?? null,
-            contact: isPuttRow ? null : row.contact ?? null,
-            shape: isPuttRow ? null : row.shape ?? null,
-            start_line: isPuttRow ? null : row.startLine ?? null,
-            // The result picker's Penalty key when touched; otherwise the
-            // stored value is carried through the replace-all rewrite. A hole
-            // with no prior shot at this number reads as not-penalty.
-            penalty: row.penalty ?? existingByShotNumber.get(row.shotNumber)?.penalty ?? false,
-            // Derived from the row alone, matching mobile. The sheet seeds
-            // `shotResult: 'ob'` from the stored shots at hydration, so the
-            // row is authoritative — OR-ing the stored flag back in here
-            // would make a stored `ob` unclearable: the result picker is
-            // single-select, so re-tagging that shot 'pull' would persist
-            // ob=true alongside shot_result='pull', charging SG -2 on a row
-            // the label and map badge show as a normal shot (#839).
-            // A putt cannot be out of bounds. `shot_result` is already
-            // putt-gated one line up, so without the same gate here a row
-            // whose result was 'ob' and whose lie was THEN changed to green
-            // persists ob=true with shot_result=null — and sg-calculator's
-            // OB branch sits ahead of holedOut, so a made putt on that row
-            // books -2 putting instead of ~+0.1 (#839).
-            ob: isPuttRow ? false : row.shotResult === 'ob',
-            // Putt-specific fields. distanceYards on a putt row is the
-            // tap-to-tap distance in yards; * 3 = feet (US convention),
-            // and putt_distance_ft is what the rest of the app reads.
-            putt_distance_ft: isPuttRow
-              ? Math.round(row.distanceYards * 3)
-              : null,
-            // Distance + direction are independent axes; legacy putt_result
-            // is reconstructed for back-compat readers.
-            putt_result: !isPuttRow
-              ? null
-              : combinedPuttResult({
-                  made: row.puttMade,
-                  distance: row.puttDistanceResult ?? null,
-                  direction: row.puttDirectionResult ?? null,
-                }),
-            putt_distance_result:
-              !isPuttRow || row.puttMade ? null : row.puttDistanceResult ?? null,
-            putt_direction_result:
-              !isPuttRow || row.puttMade ? null : row.puttDirectionResult ?? null,
-            // Green read — persisted regardless of make/miss. Mirrors the
-            // ShotEntryModal (past-round) writer so both surfaces store the
-            // same columns. aim_offset_yards = inches / 36 (1dp).
-            putt_slope_pct: isPuttRow ? row.puttSlopePct ?? null : null,
-            green_speed: isPuttRow ? row.greenSpeed ?? null : null,
-            break_direction: isPuttRow
-              ? combinedBreakDirection({
-                  vertical: row.breakDirectionVertical,
-                  horizontal: row.breakDirectionHorizontal,
-                })
-              : null,
-            break_direction_vertical: isPuttRow
-              ? row.breakDirectionVertical ?? null
-              : null,
-            break_direction_horizontal: isPuttRow
-              ? row.breakDirectionHorizontal ?? null
-              : null,
-            aim_offset_yards:
-              isPuttRow && row.aimOffsetInches != null
-                ? Math.round((row.aimOffsetInches / 36) * 10) / 10
-                : null,
-            notes: row.notes ?? null,
+            // The stored penalty is carried through the replace-all rewrite
+            // when the result picker's Penalty key wasn't touched. `ob` needs
+            // no stored value: the sheet seeds `shotResult: 'ob'` from the
+            // stored shots at hydration, so the row is authoritative (#839).
+            ...reviewedRowToShotFields(
+              row,
+              existingByShotNumber.get(row.shotNumber)?.penalty,
+            ),
           })
         }
         // Cap auto-advance to the course's expected hole count — passing

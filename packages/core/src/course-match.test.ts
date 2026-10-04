@@ -4,6 +4,7 @@ import {
   normalizeState,
   isProbableSameCourse,
   distinctiveToken,
+  nameTokensContained,
 } from './course-match'
 
 describe('normalizeCourseName', () => {
@@ -121,5 +122,28 @@ describe('distinctiveToken', () => {
     // Otherwise the caller builds ilike '%%' across the whole courses table.
     expect(distinctiveToken('The Golf Club')).toBeNull()
     expect(distinctiveToken('   ')).toBeNull()
+  })
+})
+
+// Review-queue duplicate flag (#882): whole tokens, not a raw substring.
+describe('nameTokensContained', () => {
+  const n = normalizeCourseName
+
+  it('matches when every word of the shorter name is a word of the longer', () => {
+    expect(nameTokensContained(n('Tipperary Golf Club'), n('Tipperary Golf Club and Driving Range'))).toBe(true)
+    expect(nameTokensContained(n('Sundridge Park West'), n('Sundridge Park Golf Course'))).toBe(true)
+  })
+
+  it('does not match mid-word', () => {
+    expect(nameTokensContained(n('Lich'), n('Nolichucky View Golf Club'))).toBe(false)
+    expect(nameTokensContained(n('Lich'), n('Lichfield Golf & Country Club'))).toBe(false)
+  })
+
+  it('does not match when only some words are shared', () => {
+    expect(nameTokensContained(n('Amarillo el Prat'), n('Amarillo Country Club West Course'))).toBe(false)
+  })
+
+  it('is false when either name normalizes to nothing', () => {
+    expect(nameTokensContained(n('Golf Club'), n('Ocean Course'))).toBe(false)
   })
 })

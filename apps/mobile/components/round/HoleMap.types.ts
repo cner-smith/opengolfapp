@@ -86,7 +86,7 @@ export interface HoleMapProps {
   holeNumber: number
   /**
    * True when the current SET_AIM exit is a real shot commit (raw
-   * roundState → SHOT_DETAIL / PUTTING) rather than a "Re-place ball"
+   * roundState → PUTTING) rather than a "Re-place ball"
    * backout. The `phase` prop collapses both to PLACE_BALL, so the aim-ghost
    * promotion needs this separate signal to record a ghost on commit without
    * leaving a stray one on re-place. Defaults false.
@@ -102,6 +102,8 @@ export interface HoleMapProps {
   tagClearBottom?: number
   onSetAim: (loc: LatLng) => void
   onSetBall: (loc: LatLng) => void
+  /** True while the ball marker is under the finger, so a GPS tick can't move it mid-drag (#659). */
+  ballDraggingRef?: { current: boolean }
   /**
    * Called with the current GPS fix when the recenter button is tapped
    * during PLACE_BALL — a deliberate tap is explicit intent to put the
@@ -118,8 +120,7 @@ export interface HoleMapProps {
    * @rnmapbox/maps source — see PR notes for #330). Conditional
    * mount/unmount is the only way to actually pause the drain. Pass
    * true during PLACE_BALL and SET_AIM (player on course, puck is
-   * meaningful) and false during SHOT_DETAIL / PUTTING (modals cover
-   * the map).
+   * meaningful) and false during PUTTING.
    */
   showLocationPuck: boolean
   /**
@@ -156,7 +157,7 @@ export interface HoleMapProps {
    *  (null = in view, or no shot), so the chrome can show the edge tab. */
   onLastShotOffscreen?: (arrow: OffscreenArrow | null) => void
   /** Past-round breadcrumbs (#611 §19.3). When set, replaces the
-   *  previousShots trail + segment labels + carry/remaining tags, and the
+   *  previousShots trail + segment labels + aim/remaining tags, and the
    *  ball draws as the selected crumb. */
   pastCrumbs?: PastCrumbs | null
   /** A map tap in SET_AIM sets the aim (the past round's Aim mode, §19.4). */

@@ -197,7 +197,7 @@ async function findDuplicates(
       const b = core.normalizeCourseName(c.name)
       if (core.isProbableSameCourse(self, { name: c.name, city: c.city, state: c.state })) {
         matches.set(c.id, { ...toMatch(c), tier: 'likely', reason: 'exact-name' })
-      } else if (a && b && (a.includes(b) || b.includes(a))) {
+      } else if (core.nameTokensContained(a, b)) {
         matches.set(c.id, { ...toMatch(c), tier: 'possible', reason: 'name-containment' })
       }
     }
@@ -237,14 +237,16 @@ async function findDuplicates(
       if (c.lat == null || c.lng == null) continue
       const metres = core.haversineYards(lat, lng, c.lat, c.lng) * core.YARDS_TO_METERS
       if (metres > NEARBY_MAX_M) continue
-      // Never downgrade an exact-name hit to a proximity one.
-      if (matches.get(c.id)?.tier === 'likely') continue
-      matches.set(c.id, {
-        ...toMatch(c),
-        tier: 'possible',
-        reason: 'proximity',
-        metres: Math.round(metres),
-      })
+      // A candidate the name pass already flagged keeps its tier and reason
+      // and gains the distance: two signals agreeing is stronger evidence
+      // than either, and proximity used to overwrite the name one (#885).
+      const byName = matches.get(c.id)
+      matches.set(
+        c.id,
+        byName
+          ? { ...byName, metres: Math.round(metres) }
+          : { ...toMatch(c), tier: 'possible', reason: 'proximity', metres: Math.round(metres) },
+      )
     }
   }
 
@@ -345,7 +347,23 @@ async function pendingPanel(
   // Sequential, not Promise.all: up to 100 queries against production, and a
   // burst buys nothing on a page one person loads.
   for (const row of shown) {
-    row.duplicates = await findDuplicates(client, core, row)
+    try {
+      row.duplicates = await findDuplicates(client, core, row)
+    } catch (err) {
+      // One failed lookup costs that row its flags, not the whole queue (#883).
+      // The page renders `__truncated…` ids as a warning line.
+      row.duplicates = [
+        {
+          id: '__truncated-failed__',
+          name: `duplicate check failed: ${err instanceof Error ? err.message : String(err)}`,
+          city: null,
+          state: null,
+          pending: false,
+          tier: 'possible',
+          reason: 'name-containment',
+        },
+      ]
+    }
   }
   return { total: rows.length, rows: shown }
 }

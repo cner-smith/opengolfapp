@@ -21,8 +21,8 @@ import { supabase } from '../../../lib/supabase'
 export interface ClubDispersion {
   club: Club
   dispersion: AimRelativeDispersion
-  /** Median start→end carry for this club, yards. Drives club auto-selection. */
-  medianCarryYards: number | null
+  /** Median start→end distance for this club, yards. Drives club auto-selection. */
+  medianDistanceYards: number | null
   sampleSize: number
 }
 
@@ -31,8 +31,8 @@ export interface UseClubDispersionResult {
   byClub: Map<Club, ClubDispersion>
   /**
    * The club to overlay for a given origin→target distance. Matches by
-   * |median carry − distance|. A null/non-finite distance (tee shot, no aim
-   * yet) falls back to the longest-carry club. Null when no club has data.
+   * |median distance − target|. A null/non-finite distance (tee shot, no aim
+   * yet) falls back to the longest club. Null when no club has data.
    */
   selectClub: (distanceToTargetYards: number | null) => ClubDispersion | null
 }
@@ -80,7 +80,7 @@ function median(xs: number[]): number | null {
 
 /**
  * Loads the player's shot history once (memoized on userId), groups by club,
- * and computes per-club aim-relative dispersion + median carry. getShotsForUser
+ * and computes per-club aim-relative dispersion + median distance. getShotsForUser
  * caps at the most recent 1000 shots — accepted for v1 (see the mobile hook's
  * note); revisit if a club's overlay ever looks under-sampled.
  */
@@ -88,15 +88,20 @@ export function useClubDispersion(
   userId: string | undefined,
 ): UseClubDispersionResult {
   const [rows, setRows] = useState<ShotRow[]>([])
-  const [loading, setLoading] = useState(false)
+  // The user whose shots `rows` holds. `loading` is derived from it so it is
+  // already true on the first render with a userId: a flag set inside the
+  // effect read false for that one commit, and the planner initialised its
+  // first leg against an empty byClub and locked it (#665).
+  const [loadedFor, setLoadedFor] = useState<string | undefined>(undefined)
+  const loading = !!userId && loadedFor !== userId
 
   useEffect(() => {
     if (!userId) {
       setRows([])
+      setLoadedFor(undefined)
       return
     }
     let active = true
-    setLoading(true)
     getShotsForUser(supabase, userId).then(({ data, error }) => {
       if (!active) return
       if (error && import.meta.env.DEV) {
@@ -104,7 +109,7 @@ export function useClubDispersion(
         console.error('[useClubDispersion/getShotsForUser]', error.message)
       }
       setRows((data as ShotRow[] | null) ?? [])
-      setLoading(false)
+      setLoadedFor(userId)
     })
     return () => {
       active = false
@@ -127,7 +132,7 @@ export function useClubDispersion(
     for (const [club, shots] of grouped) {
       const dispersion = computeAimRelativeDispersion(shots)
       if (!dispersion) continue // below MIN_SAMPLES_FOR_STATS — no overlay
-      const carries: number[] = []
+      const distances: number[] = []
       for (const s of shots) {
         if (
           s.startLat != null &&
@@ -135,13 +140,13 @@ export function useClubDispersion(
           s.endLat != null &&
           s.endLng != null
         ) {
-          carries.push(haversineYards(s.startLat, s.startLng, s.endLat, s.endLng))
+          distances.push(haversineYards(s.startLat, s.startLng, s.endLat, s.endLng))
         }
       }
       out.set(club, {
         club,
         dispersion,
-        medianCarryYards: median(carries),
+        medianDistanceYards: median(distances),
         sampleSize: dispersion.sampleSize,
       })
     }
@@ -156,22 +161,22 @@ export function useClubDispersion(
       // Tee shot / no aim yet → the player's longest club.
       if (distanceToTargetYards == null || !Number.isFinite(distanceToTargetYards)) {
         return candidates.reduce((best, c) =>
-          (c.medianCarryYards ?? -Infinity) > (best.medianCarryYards ?? -Infinity)
+          (c.medianDistanceYards ?? -Infinity) > (best.medianDistanceYards ?? -Infinity)
             ? c
             : best,
         )
       }
 
-      // Otherwise the club whose median carry is closest to the distance.
+      // Otherwise the club whose median distance is closest to the distance.
       return candidates.reduce((best, c) => {
         const cDelta =
-          c.medianCarryYards == null
+          c.medianDistanceYards == null
             ? Infinity
-            : Math.abs(c.medianCarryYards - distanceToTargetYards)
+            : Math.abs(c.medianDistanceYards - distanceToTargetYards)
         const bestDelta =
-          best.medianCarryYards == null
+          best.medianDistanceYards == null
             ? Infinity
-            : Math.abs(best.medianCarryYards - distanceToTargetYards)
+            : Math.abs(best.medianDistanceYards - distanceToTargetYards)
         return cDelta < bestDelta ? c : best
       })
     },

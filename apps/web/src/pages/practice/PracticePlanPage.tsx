@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
+import { normalizeCategoryProse, parseLocalDate, todayLocalDate } from '@oga/core'
 import type { StoredBlock, StoredSession, StoredFocusArea } from '@oga/core'
 import {
   useDrillsByIds,
@@ -39,18 +40,9 @@ const LINE = '#D9D2BF'
 // whole of its final day regardless of the user's clock time.
 // ---------------------------------------------------------------------------
 
-function todayDateString(): string {
-  const now = new Date()
-  const y = now.getFullYear()
-  const m = String(now.getMonth() + 1).padStart(2, '0')
-  const d = String(now.getDate()).padStart(2, '0')
-  return `${y}-${m}-${d}`
-}
-
 function formatDate(value: string | null): string {
   if (!value) return ''
-  // Parse a bare date string as local, not UTC, to avoid an off-by-one day.
-  const parsed = /^\d{4}-\d{2}-\d{2}$/.test(value) ? new Date(`${value}T00:00:00`) : new Date(value)
+  const parsed = parseLocalDate(value)
   if (Number.isNaN(parsed.getTime())) return ''
   return parsed.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
 }
@@ -64,17 +56,6 @@ function asDrills(value: unknown): PlanDrills {
 
 function asFocusAreas(value: unknown): StoredFocusArea[] {
   return Array.isArray(value) ? (value as StoredFocusArea[]) : []
-}
-
-// UI safety net: rewrite any leaked raw snake_case category enums in displayed
-// prose. `approach`/`putting` are already readable words and left untouched.
-// Tolerates null/undefined — a malformed plan (e.g. a focus area missing its
-// `reason`) must degrade to empty text, never crash the whole page.
-function normalizeCategoryProse(text: string | null | undefined): string {
-  if (!text) return ''
-  return text
-    .replace(/\boff_tee\b/gi, 'off the tee')
-    .replace(/\baround_green\b/gi, 'around the green')
 }
 
 // ---------------------------------------------------------------------------
@@ -820,7 +801,7 @@ export function PracticePlanPage() {
 
   // Plan exists. Decide current vs. soft-expired by comparing date strings
   // (lexicographic comparison is correct for ISO YYYY-MM-DD).
-  const today = todayDateString()
+  const today = todayLocalDate()
   const isExpired = !!plan.valid_until && plan.valid_until < today
 
   const kicker = isExpired

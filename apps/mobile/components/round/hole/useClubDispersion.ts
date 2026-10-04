@@ -18,9 +18,9 @@ export interface ClubDispersion {
   dispersion: AimRelativeDispersion | null
   /** Aim-relative landings, most recent first (getShotsForUser is created_at desc). */
   points: { alongYards: number; perpYards: number }[]
-  /** Median start→end carry for this club, yards. Drives club auto-selection.
+  /** Median start→end distance for this club, yards. Drives club auto-selection.
    *  Null when no shot had both start+end coords. */
-  medianCarryYards: number | null
+  medianDistanceYards: number | null
 }
 
 export interface UseClubDispersionResult {
@@ -29,8 +29,8 @@ export interface UseClubDispersionResult {
   byClub: Map<Club, ClubDispersion>
   /**
    * The club to overlay for a given origin→target distance. Matches by
-   * |median carry − distance|. A null/non-finite distance (tee shot, no aim
-   * yet) falls back to the longest-carry club. Only clubs with a dispersion
+   * |median distance − target|. A null/non-finite distance (tee shot, no aim
+   * yet) falls back to the longest club. Only clubs with a dispersion
    * compete, and only those in `among` when given (the wheel's rows, so the
    * pick is always a club the wheel can show). Returns null when no club has
    * enough data.
@@ -81,13 +81,13 @@ function median(xs: number[]): number | null {
 
 /**
  * Loads the player's shot history once, groups by club, and computes
- * per-club aim-relative dispersion + median carry. Feeds the live-round map
+ * per-club aim-relative dispersion + median distance. Feeds the live-round map
  * overlay: pick a club via `selectClub`, draw its dispersion against the
  * dragged aim. One query per session (memoized on userId), not per hole.
  *
  * NOTE: getShotsForUser caps at the most recent 1000 shots (created_at
  * desc), so for a player with >1000 logged shots the dispersion + median
- * carry are recency-biased across clubs, not lifetime. Accepted for v1 —
+ * distance are recency-biased across clubs, not lifetime. Accepted for v1 —
  * new users sit well under the cap; revisit (raise/lift the cap, or
  * per-club balance) if a club's overlay ever looks under-sampled.
  */
@@ -137,7 +137,7 @@ export function useClubDispersion(
         const o = aimRelativeOffsets(s)
         if (o) points.push(o)
       }
-      const carries: number[] = []
+      const distances: number[] = []
       for (const s of shots) {
         if (
           s.startLat != null &&
@@ -145,14 +145,14 @@ export function useClubDispersion(
           s.endLat != null &&
           s.endLng != null
         ) {
-          carries.push(haversineYards(s.startLat, s.startLng, s.endLat, s.endLng))
+          distances.push(haversineYards(s.startLat, s.startLng, s.endLat, s.endLng))
         }
       }
       out.set(club, {
         club,
         dispersion: computeAimRelativeDispersion(shots),
         points,
-        medianCarryYards: median(carries),
+        medianDistanceYards: median(distances),
       })
     }
     return out
@@ -166,23 +166,23 @@ export function useClubDispersion(
       // Tee shot / no aim yet → the player's longest club.
       if (distanceToTargetYards == null || !Number.isFinite(distanceToTargetYards)) {
         return candidates.reduce((best, c) =>
-          (c.medianCarryYards ?? -Infinity) > (best.medianCarryYards ?? -Infinity)
+          (c.medianDistanceYards ?? -Infinity) > (best.medianDistanceYards ?? -Infinity)
             ? c
             : best,
         )
       }
 
-      // Otherwise the club whose median carry is closest to the distance.
-      // Clubs without a carry can't be distance-matched — they sort last.
+      // Otherwise the club whose median distance is closest to the distance.
+      // Clubs without one can't be distance-matched — they sort last.
       return candidates.reduce((best, c) => {
         const cDelta =
-          c.medianCarryYards == null
+          c.medianDistanceYards == null
             ? Infinity
-            : Math.abs(c.medianCarryYards - distanceToTargetYards)
+            : Math.abs(c.medianDistanceYards - distanceToTargetYards)
         const bestDelta =
-          best.medianCarryYards == null
+          best.medianDistanceYards == null
             ? Infinity
-            : Math.abs(best.medianCarryYards - distanceToTargetYards)
+            : Math.abs(best.medianDistanceYards - distanceToTargetYards)
         return cDelta < bestDelta ? c : best
       })
     },

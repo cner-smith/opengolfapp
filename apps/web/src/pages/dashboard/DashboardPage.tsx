@@ -1,7 +1,7 @@
 import { lazy, Suspense, useMemo, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { mdiPlay, mdiPlus } from '@mdi/js'
-import { formatSG, isPartialRound, partialRoundLabel } from '@oga/core'
+import { barScale, formatSG, isPartialRound, partialRoundLabel, sgBreakdown } from '@oga/core'
 import { useRecentSG } from '../../hooks/useRounds'
 import { useProfile } from '../../hooks/useProfile'
 
@@ -36,15 +36,9 @@ export function DashboardPage() {
   const stats = useMemo(() => {
     // Rounds ended early stay out of the per-round numbers (#911).
     const whole = rounds.filter((r) => !isPartialRound(r.hole_scores))
-    const avgs = SG_KEYS.map((c) => {
-      const values = whole
-        .map((r) => r[c.key])
-        .filter((v): v is number => v !== null)
-      const avg =
-        values.length === 0 ? 0 : values.reduce((a, b) => a + b, 0) / values.length
-      return { ...c, value: Number(avg.toFixed(2)) }
-    })
-    const maxAbs = Math.max(...avgs.map((a) => Math.abs(a.value)), 0.5)
+    const sg = sgBreakdown(whole)
+    const avgs = SG_KEYS.map((c) => ({ ...c, value: sg.breakdown.find((b) => b.key === c.key)?.value ?? 0 }))
+    const maxAbs = barScale(sg.maxAbs)
     const trendData = [...whole].reverse().map((r) => ({
       date: r.played_at,
       sg: r.sg_total ?? 0,
@@ -259,7 +253,7 @@ function Lede({
       }}
     >
       <em>{weakest.label}.</em> Your biggest leak — costing about{' '}
-      {fmtAbs(weakest.value)} a round. {strongest.label.toLowerCase()} is the
+      {fmtAbs(weakest.value)} a round. {strongest.label} is the
       one bright spot at {fmtSG(strongest.value)}.
     </p>
   )

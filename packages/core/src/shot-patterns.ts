@@ -102,7 +102,7 @@ export function computeDispersion(shots: Shot[]): DispersionPoint[] {
       id: s.id,
       lateralOffsetYards: end.perpYards,
       distanceOffsetYards: end.alongYards,
-      // Start projected onto the aim line (negative = behind aim = the carry).
+      // Start projected onto the aim line (negative = behind aim = the distance to aim).
       startDistanceOffsetYards: start.alongYards,
       shotResult: s.shotResult,
       lieSlope: s.lieSlope,

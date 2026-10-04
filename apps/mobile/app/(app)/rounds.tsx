@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   AccessibilityInfo,
+  DeviceEventEmitter,
   Pressable,
   ScrollView,
   Text,
@@ -84,6 +85,8 @@ export default function RoundsList() {
         // Wipe ALL cached screens — a stale home/round-detail cache would
         // resurrect the deleted round as a ghost (#705 redux).
         clearScreenCache()
+        // The round screen stays mounted behind this one; tell it (#613).
+        DeviceEventEmitter.emit('oga:roundDeleted', id)
         setRounds((prev) => prev.filter((r) => r.id !== id))
         // Delay so VoiceOver doesn't swallow the announce while focus
         // shifts from the dismissing ConfirmDialog.

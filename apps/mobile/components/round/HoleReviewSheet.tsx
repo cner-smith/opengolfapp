@@ -22,6 +22,7 @@ import {
   horizontalBreakFromAim,
   isPuttEntry,
   isPuttShot,
+  lieSlopeLabel,
   obCount,
   type BreakDirectionHorizontal,
   type BreakDirectionVertical,
@@ -85,8 +86,7 @@ const PUTT_DIRECTION_OPTIONS: Opt<PuttDirectionResult>[] = [
   { value: 'left', label: 'Left' },
   { value: 'right', label: 'Right' },
 ]
-// Putt read vocab — mirrors PuttingSheet so the summary and the old sheet
-// stay in sync. Break line = the horizontal read, slope = up/down.
+// Putt read vocab. Break line = the horizontal read, slope = up/down.
 const BREAK_LINE_OPTIONS: Opt<BreakDirectionHorizontal>[] = [
   { value: 'left_to_right', label: 'L → R' },
   { value: 'right_to_left', label: 'R → L' },
@@ -200,6 +200,19 @@ export function HoleReviewSheet({
         setPenalties((n) => Math.max(0, n - 1))
       }
     }
+    if (prevRow) {
+      // A penalty stroke has no row of its own either, so the Penalty key is
+      // worth one stroke on both tickers (#1039). Same transition rule as OB.
+      const pen = Number(!!nextRow.penalty) - Number(!!prevRow.penalty)
+      if (pen !== 0) {
+        setScore((s) => Math.max(0, s + pen))
+        setPenalties((n) => Math.max(0, n + pen))
+      }
+      // Putts follows the rows: a lie moved onto or off the green is a putt
+      // more or fewer.
+      const putt = Number(isPuttShot(nextRow.lieType)) - Number(isPuttShot(prevRow.lieType))
+      if (putt !== 0) setPutts((p) => Math.max(0, p + putt))
+    }
     setRows((prev) => {
       const copy = prev.slice()
       copy[idx] = { ...nextRow, _shotId: prev[idx]?._shotId }
@@ -234,9 +247,11 @@ export function HoleReviewSheet({
     // was a green-lie shot (matches the RPC's re-tally). An OB row is
     // worth TWO strokes — the shot plus its stroke-and-distance
     // penalty, which has no row of its own — so deleting it drops 2,
-    // matching what delete_shot re-tallies server-side.
-    setScore((s) => Math.max(0, s - (row.shotResult === 'ob' ? 2 : 1)))
-    if (row.shotResult === 'ob') setPenalties((n) => Math.max(0, n - 1))
+    // matching what delete_shot re-tallies server-side. A Penalty-key
+    // stroke set in this sheet goes with its row the same way.
+    const penaltyStrokes = (row.shotResult === 'ob' ? 1 : 0) + (row.penalty ? 1 : 0)
+    setScore((s) => Math.max(0, s - 1 - penaltyStrokes))
+    if (penaltyStrokes > 0) setPenalties((n) => Math.max(0, n - penaltyStrokes))
     if (isPuttShot(row.lieType)) setPutts((p) => Math.max(0, p - 1))
   }
 
@@ -244,7 +259,7 @@ export function HoleReviewSheet({
     // RN <Modal> is intentionally NOT used — it's an absolute-fill overlay
     // above the map HUD, and the caller mounts this inside the map's gesture
     // root. Our own GestureHandlerRootView lets the aimer overlay's
-    // GreenDiagram pan work (mirrors ShotLogger; #496).
+    // GreenDiagram pan work (#496).
     <GestureHandlerRootView
       style={{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, backgroundColor: P.scrim, zIndex: 40 }}
     >
@@ -458,7 +473,7 @@ function ShotRow({
   }
   // OB is set from the map flow, not this picker, but the chip still says so.
   const resultText = resultSummary({ ...result, ob: row.shotResult === 'ob' })
-  const slopeText = [row.lieSlopeForward && slopeLabel(row.lieSlopeForward), row.lieSlopeSide && slopeLabel(row.lieSlopeSide)]
+  const slopeText = [row.lieSlopeForward && lieSlopeLabel(row.lieSlopeForward), row.lieSlopeSide && lieSlopeLabel(row.lieSlopeSide)]
     .filter(Boolean)
     .join(' · ')
   const breakSet = row.breakDirectionHorizontal != null || row.breakDirectionVertical != null
@@ -628,6 +643,7 @@ function ShotRow({
           {open === 'result' &&
             expand(
               <ResultPicker
+                penaltyCountsStroke
                 value={result}
                 onChange={(v) =>
                   onChange({
@@ -643,12 +659,6 @@ function ShotRow({
       )}
     </View>
   )
-}
-
-// 'ball_above' → 'Ball above', 'uphill' → 'Uphill'.
-function slopeLabel(v: string): string {
-  const s = v.replace(/_/g, ' ')
-  return s.charAt(0).toUpperCase() + s.slice(1)
 }
 
 // The on-demand read tool: a full-screen overlay hosting the draggable green

@@ -70,7 +70,16 @@ function AxisRow<T extends string>({
 
 // Shot result as three optional axes + penalty / OB toggles (#951). Tap to
 // set, tap again to clear; nothing is pre-selected.
-export function ResultAxes({ value, onChange }: { value: ResultValue; onChange: (v: ResultValue) => void }) {
+export function ResultAxes({
+  value,
+  onChange,
+  penaltyCountsStroke = false,
+}: {
+  value: ResultValue
+  onChange: (v: ResultValue) => void
+  /** The end-of-hole review adds the stroke to the hole score; say so. */
+  penaltyCountsStroke?: boolean
+}) {
   const any = value.contact || value.shape || value.startLine || value.penalty || value.ob
   // A left-hander's hook curves right: mirror the shape + start keys (same
   // as mobile's ResultPicker), from Settings → Plays.
@@ -164,6 +173,11 @@ export function ResultAxes({ value, onChange }: { value: ResultValue; onChange: 
           </button>
         )}
       </div>
+      {penaltyCountsStroke && (
+        <p className="text-caddie-ink-mute" style={{ fontSize: 12, textAlign: 'center', margin: 0 }}>
+          {value.penalty ? 'One stroke added to the hole score.' : 'Adds one stroke to the hole score.'}
+        </p>
+      )}
     </div>
   )
 }

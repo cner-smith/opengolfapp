@@ -64,3 +64,18 @@ describe('courseCentroid', () => {
     expect(c!.lng).toBeCloseTo(1.5954, 2)
   })
 })
+
+// A NaN coordinate must not read as "0 m apart": NaN > max is always false, so
+// the diameter came back 0 and the centroid guard waved the set through (#886).
+describe('non-finite coordinates', () => {
+  const BAD: GeoPoint[] = [...LE_MANOIR, { lat: Number.NaN, lng: 1.59 }]
+
+  it('pointSetDiameter is NaN, not 0', () => {
+    expect(pointSetDiameter(BAD)).toBeNaN()
+  })
+
+  it('courseCentroid refuses the set', () => {
+    expect(courseCentroid(BAD)).toBeNull()
+    expect(courseCentroid([{ lat: 50.5, lng: Infinity }, { lat: 50.5, lng: 1.6 }])).toBeNull()
+  })
+})

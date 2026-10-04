@@ -18,6 +18,18 @@ export function normalizeCourseName(name: string): string {
     .trim()
 }
 
+// Whether every word of the shorter normalized name is a whole word of the
+// longer one. For the review queue's "possibly a duplicate" flag: a raw
+// substring test matched mid-word ("lich" inside "nolichucky"). Both inputs
+// are normalizeCourseName output; false when either is empty.
+export function nameTokensContained(a: string, b: string): boolean {
+  if (!a || !b) return false
+  const ta = a.split(' ')
+  const tb = b.split(' ')
+  const [short, long] = ta.length <= tb.length ? [ta, new Set(tb)] : [tb, new Set(ta)]
+  return short.every((t) => long.has(t))
+}
+
 // US state / territory full-name → 2-letter code. Our DB stores the corrected
 // 2-letter form (Natural Earth) while OpenGolfAPI may return a full name
 // ("Oklahoma"), so normalize both sides to the code before comparing —

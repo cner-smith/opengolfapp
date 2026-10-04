@@ -13,11 +13,11 @@ export interface GeoPoint {
   lng: number
 }
 
-// Below this carry radius the arc's angular half-width saturates toward
+// Below this radius the arc's angular half-width saturates toward
 // ±90° (atan(p/r) as r→0) and the bearing is meaningless — suppress it.
 const MIN_ARC_RADIUS_YARDS = 5
 
-// Sampled points across the arc. 24 is smooth at any realistic carry and
+// Sampled points across the arc. 24 is smooth at any realistic distance and
 // cheap enough to recompute per drag frame.
 const ARC_SAMPLES = 24
 
@@ -49,7 +49,7 @@ export interface ArcFeature {
 }
 
 /**
- * The dispersion arc: a constant-radius band at the target's carry distance,
+ * The dispersion arc: a constant-radius band at the target's distance,
  * spanning the lateral 68%/95% width as an arc (left-most to right-most).
  * `lateralHalfWidthYards` is the cone half-width (e.g. perp95); `biasYards`
  * offsets the whole band to the player's lateral bias (perpMean, + = right).

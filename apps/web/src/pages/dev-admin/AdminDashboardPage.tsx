@@ -238,7 +238,8 @@ function DuplicateFlags({ matches }: { matches: DuplicateMatch[] }) {
             ⚠ {m.tier === 'likely' ? 'duplicate of' : 'possibly'} “{m.name}”
             {m.city ? ` — ${m.city}` : ''}
             {m.pending ? ' (also pending)' : ''}
-            {m.metres != null ? ` · ${m.metres} m away` : ` · ${REASON_LABEL[m.reason]}`}
+            {m.reason !== 'proximity' ? ` · ${REASON_LABEL[m.reason]}` : ''}
+            {m.metres != null ? ` · ${m.metres} m away` : ''}
           </div>
         ),
       )}

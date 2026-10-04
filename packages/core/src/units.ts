@@ -111,3 +111,11 @@ export function todayLocalDate(): string {
     String(d.getDate()).padStart(2, '0'),
   ].join('-')
 }
+
+// Parses a DB `date` ('YYYY-MM-DD', e.g. rounds.played_at) as LOCAL midnight.
+// `new Date('YYYY-MM-DD')` reads it as UTC, which shows as the previous day
+// west of Greenwich (#914). A full timestamp parses as usual; junk gives an
+// Invalid Date.
+export function parseLocalDate(value: string): Date {
+  return /^\d{4}-\d{2}-\d{2}$/.test(value) ? new Date(`${value}T00:00:00`) : new Date(value)
+}

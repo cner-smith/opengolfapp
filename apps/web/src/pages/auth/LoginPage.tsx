@@ -51,6 +51,9 @@ export function LoginPage() {
     })
     setLoading(false)
     if (signInError) {
+      // Deliberately not toUserMessage: GoTrue auth errors ("Invalid login
+      // credentials") carry no row data or policy text, and collapsing them
+      // would leave the user with nothing to act on (#667).
       setError(signInError.message)
       // Turnstile tokens are single-use — clear after a failed sign-in
       // so the widget reissues a fresh one for the retry.

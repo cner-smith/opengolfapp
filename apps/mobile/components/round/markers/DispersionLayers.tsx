@@ -69,7 +69,7 @@ export function DispersionLayers({
       perpMeanYards: d.perpMean,
     })
     const mean = scatterGeoJSON(ball, aim, [{ alongYards: d.alongMean, perpYards: d.perpMean }]).features[0]
-    // The width tag goes opposite the carry / remaining tags (right of the
+    // The width tag goes opposite the aim / remaining tags (right of the
     // line; left when lefty), which it collided with on short approaches.
     const rods = dispersionRodsGeoJSON(ball, aim, d, frame.lefty ? 1 : -1)
     if (!ring68 || !mean || !rods) return null
@@ -144,14 +144,14 @@ export function DispersionLayers({
       )}
       {ring && (
         <>
-          <Mapbox.ShapeSource id="patternRing" shape={ring.ring68}>
+          <Mapbox.ShapeSource id="patternRing" tolerance={0} shape={ring.ring68}>
             <Mapbox.FillLayer
               id="patternRingFill"
               style={{ fillColor: P.raised, fillOpacity: t > 0 ? 0.14 : 0, fillOpacityTransition: { duration: 200, delay: 0 } }}
             />
           </Mapbox.ShapeSource>
           {ringLine && (
-            <Mapbox.ShapeSource id="patternRingLine" shape={ringLine}>
+            <Mapbox.ShapeSource id="patternRingLine" tolerance={0} shape={ringLine}>
               <Mapbox.LineLayer id="patternRingHalo" style={{ lineColor: P.ink, lineWidth: 4, lineOpacity: 0.35 }} />
               <Mapbox.LineLayer id="patternRingLine" style={{ lineColor: P.raised, lineWidth: 2, lineOpacity: 0.95 }} />
             </Mapbox.ShapeSource>
