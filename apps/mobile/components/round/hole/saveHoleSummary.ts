@@ -21,8 +21,9 @@ export type ReviewedRowWithId = ReviewedShotRow & { _shotId?: string }
 
 // End-of-hole save. Mirrors the web review sheet's replace-all write, but
 // attaches metadata to the shots the player already logged live rather than
-// recreating them: each reviewed row is paired back to its live shot by
-// shot_number so the shot's client id (and its live-captured aim) carry
+// recreating them: each reviewed row is paired back to its live shot by the
+// shot's id (shot_number only for a row without one) so the shot's client id
+// (and its live-captured aim) carry
 // through, and the merged payload is re-queued via upsertReviewedShot →
 // idempotent re-sync updates the same server row (no delete, no duplicates
 // offline). Then the hole_scores tallies are written and the hole advances.
