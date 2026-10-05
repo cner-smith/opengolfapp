@@ -15,7 +15,7 @@ import {
 } from '@oga/core'
 import type { PlacedPoint } from '../../../components/round/RoundMap'
 import type { ReviewedShotRow } from '../../../components/round/HoleReviewSheet'
-import { useCreateShot, useUpdateShot } from '../../../hooks/useShots'
+import { useCreateShot, useCreateShots, useUpdateShot } from '../../../hooks/useShots'
 import { useUpsertHoleScore } from '../../../hooks/useHoleScores'
 import { useCompleteRound } from '../../../hooks/useCompleteRound'
 import { useDeleteRound } from '../../../hooks/useRounds'
@@ -144,6 +144,7 @@ export function useRoundActions(input: UseRoundActionsInput): UseRoundActionsRes
   const queryClient = useQueryClient()
   const upsertHoleScore = useUpsertHoleScore(roundId)
   const createShot = useCreateShot(roundId)
+  const createShots = useCreateShots(roundId)
   const updateShot = useUpdateShot(roundId)
   const completeMutation = useCompleteRound()
   const deleteMutation = useDeleteRound()
@@ -239,7 +240,7 @@ export function useRoundActions(input: UseRoundActionsInput): UseRoundActionsRes
   // longer special-cased; its putt-ness is decided at the end-of-hole review.
   const pushShotWithAim = useCallback(
     (p: PlacedPoint) => {
-      dispatchHoleView({ type: 'PUSH_POINT', point: p, openPuttSheet: false })
+      dispatchHoleView({ type: 'PUSH_POINT', point: p })
       if (isLiveEntry && captureMode === 'just_track') {
         // Just-track mode records the location only — no aim capture. The
         // end-of-hole review still infers putts and lets the player fill
@@ -646,7 +647,7 @@ export function useRoundActions(input: UseRoundActionsInput): UseRoundActionsRes
         const hs = hsResult ?? existing
         if (!hs) throw new Error('hole_score upsert returned no row')
 
-        // Snapshot the ob/penalty flags of the shots about to be replaced,
+        // Snapshot the penalty flags of the shots about to be replaced,
         // keyed by shot_number, BEFORE the delete-all below wipes them —
         // ONLY when the shot count hasn't changed. `rows` (this save's
         // placements) are numbered 1..M purely from THIS session's own
@@ -665,15 +666,31 @@ export function useRoundActions(input: UseRoundActionsInput): UseRoundActionsRes
         // reviewedRowToShotFields gets no stored penalty and each row's flags
         // come only from what THIS save's own result picker set — never
         // carrying a stored flag across a renumbering (#797, #839).
-        const existingByShotNumber =
+        const storedPenalty =
           activeHoleShots.length === rows.length
-            ? new Map(
-                activeHoleShots.map((s) => [
-                  s.shotNumber,
-                  { ob: s.ob ?? false, penalty: s.penalty ?? false },
-                ]),
-              )
-            : new Map<number, { ob: boolean; penalty: boolean }>()
+            ? new Map(activeHoleShots.map((s) => [s.shotNumber, s.penalty ?? false]))
+            : new Map<number, boolean>()
+
+        // Every row is built before the delete below, so nothing between the
+        // delete and the insert can throw.
+        const inserts = rows.map((row) => {
+          // Persist the aim only if the player actually set/dragged it — an
+          // untouched auto-spawn suggestion is dropped so it can't enter the
+          // dispersion dataset (aim must be explicit to count).
+          const aimIdx = row.shotNumber - 1
+          const aim = placedAimAuto[aimIdx] ? null : placedAims[aimIdx] ?? null
+          return {
+            hole_score_id: hs.id,
+            user_id: user.id,
+            aim_lat: aim?.lat ?? null,
+            aim_lng: aim?.lng ?? null,
+            // The stored penalty is carried through the replace-all rewrite
+            // when the result picker's Penalty key wasn't touched. `ob` needs
+            // no stored value: the sheet seeds `shotResult: 'ob'` from the
+            // stored shots at hydration, so the row is authoritative (#839).
+            ...reviewedRowToShotFields(row, storedPenalty.get(row.shotNumber)),
+          }
+        })
 
         // Replace-all save: drop any shots already attached to this
         // hole_score before inserting the freshly reviewed rows. Without
@@ -687,27 +704,11 @@ export function useRoundActions(input: UseRoundActionsInput): UseRoundActionsRes
           .eq('user_id', user.id)
         if (delErr) throw delErr
 
-        for (const row of rows) {
-          // Persist the aim only if the player actually set/dragged it — an
-          // untouched auto-spawn suggestion is dropped so it can't enter the
-          // dispersion dataset (aim must be explicit to count).
-          const aimIdx = row.shotNumber - 1
-          const aim = placedAimAuto[aimIdx] ? null : placedAims[aimIdx] ?? null
-          await createShot.mutateAsync({
-            hole_score_id: hs.id,
-            user_id: user.id,
-            aim_lat: aim?.lat ?? null,
-            aim_lng: aim?.lng ?? null,
-            // The stored penalty is carried through the replace-all rewrite
-            // when the result picker's Penalty key wasn't touched. `ob` needs
-            // no stored value: the sheet seeds `shotResult: 'ob'` from the
-            // stored shots at hydration, so the row is authoritative (#839).
-            ...reviewedRowToShotFields(
-              row,
-              existingByShotNumber.get(row.shotNumber)?.penalty,
-            ),
-          })
-        }
+        // One request for the whole hole: either every row is written or
+        // none is, so a failure can't leave it half-saved (#1040). If it does
+        // fail, the hole has no shots until the next save; the sheet stays
+        // open with the player's edits for the retry.
+        await createShots.mutateAsync(inserts)
         // Cap auto-advance to the course's expected hole count — passing
         // null on the last hole keeps the player put with a cleared state.
         const nextHole =
@@ -734,7 +735,7 @@ export function useRoundActions(input: UseRoundActionsInput): UseRoundActionsRes
       placedAimAuto,
       expectedHoleCount,
       upsertHoleScore,
-      createShot,
+      createShots,
       dispatchHoleView,
       setSavingHole,
     ],
