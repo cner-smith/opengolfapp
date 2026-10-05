@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { createShot, deleteShot, getShotsForRound, updateShot } from '@oga/supabase'
+import { createShot, createShots, deleteShot, getShotsForRound, updateShot } from '@oga/supabase'
 import type { Database } from '@oga/supabase'
 import { supabase } from '../lib/supabase'
 import { useAuth } from './useAuth'
@@ -44,6 +44,19 @@ export function useCreateShot(roundId: string | undefined) {
       const { data, error } = await createShot(supabase, shot)
       if (error) throw error
       return data
+    },
+    onSuccess: () => invalidateShotMutationKeys(qc, roundId),
+  })
+}
+
+// A hole's reviewed shots in one request: Postgres writes every row or none,
+// so a failure can't leave the hole half-saved (#1040).
+export function useCreateShots(roundId: string | undefined) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (shots: ShotInsert[]) => {
+      const { error } = await createShots(supabase, shots)
+      if (error) throw error
     },
     onSuccess: () => invalidateShotMutationKeys(qc, roundId),
   })
