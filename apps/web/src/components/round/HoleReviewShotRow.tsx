@@ -41,8 +41,8 @@ const PUTT_DIRECTION_OPTIONS: {
   { value: 'right', label: 'Missed right' },
 ]
 
-// Putt read vocab — mirrors WebPuttingSheet so the summary and the old
-// sheet stay in sync. Break line = the horizontal read, slope = up/down.
+// Putt read vocab, matching mobile's review sheet. Break line = the
+// horizontal read, slope = up/down.
 const BREAK_LINE_OPTIONS: { value: BreakDirectionHorizontal; label: string }[] = [
   { value: 'left_to_right', label: 'L → R' },
   { value: 'right_to_left', label: 'R → L' },

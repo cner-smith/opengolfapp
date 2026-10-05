@@ -76,9 +76,6 @@ interface RoundMapProps {
   /** When true, the next map tap sets aim for the most recently placed
    *  shot instead of pushing a new shot start marker. */
   aimMode?: boolean
-  /** Monotonic counter — when it increments, fly to the pin at zoom 18
-   *  to frame the green for the next putt placement. */
-  focusGreenSignal?: number
   /** Local override for the pin and tee positions while the user is
    *  reviewing a hole. When set, these win over the values inside
    *  `hole.pinLat/pinLng` / `hole.teeLat/teeLng`. */
@@ -126,7 +123,6 @@ export function RoundMap({
   placedPoints,
   placedAims,
   aimMode,
-  focusGreenSignal,
   pinOverride,
   roundPinSet = false,
   teeOverride,
@@ -206,7 +202,6 @@ export function RoundMap({
   const { mapRef, userPlacedRef } = useMapSetup({
     containerRef,
     cameraTarget,
-    focusGreenSignal,
     effectivePin,
     effectiveTee,
     placementMode,
