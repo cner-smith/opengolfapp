@@ -213,8 +213,9 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
       shot_result: meta?.shotResult ?? null,
       penalty: meta?.shotResult === 'penalty',
       ob: meta?.shotResult === 'ob',
-      // numeric(4,1): a "putt" from 333+ yd (On the green tapped off the green)
-      // overflows, and the queue quarantines the shot (#994). Drop the length.
+      // A "putt" from 333+ yd is "On the green" tapped off the green: drop the
+      // length. (Until migration 0060 it also overflowed numeric(4,1) and the
+      // queue quarantined the shot, #994; now it's a sanity bound.)
       putt_distance_ft: (meta?.puttDistanceFt ?? 0) > 999.9 ? null : meta?.puttDistanceFt ?? null,
       putt_result: combinedPuttResult({
         made: meta?.puttMade,

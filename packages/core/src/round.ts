@@ -467,8 +467,10 @@ export function reviewedRowToShotFields(
     // keep ob=true after the player cleared it in the sheet, with no way to
     // clear it from there.
     ob: isPutt ? false : row.shotResult === 'ob',
-    // The column is numeric(4,1), so 1000 overflows. Capped on the ROUNDED
-    // feet: 999.6 passes an unrounded check and then rounds to 1000.
+    // Over 999 ft (333 yd) is a mis-marked point, not a putt: store no
+    // length. Capped on the ROUNDED feet. (Until migration 0060 the column
+    // was numeric(4,1) and 1000 failed the whole insert; now it's a sanity
+    // bound, not an overflow guard.)
     putt_distance_ft: isPutt && puttFeet <= 999 ? puttFeet : null,
     // Legacy combined column, rebuilt from the axes for back-compat readers.
     putt_result: isPutt

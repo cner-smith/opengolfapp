@@ -10,7 +10,6 @@ import {
 } from '@oga/core'
 import { GreenDiagram } from './GreenDiagram'
 import type { PlacedPoint } from './RoundMap'
-import type { WebPuttData } from './WebPuttingSheet'
 import { ShotRow } from './HoleReviewShotRow'
 export type { ReviewedShotRow }
 
@@ -25,11 +24,6 @@ interface HoleReviewSheetProps {
    *  End-of-shot for shot N is marker N+1; for the final shot it is
    *  the pin (assumed holed). */
   placedPoints: PlacedPoint[]
-  /** Putt metadata pre-collected via the putting sheet at tap time.
-   *  Parallel to placedPoints. When the inferred row for that index
-   *  is a putt, this data overrides the defaults so the user doesn't
-   *  re-enter what they just answered. */
-  placedPutts?: (WebPuttData | null)[]
   /** The hole's already-stored shots. Used only to seed `shotResult: 'ob'`
    *  onto the hydrated rows so (a) the score ticker counts the penalty
    *  stroke a mobile live-capture recorded, and (b) `saveReviewedHole` can
@@ -57,7 +51,6 @@ export function HoleReviewSheet({
   pinLat,
   pinLng,
   placedPoints,
-  placedPutts,
   storedShots,
   saving,
   onEditOnMap,
@@ -77,13 +70,9 @@ export function HoleReviewSheet({
 
   // Read the latest placedPoints inside the effect via ref so the effect
   // doesn't re-fire (and clobber user edits) just because the parent
-  // returned a new array reference. Same trick for placedPutts so a
-  // stale inline-collected putt doesn't get re-merged after the user
-  // hand-edited the row.
+  // returned a new array reference.
   const placedPointsRef = useRef(placedPoints)
   placedPointsRef.current = placedPoints
-  const placedPuttsRef = useRef(placedPutts)
-  placedPuttsRef.current = placedPutts
   const storedShotsRef = useRef(storedShots)
   storedShotsRef.current = storedShots
 
@@ -124,37 +113,9 @@ export function HoleReviewSheet({
               isLastShot: isLast,
             }
           })
-    const puttData = placedPuttsRef.current ?? []
-    // Merge any inline-collected putt data into the inferred rows so the
-    // player doesn't have to re-enter what they just answered in the
-    // putting sheet. Distance in feet maps to distanceYards / 3 so the
-    // sheet's edit display stays consistent.
-    const merged = baseRows.map((row, idx) => {
-        const inline = puttData[idx]
-        if (!inline) return row
-        // A placed putt is on the green by definition — pin lieType so putt
-        // classification keys off real intent (lie/club), not raw distance.
-        return {
-          ...row,
-          lieType: 'green' as const,
-          puttMade: inline.puttMade,
-          puttDistanceResult: inline.puttDistanceResult,
-          puttDirectionResult: inline.puttDirectionResult,
-          breakDirectionVertical: inline.breakDirectionVertical,
-          breakDirectionHorizontal: inline.breakDirectionHorizontal,
-          puttSlopePct: inline.puttSlopePct,
-          greenSpeed: inline.greenSpeed,
-          aimOffsetInches: inline.aimOffsetInches,
-          notes: inline.notes,
-          distanceYards:
-            inline.puttDistanceFt != null
-              ? inline.puttDistanceFt / 3
-              : row.distanceYards,
-        }
-      })
     // Seed OB from the hole's already-stored shots BEFORE anything reads the
     // rows. Web has no live capture, so buildInitialRows / the no-pin
-    // fallback / the putt merge never set `shotResult`; without this the
+    // fallback never set `shotResult`; without this the
     // sheet shows no OB chip for a hole marked OB on mobile and seeds the
     // score one stroke low, then persists that lower value over a correct
     // one. Keyed by shot number (not position) and gated on an equal count,
@@ -163,12 +124,12 @@ export function HoleReviewSheet({
     // count mismatch dropping the flag is correct and moving it to a
     // different shot would be worse (#839).
     const stored = storedShotsRef.current ?? []
-    let seeded = merged
-    if (stored.length === merged.length) {
+    let seeded = baseRows
+    if (stored.length === baseRows.length) {
       const byNumber = new Map(stored.map((s) => [s.shotNumber, s]))
       // Penalty too: the result picker sends its full value, so an unseeded
       // row would write penalty:false over a stored true once touched.
-      seeded = merged.map((row) => {
+      seeded = baseRows.map((row) => {
         const s = byNumber.get(row.shotNumber)
         return {
           ...row,
@@ -188,7 +149,7 @@ export function HoleReviewSheet({
     // putting engine + putt-count readers — a bladed wedge on the green still
     // counts as a putt here even though its row shows normal-shot UI (the
     // per-row isPutt gate below stays isPuttEntry). User-overridable ticker.
-    setPutts(merged.filter((r) => isPuttShot(r.lieType)).length)
+    setPutts(baseRows.filter((r) => isPuttShot(r.lieType)).length)
     // Same OB rows the score just counted (#963).
     setPenalties(obCount(seeded))
   }, [open, holeNumber, par, pinLat, pinLng])
