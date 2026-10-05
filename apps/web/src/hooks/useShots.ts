@@ -49,6 +49,19 @@ export function useCreateShot(roundId: string | undefined) {
   })
 }
 
+// A hole's reviewed shots in one request: Postgres writes every row or none,
+// so a failure can't leave the hole half-saved (#1040).
+export function useCreateShots(roundId: string | undefined) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (shots: ShotInsert[]) => {
+      const { error } = await supabase.from('shots').insert(shots)
+      if (error) throw error
+    },
+    onSuccess: () => invalidateShotMutationKeys(qc, roundId),
+  })
+}
+
 export function useUpdateShot(roundId: string | undefined) {
   const qc = useQueryClient()
   const { user } = useAuth()
