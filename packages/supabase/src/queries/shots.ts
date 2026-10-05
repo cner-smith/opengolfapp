@@ -81,6 +81,11 @@ export function createShot(client: OgaSupabaseClient, shot: ShotInsert) {
   return client.from('shots').insert(shot).select().single()
 }
 
+// Several rows in one statement: Postgres stores all of them or none.
+export function createShots(client: OgaSupabaseClient, shots: ShotInsert[]) {
+  return client.from('shots').insert(shots)
+}
+
 export function updateShot(
   client: OgaSupabaseClient,
   shotId: string,

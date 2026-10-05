@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { createShot, deleteShot, getShotsForRound, updateShot } from '@oga/supabase'
+import { createShot, createShots, deleteShot, getShotsForRound, updateShot } from '@oga/supabase'
 import type { Database } from '@oga/supabase'
 import { supabase } from '../lib/supabase'
 import { useAuth } from './useAuth'
@@ -55,7 +55,7 @@ export function useCreateShots(roundId: string | undefined) {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async (shots: ShotInsert[]) => {
-      const { error } = await supabase.from('shots').insert(shots)
+      const { error } = await createShots(supabase, shots)
       if (error) throw error
     },
     onSuccess: () => invalidateShotMutationKeys(qc, roundId),
