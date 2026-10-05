@@ -239,7 +239,7 @@ export function useRoundActions(input: UseRoundActionsInput): UseRoundActionsRes
   // longer special-cased; its putt-ness is decided at the end-of-hole review.
   const pushShotWithAim = useCallback(
     (p: PlacedPoint) => {
-      dispatchHoleView({ type: 'PUSH_POINT', point: p, openPuttSheet: false })
+      dispatchHoleView({ type: 'PUSH_POINT', point: p })
       if (isLiveEntry && captureMode === 'just_track') {
         // Just-track mode records the location only — no aim capture. The
         // end-of-hole review still infers putts and lets the player fill

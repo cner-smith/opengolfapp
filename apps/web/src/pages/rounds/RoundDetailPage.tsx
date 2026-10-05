@@ -9,11 +9,9 @@ import { ShotEntryModal } from '../../components/rounds/ShotEntryModal'
 import { RoundSummary } from '../../components/rounds/RoundSummary'
 import { ShareableScorecardCard } from '../../components/round/ShareableScorecardCard'
 import { HoleReviewSheet } from '../../components/round/HoleReviewSheet'
-import { WebPuttingSheet } from '../../components/round/WebPuttingSheet'
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
 import {
   DEFAULT_HANDICAP,
-  haversineYards,
   inferHoleCount,
   resolveCourseTee,
   type CaptureMode,
@@ -82,10 +80,7 @@ export function RoundDetailPage() {
     placedPoints,
     placedAims,
     placedAimAuto,
-    placedPutts,
     aimMode,
-    puttingSheetForIdx,
-    focusGreenSignal,
     pinOverride,
     teeOverride,
     placementMode,
@@ -376,8 +371,6 @@ export function RoundDetailPage() {
           aimMode={aimMode}
           missingHoleLayout={missingHoleLayout}
           isLiveEntry={isLiveEntry}
-          focusGreenSignal={focusGreenSignal}
-          puttingOpen={puttingSheetForIdx != null}
           pinOverride={pinOverride}
           roundPinSet={persistedRoundPin != null}
           teeOverride={teeOverride}
@@ -407,7 +400,6 @@ export function RoundDetailPage() {
                   pinLng={effectivePin?.lng ?? null}
                   storedShots={activeHoleShots}
                   placedPoints={placedPoints}
-                  placedPutts={placedPutts}
                   saving={savingHole}
                   onEditOnMap={() => {
                     dispatchHoleView({ type: 'CLOSE_REVIEW' })
@@ -415,33 +407,6 @@ export function RoundDetailPage() {
                   }}
                   onSave={saveReviewedHole}
                 />
-                {puttingSheetForIdx != null &&
-                  placedPoints[puttingSheetForIdx] &&
-                  effectivePin && (
-                    <WebPuttingSheet
-                      open
-                      shotNumber={puttingSheetForIdx + 1}
-                      initialDistanceFt={Math.round(
-                        haversineYards(
-                          placedPoints[puttingSheetForIdx]!.lat,
-                          placedPoints[puttingSheetForIdx]!.lng,
-                          effectivePin.lat,
-                          effectivePin.lng,
-                        ) * 3,
-                      )}
-                      initial={placedPutts[puttingSheetForIdx] ?? null}
-                      onSave={(data) =>
-                        dispatchHoleView({
-                          type: 'SET_PUTT',
-                          index: puttingSheetForIdx,
-                          data,
-                        })
-                      }
-                      onClose={() =>
-                        dispatchHoleView({ type: 'CLOSE_PUTT_SHEET' })
-                      }
-                    />
-                  )}
               </>
             ) : null
           }
