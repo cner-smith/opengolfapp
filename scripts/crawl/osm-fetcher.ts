@@ -1,7 +1,7 @@
 // OSM Overpass — state-level course discovery (centroid only).
-import { OSM_DELAY_MS, OVERPASS_ENDPOINTS, STATE_BBOX, sleep } from './util'
+import { INTL_TILES, OSM_DELAY_MS, OVERPASS_ENDPOINTS, STATE_BBOX, sleep } from './util'
 import type { OsmCourseLite, OverpassResponse } from './types'
-import { getCrawlState, setCrawlState, upsertCourse } from './db-writer'
+import { findCourseByExternalId, getCrawlState, setCrawlState, upsertCourse } from './db-writer'
 
 export async function fetchOsmCoursesInState(state: string): Promise<OsmCourseLite[]> {
   const bbox = STATE_BBOX[state]
@@ -97,7 +97,7 @@ export async function crawlOsm(
   limit: number | null,
 ): Promise<void> {
   let totalImported = 0
-  const totalSkipped = 0
+  let totalSkipped = 0
   let totalErrors = 0
   for (const state of states) {
     const crawlId = `osm:state:${state}`
@@ -121,6 +121,13 @@ export async function crawlOsm(
         if (!c) continue
         const externalId = `osm_${c.osmType}_${c.osmId}`
         try {
+          // International tiles overlap borders and already-crawled countries;
+          // an update would overwrite a cleaned name and a real region label
+          // with this tile's placeholder. Insert-only there.
+          if (INTL_TILES.has(state) && (await findCourseByExternalId(externalId))) {
+            totalSkipped++
+            continue
+          }
           await upsertCourse({
             externalId,
             name: c.name,
