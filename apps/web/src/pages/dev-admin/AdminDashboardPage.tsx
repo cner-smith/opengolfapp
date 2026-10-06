@@ -55,6 +55,12 @@ interface QualityPanel {
   missingCoords: number
   oddHoleCount: number
 }
+interface FunnelPanel {
+  cohorts: { week: string; steps: number[] }[]
+  total: number[]
+  roundsByHolesScored: { bucket: string; finished: number; unfinished: number }[]
+  plansByPriorRounds: { bucket: string; plans: number }[]
+}
 type Panel<T> = T | { error: string }
 interface AdminStats {
   projectRef: string
@@ -62,7 +68,41 @@ interface AdminStats {
   pending: Panel<PendingPanel>
   crawler: Panel<CrawlerPanel>
   usage: Panel<UsagePanel>
+  funnel: Panel<FunnelPanel>
   quality: Panel<QualityPanel>
+}
+
+// Same order as the plugin's stepsOf().
+const FUNNEL_STEPS = [
+  'Signed up',
+  'Onboarded',
+  'Started a round',
+  'Scored a hole',
+  '9 holes in a round',
+  'Finished a round',
+  '2 finished',
+  '3 finished',
+]
+
+function FunnelRow({ label, steps }: { label: string; steps: number[] }) {
+  const base = steps[0] ?? 0
+  return (
+    <tr style={{ borderTop: '1px solid var(--caddie-line)' }}>
+      <td className="text-caddie-ink-mute" style={{ padding: '4px 8px 4px 0', whiteSpace: 'nowrap' }}>
+        {label}
+      </td>
+      {steps.map((n, i) => (
+        <td key={i} className="text-caddie-ink" style={{ padding: '4px 6px', textAlign: 'right' }}>
+          {n}
+          {i > 0 && base > 0 && (
+            <div className="text-caddie-ink-mute" style={{ fontSize: 11 }}>
+              {Math.round((n / base) * 100)}%
+            </div>
+          )}
+        </td>
+      ))}
+    </tr>
+  )
 }
 
 function isError<T>(p: Panel<T>): p is { error: string } {
@@ -266,7 +306,7 @@ export default function AdminDashboardPage() {
     )
   }
 
-  const { projectRef, isDevProject, pending, crawler, usage, quality } = stats.data
+  const { projectRef, isDevProject, pending, crawler, usage, funnel, quality } = stats.data
 
   return (
     <div
@@ -408,6 +448,62 @@ export default function AdminDashboardPage() {
                 Profiles are written at onboarding, not at signup — anyone who signs up and
                 abandons onboarding is not counted here.
               </div>
+            </>
+          )}
+        />
+      </Card>
+
+      <Card title="Activation funnel — weekly signup cohorts">
+        <PanelBody<FunnelPanel>
+          panel={funnel}
+          render={(d) => (
+            <>
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ borderCollapse: 'collapse', fontSize: 12, width: '100%' }}>
+                  <thead>
+                    <tr>
+                      <th style={{ textAlign: 'left', fontWeight: 500 }} className="text-caddie-ink-mute">
+                        Week of
+                      </th>
+                      {FUNNEL_STEPS.map((s) => (
+                        <th
+                          key={s}
+                          className="text-caddie-ink-mute"
+                          style={{ fontWeight: 500, textAlign: 'right', padding: '0 6px' }}
+                        >
+                          {s}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {d.cohorts.map((c) => (
+                      <FunnelRow key={c.week} label={c.week} steps={c.steps} />
+                    ))}
+                    <FunnelRow label="All time" steps={d.total} />
+                  </tbody>
+                </table>
+              </div>
+              <div className="text-caddie-ink-mute" style={{ fontSize: 12 }}>
+                Users per step; % is of the cohort's signups. A scored hole is a hole score above 0.
+                Steps are reached at any time, not within a window, so recent weeks look lower.
+              </div>
+              <div className="text-caddie-ink" style={{ fontSize: 13, marginTop: 6 }}>
+                Rounds by holes scored
+              </div>
+              {d.roundsByHolesScored.map((b) => (
+                <Row
+                  key={b.bucket}
+                  label={`${b.bucket} holes`}
+                  value={`${b.finished} finished · ${b.unfinished} not`}
+                />
+              ))}
+              <div className="text-caddie-ink" style={{ fontSize: 13, marginTop: 6 }}>
+                Practice plans by scored rounds before the plan
+              </div>
+              {d.plansByPriorRounds.map((b) => (
+                <Row key={b.bucket} label={`${b.bucket} rounds`} value={b.plans} />
+              ))}
             </>
           )}
         />
