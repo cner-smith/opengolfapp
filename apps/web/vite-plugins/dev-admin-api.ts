@@ -575,14 +575,17 @@ async function funnelPanel(client: OgaSupabaseClient): Promise<FunnelPanel> {
 
   // A plan "with N rounds" counts the player's rounds that scored a hole and
   // were created before the plan. Empty rounds are noise (#1055).
-  const scoredRoundTimes = new Map<string, string[]>()
+  const scoredRoundTimes = new Map<string, number[]>()
   for (const r of rounds) {
     if (!holesScored.has(r.id)) continue
-    scoredRoundTimes.set(r.user_id, [...(scoredRoundTimes.get(r.user_id) ?? []), r.created_at])
+    const times = scoredRoundTimes.get(r.user_id) ?? []
+    times.push(Date.parse(r.created_at))
+    scoredRoundTimes.set(r.user_id, times)
   }
   const planBuckets = { '0': 0, '1': 0, '2+': 0 }
   for (const plan of plans) {
-    const n = (scoredRoundTimes.get(plan.user_id) ?? []).filter((t) => t < plan.generated_at).length
+    const generated = Date.parse(plan.generated_at)
+    const n = (scoredRoundTimes.get(plan.user_id) ?? []).filter((t) => t < generated).length
     planBuckets[n === 0 ? '0' : n === 1 ? '1' : '2+']++
   }
 
