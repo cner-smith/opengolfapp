@@ -121,8 +121,8 @@ export default function NewRound() {
   }, [query])
 
   // Capture GPS once (best-effort) so manual / API course creation can
-  // anchor hole 1 to the user's tee location. Past-round entry is
-  // historical — never prompt for location in that mode.
+  // locate the course. Past-round entry is historical — the player may be
+  // anywhere — so never prompt for location in that mode.
   useEffect(() => {
     if (mode !== 'live') return
     if (gps.status !== 'idle') return
@@ -416,10 +416,14 @@ export default function NewRound() {
       // the followup createHoles call below RLS-fails on courses with
       // created_by IS NULL.
       if (!user) throw new Error('not authenticated')
+      // GPS is only captured in live mode, where the player is at the course:
+      // it locates the COURSE, never a tee — they may be anywhere on it (#1061).
       const { data: course, error: courseErr } = await createCourse(supabase, {
         name: detail.name || r.name,
         city,
         state,
+        lat: gpsCoords?.lat ?? null,
+        lng: gpsCoords?.lng ?? null,
         external_id: r.id,
         created_by: user.id,
       })
@@ -433,16 +437,12 @@ export default function NewRound() {
               par: h.par,
               yards: h.yards ?? null,
               stroke_index: idx + 1,
-              tee_lat: idx === 0 ? gpsCoords?.lat ?? null : null,
-              tee_lng: idx === 0 ? gpsCoords?.lng ?? null : null,
             }))
           : new Array(18).fill(null).map((_, idx) => ({
               course_id: course.id,
               number: idx + 1,
               par: 4,
               stroke_index: idx + 1,
-              tee_lat: idx === 0 ? gpsCoords?.lat ?? null : null,
-              tee_lng: idx === 0 ? gpsCoords?.lng ?? null : null,
             }))
       const { error: holeErr } = await createHoles(supabase, holes)
       if (holeErr) throw holeErr
@@ -475,23 +475,20 @@ export default function NewRound() {
         gpsCoords={gpsCoords}
         busy={busy}
         onCancel={() => setShowManualForm(false)}
-        onCreate={async ({ name, location, pars }) => {
+        onCreate={async ({ name, city, state, country, pars }) => {
           setBusy(true)
           setError(null)
           try {
-            const trimmed = location?.trim() ?? ''
-            const commaIdx = trimmed.indexOf(',')
-            const city =
-              commaIdx >= 0
-                ? trimmed.slice(0, commaIdx).trim() || null
-                : trimmed || null
-            const state =
-              commaIdx >= 0 ? trimmed.slice(commaIdx + 1).trim() || null : null
             if (!user) throw new Error('not authenticated')
-            const { data: course, error: courseErr } = await createCourse(
-              supabase,
-              { name: name.trim(), city, state, created_by: user.id },
-            )
+            const { data: course, error: courseErr } = await createCourse(supabase, {
+              name: name.trim(),
+              city: city.trim() || null,
+              state: state.trim() || null,
+              country: country.trim() || null,
+              lat: gpsCoords?.lat ?? null,
+              lng: gpsCoords?.lng ?? null,
+              created_by: user.id,
+            })
             if (courseErr || !course) {
               throw courseErr ?? new Error('Course insert failed')
             }
@@ -500,8 +497,6 @@ export default function NewRound() {
               number: idx + 1,
               par,
               stroke_index: idx + 1,
-              tee_lat: idx === 0 ? gpsCoords?.lat ?? null : null,
-              tee_lng: idx === 0 ? gpsCoords?.lng ?? null : null,
             }))
             const { error: holeErr } = await createHoles(supabase, holes)
             if (holeErr) throw holeErr
