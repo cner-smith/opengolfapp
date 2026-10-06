@@ -137,7 +137,50 @@ export const STATE_BBOX: Record<string, [number, number, number, number]> = {
   // must key on "England" — hence this entry. (Cleaner is to run osm-holes
   // BEFORE the label step; this covers the label-first ordering.)
   England: [49.9, -6.5, 55.9, 1.8],
+  // International fetch tiles, #1062 (opt-in, same pattern as the British
+  // Isles). Keys are placeholders: label-intl.cjs rewrites state to the real
+  // region and sets country, by point-in-polygon. Bboxes overlap borders and
+  // reach into covered countries (FR-North touches the English coast), which
+  // is why crawlOsm is insert-only for these tiles — see INTL_TILES.
+  // ponytail: hand-tuned tiles; split one if Overpass times out on it.
+  'AU-SE': [-43.7, 141.0, -32.0, 153.7], // VIC, TAS, southern NSW
+  'AU-NE': [-32.0, 141.0, -10.6, 153.7], // northern NSW, QLD
+  'AU-West': [-35.2, 112.9, -10.6, 141.0], // WA, SA, NT
+  'FR-North': [46.5, -5.2, 51.1, 8.3],
+  'FR-South': [41.3, -1.8, 46.5, 9.6], // incl. Corsica
+  'DE-North': [51.0, 5.8, 55.1, 15.1],
+  'DE-South': [47.2, 5.8, 51.0, 15.1],
+  ES: [35.9, -9.6, 43.9, 4.4], // incl. Portugal + Balearics
+  'ES-Canarias': [27.6, -18.2, 29.5, -13.4],
+  IT: [35.4, 6.6, 47.1, 18.6],
+  NL: [50.7, 3.3, 53.6, 7.3],
+  BE: [49.4, 2.5, 51.6, 6.5],
+  SE: [55.3, 10.9, 69.1, 24.2],
+  DK: [54.5, 8.0, 57.8, 15.2], // incl. Bornholm
+  'NO-South': [57.9, 4.5, 63.0, 12.6], // NO as one tile timed out on Overpass
+  'NO-North': [63.0, 4.5, 71.2, 31.2],
 }
+
+// First wave of #1062. Pass as --states to the osm and osm-holes passes, then
+// run label-intl.cjs. Never in ALL_STATES (the US cron stays untouched).
+export const INTL_TILES = new Set([
+  'AU-SE',
+  'AU-NE',
+  'AU-West',
+  'FR-North',
+  'FR-South',
+  'DE-North',
+  'DE-South',
+  'ES',
+  'ES-Canarias',
+  'IT',
+  'NL',
+  'BE',
+  'SE',
+  'DK',
+  'NO-South',
+  'NO-North',
+])
 
 // Convenience list for the British Isles discovery run — pass as the --states
 // comma value to the osm + osm-holes passes. Not wired into ALL_STATES (opt-in).
@@ -148,6 +191,15 @@ export const UK_IE_TILES = [
   'England-South',
   'England-North',
 ] as const
+
+// Overpass reports a query timeout / memory abort as HTTP 200 with a `remark`
+// and whatever elements it had (often none). Treated as success, a timed-out
+// tile was marked done with 0 courses (NO, 2026-10-06), so callers throw.
+export function overpassRemarkError(remark: string | undefined): Error | null {
+  return remark && /runtime error|timed out|out of memory/i.test(remark)
+    ? new Error(`Overpass aborted: ${remark}`)
+    : null
+}
 
 export const MATCH_THRESHOLD = 0.7
 

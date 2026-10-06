@@ -12,7 +12,15 @@
 // idempotent: courses that already have hole geometry are skipped, so it never
 // clobbers hand-curated data and is safe to re-run / resume.
 import { inferParFromYards } from '@oga/core'
-import { OSM_DELAY_MS, OVERPASS_ENDPOINTS, STATE_BBOX, asInt, haversineMeters, sleep } from './util'
+import {
+  OSM_DELAY_MS,
+  OVERPASS_ENDPOINTS,
+  STATE_BBOX,
+  asInt,
+  haversineMeters,
+  overpassRemarkError,
+  sleep,
+} from './util'
 import {
   fetchCoursesWithHoleGeometry,
   fetchCourseGeoForState,
@@ -131,6 +139,11 @@ out geom tags;
           continue
         }
         const data = (await res.json()) as OverpassGeomResponse
+        const aborted = overpassRemarkError(data.remark)
+        if (aborted) {
+          lastErr = aborted
+          continue
+        }
         return parseHoleFeatures(data.elements)
       } catch (err) {
         lastErr = err as Error
