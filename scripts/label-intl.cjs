@@ -78,9 +78,27 @@ function withBbox(features) {
   });
 }
 
-// Exact PIP first; then the same coastal fallback as label-uk-ie.cjs (nearest
-// admin-1 bbox centre within ~0.4°) for links / island courses that sit just
-// outside the 1:10m coastline. Null = offshore, held for review.
+// Squared distance (cos-lat scaled) from a point to the nearest vertex of a geometry.
+function nearestVertexD2(x, y, geom, cosLat) {
+  const polys = geom.type === 'Polygon' ? [geom.coordinates] : geom.coordinates;
+  let best = Infinity;
+  for (const poly of polys) {
+    for (const ring of poly) {
+      for (const [vx, vy] of ring) {
+        const dx = (vx - x) * cosLat;
+        const dy = vy - y;
+        const d = dx * dx + dy * dy;
+        if (d < best) best = d;
+      }
+    }
+  }
+  return best;
+}
+
+// Exact PIP first; then, for links / island courses just outside the 1:10m
+// coastline, the admin-1 with the nearest coastline vertex within ~0.4°.
+// (label-uk-ie.cjs's bbox-centre rule put Malmö-area courses in Denmark: the
+// Øresund is narrower than the regions are wide.) Null = offshore, held.
 function findAdmin1(lng, lat, indexed) {
   for (const e of indexed) {
     const [minX, minY, maxX, maxY] = e.bbox;
@@ -94,9 +112,7 @@ function findAdmin1(lng, lat, indexed) {
   for (const e of indexed) {
     const [minX, minY, maxX, maxY] = e.bbox;
     if (lng < minX - BUF || lng > maxX + BUF || lat < minY - BUF || lat > maxY + BUF) continue;
-    const dx = (lng - (minX + maxX) / 2) * cosLat;
-    const dy = lat - (minY + maxY) / 2;
-    const d = dx * dx + dy * dy;
+    const d = nearestVertexD2(lng, lat, e.feature.geometry, cosLat);
     if (d < bestD) {
       bestD = d;
       best = e;
@@ -114,6 +130,11 @@ function selftest() {
     [50.5016, 1.5983, 'France', 'Hauts-de-France'], // Le Touquet
     [51.27, 1.35, null, 'England'], // Royal St George's, Kent (inside FR-North's bbox)
     [41.5735, 2.0539, 'Spain', 'Cataluña'], // El Prat
+    // coastal fallback: just outside the 1:10m coastline
+    [55.4016, 12.83, 'Sweden', 'Skåne'], // Flommens GK, Falsterbo
+    [55.3726, 13.0867, 'Sweden', 'Skåne'], // Trelleborgs GK
+    [54.8659, 8.4569, 'Germany', 'Schleswig-Holstein'], // Morsum, Sylt
+    [55.0821, 8.5477, 'Denmark'], // Rømø
   ];
   for (const [lat, lng, country, state] of cases) {
     const l = label(findAdmin1(lng, lat, indexed).entry.feature.properties);
