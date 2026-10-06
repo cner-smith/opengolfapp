@@ -1,5 +1,5 @@
 // OSM Overpass — state-level course discovery (centroid only).
-import { INTL_TILES, OSM_DELAY_MS, OVERPASS_ENDPOINTS, STATE_BBOX, sleep } from './util'
+import { INTL_TILES, OSM_DELAY_MS, OVERPASS_ENDPOINTS, STATE_BBOX, overpassRemarkError, sleep } from './util'
 import type { OsmCourseLite, OverpassResponse } from './types'
 import { findCourseByExternalId, getCrawlState, setCrawlState, upsertCourse } from './db-writer'
 
@@ -44,6 +44,11 @@ out center tags;
           continue
         }
         const data = (await res.json()) as OverpassResponse
+        const aborted = overpassRemarkError(data.remark)
+        if (aborted) {
+          lastErr = aborted
+          continue
+        }
         const out: OsmCourseLite[] = []
         for (const el of data.elements) {
           const tags = el.tags ?? {}

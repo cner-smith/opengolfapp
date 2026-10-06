@@ -44,7 +44,7 @@ const OUT_JSON_PATH = path.join(__dirname, 'intl-relabels.json');
 // Keep in sync with INTL_TILES in crawl/util.ts (a .cjs can't import the TS).
 const TILE_KEYS = [
   'AU-SE', 'AU-NE', 'AU-West', 'FR-North', 'FR-South', 'DE-North', 'DE-South',
-  'ES', 'ES-Canarias', 'IT', 'NL', 'BE', 'SE', 'DK', 'NO',
+  'ES', 'ES-Canarias', 'IT', 'NL', 'BE', 'SE', 'DK', 'NO-South', 'NO-North',
 ];
 const REGION_FIELD_COUNTRIES = new Set(['France', 'Spain', 'Italy', 'Portugal']);
 
@@ -118,7 +118,9 @@ function findAdmin1(lng, lat, indexed) {
       best = e;
     }
   }
-  return best ? { entry: best, exact: false } : null;
+  // The bbox prefilter alone doesn't cap distance: a big region's buffered bbox
+  // reaches far out to sea. Hold anything farther than BUF from every coastline.
+  return best && bestD <= BUF * BUF ? { entry: best, exact: false } : null;
 }
 
 // `node scripts/label-intl.cjs --selftest`: known points, no DB.
