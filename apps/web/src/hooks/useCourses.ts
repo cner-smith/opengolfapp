@@ -137,7 +137,8 @@ interface ImportFromApiArgs {
   apiId: string
   fallbackName: string
   fallbackLocation?: string | null
-  gpsTeeCoords?: { lat: number; lng: number } | null
+  /** Live rounds only: where the player is, which locates the course (#1061). */
+  gpsCoords?: { lat: number; lng: number } | null
 }
 
 // Picks an existing Supabase course by external_id, or fetches the full
@@ -170,14 +171,12 @@ export function useImportApiCourse() {
               par: h.par,
               yards: h.yards ?? null,
               stroke_index: idx + 1,
-              tee_lat: idx === 0 ? args.gpsTeeCoords?.lat ?? null : null,
-              tee_lng: idx === 0 ? args.gpsTeeCoords?.lng ?? null : null,
             }))
           : defaultHolesForCourse('')
 
       // Prefer the detail's discrete city/state. If the detail came back
       // empty, fall back to splitting the freeform fallbackLocation on
-      // its first comma — same UX as the manual form.
+      // its first comma (the search result's "City, State" string).
       let city = detail?.city ?? null
       let state = detail?.state ?? null
       if (!city && !state && args.fallbackLocation) {
@@ -213,6 +212,8 @@ export function useImportApiCourse() {
         name: detail?.name ?? args.fallbackName,
         city,
         state,
+        lat: args.gpsCoords?.lat ?? null,
+        lng: args.gpsCoords?.lng ?? null,
         external_id: args.apiId,
         created_by: user.id,
       })
@@ -306,11 +307,12 @@ export function useCreateCourseTee() {
 
 interface ManualCourseArgs {
   name: string
-  // Free-form "City, State" string from the form. Split on the first comma
-  // into discrete city + state at insert time.
-  location: string | null
+  city: string
+  state: string
+  country: string
   pars: number[]
-  gpsTeeCoords?: { lat: number; lng: number } | null
+  /** Live rounds only: where the player is, which locates the course (#1061). */
+  gpsCoords?: { lat: number; lng: number } | null
 }
 
 // Used by "Course not found? Add it →" form. pars.length determines 9-vs-18.
@@ -320,18 +322,15 @@ export function useCreateManualCourse() {
   return useMutation({
     mutationFn: async (args: ManualCourseArgs) => {
       if (!user) throw new Error('not authenticated')
-      const trimmed = args.location?.trim() ?? ''
-      const commaIdx = trimmed.indexOf(',')
-      const city =
-        commaIdx >= 0 ? trimmed.slice(0, commaIdx).trim() || null : trimmed || null
-      const state =
-        commaIdx >= 0 ? trimmed.slice(commaIdx + 1).trim() || null : null
       // See useImportApiCourse — `created_by` required by holes INSERT
       // policy (migration 0026) so the followup createHoles passes RLS.
       const { data: course, error: courseError } = await createCourse(supabase, {
         name: args.name.trim(),
-        city,
-        state,
+        city: args.city.trim() || null,
+        state: args.state.trim() || null,
+        country: args.country.trim() || null,
+        lat: args.gpsCoords?.lat ?? null,
+        lng: args.gpsCoords?.lng ?? null,
         created_by: user.id,
       })
       if (courseError || !course) {
@@ -342,8 +341,6 @@ export function useCreateManualCourse() {
         number: idx + 1,
         par,
         stroke_index: idx + 1,
-        tee_lat: idx === 0 ? args.gpsTeeCoords?.lat ?? null : null,
-        tee_lng: idx === 0 ? args.gpsTeeCoords?.lng ?? null : null,
       }))
       const { error: holesError } = await createHoles(supabase, holes)
       if (holesError) throw holesError
