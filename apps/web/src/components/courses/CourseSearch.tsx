@@ -379,6 +379,13 @@ function SearchRow({
   )
 }
 
+const INPUT_STYLE = {
+  border: '1px solid #D9D2BF',
+  borderRadius: 2,
+  padding: '10px 12px',
+  fontSize: 14,
+} as const
+
 interface ManualCourseFormProps {
   initialName: string
   gpsCoords: { lat: number; lng: number } | null
@@ -446,12 +453,7 @@ function ManualCourseForm({
           value={name}
           onChange={(e) => setName(e.target.value)}
           className="bg-caddie-bg text-caddie-ink"
-          style={{
-            border: '1px solid #D9D2BF',
-            borderRadius: 2,
-            padding: '10px 12px',
-            fontSize: 14,
-          }}
+          style={INPUT_STYLE}
         />
         <input
           type="text"
@@ -459,12 +461,7 @@ function ManualCourseForm({
           value={city}
           onChange={(e) => setCity(e.target.value)}
           className="bg-caddie-bg text-caddie-ink"
-          style={{
-            border: '1px solid #D9D2BF',
-            borderRadius: 2,
-            padding: '10px 12px',
-            fontSize: 14,
-          }}
+          style={INPUT_STYLE}
         />
         <input
           type="text"
@@ -472,12 +469,7 @@ function ManualCourseForm({
           value={state}
           onChange={(e) => setState(e.target.value)}
           className="bg-caddie-bg text-caddie-ink"
-          style={{
-            border: '1px solid #D9D2BF',
-            borderRadius: 2,
-            padding: '10px 12px',
-            fontSize: 14,
-          }}
+          style={INPUT_STYLE}
         />
         <input
           type="text"
@@ -485,12 +477,7 @@ function ManualCourseForm({
           value={country}
           onChange={(e) => setCountry(e.target.value)}
           className="bg-caddie-bg text-caddie-ink"
-          style={{
-            border: '1px solid #D9D2BF',
-            borderRadius: 2,
-            padding: '10px 12px',
-            fontSize: 14,
-          }}
+          style={INPUT_STYLE}
         />
       </div>
 
