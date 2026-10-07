@@ -2,7 +2,12 @@ import { useEffect, useMemo, useState } from 'react'
 import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from 'react-native'
 import { Link } from 'expo-router'
 import { MaterialCommunityIcons } from '@expo/vector-icons'
-import { normalizeCategoryProse, parseLocalDate, todayLocalDate } from '@oga/core'
+import {
+  normalizeCategoryProse,
+  parseLocalDate,
+  shouldPromptPlanRefresh,
+  todayLocalDate,
+} from '@oga/core'
 import type { StoredBlock, StoredFocusArea, StoredSession } from '@oga/core'
 import { AppBar } from '../../components/ui/AppBar'
 import { Entrance } from '../../components/ui/Entrance'
@@ -54,8 +59,18 @@ function formatDate(value: string | null): string {
 }
 
 export default function Practice() {
-  const { plan, drillsById, loading, generating, error, loadDrills, generate, toggleCompletion, submitFeedback } =
-    usePracticePlan()
+  const {
+    plan,
+    drillsById,
+    loading,
+    generating,
+    error,
+    roundsWithSG,
+    loadDrills,
+    generate,
+    toggleCompletion,
+    submitFeedback,
+  } = usePracticePlan()
 
   // Key on plan.drills, not plan: a completion toggle replaces the plan object
   // but leaves drills untouched, so this keeps a stable identity and avoids a
@@ -76,13 +91,24 @@ export default function Practice() {
 
   const completed = new Set(plan?.completed_drill_ids ?? [])
 
-  // No-regenerate-within-window: only offer Generate once the plan's date passed.
+  // No-regenerate-within-window: only offer Generate once the plan's date passed,
+  // or (#1056) right after the 2nd/3rd round when the plan hasn't seen them.
   const isExpired = !!plan?.valid_until && plan.valid_until < todayLocalDate()
+  const isStarter = !!plan && !plan.based_on_rounds
+  const promptRefresh =
+    !!plan &&
+    roundsWithSG != null &&
+    shouldPromptPlanRefresh({ planRounds: plan.based_on_rounds, roundsNow: roundsWithSG })
+  const generateLabel = promptRefresh
+    ? 'Update your plan with your rounds'
+    : isExpired
+      ? 'Generate this week’s plan'
+      : null
   const kicker = !plan
     ? ''
     : isExpired
       ? `Last week's plan · valid through ${formatDate(plan.valid_until)}`
-      : `Practice plan · week of ${formatDate(plan.generated_at)}${plan.valid_until ? ` · valid through ${formatDate(plan.valid_until)}` : ''}`
+      : `${isStarter ? 'Starter plan' : 'Practice plan'} · week of ${formatDate(plan.generated_at)}${plan.valid_until ? ` · valid through ${formatDate(plan.valid_until)}` : ''}`
 
   return (
     <PaperSurface style={{ flex: 1,  }}>
@@ -132,17 +158,18 @@ export default function Practice() {
                 color: INK,
                 fontSize: 26,
                 lineHeight: 31,
-                marginBottom: isExpired ? 14 : 18,
+                marginBottom: generateLabel ? 14 : 18,
               }]}
             >
               {plan.ai_insight ?? 'Your practice plan'}
             </Text>
 
-            {/* Regenerate affordance — only once the current plan has expired. */}
-            {isExpired ? (
+            {/* Regenerate affordance — once the plan has expired, or the
+                post-round "update your plan" prompt. */}
+            {generateLabel ? (
               <Key
                 tone="primary"
-                accessibilityLabel="Generate this week's plan"
+                accessibilityLabel={generateLabel}
                 disabled={generating}
                 onPress={generate}
                 style={{ marginBottom: 22 }}
@@ -152,7 +179,7 @@ export default function Practice() {
                   <ActivityIndicator color={INK} />
                 ) : (
                   <KeyText tone="primary" bold size={15}>
-                    Generate this week’s plan
+                    {generateLabel}
                   </KeyText>
                 )}
               </Key>
@@ -193,12 +220,11 @@ export default function Practice() {
               <FeedbackSection key={plan.id} initial={plan.feedback ?? ''} onSave={submitFeedback} />
             ) : null}
 
-            {plan.based_on_rounds ? (
-              <Text maxFontSizeMultiplier={FONT_CAP} style={{ ...META, paddingTop: 4 }}>
-                Based on your last {plan.based_on_rounds} round
-                {plan.based_on_rounds === 1 ? '' : 's'}
-              </Text>
-            ) : null}
+            <Text maxFontSizeMultiplier={FONT_CAP} style={{ ...META, paddingTop: 4 }}>
+              {isStarter
+                ? 'Built from your profile answers, not your rounds yet'
+                : `Based on your last ${plan.based_on_rounds} round${plan.based_on_rounds === 1 ? '' : 's'}`}
+            </Text>
 
             <View style={{ borderTopWidth: 1, borderColor: LINE, marginTop: 28, paddingTop: 18 }}>
               <Link href={'/(app)/drills' as never} asChild>

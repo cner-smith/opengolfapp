@@ -83,6 +83,19 @@ export function getRecentSGData(client: OgaSupabaseClient, userId: string, limit
     .limit(limit)
 }
 
+// Rounds the practice-plan engine can read: ANY SG column set. Same filter as
+// the generate-practice-plan Edge Function, so the Practice screen's "update
+// your plan" prompt (#1056) agrees with the function's based_on_rounds.
+export function countRoundsWithSG(client: OgaSupabaseClient, userId: string) {
+  return client
+    .from('rounds')
+    .select('id', { count: 'exact', head: true })
+    .eq('user_id', userId)
+    .or(
+      'sg_off_tee.not.is.null,sg_approach.not.is.null,sg_around_green.not.is.null,sg_putting.not.is.null',
+    )
+}
+
 // List views include in-progress rounds; the SG dashboard intentionally
 // keeps getRecentSGData (only rounds with computed SG).
 export function getRecentRounds(client: OgaSupabaseClient, userId: string, limit = 10) {

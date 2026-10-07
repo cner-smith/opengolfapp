@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { ShotCategory } from '@oga/core'
 import {
+  countRoundsWithSG,
   getDrills,
   getDrillsByIds,
   getLatestPracticePlan,
@@ -34,6 +35,20 @@ export function useLatestPracticePlan() {
       const { data, error } = await getLatestPracticePlan(supabase, user!.id)
       if (error) throw error
       return data
+    },
+  })
+}
+
+// Under the ['rounds'] prefix so completing a round (useCompleteRound) refreshes it.
+export function useRoundsWithSGCount() {
+  const { user } = useAuth()
+  return useQuery({
+    queryKey: ['rounds', 'sg-count', user?.id],
+    enabled: !!user,
+    queryFn: async () => {
+      const { count, error } = await countRoundsWithSG(supabase, user!.id)
+      if (error) throw error
+      return count ?? 0
     },
   })
 }

@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
+import { useFocusEffect } from 'expo-router'
 import {
+  countRoundsWithSG,
   getDrillsByIds,
   getLatestPracticePlan,
   saveFeedback,
@@ -38,6 +40,11 @@ export function usePracticePlan() {
   const [loading, setLoading] = useState(true)
   const [generating, setGenerating] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // Rounds the plan engine can read; drives the "update your plan" prompt
+  // (#1056). Re-counted on every focus: the tab stays mounted, and the prompt
+  // should appear when the player comes back from finishing a round. A failed
+  // count stays null and simply hides the prompt.
+  const [roundsWithSG, setRoundsWithSG] = useState<number | null>(null)
 
   const reload = useCallback(async () => {
     if (!user) return
@@ -56,6 +63,19 @@ export function usePracticePlan() {
   useEffect(() => {
     reload()
   }, [reload])
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!user) return
+      let active = true
+      countRoundsWithSG(supabase, user.id).then(({ count, error: cErr }) => {
+        if (active && !cErr) setRoundsWithSG(count ?? 0)
+      })
+      return () => {
+        active = false
+      }
+    }, [user]),
+  )
 
   const loadDrills = useCallback(async (ids: string[]) => {
     if (ids.length === 0) {
@@ -128,6 +148,7 @@ export function usePracticePlan() {
     loading,
     generating,
     error,
+    roundsWithSG,
     reload,
     loadDrills,
     generate,
