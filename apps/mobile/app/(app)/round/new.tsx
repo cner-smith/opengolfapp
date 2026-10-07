@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   ActivityIndicator,
   Linking,
@@ -8,7 +8,7 @@ import {
   TextInput,
   View,
 } from 'react-native'
-import { useLocalSearchParams, useRouter } from 'expo-router'
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import * as Location from 'expo-location'
 import {
@@ -59,7 +59,16 @@ interface GpsState {
   lng?: number
 }
 
+// round/new is a hidden tab, so it stays mounted after the player leaves it:
+// the next "Start live round" reopened the last course's setup step or a
+// half-filled add-course form (#1075). Remount on every blur instead.
 export default function NewRound() {
+  const [visit, setVisit] = useState(0)
+  useFocusEffect(useCallback(() => () => setVisit((v) => v + 1), []))
+  return <NewRoundScreen key={visit} />
+}
+
+function NewRoundScreen() {
   const { user } = useAuth()
   const router = useRouter()
   const params = useLocalSearchParams<{ mode?: string }>()
