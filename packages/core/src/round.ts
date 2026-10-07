@@ -199,6 +199,15 @@ export function isStaleEmptyRound(
   return now - Date.parse(round.created_at) > 24 * 60 * 60 * 1000
 }
 
+// Finished = marked complete, or carries a score: imported and pre-0029
+// rounds have a total but no completed_at.
+export function isFinishedRound(r: {
+  completed_at: string | null
+  total_score: number | null
+}): boolean {
+  return r.completed_at != null || (r.total_score ?? 0) > 0
+}
+
 // Suffix for a round's date line in the rounds lists: " · partial · 6 of 18".
 export function partialRoundLabel(
   holeScores: readonly HoleScoreForCount[] | null | undefined,

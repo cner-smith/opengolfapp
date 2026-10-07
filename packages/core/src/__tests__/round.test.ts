@@ -13,6 +13,7 @@ import {
   roundHolesPlayed,
   isPartialRound,
   isStaleEmptyRound,
+  isFinishedRound,
   partialRoundLabel,
   summarizePuttParts,
   summarizeShotParts,
@@ -537,5 +538,18 @@ describe('formatHoleList', () => {
   it('single hole / empty', () => {
     expect(formatHoleList([5])).toBe('5')
     expect(formatHoleList([])).toBe('')
+  })
+})
+
+describe('isFinishedRound', () => {
+  it('counts a round marked complete, even with no score', () => {
+    expect(isFinishedRound({ completed_at: '2026-10-01T18:00:00Z', total_score: null })).toBe(true)
+  })
+  it('counts a scored round with no completed_at (imported / pre-0029)', () => {
+    expect(isFinishedRound({ completed_at: null, total_score: 88 })).toBe(true)
+  })
+  it('does not count an open round or the past-round 0 sentinel', () => {
+    expect(isFinishedRound({ completed_at: null, total_score: null })).toBe(false)
+    expect(isFinishedRound({ completed_at: null, total_score: 0 })).toBe(false)
   })
 })
