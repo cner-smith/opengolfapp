@@ -1,13 +1,18 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   buildInitialRows,
+  clubTypicalDistance,
   combinedBreakDirection,
   haversineYards,
   horizontalBreakFromAim,
   isPuttShot,
   obCount,
+  type Club,
   type ReviewedShotRow,
 } from '@oga/core'
+import { useAuth } from '../../hooks/useAuth'
+import { useUserBag } from '../../hooks/useUserBag'
+import { useClubDispersion } from '../../pages/rounds/hooks/useClubDispersion'
 import { GreenDiagram } from './GreenDiagram'
 import type { PlacedPoint } from './RoundMap'
 import { ShotRow } from './HoleReviewShotRow'
@@ -75,6 +80,22 @@ export function HoleReviewSheet({
   placedPointsRef.current = placedPoints
   const storedShotsRef = useRef(storedShots)
   storedShotsRef.current = storedShots
+  // The club guess matches the typical distances My Bag shows: measured once
+  // a club has enough shots, else the typed estimate (#1052).
+  const { user } = useAuth()
+  const { bag } = useUserBag()
+  const { byClub } = useClubDispersion(user?.id)
+  const userBag = useMemo(
+    () =>
+      bag.map((c) => {
+        const d = byClub.get(c.club_type as Club)
+        const t = clubTypicalDistance(d?.medianDistanceYards, d?.sampleSize ?? 0, c.typical_distance_yards)
+        return { club_type: c.club_type, typical_distance_yards: t?.yards ?? null }
+      }),
+    [bag, byClub],
+  )
+  const userBagRef = useRef(userBag)
+  userBagRef.current = userBag
 
   // Hydrate rows from the placed coordinates once per (hole, open). After
   // hydration the user's typing/dropdown choices are the source of truth —
@@ -96,7 +117,7 @@ export function HoleReviewSheet({
     const points = placedPointsRef.current
     const baseRows: ReviewedShotRow[] =
       pinLat != null && pinLng != null
-        ? buildInitialRows(points, par, pinLat, pinLng)
+        ? buildInitialRows(points, par, pinLat, pinLng, userBagRef.current)
         : points.map((p, idx) => {
             const isLast = idx === points.length - 1
             const next = isLast ? p : points[idx + 1]!

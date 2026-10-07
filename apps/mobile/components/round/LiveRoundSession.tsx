@@ -13,6 +13,7 @@ import {
   applyCapturedShots,
   bearingDegrees,
   buildInitialRows,
+  clubTypicalDistance,
   destinationYards,
   formatClubLabel,
   getExpectedStrokes,
@@ -404,12 +405,15 @@ export default function LiveRoundSession({
       .filter((c) => c.club_type !== 'putter' && !seen.has(c.club_type) && !!seen.add(c.club_type))
       .map((c) => {
         const d = byClub.get(c.club_type as Club)
+        // DEFAULT_BAG rows carry no typed distance.
+        const typed = (c as { typical_distance_yards?: number | null }).typical_distance_yards
         return {
           club: c.club_type as Club,
           name: formatClubLabel(c),
           // The wheel is 124 wide: "driver" at 32 sp pushed the meta off the card.
           label: c.club_type === 'driver' ? 'dr' : formatClubLabel(c),
-          typicalYards: d?.medianDistanceYards ?? null,
+          // Measured once the club has 5 shots, else the My Bag estimate (#1052).
+          typicalYards: clubTypicalDistance(d?.medianDistanceYards, d?.points.length ?? 0, typed)?.yards ?? null,
           shots: d?.points.length ?? 0,
           sparse: !d?.dispersion,
         }
@@ -528,9 +532,15 @@ export default function LiveRoundSession({
     // reason the chip's label is (see the OB props below): the fetched flags
     // lag our own write by a refetch, and finishing the hole inside that
     // window would seed the sheet without the penalty.
+    // The club guess matches the same typical distances the wheel shows (#1052).
+    const userBag = bag.map((c) => {
+      const d = byClub.get(c.club_type as Club)
+      const t = clubTypicalDistance(d?.medianDistanceYards, d?.points.length ?? 0, c.typical_distance_yards)
+      return { club_type: c.club_type, typical_distance_yards: t?.yards ?? null }
+    })
     // What the round already stored (a live putt) beats the distance guess.
     return applyCapturedShots(
-      buildInitialRows(pts, par, pin.lat, pin.lng),
+      buildInitialRows(pts, par, pin.lat, pin.lng, userBag),
       data.previousShotCaptured,
     ).map((r, i) => (actions.shotObs[i] ? { ...r, shotResult: 'ob' as const } : r))
   }, [
@@ -538,6 +548,8 @@ export default function LiveRoundSession({
     data.previousShots,
     data.previousShotCaptured,
     actions.shotObs,
+    bag,
+    byClub,
     data.roundPin,
     data.storedPin,
     data.resolvedHole?.par,

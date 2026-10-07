@@ -125,7 +125,9 @@ function stdDev(xs: number[], avg: number): number {
 
 const DOMINANT_MISS_THRESHOLD_YARDS = 2
 const SHOT_SHAPE_THRESHOLD_YARDS = 3
-const MIN_SAMPLES_FOR_STATS = 5
+/** Shots a club needs before its pattern (and its measured typical distance)
+ *  counts. Below this the live wheel shows "N more". */
+export const MIN_SAMPLES_FOR_STATS = 5
 // 2D containment radii. The fraction of a bivariate-normal scatter inside an
 // axis-scaled ellipse is 1 − e^(−k²/2), so 68% / 95% containment needs
 // k = √(−2·ln(1−p)) — NOT the 1-D 1σ / 1.96σ rule, which here would enclose
@@ -233,6 +235,31 @@ export function computeAimRelativeDispersion(shots: Shot[]): AimRelativeDispersi
     points,
     sampleSize: points.length,
   }
+}
+
+export interface ClubTypicalDistance {
+  yards: number
+  /** 'shots': the median of the player's own shots. 'estimate': the distance
+   *  typed in My Bag, used until the club has enough shots. */
+  source: 'shots' | 'estimate'
+}
+
+/**
+ * The one typical distance per club that My Bag, the live club wheel and the
+ * review sheet's club guess all show (#1052). The measured median wins once
+ * the club has MIN_SAMPLES_FOR_STATS usable shots (the wheel's rule); below
+ * that the typed distance stands in as an estimate. Null when neither exists.
+ */
+export function clubTypicalDistance(
+  medianYards: number | null | undefined,
+  shots: number,
+  typedYards: number | null | undefined,
+): ClubTypicalDistance | null {
+  if (shots >= MIN_SAMPLES_FOR_STATS && medianYards != null) {
+    return { yards: medianYards, source: 'shots' }
+  }
+  if (typedYards != null) return { yards: typedYards, source: 'estimate' }
+  return null
 }
 
 export interface DispersionFilter {

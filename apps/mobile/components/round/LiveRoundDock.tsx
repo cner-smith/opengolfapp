@@ -12,7 +12,7 @@ import Animated, {
   type SharedValue,
 } from 'react-native-reanimated'
 import Svg, { Defs, LinearGradient, Path, Rect, Stop } from 'react-native-svg'
-import { tourMakePercent, type Club } from '@oga/core'
+import { MIN_SAMPLES_FOR_STATS as MIN_SHOTS, tourMakePercent, type Club } from '@oga/core'
 import { useUnits } from '../../hooks/useUnits'
 import { TYPE } from '../../lib/typography'
 import { Key, KeyText, PaperSurface, Rocker } from '../paper/Paper'
@@ -336,6 +336,7 @@ export interface WheelRow {
   label: string
   /** Spoken name ("driver"). */
   name: string
+  /** Measured once the club has MIN_SHOTS, else the My Bag estimate. */
   typicalYards: number | null
   /** Usable (aim-tracked) shots with this club. */
   shots: number
@@ -351,7 +352,6 @@ export interface WheelProps {
   onPick: (club: Club) => void
 }
 
-const MIN_SHOTS = 5
 // Row centres at rest: a 49 neighbour + half the 60 centre block (F6).
 const PITCH = 54
 const VIEW_H = 158
@@ -458,7 +458,7 @@ function ClubWheel({ rows, selected, auto, onPick }: WheelProps) {
           accessibilityValue={{
             text: row
               ? // The unit as a word: TalkBack can spell "yd" out letter by letter.
-                `${row.name}${row.typicalYards != null && !row.sparse ? `, typical distance ${toDisplay(row.typicalYards).split(' ')[0]} ${unit}` : ''}${sel === autoIdx ? ', auto pick' : ''}`
+                `${row.name}${row.typicalYards != null ? `, ${row.sparse ? 'estimated' : 'typical'} distance ${toDisplay(row.typicalYards).split(' ')[0]} ${unit}` : ''}${sel === autoIdx ? ', auto pick' : ''}`
               : '',
           }}
           accessibilityActions={[{ name: 'increment' }, { name: 'decrement' }]}
@@ -619,6 +619,13 @@ function WheelRowView({
       <Animated.View style={[{ marginLeft: 'auto', alignItems: 'flex-end', transformOrigin: 'right center' }, scaleStyle]}>
         {row.sparse ? (
           <>
+            {/* The My Bag estimate, muted until the club has its own shots. */}
+            {distance != null && (
+              <Text allowFontScaling={false} numberOfLines={1} style={[TYPE.serif, { fontSize: 20, lineHeight: 24, color: P.inkDim }]}>
+                {num}
+                <Text allowFontScaling={false} style={[TYPE.kicker, { fontSize: 13 }]}>{'\u2009'}{unit}</Text>
+              </Text>
+            )}
             <Text allowFontScaling={false} style={[TYPE.body, { fontSize: 12, lineHeight: 15, color: P.ink }]}>{MIN_SHOTS - row.shots} more</Text>
             <View style={{ flexDirection: 'row', gap: 3, marginTop: 2 }}>
               {Array.from({ length: MIN_SHOTS }, (_, i) => (
