@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { TYPE } from '../../../lib/typography'
 import { Key, KeyText, PaperSurface } from '../../paper/Paper'
 import { SectionHead } from '../../paper/Section'
@@ -27,6 +28,7 @@ export function ManualCourseForm({
   onCancel: () => void
   onCreate: (args: ManualFormArgs) => Promise<void>
 }) {
+  const insets = useSafeAreaInsets()
   const [name, setName] = useState(initialName)
   const [city, setCity] = useState('')
   const [state, setState] = useState('')
@@ -48,7 +50,7 @@ export function ManualCourseForm({
   return (
     <PaperSurface style={{ flex: 1 }}>
       <ScrollView
-        contentContainerStyle={{ padding: 18, paddingBottom: 40 }}
+        contentContainerStyle={{ padding: 18, paddingTop: insets.top + 14, paddingBottom: 40 }}
         keyboardShouldPersistTaps="handled"
       >
         <Text maxFontSizeMultiplier={FONT_CAP} style={{ ...META, marginBottom: 8 }}>Add course</Text>
