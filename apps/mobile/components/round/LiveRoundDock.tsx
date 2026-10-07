@@ -282,7 +282,17 @@ function voiceLine(p: LiveRoundDockProps): ReactNode {
             </Pressable>
           }
         >
-          Your aim is your start line — drag it to adjust.
+          Aim where you want it to finish — drag to adjust.
+        </Voice>
+      )
+    }
+    // #1076: early on only — while the club in hand has no pattern yet, so
+    // the line fades out club by club.
+    const inHand = p.wheel.rows.find((r) => r.club === p.wheel.selected) ?? p.wheel.rows[0]
+    if (!inHand || inHand.sparse) {
+      return (
+        <Voice>
+          Aim where you want it to <Em>finish</Em>. That’s what builds your pattern.
         </Voice>
       )
     }
