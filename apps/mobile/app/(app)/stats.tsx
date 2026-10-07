@@ -284,7 +284,8 @@ export default function Stats() {
           // Partial rounds only (#1078): the averages would read 0.00.
           <StatsPartialOnly
             holes={roundHolesPlayed(rounds[0]!.hole_scores)?.played ?? null}
-            course={(rounds[0] as { courses?: { name: string } | null }).courses?.name ?? null}
+            // getRoundsWithDetails selects courses(name); DetailedRound doesn't declare it.
+            course={(rounds[0] as { courses?: { name: string | null } | null }).courses?.name ?? null}
           />
         ) : (
           <>
