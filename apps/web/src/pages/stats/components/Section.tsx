@@ -60,33 +60,6 @@ export function Insufficient({ note }: { note: string }) {
   )
 }
 
-export function EmptyState() {
-  return (
-    <div
-      className="bg-caddie-surface text-center"
-      style={{
-        border: '1px solid #D9D2BF',
-        borderRadius: 4,
-        padding: '40px 24px',
-      }}
-    >
-      <div
-        className="font-serif text-caddie-ink"
-        style={{ fontSize: 22, fontWeight: 500 }}
-      >
-        No rounds in this window.
-      </div>
-      <div
-        className="text-caddie-ink-dim"
-        style={{ fontSize: 15, marginTop: 8, maxWidth: 360, marginInline: 'auto' }}
-      >
-        Finalize a round to see the full breakdown — strokes gained,
-        scoring, ball striking, short game, and patterns.
-      </div>
-    </div>
-  )
-}
-
 export function Skeleton() {
   return (
     <div>
