@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { ScrollView, Text, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { CAPTURE_MODES, CAPTURE_MODE_LABELS, type CaptureMode } from '@oga/core'
+import { CAPTURE_MODES, CAPTURE_MODE_LABELS, isFinishedRound, type CaptureMode } from '@oga/core'
 import { TYPE } from '../../../lib/typography'
 import { getCached } from '../../../lib/screenCache'
 import { TeePicker } from '../RoundTeeSelector'
@@ -41,11 +41,9 @@ export function RoundSetupStep({
   // their first finished one nudges toward shot patterns. Read from Home's
   // cached recent rounds — Home is the only way here — rather than a new
   // query. No cache (Home's fetch failed or hasn't landed) = old default.
-  // A scored round counts too: imported and pre-0029 rounds have no
-  // completed_at.
   const [finishedRounds] = useState(() =>
     getCached<{ completed_at: string | null; total_score: number | null }[]>('home:rounds')
-      ?.filter((r) => r.completed_at != null || (r.total_score ?? 0) > 0).length,
+      ?.filter(isFinishedRound).length,
   )
   const [captureMode, setCaptureMode] = useState<CaptureMode>(
     finishedRounds === 0 ? 'just_track' : 'track_patterns',
