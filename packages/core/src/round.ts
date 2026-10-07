@@ -187,6 +187,18 @@ export function isPartialRound(
   return c != null && c.played < c.of
 }
 
+// A round with no scored hole (score > 0; a 0 row is a placeholder) started
+// more than a day ago — a "Start live round" tap to look around. Hidden from
+// the round lists and Home (#1055); within the day it still shows so the
+// player can resume it. Measured from created_at: played_at can be backdated.
+export function isStaleEmptyRound(
+  round: { created_at: string; hole_scores?: readonly { score: number | null }[] | null },
+  now: number = Date.now(),
+): boolean {
+  if (round.hole_scores?.some((hs) => (hs.score ?? 0) > 0)) return false
+  return now - Date.parse(round.created_at) > 24 * 60 * 60 * 1000
+}
+
 // Suffix for a round's date line in the rounds lists: " · partial · 6 of 18".
 export function partialRoundLabel(
   holeScores: readonly HoleScoreForCount[] | null | undefined,

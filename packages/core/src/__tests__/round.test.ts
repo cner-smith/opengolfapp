@@ -12,6 +12,7 @@ import {
   formatHoleList,
   roundHolesPlayed,
   isPartialRound,
+  isStaleEmptyRound,
   partialRoundLabel,
   summarizePuttParts,
   summarizeShotParts,
@@ -385,6 +386,28 @@ describe('inferHoleCount', () => {
 
   it('a single mapped hole 10 already implies 18', () => {
     expect(inferHoleCount([10])).toBe(18)
+  })
+})
+
+describe('isStaleEmptyRound', () => {
+  const now = Date.parse('2026-10-07T12:00:00Z')
+  const created = (hoursAgo: number) => new Date(now - hoursAgo * 3_600_000).toISOString()
+
+  it('hides a round older than a day with only 0-score placeholder rows', () => {
+    expect(isStaleEmptyRound({ created_at: created(25), hole_scores: [{ score: 0 }, { score: null }] }, now)).toBe(true)
+  })
+
+  it('hides a round older than a day with no hole rows at all', () => {
+    expect(isStaleEmptyRound({ created_at: created(48), hole_scores: [] }, now)).toBe(true)
+    expect(isStaleEmptyRound({ created_at: created(48), hole_scores: null }, now)).toBe(true)
+  })
+
+  it('keeps an empty round started within the last day', () => {
+    expect(isStaleEmptyRound({ created_at: created(23), hole_scores: [{ score: 0 }] }, now)).toBe(false)
+  })
+
+  it('keeps an old round with one scored hole', () => {
+    expect(isStaleEmptyRound({ created_at: created(500), hole_scores: [{ score: 0 }, { score: 5 }] }, now)).toBe(false)
   })
 })
 
