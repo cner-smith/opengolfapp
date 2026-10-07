@@ -90,7 +90,7 @@ export function getRecentRounds(client: OgaSupabaseClient, userId: string, limit
   return client
     .from('rounds')
     .select(
-      `id, played_at, created_at, sg_off_tee, sg_approach, sg_around_green, sg_putting, sg_total, total_score, courses(name), ${HOLE_COUNT_EMBED}`,
+      `id, played_at, completed_at, created_at, sg_off_tee, sg_approach, sg_around_green, sg_putting, sg_total, total_score, courses(name), ${HOLE_COUNT_EMBED}`,
     )
     .eq('user_id', userId)
     .order('played_at', { ascending: false })
