@@ -6,6 +6,7 @@ import {
   CLUB_CATEGORY_LABELS,
   DEFAULT_BAG,
   clubCategoryFor,
+  clubNoun,
   formatClubLabel,
 } from '../constants'
 
@@ -207,5 +208,19 @@ describe('formatClubLabel', () => {
     expect(
       formatClubLabel({ club_type: 'cw', loft: 58 }, { hasDuplicateType: true }),
     ).toBe('58°')
+  })
+})
+
+describe('clubNoun', () => {
+  it('spells out numbered clubs and wedges', () => {
+    expect(clubNoun('7i')).toBe('7-iron')
+    expect(clubNoun('3w')).toBe('3-wood')
+    expect(clubNoun('4h')).toBe('4-hybrid')
+    expect(clubNoun('sw')).toBe('sand wedge')
+  })
+
+  it('falls back to the spaced club type', () => {
+    expect(clubNoun('driver')).toBe('driver')
+    expect(clubNoun('mini_driver')).toBe('mini driver')
   })
 })

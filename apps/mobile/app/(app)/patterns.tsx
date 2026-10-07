@@ -15,6 +15,7 @@ import {
   computeDispersion,
   computeDispersionStats,
   dispersionVerdict,
+  MIN_SAMPLES_FOR_STATS,
   filterDispersionByLie,
   getAimCorrection,
   legacySlopeToAxes,
@@ -40,6 +41,8 @@ import { FONT, TYPE } from '../../lib/typography'
 import { Key, KeyText, PaperSurface, HardShadow } from '../../components/paper/Paper'
 import { SectionHead } from '../../components/paper/Section'
 import { FONT_CAP, P } from '../../components/paper/tokens'
+import { useClubDispersion } from '../../components/round/hole/useClubDispersion'
+import { PatternsEmpty, PatternsProgress } from '../../components/patterns/PatternsPreview'
 
 interface ShotRowMin {
   id: string
@@ -110,6 +113,20 @@ export default function Patterns() {
   useEffect(() => {
     if (clubOptions.length && !clubOptions.includes(club)) setClub(clubOptions[0]!)
   }, [clubOptions, club])
+  // Per-club shot counts with start + aim + finish, the wheel's count (#1076).
+  const { byClub, loading: countsLoading } = useClubDispersion(user?.id)
+  const aimed = (c: Club) => byClub.get(c)?.points.length ?? 0
+  const anyAimed = [...byClub.values()].some((d) => d.points.length > 0)
+  // Open on the club with the most aimed shots when the 7i has none, so a
+  // player with 4 drivers doesn't land on "0 of 5" for an iron. Once only.
+  const pickedStart = useRef(false)
+  useEffect(() => {
+    if (countsLoading || pickedStart.current) return
+    pickedStart.current = true
+    if (aimed(club) > 0) return
+    const best = clubOptions.reduce<Club | null>((b, c) => (aimed(c) > (b ? aimed(b) : 0) ? c : b), null)
+    if (best) setClub(best)
+  }, [countsLoading])
   // Putter patterns read in feet like every other green distance (#923);
   // its formatter picks its own precision, so `decimals` is yards/metres only.
   const dist = (yards: number, decimals = 0) =>
@@ -197,6 +214,33 @@ export default function Patterns() {
     } finally {
       setSharing(false)
     }
+  }
+
+  // No aimed shot anywhere → the example (B); this club under 5 → its
+  // progress (P). Lie filters don't count: a filter can't unmake a pattern.
+  if (countsLoading || !anyAimed || aimed(club) < MIN_SAMPLES_FOR_STATS) {
+    return (
+      <PaperSurface style={{ flex: 1 }}>
+        <AppBar eyebrow={countsLoading || anyAimed ? `Club ${club}` : 'No aimed shots yet'} title="Shot Patterns" />
+        {countsLoading ? (
+          <Text style={[TYPE.body, { color: '#8A8B7E', fontSize: 13, padding: 18 }]}>Loading…</Text>
+        ) : !anyAimed ? (
+          <PatternsEmpty />
+        ) : (
+          <PatternsProgress
+            club={club}
+            points={byClub.get(club)?.points ?? []}
+            bag={clubOptions.map((c) => ({
+              club: c,
+              label: c === 'driver' ? 'dr' : c,
+              shots: aimed(c),
+              typicalYards: byClub.get(c)?.medianDistanceYards ?? null,
+            }))}
+            onPickClub={setClub}
+          />
+        )}
+      </PaperSurface>
+    )
   }
 
   return (

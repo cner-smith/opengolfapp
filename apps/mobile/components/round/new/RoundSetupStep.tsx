@@ -18,6 +18,7 @@ export function RoundSetupStep({
   courseId,
   courseName,
   mode,
+  initialCapture,
   busy,
   onBack,
   onStart,
@@ -25,6 +26,8 @@ export function RoundSetupStep({
   courseId: string
   courseName: string
   mode: 'live' | 'past'
+  /** Set by the Patterns preview's "Track shot patterns" button (#1076). */
+  initialCapture?: CaptureMode
   busy: boolean
   onBack: () => void
   onStart: (
@@ -46,7 +49,7 @@ export function RoundSetupStep({
       ?.filter(isFinishedRound).length,
   )
   const [captureMode, setCaptureMode] = useState<CaptureMode>(
-    finishedRounds === 0 ? 'just_track' : 'track_patterns',
+    initialCapture ?? (finishedRounds === 0 ? 'just_track' : 'track_patterns'),
   )
 
   return (
