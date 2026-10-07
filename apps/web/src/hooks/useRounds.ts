@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { isStaleEmptyRound } from '@oga/core'
 import {
   createRound,
   deleteRound,
@@ -20,7 +21,8 @@ export function useRounds(limit = 20) {
     queryFn: async () => {
       const { data, error } = await getRounds(supabase, user!.id, limit)
       if (error) throw error
-      return data
+      // Old rounds with no scored hole stay out of the lists (#1055).
+      return data.filter((r) => !isStaleEmptyRound(r))
     },
   })
 }

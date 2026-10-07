@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router'
 import { DeviceEventEmitter, Pressable, ScrollView, Text, View } from 'react-native'
-import { formatSG, isPartialRound, sgBreakdown } from '@oga/core'
+import { formatSG, isPartialRound, isStaleEmptyRound, sgBreakdown } from '@oga/core'
 import { deleteRound, getProfile, getRecentRounds } from '@oga/supabase'
 import type { Database } from '@oga/supabase'
 import { supabase } from '../../lib/supabase'
@@ -35,6 +35,7 @@ import { PaperSurface } from '../../components/paper/Paper'
 type Profile = Database['public']['Tables']['profiles']['Row']
 
 interface RecentRound extends RecentRoundRow {
+  created_at: string
   sg_off_tee: number | null
   sg_approach: number | null
   sg_around_green: number | null
@@ -138,8 +139,10 @@ export default function Home() {
           return
         }
         if (data) {
-          setRounds(data as RecentRound[])
-          setCached('home:rounds', data)
+          // Old rounds with no scored hole stay off Home (#1055).
+          const kept = (data as RecentRound[]).filter((r) => !isStaleEmptyRound(r))
+          setRounds(kept)
+          setCached('home:rounds', kept)
         }
         setRoundsLoading(false)
       })
