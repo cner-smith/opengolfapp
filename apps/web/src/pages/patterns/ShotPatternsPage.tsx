@@ -4,6 +4,7 @@ import {
   CLUBS,
   DEFAULT_BAG,
   LIE_TYPES,
+  MIN_SAMPLES_FOR_STATS,
   getAimCorrection,
   type Club,
   type LieSlopeForward,
@@ -12,7 +13,7 @@ import {
   type DispersionPoint,
   type DispersionStats,
 } from '@oga/core'
-import { useShotPatterns } from '../../hooks/useShotPatterns'
+import { useHasAimedShots, useShotPatterns } from '../../hooks/useShotPatterns'
 import { LieSlopeGrid } from '../../components/forms/LieSlopeGrid'
 import { useUnits } from '../../hooks/useUnits'
 import { useUserBag } from '../../hooks/useUserBag'
@@ -22,6 +23,7 @@ import {
   SVG_SIZE,
 } from './components/DispersionPlot'
 import { ShotPatternsShareCard } from './components/ShotPatternsShareCard'
+import { PatternExplainer, PatternProgress, PatternsEmpty } from './components/PatternsPreview'
 
 const FLIGHT_W = 460
 const FLIGHT_H = 520
@@ -53,7 +55,8 @@ export function ShotPatternsPage() {
     undefined,
   )
 
-  const { data, isLoading } = useShotPatterns({
+  const hasAimed = useHasAimedShots()
+  const { data, isLoading, clubShots } = useShotPatterns({
     club,
     lieType: lieType || undefined,
     lieSlopeForward,
@@ -134,25 +137,25 @@ export function ShotPatternsPage() {
     }
   }
 
+  // No aimed shot in any club → the example page (#1076).
+  if (hasAimed.isLoading || hasAimed.data === false) {
+    return (
+      <div>
+        <PageHeader
+          subtitle={
+            hasAimed.isLoading
+              ? 'Loading…'
+              : 'No shots with an aim yet. Here’s what one club’s pattern looks like once you have some.'
+          }
+        />
+        {!hasAimed.isLoading && <PatternsEmpty />}
+      </div>
+    )
+  }
+
   return (
     <div>
-      <div style={{ marginBottom: 28 }}>
-        <div className="kicker" style={{ marginBottom: 8 }}>
-          Dispersion ledger
-        </div>
-        <h1
-          className="font-serif text-caddie-ink"
-          style={{ fontSize: 28, fontWeight: 500, lineHeight: 1.15 }}
-        >
-          Shot Patterns
-        </h1>
-        <div
-          className="text-caddie-ink-dim"
-          style={{ fontSize: 15, marginTop: 6, maxWidth: 560 }}
-        >
-          Per-club dispersion centered on the aim point you set before each shot.
-        </div>
-      </div>
+      <PageHeader subtitle="Per-club dispersion centered on the aim point you set before each shot." />
 
       <Section kicker="Club">
         <div className="flex flex-wrap" style={{ gap: 6 }}>
@@ -317,6 +320,8 @@ export function ShotPatternsPage() {
                     value={`±${toDisplay(stats.cone68.lateral, 1)} / ${toDisplay(stats.cone68.distance, 1)}`}
                   />
                 </dl>
+              ) : !isLoading && clubShots < MIN_SAMPLES_FOR_STATS ? (
+                <PatternProgress club={club} shots={clubShots} />
               ) : (
                 <p
                   className="font-serif text-caddie-ink"
@@ -399,6 +404,8 @@ export function ShotPatternsPage() {
         </div>
       </div>
 
+      {!isLoading && clubShots < MIN_SAMPLES_FOR_STATS && <PatternExplainer />}
+
       {/* Off-screen render target for the 1200×630 share card. Self-
           contained inline styles so the rasteriser needs no external
           stylesheet at capture time. */}
@@ -423,6 +430,28 @@ export function ShotPatternsPage() {
           </div>
         </div>
       )}
+    </div>
+  )
+}
+
+function PageHeader({ subtitle }: { subtitle: string }) {
+  return (
+    <div style={{ marginBottom: 28 }}>
+      <div className="kicker" style={{ marginBottom: 8 }}>
+        Dispersion ledger
+      </div>
+      <h1
+        className="font-serif text-caddie-ink"
+        style={{ fontSize: 28, fontWeight: 500, lineHeight: 1.15 }}
+      >
+        Shot Patterns
+      </h1>
+      <div
+        className="text-caddie-ink-dim"
+        style={{ fontSize: 15, marginTop: 6, maxWidth: 560 }}
+      >
+        {subtitle}
+      </div>
     </div>
   )
 }

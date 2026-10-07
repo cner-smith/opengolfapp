@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import {
+  aimRelativeOffsets,
   computeDispersion,
   computeDispersionStats,
   filterDispersionByLie,
@@ -9,7 +10,7 @@ import {
   type LieType,
   type Shot,
 } from '@oga/core'
-import { getShotsByClub } from '@oga/supabase'
+import { getShotsByClub, getShotsForUser } from '@oga/supabase'
 import { supabase } from '../lib/supabase'
 import { useAuth } from './useAuth'
 
@@ -81,5 +82,21 @@ export function useShotPatterns({
     return { points, stats: computeDispersionStats(points) }
   }, [query.data, lieType, lieSlopeForward, lieSlopeSide])
 
-  return { ...query, data: filtered }
+  // Unfiltered aimed-shot count: the 5-shot progress ignores lie filters (#1076).
+  return { ...query, data: filtered, clubShots: query.data?.length ?? 0 }
+}
+
+// Any shot with start + aim + finish, in any club. False → Shot Patterns
+// shows its example instead of an empty page (#1076).
+export function useHasAimedShots() {
+  const { user } = useAuth()
+  return useQuery({
+    queryKey: ['patterns-any-aimed', user?.id],
+    enabled: !!user,
+    queryFn: async () => {
+      const { data, error } = await getShotsForUser(supabase, user!.id)
+      if (error) throw error
+      return (data ?? []).some((r) => aimRelativeOffsets(rowToShot(r as Record<string, unknown>)) != null)
+    },
+  })
 }
