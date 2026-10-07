@@ -498,13 +498,8 @@ function ManualCourseForm({
         <div className="kicker" style={{ marginBottom: 10 }}>
           Par per hole — tap to cycle 3/4/5
         </div>
-        <div
-          className="grid"
-          style={{
-            gridTemplateColumns: `repeat(${holeCount === 18 ? 9 : 9}, 1fr)`,
-            gap: 8,
-          }}
-        >
+        {/* 9 circles don't fit a phone-width card; 6 per row there (#1067). */}
+        <div className="grid grid-cols-6 sm:grid-cols-9" style={{ gap: 8 }}>
           {visiblePars.map((p, idx) => (
             <button
               key={idx}
