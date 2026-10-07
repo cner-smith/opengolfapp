@@ -9,8 +9,9 @@ import { haversineYards } from './units'
 /** A user-bag entry the inference layer can match against. Values mirror
  *  the `user_clubs` row but the inference engine never imports
  *  @oga/supabase, so we accept the minimal shape. `typical_distance_yards`
- *  is the user's typical distance; when present we prefer it over the
- *  static lookup table. */
+ *  is the club's typical distance (callers pass clubTypicalDistance's
+ *  pick, not the raw typed column); near the shot it beats the static
+ *  lookup table. */
 export interface UserBagClub {
   club_type: string
   typical_distance_yards?: number | null
@@ -33,9 +34,9 @@ export interface PlacedShot {
   totalShotsOnHole: number
   par: number
   /** Optional user bag. When supplied, club suggestion restricts to
-   *  clubs the user actually carries; if rows include
-   *  `typical_distance_yards`, the suggester picks the nearest match
-   *  by user-measured distance instead of the static table. */
+   *  clubs the user actually carries; if a row's `typical_distance_yards`
+   *  (see clubTypicalDistance) is near the shot, the suggester picks the
+   *  nearest such club instead of the static table. */
   userBag?: readonly UserBagClub[]
 }
 
@@ -91,10 +92,17 @@ function clubForTeeShot(distanceYards: number, par: number): Club {
   return clubForFullShotYards(distanceYards)
 }
 
+// How far a shot may be from a club's typical distance and still be guessed
+// as that club. Usually only some clubs have a distance (5+ shots or a typed
+// one); without this a bag where only the driver has one would guess driver
+// for every shot. Wider than half the gap between neighbouring clubs, so a
+// bag with distances throughout always matches.
+const USER_DISTANCE_MATCH_YARDS = 20
+
 // Pick the user's club whose typical_distance_yards is closest to the
-// shot distance. Only considers rows where the user has actually
-// recorded a typical distance. Returns null when the bag has no usable
-// distances so callers can fall back.
+// shot distance. Only considers rows with a distance, never the putter
+// (off the green the table never guesses one either). Returns null when no
+// club is within USER_DISTANCE_MATCH_YARDS so callers can fall back.
 function clubFromUserDistances(
   distanceYards: number,
   bag: readonly UserBagClub[],
@@ -102,13 +110,13 @@ function clubFromUserDistances(
   let best: { club_type: string; diff: number } | null = null
   for (const club of bag) {
     const dist = club.typical_distance_yards
-    if (dist == null) continue
+    if (dist == null || club.club_type === 'putter') continue
     const diff = Math.abs(dist - distanceYards)
     if (best === null || diff < best.diff) {
       best = { club_type: club.club_type, diff }
     }
   }
-  return best?.club_type ?? null
+  return best && best.diff <= USER_DISTANCE_MATCH_YARDS ? best.club_type : null
 }
 
 // Picked club may not be in the user's bag — swap to the nearest one
@@ -218,8 +226,8 @@ export function inferShot(shot: PlacedShot): InferredShot {
     if (fromDistances != null) {
       club = fromDistances
     } else {
-      // User bag exists but no typical_distance_yards anywhere — restrict
-      // the table pick to clubs they actually carry.
+      // No club's typical distance is near this shot — restrict the table
+      // pick to clubs they actually carry.
       const swapped = nearestBaggedClub(club as Club, shot.userBag)
       if (swapped != null) club = swapped
     }

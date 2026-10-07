@@ -2,7 +2,7 @@
 // same buildInitialRows call as the web review sheet — keeping both
 // behind one function avoids the inevitable drift.
 
-import { inferShot, type InferredShot, type PlacedShot } from './shotInference'
+import { inferShot, type InferredShot, type PlacedShot, type UserBagClub } from './shotInference'
 import type {
   Club,
   LieType,
@@ -346,6 +346,7 @@ export function buildInitialRows(
   par: number,
   pinLat: number,
   pinLng: number,
+  userBag?: readonly UserBagClub[],
 ): ReviewedShotRow[] {
   const total = points.length
   const rows: ReviewedShotRow[] = []
@@ -367,6 +368,7 @@ export function buildInitialRows(
       pinLng,
       totalShotsOnHole: total,
       par,
+      userBag,
     }
     const inferred: InferredShot = inferShot(placed)
     rows.push({

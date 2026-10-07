@@ -349,6 +349,54 @@ describe('inferShot — userBag-aware club selection', () => {
     expect(result.suggestedClub).toBe('chipper')
   })
 
+  it('a bag where only the driver has a distance does not guess driver for a 150 yd approach', () => {
+    // Table says 6i; the bag carries 6i, so the far-off driver distance
+    // (100 yd away) must not win.
+    const result = inferShot(
+      placedShot({
+        shotNumber: 2,
+        startLat: offsetLatYards(TEE.lat, 220),
+        endLat: offsetLatYards(TEE.lat, 370),
+        userBag: [
+          { club_type: 'driver', typical_distance_yards: 250 },
+          { club_type: '6i' },
+          { club_type: '7i' },
+        ],
+      }),
+    )
+    expect(result.suggestedClub).toBe('6i')
+  })
+
+  it('a club within 20 yd of the shot still wins over the table', () => {
+    // 150 yd shot, the player's 8i goes 168 — 18 yd off, still the guess.
+    const result = inferShot(
+      placedShot({
+        shotNumber: 2,
+        startLat: offsetLatYards(TEE.lat, 220),
+        endLat: offsetLatYards(TEE.lat, 370),
+        userBag: [{ club_type: '8i', typical_distance_yards: 168 }, { club_type: '6i' }],
+      }),
+    )
+    expect(result.suggestedClub).toBe('8i')
+  })
+
+  it('never guesses the putter off the green from its typical distance', () => {
+    // A 20 yd pitch from 40 yd out (fringe lie); the putter's 8 yd median
+    // is the nearest distance but the table's lw stands.
+    const result = inferShot(
+      placedShot({
+        shotNumber: 3,
+        startLat: offsetLatYards(TEE.lat, 340),
+        endLat: offsetLatYards(TEE.lat, 360),
+        userBag: [
+          { club_type: 'putter', typical_distance_yards: 8 },
+          { club_type: 'lw' },
+        ],
+      }),
+    )
+    expect(result.suggestedClub).toBe('lw')
+  })
+
   it('userBag never overrides putter on the green', () => {
     // Even with a wedge calibrated at near-zero, a putt must still
     // suggest putter — the green-check happens before the bag swap.

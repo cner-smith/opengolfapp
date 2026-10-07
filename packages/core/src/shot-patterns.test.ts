@@ -1,12 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import {
   aimRelativeOffsets,
+  clubTypicalDistance,
   computeAimRelativeDispersion,
   computeDispersion,
   computeDispersionStats,
   dispersionVerdict,
   filterDispersionByLie,
   getAimCorrection,
+  MIN_SAMPLES_FOR_STATS,
   type DispersionPoint,
   type DispersionStats,
 } from './shot-patterns'
@@ -316,5 +318,24 @@ describe('computeAimRelativeDispersion', () => {
     expect(r.perpMean).toBeCloseTo(4.8, 0) // all shots right of aim
     expect(r.perp95).toBeGreaterThan(r.perp68)
     expect(r.perp68).toBeGreaterThan(0)
+  })
+})
+
+describe('clubTypicalDistance', () => {
+  it('uses the measured median once the club has MIN_SAMPLES_FOR_STATS shots', () => {
+    expect(clubTypicalDistance(152, MIN_SAMPLES_FOR_STATS, 140)).toEqual({ yards: 152, source: 'shots' })
+  })
+
+  it('falls back to the typed distance one shot short of the threshold', () => {
+    expect(clubTypicalDistance(152, MIN_SAMPLES_FOR_STATS - 1, 140)).toEqual({ yards: 140, source: 'estimate' })
+  })
+
+  it('falls back to the typed distance when no shot had both ends', () => {
+    expect(clubTypicalDistance(null, 12, 140)).toEqual({ yards: 140, source: 'estimate' })
+  })
+
+  it('is null with too few shots and nothing typed', () => {
+    expect(clubTypicalDistance(152, 2, null)).toBeNull()
+    expect(clubTypicalDistance(undefined, 0, undefined)).toBeNull()
   })
 })
