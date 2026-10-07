@@ -8,6 +8,7 @@ import {
   formatClubLabel,
   formatSG,
   isPartialRound,
+  roundHolesPlayed,
   sgStandouts,
   symmetricNiceTicks,
   YARDS_TO_METERS,
@@ -29,6 +30,7 @@ import { FONT, TYPE } from '../../lib/typography'
 import { PaperTile, SectionHead, StatTile } from '../../components/paper/Section'
 import { PaperSurface } from '../../components/paper/Paper'
 import { FONT_CAP, P } from '../../components/paper/tokens'
+import { StatsEmpty, StatsPartialOnly } from '../../components/stats/StatsPreview'
 
 const N_OPTIONS = [5, 10, 20] as const
 // Short labels for the standout callout, keyed to SGAverages (camelCase);
@@ -277,28 +279,13 @@ export default function Stats() {
         {loading ? (
           <Text style={[TYPE.body, { color: '#8A8B7E', fontSize: 13 }]}>Loading…</Text>
         ) : rounds.length === 0 ? (
-          <PaperTile innerStyle={{ padding: 22 }}>
-            <Text
-              maxFontSizeMultiplier={FONT_CAP}
-              style={[TYPE.serif, {
-                color: P.ink,
-                fontSize: 22,
-              }]}
-            >
-              No rounds yet.
-            </Text>
-            <Text
-              maxFontSizeMultiplier={FONT_CAP}
-              style={[TYPE.body, {
-                color: P.inkDim,
-                fontSize: 14,
-                marginTop: 8,
-                lineHeight: 20,
-              }]}
-            >
-              Finalize a round to see SG trends per category.
-            </Text>
-          </PaperTile>
+          <StatsEmpty />
+        ) : wholeRounds.length === 0 ? (
+          // Partial rounds only (#1078): the averages would read 0.00.
+          <StatsPartialOnly
+            holes={roundHolesPlayed(rounds[0]!.hole_scores)?.played ?? null}
+            course={(rounds[0] as { courses?: { name: string } | null }).courses?.name ?? null}
+          />
         ) : (
           <>
             {stats && <StandoutCallout sg={stats.sg} />}

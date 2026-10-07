@@ -118,7 +118,7 @@ export function useHoleState({
   // fix arrives. Lets markBallHere decline a stale fallback fix (#720).
   const gpsFixAtRef = useRef(0)
   const [gpsNonce, setGpsNonce] = useState(0)
-  // First-use hint that "aim point = start line, drag to adjust." Gated
+  // First-use hint: aim where you want it to finish, drag to adjust. Gated
   // by a per-account flag (lib/seenFlags) so it only appears the first time
   // the player ever sets an aim point, then auto-dismisses after 3s.
   const [aimHintVisible, setAimHintVisible] = useState(false)
