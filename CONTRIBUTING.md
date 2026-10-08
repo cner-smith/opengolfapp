@@ -53,6 +53,10 @@ git push --force-with-lease origin <your-branch>
 4. Title in imperative present tense ("Add lie-slope filter to patterns").
 5. **One concern per PR.** UI restyle, bug fix, and new feature do not
    belong in the same PR.
+6. **Own every line.** You must understand, and be able to explain and
+   maintain, every line you submit, however it was written. PRs that read
+   as unreviewed AI output will be closed. How the project itself uses AI
+   is in [AI-DECLARATION.md](AI-DECLARATION.md).
 
 Maintainers periodically merge `dev → main` via PR to cut a release;
 contributors don't open PRs against `main`.
