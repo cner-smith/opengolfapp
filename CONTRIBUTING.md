@@ -88,6 +88,12 @@ genuinely unreadable. Two similar lines are fine. Single-caller
 merge-conflict pain point, raise it as a separate refactor issue
 rather than splitting under a feature PR.
 
+The one exception: no hand-written source file (logic or UI) goes over
+1,000 lines. A file that gets there qualifies as "genuinely unreadable"
+and should be split. Seed data (`supabase/seed.sql`), generated files
+(`packages/supabase/src/types.ts`, lockfiles) and assets are out of
+scope.
+
 ### Pure logic lives in `@oga/core`
 
 All shared business math, stats engines, SG calculation, units
