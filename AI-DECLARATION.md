@@ -35,7 +35,7 @@ against the code:
 - Shared domain logic (strokes gained, stats, dispersion, units) lives in one
   package, `packages/core`, and new exports there need tests.
 - Ship the minimum: no speculative options, no helpers extracted until they have
-  three callers, no hand-written source file over 1,000 lines.
+  three callers, no hand-written source file (logic or UI) over 1,000 lines.
 - One concern per pull request, and CI (typecheck, tests, mobile typecheck, web
   build) must pass before review.
 - Bug reports need a reproduction before a fix, and fixes are verified in the
