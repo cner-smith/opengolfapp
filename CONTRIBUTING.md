@@ -53,6 +53,10 @@ git push --force-with-lease origin <your-branch>
 4. Title in imperative present tense ("Add lie-slope filter to patterns").
 5. **One concern per PR.** UI restyle, bug fix, and new feature do not
    belong in the same PR.
+6. **Own every line.** You must understand, and be able to explain and
+   maintain, every line you submit, however it was written. PRs that read
+   as unreviewed AI output will be closed. How the project itself uses AI
+   is in [AI-DECLARATION.md](AI-DECLARATION.md).
 
 Maintainers periodically merge `dev → main` via PR to cut a release;
 contributors don't open PRs against `main`.
@@ -83,6 +87,12 @@ genuinely unreadable. Two similar lines are fine. Single-caller
 "components" stay co-located in the parent file. If a file becomes a
 merge-conflict pain point, raise it as a separate refactor issue
 rather than splitting under a feature PR.
+
+The one exception: no hand-written source file (logic or UI) goes over
+1,000 lines. A file that gets there qualifies as "genuinely unreadable"
+and should be split. Seed data (`supabase/seed.sql`), generated files
+(`packages/supabase/src/types.ts`, lockfiles) and assets are out of
+scope.
 
 ### Pure logic lives in `@oga/core`
 
