@@ -116,7 +116,7 @@ onFlowComplete:
 - tapOn: "Start round →"
 # First visit: the round-screen tips open over everything.
 - extendedWaitUntil:
-    visible: "Mark my ball|Waiting for GPS…|Skip tips"
+    visible: "Mark my ball.*|Waiting for GPS…|Skip tips"
     timeout: 60000
 - runFlow:
     when:
@@ -125,10 +125,10 @@ onFlowComplete:
       - takeScreenshot: lr-02-tips
       - tapOn: "Skip tips"
 - extendedWaitUntil:
-    visible: "Mark my ball"
+    visible: "Mark my ball.*"
     timeout: 60000
 - takeScreenshot: lr-03-live-before-mark
-- tapOn: "Mark my ball"
+- tapOn: "Mark my ball.*"
 # The aim-step tips open ~700 ms later on a fresh install; dismiss them so the screenshot shows the map.
 - extendedWaitUntil:
     visible: "Skip tips"
