@@ -154,7 +154,10 @@ jobs:
         run: |
           curl -fsSL "$BUILD_URL" -o "$RUNNER_TEMP/sim.tar.gz"
           mkdir -p "$RUNNER_TEMP/orig" && tar -xzf "$RUNNER_TEMP/sim.tar.gz" -C "$RUNNER_TEMP/orig"
-          BEFORE=$(find "$RUNNER_TEMP/orig" -name main.jsbundle | head -1 | xargs shasum | cut -d' ' -f1)
+          BEFORE_FILE=$(find "$RUNNER_TEMP/orig" -name main.jsbundle | head -1)
+          [ -n "$BEFORE_FILE" ] || { echo "::error::no main.jsbundle in the EAS build"; exit 1; }
+          BEFORE=$(shasum "$BEFORE_FILE" | cut -d' ' -f1)
+          mkdir -p "$RUNNER_TEMP/repacked"
           npx --yes "@expo/repack-app@${REPACK_VERSION}" -p ios --source-app "$RUNNER_TEMP/sim.tar.gz" \
             -o "$RUNNER_TEMP/repacked/OGA.app" --embed-bundle-assets
           APP="$RUNNER_TEMP/repacked/OGA.app"
@@ -181,6 +184,8 @@ jobs:
             xcrun simctl terminate "$UDID" golf.oga.app || true
             codesign --force --sign - --preserve-metadata=entitlements "$APP"
             xcrun simctl install "$UDID" "$APP"
+            xcrun simctl launch "$UDID" golf.oga.app > /dev/null \
+              || { echo "::error::app still fails to launch after an ad-hoc signature"; exit 1; }
           fi
           xcrun simctl terminate "$UDID" golf.oga.app || true
           echo "UDID=$UDID" >> "$GITHUB_ENV"
@@ -219,9 +224,8 @@ jobs:
         if: ${{ !cancelled() }}
         run: |
           mkdir -p "$RUNNER_TEMP/shots"
-          shopt -s nullglob
-          for f in "$GITHUB_WORKSPACE"/apps/mobile/.maestro/*.png; do mv "$f" "$RUNNER_TEMP/shots/"; done
-          n=$(ls "$RUNNER_TEMP"/shots/*.png 2>/dev/null | wc -l | tr -d ' ')
+          find "$GITHUB_WORKSPACE/apps/mobile/.maestro" -maxdepth 1 -name '*.png' -exec mv {} "$RUNNER_TEMP/shots/" \;
+          n=$(find "$RUNNER_TEMP/shots" -maxdepth 1 -name '*.png' | wc -l | tr -d ' ')
           echo "screenshots: $n"
           [ "$n" -gt 0 ] || { echo "::error::Maestro produced no screenshots"; exit 1; }
 
