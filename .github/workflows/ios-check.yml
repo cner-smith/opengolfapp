@@ -218,13 +218,21 @@ jobs:
           maestro --device "$UDID" test -e E2E_EMAIL="$E2E_EMAIL" -e E2E_PASSWORD="$E2E_PASSWORD" \
             "$GITHUB_WORKSPACE/apps/mobile/.maestro/ios-live-round.yaml"
 
-      # Maestro may write takeScreenshot files next to the flow instead of the working directory
-      # (unverified for 2.11.0). Gather from both; never from a Maestro debug/output directory (logs).
+      # What is on screen when a flow failed: the visible text only (no logs, no secrets).
+      - name: Dump visible UI text (failure only)
+        if: ${{ failure() }}
+        continue-on-error: true
+        run: |
+          maestro --device "$UDID" hierarchy | grep -oE '"(text|accessibilityText)" *: *"[^"]+"' | sort -u | head -80
+
+      # Maestro 2.11 saves takeScreenshot files (and failure screenshots) under ~/.maestro/tests/<run>/,
+      # next to maestro.log, which contains the typed password. Copy ONLY the PNGs.
       - name: Collect screenshots
         if: ${{ !cancelled() }}
         run: |
           mkdir -p "$RUNNER_TEMP/shots"
-          find "$GITHUB_WORKSPACE/apps/mobile/.maestro" -maxdepth 1 -name '*.png' -exec mv {} "$RUNNER_TEMP/shots/" \;
+          find "$HOME/.maestro/tests" -name '*.png' -exec cp -n {} "$RUNNER_TEMP/shots/" \;
+          find "$RUNNER_TEMP/shots" -maxdepth 1 -name '*.png' | sed 's#.*/##' | sort
           n=$(find "$RUNNER_TEMP/shots" -maxdepth 1 -name '*.png' | wc -l | tr -d ' ')
           echo "screenshots: $n"
           [ "$n" -gt 0 ] || { echo "::error::Maestro produced no screenshots"; exit 1; }
