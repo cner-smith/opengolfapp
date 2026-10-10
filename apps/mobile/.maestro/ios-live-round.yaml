@@ -1,0 +1,92 @@
+# iOS live-round check. Run by .github/workflows/ios-check.yml after `simctl location` has put the
+# simulator on Whistling Straits hole 1. Starts a live round, marks the ball, reaches the aim step,
+# screenshots it, then deletes the round so the CI user stays clean (onFlowComplete runs on failure too).
+appId: golf.oga.app
+name: iOS live round — start, mark ball, aim, clean up
+onFlowComplete:
+  - runFlow:
+      when:
+        visible: "Skip tips"
+      commands:
+        - tapOn: "Skip tips"
+  - runFlow:
+      when:
+        visible: "Round options"
+      commands:
+        - tapOn: "Round options"
+        - tapOn: "Delete round"
+        - tapOn: "Delete"
+        - extendedWaitUntil:
+            visible: "By the numbers"
+            timeout: 30000
+---
+- launchApp:
+    clearState: true
+    clearKeychain: true
+    permissions:
+      all: allow
+- extendedWaitUntil:
+    visible: "Sign in to OGA"
+    timeout: 60000
+- tapOn:
+    below: "Email"
+- inputText: ${E2E_EMAIL}
+- tapOn:
+    below: "Password"
+- inputText: ${E2E_PASSWORD}
+- tapOn: "Sign in to OGA"
+- tapOn: "Sign in"
+- extendedWaitUntil:
+    visible: "Skip splash|By the numbers|Skip intro tour"
+    timeout: 60000
+- runFlow:
+    when:
+      visible: "Skip splash"
+    commands:
+      - tapOn: "Skip splash"
+- extendedWaitUntil:
+    visible: "By the numbers|Skip intro tour"
+    timeout: 60000
+- runFlow:
+    when:
+      visible: "Skip intro tour"
+    commands:
+      - tapOn: "Skip intro tour"
+- extendedWaitUntil:
+    visible: "By the numbers"
+    timeout: 30000
+# Start a live round on Whistling Straits.
+- tapOn: "Start live round"
+- extendedWaitUntil:
+    visible: "Pick a course to start"
+    timeout: 30000
+- tapOn: "Search courses…"
+- inputText: "Whistling Straits"
+- takeScreenshot: lr-01-course-search
+- tapOn: "Whistling Straits.*"
+# A multi-course facility shows a unit list first (‹ Back is visible); pick the first unit.
+- runFlow:
+    when:
+      visible: "‹ Back"
+    commands:
+      - takeScreenshot: lr-01b-course-units
+      - tapOn: "Whistling Straits.*"
+- tapOn: "Start round →"
+# First visit: the round-screen tips open over everything.
+- extendedWaitUntil:
+    visible: "Mark my ball|Waiting for GPS…|Skip tips"
+    timeout: 60000
+- runFlow:
+    when:
+      visible: "Skip tips"
+    commands:
+      - takeScreenshot: lr-02-tips
+      - tapOn: "Skip tips"
+- extendedWaitUntil:
+    visible: "Mark my ball"
+    timeout: 60000
+- takeScreenshot: lr-03-live-before-mark
+- tapOn: "Mark my ball"
+- waitForAnimationToEnd:
+    timeout: 5000
+- takeScreenshot: lr-04-aim
