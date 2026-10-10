@@ -231,7 +231,8 @@ jobs:
         if: ${{ !cancelled() }}
         run: |
           mkdir -p "$RUNNER_TEMP/shots"
-          find "$HOME/.maestro/tests" -name '*.png' -exec cp -n {} "$RUNNER_TEMP/shots/" \;
+          # Skip the debug shots Maestro writes when an optional "Not Now" wait doesn't match.
+          find "$HOME/.maestro/tests" -name '*.png' ! -name 'step-*Not_Now*' -exec cp -n {} "$RUNNER_TEMP/shots/" \;
           find "$RUNNER_TEMP/shots" -maxdepth 1 -name '*.png' | sed 's#.*/##' | sort
           n=$(find "$RUNNER_TEMP/shots" -maxdepth 1 -name '*.png' | wc -l | tr -d ' ')
           echo "screenshots: $n"
