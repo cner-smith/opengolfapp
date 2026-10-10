@@ -1,11 +1,12 @@
-# iOS visual smoke on Maestro Cloud (simulator build: eas build -p ios --profile simulator).
-# Signs in as the DEV e2e user and screenshots the main screens. E2E_EMAIL / E2E_PASSWORD are
+# iOS visual smoke. Run by .github/workflows/ios-check.yml on a simulator build of the PR.
+# Signs in as the DEV CI user and screenshots the main screens. E2E_EMAIL / E2E_PASSWORD are
 # passed as env at run time — never commit them.
 appId: golf.oga.app
 name: iOS smoke — sign in, tabs, live round
 ---
 - launchApp:
     clearState: true
+    clearKeychain: true
     permissions:
       all: allow
 - extendedWaitUntil:
