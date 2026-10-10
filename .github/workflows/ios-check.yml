@@ -40,6 +40,7 @@ jobs:
     runs-on: macos-15
     timeout-minutes: 90
     permissions:
+      actions: read          # to name the failing step in the PR comment
       contents: write
       pull-requests: write
     # GitHub keeps ONE pending run per group: a third queued run replaces the second (a different PR's
@@ -50,8 +51,11 @@ jobs:
     defaults:
       run:
         shell: bash
-    # Secrets are scoped to the steps that need them (EXPO_TOKEN, E2E_*), not the whole job: npm
-    # lifecycle scripts, npx-resolved packages and the Maestro installer must not see them.
+    # Secrets are scoped to the steps that need them (EXPO_TOKEN, E2E_*), not the whole job, so unrelated
+    # steps (npm lifecycle scripts, the Maestro installer) never receive them as env vars. This is NOT a
+    # sandbox: eas-cli, @expo/repack-app and the Maestro installer are installed from unpinned transitive
+    # dependencies / a mutable URL, and the job holds a contents:write token. Hardening (lockfile for the
+    # tools, checksum for Maestro, publish in a separate job) is a tracked owner decision.
     env:
       SHA: ${{ github.event.pull_request.head.sha || github.sha }}
       PR: ${{ github.event.pull_request.number }}
@@ -109,7 +113,7 @@ jobs:
             id=$(jq -r .id <<<"$pick")
             s=""
             for _ in $(seq 1 80); do
-              eas build:view "$id" --json | sed -n '/^[\[{]/,$p' > "$RUNNER_TEMP/view.json"
+              eas build:view "$id" --json | sed -n '/^[\[{]/,$p' > "$RUNNER_TEMP/view.json" || { sleep 30; continue; }
               s=$(jq -r .status "$RUNNER_TEMP/view.json")
               case "$s" in
                 FINISHED) break ;;
@@ -175,7 +179,7 @@ jobs:
         run: |
           sudo xcode-select -s /Applications/Xcode_26.2.app
           xcodebuild -version
-          xcrun simctl list runtimes | grep -i "iOS 26" || { echo "::error::no iOS 26 simulator runtime on this image"; exit 1; }
+          xcrun simctl list runtimes | grep -q "SimRuntime.iOS-26-2" || { echo "::error::iOS 26.2 simulator runtime missing on this image"; exit 1; }
           UDID=$(xcrun simctl create oga com.apple.CoreSimulator.SimDeviceType.iPhone-16 com.apple.CoreSimulator.SimRuntime.iOS-26-2)
           xcrun simctl boot "$UDID"
           xcrun simctl bootstatus "$UDID" -b
@@ -218,21 +222,30 @@ jobs:
           maestro --device "$UDID" test -e E2E_EMAIL="$E2E_EMAIL" -e E2E_PASSWORD="$E2E_PASSWORD" \
             "$GITHUB_WORKSPACE/apps/mobile/.maestro/ios-live-round.yaml"
 
-      # What is on screen when a flow failed: the visible text only (no logs, no secrets).
-      - name: Dump visible UI text (failure only)
-        if: ${{ failure() }}
-        continue-on-error: true
-        run: |
-          maestro --device "$UDID" hierarchy | grep -oE '"(text|accessibilityText)" *: *"[^"]+"' | sort -u | head -80
-
-      # Maestro 2.11 saves takeScreenshot files (and failure screenshots) under ~/.maestro/tests/<run>/,
-      # next to maestro.log, which contains the typed password. Copy ONLY the PNGs.
+      # Maestro 2.11 saves takeScreenshot files (and failure screenshots, named step-*) under
+      # ~/.maestro/tests/<run>/, next to maestro.log, which contains the typed password. Copy ONLY PNGs, and
+      # only publish a run's failure screenshots (step-*) once that run got past sign-in: a failed login can
+      # leave the typed email (or, if a layout change mis-targets the password field, the password) in
+      # clear text on screen, and the media branch is public and permanent. The deliberate takeScreenshot
+      # shots (01-login is taken before anything is typed) are always safe.
       - name: Collect screenshots
         if: ${{ !cancelled() }}
         run: |
           mkdir -p "$RUNNER_TEMP/shots"
-          # Skip the debug shots Maestro writes when an optional "Not Now" wait doesn't match.
-          find "$HOME/.maestro/tests" -name '*.png' ! -name 'step-*Not_Now*' -exec cp -n {} "$RUNNER_TEMP/shots/" \;
+          if [ -d "$HOME/.maestro/tests" ]; then
+            for dir in "$HOME"/.maestro/tests/*/; do
+              signed_in=0
+              if [ -e "${dir}02-after-sign-in.png" ] || [ -e "${dir}lr-00-signed-in.png" ]; then signed_in=1; fi
+              while IFS= read -r f; do
+                n=$(basename "$f")
+                case "$n" in
+                  step-*Not_Now*) continue ;;   # debug shots from optional waits
+                  step-*) [ "$signed_in" = 1 ] || continue ;;
+                esac
+                cp -n "$f" "$RUNNER_TEMP/shots/"
+              done < <(find "$dir" -name '*.png')
+            done
+          fi
           find "$RUNNER_TEMP/shots" -maxdepth 1 -name '*.png' | sed 's#.*/##' | sort
           n=$(find "$RUNNER_TEMP/shots" -maxdepth 1 -name '*.png' | wc -l | tr -d ' ')
           echo "screenshots: $n"
@@ -267,6 +280,11 @@ jobs:
             echo "- Commit \`${SHA:0:7}\` · ${BUILD_NOTE:-no build step reached}"
             echo "- Fingerprint \`${FP:-n/a}\` · ${XCODE:-no simulator}"
             echo "- Smoke flow: ${SMOKE:-skipped} · Live-round flow: ${LIVE:-skipped}"
+            if [ "$JOB_STATUS" != success ]; then
+              FAILED=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/jobs" \
+                --jq '[.jobs[] | select(.name == "ios") | .steps[] | select(.conclusion == "failure") | .name] | first // empty' 2>/dev/null || true)
+              [ -z "$FAILED" ] || echo "- Failed step: $FAILED"
+            fi
             echo "- [Run log]($RUN_URL)"
             echo
             cat "$OUT_MD"

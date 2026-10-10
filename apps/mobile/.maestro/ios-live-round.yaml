@@ -74,6 +74,9 @@ onFlowComplete:
 - extendedWaitUntil:
     visible: "By the numbers"
     timeout: 30000
+# Signed in. The CI workflow publishes a run's failure screenshots only if this one exists (a failed login can
+# leave typed credentials on screen).
+- takeScreenshot: lr-00-signed-in
 # A round left over from an earlier run replaces "Start live round" with a Resume banner on Home.
 # The CI user is dedicated, so delete it rather than fail every later run.
 - runFlow:
