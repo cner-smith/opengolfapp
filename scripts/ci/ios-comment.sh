@@ -4,7 +4,7 @@
 set -euo pipefail
 body=$1
 id=$(gh api "repos/$GITHUB_REPOSITORY/issues/$PR/comments" --paginate \
-  --jq '.[] | select(.body | contains("<!-- ios-check -->")) | .id' | head -n1 || true)
+  --jq '.[] | select(.user.login == "github-actions[bot]" and (.body | contains("<!-- ios-check -->"))) | .id' | sed -n 1p)
 if [ -n "$id" ]; then
   gh api -X PATCH "repos/$GITHUB_REPOSITORY/issues/comments/$id" -F body=@"$body" > /dev/null
 else

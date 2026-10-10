@@ -20,12 +20,14 @@ git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
 mkdir -p "$DEST"
 cp "${pngs[@]}" "$DEST/"
+date +%s > "$DEST/.ts"
 
-# Keep only the 3 newest SHA directories for this PR (the new one has no commit yet: treat it as newest).
+# Keep only the 3 newest SHA directories for this PR. Each carries its own .ts: a shallow clone gives
+# every directory the tip commit's time, so git history can't order them. No .ts (older layout) = oldest.
 parent=$(dirname "$DEST")
 for d in "$parent"/*/; do
   d=${d%/}
-  echo "$(git log -1 --format=%ct -- "$d" | sed 's/^$/9999999999/') $d"
+  echo "$(cat "$d/.ts" 2>/dev/null || echo 0) $d"
 done | sort -rn | tail -n +4 | cut -d' ' -f2- | while IFS= read -r old; do rm -rf "$old"; done
 
 git add -A
