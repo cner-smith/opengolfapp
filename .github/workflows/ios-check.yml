@@ -1,0 +1,293 @@
+name: iOS check
+
+on:
+  pull_request:
+    branches: [main, dev]
+    types: [opened, synchronize, reopened, labeled]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    outputs:
+      run: ${{ steps.g.outputs.run }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20.19.4
+      - run: node --test scripts/ci/ios-gate.test.mjs scripts/ci/ios-pick-build.test.mjs
+      - id: g
+        env:
+          EVENT: ${{ github.event_name }}
+          ACTION: ${{ github.event.action }}
+          LABEL: ${{ github.event.label.name }}
+          BASE: ${{ github.base_ref }}
+          HEAD: ${{ github.head_ref }}
+          HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+          REPO: ${{ github.repository }}
+          LABELS: ${{ toJSON(github.event.pull_request.labels.*.name) }}
+        run: node scripts/ci/ios-gate.mjs
+
+  ios:
+    needs: gate
+    if: needs.gate.outputs.run == 'true'
+    runs-on: macos-15
+    timeout-minutes: 90
+    permissions:
+      actions: read          # to name the failing step in the PR comment
+      contents: write
+      pull-requests: write
+    # GitHub keeps ONE pending run per group: a third queued run replaces the second (a different PR's
+    # run can lose its slot). Acceptable for a pre-release check; re-run the lost one by hand.
+    concurrency:
+      group: ios-check
+      cancel-in-progress: false
+    defaults:
+      run:
+        shell: bash
+    # Secrets are scoped to the steps that need them (EXPO_TOKEN, E2E_*), not the whole job, so unrelated
+    # steps (npm lifecycle scripts, the Maestro installer) never receive them as env vars. This is NOT a
+    # sandbox: eas-cli, @expo/repack-app and the Maestro installer are installed from unpinned transitive
+    # dependencies / a mutable URL, and the job holds a contents:write token. Hardening (lockfile for the
+    # tools, checksum for Maestro, publish in a separate job) is a tracked owner decision.
+    env:
+      SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+      PR: ${{ github.event.pull_request.number }}
+      DEV_REF: txquvfeyvkaetqlamqlz
+      PROD_REF: znjmkptblswxststjxwc
+      EAS_CLI_VERSION: 24.12.1
+      REPACK_VERSION: 0.10.4
+      MAESTRO_VERSION: 2.11.0
+      CI: "1"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.SHA }}
+          persist-credentials: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20.19.4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Install
+        run: |
+          (cd packages/supabase && npm install --legacy-peer-deps)
+          (cd packages/core && npm install --legacy-peer-deps)
+          (cd apps/mobile && npm ci --legacy-peer-deps)
+          npm install -g "eas-cli@${EAS_CLI_VERSION}"
+
+      - name: Fingerprint
+        working-directory: apps/mobile
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          H=$(eas fingerprint:generate -p ios -e simulator --json --non-interactive | sed -n '/^[\[{]/,$p' | jq -r .hash)
+          [ -n "$H" ] && [ "$H" != null ] || { echo "::error::no fingerprint"; exit 1; }
+          echo "FP=$H" >> "$GITHUB_ENV"
+          echo "fingerprint: $H"
+
+      - name: Find or build a simulator build
+        working-directory: apps/mobile
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          list() { eas build:list -p ios -e simulator --fingerprint-hash "$FP" --status "$1" --json --non-interactive --limit 5 | sed -n '/^\[/,$p'; }
+          list finished > "$RUNNER_TEMP/finished.json"
+          list in-progress > "$RUNNER_TEMP/running1.json"
+          list in-queue > "$RUNNER_TEMP/running2.json"
+          pick=$(node ../../scripts/ci/ios-pick-build.mjs "$RUNNER_TEMP/finished.json" "$RUNNER_TEMP/running1.json" "$RUNNER_TEMP/running2.json")
+          echo "pick: $pick"
+          kind=$(jq -r .kind <<<"$pick")
+          if [ "$kind" = running ]; then
+            id=$(jq -r .id <<<"$pick")
+            s=""
+            for _ in $(seq 1 80); do
+              eas build:view "$id" --json | sed -n '/^[\[{]/,$p' > "$RUNNER_TEMP/view.json" || { sleep 30; continue; }
+              s=$(jq -r .status "$RUNNER_TEMP/view.json")
+              case "$s" in
+                FINISHED) break ;;
+                ERRORED|CANCELED) echo "::error::build $id ended $s"; exit 1 ;;
+              esac
+              sleep 30
+            done
+            [ "$s" = FINISHED ] || { echo "::error::timed out waiting for build $id"; exit 1; }
+            echo "BUILD_ID=$id" >> "$GITHUB_ENV"
+            echo "BUILD_URL=$(jq -r .artifacts.buildUrl "$RUNNER_TEMP/view.json")" >> "$GITHUB_ENV"
+            echo "BUILD_NOTE=waited for build $id" >> "$GITHUB_ENV"
+          elif [ "$kind" = finished ]; then
+            echo "BUILD_ID=$(jq -r .id <<<"$pick")" >> "$GITHUB_ENV"
+            echo "BUILD_URL=$(jq -r .url <<<"$pick")" >> "$GITHUB_ENV"
+            echo "BUILD_NOTE=reused build $(jq -r .id <<<"$pick")" >> "$GITHUB_ENV"
+          else
+            eas build -p ios --profile simulator --wait --non-interactive --json | sed -n '/^\[/,$p' > "$RUNNER_TEMP/new.json"
+            echo "BUILD_ID=$(jq -r '.[0].id' "$RUNNER_TEMP/new.json")" >> "$GITHUB_ENV"
+            echo "BUILD_URL=$(jq -r '.[0].artifacts.buildUrl' "$RUNNER_TEMP/new.json")" >> "$GITHUB_ENV"
+            echo "BUILD_NOTE=new EAS build $(jq -r '.[0].id' "$RUNNER_TEMP/new.json") (about \$2)" >> "$GITHUB_ENV"
+          fi
+
+      - name: Pull the preview environment
+        working-directory: apps/mobile
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: eas env:pull --environment preview --non-interactive
+
+      - name: Preflight the DEV project
+        working-directory: apps/mobile
+        run: |
+          URL=$(grep '^EXPO_PUBLIC_SUPABASE_URL=' .env.local | cut -d= -f2- | tr -d '"')
+          ANON=$(grep '^EXPO_PUBLIC_SUPABASE_ANON_KEY=' .env.local | cut -d= -f2- | tr -d '"')
+          case "$URL" in *"$DEV_REF"*) ;; *) echo "::error::preview env does not point at the DEV project"; exit 1 ;; esac
+          curl -fsS --max-time 20 "$URL/auth/v1/health" -H "apikey: $ANON" > /dev/null \
+            || { echo "::error::DEV project is not answering (paused?). Restore it, then re-run."; exit 1; }
+
+      - name: Repack with this PR's JS
+        working-directory: apps/mobile
+        env:
+          NODE_ENV: production
+        run: |
+          curl -fsSL "$BUILD_URL" -o "$RUNNER_TEMP/sim.tar.gz"
+          mkdir -p "$RUNNER_TEMP/orig" && tar -xzf "$RUNNER_TEMP/sim.tar.gz" -C "$RUNNER_TEMP/orig"
+          BEFORE_FILE=$(find "$RUNNER_TEMP/orig" -name main.jsbundle | head -1)
+          [ -n "$BEFORE_FILE" ] || { echo "::error::no main.jsbundle in the EAS build"; exit 1; }
+          BEFORE=$(shasum "$BEFORE_FILE" | cut -d' ' -f1)
+          mkdir -p "$RUNNER_TEMP/repacked"
+          npx --yes "@expo/repack-app@${REPACK_VERSION}" -p ios --source-app "$RUNNER_TEMP/sim.tar.gz" \
+            -o "$RUNNER_TEMP/repacked/OGA.app" --embed-bundle-assets
+          APP="$RUNNER_TEMP/repacked/OGA.app"
+          /usr/libexec/PlistBuddy -c "Set :EXUpdatesEnabled false" "$APP/Expo.plist"
+          [ "$(/usr/libexec/PlistBuddy -c 'Print :EXUpdatesEnabled' "$APP/Expo.plist")" = false ] \
+            || { echo "::error::OTA is still enabled in the repacked app"; exit 1; }
+          AFTER=$(shasum "$APP/main.jsbundle" | cut -d' ' -f1)
+          [ "$BEFORE" != "$AFTER" ] || { echo "::error::main.jsbundle unchanged by repack; the PR's JS is not in the app"; exit 1; }
+          grep -aq "$DEV_REF" "$APP/main.jsbundle" || { echo "::error::DEV ref missing from the bundle"; exit 1; }
+          if grep -aq "$PROD_REF" "$APP/main.jsbundle"; then echo "::error::PROD ref found in the bundle"; exit 1; fi
+          echo "APP=$APP" >> "$GITHUB_ENV"
+          echo "bundle sha: $BEFORE -> $AFTER"
+
+      - name: Boot the simulator and install
+        run: |
+          sudo xcode-select -s /Applications/Xcode_26.2.app
+          xcodebuild -version
+          xcrun simctl list runtimes | grep -q "SimRuntime.iOS-26-2" || { echo "::error::iOS 26.2 simulator runtime missing on this image"; exit 1; }
+          UDID=$(xcrun simctl create oga com.apple.CoreSimulator.SimDeviceType.iPhone-16 com.apple.CoreSimulator.SimRuntime.iOS-26-2)
+          xcrun simctl boot "$UDID"
+          xcrun simctl bootstatus "$UDID" -b
+          if ! xcrun simctl install "$UDID" "$APP" || ! xcrun simctl launch "$UDID" golf.oga.app > /dev/null; then
+            echo "launch failed; retrying with an ad-hoc signature"
+            xcrun simctl terminate "$UDID" golf.oga.app || true
+            codesign --force --sign - --preserve-metadata=entitlements "$APP"
+            xcrun simctl install "$UDID" "$APP"
+            xcrun simctl launch "$UDID" golf.oga.app > /dev/null \
+              || { echo "::error::app still fails to launch after an ad-hoc signature"; exit 1; }
+          fi
+          xcrun simctl terminate "$UDID" golf.oga.app || true
+          echo "UDID=$UDID" >> "$GITHUB_ENV"
+          echo "XCODE=$(xcodebuild -version | tr '\n' ' ')" >> "$GITHUB_ENV"
+
+      - name: Install Maestro
+        run: |
+          curl -fsSL "https://get.maestro.mobile.dev" | MAESTRO_VERSION="$MAESTRO_VERSION" bash
+          echo "$HOME/.maestro/bin" >> "$GITHUB_PATH"
+
+      - name: Smoke flow
+        id: smoke
+        env:
+          E2E_EMAIL: ${{ secrets.CI_E2E_EMAIL }}
+          E2E_PASSWORD: ${{ secrets.CI_E2E_PASSWORD }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/shots" && cd "$RUNNER_TEMP/shots"
+          maestro --device "$UDID" test -e E2E_EMAIL="$E2E_EMAIL" -e E2E_PASSWORD="$E2E_PASSWORD" \
+            "$GITHUB_WORKSPACE/apps/mobile/.maestro/ios-smoke.yaml"
+
+      - name: Live-round flow
+        id: live
+        if: ${{ !cancelled() && steps.smoke.conclusion != 'skipped' }}
+        env:
+          E2E_EMAIL: ${{ secrets.CI_E2E_EMAIL }}
+          E2E_PASSWORD: ${{ secrets.CI_E2E_PASSWORD }}
+        run: |
+          cd "$RUNNER_TEMP/shots"
+          xcrun simctl location "$UDID" set 43.849856,-87.734575
+          maestro --device "$UDID" test -e E2E_EMAIL="$E2E_EMAIL" -e E2E_PASSWORD="$E2E_PASSWORD" \
+            "$GITHUB_WORKSPACE/apps/mobile/.maestro/ios-live-round.yaml"
+
+      # Maestro 2.11 saves takeScreenshot files (and failure screenshots, named step-*) under
+      # ~/.maestro/tests/<run>/, next to maestro.log, which contains the typed password. Copy ONLY PNGs, and
+      # only publish a run's failure screenshots (step-*) once that run got past sign-in: a failed login can
+      # leave the typed email (or, if a layout change mis-targets the password field, the password) in
+      # clear text on screen, and the media branch is public and permanent. The deliberate takeScreenshot
+      # shots (01-login is taken before anything is typed) are always safe.
+      - name: Collect screenshots
+        if: ${{ !cancelled() }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/shots"
+          if [ -d "$HOME/.maestro/tests" ]; then
+            for dir in "$HOME"/.maestro/tests/*/; do
+              signed_in=0
+              if [ -e "${dir}02-after-sign-in.png" ] || [ -e "${dir}lr-00-signed-in.png" ]; then signed_in=1; fi
+              while IFS= read -r f; do
+                n=$(basename "$f")
+                case "$n" in
+                  step-*Not_Now*) continue ;;   # debug shots from optional waits
+                  step-*) [ "$signed_in" = 1 ] || continue ;;
+                esac
+                cp -n "$f" "$RUNNER_TEMP/shots/"
+              done < <(find "$dir" -name '*.png')
+            done
+          fi
+          find "$RUNNER_TEMP/shots" -maxdepth 1 -name '*.png' | sed 's#.*/##' | sort
+          n=$(find "$RUNNER_TEMP/shots" -maxdepth 1 -name '*.png' | wc -l | tr -d ' ')
+          echo "screenshots: $n"
+          [ "$n" -gt 0 ] || { echo "::error::Maestro produced no screenshots"; exit 1; }
+
+      - name: Upload screenshots (PNG only)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-screenshots-${{ env.SHA }}
+          path: ${{ runner.temp }}/shots/*.png
+          retention-days: 7
+          if-no-files-found: warn
+
+      - name: Publish and comment
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          JOB_STATUS: ${{ job.status }}
+          SMOKE: ${{ steps.smoke.outcome }}
+          LIVE: ${{ steps.live.outcome }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          if [ -n "$PR" ]; then DEST="screenshots/ci-ios/pr-$PR/${SHA:0:7}"; else DEST="screenshots/ci-ios/manual-$GITHUB_RUN_ID"; fi
+          OUT_MD="$RUNNER_TEMP/shots.md"
+          SHOTS_DIR="$RUNNER_TEMP/shots" DEST="$DEST" OUT_MD="$OUT_MD" scripts/ci/ios-publish.sh \
+            || { echo "media push failed; screenshots are in the run's artifact"; : > "$OUT_MD"; }
+          {
+            echo '<!-- ios-check -->'
+            echo "## iOS check: $JOB_STATUS"
+            echo
+            echo "- Commit \`${SHA:0:7}\` · ${BUILD_NOTE:-no build step reached}"
+            echo "- Fingerprint \`${FP:-n/a}\` · ${XCODE:-no simulator}"
+            echo "- Smoke flow: ${SMOKE:-skipped} · Live-round flow: ${LIVE:-skipped}"
+            if [ "$JOB_STATUS" != success ]; then
+              FAILED=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/jobs" \
+                --jq '[.jobs[] | select(.name == "ios") | .steps[] | select(.conclusion == "failure") | .name] | first // empty' 2>/dev/null || true)
+              [ -z "$FAILED" ] || echo "- Failed step: $FAILED"
+            fi
+            echo "- [Run log]($RUN_URL)"
+            echo
+            cat "$OUT_MD"
+          } > "$RUNNER_TEMP/comment.md"
+          cat "$RUNNER_TEMP/comment.md" >> "$GITHUB_STEP_SUMMARY"
+          if [ -n "$PR" ]; then scripts/ci/ios-comment.sh "$RUNNER_TEMP/comment.md"; fi
