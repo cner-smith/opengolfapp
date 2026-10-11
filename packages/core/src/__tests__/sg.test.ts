@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   calculateRoundSG,
+  perShotSG,
   startCategory,
   calculateShotSG,
   getExpectedStrokes,
@@ -348,6 +349,29 @@ describe('computeRoundSG (sg.ts) — DB row → result adapter', () => {
     const result = computeRoundSG({ holes, holeScores, shots: [], handicap: 15 })
     expect(result.totals.fairwaysTotal).toBe(0)
     expect(result.totals.fairwaysHit).toBe(0)
+  })
+})
+
+describe('perShotSG', () => {
+  it('values each shot of a hole, OB replay included, and skips what it cannot value', () => {
+    // Bracket 15. OB drive from 400 (tee line 5.43) replayed from the tee:
+    //   5.43 − 5.43 − 1 − 1 = −2, off tee. Re-tee to 150 (3.95): 5.43 − 3.95 − 1 = 0.48,
+    //   off tee. 150 yd shot to a row with no distance: its end can't be valued → null.
+    const out = perShotSG(
+      [
+        shot({ shotNumber: 1, par: 4, isLastShot: false, lieType: 'tee', distanceToTarget: 400, ob: true }),
+        shot({ shotNumber: 2, par: 4, isLastShot: false, lieType: 'rough', distanceToTarget: 400 }),
+        shot({ shotNumber: 3, par: 4, isLastShot: false, lieType: 'fairway', distanceToTarget: 150 }),
+        shot({ shotNumber: 4, par: 4, isLastShot: true, lieType: 'rough' }),
+      ],
+      15,
+    )
+    expect(out[0]!.category).toBe('off_tee')
+    expect(out[0]!.sg).toBeCloseTo(-2, 6)
+    expect(out[1]!.category).toBe('off_tee')
+    expect(out[1]!.sg).toBeCloseTo(0.48, 6)
+    expect(out[2]).toBeNull()
+    expect(out[3]).toBeNull()
   })
 })
 
