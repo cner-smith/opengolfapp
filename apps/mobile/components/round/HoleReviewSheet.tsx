@@ -492,7 +492,7 @@ function ShotRow({
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 9 }}>
         <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { color: P.ink, fontSize: 13 }]}>Shot {row.shotNumber}</Text>
         <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.serif, { color: P.ink, fontSize: 20 }]}>
-          {isPutt ? `${toDisplayFt(row.distanceYards * 3)} putt` : toDisplay(row.distanceYards)}
+          {isPutt ? `${toDisplayFt(row.distanceToPin * 3)} putt` : toDisplay(row.distanceYards)}
         </Text>
         <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { color: P.ink, fontSize: 13, marginLeft: 'auto' }]}>
           {toDisplay(row.distanceToPin)} to pin
@@ -675,7 +675,7 @@ function AimerOverlay({
 }) {
   const insets = useSafeAreaInsets()
   const scrollRef = useRef<ScrollView>(null)
-  const distanceFt = row.distanceYards * 3
+  const distanceFt = row.distanceToPin * 3
   const breakDirection =
     combinedBreakDirection({
       vertical: row.breakDirectionVertical ?? null,

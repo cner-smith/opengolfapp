@@ -535,7 +535,7 @@ function AimerOverlay({
   onChange: (next: ReviewedShotRow) => void
   onClose: () => void
 }) {
-  const distanceFt = row.distanceYards * 3
+  const distanceFt = row.distanceToPin * 3
   const breakDirection =
     combinedBreakDirection({
       vertical: row.breakDirectionVertical ?? null,
