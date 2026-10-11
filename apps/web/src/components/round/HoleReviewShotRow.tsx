@@ -178,7 +178,9 @@ export function ShotRow({
           style={{ fontSize: 20, fontStyle: 'italic' }}
         >
           {isPutt
-            ? `${toDisplayFt(row.distanceToPin * 3)} putt`
+            ? row.distanceToPin > 0
+              ? `${toDisplayFt(row.distanceToPin * 3)} putt`
+              : 'Putt'
             : toDisplay(row.distanceYards)}
         </span>
         {puttTourPct != null && (

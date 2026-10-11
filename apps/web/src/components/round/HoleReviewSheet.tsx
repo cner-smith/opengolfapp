@@ -535,7 +535,8 @@ function AimerOverlay({
   onChange: (next: ReviewedShotRow) => void
   onClose: () => void
 }) {
-  const distanceFt = row.distanceToPin * 3
+  // 0 = no pin known (#660): no length to show.
+  const distanceFt = row.distanceToPin > 0 ? row.distanceToPin * 3 : null
   const breakDirection =
     combinedBreakDirection({
       vertical: row.breakDirectionVertical ?? null,

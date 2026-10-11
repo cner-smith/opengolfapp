@@ -5,7 +5,8 @@ import { useUnits } from '../../hooks/useUnits'
 export type { BreakDirection }
 
 export interface GreenDiagramProps {
-  distanceFt: number
+  /** null when no pin is known. */
+  distanceFt: number | null
   aimOffsetInches: number
   breakDirection?: BreakDirection
   onAimChange: (offsetInches: number) => void
@@ -108,7 +109,7 @@ export function GreenDiagram({
               lineHeight: 1,
             }}
           >
-            {toDisplayFt(distanceFt)}
+            {distanceFt != null ? toDisplayFt(distanceFt) : '—'}
           </div>
         </div>
         <div className="kicker text-caddie-ink-mute">

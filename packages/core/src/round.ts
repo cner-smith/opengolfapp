@@ -494,7 +494,9 @@ export function reviewedRowToShotFields(
     // length. Capped on the ROUNDED feet. (Until migration 0060 the column
     // was numeric(4,1) and 1000 failed the whole insert; now it's a sanity
     // bound, not an overflow guard.)
-    putt_distance_ft: isPutt && puttFeet <= 999 ? puttFeet : null,
+    // distanceToPin 0 is the review's "no pin known": the length is unknown,
+    // so store none rather than a 0 ft putt (SG then skips it).
+    putt_distance_ft: isPutt && row.distanceToPin > 0 && puttFeet <= 999 ? puttFeet : null,
     // Legacy combined column, rebuilt from the axes for back-compat readers.
     putt_result: isPutt
       ? combinedPuttResult({

@@ -22,7 +22,8 @@ const AnimatedPath = Animated.createAnimatedComponent(Path)
 export type { BreakDirection }
 
 export interface GreenDiagramProps {
-  distanceFt: number
+  /** null when no pin is known. */
+  distanceFt: number | null
   aimOffsetInches: number
   breakDirection?: BreakDirection
   onAimChange: (offsetInches: number) => void
@@ -306,7 +307,7 @@ export function GreenDiagram({
       >
         <View>
           <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.serif, { color: P.ink, fontSize: 28, lineHeight: 32 }]}>
-            {toDisplayFt(distanceFt)}
+            {distanceFt != null ? toDisplayFt(distanceFt) : '—'}
           </Text>
           <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { color: P.ink, fontSize: 12 }]}>to the pin</Text>
         </View>
