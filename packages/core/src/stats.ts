@@ -1,8 +1,5 @@
-import {
-  calculateShotSG,
-  getExpectedStrokes,
-  getShotCategory,
-} from './sg-calculator'
+import { getShotCategory, perShotSG } from './sg-calculator'
+import { shotRowToShot } from './sg'
 import { NEAR_GREEN_YARDS } from './constants'
 import type { LieSlopeForward, LieSlopeSide, LieType, ShotCategory, ShotResult } from './constants'
 import { isPartialRound, isPuttShot } from './round'
@@ -297,83 +294,26 @@ export function approachByDistance(
   for (const band of APPROACH_BANDS) buckets[band.key] = { sgSum: 0, n: 0 }
 
   for (const { hole, shots } of flatten(rounds)) {
-    for (let i = 0; i < shots.length; i++) {
-      const s = shots[i]!
-      if (s.distance_to_target == null) continue
-      const category = getShotCategory(
-        {
-          lieType: (s.lie_type as LieType | null) ?? undefined,
-          distanceToTarget: s.distance_to_target,
-        },
-        hole.par,
-        s.shot_number,
-      )
-      if (category !== 'approach') continue
-
+    // The round engine's per-shot SG, so this chart can't drift from it
+    // (#668, #839, #1094).
+    const perShot = perShotSG(
+      shots.map((s, idx) => ({
+        ...shotRowToShot(s),
+        par: hole.par,
+        isLastShot: idx === shots.length - 1,
+      })),
+      handicap,
+    )
+    shots.forEach((s, i) => {
+      const shot = perShot[i]
+      if (!shot || shot.category !== 'approach' || s.distance_to_target == null) return
       const band = APPROACH_BANDS.find(
         (b) => s.distance_to_target! >= b.min && s.distance_to_target! < b.max,
       )
-      if (!band) continue
-
-      const startExpected = getExpectedStrokes(
-        category,
-        s.distance_to_target,
-        undefined,
-        handicap,
-      )
-      if (startExpected == null) continue
-
-      // endExpected 0 = holed out — legitimate only when there is NO next
-      // shot (the hole's last shot ends at the cup in both save flows).
-      //
-      // This inner loop is a DELIBERATE DUPLICATE of calculateRoundSG's
-      // (sg-calculator.ts): both walk a hole's shots and book
-      // calculateShotSG(start, end) + penaltyAdjust. The two must be kept in
-      // step — when they drift, the Stats page's approach chart silently
-      // disagrees with the round SG engine on identical data (#668, #839).
-      let endExpected = 0
-      const next = shots[i + 1]
-      // OB is stroke-and-distance: the ball returns to where it was played
-      // from, so end position IS start position. Stated as a rule, not read
-      // off the next row, because the recovery shot often isn't logged
-      // ("Skip all, just track location" is always visible) — the next-shot
-      // branch below would then leave endExpected at 0 and book a large
-      // POSITIVE sg for a shot the player marked out of bounds. With this
-      // rule the terms cancel and penaltyAdjust makes it exactly −2, matching
-      // calculateRoundSG (#839).
-      if (s.ob) {
-        endExpected = startExpected
-      } else if (next) {
-        const nextCat = getShotCategory(
-          {
-            lieType: (next.lie_type as LieType | null) ?? undefined,
-            distanceToTarget: next.distance_to_target ?? undefined,
-          },
-          hole.par,
-          next.shot_number,
-        )
-        const nextDistFt =
-          next.lie_type === 'green' ? next.putt_distance_ft ?? undefined : undefined
-        const nextExpected = getExpectedStrokes(
-          nextCat,
-          next.distance_to_target ?? undefined,
-          nextDistFt ?? undefined,
-          handicap,
-        )
-        // Mirror calculateRoundSG's skip (sg-calculator.ts): a next shot
-        // whose expected strokes can't be derived (no distance data) means
-        // this shot's end position is unknown — skip it entirely rather
-        // than booking it as holed, which awarded up to +2.95 SG per
-        // data-less shot and made this chart disagree with the round SG
-        // engine on identical data (#668).
-        if (nextExpected == null) continue
-        endExpected = nextExpected
-      }
-      const sg = calculateShotSG(startExpected, endExpected)
-      const penaltyAdjust = s.penalty || s.ob ? -1 : 0
-      buckets[band.key]!.sgSum += sg + penaltyAdjust
+      if (!band) return
+      buckets[band.key]!.sgSum += shot.sg
       buckets[band.key]!.n += 1
-    }
+    })
   }
 
   return APPROACH_BANDS.map((b) => ({
