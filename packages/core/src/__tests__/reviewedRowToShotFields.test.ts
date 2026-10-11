@@ -550,7 +550,10 @@ describe('reviewedRowToShotFields', () => {
     it.each<[number, number | null]>([
       [4, 12],
       [1.4, 4],
-      [0, 0],
+      // 0 is the review's "no pin known" (web's no-pin rows, mobile's
+      // last-point fallback): the length is unknown, not a 0 ft putt.
+      [0, null],
+      [0.1, 0],
       [333, 999],
       [333.1, 999],
       [333.2, null],
