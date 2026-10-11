@@ -72,7 +72,7 @@ async function loadEngines(): Promise<Engine[]> {
   )
 }
 
-type PuttFix = { id: string; old: number; next: number | null }
+type PuttFix = { id: string; old: number; next: number }
 
 // The review rounded twice: round1 yards (inferShot), then whole feet.
 const reviewFeet = (yards: number) => Math.round((Math.round(yards * 10) / 10) * 3)
@@ -93,10 +93,11 @@ function repairPutts(shots: ShotRow[], holeScores: HoleScoreRow[], holes: HoleRo
       const stored = Number(s.putt_distance_ft)
       const rolled = reviewFeet(haversineYards(s.start_lat, s.start_lng, next.start_lat, next.start_lng))
       const fromHole = reviewFeet(haversineYards(s.start_lat, s.start_lng, pinLat, pinLng))
-      const nextFt = fromHole <= 999 ? fromHole : null
-      if (Math.abs(stored - rolled) > 1 || nextFt === stored) return
-      fixes.push({ id: s.id, old: stored, next: nextFt })
-      byId.set(s.id, { ...s, putt_distance_ft: nextFt })
+      // Over 999 ft from the hole is corrupt coordinates, not a putt: leave the
+      // row (and so the round's SG) alone rather than null its length.
+      if (fromHole > 999 || Math.abs(stored - rolled) > 1 || fromHole === stored) return
+      fixes.push({ id: s.id, old: stored, next: fromHole })
+      byId.set(s.id, { ...s, putt_distance_ft: fromHole })
     })
   }
   return { fixes, shots: shots.map((s) => byId.get(s.id)!) }
