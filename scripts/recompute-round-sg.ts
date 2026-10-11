@@ -142,7 +142,22 @@ async function main() {
       const was = stamp(b.round)
       return (Object.keys(was) as (keyof typeof was)[]).every((k) => was[k] === r[k])
     }
-    const found = engines.map((e) => ({ e, out: e.computeRoundSG(input) })).find(({ out }) => matches(out))
+    const runs = engines.map((e) => ({ e, out: e.computeRoundSG(input) }))
+    // Strict: the round's stored SG reproduces to the cent. Else, holes-only:
+    // every hole with stored SG reproduces (a shot synced after the finish onto
+    // a never-stamped hole moves the round total but not any stamped hole); the
+    // round total then moves by the stamped holes' changes alone.
+    const stamped = holeScores.filter((h) => SG.every((k) => h[k] != null))
+    const holesFit = (out: ReturnType<typeof computeRoundSG>) =>
+      stamped.length > 0 &&
+      stamped.every((h) => {
+        const sg = out.perHoleScore[h.id]
+        if (!sg) return false
+        const { sg_total: _t, ...old } = stamp(sg)
+        return SG.every((k) => Number(h[k]) === old[k])
+      })
+    const strict = runs.find(({ out }) => matches(out))
+    const found = strict ?? runs.find(({ out }) => holesFit(out))
     if (!found) {
       skipped.notReproduced.push({ round: r.id, stored: r })
       continue
@@ -152,13 +167,30 @@ async function main() {
     // never disagree; rounds left alone are reported above and keep both.
     const repaired = repairPutts(shots, holeScores, holes)
     const result = computeRoundSG({ ...input, shots: repaired.shots })
-    const next = stamp(result.round)
+    const stampedIds = new Set(stamped.map((h) => h.id))
+    const roundDelta = (key: (typeof SG)[number], field: 'offTee' | 'approach' | 'aroundGreen' | 'putting') =>
+      Object.entries(result.perHoleScore)
+        .filter(([id]) => stampedIds.has(id))
+        .reduce((sum, [id, sg]) => sum + sg[field] - before.perHoleScore[id]![field], Number(r[key]))
+    const next = strict
+      ? stamp(result.round)
+      : stamp({
+          offTee: roundDelta('sg_off_tee', 'offTee'),
+          approach: roundDelta('sg_approach', 'approach'),
+          aroundGreen: roundDelta('sg_around_green', 'aroundGreen'),
+          putting: roundDelta('sg_putting', 'putting'),
+          total:
+            roundDelta('sg_off_tee', 'offTee') +
+            roundDelta('sg_approach', 'approach') +
+            roundDelta('sg_around_green', 'aroundGreen') +
+            roundDelta('sg_putting', 'putting'),
+        })
     const roundChanged = (Object.keys(next) as (keyof typeof next)[]).some((k) => r[k] !== next[k])
     // A hole is rewritten only when the same previous engine reproduces its stored values too.
     const holesChanged = Object.entries(result.perHoleScore).flatMap(([id, sg]) => {
       const stored = holeScores.find((h) => h.id === id)
       const prev = before.perHoleScore[id]
-      if (!stored || !prev) return []
+      if (!stored || !prev || !stampedIds.has(id)) return []
       const { sg_total: _p, ...old } = stamp(prev)
       const { sg_total: _n, ...nextHole } = stamp(sg)
       if (SG.some((k) => stored[k] !== old[k])) {
@@ -170,10 +202,10 @@ async function main() {
     if (!roundChanged && holesChanged.length === 0 && repaired.fixes.length === 0) continue
     puttFixCount += repaired.fixes.length
     console.log(
-      `${r.id}  [${found.e.label}]  sg_total ${r.sg_total} → ${next.sg_total}` +
+      `${r.id}  [${found.e.label}${strict ? '' : ', holes only'}]  sg_total ${r.sg_total} → ${next.sg_total}` +
         `  (${holesChanged.length} holes, ${repaired.fixes.length} putt lengths)`,
     )
-    changes.push({ round: r.id, engine: found.e.label, old: r, next, holes: holesChanged, putts: repaired.fixes })
+    changes.push({ round: r.id, engine: found.e.label, holesOnly: !strict, old: r, next, holes: holesChanged, putts: repaired.fixes })
 
     if (apply) {
       const u = await supabase.from('rounds').update(next).eq('id', r.id)
