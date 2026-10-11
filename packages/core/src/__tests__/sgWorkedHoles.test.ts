@@ -23,15 +23,18 @@ const pointYardsFromPin = (yards: number): PlacedPoint => ({
   lng: PIN.lng,
 })
 
-function reviewSaveSG(par: number, yardsFromPin: number[], handicap: number) {
-  const rows = buildInitialRows(yardsFromPin.map(pointYardsFromPin), par, PIN.lat, PIN.lng)
+// `obShots`: shot numbers the player marked OB in the review sheet.
+function reviewSaveSG(par: number, yardsFromPin: number[], handicap: number, obShots: number[] = []) {
+  const rows = buildInitialRows(yardsFromPin.map(pointYardsFromPin), par, PIN.lat, PIN.lng).map(
+    (row) => (obShots.includes(row.shotNumber) ? { ...row, shotResult: 'ob' as const } : row),
+  )
   const shots = rows.map((row) => ({
     ...shotRowDefaults(row.shotNumber),
     ...reviewedRowToShotFields(row, false),
   }))
   return computeRoundSG({
     holes: [holeRow(par)],
-    holeScores: [holeScoreRow(yardsFromPin.length)],
+    holeScores: [holeScoreRow(yardsFromPin.length + obShots.length)],
     shots,
     handicap,
   }).round
@@ -88,6 +91,18 @@ describe('review save → strokes gained', () => {
     expect(sg.putting).toBeCloseTo(-0.52, 2)
     expect(sg.total).toBeCloseTo(0.222, 2)
   })
+
+  it('par 4, OB off the tee, re-tee from the same spot, double bogey 6', () => {
+    // The review infers the re-tee's lie from distance (rough, not tee); the
+    // engine must still score it as a tee shot. Same hand-worked hole as the
+    // stored-rows OB case below: off tee −2 + (5.43 − 3.95 − 1) = −1.52,
+    // approach 0.61, putting 0.34, total −0.57 (= 5.43 − 6).
+    const sg = reviewSaveSG(4, [400, 400, 150, 10, 1], 15, [1])
+    expect(sg.offTee).toBeCloseTo(-1.52, 2)
+    expect(sg.approach).toBeCloseTo(0.61, 2)
+    expect(sg.putting).toBeCloseTo(0.34, 2)
+    expect(sg.total).toBeCloseTo(-0.57, 2)
+  })
 })
 
 describe('stored rows → strokes gained', () => {
@@ -116,6 +131,77 @@ describe('stored rows → strokes gained', () => {
     expect(sg.approach).toBeCloseTo(0.822, 2)
     expect(sg.putting).toBeCloseTo(0.34, 2)
     expect(sg.total).toBeCloseTo(0.43, 2)
+  })
+
+  it('par 4, OB off the tee, re-tee, double bogey 6', () => {
+    // Stroke and distance: the OB drive ends where it started → 5.43 − 5.43 − 1,
+    // plus the penalty stroke = −2. The re-tee is a tee shot from 400 yd
+    // (5.43) to 150 yd (3.95): 5.43 − 3.95 − 1 = 0.48.
+    // off tee  −2 + 0.48 = −1.52
+    // approach 3.95 − 2.34 − 1 = 0.61
+    // putting  0.34
+    // total −0.57 (= 5.43 − 6)
+    const sg = storedSG(4, 6, [
+      { lie_type: 'tee', distance_to_target: 400, ob: true },
+      { lie_type: 'tee', distance_to_target: 400 },
+      { lie_type: 'fairway', distance_to_target: 150 },
+      { lie_type: 'green', club: 'putter', putt_distance_ft: 30 },
+      { lie_type: 'green', club: 'putter', putt_distance_ft: 3, putt_result: 'made' },
+    ])
+    expect(sg.offTee).toBeCloseTo(-1.52, 2)
+    expect(sg.approach).toBeCloseTo(0.61, 2)
+    expect(sg.putting).toBeCloseTo(0.34, 2)
+    expect(sg.total).toBeCloseTo(-0.57, 2)
+  })
+
+  it('par 4, OB, re-tee OB, then a casual drop at 121 yd, 7 (two penalty strokes)', () => {
+    // Tee 327 yd: 2.79 + 0.0066·327 = 4.9482
+    // Drop, 121 yd: APPROACH[15] 100→3.54, 125→3.74 → 3.54 + (21/25)·0.20 = 3.708
+    // Putts: 66 ft clamps to the 60 ft key → 2.66; 6 ft → 1.3533, holed
+    // OB drive, replayed from the tee: 4.9482 − 4.9482 − 1 − 1 = −2
+    // Re-tee (a tee shot) OB, next shot from the drop: 4.9482 − 3.708 − 1 − 1 = −0.7598
+    // off tee  −2 − 0.7598 = −2.7598
+    // approach 3.708 − 2.66 − 1 = 0.048
+    // putting  (2.66 − 1.3533 − 1) + (1.3533 − 1) = 0.3067 + 0.3533 = 0.66
+    // total −2.0518 (= 4.9482 − 7)
+    const sg = storedSG(4, 7, [
+      { lie_type: 'tee', distance_to_target: 327, ob: true },
+      { lie_type: 'rough', distance_to_target: 327, ob: true },
+      { lie_type: 'rough', distance_to_target: 121 },
+      { lie_type: 'green', club: 'putter', putt_distance_ft: 66 },
+      { lie_type: 'green', club: 'putter', putt_distance_ft: 6, putt_result: 'made' },
+    ])
+    expect(sg.offTee).toBeCloseTo(-2.7598, 2)
+    expect(sg.approach).toBeCloseTo(0.048, 2)
+    expect(sg.putting).toBeCloseTo(0.66, 2)
+    expect(sg.total).toBeCloseTo(-2.0518, 2)
+  })
+
+  // The replay is judged by start coordinates when both rows have them; the
+  // distances here are deliberately equal so only the coordinates can decide.
+  const reteeAt = (yardsApart: number) =>
+    storedSG(4, 6, [
+      { lie_type: 'tee', distance_to_target: 400, ob: true, start_lat: pointYardsFromPin(400).lat, start_lng: PIN.lng },
+      { lie_type: 'rough', distance_to_target: 400, start_lat: pointYardsFromPin(400 - yardsApart).lat, start_lng: PIN.lng },
+      { lie_type: 'fairway', distance_to_target: 150 },
+      { lie_type: 'green', club: 'putter', putt_distance_ft: 30 },
+      { lie_type: 'green', club: 'putter', putt_distance_ft: 3, putt_result: 'made' },
+    ])
+
+  it('a re-tee 9 yd from the OB spot is the replay: a tee shot', () => {
+    // As the OB re-tee hole above: off tee −1.52, approach 0.61.
+    const sg = reteeAt(9)
+    expect(sg.offTee).toBeCloseTo(-1.52, 2)
+    expect(sg.approach).toBeCloseTo(0.61, 2)
+  })
+
+  it('a shot 11 yd from the OB spot is not the replay: scored on its own terms', () => {
+    // Shot 2 is then an approach from 400 yd: APPROACH[15][400] = 5.53.
+    // OB drive ends at the next start: 5.43 − 5.53 − 1 − 1 = −2.10 off tee
+    // approach (5.53 − 3.95 − 1) + (3.95 − 2.34 − 1) = 0.58 + 0.61 = 1.19
+    const sg = reteeAt(11)
+    expect(sg.offTee).toBeCloseTo(-2.1, 2)
+    expect(sg.approach).toBeCloseTo(1.19, 2)
   })
 })
 

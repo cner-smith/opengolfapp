@@ -614,6 +614,42 @@ describe('approachByDistance', () => {
     })
   }
 
+  // The Stats chart must book the same per-shot SG as the round engine (#1094).
+  it('scores a re-tee after an OB as a tee shot, not a 200+ yd approach', () => {
+    // Hole: OB drive, re-tee from the same spot (inferred lie rough), 150 yd holed.
+    // Only the 150-yd shot is an approach: holed from 150 → APPROACH[15][150] − 1 = 2.95.
+    const result = approachByDistance(
+      [
+        roundWithShots([
+          makeShot({ shot_number: 1, lie_type: 'tee', distance_to_target: 400, ob: true }),
+          makeShot({ shot_number: 2, lie_type: 'rough', distance_to_target: 400 }),
+          makeShot({ shot_number: 3, lie_type: 'fairway', distance_to_target: 150 }),
+        ]),
+      ],
+      HCP,
+    )
+    expect(result.find((b) => b.key === 'b200_plus')!.shots).toBe(0)
+    expect(band150(result).shots).toBe(1)
+    expect(band150(result).avgSg).toBeCloseTo(2.95, 5)
+  })
+
+  it('credits an approach OB with the drop it was played on from', () => {
+    // 150 yd OB, casual drop at 20 yd: 3.95 − AROUND[15][20] 2.97 − 1 − 1 (penalty) = −1.02
+    const result = approachByDistance(
+      [
+        roundWithShots([
+          makeShot({ shot_number: 1, lie_type: 'tee', distance_to_target: 400 }),
+          makeShot({ shot_number: 2, lie_type: 'fairway', distance_to_target: 150, ob: true }),
+          makeShot({ shot_number: 3, lie_type: 'rough', distance_to_target: 20 }),
+          makeShot({ shot_number: 4, lie_type: 'green', putt_distance_ft: 3, putt_result: 'made' }),
+        ]),
+      ],
+      HCP,
+    )
+    expect(band150(result).shots).toBe(1)
+    expect(band150(result).avgSg).toBeCloseTo(-1.02, 5)
+  })
+
   it('SKIPS a shot whose next shot has no derivable position (was booked as holed, #668)', () => {
     // 150-yd approach followed by a rough shot with NO distance data: the
     // approach's end position is unknown — it must not score at all.

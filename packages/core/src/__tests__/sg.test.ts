@@ -371,32 +371,39 @@ describe('calculateRoundSG — penalty / OB attribution', () => {
     expect(b.approach).toBeCloseTo(a.approach, 6)
   })
 
-  it('OB stroke is exactly -2, independent of the next shot', () => {
-    // Stroke-and-distance: the OB shot's endExpected is defined as its own
-    // startExpected (they cancel), so the category SG contribution is a flat
-    // -1, then penaltyAdjust (penalty || ob) subtracts the second stroke —
-    // exactly -2, regardless of where the next logged shot (if any) sits.
-    const withOB: ShotWithContext[] = [
-      shot({ shotNumber: 1, par: 4, isLastShot: false, lieType: 'tee', distanceToTarget: 380, ob: true }),
-      shot({ shotNumber: 2, par: 4, isLastShot: true, lieType: 'fairway', distanceToTarget: 50 }),
-    ]
-    const b = calculateRoundSG(withOB, 15)
-    expect(b.offTee).toBeCloseTo(-2, 6)
-    // The next shot (not itself OB) is unaffected — still scored on its own terms.
-    const a = calculateRoundSG(buildClean(), 15)
+  // The clean hole again with the drive replayed: tee 380 → 150 → holed.
+  function retee(flags: Partial<Shot>): { clean: ShotWithContext[]; replayed: ShotWithContext[] } {
+    return {
+      clean: [
+        shot({ shotNumber: 1, par: 4, isLastShot: false, lieType: 'tee', distanceToTarget: 380 }),
+        shot({ shotNumber: 2, par: 4, isLastShot: true, lieType: 'fairway', distanceToTarget: 150 }),
+      ],
+      replayed: [
+        shot({ shotNumber: 1, par: 4, isLastShot: false, lieType: 'tee', distanceToTarget: 380, ...flags }),
+        // The re-tee: same spot, so the OB shot ends where it started (#1094).
+        shot({ shotNumber: 2, par: 4, isLastShot: false, lieType: 'rough', distanceToTarget: 380 }),
+        shot({ shotNumber: 3, par: 4, isLastShot: true, lieType: 'fairway', distanceToTarget: 150 }),
+      ],
+    }
+  }
+
+  it('an OB replayed from the same spot costs exactly 2 strokes off the tee', () => {
+    // Stroke and distance: the OB shot ends where it started (−1) plus the
+    // penalty stroke (−1). The re-tee is a tee shot whatever its inferred lie,
+    // so everything else matches the clean hole.
+    const { clean, replayed } = retee({ ob: true })
+    const a = calculateRoundSG(clean, 15)
+    const b = calculateRoundSG(replayed, 15)
+    expect(b.offTee).toBeCloseTo(a.offTee - 2, 6)
     expect(b.approach).toBeCloseTo(a.approach, 6)
   })
 
   it('OB and penalty stack — both flags subtract together, not double', () => {
-    // The impl uses `penalty || ob`, so a shot flagged with both still
-    // takes only ONE -1 penaltyAdjust on top of the cancelled -1 endExpected
-    // term — exactly -2, not -3. Lock this in so a future refactor that
-    // splits them doesn't accidentally double-count.
-    const both: ShotWithContext[] = [
-      shot({ shotNumber: 1, par: 4, isLastShot: false, lieType: 'tee', distanceToTarget: 380, penalty: true, ob: true }),
-      shot({ shotNumber: 2, par: 4, isLastShot: true, lieType: 'fairway', distanceToTarget: 50 }),
-    ]
-    const b = calculateRoundSG(both, 15)
-    expect(b.offTee).toBeCloseTo(-2, 6)
+    // `penalty || ob`: a shot flagged with both still takes ONE penalty
+    // stroke — exactly −2, not −3.
+    const { clean, replayed } = retee({ ob: true, penalty: true })
+    const a = calculateRoundSG(clean, 15)
+    const b = calculateRoundSG(replayed, 15)
+    expect(b.offTee).toBeCloseTo(a.offTee - 2, 6)
   })
 })

@@ -7,6 +7,7 @@ import {
   interpolateBaseline,
   teeBaseline,
 } from './sg-baselines'
+import { haversineYards } from './units'
 import type { SGBreakdown, Shot } from './types'
 
 export function getShotCategory(
@@ -100,72 +101,107 @@ function holedOut(shot: Shot): boolean {
   return shot.lieType === 'green' && shot.puttResult === 'made'
 }
 
+// A shot played from (within this of) the spot an OB shot was played from is
+// the stroke-and-distance replay. ponytail: fixed radius; a web re-tee tap or a
+// GPS mark lands well inside it, a casual drop up the hole lands far outside.
+const OB_REPLAY_YARDS = 10
+
+function isReplayOf(ob: Shot, shot: Shot): boolean {
+  if (
+    ob.startLat !== undefined &&
+    ob.startLng !== undefined &&
+    shot.startLat !== undefined &&
+    shot.startLng !== undefined
+  ) {
+    return haversineYards(ob.startLat, ob.startLng, shot.startLat, shot.startLng) <= OB_REPLAY_YARDS
+  }
+  if (ob.distanceToTarget !== undefined && shot.distanceToTarget !== undefined) {
+    return Math.abs(ob.distanceToTarget - shot.distanceToTarget) <= OB_REPLAY_YARDS
+  }
+  return false
+}
+
+export interface ShotSG {
+  category: ShotCategory
+  /** Strokes gained on this shot, penalty stroke included. */
+  sg: number
+}
+
+// Per-shot SG for one hole's shots, in order; null where a start or end
+// position can't be valued (no distance data). The one place the per-shot
+// rule lives — calculateRoundSG sums it, the Stats approach chart buckets it.
+export function perShotSG(
+  shots: ShotWithContext[],
+  handicap: number,
+): (ShotSG | null)[] {
+  // Each shot's start: its category and the expected strokes from there. The
+  // replay after an OB keeps the OB shot's category (#1094) — a re-tee is a
+  // tee shot whatever its shot number or inferred lie.
+  const starts: { category: ShotCategory; expected: number | null }[] = []
+  for (let i = 0; i < shots.length; i++) {
+    const shot = shots[i]!
+    const prev = shots[i - 1]
+    const category =
+      prev?.ob && isReplayOf(prev, shot)
+        ? starts[i - 1]!.category
+        : getShotCategory(shot, shot.par, shot.shotNumber)
+    starts.push({
+      category,
+      expected: getExpectedStrokes(category, shot.distanceToTarget, startDistanceFt(shot), handicap),
+    })
+  }
+
+  return shots.map((shot, i) => {
+    const { category, expected: startExpected } = starts[i]!
+    if (startExpected === null) return null
+    const next = shots[i + 1] ? starts[i + 1]! : undefined
+
+    let endExpected: number
+    // Out of bounds ends where the next shot is played from: the same spot for
+    // a stroke-and-distance replay, further up for a drop (#1094). With no
+    // next row, or one with no position, it is stroke and distance — "Skip
+    // all, just track location" is always visible, so a player who drops
+    // without logging the recovery is normal use, and reading isLastShot below
+    // would zero endExpected and return a large POSITIVE sg.
+    if (shot.ob) {
+      endExpected = next?.expected ?? startExpected
+    } else if (shot.isLastShot || holedOut(shot) || !next) {
+      endExpected = 0
+    } else if (next.expected === null) {
+      // The end position can't be valued: skip rather than book it as holed
+      // (#668).
+      return null
+    } else {
+      endExpected = next.expected
+    }
+
+    const penaltyAdjust = shot.penalty || shot.ob ? -1 : 0
+    return { category, sg: calculateShotSG(startExpected, endExpected) + penaltyAdjust }
+  })
+}
+
 export function calculateRoundSG(
   shots: ShotWithContext[],
   handicap: number,
 ): SGBreakdown {
   const breakdown: SGBreakdown = { ...EMPTY_SG }
-
-  for (let i = 0; i < shots.length; i++) {
-    const shot = shots[i]!
-    const category = getShotCategory(shot, shot.par, shot.shotNumber)
-    const startExpected = getExpectedStrokes(
-      category,
-      shot.distanceToTarget,
-      startDistanceFt(shot),
-      handicap,
-    )
-    if (startExpected === null) continue
-
-    let endExpected: number
-    // Out of bounds / lost ball is stroke-and-distance: the ball returns to
-    // where it was played from, so the end position IS the start position.
-    // Stated as a rule rather than read off the next row, because (a) the next
-    // row often does not exist — "Skip all, just track location" is always
-    // visible, so a player who drops without logging the recovery is normal
-    // use, and the positional isLastShot below would then zero endExpected and
-    // return a large POSITIVE sg; and (b) on web the two positions are
-    // independent taps that never match to the yard.
-    if (shot.ob) {
-      endExpected = startExpected
-    } else if (shot.isLastShot || holedOut(shot)) {
-      endExpected = 0
-    } else {
-      const next = shots[i + 1]
-      if (!next) {
-        endExpected = 0
-      } else {
-        const nextCategory = getShotCategory(next, next.par, next.shotNumber)
-        const nextExpected = getExpectedStrokes(
-          nextCategory,
-          next.distanceToTarget,
-          startDistanceFt(next),
-          handicap,
-        )
-        if (nextExpected === null) continue
-        endExpected = nextExpected
-      }
-    }
-
-    const sg = calculateShotSG(startExpected, endExpected)
-    const penaltyAdjust = shot.penalty || shot.ob ? -1 : 0
-
-    switch (category) {
+  for (const shot of perShotSG(shots, handicap)) {
+    if (!shot) continue
+    switch (shot.category) {
       case 'off_tee':
-        breakdown.offTee += sg + penaltyAdjust
+        breakdown.offTee += shot.sg
         break
       case 'approach':
-        breakdown.approach += sg + penaltyAdjust
+        breakdown.approach += shot.sg
         break
       case 'around_green':
-        breakdown.aroundGreen += sg + penaltyAdjust
+        breakdown.aroundGreen += shot.sg
         break
       case 'putting':
-        breakdown.putting += sg + penaltyAdjust
+        breakdown.putting += shot.sg
         break
     }
   }
-
   breakdown.total =
     breakdown.offTee + breakdown.approach + breakdown.aroundGreen + breakdown.putting
   return breakdown

@@ -24,7 +24,7 @@ export interface RoundSGResult {
 // but the regenerated Supabase types surface them as plain `string | null`.
 // Issue #209 tracks promoting these CHECKs to real Postgres enums so the
 // regen produces narrow types directly.
-function shotRowToShot(s: ShotRow): Shot {
+export function shotRowToShot(s: ShotRow): Shot {
   return {
     id: s.id,
     holeScoreId: s.hole_score_id,
