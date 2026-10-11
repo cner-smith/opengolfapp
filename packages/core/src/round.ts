@@ -462,9 +462,9 @@ export function reviewedRowToShotFields(
   // isPuttEntry (green lie AND putter), not green-lie-alone: a wedge played
   // from the green keeps its club result, a Texas wedge stays a full shot.
   const isPutt = isPuttEntry(row.lieType, row.club)
-  // Tap-to-tap distance is in yards; × 3 = feet, which is what the rest of the
-  // app reads.
-  const puttFeet = Math.round(row.distanceYards * 3)
+  // A putt's length is its distance FROM THE HOLE (start → pin), which is what
+  // putting SG reads — not how far it rolled (start → next start), #1092.
+  const puttFeet = Math.round(row.distanceToPin * 3)
   return {
     shot_number: row.shotNumber,
     start_lat: row.startLat,

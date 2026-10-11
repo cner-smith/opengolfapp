@@ -558,9 +558,12 @@ describe('reviewedRowToShotFields', () => {
       [400, null],
       [Number.NaN, null],
       [Number.POSITIVE_INFINITY, null],
-    ])('turns a %s yd putt into %s ft', (distanceYards, expected) => {
+    ])('turns a putt %s yd from the hole into %s ft', (distanceToPin, expected) => {
+      // distanceYards (how far it rolled) is set apart on purpose: the length
+      // is the distance from the hole, #1092.
       expect(
-        reviewedRowToShotFields(puttRow({ distanceYards }), undefined).putt_distance_ft,
+        reviewedRowToShotFields(puttRow({ distanceToPin, distanceYards: 2 }), undefined)
+          .putt_distance_ft,
       ).toBe(expected)
     })
 
