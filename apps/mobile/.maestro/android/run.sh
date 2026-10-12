@@ -30,6 +30,27 @@ case "$(val SUPABASE_URL)" in *znjmkptblswxststjxwc*) echo "Env file points at p
 (cd "$root" && env -u SUPABASE_URL -u SUPABASE_SERVICE_ROLE_KEY -u SEED_EMAIL -u SEED_PASSWORD -u SEED_USERNAME \
   DOTENV_CONFIG_PATH="$env_file" npx tsx scripts/seed-demo.ts >/dev/null)
 
+# GPS bridge: flows move the emulator's own GPS (subflows/gps.yaml) by calling this local server,
+# which runs `adb emu geo fix`. Only numbers are accepted, so the request can't inject a command.
+port="${GPS_BRIDGE_PORT:-8099}"
+ADB="$adb" python3 - "$port" <<'PY' &
+import http.server, os, subprocess, sys, urllib.parse
+class H(http.server.BaseHTTPRequestHandler):
+    def do_GET(self):
+        q = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
+        try:
+            lat, lng = float(q['lat'][0]), float(q['lng'][0])
+        except (KeyError, ValueError):
+            self.send_response(400); self.end_headers(); return
+        ok = subprocess.run([os.environ['ADB'], 'emu', 'geo', 'fix', str(lng), str(lat)], capture_output=True).returncode == 0
+        self.send_response(200 if ok else 500); self.end_headers()
+    def log_message(self, *a): pass
+http.server.HTTPServer(('127.0.0.1', int(sys.argv[1])), H).serve_forever()
+PY
+bridge=$!
+trap 'kill $bridge 2>/dev/null' EXIT
+sleep 1
+
 flows=("$@")
 [ ${#flows[@]} -gt 0 ] || flows=("$here")
-maestro test -e E2E_EMAIL="$(val E2E_EMAIL)" -e E2E_PASSWORD="$(val E2E_PASSWORD)" "${flows[@]}"
+maestro test -e E2E_EMAIL="$(val E2E_EMAIL)" -e E2E_PASSWORD="$(val E2E_PASSWORD)" -e GPS_BRIDGE_PORT="$port" "${flows[@]}"

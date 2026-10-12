@@ -41,7 +41,10 @@ apps/mobile/.maestro/android/run.sh path/to/flow.yaml     # one flow
 ```
 
 A flow for a bug should fail on the code before the fix. Reusable steps go in
-`subflows/`.
+`subflows/`. Move GPS with `subflows/gps.yaml`, which sets the emulator's own
+location through a small local bridge the runner starts. Don't use Maestro's
+`setLocation` or `travel`: the emulator keeps re-sending its own last position
+alongside Maestro's, and the app blends the two.
 
 ## Workflow
 
