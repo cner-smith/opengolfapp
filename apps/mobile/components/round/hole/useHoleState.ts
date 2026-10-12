@@ -51,8 +51,8 @@ export interface UseHoleStateResult {
   ballSource: BallSource
   /** Every ball change goes through @oga/core's liveBall rule (#1107). */
   dispatchBall: Dispatch<LiveBallEvent>
-  /** Where "Mark my ball" puts the start: a held spot, else the latest fresh fix. */
-  markAt: LatLng | null
+  /** Where "Mark my ball" puts the start: a held spot, else the latest fix. */
+  markSpot: LatLng | null
   roundState: RoundState
   setRoundState: Dispatch<SetStateAction<RoundState>>
   gpsPosition: LatLng | null
@@ -305,13 +305,8 @@ export function useHoleState({
             return logDiag('gps_fix', { use: 'malformed' })
           }
           // Always update gpsPosition (puck-adjacent recenter target +
-          // nearPin radius check) regardless of manual ball placement.
-          // The freeze below is solely about preventing GPS from
-          // clobbering the BALL marker after the player has dragged or
-          // tapped it. Using raw OS coords here, not Kalman-smoothed,
-          // because the manual-place handler re-anchors Kalman with a
-          // strong prior — using the smoothed value would lie for
-          // many readings after manual placement.
+          // nearPin radius check), raw, whatever the ball is doing: the ball
+          // itself goes through the liveBall rule below.
           // Functional update with an identity bailout: returning `prev` on
           // identical coords (duplicate ticks, the addListener cache replay)
           // skips the re-render entirely.
@@ -399,10 +394,7 @@ export function useHoleState({
   // Hole change resets per-hole state. The screen is resident (#264) so
   // nothing remounts on a hole switch — without an explicit reset the
   // previous hole's ball/aim render frozen on the new hole and the state
-  // machine stays mid-shot. Also clears the Kalman filter + manual-place
-  // freeze (the watch effect's cleanup covers those too, but this is
-  // explicit for the cases where the watch effect short-circuits — past
-  // mode, or no current hole — before subscribing).
+  // machine stays mid-shot. The ball starts clean (liveBall holeChanged).
   useEffect(() => {
     // Guard on a real id so a transient null mid-session (e.g. a
     // background refetch briefly emptying the holes list) can't wipe an
@@ -468,7 +460,7 @@ export function useHoleState({
     ball,
     ballSource,
     dispatchBall,
-    markAt: markSpot(ballState),
+    markSpot: markSpot(ballState),
     roundState,
     setRoundState,
     gpsPosition,

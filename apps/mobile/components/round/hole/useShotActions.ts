@@ -153,7 +153,7 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
     ball,
     ballSource,
     dispatchBall,
-    markAt,
+    markSpot,
     aim,
     aimTouched,
     setAim,
@@ -409,9 +409,9 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
 
   async function markBallHere(opts?: { toGreen?: boolean }) {
     // A held spot (placed by hand / OB replay) as placed; otherwise the latest
-    // fresh GPS fix — never the smoothed ball trailing behind it (#1107). With
-    // no fresh fix yet, the app's last GPS position (guarded for age below).
-    const source = markAt ?? gpsPosition
+    // GPS fix the ball has seen, never the smoothed ball trailing behind it
+    // (#1107). With none yet, the app's last GPS position (age-guarded below).
+    const source = markSpot ?? gpsPosition
     // Stale-fix guard (#720): the last-known seed and the listener's cache
     // replay populate gpsPosition with no freshness gate (only the
     // ball/Kalman path has one), so after a pocketed walk to a new hole the
@@ -419,10 +419,10 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
     // older than 30 s rather than persist it as a durable shot coordinate —
     // same recovery as no fix at all.
     const gpsStale =
-      markAt == null && Date.now() - gpsFixAtRef.current > 30_000
+      markSpot == null && Date.now() - gpsFixAtRef.current > 30_000
     const last = previousShots[previousShots.length - 1]
     logDiag('mark', {
-      source: ball ? `ball_${ballSource}` : 'gps_fix',
+      source: markSpot == null ? 'gps_position' : ballSource === 'gps' ? 'gps_fix' : `ball_${ballSource}`,
       fixAgeMs: Date.now() - gpsFixAtRef.current,
       ydFromLastStart:
         source && last ? Math.round(distanceYards(source, last) * 10) / 10 : null,
@@ -438,7 +438,7 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
     // NaN guard (#275). gpsPosition is the fallback when the player
     // hasn't dragged a ball yet, and a corrupt GPS reading that slipped
     // past upstream guards would otherwise propagate to setPendingShotEnd
-    // (NaN → SQLite → Postgres rejects on sync) and setBall (NaN
+    // (NaN → SQLite → Postgres rejects on sync) and the ball (NaN
     // poisons the next persistShot's start_lat).
     if (!Number.isFinite(source.lat) || !Number.isFinite(source.lng)) {
       // eslint-disable-next-line no-console
@@ -484,8 +484,10 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
       }
       if (!writeFailed) lastSavedShotLocalIdRef.current = null
     }
-    // The marked spot is the shot's start, held until the shot is saved.
-    dispatchBall({ type: 'placed', at: ballSnapshot })
+    // The marked spot is the shot's start through the aim / putting step. Mark
+    // doesn't change where the ball comes from, so backing out (Re-place, Not
+    // on the green) returns to a ball that follows GPS.
+    dispatchBall({ type: 'marked', at: ballSnapshot })
     setAim(null)
     // On-green auto-detect, restored from pre-#791 (b0f123b removed it when
     // the on-green flow moved behind the explicit "⛳ On the green" chip):
@@ -518,7 +520,7 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
       return
     }
     // Just-track mode (#791 step 3): no aim step. Save the location right away
-    // — passing the fresh ball since setBall hasn't committed — and persistShot
+    // — passing the fresh ball since the ball state hasn't committed — and persistShot
     // loops back to PLACE_BALL for the next ball. Putt-ness / club / lie are
     // still decided at the end-of-hole review.
     if (captureMode === 'just_track') {

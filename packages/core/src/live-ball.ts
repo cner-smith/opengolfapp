@@ -2,11 +2,9 @@
 // One reducer owns the rule so every path (GPS, drag, OB, save, hole change)
 // answers the same question the same way (#1107).
 import { createKalmanState, updateKalman, type KalmanState } from './kalman'
+import type { GeoPoint } from './shot-dispersion-geo'
 
-export interface LatLng {
-  lat: number
-  lng: number
-}
+type LatLng = GeoPoint
 
 /** gps: the ball follows GPS. hand: the player placed it. replay: the OB shot's start. */
 export type BallSource = 'gps' | 'hand' | 'replay'
@@ -21,12 +19,15 @@ export interface LiveBallState {
 
 export type LiveBallEvent =
   | { type: 'fix'; lat: number; lng: number; accuracy?: number }
+  /** The player dragged or tapped the ball: it holds there until the shot is saved. */
   | { type: 'placed'; at: LatLng }
+  /** Mark pins the start for the aim / putting step; it doesn't change where the ball comes from. */
+  | { type: 'marked'; at: LatLng }
   | { type: 'shotSaved' }
   | { type: 'obSet'; start: LatLng }
   | { type: 'obUndone' }
-  /** "Put the ball on my GPS spot"; `at` is the app's GPS position when no fresh fix has come in yet. */
-  | { type: 'recenter'; at?: LatLng }
+  /** "Put the ball on my GPS spot": `at` is where the player's GPS dot is. */
+  | { type: 'recenter'; at: LatLng }
   | { type: 'holeChanged' }
   /** Shot 1's starting spot before any fix arrives. */
   | { type: 'teeDefault'; tee: LatLng }
@@ -43,16 +44,18 @@ export function liveBall(state: LiveBallState, event: LiveBallEvent): LiveBallSt
       return { ...state, gps, kalman, ball: { lat: kalman.lat, lng: kalman.lng } }
     }
     case 'placed':
-      return { ...state, ball: event.at, source: 'hand', kalman: { ...event.at, variance: 1 } }
+      return { ...state, ball: event.at, source: 'hand', kalman: null }
+    case 'marked':
+      return { ...state, ball: event.at, kalman: null }
     case 'shotSaved':
       return followGps(state)
     case 'obSet':
       // Stroke and distance: the replay is played from where the OB shot was.
-      return { ...state, ball: event.start, source: 'replay', kalman: { ...event.start, variance: 1 } }
+      return { ...state, ball: event.start, source: 'replay', kalman: null }
     case 'obUndone':
       return followGps(state)
     case 'recenter':
-      return followGps({ ...state, gps: event.at ?? state.gps })
+      return followGps({ ...state, gps: event.at })
     case 'holeChanged':
       return initialLiveBall
     case 'teeDefault':

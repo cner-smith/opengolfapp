@@ -18,8 +18,7 @@ import type { UseHoleDataResult } from './useHoleData'
 interface UseShotEditsInput {
   user: User | null
   data: UseHoleDataResult
-  // The component's manual ball-placement path; markLastShotOb uses it to
-  // drop the ball back on the OB shot's origin (see useShotActions' input).
+  // markLastShotOb puts the ball on the OB shot's start, and Undo hands it back to GPS.
   dispatchBall: Dispatch<LiveBallEvent>
 }
 

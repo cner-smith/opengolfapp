@@ -44,7 +44,7 @@ describe('liveBall: where Mark puts the next shot', () => {
   })
 
   it('"Put the ball on my GPS spot" takes a placed ball back to GPS', () => {
-    const s = run([fix(TEE), { type: 'placed', at: DRAGGED }, fix(FAIRWAY), { type: 'recenter' }])
+    const s = run([fix(TEE), { type: 'placed', at: DRAGGED }, fix(FAIRWAY), { type: 'recenter', at: FAIRWAY }])
     expect(s.source).toBe('gps')
     expect(s.ball).toEqual(FAIRWAY)
   })
@@ -76,5 +76,18 @@ describe('liveBall: where Mark puts the next shot', () => {
     const s = run([{ type: 'teeDefault', tee: TEE }, { type: 'placed', at: DRAGGED }, { type: 'recenter', at: FAIRWAY }])
     expect(s.source).toBe('gps')
     expect(s.ball).toEqual(FAIRWAY)
+  })
+
+  it('backing out of the aim after Mark leaves the ball following GPS', () => {
+    // Mark pins the start for the aim step; Re-place / Not on the green return to placing the ball.
+    const s = run([fix(TEE), { type: 'marked', at: TEE }, fix(FAIRWAY)])
+    expect(s.source).toBe('gps')
+    expect(markSpot(s)).toEqual(FAIRWAY)
+  })
+
+  it('Mark keeps a hand-placed ball held: the player chose that spot', () => {
+    const s = run([fix(TEE), { type: 'placed', at: DRAGGED }, { type: 'marked', at: DRAGGED }, fix(FAIRWAY)])
+    expect(s.source).toBe('hand')
+    expect(markSpot(s)).toEqual(DRAGGED)
   })
 })
