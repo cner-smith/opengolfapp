@@ -4,7 +4,7 @@ import { useRouter } from 'expo-router'
 import type { User } from '@supabase/supabase-js'
 import { deleteRound, getProfile } from '@oga/supabase'
 import { supabase } from '../../../lib/supabase'
-import { pendingCount } from '../../../lib/db'
+import { logDiag, pendingCount } from '../../../lib/db'
 import { syncPendingShots } from '../../../lib/sync'
 import { completeRound } from '../../../lib/completeRound'
 import type { ActiveDialog } from './types'
@@ -42,6 +42,7 @@ export function useRoundEnd({ user, round, setActiveDialog, onRoundCompleted }: 
     if (endInFlightRef.current) return
     endInFlightRef.current = true
     setEnding(true)
+    logDiag('end_round_start')
     try {
       // Drain the queue before finalizing (#651). syncPendingShots joins
       // an in-flight run instead of no-oping, but a joined run may have
@@ -53,6 +54,7 @@ export function useRoundEnd({ user, round, setActiveDialog, onRoundCompleted }: 
         await syncPendingShots().catch(() => undefined)
       }
       const unsynced = await pendingCount(user.id)
+      logDiag('end_round_synced', { unsynced })
       if (unsynced > 0) {
         // Shots that never reached the server would silently vanish from
         // totals/SG (completeRound reads the server's shot set). Make the
@@ -81,6 +83,7 @@ export function useRoundEnd({ user, round, setActiveDialog, onRoundCompleted }: 
             { cancelable: false },
           )
         })
+        logDiag('end_round_prompt', { finishAnyway })
         if (!finishAnyway) return
       }
       const { data: profile } = await getProfile(supabase, user.id)
@@ -93,8 +96,10 @@ export function useRoundEnd({ user, round, setActiveDialog, onRoundCompleted }: 
         userId: user.id,
         handicap,
       })
+      logDiag('end_round_ok')
       onRoundCompleted()
     } catch (err) {
+      logDiag('end_round_failed', { msg: err })
       Alert.alert('End round failed', (err as Error).message)
     } finally {
       endInFlightRef.current = false

@@ -5,6 +5,7 @@ import {
   deleteHoleScorePatches,
   listHoleScorePatches,
   listPendingShots,
+  logDiag,
   markShotBroken,
   markShotSynced,
   updatePendingShotPayload,
@@ -85,6 +86,7 @@ async function syncRowsIndividually(
         error?.message,
       )
       await markShotBroken(row.local_id)
+      logDiag('sync_quarantine', { localId: row.local_id, code: error?.code ?? null })
       failed += 1
     } else {
       // Transient mid-fallback — leave pending for the next trigger.
@@ -101,6 +103,7 @@ export function syncPendingShots(): Promise<SyncResult> {
   if (activeRun) {
     // eslint-disable-next-line no-console
     console.warn('[sync] stale run detected, starting fresh')
+    logDiag('sync_stale_lock')
   }
   const run = runSync().finally(() => {
     // Only clear if a stale-run replacement hasn't already taken over.
@@ -122,6 +125,8 @@ async function runSync(): Promise<SyncResult> {
   const userId = auth.session?.user.id
   if (!userId) return { synced, failed }
   const pending = await listPendingShots(userId)
+  const t0 = Date.now()
+  logDiag('sync_start', { pending: pending.length })
   for (let i = 0; i < pending.length; i += CHUNK_SIZE) {
     const chunk = pending.slice(i, i + CHUNK_SIZE)
     // Parallel arrays: payloads[j] parsed from validRows[j]. The
@@ -200,7 +205,9 @@ async function runSync(): Promise<SyncResult> {
   await drainHoleScorePatches(userId).catch((err) => {
     // eslint-disable-next-line no-console
     console.warn('[sync/hole-scores] drain failed, leaving queued:', err)
+    logDiag('sync_patches_failed', { msg: err })
   })
+  logDiag('sync_end', { synced, failed, ms: Date.now() - t0 })
   return { synced, failed }
 }
 

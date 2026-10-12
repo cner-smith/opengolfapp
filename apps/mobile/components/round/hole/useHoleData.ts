@@ -3,6 +3,7 @@ import { inferHoleCount, isPuttShot, resolveCourseTee, resolveHole, type Capture
 import { getHoleTeesForCourse } from '@oga/supabase'
 import type { Database } from '@oga/supabase'
 import {
+  logDiag,
   pendingShotsForHoleScore,
   type PendingShot,
   type ShotPayload,
@@ -359,6 +360,7 @@ export function useHoleData(
     }
     if (!currentHoleScore) return
     const myNonce = ++fetchNonceRef.current
+    const fetchT0 = Date.now()
     ;(async () => {
       try {
         const fetchShots = () =>
@@ -411,6 +413,7 @@ export function useHoleData(
           )
           if (myNonce !== fetchNonceRef.current) return
           const queuedIds = new Set(local.flatMap((p) => payloadOf(p)?.id ?? []))
+          logDiag('refetch_offline', { cached: cached?.length ?? null })
           shots = (cached ?? []).filter((s) => !queuedIds.has(s.id))
         } else {
           // Failed twice: leave counts at the neutral reset above rather
@@ -419,6 +422,7 @@ export function useHoleData(
           if (__DEV__) {
             console.warn('[hole/shots-fetch]', shotsRes.error.message)
           }
+          logDiag('refetch_failed', { msg: shotsRes.error.message.slice(0, 120) })
           return
         }
         // Dedupe the sync-in-flight window: a shot whose server row just
@@ -455,7 +459,9 @@ export function useHoleData(
         setRemoteHoledFor(lastRemote?.putt_result === 'made' ? currentHoleScore.id : null)
         setRemotePuttFor(lastRemote && isPuttShot(lastRemote.lie_type) ? currentHoleScore.id : null)
         setPendingForHole(dedupedLocal)
+        logDiag('refetch', { remote: shots.length, local: dedupedLocal.length, ms: Date.now() - fetchT0 })
       } catch (err) {
+        logDiag('refetch_failed', { msg: err })
         if (myNonce !== fetchNonceRef.current) return
         // SQLite (pendingShotsForHoleScore) rejection, or any other thrown
         // error — leave counts at the neutral reset above rather than a

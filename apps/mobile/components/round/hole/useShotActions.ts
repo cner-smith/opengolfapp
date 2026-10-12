@@ -12,6 +12,7 @@ import { supabase } from '../../../lib/supabase'
 import {
   enqueueHoleScorePatch,
   insertPendingShot,
+  logDiag,
   setPendingShotEnd,
   type ShotPayload,
 } from '../../../lib/db'
@@ -263,6 +264,7 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
       const localId = await insertPendingShot(payload)
       lastSavedShotLocalIdRef.current = localId
       const isPutt = isPuttShot(payload.lie_type)
+      logDiag('shot_saved', { shotNumber: payload.shot_number, localId, putt: isPutt, ob: !!payload.ob })
       setPendingForHole((prev) => [
         ...prev,
         {
@@ -316,6 +318,7 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
     } catch (err) {
       // eslint-disable-next-line no-console
       console.error('shot save failed', err, payload)
+      logDiag('shot_save_failed', { shotNumber: payload.shot_number, msg: err })
       Alert.alert('Save failed', (err as Error).message)
     } finally {
       persistShotInFlightRef.current = false
@@ -423,6 +426,14 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
     // same recovery as no fix at all.
     const gpsStale =
       ball == null && Date.now() - gpsFixAtRef.current > 30_000
+    const last = previousShots[previousShots.length - 1]
+    logDiag('mark', {
+      source: ball ? (manuallyPlacedRef.current ? 'ball_placed_by_hand' : 'ball_following_gps') : 'gps_fix',
+      fixAgeMs: Date.now() - gpsFixAtRef.current,
+      ydFromLastStart:
+        source && last ? Math.round(distanceYards(source, last) * 10) / 10 : null,
+      blocked: !source || gpsStale,
+    })
     if (!source || gpsStale) {
       Alert.alert(
         'No GPS yet',
@@ -653,11 +664,14 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
     if (saveSummaryInFlightRef.current) return
     saveSummaryInFlightRef.current = true
     setSaving(true)
+    logDiag('hole_save_start', { hole: currentHole.number, rows: rows.length, score: summary.score })
     try {
       await writeHoleSummary({ user, currentHoleScore, currentHole, rows, summary, setHoleScores })
+      logDiag('hole_save_ok', { hole: currentHole.number })
       setRoundState('PLACE_BALL')
       advanceAfterHole()
     } catch (err) {
+      logDiag('hole_save_failed', { hole: currentHole.number, msg: err })
       Alert.alert('Save failed', (err as Error).message)
     } finally {
       saveSummaryInFlightRef.current = false

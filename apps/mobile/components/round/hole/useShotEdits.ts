@@ -6,6 +6,7 @@ import { supabase } from '../../../lib/supabase'
 import {
   deletePendingShotById,
   enqueueHoleScorePatch,
+  logDiag,
   removeLocalShotAndRenumber,
   setPendingShotOb,
   type ShotPayload,
@@ -105,6 +106,7 @@ export function useShotEdits({ user, data, placeBallManually }: UseShotEditsInpu
   )
 
   async function deleteShot(shotId: string): Promise<boolean> {
+    logDiag('delete_start')
     try {
       // Flush any not-yet-synced shots so the target has a server row to delete.
       await syncPendingShots()
@@ -138,6 +140,7 @@ export function useShotEdits({ user, data, placeBallManually }: UseShotEditsInpu
       return true
     } catch (e) {
       if (__DEV__) console.warn('[hole/deleteShot]', (e as Error)?.message)
+      logDiag('delete_failed', { msg: e })
       Alert.alert(
         "Couldn't delete that shot",
         'Deleting a shot needs a connection. Try again when you’re back online.',
@@ -157,6 +160,7 @@ export function useShotEdits({ user, data, placeBallManually }: UseShotEditsInpu
     newStart: { lat: number; lng: number },
   ): Promise<boolean> {
     if (!user) return false
+    logDiag('move_start')
     try {
       // Flush any not-yet-synced shots first (mirrors deleteShot) — the shot's
       // client-generated id is stable, so once flushed the update below hits
@@ -220,16 +224,19 @@ export function useShotEdits({ user, data, placeBallManually }: UseShotEditsInpu
       // move is lost (mirrors the Alert path below).
       if (!updatedRows || updatedRows.length === 0) {
         if (__DEV__) console.warn('[hole/moveShot] update matched 0 rows', shotId)
+        logDiag('move_failed', { msg: '0 rows' })
         Alert.alert(
           "Couldn't move that shot",
           'Moving a shot needs a connection. Try again when you’re back online.',
         )
         return false
       }
+      logDiag('move_ok')
       data.refreshShots()
       return true
     } catch (e) {
       if (__DEV__) console.warn('[hole/moveShot]', (e as Error)?.message)
+      logDiag('move_failed', { msg: e })
       Alert.alert(
         "Couldn't move that shot",
         'Moving a shot needs a connection. Try again when you’re back online.',
@@ -269,6 +276,7 @@ export function useShotEdits({ user, data, placeBallManually }: UseShotEditsInpu
         : previousShotObs[idx] ?? false
     const next = !currentlyOb
     obInFlightRef.current = true
+    logDiag('ob_start', { set: next, idx })
     try {
       // Flush first (mirrors moveShot): the client id is stable, so once the
       // shot has synced the update below hits the real row instead of 0 rows.
@@ -297,6 +305,7 @@ export function useShotEdits({ user, data, placeBallManually }: UseShotEditsInpu
       // the player believing the penalty was recorded.
       if (!updatedRows || updatedRows.length === 0) {
         if (__DEV__) console.warn('[hole/markLastShotOb] update matched 0 rows', shotId)
+        logDiag('ob_failed', { set: next, msg: '0 rows' })
         Alert.alert(
           "Couldn't record that penalty",
           'Marking a shot OB needs a connection. Try again when you’re back online.',
@@ -333,8 +342,10 @@ export function useShotEdits({ user, data, placeBallManually }: UseShotEditsInpu
       // UNDO the ball is left exactly where it is — reversing the flag and
       // the stroke is the undo; moving the player's map is not.
       if (next && start) placeBallManually(start)
+      logDiag('ob_ok', { set: next, ballSnapped: !!(next && start) })
     } catch (e) {
       if (__DEV__) console.warn('[hole/markLastShotOb]', (e as Error)?.message)
+      logDiag('ob_failed', { set: next, msg: e })
       Alert.alert(
         "Couldn't record that penalty",
         'Marking a shot OB needs a connection. Try again when you’re back online.',
