@@ -8,6 +8,7 @@ import { distanceYards } from '../../../lib/maps'
 import { PIN_PROMPT_RADIUS_YARDS, type RoundState } from './types'
 import { useAuth } from '../../../hooks/useAuth'
 import { markSeenFlags, seenFlags } from '../../../lib/seenFlags'
+import { logDiag } from '../../../lib/db'
 
 const AIM_HINT_KEY = 'oga.aim-hint-shown'
 
@@ -332,17 +333,24 @@ export function useHoleState({
           // path below, where a stale anchor would visibly snap the marker
           // and skew the filter until live ticks pull it back. 10 s is
           // generous against the ~3.5 s walking-pace tick cadence.
-          if (Date.now() - rawPoint.timestamp > 10_000) return
+          const fix = {
+            acc: rawPoint.accuracy != null ? Math.round(rawPoint.accuracy) : null,
+            ageMs: Date.now() - rawPoint.timestamp,
+          }
+          if (fix.ageMs > 10_000) return logDiag('gps_fix', { ...fix, use: 'stale' })
           // Review posture (#484): on a hole the player navigated BACK to,
           // keep the GPS chip/recenter live (setGpsPosition above) but don't
           // auto-drive the BALL marker — the hole shows only its existing
           // shot breadcrumb until they opt into adding a shot.
-          if (isRevisitingPlayedHole) return
+          if (isRevisitingPlayedHole) return logDiag('gps_fix', { ...fix, use: 'revisit' })
           // Manual placement freezes GPS-driven ball updates. Without
           // this, the next reading after a drag would re-init the
           // filter at the raw GPS point and snap ball back, wiping
           // the player's refinement.
-          if (manuallyPlacedRef.current || ballDraggingRef.current) return
+          if (manuallyPlacedRef.current || ballDraggingRef.current) {
+            return logDiag('gps_fix', { ...fix, use: manuallyPlacedRef.current ? 'frozen' : 'dragging' })
+          }
+          logDiag('gps_fix', { ...fix, use: 'ball' })
           kalmanStateRef.current = kalmanStateRef.current
             ? updateKalman(kalmanStateRef.current, rawPoint)
             : createKalmanState(rawPoint)
@@ -373,6 +381,7 @@ export function useHoleState({
         // when the last listener detaches (both synchronous — no in-flight
         // await race to guard here).
         locationManager.addListener(onLocation)
+        logDiag('gps_listen', { hole: currentHoleId })
         subscription = {
           remove: () => locationManager.removeListener(onLocation),
         }

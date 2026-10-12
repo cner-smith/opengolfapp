@@ -3,6 +3,7 @@ import { inferHoleCount, isPuttShot, resolveCourseTee, resolveHole, type Capture
 import { getHoleTeesForCourse } from '@oga/supabase'
 import type { Database } from '@oga/supabase'
 import {
+  logDiag,
   pendingShotsForHoleScore,
   type PendingShot,
   type ShotPayload,
@@ -359,6 +360,7 @@ export function useHoleData(
     }
     if (!currentHoleScore) return
     const myNonce = ++fetchNonceRef.current
+    const fetchT0 = Date.now()
     ;(async () => {
       try {
         const fetchShots = () =>
@@ -455,6 +457,7 @@ export function useHoleData(
         setRemoteHoledFor(lastRemote?.putt_result === 'made' ? currentHoleScore.id : null)
         setRemotePuttFor(lastRemote && isPuttShot(lastRemote.lie_type) ? currentHoleScore.id : null)
         setPendingForHole(dedupedLocal)
+        logDiag('refetch', { remote: shots.length, local: dedupedLocal.length, ms: Date.now() - fetchT0 })
       } catch (err) {
         if (myNonce !== fetchNonceRef.current) return
         // SQLite (pendingShotsForHoleScore) rejection, or any other thrown

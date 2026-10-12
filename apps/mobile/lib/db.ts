@@ -56,6 +56,17 @@ function getDb(): Promise<SQLite.SQLiteDatabase> {
           patch TEXT NOT NULL
         );
       `)
+      // On-device diagnostic log (#1105), exported from Profile.
+      await db.execAsync(`
+        CREATE TABLE IF NOT EXISTS diag_log (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          at INTEGER NOT NULL,
+          event TEXT NOT NULL,
+          data TEXT
+        );
+      `)
+      // First open per process = an app (re)start, so a restart mid-round shows in the log.
+      await db.runAsync(`INSERT INTO diag_log (at, event) VALUES (?, 'app_start')`, Date.now())
       return db
     })()
   }
@@ -431,4 +442,35 @@ export async function deleteHoleScorePatches(
     holeScoreId,
     throughLocalId,
   )
+}
+
+// Keeps roughly the last couple of rounds of events (GPS fixes dominate).
+const DIAG_MAX_ROWS = 20000
+
+// Fire-and-forget: a diagnostic write must never fail or slow the action it
+// records. `data` holds small numbers / ids only — no tokens, email, or
+// coordinates the round doesn't already store.
+export function logDiag(event: string, data?: Record<string, unknown>): void {
+  void (async () => {
+    const db = await getDb()
+    const r = await db.runAsync(
+      `INSERT INTO diag_log (at, event, data) VALUES (?, ?, ?)`,
+      Date.now(),
+      event,
+      data ? JSON.stringify(data) : null,
+    )
+    if (r.lastInsertRowId % 500 === 0) {
+      await db.runAsync(`DELETE FROM diag_log WHERE id <= ?`, r.lastInsertRowId - DIAG_MAX_ROWS)
+    }
+  })().catch(() => {})
+}
+
+export async function readDiagLog(): Promise<string> {
+  const db = await getDb()
+  const rows = await db.getAllAsync<{ at: number; event: string; data: string | null }>(
+    `SELECT at, event, data FROM diag_log ORDER BY id ASC`,
+  )
+  return rows
+    .map((r) => `${new Date(r.at).toISOString()} ${r.event}${r.data ? ` ${r.data}` : ''}`)
+    .join('\n')
 }

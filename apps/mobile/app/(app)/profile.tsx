@@ -11,6 +11,8 @@ import {
   View,
 } from 'react-native'
 import { useRouter } from 'expo-router'
+import * as Sharing from 'expo-sharing'
+import { File, Paths } from 'expo-file-system'
 import {
   FACILITIES,
   GOALS,
@@ -27,6 +29,7 @@ import { clearScreenCache } from '../../lib/screenCache'
 import { getAimTilt, setAimTilt, type AimTilt } from '../../lib/aimTilt'
 import { getLeftHand, setLeftHand } from '../../lib/leftHand'
 import { getSoundsOn, setSoundsOn } from '../../lib/sounds'
+import { readDiagLog } from '../../lib/db'
 import { AppBar } from '../../components/ui/AppBar'
 import { PaperTile, SectionHead } from '../../components/paper/Section'
 import { FONT_CAP, P, R } from '../../components/paper/tokens'
@@ -423,6 +426,15 @@ export default function ProfileTab() {
           />
         </View>
 
+        <View style={{ marginTop: 18 }}>
+          <SectionHead title="Help" />
+          <LinkKey
+            accessibilityLabel="Export diagnostic log"
+            label="Export diagnostic log"
+            onPress={() => void exportDiagLog()}
+          />
+        </View>
+
         <Key
           accessibilityLabel={saving ? 'Saving profile' : 'Save profile changes'}
           tone="primary"
@@ -524,6 +536,21 @@ const inputStyle = {
 } as const
 
 // A raised paper key standing in for a navigation row.
+// What the live round did on this phone (#1105), for a bug report.
+async function exportDiagLog() {
+  try {
+    const file = new File(Paths.cache, 'oga-diagnostic-log.txt')
+    file.write((await readDiagLog()) || '(empty)')
+    if (!(await Sharing.isAvailableAsync())) {
+      Alert.alert('Sharing unavailable', 'This device cannot share files.')
+      return
+    }
+    await Sharing.shareAsync(file.uri, { mimeType: 'text/plain', dialogTitle: 'Diagnostic log' })
+  } catch (err) {
+    Alert.alert('Export failed', (err as Error).message)
+  }
+}
+
 function LinkKey({ label, accessibilityLabel, onPress }: { label: string; accessibilityLabel: string; onPress: () => void }) {
   return (
     <Key
