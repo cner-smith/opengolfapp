@@ -1,0 +1,67 @@
+# Baseline live round at Whistling Straits hole 1 (DEV): start, Mark, aim, walk, Mark, finish and
+# save the hole. Every live-round scenario flow builds on these steps. The round is deleted at
+# the end, pass or fail.
+appId: app.opengolf.oga
+name: Android live round — baseline
+onFlowComplete:
+  - runFlow:
+      when:
+        visible: "Round options"
+      commands:
+        - tapOn: "Round options"
+        - tapOn: "Delete round"
+        - tapOn: "Delete"
+---
+- runFlow: subflows/home.yaml
+# Hole 1 tee.
+- setLocation:
+    latitude: 43.849856
+    longitude: -87.734575
+- tapOn: "Start live round"
+- tapOn: "Search courses…"
+# "Whistling" so the search box itself can't match the "Whistling Straits.*" row.
+- inputText: "Whistling"
+- tapOn: "Whistling Straits.*"
+- tapOn: "Track shot patterns"
+- tapOn: "Start round →"
+- extendedWaitUntil:
+    visible: "Mark my ball.*|Skip tips"
+    timeout: 60000
+- runFlow:
+    when:
+      visible: "Skip tips"
+    commands:
+      - tapOn: "Skip tips"
+- extendedWaitUntil:
+    visible: "Hole 1"
+    timeout: 30000
+# 397 yd hole: the ball follows GPS to the tee.
+- extendedWaitUntil:
+    visible: "39[0-9].* yd to the pin"
+    timeout: 30000
+- tapOn: "Mark my ball at my GPS spot"
+- runFlow:
+    when:
+      visible: "Skip tips"
+    commands:
+      - tapOn: "Skip tips"
+- tapOn: "Confirm aim"
+# Walk ~230 yd up the fairway.
+- travel:
+    points:
+      - 43.849856,-87.734575
+      - 43.84945,-87.7338
+      - 43.84906,-87.7330
+      - 43.84869,-87.73223
+    speed: 40
+- extendedWaitUntil:
+    visible: "1[5-8][0-9].* yd to the pin"
+    timeout: 30000
+- tapOn: "Mark my ball at my GPS spot"
+- tapOn: "Confirm aim"
+- tapOn: "Finish hole"
+- tapOn: "Save & next hole"
+- extendedWaitUntil:
+    visible: "Hole 2"
+    timeout: 30000
+- takeScreenshot: baseline-hole-2
