@@ -39,13 +39,6 @@ interface UseShotActionsInput {
   // Component-level UI state setters.
   setPinPlacementOpen: Dispatch<SetStateAction<boolean>>
   setActiveDialog: Dispatch<SetStateAction<ActiveDialog>>
-  // The component's manual ball-placement path — the very handler a map
-  // drag/tap goes through (freezes GPS tracking for this PLACE_BALL cycle,
-  // re-anchors the Kalman filter, flips the CTA off its "at my GPS"
-  // labelling). Passed in rather than reimplemented here because part of
-  // that state (ballMoved) lives in LiveRoundSession. markLastShotOb uses
-  // it to drop the ball back on the OB shot's origin.
-  placeBallManually: (loc: LatLng) => void
   // Hole navigation is callback-driven so the parent (LiveRoundSession)
   // can keep the MapView resident across hole changes. Direct router.replace
   // would fully unmount + remount the screen — see #264.
@@ -103,7 +96,6 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
     state,
     setPinPlacementOpen,
     setActiveDialog,
-    placeBallManually,
     onHoleChange,
     onAdvanceHole,
     onRoundCompleted,
@@ -114,7 +106,7 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
   // before React commits the next render — both calls see `saving`
   // === false. The ref flips synchronously and blocks the second call.
   const persistShotInFlightRef = useRef(false)
-  const edits = useShotEdits({ user, data, placeBallManually })
+  const edits = useShotEdits({ user, data, dispatchBall: state.dispatchBall })
   const { shotObs } = edits
   const roundEnd = useRoundEnd({ user, round: data.round, setActiveDialog, onRoundCompleted })
   const { handleEndRound } = roundEnd
@@ -159,13 +151,14 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
   const saveSummaryInFlightRef = useRef(false)
   const {
     ball,
-    setBall,
+    ballSource,
+    dispatchBall,
+    markAt,
     aim,
     aimTouched,
     setAim,
     setAimTouched,
     setRoundState,
-    manuallyPlacedRef,
     lastSavedShotLocalIdRef,
     gpsPosition,
     gpsFixAtRef,
@@ -263,6 +256,8 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
     try {
       const localId = await insertPendingShot(payload)
       lastSavedShotLocalIdRef.current = localId
+      // The next shot starts wherever the player walks to: GPS takes the ball back.
+      dispatchBall({ type: 'shotSaved' })
       const isPutt = isPuttShot(payload.lie_type)
       logDiag('shot_saved', { shotNumber: payload.shot_number, localId, putt: isPutt, ob: !!payload.ob })
       setPendingForHole((prev) => [
@@ -413,11 +408,10 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
   }
 
   async function markBallHere(opts?: { toGreen?: boolean }) {
-    // Use the dragged ball if the player set one, otherwise fall back to
-    // raw GPS — "Mark ball here" should always work as long as we know
-    // where the player is, even if they haven't tapped the map to drop
-    // a marker first.
-    const source = ball ?? gpsPosition
+    // A held spot (placed by hand / OB replay) as placed; otherwise the latest
+    // fresh GPS fix — never the smoothed ball trailing behind it (#1107). With
+    // no fresh fix yet, the app's last GPS position (guarded for age below).
+    const source = markAt ?? gpsPosition
     // Stale-fix guard (#720): the last-known seed and the listener's cache
     // replay populate gpsPosition with no freshness gate (only the
     // ball/Kalman path has one), so after a pocketed walk to a new hole the
@@ -425,10 +419,10 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
     // older than 30 s rather than persist it as a durable shot coordinate —
     // same recovery as no fix at all.
     const gpsStale =
-      ball == null && Date.now() - gpsFixAtRef.current > 30_000
+      markAt == null && Date.now() - gpsFixAtRef.current > 30_000
     const last = previousShots[previousShots.length - 1]
     logDiag('mark', {
-      source: ball ? (manuallyPlacedRef.current ? 'ball_placed_by_hand' : 'ball_following_gps') : 'gps_fix',
+      source: ball ? `ball_${ballSource}` : 'gps_fix',
       fixAgeMs: Date.now() - gpsFixAtRef.current,
       ydFromLastStart:
         source && last ? Math.round(distanceYards(source, last) * 10) / 10 : null,
@@ -461,7 +455,6 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
     // hole gains prior shots (otherwise shot 2+ on a hole would read as a
     // revisit and suppress). See #484.
     setAppendEngaged(true)
-    manuallyPlacedRef.current = true
     const prevLocalId = lastSavedShotLocalIdRef.current
     if (prevLocalId != null) {
       // A thrown local write keeps the ref, so marking the ball again
@@ -491,7 +484,8 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
       }
       if (!writeFailed) lastSavedShotLocalIdRef.current = null
     }
-    setBall(ballSnapshot)
+    // The marked spot is the shot's start, held until the shot is saved.
+    dispatchBall({ type: 'placed', at: ballSnapshot })
     setAim(null)
     // On-green auto-detect, restored from pre-#791 (b0f123b removed it when
     // the on-green flow moved behind the explicit "⛳ On the green" chip):

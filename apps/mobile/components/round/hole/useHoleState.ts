@@ -1,8 +1,8 @@
-import { useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction, type MutableRefObject } from 'react'
+import { useEffect, useMemo, useReducer, useRef, useState, type Dispatch, type SetStateAction, type MutableRefObject } from 'react'
 import { AppState, PermissionsAndroid, Platform } from 'react-native'
 import * as Location from 'expo-location'
 import { locationManager } from '@rnmapbox/maps'
-import { createKalmanState, updateKalman, type KalmanState } from '@oga/core'
+import { initialLiveBall, liveBall, markSpot, type BallSource, type LiveBallEvent } from '@oga/core'
 import type { LatLng } from '../HoleMap'
 import { distanceYards } from '../../../lib/maps'
 import { PIN_PROMPT_RADIUS_YARDS, type RoundState } from './types'
@@ -47,15 +47,18 @@ export interface UseHoleStateResult {
   aimTouched: boolean
   setAimTouched: Dispatch<SetStateAction<boolean>>
   ball: LatLng | null
-  setBall: Dispatch<SetStateAction<LatLng | null>>
+  /** Where the ball came from: GPS, placed by hand, or the replay spot after an OB. */
+  ballSource: BallSource
+  /** Every ball change goes through @oga/core's liveBall rule (#1107). */
+  dispatchBall: Dispatch<LiveBallEvent>
+  /** Where "Mark my ball" puts the start: a held spot, else the latest fresh fix. */
+  markAt: LatLng | null
   roundState: RoundState
   setRoundState: Dispatch<SetStateAction<RoundState>>
   gpsPosition: LatLng | null
   /** Epoch ms of the newest fix behind gpsPosition (the fix's own
    *  timestamp — stale cache replays report their true age). 0 = none. */
   gpsFixAtRef: MutableRefObject<number>
-  kalmanStateRef: MutableRefObject<KalmanState | null>
-  manuallyPlacedRef: MutableRefObject<boolean>
   ballDraggingRef: MutableRefObject<boolean>
   lastSavedShotLocalIdRef: MutableRefObject<number | null>
   aimHintVisible: boolean
@@ -89,20 +92,16 @@ export function useHoleState({
   // (LiveRoundSession wraps onSetAim). Reset whenever the aim clears (effect
   // below) so each new shot's suggestion starts untouched.
   const [aimTouched, setAimTouched] = useState(false)
-  const [ball, setBall] = useState<LatLng | null>(null)
-  // Kalman filter state for live GPS smoothing during PLACE_BALL. Held
-  // in a ref because every position update would otherwise re-render
-  // the entire screen at GPS cadence (1-2 Hz). Reset on hole change,
-  // manual drag, or when leaving PLACE_BALL — see useEffect below.
+  // The ball, its source and its GPS smoothing: one rule in @oga/core (#1107).
+  const [ballState, dispatchBall] = useReducer(liveBall, initialLiveBall)
+  const { ball, source: ballSource } = ballState
+  // For the GPS listener's diagnostic log, which closes over its first render.
+  const ballSourceRef = useRef(ballSource)
+  ballSourceRef.current = ballSource
   // Ref so the AppState listener can remove the subscription if the app
   // backgrounds while GPS is active — prevents the native callback from
   // firing into a null JS module object after the OS tears down the app.
   const gpsSubscriptionRef = useRef<{ remove: () => void } | null>(null)
-  const kalmanStateRef = useRef<KalmanState | null>(null)
-  // Set true the moment the player manually drags or taps the ball;
-  // freezes the GPS callback's setBall so the next reading can't
-  // clobber the manual placement.
-  const manuallyPlacedRef = useRef(false)
   // True while the ball marker is under the finger (#659).
   const ballDraggingRef = useRef(false)
   // local_id of the just-saved pending shot, so the next PLACE_BALL
@@ -208,7 +207,7 @@ export function useHoleState({
     // gpsPosition keeps updating — that drives the recenter button + "Mark
     // ball" CTA, which were grey-locked when the whole effect was gated
     // here (regression #640). The #484 review posture (no auto-place / no
-    // auto-aim) is enforced downstream at the setBall gate, not by skipping
+    // auto-aim) is enforced downstream at the ball gate, not by skipping
     // the whole watcher.
     if (roundState !== 'PLACE_BALL') return
     let active = true
@@ -343,28 +342,17 @@ export function useHoleState({
           // auto-drive the BALL marker — the hole shows only its existing
           // shot breadcrumb until they opt into adding a shot.
           if (isRevisitingPlayedHole) return logDiag('gps_fix', { ...fix, use: 'revisit' })
-          // Manual placement freezes GPS-driven ball updates. Without
-          // this, the next reading after a drag would re-init the
-          // filter at the raw GPS point and snap ball back, wiping
-          // the player's refinement.
-          if (manuallyPlacedRef.current || ballDraggingRef.current) {
-            return logDiag('gps_fix', { ...fix, use: manuallyPlacedRef.current ? 'frozen' : 'dragging' })
-          }
-          logDiag('gps_fix', { ...fix, use: 'ball' })
-          kalmanStateRef.current = kalmanStateRef.current
-            ? updateKalman(kalmanStateRef.current, rawPoint)
-            : createKalmanState(rawPoint)
-          const smoothed = {
-            lat: kalmanStateRef.current.lat,
-            lng: kalmanStateRef.current.lng,
-          }
-          setBall(smoothed)
+          // Under the finger the ball stays put; otherwise the liveBall rule
+          // decides (a ball placed by hand or on the OB replay spot holds).
+          if (ballDraggingRef.current) return logDiag('gps_fix', { ...fix, use: 'dragging' })
+          logDiag('gps_fix', { ...fix, use: ballSourceRef.current === 'gps' ? 'ball' : `held_${ballSourceRef.current}` })
+          dispatchBall({ type: 'fix', lat: rawPoint.lat, lng: rawPoint.lng, accuracy: rawPoint.accuracy })
         }
         // 5 m distance filter, carried over from the removed expo-location
         // config: at a ~1.4 m/s walking pace that's a tick every ~3.5 s,
         // Kalman smooths the gap, and the marker is tap/drag-confirmed
         // before shot capture — battery over cadence. Without it the engine
-        // starts unfiltered (start(-1)) and ticks ~1 Hz into Kalman/setBall.
+        // starts unfiltered (start(-1)) and ticks ~1 Hz into the ball's filter.
         // The manager persists the value across its internal stop/start, so
         // once is enough. At rest there are simply no ticks — a stationary
         // player's held gpsPosition is still correct, so the old 5 s
@@ -396,28 +384,16 @@ export function useHoleState({
       active = false
       subscription?.remove()
       gpsSubscriptionRef.current = null
-      // Teardown ONLY — do NOT reset manuallyPlacedRef / kalmanStateRef
-      // here. This cleanup also fires on gpsNonce (every foreground
-      // return) and isRevisitingPlayedHole re-runs, where a manual ball
-      // placement must survive: resetting here let the next tick (or the
-      // addListener cache replay) snap a dragged ball back to raw GPS
-      // (#713). Genuine exits reset the refs elsewhere — the hole-change
-      // effect below, and the phase-exit effect keyed on roundState alone.
+      // Teardown ONLY — never reset the ball here. This cleanup also fires
+      // on gpsNonce (every foreground return) and isRevisitingPlayedHole
+      // re-runs, where a manual ball placement must survive (#713). A saved
+      // shot or a new hole hands the ball back to GPS (liveBall).
     }
   }, [currentHoleId, isPastMode, isRevisitingPlayedHole, roundState, gpsNonce])
 
-  // Phase exit (leaving PLACE_BALL: shot committed, logger opened, putting)
-  // clears the filter + manual-place freeze so the NEXT PLACE_BALL cycle
-  // starts smoothing from a fresh fix and resumes GPS auto-tracking unless
-  // the player drags again. Constraint: keyed on roundState ALONE — the
-  // subscription effect's cleanup can't own this reset because it also
-  // fires on gpsNonce/revisit re-runs, which must preserve a manual
-  // placement (#713).
+  // A drag can't outlive the place-ball step it started in.
   useEffect(() => {
-    if (roundState === 'PLACE_BALL') return
-    kalmanStateRef.current = null
-    manuallyPlacedRef.current = false
-    ballDraggingRef.current = false
+    if (roundState !== 'PLACE_BALL') ballDraggingRef.current = false
   }, [roundState])
 
   // Hole change resets per-hole state. The screen is resident (#264) so
@@ -433,10 +409,8 @@ export function useHoleState({
     // in-progress ball/aim. A genuine hole switch goes id→id (both
     // non-null), so this never blocks the intended reset.
     if (!currentHoleId) return
-    kalmanStateRef.current = null
-    manuallyPlacedRef.current = false
     ballDraggingRef.current = false
-    setBall(null)
+    dispatchBall({ type: 'holeChanged' })
     setAim(null)
     setRoundState('PLACE_BALL')
     // The FIRST hole this component mounts with is the round's resume point
@@ -460,7 +434,7 @@ export function useHoleState({
     if (hasPriorShots) return
     if (roundState !== 'PLACE_BALL') return
     if (ball || !tee) return
-    setBall({ lat: tee.lat, lng: tee.lng })
+    dispatchBall({ type: 'teeDefault', tee: { lat: tee.lat, lng: tee.lng } })
   }, [isPastMode, hasPriorShots, roundState, ball, tee?.lat, tee?.lng])
 
   // Stop GPS when the app backgrounds. A native location callback firing
@@ -492,13 +466,13 @@ export function useHoleState({
     aimTouched,
     setAimTouched,
     ball,
-    setBall,
+    ballSource,
+    dispatchBall,
+    markAt: markSpot(ballState),
     roundState,
     setRoundState,
     gpsPosition,
     gpsFixAtRef,
-    kalmanStateRef,
-    manuallyPlacedRef,
     ballDraggingRef,
     lastSavedShotLocalIdRef,
     aimHintVisible,

@@ -1,7 +1,7 @@
-import { useMemo, useRef, useState } from 'react'
+import { useMemo, useRef, useState, type Dispatch } from 'react'
 import { Alert } from 'react-native'
 import type { User } from '@supabase/supabase-js'
-import { isPuttShot, projectShotMove } from '@oga/core'
+import { isPuttShot, projectShotMove, type LiveBallEvent } from '@oga/core'
 import { supabase } from '../../../lib/supabase'
 import {
   deletePendingShotById,
@@ -20,7 +20,7 @@ interface UseShotEditsInput {
   data: UseHoleDataResult
   // The component's manual ball-placement path; markLastShotOb uses it to
   // drop the ball back on the OB shot's origin (see useShotActions' input).
-  placeBallManually: (loc: LatLng) => void
+  dispatchBall: Dispatch<LiveBallEvent>
 }
 
 export interface UseShotEditsResult {
@@ -55,7 +55,7 @@ export interface UseShotEditsResult {
 
 // Online-first edits to shots already logged on the current hole: delete,
 // move, and the OB toggle. Split out of useShotActions (#1015).
-export function useShotEdits({ user, data, placeBallManually }: UseShotEditsInput): UseShotEditsResult {
+export function useShotEdits({ user, data, dispatchBall }: UseShotEditsInput): UseShotEditsResult {
   const {
     currentHoleScore,
     setHoleScores,
@@ -336,12 +336,11 @@ export function useShotEdits({ user, data, placeBallManually }: UseShotEditsInpu
       await enqueueHoleScorePatch(currentHoleScore, { score: nextScore })
       syncPendingShots().catch(() => undefined)
       data.refreshShots()
-      // Stroke and distance: the re-hit starts where the OB shot started, so
-      // drop the ball back there and freeze GPS on it (the same manual-
-      // placement path a drag uses) or the next fix would drag it away. On
-      // UNDO the ball is left exactly where it is — reversing the flag and
-      // the stroke is the undo; moving the player's map is not.
-      if (next && start) placeBallManually(start)
+      // Stroke and distance: the replay starts where the OB shot started, so
+      // the ball goes back there and holds against GPS. Undo hands the ball
+      // back to GPS, or the next Mark would save the OB start again (#1090).
+      if (next && start) dispatchBall({ type: 'obSet', start })
+      else if (!next) dispatchBall({ type: 'obUndone' })
       logDiag('ob_ok', { set: next, ballSnapped: !!(next && start) })
     } catch (e) {
       if (__DEV__) console.warn('[hole/markLastShotOb]', (e as Error)?.message)

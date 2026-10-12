@@ -117,10 +117,6 @@ export default function LiveRoundSession({
   // historical-shot scatter overlay; the render lands in T4. Off by
   // default — it's a summoned planning aid, not always-on clutter.
   const [dotsVisible, setDotsVisible] = useState(false)
-  // True once the player drags the ball off its GPS-tracked position this
-  // PLACE_BALL cycle — flips the place-ball CTA from "Mark ball at my GPS"
-  // to the generic "Mark ball here". Reset on each new placement / hole.
-  const [ballMoved, setBallMoved] = useState(false)
   // Where the most recent shot's marker is when it's off-screen (HoleMap
   // measures it) — picks the OB prompt's form below (#895 B2).
   const [lastShotArrow, setLastShotArrow] = useState<OffscreenArrow | null>(null)
@@ -154,7 +150,6 @@ export default function LiveRoundSession({
   // state machine that those hooks can't see.
   useEffect(() => {
     setPinPlacementOpen(false)
-    setBallMoved(false)
     setEditHole(null)
     // Confirm dialogs (delete / leave / end / exit) are session-scoped and
     // stay open across hole navigation.
@@ -215,12 +210,6 @@ export default function LiveRoundSession({
       finalState.setRoundState('SUMMARY')
     }
   }, [data.lastShotHoled, holeScoreId])
-
-  // Each fresh PLACE_BALL entry (new shot, re-place) starts GPS-tracked, so the
-  // ball is back at the GPS dot until the player drags it again.
-  useEffect(() => {
-    if (finalState.roundState === 'PLACE_BALL') setBallMoved(false)
-  }, [finalState.roundState])
 
   // Camera anchors on the tee box — the player's starting point. Pin/green
   // is intentionally NOT a fallback; it would mis-frame the hole every time.
@@ -431,22 +420,9 @@ export default function LiveRoundSession({
     return d ? { points: d.points, dispersion: d.dispersion } : null
   }, [dotsVisible, wheelClub, byClub])
 
-  // Manual ball placement: an explicit override of the GPS-tracked marker.
-  // Freeze GPS updates for this PLACE_BALL cycle and re-anchor the Kalman
-  // filter at the manual point with a low variance (1 m²) — strong prior so
-  // any future un-freeze still resists snapping back to a noisy raw fix.
-  // Used by the map drag/tap AND by the OB chip's stroke-and-distance snap
-  // (#839), so both freeze GPS identically rather than through two paths.
-  const placeBallManually = (loc: LatLng) => {
-    finalState.manuallyPlacedRef.current = true
-    setBallMoved(true)
-    finalState.kalmanStateRef.current = {
-      lat: loc.lat,
-      lng: loc.lng,
-      variance: 1,
-    }
-    finalState.setBall(loc)
-  }
+  // Manual ball placement: the player's spot holds until the shot is saved
+  // (liveBall). The map drag/tap goes through here.
+  const placeBallManually = (loc: LatLng) => finalState.dispatchBall({ type: 'placed', at: loc })
 
   const actions = useShotActions({
     id: roundId,
@@ -457,7 +433,6 @@ export default function LiveRoundSession({
     state: finalState,
     setPinPlacementOpen,
     setActiveDialog,
-    placeBallManually,
     // URL sync fires here — only on user-driven navigation (Next /
     // Prev / Finish), not on every render. A reactive useEffect that
     // depended on the parent's onHoleChange prop looped because the
@@ -759,16 +734,10 @@ export default function LiveRoundSession({
           ballDraggingRef={finalState.ballDraggingRef}
           onRecenterBall={(loc) => {
             // Deliberate recenter tap = "put the ball back on me": the
-            // inverse of onSetBall above. Lift the manual freeze, restart
-            // the Kalman filter from the next fresh fix, and snap the ball
-            // to GPS now for instant feedback. ballMoved=false restores
-            // the HUD's ball-from-GPS labeling.
+            // inverse of onSetBall above. GPS takes the ball back now.
             if (isPastMode) return
-            finalState.manuallyPlacedRef.current = false
             finalState.ballDraggingRef.current = false
-            setBallMoved(false)
-            finalState.kalmanStateRef.current = null
-            finalState.setBall(loc)
+            finalState.dispatchBall({ type: 'recenter', at: loc })
           }}
           onPlacePin={(c) => {
             haptic('confirm')
@@ -785,7 +754,7 @@ export default function LiveRoundSession({
           saving={actions.saving}
           hasGps={finalState.gpsPosition != null}
           ballFromGps={
-            !isPastMode && finalState.gpsPosition != null && finalState.ball != null && !ballMoved
+            !isPastMode && finalState.gpsPosition != null && finalState.ball != null && finalState.ballSource === 'gps'
           }
           isRevisitingPlayedHole={finalState.isRevisitingPlayedHole}
           totalShotsThisHole={totalShotsThisHole}
