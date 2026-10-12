@@ -41,6 +41,11 @@ jobs:
           node-version: 20
       - name: Vendor drift-check
         run: node scripts/check-shared-vendor.mjs
+      - name: No source file over 1000 lines
+        run: |
+          over=$(git ls-files 'apps/**/*.ts' 'apps/**/*.tsx' 'packages/**/*.ts' 'packages/**/*.tsx' \
+            ':!packages/supabase/src/types.ts' | xargs wc -l | awk '$2 != "total" && $1 > 1000')
+          if [ -n "$over" ]; then echo "Over 1000 lines (split the file):"; echo "$over"; exit 1; fi
 
   mobile-typecheck:
     runs-on: ubuntu-latest
