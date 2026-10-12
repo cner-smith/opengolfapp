@@ -1,0 +1,8 @@
+# Dismisses the first-visit tips if they're showing.
+appId: app.opengolf.oga
+---
+- runFlow:
+    when:
+      visible: "Skip tips"
+    commands:
+      - tapOn: "Skip tips"

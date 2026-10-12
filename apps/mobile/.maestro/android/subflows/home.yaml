@@ -1,0 +1,61 @@
+# Shared start for Android flows: open the dev client, sign in if needed, land on Home with no
+# round in progress (a leftover round is deleted). Never clearState: that wipes the dev
+# client's saved Metro server. E2E_EMAIL / E2E_PASSWORD come from the runner's env.
+appId: app.opengolf.oga
+---
+- launchApp:
+    permissions:
+      all: allow
+- extendedWaitUntil:
+    visible: "Sign in to OGA|By the numbers|Skip splash|Skip intro tour|Resume.*|Round options"
+    timeout: 60000
+- runFlow:
+    when:
+      visible: "Sign in to OGA"
+    commands:
+      - tapOn:
+          below: "Email"
+      - inputText: ${E2E_EMAIL}
+      - tapOn:
+          below: "Password"
+      - inputText: ${E2E_PASSWORD}
+      - hideKeyboard
+      - tapOn: "Sign in"
+      - extendedWaitUntil:
+          visible: "By the numbers|Skip splash|Skip intro tour"
+          timeout: 60000
+- runFlow:
+    when:
+      visible: "Skip splash"
+    commands:
+      - tapOn: "Skip splash"
+- runFlow:
+    when:
+      visible: "Skip intro tour"
+    commands:
+      - tapOn: "Skip intro tour"
+# A relaunch can reopen a live round directly; leave it for Home.
+- runFlow:
+    when:
+      visible: "Round options"
+    commands:
+      - tapOn: "Leave round and return home"
+      - tapOn: "Leave"
+- extendedWaitUntil:
+    visible: "By the numbers"
+    timeout: 30000
+- runFlow:
+    when:
+      visible: "Resume.*"
+    commands:
+      - tapOn: "Resume.*"
+      - extendedWaitUntil:
+          visible: "Round options"
+          timeout: 30000
+      - runFlow: skip-tips.yaml
+      - tapOn: "Round options"
+      - tapOn: "Delete round"
+      - tapOn: "Delete"
+      - extendedWaitUntil:
+          visible: "By the numbers"
+          timeout: 30000

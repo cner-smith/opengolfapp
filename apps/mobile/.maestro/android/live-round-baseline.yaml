@@ -1,0 +1,71 @@
+# Baseline live round at Whistling Straits hole 1 (needs that course's mapped holes in the backend): start, Mark, aim, walk, Mark, finish and
+# save the hole. Every live-round scenario flow builds on these steps. The round is deleted at
+# the end, pass or fail.
+appId: app.opengolf.oga
+name: Android live round — baseline
+onFlowComplete:
+  - runFlow:
+      when:
+        visible: "Round options"
+      commands:
+        - tapOn: "Round options"
+        - tapOn: "Delete round"
+        - tapOn: "Delete"
+---
+- runFlow: subflows/home.yaml
+# Hole 1 tee.
+- setLocation:
+    latitude: 43.849856
+    longitude: -87.734575
+- tapOn: "Start live round"
+- tapOn: "Search courses…"
+# "Whistling" so the search box itself can't match the "Whistling Straits.*" row.
+- inputText: "Whistling"
+- tapOn: "Whistling Straits.*"
+- tapOn: "Track shot patterns"
+- tapOn: "Start round →"
+- extendedWaitUntil:
+    visible: "Mark my ball.*|Skip tips"
+    timeout: 60000
+- runFlow: subflows/skip-tips.yaml
+- extendedWaitUntil:
+    visible: "Hole 1"
+    timeout: 30000
+# Whistling Straits hole 1 is 397 yd in the backend's data; a course data repair would move these ranges.
+# The ball follows GPS to the tee.
+- extendedWaitUntil:
+    visible: "39[0-9].* yd to the pin"
+    timeout: 30000
+- tapOn: "Mark my ball at my GPS spot"
+- runFlow: subflows/skip-tips.yaml
+- tapOn: "Confirm aim"
+# Walk ~250 yd up the fairway. The walk ends ~147 yd from the pin, but the smoothed ball can stop
+# short of it (no fixes arrive once the player stands still, #1108), so accept 140-179.
+- travel:
+    points:
+      - 43.849856,-87.734575
+      - 43.84945,-87.7338
+      - 43.84906,-87.7330
+      - 43.84869,-87.73223
+    speed: 40
+- extendedWaitUntil:
+    visible: "1[4-7][0-9].* yd to the pin"
+    timeout: 30000
+- tapOn: "Mark my ball at my GPS spot"
+- runFlow: subflows/skip-tips.yaml
+- tapOn: "Confirm aim"
+- runFlow: subflows/skip-tips.yaml
+- tapOn: "Finish hole"
+- runFlow: subflows/skip-tips.yaml
+# The review lists exactly the two shots marked, the first from the tee, and scores the hole 2.
+- assertVisible: "Shot 2"
+- assertNotVisible: "Shot 3"
+- assertVisible: "39[0-9] yd to pin"
+- assertVisible:
+    text: "2"
+    rightOf: "Fewer score"
+    leftOf: "More score"
+- tapOn: "Save & next hole"
+- extendedWaitUntil:
+    visible: "Hole 2"
+    timeout: 30000
