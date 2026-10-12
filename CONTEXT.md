@@ -44,7 +44,7 @@ The ground's tilt at a shot's start, read on two separate axes: uphill or downhi
 _Avoid_: Stance, slope (alone)
 
 **Aim point**:
-Where the player aims, set before the shot and never assumed. On the green it is the start line, not the pin.
+Where the player aims, set before the shot and never assumed. On the green it is the spot the putt is started toward, not the pin.
 _Avoid_: Target
 
 **Miss**:
@@ -61,7 +61,7 @@ The shot played after an OB from where the OB shot was played (stroke and distan
 _Avoid_: Re-tee (unless it is from the tee)
 
 **Drop**:
-A shot played after a penalty from anywhere other than the previous shot's start, whether the Rules allow that spot or not.
+A shot played from where the ball was placed after taking relief, with or without a penalty stroke, whether the Rules allow that spot or not. A replay is not a drop.
 
 ## Holes and rounds
 
