@@ -1,0 +1,14 @@
+# Mark my ball at my GPS spot, then confirm the aim (dismissing tips, which open ~700 ms late).
+appId: app.opengolf.oga
+---
+- tapOn: "Mark my ball at my GPS spot"
+- extendedWaitUntil:
+    visible: "Confirm aim|Skip tips"
+    timeout: 10000
+- extendedWaitUntil:
+    visible: "Skip tips"
+    timeout: 1500
+    optional: true
+- runFlow: skip-tips.yaml
+- tapOn: "Confirm aim"
+- runFlow: skip-tips.yaml

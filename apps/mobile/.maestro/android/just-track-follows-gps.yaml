@@ -1,0 +1,43 @@
+# Just-track saves each Mark at once. The ball must follow GPS for every shot on the hole, not
+# freeze after the first Mark.
+appId: app.opengolf.oga
+name: Android live round — just-track follows GPS every shot
+onFlowComplete:
+  - runFlow:
+      when:
+        visible: "Close and edit shots on the map"
+      commands:
+        - tapOn: "Close and edit shots on the map"
+  - runFlow:
+      when:
+        visible: "Round options"
+      commands:
+        - tapOn: "Round options"
+        - tapOn: "Delete round"
+        - tapOn: "Delete"
+---
+- runFlow: subflows/home.yaml
+- runFlow:
+    file: subflows/gps.yaml
+    env: { LAT: "43.849856", LNG: "-87.734575" }
+- runFlow:
+    file: subflows/start-round.yaml
+    env: { MODE: "Just track my round" }
+- tapOn: "Mark my ball at my GPS spot"
+- runFlow: subflows/skip-tips.yaml
+- runFlow:
+    file: subflows/gps.yaml
+    env: { LAT: "43.84906", LNG: "-87.7330" }
+- tapOn: "Mark my ball at my GPS spot"
+- runFlow:
+    file: subflows/gps.yaml
+    env: { LAT: "43.84869", LNG: "-87.73223" }
+- tapOn: "Mark my ball at my GPS spot"
+- tapOn: "Finish hole"
+- runFlow: subflows/skip-tips.yaml
+- assertVisible: "Shot 3"
+- assertNotVisible: "Shot 4"
+# Three starts where the player stood: tee, ~228 yd and ~147 yd out.
+- assertVisible: "39[0-9] yd to pin"
+- assertVisible: "2[2-3][0-9] yd to pin"
+- assertVisible: "14[0-9] yd to pin"
