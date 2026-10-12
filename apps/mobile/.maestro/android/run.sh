@@ -49,7 +49,12 @@ http.server.HTTPServer(('127.0.0.1', int(sys.argv[1])), H).serve_forever()
 PY
 bridge=$!
 trap 'kill $bridge 2>/dev/null' EXIT
-sleep 1
+# Wait until the bridge answers (400 = up, no coordinates); fail if it died (port taken).
+for _ in $(seq 1 50); do
+  kill -0 "$bridge" 2>/dev/null || { echo "GPS bridge failed to start on :$port" >&2; exit 1; }
+  [ "$(curl -s -o /dev/null -w '%{http_code}' "127.0.0.1:$port/geo")" = 400 ] && break
+  sleep 0.1
+done
 
 flows=("$@")
 [ ${#flows[@]} -gt 0 ] || flows=("$here")
