@@ -99,7 +99,7 @@ export function useRoundEnd({ user, round, setActiveDialog, onRoundCompleted }: 
       logDiag('end_round_ok')
       onRoundCompleted()
     } catch (err) {
-      logDiag('end_round_failed', { msg: String((err as Error)?.message).slice(0, 120) })
+      logDiag('end_round_failed', { msg: err })
       Alert.alert('End round failed', (err as Error).message)
     } finally {
       endInFlightRef.current = false

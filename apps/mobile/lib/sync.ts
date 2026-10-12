@@ -86,7 +86,7 @@ async function syncRowsIndividually(
         error?.message,
       )
       await markShotBroken(row.local_id)
-      logDiag('sync_quarantine', { local: row.local_id, code: error?.code ?? null })
+      logDiag('sync_quarantine', { localId: row.local_id, code: error?.code ?? null })
       failed += 1
     } else {
       // Transient mid-fallback — leave pending for the next trigger.
@@ -205,7 +205,7 @@ async function runSync(): Promise<SyncResult> {
   await drainHoleScorePatches(userId).catch((err) => {
     // eslint-disable-next-line no-console
     console.warn('[sync/hole-scores] drain failed, leaving queued:', err)
-    logDiag('sync_patches_failed', { msg: String((err as Error)?.message).slice(0, 120) })
+    logDiag('sync_patches_failed', { msg: err })
   })
   logDiag('sync_end', { synced, failed, ms: Date.now() - t0 })
   return { synced, failed }

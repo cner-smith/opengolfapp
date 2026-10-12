@@ -65,10 +65,11 @@ function getDb(): Promise<SQLite.SQLiteDatabase> {
           data TEXT
         );
       `)
-      // First open per process = an app (re)start, so a restart mid-round shows in the log.
-      await db.runAsync(`INSERT INTO diag_log (at, event) VALUES (?, 'app_start')`, Date.now())
       return db
     })()
+    // First open per process = an app (re)start. Logged after init, never in
+    // it: a failed diagnostic write must not poison the shot queue's promise.
+    logDiag('app_start')
   }
   return dbPromise
 }
@@ -449,7 +450,8 @@ const DIAG_MAX_ROWS = 20000
 
 // Fire-and-forget: a diagnostic write must never fail or slow the action it
 // records. `data` holds small numbers / ids only — no tokens, email, or
-// coordinates the round doesn't already store.
+// coordinates the round doesn't already store. A `msg` field is logged as an
+// error's message only, capped at 120 characters.
 export function logDiag(event: string, data?: Record<string, unknown>): void {
   void (async () => {
     const db = await getDb()
@@ -457,7 +459,12 @@ export function logDiag(event: string, data?: Record<string, unknown>): void {
       `INSERT INTO diag_log (at, event, data) VALUES (?, ?, ?)`,
       Date.now(),
       event,
-      data ? JSON.stringify(data) : null,
+      data
+        ? JSON.stringify(data, (k, v) =>
+            // Message only: a PostgREST error's other fields can carry row data.
+            k === 'msg' ? String((v as { message?: unknown } | null)?.message ?? v).slice(0, 120) : v,
+          )
+        : null,
     )
     if (r.lastInsertRowId % 500 === 0) {
       await db.runAsync(`DELETE FROM diag_log WHERE id <= ?`, r.lastInsertRowId - DIAG_MAX_ROWS)

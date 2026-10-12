@@ -262,9 +262,9 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
     setSaving(true)
     try {
       const localId = await insertPendingShot(payload)
-      logDiag('shot_saved', { n: payload.shot_number, local: localId, putt: payload.lie_type === 'green', ob: !!payload.ob })
       lastSavedShotLocalIdRef.current = localId
       const isPutt = isPuttShot(payload.lie_type)
+      logDiag('shot_saved', { shotNumber: payload.shot_number, localId, putt: isPutt, ob: !!payload.ob })
       setPendingForHole((prev) => [
         ...prev,
         {
@@ -318,7 +318,7 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
     } catch (err) {
       // eslint-disable-next-line no-console
       console.error('shot save failed', err, payload)
-      logDiag('shot_save_failed', { n: payload.shot_number, msg: String((err as Error)?.message).slice(0, 120) })
+      logDiag('shot_save_failed', { shotNumber: payload.shot_number, msg: err })
       Alert.alert('Save failed', (err as Error).message)
     } finally {
       persistShotInFlightRef.current = false
@@ -428,7 +428,7 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
       ball == null && Date.now() - gpsFixAtRef.current > 30_000
     const last = previousShots[previousShots.length - 1]
     logDiag('mark', {
-      src: ball ? (manuallyPlacedRef.current ? 'ball_hand' : 'ball_gps') : 'gps',
+      source: ball ? (manuallyPlacedRef.current ? 'ball_placed_by_hand' : 'ball_following_gps') : 'gps_fix',
       fixAgeMs: Date.now() - gpsFixAtRef.current,
       ydFromLastStart:
         source && last ? Math.round(distanceYards(source, last) * 10) / 10 : null,
@@ -671,7 +671,7 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
       setRoundState('PLACE_BALL')
       advanceAfterHole()
     } catch (err) {
-      logDiag('hole_save_failed', { hole: currentHole.number, msg: String((err as Error)?.message).slice(0, 120) })
+      logDiag('hole_save_failed', { hole: currentHole.number, msg: err })
       Alert.alert('Save failed', (err as Error).message)
     } finally {
       saveSummaryInFlightRef.current = false

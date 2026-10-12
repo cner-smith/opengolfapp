@@ -303,7 +303,7 @@ export function useHoleState({
           // via markBallHere — a NaN there hits Postgres as a double
           // precision insert error and wedges the round.
           if (!Number.isFinite(rawPoint.lat) || !Number.isFinite(rawPoint.lng)) {
-            return
+            return logDiag('gps_fix', { use: 'malformed' })
           }
           // Always update gpsPosition (puck-adjacent recenter target +
           // nearPin radius check) regardless of manual ball placement.
@@ -334,7 +334,7 @@ export function useHoleState({
           // and skew the filter until live ticks pull it back. 10 s is
           // generous against the ~3.5 s walking-pace tick cadence.
           const fix = {
-            acc: rawPoint.accuracy != null ? Math.round(rawPoint.accuracy) : null,
+            accuracyM: rawPoint.accuracy != null ? Math.round(rawPoint.accuracy) : null,
             ageMs: Date.now() - rawPoint.timestamp,
           }
           if (fix.ageMs > 10_000) return logDiag('gps_fix', { ...fix, use: 'stale' })

@@ -535,7 +535,6 @@ const inputStyle = {
   color: P.ink,
 } as const
 
-// A raised paper key standing in for a navigation row.
 // What the live round did on this phone (#1105), for a bug report.
 async function exportDiagLog() {
   try {
@@ -551,6 +550,7 @@ async function exportDiagLog() {
   }
 }
 
+// A raised paper key standing in for a navigation row.
 function LinkKey({ label, accessibilityLabel, onPress }: { label: string; accessibilityLabel: string; onPress: () => void }) {
   return (
     <Key

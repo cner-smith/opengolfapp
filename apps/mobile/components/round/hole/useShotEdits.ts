@@ -140,7 +140,7 @@ export function useShotEdits({ user, data, placeBallManually }: UseShotEditsInpu
       return true
     } catch (e) {
       if (__DEV__) console.warn('[hole/deleteShot]', (e as Error)?.message)
-      logDiag('delete_failed', { msg: String((e as Error)?.message).slice(0, 120) })
+      logDiag('delete_failed', { msg: e })
       Alert.alert(
         "Couldn't delete that shot",
         'Deleting a shot needs a connection. Try again when you’re back online.',
@@ -236,7 +236,7 @@ export function useShotEdits({ user, data, placeBallManually }: UseShotEditsInpu
       return true
     } catch (e) {
       if (__DEV__) console.warn('[hole/moveShot]', (e as Error)?.message)
-      logDiag('move_failed', { msg: String((e as Error)?.message).slice(0, 120) })
+      logDiag('move_failed', { msg: e })
       Alert.alert(
         "Couldn't move that shot",
         'Moving a shot needs a connection. Try again when you’re back online.',
@@ -345,7 +345,7 @@ export function useShotEdits({ user, data, placeBallManually }: UseShotEditsInpu
       logDiag('ob_ok', { set: next, ballSnapped: !!(next && start) })
     } catch (e) {
       if (__DEV__) console.warn('[hole/markLastShotOb]', (e as Error)?.message)
-      logDiag('ob_failed', { set: next, msg: String((e as Error)?.message).slice(0, 120) })
+      logDiag('ob_failed', { set: next, msg: e })
       Alert.alert(
         "Couldn't record that penalty",
         'Marking a shot OB needs a connection. Try again when you’re back online.',
