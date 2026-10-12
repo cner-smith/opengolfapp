@@ -52,11 +52,7 @@ appId: app.opengolf.oga
       - extendedWaitUntil:
           visible: "Round options"
           timeout: 30000
-      - runFlow:
-          when:
-            visible: "Skip tips"
-          commands:
-            - tapOn: "Skip tips"
+      - runFlow: skip-tips.yaml
       - tapOn: "Round options"
       - tapOn: "Delete round"
       - tapOn: "Delete"

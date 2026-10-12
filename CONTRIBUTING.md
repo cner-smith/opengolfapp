@@ -30,8 +30,10 @@ You need an emulator running a development build of the app, Metro on port
 8081 (`cd apps/mobile && npx expo start --dev-client`), Maestro, and a test
 account on a development Supabase project: an env file with `SUPABASE_URL`,
 `SUPABASE_SERVICE_ROLE_KEY`, `E2E_EMAIL`, `E2E_PASSWORD` and the `SEED_*`
-variables (default `apps/web/.env.test.local`, or set `E2E_ENV_FILE`). The
-runner reseeds that account before every run:
+variables (default `apps/web/.env.test.local`; from a git worktree, point
+`E2E_ENV_FILE` at it). The flows play Whistling Straits, so that project needs
+the course and its mapped holes. The runner reseeds the test account before
+every run and refuses the production project:
 
 ```bash
 apps/mobile/.maestro/android/run.sh                       # every flow

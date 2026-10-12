@@ -1,4 +1,4 @@
-# Baseline live round at Whistling Straits hole 1 (DEV): start, Mark, aim, walk, Mark, finish and
+# Baseline live round at Whistling Straits hole 1 (needs that course's mapped holes in the backend): start, Mark, aim, walk, Mark, finish and
 # save the hole. Every live-round scenario flow builds on these steps. The round is deleted at
 # the end, pass or fail.
 appId: app.opengolf.oga
@@ -27,26 +27,20 @@ onFlowComplete:
 - extendedWaitUntil:
     visible: "Mark my ball.*|Skip tips"
     timeout: 60000
-- runFlow:
-    when:
-      visible: "Skip tips"
-    commands:
-      - tapOn: "Skip tips"
+- runFlow: subflows/skip-tips.yaml
 - extendedWaitUntil:
     visible: "Hole 1"
     timeout: 30000
-# 397 yd hole: the ball follows GPS to the tee.
+# Whistling Straits hole 1 is 397 yd in the backend's data; a course data repair would move these ranges.
+# The ball follows GPS to the tee.
 - extendedWaitUntil:
     visible: "39[0-9].* yd to the pin"
     timeout: 30000
 - tapOn: "Mark my ball at my GPS spot"
-- runFlow:
-    when:
-      visible: "Skip tips"
-    commands:
-      - tapOn: "Skip tips"
+- runFlow: subflows/skip-tips.yaml
 - tapOn: "Confirm aim"
-# Walk ~230 yd up the fairway.
+# Walk ~250 yd up the fairway. The walk ends ~147 yd from the pin, but the smoothed ball can stop
+# short of it (no fixes arrive once the player stands still, #1108), so accept 140-179.
 - travel:
     points:
       - 43.849856,-87.734575
@@ -55,13 +49,23 @@ onFlowComplete:
       - 43.84869,-87.73223
     speed: 40
 - extendedWaitUntil:
-    visible: "1[5-8][0-9].* yd to the pin"
+    visible: "1[4-7][0-9].* yd to the pin"
     timeout: 30000
 - tapOn: "Mark my ball at my GPS spot"
+- runFlow: subflows/skip-tips.yaml
 - tapOn: "Confirm aim"
+- runFlow: subflows/skip-tips.yaml
 - tapOn: "Finish hole"
+- runFlow: subflows/skip-tips.yaml
+# The review lists exactly the two shots marked, the first from the tee, and scores the hole 2.
+- assertVisible: "Shot 2"
+- assertNotVisible: "Shot 3"
+- assertVisible: "39[0-9] yd to pin"
+- assertVisible:
+    text: "2"
+    rightOf: "Fewer score"
+    leftOf: "More score"
 - tapOn: "Save & next hole"
 - extendedWaitUntil:
     visible: "Hole 2"
     timeout: 30000
-- takeScreenshot: baseline-hole-2
