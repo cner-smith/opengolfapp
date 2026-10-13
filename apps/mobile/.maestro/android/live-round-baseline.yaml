@@ -26,9 +26,7 @@ onFlowComplete:
     file: subflows/start-round.yaml
     env: { MODE: "Track shot patterns" }
 - runFlow: subflows/mark-and-aim.yaml
-# Walk ~250 yd up the fairway; the walk ends ~147 yd from the pin. Today the smoothed ball stops
-# ~30 yd short once the player stands still (no fixes under 5 m), so this accepts 140-199 until
-# #1108 makes the ball reach the player.
+# Walk ~250 yd up the fairway; the walk ends ~147 yd from the pin, and the ball is there (#1108).
 - runFlow:
     file: subflows/gps.yaml
     env: { LAT: "43.84945", LNG: "-87.7338" }
@@ -39,7 +37,7 @@ onFlowComplete:
     file: subflows/gps.yaml
     env: { LAT: "43.84869", LNG: "-87.73223" }
 - extendedWaitUntil:
-    visible: "1[4-9][0-9].* yd to the pin"
+    visible: "14[0-9].* yd to the pin"
     timeout: 30000
 - runFlow: subflows/mark-and-aim.yaml
 - tapOn: "Finish hole"

@@ -154,6 +154,7 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
     ballSource,
     dispatchBall,
     markSpot,
+    awaitingFix,
     aim,
     aimTouched,
     setAim,
@@ -408,13 +409,22 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
   }
 
   async function markBallHere(opts?: { toGreen?: boolean }) {
+    // GPS hasn't moved since the last saved shot: its latest fix is that
+    // shot's spot, so never reuse it silently (#1108).
+    if (awaitingFix && ballSource === 'gps') {
+      logDiag('mark', { source: 'awaiting_fix', fixAgeMs: Date.now() - gpsFixAtRef.current, blocked: true })
+      Alert.alert(
+        'Waiting for GPS',
+        "Your location hasn't changed since the last shot. Try again in a moment, or drag the ball to where it lies.",
+      )
+      return
+    }
     // A held spot (placed by hand / OB replay) as placed; otherwise the latest
-    // GPS fix the ball has seen, never the smoothed ball trailing behind it
-    // (#1107). With none yet, the app's last GPS position (age-guarded below).
+    // GPS fix (#1107). With none yet, the app's last GPS position (age-guarded below).
     const source = markSpot ?? gpsPosition
     // Stale-fix guard (#720): the last-known seed and the listener's cache
     // replay populate gpsPosition with no freshness gate (only the
-    // ball/Kalman path has one), so after a pocketed walk to a new hole the
+    // ball path has one), so after a pocketed walk to a new hole the
     // fallback can be a fix from hundreds of meters back. Decline anything
     // older than 30 s rather than persist it as a durable shot coordinate —
     // same recovery as no fix at all.

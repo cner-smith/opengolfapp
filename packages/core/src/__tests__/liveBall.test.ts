@@ -1,8 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { initialLiveBall, liveBall, markSpot, type LiveBallEvent, type LiveBallState } from '../live-ball'
 
-// Positions near Whistling Straits hole 1. Expected values are literal: a first
-// GPS fix (no prior filter state) is taken as-is, so the ball equals that fix.
+// Positions near Whistling Straits hole 1.
 const TEE = { lat: 43.849856, lng: -87.734575 }
 const FAIRWAY = { lat: 43.84906, lng: -87.733 }
 const DRAGGED = { lat: 43.8492, lng: -87.7332 }
@@ -60,11 +59,28 @@ describe('liveBall: where Mark puts the next shot', () => {
     expect(run([fix(FAIRWAY), { type: 'teeDefault', tee: TEE }]).ball).toEqual(FAIRWAY)
   })
 
-  it('Mark at my GPS spot saves the latest fix, not the smoothed ball trailing behind it', () => {
-    // Walking tee → fairway → green: the smoothed ball lags the last fix.
+  it('the ball on screen is the latest fix, so it shows exactly where Mark will save the shot (#1108)', () => {
     const s = run([fix(TEE), fix(FAIRWAY), fix(GREEN)])
-    expect(s.ball).not.toEqual(GREEN)
+    expect(s.ball).toEqual(GREEN)
     expect(markSpot(s)).toEqual(GREEN)
+  })
+
+  it('with no fix since the last saved shot, Mark has no spot: the old one is never reused (#1108)', () => {
+    const s = run([fix(TEE), { type: 'shotSaved' }])
+    expect(s.awaitingFix).toBe(true)
+    expect(markSpot(s)).toBeNull()
+
+    // GPS restarting after the save re-sends the spot the player is still standing on.
+    expect(markSpot(run([fix(TEE)], s))).toBeNull()
+
+    const moved = run([fix(FAIRWAY)], s)
+    expect(moved.awaitingFix).toBe(false)
+    expect(markSpot(moved)).toEqual(FAIRWAY)
+  })
+
+  it('after a save, a ball the player places or puts on their GPS spot is a spot Mark can use', () => {
+    expect(markSpot(run([fix(TEE), { type: 'shotSaved' }, { type: 'placed', at: DRAGGED }]))).toEqual(DRAGGED)
+    expect(markSpot(run([fix(TEE), { type: 'shotSaved' }, { type: 'recenter', at: FAIRWAY }]))).toEqual(FAIRWAY)
   })
 
   it('Mark uses the held spot when the ball was placed by hand or sits on the replay spot', () => {

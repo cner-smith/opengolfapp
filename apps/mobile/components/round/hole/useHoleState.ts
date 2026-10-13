@@ -53,6 +53,8 @@ export interface UseHoleStateResult {
   dispatchBall: Dispatch<LiveBallEvent>
   /** Where "Mark my ball" puts the start: a held spot, else the latest fix. */
   markSpot: LatLng | null
+  /** A shot was saved and no GPS fix has arrived since (#1108). */
+  awaitingFix: boolean
   roundState: RoundState
   setRoundState: Dispatch<SetStateAction<RoundState>>
   gpsPosition: LatLng | null
@@ -197,9 +199,8 @@ export function useHoleState({
   }, [currentHoleScoreId])
 
   // Live GPS during the PLACE_BALL phase so the ball marker tracks the
-  // player as they walk between shots. Raw phone GPS is ±3-10 m which
-  // can corrupt SG by 6-20 yd at golf scale, so the readings are run
-  // through a Kalman filter (issue #123) before driving the ball.
+  // player as they walk between shots. The ball is the raw fix, so it shows
+  // exactly where Mark saves (#1108); the player confirms it before the shot.
   useEffect(() => {
     if (!currentHoleId) return
     if (isPastMode) return
@@ -296,11 +297,9 @@ export function useHoleState({
             accuracy: loc.coords.accuracy ?? undefined,
             timestamp: loc.timestamp ?? Date.now(),
           }
-          // Defense-in-depth NaN guard (#275). Kalman's update path
-          // already drops corrupt readings safely, but gpsPosition
-          // bypasses the filter and flows directly to setPendingShotEnd
-          // via markBallHere — a NaN there hits Postgres as a double
-          // precision insert error and wedges the round.
+          // Defense-in-depth NaN guard (#275): a fix flows to
+          // setPendingShotEnd via markBallHere — a NaN there hits Postgres
+          // as a double precision insert error and wedges the round.
           if (!Number.isFinite(rawPoint.lat) || !Number.isFinite(rawPoint.lng)) {
             return logDiag('gps_fix', { use: 'malformed' })
           }
@@ -323,9 +322,8 @@ export function useHoleState({
           // point into a new listener (library behavior). That cache can
           // predate this PLACE_BALL cycle — previous hole, pocketed phone —
           // so stale fixes stop here: gpsPosition only (matching the old
-          // last-known → gpsPosition-only semantics), never the ball/Kalman
-          // path below, where a stale anchor would visibly snap the marker
-          // and skew the filter until live ticks pull it back. 10 s is
+          // last-known → gpsPosition-only semantics), never the ball path
+          // below, where a stale anchor would visibly snap the marker. 10 s is
           // generous against the ~3.5 s walking-pace tick cadence.
           const fix = {
             accuracyM: rawPoint.accuracy != null ? Math.round(rawPoint.accuracy) : null,
@@ -343,15 +341,12 @@ export function useHoleState({
           logDiag('gps_fix', { ...fix, use: ballSourceRef.current === 'gps' ? 'ball' : `held_${ballSourceRef.current}` })
           dispatchBall({ type: 'fix', lat: rawPoint.lat, lng: rawPoint.lng, accuracy: rawPoint.accuracy })
         }
-        // 5 m distance filter, carried over from the removed expo-location
-        // config: at a ~1.4 m/s walking pace that's a tick every ~3.5 s,
-        // Kalman smooths the gap, and the marker is tap/drag-confirmed
-        // before shot capture — battery over cadence. Without it the engine
-        // starts unfiltered (start(-1)) and ticks ~1 Hz into the ball's filter.
-        // The manager persists the value across its internal stop/start, so
-        // once is enough. At rest there are simply no ticks — a stationary
-        // player's held gpsPosition is still correct, so the old 5 s
-        // heartbeat has no equivalent need here.
+        // 1 m distance filter (#1108; was 5 m): a 2–4 m walk between putts
+        // must register. Without it the engine starts unfiltered (start(-1))
+        // and ticks ~1 Hz. The manager persists the value across its
+        // internal stop/start, so once is enough. At rest there are no
+        // ticks; after a save that leaves the ball awaiting a fix, and Mark
+        // asks for one rather than reusing the old spot.
         // The awaits above (permission race, last-known IPC) leave a window
         // where the app can background: the AppState handler finds
         // gpsSubscriptionRef null (no-op), so this continuation would attach
@@ -359,7 +354,7 @@ export function useHoleState({
         // GPS running for the whole backgrounded stretch (#720). Bail; the
         // foreground gpsNonce bump re-runs the effect.
         if (!active || AppState.currentState !== 'active') return
-        locationManager.setMinDisplacement(5)
+        locationManager.setMinDisplacement(1)
         // addListener auto-starts the engine; removeListener auto-stops it
         // when the last listener detaches (both synchronous — no in-flight
         // await race to guard here).
@@ -461,6 +456,7 @@ export function useHoleState({
     ballSource,
     dispatchBall,
     markSpot: markSpot(ballState),
+    awaitingFix: ballState.awaitingFix,
     roundState,
     setRoundState,
     gpsPosition,

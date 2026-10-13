@@ -1,5 +1,5 @@
-# Mark at my GPS spot saves the latest GPS fix. After a walk the smoothed ball trails the player
-# (here ~180 yd shown while standing ~147 yd out); the start must be where they stand.
+# Mark at my GPS spot saves the latest GPS fix: after a walk the start is where the player
+# stands (~147 yd out), not a spot behind them.
 appId: app.opengolf.oga
 name: Android live round — Mark at my GPS spot saves GPS
 onFlowComplete:
