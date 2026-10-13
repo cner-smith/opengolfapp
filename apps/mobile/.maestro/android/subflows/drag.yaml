@@ -1,0 +1,5 @@
+# Drags the map marker at X,Y by DX,DY (device pixels) through run.sh's bridge: a long-press, then
+# a move. Maestro's own swipe pans the map instead.
+appId: app.opengolf.oga
+---
+- evalScript: ${(function () { var r = http.get('http://127.0.0.1:' + (GPS_BRIDGE_PORT || '8099') + '/drag?x=' + X + '&y=' + Y + '&dx=' + DX + '&dy=' + DY); if (r.status !== 200) throw new Error('Drag bridge failed, status ' + r.status); })()}

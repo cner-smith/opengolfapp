@@ -32,6 +32,7 @@ case "$(val SUPABASE_URL)" in *znjmkptblswxststjxwc*) echo "Env file points at p
 
 # GPS bridge: flows move the emulator's own GPS (subflows/gps.yaml) by calling this local server,
 # which runs `adb emu geo fix`. Only numbers are accepted, so the request can't inject a command.
+# /drag?x=&y=&dx=&dy= (subflows/drag.yaml) long-presses a map marker and drags it, in device pixels.
 # /net?mode=stall|slow|off (subflows/net.yaml) points the device's proxy at a port here: `stall`
 # accepts connections and never answers (weak signal); `slow` tunnels them but holds each chunk the
 # app sends for 2 s, so every request takes seconds (opens race windows the flows need). Toggling
@@ -92,6 +93,15 @@ class H(http.server.BaseHTTPRequestHandler):
     def do_GET(self):
         u = urllib.parse.urlparse(self.path)
         q = urllib.parse.parse_qs(u.query)
+        if u.path == '/drag':
+            # Long-press then move: a map marker drag (Maestro's swipe just pans the map).
+            try:
+                x, y, dx, dy = (int(q[k][0]) for k in ('x', 'y', 'dx', 'dy'))
+            except (KeyError, ValueError):
+                self.send_response(400); self.end_headers(); return
+            moves = '; '.join('input motionevent MOVE %d %d' % (x + dx * i // 10, y + dy * i // 10) for i in range(1, 11))
+            ok = adb('input motionevent DOWN %d %d; sleep 1.5; %s; input motionevent UP %d %d' % (x, y, moves, x + dx, y + dy))
+            self.send_response(200 if ok else 500); self.end_headers(); return
         if u.path == '/net':
             mode = q.get('mode', [''])[0]
             if mode not in ('stall', 'slow', 'off'):
