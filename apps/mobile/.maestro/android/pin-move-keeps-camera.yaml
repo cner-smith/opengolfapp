@@ -1,0 +1,49 @@
+# Moving the pin mid-hole keeps the camera on the ball (#1110). Signal: the OB pill rides on the
+# last shot's marker only while that's on screen; off screen (camera at the tee) it becomes an
+# edge prompt above the dock ("↑ Did shot 2 go out of bounds?").
+appId: app.opengolf.oga
+name: Android live round — moving the pin keeps the camera on the ball
+onFlowComplete:
+  - runFlow:
+      when:
+        visible: "Round options"
+      commands:
+        - tapOn: "Round options"
+        - tapOn: "Delete round"
+        - tapOn: "Delete"
+---
+- runFlow: subflows/home.yaml
+- runFlow:
+    file: subflows/gps.yaml
+    env: { LAT: "43.849856", LNG: "-87.734575" }
+- runFlow:
+    file: subflows/start-round.yaml
+    env: { MODE: "Track shot patterns" }
+- runFlow: subflows/mark-and-aim.yaml
+- runFlow:
+    file: subflows/gps.yaml
+    env: { LAT: "43.84869", LNG: "-87.73223" }
+- runFlow: subflows/mark-and-aim.yaml
+- extendedWaitUntil:
+    visible: "Did this shot go out of bounds\\?"
+    timeout: 10000
+- assertVisible: "1[45][0-9]\\.[0-9] yd to the pin"
+- tapOn: "Place pin"
+- runFlow: subflows/skip-tips.yaml
+- assertVisible: "Cancel pin placement"
+# Pin mode zooms onto the green; tap a new pin spot there (placing it closes pin mode).
+- tapOn:
+    point: "65%,45%"
+- extendedWaitUntil:
+    notVisible: "Cancel pin placement"
+    timeout: 5000
+# The pin really moved (closing pin mode any other way would leave the camera alone). The hero
+# readout is fixed chrome; the tapped pin reads ~164-167 yd, outside the 140-159 band from before.
+- assertNotVisible: "1[45][0-9]\\.[0-9] yd to the pin"
+# Give a camera fly-away time to land (the edge prompt then shows); returns early if it does.
+- extendedWaitUntil:
+    visible: ".*Did shot 2 go out of bounds\\?"
+    timeout: 3000
+    optional: true
+- assertNotVisible: ".*Did shot 2 go out of bounds\\?"
+- assertVisible: "Did this shot go out of bounds\\?"
