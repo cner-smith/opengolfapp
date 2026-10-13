@@ -1,5 +1,6 @@
-# Moving the pin mid-hole keeps the camera on the ball (#1110). Signal: the OB prompt's ↑ arrow
-# shows only while the last shot's marker is off screen, i.e. when the camera has gone to the tee.
+# Moving the pin mid-hole keeps the camera on the ball (#1110). Signal: the OB pill rides on the
+# last shot's marker only while that's on screen; off screen (camera at the tee) it becomes an
+# edge prompt above the dock ("↑ Did shot 2 go out of bounds?").
 appId: app.opengolf.oga
 name: Android live round — moving the pin keeps the camera on the ball
 onFlowComplete:
@@ -24,7 +25,7 @@ onFlowComplete:
     env: { LAT: "43.84869", LNG: "-87.73223" }
 - runFlow: subflows/mark-and-aim.yaml
 - extendedWaitUntil:
-    visible: "Did shot 2 go out of bounds\\?"
+    visible: "Did this shot go out of bounds\\?"
     timeout: 10000
 - tapOn: "Place pin"
 - runFlow: subflows/skip-tips.yaml
@@ -35,6 +36,10 @@ onFlowComplete:
 - extendedWaitUntil:
     notVisible: "Cancel pin placement"
     timeout: 5000
-- waitForAnimationToEnd
-- assertNotVisible: "↑ Did shot 2 go out of bounds\\?"
-- assertVisible: "Did shot 2 go out of bounds\\?"
+# Give a camera fly-away time to land (the edge prompt then shows); returns early if it does.
+- extendedWaitUntil:
+    visible: ".*Did shot 2 go out of bounds\\?"
+    timeout: 3000
+    optional: true
+- assertNotVisible: ".*Did shot 2 go out of bounds\\?"
+- assertVisible: "Did this shot go out of bounds\\?"
