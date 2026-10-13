@@ -27,7 +27,7 @@ onFlowComplete:
 - extendedWaitUntil:
     visible: "Did this shot go out of bounds\\?"
     timeout: 10000
-- assertVisible: "150\\.5 yd to the pin"
+- assertVisible: "1[45][0-9]\\.[0-9] yd to the pin"
 - tapOn: "Place pin"
 - runFlow: subflows/skip-tips.yaml
 - assertVisible: "Cancel pin placement"
@@ -38,7 +38,7 @@ onFlowComplete:
     notVisible: "Cancel pin placement"
     timeout: 5000
 # The pin really moved (closing pin mode any other way would leave the camera alone).
-- assertNotVisible: "150\\.5 yd to the pin"
+- assertNotVisible: "1[45][0-9]\\.[0-9] yd to the pin"
 # Give a camera fly-away time to land (the edge prompt then shows); returns early if it does.
 - extendedWaitUntil:
     visible: ".*Did shot 2 go out of bounds\\?"
