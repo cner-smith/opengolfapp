@@ -1,0 +1,5 @@
+# Stalls (STALL=1) or restores (STALL=0) the device's network through run.sh's bridge: requests
+# hang instead of failing fast, like weak signal on the course.
+appId: app.opengolf.oga
+---
+- evalScript: ${(function () { var r = http.get('http://127.0.0.1:' + (GPS_BRIDGE_PORT || '8099') + '/net?stall=' + STALL); if (r.status !== 200) throw new Error('Network bridge failed, status ' + r.status); })()}

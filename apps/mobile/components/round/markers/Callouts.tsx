@@ -49,10 +49,13 @@ export function offscreenArrow(
 export function ObCallout({
   at,
   onPress,
+  busy,
   onWidth,
 }: {
   at: LatLng
   onPress: () => void
+  /** The OB request is in flight (#1112). */
+  busy?: boolean
   onWidth: (width: number) => void
 }) {
   return (
@@ -68,6 +71,7 @@ export function ObCallout({
         <Key
           accessibilityLabel="Did this shot go out of bounds?"
           onPress={onPress}
+          disabled={busy}
           edge={P.neg}
           borderWidth={1.5}
           hitSlop={6}
@@ -75,7 +79,7 @@ export function ObCallout({
           faceStyle={{ minHeight: 44, flexDirection: 'row', gap: 8, paddingLeft: 12, paddingRight: 14 }}
         >
           <Icon.warn size={17} color={P.neg} />
-          <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.bodyBold, { fontSize: 15, color: P.neg }]}>Went OB?</Text>
+          <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.bodyBold, { fontSize: 15, color: P.neg }]}>{busy ? 'Saving…' : 'Went OB?'}</Text>
         </Key>
       </View>
     </Mapbox.MarkerView>

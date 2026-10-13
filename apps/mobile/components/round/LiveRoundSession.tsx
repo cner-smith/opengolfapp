@@ -672,7 +672,7 @@ export default function LiveRoundSession({
           pattern={pattern}
           obCallout={
             obPromptActive && !actions.lastShotIsOb
-              ? { onPress: () => void actions.markLastShotOb() }
+              ? { onPress: () => void actions.markLastShotOb(), busy: actions.obBusy }
               : null
           }
           onLastShotOffscreen={setLastShotArrow}
@@ -801,6 +801,7 @@ export default function LiveRoundSession({
           // the window where a second tap charges a second penalty.
           obPromptActive={obPromptActive}
           lastShotIsOb={actions.lastShotIsOb}
+          obBusy={actions.obBusy}
           obArrow={lastShotArrow}
           onCancelPinPlacement={() => setPinPlacementOpen(false)}
           onConfirmAim={actions.confirmAim}

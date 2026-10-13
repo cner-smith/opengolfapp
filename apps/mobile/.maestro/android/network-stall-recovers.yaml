@@ -1,0 +1,80 @@
+# Weak signal (#1112): with the network stalled (requests hang, they don't fail fast), OB, Save &
+# next hole and End round each finish or fail within ~20 s and the round stays usable. Once the
+# network is back, ending the round syncs every shot (no "not synced" prompt).
+appId: app.opengolf.oga
+name: Android live round — a stalled network times out, then recovers
+onFlowComplete:
+  - runFlow:
+      file: subflows/net.yaml
+      env: { STALL: "0" }
+  - runFlow:
+      when:
+        visible: "Round options"
+      commands:
+        - tapOn: "Round options"
+        - tapOn: "Delete round"
+        - tapOn: "Delete"
+---
+- runFlow: subflows/home.yaml
+- runFlow:
+    file: subflows/gps.yaml
+    env: { LAT: "43.849856", LNG: "-87.734575" }
+- runFlow:
+    file: subflows/start-round.yaml
+    env: { MODE: "Track shot patterns" }
+- runFlow: subflows/mark-and-aim.yaml
+- runFlow:
+    file: subflows/gps.yaml
+    env: { LAT: "43.84869", LNG: "-87.73223" }
+- runFlow: subflows/mark-and-aim.yaml
+- extendedWaitUntil:
+    visible: "Did this shot go out of bounds\\?"
+    timeout: 10000
+- runFlow:
+    file: subflows/net.yaml
+    env: { STALL: "1" }
+
+# OB: busy while in flight, then a retryable failure, then the key works again.
+- tapOn: "Did this shot go out of bounds\\?"
+- assertVisible: "Saving…"
+- extendedWaitUntil:
+    visible: "Couldn't record that penalty"
+    timeout: 25000
+- tapOn: "OK"
+- assertVisible: "Went OB\\?"
+
+# A shot marked offline queues locally.
+- runFlow:
+    file: subflows/gps.yaml
+    env: { LAT: "43.84858", LNG: "-87.73205" }
+- runFlow: subflows/mark-and-aim.yaml
+
+# Save & next hole finishes or fails within ~20 s.
+- tapOn: "Finish hole"
+- runFlow: subflows/skip-tips.yaml
+- tapOn: "Save & next hole"
+- extendedWaitUntil:
+    visible: "Hole 2|Save failed"
+    timeout: 25000
+
+# End round fails within ~20 s and leaves the round open.
+- tapOn: "Round options"
+- tapOn: "End round early"
+- tapOn: "End round|Finish round"
+- extendedWaitUntil:
+    visible: "End round failed"
+    timeout: 25000
+- tapOn: "OK"
+- assertVisible: "Round options"
+
+# Network back: ending the round syncs every shot first (no "not synced" prompt).
+- runFlow:
+    file: subflows/net.yaml
+    env: { STALL: "0" }
+- tapOn: "Round options"
+- tapOn: "End round early"
+- tapOn: "End round|Finish round"
+- extendedWaitUntil:
+    notVisible: "End round|Finish round"
+    timeout: 25000
+- assertNotVisible: "Some shots have not synced"

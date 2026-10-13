@@ -19,7 +19,7 @@ import {
   updateRound,
 } from '@oga/supabase'
 import type { Database } from '@oga/supabase'
-import { supabase } from './supabase'
+import { supabase, timeoutError } from './supabase'
 import { syncPendingShots } from './sync'
 import { dropRoundCaches } from './offlineCache'
 import { clearScreenCache } from './screenCache'
@@ -56,7 +56,7 @@ export async function completeRound({
   // re-checked pendingCount, and made the player acknowledge any rows
   // that still can't reach the server — so a failure here proceeds by
   // design: finalizing over what synced is the acknowledged fallback.
-  await syncPendingShots().catch(() => undefined)
+  if ((await syncPendingShots().catch(() => undefined))?.timedOut) throw timeoutError() // stalled (#1112)
 
   const [holesRes, holeScoresRes, shotsRes, teesRes, roundRes] = await Promise.all([
     getHolesForCourse(supabase, courseId),

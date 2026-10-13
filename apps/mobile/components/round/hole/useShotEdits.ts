@@ -44,6 +44,7 @@ export interface UseShotEditsResult {
   // data directly so the label and the toggle's direction can never disagree
   // (they share one source, including the just-written optimistic value).
   lastShotIsOb: boolean
+  obBusy: boolean
   // The same OB truth for EVERY shot on the hole, index-aligned with
   // data.previousShots / previousShotIds. Exposed for the same reason
   // lastShotIsOb is: the end-of-hole summary seeds its rows from this, and
@@ -70,6 +71,8 @@ export function useShotEdits({ user, data, dispatchBall }: UseShotEditsInput): U
   // window) guarantees a set→undo pair reaches the server in the order it was
   // issued rather than in whatever order two unordered writes happen to land.
   const obInFlightRef = useRef(false)
+  // Mirrors obInFlightRef for the OB key's busy state (#1112).
+  const [obBusy, setObBusy] = useState(false)
   // The OB flag we last WROTE for a shot, which outranks the fetched value
   // until the refetch catches up. `previousShotObs` only refreshes when the
   // post-write `refreshShots` round-trip lands — a whole extra RTT after the
@@ -108,7 +111,8 @@ export function useShotEdits({ user, data, dispatchBall }: UseShotEditsInput): U
     logDiag('delete_start')
     try {
       // Flush any not-yet-synced shots so the target has a server row to delete.
-      await syncPendingShots()
+      // Stalled network: stop here rather than wait out the write too (#1112).
+      if ((await syncPendingShots()).timedOut) throw new Error('sync timed out')
       const { data: deleted, error } = await supabase.rpc('delete_shot', {
         p_shot_id: shotId,
       })
@@ -164,7 +168,8 @@ export function useShotEdits({ user, data, dispatchBall }: UseShotEditsInput): U
       // Flush any not-yet-synced shots first (mirrors deleteShot) — the shot's
       // client-generated id is stable, so once flushed the update below hits
       // the real server row instead of matching 0 rows.
-      await syncPendingShots()
+      // Stalled network: stop here rather than wait out the write too (#1112).
+      if ((await syncPendingShots()).timedOut) throw new Error('sync timed out')
       // The shot's lie_type (putt vs. full shot) isn't held in memory for an
       // already-synced shot — only pending (not-yet-synced) shots carry it,
       // via their queued payload, and even there it's commonly null (live
@@ -275,11 +280,13 @@ export function useShotEdits({ user, data, dispatchBall }: UseShotEditsInput): U
         : previousShotObs[idx] ?? false
     const next = !currentlyOb
     obInFlightRef.current = true
+    setObBusy(true)
     logDiag('ob_start', { set: next, idx })
     try {
       // Flush first (mirrors moveShot): the client id is stable, so once the
       // shot has synced the update below hits the real row instead of 0 rows.
-      await syncPendingShots()
+      // Stalled network: stop here rather than wait out the write too (#1112).
+      if ((await syncPendingShots()).timedOut) throw new Error('sync timed out')
       const { data: updatedRows, error } = await supabase
         .from('shots')
         // BOTH representations of the same fact, deliberately:
@@ -350,6 +357,7 @@ export function useShotEdits({ user, data, dispatchBall }: UseShotEditsInput): U
       )
     } finally {
       obInFlightRef.current = false
+      setObBusy(false)
     }
   }
 
@@ -361,5 +369,5 @@ export function useShotEdits({ user, data, dispatchBall }: UseShotEditsInput): U
   // penalty.
   const lastShotIsOb = shotObs[shotObs.length - 1] ?? false
 
-  return { deleteShot, moveShot, markLastShotOb, lastShotIsOb, shotObs }
+  return { deleteShot, moveShot, markLastShotOb, lastShotIsOb, obBusy, shotObs }
 }

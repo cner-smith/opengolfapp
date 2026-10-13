@@ -1,6 +1,7 @@
 import 'react-native-url-polyfill/auto'
 import * as SecureStore from 'expo-secure-store'
 import { createOgaClient } from '@oga/supabase'
+import { logDiag } from './db'
 
 // expo-secure-store persists AES-GCM-encrypted blobs in
 // SharedPreferences on Android and Keychain on iOS. Neither has a
@@ -101,6 +102,58 @@ const SecureStoreAdapter = {
   },
 }
 
+// Every request gives up after 15 s (#1112): on a stalled network a fetch
+// otherwise never settles, and the action awaiting it spins forever. The error
+// is named AbortError so postgrest-js doesn't retry it (it retries other fetch
+// failures on reads), and its message marks it for isNetworkTimeout.
+const REQUEST_TIMEOUT_MS = 15_000
+const NETWORK_TIMEOUT = 'No answer from the server'
+
+async function timeoutFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+  const controller = new AbortController()
+  const outer = init?.signal
+  if (outer) {
+    if (outer.aborted) controller.abort()
+    else outer.addEventListener('abort', () => controller.abort())
+  }
+  let timedOut = false
+  const timer = setTimeout(() => {
+    timedOut = true
+    controller.abort()
+  }, REQUEST_TIMEOUT_MS)
+  try {
+    return await fetch(input, { ...init, signal: controller.signal })
+  } catch (e) {
+    if (!timedOut) throw e
+    const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
+    logDiag('net_timeout', { path: url.replace(/^https?:\/\/[^/]+/, '').split('?')[0] })
+    throw timeoutError()
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
+/** The timeout as an error, also for an action that stops on a timed-out sync. */
+export function timeoutError(): Error {
+  const err = new Error(`${NETWORK_TIMEOUT} in 15 s. Check your signal and try again.`)
+  err.name = 'AbortError'
+  return err
+}
+
+/** True for a request that hit the 15 s timeout: a thrown error or a
+ *  supabase-js `{ error }`, whose message carries ours. */
+export function isNetworkTimeout(e: unknown): boolean {
+  return typeof (e as { message?: unknown } | null)?.message === 'string' &&
+    (e as { message: string }).message.includes(NETWORK_TIMEOUT)
+}
+
+/** What an Alert shows for a failed action: the timeout's own advice, without
+ *  supabase-js's "AbortError:" prefix. */
+export function userMessage(e: unknown): string {
+  const msg = (e as { message?: string } | null)?.message ?? String(e)
+  return isNetworkTimeout(e) ? msg.slice(msg.indexOf(NETWORK_TIMEOUT)) : msg
+}
+
 const url = process.env.EXPO_PUBLIC_SUPABASE_URL ?? ''
 const anonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? ''
 
@@ -123,4 +176,5 @@ export const supabase = createOgaClient({
   // only works on the device that signed up — which is also the Android
   // scheme-hijack hardening #509 tracked.
   flowType: 'pkce',
+  fetch: timeoutFetch,
 })
