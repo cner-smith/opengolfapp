@@ -1,0 +1,35 @@
+# OB then a quick replay on a slow network (#1113): the hole refetch the OB starts must not drop the
+# replay saved while it runs, or the next shot reuses the replay's shot number and one is lost.
+appId: app.opengolf.oga
+name: Android live round — OB and a quick replay keep every shot
+onFlowComplete:
+  - runFlow:
+      file: subflows/net.yaml
+      env: { NET: off }
+---
+- runFlow: subflows/home.yaml
+- runFlow:
+    file: subflows/gps.yaml
+    env: { LAT: "43.849856", LNG: "-87.734575" }
+- runFlow:
+    file: subflows/start-round.yaml
+    env: { MODE: "Track shot patterns" }
+- runFlow: subflows/mark-and-aim.yaml
+- extendedWaitUntil:
+    visible: "Did this shot go out of bounds\\?"
+    timeout: 10000
+- runFlow:
+    file: subflows/net.yaml
+    env: { NET: slow }
+- tapOn: "Did this shot go out of bounds\\?"
+- extendedWaitUntil:
+    visible: "Penalty stroke added\\."
+    timeout: 30000
+# Replay straight away, while the OB's refetch is still in flight.
+- runFlow: subflows/mark-and-aim.yaml
+- runFlow:
+    file: subflows/gps.yaml
+    env: { LAT: "43.84869", LNG: "-87.73223" }
+- runFlow: subflows/mark-and-aim.yaml
+- tapOn: "Finish hole"
+- runFlow: subflows/skip-tips.yaml

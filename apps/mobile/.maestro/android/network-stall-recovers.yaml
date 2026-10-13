@@ -6,7 +6,7 @@ name: Android live round — a stalled network times out, then recovers
 onFlowComplete:
   - runFlow:
       file: subflows/net.yaml
-      env: { STALL: "0" }
+      env: { NET: off }
   - runFlow:
       when:
         visible: "Round options"
@@ -32,7 +32,7 @@ onFlowComplete:
     timeout: 10000
 - runFlow:
     file: subflows/net.yaml
-    env: { STALL: "1" }
+    env: { NET: stall }
 
 # OB: busy while in flight, then a retryable failure, then the key works again.
 - tapOn: "Did this shot go out of bounds\\?"
@@ -70,7 +70,7 @@ onFlowComplete:
 # Network back: ending the round syncs every shot first (no "not synced" prompt).
 - runFlow:
     file: subflows/net.yaml
-    env: { STALL: "0" }
+    env: { NET: off }
 - tapOn: "Round options"
 - tapOn: "End round early"
 - tapOn: "End round|Finish round"
