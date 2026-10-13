@@ -25,8 +25,15 @@ onFlowComplete:
 - extendedWaitUntil:
     visible: "Penalty stroke added\\."
     timeout: 30000
-# Replay straight away, while the OB's refetch is still in flight.
-- runFlow: subflows/mark-and-aim.yaml
+# Replay straight away, while the OB's refetch is still in flight. The ball is held at the OB
+# start, so the key reads plain "Mark my ball".
+- tapOn: "Mark my ball"
+- extendedWaitUntil:
+    visible: "Confirm aim"
+    timeout: 10000
+- runFlow: subflows/skip-tips.yaml
+- tapOn: "Confirm aim"
+- runFlow: subflows/skip-tips.yaml
 - runFlow:
     file: subflows/gps.yaml
     env: { LAT: "43.84869", LNG: "-87.73223" }

@@ -67,6 +67,8 @@ def slow(c):
         d = c.recv(4096)
         if not d: c.close(); return
         req += d
+    if not req.startswith(b'CONNECT '):
+        c.close(); return  # plain HTTP is Metro's dev traffic, not the app's API
     host, p = req.split(b' ')[1].decode().rsplit(':', 1)
     try:
         s = socket.create_connection((host, int(p)), timeout=30)
