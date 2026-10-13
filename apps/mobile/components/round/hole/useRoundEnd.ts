@@ -86,6 +86,7 @@ export function useRoundEnd({ user, round, setActiveDialog, onRoundCompleted }: 
             // (DialogModule dismisses the showing one), which fires only
             // onDismiss — without this the promise never settled and End
             // round stayed busy for good (#1113). Replaced = keep it open.
+            // Android only: iOS stacks alerts instead of replacing them.
             { cancelable: false, onDismiss: () => resolve(false) },
           )
         })

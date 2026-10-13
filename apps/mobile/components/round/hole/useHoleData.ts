@@ -4,7 +4,7 @@ import { getHoleTeesForCourse } from '@oga/supabase'
 import type { Database } from '@oga/supabase'
 import {
   logDiag,
-  pendingShotsForHoleScore,
+  allShotsForHoleScore,
   type PendingShot,
   type ShotPayload,
 } from '../../../lib/db'
@@ -121,19 +121,23 @@ export function useHoleData(
   const [remoteHoledFor, setRemoteHoledFor] = useState<string | null>(null)
   const [remotePuttFor, setRemotePuttFor] = useState<string | null>(null)
   const [shotsRefreshNonce, setShotsRefreshNonce] = useState(0)
-  // Resolved by the refetch effect when the latest run settles, so a caller
-  // can wait for fresh shots (Done after a move, #1113).
-  const refreshWaitersRef = useRef<(() => void)[]>([])
-  const settleRefresh = () => {
-    const waiters = refreshWaitersRef.current
-    refreshWaitersRef.current = []
-    waiters.forEach((resolve) => resolve())
+  // Resolved by the refetch effect once a run that started at or after this
+  // refresh settles, so a caller can wait for fresh shots (Done after a move,
+  // #1113). Tagged by refresh number: an older run still in flight must not
+  // settle it with shots fetched before the move.
+  const refreshCountRef = useRef(0)
+  const refreshWaitersRef = useRef<{ need: number; resolve: () => void }[]>([])
+  const settleRefresh = (through: number) => {
+    const ready = refreshWaitersRef.current.filter((w) => w.need <= through)
+    refreshWaitersRef.current = refreshWaitersRef.current.filter((w) => w.need > through)
+    ready.forEach((w) => w.resolve())
   }
   const refreshShots = useCallback(
     () =>
       new Promise<void>((resolve) => {
-        refreshWaitersRef.current.push(resolve)
-        setShotsRefreshNonce((n) => n + 1)
+        const need = ++refreshCountRef.current
+        refreshWaitersRef.current.push({ need, resolve })
+        setShotsRefreshNonce(need)
       }),
     [],
   )
@@ -375,7 +379,7 @@ export function useHoleData(
       setPendingForHole([])
     }
     if (!currentHoleScore) {
-      settleRefresh()
+      settleRefresh(Infinity)
       return
     }
     const myNonce = ++fetchNonceRef.current
@@ -408,14 +412,18 @@ export function useHoleData(
         // saved while the fetch was in flight is then in this read. Read
         // alongside the fetch, the older snapshot overwrote pendingForHole and
         // dropped that shot, so the next one reused its shot number. Nothing
-        // is awaited between this read and the state writes below.
+        // is awaited between this read and the state writes below. Synced
+        // rows are read too: one that synced after the server's read is in
+        // neither list otherwise; the remoteIds dedupe below drops the rest.
+        // ponytail: a synced row deleted on another device shows until the
+        // next app start purges synced rows.
         // The SQLite read gets one retry: a transient rejection must not leave
         // the neutral reset committed as a confident local=0 the save path
         // could collide on (same class as the remote arm of #712).
-        let local = await pendingShotsForHoleScore(currentHoleScore.id).catch(() => null)
+        let local = await allShotsForHoleScore(currentHoleScore.id).catch(() => null)
         if (myNonce !== fetchNonceRef.current) return
         if (local === null) {
-          local = await pendingShotsForHoleScore(currentHoleScore.id).catch(
+          local = await allShotsForHoleScore(currentHoleScore.id).catch(
             () => null,
           )
           if (myNonce !== fetchNonceRef.current) return
@@ -484,14 +492,14 @@ export function useHoleData(
       } catch (err) {
         logDiag('refetch_failed', { msg: err })
         if (myNonce !== fetchNonceRef.current) return
-        // SQLite (pendingShotsForHoleScore) rejection, or any other thrown
+        // SQLite (allShotsForHoleScore) rejection, or any other thrown
         // error — leave counts at the neutral reset above rather than a
         // stale previous-hole value.
         if (__DEV__) {
           console.warn('[hole/shots-fetch]', (err as Error).message)
         }
       } finally {
-        if (myNonce === fetchNonceRef.current) settleRefresh()
+        if (myNonce === fetchNonceRef.current) settleRefresh(shotsRefreshNonce)
       }
     })()
   }, [currentHoleScore?.id, shotsRefreshNonce, userId, id])

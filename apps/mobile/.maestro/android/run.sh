@@ -63,20 +63,20 @@ def pump(a, b, delay):
     finally:
         a.close(); b.close()
 def slow(c):
-    req = b''
-    while b'\r\n\r\n' not in req:
-        d = c.recv(4096)
-        if not d: c.close(); return
-        req += d
-    if not req.startswith(b'CONNECT '):
-        c.close(); return  # plain HTTP is Metro's dev traffic, not the app's API
-    host, p = req.split(b' ')[1].decode().rsplit(':', 1)
     try:
+        req = b''
+        while b'\r\n\r\n' not in req:
+            d = c.recv(4096)
+            if not d: raise OSError('closed')
+            req += d
+        if not req.startswith(b'CONNECT '):
+            raise OSError('not CONNECT')  # plain HTTP is Metro's dev traffic, not the app's API
+        host, p = req.split(b' ')[1].decode().rsplit(':', 1)
         s = socket.create_connection((host, int(p)), timeout=30)
-    except OSError:
+        s.settimeout(None)
+        c.sendall(b'HTTP/1.1 200 Connection established\r\n\r\n')
+    except (OSError, ValueError, IndexError):
         c.close(); return
-    s.settimeout(None)
-    c.sendall(b'HTTP/1.1 200 Connection established\r\n\r\n')
     threading.Thread(target=pump, args=(c, s, 2), daemon=True).start()
     pump(s, c, 0)
 PROXY = {'stall': listen(stall), 'slow': listen(slow)}
