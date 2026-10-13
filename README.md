@@ -24,7 +24,7 @@ better at golf shouldn't be paywalled.
 - **Round logging** — hole-by-hole shot entry with club, lie type, and
   split lie-slope axes (forward/back tilt + ball above/below feet).
 - **Live round mode** — GPS-assisted shot tracking with a Mapbox
-  satellite view, Kalman-smoothed ball position, and a 3-tap flow.
+  satellite view, a ball that follows your GPS, and a 3-tap flow.
 - **Strokes gained** — off tee, approach, around green, putting;
   baselines interpolated by handicap bracket from Mark Broadie's
   *Every Shot Counts*.
@@ -58,8 +58,8 @@ better at golf shouldn't be paywalled.
   Functions).
 - **Maps:** Mapbox GL JS (web) + `@rnmapbox/maps` (mobile).
 - **Packages:**
-  - `@oga/core` — pure TypeScript: math, stats, SG calculation, Kalman
-    GPS smoother, shot-pattern fitting, all shared domain types.
+  - `@oga/core` — pure TypeScript: math, stats, SG calculation, the live
+    ball rule, shot-pattern fitting, all shared domain types.
   - `@oga/supabase` — generated Supabase types + client factory + query
     helpers.
 
@@ -180,7 +180,7 @@ apps/
   web/              # Vite + React 18 web app
   mobile/           # Expo + React Native (Android + iOS)
 packages/
-  core/             # Pure TypeScript: math, stats, SG, Kalman, types
+  core/             # Pure TypeScript: math, stats, SG, live ball, types
   supabase/         # Generated types + client factory
 supabase/
   migrations/       # 0001_initial_schema.sql … numbered, sequential

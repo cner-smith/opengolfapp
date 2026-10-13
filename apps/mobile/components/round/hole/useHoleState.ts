@@ -2,7 +2,7 @@ import { useEffect, useMemo, useReducer, useRef, useState, type Dispatch, type S
 import { AppState, PermissionsAndroid, Platform } from 'react-native'
 import * as Location from 'expo-location'
 import { locationManager } from '@rnmapbox/maps'
-import { initialLiveBall, liveBall, markSpot, type BallSource, type LiveBallEvent } from '@oga/core'
+import { awaitingNewSpot, initialLiveBall, liveBall, markSpot, type BallSource, type LiveBallEvent } from '@oga/core'
 import type { LatLng } from '../HoleMap'
 import { distanceYards } from '../../../lib/maps'
 import { PIN_PROMPT_RADIUS_YARDS, type RoundState } from './types'
@@ -53,8 +53,8 @@ export interface UseHoleStateResult {
   dispatchBall: Dispatch<LiveBallEvent>
   /** Where "Mark my ball" puts the start: a held spot, else the latest fix. */
   markSpot: LatLng | null
-  /** A shot was saved and no GPS fix has arrived since (#1108). */
-  awaitingFix: boolean
+  /** GPS still reads the last saved shot's start, so Mark has no spot (#1108). */
+  awaitingNewSpot: boolean
   roundState: RoundState
   setRoundState: Dispatch<SetStateAction<RoundState>>
   gpsPosition: LatLng | null
@@ -94,7 +94,7 @@ export function useHoleState({
   // (LiveRoundSession wraps onSetAim). Reset whenever the aim clears (effect
   // below) so each new shot's suggestion starts untouched.
   const [aimTouched, setAimTouched] = useState(false)
-  // The ball, its source and its GPS smoothing: one rule in @oga/core (#1107).
+  // The ball and its source: one rule in @oga/core (#1107).
   const [ballState, dispatchBall] = useReducer(liveBall, initialLiveBall)
   const { ball, source: ballSource } = ballState
   // For the GPS listener's diagnostic log, which closes over its first render.
@@ -339,14 +339,14 @@ export function useHoleState({
           // decides (a ball placed by hand or on the OB replay spot holds).
           if (ballDraggingRef.current) return logDiag('gps_fix', { ...fix, use: 'dragging' })
           logDiag('gps_fix', { ...fix, use: ballSourceRef.current === 'gps' ? 'ball' : `held_${ballSourceRef.current}` })
-          dispatchBall({ type: 'fix', lat: rawPoint.lat, lng: rawPoint.lng, accuracy: rawPoint.accuracy })
+          dispatchBall({ type: 'fix', lat: rawPoint.lat, lng: rawPoint.lng })
         }
         // 1 m distance filter (#1108; was 5 m): a 2–4 m walk between putts
-        // must register. Without it the engine starts unfiltered (start(-1))
+        // must register. @oga/core's awaitingNewSpot uses the same 1 m. Without it the engine starts unfiltered (start(-1))
         // and ticks ~1 Hz. The manager persists the value across its
         // internal stop/start, so once is enough. At rest there are no
-        // ticks; after a save that leaves the ball awaiting a fix, and Mark
-        // asks for one rather than reusing the old spot.
+        // ticks; after a save Mark then asks for a new spot rather than
+        // reusing the old one.
         // The awaits above (permission race, last-known IPC) leave a window
         // where the app can background: the AppState handler finds
         // gpsSubscriptionRef null (no-op), so this continuation would attach
@@ -456,7 +456,7 @@ export function useHoleState({
     ballSource,
     dispatchBall,
     markSpot: markSpot(ballState),
-    awaitingFix: ballState.awaitingFix,
+    awaitingNewSpot: awaitingNewSpot(ballState),
     roundState,
     setRoundState,
     gpsPosition,

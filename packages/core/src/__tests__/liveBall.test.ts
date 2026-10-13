@@ -1,12 +1,13 @@
 import { describe, expect, it } from 'vitest'
-import { initialLiveBall, liveBall, markSpot, type LiveBallEvent, type LiveBallState } from '../live-ball'
+import { awaitingNewSpot, initialLiveBall, liveBall, markSpot, type LiveBallEvent, type LiveBallState } from '../live-ball'
 
 // Positions near Whistling Straits hole 1.
 const TEE = { lat: 43.849856, lng: -87.734575 }
 const FAIRWAY = { lat: 43.84906, lng: -87.733 }
 const DRAGGED = { lat: 43.8492, lng: -87.7332 }
 const GREEN = { lat: 43.8481, lng: -87.7311 }
-const fix = (p: { lat: number; lng: number }): LiveBallEvent => ({ type: 'fix', ...p, accuracy: 3 })
+const fix = (p: { lat: number; lng: number }): LiveBallEvent => ({ type: 'fix', ...p })
+const saved = (start: { lat: number; lng: number }): LiveBallEvent => ({ type: 'shotSaved', start })
 const run = (events: LiveBallEvent[], from: LiveBallState = initialLiveBall) => events.reduce(liveBall, from)
 
 describe('liveBall: where Mark puts the next shot', () => {
@@ -15,13 +16,13 @@ describe('liveBall: where Mark puts the next shot', () => {
     expect(held.ball).toEqual(DRAGGED)
     expect(held.source).toBe('hand')
 
-    const saved = run([{ type: 'shotSaved' }], held)
-    expect(saved.source).toBe('gps')
-    expect(saved.ball).toEqual(FAIRWAY)
+    const after = run([saved(DRAGGED)], held)
+    expect(after.source).toBe('gps')
+    expect(after.ball).toEqual(FAIRWAY)
   })
 
   it('OB puts the ball at the OB shot start and holds it; Undo hands the ball back to GPS (#1090)', () => {
-    const ob = run([fix(TEE), { type: 'shotSaved' }, fix(FAIRWAY), { type: 'obSet', start: TEE }, fix(FAIRWAY)])
+    const ob = run([fix(TEE), saved(TEE), fix(FAIRWAY), { type: 'obSet', start: TEE }, fix(FAIRWAY)])
     expect(ob.ball).toEqual(TEE)
     expect(ob.source).toBe('replay')
 
@@ -37,7 +38,7 @@ describe('liveBall: where Mark puts the next shot', () => {
     for (const at of [TEE, FAIRWAY, GREEN]) {
       s = run([fix(at)], s)
       marks.push(s.ball)
-      s = run([{ type: 'placed', at: s.ball! }, { type: 'shotSaved' }], s)
+      s = run([{ type: 'placed', at: s.ball! }, saved(s.ball!)], s)
     }
     expect(marks).toEqual([TEE, FAIRWAY, GREEN])
   })
@@ -65,22 +66,37 @@ describe('liveBall: where Mark puts the next shot', () => {
     expect(markSpot(s)).toEqual(GREEN)
   })
 
-  it('with no fix since the last saved shot, Mark has no spot: the old one is never reused (#1108)', () => {
-    const s = run([fix(TEE), { type: 'shotSaved' }])
-    expect(s.awaitingFix).toBe(true)
+  it('after a save, Mark has no spot until GPS moves off the saved start: the old one is never reused (#1108)', () => {
+    const s = run([fix(TEE), saved(TEE)])
+    expect(awaitingNewSpot(s)).toBe(true)
     expect(markSpot(s)).toBeNull()
-
     // GPS restarting after the save re-sends the spot the player is still standing on.
     expect(markSpot(run([fix(TEE)], s))).toBeNull()
 
     const moved = run([fix(FAIRWAY)], s)
-    expect(moved.awaitingFix).toBe(false)
+    expect(awaitingNewSpot(moved)).toBe(false)
     expect(markSpot(moved)).toEqual(FAIRWAY)
   })
 
+  it('a shot saved before any GPS fix still waits: the first fix may be the saved spot re-sent', () => {
+    const s = run([{ type: 'teeDefault', tee: TEE }, saved(TEE)])
+    expect(markSpot(s)).toBeNull()
+    expect(markSpot(run([fix(TEE)], s))).toBeNull()
+    expect(markSpot(run([fix(FAIRWAY)], s))).toEqual(FAIRWAY)
+  })
+
+  it('a shot started from a dragged spot does not block the player standing elsewhere', () => {
+    const s = run([fix(TEE), { type: 'placed', at: DRAGGED }, saved(DRAGGED)])
+    expect(markSpot(s)).toEqual(TEE)
+  })
+
+  it('"Put the ball on my GPS spot" on the saved start is still the old spot', () => {
+    expect(markSpot(run([fix(TEE), saved(TEE), { type: 'recenter', at: TEE }]))).toBeNull()
+  })
+
   it('after a save, a ball the player places or puts on their GPS spot is a spot Mark can use', () => {
-    expect(markSpot(run([fix(TEE), { type: 'shotSaved' }, { type: 'placed', at: DRAGGED }]))).toEqual(DRAGGED)
-    expect(markSpot(run([fix(TEE), { type: 'shotSaved' }, { type: 'recenter', at: FAIRWAY }]))).toEqual(FAIRWAY)
+    expect(markSpot(run([fix(TEE), saved(TEE), { type: 'placed', at: DRAGGED }]))).toEqual(DRAGGED)
+    expect(markSpot(run([fix(TEE), saved(TEE), { type: 'recenter', at: FAIRWAY }]))).toEqual(FAIRWAY)
   })
 
   it('Mark uses the held spot when the ball was placed by hand or sits on the replay spot', () => {

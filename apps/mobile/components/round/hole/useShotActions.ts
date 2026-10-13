@@ -154,7 +154,7 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
     ballSource,
     dispatchBall,
     markSpot,
-    awaitingFix,
+    awaitingNewSpot,
     aim,
     aimTouched,
     setAim,
@@ -258,7 +258,9 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
       const localId = await insertPendingShot(payload)
       lastSavedShotLocalIdRef.current = localId
       // The next shot starts wherever the player walks to: GPS takes the ball back.
-      dispatchBall({ type: 'shotSaved' })
+      // buildPayload always sets the start from the ball; the row type is nullable.
+      const { start_lat: lat, start_lng: lng } = payload
+      if (lat != null && lng != null) dispatchBall({ type: 'shotSaved', start: { lat, lng } })
       const isPutt = isPuttShot(payload.lie_type)
       logDiag('shot_saved', { shotNumber: payload.shot_number, localId, putt: isPutt, ob: !!payload.ob })
       setPendingForHole((prev) => [
@@ -409,13 +411,12 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
   }
 
   async function markBallHere(opts?: { toGreen?: boolean }) {
-    // GPS hasn't moved since the last saved shot: its latest fix is that
-    // shot's spot, so never reuse it silently (#1108).
-    if (awaitingFix && ballSource === 'gps') {
-      logDiag('mark', { source: 'awaiting_fix', fixAgeMs: Date.now() - gpsFixAtRef.current, blocked: true })
+    // GPS still reads the last saved shot's start: never reuse it silently (#1108).
+    if (awaitingNewSpot) {
+      logDiag('mark', { source: 'awaiting_new_spot', fixAgeMs: Date.now() - gpsFixAtRef.current, blocked: true })
       Alert.alert(
         'Waiting for GPS',
-        "Your location hasn't changed since the last shot. Try again in a moment, or drag the ball to where it lies.",
+        'No new location since the last shot yet. Try again in a moment, or drag the ball to where it lies.',
       )
       return
     }

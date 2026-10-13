@@ -30,7 +30,7 @@ interface UseHoleCameraOpts {
   phase: HoleMapPhase
   styleLoaded: boolean
   /**
-   * Latest smoothed GPS position from useHoleState. When present AND
+   * Latest GPS position from useHoleState. When present AND
    * the player is within ~1000 m of the course centroid, the camera
    * auto-centers on it once after the initial hole frame. Testing
    * from the user's house won't trigger because the gating distance
