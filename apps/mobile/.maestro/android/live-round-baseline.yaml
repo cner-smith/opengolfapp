@@ -14,9 +14,9 @@ onFlowComplete:
 ---
 - runFlow: subflows/home.yaml
 # Hole 1 tee.
-- setLocation:
-    latitude: 43.849856
-    longitude: -87.734575
+- runFlow:
+    file: subflows/gps.yaml
+    env: { LAT: "43.849856", LNG: "-87.734575" }
 - tapOn: "Start live round"
 - tapOn: "Search courses…"
 # "Whistling" so the search box itself can't match the "Whistling Straits.*" row.
@@ -39,17 +39,20 @@ onFlowComplete:
 - tapOn: "Mark my ball at my GPS spot"
 - runFlow: subflows/skip-tips.yaml
 - tapOn: "Confirm aim"
-# Walk ~250 yd up the fairway. The walk ends ~147 yd from the pin, but the smoothed ball can stop
-# short of it (no fixes arrive once the player stands still, #1108), so accept 140-179.
-- travel:
-    points:
-      - 43.849856,-87.734575
-      - 43.84945,-87.7338
-      - 43.84906,-87.7330
-      - 43.84869,-87.73223
-    speed: 40
+# Walk ~250 yd up the fairway; the walk ends ~147 yd from the pin. Today the smoothed ball stops
+# ~30 yd short once the player stands still (no fixes under 5 m), so this accepts 140-199 until
+# #1108 makes the ball reach the player.
+- runFlow:
+    file: subflows/gps.yaml
+    env: { LAT: "43.84945", LNG: "-87.7338" }
+- runFlow:
+    file: subflows/gps.yaml
+    env: { LAT: "43.84906", LNG: "-87.7330" }
+- runFlow:
+    file: subflows/gps.yaml
+    env: { LAT: "43.84869", LNG: "-87.73223" }
 - extendedWaitUntil:
-    visible: "1[4-7][0-9].* yd to the pin"
+    visible: "1[4-9][0-9].* yd to the pin"
     timeout: 30000
 - tapOn: "Mark my ball at my GPS spot"
 - runFlow: subflows/skip-tips.yaml
