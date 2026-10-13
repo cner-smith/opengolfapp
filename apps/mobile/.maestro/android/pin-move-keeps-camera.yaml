@@ -37,7 +37,8 @@ onFlowComplete:
 - extendedWaitUntil:
     notVisible: "Cancel pin placement"
     timeout: 5000
-# The pin really moved (closing pin mode any other way would leave the camera alone).
+# The pin really moved (closing pin mode any other way would leave the camera alone). The hero
+# readout is fixed chrome; the tapped pin reads ~164-167 yd, outside the 140-159 band from before.
 - assertNotVisible: "1[45][0-9]\\.[0-9] yd to the pin"
 # Give a camera fly-away time to land (the edge prompt then shows); returns early if it does.
 - extendedWaitUntil:
