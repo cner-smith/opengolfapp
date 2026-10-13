@@ -177,7 +177,7 @@ export function useHoleCamera({
   // so they won't re-fire when the pin arrives, leaving the map stuck north.
   // Re-frame the arriving PLACE_BALL view once the pin resolves; SET_AIM and
   // PIN own the camera in their own phases, so this is gated to PLACE_BALL.
-  // Keyed on the pin coords so it fires once per hole, not on every GPS tick.
+  // Keyed on the pin coords so it fires once per pin, not on every GPS tick.
   useEffect(() => {
     if (!styleLoaded) return
     // NB: do NOT gate on cameraInitialized here. When the pin resolves
@@ -195,12 +195,15 @@ export function useHoleCamera({
     if (!target) return
     const key = `${target.lat},${target.lng}`
     if (headingAppliedPinRef.current === key) return
+    // A pin already framed this hole means the player moved it (#1110): keep
+    // their view on the ball, else GPS. Only the first frame of a hole is the tee.
+    const origin = headingAppliedPinRef.current ? (ball ?? gpsPosition ?? center) : center
     try {
       cameraRef.current.setCamera({
-        centerCoordinate: toCoord(center),
+        centerCoordinate: toCoord(origin),
         zoomLevel: 17,
         pitch: 0,
-        heading: headingUpTheHole(center, target),
+        heading: headingUpTheHole(origin, target),
         animationDuration: 500,
       })
       headingAppliedPinRef.current = key
