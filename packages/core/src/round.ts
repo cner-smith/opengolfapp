@@ -456,6 +456,21 @@ export type ReviewedShotFields = Required<
   >
 >
 
+// A reviewed putt's putt length in feet, or null when unknown. Shown by the
+// review sheet and stored by reviewedRowToShotFields, so the two can't differ.
+// The putt length is the distance FROM THE HOLE (start → pin), which is what
+// putting SG reads — not how far it rolled (start → next start), #1092. A
+// length the player chose in the review wins (#1109): GPS can't tell putts a
+// few feet apart. distanceToPin 0 is the review's "no pin known": with nothing
+// chosen the length is unknown, so none rather than a 0 ft putt (SG then skips
+// it). Over 999 ft (333 yd) is a mis-marked point, not a putt: capped on the
+// ROUNDED feet. (Until migration 0060 the column was numeric(4,1) and 1000
+// failed the whole insert; now it's a sanity bound, not an overflow guard.)
+export function reviewedPuttLengthFt(row: Pick<ReviewedShotRow, 'puttLengthFt' | 'distanceToPin'>): number | null {
+  const feet = row.puttLengthFt ?? (row.distanceToPin > 0 ? Math.round(row.distanceToPin * 3) : null)
+  return feet != null && feet <= 999 ? feet : null
+}
+
 // One reviewed row → its `shots` columns, shared by the web and mobile review
 // saves (#798). Ids, the hole score, the user and the aim stay with the caller.
 export function reviewedRowToShotFields(
@@ -465,12 +480,6 @@ export function reviewedRowToShotFields(
   // isPuttEntry (green lie AND putter), not green-lie-alone: a wedge played
   // from the green keeps its club result, a Texas wedge stays a full shot.
   const isPutt = isPuttEntry(row.lieType, row.club)
-  // A putt's length is its distance FROM THE HOLE (start → pin), which is what
-  // putting SG reads — not how far it rolled (start → next start), #1092.
-  // A length the player chose in the review wins (#1109): GPS can't tell
-  // putts a few feet apart from each other.
-  const puttFeet = row.puttLengthFt ?? Math.round(row.distanceToPin * 3)
-  const lengthKnown = row.puttLengthFt != null || row.distanceToPin > 0
   return {
     shot_number: row.shotNumber,
     start_lat: row.startLat,
@@ -496,13 +505,7 @@ export function reviewedRowToShotFields(
     // keep ob=true after the player cleared it in the sheet, with no way to
     // clear it from there.
     ob: isPutt ? false : row.shotResult === 'ob',
-    // Over 999 ft (333 yd) is a mis-marked point, not a putt: store no
-    // length. Capped on the ROUNDED feet. (Until migration 0060 the column
-    // was numeric(4,1) and 1000 failed the whole insert; now it's a sanity
-    // bound, not an overflow guard.)
-    // distanceToPin 0 is the review's "no pin known": the length is unknown,
-    // so store none rather than a 0 ft putt (SG then skips it).
-    putt_distance_ft: isPutt && lengthKnown && puttFeet <= 999 ? puttFeet : null,
+    putt_distance_ft: isPutt ? reviewedPuttLengthFt(row) : null,
     // Legacy combined column, rebuilt from the axes for back-compat readers.
     putt_result: isPutt
       ? combinedPuttResult({

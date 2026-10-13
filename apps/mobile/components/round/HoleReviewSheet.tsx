@@ -24,6 +24,8 @@ import {
   isPuttShot,
   lieSlopeLabel,
   obCount,
+  PUTTING_BASELINES,
+  reviewedPuttLengthFt,
   type BreakDirectionHorizontal,
   type BreakDirectionVertical,
   type Club,
@@ -461,8 +463,7 @@ function ShotRow({
   }, [bag, row.club])
   // Which field's options are unfolded inline. One at a time.
   const [open, setOpen] = useState<'club' | 'lie' | 'slope' | 'result' | 'break' | 'speed' | 'length' | null>(null)
-  // The putt length: the player's choice (#1109), else start → pin; 0 = no pin known.
-  const lengthFt = row.puttLengthFt ?? (row.distanceToPin > 0 ? row.distanceToPin * 3 : null)
+  const lengthFt = reviewedPuttLengthFt(row)
   const toggle = (f: NonNullable<typeof open>) => setOpen((o) => (o === f ? null : f))
   const rawClubLabel = clubOptions.find((c) => c.value === row.club)?.label ?? String(row.club)
   const clubLabel = rawClubLabel.charAt(0).toUpperCase() + rawClubLabel.slice(1)
@@ -498,8 +499,9 @@ function ShotRow({
             ? lengthFt != null ? `${toDisplayFt(lengthFt)} putt` : 'Putt'
             : toDisplay(row.distanceYards)}
         </Text>
+        {/* A putt's headline already is its distance to the pin (its putt length). */}
         <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { color: P.ink, fontSize: 13, marginLeft: 'auto' }]}>
-          {toDisplay(row.distanceToPin)} to pin
+          {isPutt ? '' : `${toDisplay(row.distanceToPin)} to pin`}
         </Text>
         <Pressable
           accessibilityRole="button"
@@ -703,8 +705,7 @@ function AimerOverlay({
 }) {
   const insets = useSafeAreaInsets()
   const scrollRef = useRef<ScrollView>(null)
-  // 0 = no pin known: no length to show.
-  const distanceFt = row.distanceToPin > 0 ? row.distanceToPin * 3 : null
+  const distanceFt = reviewedPuttLengthFt(row)
   const breakDirection =
     combinedBreakDirection({
       vertical: row.breakDirectionVertical ?? null,
@@ -755,6 +756,6 @@ function AimerOverlay({
   )
 }
 
-// Putt length picks (#1109): the putting baseline steps, so a pick lands on a
-// row strokes gained reads directly. Tapping the set one clears it back to GPS.
-const LENGTH_PICKS_FT = [3, 5, 8, 10, 15, 20, 30, 40, 60]
+// Putt length picks (#1109): the putting baseline steps (3–60 ft), so a pick
+// lands on a row strokes gained reads directly. Tapping the set one clears it.
+const LENGTH_PICKS_FT = Object.keys(PUTTING_BASELINES[15]).map(Number)
