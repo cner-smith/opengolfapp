@@ -13,7 +13,7 @@ import {
   type PendingShot,
   type ShotPayload,
 } from './db'
-import { supabase } from './supabase'
+import { isNetworkTimeout, supabase } from './supabase'
 
 // Module-scope lock: the promise of the active run IS the lock. It
 // prevents two concurrent runs from racing the same SQLite rows, and a
@@ -30,7 +30,9 @@ const LOCK_TTL_MS = 30_000
 const CHUNK_SIZE = 50
 const RETRY_DELAY_MS = 2_000
 
-type SyncResult = { synced: number; failed: number }
+// timedOut: a request hit the 15 s timeout and the run stopped there (#1112).
+// Callers that need the server (OB, move, delete, End round) stop too.
+type SyncResult = { synced: number; failed: number; timedOut?: boolean }
 
 // Upsert on the client-generated PK (#652): a retry whose first attempt
 // committed server-side but lost the response (course LTE) re-sends the
@@ -63,7 +65,7 @@ function isPermanentError(error: { code?: string } | null | undefined): boolean 
 async function syncRowsIndividually(
   rows: PendingShot[],
   payloads: ShotPayload[],
-): Promise<{ synced: number; failed: number }> {
+): Promise<{ synced: number; failed: number; timedOut?: boolean }> {
   let synced = 0
   let failed = 0
   for (let j = 0; j < rows.length; j++) {
@@ -74,6 +76,10 @@ async function syncRowsIndividually(
       continue
     }
     const { data, error } = await insertChunk([payload])
+    if (isNetworkTimeout(error)) {
+      failed += rows.length - j // stalled: the rest stay pending for the next trigger
+      return { synced, failed, timedOut: true }
+    }
     if (!error && data && data.length === 1) {
       await markShotSynced(row.local_id, payload.id)
       synced += 1
@@ -121,9 +127,9 @@ async function runSync(): Promise<SyncResult> {
   // with no error — which the patch drain reads as "row gone" and deletes
   // (score/putts/finished_at lost). Nothing can land without a session, so
   // leave the whole queue for the next trigger after sign-in.
-  const { data: auth } = await supabase.auth.getSession()
+  const { data: auth, error: authErr } = await supabase.auth.getSession()
   const userId = auth.session?.user.id
-  if (!userId) return { synced, failed }
+  if (!userId) return { synced, failed, timedOut: isNetworkTimeout(authErr) }
   const pending = await listPendingShots(userId)
   const t0 = Date.now()
   logDiag('sync_start', { pending: pending.length })
@@ -164,6 +170,12 @@ async function runSync(): Promise<SyncResult> {
     }
     if (payloads.length === 0) continue
     let { data, error } = await insertChunk(payloads)
+    // A stalled network: retrying or draining now would only stack more
+    // 15 s waits onto the action waiting on this run. Leave it all queued.
+    if (isNetworkTimeout(error)) {
+      logDiag('sync_end', { synced, failed, ms: Date.now() - t0, timedOut: true })
+      return { synced, failed, timedOut: true }
+    }
     if (error && !isPermanentError(error)) {
       // Single retry after a short delay. Transient network/server
       // hiccups (intermittent connectivity, brief 5xx) are common
@@ -175,11 +187,19 @@ async function runSync(): Promise<SyncResult> {
       const retry = await insertChunk(payloads)
       data = retry.data
       error = retry.error
+      if (isNetworkTimeout(error)) {
+        logDiag('sync_end', { synced, failed, ms: Date.now() - t0, timedOut: true })
+        return { synced, failed, timedOut: true }
+      }
     }
     if (error && isPermanentError(error)) {
       const perRow = await syncRowsIndividually(validRows, payloads)
       synced += perRow.synced
       failed += perRow.failed
+      if (perRow.timedOut) {
+        logDiag('sync_end', { synced, failed, ms: Date.now() - t0, timedOut: true })
+        return { synced, failed, timedOut: true }
+      }
       continue
     }
     if (error || !data) {
@@ -202,13 +222,15 @@ async function runSync(): Promise<SyncResult> {
       }
     }
   }
+  let timedOut = false
   await drainHoleScorePatches(userId).catch((err) => {
+    timedOut = isNetworkTimeout(err)
     // eslint-disable-next-line no-console
     console.warn('[sync/hole-scores] drain failed, leaving queued:', err)
     logDiag('sync_patches_failed', { msg: err })
   })
-  logDiag('sync_end', { synced, failed, ms: Date.now() - t0 })
-  return { synced, failed }
+  logDiag('sync_end', { synced, failed, ms: Date.now() - t0, timedOut })
+  return { synced, failed, timedOut }
 }
 
 // Live-round hole_scores writes (#226). Runs inside the shot run's lock, so
@@ -261,6 +283,7 @@ async function drainHoleScorePatches(userId: string): Promise<void> {
       .update(patch)
       .eq('id', holeScoreId)
       .select('id')
+    if (isNetworkTimeout(error)) throw error // stalled: stop, don't wait 15 s per hole
     if (error && !isPermanentError(error)) continue // transient: next trigger retries
     if (error || !data || data.length === 0) {
       // Deterministic rejection, or 0 rows = the row is gone (#710) — the

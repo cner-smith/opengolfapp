@@ -5,7 +5,7 @@ import {
   reviewedRowToShotFields,
   type ReviewedShotRow,
 } from '@oga/core'
-import { supabase } from '../../../lib/supabase'
+import { isNetworkTimeout, supabase } from '../../../lib/supabase'
 import {
   allShotsForHoleScore,
   enqueueHoleScorePatch,
@@ -82,7 +82,8 @@ export async function writeHoleSummary(args: {
     .from('shots')
     .select('id, shot_number, aim_lat, aim_lng, ob, penalty')
     .eq('hole_score_id', currentHoleScore.id)
-  if (remote.error) {
+  // No second try on a timeout: it would only add another 15 s (#1112).
+  if (remote.error && !isNetworkTimeout(remote.error)) {
     remote = await supabase
       .from('shots')
       .select('id, shot_number, aim_lat, aim_lng, ob, penalty')

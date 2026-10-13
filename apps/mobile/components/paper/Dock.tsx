@@ -64,15 +64,17 @@ export function SmallKey({
   color,
   a11y,
   pressHaptic,
+  disabled,
 }: {
   label: string
   onPress: () => void
   color?: string
   a11y?: string
   pressHaptic?: boolean
+  disabled?: boolean
 }) {
   return (
-    <Key accessibilityLabel={a11y ?? label} onPress={onPress} pressHaptic={pressHaptic} faceStyle={{ width: 76, height: 44 }}>
+    <Key accessibilityLabel={a11y ?? label} onPress={onPress} pressHaptic={pressHaptic} disabled={disabled} faceStyle={{ width: 76, height: 44 }}>
       <KeyText style={color ? { color } : undefined}>{label}</KeyText>
     </Key>
   )

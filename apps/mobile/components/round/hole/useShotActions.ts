@@ -8,7 +8,7 @@ import {
   isPuttShot,
   type CaptureMode,
 } from '@oga/core'
-import { supabase } from '../../../lib/supabase'
+import { supabase, userMessage } from '../../../lib/supabase'
 import {
   enqueueHoleScorePatch,
   insertPendingShot,
@@ -317,7 +317,7 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
       // eslint-disable-next-line no-console
       console.error('shot save failed', err, payload)
       logDiag('shot_save_failed', { shotNumber: payload.shot_number, msg: err })
-      Alert.alert('Save failed', (err as Error).message)
+      Alert.alert('Save failed', userMessage(err))
     } finally {
       persistShotInFlightRef.current = false
       setSaving(false)
@@ -679,7 +679,7 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
       advanceAfterHole()
     } catch (err) {
       logDiag('hole_save_failed', { hole: currentHole.number, msg: err })
-      Alert.alert('Save failed', (err as Error).message)
+      Alert.alert('Save failed', userMessage(err))
     } finally {
       saveSummaryInFlightRef.current = false
       setSaving(false)

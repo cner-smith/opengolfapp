@@ -152,7 +152,7 @@ export interface HoleMapProps {
   aimBallInset?: number
   /** Live OB prompt (#895 B2) for the most recent shot: drawn on its marker
    *  while that marker is on-screen. Null when the prompt isn't offered. */
-  obCallout?: { onPress: () => void } | null
+  obCallout?: { onPress: () => void; busy?: boolean } | null
   /** Reports where the most recent shot's marker is when it's off-screen
    *  (null = in view, or no shot), so the chrome can show the edge tab. */
   onLastShotOffscreen?: (arrow: OffscreenArrow | null) => void

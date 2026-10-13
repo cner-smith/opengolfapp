@@ -65,6 +65,8 @@ export interface LiveRoundDockProps {
   /** OB offered for the hole's last shot (#839 / #895 B2). */
   obPromptActive: boolean
   lastShotIsOb: boolean
+  /** The OB / Undo request is in flight (#1112). */
+  obBusy: boolean
   /** Direction to the last shot's marker while it's off-screen, else null. */
   obArrow: OffscreenArrow | null
 
@@ -243,14 +245,14 @@ function voiceLine(p: LiveRoundDockProps): ReactNode {
   if (!p.hasPin) return <NoPinVoice onPress={p.onTogglePin} />
   if (p.obPromptActive && p.lastShotIsOb) {
     return (
-      <Voice trailing={<SmallKey label="Undo" onPress={p.onMarkLastShotOb} />}>
+      <Voice trailing={<SmallKey label={p.obBusy ? 'Saving…' : 'Undo'} a11y="Undo" disabled={p.obBusy} onPress={p.onMarkLastShotOb} />}>
         Penalty stroke added.
       </Voice>
     )
   }
   if (p.obPromptActive && p.obArrow) {
     return (
-      <Voice trailing={<SmallKey label="OB" color={P.neg} onPress={p.onMarkLastShotOb} pressHaptic={false} />}>
+      <Voice trailing={<SmallKey label={p.obBusy ? 'Saving…' : 'OB'} a11y="OB" disabled={p.obBusy} color={p.obBusy ? undefined : P.neg} onPress={p.onMarkLastShotOb} pressHaptic={false} />}>
         {p.obArrow} Did shot {p.totalShotsThisHole} go out of bounds?
       </Voice>
     )

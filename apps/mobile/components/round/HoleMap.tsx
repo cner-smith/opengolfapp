@@ -978,7 +978,7 @@ export function HoleMap({
             </Mapbox.PointAnnotation>
           )}
           {obCallout && lastShot && lastShotArrow == null && (
-            <ObCallout at={lastShot} onPress={obCallout.onPress} onWidth={setObPillWidth} />
+            <ObCallout at={lastShot} onPress={obCallout.onPress} busy={obCallout.busy} onWidth={setObPillWidth} />
           )}
         </Mapbox.MapView>
 
