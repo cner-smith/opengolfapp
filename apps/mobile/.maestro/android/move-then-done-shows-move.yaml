@@ -8,6 +8,11 @@ onFlowComplete:
       env: { NET: off }
   - runFlow:
       when:
+        visible: "Close and edit shots on the map"
+      commands:
+        - tapOn: "Close and edit shots on the map"
+  - runFlow:
+      when:
         visible: "Round options"
       commands:
         - tapOn: "Round options"
