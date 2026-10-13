@@ -195,8 +195,9 @@ export function useHoleCamera({
     if (!target) return
     const key = `${target.lat},${target.lng}`
     if (headingAppliedPinRef.current === key) return
-    // A pin already framed this hole means the player moved it (#1110): keep
-    // their view on the ball, else GPS. Only the first frame of a hole is the tee.
+    // A pin already framed this hole means the pin changed since: the player
+    // moved it (#1110), or the round's pin loaded after the hole's. Keep the
+    // view on the ball, else GPS; only a hole's first frame is the tee.
     const origin = headingAppliedPinRef.current ? (ball ?? gpsPosition ?? center) : center
     try {
       cameraRef.current.setCamera({
