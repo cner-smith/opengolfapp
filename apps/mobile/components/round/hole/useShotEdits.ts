@@ -2,7 +2,7 @@ import { useMemo, useRef, useState, type Dispatch } from 'react'
 import { Alert } from 'react-native'
 import type { User } from '@supabase/supabase-js'
 import { isPuttShot, projectShotMove, type LiveBallEvent } from '@oga/core'
-import { supabase } from '../../../lib/supabase'
+import { supabase, timeoutError } from '../../../lib/supabase'
 import {
   deletePendingShotById,
   enqueueHoleScorePatch,
@@ -112,7 +112,7 @@ export function useShotEdits({ user, data, dispatchBall }: UseShotEditsInput): U
     try {
       // Flush any not-yet-synced shots so the target has a server row to delete.
       // Stalled network: stop here rather than wait out the write too (#1112).
-      if ((await syncPendingShots()).timedOut) throw new Error('sync timed out')
+      if ((await syncPendingShots()).timedOut) throw timeoutError()
       const { data: deleted, error } = await supabase.rpc('delete_shot', {
         p_shot_id: shotId,
       })
@@ -169,7 +169,7 @@ export function useShotEdits({ user, data, dispatchBall }: UseShotEditsInput): U
       // client-generated id is stable, so once flushed the update below hits
       // the real server row instead of matching 0 rows.
       // Stalled network: stop here rather than wait out the write too (#1112).
-      if ((await syncPendingShots()).timedOut) throw new Error('sync timed out')
+      if ((await syncPendingShots()).timedOut) throw timeoutError()
       // The shot's lie_type (putt vs. full shot) isn't held in memory for an
       // already-synced shot — only pending (not-yet-synced) shots carry it,
       // via their queued payload, and even there it's commonly null (live
@@ -286,7 +286,7 @@ export function useShotEdits({ user, data, dispatchBall }: UseShotEditsInput): U
       // Flush first (mirrors moveShot): the client id is stable, so once the
       // shot has synced the update below hits the real row instead of 0 rows.
       // Stalled network: stop here rather than wait out the write too (#1112).
-      if ((await syncPendingShots()).timedOut) throw new Error('sync timed out')
+      if ((await syncPendingShots()).timedOut) throw timeoutError()
       const { data: updatedRows, error } = await supabase
         .from('shots')
         // BOTH representations of the same fact, deliberately:

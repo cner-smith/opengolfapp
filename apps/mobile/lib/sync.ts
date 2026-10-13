@@ -65,7 +65,7 @@ function isPermanentError(error: { code?: string } | null | undefined): boolean 
 async function syncRowsIndividually(
   rows: PendingShot[],
   payloads: ShotPayload[],
-): Promise<{ synced: number; failed: number }> {
+): Promise<{ synced: number; failed: number; timedOut?: boolean }> {
   let synced = 0
   let failed = 0
   for (let j = 0; j < rows.length; j++) {
@@ -78,7 +78,7 @@ async function syncRowsIndividually(
     const { data, error } = await insertChunk([payload])
     if (isNetworkTimeout(error)) {
       failed += rows.length - j // stalled: the rest stay pending for the next trigger
-      break
+      return { synced, failed, timedOut: true }
     }
     if (!error && data && data.length === 1) {
       await markShotSynced(row.local_id, payload.id)
@@ -127,9 +127,9 @@ async function runSync(): Promise<SyncResult> {
   // with no error — which the patch drain reads as "row gone" and deletes
   // (score/putts/finished_at lost). Nothing can land without a session, so
   // leave the whole queue for the next trigger after sign-in.
-  const { data: auth } = await supabase.auth.getSession()
+  const { data: auth, error: authErr } = await supabase.auth.getSession()
   const userId = auth.session?.user.id
-  if (!userId) return { synced, failed }
+  if (!userId) return { synced, failed, timedOut: isNetworkTimeout(authErr) }
   const pending = await listPendingShots(userId)
   const t0 = Date.now()
   logDiag('sync_start', { pending: pending.length })
@@ -187,11 +187,19 @@ async function runSync(): Promise<SyncResult> {
       const retry = await insertChunk(payloads)
       data = retry.data
       error = retry.error
+      if (isNetworkTimeout(error)) {
+        logDiag('sync_end', { synced, failed, ms: Date.now() - t0, timedOut: true })
+        return { synced, failed, timedOut: true }
+      }
     }
     if (error && isPermanentError(error)) {
       const perRow = await syncRowsIndividually(validRows, payloads)
       synced += perRow.synced
       failed += perRow.failed
+      if (perRow.timedOut) {
+        logDiag('sync_end', { synced, failed, ms: Date.now() - t0, timedOut: true })
+        return { synced, failed, timedOut: true }
+      }
       continue
     }
     if (error || !data) {

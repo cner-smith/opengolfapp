@@ -103,33 +103,35 @@ const SecureStoreAdapter = {
 }
 
 // Every request gives up after 15 s (#1112): on a stalled network a fetch
-// otherwise never settles, and the action awaiting it spins forever. The error
+// otherwise never settles, and the action awaiting it spins forever. Edge
+// Functions get 90 s: generate-practice-plan legitimately runs past 30 s. The error
 // is named AbortError so postgrest-js doesn't retry it (it retries other fetch
 // failures on reads), and its message marks it for isNetworkTimeout.
 const REQUEST_TIMEOUT_MS = 15_000
+const FUNCTION_TIMEOUT_MS = 90_000
 const NETWORK_TIMEOUT = 'No answer from the server'
 
 async function timeoutFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
   const controller = new AbortController()
   const outer = init?.signal
-  if (outer) {
-    if (outer.aborted) controller.abort()
-    else outer.addEventListener('abort', () => controller.abort())
-  }
+  const abort = () => controller.abort()
+  if (outer?.aborted) abort()
+  else outer?.addEventListener('abort', abort)
+  const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
   let timedOut = false
   const timer = setTimeout(() => {
     timedOut = true
     controller.abort()
-  }, REQUEST_TIMEOUT_MS)
+  }, url.includes('/functions/v1/') ? FUNCTION_TIMEOUT_MS : REQUEST_TIMEOUT_MS)
   try {
     return await fetch(input, { ...init, signal: controller.signal })
   } catch (e) {
     if (!timedOut) throw e
-    const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
     logDiag('net_timeout', { path: url.replace(/^https?:\/\/[^/]+/, '').split('?')[0] })
     throw timeoutError()
   } finally {
     clearTimeout(timer)
+    outer?.removeEventListener('abort', abort)
   }
 }
 

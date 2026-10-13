@@ -72,7 +72,7 @@ http.server.HTTPServer(('127.0.0.1', int(sys.argv[1])), H).serve_forever()
 PY
 bridge=$!
 # A flow that fails mid-stall must not leave the device behind a dead proxy.
-trap 'kill $bridge 2>/dev/null; "$adb" shell settings put global http_proxy :0 >/dev/null 2>&1' EXIT
+trap 'kill $bridge 2>/dev/null; "$adb" shell settings put global http_proxy :0 >/dev/null 2>&1; "$adb" shell cmd connectivity airplane-mode disable >/dev/null 2>&1' EXIT
 # Wait until the bridge answers (400 = up, no coordinates); fail if it died (port taken).
 for _ in $(seq 1 50); do
   kill -0 "$bridge" 2>/dev/null || { echo "GPS bridge failed to start on :$port" >&2; exit 1; }
