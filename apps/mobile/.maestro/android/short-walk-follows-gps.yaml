@@ -1,0 +1,44 @@
+# A short walk after a saved shot moves the next start (#1108). Standing still, Mark asks for a
+# new GPS fix rather than reusing the spot the last shot was saved at.
+appId: app.opengolf.oga
+name: Android live round — short walk follows GPS; no new fix, no reused spot
+onFlowComplete:
+  - runFlow:
+      when:
+        visible: "Close and edit shots on the map"
+      commands:
+        - tapOn: "Close and edit shots on the map"
+  - runFlow:
+      when:
+        visible: "Round options"
+      commands:
+        - tapOn: "Round options"
+        - tapOn: "Delete round"
+        - tapOn: "Delete"
+---
+- runFlow: subflows/home.yaml
+- runFlow:
+    file: subflows/gps.yaml
+    env: { LAT: "43.849856", LNG: "-87.734575" }
+- runFlow:
+    file: subflows/start-round.yaml
+    env: { MODE: "Track shot patterns" }
+- runFlow: subflows/mark-and-aim.yaml
+# Still on the tee: GPS restarts after the save and re-sends the tee spot.
+- tapOn: "Mark my ball at my GPS spot"
+- extendedWaitUntil:
+    visible: "Waiting for GPS"
+    timeout: 5000
+- tapOn: "OK"
+# A 25 yd chunk: walk to it. The walk ends 372 yd from the pin.
+- runFlow:
+    file: subflows/gps.yaml
+    env: { LAT: "43.849739", LNG: "-87.73434" }
+- extendedWaitUntil:
+    visible: "37[0-9].* yd to the pin"
+    timeout: 10000
+- runFlow: subflows/mark-and-aim.yaml
+- tapOn: "Finish hole"
+- runFlow: subflows/skip-tips.yaml
+- assertVisible: "39[0-9] yd to pin"
+- assertVisible: "37[0-9] yd to pin"

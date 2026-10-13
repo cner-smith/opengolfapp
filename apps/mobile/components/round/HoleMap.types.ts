@@ -68,7 +68,7 @@ export interface HoleMapProps {
   previousShotObs?: boolean[]
   phase?: HoleMapPhase
   /**
-   * Latest smoothed GPS position. Drives the recenter button (which
+   * Latest GPS position. Drives the recenter button (which
    * camera-jumps to it) and the camera hook's auto-center-once
    * behavior. Null until permission granted and a fix arrives.
    */

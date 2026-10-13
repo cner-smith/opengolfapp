@@ -144,8 +144,8 @@ export default function LiveRoundSession({
   // with the confirm dialogs it opens (#293 one-modal-per-presenter).
   const [menuOpen, setMenuOpen] = useState(false)
 
-  // Per-hole reset. useHoleState resets its own refs (Kalman, manual
-  // placement, last-saved-shot id) keyed on currentHoleId — we don't
+  // Per-hole reset. useHoleState resets its own state (the ball,
+  // last-saved-shot id) keyed on currentHoleId — we don't
   // duplicate that here. This effect covers the component-owned UI
   // state machine that those hooks can't see.
   useEffect(() => {

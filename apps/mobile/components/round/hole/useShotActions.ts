@@ -154,6 +154,7 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
     ballSource,
     dispatchBall,
     markSpot,
+    awaitingNewSpot,
     aim,
     aimTouched,
     setAim,
@@ -257,7 +258,9 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
       const localId = await insertPendingShot(payload)
       lastSavedShotLocalIdRef.current = localId
       // The next shot starts wherever the player walks to: GPS takes the ball back.
-      dispatchBall({ type: 'shotSaved' })
+      // buildPayload always sets the start from the ball; the row type is nullable.
+      const { start_lat: lat, start_lng: lng } = payload
+      if (lat != null && lng != null) dispatchBall({ type: 'shotSaved', start: { lat, lng } })
       const isPutt = isPuttShot(payload.lie_type)
       logDiag('shot_saved', { shotNumber: payload.shot_number, localId, putt: isPutt, ob: !!payload.ob })
       setPendingForHole((prev) => [
@@ -408,13 +411,21 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
   }
 
   async function markBallHere(opts?: { toGreen?: boolean }) {
+    // GPS still reads the last saved shot's start: never reuse it silently (#1108).
+    if (awaitingNewSpot) {
+      logDiag('mark', { source: 'awaiting_new_spot', fixAgeMs: Date.now() - gpsFixAtRef.current, blocked: true })
+      Alert.alert(
+        'Waiting for GPS',
+        'No new location since the last shot yet. Try again in a moment, or drag the ball to where it lies.',
+      )
+      return
+    }
     // A held spot (placed by hand / OB replay) as placed; otherwise the latest
-    // GPS fix the ball has seen, never the smoothed ball trailing behind it
-    // (#1107). With none yet, the app's last GPS position (age-guarded below).
+    // GPS fix (#1107). With none yet, the app's last GPS position (age-guarded below).
     const source = markSpot ?? gpsPosition
     // Stale-fix guard (#720): the last-known seed and the listener's cache
     // replay populate gpsPosition with no freshness gate (only the
-    // ball/Kalman path has one), so after a pocketed walk to a new hole the
+    // ball path has one), so after a pocketed walk to a new hole the
     // fallback can be a fix from hundreds of meters back. Decline anything
     // older than 30 s rather than persist it as a durable shot coordinate —
     // same recovery as no fix at all.

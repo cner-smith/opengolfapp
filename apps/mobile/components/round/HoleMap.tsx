@@ -69,7 +69,7 @@ function extractCoord(feature: unknown): LatLng | null {
   if (typeof lat !== 'number' || typeof lng !== 'number') return null
   // @rnmapbox/maps fires onDragEnd with NaN coords on Android when a
   // PointAnnotation is dragged off the visible map. NaN passes typeof
-  // 'number' and then poisons the Kalman filter + DB writes downstream.
+  // 'number' and then poisons the ball + DB writes downstream.
   if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null
   return { lat, lng }
 }
@@ -257,8 +257,8 @@ export function HoleMap({
   const recenterOnGps = useCallback(async () => {
     if (!cameraRef.current) return
     // Recenter on the FRESHEST fix, not the state gpsPosition. That value is
-    // throttled by the listener's 5 m displacement filter (useHoleState), so
-    // "center on me" could land the camera up to ~5 m off the live native
+    // throttled by the listener's displacement filter (useHoleState), so
+    // "center on me" could land the camera off the live native
     // LocationPuck — the puck ended up off-centre and it read as "the camera
     // moved but the dot didn't." getLastKnownLocation reads the same native
     // engine the puck renders from. Falls back to the state value if it's
