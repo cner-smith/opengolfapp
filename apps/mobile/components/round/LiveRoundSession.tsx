@@ -579,10 +579,15 @@ export default function LiveRoundSession({
   // HoleMap's existing 5-yd-ignore threshold on the ball annotation's
   // onDragEnd — this is just a different onSetBall handler, not new drag
   // logic).
+  // Done waits for an in-flight move (#1113): the review builds its rows once,
+  // from the shots loaded when it opens, so opening first showed — and saved —
+  // the start from before the move.
+  const moveInFlightRef = useRef<Promise<unknown> | null>(null)
   const handleEditModeMove = async (loc: LatLng) => {
     const shotId = data.previousShotIds[activeShotIdx]
     if (!shotId) return
-    await actions.moveShot(shotId, loc)
+    moveInFlightRef.current = actions.moveShot(shotId, loc)
+    await moveInFlightRef.current
   }
 
   // Confirmed in the paper dialog (a brick Delete beside a plain Cancel).
@@ -771,7 +776,10 @@ export default function LiveRoundSession({
                 onNext={() => setActiveShotIdx((i) => Math.min(data.previousShots.length - 1, i + 1))}
                 onDelete={handleDeleteActiveShot}
                 deleteDisabled={data.previousShots.length === 0}
-                onDone={data.currentHoleScore.finished_at ? undefined : () => finalState.setRoundState('SUMMARY')}
+                onDone={data.currentHoleScore.finished_at ? undefined : async () => {
+                  await moveInFlightRef.current
+                  finalState.setRoundState('SUMMARY')
+                }}
               />
             ) : null
           }

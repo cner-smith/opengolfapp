@@ -236,7 +236,8 @@ export function useShotEdits({ user, data, dispatchBall }: UseShotEditsInput): U
         return false
       }
       logDiag('move_ok')
-      data.refreshShots()
+      // Awaited so a caller (Done → review, #1113) reads the moved start.
+      await data.refreshShots()
       return true
     } catch (e) {
       if (__DEV__) console.warn('[hole/moveShot]', (e as Error)?.message)

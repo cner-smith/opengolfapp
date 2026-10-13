@@ -297,26 +297,12 @@ if (!globalThis.__ogaWalCheckpointInstalled) {
   })
 }
 
-export async function pendingShotsForHoleScore(holeScoreId: string): Promise<PendingShot[]> {
-  const db = await getDb()
-  // Push the hole-score filter into SQLite via json_extract — previously
-  // every call pulled the entire pending queue and JS-filtered, which
-  // re-parsed every payload on every hole change.
-  return db.getAllAsync<PendingShot>(
-    `SELECT * FROM pending_shots
-     WHERE status = 'pending'
-       AND json_extract(payload, '$.hole_score_id') = ?
-     ORDER BY created_at ASC`,
-    holeScoreId,
-  )
-}
-
-// Like pendingShotsForHoleScore but includes already-synced rows. The
-// end-of-hole review pairs each reviewed row back to the shot the player
-// placed live so it can attach metadata by the shot's client id — and by
-// EOH most shots have synced (status='synced', still in the table this
-// session; purge only runs at next getDb() init). 'broken' rows stay
-// excluded — they carry corrupt data with nothing to attach to.
+// A hole's pending AND already-synced rows (synced rows stay in the table this
+// session; purge only runs at the next getDb() init). The end-of-hole review
+// pairs each reviewed row back to the shot placed live by its client id, and
+// by then most have synced; the hole refetch needs a shot that synced after
+// the server's read (#1113). 'broken' rows stay excluded — they carry corrupt
+// data with nothing to attach to.
 export async function allShotsForHoleScore(holeScoreId: string): Promise<PendingShot[]> {
   const db = await getDb()
   return db.getAllAsync<PendingShot>(

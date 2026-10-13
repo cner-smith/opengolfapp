@@ -4,7 +4,7 @@ import { getHoleTeesForCourse } from '@oga/supabase'
 import type { Database } from '@oga/supabase'
 import {
   logDiag,
-  pendingShotsForHoleScore,
+  allShotsForHoleScore,
   type PendingShot,
   type ShotPayload,
 } from '../../../lib/db'
@@ -66,7 +66,8 @@ export interface UseHoleDataResult {
   lastShotHoled: boolean
   /** The hole's latest shot was played from the green. */
   lastShotPutt: boolean
-  refreshShots: () => void
+  /** Refetches the hole's shots; resolves once the refetch has landed in state. */
+  refreshShots: () => Promise<void>
   localShotCount: number
   localPuttCount: number
   shotNumber: number
@@ -120,7 +121,26 @@ export function useHoleData(
   const [remoteHoledFor, setRemoteHoledFor] = useState<string | null>(null)
   const [remotePuttFor, setRemotePuttFor] = useState<string | null>(null)
   const [shotsRefreshNonce, setShotsRefreshNonce] = useState(0)
-  const refreshShots = useCallback(() => setShotsRefreshNonce((n) => n + 1), [])
+  // Resolved by the refetch effect once a run that started at or after this
+  // refresh settles, so a caller can wait for fresh shots (Done after a move,
+  // #1113). Tagged by refresh number: an older run still in flight must not
+  // settle it with shots fetched before the move.
+  const refreshCountRef = useRef(0)
+  const refreshWaitersRef = useRef<{ need: number; resolve: () => void }[]>([])
+  const settleRefresh = (through: number) => {
+    const ready = refreshWaitersRef.current.filter((w) => w.need <= through)
+    refreshWaitersRef.current = refreshWaitersRef.current.filter((w) => w.need > through)
+    ready.forEach((w) => w.resolve())
+  }
+  const refreshShots = useCallback(
+    () =>
+      new Promise<void>((resolve) => {
+        const need = ++refreshCountRef.current
+        refreshWaitersRef.current.push({ need, resolve })
+        setShotsRefreshNonce(need)
+      }),
+    [],
+  )
 
   // How many holes this round plays. course_tees.par is unpopulated in
   // our crawled data, so infer from the mapped hole numbers — a genuine
@@ -358,7 +378,10 @@ export function useHoleData(
       setRemotePuttFor(null)
       setPendingForHole([])
     }
-    if (!currentHoleScore) return
+    if (!currentHoleScore) {
+      settleRefresh(Infinity)
+      return
+    }
     const myNonce = ++fetchNonceRef.current
     const fetchT0 = Date.now()
     ;(async () => {
@@ -369,18 +392,38 @@ export function useHoleData(
             .select('id, club, lie_type, shot_number, start_lat, start_lng, ob, putt_result')
             .eq('hole_score_id', currentHoleScore.id)
             .order('shot_number')
-        const [shotsResInitial, localInitial] = await Promise.all([
-          fetchShots(),
-          // The SQLite read gets the same one-retry treatment as the remote
-          // fetch below — a transient rejection must not leave the neutral
-          // reset committed as a confident local=0 the save path could
-          // collide on (same class as the remote arm of #712).
-          pendingShotsForHoleScore(currentHoleScore.id).catch(() => null),
-        ])
+        let shotsRes = await fetchShots()
         if (myNonce !== fetchNonceRef.current) return
-        let local = localInitial
+        // postgrest-js returns failures in-band ({data: null, error}) — the
+        // promise resolves normally, so this can't be caught by the outer
+        // try/catch. One retry covers most transient failures (mirrors the
+        // sync.ts chunk-upsert retry); a network failure skips it, since
+        // postgrest-js has already retried the GET itself.
+        if (shotsRes.error && !isNetworkFailure(shotsRes.error, shotsRes.status)) {
+          shotsRes = await fetchShots()
+          if (myNonce !== fetchNonceRef.current) return
+        }
+        const offline = !!shotsRes.error && !!userId && !!id && isNetworkFailure(shotsRes.error, shotsRes.status)
+        const cached = offline && userId && id
+          ? await readCache<LiteShot[]>(offlineKeys.holeShots(userId, id, currentHoleScore.id))
+          : null
+        if (myNonce !== fetchNonceRef.current) return
+        // The local queue is read AFTER the server answers (#1113): a shot
+        // saved while the fetch was in flight is then in this read. Read
+        // alongside the fetch, the older snapshot overwrote pendingForHole and
+        // dropped that shot, so the next one reused its shot number. Nothing
+        // is awaited between this read and the state writes below. Synced
+        // rows are read too: one that synced after the server's read is in
+        // neither list otherwise; the remoteIds dedupe below drops the rest.
+        // ponytail: a synced row deleted on another device shows until the
+        // next app start purges synced rows.
+        // The SQLite read gets one retry: a transient rejection must not leave
+        // the neutral reset committed as a confident local=0 the save path
+        // could collide on (same class as the remote arm of #712).
+        let local = await allShotsForHoleScore(currentHoleScore.id).catch(() => null)
+        if (myNonce !== fetchNonceRef.current) return
         if (local === null) {
-          local = await pendingShotsForHoleScore(currentHoleScore.id).catch(
+          local = await allShotsForHoleScore(currentHoleScore.id).catch(
             () => null,
           )
           if (myNonce !== fetchNonceRef.current) return
@@ -391,27 +434,13 @@ export function useHoleData(
             return
           }
         }
-        let shotsRes = shotsResInitial
-        // postgrest-js returns failures in-band ({data: null, error}) — the
-        // promise resolves normally, so this can't be caught by the outer
-        // try/catch. One retry covers most transient failures (mirrors the
-        // sync.ts chunk-upsert retry); a network failure skips it, since
-        // postgrest-js has already retried the GET itself.
-        if (shotsRes.error && !isNetworkFailure(shotsRes.error, shotsRes.status)) {
-          shotsRes = await fetchShots()
-          if (myNonce !== fetchNonceRef.current) return
-        }
         let shots: LiteShot[]
         if (!shotsRes.error) {
           shots = shotsRes.data ?? []
-        } else if (userId && id && isNetworkFailure(shotsRes.error, shotsRes.status)) {
+        } else if (offline) {
           // Offline (#993): the shots this device last knew for the hole
           // (server rows + ones it queued, written below), minus the ones
           // still queued — those come from `local` like online.
-          const cached = await readCache<LiteShot[]>(
-            offlineKeys.holeShots(userId, id, currentHoleScore.id),
-          )
-          if (myNonce !== fetchNonceRef.current) return
           const queuedIds = new Set(local.flatMap((p) => payloadOf(p)?.id ?? []))
           logDiag('refetch_offline', { cached: cached?.length ?? null })
           shots = (cached ?? []).filter((s) => !queuedIds.has(s.id))
@@ -463,12 +492,14 @@ export function useHoleData(
       } catch (err) {
         logDiag('refetch_failed', { msg: err })
         if (myNonce !== fetchNonceRef.current) return
-        // SQLite (pendingShotsForHoleScore) rejection, or any other thrown
+        // SQLite (allShotsForHoleScore) rejection, or any other thrown
         // error — leave counts at the neutral reset above rather than a
         // stale previous-hole value.
         if (__DEV__) {
           console.warn('[hole/shots-fetch]', (err as Error).message)
         }
+      } finally {
+        if (myNonce === fetchNonceRef.current) settleRefresh(shotsRefreshNonce)
       }
     })()
   }, [currentHoleScore?.id, shotsRefreshNonce, userId, id])

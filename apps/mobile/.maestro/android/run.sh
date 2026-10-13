@@ -32,22 +32,58 @@ case "$(val SUPABASE_URL)" in *znjmkptblswxststjxwc*) echo "Env file points at p
 
 # GPS bridge: flows move the emulator's own GPS (subflows/gps.yaml) by calling this local server,
 # which runs `adb emu geo fix`. Only numbers are accepted, so the request can't inject a command.
-# /net?stall=1|0 (subflows/net.yaml) stalls the device's network: its proxy is pointed at a port here
-# that accepts connections and never answers. Toggling airplane mode drops the app's open
-# connections, which would otherwise keep going direct.
+# /drag?x=&y=&dx=&dy= (subflows/drag.yaml) long-presses a map marker and drags it, in device pixels.
+# /net?mode=stall|slow|off (subflows/net.yaml) points the device's proxy at a port here: `stall`
+# accepts connections and never answers (weak signal); `slow` tunnels them but holds each chunk the
+# app sends for 2 s, so every request takes seconds (opens race windows the flows need). Toggling
+# airplane mode drops the app's open connections, which would otherwise keep going direct.
 port="${GPS_BRIDGE_PORT:-8099}"
 ADB="$adb" python3 - "$port" <<'PY' &
 import http.server, os, socket, subprocess, sys, threading, time, urllib.parse
-def blackhole(srv, held=[]):
-    while True:
-        held.append(srv.accept()[0])
-hole = socket.socket(); hole.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-hole.bind(('127.0.0.1', 0)); hole.listen(64)
-threading.Thread(target=blackhole, args=(hole,), daemon=True).start()
+def listen(handler):
+    srv = socket.socket(); srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    srv.bind(('127.0.0.1', 0)); srv.listen(64)
+    def loop():
+        while True:
+            c = srv.accept()[0]
+            threading.Thread(target=handler, args=(c,), daemon=True).start()
+    threading.Thread(target=loop, daemon=True).start()
+    return srv.getsockname()[1]
+held = []
+def stall(c):
+    held.append(c)  # never answer
+def pump(a, b, delay):
+    try:
+        while True:
+            d = a.recv(65536)
+            if not d: break
+            if delay: time.sleep(delay)
+            b.sendall(d)
+    except OSError: pass
+    finally:
+        a.close(); b.close()
+def slow(c):
+    try:
+        req = b''
+        while b'\r\n\r\n' not in req:
+            d = c.recv(4096)
+            if not d: raise OSError('closed')
+            req += d
+        if not req.startswith(b'CONNECT '):
+            raise OSError('not CONNECT')  # plain HTTP is Metro's dev traffic, not the app's API
+        host, p = req.split(b' ')[1].decode().rsplit(':', 1)
+        s = socket.create_connection((host, int(p)), timeout=30)
+        s.settimeout(None)
+        c.sendall(b'HTTP/1.1 200 Connection established\r\n\r\n')
+    except (OSError, ValueError, IndexError):
+        c.close(); return
+    threading.Thread(target=pump, args=(c, s, 2), daemon=True).start()
+    pump(s, c, 0)
+PROXY = {'stall': listen(stall), 'slow': listen(slow)}
 def adb(*a):
     return subprocess.run([os.environ['ADB'], 'shell', *a], capture_output=True).returncode == 0
-def set_stall(on):
-    ok = adb('settings', 'put', 'global', 'http_proxy', '10.0.2.2:%d' % hole.getsockname()[1] if on else ':0')
+def set_mode(mode):
+    ok = adb('settings', 'put', 'global', 'http_proxy', '10.0.2.2:%d' % PROXY[mode] if mode in PROXY else ':0')
     ok = adb('cmd', 'connectivity', 'airplane-mode', 'enable') and ok
     time.sleep(1)
     ok = adb('cmd', 'connectivity', 'airplane-mode', 'disable') and ok
@@ -57,10 +93,20 @@ class H(http.server.BaseHTTPRequestHandler):
     def do_GET(self):
         u = urllib.parse.urlparse(self.path)
         q = urllib.parse.parse_qs(u.query)
-        if u.path == '/net':
-            if q.get('stall') not in (['1'], ['0']):
+        if u.path == '/drag':
+            # Long-press then move: a map marker drag (Maestro's swipe just pans the map).
+            try:
+                x, y, dx, dy = (int(q[k][0]) for k in ('x', 'y', 'dx', 'dy'))
+            except (KeyError, ValueError):
                 self.send_response(400); self.end_headers(); return
-            self.send_response(200 if set_stall(q['stall'] == ['1']) else 500); self.end_headers(); return
+            moves = '; '.join('input motionevent MOVE %d %d' % (x + dx * i // 10, y + dy * i // 10) for i in range(1, 11))
+            ok = adb('input motionevent DOWN %d %d; sleep 1.5; %s; input motionevent UP %d %d' % (x, y, moves, x + dx, y + dy))
+            self.send_response(200 if ok else 500); self.end_headers(); return
+        if u.path == '/net':
+            mode = q.get('mode', [''])[0]
+            if mode not in ('stall', 'slow', 'off'):
+                self.send_response(400); self.end_headers(); return
+            self.send_response(200 if set_mode(mode) else 500); self.end_headers(); return
         try:
             lat, lng = float(q['lat'][0]), float(q['lng'][0])
         except (KeyError, ValueError):
