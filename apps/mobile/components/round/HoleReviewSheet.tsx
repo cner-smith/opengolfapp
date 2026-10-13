@@ -460,7 +460,9 @@ function ShotRow({
     return base
   }, [bag, row.club])
   // Which field's options are unfolded inline. One at a time.
-  const [open, setOpen] = useState<'club' | 'lie' | 'slope' | 'result' | 'break' | 'speed' | null>(null)
+  const [open, setOpen] = useState<'club' | 'lie' | 'slope' | 'result' | 'break' | 'speed' | 'length' | null>(null)
+  // The putt length: the player's choice (#1109), else start → pin; 0 = no pin known.
+  const lengthFt = row.puttLengthFt ?? (row.distanceToPin > 0 ? row.distanceToPin * 3 : null)
   const toggle = (f: NonNullable<typeof open>) => setOpen((o) => (o === f ? null : f))
   const rawClubLabel = clubOptions.find((c) => c.value === row.club)?.label ?? String(row.club)
   const clubLabel = rawClubLabel.charAt(0).toUpperCase() + rawClubLabel.slice(1)
@@ -493,7 +495,7 @@ function ShotRow({
         <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { color: P.ink, fontSize: 13 }]}>Shot {row.shotNumber}</Text>
         <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.serif, { color: P.ink, fontSize: 20 }]}>
           {isPutt
-            ? row.distanceToPin > 0 ? `${toDisplayFt(row.distanceToPin * 3)} putt` : 'Putt'
+            ? lengthFt != null ? `${toDisplayFt(lengthFt)} putt` : 'Putt'
             : toDisplay(row.distanceYards)}
         </Text>
         <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { color: P.ink, fontSize: 13, marginLeft: 'auto' }]}>
@@ -515,6 +517,12 @@ function ShotRow({
         <>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
             <Chip label={clubLabel} state="set" onPress={() => toggle('club')} />
+            <Chip
+              label={lengthFt != null ? `Length ${toDisplayFt(lengthFt)}` : '+ length'}
+              state={row.puttLengthFt != null ? 'set' : 'empty'}
+              accessibilityLabel={`Putt length, shot ${row.shotNumber}`}
+              onPress={() => toggle('length')}
+            />
             <Chip
               label={row.puttMade ? 'Made it ✓' : 'Made it'}
               // Off is the dashed empty chip: a raised "Made it" read as holed.
@@ -543,6 +551,24 @@ function ShotRow({
                   setOpen(null)
                 }}
               />,
+            )}
+          {open === 'length' &&
+            expand(
+              <>
+                <RockerRows
+                  label="Length"
+                  options={LENGTH_PICKS_FT.map((ft) => ({ value: String(ft), label: toDisplayFt(ft) }))}
+                  value={row.puttLengthFt != null ? String(row.puttLengthFt) : null}
+                  onChange={(v) => {
+                    onChange({ ...row, puttLengthFt: v ? Number(v) : undefined })
+                    setOpen(null)
+                  }}
+                  stacked={stacked}
+                />
+                <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { color: P.inkDim, fontSize: 12.5 }]}>
+                  Pick the closest. Strokes gained is measured at these lengths, so a foot either way barely changes it.
+                </Text>
+              </>,
             )}
           {open === 'break' &&
             expand(
@@ -728,3 +754,7 @@ function AimerOverlay({
     </PaperSurface>
   )
 }
+
+// Putt length picks (#1109): the putting baseline steps, so a pick lands on a
+// row strokes gained reads directly. Tapping the set one clears it back to GPS.
+const LENGTH_PICKS_FT = [3, 5, 8, 10, 15, 20, 30, 40, 60]

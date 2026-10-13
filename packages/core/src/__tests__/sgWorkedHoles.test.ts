@@ -24,9 +24,20 @@ const pointYardsFromPin = (yards: number): PlacedPoint => ({
 })
 
 // `obShots`: shot numbers the player marked OB in the review sheet.
-function reviewSaveSG(par: number, yardsFromPin: number[], handicap: number, obShots: number[] = []) {
+// `puttLengthsFt`: putt lengths the player chose in the review, by shot number.
+function reviewSaveSG(
+  par: number,
+  yardsFromPin: number[],
+  handicap: number,
+  obShots: number[] = [],
+  puttLengthsFt: Record<number, number> = {},
+) {
   const rows = buildInitialRows(yardsFromPin.map(pointYardsFromPin), par, PIN.lat, PIN.lng).map(
-    (row) => (obShots.includes(row.shotNumber) ? { ...row, shotResult: 'ob' as const } : row),
+    (row) => ({
+      ...row,
+      ...(obShots.includes(row.shotNumber) ? { shotResult: 'ob' as const } : {}),
+      ...(row.shotNumber in puttLengthsFt ? { puttLengthFt: puttLengthsFt[row.shotNumber] } : {}),
+    }),
   )
   const shots = rows.map((row) => ({
     ...shotRowDefaults(row.shotNumber),
@@ -90,6 +101,21 @@ describe('review save → strokes gained', () => {
     expect(sg.approach).toBeCloseTo(0.098, 2)
     expect(sg.putting).toBeCloseTo(-0.52, 2)
     expect(sg.total).toBeCloseTo(0.222, 2)
+  })
+
+  it('par 4 in five, 15 handicap: three putts marked at one spot, lengths chosen as 20, 8 and 3 ft', () => {
+    // GPS put all three putts 10 yd (30 ft) out; the player set the lengths.
+    // Tee 400 yd 5.43; approach 150 yd 3.95 (as above)
+    // Putts: PUTTING[15][20] = 2.12, [8] = 1.52, [3] = 1.10, holed → 0
+    // off tee  5.43 − 3.95 − 1 = 0.48
+    // approach 3.95 − 2.12 − 1 = 0.83   (the GPS 30 ft would give 0.61)
+    // putting  (2.12 − 1.52 − 1) + (1.52 − 1.10 − 1) + (1.10 − 1) = −0.40 − 0.58 + 0.10 = −0.88
+    // total 0.43 (= 5.43 − 5)
+    const sg = reviewSaveSG(4, [400, 150, 10, 10, 10], 15, [], { 3: 20, 4: 8, 5: 3 })
+    expect(sg.offTee).toBeCloseTo(0.48, 2)
+    expect(sg.approach).toBeCloseTo(0.83, 2)
+    expect(sg.putting).toBeCloseTo(-0.88, 2)
+    expect(sg.total).toBeCloseTo(0.43, 2)
   })
 
   it('par 4, OB off the tee, re-tee from the same spot, double bogey 6', () => {

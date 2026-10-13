@@ -87,6 +87,9 @@ export interface ReviewedShotRow {
   greenSpeed?: GreenSpeed
   /** Free-text note on the putt. Stored as notes. */
   notes?: string
+  /** Putt length the player chose in the review, in feet (#1109). Stored as
+   *  putt_distance_ft over the start → pin distance. */
+  puttLengthFt?: number
   /** Legacy single outcome, derived from the axes below + the OB / penalty
    *  flags via legacyShotResult (OB is stamped here as 'ob'). Stored as
    *  shot_result. */
@@ -464,7 +467,10 @@ export function reviewedRowToShotFields(
   const isPutt = isPuttEntry(row.lieType, row.club)
   // A putt's length is its distance FROM THE HOLE (start → pin), which is what
   // putting SG reads — not how far it rolled (start → next start), #1092.
-  const puttFeet = Math.round(row.distanceToPin * 3)
+  // A length the player chose in the review wins (#1109): GPS can't tell
+  // putts a few feet apart from each other.
+  const puttFeet = row.puttLengthFt ?? Math.round(row.distanceToPin * 3)
+  const lengthKnown = row.puttLengthFt != null || row.distanceToPin > 0
   return {
     shot_number: row.shotNumber,
     start_lat: row.startLat,
@@ -496,7 +502,7 @@ export function reviewedRowToShotFields(
     // bound, not an overflow guard.)
     // distanceToPin 0 is the review's "no pin known": the length is unknown,
     // so store none rather than a 0 ft putt (SG then skips it).
-    putt_distance_ft: isPutt && row.distanceToPin > 0 && puttFeet <= 999 ? puttFeet : null,
+    putt_distance_ft: isPutt && lengthKnown && puttFeet <= 999 ? puttFeet : null,
     // Legacy combined column, rebuilt from the axes for back-compat readers.
     putt_result: isPutt
       ? combinedPuttResult({

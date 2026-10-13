@@ -575,6 +575,25 @@ describe('reviewedRowToShotFields', () => {
         reviewedRowToShotFields(shotRow({ distanceYards: 4 }), undefined).putt_distance_ft,
       ).toBeNull()
     })
+    it('is the putt length the player chose in the review, over start → pin', () => {
+      expect(
+        reviewedRowToShotFields(puttRow({ distanceToPin: 10, puttLengthFt: 8 }), undefined)
+          .putt_distance_ft,
+      ).toBe(8)
+    })
+
+    it('keeps a chosen putt length on a hole with no known pin', () => {
+      expect(
+        reviewedRowToShotFields(puttRow({ distanceToPin: 0, puttLengthFt: 8 }), undefined)
+          .putt_distance_ft,
+      ).toBe(8)
+    })
+
+    it('ignores a chosen putt length on a shot', () => {
+      expect(
+        reviewedRowToShotFields(shotRow({ puttLengthFt: 8 }), undefined).putt_distance_ft,
+      ).toBeNull()
+    })
   })
 
   describe('putt_result', () => {
