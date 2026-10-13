@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   lieSlopeLabel,
+  reviewedPuttLengthFt,
   reviewedRowToShotFields,
   type ReviewedShotRow,
 } from '../round'
@@ -575,6 +576,25 @@ describe('reviewedRowToShotFields', () => {
         reviewedRowToShotFields(shotRow({ distanceYards: 4 }), undefined).putt_distance_ft,
       ).toBeNull()
     })
+    it('is the putt length the player chose in the review, over start → pin', () => {
+      expect(
+        reviewedRowToShotFields(puttRow({ distanceToPin: 10, puttLengthFt: 8 }), undefined)
+          .putt_distance_ft,
+      ).toBe(8)
+    })
+
+    it('keeps a chosen putt length on a hole with no known pin', () => {
+      expect(
+        reviewedRowToShotFields(puttRow({ distanceToPin: 0, puttLengthFt: 8 }), undefined)
+          .putt_distance_ft,
+      ).toBe(8)
+    })
+
+    it('ignores a chosen putt length on a shot', () => {
+      expect(
+        reviewedRowToShotFields(shotRow({ puttLengthFt: 8 }), undefined).putt_distance_ft,
+      ).toBeNull()
+    })
   })
 
   describe('putt_result', () => {
@@ -859,5 +879,17 @@ describe('lieSlopeLabel', () => {
     ['', ''],
   ])('labels %j as %j', (value, expected) => {
     expect(lieSlopeLabel(value)).toBe(expected)
+  })
+})
+
+describe('reviewedPuttLengthFt', () => {
+  it.each<[number | undefined, number, number | null]>([
+    [undefined, 10, 30],
+    [8, 10, 8],
+    [8, 0, 8],
+    [undefined, 0, null],
+    [1200, 10, null],
+  ])('chosen %s ft, %s yd from the pin → %s ft', (puttLengthFt, distanceToPin, expected) => {
+    expect(reviewedPuttLengthFt({ puttLengthFt, distanceToPin })).toBe(expected)
   })
 })

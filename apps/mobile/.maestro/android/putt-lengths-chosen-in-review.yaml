@@ -1,0 +1,64 @@
+# Three putts marked at one spot (GPS can't tell them apart): the player sets each putt's
+# length in the hole review, and those are the lengths shown and saved (#1109).
+appId: app.opengolf.oga
+name: Android live round — putt lengths chosen in the review
+onFlowComplete:
+  - runFlow:
+      when:
+        visible: "Close and edit shots on the map"
+      commands:
+        - tapOn: "Close and edit shots on the map"
+  - runFlow:
+      when:
+        visible: "Round options"
+      commands:
+        - tapOn: "Round options"
+        - tapOn: "Delete round"
+        - tapOn: "Delete"
+---
+- runFlow: subflows/home.yaml
+- runFlow:
+    file: subflows/gps.yaml
+    env: { LAT: "43.849856", LNG: "-87.734575" }
+- runFlow:
+    file: subflows/start-round.yaml
+    env: { MODE: "Track shot patterns" }
+- runFlow: subflows/mark-and-aim.yaml
+# Three putts ~10 m from the pin, 1.5 m apart: inside a phone's drift on a green, so GPS
+# can't tell them apart (Mark needs some move: it never reuses the last putt's spot, #1108).
+- runFlow:
+    file: subflows/gps.yaml
+    env: { LAT: "43.848056", LNG: "-87.730952" }
+- tapOn: "Mark my ball at my GPS spot"
+- tapOn: "Missed"
+- runFlow:
+    file: subflows/gps.yaml
+    env: { LAT: "43.848042", LNG: "-87.730952" }
+- tapOn: "Mark my ball at my GPS spot"
+- tapOn: "Missed"
+- runFlow:
+    file: subflows/gps.yaml
+    env: { LAT: "43.848028", LNG: "-87.730952" }
+- tapOn: "Mark my ball at my GPS spot"
+- tapOn: "Made it"
+- runFlow: subflows/skip-tips.yaml
+- tapOn: "Putt length, shot 2"
+- assertVisible: "Pick the closest.*"
+- tapOn: "20 ft"
+- assertVisible: "20 ft putt"
+- scrollUntilVisible:
+    element: "Putt length, shot 3"
+    direction: DOWN
+    centerElement: true
+- tapOn: "Putt length, shot 3"
+- tapOn: "8 ft"
+- scrollUntilVisible:
+    element: "Putt length, shot 4"
+    direction: DOWN
+    centerElement: true
+- tapOn: "Putt length, shot 4"
+- tapOn: "3 ft"
+- assertVisible: "3 ft putt"
+- assertVisible: "8 ft putt"
+- tapOn: "Save & next hole"
+- assertVisible: "Hole 2"
