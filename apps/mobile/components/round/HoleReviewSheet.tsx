@@ -520,7 +520,7 @@ function ShotRow({
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
             <Chip label={clubLabel} state="set" onPress={() => toggle('club')} />
             <Chip
-              label={lengthFt != null ? `Length ${toDisplayFt(lengthFt)}` : '+ length'}
+              label={row.puttLengthFt != null ? `Length ${toDisplayFt(row.puttLengthFt)}` : '+ length'}
               state={row.puttLengthFt != null ? 'set' : 'empty'}
               accessibilityLabel={`Putt length, shot ${row.shotNumber}`}
               onPress={() => toggle('length')}
@@ -757,5 +757,6 @@ function AimerOverlay({
 }
 
 // Putt length picks (#1109): the putting baseline steps (3–60 ft), so a pick
-// lands on a row strokes gained reads directly. Tapping the set one clears it.
+// lands on a row strokes gained reads directly (every bracket has the same
+// columns). Tapping the set one clears it.
 const LENGTH_PICKS_FT = Object.keys(PUTTING_BASELINES[15]).map(Number)

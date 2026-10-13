@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   lieSlopeLabel,
+  reviewedPuttLengthFt,
   reviewedRowToShotFields,
   type ReviewedShotRow,
 } from '../round'
@@ -878,5 +879,17 @@ describe('lieSlopeLabel', () => {
     ['', ''],
   ])('labels %j as %j', (value, expected) => {
     expect(lieSlopeLabel(value)).toBe(expected)
+  })
+})
+
+describe('reviewedPuttLengthFt', () => {
+  it.each<[number | undefined, number, number | null]>([
+    [undefined, 10, 30],
+    [8, 10, 8],
+    [8, 0, 8],
+    [undefined, 0, null],
+    [1200, 10, null],
+  ])('chosen %s ft, %s yd from the pin → %s ft', (puttLengthFt, distanceToPin, expected) => {
+    expect(reviewedPuttLengthFt({ puttLengthFt, distanceToPin })).toBe(expected)
   })
 })
