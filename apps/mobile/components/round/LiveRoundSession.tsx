@@ -197,25 +197,15 @@ export default function LiveRoundSession({
     hasPriorShots: data.remoteShotCount + data.localShotCount > 0,
   })
 
-  // Played-hole on-map EDIT mode (vs. live capture): true when the shown
-  // hole is BEHIND the finish-advance frontier AND has ≥1 logged shot — i.e.
-  // a hole is editable IFF the player has finished PAST it. `furthestHoleReached`
-  // only moves via a genuine finish (`onAdvanceHole` above) or the deliberate
-  // synthetic bump in `handleEditHoleOnMap`, never off a bare `holeNumber`
-  // change — so neither a backward peek (`‹`), a forward peek (`›` to an
-  // untouched next hole), nor a scorecard jump ahead can move it. The active
-  // hole, and any hole merely peeked/jumped to (even one with shots logged),
-  // therefore always satisfies `holeNumber >= furthestHoleReached` →
-  // editMode false, capture chrome intact — the append-lock trap (fix round
-  // 1's C1, and its forward-peek/jump residual in fix round 2) is
-  // structurally impossible. ANDed with `previousShots.length > 0` since
-  // Step 3 below indexes directly into the previousShots/previousShotIds
-  // arrays. See task-4-report.md §Fix round 2 for the verified case list.
-  // A finished hole, the one chosen via editHoleOnMap (cleared on hole change),
-  // or any other played hole the player isn't capturing on (#1115): a skipped
-  // hole being played live stays live once its first shot is marked (cabdedd4).
-  const editMode = holeNumber < furthestHoleReached && data.previousShots.length > 0 &&
-    (!!data.currentHoleScore?.finished_at || editHole === holeNumber || finalState.isRevisitingPlayedHole)
+  // Played-hole mode (#1115): the stepper (pick, drag, Add, Delete) on any hole
+  // with shots the player isn't capturing on. That's a hole revisited without
+  // Resume, plus a hole finished past or chosen via editHoleOnMap (cleared on
+  // hole change). Those two need the frontier check: the just-finished hole
+  // stays current until Save & next moves on. A skipped hole being played live
+  // stays live once its first shot is marked (cabdedd4). Indexes into
+  // previousShots, so it needs at least one.
+  const editMode = data.previousShots.length > 0 && (finalState.isRevisitingPlayedHole ||
+    (holeNumber < furthestHoleReached && (!!data.currentHoleScore?.finished_at || editHole === holeNumber)))
 
   // Which of this hole's played shots is selected in edit mode. Reset to the
   // first shot on a hole switch; clamped into bounds whenever the shot count
@@ -663,8 +653,11 @@ export default function LiveRoundSession({
         holeCount={data.holeCount}
         par={data.resolvedHole?.par ?? data.currentHole.par}
         yardsLabel={data.resolvedHole?.yards ? toDisplay(data.resolvedHole.yards) : null}
-        // Strokes, not shots: an OB adds its penalty stroke ("hitting 4").
-        shotNumber={data.shotNumber + actions.shotObs.filter(Boolean).length}
+        // Strokes, not shots: an OB adds its penalty stroke ("hitting 4"). In
+        // played-hole mode, the selected shot's stroke.
+        shotNumber={editMode
+          ? activeShotIdx + 1 + actions.shotObs.slice(0, activeShotIdx).filter(Boolean).length
+          : data.shotNumber + actions.shotObs.filter(Boolean).length}
         distance={heroDistance}
         noBall={!heroBall && !!(data.roundPin ?? data.storedPin)}
         expected={expectedStrokes}
@@ -686,7 +679,7 @@ export default function LiveRoundSession({
           tee={data.tee}
           teeBox={teeBox}
           aim={finalState.aim}
-          ball={editMode ? data.previousShots[activeShotIdx] ?? null : finalState.ball}
+          ball={heroBall}
           overlayMode={overlayMode}
           arcWidthYards={arcWidthYards}
           circleRadiusYards={circleRadiusYards}
@@ -796,9 +789,15 @@ export default function LiveRoundSession({
                   deleteDisabled={data.previousShots.length === 0}
                   onAdd={handleAddShot}
                   addDisabled={adding}
-                  onDone={data.currentHoleScore.finished_at ? undefined : async () => {
+                  onDone={editHole !== holeNumber || data.currentHoleScore.finished_at ? undefined : async () => {
                     await moveInFlightRef.current
                     finalState.setRoundState('SUMMARY')
+                  }}
+                  // Back to live capture: Mark my ball and Finish hole (#1115).
+                  onResume={editHole === holeNumber || data.currentHoleScore.finished_at ? undefined : async () => {
+                    await moveInFlightRef.current
+                    finalState.setAppendEngaged(true)
+                    finalState.setRoundState('PLACE_BALL')
                   }}
                 />
               </CoachTarget>

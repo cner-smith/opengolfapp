@@ -1,7 +1,8 @@
-# #1115: a played hole that wasn't finished (behind the furthest hole) opens the same played-hole mode as a finished one (Add,
-# drag, Delete), its tips explain the drag, and the distance to the pin follows the selected shot.
+# #1115: every played hole opens one played-hole mode (Add, drag, Delete): the hole still in play
+# after a peek away (with Resume playing back to live capture) and an unfinished hole behind the
+# furthest one. Its tips explain the drag; the distance to the pin follows the selected shot.
 appId: app.opengolf.oga
-name: Android live round — an unfinished played hole opens played-hole mode
+name: Android live round — every played hole opens played-hole mode
 onFlowComplete:
   - runFlow:
       when:
@@ -24,8 +25,22 @@ onFlowComplete:
     file: subflows/gps.yaml
     env: { LAT: "43.84906", LNG: "-87.7330" }
 - tapOn: "Mark my ball at my GPS spot"
-# Leave hole 1 without finishing it and finish hole 2: hole 1 is now a played hole behind the
-# furthest hole (peeking away alone keeps it the hole in play, which resumes live capture).
+# Peek at hole 2 and come back: hole 1 is still in play, and opens played-hole mode.
+- tapOn: "Next hole"
+- runFlow: subflows/skip-tips.yaml
+- extendedWaitUntil:
+    visible: "Hole 2"
+    timeout: 10000
+- tapOn: "Previous hole"
+- runFlow: subflows/skip-tips.yaml
+- extendedWaitUntil:
+    visible: "Shot 1 of 2"
+    timeout: 10000
+- assertVisible: "Add a shot after this one"
+- tapOn: "Resume playing"
+- assertVisible: "Finish hole"
+- assertVisible: "Mark my ball.*"
+# Leave hole 1 unfinished and finish hole 2: hole 1 is now behind the furthest hole.
 - tapOn: "Next hole"
 - runFlow: subflows/skip-tips.yaml
 - extendedWaitUntil:
@@ -54,6 +69,7 @@ onFlowComplete:
     timeout: 10000
 - assertVisible: "Shot 1 of 2"
 - assertVisible: "Add a shot after this one"
+- assertVisible: "Resume playing"
 - tapOn: "What's on this screen"
 - assertVisible: "Drag a shot’s start on the map to move it.*"
 - tapOn: "Skip tips"
