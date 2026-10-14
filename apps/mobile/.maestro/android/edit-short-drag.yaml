@@ -1,0 +1,46 @@
+# Edit on map: a 2 yd drag on a shot's start moves the stored start (#1111).
+appId: app.opengolf.oga
+name: Android live round — a 2 yd drag in edit mode moves the start
+onFlowComplete:
+  - runFlow:
+      when:
+        visible: "Close and edit shots on the map"
+      commands:
+        - tapOn: "Close and edit shots on the map"
+  - runFlow:
+      when:
+        visible: "Round options"
+      commands:
+        - tapOn: "Round options"
+        - tapOn: "Delete round"
+        - tapOn: "Delete"
+---
+- runFlow: subflows/home.yaml
+- runFlow:
+    file: subflows/gps.yaml
+    env: { LAT: "43.849856", LNG: "-87.734575" }
+- runFlow:
+    file: subflows/start-round.yaml
+    env: { MODE: "Just track my round" }
+- tapOn: "Mark my ball at my GPS spot"
+- runFlow: subflows/skip-tips.yaml
+- runFlow:
+    file: subflows/gps.yaml
+    env: { LAT: "43.84906", LNG: "-87.7330" }
+- tapOn: "Mark my ball at my GPS spot"
+- tapOn: "Finish hole"
+- runFlow: subflows/skip-tips.yaml
+- copyTextFrom: "39[0-9] yd to pin"
+- evalScript: ${output.before = maestro.copiedText}
+- tapOn: "Close and edit shots on the map"
+- runFlow: subflows/skip-tips.yaml
+- assertVisible: "Shot 1 of 2"
+# Shot 1's start sits mid-map at about 11 px a yard.
+- runFlow:
+    file: subflows/drag.yaml
+    env: { X: "540", Y: "1430", DX: "0", DY: "-22" }
+- tapOn: "Back to the hole review"
+- extendedWaitUntil:
+    visible: "Save & next hole"
+    timeout: 30000
+- assertNotVisible: ${output.before}

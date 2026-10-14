@@ -575,19 +575,17 @@ export default function LiveRoundSession({
     setActiveShotIdx((i) => Math.min(i, Math.max(0, data.previousShots.length - 1)))
   }, [data.previousShots.length])
 
-  // Edit-mode marker drag → reposition via the online-first moveShot (reuses
-  // HoleMap's existing 5-yd-ignore threshold on the ball annotation's
-  // onDragEnd — this is just a different onSetBall handler, not new drag
-  // logic).
+  // Edit-mode marker drag → reposition via the online-first moveShot. A failed
+  // move resolves false, so HoleMap snaps the marker back (#1111).
   // Done waits for an in-flight move (#1113): the review builds its rows once,
   // from the shots loaded when it opens, so opening first showed — and saved —
   // the start from before the move.
-  const moveInFlightRef = useRef<Promise<unknown> | null>(null)
+  const moveInFlightRef = useRef<Promise<boolean> | null>(null)
   const handleEditModeMove = async (loc: LatLng) => {
     const shotId = data.previousShotIds[activeShotIdx]
-    if (!shotId) return
+    if (!shotId) return false
     moveInFlightRef.current = actions.moveShot(shotId, loc)
-    await moveInFlightRef.current
+    return moveInFlightRef.current
   }
 
   // Confirmed in the paper dialog (a brick Delete beside a plain Cancel).
