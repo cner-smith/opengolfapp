@@ -54,9 +54,8 @@ onFlowComplete:
 - tapOn: "Close scorecard"
 - tapOn: "Previous shot"
 - tapOn: "Delete this shot"
-- tapOn:
-    text: "Delete"
-    index: 1
+# The dialog's Delete (the stepper's key is hidden behind it).
+- tapOn: "Delete"
 - extendedWaitUntil:
     visible: "Shot 2 of 2"
     timeout: 30000
