@@ -18,6 +18,7 @@ import {
   formatClubLabel,
   getExpectedStrokes,
   insertedShotStart,
+  isPuttShot,
   startCategory,
   type CaptureMode,
   type Club,
@@ -343,7 +344,7 @@ export default function LiveRoundSession({
   useEffect(() => {
     if (holePar == null) return
     setOverlayMode(teeShot ? 'tee' : 'appr')
-  }, [holeNumber, data.shotNumber, holePar])
+  }, [holeNumber, data.shotNumber, holePar, editMode, activeShotIdx])
 
   // Handicap for the live expected-strokes / SG readouts. Read once from the
   // canonical profiles.handicap_index (player-entered, refined by the web
@@ -366,7 +367,10 @@ export default function LiveRoundSession({
 
   // Header hero (§3): ball → pin with one decimal, in feet (or metres) while
   // putting, plus expected strokes to hole out from there.
-  const putting = finalState.roundState === 'PUTTING'
+  // In played-hole mode, whether the selected shot is a putt (its lie), so a putt reads in feet.
+  const putting = editMode
+    ? isPuttShot(data.previousShotCaptured[activeShotIdx]?.lie_type ?? null)
+    : finalState.roundState === 'PUTTING'
   const heroDistance = useMemo(() => {
     if (ballToPinYards == null) return null
     const text =
