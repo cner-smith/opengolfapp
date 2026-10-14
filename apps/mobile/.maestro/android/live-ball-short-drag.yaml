@@ -1,5 +1,5 @@
 # A 2 yd drag on the live ball moves it (#1111): drags under 5 yd used to be dropped while the
-# marker looked moved.
+# marker looked moved. A press without a move leaves the ball following GPS.
 appId: app.opengolf.oga
 name: Android live round — a 2 yd ball drag moves the ball
 onFlowComplete:
@@ -19,6 +19,18 @@ onFlowComplete:
     file: subflows/start-round.yaml
     env: { MODE: "Just track my round" }
 # Recentering frames the ball mid-map, about 5.4 px a yard.
+- tapOn: "Put the ball on my GPS spot"
+- copyTextFrom: ".* yd to the pin"
+- evalScript: ${output.atTee = maestro.copiedText}
+- runFlow:
+    file: subflows/drag.yaml
+    env: { X: "540", Y: "1432", DX: "0", DY: "0" }
+- runFlow:
+    file: subflows/gps.yaml
+    env: { LAT: "43.84995", LNG: "-87.734575" }
+- extendedWaitUntil:
+    notVisible: ${output.atTee}
+    timeout: 10000
 - tapOn: "Put the ball on my GPS spot"
 - copyTextFrom: ".* yd to the pin"
 - evalScript: ${output.before = maestro.copiedText}

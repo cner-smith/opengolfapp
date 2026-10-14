@@ -945,8 +945,9 @@ export function HoleMap({
               onDragEnd={async (e: unknown) => {
                 if (ballDraggingRef) ballDraggingRef.current = false
                 const c = extractCoord(e)
-                // Rejected: remount at `ball`. The native marker keeps the dragged spot until its coordinate changes (#1111).
-                if (!c || (await onSetBall(c)) === false) setBallKey((k) => k + 1)
+                // Rejected, or a press without a move (it would stop GPS following): remount at `ball`, since the
+                // native marker keeps the dragged spot until its coordinate changes (#1111).
+                if (!c || distanceYards(ball, c) < 0.5 || (await onSetBall(c)) === false) setBallKey((k) => k + 1)
               }}
             >
               {/* Translucent 44pt grab disc. PointAnnotation hit-tests the
