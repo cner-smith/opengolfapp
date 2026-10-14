@@ -123,20 +123,29 @@ export function useShotEdits({ user, data, dispatchBall }: UseShotEditsInput): U
     if (updatedHs) setHoleScores((prev) => prev.map((hs) => (hs.id === hsId ? { ...hs, ...updatedHs } : hs)))
   }
 
+  // One insert at a time (a double tap would add two shots), and a retry after
+  // a failure reuses the id: if the lost response had committed, insert_shot
+  // sees the row and changes nothing.
+  const insertInFlightRef = useRef(false)
+  const insertIdRef = useRef<{ afterShotId: string; id: string } | null>(null)
   async function insertShot(afterShotId: string, start: LatLng): Promise<boolean> {
+    if (insertInFlightRef.current) return false
+    insertInFlightRef.current = true
+    if (insertIdRef.current?.afterShotId !== afterShotId) insertIdRef.current = { afterShotId, id: uuid.v4() }
     logDiag('insert_start')
     try {
       // The shot it goes after needs a server row to be renumbered around.
       if ((await syncPendingShots()).timedOut) throw timeoutError()
       const proj = projectShotMove({ newStart: start, pin: roundPin ?? storedPin ?? null, isPutt: false })
       const { error } = await supabase.rpc('insert_shot', {
-        p_id: uuid.v4(),
+        p_id: insertIdRef.current.id,
         p_after_shot_id: afterShotId,
         p_start_lat: start.lat,
         p_start_lng: start.lng,
         p_distance_to_target: proj.distanceToTarget ?? null,
       })
       if (error) throw error
+      insertIdRef.current = null
       await shiftLocalShotsAfter(afterShotId, 1)
       await data.refreshShots()
       await refreshHoleScore()
@@ -150,6 +159,8 @@ export function useShotEdits({ user, data, dispatchBall }: UseShotEditsInput): U
         'Adding a shot needs a connection. Try again when you’re back online.',
       )
       return false
+    } finally {
+      insertInFlightRef.current = false
     }
   }
 
