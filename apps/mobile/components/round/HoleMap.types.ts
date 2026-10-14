@@ -101,7 +101,8 @@ export interface HoleMapProps {
   /** dp from the map bottom the caller's dock covers; leg tags stay above it. */
   tagClearBottom?: number
   onSetAim: (loc: LatLng) => void
-  onSetBall: (loc: LatLng) => void
+  /** Resolving false rejects the move: the ball marker snaps back. */
+  onSetBall: (loc: LatLng) => void | Promise<void | boolean>
   /** True while the ball marker is under the finger, so a GPS tick can't move it mid-drag (#659). */
   ballDraggingRef?: { current: boolean }
   /**

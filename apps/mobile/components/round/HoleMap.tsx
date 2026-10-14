@@ -160,6 +160,7 @@ export function HoleMap({
   const legTagClamp =
     tagClearBottom != null && mapSize ? { map: mapViewRef, maxY: mapSize.h - tagClearBottom, idleTick } : undefined
   const [lastShotArrow, setLastShotArrow] = useState<OffscreenArrow | null>(null)
+  const [ballKey, setBallKey] = useState(0)
   // Measured OB callout width — its label and the font scale both change it.
   const [obPillWidth, setObPillWidth] = useState(120)
   // Camera centre + heading as of the last settle — the only way to tell
@@ -934,20 +935,18 @@ export function HoleMap({
               gated to PLACE_BALL so the ball can't be dragged mid-aim. */}
           {ball && !hideBall && (
             <Mapbox.PointAnnotation
+              key={`ball-${ballKey}`}
               id="ball"
               coordinate={toCoord(ball)}
               draggable={isPlaceBallPhase}
               onDragStart={() => {
                 if (ballDraggingRef) ballDraggingRef.current = true
               }}
-              onDragEnd={(e: unknown) => {
+              onDragEnd={async (e: unknown) => {
                 if (ballDraggingRef) ballDraggingRef.current = false
                 const c = extractCoord(e)
-                // Ignore micro-drags (< 5 yd) — finger tremor or an
-                // accidental press-and-release would otherwise freeze
-                // GPS tracking for the rest of this PLACE_BALL cycle.
-                if (!c || distanceYards(ball, c) < 5) return
-                onSetBall(c)
+                // Rejected: remount at `ball`. The native marker keeps the dragged spot until its coordinate changes (#1111).
+                if (!c || (await onSetBall(c)) === false) setBallKey((k) => k + 1)
               }}
             >
               {/* Translucent 44pt grab disc. PointAnnotation hit-tests the
