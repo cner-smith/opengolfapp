@@ -1,4 +1,4 @@
-# #1115: a played hole that wasn't finished opens the same played-hole mode as a finished one (Add,
+# #1115: a played hole that wasn't finished (behind the furthest hole) opens the same played-hole mode as a finished one (Add,
 # drag, Delete), its tips explain the drag, and the distance to the pin follows the selected shot.
 appId: app.opengolf.oga
 name: Android live round — an unfinished played hole opens played-hole mode
@@ -24,12 +24,29 @@ onFlowComplete:
     file: subflows/gps.yaml
     env: { LAT: "43.84906", LNG: "-87.7330" }
 - tapOn: "Mark my ball at my GPS spot"
-# Leave hole 1 without finishing it, then come back.
+# Leave hole 1 without finishing it and finish hole 2: hole 1 is now a played hole behind the
+# furthest hole (peeking away alone keeps it the hole in play, which resumes live capture).
 - tapOn: "Next hole"
 - runFlow: subflows/skip-tips.yaml
 - extendedWaitUntil:
     visible: "Hole 2"
     timeout: 10000
+- runFlow:
+    file: subflows/gps.yaml
+    env: { LAT: "43.8495", LNG: "-87.7340" }
+- tapOn: "Mark my ball.*"
+- tapOn: "Finish hole"
+- runFlow: subflows/skip-tips.yaml
+- tapOn: "Save & next hole"
+- extendedWaitUntil:
+    visible: "Hole 3"
+    timeout: 30000
+- runFlow: subflows/skip-tips.yaml
+- tapOn: "Previous hole"
+- extendedWaitUntil:
+    visible: "Shot 1 of 1"
+    timeout: 10000
+- runFlow: subflows/skip-tips.yaml
 - tapOn: "Previous hole"
 - runFlow: subflows/skip-tips.yaml
 - extendedWaitUntil:
