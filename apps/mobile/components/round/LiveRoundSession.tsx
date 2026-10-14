@@ -17,6 +17,7 @@ import {
   destinationYards,
   formatClubLabel,
   getExpectedStrokes,
+  insertedShotStart,
   startCategory,
   type CaptureMode,
   type Club,
@@ -592,6 +593,18 @@ export default function LiveRoundSession({
   const [deleteShotId, setDeleteShotId] = useState<string | null>(null)
   const handleDeleteActiveShot = () => setDeleteShotId(data.previousShotIds[activeShotIdx] ?? null)
 
+  // Add inserts a shot after the selected one and selects it, ready to drag into place (#1114).
+  const [adding, setAdding] = useState(false)
+  const handleAddShot = async () => {
+    const afterId = data.previousShotIds[activeShotIdx]
+    const prev = data.previousShots[activeShotIdx]
+    if (!afterId || !prev) return
+    const start = insertedShotStart(prev, data.previousShots[activeShotIdx + 1] ?? null, data.roundPin ?? data.storedPin ?? null)
+    setAdding(true)
+    if (await actions.insertShot(afterId, start)) setActiveShotIdx(activeShotIdx + 1)
+    setAdding(false)
+  }
+
   // "Edit on map" from the summary: the just-finished hole is still ===
   // furthestHoleReached (the player hasn't advanced past it yet), so the
   // editMode predicate above would read false for it — same "furthest hole
@@ -774,6 +787,8 @@ export default function LiveRoundSession({
                 onNext={() => setActiveShotIdx((i) => Math.min(data.previousShots.length - 1, i + 1))}
                 onDelete={handleDeleteActiveShot}
                 deleteDisabled={data.previousShots.length === 0}
+                onAdd={handleAddShot}
+                addDisabled={adding}
                 onDone={data.currentHoleScore.finished_at ? undefined : async () => {
                   await moveInFlightRef.current
                   finalState.setRoundState('SUMMARY')
