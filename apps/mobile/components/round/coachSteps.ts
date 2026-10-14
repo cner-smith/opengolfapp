@@ -123,3 +123,13 @@ export const PAST_CARD_STEPS: CoachStep[] = [
     body: 'Circles are under par, squares over — two squares for a double. Ticks are fairways and greens hit. Shots › opens a hole to edit its shots.',
   },
 ]
+
+export const PLAYED_HOLE_STEPS: CoachStep[] = [
+  {
+    id: 'live.played',
+    title: 'Fix a played hole',
+    body: 'Drag a shot’s start on the map to move it. ‹ and › pick the shot; Add puts a new one after it; Delete removes it.',
+  },
+  hero,
+  card,
+]

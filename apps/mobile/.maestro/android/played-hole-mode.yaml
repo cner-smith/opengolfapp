@@ -1,0 +1,47 @@
+# #1115: a played hole that wasn't finished opens the same played-hole mode as a finished one (Add,
+# drag, Delete), its tips explain the drag, and the distance to the pin follows the selected shot.
+appId: app.opengolf.oga
+name: Android live round — an unfinished played hole opens played-hole mode
+onFlowComplete:
+  - runFlow:
+      when:
+        visible: "Round options"
+      commands:
+        - tapOn: "Round options"
+        - tapOn: "Delete round"
+        - tapOn: "Delete"
+---
+- runFlow: subflows/home.yaml
+- runFlow:
+    file: subflows/gps.yaml
+    env: { LAT: "43.849856", LNG: "-87.734575" }
+- runFlow:
+    file: subflows/start-round.yaml
+    env: { MODE: "Just track my round" }
+- tapOn: "Mark my ball at my GPS spot"
+- runFlow: subflows/skip-tips.yaml
+- runFlow:
+    file: subflows/gps.yaml
+    env: { LAT: "43.84906", LNG: "-87.7330" }
+- tapOn: "Mark my ball at my GPS spot"
+# Leave hole 1 without finishing it, then come back.
+- tapOn: "Next hole"
+- runFlow: subflows/skip-tips.yaml
+- extendedWaitUntil:
+    visible: "Hole 2"
+    timeout: 10000
+- tapOn: "Previous hole"
+- runFlow: subflows/skip-tips.yaml
+- extendedWaitUntil:
+    visible: "Hole 1"
+    timeout: 10000
+- assertVisible: "Shot 1 of 2"
+- assertVisible: "Add a shot after this one"
+- tapOn: "What's on this screen"
+- assertVisible: "Drag a shot’s start on the map to move it.*"
+- tapOn: "Skip tips"
+# Shot 1 starts on the tee (397 yd hole); shot 2 about 228 yd out.
+- assertVisible: "39[0-9]\\.[0-9] yd to the pin"
+- tapOn: "Next shot"
+- assertVisible: "Shot 2 of 2"
+- assertVisible: "22[0-9]\\.[0-9] yd to the pin"
