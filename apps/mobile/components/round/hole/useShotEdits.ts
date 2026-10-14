@@ -1,5 +1,6 @@
 import { useMemo, useRef, useState, type Dispatch } from 'react'
 import { Alert } from 'react-native'
+import { uuid } from 'expo-modules-core'
 import type { User } from '@supabase/supabase-js'
 import { isPuttShot, projectShotMove, type LiveBallEvent } from '@oga/core'
 import { supabase, timeoutError } from '../../../lib/supabase'
@@ -8,6 +9,7 @@ import {
   enqueueHoleScorePatch,
   logDiag,
   removeLocalShotAndRenumber,
+  shiftLocalShotsAfter,
   setPendingShotOb,
   type ShotPayload,
 } from '../../../lib/db'
@@ -27,6 +29,10 @@ export interface UseShotEditsResult {
   // refresh the hole's shot state. Returns true on success, false (with an
   // alert already shown) on network/error.
   deleteShot: (shotId: string) => Promise<boolean>
+  // Online-first insert after an existing shot (#1114) via the insert_shot RPC,
+  // which renumbers the later shots and raises the hole score. Resolves after
+  // the hole's shots and score are refetched; false (alert shown) on failure.
+  insertShot: (afterShotId: string, start: LatLng) => Promise<boolean>
   // Online-first single-shot reposition: recompute start coords (+
   // distance_to_target via projectShotMove) and write them directly.
   // Returns true on success, false (with an alert already shown) on
@@ -107,6 +113,46 @@ export function useShotEdits({ user, data, dispatchBall }: UseShotEditsInput): U
     [previousShotIds, previousShotObs, obOverride],
   )
 
+  // refreshShots only refetches SHOTS; delete_shot / insert_shot also re-tally
+  // hole_scores server-side, and that row is fetched by a separate effect
+  // refreshShots doesn't trigger. Refetch it so the scorecard score follows.
+  async function refreshHoleScore() {
+    const hsId = data.currentHoleScore?.id
+    if (!hsId) return
+    const { data: updatedHs } = await supabase.from('hole_scores').select('*').eq('id', hsId).single()
+    if (updatedHs) setHoleScores((prev) => prev.map((hs) => (hs.id === hsId ? { ...hs, ...updatedHs } : hs)))
+  }
+
+  async function insertShot(afterShotId: string, start: LatLng): Promise<boolean> {
+    logDiag('insert_start')
+    try {
+      // The shot it goes after needs a server row to be renumbered around.
+      if ((await syncPendingShots()).timedOut) throw timeoutError()
+      const proj = projectShotMove({ newStart: start, pin: roundPin ?? storedPin ?? null, isPutt: false })
+      const { error } = await supabase.rpc('insert_shot', {
+        p_id: uuid.v4(),
+        p_after_shot_id: afterShotId,
+        p_start_lat: start.lat,
+        p_start_lng: start.lng,
+        p_distance_to_target: proj.distanceToTarget ?? null,
+      })
+      if (error) throw error
+      await shiftLocalShotsAfter(afterShotId, 1)
+      await data.refreshShots()
+      await refreshHoleScore()
+      logDiag('insert_ok')
+      return true
+    } catch (e) {
+      if (__DEV__) console.warn('[hole/insertShot]', (e as Error)?.message)
+      logDiag('insert_failed', { msg: e })
+      Alert.alert(
+        "Couldn't add a shot",
+        'Adding a shot needs a connection. Try again when you’re back online.',
+      )
+      return false
+    }
+  }
+
   async function deleteShot(shotId: string): Promise<boolean> {
     logDiag('delete_start')
     try {
@@ -123,23 +169,7 @@ export function useShotEdits({ user, data, dispatchBall }: UseShotEditsInput): U
       if (deleted === false) await deletePendingShotById(shotId)
       else await removeLocalShotAndRenumber(shotId)
       data.refreshShots()
-      // refreshShots only refetches SHOTS; the RPC also re-tallied hole_scores
-      // (score/putts/penalties/fairway_hit/gir) server-side, and that row is
-      // fetched by a separate effect refreshShots doesn't trigger. Refetch it so
-      // the scorecard score updates instead of staying stale after the delete.
-      const hsId = data.currentHoleScore?.id
-      if (hsId) {
-        const { data: updatedHs } = await supabase
-          .from('hole_scores')
-          .select('*')
-          .eq('id', hsId)
-          .single()
-        if (updatedHs) {
-          setHoleScores((prev) =>
-            prev.map((hs) => (hs.id === hsId ? { ...hs, ...updatedHs } : hs)),
-          )
-        }
-      }
+      await refreshHoleScore()
       return true
     } catch (e) {
       if (__DEV__) console.warn('[hole/deleteShot]', (e as Error)?.message)
@@ -370,5 +400,5 @@ export function useShotEdits({ user, data, dispatchBall }: UseShotEditsInput): U
   // penalty.
   const lastShotIsOb = shotObs[shotObs.length - 1] ?? false
 
-  return { deleteShot, moveShot, markLastShotOb, lastShotIsOb, obBusy, shotObs }
+  return { deleteShot, insertShot, moveShot, markLastShotOb, lastShotIsOb, obBusy, shotObs }
 }

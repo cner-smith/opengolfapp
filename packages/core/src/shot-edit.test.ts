@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { projectShotMove } from './shot-edit'
+import { insertedShotStart, projectShotMove } from './shot-edit'
 import { haversineYards } from './units'
 
 describe('projectShotMove', () => {
@@ -35,5 +35,32 @@ describe('projectShotMove', () => {
     expect(proj.startLng).toBe(0)
     expect(typeof proj.distanceToTarget).toBe('number')
     expect(proj.distanceToTarget).toBeGreaterThan(0)
+  })
+})
+
+describe('insertedShotStart', () => {
+  it('puts a shot inserted between two others halfway between them', () => {
+    const at = insertedShotStart({ lat: 43, lng: -87 }, { lat: 43.002, lng: -87.002 }, null)
+    expect(at.lat).toBeCloseTo(43.001, 9)
+    expect(at.lng).toBeCloseTo(-87.001, 9)
+  })
+
+  it('puts a shot inserted after the last one 20 yd toward the pin', () => {
+    // 0.001° of latitude ≈ 121.6 yd: a pin due north, well past 20 yd.
+    const at = insertedShotStart({ lat: 43, lng: -87 }, null, { lat: 43.001, lng: -87 })
+    expect(haversineYards(43, -87, at.lat, at.lng)).toBeCloseTo(20, 1)
+    expect(at.lng).toBeCloseTo(-87, 9)
+    expect(at.lat).toBeGreaterThan(43)
+  })
+
+  it('stops halfway to a pin closer than 40 yd', () => {
+    const at = insertedShotStart({ lat: 43, lng: -87 }, null, { lat: 43.0002, lng: -87 })
+    expect(at.lat).toBeCloseTo(43.0001, 7)
+  })
+
+  it('goes 20 yd north with no pin', () => {
+    const at = insertedShotStart({ lat: 43, lng: -87 }, null, null)
+    expect(haversineYards(43, -87, at.lat, at.lng)).toBeCloseTo(20, 1)
+    expect(at.lat).toBeGreaterThan(43)
   })
 })

@@ -326,13 +326,12 @@ export async function deletePendingShotById(clientId: string): Promise<void> {
   )
 }
 
-// Mirror a successful delete_shot RPC locally: the RPC deletes the row and
-// renumbers the hole's later shots server-side, but the local copies (synced
-// rows live on until the next launch) kept the deleted row and the old
-// numbers. Anything that later pairs local rows by shot_number would then
+// Mirror a server renumber onto the local copies (synced rows live on until the
+// next launch): delete_shot moves the hole's later shots down one, insert_shot
+// up one. Anything that later pairs local rows by shot_number would otherwise
 // attach a row to the wrong shot and collide on unique(hole_score_id,
 // shot_number). No-op when the shot has no local row (purged last session).
-export async function removeLocalShotAndRenumber(clientId: string): Promise<void> {
+export async function shiftLocalShotsAfter(clientId: string, by: 1 | -1): Promise<void> {
   const db = await getDb()
   const row = await db.getFirstAsync<{ hs: string | null; num: number | null }>(
     `SELECT json_extract(payload, '$.hole_score_id') AS hs,
@@ -340,16 +339,23 @@ export async function removeLocalShotAndRenumber(clientId: string): Promise<void
      FROM pending_shots WHERE json_extract(payload, '$.id') = ?`,
     clientId,
   )
-  await db.runAsync(`DELETE FROM pending_shots WHERE json_extract(payload, '$.id') = ?`, clientId)
   if (!row?.hs || row.num == null) return
   await db.runAsync(
     `UPDATE pending_shots
-     SET payload = json_set(payload, '$.shot_number', json_extract(payload, '$.shot_number') - 1)
+     SET payload = json_set(payload, '$.shot_number', json_extract(payload, '$.shot_number') + ?)
      WHERE json_extract(payload, '$.hole_score_id') = ?
        AND json_extract(payload, '$.shot_number') > ?`,
+    by,
     row.hs,
     row.num,
   )
+}
+
+// Mirror a successful delete_shot RPC locally: the deleted row goes, later shots move down.
+export async function removeLocalShotAndRenumber(clientId: string): Promise<void> {
+  await shiftLocalShotsAfter(clientId, -1)
+  const db = await getDb()
+  await db.runAsync(`DELETE FROM pending_shots WHERE json_extract(payload, '$.id') = ?`, clientId)
 }
 
 // Attach end-of-hole metadata to a shot the player logged live. Keyed on the

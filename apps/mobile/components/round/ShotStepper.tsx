@@ -13,11 +13,14 @@ export interface ShotStepperProps {
   onNext: () => void
   onDelete: () => void
   deleteDisabled?: boolean
+  /** Inserts a shot after the selected one (#1114). */
+  onAdd: () => void
+  addDisabled?: boolean
   /** The hole isn't saved yet: a way back to its review (#938). */
   onDone?: () => void
 }
 
-// Played-hole edit row (#611 paper): "‹ Shot N of M ›" plus Delete, sitting
+// Played-hole edit row (#611 paper): "‹ Shot N of M ›" plus Add and Delete, sitting
 // in the live dock's footer in place of the bottom row. Pure presentational —
 // the caller owns activeShotIdx / moveShot / deleteShot wiring.
 export function ShotStepper({
@@ -27,6 +30,8 @@ export function ShotStepper({
   onNext,
   onDelete,
   deleteDisabled,
+  onAdd,
+  addDisabled,
   onDone,
 }: ShotStepperProps) {
   // Display-only clamp: a delete can commit a shorter `count` one render
@@ -58,6 +63,14 @@ export function ShotStepper({
           faceStyle={{ width: 44, height: 46 }}
         >
           <Icon.next size={20} color={atEnd ? P.ink35 : P.ink} />
+        </Key>
+        <Key
+          accessibilityLabel="Add a shot after this one"
+          onPress={onAdd}
+          disabled={addDisabled}
+          faceStyle={{ height: 46, paddingHorizontal: 12 }}
+        >
+          <KeyText disabled={addDisabled}>Add</KeyText>
         </Key>
         <Key
           accessibilityLabel="Delete this shot"
