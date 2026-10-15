@@ -171,7 +171,7 @@ describe('Golf Pad export → planned rounds', () => {
       [1, 'strokes_missing', 0],
       [2, 'penalty_no_row', 0],
       [3, 'penalty_no_row', 0],
-      [4, 'numbers_skip', 0],
+      [4, 'numbers_mismatch', 0],
       [5, null, 4],
       [6, 'strokes_missing', 0],
     ])

@@ -40,11 +40,11 @@ test.describe('Golf Pad import (signed in, mutating)', () => {
 
     // Stated before Import, and recounted when a course is skipped.
     const warning = page.getByRole('region', { name: 'Scores only' })
-    await expect(warning.getByText('4 holes of 5 will come in with scores only')).toBeVisible()
+    await expect(warning.getByText('1 hole with shots, 4 holes with scores only')).toBeVisible()
     const importButton = page.getByRole('button', { name: /^Import \d+ rounds?$/ })
     await expect(importButton).toBeDisabled()
     await page.getByRole('region', { name: 'Nowhere Municipal' }).getByRole('button', { name: 'Skip' }).click()
-    await expect(warning.getByText('3 holes of 4 will come in with scores only')).toBeVisible()
+    await expect(warning.getByText('1 hole with shots, 3 holes with scores only')).toBeVisible()
     await expect(warning.getByRole('listitem')).toHaveText(['2 · no shots logged', '1 · shots or putts not logged'])
 
     await expect(importButton).toHaveText('Import 2 rounds')

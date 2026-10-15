@@ -33,7 +33,7 @@ export interface GolfPadHole {
   scores_only: GolfPadScoresOnlyReason | null
 }
 
-export type GolfPadScoresOnlyReason = 'no_shots' | 'strokes_missing' | 'penalty_no_row' | 'numbers_skip'
+export type GolfPadScoresOnlyReason = 'no_shots' | 'strokes_missing' | 'penalty_no_row' | 'numbers_mismatch'
 
 export interface GolfPadRound {
   /** `golfpad:` + Golf Pad's round code (from the round URL). */
@@ -119,14 +119,14 @@ function scoresOnlyReason(rows: Record<string, string>[], score: number, penalti
   let next = 1
   let penaltyRows = 0
   for (const s of rows) {
-    if (int(s['shot number']) !== next) return penalties > penaltyRows ? 'penalty_no_row' : 'numbers_skip'
+    if (int(s['shot number']) !== next) return penalties > penaltyRows ? 'penalty_no_row' : 'numbers_mismatch'
     const penalty = s['outcome'] === 'Penalty'
     if (penalty) penaltyRows++
     next += penalty ? 2 : 1
   }
   if (penaltyRows < penalties) return 'penalty_no_row'
   if (next - 1 < score || rows[rows.length - 1]!['outcome'] !== 'Holed') return 'strokes_missing'
-  if (next - 1 > score || penaltyRows > penalties) return 'numbers_skip'
+  if (next - 1 > score || penaltyRows > penalties) return 'numbers_mismatch'
   return null
 }
 
