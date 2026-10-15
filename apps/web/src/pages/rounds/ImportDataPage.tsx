@@ -130,9 +130,9 @@ export function ImportDataPage() {
           Import from data
         </h1>
         <div className="text-caddie-ink-dim" style={{ fontSize: 13, marginTop: 2 }}>
-          Paste or upload a JSON payload to pre-populate a round — fill in shot shape, lie
-          slope, and other detail your data source doesn't track once it lands on the
-          scorecard.
+          {mode === 'golfpad'
+            ? 'Bring your Golf Pad history across: every round, with strokes gained worked out on import.'
+            : "Paste or upload a JSON payload to pre-populate a round — fill in shot shape, lie slope, and other detail your data source doesn't track once it lands on the scorecard."}
         </div>
       </div>
 

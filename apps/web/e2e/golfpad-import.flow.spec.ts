@@ -10,11 +10,11 @@ const admin = createClient(
 )
 
 // Invented Golf Pad export (fixtures/golfpad, Windows-1252 like the real thing): three rounds on
-// "Pine Ridge Golf Club" (matches a DEV course by name), "Whistling Straits - Straits Course" (no
-// match until searched) and "Nowhere Municipal" (skipped).
+// "Whistling Straits" (one DEV course by that name: pre-filled), "Pine Ridge Golf Club" (several
+// DEV courses share it: chosen by search) and "Nowhere Municipal" (skipped).
 const dir = path.join(path.dirname(fileURLToPath(import.meta.url)), 'fixtures/golfpad')
 const FILES = ['rounds.csv', 'holes.csv', 'shots.csv'].map((f) => path.join(dir, f))
-const CODES = ['GPE2E1', 'GPE2E2', 'GPE2E3']
+const CODES = ['golfpad:GPE2E1', 'golfpad:GPE2E2', 'golfpad:GPE2E3']
 
 const cleanup = () => admin.from('rounds').delete().in('import_id', CODES)
 
@@ -27,15 +27,16 @@ test.describe('Golf Pad import (signed in, mutating)', () => {
     await page.getByRole('button', { name: 'Golf Pad' }).click()
     await page.getByLabel('Golf Pad export files').setInputFiles(FILES)
 
-    const pine = page.getByRole('region', { name: 'Pine Ridge Golf Club' })
-    await expect(pine.getByText(/Match: Pine Ridge Golf Club/)).toBeVisible({ timeout: 15_000 })
-    await pine.getByRole('button', { name: 'Use this course' }).click()
+    const straits = page.getByRole('region', { name: 'Whistling Straits' })
+    await expect(straits.getByText(/Match: Whistling Straits · Sheboygan, WI/)).toBeVisible({ timeout: 15_000 })
+    await straits.getByRole('button', { name: 'Use this course' }).click()
 
-    const straits = page.getByRole('region', { name: 'Whistling Straits - Straits Course' })
-    await expect(straits.getByText('No match found')).toBeVisible()
-    await straits.getByRole('button', { name: 'Choose a course' }).click()
-    await straits.getByPlaceholder('Search courses').fill('Whistling Straits')
-    await straits.getByRole('button', { name: /Whistling Straits/ }).first().click()
+    // Several courses share this name, so nothing is pre-filled: the player picks one.
+    const pine = page.getByRole('region', { name: 'Pine Ridge Golf Club' })
+    await expect(pine.getByText(/courses share this name: choose one/)).toBeVisible()
+    await expect(pine.getByRole('button', { name: 'Use this course' })).toHaveCount(0)
+    await pine.getByRole('button', { name: 'Choose a course' }).click()
+    await pine.getByRole('button', { name: /Pine Ridge Golf Club.*Demo/ }).click()
 
     const importButton = page.getByRole('button', { name: /^Import \d+ rounds?$/ })
     await expect(importButton).toBeDisabled()
@@ -44,6 +45,7 @@ test.describe('Golf Pad import (signed in, mutating)', () => {
     await expect(importButton).toHaveText('Import 2 rounds')
     await importButton.click()
     await expect(page.getByText('Imported 2 rounds')).toBeVisible({ timeout: 30_000 })
+    await expect(page.getByText('Whistling Straits · 2025-05-02')).toBeVisible()
     await expect(page.getByText(/Nowhere Municipal.*course skipped/)).toBeVisible()
 
     const { data: rounds } = await admin
@@ -52,20 +54,20 @@ test.describe('Golf Pad import (signed in, mutating)', () => {
       .in('import_id', CODES)
       .order('import_id')
     expect(rounds?.map((r) => [r.import_id, (r.courses as { name: string } | null)?.name])).toEqual([
-      ['GPE2E1', 'Pine Ridge Golf Club'],
-      ['GPE2E2', 'Whistling Straits'],
+      ['golfpad:GPE2E1', 'Whistling Straits'],
+      ['golfpad:GPE2E2', 'Pine Ridge Golf Club'],
     ])
     for (const r of rounds ?? []) {
       expect(r.completed_at).toEqual(expect.any(String))
       expect(r.sg_total).toEqual(expect.any(Number))
     }
     type Hs = { score: number; holes: { number: number } | null; shots: { shot_number: number; club: string | null; putt_distance_ft: number | null }[] }
-    const pineHoles = (rounds![0]!.hole_scores as Hs[]).sort((a, b) => a.holes!.number - b.holes!.number)
-    expect(pineHoles.map((h) => [h.holes!.number, h.score, h.shots.length])).toEqual([
+    const straitsHoles = (rounds![0]!.hole_scores as Hs[]).sort((a, b) => a.holes!.number - b.holes!.number)
+    expect(straitsHoles.map((h) => [h.holes!.number, h.score, h.shots.length])).toEqual([
       [1, 4, 4],
       [2, 5, 0], // two shot rows for a score of 5: scores only
     ])
-    const shots = pineHoles[0]!.shots.sort((a, b) => a.shot_number - b.shot_number)
+    const shots = straitsHoles[0]!.shots.sort((a, b) => a.shot_number - b.shot_number)
     // "52° wedge" survives the Windows-1252 file; putts read in feet.
     expect(shots.map((s) => [s.club, s.putt_distance_ft])).toEqual([
       ['driver', null],

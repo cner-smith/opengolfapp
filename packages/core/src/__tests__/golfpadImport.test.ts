@@ -68,12 +68,12 @@ describe('Golf Pad export → planned rounds', () => {
     expect(plan.skipped).toEqual([])
     expect(plan.rounds).toHaveLength(1)
     const r = plan.rounds[0]!
-    expect(r).toMatchObject({ import_id: 'R3K47HE2', course_name: C, played_at: '2025-06-07', tee_color: 'white' })
+    expect(r).toMatchObject({ import_id: 'golfpad:R3K47HE2', course_name: C, played_at: '2025-06-07', tee_color: 'white' })
     expect(r.holes.map((h) => [h.number, h.par, h.score, h.putts, h.penalties, h.fairway_hit, h.gir])).toEqual([
       [1, 4, 4, 2, 0, true, true],
-      [2, 3, 3, 2, 0, null, null],
-      [3, 5, 8, 1, 1, false, null],
-      [4, 4, 5, 2, 0, false, null],
+      [2, 3, 3, 2, 0, null, false],
+      [3, 5, 8, 1, 1, false, false],
+      [4, 4, 5, 2, 0, false, false],
     ])
     const [h1, h2, h3, h4] = r.holes
     expect(h1!.shots).toEqual([
@@ -102,10 +102,10 @@ describe('Golf Pad export → planned rounds', () => {
     expect(h4!.shots_dropped).toBe(true)
   })
 
-  it('a partial round keeps only the holes played; a hole with no shot rows gets none', () => {
+  it('a partial round keeps only the holes played (no strokes = not played); a hole with no shot rows gets none', () => {
     const plan = planGolfPadImport({
       rounds: csv(ROUNDS_HEADER, [round(D, C, 'R9', '', 2)]),
-      holes: csv(HOLES_HEADER, [hole(D, C, 10, 4, 5, 2), hole(D, C, 11, 3, 3, 1)]),
+      holes: csv(HOLES_HEADER, [hole(D, C, 10, 4, 5, 2), hole(D, C, 11, 3, 3, 1), hole(D, C, 12, 4, 0, 0).replace(',4,0,0,0,0,,', ',4,,,,0,,')]),
       shots: csv(SHOTS_HEADER, [shot(D, C, 11, 1, 'Tee', '9i', '140', 'Green'), shot(D, C, 11, 2, 'Green', 'Pt', '3', 'Green'), shot(D, C, 11, 3, 'Green', 'Pt', '1', 'Holed')]),
     })
     const r = plan.rounds[0]!
@@ -123,7 +123,7 @@ describe('Golf Pad export → planned rounds', () => {
     expect(plan.rounds[0]!.holes[0]).toMatchObject({ shots: [], shots_dropped: true })
   })
 
-  it('skips rounds it can’t place: same course twice that day, or no hole rows', () => {
+  it('skips rounds it can’t place: same course twice that day, no hole rows, or no round id', () => {
     const other = 'Elm Park Golf Course'
     const plan = planGolfPadImport({
       rounds: csv(ROUNDS_HEADER, [
@@ -131,15 +131,17 @@ describe('Golf Pad export → planned rounds', () => {
         round(D, C, 'RB', '', 9, '11:00', '13:00'),
         round(D, other, 'RC'),
         round('6/8/2025', other, 'RD'),
+        round('6/9/2025', other, 'RE').replace(/https:\S+round\/RE/, ''),
       ]),
       holes: csv(HOLES_HEADER, [hole(D, C, 1, 4, 4, 2), hole(D, C, 1, 4, 5, 2), hole('6/8/2025', other, 1, 4, 4, 2)]),
       shots: csv(SHOTS_HEADER, []),
     })
-    expect(plan.rounds.map((r) => r.import_id)).toEqual(['RD'])
+    expect(plan.rounds.map((r) => r.import_id)).toEqual(['golfpad:RD'])
     expect(plan.skipped).toEqual([
-      { import_id: 'RA', course_name: C, played_at: '2025-06-07', reason: 'same_day' },
-      { import_id: 'RB', course_name: C, played_at: '2025-06-07', reason: 'same_day' },
-      { import_id: 'RC', course_name: other, played_at: '2025-06-07', reason: 'no_holes' },
+      { import_id: 'golfpad:RA', course_name: C, played_at: '2025-06-07', reason: 'same_day' },
+      { import_id: 'golfpad:RB', course_name: C, played_at: '2025-06-07', reason: 'same_day' },
+      { import_id: 'golfpad:RC', course_name: other, played_at: '2025-06-07', reason: 'no_holes' },
+      { import_id: '', course_name: other, played_at: '2025-06-09', reason: 'no_round_id' },
     ])
   })
 

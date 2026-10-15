@@ -27,14 +27,14 @@ export interface GolfPadHole {
   putts: number | null
   penalties: number
   fairway_hit: boolean | null
-  gir: boolean | null
+  gir: boolean
   shots: GolfPadShot[]
   /** Shot rows existed but didn't add up to the score, so none are imported (SG would be wrong). */
   shots_dropped: boolean
 }
 
 export interface GolfPadRound {
-  /** Golf Pad's round code (from the round URL). */
+  /** `golfpad:` + Golf Pad's round code (from the round URL). */
   import_id: string
   course_name: string
   /** YYYY-MM-DD */
@@ -43,7 +43,7 @@ export interface GolfPadRound {
   holes: GolfPadHole[]
 }
 
-export type GolfPadSkipReason = 'same_day' | 'no_holes'
+export type GolfPadSkipReason = 'same_day' | 'no_holes' | 'no_round_id'
 
 export interface GolfPadSkip {
   import_id: string
@@ -129,14 +129,17 @@ export function planGolfPadImport(files: GolfPadFiles): GolfPadPlan {
   const plan: GolfPadPlan = { rounds: [], skipped: [] }
   for (const r of roundRows) {
     const key = roundKey(r)
+    const code = /\/round\/(\w+)/.exec(r['URL'] ?? '')?.[1]
     const base = {
-      import_id: (r['URL'] ?? '').split('/').pop() ?? '',
+      import_id: code ? `golfpad:${code}` : '',
       course_name: r['course name'] ?? '',
       played_at: isoDate(r['date'] ?? ''),
     }
-    // ponytail: two rounds on one course that day are skipped until #1138 splits them.
+    if (!code) { plan.skipped.push({ ...base, reason: 'no_round_id' }); continue }
+    // Two rounds on one course that day are skipped until #1138 splits them.
     if ((roundsPerKey.get(key) ?? 0) > 1) { plan.skipped.push({ ...base, reason: 'same_day' }); continue }
-    const holes = holesByKey.get(key) ?? []
+    // A hole with no strokes wasn't played.
+    const holes = (holesByKey.get(key) ?? []).filter((h) => (int(h['total strokes']) ?? 0) > 0)
     if (holes.length === 0) { plan.skipped.push({ ...base, reason: 'no_holes' }); continue }
 
     plan.rounds.push({
@@ -158,7 +161,8 @@ export function planGolfPadImport(files: GolfPadFiles): GolfPadPlan {
           putts: int(h['putts']),
           penalties: int(h['penalties']) ?? 0,
           fairway_hit: fairway === 'hit' ? true : fairway === 'left' || fairway === 'right' ? false : null,
-          gir: h['GIR'] === 'GIR' ? true : null,
+          // Golf Pad leaves a missed green blank.
+          gir: h['GIR'] === 'GIR',
           shots_dropped: rows.length > 0 && !addsUp,
           shots: addsUp
             ? rows.map((s) => {

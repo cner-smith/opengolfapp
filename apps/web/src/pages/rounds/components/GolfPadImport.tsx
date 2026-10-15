@@ -1,4 +1,4 @@
-import { useState, type ChangeEvent } from 'react'
+import { useRef, useState, type ChangeEvent } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import {
   DEFAULT_HANDICAP,
@@ -7,12 +7,12 @@ import {
   type GolfPadPlan,
   type GolfPadSkipReason,
 } from '@oga/core'
-import { searchCourses } from '@oga/supabase'
+import { deleteRound, searchCourses } from '@oga/supabase'
 import { CourseSearch } from '../../../components/courses/CourseSearch'
 import { useAuth } from '../../../hooks/useAuth'
 import { useProfile } from '../../../hooks/useProfile'
 import { completeRound } from '../../../hooks/useCompleteRound'
-import { writeImportedRound } from '../../../lib/import'
+import { validateImportPayload, writeImportedRound } from '../../../lib/import'
 import { supabase } from '../../../lib/supabase'
 import { toUserMessage } from '../../../lib/errors'
 
@@ -23,6 +23,8 @@ interface CourseRow {
   golfPadName: string
   rounds: number
   match: { id: string; name: string; place: string } | null
+  /** Why there's no match: several courses share the name, or the search failed. */
+  noMatchWhy: string | null
   searching: boolean
   choosing: boolean
   decision: { courseId: string; courseName: string } | 'skip' | null
@@ -37,6 +39,7 @@ interface NotImported {
 const SKIP_WHY: Record<GolfPadSkipReason, string> = {
   same_day: 'same course twice that day',
   no_holes: 'no hole data in the export',
+  no_round_id: 'no Golf Pad round id in the export',
 }
 
 // Golf Pad writes Windows-1252; the files are told apart by their headers, not their names.
@@ -59,11 +62,13 @@ export function GolfPadImport() {
   const { user } = useAuth()
   const profile = useProfile()
   const qc = useQueryClient()
+  // Bumped on every file pick, so a slow course search from an earlier pick can't fill new rows.
+  const pickRef = useRef(0)
   const [plan, setPlan] = useState<GolfPadPlan | null>(null)
   const [rows, setRows] = useState<CourseRow[]>([])
   const [error, setError] = useState<string | null>(null)
   const [progress, setProgress] = useState('')
-  const [result, setResult] = useState<{ imported: number; notImported: NotImported[]; scoresOnly: number } | null>(null)
+  const [result, setResult] = useState<{ imported: { courseName: string; playedAt: string }[]; notImported: NotImported[]; scoresOnly: number } | null>(null)
 
   const updateRow = (name: string, patch: Partial<CourseRow>) =>
     setRows((rs) => rs.map((r) => (r.golfPadName === name ? { ...r, ...patch } : r)))
@@ -73,21 +78,29 @@ export function GolfPadImport() {
     if (!files?.length) return
     setError(null)
     setResult(null)
+    const pick = ++pickRef.current
     try {
       const p = await readExport(files)
       setPlan(p)
       const counts = new Map<string, number>()
       for (const r of p.rounds) counts.set(r.course_name, (counts.get(r.course_name) ?? 0) + 1)
       const names = [...counts.entries()].sort((a, b) => b[1] - a[1])
-      setRows(names.map(([golfPadName, rounds]) => ({ golfPadName, rounds, match: null, searching: true, choosing: false, decision: null })))
-      // Pre-fill each row with the first search hit that is the same course by name; the player
-      // still confirms every row.
+      setRows(names.map(([golfPadName, rounds]) => ({ golfPadName, rounds, match: null, noMatchWhy: null, searching: true, choosing: false, decision: null })))
+      // Pre-fill a row only when exactly one course has the same name; the player still confirms
+      // every row.
       for (const [name] of names) {
-        const { data } = await searchCourses(supabase, name)
-        const hit = (data ?? []).find((c) => isProbableSameCourse({ name }, c))
+        const { data, error: searchError } = await searchCourses(supabase, name)
+        if (pick !== pickRef.current) return
+        const hits = (data ?? []).filter((c) => isProbableSameCourse({ name }, c))
+        const hit = hits.length === 1 ? hits[0]! : null
         updateRow(name, {
           searching: false,
           match: hit ? { id: hit.id, name: hit.name, place: [hit.city, hit.state].filter(Boolean).join(', ') } : null,
+          noMatchWhy: searchError
+            ? 'Couldn’t search for this course: choose one'
+            : hits.length > 1
+              ? `${hits.length} courses share this name: choose one`
+              : null,
         })
       }
     } catch (err) {
@@ -101,41 +114,46 @@ export function GolfPadImport() {
     setError(null)
     const notImported: NotImported[] = plan.skipped.map((s) => ({ courseName: s.course_name, playedAt: s.played_at, why: SKIP_WHY[s.reason] }))
     const decisions = new Map(rows.map((r) => [r.golfPadName, r.decision]))
-    const { data: existing, error: existingError } = await supabase
-      .from('rounds')
-      .select('import_id')
-      .eq('user_id', user.id)
-      .in('import_id', plan.rounds.map((r) => r.import_id))
-    if (existingError) { setError(toUserMessage(existingError)); return }
-    const already = new Set((existing ?? []).map((r) => r.import_id))
+    const already = new Set<string | null>()
+    const ids = plan.rounds.map((r) => r.import_id)
+    // Chunked: the ids travel in the request URL.
+    for (let i = 0; i < ids.length; i += 100) {
+      const { data, error: existingError } = await supabase
+        .from('rounds')
+        .select('import_id')
+        .eq('user_id', user.id)
+        .in('import_id', ids.slice(i, i + 100))
+      if (existingError) { setError(toUserMessage(existingError)); return }
+      for (const r of data ?? []) already.add(r.import_id)
+    }
     const handicap = profile.data?.handicap_index ?? DEFAULT_HANDICAP
-    let imported = 0
+    const imported: { courseName: string; playedAt: string }[] = []
     let scoresOnly = 0
     for (const [i, round] of plan.rounds.entries()) {
       const decision = decisions.get(round.course_name)
       const skip = (why: string) => notImported.push({ courseName: round.course_name, playedAt: round.played_at, why })
       if (!decision || decision === 'skip') { skip('course skipped'); continue }
       if (already.has(round.import_id)) { skip('already imported'); continue }
+      const valid = validateImportPayload(round)
+      if (!valid.success) { skip(`unreadable data (${valid.errors[0]!.path}: ${valid.errors[0]!.message})`); continue }
       setProgress(`Importing round ${i + 1} of ${plan.rounds.length}…`)
+      const teeColor = round.tee_color ?? 'white'
+      let roundId: string | null = null
       try {
-        const roundId = await writeImportedRound(supabase, {
+        roundId = await writeImportedRound(supabase, {
           userId: user.id,
           courseId: decision.courseId,
           courseTeeId: null,
-          teeColor: 'white',
-          payload: round,
+          teeColor,
+          payload: valid.data,
         })
-        await completeRound({
-          roundId,
-          courseId: decision.courseId,
-          handicap,
-          courseTeeId: null,
-          teeColor: round.tee_color,
-          userId: user.id,
-        })
-        imported++
+        await completeRound({ roundId, courseId: decision.courseId, handicap, courseTeeId: null, teeColor, userId: user.id })
+        imported.push({ courseName: decision.courseName, playedAt: round.played_at })
         scoresOnly += round.holes.filter((h) => h.shots_dropped).length
       } catch (err) {
+        // A round whose SG step failed is removed too, so a retry imports it rather than calling
+        // it already imported.
+        if (roundId) await deleteRound(supabase, roundId, user.id)
         skip(`failed: ${toUserMessage(err)}`)
       }
     }
@@ -149,10 +167,8 @@ export function GolfPadImport() {
   }
 
   const decided = rows.length > 0 && rows.every((r) => r.decision)
-  const toImport = plan?.rounds.filter((r) => {
-    const d = rows.find((row) => row.golfPadName === r.course_name)?.decision
-    return d && d !== 'skip'
-  }).length ?? 0
+  const chosen = new Set(rows.filter((r) => r.decision && r.decision !== 'skip').map((r) => r.golfPadName))
+  const toImport = plan?.rounds.filter((r) => chosen.has(r.course_name)).length ?? 0
 
   return (
     <div className="flex flex-col gap-5">
@@ -193,7 +209,7 @@ export function GolfPadImport() {
                       ? 'Looking for this course…'
                       : row.match
                         ? `Match: ${row.match.name}${row.match.place ? ` · ${row.match.place}` : ''}`
-                        : 'No match found'}
+                        : (row.noMatchWhy ?? 'No match found')}
               </div>
               {!row.searching && (
                 <div className="flex gap-2" style={{ marginTop: 8 }}>
@@ -271,8 +287,13 @@ export function GolfPadImport() {
       {result && (
         <div className="flex flex-col gap-2" style={{ fontSize: 13 }}>
           <div className="text-caddie-ink" style={{ fontSize: 15, fontWeight: 600 }}>
-            Imported {result.imported} round{result.imported === 1 ? '' : 's'}
+            Imported {result.imported.length} round{result.imported.length === 1 ? '' : 's'}
           </div>
+          {result.imported.map((r, i) => (
+            <div key={i} className="text-caddie-ink-dim">
+              {r.courseName} · {r.playedAt}
+            </div>
+          ))}
           {result.scoresOnly > 0 && (
             <div className="text-caddie-ink-dim">
               {result.scoresOnly} hole{result.scoresOnly === 1 ? '' : 's'} came in with scores only:
