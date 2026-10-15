@@ -29,9 +29,11 @@ export interface GolfPadHole {
   fairway_hit: boolean | null
   gir: boolean
   shots: GolfPadShot[]
-  /** Shot rows existed but didn't add up to the score, so none are imported (SG would be wrong). */
-  shots_dropped: boolean
+  /** Why the hole imports without shots (SG would be wrong); null when its shots are kept. */
+  scores_only: GolfPadScoresOnlyReason | null
 }
+
+export type GolfPadScoresOnlyReason = 'no_shots' | 'strokes_missing' | 'penalty_no_row' | 'numbers_skip'
 
 export interface GolfPadRound {
   /** `golfpad:` + Golf Pad's round code (from the round URL). */
@@ -109,6 +111,25 @@ function isoDate(s: string): string {
   return m ? `${m[3]}-${m[1]!.padStart(2, '0')}-${m[2]!.padStart(2, '0')}` : ''
 }
 
+// Shots are kept only when they account for every stroke: SG books a hole's last row as holed,
+// so unlogged putts would inflate it. Golf Pad numbers a penalty stroke but gives it no row, so
+// the only gap allowed is the one number after a Penalty row.
+function scoresOnlyReason(rows: Record<string, string>[], score: number, penalties: number): GolfPadScoresOnlyReason | null {
+  if (rows.length === 0) return 'no_shots'
+  let next = 1
+  let penaltyRows = 0
+  for (const s of rows) {
+    if (int(s['shot number']) !== next) return penalties > penaltyRows ? 'penalty_no_row' : 'numbers_skip'
+    const penalty = s['outcome'] === 'Penalty'
+    if (penalty) penaltyRows++
+    next += penalty ? 2 : 1
+  }
+  if (penaltyRows < penalties) return 'penalty_no_row'
+  if (next - 1 < score || rows[rows.length - 1]!['outcome'] !== 'Holed') return 'strokes_missing'
+  if (next - 1 > score || penaltyRows > penalties) return 'numbers_skip'
+  return null
+}
+
 const roundKey = (r: Record<string, string>) => `${r['date']}|${r['course name']}`
 
 export function planGolfPadImport(files: GolfPadFiles): GolfPadPlan {
@@ -150,34 +171,34 @@ export function planGolfPadImport(files: GolfPadFiles): GolfPadPlan {
         const rows = (shotsByHole.get(`${key}|${h['hole number']}`) ?? [])
           .slice()
           .sort((a, b) => (int(a['shot number']) ?? 0) - (int(b['shot number']) ?? 0))
-        // Shots are kept only when they account for every stroke, numbered 1..n: SG books a hole's
-        // last row as holed, so unlogged putts would inflate it.
-        const addsUp = rows.length === score && rows.every((s, i) => int(s['shot number']) === i + 1)
+        const penalties = int(h['penalties']) ?? 0
+        const scoresOnly = scoresOnlyReason(rows, score, penalties)
         const fairway = h['fairway']
         return {
           number: int(h['hole number']) ?? 0,
           par: int(h['hole par']) ?? 4,
           score,
           putts: int(h['putts']),
-          penalties: int(h['penalties']) ?? 0,
+          penalties,
           fairway_hit: fairway === 'hit' ? true : fairway === 'left' || fairway === 'right' ? false : null,
           // Golf Pad leaves a missed green blank.
           gir: h['GIR'] === 'GIR',
-          shots_dropped: rows.length > 0 && !addsUp,
-          shots: addsUp
-            ? rows.map((s) => {
+          scores_only: scoresOnly,
+          shots: scoresOnly
+            ? []
+            : rows.map((s, i) => {
                 const lie = LIES[s['lie'] ?? ''] ?? null
                 const yards = int(s['target distance before'])
                 return {
-                  shot_number: int(s['shot number'])!,
+                  // OGA numbers shots by row; the penalty is a flag on its shot.
+                  shot_number: i + 1,
                   lie_type: lie,
                   club: club(s['club'] ?? ''),
                   distance_to_target: yards,
                   putt_distance_ft: lie === 'green' && yards != null ? yards * 3 : null,
                   penalty: s['outcome'] === 'Penalty',
                 }
-              })
-            : [],
+              }),
         }
       }),
     })
