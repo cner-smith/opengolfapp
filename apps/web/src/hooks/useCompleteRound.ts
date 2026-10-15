@@ -40,7 +40,8 @@ export interface CompleteRoundArgs {
 }
 
 // Stamps SG, totals and completed_at; recomputes the handicap index. Callable outside the round
-// page so the Golf Pad importer completes each round it writes (#1135).
+// page so the Golf Pad importer completes each round it writes (#1135). It refreshes no cached
+// queries: useCompleteRound does that, other callers invalidate their own.
 export async function completeRound({
   roundId,
   courseId,
@@ -160,21 +161,21 @@ export async function completeRound({
     supabase,
     roundId,
     {
-    sg_off_tee: round2(result.round.offTee),
-    sg_approach: round2(result.round.approach),
-    sg_around_green: round2(result.round.aroundGreen),
-    sg_putting: round2(result.round.putting),
-    sg_total: round2(result.round.total),
-    completed_at: new Date().toISOString(),
-    total_score: result.totals.totalScore || null,
-    total_putts: result.totals.totalPutts || null,
-    fairways_hit: result.totals.fairwaysTotal > 0 ? result.totals.fairwaysHit : null,
-    fairways_total: result.totals.fairwaysTotal || null,
-    gir: result.totals.gir,
-    // Stamp the resolved tee onto the round so future reads have a
-    // direct link without re-running the fallback.
-    course_tee_id: tee?.id ?? courseTeeId ?? null,
-    score_differential: differential,
+      sg_off_tee: round2(result.round.offTee),
+      sg_approach: round2(result.round.approach),
+      sg_around_green: round2(result.round.aroundGreen),
+      sg_putting: round2(result.round.putting),
+      sg_total: round2(result.round.total),
+      completed_at: new Date().toISOString(),
+      total_score: result.totals.totalScore || null,
+      total_putts: result.totals.totalPutts || null,
+      fairways_hit: result.totals.fairwaysTotal > 0 ? result.totals.fairwaysHit : null,
+      fairways_total: result.totals.fairwaysTotal || null,
+      gir: result.totals.gir,
+      // Stamp the resolved tee onto the round so future reads have a
+      // direct link without re-running the fallback.
+      course_tee_id: tee?.id ?? courseTeeId ?? null,
+      score_differential: differential,
     },
     userId,
   )

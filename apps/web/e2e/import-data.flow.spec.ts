@@ -34,7 +34,7 @@ test.describe('Import from data (signed in, mutating)', () => {
     }
   })
 
-  test('paste a valid payload → pick course → import → land on round detail', async ({
+  test('paste a valid payload → pick course → import → finalize stamps SG and totals', async ({
     page,
   }) => {
     await page.goto('/rounds/import')
