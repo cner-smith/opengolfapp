@@ -64,5 +64,23 @@ test.describe('Import from data (signed in, mutating)', () => {
     const match = page.url().match(/\/rounds\/([0-9a-f-]{36})/i)
     expect(match).toBeTruthy()
     createdRoundId = match![1]
+
+    // Completing stamps SG + totals (the step the Golf Pad importer reuses, #1135).
+    await page.getByRole('button', { name: 'Save SG + finalize' }).click()
+    await expect
+      .poll(async () => {
+        const { data } = await admin
+          .from('rounds')
+          .select('completed_at, sg_total, total_score, total_putts')
+          .eq('id', createdRoundId!)
+          .single()
+        return data
+      }, { timeout: 15_000 })
+      .toMatchObject({
+        completed_at: expect.any(String),
+        sg_total: expect.any(Number),
+        total_score: 9,
+        total_putts: 4,
+      })
   })
 })
