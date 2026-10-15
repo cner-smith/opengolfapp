@@ -25,7 +25,7 @@ type ShotRow = Database['public']['Tables']['shots']['Row']
 type HoleRow = Database['public']['Tables']['holes']['Row']
 type CourseTeeRow = Database['public']['Tables']['course_tees']['Row']
 
-interface CompleteRoundArgs {
+export interface CompleteRoundArgs {
   roundId: string
   courseId: string
   handicap: number
@@ -39,174 +39,179 @@ interface CompleteRoundArgs {
   userId: string
 }
 
+// Stamps SG, totals and completed_at; recomputes the handicap index. Callable outside the round
+// page so the Golf Pad importer completes each round it writes (#1135). It refreshes no cached
+// queries: useCompleteRound does that, other callers invalidate their own.
+export async function completeRound({
+  roundId,
+  courseId,
+  handicap,
+  courseTeeId,
+  teeColor,
+  userId,
+}: CompleteRoundArgs): Promise<RoundSGResult> {
+  const [holesRes, holeScoresRes, shotsRes, teesRes] = await Promise.all([
+    getHolesForCourse(supabase, courseId),
+    getHoleScoresForRound(supabase, roundId),
+    getShotsForRound(supabase, roundId, userId),
+    getCourseTees(supabase, courseId),
+  ])
+  if (holesRes.error) throw holesRes.error
+  if (holeScoresRes.error) throw holeScoresRes.error
+  if (shotsRes.error) throw shotsRes.error
+
+  // Plain ?? [] — the select returns the row type already, no cast
+  // needed. The holeScoreRows annotation carries the nested holes()
+  // join shape that the typed select doesn't expose; that's the one
+  // place a narrowing assertion still earns its keep.
+  const holeScoreRows = (holeScoresRes.data ?? []) as Array<
+    HoleScoreRow & { holes?: HoleRow | null }
+  >
+  const holeScores: HoleScoreRow[] = holeScoreRows.map((row) => {
+    const { holes: _holes, ...rest } = row
+    return rest
+  })
+  // Per-round par override (#710): a hole_scores.par set during the
+  // round wins over the course hole's par for everything stamped at
+  // completion — SG categorization and the differential. Patching the
+  // holes array here is safe: unique (round_id, hole_id) means each
+  // hole has at most one override in this round.
+  const parOverrides = new Map(
+    holeScores
+      .filter((hs) => hs.par != null)
+      .map((hs) => [hs.hole_id, hs.par as number]),
+  )
+  const holes: HoleRow[] = (holesRes.data ?? []).map((h) => {
+    const par = parOverrides.get(h.id)
+    return par != null && par !== h.par ? { ...h, par } : h
+  })
+  // `as unknown as ShotRow[]` because getShotsForRound now narrows the
+  // select to the columns the SG calc actually reads — created_at is
+  // dropped at the DB level. computeRoundSG never touches it; the
+  // cast acknowledges the structural mismatch with the generated
+  // ShotRow row type.
+  const shots = (shotsRes.data ?? []) as unknown as ShotRow[]
+  const tees: CourseTeeRow[] = teesRes.data ?? []
+
+  const result = computeRoundSG({ holes, holeScores, shots, handicap })
+
+  // Single batch upsert beats N sequential UPDATEs. Carry round_id /
+  // hole_id / score forward unchanged so the underlying INSERT path of
+  // upsert can satisfy the NOT NULL columns; the conflict on `id` then
+  // updates the SG fields only.
+  const holeScoresById = new Map(holeScores.map((hs) => [hs.id, hs]))
+  const sgRows = Object.entries(result.perHoleScore)
+    .map(([holeScoreId, sg]) => {
+      const existing = holeScoresById.get(holeScoreId)
+      if (!existing) return null
+      return {
+        id: holeScoreId,
+        round_id: existing.round_id,
+        hole_id: existing.hole_id,
+        score: existing.score,
+        sg_off_tee: round2(sg.offTee),
+        sg_approach: round2(sg.approach),
+        sg_around_green: round2(sg.aroundGreen),
+        sg_putting: round2(sg.putting),
+      }
+    })
+    .filter((r): r is NonNullable<typeof r> => r != null)
+  if (sgRows.length > 0) {
+    const { error: sgError } = await supabase
+      .from('hole_scores')
+      .upsert(sgRows, { onConflict: 'id' })
+    if (sgError) throw sgError
+  }
+
+  // ---- Handicap differential ------------------------------------------
+  const tee = resolveCourseTee(tees, courseTeeId, teeColor)
+  let differential: number | null = null
+  if (
+    tee &&
+    tee.course_rating != null &&
+    tee.slope_rating != null &&
+    tee.slope_rating > 0
+  ) {
+    const holesById = new Map(holes.map((h) => [h.id, h]))
+    const holeRows = holeScores
+      .map((hs) => {
+        const h = holesById.get(hs.hole_id)
+        if (!h) return null
+        return { score: hs.score, par: h.par, strokeIndex: h.stroke_index }
+      })
+      .filter((x): x is { score: number; par: number; strokeIndex: number | null } => !!x)
+    // Only a complete round produces a differential (#711) — see
+    // playedRowsForDifferential for the sentinel/coverage contract.
+    const playedRows = playedRowsForDifferential(
+      holeRows,
+      inferHoleCount(holes.map((h) => h.number)),
+    )
+    if (playedRows) {
+      const adjusted = adjustedScore(playedRows, handicap, {
+        courseRating: tee.course_rating,
+        slopeRating: tee.slope_rating,
+      })
+      differential = round2(
+        calculateDifferential(adjusted, tee.course_rating, tee.slope_rating),
+      )
+    }
+  }
+
+  const { error: roundError } = await updateRound(
+    supabase,
+    roundId,
+    {
+      sg_off_tee: round2(result.round.offTee),
+      sg_approach: round2(result.round.approach),
+      sg_around_green: round2(result.round.aroundGreen),
+      sg_putting: round2(result.round.putting),
+      sg_total: round2(result.round.total),
+      completed_at: new Date().toISOString(),
+      total_score: result.totals.totalScore || null,
+      total_putts: result.totals.totalPutts || null,
+      fairways_hit: result.totals.fairwaysTotal > 0 ? result.totals.fairwaysHit : null,
+      fairways_total: result.totals.fairwaysTotal || null,
+      gir: result.totals.gir,
+      // Stamp the resolved tee onto the round so future reads have a
+      // direct link without re-running the fallback.
+      course_tee_id: tee?.id ?? courseTeeId ?? null,
+      score_differential: differential,
+    },
+    userId,
+  )
+  if (roundError) throw roundError
+
+  // ---- Handicap index recompute --------------------------------------
+  if (differential != null) {
+    const { data: recentDiffs, error: diffsError } = await supabase
+      .from('rounds')
+      .select('score_differential')
+      .eq('user_id', userId)
+      .not('score_differential', 'is', null)
+      .order('played_at', { ascending: false })
+      .limit(20)
+    if (diffsError) throw diffsError
+    const diffs = (recentDiffs ?? [])
+      .map((r) => r.score_differential)
+      .filter((d): d is number => d != null)
+    const newIndex = calculateHandicapIndex(diffs)
+    if (newIndex != null) {
+      const { error: profileError } = await updateProfile(
+        supabase,
+        userId,
+        { handicap_index: newIndex },
+      )
+      if (profileError) throw profileError
+    }
+  }
+
+  return result
+}
+
 export function useCompleteRound() {
   const qc = useQueryClient()
   return useMutation<RoundSGResult, Error, CompleteRoundArgs>({
-    mutationFn: async ({
-      roundId,
-      courseId,
-      handicap,
-      courseTeeId,
-      teeColor,
-      userId,
-    }) => {
-      const [holesRes, holeScoresRes, shotsRes, teesRes] = await Promise.all([
-        getHolesForCourse(supabase, courseId),
-        getHoleScoresForRound(supabase, roundId),
-        getShotsForRound(supabase, roundId, userId),
-        getCourseTees(supabase, courseId),
-      ])
-      if (holesRes.error) throw holesRes.error
-      if (holeScoresRes.error) throw holeScoresRes.error
-      if (shotsRes.error) throw shotsRes.error
-
-      // Plain ?? [] — the select returns the row type already, no cast
-      // needed. The holeScoreRows annotation carries the nested holes()
-      // join shape that the typed select doesn't expose; that's the one
-      // place a narrowing assertion still earns its keep.
-      const holeScoreRows = (holeScoresRes.data ?? []) as Array<
-        HoleScoreRow & { holes?: HoleRow | null }
-      >
-      const holeScores: HoleScoreRow[] = holeScoreRows.map((row) => {
-        const { holes: _holes, ...rest } = row
-        return rest
-      })
-      // Per-round par override (#710): a hole_scores.par set during the
-      // round wins over the course hole's par for everything stamped at
-      // completion — SG categorization and the differential. Patching the
-      // holes array here is safe: unique (round_id, hole_id) means each
-      // hole has at most one override in this round.
-      const parOverrides = new Map(
-        holeScores
-          .filter((hs) => hs.par != null)
-          .map((hs) => [hs.hole_id, hs.par as number]),
-      )
-      const holes: HoleRow[] = (holesRes.data ?? []).map((h) => {
-        const par = parOverrides.get(h.id)
-        return par != null && par !== h.par ? { ...h, par } : h
-      })
-      // `as unknown as ShotRow[]` because getShotsForRound now narrows the
-      // select to the columns the SG calc actually reads — created_at is
-      // dropped at the DB level. computeRoundSG never touches it; the
-      // cast acknowledges the structural mismatch with the generated
-      // ShotRow row type.
-      const shots = (shotsRes.data ?? []) as unknown as ShotRow[]
-      const tees: CourseTeeRow[] = teesRes.data ?? []
-
-      const result = computeRoundSG({ holes, holeScores, shots, handicap })
-
-      // Single batch upsert beats N sequential UPDATEs. Carry round_id /
-      // hole_id / score forward unchanged so the underlying INSERT path of
-      // upsert can satisfy the NOT NULL columns; the conflict on `id` then
-      // updates the SG fields only.
-      const holeScoresById = new Map(holeScores.map((hs) => [hs.id, hs]))
-      const sgRows = Object.entries(result.perHoleScore)
-        .map(([holeScoreId, sg]) => {
-          const existing = holeScoresById.get(holeScoreId)
-          if (!existing) return null
-          return {
-            id: holeScoreId,
-            round_id: existing.round_id,
-            hole_id: existing.hole_id,
-            score: existing.score,
-            sg_off_tee: round2(sg.offTee),
-            sg_approach: round2(sg.approach),
-            sg_around_green: round2(sg.aroundGreen),
-            sg_putting: round2(sg.putting),
-          }
-        })
-        .filter((r): r is NonNullable<typeof r> => r != null)
-      if (sgRows.length > 0) {
-        const { error: sgError } = await supabase
-          .from('hole_scores')
-          .upsert(sgRows, { onConflict: 'id' })
-        if (sgError) throw sgError
-      }
-
-      // ---- Handicap differential ------------------------------------------
-      const tee = resolveCourseTee(tees, courseTeeId, teeColor)
-      let differential: number | null = null
-      if (
-        tee &&
-        tee.course_rating != null &&
-        tee.slope_rating != null &&
-        tee.slope_rating > 0
-      ) {
-        const holesById = new Map(holes.map((h) => [h.id, h]))
-        const holeRows = holeScores
-          .map((hs) => {
-            const h = holesById.get(hs.hole_id)
-            if (!h) return null
-            return { score: hs.score, par: h.par, strokeIndex: h.stroke_index }
-          })
-          .filter((x): x is { score: number; par: number; strokeIndex: number | null } => !!x)
-        // Only a complete round produces a differential (#711) — see
-        // playedRowsForDifferential for the sentinel/coverage contract.
-        const playedRows = playedRowsForDifferential(
-          holeRows,
-          inferHoleCount(holes.map((h) => h.number)),
-        )
-        if (playedRows) {
-          const adjusted = adjustedScore(playedRows, handicap, {
-            courseRating: tee.course_rating,
-            slopeRating: tee.slope_rating,
-          })
-          differential = round2(
-            calculateDifferential(adjusted, tee.course_rating, tee.slope_rating),
-          )
-        }
-      }
-
-      const { error: roundError } = await updateRound(
-        supabase,
-        roundId,
-        {
-        sg_off_tee: round2(result.round.offTee),
-        sg_approach: round2(result.round.approach),
-        sg_around_green: round2(result.round.aroundGreen),
-        sg_putting: round2(result.round.putting),
-        sg_total: round2(result.round.total),
-        completed_at: new Date().toISOString(),
-        total_score: result.totals.totalScore || null,
-        total_putts: result.totals.totalPutts || null,
-        fairways_hit: result.totals.fairwaysTotal > 0 ? result.totals.fairwaysHit : null,
-        fairways_total: result.totals.fairwaysTotal || null,
-        gir: result.totals.gir,
-        // Stamp the resolved tee onto the round so future reads have a
-        // direct link without re-running the fallback.
-        course_tee_id: tee?.id ?? courseTeeId ?? null,
-        score_differential: differential,
-        },
-        userId,
-      )
-      if (roundError) throw roundError
-
-      // ---- Handicap index recompute --------------------------------------
-      if (differential != null) {
-        const { data: recentDiffs, error: diffsError } = await supabase
-          .from('rounds')
-          .select('score_differential')
-          .eq('user_id', userId)
-          .not('score_differential', 'is', null)
-          .order('played_at', { ascending: false })
-          .limit(20)
-        if (diffsError) throw diffsError
-        const diffs = (recentDiffs ?? [])
-          .map((r) => r.score_differential)
-          .filter((d): d is number => d != null)
-        const newIndex = calculateHandicapIndex(diffs)
-        if (newIndex != null) {
-          const { error: profileError } = await updateProfile(
-            supabase,
-            userId,
-            { handicap_index: newIndex },
-          )
-          if (profileError) throw profileError
-        }
-      }
-
-      return result
-    },
+    mutationFn: completeRound,
     onSuccess: (_data, variables) => {
       qc.invalidateQueries({ queryKey: ['round', variables.roundId] })
       qc.invalidateQueries({ queryKey: ['rounds'] })
