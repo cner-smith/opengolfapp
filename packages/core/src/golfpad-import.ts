@@ -83,9 +83,9 @@ function parseCsv(text: string): Record<string, string>[] {
 }
 
 const CLUBS: Record<string, string> = {
-  D: 'driver', '3w': '3w', '5w': '5w', '3h': '3h', '4h': '4h',
-  '4i': '4i', '5i': '5i', '6i': '6i', '7i': '7i', '8i': '8i', '9i': '9i',
-  PW: 'pw', SW: 'sw', LW: 'lw', Pt: 'putter',
+  D: 'driver', '3w': '3w', '5w': '5w', '7w': '7w', '3h': '3h', '4h': '4h', '5h': '5h',
+  '2i': '2i', '3i': '3i', '4i': '4i', '5i': '5i', '6i': '6i', '7i': '7i', '8i': '8i', '9i': '9i',
+  PW: 'pw', GW: 'gw', AW: 'gw', SW: 'sw', LW: 'lw', Pt: 'putter',
 }
 
 function club(code: string): string | null {
@@ -103,10 +103,10 @@ const LIES: Record<string, LieType> = {
 
 const int = (s: string | undefined): number | null => (s && /^\d+$/.test(s) ? Number(s) : null)
 
-// M/D/YYYY → YYYY-MM-DD
+// M/D/YYYY → YYYY-MM-DD; '' when malformed (the import schema then rejects that round).
 function isoDate(s: string): string {
-  const [m, d, y] = s.split('/')
-  return `${y}-${m!.padStart(2, '0')}-${d!.padStart(2, '0')}`
+  const m = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(s)
+  return m ? `${m[3]}-${m[1]!.padStart(2, '0')}-${m[2]!.padStart(2, '0')}` : ''
 }
 
 const roundKey = (r: Record<string, string>) => `${r['date']}|${r['course name']}`

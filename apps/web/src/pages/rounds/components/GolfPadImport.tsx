@@ -88,7 +88,7 @@ export function GolfPadImport() {
       setRows(names.map(([golfPadName, rounds]) => ({ golfPadName, rounds, match: null, noMatchWhy: null, searching: true, choosing: false, decision: null })))
       // Pre-fill a row only when exactly one course has the same name; the player still confirms
       // every row.
-      for (const [name] of names) {
+      await Promise.all(names.map(async ([name]) => {
         const { data, error: searchError } = await searchCourses(supabase, name)
         if (pick !== pickRef.current) return
         const hits = (data ?? []).filter((c) => isProbableSameCourse({ name }, c))
@@ -102,7 +102,7 @@ export function GolfPadImport() {
               ? `${hits.length} courses share this name: choose one`
               : null,
         })
-      }
+      }))
     } catch (err) {
       setError(toUserMessage(err))
     }
@@ -161,8 +161,7 @@ export function GolfPadImport() {
     setPlan(null)
     setRows([])
     setResult({ imported, notImported, scoresOnly })
-    qc.invalidateQueries({ queryKey: ['rounds'] })
-    qc.invalidateQueries({ queryKey: ['detailed-stats'] })
+    for (const key of ['rounds', 'detailed-stats', 'sg']) qc.invalidateQueries({ queryKey: [key] })
     qc.invalidateQueries({ queryKey: ['profile', user.id] })
   }
 

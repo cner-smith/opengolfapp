@@ -112,7 +112,7 @@ export function ImportDataPage() {
         payload,
         onProgress: setProgress,
       })
-      qc.invalidateQueries({ queryKey: ['rounds', user.id] })
+      for (const key of ['rounds', 'detailed-stats', 'sg']) qc.invalidateQueries({ queryKey: [key] })
       navigate(`/rounds/${roundId}`)
     } catch (err) {
       setError(toUserMessage(err))

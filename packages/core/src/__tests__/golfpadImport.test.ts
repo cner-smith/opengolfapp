@@ -39,6 +39,7 @@ describe('Golf Pad export → planned rounds', () => {
           hole(D, C, 2, 3, 3, 2, 0, '', ''),
           hole(D, C, 3, 5, 8, 1, 1, 'left', ''),
           hole(D, C, 4, 4, 5, 2, 0, 'right', ''),
+          hole(D, C, 5, 4, 4, 1, 0, 'hit', 'GIR'),
         ],
         '\r\n',
       ),
@@ -62,6 +63,10 @@ describe('Golf Pad export → planned rounds', () => {
         shot(D, C, 4, 1, 'Tee', 'D', '380', 'Fairway'),
         shot(D, C, 4, 2, 'Fairway', 'PW', '120', 'Rough'),
         shot(D, C, 4, 3, 'Rough', 'LW', '20', 'Green'),
+        shot(D, C, 5, 1, 'Tee', '3i', '210', 'Fairway'),
+        shot(D, C, 5, 2, 'Fairway', '7w', '190', 'Fairway'),
+        shot(D, C, 5, 3, 'Fairway', 'GW', '30', 'Green'),
+        shot(D, C, 5, 4, 'Green', 'Pt', '2', 'Holed'),
       ]),
     })
 
@@ -74,8 +79,10 @@ describe('Golf Pad export → planned rounds', () => {
       [2, 3, 3, 2, 0, null, false],
       [3, 5, 8, 1, 1, false, false],
       [4, 4, 5, 2, 0, false, false],
+      [5, 4, 4, 1, 0, true, true],
     ])
-    const [h1, h2, h3, h4] = r.holes
+    const [h1, h2, h3, h4, h5] = r.holes
+    expect(h5!.shots.map((s) => s.club)).toEqual(['3i', '7w', 'gw', 'putter'])
     expect(h1!.shots).toEqual([
       { shot_number: 1, lie_type: 'tee', club: 'driver', distance_to_target: 400, putt_distance_ft: null, penalty: false },
       { shot_number: 2, lie_type: 'fairway', club: '7i', distance_to_target: 150, putt_distance_ft: null, penalty: false },
