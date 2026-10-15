@@ -1,5 +1,13 @@
 import { z } from 'zod'
-import { LIE_SLOPES_FORWARD, LIE_SLOPES_SIDE, LIE_TYPES, SHOT_RESULTS } from '@oga/core'
+import { LIE_SLOPES_FORWARD, LIE_SLOPES_SIDE, LIE_TYPES, SHOT_RESULTS, shotAxesFromLegacy } from '@oga/core'
+import {
+  createRound,
+  createShots,
+  deleteRound,
+  getHolesForCourse,
+  upsertHoleScore,
+  type OgaSupabaseClient,
+} from '@oga/supabase'
 
 // Schema for the "Import from data" feature (apps/web ImportDataPage). Field
 // names are the actual snake_case DB column names on shots/hole_scores/rounds
@@ -65,6 +73,8 @@ export const importShotSchema = z.object({
 export const importHoleSchema = z
   .object({
     number: z.number().int().min(1).max(18),
+    // Creates a missing hole row with this par, and overrides the course's par for this round.
+    par: z.number().int().min(3).max(6).nullish(),
     score: z.number().int().min(1),
     putts: z.number().int().min(0).nullish(),
     penalties: z.number().int().min(0).nullish(),
@@ -229,4 +239,118 @@ export function summarizeImportDataQuality(payload: ImportRoundPayload): ImportD
   }
 
   return { missingClub, missingLieType, missingDistanceToTarget, misplacedPuttDistance }
+}
+
+export interface WriteImportedRoundInput {
+  userId: string
+  courseId: string
+  courseTeeId: string | null
+  /** Used when the payload has no tee_color. */
+  teeColor: string
+  payload: ImportRoundPayload
+  onProgress?: (message: string) => void
+}
+
+/**
+ * Writes one imported round (round, hole scores, shots) and returns its id. On any error the
+ * half-written round is deleted (best effort) so a retry isn't blocked by its import_id.
+ */
+export async function writeImportedRound(
+  client: OgaSupabaseClient,
+  { userId, courseId, courseTeeId, teeColor, payload, onProgress }: WriteImportedRoundInput,
+): Promise<string> {
+  const holesRes = await getHolesForCourse(client, courseId)
+  if (holesRes.error) throw holesRes.error
+  const holesByNumber = new Map((holesRes.data ?? []).map((h) => [h.number, h]))
+
+  onProgress?.('Creating round…')
+  const { data: roundRow, error: roundError } = await createRound(client, {
+    user_id: userId,
+    course_id: courseId,
+    course_tee_id: courseTeeId,
+    played_at: payload.played_at,
+    tee_color: payload.tee_color ?? teeColor,
+    total_score: payload.total_score ?? null,
+    total_putts: payload.total_putts ?? null,
+    import_id: payload.import_id ?? null,
+  })
+  if (roundError) throw roundError
+  if (!roundRow) throw new Error('Round insert returned no row')
+
+  try {
+    for (const hole of payload.holes) {
+      onProgress?.(`Saving hole ${hole.number} of ${payload.holes.length}…`)
+      // Most crawler-imported courses have no `holes` rows, and hole_scores.hole_id is an FK, so
+      // a missing hole is materialized first (as useRoundActions' ensureRealHole does).
+      const courseHole = holesByNumber.get(hole.number)
+      let holeId = courseHole?.id
+      if (!holeId) {
+        const { data, error } = await client.rpc('insert_synthetic_hole', {
+          p_course_id: courseId,
+          p_number: hole.number,
+          p_par: hole.par ?? 4,
+          p_round_id: roundRow.id,
+        })
+        if (error || !data) throw new Error(error?.message ?? 'insert_synthetic_hole returned no id')
+        holeId = data
+      }
+      const { data: holeScore, error: holeError } = await upsertHoleScore(client, {
+        round_id: roundRow.id,
+        hole_id: holeId,
+        score: hole.score,
+        par: courseHole && hole.par != null && hole.par !== courseHole.par ? hole.par : null,
+        putts: hole.putts ?? null,
+        penalties: hole.penalties ?? 0,
+        fairway_hit: hole.fairway_hit ?? null,
+        gir: hole.gir ?? null,
+        pin_lat: hole.pin_lat ?? null,
+        pin_lng: hole.pin_lng ?? null,
+      })
+      if (holeError) throw holeError
+      if (!holeScore || hole.shots.length === 0) continue
+      const { error: shotsError } = await createShots(
+        client,
+        hole.shots.map((shot) => {
+          const axes = shotAxesFromLegacy(shot.shot_result)
+          return {
+            hole_score_id: holeScore.id,
+            user_id: userId,
+            shot_number: shot.shot_number,
+            club: shot.club ?? null,
+            lie_type: shot.lie_type ?? null,
+            lie_slope_forward: shot.lie_slope_forward ?? null,
+            lie_slope_side: shot.lie_slope_side ?? null,
+            shot_result: shot.shot_result ?? null,
+            contact: axes.contact,
+            shape: axes.shape,
+            start_line: axes.startLine,
+            start_lat: shot.start_lat ?? null,
+            start_lng: shot.start_lng ?? null,
+            end_lat: shot.end_lat ?? null,
+            end_lng: shot.end_lng ?? null,
+            aim_lat: shot.aim_lat ?? null,
+            aim_lng: shot.aim_lng ?? null,
+            distance_to_target: shot.distance_to_target ?? null,
+            penalty: shot.penalty ?? false,
+            ob: shot.ob ?? false,
+            aim_offset_yards: shot.aim_offset_yards ?? null,
+            break_direction_vertical: shot.break_direction_vertical ?? null,
+            break_direction_horizontal: shot.break_direction_horizontal ?? null,
+            putt_distance_ft: shot.putt_distance_ft ?? null,
+            putt_distance_result: shot.putt_distance_result ?? null,
+            putt_direction_result: shot.putt_direction_result ?? null,
+            putt_slope_pct: shot.putt_slope_pct ?? null,
+            green_speed: shot.green_speed ?? null,
+            notes: shot.notes ?? null,
+          }
+        }),
+      )
+      if (shotsError) throw shotsError
+    }
+    return roundRow.id
+  } catch (err) {
+    const { error: rollbackError } = await deleteRound(client, roundRow.id, userId)
+    if (rollbackError) console.error('Failed to roll back partially-imported round', roundRow.id, rollbackError)
+    throw err
+  }
 }

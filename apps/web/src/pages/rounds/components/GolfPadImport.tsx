@@ -1,0 +1,314 @@
+import { useState, type ChangeEvent } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
+import {
+  DEFAULT_HANDICAP,
+  isProbableSameCourse,
+  planGolfPadImport,
+  type GolfPadPlan,
+  type GolfPadSkipReason,
+} from '@oga/core'
+import { searchCourses } from '@oga/supabase'
+import { CourseSearch } from '../../../components/courses/CourseSearch'
+import { useAuth } from '../../../hooks/useAuth'
+import { useProfile } from '../../../hooks/useProfile'
+import { completeRound } from '../../../hooks/useCompleteRound'
+import { writeImportedRound } from '../../../lib/import'
+import { supabase } from '../../../lib/supabase'
+import { toUserMessage } from '../../../lib/errors'
+
+// Golf Pad's "comprehensive" export (#1134): three CSVs → every round, one course confirm per
+// Golf Pad course name, SG at import.
+
+interface CourseRow {
+  golfPadName: string
+  rounds: number
+  match: { id: string; name: string; place: string } | null
+  searching: boolean
+  choosing: boolean
+  decision: { courseId: string; courseName: string } | 'skip' | null
+}
+
+interface NotImported {
+  courseName: string
+  playedAt: string
+  why: string
+}
+
+const SKIP_WHY: Record<GolfPadSkipReason, string> = {
+  same_day: 'same course twice that day',
+  no_holes: 'no hole data in the export',
+}
+
+// Golf Pad writes Windows-1252; the files are told apart by their headers, not their names.
+async function readExport(files: FileList) {
+  const found: Partial<Record<'rounds' | 'holes' | 'shots', string>> = {}
+  for (const file of Array.from(files)) {
+    const text = new TextDecoder('windows-1252').decode(await file.arrayBuffer())
+    const header = text.slice(0, text.search(/\r?\n/))
+    if (header.includes('gross score')) found.rounds = text
+    else if (header.includes('total strokes')) found.holes = text
+    else if (header.includes('shot number')) found.shots = text
+  }
+  if (!found.rounds || !found.holes || !found.shots) {
+    throw new Error('Choose all three Golf Pad files: rounds, holes and shots.')
+  }
+  return planGolfPadImport({ rounds: found.rounds, holes: found.holes, shots: found.shots })
+}
+
+export function GolfPadImport() {
+  const { user } = useAuth()
+  const profile = useProfile()
+  const qc = useQueryClient()
+  const [plan, setPlan] = useState<GolfPadPlan | null>(null)
+  const [rows, setRows] = useState<CourseRow[]>([])
+  const [error, setError] = useState<string | null>(null)
+  const [progress, setProgress] = useState('')
+  const [result, setResult] = useState<{ imported: number; notImported: NotImported[]; scoresOnly: number } | null>(null)
+
+  const updateRow = (name: string, patch: Partial<CourseRow>) =>
+    setRows((rs) => rs.map((r) => (r.golfPadName === name ? { ...r, ...patch } : r)))
+
+  async function handleFiles(e: ChangeEvent<HTMLInputElement>) {
+    const files = e.target.files
+    if (!files?.length) return
+    setError(null)
+    setResult(null)
+    try {
+      const p = await readExport(files)
+      setPlan(p)
+      const counts = new Map<string, number>()
+      for (const r of p.rounds) counts.set(r.course_name, (counts.get(r.course_name) ?? 0) + 1)
+      const names = [...counts.entries()].sort((a, b) => b[1] - a[1])
+      setRows(names.map(([golfPadName, rounds]) => ({ golfPadName, rounds, match: null, searching: true, choosing: false, decision: null })))
+      // Pre-fill each row with the first search hit that is the same course by name; the player
+      // still confirms every row.
+      for (const [name] of names) {
+        const { data } = await searchCourses(supabase, name)
+        const hit = (data ?? []).find((c) => isProbableSameCourse({ name }, c))
+        updateRow(name, {
+          searching: false,
+          match: hit ? { id: hit.id, name: hit.name, place: [hit.city, hit.state].filter(Boolean).join(', ') } : null,
+        })
+      }
+    } catch (err) {
+      setError(toUserMessage(err))
+    }
+    e.target.value = ''
+  }
+
+  async function handleImport() {
+    if (!plan || !user) return
+    setError(null)
+    const notImported: NotImported[] = plan.skipped.map((s) => ({ courseName: s.course_name, playedAt: s.played_at, why: SKIP_WHY[s.reason] }))
+    const decisions = new Map(rows.map((r) => [r.golfPadName, r.decision]))
+    const { data: existing, error: existingError } = await supabase
+      .from('rounds')
+      .select('import_id')
+      .eq('user_id', user.id)
+      .in('import_id', plan.rounds.map((r) => r.import_id))
+    if (existingError) { setError(toUserMessage(existingError)); return }
+    const already = new Set((existing ?? []).map((r) => r.import_id))
+    const handicap = profile.data?.handicap_index ?? DEFAULT_HANDICAP
+    let imported = 0
+    let scoresOnly = 0
+    for (const [i, round] of plan.rounds.entries()) {
+      const decision = decisions.get(round.course_name)
+      const skip = (why: string) => notImported.push({ courseName: round.course_name, playedAt: round.played_at, why })
+      if (!decision || decision === 'skip') { skip('course skipped'); continue }
+      if (already.has(round.import_id)) { skip('already imported'); continue }
+      setProgress(`Importing round ${i + 1} of ${plan.rounds.length}…`)
+      try {
+        const roundId = await writeImportedRound(supabase, {
+          userId: user.id,
+          courseId: decision.courseId,
+          courseTeeId: null,
+          teeColor: 'white',
+          payload: round,
+        })
+        await completeRound({
+          roundId,
+          courseId: decision.courseId,
+          handicap,
+          courseTeeId: null,
+          teeColor: round.tee_color,
+          userId: user.id,
+        })
+        imported++
+        scoresOnly += round.holes.filter((h) => h.shots_dropped).length
+      } catch (err) {
+        skip(`failed: ${toUserMessage(err)}`)
+      }
+    }
+    setProgress('')
+    setPlan(null)
+    setRows([])
+    setResult({ imported, notImported, scoresOnly })
+    qc.invalidateQueries({ queryKey: ['rounds'] })
+    qc.invalidateQueries({ queryKey: ['detailed-stats'] })
+    qc.invalidateQueries({ queryKey: ['profile', user.id] })
+  }
+
+  const decided = rows.length > 0 && rows.every((r) => r.decision)
+  const toImport = plan?.rounds.filter((r) => {
+    const d = rows.find((row) => row.golfPadName === r.course_name)?.decision
+    return d && d !== 'skip'
+  }).length ?? 0
+
+  return (
+    <div className="flex flex-col gap-5">
+      <div className="text-caddie-ink-dim" style={{ fontSize: 13 }}>
+        In Golf Pad: Settings → Data Export → the comprehensive export. Choose all three CSV files
+        it emails you (rounds, holes and shots).
+      </div>
+      <input
+        type="file"
+        multiple
+        accept=".csv,text/csv"
+        aria-label="Golf Pad export files"
+        onChange={handleFiles}
+        disabled={!!progress}
+      />
+
+      {rows.length > 0 && (
+        <div>
+          <FieldLabel>Courses — confirm each one</FieldLabel>
+          {rows.map((row) => (
+            <section
+              key={row.golfPadName}
+              aria-label={row.golfPadName}
+              style={{ borderBottom: '1px solid #E4E4E0', padding: '14px 0' }}
+            >
+              <div className="text-caddie-ink" style={{ fontSize: 14, fontWeight: 600 }}>
+                {row.golfPadName}{' '}
+                <span className="text-caddie-ink-mute" style={{ fontWeight: 400 }}>
+                  · {row.rounds} round{row.rounds === 1 ? '' : 's'}
+                </span>
+              </div>
+              <div className="text-caddie-ink-dim" style={{ fontSize: 13, marginTop: 4 }}>
+                {row.decision === 'skip'
+                  ? 'Skipped: these rounds won’t be imported.'
+                  : row.decision
+                    ? `Importing to ${row.decision.courseName}.`
+                    : row.searching
+                      ? 'Looking for this course…'
+                      : row.match
+                        ? `Match: ${row.match.name}${row.match.place ? ` · ${row.match.place}` : ''}`
+                        : 'No match found'}
+              </div>
+              {!row.searching && (
+                <div className="flex gap-2" style={{ marginTop: 8 }}>
+                  {row.match && !row.decision && (
+                    <button
+                      type="button"
+                      onClick={() => updateRow(row.golfPadName, { decision: { courseId: row.match!.id, courseName: row.match!.name } })}
+                      className="bg-caddie-accent text-caddie-accent-ink"
+                      style={buttonStyle}
+                    >
+                      Use this course
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => updateRow(row.golfPadName, { choosing: !row.choosing })}
+                    className="text-caddie-accent"
+                    style={{ ...buttonStyle, background: 'transparent', border: '1px solid currentColor' }}
+                  >
+                    {row.match || row.decision ? 'Choose a different course' : 'Choose a course'}
+                  </button>
+                  {row.decision !== 'skip' && (
+                    <button
+                      type="button"
+                      onClick={() => updateRow(row.golfPadName, { decision: 'skip', choosing: false })}
+                      className="text-caddie-ink-dim"
+                      style={{ ...buttonStyle, background: 'transparent', border: '1px solid #E4E4E0' }}
+                    >
+                      Skip
+                    </button>
+                  )}
+                </div>
+              )}
+              {row.choosing && (
+                <div style={{ marginTop: 10 }}>
+                  <CourseSearch
+                    selectedCourseId={row.decision && row.decision !== 'skip' ? row.decision.courseId : null}
+                    initialQuery={row.golfPadName}
+                    onSelect={(courseId, courseName) =>
+                      updateRow(row.golfPadName, { decision: { courseId, courseName }, choosing: false })
+                    }
+                  />
+                </div>
+              )}
+            </section>
+          ))}
+        </div>
+      )}
+
+      {error && (
+        <div className="text-caddie-neg" style={{ fontSize: 13 }}>
+          {error}
+        </div>
+      )}
+      {progress && (
+        <div className="text-caddie-ink-dim" style={{ fontSize: 13 }}>
+          {progress}
+        </div>
+      )}
+
+      {rows.length > 0 && (
+        <div className="flex justify-end">
+          <button
+            type="button"
+            onClick={handleImport}
+            disabled={!decided || toImport === 0 || !!progress}
+            className="bg-caddie-accent text-caddie-accent-ink disabled:opacity-50"
+            style={buttonStyle}
+          >
+            Import {toImport} round{toImport === 1 ? '' : 's'}
+          </button>
+        </div>
+      )}
+
+      {result && (
+        <div className="flex flex-col gap-2" style={{ fontSize: 13 }}>
+          <div className="text-caddie-ink" style={{ fontSize: 15, fontWeight: 600 }}>
+            Imported {result.imported} round{result.imported === 1 ? '' : 's'}
+          </div>
+          {result.scoresOnly > 0 && (
+            <div className="text-caddie-ink-dim">
+              {result.scoresOnly} hole{result.scoresOnly === 1 ? '' : 's'} came in with scores only:
+              their shots didn’t add up to the hole score, so their strokes gained would be wrong.
+            </div>
+          )}
+          {result.notImported.length > 0 && (
+            <div>
+              <FieldLabel>Not imported</FieldLabel>
+              {result.notImported.map((n, i) => (
+                <div key={i} className="text-caddie-ink-dim">
+                  {n.courseName} · {n.playedAt} — {n.why}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function FieldLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <div
+      className="text-caddie-ink-dim uppercase"
+      style={{ fontSize: 11, fontWeight: 500, letterSpacing: 0.4, marginBottom: 6 }}
+    >
+      {children}
+    </div>
+  )
+}
+
+const buttonStyle: React.CSSProperties = {
+  borderRadius: 2,
+  padding: '8px 12px',
+  fontSize: 13,
+  fontWeight: 600,
+}

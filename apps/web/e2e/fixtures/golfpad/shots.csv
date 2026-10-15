@@ -1,0 +1,7 @@
+date,course name,hole number,shot number,lie,club,club details,shot length yards,target distance before,target distance after,outcome,included in distance stats,strokes gained,distance from center of fairway before,distance from center of fairway after,time
+5/2/2025,Pine Ridge Golf Club,1,1,Tee,D,"Brand X, Shaft Y, Grip Z",0,400,0,Fairway,yes,0.1,,,9:10
+5/2/2025,Pine Ridge Golf Club,1,2,Fairway,52° wedge,"Brand X, Shaft Y, Grip Z",0,150,0,Green,yes,0.1,,,9:10
+5/2/2025,Pine Ridge Golf Club,1,3,Green,Pt,"Brand X, Shaft Y, Grip Z",0,10,0,Green,yes,0.1,,,9:10
+5/2/2025,Pine Ridge Golf Club,1,4,Green,Pt,"Brand X, Shaft Y, Grip Z",0,1,0,Holed,yes,0.1,,,9:10
+5/2/2025,Pine Ridge Golf Club,2,1,Tee,7i,"Brand X, Shaft Y, Grip Z",0,160,0,Rough,yes,0.1,,,9:10
+5/2/2025,Pine Ridge Golf Club,2,2,Rough,60° wedge,"Brand X, Shaft Y, Grip Z",0,15,0,Green,yes,0.1,,,9:10

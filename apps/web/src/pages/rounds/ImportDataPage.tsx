@@ -1,19 +1,17 @@
 import { useMemo, useRef, useState, type ChangeEvent } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
-import { shotAxesFromLegacy } from '@oga/core'
 import {
   summarizeImportDataQuality,
   validateImportPayload,
   type ImportDataQualityIssue,
   type ImportRoundPayload,
+  writeImportedRound,
 } from '../../lib/import'
 import { CourseSearch } from '../../components/courses/CourseSearch'
+import { GolfPadImport } from './components/GolfPadImport'
 import { TeeSelector } from '../../components/courses/TeeSelector'
 import { useAuth } from '../../hooks/useAuth'
-import { useCreateRound, useDeleteRound } from '../../hooks/useRounds'
-import { useUpsertHoleScore } from '../../hooks/useHoleScores'
-import { useCreateShot } from '../../hooks/useShots'
-import { useHolesForCourse } from '../../hooks/useCourses'
 import { supabase } from '../../lib/supabase'
 import { toUserMessage } from '../../lib/errors'
 
@@ -30,11 +28,9 @@ type Step = 'input' | 'review'
 export function ImportDataPage() {
   const navigate = useNavigate()
   const { user } = useAuth()
-  const createRound = useCreateRound()
-  const deleteRound = useDeleteRound()
-  const upsertHoleScore = useUpsertHoleScore(undefined)
-  const createShot = useCreateShot(undefined)
+  const qc = useQueryClient()
 
+  const [mode, setMode] = useState<'json' | 'golfpad'>('json')
   const [step, setStep] = useState<Step>('input')
   const [rawText, setRawText] = useState('')
   const [busy, setBusy] = useState(false)
@@ -49,8 +45,6 @@ export function ImportDataPage() {
   const [courseName, setCourseName] = useState('')
   const [courseTeeId, setCourseTeeId] = useState<string | null>(null)
   const [teeColor, setTeeColor] = useState('white')
-
-  const holesQuery = useHolesForCourse(courseId ?? undefined)
 
   // Live validation on every keystroke/paste — zod parsing a round-sized
   // payload is well under a millisecond, no debounce needed.
@@ -105,127 +99,22 @@ export function ImportDataPage() {
     }
   }
 
-  // Most crawler-imported courses have no `holes` rows at all — only the
-  // ones OSM actually mapped. hole_scores.hole_id has an FK to holes.id, so
-  // without materializing a real row first, every hole on a typical course
-  // would get silently skipped and this would create an empty round.
-  // Mirrors the insert_synthetic_hole RPC call in useRoundActions.ts's
-  // ensureRealHole (migration 0026) — that version lives inside a hook tied
-  // to an already-loaded round's state, so it's re-inlined here rather than
-  // reused directly.
-  async function resolveHoleId(
-    roundId: string,
-    holesByNumber: Map<number, { id: string }>,
-    number: number,
-  ): Promise<string> {
-    const holeRow = holesByNumber.get(number)
-    if (holeRow) return holeRow.id
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const rpc = (supabase as any).rpc.bind(supabase) as (
-      fn: 'insert_synthetic_hole',
-      args: { p_course_id: string; p_number: number; p_par: number; p_round_id: string },
-    ) => Promise<{ data: string | null; error: { message: string } | null }>
-    const { data: holeId, error } = await rpc('insert_synthetic_hole', {
-      p_course_id: courseId!,
-      p_number: number,
-      p_par: 4,
-      p_round_id: roundId,
-    })
-    if (error || !holeId) {
-      throw new Error(error?.message ?? 'insert_synthetic_hole returned no id')
-    }
-    return holeId
-  }
-
   async function handleImport() {
     if (!user || !payload || !courseId) return
     setBusy(true)
     setError(null)
-
-    let roundRow: { id: string } | null = null
     try {
-      setProgress('Creating round…')
-      roundRow = await createRound.mutateAsync({
-        user_id: user.id,
-        course_id: courseId,
-        course_tee_id: courseTeeId,
-        played_at: payload.played_at,
-        tee_color: payload.tee_color ?? teeColor,
-        total_score: payload.total_score ?? null,
-        total_putts: payload.total_putts ?? null,
-        import_id: payload.import_id ?? null,
+      const roundId = await writeImportedRound(supabase, {
+        userId: user.id,
+        courseId,
+        courseTeeId,
+        teeColor,
+        payload,
+        onProgress: setProgress,
       })
-      if (!roundRow) throw new Error('Round insert returned no row')
-
-      const holesByNumber = new Map((holesQuery.data ?? []).map((h) => [h.number, h]))
-
-      for (const hole of payload.holes) {
-        setProgress(`Saving hole ${hole.number} of ${payload.holes.length}…`)
-        const holeId = await resolveHoleId(roundRow.id, holesByNumber, hole.number)
-        const savedHoleScore = await upsertHoleScore.mutateAsync({
-          round_id: roundRow.id,
-          hole_id: holeId,
-          score: hole.score,
-          putts: hole.putts ?? null,
-          penalties: hole.penalties ?? 0,
-          fairway_hit: hole.fairway_hit ?? null,
-          gir: hole.gir ?? null,
-          pin_lat: hole.pin_lat ?? null,
-          pin_lng: hole.pin_lng ?? null,
-        })
-        if (!savedHoleScore) continue
-        for (const shot of hole.shots) {
-          const axes = shotAxesFromLegacy(shot.shot_result)
-          await createShot.mutateAsync({
-            hole_score_id: savedHoleScore.id,
-            user_id: user.id,
-            shot_number: shot.shot_number,
-            club: shot.club ?? null,
-            lie_type: shot.lie_type ?? null,
-            lie_slope_forward: shot.lie_slope_forward ?? null,
-            lie_slope_side: shot.lie_slope_side ?? null,
-            shot_result: shot.shot_result ?? null,
-            contact: axes.contact,
-            shape: axes.shape,
-            start_line: axes.startLine,
-            start_lat: shot.start_lat ?? null,
-            start_lng: shot.start_lng ?? null,
-            end_lat: shot.end_lat ?? null,
-            end_lng: shot.end_lng ?? null,
-            aim_lat: shot.aim_lat ?? null,
-            aim_lng: shot.aim_lng ?? null,
-            distance_to_target: shot.distance_to_target ?? null,
-            penalty: shot.penalty ?? false,
-            ob: shot.ob ?? false,
-            aim_offset_yards: shot.aim_offset_yards ?? null,
-            break_direction_vertical: shot.break_direction_vertical ?? null,
-            break_direction_horizontal: shot.break_direction_horizontal ?? null,
-            putt_distance_ft: shot.putt_distance_ft ?? null,
-            putt_distance_result: shot.putt_distance_result ?? null,
-            putt_direction_result: shot.putt_direction_result ?? null,
-            putt_slope_pct: shot.putt_slope_pct ?? null,
-            green_speed: shot.green_speed ?? null,
-            notes: shot.notes ?? null,
-          })
-        }
-      }
-
-      navigate(`/rounds/${roundRow.id}`)
+      qc.invalidateQueries({ queryKey: ['rounds', user.id] })
+      navigate(`/rounds/${roundId}`)
     } catch (err) {
-      // Partial imports leave an orphaned round (and consume import_id) —
-      // delete it so a retry after fixing the payload isn't blocked by a
-      // half-written round from this attempt. Best-effort: if the rollback
-      // itself fails, at least log it rather than swallowing it — the
-      // import_id is already consumed at that point, so a silent failure
-      // here means a retry would just say "already imported" with no way
-      // back short of manual cleanup.
-      if (roundRow) {
-        try {
-          await deleteRound.mutateAsync(roundRow.id)
-        } catch (rollbackErr) {
-          console.error('Failed to roll back partially-imported round', roundRow.id, rollbackErr)
-        }
-      }
       setError(toUserMessage(err))
       setBusy(false)
       setProgress('')
@@ -251,7 +140,24 @@ export function ImportDataPage() {
         className="bg-caddie-surface flex flex-col gap-5"
         style={{ border: '0.5px solid #E4E4E0', borderRadius: 10, padding: 20 }}
       >
-        {step === 'input' && (
+        <div className="flex gap-2" role="group" aria-label="Import from">
+          {(['json', 'golfpad'] as const).map((m) => (
+            <button
+              key={m}
+              type="button"
+              aria-pressed={mode === m}
+              onClick={() => setMode(m)}
+              className={mode === m ? 'bg-caddie-accent text-caddie-accent-ink' : 'text-caddie-accent'}
+              style={{ ...buttonStyle, borderRadius: 2, border: '1px solid currentColor', background: mode === m ? undefined : 'transparent' }}
+            >
+              {m === 'json' ? 'OGA JSON' : 'Golf Pad'}
+            </button>
+          ))}
+        </div>
+
+        {mode === 'golfpad' && <GolfPadImport />}
+
+        {mode === 'json' && step === 'input' && (
           <div className="flex flex-col gap-4">
             <div className="flex items-center justify-between">
               <FieldLabel>JSON payload</FieldLabel>
@@ -386,7 +292,7 @@ export function ImportDataPage() {
           </div>
         )}
 
-        {step === 'review' && payload && (
+        {mode === 'json' && step === 'review' && payload && (
           <div className="flex flex-col gap-5">
             {alreadyImported && (
               <div
@@ -466,7 +372,7 @@ export function ImportDataPage() {
               <button
                 type="button"
                 onClick={handleImport}
-                disabled={busy || !courseId || holesQuery.isLoading}
+                disabled={busy || !courseId}
                 className="bg-caddie-accent text-caddie-accent-ink disabled:opacity-50"
                 style={buttonStyle}
               >
