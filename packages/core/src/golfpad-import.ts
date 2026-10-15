@@ -119,6 +119,7 @@ function scoresOnlyReason(rows: Record<string, string>[], score: number, penalti
   let next = 1
   let penaltyRows = 0
   for (const s of rows) {
+    // Best guess at the reason: with a penalty the rows don't carry, blame the gap on it.
     if (int(s['shot number']) !== next) return penalties > penaltyRows ? 'penalty_no_row' : 'numbers_mismatch'
     const penalty = s['outcome'] === 'Penalty'
     if (penalty) penaltyRows++
