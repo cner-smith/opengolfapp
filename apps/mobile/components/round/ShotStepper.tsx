@@ -18,6 +18,8 @@ export interface ShotStepperProps {
   addDisabled?: boolean
   /** The hole isn't saved yet: a way back to its review (#938). */
   onDone?: () => void
+  /** The hole isn't finished: back to live capture (#1115). */
+  onResume?: () => void
 }
 
 // Played-hole edit row (#611 paper): "‹ Shot N of M ›" plus Add and Delete, sitting
@@ -33,6 +35,7 @@ export function ShotStepper({
   onAdd,
   addDisabled,
   onDone,
+  onResume,
 }: ShotStepperProps) {
   // Display-only clamp: a delete can commit a shorter `count` one render
   // ahead of the caller's reclamp effect — never render "Shot 3 of 2".
@@ -92,6 +95,13 @@ export function ShotStepper({
         >
           <KeyText tone="primary" bold size={16}>
             Back to review
+          </KeyText>
+        </Key>
+      )}
+      {onResume && (
+        <Key accessibilityLabel="Resume playing" tone="primary" onPress={onResume} faceStyle={{ minHeight: 49 }}>
+          <KeyText tone="primary" bold size={16}>
+            Resume playing
           </KeyText>
         </Key>
       )}

@@ -46,3 +46,9 @@ onFlowComplete:
     element: "1[2-6] ft putt"
     direction: DOWN
 - assertVisible: "2[2-6] ft putt"
+# Played-hole mode (#1115): selecting the first putt shows its distance in feet.
+- tapOn: "Close and edit shots on the map"
+- runFlow: subflows/skip-tips.yaml
+- assertVisible: "Shot 1 of 4"
+- tapOn: "Next shot"
+- assertVisible: "3[2-5]\\.[0-9] ft to the pin"
