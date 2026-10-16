@@ -37,7 +37,7 @@ describe('Golf Pad export → planned rounds', () => {
         [
           hole(D, C, 1, 4, 4, 2, 0, 'hit', 'GIR'),
           hole(D, C, 2, 3, 3, 2, 0, '', ''),
-          hole(D, C, 3, 5, 8, 1, 1, 'left', ''),
+          hole(D, C, 3, 5, 9, 1, 1, 'left', ''),
           hole(D, C, 4, 4, 5, 2, 0, 'right', ''),
           hole(D, C, 5, 4, 4, 1, 0, 'hit', 'GIR'),
         ],
@@ -51,14 +51,15 @@ describe('Golf Pad export → planned rounds', () => {
         shot(D, C, 2, 1, 'Tee', '52° wedge', '100', 'Green'),
         shot(D, C, 2, 2, 'Green', 'Pt', '4', 'Green'),
         shot(D, C, 2, 3, 'Green', 'Pt', '', 'Holed'),
+        // Golf Pad gives the penalty stroke a number (2) but no row.
         shot(D, C, 3, 1, 'Tee', '3w', '520', 'Penalty'),
-        shot(D, C, 3, 2, 'Recovery', '3h', '300', 'Rough'),
-        shot(D, C, 3, 3, 'Rough', '5w', '200', 'Sand'),
-        shot(D, C, 3, 4, 'Sand', 'SW', '40', 'Fringe'),
-        shot(D, C, 3, 5, 'Fringe', 'Ch', '15', 'Rough'),
-        shot(D, C, 3, 6, 'Rough', '56° wedge', '12', 'Rough'),
-        shot(D, C, 3, 7, 'Rough', '60° wedge', '8', 'Green'),
-        shot(D, C, 3, 8, 'Green', 'Pt', '2', 'Holed'),
+        shot(D, C, 3, 3, 'Recovery', '3h', '300', 'Rough'),
+        shot(D, C, 3, 4, 'Rough', '5w', '200', 'Sand'),
+        shot(D, C, 3, 5, 'Sand', 'SW', '40', 'Fringe'),
+        shot(D, C, 3, 6, 'Fringe', 'Ch', '15', 'Rough'),
+        shot(D, C, 3, 7, 'Rough', '56° wedge', '12', 'Rough'),
+        shot(D, C, 3, 8, 'Rough', '60° wedge', '8', 'Green'),
+        shot(D, C, 3, 9, 'Green', 'Pt', '2', 'Holed'),
         // Hole 4: score 5 but only three rows (putts not logged as shots).
         shot(D, C, 4, 1, 'Tee', 'D', '380', 'Fairway'),
         shot(D, C, 4, 2, 'Fairway', 'PW', '120', 'Rough'),
@@ -77,7 +78,7 @@ describe('Golf Pad export → planned rounds', () => {
     expect(r.holes.map((h) => [h.number, h.par, h.score, h.putts, h.penalties, h.fairway_hit, h.gir])).toEqual([
       [1, 4, 4, 2, 0, true, true],
       [2, 3, 3, 2, 0, null, false],
-      [3, 5, 8, 1, 1, false, false],
+      [3, 5, 9, 1, 1, false, false],
       [4, 4, 5, 2, 0, false, false],
       [5, 4, 4, 1, 0, true, true],
     ])
@@ -94,19 +95,21 @@ describe('Golf Pad export → planned rounds', () => {
       ['putter', 4, 12],
       ['putter', null, null],
     ])
-    expect(h3!.shots.map((s) => [s.lie_type, s.club, s.penalty])).toEqual([
-      ['tee', '3w', true],
-      ['recovery', '3h', false],
-      ['rough', '5w', false],
-      ['sand', 'sw', false],
-      ['fringe', null, false],
-      ['rough', 'sw', false],
-      ['rough', 'lw', false],
-      ['green', 'putter', false],
+    // Renumbered by row, as OGA numbers shots: the penalty is a flag on the shot, not a row.
+    expect(h3!.shots.map((s) => [s.shot_number, s.lie_type, s.club, s.penalty])).toEqual([
+      [1, 'tee', '3w', true],
+      [2, 'recovery', '3h', false],
+      [3, 'rough', '5w', false],
+      [4, 'sand', 'sw', false],
+      [5, 'fringe', null, false],
+      [6, 'rough', 'sw', false],
+      [7, 'rough', 'lw', false],
+      [8, 'green', 'putter', false],
     ])
-    expect(h1!.shots_dropped).toBe(false)
+    expect(h1!.scores_only).toBeNull()
+    expect(h3!.scores_only).toBeNull()
     expect(h4!.shots).toEqual([])
-    expect(h4!.shots_dropped).toBe(true)
+    expect(h4!.scores_only).toBe('strokes_missing')
   })
 
   it('a partial round keeps only the holes played (no strokes = not played); a hole with no shot rows gets none', () => {
@@ -117,17 +120,62 @@ describe('Golf Pad export → planned rounds', () => {
     })
     const r = plan.rounds[0]!
     expect(r.holes.map((h) => h.number)).toEqual([10, 11])
-    expect(r.holes[0]).toMatchObject({ shots: [], shots_dropped: false })
+    expect(r.holes[0]).toMatchObject({ shots: [], scores_only: 'no_shots' })
     expect(r.holes[1]!.shots).toHaveLength(3)
   })
 
-  it('a gap in the shot numbers drops the hole’s shots', () => {
+  it('a hole whose shots don’t add up to the score imports the score only, with the reason', () => {
     const plan = planGolfPadImport({
       rounds: csv(ROUNDS_HEADER, [round(D, C, 'R1')]),
-      holes: csv(HOLES_HEADER, [hole(D, C, 1, 3, 3, 1)]),
-      shots: csv(SHOTS_HEADER, [shot(D, C, 1, 1, 'Tee', '8i', '150', 'Rough'), shot(D, C, 1, 3, 'Rough', 'PW', '30', 'Green'), shot(D, C, 1, 4, 'Green', 'Pt', '2', 'Holed')]),
+      holes: csv(HOLES_HEADER, [
+        hole(D, C, 1, 4, 5, 2),
+        hole(D, C, 2, 4, 5, 1, 1),
+        hole(D, C, 3, 4, 6, 1, 1),
+        hole(D, C, 4, 3, 3, 1),
+        hole(D, C, 5, 4, 5, 2, 1),
+        hole(D, C, 6, 3, 3, 2),
+      ]),
+      shots: csv(SHOTS_HEADER, [
+        // 1: putts not logged — the last row isn't holed.
+        shot(D, C, 1, 1, 'Tee', 'D', '400', 'Fairway'),
+        shot(D, C, 1, 2, 'Fairway', '7i', '150', 'Green'),
+        shot(D, C, 1, 3, 'Green', 'Pt', '10', 'Green'),
+        // 2: a penalty in the hole's column, no Penalty row; four rows for 5 strokes.
+        shot(D, C, 2, 1, 'Tee', 'D', '400', 'Rough'),
+        shot(D, C, 2, 2, 'Rough', '6i', '170', 'Green'),
+        shot(D, C, 2, 3, 'Green', 'Pt', '20', 'Green'),
+        shot(D, C, 2, 4, 'Green', 'Pt', '2', 'Holed'),
+        // 3: same, with Golf Pad's gap after a row that isn't the Penalty.
+        shot(D, C, 3, 1, 'Tee', 'D', '400', 'Rough'),
+        shot(D, C, 3, 3, 'Rough', '6i', '170', 'Rough'),
+        shot(D, C, 3, 4, 'Rough', 'SW', '30', 'Green'),
+        shot(D, C, 3, 5, 'Green', 'Pt', '8', 'Green'),
+        shot(D, C, 3, 6, 'Green', 'Pt', '1', 'Holed'),
+        // 4: shot 2 missing, nothing explains the gap.
+        shot(D, C, 4, 1, 'Tee', '8i', '150', 'Rough'),
+        shot(D, C, 4, 3, 'Rough', 'PW', '30', 'Green'),
+        shot(D, C, 4, 4, 'Green', 'Pt', '2', 'Holed'),
+        // 5: adds up — Penalty, its stroke (2), then three rows.
+        shot(D, C, 5, 1, 'Tee', 'D', '400', 'Penalty'),
+        shot(D, C, 5, 3, 'Rough', '7i', '160', 'Green'),
+        shot(D, C, 5, 4, 'Green', 'Pt', '12', 'Green'),
+        shot(D, C, 5, 5, 'Green', 'Pt', '1', 'Holed'),
+        // 6: three rows for 3 strokes, but the last one isn't holed.
+        shot(D, C, 6, 1, 'Tee', '8i', '150', 'Green'),
+        shot(D, C, 6, 2, 'Green', 'Pt', '20', 'Green'),
+        shot(D, C, 6, 3, 'Green', 'Pt', '3', 'Green'),
+      ]),
     })
-    expect(plan.rounds[0]!.holes[0]).toMatchObject({ shots: [], shots_dropped: true })
+    const holes = plan.rounds[0]!.holes
+    expect(holes.map((h) => [h.number, h.scores_only, h.shots.length])).toEqual([
+      [1, 'strokes_missing', 0],
+      [2, 'penalty_no_row', 0],
+      [3, 'penalty_no_row', 0],
+      [4, 'numbers_mismatch', 0],
+      [5, null, 4],
+      [6, 'strokes_missing', 0],
+    ])
+    expect(holes[4]!.shots.map((s) => [s.shot_number, s.penalty])).toEqual([[1, true], [2, false], [3, false], [4, false]])
   })
 
   it('skips rounds it can’t place: same course twice that day, no hole rows, or no round id', () => {

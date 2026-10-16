@@ -4,7 +4,9 @@ import {
   DEFAULT_HANDICAP,
   isProbableSameCourse,
   planGolfPadImport,
+  type GolfPadHole,
   type GolfPadPlan,
+  type GolfPadScoresOnlyReason,
   type GolfPadSkipReason,
 } from '@oga/core'
 import { deleteRound, searchCourses } from '@oga/supabase'
@@ -30,6 +32,12 @@ interface CourseRow {
   decision: { courseId: string; courseName: string } | 'skip' | null
 }
 
+interface Imported {
+  courseName: string
+  playedAt: string
+  scoresOnly: ScoresOnly
+}
+
 interface NotImported {
   courseName: string
   playedAt: string
@@ -41,6 +49,32 @@ const SKIP_WHY: Record<GolfPadSkipReason, string> = {
   no_holes: 'no hole data in the export',
   no_round_id: 'no Golf Pad round id in the export',
 }
+
+const SCORES_ONLY_WHY: Record<GolfPadScoresOnlyReason, string> = {
+  strokes_missing: 'shots or putts not logged',
+  penalty_no_row: 'a penalty stroke not logged as a shot',
+  numbers_mismatch: 'shot numbers don’t match the score',
+  no_shots: 'no shots logged',
+}
+
+interface ScoresOnly {
+  total: number
+  /** [reason, holes], most common first. */
+  reasons: [string, number][]
+}
+
+function scoresOnlyCounts(holes: GolfPadHole[]): ScoresOnly {
+  const counts = new Map<string, number>()
+  for (const h of holes) {
+    if (!h.scores_only) continue
+    const why = SCORES_ONLY_WHY[h.scores_only]
+    counts.set(why, (counts.get(why) ?? 0) + 1)
+  }
+  const reasons = [...counts.entries()].sort((a, b) => b[1] - a[1])
+  return { total: reasons.reduce((n, [, c]) => n + c, 0), reasons }
+}
+
+const holesText = (n: number) => `${n} hole${n === 1 ? '' : 's'}`
 
 // Golf Pad writes Windows-1252; the files are told apart by their headers, not their names.
 async function readExport(files: FileList) {
@@ -68,7 +102,7 @@ export function GolfPadImport() {
   const [rows, setRows] = useState<CourseRow[]>([])
   const [error, setError] = useState<string | null>(null)
   const [progress, setProgress] = useState('')
-  const [result, setResult] = useState<{ imported: { courseName: string; playedAt: string }[]; notImported: NotImported[]; scoresOnly: number } | null>(null)
+  const [result, setResult] = useState<{ imported: Imported[]; notImported: NotImported[] } | null>(null)
 
   const updateRow = (name: string, patch: Partial<CourseRow>) =>
     setRows((rs) => rs.map((r) => (r.golfPadName === name ? { ...r, ...patch } : r)))
@@ -127,8 +161,7 @@ export function GolfPadImport() {
       for (const r of data ?? []) already.add(r.import_id)
     }
     const handicap = profile.data?.handicap_index ?? DEFAULT_HANDICAP
-    const imported: { courseName: string; playedAt: string }[] = []
-    let scoresOnly = 0
+    const imported: Imported[] = []
     for (const [i, round] of plan.rounds.entries()) {
       const decision = decisions.get(round.course_name)
       const skip = (why: string) => notImported.push({ courseName: round.course_name, playedAt: round.played_at, why })
@@ -148,8 +181,7 @@ export function GolfPadImport() {
           payload: valid.data,
         })
         await completeRound({ roundId, courseId: decision.courseId, handicap, courseTeeId: null, teeColor, userId: user.id })
-        imported.push({ courseName: decision.courseName, playedAt: round.played_at })
-        scoresOnly += round.holes.filter((h) => h.shots_dropped).length
+        imported.push({ courseName: decision.courseName, playedAt: round.played_at, scoresOnly: scoresOnlyCounts(round.holes) })
       } catch (err) {
         // A round whose SG step failed is removed too, so a retry imports it rather than calling
         // it already imported.
@@ -160,7 +192,7 @@ export function GolfPadImport() {
     setProgress('')
     setPlan(null)
     setRows([])
-    setResult({ imported, notImported, scoresOnly })
+    setResult({ imported, notImported })
     for (const key of ['rounds', 'detailed-stats', 'sg']) qc.invalidateQueries({ queryKey: [key] })
     qc.invalidateQueries({ queryKey: ['profile', user.id] })
   }
@@ -168,6 +200,10 @@ export function GolfPadImport() {
   const decided = rows.length > 0 && rows.every((r) => r.decision)
   const chosen = new Set(rows.filter((r) => r.decision && r.decision !== 'skip').map((r) => r.golfPadName))
   const toImport = plan?.rounds.filter((r) => chosen.has(r.course_name)).length ?? 0
+  // Before Import: every round not on a skipped course.
+  const skippedNames = new Set(rows.filter((r) => r.decision === 'skip').map((r) => r.golfPadName))
+  const pendingHoles = plan?.rounds.filter((r) => !skippedNames.has(r.course_name)).flatMap((r) => r.holes) ?? []
+  const pendingScoresOnly = scoresOnlyCounts(pendingHoles)
 
   return (
     <div className="flex flex-col gap-5">
@@ -269,6 +305,26 @@ export function GolfPadImport() {
         </div>
       )}
 
+      {pendingScoresOnly.total > 0 && (
+        <section aria-label="Scores only" style={{ fontSize: 13 }}>
+          <div className="text-caddie-warn" style={{ fontWeight: 600 }}>
+            {holesText(pendingHoles.length - pendingScoresOnly.total)} with shots,{' '}
+            {holesText(pendingScoresOnly.total)} with scores only
+          </div>
+          <div className="text-caddie-ink-dim" style={{ marginTop: 4 }}>
+            A hole’s shots come in only when they account for every stroke; otherwise its strokes
+            gained would be wrong. Score, putts, penalties, fairway and green still count.
+          </div>
+          <ul className="text-caddie-ink-dim" style={{ marginTop: 4, paddingLeft: 18, listStyle: 'disc' }}>
+            {pendingScoresOnly.reasons.map(([why, n]) => (
+              <li key={why}>
+                {n} · {why}
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
       {rows.length > 0 && (
         <div className="flex justify-end">
           <button
@@ -291,14 +347,14 @@ export function GolfPadImport() {
           {result.imported.map((r, i) => (
             <div key={i} className="text-caddie-ink-dim">
               {r.courseName} · {r.playedAt}
+              {r.scoresOnly.total > 0 && (
+                <span className="text-caddie-warn">
+                  {' '}· {holesText(r.scoresOnly.total)} scores only (
+                  {r.scoresOnly.reasons.map(([why, n]) => (r.scoresOnly.reasons.length > 1 ? `${n} ${why}` : why)).join(', ')})
+                </span>
+              )}
             </div>
           ))}
-          {result.scoresOnly > 0 && (
-            <div className="text-caddie-ink-dim">
-              {result.scoresOnly} hole{result.scoresOnly === 1 ? '' : 's'} came in with scores only:
-              their shots didn’t add up to the hole score, so their strokes gained would be wrong.
-            </div>
-          )}
           {result.notImported.length > 0 && (
             <div>
               <FieldLabel>Not imported</FieldLabel>

@@ -38,14 +38,20 @@ test.describe('Golf Pad import (signed in, mutating)', () => {
     await pine.getByRole('button', { name: 'Choose a course' }).click()
     await pine.getByRole('button', { name: /Pine Ridge Golf Club.*Demo/ }).click()
 
+    // Stated before Import, and recounted when a course is skipped.
+    const warning = page.getByRole('region', { name: 'Scores only' })
+    await expect(warning.getByText('1 hole with shots, 4 holes with scores only')).toBeVisible()
     const importButton = page.getByRole('button', { name: /^Import \d+ rounds?$/ })
     await expect(importButton).toBeDisabled()
     await page.getByRole('region', { name: 'Nowhere Municipal' }).getByRole('button', { name: 'Skip' }).click()
+    await expect(warning.getByText('1 hole with shots, 3 holes with scores only')).toBeVisible()
+    await expect(warning.getByRole('listitem')).toHaveText(['2 · no shots logged', '1 · shots or putts not logged'])
 
     await expect(importButton).toHaveText('Import 2 rounds')
     await importButton.click()
     await expect(page.getByText('Imported 2 rounds')).toBeVisible({ timeout: 30_000 })
-    await expect(page.getByText('Whistling Straits · 2025-05-02')).toBeVisible()
+    await expect(page.getByText('Whistling Straits · 2025-05-02 · 1 hole scores only (shots or putts not logged)')).toBeVisible()
+    await expect(page.getByText('Pine Ridge Golf Club · 2025-05-09 · 2 holes scores only (no shots logged)')).toBeVisible()
     await expect(page.getByText(/Nowhere Municipal.*course skipped/)).toBeVisible()
 
     const { data: rounds } = await admin
