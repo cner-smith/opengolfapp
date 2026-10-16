@@ -21,7 +21,7 @@ const DAY_MS = 86_400_000
 // error, just a 206 with a Content-Range header nothing here reads. Verified
 // live against oga-dev: an unranged `holes.select('course_id')` came back
 // capped at 1000 of 159,748 rows, silently feeding a wrong number into
-// oddHoleCount below with no error to catch it (see task-1-report.md).
+// the dashboard's odd-hole count with no error to catch it (see task-1-report.md).
 // Anywhere a select's row count is unbounded (user-generated, not capped by
 // something structural like geography), page through it with this size.
 const POSTGREST_PAGE_SIZE = 1000
@@ -384,7 +384,7 @@ async function pendingPanel(
 }
 
 async function crawlerPanel(client: OgaSupabaseClient): Promise<CrawlerPanel> {
-  // Deliberately unranged (unlike fetchAllCourseIds / activeIn below): unlike
+  // Deliberately unranged (unlike activeIn below): unlike
   // `holes` or `rounds`, crawl_state is one row per `source:scope` written
   // only by our own crawler — currently ~50 rows, bounded by geography, not
   // by user activity. It cannot grow past PostgREST's 1000-row default page
@@ -607,23 +607,6 @@ async function funnelPanel(client: OgaSupabaseClient): Promise<FunnelPanel> {
   }
 }
 
-async function fetchAllCourseIds(client: OgaSupabaseClient): Promise<string[]> {
-  const ids: string[] = []
-  let from = 0
-  for (;;) {
-    const { data, error } = await client
-      .from('holes')
-      .select('course_id')
-      .range(from, from + POSTGREST_PAGE_SIZE - 1)
-    if (error) throw new Error(error.message)
-    const page = (data ?? []) as { course_id: string }[]
-    for (const row of page) ids.push(row.course_id)
-    if (page.length < POSTGREST_PAGE_SIZE) break
-    from += POSTGREST_PAGE_SIZE
-  }
-  return ids
-}
-
 async function qualityPanel(client: OgaSupabaseClient): Promise<QualityPanel> {
   const missingState = countOf(
     client.from('courses').select('*', { count: 'exact', head: true }).is('state', null),
@@ -634,23 +617,13 @@ async function qualityPanel(client: OgaSupabaseClient): Promise<QualityPanel> {
       .select('*', { count: 'exact', head: true })
       .or('lat.is.null,lng.is.null'),
   )
-  // DEVIATION from the planned embedded-aggregate query (Step 2 fallback used
-  // as primary — see task-1-report.md). `courses?select=id,holes!inner(count)`
-  // does NOT behave as its own doc comment would claim: verified live against
-  // oga-dev that `!inner` does not drop courses with zero `holes` rows from an
-  // aggregate embed — every course still comes back as `{"count":0}`. Cross-
-  // checked via SQL: the embedded-aggregate approach would have reported 6392
-  // "odd" courses on dev's mirror-scale prod data vs. the correct 1779 that
-  // actually have SOME hole geometry but not 9 or 18 of it. So this tallies
-  // hole counts per course client-side instead, paginating through every
-  // `holes` row via fetchAllCourseIds (one column, ~160k rows on prod today —
-  // acceptable for a dev-only ops endpoint hit occasionally, not on every
-  // page interaction).
+  // Counted in Postgres (0062): tallying it here meant paging every holes row,
+  // ~20 s on prod (#1144). `holes!inner(count)` can't do it: it doesn't drop
+  // courses with zero holes rows from an aggregate embed.
   const oddHoleCount = (async () => {
-    const courseIds = await fetchAllCourseIds(client)
-    const perCourse = new Map<string, number>()
-    for (const id of courseIds) perCourse.set(id, (perCourse.get(id) ?? 0) + 1)
-    return [...perCourse.values()].filter((n) => n !== 9 && n !== 18).length
+    const { data, error } = await client.rpc('admin_odd_hole_course_count')
+    if (error) throw new Error(error.message)
+    return data
   })()
 
   const [state, coords, odd] = await Promise.all([missingState, missingCoords, oddHoleCount])

@@ -865,6 +865,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      admin_odd_hole_course_count: { Args: never; Returns: number }
       delete_my_account: { Args: never; Returns: undefined }
       delete_shot: { Args: { p_shot_id: string }; Returns: boolean }
       insert_shot: {
