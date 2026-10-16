@@ -140,7 +140,11 @@ interface OwnRows {
 
 function groupBy(rows: Row[], key: (r: Row) => string): Map<string, Row[]> {
   const out = new Map<string, Row[]>()
-  for (const r of rows) out.set(key(r), [...(out.get(key(r)) ?? []), r])
+  for (const r of rows) {
+    const k = key(r)
+    if (!out.has(k)) out.set(k, [])
+    out.get(k)!.push(r)
+  }
   return out
 }
 
