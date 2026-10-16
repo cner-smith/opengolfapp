@@ -16,8 +16,8 @@ const HOLES_HEADER =
 const SHOTS_HEADER =
   'date,course name,hole number,shot number,lie,club,club details,shot length yards,target distance before,target distance after,outcome,included in distance stats,strokes gained,distance from center of fairway before,distance from center of fairway after,time'
 
-const round = (date: string, course: string, code: string, tee = '', completed = 18, start = '9:00', finish = '13:00') =>
-  `Pat Example,${date},${start},${course},18,${tee},,,,Stroke Play,${completed},80,8,,30,0,5,6,1,https://www.golfpadgps.com/round/${code},${finish}`
+const round = (date: string, course: string, code: string, tee = '', completed = 18, start = '9:00', finish = '13:00', gross = 80) =>
+  `Pat Example,${date},${start},${course},18,${tee},,,,Stroke Play,${completed},${gross},8,,30,0,5,6,1,https://www.golfpadgps.com/round/${code},${finish}`
 const hole = (date: string, course: string, n: number, par: number, strokes: number, putts: number, penalties = 0, fairway = '', gir = '') =>
   `Pat Example,${date},${course},,${n},${par},${strokes},${putts},${penalties},0,${fairway},${gir}`
 const shot = (date: string, course: string, holeN: number, n: number, lie: string, club: string, before: string, outcome: string, time = '9:10') =>
@@ -198,6 +198,66 @@ describe('Golf Pad export → planned rounds', () => {
       { import_id: 'golfpad:RC', course_name: other, played_at: '2025-06-07', reason: 'no_holes' },
       { import_id: '', course_name: other, played_at: '2025-06-09', reason: 'no_round_id' },
     ])
+  })
+
+  describe('same course twice in one day', () => {
+    // Golf Pad lists the day's rounds in start order, and their holes in the same order.
+    const rounds = csv(ROUNDS_HEADER, [
+      round(D, C, 'RA', '', 2, '8:00', '10:00', 9),
+      round(D, C, 'RB', '', 2, '11:00', '13:00', 7),
+    ])
+    const holes = csv(HOLES_HEADER, [hole(D, C, 1, 4, 4, 1), hole(D, C, 2, 4, 5, 2), hole(D, C, 1, 4, 3, 1), hole(D, C, 2, 4, 4, 2)])
+    const shotsA = [
+      shot(D, C, 1, 1, 'Tee', 'D', '400', 'Fairway', '8:10'),
+      shot(D, C, 1, 2, 'Fairway', '7i', '150', 'Rough', '8:14'),
+      shot(D, C, 1, 3, 'Rough', 'SW', '20', 'Green', '8:18'),
+      shot(D, C, 1, 4, 'Green', 'Pt', '2', 'Holed', '8:20'),
+    ]
+    const shotsB = [
+      shot(D, C, 1, 1, 'Tee', 'D', '400', 'Fairway', '11:05'),
+      shot(D, C, 1, 2, 'Fairway', '9i', '140', 'Green', '11:09'),
+      shot(D, C, 1, 3, 'Green', 'Pt', '5', 'Holed', '13:00'),
+    ]
+
+    it('splits holes where the number drops and shots by time: each round gets only its own', () => {
+      const plan = planGolfPadImport({ rounds, holes, shots: csv(SHOTS_HEADER, [...shotsB, ...shotsA]) })
+      expect(plan.skipped).toEqual([])
+      expect(plan.rounds.map((r) => [r.import_id, r.holes.map((h) => [h.number, h.score, h.shots.length])])).toEqual([
+        ['golfpad:RA', [[1, 4, 4], [2, 5, 0]]],
+        ['golfpad:RB', [[1, 3, 3], [2, 4, 0]]],
+      ])
+      expect(plan.rounds[1]!.holes[0]!.shots.map((s) => s.club)).toEqual(['driver', '9i', 'putter'])
+    })
+
+    const skippedBoth = (plan: ReturnType<typeof planGolfPadImport>) => {
+      expect(plan.rounds).toEqual([])
+      expect(plan.skipped.map((s) => [s.import_id, s.reason])).toEqual([['golfpad:RA', 'same_day'], ['golfpad:RB', 'same_day']])
+    }
+
+    it('a shot outside both rounds’ times → both skipped', () => {
+      skippedBoth(planGolfPadImport({ rounds, holes, shots: csv(SHOTS_HEADER, [...shotsA, shot(D, C, 2, 1, 'Tee', 'D', '400', 'Fairway', '10:30')]) }))
+    })
+
+    it('a shot in both rounds’ times → both skipped', () => {
+      const overlapping = rounds.replace(',11:00,', ',9:30,')
+      skippedBoth(planGolfPadImport({ rounds: overlapping, holes, shots: csv(SHOTS_HEADER, [shot(D, C, 1, 1, 'Tee', 'D', '400', 'Fairway', '9:45')]) }))
+    })
+
+    it('a repeated hole number also starts the next round', () => {
+      const oneHoleEach = csv(ROUNDS_HEADER, [round(D, C, 'RA', '', 1, '8:00', '10:00', 4), round(D, C, 'RB', '', 1, '11:00', '13:00', 3)])
+      const plan = planGolfPadImport({ rounds: oneHoleEach, holes: csv(HOLES_HEADER, [hole(D, C, 1, 4, 4, 1), hole(D, C, 1, 4, 3, 1)]), shots: csv(SHOTS_HEADER, []) })
+      expect(plan.rounds.map((r) => r.holes.map((h) => h.score))).toEqual([[4], [3]])
+    })
+
+    it('more runs of hole numbers than rounds → both skipped', () => {
+      const threeRuns = holes + csv(HOLES_HEADER, [hole(D, C, 1, 4, 5, 2)]).split('\n').slice(1).join('\n')
+      skippedBoth(planGolfPadImport({ rounds, holes: threeRuns, shots: csv(SHOTS_HEADER, shotsA) }))
+    })
+
+    it('a part whose strokes aren’t its round’s gross score → both skipped', () => {
+      const swapped = csv(ROUNDS_HEADER, [round(D, C, 'RA', '', 2, '8:00', '10:00', 7), round(D, C, 'RB', '', 2, '11:00', '13:00', 9)])
+      skippedBoth(planGolfPadImport({ rounds: swapped, holes, shots: csv(SHOTS_HEADER, shotsA) }))
+    })
   })
 
   it('an imported hole’s strokes gained matches the hand-worked hole', () => {

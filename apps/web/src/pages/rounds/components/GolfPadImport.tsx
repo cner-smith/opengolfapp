@@ -45,7 +45,7 @@ interface NotImported {
 }
 
 const SKIP_WHY: Record<GolfPadSkipReason, string> = {
-  same_day: 'same course twice that day',
+  same_day: 'same course twice that day, and the rounds couldn’t be told apart',
   no_holes: 'no hole data in the export',
   no_round_id: 'no Golf Pad round id in the export',
 }

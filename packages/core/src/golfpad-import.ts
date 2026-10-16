@@ -59,8 +59,10 @@ export interface GolfPadPlan {
   skipped: GolfPadSkip[]
 }
 
+type Row = Record<string, string>
+
 // RFC 4180 rows: quoted fields may hold commas and doubled quotes. CRLF or LF.
-function parseCsv(text: string): Record<string, string>[] {
+function parseCsv(text: string): Row[] {
   const rows: string[][] = []
   let row: string[] = []
   let field = ''
@@ -114,7 +116,7 @@ function isoDate(s: string): string {
 // Shots are kept only when they account for every stroke: SG books a hole's last row as holed,
 // so unlogged putts would inflate it. Golf Pad numbers a penalty stroke but gives it no row, so
 // the only gap allowed is the one number after a Penalty row.
-function scoresOnlyReason(rows: Record<string, string>[], score: number, penalties: number): GolfPadScoresOnlyReason | null {
+function scoresOnlyReason(rows: Row[], score: number, penalties: number): GolfPadScoresOnlyReason | null {
   if (rows.length === 0) return 'no_shots'
   let next = 1
   let penaltyRows = 0
@@ -131,26 +133,67 @@ function scoresOnlyReason(rows: Record<string, string>[], score: number, penalti
   return null
 }
 
-const roundKey = (r: Record<string, string>) => `${r['date']}|${r['course name']}`
+interface RoundRows {
+  holes: Row[]
+  shots: Row[]
+}
+
+function groupBy(rows: Row[], key: (r: Row) => string): Map<string, Row[]> {
+  const out = new Map<string, Row[]>()
+  for (const r of rows) out.set(key(r), [...(out.get(key(r)) ?? []), r])
+  return out
+}
+
+// H:MM → minutes since midnight; NaN when missing, so the shot fits no round.
+function minutes(t: string | undefined): number {
+  const m = /^(\d{1,2}):(\d{2})$/.exec(t ?? '')
+  return m ? Number(m[1]) * 60 + Number(m[2]) : NaN
+}
+
+// One course on one day → each round's hole and shot rows, or null when its rounds can't be told
+// apart. Golf Pad lists the day's rounds in start order and their holes in the same order, so a
+// new round's holes start where the hole number doesn't go up; each part must add up to its
+// round's gross score. A shot belongs to the one round whose start–finish holds its time.
+function splitDay(rounds: Row[], holes: Row[], shots: Row[]): RoundRows[] | null {
+  if (rounds.length === 1) return [{ holes, shots }]
+  const parts: Row[][] = []
+  let prev = Infinity
+  for (const h of holes) {
+    const n = int(h['hole number']) ?? 0
+    if (n <= prev) parts.push([])
+    parts[parts.length - 1]!.push(h)
+    prev = n
+  }
+  if (parts.length !== rounds.length) return null
+  const strokes = (p: Row[]) => p.reduce((t, h) => t + (int(h['total strokes']) ?? 0), 0)
+  if (parts.some((p, i) => strokes(p) !== int(rounds[i]!['gross score']))) return null
+  const split = parts.map((p) => ({ holes: p, shots: [] as Row[] }))
+  for (const s of shots) {
+    const t = minutes(s['time'])
+    const inside = rounds.flatMap((r, i) => (minutes(r['start time']) <= t && t <= minutes(r['finish time']) ? [i] : []))
+    if (inside.length !== 1) return null
+    split[inside[0]!]!.shots.push(s)
+  }
+  return split
+}
+
+const roundKey = (r: Row) => `${r['date']}|${r['course name']}`
 
 export function planGolfPadImport(files: GolfPadFiles): GolfPadPlan {
   const roundRows = parseCsv(files.rounds)
   const holeRows = parseCsv(files.holes)
   const shotRows = parseCsv(files.shots)
 
-  const roundsPerKey = new Map<string, number>()
-  for (const r of roundRows) roundsPerKey.set(roundKey(r), (roundsPerKey.get(roundKey(r)) ?? 0) + 1)
-  const holesByKey = new Map<string, Record<string, string>[]>()
-  for (const h of holeRows) holesByKey.set(roundKey(h), [...(holesByKey.get(roundKey(h)) ?? []), h])
-  const shotsByHole = new Map<string, Record<string, string>[]>()
-  for (const s of shotRows) {
-    const k = `${roundKey(s)}|${s['hole number']}`
-    shotsByHole.set(k, [...(shotsByHole.get(k) ?? []), s])
+  const holesByKey = groupBy(holeRows, roundKey)
+  const shotsByKey = groupBy(shotRows, roundKey)
+  const days = new Map<Row, RoundRows | null>()
+  for (const [key, rounds] of groupBy(roundRows, roundKey)) {
+    const split = splitDay(rounds, holesByKey.get(key) ?? [], shotsByKey.get(key) ?? [])
+    rounds.forEach((r, i) => days.set(r, split?.[i] ?? null))
   }
 
   const plan: GolfPadPlan = { rounds: [], skipped: [] }
   for (const r of roundRows) {
-    const key = roundKey(r)
     const code = /\/round\/(\w+)/.exec(r['URL'] ?? '')?.[1]
     const base = {
       import_id: code ? `golfpad:${code}` : '',
@@ -158,10 +201,10 @@ export function planGolfPadImport(files: GolfPadFiles): GolfPadPlan {
       played_at: isoDate(r['date'] ?? ''),
     }
     if (!code) { plan.skipped.push({ ...base, reason: 'no_round_id' }); continue }
-    // Two rounds on one course that day are skipped until #1138 splits them.
-    if ((roundsPerKey.get(key) ?? 0) > 1) { plan.skipped.push({ ...base, reason: 'same_day' }); continue }
+    const day = days.get(r)
+    if (!day) { plan.skipped.push({ ...base, reason: 'same_day' }); continue }
     // A hole with no strokes wasn't played.
-    const holes = (holesByKey.get(key) ?? []).filter((h) => (int(h['total strokes']) ?? 0) > 0)
+    const holes = day.holes.filter((h) => (int(h['total strokes']) ?? 0) > 0)
     if (holes.length === 0) { plan.skipped.push({ ...base, reason: 'no_holes' }); continue }
 
     plan.rounds.push({
@@ -169,8 +212,8 @@ export function planGolfPadImport(files: GolfPadFiles): GolfPadPlan {
       tee_color: r['tee name'] ? r['tee name']!.toLowerCase() : null,
       holes: holes.map((h) => {
         const score = int(h['total strokes']) ?? 0
-        const rows = (shotsByHole.get(`${key}|${h['hole number']}`) ?? [])
-          .slice()
+        const rows = day.shots
+          .filter((s) => s['hole number'] === h['hole number'])
           .sort((a, b) => (int(a['shot number']) ?? 0) - (int(b['shot number']) ?? 0))
         const penalties = int(h['penalties']) ?? 0
         const scoresOnly = scoresOnlyReason(rows, score, penalties)
