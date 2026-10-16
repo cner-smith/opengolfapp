@@ -133,7 +133,7 @@ function scoresOnlyReason(rows: Row[], score: number, penalties: number): GolfPa
   return null
 }
 
-interface RoundRows {
+interface OwnRows {
   holes: Row[]
   shots: Row[]
 }
@@ -151,10 +151,10 @@ function minutes(t: string | undefined): number {
 }
 
 // One course on one day → each round's hole and shot rows, or null when its rounds can't be told
-// apart. Golf Pad lists the day's rounds in start order and their holes in the same order, so a
+// apart. `rounds` come in start order; Golf Pad lists their holes in that order too, so a
 // new round's holes start where the hole number doesn't go up; each part must add up to its
 // round's gross score. A shot belongs to the one round whose start–finish holds its time.
-function splitDay(rounds: Row[], holes: Row[], shots: Row[]): RoundRows[] | null {
+function splitDay(rounds: Row[], holes: Row[], shots: Row[]): OwnRows[] | null {
   if (rounds.length === 1) return [{ holes, shots }]
   const parts: Row[][] = []
   let prev = Infinity
@@ -186,10 +186,12 @@ export function planGolfPadImport(files: GolfPadFiles): GolfPadPlan {
 
   const holesByKey = groupBy(holeRows, roundKey)
   const shotsByKey = groupBy(shotRows, roundKey)
-  const days = new Map<Row, RoundRows | null>()
-  for (const [key, rounds] of groupBy(roundRows, roundKey)) {
+  // Each round's own hole and shot rows; null when its day can't be split.
+  const own = new Map<Row, OwnRows | null>()
+  for (const [key, group] of groupBy(roundRows, roundKey)) {
+    const rounds = [...group].sort((a, b) => minutes(a['start time']) - minutes(b['start time']))
     const split = splitDay(rounds, holesByKey.get(key) ?? [], shotsByKey.get(key) ?? [])
-    rounds.forEach((r, i) => days.set(r, split?.[i] ?? null))
+    rounds.forEach((r, i) => own.set(r, split?.[i] ?? null))
   }
 
   const plan: GolfPadPlan = { rounds: [], skipped: [] }
@@ -201,10 +203,10 @@ export function planGolfPadImport(files: GolfPadFiles): GolfPadPlan {
       played_at: isoDate(r['date'] ?? ''),
     }
     if (!code) { plan.skipped.push({ ...base, reason: 'no_round_id' }); continue }
-    const day = days.get(r)
-    if (!day) { plan.skipped.push({ ...base, reason: 'same_day' }); continue }
+    const mine = own.get(r)
+    if (!mine) { plan.skipped.push({ ...base, reason: 'same_day' }); continue }
     // A hole with no strokes wasn't played.
-    const holes = day.holes.filter((h) => (int(h['total strokes']) ?? 0) > 0)
+    const holes = mine.holes.filter((h) => (int(h['total strokes']) ?? 0) > 0)
     if (holes.length === 0) { plan.skipped.push({ ...base, reason: 'no_holes' }); continue }
 
     plan.rounds.push({
@@ -212,7 +214,7 @@ export function planGolfPadImport(files: GolfPadFiles): GolfPadPlan {
       tee_color: r['tee name'] ? r['tee name']!.toLowerCase() : null,
       holes: holes.map((h) => {
         const score = int(h['total strokes']) ?? 0
-        const rows = day.shots
+        const rows = mine.shots
           .filter((s) => s['hole number'] === h['hole number'])
           .sort((a, b) => (int(a['shot number']) ?? 0) - (int(b['shot number']) ?? 0))
         const penalties = int(h['penalties']) ?? 0

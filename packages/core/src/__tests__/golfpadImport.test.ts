@@ -229,6 +229,15 @@ describe('Golf Pad export → planned rounds', () => {
       expect(plan.rounds[1]!.holes[0]!.shots.map((s) => s.club)).toEqual(['driver', '9i', 'putter'])
     })
 
+    it('pairs holes with rounds by start time, whatever order the rounds file lists them in', () => {
+      const reversed = csv(ROUNDS_HEADER, rounds.trim().split('\n').slice(1).reverse())
+      const plan = planGolfPadImport({ rounds: reversed, holes, shots: csv(SHOTS_HEADER, [...shotsA, ...shotsB]) })
+      expect(plan.rounds.map((r) => [r.import_id, r.holes.map((h) => h.score)])).toEqual([
+        ['golfpad:RB', [3, 4]],
+        ['golfpad:RA', [4, 5]],
+      ])
+    })
+
     const skippedBoth = (plan: ReturnType<typeof planGolfPadImport>) => {
       expect(plan.rounds).toEqual([])
       expect(plan.skipped.map((s) => [s.import_id, s.reason])).toEqual([['golfpad:RA', 'same_day'], ['golfpad:RB', 'same_day']])
