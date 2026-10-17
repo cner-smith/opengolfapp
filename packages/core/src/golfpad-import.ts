@@ -255,3 +255,39 @@ export function planGolfPadImport(files: GolfPadFiles): GolfPadPlan {
   }
   return plan
 }
+
+export type GolfPadRead = { plan: GolfPadPlan } | { rejected: string }
+
+const ALL_THREE = 'Choose all three Golf Pad files: rounds, holes and shots.'
+
+// The player's chosen files (decoded text, any order) → the plan, or why they can't be imported. Files
+// are told apart by their headers, not their names. Golf Pad sets the distance unit from the player's
+// location and names it in the shots file's "shot length" column.
+export function readGolfPadExport(texts: string[]): GolfPadRead {
+  const found: Partial<GolfPadFiles> = {}
+  for (const text of texts) {
+    const header = text.slice(0, text.search(/\r?\n|$/))
+    if (header.includes('gross score')) found.rounds = text
+    else if (header.includes('total strokes')) found.holes = text
+    else if (header.includes('shot number')) found.shots = text
+  }
+  const { rounds, holes, shots } = found
+  if (!rounds && !holes && !shots) {
+    return { rejected: 'These aren’t Golf Pad export files. Choose the rounds, holes and shots CSV files from Golf Pad’s comprehensive export.' }
+  }
+  if (rounds && !holes && !shots) {
+    return {
+      rejected:
+        'This is Golf Pad’s rounds-only export: it has no holes or shots. In Golf Pad, request the comprehensive export (Settings → Data Export) and choose all three files it emails you.',
+    }
+  }
+  const missing = (['rounds', 'holes', 'shots'] as const).filter((f) => !found[f])
+  if (missing.length) {
+    const what = missing.length === 1 ? `The ${missing[0]} file is` : `The ${missing.join(' and ')} files are`
+    return { rejected: `${what} missing. ${ALL_THREE}` }
+  }
+  if (!shots!.slice(0, shots!.search(/\r?\n|$/)).includes('shot length yards')) {
+    return { rejected: 'This export measures distances in meters. The Golf Pad import reads yards only.' }
+  }
+  return { plan: planGolfPadImport({ rounds: rounds!, holes: holes!, shots: shots! }) }
+}

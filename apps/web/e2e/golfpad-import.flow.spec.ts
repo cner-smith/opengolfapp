@@ -1,6 +1,6 @@
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { test, expect } from '@playwright/test'
+import { test, expect, type Page } from '@playwright/test'
 import { createClient } from '@supabase/supabase-js'
 
 const admin = createClient(
@@ -17,6 +17,17 @@ const FILES = ['rounds.csv', 'holes.csv', 'shots.csv'].map((f) => path.join(dir,
 const CODES = ['golfpad:GPE2E1', 'golfpad:GPE2E2', 'golfpad:GPE2E3']
 
 const cleanup = () => admin.from('rounds').delete().in('import_id', CODES)
+
+async function chooseFilesAndCourses(page: Page) {
+  await page.getByLabel('Golf Pad export files').setInputFiles(FILES)
+  const straits = page.getByRole('region', { name: 'Whistling Straits' })
+  await expect(straits.getByText(/Match: Whistling Straits · Sheboygan, WI/)).toBeVisible({ timeout: 15_000 })
+  await straits.getByRole('button', { name: 'Use this course' }).click()
+  const pine = page.getByRole('region', { name: 'Pine Ridge Golf Club' })
+  await pine.getByRole('button', { name: 'Choose a course' }).click()
+  await pine.getByRole('button', { name: /Pine Ridge Golf Club.*Demo/ }).click()
+  await page.getByRole('region', { name: 'Nowhere Municipal' }).getByRole('button', { name: 'Skip' }).click()
+}
 
 test.describe('Golf Pad import (signed in, mutating)', () => {
   test.beforeEach(cleanup)
@@ -81,5 +92,33 @@ test.describe('Golf Pad import (signed in, mutating)', () => {
       ['putter', 30],
       ['putter', 3],
     ])
+  })
+
+  test('importing the same files again skips every round as already imported and writes nothing', async ({ page }) => {
+    await page.goto('/rounds/import')
+    await page.getByRole('button', { name: 'Golf Pad' }).click()
+    await chooseFilesAndCourses(page)
+    await page.getByRole('button', { name: 'Import 2 rounds' }).click()
+    await expect(page.getByText('Imported 2 rounds')).toBeVisible({ timeout: 30_000 })
+    const count = async () => {
+      const { data } = await admin.from('rounds').select('id, hole_scores(id)').in('import_id', CODES)
+      return [data?.length, data?.flatMap((r) => r.hole_scores).length]
+    }
+    const before = await count()
+
+    await chooseFilesAndCourses(page)
+    await page.getByRole('button', { name: 'Import 2 rounds' }).click()
+    await expect(page.getByText('Imported 0 rounds')).toBeVisible({ timeout: 30_000 })
+    await expect(page.getByText(/Whistling Straits · 2025-05-02 — already imported/)).toBeVisible()
+    await expect(page.getByText(/Pine Ridge Golf Club · 2025-05-09 — already imported/)).toBeVisible()
+    expect(await count()).toEqual(before)
+  })
+
+  test('a rounds file alone is turned away with what to export instead', async ({ page }) => {
+    await page.goto('/rounds/import')
+    await page.getByRole('button', { name: 'Golf Pad' }).click()
+    await page.getByLabel('Golf Pad export files').setInputFiles(FILES[0]!)
+    await expect(page.getByText(/This is Golf Pad’s rounds-only export: it has no holes or shots/)).toBeVisible()
+    await expect(page.getByRole('button', { name: /^Import \d+ rounds?$/ })).toHaveCount(0)
   })
 })

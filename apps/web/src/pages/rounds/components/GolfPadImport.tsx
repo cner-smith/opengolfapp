@@ -3,7 +3,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import {
   DEFAULT_HANDICAP,
   isProbableSameCourse,
-  planGolfPadImport,
+  readGolfPadExport,
   type GolfPadHole,
   type GolfPadPlan,
   type GolfPadScoresOnlyReason,
@@ -76,20 +76,10 @@ function scoresOnlyCounts(holes: GolfPadHole[]): ScoresOnly {
 
 const holesText = (n: number) => `${n} hole${n === 1 ? '' : 's'}`
 
-// Golf Pad writes Windows-1252; the files are told apart by their headers, not their names.
+// Golf Pad writes Windows-1252.
 async function readExport(files: FileList) {
-  const found: Partial<Record<'rounds' | 'holes' | 'shots', string>> = {}
-  for (const file of Array.from(files)) {
-    const text = new TextDecoder('windows-1252').decode(await file.arrayBuffer())
-    const header = text.slice(0, text.search(/\r?\n/))
-    if (header.includes('gross score')) found.rounds = text
-    else if (header.includes('total strokes')) found.holes = text
-    else if (header.includes('shot number')) found.shots = text
-  }
-  if (!found.rounds || !found.holes || !found.shots) {
-    throw new Error('Choose all three Golf Pad files: rounds, holes and shots.')
-  }
-  return planGolfPadImport({ rounds: found.rounds, holes: found.holes, shots: found.shots })
+  const decoder = new TextDecoder('windows-1252')
+  return readGolfPadExport(await Promise.all(Array.from(files, async (f) => decoder.decode(await f.arrayBuffer()))))
 }
 
 export function GolfPadImport() {
@@ -114,7 +104,16 @@ export function GolfPadImport() {
     setResult(null)
     const pick = ++pickRef.current
     try {
-      const p = await readExport(files)
+      const read = await readExport(files)
+      // Shown as written: toUserMessage hides every message outside dev builds.
+      if ('rejected' in read) {
+        setPlan(null)
+        setRows([])
+        setError(read.rejected)
+        e.target.value = ''
+        return
+      }
+      const p = read.plan
       setPlan(p)
       const counts = new Map<string, number>()
       for (const r of p.rounds) counts.set(r.course_name, (counts.get(r.course_name) ?? 0) + 1)
