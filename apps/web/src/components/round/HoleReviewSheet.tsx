@@ -331,6 +331,9 @@ export function HoleReviewSheet({
                 const putt =
                   Number(isPuttShot(next.lieType)) - Number(isPuttShot(row.lieType))
                 if (putt !== 0) setPutts((p) => Math.max(0, p + putt))
+                const penalized =
+                  (next.shotResult === 'ob' && row.shotResult !== 'ob') ||
+                  (!!next.penalty && !row.penalty)
                 setRows((prev) => {
                   const copy = prev.slice()
                   copy[idx] = next
@@ -362,6 +365,10 @@ export function HoleReviewSheet({
                       endLng: next.startLng,
                       distanceYards: priorDist,
                     }
+                  }
+                  // Flagged OB / penalty here: a re-tee after it keeps its lie (#1098).
+                  if (penalized && copy[idx + 1]) {
+                    copy[idx + 1] = withReplayLies([next, copy[idx + 1]!])[1]!
                   }
                   return copy
                 })
