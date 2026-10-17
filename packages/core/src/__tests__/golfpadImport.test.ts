@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { planGolfPadImport } from '../golfpad-import'
+import { planGolfPadImport, readGolfPadExport } from '../golfpad-import'
 import { computeRoundSG } from '../sg'
 import type { Database } from '@oga/supabase'
 
@@ -266,6 +266,45 @@ describe('Golf Pad export → planned rounds', () => {
     it('a part whose strokes aren’t its round’s gross score → both skipped', () => {
       const swapped = csv(ROUNDS_HEADER, [round(D, C, 'RA', '', 2, '8:00', '10:00', 7), round(D, C, 'RB', '', 2, '11:00', '13:00', 9)])
       skippedBoth(planGolfPadImport({ rounds: swapped, holes, shots: csv(SHOTS_HEADER, shotsA) }))
+    })
+  })
+
+  describe('reading the chosen files', () => {
+    const roundsCsv = csv(ROUNDS_HEADER, [round(D, C, 'R1')])
+    const holesCsv = csv(HOLES_HEADER, [hole(D, C, 1, 4, 4, 2)])
+    const shotsCsv = csv(SHOTS_HEADER, [shot(D, C, 1, 1, 'Tee', 'D', '400', 'Fairway')])
+    const rejected = (texts: string[]) => {
+      const read = readGolfPadExport(texts)
+      return 'rejected' in read ? read.rejected : null
+    }
+
+    it('tells the three files apart by their headers, in any order', () => {
+      const read = readGolfPadExport([shotsCsv, roundsCsv, holesCsv])
+      expect('plan' in read && read.plan.rounds.map((r) => r.import_id)).toEqual(['golfpad:R1'])
+    })
+
+    it('a rounds file alone (the rounds-only export, or one file of three) asks for the comprehensive export', () => {
+      expect(rejected([roundsCsv])).toMatch(/Only a rounds file was chosen.*no holes or shots.*comprehensive export, a Golf Pad Premium option/)
+    })
+
+    it('names the missing file', () => {
+      expect(rejected([roundsCsv, holesCsv])).toBe('The shots file is missing. Choose all three Golf Pad files: rounds, holes and shots.')
+      expect(rejected([shotsCsv, holesCsv])).toBe('The rounds file is missing. Choose all three Golf Pad files: rounds, holes and shots.')
+      expect(rejected([holesCsv])).toBe('The rounds and shots files are missing. Choose all three Golf Pad files: rounds, holes and shots.')
+    })
+
+    it('no Golf Pad file at all', () => {
+      expect(rejected([csv('a,b', ['1,2'])])).toMatch(/aren’t Golf Pad export files/)
+    })
+
+    it('a meters export is rejected: Golf Pad names the unit in the shot length header', () => {
+      const meters = csv(SHOTS_HEADER.replace('shot length yards', 'shot length meters'), [])
+      expect(rejected([roundsCsv, holesCsv, meters])).toBe('This export measures distances in meters (Golf Pad picks the unit from where you play). The import reads yards only for now.')
+    })
+
+    it('a shots file with no yards column isn’t called meters', () => {
+      const unknown = csv(SHOTS_HEADER.replace('shot length yards', 'shot length'), [])
+      expect(rejected([roundsCsv, holesCsv, unknown])).toMatch(/no “shot length yards” column/)
     })
   })
 

@@ -255,3 +255,44 @@ export function planGolfPadImport(files: GolfPadFiles): GolfPadPlan {
   }
   return plan
 }
+
+export type GolfPadRead = { plan: GolfPadPlan } | { rejected: string }
+
+const ALL_THREE = 'Choose all three Golf Pad files: rounds, holes and shots.'
+
+// The player's chosen files (decoded text, any order) → the plan, or why they can't be imported. Files
+// are told apart by their headers, not their names. Golf Pad picks the distance unit from where the
+// player is and names it in the shots file's "shot length" column; there's no setting to change it.
+export function readGolfPadExport(texts: string[]): GolfPadRead {
+  const found: Partial<GolfPadFiles> = {}
+  let shotsHeader = ''
+  for (const text of texts) {
+    const header = text.slice(0, text.search(/\r?\n|$/))
+    if (header.includes('gross score')) found.rounds = text
+    else if (header.includes('total strokes')) found.holes = text
+    else if (header.includes('shot number')) { found.shots = text; shotsHeader = header }
+  }
+  const { rounds, holes, shots } = found
+  if (!rounds && !holes && !shots) {
+    return { rejected: 'These aren’t Golf Pad export files. Choose the rounds, holes and shots CSV files from Golf Pad’s comprehensive export.' }
+  }
+  // The rounds-only export is the rounds file alone, so it reads the same as picking just that file.
+  if (rounds && !holes && !shots) {
+    return {
+      rejected:
+        'Only a rounds file was chosen. Golf Pad’s rounds-only export has no holes or shots: choose all three files (rounds, holes and shots) from the comprehensive export, a Golf Pad Premium option under Settings → Data Export.',
+    }
+  }
+  if (!rounds || !holes || !shots) {
+    const missing = (['rounds', 'holes', 'shots'] as const).filter((f) => !found[f])
+    const what = missing.length === 1 ? `The ${missing[0]} file is` : `The ${missing.join(' and ')} files are`
+    return { rejected: `${what} missing. ${ALL_THREE}` }
+  }
+  if (shotsHeader.includes('shot length meters')) {
+    return { rejected: 'This export measures distances in meters (Golf Pad picks the unit from where you play). The import reads yards only for now.' }
+  }
+  if (!shotsHeader.includes('shot length yards')) {
+    return { rejected: 'The shots file has no “shot length yards” column, so it isn’t a Golf Pad comprehensive export this import can read.' }
+  }
+  return { plan: planGolfPadImport({ rounds, holes, shots }) }
+}
