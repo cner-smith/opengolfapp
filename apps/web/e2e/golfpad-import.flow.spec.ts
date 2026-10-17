@@ -94,15 +94,16 @@ test.describe('Golf Pad import (signed in, mutating)', () => {
     ])
   })
 
-  test('importing the same files again skips every round as already imported and writes nothing', async ({ page }) => {
+  test('importing the same files again skips every imported round as already imported and writes nothing', async ({ page }) => {
     await page.goto('/rounds/import')
     await page.getByRole('button', { name: 'Golf Pad' }).click()
     await chooseFilesAndCourses(page)
     await page.getByRole('button', { name: 'Import 2 rounds' }).click()
     await expect(page.getByText('Imported 2 rounds')).toBeVisible({ timeout: 30_000 })
     const count = async () => {
-      const { data } = await admin.from('rounds').select('id, hole_scores(id)').in('import_id', CODES)
-      return [data?.length, data?.flatMap((r) => r.hole_scores).length]
+      const { data } = await admin.from('rounds').select('id, hole_scores(id, shots(id))').in('import_id', CODES)
+      const holeScores = data?.flatMap((r) => r.hole_scores) ?? []
+      return [data?.length, holeScores.length, holeScores.flatMap((h) => h.shots).length]
     }
     const before = await count()
 
@@ -118,7 +119,7 @@ test.describe('Golf Pad import (signed in, mutating)', () => {
     await page.goto('/rounds/import')
     await page.getByRole('button', { name: 'Golf Pad' }).click()
     await page.getByLabel('Golf Pad export files').setInputFiles(FILES[0]!)
-    await expect(page.getByText(/This is Golf Pad’s rounds-only export: it has no holes or shots/)).toBeVisible()
+    await expect(page.getByText(/Only a rounds file was chosen. Golf Pad’s rounds-only export has no holes or shots/)).toBeVisible()
     await expect(page.getByRole('button', { name: /^Import \d+ rounds?$/ })).toHaveCount(0)
   })
 })

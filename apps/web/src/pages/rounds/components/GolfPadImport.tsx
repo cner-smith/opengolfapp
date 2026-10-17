@@ -207,8 +207,8 @@ export function GolfPadImport() {
   return (
     <div className="flex flex-col gap-5">
       <div className="text-caddie-ink-dim" style={{ fontSize: 13 }}>
-        In Golf Pad: Settings → Data Export → the comprehensive export. Choose all three CSV files
-        it emails you (rounds, holes and shots).
+        In Golf Pad: Settings → Data Export → the comprehensive export (Premium). Golf Pad emails a
+        download link; choose all three CSV files from it (rounds, holes and shots).
       </div>
       <input
         type="file"

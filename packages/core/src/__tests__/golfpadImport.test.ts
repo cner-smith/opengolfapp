@@ -283,8 +283,8 @@ describe('Golf Pad export → planned rounds', () => {
       expect('plan' in read && read.plan.rounds.map((r) => r.import_id)).toEqual(['golfpad:R1'])
     })
 
-    it('a rounds file alone is the rounds-only export', () => {
-      expect(rejected([roundsCsv])).toMatch(/rounds-only export.*no holes or shots.*comprehensive export/)
+    it('a rounds file alone (the rounds-only export, or one file of three) asks for the comprehensive export', () => {
+      expect(rejected([roundsCsv])).toMatch(/Only a rounds file was chosen.*no holes or shots.*comprehensive export, a Golf Pad Premium option/)
     })
 
     it('names the missing file', () => {
@@ -299,7 +299,12 @@ describe('Golf Pad export → planned rounds', () => {
 
     it('a meters export is rejected: Golf Pad names the unit in the shot length header', () => {
       const meters = csv(SHOTS_HEADER.replace('shot length yards', 'shot length meters'), [])
-      expect(rejected([roundsCsv, holesCsv, meters])).toBe('This export measures distances in meters. The Golf Pad import reads yards only.')
+      expect(rejected([roundsCsv, holesCsv, meters])).toBe('This export measures distances in meters (Golf Pad picks the unit from where you play). The import reads yards only for now.')
+    })
+
+    it('a shots file with no yards column isn’t called meters', () => {
+      const unknown = csv(SHOTS_HEADER.replace('shot length yards', 'shot length'), [])
+      expect(rejected([roundsCsv, holesCsv, unknown])).toMatch(/no “shot length yards” column/)
     })
   })
 
