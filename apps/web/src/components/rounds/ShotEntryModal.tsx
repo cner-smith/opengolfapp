@@ -7,9 +7,9 @@ import {
   combinedPuttResult,
   formatClubLabel,
   horizontalBreakFromAim,
-  haversineYards,
   isPuttShot,
   legacyShotResult,
+  projectShotMove,
   summarizePuttParts,
   summarizeShotParts,
   type Club,
@@ -262,23 +262,28 @@ export function ShotEntryModal({
     : null
   async function handleMiniMapDrag(point: { lat: number; lng: number }) {
     if (!editingRow) return
-    // Mirror RoundMap's drag handler — recalc distance_to_target against
-    // the pin so SG for this shot stays accurate. Skipped for putts
-    // (distance_to_target stays null; putt_distance_ft tracks that flow
-    // and isn't auto-recalculated on drag).
-    const editIsPutt = isPuttShot(editingRow.lie_type)
-    const newDistance =
-      !editIsPutt && pinLat != null && pinLng != null
-        ? Math.round(haversineYards(point.lat, point.lng, pinLat, pinLng))
-        : null
+    // Same rule as RoundMap's drag: a full shot gets a new distance_to_target,
+    // a putt a new length (#1096); undefined leaves the column alone (no pin,
+    // #662). The draft follows, or Save would write the old value back.
+    const pin = pinLat != null && pinLng != null ? { lat: pinLat, lng: pinLng } : null
+    const proj = projectShotMove({ newStart: point, pin, isPutt: isPuttShot(editingRow.lie_type) })
+    const newDistance = isPuttShot(editingRow.lie_type) ? undefined : proj.distanceToTarget
     await updateShot.mutateAsync({
       id: editingRow.id,
       updates: {
         start_lat: point.lat,
         start_lng: point.lng,
-        ...(editIsPutt ? {} : { distance_to_target: newDistance }),
+        ...(newDistance !== undefined ? { distance_to_target: newDistance } : {}),
+        ...(proj.puttDistanceFt !== undefined ? { putt_distance_ft: proj.puttDistanceFt } : {}),
       },
     })
+    setDraft((d) => ({
+      ...d,
+      ...(newDistance !== undefined ? { distanceToTarget: newDistance ?? undefined } : {}),
+      ...(proj.puttDistanceFt !== undefined
+        ? { puttDistanceFt: proj.puttDistanceFt ?? undefined }
+        : {}),
+    }))
   }
 
   return (
