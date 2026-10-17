@@ -133,13 +133,21 @@ describe('withReplayLies', () => {
   const hole = (apart: number, firstResult: { ob?: boolean; penalty?: boolean }) =>
     withReplayLies(
       buildInitialRows(
-        [TEE, { lat: offsetLatYards(apart), lng: TEE.lng }, { lat: offsetLatYards(220), lng: TEE.lng }],
+        [
+          TEE,
+          { lat: offsetLatYards(apart), lng: TEE.lng },
+          { lat: offsetLatYards(220), lng: TEE.lng },
+        ],
         4,
         PIN,
         TEE.lng,
       ).map((r, i) =>
         i === 0
-          ? { ...r, ...(firstResult.ob ? { shotResult: 'ob' as const } : {}), ...(firstResult.penalty ? { penalty: true } : {}) }
+          ? {
+              ...r,
+              ...(firstResult.ob ? { shotResult: 'ob' as const } : {}),
+              ...(firstResult.penalty ? { penalty: true } : {}),
+            }
           : r,
       ),
     )
@@ -161,8 +169,11 @@ describe('withReplayLies', () => {
   })
 
   it('a second OB from the re-tee: the next re-tee is still a tee shot', () => {
-    const rows = buildInitialRows([TEE, TEE, TEE, { lat: offsetLatYards(220), lng: TEE.lng }], 4, PIN, TEE.lng)
-    const out = withReplayLies(rows.map((r, i) => (i < 2 ? { ...r, shotResult: 'ob' as const } : r)))
+    const points = [TEE, TEE, TEE, { lat: offsetLatYards(220), lng: TEE.lng }]
+    const rows = buildInitialRows(points, 4, PIN, TEE.lng)
+    const out = withReplayLies(
+      rows.map((r, i) => (i < 2 ? { ...r, shotResult: 'ob' as const } : r)),
+    )
     expect(out.map((r) => r.lieType)).toEqual(['tee', 'tee', 'tee', 'rough'])
   })
 })

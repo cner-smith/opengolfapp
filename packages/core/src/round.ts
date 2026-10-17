@@ -421,9 +421,10 @@ export function buildInitialRows(
 // A replay after an OB or a penalty (stroke and distance) is played from that
 // shot's spot, so it keeps that shot's lie. buildInitialRows infers lie from
 // distance and shot number, which reads a re-tee as rough (#1098). Run after
-// the OB / penalty flags are on the rows; same 10 yd test SG uses (#1094).
-export function withReplayLies(rows: ReviewedShotRow[]): ReviewedShotRow[] {
-  const out: ReviewedShotRow[] = []
+// the OB / penalty flags are on the rows, and again on the next row when the
+// review sheet flags a shot; same 10 yd test SG uses (#1094).
+export function withReplayLies<R extends ReviewedShotRow>(rows: R[]): R[] {
+  const out: R[] = []
   for (const row of rows) {
     const prev = out[out.length - 1]
     const replay =
