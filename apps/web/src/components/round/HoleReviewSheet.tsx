@@ -7,6 +7,7 @@ import {
   horizontalBreakFromAim,
   isPuttShot,
   obCount,
+  withReplayLies,
   type Club,
   type ReviewedShotRow,
 } from '@oga/core'
@@ -159,6 +160,8 @@ export function HoleReviewSheet({
         }
       })
     }
+    // A re-tee keeps the OB / penalty shot's lie (#1098): reads the flags seeded above.
+    seeded = withReplayLies(seeded)
     setRows(seeded)
     // Struck rows + penalty strokes. obCount reads the `shotResult: 'ob'`
     // the seed above applied, so this is 0 only when the hole has no stored

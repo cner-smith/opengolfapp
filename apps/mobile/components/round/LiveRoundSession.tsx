@@ -20,6 +20,7 @@ import {
   insertedShotStart,
   isPuttShot,
   startCategory,
+  withReplayLies,
   type CaptureMode,
   type Club,
 } from '@oga/core'
@@ -542,10 +543,15 @@ export default function LiveRoundSession({
       return { club_type: c.club_type, typical_distance_yards: t?.yards ?? null }
     })
     // What the round already stored (a live putt) beats the distance guess.
+    // A re-tee keeps the OB shot's lie (#1098), so the OB flags go on first.
     return applyCapturedShots(
-      buildInitialRows(pts, par, pin.lat, pin.lng, userBag),
+      withReplayLies(
+        buildInitialRows(pts, par, pin.lat, pin.lng, userBag).map((r, i) =>
+          actions.shotObs[i] ? { ...r, shotResult: 'ob' as const } : r,
+        ),
+      ),
       data.previousShotCaptured,
-    ).map((r, i) => (actions.shotObs[i] ? { ...r, shotResult: 'ob' as const } : r))
+    )
   }, [
     finalState.roundState,
     data.previousShots,
