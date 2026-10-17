@@ -6,10 +6,10 @@ import type { Database } from '@oga/supabase'
 import { toBlob } from 'html-to-image'
 import {
   DEFAULT_HANDICAP,
-  haversineYards,
   inferHoleStats,
   isPuttShot,
   obCount,
+  projectShotMove,
   reviewedRowToShotFields,
   type CaptureMode,
 } from '@oga/core'
@@ -46,6 +46,7 @@ export type ShotDragUndo = {
     lat: number | null
     lng: number | null
     distanceToTarget?: number | null
+    puttDistanceFt?: number | null
   }
   label: string
 }
@@ -336,21 +337,14 @@ export function useRoundActions(input: UseRoundActionsInput): UseRoundActionsRes
     async (shotId: string, point: PlacedPoint) => {
       const shot = activeHoleShots.find((s) => s.id === shotId)
       if (!shot) return
-      // distance_to_target lives on the raw row — pull it for the undo
-      // snapshot. ExistingShot only exposes coords + numbering.
+      // distance_to_target / putt_distance_ft live on the raw row — pull them
+      // for the undo snapshot. ExistingShot only exposes coords + numbering.
       const rawShot = (shotsQuery.data ?? []).find((s) => s.id === shotId)
       const isPutt = shot.category === 'putt'
-      const newDistance =
-        !isPutt && effectivePin
-          ? Math.round(
-              haversineYards(
-                point.lat,
-                point.lng,
-                effectivePin.lat,
-                effectivePin.lng,
-              ),
-            )
-          : null
+      // A full shot gets a new distance_to_target, a putt a new length (#1096);
+      // undefined leaves the column alone (no pin, #662).
+      const proj = projectShotMove({ newStart: point, pin: effectivePin ?? null, isPutt })
+      const newDistance = isPutt ? undefined : proj.distanceToTarget
       // Stash prev for undo BEFORE the mutation — if the user immediately
       // drags again the second drag's prev should reflect the first
       // drag's end position, not what was on screen before either edit.
@@ -360,9 +354,8 @@ export function useRoundActions(input: UseRoundActionsInput): UseRoundActionsRes
         prev: {
           lat: shot.startLat,
           lng: shot.startLng,
-          distanceToTarget: isPutt
-            ? undefined
-            : rawShot?.distance_to_target ?? null,
+          distanceToTarget: newDistance === undefined ? undefined : rawShot?.distance_to_target ?? null,
+          puttDistanceFt: proj.puttDistanceFt === undefined ? undefined : rawShot?.putt_distance_ft ?? null,
         },
         label: `Shot ${shot.shotNumber} position`,
       })
@@ -372,13 +365,8 @@ export function useRoundActions(input: UseRoundActionsInput): UseRoundActionsRes
           updates: {
             start_lat: point.lat,
             start_lng: point.lng,
-            // Only rewrite distance when a pin actually resolves. Without
-            // this guard, dragging a shot on an unmapped/pin-less hole wrote
-            // distance_to_target: null and destroyed a previously valid
-            // stored distance (#662).
-            ...(!isPutt && effectivePin
-              ? { distance_to_target: newDistance }
-              : {}),
+            ...(newDistance !== undefined ? { distance_to_target: newDistance } : {}),
+            ...(proj.puttDistanceFt !== undefined ? { putt_distance_ft: proj.puttDistanceFt } : {}),
           },
         })
       } catch (err) {
@@ -435,6 +423,7 @@ export function useRoundActions(input: UseRoundActionsInput): UseRoundActionsRes
             ...(u.prev.distanceToTarget !== undefined
               ? { distance_to_target: u.prev.distanceToTarget }
               : {}),
+            ...(u.prev.puttDistanceFt !== undefined ? { putt_distance_ft: u.prev.puttDistanceFt } : {}),
           },
         })
       } else {

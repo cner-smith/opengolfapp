@@ -248,7 +248,12 @@ export function useShotEdits({ user, data, dispatchBall }: UseShotEditsInput): U
         pin: pinTarget,
         isPutt: isPuttShot(lieType),
       })
-      const updates: { start_lat: number; start_lng: number; distance_to_target?: number | null } = {
+      const updates: {
+        start_lat: number
+        start_lng: number
+        distance_to_target?: number | null
+        putt_distance_ft?: number
+      } = {
         start_lat: proj.startLat,
         start_lng: proj.startLng,
       }
@@ -256,6 +261,8 @@ export function useShotEdits({ user, data, dispatchBall }: UseShotEditsInput): U
       if (proj.distanceToTarget !== undefined) {
         updates.distance_to_target = proj.distanceToTarget
       }
+      // A moved putt's length is its new start → pin (#1096).
+      if (proj.puttDistanceFt !== undefined) updates.putt_distance_ft = proj.puttDistanceFt
       const { data: updatedRows, error } = await supabase
         .from('shots')
         .update(updates)

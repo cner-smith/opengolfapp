@@ -29,6 +29,17 @@ describe('projectShotMove', () => {
     expect(proj.distanceToTarget).toBeNull()
   })
 
+  it('a putt with a pin: putt length = start → pin in whole feet (#1096)', () => {
+    // 15 yd north of the pin on its meridian: 45 ft.
+    const near = { lat: pin.lat - (15 * 0.9144) / 6371000 * (180 / Math.PI), lng: pin.lng }
+    expect(projectShotMove({ newStart: near, pin, isPutt: true }).puttDistanceFt).toBe(45)
+  })
+
+  it('leaves the putt length unchanged (undefined) for a full shot or with no pin', () => {
+    expect(projectShotMove({ newStart: start, pin, isPutt: false }).puttDistanceFt).toBeUndefined()
+    expect(projectShotMove({ newStart: start, pin: null, isPutt: true }).puttDistanceFt).toBeUndefined()
+  })
+
   it('treats coordinate 0 as a real coordinate, not falsy', () => {
     const proj = projectShotMove({ newStart: { lat: 0, lng: 0 }, pin: { lat: 0.01, lng: 0.01 }, isPutt: false })
     expect(proj.startLat).toBe(0)
