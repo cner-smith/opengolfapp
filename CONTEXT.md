@@ -57,7 +57,7 @@ A stroke added to a hole score by the Rules, with no swing.
 A shot whose ball finished out of bounds. It costs one penalty stroke.
 
 **Replay**:
-The shot played after an OB from where the OB shot was played (stroke and distance).
+The shot played after an OB or a penalty (such as water) from where that shot was played (stroke and distance).
 _Avoid_: Re-tee (unless it is from the tee)
 
 **Drop**:
@@ -110,7 +110,7 @@ The average number of strokes a golfer in the baseline's bracket takes to hole o
 For one shot: expected strokes from its start, minus expected strokes from the next shot's start, minus one, minus its penalty strokes. It reads the next shot's start, never the finish.
 
 **SG category**:
-Which part of the game a shot counts toward: Off the tee, Approach, Around the green, or Putting. A par-3 tee shot is an Approach; a replay takes the category of the OB shot it replaces.
+Which part of the game a shot counts toward: Off the tee, Approach, Around the green, or Putting. A par-3 tee shot is an Approach; a replay takes the category of the shot it replaces.
 
 ## Clubs and practice
 
