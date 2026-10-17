@@ -4,10 +4,12 @@ import { bearingDegrees, haversineYards } from './units'
 export interface ShotMoveProjection {
   startLat: number
   startLng: number
-  /** number = set it; null = clear it (putt); undefined = leave the column unchanged (no pin). */
+  /** number = set it; null = clear it (putt); undefined = leave the column unchanged
+   *  (no pin). */
   distanceToTarget: number | null | undefined
-  /** A putt's length, start → pin in whole feet (#1096); undefined = leave it (full shot, or no pin). */
-  puttDistanceFt: number | undefined
+  /** A putt's length, start → pin in whole feet (#1096). null = clear it (over 999 ft, a
+   *  mis-mark, as reviewedPuttLengthFt); undefined = leave it (full shot, or no pin). */
+  puttDistanceFt: number | null | undefined
 }
 
 /**
@@ -33,7 +35,8 @@ export function projectShotMove(args: {
   } else {
     distanceToTarget = undefined
   }
-  const puttDistanceFt = isPutt && toPinYards !== undefined ? Math.round(toPinYards * 3) : undefined
+  const feet = isPutt && toPinYards !== undefined ? Math.round(toPinYards * 3) : undefined
+  const puttDistanceFt = feet !== undefined && feet > 999 ? null : feet
   return { startLat: newStart.lat, startLng: newStart.lng, distanceToTarget, puttDistanceFt }
 }
 

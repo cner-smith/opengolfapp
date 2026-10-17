@@ -252,7 +252,7 @@ export function useShotEdits({ user, data, dispatchBall }: UseShotEditsInput): U
         start_lat: number
         start_lng: number
         distance_to_target?: number | null
-        putt_distance_ft?: number
+        putt_distance_ft?: number | null
       } = {
         start_lat: proj.startLat,
         start_lng: proj.startLng,

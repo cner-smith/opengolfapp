@@ -354,8 +354,10 @@ export function useRoundActions(input: UseRoundActionsInput): UseRoundActionsRes
         prev: {
           lat: shot.startLat,
           lng: shot.startLng,
-          distanceToTarget: newDistance === undefined ? undefined : rawShot?.distance_to_target ?? null,
-          puttDistanceFt: proj.puttDistanceFt === undefined ? undefined : rawShot?.putt_distance_ft ?? null,
+          distanceToTarget:
+            newDistance === undefined ? undefined : rawShot?.distance_to_target ?? null,
+          puttDistanceFt:
+            proj.puttDistanceFt === undefined ? undefined : rawShot?.putt_distance_ft ?? null,
         },
         label: `Shot ${shot.shotNumber} position`,
       })
@@ -366,7 +368,9 @@ export function useRoundActions(input: UseRoundActionsInput): UseRoundActionsRes
             start_lat: point.lat,
             start_lng: point.lng,
             ...(newDistance !== undefined ? { distance_to_target: newDistance } : {}),
-            ...(proj.puttDistanceFt !== undefined ? { putt_distance_ft: proj.puttDistanceFt } : {}),
+            ...(proj.puttDistanceFt !== undefined
+              ? { putt_distance_ft: proj.puttDistanceFt }
+              : {}),
           },
         })
       } catch (err) {
@@ -423,7 +427,9 @@ export function useRoundActions(input: UseRoundActionsInput): UseRoundActionsRes
             ...(u.prev.distanceToTarget !== undefined
               ? { distance_to_target: u.prev.distanceToTarget }
               : {}),
-            ...(u.prev.puttDistanceFt !== undefined ? { putt_distance_ft: u.prev.puttDistanceFt } : {}),
+            ...(u.prev.puttDistanceFt !== undefined
+              ? { putt_distance_ft: u.prev.puttDistanceFt }
+              : {}),
           },
         })
       } else {
