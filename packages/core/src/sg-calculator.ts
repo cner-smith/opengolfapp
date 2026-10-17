@@ -137,14 +137,14 @@ export function perShotSG(
   handicap: number,
 ): (ShotSG | null)[] {
   // Each shot's start: its category and the expected strokes from there. The
-  // replay after an OB keeps the OB shot's category (#1094) — a re-tee is a
-  // tee shot whatever its shot number or inferred lie.
+  // replay after an OB or a penalty (water) keeps that shot's category (#1094,
+  // #1097) — a re-tee is a tee shot whatever its shot number or inferred lie.
   const starts: { category: ShotCategory; expected: number | null }[] = []
   for (let i = 0; i < shots.length; i++) {
     const shot = shots[i]!
     const prev = shots[i - 1]
     const category =
-      prev?.ob && isReplayOf(prev, shot)
+      (prev?.ob || prev?.penalty) && isReplayOf(prev, shot)
         ? starts[i - 1]!.category
         : getShotCategory(shot, shot.par, shot.shotNumber)
     starts.push({
