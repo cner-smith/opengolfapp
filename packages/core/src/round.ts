@@ -22,6 +22,7 @@ import {
   SHOT_START_LINE_LABELS,
 } from './constants'
 import { formatDistance, formatPuttDistance, haversineYards } from './units'
+import { REPLAY_YARDS } from './sg-calculator'
 import type {
   BreakDirection,
   BreakDirectionHorizontal,
@@ -415,6 +416,27 @@ export function buildInitialRows(
     })
   })
   return rows
+}
+
+// A replay after an OB or a penalty (stroke and distance) is played from that
+// shot's spot, so it keeps that shot's lie. buildInitialRows infers lie from
+// distance and shot number, which reads a re-tee as rough (#1098). Run after
+// the OB / penalty flags are on the rows; same 10 yd test SG uses (#1094).
+export function withReplayLies(rows: ReviewedShotRow[]): ReviewedShotRow[] {
+  const out: ReviewedShotRow[] = []
+  for (const row of rows) {
+    const prev = out[out.length - 1]
+    const replay =
+      prev &&
+      (prev.shotResult === 'ob' || prev.penalty) &&
+      prev.startLat != null &&
+      prev.startLng != null &&
+      row.startLat != null &&
+      row.startLng != null &&
+      haversineYards(prev.startLat, prev.startLng, row.startLat, row.startLng) <= REPLAY_YARDS
+    out.push(replay ? { ...row, lieType: prev.lieType } : row)
+  }
+  return out
 }
 
 // The `shots` columns the end-of-hole review owns. Derived from the insert
