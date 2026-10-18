@@ -180,6 +180,25 @@ describe('stored rows → strokes gained', () => {
     expect(sg.total).toBeCloseTo(-0.57, 2)
   })
 
+  it('par 4, water off the tee, re-tee from the same spot, double bogey 6', () => {
+    // Stroke and distance after water, as after OB: the re-tee is a tee shot.
+    // Water drive ends at the re-tee (5.43): 5.43 − 5.43 − 1 − 1 (penalty) = −2
+    // Re-tee 400 yd (5.43) → 150 yd (3.95): 0.48. off tee −1.52
+    // approach 0.61, putting 0.34, total −0.57 (= 5.43 − 6)
+    // (Scored as an approach, the re-tee would read off tee −2.10, approach 1.19.)
+    const sg = storedSG(4, 6, [
+      { lie_type: 'tee', distance_to_target: 400, penalty: true },
+      { lie_type: 'tee', distance_to_target: 400 },
+      { lie_type: 'fairway', distance_to_target: 150 },
+      { lie_type: 'green', club: 'putter', putt_distance_ft: 30 },
+      { lie_type: 'green', club: 'putter', putt_distance_ft: 3, putt_result: 'made' },
+    ])
+    expect(sg.offTee).toBeCloseTo(-1.52, 2)
+    expect(sg.approach).toBeCloseTo(0.61, 2)
+    expect(sg.putting).toBeCloseTo(0.34, 2)
+    expect(sg.total).toBeCloseTo(-0.57, 2)
+  })
+
   it('par 4, OB, re-tee OB, then a casual drop at 121 yd, 7 (two penalty strokes)', () => {
     // Tee 327 yd: 2.79 + 0.0066·327 = 4.9482
     // Drop, 121 yd: APPROACH[15] 100→3.54, 125→3.74 → 3.54 + (21/25)·0.20 = 3.708

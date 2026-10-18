@@ -55,6 +55,7 @@ const stamp = (b: { offTee: number; approach: number; aroundGreen: number; putti
 // Engines stored SG may have been computed with, newest first: the commit
 // before each baseline change. Each is @oga/core's src extracted from git.
 const PREVIOUS = [
+  { label: 'pre-#1097', rev: '61c34e78' },
   { label: 'pre-#1094', rev: '484cb9b5' },
   { label: 'pre-#998', rev: 'a19a508^' },
   { label: 'pre-#632', rev: 'abb25c3^' },

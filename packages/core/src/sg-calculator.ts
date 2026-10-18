@@ -101,24 +101,24 @@ function holedOut(shot: Shot): boolean {
   return shot.lieType === 'green' && shot.puttResult === 'made'
 }
 
-// A shot played from (within this of) the spot an OB shot was played from is
-// the stroke-and-distance replay. A fixed radius: a web re-tee tap or a GPS
-// mark lands well inside it, a casual drop up the hole lands far outside. Only
-// the row straight after the OB is checked — the save flows write the replay
-// next.
-const OB_REPLAY_YARDS = 10
+// A shot played from (within this of) the spot an OB or penalty shot was
+// played from is the stroke-and-distance replay. A fixed radius: a web re-tee
+// tap or a GPS mark lands well inside it, a casual drop up the hole lands far
+// outside. Only the row straight after is checked — the save flows write the
+// replay next.
+const REPLAY_YARDS = 10
 
-function isReplayOf(ob: Shot, shot: Shot): boolean {
+function isReplayOf(penalized: Shot, shot: Shot): boolean {
   if (
-    ob.startLat !== undefined &&
-    ob.startLng !== undefined &&
+    penalized.startLat !== undefined &&
+    penalized.startLng !== undefined &&
     shot.startLat !== undefined &&
     shot.startLng !== undefined
   ) {
-    return haversineYards(ob.startLat, ob.startLng, shot.startLat, shot.startLng) <= OB_REPLAY_YARDS
+    return haversineYards(penalized.startLat, penalized.startLng, shot.startLat, shot.startLng) <= REPLAY_YARDS
   }
-  if (ob.distanceToTarget !== undefined && shot.distanceToTarget !== undefined) {
-    return Math.abs(ob.distanceToTarget - shot.distanceToTarget) <= OB_REPLAY_YARDS
+  if (penalized.distanceToTarget !== undefined && shot.distanceToTarget !== undefined) {
+    return Math.abs(penalized.distanceToTarget - shot.distanceToTarget) <= REPLAY_YARDS
   }
   return false
 }
@@ -137,14 +137,14 @@ export function perShotSG(
   handicap: number,
 ): (ShotSG | null)[] {
   // Each shot's start: its category and the expected strokes from there. The
-  // replay after an OB keeps the OB shot's category (#1094) — a re-tee is a
-  // tee shot whatever its shot number or inferred lie.
+  // replay after an OB or a penalty (water) keeps that shot's category (#1094,
+  // #1097) — a re-tee is a tee shot whatever its shot number or inferred lie.
   const starts: { category: ShotCategory; expected: number | null }[] = []
   for (let i = 0; i < shots.length; i++) {
     const shot = shots[i]!
     const prev = shots[i - 1]
     const category =
-      prev?.ob && isReplayOf(prev, shot)
+      (prev?.ob || prev?.penalty) && isReplayOf(prev, shot)
         ? starts[i - 1]!.category
         : getShotCategory(shot, shot.par, shot.shotNumber)
     starts.push({
