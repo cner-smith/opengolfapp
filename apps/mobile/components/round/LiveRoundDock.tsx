@@ -287,11 +287,25 @@ function voiceLine(p: LiveRoundDockProps): ReactNode {
             </Pressable>
           }
         >
-          Your aim is your start line — drag it to adjust.
+          Aim where you want it to finish — drag to adjust.
         </Voice>
       )
     }
-    return hitLine(p)
+    // The last shot's distance (#1087) outranks the aim helper, which then
+    // shows where there's no last shot: every tee.
+    const hit = hitLine(p)
+    if (hit) return hit
+    // #1076: early on only — while the club in hand has no pattern yet, so
+    // the line fades out club by club.
+    const inHand = p.wheel.rows.find((r) => r.club === p.wheel.selected) ?? p.wheel.rows[0]
+    if (!inHand || inHand.sparse) {
+      return (
+        <Voice>
+          Aim where you want it to <Em>finish</Em>. That’s what builds your pattern.
+        </Voice>
+      )
+    }
+    return null
   }
   if (p.roundState === 'PLACE_BALL' && !p.isRevisitingPlayedHole) {
     return hitLine(p) ?? <Voice>Mark your ball, then drag to fine-tune.</Voice>

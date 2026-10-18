@@ -27,21 +27,23 @@ export function SGBreakdown({ rounds }: { rounds: SGRoundLike[] }) {
   )
 }
 
-function SGBar({
+export function SGBar({
   label,
   value,
   max,
+  bold,
 }: {
   label: string
   value: number
   max: number
+  bold?: boolean
 }) {
   const pct = Math.min(Math.abs(value) / max, 1) * 50
   const isPositive = value > 0
   const color = value > 0 ? '#1F3D2C' : value < 0 ? '#A33A2A' : '#8A8B7E'
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-      <Text style={[TYPE.body, { color: '#1C211C', fontSize: 13, width: 100 }]}>
+      <Text style={[bold ? TYPE.bodyBold : TYPE.body, { color: '#1C211C', fontSize: 13, width: 100 }]}>
         {label}
       </Text>
       <View style={{ flex: 1, height: 8, position: 'relative' }}>
