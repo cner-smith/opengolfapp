@@ -67,6 +67,8 @@ export interface UseShotActionsResult extends UseShotEditsResult, UseRoundEndRes
   persistRoundPin: (loc: LatLng) => Promise<void>
   clearRoundPin: () => Promise<void>
   markBallHere: (opts?: { toGreen?: boolean }) => Promise<void>
+  /** The shot the last Mark measured: its start → the marked spot (#1087). */
+  lastHit: { hole: number; shot: number; yards: number } | null
   notOnGreen: () => void
   confirmAim: () => void
   skipAim: () => void
@@ -100,6 +102,7 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
     onAdvanceHole,
     onRoundCompleted,
   } = input
+  const [lastHit, setLastHit] = useState<UseShotActionsResult['lastHit']>(null)
   const [saving, setSaving] = useState(false)
   // Ref-based in-flight gate. The `saving` state setter is async, so
   // a fast double-tap on the Save button can fire `persistShot` twice
@@ -461,6 +464,7 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
       return
     }
     const ballSnapshot = { lat: source.lat, lng: source.lng }
+    if (last) setLastHit({ hole: holeNumber, shot: previousShots.length, yards: distanceYards(last, ballSnapshot) })
     // Marking a ball IS engaging the live append flow for this hole visit —
     // keeps the aids on across the natural shot-to-shot loop even after the
     // hole gains prior shots (otherwise shot 2+ on a hole would read as a
@@ -695,6 +699,7 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
     persistRoundPin,
     clearRoundPin,
     markBallHere,
+    lastHit,
     notOnGreen,
     confirmAim,
     skipAim,
