@@ -29,6 +29,29 @@ describe('projectShotMove', () => {
     expect(proj.distanceToTarget).toBeNull()
   })
 
+  // `yards` south of the pin, on its meridian.
+  const yardsSouth = (yards: number) => ({
+    lat: pin.lat - ((yards * 0.9144) / 6371000) * (180 / Math.PI),
+    lng: pin.lng,
+  })
+
+  it('a putt with a pin: putt length = start → pin in whole feet (#1096)', () => {
+    // 15.6 yd = 46.8 ft → 47 (rounding the yards first would give 48).
+    const proj = projectShotMove({ newStart: yardsSouth(15.6), pin, isPutt: true })
+    expect(proj.puttDistanceFt).toBe(47)
+  })
+
+  it('a putt over 999 ft from the pin is a mis-mark: the length is cleared', () => {
+    const proj = projectShotMove({ newStart: yardsSouth(334), pin, isPutt: true })
+    expect(proj.puttDistanceFt).toBeNull()
+  })
+
+  it('leaves the putt length unchanged (undefined) for a full shot or with no pin', () => {
+    expect(projectShotMove({ newStart: start, pin, isPutt: false }).puttDistanceFt).toBeUndefined()
+    const noPin = projectShotMove({ newStart: start, pin: null, isPutt: true })
+    expect(noPin.puttDistanceFt).toBeUndefined()
+  })
+
   it('treats coordinate 0 as a real coordinate, not falsy', () => {
     const proj = projectShotMove({ newStart: { lat: 0, lng: 0 }, pin: { lat: 0.01, lng: 0.01 }, isPutt: false })
     expect(proj.startLat).toBe(0)

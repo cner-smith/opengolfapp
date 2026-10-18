@@ -408,6 +408,11 @@ export function PastRoundMap({
       ...(proj.distanceToTarget !== undefined
         ? { distance_to_target: proj.distanceToTarget }
         : {}),
+      // A moved putt's length is its new start → pin (#1096). Only on a move:
+      // an aim-only save keeps a length the player chose in the review.
+      ...(next.start !== undefined && proj.puttDistanceFt !== undefined
+        ? { putt_distance_ft: proj.puttDistanceFt }
+        : {}),
     }
     if (shot.id) {
       const { data, error } = await supabase
