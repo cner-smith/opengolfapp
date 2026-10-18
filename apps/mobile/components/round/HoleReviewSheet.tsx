@@ -24,6 +24,7 @@ import {
   isPuttShot,
   lieSlopeLabel,
   obCount,
+  withReplayLies,
   PUTTING_BASELINES,
   reviewedPuttLengthFt,
   type BreakDirectionHorizontal,
@@ -215,9 +216,16 @@ export function HoleReviewSheet({
       const putt = Number(isPuttShot(nextRow.lieType)) - Number(isPuttShot(prevRow.lieType))
       if (putt !== 0) setPutts((p) => Math.max(0, p + putt))
     }
+    const penalized =
+      (nextRow.shotResult === 'ob' && prevRow?.shotResult !== 'ob') ||
+      (!!nextRow.penalty && !prevRow?.penalty)
     setRows((prev) => {
       const copy = prev.slice()
       copy[idx] = { ...nextRow, _shotId: prev[idx]?._shotId }
+      // Flagged OB / penalty here: a re-tee after it keeps its lie (#1098).
+      if (penalized && copy[idx + 1]) {
+        copy[idx + 1] = withReplayLies([copy[idx]!, copy[idx + 1]!])[1]!
+      }
       return copy
     })
   }

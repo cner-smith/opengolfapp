@@ -7,6 +7,7 @@ import {
   horizontalBreakFromAim,
   isPuttShot,
   obCount,
+  withReplayLies,
   type Club,
   type ReviewedShotRow,
 } from '@oga/core'
@@ -159,6 +160,8 @@ export function HoleReviewSheet({
         }
       })
     }
+    // A re-tee keeps the OB / penalty shot's lie (#1098): reads the flags seeded above.
+    seeded = withReplayLies(seeded)
     setRows(seeded)
     // Struck rows + penalty strokes. obCount reads the `shotResult: 'ob'`
     // the seed above applied, so this is 0 only when the hole has no stored
@@ -328,6 +331,9 @@ export function HoleReviewSheet({
                 const putt =
                   Number(isPuttShot(next.lieType)) - Number(isPuttShot(row.lieType))
                 if (putt !== 0) setPutts((p) => Math.max(0, p + putt))
+                const penalized =
+                  (next.shotResult === 'ob' && row.shotResult !== 'ob') ||
+                  (!!next.penalty && !row.penalty)
                 setRows((prev) => {
                   const copy = prev.slice()
                   copy[idx] = next
@@ -359,6 +365,10 @@ export function HoleReviewSheet({
                       endLng: next.startLng,
                       distanceYards: priorDist,
                     }
+                  }
+                  // Flagged OB / penalty here: a re-tee after it keeps its lie (#1098).
+                  if (penalized && copy[idx + 1]) {
+                    copy[idx + 1] = withReplayLies([next, copy[idx + 1]!])[1]!
                   }
                   return copy
                 })

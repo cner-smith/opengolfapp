@@ -106,7 +106,7 @@ function holedOut(shot: Shot): boolean {
 // tap or a GPS mark lands well inside it, a casual drop up the hole lands far
 // outside. Only the row straight after is checked — the save flows write the
 // replay next.
-const REPLAY_YARDS = 10
+export const REPLAY_YARDS = 10
 
 function isReplayOf(penalized: Shot, shot: Shot): boolean {
   if (

@@ -17,6 +17,7 @@ import {
   partialRoundLabel,
   summarizePuttParts,
   summarizeShotParts,
+  withReplayLies,
   type PlacedPoint,
   type ShotSummaryFields,
 } from '../round'
@@ -123,6 +124,57 @@ describe('buildInitialRows', () => {
     expect(rows).toHaveLength(1)
     expect(rows[0]!.isLastShot).toBe(true)
     expect(rows[0]!.endLat).toBe(PIN)
+  })
+})
+
+describe('withReplayLies', () => {
+  // Shot 1 from the tee; `firstResult` marks it; shot 2 is played `apart` yd
+  // up the hole from the same line; then an approach from 220 yd.
+  const hole = (apart: number, firstResult: { ob?: boolean; penalty?: boolean }) =>
+    withReplayLies(
+      buildInitialRows(
+        [
+          TEE,
+          { lat: offsetLatYards(apart), lng: TEE.lng },
+          { lat: offsetLatYards(220), lng: TEE.lng },
+        ],
+        4,
+        PIN,
+        TEE.lng,
+      ).map((r, i) =>
+        i === 0
+          ? {
+              ...r,
+              ...(firstResult.ob ? { shotResult: 'ob' as const } : {}),
+              ...(firstResult.penalty ? { penalty: true } : {}),
+            }
+          : r,
+      ),
+    )
+
+  it('a re-tee after OB, 9 yd from the OB spot, keeps the tee lie', () => {
+    expect(hole(9, { ob: true }).map((r) => r.lieType)).toEqual(['tee', 'tee', 'rough'])
+  })
+
+  it('a re-tee after a water penalty keeps the tee lie', () => {
+    expect(hole(0, { penalty: true })[1]!.lieType).toBe('tee')
+  })
+
+  it('a shot 11 yd from the OB spot is a drop: its own lie', () => {
+    expect(hole(11, { ob: true })[1]!.lieType).toBe('rough')
+  })
+
+  it('no OB or penalty: rows unchanged', () => {
+    expect(hole(0, {})[1]!.lieType).toBe('rough')
+  })
+
+  it('a second OB from the re-tee: the next re-tee is still a tee shot', () => {
+    const points = [TEE, TEE, TEE, { lat: offsetLatYards(220), lng: TEE.lng }]
+    const rows = buildInitialRows(points, 4, PIN, TEE.lng)
+    const out = withReplayLies(
+      rows.map((r, i) => (i < 2 ? { ...r, shotResult: 'ob' as const } : r)),
+    )
+    expect(out.map((r) => r.lieType)).toEqual(['tee', 'tee', 'tee', 'rough'])
   })
 })
 
