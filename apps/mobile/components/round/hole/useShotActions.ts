@@ -67,6 +67,9 @@ export interface UseShotActionsResult extends UseShotEditsResult, UseRoundEndRes
   persistRoundPin: (loc: LatLng) => Promise<void>
   clearRoundPin: () => Promise<void>
   markBallHere: (opts?: { toGreen?: boolean }) => Promise<void>
+  /** The shot the last Mark measured (its start → the marked spot, #1087), while the
+   *  next shot still starts at that spot; null after a delete, re-place, drag or hole change. */
+  lastHit: { shot: number; yards: number } | null
   notOnGreen: () => void
   confirmAim: () => void
   skipAim: () => void
@@ -100,6 +103,8 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
     onAdvanceHole,
     onRoundCompleted,
   } = input
+  type Mark = { hole: number; shot: number; yards: number; at: LatLng }
+  const [mark, setMark] = useState<Mark | null>(null)
   const [saving, setSaving] = useState(false)
   // Ref-based in-flight gate. The `saving` state setter is async, so
   // a fast double-tap on the Save button can fire `persistShot` twice
@@ -461,6 +466,12 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
       return
     }
     const ballSnapshot = { lat: source.lat, lng: source.lng }
+    // A shot that started within putting range of the pin was a putt: no line for it.
+    const pin = roundPin ?? storedPin
+    if (last && !(pin && distanceYards(last, pin) <= PUTTING_RADIUS_YARDS)) {
+      const yards = distanceYards(last, ballSnapshot)
+      setMark({ hole: holeNumber, shot: previousShots.length, yards, at: ballSnapshot })
+    } else setMark(null)
     // Marking a ball IS engaging the live append flow for this hole visit —
     // keeps the aids on across the natural shot-to-shot loop even after the
     // hole gains prior shots (otherwise shot 2+ on a hole would read as a
@@ -686,6 +697,16 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
     }
   }
 
+  // The marked spot is still where the next shot starts: saved (just track, or
+  // after the aim) or held by the ball (aiming, not yet saved).
+  const at = (p: LatLng | null | undefined, m: Mark) => !!p && p.lat === m.at.lat && p.lng === m.at.lng
+  const lastHit =
+    mark &&
+    mark.hole === holeNumber &&
+    (at(previousShots[mark.shot], mark) || (previousShots.length === mark.shot && at(ball, mark)))
+      ? { shot: mark.shot, yards: mark.yards }
+      : null
+
   return {
     ...edits,
     ...roundEnd,
@@ -695,6 +716,7 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
     persistRoundPin,
     clearRoundPin,
     markBallHere,
+    lastHit,
     notOnGreen,
     confirmAim,
     skipAim,

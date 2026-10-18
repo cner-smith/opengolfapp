@@ -27,6 +27,8 @@ import type { RoundState } from './hole/types'
 import type { OffscreenArrow } from './HoleMap.types'
 
 export interface LiveRoundDockProps {
+  /** The shot the last Mark measured (#1087). */
+  lastHit: { shot: number; yards: number } | null
   roundState: RoundState
   pinPlacementOpen: boolean
   hasPin: boolean
@@ -288,12 +290,27 @@ function voiceLine(p: LiveRoundDockProps): ReactNode {
         </Voice>
       )
     }
-    return null
+    return hitLine(p)
   }
   if (p.roundState === 'PLACE_BALL' && !p.isRevisitingPlayedHole) {
-    return <Voice>Mark your ball, then drag to fine-tune.</Voice>
+    return hitLine(p) ?? <Voice>Mark your ball, then drag to fine-tune.</Voice>
   }
   return null
+}
+
+// "Shot 1 went 164 yd." after a Mark (#1087): it takes the place of the
+// generic guidance until the next Mark. The OB question and hints outrank it.
+function hitLine(p: LiveRoundDockProps): ReactNode {
+  return p.lastHit ? <HitLine {...p.lastHit} /> : null
+}
+
+function HitLine({ shot, yards }: { shot: number; yards: number }) {
+  const { toDisplay } = useUnits()
+  return (
+    <Voice>
+      Shot {shot} went <Em>{toDisplay(Math.round(yards))}</Em>.
+    </Voice>
+  )
 }
 
 function bottomRow(p: LiveRoundDockProps): ReactNode[] {

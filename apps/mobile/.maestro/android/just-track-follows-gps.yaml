@@ -29,10 +29,17 @@ onFlowComplete:
     file: subflows/gps.yaml
     env: { LAT: "43.84906", LNG: "-87.7330" }
 - tapOn: "Mark my ball at my GPS spot"
+# Each Mark says how far the last shot went (#1087).
+- extendedWaitUntil:
+    visible: "Shot 1 went 16[0-9] yd\\."
+    timeout: 5000
 - runFlow:
     file: subflows/gps.yaml
     env: { LAT: "43.84869", LNG: "-87.73223" }
 - tapOn: "Mark my ball at my GPS spot"
+- extendedWaitUntil:
+    visible: "Shot 2 went [0-9]+ yd\\."
+    timeout: 5000
 - tapOn: "Finish hole"
 - runFlow: subflows/skip-tips.yaml
 - assertVisible: "Shot 3"
