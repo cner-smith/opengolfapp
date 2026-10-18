@@ -28,7 +28,7 @@ const pin: CoachStep = {
 const wheel: CoachStep = {
   id: 'live.wheel',
   title: 'Pattern club',
-  body: 'The club the pattern shows. Tap to change it. The number is your typical distance with it — where your shots finished. Auto suggests one for this distance; a club you pick lasts one shot. You fill in the clubs you hit when you finish the hole.',
+  body: 'The club the pattern shows. Tap to change it. The number is your typical distance with it — where your shots finished. Auto suggests one for this distance; a club you pick lasts one shot. You can fix the clubs you hit when you finish the hole.',
 }
 const recenter: CoachStep = {
   id: 'live.recenter',
