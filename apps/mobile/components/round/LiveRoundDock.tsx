@@ -360,11 +360,43 @@ const VIEW_H = 158
 const CENTRE_H = 60
 const SPRING = { stiffness: 420, damping: 32, mass: 1 }
 
+// The club whose pattern the map shows (#1088). A small key at rest — the
+// live round never saves this club (the review fills clubs in), so it
+// shouldn't read as a step — that opens the wheel; any pick closes it.
+function ClubWheel(props: WheelProps) {
+  const { toDisplay } = useUnits()
+  const [open, setOpen] = useState(false)
+  if (open) return <ClubWheelCard {...props} onDone={() => setOpen(false)} />
+  const row = props.rows.find((r) => r.club === props.selected) ?? props.rows[0]
+  if (!row) return null
+  const isAuto = row.club === props.auto
+  return (
+    <Key
+      accessibilityLabel={`Pattern club: ${row.name}${isAuto ? ', auto pick' : ''}. Change club`}
+      onPress={() => setOpen(true)}
+      faceStyle={{ minHeight: 52, flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 10 }}
+    >
+      <Text allowFontScaling={false} style={[TYPE.serif, { fontSize: 26, color: P.ink }]}>{row.label}</Text>
+      <View style={{ flex: 1 }}>
+        <Text allowFontScaling={false} numberOfLines={1} style={[TYPE.body, { fontSize: 12, color: P.inkDim }]}>
+          {isAuto ? 'Auto' : 'Just this shot'}
+        </Text>
+        {row.typicalYards != null && (
+          <Text allowFontScaling={false} numberOfLines={1} style={[TYPE.body, { fontSize: 13, color: P.ink }]}>
+            {toDisplay(row.typicalYards)}
+          </Text>
+        )}
+      </View>
+    </Key>
+  )
+}
+
 // Club wheel (§4, settle §15): the whole card is one vertical pan target
 // that snaps row to row; a tap picks the row under it. The pick commits on
-// release (state first, spring after). Opens on the auto pick every shot; a
-// manual pick lasts one shot and shows "Back to auto" above the card.
-function ClubWheel({ rows, selected, auto, onPick }: WheelProps) {
+// release (state first, spring after), then the wheel closes back to the key.
+// Opens on the auto pick every shot; a manual pick lasts one shot and shows
+// "Back to auto" above the card.
+function ClubWheelCard({ rows, selected, auto, onPick, onDone }: WheelProps & { onDone: () => void }) {
   const { toDisplay, unit } = useUnits()
   const sel = Math.max(0, rows.findIndex((r) => r.club === selected))
   const autoIdx = rows.findIndex((r) => r.club === auto)
@@ -392,6 +424,7 @@ function ClubWheel({ rows, selected, auto, onPick }: WheelProps) {
     target.current = i
     const row = rows[i]
     if (row && i !== sel) onPick(row.club)
+    onDone()
   }
   const pan = Gesture.Pan()
     .activeOffsetY([-6, 6])
@@ -442,7 +475,10 @@ function ClubWheel({ rows, selected, auto, onPick }: WheelProps) {
       {manual && auto && (
         <Key
           accessibilityLabel="Back to the auto club"
-          onPress={() => onPick(auto)}
+          onPress={() => {
+            onPick(auto)
+            onDone()
+          }}
           style={{ marginTop: 7, marginHorizontal: 7, marginBottom: 6 }}
           faceStyle={{ minHeight: 44, flexDirection: 'row', gap: 5, paddingHorizontal: 4 }}
         >
