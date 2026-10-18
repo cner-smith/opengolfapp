@@ -3,7 +3,6 @@ import Mapbox from '@rnmapbox/maps'
 import type { LatLng, OffscreenArrow } from '../HoleMap.types'
 import { TYPE } from '../../../lib/typography'
 import { Key } from '../../paper/Paper'
-import { Icon } from '../../paper/icons'
 import { FONT_CAP, P } from '../../paper/tokens'
 
 function toCoord(l: LatLng): [number, number] {
@@ -42,17 +41,23 @@ export function offscreenArrow(
   return null
 }
 
-// "Went OB?" on the most recent shot's marker (#895 B2, #611 §7): a raised
-// key with a brick edge whose bottom sits 11 above the marker's grab disc.
+// "OB?" on the most recent shot's marker (#895 B2, #611 §7): a small raised
+// key, brick text on the ink edge, whose bottom sits 11 above the marker's
+// grab disc. Kept small so it asks without shouting. Android ignores touches
+// outside a parent's bounds, so the wrapper's padding is what makes room for
+// the hitSlop: the touch area stays about 55 × 64 dp.
 // Shown while that marker is on-screen; the dock's voice line asks when it
 // isn't. box-none keeps the gap under it tappable for the map.
 export function ObCallout({
   at,
   onPress,
+  busy,
   onWidth,
 }: {
   at: LatLng
   onPress: () => void
+  /** The OB request is in flight (#1112). */
+  busy?: boolean
   onWidth: (width: number) => void
 }) {
   return (
@@ -64,18 +69,20 @@ export function ObCallout({
       allowOverlapWithPuck
       pointerEvents="box-none"
     >
-      <View pointerEvents="box-none" style={{ paddingBottom: 33 }} onLayout={(e) => onWidth(e.nativeEvent.layout.width)}>
+      <View
+        pointerEvents="box-none"
+        style={{ paddingTop: 10, paddingHorizontal: 10, paddingBottom: 33 }}
+        onLayout={(e) => onWidth(e.nativeEvent.layout.width)}
+      >
         <Key
           accessibilityLabel="Did this shot go out of bounds?"
           onPress={onPress}
-          edge={P.neg}
-          borderWidth={1.5}
-          hitSlop={6}
+          disabled={busy}
+          hitSlop={10}
           pressRetentionOffset={MARKER_PRESS_RETENTION}
-          faceStyle={{ minHeight: 44, flexDirection: 'row', gap: 8, paddingLeft: 12, paddingRight: 14 }}
+          faceStyle={{ minHeight: 32, paddingHorizontal: 9 }}
         >
-          <Icon.warn size={17} color={P.neg} />
-          <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.bodyBold, { fontSize: 15, color: P.neg }]}>Went OB?</Text>
+          <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { fontSize: 13, color: P.neg }]}>{busy ? 'Saving…' : 'OB?'}</Text>
         </Key>
       </View>
     </Mapbox.MarkerView>

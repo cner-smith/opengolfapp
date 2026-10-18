@@ -1,6 +1,15 @@
 // Recompute the strokes gained stamped on completed rounds (rounds.sg_* and
 // hole_scores.sg_*) with the current engine — after a baseline change such as
-// #632 (around-green seam) or #998 (tee lines + approach table to 600 yd).
+// #632 (around-green seam) or #998 (tee lines + approach table to 600 yd), or an
+// engine fix such as #1094 (OB re-tee / drop).
+//
+// Also repairs putt lengths the end-of-hole review saved as how far the putt
+// rolled (#1092): a putt's putt_distance_ft is rewritten to start → pin only
+// when it carries that bug's signature — it equals the rolled distance (start →
+// next shot's start, with the review's rounding, ±1 ft) and differs from start →
+// pin. Typed or imported lengths don't match and are left alone. The stored SG
+// is checked against the ORIGINAL rows; the new SG is computed from the repaired
+// ones.
 // Mirrors the SG step of the finish flow (apps/mobile/lib/completeRound.ts):
 // per-round par overrides, the player's handicap (DEFAULT_HANDICAP when unset).
 // Rounds don't record the handicap SG was first computed with, so the current
@@ -23,7 +32,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
-import { DEFAULT_HANDICAP, computeRoundSG } from '@oga/core'
+import { DEFAULT_HANDICAP, computeRoundSG, haversineYards } from '@oga/core'
 import type { Database } from '@oga/supabase'
 import { supabase } from './crawl/client'
 
@@ -46,6 +55,8 @@ const stamp = (b: { offTee: number; approach: number; aroundGreen: number; putti
 // Engines stored SG may have been computed with, newest first: the commit
 // before each baseline change. Each is @oga/core's src extracted from git.
 const PREVIOUS = [
+  { label: 'pre-#1097', rev: '61c34e78' },
+  { label: 'pre-#1094', rev: '484cb9b5' },
   { label: 'pre-#998', rev: 'a19a508^' },
   { label: 'pre-#632', rev: 'abb25c3^' },
 ]
@@ -62,6 +73,37 @@ async function loadEngines(): Promise<Engine[]> {
   )
 }
 
+type PuttFix = { id: string; old: number; next: number }
+
+// The review rounded twice: round1 yards (inferShot), then whole feet.
+const reviewFeet = (yards: number) => Math.round((Math.round(yards * 10) / 10) * 3)
+
+function repairPutts(shots: ShotRow[], holeScores: HoleScoreRow[], holes: HoleRow[]) {
+  const fixes: PuttFix[] = []
+  const byId = new Map(shots.map((s) => [s.id, s]))
+  for (const hs of holeScores) {
+    const hole = holes.find((h) => h.id === hs.hole_id)
+    const pinLat = hs.pin_lat ?? hole?.pin_lat
+    const pinLng = hs.pin_lng ?? hole?.pin_lng
+    if (pinLat == null || pinLng == null) continue
+    const own = shots.filter((s) => s.hole_score_id === hs.id).sort((a, b) => a.shot_number - b.shot_number)
+    own.forEach((s, i) => {
+      const next = own[i + 1]
+      if (!next || s.lie_type !== 'green' || s.club !== 'putter' || s.putt_distance_ft == null) return
+      if (s.start_lat == null || s.start_lng == null || next.start_lat == null || next.start_lng == null) return
+      const stored = Number(s.putt_distance_ft)
+      const rolled = reviewFeet(haversineYards(s.start_lat, s.start_lng, next.start_lat, next.start_lng))
+      const fromHole = reviewFeet(haversineYards(s.start_lat, s.start_lng, pinLat, pinLng))
+      // Over 999 ft from the hole is corrupt coordinates, not a putt: leave the
+      // row (and so the round's SG) alone rather than null its length.
+      if (fromHole > 999 || Math.abs(stored - rolled) > 1 || fromHole === stored) return
+      fixes.push({ id: s.id, old: stored, next: fromHole })
+      byId.set(s.id, { ...s, putt_distance_ft: fromHole })
+    })
+  }
+  return { fixes, shots: shots.map((s) => byId.get(s.id)!) }
+}
+
 async function main() {
   console.log(`target ${host} · ${apply ? 'APPLY' : 'dry run'}`)
   const engines = await loadEngines()
@@ -74,6 +116,7 @@ async function main() {
 
   const changes: unknown[] = []
   const skipped = { noShots: 0, notReproduced: [] as unknown[], holesNotReproduced: 0 }
+  let puttFixCount = 0
   for (const r of rounds ?? []) {
     const [holesRes, hsRes, profRes] = await Promise.all([
       supabase.from('holes').select('*').eq('course_id', r.course_id),
@@ -101,20 +144,55 @@ async function main() {
       const was = stamp(b.round)
       return (Object.keys(was) as (keyof typeof was)[]).every((k) => was[k] === r[k])
     }
-    const found = engines.map((e) => ({ e, out: e.computeRoundSG(input) })).find(({ out }) => matches(out))
+    const runs = engines.map((e) => ({ e, out: e.computeRoundSG(input) }))
+    // Strict: the round's stored SG reproduces to the cent. Else, holes-only:
+    // every hole with stored SG reproduces (a shot synced after the finish onto
+    // a never-stamped hole moves the round total but not any stamped hole); the
+    // round total then moves by the stamped holes' changes alone.
+    const stamped = holeScores.filter((h) => SG.every((k) => h[k] != null))
+    const holesFit = (out: ReturnType<typeof computeRoundSG>) =>
+      stamped.length > 0 &&
+      stamped.every((h) => {
+        const sg = out.perHoleScore[h.id]
+        if (!sg) return false
+        const { sg_total: _t, ...old } = stamp(sg)
+        return SG.every((k) => Number(h[k]) === old[k])
+      })
+    const strict = runs.find(({ out }) => matches(out))
+    const found = strict ?? runs.find(({ out }) => holesFit(out))
     if (!found) {
       skipped.notReproduced.push({ round: r.id, stored: r })
       continue
     }
     const before = found.out
-    const result = computeRoundSG(input)
-    const next = stamp(result.round)
+    // Putt repairs are written only for rounds whose SG we restamp, so the two
+    // never disagree; rounds left alone are reported above and keep both.
+    const repaired = repairPutts(shots, holeScores, holes)
+    const result = computeRoundSG({ ...input, shots: repaired.shots })
+    const stampedIds = new Set(stamped.map((h) => h.id))
+    const roundDelta = (key: (typeof SG)[number], field: 'offTee' | 'approach' | 'aroundGreen' | 'putting') =>
+      Object.entries(result.perHoleScore)
+        .filter(([id]) => stampedIds.has(id))
+        .reduce((sum, [id, sg]) => sum + sg[field] - before.perHoleScore[id]![field], Number(r[key]))
+    const next = strict
+      ? stamp(result.round)
+      : stamp({
+          offTee: roundDelta('sg_off_tee', 'offTee'),
+          approach: roundDelta('sg_approach', 'approach'),
+          aroundGreen: roundDelta('sg_around_green', 'aroundGreen'),
+          putting: roundDelta('sg_putting', 'putting'),
+          total:
+            roundDelta('sg_off_tee', 'offTee') +
+            roundDelta('sg_approach', 'approach') +
+            roundDelta('sg_around_green', 'aroundGreen') +
+            roundDelta('sg_putting', 'putting'),
+        })
     const roundChanged = (Object.keys(next) as (keyof typeof next)[]).some((k) => r[k] !== next[k])
     // A hole is rewritten only when the same previous engine reproduces its stored values too.
     const holesChanged = Object.entries(result.perHoleScore).flatMap(([id, sg]) => {
       const stored = holeScores.find((h) => h.id === id)
       const prev = before.perHoleScore[id]
-      if (!stored || !prev) return []
+      if (!stored || !prev || !stampedIds.has(id)) return []
       const { sg_total: _p, ...old } = stamp(prev)
       const { sg_total: _n, ...nextHole } = stamp(sg)
       if (SG.some((k) => stored[k] !== old[k])) {
@@ -123,9 +201,13 @@ async function main() {
       }
       return SG.some((k) => old[k] !== nextHole[k]) ? [{ id, old, next: nextHole }] : []
     })
-    if (!roundChanged && holesChanged.length === 0) continue
-    console.log(`${r.id}  [${found.e.label}]  sg_total ${r.sg_total} → ${next.sg_total}  (${holesChanged.length} holes)`)
-    changes.push({ round: r.id, engine: found.e.label, old: r, next, holes: holesChanged })
+    if (!roundChanged && holesChanged.length === 0 && repaired.fixes.length === 0) continue
+    puttFixCount += repaired.fixes.length
+    console.log(
+      `${r.id}  [${found.e.label}${strict ? '' : ', holes only'}]  sg_total ${r.sg_total} → ${next.sg_total}` +
+        `  (${holesChanged.length} holes, ${repaired.fixes.length} putt lengths)`,
+    )
+    changes.push({ round: r.id, engine: found.e.label, holesOnly: !strict, old: r, next, holes: holesChanged, putts: repaired.fixes })
 
     if (apply) {
       const u = await supabase.from('rounds').update(next).eq('id', r.id)
@@ -133,6 +215,10 @@ async function main() {
       for (const h of holesChanged) {
         const hu = await supabase.from('hole_scores').update(h.next).eq('id', h.id)
         if (hu.error) throw hu.error
+      }
+      for (const f of repaired.fixes) {
+        const su = await supabase.from('shots').update({ putt_distance_ft: f.next }).eq('id', f.id)
+        if (su.error) throw su.error
       }
     }
   }
@@ -142,6 +228,7 @@ async function main() {
   writeFileSync(log, JSON.stringify({ host, apply, changes, skipped }, null, 1))
   console.log(
     `\n${changes.length}/${rounds?.length ?? 0} completed rounds ${apply ? 'updated' : 'would change'}` +
+      ` · ${puttFixCount} putt lengths` +
       ` · skipped: ${skipped.noShots} without shots, ${skipped.notReproduced.length} not reproduced` +
       ` (+${skipped.holesNotReproduced} holes) · log: ${log}`,
   )

@@ -1,0 +1,63 @@
+# Flow C (#1114): finish a hole, go back, add a shot between two others, then delete it. The
+# shot numbers stay continuous and the scorecard follows each change.
+appId: app.opengolf.oga
+name: Android live round — add and delete a shot on a finished hole
+onFlowComplete:
+  - runFlow:
+      when:
+        visible: "Close scorecard"
+      commands:
+        - tapOn: "Close scorecard"
+  - runFlow:
+      when:
+        visible: "Round options"
+      commands:
+        - tapOn: "Round options"
+        - tapOn: "Delete round"
+        - tapOn: "Delete"
+---
+- runFlow: subflows/home.yaml
+- runFlow:
+    file: subflows/gps.yaml
+    env: { LAT: "43.849856", LNG: "-87.734575" }
+- runFlow:
+    file: subflows/start-round.yaml
+    env: { MODE: "Just track my round" }
+- tapOn: "Mark my ball at my GPS spot"
+- runFlow: subflows/skip-tips.yaml
+- runFlow:
+    file: subflows/gps.yaml
+    env: { LAT: "43.84906", LNG: "-87.7330" }
+- tapOn: "Mark my ball at my GPS spot"
+- tapOn: "Finish hole"
+- runFlow: subflows/skip-tips.yaml
+- tapOn: "Save & next hole"
+- extendedWaitUntil:
+    visible: "Hole 2"
+    timeout: 30000
+- runFlow: subflows/skip-tips.yaml
+- tapOn: "Previous hole"
+- runFlow: subflows/skip-tips.yaml
+- assertVisible: "Shot 1 of 2"
+- tapOn: "Card"
+- assertVisible: "Go to hole 1, par 4, score 2"
+- tapOn: "Close scorecard"
+# A new shot goes in after the selected one: shot 1 → the new shot is shot 2 of 3.
+- tapOn: "Add a shot after this one"
+- extendedWaitUntil:
+    visible: "Shot 2 of 3"
+    timeout: 30000
+- tapOn: "Next shot"
+- assertVisible: "Shot 3 of 3"
+- tapOn: "Card"
+- assertVisible: "Go to hole 1, par 4, score 3"
+- tapOn: "Close scorecard"
+- tapOn: "Previous shot"
+- tapOn: "Delete this shot"
+# The dialog's Delete (the stepper's key is hidden behind it).
+- tapOn: "Delete"
+- extendedWaitUntil:
+    visible: "Shot 2 of 2"
+    timeout: 30000
+- tapOn: "Card"
+- assertVisible: "Go to hole 1, par 4, score 2"

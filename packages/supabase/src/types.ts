@@ -865,8 +865,19 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      admin_odd_hole_course_count: { Args: never; Returns: number }
       delete_my_account: { Args: never; Returns: undefined }
       delete_shot: { Args: { p_shot_id: string }; Returns: boolean }
+      insert_shot: {
+        Args: {
+          p_id: string
+          p_after_shot_id: string
+          p_start_lat: number
+          p_start_lng: number
+          p_distance_to_target: number | null
+        }
+        Returns: boolean
+      }
       insert_synthetic_hole: {
         Args: {
           p_course_id: string
@@ -878,7 +889,12 @@ export type Database = {
       }
       plan_generations_this_month: { Args: never; Returns: number }
       search_courses: {
-        Args: { result_limit?: number; search_query: string }
+        Args: {
+          result_limit?: number
+          search_query: string
+          user_lat?: number
+          user_lng?: number
+        }
         Returns: {
           address: string | null
           city: string | null

@@ -1,11 +1,17 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { normalizeCategoryProse, parseLocalDate, todayLocalDate } from '@oga/core'
+import {
+  normalizeCategoryProse,
+  parseLocalDate,
+  shouldPromptPlanRefresh,
+  todayLocalDate,
+} from '@oga/core'
 import type { StoredBlock, StoredSession, StoredFocusArea } from '@oga/core'
 import {
   useDrillsByIds,
   useGeneratePlan,
   useLatestPracticePlan,
+  useRoundsWithSGCount,
   useSaveFeedback,
   useUpdatePlanProgress,
 } from '../../hooks/useDrills'
@@ -748,6 +754,7 @@ function FeedbackSection({ planId, initial }: { planId: string; initial: string 
 
 export function PracticePlanPage() {
   const planQuery = useLatestPracticePlan()
+  const roundsWithSG = useRoundsWithSGCount()
   const generate = useGeneratePlan()
 
   const plan = planQuery.data
@@ -804,12 +811,21 @@ export function PracticePlanPage() {
   const today = todayLocalDate()
   const isExpired = !!plan.valid_until && plan.valid_until < today
 
+  const isStarter = !plan.based_on_rounds
   const kicker = isExpired
     ? `Last week's plan · valid through ${formatDate(plan.valid_until)}`
-    : `Practice plan · week of ${formatDate(plan.generated_at)}${plan.valid_until ? ` · valid through ${formatDate(plan.valid_until)}` : ''}`
+    : `${isStarter ? 'Starter plan' : 'Practice plan'} · week of ${formatDate(plan.generated_at)}${plan.valid_until ? ` · valid through ${formatDate(plan.valid_until)}` : ''}`
 
-  // No-regenerate-within-window: only offer Generate once the plan has expired.
-  const generateLabel = isExpired ? "Generate this week's plan" : null
+  // No-regenerate-within-window: only offer Generate once the plan has expired,
+  // or (#1056) right after the 2nd/3rd round when the plan hasn't seen them.
+  const promptRefresh =
+    roundsWithSG.data != null &&
+    shouldPromptPlanRefresh({ planRounds: plan.based_on_rounds, roundsNow: roundsWithSG.data })
+  const generateLabel = promptRefresh
+    ? 'Update your plan with your rounds'
+    : isExpired
+      ? "Generate this week's plan"
+      : null
 
   return (
     <div>
@@ -840,14 +856,14 @@ export function PracticePlanPage() {
 
       {plan.id ? <FeedbackSection planId={plan.id} initial={plan.feedback ?? ''} /> : null}
 
-      {plan.based_on_rounds ? (
-        <div
-          className="font-mono text-caddie-ink-mute"
-          style={{ fontSize: 10, letterSpacing: '0.04em', textTransform: 'uppercase', paddingTop: 4 }}
-        >
-          Based on your last {plan.based_on_rounds} round{plan.based_on_rounds === 1 ? '' : 's'}
-        </div>
-      ) : null}
+      <div
+        className="font-mono text-caddie-ink-mute"
+        style={{ fontSize: 10, letterSpacing: '0.04em', textTransform: 'uppercase', paddingTop: 4 }}
+      >
+        {isStarter
+          ? 'Built from your profile answers, not your rounds yet'
+          : `Based on your last ${plan.based_on_rounds} round${plan.based_on_rounds === 1 ? '' : 's'}`}
+      </div>
 
       <div style={{ borderTop: `1px solid ${LINE}`, marginTop: 28, paddingTop: 18 }}>
         <Link

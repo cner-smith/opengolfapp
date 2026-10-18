@@ -2,7 +2,7 @@
 // same buildInitialRows call as the web review sheet — keeping both
 // behind one function avoids the inevitable drift.
 
-import { inferShot, type InferredShot, type PlacedShot } from './shotInference'
+import { inferShot, type InferredShot, type PlacedShot, type UserBagClub } from './shotInference'
 import type {
   Club,
   LieType,
@@ -22,6 +22,7 @@ import {
   SHOT_START_LINE_LABELS,
 } from './constants'
 import { formatDistance, formatPuttDistance, haversineYards } from './units'
+import { REPLAY_YARDS } from './sg-calculator'
 import type {
   BreakDirection,
   BreakDirectionHorizontal,
@@ -87,6 +88,9 @@ export interface ReviewedShotRow {
   greenSpeed?: GreenSpeed
   /** Free-text note on the putt. Stored as notes. */
   notes?: string
+  /** Putt length the player chose in the review, in feet (#1109). Stored as
+   *  putt_distance_ft over the start → pin distance. */
+  puttLengthFt?: number
   /** Legacy single outcome, derived from the axes below + the OB / penalty
    *  flags via legacyShotResult (OB is stamped here as 'ob'). Stored as
    *  shot_result. */
@@ -185,6 +189,27 @@ export function isPartialRound(
 ): boolean {
   const c = roundHolesPlayed(holeScores)
   return c != null && c.played < c.of
+}
+
+// A round with no scored hole (score > 0; a 0 row is a placeholder) started
+// more than a day ago — a "Start live round" tap to look around. Hidden from
+// the round lists and Home (#1055); within the day it still shows so the
+// player can resume it. Measured from created_at: played_at can be backdated.
+export function isStaleEmptyRound(
+  round: { created_at: string; hole_scores?: readonly { score: number | null }[] | null },
+  now: number = Date.now(),
+): boolean {
+  if (round.hole_scores?.some((hs) => (hs.score ?? 0) > 0)) return false
+  return now - Date.parse(round.created_at) > 24 * 60 * 60 * 1000
+}
+
+// Finished = marked complete, or carries a score: imported and pre-0029
+// rounds have a total but no completed_at.
+export function isFinishedRound(r: {
+  completed_at: string | null
+  total_score: number | null
+}): boolean {
+  return r.completed_at != null || (r.total_score ?? 0) > 0
 }
 
 // Suffix for a round's date line in the rounds lists: " · partial · 6 of 18".
@@ -346,6 +371,7 @@ export function buildInitialRows(
   par: number,
   pinLat: number,
   pinLng: number,
+  userBag?: readonly UserBagClub[],
 ): ReviewedShotRow[] {
   const total = points.length
   const rows: ReviewedShotRow[] = []
@@ -367,6 +393,7 @@ export function buildInitialRows(
       pinLng,
       totalShotsOnHole: total,
       par,
+      userBag,
     }
     const inferred: InferredShot = inferShot(placed)
     rows.push({
@@ -389,6 +416,28 @@ export function buildInitialRows(
     })
   })
   return rows
+}
+
+// A replay after an OB or a penalty (stroke and distance) is played from that
+// shot's spot, so it keeps that shot's lie. buildInitialRows infers lie from
+// distance and shot number, which reads a re-tee as rough (#1098). Run after
+// the OB / penalty flags are on the rows, and again on the next row when the
+// review sheet flags a shot; same 10 yd test SG uses (#1094).
+export function withReplayLies<R extends ReviewedShotRow>(rows: R[]): R[] {
+  const out: R[] = []
+  for (const row of rows) {
+    const prev = out[out.length - 1]
+    const replay =
+      prev &&
+      (prev.shotResult === 'ob' || prev.penalty) &&
+      prev.startLat != null &&
+      prev.startLng != null &&
+      row.startLat != null &&
+      row.startLng != null &&
+      haversineYards(prev.startLat, prev.startLng, row.startLat, row.startLng) <= REPLAY_YARDS
+    out.push(replay ? { ...row, lieType: prev.lieType } : row)
+  }
+  return out
 }
 
 // The `shots` columns the end-of-hole review owns. Derived from the insert
@@ -430,6 +479,21 @@ export type ReviewedShotFields = Required<
   >
 >
 
+// A reviewed putt's putt length in feet, or null when unknown. Shown by the
+// review sheet and stored by reviewedRowToShotFields, so the two can't differ.
+// The putt length is the distance FROM THE HOLE (start → pin), which is what
+// putting SG reads — not how far it rolled (start → next start), #1092. A
+// length the player chose in the review wins (#1109): GPS can't tell putts a
+// few feet apart. distanceToPin 0 is the review's "no pin known": with nothing
+// chosen the length is unknown, so none rather than a 0 ft putt (SG then skips
+// it). Over 999 ft (333 yd) is a mis-marked point, not a putt: capped on the
+// ROUNDED feet. (Until migration 0060 the column was numeric(4,1) and 1000
+// failed the whole insert; now it's a sanity bound, not an overflow guard.)
+export function reviewedPuttLengthFt(row: Pick<ReviewedShotRow, 'puttLengthFt' | 'distanceToPin'>): number | null {
+  const feet = row.puttLengthFt ?? (row.distanceToPin > 0 ? Math.round(row.distanceToPin * 3) : null)
+  return feet != null && feet <= 999 ? feet : null
+}
+
 // One reviewed row → its `shots` columns, shared by the web and mobile review
 // saves (#798). Ids, the hole score, the user and the aim stay with the caller.
 export function reviewedRowToShotFields(
@@ -439,9 +503,6 @@ export function reviewedRowToShotFields(
   // isPuttEntry (green lie AND putter), not green-lie-alone: a wedge played
   // from the green keeps its club result, a Texas wedge stays a full shot.
   const isPutt = isPuttEntry(row.lieType, row.club)
-  // Tap-to-tap distance is in yards; × 3 = feet, which is what the rest of the
-  // app reads.
-  const puttFeet = Math.round(row.distanceYards * 3)
   return {
     shot_number: row.shotNumber,
     start_lat: row.startLat,
@@ -467,9 +528,7 @@ export function reviewedRowToShotFields(
     // keep ob=true after the player cleared it in the sheet, with no way to
     // clear it from there.
     ob: isPutt ? false : row.shotResult === 'ob',
-    // The column is numeric(4,1), so 1000 overflows. Capped on the ROUNDED
-    // feet: 999.6 passes an unrounded check and then rounds to 1000.
-    putt_distance_ft: isPutt && puttFeet <= 999 ? puttFeet : null,
+    putt_distance_ft: isPutt ? reviewedPuttLengthFt(row) : null,
     // Legacy combined column, rebuilt from the axes for back-compat readers.
     putt_result: isPutt
       ? combinedPuttResult({

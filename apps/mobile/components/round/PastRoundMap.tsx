@@ -350,14 +350,21 @@ export function PastRoundMap({
   // (#839). Scoped to this hole_score_id, never round-wide. Pure score-only
   // entry on the scorecard is untouched — this only fires when the map owns
   // shot creation for the hole.
-  async function syncScore(count: number) {
+  // Putts ride the same write (#1051): the hole's green-lie shots, as web's
+  // review sheet seeds them. Only once the map has a putt, so putts typed on
+  // the scorecard for a hole with none placed are left alone. `fresh` is a row
+  // just written that the `shots` prop doesn't reflect yet.
+  async function syncScore(count: number, fresh?: ShotRow) {
     if (!currentHoleScore) return
-    const obStrokes = obCount(
-      shots.filter((s) => s.hole_score_id === currentHoleScore.id),
+    const holeShots = shots.filter(
+      (s) => s.hole_score_id === currentHoleScore.id && s.id !== fresh?.id,
     )
+    if (fresh?.hole_score_id === currentHoleScore.id) holeShots.push(fresh)
+    const obStrokes = obCount(holeShots)
+    const putts = holeShots.filter((s) => isPuttShot(s.lie_type)).length
     const { data, error } = await supabase
       .from('hole_scores')
-      .update({ score: count + obStrokes })
+      .update({ score: count + obStrokes, ...(putts > 0 ? { putts } : {}) })
       .eq('id', currentHoleScore.id)
       .eq('round_id', roundId)
       .select()
@@ -401,6 +408,11 @@ export function PastRoundMap({
       ...(proj.distanceToTarget !== undefined
         ? { distance_to_target: proj.distanceToTarget }
         : {}),
+      // A moved putt's length is its new start → pin (#1096). Only on a move:
+      // an aim-only save keeps a length the player chose in the review.
+      ...(next.start !== undefined && proj.puttDistanceFt !== undefined
+        ? { putt_distance_ft: proj.puttDistanceFt }
+        : {}),
     }
     if (shot.id) {
       const { data, error } = await supabase
@@ -436,6 +448,7 @@ export function PastRoundMap({
         // (the score off-by-one — every hole read one stroke low). See #514 QA.
         await syncScore(
           placed.filter((s, i) => (i === idx ? true : s.start != null)).length,
+          saved,
         )
       }
     }
@@ -497,7 +510,11 @@ export function PastRoundMap({
       Alert.alert('Save failed', error.message)
       return
     }
-    if (data) onShotUpserted(data as ShotRow)
+    if (data) {
+      onShotUpserted(data as ShotRow)
+      // The putt count just grew; score is unchanged (same placed shots).
+      await syncScore(startedCount, data as ShotRow)
+    }
     if (completed) {
       setAdding(false)
     } else {

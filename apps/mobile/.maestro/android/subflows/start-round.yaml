@@ -1,0 +1,22 @@
+# From Home with GPS on Whistling Straits hole 1's tee: start a live round in MODE
+# ("Track shot patterns" or "Just track my round") and wait for the ball at the tee.
+appId: app.opengolf.oga
+---
+- tapOn: "Start live round"
+- tapOn: "Search courses…"
+# "Whistling" so the search box itself can't match the "Whistling Straits.*" row.
+- inputText: "Whistling"
+- tapOn: "Whistling Straits.*"
+- tapOn: ${MODE}
+- tapOn: "Start round →"
+- extendedWaitUntil:
+    visible: "Mark my ball.*|Skip tips"
+    timeout: 60000
+- runFlow: skip-tips.yaml
+- extendedWaitUntil:
+    visible: "Hole 1"
+    timeout: 30000
+# Hole 1 is 397 yd in the backend's data; a course data repair would move these numbers.
+- extendedWaitUntil:
+    visible: "39[0-9].* yd to the pin"
+    timeout: 30000

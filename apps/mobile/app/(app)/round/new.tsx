@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   ActivityIndicator,
   Linking,
@@ -8,9 +8,10 @@ import {
   TextInput,
   View,
 } from 'react-native'
-import { useLocalSearchParams, useRouter } from 'expo-router'
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import * as Location from 'expo-location'
+import { locationManager } from '@rnmapbox/maps'
 import {
   formatLocation,
   getOpenGolfApiCourse,
@@ -59,7 +60,16 @@ interface GpsState {
   lng?: number
 }
 
+// round/new is a hidden tab, so it stays mounted after the player leaves it:
+// the next "Start live round" reopened the last course's setup step or a
+// half-filled add-course form (#1075). Remount on every blur instead.
 export default function NewRound() {
+  const [visit, setVisit] = useState(0)
+  useFocusEffect(useCallback(() => () => setVisit((v) => v + 1), []))
+  return <NewRoundScreen key={visit} />
+}
+
+function NewRoundScreen() {
   const { user } = useAuth()
   const router = useRouter()
   const params = useLocalSearchParams<{ mode?: string }>()
@@ -121,8 +131,8 @@ export default function NewRound() {
   }, [query])
 
   // Capture GPS once (best-effort) so manual / API course creation can
-  // anchor hole 1 to the user's tee location. Past-round entry is
-  // historical — never prompt for location in that mode.
+  // locate the course. Past-round entry is historical — the player may be
+  // anywhere — so never prompt for location in that mode.
   useEffect(() => {
     if (mode !== 'live') return
     if (gps.status !== 'idle') return
@@ -160,6 +170,30 @@ export default function NewRound() {
     })()
   }, [gps.status, mode])
 
+  // Ranking only (#898): the last position the phone knows, when location is
+  // already allowed — this never asks. Mapbox's, as the live round uses
+  // (expo-location delivered nothing on Android, #704). Not used to place a
+  // new course: past-round entry happens anywhere.
+  const [knownPos, setKnownPos] = useState<{ lat: number; lng: number } | null>(null)
+  useEffect(() => {
+    let live = true
+    ;(async () => {
+      const perm = await Location.getForegroundPermissionsAsync().catch(() => null)
+      if (perm?.status !== 'granted') return
+      const last = await locationManager.getLastKnownLocation().catch(() => null)
+      const { latitude: lat, longitude: lng } = last?.coords ?? {}
+      if (live && Number.isFinite(lat) && Number.isFinite(lng)) {
+        setKnownPos({ lat: lat!, lng: lng! })
+      }
+    })()
+    return () => {
+      live = false
+    }
+  }, [])
+  const near = gps.status === 'ok' ? { lat: gps.lat!, lng: gps.lng! } : knownPos
+  // ~1 km of rounding, so a later or jittering fix doesn't re-run the search.
+  const nearKey = near ? `${near.lat.toFixed(2)},${near.lng.toFixed(2)}` : null
+
   // Run search whenever debounced query changes. Facility-first: local
   // results split into standalone courses (no facility_id) and facility
   // units. Units are never dropped from the result set — a unit's facility
@@ -183,7 +217,7 @@ export default function NewRound() {
     ;(async () => {
       const [api, local, facilitySearch] = await Promise.allSettled([
         searchOpenGolfApi(term, ctrl.signal),
-        searchCourses(supabase, term, 10, ctrl.signal).then(({ data, error }) => {
+        searchCourses(supabase, term, 10, ctrl.signal, near).then(({ data, error }) => {
           // Abort propagates here as a PostgrestError shape with code:'' and
           // message starting "AbortError:" — but the cleanest gate is the
           // signal itself, robust to postgrest-js error-shape drift. See
@@ -235,7 +269,9 @@ export default function NewRound() {
       if (!ctrl.signal.aborted) setSearching(false)
     })
     return () => ctrl.abort()
-  }, [debouncedQuery])
+    // `near` is read through nearKey: only a ~1 km move re-runs the search.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debouncedQuery, nearKey])
 
   const gpsCoords = gps.status === 'ok' ? { lat: gps.lat!, lng: gps.lng! } : null
   const hasResults =
@@ -416,10 +452,14 @@ export default function NewRound() {
       // the followup createHoles call below RLS-fails on courses with
       // created_by IS NULL.
       if (!user) throw new Error('not authenticated')
+      // GPS is only captured in live mode, where the player is at the course:
+      // it locates the COURSE, never a tee — they may be anywhere on it (#1061).
       const { data: course, error: courseErr } = await createCourse(supabase, {
         name: detail.name || r.name,
         city,
         state,
+        lat: gpsCoords?.lat ?? null,
+        lng: gpsCoords?.lng ?? null,
         external_id: r.id,
         created_by: user.id,
       })
@@ -433,16 +473,12 @@ export default function NewRound() {
               par: h.par,
               yards: h.yards ?? null,
               stroke_index: idx + 1,
-              tee_lat: idx === 0 ? gpsCoords?.lat ?? null : null,
-              tee_lng: idx === 0 ? gpsCoords?.lng ?? null : null,
             }))
           : new Array(18).fill(null).map((_, idx) => ({
               course_id: course.id,
               number: idx + 1,
               par: 4,
               stroke_index: idx + 1,
-              tee_lat: idx === 0 ? gpsCoords?.lat ?? null : null,
-              tee_lng: idx === 0 ? gpsCoords?.lng ?? null : null,
             }))
       const { error: holeErr } = await createHoles(supabase, holes)
       if (holeErr) throw holeErr
@@ -475,23 +511,20 @@ export default function NewRound() {
         gpsCoords={gpsCoords}
         busy={busy}
         onCancel={() => setShowManualForm(false)}
-        onCreate={async ({ name, location, pars }) => {
+        onCreate={async ({ name, city, state, country, pars }) => {
           setBusy(true)
           setError(null)
           try {
-            const trimmed = location?.trim() ?? ''
-            const commaIdx = trimmed.indexOf(',')
-            const city =
-              commaIdx >= 0
-                ? trimmed.slice(0, commaIdx).trim() || null
-                : trimmed || null
-            const state =
-              commaIdx >= 0 ? trimmed.slice(commaIdx + 1).trim() || null : null
             if (!user) throw new Error('not authenticated')
-            const { data: course, error: courseErr } = await createCourse(
-              supabase,
-              { name: name.trim(), city, state, created_by: user.id },
-            )
+            const { data: course, error: courseErr } = await createCourse(supabase, {
+              name: name.trim(),
+              city: city.trim() || null,
+              state: state.trim() || null,
+              country: country.trim() || null,
+              lat: gpsCoords?.lat ?? null,
+              lng: gpsCoords?.lng ?? null,
+              created_by: user.id,
+            })
             if (courseErr || !course) {
               throw courseErr ?? new Error('Course insert failed')
             }
@@ -500,8 +533,6 @@ export default function NewRound() {
               number: idx + 1,
               par,
               stroke_index: idx + 1,
-              tee_lat: idx === 0 ? gpsCoords?.lat ?? null : null,
-              tee_lng: idx === 0 ? gpsCoords?.lng ?? null : null,
             }))
             const { error: holeErr } = await createHoles(supabase, holes)
             if (holeErr) throw holeErr

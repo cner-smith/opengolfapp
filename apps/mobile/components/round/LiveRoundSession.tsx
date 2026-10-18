@@ -13,10 +13,14 @@ import {
   applyCapturedShots,
   bearingDegrees,
   buildInitialRows,
+  clubTypicalDistance,
   destinationYards,
   formatClubLabel,
   getExpectedStrokes,
+  insertedShotStart,
+  isPuttShot,
   startCategory,
+  withReplayLies,
   type CaptureMode,
   type Club,
 } from '@oga/core'
@@ -35,8 +39,8 @@ import { useShotActions } from './hole/useShotActions'
 import { HoleModals } from './hole/HoleModals'
 import { LiveRoundDock } from './LiveRoundDock'
 import { ConfirmDialog } from '../ui/ConfirmDialog'
-import { CoachOverlay, CoachProvider, useCoach } from '../help/CoachMarks'
-import { LIVE_AIM_STEPS, LIVE_PLACE_STEPS, LIVE_PUTT_STEPS } from './coachSteps'
+import { CoachOverlay, CoachProvider, CoachTarget, useCoach } from '../help/CoachMarks'
+import { LIVE_AIM_STEPS, LIVE_PLACE_STEPS, LIVE_PUTT_STEPS, PLAYED_HOLE_STEPS } from './coachSteps'
 import { LiveRoundHeader, RoundOptionsMenu } from './LiveRoundHeader'
 import { APPR_RULER_FEET, TEE_RULER_YARDS, rulerValueAt } from './HoleMapOverlays'
 import { LiveRoundError } from './LiveRoundError'
@@ -116,10 +120,6 @@ export default function LiveRoundSession({
   // historical-shot scatter overlay; the render lands in T4. Off by
   // default — it's a summoned planning aid, not always-on clutter.
   const [dotsVisible, setDotsVisible] = useState(false)
-  // True once the player drags the ball off its GPS-tracked position this
-  // PLACE_BALL cycle — flips the place-ball CTA from "Mark ball at my GPS"
-  // to the generic "Mark ball here". Reset on each new placement / hole.
-  const [ballMoved, setBallMoved] = useState(false)
   // Where the most recent shot's marker is when it's off-screen (HoleMap
   // measures it) — picks the OB prompt's form below (#895 B2).
   const [lastShotArrow, setLastShotArrow] = useState<OffscreenArrow | null>(null)
@@ -147,13 +147,12 @@ export default function LiveRoundSession({
   // with the confirm dialogs it opens (#293 one-modal-per-presenter).
   const [menuOpen, setMenuOpen] = useState(false)
 
-  // Per-hole reset. useHoleState resets its own refs (Kalman, manual
-  // placement, last-saved-shot id) keyed on currentHoleId — we don't
+  // Per-hole reset. useHoleState resets its own state (the ball,
+  // last-saved-shot id) keyed on currentHoleId — we don't
   // duplicate that here. This effect covers the component-owned UI
   // state machine that those hooks can't see.
   useEffect(() => {
     setPinPlacementOpen(false)
-    setBallMoved(false)
     setEditHole(null)
     // Confirm dialogs (delete / leave / end / exit) are session-scoped and
     // stay open across hole navigation.
@@ -200,6 +199,27 @@ export default function LiveRoundSession({
     hasPriorShots: data.remoteShotCount + data.localShotCount > 0,
   })
 
+  // Played-hole mode (#1115): the stepper (pick, drag, Add, Delete) on any hole
+  // with shots the player isn't capturing on. That's a hole revisited without
+  // Resume, plus a hole finished past or chosen via editHoleOnMap (cleared on
+  // hole change). Those two need the frontier check: the just-finished hole
+  // stays current until Save & next moves on. A skipped hole being played live
+  // stays live once its first shot is marked (cabdedd4). Indexes into
+  // previousShots, so it needs at least one.
+  const editMode = data.previousShots.length > 0 && (finalState.isRevisitingPlayedHole ||
+    (holeNumber < furthestHoleReached && (!!data.currentHoleScore?.finished_at || editHole === holeNumber)))
+
+  // Which of this hole's played shots is selected in edit mode. Reset to the
+  // first shot on a hole switch; clamped into bounds whenever the shot count
+  // changes (e.g. after a delete shrinks it).
+  const [activeShotIdx, setActiveShotIdx] = useState(0)
+  useEffect(() => {
+    setActiveShotIdx(0)
+  }, [holeNumber])
+  useEffect(() => {
+    setActiveShotIdx((i) => Math.min(i, Math.max(0, data.previousShots.length - 1)))
+  }, [data.previousShots.length])
+
   // A holed putt whose review was never saved (app killed / relaunched with the
   // sheet up) resumes in PLACE_BALL as "next shot". Reopen the review once per
   // hole instead. Decided on the first evaluation where the made putt is
@@ -214,12 +234,6 @@ export default function LiveRoundSession({
       finalState.setRoundState('SUMMARY')
     }
   }, [data.lastShotHoled, holeScoreId])
-
-  // Each fresh PLACE_BALL entry (new shot, re-place) starts GPS-tracked, so the
-  // ball is back at the GPS dot until the player drags it again.
-  useEffect(() => {
-    if (finalState.roundState === 'PLACE_BALL') setBallMoved(false)
-  }, [finalState.roundState])
 
   // Camera anchors on the tee box — the player's starting point. Pin/green
   // is intentionally NOT a fallback; it would mis-frame the hole every time.
@@ -288,13 +302,15 @@ export default function LiveRoundSession({
   // dots are still PLACED around the aim (in HoleMap); only WHICH club's
   // pattern shows is pinned to the shot you're facing. Null (no pin / tee
   // shot) → selectClub falls back to the longest club.
+  // In edit mode the hero reads the selected shot's start (#1115).
+  const heroBall = editMode ? data.previousShots[activeShotIdx] ?? null : finalState.ball
   const ballToPinYards = useMemo(() => {
     const pinPt = data.roundPin ?? data.storedPin
-    if (!finalState.ball || !pinPt) return null
-    return distanceYards(finalState.ball, pinPt)
+    if (!heroBall || !pinPt) return null
+    return distanceYards(heroBall, pinPt)
   }, [
-    finalState.ball?.lat,
-    finalState.ball?.lng,
+    heroBall?.lat,
+    heroBall?.lng,
     data.roundPin?.lat,
     data.roundPin?.lng,
     data.storedPin?.lat,
@@ -325,11 +341,11 @@ export default function LiveRoundSession({
   // switch holds for the rest of that shot.
   // Skipped until the hole loads, so a par 3 is never first guessed as a 4.
   const holePar = data.resolvedHole?.par ?? data.currentHoleScore?.par ?? data.currentHole?.par
-  const teeShot = data.shotNumber === 1 && (holePar === 4 || holePar === 5)
+  const teeShot = (editMode ? activeShotIdx === 0 : data.shotNumber === 1) && (holePar === 4 || holePar === 5)
   useEffect(() => {
     if (holePar == null) return
     setOverlayMode(teeShot ? 'tee' : 'appr')
-  }, [holeNumber, data.shotNumber, holePar])
+  }, [holeNumber, data.shotNumber, holePar, editMode, activeShotIdx])
 
   // Handicap for the live expected-strokes / SG readouts. Read once from the
   // canonical profiles.handicap_index (player-entered, refined by the web
@@ -352,7 +368,10 @@ export default function LiveRoundSession({
 
   // Header hero (§3): ball → pin with one decimal, in feet (or metres) while
   // putting, plus expected strokes to hole out from there.
-  const putting = finalState.roundState === 'PUTTING'
+  // In played-hole mode, whether the selected shot is a putt (its lie), so a putt reads in feet.
+  const putting = editMode
+    ? isPuttShot(data.previousShotCaptured[activeShotIdx]?.lie_type ?? null)
+    : finalState.roundState === 'PUTTING'
   const heroDistance = useMemo(() => {
     if (ballToPinYards == null) return null
     const text =
@@ -404,12 +423,15 @@ export default function LiveRoundSession({
       .filter((c) => c.club_type !== 'putter' && !seen.has(c.club_type) && !!seen.add(c.club_type))
       .map((c) => {
         const d = byClub.get(c.club_type as Club)
+        // DEFAULT_BAG rows carry no typed distance.
+        const typed = (c as { typical_distance_yards?: number | null }).typical_distance_yards
         return {
           club: c.club_type as Club,
           name: formatClubLabel(c),
           // The wheel is 124 wide: "driver" at 32 sp pushed the meta off the card.
           label: c.club_type === 'driver' ? 'dr' : formatClubLabel(c),
-          typicalYards: d?.medianDistanceYards ?? null,
+          // Measured once the club has 5 shots, else the My Bag estimate (#1052).
+          typicalYards: clubTypicalDistance(d?.medianDistanceYards, d?.points.length ?? 0, typed)?.yards ?? null,
           shots: d?.points.length ?? 0,
           sparse: !d?.dispersion,
         }
@@ -427,22 +449,9 @@ export default function LiveRoundSession({
     return d ? { points: d.points, dispersion: d.dispersion } : null
   }, [dotsVisible, wheelClub, byClub])
 
-  // Manual ball placement: an explicit override of the GPS-tracked marker.
-  // Freeze GPS updates for this PLACE_BALL cycle and re-anchor the Kalman
-  // filter at the manual point with a low variance (1 m²) — strong prior so
-  // any future un-freeze still resists snapping back to a noisy raw fix.
-  // Used by the map drag/tap AND by the OB chip's stroke-and-distance snap
-  // (#839), so both freeze GPS identically rather than through two paths.
-  const placeBallManually = (loc: LatLng) => {
-    finalState.manuallyPlacedRef.current = true
-    setBallMoved(true)
-    finalState.kalmanStateRef.current = {
-      lat: loc.lat,
-      lng: loc.lng,
-      variance: 1,
-    }
-    finalState.setBall(loc)
-  }
+  // Manual ball placement: the player's spot holds until the shot is saved
+  // (liveBall). The map drag/tap goes through here.
+  const placeBallManually = (loc: LatLng) => finalState.dispatchBall({ type: 'placed', at: loc })
 
   const actions = useShotActions({
     id: roundId,
@@ -453,7 +462,6 @@ export default function LiveRoundSession({
     state: finalState,
     setPinPlacementOpen,
     setActiveDialog,
-    placeBallManually,
     // URL sync fires here — only on user-driven navigation (Next /
     // Prev / Finish), not on every render. A reactive useEffect that
     // depended on the parent's onHoleChange prop looped because the
@@ -528,16 +536,29 @@ export default function LiveRoundSession({
     // reason the chip's label is (see the OB props below): the fetched flags
     // lag our own write by a refetch, and finishing the hole inside that
     // window would seed the sheet without the penalty.
+    // The club guess matches the same typical distances the wheel shows (#1052).
+    const userBag = bag.map((c) => {
+      const d = byClub.get(c.club_type as Club)
+      const t = clubTypicalDistance(d?.medianDistanceYards, d?.points.length ?? 0, c.typical_distance_yards)
+      return { club_type: c.club_type, typical_distance_yards: t?.yards ?? null }
+    })
     // What the round already stored (a live putt) beats the distance guess.
-    return applyCapturedShots(
-      buildInitialRows(pts, par, pin.lat, pin.lng),
-      data.previousShotCaptured,
-    ).map((r, i) => (actions.shotObs[i] ? { ...r, shotResult: 'ob' as const } : r))
+    // A re-tee keeps the OB shot's lie (#1098): after the stored lies and the
+    // OB flags are on. Live shots store no lie but a putt's, so the re-tee's
+    // own row has none to lose.
+    return withReplayLies(
+      applyCapturedShots(
+        buildInitialRows(pts, par, pin.lat, pin.lng, userBag),
+        data.previousShotCaptured,
+      ).map((r, i) => (actions.shotObs[i] ? { ...r, shotResult: 'ob' as const } : r)),
+    )
   }, [
     finalState.roundState,
     data.previousShots,
     data.previousShotCaptured,
     actions.shotObs,
+    bag,
+    byClub,
     data.roundPin,
     data.storedPin,
     data.resolvedHole?.par,
@@ -545,23 +566,6 @@ export default function LiveRoundSession({
     data.currentHole?.par,
   ])
 
-  // Played-hole on-map EDIT mode (vs. live capture): true when the shown
-  // hole is BEHIND the finish-advance frontier AND has ≥1 logged shot — i.e.
-  // a hole is editable IFF the player has finished PAST it. `furthestHoleReached`
-  // only moves via a genuine finish (`onAdvanceHole` above) or the deliberate
-  // synthetic bump in `handleEditHoleOnMap`, never off a bare `holeNumber`
-  // change — so neither a backward peek (`‹`), a forward peek (`›` to an
-  // untouched next hole), nor a scorecard jump ahead can move it. The active
-  // hole, and any hole merely peeked/jumped to (even one with shots logged),
-  // therefore always satisfies `holeNumber >= furthestHoleReached` →
-  // editMode false, capture chrome intact — the append-lock trap (fix round
-  // 1's C1, and its forward-peek/jump residual in fix round 2) is
-  // structurally impossible. ANDed with `previousShots.length > 0` since
-  // Step 3 below indexes directly into the previousShots/previousShotIds
-  // arrays. See task-4-report.md §Fix round 2 for the verified case list.
-  // Only a FINISHED hole or the one chosen via editHoleOnMap (cleared on hole change).
-  const editMode = holeNumber < furthestHoleReached && data.previousShots.length > 0 &&
-    (!!data.currentHoleScore?.finished_at || editHole === holeNumber)
 
   // Live OB prompt (#895 B2) — offered while placing the ball with a shot
   // already on this hole, the states the old bottom-row chip showed in. It
@@ -577,30 +581,35 @@ export default function LiveRoundSession({
     !data.lastShotPutt &&
     !actions.saving
 
-  // Which of this hole's played shots is selected in edit mode. Reset to the
-  // first shot on a hole switch; clamped into bounds whenever the shot count
-  // changes (e.g. after a delete shrinks it).
-  const [activeShotIdx, setActiveShotIdx] = useState(0)
-  useEffect(() => {
-    setActiveShotIdx(0)
-  }, [holeNumber])
-  useEffect(() => {
-    setActiveShotIdx((i) => Math.min(i, Math.max(0, data.previousShots.length - 1)))
-  }, [data.previousShots.length])
 
-  // Edit-mode marker drag → reposition via the online-first moveShot (reuses
-  // HoleMap's existing 5-yd-ignore threshold on the ball annotation's
-  // onDragEnd — this is just a different onSetBall handler, not new drag
-  // logic).
+  // Edit-mode marker drag → reposition via the online-first moveShot. A failed
+  // move resolves false, so HoleMap snaps the marker back (#1111).
+  // Done waits for an in-flight move (#1113): the review builds its rows once,
+  // from the shots loaded when it opens, so opening first showed — and saved —
+  // the start from before the move.
+  const moveInFlightRef = useRef<Promise<boolean> | null>(null)
   const handleEditModeMove = async (loc: LatLng) => {
     const shotId = data.previousShotIds[activeShotIdx]
-    if (!shotId) return
-    await actions.moveShot(shotId, loc)
+    if (!shotId) return false
+    moveInFlightRef.current = actions.moveShot(shotId, loc)
+    return moveInFlightRef.current
   }
 
   // Confirmed in the paper dialog (a brick Delete beside a plain Cancel).
   const [deleteShotId, setDeleteShotId] = useState<string | null>(null)
   const handleDeleteActiveShot = () => setDeleteShotId(data.previousShotIds[activeShotIdx] ?? null)
+
+  // Add inserts a shot after the selected one and selects it, ready to drag into place (#1114).
+  const [adding, setAdding] = useState(false)
+  const handleAddShot = async () => {
+    const afterId = data.previousShotIds[activeShotIdx]
+    const prev = data.previousShots[activeShotIdx]
+    if (!afterId || !prev) return
+    const start = insertedShotStart(prev, data.previousShots[activeShotIdx + 1] ?? null, data.roundPin ?? data.storedPin ?? null)
+    setAdding(true)
+    if (await actions.insertShot(afterId, start)) setActiveShotIdx(activeShotIdx + 1)
+    setAdding(false)
+  }
 
   // "Edit on map" from the summary: the just-finished hole is still ===
   // furthestHoleReached (the player hasn't advanced past it yet), so the
@@ -622,12 +631,12 @@ export default function LiveRoundSession({
 
   // Coach marks (#900): what's on screen in this state; first-time tips open
   // on their own, "?" shows them all. Nothing while a sheet / dialog / menu
-  // is up or a played hole is being edited.
+  // is up; a played hole shows its own (#1115).
   const rs = finalState.roundState
   const coach = useCoach(
-    menuOpen || pinPlacementOpen || editMode || activeDialog
+    menuOpen || pinPlacementOpen || activeDialog
       ? null
-      : rs === 'PLACE_BALL' ? LIVE_PLACE_STEPS : rs === 'SET_AIM' ? LIVE_AIM_STEPS : rs === 'PUTTING' ? LIVE_PUTT_STEPS : null,
+      : editMode ? PLAYED_HOLE_STEPS : rs === 'PLACE_BALL' ? LIVE_PLACE_STEPS : rs === 'SET_AIM' ? LIVE_AIM_STEPS : rs === 'PUTTING' ? LIVE_PUTT_STEPS : null,
   )
 
   if (data.loading || data.error || !data.round || !data.currentHole || !data.currentHoleScore) {
@@ -654,10 +663,13 @@ export default function LiveRoundSession({
         holeCount={data.holeCount}
         par={data.resolvedHole?.par ?? data.currentHole.par}
         yardsLabel={data.resolvedHole?.yards ? toDisplay(data.resolvedHole.yards) : null}
-        // Strokes, not shots: an OB adds its penalty stroke ("hitting 4").
-        shotNumber={data.shotNumber + actions.shotObs.filter(Boolean).length}
+        // Strokes, not shots: an OB adds its penalty stroke ("hitting 4"). In
+        // played-hole mode, the selected shot's stroke.
+        shotNumber={editMode
+          ? activeShotIdx + 1 + actions.shotObs.slice(0, activeShotIdx).filter(Boolean).length
+          : data.shotNumber + actions.shotObs.filter(Boolean).length}
         distance={heroDistance}
-        noBall={!finalState.ball && !!(data.roundPin ?? data.storedPin)}
+        noBall={!heroBall && !!(data.roundPin ?? data.storedPin)}
         expected={expectedStrokes}
         onLeave={() => setActiveDialog('leave')}
         onPrev={() => actions.navigateHole(-1)}
@@ -677,7 +689,7 @@ export default function LiveRoundSession({
           tee={data.tee}
           teeBox={teeBox}
           aim={finalState.aim}
-          ball={editMode ? data.previousShots[activeShotIdx] ?? null : finalState.ball}
+          ball={heroBall}
           overlayMode={overlayMode}
           arcWidthYards={arcWidthYards}
           circleRadiusYards={circleRadiusYards}
@@ -685,7 +697,7 @@ export default function LiveRoundSession({
           pattern={pattern}
           obCallout={
             obPromptActive && !actions.lastShotIsOb
-              ? { onPress: () => void actions.markLastShotOb() }
+              ? { onPress: () => void actions.markLastShotOb(), busy: actions.obBusy }
               : null
           }
           onLastShotOffscreen={setLastShotArrow}
@@ -747,16 +759,10 @@ export default function LiveRoundSession({
           ballDraggingRef={finalState.ballDraggingRef}
           onRecenterBall={(loc) => {
             // Deliberate recenter tap = "put the ball back on me": the
-            // inverse of onSetBall above. Lift the manual freeze, restart
-            // the Kalman filter from the next fresh fix, and snap the ball
-            // to GPS now for instant feedback. ballMoved=false restores
-            // the HUD's ball-from-GPS labeling.
+            // inverse of onSetBall above. GPS takes the ball back now.
             if (isPastMode) return
-            finalState.manuallyPlacedRef.current = false
             finalState.ballDraggingRef.current = false
-            setBallMoved(false)
-            finalState.kalmanStateRef.current = null
-            finalState.setBall(loc)
+            finalState.dispatchBall({ type: 'recenter', at: loc })
           }}
           onPlacePin={(c) => {
             haptic('confirm')
@@ -773,7 +779,7 @@ export default function LiveRoundSession({
           saving={actions.saving}
           hasGps={finalState.gpsPosition != null}
           ballFromGps={
-            !isPastMode && finalState.gpsPosition != null && finalState.ball != null && !ballMoved
+            !isPastMode && finalState.gpsPosition != null && finalState.ball != null && finalState.ballSource === 'gps'
           }
           isRevisitingPlayedHole={finalState.isRevisitingPlayedHole}
           totalShotsThisHole={totalShotsThisHole}
@@ -783,15 +789,28 @@ export default function LiveRoundSession({
           // bottom row. Hole nav is in the header (#901).
           editStepper={
             editMode ? (
-              <ShotStepper
-                index={activeShotIdx}
-                count={data.previousShots.length}
-                onPrev={() => setActiveShotIdx((i) => Math.max(0, i - 1))}
-                onNext={() => setActiveShotIdx((i) => Math.min(data.previousShots.length - 1, i + 1))}
-                onDelete={handleDeleteActiveShot}
-                deleteDisabled={data.previousShots.length === 0}
-                onDone={data.currentHoleScore.finished_at ? undefined : () => finalState.setRoundState('SUMMARY')}
-              />
+              <CoachTarget id="live.played">
+                <ShotStepper
+                  index={activeShotIdx}
+                  count={data.previousShots.length}
+                  onPrev={() => setActiveShotIdx((i) => Math.max(0, i - 1))}
+                  onNext={() => setActiveShotIdx((i) => Math.min(data.previousShots.length - 1, i + 1))}
+                  onDelete={handleDeleteActiveShot}
+                  deleteDisabled={data.previousShots.length === 0}
+                  onAdd={handleAddShot}
+                  addDisabled={adding}
+                  onDone={editHole !== holeNumber || data.currentHoleScore.finished_at ? undefined : async () => {
+                    await moveInFlightRef.current
+                    finalState.setRoundState('SUMMARY')
+                  }}
+                  // Back to live capture: Mark my ball and Finish hole (#1115).
+                  onResume={editHole === holeNumber || data.currentHoleScore.finished_at ? undefined : async () => {
+                    await moveInFlightRef.current
+                    finalState.setAppendEngaged(true)
+                    finalState.setRoundState('PLACE_BALL')
+                  }}
+                />
+              </CoachTarget>
             ) : null
           }
           patternOn={dotsVisible}
@@ -820,7 +839,9 @@ export default function LiveRoundSession({
           // the window where a second tap charges a second penalty.
           obPromptActive={obPromptActive}
           lastShotIsOb={actions.lastShotIsOb}
+          obBusy={actions.obBusy}
           obArrow={lastShotArrow}
+          lastHit={actions.lastHit}
           onCancelPinPlacement={() => setPinPlacementOpen(false)}
           onConfirmAim={actions.confirmAim}
           onRePlaceBall={() => {

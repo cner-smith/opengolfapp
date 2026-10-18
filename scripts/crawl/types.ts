@@ -135,6 +135,7 @@ export interface OverpassGeomElement {
 }
 export interface OverpassGeomResponse {
   elements: OverpassGeomElement[]
+  remark?: string
 }
 
 export interface Args {
@@ -179,4 +180,5 @@ export interface OverpassWayOrRelation {
 export type OverpassElement = OverpassNode | OverpassWayOrRelation
 export interface OverpassResponse {
   elements: OverpassElement[]
+  remark?: string
 }

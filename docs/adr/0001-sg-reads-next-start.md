@@ -1,0 +1,3 @@
+# Strokes gained reads the next shot's start, never the finish
+
+A shot's strokes gained is measured from its start to the next shot's start, not to its finish. After an out of bounds or a drop the two differ: an out-of-bounds finish is out of play and has no expected strokes, and a lost or unplayable ball is not where the player plays from next. What the shot cost is the position it left the player in, which is the next shot's start. A shot played within 10 yards of the start of an OB or penalty (water) shot is the replay and keeps that shot's SG category, so a re-tee counts as Off the tee rather than an Approach. Changing either rule means recomputing every stored round's strokes gained.

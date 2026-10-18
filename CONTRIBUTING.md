@@ -19,6 +19,33 @@ cd apps/mobile && npm run typecheck
 CI runs the same four commands. A PR with a red CI gate will not be
 reviewed until it's green.
 
+### Live-round flows (Android emulator)
+
+Changes to the live round are checked with [Maestro](https://maestro.dev)
+flows in `apps/mobile/.maestro/android/`. They drive the real app on an
+Android emulator and move its GPS between steps. Each flow starts from Home
+and deletes the round it creates.
+
+You need an emulator running a development build of the app, Metro on port
+8081 (`cd apps/mobile && npx expo start --dev-client`), Maestro, and a test
+account on a development Supabase project: an env file with `SUPABASE_URL`,
+`SUPABASE_SERVICE_ROLE_KEY`, `E2E_EMAIL`, `E2E_PASSWORD` and the `SEED_*`
+variables (default `apps/web/.env.test.local`; from a git worktree, point
+`E2E_ENV_FILE` at it). The flows play Whistling Straits, so that project needs
+the course and its mapped holes. The runner reseeds the test account before
+every run and refuses the production project:
+
+```bash
+apps/mobile/.maestro/android/run.sh                       # every flow
+apps/mobile/.maestro/android/run.sh path/to/flow.yaml     # one flow
+```
+
+A flow for a bug should fail on the code before the fix. Reusable steps go in
+`subflows/`. Move GPS with `subflows/gps.yaml`, which sets the emulator's own
+location through a small local bridge the runner starts. Don't use Maestro's
+`setLocation` or `travel`: the emulator keeps re-sending its own last position
+alongside Maestro's, and the app blends the two.
+
 ## Workflow
 
 ### Branching

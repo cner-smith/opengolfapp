@@ -19,6 +19,8 @@ export interface CreateClientOptions {
    *  stripped in some iOS mail→browser→app redirect chains (#509).
    *  Omitted = supabase-js default (implicit), which web stays on. */
   flowType?: 'implicit' | 'pkce'
+  /** Every request goes through this (mobile bounds each one with a timeout, #1112). */
+  fetch?: typeof fetch
 }
 
 export function createOgaClient(opts: CreateClientOptions): OgaSupabaseClient {
@@ -41,6 +43,7 @@ export function createOgaClient(opts: CreateClientOptions): OgaSupabaseClient {
       detectSessionInUrl: opts.detectSessionInUrl ?? false,
       ...(opts.flowType ? { flowType: opts.flowType } : {}),
     },
+    ...(opts.fetch ? { global: { fetch: opts.fetch } } : {}),
   })
 }
 

@@ -8,10 +8,11 @@ import {
   isPuttShot,
   type CaptureMode,
 } from '@oga/core'
-import { supabase } from '../../../lib/supabase'
+import { supabase, userMessage } from '../../../lib/supabase'
 import {
   enqueueHoleScorePatch,
   insertPendingShot,
+  logDiag,
   setPendingShotEnd,
   type ShotPayload,
 } from '../../../lib/db'
@@ -38,13 +39,6 @@ interface UseShotActionsInput {
   // Component-level UI state setters.
   setPinPlacementOpen: Dispatch<SetStateAction<boolean>>
   setActiveDialog: Dispatch<SetStateAction<ActiveDialog>>
-  // The component's manual ball-placement path — the very handler a map
-  // drag/tap goes through (freezes GPS tracking for this PLACE_BALL cycle,
-  // re-anchors the Kalman filter, flips the CTA off its "at my GPS"
-  // labelling). Passed in rather than reimplemented here because part of
-  // that state (ballMoved) lives in LiveRoundSession. markLastShotOb uses
-  // it to drop the ball back on the OB shot's origin.
-  placeBallManually: (loc: LatLng) => void
   // Hole navigation is callback-driven so the parent (LiveRoundSession)
   // can keep the MapView resident across hole changes. Direct router.replace
   // would fully unmount + remount the screen — see #264.
@@ -73,6 +67,9 @@ export interface UseShotActionsResult extends UseShotEditsResult, UseRoundEndRes
   persistRoundPin: (loc: LatLng) => Promise<void>
   clearRoundPin: () => Promise<void>
   markBallHere: (opts?: { toGreen?: boolean }) => Promise<void>
+  /** The shot the last Mark measured (its start → the marked spot, #1087), while the
+   *  next shot still starts at that spot; null after a delete, re-place, drag or hole change. */
+  lastHit: { shot: number; yards: number } | null
   notOnGreen: () => void
   confirmAim: () => void
   skipAim: () => void
@@ -102,18 +99,19 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
     state,
     setPinPlacementOpen,
     setActiveDialog,
-    placeBallManually,
     onHoleChange,
     onAdvanceHole,
     onRoundCompleted,
   } = input
+  type Mark = { hole: number; shot: number; yards: number; at: LatLng }
+  const [mark, setMark] = useState<Mark | null>(null)
   const [saving, setSaving] = useState(false)
   // Ref-based in-flight gate. The `saving` state setter is async, so
   // a fast double-tap on the Save button can fire `persistShot` twice
   // before React commits the next render — both calls see `saving`
   // === false. The ref flips synchronously and blocks the second call.
   const persistShotInFlightRef = useRef(false)
-  const edits = useShotEdits({ user, data, placeBallManually })
+  const edits = useShotEdits({ user, data, dispatchBall: state.dispatchBall })
   const { shotObs } = edits
   const roundEnd = useRoundEnd({ user, round: data.round, setActiveDialog, onRoundCompleted })
   const { handleEndRound } = roundEnd
@@ -158,13 +156,15 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
   const saveSummaryInFlightRef = useRef(false)
   const {
     ball,
-    setBall,
+    ballSource,
+    dispatchBall,
+    markSpot,
+    awaitingNewSpot,
     aim,
     aimTouched,
     setAim,
     setAimTouched,
     setRoundState,
-    manuallyPlacedRef,
     lastSavedShotLocalIdRef,
     gpsPosition,
     gpsFixAtRef,
@@ -213,8 +213,9 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
       shot_result: meta?.shotResult ?? null,
       penalty: meta?.shotResult === 'penalty',
       ob: meta?.shotResult === 'ob',
-      // numeric(4,1): a "putt" from 333+ yd (On the green tapped off the green)
-      // overflows, and the queue quarantines the shot (#994). Drop the length.
+      // A "putt" from 333+ yd is "On the green" tapped off the green: drop the
+      // length. (Until migration 0060 it also overflowed numeric(4,1) and the
+      // queue quarantined the shot, #994; now it's a sanity bound.)
       putt_distance_ft: (meta?.puttDistanceFt ?? 0) > 999.9 ? null : meta?.puttDistanceFt ?? null,
       putt_result: combinedPuttResult({
         made: meta?.puttMade,
@@ -261,7 +262,12 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
     try {
       const localId = await insertPendingShot(payload)
       lastSavedShotLocalIdRef.current = localId
+      // The next shot starts wherever the player walks to: GPS takes the ball back.
+      // buildPayload always sets the start from the ball; the row type is nullable.
+      const { start_lat: lat, start_lng: lng } = payload
+      if (lat != null && lng != null) dispatchBall({ type: 'shotSaved', start: { lat, lng } })
       const isPutt = isPuttShot(payload.lie_type)
+      logDiag('shot_saved', { shotNumber: payload.shot_number, localId, putt: isPutt, ob: !!payload.ob })
       setPendingForHole((prev) => [
         ...prev,
         {
@@ -315,7 +321,8 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
     } catch (err) {
       // eslint-disable-next-line no-console
       console.error('shot save failed', err, payload)
-      Alert.alert('Save failed', (err as Error).message)
+      logDiag('shot_save_failed', { shotNumber: payload.shot_number, msg: err })
+      Alert.alert('Save failed', userMessage(err))
     } finally {
       persistShotInFlightRef.current = false
       setSaving(false)
@@ -409,19 +416,34 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
   }
 
   async function markBallHere(opts?: { toGreen?: boolean }) {
-    // Use the dragged ball if the player set one, otherwise fall back to
-    // raw GPS — "Mark ball here" should always work as long as we know
-    // where the player is, even if they haven't tapped the map to drop
-    // a marker first.
-    const source = ball ?? gpsPosition
+    // GPS still reads the last saved shot's start: never reuse it silently (#1108).
+    if (awaitingNewSpot) {
+      logDiag('mark', { source: 'awaiting_new_spot', fixAgeMs: Date.now() - gpsFixAtRef.current, blocked: true })
+      Alert.alert(
+        'Waiting for GPS',
+        'No new location since the last shot yet. Try again in a moment, or drag the ball to where it lies.',
+      )
+      return
+    }
+    // A held spot (placed by hand / OB replay) as placed; otherwise the latest
+    // GPS fix (#1107). With none yet, the app's last GPS position (age-guarded below).
+    const source = markSpot ?? gpsPosition
     // Stale-fix guard (#720): the last-known seed and the listener's cache
     // replay populate gpsPosition with no freshness gate (only the
-    // ball/Kalman path has one), so after a pocketed walk to a new hole the
+    // ball path has one), so after a pocketed walk to a new hole the
     // fallback can be a fix from hundreds of meters back. Decline anything
     // older than 30 s rather than persist it as a durable shot coordinate —
     // same recovery as no fix at all.
     const gpsStale =
-      ball == null && Date.now() - gpsFixAtRef.current > 30_000
+      markSpot == null && Date.now() - gpsFixAtRef.current > 30_000
+    const last = previousShots[previousShots.length - 1]
+    logDiag('mark', {
+      source: markSpot == null ? 'gps_position' : ballSource === 'gps' ? 'gps_fix' : `ball_${ballSource}`,
+      fixAgeMs: Date.now() - gpsFixAtRef.current,
+      ydFromLastStart:
+        source && last ? Math.round(distanceYards(source, last) * 10) / 10 : null,
+      blocked: !source || gpsStale,
+    })
     if (!source || gpsStale) {
       Alert.alert(
         'No GPS yet',
@@ -432,7 +454,7 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
     // NaN guard (#275). gpsPosition is the fallback when the player
     // hasn't dragged a ball yet, and a corrupt GPS reading that slipped
     // past upstream guards would otherwise propagate to setPendingShotEnd
-    // (NaN → SQLite → Postgres rejects on sync) and setBall (NaN
+    // (NaN → SQLite → Postgres rejects on sync) and the ball (NaN
     // poisons the next persistShot's start_lat).
     if (!Number.isFinite(source.lat) || !Number.isFinite(source.lng)) {
       // eslint-disable-next-line no-console
@@ -444,12 +466,17 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
       return
     }
     const ballSnapshot = { lat: source.lat, lng: source.lng }
+    // A shot that started within putting range of the pin was a putt: no line for it.
+    const pin = roundPin ?? storedPin
+    if (last && !(pin && distanceYards(last, pin) <= PUTTING_RADIUS_YARDS)) {
+      const yards = distanceYards(last, ballSnapshot)
+      setMark({ hole: holeNumber, shot: previousShots.length, yards, at: ballSnapshot })
+    } else setMark(null)
     // Marking a ball IS engaging the live append flow for this hole visit —
     // keeps the aids on across the natural shot-to-shot loop even after the
     // hole gains prior shots (otherwise shot 2+ on a hole would read as a
     // revisit and suppress). See #484.
     setAppendEngaged(true)
-    manuallyPlacedRef.current = true
     const prevLocalId = lastSavedShotLocalIdRef.current
     if (prevLocalId != null) {
       // A thrown local write keeps the ref, so marking the ball again
@@ -479,7 +506,10 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
       }
       if (!writeFailed) lastSavedShotLocalIdRef.current = null
     }
-    setBall(ballSnapshot)
+    // The marked spot is the shot's start through the aim / putting step. Mark
+    // doesn't change where the ball comes from, so backing out (Re-place, Not
+    // on the green) returns to a ball that follows GPS.
+    dispatchBall({ type: 'marked', at: ballSnapshot })
     setAim(null)
     // On-green auto-detect, restored from pre-#791 (b0f123b removed it when
     // the on-green flow moved behind the explicit "⛳ On the green" chip):
@@ -512,7 +542,7 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
       return
     }
     // Just-track mode (#791 step 3): no aim step. Save the location right away
-    // — passing the fresh ball since setBall hasn't committed — and persistShot
+    // — passing the fresh ball since the ball state hasn't committed — and persistShot
     // loops back to PLACE_BALL for the next ball. Putt-ness / club / lie are
     // still decided at the end-of-hole review.
     if (captureMode === 'just_track') {
@@ -652,17 +682,30 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
     if (saveSummaryInFlightRef.current) return
     saveSummaryInFlightRef.current = true
     setSaving(true)
+    logDiag('hole_save_start', { hole: currentHole.number, rows: rows.length, score: summary.score })
     try {
       await writeHoleSummary({ user, currentHoleScore, currentHole, rows, summary, setHoleScores })
+      logDiag('hole_save_ok', { hole: currentHole.number })
       setRoundState('PLACE_BALL')
       advanceAfterHole()
     } catch (err) {
-      Alert.alert('Save failed', (err as Error).message)
+      logDiag('hole_save_failed', { hole: currentHole.number, msg: err })
+      Alert.alert('Save failed', userMessage(err))
     } finally {
       saveSummaryInFlightRef.current = false
       setSaving(false)
     }
   }
+
+  // The marked spot is still where the next shot starts: saved (just track, or
+  // after the aim) or held by the ball (aiming, not yet saved).
+  const at = (p: LatLng | null | undefined, m: Mark) => !!p && p.lat === m.at.lat && p.lng === m.at.lng
+  const lastHit =
+    mark &&
+    mark.hole === holeNumber &&
+    (at(previousShots[mark.shot], mark) || (previousShots.length === mark.shot && at(ball, mark)))
+      ? { shot: mark.shot, yards: mark.yards }
+      : null
 
   return {
     ...edits,
@@ -673,6 +716,7 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
     persistRoundPin,
     clearRoundPin,
     markBallHere,
+    lastHit,
     notOnGreen,
     confirmAim,
     skipAim,

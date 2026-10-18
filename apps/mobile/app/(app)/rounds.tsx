@@ -10,7 +10,7 @@ import {
 import { Link } from 'expo-router'
 import { Swipeable } from 'react-native-gesture-handler'
 import { PressableTouch } from '../../components/ui/PressableTouch'
-import { formatSG, partialRoundLabel } from '@oga/core'
+import { formatSG, isStaleEmptyRound, partialRoundLabel } from '@oga/core'
 import { deleteRound, getRoundsList } from '@oga/supabase'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
@@ -26,6 +26,7 @@ import { FONT_CAP, P } from '../../components/paper/tokens'
 interface RoundRow {
   id: string
   played_at: string
+  created_at: string
   total_score: number | null
   sg_total: number | null
   courses?: { name: string | null } | null
@@ -66,8 +67,10 @@ export default function RoundsList() {
         return
       }
       if (data) {
-        setRounds(data as RoundRow[])
-        setCached('roundsList', data)
+        // Old rounds with no scored hole stay out of the list (#1055).
+        const kept = (data as RoundRow[]).filter((r) => !isStaleEmptyRound(r))
+        setRounds(kept)
+        setCached('roundsList', kept)
       }
     })
     return () => {

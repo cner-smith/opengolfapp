@@ -4,7 +4,9 @@ import {
   CLUB_CATEGORIES,
   CLUB_CATEGORY_LABELS,
   clubCategoryFor,
+  clubTypicalDistance,
   formatClubLabel,
+  type Club,
   type ClubCategory,
 } from '@oga/core'
 import {
@@ -32,6 +34,9 @@ import {
   type UserClub,
 } from '../../hooks/useUserBag'
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
+import { useAuth } from '../../hooks/useAuth'
+import { useUnits } from '../../hooks/useUnits'
+import { useClubDispersion } from '../rounds/hooks/useClubDispersion'
 import { toUserMessage } from '../../lib/errors'
 
 interface AddClubDraft {
@@ -57,6 +62,18 @@ export function BagPage() {
   const deleteClub = useDeleteClub()
   const updateOrder = useUpdateClubOrder()
   const resetBag = useResetBag()
+  // Typical distance per row: measured from the player's shots once a club
+  // has enough of them (the live wheel's rule), else the typed estimate (#1052).
+  const { user } = useAuth()
+  const { byClub } = useClubDispersion(user?.id)
+  const { toDisplay } = useUnits()
+  function distanceLabel(c: UserClub): string {
+    const d = byClub.get(c.club_type as Club)
+    const shots = d?.sampleSize ?? 0
+    const t = clubTypicalDistance(d?.medianDistanceYards, shots, c.typical_distance_yards)
+    if (!t) return ''
+    return ` · ${toDisplay(t.yards)} · ${t.source === 'shots' ? `from ${shots} shots` : 'estimate'}`
+  }
 
   const [showAdd, setShowAdd] = useState(false)
   const [draft, setDraft] = useState<AddClubDraft>(EMPTY_DRAFT)
@@ -317,6 +334,7 @@ export function BagPage() {
                   onToggleInBag={onToggleInBag}
                   onDelete={onRequestDelete}
                   hasDuplicateType={(typeCounts.get(c.club_type) ?? 0) > 1}
+                  distance={distanceLabel(c)}
                 />
               ))}
             </div>
@@ -411,6 +429,8 @@ interface SortableClubRowProps {
   editing: boolean
   saving: boolean
   hasDuplicateType: boolean
+  /** " · 152 yd · from 23 shots", or "" when the club has no distance. */
+  distance: string
   onStartEdit: () => void
   onCancelEdit: () => void
   onSaveEdit: (
@@ -426,6 +446,7 @@ const SortableClubRow = memo(function SortableClubRow({
   editing,
   saving,
   hasDuplicateType,
+  distance,
   onStartEdit,
   onCancelEdit,
   onSaveEdit,
@@ -481,9 +502,7 @@ const SortableClubRow = memo(function SortableClubRow({
             !hasDuplicateType
               ? ` · ${club.loft}°`
               : ''}
-            {club.typical_distance_yards != null
-              ? ` · ${club.typical_distance_yards} yd`
-              : ''}
+            {distance}
           </div>
         </div>
         <button

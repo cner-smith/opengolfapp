@@ -59,12 +59,6 @@ interface MapViewProps {
    *  placement button off during live-aim (pin stays derived/dragged);
    *  it only appears while logging or editing a past round. */
   isLiveEntry: boolean
-  /** True while the putting sheet is open — suppresses tap-to-place so
-   *  taps that hit the map under the sheet don't drop new shots. */
-  puttingOpen: boolean
-  /** Bumped after a non-holed putt save so RoundMap zooms to the green
-   *  for the next putt placement. */
-  focusGreenSignal: number
   pinOverride: PlacedPoint | null
   /** The round has its own pin here (hole_scores), so the flag draws strong. */
   roundPinSet: boolean
@@ -114,8 +108,6 @@ export function MapView({
   aimMode,
   missingHoleLayout,
   isLiveEntry,
-  puttingOpen,
-  focusGreenSignal,
   pinOverride,
   roundPinSet,
   teeOverride,
@@ -296,11 +288,10 @@ export function MapView({
             placedPoints={placedPoints}
             placedAims={placedAims}
             aimMode={aimMode}
-            focusGreenSignal={focusGreenSignal}
             pinOverride={pinOverride}
             roundPinSet={roundPinSet}
             teeOverride={teeOverride}
-            tapToPlaceDisabled={editingOnMap || puttingOpen}
+            tapToPlaceDisabled={editingOnMap}
             placementMode={placementMode}
             onPlace={handlers.onPlace}
             onMovePoint={handlers.onMovePoint}

@@ -68,7 +68,7 @@ export interface HoleMapProps {
   previousShotObs?: boolean[]
   phase?: HoleMapPhase
   /**
-   * Latest smoothed GPS position. Drives the recenter button (which
+   * Latest GPS position. Drives the recenter button (which
    * camera-jumps to it) and the camera hook's auto-center-once
    * behavior. Null until permission granted and a fix arrives.
    */
@@ -101,7 +101,8 @@ export interface HoleMapProps {
   /** dp from the map bottom the caller's dock covers; leg tags stay above it. */
   tagClearBottom?: number
   onSetAim: (loc: LatLng) => void
-  onSetBall: (loc: LatLng) => void
+  /** Resolving false rejects the move: the ball marker snaps back. */
+  onSetBall: (loc: LatLng) => void | Promise<void | boolean>
   /** True while the ball marker is under the finger, so a GPS tick can't move it mid-drag (#659). */
   ballDraggingRef?: { current: boolean }
   /**
@@ -152,7 +153,7 @@ export interface HoleMapProps {
   aimBallInset?: number
   /** Live OB prompt (#895 B2) for the most recent shot: drawn on its marker
    *  while that marker is on-screen. Null when the prompt isn't offered. */
-  obCallout?: { onPress: () => void } | null
+  obCallout?: { onPress: () => void; busy?: boolean } | null
   /** Reports where the most recent shot's marker is when it's off-screen
    *  (null = in view, or no shot), so the chrome can show the edge tab. */
   onLastShotOffscreen?: (arrow: OffscreenArrow | null) => void

@@ -1,0 +1,62 @@
+# Edit on map: a move that fails (no connection) snaps the marker back where it was (#1111).
+# Signal: a second drag from the original spot grabs the marker; a marker left at the failed spot
+# isn't there to grab, so that drag pans the map and the start doesn't move.
+appId: app.opengolf.oga
+name: Android live round — a rejected move snaps the marker back
+onFlowComplete:
+  - runFlow:
+      file: subflows/net.yaml
+      env: { NET: off }
+  - runFlow:
+      when:
+        visible: "Close and edit shots on the map"
+      commands:
+        - tapOn: "Close and edit shots on the map"
+  - runFlow:
+      when:
+        visible: "Round options"
+      commands:
+        - tapOn: "Round options"
+        - tapOn: "Delete round"
+        - tapOn: "Delete"
+---
+- runFlow: subflows/home.yaml
+- runFlow:
+    file: subflows/gps.yaml
+    env: { LAT: "43.849856", LNG: "-87.734575" }
+- runFlow:
+    file: subflows/start-round.yaml
+    env: { MODE: "Just track my round" }
+- tapOn: "Mark my ball at my GPS spot"
+- runFlow: subflows/skip-tips.yaml
+- runFlow:
+    file: subflows/gps.yaml
+    env: { LAT: "43.84906", LNG: "-87.7330" }
+- tapOn: "Mark my ball at my GPS spot"
+- tapOn: "Finish hole"
+- runFlow: subflows/skip-tips.yaml
+- assertVisible: "39[0-9] yd to pin"
+- tapOn: "Close and edit shots on the map"
+- runFlow: subflows/skip-tips.yaml
+- assertVisible: "Shot 1 of 2"
+- runFlow:
+    file: subflows/net.yaml
+    env: { NET: stall }
+- runFlow:
+    file: subflows/drag.yaml
+    env: { X: "540", Y: "1430", DX: "300", DY: "0" }
+- extendedWaitUntil:
+    visible: "Couldn't move that shot"
+    timeout: 30000
+- tapOn: "OK"
+- runFlow:
+    file: subflows/net.yaml
+    env: { NET: off }
+- runFlow:
+    file: subflows/drag.yaml
+    env: { X: "540", Y: "1430", DX: "0", DY: "-400" }
+- tapOn: "Back to the hole review"
+- extendedWaitUntil:
+    visible: "Save & next hole"
+    timeout: 30000
+- assertNotVisible: "39[0-9] yd to pin"

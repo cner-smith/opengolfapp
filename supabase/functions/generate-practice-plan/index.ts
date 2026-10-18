@@ -27,6 +27,7 @@ import {
   resolvePlanForStorage,
   buildPlanPrompt,
   sanitizeFeedback,
+  shouldPromptPlanRefresh,
   PLAN_TOOL,
   COACH_NOTE_MAX,
   type PlanDraft,
@@ -255,8 +256,28 @@ Deno.serve(async (req) => {
     }
   }
 
+  // Rounds with ANY SG column populated — read by the cadence guard (#1056) and
+  // the sufficiency check (§3.3).
+  // NB: the explicit .eq('user_id', targetUserId) is a no-op under a normal user
+  // JWT (RLS already constrains rows to auth.uid()), but it's REQUIRED for the
+  // service-role dryRun path — a service_role JWT bypasses RLS, so without it the
+  // rounds queries would aggregate every user's rounds. (profiles below is
+  // already keyed by id.)
+  const sgFilter =
+    'sg_off_tee.not.is.null,sg_approach.not.is.null,sg_around_green.not.is.null,sg_putting.not.is.null'
+  const { count: sgCountRaw } = await supabase
+    .from('rounds')
+    .select('id', { count: 'exact', head: true })
+    .eq('user_id', targetUserId)
+    .or(sgFilter)
+  const sgRoundCount = sgCountRaw ?? 0
+
   // ----- Step 3: cadence guard (§3.2) -------------------------------------
   // A live plan (valid_until >= today) means no-regen-within-window → return it.
+  // Exception (#1056): after the player's 2nd/3rd round the app offers "Update
+  // your plan with your rounds"; the same rule lets that tap replace a live plan
+  // built on fewer rounds. Those counts are under MIN_SG_ROUNDS, so the
+  // replacement is always the free baseline below — this never opens a paid call.
   // Skipped under dryRun (dev wants to always exercise the full flow).
   if (!dryRun) {
     const { data: live } = await supabase
@@ -266,7 +287,12 @@ Deno.serve(async (req) => {
       .order('generated_at', { ascending: false })
       .limit(1)
       .maybeSingle<PlanRow>()
-    if (live) return json(toClientPlan(live))
+    if (
+      live &&
+      !shouldPromptPlanRefresh({ planRounds: live.based_on_rounds, roundsNow: sgRoundCount })
+    ) {
+      return json(toClientPlan(live))
+    }
   }
 
   // ----- Step 4: per-user monthly cap (§11/D15) ---------------------------
@@ -286,20 +312,8 @@ Deno.serve(async (req) => {
   }
 
   // ----- Step 5: sufficiency (§3.3) ---------------------------------------
-  // Rounds with ANY SG column populated. <5 → baseline, no Claude.
-  // NB: the explicit .eq('user_id', targetUserId) is a no-op under a normal user
-  // JWT (RLS already constrains rows to auth.uid()), but it's REQUIRED for the
-  // service-role dryRun path — a service_role JWT bypasses RLS, so without it the
-  // rounds queries would aggregate every user's rounds. (profiles below is
-  // already keyed by id.)
-  const sgFilter =
-    'sg_off_tee.not.is.null,sg_approach.not.is.null,sg_around_green.not.is.null,sg_putting.not.is.null'
-  const { count: sgRoundCount } = await supabase
-    .from('rounds')
-    .select('id', { count: 'exact', head: true })
-    .eq('user_id', targetUserId)
-    .or(sgFilter)
-  if ((sgRoundCount ?? 0) < MIN_SG_ROUNDS) {
+  // No SG rounds → starter baseline from the profile alone, no Claude.
+  if (sgRoundCount === 0) {
     return await serveBaseline(supabase, targetUserId, 'insufficient_rounds', dryRun)
   }
 
@@ -341,6 +355,15 @@ Deno.serve(async (req) => {
     dispersion: [],
     lastFeedback,
   })
+
+  // 1–4 SG rounds is still too few to pay for a generated plan, but enough to
+  // steer the free baseline toward the weakest area and record based_on_rounds,
+  // which is what clears the app's "Update your plan with your rounds" (#1056).
+  if (sgRoundCount < MIN_SG_ROUNDS) {
+    return await serveBaseline(
+      supabase, targetUserId, 'insufficient_rounds', dryRun, null, digest,
+    )
+  }
 
   const weaknesses = digest.sg_summary.ranked_weaknesses
   const { sessionCount, validityDays } = playFrequencyPlan(profile.play_frequency)

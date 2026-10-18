@@ -14,6 +14,7 @@ import {
   STATE_BBOX,
   haversineMeters,
   isFallbackName,
+  overpassRemarkError,
   pointInPolygon,
   sleep,
 } from './util'
@@ -342,6 +343,11 @@ out geom;`.trim()
           continue
         }
         const data = (await res.json()) as OverpassGeomResponse
+        const aborted = overpassRemarkError(data.remark)
+        if (aborted) {
+          lastErr = aborted
+          continue
+        }
         return data.elements
       } catch (err) {
         lastErr = err as Error

@@ -17,7 +17,9 @@ import {
   CLUB_CATEGORIES,
   CLUB_CATEGORY_LABELS,
   clubCategoryFor,
+  clubTypicalDistance,
   formatClubLabel,
+  type Club,
   type ClubCategory,
 } from '@oga/core'
 import DraggableFlatList, {
@@ -29,6 +31,8 @@ import { TYPE } from '../../lib/typography'
 import { Key, KeyText, PaperSurface } from '../../components/paper/Paper'
 import { FONT_CAP, P, R } from '../../components/paper/tokens'
 import { useAuth } from '../../hooks/useAuth'
+import { useUnits } from '../../hooks/useUnits'
+import { useClubDispersion } from '../../components/round/hole/useClubDispersion'
 import {
   deleteClub,
   reorderClubs,
@@ -73,6 +77,17 @@ export default function BagScreen() {
     for (const c of bag) m.set(c.club_type, (m.get(c.club_type) ?? 0) + 1)
     return m
   }, [bag])
+  // Typical distance per row: measured from the player's shots once a club
+  // has enough of them (the live wheel's rule), else the typed estimate (#1052).
+  const { byClub } = useClubDispersion(user?.id)
+  const { toDisplay } = useUnits()
+  function distanceLabel(c: UserClub): string {
+    const d = byClub.get(c.club_type as Club)
+    const shots = d?.points.length ?? 0
+    const t = clubTypicalDistance(d?.medianDistanceYards, shots, c.typical_distance_yards)
+    if (!t) return ''
+    return ` · ${toDisplay(t.yards)} · ${t.source === 'shots' ? `from ${shots} shots` : 'estimate'}`
+  }
   const [showAdd, setShowAdd] = useState(false)
   const [draft, setDraft] = useState<AddDraft>(EMPTY_DRAFT)
   // Set to a club id when the modal is editing an existing row; null when
@@ -293,6 +308,7 @@ export default function BagScreen() {
               club={item}
               isActive={isActive}
               hasDuplicateType={(clubTypeCounts.get(item.club_type) ?? 0) > 1}
+              distance={distanceLabel(item)}
               onLongPress={drag}
               onToggle={() => toggleInBag(item)}
               onDelete={() => confirmDelete(item)}
@@ -527,6 +543,7 @@ function ClubRow({
   club,
   isActive,
   hasDuplicateType,
+  distance,
   onLongPress,
   onToggle,
   onDelete,
@@ -535,6 +552,8 @@ function ClubRow({
   club: UserClub
   isActive: boolean
   hasDuplicateType: boolean
+  /** " · 152 yd · from 23 shots", or "" when the club has no distance. */
+  distance: string
   onLongPress: () => void
   onToggle: () => void
   onDelete: () => void
@@ -572,9 +591,7 @@ function ClubRow({
           !hasDuplicateType
             ? ` · ${club.loft}°`
             : ''}
-          {club.typical_distance_yards != null
-            ? ` · ${club.typical_distance_yards} yd`
-            : ''}
+          {distance}
         </Text>
       </View>
       <Key

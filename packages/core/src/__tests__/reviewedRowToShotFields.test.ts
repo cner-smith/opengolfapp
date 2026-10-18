@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   lieSlopeLabel,
+  reviewedPuttLengthFt,
   reviewedRowToShotFields,
   type ReviewedShotRow,
 } from '../round'
@@ -550,7 +551,10 @@ describe('reviewedRowToShotFields', () => {
     it.each<[number, number | null]>([
       [4, 12],
       [1.4, 4],
-      [0, 0],
+      // 0 is the review's "no pin known" (web's no-pin rows, mobile's
+      // last-point fallback): the length is unknown, not a 0 ft putt.
+      [0, null],
+      [0.1, 0],
       [333, 999],
       [333.1, 999],
       [333.2, null],
@@ -558,15 +562,37 @@ describe('reviewedRowToShotFields', () => {
       [400, null],
       [Number.NaN, null],
       [Number.POSITIVE_INFINITY, null],
-    ])('turns a %s yd putt into %s ft', (distanceYards, expected) => {
+    ])('turns a putt %s yd from the hole into %s ft', (distanceToPin, expected) => {
+      // distanceYards (how far it rolled) is set apart on purpose: the length
+      // is the distance from the hole, #1092.
       expect(
-        reviewedRowToShotFields(puttRow({ distanceYards }), undefined).putt_distance_ft,
+        reviewedRowToShotFields(puttRow({ distanceToPin, distanceYards: 2 }), undefined)
+          .putt_distance_ft,
       ).toBe(expected)
     })
 
     it('is null for a shot', () => {
       expect(
         reviewedRowToShotFields(shotRow({ distanceYards: 4 }), undefined).putt_distance_ft,
+      ).toBeNull()
+    })
+    it('is the putt length the player chose in the review, over start → pin', () => {
+      expect(
+        reviewedRowToShotFields(puttRow({ distanceToPin: 10, puttLengthFt: 8 }), undefined)
+          .putt_distance_ft,
+      ).toBe(8)
+    })
+
+    it('keeps a chosen putt length on a hole with no known pin', () => {
+      expect(
+        reviewedRowToShotFields(puttRow({ distanceToPin: 0, puttLengthFt: 8 }), undefined)
+          .putt_distance_ft,
+      ).toBe(8)
+    })
+
+    it('ignores a chosen putt length on a shot', () => {
+      expect(
+        reviewedRowToShotFields(shotRow({ puttLengthFt: 8 }), undefined).putt_distance_ft,
       ).toBeNull()
     })
   })
@@ -853,5 +879,17 @@ describe('lieSlopeLabel', () => {
     ['', ''],
   ])('labels %j as %j', (value, expected) => {
     expect(lieSlopeLabel(value)).toBe(expected)
+  })
+})
+
+describe('reviewedPuttLengthFt', () => {
+  it.each<[number | undefined, number, number | null]>([
+    [undefined, 10, 30],
+    [8, 10, 8],
+    [8, 0, 8],
+    [undefined, 0, null],
+    [1200, 10, null],
+  ])('chosen %s ft, %s yd from the pin → %s ft', (puttLengthFt, distanceToPin, expected) => {
+    expect(reviewedPuttLengthFt({ puttLengthFt, distanceToPin })).toBe(expected)
   })
 })

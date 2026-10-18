@@ -1,8 +1,9 @@
 import { useState } from 'react'
 import { ScrollView, Text, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { CAPTURE_MODES, CAPTURE_MODE_LABELS, type CaptureMode } from '@oga/core'
+import { CAPTURE_MODES, CAPTURE_MODE_LABELS, isFinishedRound, type CaptureMode } from '@oga/core'
 import { TYPE } from '../../../lib/typography'
+import { getCached } from '../../../lib/screenCache'
 import { TeePicker } from '../RoundTeeSelector'
 import { Key, KeyText } from '../../paper/Paper'
 import { SectionHead } from '../../paper/Section'
@@ -35,7 +36,18 @@ export function RoundSetupStep({
   const insets = useSafeAreaInsets()
   const [teeId, setTeeId] = useState<string | null>(null)
   const [teeColor, setTeeColor] = useState<string | null>(null)
-  const [captureMode, setCaptureMode] = useState<CaptureMode>('track_patterns')
+  // #1054: a player's first live round opens on "Just track my round" (live
+  // shot tracking was what made new players quit early), and the round after
+  // their first finished one nudges toward shot patterns. Read from Home's
+  // cached recent rounds — Home is the only way here — rather than a new
+  // query. No cache (Home's fetch failed or hasn't landed) = old default.
+  const [finishedRounds] = useState(() =>
+    getCached<{ completed_at: string | null; total_score: number | null }[]>('home:rounds')
+      ?.filter(isFinishedRound).length,
+  )
+  const [captureMode, setCaptureMode] = useState<CaptureMode>(
+    finishedRounds === 0 ? 'just_track' : 'track_patterns',
+  )
 
   return (
     <View
@@ -81,6 +93,11 @@ export function RoundSetupStep({
                   <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { color: P.inkDim, fontSize: 12 }]}>
                     {CAPTURE_MODE_LABELS[cm].subtitle}
                   </Text>
+                  {cm === 'track_patterns' && finishedRounds === 1 && (
+                    <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.bodyItalic, { color: P.forest, fontSize: 12, marginTop: 6 }]}>
+                      One round in. This is a good one to start your shot patterns.
+                    </Text>
+                  )}
                 </Key>
               )
             })}

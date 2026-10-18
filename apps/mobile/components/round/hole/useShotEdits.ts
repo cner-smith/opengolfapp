@@ -1,12 +1,15 @@
-import { useMemo, useRef, useState } from 'react'
+import { useMemo, useRef, useState, type Dispatch } from 'react'
 import { Alert } from 'react-native'
+import { uuid } from 'expo-modules-core'
 import type { User } from '@supabase/supabase-js'
-import { isPuttShot, projectShotMove } from '@oga/core'
-import { supabase } from '../../../lib/supabase'
+import { isPuttShot, projectShotMove, type LiveBallEvent } from '@oga/core'
+import { supabase, timeoutError } from '../../../lib/supabase'
 import {
   deletePendingShotById,
   enqueueHoleScorePatch,
+  logDiag,
   removeLocalShotAndRenumber,
+  shiftLocalShotsAfter,
   setPendingShotOb,
   type ShotPayload,
 } from '../../../lib/db'
@@ -17,9 +20,8 @@ import type { UseHoleDataResult } from './useHoleData'
 interface UseShotEditsInput {
   user: User | null
   data: UseHoleDataResult
-  // The component's manual ball-placement path; markLastShotOb uses it to
-  // drop the ball back on the OB shot's origin (see useShotActions' input).
-  placeBallManually: (loc: LatLng) => void
+  // markLastShotOb puts the ball on the OB shot's start, and Undo hands it back to GPS.
+  dispatchBall: Dispatch<LiveBallEvent>
 }
 
 export interface UseShotEditsResult {
@@ -27,6 +29,10 @@ export interface UseShotEditsResult {
   // refresh the hole's shot state. Returns true on success, false (with an
   // alert already shown) on network/error.
   deleteShot: (shotId: string) => Promise<boolean>
+  // Online-first insert after an existing shot (#1114) via the insert_shot RPC,
+  // which renumbers the later shots and raises the hole score. Resolves after
+  // the hole's shots and score are refetched; false (alert shown) on failure.
+  insertShot: (afterShotId: string, start: LatLng) => Promise<boolean>
   // Online-first single-shot reposition: recompute start coords (+
   // distance_to_target via projectShotMove) and write them directly.
   // Returns true on success, false (with an alert already shown) on
@@ -44,6 +50,7 @@ export interface UseShotEditsResult {
   // data directly so the label and the toggle's direction can never disagree
   // (they share one source, including the just-written optimistic value).
   lastShotIsOb: boolean
+  obBusy: boolean
   // The same OB truth for EVERY shot on the hole, index-aligned with
   // data.previousShots / previousShotIds. Exposed for the same reason
   // lastShotIsOb is: the end-of-hole summary seeds its rows from this, and
@@ -54,7 +61,7 @@ export interface UseShotEditsResult {
 
 // Online-first edits to shots already logged on the current hole: delete,
 // move, and the OB toggle. Split out of useShotActions (#1015).
-export function useShotEdits({ user, data, placeBallManually }: UseShotEditsInput): UseShotEditsResult {
+export function useShotEdits({ user, data, dispatchBall }: UseShotEditsInput): UseShotEditsResult {
   const {
     currentHoleScore,
     setHoleScores,
@@ -70,6 +77,8 @@ export function useShotEdits({ user, data, placeBallManually }: UseShotEditsInpu
   // window) guarantees a set→undo pair reaches the server in the order it was
   // issued rather than in whatever order two unordered writes happen to land.
   const obInFlightRef = useRef(false)
+  // Mirrors obInFlightRef for the OB key's busy state (#1112).
+  const [obBusy, setObBusy] = useState(false)
   // The OB flag we last WROTE for a shot, which outranks the fetched value
   // until the refetch catches up. `previousShotObs` only refreshes when the
   // post-write `refreshShots` round-trip lands — a whole extra RTT after the
@@ -104,10 +113,63 @@ export function useShotEdits({ user, data, placeBallManually }: UseShotEditsInpu
     [previousShotIds, previousShotObs, obOverride],
   )
 
+  // refreshShots only refetches SHOTS; delete_shot / insert_shot also re-tally
+  // hole_scores server-side, and that row is fetched by a separate effect
+  // refreshShots doesn't trigger. Refetch it so the scorecard score follows.
+  async function refreshHoleScore() {
+    const hsId = data.currentHoleScore?.id
+    if (!hsId) return
+    const { data: updatedHs } = await supabase.from('hole_scores').select('*').eq('id', hsId).single()
+    if (updatedHs) setHoleScores((prev) => prev.map((hs) => (hs.id === hsId ? { ...hs, ...updatedHs } : hs)))
+  }
+
+  // One insert at a time (a double tap would add two shots), and a retry after
+  // a failure reuses the id: if the lost response had committed, insert_shot
+  // sees the row and changes nothing.
+  const insertInFlightRef = useRef(false)
+  const insertIdRef = useRef<{ afterShotId: string; id: string } | null>(null)
+  async function insertShot(afterShotId: string, start: LatLng): Promise<boolean> {
+    if (insertInFlightRef.current) return false
+    insertInFlightRef.current = true
+    if (insertIdRef.current?.afterShotId !== afterShotId) insertIdRef.current = { afterShotId, id: uuid.v4() }
+    logDiag('insert_start')
+    try {
+      // The shot it goes after needs a server row to be renumbered around.
+      if ((await syncPendingShots()).timedOut) throw timeoutError()
+      const proj = projectShotMove({ newStart: start, pin: roundPin ?? storedPin ?? null, isPutt: false })
+      const { error } = await supabase.rpc('insert_shot', {
+        p_id: insertIdRef.current.id,
+        p_after_shot_id: afterShotId,
+        p_start_lat: start.lat,
+        p_start_lng: start.lng,
+        p_distance_to_target: proj.distanceToTarget ?? null,
+      })
+      if (error) throw error
+      insertIdRef.current = null
+      await shiftLocalShotsAfter(afterShotId, 1)
+      await data.refreshShots()
+      await refreshHoleScore()
+      logDiag('insert_ok')
+      return true
+    } catch (e) {
+      if (__DEV__) console.warn('[hole/insertShot]', (e as Error)?.message)
+      logDiag('insert_failed', { msg: e })
+      Alert.alert(
+        "Couldn't add a shot",
+        'Adding a shot needs a connection. Try again when you’re back online.',
+      )
+      return false
+    } finally {
+      insertInFlightRef.current = false
+    }
+  }
+
   async function deleteShot(shotId: string): Promise<boolean> {
+    logDiag('delete_start')
     try {
       // Flush any not-yet-synced shots so the target has a server row to delete.
-      await syncPendingShots()
+      // Stalled network: stop here rather than wait out the write too (#1112).
+      if ((await syncPendingShots()).timedOut) throw timeoutError()
       const { data: deleted, error } = await supabase.rpc('delete_shot', {
         p_shot_id: shotId,
       })
@@ -118,26 +180,11 @@ export function useShotEdits({ user, data, placeBallManually }: UseShotEditsInpu
       if (deleted === false) await deletePendingShotById(shotId)
       else await removeLocalShotAndRenumber(shotId)
       data.refreshShots()
-      // refreshShots only refetches SHOTS; the RPC also re-tallied hole_scores
-      // (score/putts/penalties/fairway_hit/gir) server-side, and that row is
-      // fetched by a separate effect refreshShots doesn't trigger. Refetch it so
-      // the scorecard score updates instead of staying stale after the delete.
-      const hsId = data.currentHoleScore?.id
-      if (hsId) {
-        const { data: updatedHs } = await supabase
-          .from('hole_scores')
-          .select('*')
-          .eq('id', hsId)
-          .single()
-        if (updatedHs) {
-          setHoleScores((prev) =>
-            prev.map((hs) => (hs.id === hsId ? { ...hs, ...updatedHs } : hs)),
-          )
-        }
-      }
+      await refreshHoleScore()
       return true
     } catch (e) {
       if (__DEV__) console.warn('[hole/deleteShot]', (e as Error)?.message)
+      logDiag('delete_failed', { msg: e })
       Alert.alert(
         "Couldn't delete that shot",
         'Deleting a shot needs a connection. Try again when you’re back online.',
@@ -157,11 +204,13 @@ export function useShotEdits({ user, data, placeBallManually }: UseShotEditsInpu
     newStart: { lat: number; lng: number },
   ): Promise<boolean> {
     if (!user) return false
+    logDiag('move_start')
     try {
       // Flush any not-yet-synced shots first (mirrors deleteShot) — the shot's
       // client-generated id is stable, so once flushed the update below hits
       // the real server row instead of matching 0 rows.
-      await syncPendingShots()
+      // Stalled network: stop here rather than wait out the write too (#1112).
+      if ((await syncPendingShots()).timedOut) throw timeoutError()
       // The shot's lie_type (putt vs. full shot) isn't held in memory for an
       // already-synced shot — only pending (not-yet-synced) shots carry it,
       // via their queued payload, and even there it's commonly null (live
@@ -199,7 +248,12 @@ export function useShotEdits({ user, data, placeBallManually }: UseShotEditsInpu
         pin: pinTarget,
         isPutt: isPuttShot(lieType),
       })
-      const updates: { start_lat: number; start_lng: number; distance_to_target?: number | null } = {
+      const updates: {
+        start_lat: number
+        start_lng: number
+        distance_to_target?: number | null
+        putt_distance_ft?: number | null
+      } = {
         start_lat: proj.startLat,
         start_lng: proj.startLng,
       }
@@ -207,6 +261,8 @@ export function useShotEdits({ user, data, placeBallManually }: UseShotEditsInpu
       if (proj.distanceToTarget !== undefined) {
         updates.distance_to_target = proj.distanceToTarget
       }
+      // A moved putt's length is its new start → pin (#1096).
+      if (proj.puttDistanceFt !== undefined) updates.putt_distance_ft = proj.puttDistanceFt
       const { data: updatedRows, error } = await supabase
         .from('shots')
         .update(updates)
@@ -220,16 +276,20 @@ export function useShotEdits({ user, data, placeBallManually }: UseShotEditsInpu
       // move is lost (mirrors the Alert path below).
       if (!updatedRows || updatedRows.length === 0) {
         if (__DEV__) console.warn('[hole/moveShot] update matched 0 rows', shotId)
+        logDiag('move_failed', { msg: '0 rows' })
         Alert.alert(
           "Couldn't move that shot",
           'Moving a shot needs a connection. Try again when you’re back online.',
         )
         return false
       }
-      data.refreshShots()
+      logDiag('move_ok')
+      // Awaited so a caller (Done → review, #1113) reads the moved start.
+      await data.refreshShots()
       return true
     } catch (e) {
       if (__DEV__) console.warn('[hole/moveShot]', (e as Error)?.message)
+      logDiag('move_failed', { msg: e })
       Alert.alert(
         "Couldn't move that shot",
         'Moving a shot needs a connection. Try again when you’re back online.',
@@ -269,10 +329,13 @@ export function useShotEdits({ user, data, placeBallManually }: UseShotEditsInpu
         : previousShotObs[idx] ?? false
     const next = !currentlyOb
     obInFlightRef.current = true
+    setObBusy(true)
+    logDiag('ob_start', { set: next, idx })
     try {
       // Flush first (mirrors moveShot): the client id is stable, so once the
       // shot has synced the update below hits the real row instead of 0 rows.
-      await syncPendingShots()
+      // Stalled network: stop here rather than wait out the write too (#1112).
+      if ((await syncPendingShots()).timedOut) throw timeoutError()
       const { data: updatedRows, error } = await supabase
         .from('shots')
         // BOTH representations of the same fact, deliberately:
@@ -297,6 +360,7 @@ export function useShotEdits({ user, data, placeBallManually }: UseShotEditsInpu
       // the player believing the penalty was recorded.
       if (!updatedRows || updatedRows.length === 0) {
         if (__DEV__) console.warn('[hole/markLastShotOb] update matched 0 rows', shotId)
+        logDiag('ob_failed', { set: next, msg: '0 rows' })
         Alert.alert(
           "Couldn't record that penalty",
           'Marking a shot OB needs a connection. Try again when you’re back online.',
@@ -327,20 +391,22 @@ export function useShotEdits({ user, data, placeBallManually }: UseShotEditsInpu
       await enqueueHoleScorePatch(currentHoleScore, { score: nextScore })
       syncPendingShots().catch(() => undefined)
       data.refreshShots()
-      // Stroke and distance: the re-hit starts where the OB shot started, so
-      // drop the ball back there and freeze GPS on it (the same manual-
-      // placement path a drag uses) or the next fix would drag it away. On
-      // UNDO the ball is left exactly where it is — reversing the flag and
-      // the stroke is the undo; moving the player's map is not.
-      if (next && start) placeBallManually(start)
+      // Stroke and distance: the replay starts where the OB shot started, so
+      // the ball goes back there and holds against GPS. Undo hands the ball
+      // back to GPS, or the next Mark would save the OB start again (#1090).
+      if (next && start) dispatchBall({ type: 'obSet', start })
+      else if (!next) dispatchBall({ type: 'obUndone' })
+      logDiag('ob_ok', { set: next, ballSnapped: !!(next && start) })
     } catch (e) {
       if (__DEV__) console.warn('[hole/markLastShotOb]', (e as Error)?.message)
+      logDiag('ob_failed', { set: next, msg: e })
       Alert.alert(
         "Couldn't record that penalty",
         'Marking a shot OB needs a connection. Try again when you’re back online.',
       )
     } finally {
       obInFlightRef.current = false
+      setObBusy(false)
     }
   }
 
@@ -352,5 +418,5 @@ export function useShotEdits({ user, data, placeBallManually }: UseShotEditsInpu
   // penalty.
   const lastShotIsOb = shotObs[shotObs.length - 1] ?? false
 
-  return { deleteShot, moveShot, markLastShotOb, lastShotIsOb, shotObs }
+  return { deleteShot, insertShot, moveShot, markLastShotOb, lastShotIsOb, obBusy, shotObs }
 }

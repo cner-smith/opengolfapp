@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { TYPE } from '../../../lib/typography'
 import { Key, KeyText, PaperSurface } from '../../paper/Paper'
 import { SectionHead } from '../../paper/Section'
@@ -8,7 +9,9 @@ import { META, inputStyle } from './styles'
 
 interface ManualFormArgs {
   name: string
-  location: string
+  city: string
+  state: string
+  country: string
   pars: number[]
 }
 
@@ -25,8 +28,11 @@ export function ManualCourseForm({
   onCancel: () => void
   onCreate: (args: ManualFormArgs) => Promise<void>
 }) {
+  const insets = useSafeAreaInsets()
   const [name, setName] = useState(initialName)
-  const [location, setLocation] = useState('')
+  const [city, setCity] = useState('')
+  const [state, setState] = useState('')
+  const [country, setCountry] = useState('')
   const [holeCount, setHoleCount] = useState<9 | 18>(18)
   const [pars, setPars] = useState<number[]>(() => new Array(18).fill(4))
 
@@ -44,7 +50,7 @@ export function ManualCourseForm({
   return (
     <PaperSurface style={{ flex: 1 }}>
       <ScrollView
-        contentContainerStyle={{ padding: 18, paddingBottom: 40 }}
+        contentContainerStyle={{ padding: 18, paddingTop: insets.top + 14, paddingBottom: 40 }}
         keyboardShouldPersistTaps="handled"
       >
         <Text maxFontSizeMultiplier={FONT_CAP} style={{ ...META, marginBottom: 8 }}>Add course</Text>
@@ -67,10 +73,16 @@ export function ManualCourseForm({
           style={inputStyle}
         />
 
-        <SectionHead title="City, state (optional)" style={{ marginTop: 18 }} />
+        <SectionHead title="City" style={{ marginTop: 18 }} />
+        <TextInput value={city} onChangeText={setCity} autoCapitalize="words" style={inputStyle} />
+
+        <SectionHead title="State / region" style={{ marginTop: 18 }} />
+        <TextInput value={state} onChangeText={setState} autoCapitalize="words" style={inputStyle} />
+
+        <SectionHead title="Country" style={{ marginTop: 18 }} />
         <TextInput
-          value={location}
-          onChangeText={setLocation}
+          value={country}
+          onChangeText={setCountry}
           autoCapitalize="words"
           style={inputStyle}
         />
@@ -135,18 +147,18 @@ export function ManualCourseForm({
           ))}
         </View>
 
-        <Text
-          maxFontSizeMultiplier={FONT_CAP}
-          style={[TYPE.body, {
-            color: P.inkDim,
-            fontSize: 12,
-            marginTop: 18,
-          }]}
-        >
-          {gpsCoords
-            ? `GPS captured (${gpsCoords.lat.toFixed(4)}, ${gpsCoords.lng.toFixed(4)}) — set as hole 1 tee.`
-            : 'GPS unavailable — hole coords left blank.'}
-        </Text>
+        {gpsCoords && (
+          <Text
+            maxFontSizeMultiplier={FONT_CAP}
+            style={[TYPE.body, {
+              color: P.inkDim,
+              fontSize: 12,
+              marginTop: 18,
+            }]}
+          >
+            Your current location is saved as the course location.
+          </Text>
+        )}
 
         <View style={{ flexDirection: 'row', gap: 10, marginTop: 22 }}>
           <Key accessibilityLabel="Cancel" onPress={onCancel} style={{ flex: 1 }} faceStyle={{ minHeight: 48 }}>
@@ -156,7 +168,7 @@ export function ManualCourseForm({
             tone="primary"
             accessibilityLabel={busy ? 'Creating…' : 'Create course →'}
             onPress={() =>
-              onCreate({ name, location, pars: visiblePars })
+              onCreate({ name, city, state, country, pars: visiblePars })
             }
             disabled={busy || !name.trim()}
             style={{ flex: 2 }}

@@ -24,6 +24,9 @@ import {
   isPuttShot,
   lieSlopeLabel,
   obCount,
+  withReplayLies,
+  PUTTING_BASELINES,
+  reviewedPuttLengthFt,
   type BreakDirectionHorizontal,
   type BreakDirectionVertical,
   type Club,
@@ -213,9 +216,16 @@ export function HoleReviewSheet({
       const putt = Number(isPuttShot(nextRow.lieType)) - Number(isPuttShot(prevRow.lieType))
       if (putt !== 0) setPutts((p) => Math.max(0, p + putt))
     }
+    const penalized =
+      (nextRow.shotResult === 'ob' && prevRow?.shotResult !== 'ob') ||
+      (!!nextRow.penalty && !prevRow?.penalty)
     setRows((prev) => {
       const copy = prev.slice()
       copy[idx] = { ...nextRow, _shotId: prev[idx]?._shotId }
+      // Flagged OB / penalty here: a re-tee after it keeps its lie (#1098).
+      if (penalized && copy[idx + 1]) {
+        copy[idx + 1] = withReplayLies([copy[idx]!, copy[idx + 1]!])[1]!
+      }
       return copy
     })
   }
@@ -460,7 +470,8 @@ function ShotRow({
     return base
   }, [bag, row.club])
   // Which field's options are unfolded inline. One at a time.
-  const [open, setOpen] = useState<'club' | 'lie' | 'slope' | 'result' | 'break' | 'speed' | null>(null)
+  const [open, setOpen] = useState<'club' | 'lie' | 'slope' | 'result' | 'break' | 'speed' | 'length' | null>(null)
+  const lengthFt = reviewedPuttLengthFt(row)
   const toggle = (f: NonNullable<typeof open>) => setOpen((o) => (o === f ? null : f))
   const rawClubLabel = clubOptions.find((c) => c.value === row.club)?.label ?? String(row.club)
   const clubLabel = rawClubLabel.charAt(0).toUpperCase() + rawClubLabel.slice(1)
@@ -492,10 +503,13 @@ function ShotRow({
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 9 }}>
         <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { color: P.ink, fontSize: 13 }]}>Shot {row.shotNumber}</Text>
         <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.serif, { color: P.ink, fontSize: 20 }]}>
-          {isPutt ? `${toDisplayFt(row.distanceYards * 3)} putt` : toDisplay(row.distanceYards)}
+          {isPutt
+            ? lengthFt != null ? `${toDisplayFt(lengthFt)} putt` : 'Putt'
+            : toDisplay(row.distanceYards)}
         </Text>
+        {/* A putt's headline already is its distance to the pin (its putt length). */}
         <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { color: P.ink, fontSize: 13, marginLeft: 'auto' }]}>
-          {toDisplay(row.distanceToPin)} to pin
+          {isPutt ? '' : `${toDisplay(row.distanceToPin)} to pin`}
         </Text>
         <Pressable
           accessibilityRole="button"
@@ -513,6 +527,12 @@ function ShotRow({
         <>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
             <Chip label={clubLabel} state="set" onPress={() => toggle('club')} />
+            <Chip
+              label={row.puttLengthFt != null ? `Length ${toDisplayFt(row.puttLengthFt)}` : '+ length'}
+              state={row.puttLengthFt != null ? 'set' : 'empty'}
+              accessibilityLabel={`Putt length, shot ${row.shotNumber}`}
+              onPress={() => toggle('length')}
+            />
             <Chip
               label={row.puttMade ? 'Made it ✓' : 'Made it'}
               // Off is the dashed empty chip: a raised "Made it" read as holed.
@@ -541,6 +561,24 @@ function ShotRow({
                   setOpen(null)
                 }}
               />,
+            )}
+          {open === 'length' &&
+            expand(
+              <>
+                <RockerRows
+                  label="Length"
+                  options={LENGTH_PICKS_FT.map((ft) => ({ value: String(ft), label: toDisplayFt(ft) }))}
+                  value={row.puttLengthFt != null ? String(row.puttLengthFt) : null}
+                  onChange={(v) => {
+                    onChange({ ...row, puttLengthFt: v ? Number(v) : undefined })
+                    setOpen(null)
+                  }}
+                  stacked={stacked}
+                />
+                <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { color: P.inkDim, fontSize: 12.5 }]}>
+                  Pick the closest. Strokes gained is measured at these lengths, so a foot either way barely changes it.
+                </Text>
+              </>,
             )}
           {open === 'break' &&
             expand(
@@ -675,7 +713,7 @@ function AimerOverlay({
 }) {
   const insets = useSafeAreaInsets()
   const scrollRef = useRef<ScrollView>(null)
-  const distanceFt = row.distanceYards * 3
+  const distanceFt = reviewedPuttLengthFt(row)
   const breakDirection =
     combinedBreakDirection({
       vertical: row.breakDirectionVertical ?? null,
@@ -725,3 +763,8 @@ function AimerOverlay({
     </PaperSurface>
   )
 }
+
+// Putt length picks (#1109): the putting baseline steps (3–60 ft), so a pick
+// lands on a row strokes gained reads directly (every bracket has the same
+// columns). Tapping the set one clears it.
+const LENGTH_PICKS_FT = Object.keys(PUTTING_BASELINES[15]).map(Number)

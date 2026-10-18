@@ -6,16 +6,16 @@ import type { Database } from '@oga/supabase'
 import { toBlob } from 'html-to-image'
 import {
   DEFAULT_HANDICAP,
-  haversineYards,
   inferHoleStats,
   isPuttShot,
   obCount,
+  projectShotMove,
   reviewedRowToShotFields,
   type CaptureMode,
 } from '@oga/core'
 import type { PlacedPoint } from '../../../components/round/RoundMap'
 import type { ReviewedShotRow } from '../../../components/round/HoleReviewSheet'
-import { useCreateShot, useUpdateShot } from '../../../hooks/useShots'
+import { useCreateShot, useCreateShots, useUpdateShot } from '../../../hooks/useShots'
 import { useUpsertHoleScore } from '../../../hooks/useHoleScores'
 import { useCompleteRound } from '../../../hooks/useCompleteRound'
 import { useDeleteRound } from '../../../hooks/useRounds'
@@ -46,6 +46,7 @@ export type ShotDragUndo = {
     lat: number | null
     lng: number | null
     distanceToTarget?: number | null
+    puttDistanceFt?: number | null
   }
   label: string
 }
@@ -144,6 +145,7 @@ export function useRoundActions(input: UseRoundActionsInput): UseRoundActionsRes
   const queryClient = useQueryClient()
   const upsertHoleScore = useUpsertHoleScore(roundId)
   const createShot = useCreateShot(roundId)
+  const createShots = useCreateShots(roundId)
   const updateShot = useUpdateShot(roundId)
   const completeMutation = useCompleteRound()
   const deleteMutation = useDeleteRound()
@@ -239,7 +241,7 @@ export function useRoundActions(input: UseRoundActionsInput): UseRoundActionsRes
   // longer special-cased; its putt-ness is decided at the end-of-hole review.
   const pushShotWithAim = useCallback(
     (p: PlacedPoint) => {
-      dispatchHoleView({ type: 'PUSH_POINT', point: p, openPuttSheet: false })
+      dispatchHoleView({ type: 'PUSH_POINT', point: p })
       if (isLiveEntry && captureMode === 'just_track') {
         // Just-track mode records the location only — no aim capture. The
         // end-of-hole review still infers putts and lets the player fill
@@ -335,21 +337,14 @@ export function useRoundActions(input: UseRoundActionsInput): UseRoundActionsRes
     async (shotId: string, point: PlacedPoint) => {
       const shot = activeHoleShots.find((s) => s.id === shotId)
       if (!shot) return
-      // distance_to_target lives on the raw row — pull it for the undo
-      // snapshot. ExistingShot only exposes coords + numbering.
+      // distance_to_target / putt_distance_ft live on the raw row — pull them
+      // for the undo snapshot. ExistingShot only exposes coords + numbering.
       const rawShot = (shotsQuery.data ?? []).find((s) => s.id === shotId)
       const isPutt = shot.category === 'putt'
-      const newDistance =
-        !isPutt && effectivePin
-          ? Math.round(
-              haversineYards(
-                point.lat,
-                point.lng,
-                effectivePin.lat,
-                effectivePin.lng,
-              ),
-            )
-          : null
+      // A full shot gets a new distance_to_target, a putt a new length (#1096);
+      // undefined leaves the column alone (no pin, #662).
+      const proj = projectShotMove({ newStart: point, pin: effectivePin ?? null, isPutt })
+      const newDistance = isPutt ? undefined : proj.distanceToTarget
       // Stash prev for undo BEFORE the mutation — if the user immediately
       // drags again the second drag's prev should reflect the first
       // drag's end position, not what was on screen before either edit.
@@ -359,9 +354,10 @@ export function useRoundActions(input: UseRoundActionsInput): UseRoundActionsRes
         prev: {
           lat: shot.startLat,
           lng: shot.startLng,
-          distanceToTarget: isPutt
-            ? undefined
-            : rawShot?.distance_to_target ?? null,
+          distanceToTarget:
+            newDistance === undefined ? undefined : rawShot?.distance_to_target ?? null,
+          puttDistanceFt:
+            proj.puttDistanceFt === undefined ? undefined : rawShot?.putt_distance_ft ?? null,
         },
         label: `Shot ${shot.shotNumber} position`,
       })
@@ -371,12 +367,9 @@ export function useRoundActions(input: UseRoundActionsInput): UseRoundActionsRes
           updates: {
             start_lat: point.lat,
             start_lng: point.lng,
-            // Only rewrite distance when a pin actually resolves. Without
-            // this guard, dragging a shot on an unmapped/pin-less hole wrote
-            // distance_to_target: null and destroyed a previously valid
-            // stored distance (#662).
-            ...(!isPutt && effectivePin
-              ? { distance_to_target: newDistance }
+            ...(newDistance !== undefined ? { distance_to_target: newDistance } : {}),
+            ...(proj.puttDistanceFt !== undefined
+              ? { putt_distance_ft: proj.puttDistanceFt }
               : {}),
           },
         })
@@ -433,6 +426,9 @@ export function useRoundActions(input: UseRoundActionsInput): UseRoundActionsRes
             start_lng: u.prev.lng,
             ...(u.prev.distanceToTarget !== undefined
               ? { distance_to_target: u.prev.distanceToTarget }
+              : {}),
+            ...(u.prev.puttDistanceFt !== undefined
+              ? { putt_distance_ft: u.prev.puttDistanceFt }
               : {}),
           },
         })
@@ -646,7 +642,7 @@ export function useRoundActions(input: UseRoundActionsInput): UseRoundActionsRes
         const hs = hsResult ?? existing
         if (!hs) throw new Error('hole_score upsert returned no row')
 
-        // Snapshot the ob/penalty flags of the shots about to be replaced,
+        // Snapshot the penalty flags of the shots about to be replaced,
         // keyed by shot_number, BEFORE the delete-all below wipes them —
         // ONLY when the shot count hasn't changed. `rows` (this save's
         // placements) are numbered 1..M purely from THIS session's own
@@ -665,15 +661,31 @@ export function useRoundActions(input: UseRoundActionsInput): UseRoundActionsRes
         // reviewedRowToShotFields gets no stored penalty and each row's flags
         // come only from what THIS save's own result picker set — never
         // carrying a stored flag across a renumbering (#797, #839).
-        const existingByShotNumber =
+        const storedPenalty =
           activeHoleShots.length === rows.length
-            ? new Map(
-                activeHoleShots.map((s) => [
-                  s.shotNumber,
-                  { ob: s.ob ?? false, penalty: s.penalty ?? false },
-                ]),
-              )
-            : new Map<number, { ob: boolean; penalty: boolean }>()
+            ? new Map(activeHoleShots.map((s) => [s.shotNumber, s.penalty ?? false]))
+            : new Map<number, boolean>()
+
+        // Every row is built before the delete below, so nothing between the
+        // delete and the insert can throw.
+        const inserts = rows.map((row) => {
+          // Persist the aim only if the player actually set/dragged it — an
+          // untouched auto-spawn suggestion is dropped so it can't enter the
+          // dispersion dataset (aim must be explicit to count).
+          const aimIdx = row.shotNumber - 1
+          const aim = placedAimAuto[aimIdx] ? null : placedAims[aimIdx] ?? null
+          return {
+            hole_score_id: hs.id,
+            user_id: user.id,
+            aim_lat: aim?.lat ?? null,
+            aim_lng: aim?.lng ?? null,
+            // The stored penalty is carried through the replace-all rewrite
+            // when the result picker's Penalty key wasn't touched. `ob` needs
+            // no stored value: the sheet seeds `shotResult: 'ob'` from the
+            // stored shots at hydration, so the row is authoritative (#839).
+            ...reviewedRowToShotFields(row, storedPenalty.get(row.shotNumber)),
+          }
+        })
 
         // Replace-all save: drop any shots already attached to this
         // hole_score before inserting the freshly reviewed rows. Without
@@ -687,27 +699,11 @@ export function useRoundActions(input: UseRoundActionsInput): UseRoundActionsRes
           .eq('user_id', user.id)
         if (delErr) throw delErr
 
-        for (const row of rows) {
-          // Persist the aim only if the player actually set/dragged it — an
-          // untouched auto-spawn suggestion is dropped so it can't enter the
-          // dispersion dataset (aim must be explicit to count).
-          const aimIdx = row.shotNumber - 1
-          const aim = placedAimAuto[aimIdx] ? null : placedAims[aimIdx] ?? null
-          await createShot.mutateAsync({
-            hole_score_id: hs.id,
-            user_id: user.id,
-            aim_lat: aim?.lat ?? null,
-            aim_lng: aim?.lng ?? null,
-            // The stored penalty is carried through the replace-all rewrite
-            // when the result picker's Penalty key wasn't touched. `ob` needs
-            // no stored value: the sheet seeds `shotResult: 'ob'` from the
-            // stored shots at hydration, so the row is authoritative (#839).
-            ...reviewedRowToShotFields(
-              row,
-              existingByShotNumber.get(row.shotNumber)?.penalty,
-            ),
-          })
-        }
+        // One request for the whole hole: either every row is written or
+        // none is, so a failure can't leave it half-saved (#1040). If it does
+        // fail, the hole has no shots until the next save; the sheet stays
+        // open with the player's edits for the retry.
+        await createShots.mutateAsync(inserts)
         // Cap auto-advance to the course's expected hole count — passing
         // null on the last hole keeps the player put with a cleared state.
         const nextHole =
@@ -734,7 +730,7 @@ export function useRoundActions(input: UseRoundActionsInput): UseRoundActionsRes
       placedAimAuto,
       expectedHoleCount,
       upsertHoleScore,
-      createShot,
+      createShots,
       dispatchHoleView,
       setSavingHole,
     ],

@@ -1,16 +1,21 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   buildInitialRows,
+  clubTypicalDistance,
   combinedBreakDirection,
   haversineYards,
   horizontalBreakFromAim,
   isPuttShot,
   obCount,
+  withReplayLies,
+  type Club,
   type ReviewedShotRow,
 } from '@oga/core'
+import { useAuth } from '../../hooks/useAuth'
+import { useUserBag } from '../../hooks/useUserBag'
+import { useClubDispersion } from '../../pages/rounds/hooks/useClubDispersion'
 import { GreenDiagram } from './GreenDiagram'
 import type { PlacedPoint } from './RoundMap'
-import type { WebPuttData } from './WebPuttingSheet'
 import { ShotRow } from './HoleReviewShotRow'
 export type { ReviewedShotRow }
 
@@ -25,11 +30,6 @@ interface HoleReviewSheetProps {
    *  End-of-shot for shot N is marker N+1; for the final shot it is
    *  the pin (assumed holed). */
   placedPoints: PlacedPoint[]
-  /** Putt metadata pre-collected via the putting sheet at tap time.
-   *  Parallel to placedPoints. When the inferred row for that index
-   *  is a putt, this data overrides the defaults so the user doesn't
-   *  re-enter what they just answered. */
-  placedPutts?: (WebPuttData | null)[]
   /** The hole's already-stored shots. Used only to seed `shotResult: 'ob'`
    *  onto the hydrated rows so (a) the score ticker counts the penalty
    *  stroke a mobile live-capture recorded, and (b) `saveReviewedHole` can
@@ -57,7 +57,6 @@ export function HoleReviewSheet({
   pinLat,
   pinLng,
   placedPoints,
-  placedPutts,
   storedShots,
   saving,
   onEditOnMap,
@@ -77,15 +76,27 @@ export function HoleReviewSheet({
 
   // Read the latest placedPoints inside the effect via ref so the effect
   // doesn't re-fire (and clobber user edits) just because the parent
-  // returned a new array reference. Same trick for placedPutts so a
-  // stale inline-collected putt doesn't get re-merged after the user
-  // hand-edited the row.
+  // returned a new array reference.
   const placedPointsRef = useRef(placedPoints)
   placedPointsRef.current = placedPoints
-  const placedPuttsRef = useRef(placedPutts)
-  placedPuttsRef.current = placedPutts
   const storedShotsRef = useRef(storedShots)
   storedShotsRef.current = storedShots
+  // The club guess matches the typical distances My Bag shows: measured once
+  // a club has enough shots, else the typed estimate (#1052).
+  const { user } = useAuth()
+  const { bag } = useUserBag()
+  const { byClub } = useClubDispersion(user?.id)
+  const userBag = useMemo(
+    () =>
+      bag.map((c) => {
+        const d = byClub.get(c.club_type as Club)
+        const t = clubTypicalDistance(d?.medianDistanceYards, d?.sampleSize ?? 0, c.typical_distance_yards)
+        return { club_type: c.club_type, typical_distance_yards: t?.yards ?? null }
+      }),
+    [bag, byClub],
+  )
+  const userBagRef = useRef(userBag)
+  userBagRef.current = userBag
 
   // Hydrate rows from the placed coordinates once per (hole, open). After
   // hydration the user's typing/dropdown choices are the source of truth —
@@ -107,7 +118,7 @@ export function HoleReviewSheet({
     const points = placedPointsRef.current
     const baseRows: ReviewedShotRow[] =
       pinLat != null && pinLng != null
-        ? buildInitialRows(points, par, pinLat, pinLng)
+        ? buildInitialRows(points, par, pinLat, pinLng, userBagRef.current)
         : points.map((p, idx) => {
             const isLast = idx === points.length - 1
             const next = isLast ? p : points[idx + 1]!
@@ -124,37 +135,9 @@ export function HoleReviewSheet({
               isLastShot: isLast,
             }
           })
-    const puttData = placedPuttsRef.current ?? []
-    // Merge any inline-collected putt data into the inferred rows so the
-    // player doesn't have to re-enter what they just answered in the
-    // putting sheet. Distance in feet maps to distanceYards / 3 so the
-    // sheet's edit display stays consistent.
-    const merged = baseRows.map((row, idx) => {
-        const inline = puttData[idx]
-        if (!inline) return row
-        // A placed putt is on the green by definition — pin lieType so putt
-        // classification keys off real intent (lie/club), not raw distance.
-        return {
-          ...row,
-          lieType: 'green' as const,
-          puttMade: inline.puttMade,
-          puttDistanceResult: inline.puttDistanceResult,
-          puttDirectionResult: inline.puttDirectionResult,
-          breakDirectionVertical: inline.breakDirectionVertical,
-          breakDirectionHorizontal: inline.breakDirectionHorizontal,
-          puttSlopePct: inline.puttSlopePct,
-          greenSpeed: inline.greenSpeed,
-          aimOffsetInches: inline.aimOffsetInches,
-          notes: inline.notes,
-          distanceYards:
-            inline.puttDistanceFt != null
-              ? inline.puttDistanceFt / 3
-              : row.distanceYards,
-        }
-      })
     // Seed OB from the hole's already-stored shots BEFORE anything reads the
     // rows. Web has no live capture, so buildInitialRows / the no-pin
-    // fallback / the putt merge never set `shotResult`; without this the
+    // fallback never set `shotResult`; without this the
     // sheet shows no OB chip for a hole marked OB on mobile and seeds the
     // score one stroke low, then persists that lower value over a correct
     // one. Keyed by shot number (not position) and gated on an equal count,
@@ -163,12 +146,12 @@ export function HoleReviewSheet({
     // count mismatch dropping the flag is correct and moving it to a
     // different shot would be worse (#839).
     const stored = storedShotsRef.current ?? []
-    let seeded = merged
-    if (stored.length === merged.length) {
+    let seeded = baseRows
+    if (stored.length === baseRows.length) {
       const byNumber = new Map(stored.map((s) => [s.shotNumber, s]))
       // Penalty too: the result picker sends its full value, so an unseeded
       // row would write penalty:false over a stored true once touched.
-      seeded = merged.map((row) => {
+      seeded = baseRows.map((row) => {
         const s = byNumber.get(row.shotNumber)
         return {
           ...row,
@@ -177,6 +160,8 @@ export function HoleReviewSheet({
         }
       })
     }
+    // A re-tee keeps the OB / penalty shot's lie (#1098): reads the flags seeded above.
+    seeded = withReplayLies(seeded)
     setRows(seeded)
     // Struck rows + penalty strokes. obCount reads the `shotResult: 'ob'`
     // the seed above applied, so this is 0 only when the hole has no stored
@@ -188,7 +173,7 @@ export function HoleReviewSheet({
     // putting engine + putt-count readers — a bladed wedge on the green still
     // counts as a putt here even though its row shows normal-shot UI (the
     // per-row isPutt gate below stays isPuttEntry). User-overridable ticker.
-    setPutts(merged.filter((r) => isPuttShot(r.lieType)).length)
+    setPutts(baseRows.filter((r) => isPuttShot(r.lieType)).length)
     // Same OB rows the score just counted (#963).
     setPenalties(obCount(seeded))
   }, [open, holeNumber, par, pinLat, pinLng])
@@ -346,6 +331,9 @@ export function HoleReviewSheet({
                 const putt =
                   Number(isPuttShot(next.lieType)) - Number(isPuttShot(row.lieType))
                 if (putt !== 0) setPutts((p) => Math.max(0, p + putt))
+                const penalized =
+                  (next.shotResult === 'ob' && row.shotResult !== 'ob') ||
+                  (!!next.penalty && !row.penalty)
                 setRows((prev) => {
                   const copy = prev.slice()
                   copy[idx] = next
@@ -377,6 +365,10 @@ export function HoleReviewSheet({
                       endLng: next.startLng,
                       distanceYards: priorDist,
                     }
+                  }
+                  // Flagged OB / penalty here: a re-tee after it keeps its lie (#1098).
+                  if (penalized && copy[idx + 1]) {
+                    copy[idx + 1] = withReplayLies([next, copy[idx + 1]!])[1]!
                   }
                   return copy
                 })
@@ -553,7 +545,8 @@ function AimerOverlay({
   onChange: (next: ReviewedShotRow) => void
   onClose: () => void
 }) {
-  const distanceFt = row.distanceYards * 3
+  // 0 = no pin known (#660): no length to show.
+  const distanceFt = row.distanceToPin > 0 ? row.distanceToPin * 3 : null
   const breakDirection =
     combinedBreakDirection({
       vertical: row.breakDirectionVertical ?? null,

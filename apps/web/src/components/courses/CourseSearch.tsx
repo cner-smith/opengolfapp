@@ -16,8 +16,8 @@ type CourseRow = Database['public']['Tables']['courses']['Row']
 interface CourseSearchProps {
   selectedCourseId: string | null
   onSelect: (courseId: string, courseName: string) => void
-  /** Capture GPS once for stamping the user's tee location on hole 1.
-   *  Only meaningful for live rounds; defaults to false so past-round
+  /** Capture GPS once to locate a newly added course (#1061).
+   *  Only meaningful for live rounds, where the player is at the course; defaults to false so past-round
    *  entry doesn't trigger a permission prompt. */
   requestGps?: boolean
   /** Pre-seeds the search box, e.g. with an imported payload's course_name
@@ -48,7 +48,30 @@ export function CourseSearch({
   // Monotonic token so a slow getFacilityUnits response from an earlier
   // facility tap can't overwrite the units of a facility tapped later.
   const facilityReqRef = useRef(0)
-  const search = useCourseSearch(query)
+  // Ranking only (#898): where the player is, when the browser already allows
+  // it — search never asks. Not used to place a new course: past-round entry
+  // happens anywhere.
+  const [knownPos, setKnownPos] = useState<{ lat: number; lng: number } | null>(null)
+  useEffect(() => {
+    if (requestGps || typeof navigator === 'undefined' || !navigator.permissions) return
+    let live = true
+    navigator.permissions
+      .query({ name: 'geolocation' })
+      .then((s) => {
+        if (s.state !== 'granted') return
+        navigator.geolocation.getCurrentPosition(
+          (pos) => live && setKnownPos({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+          () => {},
+          { enableHighAccuracy: false, timeout: 10000, maximumAge: 600_000 },
+        )
+      })
+      .catch(() => {})
+    return () => {
+      live = false
+    }
+  }, [requestGps])
+  const near = gps.status === 'ok' ? { lat: gps.lat!, lng: gps.lng! } : knownPos
+  const search = useCourseSearch(query, near)
   const importApi = useImportApiCourse()
 
   const apiResults = search.data?.api ?? []
@@ -91,7 +114,7 @@ export function CourseSearch({
   }
 
   // Capture GPS once when the parent has opted in (live-round mode) so
-  // manual + API imports can stamp the user's tee location on hole 1.
+  // manual + API imports can locate the course.
   // Past-round entry skips this — no need to prompt for location.
   useEffect(() => {
     if (!requestGps) return
@@ -120,7 +143,7 @@ export function CourseSearch({
       apiId: id,
       fallbackName: name,
       fallbackLocation: location,
-      gpsTeeCoords: gpsCoords,
+      gpsCoords,
     })
     onSelect(course.id, course.name)
     setQuery('')
@@ -379,6 +402,13 @@ function SearchRow({
   )
 }
 
+const INPUT_STYLE = {
+  border: '1px solid #D9D2BF',
+  borderRadius: 2,
+  padding: '10px 12px',
+  fontSize: 14,
+} as const
+
 interface ManualCourseFormProps {
   initialName: string
   gpsCoords: { lat: number; lng: number } | null
@@ -394,7 +424,9 @@ function ManualCourseForm({
 }: ManualCourseFormProps) {
   const create = useCreateManualCourse()
   const [name, setName] = useState(initialName)
-  const [location, setLocation] = useState('')
+  const [city, setCity] = useState('')
+  const [state, setState] = useState('')
+  const [country, setCountry] = useState('')
   const [holeCount, setHoleCount] = useState<9 | 18>(18)
   const [pars, setPars] = useState<number[]>(() =>
     new Array(18).fill(4) as number[],
@@ -415,9 +447,11 @@ function ManualCourseForm({
     if (!name.trim()) return
     const course = await create.mutateAsync({
       name,
-      location: location || null,
+      city,
+      state,
+      country,
       pars: visiblePars,
-      gpsTeeCoords: gpsCoords,
+      gpsCoords,
     })
     onCreated({ id: course.id, name: course.name })
   }
@@ -435,32 +469,38 @@ function ManualCourseForm({
       }}
     >
       <div className="kicker">Add course</div>
-      <div className="grid grid-cols-2" style={{ gap: 10 }}>
+      <div className="grid grid-cols-1 sm:grid-cols-2" style={{ gap: 10 }}>
         <input
           type="text"
           placeholder="Course name"
           value={name}
           onChange={(e) => setName(e.target.value)}
           className="bg-caddie-bg text-caddie-ink"
-          style={{
-            border: '1px solid #D9D2BF',
-            borderRadius: 2,
-            padding: '10px 12px',
-            fontSize: 14,
-          }}
+          style={INPUT_STYLE}
         />
         <input
           type="text"
-          placeholder="City, State (optional)"
-          value={location}
-          onChange={(e) => setLocation(e.target.value)}
+          placeholder="City (optional)"
+          value={city}
+          onChange={(e) => setCity(e.target.value)}
           className="bg-caddie-bg text-caddie-ink"
-          style={{
-            border: '1px solid #D9D2BF',
-            borderRadius: 2,
-            padding: '10px 12px',
-            fontSize: 14,
-          }}
+          style={INPUT_STYLE}
+        />
+        <input
+          type="text"
+          placeholder="State / region (optional)"
+          value={state}
+          onChange={(e) => setState(e.target.value)}
+          className="bg-caddie-bg text-caddie-ink"
+          style={INPUT_STYLE}
+        />
+        <input
+          type="text"
+          placeholder="Country (optional)"
+          value={country}
+          onChange={(e) => setCountry(e.target.value)}
+          className="bg-caddie-bg text-caddie-ink"
+          style={INPUT_STYLE}
         />
       </div>
 
@@ -481,13 +521,8 @@ function ManualCourseForm({
         <div className="kicker" style={{ marginBottom: 10 }}>
           Par per hole — tap to cycle 3/4/5
         </div>
-        <div
-          className="grid"
-          style={{
-            gridTemplateColumns: `repeat(${holeCount === 18 ? 9 : 9}, 1fr)`,
-            gap: 8,
-          }}
-        >
+        {/* 9 circles don't fit a phone-width card; 6 per row there (#1067). */}
+        <div className="grid grid-cols-6 sm:grid-cols-9" style={{ gap: 8 }}>
           {visiblePars.map((p, idx) => (
             <button
               key={idx}
@@ -531,14 +566,11 @@ function ManualCourseForm({
         </div>
       </div>
 
-      <div
-        className="text-caddie-ink-mute"
-        style={{ fontSize: 12 }}
-      >
-        {gpsCoords
-          ? `GPS captured (${gpsCoords.lat.toFixed(4)}, ${gpsCoords.lng.toFixed(4)}) — set as hole 1 tee.`
-          : 'GPS unavailable — hole coords left blank.'}
-      </div>
+      {gpsCoords && (
+        <div className="text-caddie-ink-mute" style={{ fontSize: 12 }}>
+          Your current location is saved as the course location.
+        </div>
+      )}
 
       {create.error && (
         <div className="text-caddie-neg" style={{ fontSize: 12 }}>

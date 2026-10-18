@@ -21,7 +21,7 @@ const DAY_MS = 86_400_000
 // error, just a 206 with a Content-Range header nothing here reads. Verified
 // live against oga-dev: an unranged `holes.select('course_id')` came back
 // capped at 1000 of 159,748 rows, silently feeding a wrong number into
-// oddHoleCount below with no error to catch it (see task-1-report.md).
+// the dashboard's odd-hole count with no error to catch it (see task-1-report.md).
 // Anywhere a select's row count is unbounded (user-generated, not capped by
 // something structural like geography), page through it with this size.
 const POSTGREST_PAGE_SIZE = 1000
@@ -83,6 +83,20 @@ export interface QualityPanel {
   oddHoleCount: number
 }
 
+/** Users per step, in FUNNEL_STEPS order (the page holds the labels). */
+export interface FunnelCohort {
+  week: string
+  steps: number[]
+}
+
+export interface FunnelPanel {
+  /** Newest week first; the page shows these plus an all-time row. */
+  cohorts: FunnelCohort[]
+  total: number[]
+  roundsByHolesScored: { bucket: '0' | '1–8' | '9–17' | '18+'; finished: number; unfinished: number }[]
+  plansByPriorRounds: { bucket: '0' | '1' | '2+'; plans: number }[]
+}
+
 /** Every panel resolves to its data or to its own error, so one bad query degrades one card. */
 export type Panel<T> = T | { error: string }
 
@@ -92,6 +106,7 @@ export interface AdminStats {
   pending: Panel<PendingPanel>
   crawler: Panel<CrawlerPanel>
   usage: Panel<UsagePanel>
+  funnel: Panel<FunnelPanel>
   quality: Panel<QualityPanel>
 }
 
@@ -369,7 +384,7 @@ async function pendingPanel(
 }
 
 async function crawlerPanel(client: OgaSupabaseClient): Promise<CrawlerPanel> {
-  // Deliberately unranged (unlike fetchAllCourseIds / activeIn below): unlike
+  // Deliberately unranged (unlike activeIn below): unlike
   // `holes` or `rounds`, crawl_state is one row per `source:scope` written
   // only by our own crawler — currently ~50 rows, bounded by geography, not
   // by user activity. It cannot grow past PostgREST's 1000-row default page
@@ -454,21 +469,142 @@ async function usagePanel(client: OgaSupabaseClient): Promise<UsagePanel> {
   }
 }
 
-async function fetchAllCourseIds(client: OgaSupabaseClient): Promise<string[]> {
-  const ids: string[] = []
-  let from = 0
-  for (;;) {
-    const { data, error } = await client
-      .from('holes')
-      .select('course_id')
-      .range(from, from + POSTGREST_PAGE_SIZE - 1)
+/** Pages through an unbounded select (see POSTGREST_PAGE_SIZE above). */
+async function fetchAll<T>(
+  page: (from: number, to: number) => PromiseLike<{ data: unknown; error: { message: string } | null }>,
+): Promise<T[]> {
+  const rows: T[] = []
+  for (let from = 0; ; from += POSTGREST_PAGE_SIZE) {
+    const { data, error } = await page(from, from + POSTGREST_PAGE_SIZE - 1)
     if (error) throw new Error(error.message)
-    const page = (data ?? []) as { course_id: string }[]
-    for (const row of page) ids.push(row.course_id)
-    if (page.length < POSTGREST_PAGE_SIZE) break
-    from += POSTGREST_PAGE_SIZE
+    const batch = (data ?? []) as T[]
+    rows.push(...batch)
+    if (batch.length < POSTGREST_PAGE_SIZE) return rows
   }
-  return ids
+}
+
+/** Monday (UTC) of the week an ISO timestamp falls in, as YYYY-MM-DD. */
+function weekOf(iso: string): string {
+  const d = new Date(iso)
+  d.setUTCHours(0, 0, 0, 0)
+  d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7))
+  return d.toISOString().slice(0, 10)
+}
+
+const FUNNEL_WEEKS = 12
+
+async function funnelPanel(client: OgaSupabaseClient): Promise<FunnelPanel> {
+  // Signup = the auth user, not the profile: profiles are written at
+  // onboarding, so a profile-based count would hide the first drop-off.
+  const users: { id: string; created_at: string }[] = []
+  for (let page = 1; ; page++) {
+    const { data, error } = await client.auth.admin.listUsers({ page, perPage: 1000 })
+    if (error) throw new Error(error.message)
+    users.push(...data.users.map((u) => ({ id: u.id, created_at: u.created_at })))
+    if (data.users.length < 1000) break
+  }
+
+  const [profiles, rounds, scored, plans] = await Promise.all([
+    fetchAll<{ id: string; onboarding_completed: boolean }>((a, b) =>
+      client.from('profiles').select('id,onboarding_completed').range(a, b),
+    ),
+    fetchAll<{ id: string; user_id: string; created_at: string; completed_at: string | null }>(
+      (a, b) => client.from('rounds').select('id,user_id,created_at,completed_at').range(a, b),
+    ),
+    // score 0 rows are placeholders, not a scored hole.
+    fetchAll<{ round_id: string }>((a, b) =>
+      client.from('hole_scores').select('round_id').gt('score', 0).range(a, b),
+    ),
+    fetchAll<{ user_id: string; generated_at: string }>((a, b) =>
+      client.from('practice_plans').select('user_id,generated_at').range(a, b),
+    ),
+  ])
+
+  const onboarded = new Set(profiles.filter((p) => p.onboarding_completed).map((p) => p.id))
+  const holesScored = new Map<string, number>()
+  for (const s of scored) holesScored.set(s.round_id, (holesScored.get(s.round_id) ?? 0) + 1)
+
+  type Progress = { started: boolean; scored: boolean; nine: boolean; finished: number }
+  const progress = new Map<string, Progress>()
+  // [finished, unfinished]
+  const roundBuckets: Record<FunnelPanel['roundsByHolesScored'][number]['bucket'], [number, number]> = {
+    '0': [0, 0],
+    '1–8': [0, 0],
+    '9–17': [0, 0],
+    '18+': [0, 0],
+  }
+  for (const r of rounds) {
+    const n = holesScored.get(r.id) ?? 0
+    const p = progress.get(r.user_id) ?? { started: false, scored: false, nine: false, finished: 0 }
+    p.started = true
+    p.scored ||= n >= 1
+    p.nine ||= n >= 9
+    if (r.completed_at) p.finished++
+    progress.set(r.user_id, p)
+    const bucket = n === 0 ? '0' : n < 9 ? '1–8' : n < 18 ? '9–17' : '18+'
+    roundBuckets[bucket][r.completed_at ? 0 : 1]++
+  }
+
+  // Steps match FUNNEL_STEPS on the page: signed up, onboarded, started a
+  // round, scored a hole, 9 holes in one round, finished one, finished 2, finished 3.
+  const stepsOf = (id: string): number[] => {
+    const p = progress.get(id)
+    return [
+      1,
+      onboarded.has(id) ? 1 : 0,
+      p?.started ? 1 : 0,
+      p?.scored ? 1 : 0,
+      p?.nine ? 1 : 0,
+      (p?.finished ?? 0) >= 1 ? 1 : 0,
+      (p?.finished ?? 0) >= 2 ? 1 : 0,
+      (p?.finished ?? 0) >= 3 ? 1 : 0,
+    ]
+  }
+  const add = (acc: number[], s: number[]) => s.forEach((v, i) => (acc[i] = (acc[i] ?? 0) + v))
+
+  const byWeek = new Map<string, number[]>()
+  const total: number[] = []
+  for (const u of users) {
+    const s = stepsOf(u.id)
+    add(total, s)
+    const week = weekOf(u.created_at)
+    const acc = byWeek.get(week) ?? []
+    byWeek.set(week, acc)
+    add(acc, s)
+  }
+
+  // A plan "with N rounds" counts the player's rounds that scored a hole and
+  // were created before the plan. Empty rounds are noise (#1055).
+  const scoredRoundTimes = new Map<string, number[]>()
+  for (const r of rounds) {
+    if (!holesScored.has(r.id)) continue
+    const times = scoredRoundTimes.get(r.user_id) ?? []
+    times.push(Date.parse(r.created_at))
+    scoredRoundTimes.set(r.user_id, times)
+  }
+  const planBuckets = { '0': 0, '1': 0, '2+': 0 }
+  for (const plan of plans) {
+    const generated = Date.parse(plan.generated_at)
+    const n = (scoredRoundTimes.get(plan.user_id) ?? []).filter((t) => t < generated).length
+    planBuckets[n === 0 ? '0' : n === 1 ? '1' : '2+']++
+  }
+
+  return {
+    cohorts: [...byWeek.entries()]
+      .sort(([a], [b]) => b.localeCompare(a))
+      .slice(0, FUNNEL_WEEKS)
+      .map(([week, steps]) => ({ week, steps })),
+    total,
+    roundsByHolesScored: Object.entries(roundBuckets).map(([bucket, [finished, unfinished]]) => ({
+      bucket: bucket as FunnelPanel['roundsByHolesScored'][number]['bucket'],
+      finished: finished!,
+      unfinished: unfinished!,
+    })),
+    plansByPriorRounds: Object.entries(planBuckets).map(([bucket, n]) => ({
+      bucket: bucket as FunnelPanel['plansByPriorRounds'][number]['bucket'],
+      plans: n,
+    })),
+  }
 }
 
 async function qualityPanel(client: OgaSupabaseClient): Promise<QualityPanel> {
@@ -481,23 +617,13 @@ async function qualityPanel(client: OgaSupabaseClient): Promise<QualityPanel> {
       .select('*', { count: 'exact', head: true })
       .or('lat.is.null,lng.is.null'),
   )
-  // DEVIATION from the planned embedded-aggregate query (Step 2 fallback used
-  // as primary — see task-1-report.md). `courses?select=id,holes!inner(count)`
-  // does NOT behave as its own doc comment would claim: verified live against
-  // oga-dev that `!inner` does not drop courses with zero `holes` rows from an
-  // aggregate embed — every course still comes back as `{"count":0}`. Cross-
-  // checked via SQL: the embedded-aggregate approach would have reported 6392
-  // "odd" courses on dev's mirror-scale prod data vs. the correct 1779 that
-  // actually have SOME hole geometry but not 9 or 18 of it. So this tallies
-  // hole counts per course client-side instead, paginating through every
-  // `holes` row via fetchAllCourseIds (one column, ~160k rows on prod today —
-  // acceptable for a dev-only ops endpoint hit occasionally, not on every
-  // page interaction).
+  // Counted in Postgres (0062): tallying it here meant paging every holes row,
+  // ~20 s on prod (#1144). `holes!inner(count)` can't do it: it doesn't drop
+  // courses with zero holes rows from an aggregate embed.
   const oddHoleCount = (async () => {
-    const courseIds = await fetchAllCourseIds(client)
-    const perCourse = new Map<string, number>()
-    for (const id of courseIds) perCourse.set(id, (perCourse.get(id) ?? 0) + 1)
-    return [...perCourse.values()].filter((n) => n !== 9 && n !== 18).length
+    const { data, error } = await client.rpc('admin_odd_hole_course_count')
+    if (error) throw new Error(error.message)
+    return data
   })()
 
   const [state, coords, odd] = await Promise.all([missingState, missingCoords, oddHoleCount])
@@ -594,10 +720,11 @@ export function devAdminApi(): Plugin {
             const url = process.env.SUPABASE_URL || 'http://127.0.0.1:54321'
             const projectRef = refFromUrl(url)
             const core = await loadCore(server)
-            const [pending, crawler, usage, quality] = await Promise.all([
+            const [pending, crawler, usage, funnel, quality] = await Promise.all([
               panel(() => pendingPanel(client, core)),
               panel(() => crawlerPanel(client)),
               panel(() => usagePanel(client)),
+              panel(() => funnelPanel(client)),
               panel(() => qualityPanel(client)),
             ])
             const stats: AdminStats = {
@@ -606,6 +733,7 @@ export function devAdminApi(): Plugin {
               pending,
               crawler,
               usage,
+              funnel,
               quality,
             }
             return sendJson(res, 200, stats)

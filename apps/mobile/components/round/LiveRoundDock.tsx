@@ -12,7 +12,7 @@ import Animated, {
   type SharedValue,
 } from 'react-native-reanimated'
 import Svg, { Defs, LinearGradient, Path, Rect, Stop } from 'react-native-svg'
-import { tourMakePercent, type Club } from '@oga/core'
+import { MIN_SAMPLES_FOR_STATS as MIN_SHOTS, tourMakePercent, type Club } from '@oga/core'
 import { useUnits } from '../../hooks/useUnits'
 import { TYPE } from '../../lib/typography'
 import { Key, KeyText, PaperSurface, Rocker } from '../paper/Paper'
@@ -27,6 +27,8 @@ import type { RoundState } from './hole/types'
 import type { OffscreenArrow } from './HoleMap.types'
 
 export interface LiveRoundDockProps {
+  /** The shot the last Mark measured (#1087). */
+  lastHit: { shot: number; yards: number } | null
   roundState: RoundState
   pinPlacementOpen: boolean
   hasPin: boolean
@@ -65,6 +67,8 @@ export interface LiveRoundDockProps {
   /** OB offered for the hole's last shot (#839 / #895 B2). */
   obPromptActive: boolean
   lastShotIsOb: boolean
+  /** The OB / Undo request is in flight (#1112). */
+  obBusy: boolean
   /** Direction to the last shot's marker while it's off-screen, else null. */
   obArrow: OffscreenArrow | null
 
@@ -196,7 +200,8 @@ export function LiveRoundDock(p: LiveRoundDockProps) {
             {keys}
             {!putting && p.hasPin && (
               <CoachTarget id="live.wheel">
-                <ClubWheel {...p.wheel} />
+                {/* Keyed by shot: each shot starts at the key, not an open wheel. */}
+                <ClubWheel key={p.totalShotsThisHole} {...p.wheel} />
               </CoachTarget>
             )}
           </View>
@@ -243,14 +248,14 @@ function voiceLine(p: LiveRoundDockProps): ReactNode {
   if (!p.hasPin) return <NoPinVoice onPress={p.onTogglePin} />
   if (p.obPromptActive && p.lastShotIsOb) {
     return (
-      <Voice trailing={<SmallKey label="Undo" onPress={p.onMarkLastShotOb} />}>
+      <Voice trailing={<SmallKey label={p.obBusy ? 'Saving…' : 'Undo'} a11y="Undo" disabled={p.obBusy} onPress={p.onMarkLastShotOb} />}>
         Penalty stroke added.
       </Voice>
     )
   }
   if (p.obPromptActive && p.obArrow) {
     return (
-      <Voice trailing={<SmallKey label="OB" color={P.neg} onPress={p.onMarkLastShotOb} pressHaptic={false} />}>
+      <Voice trailing={<SmallKey label={p.obBusy ? 'Saving…' : 'OB'} a11y="OB" disabled={p.obBusy} color={p.obBusy ? undefined : P.neg} onPress={p.onMarkLastShotOb} pressHaptic={false} />}>
         {p.obArrow} Did shot {p.totalShotsThisHole} go out of bounds?
       </Voice>
     )
@@ -286,12 +291,27 @@ function voiceLine(p: LiveRoundDockProps): ReactNode {
         </Voice>
       )
     }
-    return null
+    return hitLine(p)
   }
   if (p.roundState === 'PLACE_BALL' && !p.isRevisitingPlayedHole) {
-    return <Voice>Mark your ball, then drag to fine-tune.</Voice>
+    return hitLine(p) ?? <Voice>Mark your ball, then drag to fine-tune.</Voice>
   }
   return null
+}
+
+// "Shot 1 went 164 yd." after a Mark (#1087): it takes the place of the
+// generic guidance until the next Mark. The OB question and hints outrank it.
+function hitLine(p: LiveRoundDockProps): ReactNode {
+  return p.lastHit ? <HitLine {...p.lastHit} /> : null
+}
+
+function HitLine({ shot, yards }: { shot: number; yards: number }) {
+  const { toDisplay } = useUnits()
+  return (
+    <Voice>
+      Shot {shot} went <Em>{toDisplay(Math.round(yards))}</Em>.
+    </Voice>
+  )
 }
 
 function bottomRow(p: LiveRoundDockProps): ReactNode[] {
@@ -336,6 +356,7 @@ export interface WheelRow {
   label: string
   /** Spoken name ("driver"). */
   name: string
+  /** Measured once the club has MIN_SHOTS, else the My Bag estimate. */
   typicalYards: number | null
   /** Usable (aim-tracked) shots with this club. */
   shots: number
@@ -351,18 +372,63 @@ export interface WheelProps {
   onPick: (club: Club) => void
 }
 
-const MIN_SHOTS = 5
 // Row centres at rest: a 49 neighbour + half the 60 centre block (F6).
 const PITCH = 54
 const VIEW_H = 158
 const CENTRE_H = 60
 const SPRING = { stiffness: 420, damping: 32, mass: 1 }
 
+// The club whose pattern the map shows (#1088). The live round never saves
+// this club (the review fills clubs in), so it shouldn't read as a step: at
+// rest it's a small key that opens the wheel, and a pick closes it.
+function ClubWheel(props: WheelProps) {
+  const { toDisplay, unit } = useUnits()
+  const [open, setOpen] = useState(false)
+  if (open) return <ClubWheelCard {...props} onDone={() => setOpen(false)} />
+  const row = props.rows.find((r) => r.club === props.selected) ?? props.rows[0]
+  if (!row) return null
+  // No auto pick when no club has a pattern yet: then neither caption applies.
+  const caption = props.auto == null ? null : row.club === props.auto ? 'Auto' : 'Just this shot'
+  const spoken = [
+    `Pattern club, ${row.name}`,
+    // The unit as a word: TalkBack can spell "yd" out letter by letter.
+    row.typicalYards != null ? `typical distance ${toDisplay(row.typicalYards).split(' ')[0]} ${unit}` : null,
+    caption?.toLowerCase(),
+  ]
+  return (
+    <Key
+      accessibilityLabel={`${spoken.filter(Boolean).join(', ')}. Change it`}
+      onPress={() => setOpen(true)}
+      faceStyle={{ minHeight: 52, flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 10 }}
+    >
+      <Text allowFontScaling={false} style={[TYPE.serif, { fontSize: 26, color: P.ink }]}>{row.label}</Text>
+      <View style={{ flex: 1 }}>
+        {caption && (
+          <Text
+            allowFontScaling={false}
+            numberOfLines={1}
+            style={[TYPE.body, { fontSize: 12, color: P.inkDim }]}
+          >
+            {caption}
+          </Text>
+        )}
+        {row.typicalYards != null && (
+          <Text allowFontScaling={false} numberOfLines={1} style={[TYPE.body, { fontSize: 13, color: P.ink }]}>
+            {toDisplay(row.typicalYards)}
+          </Text>
+        )}
+      </View>
+    </Key>
+  )
+}
+
 // Club wheel (§4, settle §15): the whole card is one vertical pan target
 // that snaps row to row; a tap picks the row under it. The pick commits on
-// release (state first, spring after). Opens on the auto pick every shot; a
-// manual pick lasts one shot and shows "Back to auto" above the card.
-function ClubWheel({ rows, selected, auto, onPick }: WheelProps) {
+// release (state first, spring after); the wheel closes back to the key once
+// the spring has settled. Starts on the auto pick every shot; a manual pick
+// lasts one shot and shows "Back to auto" above the card. Screen-reader steps
+// leave it open, so several clubs can be stepped through.
+function ClubWheelCard({ rows, selected, auto, onPick, onDone }: WheelProps & { onDone: () => void }) {
   const { toDisplay, unit } = useUnits()
   const sel = Math.max(0, rows.findIndex((r) => r.club === selected))
   const autoIdx = rows.findIndex((r) => r.club === auto)
@@ -386,15 +452,25 @@ function ClubWheel({ rows, selected, auto, onPick }: WheelProps) {
     pos.value = withSpring(sel, SPRING)
   }, [sel, pos])
 
-  const commit = (i: number) => {
+  // Close after the settle (§15 springs take about 350 ms); a new drag cancels it.
+  const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const cancelClose = () => {
+    if (closeTimer.current) clearTimeout(closeTimer.current)
+  }
+  useEffect(() => cancelClose, [])
+  const commit = (i: number, close = true) => {
     target.current = i
     const row = rows[i]
     if (row && i !== sel) onPick(row.club)
+    if (!close) return
+    cancelClose()
+    closeTimer.current = setTimeout(onDone, 400)
   }
   const pan = Gesture.Pan()
     .activeOffsetY([-6, 6])
     .onBegin(() => {
       start.value = pos.value
+      runOnJS(cancelClose)()
     })
     .onUpdate((e) => {
       pos.value = Math.min(last + 0.3, Math.max(-0.3, start.value - e.translationY / PITCH))
@@ -413,7 +489,7 @@ function ClubWheel({ rows, selected, auto, onPick }: WheelProps) {
   const step = (d: number) => {
     const i = Math.min(last, Math.max(0, sel + d))
     pos.value = withSpring(i, SPRING)
-    commit(i)
+    commit(i, false)
   }
 
   // A tab shows once the wheel has settled on the pick (|Δ| < 2.5 dp).
@@ -440,7 +516,10 @@ function ClubWheel({ rows, selected, auto, onPick }: WheelProps) {
       {manual && auto && (
         <Key
           accessibilityLabel="Back to the auto club"
-          onPress={() => onPick(auto)}
+          onPress={() => {
+            pos.value = withSpring(autoIdx, SPRING)
+            commit(autoIdx)
+          }}
           style={{ marginTop: 7, marginHorizontal: 7, marginBottom: 6 }}
           faceStyle={{ minHeight: 44, flexDirection: 'row', gap: 5, paddingHorizontal: 4 }}
         >
@@ -458,7 +537,7 @@ function ClubWheel({ rows, selected, auto, onPick }: WheelProps) {
           accessibilityValue={{
             text: row
               ? // The unit as a word: TalkBack can spell "yd" out letter by letter.
-                `${row.name}${row.typicalYards != null && !row.sparse ? `, typical distance ${toDisplay(row.typicalYards).split(' ')[0]} ${unit}` : ''}${sel === autoIdx ? ', auto pick' : ''}`
+                `${row.name}${row.typicalYards != null ? `, ${row.sparse ? 'estimated' : 'typical'} distance ${toDisplay(row.typicalYards).split(' ')[0]} ${unit}` : ''}${sel === autoIdx ? ', auto pick' : ''}`
               : '',
           }}
           accessibilityActions={[{ name: 'increment' }, { name: 'decrement' }]}
@@ -619,6 +698,13 @@ function WheelRowView({
       <Animated.View style={[{ marginLeft: 'auto', alignItems: 'flex-end', transformOrigin: 'right center' }, scaleStyle]}>
         {row.sparse ? (
           <>
+            {/* The My Bag estimate, muted until the club has its own shots. */}
+            {distance != null && (
+              <Text allowFontScaling={false} numberOfLines={1} style={[TYPE.serif, { fontSize: 20, lineHeight: 24, color: P.inkDim }]}>
+                {num}
+                <Text allowFontScaling={false} style={[TYPE.kicker, { fontSize: 13 }]}>{'\u2009'}{unit}</Text>
+              </Text>
+            )}
             <Text allowFontScaling={false} style={[TYPE.body, { fontSize: 12, lineHeight: 15, color: P.ink }]}>{MIN_SHOTS - row.shots} more</Text>
             <View style={{ flexDirection: 'row', gap: 3, marginTop: 2 }}>
               {Array.from({ length: MIN_SHOTS }, (_, i) => (

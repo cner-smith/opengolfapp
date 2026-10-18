@@ -1,0 +1,56 @@
+# Baseline live round at Whistling Straits hole 1 (needs that course's mapped holes in the backend): start, Mark, aim, walk, Mark, finish and
+# save the hole. Every live-round scenario flow builds on these steps. The round is deleted at
+# the end, pass or fail.
+appId: app.opengolf.oga
+name: Android live round — baseline
+onFlowComplete:
+  - runFlow:
+      when:
+        visible: "Close and edit shots on the map"
+      commands:
+        - tapOn: "Close and edit shots on the map"
+  - runFlow:
+      when:
+        visible: "Round options"
+      commands:
+        - tapOn: "Round options"
+        - tapOn: "Delete round"
+        - tapOn: "Delete"
+---
+- runFlow: subflows/home.yaml
+# Hole 1 tee.
+- runFlow:
+    file: subflows/gps.yaml
+    env: { LAT: "43.849856", LNG: "-87.734575" }
+- runFlow:
+    file: subflows/start-round.yaml
+    env: { MODE: "Track shot patterns" }
+- runFlow: subflows/mark-and-aim.yaml
+# Walk ~250 yd up the fairway; the walk ends ~147 yd from the pin, and the ball is there (#1108).
+- runFlow:
+    file: subflows/gps.yaml
+    env: { LAT: "43.84945", LNG: "-87.7338" }
+- runFlow:
+    file: subflows/gps.yaml
+    env: { LAT: "43.84906", LNG: "-87.7330" }
+- runFlow:
+    file: subflows/gps.yaml
+    env: { LAT: "43.84869", LNG: "-87.73223" }
+- extendedWaitUntil:
+    visible: "14[0-9].* yd to the pin"
+    timeout: 30000
+- runFlow: subflows/mark-and-aim.yaml
+- tapOn: "Finish hole"
+- runFlow: subflows/skip-tips.yaml
+# The review lists exactly the two shots marked, the first from the tee, and scores the hole 2.
+- assertVisible: "Shot 2"
+- assertNotVisible: "Shot 3"
+- assertVisible: "39[0-9] yd to pin"
+- assertVisible:
+    text: "2"
+    rightOf: "Fewer score"
+    leftOf: "More score"
+- tapOn: "Save & next hole"
+- extendedWaitUntil:
+    visible: "Hole 2"
+    timeout: 30000

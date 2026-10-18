@@ -1,0 +1,57 @@
+# OB then a quick replay on a slow network (#1113): the hole refetch the OB starts must not drop the
+# replay saved while it runs, or the next shot reuses the replay's shot number and one is lost.
+# Just-track mode, so Mark saves at once and lands inside the refetch.
+appId: app.opengolf.oga
+name: Android live round — OB and a quick replay keep every shot
+onFlowComplete:
+  - runFlow:
+      file: subflows/net.yaml
+      env: { NET: off }
+  - runFlow:
+      when:
+        visible: "Close and edit shots on the map"
+      commands:
+        - tapOn: "Close and edit shots on the map"
+  - runFlow:
+      when:
+        visible: "Round options"
+      commands:
+        - tapOn: "Round options"
+        - tapOn: "Delete round"
+        - tapOn: "Delete"
+---
+- runFlow: subflows/home.yaml
+- runFlow:
+    file: subflows/gps.yaml
+    env: { LAT: "43.849856", LNG: "-87.734575" }
+- runFlow:
+    file: subflows/start-round.yaml
+    env: { MODE: "Just track my round" }
+- tapOn: "Mark my ball at my GPS spot"
+- runFlow: subflows/skip-tips.yaml
+- extendedWaitUntil:
+    visible: "Did this shot go out of bounds\\?"
+    timeout: 10000
+- runFlow:
+    file: subflows/net.yaml
+    env: { NET: slow }
+- tapOn: "Did this shot go out of bounds\\?"
+- extendedWaitUntil:
+    visible: "Penalty stroke added\\."
+    timeout: 30000
+# Replay at once, while the OB's refetch is in flight. The ball is held at the OB start, so the key
+# reads plain "Mark my ball".
+- tapOn: "Mark my ball"
+- runFlow:
+    file: subflows/gps.yaml
+    env: { LAT: "43.84869", LNG: "-87.73223" }
+- tapOn: "Mark my ball at my GPS spot"
+- tapOn: "Finish hole"
+- runFlow: subflows/skip-tips.yaml
+# Tee shot (OB), replay, and the shot after the walk: three rows with their own numbers.
+- assertVisible: "Shot 3"
+- assertNotVisible: "Shot 4"
+- tapOn: "Save & next hole"
+- extendedWaitUntil:
+    visible: "Hole 2"
+    timeout: 30000

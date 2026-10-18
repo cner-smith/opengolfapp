@@ -3,8 +3,8 @@ import { Alert } from 'react-native'
 import { useRouter } from 'expo-router'
 import type { User } from '@supabase/supabase-js'
 import { deleteRound, getProfile } from '@oga/supabase'
-import { supabase } from '../../../lib/supabase'
-import { pendingCount } from '../../../lib/db'
+import { isNetworkTimeout, supabase, timeoutError, userMessage } from '../../../lib/supabase'
+import { logDiag, pendingCount } from '../../../lib/db'
 import { syncPendingShots } from '../../../lib/sync'
 import { completeRound } from '../../../lib/completeRound'
 import type { ActiveDialog } from './types'
@@ -42,17 +42,21 @@ export function useRoundEnd({ user, round, setActiveDialog, onRoundCompleted }: 
     if (endInFlightRef.current) return
     endInFlightRef.current = true
     setEnding(true)
+    logDiag('end_round_start')
     try {
       // Drain the queue before finalizing (#651). syncPendingShots joins
       // an in-flight run instead of no-oping, but a joined run may have
       // snapshotted the queue before the final putt's row landed — if
       // anything is still pending after the first pass, run once more now
       // that the previous run has settled.
-      await syncPendingShots().catch(() => undefined)
+      // A stalled network stops here with a retryable message (#1112) rather
+      // than waiting out a second sync and the finalize.
+      if ((await syncPendingShots().catch(() => undefined))?.timedOut) throw timeoutError()
       if ((await pendingCount(user.id)) > 0) {
-        await syncPendingShots().catch(() => undefined)
+        if ((await syncPendingShots().catch(() => undefined))?.timedOut) throw timeoutError()
       }
       const unsynced = await pendingCount(user.id)
+      logDiag('end_round_synced', { unsynced })
       if (unsynced > 0) {
         // Shots that never reached the server would silently vanish from
         // totals/SG (completeRound reads the server's shot set). Make the
@@ -78,12 +82,20 @@ export function useRoundEnd({ user, round, setActiveDialog, onRoundCompleted }: 
                 onPress: () => resolve(true),
               },
             ],
-            { cancelable: false },
+            // Back can't dismiss it, but another Alert replaces it on Android
+            // (DialogModule dismisses the showing one), which fires only
+            // onDismiss — without this the promise never settled and End
+            // round stayed busy for good (#1113). Replaced = keep it open.
+            // Android only: iOS stacks alerts instead of replacing them.
+            { cancelable: false, onDismiss: () => resolve(false) },
           )
         })
+        logDiag('end_round_prompt', { finishAnyway })
         if (!finishAnyway) return
       }
-      const { data: profile } = await getProfile(supabase, user.id)
+      const { data: profile, error: profileErr } = await getProfile(supabase, user.id)
+      // A timed-out read would finalize with no handicap: stop instead.
+      if (isNetworkTimeout(profileErr)) throw profileErr
       const handicap =
         (profile as { handicap_index?: number | null } | null)?.handicap_index ??
         null
@@ -93,9 +105,11 @@ export function useRoundEnd({ user, round, setActiveDialog, onRoundCompleted }: 
         userId: user.id,
         handicap,
       })
+      logDiag('end_round_ok')
       onRoundCompleted()
     } catch (err) {
-      Alert.alert('End round failed', (err as Error).message)
+      logDiag('end_round_failed', { msg: err })
+      Alert.alert('End round failed', userMessage(err))
     } finally {
       endInFlightRef.current = false
       setEnding(false)
@@ -111,7 +125,7 @@ export function useRoundEnd({ user, round, setActiveDialog, onRoundCompleted }: 
     try {
       const { error: delErr } = await deleteRound(supabase, round.id, user.id)
       if (delErr) {
-        Alert.alert('Delete failed', delErr.message)
+        Alert.alert('Delete failed', userMessage(delErr))
         return
       }
       router.replace('/(app)')

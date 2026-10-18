@@ -41,8 +41,8 @@ const PUTT_DIRECTION_OPTIONS: {
   { value: 'right', label: 'Missed right' },
 ]
 
-// Putt read vocab — mirrors WebPuttingSheet so the summary and the old
-// sheet stay in sync. Break line = the horizontal read, slope = up/down.
+// Putt read vocab, matching mobile's review sheet. Break line = the
+// horizontal read, slope = up/down.
 const BREAK_LINE_OPTIONS: { value: BreakDirectionHorizontal; label: string }[] = [
   { value: 'left_to_right', label: 'L → R' },
   { value: 'right_to_left', label: 'R → L' },
@@ -76,10 +76,11 @@ export function ShotRow({
   // and unmapped rows read distanceToPin 0 (#660).
   const isPutt = isPuttEntry(row.lieType, row.club)
   // Tour make-% readout (#791 step 4) — parity with mobile's putting sheet.
-  // Only meaningful with a real distance (0 = no pin known).
+  // A putt's length is its distance from the hole, what the save stores and SG
+  // reads (#1092, #1099). Only meaningful with a real distance (0 = no pin known).
   const puttTourPct =
-    isPutt && row.distanceYards > 0
-      ? tourMakePercent(row.distanceYards * 3)
+    isPutt && row.distanceToPin > 0
+      ? tourMakePercent(row.distanceToPin * 3)
       : null
   const { toDisplay, toDisplayFt } = useUnits()
   const { bag } = useUserBag()
@@ -177,7 +178,9 @@ export function ShotRow({
           style={{ fontSize: 20, fontStyle: 'italic' }}
         >
           {isPutt
-            ? `${toDisplayFt(row.distanceYards * 3)} putt`
+            ? row.distanceToPin > 0
+              ? `${toDisplayFt(row.distanceToPin * 3)} putt`
+              : 'Putt'
             : toDisplay(row.distanceYards)}
         </span>
         {puttTourPct != null && (

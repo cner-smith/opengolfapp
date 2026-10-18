@@ -69,7 +69,7 @@ function extractCoord(feature: unknown): LatLng | null {
   if (typeof lat !== 'number' || typeof lng !== 'number') return null
   // @rnmapbox/maps fires onDragEnd with NaN coords on Android when a
   // PointAnnotation is dragged off the visible map. NaN passes typeof
-  // 'number' and then poisons the Kalman filter + DB writes downstream.
+  // 'number' and then poisons the ball + DB writes downstream.
   if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null
   return { lat, lng }
 }
@@ -160,6 +160,7 @@ export function HoleMap({
   const legTagClamp =
     tagClearBottom != null && mapSize ? { map: mapViewRef, maxY: mapSize.h - tagClearBottom, idleTick } : undefined
   const [lastShotArrow, setLastShotArrow] = useState<OffscreenArrow | null>(null)
+  const [ballKey, setBallKey] = useState(0)
   // Measured OB callout width — its label and the font scale both change it.
   const [obPillWidth, setObPillWidth] = useState(120)
   // Camera centre + heading as of the last settle — the only way to tell
@@ -257,8 +258,8 @@ export function HoleMap({
   const recenterOnGps = useCallback(async () => {
     if (!cameraRef.current) return
     // Recenter on the FRESHEST fix, not the state gpsPosition. That value is
-    // throttled by the listener's 5 m displacement filter (useHoleState), so
-    // "center on me" could land the camera up to ~5 m off the live native
+    // throttled by the listener's displacement filter (useHoleState), so
+    // "center on me" could land the camera off the live native
     // LocationPuck — the puck ended up off-centre and it read as "the camera
     // moved but the dot didn't." getLastKnownLocation reads the same native
     // engine the puck renders from. Falls back to the state value if it's
@@ -934,20 +935,19 @@ export function HoleMap({
               gated to PLACE_BALL so the ball can't be dragged mid-aim. */}
           {ball && !hideBall && (
             <Mapbox.PointAnnotation
+              key={`ball-${ballKey}`}
               id="ball"
               coordinate={toCoord(ball)}
               draggable={isPlaceBallPhase}
               onDragStart={() => {
                 if (ballDraggingRef) ballDraggingRef.current = true
               }}
-              onDragEnd={(e: unknown) => {
+              onDragEnd={async (e: unknown) => {
                 if (ballDraggingRef) ballDraggingRef.current = false
                 const c = extractCoord(e)
-                // Ignore micro-drags (< 5 yd) — finger tremor or an
-                // accidental press-and-release would otherwise freeze
-                // GPS tracking for the rest of this PLACE_BALL cycle.
-                if (!c || distanceYards(ball, c) < 5) return
-                onSetBall(c)
+                // Rejected, or a press without a move (it would stop GPS following): remount at `ball`, since the
+                // native marker keeps the dragged spot until its coordinate changes (#1111).
+                if (!c || distanceYards(ball, c) < 0.5 || (await onSetBall(c)) === false) setBallKey((k) => k + 1)
               }}
             >
               {/* Translucent 44pt grab disc. PointAnnotation hit-tests the
@@ -978,7 +978,7 @@ export function HoleMap({
             </Mapbox.PointAnnotation>
           )}
           {obCallout && lastShot && lastShotArrow == null && (
-            <ObCallout at={lastShot} onPress={obCallout.onPress} onWidth={setObPillWidth} />
+            <ObCallout at={lastShot} onPress={obCallout.onPress} busy={obCallout.busy} onWidth={setObPillWidth} />
           )}
         </Mapbox.MapView>
 

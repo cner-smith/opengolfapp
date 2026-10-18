@@ -1,0 +1,5 @@
+# Sets the device's network through run.sh's bridge: NET=stall (requests hang, like weak signal),
+# slow (every request takes seconds) or off (normal).
+appId: app.opengolf.oga
+---
+- evalScript: ${(function () { var r = http.get('http://127.0.0.1:' + (GPS_BRIDGE_PORT || '8099') + '/net?mode=' + NET); if (r.status !== 200) throw new Error('Network bridge failed, status ' + r.status); })()}

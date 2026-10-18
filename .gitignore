@@ -71,3 +71,7 @@ docs/superpowers/
 
 # course-rating backfill audit log
 backfill-ratings-*.jsonl
+
+# crawler boundary data + labeler output (large / regenerable)
+scripts/data/
+scripts/intl-relabels.json

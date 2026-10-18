@@ -1,0 +1,9 @@
+# Moves the emulator's own GPS to LAT,LNG (env) through run.sh's local bridge (`adb emu geo fix`).
+# Don't use Maestro's setLocation/travel here: its mock location competes with the emulator's
+# GPS, which keeps re-sending its last position, and the app blends the two.
+appId: app.opengolf.oga
+---
+# Fails here, loudly, if the bridge didn't move GPS (rather than at a later distance check).
+- evalScript: ${(function () { var r = http.get('http://127.0.0.1:' + (GPS_BRIDGE_PORT || '8099') + '/geo?lat=' + LAT + '&lng=' + LNG); if (r.status !== 200) throw new Error('GPS bridge failed, status ' + r.status); })()}
+- waitForAnimationToEnd:
+    timeout: 3000

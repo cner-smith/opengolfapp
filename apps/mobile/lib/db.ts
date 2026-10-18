@@ -56,8 +56,20 @@ function getDb(): Promise<SQLite.SQLiteDatabase> {
           patch TEXT NOT NULL
         );
       `)
+      // On-device diagnostic log (#1105), exported from Profile.
+      await db.execAsync(`
+        CREATE TABLE IF NOT EXISTS diag_log (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          at INTEGER NOT NULL,
+          event TEXT NOT NULL,
+          data TEXT
+        );
+      `)
       return db
     })()
+    // First open per process = an app (re)start. Logged after init, never in
+    // it: a failed diagnostic write must not poison the shot queue's promise.
+    logDiag('app_start')
   }
   return dbPromise
 }
@@ -285,26 +297,12 @@ if (!globalThis.__ogaWalCheckpointInstalled) {
   })
 }
 
-export async function pendingShotsForHoleScore(holeScoreId: string): Promise<PendingShot[]> {
-  const db = await getDb()
-  // Push the hole-score filter into SQLite via json_extract — previously
-  // every call pulled the entire pending queue and JS-filtered, which
-  // re-parsed every payload on every hole change.
-  return db.getAllAsync<PendingShot>(
-    `SELECT * FROM pending_shots
-     WHERE status = 'pending'
-       AND json_extract(payload, '$.hole_score_id') = ?
-     ORDER BY created_at ASC`,
-    holeScoreId,
-  )
-}
-
-// Like pendingShotsForHoleScore but includes already-synced rows. The
-// end-of-hole review pairs each reviewed row back to the shot the player
-// placed live so it can attach metadata by the shot's client id — and by
-// EOH most shots have synced (status='synced', still in the table this
-// session; purge only runs at next getDb() init). 'broken' rows stay
-// excluded — they carry corrupt data with nothing to attach to.
+// A hole's pending AND already-synced rows (synced rows stay in the table this
+// session; purge only runs at the next getDb() init). The end-of-hole review
+// pairs each reviewed row back to the shot placed live by its client id, and
+// by then most have synced; the hole refetch needs a shot that synced after
+// the server's read (#1113). 'broken' rows stay excluded — they carry corrupt
+// data with nothing to attach to.
 export async function allShotsForHoleScore(holeScoreId: string): Promise<PendingShot[]> {
   const db = await getDb()
   return db.getAllAsync<PendingShot>(
@@ -328,13 +326,12 @@ export async function deletePendingShotById(clientId: string): Promise<void> {
   )
 }
 
-// Mirror a successful delete_shot RPC locally: the RPC deletes the row and
-// renumbers the hole's later shots server-side, but the local copies (synced
-// rows live on until the next launch) kept the deleted row and the old
-// numbers. Anything that later pairs local rows by shot_number would then
+// Mirror a server renumber onto the local copies (synced rows live on until the
+// next launch): delete_shot moves the hole's later shots down one, insert_shot
+// up one. Anything that later pairs local rows by shot_number would otherwise
 // attach a row to the wrong shot and collide on unique(hole_score_id,
 // shot_number). No-op when the shot has no local row (purged last session).
-export async function removeLocalShotAndRenumber(clientId: string): Promise<void> {
+export async function shiftLocalShotsAfter(clientId: string, by: 1 | -1): Promise<void> {
   const db = await getDb()
   const row = await db.getFirstAsync<{ hs: string | null; num: number | null }>(
     `SELECT json_extract(payload, '$.hole_score_id') AS hs,
@@ -342,16 +339,23 @@ export async function removeLocalShotAndRenumber(clientId: string): Promise<void
      FROM pending_shots WHERE json_extract(payload, '$.id') = ?`,
     clientId,
   )
-  await db.runAsync(`DELETE FROM pending_shots WHERE json_extract(payload, '$.id') = ?`, clientId)
   if (!row?.hs || row.num == null) return
   await db.runAsync(
     `UPDATE pending_shots
-     SET payload = json_set(payload, '$.shot_number', json_extract(payload, '$.shot_number') - 1)
+     SET payload = json_set(payload, '$.shot_number', json_extract(payload, '$.shot_number') + ?)
      WHERE json_extract(payload, '$.hole_score_id') = ?
        AND json_extract(payload, '$.shot_number') > ?`,
+    by,
     row.hs,
     row.num,
   )
+}
+
+// Mirror a successful delete_shot RPC locally: the deleted row goes, later shots move down.
+export async function removeLocalShotAndRenumber(clientId: string): Promise<void> {
+  await shiftLocalShotsAfter(clientId, -1)
+  const db = await getDb()
+  await db.runAsync(`DELETE FROM pending_shots WHERE json_extract(payload, '$.id') = ?`, clientId)
 }
 
 // Attach end-of-hole metadata to a shot the player logged live. Keyed on the
@@ -431,4 +435,41 @@ export async function deleteHoleScorePatches(
     holeScoreId,
     throughLocalId,
   )
+}
+
+// Keeps roughly the last couple of rounds of events (GPS fixes dominate).
+const DIAG_MAX_ROWS = 20000
+
+// Fire-and-forget: a diagnostic write must never fail or slow the action it
+// records. `data` holds small numbers / ids only — no tokens, email, or
+// coordinates the round doesn't already store. A `msg` field is logged as an
+// error's message only, capped at 120 characters.
+export function logDiag(event: string, data?: Record<string, unknown>): void {
+  void (async () => {
+    const db = await getDb()
+    const r = await db.runAsync(
+      `INSERT INTO diag_log (at, event, data) VALUES (?, ?, ?)`,
+      Date.now(),
+      event,
+      data
+        ? JSON.stringify(data, (k, v) =>
+            // Message only: a PostgREST error's other fields can carry row data.
+            k === 'msg' ? String((v as { message?: unknown } | null)?.message ?? v).slice(0, 120) : v,
+          )
+        : null,
+    )
+    if (r.lastInsertRowId % 500 === 0) {
+      await db.runAsync(`DELETE FROM diag_log WHERE id <= ?`, r.lastInsertRowId - DIAG_MAX_ROWS)
+    }
+  })().catch(() => {})
+}
+
+export async function readDiagLog(): Promise<string> {
+  const db = await getDb()
+  const rows = await db.getAllAsync<{ at: number; event: string; data: string | null }>(
+    `SELECT at, event, data FROM diag_log ORDER BY id ASC`,
+  )
+  return rows
+    .map((r) => `${new Date(r.at).toISOString()} ${r.event}${r.data ? ` ${r.data}` : ''}`)
+    .join('\n')
 }

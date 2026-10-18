@@ -10,7 +10,6 @@ interface CameraTarget {
 interface UseMapSetupInput {
   containerRef: RefObject<HTMLDivElement | null>
   cameraTarget: CameraTarget
-  focusGreenSignal: number | undefined
   effectivePin: PlacedPoint | null
   /** Hole tee, when known. With effectivePin present the camera frames the
    *  hole up-the-hole (rotated tee→pin); otherwise it falls back to the
@@ -41,7 +40,6 @@ export interface UseMapSetupResult {
 export function useMapSetup({
   containerRef,
   cameraTarget,
-  focusGreenSignal,
   effectivePin,
   effectiveTee,
   placementMode,
@@ -127,27 +125,6 @@ export function useMapSetup({
       })
     }
   }, [mapLoaded, cameraTarget, effectiveTee, effectivePin])
-
-  // After a non-holed putt save the parent bumps focusGreenSignal —
-  // fly in tight on the green so the next putt placement lands on the
-  // right surface. The ref starts at the prop's initial value so the
-  // first render doesn't auto-fire (signal=0 matches; only later
-  // increments trigger the flyTo).
-  const lastSignalRef = useRef<number | undefined>(focusGreenSignal)
-  useEffect(() => {
-    if (focusGreenSignal == null) return
-    if (lastSignalRef.current === focusGreenSignal) return
-    lastSignalRef.current = focusGreenSignal
-    const map = mapRef.current
-    if (!map) return
-    if (!effectivePin) return
-    map.flyTo({
-      center: [effectivePin.lng, effectivePin.lat],
-      zoom: 18,
-      pitch: 0,
-      duration: 800,
-    })
-  }, [focusGreenSignal, effectivePin])
 
   // Wire a click handler for tap-to-place on holes that have no live shots.
   // When aimMode is on, the next click sets aim for the most recently

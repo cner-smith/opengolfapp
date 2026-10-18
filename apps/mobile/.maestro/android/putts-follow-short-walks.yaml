@@ -1,0 +1,54 @@
+# Three putts with 3 m walks between them get three distinct starts (#1108): the GPS filter
+# lets a walk that short through, and Mark never reuses the last putt's spot.
+appId: app.opengolf.oga
+name: Android live round — putts follow short walks
+onFlowComplete:
+  - runFlow:
+      when:
+        visible: "Close and edit shots on the map"
+      commands:
+        - tapOn: "Close and edit shots on the map"
+  - runFlow:
+      when:
+        visible: "Round options"
+      commands:
+        - tapOn: "Round options"
+        - tapOn: "Delete round"
+        - tapOn: "Delete"
+---
+- runFlow: subflows/home.yaml
+- runFlow:
+    file: subflows/gps.yaml
+    env: { LAT: "43.849856", LNG: "-87.734575" }
+- runFlow:
+    file: subflows/start-round.yaml
+    env: { MODE: "Track shot patterns" }
+- runFlow: subflows/mark-and-aim.yaml
+# On the green, 10 m, 7 m and 4 m from the pin (the backend's pin; the app reads ~1 ft longer).
+- runFlow:
+    file: subflows/gps.yaml
+    env: { LAT: "43.848056", LNG: "-87.730952" }
+- tapOn: "Mark my ball at my GPS spot"
+- tapOn: "Missed"
+- runFlow:
+    file: subflows/gps.yaml
+    env: { LAT: "43.848041", LNG: "-87.730921" }
+- tapOn: "Mark my ball at my GPS spot"
+- tapOn: "Missed"
+- runFlow:
+    file: subflows/gps.yaml
+    env: { LAT: "43.848025", LNG: "-87.73089" }
+- tapOn: "Mark my ball at my GPS spot"
+- tapOn: "Made it"
+- runFlow: subflows/skip-tips.yaml
+- assertVisible: "3[2-5] ft putt"
+- scrollUntilVisible:
+    element: "1[2-6] ft putt"
+    direction: DOWN
+- assertVisible: "2[2-6] ft putt"
+# Played-hole mode (#1115): selecting the first putt shows its distance in feet.
+- tapOn: "Close and edit shots on the map"
+- runFlow: subflows/skip-tips.yaml
+- assertVisible: "Shot 1 of 4"
+- tapOn: "Next shot"
+- assertVisible: "3[2-5]\\.[0-9] ft to the pin"
