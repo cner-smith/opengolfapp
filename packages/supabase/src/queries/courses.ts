@@ -24,6 +24,8 @@ export function searchCourses(
   query: string,
   limit = 10,
   signal?: AbortSignal,
+  /** The player's position, when known: nearby courses rank higher (#898). */
+  near?: { lat: number; lng: number } | null,
 ) {
   const trimmed = query.trim()
   if (!trimmed) {
@@ -34,11 +36,12 @@ export function searchCourses(
       .limit(limit)
     return signal ? builder.abortSignal(signal) : builder
   }
-  // search_courses RPC ranks by pg_trgm similarity (typo-tolerant) then
-  // falls back to ILIKE substring. Migration 0018; trigram index from 0015.
+  // search_courses RPC matches by pg_trgm similarity (typo-tolerant) or ILIKE
+  // substring, and ranks by similarity plus closeness to `near` (0063).
   const builder = client.rpc('search_courses', {
     search_query: trimmed,
     result_limit: limit,
+    ...(near ? { user_lat: near.lat, user_lng: near.lng } : {}),
   })
   // Threading an AbortSignal makes the underlying fetch actually
   // cancellable — postgrest-js v3+ honors it via PostgrestTransformBuilder
