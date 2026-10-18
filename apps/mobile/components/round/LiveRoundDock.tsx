@@ -499,7 +499,10 @@ function ClubWheelCard({ rows, selected, auto, onPick, onDone }: WheelProps & { 
       {manual && auto && (
         <Key
           accessibilityLabel="Back to the auto club"
-          onPress={() => commit(autoIdx)}
+          onPress={() => {
+            pos.value = withSpring(autoIdx, SPRING)
+            commit(autoIdx)
+          }}
           style={{ marginTop: 7, marginHorizontal: 7, marginBottom: 6 }}
           faceStyle={{ minHeight: 44, flexDirection: 'row', gap: 5, paddingHorizontal: 4 }}
         >
