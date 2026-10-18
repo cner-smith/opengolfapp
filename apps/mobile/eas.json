@@ -37,7 +37,8 @@
       "extends": "preview",
       "environment": "preview",
       "ios": {
-        "simulator": true
+        "simulator": true,
+        "image": "macos-sequoia-15.6-xcode-26.2"
       }
     },
     "production": {
