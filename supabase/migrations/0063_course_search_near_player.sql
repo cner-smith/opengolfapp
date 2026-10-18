@@ -5,9 +5,10 @@
 --
 -- With user_lat / user_lng the score is similarity plus a closeness bonus of
 -- up to 0.4 that halves about every 28 km (0.4·e^(−km/40)): a nearby partial
--- match beats a distant one, while an exact name (similarity 1) still beats
--- any nearby course. Without a position, or for a course with no lat/lng, the
--- bonus is 0 and the order is as before.
+-- match beats a distant one, and an exact name (similarity 1) far away beats a
+-- nearby near-miss; only a nearby name that is already very close (similarity
+-- over 0.6) can tie it. Without a position, or for a course with no lat/lng,
+-- the bonus is 0 and the order is as before.
 --
 -- Dropped and recreated (not replaced): a second overload with the old two
 -- arguments would make PostgREST's two-argument call ambiguous. Older app
@@ -31,14 +32,16 @@ as $$
   select c.*
   from public.courses c
   where c.name % search_query
-     or c.name ilike '%' || replace(replace(replace(search_query, '\', '\\'), '%', '\%'), '_', '\_') || '%'
+     or c.name ilike
+          '%' || replace(replace(replace(search_query, '\', '\\'), '%', '\%'), '_', '\_') || '%'
   order by
     similarity(c.name, search_query)
       + coalesce(
           0.4 * exp(
             -6371 * 2 * asin(least(1, sqrt(
               sin(radians(c.lat - user_lat) / 2) ^ 2
-              + cos(radians(user_lat)) * cos(radians(c.lat)) * sin(radians(c.lng - user_lng) / 2) ^ 2
+              + cos(radians(user_lat)) * cos(radians(c.lat))
+                * sin(radians(c.lng - user_lng) / 2) ^ 2
             ))) / 40
           ),
           0
@@ -47,4 +50,5 @@ as $$
   limit result_limit;
 $$;
 
-grant execute on function public.search_courses(text, int, double precision, double precision) to anon, authenticated;
+grant execute on function public.search_courses(text, int, double precision, double precision)
+  to anon, authenticated;
