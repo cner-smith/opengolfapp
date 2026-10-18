@@ -48,7 +48,30 @@ export function CourseSearch({
   // Monotonic token so a slow getFacilityUnits response from an earlier
   // facility tap can't overwrite the units of a facility tapped later.
   const facilityReqRef = useRef(0)
-  const search = useCourseSearch(query)
+  // Ranking only (#898): where the player is, when the browser already allows
+  // it — search never asks. Not used to place a new course: past-round entry
+  // happens anywhere.
+  const [knownPos, setKnownPos] = useState<{ lat: number; lng: number } | null>(null)
+  useEffect(() => {
+    if (requestGps || typeof navigator === 'undefined' || !navigator.permissions) return
+    let live = true
+    navigator.permissions
+      .query({ name: 'geolocation' })
+      .then((s) => {
+        if (s.state !== 'granted') return
+        navigator.geolocation.getCurrentPosition(
+          (pos) => live && setKnownPos({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+          () => {},
+          { enableHighAccuracy: false, timeout: 10000, maximumAge: 600_000 },
+        )
+      })
+      .catch(() => {})
+    return () => {
+      live = false
+    }
+  }, [requestGps])
+  const near = gps.status === 'ok' ? { lat: gps.lat!, lng: gps.lng! } : knownPos
+  const search = useCourseSearch(query, near)
   const importApi = useImportApiCourse()
 
   const apiResults = search.data?.api ?? []

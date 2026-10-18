@@ -41,16 +41,17 @@ type HoleInsert = Database['public']['Tables']['holes']['Insert']
 // so a search for "Lake Hefner South" still surfaces the "Lake Hefner
 // Golf Club" facility card even when the name match wasn't on the
 // facility row itself.
-export function useCourseSearch(query: string) {
+export function useCourseSearch(query: string, near: { lat: number; lng: number } | null = null) {
   const debounced = useDebounce(query, 300)
 
   return useQuery({
-    queryKey: ['courses', 'search', debounced],
+    // ~1 km of rounding, so GPS jitter doesn't refetch.
+    queryKey: ['courses', 'search', debounced, near && [near.lat.toFixed(2), near.lng.toFixed(2)]],
     enabled: debounced.trim().length > 0,
     queryFn: async ({ signal }) => {
       const [api, local, facilitySearch] = await Promise.allSettled([
         searchOpenGolfApi(debounced, signal),
-        searchCourses(supabase, debounced, 10),
+        searchCourses(supabase, debounced, 10, undefined, near),
         searchFacilities(supabase, debounced, 10),
       ])
       const apiHits: OpenGolfApiSearchResult[] =
