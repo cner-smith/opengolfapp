@@ -835,6 +835,7 @@ export default function LiveRoundSession({
           lastShotIsOb={actions.lastShotIsOb}
           obBusy={actions.obBusy}
           obArrow={lastShotArrow}
+          lastHit={actions.lastHit}
           onCancelPinPlacement={() => setPinPlacementOpen(false)}
           onConfirmAim={actions.confirmAim}
           onRePlaceBall={() => {

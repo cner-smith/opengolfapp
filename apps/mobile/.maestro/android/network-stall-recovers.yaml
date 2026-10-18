@@ -41,7 +41,7 @@ onFlowComplete:
     visible: "Couldn't record that penalty"
     timeout: 25000
 - tapOn: "OK"
-- assertVisible: "Went OB\\?"
+- assertVisible: "OB\\?"
 
 # A shot marked offline queues locally.
 - runFlow:

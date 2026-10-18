@@ -27,10 +27,11 @@ onFlowComplete:
 - runFlow:
     file: subflows/gps.yaml
     env: { LAT: "43.84906", LNG: "-87.7330" }
+# The map's "OB?" key when the shot's marker is on screen, the footer's "OB" when it isn't.
 - extendedWaitUntil:
-    visible: "OB"
+    visible: "OB|Did this shot go out of bounds\\?"
     timeout: 20000
-- tapOn: "OB"
+- tapOn: "OB|Did this shot go out of bounds\\?"
 # Stroke and distance: the ball goes back to the tee.
 - extendedWaitUntil:
     visible: "39[0-9].* yd to the pin"
