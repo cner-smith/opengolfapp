@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react'
-import { clubDistanceStats } from '@oga/core'
+import { clubDistanceStats, isPartialRound } from '@oga/core'
 import { useDetailedStats } from '../../hooks/useDetailedStats'
-import { EmptyState, Skeleton } from './components/Section'
+import { Skeleton } from './components/Section'
+import { StatsPreview } from './components/StatsPreview'
 import { Segmented } from './components/Segmented'
 import { StrokesGainedSection } from './sections/StrokesGainedSection'
 import { ScoringSection } from './sections/ScoringSection'
@@ -16,6 +17,8 @@ const N_OPTIONS: readonly number[] = [5, 10, 20]
 export function StrokesGainedPage() {
   const [n, setN] = useState<number>(10)
   const stats = useDetailedStats(n)
+  // No rounds, or only partial ones (#1078): the sample page instead (#1076).
+  const preview = !stats.data || stats.rounds.every((r) => isPartialRound(r.hole_scores))
   // Per-club total distance, from every tracked shot's start→end across the
   // loaded rounds (same flatten the mobile Stats screen feeds clubDistanceStats).
   const clubDistances = useMemo(
@@ -51,9 +54,11 @@ export function StrokesGainedPage() {
             className="text-caddie-ink-dim"
             style={{ fontSize: 15, marginTop: 6, maxWidth: 560 }}
           >
-            {stats.data
-              ? `Across the last ${stats.data.rounds} round${stats.data.rounds === 1 ? '' : 's'} · ${stats.data.holesPlayed} holes scored.`
-              : 'Per-category strokes vs. the bracket baseline.'}
+            {stats.isLoading
+              ? 'Per-category strokes vs. the bracket baseline.'
+              : preview || !stats.data
+                ? 'No full rounds yet. Here’s what this page shows once you have some.'
+                : `Across the last ${stats.data.rounds} round${stats.data.rounds === 1 ? '' : 's'} · ${stats.data.holesPlayed} holes scored.`}
           </div>
         </div>
         <Segmented
@@ -66,8 +71,8 @@ export function StrokesGainedPage() {
 
       {stats.isLoading ? (
         <Skeleton />
-      ) : !stats.data ? (
-        <EmptyState />
+      ) : preview || !stats.data ? (
+        <StatsPreview />
       ) : (
         <>
           <StrokesGainedSection data={stats.data} />

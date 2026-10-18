@@ -72,7 +72,7 @@ export default function NewRound() {
 function NewRoundScreen() {
   const { user } = useAuth()
   const router = useRouter()
-  const params = useLocalSearchParams<{ mode?: string }>()
+  const params = useLocalSearchParams<{ mode?: string; capture?: string }>()
   // Two entry points from the home tab: 'live' (GPS-tracked) and
   // 'past' (post-round entry). Default to 'live' since that's the
   // primary CTA — anyone reaching this page without a mode is most
@@ -554,6 +554,7 @@ function NewRoundScreen() {
         courseId={pendingCourse.id}
         courseName={pendingCourse.name}
         mode={mode}
+        initialCapture={params.capture === 'track_patterns' ? 'track_patterns' : undefined}
         busy={busy}
         onBack={() => setPendingCourse(null)}
         onStart={(courseTeeId, teeColor, captureMode) =>

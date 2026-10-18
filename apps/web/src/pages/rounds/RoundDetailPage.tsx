@@ -46,7 +46,7 @@ export function RoundDetailPage() {
   // capture aim through the putting sheet's break/aim-offset fields).
   const [aimPromptOpen, setAimPromptOpen] = useState(false)
   // First-use hint shown the first time the player ever places an aim
-  // point — explains that aim = start line, not finish target. Gated by
+  // point: aim where you want the ball to finish (#1076). Gated by
   // localStorage so it appears once per device and auto-dismisses after
   // 3s or on tap.
   const [aimHintVisible, setAimHintVisible] = useState(false)
@@ -283,7 +283,7 @@ export function RoundDetailPage() {
       <ConfirmDialog
         open={aimPromptOpen}
         title="Set an aim point?"
-        message="Your aim point is your start line — where you intend to start the ball, not where you want it to finish."
+        message="Put your aim point where you want the ball to finish. That’s what builds your shot pattern."
         confirmLabel="Set aim point →"
         cancelLabel="Skip"
         onConfirm={() => {
@@ -313,7 +313,7 @@ export function RoundDetailPage() {
             cursor: 'pointer',
           }}
         >
-          Aim point = start line. Drag to adjust.
+          Aim where you want it to finish — drag to adjust.
         </button>
       )}
 

@@ -95,7 +95,9 @@ export function useClubDispersion(
   userId: string | undefined,
 ): UseClubDispersionResult {
   const [rows, setRows] = useState<ShotRow[]>([])
-  const [loading, setLoading] = useState(false)
+  // True until the first fetch lands, so Patterns can't flash its no-shots
+  // preview before the history arrives.
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     if (!userId) {

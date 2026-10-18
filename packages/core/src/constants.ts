@@ -140,6 +140,22 @@ export function formatClubLabel(
   return base
 }
 
+const WEDGE_NOUNS: Record<string, string> = {
+  pw: 'pitching wedge',
+  gw: 'gap wedge',
+  aw: 'approach wedge',
+  sw: 'sand wedge',
+  lw: 'lob wedge',
+}
+
+// A club as said aloud, for sentences: '7i' → '7-iron', 'sw' → 'sand
+// wedge'. Unknown types fall back to the spaced club_type.
+export function clubNoun(clubType: string): string {
+  const m = /^(\d{1,2})([wih])$/.exec(clubType)
+  if (m) return `${m[1]}-${{ w: 'wood', i: 'iron', h: 'hybrid' }[m[2] as 'w' | 'i' | 'h']}`
+  return WEDGE_NOUNS[clubType] ?? clubType.replace(/_/g, ' ')
+}
+
 // Default 14-club starting bag seeded for new users when their bag is
 // empty. 14 is the legal max under USGA rules; we drop the 4-hybrid
 // (most amateurs carry either the 5w or the 4h, not both — keeping
