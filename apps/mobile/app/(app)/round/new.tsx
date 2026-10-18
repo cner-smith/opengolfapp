@@ -11,6 +11,7 @@ import {
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import * as Location from 'expo-location'
+import { locationManager } from '@rnmapbox/maps'
 import {
   formatLocation,
   getOpenGolfApiCourse,
@@ -169,6 +170,30 @@ function NewRoundScreen() {
     })()
   }, [gps.status, mode])
 
+  // Ranking only (#898): the last position the phone knows, when location is
+  // already allowed — this never asks. Mapbox's, as the live round uses
+  // (expo-location delivered nothing on Android, #704). Not used to place a
+  // new course: past-round entry happens anywhere.
+  const [knownPos, setKnownPos] = useState<{ lat: number; lng: number } | null>(null)
+  useEffect(() => {
+    let live = true
+    ;(async () => {
+      const perm = await Location.getForegroundPermissionsAsync().catch(() => null)
+      if (perm?.status !== 'granted') return
+      const last = await locationManager.getLastKnownLocation().catch(() => null)
+      const { latitude: lat, longitude: lng } = last?.coords ?? {}
+      if (live && Number.isFinite(lat) && Number.isFinite(lng)) {
+        setKnownPos({ lat: lat!, lng: lng! })
+      }
+    })()
+    return () => {
+      live = false
+    }
+  }, [])
+  const near = gps.status === 'ok' ? { lat: gps.lat!, lng: gps.lng! } : knownPos
+  // ~1 km of rounding, so a later or jittering fix doesn't re-run the search.
+  const nearKey = near ? `${near.lat.toFixed(2)},${near.lng.toFixed(2)}` : null
+
   // Run search whenever debounced query changes. Facility-first: local
   // results split into standalone courses (no facility_id) and facility
   // units. Units are never dropped from the result set — a unit's facility
@@ -192,7 +217,7 @@ function NewRoundScreen() {
     ;(async () => {
       const [api, local, facilitySearch] = await Promise.allSettled([
         searchOpenGolfApi(term, ctrl.signal),
-        searchCourses(supabase, term, 10, ctrl.signal).then(({ data, error }) => {
+        searchCourses(supabase, term, 10, ctrl.signal, near).then(({ data, error }) => {
           // Abort propagates here as a PostgrestError shape with code:'' and
           // message starting "AbortError:" — but the cleanest gate is the
           // signal itself, robust to postgrest-js error-shape drift. See
@@ -244,7 +269,9 @@ function NewRoundScreen() {
       if (!ctrl.signal.aborted) setSearching(false)
     })
     return () => ctrl.abort()
-  }, [debouncedQuery])
+    // `near` is read through nearKey: only a ~1 km move re-runs the search.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debouncedQuery, nearKey])
 
   const gpsCoords = gps.status === 'ok' ? { lat: gps.lat!, lng: gps.lng! } : null
   const hasResults =

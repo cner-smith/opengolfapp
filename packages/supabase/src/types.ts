@@ -889,7 +889,12 @@ export type Database = {
       }
       plan_generations_this_month: { Args: never; Returns: number }
       search_courses: {
-        Args: { result_limit?: number; search_query: string }
+        Args: {
+          result_limit?: number
+          search_query: string
+          user_lat?: number
+          user_lng?: number
+        }
         Returns: {
           address: string | null
           city: string | null
