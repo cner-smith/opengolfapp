@@ -43,8 +43,9 @@ export function offscreenArrow(
 
 // "OB?" on the most recent shot's marker (#895 B2, #611 §7): a small raised
 // key, brick text on the ink edge, whose bottom sits 11 above the marker's
-// grab disc. Kept small so it asks without shouting; hitSlop keeps the touch
-// area at 52 dp.
+// grab disc. Kept small so it asks without shouting. Android ignores touches
+// outside a parent's bounds, so the wrapper's padding is what makes room for
+// the hitSlop: the touch area stays about 55 × 64 dp.
 // Shown while that marker is on-screen; the dock's voice line asks when it
 // isn't. box-none keeps the gap under it tappable for the map.
 export function ObCallout({
@@ -68,7 +69,11 @@ export function ObCallout({
       allowOverlapWithPuck
       pointerEvents="box-none"
     >
-      <View pointerEvents="box-none" style={{ paddingBottom: 33 }} onLayout={(e) => onWidth(e.nativeEvent.layout.width)}>
+      <View
+        pointerEvents="box-none"
+        style={{ paddingTop: 10, paddingHorizontal: 10, paddingBottom: 33 }}
+        onLayout={(e) => onWidth(e.nativeEvent.layout.width)}
+      >
         <Key
           accessibilityLabel="Did this shot go out of bounds?"
           onPress={onPress}

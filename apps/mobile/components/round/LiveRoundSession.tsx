@@ -835,11 +835,7 @@ export default function LiveRoundSession({
           lastShotIsOb={actions.lastShotIsOb}
           obBusy={actions.obBusy}
           obArrow={lastShotArrow}
-          lastHit={
-            actions.lastHit?.hole === holeNumber && actions.lastHit.shot <= totalShotsThisHole
-              ? { shot: actions.lastHit.shot, distance: toDisplay(Math.round(actions.lastHit.yards)) }
-              : null
-          }
+          lastHit={actions.lastHit}
           onCancelPinPlacement={() => setPinPlacementOpen(false)}
           onConfirmAim={actions.confirmAim}
           onRePlaceBall={() => {
