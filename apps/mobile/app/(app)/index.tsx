@@ -259,6 +259,8 @@ export default function Home() {
       ? `Handicap ${profile.handicap_index}`
       : 'Welcome'
   const firstName = profile?.username?.split(/\s+/)[0]
+  const hour = new Date().getHours()
+  const hello = `Good ${hour < 12 ? 'morning' : hour < 18 ? 'afternoon' : 'evening'}`
 
   return (
     <PaperSurface style={{ flex: 1 }}>
@@ -284,7 +286,7 @@ export default function Home() {
             },
           ]}
         >
-          {firstName ? `Good round, ${firstName}.` : 'Good round.'}
+          {firstName ? `${hello}, ${firstName}.` : `${hello}.`}
         </Text>
         <Text style={[TYPE.body, { color: '#5C6356', fontSize: 14, marginBottom: 10 }]}>
           {wholeRounds.length === 0
