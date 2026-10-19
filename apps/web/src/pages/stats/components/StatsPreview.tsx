@@ -74,7 +74,7 @@ export function StatsPreview() {
           </span>
           <span />
         </div>
-        <div className="kicker" style={{ margin: '26px 0 12px' }}>Where the approach strokes go</div>
+        <h3 className="text-caddie-ink" style={{ fontSize: 15, fontWeight: 600, margin: '26px 0 12px' }}>Where the approach strokes go</h3>
         <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,110px) minmax(0,300px) 56px', columnGap: 10, rowGap: 10, alignItems: 'center', fontSize: 14 }}>
           {BANDS.map((b) => (
             <BandRow key={b.label} label={b.label} value={b.value} />

@@ -18,7 +18,7 @@ export function ClubDistancesSection({
   const conv = (y: number) =>
     unit === 'meters' ? Math.round(y * YARDS_TO_METERS) : Math.round(y)
   return (
-    <Section kicker="Club distances">
+    <Section title="Club distances">
       <div
         className="text-caddie-ink-dim"
         style={{ fontSize: 12, marginTop: -8, marginBottom: 14 }}

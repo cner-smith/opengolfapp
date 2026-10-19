@@ -31,14 +31,15 @@ import { PaperTile, SectionHead, StatTile } from '../../components/paper/Section
 import { PaperSurface } from '../../components/paper/Paper'
 import { FONT_CAP, P } from '../../components/paper/tokens'
 import { StatsEmpty, StatsPartialOnly } from '../../components/stats/StatsPreview'
+import { ApproachBandRow, LedgerRow } from '../../components/stats/StatsLedger'
 
 const N_OPTIONS = [5, 10, 20] as const
 // Short labels for the standout callout, keyed to SGAverages (camelCase);
 // kept identical to the web stats page so the prose reads the same. #522
 const SG_STANDOUT_LABEL: Record<keyof SGAverages, string> = {
-  offTee: 'Off tee',
+  offTee: 'Off the tee',
   approach: 'Approach',
-  aroundGreen: 'Around green',
+  aroundGreen: 'Around the green',
   putting: 'Putting',
 }
 // Pin x-axis to chart bottom regardless of where y=0 falls in domain.
@@ -49,15 +50,17 @@ const CHART_BOTTOM = 28
 const TILE = { width: '47%' } as const
 
 const SERIES = [
-  { key: 'sg_off_tee', label: 'Off tee', color: '#1F3D2C', dash: '0' },
+  { key: 'sg_off_tee', label: 'Off the tee', color: '#1F3D2C', dash: '0' },
   { key: 'sg_approach', label: 'Approach', color: '#A33A2A', dash: '6,3' },
-  { key: 'sg_around_green', label: 'Around green', color: '#A66A1F', dash: '2,3' },
+  { key: 'sg_around_green', label: 'Around the green', color: '#A66A1F', dash: '2,3' },
   { key: 'sg_putting', label: 'Putting', color: '#1C211C', dash: '6,3,2,3' },
 ] as const
 
 export default function Stats() {
   const { user } = useAuth()
   const [n, setN] = useState<number>(10)
+  // The trend opens on all four; picking one brings it forward.
+  const [focus, setFocus] = useState<(typeof SERIES)[number]['key'] | null>(null)
   // Fetch the max window (L20) once and slice client-side per toggle — the
   // L5/L10/L20 chips used to refire the whole nested query (#599). Seeded
   // from the screen cache so a revisit renders instantly.
@@ -210,8 +213,7 @@ export default function Stats() {
   return (
     <PaperSurface style={{ flex: 1 }}>
       <AppBar
-        eyebrow="Performance"
-        title="Strokes Gained"
+        title="Stats"
         right={
           <View style={{ alignItems: 'flex-end', gap: 10 }}>
             {/* "?" sits inline with the web link so the header keeps its
@@ -289,10 +291,13 @@ export default function Stats() {
           />
         ) : (
           <>
-            {stats && <StandoutCallout sg={stats.sg} />}
-
             <Entrance index={0}>
-            <Section title={`Avg — last ${wholeRounds.length} rounds`}>
+            <Section title="Strokes gained">
+              {stats && <StandoutCallout sg={stats.sg} />}
+              <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { color: P.inkDim, fontSize: 13, marginBottom: 12 }]}>
+                Per round, last {wholeRounds.length} round{wholeRounds.length === 1 ? '' : 's'}, against a{' '}
+                {Math.round(handicap ?? DEFAULT_HANDICAP)}-handicap.
+              </Text>
               <View
                 style={{
                   flexDirection: 'row',
@@ -343,7 +348,26 @@ export default function Stats() {
             </Entrance>
 
             <Entrance index={1}>
-            <Section title={`SG trend — last ${wholeRounds.length} rounds`}>
+            <View style={{ marginBottom: 28 }}>
+              <SubHead>Round by round</SubHead>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
+                {[{ key: null, label: 'All four' }, ...SERIES].map((s) => {
+                  const on = focus === s.key
+                  return (
+                    <Pressable
+                      key={s.label}
+                      accessibilityRole="button"
+                      accessibilityState={{ selected: on }}
+                      onPress={() => setFocus(s.key)}
+                      style={{ paddingHorizontal: 10, paddingVertical: 7, backgroundColor: on ? P.ink : '#EBE5D6' }}
+                    >
+                      <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { fontSize: 13, color: on ? '#FBF8F1' : P.ink }]}>
+                        {s.label}
+                      </Text>
+                    </Pressable>
+                  )
+                })}
+              </View>
               <Svg width={chartWidth} height={CHART_HEIGHT}>
                 {/* Y gridlines + tick labels */}
                 {sgAxis.ticks.map((t) => (
@@ -433,12 +457,14 @@ export default function Stats() {
                         points={s.data.map((d) => `${chartPx(d.x)},${chartPy(d.y)}`).join(' ')}
                         fill="none"
                         stroke={s.color}
-                        strokeWidth={1.5}
-                        strokeDasharray={s.dash}
+                        strokeOpacity={focus == null || focus === s.key ? 1 : 0.15}
+                        strokeWidth={focus === s.key ? 2.5 : 1.5}
+                        strokeDasharray={focus === s.key ? undefined : s.dash}
                       />
                     ),
                 )}
               </Svg>
+              {focus == null && (
               <View
                 style={{
                   flexDirection: 'row',
@@ -463,28 +489,42 @@ export default function Stats() {
                         strokeDasharray={s.dash}
                       />
                     </Svg>
-                    <Text style={[TYPE.body, { color: '#5C6356', fontSize: 11 }]}>
+                    <Text style={[TYPE.body, { color: '#5C6356', fontSize: 12 }]}>
                       {s.label}
                     </Text>
                   </View>
                 ))}
               </View>
-            </Section>
+              )}
+              {stats && (
+                <>
+                  <SubHead style={{ marginTop: 22 }}>Approach by distance</SubHead>
+                  {stats.approachByDistance.map((b) => (
+                    <ApproachBandRow
+                      key={b.key}
+                      band={b}
+                      max={Math.max(0.5, ...stats.approachByDistance.map((x) => Math.abs(x.avgSg ?? 0)))}
+                    />
+                  ))}
+                </>
+              )}
+            </View>
             </Entrance>
 
             {stats && (
               <Entrance index={2}>
               <Section title="Scoring">
-                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginBottom: 14 }}>
-                  <StatTile style={TILE} label="Avg score" value={fmtNum(stats.scoring.avgScore, 1)} />
-                  <StatTile style={TILE} label="Par 3 avg" value={fmtNum(stats.scoring.avgPar3, 2)} />
-                  <StatTile style={TILE} label="Par 4 avg" value={fmtNum(stats.scoring.avgPar4, 2)} />
-                  <StatTile style={TILE} label="Par 5 avg" value={fmtNum(stats.scoring.avgPar5, 2)} />
-                  <StatTile style={TILE} label="Front 9" value={fmtNum(stats.scoring.front9Avg, 1)} />
-                  <StatTile style={TILE} label="Back 9" value={fmtNum(stats.scoring.back9Avg, 1)} />
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginBottom: 6 }}>
+                  <StatTile style={TILE} label="Average score" value={fmtNum(stats.scoring.avgScore, 1)} />
                   <StatTile style={TILE} label="Best round" value={fmtInt(stats.scoring.bestRound)} />
-                  <StatTile style={TILE} label="Worst round" value={fmtInt(stats.scoring.worstRound)} />
                 </View>
+                <LedgerRow label="Worst round" value={fmtInt(stats.scoring.worstRound)} />
+                <LedgerRow label="Par 3s" value={fmtNum(stats.scoring.avgPar3, 2)} />
+                <LedgerRow label="Par 4s" value={fmtNum(stats.scoring.avgPar4, 2)} />
+                <LedgerRow label="Par 5s" value={fmtNum(stats.scoring.avgPar5, 2)} />
+                <LedgerRow label="Front nine" value={fmtNum(stats.scoring.front9Avg, 1)} note="Per hole" />
+                <LedgerRow label="Back nine" value={fmtNum(stats.scoring.back9Avg, 1)} note="Per hole" />
+                <View style={{ height: 14 }} />
                 <ScoringDistBar
                   slices={stats.scoringDistribution.slices}
                   total={stats.scoringDistribution.total}
@@ -496,20 +536,19 @@ export default function Stats() {
             {stats && (
               <Entrance index={3}>
               <Section title="Ball striking">
-                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
-                  <StatTile style={TILE} label="Fairways" value={fmtPct(stats.ballStriking.fairwayPct)} />
-                  <StatTile style={TILE} label="GIR" value={fmtPct(stats.ballStriking.girPct)} />
-                  <StatTile
-                    style={TILE}
-                    label="Drive avg"
-                    value={stats.ballStriking.drivingDistanceAvg != null ? toDisplay(stats.ballStriking.drivingDistanceAvg) : '—'}
-                  />
-                  <StatTile
-                    style={TILE}
-                    label="Proximity"
-                    value={stats.ballStriking.proximityAvg != null ? toDisplay(stats.ballStriking.proximityAvg, 1) : '—'}
-                  />
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginBottom: 6 }}>
+                  <StatTile style={TILE} label="Fairways hit" value={fmtPct(stats.ballStriking.fairwayPct)} />
+                  <StatTile style={TILE} label="Greens in regulation" value={fmtPct(stats.ballStriking.girPct)} />
                 </View>
+                <LedgerRow
+                  label="Drive"
+                  value={stats.ballStriking.drivingDistanceAvg != null ? toDisplay(stats.ballStriking.drivingDistanceAvg) : '—'}
+                  note={stats.ballStriking.drivingSampleSize > 0 ? `Typical distance, ${stats.ballStriking.drivingSampleSize} drives` : undefined}
+                />
+                <LedgerRow
+                  label="Approach proximity"
+                  value={stats.ballStriking.proximityAvg != null ? toDisplay(stats.ballStriking.proximityAvg, 1) : '—'}
+                />
               </Section>
               </Entrance>
             )}
@@ -517,14 +556,14 @@ export default function Stats() {
             {stats && (
               <Entrance index={4}>
               <Section title="Short game">
-                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
-                  <StatTile style={TILE} label="Putts/round" value={fmtNum(stats.shortGame.puttsPerRound, 1)} />
-                  <StatTile style={TILE} label="Putts/GIR" value={fmtNum(stats.shortGame.puttsPerGir, 2)} />
-                  <StatTile style={TILE} label="3-putt rate" value={fmtPct(stats.shortGame.threePuttPct)} />
-                  <StatTile style={TILE} label="Up & down" value={fmtPct(stats.shortGame.upAndDownPct)} />
-                  <StatTile style={TILE} label="Scrambling" value={fmtPct(stats.shortGame.scramblingPct)} />
-                  <StatTile style={TILE} label="Sand save" value={fmtPct(stats.shortGame.sandSavePct)} />
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginBottom: 6 }}>
+                  <StatTile style={TILE} label="Putts a round" value={fmtNum(stats.shortGame.puttsPerRound, 1)} />
+                  <StatTile style={TILE} label="Up and down" value={fmtPct(stats.shortGame.upAndDownPct)} />
                 </View>
+                <LedgerRow label="Putts per green hit" value={fmtNum(stats.shortGame.puttsPerGir, 2)} />
+                <LedgerRow label="Three-putts" value={fmtPct(stats.shortGame.threePuttPct)} />
+                <LedgerRow label="Scrambling" value={fmtPct(stats.shortGame.scramblingPct)} />
+                <LedgerRow label="Sand saves" value={fmtPct(stats.shortGame.sandSavePct)} />
               </Section>
               </Entrance>
             )}
@@ -884,18 +923,18 @@ function StandoutCallout({ sg }: { sg: SGAverages }) {
     strongest != null && strongest.key !== weakest.key && strongest.value > 0
   const leak =
     weakest.value < 0
-      ? `Your biggest leak is ${SG_STANDOUT_LABEL[weakest.key]} — ${formatSG(weakest.value)} a round.`
-      : `Your softest area is ${SG_STANDOUT_LABEL[weakest.key]} (${formatSG(weakest.value)} a round).`
+      ? `${SG_STANDOUT_LABEL[weakest.key]} costs you ${Math.abs(weakest.value).toFixed(1)} strokes a round`
+      : `${SG_STANDOUT_LABEL[weakest.key]} is your softest area, ${formatSG(weakest.value)} a round`
   const strength = showStrength
-    ? ` ${SG_STANDOUT_LABEL[strongest.key]} is a strength, ${formatSG(strongest.value)} a round.`
-    : ''
+    ? `; ${SG_STANDOUT_LABEL[strongest.key].toLowerCase()} gains you ${strongest.value.toFixed(1)}.`
+    : '.'
   return (
-    <View style={{ borderLeftWidth: 2, borderColor: '#1F3D2C', paddingLeft: 14, marginBottom: 22 }}>
+    <View style={{ marginBottom: 4 }}>
       <Text
         style={[TYPE.serif, {
           color: '#1C211C',
-          fontSize: 17,
-          lineHeight: 24,
+          fontSize: 19,
+          lineHeight: 25,
         }]}
       >
         {leak}
