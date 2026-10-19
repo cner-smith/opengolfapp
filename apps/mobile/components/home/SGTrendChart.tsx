@@ -1,9 +1,8 @@
 import { useMemo } from 'react'
-import { View, useWindowDimensions } from 'react-native'
+import { Text, View, useWindowDimensions } from 'react-native'
 import Svg, { Line, Polyline, Text as SvgText } from 'react-native-svg'
 import { parseLocalDate, symmetricNiceTicks } from '@oga/core'
-import { FONT } from '../../lib/typography'
-import { SectionHead } from '../paper/Section'
+import { FONT, TYPE } from '../../lib/typography'
 
 interface SGTrendChartProps {
   // x is an ordinal (even spacing); date labels the ends
@@ -32,8 +31,8 @@ export function SGTrendChart({ data }: SGTrendChartProps) {
   const points = data.map((d) => `${px(d.x)},${py(d.y)}`).join(' ')
 
   return (
-    <View style={{ marginBottom: 28 }}>
-      <SectionHead title="SG total trend" />
+    <View>
+      <Text style={[TYPE.bodyBold, { color: '#1C211C', fontSize: 15, marginBottom: 8 }]}>Round by round</Text>
       <Svg width={width} height={HEIGHT}>
         {/* Y gridlines + tick labels */}
         {sgAxis.ticks.map((t) => (

@@ -32,7 +32,7 @@ name: iOS smoke — sign in, tabs, live round
     commands:
       - tapOn: "Not Now"
 - extendedWaitUntil:
-    visible: "Skip splash|By the numbers|Skip intro tour"
+    visible: "Skip splash|Log past round|Skip intro tour"
     timeout: 60000
 - takeScreenshot: 02-after-sign-in
 - runFlow:
@@ -53,7 +53,7 @@ name: iOS smoke — sign in, tabs, live round
 # The intro tour is a Modal: on iOS nothing under it is visible until it closes.
 # iOS reads a tab as "Home, tab, 1 of 5", so match headings / use Name.* for tabs.
 - extendedWaitUntil:
-    visible: "By the numbers|Skip intro tour"
+    visible: "Log past round|Skip intro tour"
     timeout: 60000
 - runFlow:
     when:
@@ -62,7 +62,7 @@ name: iOS smoke — sign in, tabs, live round
       - takeScreenshot: 02b-intro-tour
       - tapOn: "Skip intro tour"
 - extendedWaitUntil:
-    visible: "By the numbers"
+    visible: "Log past round"
     timeout: 30000
 - takeScreenshot: 03-home
 - scroll
