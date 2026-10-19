@@ -74,8 +74,8 @@ export function CourseManagementArticle() {
           work out
         </li>
         <li>
-          How far you actually carry the ball — not your best carry,
-          your reliable carry
+          How far you actually hit each club — not your best shot,
+          your reliable one
         </li>
         <li>Where your game breaks down under pressure</li>
       </ul>

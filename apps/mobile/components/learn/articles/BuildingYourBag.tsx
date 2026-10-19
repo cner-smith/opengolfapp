@@ -32,7 +32,7 @@ export function BuildingYourBagArticle() {
 
       <GlanceBox label="The two dead zones">
         <DefRow term="Overlap" first>
-          Two clubs that carry the same distance. One of them is a wasted slot —
+          Two clubs that go the same distance. One of them is a wasted slot —
           a club you could have spent covering a yardage you can't reach.
         </DefRow>
         <DefRow term="Hole">
@@ -54,8 +54,8 @@ export function BuildingYourBagArticle() {
         <GapLadderDiagram />
       </Figure>
       <P style={{ color: C.inkDim, fontSize: 14, lineHeight: 22 }}>
-        Build the bag backwards from carry numbers, not forwards from a set you
-        bought. Hit five to ten balls with each club, average the carries — throw
+        Build the bag backwards from your own distances, not forwards from a set you
+        bought. Hit five to ten balls with each club, average where they finish — throw
         out the obvious duffs — and list them top to bottom. The picture shows up
         at once: where clubs bunch together, and where they spread.
       </P>
@@ -71,7 +71,7 @@ export function BuildingYourBagArticle() {
       <H3>The top of the bag: driver down to your longest club</H3>
       <P>
         This is where the most common dead zone hides. Modern lofts are strong,
-        and a lot of amateurs find their 3-, 4-, and 5-iron all carry within ten
+        and a lot of amateurs find their 3-, 4-, and 5-iron all finish within ten
         yards of each other — three slots doing one club's job. The fix is to
         replace the long irons you can't launch with hybrids or a higher-lofted
         fairway wood: they get the ball up more easily and restore real

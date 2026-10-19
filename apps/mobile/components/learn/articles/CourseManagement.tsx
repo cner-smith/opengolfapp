@@ -61,7 +61,7 @@ export function CourseManagementArticle() {
         items={[
           'Your predominant miss direction',
           "Which clubs you genuinely trust vs which ones you're hoping work out",
-          'How far you actually carry the ball — not your best carry, your reliable carry',
+          'How far you actually hit each club — not your best shot, your reliable one',
           'Where your game breaks down under pressure',
         ]}
       />
