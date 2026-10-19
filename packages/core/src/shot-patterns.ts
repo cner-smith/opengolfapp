@@ -307,7 +307,7 @@ export function getAimCorrection(
     stats.dominantMiss === 'straight' ||
     lateralYards < DOMINANT_MISS_THRESHOLD_YARDS
   ) {
-    return 'Your pattern is well centered on target.'
+    return 'Your pattern is centered on your aim.'
   }
   const value =
     unit === 'meters'
@@ -317,7 +317,7 @@ export function getAimCorrection(
   const plural = unit === 'meters' ? 'metres' : 'yards'
   const noun = value === 1 ? singular : plural
   const oppDir = stats.dominantMiss === 'right' ? 'left' : 'right'
-  return `Aim ${value} ${noun} ${oppDir} of your target to center your pattern.`
+  return `Move your aim ${value} ${noun} ${oppDir} to center your pattern.`
 }
 
 // One-line plain-language verdict from the dispersion shape + dominant miss.

@@ -138,7 +138,7 @@ function BuiltDiagram() {
 const ANSWERS = [
   ['Where do my misses go?', 'Right, and a touch short'],
   ['How far does it really go?', '146 yd is a typical 7-iron'],
-  ['Where should I aim?', '6 yd left of your target'],
+  ['Where should I aim?', 'Move your aim 6 yd left'],
   ['And if I aim there?', '15 of 24 on the green, not 9'],
 ] as const
 
