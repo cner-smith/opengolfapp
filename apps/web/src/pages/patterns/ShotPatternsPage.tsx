@@ -242,7 +242,7 @@ export function ShotPatternsPage() {
           )}
         </div>
         <div
-          className="grid grid-cols-1 md:[grid-template-columns:minmax(0,auto)_minmax(0,1fr)]"
+          className="grid grid-cols-1 lg:[grid-template-columns:minmax(0,auto)_minmax(0,1fr)]"
           style={{ gap: 22 }}
         >
           <div
