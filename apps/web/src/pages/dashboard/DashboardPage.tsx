@@ -51,6 +51,7 @@ export function DashboardPage() {
     const totalSG = avgs.reduce((s, a) => s + a.value, 0)
     const sortedDesc = [...avgs].sort((a, b) => b.value - a.value)
     return {
+      wholeCount: whole.length,
       avgs,
       maxAbs,
       trendData,
@@ -79,8 +80,8 @@ export function DashboardPage() {
     )
   }
 
-  const { avgs, maxAbs, trendData, avgScore, totalSG, weakest, strongest } = stats
-  const span = `last ${rounds.length} round${rounds.length === 1 ? '' : 's'}`
+  const { wholeCount, avgs, maxAbs, trendData, avgScore, totalSG, weakest, strongest } = stats
+  const span = `last ${wholeCount} round${wholeCount === 1 ? '' : 's'}`
 
   return (
     <div>
