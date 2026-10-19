@@ -9,7 +9,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
-import { DEFAULT_HANDICAP, formatSG, sgStandouts, type DetailedStats, type SGAverages } from '@oga/core'
+import { DEFAULT_HANDICAP, sgStandouts, type DetailedStats, type SGAverages } from '@oga/core'
 import { useProfile } from '../../../hooks/useProfile'
 import { Insufficient, Section, Subhead } from '../components/Section'
 import { ApproachBandRow, SgTile } from '../components/StatTiles'
@@ -83,8 +83,8 @@ export function StrokesGainedSection({ data }: { data: DetailedStats }) {
         >
           {weakest.value < 0
             ? `${sgLabel(weakest.key)} costs you ${Math.abs(weakest.value).toFixed(1)} strokes a round`
-            : `${sgLabel(weakest.key)} is your softest area, ${formatSG(weakest.value)} a round`}
-          {strongest && strongest.key !== weakest.key && strongest.value > 0
+            : `${sgLabel(weakest.key)} is your softest area, still gaining ${weakest.value.toFixed(1)} a round`}
+          {strongest && strongest.key !== weakest.key && strongest.value >= 0.05
             ? `; ${sgLabel(strongest.key).toLowerCase()} gains you ${strongest.value.toFixed(1)}.`
             : '.'}
         </p>

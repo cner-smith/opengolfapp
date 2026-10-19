@@ -209,6 +209,7 @@ export default function Stats() {
         : null,
     [rounds, handicap],
   )
+  const bandMax = Math.max(0.5, ...(stats?.approachByDistance ?? []).map((b) => Math.abs(b.avgSg ?? 0)))
 
   return (
     <PaperSurface style={{ flex: 1 }}>
@@ -500,11 +501,7 @@ export default function Stats() {
                 <>
                   <SubHead style={{ marginTop: 22 }}>Approach by distance</SubHead>
                   {stats.approachByDistance.map((b) => (
-                    <ApproachBandRow
-                      key={b.key}
-                      band={b}
-                      max={Math.max(0.5, ...stats.approachByDistance.map((x) => Math.abs(x.avgSg ?? 0)))}
-                    />
+                    <ApproachBandRow key={b.key} band={b} max={bandMax} />
                   ))}
                 </>
               )}
@@ -920,11 +917,11 @@ function StandoutCallout({ sg }: { sg: SGAverages }) {
   const { weakest, strongest } = sgStandouts(sg)
   if (!weakest) return null
   const showStrength =
-    strongest != null && strongest.key !== weakest.key && strongest.value > 0
+    strongest != null && strongest.key !== weakest.key && strongest.value >= 0.05
   const leak =
     weakest.value < 0
       ? `${SG_STANDOUT_LABEL[weakest.key]} costs you ${Math.abs(weakest.value).toFixed(1)} strokes a round`
-      : `${SG_STANDOUT_LABEL[weakest.key]} is your softest area, ${formatSG(weakest.value)} a round`
+      : `${SG_STANDOUT_LABEL[weakest.key]} is your softest area, still gaining ${weakest.value.toFixed(1)} a round`
   const strength = showStrength
     ? `; ${SG_STANDOUT_LABEL[strongest.key].toLowerCase()} gains you ${strongest.value.toFixed(1)}.`
     : '.'
