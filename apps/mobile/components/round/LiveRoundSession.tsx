@@ -415,8 +415,11 @@ export default function LiveRoundSession({
 
   // Club wheel (#611 §4): the bag minus the putter, one row per club type.
   // It opens on the auto pick every shot; a manual pick lasts one shot.
+  // Open state lives here so Back closes the wheel first; it names the shot it opened on (a new shot = closed).
   const [clubOverride, setClubOverride] = useState<Club | null>(null)
-  useEffect(() => setClubOverride(null), [holeNumber, totalShotsThisHole])
+  const shotKey = `${holeNumber}:${totalShotsThisHole}`, [wheelOpenOn, setWheelOpenOn] = useState<string | null>(null)
+  const wheelOpen = wheelOpenOn === shotKey, setWheelOpen = (open: boolean) => setWheelOpenOn(open ? shotKey : null)
+  useEffect(() => { setClubOverride(null) }, [holeNumber, totalShotsThisHole])
   const wheelRows = useMemo(() => {
     const seen = new Set<string>()
     return (bag.length > 0 ? bag : DEFAULT_BAG)
@@ -498,7 +501,8 @@ export default function LiveRoundSession({
       // to its review rather than asking to leave the round (#938).
       const editingUnsaved = holeNumber < furthestHoleReached && data.previousShots.length > 0 &&
         !data.currentHoleScore.finished_at && editHole === holeNumber
-      if (menuOpen) setMenuOpen(false)
+      if (wheelOpen) setWheelOpen(false)
+      else if (menuOpen) setMenuOpen(false)
       else if (pinPlacementOpen) setPinPlacementOpen(false)
       else if (editingUnsaved && finalState.roundState === 'PLACE_BALL') finalState.setRoundState('SUMMARY')
       else if (finalState.roundState !== 'SET_AIM') setActiveDialog('leave')
@@ -506,7 +510,7 @@ export default function LiveRoundSession({
       return true
     })
     return () => sub.remove()
-  }, [menuOpen, pinPlacementOpen, finalState, data, holeNumber, furthestHoleReached, editHole, sheetHeld]))
+  }, [wheelOpen, menuOpen, pinPlacementOpen, finalState, data, holeNumber, furthestHoleReached, editHole, sheetHeld]))
 
   // End-of-hole review rows. Built from the shots placed live (their start
   // coords, in order) via the shared @oga/core inference — same call the web
@@ -820,6 +824,8 @@ export default function LiveRoundSession({
             selected: wheelClub,
             auto: autoClub,
             onPick: (c) => setClubOverride(c === autoClub ? null : c),
+            open: wheelOpen,
+            onOpenChange: setWheelOpen,
           }}
           onTogglePin={() => setPinPlacementOpen((o) => !o)}
           overlayMode={overlayMode}
