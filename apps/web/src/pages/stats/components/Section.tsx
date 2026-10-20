@@ -1,10 +1,10 @@
 import type { CSSProperties, ReactNode } from 'react'
 
 export function Section({
-  kicker,
+  title,
   children,
 }: {
-  kicker: string
+  title: string
   children: ReactNode
 }) {
   return (
@@ -15,15 +15,18 @@ export function Section({
         marginBottom: 32,
       }}
     >
-      <div className="kicker" style={{ marginBottom: 18 }}>
-        {kicker}
-      </div>
+      <h2
+        className="font-serif text-caddie-ink"
+        style={{ fontSize: 24, fontStyle: 'italic', fontWeight: 500, lineHeight: 1.2, marginBottom: 12 }}
+      >
+        {title}
+      </h2>
       {children}
     </section>
   )
 }
 
-export function Subkicker({
+export function Subhead({
   children,
   style,
 }: {
@@ -31,16 +34,9 @@ export function Subkicker({
   style?: CSSProperties
 }) {
   return (
-    <div
-      className="kicker"
-      style={{
-        marginBottom: 12,
-        color: '#5C6356',
-        ...style,
-      }}
-    >
+    <h3 className="text-caddie-ink" style={{ fontSize: 15, fontWeight: 600, marginBottom: 8, ...style }}>
       {children}
-    </div>
+    </h3>
   )
 }
 

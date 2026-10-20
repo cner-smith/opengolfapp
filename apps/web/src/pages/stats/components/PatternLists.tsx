@@ -68,7 +68,7 @@ export function ScoringDistributionBar({
             />
             <span>
               {s.label}{' '}
-              <span className="font-mono tabular text-caddie-ink-mute">
+              <span className="tabular text-caddie-ink-mute">
                 {s.count} · {s.pct.toFixed(1)}%
               </span>
             </span>
@@ -105,8 +105,8 @@ export function MissTendencyList({ entries }: { entries: MissTendencyEntry[] }) 
           </span>
           <span className="flex items-baseline" style={{ gap: 14 }}>
             <span
-              className="font-mono uppercase tabular text-caddie-ink-mute"
-              style={{ fontSize: 10, letterSpacing: '0.14em' }}
+              className="tabular text-caddie-ink-mute"
+              style={{ fontSize: 12 }}
             >
               {e.count} shots
             </span>
@@ -153,8 +153,8 @@ export function CostlyLiesList({ entries }: { entries: CostlyLieEntry[] }) {
           </span>
           <span className="flex items-baseline" style={{ gap: 14 }}>
             <span
-              className="font-mono uppercase tabular text-caddie-ink-mute"
-              style={{ fontSize: 10, letterSpacing: '0.14em' }}
+              className="tabular text-caddie-ink-mute"
+              style={{ fontSize: 12 }}
             >
               {e.shots} shots
             </span>
@@ -187,10 +187,9 @@ export function ClubAccuracyList({ entries }: { entries: ClubAccuracyEntry[] }) 
     <div className="grid grid-cols-1 md:grid-cols-2" style={{ gap: 22 }}>
       <div>
         <div
-          className="font-mono uppercase text-caddie-ink-mute"
+          className="text-caddie-ink-dim"
           style={{
-            fontSize: 10,
-            letterSpacing: '0.14em',
+            fontSize: 13,
             marginBottom: 10,
           }}
         >
@@ -200,10 +199,9 @@ export function ClubAccuracyList({ entries }: { entries: ClubAccuracyEntry[] }) 
       </div>
       <div>
         <div
-          className="font-mono uppercase text-caddie-ink-mute"
+          className="text-caddie-ink-dim"
           style={{
-            fontSize: 10,
-            letterSpacing: '0.14em',
+            fontSize: 13,
             marginBottom: 10,
           }}
         >
@@ -237,8 +235,8 @@ function ClubRows({ entries }: { entries: ClubAccuracyEntry[] }) {
           </span>
           <span className="flex items-baseline" style={{ gap: 14 }}>
             <span
-              className="font-mono uppercase tabular text-caddie-ink-mute"
-              style={{ fontSize: 10, letterSpacing: '0.14em' }}
+              className="tabular text-caddie-ink-mute"
+              style={{ fontSize: 12 }}
             >
               {e.shots} shots
             </span>
@@ -283,10 +281,9 @@ function SlopeAxisBlock({
   return (
     <div>
       <div
-        className="font-mono uppercase text-caddie-ink-mute"
+        className="text-caddie-ink-dim"
         style={{
-          fontSize: 10,
-          letterSpacing: '0.14em',
+          fontSize: 13,
           marginBottom: 10,
         }}
       >
@@ -314,8 +311,8 @@ function SlopeAxisBlock({
               </span>
               <span className="flex items-baseline" style={{ gap: 14 }}>
                 <span
-                  className="font-mono uppercase tabular text-caddie-ink-mute"
-                  style={{ fontSize: 10, letterSpacing: '0.14em' }}
+                  className="tabular text-caddie-ink-mute"
+                  style={{ fontSize: 12 }}
                 >
                   {e.shots} shots
                 </span>
