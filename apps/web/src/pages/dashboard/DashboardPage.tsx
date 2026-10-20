@@ -192,6 +192,8 @@ export function DashboardPage() {
 }
 
 function Masthead({ greeting, subtitle }: { greeting: string | null; subtitle: string }) {
+  const hour = new Date().getHours()
+  const hello = `Good ${hour < 12 ? 'morning' : hour < 18 ? 'afternoon' : 'evening'}`
   return (
     <div style={{ marginBottom: 28 }}>
       <h1
@@ -204,7 +206,7 @@ function Masthead({ greeting, subtitle }: { greeting: string | null; subtitle: s
           lineHeight: 1.05,
         }}
       >
-        {greeting ? `Good round, ${greeting}.` : 'Good round.'}
+        {greeting ? `${hello}, ${greeting}.` : `${hello}.`}
       </h1>
       <div
         className="text-caddie-ink-dim"

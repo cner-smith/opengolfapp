@@ -9,7 +9,7 @@ test.describe('Dashboard (signed in)', () => {
     // onboarding_completed path against real Supabase.
     await expect(page).toHaveURL(/\/dashboard$/)
     await expect(
-      page.getByRole('heading', { name: /Good round/i }),
+      page.getByRole('heading', { name: /^Good (morning|afternoon|evening)/i }),
     ).toBeVisible()
     await expect(page.getByText('Avg score', { exact: true })).toBeVisible()
     await expect(page.getByText('SG total trend', { exact: true })).toBeVisible()
