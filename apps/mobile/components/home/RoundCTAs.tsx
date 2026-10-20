@@ -1,4 +1,5 @@
 import { Text } from 'react-native'
+import { PressableTouch } from '../ui/PressableTouch'
 import { useRouter } from 'expo-router'
 import { Key, KeyText } from '../paper/Paper'
 import { FONT_CAP, P } from '../paper/tokens'
@@ -40,13 +41,17 @@ export function StartLiveRoundCTA() {
 export function LogPastRoundCTA() {
   const router = useRouter()
   return (
-    <Key
+    // One primary action on Home; the past-round log is a quiet link under it.
+    <PressableTouch
+      accessibilityRole="button"
       accessibilityLabel="Log past round"
       onPress={() => router.push('/(app)/round/new?mode=past')}
-      style={{ marginBottom: 22 }}
-      faceStyle={{ minHeight: 50 }}
+      hitSlop={8}
+      style={{ alignSelf: 'center', minHeight: 44, justifyContent: 'center', paddingHorizontal: 16, marginBottom: 18 }}
     >
-      <KeyText size={15}>+ Log past round</KeyText>
-    </Key>
+      <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.bodyBold, { color: P.forest, fontSize: 15 }]}>
+        + Log past round
+      </Text>
+    </PressableTouch>
   )
 }

@@ -2,7 +2,7 @@ import { useRef } from 'react'
 import { Pressable, Text, View } from 'react-native'
 import { Link } from 'expo-router'
 import { Swipeable } from 'react-native-gesture-handler'
-import { formatSG, partialRoundLabel } from '@oga/core'
+import { formatSG, parseLocalDate, partialRoundLabel } from '@oga/core'
 import { TYPE } from '../../lib/typography'
 import { SectionHead } from '../paper/Section'
 import { PaperSurface } from '../paper/Paper'
@@ -92,7 +92,7 @@ export function RecentRoundsList({
                 >
                   <View style={{ flex: 1, paddingRight: 12 }}>
                     <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { color: P.inkDim, fontSize: 12, marginBottom: 4 }]}>
-                      {r.played_at}
+                      {parseLocalDate(r.played_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                       {partialRoundLabel(r.hole_scores)}
                     </Text>
                     <Text

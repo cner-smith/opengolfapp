@@ -1,7 +1,7 @@
 import { lazy, Suspense, useMemo, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { mdiPlay, mdiPlus } from '@mdi/js'
-import { barScale, formatSG, isPartialRound, partialRoundLabel, sgBreakdown } from '@oga/core'
+import { barScale, formatSG, isPartialRound, parseLocalDate, partialRoundLabel, sgBreakdown } from '@oga/core'
 import { useRecentSG } from '../../hooks/useRounds'
 import { useProfile } from '../../hooks/useProfile'
 
@@ -14,9 +14,9 @@ const SGTrendChart = lazy(() =>
 )
 
 const SG_KEYS = [
-  { key: 'sg_off_tee', label: 'Off tee' },
+  { key: 'sg_off_tee', label: 'Off the tee' },
   { key: 'sg_approach', label: 'Approach' },
-  { key: 'sg_around_green', label: 'Around green' },
+  { key: 'sg_around_green', label: 'Around the green' },
   { key: 'sg_putting', label: 'Putting' },
 ] as const
 
@@ -40,7 +40,7 @@ export function DashboardPage() {
     const avgs = SG_KEYS.map((c) => ({ ...c, value: sg.breakdown.find((b) => b.key === c.key)?.value ?? 0 }))
     const maxAbs = barScale(sg.maxAbs)
     const trendData = [...whole].reverse().map((r) => ({
-      date: r.played_at,
+      date: parseLocalDate(r.played_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
       sg: r.sg_total ?? 0,
     }))
     // total_score 0 = the past-round logger's "no score yet" sentinel (#910).
@@ -51,6 +51,7 @@ export function DashboardPage() {
     const totalSG = avgs.reduce((s, a) => s + a.value, 0)
     const sortedDesc = [...avgs].sort((a, b) => b.value - a.value)
     return {
+      wholeCount: whole.length,
       avgs,
       maxAbs,
       trendData,
@@ -79,7 +80,8 @@ export function DashboardPage() {
     )
   }
 
-  const { avgs, maxAbs, trendData, avgScore, totalSG, weakest, strongest } = stats
+  const { wholeCount, avgs, maxAbs, trendData, avgScore, totalSG, weakest, strongest } = stats
+  const span = `last ${wholeCount} round${wholeCount === 1 ? '' : 's'}`
 
   return (
     <div>
@@ -90,35 +92,34 @@ export function DashboardPage() {
         }`}
       />
 
-      <StartRoundCTAs />
-
       <Lede strongest={strongest} weakest={weakest} />
 
-      <Section kicker="By the numbers">
-        <div className="grid grid-cols-2 sm:grid-cols-4" style={{ gap: 14 }}>
-          <StatTile
-            label="Avg score"
-            value={avgScore > 0 ? avgScore.toFixed(1) : '—'}
-          />
-          <StatTile
-            label="SG total"
-            value={formatSG(totalSG)}
-            tone={totalSG > 0 ? 'pos' : totalSG < 0 ? 'neg' : 'neutral'}
-          />
-          <StatTile label="Rounds" value={rounds.length.toString()} />
-          <StatTile label="Categories" value={SG_KEYS.length.toString()} />
-        </div>
-      </Section>
+      <StartRoundCTAs />
 
-      <Section kicker="SG breakdown">
+      <div className="grid grid-cols-2" style={{ gap: 14, marginBottom: 32, maxWidth: 520 }}>
+        <StatTile
+          label="Average score"
+          value={avgScore > 0 ? avgScore.toFixed(1) : '—'}
+        />
+        <StatTile
+          label="Strokes gained"
+          value={formatSG(totalSG)}
+          tone={totalSG > 0 ? 'pos' : totalSG < 0 ? 'neg' : 'neutral'}
+        />
+      </div>
+
+      <Section title="Strokes gained">
+        <div className="text-caddie-ink-dim" style={{ fontSize: 13, marginTop: -6, marginBottom: 14 }}>
+          Per round, {span}.
+        </div>
         <div className="flex flex-col" style={{ gap: 14 }}>
           {avgs.map((a) => (
             <SGBar key={a.key} label={a.label} value={a.value} max={maxAbs} />
           ))}
         </div>
-      </Section>
-
-      <Section kicker="SG total trend">
+        <h3 className="text-caddie-ink" style={{ fontSize: 15, fontWeight: 600, marginTop: 26, marginBottom: 8 }}>
+          Round by round
+        </h3>
         <div style={{ height: 220 }}>
           <Suspense
             fallback={
@@ -134,14 +135,14 @@ export function DashboardPage() {
       </Section>
 
       <Section
-        kicker="Recent rounds"
+        title="Recent rounds"
         action={
           <Link
             to="/rounds"
-            className="font-mono uppercase text-caddie-ink-mute hover:text-caddie-ink tabular"
-            style={{ fontSize: 10, letterSpacing: '0.14em' }}
+            className="text-caddie-ink-dim hover:text-caddie-ink underline underline-offset-4"
+            style={{ fontSize: 14 }}
           >
-            See all →
+            See all rounds
           </Link>
         }
       >
@@ -165,11 +166,8 @@ export function DashboardPage() {
                   >
                     {r.courses?.name ?? 'Round'}
                   </div>
-                  <div
-                    className="font-mono uppercase text-caddie-ink-mute tabular"
-                    style={{ fontSize: 10, letterSpacing: '0.14em', marginTop: 4 }}
-                  >
-                    {r.played_at}
+                  <div className="text-caddie-ink-dim" style={{ fontSize: 13, marginTop: 3 }}>
+                    {formatPlayed(r.played_at)}
                     {partialRoundLabel(r.hole_scores)}
                   </div>
                 </div>
@@ -225,62 +223,42 @@ function Lede({
   strongest: { label: string; value: number }
   weakest: { label: string; value: number }
 }) {
-  // A leak that rounds to 0.0 reads as even, not "costing about 0.0 strokes" (#911).
-  if (weakest.value > -0.05) {
-    return (
-      <p
-        className="font-serif text-caddie-ink"
-        style={{
-          fontSize: 17,
-          fontWeight: 400,
-          lineHeight: 1.55,
-          maxWidth: 640,
-          marginBottom: 28,
-        }}
-      >
-        Everything is net positive right now. <em>{strongest.label}</em> leads
-        the four at {fmtSG(strongest.value)} a round — keep doing what you are doing.
-      </p>
-    )
-  }
+  // Same sentence as the top of Stats. A leak that rounds to 0.0 reads as
+  // even, not "costs you 0.0 strokes" (#911).
+  const text =
+    weakest.value > -0.05
+      ? `Every part of your game is gaining strokes; ${strongest.label.toLowerCase()} leads at ${strongest.value.toFixed(1)} a round.`
+      : `${weakest.label} costs you ${Math.abs(weakest.value).toFixed(1)} strokes a round${
+          strongest.value >= 0.05 ? `; ${strongest.label.toLowerCase()} gains you ${strongest.value.toFixed(1)}.` : '.'
+        }`
   return (
     <p
       className="font-serif text-caddie-ink"
-      style={{
-        fontSize: 17,
-        fontWeight: 400,
-        lineHeight: 1.55,
-        maxWidth: 640,
-        marginBottom: 28,
-      }}
+      style={{ fontSize: 20, fontStyle: 'italic', lineHeight: 1.35, maxWidth: 640, marginBottom: 24 }}
     >
-      <em>{weakest.label}.</em> Your biggest leak — costing about{' '}
-      {fmtAbs(weakest.value)} a round. {strongest.label} is the
-      one bright spot at {fmtSG(strongest.value)}.
+      {text}
     </p>
   )
 }
 
 function Section({
-  kicker,
+  title,
   action,
   children,
 }: {
-  kicker: string
+  title: string
   action?: ReactNode
   children: React.ReactNode
 }) {
   return (
-    <section style={{ marginBottom: 28 }}>
-      <div
-        className="flex items-center justify-between"
-        style={{
-          borderTop: '1px solid #D9D2BF',
-          paddingTop: 14,
-          marginBottom: 14,
-        }}
-      >
-        <div className="kicker">{kicker}</div>
+    <section style={{ borderTop: '1px solid #D9D2BF', paddingTop: 18, marginBottom: 32 }}>
+      <div className="flex items-baseline justify-between" style={{ marginBottom: 12 }}>
+        <h2
+          className="font-serif text-caddie-ink"
+          style={{ fontSize: 24, fontStyle: 'italic', fontWeight: 500, lineHeight: 1.2 }}
+        >
+          {title}
+        </h2>
         {action}
       </div>
       {children}
@@ -313,25 +291,16 @@ function StartRoundCTAs() {
       </Link>
       <div
         className="text-caddie-ink-dim text-center"
-        style={{ fontSize: 12, marginTop: 6, marginBottom: 12 }}
+        style={{ fontSize: 12, marginTop: 6, marginBottom: 8 }}
       >
         Track shots in real time with GPS
       </div>
       <Link
         to="/rounds/new?mode=past"
-        className="hover:opacity-80 flex items-center justify-center"
-        style={{
-          gap: 8,
-          padding: '11px 16px',
-          borderRadius: 2,
-          border: '1px solid #1F3D2C',
-          color: '#1F3D2C',
-          fontSize: 14,
-          fontWeight: 600,
-          letterSpacing: '0.02em',
-        }}
+        className="flex items-center justify-center text-caddie-accent hover:underline underline-offset-4"
+        style={{ gap: 6, padding: '6px 16px', fontSize: 14, fontWeight: 600 }}
       >
-        <svg width={18} height={18} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+        <svg width={16} height={16} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
           <path d={mdiPlus} />
         </svg>
         Log past round
@@ -360,7 +329,7 @@ function StatTile({
         padding: 18,
       }}
     >
-      <div className="kicker" style={{ marginBottom: 10 }}>
+      <div className="text-caddie-ink-dim" style={{ fontSize: 13, marginBottom: 10 }}>
         {label}
       </div>
       <div
@@ -506,11 +475,6 @@ function EmptyState({
   )
 }
 
-function fmtSG(value: number): string {
-  if (value === 0) return 'even'
-  return `${formatSG(value)} strokes`
-}
-
-function fmtAbs(value: number): string {
-  return `${Math.abs(value).toFixed(1)} strokes`
+function formatPlayed(date: string): string {
+  return parseLocalDate(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 }

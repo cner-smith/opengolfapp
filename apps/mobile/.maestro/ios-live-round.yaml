@@ -17,7 +17,7 @@ onFlowComplete:
         - tapOn: "Delete round"
         - tapOn: "Delete"
         - extendedWaitUntil:
-            visible: "By the numbers"
+            visible: "Log past round"
             timeout: 30000
 ---
 - launchApp:
@@ -47,7 +47,7 @@ onFlowComplete:
     commands:
       - tapOn: "Not Now"
 - extendedWaitUntil:
-    visible: "Skip splash|By the numbers|Skip intro tour"
+    visible: "Skip splash|Log past round|Skip intro tour"
     timeout: 60000
 - runFlow:
     when:
@@ -64,7 +64,7 @@ onFlowComplete:
     commands:
       - tapOn: "Not Now"
 - extendedWaitUntil:
-    visible: "By the numbers|Skip intro tour"
+    visible: "Log past round|Skip intro tour"
     timeout: 60000
 - runFlow:
     when:
@@ -72,7 +72,7 @@ onFlowComplete:
     commands:
       - tapOn: "Skip intro tour"
 - extendedWaitUntil:
-    visible: "By the numbers"
+    visible: "Log past round"
     timeout: 30000
 # Signed in. The CI workflow publishes a run's failure screenshots only if this one exists (a failed login can
 # leave typed credentials on screen).
@@ -96,7 +96,7 @@ onFlowComplete:
       - tapOn: "Delete round"
       - tapOn: "Delete"
       - extendedWaitUntil:
-          visible: "By the numbers"
+          visible: "Log past round"
           timeout: 30000
 # Start a live round on Whistling Straits.
 - tapOn: "Start live round"
