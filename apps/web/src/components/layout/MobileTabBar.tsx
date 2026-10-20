@@ -14,7 +14,7 @@ import {
 // account-circle-outline) — pulled here as SVG path data from @mdi/js so the
 // two platforms draw identical glyphs with no drift. Secondary routes (Rounds,
 // Learn, My Bag, Settings) stay reachable via the top-bar menu until Phase 2
-// folds them into the Home + Profile pages. Hidden on md+ (desktop keeps the
+// folds them into the Home + Profile pages. Hidden on lg+ (desktop keeps the
 // sidebar).
 
 function MdiIcon({ path }: { path: string }) {
@@ -41,11 +41,11 @@ export function MobileTabBar() {
       aria-label="Primary"
       // `flex` belongs in the class list, NOT in the style object below: an
       // inline `display` beats any stylesheet rule short of !important, so
-      // `style={{ display: 'flex' }}` silently overrode `md:hidden` and the
+      // `style={{ display: 'flex' }}` silently overrode `lg:hidden` and the
       // bar rendered at EVERY width — including desktop, alongside the
       // sidebar. Both display values must live in the same cascade layer for
       // the breakpoint to win.
-      className="flex md:hidden fixed bottom-0 left-0 right-0 z-30 bg-caddie-surface"
+      className="flex lg:hidden fixed bottom-0 left-0 right-0 z-30 bg-caddie-surface"
       style={{
         borderTop: '1px solid #D9D2BF',
         // Respect the iOS/Android home-indicator inset in mobile browsers.
@@ -69,10 +69,7 @@ export function MobileTabBar() {
           {({ isActive }) => (
             <>
               <MdiIcon path={icon} />
-              <span
-                className="font-mono uppercase"
-                style={{ fontSize: 9, letterSpacing: '0.1em', fontWeight: isActive ? 600 : 500 }}
-              >
+              <span style={{ fontSize: 11, fontWeight: isActive ? 600 : 500 }}>
                 {label}
               </span>
             </>

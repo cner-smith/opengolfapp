@@ -29,8 +29,13 @@ test.describe('MobileTabBar responsive gate', () => {
     expect(r.width).toBe(0)
   })
 
-  test('display:none at the md breakpoint itself (768px)', async ({ page }) => {
-    expect((await tabBarDisplay(page, 768)).display).toBe('none')
+  test('display:none at the lg breakpoint itself (1024px)', async ({ page }) => {
+    expect((await tabBarDisplay(page, 1024)).display).toBe('none')
+  })
+
+  // Tablets get the phone shell: the sidebar folds into the menu below 1024px.
+  test('display:flex at tablet width (900px)', async ({ page }) => {
+    expect((await tabBarDisplay(page, 900)).display).toBe('flex')
   })
 
   test('display:flex on mobile widths', async ({ page }) => {
