@@ -193,7 +193,6 @@ export function PatternsEmpty() {
 export function PatternExplainer() {
   return (
     <section id="how-pattern-built" style={{ borderTop: '1px solid #D9D2BF', paddingTop: 14, marginTop: 36, scrollMarginTop: 24 }}>
-      <div className="kicker" style={{ marginBottom: 6 }}>How it works</div>
       <h2 className="font-serif text-caddie-ink" style={{ fontSize: 24, fontStyle: 'italic', fontWeight: 500, marginBottom: 16 }}>
         How your pattern is built
       </h2>

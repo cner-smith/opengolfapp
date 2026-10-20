@@ -5,29 +5,28 @@ import {
   DEFAULT_BAG,
   LIE_TYPES,
   MIN_SAMPLES_FOR_STATS,
+  YARDS_TO_METERS,
+  clubNoun,
+  clubTypicalDistance,
   getAimCorrection,
   type Club,
+  type DispersionStats,
   type LieSlopeForward,
   type LieSlopeSide,
   type LieType,
-  type DispersionPoint,
-  type DispersionStats,
 } from '@oga/core'
 import { useHasAimedShots, useShotPatterns } from '../../hooks/useShotPatterns'
 import { LieSlopeGrid } from '../../components/forms/LieSlopeGrid'
+import { useAuth } from '../../hooks/useAuth'
 import { useUnits } from '../../hooks/useUnits'
 import { useUserBag } from '../../hooks/useUserBag'
-import {
-  DispersionPlot,
-  pointColor,
-  SVG_SIZE,
-} from './components/DispersionPlot'
+import { useClubDispersion } from '../rounds/hooks/useClubDispersion'
+import { StatRow, StatTile } from '../stats/components/StatTiles'
 import { ShotPatternsShareCard } from './components/ShotPatternsShareCard'
 import { PatternExplainer, PatternProgress, PatternsEmpty } from './components/PatternsPreview'
-
-const FLIGHT_W = 460
-const FLIGHT_H = 520
-const FLIGHT_VIEW_WIDTH = `min(${FLIGHT_W}px, 92vw)`
+import { ClubLadder } from './components/ClubLadder'
+import { YardagePlot } from './components/YardagePlot'
+import { BallFlightChart } from './components/BallFlightChart'
 
 // Social share card — 1200×630 is Twitter/Facebook's preferred OG image
 // size. Rendered off-screen, rasterised on Export. The plot inside is
@@ -35,8 +34,28 @@ const FLIGHT_VIEW_WIDTH = `min(${FLIGHT_W}px, 92vw)`
 const SHARE_CARD_W = 1200
 const SHARE_CARD_H = 630
 
+type View = 'aim' | 'tee'
+const VIEWS: { value: View; label: string }[] = [
+  { value: 'aim', label: 'Around the aim' },
+  { value: 'tee', label: 'From the tee' },
+]
+
+// Within 2 yd reads as on the aim (the core's dominant-miss threshold).
+const ON_AIM = 2
+
+const LIE_PHRASE: Record<LieType, string> = {
+  tee: 'the tee',
+  fairway: 'the fairway',
+  rough: 'the rough',
+  sand: 'sand',
+  fringe: 'the fringe',
+  recovery: 'a recovery lie',
+  green: 'the green',
+}
+
 export function ShotPatternsPage() {
   const { unit, toDisplay } = useUnits()
+  const { user } = useAuth()
   const [club, setClub] = useState<Club>('7i')
   // Only the player's bag (DEFAULT_BAG while it loads / if empty), catalog order.
   const { bag } = useUserBag()
@@ -48,12 +67,10 @@ export function ShotPatternsPage() {
     if (clubOptions.length && !clubOptions.includes(club)) setClub(clubOptions[0]!)
   }, [clubOptions, club])
   const [lieType, setLieType] = useState<LieType | ''>('')
-  const [lieSlopeForward, setLieSlopeForward] = useState<
-    LieSlopeForward | undefined
-  >(undefined)
-  const [lieSlopeSide, setLieSlopeSide] = useState<LieSlopeSide | undefined>(
-    undefined,
-  )
+  const [lieSlopeForward, setLieSlopeForward] = useState<LieSlopeForward | undefined>(undefined)
+  const [lieSlopeSide, setLieSlopeSide] = useState<LieSlopeSide | undefined>(undefined)
+  const [view, setView] = useState<View>('aim')
+  const [sheetOpen, setSheetOpen] = useState(false)
 
   const hasAimed = useHasAimedShots()
   const { data, isLoading, clubShots } = useShotPatterns({
@@ -62,9 +79,25 @@ export function ShotPatternsPage() {
     lieSlopeForward,
     lieSlopeSide,
   })
+  // Typical distance per club from the player's own shots (the live wheel's
+  // rule: five or more aimed shots). No typed estimate: no data, no number.
+  const { byClub } = useClubDispersion(user?.id)
+  const typicalYards = (c: Club) => {
+    const d = byClub.get(c)
+    return clubTypicalDistance(d?.medianDistanceYards, d?.sampleSize ?? 0, null)?.yards ?? null
+  }
+  const ladderNumber = (c: Club) => {
+    const y = typicalYards(c)
+    return y == null ? null : Math.round(unit === 'meters' ? y * YARDS_TO_METERS : y)
+  }
 
   const points = data?.points ?? []
   const stats = data?.stats ?? null
+  const filtered = !!(lieType || lieSlopeForward || lieSlopeSide)
+  const slopes = [lieSlopeForward, lieSlopeSide].filter(Boolean).map((v) => v!.replace(/_/g, ' '))
+  const filterSummary = [lieType ? cap(lieType) : 'Any lie', slopes.join(', ') || 'any slope'].join(' · ')
+  // "from the rough, uphill": the filters in a sentence.
+  const filterPhrase = [lieType ? `from ${LIE_PHRASE[lieType]}` : '', ...slopes].filter(Boolean).join(', ')
 
   const shareCardRef = useRef<HTMLDivElement | null>(null)
   const [exporting, setExporting] = useState(false)
@@ -76,20 +109,13 @@ export function ShotPatternsPage() {
   // Rasterise the off-screen 1200×630 share card and open the native
   // share sheet (Web Share API), falling back to a download where file
   // sharing isn't supported or the share fails for any reason other than
-  // the user dismissing the sheet. Captures on click rather than ahead of
-  // time: the card is heavy and the club filter changes often, so
-  // pre-rasterising on every chip tap would be wasteful. The cost is that
-  // the `await` before share() can expire the iOS-Safari gesture token —
-  // in which case it simply degrades to the download path (same PNG).
+  // the user dismissing the sheet. The `await` before share() can expire the
+  // iOS-Safari gesture token, in which case it degrades to the download path.
   async function handleExport() {
     if (exporting) return
     setExporting(true)
     setExportError(null)
     try {
-      // The card is normally pre-mounted on the Export button's pointer-enter
-      // / focus (below), so the ref is ready here and the iOS share gesture
-      // token stays intact. Fallback: if a fast tap beat the mount, mount now
-      // and wait a paint — this rare path may forfeit the token (→ download).
       if (!shareCardRef.current) {
         setShowShareCard(true)
         await new Promise<void>((resolve) =>
@@ -107,25 +133,19 @@ export function ShotPatternsPage() {
       if (!blob) throw new Error('empty blob')
       const filename = `oga-${club}-pattern.png`
       const file = new File([blob], filename, { type: 'image/png' })
-      if (
-        typeof navigator.share === 'function' &&
-        navigator.canShare?.({ files: [file] })
-      ) {
+      if (typeof navigator.share === 'function' && navigator.canShare?.({ files: [file] })) {
         try {
           await navigator.share({ files: [file], title: 'OGA Shot Pattern' })
           return
         } catch (err) {
-          // User dismissed the sheet — not an error worth surfacing.
           if ((err as Error).name === 'AbortError') return
-          // Any other share failure → fall through to the download path.
         }
       }
       const url = URL.createObjectURL(blob)
       const link = document.createElement('a')
       link.href = url
       link.download = filename
-      // Firefox and older Safari only honour downloads from an anchor that's
-      // attached to the document; a detached element silently no-ops.
+      // Firefox and older Safari only honour downloads from an attached anchor.
       document.body.appendChild(link)
       link.click()
       document.body.removeChild(link)
@@ -153,280 +173,129 @@ export function ShotPatternsPage() {
     )
   }
 
+  const noun = clubNoun(club)
+  const emptyNote =
+    clubShots === 0
+      ? `No aimed ${noun} shots yet`
+      : filtered
+        ? `No ${noun} shots ${filterPhrase}`
+        : undefined
+
+  const lieChips = (
+    <div className="flex flex-wrap" style={{ gap: 6 }}>
+      {(['', ...LIE_TYPES] as const).map((v) => (
+        <button key={v || 'any'} type="button" onClick={() => setLieType(v)} style={chipStyle(lieType === v)}>
+          {v === '' ? 'Any' : cap(v.replace(/_/g, ' '))}
+        </button>
+      ))}
+    </div>
+  )
+  const slopeGrid = (
+    <LieSlopeGrid
+      forward={lieSlopeForward}
+      side={lieSlopeSide}
+      onChangeForward={setLieSlopeForward}
+      onChangeSide={setLieSlopeSide}
+      toggleable
+    />
+  )
+
   return (
     <div>
-      <PageHeader subtitle="Per-club dispersion centered on the aim point you set before each shot." />
+      <PageHeader subtitle="Where each club finishes, measured from the aim you set before the shot." />
 
-      <Section kicker="Club">
-        <div className="flex flex-wrap" style={{ gap: 6 }}>
-          {/* Putter excluded: aim-relative yards dispersion is meaningless for
-              putts (mirrors the clubAccuracy putt exclusion, #574). */}
-          {clubOptions.map((c) => (
-            <button
-              key={c}
-              type="button"
-              onClick={() => setClub(c)}
-              style={chipStyle(club === c)}
-            >
-              {c}
-            </button>
-          ))}
-        </div>
-      </Section>
+      <ClubLadder clubs={clubOptions} value={club} onChange={setClub} typical={ladderNumber} />
+      <div className="text-caddie-ink-mute" style={{ fontSize: 12, marginTop: 6 }}>
+        Typical distance in {unit === 'meters' ? 'metres' : 'yards'}, once a club has five aimed shots.
+      </div>
 
-      <div
-        className="grid grid-cols-1 sm:grid-cols-2"
-        style={{ gap: 28, marginBottom: 28 }}
-      >
-        <FilterSection kicker="Lie type">
-          <SelectChips
-            value={lieType}
-            options={['', ...LIE_TYPES] as const}
-            onChange={(v) => setLieType(v as LieType | '')}
-            renderLabel={(v) => (v === '' ? 'any' : v.replace(/_/g, ' '))}
-          />
-        </FilterSection>
-        <FilterSection kicker="Lie slope">
-          <LieSlopeGrid
-            forward={lieSlopeForward}
-            side={lieSlopeSide}
-            onChangeForward={setLieSlopeForward}
-            onChangeSide={setLieSlopeSide}
-            toggleable
-          />
-        </FilterSection>
+      {/* Desktop: lie and slope as a compact second row. */}
+      <div className="hidden lg:flex items-center" style={{ gap: 18, marginTop: 14, flexWrap: 'wrap' }}>
+        <span className="text-caddie-ink-dim" style={{ fontSize: 13 }}>Lie</span>
+        {lieChips}
+        <SlopePopover summary={[lieSlopeForward, lieSlopeSide].filter(Boolean).map((s) => cap(s!.replace(/_/g, ' '))).join(', ') || 'Any'}>
+          {slopeGrid}
+        </SlopePopover>
+      </div>
+      {/* Phone: one button, the filters in a sheet. */}
+      <div className="lg:hidden flex items-center" style={{ gap: 10, marginTop: 14 }}>
+        <button type="button" onClick={() => setSheetOpen(true)} style={{ ...chipStyle(filtered), padding: '8px 12px', fontSize: 13 }}>
+          Lie and slope
+        </button>
+        <span className="text-caddie-ink-dim" style={{ fontSize: 13 }}>{filterSummary}</span>
       </div>
 
       <div
-        style={{
-          borderTop: '1px solid #D9D2BF',
-          paddingTop: 14,
-        }}
+        className="grid grid-cols-1 lg:[grid-template-columns:minmax(0,2fr)_minmax(0,1fr)]"
+        style={{ gap: 28, marginTop: 22, borderTop: '1px solid #D9D2BF', paddingTop: 18 }}
       >
-        <div
-          className="flex items-center justify-between"
-          style={{ marginBottom: 14, gap: 12 }}
-        >
-          <div className="kicker">Pattern</div>
+        <div style={{ maxWidth: 560 }}>
+          <ViewToggle value={view} onChange={setView} />
+          <div className="bg-caddie-surface" style={{ border: '1px solid #D9D2BF', borderRadius: 4, padding: '14px 12px 10px', marginTop: 10 }}>
+            {isLoading ? (
+              <div className="flex items-center justify-center text-caddie-ink-mute" style={{ aspectRatio: '1 / 1', fontSize: 13 }}>Loading…</div>
+            ) : view === 'aim' ? (
+              <YardagePlot points={points} stats={stats} unit={unit} empty={emptyNote} />
+            ) : (
+              <BallFlightChart points={points} stats={stats} unit={unit} />
+            )}
+          </div>
+          <p className="text-caddie-ink-dim" style={{ fontSize: 13, marginTop: 8, lineHeight: 1.5 }}>
+            {view === 'aim'
+              ? stats
+                ? 'Each dot is where a shot finished. The ring holds about two shots in three; the open circle is the average finish. Squares are 5 yd.'
+                : 'Each dot is where a shot finished. Squares are 5 yd.'
+              : 'Each line runs from the tee to where the shot finished; the green line is the average.'}
+          </p>
+        </div>
+
+        <div>
+          {stats ? (
+            <Numbers stats={stats} club={club} typical={typicalYards(club)} toDisplay={toDisplay} unit={unit} />
+          ) : !isLoading && clubShots < MIN_SAMPLES_FOR_STATS ? (
+            <PatternProgress club={club} shots={clubShots} />
+          ) : !isLoading ? (
+            <p className="font-serif text-caddie-ink" style={{ fontSize: 17, lineHeight: 1.55 }}>
+              {points.length === 0 ? 'None' : `Only ${points.length}`} of your {clubShots} {noun} shots {points.length === 1 ? 'was' : 'were'}{' '}
+              {filterPhrase}. A pattern needs five: widen the lie or slope to see one.
+            </p>
+          ) : null}
+
           {stats && (
-            <div className="flex items-center" style={{ gap: 12 }}>
-              {exportError && (
-                <span className="text-caddie-neg" style={{ fontSize: 12 }}>
-                  {exportError}
-                </span>
-              )}
+            <div className="flex items-center" style={{ gap: 12, marginTop: 22 }}>
               <button
                 type="button"
                 onClick={handleExport}
                 onPointerEnter={() => setShowShareCard(true)}
                 onFocus={() => setShowShareCard(true)}
                 disabled={exporting}
-                className="text-caddie-accent hover:bg-caddie-accent/10 disabled:opacity-40"
-                style={{
-                  background: 'transparent',
-                  border: '1px solid #1F3D2C',
-                  borderRadius: 2,
-                  padding: '8px 12px',
-                  fontSize: 11,
-                  fontWeight: 500,
-                  letterSpacing: '0.08em',
-                  textTransform: 'uppercase',
-                  fontFamily: '"Inconsolata", monospace',
-                  cursor: 'pointer',
-                  whiteSpace: 'nowrap',
-                }}
+                className="text-caddie-ink hover:bg-caddie-surface-2 disabled:opacity-40"
+                style={{ background: 'transparent', border: '1px solid #9F9580', borderRadius: 2, padding: '8px 14px', fontSize: 13, cursor: 'pointer' }}
               >
-                {exporting ? 'Rendering…' : '↓ Export · 1200×630'}
+                {exporting ? 'Rendering…' : 'Export image'}
               </button>
+              {exportError && <span className="text-caddie-neg" style={{ fontSize: 12 }}>{exportError}</span>}
             </div>
-          )}
-        </div>
-        <div
-          className="grid grid-cols-1 lg:[grid-template-columns:minmax(0,auto)_minmax(0,1fr)]"
-          style={{ gap: 22 }}
-        >
-          <div
-            className="bg-caddie-surface"
-            style={{
-              border: '1px solid #D9D2BF',
-              borderRadius: 4,
-              padding: 14,
-            }}
-          >
-            {isLoading ? (
-              <div
-                className="flex items-center justify-center text-caddie-ink-mute"
-                style={{
-                  width: SVG_SIZE,
-                  maxWidth: '100%',
-                  aspectRatio: '1 / 1',
-                  fontSize: 13,
-                }}
-              >
-                Loading…
-              </div>
-            ) : points.length === 0 ? (
-              <div
-                className="flex items-center justify-center text-caddie-ink-mute"
-                style={{
-                  width: SVG_SIZE,
-                  maxWidth: '100%',
-                  aspectRatio: '1 / 1',
-                  fontSize: 13,
-                  textAlign: 'center',
-                  padding: 20,
-                }}
-              >
-                No shots yet for {club}
-                {lieType ? ` (${lieType})` : ''}
-                {lieSlopeForward ? ` (${lieSlopeForward})` : ''}
-                {lieSlopeSide ? ` (${lieSlopeSide.replace('_', ' ')})` : ''}.
-              </div>
-            ) : (
-              // Constrain the wrapper so the legend's flex-wrap row wraps
-              // within the plot footprint instead of stretching the parent.
-              // `maxWidth: 100%` is parent-relative (not 90vw) so the cream
-              // box's own padding can't be overrun on narrow viewports.
-              <div style={{ width: SVG_SIZE, maxWidth: '100%' }}>
-                <DispersionPlot points={points} stats={stats} />
-                <PatternLegend hasEllipses={!!stats} />
-              </div>
-            )}
-          </div>
-
-          <div className="flex flex-col" style={{ gap: 22 }}>
-            <div>
-              <div className="kicker" style={{ marginBottom: 12 }}>
-                Pattern summary
-              </div>
-              {stats ? (
-                <dl
-                  className="grid grid-cols-2"
-                  style={{ gap: 18, rowGap: 18 }}
-                >
-                  <Stat label="Sample" value={`${stats.sampleSize} shots`} />
-                  <Stat
-                    label="Avg lateral"
-                    value={toDisplay(stats.avgLateralOffset, 1)}
-                  />
-                  <Stat
-                    label="Distance bias"
-                    value={toDisplay(stats.avgDistanceOffset, 1)}
-                  />
-                  <Stat label="Shape" value={stats.shotShape} />
-                  <Stat label="Dominant miss" value={stats.dominantMiss} />
-                  <Stat
-                    label="68% spread"
-                    value={`±${toDisplay(stats.cone68.lateral, 1)} / ${toDisplay(stats.cone68.distance, 1)}`}
-                  />
-                </dl>
-              ) : !isLoading && clubShots < MIN_SAMPLES_FOR_STATS ? (
-                <PatternProgress club={club} shots={clubShots} />
-              ) : (
-                <p
-                  className="font-serif text-caddie-ink"
-                  style={{
-                    fontSize: 17,
-                    lineHeight: 1.55,
-                    maxWidth: 480,
-                  }}
-                >
-                  Need at least <em>five shots</em> with aim and landing
-                  coordinates to compute a pattern.
-                </p>
-              )}
-            </div>
-            {stats && (
-              <div
-                style={{
-                  borderTop: '1px solid #D9D2BF',
-                  paddingTop: 18,
-                }}
-              >
-                <div className="kicker" style={{ marginBottom: 10 }}>
-                  Aim correction
-                </div>
-                <p
-                  className="font-serif text-caddie-ink"
-                  style={{ fontSize: 17, lineHeight: 1.55, maxWidth: 480 }}
-                >
-                  {getAimCorrection(stats, unit)}
-                </p>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      <div style={{ borderTop: '1px solid #D9D2BF', paddingTop: 14, marginTop: 28 }}>
-        <div className="kicker" style={{ marginBottom: 6 }}>
-          Ball flight
-        </div>
-        <div
-          className="text-caddie-ink-dim"
-          style={{ fontSize: 13, marginBottom: 14, maxWidth: 560 }}
-        >
-          Each shot at its true distance up the range; the curve shows shape
-          (draw/fade). Thick line is your average.
-        </div>
-        <div
-          className="bg-caddie-surface"
-          style={{
-            border: '1px solid #D9D2BF',
-            borderRadius: 4,
-            padding: 14,
-            display: 'inline-block',
-          }}
-        >
-          {isLoading ? (
-            <div
-              className="flex items-center justify-center text-caddie-ink-mute"
-              style={{ width: FLIGHT_VIEW_WIDTH, height: 360, fontSize: 13 }}
-            >
-              Loading…
-            </div>
-          ) : !points.some((p) => p.startDistanceOffsetYards != null) ? (
-            <div
-              className="flex items-center justify-center text-caddie-ink-mute"
-              style={{
-                width: FLIGHT_VIEW_WIDTH,
-                height: 360,
-                fontSize: 13,
-                textAlign: 'center',
-                padding: 20,
-              }}
-            >
-              No shots with recorded start positions for {club} yet.
-            </div>
-          ) : (
-            <BallFlightChart points={points} stats={stats} />
           )}
         </div>
       </div>
 
       {!isLoading && clubShots < MIN_SAMPLES_FOR_STATS && <PatternExplainer />}
 
-      {/* Off-screen render target for the 1200×630 share card. Self-
-          contained inline styles so the rasteriser needs no external
-          stylesheet at capture time. */}
+      {sheetOpen && (
+        <FilterSheet onClose={() => setSheetOpen(false)}>
+          <div className="text-caddie-ink-dim" style={{ fontSize: 13, marginBottom: 8 }}>Lie</div>
+          {lieChips}
+          <div className="text-caddie-ink-dim" style={{ fontSize: 13, margin: '18px 0 8px' }}>Slope</div>
+          {slopeGrid}
+        </FilterSheet>
+      )}
+
+      {/* Off-screen render target for the 1200×630 share card. */}
       {showShareCard && stats && (
-        <div
-          aria-hidden
-          style={{
-            position: 'fixed',
-            left: -99999,
-            top: 0,
-            pointerEvents: 'none',
-          }}
-        >
+        <div aria-hidden style={{ position: 'fixed', left: -99999, top: 0, pointerEvents: 'none' }}>
           <div ref={shareCardRef}>
-            <ShotPatternsShareCard
-              points={points}
-              stats={stats}
-              club={club}
-              unit={unit}
-              toDisplay={toDisplay}
-            />
+            <ShotPatternsShareCard points={points} stats={stats} club={club} unit={unit} toDisplay={toDisplay} />
           </div>
         </div>
       )}
@@ -434,77 +303,162 @@ export function ShotPatternsPage() {
   )
 }
 
+// Golfer words for the bias: "finishes 4 yd short", "misses 5 yd right".
+function biasLine(stats: DispersionStats, toDisplay: (y: number, d?: number) => string) {
+  const d = stats.avgDistanceOffset
+  const l = stats.avgLateralOffset
+  const along = Math.abs(d) < ON_AIM ? 'finishes as far as you aim' : `finishes ${toDisplay(Math.abs(d))} ${d < 0 ? 'short' : 'long'}`
+  const across = Math.abs(l) < ON_AIM ? 'stays on your line' : `misses ${toDisplay(Math.abs(l))} ${l > 0 ? 'right' : 'left'}`
+  return { along, across }
+}
+
+function Numbers({
+  stats,
+  club,
+  typical,
+  toDisplay,
+  unit,
+}: {
+  stats: DispersionStats
+  club: Club
+  typical: number | null
+  toDisplay: (y: number, d?: number) => string
+  unit: 'yards' | 'meters'
+}) {
+  const { along, across } = biasLine(stats, toDisplay)
+  return (
+    <div>
+      <h2 className="font-serif text-caddie-ink" style={{ fontSize: 24, fontStyle: 'italic', fontWeight: 500, lineHeight: 1.25, marginBottom: 16 }}>
+        Your {clubNoun(club)} {along} and {across}.
+      </h2>
+      <div className="grid grid-cols-2" style={{ gap: 12, marginBottom: 8 }}>
+        <StatTile label="Typical distance" value={typical != null ? toDisplay(typical) : '—'} subtle="every lie" />
+        <StatTile label="Pattern width" value={toDisplay(stats.cone68.lateral * 2)} subtle="two shots in three" />
+      </div>
+      <div>
+        <StatRow label="Shots" value={String(stats.sampleSize)} />
+        <StatRow label="Pattern depth" value={toDisplay(stats.cone68.distance * 2)} note="Short to long, two shots in three" />
+        <StatRow label="Shape" value={cap(stats.shotShape)} />
+      </div>
+      <p className="font-serif text-caddie-ink" style={{ fontSize: 17, lineHeight: 1.55, marginTop: 16 }}>
+        {getAimCorrection(stats, unit)}
+      </p>
+    </div>
+  )
+}
+
 function PageHeader({ subtitle }: { subtitle: string }) {
   return (
-    <div style={{ marginBottom: 28 }}>
-      <div className="kicker" style={{ marginBottom: 8 }}>
-        Dispersion ledger
-      </div>
-      <h1
-        className="font-serif text-caddie-ink"
-        style={{ fontSize: 28, fontWeight: 500, lineHeight: 1.15 }}
-      >
-        Shot Patterns
+    <div style={{ marginBottom: 22 }}>
+      <h1 className="font-serif text-caddie-ink" style={{ fontSize: 28, fontWeight: 500, lineHeight: 1.15 }}>
+        Shot patterns
       </h1>
-      <div
-        className="text-caddie-ink-dim"
-        style={{ fontSize: 15, marginTop: 6, maxWidth: 560 }}
-      >
+      <div className="text-caddie-ink-dim" style={{ fontSize: 15, marginTop: 6, maxWidth: 560 }}>
         {subtitle}
       </div>
     </div>
   )
 }
 
-function Section({
-  kicker,
-  children,
-}: {
-  kicker: string
-  children: React.ReactNode
-}) {
+// Two views of one hero chart, set like a printed tab: the active one inked
+// and underlined, no fill (the accent stays on the club).
+function ViewToggle({ value, onChange }: { value: View; onChange: (v: View) => void }) {
   return (
-    <section style={{ marginBottom: 28 }}>
-      <div
-        style={{
-          borderTop: '1px solid #D9D2BF',
-          paddingTop: 14,
-          marginBottom: 14,
-        }}
-      >
-        <div className="kicker">{kicker}</div>
-      </div>
-      {children}
-    </section>
-  )
-}
-
-function FilterSection({
-  kicker,
-  children,
-}: {
-  kicker: string
-  children: React.ReactNode
-}) {
-  return (
-    <div>
-      <div
-        style={{
-          borderTop: '1px solid #D9D2BF',
-          paddingTop: 14,
-          marginBottom: 14,
-        }}
-      >
-        <div className="kicker">{kicker}</div>
-      </div>
-      {children}
+    <div role="tablist" aria-label="Chart" className="flex" style={{ gap: 18, borderBottom: '1px solid #D9D2BF' }}>
+      {VIEWS.map((v) => {
+        const on = v.value === value
+        return (
+          <button
+            key={v.value}
+            type="button"
+            role="tab"
+            aria-selected={on}
+            onClick={() => onChange(v.value)}
+            style={{
+              background: 'none',
+              border: 'none',
+              borderBottom: on ? '2px solid #1C211C' : '2px solid transparent',
+              marginBottom: -1,
+              padding: '6px 0 8px',
+              fontSize: 14,
+              fontWeight: on ? 600 : 400,
+              color: on ? '#1C211C' : '#5C6356',
+              cursor: 'pointer',
+            }}
+          >
+            {v.label}
+          </button>
+        )
+      })}
     </div>
   )
 }
 
+function SlopePopover({ summary, children }: { summary: string; children: React.ReactNode }) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement | null>(null)
+  useEffect(() => {
+    if (!open) return
+    const close = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', close)
+    return () => document.removeEventListener('mousedown', close)
+  }, [open])
+  return (
+    <div ref={ref} style={{ position: 'relative' }} className="flex items-center">
+      <span className="text-caddie-ink-dim" style={{ fontSize: 13, marginRight: 8 }}>Slope</span>
+      <button type="button" aria-expanded={open} onClick={() => setOpen((o) => !o)} style={{ ...chipStyle(summary !== 'Any'), padding: '6px 10px' }}>
+        {summary} <span aria-hidden style={{ marginLeft: 4 }}>▾</span>
+      </button>
+      {open && (
+        <div
+          className="bg-caddie-surface"
+          style={{ position: 'absolute', top: 'calc(100% + 6px)', left: 0, zIndex: 20, width: 340, border: '1px solid #9F9580', borderRadius: 4, padding: 12 }}
+        >
+          {children}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function FilterSheet({ onClose, children }: { onClose: () => void; children: React.ReactNode }) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [onClose])
+  return (
+    <div role="dialog" aria-modal aria-label="Lie and slope" style={{ position: 'fixed', inset: 0, zIndex: 60 }}>
+      <div onClick={onClose} style={{ position: 'absolute', inset: 0, background: 'rgba(28,33,28,0.48)' }} />
+      <div
+        className="bg-caddie-surface"
+        style={{ position: 'absolute', left: 0, right: 0, bottom: 0, borderTop: '1px solid #9F9580', borderRadius: '12px 12px 0 0', padding: '12px 16px calc(18px + env(safe-area-inset-bottom))' }}
+      >
+        <div style={{ width: 32, height: 4, background: '#D9D2BF', margin: '0 auto 12px' }} />
+        <h2 className="font-serif text-caddie-ink" style={{ fontSize: 22, fontStyle: 'italic', fontWeight: 500, marginBottom: 14 }}>Lie and slope</h2>
+        {children}
+        <button
+          type="button"
+          onClick={onClose}
+          className="bg-caddie-accent text-caddie-accent-ink"
+          style={{ width: '100%', marginTop: 18, padding: '13px 16px', borderRadius: 2, border: 'none', fontSize: 14, fontWeight: 600 }}
+        >
+          Done
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function cap(s: string) {
+  return s[0]!.toUpperCase() + s.slice(1)
+}
+
 function chipStyle(active: boolean): React.CSSProperties {
   return {
-    backgroundColor: active ? '#1F3D2C' : '#EBE5D6',
+    backgroundColor: active ? '#1C211C' : '#EBE5D6',
     color: active ? '#F2EEE5' : '#1C211C',
     border: 'none',
     borderRadius: 2,
@@ -513,297 +467,4 @@ function chipStyle(active: boolean): React.CSSProperties {
     fontWeight: active ? 500 : 400,
     cursor: 'pointer',
   }
-}
-
-function SelectChips<T extends string>({
-  value,
-  options,
-  onChange,
-  renderLabel,
-}: {
-  value: T
-  options: readonly T[]
-  onChange: (v: T) => void
-  renderLabel: (v: T) => string
-}) {
-  return (
-    <div className="flex flex-wrap" style={{ gap: 6 }}>
-      {options.map((opt) => (
-        <button
-          key={opt}
-          type="button"
-          onClick={() => onChange(opt)}
-          style={chipStyle(value === opt)}
-        >
-          {renderLabel(opt)}
-        </button>
-      ))}
-    </div>
-  )
-}
-
-function Stat({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <dt className="kicker" style={{ marginBottom: 6 }}>
-        {label}
-      </dt>
-      <dd
-        className="font-serif tabular text-caddie-ink"
-        style={{
-          fontSize: 22,
-          fontWeight: 500,
-          textTransform: 'capitalize',
-          lineHeight: 1.1,
-        }}
-      >
-        {value}
-      </dd>
-    </div>
-  )
-}
-
-const DOT_LEGEND = [
-  { color: '#1C211C', label: 'Solid' },
-  { color: '#A66A1F', label: 'Push / pull' },
-  { color: '#A33A2A', label: 'Miss' },
-  { color: '#8A8B7E', label: 'Unspecified' },
-] as const
-
-const ELLIPSE_LEGEND = [
-  { fill: 'rgba(31,61,44,0.12)', dashed: false, label: '68% of shots' },
-  { fill: 'rgba(31,61,44,0.06)', dashed: true, label: '95% of shots' },
-] as const
-
-function PatternLegend({ hasEllipses }: { hasEllipses: boolean }) {
-  return (
-    <div style={{ marginTop: 12, display: 'flex', flexWrap: 'wrap', gap: '6px 14px' }}>
-      {DOT_LEGEND.map((item) => (
-        <span key={item.label} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-          <span
-            style={{
-              width: 8,
-              height: 8,
-              borderRadius: '50%',
-              background: item.color,
-              flexShrink: 0,
-            }}
-          />
-          <span className="kicker" style={{ color: '#8A8B7E' }}>{item.label}</span>
-        </span>
-      ))}
-      {hasEllipses &&
-        ELLIPSE_LEGEND.map((item) => (
-          <span key={item.label} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-            <svg width="14" height="10" style={{ flexShrink: 0 }}>
-              <ellipse
-                cx="7" cy="5" rx="6" ry="4"
-                fill={item.fill}
-                stroke="#1F3D2C"
-                strokeWidth="1"
-                strokeDasharray={item.dashed ? '3 2' : undefined}
-              />
-            </svg>
-            <span className="kicker" style={{ color: '#8A8B7E' }}>{item.label}</span>
-          </span>
-        ))}
-    </div>
-  )
-}
-
-// Top-down ball-flight view (mockup spec). Distinct from DispersionPlot: a
-// full-flight chart with the tee at the bottom and the target line up to the
-// pin. Each shot is a bezier tee → aim (control) → landing, so shot shape
-// reads geometrically. Within one club, aim distances cluster, so all shots
-// normalize to a common tee at the average aim distance; only lateral is to-scale.
-function BallFlightChart({
-  points,
-  stats,
-}: {
-  points: DispersionPoint[]
-  stats: DispersionStats | null
-}) {
-  const { toDisplay } = useUnits()
-
-  const { avgAimDistance, scale, maxDist, viewCenterLat } = useMemo(() => {
-    const aimDistances = points
-      .map((p) => p.startDistanceOffsetYards)
-      .filter((v): v is number => v != null)
-      .map((d) => -d) // start sits that far short of aim
-    const avgAimDistance = aimDistances.length
-      ? aimDistances.reduce((a, b) => a + b, 0) / aimDistances.length
-      : 0
-    // True distance from the tee per shot = its own aim distance + long/short vs aim.
-    // Shots without a recorded start fall back to the average aim distance.
-    const dists = points.map(
-      (p) =>
-        (p.startDistanceOffsetYards != null
-          ? -p.startDistanceOffsetYards
-          : avgAimDistance) + p.distanceOffsetYards,
-    )
-    const max = Math.max(...dists, avgAimDistance, 1) * 1.08
-    // Re-center the horizontal view on where the shots actually go, not on the
-    // aim line. A player who misses consistently to one side should see that
-    // cluster centered, with the aim line (lateral 0) sitting off to the side.
-    const viewCenterLat = stats ? stats.avgLateralOffset : 0
-    // Half-width must hold the cluster, the 95% cone, AND the tee/aim line
-    // (lateral 0) — every arc starts there, so it can never leave the frame.
-    const lateralExtent =
-      Math.max(
-        ...points.map((p) => Math.abs(p.lateralOffsetYards - viewCenterLat)),
-        stats ? stats.cone95.lateral : 0,
-        Math.abs(viewCenterLat),
-        8,
-      ) * 1.1
-    // One isotropic scale for both axes — distance and lateral shown in true
-    // proportion. Vertical fits the longest shot; shrink only if lateral would
-    // overflow the width.
-    const s = Math.min((FLIGHT_H - 40 - 28) / max, (FLIGHT_W / 2 - 16) / lateralExtent)
-    return { avgAimDistance, scale: s, maxDist: max, viewCenterLat }
-  }, [points, stats])
-
-  const cx = FLIGHT_W / 2
-  const teeY = FLIGHT_H - 40
-
-  // Degenerate when shots start ~at the target (no meaningful distance to plot).
-  if (avgAimDistance < 5) {
-    return (
-      <div
-        className="flex items-center justify-center text-caddie-ink-mute"
-        style={{
-          width: FLIGHT_VIEW_WIDTH,
-          height: 360,
-          fontSize: 13,
-          textAlign: 'center',
-          padding: 20,
-        }}
-      >
-        These shots don&apos;t have enough start-to-target distance to plot a
-        flight path.
-      </div>
-    )
-  }
-
-  const x = (lateralYards: number) => cx + (lateralYards - viewCenterLat) * scale
-  const y = (dist: number) => teeY - dist * scale
-  // Tee origin = the aim line (lateral 0). Once the view re-centers on the
-  // shot cluster this is no longer the chart center.
-  const teeX = x(0)
-  // Each shot's true forward distance from the tee.
-  const aimDistanceOf = (p: DispersionPoint) =>
-    p.startDistanceOffsetYards != null ? -p.startDistanceOffsetYards : avgAimDistance
-
-  // Driving-range yardage gridlines: finer spacing for short clubs.
-  const step = maxDist <= 160 ? 25 : 50
-  const gridLines: number[] = []
-  for (let d = step; d <= maxDist; d += step) gridLines.push(d)
-
-  return (
-    <svg
-      viewBox={`0 0 ${FLIGHT_W} ${FLIGHT_H}`}
-      style={{
-        width: FLIGHT_VIEW_WIDTH,
-        height: `calc(${FLIGHT_VIEW_WIDTH} * ${FLIGHT_H} / ${FLIGHT_W})`,
-        backgroundColor: '#F2EEE5',
-        borderRadius: 2,
-        display: 'block',
-      }}
-    >
-      {/* yardage gridlines — the driving-range backdrop */}
-      {gridLines.map((d) => (
-        <g key={`grid-${d}`}>
-          <line
-            x1={0}
-            y1={y(d)}
-            x2={FLIGHT_W}
-            y2={y(d)}
-            stroke="#E4DECF"
-            strokeWidth={1}
-          />
-          <text
-            x={6}
-            y={y(d) - 3}
-            fontFamily="Inconsolata, monospace"
-            fontSize={9}
-            letterSpacing="0.1em"
-            fill="#8A8B7E"
-          >
-            {toDisplay(d, 0)}
-          </text>
-        </g>
-      ))}
-
-      {/* aim line (straight-ahead from the tee) — lateral 0, not the chart center */}
-      <line
-        x1={teeX}
-        y1={y(maxDist)}
-        x2={teeX}
-        y2={teeY}
-        stroke="#D9D2BF"
-        strokeWidth={0.8}
-        strokeDasharray="3 5"
-      />
-
-      {/* individual shot flights */}
-      <g fill="none">
-        {points.map((p) => (
-          <path
-            key={`flight-${p.id}`}
-            d={`M ${teeX} ${teeY} Q ${x(p.lateralOffsetYards)} ${y(aimDistanceOf(p))} ${x(p.lateralOffsetYards)} ${y(aimDistanceOf(p) + p.distanceOffsetYards)}`}
-            stroke={pointColor(p.shotResult).fill}
-            strokeOpacity={0.3}
-            strokeWidth={1.2}
-          />
-        ))}
-        {stats && (
-          <path
-            d={`M ${teeX} ${teeY} Q ${x(stats.avgLateralOffset)} ${y(avgAimDistance)} ${x(stats.avgLateralOffset)} ${y(avgAimDistance + stats.avgDistanceOffset)}`}
-            stroke="#1F3D2C"
-            strokeWidth={3}
-            strokeOpacity={0.9}
-          />
-        )}
-      </g>
-
-      {/* landing dots */}
-      {points.map((p) => {
-        const c = pointColor(p.shotResult)
-        return (
-          <circle
-            key={`land-${p.id}`}
-            cx={x(p.lateralOffsetYards)}
-            cy={y(aimDistanceOf(p) + p.distanceOffsetYards)}
-            r={2.5}
-            fill={c.fill}
-            fillOpacity={c.opacity}
-          />
-        )
-      })}
-
-      {/* average landing */}
-      {stats && (
-        <circle
-          cx={x(stats.avgLateralOffset)}
-          cy={y(avgAimDistance + stats.avgDistanceOffset)}
-          r={4}
-          fill="#FBF8F1"
-          stroke="#1F3D2C"
-          strokeWidth={2}
-        />
-      )}
-
-      <circle cx={teeX} cy={teeY} r={5} fill="#FBF8F1" stroke="#1C211C" strokeWidth={2} />
-      <text
-        x={teeX}
-        y={teeY + 18}
-        fontFamily="Inconsolata, monospace"
-        fontSize={9}
-        letterSpacing="0.16em"
-        fill="#5C6356"
-        textAnchor="middle"
-      >
-        TEE
-      </text>
-    </svg>
-  )
 }
