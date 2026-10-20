@@ -730,7 +730,7 @@ export function PastRoundMap({
   // The callout sits on the hero's shot (active has a start), so a putt's leg
   // to the pin is the hero's putt length.
   const legFeet = isPuttShot(activeShotRow?.lie_type ?? null) && active?.start && legEnd
-    ? legTo === 'to the pin' && heroFeet != null ? heroFeet : distanceYards(active.start, legEnd) * 3
+    ? (legTo === 'to the pin' && heroFeet != null) ? heroFeet : distanceYards(active.start, legEnd) * 3
     : null
   const callout =
     active?.start && legEnd
