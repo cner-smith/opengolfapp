@@ -32,9 +32,9 @@ const links: NavLinkDef[] = [
 ]
 
 // Groups are told apart by a gap and a rule, not a caps label (DESIGN.md Kicker).
-function SidebarSection({ links, first }: { links: NavLinkDef[]; first?: boolean }) {
+function SidebarSection({ label, links, first }: { label: string; links: NavLinkDef[]; first?: boolean }) {
   return (
-    <div style={{ paddingBlock: first ? '14px 10px' : '0 10px' }}>
+    <div role="group" aria-label={label} style={{ paddingBlock: first ? '14px 10px' : '0 10px' }}>
       {!first && <div className="border-t border-white/10" style={{ margin: '0 22px 10px' }} />}
       {links.map((l) => (
         <NavLink
@@ -82,7 +82,7 @@ export function Sidebar() {
 
   return (
     <aside
-      className="flex h-full flex-col bg-caddie-ink text-caddie-bg"
+      className="flex flex-col bg-caddie-ink text-caddie-bg"
       style={{ width: 220 }}
     >
       <div
@@ -105,9 +105,9 @@ export function Sidebar() {
       </div>
 
       <nav className="flex flex-1 flex-col">
-        <SidebarSection first links={links.filter((l) => l.section === 'menu')} />
-        <SidebarSection links={links.filter((l) => l.section === 'resources')} />
-        {import.meta.env.DEV && <SidebarSection links={links.filter((l) => l.section === 'dev')} />}
+        <SidebarSection first label="Menu" links={links.filter((l) => l.section === 'menu')} />
+        <SidebarSection label="Resources" links={links.filter((l) => l.section === 'resources')} />
+        {import.meta.env.DEV && <SidebarSection label="Dev" links={links.filter((l) => l.section === 'dev')} />}
       </nav>
 
       <div style={{ padding: '12px 14px 6px' }}>
