@@ -200,7 +200,7 @@ export function LiveRoundDock(p: LiveRoundDockProps) {
             {keys}
             {!putting && p.hasPin && (
               <CoachTarget id="live.wheel">
-                {/* Keyed by shot: each shot starts at the key, not an open wheel. */}
+                {/* Keyed by shot to reset the card's animation; open state is the parent's. */}
                 <ClubWheel key={p.totalShotsThisHole} {...p.wheel} />
               </CoachTarget>
             )}

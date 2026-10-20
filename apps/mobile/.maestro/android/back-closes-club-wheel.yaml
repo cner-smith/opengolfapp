@@ -1,0 +1,34 @@
+# Open the club wheel while aiming, then press Back (#1165). Back must close the wheel and leave
+# the aim step as it was; before the fix it skipped the wheel and undid the ball placement.
+appId: app.opengolf.oga
+name: Android live round — Back closes the club wheel first
+onFlowComplete:
+  - runFlow:
+      when:
+        visible: "Round options"
+      commands:
+        - tapOn: "Round options"
+        - tapOn: "Delete round"
+        - tapOn: "Delete"
+---
+- runFlow: subflows/home.yaml
+- runFlow:
+    file: subflows/gps.yaml
+    env: { LAT: "43.849856", LNG: "-87.734575" }
+- runFlow:
+    file: subflows/start-round.yaml
+    env: { MODE: "Track shot patterns" }
+- tapOn: "Mark my ball at my GPS spot"
+- extendedWaitUntil:
+    visible: "Confirm aim|Skip tips"
+    timeout: 10000
+- extendedWaitUntil:
+    visible: "Skip tips"
+    timeout: 1500
+    optional: true
+- runFlow: subflows/skip-tips.yaml
+- tapOn: "Pattern club.*Change it"
+- assertNotVisible: "Pattern club.*Change it"
+- back
+- assertVisible: "Pattern club.*Change it"
+- assertVisible: "Confirm aim"

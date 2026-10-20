@@ -415,10 +415,11 @@ export default function LiveRoundSession({
 
   // Club wheel (#611 §4): the bag minus the putter, one row per club type.
   // It opens on the auto pick every shot; a manual pick lasts one shot.
-  // Open state lives here so Back closes the wheel before anything else.
+  // Open state lives here so Back closes the wheel first; it names the shot it opened on (a new shot = closed).
   const [clubOverride, setClubOverride] = useState<Club | null>(null)
-  const [wheelOpen, setWheelOpen] = useState(false)
-  useEffect(() => { setClubOverride(null); setWheelOpen(false) }, [holeNumber, totalShotsThisHole])
+  const shotKey = `${holeNumber}:${totalShotsThisHole}`, [wheelOpenOn, setWheelOpenOn] = useState<string | null>(null)
+  const wheelOpen = wheelOpenOn === shotKey, setWheelOpen = (open: boolean) => setWheelOpenOn(open ? shotKey : null)
+  useEffect(() => { setClubOverride(null) }, [holeNumber, totalShotsThisHole])
   const wheelRows = useMemo(() => {
     const seen = new Set<string>()
     return (bag.length > 0 ? bag : DEFAULT_BAG)
