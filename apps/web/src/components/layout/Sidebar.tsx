@@ -13,43 +13,29 @@ interface NavLinkDef {
 const links: NavLinkDef[] = [
   { to: '/dashboard', label: 'Dashboard', section: 'menu' },
   { to: '/rounds', label: 'Rounds', section: 'menu' },
-  { to: '/stats', label: 'Strokes Gained', section: 'menu' },
-  { to: '/patterns', label: 'Shot Patterns', section: 'menu' },
+  { to: '/stats', label: 'Strokes gained', section: 'menu' },
+  { to: '/patterns', label: 'Shot patterns', section: 'menu' },
   { to: '/practice', label: 'Practice', section: 'menu' },
   // Planner hidden from nav until the redesign lands (on-map HUD + notes,
   // to match live-round). The /plan route still exists for dev/preview.
   // Re-enable this line when #385 is polished.
   // { to: '/plan', label: 'Planner', section: 'menu' },
   { to: '/learn', label: 'Learn', section: 'resources' },
-  { to: '/settings/bag', label: 'My Bag', section: 'resources' },
+  { to: '/settings/bag', label: 'My bag', section: 'resources' },
   { to: '/settings', label: 'Settings', section: 'resources' },
   // Only reachable when the /dev/courses route itself exists — router.tsx
   // gates that on import.meta.env.DEV, so this link (and the route) is
   // absent from production builds entirely.
   ...(import.meta.env.DEV
-    ? [{ to: '/dev/courses', label: 'Course Editor', section: 'dev' as const }]
+    ? [{ to: '/dev/courses', label: 'Course editor', section: 'dev' as const }]
     : []),
 ]
 
-function SidebarSection({
-  label,
-  links,
-}: {
-  label: string
-  links: NavLinkDef[]
-}) {
+// Groups are told apart by a gap and a rule, not a caps label (DESIGN.md Kicker).
+function SidebarSection({ links, first }: { links: NavLinkDef[]; first?: boolean }) {
   return (
-    <div style={{ marginBottom: 6 }}>
-      <div
-        className="font-mono uppercase text-white/30"
-        style={{
-          fontSize: 10,
-          letterSpacing: '0.14em',
-          padding: '18px 14px 8px',
-        }}
-      >
-        {label}
-      </div>
+    <div style={{ paddingBlock: first ? '14px 10px' : '0 10px' }}>
+      {!first && <div className="border-t border-white/10" style={{ margin: '0 22px 10px' }} />}
       {links.map((l) => (
         <NavLink
           key={l.to}
@@ -66,7 +52,7 @@ function SidebarSection({
             ].join(' ')
           }
           style={({ isActive }) => ({
-            fontSize: 13,
+            fontSize: 14,
             fontWeight: isActive ? 500 : 400,
             padding: '8px 14px',
             margin: '1px 8px',
@@ -113,43 +99,20 @@ export function Sidebar() {
               period would vanish against #1C211C. */}
           <span style={{ fontStyle: 'normal' }}>.</span>
         </div>
-        <div
-          className="font-mono uppercase text-white/45"
-          style={{ fontSize: 10, letterSpacing: '0.14em', marginTop: 4 }}
-        >
+        <div className="text-white/45" style={{ fontSize: 12, marginTop: 2 }}>
           Open Golf App
         </div>
       </div>
 
       <nav className="flex flex-1 flex-col">
-        <SidebarSection
-          label="Menu"
-          links={links.filter((l) => l.section === 'menu')}
-        />
-        <SidebarSection
-          label="Resources"
-          links={links.filter((l) => l.section === 'resources')}
-        />
-        {import.meta.env.DEV && (
-          <SidebarSection
-            label="Dev"
-            links={links.filter((l) => l.section === 'dev')}
-          />
-        )}
+        <SidebarSection first links={links.filter((l) => l.section === 'menu')} />
+        <SidebarSection links={links.filter((l) => l.section === 'resources')} />
+        {import.meta.env.DEV && <SidebarSection links={links.filter((l) => l.section === 'dev')} />}
       </nav>
 
       <div style={{ padding: '12px 14px 6px' }}>
-        <div
-          className="font-mono uppercase text-white/30"
-          style={{
-            fontSize: 10,
-            letterSpacing: '0.14em',
-            marginBottom: 8,
-          }}
-        >
-          Support OGA
-        </div>
-        <div style={{ display: 'flex', gap: 14 }}>
+        <div style={{ display: 'flex', gap: 14, alignItems: 'baseline' }}>
+          <span className="text-white/40" style={{ fontSize: 12 }}>Support OGA</span>
           <a
             href="https://ko-fi.com/nartana"
             target="_blank"
@@ -196,18 +159,13 @@ export function Sidebar() {
               {profile?.username ?? 'Sign in'}
             </div>
             <div
-              className="font-mono uppercase tabular text-white/45 flex items-center"
-              style={{
-                fontSize: 10,
-                letterSpacing: '0.14em',
-                marginTop: 2,
-                gap: 6,
-              }}
+              className="tabular text-white/50 flex flex-wrap items-center"
+              style={{ fontSize: 12, marginTop: 2, gap: '2px 6px' }}
             >
-              <span>
+              <span className="whitespace-nowrap">
                 {profile?.handicap_index !== null && profile?.handicap_index !== undefined
-                  ? `HCP ${profile.handicap_index}`
-                  : 'NO HCP'}
+                  ? `Handicap ${profile.handicap_index}`
+                  : 'No handicap yet'}
               </span>
               {profile?.handicap_index != null && handicapMeta && (
                 <span
@@ -220,9 +178,8 @@ export function Sidebar() {
                       handicapMeta.provenance === 'calculated'
                         ? '#F2EEE5'
                         : 'rgba(242,238,229,0.85)',
-                    padding: '1px 5px',
-                    fontSize: 8,
-                    letterSpacing: '0.14em',
+                    padding: '0 5px',
+                    fontSize: 11,
                     borderRadius: 2,
                   }}
                   title={
@@ -231,7 +188,7 @@ export function Sidebar() {
                       : 'Self-reported — play 3+ rated rounds for a calculated WHS index'
                   }
                 >
-                  {HANDICAP_PROVENANCE_LABEL[handicapMeta.provenance].toUpperCase()}
+                  {HANDICAP_PROVENANCE_LABEL[handicapMeta.provenance]}
                 </span>
               )}
             </div>
@@ -240,8 +197,8 @@ export function Sidebar() {
         <button
           type="button"
           onClick={() => supabase.auth.signOut()}
-          className="mt-3 font-mono uppercase text-white/40 transition-colors hover:text-white/70"
-          style={{ fontSize: 10, letterSpacing: '0.14em' }}
+          className="mt-3 text-white/45 transition-colors hover:text-white/80"
+          style={{ fontSize: 12 }}
         >
           Sign out
         </button>
