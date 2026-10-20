@@ -96,7 +96,7 @@ export function Sidebar() {
 
   return (
     <aside
-      className="flex flex-col bg-caddie-ink text-caddie-bg"
+      className="flex h-full flex-col bg-caddie-ink text-caddie-bg"
       style={{ width: 220 }}
     >
       <div
