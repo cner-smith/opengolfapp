@@ -12,6 +12,7 @@ import {
 } from '@oga/core'
 import { getShotsByClub, getShotsForUser } from '@oga/supabase'
 import { supabase } from '../lib/supabase'
+import type { ShotAxes } from '../pages/patterns/layers'
 import { useAuth } from './useAuth'
 
 interface UseShotPatternsArgs {
@@ -64,8 +65,17 @@ export function useShotPatterns({
     queryFn: async () => {
       const { data, error } = await getShotsByClub(supabase, user!.id, club)
       if (error) throw error
-      const shots = (data ?? []).map(rowToShot)
-      return computeDispersion(shots)
+      const rows = (data ?? []) as Record<string, unknown>[]
+      // The result axes ride beside the points by shot id (mock: no core change).
+      const axes: Record<string, ShotAxes> = {}
+      for (const r of rows) {
+        axes[r.id as string] = {
+          shape: (r.shape as ShotAxes['shape']) ?? null,
+          startLine: (r.start_line as ShotAxes['startLine']) ?? null,
+          contact: (r.contact as ShotAxes['contact']) ?? null,
+        }
+      }
+      return { points: computeDispersion(rows.map(rowToShot)), axes }
     },
   })
 
@@ -73,17 +83,17 @@ export function useShotPatterns({
     if (!query.data) return undefined
     const points =
       lieType || lieSlopeForward || lieSlopeSide
-        ? filterDispersionByLie(query.data, {
+        ? filterDispersionByLie(query.data.points, {
             lieType,
             lieSlopeForward,
             lieSlopeSide,
           })
-        : query.data
-    return { points, stats: computeDispersionStats(points) }
+        : query.data.points
+    return { points, stats: computeDispersionStats(points), axes: query.data.axes }
   }, [query.data, lieType, lieSlopeForward, lieSlopeSide])
 
   // Unfiltered aimed-shot count: the 5-shot progress ignores lie filters (#1076).
-  return { ...query, data: filtered, clubShots: query.data?.length ?? 0 }
+  return { ...query, data: filtered, clubShots: query.data?.points.length ?? 0 }
 }
 
 // Any shot with start + aim + finish, in any club. False → Shot Patterns

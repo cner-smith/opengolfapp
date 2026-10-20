@@ -45,7 +45,23 @@ import { FONT_CAP, P } from '../../components/paper/tokens'
 import { LedgerRow } from '../../components/stats/StatsLedger'
 import { useClubDispersion } from '../../components/round/hole/useClubDispersion'
 import { PatternsEmpty, PatternsProgress } from '../../components/patterns/PatternsPreview'
-import { BallFlightChart, ClubLadder, ViewToggle, YardagePlot, type ChartView } from '../../components/patterns/YardageBook'
+import { ClubLadder, ViewToggle, type ChartView } from '../../components/patterns/YardageBook'
+import { AimPlot, TeePlot, teeBreakYards, type ChartProps } from '../../components/patterns/PatternCharts'
+import { LAYER_INFO, LayerBar, Legend, type LegendEntry } from '../../components/patterns/LayerControls'
+import {
+  COLOUR_BY,
+  DEFAULT_LAYERS,
+  NOT_RECORDED,
+  UNRECORDED_INK,
+  categoriesFor,
+  categoryOf,
+  countWord,
+  recordedSummary,
+  type ColourBy,
+  type Layer,
+  type ShotAxes,
+} from '../../components/patterns/layers'
+import { useUnitsContext } from '../../contexts/UnitsContext'
 
 interface ShotRowMin {
   id: string
@@ -65,6 +81,9 @@ interface ShotRowMin {
   lie_slope_forward: LieSlopeForward | null
   lie_slope_side: LieSlopeSide | null
   shot_result: string | null
+  contact: ShotAxes['contact']
+  shape: ShotAxes['shape']
+  start_line: ShotAxes['startLine']
   penalty: boolean
   ob: boolean
 }
@@ -170,6 +189,12 @@ export default function Patterns() {
   const [side, setSide] = useState<LieSlopeSide | null>(null)
   const [view, setView] = useState<ChartView>('aim')
   const [sheetOpen, setSheetOpen] = useState(false)
+  // Layers: calm by default (rings, average, shots; flights on the tee view).
+  const [layers, setLayers] = useState<Record<Layer, boolean>>(DEFAULT_LAYERS)
+  const [colourBy, setColourBy] = useState<ColourBy>('none')
+  const [hidden, setHidden] = useState<Set<string>>(new Set())
+  useEffect(() => setHidden(new Set()), [colourBy, club])
+  const { playsLeftHanded: leftHanded } = useUnitsContext()
   const [shots, setShots] = useState<ShotRowMin[]>([])
   const [loading, setLoading] = useState(false)
 
@@ -201,10 +226,20 @@ export default function Patterns() {
     [shots, lieType, forward, side],
   )
   const stats = useMemo(() => computeDispersionStats(points), [points])
+  // The result axes ride beside the points by shot id (mock: no core change).
+  const axes = useMemo(() => {
+    const m: Record<string, ShotAxes> = {}
+    for (const r of shots) m[r.id] = { shape: r.shape ?? null, startLine: r.start_line ?? null, contact: r.contact ?? null }
+    return m
+  }, [shots])
 
   const slopes = [forward, side].filter((v): v is LieSlopeForward | LieSlopeSide => v != null).map((v) => v.replace(/_/g, ' '))
   const filtered = lieType != null || slopes.length > 0
-  const filterSummary = [lieType ? cap(lieType) : 'Any lie', slopes.join(', ') || 'any slope'].join(' · ')
+  const filterSummary = [
+    lieType ? cap(lieType) : 'Any lie',
+    slopes.join(', ') || 'any slope',
+    ...(colourBy !== 'none' ? [`colour by ${COLOUR_BY.find((o) => o.value === colourBy)!.label.toLowerCase()}`] : []),
+  ].join(' · ')
   const filterPhrase = [lieType ? `from ${LIE_PHRASE[lieType]}` : '', ...slopes].filter(Boolean).join(', ')
 
   const shareCardRef = useRef<View>(null)
@@ -261,35 +296,110 @@ export default function Patterns() {
   const noun = clubNoun(club)
   const pad = 18
   const chartWidth = screenWidth - pad * 2 - 2 - 16
-  const along = !stats
-    ? ''
-    : Math.abs(stats.avgDistanceOffset) < ON_AIM
-      ? 'finishes as far as you aim'
-      : `finishes ${mag(Math.abs(stats.avgDistanceOffset))} ${stats.avgDistanceOffset < 0 ? 'short' : 'long'}`
-  const across = !stats
-    ? ''
-    : Math.abs(stats.avgLateralOffset) < ON_AIM
-      ? 'stays on your line'
-      : `misses ${mag(Math.abs(stats.avgLateralOffset))} ${stats.avgLateralOffset > 0 ? 'right' : 'left'}`
   const typical = typicalYards(club)
+  // "Your 7-iron finishes 4 yd short and 5 yd right. Aim 5 yd left."
+  const finding = !stats
+    ? null
+    : (() => {
+        const d = stats.avgDistanceOffset
+        const l = stats.avgLateralOffset
+        const along = Math.abs(d) < ON_AIM ? 'as far as you aim' : `${mag(Math.abs(d))} ${d < 0 ? 'short' : 'long'}`
+        const across = Math.abs(l) < ON_AIM ? 'on your line' : `${mag(Math.abs(l))} ${l > 0 ? 'right' : 'left'}`
+        const fix = Math.abs(l) < ON_AIM ? '' : ` Aim ${mag(Math.abs(l))} ${l > 0 ? 'left' : 'right'}.`
+        return `Your ${noun} finishes ${along} and ${across}.${fix}`
+      })()
+
+  // The legend: each group of shots under the chosen colour, with its count.
+  const cats = categoriesFor(colourBy, leftHanded)
+  const colours = new Map(cats.map((c) => [c.key, c.color]))
+  const counts = new Map<string, number>()
+  for (const p of points) {
+    const k = categoryOf(axes[p.id], colourBy)
+    counts.set(k, (counts.get(k) ?? 0) + 1)
+  }
+  const legend: LegendEntry[] =
+    colourBy === 'none'
+      ? []
+      : [
+          ...cats.filter((c) => counts.has(c.key)).map((c) => ({ ...c, count: counts.get(c.key)! })),
+          ...(counts.has(NOT_RECORDED) ? [{ key: NOT_RECORDED, label: 'Not recorded', color: UNRECORDED_INK, count: counts.get(NOT_RECORDED)!, open: true }] : []),
+        ]
+  const ids = points.map((p) => p.id)
+  const recordedOf = colourBy === 'none' ? null : recordedSummary(colourBy, ids, axes)
+  const available = (view === 'aim' ? (['rings', 'average', 'shots'] as Layer[]) : (['flights', 'shots', 'rings', 'average'] as Layer[])).filter(
+    (l) => stats || (l !== 'rings' && l !== 'average'),
+  )
+  const toggleGroup = (k: string) =>
+    setHidden((h) => {
+      const n = new Set(h)
+      if (n.has(k)) n.delete(k)
+      else n.add(k)
+      return n
+    })
+  const chartProps: ChartProps = {
+    points,
+    stats,
+    axes,
+    layers,
+    colourBy,
+    colours,
+    hidden,
+    leftHanded,
+    width: chartWidth,
+    step: putter ? 1 : 5,
+    label: gridLabel,
+    unitWord,
+    empty: points.length === 0 ? `No ${noun} shots ${filterPhrase}` : undefined,
+  }
+
+  // What the chart shows right now, and what the toggles have hidden.
+  const by = COLOUR_BY.find((o) => o.value === colourBy)!.label.toLowerCase()
+  const neither = points.filter((p) => !axes[p.id]?.startLine && !axes[p.id]?.shape).length
+  const off = available.filter((l) => !layers[l]).map((l) => LAYER_INFO[l].hides)
+  const groups = legend.filter((e) => hidden.has(e.key)).map((e) => (e.key === NOT_RECORDED ? `${e.count} not recorded` : countWord(e.key, e.label, e.count)))
+  const caption = [
+    view === 'aim'
+      ? `Each dot is where a shot finished${colourBy === 'none' ? '' : `, coloured by its ${by}`}. Tap one to read it.`
+      : `Each line runs from where the shot was hit to where it finished. It leaves on the start line you recorded, or bends the way its recorded shape curves${leftHanded ? ' for a left-hander' : ''}.`,
+    view === 'tee' && teeBreakYards(points, stats) > 0 ? 'Below the break on the distance scale the drawing is shortened; above it, across and along share one scale.' : '',
+    view === 'tee' && neither > 0 ? `${neither} dashed ${neither === 1 ? 'line has' : 'lines have'} neither recorded, so ${neither === 1 ? 'it is' : 'they are'} drawn straight.` : '',
+    stats && layers.rings ? 'The solid ring holds about two shots in three; the dashed ring nearly all.' : '',
+    stats && layers.average ? 'The open circle is the average finish.' : '',
+    view === 'aim' ? `Squares are ${putter ? (unit === 'meters' ? '0.9 m' : '3 ft') : unit === 'meters' ? '4.6 m' : '5 yd'}.` : '',
+    off.length || groups.length ? `Hidden: ${[...off, ...groups].join('; ')}.` : '',
+    groups.length && stats ? 'Hidden shots still count in the rings and the numbers.' : '',
+  ]
+    .filter(Boolean)
+    .join(' ')
+  const shapeRow = recordedSummary('shape', ids, axes)
+  const startRow = recordedSummary('start', ids, axes)
 
   return (
     <PaperSurface style={{ flex: 1 }}>
       <AppBar title="Shot patterns" />
       <ScrollView contentContainerStyle={{ padding: pad, paddingBottom: 40 }}>
         <Entrance index={0}>
+          {finding && (
+            <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.serif, { fontSize: 23, lineHeight: 30, color: P.ink }]}>
+              {finding}
+            </Text>
+          )}
+          <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { color: P.inkDim, fontSize: 13, marginTop: 6, marginBottom: 16 }]}>
+            {points.length} {noun} shot{points.length === 1 ? '' : 's'}
+            {filterPhrase ? ` ${filterPhrase}` : ''}, measured from the aim you set.
+          </Text>
           <ClubLadder clubs={clubOptions} value={club} onChange={setClub} typical={ladderNumber} width={screenWidth - pad * 2} />
           <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { color: P.inkDim, fontSize: 12, marginTop: 6 }]}>
             Typical distance in {unit === 'meters' ? 'metres' : 'yards'}, once a club has five aimed shots.
           </Text>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 14 }}>
             <Key
-              accessibilityLabel="Lie and slope"
-              latched={filtered}
+              accessibilityLabel="Filters"
+              latched={filtered || colourBy !== 'none'}
               onPress={() => setSheetOpen(true)}
               faceStyle={{ minHeight: 40, paddingHorizontal: 14 }}
             >
-              <KeyText size={13} bold={filtered}>Lie and slope</KeyText>
+              <KeyText size={13} bold={filtered || colourBy !== 'none'}>Filters</KeyText>
             </Key>
             <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { flex: 1, color: P.inkDim, fontSize: 13 }]}>{filterSummary}</Text>
           </View>
@@ -298,31 +408,36 @@ export default function Patterns() {
         <Entrance index={1}>
           <View style={{ marginTop: 22 }}>
             <ViewToggle value={view} onChange={setView} />
-            <View style={{ marginTop: 10, backgroundColor: P.raised, borderWidth: 1, borderColor: P.line, borderRadius: 3, padding: 8 }}>
-              {loading ? (
-                <View style={{ height: chartWidth, alignItems: 'center', justifyContent: 'center' }}>
-                  <Text style={[TYPE.body, { color: '#8A8B7E', fontSize: 13 }]}>Loading…</Text>
+            <View style={{ marginTop: 10, backgroundColor: P.raised, borderWidth: 1, borderColor: P.line, borderRadius: 3 }}>
+              <View style={{ padding: 8, borderBottomWidth: 1, borderColor: '#ECE6D8' }}>
+                <LayerBar layers={layers} available={available} onToggle={(l) => setLayers((v) => ({ ...v, [l]: !v[l] }))} />
+              </View>
+              <View style={{ padding: 8 }}>
+                {loading ? (
+                  <View style={{ height: chartWidth, alignItems: 'center', justifyContent: 'center' }}>
+                    <Text style={[TYPE.body, { color: '#8A8B7E', fontSize: 13 }]}>Loading…</Text>
+                  </View>
+                ) : view === 'aim' ? (
+                  <AimPlot {...chartProps} />
+                ) : (
+                  <TeePlot {...chartProps} />
+                )}
+              </View>
+              {legend.length > 0 && (
+                <View style={{ padding: 8, borderTopWidth: 1, borderColor: '#ECE6D8', gap: 8 }}>
+                  <Legend entries={legend} hidden={hidden} onToggle={toggleGroup} />
+                  {recordedOf && (
+                    <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { color: P.inkDim, fontSize: 12, lineHeight: 17 }]}>
+                      {recordedOf.recorded === 0
+                        ? `No ${noun} shot here has its ${colourBy === 'start' ? 'start line' : colourBy} recorded yet. Set it in a shot's result after the hole.`
+                        : `${recordedOf.note}. Tap a group to hide it.`}
+                    </Text>
+                  )}
                 </View>
-              ) : view === 'aim' ? (
-                <YardagePlot
-                  points={points}
-                  stats={stats}
-                  width={chartWidth}
-                  step={putter ? 1 : 5}
-                  label={gridLabel}
-                  unitWord={unitWord}
-                  empty={points.length === 0 ? `No ${noun} shots ${filterPhrase}` : undefined}
-                />
-              ) : (
-                <BallFlightChart points={points} stats={stats} width={chartWidth} label={gridLabel} unitWord={unitWord} />
               )}
             </View>
             <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { color: P.inkDim, fontSize: 13, lineHeight: 19, marginTop: 8 }]}>
-              {view === 'aim'
-                ? stats
-                  ? `Each dot is where a shot finished. The ring holds about two shots in three; the open circle is the average finish. Squares are ${putter ? (unit === 'meters' ? '0.9 m' : '3 ft') : unit === 'meters' ? '4.6 m' : '5 yd'}.`
-                  : 'Each dot is where a shot finished.'
-                : 'Each line runs from the tee to where the shot finished; the green line is the average.'}
+              {caption}
             </Text>
           </View>
         </Entrance>
@@ -330,19 +445,15 @@ export default function Patterns() {
         <Entrance index={2}>
           {stats ? (
             <View style={{ marginTop: 26 }}>
-              <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.serif, { fontSize: 23, lineHeight: 30, color: P.ink, marginBottom: 16 }]}>
-                Your {noun} {along} and {across}.
-              </Text>
               <View style={{ flexDirection: 'row', gap: 12, marginBottom: 6 }}>
                 {!putter && <StatTile label="Typical distance" value={typical != null ? toDisplay(typical) : '—'} style={{ flex: 1 }} />}
                 <StatTile label="Pattern width" value={mag(stats.cone68.lateral * 2)} style={{ flex: 1 }} />
               </View>
-              <LedgerRow label="Shots" value={String(stats.sampleSize)} />
+              <LedgerRow label="Shots" value={String(stats.sampleSize)} note={filtered ? 'With these filters' : 'With an aim, from any lie'} />
               <LedgerRow label="Pattern depth" value={mag(stats.cone68.distance * 2)} note="Short to long, two shots in three" />
-              <LedgerRow label="Shape" value={cap(stats.shotShape)} />
-              <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.serifUpright, { color: P.ink, fontSize: 16, lineHeight: 24, marginTop: 16 }]}>
-                {getAimCorrection(stats, unit)}
-              </Text>
+              <LedgerRow label="Nearly all" value={`${mag(stats.cone95.lateral * 2)} wide`} note={`19 shots in 20, ${mag(stats.cone95.distance * 2)} short to long`} />
+              {!putter && <LedgerRow label="Shape" value={shapeRow.value} note={shapeRow.note} />}
+              {!putter && <LedgerRow label="Start line" value={startRow.value} note={startRow.note} />}
               <Key
                 accessibilityLabel="Export shot pattern image"
                 onPress={handleShare}
@@ -380,7 +491,7 @@ export default function Patterns() {
             }}
           >
             <View style={{ width: 32, height: 4, backgroundColor: P.line, alignSelf: 'center', marginBottom: 12 }} />
-            <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.serif, { fontSize: 22, color: P.ink, marginBottom: 14 }]}>Lie and slope</Text>
+            <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.serif, { fontSize: 22, color: P.ink, marginBottom: 14 }]}>Filters</Text>
             <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { fontSize: 13, color: P.inkDim, marginBottom: 8 }]}>Lie</Text>
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
               {([null, ...LIE_TYPES] as const).map((v) => (
@@ -397,6 +508,23 @@ export default function Patterns() {
             </View>
             <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { fontSize: 13, color: P.inkDim, marginTop: 18, marginBottom: 8 }]}>Slope</Text>
             <SlopeGrid forward={forward} side={side} onForward={setForward} onSide={setSide} />
+            <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { fontSize: 13, color: P.inkDim, marginTop: 18, marginBottom: 8 }]}>Colour the shots by</Text>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+              {COLOUR_BY.map((o) => (
+                <Key
+                  key={o.value}
+                  accessibilityLabel={`Colour by ${o.label.toLowerCase()}`}
+                  latched={colourBy === o.value}
+                  onPress={() => setColourBy(o.value)}
+                  faceStyle={{ minHeight: 40, paddingHorizontal: 12 }}
+                >
+                  <KeyText size={13} bold={colourBy === o.value}>{o.label}</KeyText>
+                </Key>
+              ))}
+            </View>
+            <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { fontSize: 12, color: '#8A8B7E', marginTop: 8, lineHeight: 17 }]}>
+              Shape, start line and contact come from each shot's result, where you recorded one.
+            </Text>
             <Key
               accessibilityLabel="Done"
               tone="primary"

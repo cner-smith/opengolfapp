@@ -21,7 +21,7 @@ export const SHOT_COLUMNS = 'id, hole_score_id, user_id, shot_number, start_lat,
 // getShotsByClub consumers (web useShotPatterns + mobile patterns): coords,
 // distance, club, lie + slope axes, result flags. Drops the 9 putt-only /
 // aim_offset / break / notes columns that no pattern view reads.
-export const PATTERN_SHOT_COLUMNS = 'id, hole_score_id, user_id, shot_number, start_lat, start_lng, end_lat, end_lng, aim_lat, aim_lng, distance_to_target, club, lie_type, lie_slope, lie_slope_forward, lie_slope_side, shot_result, penalty, ob' as const
+export const PATTERN_SHOT_COLUMNS = 'id, hole_score_id, user_id, shot_number, start_lat, start_lng, end_lat, end_lng, aim_lat, aim_lng, distance_to_target, club, lie_type, lie_slope, lie_slope_forward, lie_slope_side, shot_result, contact, shape, start_line, penalty, ob' as const
 
 // getShotsForUser consumers (web + mobile useClubDispersion): only coords +
 // club are read for the aim-relative dispersion math.
