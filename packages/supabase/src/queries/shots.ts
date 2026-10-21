@@ -48,7 +48,8 @@ export function getShotsByClub(
 ) {
   return client
     .from('shots')
-    .select(PATTERN_SHOT_COLUMNS)
+    // The round's date drives the recent-vs-all rings; the hole number feeds the shot readout.
+    .select(`${PATTERN_SHOT_COLUMNS}, hole_scores!inner(rounds(played_at), holes(number))`)
     .eq('user_id', userId)
     .eq('club', club)
     .not('aim_lat', 'is', null)
