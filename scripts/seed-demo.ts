@@ -22,10 +22,19 @@
  *   SUPABASE_URL=http://127.0.0.1:54321
  *   SUPABASE_SERVICE_ROLE_KEY=...
  *   pnpm seed:demo
+ *
+ * SEED_PROFILE=promo (`pnpm seed:promo`, DEV) seeds the screenshot golfer
+ * instead (scripts/seed-promo.ts), with its own login read from
+ * apps/web/.env.promo.local over the e2e env's SEED_* values.
  */
 import 'dotenv/config'
+import { config } from 'dotenv'
 import { createClient } from '@supabase/supabase-js'
 import { DEFAULT_BAG, shotAxesFromLegacy } from '@oga/core'
+import { seedPromo } from './seed-promo'
+
+const PROMO = process.env.SEED_PROFILE === 'promo'
+if (PROMO) config({ path: 'apps/web/.env.promo.local', override: true })
 
 const URL = process.env.SUPABASE_URL ?? 'http://127.0.0.1:54321'
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -921,11 +930,21 @@ function pickTeeColor(course: DemoCourse, visit: number): string {
 }
 
 async function main() {
-  console.log(`Seeding demo data into ${URL}`)
+  // The promo seed wipes whoever SEED_EMAIL names: never the e2e user the
+  // Playwright suite signs in as.
+  if (PROMO && (!process.env.SEED_EMAIL || SEED_EMAIL === process.env.E2E_EMAIL)) {
+    throw new Error('SEED_PROFILE=promo needs its own SEED_EMAIL in apps/web/.env.promo.local, never the e2e user.')
+  }
+  console.log(`Seeding ${PROMO ? 'promo' : 'demo'} data into ${URL}`)
 
   const userId = await ensureDemoUser()
   await ensureProfile(userId)
   await wipeDemoData(userId)
+  if (PROMO) {
+    await seedPromo(supabase, userId)
+    console.log(`Promo user ready — sign in as ${SEED_EMAIL} (password: SEED_PASSWORD in apps/web/.env.promo.local)`)
+    return
+  }
   await seedBag(userId)
 
   const courses = await selectDemoCourses()
