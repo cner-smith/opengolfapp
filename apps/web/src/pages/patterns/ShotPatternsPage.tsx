@@ -1,5 +1,6 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { toBlob } from 'html-to-image'
+import { useNavigate } from 'react-router-dom'
 import {
   CLUBS,
   DEFAULT_BAG,
@@ -88,6 +89,7 @@ export function ShotPatternsPage() {
     setFocus(null)
   }, [colourBy, club])
   const narrow = useNarrow()
+  const navigate = useNavigate()
   const { data: profile } = useProfile()
   const leftHanded = profile?.plays_left_handed === true
   const filtersButton = useRef<HTMLButtonElement | null>(null)
@@ -266,6 +268,10 @@ export function ShotPatternsPage() {
     labelId: ids.label,
     descId: ids.desc,
     empty: emptyNote,
+    onOpenShot: (id) => {
+      const round = extras[id]?.roundId
+      if (round) navigate(`/rounds/${round}`)
+    },
   }
 
   const hiddenWords = [
@@ -274,7 +280,7 @@ export function ShotPatternsPage() {
   ]
   const conflicts = points.filter((p) => kinds.get(p.id) === 'conflict').length
   const caption = chartCaption({ view, stats, ghost, recentOn, colourBy, shownLayers, points, older, unit, narrow, noun, conflicts, hiddenWords, legendHidden: hidden.size > 0 })
-  const finding = stats ? findingLine(stats, club, unit, teeShots) : null
+  const finding = stats ? findingLine(stats, points, club, unit, teeShots) : null
   const summary = chartSummary({ stats, points, unit, legend, colourBy, hiddenWords })
 
   const lieChips = (

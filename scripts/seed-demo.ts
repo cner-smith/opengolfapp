@@ -182,6 +182,48 @@ function dispersedEnd(
   return offsetCoord([aim.lat, aim.lng], dn, de)
 }
 
+// Yards the finish sits right (+) or left (−) of the start→aim line.
+function lateralOf(
+  start: { lat: number; lng: number },
+  aim: { lat: number; lng: number },
+  end: { lat: number; lng: number },
+): number {
+  const an = (aim.lat - start.lat) * YARDS_PER_DEG_LAT
+  const ae = (aim.lng - start.lng) * yardsPerDegLng(start.lat)
+  const en = (end.lat - start.lat) * YARDS_PER_DEG_LAT
+  const ee = (end.lng - start.lng) * yardsPerDegLng(start.lat)
+  const mag = Math.hypot(an, ae) || 1
+  // Cross product: positive when the finish is clockwise of the aim (right).
+  return (ee * an - en * ae) / mag
+}
+
+// The shape a right-handed player would record for a shot that finished
+// offLat yards off the aim line: right → mostly fade (slice when well right),
+// left → draw (hook), near the line → mostly straight. About one in five
+// shots has no shape recorded, like a real player who skips the field.
+function recordedShape(offLat: number, sdLat: number): string | null {
+  if (Math.random() < 0.2) return null
+  const z = offLat / sdLat
+  const r = Math.random()
+  if (z > 0.4) return r < 0.8 ? (z > 1.2 ? 'slice' : 'fade') : r < 0.92 ? 'straight' : 'draw'
+  if (z < -0.4) return r < 0.8 ? (z < -1.2 ? 'hook' : 'draw') : r < 0.92 ? 'straight' : 'fade'
+  return r < 0.65 ? 'straight' : r < 0.85 ? 'fade' : 'draw'
+}
+
+// A start line where the result didn't give one (only push_right/pull_left
+// do): on line for most, else started on the side of the miss, or the far
+// side when the shape curved the ball back. A quarter stay unrecorded.
+function recordedStartLine(offLat: number, sdLat: number, shape: string | null): string | null {
+  if (Math.random() < 0.25) return null
+  const z = offLat / sdLat
+  const curvesRight = shape === 'fade' || shape === 'slice'
+  const curvesLeft = shape === 'draw' || shape === 'hook'
+  if (z > 0.4 && curvesLeft) return 'push'
+  if (z < -0.4 && curvesRight) return 'pull'
+  if (Math.abs(z) > 0.8 && Math.random() < 0.4 && !curvesRight && !curvesLeft) return z > 0 ? 'push' : 'pull'
+  return 'on_line'
+}
+
 async function ensureDemoUser(): Promise<string> {
   const { data: list } = await supabase.auth.admin.listUsers({ perPage: 1000 })
   const existing = list?.users?.find((u) => u.email === SEED_EMAIL)
@@ -682,6 +724,9 @@ async function insertHoleShots(
     }
 
     const axes = shotAxesFromLegacy(result)
+    const offLatDone = toGreen ? 0 : lateralOf(lastEnd, aim, end)
+    const sdLat = toGreen ? 1 : (CLUB_DISPERSION[club] ?? DEFAULT_DISP).sdLat
+    const shape = recordedShape(offLatDone, sdLat)
     const { error } = await supabase.from('shots').insert({
       hole_score_id: holeScoreId,
       user_id: userId,
@@ -698,7 +743,8 @@ async function insertHoleShots(
       lie_slope: lieSlope,
       shot_result: result,
       contact: axes.contact,
-      start_line: axes.startLine,
+      start_line: axes.startLine ?? recordedStartLine(offLatDone, sdLat, shape),
+      shape,
       penalty: false,
       ob: false,
       putt_distance_ft: null,

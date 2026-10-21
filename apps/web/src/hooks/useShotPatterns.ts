@@ -28,12 +28,20 @@ interface UseShotPatternsArgs {
 export interface ShotExtras {
   contact: ShotContact | null
   hole: number | null
+  course: string | null
+  roundId: string | null
+}
+
+interface RowRound {
+  round_id?: string | null
+  rounds?: { played_at?: string | null; courses?: { name?: string | null } | null } | null
+  holes?: { number?: number | null } | null
 }
 
 type Row = Record<string, unknown>
 
 function rowToShot(row: Row): Shot {
-  const round = (row.hole_scores as { rounds?: { played_at?: string | null } | null } | undefined)?.rounds
+  const round = (row.hole_scores as RowRound | undefined)?.rounds
   return {
     id: row.id as string,
     holeScoreId: row.hole_score_id as string,
@@ -74,10 +82,12 @@ export function useShotPatterns({ club, lieType, lieSlopeForward, lieSlopeSide }
       const rows = (data ?? []) as Row[]
       const extras: Record<string, ShotExtras> = {}
       for (const r of rows) {
-        const hole = (r.hole_scores as { holes?: { number?: number | null } | null } | undefined)?.holes
+        const hs = r.hole_scores as RowRound | undefined
         extras[r.id as string] = {
           contact: (r.contact as ShotContact | null) ?? null,
-          hole: hole?.number ?? null,
+          hole: hs?.holes?.number ?? null,
+          course: hs?.rounds?.courses?.name ?? null,
+          roundId: hs?.round_id ?? null,
         }
       }
       const points = computeDispersion(rows.map(rowToShot))

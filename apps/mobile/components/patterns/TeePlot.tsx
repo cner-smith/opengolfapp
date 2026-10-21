@@ -31,6 +31,7 @@ export function teeBreakYards(points: DispersionPoint[], stats: DispersionStats 
 }
 
 const SHORTENED_PX = 56
+const MAX_POWER = 3
 const PROTRACTOR_DEG = [-4, 0, 4]
 
 // From the tee, still from above. The landing area is at one true scale; the
@@ -68,8 +69,13 @@ export function TeePlot(props: ChartProps) {
     const hi = Math.max(...xs)
     const centre = (lo + hi) / 2
     const halfW = Math.max((hi - lo) / 2, 10) * 1.08
-    const comp = brk > 0 ? SHORTENED_PX : 0
-    const scale = Math.min((TEE_Y - 14 - comp) / (maxY - brk), (width - TL - TR) / 2 / halfW)
+    // Same rule as web: the shortened band is tall enough that its curve's power
+    // stays at or under MAX_POWER, or every flight would leave the tee sideways.
+    const H = TEE_Y - 14
+    const wide = (width - TL - TR) / 2 / halfW
+    const steep = Math.min(H / (maxY - brk + brk / MAX_POWER), wide)
+    const comp = brk > 0 ? Math.max(SHORTENED_PX, (steep * brk) / MAX_POWER) : 0
+    const scale = Math.min((H - comp) / (maxY - brk), wide)
     return { avgEnd, shots, maxY, brk, comp, centre, scale }
   }, [points, stats, ghost, avgAim, leftHanded, width, unitYd, TEE_Y, TL, TR])
 
@@ -94,7 +100,10 @@ export function TeePlot(props: ChartProps) {
   const { avgEnd, shots, maxY, brk, comp, centre, scale } = geo
   const midX = TL + (width - TL - TR) / 2
   const x = (l: number) => midX + (l - centre) * scale
-  const y = (d: number) => (d <= brk ? TEE_Y - (brk > 0 ? (Math.max(d, 0) / brk) * comp : 0) : TEE_Y - comp - (d - brk) * scale)
+  // Below the break a power curve, Y = comp·(d/brk)^r with r = scale·brk/comp,
+  // so its slope meets the true scale at the break and no flight kinks there.
+  const bend = brk > 0 ? (scale * brk) / comp : 1
+  const y = (d: number) => (d <= brk ? TEE_Y - (brk > 0 ? comp * (Math.max(d, 0) / brk) ** bend : 0) : TEE_Y - comp - (d - brk) * scale)
   const poly = (pts: FlightPoint[]) => pts.map((q, i) => `${i ? 'L' : 'M'} ${x(q.x).toFixed(1)} ${y(q.y).toFixed(1)}`).join(' ')
   const polyLen = (pts: FlightPoint[]) => {
     let s = 0
@@ -169,6 +178,8 @@ export function TeePlot(props: ChartProps) {
       hot={hot}
       onHot={onHot}
       readout={hotD ? shotWords(hotD.p, props.extras[hotD.p.id], unit, hotD.c.kind) : null}
+      roundId={hotD ? props.extras[hotD.p.id]?.roundId ?? null : null}
+      onOpenRound={props.onOpenRound}
       bounds={bounds}
     >
       {rules.map((d) => (
@@ -188,9 +199,10 @@ export function TeePlot(props: ChartProps) {
           <SvgText x={TL + 8} y={breakY + comp / 2 + 4} fontFamily={FONT.bodyItalic} fontSize={12} fill={P.inkDim}>shortened</SvgText>
         </G>
       )}
-      {/* The pull / on line / push protractor from the tee. */}
+      {/* The pull / on line / push protractor from the tee, through the same
+          shortened stretch as the flights, so a flight on line follows its ray. */}
       {PROTRACTOR_DEG.map((a) => (
-        <Line key={a} x1={teeX} y1={TEE_Y} x2={x(Math.tan(rad(a)) * rayTo)} y2={y(rayTo)} stroke={P.lineStrong} strokeOpacity={0.55} strokeWidth={0.8} />
+        <Path key={a} d={poly(Array.from({ length: 49 }, (_, i) => ({ x: (Math.tan(rad(a)) * rayTo * i) / 48, y: (rayTo * i) / 48 })))} fill="none" stroke={P.lineStrong} strokeOpacity={0.55} strokeWidth={0.8} />
       ))}
       {/* The aim line, amber, from the tee to the pennant. */}
       <Line x1={teeX} x2={teeX} y1={aimY} y2={TEE_Y} stroke={P.warn} strokeOpacity={0.7} strokeWidth={1} strokeDasharray="1.5,3.5" />
@@ -241,7 +253,7 @@ export function TeePlot(props: ChartProps) {
       {hotD && layers.flights && <Path d={poly(hotD.path)} fill="none" stroke={coloured ? hotD.s.color : P.ink} strokeWidth={2.4} strokeLinecap="round" strokeDasharray={hotD.c.kind === 'none' ? '4,3' : undefined} />}
       {stats && avgEnd && (
         <Fade on={layers.average}>
-          <Path d={poly([{ x: 0, y: 0 }, { x: avgEnd.x * 0.25, y: avgEnd.y * 0.25 }, { x: avgEnd.x * 0.5, y: avgEnd.y * 0.5 }, { x: avgEnd.x * 0.75, y: avgEnd.y * 0.75 }, avgEnd])} fill="none" stroke={P.ink} strokeWidth={1} strokeDasharray="3,3" />
+          <Path d={poly(Array.from({ length: 49 }, (_, i) => ({ x: (avgEnd.x * i) / 48, y: (avgEnd.y * i) / 48 })))} fill="none" stroke={P.ink} strokeWidth={1} strokeDasharray="3,3" />
           <Circle cx={x(avgEnd.x)} cy={y(avgEnd.y)} r={5.5} fill={P.raised} stroke={P.forest} strokeWidth={1.8} />
         </Fade>
       )}

@@ -6,6 +6,7 @@ import {
   YARDS_TO_METERS,
   aimAdvice,
   clubNoun,
+  missLean,
   type Club,
   type DispersionPoint,
   type DispersionStats,
@@ -36,25 +37,38 @@ export function mostlyTeeShots(points: DispersionPoint[]) {
 // "Your 7-iron finishes about 4 yd short and 5 yd right. Aim about 5 yd left
 // and take a little more club." A miss is named only when it is beyond its own
 // noise (core aimAdvice: twice its standard error); otherwise the pattern is
-// centred and the advice is to keep the aim.
-export function findingLine(stats: DispersionStats, club: Club, unit: DistanceUnit, teeShots: boolean) {
+// centred and the advice is to keep the aim. When the average is inside the
+// noise but most shots still finish on one side (core missLean), the sentence
+// says so, so it never reads against the short/long and left/right counts.
+export function findingLine(stats: DispersionStats, points: DispersionPoint[], club: Club, unit: DistanceUnit, teeShots: boolean) {
   const noun = clubNoun(club)
   const advice = aimAdvice(stats)
+  const lean = missLean(points)
   const across = advice.lateral ? `${dist(stats.avgLateralOffset, unit)} ${advice.lateral}` : null
   const aim = advice.lateral ? `Aim about ${dist(stats.avgLateralOffset, unit)} ${advice.lateral === 'right' ? 'left' : 'right'}` : null
+  const keep = 'That’s inside the spread; keep your aim.'
   if (teeShots) {
     const width = dist(stats.cone68.lateral * 2, unit)
-    return `Two in three of your ${noun} shots finish inside ${width} side to side, centred ${across ? `about ${across} of your aim` : 'on your aim'}. ${aim ? `${aim}.` : 'That’s inside the spread; keep your aim.'}`
+    const tilt = !across && lean.lateral ? `, though most finish ${lean.lateral}` : ''
+    return `Two in three of your ${noun} shots finish inside ${width} side to side, centred ${across ? `about ${across} of your aim` : `on your aim${tilt}`}. ${aim ? `${aim}.` : keep}`
   }
   const along = advice.distance ? `${dist(stats.avgDistanceOffset, unit)} ${advice.distance}` : null
   if (!along && !across) {
+    if (lean.distance || lean.lateral) {
+      const side = lean.distance && lean.lateral ? `${lean.distance} and ${lean.lateral}` : lean.distance ? `a little ${lean.distance}` : lean.lateral
+      return `Your ${noun} finishes centred on your aim, though most finish ${side}. ${keep}`
+    }
     const deeper = stats.cone68.distance > stats.cone68.lateral * 1.25
-    return `Your ${noun} finishes centred on your aim${deeper ? ', and misses more by distance than by line' : ''}. That’s inside the spread; keep your aim.`
+    return `Your ${noun} finishes centred on your aim${deeper ? ', and misses more by distance than by line' : ''}. ${keep}`
   }
   const club_ = advice.distance === 'short' ? 'take a little more club' : advice.distance === 'long' ? 'take a little less club' : null
   const what = [along, across].filter(Boolean).join(' and ')
   const fix = [aim, club_].filter(Boolean).join(' and ')
-  return `Your ${noun} finishes about ${what}${!along ? ', level with your aim' : ''}. ${cap(fix)}.`
+  // The axis inside the noise: level, unless most shots still lean one way.
+  const rest = !along
+    ? lean.distance ? `, though most finish a little ${lean.distance}` : ', level with your aim'
+    : !across && lean.lateral ? `, though most finish ${lean.lateral}` : ''
+  return `Your ${noun} finishes about ${what}${rest}. ${cap(fix)}.`
 }
 
 /** How far a pattern of n shots can be trusted. */
@@ -83,7 +97,7 @@ const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', '
 function shortDate(iso: string) {
   const [y, m, d] = iso.slice(0, 10).split('-').map(Number)
   if (!y || !m || !d) return null
-  return `${d} ${MONTHS[m - 1]}${y === new Date().getFullYear() ? '' : ` ${y}`}`
+  return `${MONTHS[m - 1]} ${d}${y === new Date().getFullYear() ? '' : `, ${y}`}`
 }
 
 const START_PHRASE: Record<ShotStartLine, string> = { pull: 'from a pull', on_line: 'started on line', push: 'from a push' }
@@ -97,7 +111,7 @@ export function conflictWords(p: DispersionPoint) {
 }
 
 /** The shot readout's parts: where it finished, what was recorded (or what
- *  doesn't add up), and which round. */
+ *  doesn't add up), and which round (hole, date, course). */
 export function shotParts(p: DispersionPoint, extras: ShotExtras | undefined, unit: DistanceUnit, kind?: FlightKind) {
   const d = p.distanceOffsetYards
   const l = p.lateralOffsetYards
@@ -110,7 +124,8 @@ export function shotParts(p: DispersionPoint, extras: ShotExtras | undefined, un
     p.lieType ? `from the ${LIE_TYPE_LABELS[p.lieType].toLowerCase()}` : null,
   ].filter(Boolean)
   const missing = [!p.shape && 'shape', !p.startLine && 'start line'].filter(Boolean) as string[]
-  const when = [extras?.hole != null ? `Hole ${extras.hole}` : null, p.playedAt ? shortDate(p.playedAt) : null].filter(Boolean)
+  // "Hole 7 · Oct 12 · Pine Valley", skipping any part we don't have.
+  const when = [extras?.hole != null ? `Hole ${extras.hole}` : null, p.playedAt ? shortDate(p.playedAt) : null, extras?.course ?? null].filter(Boolean)
   return {
     where: `${cap(along)}, ${across}`,
     recorded: parts.join(' · ') || 'Nothing recorded',

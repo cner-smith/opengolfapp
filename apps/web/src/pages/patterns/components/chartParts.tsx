@@ -48,6 +48,8 @@ export interface ChartProps {
   labelId: string
   descId: string
   empty?: string
+  /** Opens the shot's round (Enter on a shot, or the readout's link). */
+  onOpenShot?: (id: string) => void
 }
 
 export interface Box {
@@ -348,10 +350,11 @@ export function OlderDots({ dots }: { dots: { x: number; y: number }[] }) {
 
 /**
  * The shots as one tab stop: arrows step through them in distance order
- * (short to long), Home / End jump, Escape lets go. The readout follows focus,
- * a mouse hover, or a tap, and stays until Escape or focus leaves the shots.
+ * (short to long), Home / End jump, Escape lets go, Enter opens the shot's
+ * round. The readout follows focus, a mouse hover, or a tap, and stays until
+ * Escape or focus leaves the shots and the readout.
  */
-export function useShotNav(svgRef: RefObject<SVGSVGElement | null>, order: string[]) {
+export function useShotNav(svgRef: RefObject<SVGSVGElement | null>, order: string[], open?: (id: string) => void) {
   const [hover, setHover] = useState<string | null>(null)
   const [selected, setSelected] = useState<string | null>(null)
   const tabStop = selected && order.includes(selected) ? selected : order[0]
@@ -375,30 +378,47 @@ export function useShotNav(svgRef: RefObject<SVGSVGElement | null>, order: strin
     } else if (e.key === 'Escape') {
       setSelected(null)
       e.currentTarget.blur()
+    } else if (e.key === 'Enter' && open) {
+      e.preventDefault()
+      open(id)
     } else if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault()
       setSelected(id)
     }
   }
+  const keepOn = (e: React.FocusEvent) => {
+    if (!(e.relatedTarget as Element | null)?.closest?.('[data-shot], [data-readout]')) setSelected(null)
+  }
   const dotProps = (id: string) => ({
     'data-shot': id,
     tabIndex: id === tabStop ? 0 : -1,
     onFocus: () => setSelected(id),
-    onBlur: (e: React.FocusEvent<SVGGElement>) => {
-      if (!(e.relatedTarget as Element | null)?.closest?.('[data-shot]')) setSelected(null)
-    },
+    onBlur: keepOn,
     onKeyDown: (e: KeyboardEvent<SVGGElement>) => onKeyDown(e, id),
     onPointerEnter: (e: React.PointerEvent) => e.pointerType === 'mouse' && setHover(id),
     onPointerLeave: () => setHover(null),
     onClick: () => setSelected(id),
   })
-  return { shown: hover ?? selected, dotProps }
+  const shown = hover ?? selected
+  // The readout's "Open round" link, while the shown shot is the chosen one.
+  const link = open && shown && shown === selected
+    ? { onOpen: () => open(shown), onBlur: keepOn }
+    : undefined
+  return { shown, dotProps, link }
 }
 
 /** The shot readout, set where it covers the fewest other shots. */
-export function Readout({ x, y, lines, bounds, dots, warn }: { x: number; y: number; lines: string[]; bounds: Box; dots: { x: number; y: number }[]; warn?: boolean }) {
+export function Readout({ x, y, lines, bounds, dots, warn, link }: {
+  x: number
+  y: number
+  lines: string[]
+  bounds: Box
+  dots: { x: number; y: number }[]
+  warn?: boolean
+  link?: { onOpen: () => void; onBlur: (e: React.FocusEvent) => void }
+}) {
   const w = Math.max(...lines.map((l, i) => l.length * (i === 0 ? 13 : 12) * 0.47)) + 22
-  const h = 12 + lines.length * 17
+  const h = 12 + (lines.length + (link ? 1 : 0)) * 17 + (link ? 4 : 0)
   const spots = [
     { x: x + 12, y: y - h - 10 },
     { x: x - 12 - w, y: y - h - 10 },
@@ -416,7 +436,8 @@ export function Readout({ x, y, lines, bounds, dots, warn }: { x: number; y: num
   const bx = Math.min(Math.max(best.x, bounds.x), bounds.x + bounds.w - w)
   const by = Math.min(Math.max(best.y, bounds.y), bounds.y + bounds.h - h)
   return (
-    <g className="pat-fade" style={{ pointerEvents: 'none' }} aria-hidden>
+    <g className="pat-fade" style={{ pointerEvents: 'none' }}>
+      <g aria-hidden>
       <rect x={bx} y={by} width={w} height={h} rx={2} fill={PAPER} stroke={AXIS} />
       {lines.map((l, i) => (
         <text
@@ -430,6 +451,30 @@ export function Readout({ x, y, lines, bounds, dots, warn }: { x: number; y: num
           {l}
         </text>
       ))}
+      </g>
+      {link && (
+        <g
+          data-readout
+          role="link"
+          tabIndex={0}
+          aria-label="Open round"
+          className="pat-link"
+          style={{ pointerEvents: 'auto', cursor: 'pointer' }}
+          onClick={link.onOpen}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault()
+              link.onOpen()
+            }
+          }}
+          onBlur={link.onBlur}
+        >
+          <rect x={bx + 4} y={by + 8 + lines.length * 17} width={90} height={22} fill="transparent" />
+          <text x={bx + 10} y={by + 24 + lines.length * 17} fontFamily={SANS} fontSize={12} fill={INK} textDecoration="underline">
+            Open round
+          </text>
+        </g>
+      )}
     </g>
   )
 }

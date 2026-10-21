@@ -40,6 +40,8 @@ export interface Category {
 export interface ShotExtras {
   contact: ShotContact | null
   hole: number | null
+  roundId: string | null
+  course: string | null
 }
 
 export const DEFAULT_LAYERS: Record<Layer, boolean> = { shots: true, rings: true, average: true, flights: true, recent: false }

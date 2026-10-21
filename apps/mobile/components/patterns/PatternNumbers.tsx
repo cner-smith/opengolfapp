@@ -32,9 +32,11 @@ import { dist, num, tallyWords, unitWord } from './words'
 
 const ROW = { borderBottomWidth: 1, borderColor: P.line, paddingVertical: 12 }
 
+// The row stretches both tiles to the taller one; the face must fill its
+// wrapper too, or the shorter tile's hard shadow shows as a grey slab below it.
 function Tile({ label, value, note }: { label: string; value: string; note: string }) {
   return (
-    <PaperTile style={{ flex: 1 }}>
+    <PaperTile style={{ flex: 1 }} innerStyle={{ flex: 1 }}>
       <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { color: P.inkDim, fontSize: 12, marginBottom: 6 }]}>{label}</Text>
       <Text maxFontSizeMultiplier={FONT_CAP} numberOfLines={1} adjustsFontSizeToFit style={[TYPE.serifUpright, { color: P.ink, fontSize: 26, lineHeight: 32 }]}>
         {value}

@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom'
 import {
   SHOT_SHAPE_LABELS,
   SHOT_START_LINE_LABELS,
@@ -244,7 +245,11 @@ export function ShotTable({ points, extras, unit, kinds, caption }: {
               <tr key={p.id} style={{ borderBottom: '1px solid #ECE6D8' }}>
                 <td className="font-serif" style={{ padding: '6px 8px 6px 0' }}>{where}</td>
                 <td style={{ padding: '6px 8px 6px 0' }}>{recorded}{flag ? <span className="text-caddie-ink-dim">. {flag}</span> : null}</td>
-                <td className="text-caddie-ink-dim" style={{ padding: '6px 0', whiteSpace: 'nowrap' }}>{when ?? ''}</td>
+                <td className="text-caddie-ink-dim" style={{ padding: '6px 0', whiteSpace: 'nowrap' }}>
+                  {when && extras[p.id]?.roundId ? (
+                    <Link to={`/rounds/${extras[p.id]!.roundId}`} className="text-caddie-ink-dim" style={{ textDecoration: 'underline', textUnderlineOffset: 3 }}>{when}</Link>
+                  ) : (when ?? '')}
+                </td>
               </tr>
             )
           })}

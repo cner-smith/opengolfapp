@@ -22,6 +22,7 @@ import {
 import { FONT, TYPE } from '../../lib/typography'
 import { haptic } from '../../lib/haptics'
 import { FONT_CAP, P } from '../paper/tokens'
+import { Key, KeyText } from '../paper/Paper'
 import { INK, NOT_RECORDED, UNRECORDED_INK, categoryOf, type Category, type ColourBy, type Glyph, type Layer, type ShotExtras } from './layers'
 
 // What the two Shot patterns charts (AimPlot, TeePlot) share: label placement
@@ -64,6 +65,8 @@ export interface ChartProps {
   summary: string
   hot: string | null
   onHot: (id: string | null) => void
+  /** Opens the round a shot was played in (the readout's Open round key). */
+  onOpenRound: (roundId: string) => void
   empty?: string
 }
 
@@ -186,7 +189,7 @@ export function flightOf(p: DispersionPoint, avgAim: number, leftHanded: boolean
   return { E, c: flightControls(S0, E, p.startLine ?? null, p.shape ?? null, leftHanded) }
 }
 
-export function cubic(E: FlightPoint, p1: FlightPoint, p2: FlightPoint, n = 36): FlightPoint[] {
+export function cubic(E: FlightPoint, p1: FlightPoint, p2: FlightPoint, n = 48): FlightPoint[] {
   const out: FlightPoint[] = []
   for (let i = 0; i <= n; i++) {
     const t = i / n
@@ -428,7 +431,7 @@ export interface Pickable {
 }
 
 /** The plot's touch layer, the readout and the screen-reader summary. */
-export function ChartFrame({ width, height, summary, pickable, hot, onHot, readout, bounds, children }: {
+export function ChartFrame({ width, height, summary, pickable, hot, onHot, readout, roundId, onOpenRound, bounds, children }: {
   width: number
   height: number
   summary: string
@@ -436,6 +439,9 @@ export function ChartFrame({ width, height, summary, pickable, hot, onHot, reado
   hot: string | null
   onHot: (id: string | null) => void
   readout: string[] | null
+  /** The selected shot's round, for the readout's Open round key. */
+  roundId: string | null
+  onOpenRound: (roundId: string) => void
   bounds: Box
   children: ReactNode
 }) {
@@ -473,7 +479,7 @@ export function ChartFrame({ width, height, summary, pickable, hot, onHot, reado
       {hotP && readout && (
         <View
           key={hot}
-          pointerEvents="none"
+          pointerEvents="box-none"
           onLayout={(e) => {
             const { width: w, height: h } = e.nativeEvent.layout
             if (hot && (!size || Math.abs(size.w - w) > 0.5 || Math.abs(size.h - h) > 0.5)) setMeasured({ id: hot, w, h })
@@ -504,6 +510,17 @@ export function ChartFrame({ width, height, summary, pickable, hot, onHot, reado
               {l}
             </Text>
           ))}
+          {roundId && (
+            <Key
+              accessibilityLabel="Open round"
+              onPress={() => onOpenRound(roundId)}
+              style={{ alignSelf: 'flex-start', marginTop: 6 }}
+              hitSlop={4}
+              faceStyle={{ minHeight: 40, paddingHorizontal: 10 }}
+            >
+              <KeyText size={12}>Open round</KeyText>
+            </Key>
+          )}
         </View>
       )}
     </View>

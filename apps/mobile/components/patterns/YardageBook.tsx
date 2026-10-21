@@ -1,5 +1,5 @@
-import type { ReactNode } from 'react'
-import { Text, View } from 'react-native'
+import { useEffect, useRef, type ReactNode } from 'react'
+import { ScrollView, Text, View } from 'react-native'
 import { MIN_SAMPLES_FOR_STATS, clubNoun, type Club } from '@oga/core'
 import { PressableTouch } from '../ui/PressableTouch'
 import { haptic } from '../../lib/haptics'
@@ -12,8 +12,11 @@ import { FONT_CAP, P } from '../paper/tokens'
 const short = (c: Club) => (c === 'driver' ? 'dr' : c)
 
 // The club row as a printed gapping chart: club over its typical distance, or
-// how far it is from a pattern. Wraps in rows (a scrolled row reads as the end
-// of the bag, #740); the last row is filled out so the grid closes.
+// how far it is from a pattern, with the gap to the next club printed on the
+// rule between them. One row that scrolls sideways (as on the web) and keeps
+// the chosen club in view when the page opens and when it changes.
+const CELL = 54
+
 export function ClubLadder({
   clubs,
   value,
@@ -31,19 +34,36 @@ export function ClubLadder({
   unitWords: string
   width: number
 }) {
-  const perRow = Math.max(5, Math.min(clubs.length, Math.floor(width / 48)))
-  const cellW = Math.floor((width - 1) / perRow)
-  const filler = (perRow - (clubs.length % perRow)) % perRow
+  const row = useRef<ScrollView>(null)
+  const scrollX = useRef(0)
+  const cellW = Math.max(CELL, Math.floor((width - 1) / Math.max(clubs.length, 1)))
+  const i = clubs.indexOf(value)
+  const reveal = (animated: boolean) => {
+    if (i < 0) return
+    const left = i * cellW
+    if (left < scrollX.current) row.current?.scrollTo({ x: Math.max(0, left - 8), animated })
+    else if (left + cellW > scrollX.current + width) row.current?.scrollTo({ x: left + cellW - width + 9, animated })
+  }
+  useEffect(() => reveal(true), [i, cellW, width])
   return (
-    <View
+    <ScrollView
+      ref={row}
+      horizontal
+      onLayout={() => reveal(false)}
+      onScroll={(e) => {
+        scrollX.current = e.nativeEvent.contentOffset.x
+      }}
+      scrollEventThrottle={16}
       accessibilityRole="radiogroup"
       accessibilityLabel="Club"
-      style={{ flexDirection: 'row', flexWrap: 'wrap', borderTopWidth: 1, borderLeftWidth: 1, borderTopColor: P.lineStrong, borderLeftColor: P.line, width: cellW * perRow + 1 }}
+      style={{ width }}
+      contentContainerStyle={{ borderTopWidth: 1, borderLeftWidth: 1, borderTopColor: P.lineStrong, borderLeftColor: P.line }}
     >
-      {clubs.map((c) => {
+      {clubs.map((c, j) => {
         const on = c === value
         const t = typical(c)
         const n = aimed(c)
+        const prev = j > 0 ? typical(clubs[j - 1]!) : null
         const a11y = t != null ? `${clubNoun(c)}, ${t} ${unitWords}` : n > 0 ? `${clubNoun(c)}, ${n} of ${MIN_SAMPLES_FOR_STATS} aimed shots` : `${clubNoun(c)}, no aimed shots yet`
         return (
           <PressableTouch
@@ -78,29 +98,19 @@ export function ClubLadder({
                 {n > 0 ? `${n} of ${MIN_SAMPLES_FOR_STATS}` : '—'}
               </Text>
             )}
+            {/* The gap from the club before, printed on the rule between them. */}
+            {t != null && prev != null && (
+              <View pointerEvents="none" style={{ position: 'absolute', left: -13, bottom: 3, width: 24, alignItems: 'center' }}>
+                <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.serifUpright, { fontSize: 11, lineHeight: 13, color: P.inkDim, backgroundColor: P.chrome }]}>
+                  {prev - t}
+                </Text>
+              </View>
+            )}
           </PressableTouch>
         )
       })}
-      {Array.from({ length: filler }, (_, i) => (
-        <View key={`f${i}`} style={{ width: cellW, minHeight: 54, borderRightWidth: 1, borderBottomWidth: 1, borderColor: P.line }} />
-      ))}
-    </View>
+    </ScrollView>
   )
-}
-
-/** "65 yd between 3w and 6i": gaps over 25 yd between neighbouring numbered clubs. */
-export function ladderGaps(clubs: readonly Club[], typicalYards: (c: Club) => number | null, mag: (yd: number) => string) {
-  const numbered = clubs.flatMap((c) => {
-    const y = typicalYards(c)
-    return y == null ? [] : [{ c, y }]
-  })
-  const gaps: string[] = []
-  for (let i = 1; i < numbered.length; i++) {
-    const a = numbered[i - 1]!
-    const b = numbered[i]!
-    if (a.y - b.y > 25) gaps.push(`${mag(a.y - b.y)} between ${short(a.c)} and ${short(b.c)}`)
-  }
-  return gaps
 }
 
 export type ChartView = 'aim' | 'tee'

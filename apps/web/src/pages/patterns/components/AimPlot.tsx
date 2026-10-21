@@ -97,7 +97,7 @@ export function AimPlot(props: ChartProps) {
   const styled = points.map((p) => ({ p, s: markStyle(p, props, dense), x: px(p.lateralOffsetYards), y: py(p.distanceOffsetYards) }))
   const visible = layers.shots ? styled.filter((d) => !d.s.hide) : []
   const order = useMemo(() => visible.map((d) => d.p).sort(byDistance).map((p) => p.id), [visible])
-  const nav = useShotNav(svgRef, order)
+  const nav = useShotNav(svgRef, order, props.onOpenShot)
 
   // Rings and the average glide when the club or the filters change.
   const zero: ScreenRing = { cx, cy, rx: 0, ry: 0, rot: 0 }
@@ -239,6 +239,7 @@ export function AimPlot(props: ChartProps) {
           warn={kinds.get(hot.p.id) === 'conflict'}
           bounds={bounds}
           dots={dots}
+          link={nav.link}
         />
       )}
     </svg>

@@ -85,6 +85,8 @@ export function AimPlot(props: ChartProps) {
       hot={hot}
       onHot={onHot}
       readout={hotD ? shotWords(hotD.p, props.extras[hotD.p.id], unit, props.kinds.get(hotD.p.id)) : null}
+      roundId={hotD ? props.extras[hotD.p.id]?.roundId ?? null : null}
+      onOpenRound={props.onOpenRound}
       bounds={bounds}
     >
       {rules.map((v) => {

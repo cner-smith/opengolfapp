@@ -51,7 +51,8 @@ import {
 // flightControls). The landing area is drawn at one true scale (across =
 // along); the stretch from the tee to a round-number break is shortened, so a
 // 250 yd drive doesn't shrink the landing area to a sliver. Below the break
-// the flights are drawn through the same squeeze, which widens their start
+// distance runs on a power curve that meets the true scale at the break with
+// the same slope, so no flight kinks there. The squeeze widens the start
 // angles: the faint wedge shows how wide a straight push or pull would look.
 
 export interface TeeShot {
@@ -63,7 +64,7 @@ export interface TeeShot {
 
 const S: FlightPoint = { x: 0, y: 0 }
 
-function cubic(p1: FlightPoint, p2: FlightPoint, E: FlightPoint, n = 36): FlightPoint[] {
+function cubic(p1: FlightPoint, p2: FlightPoint, E: FlightPoint, n = 48): FlightPoint[] {
   const out: FlightPoint[] = []
   for (let i = 0; i <= n; i++) {
     const t = i / n
@@ -100,8 +101,12 @@ export function teeBreakYards(ys: number[]) {
   return lowY > 90 ? Math.floor((lowY * 0.82) / 25) * 25 : 0
 }
 
+/** A straight line from the tee to (lat, d), sampled so it follows the curve. */
+const wedgeEdge = (lat: number, d: number) => Array.from({ length: 49 }, (_, i) => ({ x: (lat * i) / 48, y: (d * i) / 48 }))
+
 const TRIGHT = 12
 const SHORTENED_PX = 64
+const MAX_POWER = 3
 
 const mostCommon = <K extends string>(keys: readonly K[], values: (K | null | undefined)[]): K | null => {
   let best: K | null = null
@@ -140,15 +145,24 @@ export function TeePlot(props: ChartProps) {
     const lo = Math.min(...xs)
     const hi = Math.max(...xs)
     const halfW = Math.max((hi - lo) / 2, 10) * 1.1
-    const comp = brk > 0 ? SHORTENED_PX : 0
-    const scale = Math.min((TEE_Y - 16 - comp) / (maxY - brk), (TW - TLEFT - TRIGHT) / 2 / halfW)
+    // The shortened band is at least SHORTENED_PX tall, and tall enough that
+    // its curve's power stays at or under MAX_POWER: a steeper curve leaves the
+    // tee flat, and every flight would start sideways.
+    const H = TEE_Y - 16
+    const wide = (TW - TLEFT - TRIGHT) / 2 / halfW
+    const steep = Math.min(H / (maxY - brk + brk / MAX_POWER), wide)
+    const comp = brk > 0 ? Math.max(SHORTENED_PX, (steep * brk) / MAX_POWER) : 0
+    const scale = Math.min((H - comp) / (maxY - brk), wide)
     return { avgAim, hasStart, shots, olderEnds, maxY, brk, comp, centre: (lo + hi) / 2, scale }
   }, [points, older, stats, leftHanded, TW, TLEFT, TEE_Y])
 
   const { avgAim, shots, olderEnds, maxY, brk, comp, centre, scale } = geo
   const midX = TLEFT + (TW - TLEFT - TRIGHT) / 2
   const x = (l: number) => midX + (l - centre) * scale
-  const y = (d: number) => (d <= brk ? TEE_Y - (brk > 0 ? (d / brk) * comp : 0) : TEE_Y - comp - (d - brk) * scale)
+  // Below the break: comp·(d/brk)^r, with r chosen so its slope at the break
+  // equals the true scale above it (no kink in the flights).
+  const r = brk > 0 ? (scale * brk) / comp : 1
+  const y = (d: number) => (d <= brk ? TEE_Y - (brk > 0 ? Math.pow(Math.max(d, 0) / brk, r) * comp : 0) : TEE_Y - comp - (d - brk) * scale)
   const line = (pts: FlightPoint[]) => pts.map((q, i) => `${i ? 'L' : 'M'} ${x(q.x).toFixed(1)} ${y(q.y).toFixed(1)}`).join(' ')
 
   const styled = shots.map((s) => ({ ...s, s: markStyle(s.p, props, dense), dx: x(s.E.x), dy: y(s.E.y) }))
@@ -158,7 +172,7 @@ export function TeePlot(props: ChartProps) {
     () => (layers.shots || layers.flights ? visible.map((d) => d.p).sort(byDistance).map((p) => p.id) : []),
     [visible, layers.shots, layers.flights],
   )
-  const nav = useShotNav(svgRef, order)
+  const nav = useShotNav(svgRef, order, props.onOpenShot)
 
   const ringAt = (r: DispersionRing): ScreenRing => ({ cx: x(r.cx), cy: y(avgAim + r.cy), rx: r.rx * scale, ry: r.ry * scale, rot: -r.rotationDeg })
   const zero: ScreenRing = { cx: x(0), cy: y(avgAim), rx: 0, ry: 0, rot: 0 }
@@ -260,7 +274,7 @@ export function TeePlot(props: ChartProps) {
         )}
         {/* The start-line wedge: a straight 4° pull or push, as drawn. */}
         <path
-          d={`M ${teeX} ${TEE_Y} L ${x(-wedgeX)} ${y(wedgeD)} L ${x(wedgeX)} ${y(wedgeD)} Z`}
+          d={`${line(wedgeEdge(-wedgeX, wedgeD))} ${line(wedgeEdge(wedgeX, wedgeD).reverse()).replace('M', 'L')} Z`}
           fill={INK}
           fillOpacity={0.045}
           stroke={DIM}
@@ -360,6 +374,7 @@ export function TeePlot(props: ChartProps) {
           warn={hot.kind === 'conflict'}
           bounds={bounds}
           dots={dots}
+          link={nav.link}
         />
       )}
     </svg>

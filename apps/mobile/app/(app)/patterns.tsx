@@ -3,6 +3,7 @@ import { AccessibilityInfo, Alert, ScrollView, Text, useWindowDimensions, View }
 import { captureRef } from 'react-native-view-shot'
 import * as Sharing from 'expo-sharing'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import { useRouter } from 'expo-router'
 import {
   CLUBS,
   DEFAULT_BAG,
@@ -42,7 +43,7 @@ import { Key, KeyText, PaperSurface } from '../../components/paper/Paper'
 import { FONT_CAP, P } from '../../components/paper/tokens'
 import { useClubDispersion } from '../../components/round/hole/useClubDispersion'
 import { PatternsEmpty, PatternsProgress } from '../../components/patterns/PatternsPreview'
-import { ClubLadder, ViewToggle, ladderGaps, type ChartView } from '../../components/patterns/YardageBook'
+import { ClubLadder, ViewToggle, type ChartView } from '../../components/patterns/YardageBook'
 import { AimPlot } from '../../components/patterns/AimPlot'
 import { TeePlot, teeBreakYards } from '../../components/patterns/TeePlot'
 import { averageAim, flightOf, type ChartProps } from '../../components/patterns/chartParts'
@@ -89,7 +90,11 @@ interface ShotRow {
   start_line: ShotStartLine | null
   penalty: boolean
   ob: boolean
-  hole_scores: { rounds: { played_at: string } | null; holes: { number: number } | null } | null
+  hole_scores: {
+    round_id: string
+    rounds: { played_at: string; courses: { name: string } | null } | null
+    holes: { number: number } | null
+  } | null
 }
 
 function rowToShot(r: ShotRow): Shot {
@@ -145,6 +150,7 @@ function recentIdsOf(points: DispersionPoint[]) {
 
 export default function Patterns() {
   const { user } = useAuth()
+  const router = useRouter()
   const insets = useSafeAreaInsets()
   const { width: screenWidth } = useWindowDimensions()
   const { unit } = useUnits()
@@ -231,7 +237,14 @@ export default function Patterns() {
   const rva = useMemo(() => recentVsAll(points, RECENT), [points])
   const extras = useMemo(() => {
     const m: Record<string, ShotExtras> = {}
-    for (const r of shots) m[r.id] = { contact: r.contact ?? null, hole: r.hole_scores?.holes?.number ?? null }
+    for (const r of shots) {
+      m[r.id] = {
+        contact: r.contact ?? null,
+        hole: r.hole_scores?.holes?.number ?? null,
+        roundId: r.hole_scores?.round_id ?? null,
+        course: r.hole_scores?.rounds?.courses?.name ?? null,
+      }
+    }
     return m
   }, [shots])
 
@@ -308,14 +321,14 @@ export default function Patterns() {
   const ghost = recentOn ? { stats: rva.all, label: 'all shots' } : filtered && allStats ? { stats: allStats, label: 'all lies' } : null
   const recentIds = recentOn ? recentIdsOf(points) : null
 
-  const finding = stats ? findingLine(stats, club, unit, tee) : null
-  const subline = `${n} ${noun} shot${n === 1 ? '' : 's'}${filterPhrase ? ` ${filterPhrase}` : ''}, measured from the aim you set${stats ? `: ${readQuality(n)}` : ''}.`
+  const finding = stats ? findingLine(stats, points, club, unit, tee) : null
+  // One line, so the chart starts higher: the club is in the finding and the ladder.
+  const subline = `${n} shot${n === 1 ? '' : 's'}${filterPhrase ? ` ${filterPhrase}` : ''}, measured from your aim${stats ? `: ${readQuality(n)}` : ''}.`
   const recentLine = rva
     ? Math.abs(rva.width68Change) < 1
       ? `Your last ${RECENT}: two in three inside ${mag(rva.recent.cone68.lateral * 2)}, the same as over all ${n}.`
       : `Your last ${RECENT}: two in three inside ${mag(rva.recent.cone68.lateral * 2)}, ${rva.width68Change < 0 ? 'down' : 'up'} from ${num(rva.all.cone68.lateral * 2)} over all ${n}.`
     : null
-  const gaps = ladderGaps(clubOptions, typicalYards, mag)
 
   // The legend: each group of shots under the chosen colour, with its count.
   const cats = categoriesFor(colourBy, leftHanded)
@@ -405,6 +418,7 @@ export default function Patterns() {
     summary,
     hot,
     onHot: pickShot,
+    onOpenRound: (id) => router.push(`/(app)/round/${id}`),
     empty: n === 0 ? `No ${noun} shots ${filterPhrase}` : undefined,
   }
 
@@ -431,11 +445,11 @@ export default function Patterns() {
       <ScrollView contentContainerStyle={{ padding: pad, paddingBottom: 40 }}>
         <Entrance index={0}>
           {finding && (
-            <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.serif, { fontSize: 23, lineHeight: 30, color: P.ink }]}>
+            <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.serif, { fontSize: 20, lineHeight: 26, color: P.ink }]}>
               {finding}
             </Text>
           )}
-          <Text accessibilityLiveRegion="polite" maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { color: P.inkDim, fontSize: 13, lineHeight: 19, marginTop: 6 }]}>
+          <Text accessibilityLiveRegion="polite" maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { color: P.inkDim, fontSize: 13, lineHeight: 19, marginTop: 4 }]}>
             {subline}
           </Text>
           {recentLine && (
@@ -443,18 +457,13 @@ export default function Patterns() {
               {recentLine}
             </Text>
           )}
-          <View style={{ marginTop: 14 }}>
+          <View style={{ marginTop: 12 }}>
             <ClubLadder clubs={clubOptions} value={club} onChange={setClub} typical={ladderNumber} aimed={aimed} unitWords={metres ? 'metres' : 'yards'} width={screenWidth - pad * 2} />
           </View>
-          {gaps.length > 0 && (
-            <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { color: P.inkDim, fontSize: 12, marginTop: 6 }]}>
-              Gap{gaps.length === 1 ? '' : 's'} in the bag: {gaps.join('; ')}.
-            </Text>
-          )}
         </Entrance>
 
         <Entrance index={1}>
-          <View style={{ marginTop: 14 }}>
+          <View style={{ marginTop: 6 }}>
             <ViewToggle
               value={view}
               onChange={setView}
