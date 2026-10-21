@@ -15,10 +15,12 @@
  * club's median sits on its rung and the 7-iron reads short and right.
  * Same SEED, same screens.
  *
- * Against the 15-bracket baseline (a 12.4) a clean ~235-yd drive gains about
- * 0.25, so the driver carries real trouble (topped drives, about a penalty a
- * round) to keep off the tee near +1.5 a round, with a sharp short game and
- * putting making up the rest of a 12.4's ~+2.6.
+ * Against the 15-bracket baseline (a 12.4) a clean ~225-yd drive gains about
+ * 0.2, so off the tee comes down to about +1.5 a round through direction:
+ * wide drives that find water or go out of bounds. Every club keeps a tight
+ * distance spread (My Bag's two-in-three ranges); approach shots miss because
+ * Sam misreads the yardage and takes the wrong club. A sharp short game and
+ * putting make up the rest of a 12.4's ~+2.5.
  */
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@oga/supabase'
@@ -31,6 +33,7 @@ import {
   combinedPuttResult,
   computeDispersion,
   computeDispersionStats,
+  clubDistanceRange,
   computeRoundSG,
   getHandicapBracket,
   haversineYards,
@@ -39,6 +42,7 @@ import {
   sgFinding,
   shotRowToShot,
   type DispersionPoint,
+  type DistanceRange,
   type SGBreakdown,
   type Shot,
   type ShotShape,
@@ -97,15 +101,22 @@ const ROUNDS: { daysAgo: number; course: string; approach: number }[] = [
 
 // Per-round targets for the other categories, near where this player lands
 // unpicked, and the differential each round aims at (its score on that tee).
-const TARGET = { offTee: 1.45, aroundGreen: 0.75, putting: 0.95 }
+const TARGET = { offTee: 1.4, aroundGreen: 0.75, putting: 0.85 }
 const DIFFERENTIALS = [
-  13.6, 16.4, 12.2, 15.3, 17.0, 11.9, 12.9, 17.8, 14.8, 12.4, 15.7, 14.3, 12.6, 16.6, 14.6,
+  13.4, 15.9, 12.2, 14.9, 16.5, 11.9, 12.9, 17.2, 14.4, 12.4, 15.2, 13.9, 12.6, 16.1, 14.2,
 ]
 const START_INDEX = 12.4
-const CANDIDATES = 1200
-const SHORTLIST = 150
-const ANNEAL_STEPS = 150_000
+const CANDIDATES = 2000
+const SHORTLIST = 250
+const ANNEAL_STEPS = 300_000
 const LEAK = -0.8
+// Per category over Last 10 and Last 15, strokes a round (approach is LEAK).
+const SPREAD = {
+  offTee: [1.25, 1.55],
+  aroundGreen: [0.62, 0.88],
+  putting: [0.72, 0.98],
+  total: [2.45, 2.85],
+} as const
 // The 7-iron's average finish from the aim, yards: a little short and right.
 const SEVEN_IRON = { short: 6, right: 6 }
 const SEED = 20261021
@@ -284,42 +295,52 @@ function playRound(
   }
 }
 
-// Where each club's median should land: its full swing (stock + long), a
-// couple of yards under for the mishits; the lob wedge also plays 60–90 yd.
-const typicalTarget = (club: string) =>
-  club === 'lw' ? 79 : PLAY[club]!.stock + PLAY[club]!.long - 2
+// Outside [lo, hi] costs steeply; inside is free.
+const band = (v: number, lo: number, hi: number) => (Math.max(0, lo - v, v - hi) / 0.01) ** 2
+const mean = (picked: Candidate[], n: number, k: keyof SGBreakdown) =>
+  picked.slice(0, n).reduce((s, c) => s + c.sg[k], 0) / n
 
-// The whole set's fit: each round's own cost, every club's median on its
-// rung, Last 5 / 10 / 15 approach at −0.8, the index at START_INDEX and a
-// 7-iron pattern Patterns calls short and right with room to spare.
+// The whole set's fit. Hard bands: My Bag's ladder (neighbouring medians
+// 8–18 yd apart, each two-in-three range within ±8% of it, neighbours
+// overlapping by 8 yd at most), about a penalty and a half a round, the SG
+// spread over Last 10 and 15 (approach the leak over Last 5 too), the index
+// and a 7-iron that Patterns calls short and right on a fade. The rounds' own
+// costs break ties.
 function setCost(picked: Candidate[]): number {
-  let cost = picked.reduce((s, c) => s + c.cost, 0)
+  let cost = picked.reduce((s, c) => s + c.cost, 0) / 10
+  let longer: (DistanceRange & { median: number }) | null = null
   for (const club of Object.keys(PLAY)) {
-    const m = median(picked.flatMap((c) => c.yards.get(club) ?? []))
-    cost += m == null ? 1e6 : ((m - typicalTarget(club)) / 0.5) ** 2
+    const yards = picked.flatMap((c) => c.yards.get(club) ?? [])
+    const m = median(yards)
+    const range = clubDistanceRange(yards)
+    if (m == null || !range) return cost + 1e9
+    cost += band((range.high - range.low) / 2, 0, 0.08 * m) / 100
+    if (longer) {
+      cost += band(longer.median - m, 8, 18) / 100
+      cost += band(range.high - longer.low, -Infinity, 8) / 100
+    }
+    longer = { ...range, median: m }
   }
-  for (const n of [5, 10, 15]) {
-    const mean = picked.slice(0, n).reduce((s, c) => s + c.sg.approach, 0) / n
-    cost += ((mean - LEAK) / 0.008) ** 2
-  }
-  // The rest of the spread holds over Last 10 and Last 15 too.
+  const penalties = picked.reduce((s, c) => s + c.holes.reduce((t, h) => t + h.penalties, 0), 0)
+  cost += band(penalties / picked.length, 1.2, 2.2) / 10
+  for (const n of [5, 10, 15]) cost += band(mean(picked, n, 'approach'), LEAK - 0.04, LEAK + 0.04)
   for (const n of [10, 15]) {
-    for (const k of ['offTee', 'aroundGreen', 'putting'] as const) {
-      const mean = picked.slice(0, n).reduce((s, c) => s + c.sg[k], 0) / n
-      cost += ((mean - TARGET[k]) / 0.05) ** 2
+    for (const [k, [lo, hi]] of Object.entries(SPREAD) as [
+      keyof typeof SPREAD,
+      [number, number],
+    ][]) {
+      cost += band(mean(picked, n, k), lo, hi)
     }
   }
   const index = calculateHandicapIndex(picked.map((c) => c.diff))
-  cost += index == null ? 1e6 : ((index - START_INDEX) / 0.02) ** 2
+  cost += index == null ? 1e9 : band(index, START_INDEX, START_INDEX)
   const stats = computeDispersionStats(picked.flatMap((c) => c.seven))
-  if (!stats) return cost + 1e6
-  const noise = (sd: number) => Math.max(2, (2 * sd) / Math.sqrt(stats.sampleSize - 1)) + 1.5
-  cost += (Math.max(0, noise(stats.stdLateral) - stats.avgLateralOffset) / 0.5) ** 2
-  cost += (Math.max(0, noise(stats.stdDistance) + stats.avgDistanceOffset) / 0.5) ** 2
-  cost +=
-    ((stats.avgDistanceOffset + SEVEN_IRON.short) / 0.5) ** 2 +
-    ((stats.avgLateralOffset - SEVEN_IRON.right) / 0.5) ** 2
-  if (stats.shape !== 'fade') cost += 1000
+  if (!stats) return cost + 1e9
+  const advice = aimAdvice(stats)
+  if (advice.distance !== 'short' || advice.lateral !== 'right' || stats.shape !== 'fade')
+    cost += 1e6
+  cost += band(-stats.avgDistanceOffset, SEVEN_IRON.short - 2, SEVEN_IRON.short + 2) / 100
+  cost += band(stats.avgLateralOffset, SEVEN_IRON.right - 2, SEVEN_IRON.right + 2) / 100
   return cost
 }
 
@@ -327,6 +348,15 @@ function setCost(picked: Candidate[]): number {
 // the set: swap one round's pick at a time, keep what lowers setCost (and,
 // early on, some of what doesn't, to get out of local minima). Same SEED,
 // same rounds.
+// The live-round map capture: in the latest round, Bear Creek's 9th (a straight
+// par 4, so the drive's aim on the tee-to-pin line is in the fairway) is a
+// drive in the fairway, an approach on the green and two putts or fewer.
+const SHOWCASE_HOLE = 9
+function showcase(c: Candidate): boolean {
+  const h = c.holes.find((x) => x.hole.number === SHOWCASE_HOLE)!
+  return h.fairwayHit === true && h.gir && h.penalties === 0 && h.putts <= 2
+}
+
 function pickRounds(courses: Map<string, PromoCourse>): Candidate[] {
   const pools = ROUNDS.map((r, i) => {
     const course = courses.get(r.course)!
@@ -335,8 +365,12 @@ function pickRounds(courses: Map<string, PromoCourse>): Candidate[] {
       score: course.tee.rating + (DIFFERENTIALS[i]! * course.tee.slope) / 113,
     }
     const all: Candidate[] = []
-    for (let k = 0; k < CANDIDATES; k++)
-      all.push(playRound(course, SEED + i * 7919 + k * 104_729, target))
+    for (let k = 0; k < CANDIDATES; k++) {
+      const c = playRound(course, SEED + i * 7919 + k * 104_729, target)
+      if (i === 0 && !showcase(c)) continue
+      all.push(c)
+    }
+    if (all.length === 0) throw new Error('No candidate plays the showcase hole cleanly; retune.')
     return all.sort((a, b) => a.cost - b.cost).slice(0, SHORTLIST)
   })
   const d = dice(SEED)
@@ -347,7 +381,7 @@ function pickRounds(courses: Map<string, PromoCourse>): Candidate[] {
     const temperature = 50 * (1 - step / ANNEAL_STEPS) ** 3
     const i = Math.floor(d.between(0, picked.length))
     const was = picked[i]!
-    picked[i] = pools[i]![Math.floor(d.between(0, SHORTLIST))]!
+    picked[i] = pools[i]![Math.floor(d.between(0, pools[i]!.length))]!
     const cost = setCost(picked)
     if (cost < current || d.chance(Math.exp((current - cost) / Math.max(temperature, 1e-9)))) {
       current = cost

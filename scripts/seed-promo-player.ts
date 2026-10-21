@@ -33,7 +33,7 @@ export function dice(seed: number): Dice {
 // Per club, in yards at the finish: `stock` is the number Sam plays it for (and
 // typed in My Bag); a full swing finishes stock + `long` ± sdLong. The ball
 // starts `start` ± sdStart off the aim line and curves `curve` ± sdCurve more
-// (right = +); `mishit` is the share of thin / fat strikes, which lose 20–45%.
+// (right = +); `mishit` is the rare thin / fat strike, which loses 20–45%.
 // A right-handed fader; the 7-iron is the one club with a real pattern: a few
 // yards short and right of the aim, starting on line and fading.
 interface Play {
@@ -48,27 +48,31 @@ interface Play {
 }
 // prettier-ignore
 export const PLAY: Record<string, Play> = {
-  driver: { stock: 238, long: -2, sdLong: 14, start: -4, sdStart: 11, curve: 5, sdCurve: 15, mishit: 0.28 },
-  '3w': { stock: 228, long: -3, sdLong: 24, start: -2, sdStart: 13, curve: 4, sdCurve: 19, mishit: 0.17 },
-  '5w': { stock: 214, long: -3, sdLong: 23, start: -2, sdStart: 13, curve: 3, sdCurve: 18, mishit: 0.16 },
-  '5h': { stock: 201, long: -3, sdLong: 22, start: -2, sdStart: 12, curve: 2.5, sdCurve: 17, mishit: 0.15 },
-  '5i': { stock: 189, long: -3, sdLong: 21, start: -1, sdStart: 12, curve: 2.5, sdCurve: 16, mishit: 0.16 },
-  '6i': { stock: 177, long: -3, sdLong: 19, start: -0.5, sdStart: 10, curve: 2, sdCurve: 14, mishit: 0.14 },
-  '7i': { stock: 166, long: -4, sdLong: 9, start: 0.5, sdStart: 5, curve: 6, sdCurve: 3, mishit: 0.03 },
-  '8i': { stock: 152, long: -2, sdLong: 16, start: 0, sdStart: 8, curve: 1, sdCurve: 12, mishit: 0.13 },
-  '9i': { stock: 142, long: -2, sdLong: 14, start: 0, sdStart: 7.5, curve: 0.5, sdCurve: 11, mishit: 0.12 },
-  pw: { stock: 130, long: -2, sdLong: 11, start: 0, sdStart: 6, curve: 0, sdCurve: 9, mishit: 0.1 },
-  gw: { stock: 116, long: -2, sdLong: 10, start: 0, sdStart: 5.5, curve: 0, sdCurve: 8, mishit: 0.1 },
-  sw: { stock: 100, long: -2, sdLong: 9, start: 0, sdStart: 5, curve: 0, sdCurve: 7, mishit: 0.1 },
-  lw: { stock: 88, long: -2, sdLong: 8, start: 0, sdStart: 4.5, curve: 0, sdCurve: 6, mishit: 0.1 },
+  driver: { stock: 225, long: -2, sdLong: 9.5, start: -4, sdStart: 13, curve: 5, sdCurve: 17, mishit: 0.02 },
+  '3w': { stock: 212, long: -3, sdLong: 9.5, start: -2, sdStart: 12, curve: 4, sdCurve: 16, mishit: 0.02 },
+  '5w': { stock: 200, long: -3, sdLong: 9.5, start: -2, sdStart: 12, curve: 3, sdCurve: 15, mishit: 0.02 },
+  '5h': { stock: 190, long: -3, sdLong: 9, start: -2, sdStart: 11, curve: 2.5, sdCurve: 14, mishit: 0.02 },
+  '5i': { stock: 180, long: -3, sdLong: 8.5, start: -1, sdStart: 11, curve: 2.5, sdCurve: 14, mishit: 0.02 },
+  '6i': { stock: 171, long: -3, sdLong: 8, start: -0.5, sdStart: 10, curve: 2, sdCurve: 13, mishit: 0.02 },
+  '7i': { stock: 165, long: -5, sdLong: 7.5, start: 0.5, sdStart: 5, curve: 6, sdCurve: 3, mishit: 0.02 },
+  '8i': { stock: 152, long: -2, sdLong: 7, start: 0, sdStart: 8, curve: 1, sdCurve: 12, mishit: 0.02 },
+  '9i': { stock: 141, long: -2, sdLong: 6.5, start: 0, sdStart: 7.5, curve: 0.5, sdCurve: 11, mishit: 0.02 },
+  pw: { stock: 130, long: -2, sdLong: 6, start: 0, sdStart: 6, curve: 0, sdCurve: 9, mishit: 0.02 },
+  gw: { stock: 117, long: -2, sdLong: 5.5, start: 0, sdStart: 5.5, curve: 0, sdCurve: 8, mishit: 0.02 },
+  sw: { stock: 103, long: -2, sdLong: 5, start: 0, sdStart: 5, curve: 0, sdCurve: 7, mishit: 0.02 },
+  lw: { stock: 89, long: -2, sdLong: 4.5, start: 0, sdStart: 4.5, curve: 0, sdCurve: 6, mishit: 0.02 },
 }
-const WEDGES = new Set(['pw', 'gw', 'sw', 'lw'])
 // Clubs played into a green or laid up with (not the driver), longest first.
 const FAIRWAY_CLUBS = Object.keys(PLAY).filter((c) => c !== 'driver')
 // Inside this, a pitch or chip: played by feel, logged without a club (the
 // club's typical distance is its full swing, not a 30-yd pitch).
 const PITCH_YARDS = 60
-const MAX_GO_FOR_IT = 238
+// How far off Sam's read of an approach's yardage is (wind, lie, the number):
+// the miss comes from the club he picks, not from the club's own spread.
+const JUDGE_SD = 10
+// The share of a between-clubs yardage he takes off (or adds) by feel.
+const FEEL = 0.15
+const MAX_GO_FOR_IT = 224
 
 function nearestClub(yards: number): string {
   return FAIRWAY_CLUBS.reduce((best, c) =>
@@ -148,14 +152,16 @@ export function playHole(hole: PromoHole, d: Dice): SimShot[] {
     const p = PLAY[club]!
     const a = dist(pos, aim)
     const rough = lie === 'rough' || lie === 'sand'
-    const k = WEDGES.has(club) ? 0.25 : 0.5
+    // A full swing goes the club's number; Sam takes only a little off by feel.
     let along =
-      k * (p.stock - a) + p.long + (rough ? -3 : 0) + d.normal(p.sdLong * (rough ? 1.25 : 1))
+      (1 - FEEL) * (p.stock - a) +
+      p.long +
+      (rough ? -2 : 0) +
+      d.normal(p.sdLong * (rough ? 1.1 : 1))
     let contact: ShotContact | null = d.chance(0.6) ? 'solid' : null
-    if (d.chance(p.mishit * (rough ? 1.6 : 1))) {
-      const topped = club === 'driver' && d.chance(0.35)
-      contact = topped ? 'topped' : d.chance(0.55) ? 'thin' : 'fat'
-      along -= a * (topped ? d.between(0.3, 0.45) : d.between(0.2, 0.45))
+    if (d.chance(p.mishit * (rough ? 1.5 : 1))) {
+      contact = d.chance(0.55) ? 'thin' : 'fat'
+      along -= a * d.between(0.2, 0.45)
     }
     let startOff = p.start + d.normal(p.sdStart * (rough ? 1.2 : 1))
     let curve = p.curve + d.normal(p.sdCurve * (rough ? 1.2 : 1))
@@ -163,7 +169,7 @@ export function playHole(hole: PromoHole, d: Dice): SimShot[] {
     let ob = false
     // A couple of honest disasters: a tee shot sliced out of bounds or hooked
     // into the water, and the odd long approach that finds a hazard.
-    if (teeShot && d.chance(0.055)) {
+    if (teeShot && d.chance(0.045)) {
       ob = true
       startOff = d.between(4, 10)
       curve = d.between(38, 50)
@@ -324,7 +330,7 @@ export function playHole(hole: PromoHole, d: Dice): SimShot[] {
       const club = r - PLAY.driver!.stock >= 45 ? 'driver' : nearestClub(r - 100)
       fullSwing(club, toward(pos, pin, PLAY[club]!.stock), true)
     } else if (r <= PITCH_YARDS) shortGame()
-    else if (r <= MAX_GO_FOR_IT) fullSwing(nearestClub(r), pin, false)
+    else if (r <= MAX_GO_FOR_IT) fullSwing(nearestClub(r + d.normal(JUDGE_SD)), pin, false)
     else {
       // Lay up to a full wedge: the club that leaves closest to 95 yd, never inside 70.
       const options = FAIRWAY_CLUBS.filter((c) => r - PLAY[c]!.stock >= 70)
