@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   aimRelativeOffsets,
+  clubDistanceRange,
   clubTypicalDistance,
   computeAimRelativeDispersion,
   computeDispersion,
@@ -387,6 +388,40 @@ describe('clubTypicalDistance', () => {
   it('is null with too few shots and nothing typed', () => {
     expect(clubTypicalDistance(152, 2, null)).toBeNull()
     expect(clubTypicalDistance(undefined, 0, undefined)).toBeNull()
+  })
+})
+
+describe('clubDistanceRange', () => {
+  // Hand-worked with p = 1/6 and 5/6, rank h = (n − 1)·p, linear between
+  // the two sorted values either side of h.
+  it('lands on whole ranks for seven shots: h = 1 and 5', () => {
+    expect(clubDistanceRange([160, 100, 140, 120, 150, 110, 130])).toEqual({ low: 110, high: 150 })
+  })
+
+  it('interpolates between ranks for five unsorted shots', () => {
+    // sorted 130 140 150 160 170; h = 4/6 → 130 + ⅔·10; h = 20/6 → 160 + ⅓·10
+    const r = clubDistanceRange([150, 140, 160, 130, 170])!
+    expect(r.low).toBeCloseTo(136.6667, 4)
+    expect(r.high).toBeCloseTo(163.3333, 4)
+  })
+
+  it('interpolates for eight shots', () => {
+    // sorted 100..170 by 10; h = 7/6 → 110 + ⅙·10; h = 35/6 → 150 + ⅚·10
+    const r = clubDistanceRange([100, 110, 120, 130, 140, 150, 160, 170])!
+    expect(r.low).toBeCloseTo(111.6667, 4)
+    expect(r.high).toBeCloseTo(158.3333, 4)
+  })
+
+  it('is null one shot short of MIN_SAMPLES_FOR_STATS', () => {
+    expect(MIN_SAMPLES_FOR_STATS).toBe(5)
+    expect(clubDistanceRange([130, 140, 150, 160])).toBeNull()
+    expect(clubDistanceRange([])).toBeNull()
+  })
+
+  it('does not reorder the caller\'s array', () => {
+    const d = [150, 140, 160, 130, 170]
+    clubDistanceRange(d)
+    expect(d).toEqual([150, 140, 160, 130, 170])
   })
 })
 

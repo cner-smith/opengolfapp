@@ -516,6 +516,31 @@ export function median(xs: number[]): number | null {
   return s.length % 2 === 0 ? (s[mid - 1]! + s[mid]!) / 2 : s[mid]!
 }
 
+/** Yards, low ≤ high. */
+export interface DistanceRange {
+  low: number
+  high: number
+}
+
+/**
+ * Where two in three of a club's shots finish: the 1/6 and 5/6 quantiles of
+ * its start→finish distances (the same distances its median typical distance
+ * reads), so a sixth finish shorter and a sixth longer. Quantiles interpolate
+ * linearly between sorted values at rank (n − 1)·p (Hyndman–Fan type 7, the
+ * spreadsheet PERCENTILE.INC rule; at p = ½ it is `median`). Null below
+ * MIN_SAMPLES_FOR_STATS distances.
+ */
+export function clubDistanceRange(distancesYards: readonly number[]): DistanceRange | null {
+  if (distancesYards.length < MIN_SAMPLES_FOR_STATS) return null
+  const s = [...distancesYards].sort((a, b) => a - b)
+  const at = (p: number) => {
+    const h = (s.length - 1) * p
+    const i = Math.floor(h)
+    return i + 1 < s.length ? s[i]! + (h - i) * (s[i + 1]! - s[i]!) : s[i]!
+  }
+  return { low: at(1 / 6), high: at(5 / 6) }
+}
+
 export interface ClubTypicalDistance {
   yards: number
   /** 'shots': the median of the player's own shots. 'estimate': the distance
