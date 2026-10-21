@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { flightControls, startLineAngleDeg, type FlightControls, type FlightPoint } from './shot-flight'
+import { cubic, flightControls, startLineAngleDeg, teeBreakYards, type FlightControls, type FlightPoint } from './shot-flight'
 
 // Hand-worked with u(φ) = (sin φ, cos φ), S = (0,0), angles from the aim line:
 //   φC = atan2(ex, ey), L = |E|, β = φC − φ0, φE = φC + β,
@@ -164,5 +164,28 @@ describe('flightControls', () => {
     const f = flightControls(S, S, 'push', 'fade', false)
     expectPoint(f.p1, 0, 0)
     expectPoint(f.p2, 0, 0)
+  })
+})
+
+describe('cubic', () => {
+  it('samples from start to end; t = ½ is (S + 3·p1 + 3·p2 + E) / 8', () => {
+    const pts = cubic({ x: 2, y: 4 }, { x: 0, y: 30 }, { x: 10, y: 60 }, { x: 10, y: 90 }, 2)
+    expect(pts).toHaveLength(3)
+    expectPoint(pts[0]!, 2, 4)
+    expectPoint(pts[1]!, 42 / 8, 364 / 8)
+    expectPoint(pts[2]!, 10, 90)
+  })
+})
+
+describe('teeBreakYards', () => {
+  it('a round 25 at about 82% of the nearest finish; none inside 90 yd', () => {
+    expect(teeBreakYards([230, 200, 260])).toBe(150) // 164 → 150
+    expect(teeBreakYards([100])).toBe(75) // 82 → 75
+    expect(teeBreakYards([90, 240])).toBe(0)
+  })
+
+  it('rounds in the display unit', () => {
+    // 200 yd = 182.9 m; × 0.82 = 150.0 m → 125 m, back in yards.
+    expect(teeBreakYards([200], 1 / 0.9144)).toBeCloseTo(125 / 0.9144, 6)
   })
 })

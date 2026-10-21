@@ -176,9 +176,6 @@ export function computeDispersionStats(points: DispersionPoint[]): DispersionSta
   const n = points.length
   const lateralMiss = beyondNoise(avgLat, stdLat, n)
 
-  const aimDistances = points.flatMap((p) =>
-    p.startDistanceOffsetYards === undefined ? [] : [-p.startDistanceOffsetYards],
-  )
   const ring = covarianceRing(points, avgLat, avgDist)
   const scaled = (k: number): DispersionRing => ({ ...ring, rx: ring.rx * k, ry: ring.ry * k })
 
@@ -193,9 +190,35 @@ export function computeDispersionStats(points: DispersionPoint[]): DispersionSta
     shape: shapeTally(points, false).verdict, // the verdict word doesn't depend on hand
     ring68: scaled(CONE_68_K),
     ring95: scaled(CONE_95_K),
-    avgAimDistance: aimDistances.length ? mean(aimDistances) : null,
+    avgAimDistance: averageAimDistance(points),
     sampleSize: n,
   }
+}
+
+/** Average start-to-aim distance over the shots with a start, yards; null
+ *  when none has one. */
+export function averageAimDistance(points: DispersionPoint[]): number | null {
+  const aims = points.flatMap((p) => (p.startDistanceOffsetYards == null ? [] : [-p.startDistanceOffsetYards]))
+  return aims.length ? mean(aims) : null
+}
+
+/** A ring's half-extent along each axis of its frame (it may be tilted). */
+export function ringExtent(r: DispersionRing): { x: number; y: number } {
+  const t = toRadians(r.rotationDeg)
+  return {
+    x: Math.hypot(r.rx * Math.cos(t), r.ry * Math.sin(t)),
+    y: Math.hypot(r.rx * Math.sin(t), r.ry * Math.cos(t)),
+  }
+}
+
+/** Is an aim-frame point (x right, y long, yards) inside or on the ring? */
+export function insideRing(r: DispersionRing, x: number, y: number): boolean {
+  const t = toRadians(r.rotationDeg)
+  const dx = x - r.cx
+  const dy = y - r.cy
+  const u = dx * Math.cos(t) + dy * Math.sin(t)
+  const v = -dx * Math.sin(t) + dy * Math.cos(t)
+  return (u / Math.max(r.rx, 1e-6)) ** 2 + (v / Math.max(r.ry, 1e-6)) ** 2 <= 1
 }
 
 /** The 1σ ellipse of the points' 2×2 covariance, on its eigenvectors. */
@@ -263,8 +286,9 @@ export interface RecordedTally<K extends string> {
   counts: Record<K, number>
   recorded: number
   notRecorded: number
-  /** A value holding at least half of MIN_SAMPLES_FOR_STATS or more recorded
-   *  shots (and more than any other); 'mixed' otherwise; null under five. */
+  /** The commonest value when it holds at least half of the recorded shots
+   *  and strictly more than the next (2·top ≥ recorded and top > second);
+   *  'mixed' otherwise; null under MIN_SAMPLES_FOR_STATS (5) recorded. */
   verdict: K | 'mixed' | null
   /** Which side of the screen has more: curving (shape) or starting (start
    *  line) left vs right, mirrored for a left-hander. Null when even. */
@@ -395,14 +419,24 @@ export interface RecentVsAll {
   width68Change: number
 }
 
-/** The most recent `count` shots by played date (undated count as oldest)
- *  against all of them. Null when there are no older shots to compare. */
-export function recentVsAll(points: DispersionPoint[], count = 20): RecentVsAll | null {
-  if (points.length <= count) return null
+/** Every shot newest first by played date (undated last; ties keep their
+ *  order), split into the newest `count` and the rest. Both lists stay newest
+ *  first, so `[...recent, ...older]` is the whole list in that order. */
+export function recentPoints(
+  points: DispersionPoint[],
+  count: number,
+): { recent: DispersionPoint[]; older: DispersionPoint[] } {
   const newestFirst = [...points].sort((a, b) =>
     (b.playedAt ?? '') < (a.playedAt ?? '') ? -1 : (b.playedAt ?? '') > (a.playedAt ?? '') ? 1 : 0,
   )
-  const recent = computeDispersionStats(newestFirst.slice(0, count))
+  return { recent: newestFirst.slice(0, count), older: newestFirst.slice(count) }
+}
+
+/** The most recent `count` shots (recentPoints) against all of them. Null
+ *  when there are no older shots to compare. */
+export function recentVsAll(points: DispersionPoint[], count = 20): RecentVsAll | null {
+  if (points.length <= count) return null
+  const recent = computeDispersionStats(recentPoints(points, count).recent)
   const all = computeDispersionStats(points)
   if (!recent || !all) return null
   return { recent, all, width68Change: 2 * (recent.cone68.lateral - all.cone68.lateral) }
@@ -471,6 +505,15 @@ export function computeAimRelativeDispersion(shots: Shot[]): AimRelativeDispersi
     points,
     sampleSize: points.length,
   }
+}
+
+/** The middle value (the mean of the middle two for an even count); null
+ *  when empty. */
+export function median(xs: number[]): number | null {
+  if (xs.length === 0) return null
+  const s = [...xs].sort((a, b) => a - b)
+  const mid = Math.floor(s.length / 2)
+  return s.length % 2 === 0 ? (s[mid - 1]! + s[mid]!) / 2 : s[mid]!
 }
 
 export interface ClubTypicalDistance {

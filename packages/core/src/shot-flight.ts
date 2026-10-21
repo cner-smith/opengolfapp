@@ -113,3 +113,28 @@ export function flightControls(
     kind,
   }
 }
+
+/** The cubic Bézier start → p1 → p2 → end sampled at n + 1 evenly spaced t. */
+export function cubic(start: FlightPoint, p1: FlightPoint, p2: FlightPoint, end: FlightPoint, n = 48): FlightPoint[] {
+  const out: FlightPoint[] = []
+  for (let i = 0; i <= n; i++) {
+    const t = i / n
+    const a = (1 - t) ** 3
+    const b = 3 * (1 - t) ** 2 * t
+    const c = 3 * (1 - t) * t * t
+    const d = t ** 3
+    out.push({ x: a * start.x + b * p1.x + c * p2.x + d * end.x, y: a * start.y + b * p1.y + c * p2.y + d * end.y })
+  }
+  return out
+}
+
+/**
+ * Where the tee view's shortened stretch ends, yards from the tee: a round
+ * 25 in the display unit (`yardsPerUnit` yards each) at about 82% of the
+ * nearest of `ys` (finishes, ring edges). 0 when that is inside 90 yd, so a
+ * short pattern isn't shortened.
+ */
+export function teeBreakYards(ys: number[], yardsPerUnit = 1): number {
+  const lowY = Math.min(...ys)
+  return lowY > 90 ? Math.floor(((lowY / yardsPerUnit) * 0.82) / 25) * 25 * yardsPerUnit : 0
+}

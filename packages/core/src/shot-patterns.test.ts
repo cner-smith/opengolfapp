@@ -5,7 +5,12 @@ import {
   computeAimRelativeDispersion,
   computeDispersion,
   aimAdvice,
+  averageAimDistance,
   computeDispersionStats,
+  insideRing,
+  median,
+  recentPoints,
+  ringExtent,
   dispersionVerdict,
   filterDispersionByLie,
   getAimCorrection,
@@ -637,5 +642,86 @@ describe('recentVsAll (WEB-17)', () => {
     const r = recentVsAll([...old, ...recent], 5)!
     expect(r.recent.sampleSize).toBe(5)
     expect(r.recent.stdLateral).toBeCloseTo(1.95959, 4)
+  })
+})
+
+describe('ring geometry', () => {
+  const ring = { cx: 0, cy: 0, rx: 10, ry: 5, rotationDeg: 0 }
+
+  it('insideRing: on or inside the ellipse', () => {
+    expect(insideRing(ring, 9, 0)).toBe(true)
+    expect(insideRing(ring, 10, 0)).toBe(true)
+    expect(insideRing(ring, 0, 6)).toBe(false)
+    expect(insideRing({ ...ring, cx: 20, cy: -4 }, 28, -4)).toBe(true)
+  })
+
+  it('insideRing turns with the ring (counter-clockwise, towards long)', () => {
+    // 9 yd along the long axis turned 30°: (9 cos 30°, 9 sin 30°).
+    const p = { x: 9 * Math.cos(Math.PI / 6), y: 4.5 }
+    expect(insideRing({ ...ring, rotationDeg: 30 }, p.x, p.y)).toBe(true)
+    expect(insideRing(ring, p.x, p.y)).toBe(false)
+    expect(insideRing({ ...ring, rotationDeg: -30 }, p.x, p.y)).toBe(false)
+    // 1 yd along and 4.9 across the turned axes: (1/10)² + (4.9/5)² = 0.97.
+    const c = Math.cos(Math.PI / 6)
+    const s = 0.5
+    expect(insideRing({ ...ring, rotationDeg: 30 }, c - 4.9 * s, s + 4.9 * c)).toBe(true)
+  })
+
+  it('insideRing: a flat ring still holds its own axis', () => {
+    expect(insideRing({ ...ring, ry: 0 }, 3, 0)).toBe(true)
+    expect(insideRing({ ...ring, ry: 0 }, 3, 1)).toBe(false)
+  })
+
+  it('ringExtent: half-extent on each axis', () => {
+    expect(ringExtent(ring)).toEqual({ x: 10, y: 5 })
+    const e = ringExtent({ ...ring, rotationDeg: 90 })
+    expect(e.x).toBeCloseTo(5, 9)
+    expect(e.y).toBeCloseTo(10, 9)
+    const d = ringExtent({ ...ring, ry: 0, rotationDeg: 45 })
+    expect(d.x).toBeCloseTo(10 * Math.SQRT1_2, 9)
+    expect(d.y).toBeCloseTo(10 * Math.SQRT1_2, 9)
+  })
+})
+
+describe('averageAimDistance', () => {
+  it('averages the shots with a start; null without one', () => {
+    const at = (start?: number): DispersionPoint => ({ id: String(start), lateralOffsetYards: 0, distanceOffsetYards: 0, startDistanceOffsetYards: start })
+    expect(averageAimDistance([at(-150), at(-160), at()])).toBe(155)
+    expect(averageAimDistance([at()])).toBeNull()
+  })
+})
+
+describe('median', () => {
+  it('middle value, mean of the middle two, null when empty; leaves the input alone', () => {
+    const xs = [4, 1, 3, 2]
+    expect(median(xs)).toBe(2.5)
+    expect(xs).toEqual([4, 1, 3, 2])
+    expect(median([3, 1, 2])).toBe(2)
+    expect(median([])).toBeNull()
+  })
+})
+
+describe('recentPoints', () => {
+  const at = (id: string, playedAt?: string): DispersionPoint => ({ id, lateralOffsetYards: 0, distanceOffsetYards: 0, playedAt })
+  const points = [at('a', '2026-10-01'), at('b'), at('c', '2026-10-05'), at('d', '2026-09-01'), at('e', '2026-10-05')]
+
+  it('newest first, undated last, ties in their order', () => {
+    const { recent, older } = recentPoints(points, 2)
+    expect(recent.map((p) => p.id)).toEqual(['c', 'e'])
+    expect(older.map((p) => p.id)).toEqual(['a', 'd', 'b'])
+  })
+
+  it('more asked than there are: all recent, none older', () => {
+    const { recent, older } = recentPoints(points, 9)
+    expect(recent.map((p) => p.id)).toEqual(['c', 'e', 'a', 'd', 'b'])
+    expect(older).toEqual([])
+  })
+
+  it('recentVsAll rings are the same newest shots', () => {
+    const spread = points.concat(
+      [1, 2, 3, 4, 5, 6].map((i) => ({ id: `x${i}`, lateralOffsetYards: i * 3, distanceOffsetYards: -i, playedAt: `2026-08-0${i}` })),
+    )
+    const r = recentVsAll(spread, 5)!
+    expect(r.recent).toEqual(computeDispersionStats(recentPoints(spread, 5).recent))
   })
 })
