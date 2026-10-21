@@ -16,6 +16,20 @@ test.describe('Rounds list (signed in)', () => {
     await expect(page.locator('main li').first()).toContainText(/[A-Z][a-z]{2} \d{1,2}, \d{4}/)
   })
 
+  // #1195: the list (and its "N rounds logged") used to stop at the newest 20.
+  test('asks for every round, not just the newest 20', async ({ page }) => {
+    const limits: number[] = []
+    page.on('request', (r) => {
+      const u = new URL(r.url())
+      if (r.method() === 'GET' && u.pathname.endsWith('/rest/v1/rounds') && u.searchParams.has('limit')) {
+        limits.push(Number(u.searchParams.get('limit')))
+      }
+    })
+    await page.goto('/rounds')
+    await expect(page.getByRole('heading', { name: /^Rounds$/i })).toBeVisible()
+    await expect.poll(() => Math.max(0, ...limits)).toBeGreaterThanOrEqual(500)
+  })
+
   test('offers Import rounds and New round', async ({ page }) => {
     await page.goto('/rounds')
     await expect(page.getByRole('link', { name: 'Import rounds' })).toHaveAttribute('href', '/rounds/import')
