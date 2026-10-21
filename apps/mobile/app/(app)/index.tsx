@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router'
 import { DeviceEventEmitter, Pressable, ScrollView, Text, View } from 'react-native'
-import { formatSG, isPartialRound, isStaleEmptyRound, sgBreakdown } from '@oga/core'
+import { formatSG, isPartialRound, isStaleEmptyRound, sgBreakdown, sgFinding } from '@oga/core'
 import { deleteRound, getProfile, getRecentRounds } from '@oga/supabase'
 import type { Database } from '@oga/supabase'
 import { supabase } from '../../lib/supabase'
@@ -296,7 +296,7 @@ export default function Home() {
         {wholeRounds.length > 0 && (
           <Entrance index={1}>
             <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.serif, { color: P.ink, fontSize: 19, lineHeight: 25, marginBottom: 20 }]}>
-              {finding(homeStats.weakest, homeStats.strongest)}
+              {sgFinding(homeStats.weakest, homeStats.strongest, 'every part')}
             </Text>
           </Entrance>
         )}
@@ -404,15 +404,4 @@ export default function Home() {
       />
     </PaperSurface>
   )
-}
-
-// Same sentence as the top of Stats. A leak that rounds to 0.0 reads as even (#911).
-function finding(weakest: { label: string; value: number }, strongest: { label: string; value: number }): string {
-  if (weakest.value > -0.05) {
-    return `Every part of your game is gaining strokes; ${strongest.label.toLowerCase()} leads at ${strongest.value.toFixed(1)} a round.`
-  }
-  const leak = `${weakest.label} costs you ${Math.abs(weakest.value).toFixed(1)} strokes a round`
-  return strongest.value >= 0.05
-    ? `${leak}; ${strongest.label.toLowerCase()} gains you ${strongest.value.toFixed(1)}.`
-    : `${leak}.`
 }

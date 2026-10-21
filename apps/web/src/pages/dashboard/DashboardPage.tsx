@@ -1,7 +1,7 @@
 import { lazy, Suspense, useMemo, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { mdiPlay, mdiPlus } from '@mdi/js'
-import { barScale, formatSG, isPartialRound, parseLocalDate, partialRoundLabel, sgBreakdown } from '@oga/core'
+import { barScale, formatSG, isPartialRound, parseLocalDate, partialRoundLabel, sgBreakdown, sgFinding } from '@oga/core'
 import { useRecentSG } from '../../hooks/useRounds'
 import { useProfile } from '../../hooks/useProfile'
 
@@ -223,14 +223,7 @@ function Lede({
   strongest: { label: string; value: number }
   weakest: { label: string; value: number }
 }) {
-  // Same sentence as the top of Stats. A leak that rounds to 0.0 reads as
-  // even, not "costs you 0.0 strokes" (#911).
-  const text =
-    weakest.value > -0.05
-      ? `Every part of your game is gaining strokes; ${strongest.label.toLowerCase()} leads at ${strongest.value.toFixed(1)} a round.`
-      : `${weakest.label} costs you ${Math.abs(weakest.value).toFixed(1)} strokes a round${
-          strongest.value >= 0.05 ? `; ${strongest.label.toLowerCase()} gains you ${strongest.value.toFixed(1)}.` : '.'
-        }`
+  const text = sgFinding(weakest, strongest, 'every part')
   return (
     <p
       className="font-serif text-caddie-ink"
