@@ -22,12 +22,13 @@ export interface GolfPadShot {
 
 export interface GolfPadHole {
   number: number
-  par: number
+  /** Null when the source has no par: the course's par applies. */
+  par: number | null
   score: number
   putts: number | null
   penalties: number
   fairway_hit: boolean | null
-  gir: boolean
+  gir: boolean | null
   shots: GolfPadShot[]
   /** Why the hole imports without shots (SG would be wrong); null when its shots are kept. */
   scores_only: GolfPadScoresOnlyReason | null
@@ -61,27 +62,45 @@ export interface GolfPadPlan {
 
 type Row = Record<string, string>
 
-// RFC 4180 rows: quoted fields may hold commas and doubled quotes. CRLF or LF.
-function parseCsv(text: string): Row[] {
-  const rows: string[][] = []
-  let row: string[] = []
+export interface CsvRecord {
+  /** The line the record starts on, counting from 1 (a quoted field can span lines). */
+  line: number
+  cells: string[]
+  /** The text ended inside a quoted field. */
+  unclosed: boolean
+}
+
+// RFC 4180 records: quoted fields may hold commas, newlines and doubled quotes. CRLF or LF. Blank
+// lines come back as one empty cell.
+export function csvRecords(text: string): CsvRecord[] {
+  const records: CsvRecord[] = []
+  let cells: string[] = []
   let field = ''
   let quoted = false
+  let line = 1
+  let start = 1
+  const end = () => { cells.push(field); records.push({ line: start, cells, unclosed: false }); cells = []; field = ''; start = line }
   for (let i = 0; i < text.length; i++) {
     const c = text[i]!
+    if (c === '\n' || (c === '\r' && text[i + 1] !== '\n')) line++
     if (quoted) {
       if (c === '"' && text[i + 1] === '"') { field += '"'; i++ }
       else if (c === '"') quoted = false
       else field += c
     } else if (c === '"') quoted = true
-    else if (c === ',') { row.push(field); field = '' }
+    else if (c === ',') { cells.push(field); field = '' }
     else if (c === '\n' || c === '\r') {
-      if (c === '\r' && text[i + 1] === '\n') i++
-      row.push(field); rows.push(row); row = []; field = ''
+      if (c === '\r' && text[i + 1] === '\n') { i++; line++ }
+      end()
     } else field += c
   }
-  if (field || row.length) { row.push(field); rows.push(row) }
-  const [header, ...body] = rows.filter((r) => r.some((f) => f !== ''))
+  if (field || cells.length || quoted) { end(); records[records.length - 1]!.unclosed = quoted }
+  return records
+}
+
+function parseCsv(text: string): Row[] {
+  const rows = csvRecords(text).map((r) => r.cells).filter((r) => r.some((f) => f !== ''))
+  const [header, ...body] = rows
   if (!header) return []
   return body.map((r) => Object.fromEntries(header.map((h, i) => [h.trim(), (r[i] ?? '').trim()])))
 }

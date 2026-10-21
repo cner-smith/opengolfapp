@@ -305,7 +305,7 @@ function Group({ title, children }: { title: string; children: React.ReactNode }
   )
 }
 
-function ChoiceRow({ children }: { children: React.ReactNode }) {
+export function ChoiceRow({ children }: { children: React.ReactNode }) {
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2" style={{ gap: 10 }}>
       {children}
@@ -314,7 +314,7 @@ function ChoiceRow({ children }: { children: React.ReactNode }) {
 }
 
 // One of two printed options: a ringed dot marks the pick, the border firms up around it.
-function Choice({
+export function Choice({
   active,
   onClick,
   title,
