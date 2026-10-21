@@ -5,14 +5,16 @@ import {
   computeDispersion,
   computeDispersionStats,
   filterDispersionByLie,
+  haversineYards,
+  type Club,
   type LieSlopeForward,
   type LieSlopeSide,
   type LieType,
   type Shot,
+  type ShotContact,
 } from '@oga/core'
 import { getShotsByClub, getShotsForUser } from '@oga/supabase'
 import { supabase } from '../lib/supabase'
-import type { ShotAxes } from '../pages/patterns/layers'
 import { useAuth } from './useAuth'
 
 interface UseShotPatternsArgs {
@@ -22,7 +24,16 @@ interface UseShotPatternsArgs {
   lieSlopeSide?: LieSlopeSide
 }
 
-function rowToShot(row: Record<string, unknown>): Shot {
+/** What a pattern point doesn't carry but the shot readout shows. */
+export interface ShotExtras {
+  contact: ShotContact | null
+  hole: number | null
+}
+
+type Row = Record<string, unknown>
+
+function rowToShot(row: Row): Shot {
+  const round = (row.hole_scores as { rounds?: { played_at?: string | null } | null } | undefined)?.rounds
   return {
     id: row.id as string,
     holeScoreId: row.hole_score_id as string,
@@ -38,75 +49,97 @@ function rowToShot(row: Record<string, unknown>): Shot {
     club: (row.club as Shot['club']) ?? undefined,
     lieType: (row.lie_type as Shot['lieType']) ?? undefined,
     lieSlope: (row.lie_slope as Shot['lieSlope']) ?? undefined,
-    lieSlopeForward:
-      (row.lie_slope_forward as Shot['lieSlopeForward']) ?? undefined,
-    lieSlopeSide:
-      (row.lie_slope_side as Shot['lieSlopeSide']) ?? undefined,
+    lieSlopeForward: (row.lie_slope_forward as Shot['lieSlopeForward']) ?? undefined,
+    lieSlopeSide: (row.lie_slope_side as Shot['lieSlopeSide']) ?? undefined,
     shotResult: (row.shot_result as Shot['shotResult']) ?? undefined,
     penalty: (row.penalty as boolean) ?? false,
     ob: (row.ob as boolean) ?? false,
+    shape: (row.shape as Shot['shape']) ?? null,
+    startLine: (row.start_line as Shot['startLine']) ?? null,
+    playedAt: round?.played_at ?? undefined,
   }
 }
 
-export function useShotPatterns({
-  club,
-  lieType,
-  lieSlopeForward,
-  lieSlopeSide,
-}: UseShotPatternsArgs) {
+export function useShotPatterns({ club, lieType, lieSlopeForward, lieSlopeSide }: UseShotPatternsArgs) {
   const { user } = useAuth()
   // Cache the dispersion for (user, club) once. Lie filters apply
   // client-side from the cached result so toggling a chip doesn't
-  // refetch — and doesn't invalidate the cached series for the
-  // un-filtered base view.
+  // refetch, and the unfiltered pattern stays at hand as the ghost ring.
   const query = useQuery({
     queryKey: ['patterns', user?.id, club],
     enabled: !!user && !!club,
     queryFn: async () => {
       const { data, error } = await getShotsByClub(supabase, user!.id, club)
       if (error) throw error
-      const rows = (data ?? []) as Record<string, unknown>[]
-      // The result axes ride beside the points by shot id (mock: no core change).
-      const axes: Record<string, ShotAxes> = {}
+      const rows = (data ?? []) as Row[]
+      const extras: Record<string, ShotExtras> = {}
       for (const r of rows) {
-        axes[r.id as string] = {
-          shape: (r.shape as ShotAxes['shape']) ?? null,
-          startLine: (r.start_line as ShotAxes['startLine']) ?? null,
-          contact: (r.contact as ShotAxes['contact']) ?? null,
+        const hole = (r.hole_scores as { holes?: { number?: number | null } | null } | undefined)?.holes
+        extras[r.id as string] = {
+          contact: (r.contact as ShotContact | null) ?? null,
+          hole: hole?.number ?? null,
         }
       }
-      return { points: computeDispersion(rows.map(rowToShot)), axes }
+      const points = computeDispersion(rows.map(rowToShot))
+      return { points, stats: computeDispersionStats(points), extras }
     },
   })
 
   const filtered = useMemo(() => {
     if (!query.data) return undefined
-    const points =
-      lieType || lieSlopeForward || lieSlopeSide
-        ? filterDispersionByLie(query.data.points, {
-            lieType,
-            lieSlopeForward,
-            lieSlopeSide,
-          })
-        : query.data.points
-    return { points, stats: computeDispersionStats(points), axes: query.data.axes }
+    const on = !!(lieType || lieSlopeForward || lieSlopeSide)
+    const points = on
+      ? filterDispersionByLie(query.data.points, { lieType, lieSlopeForward, lieSlopeSide })
+      : query.data.points
+    return {
+      points,
+      stats: on ? computeDispersionStats(points) : query.data.stats,
+      extras: query.data.extras,
+      allPoints: query.data.points,
+      allStats: query.data.stats,
+    }
   }, [query.data, lieType, lieSlopeForward, lieSlopeSide])
 
   // Unfiltered aimed-shot count: the 5-shot progress ignores lie filters (#1076).
   return { ...query, data: filtered, clubShots: query.data?.points.length ?? 0 }
 }
 
-// Any shot with start + aim + finish, in any club. False → Shot Patterns
-// shows its example instead of an empty page (#1076).
-export function useHasAimedShots() {
+export interface LadderClub {
+  /** Shots with a start, an aim and a finish. */
+  aimed: number
+  /** Median start-to-finish distance, yards; null without a start and finish. */
+  medianYards: number | null
+}
+
+// Every aimed shot in any club, in one fetch: the club ladder's numbers and
+// counts, and whether the page has anything to show at all (#1076).
+export function useClubLadder() {
   const { user } = useAuth()
   return useQuery({
-    queryKey: ['patterns-any-aimed', user?.id],
+    queryKey: ['patterns-ladder', user?.id],
     enabled: !!user,
     queryFn: async () => {
       const { data, error } = await getShotsForUser(supabase, user!.id)
       if (error) throw error
-      return (data ?? []).some((r) => aimRelativeOffsets(rowToShot(r as Record<string, unknown>)) != null)
+      const byClub = new Map<Club, { aimed: number; distances: number[] }>()
+      for (const r of (data ?? []) as Row[]) {
+        const s = rowToShot(r)
+        if (!s.club || !aimRelativeOffsets(s)) continue
+        const c = byClub.get(s.club) ?? { aimed: 0, distances: [] }
+        c.aimed++
+        c.distances.push(haversineYards(s.startLat!, s.startLng!, s.endLat!, s.endLng!))
+        byClub.set(s.club, c)
+      }
+      const out = new Map<Club, LadderClub>()
+      for (const [club, c] of byClub) out.set(club, { aimed: c.aimed, medianYards: median(c.distances) })
+      return out
     },
   })
+}
+
+function median(xs: number[]): number | null {
+  if (xs.length === 0) return null
+  const s = [...xs].sort((a, b) => a - b)
+  const mid = Math.floor(s.length / 2)
+  return s.length % 2 === 0 ? (s[mid - 1]! + s[mid]!) / 2 : s[mid]!
 }

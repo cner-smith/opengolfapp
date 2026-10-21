@@ -1,25 +1,44 @@
-import type { ReactNode } from 'react'
-import { COLOUR_BY, type ColourBy, type Layer } from '../layers'
+import { useId, useRef, type KeyboardEvent, type ReactNode } from 'react'
+import { COLOUR_BY, type ColourBy, type Glyph, type Layer } from '../layers'
+import { Marker } from './chartParts'
 
-// The chart's layer bar and its legend (direction D). Both are rows of
-// toggles: a layer shows or hides one kind of mark, a legend entry shows or
-// hides one group of shots. Each says what it hides in its title.
+// The chart's controls. A layer shows or hides one kind of mark; a legend
+// entry shows or hides one group of shots; "Colour by" picks the groups. Each
+// toggle says what it hides to a screen reader as well as in its tooltip.
 
 const INK = '#1C211C'
-const MUTE = '#8A8B7E'
 const FOREST = '#1F3D2C'
+export const FOCUS_RING = 'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-caddie-accent'
 
 export const LAYER_INFO: Record<Layer, { label: string; hides: string }> = {
+  shots: { label: 'Shots', hides: 'the mark where each shot finished' },
   rings: { label: 'Rings', hides: 'the two rings (two shots in three, and nearly all)' },
   average: { label: 'Average', hides: 'the average finish and its line from the aim' },
-  shots: { label: 'Shots', hides: 'the dot where each shot finished' },
   flights: { label: 'Flights', hides: 'the line of each shot from where it was hit' },
 }
 
-function Glyph({ layer, compact }: { layer: Layer; compact?: boolean }) {
+/** Arrow / Home / End for a radio group or tab list: the index to move to. */
+export function rovingKey(e: KeyboardEvent, i: number, n: number): number | null {
+  const j =
+    e.key === 'ArrowRight' || e.key === 'ArrowDown'
+      ? (i + 1) % n
+      : e.key === 'ArrowLeft' || e.key === 'ArrowUp'
+        ? (i - 1 + n) % n
+        : e.key === 'Home'
+          ? 0
+          : e.key === 'End'
+            ? n - 1
+            : null
+  if (j == null) return null
+  e.preventDefault()
+  ;(e.currentTarget.parentElement?.children[j] as HTMLElement | undefined)?.focus()
+  return j
+}
+
+function LayerGlyph({ layer, compact }: { layer: Layer; compact?: boolean }) {
   const c = layer === 'rings' || layer === 'average' ? FOREST : INK
   return (
-    <svg width={compact ? 16 : 20} height={compact ? 11 : 14} viewBox="0 0 20 14" fill="none" aria-hidden style={{ flex: 'none' }}>
+    <svg width={compact ? 16 : 20} height={compact ? 11 : 14} viewBox="0 0 20 14" fill="none" aria-hidden className="pat-glyph" style={{ flex: 'none' }}>
       {layer === 'rings' && (
         <>
           <ellipse cx="10" cy="7" rx="9" ry="6" stroke={c} strokeDasharray="2.5 2" />
@@ -39,65 +58,78 @@ function Glyph({ layer, compact }: { layer: Layer; compact?: boolean }) {
           <circle cx="15.5" cy="10" r="2.4" fill={c} />
         </>
       )}
-      {layer === 'flights' && <path d="M4 13 Q4 3 16 1.5" stroke={c} strokeWidth={1.4} strokeLinecap="round" />}
+      {layer === 'flights' && <path d="M4 13 C4 6 8 2 16 1.5" stroke={c} strokeWidth={1.4} strokeLinecap="round" />}
     </svg>
   )
 }
 
-function Toggle({ on, onClick, title, children, onHover, compact }: {
+function Toggle({ on, onClick, hint, children, onHover, compact, disabled }: {
   compact?: boolean
   on: boolean
+  disabled?: boolean
   onClick: () => void
-  title: string
+  hint: string
   children: ReactNode
   onHover?: (enter: boolean) => void
 }) {
+  const id = useId()
+  const live = on && !disabled
   return (
+    <>
     <button
       type="button"
-      aria-pressed={on}
-      title={title}
-      onClick={onClick}
-      onPointerEnter={onHover && (() => onHover(true))}
+      aria-pressed={live}
+      aria-disabled={disabled || undefined}
+      aria-describedby={id}
+      title={hint}
+      onClick={disabled ? undefined : onClick}
+      onPointerEnter={onHover && ((e) => e.pointerType === 'mouse' && onHover(true))}
       onPointerLeave={onHover && (() => onHover(false))}
       onFocus={onHover && (() => onHover(true))}
       onBlur={onHover && (() => onHover(false))}
-      className="hover:bg-caddie-surface-2"
+      className={`pat-tap ${FOCUS_RING} ${disabled ? '' : 'hover:border-caddie-line-strong'}`}
       style={{
         display: 'inline-flex',
         alignItems: 'center',
         gap: 7,
         minHeight: compact ? 36 : 32,
-        padding: compact ? '5px 7px 5px 6px' : '5px 9px 5px 7px',
+        padding: compact ? '5px 8px 5px 7px' : '5px 10px 5px 8px',
         borderRadius: 2,
-        border: on ? '1px solid #D9D2BF' : '1px dashed #D9D2BF',
-        background: on ? '#FBF8F1' : 'transparent',
-        color: on ? INK : MUTE,
-        fontSize: compact ? 12 : 13,
-        cursor: 'pointer',
+        border: live ? '1px solid #9F9580' : disabled ? '1px dashed #D9D2BF' : '1px dashed #8A8B7E',
+        background: live ? '#EBE5D6' : 'transparent',
+        color: live ? INK : '#5C6356',
+        fontSize: 13,
+        cursor: disabled ? 'not-allowed' : 'pointer',
         whiteSpace: 'nowrap',
+        transition: 'background-color 150ms ease',
       }}
     >
-      <span style={{ display: 'inline-flex', opacity: on ? 1 : 0.75 }}>{children}</span>
+      <span style={{ display: 'inline-flex' }}>{children}</span>
     </button>
+    <span id={id} className="sr-only">{hint}</span>
+    </>
   )
 }
 
-export function LayerBar({ layers, available, onToggle, compact }: {
+export function LayerBar({ layers, available, disabled, onToggle, compact }: {
   compact?: boolean
   layers: Record<Layer, boolean>
   available: Layer[]
+  /** Shown but off until there is a pattern (five shots). */
+  disabled: Set<Layer>
   onToggle: (l: Layer) => void
 }) {
   return (
-    <div role="group" aria-label="Show on the chart" className="flex flex-wrap" style={{ gap: compact ? 5 : 6 }}>
+    <div role="group" aria-label="Show on the chart" className="flex flex-wrap" style={{ gap: 6 }}>
       {available.map((l) => {
         const on = layers[l]
+        const off = disabled.has(l)
+        const hint = off ? `${LAYER_INFO[l].label}: needs five shots` : `${on ? 'Hides' : 'Shows'} ${LAYER_INFO[l].hides}`
         return (
-          <Toggle key={l} compact={compact} on={on} onClick={() => onToggle(l)} title={`${on ? 'Hide' : 'Show'} ${LAYER_INFO[l].hides}`}>
+          <Toggle key={l} compact={compact} on={on} disabled={off} onClick={() => onToggle(l)} hint={hint}>
             <span className="inline-flex items-center" style={{ gap: compact ? 5 : 7 }}>
-              <Glyph layer={l} compact={compact} />
-              <span style={{ textDecoration: on ? undefined : 'line-through' }}>{LAYER_INFO[l].label}</span>
+              <LayerGlyph layer={l} compact={compact} />
+              <span>{LAYER_INFO[l].label}</span>
             </span>
           </Toggle>
         )
@@ -106,24 +138,32 @@ export function LayerBar({ layers, available, onToggle, compact }: {
   )
 }
 
-export function ColourByControl({ value, onChange }: { value: ColourBy; onChange: (v: ColourBy) => void }) {
+export function ColourByControl({ value, onChange, compact }: { value: ColourBy; onChange: (v: ColourBy) => void; compact?: boolean }) {
+  const i = COLOUR_BY.findIndex((o) => o.value === value)
   return (
-    <div className="flex items-center flex-wrap" style={{ gap: 10 }}>
-      <span className="text-caddie-ink-dim" style={{ fontSize: 13 }}>Colour by</span>
-      <div role="radiogroup" aria-label="Colour by" className="flex" style={{ gap: 14 }}>
-        {COLOUR_BY.map((o) => {
-          const on = o.value === value
+    <div className="flex items-center flex-wrap" style={{ gap: compact ? 8 : 10 }}>
+      <span className="text-caddie-ink-dim" style={{ fontSize: 13 }} aria-hidden>Colour</span>
+      <div role="radiogroup" aria-label="Colour the shots by" className="flex" style={{ gap: compact ? 12 : 14 }}>
+        {COLOUR_BY.map((o, j) => {
+          const on = j === i
           return (
             <button
               key={o.value}
               type="button"
               role="radio"
               aria-checked={on}
+              tabIndex={on ? 0 : -1}
               onClick={() => onChange(o.value)}
+              onKeyDown={(e) => {
+                const k = rovingKey(e, j, COLOUR_BY.length)
+                if (k != null) onChange(COLOUR_BY[k]!.value)
+              }}
+              className={`pat-tap ${FOCUS_RING}`}
               style={{
                 background: 'none',
                 border: 'none',
                 borderBottom: on ? `2px solid ${INK}` : '2px solid transparent',
+                minHeight: 32,
                 padding: '4px 0 3px',
                 fontSize: 13,
                 fontWeight: on ? 600 : 400,
@@ -131,7 +171,7 @@ export function ColourByControl({ value, onChange }: { value: ColourBy; onChange
                 cursor: 'pointer',
               }}
             >
-              {o.label}
+              {compact ? o.short : o.label}
             </button>
           )
         })}
@@ -144,38 +184,57 @@ export interface LegendEntry {
   key: string
   label: string
   color: string
+  glyph: Glyph
   count: number
-  open?: boolean
 }
 
-export function Legend({ entries, hidden, onToggle, onFocus }: {
+export function Legend({ entries, hidden, focus, onToggle, onFocus, note }: {
   entries: LegendEntry[]
   hidden: Set<string>
+  focus: string | null
   onToggle: (k: string) => void
   onFocus: (k: string | null) => void
+  note: string
 }) {
+  // On touch there is no hover: the first tap steps the others back, the second hides.
+  const touch = useRef(false)
+  const coarse = typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches
   return (
-    <div role="group" aria-label="Legend: tap a group to hide it" className="flex flex-wrap" style={{ gap: 6 }}>
-      {entries.map((e) => {
-        const on = !hidden.has(e.key)
-        return (
-          <Toggle
-            key={e.key}
-            on={on}
-            onClick={() => onToggle(e.key)}
-            onHover={(enter) => onFocus(enter && on ? e.key : null)}
-            title={`${on ? 'Hide' : 'Show'} the ${e.count} ${e.label.toLowerCase()} shot${e.count === 1 ? '' : 's'}`}
-          >
-            <span className="inline-flex items-center" style={{ gap: 7 }}>
-              <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden>
-                <circle cx="5" cy="5" r={e.open ? 3.6 : 4.2} fill={e.open ? '#FBF8F1' : e.color} stroke={e.color} strokeWidth={e.open ? 1.4 : 0} />
-              </svg>
-              <span style={{ textDecoration: on ? undefined : 'line-through' }}>{e.label}</span>
-              <span className="font-serif tabular" style={{ fontSize: 14, color: on ? INK : MUTE }}>{e.count}</span>
-            </span>
-          </Toggle>
-        )
-      })}
+    <div>
+      <div className="flex flex-wrap items-center" style={{ gap: 6 }}>
+        <span className="text-caddie-ink-dim" style={{ fontSize: 13, marginRight: 4 }} aria-hidden>Show</span>
+        <div role="group" aria-label="Show or hide groups of shots" className="flex flex-wrap" style={{ gap: 6 }}>
+          {entries.map((e) => {
+            const on = !hidden.has(e.key)
+            const noun = `${e.count} ${e.label.toLowerCase()} shot${e.count === 1 ? '' : 's'}`
+            return (
+              <span key={e.key} onPointerDown={(ev) => (touch.current = ev.pointerType !== 'mouse')}>
+                <Toggle
+                  on={on}
+                  onClick={() => {
+                    if (touch.current && on && focus !== e.key) return onFocus(e.key)
+                    onToggle(e.key)
+                    if (touch.current) onFocus(null)
+                  }}
+                  onHover={(enter) => onFocus(enter && on ? e.key : null)}
+                  hint={`${on ? 'Hides' : 'Shows'} the ${noun}`}
+                >
+                  <span className="inline-flex items-center" style={{ gap: 7 }}>
+                    <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden className="pat-glyph">
+                      <Marker x={6} y={6} r={4} glyph={e.glyph} color={e.color} />
+                    </svg>
+                    <span>{e.label}</span>
+                    <span className="font-serif tabular" style={{ fontSize: 14 }}>{e.count}</span>
+                  </span>
+                </Toggle>
+              </span>
+            )
+          })}
+        </div>
+      </div>
+      <div className="text-caddie-ink-dim" style={{ fontSize: 13, lineHeight: 1.45, marginTop: 8 }}>
+        {note} {coarse ? 'Tap a group once to bring it forward, twice to hide it.' : 'Click a group to hide it.'}
+      </div>
     </div>
   )
 }
