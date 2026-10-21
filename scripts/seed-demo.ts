@@ -200,7 +200,8 @@ function lateralOf(
 // The shape a right-handed player would record for a shot that finished
 // offLat yards off the aim line: right → mostly fade (slice when well right),
 // left → draw (hook), near the line → mostly straight. About one in five
-// shots has no shape recorded, like a real player who skips the field.
+// shots has no shape recorded, like a real player who skips the field, and
+// every fifth shot of each club (shotsSeen) has none for certain.
 function recordedShape(offLat: number, sdLat: number): string | null {
   if (Math.random() < 0.2) return null
   const z = offLat / sdLat
@@ -223,6 +224,11 @@ function recordedStartLine(offLat: number, sdLat: number, shape: string | null):
   if (Math.abs(z) > 0.8 && Math.random() < 0.4 && !curvesRight && !curvesLeft) return z > 0 ? 'push' : 'pull'
   return 'on_line'
 }
+
+// Shots seeded so far per club. Every fifth has no shape or start line of its
+// own, so each club's Patterns legend always has a "Not recorded" group (the
+// web e2e asserts one) however the random draws fall.
+const shotsSeen = new Map<string, number>()
 
 async function ensureDemoUser(): Promise<string> {
   const { data: list } = await supabase.auth.admin.listUsers({ perPage: 1000 })
@@ -726,7 +732,10 @@ async function insertHoleShots(
     const axes = shotAxesFromLegacy(result)
     const offLatDone = toGreen ? 0 : lateralOf(lastEnd, aim, end)
     const sdLat = toGreen ? 1 : (CLUB_DISPERSION[club] ?? DEFAULT_DISP).sdLat
-    const shape = recordedShape(offLatDone, sdLat)
+    const nth = (shotsSeen.get(club) ?? 0) + 1
+    shotsSeen.set(club, nth)
+    const unrecorded = nth % 5 === 0
+    const shape = unrecorded ? null : recordedShape(offLatDone, sdLat)
     const { error } = await supabase.from('shots').insert({
       hole_score_id: holeScoreId,
       user_id: userId,
@@ -743,7 +752,7 @@ async function insertHoleShots(
       lie_slope: lieSlope,
       shot_result: result,
       contact: axes.contact,
-      start_line: axes.startLine ?? recordedStartLine(offLatDone, sdLat, shape),
+      start_line: axes.startLine ?? (unrecorded ? null : recordedStartLine(offLatDone, sdLat, shape)),
       shape,
       penalty: false,
       ob: false,
