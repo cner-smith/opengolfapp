@@ -16,9 +16,15 @@ name: Android Shot patterns — tabs, colour legend and filters
 - tapOn: "From the tee"
 # "hit from here" is SVG text inside the chart, which is hidden from the accessibility tree (the
 # chart reads as one image), so Maestro can't see it; the tee view's caption stands in for it.
-- extendedWaitUntil:
-    visible: "Lines leave on your recorded start line.*"
-    timeout: 5000
+# The caption sits under the chart, below the fold once a colour legend is open.
+- scrollUntilVisible:
+    element: "Lines leave on your recorded start line.*"
+    direction: DOWN
+    timeout: 10000
+- scrollUntilVisible:
+    element: "Filters"
+    direction: UP
+    timeout: 10000
 - tapOn: "Filters"
 - extendedWaitUntil:
     visible: "Lie"
