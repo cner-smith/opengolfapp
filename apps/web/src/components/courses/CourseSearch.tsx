@@ -333,8 +333,9 @@ function SearchGroup({
   return (
     <div>
       <div
-        className="kicker"
+        className="text-caddie-ink-dim"
         style={{
+          fontSize: 12,
           padding: '10px 14px 6px',
           borderBottom: '1px solid #D9D2BF',
           display: 'flex',
@@ -347,7 +348,7 @@ function SearchGroup({
             type="button"
             onClick={onBack}
             className="text-caddie-accent"
-            style={{ background: 'transparent', border: 'none', padding: 0, fontSize: 11 }}
+            style={{ background: 'transparent', border: 'none', padding: 0, fontSize: 12 }}
           >
             ‹ Back
           </button>
@@ -468,7 +469,7 @@ function ManualCourseForm({
         gap: 14,
       }}
     >
-      <div className="kicker">Add course</div>
+      <div className="text-caddie-ink" style={{ fontSize: 15, fontWeight: 500 }}>Add a course</div>
       <div className="grid grid-cols-1 sm:grid-cols-2" style={{ gap: 10 }}>
         <input
           type="text"
@@ -518,8 +519,8 @@ function ManualCourseForm({
       </div>
 
       <div>
-        <div className="kicker" style={{ marginBottom: 10 }}>
-          Par per hole — tap to cycle 3/4/5
+        <div className="text-caddie-ink-dim" style={{ fontSize: 12, marginBottom: 10 }}>
+          Par per hole: tap to cycle 3, 4, 5
         </div>
         {/* 9 circles don't fit a phone-width card; 6 per row there (#1067). */}
         <div className="grid grid-cols-6 sm:grid-cols-9" style={{ gap: 8 }}>
@@ -539,8 +540,8 @@ function ManualCourseForm({
               }}
             >
               <span
-                className="kicker tabular"
-                style={{ fontSize: 9 }}
+                className="tabular text-caddie-ink-dim"
+                style={{ fontSize: 11 }}
               >
                 {idx + 1}
               </span>

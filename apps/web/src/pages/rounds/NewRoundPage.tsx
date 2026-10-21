@@ -88,155 +88,174 @@ export function NewRoundPage() {
   }
 
   return (
-    <div className="mx-auto max-w-2xl">
-      <div style={{ marginBottom: 18 }}>
-        <h1
-          className="text-caddie-ink"
-          style={{ fontSize: 22, fontWeight: 600, lineHeight: 1.3 }}
-        >
-          New round
-        </h1>
-        <div className="text-caddie-ink-dim" style={{ fontSize: 13, marginTop: 2 }}>
-          Pick a course and we'll set up the scorecard
-        </div>
-      </div>
-      <form
-        onSubmit={handleSubmit}
-        className="bg-caddie-surface flex flex-col gap-5"
-        style={{ border: '0.5px solid #E4E4E0', borderRadius: 10, padding: 20 }}
+    <div style={{ maxWidth: 680 }}>
+      <h1
+        className="font-serif text-caddie-ink"
+        style={{ fontSize: 28, fontWeight: 500, lineHeight: 1.15, marginBottom: 6 }}
       >
-        <section>
-          <FieldLabel>Are you logging this round live or after the fact?</FieldLabel>
-          <div style={{ display: 'flex', gap: 8 }}>
-            <ModeChip
+        New round
+      </h1>
+      <p className="text-caddie-ink-dim" style={{ fontSize: 15, marginBottom: 28 }}>
+        Pick a course and we’ll set up the scorecard.
+      </p>
+      <form onSubmit={handleSubmit}>
+        <Group title="How you’re logging it">
+          <ChoiceRow>
+            <Choice
               active={mode === 'past'}
               onClick={() => setMode('past')}
               title="After the fact"
-              subtitle="No GPS · enter on scorecard or map"
+              subtitle="No GPS. Enter it on the scorecard or the map."
             />
-            <ModeChip
+            <Choice
               active={mode === 'live'}
               onClick={() => setMode('live')}
               title="Live"
-              subtitle="GPS-tracked, shot-by-shot on the map"
+              subtitle="GPS-tracked, shot by shot on the map."
             />
-          </div>
-        </section>
-
-        {mode === 'live' && (
-          <section>
-            <FieldLabel>How do you want to track it?</FieldLabel>
-            <div style={{ display: 'flex', gap: 8 }}>
-              {CAPTURE_MODES.map((cm) => (
-                <ModeChip
-                  key={cm}
-                  active={captureMode === cm}
-                  onClick={() => setCaptureMode(cm)}
-                  title={CAPTURE_MODE_LABELS[cm].title}
-                  subtitle={CAPTURE_MODE_LABELS[cm].subtitle}
-                />
-              ))}
-            </div>
-          </section>
-        )}
-
-        <section>
-          <FieldLabel>Course</FieldLabel>
-          <CourseSearch
-            selectedCourseId={courseId}
-            onSelect={(id, name) => {
-              setCourseId(id)
-              setCourseName(name)
-              setCourseTeeId(null)
-            }}
-            requestGps={mode === 'live'}
-          />
-          {courseName && courseId && (
-            <p
-              className="text-caddie-accent"
-              style={{ fontSize: 13, marginTop: 8 }}
-            >
-              Selected: {courseName}
-            </p>
+          </ChoiceRow>
+          {mode === 'live' && (
+            <>
+              <div className="text-caddie-ink" style={{ fontSize: 15, margin: '18px 0 10px' }}>
+                What to track
+              </div>
+              <ChoiceRow>
+                {CAPTURE_MODES.map((cm) => (
+                  <Choice
+                    key={cm}
+                    active={captureMode === cm}
+                    onClick={() => setCaptureMode(cm)}
+                    title={CAPTURE_MODE_LABELS[cm].title}
+                    subtitle={CAPTURE_MODE_LABELS[cm].subtitle}
+                  />
+                ))}
+              </ChoiceRow>
+            </>
           )}
-        </section>
+        </Group>
 
-        {courseId && (
-          <section>
-            <FieldLabel>Tee</FieldLabel>
-            <TeeSelector
-              courseId={courseId}
-              selectedTeeId={courseTeeId}
-              onSelect={(id, color) => {
-                setCourseTeeId(id)
-                setTeeColor(color)
+        <Group title="Where and when">
+          <section aria-label="Course" style={{ borderBottom: LINE_RULE, paddingBottom: 14 }}>
+            <div style={rowStyle}>
+              <span className="text-caddie-ink" style={{ fontSize: 15 }}>
+                Course
+              </span>
+              {courseId && courseName ? (
+                <span className="font-serif text-caddie-ink" style={{ fontSize: 18, textAlign: 'right' }}>
+                  {courseName}
+                </span>
+              ) : (
+                <span className="text-caddie-ink-dim" style={{ fontSize: 15 }}>
+                  Not chosen
+                </span>
+              )}
+            </div>
+            <CourseSearch
+              selectedCourseId={courseId}
+              onSelect={(id, name) => {
+                setCourseId(id)
+                setCourseName(name)
+                setCourseTeeId(null)
               }}
+              requestGps={mode === 'live'}
             />
           </section>
-        )}
 
-        <section className="grid grid-cols-2 gap-4">
-          <label className="block">
-            <FieldLabel>Date</FieldLabel>
+          {courseId && (
+            <section aria-label="Tee" style={{ borderBottom: LINE_RULE, paddingBottom: 14 }}>
+              <div style={rowStyle}>
+                <span className="text-caddie-ink" style={{ fontSize: 15 }}>
+                  Tee
+                </span>
+                <span className="text-caddie-ink-dim" style={{ fontSize: 13, textAlign: 'right' }}>
+                  Its rating and slope feed your handicap
+                </span>
+              </div>
+              <TeeSelector
+                courseId={courseId}
+                selectedTeeId={courseTeeId}
+                onSelect={(id, color) => {
+                  setCourseTeeId(id)
+                  setTeeColor(color)
+                }}
+              />
+            </section>
+          )}
+
+          <label style={{ ...rowStyle, borderBottom: courseTeeId ? 'none' : LINE_RULE }}>
+            <span className="text-caddie-ink" style={{ fontSize: 15 }}>
+              Date
+            </span>
             <input
               type="date"
               required
               value={playedAt}
               onChange={(e) => setPlayedAt(e.target.value)}
-              className="w-full bg-caddie-surface-2 text-caddie-ink"
-              style={{ border: '0.5px solid #E4E4E0', borderRadius: 7, padding: '8px 10px', fontSize: 13 }}
+              style={inputStyle}
             />
           </label>
-          <label className="block">
-            <FieldLabel>Tees</FieldLabel>
-            <select
-              value={teeColor}
-              onChange={(e) => setTeeColor(e.target.value)}
-              className="w-full bg-caddie-surface-2 text-caddie-ink capitalize"
-              style={{ border: '0.5px solid #E4E4E0', borderRadius: 7, padding: '8px 10px', fontSize: 13 }}
-            >
-              {TEE_COLORS.map((t) => (
-                <option key={t} value={t}>
-                  {t}
-                </option>
-              ))}
-            </select>
-          </label>
-        </section>
+
+          {/* A tee from the course list sets the colour itself. */}
+          {!courseTeeId && (
+            <label style={rowStyle}>
+              <span className="text-caddie-ink" style={{ fontSize: 15 }}>
+                Tee colour
+              </span>
+              <select
+                value={teeColor}
+                onChange={(e) => setTeeColor(e.target.value)}
+                className="capitalize"
+                style={{ ...inputStyle, minWidth: 140 }}
+              >
+                {TEE_COLORS.map((t) => (
+                  <option key={t} value={t}>
+                    {t}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+        </Group>
 
         {error && (
-          <div className="text-caddie-neg" style={{ fontSize: 13 }}>
+          <p className="text-caddie-neg" role="alert" style={{ fontSize: 13, marginTop: -14, marginBottom: 18 }}>
             {error}
-          </div>
+          </p>
         )}
 
-        <div className="flex justify-end gap-2">
-          <button
-            type="button"
-            onClick={() => navigate('/rounds')}
-            className="bg-caddie-surface text-caddie-ink transition-colors hover:bg-caddie-surface-2"
-            style={{
-              border: '0.5px solid #E4E4E0',
-              borderRadius: 10,
-              padding: '10px 16px',
-              fontSize: 13,
-              fontWeight: 500,
-            }}
-          >
-            Cancel
-          </button>
+        <div className="flex items-center" style={{ gap: 18 }}>
           <button
             type="submit"
             disabled={createRoundMutation.isPending || !courseId}
-            className="bg-caddie-accent text-caddie-accent-ink transition-opacity hover:opacity-90 disabled:opacity-50"
+            className="bg-caddie-accent text-caddie-accent-ink hover:opacity-90 disabled:opacity-50"
             style={{
-              borderRadius: 10,
-              padding: '10px 16px',
-              fontSize: 13,
-              fontWeight: 500,
+              border: 'none',
+              borderRadius: 2,
+              padding: '12px 16px',
+              fontSize: 14,
+              fontWeight: 600,
+              letterSpacing: '0.02em',
+              cursor: createRoundMutation.isPending || !courseId ? 'not-allowed' : 'pointer',
             }}
           >
-            {createRoundMutation.isPending ? 'Creating…' : 'Start round'}
+            {createRoundMutation.isPending ? (
+              'Creating…'
+            ) : (
+              <>
+                Start round{' '}
+                <span className="font-serif" style={{ fontStyle: 'italic' }}>
+                  →
+                </span>
+              </>
+            )}
+          </button>
+          <button
+            type="button"
+            onClick={() => navigate('/rounds')}
+            className="text-caddie-ink-dim hover:text-caddie-ink"
+            style={{ background: 'none', border: 'none', fontSize: 14, cursor: 'pointer' }}
+          >
+            Cancel
           </button>
         </div>
       </form>
@@ -244,7 +263,58 @@ export function NewRoundPage() {
   )
 }
 
-function ModeChip({
+const LINE_RULE = '1px solid #D9D2BF'
+
+const rowStyle: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  gap: 16,
+  minHeight: 52,
+  padding: '12px 4px',
+}
+
+const inputStyle: React.CSSProperties = {
+  background: '#FBF8F1',
+  border: '1px solid #D9D2BF',
+  borderRadius: 2,
+  padding: '9px 12px',
+  fontSize: 14,
+  color: '#1C211C',
+}
+
+function Group({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <section style={{ marginBottom: 32 }}>
+      <h2
+        className="font-serif text-caddie-ink"
+        style={{
+          fontSize: 22,
+          fontWeight: 500,
+          fontStyle: 'italic',
+          lineHeight: 1.2,
+          paddingBottom: 8,
+          borderBottom: LINE_RULE,
+          marginBottom: 14,
+        }}
+      >
+        {title}
+      </h2>
+      {children}
+    </section>
+  )
+}
+
+function ChoiceRow({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-2" style={{ gap: 10 }}>
+      {children}
+    </div>
+  )
+}
+
+// One of two printed options: a ringed dot marks the pick, the border firms up around it.
+function Choice({
   active,
   onClick,
   title,
@@ -260,50 +330,44 @@ function ModeChip({
       type="button"
       onClick={onClick}
       aria-pressed={active}
-      className={
-        active
-          ? 'bg-caddie-accent text-caddie-accent-ink'
-          : 'bg-caddie-surface text-caddie-ink hover:bg-caddie-surface-2'
-      }
+      className="hover:bg-caddie-surface"
       style={{
-        flex: 1,
         display: 'flex',
-        flexDirection: 'column',
-        justifyContent: 'flex-start',
+        alignItems: 'flex-start',
+        gap: 12,
         textAlign: 'left',
-        border: active ? '0.5px solid transparent' : '0.5px solid #E4E4E0',
-        borderRadius: 10,
-        padding: '12px 14px',
-        fontSize: 13,
-        fontWeight: 500,
-        transition: 'background 120ms',
+        background: active ? '#FBF8F1' : 'transparent',
+        border: `1px solid ${active ? '#1F3D2C' : '#D9D2BF'}`,
+        borderRadius: 2,
+        padding: '14px 14px',
+        cursor: 'pointer',
+        transition: 'border-color 120ms, background 120ms',
       }}
     >
-      <div style={{ fontWeight: 600, marginBottom: 2 }}>{title}</div>
-      <div
+      <span
+        aria-hidden="true"
         style={{
-          fontSize: 11,
-          opacity: active ? 0.85 : 0.7,
+          flex: 'none',
+          width: 16,
+          height: 16,
+          marginTop: 2,
+          borderRadius: '50%',
+          border: `1px solid ${active ? '#1F3D2C' : '#9F9580'}`,
+          display: 'inline-flex',
+          alignItems: 'center',
+          justifyContent: 'center',
         }}
       >
-        {subtitle}
-      </div>
+        {active && <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#1F3D2C' }} />}
+      </span>
+      <span>
+        <span className="text-caddie-ink" style={{ display: 'block', fontSize: 15, fontWeight: 500 }}>
+          {title}
+        </span>
+        <span className="text-caddie-ink-dim" style={{ display: 'block', fontSize: 13, marginTop: 3, lineHeight: 1.45 }}>
+          {subtitle}
+        </span>
+      </span>
     </button>
-  )
-}
-
-function FieldLabel({ children }: { children: React.ReactNode }) {
-  return (
-    <div
-      className="text-caddie-ink-dim uppercase"
-      style={{
-        fontSize: 11,
-        fontWeight: 500,
-        letterSpacing: 0.4,
-        marginBottom: 6,
-      }}
-    >
-      {children}
-    </div>
   )
 }

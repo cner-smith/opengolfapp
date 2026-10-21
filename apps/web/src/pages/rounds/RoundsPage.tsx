@@ -51,7 +51,7 @@ export function RoundsPage() {
               border: '0.5px solid #E4E4E0',
             }}
           >
-            Import from data
+            Import rounds
           </Link>
           <Link
             to="/rounds/new"

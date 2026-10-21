@@ -45,9 +45,9 @@ test.describe('New round (past, signed in, mutating)', () => {
       .first()
       .click()
 
-    // Confirmation text after select.
+    // The chosen course reads in the Course row once the results close.
     await expect(
-      page.getByText(new RegExp(`Selected: ${COURSE_NAME}`, 'i')),
+      page.getByRole('region', { name: 'Course' }).getByText(COURSE_NAME, { exact: true }),
     ).toBeVisible()
 
     await page.getByRole('button', { name: /Start round/i }).click()
