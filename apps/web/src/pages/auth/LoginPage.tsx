@@ -64,48 +64,49 @@ export function LoginPage() {
   }
 
   return (
-    <div className="flex h-screen items-center justify-center bg-caddie-bg">
+    <div className="flex min-h-screen flex-col items-center bg-caddie-bg" style={{ padding: '48px 16px' }}>
+      <Link
+        to="/"
+        aria-label="OGA home"
+        className="font-serif text-caddie-ink"
+        style={{ fontSize: 26, fontStyle: 'italic', fontWeight: 500, marginBottom: 28 }}
+      >
+        oga.
+      </Link>
       <form
         onSubmit={handleSubmit}
-        className="w-full max-w-sm bg-caddie-surface"
-        style={{ border: '0.5px solid #E4E4E0', borderRadius: 10, padding: 24 }}
+        className="w-full bg-caddie-surface"
+        style={{ maxWidth: 400, border: '1px solid #D9D2BF', borderRadius: 4, padding: '28px 24px' }}
       >
         <h1
-          className="text-caddie-ink"
-          style={{ fontSize: 22, fontWeight: 600, marginBottom: 18 }}
+          className="font-serif text-caddie-ink"
+          style={{ fontSize: 28, fontWeight: 500, lineHeight: 1.15 }}
         >
-          Sign in to OGA
+          Sign in
         </h1>
-        <FieldLabel>Email</FieldLabel>
-        <input
-          type="email"
-          required
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          className="w-full bg-caddie-surface text-caddie-ink"
-          style={{
-            border: '0.5px solid #E4E4E0',
-            borderRadius: 7,
-            padding: '8px 10px',
-            fontSize: 13,
-            marginBottom: 12,
-          }}
-        />
-        <FieldLabel>Password</FieldLabel>
-        <input
-          type="password"
-          required
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          className="w-full bg-caddie-surface text-caddie-ink"
-          style={{
-            border: '0.5px solid #E4E4E0',
-            borderRadius: 7,
-            padding: '8px 10px',
-            fontSize: 13,
-            marginBottom: 14,
-          }}
-        />
+        <p className="text-caddie-ink-dim" style={{ fontSize: 15, marginTop: 6, marginBottom: 22 }}>
+          Your rounds, strokes gained and practice plan.
+        </p>
+        <Field label="Email">
+          <input
+            type="email"
+            required
+            autoComplete="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            style={inputStyle}
+          />
+        </Field>
+        <Field label="Password">
+          <input
+            type="password"
+            required
+            autoComplete="current-password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            style={inputStyle}
+          />
+        </Field>
         {captchaEnabled && (
           <div style={{ marginBottom: 14 }}>
             <Turnstile
@@ -118,58 +119,65 @@ export function LoginPage() {
           </div>
         )}
         {error && (
-          <div
-            className="text-caddie-neg"
-            style={{ fontSize: 13, marginBottom: 10 }}
-          >
+          <p className="text-caddie-neg" role="alert" style={{ fontSize: 13, marginBottom: 12 }}>
             {error}
-          </div>
+          </p>
         )}
         <button
           type="submit"
           disabled={loading}
           className="w-full bg-caddie-accent text-caddie-accent-ink transition-opacity hover:opacity-90 disabled:opacity-50"
-          style={{ borderRadius: 10, padding: '12px 16px', fontSize: 13, fontWeight: 500 }}
+          style={{ border: 'none', borderRadius: 2, padding: '12px 16px', fontSize: 14, fontWeight: 600, letterSpacing: '0.02em' }}
         >
-          {loading ? 'Signing in…' : 'Sign in'}
+          {loading ? (
+            'Signing in…'
+          ) : (
+            <>
+              Sign in{' '}
+              <span className="font-serif" style={{ fontStyle: 'italic' }}>
+                →
+              </span>
+            </>
+          )}
         </button>
-        <div className="flex items-center" style={{ margin: '16px 0', gap: 10 }}>
-          <div style={{ flex: 1, height: 1, backgroundColor: '#E4E4E0' }} />
-          <span
-            className="text-caddie-ink-mute uppercase"
-            style={{ fontSize: 11, letterSpacing: '0.08em' }}
-          >
+        <div className="flex items-center" style={{ margin: '18px 0', gap: 12 }}>
+          <div style={{ flex: 1, height: 1, backgroundColor: '#D9D2BF' }} />
+          <span className="text-caddie-ink-mute" style={{ fontSize: 13 }}>
             or
           </span>
-          <div style={{ flex: 1, height: 1, backgroundColor: '#E4E4E0' }} />
+          <div style={{ flex: 1, height: 1, backgroundColor: '#D9D2BF' }} />
         </div>
         <GoogleSignInButton />
-        <p
-          className="text-caddie-ink-dim text-center"
-          style={{ fontSize: 13, marginTop: 14 }}
-        >
-          No account?{' '}
-          <Link to="/signup" className="text-caddie-accent hover:underline">
-            Sign up
-          </Link>
-        </p>
       </form>
+      <p className="text-caddie-ink-dim" style={{ fontSize: 14, marginTop: 18 }}>
+        New to OGA?{' '}
+        <Link to="/signup" className="text-caddie-ink underline underline-offset-4 hover:opacity-80">
+          Create account
+        </Link>
+      </p>
     </div>
   )
 }
 
-function FieldLabel({ children }: { children: React.ReactNode }) {
+const inputStyle: React.CSSProperties = {
+  display: 'block',
+  width: '100%',
+  background: '#F2EEE5',
+  border: '1px solid #D9D2BF',
+  borderRadius: 2,
+  padding: '10px 12px',
+  fontSize: 15,
+  color: '#1C211C',
+  marginBottom: 16,
+}
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div
-      className="text-caddie-ink-dim uppercase"
-      style={{
-        fontSize: 11,
-        fontWeight: 500,
-        letterSpacing: 0.4,
-        marginBottom: 6,
-      }}
-    >
+    <label className="block">
+      <span className="text-caddie-ink-dim" style={{ display: 'block', fontSize: 13, marginBottom: 6 }}>
+        {label}
+      </span>
       {children}
-    </div>
+    </label>
   )
 }

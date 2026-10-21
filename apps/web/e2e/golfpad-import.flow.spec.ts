@@ -35,7 +35,6 @@ test.describe('Golf Pad import (signed in, mutating)', () => {
 
   test('drop the export → confirm, change and skip courses → rounds land with SG', async ({ page }) => {
     await page.goto('/rounds/import')
-    await page.getByRole('button', { name: 'Golf Pad' }).click()
     await page.getByLabel('Golf Pad export files').setInputFiles(FILES)
 
     const straits = page.getByRole('region', { name: 'Whistling Straits' })
@@ -96,7 +95,6 @@ test.describe('Golf Pad import (signed in, mutating)', () => {
 
   test('importing the same files again skips every imported round as already imported and writes nothing', async ({ page }) => {
     await page.goto('/rounds/import')
-    await page.getByRole('button', { name: 'Golf Pad' }).click()
     await chooseFilesAndCourses(page)
     await page.getByRole('button', { name: 'Import 2 rounds' }).click()
     await expect(page.getByText('Imported 2 rounds')).toBeVisible({ timeout: 30_000 })
@@ -117,7 +115,6 @@ test.describe('Golf Pad import (signed in, mutating)', () => {
 
   test('a rounds file alone is turned away with what to export instead', async ({ page }) => {
     await page.goto('/rounds/import')
-    await page.getByRole('button', { name: 'Golf Pad' }).click()
     await page.getByLabel('Golf Pad export files').setInputFiles(FILES[0]!)
     await expect(page.getByText(/Only a rounds file was chosen. Golf Pad’s rounds-only export has no holes or shots/)).toBeVisible()
     await expect(page.getByRole('button', { name: /^Import \d+ rounds?$/ })).toHaveCount(0)

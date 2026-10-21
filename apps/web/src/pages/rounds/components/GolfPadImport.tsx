@@ -205,36 +205,78 @@ export function GolfPadImport() {
   const pendingScoresOnly = scoresOnlyCounts(pendingHoles)
 
   return (
-    <div className="flex flex-col gap-5">
-      <div className="text-caddie-ink-dim" style={{ fontSize: 13 }}>
-        In Golf Pad: Settings → Data Export → the comprehensive export (Premium). Golf Pad emails a
-        download link; choose all three CSV files from it (rounds, holes and shots).
+    <div className="flex flex-col" style={{ gap: 22 }}>
+      <ol className="text-caddie-ink" style={{ fontSize: 15, lineHeight: 1.55, paddingLeft: 0, listStyle: 'none' }}>
+        {[
+          'In Golf Pad, open Settings → Data Export and ask for the comprehensive export (Premium).',
+          'Golf Pad emails you a download link.',
+          'Choose all three CSV files from it here: rounds, holes and shots.',
+        ].map((step, i) => (
+          <li key={i} className="flex" style={{ gap: 12, padding: '10px 0', borderBottom: LINE_RULE }}>
+            <span className="font-serif text-caddie-ink-dim tabular" style={{ fontSize: 17, minWidth: 14 }}>
+              {i + 1}
+            </span>
+            <span>{step}</span>
+          </li>
+        ))}
+      </ol>
+      <div>
+        <label
+          className="inline-flex items-center text-caddie-ink hover:bg-caddie-surface focus-within:outline focus-within:outline-2 focus-within:outline-offset-2"
+          style={{
+            border: '1px solid #9F9580',
+            borderRadius: 2,
+            padding: '11px 16px',
+            fontSize: 14,
+            fontWeight: 600,
+            letterSpacing: '0.02em',
+            cursor: progress ? 'not-allowed' : 'pointer',
+            opacity: progress ? 0.5 : 1,
+          }}
+        >
+          {plan ? 'Choose different files' : 'Choose the CSV files'}
+          <input
+            type="file"
+            multiple
+            accept=".csv,text/csv"
+            aria-label="Golf Pad export files"
+            onChange={handleFiles}
+            disabled={!!progress}
+            className="sr-only"
+          />
+        </label>
       </div>
-      <input
-        type="file"
-        multiple
-        accept=".csv,text/csv"
-        aria-label="Golf Pad export files"
-        onChange={handleFiles}
-        disabled={!!progress}
-      />
+
+      {error && (
+        <p className="text-caddie-neg" role="alert" style={{ fontSize: 13 }}>
+          {error}
+        </p>
+      )}
 
       {rows.length > 0 && (
         <div>
-          <FieldLabel>Courses — confirm each one</FieldLabel>
+          <h2 className="font-serif text-caddie-ink" style={h2Style}>
+            Your courses
+          </h2>
+          <p className="text-caddie-ink-dim" style={{ fontSize: 13, margin: '8px 0 4px' }}>
+            Confirm each one. Rounds on a skipped course stay out.
+          </p>
           {rows.map((row) => (
             <section
               key={row.golfPadName}
               aria-label={row.golfPadName}
-              style={{ borderBottom: '1px solid #E4E4E0', padding: '14px 0' }}
+              style={{ borderBottom: LINE_RULE, padding: '14px 4px' }}
             >
-              <div className="text-caddie-ink" style={{ fontSize: 14, fontWeight: 600 }}>
+              <div className="text-caddie-ink" style={{ fontSize: 15, fontWeight: 500 }}>
                 {row.golfPadName}{' '}
                 <span className="text-caddie-ink-mute" style={{ fontWeight: 400 }}>
                   · {row.rounds} round{row.rounds === 1 ? '' : 's'}
                 </span>
               </div>
-              <div className="text-caddie-ink-dim" style={{ fontSize: 13, marginTop: 4 }}>
+              <div
+                className={row.decision && row.decision !== 'skip' ? 'text-caddie-ink' : 'text-caddie-ink-dim'}
+                style={{ fontSize: 13, marginTop: 4 }}
+              >
                 {row.decision === 'skip'
                   ? 'Skipped: these rounds won’t be imported.'
                   : row.decision
@@ -246,13 +288,13 @@ export function GolfPadImport() {
                         : (row.noMatchWhy ?? 'No match found')}
               </div>
               {!row.searching && (
-                <div className="flex gap-2" style={{ marginTop: 8 }}>
+                <div className="flex flex-wrap items-center" style={{ gap: 8, marginTop: 10 }}>
                   {row.match && !row.decision && (
                     <button
                       type="button"
                       onClick={() => updateRow(row.golfPadName, { decision: { courseId: row.match!.id, courseName: row.match!.name } })}
-                      className="bg-caddie-accent text-caddie-accent-ink"
-                      style={buttonStyle}
+                      className="bg-caddie-accent text-caddie-accent-ink hover:opacity-90"
+                      style={{ ...buttonStyle, border: '1px solid #1F3D2C' }}
                     >
                       Use this course
                     </button>
@@ -260,8 +302,9 @@ export function GolfPadImport() {
                   <button
                     type="button"
                     onClick={() => updateRow(row.golfPadName, { choosing: !row.choosing })}
-                    className="text-caddie-accent"
-                    style={{ ...buttonStyle, background: 'transparent', border: '1px solid currentColor' }}
+                    aria-expanded={row.choosing}
+                    className="text-caddie-ink hover:bg-caddie-surface"
+                    style={{ ...buttonStyle, background: 'transparent', border: '1px solid #9F9580' }}
                   >
                     {row.match || row.decision ? 'Choose a different course' : 'Choose a course'}
                   </button>
@@ -269,8 +312,8 @@ export function GolfPadImport() {
                     <button
                       type="button"
                       onClick={() => updateRow(row.golfPadName, { decision: 'skip', choosing: false })}
-                      className="text-caddie-ink-dim"
-                      style={{ ...buttonStyle, background: 'transparent', border: '1px solid #E4E4E0' }}
+                      className="text-caddie-ink-dim hover:text-caddie-ink"
+                      style={{ ...buttonStyle, background: 'transparent', border: '1px solid transparent' }}
                     >
                       Skip
                     </button>
@@ -278,7 +321,7 @@ export function GolfPadImport() {
                 </div>
               )}
               {row.choosing && (
-                <div style={{ marginTop: 10 }}>
+                <div style={{ marginTop: 12 }}>
                   <CourseSearch
                     selectedCourseId={row.decision && row.decision !== 'skip' ? row.decision.courseId : null}
                     initialQuery={row.golfPadName}
@@ -293,11 +336,6 @@ export function GolfPadImport() {
         </div>
       )}
 
-      {error && (
-        <div className="text-caddie-neg" style={{ fontSize: 13 }}>
-          {error}
-        </div>
-      )}
       {progress && (
         <div className="text-caddie-ink-dim" style={{ fontSize: 13 }}>
           {progress}
@@ -305,16 +343,16 @@ export function GolfPadImport() {
       )}
 
       {pendingScoresOnly.total > 0 && (
-        <section aria-label="Scores only" style={{ fontSize: 13 }}>
-          <div className="text-caddie-warn" style={{ fontWeight: 600 }}>
+        <section aria-label="Scores only" style={{ fontSize: 13, borderLeft: '2px solid #A66A1F', paddingLeft: 14 }}>
+          <div className="text-caddie-warn" style={{ fontSize: 15, fontWeight: 500 }}>
             {holesText(pendingHoles.length - pendingScoresOnly.total)} with shots,{' '}
             {holesText(pendingScoresOnly.total)} with scores only
           </div>
-          <div className="text-caddie-ink-dim" style={{ marginTop: 4 }}>
+          <div className="text-caddie-ink-dim" style={{ marginTop: 4, lineHeight: 1.5 }}>
             A hole’s shots come in only when they account for every stroke; otherwise its strokes
             gained would be wrong. Score, putts, penalties, fairway and green still count.
           </div>
-          <ul className="text-caddie-ink-dim" style={{ marginTop: 4, paddingLeft: 18, listStyle: 'disc' }}>
+          <ul className="text-caddie-ink-dim" style={{ marginTop: 6, paddingLeft: 18, listStyle: 'disc' }}>
             {pendingScoresOnly.reasons.map(([why, n]) => (
               <li key={why}>
                 {n} · {why}
@@ -325,26 +363,31 @@ export function GolfPadImport() {
       )}
 
       {rows.length > 0 && (
-        <div className="flex justify-end">
+        <div className="flex flex-wrap items-center" style={{ gap: '10px 14px' }}>
           <button
             type="button"
             onClick={handleImport}
             disabled={!decided || toImport === 0 || !!progress}
-            className="bg-caddie-accent text-caddie-accent-ink disabled:opacity-50"
-            style={buttonStyle}
+            className="bg-caddie-accent text-caddie-accent-ink hover:opacity-90 disabled:opacity-50"
+            style={{ ...buttonStyle, border: 'none', padding: '12px 16px', fontSize: 14, letterSpacing: '0.02em' }}
           >
             Import {toImport} round{toImport === 1 ? '' : 's'}
           </button>
+          {!decided && (
+            <span className="text-caddie-ink-dim" style={{ fontSize: 13 }}>
+              Confirm or skip every course first.
+            </span>
+          )}
         </div>
       )}
 
       {result && (
-        <div className="flex flex-col gap-2" style={{ fontSize: 13 }}>
-          <div className="text-caddie-ink" style={{ fontSize: 15, fontWeight: 600 }}>
+        <div style={{ fontSize: 13 }}>
+          <h2 className="font-serif text-caddie-ink" style={h2Style}>
             Imported {result.imported.length} round{result.imported.length === 1 ? '' : 's'}
-          </div>
+          </h2>
           {result.imported.map((r, i) => (
-            <div key={i} className="text-caddie-ink-dim">
+            <div key={i} className="text-caddie-ink" style={{ padding: '10px 4px', borderBottom: LINE_RULE }}>
               {r.courseName} · {r.playedAt}
               {r.scoresOnly.total > 0 && (
                 <span className="text-caddie-warn">
@@ -355,10 +398,12 @@ export function GolfPadImport() {
             </div>
           ))}
           {result.notImported.length > 0 && (
-            <div>
-              <FieldLabel>Not imported</FieldLabel>
+            <div style={{ marginTop: 18 }}>
+              <div className="text-caddie-ink" style={{ fontSize: 15, fontWeight: 500, marginBottom: 4 }}>
+                Not imported
+              </div>
               {result.notImported.map((n, i) => (
-                <div key={i} className="text-caddie-ink-dim">
+                <div key={i} className="text-caddie-ink-dim" style={{ padding: '10px 4px', borderBottom: LINE_RULE }}>
                   {n.courseName} · {n.playedAt} — {n.why}
                 </div>
               ))}
@@ -370,15 +415,15 @@ export function GolfPadImport() {
   )
 }
 
-function FieldLabel({ children }: { children: React.ReactNode }) {
-  return (
-    <div
-      className="text-caddie-ink-dim uppercase"
-      style={{ fontSize: 11, fontWeight: 500, letterSpacing: 0.4, marginBottom: 6 }}
-    >
-      {children}
-    </div>
-  )
+const LINE_RULE = '1px solid #D9D2BF'
+
+const h2Style: React.CSSProperties = {
+  fontSize: 22,
+  fontWeight: 500,
+  fontStyle: 'italic',
+  lineHeight: 1.2,
+  paddingBottom: 8,
+  borderBottom: LINE_RULE,
 }
 
 const buttonStyle: React.CSSProperties = {
