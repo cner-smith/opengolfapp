@@ -67,24 +67,28 @@ export function getShotsByClub(
 const SHOTS_PAGE = 1000
 
 export async function getShotsForUser(client: OgaSupabaseClient, userId: string) {
-  const page = (from: number) =>
-    client
+  // Keyset paging on (created_at, id), not offsets: a shot saved mid-fetch
+  // (the live round writes while the overlay reads) can't shift a page boundary.
+  const page = (after: { created_at: string; id: string } | null) => {
+    let q = client
       .from('shots')
-      .select(DISPERSION_SHOT_COLUMNS)
+      .select(`${DISPERSION_SHOT_COLUMNS}, created_at`)
       .eq('user_id', userId)
       .not('aim_lat', 'is', null)
       .not('end_lat', 'is', null)
       .not('club', 'is', null)
-      .order('created_at', { ascending: false })
-      // A unique tiebreak, so no row repeats or drops between pages.
-      .order('id')
-      .range(from, from + SHOTS_PAGE - 1)
+    if (after) {
+      q = q.or(`created_at.lt."${after.created_at}",and(created_at.eq."${after.created_at}",id.lt.${after.id})`)
+    }
+    return q.order('created_at', { ascending: false }).order('id', { ascending: false }).limit(SHOTS_PAGE)
+  }
   const rows: NonNullable<Awaited<ReturnType<typeof page>>['data']> = []
-  for (let from = 0; ; from += SHOTS_PAGE) {
-    const { data, error } = await page(from)
+  for (let after = null as { created_at: string; id: string } | null; ; ) {
+    const { data, error } = await page(after)
     if (error) return { data: null, error }
     rows.push(...data)
     if (data.length < SHOTS_PAGE) return { data: rows, error: null }
+    after = data[data.length - 1] ?? null
   }
 }
 

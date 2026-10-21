@@ -1,10 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
+  capFirst,
   categoriesFor,
   categoryOf,
   conflictWords,
   countWord,
   distanceText,
+  distanceUnitAbbr,
   findingLine,
   mostlyTeeShots,
   readQuality,
@@ -243,5 +245,16 @@ describe('shot groups', () => {
       recorded: 0,
       note: 'No 7-iron shot here has its shape recorded yet. Set it in a shot’s result after the hole.',
     })
+  })
+})
+
+describe('capFirst / distanceUnitAbbr', () => {
+  it('capitalises only the first letter and leaves an empty string alone', () => {
+    expect(capFirst('mostly draws')).toBe('Mostly draws')
+    expect(capFirst('')).toBe('')
+  })
+  it('names the unit the player reads distances in', () => {
+    expect(distanceUnitAbbr('yards')).toBe('yd')
+    expect(distanceUnitAbbr('meters')).toBe('m')
   })
 })

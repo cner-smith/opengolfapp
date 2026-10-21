@@ -37,6 +37,10 @@ export default function Drills() {
     CATEGORIES.includes(params.category as PlanCategory) ? (params.category as PlanCategory) : 'all',
   )
   const [mode, setMode] = useState<BlockType | 'all'>('all')
+  // expo-router updates params without remounting when Drills is already in the stack.
+  useEffect(() => {
+    if (CATEGORIES.includes(params.category as PlanCategory)) setCategory(params.category as PlanCategory)
+  }, [params.category])
 
   useEffect(() => {
     let active = true
