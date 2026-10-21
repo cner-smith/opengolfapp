@@ -661,7 +661,7 @@ function ClubRow({
   const t = club.club_type === 'putter' ? null : (reading?.typical ?? null)
   const typical = t ? wholeDistance(t.yards, unit) : null
   const estimate = t?.source === 'estimate'
-  const plays = reading?.range ? `${wholeDistance(reading.range.low, unit)}–${wholeDistance(reading.range.high, unit)}` : ''
+  const plays = reading?.range && club.club_type !== 'putter' ? `${wholeDistance(reading.range.low, unit)}–${wholeDistance(reading.range.high, unit)}` : ''
   const shots = reading?.shots ?? 0
   const meta = [
     formatClubLabel(club, { hasDuplicateType }),
