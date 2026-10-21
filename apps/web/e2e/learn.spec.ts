@@ -4,10 +4,10 @@ import { test, expect } from '@playwright/test'
 // Signed-in cases live in a separate spec once the auth fixture is
 // in place (needs a Supabase test account + saved storageState).
 test.describe('Learn — signed out', () => {
-  test('/learn renders PublicNav with "Sign up free" CTA', async ({ page }) => {
+  test('/learn renders PublicNav with "Create account" CTA', async ({ page }) => {
     await page.goto('/learn')
     await expect(
-      page.getByRole('link', { name: /sign up free/i }),
+      page.getByRole('link', { name: /^create account$/i }),
     ).toBeVisible()
   })
 
