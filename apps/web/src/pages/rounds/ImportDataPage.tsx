@@ -10,6 +10,8 @@ import {
 } from '../../lib/import'
 import { CourseSearch } from '../../components/courses/CourseSearch'
 import { GolfPadImport } from './components/GolfPadImport'
+import { ScorecardCsvImport } from './components/ScorecardCsvImport'
+import { Choice, ChoiceRow } from './NewRoundPage'
 import { TeeSelector } from '../../components/courses/TeeSelector'
 import { useAuth } from '../../hooks/useAuth'
 import { supabase } from '../../lib/supabase'
@@ -30,7 +32,7 @@ export function ImportDataPage() {
   const { user } = useAuth()
   const qc = useQueryClient()
 
-  const [mode, setMode] = useState<'json' | 'golfpad'>('golfpad')
+  const [mode, setMode] = useState<'json' | 'golfpad' | 'csv'>('golfpad')
   const [step, setStep] = useState<Step>('input')
   const [rawText, setRawText] = useState('')
   const [busy, setBusy] = useState(false)
@@ -134,11 +136,30 @@ export function ImportDataPage() {
       <p className="text-caddie-ink-dim" style={{ fontSize: 15, marginBottom: 28, maxWidth: 560 }}>
         {mode === 'golfpad'
           ? 'Bring your Golf Pad history across: every round, with strokes gained worked out on import.'
-          : 'Paste or upload an OGA JSON payload to fill in a round. Shot shape, lie slope and anything else your data source doesn’t record can be added on the scorecard afterwards.'}
+          : mode === 'csv'
+            ? 'Bring scores from a spreadsheet or another app’s scorecards: one row per round.'
+            : 'Paste or upload an OGA JSON payload to fill in a round. Shot shape, lie slope and anything else your data source doesn’t record can be added on the scorecard afterwards.'}
       </p>
 
       <div className="flex flex-col" style={{ gap: 22 }}>
+        {mode !== 'json' && (
+          <ChoiceRow>
+            <Choice
+              active={mode === 'golfpad'}
+              onClick={() => setMode('golfpad')}
+              title="Golf Pad"
+              subtitle="The comprehensive export: rounds, holes and shots."
+            />
+            <Choice
+              active={mode === 'csv'}
+              onClick={() => setMode('csv')}
+              title="Scorecard CSV"
+              subtitle="A spreadsheet of scores, from our template."
+            />
+          </ChoiceRow>
+        )}
         {mode === 'golfpad' && <GolfPadImport />}
+        {mode === 'csv' && <ScorecardCsvImport />}
 
         {mode === 'json' && step === 'input' && (
           <div className="flex flex-col" style={{ gap: 14 }}>
@@ -379,11 +400,11 @@ export function ImportDataPage() {
         <div style={{ borderTop: LINE_RULE, paddingTop: 14, marginTop: 10 }}>
           <button
             type="button"
-            onClick={() => setMode(mode === 'golfpad' ? 'json' : 'golfpad')}
+            onClick={() => setMode(mode === 'json' ? 'golfpad' : 'json')}
             className="text-caddie-ink-dim hover:text-caddie-ink underline underline-offset-4"
             style={{ background: 'none', border: 'none', padding: 0, fontSize: 13, cursor: 'pointer' }}
           >
-            {mode === 'golfpad' ? 'Import OGA JSON' : 'Import from Golf Pad'}
+            {mode === 'json' ? 'Import from Golf Pad or a scorecard CSV' : 'Import OGA JSON'}
           </button>
         </div>
       </div>
