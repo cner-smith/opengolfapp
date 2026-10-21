@@ -396,6 +396,26 @@ export function SettingsPage() {
         </label>
       </Group>
 
+      <Group title="Your data">
+        <Link
+          to="/rounds/import"
+          className="hover:bg-caddie-surface"
+          style={{ ...rowStyle, borderBottom: '1px solid #D9D2BF', textDecoration: 'none' }}
+        >
+          <span>
+            <span className="text-caddie-ink" style={{ fontSize: 15, display: 'block' }}>
+              Import rounds
+            </span>
+            <span className="text-caddie-ink-dim" style={{ fontSize: 13 }}>
+              From Golf Pad, or a scorecard spreadsheet.
+            </span>
+          </span>
+          <span className="text-caddie-ink-dim" aria-hidden="true" style={{ fontSize: 15 }}>
+            ›
+          </span>
+        </Link>
+      </Group>
+
       <Group title="Support OGA">
         <p className="text-caddie-ink-dim" style={{ fontSize: 15, lineHeight: 1.55, padding: '12px 0 10px', maxWidth: 520 }}>
           OGA is free and open source. If it helps your game, consider buying us a round.

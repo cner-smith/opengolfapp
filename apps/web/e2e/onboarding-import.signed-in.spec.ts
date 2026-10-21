@@ -1,0 +1,45 @@
+import { test, expect, type Page } from '@playwright/test'
+
+// The e2e user is already onboarded, so the profile writes are answered here
+// instead of reaching DEV. Each test records them to prove onboarding is
+// finished before the import step shows.
+async function walkToImportStep(page: Page) {
+  const writes: Record<string, unknown>[] = []
+  await page.route('**/rest/v1/profiles*', async (route) => {
+    if (route.request().method() !== 'PATCH') return route.fallback()
+    const body = route.request().postDataJSON() as Record<string, unknown>
+    writes.push(body)
+    await route.fulfill({ json: { onboarding_completed: false, ...body } })
+  })
+  await page.goto('/onboarding')
+  await page.getByRole('radio', { name: /^Casual/ }).click()
+  await page.getByRole('button', { name: /Continue/ }).click()
+  await page.getByRole('button', { name: /Continue/ }).click()
+  await page.getByRole('radio', { name: /^Break 90/ }).click()
+  await page.getByRole('button', { name: /Continue/ }).click()
+  await page.getByRole('button', { name: 'About once a week' }).click()
+  await page.getByRole('button', { name: 'Mixed' }).click()
+  await page.getByRole('button', { name: /Continue/ }).click()
+  await page.getByRole('button', { name: /Continue/ }).click()
+  await page.getByRole('button', { name: /Set up later/ }).click()
+  await expect(page.getByRole('heading', { name: 'Coming from another app?' })).toBeVisible()
+  await expect(page.getByText('Step 7 of 7')).toBeVisible()
+  expect(writes.at(-1)).toEqual({ onboarding_completed: true })
+  return writes
+}
+
+test.describe('Onboarding import step (signed in)', () => {
+  test('Import rounds goes to the import page', async ({ page }) => {
+    const writes = await walkToImportStep(page)
+    const before = writes.length
+    await page.getByRole('button', { name: /Import rounds/ }).click()
+    await expect(page).toHaveURL(/\/rounds\/import$/)
+    expect(writes.length).toBe(before)
+  })
+
+  test('Skip goes Home', async ({ page }) => {
+    await walkToImportStep(page)
+    await page.getByRole('button', { name: 'Skip' }).click()
+    await expect(page).toHaveURL(/\/dashboard$/)
+  })
+})

@@ -2,15 +2,15 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   AccessibilityInfo,
   DeviceEventEmitter,
+  FlatList,
   Pressable,
-  ScrollView,
   Text,
   View,
 } from 'react-native'
-import { Link } from 'expo-router'
+import { Link, useRouter } from 'expo-router'
 import { Swipeable } from 'react-native-gesture-handler'
 import { PressableTouch } from '../../components/ui/PressableTouch'
-import { formatSG, isStaleEmptyRound, partialRoundLabel } from '@oga/core'
+import { formatSG, isStaleEmptyRound, parseLocalDate, partialRoundLabel } from '@oga/core'
 import { deleteRound, getRoundsList } from '@oga/supabase'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
@@ -19,24 +19,39 @@ import { AppBar } from '../../components/ui/AppBar'
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
 import { Entrance } from '../../components/ui/Entrance'
 import { TYPE } from '../../lib/typography'
-import { PaperSurface } from '../../components/paper/Paper'
+import { Key, KeyText, PaperSurface } from '../../components/paper/Paper'
 import { PaperTile } from '../../components/paper/Section'
+import { ImportHistoryLink } from '../../components/home/RoundCTAs'
 import { FONT_CAP, P } from '../../components/paper/tokens'
 
 interface RoundRow {
   id: string
   played_at: string
   created_at: string
+  tee_color: string | null
   total_score: number | null
   sg_total: number | null
   courses?: { name: string | null } | null
   hole_scores?: { score: number; holes: { number: number } | null }[] | null
 }
 
+// "Oct 19, 2026 · Black tees", as Home's recent rounds date a round.
+function playedLine(r: RoundRow): string {
+  const date = parseLocalDate(r.played_at).toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  })
+  const tee = r.tee_color
+    ? ` · ${r.tee_color.charAt(0).toUpperCase()}${r.tee_color.slice(1)} tees`
+    : ''
+  return `${date}${tee}${partialRoundLabel(r.hole_scores)}`
+}
+
 // Screen-reader label for a round row. TalkBack and VoiceOver read visible
 // numbers but don't always interpret them; spell out what each field is.
 function buildA11yLabel(r: RoundRow): string {
-  const parts = [`Round at ${r.courses?.name ?? 'unnamed course'}`, r.played_at]
+  const parts = [`Round at ${r.courses?.name ?? 'unnamed course'}`, playedLine(r)]
   if (r.total_score != null) parts.push(`scored ${r.total_score}`)
   if (r.sg_total != null) parts.push(`strokes gained ${formatSG(r.sg_total)}`)
   return parts.join('. ') + '.'
@@ -44,11 +59,15 @@ function buildA11yLabel(r: RoundRow): string {
 
 export default function RoundsList() {
   const { user } = useAuth()
+  const router = useRouter()
   // Seed from the screen cache for an instant render on revisit; the mount
   // fetch below re-runs every visit and replaces it (#599).
   const [rounds, setRounds] = useState<RoundRow[]>(
     () => getCached<RoundRow[]>('roundsList') ?? [],
   )
+  // The empty state waits for the first fetch, so a slow load doesn't flash
+  // "No rounds yet" at a player who has rounds.
+  const [loaded, setLoaded] = useState(() => getCached<RoundRow[]>('roundsList') != null)
   const [pendingDelete, setPendingDelete] = useState<{
     id: string
     name: string
@@ -71,6 +90,7 @@ export default function RoundsList() {
         const kept = (data as RoundRow[]).filter((r) => !isStaleEmptyRound(r))
         setRounds(kept)
         setCached('roundsList', kept)
+        setLoaded(true)
       }
     })
     return () => {
@@ -117,136 +137,151 @@ export default function RoundsList() {
     })
   }, [])
 
+  const renderRound = useCallback(
+    ({ item: r, index }: { item: RoundRow; index: number }) => {
+      const row = (
+        <Swipeable
+          ref={(ref) => {
+            swipeRefs.current.set(r.id, ref)
+          }}
+          // Quiet delete: paper with a brick word, not a red slab. Long-press
+          // and the screen-reader action open the same confirm.
+          renderRightActions={() => (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`Delete round at ${r.courses?.name ?? 'this round'}`}
+              onPress={() => openDeleteFor(r)}
+              style={{
+                justifyContent: 'center',
+                alignItems: 'center',
+                paddingHorizontal: 22,
+                borderBottomWidth: 1,
+                borderLeftWidth: 1,
+                borderColor: P.line,
+              }}
+            >
+              <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { color: P.neg, fontSize: 14 }]}>
+                Delete
+              </Text>
+            </Pressable>
+          )}
+          overshootRight={false}
+        >
+          <PaperSurface>
+            <Link href={`/(app)/round/${r.id}`} asChild>
+              <PressableTouch
+                onLongPress={() => openDeleteFor(r)}
+                accessibilityLabel={buildA11yLabel(r)}
+                accessibilityHint="Opens round detail"
+                accessibilityActions={[{ name: 'delete', label: 'Delete round' }]}
+                onAccessibilityAction={(e) => {
+                  if (e.nativeEvent.actionName === 'delete') openDeleteFor(r)
+                }}
+                android_ripple={{ color: 'rgba(31,61,44,0.10)' }}
+                style={{
+                  flexDirection: 'row',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  paddingVertical: 14,
+                  paddingHorizontal: 4,
+                  borderBottomWidth: 1,
+                  borderColor: P.line,
+                }}
+              >
+                <View style={{ flex: 1, paddingRight: 12 }}>
+                  <Text
+                    maxFontSizeMultiplier={FONT_CAP}
+                    numberOfLines={2}
+                    style={[TYPE.serif, { color: P.ink, fontSize: 19, lineHeight: 24 }]}
+                  >
+                    {r.courses?.name ?? 'Round'}
+                  </Text>
+                  <Text
+                    maxFontSizeMultiplier={FONT_CAP}
+                    numberOfLines={1}
+                    style={[TYPE.body, { color: P.inkDim, fontSize: 13, marginTop: 3 }]}
+                  >
+                    {playedLine(r)}
+                  </Text>
+                </View>
+                <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 14 }}>
+                  <Text
+                    maxFontSizeMultiplier={FONT_CAP}
+                    style={[TYPE.serifUpright, { color: P.ink, fontSize: 24, fontVariant: ['tabular-nums'] }]}
+                  >
+                    {r.total_score ? r.total_score : '—'}
+                  </Text>
+                  <Text
+                    maxFontSizeMultiplier={FONT_CAP}
+                    style={[TYPE.serifUpright, {
+                      color: r.sg_total == null ? P.inkDim : r.sg_total >= 0 ? P.forest : P.neg,
+                      fontSize: 14,
+                      minWidth: 40,
+                      textAlign: 'right',
+                      fontVariant: ['tabular-nums'],
+                    }]}
+                  >
+                    {r.sg_total == null ? '—' : formatSG(r.sg_total)}
+                  </Text>
+                </View>
+              </PressableTouch>
+            </Link>
+          </PaperSurface>
+        </Swipeable>
+      )
+      // Stagger only the first screenful; rows further down mount as they scroll in.
+      return index < 8 ? <Entrance index={index}>{row}</Entrance> : row
+    },
+    [openDeleteFor],
+  )
+
   return (
     <PaperSurface style={{ flex: 1 }}>
       <AppBar title="All rounds" />
-      <ScrollView
+      {/* FlatList, not a ScrollView: the list holds up to 500 rounds, each a
+          Swipeable, and only the rows on screen should mount. */}
+      <FlatList
+        data={rounds}
+        keyExtractor={(r) => r.id}
+        renderItem={renderRound}
+        initialNumToRender={12}
+        windowSize={7}
         contentContainerStyle={{
           paddingHorizontal: 18,
           paddingTop: 12,
           paddingBottom: 28,
         }}
-      >
-        {rounds.length === 0 ? (
-          <PaperTile style={{ marginTop: 18 }} innerStyle={{ padding: 22 }}>
-            <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.serif, { color: P.ink, fontSize: 22 }]}>
-              No rounds yet.
-            </Text>
-          </PaperTile>
-        ) : (
+        ListHeaderComponent={
+          rounds.length > 0 ? <View style={{ borderTopWidth: 1, borderColor: P.ink }} /> : null
+        }
+        ListEmptyComponent={
+          !loaded ? null : (
           <Entrance index={0}>
-          <View style={{ borderTopWidth: 1, borderColor: P.ink }}>
-            {rounds.map((r) => (
-              <Swipeable
-                key={r.id}
-                ref={(ref) => {
-                  swipeRefs.current.set(r.id, ref)
-                }}
-                renderRightActions={() => (
-                  <Pressable
-                    onPress={() => openDeleteFor(r)}
-                    style={{
-                      backgroundColor: P.neg,
-                      justifyContent: 'center',
-                      alignItems: 'center',
-                      paddingHorizontal: 22,
-                    }}
-                  >
-                    <Text
-                      maxFontSizeMultiplier={FONT_CAP}
-                      style={[TYPE.bodyBold, {
-                        color: P.raised,
-                        fontSize: 13,
-                        letterSpacing: 0.3,
-                      }]}
-                    >
-                      Delete
-                    </Text>
-                  </Pressable>
-                )}
-                overshootRight={false}
+            <PaperTile style={{ marginTop: 18 }} innerStyle={{ padding: 22 }}>
+              <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.serif, { color: P.ink, fontSize: 22 }]}>
+                No rounds yet.
+              </Text>
+              <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { color: P.inkDim, fontSize: 14, lineHeight: 20, marginTop: 8, marginBottom: 18 }]}>
+                Log your first round, or bring your history from another app, to start tracking strokes gained.
+              </Text>
+              <Key
+                tone="primary"
+                accessibilityLabel="Log a round"
+                onPress={() => router.push('/(app)/round/new?mode=past')}
+                faceStyle={{ minHeight: 50 }}
               >
-                <PaperSurface>
-                <Link href={`/(app)/round/${r.id}`} asChild>
-                  <PressableTouch
-                    onLongPress={() => openDeleteFor(r)}
-                    accessibilityLabel={buildA11yLabel(r)}
-                    accessibilityHint="Opens round detail"
-                    accessibilityActions={[
-                      { name: 'delete', label: 'Delete round' },
-                    ]}
-                    onAccessibilityAction={(e) => {
-                      if (e.nativeEvent.actionName === 'delete')
-                        openDeleteFor(r)
-                    }}
-                    android_ripple={{ color: 'rgba(31,61,44,0.10)' }}
-                    style={{
-                      flexDirection: 'row',
-                      justifyContent: 'space-between',
-                      alignItems: 'center',
-                      paddingVertical: 14,
-                      paddingHorizontal: 4,
-                      borderBottomWidth: 1,
-                      borderColor: P.line,
-                    }}
-                  >
-                    <View style={{ flex: 1, paddingRight: 12 }}>
-                      <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { color: P.inkDim, fontSize: 12, marginBottom: 4 }]}>
-                        {r.played_at}
-                        {partialRoundLabel(r.hole_scores)}
-                      </Text>
-                      <Text
-                        maxFontSizeMultiplier={FONT_CAP}
-                        style={[TYPE.serif, {
-                          color: P.ink,
-                          fontSize: 17,
-                        }]}
-                      >
-                        {r.courses?.name ?? 'Round'}
-                      </Text>
-                    </View>
-                    <View
-                      style={{
-                        flexDirection: 'row',
-                        alignItems: 'baseline',
-                        gap: 14,
-                      }}
-                    >
-                      <Text
-                        maxFontSizeMultiplier={FONT_CAP}
-                        style={[TYPE.serifUpright, {
-                          color: P.ink,
-                          fontSize: 22,
-                          fontVariant: ['tabular-nums'],
-                        }]}
-                      >
-                        {r.total_score ? r.total_score : '—'}
-                      </Text>
-                      <Text
-                        maxFontSizeMultiplier={FONT_CAP}
-                        style={[TYPE.serifUpright, {
-                          color:
-                            r.sg_total == null
-                              ? P.inkDim
-                              : r.sg_total >= 0
-                                ? P.forest
-                                : P.neg,
-                          fontSize: 13,
-                          fontVariant: ['tabular-nums'],
-                        }]}
-                      >
-                        {r.sg_total == null ? '—' : formatSG(r.sg_total)}
-                      </Text>
-                    </View>
-                  </PressableTouch>
-                </Link>
-                </PaperSurface>
-              </Swipeable>
-            ))}
-          </View>
+                <KeyText tone="primary" bold size={15}>
+                  Log a round
+                </KeyText>
+              </Key>
+              <View style={{ marginTop: 10 }}>
+                <ImportHistoryLink />
+              </View>
+            </PaperTile>
           </Entrance>
-        )}
-      </ScrollView>
+          )
+        }
+      />
       <ConfirmDialog
         visible={!!pendingDelete}
         title="Delete this round?"

@@ -72,9 +72,7 @@ export function DashboardPage() {
         <Masthead greeting={firstName} subtitle="Log a round to start tracking your strokes gained." />
         <EmptyState
           headline="No rounds logged yet"
-          body="Log your first round to see your strokes gained breakdown."
-          ctaLabel="Log a round"
-          ctaTo="/rounds/new"
+          body="Log your first round, or bring your history from another app, to see your strokes gained breakdown."
         />
       </div>
     )
@@ -417,17 +415,15 @@ function SGValue({ value }: { value: number | null }) {
   )
 }
 
-function EmptyState({
-  headline,
-  body,
-  ctaLabel,
-  ctaTo,
-}: {
-  headline: string
-  body: string
-  ctaLabel: string
-  ctaTo: string
-}) {
+function EmptyState({ headline, body }: { headline: string; body: string }) {
+  const button: React.CSSProperties = {
+    display: 'inline-block',
+    padding: '12px 16px',
+    fontSize: 14,
+    fontWeight: 600,
+    letterSpacing: '0.02em',
+    borderRadius: 2,
+  }
   return (
     <div
       className="bg-caddie-surface text-center"
@@ -445,29 +441,26 @@ function EmptyState({
       </div>
       <div
         className="text-caddie-ink-dim"
-        style={{ fontSize: 15, marginTop: 8, maxWidth: 360, marginInline: 'auto' }}
+        style={{ fontSize: 15, marginTop: 8, maxWidth: 380, marginInline: 'auto' }}
       >
         {body}
       </div>
-      <Link
-        to={ctaTo}
-        className="bg-caddie-accent text-caddie-accent-ink hover:opacity-90"
-        style={{
-          display: 'inline-block',
-          padding: '12px 16px',
-          fontSize: 14,
-          fontWeight: 600,
-          letterSpacing: '0.02em',
-          borderRadius: 2,
-          marginTop: 22,
-        }}
-      >
-        {ctaLabel} <span className="font-serif" style={{ fontStyle: 'italic' }}>→</span>
-      </Link>
+      <div className="flex flex-wrap justify-center" style={{ gap: 8, marginTop: 22 }}>
+        <Link to="/rounds/new" className="bg-caddie-accent text-caddie-accent-ink hover:opacity-90" style={button}>
+          Log a round <span className="font-serif" style={{ fontStyle: 'italic' }}>→</span>
+        </Link>
+        <Link
+          to="/rounds/import"
+          className="text-caddie-accent hover:bg-caddie-bg"
+          style={{ ...button, border: '1px solid #1F3D2C' }}
+        >
+          Import your history
+        </Link>
+      </div>
     </div>
   )
 }
 
-function formatPlayed(date: string): string {
+export function formatPlayed(date: string): string {
   return parseLocalDate(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 }

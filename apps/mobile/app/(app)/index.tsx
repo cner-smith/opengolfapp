@@ -17,6 +17,7 @@ import { ResumeRoundBanner } from '../../components/home/ResumeRoundBanner'
 import { SGBreakdown } from '../../components/home/SGBreakdown'
 import { SGTrendChart } from '../../components/home/SGTrendChart'
 import {
+  ImportHistoryLink,
   LogPastRoundCTA,
   StartLiveRoundCTA,
 } from '../../components/home/RoundCTAs'
@@ -356,9 +357,16 @@ export default function Home() {
               ]}
             >
               {rounds.length === 0
-                ? 'Log your first round to start tracking strokes gained.'
+                ? 'Log your first round, or bring your history from another app, to start tracking strokes gained.'
                 : 'Finish a full round to see your strokes gained.'}
             </Text>
+            {/* The start-round actions sit above this tile; the import is
+                the other way in for a player switching apps. */}
+            {rounds.length === 0 && (
+              <View style={{ marginTop: 10 }}>
+                <ImportHistoryLink />
+              </View>
+            )}
           </PaperTile>
         ) : (
           <View style={{ marginBottom: 28 }}>

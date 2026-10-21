@@ -37,6 +37,7 @@ import { PressableTouch } from '../../components/ui/PressableTouch'
 import { FONT_CAP, P, R } from '../../components/paper/tokens'
 import { HardShadow, Key, KeyText, PaperSurface } from '../../components/paper/Paper'
 import { TYPE } from '../../lib/typography'
+import { openWebImport, WEB_URL } from '../../lib/webLinks'
 
 type Profile = Database['public']['Tables']['profiles']['Row']
 type SkillLevel = Profile['skill_level']
@@ -433,6 +434,10 @@ export default function ProfileTab() {
           </Row>
         </Group>
 
+        <Group title="Your data">
+          <NavRow label="Import rounds on the web" value="↗" onPress={() => void openWebImport()} first />
+        </Group>
+
         <Group title="Help">
           <NavRow
             label="Replay intro tour"
@@ -440,7 +445,7 @@ export default function ProfileTab() {
             first
           />
           <NavRow label="Export diagnostic log" onPress={() => void exportDiagLog()} />
-          <NavRow label="OGA on the web" value="oga.golf ↗" onPress={() => Linking.openURL('https://oga.golf')} />
+          <NavRow label="OGA on the web" value="oga.golf ↗" onPress={() => Linking.openURL(WEB_URL)} />
         </Group>
         <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { color: P.inkDim, fontSize: 13, lineHeight: 19, marginTop: -16, marginBottom: 28 }]}>
           Your rounds sync to the web: sign in at oga.golf with the same account for bigger charts.

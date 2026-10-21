@@ -20,4 +20,10 @@ test.describe('Settings (signed in)', () => {
     // Nothing edited, so no Save button.
     await expect(page.getByRole('button', { name: 'Save changes' })).toHaveCount(0)
   })
+
+  test('Your data has an Import rounds row', async ({ page }) => {
+    await page.goto('/settings')
+    await expect(page.getByRole('heading', { name: 'Your data' })).toBeVisible()
+    await expect(page.getByRole('link', { name: /^Import rounds/ })).toHaveAttribute('href', '/rounds/import')
+  })
 })
