@@ -81,9 +81,12 @@ export function StrokesGainedSection({ data }: { data: DetailedStats }) {
           className="font-serif text-caddie-ink"
           style={{ fontSize: 20, fontStyle: 'italic', lineHeight: 1.35, maxWidth: 640, margin: '0 0 6px' }}
         >
-          {weakest.value < 0
+          {/* Within ±0.05 the number rounds to 0.0: call it even, not "costs you 0.0" (#911). */}
+          {weakest.value <= -0.05
             ? `${sgLabel(weakest.key)} costs you ${Math.abs(weakest.value).toFixed(1)} strokes a round`
-            : `${sgLabel(weakest.key)} is your softest area, still gaining ${weakest.value.toFixed(1)} a round`}
+            : weakest.value < 0.05
+              ? `${sgLabel(weakest.key)} is your softest area, about even`
+              : `${sgLabel(weakest.key)} is your softest area, still gaining ${weakest.value.toFixed(1)} a round`}
           {strongest && strongest.key !== weakest.key && strongest.value >= 0.05
             ? `; ${sgLabel(strongest.key).toLowerCase()} gains you ${strongest.value.toFixed(1)}.`
             : '.'}
