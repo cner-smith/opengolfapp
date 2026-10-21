@@ -14,13 +14,13 @@ test.describe('Learn — signed in', () => {
     ).toBeVisible()
   })
 
-  test('/learn hides the public "Sign up free" CTA', async ({ page }) => {
+  test('/learn hides the public "Create account" CTA', async ({ page }) => {
     await page.goto('/learn')
     // PublicNav is gone for authed users on /learn, so its sign-up CTA
     // should not be in the DOM. (Authed PublicNav swaps to "Go to app"
     // on other public routes, but PublicNav itself isn't rendered here.)
     await expect(
-      page.getByRole('link', { name: /sign up free/i }),
+      page.getByRole('link', { name: /^create account$/i }),
     ).toHaveCount(0)
   })
 })

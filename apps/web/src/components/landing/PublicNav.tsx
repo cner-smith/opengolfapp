@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { useAuth } from '../../hooks/useAuth'
 
 // Fixed top nav for marketing/public pages (LandingPage, PrivacyPage,
-// public Learn). Transparent on top of the page; backdrop appears as
+// public Learn). Transparent on top of the page; opaque paper appears as
 // the user scrolls. Auth-aware: signed-in visitors see "Go to app"
 // instead of the sign-up split, so the home page doubles as a cheap
 // re-entry point.
@@ -30,9 +30,7 @@ export function PublicNav() {
         borderBottom: scrolled
           ? '1px solid #D9D2BF'
           : '1px solid transparent',
-        background: scrolled ? 'rgba(242, 238, 229, 0.92)' : 'transparent',
-        backdropFilter: scrolled ? 'saturate(140%) blur(8px)' : 'none',
-        WebkitBackdropFilter: scrolled ? 'saturate(140%) blur(8px)' : 'none',
+        background: scrolled ? '#F2EEE5' : 'transparent',
       }}
     >
       <div
@@ -64,13 +62,8 @@ export function PublicNav() {
             <span style={{ fontStyle: 'normal', color: '#1F3D2C' }}>.</span>
           </span>
           <span
-            className="font-mono uppercase"
-            style={{
-              fontSize: 10,
-              letterSpacing: '0.16em',
-              color: '#8A8B7E',
-              marginTop: 4,
-            }}
+            className="font-sans"
+            style={{ fontSize: 12, color: '#5C6356', marginTop: 3 }}
           >
             Open Golf App
           </span>
@@ -114,7 +107,7 @@ export function PublicNav() {
                   border: '1px solid #1C211C',
                 }}
               >
-                Sign up free
+                Create account
               </Link>
             </>
           )}
