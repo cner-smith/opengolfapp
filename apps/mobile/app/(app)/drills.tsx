@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native'
-import { useRouter } from 'expo-router'
+import { useLocalSearchParams, useRouter } from 'expo-router'
 import { getDrills } from '@oga/supabase'
 import type { Database } from '@oga/supabase'
 import type { BlockType, PlanCategory } from '@oga/core'
@@ -31,8 +31,16 @@ export default function Drills() {
   const [drills, setDrills] = useState<Drill[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [category, setCategory] = useState<PlanCategory | 'all'>('all')
+  // Shot patterns links here with the club's category already chosen.
+  const params = useLocalSearchParams<{ category?: string }>()
+  const [category, setCategory] = useState<PlanCategory | 'all'>(
+    CATEGORIES.includes(params.category as PlanCategory) ? (params.category as PlanCategory) : 'all',
+  )
   const [mode, setMode] = useState<BlockType | 'all'>('all')
+  // expo-router updates params without remounting when Drills is already in the stack.
+  useEffect(() => {
+    if (CATEGORIES.includes(params.category as PlanCategory)) setCategory(params.category as PlanCategory)
+  }, [params.category])
 
   useEffect(() => {
     let active = true

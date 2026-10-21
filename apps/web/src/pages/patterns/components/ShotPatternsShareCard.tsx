@@ -1,11 +1,4 @@
-import {
-  dispersionVerdict,
-  getAimCorrection,
-  type Club,
-  type DispersionPoint,
-  type DispersionStats,
-  type DistanceUnit,
-} from '@oga/core'
+import { clubNoun, type Club, type DispersionPoint, type DispersionStats } from '@oga/core'
 import { DispersionPlot } from './DispersionPlot'
 
 // Off-screen 1200×630 social share card (Twitter/Facebook OG size).
@@ -41,7 +34,10 @@ interface ShotPatternsShareCardProps {
   points: DispersionPoint[]
   stats: DispersionStats
   club: Club
-  unit: DistanceUnit
+  /** The page's finding sentence, so the card says what the page says. */
+  finding: string
+  /** The recorded shape's verdict ("Mostly draws", "Mixed", "—"). */
+  shape: string
   toDisplay: (yards: number, decimals?: number) => string
 }
 
@@ -49,9 +45,11 @@ export function ShotPatternsShareCard({
   points,
   stats,
   club,
-  unit,
+  finding,
+  shape,
   toDisplay,
 }: ShotPatternsShareCardProps) {
+  const pair = (a: number, b: number) => `${toDisplay(a).replace(/ (yd|m)$/, '')} × ${toDisplay(b)}`
   return (
     <div
       style={{
@@ -121,39 +119,26 @@ export function ShotPatternsShareCard({
         </div>
 
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ ...KICKER, fontSize: 13, color: C.inkMute, marginBottom: 10 }}>
-            {club}
+          <div style={{ fontSize: 15, color: C.inkDim, marginBottom: 10 }}>
+            {stats.sampleSize} shots with a {clubNoun(club)}, measured from the aim
           </div>
           <div
             style={{
               fontFamily: SERIF,
+              fontStyle: 'italic',
               fontWeight: 500,
-              fontSize: 46,
-              lineHeight: 1.1,
+              fontSize: 32,
+              lineHeight: 1.2,
               color: C.ink,
               marginBottom: 30,
             }}
           >
-            {dispersionVerdict(stats)}
+            {finding}
           </div>
-          <div style={{ display: 'flex', gap: 40, marginBottom: 30 }}>
-            <Stat label="Sample" value={`${stats.sampleSize} shots`} />
-            <Stat
-              label="68% spread"
-              value={`±${toDisplay(stats.cone68.lateral, 1)} / ${toDisplay(stats.cone68.distance, 1)}`}
-            />
-            <Stat label="Dominant miss" value={stats.dominantMiss} />
-          </div>
-          <div
-            style={{
-              fontFamily: SERIF,
-              fontSize: 22,
-              lineHeight: 1.5,
-              color: C.inkDim,
-              maxWidth: 540,
-            }}
-          >
-            {getAimCorrection(stats, unit)}
+          <div style={{ display: 'flex', gap: 40 }}>
+            <Stat label="Two in three" value={pair(stats.cone68.lateral * 2, stats.cone68.distance * 2)} />
+            <Stat label="Nearly all" value={pair(stats.cone95.lateral * 2, stats.cone95.distance * 2)} />
+            <Stat label="Shape" value={shape} />
           </div>
         </div>
       </div>
@@ -179,9 +164,7 @@ export function ShotPatternsShareCard({
 function Stat({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <div style={{ ...KICKER, fontSize: 11, color: C.inkMute, marginBottom: 6 }}>
-        {label}
-      </div>
+      <div style={{ fontSize: 15, color: C.inkDim, marginBottom: 6 }}>{label}</div>
       <div style={{ fontFamily: SERIF, fontWeight: 500, fontSize: 26, color: C.ink }}>
         {value}
       </div>

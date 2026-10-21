@@ -1,0 +1,35 @@
+# Shot patterns: the chart tabs, the colour legend and the filter sheet. Needs an account with at
+# least five aimed shots on one club (the DEV e2e user after `pnpm seed:e2e`); otherwise the page
+# shows its example and this flow fails at "Around the aim".
+appId: app.opengolf.oga
+name: Android Shot patterns — tabs, colour legend and filters
+---
+- runFlow: subflows/home.yaml
+- tapOn: "Patterns"
+- extendedWaitUntil:
+    visible: "Around the aim"
+    timeout: 30000
+- tapOn: "Colour by shape"
+- extendedWaitUntil:
+    visible: "Not recorded.*"
+    timeout: 5000
+- tapOn: "From the tee"
+# "hit from here" is SVG text inside the chart, which is hidden from the accessibility tree (the
+# chart reads as one image), so Maestro can't see it; the tee view's caption stands in for it.
+# The caption sits under the chart, below the fold once a colour legend is open.
+- scrollUntilVisible:
+    element: "Lines leave on your recorded start line.*"
+    direction: DOWN
+    timeout: 10000
+- scrollUntilVisible:
+    element: "Filters"
+    direction: UP
+    timeout: 10000
+- tapOn: "Filters"
+- extendedWaitUntil:
+    visible: "Lie"
+    timeout: 5000
+- back
+- extendedWaitUntil:
+    visible: "Around the aim"
+    timeout: 5000

@@ -4,7 +4,10 @@ import type {
   LieSlopeSide,
   LieType,
   ShotResult,
+  ShotShape,
+  ShotStartLine,
 } from './constants'
+import { SHOT_SHAPES, SHOT_START_LINES } from './constants'
 import type { Shot } from './types'
 import { bearingDegrees, toRadians } from './units'
 
@@ -25,6 +28,22 @@ export interface DispersionPoint {
   lieSlopeForward?: LieSlopeForward
   lieSlopeSide?: LieSlopeSide
   lieType?: LieType
+  shape?: ShotShape | null
+  startLine?: ShotStartLine | null
+  /** The round's played date (ISO), when known. */
+  playedAt?: string
+}
+
+/** A containment ring in the aim frame (x = right, y = long; y up). `rx` is
+ *  the semi-axis along the lateral axis turned by `rotationDeg`
+ *  (counter-clockwise, towards long; within ±45°), `ry` the one across it.
+ *  In SVG, where y points down, rotate by −rotationDeg. */
+export interface DispersionRing {
+  cx: number
+  cy: number
+  rx: number
+  ry: number
+  rotationDeg: number
 }
 
 export interface DispersionStats {
@@ -34,8 +53,16 @@ export interface DispersionStats {
   stdDistance: number
   cone68: { lateral: number; distance: number }
   cone95: { lateral: number; distance: number }
+  /** The side of the average miss when it is beyond its own uncertainty
+   *  (see aimAdvice), else 'straight'. */
   dominantMiss: 'left' | 'right' | 'straight'
-  shotShape: 'fade' | 'draw' | 'straight'
+  /** The recorded shape's verdict (shapeTally); null = too few recorded. */
+  shape: ShotShape | 'mixed' | null
+  /** Rings tilted by the pattern's covariance; same k-factors as the cones. */
+  ring68: DispersionRing
+  ring95: DispersionRing
+  /** Average start-to-aim distance over shots with a start, yards. */
+  avgAimDistance: number | null
   sampleSize: number
 }
 
@@ -109,6 +136,9 @@ export function computeDispersion(shots: Shot[]): DispersionPoint[] {
       lieSlopeForward: s.lieSlopeForward,
       lieSlopeSide: s.lieSlopeSide,
       lieType: s.lieType,
+      shape: s.shape,
+      startLine: s.startLine,
+      playedAt: s.playedAt,
     })
   }
   return points
@@ -124,7 +154,6 @@ function stdDev(xs: number[], avg: number): number {
 }
 
 const DOMINANT_MISS_THRESHOLD_YARDS = 2
-const SHOT_SHAPE_THRESHOLD_YARDS = 3
 /** Shots a club needs before its pattern (and its measured typical distance)
  *  counts. Below this the live wheel shows "N more". */
 export const MIN_SAMPLES_FOR_STATS = 5
@@ -144,20 +173,11 @@ export function computeDispersionStats(points: DispersionPoint[]): DispersionSta
   const avgDist = mean(distances)
   const stdLat = stdDev(laterals, avgLat)
   const stdDist = stdDev(distances, avgDist)
+  const n = points.length
+  const lateralMiss = beyondNoise(avgLat, stdLat, n)
 
-  const dominantMiss: DispersionStats['dominantMiss'] =
-    Math.abs(avgLat) < DOMINANT_MISS_THRESHOLD_YARDS
-      ? 'straight'
-      : avgLat > 0
-        ? 'right'
-        : 'left'
-
-  const shotShape: DispersionStats['shotShape'] =
-    Math.abs(avgLat) < SHOT_SHAPE_THRESHOLD_YARDS
-      ? 'straight'
-      : avgLat > 0
-        ? 'fade'
-        : 'draw'
+  const ring = covarianceRing(points, avgLat, avgDist)
+  const scaled = (k: number): DispersionRing => ({ ...ring, rx: ring.rx * k, ry: ring.ry * k })
 
   return {
     avgLateralOffset: avgLat,
@@ -166,10 +186,260 @@ export function computeDispersionStats(points: DispersionPoint[]): DispersionSta
     stdDistance: stdDist,
     cone68: { lateral: stdLat * CONE_68_K, distance: stdDist * CONE_68_K },
     cone95: { lateral: stdLat * CONE_95_K, distance: stdDist * CONE_95_K },
-    dominantMiss,
-    shotShape,
-    sampleSize: points.length,
+    dominantMiss: lateralMiss === 0 ? 'straight' : lateralMiss > 0 ? 'right' : 'left',
+    shape: shapeTally(points, false).verdict, // the verdict word doesn't depend on hand
+    ring68: scaled(CONE_68_K),
+    ring95: scaled(CONE_95_K),
+    avgAimDistance: averageAimDistance(points),
+    sampleSize: n,
   }
+}
+
+/** Average start-to-aim distance over the shots with a start, yards; null
+ *  when none has one. */
+export function averageAimDistance(points: DispersionPoint[]): number | null {
+  const aims = points.flatMap((p) => (p.startDistanceOffsetYards == null ? [] : [-p.startDistanceOffsetYards]))
+  return aims.length ? mean(aims) : null
+}
+
+/** A ring's half-extent along each axis of its frame (it may be tilted). */
+export function ringExtent(r: DispersionRing): { x: number; y: number } {
+  const t = toRadians(r.rotationDeg)
+  return {
+    x: Math.hypot(r.rx * Math.cos(t), r.ry * Math.sin(t)),
+    y: Math.hypot(r.rx * Math.sin(t), r.ry * Math.cos(t)),
+  }
+}
+
+/** Is an aim-frame point (x right, y long, yards) inside or on the ring? */
+export function insideRing(r: DispersionRing, x: number, y: number): boolean {
+  const t = toRadians(r.rotationDeg)
+  const dx = x - r.cx
+  const dy = y - r.cy
+  const u = dx * Math.cos(t) + dy * Math.sin(t)
+  const v = -dx * Math.sin(t) + dy * Math.cos(t)
+  return (u / Math.max(r.rx, 1e-6)) ** 2 + (v / Math.max(r.ry, 1e-6)) ** 2 <= 1
+}
+
+/** The 1σ ellipse of the points' 2×2 covariance, on its eigenvectors. */
+function covarianceRing(points: DispersionPoint[], cx: number, cy: number): DispersionRing {
+  let sxx = 0
+  let syy = 0
+  let sxy = 0
+  for (const p of points) {
+    const dx = p.lateralOffsetYards - cx
+    const dy = p.distanceOffsetYards - cy
+    sxx += dx * dx
+    syy += dy * dy
+    sxy += dx * dy
+  }
+  sxx /= points.length
+  syy /= points.length
+  sxy /= points.length
+  // One eigenvector lies at ½·atan2(2σxy, σxx − σyy); the other is 90° on.
+  // Take whichever is within ±45° so an untilted pattern keeps rx lateral.
+  let θ = Math.atan2(2 * sxy, sxx - syy) / 2
+  if (θ > Math.PI / 4) θ -= Math.PI / 2
+  else if (θ <= -Math.PI / 4) θ += Math.PI / 2
+  const c = Math.cos(θ)
+  const s = Math.sin(θ)
+  const along = sxx * c * c + 2 * sxy * s * c + syy * s * s
+  const across = sxx * s * s - 2 * sxy * s * c + syy * c * c
+  return {
+    cx,
+    cy,
+    rx: Math.sqrt(Math.max(0, along)),
+    ry: Math.sqrt(Math.max(0, across)),
+    rotationDeg: (θ * 180) / Math.PI,
+  }
+}
+
+/** Sign of the average miss when it is beyond its own uncertainty, else 0.
+ *  Rule: |mean| > 2·SE, SE = s/√n with the sample standard deviation s,
+ *  which is σ/√(n−1) for the population σ; and |mean| ≥ the 2 yd floor, so a
+ *  tight pattern isn't told to move a yard. */
+function beyondNoise(avg: number, popStd: number, n: number): -1 | 0 | 1 {
+  const se = popStd / Math.sqrt(n - 1)
+  if (Math.abs(avg) < DOMINANT_MISS_THRESHOLD_YARDS || Math.abs(avg) <= 2 * se) return 0
+  return avg > 0 ? 1 : -1
+}
+
+export interface AimAdvice {
+  /** Side of the average miss; move the aim the other way by |avgLateralOffset|. */
+  lateral: 'left' | 'right' | null
+  /** Short or long on average; null = level with the aim, within the spread. */
+  distance: 'short' | 'long' | null
+}
+
+/** Which average misses are worth acting on (see beyondNoise for the rule). */
+export function aimAdvice(stats: DispersionStats): AimAdvice {
+  const n = stats.sampleSize
+  const lat = beyondNoise(stats.avgLateralOffset, stats.stdLateral, n)
+  const dist = beyondNoise(stats.avgDistanceOffset, stats.stdDistance, n)
+  return {
+    lateral: lat === 0 ? null : lat > 0 ? 'right' : 'left',
+    distance: dist === 0 ? null : dist > 0 ? 'long' : 'short',
+  }
+}
+
+export interface RecordedTally<K extends string> {
+  counts: Record<K, number>
+  recorded: number
+  notRecorded: number
+  /** The commonest value when it holds at least half of the recorded shots
+   *  and strictly more than the next (2·top ≥ recorded and top > second);
+   *  'mixed' otherwise; null under MIN_SAMPLES_FOR_STATS (5) recorded. */
+  verdict: K | 'mixed' | null
+  /** Which side of the screen has more: curving (shape) or starting (start
+   *  line) left vs right, mirrored for a left-hander. Null when even. */
+  lean: 'left' | 'right' | null
+}
+
+function tally<K extends string>(
+  keys: readonly K[],
+  values: (K | null | undefined)[],
+  left: readonly K[],
+  right: readonly K[],
+): RecordedTally<K> {
+  const counts = Object.fromEntries(keys.map((k) => [k, 0])) as Record<K, number>
+  let notRecorded = 0
+  for (const v of values) {
+    if (v == null) notRecorded++
+    else counts[v]++
+  }
+  const recorded = values.length - notRecorded
+  const ranked = [...keys].sort((a, b) => counts[b] - counts[a])
+  const top = ranked[0]!
+  const holdsHalf = 2 * counts[top] >= recorded && counts[top] > counts[ranked[1]!]
+  const sum = (ks: readonly K[]) => ks.reduce((a, k) => a + counts[k], 0)
+  const l = sum(left)
+  const r = sum(right)
+  return {
+    counts,
+    recorded,
+    notRecorded,
+    verdict: recorded < MIN_SAMPLES_FOR_STATS ? null : holdsHalf ? top : 'mixed',
+    lean: l > r ? 'left' : r > l ? 'right' : null,
+  }
+}
+
+const CURVES_LEFT: readonly ShotShape[] = ['hook', 'draw']
+const CURVES_RIGHT: readonly ShotShape[] = ['fade', 'slice']
+
+/** Recorded shapes only (WEB-11); a right-hander's hook and draw curve left. */
+export function shapeTally(points: DispersionPoint[], leftHanded: boolean): RecordedTally<ShotShape> {
+  const [l, r] = leftHanded ? [CURVES_RIGHT, CURVES_LEFT] : [CURVES_LEFT, CURVES_RIGHT]
+  return tally(SHOT_SHAPES, points.map((p) => p.shape), l, r)
+}
+
+/** Recorded start lines only; a right-hander's pull starts left. */
+export function startLineTally(points: DispersionPoint[], leftHanded: boolean): RecordedTally<ShotStartLine> {
+  const [l, r]: [ShotStartLine, ShotStartLine] = leftHanded ? ['push', 'pull'] : ['pull', 'push']
+  return tally(SHOT_START_LINES, points.map((p) => p.startLine), [l], [r])
+}
+
+/** Finishes short / long and left / right of the aim; level counts neither. */
+export function missTally(points: DispersionPoint[]): {
+  short: number
+  long: number
+  left: number
+  right: number
+} {
+  const t = { short: 0, long: 0, left: 0, right: 0 }
+  for (const p of points) {
+    if (p.distanceOffsetYards < 0) t.short++
+    else if (p.distanceOffsetYards > 0) t.long++
+    if (p.lateralOffsetYards < 0) t.left++
+    else if (p.lateralOffsetYards > 0) t.right++
+  }
+  return t
+}
+
+/**
+ * The side most shots finish on, when it's lopsided enough to say so even if
+ * the average sits inside the noise: at least 70% of five or more shots.
+ * Level shots count in the total.
+ */
+export function missLean(points: DispersionPoint[]): {
+  distance: 'short' | 'long' | null
+  lateral: 'left' | 'right' | null
+} {
+  const n = points.length
+  const t = missTally(points)
+  const side = <K extends string>(a: number, ka: K, b: number, kb: K): K | null => {
+    if (n < 5) return null
+    if (a / n >= 0.7) return ka
+    if (b / n >= 0.7) return kb
+    return null
+  }
+  return {
+    distance: side(t.short, 'short', t.long, 'long'),
+    lateral: side(t.left, 'left', t.right, 'right'),
+  }
+}
+
+export interface StartShapeMatrix {
+  counts: Record<ShotStartLine, Record<ShotShape, number>>
+  /** Shots with both start line and shape recorded. */
+  total: number
+  /** The single commonest cell; null when empty or tied. */
+  commonest: { startLine: ShotStartLine; shape: ShotShape; count: number } | null
+}
+
+/** Start line × shape counts (push-fade, pull-hook…) from shots with both. */
+export function startShapeMatrix(points: DispersionPoint[]): StartShapeMatrix {
+  const counts = Object.fromEntries(
+    SHOT_START_LINES.map((sl) => [sl, Object.fromEntries(SHOT_SHAPES.map((sh) => [sh, 0]))]),
+  ) as StartShapeMatrix['counts']
+  let total = 0
+  for (const p of points) {
+    if (p.startLine == null || p.shape == null) continue
+    counts[p.startLine][p.shape]++
+    total++
+  }
+  let commonest: StartShapeMatrix['commonest'] = null
+  let tied = false
+  for (const startLine of SHOT_START_LINES) {
+    for (const shape of SHOT_SHAPES) {
+      const count = counts[startLine][shape]
+      if (count === 0) continue
+      if (!commonest || count > commonest.count) {
+        commonest = { startLine, shape, count }
+        tied = false
+      } else if (count === commonest.count) tied = true
+    }
+  }
+  return { counts, total, commonest: tied ? null : commonest }
+}
+
+export interface RecentVsAll {
+  recent: DispersionStats
+  all: DispersionStats
+  /** Recent 68% width minus the all-time one, yards (negative = tighter now). */
+  width68Change: number
+}
+
+/** Every shot newest first by played date (undated last; ties keep their
+ *  order), split into the newest `count` and the rest. Both lists stay newest
+ *  first, so `[...recent, ...older]` is the whole list in that order. */
+export function recentPoints(
+  points: DispersionPoint[],
+  count: number,
+): { recent: DispersionPoint[]; older: DispersionPoint[] } {
+  const newestFirst = [...points].sort((a, b) =>
+    (b.playedAt ?? '') < (a.playedAt ?? '') ? -1 : (b.playedAt ?? '') > (a.playedAt ?? '') ? 1 : 0,
+  )
+  return { recent: newestFirst.slice(0, count), older: newestFirst.slice(count) }
+}
+
+/** The most recent `count` shots (recentPoints) against all of them. Null
+ *  when there are no older shots to compare. */
+export function recentVsAll(points: DispersionPoint[], count = 20): RecentVsAll | null {
+  if (points.length <= count) return null
+  const recent = computeDispersionStats(recentPoints(points, count).recent)
+  const all = computeDispersionStats(points)
+  if (!recent || !all) return null
+  return { recent, all, width68Change: 2 * (recent.cone68.lateral - all.cone68.lateral) }
 }
 
 /**
@@ -235,6 +505,15 @@ export function computeAimRelativeDispersion(shots: Shot[]): AimRelativeDispersi
     points,
     sampleSize: points.length,
   }
+}
+
+/** The middle value (the mean of the middle two for an even count); null
+ *  when empty. */
+export function median(xs: number[]): number | null {
+  if (xs.length === 0) return null
+  const s = [...xs].sort((a, b) => a - b)
+  const mid = Math.floor(s.length / 2)
+  return s.length % 2 === 0 ? (s[mid - 1]! + s[mid]!) / 2 : s[mid]!
 }
 
 export interface ClubTypicalDistance {
@@ -320,12 +599,16 @@ export function getAimCorrection(
   return `Move your aim ${value} ${noun} ${oppDir} to center your pattern.`
 }
 
-// One-line plain-language verdict from the dispersion shape + dominant miss.
+// One-line plain-language verdict from the recorded shape + dominant miss.
 // Lives here (not in an app) so the web and mobile share cards share one copy.
+// Without a shape verdict (too few recorded, or mixed) it speaks only the miss.
 export function dispersionVerdict(stats: DispersionStats): string {
-  const { shotShape, dominantMiss } = stats
-  if (shotShape === 'straight' && dominantMiss === 'straight') return 'Dead straight'
-  if (dominantMiss === 'straight') return `A consistent ${shotShape}`
-  if (shotShape === 'straight') return `Straight, missing ${dominantMiss}`
-  return `A ${shotShape} that leaks ${dominantMiss}`
+  const { shape, dominantMiss } = stats
+  if (shape === null || shape === 'mixed') {
+    return dominantMiss === 'straight' ? 'Centered on your aim' : `Misses ${dominantMiss}`
+  }
+  if (shape === 'straight' && dominantMiss === 'straight') return 'Dead straight'
+  if (dominantMiss === 'straight') return `A consistent ${shape}`
+  if (shape === 'straight') return `Straight, missing ${dominantMiss}`
+  return `A ${shape} that leaks ${dominantMiss}`
 }

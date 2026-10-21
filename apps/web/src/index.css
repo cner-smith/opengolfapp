@@ -51,3 +51,85 @@ body {
 .hairline {
   border-color: var(--caddie-line);
 }
+
+/* Shot patterns: touch-size controls, the chart's motion, the filter sheet. */
+@media (pointer: coarse) {
+  .pat-tap {
+    min-height: 44px !important;
+  }
+}
+.pat-dot {
+  transition: opacity 150ms ease;
+}
+.pat-pop {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: pat-pop 200ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+@keyframes pat-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+}
+.pat-draw {
+  stroke-dasharray: 1;
+  animation: pat-draw 700ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+@keyframes pat-draw {
+  from {
+    stroke-dashoffset: 1;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+.pat-fade {
+  animation: pat-fade 120ms ease-out both;
+}
+@keyframes pat-fade {
+  from {
+    opacity: 0;
+  }
+}
+dialog.pat-dialog::backdrop {
+  background: transparent;
+}
+.pat-scrim {
+  animation: pat-fade 200ms ease-out both;
+}
+.pat-sheet {
+  animation: pat-slide 280ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+@keyframes pat-slide {
+  from {
+    transform: translateY(100%);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pat-pop,
+  .pat-draw,
+  .pat-fade,
+  .pat-scrim,
+  .pat-sheet {
+    animation: none;
+  }
+  .pat-dot,
+  .pat-chart * {
+    transition: none !important;
+  }
+}
+/* The hero chart and its axis fit the first screen on a desktop. */
+@media (min-width: 1024px) {
+  .pat-aim {
+    max-height: max(440px, calc(100vh - 400px));
+  }
+}
+/* A focused shot shows its own ring (and readout) instead of the browser box. */
+.pat-dot:focus {
+  outline: none;
+}
+/* A toggle that is off keeps readable text; only its glyph steps back. */
+[aria-pressed='false'] .pat-glyph {
+  opacity: 0.35;
+}
