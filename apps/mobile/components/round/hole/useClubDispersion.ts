@@ -3,6 +3,7 @@ import {
   aimRelativeOffsets,
   computeAimRelativeDispersion,
   haversineYards,
+  median,
   type AimRelativeDispersion,
   type Club,
   type Shot,
@@ -25,6 +26,8 @@ export interface ClubDispersion {
 
 export interface UseClubDispersionResult {
   loading: boolean
+  /** The history fetch failed: byClub is empty, not "no shots". */
+  error: boolean
   /** Every club with a logged shot, keyed by club. */
   byClub: Map<Club, ClubDispersion>
   /**
@@ -70,26 +73,12 @@ function rowToShot(r: ShotRow): Shot {
   }
 }
 
-function median(xs: number[]): number | null {
-  if (xs.length === 0) return null
-  const sorted = [...xs].sort((a, b) => a - b)
-  const mid = Math.floor(sorted.length / 2)
-  return sorted.length % 2 === 0
-    ? (sorted[mid - 1]! + sorted[mid]!) / 2
-    : sorted[mid]!
-}
-
 /**
  * Loads the player's shot history once, groups by club, and computes
  * per-club aim-relative dispersion + median distance. Feeds the live-round map
  * overlay: pick a club via `selectClub`, draw its dispersion against the
  * dragged aim. One query per session (memoized on userId), not per hole.
- *
- * NOTE: getShotsForUser caps at the most recent 1000 shots (created_at
- * desc), so for a player with >1000 logged shots the dispersion + median
- * distance are recency-biased across clubs, not lifetime. Accepted for v1 —
- * new users sit well under the cap; revisit (raise/lift the cap, or
- * per-club balance) if a club's overlay ever looks under-sampled.
+ * Every aimed shot counts: getShotsForUser pages past the 1000-row cap.
  */
 export function useClubDispersion(
   userId: string | undefined,
@@ -98,6 +87,7 @@ export function useClubDispersion(
   // True until the first fetch lands, so Patterns can't flash its no-shots
   // preview before the history arrives.
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(false)
 
   useEffect(() => {
     if (!userId) {
@@ -112,6 +102,7 @@ export function useClubDispersion(
         // eslint-disable-next-line no-console -- dev diagnostic; mobile has no logger/toast primitive
         console.error('[useClubDispersion/getShotsForUser]', error.message)
       }
+      setError(!!error)
       setRows((data as ShotRow[] | null) ?? [])
       setLoading(false)
     })
@@ -191,5 +182,5 @@ export function useClubDispersion(
     [byClub],
   )
 
-  return { loading, byClub, selectClub }
+  return { loading, error, byClub, selectClub }
 }

@@ -58,24 +58,34 @@ export function getShotsByClub(
     .limit(limit)
 }
 
-// All of a user's shots with aim+end coords, newest first, capped. Feeds
-// the live-round overlay, which builds per-club aim-relative dispersion in
-// ONE query (getShotsByClub is per-club). `start_lat` may be null — the
-// aim-relative math skips those rows, so we don't filter on it here.
-export function getShotsForUser(
-  client: OgaSupabaseClient,
-  userId: string,
-  limit = 1000,
-) {
-  return client
-    .from('shots')
-    .select(DISPERSION_SHOT_COLUMNS)
-    .eq('user_id', userId)
-    .not('aim_lat', 'is', null)
-    .not('end_lat', 'is', null)
-    .not('club', 'is', null)
-    .order('created_at', { ascending: false })
-    .limit(limit)
+// Every one of a user's shots with aim+end coords, newest first. Feeds the
+// live-round overlay, My Bag and the Patterns club ladder, which build
+// per-club counts, dispersion and median distance in ONE query
+// (getShotsByClub is per-club), so it pages past PostgREST's 1000-row cap
+// instead of silently truncating. `start_lat` may be null — the aim-relative
+// math skips those rows, so we don't filter on it here.
+const SHOTS_PAGE = 1000
+
+export async function getShotsForUser(client: OgaSupabaseClient, userId: string) {
+  const page = (from: number) =>
+    client
+      .from('shots')
+      .select(DISPERSION_SHOT_COLUMNS)
+      .eq('user_id', userId)
+      .not('aim_lat', 'is', null)
+      .not('end_lat', 'is', null)
+      .not('club', 'is', null)
+      .order('created_at', { ascending: false })
+      // A unique tiebreak, so no row repeats or drops between pages.
+      .order('id')
+      .range(from, from + SHOTS_PAGE - 1)
+  const rows: NonNullable<Awaited<ReturnType<typeof page>>['data']> = []
+  for (let from = 0; ; from += SHOTS_PAGE) {
+    const { data, error } = await page(from)
+    if (error) return { data: null, error }
+    rows.push(...data)
+    if (data.length < SHOTS_PAGE) return { data: rows, error: null }
+  }
 }
 
 export function createShot(client: OgaSupabaseClient, shot: ShotInsert) {
