@@ -1,7 +1,16 @@
 import { useEffect, useRef, useState, type KeyboardEvent, type RefObject } from 'react'
-import type { DispersionPoint, DispersionRing, DispersionStats, DistanceUnit, FlightKind } from '@oga/core'
-import type { ShotExtras } from '../../../hooks/useShotPatterns'
-import { NOT_RECORDED, UNRECORDED_INK, categoryOf, type ColourBy, type Glyph, type Layer } from '../layers'
+import {
+  NOT_RECORDED,
+  categoryOf,
+  type ColourBy,
+  type DispersionPoint,
+  type DispersionRing,
+  type DispersionStats,
+  type DistanceUnit,
+  type FlightKind,
+  type ShotExtras,
+} from '@oga/core'
+import { UNRECORDED_INK, type Glyph, type Layer } from '../layers'
 
 // What the two chart views (AimPlot, TeePlot) share: the marks, the label
 // placers, the readout, the keyboard walk through the shots and the tweens.
@@ -122,16 +131,6 @@ export interface ScreenRing {
 
 export function screenRing(r: DispersionRing, px: (lat: number) => number, py: (d: number) => number, scale: number): ScreenRing {
   return { cx: px(r.cx), cy: py(r.cy), rx: r.rx * scale, ry: r.ry * scale, rot: -r.rotationDeg }
-}
-
-/** Is a point (aim frame, yards) inside a ring? */
-export function insideRing(r: DispersionRing, lat: number, along: number) {
-  const t = (r.rotationDeg * Math.PI) / 180
-  const dx = lat - r.cx
-  const dy = along - r.cy
-  const u = dx * Math.cos(t) + dy * Math.sin(t)
-  const v = -dx * Math.sin(t) + dy * Math.cos(t)
-  return (u / r.rx) ** 2 + (v / r.ry) ** 2 <= 1
 }
 
 export function RingMark({ r, outer, ghost }: { r: ScreenRing; outer?: boolean; ghost?: boolean }) {

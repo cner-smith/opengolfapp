@@ -1,6 +1,14 @@
 import { useMemo, useRef } from 'react'
-import { YARDS_TO_METERS, missTally, type DispersionPoint, type DispersionStats, type DistanceUnit } from '@oga/core'
-import { shotWords, unitWord } from '../words'
+import {
+  YARDS_TO_METERS,
+  distanceUnitAbbr as unitWord,
+  insideRing,
+  missTally,
+  shotWords,
+  type DispersionPoint,
+  type DispersionStats,
+  type DistanceUnit,
+} from '@oga/core'
 import {
   AMBER_TEXT,
   AXIS,
@@ -19,7 +27,6 @@ import {
   SANS,
   SERIF,
   byDistance,
-  insideRing,
   markStyle,
   placeNear,
   placeOnRing,

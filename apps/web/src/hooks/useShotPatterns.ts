@@ -6,12 +6,14 @@ import {
   computeDispersionStats,
   filterDispersionByLie,
   haversineYards,
+  median,
   type Club,
   type LieSlopeForward,
   type LieSlopeSide,
   type LieType,
   type Shot,
   type ShotContact,
+  type ShotExtras,
 } from '@oga/core'
 import { getShotsByClub, getShotsForUser } from '@oga/supabase'
 import { supabase } from '../lib/supabase'
@@ -22,14 +24,6 @@ interface UseShotPatternsArgs {
   lieType?: LieType
   lieSlopeForward?: LieSlopeForward
   lieSlopeSide?: LieSlopeSide
-}
-
-/** What a pattern point doesn't carry but the shot readout shows. */
-export interface ShotExtras {
-  contact: ShotContact | null
-  hole: number | null
-  course: string | null
-  roundId: string | null
 }
 
 interface RowRound {
@@ -145,11 +139,4 @@ export function useClubLadder() {
       return out
     },
   })
-}
-
-function median(xs: number[]): number | null {
-  if (xs.length === 0) return null
-  const s = [...xs].sort((a, b) => a - b)
-  const mid = Math.floor(s.length / 2)
-  return s.length % 2 === 0 ? (s[mid - 1]! + s[mid]!) / 2 : s[mid]!
 }

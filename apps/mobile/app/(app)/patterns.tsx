@@ -14,11 +14,26 @@ import {
   computeDispersion,
   computeDispersionStats,
   MIN_SAMPLES_FOR_STATS,
+  NOT_RECORDED,
+  averageAimDistance,
+  capFirst as cap,
+  categoryOf,
+  countWord,
+  distanceText as dist,
   filterDispersionByLie,
+  findingLine,
   legacySlopeToAxes,
+  mostlyTeeShots,
+  readQuality,
+  recentPoints,
   recentVsAll,
+  recordedNote,
   shapeTally,
+  shotWords,
+  tallyWords,
+  wholeDistance as numIn,
   type Club,
+  type ColourBy,
   type DispersionPoint,
   type LieSlope,
   type LieSlopeForward,
@@ -27,6 +42,7 @@ import {
   type PlanCategory,
   type Shot,
   type ShotContact,
+  type ShotExtras,
   type ShotShape,
   type ShotStartLine,
 } from '@oga/core'
@@ -45,26 +61,13 @@ import { useClubDispersion } from '../../components/round/hole/useClubDispersion
 import { PatternsEmpty, PatternsProgress } from '../../components/patterns/PatternsPreview'
 import { ClubLadder, ViewToggle, type ChartView } from '../../components/patterns/YardageBook'
 import { AimPlot } from '../../components/patterns/AimPlot'
-import { TeePlot, teeBreakYards } from '../../components/patterns/TeePlot'
-import { averageAim, flightOf, type ChartProps } from '../../components/patterns/chartParts'
+import { TeePlot, teeBreakOf } from '../../components/patterns/TeePlot'
+import { flightOf, type ChartProps } from '../../components/patterns/chartParts'
 import { ColourRow, LAYER_INFO, LayerBar, type LegendEntry } from '../../components/patterns/LayerControls'
 import { FilterSheet } from '../../components/patterns/FilterSheet'
 import { PatternNumbers } from '../../components/patterns/PatternNumbers'
 import { ShareCard } from '../../components/patterns/ShareCard'
-import {
-  COLOUR_BY,
-  DEFAULT_LAYERS,
-  NOT_RECORDED,
-  UNRECORDED_INK,
-  categoriesFor,
-  categoryOf,
-  countWord,
-  recordedNote,
-  type ColourBy,
-  type Layer,
-  type ShotExtras,
-} from '../../components/patterns/layers'
-import { cap, dist, findingLine, mostlyTeeShots, num as numIn, readQuality, shotWords, tallyWords } from '../../components/patterns/words'
+import { COLOUR_BY, DEFAULT_LAYERS, UNRECORDED_INK, styledCategories, type Layer } from '../../components/patterns/layers'
 import { useUnitsContext } from '../../contexts/UnitsContext'
 
 interface ShotRow {
@@ -141,12 +144,7 @@ const LIE_PHRASE: Record<LieType, string> = {
 }
 const OFF_THE_TEE: readonly Club[] = ['driver', '3w', '5w', '7w']
 const RECENT = 20
-
-/** The newest `RECENT` shots by played date, as core's recentVsAll picks them. */
-function recentIdsOf(points: DispersionPoint[]) {
-  const newestFirst = [...points].sort((a, b) => ((b.playedAt ?? '') < (a.playedAt ?? '') ? -1 : (b.playedAt ?? '') > (a.playedAt ?? '') ? 1 : 0))
-  return new Set(newestFirst.slice(0, RECENT).map((p) => p.id))
-}
+const NO_ROWS: ShotRow[] = []
 
 export default function Patterns() {
   const { user } = useAuth()
@@ -168,7 +166,7 @@ export default function Patterns() {
     if (clubOptions.length && !clubOptions.includes(club)) setClub(clubOptions[0]!)
   }, [clubOptions, club])
   // Per-club shot counts with start + aim + finish, the wheel's count (#1076).
-  const { byClub, loading: countsLoading } = useClubDispersion(user?.id)
+  const { byClub, loading: countsLoading, error: countsError } = useClubDispersion(user?.id)
   const aimed = (c: Club) => byClub.get(c)?.points.length ?? 0
   const anyAimed = clubOptions.some((c) => aimed(c) > 0)
   // Open on the club with the most aimed shots when the 7i has none, so a
@@ -206,26 +204,34 @@ export default function Patterns() {
   const [listOpen, setListOpen] = useState(false)
   useEffect(() => setHidden(new Set()), [colourBy, club])
   useEffect(() => setHot(null), [club, view, lieType, forward, side])
-  const [shots, setShots] = useState<ShotRow[]>([])
-  const [loading, setLoading] = useState(false)
+  // Rows are kept with the club they belong to, so a new club never shows the
+  // last one's shots, finding or share card while it loads.
+  const [loaded, setLoaded] = useState<{ club: Club; rows: ShotRow[]; error: boolean } | null>(null)
+  const [attempt, setAttempt] = useState(0)
 
   useEffect(() => {
     if (!user) return
     let active = true
-    setLoading(true)
     getShotsByClub(supabase, user.id, club).then(({ data, error }) => {
       if (!active) return
       if (error) {
-        // eslint-disable-next-line no-console -- dev diagnostic; mobile has no logger/toast primitive
+        // eslint-disable-next-line no-console -- dev diagnostic; the screen shows the error below
         console.error('[patterns/getShotsByClub]', error.message)
       }
-      setShots((data as unknown as ShotRow[] | null) ?? [])
-      setLoading(false)
+      setLoaded({ club, rows: (data as unknown as ShotRow[] | null) ?? [], error: !!error })
     })
     return () => {
       active = false
     }
-  }, [user?.id, club])
+  }, [user?.id, club, attempt])
+  const current = loaded?.club === club ? loaded : null
+  const shots = current?.rows ?? NO_ROWS
+  const loading = !current
+  const loadError = current?.error ?? false
+  const retry = () => {
+    setLoaded(null)
+    setAttempt((a) => a + 1)
+  }
 
   const allPoints = useMemo(() => computeDispersion(shots.map(rowToShot)), [shots])
   const points = useMemo(
@@ -274,12 +280,16 @@ export default function Patterns() {
 
   // No aimed shot anywhere → the example (B); this club under 5 → its
   // progress (P). Lie filters don't count: a filter can't unmake a pattern.
-  if (countsLoading || !anyAimed || aimed(club) < MIN_SAMPLES_FOR_STATS) {
+  if (countsLoading || countsError || !anyAimed || aimed(club) < MIN_SAMPLES_FOR_STATS) {
     return (
       <PaperSurface style={{ flex: 1 }}>
         <AppBar title="Shot patterns" />
         {countsLoading ? (
           <Text style={[TYPE.body, { color: P.inkDim, fontSize: 13, padding: 18 }]}>Loading…</Text>
+        ) : countsError ? (
+          <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { color: P.neg, fontSize: 13, padding: 18 }]}>
+            Couldn't load your shots — go back and try again.
+          </Text>
         ) : !anyAimed ? (
           <PatternsEmpty />
         ) : (
@@ -319,9 +329,10 @@ export default function Patterns() {
   const recentOn = layers.recent && rva != null
   const drawStats = recentOn ? rva.recent : stats
   const ghost = recentOn ? { stats: rva.all, label: 'all shots' } : filtered && allStats ? { stats: allStats, label: 'all lies' } : null
-  const recentIds = recentOn ? recentIdsOf(points) : null
+  const newest = recentPoints(points, RECENT)
+  const recentIds = recentOn ? new Set(newest.recent.map((p) => p.id)) : null
 
-  const finding = stats ? findingLine(stats, points, club, unit, tee) : null
+  const finding = stats && !loading ? findingLine(stats, points, club, unit, tee) : null
   // One line, so the chart starts higher: the club is in the finding and the ladder.
   const subline = `${n} shot${n === 1 ? '' : 's'}${filterPhrase ? ` ${filterPhrase}` : ''}, measured from your aim${stats ? `: ${readQuality(n)}` : ''}.`
   const recentLine = rva
@@ -331,7 +342,7 @@ export default function Patterns() {
     : null
 
   // The legend: each group of shots under the chosen colour, with its count.
-  const cats = categoriesFor(colourBy, leftHanded)
+  const cats = styledCategories(colourBy, leftHanded)
   const catMap = new Map(cats.map((c) => [c.key, c]))
   const counts = new Map<string, number>()
   for (const p of points) {
@@ -345,7 +356,7 @@ export default function Patterns() {
           ...cats.filter((c) => counts.has(c.key)).map((c) => ({ ...c, count: counts.get(c.key)! })),
           ...(counts.has(NOT_RECORDED) ? [{ key: NOT_RECORDED, label: 'Not recorded', color: UNRECORDED_INK, glyph: 'unrecorded' as const, count: counts.get(NOT_RECORDED)! }] : []),
         ]
-  const recorded = colourBy === 'none' ? null : recordedNote(colourBy, points, extras, leftHanded)
+  const recorded = colourBy === 'none' ? null : recordedNote(colourBy, points, extras, noun)
   const available: Layer[] = [...(['shots', 'rings', 'average'] as Layer[]), ...(view === 'tee' ? (['flights'] as Layer[]) : []), ...(rva ? (['recent'] as Layer[]) : [])]
   const disabled = new Set<Layer>(stats ? [] : ['rings', 'average'])
   const toggleGroup = (k: string) =>
@@ -357,7 +368,7 @@ export default function Patterns() {
     })
 
   // How each flight's record reads (a conflict is flagged in every readout).
-  const avgAim = averageAim(points, stats)
+  const avgAim = averageAimDistance(points)
   const kinds = new Map(avgAim != null ? points.map((p) => [p.id, flightOf(p, avgAim, leftHanded).c.kind]) : [])
   const conflicts = [...kinds.values()].filter((k) => k === 'conflict').length
   const neither = [...kinds.values()].filter((k) => k === 'none').length
@@ -371,7 +382,7 @@ export default function Patterns() {
         ? `Your next ${noun} will probably finish inside the solid ring.`
         : ''
       : 'Lines leave on your recorded start line and bend by your recorded shape.',
-    view === 'tee' && avgAim != null && teeBreakYards(points, stats, avgAim, unitYd) > 0 ? 'The bottom stretch is shortened, so angles there are widened.' : '',
+    view === 'tee' && avgAim != null && teeBreakOf(points, stats, avgAim, unitYd) > 0 ? 'The bottom stretch is shortened, so angles there are widened.' : '',
     view === 'tee' && conflicts > 0 ? `${conflicts} shot${conflicts === 1 ? " doesn't" : "s don't"} add up, so the second half is dashed.` : '',
     view === 'tee' && neither > 0 ? `${neither} dashed straight line${neither === 1 ? ' has' : 's have'} neither recorded.` : '',
     view === 'tee' && n > 40 && layers.flights ? 'The bold line is the typical flight.' : '',
@@ -449,9 +460,11 @@ export default function Patterns() {
               {finding}
             </Text>
           )}
-          <Text accessibilityLiveRegion="polite" maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { color: P.inkDim, fontSize: 13, lineHeight: 19, marginTop: 4 }]}>
-            {subline}
-          </Text>
+          {!loading && !loadError && (
+            <Text accessibilityLiveRegion="polite" maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { color: P.inkDim, fontSize: 13, lineHeight: 19, marginTop: 4 }]}>
+              {subline}
+            </Text>
+          )}
           {recentLine && (
             <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { color: P.inkDim, fontSize: 13, lineHeight: 19, marginTop: 4 }]}>
               {recentLine}
@@ -488,6 +501,15 @@ export default function Patterns() {
                   <View style={{ height: chartWidth, alignItems: 'center', justifyContent: 'center' }}>
                     <Text style={[TYPE.body, { color: P.inkDim, fontSize: 13 }]}>Loading…</Text>
                   </View>
+                ) : loadError ? (
+                  <View style={{ height: chartWidth, alignItems: 'center', justifyContent: 'center', gap: 12 }}>
+                    <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { color: P.neg, fontSize: 13, textAlign: 'center' }]}>
+                      Couldn't load your {noun} shots. Check your connection and try again.
+                    </Text>
+                    <Key accessibilityLabel="Try again" onPress={retry} faceStyle={{ minHeight: 44, paddingHorizontal: 14 }}>
+                      <KeyText size={13}>Try again</KeyText>
+                    </Key>
+                  </View>
                 ) : view === 'aim' ? (
                   <AimPlot {...chartProps} />
                 ) : (
@@ -497,9 +519,7 @@ export default function Patterns() {
               {recorded && (
                 <View style={{ paddingHorizontal: 10, paddingBottom: 10 }}>
                   <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { color: P.inkDim, fontSize: 12, lineHeight: 17 }]}>
-                    {recorded.recorded === 0
-                      ? `No ${noun} shot here has its ${colourBy === 'start' ? 'start line' : colourBy} recorded yet. Set it in a shot's result after the hole.`
-                      : `${recorded.note}. Tap a group above to hide it.`}
+                    {recorded.recorded === 0 ? recorded.note : `${recorded.note} Tap a group above to hide it.`}
                   </Text>
                 </View>
               )}
@@ -518,9 +538,7 @@ export default function Patterns() {
               </Key>
             )}
             {listOpen &&
-              [...points]
-                .sort((a, b) => ((b.playedAt ?? '') < (a.playedAt ?? '') ? -1 : (b.playedAt ?? '') > (a.playedAt ?? '') ? 1 : 0))
-                .map((p) => {
+              [...newest.recent, ...newest.older].map((p) => {
                   const words = shotWords(p, extras[p.id], unit, kinds.get(p.id))
                   const on = hot === p.id
                   return (
@@ -542,7 +560,7 @@ export default function Patterns() {
         </Entrance>
 
         <Entrance index={2}>
-          {stats ? (
+          {stats && !loading ? (
             <PatternNumbers
               stats={stats}
               points={points}
@@ -557,7 +575,7 @@ export default function Patterns() {
               onExport={handleShare}
               sharing={sharing}
             />
-          ) : !loading ? (
+          ) : !loading && !loadError ? (
             <View style={{ marginTop: 26 }}>
               <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.serifUpright, { color: P.ink, fontSize: 16, lineHeight: 24 }]}>
                 {n === 0 ? 'None' : `Only ${n}`} of your {aimed(club)} {noun} shots {n === 1 ? 'was' : 'were'} {filterPhrase}. A pattern needs five.
@@ -588,7 +606,7 @@ export default function Patterns() {
       {/* Off-screen render target for react-native-view-shot. Laid out
           far off the left edge so it's never visible; collapsable={false}
           keeps RN from optimising out the subtree the rasteriser reads. */}
-      {stats && finding && (
+      {stats && finding && !loading && (
         <View pointerEvents="none" collapsable={false} style={{ position: 'absolute', left: -10000, top: 0 }}>
           <View ref={shareCardRef} collapsable={false}>
             <ShareCard points={points} stats={stats} noun={noun} finding={finding} width68={mag(stats.cone68.lateral * 2)} shape={shapeValue} />

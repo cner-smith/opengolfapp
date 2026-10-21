@@ -2,20 +2,27 @@ import { Link } from 'react-router-dom'
 import {
   SHOT_SHAPE_LABELS,
   SHOT_START_LINE_LABELS,
+  categoriesFor,
+  distanceText as dist,
+  distanceUnitAbbr as unitWord,
   missTally,
+  recentPoints,
+  shotParts,
+  tallyWords,
+  wholeDistance as num,
   shapeTally,
   startLineTally,
   startShapeMatrix,
   type DispersionPoint,
   type DispersionStats,
   type DistanceUnit,
+  type ColourBy,
   type FlightKind,
   type RecordedTally,
+  type ShotExtras,
 } from '@oga/core'
-import type { ShotExtras } from '../../../hooks/useShotPatterns'
 import { StatRow, StatTile } from '../../stats/components/StatTiles'
-import { categoriesFor, type ColourBy } from '../layers'
-import { dist, num, shotParts, tallyWords, unitWord } from '../words'
+import { styledCategories } from '../layers'
 import { Marker } from './chartParts'
 import { FOCUS_RING } from './LayerControls'
 
@@ -124,7 +131,7 @@ function TallyRow<K extends string>({ label, tally, words, by, leftHanded, onCol
   leftHanded: boolean
   onColour: (by: ColourBy) => void
 }) {
-  const cats = categoriesFor(by, leftHanded)
+  const cats = styledCategories(by, leftHanded)
   const max = Math.max(1, ...cats.map((c) => tally.counts[c.key as K]))
   return (
     <div style={{ padding: '10px 0', borderBottom: '1px solid #E4DCC8' }}>
@@ -226,7 +233,7 @@ export function ShotTable({ points, extras, unit, kinds, caption }: {
   kinds: Map<string, FlightKind>
   caption: string
 }) {
-  const rows = [...points].sort((a, b) => (b.playedAt ?? '').localeCompare(a.playedAt ?? ''))
+  const rows = recentPoints(points, points.length).recent
   return (
     <div style={{ overflowX: 'auto', marginTop: 10 }}>
       <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>

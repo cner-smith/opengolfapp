@@ -6,13 +6,25 @@ import {
   DEFAULT_BAG,
   LIE_TYPES,
   MIN_SAMPLES_FOR_STATS,
+  NOT_RECORDED,
   SHOT_SHAPE_LABELS,
-  YARDS_TO_METERS,
+  capFirst as cap,
+  categoryOf,
   clubNoun,
   clubTypicalDistance,
+  countWord,
+  distanceText as dist,
+  findingLine,
+  mostlyTeeShots,
+  readQuality,
+  recentPoints,
   recentVsAll,
+  recordedNote,
   shapeTally,
+  tallyWords,
+  wholeDistance,
   type Club,
+  type ColourBy,
   type DispersionPoint,
   type DispersionStats,
   type LieSlopeForward,
@@ -32,8 +44,7 @@ import { TeePlot, teeGeometry } from './components/TeePlot'
 import { useNarrow, type ChartProps, type Ghost } from './components/chartParts'
 import { ColourByControl, FOCUS_RING, LAYER_INFO, LayerBar, Legend, rovingKey, type LegendEntry } from './components/LayerControls'
 import { PatternNumbers, ShotTable } from './components/PatternNumbers'
-import { COLOUR_BY, DEFAULT_LAYERS, NOT_RECORDED, UNRECORDED_INK, categoriesFor, categoryOf, countWord, type ColourBy, type Layer } from './layers'
-import { cap, dist, findingLine, mostlyTeeShots, readQuality, tallyWords } from './words'
+import { COLOUR_BY, DEFAULT_LAYERS, UNRECORDED_INK, styledCategories, type Layer } from './layers'
 
 // Social share card — 1200×630 is Twitter/Facebook's preferred OG image
 // size. Rendered off-screen, rasterised on Export. The plot inside is
@@ -58,8 +69,6 @@ const LIE_PHRASE: Record<LieType, string> = {
   recovery: 'a recovery lie',
   green: 'the green',
 }
-
-const newestFirst = (a: DispersionPoint, b: DispersionPoint) => (b.playedAt ?? '').localeCompare(a.playedAt ?? '')
 
 export function ShotPatternsPage() {
   const { unit, toDisplay } = useUnits()
@@ -110,7 +119,7 @@ export function ShotPatternsPage() {
   }
   const ladderNumber = (c: Club) => {
     const y = typicalYards(c)
-    return y == null ? null : Math.round(unit === 'meters' ? y * YARDS_TO_METERS : y)
+    return y == null ? null : wholeDistance(y, unit)
   }
 
   const filteredPoints = useMemo(() => data?.points ?? [], [data])
@@ -121,8 +130,8 @@ export function ShotPatternsPage() {
   const recentOn = scope === 'recent' && !!rva
   const { points, older } = useMemo(() => {
     if (!recentOn) return { points: filteredPoints, older: [] as DispersionPoint[] }
-    const sorted = [...filteredPoints].sort(newestFirst)
-    return { points: sorted.slice(0, RECENT), older: sorted.slice(RECENT) }
+    const { recent, older } = recentPoints(filteredPoints, RECENT)
+    return { points: recent, older }
   }, [recentOn, filteredPoints])
   const stats: DispersionStats | null = recentOn ? rva!.recent : data?.stats ?? null
   const ghost: Ghost | null = recentOn
@@ -212,7 +221,7 @@ export function ShotPatternsPage() {
   const emptyNote = clubShots === 0 ? `No aimed ${noun} shots yet` : filtered ? `No ${noun} shots ${filterPhrase}` : undefined
 
   // The legend: each group of shots under the chosen colour, with its count.
-  const cats = categoriesFor(colourBy, leftHanded)
+  const cats = styledCategories(colourBy, leftHanded)
   const colours = new Map(cats.map((c) => [c.key, { color: c.color, glyph: c.glyph }]))
   const counts = new Map<string, number>()
   for (const p of points) {
@@ -228,14 +237,7 @@ export function ShotPatternsPage() {
             ? [{ key: NOT_RECORDED, label: 'Not recorded', color: UNRECORDED_INK, glyph: 'unrecorded' as const, count: counts.get(NOT_RECORDED)! }]
             : []),
         ]
-  const recorded = points.length - (counts.get(NOT_RECORDED) ?? 0)
-  const byWord = colourBy === 'start' ? 'start line' : colourBy
-  const legendNote =
-    colourBy === 'none'
-      ? ''
-      : recorded === 0
-        ? `No ${noun} shot here has its ${byWord} recorded yet. Set it in a shot’s result after the hole.`
-        : `${cap(byWord)} recorded on ${recorded} of ${points.length}.`
+  const legendNote = colourBy === 'none' ? '' : recordedNote(colourBy, points, extras, noun).note
 
   // Same layers in the same order on both views; flights only from the tee.
   // Rings and the average stay in the bar without a pattern, switched off.

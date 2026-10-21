@@ -2,9 +2,15 @@ import { useMemo, useRef } from 'react'
 import {
   SHOT_SHAPES,
   SHOT_START_LINES,
+  NOT_RECORDED,
   YARDS_TO_METERS,
+  averageAimDistance,
+  cubic,
+  distanceUnitAbbr as unitWord,
   flightControls,
+  shotWords,
   startLineAngleDeg,
+  teeBreakYards,
   type DispersionPoint,
   type DispersionRing,
   type DispersionStats,
@@ -13,8 +19,6 @@ import {
   type ShotShape,
   type ShotStartLine,
 } from '@oga/core'
-import { NOT_RECORDED } from '../layers'
-import { shotWords, unitWord } from '../words'
 import {
   AMBER,
   AMBER_TEXT,
@@ -64,41 +68,21 @@ export interface TeeShot {
 
 const S: FlightPoint = { x: 0, y: 0 }
 
-function cubic(p1: FlightPoint, p2: FlightPoint, E: FlightPoint, n = 48): FlightPoint[] {
-  const out: FlightPoint[] = []
-  for (let i = 0; i <= n; i++) {
-    const t = i / n
-    const a = (1 - t) ** 3
-    const b = 3 * (1 - t) ** 2 * t
-    const c = 3 * (1 - t) * t * t
-    const d = t ** 3
-    out.push({ x: a * S.x + b * p1.x + c * p2.x + d * E.x, y: a * S.y + b * p1.y + c * p2.y + d * E.y })
-  }
-  return out
-}
-
 export function flightPath(E: FlightPoint, startLine: ShotStartLine | null, shape: ShotShape | null, leftHanded: boolean) {
   const f = flightControls(S, E, startLine, shape, leftHanded)
-  return { kind: f.kind, path: cubic(f.p1, f.p2, E) }
+  return { kind: f.kind, path: cubic(S, f.p1, f.p2, E) }
 }
 
 /** Every finish placed as if aimed at the average aim distance, so the dots,
  *  the rings (built from aim-relative offsets) and the one pennant agree. */
 export function teeGeometry(points: DispersionPoint[], leftHanded: boolean) {
-  const aims = points.filter((p) => p.startDistanceOffsetYards != null).map((p) => -p.startDistanceOffsetYards!)
-  const avgAim = aims.length ? aims.reduce((a, b) => a + b, 0) / aims.length : 0
+  const aim = averageAimDistance(points)
+  const avgAim = aim ?? 0
   const shots: TeeShot[] = points.map((p) => {
     const E = { x: p.lateralOffsetYards, y: avgAim + p.distanceOffsetYards }
     return { p, E, ...flightPath(E, p.startLine ?? null, p.shape ?? null, leftHanded) }
   })
-  return { avgAim, hasStart: aims.length > 0, shots }
-}
-
-/** Where the shortened stretch ends: a round number comfortably short of the
- *  nearest finish (or ring edge); 0 when every finish is inside 90 yd. */
-export function teeBreakYards(ys: number[]) {
-  const lowY = Math.min(...ys)
-  return lowY > 90 ? Math.floor((lowY * 0.82) / 25) * 25 : 0
+  return { avgAim, hasStart: aim != null, shots }
 }
 
 /** A straight line from the tee to (lat, d), sampled so it follows the curve. */
@@ -137,7 +121,7 @@ export function TeePlot(props: ChartProps) {
     const olderEnds = older.map((p) => ({ x: p.lateralOffsetYards, y: avgAim + p.distanceOffsetYards }))
     const ringYs = (s: DispersionStats) => [avgAim + s.avgDistanceOffset - s.cone95.distance, avgAim + s.avgDistanceOffset + s.cone95.distance]
     const ys = [...shots.map((s) => s.E.y), ...olderEnds.map((e) => e.y), ...(stats ? ringYs(stats) : []), avgAim]
-    const brk = teeBreakYards(ys)
+    const brk = teeBreakYards(ys, 1 / u)
     const maxY = Math.max(...ys, 1) + 6
     const wedge = Math.tan((Math.abs(startLineAngleDeg('push', leftHanded)) * Math.PI) / 180) * (brk || avgAim * 0.35)
     const xs = [0, -wedge, wedge, ...shots.flatMap((s) => s.path.filter((q) => q.y >= brk).map((q) => q.x)), ...olderEnds.map((e) => e.x)]
@@ -154,7 +138,7 @@ export function TeePlot(props: ChartProps) {
     const comp = brk > 0 ? Math.max(SHORTENED_PX, (steep * brk) / MAX_POWER) : 0
     const scale = Math.min((H - comp) / (maxY - brk), wide)
     return { avgAim, hasStart, shots, olderEnds, maxY, brk, comp, centre: (lo + hi) / 2, scale }
-  }, [points, older, stats, leftHanded, TW, TLEFT, TEE_Y])
+  }, [points, older, stats, leftHanded, u, TW, TLEFT, TEE_Y])
 
   const { avgAim, shots, olderEnds, maxY, brk, comp, centre, scale } = geo
   const midX = TLEFT + (TW - TLEFT - TRIGHT) / 2

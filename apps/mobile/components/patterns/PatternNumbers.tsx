@@ -5,14 +5,20 @@ import { MaterialCommunityIcons } from '@expo/vector-icons'
 import {
   SHOT_SHAPE_LABELS,
   SHOT_START_LINE_LABELS,
+  categoriesFor,
+  distanceText as dist,
+  distanceUnitAbbr as unitWord,
   missTally,
   shapeTally,
+  tallyWords,
+  wholeDistance as num,
   startLineTally,
   startShapeMatrix,
   type DispersionPoint,
   type DispersionStats,
   type DistanceUnit,
   type PlanCategory,
+  type ColourBy,
   type RecordedTally,
 } from '@oga/core'
 import { PressableTouch } from '../ui/PressableTouch'
@@ -22,8 +28,7 @@ import { Key, KeyText } from '../paper/Paper'
 import { PaperTile } from '../paper/Section'
 import { FONT_CAP, P } from '../paper/tokens'
 import { Marker } from './chartParts'
-import { categoriesFor, type ColourBy } from './layers'
-import { dist, num, tallyWords, unitWord } from './words'
+import { styledCategories } from './layers'
 
 // The numbers under the chart: two tiles for the pattern's size and where it
 // finishes, then rows (DESIGN.md Stat tile). Shape and start line are printed
@@ -68,7 +73,7 @@ function TallyRow<K extends string>({ label, tally, words, by, leftHanded, onCol
   leftHanded: boolean
   onColour: (by: ColourBy) => void
 }) {
-  const cats = categoriesFor(by, leftHanded)
+  const cats = styledCategories(by, leftHanded)
   const max = Math.max(1, ...cats.map((c) => tally.counts[c.key as K]))
   return (
     <View style={ROW}>

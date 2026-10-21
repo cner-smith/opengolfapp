@@ -1,5 +1,6 @@
 import { useId, useRef, type KeyboardEvent, type ReactNode } from 'react'
-import { COLOUR_BY, type ColourBy, type Glyph, type Layer } from '../layers'
+import type { ColourBy } from '@oga/core'
+import { COLOUR_BY, type Glyph, type Layer } from '../layers'
 import { Marker } from './chartParts'
 
 // The chart's controls. A layer shows or hides one kind of mark; a legend

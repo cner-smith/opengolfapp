@@ -1,9 +1,8 @@
 import { G, Line, Rect, Text as SvgText } from 'react-native-svg'
-import type { DispersionRing, DispersionStats } from '@oga/core'
+import { insideRing, ringExtent, shotWords, type DispersionRing, type DispersionStats } from '@oga/core'
 import { FONT } from '../../lib/typography'
 import { P } from '../paper/tokens'
-import { shotWords } from './words'
-import { LEFT, RIGHT, RULE, RULE_MAJOR, DENSE, type ChartProps, type Box, ringExtent, insideRing, type RingPx, placeOnRing, placeNear, Fade, TweenRing, TweenAverage, Selected, Halo, Pennant, markStyle, Mark, groupBy, ChartFrame } from './chartParts'
+import { LEFT, RIGHT, RULE, RULE_MAJOR, DENSE, type ChartProps, type Box, type RingPx, placeOnRing, placeNear, Fade, TweenRing, TweenAverage, Selected, Halo, Pennant, markStyle, Mark, groupBy, ChartFrame } from './chartParts'
 
 /* ---------------------------------------------------------- aim view */
 

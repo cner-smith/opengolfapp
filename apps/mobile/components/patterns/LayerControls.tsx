@@ -6,7 +6,8 @@ import { haptic } from '../../lib/haptics'
 import { TYPE } from '../../lib/typography'
 import { FONT_CAP, P } from '../paper/tokens'
 import { Marker } from './chartParts'
-import { COLOUR_BY, NOT_RECORDED, countWord, type Category, type ColourBy, type Layer } from './layers'
+import { NOT_RECORDED, countWord, type ColourBy } from '@oga/core'
+import { COLOUR_BY, type Category, type Layer } from './layers'
 
 // The chart's layer bar and colour row, as compact rows of icon-and-word
 // toggles. A layer shows or hides one kind of mark; once a colour is chosen

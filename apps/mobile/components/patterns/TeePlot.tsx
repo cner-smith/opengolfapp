@@ -3,8 +3,14 @@ import { Text, View } from 'react-native'
 import { Circle, G, Line, Path, Text as SvgText } from 'react-native-svg'
 import { Easing, useReducedMotion, useSharedValue, withTiming } from 'react-native-reanimated'
 import {
+  NOT_RECORDED,
+  averageAimDistance,
+  cubic,
   flightControls,
+  ringExtent,
   shapeTally,
+  shotWords,
+  teeBreakYards,
   startLineTally,
   type DispersionPoint,
   type DispersionRing,
@@ -15,19 +21,17 @@ import {
 } from '@oga/core'
 import { FONT, TYPE } from '../../lib/typography'
 import { FONT_CAP, P } from '../paper/tokens'
-import { NOT_RECORDED, UNRECORDED_INK } from './layers'
-import { shotWords } from './words'
-import { LEFT, RIGHT, RULE, RULE_MAJOR, DENSE, type ChartProps, type Box, rad, ringExtent, type RingPx, placeOnRing, placeNear, teeFinish, averageAim, S0, flightOf, cubic, KIND_SEGMENTS, Fade, TweenRing, DRAW_MS, STAGGER_MS, STAGGER_CAP, FlightSeg, Selected, Halo, Pennant, markStyle, Mark, groupBy, ChartFrame } from './chartParts'
+import { UNRECORDED_INK } from './layers'
+import { LEFT, RIGHT, RULE, RULE_MAJOR, DENSE, type ChartProps, type Box, rad, type RingPx, placeOnRing, placeNear, teeFinish, S0, flightOf, KIND_SEGMENTS, Fade, TweenRing, DRAW_MS, STAGGER_MS, STAGGER_CAP, FlightSeg, Selected, Halo, Pennant, markStyle, Mark, groupBy, ChartFrame } from './chartParts'
 
 /* ---------------------------------------------------------- tee view */
 
-/** Where the tee view's shortened stretch ends: a round number (in the
- *  display unit) comfortably short of the nearest finish or ring edge. */
-export function teeBreakYards(points: DispersionPoint[], stats: DispersionStats | null, avgAim: number, unitYd: number) {
+/** Where the tee view's shortened stretch ends (core teeBreakYards), short of
+ *  the nearest finish, the outer ring's near edge and the aim. */
+export function teeBreakOf(points: DispersionPoint[], stats: DispersionStats | null, avgAim: number, unitYd: number) {
   const ys = points.map((p) => teeFinish(p, avgAim).y)
   if (stats) ys.push(avgAim + stats.ring95.cy - ringExtent(stats.ring95).y)
-  const lowY = Math.min(...ys, avgAim)
-  return lowY > 90 ? Math.floor((lowY / unitYd) * 0.82 / 25) * 25 * unitYd : 0
+  return teeBreakYards([...ys, avgAim], unitYd)
 }
 
 const SHORTENED_PX = 56
@@ -46,13 +50,13 @@ export function TeePlot(props: ChartProps) {
   const TL = LEFT
   const TR = RIGHT
   const dense = points.length > DENSE
-  const avgAim = averageAim(points, stats)
+  const avgAim = averageAimDistance(points)
 
   const geo = useMemo(() => {
     if (avgAim == null || avgAim < 5) return null
     const shots = points.map((p) => {
       const f = flightOf(p, avgAim, leftHanded)
-      return { p, ...f, path: cubic(f.E, f.c.p1, f.c.p2) }
+      return { p, ...f, path: cubic(S0, f.c.p1, f.c.p2, f.E) }
     })
     const avgEnd = stats ? { x: stats.avgLateralOffset, y: avgAim + stats.avgDistanceOffset } : null
     const ys = shots.map((s) => s.E.y)
@@ -64,7 +68,7 @@ export function TeePlot(props: ChartProps) {
       xs.push(s.ring95.cx - e.x, s.ring95.cx + e.x)
     }
     const maxY = Math.max(...ys, avgAim) + 4 * unitYd
-    const brk = teeBreakYards(points, stats, avgAim, unitYd)
+    const brk = teeBreakOf(points, stats, avgAim, unitYd)
     const lo = Math.min(...xs)
     const hi = Math.max(...xs)
     const centre = (lo + hi) / 2
@@ -162,7 +166,7 @@ export function TeePlot(props: ChartProps) {
           const text = coloured ? (cat ? `typical ${cat.label.toLowerCase()}` : 'typical, not recorded') : 'typical flight'
           const at = placeNear(x(E.x), y(E.y), text, 12, dots, taken, bounds)
           taken.push(at.box)
-          return { key, d: poly(cubic(E, c.p1, c.p2)), color: coloured ? cat?.color ?? UNRECORDED_INK : P.ink, text, at }
+          return { key, d: poly(cubic(S0, c.p1, c.p2, E)), color: coloured ? cat?.color ?? UNRECORDED_INK : P.ink, text, at }
         })
   const hotD = hot ? shown.find((d) => d.p.id === hot) : null
   const barU = 10 * u * scale >= 30 ? 10 : 25

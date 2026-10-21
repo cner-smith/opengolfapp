@@ -11,19 +11,22 @@ import Animated, {
   type SharedValue,
 } from 'react-native-reanimated'
 import {
+  NOT_RECORDED,
+  categoryOf,
   flightControls,
+  type ColourBy,
   type DispersionPoint,
-  type DispersionRing,
   type DispersionStats,
   type DistanceUnit,
   type FlightKind,
   type FlightPoint,
+  type ShotExtras,
 } from '@oga/core'
 import { FONT, TYPE } from '../../lib/typography'
 import { haptic } from '../../lib/haptics'
 import { FONT_CAP, P } from '../paper/tokens'
 import { Key, KeyText } from '../paper/Paper'
-import { INK, NOT_RECORDED, UNRECORDED_INK, categoryOf, type Category, type ColourBy, type Glyph, type Layer, type ShotExtras } from './layers'
+import { INK, UNRECORDED_INK, type Category, type Glyph, type Layer } from './layers'
 
 // What the two Shot patterns charts (AimPlot, TeePlot) share: label placement
 // on a paper halo where it covers the fewest shots, the shot glyphs, the
@@ -82,25 +85,6 @@ export const overlaps = (a: Box, b: Box) => a.x < b.x + b.w && b.x < a.x + a.w &
 export const textW = (s: string, px: number) => s.length * px * 0.52
 export type Anchor = 'start' | 'middle' | 'end'
 export const rad = (d: number) => (d * Math.PI) / 180
-
-/** A ring's half-extent along each screen axis (it may be tilted). */
-export function ringExtent(r: DispersionRing) {
-  const t = rad(r.rotationDeg)
-  return {
-    x: Math.hypot(r.rx * Math.cos(t), r.ry * Math.sin(t)),
-    y: Math.hypot(r.rx * Math.sin(t), r.ry * Math.cos(t)),
-  }
-}
-
-/** Is an aim-frame point inside the ring? */
-export function insideRing(r: DispersionRing, x: number, y: number) {
-  const t = rad(r.rotationDeg)
-  const dx = x - r.cx
-  const dy = y - r.cy
-  const u = dx * Math.cos(t) + dy * Math.sin(t)
-  const v = -dx * Math.sin(t) + dy * Math.cos(t)
-  return (u / Math.max(r.rx, 1e-6)) ** 2 + (v / Math.max(r.ry, 1e-6)) ** 2 <= 1
-}
 
 export interface RingPx {
   cx: number
@@ -175,30 +159,12 @@ export function teeFinish(p: DispersionPoint, avgAim: number): FlightPoint {
   return { x: p.lateralOffsetYards, y: avgAim + p.distanceOffsetYards }
 }
 
-export function averageAim(points: DispersionPoint[], stats: DispersionStats | null) {
-  if (stats?.avgAimDistance != null) return stats.avgAimDistance
-  const aims = points.flatMap((p) => (p.startDistanceOffsetYards == null ? [] : [-p.startDistanceOffsetYards]))
-  return aims.length ? aims.reduce((a, b) => a + b, 0) / aims.length : null
-}
-
 export const S0: FlightPoint = { x: 0, y: 0 }
 
 /** A shot's flight from the tee to its (normalised) finish. */
 export function flightOf(p: DispersionPoint, avgAim: number, leftHanded: boolean) {
   const E = teeFinish(p, avgAim)
   return { E, c: flightControls(S0, E, p.startLine ?? null, p.shape ?? null, leftHanded) }
-}
-
-export function cubic(E: FlightPoint, p1: FlightPoint, p2: FlightPoint, n = 48): FlightPoint[] {
-  const out: FlightPoint[] = []
-  for (let i = 0; i <= n; i++) {
-    const t = i / n
-    const b = 3 * (1 - t) ** 2 * t
-    const c = 3 * (1 - t) * t * t
-    const d = t ** 3
-    out.push({ x: b * p1.x + c * p2.x + d * E.x, y: b * p1.y + c * p2.y + d * E.y })
-  }
-  return out
 }
 
 export type SegStyle = 'solid' | 'dash' | 'dot'
@@ -475,6 +441,7 @@ export function ChartFrame({ width, height, summary, pickable, hot, onHot, reado
           {children}
         </Svg>
       </View>
+      {/* A raw Pressable, not PressableTouch: the pick needs the press's own locationX/Y. */}
       <Pressable onPress={pick} style={{ position: 'absolute', left: 0, top: 0, width, height }} importantForAccessibility="no" />
       {hotP && readout && (
         <View

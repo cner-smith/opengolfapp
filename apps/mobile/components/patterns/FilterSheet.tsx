@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Modal, Pressable, Text, View } from 'react-native'
+import { Modal, Text, View } from 'react-native'
 import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler'
 import Animated, {
   Easing,
@@ -9,12 +9,12 @@ import Animated, {
   useSharedValue,
   withTiming,
 } from 'react-native-reanimated'
-import { LIE_TYPES, type LieSlopeForward, type LieSlopeSide, type LieType } from '@oga/core'
+import { LIE_TYPES, capFirst as cap, type LieSlopeForward, type LieSlopeSide, type LieType } from '@oga/core'
 import { TYPE } from '../../lib/typography'
 import { Key, KeyText } from '../paper/Paper'
 import { SlopeGrid } from '../paper/Pickers'
 import { FONT_CAP, P } from '../paper/tokens'
-import { cap } from './words'
+import { PressableTouch } from '../ui/PressableTouch'
 
 // Shot patterns' lie and slope filters as a bottom sheet. The page dims while
 // the sheet rises (manual shared values: the Modal's own slide moved the scrim
@@ -98,7 +98,7 @@ export function FilterSheet({
       {/* RN Modal is its own native window on Android: the pan needs its own root (#496). */}
       <GestureHandlerRootView style={{ flex: 1, justifyContent: 'flex-end' }}>
         <Animated.View style={[{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: P.scrim }, scrimStyle]}>
-          <Pressable accessibilityRole="button" accessibilityLabel="Close filters" onPress={onClose} style={{ flex: 1 }} />
+          <PressableTouch accessibilityRole="button" accessibilityLabel="Close filters" onPress={onClose} style={{ flex: 1 }} />
         </Animated.View>
         <Animated.View
           onLayout={(e) => setHeight(e.nativeEvent.layout.height)}
