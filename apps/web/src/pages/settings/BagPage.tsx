@@ -1,13 +1,13 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
-  CANONICAL_CLUBS_BY_CATEGORY,
-  CLUB_CATEGORIES,
-  CLUB_CATEGORY_LABELS,
-  clubCategoryFor,
+  MIN_SAMPLES_FOR_STATS,
+  bagGaps,
   clubTypicalDistance,
+  distanceUnitAbbr,
   formatClubLabel,
+  wholeDistance,
   type Club,
-  type ClubCategory,
+  type DistanceUnit,
 } from '@oga/core'
 import {
   DndContext,
@@ -38,22 +38,8 @@ import { useAuth } from '../../hooks/useAuth'
 import { useUnits } from '../../hooks/useUnits'
 import { useClubDispersion } from '../rounds/hooks/useClubDispersion'
 import { toUserMessage } from '../../lib/errors'
-
-interface AddClubDraft {
-  name: string
-  category: ClubCategory
-  clubType: string
-  loft: string
-  typicalDistance: string
-}
-
-const EMPTY_DRAFT: AddClubDraft = {
-  name: '',
-  category: 'iron',
-  clubType: '7i',
-  loft: '',
-  typicalDistance: '',
-}
+import { AddClubForm, ClubEditForm, EMPTY_DRAFT, type AddClubDraft } from './BagForms'
+import { GapChart, type BagRung } from './GapChart'
 
 export function BagPage() {
   const allClubs = useAllUserClubs()
@@ -66,14 +52,7 @@ export function BagPage() {
   // has enough of them (the live wheel's rule), else the typed estimate (#1052).
   const { user } = useAuth()
   const { byClub } = useClubDispersion(user?.id)
-  const { toDisplay } = useUnits()
-  function distanceLabel(c: UserClub): string {
-    const d = byClub.get(c.club_type as Club)
-    const shots = d?.sampleSize ?? 0
-    const t = clubTypicalDistance(d?.medianDistanceYards, shots, c.typical_distance_yards)
-    if (!t) return ''
-    return ` · ${toDisplay(t.yards)} · ${t.source === 'shots' ? `from ${shots} shots` : 'estimate'}`
-  }
+  const { unit } = useUnits()
 
   const [showAdd, setShowAdd] = useState(false)
   const [draft, setDraft] = useState<AddClubDraft>(EMPTY_DRAFT)
@@ -205,6 +184,8 @@ export function BagPage() {
     [upsertClub],
   )
 
+  const toggleEdit = useCallback((id: string) => setEditingId((cur) => (cur === id ? null : id)), [])
+
   const onRequestDelete = useCallback(
     (id: string) => {
       const c = clubsRef.current.find((x) => x.id === id)
@@ -257,36 +238,50 @@ export function BagPage() {
     }
   }
 
+  const ready = !allClubs.isLoading && !allClubs.isError && !isSeedingEmpty
+  const inBag = clubs.filter((c) => c.in_bag)
+  const benched = clubs.filter((c) => !c.in_bag)
+
+  // Each in-bag club's number, in the bag's own order: the median of its
+  // shots once it has enough (the live wheel's rule), else the typed estimate
+  // (#1052); its range only when the number comes from shots.
+  const rungs: BagRung[] = inBag.map((c) => {
+    const d = byClub.get(c.club_type as Club)
+    const typical = clubTypicalDistance(d?.medianDistanceYards, d?.sampleSize ?? 0, c.typical_distance_yards)
+    return {
+      clubType: c.club_type,
+      typical,
+      range: typical?.source === 'shots' ? (d?.range ?? null) : null,
+      club: c,
+    }
+  })
+  const bag = bagGaps(rungs, unit)
+  // The gap printed on the rule above a card row: only between two
+  // neighbouring rows that both have a number.
+  const gapAbove = new Map<string, { yards: number; widest: boolean }>()
+  for (const g of bag.gaps) {
+    const a = inBag.indexOf(g.longer.club)
+    const b = inBag.indexOf(g.shorter.club)
+    if (g.kind === 'not measured' || Math.abs(a - b) !== 1) continue
+    gapAbove.set(inBag[Math.max(a, b)]!.id, { yards: g.yards, widest: g === bag.widest })
+  }
+
   return (
-    <div className="mx-auto" style={{ maxWidth: 720, padding: '32px 24px 48px' }}>
-      <div className="kicker">Equipment</div>
-      <h1
-        className="font-serif italic text-caddie-ink"
-        style={{ fontSize: 28, fontWeight: 500, marginTop: 6, marginBottom: 12 }}
-      >
-        My bag.
+    <div style={{ maxWidth: 680 }}>
+      <h1 className="font-serif text-caddie-ink" style={{ fontSize: 28, fontWeight: 500, lineHeight: 1.15 }}>
+        My bag
       </h1>
-      <p className="text-caddie-ink-dim" style={{ fontSize: 15, marginBottom: 8 }}>
-        Add the clubs you carry. Only these clubs appear when logging shots.
-      </p>
-      <p
-        className="text-caddie-ink-mute"
-        style={{ fontSize: 13, marginBottom: 24 }}
-      >
-        Benched clubs stay in your list but are hidden from the shot logger.
+      <p className="text-caddie-ink-dim" style={{ fontSize: 15, marginTop: 6, marginBottom: 22 }}>
+        {ready && clubs.length > 0
+          ? `${inBag.length} club${inBag.length === 1 ? '' : 's'} in the bag${benched.length ? `, ${benched.length} on the bench` : ''}. Only clubs in the bag show when you log a shot.`
+          : 'The clubs you carry. Only these show when you log a shot.'}
       </p>
 
       {error && (
         <div
           className="text-caddie-neg"
           role="alert"
-          style={{
-            border: '1px solid #A33A2A',
-            borderRadius: 2,
-            padding: '10px 12px',
-            fontSize: 13,
-            marginBottom: 18,
-          }}
+          style={{ border: '1px solid #A33A2A', borderRadius: 2, padding: '10px 12px', fontSize: 13, marginBottom: 18 }}
         >
           {error}
         </div>
@@ -302,44 +297,112 @@ export function BagPage() {
         <div
           className="text-caddie-neg"
           role="alert"
-          style={{
-            border: '1px solid #A33A2A',
-            borderRadius: 2,
-            padding: '10px 12px',
-            fontSize: 13,
-            marginTop: 12,
-          }}
+          style={{ border: '1px solid #A33A2A', borderRadius: 2, padding: '10px 12px', fontSize: 13, marginTop: 12 }}
         >
           Could not load bag: {toUserMessage(allClubs.error)}
         </div>
       )}
 
-      {!allClubs.isLoading && !allClubs.isError && !isSeedingEmpty && (
-        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
-          <SortableContext items={clubs.map((c) => c.id)} strategy={verticalListSortingStrategy}>
-            <div
-              style={{
-                borderTop: '1px solid #D9D2BF',
-              }}
-            >
-              {clubs.map((c) => (
+      {ready && inBag.length > 0 ? <GapChart bag={bag} unit={unit} /> : null}
+
+      {ready && (
+        // The yardage card: the bag top to bottom in its own order, the
+        // number you'd pull each club for, and the gap on the rule between.
+        <section
+          aria-label="Yardage card"
+          className="bg-caddie-surface px-3 sm:px-[18px]"
+          style={{ border: '1px solid #9F9580', borderRadius: 2, paddingTop: 16, paddingBottom: 12 }}
+        >
+          <h2 className="font-serif text-caddie-ink" style={{ fontSize: 20, fontStyle: 'italic', fontWeight: 500 }}>
+            Yardage card
+          </h2>
+          <div
+            className="text-caddie-ink-dim"
+            style={{
+              display: 'grid',
+              gridTemplateColumns: CARD_COLS,
+              columnGap: 10,
+              fontSize: 12,
+              marginTop: 12,
+              paddingBottom: 6,
+              borderBottom: '1.5px solid #1C211C',
+            }}
+          >
+            <span />
+            <span>Club</span>
+            <span style={{ textAlign: 'right' }}>Plays</span>
+            <span style={{ textAlign: 'right' }}>Typical, {distanceUnitAbbr(unit)}</span>
+          </div>
+          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
+            <SortableContext items={inBag.map((c) => c.id)} strategy={verticalListSortingStrategy}>
+              {rungs.map((r, i) => (
                 <SortableClubRow
-                  key={c.id}
-                  club={c}
-                  editing={editingId === c.id}
-                  onStartEdit={() => setEditingId(c.id)}
-                  onCancelEdit={() => setEditingId(null)}
+                  key={r.club.id}
+                  rung={r}
+                  unit={unit}
+                  shots={byClub.get(r.club.club_type as Club)?.sampleSize ?? 0}
+                  first={i === 0}
+                  gap={gapAbove.get(r.club.id) ?? null}
+                  editing={editingId === r.club.id}
+                  onToggleEdit={toggleEdit}
                   onSaveEdit={onSaveEdit}
                   saving={upsertClub.isPending}
                   onToggleInBag={onToggleInBag}
                   onDelete={onRequestDelete}
-                  hasDuplicateType={(typeCounts.get(c.club_type) ?? 0) > 1}
-                  distance={distanceLabel(c)}
+                  hasDuplicateType={(typeCounts.get(r.club.club_type) ?? 0) > 1}
                 />
               ))}
+            </SortableContext>
+          </DndContext>
+          {inBag.length === 0 && (
+            <p className="font-serif text-caddie-ink-dim" style={{ fontSize: 16, fontStyle: 'italic', padding: '18px 0' }}>
+              Every club is on the bench. Put one back to start the card.
+            </p>
+          )}
+          <p className="text-caddie-ink-dim" style={{ fontSize: 12, lineHeight: 1.5, marginTop: 10, borderTop: '1px solid #D9D2BF', paddingTop: 10 }}>
+            Typical is the middle of your shots once a club has {MIN_SAMPLES_FOR_STATS}; before that, your own estimate in
+            italics. Plays is where two in three of its shots finish. The number on each rule is the gap between the two
+            clubs. Drag ⠿ to set the order of the club wheel; open a club to edit it.
+          </p>
+        </section>
+      )}
+
+      {ready && benched.length > 0 && (
+        <section style={{ marginTop: 28 }} aria-label="On the bench">
+          <h2 className="font-serif text-caddie-ink" style={{ fontSize: 20, fontStyle: 'italic', fontWeight: 500, marginBottom: 4 }}>
+            On the bench
+          </h2>
+          <p className="text-caddie-ink-dim" style={{ fontSize: 13, marginBottom: 8 }}>
+            Saved, but hidden from the shot logger.
+          </p>
+          {benched.map((c) => (
+            <div key={c.id} className="flex items-center" style={{ gap: 14, padding: '10px 0', borderTop: '1px solid #D9D2BF' }}>
+              <span className="text-caddie-ink" style={{ flex: 1, fontSize: 15 }}>
+                {c.name}{' '}
+                <span className="text-caddie-ink-dim" style={{ fontSize: 12 }}>
+                  {formatClubLabel(c, { hasDuplicateType: (typeCounts.get(c.club_type) ?? 0) > 1 })}
+                </span>
+              </span>
+              <button
+                type="button"
+                onClick={() => onToggleInBag(c.id)}
+                className="text-caddie-ink hover:underline"
+                style={{ fontSize: 13, fontWeight: 600 }}
+              >
+                Put in bag
+              </button>
+              <button
+                type="button"
+                onClick={() => onRequestDelete(c.id)}
+                aria-label={`Delete ${c.name}`}
+                className="text-caddie-neg hover:underline"
+                style={{ fontSize: 13 }}
+              >
+                Delete
+              </button>
             </div>
-          </SortableContext>
-        </DndContext>
+          ))}
+        </section>
       )}
 
       {showAdd ? (
@@ -356,39 +419,25 @@ export function BagPage() {
           error={error}
         />
       ) : (
-        <button
-          type="button"
-          onClick={() => setShowAdd(true)}
-          className="bg-caddie-accent text-caddie-accent-ink"
-          style={{
-            marginTop: 22,
-            padding: '12px 16px',
-            fontSize: 14,
-            fontWeight: 600,
-            letterSpacing: '0.02em',
-            borderRadius: 2,
-          }}
-        >
-          Add club <span className="font-serif italic" style={{ marginLeft: 4 }}>→</span>
-        </button>
+        <div className="flex items-center flex-wrap" style={{ gap: 18, marginTop: 22 }}>
+          <button
+            type="button"
+            onClick={() => setShowAdd(true)}
+            className="bg-caddie-accent text-caddie-accent-ink"
+            style={{ padding: '12px 16px', fontSize: 14, fontWeight: 600, letterSpacing: '0.02em', borderRadius: 2 }}
+          >
+            Add club <span className="font-serif italic" style={{ marginLeft: 4 }}>→</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setConfirmReset(true)}
+            className="text-caddie-ink-dim hover:underline"
+            style={{ fontSize: 13 }}
+          >
+            Reset to the default bag
+          </button>
+        </div>
       )}
-
-      <div style={{ marginTop: 36, paddingTop: 18, borderTop: '1px solid #D9D2BF' }}>
-        <button
-          type="button"
-          onClick={() => setConfirmReset(true)}
-          className="text-caddie-accent"
-          style={{
-            fontSize: 13,
-            border: '1px solid #1F3D2C',
-            background: 'transparent',
-            padding: '8px 14px',
-            borderRadius: 2,
-          }}
-        >
-          Reset to default bag
-        </button>
-      </div>
 
       <ConfirmDialog
         open={confirmReset}
@@ -424,15 +473,21 @@ export function BagPage() {
   )
 }
 
+// handle | club | plays | typical
+const CARD_COLS = '18px minmax(0,1fr) auto 64px'
+
 interface SortableClubRowProps {
-  club: UserClub
+  rung: BagRung
+  unit: DistanceUnit
+  /** The club's aimed shots, for the meta line. */
+  shots: number
+  first: boolean
+  /** The gap to the row above, printed on the rule between them. */
+  gap: { yards: number; widest: boolean } | null
   editing: boolean
   saving: boolean
   hasDuplicateType: boolean
-  /** " · 152 yd · from 23 shots", or "" when the club has no distance. */
-  distance: string
-  onStartEdit: () => void
-  onCancelEdit: () => void
+  onToggleEdit: (id: string) => void
   onSaveEdit: (
     id: string,
     patch: { name: string; loft: number | null; typicalDistance: number | null },
@@ -442,497 +497,131 @@ interface SortableClubRowProps {
 }
 
 const SortableClubRow = memo(function SortableClubRow({
-  club,
+  rung,
+  unit,
+  shots,
+  first,
+  gap,
   editing,
   saving,
   hasDuplicateType,
-  distance,
-  onStartEdit,
-  onCancelEdit,
+  onToggleEdit,
   onSaveEdit,
   onToggleInBag,
   onDelete,
 }: SortableClubRowProps) {
+  const { club, typical, range } = rung
   const sortable = useSortable({ id: club.id })
-
-  const style = {
-    transform: CSS.Transform.toString(sortable.transform),
-    transition: sortable.transition,
-    opacity: sortable.isDragging ? 0.5 : 1,
-  }
+  const putter = club.club_type === 'putter'
+  const estimate = typical?.source === 'estimate'
+  const meta = [
+    formatClubLabel(club, { hasDuplicateType }),
+    club.loft != null && club.club_type !== 'cw' && club.club_type !== 'custom_wedge' && !hasDuplicateType
+      ? `${club.loft}°`
+      : null,
+    typical?.source === 'shots' ? `${shots} shots` : estimate ? 'your estimate' : null,
+  ]
+    .filter(Boolean)
+    .join(' · ')
 
   return (
     <div
       ref={sortable.setNodeRef}
+      data-testid="bag-row"
       style={{
-        ...style,
-        borderBottom: '1px solid #D9D2BF',
+        transform: CSS.Transform.toString(sortable.transform),
+        transition: sortable.transition,
+        opacity: sortable.isDragging ? 0.5 : 1,
+        position: 'relative',
+        borderTop: first ? 'none' : '1px solid #D9D2BF',
+        background: sortable.isDragging ? '#EBE5D6' : undefined,
       }}
     >
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 12,
-          padding: '14px 4px',
-        }}
-      >
+      {gap && !first ? (
+        // Centred on the rule, under the typical column.
+        <span
+          data-testid="bag-gap"
+          className="font-serif tabular"
+          style={{
+            position: 'absolute',
+            top: 0,
+            right: 32,
+            transform: 'translate(50%, -50%)',
+            background: '#FBF8F1',
+            padding: '0 5px',
+            fontSize: 12,
+            lineHeight: 1,
+            fontWeight: gap.widest ? 600 : 400,
+            color: gap.widest ? '#A66A1F' : '#5C6356',
+          }}
+        >
+          {wholeDistance(gap.yards, unit)}
+          <span className="sr-only"> {distanceUnitAbbr(unit)} gap{gap.widest ? ', the widest' : ''}</span>
+        </span>
+      ) : null}
+      <div style={{ display: 'grid', gridTemplateColumns: '18px minmax(0,1fr)', columnGap: 10, alignItems: 'center' }}>
         <button
           type="button"
-          aria-label="Drag to reorder"
+          aria-label={`Drag ${club.name} to reorder`}
           {...sortable.attributes}
           {...sortable.listeners}
           className="text-caddie-ink-mute"
-          style={{ cursor: 'grab', fontSize: 14, padding: '4px 8px' }}
+          style={{ cursor: 'grab', fontSize: 13, padding: '4px 0' }}
         >
           ⠿
         </button>
-        <div style={{ flex: 1 }}>
-          <div className="text-caddie-ink" style={{ fontSize: 15 }}>
-            {club.name}
-          </div>
-          <div
-            className="font-mono uppercase text-caddie-ink-mute"
-            style={{ fontSize: 10, letterSpacing: '0.14em', marginTop: 2 }}
-          >
-            {formatClubLabel(club, { hasDuplicateType })}
-            {club.loft != null &&
-            club.club_type !== 'cw' &&
-            club.club_type !== 'custom_wedge' &&
-            !hasDuplicateType
-              ? ` · ${club.loft}°`
-              : ''}
-            {distance}
-          </div>
-        </div>
         <button
           type="button"
-          onClick={() => onToggleInBag(club.id)}
-          title="Benched clubs stay in your list but won't show up when logging shots."
-          className="font-mono uppercase"
+          onClick={() => onToggleEdit(club.id)}
+          aria-expanded={editing}
+          aria-label={`${club.name}${typical && !putter ? `, ${wholeDistance(typical.yards, unit)} ${distanceUnitAbbr(unit)}` : ''}. ${editing ? 'Close' : 'Edit'}`}
+          className="hover:bg-caddie-bg"
           style={{
-            fontSize: 10,
-            letterSpacing: '0.14em',
-            padding: '4px 10px',
-            borderRadius: 2,
-            border: '1px solid #D9D2BF',
-            color: club.in_bag ? '#F2EEE5' : '#5C6356',
-            background: club.in_bag ? '#1F3D2C' : 'transparent',
+            display: 'grid',
+            gridTemplateColumns: 'minmax(0,1fr) auto 64px',
+            columnGap: 10,
+            alignItems: 'center',
+            padding: '9px 0 8px',
+            textAlign: 'left',
+            background: 'none',
+            cursor: 'pointer',
           }}
         >
-          {club.in_bag ? 'In bag' : 'Benched'}
-        </button>
-        <button
-          type="button"
-          onClick={editing ? onCancelEdit : onStartEdit}
-          className="text-caddie-ink-dim hover:underline"
-          style={{ fontSize: 12 }}
-        >
-          {editing ? 'Close' : 'Edit'}
-        </button>
-        <button
-          type="button"
-          onClick={() => onDelete(club.id)}
-          aria-label={`Delete ${club.name}`}
-          className="text-caddie-neg hover:underline"
-          style={{ fontSize: 12 }}
-        >
-          Delete
+          <span style={{ minWidth: 0 }}>
+            <span className="text-caddie-ink" style={{ display: 'block', fontSize: 15, lineHeight: 1.25 }}>
+              {club.name}
+            </span>
+            <span className="text-caddie-ink-dim" style={{ display: 'block', fontSize: 12, marginTop: 1 }}>
+              {meta}
+            </span>
+          </span>
+          <span className="font-serif tabular text-caddie-ink-dim" style={{ fontSize: 13, textAlign: 'right', whiteSpace: 'nowrap' }}>
+            {range && !putter ? `${wholeDistance(range.low, unit)}–${wholeDistance(range.high, unit)}` : ''}
+          </span>
+          <span
+            className={`font-serif tabular ${estimate ? 'text-caddie-ink-dim' : 'text-caddie-ink'}`}
+            style={{ fontSize: 28, lineHeight: 1, fontWeight: 500, textAlign: 'right', fontStyle: estimate ? 'italic' : 'normal' }}
+          >
+            {putter ? '' : typical ? (
+              wholeDistance(typical.yards, unit)
+            ) : (
+              <span className="text-caddie-ink-mute" style={{ fontSize: 20 }}>
+                –
+              </span>
+            )}
+          </span>
         </button>
       </div>
       {editing && (
         <ClubEditForm
           club={club}
           saving={saving}
-          onCancel={onCancelEdit}
+          onCancel={() => onToggleEdit(club.id)}
           onSave={(patch) => onSaveEdit(club.id, patch)}
+          onBench={() => onToggleInBag(club.id)}
+          onDelete={() => onDelete(club.id)}
         />
       )}
     </div>
   )
 })
-
-function ClubEditForm({
-  club,
-  saving,
-  onCancel,
-  onSave,
-}: {
-  club: UserClub
-  saving: boolean
-  onCancel: () => void
-  onSave: (patch: {
-    name: string
-    loft: number | null
-    typicalDistance: number | null
-  }) => void
-}) {
-  const [name, setName] = useState(club.name)
-  const [loft, setLoft] = useState(club.loft != null ? String(club.loft) : '')
-  const [typical, setTypical] = useState(
-    club.typical_distance_yards != null
-      ? String(club.typical_distance_yards)
-      : '',
-  )
-  const [localError, setLocalError] = useState<string | null>(null)
-
-  useEffect(() => {
-    setName(club.name)
-    setLoft(club.loft != null ? String(club.loft) : '')
-    setTypical(
-      club.typical_distance_yards != null
-        ? String(club.typical_distance_yards)
-        : '',
-    )
-  }, [club.id, club.name, club.loft, club.typical_distance_yards])
-
-  function parseNumOrNull(s: string): number | null {
-    if (!s) return null
-    const n = Number(s)
-    return Number.isFinite(n) ? n : null
-  }
-
-  function submit() {
-    setLocalError(null)
-    if (!name.trim()) {
-      setLocalError('Name is required')
-      return
-    }
-    if (loft && !Number.isFinite(Number(loft))) {
-      setLocalError('Loft must be a number')
-      return
-    }
-    if (typical && !Number.isFinite(Number(typical))) {
-      setLocalError('Typical distance must be a number')
-      return
-    }
-    onSave({
-      name: name.trim(),
-      loft: parseNumOrNull(loft),
-      typicalDistance: parseNumOrNull(typical),
-    })
-  }
-
-  return (
-    <div
-      style={{
-        padding: '8px 4px 16px 40px',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 10,
-      }}
-    >
-      <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-        <span className="kicker">Name</span>
-        <input
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          className="bg-caddie-bg text-caddie-ink"
-          style={{
-            border: '1px solid #D9D2BF',
-            borderRadius: 2,
-            padding: '8px 10px',
-            fontSize: 14,
-          }}
-        />
-      </label>
-      <div style={{ display: 'flex', gap: 12 }}>
-        <label
-          style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: 1 }}
-        >
-          <span className="kicker">Loft (°)</span>
-          <input
-            value={loft}
-            onChange={(e) => setLoft(e.target.value)}
-            inputMode="decimal"
-            placeholder="optional"
-            className="bg-caddie-bg text-caddie-ink"
-            style={{
-              border: '1px solid #D9D2BF',
-              borderRadius: 2,
-              padding: '8px 10px',
-              fontSize: 14,
-            }}
-          />
-        </label>
-        <label
-          style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: 1 }}
-        >
-          <span className="kicker">Typical distance (yd)</span>
-          <input
-            value={typical}
-            onChange={(e) => setTypical(e.target.value)}
-            inputMode="numeric"
-            placeholder="optional"
-            className="bg-caddie-bg text-caddie-ink"
-            style={{
-              border: '1px solid #D9D2BF',
-              borderRadius: 2,
-              padding: '8px 10px',
-              fontSize: 14,
-            }}
-          />
-        </label>
-      </div>
-      {localError && (
-        <div className="text-caddie-neg" style={{ fontSize: 13 }}>
-          {localError}
-        </div>
-      )}
-      <div style={{ display: 'flex', gap: 8 }}>
-        <button
-          type="button"
-          onClick={submit}
-          disabled={saving}
-          className="bg-caddie-accent text-caddie-accent-ink"
-          style={{
-            padding: '8px 14px',
-            fontSize: 13,
-            fontWeight: 600,
-            borderRadius: 2,
-            opacity: saving ? 0.7 : 1,
-          }}
-        >
-          {saving ? 'Saving…' : 'Save'}
-        </button>
-        <button
-          type="button"
-          onClick={onCancel}
-          className="text-caddie-ink-dim"
-          style={{ fontSize: 13 }}
-        >
-          Cancel
-        </button>
-      </div>
-    </div>
-  )
-}
-
-function AddClubForm({
-  draft,
-  onChange,
-  onCancel,
-  onSubmit,
-  submitting,
-  error,
-}: {
-  draft: AddClubDraft
-  onChange: (d: AddClubDraft) => void
-  onCancel: () => void
-  onSubmit: () => void
-  submitting: boolean
-  error: string | null
-}) {
-  const canonicalOptions = useMemo(
-    () => CANONICAL_CLUBS_BY_CATEGORY[draft.category],
-    [draft.category],
-  )
-  // Custom mode lets the user enter a free-text club_type for non-utility
-  // categories (e.g. an "attack wedge" the canonical wedge list doesn't
-  // mention). Toggled by the "Custom…" sentinel option in the dropdown.
-  const [customMode, setCustomMode] = useState(false)
-  const CUSTOM_VALUE = '__custom__'
-  const showFreeText = draft.category === 'utility' || customMode
-
-  // When category changes, jump club_type to the first canonical option
-  // for that category if the current type doesn't fit. Skip for utility.
-  // Switching category also resets custom mode so the user starts from
-  // canonical options for the new category.
-  useEffect(() => {
-    setCustomMode(false)
-    if (draft.category === 'utility') return
-    if (!canonicalOptions.includes(draft.clubType)) {
-      onChange({ ...draft, clubType: canonicalOptions[0] ?? '' })
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [draft.category])
-
-  return (
-    <div
-      style={{
-        marginTop: 22,
-        padding: 18,
-        border: '1px solid #D9D2BF',
-        background: '#FBF8F1',
-      }}
-    >
-      <div className="kicker" style={{ marginBottom: 10 }}>
-        New club
-      </div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-        <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          <span className="kicker">Category</span>
-          <select
-            value={draft.category}
-            onChange={(e) =>
-              onChange({ ...draft, category: e.target.value as ClubCategory })
-            }
-            style={{
-              padding: '8px 10px',
-              fontSize: 14,
-              border: '1px solid #D9D2BF',
-              background: '#FBF8F1',
-              borderRadius: 2,
-            }}
-          >
-            {CLUB_CATEGORIES.map((c) => (
-              <option key={c} value={c}>
-                {CLUB_CATEGORY_LABELS[c]}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          <span className="kicker">Club type</span>
-          {showFreeText ? (
-            <input
-              value={draft.clubType}
-              onChange={(e) => onChange({ ...draft, clubType: e.target.value })}
-              placeholder="e.g. chipper, attack wedge, 1.5 hybrid"
-              style={{
-                padding: '8px 10px',
-                fontSize: 14,
-                border: '1px solid #D9D2BF',
-                background: '#FBF8F1',
-                borderRadius: 2,
-              }}
-            />
-          ) : (
-            <select
-              value={
-                canonicalOptions.includes(draft.clubType)
-                  ? draft.clubType
-                  : canonicalOptions[0] ?? ''
-              }
-              onChange={(e) => {
-                if (e.target.value === CUSTOM_VALUE) {
-                  setCustomMode(true)
-                  onChange({ ...draft, clubType: '' })
-                  return
-                }
-                onChange({ ...draft, clubType: e.target.value })
-              }}
-              style={{
-                padding: '8px 10px',
-                fontSize: 14,
-                border: '1px solid #D9D2BF',
-                background: '#FBF8F1',
-                borderRadius: 2,
-              }}
-            >
-              {canonicalOptions.map((c) => (
-                <option key={c} value={c}>
-                  {formatClubLabel({ club_type: c })}
-                </option>
-              ))}
-              <option value={CUSTOM_VALUE}>Other…</option>
-            </select>
-          )}
-          {customMode && draft.category !== 'utility' && (
-            <button
-              type="button"
-              onClick={() => {
-                setCustomMode(false)
-                onChange({ ...draft, clubType: canonicalOptions[0] ?? '' })
-              }}
-              className="text-caddie-ink-dim"
-              style={{
-                fontSize: 12,
-                textAlign: 'left',
-                background: 'transparent',
-                border: 'none',
-                padding: 0,
-                marginTop: 2,
-              }}
-            >
-              ← Back to {CLUB_CATEGORY_LABELS[draft.category]} list
-            </button>
-          )}
-        </label>
-        <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          <span className="kicker">Display name</span>
-          <input
-            value={draft.name}
-            onChange={(e) => onChange({ ...draft, name: e.target.value })}
-            placeholder="e.g. 7 Iron, Stealth Driver, 60° Lob"
-            style={{
-              padding: '8px 10px',
-              fontSize: 14,
-              border: '1px solid #D9D2BF',
-              background: '#FBF8F1',
-              borderRadius: 2,
-            }}
-          />
-        </label>
-        <div style={{ display: 'flex', gap: 12 }}>
-          <label style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: 1 }}>
-            <span className="kicker">Loft (°)</span>
-            <input
-              value={draft.loft}
-              onChange={(e) => onChange({ ...draft, loft: e.target.value })}
-              inputMode="decimal"
-              placeholder="optional"
-              style={{
-                padding: '8px 10px',
-                fontSize: 14,
-                border: '1px solid #D9D2BF',
-                background: '#FBF8F1',
-                borderRadius: 2,
-              }}
-            />
-          </label>
-          <label style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: 1 }}>
-            <span className="kicker">Typical distance (yd)</span>
-            <input
-              value={draft.typicalDistance}
-              onChange={(e) => onChange({ ...draft, typicalDistance: e.target.value })}
-              inputMode="numeric"
-              placeholder="optional"
-              style={{
-                padding: '8px 10px',
-                fontSize: 14,
-                border: '1px solid #D9D2BF',
-                background: '#FBF8F1',
-                borderRadius: 2,
-              }}
-            />
-          </label>
-        </div>
-        {error && <div className="text-caddie-neg" style={{ fontSize: 13 }}>{error}</div>}
-        <div style={{ display: 'flex', gap: 8, marginTop: 6 }}>
-          <button
-            type="button"
-            onClick={onSubmit}
-            disabled={submitting}
-            className="bg-caddie-accent text-caddie-accent-ink"
-            style={{
-              padding: '10px 14px',
-              fontSize: 14,
-              fontWeight: 600,
-              borderRadius: 2,
-              opacity: submitting ? 0.7 : 1,
-            }}
-          >
-            Add to bag <span className="font-serif italic" style={{ marginLeft: 4 }}>→</span>
-          </button>
-          <button
-            type="button"
-            onClick={onCancel}
-            className="text-caddie-ink-dim"
-            style={{ fontSize: 13 }}
-          >
-            Cancel
-          </button>
-        </div>
-      </div>
-      <div className="kicker" style={{ marginTop: 14, color: '#8A8B7E' }}>
-        Hint
-      </div>
-      <div className="text-caddie-ink-dim" style={{ fontSize: 12, marginTop: 4 }}>
-        Category defaults to {CLUB_CATEGORY_LABELS[clubCategoryFor(draft.clubType)]} based
-        on the club_type you chose.
-      </div>
-    </div>
-  )
-}
-
