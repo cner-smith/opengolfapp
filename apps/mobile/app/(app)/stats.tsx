@@ -23,6 +23,7 @@ import { getProfile, getRoundsWithDetails } from '@oga/supabase'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
 import { getCached, setCached } from '../../lib/screenCache'
+import { WEB_URL } from '../../lib/webLinks'
 import { useUnits } from '../../hooks/useUnits'
 import { AppBar } from '../../components/ui/AppBar'
 import { Entrance } from '../../components/ui/Entrance'
@@ -225,7 +226,7 @@ export default function Stats() {
             <Pressable
               accessibilityRole="link"
               accessibilityLabel="Open the full dashboard on the web at oga.golf"
-              onPress={() => Linking.openURL('https://oga.golf')}
+              onPress={() => Linking.openURL(WEB_URL)}
               hitSlop={8}
             >
               <Text

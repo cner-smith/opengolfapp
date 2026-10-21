@@ -16,6 +16,7 @@ import { FONT, TYPE } from '../../lib/typography'
 import { Key, KeyText, PaperSurface } from '../../components/paper/Paper'
 import { SectionHead } from '../../components/paper/Section'
 import { FONT_CAP, P, R } from '../../components/paper/tokens'
+import { openWebImport } from '../../lib/webLinks'
 
 const SKILL_LABEL: Record<SkillLevel, string> = {
   beginner: 'Just starting out',
@@ -40,6 +41,9 @@ export default function MobileOnboarding() {
   const [handicap, setHandicap] = useState('15')
   const [goal, setGoal] = useState<Goal | null>(null)
   const [saving, setSaving] = useState(false)
+  // The import offer comes after the profile save, so the onboarding gate
+  // has already flipped and neither choice can strand the player here.
+  const [offerImport, setOfferImport] = useState(false)
   // Bag step starts with all DEFAULT_BAG selected; user untoggles
   // clubs they don't carry. The "Set up later →" button (issue #156)
   // commits with seed=false so no user_clubs rows are inserted from
@@ -109,7 +113,49 @@ export default function MobileOnboarding() {
       return
     }
     setSaving(false)
-    router.replace('/(app)')
+    setOfferImport(true)
+  }
+
+  if (offerImport) {
+    return (
+      <PaperSurface style={{ flex: 1, paddingTop: insets.top }}>
+        <ScrollView
+          style={{ flex: 1 }}
+          contentContainerStyle={{ padding: 16, paddingTop: 14, paddingBottom: insets.bottom + 32 }}
+        >
+          <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.serif, { color: P.ink, fontSize: 28, lineHeight: 34, marginBottom: 8 }]}>
+            Coming from another app?
+          </Text>
+          <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { color: P.inkDim, fontSize: 15, lineHeight: 22, marginBottom: 22 }]}>
+            Bring your Golf Pad rounds, or a scorecard spreadsheet, and your stats start from day one.
+          </Text>
+          <Key
+            tone="primary"
+            accessibilityLabel="Import rounds on the web"
+            onPress={() => {
+              router.replace('/(app)')
+              void openWebImport()
+            }}
+            faceStyle={{ minHeight: 50 }}
+          >
+            <KeyText tone="primary" bold size={15}>
+              Import rounds ↗
+            </KeyText>
+          </Key>
+          <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { color: P.inkDim, fontSize: 12, textAlign: 'center', marginTop: 8 }]}>
+            Opens oga.golf. Sign in there with this account.
+          </Text>
+          <Key
+            accessibilityLabel="Skip"
+            onPress={() => router.replace('/(app)')}
+            style={{ marginTop: 18 }}
+            faceStyle={{ minHeight: 46 }}
+          >
+            <KeyText size={14}>Skip</KeyText>
+          </Key>
+        </ScrollView>
+      </PaperSurface>
+    )
   }
 
   return (

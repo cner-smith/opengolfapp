@@ -4,6 +4,7 @@ import { useRouter } from 'expo-router'
 import { Key, KeyText } from '../paper/Paper'
 import { FONT_CAP, P } from '../paper/tokens'
 import { TYPE } from '../../lib/typography'
+import { openWebImport } from '../../lib/webLinks'
 
 export function StartLiveRoundCTA() {
   const router = useRouter()
@@ -35,6 +36,25 @@ export function StartLiveRoundCTA() {
         Track shots in real time with GPS
       </Text>
     </>
+  )
+}
+
+// The no-rounds empty states (Home, All rounds) offer the import beside the
+// start-round action. It opens the web import in the browser.
+export function ImportHistoryLink() {
+  return (
+    <PressableTouch
+      accessibilityRole="link"
+      accessibilityLabel="Import your history on the web"
+      accessibilityHint="Opens oga.golf in the browser"
+      onPress={() => void openWebImport()}
+      hitSlop={8}
+      style={{ alignSelf: 'flex-start', minHeight: 44, justifyContent: 'center' }}
+    >
+      <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.bodyBold, { color: P.forest, fontSize: 15 }]}>
+        Import your history ↗
+      </Text>
+    </PressableTouch>
   )
 }
 
