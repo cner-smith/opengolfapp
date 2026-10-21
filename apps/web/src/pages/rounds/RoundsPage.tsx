@@ -22,7 +22,8 @@ function teeLabel(tee: string): string {
 }
 
 export function RoundsPage() {
-  const { data: rounds, isLoading, error } = useRounds()
+  // The whole history, as the app's list does (an import can bring years of rounds).
+  const { data: rounds, isLoading, error } = useRounds(500)
   const deleteMutation = useDeleteRound()
   const [pendingDelete, setPendingDelete] = useState<{
     id: string
