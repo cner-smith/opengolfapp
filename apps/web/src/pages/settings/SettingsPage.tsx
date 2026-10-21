@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { Link } from 'react-router-dom'
 import {
   FACILITIES,
   GOALS,
@@ -8,6 +9,7 @@ import {
   type SkillLevel,
 } from '@oga/core'
 import { useProfile, useUpdateProfile } from '../../hooks/useProfile'
+import { useUserBag } from '../../hooks/useUserBag'
 import { toUserMessage } from '../../lib/errors'
 
 const UNIT_OPTIONS: { value: 'yards' | 'meters'; label: string }[] = [
@@ -32,9 +34,9 @@ const GOAL_LABELS: Record<Goal, string> = {
 
 const FACILITY_LABELS: Record<Facility, string> = {
   range: 'Range',
-  short_game: 'Short Game',
-  putting: 'Putting',
-  sim: 'Sim',
+  short_game: 'Short game area',
+  putting: 'Putting green',
+  sim: 'Simulator',
 }
 
 // Mirrors the server-side username constraint: alphanumerics, hyphen,
@@ -49,7 +51,10 @@ const USERNAME_HELPER =
 export function SettingsPage() {
   const { data: profile } = useProfile()
   const updateProfile = useUpdateProfile()
+  // Two error slots: the profile fields save on the button, the rest on tap,
+  // so each error shows beside the control that raised it.
   const [error, setError] = useState<string | null>(null)
+  const [tapError, setTapError] = useState<string | null>(null)
   const [username, setUsername] = useState('')
   const [handicap, setHandicap] = useState('')
   const [skill, setSkill] = useState<SkillLevel | null>(null)
@@ -57,6 +62,8 @@ export function SettingsPage() {
   const [facilities, setFacilities] = useState<Facility[]>([])
   const [saved, setSaved] = useState(false)
   const [usernameTouched, setUsernameTouched] = useState(false)
+  const [openRow, setOpenRow] = useState<string | null>(null)
+  const { bag } = useUserBag()
   const unit = profile?.distance_unit ?? 'yards'
   const playsLeftHanded = profile?.plays_left_handed ?? false
   const emailSummaries = profile?.email_round_summaries_enabled ?? true
@@ -92,29 +99,29 @@ export function SettingsPage() {
   }
 
   async function setUnit(value: 'yards' | 'meters') {
-    setError(null)
+    setTapError(null)
     try {
       await updateProfile.mutateAsync({ distance_unit: value })
     } catch (err) {
-      setError(toUserMessage(err))
+      setTapError(toUserMessage(err))
     }
   }
 
   async function setPlaysLeftHanded(value: boolean) {
-    setError(null)
+    setTapError(null)
     try {
       await updateProfile.mutateAsync({ plays_left_handed: value })
     } catch (err) {
-      setError(toUserMessage(err))
+      setTapError(toUserMessage(err))
     }
   }
 
   async function setEmailSummaries(value: boolean) {
-    setError(null)
+    setTapError(null)
     try {
       await updateProfile.mutateAsync({ email_round_summaries_enabled: value })
     } catch (err) {
-      setError(toUserMessage(err))
+      setTapError(toUserMessage(err))
     }
   }
 
@@ -149,347 +156,256 @@ export function SettingsPage() {
     }
   }
 
-  return (
-    <div>
-      <div style={{ marginBottom: 28 }}>
-        <div className="kicker" style={{ marginBottom: 8 }}>
-          Profile
-        </div>
-        <h1
-          className="font-serif text-caddie-ink"
-          style={{ fontSize: 28, fontWeight: 500, lineHeight: 1.15 }}
-        >
-          Settings
-        </h1>
-      </div>
+  const toggleRow = (key: string) => setOpenRow((cur) => (cur === key ? null : key))
+  const dirty =
+    !!profile &&
+    (trimmedUsername !== (profile.username ?? '') ||
+      handicap !== (profile.handicap_index?.toString() ?? '') ||
+      skill !== ((profile.skill_level as SkillLevel | null) ?? null) ||
+      goal !== ((profile.goal as Goal | null) ?? null) ||
+      [...facilities].sort().join() !== [...((profile.facilities ?? []) as Facility[])].sort().join())
+  const facilitiesValue =
+    facilities.length === 0
+      ? 'None set'
+      : facilities.length === FACILITIES.length
+        ? 'All four'
+        : FACILITIES.filter((f) => facilities.includes(f)).map((f) => FACILITY_LABELS[f]).join(', ')
 
-      <section
-        style={{
-          borderTop: '1px solid #D9D2BF',
-          paddingTop: 18,
-          marginBottom: 28,
-        }}
+  return (
+    <div style={{ maxWidth: 680 }}>
+      <h1
+        className="font-serif text-caddie-ink"
+        style={{ fontSize: 28, fontWeight: 500, lineHeight: 1.15, marginBottom: 6 }}
       >
-        <div className="kicker" style={{ marginBottom: 12 }}>
-          Profile
-        </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 14, maxWidth: 360 }}>
-          <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            <span className="kicker">Username</span>
-            <input
-              type="text"
-              value={username}
-              onChange={(e) => {
-                setUsername(e.target.value)
-                setUsernameTouched(true)
-              }}
-              aria-invalid={showUsernameError || undefined}
-              autoCapitalize="off"
-              autoCorrect="off"
-              style={{
-                ...inputStyle,
-                borderColor: showUsernameError ? '#A33A2A' : '#D9D2BF',
-              }}
-            />
-            <span
-              style={{
-                fontSize: 11,
-                color: showUsernameError ? '#A33A2A' : '#8A8B7E',
-              }}
-            >
-              {USERNAME_HELPER}
-            </span>
-          </label>
-          <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            <span className="kicker">Handicap index</span>
-            <input
-              type="number"
-              inputMode="decimal"
-              min={-10}
-              max={54}
-              step={0.1}
-              value={handicap}
-              onChange={(e) => setHandicap(e.target.value)}
-              style={inputStyle}
-            />
-          </label>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <button
-              type="button"
-              onClick={saveProfile}
-              disabled={updateProfile.isPending || usernameInvalid}
-              className="bg-caddie-accent text-caddie-accent-ink"
-              style={{
-                border: 'none',
-                borderRadius: 2,
-                padding: '10px 18px',
-                fontSize: 13,
-                fontWeight: 600,
-                letterSpacing: '0.02em',
-                cursor:
-                  updateProfile.isPending || usernameInvalid
-                    ? 'not-allowed'
-                    : 'pointer',
-                opacity:
-                  updateProfile.isPending || usernameInvalid ? 0.5 : 1,
-              }}
-            >
-              {updateProfile.isPending ? 'Saving…' : 'Save profile'}
-            </button>
-            {saved && (
-              <span className="text-caddie-pos" style={{ fontSize: 12 }}>
+        Settings
+      </h1>
+      <p className="text-caddie-ink-dim" style={{ fontSize: 15, marginBottom: 28 }}>
+        Your plans and drills are pitched at your skill level and handicap.
+      </p>
+
+      <Group title="Your game">
+        <Row
+          label="Username"
+          value={trimmedUsername || 'Not set'}
+          open={openRow === 'username'}
+          onToggle={() => toggleRow('username')}
+        >
+          <input
+            type="text"
+            value={username}
+            aria-label="Username"
+            onChange={(e) => {
+              setUsername(e.target.value)
+              setUsernameTouched(true)
+            }}
+            aria-invalid={showUsernameError || undefined}
+            autoCapitalize="off"
+            autoCorrect="off"
+            style={{
+              ...inputStyle,
+              width: '100%',
+              maxWidth: 320,
+              borderColor: showUsernameError ? '#A33A2A' : '#D9D2BF',
+            }}
+          />
+          <div style={{ fontSize: 12, marginTop: 6, color: showUsernameError ? '#A33A2A' : '#5C6356' }}>
+            {USERNAME_HELPER}
+          </div>
+        </Row>
+        <Row
+          label="Handicap index"
+          value={handicap === '' ? 'Not set' : handicap}
+          serifValue={handicap !== ''}
+          open={openRow === 'handicap'}
+          onToggle={() => toggleRow('handicap')}
+        >
+          <input
+            type="number"
+            inputMode="decimal"
+            aria-label="Handicap index"
+            min={-10}
+            max={54}
+            step={0.1}
+            value={handicap}
+            onChange={(e) => setHandicap(e.target.value)}
+            style={{ ...inputStyle, width: 140 }}
+          />
+        </Row>
+        <Row
+          label="Skill level"
+          value={skill ? SKILL_LABELS[skill] : 'Not set'}
+          open={openRow === 'skill'}
+          onToggle={() => toggleRow('skill')}
+        >
+          <ChipRow>
+            {SKILL_LEVELS.map((s) => (
+              <Chip key={s} label={SKILL_LABELS[s]} active={skill === s} onClick={() => setSkill(skill === s ? null : s)} />
+            ))}
+          </ChipRow>
+        </Row>
+        <Row
+          label="Goal"
+          value={goal ? GOAL_LABELS[goal] : 'Not set'}
+          open={openRow === 'goal'}
+          onToggle={() => toggleRow('goal')}
+        >
+          <ChipRow>
+            {GOALS.map((g) => (
+              <Chip key={g} label={GOAL_LABELS[g]} active={goal === g} onClick={() => setGoal(goal === g ? null : g)} />
+            ))}
+          </ChipRow>
+        </Row>
+        <Row
+          label="Where you practice"
+          value={facilitiesValue}
+          open={openRow === 'facilities'}
+          onToggle={() => toggleRow('facilities')}
+          last
+        >
+          <ChipRow>
+            {FACILITIES.map((f) => (
+              <Chip key={f} label={FACILITY_LABELS[f]} active={facilities.includes(f)} onClick={() => toggleFacility(f)} />
+            ))}
+          </ChipRow>
+          <div className="text-caddie-ink-dim" style={{ fontSize: 12, marginTop: 8 }}>
+            Plans only pick drills you can run where you practice.
+          </div>
+        </Row>
+        {dirty || saved ? (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, paddingTop: 14 }}>
+            {dirty ? (
+              <button
+                type="button"
+                onClick={saveProfile}
+                disabled={updateProfile.isPending || usernameInvalid}
+                className="bg-caddie-accent text-caddie-accent-ink"
+                style={{
+                  border: 'none',
+                  borderRadius: 2,
+                  padding: '10px 16px',
+                  fontSize: 14,
+                  fontWeight: 600,
+                  letterSpacing: '0.02em',
+                  cursor: updateProfile.isPending || usernameInvalid ? 'not-allowed' : 'pointer',
+                  opacity: updateProfile.isPending || usernameInvalid ? 0.5 : 1,
+                }}
+              >
+                {updateProfile.isPending ? 'Saving…' : 'Save changes'}
+              </button>
+            ) : null}
+            {saved && !dirty ? (
+              <span className="text-caddie-ink-dim" style={{ fontSize: 13 }}>
                 Saved.
               </span>
-            )}
+            ) : null}
           </div>
-        </div>
-      </section>
+        ) : null}
+        {error && (
+          <p className="text-caddie-neg" role="alert" style={{ fontSize: 13, paddingTop: 10 }}>
+            {error}
+          </p>
+        )}
+      </Group>
 
-      <section
-        style={{
-          borderTop: '1px solid #D9D2BF',
-          paddingTop: 18,
-          marginBottom: 28,
-        }}
-      >
-        <div className="kicker" style={{ marginBottom: 12 }}>
-          Skill level
-        </div>
-        <ChipRow>
-          {SKILL_LEVELS.map((s) => (
-            <Chip
-              key={s}
-              label={SKILL_LABELS[s]}
-              active={skill === s}
-              onClick={() => setSkill(skill === s ? null : s)}
-            />
-          ))}
-        </ChipRow>
-      </section>
-
-      <section
-        style={{
-          borderTop: '1px solid #D9D2BF',
-          paddingTop: 18,
-          marginBottom: 28,
-        }}
-      >
-        <div className="kicker" style={{ marginBottom: 12 }}>
-          Goal
-        </div>
-        <ChipRow>
-          {GOALS.map((g) => (
-            <Chip
-              key={g}
-              label={GOAL_LABELS[g]}
-              active={goal === g}
-              onClick={() => setGoal(goal === g ? null : g)}
-            />
-          ))}
-        </ChipRow>
-      </section>
-
-      <section
-        style={{
-          borderTop: '1px solid #D9D2BF',
-          paddingTop: 18,
-          marginBottom: 28,
-        }}
-      >
-        <div className="kicker" style={{ marginBottom: 12 }}>
-          Facilities
-        </div>
-        <ChipRow>
-          {FACILITIES.map((f) => (
-            <Chip
-              key={f}
-              label={FACILITY_LABELS[f]}
-              active={facilities.includes(f)}
-              onClick={() => toggleFacility(f)}
-            />
-          ))}
-        </ChipRow>
-        <p
-          className="text-caddie-ink-dim"
-          style={{ fontSize: 13, marginTop: 10, lineHeight: 1.5 }}
+      <Group title="Clubs and distances">
+        <Link
+          to="/settings/bag"
+          className="hover:bg-caddie-surface"
+          style={{ ...rowStyle, borderBottom: '1px solid #D9D2BF', textDecoration: 'none' }}
         >
-          Practice plans use your available facilities to pick drills
-          you can actually run.
-        </p>
-      </section>
-
-      <section
-        style={{
-          borderTop: '1px solid #D9D2BF',
-          paddingTop: 18,
-          marginBottom: 28,
-        }}
-      >
-        <div className="kicker" style={{ marginBottom: 12 }}>
-          Units
-        </div>
-        <div className="flex flex-wrap" style={{ gap: 8 }}>
-          {UNIT_OPTIONS.map((opt) => {
-            const active = unit === opt.value
-            return (
-              <button
+          <span className="text-caddie-ink" style={{ fontSize: 15 }}>
+            My bag
+          </span>
+          <span className="text-caddie-ink-dim" style={{ fontSize: 15 }}>
+            {bag.length > 0 ? `${bag.length} clubs in the bag` : ''} <span aria-hidden="true">›</span>
+          </span>
+        </Link>
+        <Row
+          label="Distances in"
+          value={unit === 'meters' ? 'Metres' : 'Yards'}
+          open={openRow === 'units'}
+          onToggle={() => toggleRow('units')}
+        >
+          <ChipRow>
+            {UNIT_OPTIONS.map((opt) => (
+              <Chip
                 key={opt.value}
-                type="button"
+                label={opt.label}
+                active={unit === opt.value}
+                disabled={updateProfile.isPending}
                 onClick={() => setUnit(opt.value)}
-                disabled={updateProfile.isPending}
-                style={{
-                  background: active ? '#1F3D2C' : '#EBE5D6',
-                  color: active ? '#F2EEE5' : '#1C211C',
-                  border: 'none',
-                  borderRadius: 2,
-                  padding: '10px 16px',
-                  fontSize: 13,
-                  fontWeight: active ? 600 : 500,
-                  letterSpacing: '0.02em',
-                  cursor: 'pointer',
-                  opacity: updateProfile.isPending ? 0.5 : 1,
-                }}
-              >
-                {opt.label}
-              </button>
-            )
-          })}
-        </div>
-        <p
-          className="text-caddie-ink-dim"
-          style={{ fontSize: 13, marginTop: 10, lineHeight: 1.5 }}
+              />
+            ))}
+          </ChipRow>
+          <div className="text-caddie-ink-dim" style={{ fontSize: 12, marginTop: 8 }}>
+            Changes how distances read. Your shots are stored the same either way.
+          </div>
+        </Row>
+        <Row
+          label="You play"
+          value={playsLeftHanded ? 'Left-handed' : 'Right-handed'}
+          open={openRow === 'plays'}
+          onToggle={() => toggleRow('plays')}
+          last
         >
-          Switches the display of distances throughout the app.
-          Stored values stay in yards/feet — only formatting changes.
-        </p>
-      </section>
-
-      <section
-        style={{
-          borderTop: '1px solid #D9D2BF',
-          paddingTop: 18,
-          marginBottom: 28,
-        }}
-      >
-        <div className="kicker" style={{ marginBottom: 12 }}>
-          Plays
-        </div>
-        <div className="flex flex-wrap" style={{ gap: 8 }}>
-          {([false, true] as const).map((lefty) => {
-            const active = playsLeftHanded === lefty
-            return (
-              <button
+          <ChipRow>
+            {([false, true] as const).map((lefty) => (
+              <Chip
                 key={String(lefty)}
-                type="button"
+                label={lefty ? 'Left-handed' : 'Right-handed'}
+                active={playsLeftHanded === lefty}
+                disabled={updateProfile.isPending}
                 onClick={() => setPlaysLeftHanded(lefty)}
-                disabled={updateProfile.isPending}
-                style={{
-                  background: active ? '#1F3D2C' : '#EBE5D6',
-                  color: active ? '#F2EEE5' : '#1C211C',
-                  border: 'none',
-                  borderRadius: 2,
-                  padding: '10px 16px',
-                  fontSize: 13,
-                  fontWeight: active ? 600 : 500,
-                  letterSpacing: '0.02em',
-                  cursor: 'pointer',
-                  opacity: updateProfile.isPending ? 0.5 : 1,
-                }}
-              >
-                {lefty ? 'Left-handed' : 'Right-handed'}
-              </button>
-            )
-          })}
-        </div>
-        <p
-          className="text-caddie-ink-dim"
-          style={{ fontSize: 13, marginTop: 10, lineHeight: 1.5 }}
-        >
-          Mirrors the shot shape and start-line buttons: a left-hander's draw
-          curves the other way.
-        </p>
-      </section>
+              />
+            ))}
+          </ChipRow>
+          <div className="text-caddie-ink-dim" style={{ fontSize: 12, marginTop: 8 }}>
+            Mirrors the shot shape and start-line buttons: a left-hander's draw curves the other way.
+          </div>
+        </Row>
+      </Group>
 
-      <section
-        style={{
-          borderTop: '1px solid #D9D2BF',
-          paddingTop: 18,
-          marginBottom: 28,
-        }}
-      >
-        <div className="kicker" style={{ marginBottom: 12 }}>
-          Email
-        </div>
-        <div className="flex flex-wrap" style={{ gap: 8 }}>
-          {[
-            { value: true, label: 'On' },
-            { value: false, label: 'Off' },
-          ].map((opt) => {
-            const active = emailSummaries === opt.value
-            return (
-              <button
-                key={opt.label}
-                type="button"
-                onClick={() => setEmailSummaries(opt.value)}
-                disabled={updateProfile.isPending}
-                style={{
-                  background: active ? '#1F3D2C' : '#EBE5D6',
-                  color: active ? '#F2EEE5' : '#1C211C',
-                  border: 'none',
-                  borderRadius: 2,
-                  padding: '10px 16px',
-                  fontSize: 13,
-                  fontWeight: active ? 600 : 500,
-                  letterSpacing: '0.02em',
-                  cursor: 'pointer',
-                  opacity: updateProfile.isPending ? 0.5 : 1,
-                }}
-              >
-                {opt.label}
-              </button>
-            )
-          })}
-        </div>
-        <p
-          className="text-caddie-ink-dim"
-          style={{ fontSize: 13, marginTop: 10, lineHeight: 1.5 }}
-        >
-          Get a round summary by email the morning after you play.
+      {tapError && (
+        <p className="text-caddie-neg" role="alert" style={{ fontSize: 13, marginTop: -20, marginBottom: 24 }}>
+          {tapError}
         </p>
-      </section>
+      )}
 
-      <section
-        style={{
-          borderTop: '1px solid #D9D2BF',
-          paddingTop: 18,
-          marginBottom: 28,
-        }}
-      >
-        <div className="kicker" style={{ marginBottom: 12 }}>
-          Support OGA
-        </div>
-        <p
-          className="text-caddie-ink"
-          style={{ fontSize: 14, lineHeight: 1.55, marginBottom: 14, maxWidth: 520 }}
-        >
-          OGA is free and open source. If it helps your game,
-          consider buying us a round.
+      <Group title="Email">
+        <label style={{ ...rowStyle, cursor: 'pointer' }}>
+          <span>
+            <span className="text-caddie-ink" style={{ fontSize: 15, display: 'block' }}>
+              Round summary
+            </span>
+            <span className="text-caddie-ink-dim" style={{ fontSize: 13 }}>
+              The morning after you play.
+            </span>
+          </span>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span className="text-caddie-ink-dim" style={{ fontSize: 15 }}>
+              {emailSummaries ? 'On' : 'Off'}
+            </span>
+            <input
+              type="checkbox"
+              checked={emailSummaries}
+              disabled={updateProfile.isPending}
+              onChange={(e) => setEmailSummaries(e.target.checked)}
+              style={{ width: 18, height: 18, accentColor: '#1F3D2C' }}
+            />
+          </span>
+        </label>
+      </Group>
+
+      <Group title="Support OGA">
+        <p className="text-caddie-ink-dim" style={{ fontSize: 15, lineHeight: 1.55, padding: '12px 0 10px', maxWidth: 520 }}>
+          OGA is free and open source. If it helps your game, consider buying us a round.
         </p>
-        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: 22, flexWrap: 'wrap', fontSize: 15 }}>
           <a
             href="https://ko-fi.com/nartana"
             target="_blank"
             rel="noreferrer"
-            className="text-caddie-accent"
-            style={{
-              border: '1px solid #1F3D2C',
-              borderRadius: 2,
-              padding: '10px 16px',
-              fontSize: 13,
-              fontWeight: 600,
-              letterSpacing: '0.02em',
-              textDecoration: 'none',
-            }}
+            className="text-caddie-ink underline underline-offset-4 hover:opacity-80"
           >
             Ko-fi ↗
           </a>
@@ -497,27 +413,84 @@ export function SettingsPage() {
             href="https://github.com/sponsors/cner-smith"
             target="_blank"
             rel="noreferrer"
-            className="text-caddie-accent"
-            style={{
-              border: '1px solid #1F3D2C',
-              borderRadius: 2,
-              padding: '10px 16px',
-              fontSize: 13,
-              fontWeight: 600,
-              letterSpacing: '0.02em',
-              textDecoration: 'none',
-            }}
+            className="text-caddie-ink underline underline-offset-4 hover:opacity-80"
           >
             GitHub Sponsors ↗
           </a>
         </div>
-      </section>
+      </Group>
 
-      {error && (
-        <p className="text-caddie-neg" style={{ fontSize: 12 }}>
-          {error}
-        </p>
-      )}
+    </div>
+  )
+}
+
+const rowStyle: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  gap: 16,
+  width: '100%',
+  minHeight: 52,
+  padding: '12px 4px',
+  textAlign: 'left',
+}
+
+function Group({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <section style={{ marginBottom: 32 }}>
+      <h2
+        className="font-serif text-caddie-ink"
+        style={{ fontSize: 22, fontWeight: 500, fontStyle: 'italic', lineHeight: 1.2, paddingBottom: 8, borderBottom: '1px solid #D9D2BF' }}
+      >
+        {title}
+      </h2>
+      {children}
+    </section>
+  )
+}
+
+function Row({
+  label,
+  value,
+  serifValue,
+  open,
+  onToggle,
+  last,
+  children,
+}: {
+  label: string
+  value: string
+  serifValue?: boolean
+  open: boolean
+  onToggle: () => void
+  last?: boolean
+  children: React.ReactNode
+}) {
+  return (
+    <div style={{ borderBottom: last && !open ? 'none' : '1px solid #D9D2BF' }}>
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-expanded={open}
+        className="hover:bg-caddie-surface"
+        style={{ ...rowStyle, background: 'none', border: 'none', cursor: 'pointer' }}
+      >
+        <span className="text-caddie-ink" style={{ fontSize: 15 }}>
+          {label}
+        </span>
+        <span style={{ display: 'flex', alignItems: 'baseline', gap: 10, minWidth: 0 }}>
+          <span
+            className={serifValue ? 'font-serif text-caddie-ink' : 'text-caddie-ink-dim'}
+            style={{ fontSize: serifValue ? 18 : 15, textAlign: 'right' }}
+          >
+            {value}
+          </span>
+          <span className="text-caddie-ink-dim" aria-hidden="true" style={{ fontSize: 13 }}>
+            {open ? 'Done' : 'Edit'}
+          </span>
+        </span>
+      </button>
+      {open ? <div style={{ padding: '2px 4px 16px' }}>{children}</div> : null}
     </div>
   )
 }
@@ -542,24 +515,28 @@ function ChipRow({ children }: { children: React.ReactNode }) {
 function Chip({
   label,
   active,
+  disabled,
   onClick,
 }: {
   label: string
   active: boolean
+  disabled?: boolean
   onClick: () => void
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
+      disabled={disabled}
       aria-pressed={active}
       style={{
+        opacity: disabled ? 0.5 : 1,
         background: active ? '#1F3D2C' : '#EBE5D6',
         color: active ? '#F2EEE5' : '#1C211C',
         border: 'none',
         borderRadius: 2,
-        padding: '6px 12px',
-        fontSize: 12,
+        padding: '7px 12px',
+        fontSize: 13,
         fontWeight: active ? 500 : 400,
         cursor: 'pointer',
       }}

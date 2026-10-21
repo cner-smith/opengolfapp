@@ -9,7 +9,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
-import { DEFAULT_HANDICAP, sgStandouts, type DetailedStats, type SGAverages } from '@oga/core'
+import { DEFAULT_HANDICAP, sgFinding, sgStandouts, type DetailedStats, type SGAverages } from '@oga/core'
 import { useProfile } from '../../../hooks/useProfile'
 import { Insufficient, Section, Subhead } from '../components/Section'
 import { ApproachBandRow, SgTile } from '../components/StatTiles'
@@ -81,15 +81,11 @@ export function StrokesGainedSection({ data }: { data: DetailedStats }) {
           className="font-serif text-caddie-ink"
           style={{ fontSize: 20, fontStyle: 'italic', lineHeight: 1.35, maxWidth: 640, margin: '0 0 6px' }}
         >
-          {/* Within ±0.05 the number rounds to 0.0: call it even, not "costs you 0.0" (#911). */}
-          {weakest.value <= -0.05
-            ? `${sgLabel(weakest.key)} costs you ${Math.abs(weakest.value).toFixed(1)} strokes a round`
-            : weakest.value < 0.05
-              ? `${sgLabel(weakest.key)} is your softest area, about even`
-              : `${sgLabel(weakest.key)} is your softest area, still gaining ${weakest.value.toFixed(1)} a round`}
-          {strongest && strongest.key !== weakest.key && strongest.value >= 0.05
-            ? `; ${sgLabel(strongest.key).toLowerCase()} gains you ${strongest.value.toFixed(1)}.`
-            : '.'}
+          {sgFinding(
+            { label: sgLabel(weakest.key), value: weakest.value },
+            strongest && { label: sgLabel(strongest.key), value: strongest.value },
+            'softest area',
+          )}
         </p>
       )}
       <div className="text-caddie-ink-dim" style={{ fontSize: 13, marginBottom: 12 }}>

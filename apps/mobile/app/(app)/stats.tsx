@@ -9,6 +9,7 @@ import {
   formatSG,
   isPartialRound,
   roundHolesPlayed,
+  sgFinding,
   sgStandouts,
   symmetricNiceTicks,
   YARDS_TO_METERS,
@@ -916,18 +917,6 @@ function fmtPct(v: number | null): string {
 function StandoutCallout({ sg }: { sg: SGAverages }) {
   const { weakest, strongest } = sgStandouts(sg)
   if (!weakest) return null
-  const showStrength =
-    strongest != null && strongest.key !== weakest.key && strongest.value >= 0.05
-  // Within ±0.05 the number rounds to 0.0: call it even, not "costs you 0.0" (#911).
-  const leak =
-    weakest.value <= -0.05
-      ? `${SG_STANDOUT_LABEL[weakest.key]} costs you ${Math.abs(weakest.value).toFixed(1)} strokes a round`
-      : weakest.value < 0.05
-        ? `${SG_STANDOUT_LABEL[weakest.key]} is your softest area, about even`
-        : `${SG_STANDOUT_LABEL[weakest.key]} is your softest area, still gaining ${weakest.value.toFixed(1)} a round`
-  const strength = showStrength
-    ? `; ${SG_STANDOUT_LABEL[strongest.key].toLowerCase()} gains you ${strongest.value.toFixed(1)}.`
-    : '.'
   return (
     <View style={{ marginBottom: 4 }}>
       <Text
@@ -937,8 +926,11 @@ function StandoutCallout({ sg }: { sg: SGAverages }) {
           lineHeight: 25,
         }]}
       >
-        {leak}
-        {strength}
+        {sgFinding(
+          { label: SG_STANDOUT_LABEL[weakest.key], value: weakest.value },
+          strongest && { label: SG_STANDOUT_LABEL[strongest.key], value: strongest.value },
+          'softest area',
+        )}
       </Text>
     </View>
   )

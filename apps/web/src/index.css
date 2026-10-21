@@ -133,3 +133,53 @@ dialog.pat-dialog::backdrop {
 [aria-pressed='false'] .pat-glyph {
   opacity: 0.35;
 }
+/* Practice: ticking a drill. The box pops, the tick draws, a strike grows across the name. */
+.prac-tick {
+  animation: prac-pop 320ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+@keyframes prac-pop {
+  0% {
+    transform: scale(0.7);
+  }
+  60% {
+    transform: scale(1.18);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+.prac-check {
+  stroke-dasharray: 12;
+  animation: prac-check 260ms 80ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+@keyframes prac-check {
+  from {
+    stroke-dashoffset: 12;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+.prac-strike {
+  background-image: linear-gradient(currentColor, currentColor);
+  background-repeat: no-repeat;
+  background-position: 0 58%;
+  background-size: 0% 1px;
+  transition: background-size 320ms cubic-bezier(0.22, 1, 0.36, 1), color 200ms ease;
+}
+.prac-strike[data-done='true'] {
+  background-size: 100% 1px;
+}
+.prac-fill {
+  transition: width 420ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+@media (prefers-reduced-motion: reduce) {
+  .prac-tick,
+  .prac-check {
+    animation: none;
+  }
+  .prac-strike,
+  .prac-fill {
+    transition: none;
+  }
+}

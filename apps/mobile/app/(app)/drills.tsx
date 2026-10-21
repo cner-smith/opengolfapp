@@ -1,21 +1,23 @@
 import { useEffect, useMemo, useState } from 'react'
-import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native'
+import { ActivityIndicator, ScrollView, Text, View } from 'react-native'
 import { useLocalSearchParams, useRouter } from 'expo-router'
-import { getDrills } from '@oga/supabase'
+import { getDrills, getLatestPracticePlan } from '@oga/supabase'
 import type { Database } from '@oga/supabase'
-import type { BlockType, PlanCategory } from '@oga/core'
+import { todayLocalDate, type BlockType, type PlanCategory, type StoredSession } from '@oga/core'
 import { AppBar } from '../../components/ui/AppBar'
 import { Entrance } from '../../components/ui/Entrance'
+import { PressableTouch } from '../../components/ui/PressableTouch'
 import {
   BLOCK_TYPE_LABEL,
   CATEGORY_LABEL,
   FACILITY_LABEL,
+  MODE_COLOR,
   renderInstructions,
 } from '../../components/practice/drillDisplay'
 import { TYPE } from '../../lib/typography'
 import { supabase } from '../../lib/supabase'
+import { useAuth } from '../../hooks/useAuth'
 import { Key, KeyText, PaperSurface } from '../../components/paper/Paper'
-import { SectionHead } from '../../components/paper/Section'
 import { FONT_CAP, P } from '../../components/paper/tokens'
 
 type Drill = Database['public']['Tables']['drills']['Row']
@@ -28,6 +30,7 @@ const MODES: BlockType[] = ['warmup', 'blocked', 'random', 'skill_game', 'pressu
 
 export default function Drills() {
   const router = useRouter()
+  const { user } = useAuth()
   const [drills, setDrills] = useState<Drill[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -37,6 +40,9 @@ export default function Drills() {
     CATEGORIES.includes(params.category as PlanCategory) ? (params.category as PlanCategory) : 'all',
   )
   const [mode, setMode] = useState<BlockType | 'all'>('all')
+  const [zToA, setZToA] = useState(false)
+  const [planOnly, setPlanOnly] = useState(false)
+  const [planIds, setPlanIds] = useState<ReadonlySet<string>>(new Set())
   // expo-router updates params without remounting when Drills is already in the stack.
   useEffect(() => {
     if (CATEGORIES.includes(params.category as PlanCategory)) setCategory(params.category as PlanCategory)
@@ -56,53 +62,85 @@ export default function Drills() {
     }
   }, [])
 
-  const filtered = useMemo(
-    () =>
-      drills.filter(
-        (d) =>
-          (category === 'all' || d.category === category) &&
-          (mode === 'all' || d.drill_type === mode),
-      ),
-    [drills, category, mode],
-  )
+  // This week's plan marks its drills; a plan past its last day isn't this week's.
+  useEffect(() => {
+    if (!user) return
+    let active = true
+    getLatestPracticePlan(supabase, user.id).then(({ data }) => {
+      if (!active || !data) return
+      if (data.valid_until && data.valid_until < todayLocalDate()) return
+      const sessions = ((data.drills as { sessions?: StoredSession[] } | null)?.sessions ?? []) as StoredSession[]
+      setPlanIds(new Set(sessions.flatMap((s) => (s.blocks ?? []).flatMap((b) => (b.drill_id ? [b.drill_id] : [])))))
+    })
+    return () => {
+      active = false
+    }
+  }, [user])
+
+  const groups = useMemo(() => {
+    const shown = drills.filter(
+      (d) =>
+        (category === 'all' || d.category === category) &&
+        (mode === 'all' || d.drill_type === mode) &&
+        (!planOnly || planIds.has(d.id)),
+    )
+    const order = (a: Drill, b: Drill) => (zToA ? b.name.localeCompare(a.name) : a.name.localeCompare(b.name))
+    return [
+      ...CATEGORIES.map((c) => ({ key: c as string, title: CATEGORY_LABEL[c], drills: shown.filter((d) => d.category === c) })),
+      { key: 'other', title: 'Anywhere', drills: shown.filter((d) => !CATEGORIES.includes(d.category as PlanCategory)) },
+    ]
+      .filter((g) => g.drills.length > 0)
+      .map((g) => ({ ...g, drills: g.drills.sort(order) }))
+  }, [drills, category, mode, planOnly, planIds, zToA])
+
+  const showEvery = () => {
+    setCategory('all')
+    setMode('all')
+    setPlanOnly(false)
+  }
 
   return (
     <PaperSurface style={{ flex: 1 }}>
-      <AppBar eyebrow="Practice" title="Drill library" />
+      <AppBar title="Drills" />
       <ScrollView contentContainerStyle={{ padding: 18, paddingBottom: 48 }}>
         <Entrance index={0}>
-        <Pressable hitSlop={6} onPress={() => router.back()} style={{ marginBottom: 16 }}>
-          <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { color: P.inkDim, fontSize: 13 }]}>← Practice plan</Text>
-        </Pressable>
+          <PressableTouch
+            accessibilityRole="link"
+            hitSlop={6}
+            onPress={() => router.back()}
+            style={{ marginBottom: 8, minHeight: 32, justifyContent: 'center', alignSelf: 'flex-start' }}
+          >
+            <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { color: P.inkDim, fontSize: 13 }]}>← Practice</Text>
+          </PressableTouch>
+          <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { color: P.inkDim, fontSize: 14, lineHeight: 20, marginBottom: 14 }]}>
+            {drills.length > 0 ? `${drills.length} drills` : 'Every drill'} the plan can draw from, each with the why, the how and a rep
+            target. Tap one to read it.
+          </Text>
+        </Entrance>
 
-        <Text
-          maxFontSizeMultiplier={FONT_CAP}
-          style={[TYPE.serif, { color: P.ink, fontSize: 26, lineHeight: 31, marginBottom: 6 }]}
+        {/* One compact filter row that scrolls sideways: the plan, part of the game, mode, order. */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={{ marginHorizontal: -18, marginBottom: 18 }}
+          contentContainerStyle={{ paddingHorizontal: 18, paddingBottom: 4, alignItems: 'center', gap: 6 }}
         >
-          The full set
-        </Text>
-        <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { color: P.inkDim, fontSize: 14, lineHeight: 20, marginBottom: 22 }]}>
-          Every drill the plan generator can draw from. Each one explains the why,
-          the how, and the rep target — no gimmicks.
-        </Text>
-        </Entrance>
-
-        <Entrance index={1}>
-        <FilterRow
-          label="Part of the game"
-          active={category}
-          options={CATEGORIES}
-          labelFor={(c) => CATEGORY_LABEL[c]}
-          onPick={setCategory}
-        />
-        <FilterRow
-          label="Practice mode"
-          active={mode}
-          options={MODES}
-          labelFor={(m) => BLOCK_TYPE_LABEL[m]}
-          onPick={setMode}
-        />
-        </Entrance>
+          {planIds.size > 0 ? (
+            <>
+              <FilterKey label={`In this week’s plan · ${planIds.size}`} on={planOnly} onPress={() => setPlanOnly((v) => !v)} />
+              <Divider />
+            </>
+          ) : null}
+          {(['all', ...CATEGORIES] as const).map((c) => (
+            <FilterKey key={c} label={c === 'all' ? 'All' : CATEGORY_LABEL[c]} on={category === c} onPress={() => setCategory(c)} />
+          ))}
+          <Divider />
+          {(['all', ...MODES] as const).map((m) => (
+            <FilterKey key={m} label={m === 'all' ? 'Any mode' : BLOCK_TYPE_LABEL[m]} on={mode === m} onPress={() => setMode(m)} />
+          ))}
+          <Divider />
+          <FilterKey label={zToA ? 'Z to A' : 'A to Z'} on={false} onPress={() => setZToA((v) => !v)} />
+        </ScrollView>
 
         {loading ? (
           <View style={{ paddingTop: 32, alignItems: 'center' }}>
@@ -110,19 +148,36 @@ export default function Drills() {
           </View>
         ) : error ? (
           <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { color: P.neg, fontSize: 13, marginTop: 24 }]}>{error}</Text>
-        ) : (
-          <Entrance index={2}>
-            <SectionHead
-              title={`${filtered.length} drill${filtered.length === 1 ? '' : 's'}`}
-              style={{ marginTop: 14, marginBottom: 0 }}
-            />
-            {filtered.length === 0 ? (
-              <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.serif, { color: P.inkDim, fontSize: 17, paddingTop: 14 }]}>
-                No drills match those filters.
+        ) : groups.length === 0 ? (
+          <View style={{ borderTopWidth: 1, borderColor: P.ink, paddingTop: 14 }}>
+            <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.serif, { color: P.ink, fontSize: 18 }]}>
+              {emptyLine(category, mode, planOnly)}
+            </Text>
+            <PressableTouch
+              accessibilityRole="button"
+              onPress={showEvery}
+              style={{ minHeight: 44, justifyContent: 'center', alignSelf: 'flex-start' }}
+            >
+              <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { color: P.ink, fontSize: 14, textDecorationLine: 'underline' }]}>
+                Show every drill
               </Text>
-            ) : (
-              filtered.map((drill) => <DrillCard key={drill.id} drill={drill} />)
-            )}
+            </PressableTouch>
+          </View>
+        ) : (
+          <Entrance index={1}>
+            {groups.map((g) => (
+              <View key={g.key} style={{ borderTopWidth: 1, borderColor: P.ink, marginBottom: 22 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', paddingTop: 10, paddingBottom: 4 }}>
+                  <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.serif, { color: P.ink, fontSize: 21 }]}>{g.title}</Text>
+                  <Text maxFontSizeMultiplier={FONT_CAP} style={META}>
+                    {g.drills.length} drill{g.drills.length === 1 ? '' : 's'}
+                  </Text>
+                </View>
+                {g.drills.map((d) => (
+                  <IndexLine key={d.id} drill={d} inPlan={planIds.has(d.id)} />
+                ))}
+              </View>
+            ))}
           </Entrance>
         )}
       </ScrollView>
@@ -130,108 +185,82 @@ export default function Drills() {
   )
 }
 
-function FilterRow<T extends string>({
-  label,
-  active,
-  options,
-  labelFor,
-  onPick,
-}: {
-  label: string
-  active: T | 'all'
-  options: T[]
-  labelFor: (value: T) => string
-  onPick: (value: T | 'all') => void
-}) {
-  const chips: Array<{ value: T | 'all'; label: string }> = [
-    { value: 'all', label: 'All' },
-    ...options.map((o) => ({ value: o, label: labelFor(o) })),
+// Web DrillLibraryPage's emptyLine: "No pressure game drills for putting yet."
+function emptyLine(category: PlanCategory | 'all', mode: BlockType | 'all', planOnly: boolean): string {
+  const what = [
+    mode === 'all' ? null : BLOCK_TYPE_LABEL[mode].toLowerCase(),
+    'drills',
+    category === 'all' ? null : `for ${CATEGORY_LABEL[category].toLowerCase()}`,
   ]
+    .filter(Boolean)
+    .join(' ')
+  return planOnly ? `This week’s plan has no ${what}.` : `No ${what} yet.`
+}
+
+function FilterKey({ label, on, onPress }: { label: string; on: boolean; onPress: () => void }) {
   return (
-    <View style={{ marginBottom: 18 }}>
-      <SectionHead title={label} />
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-        {chips.map((chip) => {
-          const selected = chip.value === active
-          return (
-            <Key
-              key={chip.value}
-              accessibilityLabel={chip.label}
-              latched={selected}
-              onPress={() => onPick(chip.value)}
-              faceStyle={{ minHeight: 40, paddingHorizontal: 12 }}
-            >
-              <KeyText size={13} bold={selected}>
-                {chip.label}
-              </KeyText>
-            </Key>
-          )
-        })}
-      </View>
-    </View>
+    <Key accessibilityLabel={label} latched={on} onPress={onPress} faceStyle={{ minHeight: 40, paddingHorizontal: 12 }}>
+      <KeyText size={13} bold={on}>
+        {label}
+      </KeyText>
+    </Key>
   )
 }
 
-function DrillCard({ drill }: { drill: Drill }) {
+function Divider() {
+  return <View style={{ width: 1, height: 24, backgroundColor: P.lineStrong, marginHorizontal: 6 }} />
+}
+
+const LEADERS = '. '.repeat(60)
+
+// One index line: name, dot leaders, minutes; mode and facilities under it.
+// Tapping opens the drill in place.
+function IndexLine({ drill, inPlan }: { drill: Drill; inPlan: boolean }) {
   const [open, setOpen] = useState(false)
-  const facilities = drill.facility ?? []
   const instructions = drill.instructions?.trim() || drill.description?.trim() || ''
   const canExpand = instructions.length > 0
+  const type = drill.drill_type as BlockType
+  const meta = [BLOCK_TYPE_LABEL[type] ?? drill.drill_type, ...(drill.facility ?? []).map((f) => FACILITY_LABEL[f] ?? f)].join(' · ')
   return (
-    <View style={{ borderBottomWidth: 1, borderColor: P.line, paddingVertical: 16 }}>
-      <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 12 }}>
-        <Pressable onPress={() => canExpand && setOpen((o) => !o)} disabled={!canExpand} style={{ flex: 1 }}>
-          <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.serif, { color: P.ink, fontSize: 18, lineHeight: 23 }]}>
-            {drill.name}
-            {canExpand ? <Text style={{ color: P.inkDim, fontSize: 13 }}>{open ? '  ▲' : '  ▼'}</Text> : null}
-          </Text>
-        </Pressable>
-        <View style={{ alignItems: 'flex-end', minWidth: 64 }}>
-          {drill.duration_min != null ? (
-            <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.serif, { color: P.ink, fontSize: 18, lineHeight: 20 }]}>
-              {drill.duration_min} min
-            </Text>
-          ) : null}
-          <Text
-            maxFontSizeMultiplier={FONT_CAP}
-            style={[TYPE.bodyBold, { color: P.forest, fontSize: 11, marginTop: 4, textAlign: 'right' }]}
-          >
-            {BLOCK_TYPE_LABEL[drill.drill_type as BlockType] ?? drill.drill_type}
+    <PressableTouch
+      onPress={() => canExpand && setOpen((o) => !o)}
+      disabled={!canExpand}
+      accessibilityRole="button"
+      accessibilityState={{ expanded: open }}
+      accessibilityLabel={`${drill.name}${drill.duration_min != null ? `, ${drill.duration_min} minutes` : ''}${inPlan ? ', in this week’s plan' : ''}`}
+      style={{ borderTopWidth: 1, borderColor: P.line, paddingVertical: 10 }}
+    >
+      <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 6 }}>
+        <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.serif, { color: P.ink, fontSize: 17, lineHeight: 22, flexShrink: 1 }]}>
+          {drill.name}
+        </Text>
+        <View style={{ flex: 1, minWidth: 14, height: 16, overflow: 'hidden' }}>
+          <Text numberOfLines={1} ellipsizeMode="clip" style={[TYPE.body, { color: P.lineStrong, fontSize: 11, lineHeight: 16 }]}>
+            {LEADERS}
           </Text>
         </View>
+        {drill.duration_min != null ? (
+          <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.serifUpright, { color: P.ink, fontSize: 17, lineHeight: 22 }]}>
+            {drill.duration_min}
+            <Text style={[TYPE.body, { color: P.inkDim, fontSize: 11 }]}> min</Text>
+          </Text>
+        ) : null}
       </View>
-
-      {facilities.length > 0 ? (
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 10 }}>
-          {facilities.map((f) => (
-            <Text
-              key={f}
-              maxFontSizeMultiplier={FONT_CAP}
-              style={{
-                ...TYPE.body,
-                color: P.inkDim,
-                fontSize: 11,
-                backgroundColor: P.well,
-                paddingHorizontal: 8,
-                paddingVertical: 3,
-                borderRadius: 2,
-                overflow: 'hidden',
-              }}
-            >
-              {FACILITY_LABEL[f] ?? f}
-            </Text>
-          ))}
-        </View>
-      ) : null}
-
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 3 }}>
+        {MODE_COLOR[type] ? <View style={{ width: 8, height: 8, borderRadius: 1, backgroundColor: MODE_COLOR[type] }} /> : null}
+        <Text maxFontSizeMultiplier={FONT_CAP} style={{ ...META, fontSize: 11, flex: 1 }}>
+          {meta}
+          {inPlan ? <Text style={[TYPE.bodyBold, { color: P.ink }]}>{' · In this week’s plan'}</Text> : null}
+        </Text>
+      </View>
       {open && canExpand ? (
-        <View style={{ borderTopWidth: 1, borderColor: P.line, marginTop: 14, paddingTop: 14 }}>
+        <View style={{ marginTop: 10 }}>
           {renderInstructions(instructions)}
           {drill.source ? (
-            <Text maxFontSizeMultiplier={FONT_CAP} style={{ ...META, fontSize: 11, marginTop: 14 }}>via {drill.source}</Text>
+            <Text maxFontSizeMultiplier={FONT_CAP} style={{ ...META, fontSize: 11, marginTop: 12 }}>From {drill.source}</Text>
           ) : null}
         </View>
       ) : null}
-    </View>
+    </PressableTouch>
   )
 }

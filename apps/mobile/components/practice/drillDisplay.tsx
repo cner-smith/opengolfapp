@@ -28,6 +28,19 @@ export const FACILITY_LABEL: Record<string, string> = {
   short_game: 'Short game',
   putting: 'Putting green',
   sim: 'Simulator',
+  course: 'Course',
+}
+
+// One colour per practice mode, for the minutes bars and the swatches beside a
+// drill (web drillDisplay MODE_COLOR): forest tints for reps, amber for
+// pressure, greys for warm-up and the course.
+export const MODE_COLOR: Record<BlockType, string> = {
+  warmup: '#C9C1AC',
+  blocked: '#1F3D2C',
+  random: '#4F6B58',
+  skill_game: '#8FA493',
+  pressure_game: '#A66A1F',
+  on_course: '#5C6356',
 }
 
 // Tiny markdown-ish renderer scoped to the drill `instructions` format, ported

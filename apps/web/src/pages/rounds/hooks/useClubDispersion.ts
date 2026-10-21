@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
+  clubDistanceRange,
   computeAimRelativeDispersion,
   haversineYards,
   median,
   type AimRelativeDispersion,
   type Club,
+  type DistanceRange,
   type Shot,
 } from '@oga/core'
 import { getShotsForUser } from '@oga/supabase'
@@ -24,6 +26,9 @@ export interface ClubDispersion {
   dispersion: AimRelativeDispersion
   /** Median start→end distance for this club, yards. Drives club auto-selection. */
   medianDistanceYards: number | null
+  /** Where two in three of its start→finish distances fall (core
+   *  clubDistanceRange), yards; null below MIN_SAMPLES_FOR_STATS. */
+  range: DistanceRange | null
   sampleSize: number
 }
 
@@ -138,6 +143,7 @@ export function useClubDispersion(
         club,
         dispersion,
         medianDistanceYards: median(distances),
+        range: clubDistanceRange(distances),
         sampleSize: dispersion.sampleSize,
       })
     }
