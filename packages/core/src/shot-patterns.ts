@@ -331,6 +331,29 @@ export function missTally(points: DispersionPoint[]): {
   return t
 }
 
+/**
+ * The side most shots finish on, when it's lopsided enough to say so even if
+ * the average sits inside the noise: at least 70% of five or more shots.
+ * Level shots count in the total.
+ */
+export function missLean(points: DispersionPoint[]): {
+  distance: 'short' | 'long' | null
+  lateral: 'left' | 'right' | null
+} {
+  const n = points.length
+  const t = missTally(points)
+  const side = <K extends string>(a: number, ka: K, b: number, kb: K): K | null => {
+    if (n < 5) return null
+    if (a / n >= 0.7) return ka
+    if (b / n >= 0.7) return kb
+    return null
+  }
+  return {
+    distance: side(t.short, 'short', t.long, 'long'),
+    lateral: side(t.left, 'left', t.right, 'right'),
+  }
+}
+
 export interface StartShapeMatrix {
   counts: Record<ShotStartLine, Record<ShotShape, number>>
   /** Shots with both start line and shape recorded. */

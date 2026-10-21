@@ -10,6 +10,7 @@ import {
   filterDispersionByLie,
   getAimCorrection,
   missTally,
+  missLean,
   MIN_SAMPLES_FOR_STATS,
   recentVsAll,
   shapeTally,
@@ -557,6 +558,28 @@ describe('missTally (WEB-14)', () => {
   it('counts short / long and left / right of the aim; level shots count neither', () => {
     const t = missTally([pt('a', -1, -3), pt('b', 0, 0), pt('c', 2, 5), pt('d', 3, -1)])
     expect(t).toEqual({ short: 2, long: 1, left: 1, right: 2 })
+  })
+})
+
+describe('missLean', () => {
+  // 13 shots, 10 short: 10/13 = 0.77 ≥ 0.7 → short. Left/right 4 vs 9: 9/13 = 0.69 < 0.7 → no lean.
+  const iron = [...rep(0, 10).map((_, i) => pt(`s${i}`, i < 4 ? -2 : 2, -3)), ...rep(0, 3).map((_, i) => pt(`l${i}`, 2, 4))]
+  it('names the side that holds at least 70% of the shots', () => {
+    expect(missLean(iron)).toEqual({ distance: 'short', lateral: null })
+  })
+  it('says nothing under five shots', () => {
+    // 4 of 4 short would be 100%, but 4 shots is too few.
+    expect(missLean(iron.slice(0, 4))).toEqual({ distance: null, lateral: null })
+  })
+  it('counts level shots in the total, so they dilute a lean', () => {
+    // 7 short of 10 = 0.7 → short; add 1 level shot: 7/11 = 0.64 → none.
+    const ten = rep(0, 10).map((_, i) => pt(`t${i}`, 0, i < 7 ? -2 : 2))
+    expect(missLean(ten).distance).toBe('short')
+    expect(missLean([...ten, pt('lvl', 0, 0)]).distance).toBe(null)
+  })
+  it('finds a long or a left lean the same way', () => {
+    const pts = rep(0, 6).map((_, i) => pt(`g${i}`, -1, i < 5 ? 3 : -3))
+    expect(missLean(pts)).toEqual({ distance: 'long', lateral: 'left' })
   })
 })
 

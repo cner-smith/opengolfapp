@@ -32,6 +32,7 @@ describe('@oga/core barrel', () => {
     ['shapeTally'],
     ['startLineTally'],
     ['missTally'],
+    ['missLean'],
     ['startShapeMatrix'],
     ['recentVsAll'],
     ['aimAdvice'],
