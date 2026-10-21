@@ -74,9 +74,9 @@ export function StatTile({
       </div>
       {subtle && (
         <div
-          className="text-caddie-ink-mute"
+          className="text-caddie-ink-dim"
           style={{
-            fontSize: 11,
+            fontSize: 12,
             marginTop: 6,
             lineHeight: 1.3,
           }}
