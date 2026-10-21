@@ -15,8 +15,10 @@
  * club's median sits on its rung and the 7-iron reads short and right.
  * Same SEED, same screens.
  *
- * Against the 15-bracket baseline (a 12.4) a ~235-yd driver gains about 0.25 a
- * drive, so off the tee reads about +3 a round: the engine's honest number.
+ * Against the 15-bracket baseline (a 12.4) a clean ~235-yd drive gains about
+ * 0.25, so the driver carries real trouble (topped drives, about a penalty a
+ * round) to keep off the tee near +1.5 a round, with a sharp short game and
+ * putting making up the rest of a 12.4's ~+2.6.
  */
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@oga/supabase'
@@ -95,13 +97,14 @@ const ROUNDS: { daysAgo: number; course: string; approach: number }[] = [
 
 // Per-round targets for the other categories, near where this player lands
 // unpicked, and the differential each round aims at (its score on that tee).
-const TARGET = { offTee: 3.0, aroundGreen: 0.1, putting: 0.1 }
+const TARGET = { offTee: 1.45, aroundGreen: 0.75, putting: 0.95 }
 const DIFFERENTIALS = [
-  13.6, 15.8, 12.3, 14.9, 16.4, 12.0, 13.1, 17.2, 14.4, 12.6, 15.1, 13.9, 12.9, 16.0, 14.2,
+  13.6, 16.4, 12.2, 15.3, 17.0, 11.9, 12.9, 17.8, 14.8, 12.4, 15.7, 14.3, 12.6, 16.6, 14.6,
 ]
 const START_INDEX = 12.4
-const CANDIDATES = 800
-const SHORTLIST = 80
+const CANDIDATES = 1200
+const SHORTLIST = 150
+const ANNEAL_STEPS = 150_000
 const LEAK = -0.8
 // The 7-iron's average finish from the aim, yards: a little short and right.
 const SEVEN_IRON = { short: 6, right: 6 }
@@ -265,11 +268,11 @@ function playRound(
     }
   }
   const cost =
-    ((sg.approach - target.approach) / 0.15) ** 2 +
-    ((sg.offTee - TARGET.offTee) / 0.6) ** 2 +
-    ((sg.aroundGreen - TARGET.aroundGreen) / 0.3) ** 2 +
-    ((sg.putting - TARGET.putting) / 0.5) ** 2 +
-    ((score - target.score) / 1.5) ** 2
+    ((sg.approach - target.approach) / 0.4) ** 2 +
+    ((sg.offTee - TARGET.offTee) / 1.2) ** 2 +
+    ((sg.aroundGreen - TARGET.aroundGreen) / 0.8) ** 2 +
+    ((sg.putting - TARGET.putting) / 0.8) ** 2 +
+    ((score - target.score) / 2.5) ** 2
   return {
     holes,
     sg,
@@ -284,7 +287,7 @@ function playRound(
 // Where each club's median should land: its full swing (stock + long), a
 // couple of yards under for the mishits; the lob wedge also plays 60–90 yd.
 const typicalTarget = (club: string) =>
-  club === 'lw' ? 77 : PLAY[club]!.stock + PLAY[club]!.long - 2
+  club === 'lw' ? 79 : PLAY[club]!.stock + PLAY[club]!.long - 2
 
 // The whole set's fit: each round's own cost, every club's median on its
 // rung, Last 5 / 10 / 15 approach at −0.8, the index at START_INDEX and a
@@ -297,7 +300,14 @@ function setCost(picked: Candidate[]): number {
   }
   for (const n of [5, 10, 15]) {
     const mean = picked.slice(0, n).reduce((s, c) => s + c.sg.approach, 0) / n
-    cost += ((mean - LEAK) / 0.015) ** 2
+    cost += ((mean - LEAK) / 0.008) ** 2
+  }
+  // The rest of the spread holds over Last 10 and Last 15 too.
+  for (const n of [10, 15]) {
+    for (const k of ['offTee', 'aroundGreen', 'putting'] as const) {
+      const mean = picked.slice(0, n).reduce((s, c) => s + c.sg[k], 0) / n
+      cost += ((mean - TARGET[k]) / 0.05) ** 2
+    }
   }
   const index = calculateHandicapIndex(picked.map((c) => c.diff))
   cost += index == null ? 1e6 : ((index - START_INDEX) / 0.02) ** 2
@@ -307,13 +317,16 @@ function setCost(picked: Candidate[]): number {
   cost += (Math.max(0, noise(stats.stdLateral) - stats.avgLateralOffset) / 0.5) ** 2
   cost += (Math.max(0, noise(stats.stdDistance) + stats.avgDistanceOffset) / 0.5) ** 2
   cost +=
-    (stats.avgDistanceOffset + SEVEN_IRON.short) ** 2 +
-    (stats.avgLateralOffset - SEVEN_IRON.right) ** 2
+    ((stats.avgDistanceOffset + SEVEN_IRON.short) / 0.5) ** 2 +
+    ((stats.avgLateralOffset - SEVEN_IRON.right) / 0.5) ** 2
+  if (stats.shape !== 'fade') cost += 1000
   return cost
 }
 
-// Each round's best few candidates (all seeded), then coordinate descent over
-// the set until no swap lowers setCost. Same SEED, same rounds.
+// Each round's best few candidates (all seeded), then a seeded annealing over
+// the set: swap one round's pick at a time, keep what lowers setCost (and,
+// early on, some of what doesn't, to get out of local minima). Same SEED,
+// same rounds.
 function pickRounds(courses: Map<string, PromoCourse>): Candidate[] {
   const pools = ROUNDS.map((r, i) => {
     const course = courses.get(r.course)!
@@ -326,23 +339,38 @@ function pickRounds(courses: Map<string, PromoCourse>): Candidate[] {
       all.push(playRound(course, SEED + i * 7919 + k * 104_729, target))
     return all.sort((a, b) => a.cost - b.cost).slice(0, SHORTLIST)
   })
+  const d = dice(SEED)
   const picked = pools.map((p) => p[0]!)
-  let best = setCost(picked)
+  let current = setCost(picked)
+  let best = { cost: current, picked: [...picked] }
+  for (let step = 0; step < ANNEAL_STEPS; step++) {
+    const temperature = 50 * (1 - step / ANNEAL_STEPS) ** 3
+    const i = Math.floor(d.between(0, picked.length))
+    const was = picked[i]!
+    picked[i] = pools[i]![Math.floor(d.between(0, SHORTLIST))]!
+    const cost = setCost(picked)
+    if (cost < current || d.chance(Math.exp((current - cost) / Math.max(temperature, 1e-9)))) {
+      current = cost
+      if (cost < best.cost) best = { cost, picked: [...picked] }
+    } else picked[i] = was
+  }
+  // Then polish: any single swap that still helps.
+  const out = best.picked
   for (let pass = 0, improved = true; improved && pass < 30; pass++) {
     improved = false
-    for (let i = 0; i < picked.length; i++) {
+    for (let i = 0; i < out.length; i++) {
       for (const alt of pools[i]!) {
-        const was = picked[i]!
-        picked[i] = alt
-        const cost = setCost(picked)
-        if (cost < best - 1e-9) {
-          best = cost
+        const was = out[i]!
+        out[i] = alt
+        const cost = setCost(out)
+        if (cost < best.cost - 1e-9) {
+          best.cost = cost
           improved = true
-        } else picked[i] = was
+        } else out[i] = was
       }
     }
   }
-  return picked
+  return out
 }
 
 // --- Writing it ---------------------------------------------------------------
@@ -630,7 +658,10 @@ async function insertPlan(
       },
       {
         category: PLAN_CATEGORY[next.k],
-        reason: `${SG_LABELS[next.k]} is next, ${per(next.v)}; keep it ticking over.`,
+        reason:
+          next.v < 0
+            ? `${SG_LABELS[next.k]} is next, ${per(next.v)}.`
+            : `${SG_LABELS[next.k]} is holding up, ${per(next.v)}; keep it ticking over.`,
       },
     ],
     drills: {

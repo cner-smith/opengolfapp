@@ -48,7 +48,7 @@ interface Play {
 }
 // prettier-ignore
 export const PLAY: Record<string, Play> = {
-  driver: { stock: 238, long: -2, sdLong: 14, start: -4, sdStart: 10, curve: 5, sdCurve: 13, mishit: 0.12 },
+  driver: { stock: 238, long: -2, sdLong: 14, start: -4, sdStart: 11, curve: 5, sdCurve: 15, mishit: 0.28 },
   '3w': { stock: 228, long: -3, sdLong: 24, start: -2, sdStart: 13, curve: 4, sdCurve: 19, mishit: 0.17 },
   '5w': { stock: 214, long: -3, sdLong: 23, start: -2, sdStart: 13, curve: 3, sdCurve: 18, mishit: 0.16 },
   '5h': { stock: 201, long: -3, sdLong: 22, start: -2, sdStart: 12, curve: 2.5, sdCurve: 17, mishit: 0.15 },
@@ -60,7 +60,7 @@ export const PLAY: Record<string, Play> = {
   pw: { stock: 130, long: -2, sdLong: 11, start: 0, sdStart: 6, curve: 0, sdCurve: 9, mishit: 0.1 },
   gw: { stock: 116, long: -2, sdLong: 10, start: 0, sdStart: 5.5, curve: 0, sdCurve: 8, mishit: 0.1 },
   sw: { stock: 100, long: -2, sdLong: 9, start: 0, sdStart: 5, curve: 0, sdCurve: 7, mishit: 0.1 },
-  lw: { stock: 86, long: -2, sdLong: 8, start: 0, sdStart: 4.5, curve: 0, sdCurve: 6, mishit: 0.1 },
+  lw: { stock: 88, long: -2, sdLong: 8, start: 0, sdStart: 4.5, curve: 0, sdCurve: 6, mishit: 0.1 },
 }
 const WEDGES = new Set(['pw', 'gw', 'sw', 'lw'])
 // Clubs played into a green or laid up with (not the driver), longest first.
@@ -78,7 +78,7 @@ function nearestClub(yards: number): string {
 
 // 1 / (1 + (ft / 7.5)^2.3): ~90% at 3 ft, half at 7.5 ft, ~12% at 20 ft.
 function makeChance(ft: number): number {
-  return ft < 1.5 ? 0.99 : 1 / (1 + (ft / 7.5) ** 2.3)
+  return ft < 1.5 ? 0.99 : 1 / (1 + (ft / 7.4) ** 2.3)
 }
 
 // --- Playing a hole (local frame: yards east / north of the tee) -------------
@@ -163,11 +163,11 @@ export function playHole(hole: PromoHole, d: Dice): SimShot[] {
     let ob = false
     // A couple of honest disasters: a tee shot sliced out of bounds or hooked
     // into the water, and the odd long approach that finds a hazard.
-    if (teeShot && d.chance(0.04)) {
+    if (teeShot && d.chance(0.055)) {
       ob = true
       startOff = d.between(4, 10)
       curve = d.between(38, 50)
-    } else if (teeShot && d.chance(0.035)) {
+    } else if (teeShot && d.chance(0.04)) {
       penalty = true
       startOff = d.between(-12, -6)
       curve = d.between(-34, -26)
@@ -226,7 +226,7 @@ export function playHole(hole: PromoHole, d: Dice): SimShot[] {
     let end: Pt
     if (lie === 'sand' && d.chance(0.1)) {
       end = toward(pin, pos, Math.max(greenRadius + 1, r * 0.85))
-    } else if (lie !== 'sand' && d.chance(lie === 'rough' ? 0.07 : 0.03)) {
+    } else if (lie !== 'sand' && d.chance(lie === 'rough' ? 0.04 : 0.02)) {
       end = toward(pin, pos, Math.max(greenRadius + 1, r * d.between(0.5, 0.7)))
     } else if (lie !== 'sand' && r <= NEAR_GREEN_YARDS && d.chance(0.025)) {
       end = pin
@@ -238,7 +238,7 @@ export function playHole(hole: PromoHole, d: Dice): SimShot[] {
           ? d.between(5, 26)
           : r > NEAR_GREEN_YARDS
             ? r * 3 * d.between(0.08, 0.3) + d.between(3, 8)
-            : r * 3 * d.between(0.12, 0.4) + d.between(1.5, 4.5)
+            : r * 3 * d.between(0.09, 0.32) + d.between(1, 3.5)
       // Past or short of the hole, a little either side.
       end = offset(pos, pin, ((d.chance(0.45) ? 1 : -1) * Math.min(ft, 42)) / 3, d.normal(0.8))
     }
@@ -287,7 +287,7 @@ export function playHole(hole: PromoHole, d: Dice): SimShot[] {
       lie = 'holed'
       return
     }
-    const leave = ft < 6 ? d.between(0.8, 2.2) : ft * d.between(0.07, 0.24) + d.between(0.4, 1.4)
+    const leave = ft < 6 ? d.between(0.8, 2.2) : ft * d.between(0.06, 0.2) + d.between(0.3, 1.1)
     const long = d.chance(0.45)
     const side = d.chance(0.5) ? 1 : -1
     const end = offset(
