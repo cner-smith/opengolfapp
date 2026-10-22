@@ -8,6 +8,7 @@ import { Close, Footer, Free, Negation, PrimaryCta } from './LandingSections'
 
 // The chart and its made-up bag load after the hero paints.
 const PatternsDemo = lazy(() => import('../../components/landing/PatternsDemo'))
+const LadderDemo = lazy(() => import('../../components/landing/LadderDemo'))
 
 // Marketing page served at `/`. Built around the sentences OGA tells a
 // golfer: the hero is one of them, a live example chart follows, and each
@@ -65,6 +66,7 @@ export function LandingPage() {
         caption="My bag, typical distance per club"
         to="/learn/building-your-bag"
         linkLabel="Building your bag"
+        after={<TryYourBag />}
       >
         Each club&apos;s typical distance comes from where your shots finished,
         and the bag lines up from there. <em>Overlaps show too</em>: this
@@ -185,6 +187,7 @@ function Finding({
   reverse,
   to,
   linkLabel,
+  after,
 }: {
   sentence: string
   children: React.ReactNode
@@ -194,6 +197,7 @@ function Finding({
   reverse?: boolean
   to?: string
   linkLabel?: string
+  after?: React.ReactNode
 }) {
   return (
     <section className="lb-section">
@@ -218,7 +222,27 @@ function Finding({
             <figcaption className="lb-caption">{caption}</figcaption>
           </figure>
         </div>
+        {after}
       </div>
     </section>
+  )
+}
+
+// The Bag section's working ladder: My Bag's gapping chart on a bag the
+// visitor types. Nothing is saved.
+function TryYourBag() {
+  const { user, loading } = useAuth()
+  return (
+    <div className="lb-ladder" role="group" aria-label="Try your own gapping ladder">
+      <div className="lb-ladder-body">
+        <Suspense fallback={<div className="lb-ladder-wait">Setting out the example…</div>}>
+          <LadderDemo />
+        </Suspense>
+      </div>
+      <div className="lb-ladder-foot">
+        <p>Track your rounds and OGA measures these for you, from where each shot finished.</p>
+        <PrimaryCta isAuthed={!loading && !!user} />
+      </div>
+    </div>
   )
 }

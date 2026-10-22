@@ -15,9 +15,10 @@ test.describe('Landing page (signed out)', () => {
     )
     expect(lines).toHaveLength(2)
     for (const n of lines) expect(Math.round(n)).toBe(1)
-    // Every sign-up link on the page says "Create account" (nav, hero, close).
+    // Every sign-up link on the page says "Create account" (nav, hero, the
+    // bag ladder, close).
     const signup = page.locator('a[href="/signup"]')
-    await expect(signup).toHaveCount(3)
+    await expect(signup).toHaveCount(4)
     for (const text of await signup.allTextContents()) {
       expect(text.replace('→', '').trim()).toBe('Create account')
     }
@@ -32,5 +33,30 @@ test.describe('Landing page (signed out)', () => {
     await ladder.getByRole('radio', { name: /^7-iron/ }).click()
     await expect(finding).toContainText('7-iron')
     await expect(finding).not.toContainText('driver')
+  })
+
+  test('the try-yours ladder answers a typed distance, a club out and metres', async ({ page }) => {
+    await page.goto('/')
+    const wedge = page.getByLabel('Gap wedge typical distance, yards')
+    await wedge.scrollIntoViewIfNeeded()
+    const headline = page.getByTestId('bag-headline')
+    await expect(headline).toHaveText('Your driver to your lob wedge, 228 to 76 yd, with every gap under 20 yd.')
+
+    // Pitching wedge 119, gap wedge 105 → 95: a 24 yd hole opens between them.
+    await wedge.fill('95')
+    await expect(headline).toHaveText('24 yd hole between your pitching wedge and gap wedge.')
+
+    // Out of the bag, the 5-hybrid's row leaves the chart.
+    const chart = page.getByRole('region', { name: 'Gapping chart' })
+    await expect(chart.getByText('5-hybrid', { exact: true })).toHaveCount(1)
+    const hybrid = page.getByRole('button', { name: '5-hybrid in the bag' })
+    await hybrid.click()
+    await expect(hybrid).toHaveAttribute('aria-pressed', 'false')
+    await expect(chart.getByText('5-hybrid', { exact: true })).toHaveCount(0)
+
+    // Metres: the fields, the chart and the sentence all change unit.
+    await page.getByRole('button', { name: 'Metres' }).click()
+    await expect(page.getByLabel('Gap wedge typical distance, metres')).toHaveValue('87')
+    await expect(headline).toHaveText('22 m hole between your 5-wood and 5-iron.')
   })
 })

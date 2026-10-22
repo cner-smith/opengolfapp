@@ -24,15 +24,18 @@ function holeSize(g: BagGap<BagRung>): number | null {
 // The gapping chart: one row per in-bag club in the bag's order, a bar where
 // two in three of its shots finish, a tick at its typical distance, holes
 // hatched and overlaps shaded between neighbours. The gap math is core's
-// bagGaps; this only draws it.
-export function GapChart({ bag, unit }: { bag: BagGaps<BagRung>; unit: DistanceUnit }) {
+// bagGaps; this only draws it. `example` is the landing page's editable bag:
+// numbers are typed beside the chart, and none come from shots.
+export function GapChart({ bag, unit, example }: { bag: BagGaps<BagRung>; unit: DistanceUnit; example?: boolean }) {
   const u = distanceUnitAbbr(unit)
   const show = (yd: number) => wholeDistance(yd, unit)
 
   if (!bag.headline) {
     return (
       <p className="text-caddie-ink-dim" style={{ fontSize: 14, marginBottom: 24, maxWidth: 620 }}>
-        Give two clubs a typical distance (open a club on the card below) and the gaps between them show here.
+        {example
+          ? 'Give two clubs a typical distance and the gaps between them show here.'
+          : 'Give two clubs a typical distance (open a club on the card below) and the gaps between them show here.'}
       </p>
     )
   }
@@ -182,12 +185,14 @@ export function GapChart({ bag, unit }: { bag: BagGaps<BagRung>; unit: DistanceU
       </div>
 
       <div className="text-caddie-ink-dim" style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 18px', fontSize: 12, marginTop: 10 }}>
-        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-          <span aria-hidden style={{ width: 18, height: 8, background: '#8FA493', position: 'relative' }}>
-            <span style={{ position: 'absolute', left: 8, top: -4, width: 2, height: 16, background: '#1F3D2C' }} />
+        {example ? null : (
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <span aria-hidden style={{ width: 18, height: 8, background: '#8FA493', position: 'relative' }}>
+              <span style={{ position: 'absolute', left: 8, top: -4, width: 2, height: 16, background: '#1F3D2C' }} />
+            </span>
+            Typical distance, and where two in three shots finish ({measured} club{measured === 1 ? '' : 's'} with {MIN_SAMPLES_FOR_STATS}+ shots)
           </span>
-          Typical distance, and where two in three shots finish ({measured} club{measured === 1 ? '' : 's'} with {MIN_SAMPLES_FOR_STATS}+ shots)
-        </span>
+        )}
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
           <span aria-hidden style={{ width: 2, height: 14, background: '#8A8B7E' }} />
           Your estimate
@@ -208,8 +213,10 @@ export function GapChart({ bag, unit }: { bag: BagGaps<BagRung>; unit: DistanceU
 
       {bag.unmeasured.length ? (
         <p className="text-caddie-ink-dim" style={{ fontSize: 13, marginTop: 10, maxWidth: 640 }}>
-          No number yet for your {words(bag.unmeasured.map((r) => clubNoun(r.club.club_type)))}: log five shots with{' '}
-          {bag.unmeasured.length === 1 ? 'it' : 'each'}, or open the club on the card and type a typical distance.
+          No number yet for your {words(bag.unmeasured.map((r) => clubNoun(r.club.club_type)))}
+          {example
+            ? '.'
+            : `: log five shots with ${bag.unmeasured.length === 1 ? 'it' : 'each'}, or open the club on the card and type a typical distance.`}
         </p>
       ) : null}
 
