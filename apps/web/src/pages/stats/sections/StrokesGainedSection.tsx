@@ -1,16 +1,18 @@
+import { useState } from 'react'
 import {
   CartesianGrid,
-  Legend,
   Line,
   LineChart,
+  ReferenceLine,
   ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
 } from 'recharts'
-import { formatSG, sgStandouts, type DetailedStats, type SGAverages } from '@oga/core'
-import { Insufficient, Section, Subkicker } from '../components/Section'
-import { ApproachBandTile, SgTile } from '../components/StatTiles'
+import { DEFAULT_HANDICAP, sgFinding, sgStandouts, type DetailedStats, type SGAverages } from '@oga/core'
+import { useProfile } from '../../../hooks/useProfile'
+import { Insufficient, Section, Subhead } from '../components/Section'
+import { ApproachBandRow, SgTile } from '../components/StatTiles'
 
 const TICK_STYLE = { fontSize: 11, fill: '#8A8B7E' } as const
 const TOOLTIP_STYLE = {
@@ -23,9 +25,9 @@ const TOOLTIP_STYLE = {
 } as const
 
 const SG_SERIES = [
-  { key: 'offTee', label: 'Off tee', color: '#1F3D2C', dash: '0' },
+  { key: 'offTee', label: 'Off the tee', color: '#1F3D2C', dash: '0' },
   { key: 'approach', label: 'Approach', color: '#A33A2A', dash: '6 3' },
-  { key: 'aroundGreen', label: 'Around green', color: '#A66A1F', dash: '2 3' },
+  { key: 'aroundGreen', label: 'Around the green', color: '#A66A1F', dash: '2 3' },
   { key: 'putting', label: 'Putting', color: '#1C211C', dash: '6 3 2 3' },
 ] as const
 
@@ -35,11 +37,10 @@ function SGLegend() {
       style={{
         display: 'flex',
         gap: 16,
-        justifyContent: 'center',
         flexWrap: 'wrap',
-        fontSize: 11,
+        fontSize: 12,
         fontFamily: 'Epilogue, sans-serif',
-        paddingTop: 8,
+        marginBottom: 6,
       }}
     >
       {SG_SERIES.map((s) => (
@@ -59,122 +60,104 @@ function SGLegend() {
   )
 }
 
-export function StrokesGainedSection({ data }: { data: DetailedStats }) {
-  const series = SG_SERIES.map((s) => ({
-    ...s,
-    value: data.sg[s.key as 'offTee' | 'approach' | 'aroundGreen' | 'putting'],
-  }))
-  const trendData = data.sgTrend.map((t) => ({
-    date: t.date,
-    offTee: t.offTee,
-    approach: t.approach,
-    aroundGreen: t.aroundGreen,
-    putting: t.putting,
-  }))
+type SeriesKey = (typeof SG_SERIES)[number]['key']
 
+export function StrokesGainedSection({ data }: { data: DetailedStats }) {
+  const { data: profile } = useProfile()
+  // The trend opens on all four; picking one brings it forward.
+  const [focus, setFocus] = useState<SeriesKey | null>(null)
+  const handicap = Math.round(profile?.handicap_index ?? DEFAULT_HANDICAP)
   const standouts = sgStandouts(data.sg)
   const sgLabel = (key: keyof SGAverages) =>
     SG_SERIES.find((s) => s.key === key)?.label ?? key
+  const bandMax = Math.max(0.5, ...data.approachByDistance.map((b) => Math.abs(b.avgSg ?? 0)))
+  const weakest = standouts.weakest
+  const strongest = standouts.strongest
 
   return (
-    <Section kicker="Strokes gained">
-      {standouts.weakest && (
+    <Section title="Strokes gained">
+      {weakest && (
         <p
-          style={{
-            fontFamily: 'Fraunces, serif',
-            fontStyle: 'italic',
-            fontSize: 15,
-            lineHeight: 1.5,
-            color: '#1C211C',
-            borderLeft: '2px solid #1F3D2C',
-            paddingLeft: 14,
-            margin: '0 0 22px',
-          }}
+          className="font-serif text-caddie-ink"
+          style={{ fontSize: 20, fontStyle: 'italic', lineHeight: 1.35, maxWidth: 640, margin: '0 0 6px' }}
         >
-          {standouts.weakest.value < 0 ? (
-            <>
-              Your biggest leak is <strong>{sgLabel(standouts.weakest.key)}</strong> — {formatSG(standouts.weakest.value)} a round.
-            </>
-          ) : (
-            <>
-              Your softest area is <strong>{sgLabel(standouts.weakest.key)}</strong> ({formatSG(standouts.weakest.value)} a round).
-            </>
+          {sgFinding(
+            { label: sgLabel(weakest.key), value: weakest.value },
+            strongest && { label: sgLabel(strongest.key), value: strongest.value },
+            'softest area',
           )}
-          {standouts.strongest &&
-            standouts.strongest.key !== standouts.weakest.key &&
-            standouts.strongest.value > 0 && (
-              <>
-                {' '}
-                <strong>{sgLabel(standouts.strongest.key)}</strong> is a strength, {formatSG(standouts.strongest.value)} a round.
-              </>
-            )}
         </p>
       )}
+      <div className="text-caddie-ink-dim" style={{ fontSize: 13, marginBottom: 12 }}>
+        Per round, last {data.rounds} round{data.rounds === 1 ? '' : 's'}, against a {handicap}-handicap.
+      </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-4" style={{ gap: 14, marginBottom: 22 }}>
-        {series.map((s) => (
-          <SgTile key={s.key} label={s.label} color={s.color} value={s.value} />
+        {SG_SERIES.map((s) => (
+          <SgTile key={s.key} label={s.label} color={s.color} value={data.sg[s.key]} />
         ))}
       </div>
 
-      {trendData.length === 0 ? (
-        <Insufficient note="Trend chart needs at least one round with strokes gained logged." />
+      <Subhead>Round by round</Subhead>
+      {data.sgTrend.length === 0 ? (
+        <Insufficient note="The trend needs at least one round with strokes gained logged." />
       ) : (
-        <div
-          style={{
-            border: '1px solid #D9D2BF',
-            borderRadius: 4,
-            background: '#FBF8F1',
-            padding: 14,
-            marginBottom: 22,
-          }}
-        >
-          <div style={{ height: 280 }}>
+        <div style={{ marginBottom: 22 }}>
+          <div className="flex flex-wrap" style={{ gap: 6, marginBottom: 10 }}>
+            {[{ key: null, label: 'All four' }, ...SG_SERIES].map((s) => {
+              const on = focus === s.key
+              return (
+                <button
+                  key={s.label}
+                  type="button"
+                  aria-pressed={on}
+                  onClick={() => setFocus(s.key)}
+                  className={on ? 'bg-caddie-ink text-caddie-bg' : 'bg-caddie-chip text-caddie-ink'}
+                  style={{ fontSize: 13, padding: '5px 10px', borderRadius: 2 }}
+                >
+                  {s.label}
+                </button>
+              )
+            })}
+          </div>
+          {focus == null && <SGLegend />}
+          <div style={{ height: 260 }}>
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart
-                data={trendData}
-                margin={{ top: 8, right: 8, bottom: 4, left: -16 }}
-              >
+              <LineChart data={data.sgTrend} margin={{ top: 8, right: 8, bottom: 4, left: -16 }}>
                 <CartesianGrid stroke="#EBE5D6" vertical={false} />
-                <XAxis
-                  dataKey="date"
-                  tick={TICK_STYLE}
-                  tickLine={false}
-                  axisLine={{ stroke: '#D9D2BF' }}
-                />
-                <YAxis
-                  tick={TICK_STYLE}
-                  tickLine={false}
-                  axisLine={{ stroke: '#D9D2BF' }}
-                />
-                <Tooltip
-                  contentStyle={TOOLTIP_STYLE}
-                  labelStyle={{ color: '#8A8B7E' }}
-                />
-                <Legend content={<SGLegend />} />
-                {SG_SERIES.map((s) => (
-                  <Line
-                    key={s.key}
-                    type="monotone"
-                    dataKey={s.key}
-                    name={s.label}
-                    stroke={s.color}
-                    strokeWidth={1.5}
-                    strokeDasharray={s.dash}
-                    dot={{ r: 2.5, fill: s.color, strokeWidth: 0 }}
-                    activeDot={{ r: 4 }}
-                  />
-                ))}
+                <XAxis dataKey="date" tick={TICK_STYLE} tickLine={false} axisLine={false} />
+                <YAxis tick={TICK_STYLE} tickLine={false} axisLine={false} />
+                <ReferenceLine y={0} stroke="#8A8B7E" />
+                <Tooltip contentStyle={TOOLTIP_STYLE} labelStyle={{ color: '#8A8B7E' }} />
+                {SG_SERIES.map((s) => {
+                  const on = focus == null || focus === s.key
+                  const lead = focus === s.key
+                  return (
+                    <Line
+                      key={s.key}
+                      type="linear"
+                      dataKey={s.key}
+                      name={s.label}
+                      stroke={s.color}
+                      strokeOpacity={on ? 1 : 0.15}
+                      strokeWidth={lead ? 2.5 : 1.5}
+                      strokeDasharray={lead ? '0' : s.dash}
+                      dot={on ? { r: lead ? 3.5 : 2.5, fill: s.color, strokeWidth: 0 } : false}
+                      activeDot={on ? { r: 4 } : false}
+                      isAnimationActive={false}
+                    />
+                  )
+                })}
               </LineChart>
             </ResponsiveContainer>
           </div>
         </div>
       )}
 
-      <Subkicker>Approach by distance</Subkicker>
-      <div className="grid grid-cols-2" style={{ gap: 14 }}>
+      <Subhead>Approach by distance</Subhead>
+      <div style={{ maxWidth: 720 }}>
         {data.approachByDistance.map((b) => (
-          <ApproachBandTile key={b.key} band={b} />
+          <ApproachBandRow key={b.key} band={b} max={bandMax} />
         ))}
       </div>
     </Section>

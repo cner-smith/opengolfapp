@@ -1,50 +1,76 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Alert, ScrollView, Text, useWindowDimensions, View } from 'react-native'
-import Svg, { Circle, Ellipse, Line, Rect, Text as SvgText } from 'react-native-svg'
+import { AccessibilityInfo, Alert, ScrollView, Text, useWindowDimensions, View } from 'react-native'
 import { captureRef } from 'react-native-view-shot'
 import * as Sharing from 'expo-sharing'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import { useRouter } from 'expo-router'
 import {
   CLUBS,
   DEFAULT_BAG,
-  LIE_SLOPES_FORWARD,
-  LIE_SLOPES_SIDE,
-  LIE_TYPES,
-  formatSignedPuttDistance,
+  SHOT_SHAPE_LABELS,
   YARDS_TO_METERS,
-  clubDistanceStats,
+  clubNoun,
+  clubTypicalDistance,
   computeDispersion,
   computeDispersionStats,
-  dispersionVerdict,
   MIN_SAMPLES_FOR_STATS,
+  NOT_RECORDED,
+  averageAimDistance,
+  capFirst as cap,
+  categoryOf,
+  countWord,
+  distanceText as dist,
   filterDispersionByLie,
-  getAimCorrection,
+  findingLine,
   legacySlopeToAxes,
+  mostlyTeeShots,
+  readQuality,
+  recentPoints,
+  recentVsAll,
+  recordedNote,
+  shapeTally,
+  shotWords,
+  tallyWords,
+  wholeDistance as numIn,
   type Club,
+  type ColourBy,
   type DispersionPoint,
-  type DispersionStats,
-  type DistanceUnit,
   type LieSlope,
   type LieSlopeForward,
   type LieSlopeSide,
   type LieType,
+  type PlanCategory,
   type Shot,
+  type ShotContact,
+  type ShotExtras,
+  type ShotShape,
+  type ShotStartLine,
 } from '@oga/core'
 import { getShotsByClub } from '@oga/supabase'
-import { MaterialCommunityIcons } from '@expo/vector-icons'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
 import { useUnits } from '../../hooks/useUnits'
 import { useUserBag } from '../../hooks/useUserBag'
 import { AppBar } from '../../components/ui/AppBar'
 import { Entrance } from '../../components/ui/Entrance'
-import { FONT, TYPE } from '../../lib/typography'
-import { Key, KeyText, PaperSurface, HardShadow } from '../../components/paper/Paper'
-import { SectionHead } from '../../components/paper/Section'
+import { PressableTouch } from '../../components/ui/PressableTouch'
+import { TYPE } from '../../lib/typography'
+import { Key, KeyText, PaperSurface } from '../../components/paper/Paper'
 import { FONT_CAP, P } from '../../components/paper/tokens'
 import { useClubDispersion } from '../../components/round/hole/useClubDispersion'
 import { PatternsEmpty, PatternsProgress } from '../../components/patterns/PatternsPreview'
+import { ClubLadder, ViewToggle, type ChartView } from '../../components/patterns/YardageBook'
+import { AimPlot } from '../../components/patterns/AimPlot'
+import { TeePlot, teeBreakOf } from '../../components/patterns/TeePlot'
+import { flightOf, type ChartProps } from '../../components/patterns/chartParts'
+import { ColourRow, LAYER_INFO, LayerBar, type LegendEntry } from '../../components/patterns/LayerControls'
+import { FilterSheet } from '../../components/patterns/FilterSheet'
+import { PatternNumbers } from '../../components/patterns/PatternNumbers'
+import { ShareCard } from '../../components/patterns/ShareCard'
+import { COLOUR_BY, DEFAULT_LAYERS, UNRECORDED_INK, styledCategories, type Layer } from '../../components/patterns/layers'
+import { useUnitsContext } from '../../contexts/UnitsContext'
 
-interface ShotRowMin {
+interface ShotRow {
   id: string
   hole_score_id: string
   user_id: string
@@ -62,11 +88,19 @@ interface ShotRowMin {
   lie_slope_forward: LieSlopeForward | null
   lie_slope_side: LieSlopeSide | null
   shot_result: string | null
+  contact: ShotContact | null
+  shape: ShotShape | null
+  start_line: ShotStartLine | null
   penalty: boolean
   ob: boolean
+  hole_scores: {
+    round_id: string
+    rounds: { played_at: string; courses: { name: string } | null } | null
+    holes: { number: number } | null
+  } | null
 }
 
-function rowToShot(r: ShotRowMin): Shot {
+function rowToShot(r: ShotRow): Shot {
   // Most stored shots predate the two-axis slope columns and only carry the
   // legacy single-select `lie_slope`. Fall back to it so the slope filter
   // matches whichever axis those shots recorded — otherwise every selection
@@ -91,32 +125,50 @@ function rowToShot(r: ShotRowMin): Shot {
     lieSlopeForward: r.lie_slope_forward ?? legacy.forward,
     lieSlopeSide: r.lie_slope_side ?? legacy.side,
     shotResult: (r.shot_result as Shot['shotResult']) ?? undefined,
+    shape: r.shape,
+    startLine: r.start_line,
+    playedAt: r.hole_scores?.rounds?.played_at,
     penalty: r.penalty,
     ob: r.ob,
   }
 }
 
-const ANY = '__any__' as const
+const LIE_PHRASE: Record<LieType, string> = {
+  tee: 'the tee',
+  fairway: 'the fairway',
+  rough: 'the rough',
+  sand: 'sand',
+  fringe: 'the fringe',
+  recovery: 'a recovery lie',
+  green: 'the green',
+}
+const OFF_THE_TEE: readonly Club[] = ['driver', '3w', '5w', '7w']
+const RECENT = 20
+const NO_ROWS: ShotRow[] = []
 
 export default function Patterns() {
   const { user } = useAuth()
-  const { unit, toDisplay } = useUnits()
+  const router = useRouter()
+  const insets = useSafeAreaInsets()
+  const { width: screenWidth } = useWindowDimensions()
+  const { unit } = useUnits()
+  const { playsLeftHanded: leftHanded } = useUnitsContext()
   const [club, setClub] = useState<Club>('7i')
-  // Only the player's bag (DEFAULT_BAG while it loads / if empty), in
-  // catalog order so the row reads driver → putter.
+  // The player's bag (DEFAULT_BAG while it loads or if empty), in catalog
+  // order. No putter: putts have their own page, as on the web.
   const { bag } = useUserBag()
   const clubOptions = useMemo(() => {
     const have = new Set<string>((bag.length ? bag : DEFAULT_BAG).map((c) => c.club_type))
-    return CLUBS.filter((c) => have.has(c))
+    return CLUBS.filter((c) => c !== 'putter' && have.has(c))
   }, [bag])
   // The default 7i may not be in the bag: fall back to its first club.
   useEffect(() => {
     if (clubOptions.length && !clubOptions.includes(club)) setClub(clubOptions[0]!)
   }, [clubOptions, club])
   // Per-club shot counts with start + aim + finish, the wheel's count (#1076).
-  const { byClub, loading: countsLoading } = useClubDispersion(user?.id)
+  const { byClub, loading: countsLoading, error: countsError } = useClubDispersion(user?.id)
   const aimed = (c: Club) => byClub.get(c)?.points.length ?? 0
-  const anyAimed = [...byClub.values()].some((d) => d.points.length > 0)
+  const anyAimed = clubOptions.some((c) => aimed(c) > 0)
   // Open on the club with the most aimed shots when the 7i has none, so a
   // player with 4 drivers doesn't land on "0 of 5" for an iron. Once only.
   const pickedStart = useRef(false)
@@ -127,63 +179,80 @@ export default function Patterns() {
     const best = clubOptions.reduce<Club | null>((b, c) => (aimed(c) > (b ? aimed(b) : 0) ? c : b), null)
     if (best) setClub(best)
   }, [countsLoading])
-  // Putter patterns read in feet like every other green distance (#923);
-  // its formatter picks its own precision, so `decimals` is yards/metres only.
-  const dist = (yards: number, decimals = 0) =>
-    club === 'putter' ? formatSignedPuttDistance(yards * 3, unit) : toDisplay(yards, decimals)
-  const [lieType, setLieType] = useState<LieType | typeof ANY>(ANY)
-  // Two-axis slope filter, multi-select. Empty array on an axis = "any"
-  // (no constraint). Replaces the old single-select LIE_SLOPES chip row,
-  // which filtered the legacy lie_slope column (null on every shot logged
-  // since the two-axis migration → matched nothing) (#746).
-  const [forwardSel, setForwardSel] = useState<LieSlopeForward[]>([])
-  const [sideSel, setSideSel] = useState<LieSlopeSide[]>([])
-  const [shots, setShots] = useState<ShotRowMin[]>([])
-  const [loading, setLoading] = useState(false)
+  // Typical distance from the player's own shots only (five or more aimed,
+  // the wheel's rule); no typed estimate, so no data means no number.
+  const typicalYards = (c: Club) => clubTypicalDistance(byClub.get(c)?.medianDistanceYards, aimed(c), null)?.yards ?? null
+  const metres = unit === 'meters'
+  const unitYd = metres ? 1 / YARDS_TO_METERS : 1
+  const num = (yd: number) => String(numIn(yd, unit))
+  const mag = (yd: number) => dist(yd, unit)
+  const unitWord = metres ? 'm' : 'yd'
+  const ladderNumber = (c: Club) => {
+    const y = typicalYards(c)
+    return y == null ? null : numIn(y, unit)
+  }
+
+  const [lieType, setLieType] = useState<LieType | null>(null)
+  const [forward, setForward] = useState<LieSlopeForward | null>(null)
+  const [side, setSide] = useState<LieSlopeSide | null>(null)
+  const [view, setView] = useState<ChartView>('aim')
+  const [sheetOpen, setSheetOpen] = useState(false)
+  const [layers, setLayers] = useState<Record<Layer, boolean>>(DEFAULT_LAYERS)
+  const [colourBy, setColourBy] = useState<ColourBy>('none')
+  const [hidden, setHidden] = useState<Set<string>>(new Set())
+  const [hot, setHot] = useState<string | null>(null)
+  const [listOpen, setListOpen] = useState(false)
+  useEffect(() => setHidden(new Set()), [colourBy, club])
+  useEffect(() => setHot(null), [club, view, lieType, forward, side])
+  // Rows are kept with the club they belong to, so a new club never shows the
+  // last one's shots, finding or share card while it loads.
+  const [loaded, setLoaded] = useState<{ club: Club; rows: ShotRow[]; error: boolean } | null>(null)
+  const [attempt, setAttempt] = useState(0)
 
   useEffect(() => {
     if (!user) return
     let active = true
-    setLoading(true)
     getShotsByClub(supabase, user.id, club).then(({ data, error }) => {
       if (!active) return
       if (error) {
-        // eslint-disable-next-line no-console -- dev diagnostic; mobile has no logger/toast primitive
+        // eslint-disable-next-line no-console -- dev diagnostic; the screen shows the error below
         console.error('[patterns/getShotsByClub]', error.message)
       }
-      setShots((data as ShotRowMin[] | null) ?? [])
-      setLoading(false)
+      setLoaded({ club, rows: (data as unknown as ShotRow[] | null) ?? [], error: !!error })
     })
     return () => {
       active = false
     }
-  }, [user?.id, club])
+  }, [user?.id, club, attempt])
+  const current = loaded?.club === club ? loaded : null
+  const shots = current?.rows ?? NO_ROWS
+  const loading = !current
+  const loadError = current?.error ?? false
+  const retry = () => {
+    setLoaded(null)
+    setAttempt((a) => a + 1)
+  }
 
-  const points = useMemo(() => {
-    let pts = computeDispersion(shots.map(rowToShot))
-    if (lieType !== ANY) {
-      pts = filterDispersionByLie(pts, { lieType })
-    }
-    // Multi-select per axis: a point passes when the axis has no selection
-    // (any) OR its value is among the selected. The two axes AND together.
-    if (forwardSel.length > 0) {
-      pts = pts.filter(
-        (p) => p.lieSlopeForward != null && forwardSel.includes(p.lieSlopeForward),
-      )
-    }
-    if (sideSel.length > 0) {
-      pts = pts.filter(
-        (p) => p.lieSlopeSide != null && sideSel.includes(p.lieSlopeSide),
-      )
-    }
-    return pts
-  }, [shots, lieType, forwardSel, sideSel])
-
+  const allPoints = useMemo(() => computeDispersion(shots.map(rowToShot)), [shots])
+  const points = useMemo(
+    () => filterDispersionByLie(allPoints, { lieType: lieType ?? undefined, lieSlopeForward: forward ?? undefined, lieSlopeSide: side ?? undefined }),
+    [allPoints, lieType, forward, side],
+  )
   const stats = useMemo(() => computeDispersionStats(points), [points])
-
-  // Total distance for the selected club (across all its shots, not the
-  // lie-filtered dispersion set). null until there are tracked shots.
-  const clubDist = useMemo(() => clubDistanceStats(shots)[0] ?? null, [shots])
+  const allStats = useMemo(() => computeDispersionStats(allPoints), [allPoints])
+  const rva = useMemo(() => recentVsAll(points, RECENT), [points])
+  const extras = useMemo(() => {
+    const m: Record<string, ShotExtras> = {}
+    for (const r of shots) {
+      m[r.id] = {
+        contact: r.contact ?? null,
+        hole: r.hole_scores?.holes?.number ?? null,
+        roundId: r.hole_scores?.round_id ?? null,
+        course: r.hole_scores?.rounds?.courses?.name ?? null,
+      }
+    }
+    return m
+  }, [shots])
 
   const shareCardRef = useRef<View>(null)
   const [sharing, setSharing] = useState(false)
@@ -194,19 +263,12 @@ export default function Patterns() {
     if (sharing || !shareCardRef.current) return
     setSharing(true)
     try {
-      const uri = await captureRef(shareCardRef, {
-        format: 'png',
-        quality: 1,
-        result: 'tmpfile',
-      })
+      const uri = await captureRef(shareCardRef, { format: 'png', quality: 1, result: 'tmpfile' })
       if (!(await Sharing.isAvailableAsync())) {
         Alert.alert('Sharing unavailable', 'This device cannot share files.')
         return
       }
-      await Sharing.shareAsync(uri, {
-        mimeType: 'image/png',
-        dialogTitle: 'Share shot pattern',
-      })
+      await Sharing.shareAsync(uri, { mimeType: 'image/png', dialogTitle: 'Share shot pattern' })
     } catch (err) {
       // eslint-disable-next-line no-console -- dev diagnostic; the user sees the Alert below
       console.error('[patterns/share]', err)
@@ -218,12 +280,16 @@ export default function Patterns() {
 
   // No aimed shot anywhere → the example (B); this club under 5 → its
   // progress (P). Lie filters don't count: a filter can't unmake a pattern.
-  if (countsLoading || !anyAimed || aimed(club) < MIN_SAMPLES_FOR_STATS) {
+  if (countsLoading || countsError || !anyAimed || aimed(club) < MIN_SAMPLES_FOR_STATS) {
     return (
       <PaperSurface style={{ flex: 1 }}>
-        <AppBar eyebrow={countsLoading || anyAimed ? `Club ${club}` : 'No aimed shots yet'} title="Shot Patterns" />
+        <AppBar title="Shot patterns" />
         {countsLoading ? (
-          <Text style={[TYPE.body, { color: '#8A8B7E', fontSize: 13, padding: 18 }]}>Loading…</Text>
+          <Text style={[TYPE.body, { color: P.inkDim, fontSize: 13, padding: 18 }]}>Loading…</Text>
+        ) : countsError ? (
+          <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { color: P.neg, fontSize: 13, padding: 18 }]}>
+            Couldn't load your shots — go back and try again.
+          </Text>
         ) : !anyAimed ? (
           <PatternsEmpty />
         ) : (
@@ -243,645 +309,310 @@ export default function Patterns() {
     )
   }
 
+  const noun = clubNoun(club)
+  const pad = 18
+  const chartWidth = screenWidth - pad * 2 - 2 - 16
+  const n = points.length
+  const tee = mostlyTeeShots(points)
+
+  const slopes = [forward, side].filter((v): v is LieSlopeForward | LieSlopeSide => v != null).map((v) => v.replace(/_/g, ' '))
+  const filterCount = (lieType ? 1 : 0) + slopes.length
+  const filtered = filterCount > 0
+  const filterPhrase = [lieType ? `from ${LIE_PHRASE[lieType]}` : '', ...slopes].filter(Boolean).join(', ')
+  const clearFilters = () => {
+    setLieType(null)
+    setForward(null)
+    setSide(null)
+  }
+
+  // The rings to draw, and a faint outline to compare them with.
+  const recentOn = layers.recent && rva != null
+  const drawStats = recentOn ? rva.recent : stats
+  const ghost = recentOn ? { stats: rva.all, label: 'all shots' } : filtered && allStats ? { stats: allStats, label: 'all lies' } : null
+  const newest = recentPoints(points, RECENT)
+  const recentIds = recentOn ? new Set(newest.recent.map((p) => p.id)) : null
+
+  const finding = stats && !loading ? findingLine(stats, points, club, unit, tee) : null
+  // One line, so the chart starts higher: the club is in the finding and the ladder.
+  const subline = `${n} shot${n === 1 ? '' : 's'}${filterPhrase ? ` ${filterPhrase}` : ''}, measured from your aim${stats ? `: ${readQuality(n)}` : ''}.`
+  const recentLine = rva
+    ? Math.abs(rva.width68Change) < 1
+      ? `Your last ${RECENT}: two in three inside ${mag(rva.recent.cone68.lateral * 2)}, the same as over all ${n}.`
+      : `Your last ${RECENT}: two in three inside ${mag(rva.recent.cone68.lateral * 2)}, ${rva.width68Change < 0 ? 'down' : 'up'} from ${num(rva.all.cone68.lateral * 2)} over all ${n}.`
+    : null
+
+  // The legend: each group of shots under the chosen colour, with its count.
+  const cats = styledCategories(colourBy, leftHanded)
+  const catMap = new Map(cats.map((c) => [c.key, c]))
+  const counts = new Map<string, number>()
+  for (const p of points) {
+    const k = categoryOf(p, extras[p.id], colourBy)
+    counts.set(k, (counts.get(k) ?? 0) + 1)
+  }
+  const legend: LegendEntry[] =
+    colourBy === 'none'
+      ? []
+      : [
+          ...cats.filter((c) => counts.has(c.key)).map((c) => ({ ...c, count: counts.get(c.key)! })),
+          ...(counts.has(NOT_RECORDED) ? [{ key: NOT_RECORDED, label: 'Not recorded', color: UNRECORDED_INK, glyph: 'unrecorded' as const, count: counts.get(NOT_RECORDED)! }] : []),
+        ]
+  const recorded = colourBy === 'none' ? null : recordedNote(colourBy, points, extras, noun)
+  const available: Layer[] = [...(['shots', 'rings', 'average'] as Layer[]), ...(view === 'tee' ? (['flights'] as Layer[]) : []), ...(rva ? (['recent'] as Layer[]) : [])]
+  const disabled = new Set<Layer>(stats ? [] : ['rings', 'average'])
+  const toggleGroup = (k: string) =>
+    setHidden((h) => {
+      const next = new Set(h)
+      if (next.has(k)) next.delete(k)
+      else next.add(k)
+      return next
+    })
+
+  // How each flight's record reads (a conflict is flagged in every readout).
+  const avgAim = averageAimDistance(points)
+  const kinds = new Map(avgAim != null ? points.map((p) => [p.id, flightOf(p, avgAim, leftHanded).c.kind]) : [])
+  const conflicts = [...kinds.values()].filter((k) => k === 'conflict').length
+  const neither = [...kinds.values()].filter((k) => k === 'none').length
+
+  const hiddenGroups = legend.filter((e) => hidden.has(e.key)).map((e) => (e.key === NOT_RECORDED ? `${e.count} not recorded` : countWord(e.key, e.label, e.count)))
+  const offLayers = available.filter((l) => !layers[l] && !disabled.has(l) && l !== 'recent').map((l) => LAYER_INFO[l].hides)
+  const hiddenText = offLayers.length || hiddenGroups.length ? `Hidden: ${[...offLayers, ...hiddenGroups].join('; ')}.` : ''
+  const caption = [
+    view === 'aim'
+      ? stats && layers.rings
+        ? `Your next ${noun} will probably finish inside the solid ring.`
+        : ''
+      : 'Lines leave on your recorded start line and bend by your recorded shape.',
+    view === 'tee' && avgAim != null && teeBreakOf(points, stats, avgAim, unitYd) > 0 ? 'The bottom stretch is shortened, so angles there are widened.' : '',
+    view === 'tee' && conflicts > 0 ? `${conflicts} shot${conflicts === 1 ? " doesn't" : "s don't"} add up, so the second half is dashed.` : '',
+    view === 'tee' && neither > 0 ? `${neither} dashed straight line${neither === 1 ? ' has' : 's have'} neither recorded.` : '',
+    view === 'tee' && n > 40 && layers.flights ? 'The bold line is the typical flight.' : '',
+    recentOn ? `The rings are your last ${RECENT} shots; the grey dotted ring is all ${n}, and older shots are in pencil.` : filtered && ghost ? 'The grey dotted ring is two in three from every lie.' : '',
+    'Tap a shot to read it.',
+    hiddenText,
+    hiddenGroups.length && stats ? 'Hidden shots still count in the rings and the numbers.' : '',
+  ]
+    .filter(Boolean)
+    .join(' ')
+  const summary = [
+    `${cap(noun)} shot pattern, ${view === 'aim' ? 'around the aim' : 'from the tee'}: ${n} shots.`,
+    finding ?? '',
+    stats ? `Two in three finish inside ${mag(stats.cone68.lateral * 2)} wide and ${mag(stats.cone68.distance * 2)} deep.` : '',
+    legend.length ? `${COLOUR_BY.find((o) => o.value === colourBy)!.label}: ${legend.map((e) => `${e.label} ${e.count}`).join(', ')}.` : '',
+    hiddenText,
+    'Use List the shots to read each one.',
+  ]
+    .filter(Boolean)
+    .join(' ')
+
+  const pickShot = (id: string | null) => {
+    setHot(id)
+    const p = id ? points.find((q) => q.id === id) : null
+    if (p) AccessibilityInfo.announceForAccessibility(shotWords(p, extras[p.id], unit, kinds.get(p.id)).join('. '))
+  }
+  const chartProps: ChartProps = {
+    points,
+    stats: drawStats,
+    ghost,
+    extras,
+    kinds,
+    layers,
+    colourBy,
+    categories: catMap,
+    hidden,
+    recentIds,
+    leftHanded,
+    width: chartWidth,
+    unitYd,
+    unit,
+    label: num,
+    unitWord,
+    summary,
+    hot,
+    onHot: pickShot,
+    onOpenRound: (id) => router.push(`/(app)/round/${id}`),
+    empty: n === 0 ? `No ${noun} shots ${filterPhrase}` : undefined,
+  }
+
+  // With a filter on and too few shots for a pattern, still say how they
+  // compare with the usual pattern when every one of them falls one way.
+  const compare = (() => {
+    if (stats || !allStats || n === 0) return ''
+    const where = filterPhrase || 'here'
+    const all = (f: (p: DispersionPoint) => boolean) => points.every(f)
+    const sides = [
+      all((p) => p.distanceOffsetYards < allStats.avgDistanceOffset) ? 'short' : all((p) => p.distanceOffsetYards > allStats.avgDistanceOffset) ? 'long' : '',
+      all((p) => p.lateralOffsetYards > allStats.avgLateralOffset) ? 'right' : all((p) => p.lateralOffsetYards < allStats.avgLateralOffset) ? 'left' : '',
+    ].filter(Boolean)
+    if (!sides.length) return ''
+    return ` ${n === 1 ? 'It' : `All ${n}`} ${where} finished ${sides.join(' and ')} of your usual average.`
+  })()
+  const doneLabel = stats ? `Show ${n} shots` : n === 0 ? 'No shots with these filters' : `Only ${n} ${filterPhrase}`
+  const practice: PlanCategory = tee || OFF_THE_TEE.includes(club) ? 'off_tee' : 'approach'
+  const shapeValue = tallyWords(shapeTally(points, leftHanded), SHOT_SHAPE_LABELS, n).value
+
   return (
     <PaperSurface style={{ flex: 1 }}>
-      <AppBar eyebrow={`Club ${club}`} title="Shot Patterns" />
-      <ScrollView contentContainerStyle={{ padding: 18, paddingBottom: 40 }}>
+      <AppBar title="Shot patterns" />
+      <ScrollView contentContainerStyle={{ padding: pad, paddingBottom: 40 }}>
         <Entrance index={0}>
-        <Section title="Club">
-          <ChipRow
-            value={club}
-            options={clubOptions}
-            onChange={(v) => v && setClub(v)}
-          />
-        </Section>
+          {finding && (
+            <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.serif, { fontSize: 20, lineHeight: 26, color: P.ink }]}>
+              {finding}
+            </Text>
+          )}
+          {!loading && !loadError && (
+            <Text accessibilityLiveRegion="polite" maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { color: P.inkDim, fontSize: 13, lineHeight: 19, marginTop: 4 }]}>
+              {subline}
+            </Text>
+          )}
+          {recentLine && (
+            <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { color: P.inkDim, fontSize: 13, lineHeight: 19, marginTop: 4 }]}>
+              {recentLine}
+            </Text>
+          )}
+          <View style={{ marginTop: 12 }}>
+            <ClubLadder clubs={clubOptions} value={club} onChange={setClub} typical={ladderNumber} aimed={aimed} unitWords={metres ? 'metres' : 'yards'} width={screenWidth - pad * 2} />
+          </View>
         </Entrance>
 
         <Entrance index={1}>
-        <Section title="Lie type">
-          <ChipRow
-            value={lieType}
-            options={[ANY, ...LIE_TYPES] as const}
-            onChange={(v) => setLieType(v as LieType | typeof ANY)}
-            labelFor={(v) => (v === ANY ? 'any' : (v as string).replace(/_/g, ' '))}
-          />
-        </Section>
+          <View style={{ marginTop: 6 }}>
+            <ViewToggle
+              value={view}
+              onChange={setView}
+              trailing={
+                <Key
+                  accessibilityLabel={filtered ? `Filters, ${filterCount} on: ${filterPhrase}` : 'Filters'}
+                  latched={filtered}
+                  onPress={() => setSheetOpen(true)}
+                  faceStyle={{ minHeight: 40, paddingHorizontal: 12 }}
+                >
+                  <KeyText size={13} bold={filtered}>{filtered ? `Filters · ${filterCount}` : 'Filters'}</KeyText>
+                </Key>
+              }
+            />
+            <View style={{ marginTop: 10, backgroundColor: P.raised, borderWidth: 1, borderColor: P.line, borderRadius: 3 }}>
+              <View style={{ padding: 8, gap: 8, borderBottomWidth: 1, borderColor: '#ECE6D8' }}>
+                <LayerBar layers={layers} available={available} disabled={disabled} onToggle={(l) => setLayers((v) => ({ ...v, [l]: !v[l] }))} />
+                <ColourRow colourBy={colourBy} onColourBy={setColourBy} entries={legend} hidden={hidden} onToggle={toggleGroup} />
+              </View>
+              <View style={{ padding: 8 }}>
+                {loading ? (
+                  <View style={{ height: chartWidth, alignItems: 'center', justifyContent: 'center' }}>
+                    <Text style={[TYPE.body, { color: P.inkDim, fontSize: 13 }]}>Loading…</Text>
+                  </View>
+                ) : loadError ? (
+                  <View style={{ height: chartWidth, alignItems: 'center', justifyContent: 'center', gap: 12 }}>
+                    <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { color: P.neg, fontSize: 13, textAlign: 'center' }]}>
+                      Couldn't load your {noun} shots. Check your connection and try again.
+                    </Text>
+                    <Key accessibilityLabel="Try again" onPress={retry} faceStyle={{ minHeight: 44, paddingHorizontal: 14 }}>
+                      <KeyText size={13}>Try again</KeyText>
+                    </Key>
+                  </View>
+                ) : view === 'aim' ? (
+                  <AimPlot {...chartProps} />
+                ) : (
+                  <TeePlot key={club} {...chartProps} />
+                )}
+              </View>
+              {recorded && (
+                <View style={{ paddingHorizontal: 10, paddingBottom: 10 }}>
+                  <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { color: P.inkDim, fontSize: 12, lineHeight: 17 }]}>
+                    {recorded.recorded === 0 ? recorded.note : `${recorded.note} Tap a group above to hide it.`}
+                  </Text>
+                </View>
+              )}
+            </View>
+            <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { color: P.inkDim, fontSize: 13, lineHeight: 19, marginTop: 8 }]}>
+              {caption}
+            </Text>
+            {n > 0 && (
+              <Key
+                accessibilityLabel={listOpen ? 'Hide the list of shots' : 'List the shots'}
+                onPress={() => setListOpen((o) => !o)}
+                style={{ alignSelf: 'flex-start', marginTop: 10 }}
+                faceStyle={{ minHeight: 44, paddingHorizontal: 14 }}
+              >
+                <KeyText size={13}>{listOpen ? 'Hide the list' : 'List the shots'}</KeyText>
+              </Key>
+            )}
+            {listOpen &&
+              [...newest.recent, ...newest.older].map((p) => {
+                  const words = shotWords(p, extras[p.id], unit, kinds.get(p.id))
+                  const on = hot === p.id
+                  return (
+                    <PressableTouch
+                      key={p.id}
+                      accessibilityRole="button"
+                      accessibilityState={{ selected: on }}
+                      accessibilityLabel={words.join('. ')}
+                      accessibilityHint="Marks this shot on the chart"
+                      onPress={() => pickShot(on ? null : p.id)}
+                      style={{ paddingVertical: 10, borderBottomWidth: 1, borderColor: P.line }}
+                    >
+                      <Text maxFontSizeMultiplier={FONT_CAP} style={[on ? TYPE.serif : TYPE.serifUpright, { fontSize: 15, color: P.ink }]}>{words[0]}</Text>
+                      <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { fontSize: 12, lineHeight: 17, color: P.inkDim }]}>{words.slice(1).join(' · ')}</Text>
+                    </PressableTouch>
+                  )
+                })}
+          </View>
         </Entrance>
 
         <Entrance index={2}>
-        <Section title="Lie slope">
-          {/* Two independent axes, each multi-select (tap several to see
-              them together). No selection on an axis = any. Fixes the old
-              single-select filter that read the always-null legacy column
-              (#746). */}
-          <View style={{ gap: 8 }}>
-            <MultiChipRow
-              options={LIE_SLOPES_FORWARD}
-              selected={forwardSel}
-              onToggle={(v) => setForwardSel(toggleSel(forwardSel, v))}
-              labelFor={slopeLabel}
+          {stats && !loading ? (
+            <PatternNumbers
+              stats={stats}
+              points={points}
+              typicalYards={typicalYards(club)}
+              unit={unit}
+              shotsNote={filtered ? 'With these filters' : 'With an aim, from any lie'}
+              filtered={filtered}
+              teeShots={tee}
+              leftHanded={leftHanded}
+              onColour={setColourBy}
+              practice={practice}
+              onExport={handleShare}
+              sharing={sharing}
             />
-            <MultiChipRow
-              options={LIE_SLOPES_SIDE}
-              selected={sideSel}
-              onToggle={(v) => setSideSel(toggleSel(sideSel, v))}
-              labelFor={slopeLabel}
-            />
-          </View>
-        </Section>
-        </Entrance>
-
-        <Entrance index={3}>
-        <Section title="Pattern">
-          {loading ? (
-            <Text style={[TYPE.body, { color: '#8A8B7E', fontSize: 13 }]}>Loading…</Text>
-          ) : points.length === 0 ? (
-            <Text style={[TYPE.body, { color: '#8A8B7E', fontSize: 13 }]}>
-              No shots yet for {club}
-              {lieType !== ANY ? ` (${lieType})` : ''}
-              {forwardSel.length + sideSel.length > 0
-                ? ` (${[...forwardSel, ...sideSel].map(slopeLabel).join(', ')})`
-                : ''}
-              .
-            </Text>
-          ) : (
-            <>
-              <DispersionPlot points={points} stats={stats} />
-              <PatternLegend hasStats={!!stats} />
-              {stats && (
-                <Key
-                  accessibilityLabel="Export shot pattern image"
-                  onPress={handleShare}
-                  disabled={sharing}
-                  hitSlop={8}
-                  style={{ alignSelf: 'flex-start', marginTop: 22, marginBottom: 4 }}
-                  faceStyle={{ flexDirection: 'row', gap: 7, minHeight: 40, paddingHorizontal: 16 }}
-                >
-                  <MaterialCommunityIcons
-                    name="tray-arrow-down"
-                    size={15}
-                    color={sharing ? P.ink35 : P.ink}
-                  />
-                  <KeyText size={13} disabled={sharing}>
-                    {sharing ? 'Rendering…' : 'Export image'}
-                  </KeyText>
-                </Key>
-              )}
-            </>
-          )}
-        </Section>
-        </Entrance>
-
-        <Entrance index={4}>
-        <Section title="Pattern summary">
-          {clubDist && (
-            <View
-              style={{
-                flexDirection: 'row',
-                flexWrap: 'wrap',
-                gap: 18,
-                marginBottom: 18,
-              }}
-            >
-              <Stat label="Avg distance" value={dist(clubDist.avg)} />
-              <Stat
-                label="Range"
-                value={
-                  club === 'putter'
-                    ? `${dist(clubDist.min)}–${dist(clubDist.max)}`
-                    : `${Math.round(unit === 'meters' ? clubDist.min * YARDS_TO_METERS : clubDist.min)}–${Math.round(unit === 'meters' ? clubDist.max * YARDS_TO_METERS : clubDist.max)}`
-                }
-              />
+          ) : !loading && !loadError ? (
+            <View style={{ marginTop: 26 }}>
+              <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.serifUpright, { color: P.ink, fontSize: 16, lineHeight: 24 }]}>
+                {n === 0 ? 'None' : `Only ${n}`} of your {aimed(club)} {noun} shots {n === 1 ? 'was' : 'were'} {filterPhrase}. A pattern needs five.
+                {compare}
+              </Text>
+              <Key accessibilityLabel="See every lie" onPress={clearFilters} style={{ alignSelf: 'flex-start', marginTop: 12 }} faceStyle={{ minHeight: 44, paddingHorizontal: 14 }}>
+                <KeyText size={13}>See every lie</KeyText>
+              </Key>
             </View>
-          )}
-          {stats ? (
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 18 }}>
-              <Stat label="Sample" value={`${stats.sampleSize} shots`} />
-              <Stat
-                label="Avg lateral"
-                value={dist(stats.avgLateralOffset, 1)}
-              />
-              <Stat
-                label="Distance bias"
-                value={dist(stats.avgDistanceOffset, 1)}
-              />
-              <Stat label="Shape" value={stats.shotShape[0]!.toUpperCase() + stats.shotShape.slice(1)} />
-              <Stat label="Dominant miss" value={stats.dominantMiss[0]!.toUpperCase() + stats.dominantMiss.slice(1)} />
-              <Stat
-                label="68% spread"
-                value={`±${dist(stats.cone68.lateral, 1)} / ${dist(stats.cone68.distance, 1)}`}
-              />
-            </View>
-          ) : (
-            <Text
-              style={[TYPE.bodyItalic, {
-                color: '#1C211C',
-                fontSize: 15,
-                lineHeight: 22,
-              }]}
-            >
-              Need at least <Text style={[TYPE.bodyItalic, { fontWeight: '500' }]}>five shots</Text>{' '}
-              with aim and landing coords to compute a pattern.
-            </Text>
-          )}
-        </Section>
+          ) : null}
         </Entrance>
-
-        {stats && (
-          <View>
-            <SectionHead title="Aim correction" />
-            <Text
-              maxFontSizeMultiplier={FONT_CAP}
-              style={[TYPE.body, {
-                color: P.ink,
-                fontSize: 15,
-                lineHeight: 22,
-              }]}
-            >
-              {getAimCorrection(stats, unit)}
-            </Text>
-          </View>
-        )}
       </ScrollView>
+
+      <FilterSheet
+        open={sheetOpen}
+        onClose={() => setSheetOpen(false)}
+        lieType={lieType}
+        onLieType={setLieType}
+        forward={forward}
+        side={side}
+        onForward={setForward}
+        onSide={setSide}
+        onClear={clearFilters}
+        doneLabel={doneLabel}
+        bottomInset={insets.bottom}
+      />
 
       {/* Off-screen render target for react-native-view-shot. Laid out
           far off the left edge so it's never visible; collapsable={false}
           keeps RN from optimising out the subtree the rasteriser reads. */}
-      {stats && (
-        <View
-          pointerEvents="none"
-          collapsable={false}
-          style={{ position: 'absolute', left: -10000, top: 0 }}
-        >
+      {stats && finding && !loading && (
+        <View pointerEvents="none" collapsable={false} style={{ position: 'absolute', left: -10000, top: 0 }}>
           <View ref={shareCardRef} collapsable={false}>
-            <ShotPatternsShareCard
-              points={points}
-              stats={stats}
-              club={club}
-              unit={unit}
-              toDisplay={dist}
-            />
+            <ShareCard points={points} stats={stats} noun={noun} finding={finding} width68={mag(stats.cone68.lateral * 2)} shape={shapeValue} />
           </View>
         </View>
       )}
     </PaperSurface>
-  )
-}
-
-// Off-screen 1200×630 social share card — mobile parity of the web card
-// (apps/web ShotPatternsShareCard). Captured via react-native-view-shot.
-// Stats only — no username, email, or avatar.
-const SHARE_C = {
-  bg: '#FBF8F1',
-  surface: '#F2EEE5',
-  line: '#D9D2BF',
-  ink: '#1C211C',
-  inkDim: '#5C6356',
-  inkMute: '#8A8B7E',
-  accent: '#1F3D2C',
-} as const
-
-// Paper style, like the app and the scorecard share card: sentence-case
-// Epilogue labels, Fraunces-italic figures, ink rules.
-const SHARE_KICKER: import('react-native').TextStyle = {
-  ...TYPE.body,
-}
-
-function ShotPatternsShareCard({
-  points,
-  stats,
-  club,
-  unit,
-  toDisplay,
-}: {
-  points: DispersionPoint[]
-  stats: DispersionStats
-  club: Club
-  unit: DistanceUnit
-  toDisplay: (yards: number, decimals?: number) => string
-}) {
-  const c = SHARE_C
-  return (
-    <View
-      style={{
-        width: 1200,
-        height: 630,
-        backgroundColor: c.bg,
-        paddingVertical: 44,
-        paddingHorizontal: 56,
-      }}
-    >
-      <View
-        style={{
-          flexDirection: 'row',
-          justifyContent: 'space-between',
-          alignItems: 'flex-start',
-          paddingBottom: 22,
-          borderBottomWidth: 1,
-          borderColor: c.ink,
-        }}
-      >
-        <View>
-          <Text
-            style={{ ...SHARE_KICKER, fontSize: 14, color: c.inkMute, marginBottom: 8 }}
-          >
-            Open Golf App
-          </Text>
-          <Text style={{ ...TYPE.serif, fontSize: 44, color: c.ink }}>
-            oga<Text style={{ ...TYPE.serifUpright }}>.</Text>
-          </Text>
-        </View>
-        <Text style={{ ...SHARE_KICKER, fontSize: 14, color: c.inkMute }}>
-          Shot pattern
-        </Text>
-      </View>
-
-      <View
-        style={{
-          flex: 1,
-          flexDirection: 'row',
-          alignItems: 'center',
-          gap: 48,
-          paddingVertical: 16,
-        }}
-      >
-        <HardShadow dx={3} dy={3}>
-          <View style={{ padding: 14, backgroundColor: c.surface, borderWidth: 1, borderColor: c.ink, borderRadius: 3 }}>
-            <DispersionPlot points={points} stats={stats} size={350} />
-          </View>
-        </HardShadow>
-
-        <View style={{ flex: 1 }}>
-          <Text
-            style={{ ...SHARE_KICKER, fontSize: 15, color: c.inkMute, marginBottom: 10 }}
-          >
-            {club}
-          </Text>
-          <Text
-            style={{
-              ...TYPE.serif,
-              fontSize: 46,
-              lineHeight: 54,
-              color: c.ink,
-              marginBottom: 30,
-            }}
-          >
-            {dispersionVerdict(stats)}
-          </Text>
-          <View style={{ flexDirection: 'row', gap: 40, marginBottom: 30 }}>
-            <ShareStat label="Sample" value={`${stats.sampleSize} shots`} c={c} />
-            <ShareStat
-              label="68% spread"
-              value={`±${toDisplay(stats.cone68.lateral, 1)} / ${toDisplay(stats.cone68.distance, 1)}`}
-              c={c}
-            />
-            <ShareStat label="Dominant miss" value={stats.dominantMiss[0]!.toUpperCase() + stats.dominantMiss.slice(1)} c={c} />
-          </View>
-          <Text
-            style={{
-              ...TYPE.serifUpright,
-              fontSize: 22,
-              lineHeight: 33,
-              color: c.inkDim,
-            }}
-          >
-            {getAimCorrection(stats, unit)}
-          </Text>
-        </View>
-      </View>
-
-      <View
-        style={{
-          flexDirection: 'row',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          paddingTop: 20,
-          borderTopWidth: 1,
-          borderColor: c.ink,
-        }}
-      >
-        <Text style={{ ...SHARE_KICKER, fontSize: 15, color: c.accent }}>oga.golf</Text>
-        <Text style={{ ...SHARE_KICKER, fontSize: 13, color: c.inkMute }}>
-          Free forever · no paywalls
-        </Text>
-      </View>
-    </View>
-  )
-}
-
-function ShareStat({
-  label,
-  value,
-  c,
-}: {
-  label: string
-  value: string
-  c: typeof SHARE_C
-}) {
-  return (
-    <View>
-      <Text style={{ ...SHARE_KICKER, fontSize: 12, color: c.inkMute, marginBottom: 6 }}>
-        {label}
-      </Text>
-      <Text
-        style={{
-          ...TYPE.serif,
-          fontSize: 28,
-          color: c.ink,
-        }}
-      >
-        {value}
-      </Text>
-    </View>
-  )
-}
-
-function Section({
-  title,
-  children,
-}: {
-  title: string
-  children: React.ReactNode
-}) {
-  return (
-    <View style={{ marginBottom: 22 }}>
-      <SectionHead title={title} />
-      {children}
-    </View>
-  )
-}
-
-function Stat({ label, value }: { label: string; value: string }) {
-  return (
-    <View style={{ minWidth: 110 }}>
-      <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { color: P.inkDim, fontSize: 12, marginBottom: 6 }]}>
-        {label}
-      </Text>
-      <Text
-        maxFontSizeMultiplier={FONT_CAP}
-        style={[TYPE.serifUpright, {
-          color: P.ink,
-          fontSize: 17,
-          fontVariant: ['tabular-nums'],
-        }]}
-      >
-        {value}
-      </Text>
-    </View>
-  )
-}
-
-interface ChipRowProps<T extends string> {
-  value: T
-  options: readonly T[]
-  onChange: (v: T) => void
-  labelFor?: (v: T) => string
-}
-
-function ChipRow<T extends string>({ value, options, onChange, labelFor }: ChipRowProps<T>) {
-  return (
-    // Wrap rather than scroll horizontally — the club list is long enough
-    // that off-screen chips read as the end of the list (#740).
-    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-      {options.map((opt) => (
-        <Chip key={opt} label={labelFor ? labelFor(opt) : opt} active={value === opt} onPress={() => onChange(opt)} />
-      ))}
-    </View>
-  )
-}
-
-// Toggle a value in/out of a multi-select array.
-function toggleSel<T>(arr: T[], v: T): T[] {
-  return arr.includes(v) ? arr.filter((x) => x !== v) : [...arr, v]
-}
-
-// 'ball_above' → 'ball above'. Shared by the slope chips + empty-state text.
-function slopeLabel(v: string): string {
-  return v.replace(/_/g, ' ')
-}
-
-interface MultiChipRowProps<T extends string> {
-  options: readonly T[]
-  selected: T[]
-  onToggle: (v: T) => void
-  labelFor?: (v: T) => string
-}
-
-// Like ChipRow but multi-select: every chip in `selected` is highlighted,
-// tapping toggles. No "any" chip — an empty selection IS "any".
-function MultiChipRow<T extends string>({
-  options,
-  selected,
-  onToggle,
-  labelFor,
-}: MultiChipRowProps<T>) {
-  return (
-    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-      {options.map((opt) => (
-        <Chip
-          key={opt}
-          label={labelFor ? labelFor(opt) : opt}
-          active={selected.includes(opt)}
-          onPress={() => onToggle(opt)}
-          checkbox
-        />
-      ))}
-    </View>
-  )
-}
-
-// Paper filter chip: a latched key when active (matches Profile's Chip).
-function Chip({ label, active, onPress, checkbox }: { label: string; active: boolean; onPress: () => void; checkbox?: boolean }) {
-  return (
-    <Key accessibilityLabel={label} latched={active} onPress={onPress} checkbox={checkbox} faceStyle={{ minHeight: 40, paddingHorizontal: 12 }}>
-      <KeyText size={13} bold={active} style={{ textTransform: 'capitalize' }}>
-        {label}
-      </KeyText>
-    </Key>
-  )
-}
-
-const SVG_SIZE = 320
-
-function pointColor(result: string | undefined): { fill: string; opacity: number } {
-  if (result === 'solid') return { fill: '#1C211C', opacity: 0.75 }
-  if (result === 'push_right' || result === 'pull_left')
-    return { fill: '#A66A1F', opacity: 0.75 }
-  if (result === undefined) return { fill: '#8A8B7E', opacity: 0.5 }
-  return { fill: '#A33A2A', opacity: 0.8 }
-}
-
-function PatternLegend({ hasStats }: { hasStats: boolean }) {
-  return (
-    <View style={{ marginTop: 12, gap: 6 }}>
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
-        <LegendDot color="#1C211C" label="Solid" />
-        <LegendDot color="#A66A1F" label="Push / pull" />
-        <LegendDot color="#A33A2A" label="Miss" />
-        <LegendDot color="#8A8B7E" label="Unspecified" />
-      </View>
-      {hasStats && (
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
-          <LegendEllipse opacity={0.35} label="68% of shots" />
-          <LegendEllipse opacity={0.10} label="95% of shots" />
-        </View>
-      )}
-    </View>
-  )
-}
-
-function LegendDot({ color, label }: { color: string; label: string }) {
-  return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
-      <View
-        style={{
-          width: 8,
-          height: 8,
-          borderRadius: 4,
-          backgroundColor: color,
-        }}
-      />
-      <Text style={[TYPE.body, { color: '#5C6356', fontSize: 11 }]}>{label}</Text>
-    </View>
-  )
-}
-
-function LegendEllipse({ opacity, label }: { opacity: number; label: string }) {
-  return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-      <View
-        style={{
-          width: 18,
-          height: 12,
-          borderRadius: 6,
-          backgroundColor: `rgba(31,61,44,${opacity})`,
-          borderWidth: 1,
-          borderColor: '#1F3D2C',
-        }}
-      />
-      <Text style={[TYPE.body, { color: '#1C211C', fontSize: 12 }]}>{label}</Text>
-    </View>
-  )
-}
-
-function DispersionPlot({
-  points,
-  stats,
-  size: sizeProp,
-}: {
-  points: DispersionPoint[]
-  stats: DispersionStats | null
-  // Fixed size for the share card; omitted on-screen → responsive width.
-  size?: number
-}) {
-  const { width: screenWidth } = useWindowDimensions()
-  const size = sizeProp ?? Math.min(SVG_SIZE, screenWidth - 56)
-
-  const maxAbs = Math.max(
-    ...points.map((p) =>
-      Math.max(Math.abs(p.lateralOffsetYards), Math.abs(p.distanceOffsetYards)),
-    ),
-    stats ? stats.cone95.lateral : 0,
-    stats ? stats.cone95.distance : 0,
-    20,
-  )
-  const range = maxAbs * 1.15
-  const cx = size / 2
-  const cy = size / 2
-  const scale = size / 2 / range
-  const px = (lat: number) => cx + lat * scale
-  const py = (dist: number) => cy - dist * scale
-
-  const tickStep = range > 50 ? 20 : range > 20 ? 10 : 5
-  const ticks: number[] = []
-  for (let t = tickStep; t < range; t += tickStep) {
-    ticks.push(t, -t)
-  }
-
-  return (
-    <Svg width={size} height={size}>
-      <Rect x={0} y={0} width={size} height={size} fill="#F2EEE5" rx={2} ry={2} />
-      {ticks.map((t) => (
-        <Line
-          key={`v${t}`}
-          x1={px(t)}
-          y1={0}
-          x2={px(t)}
-          y2={size}
-          stroke="#EBE5D6"
-          strokeWidth={1}
-        />
-      ))}
-      {ticks.map((t) => (
-        <Line
-          key={`h${t}`}
-          x1={0}
-          y1={py(t)}
-          x2={size}
-          y2={py(t)}
-          stroke="#EBE5D6"
-          strokeWidth={1}
-        />
-      ))}
-      <Line x1={cx} y1={0} x2={cx} y2={size} stroke="#9F9580" strokeWidth={1} />
-      <Line x1={0} y1={cy} x2={size} y2={cy} stroke="#9F9580" strokeWidth={1} />
-
-      {stats && (
-        <>
-          <Ellipse
-            cx={px(stats.avgLateralOffset)}
-            cy={py(stats.avgDistanceOffset)}
-            rx={stats.cone95.lateral * scale}
-            ry={stats.cone95.distance * scale}
-            fill="rgba(31,61,44,0.06)"
-            stroke="#1F3D2C"
-            strokeDasharray="5 4"
-            strokeWidth={1}
-          />
-          <Ellipse
-            cx={px(stats.avgLateralOffset)}
-            cy={py(stats.avgDistanceOffset)}
-            rx={stats.cone68.lateral * scale}
-            ry={stats.cone68.distance * scale}
-            fill="rgba(31,61,44,0.12)"
-            stroke="#1F3D2C"
-            strokeDasharray="4 3"
-            strokeWidth={1}
-          />
-        </>
-      )}
-
-      <Circle cx={cx} cy={cy} r={3} fill="#A66A1F" />
-      <SvgText x={cx + 6} y={cy + 14} fontSize={9} fill="#A66A1F" fontFamily={FONT.mono}>
-        AIM
-      </SvgText>
-
-      {points.map((p) => {
-        const c = pointColor(p.shotResult)
-        return (
-          <Circle
-            key={p.id}
-            cx={px(p.lateralOffsetYards)}
-            cy={py(p.distanceOffsetYards)}
-            r={3.5}
-            fill={c.fill}
-            fillOpacity={c.opacity}
-          />
-        )
-      })}
-
-      <SvgText x={cx + 6} y={12} fontSize={9} fill="#8A8B7E" fontFamily={FONT.mono}>
-        LONG
-      </SvgText>
-      <SvgText x={cx + 6} y={size - 4} fontSize={9} fill="#8A8B7E" fontFamily={FONT.mono}>
-        SHORT
-      </SvgText>
-      <SvgText x={4} y={cy - 4} fontSize={9} fill="#8A8B7E" fontFamily={FONT.mono}>
-        L
-      </SvgText>
-      <SvgText x={size - 12} y={cy - 4} fontSize={9} fill="#8A8B7E" fontFamily={FONT.mono}>
-        R
-      </SvgText>
-    </Svg>
   )
 }

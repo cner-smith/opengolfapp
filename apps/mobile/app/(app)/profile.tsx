@@ -24,6 +24,7 @@ import { getProfile, updateProfile } from '@oga/supabase'
 import type { Database } from '@oga/supabase'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
+import { useUserBag } from '../../hooks/useUserBag'
 import { useUnitsContext } from '../../contexts/UnitsContext'
 import { clearScreenCache } from '../../lib/screenCache'
 import { getAimTilt, setAimTilt, type AimTilt } from '../../lib/aimTilt'
@@ -31,10 +32,12 @@ import { getLeftHand, setLeftHand } from '../../lib/leftHand'
 import { getSoundsOn, setSoundsOn } from '../../lib/sounds'
 import { readDiagLog } from '../../lib/db'
 import { AppBar } from '../../components/ui/AppBar'
-import { PaperTile, SectionHead } from '../../components/paper/Section'
+import { SectionHead } from '../../components/paper/Section'
+import { PressableTouch } from '../../components/ui/PressableTouch'
 import { FONT_CAP, P, R } from '../../components/paper/tokens'
 import { HardShadow, Key, KeyText, PaperSurface } from '../../components/paper/Paper'
 import { TYPE } from '../../lib/typography'
+import { openWebImport, WEB_URL } from '../../lib/webLinks'
 
 type Profile = Database['public']['Tables']['profiles']['Row']
 type SkillLevel = Profile['skill_level']
@@ -64,9 +67,30 @@ function humanizeProfileSaveError(message: string | undefined): string {
   return 'Could not save profile. Please try again.'
 }
 
+const SKILL_LABEL: Record<string, string> = {
+  beginner: 'Beginner',
+  casual: 'Casual',
+  developing: 'Developing',
+  competitive: 'Competitive',
+}
+const GOAL_LABEL: Record<string, string> = {
+  break_100: 'Break 100',
+  break_90: 'Break 90',
+  break_80: 'Break 80',
+  break_70s: 'Break 70s',
+  scratch: 'Scratch',
+}
+const FACILITY_LABEL: Record<string, string> = {
+  range: 'Range',
+  short_game: 'Short game area',
+  putting: 'Putting green',
+  sim: 'Simulator',
+}
+
 export default function ProfileTab() {
   const router = useRouter()
   const { user, loading: authLoading } = useAuth()
+  const { bag } = useUserBag()
   const [profile, setProfile] = useState<Profile | null>(null)
   const [username, setUsername] = useState('')
   const [handicap, setHandicap] = useState('')
@@ -112,6 +136,9 @@ export default function ProfileTab() {
   const [usernameTouched, setUsernameTouched] = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  // One settings row open at a time; its editor sits under it.
+  const [openRow, setOpenRow] = useState<string | null>(null)
+  const toggleRow = (key: string) => setOpenRow((cur) => (cur === key ? null : key))
 
   async function deleteAccount() {
     setDeleting(true)
@@ -239,278 +266,214 @@ export default function ProfileTab() {
   const provenance = handicapProvenance(differentialsCount)
   const provenanceCalculated = provenance === 'calculated'
 
+  const dirty =
+    !!profile &&
+    (trimmedUsername !== (profile.username ?? '') ||
+      handicap !== (profile.handicap_index?.toString() ?? '') ||
+      skill !== (profile.skill_level ?? null) ||
+      goal !== (profile.goal ?? null) ||
+      [...facilities].sort().join() !== [...(profile.facilities ?? [])].sort().join() ||
+      unit !== (profile.distance_unit === 'meters' ? 'meters' : 'yards') ||
+      playsLefty !== (profile.plays_left_handed === true) ||
+      emailSummaries !== (profile.email_round_summaries_enabled ?? true))
+  const facilitiesValue =
+    facilities.length === 0
+      ? 'None set'
+      : facilities.length === FACILITIES.length
+        ? 'All four'
+        : FACILITIES.filter((f) => facilities.includes(f)).map((f) => FACILITY_LABEL[f] ?? f).join(', ')
+
   return (
     <PaperSurface style={{ flex: 1 }}>
-      <AppBar
-        eyebrow={profile?.username ? `@${profile.username}` : 'Account'}
-        title="Profile"
-      />
-      <ScrollView contentContainerStyle={{ padding: 18, paddingBottom: 40 }}>
-        <PaperTile style={{ marginBottom: 22 }} innerStyle={{ paddingVertical: 24, alignItems: 'center' }}>
-          <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { color: P.inkDim, fontSize: 12, marginBottom: 6 }]}>
-            Handicap index
-          </Text>
-          <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.serif, { color: P.ink, fontSize: 56, lineHeight: 64 }]}>
+      <AppBar title="Profile" />
+      <ScrollView contentContainerStyle={{ padding: 18, paddingBottom: 40 }} keyboardShouldPersistTaps="handled">
+        {/* The one headline number: no tile, just the figure and what it is. */}
+        <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 14, marginBottom: 6 }}>
+          <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.serifUpright, { color: P.ink, fontSize: 48, lineHeight: 54 }]}>
             {profile?.handicap_index ?? '—'}
           </Text>
-          {profile?.handicap_index != null && (
-            <View
-              style={{
-                marginTop: 8,
-                paddingHorizontal: 8,
-                paddingVertical: 3,
-                borderRadius: 2,
-                borderWidth: 1,
-                borderColor: provenanceCalculated ? P.forest : P.lineStrong,
-              }}
-            >
-              <Text
-                maxFontSizeMultiplier={FONT_CAP}
-                style={[TYPE.body, { fontSize: 12, color: provenanceCalculated ? P.forest : P.inkDim }]}
-              >
-                {HANDICAP_PROVENANCE_LABEL[provenance]}
-              </Text>
-            </View>
-          )}
-          <Text
-            maxFontSizeMultiplier={FONT_CAP}
-            style={[TYPE.body, { color: P.inkDim, fontSize: 14, marginTop: 8, textTransform: 'capitalize' }]}
-          >
-            {profile?.skill_level ?? 'No skill level set'}
-          </Text>
-        </PaperTile>
-
-        <Field label="Username">
-          <TextInput
-            autoCapitalize="none"
-            autoCorrect={false}
-            value={username}
-            onChangeText={(v) => {
-              setUsername(v)
-              setUsernameTouched(true)
-            }}
-            style={{
-              ...inputStyle,
-              borderColor: showUsernameError ? P.neg : P.ink,
-            }}
-          />
-          <Text
-            maxFontSizeMultiplier={FONT_CAP}
-            style={[TYPE.body, {
-              color: showUsernameError ? P.neg : P.inkDim,
-              fontSize: 12,
-              marginTop: 6,
-            }]}
-          >
-            {USERNAME_HELPER}
-          </Text>
-        </Field>
-
-        <Field label="Handicap index">
-          <TextInput
-            keyboardType="decimal-pad"
-            value={handicap}
-            onChangeText={setHandicap}
-            style={inputStyle}
-          />
-        </Field>
-
-        <Field label="Skill level">
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
-            {SKILL_LEVELS.map((s) => (
-              <Chip
-                key={s}
-                label={s}
-                active={skill === s}
-                onPress={() => setSkill(s)}
-              />
-            ))}
+          <View style={{ paddingBottom: 8, flex: 1 }}>
+            <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { color: P.ink, fontSize: 15 }]}>
+              Handicap index
+            </Text>
+            <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { color: P.inkDim, fontSize: 13 }]}>
+              {[
+                profile?.handicap_index != null ? HANDICAP_PROVENANCE_LABEL[provenance] : null,
+                profile?.skill_level ? SKILL_LABEL[profile.skill_level] : null,
+                profile?.username ? `@${profile.username}` : null,
+              ]
+                .filter(Boolean)
+                .join(' · ')}
+            </Text>
           </View>
-        </Field>
-
-        <Field label="Goal">
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
-            {GOALS.map((g) => (
-              <Chip
-                key={g}
-                label={g.replace('_', ' ')}
-                active={goal === g}
-                onPress={() => setGoal(g)}
-              />
-            ))}
-          </View>
-        </Field>
-
-        <Field label="Facilities">
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
-            {FACILITIES.map((f) => (
-              <Chip
-                key={f}
-                label={f.replace('_', ' ')}
-                active={facilities.includes(f)}
-                onPress={() => toggleFacility(f)}
-              />
-            ))}
-          </View>
-        </Field>
-
-        <Field label="Units">
-          <View style={{ flexDirection: 'row', gap: 6 }}>
-            <Chip
-              label="Yards"
-              active={unit === 'yards'}
-              onPress={() => setUnit('yards')}
-            />
-            <Chip
-              label="Metres"
-              active={unit === 'meters'}
-              onPress={() => setUnit('meters')}
-            />
-          </View>
-        </Field>
-
-        <Field label="Plays">
-          <View style={{ flexDirection: 'row', gap: 6 }}>
-            <Chip label="Right-handed" active={!playsLefty} onPress={() => setPlaysLefty(false)} />
-            <Chip label="Left-handed" active={playsLefty} onPress={() => setPlaysLefty(true)} />
-          </View>
-        </Field>
-
-        <Field label="Aim view">
-          <View style={{ flexDirection: 'row', gap: 6 }}>
-            <Chip label="Flat" active={aimTilt === 0} onPress={() => chooseAimTilt(0)} />
-            <Chip label="Flyover" active={aimTilt === 60} onPress={() => chooseAimTilt(60)} />
-          </View>
-        </Field>
-
-        <Field label="Live round layout">
-          <View style={{ flexDirection: 'row', gap: 6 }}>
-            <Chip label="Right-handed" active={!leftHand} onPress={() => chooseLeftHand(false)} />
-            <Chip label="Left-handed" active={leftHand} onPress={() => chooseLeftHand(true)} />
-          </View>
-        </Field>
-
-        <Field label="Sounds">
-          <View style={{ flexDirection: 'row', gap: 6 }}>
-            <Chip label="On" active={sounds} onPress={() => chooseSounds(true)} />
-            <Chip label="Off" active={!sounds} onPress={() => chooseSounds(false)} />
-          </View>
-        </Field>
-
-        <Field label="Email round summaries">
-          <View style={{ flexDirection: 'row', gap: 6 }}>
-            <Chip
-              label="On"
-              active={emailSummaries === true}
-              onPress={() => setEmailSummaries(true)}
-            />
-            <Chip
-              label="Off"
-              active={emailSummaries === false}
-              onPress={() => setEmailSummaries(false)}
-            />
-          </View>
-        </Field>
-
-        <View style={{ marginTop: 18 }}>
-          <SectionHead title="Equipment" />
-          <LinkKey accessibilityLabel="Open My Bag" label="My Bag" onPress={() => router.push('/(app)/bag')} />
         </View>
+        <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { color: P.inkDim, fontSize: 13, lineHeight: 19, marginBottom: 22 }]}>
+          Your plans and drills are pitched at your skill level and handicap
+          {provenanceCalculated ? ', calculated from your rated rounds.' : '.'}
+        </Text>
 
-        <View style={{ marginTop: 18 }}>
-          <SectionHead title="Getting started" />
-          <LinkKey
-            accessibilityLabel="Replay intro tour"
+        <Group title="Your game">
+          <Row label="Username" value={trimmedUsername || 'Not set'} open={openRow === 'username'} onToggle={() => toggleRow('username')} first>
+            <TextInput
+              autoCapitalize="none"
+              autoCorrect={false}
+              value={username}
+              accessibilityLabel="Username"
+              onChangeText={(v) => {
+                setUsername(v)
+                setUsernameTouched(true)
+              }}
+              style={{ ...inputStyle, borderColor: showUsernameError ? P.neg : P.ink }}
+            />
+            <Text
+              maxFontSizeMultiplier={FONT_CAP}
+              style={[TYPE.body, { color: showUsernameError ? P.neg : P.inkDim, fontSize: 12, marginTop: 6 }]}
+            >
+              {USERNAME_HELPER}
+            </Text>
+          </Row>
+          <Row
+            label="Handicap index"
+            value={handicap === '' ? 'Not set' : handicap}
+            serifValue={handicap !== ''}
+            open={openRow === 'handicap'}
+            onToggle={() => toggleRow('handicap')}
+          >
+            <TextInput
+              keyboardType="decimal-pad"
+              value={handicap}
+              accessibilityLabel="Handicap index"
+              onChangeText={setHandicap}
+              style={{ ...inputStyle, width: 120 }}
+            />
+          </Row>
+          <Row label="Skill level" value={skill ? SKILL_LABEL[skill] ?? skill : 'Not set'} open={openRow === 'skill'} onToggle={() => toggleRow('skill')}>
+            <Chips>
+              {SKILL_LEVELS.map((s) => (
+                <Chip key={s} label={SKILL_LABEL[s] ?? s} active={skill === s} onPress={() => setSkill(s)} />
+              ))}
+            </Chips>
+          </Row>
+          <Row label="Goal" value={goal ? GOAL_LABEL[goal] ?? goal : 'Not set'} open={openRow === 'goal'} onToggle={() => toggleRow('goal')}>
+            <Chips>
+              {GOALS.map((g) => (
+                <Chip key={g} label={GOAL_LABEL[g] ?? g} active={goal === g} onPress={() => setGoal(g)} />
+              ))}
+            </Chips>
+          </Row>
+          <Row label="Where you practice" value={facilitiesValue} open={openRow === 'facilities'} onToggle={() => toggleRow('facilities')}>
+            <Chips>
+              {FACILITIES.map((f) => (
+                <Chip key={f} label={FACILITY_LABEL[f] ?? f} active={facilities.includes(f)} onPress={() => toggleFacility(f)} />
+              ))}
+            </Chips>
+            <Hint>Plans only pick drills you can run where you practice.</Hint>
+          </Row>
+        </Group>
+
+        <Group title="Clubs and distances">
+          <NavRow label="My bag" value={bag.length > 0 ? `${bag.length} clubs in the bag` : ''} onPress={() => router.push('/(app)/bag')} first />
+          <Row label="Distances in" value={unit === 'meters' ? 'Metres' : 'Yards'} open={openRow === 'units'} onToggle={() => toggleRow('units')}>
+            <Chips>
+              <Chip label="Yards" active={unit === 'yards'} onPress={() => setUnit('yards')} />
+              <Chip label="Metres" active={unit === 'meters'} onPress={() => setUnit('meters')} />
+            </Chips>
+          </Row>
+          <Row label="You play" value={playsLefty ? 'Left-handed' : 'Right-handed'} open={openRow === 'plays'} onToggle={() => toggleRow('plays')}>
+            <Chips>
+              <Chip label="Right-handed" active={!playsLefty} onPress={() => setPlaysLefty(false)} />
+              <Chip label="Left-handed" active={playsLefty} onPress={() => setPlaysLefty(true)} />
+            </Chips>
+            <Hint>Mirrors the shot shape and start-line buttons: a left-hander’s draw curves the other way.</Hint>
+          </Row>
+        </Group>
+
+        <Group title="Email">
+          <Row label="Round summary" value={emailSummaries ? 'On' : 'Off'} open={openRow === 'email'} onToggle={() => toggleRow('email')} first>
+            <Chips>
+              <Chip label="On" active={emailSummaries} onPress={() => setEmailSummaries(true)} />
+              <Chip label="Off" active={!emailSummaries} onPress={() => setEmailSummaries(false)} />
+            </Chips>
+            <Hint>The morning after you play.</Hint>
+          </Row>
+        </Group>
+
+        {dirty ? (
+          <Key
+            accessibilityLabel={saving ? 'Saving profile' : 'Save profile changes'}
+            tone="primary"
+            onPress={save}
+            disabled={saving || usernameInvalid}
+            style={{ marginTop: -8, marginBottom: 28 }}
+            faceStyle={{ minHeight: 50 }}
+          >
+            <KeyText tone="primary" bold size={15} disabled={saving || usernameInvalid}>
+              {saving ? 'Saving…' : 'Save changes'}
+            </KeyText>
+          </Key>
+        ) : null}
+
+        <Group title="On this phone" note="These save straight away.">
+          <Row label="Aim view" value={aimTilt === 60 ? 'Flyover' : 'Flat'} open={openRow === 'aim'} onToggle={() => toggleRow('aim')} first>
+            <Chips>
+              <Chip label="Flat" active={aimTilt === 0} onPress={() => chooseAimTilt(0)} />
+              <Chip label="Flyover" active={aimTilt === 60} onPress={() => chooseAimTilt(60)} />
+            </Chips>
+          </Row>
+          <Row label="Live round layout" value={leftHand ? 'Left-handed' : 'Right-handed'} open={openRow === 'layout'} onToggle={() => toggleRow('layout')}>
+            <Chips>
+              <Chip label="Right-handed" active={!leftHand} onPress={() => chooseLeftHand(false)} />
+              <Chip label="Left-handed" active={leftHand} onPress={() => chooseLeftHand(true)} />
+            </Chips>
+          </Row>
+          <Row label="Sounds" value={sounds ? 'On' : 'Off'} open={openRow === 'sounds'} onToggle={() => toggleRow('sounds')}>
+            <Chips>
+              <Chip label="On" active={sounds} onPress={() => chooseSounds(true)} />
+              <Chip label="Off" active={!sounds} onPress={() => chooseSounds(false)} />
+            </Chips>
+          </Row>
+        </Group>
+
+        <Group title="Your data">
+          <NavRow label="Import rounds on the web" value="↗" onPress={() => void openWebImport()} first />
+        </Group>
+
+        <Group title="Help">
+          <NavRow
             label="Replay intro tour"
             onPress={() => router.navigate({ pathname: '/(app)', params: { replayTour: '1' } })}
+            first
           />
-        </View>
+          <NavRow label="Export diagnostic log" onPress={() => void exportDiagLog()} />
+          <NavRow label="OGA on the web" value="oga.golf ↗" onPress={() => Linking.openURL(WEB_URL)} />
+        </Group>
+        <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { color: P.inkDim, fontSize: 13, lineHeight: 19, marginTop: -16, marginBottom: 28 }]}>
+          Your rounds sync to the web: sign in at oga.golf with the same account for bigger charts.
+        </Text>
 
-        <View style={{ marginTop: 18 }}>
-          <SectionHead title="Help" />
-          <LinkKey
-            accessibilityLabel="Export diagnostic log"
-            label="Export diagnostic log"
-            onPress={() => void exportDiagLog()}
+        {/* iOS: no donation CTAs — App Review 3.1.1 requires IAP or removal.
+            A neutral website link (no payment framing) is allowed; donors
+            find Ko-fi / GitHub Sponsors on the site. Android keeps them. */}
+        {Platform.OS !== 'ios' && (
+          <Group title="Support OGA" note="OGA is free and open source. If it helps your game, consider buying us a round.">
+            <NavRow label="Ko-fi" value="↗" onPress={() => Linking.openURL('https://ko-fi.com/nartana')} first />
+            <NavRow label="GitHub Sponsors" value="↗" onPress={() => Linking.openURL('https://github.com/sponsors/cner-smith')} />
+          </Group>
+        )}
+
+        <Group title="Account">
+          <NavRow
+            label="Sign out"
+            danger
+            onPress={() => {
+              // Next sign-in must not render this account's cached screens.
+              clearScreenCache()
+              supabase.auth.signOut()
+            }}
+            first
           />
-        </View>
-
-        <Key
-          accessibilityLabel={saving ? 'Saving profile' : 'Save profile changes'}
-          tone="primary"
-          onPress={save}
-          disabled={saving || usernameInvalid}
-          style={{ marginTop: 18 }}
-          faceStyle={{ minHeight: 50 }}
-        >
-          <KeyText tone="primary" bold size={15} disabled={saving || usernameInvalid}>
-            {saving ? 'Saving…' : 'Save changes'}
-          </KeyText>
-        </Key>
-
-        <PaperTile style={{ marginTop: 28 }} innerStyle={{ padding: 18 }}>
-          <SectionHead title="OGA on the web" style={{ borderTopWidth: 0, paddingTop: 0, marginBottom: 8 }} />
-          <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { color: P.ink, fontSize: 14, lineHeight: 20, marginBottom: 14 }]}>
-            Your rounds sync to a free web dashboard. Sign in at oga.golf
-            with the same account for bigger stats, strokes gained, and
-            shot-pattern charts.
-          </Text>
-          <Key accessibilityLabel="Open the OGA website" onPress={() => Linking.openURL('https://oga.golf')} faceStyle={{ minHeight: 44 }}>
-            <KeyText size={13} bold>Website · oga.golf ↗</KeyText>
-          </Key>
-          {/* iOS: no donation CTAs — App Review 3.1.1 requires IAP or removal.
-              A neutral website link (no payment framing) is allowed; donors
-              find Ko-fi / GitHub Sponsors on the site. Android keeps them. */}
-          {Platform.OS !== 'ios' && (
-            <>
-              <SectionHead title="Support OGA" style={{ marginTop: 18, marginBottom: 8 }} />
-              <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { color: P.ink, fontSize: 14, lineHeight: 20, marginBottom: 14 }]}>
-                OGA is free and open source. If it helps your game,
-                consider buying us a round.
-              </Text>
-              <View style={{ flexDirection: 'row', gap: 10 }}>
-                <Key
-                  accessibilityLabel="Open Ko-fi sponsorship page"
-                  onPress={() => Linking.openURL('https://ko-fi.com/nartana')}
-                  style={{ flex: 1 }}
-                  faceStyle={{ minHeight: 44 }}
-                >
-                  <KeyText size={13} bold>Ko-fi ↗</KeyText>
-                </Key>
-                <Key
-                  accessibilityLabel="Open GitHub Sponsors page"
-                  onPress={() => Linking.openURL('https://github.com/sponsors/cner-smith')}
-                  style={{ flex: 1 }}
-                  faceStyle={{ minHeight: 44 }}
-                >
-                  <KeyText size={13} bold>GitHub ↗</KeyText>
-                </Key>
-              </View>
-            </>
-          )}
-        </PaperTile>
-
-        <Key
-          accessibilityLabel="Sign out"
-          onPress={() => {
-            // Next sign-in must not render this account's cached screens.
-            clearScreenCache()
-            supabase.auth.signOut()
-          }}
-          style={{ marginTop: 28 }}
-          faceStyle={{ minHeight: 46 }}
-        >
-          <KeyText size={14} style={{ color: P.neg }}>Sign out</KeyText>
-        </Key>
-
-        <Key
-          accessibilityLabel="Delete account"
-          onPress={() => setDeleteOpen(true)}
-          style={{ marginTop: 12 }}
-          faceStyle={{ minHeight: 46 }}
-        >
-          <KeyText size={14} bold style={{ color: P.neg }}>Delete account</KeyText>
-        </Key>
+          <NavRow label="Delete account" danger onPress={() => setDeleteOpen(true)} />
+        </Group>
       </ScrollView>
 
       <DeleteAccountModal
@@ -521,6 +484,124 @@ export default function ProfileTab() {
       />
     </PaperSurface>
   )
+}
+
+function Group({ title, note, children }: { title: string; note?: string; children: React.ReactNode }) {
+  return (
+    <View style={{ marginBottom: 28 }}>
+      <SectionHead title={title} style={{ marginBottom: note ? 2 : 0 }} />
+      {note ? (
+        <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { color: P.inkDim, fontSize: 13, lineHeight: 19, marginBottom: 4 }]}>
+          {note}
+        </Text>
+      ) : null}
+      {children}
+    </View>
+  )
+}
+
+// A settings row: plain label left, the current value right. Tapping opens
+// its editor underneath (one at a time).
+function Row({
+  label,
+  value,
+  serifValue,
+  open,
+  onToggle,
+  first,
+  children,
+}: {
+  label: string
+  value: string
+  serifValue?: boolean
+  open: boolean
+  onToggle: () => void
+  first?: boolean
+  children: React.ReactNode
+}) {
+  return (
+    <View style={{ borderTopWidth: first ? 0 : 1, borderColor: P.line }}>
+      <PressableTouch
+        accessibilityRole="button"
+        accessibilityLabel={`${label}, ${value}`}
+        accessibilityState={{ expanded: open }}
+        onPress={onToggle}
+        style={rowStyle}
+      >
+        <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { color: P.ink, fontSize: 15 }]}>
+          {label}
+        </Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexShrink: 1 }}>
+          <Text
+            maxFontSizeMultiplier={FONT_CAP}
+            numberOfLines={1}
+            style={[
+              serifValue ? TYPE.serifUpright : TYPE.body,
+              { color: serifValue ? P.ink : P.inkDim, fontSize: serifValue ? 18 : 15, flexShrink: 1, textAlign: 'right' },
+            ]}
+          >
+            {value}
+          </Text>
+          <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { color: P.ink45, fontSize: 16 }]}>
+            {open ? '⌃' : '⌄'}
+          </Text>
+        </View>
+      </PressableTouch>
+      {open ? <View style={{ paddingBottom: 16 }}>{children}</View> : null}
+    </View>
+  )
+}
+
+function NavRow({
+  label,
+  value,
+  danger,
+  first,
+  onPress,
+}: {
+  label: string
+  value?: string
+  danger?: boolean
+  first?: boolean
+  onPress: () => void
+}) {
+  return (
+    <PressableTouch
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      onPress={onPress}
+      style={[rowStyle, { borderTopWidth: first ? 0 : 1, borderColor: P.line }]}
+    >
+      <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { color: danger ? P.neg : P.ink, fontSize: 15 }]}>
+        {label}
+      </Text>
+      <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { color: P.inkDim, fontSize: 15 }]}>
+        {value ?? ''}
+        {danger ? '' : '  ›'}
+      </Text>
+    </PressableTouch>
+  )
+}
+
+function Chips({ children }: { children: React.ReactNode }) {
+  return <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>{children}</View>
+}
+
+function Hint({ children }: { children: React.ReactNode }) {
+  return (
+    <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { color: P.inkDim, fontSize: 12, lineHeight: 17, marginTop: 8 }]}>
+      {children}
+    </Text>
+  )
+}
+
+const rowStyle = {
+  minHeight: 52,
+  flexDirection: 'row' as const,
+  alignItems: 'center' as const,
+  justifyContent: 'space-between' as const,
+  gap: 16,
+  paddingVertical: 12,
 }
 
 const inputStyle = {
@@ -548,20 +629,6 @@ async function exportDiagLog() {
   } catch (err) {
     Alert.alert('Export failed', (err as Error).message)
   }
-}
-
-// A raised paper key standing in for a navigation row.
-function LinkKey({ label, accessibilityLabel, onPress }: { label: string; accessibilityLabel: string; onPress: () => void }) {
-  return (
-    <Key
-      accessibilityLabel={accessibilityLabel}
-      onPress={onPress}
-      faceStyle={{ minHeight: 50, flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 14 }}
-    >
-      <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.bodyBold, { color: P.ink, fontSize: 16 }]}>{label}</Text>
-      <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { color: P.forest, fontSize: 18 }]}>→</Text>
-    </Key>
-  )
 }
 
 // Two-phase confirmation for the irreversible account delete, in a SINGLE
@@ -676,15 +743,6 @@ function DeleteAccountModal({
   )
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <View style={{ marginBottom: 18 }}>
-      <SectionHead title={label} />
-      {children}
-    </View>
-  )
-}
-
 // Option chips in the paper style of the round screens (#611): a key that
 // sits latched (pressed in) while chosen.
 function Chip({
@@ -698,7 +756,7 @@ function Chip({
 }) {
   return (
     <Key accessibilityLabel={label} latched={active} onPress={onPress} faceStyle={{ minHeight: 40, paddingHorizontal: 12 }}>
-      <KeyText size={13} bold={active} style={{ textTransform: 'capitalize' }}>
+      <KeyText size={13} bold={active}>
         {label}
       </KeyText>
     </Key>

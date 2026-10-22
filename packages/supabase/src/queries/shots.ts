@@ -21,7 +21,7 @@ export const SHOT_COLUMNS = 'id, hole_score_id, user_id, shot_number, start_lat,
 // getShotsByClub consumers (web useShotPatterns + mobile patterns): coords,
 // distance, club, lie + slope axes, result flags. Drops the 9 putt-only /
 // aim_offset / break / notes columns that no pattern view reads.
-export const PATTERN_SHOT_COLUMNS = 'id, hole_score_id, user_id, shot_number, start_lat, start_lng, end_lat, end_lng, aim_lat, aim_lng, distance_to_target, club, lie_type, lie_slope, lie_slope_forward, lie_slope_side, shot_result, penalty, ob' as const
+export const PATTERN_SHOT_COLUMNS = 'id, hole_score_id, user_id, shot_number, start_lat, start_lng, end_lat, end_lng, aim_lat, aim_lng, distance_to_target, club, lie_type, lie_slope, lie_slope_forward, lie_slope_side, shot_result, contact, shape, start_line, penalty, ob' as const
 
 // getShotsForUser consumers (web + mobile useClubDispersion): only coords +
 // club are read for the aim-relative dispersion math.
@@ -48,7 +48,8 @@ export function getShotsByClub(
 ) {
   return client
     .from('shots')
-    .select(PATTERN_SHOT_COLUMNS)
+    // The round's date drives the recent-vs-all rings; round id, course and hole feed the shot readout.
+    .select(`${PATTERN_SHOT_COLUMNS}, hole_scores!inner(round_id, rounds(played_at, courses(name)), holes(number))`)
     .eq('user_id', userId)
     .eq('club', club)
     .not('aim_lat', 'is', null)
@@ -57,24 +58,38 @@ export function getShotsByClub(
     .limit(limit)
 }
 
-// All of a user's shots with aim+end coords, newest first, capped. Feeds
-// the live-round overlay, which builds per-club aim-relative dispersion in
-// ONE query (getShotsByClub is per-club). `start_lat` may be null — the
-// aim-relative math skips those rows, so we don't filter on it here.
-export function getShotsForUser(
-  client: OgaSupabaseClient,
-  userId: string,
-  limit = 1000,
-) {
-  return client
-    .from('shots')
-    .select(DISPERSION_SHOT_COLUMNS)
-    .eq('user_id', userId)
-    .not('aim_lat', 'is', null)
-    .not('end_lat', 'is', null)
-    .not('club', 'is', null)
-    .order('created_at', { ascending: false })
-    .limit(limit)
+// Every one of a user's shots with aim+end coords, newest first. Feeds the
+// live-round overlay, My Bag and the Patterns club ladder, which build
+// per-club counts, dispersion and median distance in ONE query
+// (getShotsByClub is per-club), so it pages past PostgREST's 1000-row cap
+// instead of silently truncating. `start_lat` may be null — the aim-relative
+// math skips those rows, so we don't filter on it here.
+const SHOTS_PAGE = 1000
+
+export async function getShotsForUser(client: OgaSupabaseClient, userId: string) {
+  // Keyset paging on (created_at, id), not offsets: a shot saved mid-fetch
+  // (the live round writes while the overlay reads) can't shift a page boundary.
+  const page = (after: { created_at: string; id: string } | null) => {
+    let q = client
+      .from('shots')
+      .select(`${DISPERSION_SHOT_COLUMNS}, created_at`)
+      .eq('user_id', userId)
+      .not('aim_lat', 'is', null)
+      .not('end_lat', 'is', null)
+      .not('club', 'is', null)
+    if (after) {
+      q = q.or(`created_at.lt."${after.created_at}",and(created_at.eq."${after.created_at}",id.lt.${after.id})`)
+    }
+    return q.order('created_at', { ascending: false }).order('id', { ascending: false }).limit(SHOTS_PAGE)
+  }
+  const rows: NonNullable<Awaited<ReturnType<typeof page>>['data']> = []
+  for (let after = null as { created_at: string; id: string } | null; ; ) {
+    const { data, error } = await page(after)
+    if (error) return { data: null, error }
+    rows.push(...data)
+    if (data.length < SHOTS_PAGE) return { data: rows, error: null }
+    after = data[data.length - 1] ?? null
+  }
 }
 
 export function createShot(client: OgaSupabaseClient, shot: ShotInsert) {

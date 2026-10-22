@@ -200,7 +200,7 @@ export function LiveRoundDock(p: LiveRoundDockProps) {
             {keys}
             {!putting && p.hasPin && (
               <CoachTarget id="live.wheel">
-                {/* Keyed by shot: each shot starts at the key, not an open wheel. */}
+                {/* Keyed by shot to reset the card's animation; open state is the parent's. */}
                 <ClubWheel key={p.totalShotsThisHole} {...p.wheel} />
               </CoachTarget>
             )}
@@ -384,6 +384,8 @@ export interface WheelProps {
   /** The app's pick for this shot; null when no club has a pattern yet. */
   auto: Club | null
   onPick: (club: Club) => void
+  open: boolean
+  onOpenChange: (open: boolean) => void
 }
 
 // Row centres at rest: a 49 neighbour + half the 60 centre block (F6).
@@ -397,8 +399,7 @@ const SPRING = { stiffness: 420, damping: 32, mass: 1 }
 // rest it's a small key that opens the wheel, and a pick closes it.
 function ClubWheel(props: WheelProps) {
   const { toDisplay, unit } = useUnits()
-  const [open, setOpen] = useState(false)
-  if (open) return <ClubWheelCard {...props} onDone={() => setOpen(false)} />
+  if (props.open) return <ClubWheelCard {...props} onDone={() => props.onOpenChange(false)} />
   const row = props.rows.find((r) => r.club === props.selected) ?? props.rows[0]
   if (!row) return null
   // No auto pick when no club has a pattern yet: then neither caption applies.
@@ -412,7 +413,7 @@ function ClubWheel(props: WheelProps) {
   return (
     <Key
       accessibilityLabel={`${spoken.filter(Boolean).join(', ')}. Change it`}
-      onPress={() => setOpen(true)}
+      onPress={() => props.onOpenChange(true)}
       faceStyle={{ minHeight: 52, flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 10 }}
     >
       <Text allowFontScaling={false} style={[TYPE.serif, { fontSize: 26, color: P.ink }]}>{row.label}</Text>

@@ -25,7 +25,7 @@ function payload() {
 
 let createdRoundId: string | null = null
 
-test.describe('Import from data (signed in, mutating)', () => {
+test.describe('Import OGA JSON (signed in, mutating)', () => {
   test.afterEach(async () => {
     if (createdRoundId) {
       // Cascades through hole_scores + shots via FK.
@@ -38,9 +38,11 @@ test.describe('Import from data (signed in, mutating)', () => {
     page,
   }) => {
     await page.goto('/rounds/import')
-    await expect(
-      page.getByRole('heading', { name: /Import from data/i }),
-    ).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Import rounds' })).toBeVisible()
+    // The page opens on Golf Pad; OGA JSON sits behind a quiet link.
+    await expect(page.getByLabel('Golf Pad export files')).toBeAttached()
+    await expect(page.getByPlaceholder('{"played_at"')).toHaveCount(0)
+    await page.getByRole('button', { name: 'Import OGA JSON' }).click()
 
     await page.getByPlaceholder('{"played_at"').fill(payload())
     await expect(page.getByText(/Looks good/i)).toBeVisible()
@@ -55,7 +57,7 @@ test.describe('Import from data (signed in, mutating)', () => {
       .first()
       .click()
     await expect(
-      page.getByText(new RegExp(`Selected: ${COURSE_NAME}`, 'i')),
+      page.getByRole('region', { name: 'Course' }).getByText(COURSE_NAME, { exact: true }),
     ).toBeVisible()
 
     await page.getByRole('button', { name: /^Import round$/i }).click()

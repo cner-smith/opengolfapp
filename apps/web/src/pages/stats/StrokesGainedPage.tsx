@@ -38,9 +38,6 @@ export function StrokesGainedPage() {
         style={{ marginBottom: 28 }}
       >
         <div>
-          <div className="kicker" style={{ marginBottom: 8 }}>
-            Performance ledger
-          </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <h1
               className="font-serif text-caddie-ink"

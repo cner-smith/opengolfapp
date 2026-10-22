@@ -138,7 +138,7 @@ function BuiltDiagram() {
 const ANSWERS = [
   ['Where do my misses go?', 'Right, and a touch short'],
   ['How far does it really go?', '146 yd is a typical 7-iron'],
-  ['Where should I aim?', '6 yd left of your target'],
+  ['Where should I aim?', 'Move your aim 6 yd left'],
   ['And if I aim there?', '15 of 24 on the green, not 9'],
 ] as const
 
@@ -193,7 +193,6 @@ export function PatternsEmpty() {
 export function PatternExplainer() {
   return (
     <section id="how-pattern-built" style={{ borderTop: '1px solid #D9D2BF', paddingTop: 14, marginTop: 36, scrollMarginTop: 24 }}>
-      <div className="kicker" style={{ marginBottom: 6 }}>How it works</div>
       <h2 className="font-serif text-caddie-ink" style={{ fontSize: 24, fontStyle: 'italic', fontWeight: 500, marginBottom: 16 }}>
         How your pattern is built
       </h2>

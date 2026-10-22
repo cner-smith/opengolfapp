@@ -55,9 +55,10 @@ export function TeeSelector({ courseId, selectedTeeId, onSelect }: Props) {
             type="button"
             onClick={() => onSelect(t.id, t.tee_color)}
             className="flex items-baseline justify-between"
+            aria-pressed={active}
             style={{
-              background: active ? '#1F3D2C' : '#FBF8F1',
-              color: active ? '#F2EEE5' : '#1C211C',
+              background: active ? '#FBF8F1' : 'transparent',
+              color: '#1C211C',
               border: `1px solid ${active ? '#1F3D2C' : '#D9D2BF'}`,
               borderRadius: 2,
               padding: '12px 14px',
@@ -71,22 +72,15 @@ export function TeeSelector({ courseId, selectedTeeId, onSelect }: Props) {
               style={{
                 fontSize: 17,
                 fontWeight: 500,
-                fontStyle: 'italic',
+                fontStyle: active ? 'italic' : 'normal',
                 textTransform: 'capitalize',
               }}
             >
               {t.tee_color}
             </span>
-            <span
-              className="font-mono uppercase tabular"
-              style={{
-                fontSize: 10,
-                letterSpacing: '0.14em',
-                color: active ? 'rgba(242,238,229,0.75)' : '#5C6356',
-              }}
-            >
+            <span className="tabular text-caddie-ink-dim" style={{ fontSize: 13 }}>
               {hasRating
-                ? `${t.course_rating?.toFixed(1)} / ${t.slope_rating}`
+                ? `Rating ${t.course_rating?.toFixed(1)} · slope ${t.slope_rating}`
                 : 'No rating'}
               {t.total_yards != null ? ` · ${toDisplay(t.total_yards)}` : ''}
             </span>
@@ -98,17 +92,16 @@ export function TeeSelector({ courseId, selectedTeeId, onSelect }: Props) {
         <button
           type="button"
           onClick={() => setAdding(true)}
-          className="font-mono uppercase text-caddie-ink-dim hover:text-caddie-ink"
+          className="text-caddie-ink-dim hover:text-caddie-ink"
           style={{
             background: 'transparent',
             border: '1px dashed #D9D2BF',
             borderRadius: 2,
             padding: '10px 14px',
-            fontSize: 11,
-            letterSpacing: '0.14em',
+            fontSize: 14,
           }}
         >
-          + Add tee
+          + Add a tee
         </button>
       ) : (
         <AddTeeForm
@@ -178,12 +171,12 @@ function AddTeeForm({
         gap: 10,
       }}
     >
-      <div className="kicker">Add tee</div>
+      <div className="text-caddie-ink" style={{ fontSize: 15, fontWeight: 500 }}>Add a tee</div>
       <div
         className="grid grid-cols-2 sm:grid-cols-4"
         style={{ gap: 8 }}
       >
-        <Field label="Color">
+        <Field label="Colour">
           <input
             value={color}
             onChange={(e) => setColor(e.target.value)}
@@ -272,10 +265,7 @@ function Field({
 }) {
   return (
     <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-      <span
-        className="font-mono uppercase text-caddie-ink-mute"
-        style={{ fontSize: 9, letterSpacing: '0.14em' }}
-      >
+      <span className="text-caddie-ink-dim" style={{ fontSize: 12 }}>
         {label}
       </span>
       {children}

@@ -8,6 +8,7 @@ import {
   destinationYards,
   formatClubLabel,
   formatDistance,
+  formatPuttDistance,
   getExpectedStrokes,
   startCategory,
   isPuttShot,
@@ -667,19 +668,22 @@ export function PastRoundMap({
     heroShot?.start && effectivePin ? distanceYards(heroShot.start, effectivePin) : null
   const heroPutt = isPuttShot(heroRow?.lie_type ?? null)
   const heroTee = (par === 4 || par === 5) && (heroRow ? heroRow.shot_number === 1 : placedReal.length === 0)
+  // A putt reads its saved putt length, in putt units, so the hero, the flag
+  // callout and the stepper ("Putt · 3 ft") show one number.
+  const heroFeet = heroPutt
+    ? heroRow?.putt_distance_ft ?? heroRow?.distance_to_target ?? (heroYards == null ? null : heroYards * 3)
+    : null
   const heroDistance =
-    heroYards == null
-      ? null
-      : splitDisplay(
-          heroPutt && unit !== 'meters'
-            ? `${(heroYards * 3).toFixed(1)} ft`
-            : formatDistance(heroYards, unit, 1),
-        )
+    heroFeet != null
+      ? splitDisplay(formatPuttDistance(heroFeet, unit))
+      : heroYards == null
+        ? null
+        : splitDisplay(formatDistance(heroYards, unit, 1))
   const expected =
-    heroYards == null
-      ? null
-      : heroPutt
-        ? getExpectedStrokes('putting', undefined, heroYards * 3, handicap)
+    heroFeet != null
+      ? getExpectedStrokes('putting', undefined, heroFeet, handicap)
+      : heroYards == null
+        ? null
         : getExpectedStrokes(startCategory(heroYards, heroTee), Math.round(heroYards), undefined, handicap)
 
   // Corner (§19.9 A). While logging, the map keeps hole_scores.score equal
@@ -723,10 +727,19 @@ export function PastRoundMap({
   const legEnd = aimLeg ?? nextStart ?? effectivePin
   const club = activeShotRow?.club ? formatClubLabel({ club_type: activeShotRow.club }) : null
   const legTo = aimLeg ? 'aim' : nextStart ? `to shot ${(active?.shotNumber ?? 0) + 1}` : 'to the pin'
+  // The callout sits on the hero's shot (active has a start), so a putt's leg
+  // to the pin is the hero's putt length.
+  const legFeet = isPuttShot(activeShotRow?.lie_type ?? null) && active?.start && legEnd
+    ? (legTo === 'to the pin' && heroFeet != null) ? heroFeet : distanceYards(active.start, legEnd) * 3
+    : null
   const callout =
     active?.start && legEnd
       ? {
-          ...splitDisplay(formatDistance(distanceYards(active.start, legEnd), unit, 1)),
+          ...splitDisplay(
+            legFeet != null
+              ? formatPuttDistance(legFeet, unit)
+              : formatDistance(distanceYards(active.start, legEnd), unit, 1),
+          ),
           sub: club ? `${club} · ${legTo}` : legTo,
         }
       : null

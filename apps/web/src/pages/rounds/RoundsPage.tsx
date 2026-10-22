@@ -4,9 +4,26 @@ import { partialRoundLabel } from '@oga/core'
 import { useDeleteRound, useRounds } from '../../hooks/useRounds'
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
 import { toUserMessage } from '../../lib/errors'
+import { formatPlayed } from '../dashboard/DashboardPage'
+
+const primaryButton: React.CSSProperties = {
+  padding: '12px 16px',
+  fontSize: 14,
+  fontWeight: 600,
+  letterSpacing: '0.02em',
+  borderRadius: 2,
+}
+
+const secondaryButton: React.CSSProperties = { ...primaryButton, border: '1px solid #1F3D2C' }
+
+// Tee names are stored as typed ("black", "Blue"); read them in sentence case.
+function teeLabel(tee: string): string {
+  return `${tee.charAt(0).toUpperCase()}${tee.slice(1)} tees`
+}
 
 export function RoundsPage() {
-  const { data: rounds, isLoading, error } = useRounds()
+  // The whole history, as the app's list does (an import can bring years of rounds).
+  const { data: rounds, isLoading, error } = useRounds(500)
   const deleteMutation = useDeleteRound()
   const [pendingDelete, setPendingDelete] = useState<{
     id: string
@@ -17,12 +34,9 @@ export function RoundsPage() {
     <div>
       <div
         className="flex flex-col sm:flex-row sm:items-end sm:justify-between"
-        style={{ marginBottom: 28, gap: 14 }}
+        style={{ marginBottom: 22, gap: 14 }}
       >
         <div>
-          <div className="kicker" style={{ marginBottom: 8 }}>
-            Logbook
-          </div>
           <h1
             className="font-serif text-caddie-ink"
             style={{ fontSize: 28, fontWeight: 500, lineHeight: 1.15 }}
@@ -39,35 +53,11 @@ export function RoundsPage() {
           )}
         </div>
         <div className="flex" style={{ gap: 8 }}>
-          <Link
-            to="/rounds/import"
-            className="bg-caddie-surface text-caddie-ink hover:bg-caddie-surface-2"
-            style={{
-              padding: '12px 16px',
-              fontSize: 14,
-              fontWeight: 600,
-              letterSpacing: '0.02em',
-              borderRadius: 2,
-              border: '0.5px solid #E4E4E0',
-            }}
-          >
-            Import from data
+          <Link to="/rounds/import" className="text-caddie-accent hover:bg-caddie-surface" style={secondaryButton}>
+            Import rounds
           </Link>
-          <Link
-            to="/rounds/new"
-            className="bg-caddie-accent text-caddie-accent-ink hover:opacity-90"
-            style={{
-              padding: '12px 16px',
-              fontSize: 14,
-              fontWeight: 600,
-              letterSpacing: '0.02em',
-              borderRadius: 2,
-            }}
-          >
-            New round{' '}
-            <span className="font-serif" style={{ fontStyle: 'italic' }}>
-              →
-            </span>
+          <Link to="/rounds/new" className="bg-caddie-accent text-caddie-accent-ink hover:opacity-90" style={primaryButton}>
+            New round <span className="font-serif" style={{ fontStyle: 'italic' }}>→</span>
           </Link>
         </div>
       </div>
@@ -109,119 +99,74 @@ export function RoundsPage() {
           </div>
           <div
             className="text-caddie-ink-dim"
-            style={{ fontSize: 15, marginTop: 8 }}
+            style={{ fontSize: 15, marginTop: 8, maxWidth: 380, marginInline: 'auto' }}
           >
-            Log your first round to start tracking strokes gained.
+            Log your first round, or bring your history from another app, to start tracking strokes gained.
           </div>
-          <Link
-            to="/rounds/new"
-            className="bg-caddie-accent text-caddie-accent-ink"
-            style={{
-              display: 'inline-block',
-              padding: '12px 16px',
-              fontSize: 14,
-              fontWeight: 600,
-              letterSpacing: '0.02em',
-              borderRadius: 2,
-              marginTop: 22,
-            }}
-          >
-            Log a round{' '}
-            <span className="font-serif" style={{ fontStyle: 'italic' }}>
-              →
-            </span>
-          </Link>
+          <div className="flex flex-wrap justify-center" style={{ gap: 8, marginTop: 22 }}>
+            <Link to="/rounds/new" className="bg-caddie-accent text-caddie-accent-ink hover:opacity-90" style={primaryButton}>
+              Log a round <span className="font-serif" style={{ fontStyle: 'italic' }}>→</span>
+            </Link>
+            <Link to="/rounds/import" className="text-caddie-accent hover:bg-caddie-bg" style={secondaryButton}>
+              Import your history
+            </Link>
+          </div>
         </div>
       )}
 
       {rounds && rounds.length > 0 && (
-        <div style={{ borderTop: '1px solid #D9D2BF' }}>
-          {rounds.map((r) => (
-            <div
-              key={r.id}
-              className="flex items-center transition-colors hover:bg-caddie-surface"
-              style={{
-                padding: '14px 8px',
-                borderBottom: '1px solid #D9D2BF',
-                gap: 12,
-              }}
-            >
-              <Link
-                to={`/rounds/${r.id}`}
-                className="flex flex-1 items-center justify-between"
-                style={{ gap: 12 }}
+        <ul style={{ borderTop: '1px solid #D9D2BF' }}>
+          {rounds.map((r) => {
+            const name = r.courses?.name ?? 'Round'
+            return (
+              <li
+                key={r.id}
+                className="flex items-center"
+                style={{ borderBottom: '1px solid #D9D2BF', gap: 6 }}
               >
-                <div className="min-w-0 flex-1">
-                  <div
-                    className="font-mono uppercase tabular text-caddie-ink-mute truncate"
-                    style={{
-                      fontSize: 10,
-                      letterSpacing: '0.14em',
-                      marginBottom: 6,
-                    }}
-                  >
-                    {r.played_at}
-                    {r.tee_color ? ` · ${r.tee_color} tees` : ''}
-                    {partialRoundLabel(r.hole_scores)}
-                  </div>
-                  <div
-                    className="font-serif text-caddie-ink truncate"
-                    style={{
-                      fontSize: 22,
-                      fontWeight: 500,
-                      lineHeight: 1.15,
-                    }}
-                  >
-                    {r.courses?.name ?? 'Round'}
-                  </div>
-                </div>
-                <div
-                  className="flex items-baseline"
-                  style={{ gap: 24 }}
+                <Link
+                  to={`/rounds/${r.id}`}
+                  className="flex min-w-0 flex-1 items-center justify-between transition-colors hover:bg-caddie-surface"
+                  style={{ padding: '14px 8px', gap: 16 }}
                 >
-                  <div className="text-right">
-                    <div className="kicker" style={{ marginBottom: 4 }}>
-                      Score
-                    </div>
+                  <div className="min-w-0 flex-1">
                     <div
+                      className="font-serif text-caddie-ink truncate"
+                      style={{ fontSize: 19, fontWeight: 500, lineHeight: 1.2 }}
+                    >
+                      {name}
+                    </div>
+                    <div className="text-caddie-ink-dim truncate" style={{ fontSize: 13, marginTop: 3 }}>
+                      {formatPlayed(r.played_at)}
+                      {r.tee_color ? ` · ${teeLabel(r.tee_color)}` : ''}
+                      {partialRoundLabel(r.hole_scores)}
+                    </div>
+                  </div>
+                  <div className="flex items-baseline" style={{ gap: 18 }}>
+                    <span
                       className="font-serif tabular text-caddie-ink"
-                      style={{ fontSize: 28, fontWeight: 500, lineHeight: 1 }}
+                      style={{ fontSize: 24, fontWeight: 500, lineHeight: 1 }}
                     >
                       {r.total_score ? r.total_score : '—'}
-                    </div>
+                    </span>
+                    <span className="hidden sm:inline-block text-right" style={{ minWidth: 56 }}>
+                      <SGValue value={r.sg_total} />
+                    </span>
                   </div>
-                  <div className="text-right hidden sm:block" style={{ minWidth: 80 }}>
-                    <div className="kicker" style={{ marginBottom: 4 }}>
-                      SG
-                    </div>
-                    <SGValue value={r.sg_total} />
-                  </div>
-                </div>
-              </Link>
-              <button
-                type="button"
-                onClick={() =>
-                  setPendingDelete({
-                    id: r.id,
-                    name: r.courses?.name ?? 'this round',
-                  })
-                }
-                aria-label={`Delete round at ${r.courses?.name ?? 'this round'}`}
-                className="text-caddie-ink-mute hover:text-caddie-neg"
-                style={{
-                  background: 'transparent',
-                  border: 'none',
-                  padding: 8,
-                  fontSize: 18,
-                  lineHeight: 1,
-                  cursor: 'pointer',
-                }}
-              >
-                <TrashIcon />
-              </button>
-            </div>
-          ))}
-        </div>
+                </Link>
+                <button
+                  type="button"
+                  onClick={() => setPendingDelete({ id: r.id, name: r.courses?.name ?? 'this round' })}
+                  aria-label={`Delete round at ${r.courses?.name ?? 'this round'}`}
+                  className="text-caddie-ink-mute hover:text-caddie-neg hover:underline underline-offset-4"
+                  style={{ background: 'transparent', border: 'none', padding: '14px 4px 14px 8px', fontSize: 13, cursor: 'pointer' }}
+                >
+                  Delete
+                </button>
+              </li>
+            )
+          })}
+        </ul>
       )}
 
       <ConfirmDialog
@@ -250,32 +195,12 @@ export function RoundsPage() {
   )
 }
 
-function TrashIcon() {
-  return (
-    <svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-      <path
-        d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m1 0v14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2V6h12Z"
-        stroke="currentColor"
-        strokeWidth={1.5}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <path
-        d="M10 11v6M14 11v6"
-        stroke="currentColor"
-        strokeWidth={1.5}
-        strokeLinecap="round"
-      />
-    </svg>
-  )
-}
-
 function SGValue({ value }: { value: number | null }) {
   if (value === null) {
     return (
       <span
         className="font-serif text-caddie-ink-mute"
-        style={{ fontSize: 22 }}
+        style={{ fontSize: 17 }}
       >
         —
       </span>
@@ -287,7 +212,7 @@ function SGValue({ value }: { value: number | null }) {
       className="font-serif tabular"
       style={{
         color,
-        fontSize: 22,
+        fontSize: 17,
         fontStyle: 'italic',
         fontWeight: 500,
         lineHeight: 1,

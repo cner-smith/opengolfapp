@@ -1,4 +1,4 @@
-import type { BlockType, PlanCategory } from '@oga/core'
+import type { BlockType, PlanCategory, StoredSession } from '@oga/core'
 
 // Shared drill-display vocabulary + the instructions renderer, used by both
 // PracticePlanPage (plan blocks) and DrillLibraryPage (browse-all). Extracted
@@ -26,6 +26,15 @@ export const FACILITY_LABEL: Record<string, string> = {
   short_game: 'Short game',
   putting: 'Putting green',
   sim: 'Simulator',
+  course: 'Course',
+}
+
+// The stored plan's `drills` column is `Json | null`; the engine writes
+// { sessions: StoredSession[] }. Narrowed here for both the plan and the
+// library's "In this week's plan" toggle.
+export function planSessions(value: unknown): StoredSession[] {
+  const sessions = (value as { sessions?: unknown } | null)?.sessions
+  return Array.isArray(sessions) ? (sessions as StoredSession[]) : []
 }
 
 // Tiny markdown-ish renderer scoped to the drill `instructions` format.
@@ -72,4 +81,56 @@ export function renderInstructions(text: string): React.ReactNode {
       )}
     </p>
   ))
+}
+
+// One colour per practice mode for the stacked minutes bars and the drill
+// swatches: forest tints for reps, amber for the pressure game, paper greys
+// for the warm-up and the course.
+export const MODE_COLOR: Record<BlockType, string> = {
+  warmup: '#C9C1AC',
+  blocked: '#1F3D2C',
+  random: '#4F6B58',
+  skill_game: '#8FA493',
+  pressure_game: '#A66A1F',
+  on_course: '#5C6356',
+}
+
+const MODE_ORDER: BlockType[] = ['warmup', 'blocked', 'random', 'skill_game', 'pressure_game', 'on_course']
+
+export function ModeSwatch({ type }: { type: BlockType }) {
+  return (
+    <span
+      aria-hidden
+      style={{ display: 'inline-block', width: 8, height: 8, background: MODE_COLOR[type] ?? '#8A8B7E', borderRadius: 1, flexShrink: 0 }}
+    />
+  )
+}
+
+/** A session's minutes as one bar stacked by practice mode, the modes named under it. */
+export function ModeBar({ parts }: { parts: { type: BlockType; minutes: number }[] }) {
+  const byMode = new Map<BlockType, number>()
+  for (const p of parts) byMode.set(p.type, (byMode.get(p.type) ?? 0) + p.minutes)
+  const modes = MODE_ORDER.filter((m) => (byMode.get(m) ?? 0) > 0)
+  if (modes.length === 0) return null
+  return (
+    <div>
+      <div
+        role="img"
+        aria-label={modes.map((m) => `${BLOCK_TYPE_LABEL[m]} ${byMode.get(m)} min`).join(', ')}
+        style={{ display: 'flex', height: 10, gap: 2 }}
+      >
+        {modes.map((m) => (
+          <div key={m} style={{ flex: byMode.get(m)!, background: MODE_COLOR[m], borderRadius: 1 }} />
+        ))}
+      </div>
+      <div className="text-caddie-ink-dim" style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 14px', fontSize: 12, marginTop: 8 }}>
+        {modes.map((m) => (
+          <span key={m} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <ModeSwatch type={m} />
+            {BLOCK_TYPE_LABEL[m]} <span className="font-serif tabular text-caddie-ink">{byMode.get(m)}</span>
+          </span>
+        ))}
+      </div>
+    </div>
+  )
 }

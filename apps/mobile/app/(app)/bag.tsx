@@ -4,7 +4,6 @@ import {
   KeyboardAvoidingView,
   Modal,
   Platform,
-  Pressable,
   ScrollView,
   Text,
   TextInput,
@@ -17,22 +16,29 @@ import {
   CLUB_CATEGORIES,
   CLUB_CATEGORY_LABELS,
   clubCategoryFor,
+  bagGaps,
   clubTypicalDistance,
+  distanceUnitAbbr,
   formatClubLabel,
+  MIN_SAMPLES_FOR_STATS,
+  wholeDistance,
   type Club,
   type ClubCategory,
+  type DistanceUnit,
 } from '@oga/core'
 import DraggableFlatList, {
   type RenderItemParams,
 } from 'react-native-draggable-flatlist'
 import { GestureHandlerRootView } from 'react-native-gesture-handler'
 import { AppBar } from '../../components/ui/AppBar'
+import { PressableTouch } from '../../components/ui/PressableTouch'
 import { TYPE } from '../../lib/typography'
 import { Key, KeyText, PaperSurface } from '../../components/paper/Paper'
 import { FONT_CAP, P, R } from '../../components/paper/tokens'
 import { useAuth } from '../../hooks/useAuth'
 import { useUnits } from '../../hooks/useUnits'
 import { useClubDispersion } from '../../components/round/hole/useClubDispersion'
+import { GapChart, type ChartClub } from '../../components/bag/GapChart'
 import {
   deleteClub,
   reorderClubs,
@@ -80,13 +86,27 @@ export default function BagScreen() {
   // Typical distance per row: measured from the player's shots once a club
   // has enough of them (the live wheel's rule), else the typed estimate (#1052).
   const { byClub } = useClubDispersion(user?.id)
-  const { toDisplay } = useUnits()
-  function distanceLabel(c: UserClub): string {
+  const { unit } = useUnits()
+  // Every in-bag club's typical distance and range, in the bag's own order;
+  // core's bagGaps reads the holes, overlaps and the headline from them.
+  const inBag = bag.filter((c) => c.in_bag)
+  const benched = bag.filter((c) => !c.in_bag)
+  const readings: Reading[] = inBag.map((c) => {
     const d = byClub.get(c.club_type as Club)
     const shots = d?.points.length ?? 0
-    const t = clubTypicalDistance(d?.medianDistanceYards, shots, c.typical_distance_yards)
-    if (!t) return ''
-    return ` · ${toDisplay(t.yards)} · ${t.source === 'shots' ? `from ${shots} shots` : 'estimate'}`
+    const typical = clubTypicalDistance(d?.medianDistanceYards, shots, c.typical_distance_yards)
+    return { id: c.id, clubType: c.club_type, typical, range: typical?.source === 'shots' ? (d?.range ?? null) : null, shots }
+  })
+  const readingOf = new Map(readings.map((r) => [r.id, r]))
+  const gaps = bagGaps(readings, unit)
+  // The gap printed on the rule above a club: only between neighbours on the
+  // card that both have a number.
+  const gapAbove = new Map<string, { yards: number; widest: boolean }>()
+  for (const g of gaps.gaps) {
+    if (g.kind === 'not measured') continue
+    const [i, j] = [inBag.findIndex((c) => c.id === g.longer.id), inBag.findIndex((c) => c.id === g.shorter.id)]
+    if (Math.abs(i - j) !== 1) continue
+    gapAbove.set(inBag[Math.max(i, j)]!.id, { yards: g.yards, widest: g === gaps.widest })
   }
   const [showAdd, setShowAdd] = useState(false)
   const [draft, setDraft] = useState<AddDraft>(EMPTY_DRAFT)
@@ -97,6 +117,7 @@ export default function BagScreen() {
   // Lets the user enter a free-text club_type when the canonical chip
   // list for the chosen category doesn't cover what they carry.
   const [customMode, setCustomMode] = useState(false)
+  const editingClub = editingId ? bag.find((c) => c.id === editingId) ?? null : null
 
   async function toggleInBag(c: UserClub) {
     if (!user) return
@@ -237,7 +258,8 @@ export default function BagScreen() {
     try {
       await reorderClubs(
         user.id,
-        reordered.map((c) => c.id),
+        // The card drags only clubs in the bag; the bench keeps its place after them.
+        [...reordered, ...bag.filter((c) => !c.in_bag)].map((c) => c.id),
       )
     } catch (e) {
       Alert.alert('Reorder failed', (e as Error).message)
@@ -248,24 +270,16 @@ export default function BagScreen() {
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: '#F2EEE5' }}>
       <PaperSurface style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />
       <AppBar
-        eyebrow="Equipment"
-        title="My bag."
+        title="My bag"
         right={
-          <Pressable
+          <PressableTouch
             onPress={() => router.back()}
             accessibilityRole="button"
             accessibilityLabel="Back to profile"
             hitSlop={10}
           >
-            <Text
-              style={[TYPE.body, {
-                color: 'rgba(242,238,229,0.75)',
-                fontSize: 13,
-              }]}
-            >
-              ← Back
-            </Text>
-          </Pressable>
+            <Text style={[TYPE.body, { color: 'rgba(242,238,229,0.75)', fontSize: 13 }]}>← Back</Text>
+          </PressableTouch>
         }
       />
       {isLoading && (
@@ -282,7 +296,7 @@ export default function BagScreen() {
       )}
       {!isLoading && !error && (
         <DraggableFlatList
-          data={bag}
+          data={inBag}
           keyExtractor={(c) => c.id}
           onDragEnd={({ data }) => onDragEnd(data)}
           // The list is the last child of a flex:1 root next to the AppBar.
@@ -290,50 +304,81 @@ export default function BagScreen() {
           // footer (Add club / Reset to default bag) off-screen with no
           // scroll — react-native-draggable-flatlist needs flex:1 here (#528).
           containerStyle={{ flex: 1 }}
-          contentContainerStyle={{ padding: 18, paddingBottom: insets.bottom + 24 }}
+          contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + 24 }}
           ListHeaderComponent={
-            <View style={{ marginBottom: 18 }}>
-              <Text style={[TYPE.body, { color: '#5C6356', fontSize: 14, marginBottom: 6 }]}>
-                Add the clubs you carry. Only these clubs appear when logging
-                shots.
+            <View>
+              <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { color: P.inkDim, fontSize: 14, lineHeight: 20, marginBottom: 18 }]}>
+                {bag.length > 0
+                  ? `${inBag.length} club${inBag.length === 1 ? '' : 's'} in the bag${benched.length ? `, ${benched.length} on the bench` : ''}. Only clubs in the bag show when you log a shot.`
+                  : 'The clubs you carry. Only these show when you log a shot.'}
               </Text>
-              <Text style={[TYPE.body, { color: '#8A8B7E', fontSize: 12 }]}>
-                Hold a club to drag it. Benched clubs stay saved but are
-                hidden from the shot logger.
-              </Text>
+              <GapChart gaps={gaps} unit={unit} />
+              {/* Top of the yardage card: title, then the column heads on an ink rule. */}
+              <View style={[CARD_SIDES, { borderTopWidth: 1, paddingTop: 14 }]}>
+                <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.serif, { color: P.ink, fontSize: 20 }]}>Yardage card</Text>
+                <View style={{ flexDirection: 'row', marginTop: 10, paddingBottom: 5, borderBottomWidth: 1.5, borderColor: P.ink }}>
+                  <Text maxFontSizeMultiplier={FONT_CAP} style={[META, { flex: 1, paddingLeft: HANDLE }]}>Club</Text>
+                  <Text maxFontSizeMultiplier={FONT_CAP} style={[META, { width: PLAYS, textAlign: 'right' }]}>Plays</Text>
+                  <Text maxFontSizeMultiplier={FONT_CAP} style={[META, { width: TYPICAL, textAlign: 'right' }]}>Typical, {distanceUnitAbbr(unit)}</Text>
+                </View>
+              </View>
             </View>
           }
-          renderItem={({ item, drag, isActive }: RenderItemParams<UserClub>) => (
+          renderItem={({ item, drag, isActive, getIndex }: RenderItemParams<UserClub>) => (
             <ClubRow
               club={item}
+              first={getIndex() === 0}
               isActive={isActive}
               hasDuplicateType={(clubTypeCounts.get(item.club_type) ?? 0) > 1}
-              distance={distanceLabel(item)}
+              reading={readingOf.get(item.id)}
+              unit={unit}
+              gap={gapAbove.get(item.id) ?? null}
               onLongPress={drag}
-              onToggle={() => toggleInBag(item)}
-              onDelete={() => confirmDelete(item)}
               onEdit={() => startEdit(item)}
             />
           )}
           ListFooterComponent={
-            <View style={{ marginTop: 22, gap: 12 }}>
-              <Key
-                tone="primary"
-                accessibilityLabel="Add club"
-                onPress={() => setShowAdd(true)}
-                faceStyle={{ minHeight: 48 }}
-              >
-                <KeyText tone="primary" bold>
-                  Add club →
-                </KeyText>
-              </Key>
-              <Key
-                accessibilityLabel="Reset to default bag"
-                onPress={confirmReset}
-                faceStyle={{ minHeight: 44 }}
-              >
-                <KeyText size={13}>Reset to default bag</KeyText>
-              </Key>
+            <View>
+              <View style={[CARD_SIDES, { borderBottomWidth: 1, paddingTop: 10, paddingBottom: 14, borderTopWidth: inBag.length ? 1 : 0, borderTopColor: P.line }]}>
+                {inBag.length === 0 ? (
+                  <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.serif, { color: P.inkDim, fontSize: 16, marginBottom: 8 }]}>
+                    Every club is on the bench. Put one back to start the card.
+                  </Text>
+                ) : null}
+                <Text maxFontSizeMultiplier={FONT_CAP} style={[META, { lineHeight: 17 }]}>
+                  Typical is the middle of your shots once a club has {MIN_SAMPLES_FOR_STATS}; before that, your own estimate in
+                  italics. Plays is where two in three of its shots finish. The number on each rule is the gap between the two
+                  clubs. Hold ⠿ to set the order of the club wheel; tap a club to edit it.
+                </Text>
+              </View>
+
+              {benched.length > 0 ? (
+                <View style={{ marginTop: 26 }}>
+                  <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.serif, { color: P.ink, fontSize: 20 }]}>On the bench</Text>
+                  <Text maxFontSizeMultiplier={FONT_CAP} style={[META, { marginTop: 2, marginBottom: 8 }]}>Saved, but hidden from the shot logger.</Text>
+                  {benched.map((c) => (
+                    <View key={c.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 14, borderTopWidth: 1, borderColor: P.line }}>
+                      <PressableTouch accessibilityRole="button" accessibilityLabel={`Edit ${c.name}`} onPress={() => startEdit(c)} style={{ flex: 1, minHeight: 48, justifyContent: 'center' }}>
+                        <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { color: P.ink, fontSize: 15 }]}>{c.name}</Text>
+                      </PressableTouch>
+                      <PressableTouch accessibilityRole="button" accessibilityLabel={`Put ${c.name} in the bag`} onPress={() => toggleInBag(c)} hitSlop={8} style={{ minHeight: 44, justifyContent: 'center' }}>
+                        <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.bodyBold, { color: P.ink, fontSize: 13 }]}>Put in bag</Text>
+                      </PressableTouch>
+                    </View>
+                  ))}
+                </View>
+              ) : null}
+
+              <View style={{ marginTop: 22, gap: 12 }}>
+                <Key tone="primary" accessibilityLabel="Add club" onPress={() => setShowAdd(true)} faceStyle={{ minHeight: 48 }}>
+                  <KeyText tone="primary" bold>
+                    Add club →
+                  </KeyText>
+                </Key>
+                <PressableTouch accessibilityRole="button" accessibilityLabel="Reset to default bag" onPress={confirmReset} style={{ minHeight: 44, alignItems: 'center', justifyContent: 'center' }}>
+                  <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { color: P.inkDim, fontSize: 13 }]}>Reset to the default bag</Text>
+                </PressableTouch>
+              </View>
             </View>
           }
         />
@@ -393,7 +438,7 @@ export default function BagScreen() {
                 marginBottom: 18,
               }]}
             >
-              {editingId ? 'Edit club.' : 'Add to bag.'}
+              {editingClub ? editingClub.name : 'Add to bag'}
             </Text>
 
             {!editingId && (
@@ -428,7 +473,7 @@ export default function BagScreen() {
                         autoCapitalize="none"
                       />
                       {customMode && draft.category !== 'utility' && (
-                        <Pressable
+                        <PressableTouch
                           onPress={() => {
                             setCustomMode(false)
                             setDraft((d) => ({
@@ -441,7 +486,7 @@ export default function BagScreen() {
                           <Text style={[TYPE.body, { color: '#5C6356', fontSize: 12 }]}>
                             ← Back to {CLUB_CATEGORY_LABELS[draft.category]} list
                           </Text>
-                        </Pressable>
+                        </PressableTouch>
                       )}
                     </View>
                   ) : (
@@ -532,6 +577,36 @@ export default function BagScreen() {
                 <KeyText size={13}>Cancel</KeyText>
               </Key>
             </View>
+            {editingClub ? (
+              // Bench and delete live with the club, so the card stays clean.
+              // The sheet closes before the delete confirm (one modal at a time).
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 14 }}>
+                <PressableTouch
+                  accessibilityRole="button"
+                  accessibilityLabel={editingClub.in_bag ? `Bench ${editingClub.name}` : `Put ${editingClub.name} in the bag`}
+                  onPress={() => {
+                    closeForm()
+                    void toggleInBag(editingClub)
+                  }}
+                  style={{ minHeight: 44, justifyContent: 'center' }}
+                >
+                  <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.bodyBold, { color: P.ink, fontSize: 14 }]}>
+                    {editingClub.in_bag ? 'Bench it' : 'Put in bag'}
+                  </Text>
+                </PressableTouch>
+                <PressableTouch
+                  accessibilityRole="button"
+                  accessibilityLabel={`Delete ${editingClub.name}`}
+                  onPress={() => {
+                    closeForm()
+                    confirmDelete(editingClub)
+                  }}
+                  style={{ minHeight: 44, justifyContent: 'center' }}
+                >
+                  <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { color: P.neg, fontSize: 14 }]}>Delete</Text>
+                </PressableTouch>
+              </View>
+            ) : null}
           </ScrollView>
         </KeyboardAvoidingView>
       </Modal>
@@ -539,87 +614,124 @@ export default function BagScreen() {
   )
 }
 
+// One in-bag club for core's bagGaps, with its shot count for the card.
+interface Reading extends ChartClub {
+  shots: number
+}
+
+// The card's columns: drag handle, club, plays, typical.
+const HANDLE = 26
+const PLAYS = 68
+const TYPICAL = 72
+const CARD_SIDES: import('react-native').ViewStyle = {
+  backgroundColor: P.raised,
+  borderColor: P.lineStrong,
+  borderLeftWidth: 1,
+  borderRightWidth: 1,
+  paddingHorizontal: 12,
+}
+
+// One club on the yardage card. The rule above it carries the gap to the club
+// above, printed under the typical column. Tap opens the edit sheet; the
+// handle drags.
 function ClubRow({
   club,
+  first,
   isActive,
   hasDuplicateType,
-  distance,
+  reading,
+  unit,
+  gap,
   onLongPress,
-  onToggle,
-  onDelete,
   onEdit,
 }: {
   club: UserClub
+  first: boolean
   isActive: boolean
   hasDuplicateType: boolean
-  /** " · 152 yd · from 23 shots", or "" when the club has no distance. */
-  distance: string
+  /** Undefined only for a frame while the bag and the readings disagree. */
+  reading: Reading | undefined
+  unit: DistanceUnit
+  /** Yards to the club above, when both have a number. */
+  gap: { yards: number; widest: boolean } | null
   onLongPress: () => void
-  onToggle: () => void
-  onDelete: () => void
   onEdit: () => void
 }) {
+  // A putter has no yardage on the card.
+  const t = club.club_type === 'putter' ? null : (reading?.typical ?? null)
+  const typical = t ? wholeDistance(t.yards, unit) : null
+  const estimate = t?.source === 'estimate'
+  const plays = reading?.range && club.club_type !== 'putter' ? `${wholeDistance(reading.range.low, unit)}–${wholeDistance(reading.range.high, unit)}` : ''
+  const shots = reading?.shots ?? 0
+  const meta = [
+    formatClubLabel(club, { hasDuplicateType }),
+    club.loft != null && club.club_type !== 'cw' && club.club_type !== 'custom_wedge' && !hasDuplicateType ? `${club.loft}°` : null,
+    t?.source === 'shots' ? `${shots} shots` : estimate ? 'your estimate' : null,
+  ]
+    .filter(Boolean)
+    .join(' · ')
   return (
-    <View
-      style={{
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 10,
-        paddingVertical: 14,
-        borderBottomWidth: 1,
-        borderColor: P.line,
-        backgroundColor: isActive ? P.well : P.chrome,
-      }}
-    >
-      <Pressable
-        onLongPress={onLongPress}
-        accessibilityLabel="Drag to reorder"
-        hitSlop={8}
-        style={{ paddingHorizontal: 6 }}
-      >
-        <Text style={[TYPE.body, { color: '#8A8B7E', fontSize: 16 }]}>⠿</Text>
-      </Pressable>
-      <View style={{ flex: 1 }}>
-        <Text style={[TYPE.bodyBold, { color: '#1C211C', fontSize: 16 }]}>
-          {club.name}
-        </Text>
-        <Text maxFontSizeMultiplier={FONT_CAP} style={{ ...META, marginTop: 2 }}>
-          {formatClubLabel(club, { hasDuplicateType })}
-          {club.loft != null &&
-          club.club_type !== 'cw' &&
-          club.club_type !== 'custom_wedge' &&
-          !hasDuplicateType
-            ? ` · ${club.loft}°`
-            : ''}
-          {distance}
-        </Text>
+    <View style={[CARD_SIDES, { backgroundColor: isActive ? P.well : P.raised }]}>
+      {/* The rule, with the gap set on it (inside the row so a list cell can't clip it). */}
+      {!first ? (
+        <View style={{ height: 14, justifyContent: 'center' }}>
+          <View style={{ height: 1, backgroundColor: P.line }} />
+          {gap != null ? (
+            <View pointerEvents="none" style={{ position: 'absolute', right: 0, width: TYPICAL, alignItems: 'center' }}>
+              <Text
+                maxFontSizeMultiplier={FONT_CAP}
+                accessibilityLabel={`${wholeDistance(gap.yards, unit)} ${distanceUnitAbbr(unit)} gap${gap.widest ? ', the widest' : ''}`}
+                style={[
+                  gap.widest ? TYPE.serif : TYPE.serifUpright,
+                  { fontSize: 12, lineHeight: 14, paddingHorizontal: 5, color: gap.widest ? P.warn : P.inkDim, backgroundColor: P.raised },
+                ]}
+              >
+                {wholeDistance(gap.yards, unit)}
+              </Text>
+            </View>
+          ) : null}
+        </View>
+      ) : (
+        <View style={{ height: 6 }} />
+      )}
+      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+        <PressableTouch
+          onLongPress={onLongPress}
+          delayLongPress={180}
+          accessibilityLabel={`Hold to drag ${club.name}`}
+          hitSlop={8}
+          style={{ width: HANDLE, minHeight: 44, justifyContent: 'center' }}
+        >
+          <Text style={[TYPE.body, { color: '#8A8B7E', fontSize: 15 }]}>⠿</Text>
+        </PressableTouch>
+        <PressableTouch
+          onPress={onEdit}
+          accessibilityRole="button"
+          accessibilityLabel={`Edit ${club.name}${typical != null ? `, typical ${typical}` : ''}`}
+          style={{ flex: 1, flexDirection: 'row', alignItems: 'center', minHeight: 44 }}
+        >
+          <View style={{ flex: 1 }}>
+            <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { color: P.ink, fontSize: 15 }]} numberOfLines={1}>
+              {club.name}
+            </Text>
+            <Text maxFontSizeMultiplier={FONT_CAP} style={[META, { marginTop: 1 }]} numberOfLines={1}>
+              {meta}
+            </Text>
+          </View>
+          <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.serifUpright, { width: PLAYS, textAlign: 'right', fontSize: 13, color: P.inkDim }]}>
+            {plays}
+          </Text>
+          <Text
+            maxFontSizeMultiplier={FONT_CAP}
+            style={[
+              estimate ? TYPE.serif : TYPE.serifUpright,
+              { width: TYPICAL, textAlign: 'right', fontSize: typical != null ? 28 : 20, lineHeight: 32, color: estimate || typical == null ? P.inkDim : P.ink },
+            ]}
+          >
+            {typical ?? (club.club_type === 'putter' ? '' : '–')}
+          </Text>
+        </PressableTouch>
       </View>
-      <Key
-        onPress={onToggle}
-        accessibilityLabel={club.in_bag ? 'Bench club' : 'Put in bag'}
-        latched={club.in_bag}
-        faceStyle={{ minHeight: 30, paddingHorizontal: 10 }}
-      >
-        <KeyText size={12} bold={club.in_bag}>
-          {club.in_bag ? 'In bag' : 'Benched'}
-        </KeyText>
-      </Key>
-      <Pressable
-        onPress={onEdit}
-        accessibilityLabel={`Edit ${club.name}`}
-        hitSlop={8}
-        style={{ paddingHorizontal: 4 }}
-      >
-        <Text style={[TYPE.body, { color: '#5C6356', fontSize: 12 }]}>Edit</Text>
-      </Pressable>
-      <Pressable
-        onPress={onDelete}
-        accessibilityLabel={`Delete ${club.name}`}
-        hitSlop={8}
-        style={{ paddingHorizontal: 4 }}
-      >
-        <Text style={[TYPE.body, { color: '#A33A2A', fontSize: 12 }]}>Delete</Text>
-      </Pressable>
     </View>
   )
 }

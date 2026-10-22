@@ -22,10 +22,19 @@
  *   SUPABASE_URL=http://127.0.0.1:54321
  *   SUPABASE_SERVICE_ROLE_KEY=...
  *   pnpm seed:demo
+ *
+ * SEED_PROFILE=promo (`pnpm seed:promo`, DEV) seeds the screenshot golfer
+ * instead (scripts/seed-promo.ts), with its own login read from
+ * apps/web/.env.promo.local over the e2e env's SEED_* values.
  */
 import 'dotenv/config'
+import { config } from 'dotenv'
 import { createClient } from '@supabase/supabase-js'
 import { DEFAULT_BAG, shotAxesFromLegacy } from '@oga/core'
+import { seedPromo } from './seed-promo'
+
+const PROMO = process.env.SEED_PROFILE === 'promo'
+if (PROMO) config({ path: 'apps/web/.env.promo.local', override: true })
 
 const URL = process.env.SUPABASE_URL ?? 'http://127.0.0.1:54321'
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -181,6 +190,54 @@ function dispersedEnd(
   const de = offLong * ue + offLat * pe
   return offsetCoord([aim.lat, aim.lng], dn, de)
 }
+
+// Yards the finish sits right (+) or left (−) of the start→aim line.
+function lateralOf(
+  start: { lat: number; lng: number },
+  aim: { lat: number; lng: number },
+  end: { lat: number; lng: number },
+): number {
+  const an = (aim.lat - start.lat) * YARDS_PER_DEG_LAT
+  const ae = (aim.lng - start.lng) * yardsPerDegLng(start.lat)
+  const en = (end.lat - start.lat) * YARDS_PER_DEG_LAT
+  const ee = (end.lng - start.lng) * yardsPerDegLng(start.lat)
+  const mag = Math.hypot(an, ae) || 1
+  // Cross product: positive when the finish is clockwise of the aim (right).
+  return (ee * an - en * ae) / mag
+}
+
+// The shape a right-handed player would record for a shot that finished
+// offLat yards off the aim line: right → mostly fade (slice when well right),
+// left → draw (hook), near the line → mostly straight. About one in five
+// shots has no shape recorded, like a real player who skips the field, and
+// every fifth shot of each club (shotsSeen) has none for certain.
+function recordedShape(offLat: number, sdLat: number): string | null {
+  if (Math.random() < 0.2) return null
+  const z = offLat / sdLat
+  const r = Math.random()
+  if (z > 0.4) return r < 0.8 ? (z > 1.2 ? 'slice' : 'fade') : r < 0.92 ? 'straight' : 'draw'
+  if (z < -0.4) return r < 0.8 ? (z < -1.2 ? 'hook' : 'draw') : r < 0.92 ? 'straight' : 'fade'
+  return r < 0.65 ? 'straight' : r < 0.85 ? 'fade' : 'draw'
+}
+
+// A start line where the result didn't give one (only push_right/pull_left
+// do): on line for most, else started on the side of the miss, or the far
+// side when the shape curved the ball back. A quarter stay unrecorded.
+function recordedStartLine(offLat: number, sdLat: number, shape: string | null): string | null {
+  if (Math.random() < 0.25) return null
+  const z = offLat / sdLat
+  const curvesRight = shape === 'fade' || shape === 'slice'
+  const curvesLeft = shape === 'draw' || shape === 'hook'
+  if (z > 0.4 && curvesLeft) return 'push'
+  if (z < -0.4 && curvesRight) return 'pull'
+  if (Math.abs(z) > 0.8 && Math.random() < 0.4 && !curvesRight && !curvesLeft) return z > 0 ? 'push' : 'pull'
+  return 'on_line'
+}
+
+// Shots seeded so far per club. Every fifth has no shape or start line of its
+// own, so each club's Patterns legend always has a "Not recorded" group (the
+// web e2e asserts one) however the random draws fall.
+const shotsSeen = new Map<string, number>()
 
 async function ensureDemoUser(): Promise<string> {
   const { data: list } = await supabase.auth.admin.listUsers({ perPage: 1000 })
@@ -682,6 +739,12 @@ async function insertHoleShots(
     }
 
     const axes = shotAxesFromLegacy(result)
+    const offLatDone = toGreen ? 0 : lateralOf(lastEnd, aim, end)
+    const sdLat = toGreen ? 1 : (CLUB_DISPERSION[club] ?? DEFAULT_DISP).sdLat
+    const nth = (shotsSeen.get(club) ?? 0) + 1
+    shotsSeen.set(club, nth)
+    const unrecorded = nth % 5 === 0
+    const shape = unrecorded ? null : recordedShape(offLatDone, sdLat)
     const { error } = await supabase.from('shots').insert({
       hole_score_id: holeScoreId,
       user_id: userId,
@@ -698,7 +761,8 @@ async function insertHoleShots(
       lie_slope: lieSlope,
       shot_result: result,
       contact: axes.contact,
-      start_line: axes.startLine,
+      start_line: axes.startLine ?? (unrecorded ? null : recordedStartLine(offLatDone, sdLat, shape)),
+      shape,
       penalty: false,
       ob: false,
       putt_distance_ft: null,
@@ -866,11 +930,21 @@ function pickTeeColor(course: DemoCourse, visit: number): string {
 }
 
 async function main() {
-  console.log(`Seeding demo data into ${URL}`)
+  // The promo seed wipes whoever SEED_EMAIL names: never the e2e user the
+  // Playwright suite signs in as.
+  if (PROMO && (!process.env.SEED_EMAIL || SEED_EMAIL === process.env.E2E_EMAIL)) {
+    throw new Error('SEED_PROFILE=promo needs its own SEED_EMAIL in apps/web/.env.promo.local, never the e2e user.')
+  }
+  console.log(`Seeding ${PROMO ? 'promo' : 'demo'} data into ${URL}`)
 
   const userId = await ensureDemoUser()
   await ensureProfile(userId)
   await wipeDemoData(userId)
+  if (PROMO) {
+    await seedPromo(supabase, userId)
+    console.log(`Promo user ready — sign in as ${SEED_EMAIL} (password: SEED_PASSWORD in apps/web/.env.promo.local)`)
+    return
+  }
   await seedBag(userId)
 
   const courses = await selectDemoCourses()

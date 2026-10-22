@@ -1,39 +1,74 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { toBlob } from 'html-to-image'
+import { useNavigate } from 'react-router-dom'
 import {
   CLUBS,
   DEFAULT_BAG,
   LIE_TYPES,
   MIN_SAMPLES_FOR_STATS,
-  getAimCorrection,
+  NOT_RECORDED,
+  SHOT_SHAPE_LABELS,
+  capFirst as cap,
+  categoryOf,
+  clubNoun,
+  clubTypicalDistance,
+  countWord,
+  distanceText as dist,
+  findingLine,
+  mostlyTeeShots,
+  readQuality,
+  recentPoints,
+  recentVsAll,
+  recordedNote,
+  shapeTally,
+  tallyWords,
+  wholeDistance,
   type Club,
+  type ColourBy,
+  type DispersionPoint,
+  type DispersionStats,
   type LieSlopeForward,
   type LieSlopeSide,
   type LieType,
-  type DispersionPoint,
-  type DispersionStats,
 } from '@oga/core'
-import { useHasAimedShots, useShotPatterns } from '../../hooks/useShotPatterns'
+import { useClubLadder, useShotPatterns } from '../../hooks/useShotPatterns'
 import { LieSlopeGrid } from '../../components/forms/LieSlopeGrid'
 import { useUnits } from '../../hooks/useUnits'
 import { useUserBag } from '../../hooks/useUserBag'
-import {
-  DispersionPlot,
-  pointColor,
-  SVG_SIZE,
-} from './components/DispersionPlot'
+import { useProfile } from '../../hooks/useProfile'
 import { ShotPatternsShareCard } from './components/ShotPatternsShareCard'
 import { PatternExplainer, PatternProgress, PatternsEmpty } from './components/PatternsPreview'
-
-const FLIGHT_W = 460
-const FLIGHT_H = 520
-const FLIGHT_VIEW_WIDTH = `min(${FLIGHT_W}px, 92vw)`
+import { ClubLadder } from './components/ClubLadder'
+import { AimPlot, squaresWord } from './components/AimPlot'
+import { TeePlot, teeGeometry } from './components/TeePlot'
+import { useNarrow, type ChartProps, type Ghost } from './components/chartParts'
+import { ColourByControl, FOCUS_RING, LAYER_INFO, LayerBar, Legend, rovingKey, type LegendEntry } from './components/LayerControls'
+import { PatternNumbers, ShotTable } from './components/PatternNumbers'
+import { COLOUR_BY, DEFAULT_LAYERS, UNRECORDED_INK, styledCategories, type Layer } from './layers'
 
 // Social share card — 1200×630 is Twitter/Facebook's preferred OG image
 // size. Rendered off-screen, rasterised on Export. The plot inside is
 // drawn at a fixed pixel size so the capture is viewport-independent.
 const SHARE_CARD_W = 1200
 const SHARE_CARD_H = 630
+const RECENT = 20
+
+type View = 'aim' | 'tee'
+type Scope = 'all' | 'recent'
+const VIEWS: { value: View; label: string }[] = [
+  { value: 'aim', label: 'Around the aim' },
+  { value: 'tee', label: 'From the tee' },
+]
+
+const LIE_PHRASE: Record<LieType, string> = {
+  tee: 'the tee',
+  fairway: 'the fairway',
+  rough: 'the rough',
+  sand: 'sand',
+  fringe: 'the fringe',
+  recovery: 'a recovery lie',
+  green: 'the green',
+}
 
 export function ShotPatternsPage() {
   const { unit, toDisplay } = useUnits()
@@ -48,23 +83,74 @@ export function ShotPatternsPage() {
     if (clubOptions.length && !clubOptions.includes(club)) setClub(clubOptions[0]!)
   }, [clubOptions, club])
   const [lieType, setLieType] = useState<LieType | ''>('')
-  const [lieSlopeForward, setLieSlopeForward] = useState<
-    LieSlopeForward | undefined
-  >(undefined)
-  const [lieSlopeSide, setLieSlopeSide] = useState<LieSlopeSide | undefined>(
-    undefined,
-  )
+  const [lieSlopeForward, setLieSlopeForward] = useState<LieSlopeForward | undefined>(undefined)
+  const [lieSlopeSide, setLieSlopeSide] = useState<LieSlopeSide | undefined>(undefined)
+  const [view, setView] = useState<View>('aim')
+  const [scope, setScope] = useState<Scope>('all')
+  const [sheetOpen, setSheetOpen] = useState(false)
+  const [showTable, setShowTable] = useState(false)
+  const [layers, setLayers] = useState<Record<Layer, boolean>>(DEFAULT_LAYERS)
+  const [colourBy, setColourBy] = useState<ColourBy>('none')
+  const [hidden, setHidden] = useState<Set<string>>(new Set())
+  const [focus, setFocus] = useState<string | null>(null)
+  useEffect(() => {
+    setHidden(new Set())
+    setFocus(null)
+  }, [colourBy, club])
+  const narrow = useNarrow()
+  const navigate = useNavigate()
+  const { data: profile } = useProfile()
+  const leftHanded = profile?.plays_left_handed === true
+  const filtersButton = useRef<HTMLButtonElement | null>(null)
+  const ids = { label: useId(), desc: useId(), panel: useId(), tab: useId() }
 
-  const hasAimed = useHasAimedShots()
+  const ladder = useClubLadder()
   const { data, isLoading, clubShots } = useShotPatterns({
     club,
     lieType: lieType || undefined,
     lieSlopeForward,
     lieSlopeSide,
   })
+  // Typical distance per club from the player's own shots (the live wheel's
+  // rule: five or more aimed shots). No typed estimate: no data, no number.
+  const typicalYards = (c: Club) => {
+    const d = ladder.data?.get(c)
+    return clubTypicalDistance(d?.medianYards, d?.aimed ?? 0, null)?.yards ?? null
+  }
+  const ladderNumber = (c: Club) => {
+    const y = typicalYards(c)
+    return y == null ? null : wholeDistance(y, unit)
+  }
 
-  const points = data?.points ?? []
-  const stats = data?.stats ?? null
+  const filteredPoints = useMemo(() => data?.points ?? [], [data])
+  const extras = data?.extras ?? {}
+  const filtered = !!(lieType || lieSlopeForward || lieSlopeSide)
+  // The latest twenty against all of them, once there are more than twenty.
+  const rva = useMemo(() => recentVsAll(filteredPoints, RECENT), [filteredPoints])
+  const recentOn = scope === 'recent' && !!rva
+  const { points, older } = useMemo(() => {
+    if (!recentOn) return { points: filteredPoints, older: [] as DispersionPoint[] }
+    const { recent, older } = recentPoints(filteredPoints, RECENT)
+    return { points: recent, older }
+  }, [recentOn, filteredPoints])
+  const stats: DispersionStats | null = recentOn ? rva!.recent : data?.stats ?? null
+  const ghost: Ghost | null = recentOn
+    ? { stats: rva!.all, label: `all ${filteredPoints.length}` }
+    : filtered && data?.allStats
+      ? { stats: data.allStats, label: 'all lies' }
+      : null
+  const kinds = useMemo(() => new Map(teeGeometry(points, leftHanded).shots.map((s) => [s.p.id, s.kind])), [points, leftHanded])
+  const teeShots = mostlyTeeShots(points)
+
+  const slopes = [lieSlopeForward, lieSlopeSide].filter(Boolean).map((v) => v!.replace(/_/g, ' '))
+  const filterSummary = [lieType ? cap(lieType) : '', ...slopes].filter(Boolean).join(' · ')
+  // "from the rough, uphill": the filters in a sentence.
+  const filterPhrase = [lieType ? `from ${LIE_PHRASE[lieType]}` : '', ...slopes].filter(Boolean).join(', ')
+  const clearFilters = () => {
+    setLieType('')
+    setLieSlopeForward(undefined)
+    setLieSlopeSide(undefined)
+  }
 
   const shareCardRef = useRef<HTMLDivElement | null>(null)
   const [exporting, setExporting] = useState(false)
@@ -76,56 +162,36 @@ export function ShotPatternsPage() {
   // Rasterise the off-screen 1200×630 share card and open the native
   // share sheet (Web Share API), falling back to a download where file
   // sharing isn't supported or the share fails for any reason other than
-  // the user dismissing the sheet. Captures on click rather than ahead of
-  // time: the card is heavy and the club filter changes often, so
-  // pre-rasterising on every chip tap would be wasteful. The cost is that
-  // the `await` before share() can expire the iOS-Safari gesture token —
-  // in which case it simply degrades to the download path (same PNG).
+  // the user dismissing the sheet. The `await` before share() can expire the
+  // iOS-Safari gesture token, in which case it degrades to the download path.
   async function handleExport() {
     if (exporting) return
     setExporting(true)
     setExportError(null)
     try {
-      // The card is normally pre-mounted on the Export button's pointer-enter
-      // / focus (below), so the ref is ready here and the iOS share gesture
-      // token stays intact. Fallback: if a fast tap beat the mount, mount now
-      // and wait a paint — this rare path may forfeit the token (→ download).
       if (!shareCardRef.current) {
         setShowShareCard(true)
-        await new Promise<void>((resolve) =>
-          requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
-        )
+        await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())))
       }
       const node = shareCardRef.current
       if (!node) throw new Error('share card not ready')
-      const blob = await toBlob(node, {
-        width: SHARE_CARD_W,
-        height: SHARE_CARD_H,
-        cacheBust: true,
-        backgroundColor: '#FBF8F1',
-      })
+      const blob = await toBlob(node, { width: SHARE_CARD_W, height: SHARE_CARD_H, cacheBust: true, backgroundColor: '#FBF8F1' })
       if (!blob) throw new Error('empty blob')
       const filename = `oga-${club}-pattern.png`
       const file = new File([blob], filename, { type: 'image/png' })
-      if (
-        typeof navigator.share === 'function' &&
-        navigator.canShare?.({ files: [file] })
-      ) {
+      if (typeof navigator.share === 'function' && navigator.canShare?.({ files: [file] })) {
         try {
           await navigator.share({ files: [file], title: 'OGA Shot Pattern' })
           return
         } catch (err) {
-          // User dismissed the sheet — not an error worth surfacing.
           if ((err as Error).name === 'AbortError') return
-          // Any other share failure → fall through to the download path.
         }
       }
       const url = URL.createObjectURL(blob)
       const link = document.createElement('a')
       link.href = url
       link.download = filename
-      // Firefox and older Safari only honour downloads from an anchor that's
-      // attached to the document; a detached element silently no-ops.
+      // Firefox and older Safari only honour downloads from an attached anchor.
       document.body.appendChild(link)
       link.click()
       document.body.removeChild(link)
@@ -138,293 +204,287 @@ export function ShotPatternsPage() {
   }
 
   // No aimed shot in any club → the example page (#1076).
-  if (hasAimed.isLoading || hasAimed.data === false) {
+  const hasAimed = ladder.data ? [...ladder.data.values()].some((c) => c.aimed > 0) : undefined
+  if (ladder.isLoading || hasAimed === false) {
     return (
       <div>
-        <PageHeader
-          subtitle={
-            hasAimed.isLoading
-              ? 'Loading…'
-              : 'No shots with an aim yet. Here’s what one club’s pattern looks like once you have some.'
-          }
-        />
-        {!hasAimed.isLoading && <PatternsEmpty />}
+        <PageHeader />
+        <p className="text-caddie-ink-dim" style={{ fontSize: 15, marginTop: -12, marginBottom: 22, maxWidth: 560 }}>
+          {ladder.isLoading ? 'Loading…' : 'No shots with an aim yet. Here’s what one club’s pattern looks like once you have some.'}
+        </p>
+        {!ladder.isLoading && <PatternsEmpty />}
       </div>
     )
   }
 
+  const noun = clubNoun(club)
+  const emptyNote = clubShots === 0 ? `No aimed ${noun} shots yet` : filtered ? `No ${noun} shots ${filterPhrase}` : undefined
+
+  // The legend: each group of shots under the chosen colour, with its count.
+  const cats = styledCategories(colourBy, leftHanded)
+  const colours = new Map(cats.map((c) => [c.key, { color: c.color, glyph: c.glyph }]))
+  const counts = new Map<string, number>()
+  for (const p of points) {
+    const k = categoryOf(p, extras[p.id], colourBy)
+    counts.set(k, (counts.get(k) ?? 0) + 1)
+  }
+  const legend: LegendEntry[] =
+    colourBy === 'none'
+      ? []
+      : [
+          ...cats.filter((c) => counts.has(c.key)).map((c) => ({ ...c, count: counts.get(c.key)! })),
+          ...(counts.has(NOT_RECORDED)
+            ? [{ key: NOT_RECORDED, label: 'Not recorded', color: UNRECORDED_INK, glyph: 'unrecorded' as const, count: counts.get(NOT_RECORDED)! }]
+            : []),
+        ]
+  const legendNote = colourBy === 'none' ? '' : recordedNote(colourBy, points, extras, noun).note
+
+  // Same layers in the same order on both views; flights only from the tee.
+  // Rings and the average stay in the bar without a pattern, switched off.
+  const available: Layer[] = view === 'aim' ? ['shots', 'rings', 'average'] : ['shots', 'rings', 'average', 'flights']
+  const disabled = new Set<Layer>(stats ? [] : ghost ? ['average'] : ['rings', 'average'])
+  const toggleLayer = (l: Layer) => setLayers((v) => ({ ...v, [l]: !v[l] }))
+  const toggleGroup = (k: string) =>
+    setHidden((h) => {
+      const n = new Set(h)
+      if (n.has(k)) n.delete(k)
+      else n.add(k)
+      return n
+    })
+  const shownLayers = { ...layers, rings: layers.rings && !disabled.has('rings'), average: layers.average && !disabled.has('average') }
+  const chartProps: ChartProps = {
+    points,
+    older,
+    stats,
+    ghost,
+    unit,
+    extras,
+    kinds,
+    layers: shownLayers,
+    colourBy,
+    colours,
+    hidden,
+    focus,
+    leftHanded,
+    club,
+    labelId: ids.label,
+    descId: ids.desc,
+    empty: emptyNote,
+    onOpenShot: (id) => {
+      const round = extras[id]?.roundId
+      if (round) navigate(`/rounds/${round}`)
+    },
+  }
+
+  const hiddenWords = [
+    ...available.filter((l) => !shownLayers[l] && !disabled.has(l)).map((l) => LAYER_INFO[l].hides),
+    ...legend.filter((e) => hidden.has(e.key)).map((e) => (e.key === NOT_RECORDED ? `${e.count} not recorded` : countWord(e.key, e.label, e.count))),
+  ]
+  const conflicts = points.filter((p) => kinds.get(p.id) === 'conflict').length
+  const caption = chartCaption({ view, stats, ghost, recentOn, colourBy, shownLayers, points, older, unit, narrow, noun, conflicts, hiddenWords, legendHidden: hidden.size > 0 })
+  const finding = stats ? findingLine(stats, points, club, unit, teeShots) : null
+  const summary = chartSummary({ stats, points, unit, legend, colourBy, hiddenWords })
+
+  const lieChips = (
+    <div role="group" aria-label="Lie" className="flex flex-wrap" style={{ gap: 6 }}>
+      {(['', ...LIE_TYPES] as const).map((v) => (
+        <button key={v || 'any'} type="button" aria-pressed={lieType === v} onClick={() => setLieType(v)} className={`pat-tap ${FOCUS_RING}`} style={chipStyle(lieType === v)}>
+          {v === '' ? 'Any' : cap(v.replace(/_/g, ' '))}
+        </button>
+      ))}
+    </div>
+  )
+  const anySlope = !lieSlopeForward && !lieSlopeSide
+  const slopeGrid = (
+    <div className="grid" style={{ gap: 8 }}>
+      <button
+        type="button"
+        aria-pressed={anySlope}
+        onClick={() => {
+          setLieSlopeForward(undefined)
+          setLieSlopeSide(undefined)
+        }}
+        className={`pat-tap ${FOCUS_RING}`}
+        style={{ ...chipStyle(anySlope), justifySelf: 'start' }}
+      >
+        Any slope
+      </button>
+      <LieSlopeGrid forward={lieSlopeForward} side={lieSlopeSide} onChangeForward={setLieSlopeForward} onChangeSide={setLieSlopeSide} toggleable />
+    </div>
+  )
+  const scopeControl = rva ? <ScopeControl value={scope} onChange={setScope} total={filteredPoints.length} /> : null
+  const recentLine = rva ? recentWords(rva.recent, rva.all, filteredPoints.length, unit) : null
+
   return (
     <div>
-      <PageHeader subtitle="Per-club dispersion centered on the aim point you set before each shot." />
+      <PageHeader />
+      {finding && (
+        <p className="font-serif text-caddie-ink" style={{ fontSize: 24, fontStyle: 'italic', fontWeight: 500, lineHeight: 1.3, margin: '-10px 0 6px', maxWidth: 780, textWrap: 'balance' } as React.CSSProperties}>
+          {finding}
+        </p>
+      )}
+      <p className="text-caddie-ink-dim" style={{ fontSize: 15, maxWidth: 640, margin: finding ? 0 : '-10px 0 0' }}>
+        {clubShots > 0 && points.length > 0
+          ? `${points.length} shot${points.length === 1 ? '' : 's'} with your ${noun}${filterPhrase ? ` ${filterPhrase}` : ''}, measured from the aim you set: ${readQuality(points.length)}.`
+          : 'Where each club finishes, measured from the aim you set before the shot.'}
+        {recentLine && ` ${recentLine}`}
+      </p>
 
-      <Section kicker="Club">
-        <div className="flex flex-wrap" style={{ gap: 6 }}>
-          {/* Putter excluded: aim-relative yards dispersion is meaningless for
-              putts (mirrors the clubAccuracy putt exclusion, #574). */}
-          {clubOptions.map((c) => (
-            <button
-              key={c}
-              type="button"
-              onClick={() => setClub(c)}
-              style={chipStyle(club === c)}
-            >
-              {c}
-            </button>
-          ))}
-        </div>
-      </Section>
-
-      <div
-        className="grid grid-cols-1 sm:grid-cols-2"
-        style={{ gap: 28, marginBottom: 28 }}
-      >
-        <FilterSection kicker="Lie type">
-          <SelectChips
-            value={lieType}
-            options={['', ...LIE_TYPES] as const}
-            onChange={(v) => setLieType(v as LieType | '')}
-            renderLabel={(v) => (v === '' ? 'any' : v.replace(/_/g, ' '))}
-          />
-        </FilterSection>
-        <FilterSection kicker="Lie slope">
-          <LieSlopeGrid
-            forward={lieSlopeForward}
-            side={lieSlopeSide}
-            onChangeForward={setLieSlopeForward}
-            onChangeSide={setLieSlopeSide}
-            toggleable
-          />
-        </FilterSection>
+      <div style={{ marginTop: 18 }}>
+        <ClubLadder clubs={clubOptions} value={club} onChange={setClub} typical={ladderNumber} aimed={(c) => ladder.data?.get(c)?.aimed ?? 0} unit={unit} />
       </div>
 
-      <div
-        style={{
-          borderTop: '1px solid #D9D2BF',
-          paddingTop: 14,
-        }}
-      >
-        <div
-          className="flex items-center justify-between"
-          style={{ marginBottom: 14, gap: 12 }}
-        >
-          <div className="kicker">Pattern</div>
-          {stats && (
-            <div className="flex items-center" style={{ gap: 12 }}>
-              {exportError && (
-                <span className="text-caddie-neg" style={{ fontSize: 12 }}>
-                  {exportError}
-                </span>
+      {/* Tabs left; desktop: which shots, lie and slope right; phone: one Filters button. */}
+      <div className="flex items-end flex-wrap" style={{ gap: 18, marginTop: 16, borderBottom: '1px solid #D9D2BF' }}>
+        <ViewTabs value={view} onChange={setView} tabId={ids.tab} panelId={ids.panel} />
+        <div className="flex-1" />
+        <div className="hidden lg:flex items-center" style={{ gap: 12, paddingBottom: 6, flexWrap: 'wrap' }}>
+          <span className="text-caddie-ink-dim" style={{ fontSize: 13 }} aria-hidden>Lie</span>
+          {lieChips}
+          <SlopePopover summary={slopes.map(cap).join(', ') || 'Any'}>{slopeGrid}</SlopePopover>
+        </div>
+        <div className="lg:hidden flex items-center" style={{ gap: 8, paddingBottom: 6, minWidth: 0 }}>
+          {filterSummary && <span className="text-caddie-ink-dim" style={{ fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 120 }}>{filterSummary}</span>}
+          <button
+            ref={filtersButton}
+            type="button"
+            aria-haspopup="dialog"
+            aria-expanded={sheetOpen}
+            onClick={() => setSheetOpen(true)}
+            className={`pat-tap ${FOCUS_RING}`}
+            style={{ ...chipStyle(filtered || recentOn), padding: '8px 12px', fontSize: 13, flex: 'none' }}
+          >
+            Filters
+          </button>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:[grid-template-columns:minmax(0,2fr)_minmax(0,1fr)]" style={{ gap: 28, marginTop: 14 }}>
+        <div style={{ maxWidth: 600, minWidth: 0 }}>
+          <div role="tabpanel" id={ids.panel} aria-labelledby={`${ids.tab}-${view}`} className="bg-caddie-surface" style={{ border: '1px solid #D9D2BF', borderRadius: 4 }}>
+            <div className="flex flex-wrap items-center justify-between" style={{ gap: 10, padding: '10px 10px 8px', borderBottom: '1px solid #ECE6D8' }}>
+              <LayerBar layers={layers} available={available} disabled={disabled} onToggle={toggleLayer} compact={narrow} />
+              {points.length > 0 && <ColourByControl value={colourBy} onChange={setColourBy} compact={narrow} />}
+              {scopeControl && <div className="hidden lg:block">{scopeControl}</div>}
+            </div>
+            <div style={{ padding: '12px 12px 6px' }}>
+              <span id={ids.label} className="sr-only">{`${cap(noun)} shots, ${VIEWS.find((v) => v.value === view)!.label.toLowerCase()}`}</span>
+              <p id={ids.desc} className="sr-only">{summary}</p>
+              {isLoading ? (
+                <div className="flex items-center justify-center text-caddie-ink-dim" style={{ aspectRatio: '1 / 1', fontSize: 13 }}>Loading…</div>
+              ) : view === 'aim' ? (
+                <AimPlot {...chartProps} />
+              ) : (
+                <TeePlot {...chartProps} />
               )}
+            </div>
+            {legend.length > 0 && (
+              <div style={{ padding: '10px 12px 12px', borderTop: '1px solid #ECE6D8' }}>
+                <Legend entries={legend} hidden={hidden} focus={focus} onToggle={toggleGroup} onFocus={setFocus} note={legendNote} />
+              </div>
+            )}
+          </div>
+          <p className="text-caddie-ink-dim" style={{ fontSize: 13, marginTop: 8, lineHeight: 1.5 }}>{caption}</p>
+          {points.length > 0 && (
+            <button
+              type="button"
+              aria-expanded={showTable}
+              onClick={() => setShowTable((s) => !s)}
+              className={`text-caddie-ink ${FOCUS_RING}`}
+              style={{ background: 'none', border: 'none', padding: '4px 0', fontSize: 13, textDecoration: 'underline', textUnderlineOffset: 3, cursor: 'pointer' }}
+            >
+              {showTable ? 'Hide the table' : 'Show the shots as a table'}
+            </button>
+          )}
+          {showTable && <ShotTable points={points} extras={extras} unit={unit} kinds={kinds} caption={`Your ${points.length} ${noun} shots, newest first`} />}
+          <div role="status" aria-live="polite" className="sr-only">
+            {isLoading ? '' : `Showing ${points.length} ${noun} shot${points.length === 1 ? '' : 's'}${filterPhrase ? ` ${filterPhrase}` : ''}.${hiddenWords.length ? ` Hidden: ${hiddenWords.join('; ')}.` : ''}`}
+          </div>
+        </div>
+
+        <div className="lg:sticky lg:top-6 lg:self-start">
+          {stats ? (
+            <PatternNumbers
+              stats={stats}
+              points={points}
+              typicalYards={typicalYards(club)}
+              unit={unit}
+              shotsNote={recentOn ? `Your latest ${points.length} of ${filteredPoints.length}` : filtered ? `With an aim, ${filterPhrase}` : 'With an aim, from any lie'}
+              filtered={filtered}
+              teeShots={teeShots}
+              leftHanded={leftHanded}
+              onColour={setColourBy}
+            />
+          ) : !isLoading && clubShots < MIN_SAMPLES_FOR_STATS ? (
+            <PatternProgress club={club} shots={clubShots} />
+          ) : !isLoading ? (
+            <p className="font-serif text-caddie-ink" style={{ fontSize: 17, lineHeight: 1.55 }}>
+              {points.length === 0 ? 'None' : `Only ${points.length}`} of your {clubShots} shots with the {noun} {points.length === 1 ? 'was' : 'were'} {filterPhrase}.{' '}
+              {fewShotsCompare(points, data?.allStats ?? null, filterPhrase)}A pattern needs five.{' '}
+              <button type="button" onClick={clearFilters} className={`text-caddie-ink ${FOCUS_RING}`} style={{ background: 'none', border: 'none', padding: 0, font: 'inherit', textDecoration: 'underline', textUnderlineOffset: 3, cursor: 'pointer' }}>
+                See every lie
+              </button>
+            </p>
+          ) : null}
+
+          {stats && (
+            <div className="flex items-center" style={{ gap: 12, marginTop: 22 }}>
               <button
                 type="button"
                 onClick={handleExport}
                 onPointerEnter={() => setShowShareCard(true)}
                 onFocus={() => setShowShareCard(true)}
                 disabled={exporting}
-                className="text-caddie-accent hover:bg-caddie-accent/10 disabled:opacity-40"
-                style={{
-                  background: 'transparent',
-                  border: '1px solid #1F3D2C',
-                  borderRadius: 2,
-                  padding: '8px 12px',
-                  fontSize: 11,
-                  fontWeight: 500,
-                  letterSpacing: '0.08em',
-                  textTransform: 'uppercase',
-                  fontFamily: '"Inconsolata", monospace',
-                  cursor: 'pointer',
-                  whiteSpace: 'nowrap',
-                }}
+                className={`text-caddie-ink hover:bg-caddie-surface-2 disabled:opacity-40 pat-tap ${FOCUS_RING}`}
+                style={{ background: 'transparent', border: '1px solid #9F9580', borderRadius: 2, padding: '8px 14px', fontSize: 13, cursor: 'pointer' }}
               >
-                {exporting ? 'Rendering…' : '↓ Export · 1200×630'}
+                {exporting ? 'Rendering…' : 'Export image'}
               </button>
+              {exportError && <span className="text-caddie-neg" style={{ fontSize: 13 }}>{exportError}</span>}
             </div>
-          )}
-        </div>
-        <div
-          className="grid grid-cols-1 md:[grid-template-columns:minmax(0,auto)_minmax(0,1fr)]"
-          style={{ gap: 22 }}
-        >
-          <div
-            className="bg-caddie-surface"
-            style={{
-              border: '1px solid #D9D2BF',
-              borderRadius: 4,
-              padding: 14,
-            }}
-          >
-            {isLoading ? (
-              <div
-                className="flex items-center justify-center text-caddie-ink-mute"
-                style={{
-                  width: SVG_SIZE,
-                  maxWidth: '100%',
-                  aspectRatio: '1 / 1',
-                  fontSize: 13,
-                }}
-              >
-                Loading…
-              </div>
-            ) : points.length === 0 ? (
-              <div
-                className="flex items-center justify-center text-caddie-ink-mute"
-                style={{
-                  width: SVG_SIZE,
-                  maxWidth: '100%',
-                  aspectRatio: '1 / 1',
-                  fontSize: 13,
-                  textAlign: 'center',
-                  padding: 20,
-                }}
-              >
-                No shots yet for {club}
-                {lieType ? ` (${lieType})` : ''}
-                {lieSlopeForward ? ` (${lieSlopeForward})` : ''}
-                {lieSlopeSide ? ` (${lieSlopeSide.replace('_', ' ')})` : ''}.
-              </div>
-            ) : (
-              // Constrain the wrapper so the legend's flex-wrap row wraps
-              // within the plot footprint instead of stretching the parent.
-              // `maxWidth: 100%` is parent-relative (not 90vw) so the cream
-              // box's own padding can't be overrun on narrow viewports.
-              <div style={{ width: SVG_SIZE, maxWidth: '100%' }}>
-                <DispersionPlot points={points} stats={stats} />
-                <PatternLegend hasEllipses={!!stats} />
-              </div>
-            )}
-          </div>
-
-          <div className="flex flex-col" style={{ gap: 22 }}>
-            <div>
-              <div className="kicker" style={{ marginBottom: 12 }}>
-                Pattern summary
-              </div>
-              {stats ? (
-                <dl
-                  className="grid grid-cols-2"
-                  style={{ gap: 18, rowGap: 18 }}
-                >
-                  <Stat label="Sample" value={`${stats.sampleSize} shots`} />
-                  <Stat
-                    label="Avg lateral"
-                    value={toDisplay(stats.avgLateralOffset, 1)}
-                  />
-                  <Stat
-                    label="Distance bias"
-                    value={toDisplay(stats.avgDistanceOffset, 1)}
-                  />
-                  <Stat label="Shape" value={stats.shotShape} />
-                  <Stat label="Dominant miss" value={stats.dominantMiss} />
-                  <Stat
-                    label="68% spread"
-                    value={`±${toDisplay(stats.cone68.lateral, 1)} / ${toDisplay(stats.cone68.distance, 1)}`}
-                  />
-                </dl>
-              ) : !isLoading && clubShots < MIN_SAMPLES_FOR_STATS ? (
-                <PatternProgress club={club} shots={clubShots} />
-              ) : (
-                <p
-                  className="font-serif text-caddie-ink"
-                  style={{
-                    fontSize: 17,
-                    lineHeight: 1.55,
-                    maxWidth: 480,
-                  }}
-                >
-                  Need at least <em>five shots</em> with aim and landing
-                  coordinates to compute a pattern.
-                </p>
-              )}
-            </div>
-            {stats && (
-              <div
-                style={{
-                  borderTop: '1px solid #D9D2BF',
-                  paddingTop: 18,
-                }}
-              >
-                <div className="kicker" style={{ marginBottom: 10 }}>
-                  Aim correction
-                </div>
-                <p
-                  className="font-serif text-caddie-ink"
-                  style={{ fontSize: 17, lineHeight: 1.55, maxWidth: 480 }}
-                >
-                  {getAimCorrection(stats, unit)}
-                </p>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      <div style={{ borderTop: '1px solid #D9D2BF', paddingTop: 14, marginTop: 28 }}>
-        <div className="kicker" style={{ marginBottom: 6 }}>
-          Ball flight
-        </div>
-        <div
-          className="text-caddie-ink-dim"
-          style={{ fontSize: 13, marginBottom: 14, maxWidth: 560 }}
-        >
-          Each shot at its true distance up the range; the curve shows shape
-          (draw/fade). Thick line is your average.
-        </div>
-        <div
-          className="bg-caddie-surface"
-          style={{
-            border: '1px solid #D9D2BF',
-            borderRadius: 4,
-            padding: 14,
-            display: 'inline-block',
-          }}
-        >
-          {isLoading ? (
-            <div
-              className="flex items-center justify-center text-caddie-ink-mute"
-              style={{ width: FLIGHT_VIEW_WIDTH, height: 360, fontSize: 13 }}
-            >
-              Loading…
-            </div>
-          ) : !points.some((p) => p.startDistanceOffsetYards != null) ? (
-            <div
-              className="flex items-center justify-center text-caddie-ink-mute"
-              style={{
-                width: FLIGHT_VIEW_WIDTH,
-                height: 360,
-                fontSize: 13,
-                textAlign: 'center',
-                padding: 20,
-              }}
-            >
-              No shots with recorded start positions for {club} yet.
-            </div>
-          ) : (
-            <BallFlightChart points={points} stats={stats} />
           )}
         </div>
       </div>
 
       {!isLoading && clubShots < MIN_SAMPLES_FOR_STATS && <PatternExplainer />}
 
-      {/* Off-screen render target for the 1200×630 share card. Self-
-          contained inline styles so the rasteriser needs no external
-          stylesheet at capture time. */}
-      {showShareCard && stats && (
-        <div
-          aria-hidden
-          style={{
-            position: 'fixed',
-            left: -99999,
-            top: 0,
-            pointerEvents: 'none',
+      {sheetOpen && (
+        <FilterSheet
+          onClose={() => {
+            setSheetOpen(false)
+            requestAnimationFrame(() => filtersButton.current?.focus())
           }}
+          done={
+            points.length >= MIN_SAMPLES_FOR_STATS || !filtered
+              ? `Show ${points.length} shot${points.length === 1 ? '' : 's'}`
+              : points.length === 0
+                ? `No shots ${filterPhrase}`
+                : `Only ${points.length} ${filterPhrase}`
+          }
         >
+          {scopeControl && (
+            <>
+              <div className="text-caddie-ink-dim" style={{ fontSize: 13, marginBottom: 4 }}>Shots</div>
+              <div style={{ marginBottom: 14 }}>{scopeControl}</div>
+            </>
+          )}
+          <div className="text-caddie-ink-dim" style={{ fontSize: 13, marginBottom: 8 }}>Lie</div>
+          {lieChips}
+          <div className="text-caddie-ink-dim" style={{ fontSize: 13, margin: '18px 0 8px' }}>Slope</div>
+          {slopeGrid}
+        </FilterSheet>
+      )}
+
+      {/* Off-screen render target for the 1200×630 share card. */}
+      {showShareCard && stats && (
+        <div aria-hidden style={{ position: 'fixed', left: -99999, top: 0, pointerEvents: 'none' }}>
           <div ref={shareCardRef}>
             <ShotPatternsShareCard
               points={points}
               stats={stats}
               club={club}
-              unit={unit}
+              finding={finding!}
+              shape={tallyWords(shapeTally(points, leftHanded), SHOT_SHAPE_LABELS, points.length).value}
               toDisplay={toDisplay}
             />
           </div>
@@ -434,376 +494,309 @@ export function ShotPatternsPage() {
   )
 }
 
-function PageHeader({ subtitle }: { subtitle: string }) {
+// "Your latest 20: two in three inside 24 yd wide, down from 31 over all 98."
+function recentWords(recent: DispersionStats, all: DispersionStats, total: number, unit: 'yards' | 'meters') {
+  const now = recent.cone68.lateral * 2
+  const was = all.cone68.lateral * 2
+  const change = Math.abs(now - was) < 1 ? 'about the same as' : now < was ? 'down from' : 'up from'
+  return `Your latest ${RECENT}: two in three inside ${dist(now, unit)} wide, ${change} ${dist(was, unit).replace(/ (yd|m)$/, '')} over all ${total}.`
+}
+
+// "All 3 finished short of your usual average." With a filter under five shots.
+function fewShotsCompare(points: DispersionPoint[], all: DispersionStats | null, phrase: string) {
+  if (!all || points.length < 2) return ''
+  const n = points.length
+  const short = points.every((p) => p.distanceOffsetYards < all.avgDistanceOffset)
+  const long = points.every((p) => p.distanceOffsetYards > all.avgDistanceOffset)
+  const left = points.every((p) => p.lateralOffsetYards < all.avgLateralOffset)
+  const right = points.every((p) => p.lateralOffsetYards > all.avgLateralOffset)
+  const way = short ? 'short of' : long ? 'past' : left ? 'left of' : right ? 'right of' : null
+  return way ? `${n === 2 ? 'Both' : `All ${n}`} ${phrase} finished ${way} your usual average. ` : ''
+}
+
+// What the chart is showing right now, and what the toggles have hidden.
+function chartCaption(a: {
+  view: View
+  stats: DispersionStats | null
+  ghost: Ghost | null
+  recentOn: boolean
+  colourBy: ColourBy
+  shownLayers: Record<Layer, boolean>
+  points: DispersionPoint[]
+  older: DispersionPoint[]
+  unit: 'yards' | 'meters'
+  narrow: boolean
+  noun: string
+  conflicts: number
+  hiddenWords: string[]
+  legendHidden: boolean
+}) {
+  const by = COLOUR_BY.find((o) => o.value === a.colourBy)!.label.toLowerCase()
+  const parts: string[] = []
+  if (a.view === 'aim') {
+    parts.push(`Each mark is where a shot finished${a.colourBy === 'none' ? '' : `, marked by its ${by}`}.`)
+  } else {
+    const aim = a.stats?.avgAimDistance
+    if (a.narrow) {
+      // A phone gets one line; the chart labels the rest.
+      parts.push('Lines leave on your recorded start line and bend by your recorded shape. The bottom stretch is shortened.')
+      if (a.conflicts) parts.push(`${a.conflicts} shot${a.conflicts === 1 ? ', dashed at the end, doesn’t' : 's, dashed at the end, don’t'} add up.`)
+      if (a.hiddenWords.length) parts.push(`Hidden: ${a.hiddenWords.join('; ')}.`)
+      return parts.join(' ')
+    }
+    parts.push('Each line runs from where you hit it to where it finished, leaving on its recorded start line and bending by its recorded shape.')
+    parts.push(`The stretch below the break is shortened, which widens the start angles${aim ? `; every finish is drawn as if aimed at ${dist(aim, a.unit)}, your average` : ''}.`)
+    if (a.points.length > 40 && a.shownLayers.flights) parts.push('With this many shots each faint line is one shot and the bold line is the typical flight.')
+    const neither = a.points.filter((p) => !p.startLine && !p.shape).length
+    if (neither) parts.push(`${neither} dashed ${neither === 1 ? 'line has' : 'lines have'} nothing recorded.`)
+    if (a.conflicts) parts.push(`${a.conflicts} shot${a.conflicts === 1 ? ' doesn’t' : 's don’t'} add up: the second half is dashed. Select one to see why.`)
+  }
+  if (a.stats && a.shownLayers.rings) parts.push(`Your next ${a.noun} will probably finish inside the solid ring; nearly all inside the dashed one.`)
+  if (a.ghost && a.shownLayers.rings) parts.push(a.recentOn ? `The dotted ring is all of them, and the pencil dots the older shots.` : 'The dotted ring is your pattern from every lie.')
+  if (a.view === 'aim') parts.push(squaresWord(a.points, a.older, a.stats, a.ghost, a.unit, a.narrow))
+  if (a.hiddenWords.length) {
+    parts.push(`Hidden: ${a.hiddenWords.join('; ')}.`)
+    if (a.legendHidden && a.stats) parts.push('Hidden shots still count in the rings and the numbers.')
+  }
+  return parts.join(' ')
+}
+
+// The chart in words, for a screen reader (the svg's description).
+function chartSummary(a: {
+  stats: DispersionStats | null
+  points: DispersionPoint[]
+  unit: 'yards' | 'meters'
+  legend: LegendEntry[]
+  colourBy: ColourBy
+  hiddenWords: string[]
+}) {
+  const parts = [`${a.points.length} shot${a.points.length === 1 ? '' : 's'}.`]
+  const s = a.stats
+  if (s) {
+    const along = Math.abs(s.avgDistanceOffset) < 1 ? 'level with the aim' : `${dist(s.avgDistanceOffset, a.unit)} ${s.avgDistanceOffset < 0 ? 'short' : 'long'}`
+    const across = Math.abs(s.avgLateralOffset) < 1 ? 'on line' : `${dist(s.avgLateralOffset, a.unit)} ${s.avgLateralOffset > 0 ? 'right' : 'left'}`
+    parts.push(`The average finish is ${along} and ${across} of the aim.`)
+    parts.push(`Two in three finish inside ${dist(s.cone68.lateral * 2, a.unit)} wide by ${dist(s.cone68.distance * 2, a.unit)} deep; nearly all inside ${dist(s.cone95.lateral * 2, a.unit)} by ${dist(s.cone95.distance * 2, a.unit)}.`)
+  }
+  if (a.legend.length) parts.push(`Marked by ${a.colourBy === 'start' ? 'start line' : a.colourBy}: ${a.legend.map((e) => `${e.label.toLowerCase()} ${e.count}`).join(', ')}.`)
+  if (a.hiddenWords.length) parts.push(`Hidden: ${a.hiddenWords.join('; ')}.`)
+  parts.push('Use the arrow keys on a shot to step through them, short to long.')
+  return parts.join(' ')
+}
+
+function PageHeader() {
   return (
-    <div style={{ marginBottom: 28 }}>
-      <div className="kicker" style={{ marginBottom: 8 }}>
-        Dispersion ledger
-      </div>
-      <h1
-        className="font-serif text-caddie-ink"
-        style={{ fontSize: 28, fontWeight: 500, lineHeight: 1.15 }}
-      >
-        Shot Patterns
-      </h1>
-      <div
-        className="text-caddie-ink-dim"
-        style={{ fontSize: 15, marginTop: 6, maxWidth: 560 }}
-      >
-        {subtitle}
-      </div>
+    <h1 className="font-serif text-caddie-ink" style={{ fontSize: 28, fontWeight: 500, lineHeight: 1.15, marginBottom: 18 }}>
+      Shot patterns
+    </h1>
+  )
+}
+
+// Two views of one hero chart, set like a printed tab: the active one inked
+// and underlined, no fill (the accent stays on the club).
+function ViewTabs({ value, onChange, tabId, panelId }: { value: View; onChange: (v: View) => void; tabId: string; panelId: string }) {
+  return (
+    <div role="tablist" aria-label="Chart" className="flex" style={{ gap: 18 }}>
+      {VIEWS.map((v, j) => {
+        const on = v.value === value
+        return (
+          <button
+            key={v.value}
+            id={`${tabId}-${v.value}`}
+            type="button"
+            role="tab"
+            aria-selected={on}
+            aria-controls={panelId}
+            tabIndex={on ? 0 : -1}
+            onClick={() => onChange(v.value)}
+            onKeyDown={(e) => {
+              const k = rovingKey(e, j, VIEWS.length)
+              if (k != null) onChange(VIEWS[k]!.value)
+            }}
+            className={`pat-tap ${FOCUS_RING}`}
+            style={{
+              background: 'none',
+              border: 'none',
+              borderBottom: on ? '2px solid #1C211C' : '2px solid transparent',
+              marginBottom: -1,
+              padding: '6px 0 8px',
+              fontSize: 14,
+              fontWeight: on ? 600 : 400,
+              color: on ? '#1C211C' : '#5C6356',
+              cursor: 'pointer',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {v.label}
+          </button>
+        )
+      })}
     </div>
   )
 }
 
-function Section({
-  kicker,
-  children,
-}: {
-  kicker: string
-  children: React.ReactNode
-}) {
+// All shots, or the latest twenty against a ghost of all of them.
+function ScopeControl({ value, onChange, total }: { value: Scope; onChange: (s: Scope) => void; total: number }) {
+  const opts: { value: Scope; label: string }[] = [
+    { value: 'all', label: `All ${total}` },
+    { value: 'recent', label: `Latest ${RECENT}` },
+  ]
   return (
-    <section style={{ marginBottom: 28 }}>
-      <div
-        style={{
-          borderTop: '1px solid #D9D2BF',
-          paddingTop: 14,
-          marginBottom: 14,
-        }}
-      >
-        <div className="kicker">{kicker}</div>
-      </div>
-      {children}
-    </section>
+    <div role="radiogroup" aria-label="Which shots" className="flex items-center" style={{ gap: 14, paddingBottom: 0 }}>
+      {opts.map((o, j) => {
+        const on = o.value === value
+        return (
+          <button
+            key={o.value}
+            type="button"
+            role="radio"
+            aria-checked={on}
+            tabIndex={on ? 0 : -1}
+            onClick={() => onChange(o.value)}
+            onKeyDown={(e) => {
+              const k = rovingKey(e, j, opts.length)
+              if (k != null) onChange(opts[k]!.value)
+            }}
+            className={`pat-tap ${FOCUS_RING}`}
+            style={{
+              background: 'none',
+              border: 'none',
+              borderBottom: on ? '2px solid #5C6356' : '2px solid transparent',
+              marginBottom: -1,
+              padding: '6px 0 8px',
+              fontSize: 13,
+              fontWeight: on ? 600 : 400,
+              color: on ? '#1C211C' : '#5C6356',
+              cursor: 'pointer',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {o.label}
+          </button>
+        )
+      })}
+    </div>
   )
 }
 
-function FilterSection({
-  kicker,
-  children,
-}: {
-  kicker: string
-  children: React.ReactNode
-}) {
+function SlopePopover({ summary, children }: { summary: string; children: React.ReactNode }) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement | null>(null)
+  const button = useRef<HTMLButtonElement | null>(null)
+  const panelId = useId()
+  useEffect(() => {
+    if (!open) return
+    const close = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    const key = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return
+      setOpen(false)
+      button.current?.focus()
+    }
+    document.addEventListener('mousedown', close)
+    document.addEventListener('keydown', key)
+    return () => {
+      document.removeEventListener('mousedown', close)
+      document.removeEventListener('keydown', key)
+    }
+  }, [open])
   return (
-    <div>
-      <div
-        style={{
-          borderTop: '1px solid #D9D2BF',
-          paddingTop: 14,
-          marginBottom: 14,
-        }}
+    <div
+      ref={ref}
+      style={{ position: 'relative' }}
+      className="flex items-center"
+      onBlur={(e) => {
+        if (open && !ref.current?.contains(e.relatedTarget as Node | null)) setOpen(false)
+      }}
+    >
+      <span className="text-caddie-ink-dim" style={{ fontSize: 13, marginRight: 8 }} aria-hidden>Slope</span>
+      <button
+        ref={button}
+        type="button"
+        aria-label={`Slope: ${summary}`}
+        aria-expanded={open}
+        aria-controls={panelId}
+        onClick={() => setOpen((o) => !o)}
+        className={`pat-tap ${FOCUS_RING}`}
+        style={{ ...chipStyle(summary !== 'Any'), padding: '6px 10px' }}
       >
-        <div className="kicker">{kicker}</div>
-      </div>
-      {children}
+        {summary} <span aria-hidden style={{ marginLeft: 4 }}>▾</span>
+      </button>
+      {open && (
+        <div
+          id={panelId}
+          role="group"
+          aria-label="Slope"
+          className="bg-caddie-surface"
+          style={{ position: 'absolute', top: 'calc(100% + 6px)', right: 0, zIndex: 20, width: 340, maxWidth: 'calc(100vw - 32px)', border: '1px solid #9F9580', borderRadius: 4, padding: 12 }}
+        >
+          {children}
+        </div>
+      )}
     </div>
+  )
+}
+
+// The phone's filter sheet: a modal dialog (focus moves in and is held there,
+// the page behind is inert, Escape closes, focus returns to Filters).
+function FilterSheet({ onClose, done, children }: { onClose: () => void; done: string; children: React.ReactNode }) {
+  const ref = useRef<HTMLDialogElement | null>(null)
+  const heading = useRef<HTMLHeadingElement | null>(null)
+  const titleId = useId()
+  useEffect(() => {
+    const d = ref.current
+    if (!d) return
+    if (!d.open) d.showModal()
+    heading.current?.focus()
+    return () => d.close()
+  }, [])
+  return (
+    <dialog
+      ref={ref}
+      aria-labelledby={titleId}
+      className="pat-dialog"
+      onCancel={(e) => {
+        e.preventDefault()
+        onClose()
+      }}
+      style={{ margin: 0, padding: 0, border: 'none', width: '100vw', height: '100dvh', maxWidth: '100vw', maxHeight: '100dvh', background: 'transparent', overscrollBehavior: 'contain' }}
+    >
+      <div className="pat-scrim" onClick={onClose} style={{ position: 'absolute', inset: 0, background: 'rgba(28,33,28,0.48)' }} />
+      <div
+        className="bg-caddie-surface pat-sheet"
+        style={{ position: 'absolute', left: 0, right: 0, bottom: 0, maxHeight: '88dvh', overflowY: 'auto', borderTop: '1px solid #9F9580', borderRadius: '4px 4px 0 0', padding: '12px 16px calc(18px + env(safe-area-inset-bottom))' }}
+      >
+        <div aria-hidden style={{ width: 32, height: 4, background: '#D9D2BF', margin: '0 auto 12px' }} />
+        <h2 ref={heading} id={titleId} tabIndex={-1} className="font-serif text-caddie-ink" style={{ fontSize: 22, fontStyle: 'italic', fontWeight: 500, marginBottom: 14, outline: 'none' }}>
+          Filters
+        </h2>
+        {children}
+        <button
+          type="button"
+          onClick={onClose}
+          className={`bg-caddie-accent text-caddie-accent-ink ${FOCUS_RING}`}
+          style={{ width: '100%', marginTop: 18, padding: '13px 16px', borderRadius: 2, border: 'none', fontSize: 14, fontWeight: 600 }}
+        >
+          {done}
+        </button>
+      </div>
+    </dialog>
   )
 }
 
 function chipStyle(active: boolean): React.CSSProperties {
   return {
-    backgroundColor: active ? '#1F3D2C' : '#EBE5D6',
+    // Ink, not the accent, for the chosen chip: the accent stays on the club.
+    backgroundColor: active ? '#1C211C' : '#EBE5D6',
     color: active ? '#F2EEE5' : '#1C211C',
     border: 'none',
     borderRadius: 2,
     padding: '6px 10px',
-    fontSize: 12,
+    minHeight: 30,
+    fontSize: 13,
     fontWeight: active ? 500 : 400,
     cursor: 'pointer',
   }
 }
 
-function SelectChips<T extends string>({
-  value,
-  options,
-  onChange,
-  renderLabel,
-}: {
-  value: T
-  options: readonly T[]
-  onChange: (v: T) => void
-  renderLabel: (v: T) => string
-}) {
-  return (
-    <div className="flex flex-wrap" style={{ gap: 6 }}>
-      {options.map((opt) => (
-        <button
-          key={opt}
-          type="button"
-          onClick={() => onChange(opt)}
-          style={chipStyle(value === opt)}
-        >
-          {renderLabel(opt)}
-        </button>
-      ))}
-    </div>
-  )
-}
-
-function Stat({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <dt className="kicker" style={{ marginBottom: 6 }}>
-        {label}
-      </dt>
-      <dd
-        className="font-serif tabular text-caddie-ink"
-        style={{
-          fontSize: 22,
-          fontWeight: 500,
-          textTransform: 'capitalize',
-          lineHeight: 1.1,
-        }}
-      >
-        {value}
-      </dd>
-    </div>
-  )
-}
-
-const DOT_LEGEND = [
-  { color: '#1C211C', label: 'Solid' },
-  { color: '#A66A1F', label: 'Push / pull' },
-  { color: '#A33A2A', label: 'Miss' },
-  { color: '#8A8B7E', label: 'Unspecified' },
-] as const
-
-const ELLIPSE_LEGEND = [
-  { fill: 'rgba(31,61,44,0.12)', dashed: false, label: '68% of shots' },
-  { fill: 'rgba(31,61,44,0.06)', dashed: true, label: '95% of shots' },
-] as const
-
-function PatternLegend({ hasEllipses }: { hasEllipses: boolean }) {
-  return (
-    <div style={{ marginTop: 12, display: 'flex', flexWrap: 'wrap', gap: '6px 14px' }}>
-      {DOT_LEGEND.map((item) => (
-        <span key={item.label} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-          <span
-            style={{
-              width: 8,
-              height: 8,
-              borderRadius: '50%',
-              background: item.color,
-              flexShrink: 0,
-            }}
-          />
-          <span className="kicker" style={{ color: '#8A8B7E' }}>{item.label}</span>
-        </span>
-      ))}
-      {hasEllipses &&
-        ELLIPSE_LEGEND.map((item) => (
-          <span key={item.label} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-            <svg width="14" height="10" style={{ flexShrink: 0 }}>
-              <ellipse
-                cx="7" cy="5" rx="6" ry="4"
-                fill={item.fill}
-                stroke="#1F3D2C"
-                strokeWidth="1"
-                strokeDasharray={item.dashed ? '3 2' : undefined}
-              />
-            </svg>
-            <span className="kicker" style={{ color: '#8A8B7E' }}>{item.label}</span>
-          </span>
-        ))}
-    </div>
-  )
-}
-
-// Top-down ball-flight view (mockup spec). Distinct from DispersionPlot: a
-// full-flight chart with the tee at the bottom and the target line up to the
-// pin. Each shot is a bezier tee → aim (control) → landing, so shot shape
-// reads geometrically. Within one club, aim distances cluster, so all shots
-// normalize to a common tee at the average aim distance; only lateral is to-scale.
-function BallFlightChart({
-  points,
-  stats,
-}: {
-  points: DispersionPoint[]
-  stats: DispersionStats | null
-}) {
-  const { toDisplay } = useUnits()
-
-  const { avgAimDistance, scale, maxDist, viewCenterLat } = useMemo(() => {
-    const aimDistances = points
-      .map((p) => p.startDistanceOffsetYards)
-      .filter((v): v is number => v != null)
-      .map((d) => -d) // start sits that far short of aim
-    const avgAimDistance = aimDistances.length
-      ? aimDistances.reduce((a, b) => a + b, 0) / aimDistances.length
-      : 0
-    // True distance from the tee per shot = its own aim distance + long/short vs aim.
-    // Shots without a recorded start fall back to the average aim distance.
-    const dists = points.map(
-      (p) =>
-        (p.startDistanceOffsetYards != null
-          ? -p.startDistanceOffsetYards
-          : avgAimDistance) + p.distanceOffsetYards,
-    )
-    const max = Math.max(...dists, avgAimDistance, 1) * 1.08
-    // Re-center the horizontal view on where the shots actually go, not on the
-    // aim line. A player who misses consistently to one side should see that
-    // cluster centered, with the aim line (lateral 0) sitting off to the side.
-    const viewCenterLat = stats ? stats.avgLateralOffset : 0
-    // Half-width must hold the cluster, the 95% cone, AND the tee/aim line
-    // (lateral 0) — every arc starts there, so it can never leave the frame.
-    const lateralExtent =
-      Math.max(
-        ...points.map((p) => Math.abs(p.lateralOffsetYards - viewCenterLat)),
-        stats ? stats.cone95.lateral : 0,
-        Math.abs(viewCenterLat),
-        8,
-      ) * 1.1
-    // One isotropic scale for both axes — distance and lateral shown in true
-    // proportion. Vertical fits the longest shot; shrink only if lateral would
-    // overflow the width.
-    const s = Math.min((FLIGHT_H - 40 - 28) / max, (FLIGHT_W / 2 - 16) / lateralExtent)
-    return { avgAimDistance, scale: s, maxDist: max, viewCenterLat }
-  }, [points, stats])
-
-  const cx = FLIGHT_W / 2
-  const teeY = FLIGHT_H - 40
-
-  // Degenerate when shots start ~at the target (no meaningful distance to plot).
-  if (avgAimDistance < 5) {
-    return (
-      <div
-        className="flex items-center justify-center text-caddie-ink-mute"
-        style={{
-          width: FLIGHT_VIEW_WIDTH,
-          height: 360,
-          fontSize: 13,
-          textAlign: 'center',
-          padding: 20,
-        }}
-      >
-        These shots don&apos;t have enough start-to-target distance to plot a
-        flight path.
-      </div>
-    )
-  }
-
-  const x = (lateralYards: number) => cx + (lateralYards - viewCenterLat) * scale
-  const y = (dist: number) => teeY - dist * scale
-  // Tee origin = the aim line (lateral 0). Once the view re-centers on the
-  // shot cluster this is no longer the chart center.
-  const teeX = x(0)
-  // Each shot's true forward distance from the tee.
-  const aimDistanceOf = (p: DispersionPoint) =>
-    p.startDistanceOffsetYards != null ? -p.startDistanceOffsetYards : avgAimDistance
-
-  // Driving-range yardage gridlines: finer spacing for short clubs.
-  const step = maxDist <= 160 ? 25 : 50
-  const gridLines: number[] = []
-  for (let d = step; d <= maxDist; d += step) gridLines.push(d)
-
-  return (
-    <svg
-      viewBox={`0 0 ${FLIGHT_W} ${FLIGHT_H}`}
-      style={{
-        width: FLIGHT_VIEW_WIDTH,
-        height: `calc(${FLIGHT_VIEW_WIDTH} * ${FLIGHT_H} / ${FLIGHT_W})`,
-        backgroundColor: '#F2EEE5',
-        borderRadius: 2,
-        display: 'block',
-      }}
-    >
-      {/* yardage gridlines — the driving-range backdrop */}
-      {gridLines.map((d) => (
-        <g key={`grid-${d}`}>
-          <line
-            x1={0}
-            y1={y(d)}
-            x2={FLIGHT_W}
-            y2={y(d)}
-            stroke="#E4DECF"
-            strokeWidth={1}
-          />
-          <text
-            x={6}
-            y={y(d) - 3}
-            fontFamily="Inconsolata, monospace"
-            fontSize={9}
-            letterSpacing="0.1em"
-            fill="#8A8B7E"
-          >
-            {toDisplay(d, 0)}
-          </text>
-        </g>
-      ))}
-
-      {/* aim line (straight-ahead from the tee) — lateral 0, not the chart center */}
-      <line
-        x1={teeX}
-        y1={y(maxDist)}
-        x2={teeX}
-        y2={teeY}
-        stroke="#D9D2BF"
-        strokeWidth={0.8}
-        strokeDasharray="3 5"
-      />
-
-      {/* individual shot flights */}
-      <g fill="none">
-        {points.map((p) => (
-          <path
-            key={`flight-${p.id}`}
-            d={`M ${teeX} ${teeY} Q ${x(p.lateralOffsetYards)} ${y(aimDistanceOf(p))} ${x(p.lateralOffsetYards)} ${y(aimDistanceOf(p) + p.distanceOffsetYards)}`}
-            stroke={pointColor(p.shotResult).fill}
-            strokeOpacity={0.3}
-            strokeWidth={1.2}
-          />
-        ))}
-        {stats && (
-          <path
-            d={`M ${teeX} ${teeY} Q ${x(stats.avgLateralOffset)} ${y(avgAimDistance)} ${x(stats.avgLateralOffset)} ${y(avgAimDistance + stats.avgDistanceOffset)}`}
-            stroke="#1F3D2C"
-            strokeWidth={3}
-            strokeOpacity={0.9}
-          />
-        )}
-      </g>
-
-      {/* landing dots */}
-      {points.map((p) => {
-        const c = pointColor(p.shotResult)
-        return (
-          <circle
-            key={`land-${p.id}`}
-            cx={x(p.lateralOffsetYards)}
-            cy={y(aimDistanceOf(p) + p.distanceOffsetYards)}
-            r={2.5}
-            fill={c.fill}
-            fillOpacity={c.opacity}
-          />
-        )
-      })}
-
-      {/* average landing */}
-      {stats && (
-        <circle
-          cx={x(stats.avgLateralOffset)}
-          cy={y(avgAimDistance + stats.avgDistanceOffset)}
-          r={4}
-          fill="#FBF8F1"
-          stroke="#1F3D2C"
-          strokeWidth={2}
-        />
-      )}
-
-      <circle cx={teeX} cy={teeY} r={5} fill="#FBF8F1" stroke="#1C211C" strokeWidth={2} />
-      <text
-        x={teeX}
-        y={teeY + 18}
-        fontFamily="Inconsolata, monospace"
-        fontSize={9}
-        letterSpacing="0.16em"
-        fill="#5C6356"
-        textAnchor="middle"
-      >
-        TEE
-      </text>
-    </svg>
-  )
-}

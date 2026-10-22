@@ -1,9 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
+  clubDistanceRange,
   computeAimRelativeDispersion,
   haversineYards,
+  median,
   type AimRelativeDispersion,
   type Club,
+  type DistanceRange,
   type Shot,
 } from '@oga/core'
 import { getShotsForUser } from '@oga/supabase'
@@ -23,6 +26,9 @@ export interface ClubDispersion {
   dispersion: AimRelativeDispersion
   /** Median start→end distance for this club, yards. Drives club auto-selection. */
   medianDistanceYards: number | null
+  /** Where two in three of its start→finish distances fall (core
+   *  clubDistanceRange), yards; null below MIN_SAMPLES_FOR_STATS. */
+  range: DistanceRange | null
   sampleSize: number
 }
 
@@ -69,20 +75,10 @@ function rowToShot(r: ShotRow): Shot {
   }
 }
 
-function median(xs: number[]): number | null {
-  if (xs.length === 0) return null
-  const sorted = [...xs].sort((a, b) => a - b)
-  const mid = Math.floor(sorted.length / 2)
-  return sorted.length % 2 === 0
-    ? (sorted[mid - 1]! + sorted[mid]!) / 2
-    : sorted[mid]!
-}
-
 /**
  * Loads the player's shot history once (memoized on userId), groups by club,
- * and computes per-club aim-relative dispersion + median distance. getShotsForUser
- * caps at the most recent 1000 shots — accepted for v1 (see the mobile hook's
- * note); revisit if a club's overlay ever looks under-sampled.
+ * and computes per-club aim-relative dispersion + median distance from every
+ * aimed shot (getShotsForUser pages past the 1000-row cap).
  */
 export function useClubDispersion(
   userId: string | undefined,
@@ -147,6 +143,7 @@ export function useClubDispersion(
         club,
         dispersion,
         medianDistanceYards: median(distances),
+        range: clubDistanceRange(distances),
         sampleSize: dispersion.sampleSize,
       })
     }

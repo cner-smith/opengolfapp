@@ -2,6 +2,7 @@ import {
   CartesianGrid,
   Line,
   LineChart,
+  ReferenceLine,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -41,19 +42,22 @@ export function SGTrendChart({ data }: SGTrendChartProps) {
           tick={TICK_STYLE}
           tickLine={false}
           axisLine={{ stroke: '#D9D2BF' }}
+          minTickGap={24}
         />
         <YAxis
           tick={TICK_STYLE}
           tickLine={false}
           axisLine={{ stroke: '#D9D2BF' }}
         />
+        <ReferenceLine y={0} stroke="#9F9580" strokeDasharray="3 3" />
         <Tooltip
           contentStyle={TOOLTIP_STYLE}
           labelStyle={{ color: '#8A8B7E' }}
         />
         <Line
-          type="monotone"
+          type="linear"
           dataKey="sg"
+          name="Strokes gained"
           stroke="#1F3D2C"
           strokeWidth={1.5}
           dot={{ r: 2.5, fill: '#1F3D2C', strokeWidth: 0 }}

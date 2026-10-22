@@ -137,8 +137,9 @@ export function PrivacyPage() {
             <ExtLink href="https://github.com/cner-smith/opengolfapp/issues">
               File an issue
             </ExtLink>{' '}
-            if you want something changed, removed, or explained. There's
-            no support email; the issue tracker is the contact channel.
+            if you want something changed, removed, or explained. For anything
+            you'd rather not post in public, email{' '}
+            <ExtLink href="mailto:support@oga.golf">support@oga.golf</ExtLink>.
           </P>
         </div>
 

@@ -1,5 +1,5 @@
 import type { DetailedStats } from '@oga/core'
-import { Section, Subkicker } from '../components/Section'
+import { Section, Subhead } from '../components/Section'
 import { RecoveryStat } from '../components/StatTiles'
 import {
   ClubAccuracyList,
@@ -10,20 +10,20 @@ import {
 
 export function PatternsSection({ data }: { data: DetailedStats }) {
   return (
-    <Section kicker="Patterns">
-      <Subkicker>Miss tendency</Subkicker>
+    <Section title="Patterns">
+      <Subhead>Miss tendency</Subhead>
       <MissTendencyList entries={data.missTendency} />
 
-      <Subkicker style={{ marginTop: 22 }}>Most costly lies</Subkicker>
+      <Subhead style={{ marginTop: 22 }}>Most costly lies</Subhead>
       <CostlyLiesList entries={data.costlyLies} />
 
-      <Subkicker style={{ marginTop: 22 }}>Club accuracy</Subkicker>
+      <Subhead style={{ marginTop: 22 }}>Club accuracy</Subhead>
       <ClubAccuracyList entries={data.clubAccuracy} />
 
-      <Subkicker style={{ marginTop: 22 }}>Slope impact</Subkicker>
+      <Subhead style={{ marginTop: 22 }}>Slope impact</Subhead>
       <SlopeImpactBlock impact={data.slopeImpact} />
 
-      <Subkicker style={{ marginTop: 22 }}>Recovery from rough</Subkicker>
+      <Subhead style={{ marginTop: 22 }}>Recovery from rough</Subhead>
       <RecoveryStat stat={data.recovery} />
     </Section>
   )

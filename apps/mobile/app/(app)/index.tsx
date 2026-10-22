@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router'
 import { DeviceEventEmitter, Pressable, ScrollView, Text, View } from 'react-native'
-import { formatSG, isPartialRound, isStaleEmptyRound, sgBreakdown } from '@oga/core'
+import { formatSG, isPartialRound, isStaleEmptyRound, sgBreakdown, sgFinding } from '@oga/core'
 import { deleteRound, getProfile, getRecentRounds } from '@oga/supabase'
 import type { Database } from '@oga/supabase'
 import { supabase } from '../../lib/supabase'
@@ -17,6 +17,7 @@ import { ResumeRoundBanner } from '../../components/home/ResumeRoundBanner'
 import { SGBreakdown } from '../../components/home/SGBreakdown'
 import { SGTrendChart } from '../../components/home/SGTrendChart'
 import {
+  ImportHistoryLink,
   LogPastRoundCTA,
   StartLiveRoundCTA,
 } from '../../components/home/RoundCTAs'
@@ -43,9 +44,9 @@ interface RecentRound extends RecentRoundRow {
 }
 
 const SG_KEYS = [
-  { key: 'sg_off_tee', label: 'Off tee' },
+  { key: 'sg_off_tee', label: 'Off the tee' },
   { key: 'sg_approach', label: 'Approach' },
-  { key: 'sg_around_green', label: 'Around green' },
+  { key: 'sg_around_green', label: 'Around the green' },
   { key: 'sg_putting', label: 'Putting' },
 ] as const
 
@@ -236,9 +237,8 @@ export default function Home() {
     const { breakdown } = sgBreakdown(wholeRounds)
     const avgs = SG_KEYS.map((c) => ({ ...c, value: breakdown.find((b) => b.key === c.key)?.value ?? 0 }))
     // total_score === 0 is the past-round-logger sentinel for "no score
-    // entered" (map-created rounds), so exclude it from avg + best-round min —
-    // otherwise an abandoned log skews the average and a single unscored
-    // round always reads as a best of 0.
+    // entered" (map-created rounds), so exclude it from the average —
+    // otherwise an abandoned log skews the average.
     const realScoreRounds = wholeRounds.filter(
       (r): r is typeof r & { total_score: number } =>
         r.total_score != null && r.total_score > 0,
@@ -246,19 +246,14 @@ export default function Home() {
     const avgScore = realScoreRounds.length > 0
       ? realScoreRounds.reduce((s, r) => s + r.total_score, 0) / realScoreRounds.length
       : null
-    const bestScore = realScoreRounds.length > 0
-      ? Math.min(...realScoreRounds.map((r) => r.total_score))
-      : null
     const totalSG = avgs.reduce((s, a) => s + a.value, 0)
     const sorted = [...avgs].sort((a, b) => b.value - a.value)
-    return { avgScore, bestScore, totalSG, weakest: sorted[sorted.length - 1]!, strongest: sorted[0]! }
+    return { avgScore, totalSG, weakest: sorted[sorted.length - 1]!, strongest: sorted[0]! }
   }, [wholeRounds])
 
-  const eyebrow =
-    profile?.handicap_index != null
-      ? `Handicap ${profile.handicap_index}`
-      : 'Welcome'
   const firstName = profile?.username?.split(/\s+/)[0]
+  const hour = new Date().getHours()
+  const hello = `Good ${hour < 12 ? 'morning' : hour < 18 ? 'afternoon' : 'evening'}`
 
   return (
     <PaperSurface style={{ flex: 1 }}>
@@ -270,7 +265,7 @@ export default function Home() {
           router.push('/(app)/round/new?mode=live')
         }}
       />
-      <AppBar eyebrow={eyebrow} title={profile?.username ?? 'Home'} />
+      <AppBar title="Home" />
       <ScrollView ref={scrollRef} contentContainerStyle={{ padding: 18, paddingBottom: 40 }}>
         <Entrance index={0}>
         <Text
@@ -284,12 +279,13 @@ export default function Home() {
             },
           ]}
         >
-          {firstName ? `Good round, ${firstName}.` : 'Good round.'}
+          {firstName ? `${hello}, ${firstName}.` : `${hello}.`}
         </Text>
         <Text style={[TYPE.body, { color: '#5C6356', fontSize: 14, marginBottom: 10 }]}>
           {wholeRounds.length === 0
             ? 'No full rounds yet'
             : `Last ${wholeRounds.length} round${wholeRounds.length === 1 ? '' : 's'}`}
+          {profile?.handicap_index != null ? ` · Handicap ${profile.handicap_index}` : ''}
         </Text>
         <Pressable onPress={scrollToLearn} hitSlop={6} style={{ marginBottom: 22 }}>
           <Text style={[TYPE.bodyItalic, { color: '#8A8B7E', fontSize: 13 }]}>
@@ -300,38 +296,9 @@ export default function Home() {
 
         {wholeRounds.length > 0 && (
           <Entrance index={1}>
-            <Text
-              style={[
-                TYPE.bodyItalic,
-                {
-                  color: '#1C211C',
-                  fontSize: 16,
-                  lineHeight: 24,
-                  marginBottom: 22,
-                },
-              ]}
-            >
-              {homeStats.weakest.value > -0.05 ? (
-                <>Everything is net positive. <Text maxFontSizeMultiplier={FONT_CAP} style={TYPE.bodyBold}>{homeStats.strongest.label}</Text> leads at {fmtSG(homeStats.strongest.value)} a round.</>
-              ) : (
-                <><Text maxFontSizeMultiplier={FONT_CAP} style={TYPE.bodyBold}>{homeStats.weakest.label}.</Text> Your biggest leak — costing about {fmtAbs(homeStats.weakest.value)} a round. {homeStats.strongest.label} is the bright spot at {fmtSG(homeStats.strongest.value)}.</>
-              )}
+            <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.serif, { color: P.ink, fontSize: 19, lineHeight: 25, marginBottom: 20 }]}>
+              {sgFinding(homeStats.weakest, homeStats.strongest, 'every part')}
             </Text>
-
-            <View style={{ marginBottom: 28 }}>
-              <SectionHead title="By the numbers" />
-              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
-                <StatTile style={TILE} label="Avg score" value={homeStats.avgScore != null ? homeStats.avgScore.toFixed(1) : '—'} />
-                <StatTile
-                  style={TILE}
-                  label="SG total"
-                  value={formatSG(homeStats.totalSG)}
-                  valueColor={homeStats.totalSG > 0 ? P.forest : homeStats.totalSG < 0 ? P.neg : P.ink}
-                />
-                <StatTile style={TILE} label="Rounds" value={wholeRounds.length.toString()} />
-                <StatTile style={TILE} label="Best round" value={homeStats.bestScore != null ? homeStats.bestScore.toString() : '—'} />
-              </View>
-            </View>
           </Entrance>
         )}
 
@@ -340,6 +307,18 @@ export default function Home() {
           {!activeRound && <StartLiveRoundCTA />}
           <LogPastRoundCTA />
         </Entrance>
+
+        {wholeRounds.length > 0 && (
+          <View style={{ flexDirection: 'row', gap: 12, marginBottom: 28 }}>
+            <StatTile style={{ flex: 1 }} label="Average score" value={homeStats.avgScore != null ? homeStats.avgScore.toFixed(1) : '—'} />
+            <StatTile
+              style={{ flex: 1 }}
+              label="Strokes gained"
+              value={formatSG(homeStats.totalSG)}
+              valueColor={homeStats.totalSG > 0 ? P.forest : homeStats.totalSG < 0 ? P.neg : P.ink}
+            />
+          </View>
+        )}
 
         {pending > 0 && (
           <View style={{ marginBottom: 18 }}>
@@ -378,15 +357,22 @@ export default function Home() {
               ]}
             >
               {rounds.length === 0
-                ? 'Log your first round to start tracking strokes gained.'
+                ? 'Log your first round, or bring your history from another app, to start tracking strokes gained.'
                 : 'Finish a full round to see your strokes gained.'}
             </Text>
+            {/* The start-round actions sit above this tile; the import is
+                the other way in for a player switching apps. */}
+            {rounds.length === 0 && (
+              <View style={{ marginTop: 10 }}>
+                <ImportHistoryLink />
+              </View>
+            )}
           </PaperTile>
         ) : (
-          <>
+          <View style={{ marginBottom: 28 }}>
             <SGBreakdown rounds={wholeRounds} />
             <SGTrendChart data={trend} />
-          </>
+          </View>
         )}
         </Entrance>
 
@@ -426,14 +412,4 @@ export default function Home() {
       />
     </PaperSurface>
   )
-}
-
-const TILE = { width: '47%' } as const
-
-function fmtSG(value: number): string {
-  return value === 0 ? 'even' : `${formatSG(value)} strokes`
-}
-
-function fmtAbs(value: number): string {
-  return `${Math.abs(value).toFixed(1)} strokes`
 }

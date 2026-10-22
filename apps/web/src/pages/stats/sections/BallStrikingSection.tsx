@@ -1,33 +1,35 @@
 import type { DetailedStats } from '@oga/core'
 import { useUnits } from '../../../hooks/useUnits'
 import { Section } from '../components/Section'
-import { StatTile } from '../components/StatTiles'
+import { StatRow, StatTile } from '../components/StatTiles'
 import { fmtPct } from '../format'
 
 export function BallStrikingSection({ data }: { data: DetailedStats }) {
   const b = data.ballStriking
   const { toDisplay } = useUnits()
   return (
-    <Section kicker="Ball striking">
-      <div className="grid grid-cols-2 sm:grid-cols-4" style={{ gap: 14, marginBottom: 14 }}>
+    <Section title="Ball striking">
+      <div className="grid grid-cols-2" style={{ gap: 14, maxWidth: 520, marginBottom: 6 }}>
         <StatTile label="Fairways hit" value={fmtPct(b.fairwayPct)} />
-        <StatTile label="GIR" value={fmtPct(b.girPct)} />
-        <StatTile
-          label="Drive avg"
+        <StatTile label="Greens in regulation" value={fmtPct(b.girPct)} />
+      </div>
+      <div className="grid sm:grid-cols-2" style={{ columnGap: 32 }}>
+        <StatRow
+          label="Drive"
           value={b.drivingDistanceAvg != null ? toDisplay(b.drivingDistanceAvg) : '—'}
-          subtle={
+          note={
             b.drivingSampleSize > 0
-              ? `${b.drivingSampleSize} drive${b.drivingSampleSize === 1 ? '' : 's'}`
-              : 'Need driver tee shots with GPS'
+              ? `Typical distance, ${b.drivingSampleSize} drive${b.drivingSampleSize === 1 ? '' : 's'}`
+              : 'Needs driver tee shots with GPS'
           }
         />
-        <StatTile
-          label="Proximity"
+        <StatRow
+          label="Approach proximity"
           value={b.proximityAvg != null ? toDisplay(b.proximityAvg, 1) : '—'}
-          subtle={
+          note={
             b.proximitySampleRounds > 0
-              ? `Based on ${b.proximitySampleRounds} round${b.proximitySampleRounds === 1 ? '' : 's'} with pin logged`
-              : 'Need approach shots with end coords + pin'
+              ? `${b.proximitySampleRounds} round${b.proximitySampleRounds === 1 ? '' : 's'} with the pin logged`
+              : 'Needs approach shots with the pin logged'
           }
         />
       </div>

@@ -35,16 +35,17 @@ test.describe('Bag: delete then restore (signed in, mutating)', () => {
     })
   })
 
-  test('delete a club via row delete button + confirm dialog', async ({
+  test('delete a club from its edit form + confirm dialog', async ({
     page,
   }) => {
     await page.goto('/settings/bag')
 
     // Sanity: 14 drag handles before delete.
-    const dragHandles = page.getByRole('button', { name: /Drag to reorder/i })
+    const dragHandles = page.getByRole('button', { name: /^Drag .+ to reorder$/ })
     await expect(dragHandles).toHaveCount(14)
 
-    // Per-row delete uses aria-label "Delete {name}".
+    // Delete lives in the club's edit form: open the row, then "Delete {name}".
+    await page.getByRole('button', { name: /^Lob Wedge[,.]/ }).click()
     await page.getByRole('button', { name: 'Delete Lob Wedge' }).click()
 
     // ConfirmDialog opens with title "Delete Lob Wedge?". Confirm

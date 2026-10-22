@@ -163,6 +163,11 @@ export interface Shot {
   puttSlopePct?: number
   greenSpeed?: GreenSpeed
   notes?: string
+  /** Result axes (#951); null or absent = not recorded. */
+  shape?: ShotShape | null
+  startLine?: ShotStartLine | null
+  /** The round's played date, when the caller joined it (Shot patterns' recent view). */
+  playedAt?: string
 }
 
 export type LegacyPuttResult =

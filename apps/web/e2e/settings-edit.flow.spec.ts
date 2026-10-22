@@ -27,17 +27,14 @@ test.describe('Settings: edit handicap (signed in, mutating)', () => {
       page.getByRole('heading', { name: /^Settings$/i }),
     ).toBeVisible()
 
-    // First input is Username; second is Handicap index. SettingsPage
-    // uses bare <input> + <span className="kicker"> labels, so we index
-    // by position rather than by label association.
-    const handicapInput = page.locator('input').nth(1)
-    await expect(handicapInput).toHaveValue(String(ORIGINAL_HANDICAP))
-
-    await handicapInput.fill('13.5')
-    await page.getByRole('button', { name: /Save profile/i }).click()
+    const row = page.getByRole('button', { name: /^Handicap index/ })
+    await expect(row).toContainText(String(ORIGINAL_HANDICAP))
+    await row.click()
+    await page.getByLabel('Handicap index').fill('13.5')
+    await page.getByRole('button', { name: 'Save changes' }).click()
     await expect(page.getByText('Saved.', { exact: true })).toBeVisible()
 
     await page.reload()
-    await expect(page.locator('input').nth(1)).toHaveValue('13.5')
+    await expect(page.getByRole('button', { name: /^Handicap index/ })).toContainText('13.5')
   })
 })

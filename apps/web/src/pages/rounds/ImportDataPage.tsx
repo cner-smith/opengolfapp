@@ -10,6 +10,8 @@ import {
 } from '../../lib/import'
 import { CourseSearch } from '../../components/courses/CourseSearch'
 import { GolfPadImport } from './components/GolfPadImport'
+import { ScorecardCsvImport } from './components/ScorecardCsvImport'
+import { Choice, ChoiceRow } from './NewRoundPage'
 import { TeeSelector } from '../../components/courses/TeeSelector'
 import { useAuth } from '../../hooks/useAuth'
 import { supabase } from '../../lib/supabase'
@@ -17,7 +19,7 @@ import { toUserMessage } from '../../lib/errors'
 
 type Step = 'input' | 'review'
 
-// "Import from data" lets you pre-populate a round from a JSON payload you
+// "Import OGA JSON" lets you pre-populate a round from a JSON payload you
 // produce yourself — e.g. a Garmin-to-OGA converter script you write and
 // run outside this app. Field names in the payload are this app's actual
 // snake_case DB columns (see ../../lib/import.ts), so the payload
@@ -30,7 +32,7 @@ export function ImportDataPage() {
   const { user } = useAuth()
   const qc = useQueryClient()
 
-  const [mode, setMode] = useState<'json' | 'golfpad'>('json')
+  const [mode, setMode] = useState<'json' | 'golfpad' | 'csv'>('golfpad')
   const [step, setStep] = useState<Step>('input')
   const [rawText, setRawText] = useState('')
   const [busy, setBusy] = useState(false)
@@ -124,50 +126,52 @@ export function ImportDataPage() {
   const shotCount = payload?.holes.reduce((n, h) => n + h.shots.length, 0) ?? 0
 
   return (
-    <div className="mx-auto max-w-2xl">
-      <div style={{ marginBottom: 18 }}>
-        <h1 className="text-caddie-ink" style={{ fontSize: 22, fontWeight: 600, lineHeight: 1.3 }}>
-          Import from data
-        </h1>
-        <div className="text-caddie-ink-dim" style={{ fontSize: 13, marginTop: 2 }}>
-          {mode === 'golfpad'
-            ? 'Bring your Golf Pad history across: every round, with strokes gained worked out on import.'
-            : "Paste or upload a JSON payload to pre-populate a round — fill in shot shape, lie slope, and other detail your data source doesn't track once it lands on the scorecard."}
-        </div>
-      </div>
-
-      <div
-        className="bg-caddie-surface flex flex-col gap-5"
-        style={{ border: '0.5px solid #E4E4E0', borderRadius: 10, padding: 20 }}
+    <div style={{ maxWidth: 680 }}>
+      <h1
+        className="font-serif text-caddie-ink"
+        style={{ fontSize: 28, fontWeight: 500, lineHeight: 1.15, marginBottom: 6 }}
       >
-        <div className="flex gap-2" role="group" aria-label="Import from">
-          {(['json', 'golfpad'] as const).map((m) => (
-            <button
-              key={m}
-              type="button"
-              aria-pressed={mode === m}
-              onClick={() => setMode(m)}
-              className={mode === m ? 'bg-caddie-accent text-caddie-accent-ink' : 'text-caddie-accent'}
-              style={{ ...buttonStyle, borderRadius: 2, border: '1px solid currentColor', background: mode === m ? undefined : 'transparent' }}
-            >
-              {m === 'json' ? 'OGA JSON' : 'Golf Pad'}
-            </button>
-          ))}
-        </div>
+        Import rounds
+      </h1>
+      <p className="text-caddie-ink-dim" style={{ fontSize: 15, marginBottom: 28, maxWidth: 560 }}>
+        {mode === 'golfpad'
+          ? 'Bring your Golf Pad history across: every round, with strokes gained worked out on import.'
+          : mode === 'csv'
+            ? 'Bring scores from a spreadsheet or another app’s scorecards: one row per round.'
+            : 'Paste or upload an OGA JSON payload to fill in a round. Shot shape, lie slope and anything else your data source doesn’t record can be added on the scorecard afterwards.'}
+      </p>
 
+      <div className="flex flex-col" style={{ gap: 22 }}>
+        {mode !== 'json' && (
+          <ChoiceRow>
+            <Choice
+              active={mode === 'golfpad'}
+              onClick={() => setMode('golfpad')}
+              title="Golf Pad"
+              subtitle="The comprehensive export: rounds, holes and shots."
+            />
+            <Choice
+              active={mode === 'csv'}
+              onClick={() => setMode('csv')}
+              title="Scorecard CSV"
+              subtitle="A spreadsheet of scores, from our template."
+            />
+          </ChoiceRow>
+        )}
         {mode === 'golfpad' && <GolfPadImport />}
+        {mode === 'csv' && <ScorecardCsvImport />}
 
         {mode === 'json' && step === 'input' && (
-          <div className="flex flex-col gap-4">
-            <div className="flex items-center justify-between">
+          <div className="flex flex-col" style={{ gap: 14 }}>
+            <div className="flex items-baseline justify-between">
               <FieldLabel>JSON payload</FieldLabel>
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                className="text-caddie-accent"
-                style={{ background: 'transparent', border: 'none', fontSize: 12, fontWeight: 600 }}
+                className="text-caddie-ink underline underline-offset-4 hover:opacity-80"
+                style={{ background: 'transparent', border: 'none', fontSize: 13 }}
               >
-                Upload file…
+                Upload a file…
               </button>
               <input
                 ref={fileInputRef}
@@ -182,13 +186,14 @@ export function ImportDataPage() {
               onChange={(e) => setRawText(e.target.value)}
               placeholder='{"played_at": "2026-08-01", "holes": [...]}'
               spellCheck={false}
-              className="w-full bg-caddie-surface-2 text-caddie-ink"
+              aria-label="OGA JSON payload"
+              className="w-full bg-caddie-surface text-caddie-ink"
               style={{
-                border: '0.5px solid #E4E4E0',
-                borderRadius: 7,
+                border: LINE_RULE,
+                borderRadius: 2,
                 padding: '10px 12px',
                 fontSize: 12,
-                fontFamily: 'monospace',
+                fontFamily: 'var(--caddie-mono)',
                 minHeight: 260,
                 resize: 'vertical',
               }}
@@ -205,9 +210,8 @@ export function ImportDataPage() {
                 className="text-caddie-neg"
                 style={{
                   fontSize: 12,
-                  border: '1px solid #E4A0A0',
-                  borderRadius: 7,
-                  padding: 10,
+                  borderLeft: '2px solid #A33A2A',
+                  paddingLeft: 12,
                   maxHeight: 200,
                   overflowY: 'auto',
                 }}
@@ -217,7 +221,7 @@ export function ImportDataPage() {
                 </div>
                 {validation.errors.map((err, idx) => (
                   <div key={idx} style={{ marginBottom: 4 }}>
-                    <span style={{ fontFamily: 'monospace' }}>{err.path}</span>: {err.message}
+                    <span style={{ fontFamily: 'var(--caddie-mono)' }}>{err.path}</span>: {err.message}
                   </div>
                 ))}
               </div>
@@ -236,7 +240,7 @@ export function ImportDataPage() {
                 dataQuality.missingLieType.length > 0 ||
                 dataQuality.missingDistanceToTarget.length > 0 ||
                 dataQuality.misplacedPuttDistance.length > 0) && (
-                <div className="text-caddie-warn" style={{ fontSize: 12 }}>
+                <div className="text-caddie-warn" style={{ fontSize: 13, borderLeft: '2px solid #A66A1F', paddingLeft: 12 }}>
                   <div style={{ fontWeight: 600, marginBottom: 6 }}>
                     Watch out — some shot details are missing:
                   </div>
@@ -264,7 +268,7 @@ export function ImportDataPage() {
                   {dataQuality.misplacedPuttDistance.length > 0 && (
                     <div>
                       {dataQuality.misplacedPuttDistance.length} putt
-                      {dataQuality.misplacedPuttDistance.length === 1 ? '' : 's'} carry their distance
+                      {dataQuality.misplacedPuttDistance.length === 1 ? '' : 's'} store their distance
                       in distance_to_target instead of putt_distance_ft — putting Strokes Gained will
                       read as 0 for these: {formatIssueLocations(dataQuality.misplacedPuttDistance)}.
                     </div>
@@ -273,12 +277,12 @@ export function ImportDataPage() {
               )}
 
             {error && (
-              <div className="text-caddie-neg" style={{ fontSize: 13 }}>
+              <p className="text-caddie-neg" role="alert" style={{ fontSize: 13 }}>
                 {error}
-              </div>
+              </p>
             )}
 
-            <div className="flex justify-end">
+            <div className="flex">
               <button
                 type="button"
                 onClick={handleContinue}
@@ -293,11 +297,12 @@ export function ImportDataPage() {
         )}
 
         {mode === 'json' && step === 'review' && payload && (
-          <div className="flex flex-col gap-5">
+          <div className="flex flex-col" style={{ gap: 18 }}>
             {alreadyImported && (
               <div
                 className="text-caddie-neg"
-                style={{ fontSize: 13, border: '1px solid #E4A0A0', borderRadius: 7, padding: 10 }}
+                role="alert"
+                style={{ fontSize: 13, borderLeft: '2px solid #A33A2A', paddingLeft: 12 }}
               >
                 A round with import_id "{payload.import_id}" already exists. Importing again will
                 create a duplicate round — go back and remove/change import_id if that's not what
@@ -305,10 +310,33 @@ export function ImportDataPage() {
               </div>
             )}
 
-            <div>
-              <FieldLabel>
-                Course{payload.course_name ? ` (payload says "${payload.course_name}")` : ''}
-              </FieldLabel>
+            <div className="text-caddie-ink" style={{ fontSize: 15, lineHeight: 1.5 }}>
+              <span className="font-serif" style={{ fontSize: 18 }}>
+                {payload.played_at}
+              </span>{' '}
+              · {payload.total_score ?? '?'} strokes over {payload.holes.length} holes, {shotCount} shots.
+            </div>
+
+            <section aria-label="Course" style={{ borderTop: LINE_RULE, borderBottom: LINE_RULE, paddingBottom: 14 }}>
+              <div className="flex items-center justify-between" style={{ gap: 16, minHeight: 52, padding: '12px 4px' }}>
+                <span className="text-caddie-ink" style={{ fontSize: 15 }}>
+                  Course
+                  {payload.course_name && (
+                    <span className="text-caddie-ink-dim" style={{ display: 'block', fontSize: 13 }}>
+                      The payload says “{payload.course_name}”
+                    </span>
+                  )}
+                </span>
+                {courseName && courseId ? (
+                  <span className="font-serif text-caddie-ink" style={{ fontSize: 18, textAlign: 'right' }}>
+                    {courseName}
+                  </span>
+                ) : (
+                  <span className="text-caddie-ink-dim" style={{ fontSize: 15 }}>
+                    Not chosen
+                  </span>
+                )}
+              </div>
               <CourseSearch
                 selectedCourseId={courseId}
                 initialQuery={payload.course_name ?? ''}
@@ -318,16 +346,11 @@ export function ImportDataPage() {
                   setCourseTeeId(null)
                 }}
               />
-              {courseName && courseId && (
-                <p className="text-caddie-accent" style={{ fontSize: 13, marginTop: 8 }}>
-                  Selected: {courseName}
-                </p>
-              )}
-            </div>
+            </section>
 
             {courseId && (
               <div>
-                <FieldLabel>Tee</FieldLabel>
+                <FieldLabel>Tee: its rating and slope feed your handicap</FieldLabel>
                 <TeeSelector
                   courseId={courseId}
                   selectedTeeId={courseTeeId}
@@ -339,18 +362,10 @@ export function ImportDataPage() {
               </div>
             )}
 
-            <div>
-              <FieldLabel>What's coming in</FieldLabel>
-              <div className="text-caddie-ink-dim" style={{ fontSize: 13 }}>
-                {payload.played_at} · {payload.total_score ?? '?'} strokes over{' '}
-                {payload.holes.length} holes, {shotCount} shots.
-              </div>
-            </div>
-
             {error && (
-              <div className="text-caddie-neg" style={{ fontSize: 13 }}>
+              <p className="text-caddie-neg" role="alert" style={{ fontSize: 13 }}>
                 {error}
-              </div>
+              </p>
             )}
 
             {busy && progress && (
@@ -359,16 +374,7 @@ export function ImportDataPage() {
               </div>
             )}
 
-            <div className="flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setStep('input')}
-                disabled={busy}
-                className="bg-caddie-surface text-caddie-ink transition-colors hover:bg-caddie-surface-2 disabled:opacity-50"
-                style={{ ...buttonStyle, background: 'transparent', border: '0.5px solid #E4E4E0' }}
-              >
-                Back
-              </button>
+            <div className="flex items-center" style={{ gap: 18 }}>
               <button
                 type="button"
                 onClick={handleImport}
@@ -378,9 +384,29 @@ export function ImportDataPage() {
               >
                 {busy ? 'Importing…' : 'Import round'}
               </button>
+              <button
+                type="button"
+                onClick={() => setStep('input')}
+                disabled={busy}
+                className="text-caddie-ink-dim hover:text-caddie-ink disabled:opacity-50"
+                style={{ background: 'none', border: 'none', fontSize: 14, cursor: 'pointer' }}
+              >
+                Back
+              </button>
             </div>
           </div>
         )}
+
+        <div style={{ borderTop: LINE_RULE, paddingTop: 14, marginTop: 10 }}>
+          <button
+            type="button"
+            onClick={() => setMode(mode === 'json' ? 'golfpad' : 'json')}
+            className="text-caddie-ink-dim hover:text-caddie-ink underline underline-offset-4"
+            style={{ background: 'none', border: 'none', padding: 0, fontSize: 13, cursor: 'pointer' }}
+          >
+            {mode === 'json' ? 'Import from Golf Pad or a scorecard CSV' : 'Import OGA JSON'}
+          </button>
+        </div>
       </div>
     </div>
   )
@@ -405,18 +431,19 @@ function formatIssueLocations(issues: ImportDataQualityIssue[]): string {
 
 function FieldLabel({ children }: { children: React.ReactNode }) {
   return (
-    <div
-      className="text-caddie-ink-dim uppercase"
-      style={{ fontSize: 11, fontWeight: 500, letterSpacing: 0.4, marginBottom: 6 }}
-    >
+    <div className="text-caddie-ink-dim" style={{ fontSize: 13, marginBottom: 8 }}>
       {children}
     </div>
   )
 }
 
+const LINE_RULE = '1px solid #D9D2BF'
+
 const buttonStyle: React.CSSProperties = {
-  borderRadius: 10,
-  padding: '10px 16px',
-  fontSize: 13,
-  fontWeight: 500,
+  border: 'none',
+  borderRadius: 2,
+  padding: '12px 16px',
+  fontSize: 14,
+  fontWeight: 600,
+  letterSpacing: '0.02em',
 }

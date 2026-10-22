@@ -1,8 +1,10 @@
 import { Text } from 'react-native'
+import { PressableTouch } from '../ui/PressableTouch'
 import { useRouter } from 'expo-router'
 import { Key, KeyText } from '../paper/Paper'
 import { FONT_CAP, P } from '../paper/tokens'
 import { TYPE } from '../../lib/typography'
+import { openWebImport } from '../../lib/webLinks'
 
 export function StartLiveRoundCTA() {
   const router = useRouter()
@@ -37,16 +39,39 @@ export function StartLiveRoundCTA() {
   )
 }
 
+// The no-rounds empty states (Home, All rounds) offer the import beside the
+// start-round action. It opens the web import in the browser.
+export function ImportHistoryLink() {
+  return (
+    <PressableTouch
+      accessibilityRole="link"
+      accessibilityLabel="Import your history on the web"
+      accessibilityHint="Opens oga.golf in the browser"
+      onPress={() => void openWebImport()}
+      hitSlop={8}
+      style={{ alignSelf: 'flex-start', minHeight: 44, justifyContent: 'center' }}
+    >
+      <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.bodyBold, { color: P.forest, fontSize: 15 }]}>
+        Import your history ↗
+      </Text>
+    </PressableTouch>
+  )
+}
+
 export function LogPastRoundCTA() {
   const router = useRouter()
   return (
-    <Key
+    // One primary action on Home; the past-round log is a quiet link under it.
+    <PressableTouch
+      accessibilityRole="button"
       accessibilityLabel="Log past round"
       onPress={() => router.push('/(app)/round/new?mode=past')}
-      style={{ marginBottom: 22 }}
-      faceStyle={{ minHeight: 50 }}
+      hitSlop={8}
+      style={{ alignSelf: 'center', minHeight: 44, justifyContent: 'center', paddingHorizontal: 16, marginBottom: 18 }}
     >
-      <KeyText size={15}>+ Log past round</KeyText>
-    </Key>
+      <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.bodyBold, { color: P.forest, fontSize: 15 }]}>
+        + Log past round
+      </Text>
+    </PressableTouch>
   )
 }

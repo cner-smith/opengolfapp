@@ -21,7 +21,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   return (
     <div className="flex h-screen w-full bg-caddie-bg text-caddie-ink">
-      <div className="hidden md:flex">
+      <div className="hidden lg:flex">
         <Sidebar />
       </div>
 
@@ -30,12 +30,12 @@ export function AppShell({ children }: { children: ReactNode }) {
           type="button"
           aria-label="Close menu"
           onClick={() => setDrawerOpen(false)}
-          className="fixed inset-0 z-40 md:hidden"
+          className="fixed inset-0 z-40 lg:hidden"
           style={{ background: 'rgba(28,33,28,0.55)' }}
         />
       )}
       <div
-        className="fixed inset-y-0 left-0 z-50 md:hidden"
+        className="fixed inset-y-0 left-0 z-50 lg:hidden"
         style={{
           transform: drawerOpen ? 'translateX(0)' : 'translateX(-100%)',
           transition: 'transform 200ms ease',
@@ -45,9 +45,9 @@ export function AppShell({ children }: { children: ReactNode }) {
       </div>
 
       {/* Mobile top bar — brand + menu (opens the same drawer). Fixed so it
-          stays on scroll; hidden on md+ where the sidebar takes over. */}
+          stays on scroll; hidden on lg+ where the sidebar takes over. */}
       <div
-        className="md:hidden fixed top-0 left-0 right-0 z-30 bg-caddie-surface flex items-center justify-between"
+        className="lg:hidden fixed top-0 left-0 right-0 z-30 bg-caddie-surface flex items-center justify-between"
         style={{ height: 52, borderBottom: '1px solid #D9D2BF', paddingInline: 16 }}
       >
         <div
@@ -60,23 +60,22 @@ export function AppShell({ children }: { children: ReactNode }) {
           type="button"
           onClick={() => setDrawerOpen(true)}
           aria-label="Open menu"
-          className="font-mono uppercase text-caddie-ink"
+          className="text-caddie-ink"
           style={{
             border: '1px solid #D9D2BF',
             borderRadius: 2,
-            padding: '7px 10px',
-            fontSize: 11,
-            letterSpacing: '0.14em',
+            padding: '6px 12px',
+            fontSize: 14,
             fontWeight: 600,
           }}
         >
-          ☰ Menu
+          Menu
         </button>
       </div>
 
       <main
         ref={mainRef}
-        className="flex-1 overflow-y-auto pt-[52px] md:pt-0"
+        className="flex-1 overflow-y-auto pt-[52px] lg:pt-0"
         style={{ paddingInline: 'clamp(16px, 4vw, 32px)' }}
       >
         <div
@@ -91,13 +90,12 @@ export function AppShell({ children }: { children: ReactNode }) {
         >
           <div style={{ flex: 1 }}>{children}</div>
           <footer
-            className="font-mono uppercase text-caddie-ink-mute"
+            className="text-caddie-ink-dim"
             style={{
               borderTop: '1px solid #D9D2BF',
               marginTop: 40,
               paddingTop: 18,
-              fontSize: 10,
-              letterSpacing: '0.14em',
+              fontSize: 12,
             }}
           >
             Course data from{' '}
@@ -131,7 +129,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           </footer>
           {/* Clears the fixed bottom tab bar (mobile only). */}
           <div
-            className="md:hidden"
+            className="lg:hidden"
             style={{ height: 'calc(56px + env(safe-area-inset-bottom, 0px))' }}
           />
         </div>

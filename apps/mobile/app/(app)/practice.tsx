@@ -1,14 +1,25 @@
 import { useEffect, useMemo, useState } from 'react'
+import Animated, {
+  useAnimatedStyle,
+  useReducedMotion,
+  useSharedValue,
+  withSequence,
+  withSpring,
+  withTiming,
+} from 'react-native-reanimated'
 import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from 'react-native'
 import { Link } from 'expo-router'
 import { MaterialCommunityIcons } from '@expo/vector-icons'
 import {
+  isPartialRound,
   normalizeCategoryProse,
+  sgBreakdown,
   parseLocalDate,
+  sgFinding,
   shouldPromptPlanRefresh,
   todayLocalDate,
 } from '@oga/core'
-import type { StoredBlock, StoredFocusArea, StoredSession } from '@oga/core'
+import type { BlockType, StoredBlock, StoredFocusArea, StoredSession } from '@oga/core'
 import { AppBar } from '../../components/ui/AppBar'
 import { Entrance } from '../../components/ui/Entrance'
 import { PressableTouch } from '../../components/ui/PressableTouch'
@@ -16,11 +27,16 @@ import {
   BLOCK_TYPE_LABEL,
   CATEGORY_LABEL,
   FACILITY_LABEL,
+  MODE_COLOR,
   renderInstructions,
 } from '../../components/practice/drillDisplay'
+import { getRecentRounds } from '@oga/supabase'
+import { supabase } from '../../lib/supabase'
+import { useAuth } from '../../hooks/useAuth'
+import { haptic } from '../../lib/haptics'
 import { TYPE } from '../../lib/typography'
 import { Key, KeyText, PaperSurface } from '../../components/paper/Paper'
-import { SectionHead } from '../../components/paper/Section'
+import { PaperTile, SectionHead } from '../../components/paper/Section'
 import { FONT_CAP, P } from '../../components/paper/tokens'
 import { usePracticePlan, type DrillCard as DrillRow } from '../../hooks/usePracticePlan'
 
@@ -58,7 +74,44 @@ function formatDate(value: string | null): string {
   return parsed.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
 }
 
+const SG_KEYS = [
+  { key: 'sg_off_tee', label: 'Off the tee' },
+  { key: 'sg_approach', label: 'Approach' },
+  { key: 'sg_around_green', label: 'Around the green' },
+  { key: 'sg_putting', label: 'Putting' },
+] as const
+
+// Home's finding over the same window (the 20 most recent whole rounds), so
+// the plan opens on the leak it was built for; null with no whole rounds.
+function useFinding(): string | null {
+  const { user } = useAuth()
+  const [text, setText] = useState<string | null>(null)
+  useEffect(() => {
+    if (!user) return
+    let active = true
+    getRecentRounds(supabase, user.id, 40).then(({ data, error }) => {
+      if (!active) return
+      if (error) {
+        // eslint-disable-next-line no-console
+        console.warn('[practice/getRecentRounds]', error.message)
+        return
+      }
+      const whole = (data ?? []).filter((r) => !isPartialRound(r.hole_scores)).slice(0, 20)
+      if (whole.length === 0) return setText(null)
+      const { breakdown } = sgBreakdown(whole)
+      const avgs = SG_KEYS.map((c) => ({ label: c.label, value: breakdown.find((b) => b.key === c.key)?.value ?? 0 }))
+      const sorted = [...avgs].sort((a, b) => b.value - a.value)
+      setText(sgFinding(sorted[sorted.length - 1]!, sorted[0]!, 'every part'))
+    })
+    return () => {
+      active = false
+    }
+  }, [user])
+  return text
+}
+
 export default function Practice() {
+  const finding = useFinding()
   const {
     plan,
     drillsById,
@@ -104,16 +157,15 @@ export default function Practice() {
     : isExpired
       ? 'Generate this week’s plan'
       : null
-  const kicker = !plan
+  const sub = !plan
     ? ''
     : isExpired
-      ? `Last week's plan · valid through ${formatDate(plan.valid_until)}`
-      : `${isStarter ? 'Starter plan' : 'Practice plan'} · week of ${formatDate(plan.generated_at)}${plan.valid_until ? ` · valid through ${formatDate(plan.valid_until)}` : ''}`
+      ? `Last week's plan, through ${formatDate(plan.valid_until)}`
+      : `Week of ${formatDate(plan.generated_at)}${plan.valid_until ? `, through ${formatDate(plan.valid_until)}` : ''}${isStarter ? ' · starter plan' : ''}`
 
   return (
     <PaperSurface style={{ flex: 1,  }}>
       <AppBar
-        eyebrow="Today's focus"
         title="Practice"
         right={
           <Link href={'/(app)/learn' as never} asChild>
@@ -148,23 +200,18 @@ export default function Practice() {
             <ActivityIndicator color={ACCENT} />
           </View>
         ) : !plan ? (
-          <NoPlan generating={generating} error={error} onGenerate={generate} />
+          <NoPlan finding={finding} generating={generating} error={error} onGenerate={generate} />
         ) : (
           <>
             <Entrance index={0}>
-            <Text maxFontSizeMultiplier={FONT_CAP} style={{ ...META, marginBottom: 8 }}>{kicker}</Text>
-            <Text
-              style={[TYPE.serif, {
-                color: INK,
-                fontSize: 26,
-                lineHeight: 31,
-                marginBottom: generateLabel ? 14 : 18,
-              }]}
-            >
-              {plan.ai_insight ?? 'Your practice plan'}
+            <Text maxFontSizeMultiplier={FONT_CAP} style={{ ...META, fontSize: 13, marginBottom: 8 }}>{sub}</Text>
+            <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.serif, { color: INK, fontSize: 22, lineHeight: 28, marginBottom: 18 }]}>
+              {finding ?? plan.ai_insight ?? 'Your practice plan'}
             </Text>
 
-            {/* Regenerate affordance — once the plan has expired, or the
+            <WeekBar sessions={sessions} completed={completed} />
+
+            {/* Regenerate affordance: once the plan has expired, or the
                 post-round "update your plan" prompt. */}
             {generateLabel ? (
               <Key
@@ -190,24 +237,11 @@ export default function Practice() {
             ) : null}
             </Entrance>
 
-            {plan.coach_note ? (
-              <Entrance index={1}>
-                <ReasoningPanel note={plan.coach_note} />
-              </Entrance>
-            ) : null}
-
-            {focusAreas.length > 0 ? (
-              <Entrance index={2}>
-                <FocusAreas areas={focusAreas} />
-              </Entrance>
-            ) : null}
-
-            <Entrance index={3}>
+            <Entrance index={1}>
             {sessions.map((session, i) => (
               <SessionBlock
                 key={`session-${i}`}
                 session={session}
-                sessionNumber={i + 1}
                 drillsById={drillsById}
                 completed={completed}
                 onToggle={toggleCompletion}
@@ -215,26 +249,29 @@ export default function Practice() {
             ))}
             </Entrance>
 
-            <Entrance index={4}>
+            <Entrance index={2}>
+              <WhyThisPlan
+                insight={finding ? plan.ai_insight : null}
+                note={plan.coach_note}
+                basis={
+                  isStarter
+                    ? 'Built from your profile answers, not your rounds yet.'
+                    : `Built from your last ${plan.based_on_rounds} round${plan.based_on_rounds === 1 ? '' : 's'}.`
+                }
+              />
+              {focusAreas.length > 0 ? <FocusAreas areas={focusAreas} /> : null}
+            </Entrance>
+
+            <Entrance index={3}>
             {plan.id ? (
               <FeedbackSection key={plan.id} initial={plan.feedback ?? ''} onSave={submitFeedback} />
             ) : null}
 
-            <Text maxFontSizeMultiplier={FONT_CAP} style={{ ...META, paddingTop: 4 }}>
-              {isStarter
-                ? 'Built from your profile answers, not your rounds yet'
-                : `Based on your last ${plan.based_on_rounds} round${plan.based_on_rounds === 1 ? '' : 's'}`}
-            </Text>
-
-            <View style={{ borderTopWidth: 1, borderColor: LINE, marginTop: 28, paddingTop: 18 }}>
-              <Link href={'/(app)/drills' as never} asChild>
-                <Pressable hitSlop={6}>
-                  <Text style={[TYPE.serif, { color: ACCENT, fontSize: 17 }]}>
-                    Browse all drills →
-                  </Text>
-                </Pressable>
-              </Link>
-            </View>
+            <Link href={'/(app)/drills' as never} asChild>
+              <PressableTouch accessibilityRole="link" hitSlop={6} style={{ paddingVertical: 8 }}>
+                <Text style={[TYPE.bodyBold, { color: ACCENT, fontSize: 15 }]}>Browse all drills →</Text>
+              </PressableTouch>
+            </Link>
             </Entrance>
           </>
         )}
@@ -244,29 +281,36 @@ export default function Practice() {
 }
 
 function NoPlan({
+  finding,
   generating,
   error,
   onGenerate,
 }: {
+  finding: string | null
   generating: boolean
   error: string | null
   onGenerate: () => void
 }) {
   return (
     <View>
+      {finding ? (
+        <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.serif, { color: INK, fontSize: 22, lineHeight: 28, marginBottom: 18 }]}>
+          {finding}
+        </Text>
+      ) : null}
       <Text
         style={[TYPE.serif, {
           color: INK,
-          fontSize: 28,
-          lineHeight: 32,
+          fontSize: 20,
+          lineHeight: 26,
           marginBottom: 8,
         }]}
       >
-        Your game, read closely.
+        A week built from your own numbers.
       </Text>
       <Text style={[TYPE.body, { color: INK_DIM, fontSize: 14, lineHeight: 20, marginBottom: 22 }]}>
-        Generate a plan calibrated to your recent rounds — a short read on where
-        the strokes are leaking and drills sized to your facilities.
+        Sessions sized to your strokes gained and the places you practice: which drills, in what order, and why
+        each one is there.
       </Text>
 
       <Key
@@ -293,8 +337,7 @@ function NoPlan({
         <Text style={[TYPE.body, { color: NEG, fontSize: 13, marginTop: 12 }]}>{error}</Text>
       ) : null}
 
-      <View style={{ marginTop: 28 }}>
-        <SectionHead title="Reference" />
+      <View style={{ marginTop: 28, borderTopWidth: 1, borderColor: LINE, paddingTop: 18 }}>
         <Link href={'/(app)/drills' as never} asChild>
           <Pressable>
             <Text style={[TYPE.serif, { color: ACCENT, fontSize: 17 }]}>
@@ -314,96 +357,192 @@ function NoPlan({
   )
 }
 
-function ReasoningPanel({ note }: { note: string }) {
+function WhyThisPlan({ insight, note, basis }: { insight: string | null; note: string | null; basis: string }) {
   return (
-    <View style={{ borderLeftWidth: 2, borderColor: ACCENT, paddingLeft: 14, marginBottom: 24 }}>
-      <Text style={[TYPE.body, { color: INK_DIM, fontSize: 15, lineHeight: 22 }]}>
-        {normalizeCategoryProse(note)}
+    <View style={{ marginTop: 8, marginBottom: 24 }}>
+      <SectionHead title="Why this plan" />
+      {insight ? (
+        <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.serifUpright, { color: INK, fontSize: 17, lineHeight: 24, marginBottom: 8 }]}>
+          {insight}
+        </Text>
+      ) : null}
+      {note ? (
+        <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { color: INK_DIM, fontSize: 14, lineHeight: 21 }]}>
+          {normalizeCategoryProse(note)}
+        </Text>
+      ) : null}
+      <Text maxFontSizeMultiplier={FONT_CAP} style={{ ...META, color: INK_MUTE, marginTop: 8 }}>
+        {basis}
       </Text>
     </View>
   )
 }
 
-function FocusAreas({ areas }: { areas: StoredFocusArea[] }) {
+// Sessions done of planned and minutes done of planned: one segment per session,
+// sized by its minutes and filled by the minutes ticked off.
+function WeekBar({ sessions, completed }: { sessions: StoredSession[]; completed: Set<string> }) {
+  const rows = sessions.map((s) => {
+    const blocks = s.blocks ?? []
+    return {
+      title: s.title,
+      total: blocks.reduce((m, b) => m + b.minutes, 0),
+      done: blocks.filter((b) => completed.has(b.id)).reduce((m, b) => m + b.minutes, 0),
+      complete: blocks.length > 0 && blocks.every((b) => completed.has(b.id)),
+    }
+  })
+  if (rows.length === 0) return null
+  const totalMin = rows.reduce((m, r) => m + r.total, 0)
+  const doneMin = rows.reduce((m, r) => m + r.done, 0)
+  const doneSessions = rows.filter((r) => r.complete).length
   return (
-    <View style={{ marginBottom: 24 }}>
-      <SectionHead title="What to work on" />
-      {areas.map((a, i) => (
-        <View key={`focus-${i}`} style={{ marginBottom: 14 }}>
-          <Text style={[TYPE.serif, { color: INK, fontSize: 16 }]}>
-            {CATEGORY_LABEL[a.category] ?? a.category}
-          </Text>
-          <Text style={[TYPE.body, { color: INK_DIM, fontSize: 13, lineHeight: 19, marginTop: 2 }]}>
-            {normalizeCategoryProse(a.reason)}
-          </Text>
-          {a.article ? (
-            <Link
-              href={{ pathname: '/(app)/learn/[article]', params: { article: a.article.slug } }}
-              asChild
-            >
-              <Pressable hitSlop={6} style={{ marginTop: 6 }}>
-                <Text style={[TYPE.bodyBold, { color: ACCENT, fontSize: 13 }]}>
-                  {a.article.title} →
-                </Text>
-              </Pressable>
-            </Link>
-          ) : null}
-        </View>
-      ))}
+    <View style={{ marginBottom: 24 }} accessible accessibilityLabel={`${doneSessions} of ${rows.length} sessions done, ${doneMin} of ${totalMin} minutes`}>
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 8 }}>
+        <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { color: INK, fontSize: 14 }]}>
+          <Text style={[TYPE.serifUpright, { fontSize: 20 }]}>{doneSessions}</Text> of {rows.length} session{rows.length === 1 ? '' : 's'} done this week
+        </Text>
+        <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { color: INK_DIM, fontSize: 13 }]}>
+          <Text style={[TYPE.serifUpright, { color: INK, fontSize: 16 }]}>{doneMin}</Text> of {totalMin} min
+        </Text>
+      </View>
+      <View style={{ flexDirection: 'row', gap: 3, height: 12 }}>
+        {rows.map((r, i) => (
+          <View key={i} style={{ flex: r.total || 1, backgroundColor: P.well, borderRadius: 1, overflow: 'hidden' }}>
+            <FillBar pct={r.total ? r.done / r.total : 0} />
+          </View>
+        ))}
+      </View>
+    </View>
+  )
+}
+
+function FillBar({ pct }: { pct: number }) {
+  const reduce = useReducedMotion()
+  const w = useSharedValue(pct)
+  useEffect(() => {
+    w.value = reduce ? pct : withTiming(pct, { duration: 420 })
+  }, [pct, w, reduce])
+  const style = useAnimatedStyle(() => ({ width: `${w.value * 100}%` }))
+  return <Animated.View style={[{ height: '100%', backgroundColor: ACCENT }, style]} />
+}
+
+const MODE_ORDER: BlockType[] = ['warmup', 'blocked', 'random', 'skill_game', 'pressure_game', 'on_course']
+
+// A session's minutes by practice mode as one stacked bar, the modes named under it.
+function ModeBar({ parts }: { parts: { type: BlockType; minutes: number }[] }) {
+  const byMode = new Map<BlockType, number>()
+  for (const p of parts) byMode.set(p.type, (byMode.get(p.type) ?? 0) + p.minutes)
+  const modes = MODE_ORDER.filter((m) => (byMode.get(m) ?? 0) > 0)
+  if (modes.length === 0) return null
+  return (
+    <View accessible accessibilityLabel={modes.map((m) => `${BLOCK_TYPE_LABEL[m]} ${byMode.get(m)} minutes`).join(', ')}>
+      <View style={{ flexDirection: 'row', height: 10, gap: 2 }}>
+        {modes.map((m) => (
+          <View key={m} style={{ flex: byMode.get(m)!, backgroundColor: MODE_COLOR[m], borderRadius: 1 }} />
+        ))}
+      </View>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', columnGap: 12, rowGap: 4, marginTop: 8 }}>
+        {modes.map((m) => (
+          <View key={m} style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+            <View style={{ width: 8, height: 8, backgroundColor: MODE_COLOR[m], borderRadius: 1 }} />
+            <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { color: INK_DIM, fontSize: 12 }]}>
+              {BLOCK_TYPE_LABEL[m]} <Text style={[TYPE.serifUpright, { color: INK }]}>{byMode.get(m)}</Text>
+            </Text>
+          </View>
+        ))}
+      </View>
     </View>
   )
 }
 
 function SessionBlock({
   session,
-  sessionNumber,
   drillsById,
   completed,
   onToggle,
 }: {
   session: StoredSession
-  sessionNumber: number
   drillsById: Record<string, DrillRow>
   completed: Set<string>
   onToggle: (blockId: string) => void
 }) {
   const blocks = [...(session.blocks ?? [])].sort((a, b) => a.order - b.order)
   const doneCount = blocks.filter((b) => completed.has(b.id)).length
+  const allDone = blocks.length > 0 && doneCount === blocks.length
   return (
-    <View style={{ marginBottom: 28 }}>
-      <SectionHead
-        title={`Session ${sessionNumber} · ${session.total_minutes} min${
-          doneCount > 0 ? ` · ${doneCount} of ${blocks.length} done` : ''
-        }`}
-      />
-      <Text
-        maxFontSizeMultiplier={FONT_CAP}
-        style={[TYPE.serif, { color: INK, fontSize: 21, lineHeight: 26, marginBottom: 6 }]}
-      >
-        {session.title}
-      </Text>
+    <PaperTile style={{ marginBottom: 22 }} innerStyle={{ paddingHorizontal: 14, paddingTop: 16, paddingBottom: 4, borderColor: allDone ? ACCENT : P.ink }}>
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', gap: 10, marginBottom: 12 }}>
+        <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.serifUpright, { color: INK, fontSize: 20, lineHeight: 25, flex: 1 }]}>
+          {session.title}
+        </Text>
+        <Text maxFontSizeMultiplier={FONT_CAP} style={[allDone ? TYPE.bodyBold : TYPE.body, { color: allDone ? ACCENT : INK_DIM, fontSize: 13 }]}>
+          {allDone ? 'Done' : doneCount > 0 ? `${doneCount} of ${blocks.length} done` : `${session.total_minutes} min`}
+        </Text>
+      </View>
+      <View style={{ marginBottom: 12 }}>
+        <ModeBar parts={blocks} />
+      </View>
       {blocks.map((block, i) => (
         <DrillRowItem
           key={block.id ?? `${block.drill_id}-${i}`}
-          index={i + 1}
           block={block}
           drill={block.drill_id ? drillsById[block.drill_id] : undefined}
           completed={completed.has(block.id)}
           onToggle={() => onToggle(block.id)}
         />
       ))}
-    </View>
+    </PaperTile>
+  )
+}
+
+// The tick: the box pops past full size and settles, with a light haptic.
+function TickBox({ checked, label, onPress }: { checked: boolean; label: string; onPress: () => void }) {
+  const reduce = useReducedMotion()
+  const scale = useSharedValue(1)
+  const style = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }))
+  return (
+    <PressableTouch
+      accessibilityRole="checkbox"
+      accessibilityState={{ checked }}
+      accessibilityLabel={label}
+      hitSlop={10}
+      onPress={() => {
+        if (!checked) {
+          if (!reduce) scale.value = withSequence(withTiming(0.75, { duration: 70 }), withSpring(1, { damping: 7, stiffness: 320 }))
+          haptic('toggleOn')
+        } else {
+          haptic('toggleOff')
+        }
+        onPress()
+      }}
+    >
+      <Animated.View
+        style={[
+          {
+            width: 24,
+            height: 24,
+            borderRadius: 2,
+            marginTop: 1,
+            borderWidth: 1,
+            borderColor: checked ? ACCENT : P.lineStrong,
+            backgroundColor: checked ? ACCENT : P.raised,
+            alignItems: 'center',
+            justifyContent: 'center',
+          },
+          style,
+        ]}
+      >
+        {checked ? <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.bodyBold, { color: CREAM, fontSize: 14, lineHeight: 16 }]}>✓</Text> : null}
+      </Animated.View>
+    </PressableTouch>
   )
 }
 
 function DrillRowItem({
-  index,
   block,
   drill,
   completed,
   onToggle,
 }: {
-  index: number
   block: StoredBlock
   drill: DrillRow | undefined
   completed: boolean
@@ -414,122 +553,95 @@ function DrillRowItem({
   const facilities = drill?.facility ?? []
   const instructions = drill?.instructions?.trim() || drill?.description?.trim() || ''
   const canExpand = instructions.length > 0
+  const meta = [BLOCK_TYPE_LABEL[block.type] ?? block.type, ...facilities.map((f) => FACILITY_LABEL[f] ?? f)].join(' · ')
   return (
-    <View style={{ borderTopWidth: 1, borderColor: LINE, paddingVertical: 16, flexDirection: 'row', gap: 12 }}>
-      <Pressable
-        accessibilityRole="checkbox"
-        accessibilityState={{ checked: completed }}
-        accessibilityLabel={`Mark ${name} done`}
-        onPress={onToggle}
-        hitSlop={8}
-        style={{
-          width: 20,
-          height: 20,
-          borderRadius: 2,
-          marginTop: 3,
-          borderWidth: completed ? 0 : 1,
-          borderColor: P.lineStrong,
-          backgroundColor: completed ? ACCENT : 'transparent',
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
-      >
-        {completed ? <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.bodyBold, { color: CREAM, fontSize: 12 }]}>✓</Text> : null}
-      </Pressable>
-
-      {/* The whole row (everything but the checkbox) toggles expand, so a thumb
-          tap anywhere on the card opens it — not just the chevron. Matches the
-          drill-library card affordance. */}
-      <Pressable
-        onPress={() => canExpand && setOpen((o) => !o)}
-        disabled={!canExpand}
-        accessibilityRole="button"
-        accessibilityState={{ expanded: open }}
-        accessibilityLabel={`${name}${canExpand ? `, tap to ${open ? 'collapse' : 'expand'}` : ''}`}
-        style={{ flex: 1, flexDirection: 'row', gap: 12 }}
-      >
-        <Text
-          style={[TYPE.serif, { color: INK_MUTE, fontSize: 24, lineHeight: 26, minWidth: 30 }]}
+    <View style={{ borderTopWidth: 1, borderColor: LINE, paddingVertical: 14 }}>
+      <View style={{ flexDirection: 'row', gap: 12 }}>
+        <TickBox checked={completed} label={`Mark ${name} done`} onPress={onToggle} />
+        {/* Everything but the box opens the how-to. */}
+        <PressableTouch
+          onPress={() => canExpand && setOpen((o) => !o)}
+          disabled={!canExpand}
+          accessibilityRole="button"
+          accessibilityState={{ expanded: open }}
+          accessibilityLabel={`${name}${canExpand ? `, tap to ${open ? 'close' : 'read how'}` : ''}`}
+          style={{ flex: 1 }}
         >
-          {String(index).padStart(2, '0')}
-        </Text>
-
-        <View style={{ flex: 1 }}>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 10 }}>
+          <View style={{ flexDirection: 'row', gap: 10 }}>
             <Text
+              maxFontSizeMultiplier={FONT_CAP}
               style={[TYPE.serif, {
                 color: completed ? INK_MUTE : INK,
                 fontSize: 18,
                 lineHeight: 23,
                 flex: 1,
+                textDecorationLine: completed ? 'line-through' : 'none',
               }]}
             >
               {name}
-              {canExpand ? (
-                <Text style={{ color: INK_MUTE, fontSize: 13 }}>{open ? '  ▲' : '  ▼'}</Text>
-              ) : null}
             </Text>
-
-            {/* Right rail — minutes + block type tag + optional target. */}
-            <View style={{ alignItems: 'flex-end', minWidth: 64 }}>
-              <Text style={[TYPE.serif, { color: INK, fontSize: 18, lineHeight: 20 }]}>
-                {block.minutes} min
-              </Text>
-              <Text
-                maxFontSizeMultiplier={FONT_CAP}
-                style={[TYPE.bodyBold, { color: ACCENT, fontSize: 11, marginTop: 4, textAlign: 'right' }]}
-              >
-                {BLOCK_TYPE_LABEL[block.type] ?? block.type}
-              </Text>
-              {block.target != null ? (
-                <Text maxFontSizeMultiplier={FONT_CAP} style={{ ...META, fontSize: 11, marginTop: 6, textAlign: 'right' }}>
-                  Target: {block.target}
-                </Text>
-              ) : null}
-            </View>
+            <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.serifUpright, { color: INK, fontSize: 19, lineHeight: 23 }]}>
+              {block.minutes}
+              <Text style={[TYPE.body, { color: INK_DIM, fontSize: 12 }]}> min</Text>
+            </Text>
           </View>
-
-          {block.rationale ? (
-            <Text style={[TYPE.body, { color: INK_DIM, fontSize: 13, lineHeight: 19, marginTop: 6 }]}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 }}>
+            <View style={{ width: 8, height: 8, backgroundColor: MODE_COLOR[block.type], borderRadius: 1 }} />
+            <Text maxFontSizeMultiplier={FONT_CAP} style={{ ...META, flex: 1 }}>
+              {meta}
+              {block.target != null ? ` · target ${block.target}` : ''}
+            </Text>
+          </View>
+          {block.rationale && !completed ? (
+            <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { color: INK_DIM, fontSize: 13, lineHeight: 19, marginTop: 6 }]}>
               {block.rationale}
             </Text>
           ) : null}
-
-          {facilities.length > 0 ? (
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 10 }}>
-              {facilities.map((f) => (
-                <Text
-                  key={f}
-                  maxFontSizeMultiplier={FONT_CAP}
-                  style={{
-                    ...TYPE.body,
-                    color: INK_DIM,
-                    fontSize: 11,
-                    backgroundColor: P.well,
-                    paddingHorizontal: 8,
-                    paddingVertical: 3,
-                    borderRadius: 2,
-                    overflow: 'hidden',
-                  }}
-                >
-                  {FACILITY_LABEL[f] ?? f}
-                </Text>
-              ))}
-            </View>
+          {canExpand ? (
+            <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { color: INK_DIM, fontSize: 13, marginTop: 6, textDecorationLine: 'underline' }]}>
+              {open ? 'Hide how to run it' : 'How to run it'}
+            </Text>
           ) : null}
+        </PressableTouch>
+      </View>
 
-          {open && canExpand ? (
-            <View style={{ borderTopWidth: 1, borderColor: LINE, marginTop: 14, paddingTop: 14 }}>
-              {renderInstructions(instructions)}
-              {drill?.source ? (
-                <Text maxFontSizeMultiplier={FONT_CAP} style={{ ...META, fontSize: 11, marginTop: 14 }}>
-                  via {drill.source}
-                </Text>
-              ) : null}
-            </View>
+      {open && canExpand ? (
+        <View style={{ marginTop: 12, marginLeft: 36, paddingLeft: 12, borderLeftWidth: 2, borderColor: LINE }}>
+          {renderInstructions(instructions)}
+          {drill?.source ? (
+            <Text maxFontSizeMultiplier={FONT_CAP} style={{ ...META, fontSize: 11, marginTop: 12 }}>
+              From {drill.source}
+            </Text>
           ) : null}
         </View>
-      </Pressable>
+      ) : null}
+    </View>
+  )
+}
+
+function FocusAreas({ areas }: { areas: StoredFocusArea[] }) {
+  return (
+    <View style={{ marginBottom: 24 }}>
+      <SectionHead title="What to work on" />
+      {areas.map((a, i) => (
+        <View key={`focus-${i}`} style={{ borderTopWidth: i === 0 ? 0 : 1, borderColor: LINE, paddingVertical: 10 }}>
+          <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.bodyBold, { color: INK, fontSize: 15 }]}>
+            {CATEGORY_LABEL[a.category] ?? a.category}
+          </Text>
+          <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { color: INK_DIM, fontSize: 13, lineHeight: 19, marginTop: 2 }]}>
+            {normalizeCategoryProse(a.reason)}
+          </Text>
+          {a.article ? (
+            <Link href={{ pathname: '/(app)/learn/[article]', params: { article: a.article.slug } }} asChild>
+              <PressableTouch accessibilityRole="link" hitSlop={6} style={{ marginTop: 6 }}>
+                <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.bodyBold, { color: ACCENT, fontSize: 13 }]}>
+                  Read: {a.article.title}
+                </Text>
+              </PressableTouch>
+            </Link>
+          ) : null}
+        </View>
+      ))}
     </View>
   )
 }
@@ -563,7 +675,7 @@ function FeedbackSection({
     <View style={{ marginBottom: 28 }}>
       <SectionHead title="Before next week" />
       <Text style={[TYPE.body, { color: INK_DIM, fontSize: 14, lineHeight: 20, marginBottom: 12 }]}>
-        One note on how this plan landed — what worked, what felt off. Next week’s plan reads it.
+        One note on how the week went: what worked, what felt off. Next week’s plan reads it.
       </Text>
       <TextInput
         value={value}

@@ -12,6 +12,7 @@
     "format": "prettier --write .",
     "seed:demo": "tsx scripts/seed-demo.ts",
     "seed:e2e": "DOTENV_CONFIG_PATH=apps/web/.env.test.local tsx scripts/seed-demo.ts",
+    "seed:promo": "DOTENV_CONFIG_PATH=apps/web/.env.test.local SEED_PROFILE=promo tsx scripts/seed-demo.ts",
     "seed:my-data": "tsx scripts/seed-my-data.ts",
     "import:osm": "tsx scripts/import-osm-course.ts",
     "crawl:courses": "tsx scripts/crawl-courses.ts",
