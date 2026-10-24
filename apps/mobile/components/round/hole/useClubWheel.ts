@@ -7,7 +7,7 @@ type Dispersion = ReturnType<typeof useClubDispersion>
 
 // Club wheel (#611 §4): the bag minus the putter, one row per club type.
 // It opens on the auto pick every shot; a manual pick lasts one shot.
-// Open state lives with the session so Back closes the wheel first; it names the shot it opened on (a new shot = closed).
+// The open state is returned to the session so Back can close the wheel first; it names the shot it opened on (a new shot = closed).
 export function useClubWheel(opts: {
   bag: ReturnType<typeof useUserBag>['bag']
   byClub: Dispersion['byClub']
