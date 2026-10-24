@@ -8,14 +8,12 @@ import type { OffscreenArrow } from './HoleMap.types'
 import { HoleReviewSheet } from './HoleReviewSheet'
 import { ShotStepper } from './ShotStepper'
 import {
-  DEFAULT_BAG,
   DEFAULT_HANDICAP,
   applyCapturedShots,
   bearingDegrees,
   buildInitialRows,
   clubTypicalDistance,
   destinationYards,
-  formatClubLabel,
   getExpectedStrokes,
   insertedShotStart,
   isPuttShot,
@@ -29,6 +27,7 @@ import { supabase } from '../../lib/supabase'
 import { distanceYards } from '../../lib/maps'
 import { useAuth } from '../../hooks/useAuth'
 import { useClubDispersion } from './hole/useClubDispersion'
+import { useClubWheel } from './hole/useClubWheel'
 import { useUserBag } from '../../hooks/useUserBag'
 import { useUnits } from '../../hooks/useUnits'
 import { getLeftHand } from '../../lib/leftHand'
@@ -413,39 +412,9 @@ export default function LiveRoundSession({
       ? data.remoteShotCount + data.localShotCount
       : 0
 
-  // Club wheel (#611 §4): the bag minus the putter, one row per club type.
-  // It opens on the auto pick every shot; a manual pick lasts one shot.
-  // Open state lives here so Back closes the wheel first; it names the shot it opened on (a new shot = closed).
-  const [clubOverride, setClubOverride] = useState<Club | null>(null)
-  const shotKey = `${holeNumber}:${totalShotsThisHole}`, [wheelOpenOn, setWheelOpenOn] = useState<string | null>(null)
-  const wheelOpen = wheelOpenOn === shotKey, setWheelOpen = (open: boolean) => setWheelOpenOn(open ? shotKey : null)
-  useEffect(() => { setClubOverride(null) }, [holeNumber, totalShotsThisHole])
-  const wheelRows = useMemo(() => {
-    const seen = new Set<string>()
-    return (bag.length > 0 ? bag : DEFAULT_BAG)
-      .filter((c) => c.club_type !== 'putter' && !seen.has(c.club_type) && !!seen.add(c.club_type))
-      .map((c) => {
-        const d = byClub.get(c.club_type as Club)
-        // DEFAULT_BAG rows carry no typed distance.
-        const typed = (c as { typical_distance_yards?: number | null }).typical_distance_yards
-        return {
-          club: c.club_type as Club,
-          name: formatClubLabel(c),
-          // The wheel is 124 wide: "driver" at 32 sp pushed the meta off the card.
-          label: c.club_type === 'driver' ? 'dr' : formatClubLabel(c),
-          // Measured once the club has 5 shots, else the My Bag estimate (#1052).
-          typicalYards: clubTypicalDistance(d?.medianDistanceYards, d?.points.length ?? 0, typed)?.yards ?? null,
-          shots: d?.points.length ?? 0,
-          sparse: !d?.dispersion,
-        }
-      })
-  }, [bag, byClub])
-  const autoClub = useMemo(
-    () => selectClub(ballToPinYards, new Set(wheelRows.map((r) => r.club)))?.club ?? null,
-    [selectClub, ballToPinYards, wheelRows],
-  )
+  const { wheelRows, autoClub, wheelClub, setClubOverride, wheelOpen, setWheelOpen } =
+    useClubWheel({ bag, byClub, selectClub, ballToPinYards, holeNumber, totalShotsThisHole })
   autoClubYardsRef.current = wheelRows.find((r) => r.club === autoClub)?.typicalYards ?? null
-  const wheelClub = clubOverride ?? autoClub ?? wheelRows[0]?.club ?? null
   // The Pattern key draws the wheel club's shots around the aim.
   const pattern = useMemo(() => {
     const d = dotsVisible && wheelClub ? byClub.get(wheelClub) : undefined
