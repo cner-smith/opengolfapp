@@ -22,7 +22,7 @@ import { marksPath, pencilEllipse } from '../paper/pencil'
 import { CoachTarget } from '../help/CoachMarks'
 import { haptic } from '../../lib/haptics'
 import { FONT_CAP, GAP, MARGIN, P, R } from '../paper/tokens'
-import { RulerCard } from './HoleMapOverlays'
+import { APPR_RULER_FEET, RULER_STEP, RulerCard, TEE_RULER_YARDS } from './HoleMapOverlays'
 import type { RoundState } from './hole/types'
 import type { OffscreenArrow } from './HoleMap.types'
 
@@ -88,7 +88,13 @@ export interface LiveRoundDockProps {
   onFooterHeight: (h: number) => void
   /** Whole dock (stacks + footer), so map tags can stay above it. */
   onDockHeight?: (h: number) => void
+  /** The ruler drawer's top in dp above the footer while it's up, else 0. */
+  onRulerDrawer?: (box: { width: number; top: number } | null) => void
 }
+
+// The ruler drawer stands on the 64-high ruler key, in a 96-wide column.
+const KEY_H = 64
+const RULER_W = 96
 
 // Live-round dock (#611 §4–§6): the side stacks standing 8 above a paper
 // footer that holds the voice line and the bottom row. Absolute over the map,
@@ -141,24 +147,88 @@ export function LiveRoundDock(p: LiveRoundDockProps) {
     </View>
   )
 
+  // The ruler folds into one key. A tap opens the drawer (Tee/Appr and the
+  // ruler) and picking a width folds it; holding the key shows the drawer as
+  // a ghost at once, and dragging sizes the arc at the ruler's own pitch.
+  const [rulerOpen, setRulerOpen] = useState(false)
+  const [scrubbing, setScrubbing] = useState(false)
+  const [drawerH, setDrawerH] = useState(0)
+  const scrubStart = useRef(0)
+  const lastScrub = useRef(0)
+  const drawerUp = aimLike && (rulerOpen || scrubbing)
+  useEffect(() => {
+    if (!aimLike) setRulerOpen(false)
+  }, [aimLike])
+  useEffect(() => {
+    p.onRulerDrawer?.(drawerUp && drawerH ? { width: MARGIN + RULER_W, top: GAP + KEY_H + GAP + drawerH } : null)
+  }, [drawerUp, drawerH])
+  const rulerValues = p.overlayMode === 'tee' ? TEE_RULER_YARDS : APPR_RULER_FEET
+  const beginScrub = () => {
+    scrubStart.current = p.rulerIndex
+    lastScrub.current = p.rulerIndex
+    if (!rulerOpen) setScrubbing(true)
+  }
+  const moveScrub = (dy: number) => {
+    lastScrub.current = Math.max(0, Math.min(rulerValues.length - 1, scrubStart.current + dy / RULER_STEP))
+    p.onScrubRuler(lastScrub.current)
+  }
+  // The release can report a zero translation; commit where the finger last
+  // was. A cancelled scrub puts the pointer back.
+  const endScrub = (activated: boolean) => {
+    setScrubbing(false)
+    if (activated) p.onSelectRuler(Math.round(lastScrub.current))
+    else if (lastScrub.current !== scrubStart.current) p.onScrubRuler(scrubStart.current)
+  }
+  // Default minDistance: a tap never activates the pan, so it reaches the
+  // key's onPress (and a screen reader's tap does too).
+  const keyPan = Gesture.Pan()
+    .onBegin(() => runOnJS(beginScrub)())
+    .onUpdate((e) => runOnJS(moveScrub)(e.translationY))
+    .onFinalize((_e, success) => runOnJS(endScrub)(success))
   const right = aimLike ? (
-    <CoachTarget id="live.ruler" style={{ width: 96, gap: GAP }}>
-      <Rocker
-        options={[
-          { value: 'tee', label: 'Tee' },
-          { value: 'appr', label: 'Appr' },
-        ]}
-        value={p.overlayMode}
-        onChange={(v) => v && p.onSetOverlayMode(v)}
-      />
-      <RulerCard
-        mode={p.overlayMode}
-        index={p.rulerIndex}
-        pos={p.rulerPos}
-        onSelect={p.onSelectRuler}
-        onScrub={p.onScrubRuler}
-        lefty={p.lefty}
-      />
+    <CoachTarget id="live.ruler" style={{ width: RULER_W }}>
+      <Grow
+        open={drawerUp}
+        ghost={scrubbing && !rulerOpen}
+        onHeight={setDrawerH}
+        style={{ position: 'absolute', bottom: KEY_H + GAP, left: 0, right: 0, gap: GAP }}
+      >
+        <Rocker
+          options={[
+            { value: 'tee', label: 'Tee' },
+            { value: 'appr', label: 'Appr' },
+          ]}
+          value={p.overlayMode}
+          onChange={(v) => v && p.onSetOverlayMode(v)}
+        />
+        <RulerCard
+          mode={p.overlayMode}
+          index={p.rulerIndex}
+          pos={p.rulerPos}
+          onSelect={(i) => {
+            p.onSelectRuler(i)
+            setRulerOpen(false)
+          }}
+          onScrub={p.onScrubRuler}
+          lefty={p.lefty}
+        />
+      </Grow>
+      <GestureDetector gesture={keyPan}>
+        <View>
+          <Key
+            accessibilityLabel={`${p.overlayMode === 'tee' ? 'Tee width' : 'Approach circle'}: tap to change, or hold and drag`}
+            onPress={() => setRulerOpen((o) => !o)}
+            latched={rulerOpen}
+            faceStyle={{ height: KEY_H, gap: 0 }}
+          >
+            <KeyText size={11}>{p.overlayMode === 'tee' ? 'Tee width' : 'Appr circle'}</KeyText>
+            <Text allowFontScaling={false} style={[TYPE.serif, { fontSize: 26, lineHeight: 30, color: P.ink }]}>
+              {rulerValues[Math.round(p.rulerPos)]}
+              <Text style={[TYPE.body, { fontSize: 12 }]}> {p.overlayMode === 'tee' ? 'yd' : 'ft'}</Text>
+            </Text>
+          </Key>
+        </View>
+      </GestureDetector>
     </CoachTarget>
   ) : p.showRecenter ? (
     <CoachTarget id="live.recenter">
@@ -744,6 +814,54 @@ function WheelRowView({
           </>
         )}
       </Animated.View>
+    </Animated.View>
+  )
+}
+
+// The ruler drawer grows up out of its key and sinks back in, staying mounted
+// while it closes. A ghost is see-through and lets touches pass.
+function Grow({
+  open,
+  ghost,
+  onHeight,
+  style,
+  children,
+}: {
+  open: boolean
+  ghost: boolean
+  onHeight: (h: number) => void
+  style: object
+  children: ReactNode
+}) {
+  const reduce = useReducedMotion()
+  const t = useSharedValue(open ? 1 : 0)
+  const fade = useSharedValue(ghost ? 0.82 : 1)
+  const [mounted, setMounted] = useState(open)
+  useEffect(() => {
+    if (open) setMounted(true)
+    fade.value = ghost ? 0.82 : 1
+    if (reduce) {
+      t.value = open ? 1 : 0
+      if (!open) setMounted(false)
+      return
+    }
+    t.value = withSpring(open ? 1 : 0, { stiffness: 140, damping: 22, mass: 1 }, (done) => {
+      if (done && !open) runOnJS(setMounted)(false)
+    })
+  }, [open, ghost, reduce, t, fade])
+  const anim = useAnimatedStyle(() => ({
+    opacity: Math.min(1, t.value * 1.6) * fade.value,
+    transform: [{ translateY: (1 - t.value) * 28 }, { scaleY: 0.7 + 0.3 * t.value }],
+    transformOrigin: 'bottom',
+  }))
+  if (!mounted) return null
+  return (
+    <Animated.View
+      pointerEvents={open && !ghost ? 'auto' : 'none'}
+      onLayout={(e) => onHeight(e.nativeEvent.layout.height)}
+      style={[style, anim]}
+    >
+      {children}
     </Animated.View>
   )
 }
