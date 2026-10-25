@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { haptic } from '../../lib/haptics'
 import {
   Image,
@@ -136,6 +136,11 @@ export function Key({
   // 120 ms (out-cubic) and darkens over 75 ms; unlatching rises in 90 ms.
   const sink = useSharedValue(latched || disabled ? 1 : 0)
   const tint = useSharedValue(latched ? 1 : 0)
+  // The key's own tap can latch it before onPressOut runs; that handler's
+  // `latched` is from the render before, so it read false and undid the
+  // latch's sink and tint (#1187). Read the latest value instead.
+  const latchedRef = useRef(latched)
+  latchedRef.current = latched
   useEffect(() => {
     if (disabled) {
       sink.value = 1
@@ -165,7 +170,7 @@ export function Key({
       }}
       onPressOut={() => {
         setPressed(false)
-        if (latched) return
+        if (latchedRef.current) return
         tint.value = 0
         sink.value = withTiming(0, { duration: 110, easing: Easing.out(Easing.cubic) })
       }}
