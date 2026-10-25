@@ -101,6 +101,7 @@ export function HoleMap({
   putting = false,
   ornamentsTop = false,
   tagClearBottom,
+  tagClearDrawer,
   gpsPosition,
   courseCenter,
   holeNumber,
@@ -158,7 +159,16 @@ export function HoleMap({
   // Aim tag keeps clear of the dock's stacks (it slid under the ruler at
   // approach zoom): the lowest screen y its box may reach, in map dp.
   const legTagClamp =
-    tagClearBottom != null && mapSize ? { map: mapViewRef, maxY: mapSize.h - tagClearBottom, idleTick } : undefined
+    tagClearBottom != null && mapSize
+      ? {
+          map: mapViewRef, maxY: mapSize.h - tagClearBottom, idleTick,
+          drawer: tagClearDrawer && {
+            x0: lefty ? 0 : mapSize.w - tagClearDrawer.width,
+            x1: lefty ? tagClearDrawer.width : mapSize.w,
+            maxY: mapSize.h - tagClearDrawer.top,
+          },
+        }
+      : undefined
   const [lastShotArrow, setLastShotArrow] = useState<OffscreenArrow | null>(null)
   const [ballKey, setBallKey] = useState(0)
   // Measured OB callout width — its label and the font scale both change it.

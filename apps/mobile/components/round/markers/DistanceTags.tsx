@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactNode, type RefObject } from 'react'
 import { Text, View } from 'react-native'
+import Animated, { useAnimatedStyle, useReducedMotion, useSharedValue, withSpring } from 'react-native-reanimated'
 import Mapbox from '@rnmapbox/maps'
 import Svg, { Path, Rect } from 'react-native-svg'
 import type { LatLng } from '../HoleMap.types'
@@ -19,7 +20,13 @@ const GAP = 8
 // Paper tag on an aim-line leg (#611 §7): an 18×3 ink tick across the line
 // at the leg's midpoint, then a raised tag whose pointer notch touches it.
 // Right of the line; the left-hand layout flips it (tag left, pointer right).
-export type LegTagClamp = { map: RefObject<Mapbox.MapView | null>; maxY: number; idleTick: number }
+export type LegTagClamp = {
+  map: RefObject<Mapbox.MapView | null>
+  maxY: number
+  idleTick: number
+  /** The dock's open ruler drawer, in map dp: a tag reaching over it rises above `maxY`. */
+  drawer?: { x0: number; x1: number; maxY: number }
+}
 
 function LegTag({
   id,
@@ -46,21 +53,42 @@ function LegTag({
   // After each camera settle: if the tag's box dips below maxY (into the
   // dock's stacks), binary-search along the leg toward its far end for the
   // lowest spot that clears. Stays on the line, so the tick still marks it.
-  const [pos, setPos] = useState(at)
+  // The marker stays on `at` and a screen offset springs to the spot: moving
+  // the native marker lands a frame apart from any offset, so it jumped.
+  // ponytail: the offset is screen-space, so a pinch skews it until the
+  // camera settles and it is measured again.
+  const reduce = useReducedMotion()
+  const dx = useSharedValue(0)
+  const dy = useSharedValue(0)
+  const glide = useAnimatedStyle(() => ({ transform: [{ translateX: dx.value }, { translateY: dy.value }] }))
   useEffect(() => {
     let live = true
     const map = clamp?.map.current
     if (!map || !clamp || !toward || !h) {
-      setPos(at)
+      dx.value = 0
+      dy.value = 0
       return
     }
     const lerp = (t: number): LatLng => ({ lat: at.lat + (toward.lat - at.lat) * t, lng: at.lng + (toward.lng - at.lng) * t })
     const fits = async (p: LatLng) => {
-      const [, y = -1] = await map.getPointInView([p.lng, p.lat])
-      return y >= 0 && y + h / 2 <= clamp.maxY
+      const [x = 0, y = -1] = await map.getPointInView([p.lng, p.lat])
+      if (!(y >= 0 && y + h / 2 <= clamp.maxY)) return false
+      const d = clamp.drawer
+      const [left, right] = lefty ? [x - w, x] : [x, x + w]
+      return !d || right < d.x0 || left > d.x1 || y + h / 2 <= d.maxY
+    }
+    const moveTo = async (p: LatLng) => {
+      const [[ax = 0, ay = 0], [bx = 0, by = 0]] = await Promise.all([
+        map.getPointInView([at.lng, at.lat]),
+        map.getPointInView([p.lng, p.lat]),
+      ])
+      if (!live) return
+      const spring = { stiffness: 120, damping: 20, mass: 1 }
+      dx.value = reduce ? bx - ax : withSpring(bx - ax, spring)
+      dy.value = reduce ? by - ay : withSpring(by - ay, spring)
     }
     void (async () => {
-      if ((await fits(at)) || !(await fits(toward))) return live && setPos(at)
+      if ((await fits(at)) || !(await fits(toward))) return moveTo(at)
       let lo = 0
       let hi = 1
       for (let i = 0; i < 7; i++) {
@@ -68,12 +96,12 @@ function LegTag({
         if (await fits(lerp(mid))) hi = mid
         else lo = mid
       }
-      if (live) setPos(lerp(hi))
-    })().catch(() => live && setPos(at))
+      await moveTo(lerp(hi))
+    })().catch(() => {})
     return () => {
       live = false
     }
-  }, [at.lat, at.lng, toward?.lat, toward?.lng, h, clamp?.maxY, clamp?.idleTick])
+  }, [at.lat, at.lng, toward?.lat, toward?.lng, h, clamp?.maxY, clamp?.idleTick, clamp?.drawer?.maxY])
   const tickX = lefty ? w - TICK / 2 : TICK / 2
   const pointer = (
     <Svg
@@ -98,25 +126,28 @@ function LegTag({
   return (
     <Mapbox.MarkerView
       id={id}
-      coordinate={toCoord(pos)}
+      coordinate={toCoord(at)}
       anchor={{ x: w > 0 ? tickX / w : 0, y: 0.5 }}
       allowOverlap
     >
-      <View
+      <Animated.View
         onLayout={(e) => {
           setW(e.nativeEvent.layout.width)
           setH(e.nativeEvent.layout.height)
         }}
-        style={{
-          flexDirection: lefty ? 'row-reverse' : 'row',
-          alignItems: 'center',
-          gap: GAP,
-          opacity: w > 0 ? 1 : 0,
-          // Room for the hard shadow so the MarkerView doesn't clip it.
-          paddingRight: lefty ? 0 : 2,
-          paddingLeft: lefty ? 2 : 0,
-          paddingBottom: 2,
-        }}
+        style={[
+          glide,
+          {
+            flexDirection: lefty ? 'row-reverse' : 'row',
+            alignItems: 'center',
+            gap: GAP,
+            opacity: w > 0 ? 1 : 0,
+            // Room for the hard shadow so the MarkerView doesn't clip it.
+            paddingRight: lefty ? 0 : 2,
+            paddingLeft: lefty ? 2 : 0,
+            paddingBottom: 2,
+          },
+        ]}
       >
         <View
           style={{
@@ -147,7 +178,7 @@ function LegTag({
             {children}
           </View>
         </HardShadow>
-      </View>
+      </Animated.View>
     </Mapbox.MarkerView>
   )
 }

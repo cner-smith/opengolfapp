@@ -288,8 +288,9 @@ export function BreadcrumbLayers({
   )
 }
 
-// Unselected paper crumb (§19.3): 20 dp raised disc, 1.5 ink ring, a 1 dp
-// cream keyline, Fraunces-it numeral. MarkerView (not a GL symbol) because the
+// Unselected paper crumb (§19.3; step 8): a 10 dp ink dot on the spot, and the
+// Fraunces-it number on a small plate up and to the right on a cream tick, so
+// stacked shots near the green don't cover each other's spots. MarkerView (not a GL symbol) because the
 // numeral is Fraunces, which the satellite style's glyph server doesn't have.
 // An OB shot keeps its brick disc (#839) and the -20 nudge when a re-hit sits
 // on it. The 44 dp box is the tap target when tappable; otherwise the marker
@@ -331,31 +332,50 @@ function PaperCrumb({
           transform: [{ translateX: shifted ? OB_NUDGE[0] : 0 }],
         }}
       >
-        <View
-          style={{
-            width: 22,
-            height: 22,
-            borderRadius: 11,
-            backgroundColor: 'rgba(251,248,241,0.6)',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-        >
+        <View style={{ width: 44, height: 44 }}>
           <View
             style={{
-              width: 20,
+              position: 'absolute',
+              left: 17,
+              top: 17,
+              width: 10,
+              height: 10,
+              borderRadius: 5,
+              backgroundColor: ob ? P.neg : P.ink,
+              borderWidth: 2,
+              borderColor: P.raised,
+            }}
+          />
+          <View
+            style={{
+              position: 'absolute',
+              left: 26,
+              top: 4,
+              width: 1.5,
+              height: 14,
+              backgroundColor: P.raised,
+              transform: [{ rotate: '35deg' }],
+            }}
+          />
+          <View
+            style={{
+              position: 'absolute',
+              left: 29,
+              top: -6,
+              minWidth: 20,
               height: 20,
-              borderRadius: 10,
+              paddingHorizontal: 5,
+              borderRadius: 3,
               backgroundColor: ob ? P.neg : P.raised,
-              borderWidth: 1.5,
-              borderColor: ob ? P.raised : P.ink,
+              borderWidth: 1,
+              borderColor: P.ink,
               alignItems: 'center',
               justifyContent: 'center',
             }}
           >
             <Text
               allowFontScaling={false}
-              style={[TYPE.serif, { fontSize: 12, lineHeight: 15, color: ob ? P.raised : P.ink }]}
+              style={[TYPE.serif, { fontSize: 15, lineHeight: 18, color: ob ? P.raised : P.ink }]}
             >
               {n}
             </Text>
