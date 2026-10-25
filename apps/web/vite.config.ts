@@ -44,11 +44,15 @@ export default defineConfig(({ mode }) => {
           // bundle isn't dragged down by Recharts (~150 KB gzip) and
           // Mapbox (~490 KB gzip). Routes that don't use Recharts
           // (dashboard's static path, rounds list, settings) skip its
-          // chunk entirely.
-          manualChunks: {
-            recharts: ['recharts'],
-            mapbox: ['mapbox-gl'],
-            core: ['@oga/core'],
+          // chunk entirely. Rollup pulls a manual chunk's dependencies in
+          // with it unless another manual chunk claims them, so React landed
+          // in the recharts chunk and the entry imported all of it (#1200).
+          // React gets its own chunk.
+          manualChunks(id) {
+            if (/\/node_modules\/(react|react-dom|scheduler)\//.test(id)) return 'react'
+            if (id.includes('/node_modules/recharts/')) return 'recharts'
+            if (id.includes('/node_modules/mapbox-gl/')) return 'mapbox'
+            if (id.includes('/packages/core/')) return 'core'
           },
         },
       },
