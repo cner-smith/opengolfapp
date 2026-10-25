@@ -45,7 +45,7 @@ import { APPR_RULER_FEET, TEE_RULER_YARDS, rulerValueAt } from './HoleMapOverlay
 import { LiveRoundError } from './LiveRoundError'
 import { PuttDrop, PUTT_DROP_SHEET_DELAY_MS, ROLL_MS } from './markers/PuttDrop'
 import { useReducedMotion } from 'react-native-reanimated'
-import { MARGIN, P } from '../paper/tokens'
+import { P } from '../paper/tokens'
 
 const FEET_PER_YARD = 3
 // Aim framing (#611 §13): the ball sits this far above the dock top, so its
@@ -125,7 +125,7 @@ export default function LiveRoundSession({
   // The dock footer's measured height — the aim frame keeps the ball above it.
   const [footerHeight, setFooterHeight] = useState(0)
   const [dockHeight, setDockHeight] = useState(0)
-  const [rulerDrawer, setRulerDrawer] = useState(0)
+  const [rulerDrawer, setRulerDrawer] = useState<{ width: number; top: number } | null>(null)
   const recenterRef = useRef<(() => void) | null>(null)
   // Left-hand layout (§12), device-local; re-read on focus since Profile is
   // a tab away while this screen stays mounted.
@@ -722,7 +722,7 @@ export default function LiveRoundSession({
           lefty={lefty}
           aimBallInset={footerHeight + BALL_ABOVE_DOCK}
           tagClearBottom={dockHeight ? dockHeight + 6 : undefined}
-          tagClearDrawer={rulerDrawer ? { width: MARGIN + 96 + 6, top: footerHeight + rulerDrawer + 6 } : undefined}
+          tagClearDrawer={rulerDrawer ? { width: rulerDrawer.width + 6, top: footerHeight + rulerDrawer.top + 6 } : undefined}
           onSetAim={(loc) => {
             // A user drag / long-press is an explicit aim — mark it touched so
             // it persists (an untouched auto-spawn suggestion is dropped on

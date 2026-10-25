@@ -97,11 +97,14 @@ function LegTag({
         else lo = mid
       }
       await moveTo(lerp(hi))
-    })().catch(() => {})
+    })().catch(() => {
+      dx.value = 0
+      dy.value = 0
+    })
     return () => {
       live = false
     }
-  }, [at.lat, at.lng, toward?.lat, toward?.lng, h, clamp?.maxY, clamp?.idleTick, clamp?.drawer?.maxY])
+  }, [at.lat, at.lng, toward?.lat, toward?.lng, h, clamp?.maxY, clamp?.idleTick, clamp?.drawer?.maxY, clamp?.drawer?.x0, clamp?.drawer?.x1])
   const tickX = lefty ? w - TICK / 2 : TICK / 2
   const pointer = (
     <Svg

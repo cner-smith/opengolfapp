@@ -89,11 +89,12 @@ export interface LiveRoundDockProps {
   /** Whole dock (stacks + footer), so map tags can stay above it. */
   onDockHeight?: (h: number) => void
   /** The ruler drawer's top in dp above the footer while it's up, else 0. */
-  onRulerDrawer?: (top: number) => void
+  onRulerDrawer?: (box: { width: number; top: number } | null) => void
 }
 
-// The ruler drawer stands on the 64-high ruler key.
+// The ruler drawer stands on the 64-high ruler key, in a 96-wide column.
 const KEY_H = 64
+const RULER_W = 96
 
 // Live-round dock (#611 §4–§6): the side stacks standing 8 above a paper
 // footer that holds the voice line and the bottom row. Absolute over the map,
@@ -159,7 +160,7 @@ export function LiveRoundDock(p: LiveRoundDockProps) {
     if (!aimLike) setRulerOpen(false)
   }, [aimLike])
   useEffect(() => {
-    p.onRulerDrawer?.(drawerUp && drawerH ? GAP + KEY_H + GAP + drawerH : 0)
+    p.onRulerDrawer?.(drawerUp && drawerH ? { width: MARGIN + RULER_W, top: GAP + KEY_H + GAP + drawerH } : null)
   }, [drawerUp, drawerH])
   const rulerValues = p.overlayMode === 'tee' ? TEE_RULER_YARDS : APPR_RULER_FEET
   const beginScrub = () => {
@@ -171,19 +172,21 @@ export function LiveRoundDock(p: LiveRoundDockProps) {
     lastScrub.current = Math.max(0, Math.min(rulerValues.length - 1, scrubStart.current + dy / RULER_STEP))
     p.onScrubRuler(lastScrub.current)
   }
-  // The release can report a zero translation; commit where the finger last was.
-  const endScrub = (moved: boolean) => {
+  // The release can report a zero translation; commit where the finger last
+  // was. A cancelled scrub puts the pointer back.
+  const endScrub = (activated: boolean) => {
     setScrubbing(false)
-    if (moved) p.onSelectRuler(Math.round(lastScrub.current))
+    if (activated) p.onSelectRuler(Math.round(lastScrub.current))
+    else if (lastScrub.current !== scrubStart.current) p.onScrubRuler(scrubStart.current)
   }
   // Default minDistance: a tap never activates the pan, so it reaches the
   // key's onPress (and a screen reader's tap does too).
   const keyPan = Gesture.Pan()
     .onBegin(() => runOnJS(beginScrub)())
     .onUpdate((e) => runOnJS(moveScrub)(e.translationY))
-    .onFinalize((_e, moved) => runOnJS(endScrub)(moved))
+    .onFinalize((_e, success) => runOnJS(endScrub)(success))
   const right = aimLike ? (
-    <CoachTarget id="live.ruler" style={{ width: 96 }}>
+    <CoachTarget id="live.ruler" style={{ width: RULER_W }}>
       <Grow
         open={drawerUp}
         ghost={scrubbing && !rulerOpen}

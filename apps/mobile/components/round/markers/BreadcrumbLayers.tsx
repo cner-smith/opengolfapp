@@ -288,11 +288,11 @@ export function BreadcrumbLayers({
   )
 }
 
-// Unselected paper crumb (§19.3; step 8): a 10 dp ink dot on the spot, and the
-// Fraunces-it number on a small plate up and to the right on a cream tick, so
-// stacked shots near the green don't cover each other's spots. MarkerView (not a GL symbol) because the
+// Unselected paper crumb (§19.3): a 10 dp ink dot on the spot and the Fraunces-it
+// number on a small plate up and to the right, so stacked shots near the green
+// don't cover each other's spots. MarkerView (not a GL symbol) because the
 // numeral is Fraunces, which the satellite style's glyph server doesn't have.
-// An OB shot keeps its brick disc (#839) and the -20 nudge when a re-hit sits
+// An OB shot keeps its brick dot and plate (#839) and the -20 nudge when a re-hit sits
 // on it. The 44 dp box is the tap target when tappable; otherwise the marker
 // passes touches through to the map.
 function PaperCrumb({
