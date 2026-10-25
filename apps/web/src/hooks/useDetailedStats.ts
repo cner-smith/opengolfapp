@@ -43,14 +43,16 @@ export function useDetailedStats(limit: number): {
   // Returns null while loading and when there are zero rounds; consumers
   // MUST gate EmptyState on !isLoading first to avoid flashing the empty
   // state during fetch.
+  // Wait for the profile too: until it lands the baseline would be the
+  // default 15, and the numbers would jump once the real handicap arrives (#1197).
   const data = useMemo(
-    () => (rounds.length > 0 ? computeDetailedStats(rounds, handicap) : null),
-    [rounds, handicap],
+    () => (rounds.length > 0 && !profile.isLoading ? computeDetailedStats(rounds, handicap) : null),
+    [rounds, handicap, profile.isLoading],
   )
 
   return {
     data,
-    isLoading: query.isLoading,
+    isLoading: query.isLoading || profile.isLoading,
     error: (query.error as Error | null) ?? null,
     rounds,
   }
