@@ -75,8 +75,10 @@ export default function Stats() {
   // Player's handicap for SG baselines. Web (useDetailedStats) already uses
   // the profile value; hardcoding DEFAULT_HANDICAP here benchmarked every
   // player against the default bracket and made mobile disagree with web on
-  // the same rounds (#673).
-  const [handicap, setHandicap] = useState<number | null>(null)
+  // the same rounds (#673). Undefined until the profile loads: computing
+  // against the default meanwhile showed a 15-handicap baseline that then
+  // jumped (#1197). Cached like the rounds so a warm open stays instant.
+  const [handicap, setHandicap] = useState(() => getCached<number | null>('stats:handicap'))
 
   useEffect(() => {
     if (!user) return
@@ -87,10 +89,9 @@ export default function Stats() {
         // eslint-disable-next-line no-console
         console.error('[stats/getProfile]', error.message)
       }
-      setHandicap(
-        (data as { handicap_index?: number | null } | null)?.handicap_index ??
-          null,
-      )
+      const h = (data as { handicap_index?: number | null } | null)?.handicap_index ?? null
+      setHandicap(h)
+      if (!error) setCached('stats:handicap', h)
     })
     return () => {
       active = false
@@ -206,7 +207,7 @@ export default function Stats() {
 
   const stats: DetailedStats | null = useMemo(
     () =>
-      rounds.length > 0
+      rounds.length > 0 && handicap !== undefined
         ? computeDetailedStats(rounds, handicap ?? DEFAULT_HANDICAP)
         : null,
     [rounds, handicap],
@@ -281,7 +282,7 @@ export default function Stats() {
       />
 
       <ScrollView contentContainerStyle={{ padding: 18, paddingBottom: 40 }}>
-        {loading ? (
+        {loading || handicap === undefined ? (
           <Text style={[TYPE.body, { color: '#8A8B7E', fontSize: 13 }]}>Loading…</Text>
         ) : rounds.length === 0 ? (
           <StatsEmpty />
