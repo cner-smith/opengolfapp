@@ -12,22 +12,6 @@ import { MARKER_PRESS_RETENTION } from './Callouts'
 // unshifted cases need separate layers rather than an expression (#839).
 const OB_NUDGE: [number, number] = [-20, 0]
 
-const OB_DISC_STYLE = {
-  circleRadius: 10,
-  // caddie-neg — matches the live chip / scorecard penalty colour.
-  circleColor: '#A33A2A',
-  circleStrokeColor: '#FBF8F1',
-  circleStrokeWidth: 2,
-} as const
-
-const OB_NUMBER_STYLE = {
-  textField: ['get', 'n'],
-  textSize: 11,
-  textColor: '#FBF8F1',
-  textAllowOverlap: true,
-  textIgnorePlacement: true,
-} as const
-
 function toCoord(l: LatLng): [number, number] {
   return [l.lng, l.lat]
 }
@@ -35,6 +19,7 @@ function toCoord(l: LatLng): [number, number] {
 interface BreadcrumbLayersProps {
   previousShots: LatLng[]
   previousShotsLine: GeoJSON.Feature | null
+  /** Each leg's distance at its midpoint (the live round; the past round passes none). */
   segments: { id: string; midpoint: LatLng; yards: number }[]
   styleLoaded: boolean
   isPinMode: boolean
@@ -46,24 +31,21 @@ interface BreadcrumbLayersProps {
    * waypoints.
    */
   obs?: boolean[]
-  /** Past-round paper look (#611 §19.3): numbered paper discs, a dotted
-   *  cream trail and the selected leg drawn solid. No segment labels. */
-  paper?: {
-    /** Shot number per `previousShots` entry. */
-    numbers: number[]
-    /** Plate side per entry; unset = up and to the right. */
-    plates?: (PlateSide | undefined)[]
-    segment: GeoJSON.Feature | null
-    onSelect?: (i: number) => void
-  }
+  /** Shot number per `previousShots` entry. */
+  numbers: number[]
+  /** Plate side per entry; unset = up and to the right. */
+  plates?: (PlateSide | undefined)[]
+  /** The past round's selected leg, drawn solid. */
+  segment?: GeoJSON.Feature | null
+  onSelect?: (i: number) => void
 }
 
-// Renders the orange breadcrumb line through prior shot starts, numbered
-// waypoint discs at each start, and small midpoint distance labels per
-// segment. Implemented as pure Mapbox GL layers (ShapeSource + Circle /
-// SymbolLayer) — no PointAnnotations. Each PointAnnotation creates a
-// native ViewAnnotation bridging a React tree; at >10 instances per map
-// @rnmapbox/maps gets unhappy and a 5-shot par-5 hits 14 of them.
+// The paper breadcrumbs (#611 §19.3), live and past alike (#1209): a dotted
+// cream trail through the shot starts, a numbered crumb at each, and the
+// leg distances the live round passes in `segments`. The crumbs are
+// MarkerViews (see PaperCrumb). ponytail: one native view per crumb; a hole
+// rarely has more than six. If a long hole with re-hits stutters on a phone,
+// draw the dots as a CircleLayer and keep views for the plates only.
 export function BreadcrumbLayers({
   previousShots,
   previousShotsLine,
@@ -72,7 +54,10 @@ export function BreadcrumbLayers({
   isPinMode,
   toDisplay,
   obs,
-  paper,
+  numbers,
+  plates,
+  segment,
+  onSelect,
 }: BreadcrumbLayersProps) {
   const waypointFeatures = useMemo<GeoJSON.FeatureCollection<GeoJSON.Point>>(() => {
     const coords = previousShots.map(toCoord)
@@ -124,155 +109,47 @@ export function BreadcrumbLayers({
   // finishes loading. Gate every layer behind this flag.
   if (!styleLoaded) return null
 
-  if (paper) {
-    const features = waypointFeatures.features
-    return (
-      <>
-        <Mapbox.ShapeSource
-          id="prevShotsLine"
-          shape={previousShotsLine ?? { type: 'FeatureCollection', features: [] }}
-        >
-          {/* Round-capped near-zero dashes read as dots (dasharray is in
-              line widths). */}
-          <Mapbox.LineLayer
-            id="prevShotsLineLayer"
-            style={{ lineColor: P.raised, lineWidth: 1.5, lineDasharray: [0.01, 2.7], lineCap: 'round' }}
-          />
-        </Mapbox.ShapeSource>
-        <Mapbox.ShapeSource
-          id="pastSegment"
-          shape={paper.segment ?? { type: 'FeatureCollection', features: [] }}
-        >
-          <Mapbox.LineLayer
-            id="pastSegmentCasing"
-            style={{ lineColor: P.ink, lineWidth: 4, lineOpacity: 0.35, lineCap: 'round' }}
-          />
-          <Mapbox.LineLayer
-            id="pastSegmentLine"
-            style={{ lineColor: P.raised, lineWidth: 2, lineCap: 'round' }}
-          />
-        </Mapbox.ShapeSource>
-        <Mapbox.ShapeSource id="prevShotsWaypoints" shape={waypointFeatures}>
-          <Mapbox.CircleLayer
-            id="prevShotsObRing"
-            filter={['==', ['get', 'ob'], true]}
-            style={{
-              circleRadius: 15,
-              circleColor: 'rgba(0,0,0,0)',
-              circleStrokeColor: P.neg,
-              circleStrokeWidth: 3,
-            }}
-          />
-        </Mapbox.ShapeSource>
-        {features.map((f, i) => (
-          <PaperCrumb
-            key={`crumb-${i}`}
-            id={`crumb-${i}`}
-            coordinate={f.geometry.coordinates as [number, number]}
-            n={paper.numbers[i] ?? i + 1}
-            plate={paper.plates?.[i]}
-            ob={f.properties?.ob === true}
-            shifted={f.properties?.obShifted === true}
-            onPress={paper.onSelect ? () => paper.onSelect?.(i) : undefined}
-          />
-        ))}
-      </>
-    )
-  }
-
+  const features = waypointFeatures.features
   return (
     <>
       <Mapbox.ShapeSource
         id="prevShotsLine"
         shape={previousShotsLine ?? { type: 'FeatureCollection', features: [] }}
       >
+        {/* Round-capped near-zero dashes read as dots (dasharray is in
+            line widths). */}
         <Mapbox.LineLayer
           id="prevShotsLineLayer"
-          style={{
-            lineColor: '#A66A1F',
-            lineWidth: 1.5,
-            lineOpacity: 0.7,
-          }}
+          style={{ lineColor: P.raised, lineWidth: 1.5, lineDasharray: [0.01, 2.7], lineCap: 'round' }}
         />
       </Mapbox.ShapeSource>
-
+      <Mapbox.ShapeSource
+        id="pastSegment"
+        shape={segment ?? { type: 'FeatureCollection', features: [] }}
+      >
+        <Mapbox.LineLayer
+          id="pastSegmentCasing"
+          style={{ lineColor: P.ink, lineWidth: 4, lineOpacity: 0.35, lineCap: 'round' }}
+        />
+        <Mapbox.LineLayer
+          id="pastSegmentLine"
+          style={{ lineColor: P.raised, lineWidth: 2, lineCap: 'round' }}
+        />
+      </Mapbox.ShapeSource>
+      {/* OB badge ring (#839): the re-hit starts on the OB shot's spot, so
+          the ring peeks out around whichever crumb ends up on top. */}
       <Mapbox.ShapeSource id="prevShotsWaypoints" shape={waypointFeatures}>
-        {/* OB badge ring (#839). An OB shot's re-hit starts from the exact
-            same coordinates (stroke-and-distance — no renumbering, the
-            re-hit is just the next struck-shot number), so its waypoint
-            disc lands directly on top of the OB shot's disc below. A same-
-            radius recolor alone would just have one circle silently win the
-            stacking order and look like a rendering glitch. This wider
-            stroked ring is declared BELOW the disc/number layers (rendered
-            first = underneath) and sized past the disc's radius, so its red
-            edge always peeks out around whichever disc ends up on top —
-            reading as an intentional "penalty happened here" badge rather
-            than a double-render. Renders only for the OB shot's own
-            feature; the covering re-hit disc has ob=false and gets no ring. */}
         <Mapbox.CircleLayer
           id="prevShotsObRing"
           filter={['==', ['get', 'ob'], true]}
           style={{
             circleRadius: 15,
             circleColor: 'rgba(0,0,0,0)',
-            circleStrokeColor: '#A33A2A',
+            circleStrokeColor: P.neg,
             circleStrokeWidth: 3,
           }}
         />
-        {/* Non-OB discs/numbers. The OB shot is split into its own pair of
-            layers below so it can be nudged aside: the ring above marks the
-            true origin, but the re-hit's disc lands on the exact same
-            coordinate and was covering the OB shot's number entirely, so the
-            map could show THAT a penalty happened but never WHICH shot took
-            it. `circle-translate` / `text-translate` are pixel offsets and
-            are NOT data-driven, which is why this needs separate layers
-            rather than an expression (#839). */}
-        <Mapbox.CircleLayer
-          id="prevShotsWaypointDisc"
-          filter={['!=', ['get', 'ob'], true]}
-          style={{
-            circleRadius: 10,
-            circleColor: '#A66A1F',
-            circleStrokeColor: '#FBF8F1',
-            circleStrokeWidth: 2,
-          }}
-        />
-        <Mapbox.SymbolLayer
-          id="prevShotsWaypointNumber"
-          filter={['!=', ['get', 'ob'], true]}
-          style={{
-            textField: ['get', 'n'],
-            textSize: 11,
-            textColor: '#FBF8F1',
-            textAllowOverlap: true,
-            textIgnorePlacement: true,
-          }}
-        />
-        {/* Two pairs, not one: the nudge only applies when a re-hit really is
-            on the same coordinate (obShifted). A lone OB shot renders dead
-            centre in its ring, matching web. */}
-        <Mapbox.CircleLayer
-          id="prevShotsObDisc"
-          filter={['all', ['==', ['get', 'ob'], true], ['!=', ['get', 'obShifted'], true]]}
-          style={OB_DISC_STYLE}
-        />
-        <Mapbox.CircleLayer
-          id="prevShotsObDiscShifted"
-          filter={['all', ['==', ['get', 'ob'], true], ['==', ['get', 'obShifted'], true]]}
-          style={{ ...OB_DISC_STYLE, circleTranslate: OB_NUDGE }}
-        />
-        <Mapbox.SymbolLayer
-          id="prevShotsObNumber"
-          filter={['all', ['==', ['get', 'ob'], true], ['!=', ['get', 'obShifted'], true]]}
-          style={OB_NUMBER_STYLE}
-        />
-        <Mapbox.SymbolLayer
-          id="prevShotsObNumberShifted"
-          filter={['all', ['==', ['get', 'ob'], true], ['==', ['get', 'obShifted'], true]]}
-          style={{ ...OB_NUMBER_STYLE, textTranslate: OB_NUDGE }}
-        />
       </Mapbox.ShapeSource>
-
       <Mapbox.ShapeSource id="prevShotsSegments" shape={segmentFeatures}>
         <Mapbox.SymbolLayer
           id="prevShotsSegmentLabel"
@@ -287,6 +164,18 @@ export function BreadcrumbLayers({
           }}
         />
       </Mapbox.ShapeSource>
+      {features.map((f, i) => (
+        <PaperCrumb
+          key={`crumb-${i}`}
+          id={`crumb-${i}`}
+          coordinate={f.geometry.coordinates as [number, number]}
+          n={numbers[i] ?? i + 1}
+          plate={plates?.[i]}
+          ob={f.properties?.ob === true}
+          shifted={f.properties?.obShifted === true}
+          onPress={onSelect ? () => onSelect(i) : undefined}
+        />
+      ))}
     </>
   )
 }
@@ -325,6 +214,8 @@ function PaperCrumb({
       coordinate={coordinate}
       anchor={{ x: 0.5, y: 0.5 }}
       allowOverlap
+      // Off, a crumb near the live round's GPS puck is hidden.
+      allowOverlapWithPuck
       pointerEvents={onPress ? 'auto' : 'none'}
     >
       <Pressable

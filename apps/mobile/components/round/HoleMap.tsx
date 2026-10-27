@@ -5,6 +5,7 @@ import Mapbox from '@rnmapbox/maps'
 import {
   bearingDegrees,
   calculateShotSG,
+  fanPlates,
   flagCupK,
   getExpectedStrokes,
   startCategory,
@@ -25,7 +26,7 @@ import { AimPath } from './markers/AimPath'
 import { ObCallout, offscreenArrow } from './markers/Callouts'
 import { headingUpTheHole, useHoleCamera } from './hooks/useHoleCamera'
 import { TeeBadge } from './HoleMapOverlays'
-import type { HoleMapPhase, HoleMapProps, LatLng, OffscreenArrow } from './HoleMap.types'
+import type { HoleMapPhase, HoleMapProps, LatLng, OffscreenArrow, PlateSide } from './HoleMap.types'
 
 ensureMapboxInitialized()
 
@@ -546,6 +547,30 @@ export function HoleMap({
     return out
   }, [previousShots, ball?.lat, ball?.lng])
 
+  // The live crumbs' plates fan apart like the past round's (#1209), clear
+  // of the ball, the aim and the pin; re-solved each time the camera settles.
+  const [livePlates, setLivePlates] = useState<PlateSide[]>([])
+  const isPast = pastCrumbs != null
+  useEffect(() => {
+    const map = mapViewRef.current
+    const shots = previousShots ?? []
+    if (shots.length === 0) setLivePlates((o) => (o.length ? [] : o))
+    if (isPast || !map || shots.length === 0) return
+    const others = [ball, aim, effectivePin].filter((p): p is LatLng => p != null)
+    let current = true
+    Promise.all([...shots, ...others].map((p) => map.getPointInView(toCoord(p)) as Promise<[number, number]>))
+      .then((scr) => {
+        if (!current) return
+        const sides = fanPlates(scr.slice(0, shots.length), scr.slice(shots.length), ball ? scr[shots.length] : undefined)
+        setLivePlates((o) => (o.join() === sides.join() ? o : sides))
+      })
+      // The map can go mid-projection (hole change); the plates keep their sides.
+      .catch(() => {})
+    return () => {
+      current = false
+    }
+  }, [idleTick, isPast, previousShots, ball?.lat, ball?.lng, aim?.lat, aim?.lng, effectivePin?.lat, effectivePin?.lng])
+
   // Past-round trail (#611 §19.3): every placed start, not just the earlier
   // ones, plus the selected shot's leg as its own solid line.
   const pastPath = pastCrumbs?.path
@@ -666,12 +691,10 @@ export function HoleMap({
               isPinMode={isPinMode}
               toDisplay={toDisplay}
               obs={pastCrumbObs}
-              paper={{
-                numbers: pastCrumbs.crumbs.map((c) => c.n),
-                plates: pastCrumbs.crumbs.map((c) => c.plate),
-                segment: pastSegmentLine,
-                onSelect: pastCrumbs.onSelect,
-              }}
+              numbers={pastCrumbs.crumbs.map((c) => c.n)}
+              plates={pastCrumbs.crumbs.map((c) => c.plate)}
+              segment={pastSegmentLine}
+              onSelect={pastCrumbs.onSelect}
             />
           ) : (
             <BreadcrumbLayers
@@ -682,6 +705,8 @@ export function HoleMap({
               isPinMode={isPinMode}
               toDisplay={toDisplay}
               obs={previousShotObs}
+              numbers={(previousShots ?? []).map((_, i) => i + 1)}
+              plates={livePlates}
             />
           )}
 
