@@ -56,6 +56,96 @@ export function makeNumberedMarker(
   return { outer, content }
 }
 
+// A saved shot (#1215, mobile's PaperCrumb): a 10px dot on the spot and the
+// number on a cream plate out to one side on a flat leader, so shots stacked
+// near the green don't cover each other. `setSide` moves the plate; fanPlates
+// picks the side. PLATE below mirrors these positions; change both together.
+export type PlateSide = 'ur' | 'dr' | 'ul' | 'dl'
+export interface PlateMarkerParts extends MarkerParts {
+  setSide: (side: PlateSide) => void
+}
+
+export function makePlateMarker(n: number, fill: string, ob: boolean): PlateMarkerParts {
+  const outer = document.createElement('div')
+  // Above the leg's distance pills, so a shot's number is never hidden.
+  outer.style.cssText = 'width:44px;height:44px;z-index:1' // Mapbox makes it position:absolute
+  const content = document.createElement('div')
+  content.style.cssText = [
+    'position:absolute',
+    'left:17px',
+    'top:17px',
+    'width:10px',
+    'height:10px',
+    'box-sizing:border-box',
+    'border-radius:999px',
+    `background:${fill}`,
+    'border:2px solid #FBF8F1',
+    'transition:transform 120ms ease, box-shadow 120ms ease',
+  ].join(';')
+  const leader = document.createElement('div')
+  leader.style.cssText = 'position:absolute;width:1.5px;height:16px;background:#FBF8F1'
+  const plate = document.createElement('div')
+  plate.style.cssText = [
+    'position:absolute',
+    'min-width:20px',
+    'height:20px',
+    'padding:0 5px',
+    'box-sizing:border-box',
+    'border-radius:3px',
+    `background:${ob ? MARKER_COLORS.ob : '#FBF8F1'}`,
+    'border:1px solid #1C211C',
+    `color:${ob ? '#FBF8F1' : '#1C211C'}`,
+    'font-family:Fraunces, Georgia, serif',
+    'font-style:italic',
+    'font-size:15px',
+    'line-height:18px',
+    'text-align:center',
+  ].join(';')
+  plate.textContent = String(n)
+  outer.append(leader, plate, content)
+  const setSide = (side: PlateSide) => {
+    const left = side === 'ul' || side === 'dl'
+    const down = side === 'dr' || side === 'dl'
+    leader.style.left = `${left ? 8.15 : 34.35}px`
+    leader.style.top = `${down ? 18.7 : 9.3}px`
+    leader.style.transform = `rotate(${left === down ? 70 : -70}deg)`
+    plate.style.left = left ? '' : '42px'
+    plate.style.right = left ? '42px' : ''
+    plate.style.top = `${down ? 23 : 1}px`
+  }
+  setSide('ur')
+  return { outer, content, setSide }
+}
+
+type Box = [number, number, number, number]
+// A plate's box around its dot (px: left, top, right, bottom), per side.
+// ponytail: one-digit width; a 10+ plate runs ~9px wider.
+const PLATE: Record<PlateSide, Box> = {
+  ur: [20, -21, 40, -1],
+  dr: [20, 1, 40, 21],
+  ul: [-40, -21, -20, -1],
+  dl: [-40, 1, -20, 21],
+}
+const SIDES: PlateSide[] = ['ur', 'dr', 'ul', 'dl']
+const overlaps = (a: Box, b: Box, m = 0) => a[0] < b[2] + m && a[2] > b[0] - m && a[1] < b[3] + m && a[3] > b[1] - m
+
+// Each plate takes the side that covers least: another plate worst, then any
+// other dot or `others` point (the pin). Ties keep SIDES order. Mirrors the
+// mobile solve in ShotCallout (#1208). Screen points in, sides out.
+export function fanPlates(dots: [number, number][], others: [number, number][]): PlateSide[] {
+  const placed: Box[] = []
+  const points = [...dots, ...others]
+  return dots.map((d) => {
+    const box = (s: PlateSide): Box => [d[0] + PLATE[s][0], d[1] + PLATE[s][1], d[0] + PLATE[s][2], d[1] + PLATE[s][3]]
+    const cost = (s: PlateSide) =>
+      placed.filter((o) => overlaps(o, box(s), 2)).length * 100 +
+      points.filter((o) => o !== d && overlaps(box(s), [o[0], o[1], o[0], o[1]], 6)).length
+    const side = SIDES.reduce((best, x) => (cost(x) < cost(best) ? x : best))
+    placed.push(box(side))
+    return side
+  })
+}
+
 export function makeAimMarker(): HTMLElement {
   const outer = document.createElement('div')
   outer.style.display = 'flex'
