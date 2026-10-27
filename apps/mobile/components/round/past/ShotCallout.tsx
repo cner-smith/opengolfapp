@@ -4,21 +4,10 @@ import Svg, { Line } from 'react-native-svg'
 import { FONT, TYPE } from '../../../lib/typography'
 import { HardShadow } from '../../paper/Paper'
 import { FONT_CAP, P, R } from '../../paper/tokens'
-import type { LatLng, PlateSide } from '../HoleMap.types'
+import { fanPlates, plateBox, type PlateSide } from '@oga/core'
+import type { LatLng } from '../HoleMap.types'
 
 type Pt = [number, number]
-type Box = [number, number, number, number]
-// A crumb's number plate around its dot (dp: left, top, right, bottom), per
-// side, mirroring PaperCrumb's leader and plate positions (change both together). ponytail: one-digit width; a 10+ plate runs ~9 dp wider.
-const PLATE: Record<PlateSide, Box> = {
-  ur: [20, -21, 40, -1],
-  dr: [20, 1, 40, 21],
-  ul: [-40, -21, -20, -1],
-  dl: [-40, 1, -20, 21],
-}
-const SIDES: PlateSide[] = ['ur', 'dr', 'ul', 'dl']
-const at = (d: Pt, r: Box): Box => [d[0] + r[0], d[1] + r[1], d[0] + r[2], d[1] + r[3]]
-const overlaps = (a: Box, b: Box, m = 0) => a[0] < b[2] + m && a[2] > b[0] - m && a[1] < b[3] + m && a[3] > b[1] - m
 export type Projector = { current: ((pts: LatLng[]) => Promise<Pt[] | null>) | null }
 export type CameraListener = { current: (() => void) | null }
 
@@ -94,24 +83,11 @@ export function ShotCallout(p: ShotCalloutProps) {
     if (q.end) segs.push([a, scr[1]!])
     if (q.prev) segs.push([scr[2]!, a])
     const dots: Pt[] = [a, ...(q.end ? [scr[1]!] : []), ...scr.slice(3)]
-    // Plates first (#1208): each takes the side that covers least — another
-    // plate worst, then the selected disc, then any other dot; ties keep SIDES order.
-    const sides: PlateSide[] = []
-    const plates: Box[] = []
-    for (let i = 0; i < q.crumbCount; i++) {
-      const d = scr[3 + i]!
-      const cost = (s: PlateSide) => {
-        const b = at(d, PLATE[s])
-        return (
-          plates.filter((o) => overlaps(o, b, 2)).length * 100 +
-          (overlaps(b, [a[0], a[1], a[0], a[1]], RING) ? 10 : 0) +
-          dots.filter((o) => o !== d && overlaps(b, [o[0], o[1], o[0], o[1]], 6)).length
-        )
-      }
-      const s = SIDES.reduce((best, x) => (cost(x) < cost(best) ? x : best))
-      sides.push(s)
-      plates.push(at(d, PLATE[s]))
-    }
+    // Plates first (#1208): core's fanPlates, clear of each other, the
+    // selected disc, the leg's end, the pin and the aim.
+    const crumbs = scr.slice(3, 3 + q.crumbCount)
+    const sides = fanPlates(crumbs, [...(q.end ? [scr[1]!] : []), ...scr.slice(3 + q.crumbCount)], a)
+    const plates = crumbs.map((d, i) => plateBox(d, sides[i]!))
     q.onPlates(sides)
     const { w: BW, h: BH } = bb
     const hits = (bx: number, by: number) => {
@@ -126,7 +102,7 @@ export function ShotCallout(p: ShotCalloutProps) {
       for (const d of dots) {
         if (d[0] > bx - 24 && d[0] < bx + BW + 24 && d[1] > by - 24 && d[1] < by + BH + 24) n += 50
       }
-      for (const b of plates) if (overlaps(b, [bx, by, bx + BW, by + BH], 4)) n += 50
+      for (const [l, t, r, btm] of plates) if (l < bx + BW + 4 && r > bx - 4 && t < by + BH + 4 && btm > by - 4) n += 50
       const c = q.avoidCorner
       if (c && bx < c.w && by + BH > sz.h - c.h) n += 50
       return n

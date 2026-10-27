@@ -6,7 +6,9 @@ import {
   calculateShotSG,
   circleGeoJSON,
   destinationYards,
+  fanPlates,
   getExpectedStrokes,
+  type PlateSide,
   startCategory,
   haversineYards,
   NEAR_GREEN_YARDS,
@@ -22,6 +24,7 @@ import {
   FLAG_CLOTH,
   FLAG_OFFSET,
   makeNumberedMarker,
+  makePlateMarker,
   makeObRingMarker,
   makeTeeDotMarker,
   MARKER_COLORS,
@@ -122,6 +125,8 @@ export function useMapLayers({
 }: UseMapLayersInput): void {
   const { toDisplay } = useUnits()
   const markerRefs = useRef<mapboxgl.Marker[]>([])
+  // Re-fans the saved shots' plates for the current zoom/rotation (#1215).
+  const layoutPlatesRef = useRef<(() => void) | null>(null)
 
   const renderLayers = useCallback(() => {
     const map = mapRef.current
@@ -240,6 +245,7 @@ export function useMapLayers({
       coincidentCount.set(k, (coincidentCount.get(k) ?? 0) + 1)
     }
 
+    const plates: { at: [number, number]; offset: [number, number]; setSide: (s: PlateSide) => void }[] = []
     for (const s of existingValid) {
       // caddie-neg overrides the category color for the shot that went OB —
       // matches the live chip / scorecard penalty color (mirrors mobile's
@@ -254,7 +260,7 @@ export function useMapLayers({
               : s.category === 'around-green'
                 ? MARKER_COLORS.approach
                 : MARKER_COLORS.green
-      const parts = makeNumberedMarker(s.shotNumber, color, '#FBF8F1')
+      const parts = makePlateMarker(s.shotNumber, color, s.ob === true)
       const lng = s.startLng ?? s.endLng!
       const lat = s.startLat ?? s.endLat!
       // Drag is gated on the parent wiring a handler AND the row having a
@@ -274,6 +280,7 @@ export function useMapLayers({
       })
         .setLngLat([lng, lat])
         .addTo(map)
+      plates.push({ at: [lng, lat], offset, setSide: parts.setSide })
       if (draggable) {
         attachDragFx({
           outer: parts.outer,
@@ -329,6 +336,20 @@ export function useMapLayers({
         }
       }
     }
+
+    const pinAt = effectivePin
+    layoutPlatesRef.current = () => {
+      const pt = (ll: [number, number], off: [number, number] = [0, 0]): [number, number] => {
+        const q = map.project(ll)
+        return [q.x + off[0], q.y + off[1]]
+      }
+      const sides = fanPlates(
+        plates.map((p) => pt(p.at, p.offset)),
+        pinAt ? [pt([pinAt.lng, pinAt.lat])] : [],
+      )
+      plates.forEach((p, i) => p.setSide(sides[i]!))
+    }
+    layoutPlatesRef.current()
 
     // Placed points (tap-to-place mode).
     placedPoints.forEach((p, idx) => {
@@ -650,4 +671,16 @@ export function useMapLayers({
     }
     renderLayers()
   }, [mapRef, renderLayers])
+
+  // Re-fan after every camera change (zoom, rotation, pitch, the load-time
+  // jump/fly). ponytail: a pan re-runs it too; it's a handful of projections.
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map) return
+    const relayout = () => layoutPlatesRef.current?.()
+    map.on('moveend', relayout)
+    return () => {
+      map.off('moveend', relayout)
+    }
+  }, [mapRef])
 }

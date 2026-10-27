@@ -1,3 +1,4 @@
+import type { PlateSide } from '@oga/core'
 import type { PatternOverlay } from './markers/DispersionLayers'
 
 export interface LatLng {
@@ -178,8 +179,8 @@ export interface HoleMapProps {
   teeShot?: boolean
 }
 
-/** Which side of its dot a crumb's number plate sits: up/down, right/left. */
-export type PlateSide = 'ur' | 'dr' | 'ul' | 'dl'
+/** Which side of its dot a crumb's number plate sits (core's fanPlates picks it). */
+export type { PlateSide }
 
 export interface PastCrumbs {
   /** Every placed shot start except the selected one (that's `ball`). */

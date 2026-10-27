@@ -1,3 +1,4 @@
+import type { PlateSide } from '@oga/core'
 import { mapboxgl } from '../../../lib/mapbox'
 
 export const MARKER_COLORS = {
@@ -54,6 +55,66 @@ export function makeNumberedMarker(
   content.textContent = String(n)
   outer.appendChild(content)
   return { outer, content }
+}
+
+// A saved shot (#1215, mobile's PaperCrumb): a 10px dot on the spot and the
+// number on a cream plate out to one side on a flat leader, so shots stacked
+// near the green don't cover each other. `setSide` moves the plate; core's
+// fanPlates picks the side, and its PLATE boxes mirror these positions.
+export interface PlateMarkerParts extends MarkerParts {
+  setSide: (side: PlateSide) => void
+}
+
+export function makePlateMarker(n: number, fill: string, ob: boolean): PlateMarkerParts {
+  const outer = document.createElement('div')
+  // Above the leg's distance pills, so a shot's number is never hidden.
+  outer.style.cssText = 'width:44px;height:44px;z-index:1' // Mapbox makes it position:absolute
+  const content = document.createElement('div')
+  content.style.cssText = [
+    'position:absolute',
+    'left:17px',
+    'top:17px',
+    'width:10px',
+    'height:10px',
+    'box-sizing:border-box',
+    'border-radius:999px',
+    `background:${fill}`,
+    'border:2px solid #FBF8F1',
+    'transition:transform 120ms ease, box-shadow 120ms ease',
+  ].join(';')
+  const leader = document.createElement('div')
+  leader.style.cssText = 'position:absolute;width:1.5px;height:16px;background:#FBF8F1'
+  const plate = document.createElement('div')
+  plate.style.cssText = [
+    'position:absolute',
+    'min-width:20px',
+    'height:20px',
+    'padding:0 5px',
+    'box-sizing:border-box',
+    'border-radius:3px',
+    `background:${ob ? MARKER_COLORS.ob : '#FBF8F1'}`,
+    'border:1px solid #1C211C',
+    `color:${ob ? '#FBF8F1' : '#1C211C'}`,
+    'font-family:Fraunces, Georgia, serif',
+    'font-style:italic',
+    'font-size:15px',
+    'line-height:18px',
+    'text-align:center',
+  ].join(';')
+  plate.textContent = String(n)
+  outer.append(leader, plate, content)
+  const setSide = (side: PlateSide) => {
+    const left = side === 'ul' || side === 'dl'
+    const down = side === 'dr' || side === 'dl'
+    leader.style.left = `${left ? 8.15 : 34.35}px`
+    leader.style.top = `${down ? 18.7 : 9.3}px`
+    leader.style.transform = `rotate(${left === down ? 70 : -70}deg)`
+    plate.style.left = left ? '' : '42px'
+    plate.style.right = left ? '42px' : ''
+    plate.style.top = `${down ? 23 : 1}px`
+  }
+  setSide('ur')
+  return { outer, content, setSide }
 }
 
 export function makeAimMarker(): HTMLElement {

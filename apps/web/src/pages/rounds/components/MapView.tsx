@@ -584,7 +584,14 @@ function OverlayRail({
         <RailPill label="Tee" active={mode === 'tee'} onClick={() => onSetMode('tee')} />
         <RailPill label="Appr" active={mode === 'appr'} onClick={() => onSetMode('appr')} />
       </div>
-      <div style={groupStyle}>
+      <div style={groupStyle} role="group" aria-label={mode === 'tee' ? 'Aim width' : 'Aim circle'}>
+        {/* Names what the sizes measure, as mobile's ruler key does (#1215). */}
+        <div
+          aria-hidden
+          style={{ color: 'rgba(242,238,229,0.75)', fontSize: 10, textAlign: 'center', padding: '3px 2px 1px', whiteSpace: 'nowrap' }}
+        >
+          {mode === 'tee' ? 'Aim width' : 'Aim circle'}
+        </div>
         {railLabels.map((label, i) => (
           <RailPill
             key={label}
