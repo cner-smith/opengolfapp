@@ -480,3 +480,27 @@ export function Readout({ x, y, lines, bounds, dots, warn, link }: {
 
 /** Order shots short to long for the keyboard walk. */
 export const byDistance = (a: DispersionPoint, b: DispersionPoint) => a.distanceOffsetYards - b.distanceOffsetYards
+
+/** The key under both charts: a shot, the average, the aim, and the rings
+ *  (`ring68` names the inner one; null while the rings are hidden). */
+export const LEGEND_H = 50
+export function ChartLegend({ x, y, ring68 }: { x: number; y: number; ring68: string | null }) {
+  return (
+    <g fontFamily={SANS} fontSize={12} fill={INK}>
+      <circle cx={x + 6} cy={y + 14} r={4} fill={INK} />
+      <text x={x + 16} y={y + 18}>a shot</text>
+      <circle cx={x + 84} cy={y + 14} r={5.5} fill={PAPER} stroke={FOREST} strokeWidth={1.8} />
+      <text x={x + 95} y={y + 18}>average</text>
+      <Pennant x={x + 166} y={y + 20} />
+      <text x={x + 182} y={y + 18}>aim</text>
+      {ring68 != null && (
+        <>
+          <RingMark r={{ cx: x + 10, cy: y + 36, rx: 10, ry: 6, rot: 0 }} />
+          <text x={x + 26} y={y + 40}>{ring68}</text>
+          <RingMark r={{ cx: x + 196, cy: y + 36, rx: 10, ry: 6, rot: 0 }} outer />
+          <text x={x + 212} y={y + 40}>95% of shots</text>
+        </>
+      )}
+    </g>
+  )
+}

@@ -11,11 +11,13 @@ import {
 import {
   AMBER_TEXT,
   AXIS,
+  ChartLegend,
   DIM,
   Dot,
   FOREST,
   Halo,
   INK,
+  LEGEND_H,
   OlderDots,
   PAPER,
   Pennant,
@@ -46,8 +48,6 @@ import {
 const TOP = 12
 const RIGHT = 12
 const BOTTOM = 36
-// The legend under the chart.
-const LEG = 50
 
 /** The grid: a half-width in yards that holds every shot and both rings (so a
  *  toggle never rescales the chart), ruled every 5 or 10 of the player's unit. */
@@ -83,7 +83,7 @@ export function AimPlot(props: ChartProps) {
   const W = narrow ? 350 : 440
   const LEFT = narrow ? 44 : 50
   const AREA = W - LEFT - RIGHT
-  const H = TOP + AREA + BOTTOM + LEG
+  const H = TOP + AREA + BOTTOM + LEGEND_H
   const ly = TOP + AREA + BOTTOM
   const svgRef = useRef<SVGSVGElement | null>(null)
   const dense = points.length > 40
@@ -170,22 +170,7 @@ export function AimPlot(props: ChartProps) {
         <text x={cx} y={ly - 4} textAnchor="middle" fontFamily={SANS} fontSize={12} fill={DIM}>
           {`${unit === 'meters' ? 'metres' : 'yards'} from the aim · each square ${step} ${unitWord(unit)}`}
         </text>
-        <g fontFamily={SANS} fontSize={12} fill={INK}>
-          <circle cx={LEFT + 6} cy={ly + 14} r={4} fill={INK} />
-          <text x={LEFT + 16} y={ly + 18}>a shot</text>
-          <circle cx={LEFT + 84} cy={ly + 14} r={5.5} fill={PAPER} stroke={FOREST} strokeWidth={1.8} />
-          <text x={LEFT + 95} y={ly + 18}>average</text>
-          <Pennant x={LEFT + 166} y={ly + 20} />
-          <text x={LEFT + 182} y={ly + 18}>aim</text>
-          {stats && layers.rings && (
-            <>
-              <RingMark r={{ cx: LEFT + 10, cy: ly + 36, rx: 10, ry: 6, rot: 0 }} />
-              <text x={LEFT + 26} y={ly + 40}>{`68% of shots (${inside} of ${points.length})`}</text>
-              <RingMark r={{ cx: LEFT + 196, cy: ly + 36, rx: 10, ry: 6, rot: 0 }} outer />
-              <text x={LEFT + 212} y={ly + 40}>95% of shots</text>
-            </>
-          )}
-        </g>
+        <ChartLegend x={LEFT} y={ly} ring68={stats && layers.rings ? `68% of shots (${inside} of ${points.length})` : null} />
       </g>
 
       <g aria-hidden style={fade(layers.rings)}>
