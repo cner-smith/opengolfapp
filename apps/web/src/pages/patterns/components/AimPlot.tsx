@@ -120,17 +120,8 @@ export function AimPlot(props: ChartProps) {
   const aimLabel = placeNear(cx + 3, cy - 12, 'aim', 14, dots, taken, bounds, dense)
   taken.push(aimLabel.box, { x: cx - 2, y: cy - 18, w: 14, h: 20 })
   const inside = stats ? points.filter((p) => insideRing(stats.ring68, p.lateralOffsetYards, p.distanceOffsetYards)).length : 0
-  const label68 = `68% · ${inside} of ${points.length}`
-  let l68: Placed | null = null
-  let l95: Placed | null = null
   let lGhost: Placed | null = null
   let lAvg: Placed | null = null
-  if (stats && layers.rings) {
-    l68 = placeOnRing(r68, label68, 12, dots, taken, bounds, [52, 128, -52, -128, 18, 162])
-    taken.push(l68.box)
-    l95 = placeOnRing(r95, '95%', 12, dots, taken, bounds, [128, 52, -128, -52, 162, 18])
-    taken.push(l95.box)
-  }
   if (ghostRing && layers.rings) {
     lGhost = placeOnRing(ghostRing, ghost!.label, 12, dots, taken, bounds, [-90, 90, 0, 180, -45, -135])
     taken.push(lGhost.box)
@@ -237,8 +228,6 @@ export function AimPlot(props: ChartProps) {
       <g aria-hidden>
         <Pennant x={cx} y={cy} />
         <Halo at={aimLabel} size={14} fill={AMBER_TEXT}>aim</Halo>
-        {l68 && <Halo at={l68} fill={FOREST}>{label68}</Halo>}
-        {l95 && <Halo at={l95} fill={FOREST}>95%</Halo>}
         {lGhost && <Halo at={lGhost} fill={DIM}>{ghost!.label}</Halo>}
         {lAvg && <Halo at={lAvg} fill={INK}>average</Halo>}
       </g>

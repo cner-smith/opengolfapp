@@ -48,20 +48,10 @@ export function AimPlot(props: ChartProps) {
   const taken: Box[] = [{ x: cx - 30, y: cy - 22, w: 30, h: 24 }]
   const aimLabel = placeNear(cx, cy - 10, 'aim', 13, visible, taken, bounds)
   taken.push(aimLabel.box)
-  let r68: ReturnType<typeof placeOnRing> | null = null
-  let r95: ReturnType<typeof placeOnRing> | null = null
   let rGhost: ReturnType<typeof placeOnRing> | null = null
   let avg: ReturnType<typeof placeNear> | null = null
   const ringPoints = props.recentIds ? points.filter((p) => props.recentIds!.has(p.id)) : points
   const inside = stats ? ringPoints.filter((p) => insideRing(stats.ring68, p.lateralOffsetYards, p.distanceOffsetYards)).length : 0
-  const ring68Text = `68% · ${inside} of ${ringPoints.length}`
-  const ring95Text = '95%'
-  if (stats && layers.rings) {
-    r68 = placeOnRing(ringPx(stats.ring68), ring68Text, 12, visible, taken, bounds, [52, 128, -52, -128, 18, 162])
-    taken.push(r68.box)
-    r95 = placeOnRing(ringPx(stats.ring95), ring95Text, 12, visible, taken, bounds, [128, 52, -128, -52, 162, 18])
-    taken.push(r95.box)
-  }
   if (ghost && layers.rings) {
     rGhost = placeOnRing(ringPx(ghost.stats.ring68), ghost.label, 12, visible, taken, bounds, [90, -90, 30, 150, -30, -150])
     taken.push(rGhost.box)
@@ -144,8 +134,6 @@ export function AimPlot(props: ChartProps) {
       )}
       <Pennant x={cx} y={cy} />
       <Halo x={aimLabel.x} y={aimLabel.y} anchor={aimLabel.anchor} size={13} fill={P.warn} text="aim" />
-      {r68 && <Halo x={r68.x} y={r68.y} anchor={r68.anchor} fill={P.forest} text={ring68Text} />}
-      {r95 && <Halo x={r95.x} y={r95.y} anchor={r95.anchor} fill={P.forest} text={ring95Text} />}
       {rGhost && ghost && <Halo x={rGhost.x} y={rGhost.y} anchor={rGhost.anchor} fill={P.inkDim} text={ghost.label} />}
       {avg && <Halo x={avg.x} y={avg.y} anchor={avg.anchor} fill={P.ink} text="average" />}
       {hotD && <Selected key={hotD.p.id} x={hotD.x} y={hotD.y} r={hotD.s.r} />}
