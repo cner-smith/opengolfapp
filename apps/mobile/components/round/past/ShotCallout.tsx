@@ -9,7 +9,7 @@ import type { LatLng, PlateSide } from '../HoleMap.types'
 type Pt = [number, number]
 type Box = [number, number, number, number]
 // A crumb's number plate around its dot (dp: left, top, right, bottom), per
-// side, matching PaperCrumb. ponytail: one-digit width; a 10+ plate runs ~9 dp wider.
+// side, mirroring PaperCrumb's leader and plate positions (change both together). ponytail: one-digit width; a 10+ plate runs ~9 dp wider.
 const PLATE: Record<PlateSide, Box> = {
   ur: [20, -21, 40, -1],
   dr: [20, 1, 40, 21],

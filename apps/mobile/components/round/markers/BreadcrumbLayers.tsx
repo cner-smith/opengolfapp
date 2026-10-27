@@ -292,9 +292,10 @@ export function BreadcrumbLayers({
 }
 
 // Unselected paper crumb (§19.3): a 10 dp ink dot on the spot and the Fraunces-it
-// number on a small plate out to one side on a flat leader (#1208): up and to
-// the right unless ShotCallout fans it to another side clear of its neighbours,
-// so stacked shots near the green don't cover each other's spots. MarkerView (not a GL symbol) because the
+// number on a small plate out to one side on a flat leader (#1208): up and
+// to the right unless ShotCallout fans it to another side clear of its
+// neighbours, so stacked shots near the green don't cover each other's spots.
+// ShotCallout's PLATE boxes mirror these positions; change both together. MarkerView (not a GL symbol) because the
 // numeral is Fraunces, which the satellite style's glyph server doesn't have.
 // An OB shot keeps its brick dot and plate (#839) and the -20 nudge when a re-hit sits
 // on it. The 44 dp box is the tap target when tappable; otherwise the marker
