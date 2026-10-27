@@ -28,7 +28,7 @@ import { Icon } from '../paper/icons'
 import { MARGIN, P } from '../paper/tokens'
 import { ConfirmDialog } from '../ui/ConfirmDialog'
 import { HoleMap, type LatLng } from './HoleMap'
-import type { HoleMapPhase, PastCrumbs } from './HoleMap.types'
+import type { HoleMapPhase, PastCrumbs, PlateSide } from './HoleMap.types'
 import { PUTTING_RADIUS_YARDS } from './hole/types'
 import { Em, NoPinVoice, Primary, Secondary, SmallKey, Voice } from '../paper/Dock'
 import { ButtonRow, ModeRocker, PastFooter, ShotStepperRow } from './past/PastFooter'
@@ -710,16 +710,19 @@ export function PastRoundMap({
   const prevStart = activePos > 0 ? placedReal[activePos - 1]?.s.start ?? null : null
   const segEnd = active?.start ? nextStart ?? (active.aim ? null : effectivePin) : null
   const selectCrumbs = completed && !adding
+  // Plate sides from the callout's solve (#1208); it runs per camera frame, so keep the array while unchanged.
+  const [plateSides, setPlateSides] = useState<PlateSide[]>([])
+  const onPlates = useCallback((s: PlateSide[]) => setPlateSides((o) => (o.join() === s.join() ? o : s)), [])
   const pastCrumbs = useMemo<PastCrumbs>(() => {
     const others = placedReal.filter((x) => x.i !== activeIdx)
     return {
-      crumbs: others.map(({ s }) => ({ at: s.start!, n: s.shotNumber, ob: s.ob === true })),
+      crumbs: others.map(({ s }, ci) => ({ at: s.start!, n: s.shotNumber, ob: s.ob === true, plate: plateSides[ci] })),
       path: placedReal.map((x) => x.s.start!),
       segment: active?.start && segEnd ? [active.start, segEnd] : null,
       selectedN: active?.start ? active.shotNumber : null,
       onSelect: selectCrumbs ? (ci) => others[ci] && setActiveIdx(others[ci].i) : undefined,
     }
-  }, [placedReal, activeIdx, active?.start, active?.shotNumber, segEnd, selectCrumbs])
+  }, [placedReal, activeIdx, active?.start, active?.shotNumber, segEnd, selectCrumbs, plateSides])
 
   // Flag callout (§19.9 C) on the selected start: the aim leg while logging
   // an aimed shot, otherwise the leg to the next shot / the pin.
@@ -819,6 +822,8 @@ export function PastRoundMap({
             end={legEnd}
             prev={prevStart}
             markers={calloutMarkers}
+            crumbCount={pastCrumbs.crumbs.length}
+            onPlates={onPlates}
             avoidCorner={completed ? undefined : { w: MARGIN + 186 + 4, h: ROCKER_BOTTOM + 47 + 4 }}
             value={callout.value}
             unit={callout.unit}
