@@ -43,7 +43,9 @@ interface BreadcrumbLayersProps {
 // The paper breadcrumbs (#611 §19.3), live and past alike (#1209): a dotted
 // cream trail through the shot starts, a numbered crumb at each, and the
 // leg distances the live round passes in `segments`. The crumbs are
-// MarkerViews (see PaperCrumb); a hole rarely has more than six.
+// MarkerViews (see PaperCrumb). ponytail: one native view per crumb; a hole
+// rarely has more than six. If a long hole with re-hits stutters on a phone,
+// draw the dots as a CircleLayer and keep views for the plates only.
 export function BreadcrumbLayers({
   previousShots,
   previousShotsLine,

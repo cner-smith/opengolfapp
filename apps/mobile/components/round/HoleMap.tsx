@@ -554,6 +554,7 @@ export function HoleMap({
   useEffect(() => {
     const map = mapViewRef.current
     const shots = previousShots ?? []
+    if (shots.length === 0) setLivePlates((o) => (o.length ? [] : o))
     if (isPast || !map || shots.length === 0) return
     const others = [ball, aim, effectivePin].filter((p): p is LatLng => p != null)
     let current = true
