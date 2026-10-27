@@ -668,6 +668,7 @@ export function HoleMap({
               obs={pastCrumbObs}
               paper={{
                 numbers: pastCrumbs.crumbs.map((c) => c.n),
+                plates: pastCrumbs.crumbs.map((c) => c.plate),
                 segment: pastSegmentLine,
                 onSelect: pastCrumbs.onSelect,
               }}
@@ -820,7 +821,9 @@ export function HoleMap({
               gated to PLACE_BALL so the ball can't be dragged mid-aim. */}
           {ball && !hideBall && (
             <Mapbox.PointAnnotation
-              key={`ball-${ballKey}`}
+              // The selected crumb's numeral is in the same bitmap trap as the flag's
+              // (refresh() didn't repaint it), so remount when it changes, as ballKey does.
+              key={`ball-${ballKey}-${pastCrumbs?.selectedN ?? ''}`}
               id="ball"
               coordinate={toCoord(ball)}
               draggable={isPlaceBallPhase}

@@ -216,12 +216,12 @@ export function LiveRoundDock(p: LiveRoundDockProps) {
       <GestureDetector gesture={keyPan}>
         <View>
           <Key
-            accessibilityLabel={`${p.overlayMode === 'tee' ? 'Tee width' : 'Approach circle'}: tap to change, or hold and drag`}
+            accessibilityLabel={`${p.overlayMode === 'tee' ? 'Aim width' : 'Aim circle'}: tap to change, or hold and drag`}
             onPress={() => setRulerOpen((o) => !o)}
             latched={rulerOpen}
             faceStyle={{ height: KEY_H, gap: 0 }}
           >
-            <KeyText size={11}>{p.overlayMode === 'tee' ? 'Tee width' : 'Appr circle'}</KeyText>
+            <KeyText size={11}>{p.overlayMode === 'tee' ? 'Aim width' : 'Aim circle'}</KeyText>
             <Text allowFontScaling={false} style={[TYPE.serif, { fontSize: 26, lineHeight: 30, color: P.ink }]}>
               {rulerValues[Math.round(p.rulerPos)]}
               <Text style={[TYPE.body, { fontSize: 12 }]}> {p.overlayMode === 'tee' ? 'yd' : 'ft'}</Text>

@@ -178,9 +178,12 @@ export interface HoleMapProps {
   teeShot?: boolean
 }
 
+/** Which side of its dot a crumb's number plate sits: up/down, right/left. */
+export type PlateSide = 'ur' | 'dr' | 'ul' | 'dl'
+
 export interface PastCrumbs {
   /** Every placed shot start except the selected one (that's `ball`). */
-  crumbs: { at: LatLng; n: number; ob: boolean }[]
+  crumbs: { at: LatLng; n: number; ob: boolean; plate?: PlateSide }[]
   /** All placed starts in shot order — the dotted path. */
   path: LatLng[]
   /** The selected shot's leg (start → next start, or the pin), drawn solid. */

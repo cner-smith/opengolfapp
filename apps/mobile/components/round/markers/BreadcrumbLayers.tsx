@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import { Pressable, Text, View } from 'react-native'
 import Mapbox from '@rnmapbox/maps'
-import type { LatLng } from '../HoleMap.types'
+import type { LatLng, PlateSide } from '../HoleMap.types'
 import { TYPE } from '../../../lib/typography'
 import { P } from '../../paper/tokens'
 import { MARKER_PRESS_RETENTION } from './Callouts'
@@ -51,6 +51,8 @@ interface BreadcrumbLayersProps {
   paper?: {
     /** Shot number per `previousShots` entry. */
     numbers: number[]
+    /** Plate side per entry; unset = up and to the right. */
+    plates?: (PlateSide | undefined)[]
     segment: GeoJSON.Feature | null
     onSelect?: (i: number) => void
   }
@@ -168,6 +170,7 @@ export function BreadcrumbLayers({
             id={`crumb-${i}`}
             coordinate={f.geometry.coordinates as [number, number]}
             n={paper.numbers[i] ?? i + 1}
+            plate={paper.plates?.[i]}
             ob={f.properties?.ob === true}
             shifted={f.properties?.obShifted === true}
             onPress={paper.onSelect ? () => paper.onSelect?.(i) : undefined}
@@ -289,8 +292,10 @@ export function BreadcrumbLayers({
 }
 
 // Unselected paper crumb (§19.3): a 10 dp ink dot on the spot and the Fraunces-it
-// number on a small plate up and to the right, so stacked shots near the green
-// don't cover each other's spots. MarkerView (not a GL symbol) because the
+// number on a small plate out to one side on a flat leader (#1208): up and
+// to the right unless ShotCallout fans it to another side clear of its
+// neighbours, so stacked shots near the green don't cover each other's spots.
+// ShotCallout's PLATE boxes mirror these positions; change both together. MarkerView (not a GL symbol) because the
 // numeral is Fraunces, which the satellite style's glyph server doesn't have.
 // An OB shot keeps its brick dot and plate (#839) and the -20 nudge when a re-hit sits
 // on it. The 44 dp box is the tap target when tappable; otherwise the marker
@@ -301,6 +306,7 @@ function PaperCrumb({
   n,
   ob,
   shifted,
+  plate = 'ur',
   onPress,
 }: {
   id: string
@@ -308,8 +314,11 @@ function PaperCrumb({
   n: number
   ob: boolean
   shifted: boolean
+  plate?: PlateSide
   onPress?: () => void
 }) {
+  const left = plate === 'ul' || plate === 'dl'
+  const down = plate === 'dr' || plate === 'dl'
   return (
     <Mapbox.MarkerView
       id={id}
@@ -349,19 +358,19 @@ function PaperCrumb({
           <View
             style={{
               position: 'absolute',
-              left: 26,
-              top: 4,
+              left: left ? 8.15 : 34.35,
+              top: down ? 18.7 : 9.3,
               width: 1.5,
-              height: 14,
+              height: 16,
               backgroundColor: P.raised,
-              transform: [{ rotate: '35deg' }],
+              transform: [{ rotate: left === down ? '70deg' : '-70deg' }],
             }}
           />
           <View
             style={{
               position: 'absolute',
-              left: 29,
-              top: -6,
+              ...(left ? { right: 42 } : { left: 42 }),
+              top: down ? 23 : 1,
               minWidth: 20,
               height: 20,
               paddingHorizontal: 5,

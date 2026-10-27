@@ -4,9 +4,21 @@ import Svg, { Line } from 'react-native-svg'
 import { FONT, TYPE } from '../../../lib/typography'
 import { HardShadow } from '../../paper/Paper'
 import { FONT_CAP, P, R } from '../../paper/tokens'
-import type { LatLng } from '../HoleMap.types'
+import type { LatLng, PlateSide } from '../HoleMap.types'
 
 type Pt = [number, number]
+type Box = [number, number, number, number]
+// A crumb's number plate around its dot (dp: left, top, right, bottom), per
+// side, mirroring PaperCrumb's leader and plate positions (change both together). ponytail: one-digit width; a 10+ plate runs ~9 dp wider.
+const PLATE: Record<PlateSide, Box> = {
+  ur: [20, -21, 40, -1],
+  dr: [20, 1, 40, 21],
+  ul: [-40, -21, -20, -1],
+  dl: [-40, 1, -20, 21],
+}
+const SIDES: PlateSide[] = ['ur', 'dr', 'ul', 'dl']
+const at = (d: Pt, r: Box): Box => [d[0] + r[0], d[1] + r[1], d[0] + r[2], d[1] + r[3]]
+const overlaps = (a: Box, b: Box, m = 0) => a[0] < b[2] + m && a[2] > b[0] - m && a[1] < b[3] + m && a[3] > b[1] - m
 export type Projector = { current: ((pts: LatLng[]) => Promise<Pt[] | null>) | null }
 export type CameraListener = { current: (() => void) | null }
 
@@ -19,8 +31,12 @@ export interface ShotCalloutProps {
   end: LatLng | null
   /** Start of the leg before it, so the flag stays off that line too. */
   prev: LatLng | null
-  /** Every other marker the flag must not cover (crumbs, the pin). */
+  /** Every other marker the flag must not cover (crumbs first, then the pin). */
   markers: LatLng[]
+  /** How many of `markers` are crumbs with a number plate. */
+  crumbCount: number
+  /** The side each crumb's plate goes, fanned so plates stay clear of each other and of the dots. */
+  onPlates: (sides: PlateSide[]) => void
   /** Bottom-left corner of the map to keep clear (the logging mode rocker). */
   avoidCorner?: { w: number; h: number }
   value: string
@@ -78,6 +94,25 @@ export function ShotCallout(p: ShotCalloutProps) {
     if (q.end) segs.push([a, scr[1]!])
     if (q.prev) segs.push([scr[2]!, a])
     const dots: Pt[] = [a, ...(q.end ? [scr[1]!] : []), ...scr.slice(3)]
+    // Plates first (#1208): each takes the side that covers least — another
+    // plate worst, then the selected disc, then any other dot; ties keep SIDES order.
+    const sides: PlateSide[] = []
+    const plates: Box[] = []
+    for (let i = 0; i < q.crumbCount; i++) {
+      const d = scr[3 + i]!
+      const cost = (s: PlateSide) => {
+        const b = at(d, PLATE[s])
+        return (
+          plates.filter((o) => overlaps(o, b, 2)).length * 100 +
+          (overlaps(b, [a[0], a[1], a[0], a[1]], RING) ? 10 : 0) +
+          dots.filter((o) => o !== d && overlaps(b, [o[0], o[1], o[0], o[1]], 6)).length
+        )
+      }
+      const s = SIDES.reduce((best, x) => (cost(x) < cost(best) ? x : best))
+      sides.push(s)
+      plates.push(at(d, PLATE[s]))
+    }
+    q.onPlates(sides)
     const { w: BW, h: BH } = bb
     const hits = (bx: number, by: number) => {
       let n = 0
@@ -91,6 +126,7 @@ export function ShotCallout(p: ShotCalloutProps) {
       for (const d of dots) {
         if (d[0] > bx - 24 && d[0] < bx + BW + 24 && d[1] > by - 24 && d[1] < by + BH + 24) n += 50
       }
+      for (const b of plates) if (overlaps(b, [bx, by, bx + BW, by + BH], 4)) n += 50
       const c = q.avoidCorner
       if (c && bx < c.w && by + BH > sz.h - c.h) n += 50
       return n
