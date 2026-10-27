@@ -7,6 +7,7 @@ import {
   averageAimDistance,
   cubic,
   flightControls,
+  insideRing,
   ringExtent,
   shapeTally,
   shotWords,
@@ -22,7 +23,7 @@ import {
 import { FONT, TYPE } from '../../lib/typography'
 import { FONT_CAP, P } from '../paper/tokens'
 import { UNRECORDED_INK } from './layers'
-import { LEFT, RIGHT, RULE, RULE_MAJOR, DENSE, type ChartProps, type Box, rad, type RingPx, placeOnRing, placeNear, teeFinish, S0, flightOf, KIND_SEGMENTS, Fade, TweenRing, DRAW_MS, STAGGER_MS, STAGGER_CAP, FlightSeg, Selected, Halo, Pennant, markStyle, Mark, groupBy, ChartFrame } from './chartParts'
+import { LEFT, RIGHT, RULE, RULE_MAJOR, DENSE, type ChartProps, type Box, rad, type RingPx, placeOnRing, placeNear, teeFinish, S0, flightOf, KIND_SEGMENTS, Fade, TweenRing, DRAW_MS, STAGGER_MS, STAGGER_CAP, FlightSeg, Selected, Halo, Pennant, markStyle, Mark, groupBy, ChartFrame, ChartLegend, legendHeight } from './chartParts'
 
 /* ---------------------------------------------------------- tee view */
 
@@ -45,8 +46,9 @@ const PROTRACTOR_DEG = [-4, 0, 4]
 export function TeePlot(props: ChartProps) {
   const { points, stats, ghost, layers, leftHanded, width, unitYd, label, unit, unitWord, hot, onHot } = props
   const reduce = useReducedMotion()
-  const TH = Math.round(width * 0.95)
-  const TEE_Y = TH - 34
+  const PLOT_H = Math.round(width * 0.95)
+  const TEE_Y = PLOT_H - 34
+  const TH = PLOT_H + legendHeight(width)
   const TL = LEFT
   const TR = RIGHT
   const dense = points.length > DENSE
@@ -137,14 +139,6 @@ export function TeePlot(props: ChartProps) {
   const taken: Box[] = [{ x: teeX - 2, y: aimY - 20, w: 14, h: 22 }]
   const aimLabel = placeNear(teeX, aimY - 10, 'aim', 13, dots, taken, bounds)
   taken.push(aimLabel.box)
-  let r68: ReturnType<typeof placeOnRing> | null = null
-  let r95: ReturnType<typeof placeOnRing> | null = null
-  if (stats && layers.rings) {
-    r68 = placeOnRing(ringPx(stats.ring68), '68%', 12, dots, taken, bounds, [-25, 205, 25, 155, -60, -120])
-    taken.push(r68.box)
-    r95 = placeOnRing(ringPx(stats.ring95), '95%', 12, dots, taken, bounds, [205, -25, 155, 25, -120, -60])
-    taken.push(r95.box)
-  }
   const rGhost = ghost && layers.rings ? placeOnRing(ringPx(ghost.stats.ring68), ghost.label, 12, dots, taken, bounds, [-90, 0, 180, 90]) : null
   if (rGhost) taken.push(rGhost.box)
 
@@ -168,6 +162,8 @@ export function TeePlot(props: ChartProps) {
           taken.push(at.box)
           return { key, d: poly(cubic(S0, c.p1, c.p2, E)), color: coloured ? cat?.color ?? UNRECORDED_INK : P.ink, text, at }
         })
+  const ringPoints = props.recentIds ? points.filter((p) => props.recentIds!.has(p.id)) : points
+  const inside = stats ? ringPoints.filter((p) => insideRing(stats.ring68, p.lateralOffsetYards, p.distanceOffsetYards)).length : 0
   const hotD = hot ? shown.find((d) => d.p.id === hot) : null
   const barU = 10 * u * scale >= 30 ? 10 : 25
   const barW = barU * u * scale
@@ -272,8 +268,6 @@ export function TeePlot(props: ChartProps) {
       </Fade>
       <Pennant x={teeX} y={aimY} />
       <Halo x={aimLabel.x} y={aimLabel.y} anchor={aimLabel.anchor} size={13} fill={P.warn} text="aim" />
-      {r68 && <Halo x={r68.x} y={r68.y} anchor={r68.anchor} fill={P.forest} text="68%" />}
-      {r95 && <Halo x={r95.x} y={r95.y} anchor={r95.anchor} fill={P.forest} text="95%" />}
       {rGhost && ghost && <Halo x={rGhost.x} y={rGhost.y} anchor={rGhost.anchor} fill={P.inkDim} text={ghost.label} />}
       {typical.map((t) => (
         <Halo key={`l${t.key}`} x={t.at.x} y={t.at.y} anchor={t.at.anchor} fill={t.color} text={t.text} />
@@ -286,6 +280,7 @@ export function TeePlot(props: ChartProps) {
       <Line x1={width - TR - barW} x2={width - TR - barW} y1={TEE_Y + 18} y2={TEE_Y + 26} stroke={P.inkDim} strokeWidth={1.2} />
       <Line x1={width - TR} x2={width - TR} y1={TEE_Y + 18} y2={TEE_Y + 26} stroke={P.inkDim} strokeWidth={1.2} />
       <SvgText x={width - TR - barW / 2} y={TEE_Y + 15} textAnchor="middle" fontFamily={FONT.serif} fontSize={12} fill={P.inkDim}>{`${barU} ${unitWord}`}</SvgText>
+      <ChartLegend y={PLOT_H} width={width} ring68={stats && layers.rings ? `68% of shots (${inside} of ${ringPoints.length})` : null} />
     </ChartFrame>
   )
 }

@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { Pressable, Text, View, type GestureResponderEvent } from 'react-native'
-import Svg, { Circle, G, Line, Path, Rect, Text as SvgText } from 'react-native-svg'
+import Svg, { Circle, Ellipse, G, Line, Path, Rect, Text as SvgText } from 'react-native-svg'
 import Animated, {
   Easing,
   useAnimatedProps,
@@ -491,5 +491,31 @@ export function ChartFrame({ width, height, summary, pickable, hot, onHot, reado
         </View>
       )}
     </View>
+  )
+}
+
+/** The key under both charts: a shot, the average, the aim, and the rings
+ *  (`ring68` names the inner one; null while the rings are hidden). On a narrow
+ *  phone the 95% ring takes its own row. */
+export const legendHeight = (width: number) => (width >= 380 ? 50 : 72)
+export function ChartLegend({ y, width, ring68 }: { y: number; width: number; ring68: string | null }) {
+  const wide = width >= 380
+  return (
+    <G>
+      <Circle cx={LEFT + 6} cy={y + 14} r={4} fill={P.ink} />
+      <SvgText x={LEFT + 16} y={y + 18} fontFamily={FONT.body} fontSize={12} fill={P.ink}>a shot</SvgText>
+      <Circle cx={LEFT + 82} cy={y + 14} r={5} fill={P.raised} stroke={P.ink} strokeWidth={2} />
+      <SvgText x={LEFT + 92} y={y + 18} fontFamily={FONT.body} fontSize={12} fill={P.ink}>average</SvgText>
+      <Line x1={LEFT + 160} x2={LEFT + 160} y1={y + 7} y2={y + 20} stroke={P.warn} strokeWidth={1.5} />
+      <SvgText x={LEFT + 168} y={y + 18} fontFamily={FONT.body} fontSize={12} fill={P.ink}>aim</SvgText>
+      {ring68 != null && (
+        <>
+          <Ellipse cx={LEFT + 10} cy={y + 36} rx={10} ry={6} fill="rgba(31,61,44,0.07)" stroke={P.forest} strokeWidth={1.3} />
+          <SvgText x={LEFT + 26} y={y + 40} fontFamily={FONT.body} fontSize={12} fill={P.ink}>{ring68}</SvgText>
+          <Ellipse cx={wide ? LEFT + 182 : LEFT + 10} cy={wide ? y + 36 : y + 58} rx={10} ry={6} fill="rgba(31,61,44,0.035)" stroke={P.forest} strokeOpacity={0.7} strokeWidth={1} strokeDasharray="4,3" />
+          <SvgText x={wide ? LEFT + 198 : LEFT + 26} y={wide ? y + 40 : y + 62} fontFamily={FONT.body} fontSize={12} fill={P.ink}>95% of shots</SvgText>
+        </>
+      )}
+    </G>
   )
 }

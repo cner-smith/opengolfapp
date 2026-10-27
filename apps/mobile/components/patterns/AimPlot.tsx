@@ -1,8 +1,8 @@
-import { Circle, Ellipse, G, Line, Rect, Text as SvgText } from 'react-native-svg'
+import { G, Line, Rect, Text as SvgText } from 'react-native-svg'
 import { insideRing, ringExtent, shotWords, type DispersionRing, type DispersionStats } from '@oga/core'
 import { FONT } from '../../lib/typography'
 import { P } from '../paper/tokens'
-import { LEFT, RIGHT, RULE, RULE_MAJOR, DENSE, type ChartProps, type Box, type RingPx, placeOnRing, placeNear, Fade, TweenRing, TweenAverage, Selected, Halo, Pennant, markStyle, Mark, groupBy, ChartFrame } from './chartParts'
+import { LEFT, RIGHT, RULE, RULE_MAJOR, DENSE, type ChartProps, type Box, type RingPx, placeOnRing, placeNear, Fade, TweenRing, TweenAverage, Selected, Halo, Pennant, markStyle, Mark, groupBy, ChartFrame, ChartLegend, legendHeight } from './chartParts'
 
 /* ---------------------------------------------------------- aim view */
 
@@ -12,9 +12,7 @@ const TOP = 10
 export function AimPlot(props: ChartProps) {
   const { points, stats, ghost, layers, width, unitYd, label, unit, empty, hot, onHot } = props
   const area = width - LEFT - RIGHT
-  // The legend under the chart; on a narrow phone the 95% ring takes its own row.
-  const wideLeg = width >= 380
-  const h = TOP + area + BOTTOM + (wideLeg ? 50 : 72)
+  const h = TOP + area + BOTTOM + legendHeight(width)
   const dense = points.length > DENSE
   const step = 5 * unitYd
   // The scale holds both rings (and the ghost) whether or not they are drawn,
@@ -96,22 +94,7 @@ export function AimPlot(props: ChartProps) {
       <SvgText x={LEFT + 4} y={cy - 5} fontFamily={FONT.bodyItalic} fontSize={12} fill={P.inkDim}>← left</SvgText>
       <SvgText x={LEFT + area - 4} y={cy - 5} textAnchor="end" fontFamily={FONT.bodyItalic} fontSize={12} fill={P.inkDim}>right →</SvgText>
       <SvgText x={cx} y={TOP + area + BOTTOM - 3} textAnchor="middle" fontFamily={FONT.body} fontSize={12} fill={P.inkDim}>{`${unit === 'meters' ? 'metres' : 'yards'} from the aim · each square ${label(ruleStep)} ${props.unitWord}`}</SvgText>
-      <G>
-        <Circle cx={LEFT + 6} cy={ly + 14} r={4} fill={P.ink} />
-        <SvgText x={LEFT + 16} y={ly + 18} fontFamily={FONT.body} fontSize={12} fill={P.ink}>a shot</SvgText>
-        <Circle cx={LEFT + 82} cy={ly + 14} r={5} fill={P.raised} stroke={P.ink} strokeWidth={2} />
-        <SvgText x={LEFT + 92} y={ly + 18} fontFamily={FONT.body} fontSize={12} fill={P.ink}>average</SvgText>
-        <Line x1={LEFT + 160} x2={LEFT + 160} y1={ly + 7} y2={ly + 20} stroke={P.warn} strokeWidth={1.5} />
-        <SvgText x={LEFT + 168} y={ly + 18} fontFamily={FONT.body} fontSize={12} fill={P.ink}>aim</SvgText>
-        {stats && layers.rings && (
-          <>
-            <Ellipse cx={LEFT + 10} cy={ly + 36} rx={10} ry={6} fill="rgba(31,61,44,0.07)" stroke={P.forest} strokeWidth={1.3} />
-            <SvgText x={LEFT + 26} y={ly + 40} fontFamily={FONT.body} fontSize={12} fill={P.ink}>{`68% of shots (${inside} of ${ringPoints.length})`}</SvgText>
-            <Ellipse cx={wideLeg ? LEFT + 182 : LEFT + 10} cy={wideLeg ? ly + 36 : ly + 58} rx={10} ry={6} fill="rgba(31,61,44,0.035)" stroke={P.forest} strokeOpacity={0.7} strokeWidth={1} strokeDasharray="4,3" />
-            <SvgText x={wideLeg ? LEFT + 198 : LEFT + 26} y={wideLeg ? ly + 40 : ly + 62} fontFamily={FONT.body} fontSize={12} fill={P.ink}>95% of shots</SvgText>
-          </>
-        )}
-      </G>
+      <ChartLegend y={ly} width={width} ring68={stats && layers.rings ? `68% of shots (${inside} of ${ringPoints.length})` : null} />
 
       <Fade on={layers.rings}>
         {ghost && <TweenRing ring={ringPx(ghost.stats.ring68)} fill="none" stroke={P.inkDim} strokeOpacity={0.75} strokeWidth={1} dash="1,3" />}

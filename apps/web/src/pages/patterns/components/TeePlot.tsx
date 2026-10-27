@@ -8,6 +8,7 @@ import {
   cubic,
   distanceUnitAbbr as unitWord,
   flightControls,
+  insideRing,
   shotWords,
   startLineAngleDeg,
   teeBreakYards,
@@ -23,6 +24,8 @@ import {
   AMBER,
   AMBER_TEXT,
   AXIS,
+  ChartLegend,
+  LEGEND_H,
   DIM,
   Dot,
   FOREST,
@@ -200,18 +203,11 @@ export function TeePlot(props: ChartProps) {
   const lineOp = colourBy === 'none' ? 0.7 : 0.85
   const fade = (on: boolean) => ({ opacity: on ? 1 : 0, transition: 'opacity 180ms ease', pointerEvents: on ? undefined : ('none' as const) })
 
+  const inside = stats ? points.filter((p) => insideRing(stats.ring68, p.lateralOffsetYards, p.distanceOffsetYards)).length : 0
   const taken: Box[] = [{ x: teeX - 2, y: y(avgAim) - 20, w: 16, h: 22 }]
   const aimLabel = placeNear(teeX + 3, y(avgAim) - 12, 'aim', 14, dots, taken, bounds, dense)
   taken.push(aimLabel.box)
-  let l68: Placed | null = null
-  let l95: Placed | null = null
   let lGhost: Placed | null = null
-  if (stats && layers.rings) {
-    l68 = placeOnRing(r68, '68%', 12, dots, taken, bounds, [-25, 205, 25, 155, -60, -120])
-    taken.push(l68.box)
-    l95 = placeOnRing(r95, '95%', 12, dots, taken, bounds, [205, -25, 155, 25, -120, -60])
-    taken.push(l95.box)
-  }
   if (ghostRing && layers.rings) {
     lGhost = placeOnRing(ghostRing, ghost!.label, 12, dots, taken, bounds, [-90, 0, 180, 90])
     taken.push(lGhost.box)
@@ -227,7 +223,7 @@ export function TeePlot(props: ChartProps) {
   return (
     <svg
       ref={svgRef}
-      viewBox={`0 0 ${TW} ${TH}`}
+      viewBox={`0 0 ${TW} ${TH + LEGEND_H}`}
       width="100%"
       className="pat-chart"
       style={{ display: 'block' }}
@@ -335,8 +331,6 @@ export function TeePlot(props: ChartProps) {
       <g aria-hidden>
         <Pennant x={teeX} y={y(avgAim)} />
         <Halo at={aimLabel} size={14} fill={AMBER_TEXT}>aim</Halo>
-        {l68 && <Halo at={l68} fill={FOREST}>68%</Halo>}
-        {l95 && <Halo at={l95} fill={FOREST}>95%</Halo>}
         {lGhost && <Halo at={lGhost} fill={DIM}>{ghost!.label}</Halo>}
         {typical.map((t, i) => (
           <Halo key={t.key} at={typicalLabels[i]!} fill={t.color === INK ? INK : t.color}>{t.label}</Halo>
@@ -349,6 +343,7 @@ export function TeePlot(props: ChartProps) {
         <line x1={TW - TRIGHT - stepPx(barDisp)} x2={TW - TRIGHT - stepPx(barDisp)} y1={TEE_Y + 18} y2={TEE_Y + 26} stroke={DIM} strokeWidth={1.2} />
         <line x1={TW - TRIGHT} x2={TW - TRIGHT} y1={TEE_Y + 18} y2={TEE_Y + 26} stroke={DIM} strokeWidth={1.2} />
         <text x={TW - TRIGHT - stepPx(barDisp) / 2} y={TEE_Y + 16} textAnchor="middle" fontFamily={SERIF} fontSize={12} fill={DIM}>{barDisp} {unitWord(unit)}</text>
+        <ChartLegend x={TLEFT} y={TH} ring68={stats && layers.rings ? `68% of shots (${inside} of ${points.length})` : null} />
       </g>
       {hot && (
         <Readout
