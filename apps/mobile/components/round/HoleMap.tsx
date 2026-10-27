@@ -5,7 +5,6 @@ import Mapbox from '@rnmapbox/maps'
 import {
   bearingDegrees,
   calculateShotSG,
-  destinationYards,
   flagCupK,
   getExpectedStrokes,
   startCategory,
@@ -22,6 +21,7 @@ import { BreadcrumbLayers, SelectedCrumb } from './markers/BreadcrumbLayers'
 import { AimTag, RemainingTag } from './markers/DistanceTags'
 import { DispersionLayers, RING_MIN_SHOTS } from './markers/DispersionLayers'
 import { AimOverlay } from './markers/AimOverlay'
+import { AimPath } from './markers/AimPath'
 import { ObCallout, offscreenArrow } from './markers/Callouts'
 import { headingUpTheHole, useHoleCamera } from './hooks/useHoleCamera'
 import { TeeBadge } from './HoleMapOverlays'
@@ -34,17 +34,6 @@ export type { HoleMapPhase, LatLng }
 function toCoord(l: LatLng): [number, number] {
   return [l.lng, l.lat]
 }
-
-// Half-length (yards) of the perpendicular crosshair tick drawn at the aim
-// — a short geo segment across the aim line so the draggable midpoint
-// handle reads as a crosshair (refs ux-09). Decorative; the transparent
-// PointAnnotation owns the actual drag.
-const CROSSHAIR_HALF_YARDS = 7
-
-// How far past the aim the dotted aim-direction reference extends. Large
-// enough to run off-screen at the live-round zoom so it reads as a line
-// continuing "to infinity" in the direction you're aiming.
-const AIM_EXTENSION_YARDS = 250
 
 // Min gap between aim updates while dragging the handle. The native
 // PointAnnotation drag fires onDrag every coalesced frame (≥60 Hz); each
@@ -432,71 +421,8 @@ export function HoleMap({
 
   const showAim = isAimPhase || isPlaceBallPhase
 
-  // Aim direction extended "to infinity" (dotted): a ray from the aim
-  // continuing along the ball→aim bearing, past the target — the straight
-  // line your shot points down, which is where the dispersion arc points.
-  // Rotates with the aim as it's dragged; in a bent shot it diverges from
-  // the solid ball→aim→pin path, contrasting "straight on" vs the real pin.
-  const referenceLine = useMemo(() => {
-    if (!showAim || !ball || !aim) return null
-    if (distanceYards(ball, aim) < 1) return null
-    const heading = bearingDegrees(ball.lat, ball.lng, aim.lat, aim.lng)
-    if (!Number.isFinite(heading)) return null
-    const far = destinationYards(aim, heading, AIM_EXTENSION_YARDS)
-    return {
-      type: 'Feature' as const,
-      properties: {},
-      geometry: {
-        type: 'LineString' as const,
-        coordinates: [toCoord(aim), toCoord(far)],
-      },
-    }
-  }, [showAim, ball?.lat, ball?.lng, aim?.lat, aim?.lng])
-
-  // Solid aim path origin → aim → pin (bends at the aim as it's dragged).
-  // Falls back to ball→aim on no-pin holes.
-  const aimLine = useMemo(() => {
-    if (!showAim) return null
-    if (!ball || !aim) return null
-    const coordinates = [toCoord(ball), toCoord(aim)]
-    if (effectivePin) coordinates.push(toCoord(effectivePin))
-    return {
-      type: 'Feature' as const,
-      properties: {},
-      geometry: { type: 'LineString' as const, coordinates },
-    }
-  }, [ball, aim, effectivePin, showAim])
-
-
   // The ring's rods say the spread; the rail's arc steps back to a hairline.
   const patternRing = !!pattern?.dispersion && pattern.dispersion.sampleSize >= RING_MIN_SHOTS
-
-  // Perpendicular crosshair tick at the aim — the draggable handle's
-  // visual. A short geo segment perpendicular to the ball→aim bearing, so
-  // it rotates with the line. destinationYards/bearingDegrees share the
-  // arc's great-circle model. Bound to live `aim` (2 points, cheap to
-  // re-serialize — same cost class as the already-live aim line).
-  const aimCrosshair = useMemo(() => {
-    if (!showAim || !ball || !aim) return null
-    // Degenerate guard: with the aim ~on the ball the bearing is
-    // meaningless — bearingDegrees(p, p) returns 0 (finite, not NaN), so a
-    // finite-check alone wouldn't catch it and the tick would point an
-    // arbitrary direction. Suppress below ~1 yd, matching arcGeoJSON's
-    // radius floor.
-    if (distanceYards(ball, aim) < 1) return null
-    const heading = bearingDegrees(ball.lat, ball.lng, aim.lat, aim.lng)
-    if (!Number.isFinite(heading)) return null
-    const left = destinationYards(aim, heading - 90, CROSSHAIR_HALF_YARDS)
-    const right = destinationYards(aim, heading + 90, CROSSHAIR_HALF_YARDS)
-    return {
-      type: 'Feature' as const,
-      properties: {},
-      geometry: {
-        type: 'LineString' as const,
-        coordinates: [toCoord(left), toCoord(right)],
-      },
-    }
-  }, [showAim, ball?.lat, ball?.lng, aim?.lat, aim?.lng])
 
   const aimDistanceYards = useMemo(() => {
     if (!showAim || !ball || !aim) return null
@@ -787,58 +713,7 @@ export function HoleMap({
             />
           )}
 
-          {/* Straight ball→pin reference, dotted cream hairline — the
-              neutral "up the hole" guide the solid amber aim path bends
-              off. Drawn first so everything else reads on top. */}
-          {styleLoaded && referenceLine && (
-            <Mapbox.ShapeSource id="referenceLine" shape={referenceLine}>
-              <Mapbox.LineLayer
-                id="referenceLineLayer"
-                style={{
-                  lineColor: '#FBF8F1',
-                  lineWidth: 1.5,
-                  lineDasharray: [1, 3],
-                  lineOpacity: 0.5,
-                  lineCap: 'round',
-                }}
-              />
-            </Mapbox.ShapeSource>
-          )}
-
-          {/* Solid aim path origin → aim → pin (white — reads against the
-              green satellite where amber didn't). Bends at the aim as the
-              player drags the handle. */}
-          {styleLoaded && aimLine && (
-            <Mapbox.ShapeSource id="aimLine" shape={aimLine}>
-              <Mapbox.LineLayer
-                id="aimLineLayer"
-                style={{
-                  lineColor: '#FBF8F1',
-                  lineWidth: 2,
-                  lineOpacity: 0.95,
-                  lineCap: 'round',
-                  lineJoin: 'round',
-                }}
-              />
-            </Mapbox.ShapeSource>
-          )}
-
-          {/* Perpendicular crosshair tick at the aim — white, drawn over
-              the aim line so the two cross. The transparent aim annotation
-              below owns the drag. */}
-          {styleLoaded && aimCrosshair && (
-            <Mapbox.ShapeSource id="aimCrosshair" shape={aimCrosshair}>
-              <Mapbox.LineLayer
-                id="aimCrosshairLayer"
-                style={{
-                  lineColor: '#FBF8F1',
-                  lineWidth: 2,
-                  lineOpacity: 0.95,
-                  lineCap: 'round',
-                }}
-              />
-            </Mapbox.ShapeSource>
-          )}
+          {styleLoaded && showAim && ball && aim && <AimPath ball={ball} aim={aim} pin={effectivePin} />}
 
           {/* Past round: the numbered shot-1 crumb marks the tee (§19.3). */}
           {!isPinMode && !pastCrumbs && teeBox && (
