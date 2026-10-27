@@ -211,7 +211,7 @@ export function PatternNumbers({
           <Tile
             label="Finishes"
             value={`${num(finish - stats.cone68.distance, unit)}–${num(finish + stats.cone68.distance, unit)} ${u}`}
-            note="68% of shots, from where it was hit"
+            note="from where it was hit"
           />
         ) : (
           <Tile label="Typical distance" value={typicalYards != null ? dist(typicalYards, unit) : '—'} note="how far it goes, every lie" />

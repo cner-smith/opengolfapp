@@ -186,10 +186,14 @@ export function AimPlot(props: ChartProps) {
           <text x={LEFT + 95} y={ly + 18}>average</text>
           <Pennant x={LEFT + 166} y={ly + 20} />
           <text x={LEFT + 182} y={ly + 18}>aim</text>
-          <RingMark r={{ cx: LEFT + 10, cy: ly + 36, rx: 10, ry: 6, rot: 0 }} />
-          <text x={LEFT + 26} y={ly + 40}>{stats ? `68% of shots (${inside} of ${points.length})` : '68% of shots'}</text>
-          <RingMark r={{ cx: LEFT + 196, cy: ly + 36, rx: 10, ry: 6, rot: 0 }} outer />
-          <text x={LEFT + 212} y={ly + 40}>95% of shots</text>
+          {stats && layers.rings && (
+            <>
+              <RingMark r={{ cx: LEFT + 10, cy: ly + 36, rx: 10, ry: 6, rot: 0 }} />
+              <text x={LEFT + 26} y={ly + 40}>{`68% of shots (${inside} of ${points.length})`}</text>
+              <RingMark r={{ cx: LEFT + 196, cy: ly + 36, rx: 10, ry: 6, rot: 0 }} outer />
+              <text x={LEFT + 212} y={ly + 40}>95% of shots</text>
+            </>
+          )}
         </g>
       </g>
 
