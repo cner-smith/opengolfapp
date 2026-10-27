@@ -140,9 +140,9 @@ export function TeePlot(props: ChartProps) {
   let r68: ReturnType<typeof placeOnRing> | null = null
   let r95: ReturnType<typeof placeOnRing> | null = null
   if (stats && layers.rings) {
-    r68 = placeOnRing(ringPx(stats.ring68), 'two in three', 12, dots, taken, bounds, [-25, 205, 25, 155, -60, -120])
+    r68 = placeOnRing(ringPx(stats.ring68), '68%', 12, dots, taken, bounds, [-25, 205, 25, 155, -60, -120])
     taken.push(r68.box)
-    r95 = placeOnRing(ringPx(stats.ring95), 'nearly all', 12, dots, taken, bounds, [205, -25, 155, 25, -120, -60])
+    r95 = placeOnRing(ringPx(stats.ring95), '95%', 12, dots, taken, bounds, [205, -25, 155, 25, -120, -60])
     taken.push(r95.box)
   }
   const rGhost = ghost && layers.rings ? placeOnRing(ringPx(ghost.stats.ring68), ghost.label, 12, dots, taken, bounds, [-90, 0, 180, 90]) : null
@@ -272,8 +272,8 @@ export function TeePlot(props: ChartProps) {
       </Fade>
       <Pennant x={teeX} y={aimY} />
       <Halo x={aimLabel.x} y={aimLabel.y} anchor={aimLabel.anchor} size={13} fill={P.warn} text="aim" />
-      {r68 && <Halo x={r68.x} y={r68.y} anchor={r68.anchor} fill={P.forest} text="two in three" />}
-      {r95 && <Halo x={r95.x} y={r95.y} anchor={r95.anchor} fill={P.forest} text="nearly all" />}
+      {r68 && <Halo x={r68.x} y={r68.y} anchor={r68.anchor} fill={P.forest} text="68%" />}
+      {r95 && <Halo x={r95.x} y={r95.y} anchor={r95.anchor} fill={P.forest} text="95%" />}
       {rGhost && ghost && <Halo x={rGhost.x} y={rGhost.y} anchor={rGhost.anchor} fill={P.inkDim} text={ghost.label} />}
       {typical.map((t) => (
         <Halo key={`l${t.key}`} x={t.at.x} y={t.at.y} anchor={t.at.anchor} fill={t.color} text={t.text} />
