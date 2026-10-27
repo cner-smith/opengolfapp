@@ -207,9 +207,9 @@ export function TeePlot(props: ChartProps) {
   let l95: Placed | null = null
   let lGhost: Placed | null = null
   if (stats && layers.rings) {
-    l68 = placeOnRing(r68, 'two in three', 12, dots, taken, bounds, [-25, 205, 25, 155, -60, -120])
+    l68 = placeOnRing(r68, '68%', 12, dots, taken, bounds, [-25, 205, 25, 155, -60, -120])
     taken.push(l68.box)
-    l95 = placeOnRing(r95, 'nearly all', 12, dots, taken, bounds, [205, -25, 155, 25, -120, -60])
+    l95 = placeOnRing(r95, '95%', 12, dots, taken, bounds, [205, -25, 155, 25, -120, -60])
     taken.push(l95.box)
   }
   if (ghostRing && layers.rings) {
@@ -335,8 +335,8 @@ export function TeePlot(props: ChartProps) {
       <g aria-hidden>
         <Pennant x={teeX} y={y(avgAim)} />
         <Halo at={aimLabel} size={14} fill={AMBER_TEXT}>aim</Halo>
-        {l68 && <Halo at={l68} fill={FOREST}>two in three</Halo>}
-        {l95 && <Halo at={l95} fill={FOREST}>nearly all</Halo>}
+        {l68 && <Halo at={l68} fill={FOREST}>68%</Halo>}
+        {l95 && <Halo at={l95} fill={FOREST}>95%</Halo>}
         {lGhost && <Halo at={lGhost} fill={DIM}>{ghost!.label}</Halo>}
         {typical.map((t, i) => (
           <Halo key={t.key} at={typicalLabels[i]!} fill={t.color === INK ? INK : t.color}>{t.label}</Halo>

@@ -3,7 +3,6 @@ import {
   YARDS_TO_METERS,
   distanceUnitAbbr as unitWord,
   insideRing,
-  missTally,
   shotWords,
   type DispersionPoint,
   type DispersionStats,
@@ -47,6 +46,8 @@ import {
 const TOP = 12
 const RIGHT = 12
 const BOTTOM = 36
+// The legend under the chart.
+const LEG = 50
 
 /** The grid: a half-width in yards that holds every shot and both rings (so a
  *  toggle never rescales the chart), ruled every 5 or 10 of the player's unit. */
@@ -76,17 +77,14 @@ export function aimGrid(
   return { half, halfDisp, scale, step, stepYd: step / u, u }
 }
 
-export function aimArea(narrow: boolean) {
-  return (narrow ? 350 : 440) - (narrow ? 44 : 50) - RIGHT
-}
-
 export function AimPlot(props: ChartProps) {
   const { points, older, stats, ghost, unit, layers, empty, extras, kinds } = props
   const narrow = useNarrow()
   const W = narrow ? 350 : 440
   const LEFT = narrow ? 44 : 50
   const AREA = W - LEFT - RIGHT
-  const H = TOP + AREA + BOTTOM
+  const H = TOP + AREA + BOTTOM + LEG
+  const ly = TOP + AREA + BOTTOM
   const svgRef = useRef<SVGSVGElement | null>(null)
   const dense = points.length > 40
   const grid = useMemo(() => aimGrid(points, older, stats, ghost, unit, AREA), [points, older, stats, ghost, unit, AREA])
@@ -122,24 +120,14 @@ export function AimPlot(props: ChartProps) {
   const aimLabel = placeNear(cx + 3, cy - 12, 'aim', 14, dots, taken, bounds, dense)
   taken.push(aimLabel.box, { x: cx - 2, y: cy - 18, w: 14, h: 20 })
   const inside = stats ? points.filter((p) => insideRing(stats.ring68, p.lateralOffsetYards, p.distanceOffsetYards)).length : 0
-  const label68 = `two in three · ${inside} of ${points.length}`
-  let l68: Placed | null = null
-  let l95: Placed | null = null
   let lGhost: Placed | null = null
   let lAvg: Placed | null = null
-  if (stats && layers.rings) {
-    l68 = placeOnRing(r68, label68, 12, dots, taken, bounds, [52, 128, -52, -128, 18, 162])
-    taken.push(l68.box)
-    l95 = placeOnRing(r95, 'nearly all', 12, dots, taken, bounds, [128, 52, -128, -52, 162, 18])
-    taken.push(l95.box)
-  }
   if (ghostRing && layers.rings) {
     lGhost = placeOnRing(ghostRing, ghost!.label, 12, dots, taken, bounds, [-90, 90, 0, 180, -45, -135])
     taken.push(lGhost.box)
   }
   if (stats && layers.average) lAvg = placeNear(avg.x, avg.y, 'average', 12, dots, taken, bounds)
 
-  const misses = missTally(points)
   const hot = nav.shown ? styled.find((d) => d.p.id === nav.shown) : null
   const fade = (on: boolean) => ({ opacity: on ? 1 : 0, transition: 'opacity 180ms ease', pointerEvents: on ? undefined : ('none' as const) })
   const tick = (k: number) => String(Math.abs(k * step))
@@ -174,16 +162,30 @@ export function AimPlot(props: ChartProps) {
           )
         })}
         <rect x={LEFT} y={TOP} width={AREA} height={AREA} fill="none" stroke={AXIS} strokeWidth={1} />
-        {/* The miss tally sits on the axes, yardage-book style. */}
-        <text transform={`translate(13 ${TOP}) rotate(-90)`} textAnchor="end" fontFamily={SANS} fontSize={12} fontStyle="italic" fill={DIM}>
-          long {misses.long}
+        {/* Which way is which, on the aim lines. The counts are in the rows below the chart. */}
+        <text x={cx + 5} y={TOP + 15} fontFamily={SANS} fontSize={12} fontStyle="italic" fill={DIM}>long ↑</text>
+        <text x={cx + 5} y={TOP + AREA - 6} fontFamily={SANS} fontSize={12} fontStyle="italic" fill={DIM}>short ↓</text>
+        <text x={LEFT + 5} y={cy - 6} fontFamily={SANS} fontSize={12} fontStyle="italic" fill={DIM}>← left</text>
+        <text x={LEFT + AREA - 5} y={cy - 6} textAnchor="end" fontFamily={SANS} fontSize={12} fontStyle="italic" fill={DIM}>right →</text>
+        <text x={cx} y={ly - 4} textAnchor="middle" fontFamily={SANS} fontSize={12} fill={DIM}>
+          {`${unit === 'meters' ? 'metres' : 'yards'} from the aim · each square ${step} ${unitWord(unit)}`}
         </text>
-        <text transform={`translate(13 ${TOP + AREA}) rotate(-90)`} textAnchor="start" fontFamily={SANS} fontSize={12} fontStyle="italic" fill={DIM}>
-          short {misses.short}
-        </text>
-        <text x={LEFT} y={H - 4} fontFamily={SANS} fontSize={12} fontStyle="italic" fill={DIM}>left {misses.left}</text>
-        <text x={LEFT + AREA} y={H - 4} textAnchor="end" fontFamily={SANS} fontSize={12} fontStyle="italic" fill={DIM}>right {misses.right}</text>
-        <text x={cx} y={H - 4} textAnchor="middle" fontFamily={SANS} fontSize={12} fill={DIM}>{unitWord(unit)}</text>
+        <g fontFamily={SANS} fontSize={12} fill={INK}>
+          <circle cx={LEFT + 6} cy={ly + 14} r={4} fill={INK} />
+          <text x={LEFT + 16} y={ly + 18}>a shot</text>
+          <circle cx={LEFT + 84} cy={ly + 14} r={5.5} fill={PAPER} stroke={FOREST} strokeWidth={1.8} />
+          <text x={LEFT + 95} y={ly + 18}>average</text>
+          <Pennant x={LEFT + 166} y={ly + 20} />
+          <text x={LEFT + 182} y={ly + 18}>aim</text>
+          {stats && layers.rings && (
+            <>
+              <RingMark r={{ cx: LEFT + 10, cy: ly + 36, rx: 10, ry: 6, rot: 0 }} />
+              <text x={LEFT + 26} y={ly + 40}>{`68% of shots (${inside} of ${points.length})`}</text>
+              <RingMark r={{ cx: LEFT + 196, cy: ly + 36, rx: 10, ry: 6, rot: 0 }} outer />
+              <text x={LEFT + 212} y={ly + 40}>95% of shots</text>
+            </>
+          )}
+        </g>
       </g>
 
       <g aria-hidden style={fade(layers.rings)}>
@@ -226,8 +228,6 @@ export function AimPlot(props: ChartProps) {
       <g aria-hidden>
         <Pennant x={cx} y={cy} />
         <Halo at={aimLabel} size={14} fill={AMBER_TEXT}>aim</Halo>
-        {l68 && <Halo at={l68} fill={FOREST}>{label68}</Halo>}
-        {l95 && <Halo at={l95} fill={FOREST}>nearly all</Halo>}
         {lGhost && <Halo at={lGhost} fill={DIM}>{ghost!.label}</Halo>}
         {lAvg && <Halo at={lAvg} fill={INK}>average</Halo>}
       </g>
@@ -252,10 +252,3 @@ export function AimPlot(props: ChartProps) {
     </svg>
   )
 }
-
-/** "Squares are 5 yd." for the caption. */
-export function squaresWord(points: DispersionPoint[], older: DispersionPoint[], stats: DispersionStats | null, ghost: Ghost | null, unit: DistanceUnit, narrow: boolean) {
-  const g = aimGrid(points, older, stats, ghost, unit, aimArea(narrow))
-  return `Squares are ${g.step} ${unitWord(unit)}.`
-}
-
