@@ -9,6 +9,7 @@ import { RouteErrorBoundary } from './components/errors/ErrorBoundary'
 import { LoginPage } from './pages/auth/LoginPage'
 import { SignupPage } from './pages/auth/SignupPage'
 import { AuthCallbackPage } from './pages/auth/AuthCallbackPage'
+import { ResetPasswordPage } from './pages/auth/ResetPasswordPage'
 import { NotFoundPage } from './pages/errors/NotFoundPage'
 import { OnboardingPage } from './pages/onboarding/OnboardingPage'
 import { LandingPage } from './pages/landing/LandingPage'
@@ -124,6 +125,7 @@ const routes: RouteObject[] = [
   { path: '/login', element: <LoginPage />, errorElement },
   { path: '/signup', element: <SignupPage />, errorElement },
   { path: '/auth/callback', element: <AuthCallbackPage />, errorElement },
+  { path: '/auth/reset', element: <ResetPasswordPage />, errorElement },
   {
     path: '/onboarding',
     element: <AuthGuard><OnboardingPage /></AuthGuard>,
