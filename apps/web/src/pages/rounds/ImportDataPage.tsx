@@ -268,7 +268,7 @@ export function ImportDataPage() {
                   {dataQuality.misplacedPuttDistance.length > 0 && (
                     <div>
                       {dataQuality.misplacedPuttDistance.length} putt
-                      {dataQuality.misplacedPuttDistance.length === 1 ? '' : 's'} keep the putt length in
+                      {dataQuality.misplacedPuttDistance.length === 1 ? ' keeps' : 's keep'} the putt length in
                       the wrong field, so putting strokes gained will read 0 for{' '}
                       {dataQuality.misplacedPuttDistance.length === 1 ? 'it' : 'them'}: {formatIssueLocations(dataQuality.misplacedPuttDistance)}.
                     </div>
