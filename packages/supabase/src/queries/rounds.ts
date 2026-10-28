@@ -16,7 +16,7 @@ type RoundUpdate = Database['public']['Tables']['rounds']['Update']
 // The list queries also select created_at for isStaleEmptyRound (#1055).
 const HOLE_COUNT_EMBED = 'hole_scores(score, holes(number))' as const
 
-const ROUND_COLUMNS = 'id, user_id, course_id, played_at, tee_color, total_score, total_putts, fairways_hit, fairways_total, gir, sg_off_tee, sg_approach, sg_around_green, sg_putting, sg_total, course_tee_id, score_differential, capture_mode' as const
+const ROUND_COLUMNS = 'id, user_id, course_id, played_at, tee_color, total_score, total_putts, fairways_hit, fairways_total, gir, sg_off_tee, sg_approach, sg_around_green, sg_putting, sg_total, course_tee_id, score_differential, capture_mode, completed_at' as const
 
 export function getRounds(client: OgaSupabaseClient, userId: string, limit = 20) {
   return client

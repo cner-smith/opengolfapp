@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import type { Database } from '@oga/supabase'
 import type { ResolvedHole } from '@oga/core'
-import { HoleScoreCard } from '../../../components/rounds/HoleScoreCard'
+import { CARD_COLS, HoleScoreCard } from '../../../components/rounds/HoleScoreCard'
 
 type HoleRow = Database['public']['Tables']['holes']['Row']
 type HoleScoreRow = Database['public']['Tables']['hole_scores']['Row']
@@ -35,100 +35,105 @@ export function ScorecardView({
     (h) => !h.yards && h.tee_lat == null,
   )
   const [hintDismissed, setHintDismissed] = useState(false)
+
+  // Per-nine totals for the title's right side, as on the phone's card.
+  const nine = (lo: number, hi: number) => {
+    let score = 0
+    let par = 0
+    for (const h of holes) {
+      if (h.number < lo || h.number > hi) continue
+      const hs = scoresByHoleId.get(h.id)
+      if (hs?.score != null && hs.score > 0) {
+        score += hs.score
+        par += resolvedHoleByNumber.get(h.number)?.par ?? hs.par ?? h.par
+      }
+    }
+    return score > 0 ? { score, toPar: score - par } : null
+  }
+  const front = nine(1, 9)
+  const back = holes.length > 9 ? nine(10, 99) : null
+  const parts: { label: string; t: { score: number; toPar: number } }[] = []
+  if (front) parts.push({ label: holes.length > 9 ? 'Out' : 'Front nine', t: front })
+  if (back) parts.push({ label: 'In', t: back })
+
+  const head = 'text-caddie-ink'
   return (
-    <div style={{ borderTop: '1px solid #D9D2BF', paddingTop: 14 }}>
-      <div className="kicker" style={{ marginBottom: 14 }}>
-        Scorecard
+    <section aria-label="Your card">
+      <div className="flex items-baseline justify-between" style={{ gap: 8, flexWrap: 'wrap' }}>
+        <h2 className="font-serif italic text-caddie-ink" style={{ fontSize: 26, fontWeight: 500 }}>
+          Your card
+        </h2>
+        <div className="text-caddie-ink" style={{ fontSize: 13 }}>
+          {parts.map((p, i) => (
+            <span key={p.label}>
+              {i > 0 ? '  ·  ' : ''}
+              {p.label} ·{' '}
+              <span className="font-serif italic tabular" style={{ fontSize: 16, fontWeight: 500 }}>
+                {p.t.score}
+              </span>{' '}
+              ({signed(p.t.toPar)})
+            </span>
+          ))}
+        </div>
       </div>
       {hasSyntheticHoles && !hintDismissed && (
         <div
           role="status"
-          style={{
-            marginBottom: 14,
-            padding: '10px 14px',
-            background: '#FBF8F1',
-            border: '1px solid #D9D2BF',
-            borderRadius: 2,
-            display: 'flex',
-            alignItems: 'flex-start',
-            gap: 14,
-          }}
+          className="flex items-start"
+          style={{ margin: '10px 0 4px', gap: 14, fontSize: 13, lineHeight: 1.45 }}
         >
-          <div
-            className="text-caddie-ink-dim"
-            style={{ flex: 1, fontSize: 13, lineHeight: 1.4 }}
-          >
-            No course layout found. Par defaults to 4 — tap to edit.
-          </div>
+          <p className="text-caddie-ink-dim" style={{ flex: 1 }}>
+            We don’t have this course’s layout, so every par starts at 4. Click a par to change it.
+          </p>
           <button
             type="button"
             onClick={() => setHintDismissed(true)}
-            aria-label="Dismiss notice"
-            className="font-mono uppercase text-caddie-ink-mute hover:text-caddie-ink"
-            style={{
-              fontSize: 10,
-              letterSpacing: '0.14em',
-              background: 'transparent',
-              border: 'none',
-              padding: 4,
-            }}
+            className="text-caddie-ink underline"
+            style={{ background: 'transparent', border: 'none', padding: 4, fontSize: 13 }}
           >
             Dismiss
           </button>
         </div>
       )}
       <div
-        style={{
-          borderTop: '1px solid #D9D2BF',
-          overflowX: 'auto',
-        }}
+        className={`${CARD_COLS} items-end`}
+        style={{ fontSize: 12, paddingTop: 10, paddingBottom: 6, borderBottom: '1px solid #1C211C' }}
       >
-        <div style={{ minWidth: 720 }}>
-        <div
-          className="grid grid-cols-12 items-center font-mono uppercase text-caddie-ink-mute"
-          style={{
-            padding: '10px 0',
-            fontSize: 10,
-            letterSpacing: '0.14em',
-            gap: 12,
-            borderBottom: '1px solid #D9D2BF',
-          }}
-        >
-          <div className="col-span-2">Hole</div>
-          <div className="col-span-1 text-center">Score</div>
-          <div className="col-span-1" />
-          <div className="col-span-2 text-center">Putts</div>
-          <div className="col-span-2 text-center">Fairway</div>
-          <div className="col-span-1 text-center">GIR</div>
-          <div className="col-span-3 text-right">Shots</div>
-        </div>
-        {holes.map((h) => {
-          const hs = scoresByHoleId.get(h.id)
-          const resolved = resolvedHoleByNumber.get(h.number)
-          return (
-            <HoleScoreCard
-              key={h.id}
-              roundId={roundId}
-              hole={h}
-              holeScore={hs}
-              shotCount={hs ? (shotCountByHoleScore.get(hs.id) ?? 0) : 0}
-              resolvedPar={resolved?.par ?? hs?.par ?? h.par}
-              resolvedYards={resolved?.yards ?? null}
-              ensureRealHole={ensureRealHole}
-              onEditShots={(holeScoreId) =>
-                onEditShots({
-                  holeScoreId,
-                  holeNumber: h.number,
-                  // Per-round par override (#710), then tee-resolved par —
-                  // resolvedHoleByNumber already folds the round override in.
-                  holePar: resolved?.par ?? hs?.par ?? h.par,
-                })
-              }
-            />
-          )
-        })}
-        </div>
+        <div className={head}>Hole</div>
+        <div className={`${head} text-center`}>Par</div>
+        <div className={`${head} text-center`}>Score</div>
+        <div className={`${head} text-center`}>Putts</div>
+        <div className={`${head} text-center`}>Fwy</div>
+        <div className={`${head} text-center`}>Green</div>
+        <div className={`${head} text-right`}>Shots</div>
       </div>
-    </div>
+      {holes.map((h) => {
+        const hs = scoresByHoleId.get(h.id)
+        const resolved = resolvedHoleByNumber.get(h.number)
+        return (
+          <HoleScoreCard
+            key={h.id}
+            roundId={roundId}
+            hole={h}
+            holeScore={hs}
+            shotCount={hs ? (shotCountByHoleScore.get(hs.id) ?? 0) : 0}
+            resolvedPar={resolved?.par ?? hs?.par ?? h.par}
+            resolvedYards={resolved?.yards ?? null}
+            ensureRealHole={ensureRealHole}
+            onEditShots={(holeScoreId) =>
+              onEditShots({
+                holeScoreId,
+                holeNumber: h.number,
+                // Per-round par override (#710), then tee-resolved par —
+                // resolvedHoleByNumber already folds the round override in.
+                holePar: resolved?.par ?? hs?.par ?? h.par,
+              })
+            }
+          />
+        )
+      })}
+    </section>
   )
 }
+
+const signed = (n: number) => (n === 0 ? 'E' : n > 0 ? `+${n}` : `−${-n}`)

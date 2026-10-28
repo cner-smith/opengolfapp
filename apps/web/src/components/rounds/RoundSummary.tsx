@@ -1,7 +1,7 @@
+import type { ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import {
-  formatSG as formatSGNumber,
-  formatToPar,
+  formatSG,
   pickRoundFocus,
   roundFocusHeadline,
   selectNudgeDrills,
@@ -12,165 +12,235 @@ import { useProfile } from '../../hooks/useProfile'
 import { useDrills } from '../../hooks/useDrills'
 
 type RoundRow = Database['public']['Tables']['rounds']['Row']
-type HoleScoreRow = Database['public']['Tables']['hole_scores']['Row']
-type HoleRow = Database['public']['Tables']['holes']['Row']
 
-interface RoundSummaryProps {
-  round: RoundRow
-  holes: HoleRow[]
-  holeScores: HoleScoreRow[]
-  totalRoundsLogged: number
+/** One scored hole: its number, the score and the tee-resolved par. */
+export interface ScoredHole {
+  number: number
+  score: number
+  par: number
 }
 
-const SG_KEYS = [
-  { key: 'sg_off_tee', label: 'Off tee' },
+const SG_ROWS = [
+  { key: 'sg_off_tee', label: 'Off the tee' },
   { key: 'sg_approach', label: 'Approach' },
-  { key: 'sg_around_green', label: 'Around green' },
+  { key: 'sg_around_green', label: 'Around the green' },
   { key: 'sg_putting', label: 'Putting' },
 ] as const
 
-function formatSG(value: number | null | undefined): string {
-  if (value === null || value === undefined) return '—'
-  return formatSGNumber(value)
-}
+const NEG = '#A33A2A'
+const INK35 = 'rgba(28,33,28,.35)'
+export const signed = (n: number) => (n === 0 ? 'E' : n > 0 ? `+${n}` : `−${-n}`)
+const sg = (n: number | null | undefined) => (n == null ? '—' : formatSG(n).replace('-', '−'))
+const WORDS = ['no', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine']
+const strokes = (n: number) => `${WORDS[n] ?? n} stroke${n === 1 ? '' : 's'}`
 
-function bestWorstHole(
-  holeScores: HoleScoreRow[],
-  holes: HoleRow[],
-): { best?: { number: number; diff: number }; worst?: { number: number; diff: number } } {
-  const byHoleId = new Map(holes.map((h) => [h.id, h]))
-  let best: { number: number; diff: number } | undefined
-  let worst: { number: number; diff: number } | undefined
-  for (const hs of holeScores) {
-    const hole = byHoleId.get(hs.hole_id)
-    if (!hole) continue
-    // Per-round par override (#710) — hole_scores.par wins over the
-    // course hole's par when the player corrected it.
-    const diff = hs.score - (hs.par ?? hole.par)
-    if (!best || diff < best.diff) best = { number: hole.number, diff }
-    if (!worst || diff > worst.diff) worst = { number: hole.number, diff }
-  }
-  return { best, worst }
-}
-
-export function RoundSummary({
+// Round totals, flat on the paper as on the phone (#611 §19.7): the score at
+// hero size with to-par beside it and SG on the right, one line on the best
+// and worst holes, then the four SG categories as diverging bars.
+export function RoundTotals({
   round,
-  holes,
-  holeScores,
-  totalRoundsLogged,
-}: RoundSummaryProps) {
-  // Per-round par override (#710) folded into the round's total par.
-  const parByHoleId = new Map(
-    holeScores.filter((hs) => hs.par != null).map((hs) => [hs.hole_id, hs.par!]),
-  )
-  const par = holes.reduce((sum, h) => sum + (parByHoleId.get(h.id) ?? h.par), 0)
-  const score = round.total_score ?? holeScores.reduce((s, hs) => s + hs.score, 0)
-  const toPar = score && par ? score - par : null
-  const { best, worst } = bestWorstHole(holeScores, holes)
-  const focus = pickRoundFocus(round)
+  scored,
+  handicap,
+}: {
+  round: RoundRow
+  scored: ScoredHole[]
+  handicap: number | null
+}) {
+  const score = scored.reduce((s, h) => s + h.score, 0)
+  const par = scored.reduce((s, h) => s + h.par, 0)
+  let best: ScoredHole | undefined
+  let worst: ScoredHole | undefined
+  for (const h of scored) {
+    if (!best || h.score - h.par < best.score - best.par) best = h
+    if (!worst || h.score - h.par > worst.score - worst.par) worst = h
+  }
+  const bestDiff = best ? best.score - best.par : 0
+  const worstDiff = worst ? worst.score - worst.par : 0
+  const values = SG_ROWS.map((r) => round[r.key])
+  const max = Math.max(1, ...values.map((v) => Math.abs(v ?? 0)))
 
   return (
-    <div
-      className="bg-caddie-surface"
-      style={{
-        border: '1px solid #D9D2BF',
-        borderRadius: 4,
-        padding: 22,
-      }}
+    <section
+      aria-label="Round totals"
+      className="grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]"
+      style={{ columnGap: 56, rowGap: 22 }}
     >
-      <div
-        className="flex items-baseline justify-between"
-        style={{ marginBottom: 18 }}
-      >
-        <div>
-          <div className="kicker" style={{ marginBottom: 8 }}>
-            By the numbers
-          </div>
-          <div className="flex items-baseline" style={{ gap: 14 }}>
-            <span
-              className="font-serif tabular text-caddie-ink"
-              style={{ fontSize: 38, fontWeight: 500, lineHeight: 1 }}
-            >
-              {score || '—'}
-            </span>
-            {toPar !== null && (
-              <span
-                className="font-serif tabular text-caddie-ink-dim"
-                style={{ fontSize: 17, fontStyle: 'italic' }}
-              >
-                ({formatToPar(toPar)})
-              </span>
-            )}
-          </div>
-        </div>
-      </div>
-
-      <div
-        className="grid grid-cols-2 sm:grid-cols-4"
-        style={{ gap: 14, marginBottom: 18 }}
-      >
-        {SG_KEYS.map((c) => (
-          <SGCell key={c.key} label={c.label} value={round[c.key]} />
-        ))}
-      </div>
-
-      <div
-        className="grid grid-cols-2 sm:grid-cols-4"
-        style={{
-          gap: 14,
-          paddingTop: 18,
-          borderTop: '1px solid #D9D2BF',
-        }}
-      >
-        <Stat label="SG total" value={formatSG(round.sg_total)} tone={signTone(round.sg_total)} />
-        <Stat label="Putts" value={round.total_putts?.toString() ?? '—'} />
-        <Stat
-          label="Fairways"
-          value={
-            round.fairways_total
-              ? `${round.fairways_hit ?? 0}/${round.fairways_total}`
-              : '—'
-          }
-        />
-        <Stat label="GIR" value={round.gir?.toString() ?? '—'} />
-      </div>
-
-      {(best || worst) && (
-        <div
-          className="grid grid-cols-2"
-          style={{
-            gap: 14,
-            marginTop: 18,
-            paddingTop: 18,
-            borderTop: '1px solid #D9D2BF',
-          }}
-        >
-          {best && <Highlight tone="pos" label="Best hole" hole={best.number} diff={best.diff} />}
-          {worst && <Highlight tone="neg" label="Worst hole" hole={worst.number} diff={worst.diff} />}
-        </div>
-      )}
-
-      {focus && <RoundNudge focus={focus} />}
-
-      {totalRoundsLogged >= 3 && (
-        <div style={{ marginTop: 22 }}>
-          <Link
-            to="/practice"
-            className="key key-primary"
+      <div>
+        <div className="flex items-end">
+          <span
+            className="font-serif italic tabular"
             style={{
-              fontSize: 14,
-              fontWeight: 600,
-              letterSpacing: '0.02em',
+              fontSize: 'clamp(56px, 7vw, 76px)',
+              fontWeight: 500,
+              lineHeight: 0.95,
+              letterSpacing: '-0.03em',
+              color: par === 0 ? INK35 : '#1C211C',
             }}
           >
-            Go to Practice{' '}
-            <span className="font-serif" style={{ fontStyle: 'italic' }}>
-              →
-            </span>
-          </Link>
+            {par === 0 ? '—' : score}
+          </span>
+          <div style={{ flex: 1, paddingLeft: 12, paddingBottom: 6 }}>
+            {par > 0 && (
+              <>
+                <div className="font-serif italic tabular text-caddie-ink" style={{ fontSize: 24, fontWeight: 500, lineHeight: 1.1 }}>
+                  {signed(score - par)}
+                </div>
+                <div className="text-caddie-ink" style={{ fontSize: 13 }}>
+                  to par · {par}
+                </div>
+              </>
+            )}
+          </div>
+          <div className="text-right" style={{ paddingBottom: 6 }}>
+            <div
+              className="font-serif italic tabular"
+              style={{
+                fontSize: 24,
+                fontWeight: 500,
+                lineHeight: 1.1,
+                color: round.sg_total == null ? INK35 : round.sg_total < 0 ? NEG : '#1C211C',
+              }}
+            >
+              {sg(round.sg_total)}
+            </div>
+            <div className="text-caddie-ink" style={{ fontSize: 13, lineHeight: 1.25 }}>
+              strokes gained
+              {handicap != null && (
+                <>
+                  <br />
+                  vs a {handicap} handicap
+                </>
+              )}
+            </div>
+          </div>
         </div>
-      )}
+        {best && worst && worstDiff > bestDiff && (
+          <p className="font-serif text-caddie-ink" style={{ fontSize: 18, lineHeight: 1.5, marginTop: 18, maxWidth: 460 }}>
+            <em style={{ fontWeight: 500 }}>Hole {best.number}</em> was your best ({signed(bestDiff)});{' '}
+            {worstDiff > 0 ? (
+              <>
+                <em style={{ fontWeight: 500 }}>hole {worst.number}</em> cost you {strokes(worstDiff)}.
+              </>
+            ) : (
+              <>nothing went over par.</>
+            )}
+          </p>
+        )}
+      </div>
+
+      <div style={{ borderTop: '1px solid #1C211C' }}>
+        {SG_ROWS.map((r, i) => (
+          <SGBarRow key={r.key} label={r.label} value={values[i] ?? null} max={max} />
+        ))}
+      </div>
+    </section>
+  )
+}
+
+// Diverging SG bar (DESIGN.md): a hairline track with a centre tick, forest
+// to the right, brick to the left, the figure in Fraunces italic at the end.
+function SGBarRow({ label, value, max }: { label: string; value: number | null; max: number }) {
+  const v = value ?? 0
+  const pct = Math.min(Math.abs(v) / max, 1) * 50
+  return (
+    <div
+      className="grid items-center grid-cols-[136px_minmax(0,1fr)_60px] sm:grid-cols-[150px_minmax(0,1fr)_64px]"
+      style={{ minHeight: 46, borderBottom: '1px solid #D9D2BF', columnGap: 12 }}
+    >
+      <span className="text-caddie-ink" style={{ fontSize: 15 }}>
+        {label}
+      </span>
+      <div className="relative" style={{ height: 10 }}>
+        <div className="absolute inset-x-0" style={{ top: '50%', height: 1, background: '#D9D2BF' }} />
+        <div className="absolute" style={{ left: '50%', top: -3, bottom: -3, width: 1, background: '#9F9580' }} />
+        {value != null && v !== 0 && (
+          <div
+            className="absolute"
+            style={{
+              left: v > 0 ? '50%' : `${50 - pct}%`,
+              width: `${pct}%`,
+              top: 1,
+              bottom: 1,
+              background: v > 0 ? '#1F3D2C' : NEG,
+            }}
+          />
+        )}
+      </div>
+      <span
+        className="font-serif italic tabular text-right"
+        style={{ fontSize: 18, fontWeight: 500, color: value == null ? INK35 : v < 0 ? NEG : '#1C211C' }}
+      >
+        {sg(value)}
+      </span>
     </div>
+  )
+}
+
+// Beside the card on desktop, under it on a phone: the focus lede and drills,
+// the rest of the numbers as a divided list, then the round's actions.
+export function RoundSide({
+  round,
+  holesPlayed,
+  children,
+}: {
+  round: RoundRow
+  holesPlayed: number
+  children: ReactNode
+}) {
+  const focus = pickRoundFocus(round)
+  const rows: { label: string; value: ReactNode }[] = [
+    { label: 'Putts', value: round.total_putts ?? '—' },
+    {
+      label: 'Fairways',
+      value: round.fairways_total ? (
+        <>
+          {round.fairways_hit ?? 0} <Of n={round.fairways_total} />
+        </>
+      ) : (
+        '—'
+      ),
+    },
+    {
+      label: 'Greens in regulation',
+      value:
+        round.gir != null ? (
+          <>
+            {round.gir} <Of n={holesPlayed} />
+          </>
+        ) : (
+          '—'
+        ),
+    },
+  ]
+  return (
+    <aside>
+      {focus && <RoundNudge focus={focus} />}
+      <div style={{ borderTop: '1px solid #1C211C', marginTop: focus ? 28 : 0 }}>
+        {rows.map((r) => (
+          <div
+            key={r.label}
+            className="flex items-baseline justify-between"
+            style={{ minHeight: 46, paddingTop: 12, borderBottom: '1px solid #D9D2BF' }}
+          >
+            <span className="text-caddie-ink" style={{ fontSize: 15 }}>
+              {r.label}
+            </span>
+            <span className="font-serif italic tabular text-caddie-ink" style={{ fontSize: 20, fontWeight: 500 }}>
+              {r.value}
+            </span>
+          </div>
+        ))}
+      </div>
+      {children}
+    </aside>
+  )
+}
+
+function Of({ n }: { n: number }) {
+  return (
+    <span className="not-italic font-sans text-caddie-ink-dim" style={{ fontSize: 13 }}>
+      of {n}
+    </span>
   )
 }
 
@@ -185,134 +255,40 @@ function RoundNudge({ focus }: { focus: RoundFocus }) {
   const picks = selectNudgeDrills(drills ?? [], profile?.facilities ?? [])
 
   return (
-    <div
-      style={{
-        marginTop: 22,
-        paddingTop: 18,
-        borderTop: '1px solid #D9D2BF',
-      }}
-    >
-      <div className="kicker" style={{ marginBottom: 8 }}>
-        Today's focus
-      </div>
-      <p
-        className="font-serif text-caddie-ink"
-        style={{ fontSize: 17, lineHeight: 1.5, marginBottom: picks.length ? 12 : 0 }}
-      >
+    <div>
+      <p className="font-serif italic text-caddie-ink" style={{ fontSize: 22, lineHeight: 1.3, fontWeight: 500 }}>
         {roundFocusHeadline(focus)}
       </p>
       {picks.length > 0 && (
-        <div className="flex flex-wrap" style={{ gap: 8 }}>
-          {/* No per-drill detail route exists; chips link to the drill library. */}
-          {picks.map((drill) => (
-            <Link
-              key={drill.id}
-              to="/practice/drills"
-              className="text-caddie-accent hover:opacity-80"
-              style={{
-                border: '1px solid #1F3D2C',
-                borderRadius: 2,
-                padding: '6px 10px',
-                fontSize: 13,
-              }}
-            >
-              {drill.name}
-              {drill.duration_min ? ` · ${drill.duration_min}m` : ''}
-            </Link>
-          ))}
-        </div>
+        <>
+          <p className="text-caddie-ink" style={{ fontSize: 14, marginTop: 8, marginBottom: 12 }}>
+            {picks.length === 1 ? 'One drill' : `${picks.length === 2 ? 'Two' : picks.length} drills`} for your
+            next range session:
+          </p>
+          <div className="flex flex-col" style={{ gap: 12 }}>
+            {/* No per-drill detail route exists; keys link to the drill library. */}
+            {picks.map((drill) => (
+              <Link
+                key={drill.id}
+                to="/practice/drills"
+                className="key"
+                style={{ justifyContent: 'space-between', fontWeight: 400, fontSize: 15, padding: '0 14px' }}
+              >
+                <span>
+                  {drill.name}
+                  {drill.duration_min ? (
+                    <span className="text-caddie-ink-dim" style={{ fontSize: 13 }}>
+                      {'  ·  '}
+                      {drill.duration_min} min
+                    </span>
+                  ) : null}
+                </span>
+                <span aria-hidden style={{ fontSize: 17 }}>›</span>
+              </Link>
+            ))}
+          </div>
+        </>
       )}
-    </div>
-  )
-}
-
-function signTone(value: number | null | undefined): 'pos' | 'neg' | undefined {
-  if (value === null || value === undefined) return undefined
-  if (value > 0) return 'pos'
-  if (value < 0) return 'neg'
-  return undefined
-}
-
-function SGCell({ label, value }: { label: string; value: number | null | undefined }) {
-  const num = value ?? 0
-  const color = num > 0 ? '#1F3D2C' : num < 0 ? '#A33A2A' : '#5C6356'
-  return (
-    <div>
-      <div className="kicker" style={{ marginBottom: 8 }}>
-        {label}
-      </div>
-      <div
-        className="font-serif tabular"
-        style={{
-          fontSize: 22,
-          fontStyle: 'italic',
-          fontWeight: 500,
-          color,
-          lineHeight: 1.1,
-        }}
-      >
-        {formatSG(value)}
-      </div>
-    </div>
-  )
-}
-
-function Stat({
-  label,
-  value,
-  tone,
-}: {
-  label: string
-  value: string
-  tone?: 'pos' | 'neg'
-}) {
-  const color = tone === 'pos' ? '#1F3D2C' : tone === 'neg' ? '#A33A2A' : '#1C211C'
-  return (
-    <div>
-      <div className="kicker" style={{ marginBottom: 6 }}>
-        {label}
-      </div>
-      <div
-        className="font-serif tabular"
-        style={{ fontSize: 22, fontWeight: 500, color, lineHeight: 1.1 }}
-      >
-        {value}
-      </div>
-    </div>
-  )
-}
-
-function Highlight({
-  tone,
-  label,
-  hole,
-  diff,
-}: {
-  tone: 'pos' | 'neg'
-  label: string
-  hole: number
-  diff: number
-}) {
-  const color = tone === 'pos' ? '#1F3D2C' : '#A33A2A'
-  return (
-    <div>
-      <div className="kicker" style={{ marginBottom: 6 }}>
-        {label}
-      </div>
-      <div className="flex items-baseline" style={{ gap: 8 }}>
-        <span
-          className="font-serif text-caddie-ink"
-          style={{ fontSize: 22, fontWeight: 500 }}
-        >
-          Hole {hole}
-        </span>
-        <span
-          className="font-serif tabular"
-          style={{ fontSize: 17, fontStyle: 'italic', color }}
-        >
-          {formatToPar(diff)}
-        </span>
-      </div>
     </div>
   )
 }
