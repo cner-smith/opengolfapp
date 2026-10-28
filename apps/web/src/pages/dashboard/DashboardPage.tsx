@@ -355,6 +355,7 @@ function StatTile({
       <div
         className="font-serif tabular"
         style={{ fontSize: 32, fontStyle: 'italic', fontWeight: 500, color, lineHeight: 1.05, letterSpacing: '-0.02em' }}
+        role="img"
         aria-label={format(value)}
       >
         {format(shown)}
