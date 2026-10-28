@@ -51,7 +51,7 @@ export function ScorecardView({
     return score > 0 ? { score, toPar: score - par } : null
   }
   const front = nine(1, 9)
-  const back = holes.length > 9 ? nine(10, 99) : null
+  const back = holes.some((h) => h.number > 9) ? nine(10, 99) : null
   const parts: { label: string; t: { score: number; toPar: number } }[] = []
   if (front) parts.push({ label: holes.length > 9 ? 'Out' : 'Front nine', t: front })
   if (back) parts.push({ label: 'In', t: back })

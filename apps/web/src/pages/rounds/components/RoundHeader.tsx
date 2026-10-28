@@ -21,12 +21,10 @@ interface RoundHeaderProps {
   shareTone: 'light' | 'dark'
   sharing: boolean
   completePending: boolean
-  deletePending: boolean
   onBack: () => void
   onShare: () => void
   onToggleShareTone: () => void
   onComplete: () => void
-  onConfirmDelete: () => void
 }
 
 export function RoundHeader({

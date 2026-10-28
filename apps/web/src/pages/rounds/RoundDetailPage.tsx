@@ -231,6 +231,41 @@ export function RoundDetailPage() {
   const runningScore = scored.reduce((t, h) => t + h.score, 0)
   const runningPar = scored.reduce((t, h) => t + h.par, 0)
   const finalized = isFinishedRound(round.data)
+  // Save / Recalculate SG and Delete: under the card, and under the map so a
+  // live round on a phone (which opens on the map) can still be finished.
+  const roundKeys = (
+    <div className="flex flex-wrap" style={{ gap: 12, marginTop: 28 }}>
+      {finalized ? (
+        <button
+          type="button"
+          onClick={handleComplete}
+          disabled={completeMutation.isPending}
+          className="key"
+        >
+          {completeMutation.isPending ? 'Saving…' : 'Recalculate SG'}
+        </button>
+      ) : (
+        <button
+          type="button"
+          onClick={handleComplete}
+          disabled={completeMutation.isPending || holesPlayed === 0}
+          className="key key-primary sm:hidden"
+          style={{ width: '100%', minHeight: 50, fontSize: 16 }}
+        >
+          {completeMutation.isPending ? 'Saving…' : 'Save SG'}
+        </button>
+      )}
+      <button
+        type="button"
+        onClick={() => setConfirmDelete(true)}
+        disabled={deleteMutation.isPending}
+        className="key"
+        style={{ color: '#A33A2A' }}
+      >
+        {deleteMutation.isPending ? 'Deleting…' : 'Delete round'}
+      </button>
+    </div>
+  )
   // The played tee (by id, then by colour) supplies rating/slope/yardage for
   // the share card — same match RoundHeader uses.
   const playedTee = resolveCourseTee(
@@ -253,14 +288,12 @@ export function RoundDetailPage() {
         shareTone={shareTone}
         sharing={sharing}
         completePending={completeMutation.isPending}
-        deletePending={deleteMutation.isPending}
         onBack={() => navigate('/rounds')}
         onShare={handleShare}
         onToggleShareTone={() =>
           setShareTone((t) => (t === 'light' ? 'dark' : 'light'))
         }
         onComplete={handleComplete}
-        onConfirmDelete={() => setConfirmDelete(true)}
       />
 
       <ViewTabs value={view} onChange={setView} />
@@ -379,37 +412,7 @@ export function RoundDetailPage() {
             />
             <div className="lg:sticky lg:top-6 lg:self-start lg:pt-[52px]">
               <RoundSide round={round.data as unknown as RoundRow} holesPlayed={holesPlayed}>
-                <div className="flex flex-wrap" style={{ gap: 12, marginTop: 28 }}>
-                  {finalized ? (
-                    <button
-                      type="button"
-                      onClick={handleComplete}
-                      disabled={completeMutation.isPending}
-                      className="key"
-                    >
-                      {completeMutation.isPending ? 'Saving…' : 'Recalculate SG'}
-                    </button>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={handleComplete}
-                      disabled={completeMutation.isPending || holesPlayed === 0}
-                      className="key key-primary sm:hidden"
-                      style={{ width: '100%', minHeight: 50, fontSize: 16 }}
-                    >
-                      {completeMutation.isPending ? 'Saving…' : 'Save SG'}
-                    </button>
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => setConfirmDelete(true)}
-                    disabled={deleteMutation.isPending}
-                    className="key"
-                    style={{ color: '#A33A2A' }}
-                  >
-                    {deleteMutation.isPending ? 'Deleting…' : 'Delete round'}
-                  </button>
-                </div>
+                {roundKeys}
               </RoundSide>
             </div>
           </div>
@@ -494,6 +497,7 @@ export function RoundDetailPage() {
           }
         />
       )}
+      {view === 'map' && roundKeys}
 
       {shotsModalFor && round.data && (() => {
         // Resolve pin for the modal's mini-map distance recalc. Per-round
@@ -553,6 +557,7 @@ function ViewTabs({
           if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return
           e.preventDefault()
           onChange(value === 'map' ? 'scorecard' : 'map')
+          e.currentTarget.querySelector<HTMLButtonElement>('[aria-selected="false"]')?.focus()
         }}
       >
         {tabs.map((t, i) => {
