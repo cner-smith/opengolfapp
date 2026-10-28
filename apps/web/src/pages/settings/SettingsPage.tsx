@@ -13,7 +13,9 @@ import { useProfile, useUpdateProfile } from '../../hooks/useProfile'
 import { useUserBag } from '../../hooks/useUserBag'
 import { useHandicapMeta } from '../../hooks/useHandicapMeta'
 import { useCountUp } from '../../hooks/useCountUp'
+import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
 import { Rocker } from '../../components/ui/Rocker'
+import { supabase } from '../../lib/supabase'
 import { toUserMessage } from '../../lib/errors'
 import './settings.css'
 
@@ -61,6 +63,9 @@ const USERNAME_PATTERN = /^[a-zA-Z0-9_-]{3,32}$/
 const USERNAME_HELPER =
   '3–32 characters. Letters, numbers, - and _ only.'
 
+// Typed to confirm the irreversible account delete, as on mobile.
+const DELETE_PHRASE = 'delete my account'
+
 export function SettingsPage() {
   const { data: profile } = useProfile()
   const updateProfile = useUpdateProfile()
@@ -78,6 +83,10 @@ export function SettingsPage() {
   const [openRow, setOpenRow] = useState<string | null>(null)
   const { bag } = useUserBag()
   const { data: handicapMeta } = useHandicapMeta()
+  const [deleteOpen, setDeleteOpen] = useState(false)
+  const [deleteText, setDeleteText] = useState('')
+  const [deleting, setDeleting] = useState(false)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
   const unit = profile?.distance_unit ?? 'yards'
   const playsLeftHanded = profile?.plays_left_handed ?? false
   const emailSummaries = profile?.email_round_summaries_enabled ?? true
@@ -168,6 +177,33 @@ export function SettingsPage() {
     } catch (err) {
       setError(toUserMessage(err))
     }
+  }
+
+  // delete_my_account removes the auth user and everything under it; the
+  // session stays valid until sign-out, so sign out straight after. On
+  // success the auth listener drops the user and the guard sends them to
+  // /login. A failed delete keeps the dialog open with the reason.
+  async function deleteAccount() {
+    setDeleting(true)
+    setDeleteError(null)
+    const { error: rpcError } = await supabase.rpc('delete_my_account')
+    if (rpcError) {
+      setDeleting(false)
+      setDeleteError(toUserMessage(rpcError))
+      return
+    }
+    const { error: signOutError } = await supabase.auth.signOut()
+    if (signOutError) {
+      setDeleting(false)
+      setDeleteError('Your account is deleted. Reload the page to finish signing out.')
+    }
+  }
+
+  function closeDelete() {
+    if (deleting) return
+    setDeleteOpen(false)
+    setDeleteText('')
+    setDeleteError(null)
   }
 
   const toggleRow = (key: string) => setOpenRow((cur) => (cur === key ? null : key))
@@ -416,6 +452,55 @@ export function SettingsPage() {
         </div>
       </Group>
 
+      <Group title="Account">
+        <button
+          type="button"
+          onClick={() => supabase.auth.signOut()}
+          className="text-caddie-ink hover:bg-caddie-surface"
+          style={{ ...rowStyle, fontSize: 15, cursor: 'pointer' }}
+        >
+          Sign out
+        </button>
+        <button
+          type="button"
+          onClick={() => setDeleteOpen(true)}
+          className="text-caddie-neg hover:bg-caddie-surface"
+          style={{ ...rowStyle, fontSize: 15, cursor: 'pointer', borderTop: '1px solid #D9D2BF' }}
+        >
+          Delete account
+        </button>
+      </Group>
+
+      <ConfirmDialog
+        open={deleteOpen}
+        title="Delete your OGA account?"
+        message="This permanently deletes your account and all your rounds, shots and saved data. It can't be undone."
+        confirmLabel="Delete account"
+        destructive
+        busy={deleting}
+        error={deleteError}
+        confirmDisabled={deleteText.trim().toLowerCase() !== DELETE_PHRASE}
+        onConfirm={deleteAccount}
+        onCancel={closeDelete}
+      >
+        <label style={{ display: 'block', marginBottom: 22 }}>
+          <span className="text-caddie-ink-dim" style={{ display: 'block', fontSize: 13, marginBottom: 6 }}>
+            Type <b className="text-caddie-ink">{DELETE_PHRASE}</b> to confirm.
+          </span>
+          <input
+            type="text"
+            value={deleteText}
+            onChange={(e) => setDeleteText(e.target.value)}
+            disabled={deleting}
+            autoCapitalize="off"
+            autoCorrect="off"
+            autoComplete="off"
+            spellCheck={false}
+            placeholder={DELETE_PHRASE}
+            style={{ ...inputStyle, width: '100%' }}
+          />
+        </label>
+      </ConfirmDialog>
     </div>
   )
 }

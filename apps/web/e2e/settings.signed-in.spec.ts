@@ -26,4 +26,21 @@ test.describe('Settings (signed in)', () => {
     await expect(page.getByRole('heading', { name: 'Your data' })).toBeVisible()
     await expect(page.getByRole('link', { name: /^Import rounds/ })).toHaveAttribute('href', '/rounds/import')
   })
+
+  // Never confirms: this only checks the guard in front of delete_my_account.
+  test('Account has Sign out and Delete account; delete waits for the typed phrase', async ({ page }) => {
+    await page.goto('/settings')
+    await expect(page.getByRole('heading', { name: 'Account' })).toBeVisible()
+    await expect(page.getByRole('main').getByRole('button', { name: 'Sign out' })).toBeVisible()
+    await page.getByRole('button', { name: 'Delete account' }).click()
+    const dialog = page.getByRole('dialog')
+    const confirm = dialog.getByRole('button', { name: 'Delete account' })
+    await expect(confirm).toBeDisabled()
+    await dialog.getByRole('textbox').fill('delete my')
+    await expect(confirm).toBeDisabled()
+    await dialog.getByRole('textbox').fill('Delete my account')
+    await expect(confirm).toBeEnabled()
+    await dialog.getByRole('button', { name: 'Cancel' }).click()
+    await expect(dialog).toHaveCount(0)
+  })
 })
