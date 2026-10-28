@@ -1,4 +1,4 @@
-import { SrcBody, SrcLabel } from '../components/ArticlePrimitives'
+import { ArticleTitle, SrcBody, SrcLabel, Subhead } from '../components/ArticlePrimitives'
 const DEV = import.meta.env.DEV
 
 export function MentalGameArticle() {
@@ -11,22 +11,7 @@ export function MentalGameArticle() {
         marginBottom: 32,
       }}
     >
-      <div className="kicker" style={{ marginBottom: 14 }}>
-        On the course · The mental game
-      </div>
-      <h2
-        className="font-serif text-caddie-ink"
-        style={{
-          fontSize: 28,
-          fontWeight: 500,
-          fontStyle: 'italic',
-          letterSpacing: '-0.015em',
-          lineHeight: 1.15,
-          marginBottom: 18,
-        }}
-      >
-        The mental game.
-      </h2>
+      <ArticleTitle>The mental game.</ArticleTitle>
 
       <H3>Golf is you versus you</H3>
       <P>
@@ -537,9 +522,7 @@ const UL_STYLE: React.CSSProperties = {
 function Sources() {
   return (
     <section style={{ borderTop: '1px solid #D9D2BF', paddingTop: 18, marginTop: 22 }}>
-      <div className="kicker" style={{ marginBottom: 12 }}>
-        Sources
-      </div>
+      <Subhead>Sources</Subhead>
       <div style={{ display: 'grid', gap: 14, maxWidth: 640 }}>
         <div>
           <SrcLabel>The science of performing under pressure</SrcLabel>
@@ -611,10 +594,8 @@ function EditorialNote({
       }}
     >
       <div
-        className="font-mono uppercase"
         style={{
-          fontSize: 10,
-          letterSpacing: '0.14em',
+          fontSize: 12,
           color: tone,
           marginBottom: 4,
         }}
@@ -634,10 +615,9 @@ function EditorialNote({
 function Footer() {
   return (
     <div
-      className="font-mono uppercase text-caddie-ink-mute"
+      className="text-caddie-ink-dim"
       style={{
-        fontSize: 10,
-        letterSpacing: '0.14em',
+        fontSize: 12,
         borderTop: '1px solid #D9D2BF',
         paddingTop: 18,
         marginTop: 22,

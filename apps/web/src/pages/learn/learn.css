@@ -1,0 +1,117 @@
+/* Learn: the index and the articles (paper system, no cards). */
+
+/* Term rows: term beside its definition, stacked on a phone (#1227). */
+.learn-bullet {
+  display: grid;
+  grid-template-columns: 160px minmax(0, 1fr);
+  gap: 14px;
+  align-items: baseline;
+}
+.learn-bullet-def {
+  font-size: 14px;
+  line-height: 1.5;
+}
+@media (max-width: 560px) {
+  .learn-bullet {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 4px;
+  }
+  .learn-bullet-def {
+    font-size: 15px;
+  }
+}
+
+/* ---- Index: a printed table of contents, 2fr 1fr on a desktop ---- */
+.learn-index {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  grid-template-areas: 'hero hero' 'sections aside';
+  gap: 36px 56px;
+  align-items: start;
+}
+.learn-hero {
+  grid-area: hero;
+}
+.learn-sections {
+  grid-area: sections;
+}
+.learn-aside {
+  grid-area: aside;
+  align-self: stretch;
+}
+.learn-aside-inner {
+  position: sticky;
+  top: 96px;
+}
+.learn-lead {
+  display: grid;
+  gap: 6px;
+  margin-top: 28px;
+  padding: 18px 0 20px;
+  border-top: 2px solid #1c211c;
+  border-bottom: 1px solid #d9d2bf;
+  position: relative;
+}
+.learn-lead .learn-arrow {
+  position: absolute;
+  right: 0;
+  top: 18px;
+}
+.learn-row {
+  color: #1c211c;
+  text-decoration: none;
+}
+.learn-row-title {
+  color: #1c211c;
+  text-decoration: underline;
+  text-decoration-color: transparent;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 4px;
+  transition: text-decoration-color 160ms ease-out;
+}
+.learn-arrow {
+  display: inline-block;
+  color: #5c6356;
+  transition: transform 160ms ease-out, color 160ms ease-out;
+}
+.learn-row:hover .learn-row-title,
+.learn-row:focus-visible .learn-row-title {
+  text-decoration-color: #1f3d2c;
+}
+.learn-row:hover .learn-arrow,
+.learn-row:focus-visible .learn-arrow {
+  transform: translateX(4px);
+  color: #1f3d2c;
+}
+.learn-search {
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 36px 10px 34px;
+  background: #fbf8f1;
+  border: 1px solid #9f9580;
+  border-radius: 3px;
+  font-family: 'Epilogue', sans-serif;
+  font-size: 15px;
+  color: #1c211c;
+}
+.learn-search:focus-visible {
+  outline: none;
+  border-color: #1c211c;
+  box-shadow: 2px 2px 0 #1c211c;
+}
+@media (max-width: 900px) {
+  .learn-index {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: 'hero' 'aside' 'sections';
+    gap: 28px;
+  }
+  .learn-aside-inner {
+    position: static;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .learn-row-title,
+  .learn-arrow {
+    transition: none;
+  }
+}
