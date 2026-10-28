@@ -6,6 +6,8 @@ import {
   combinedBreakDirection,
   combinedPuttResult,
   formatClubLabel,
+  formatDistance,
+  formatPuttDistance,
   horizontalBreakFromAim,
   isPuttShot,
   legacyShotResult,
@@ -29,7 +31,8 @@ import { ConfirmDialog } from '../ui/ConfirmDialog'
 import { useUnits } from '../../hooks/useUnits'
 import { toUserMessage } from '../../lib/errors'
 import { GreenDiagram } from '../round/GreenDiagram'
-import { ChipGroup, Field } from './shots/formInputs'
+import { ClubPicker, PickerField, RockerRows } from './shots/formInputs'
+import { Glyph, chromeSurface } from '../round/map/PaperChrome'
 import {
   emptyDraft,
   shotRowToDraft,
@@ -61,7 +64,9 @@ interface ShotEntryModalProps {
    *  while the parent map view is also visible, and the live-entry
    *  flow already has the round map behind the modal. */
   liveEntry?: boolean
-  /** Open straight onto this shot (the round map's "Edit shot N"). */
+  /** Open straight onto this shot (the round map's "Edit shot N", whose
+   *  footer has Remove). Without it the editor opens on shot 1 and carries
+   *  its own Remove (the scorecard's "4 shots"). */
   editShotId?: string
   onClose: () => void
 }
@@ -113,9 +118,10 @@ export function ShotEntryModal({
       .sort((a, b) => a.shot_number - b.shot_number)
   }, [shotsQuery.data, holeScoreId])
 
-  // The map opens this with the round's shots already cached, so the shot to
-  // edit is known on the first render.
-  const opening = holeShots.find((s) => s.id === editShotId)
+  // The map and the scorecard both open this with the round's shots already
+  // cached, so the shot to land on is known on the first render (seeded in
+  // the initialisers, not an effect: StrictMode's double-run broke that).
+  const opening = editShotId ? holeShots.find((s) => s.id === editShotId) : holeShots[0]
   const [draft, setDraft] = useState<DraftShot>(() =>
     opening ? shotRowToDraft(opening) : emptyDraft(holeShots.length + 1, holeShots.length === 0),
   )
@@ -144,18 +150,24 @@ export function ShotEntryModal({
     setDraft(emptyDraft(len + 1, len === 0))
   }, [holeScoreId, editing])
 
+  // The number a new shot gets (see lastIssuedNumberRef).
+  const nextNumber = () =>
+    Math.max(holeShotsRef.current.at(-1)?.shot_number ?? 0, lastIssuedNumberRef.current) + 1
+
   function startEdit(s: ShotRow) {
     setEditing(s.id)
     setDraft(shotRowToDraft(s))
   }
 
-  function cancelEdit() {
+  function startAdd() {
     setEditing(null)
-    setDraft(emptyDraft(holeShots.length + 1, holeShots.length === 0))
+    const n = nextNumber()
+    setDraft(emptyDraft(n, n === 1))
   }
 
-  async function save(opts?: { madeOverride?: boolean }) {
-    if (!user) return
+  // Resolves true once the shot is stored.
+  async function save(): Promise<boolean> {
+    if (!user) return false
     setSaveError(null)
     // Derive the shot_number from the freshest shot list at save time, not
     // from draft.shotNumber. cancelEdit() recomputed the draft number from a
@@ -164,19 +176,13 @@ export function ShotEntryModal({
     // silently, since the old catch only rethrew (#661). holeShots is sorted
     // ascending, so the last element carries the max; lastIssuedNumberRef
     // covers the fast-second-add-before-refetch case (see its declaration).
-    const freshMax = holeShotsRef.current.at(-1)?.shot_number ?? 0
     // An edit keeps the row's current number: deleting an earlier shot
     // renumbers it (delete_shot) after the draft was taken.
     const shotNumber = editing
       ? holeShots.find((s) => s.id === editing)?.shot_number ?? draft.shotNumber
-      : Math.max(freshMax, lastIssuedNumberRef.current) + 1
+      : nextNumber()
     const isPuttSave = isPuttShot(draft.lieType)
-    const made =
-      opts?.madeOverride === true
-        ? true
-        : opts?.madeOverride === false
-          ? false
-          : draft.puttMade
+    const made = draft.puttMade
     const distanceResult = made ? null : draft.puttDistanceResult ?? null
     const directionResult = made ? null : draft.puttDirectionResult ?? null
     const legacyPuttResult = isPuttSave
@@ -238,7 +244,7 @@ export function ShotEntryModal({
         // lookup and stats inference (both assume contiguous numbering).
         lastIssuedNumberRef.current = shotNumber
       }
-      cancelEdit()
+      return true
     } catch (err) {
       if (import.meta.env.DEV) {
         // eslint-disable-next-line no-console
@@ -247,6 +253,7 @@ export function ShotEntryModal({
       // Surface in the modal instead of rethrowing — the onClick callers never
       // caught, so the failure was an unhandled rejection with no user signal.
       setSaveError(toUserMessage(err))
+      return false
     }
   }
 
@@ -255,8 +262,8 @@ export function ShotEntryModal({
   async function confirmDelete() {
     if (!pendingDeleteId) return
     await deleteShot.mutateAsync(pendingDeleteId)
-    if (editing === pendingDeleteId) cancelEdit()
     setPendingDeleteId(null)
+    onClose()
   }
 
   const isPutt = isPuttShot(draft.lieType)
@@ -294,176 +301,187 @@ export function ShotEntryModal({
     }))
   }
 
+  const busy = createShot.isPending || updateShot.isPending
+  const idx = editingRow ? holeShots.indexOf(editingRow) : holeShots.length
+  const prevShot = idx > 0 ? holeShots[idx - 1]! : null
+  // Past the last shot, › opens a new one.
+  const nextShot: ShotRow | 'new' | null = !editingRow ? null : holeShots[idx + 1] ?? 'new'
+  const mapped =
+    editingRow?.start_lat != null && editingRow.start_lng != null && pinLat != null && pinLng != null
+  const toPin = !editingRow
+    ? `par ${holePar}`
+    : isPuttShot(editingRow.lie_type)
+      ? editingRow.putt_distance_ft != null
+        ? `${formatPuttDistance(editingRow.putt_distance_ft, units.unit)} to the pin`
+        : null
+      : editingRow.distance_to_target != null
+        ? `${formatDistance(editingRow.distance_to_target, units.unit)} to the pin`
+        : null
+
+  // ‹ › keep an edit (as mobile's sheet does) and move on; an untouched
+  // shot isn't rewritten. Leaving a new shot drops it, like Cancel.
+  async function step(target: ShotRow | 'new') {
+    if (editingRow && JSON.stringify(draft) !== JSON.stringify(shotRowToDraft(editingRow))) {
+      if (!(await save())) return
+    }
+    setSaveError(null)
+    if (target === 'new') startAdd()
+    else startEdit(target)
+  }
+
+  async function onSave() {
+    if (!(await save())) return
+    if (editing) onClose()
+    else startAdd()
+  }
+
+  const stepKey = (dir: 'prev' | 'next', target: ShotRow | 'new' | null) => (
+    <button
+      type="button"
+      aria-label={
+        target === 'new' ? 'Add a shot' : dir === 'prev' ? 'Previous shot' : 'Next shot'
+      }
+      disabled={!target || busy}
+      onClick={() => target && void step(target)}
+      className="key"
+      style={{ width: 44, padding: 0, flexShrink: 0 }}
+    >
+      {target === 'new' ? Glyph.plus() : dir === 'prev' ? Glyph.prev() : Glyph.next()}
+    </button>
+  )
+
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-caddie-ink/60 sm:p-4">
+    <div className="shot-sheet-scrim fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4">
       <div
-        className="flex max-h-[92vh] w-full max-w-3xl flex-col overflow-hidden bg-caddie-surface"
-        style={{ border: '1px solid #9F9580', borderRadius: 4 }}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="shot-editor-title"
+        className="shot-sheet flex max-h-[92vh] w-full max-w-3xl flex-col overflow-hidden"
+        style={chromeSurface}
       >
-        <header
-          className="flex items-center justify-between"
-          style={{
-            borderBottom: '1px solid #D9D2BF',
-            padding: '18px 22px',
-          }}
-        >
-          <div>
-            <div className="kicker" style={{ marginBottom: 4 }}>
-              Hole {holeNumber} · Par {holePar}
-            </div>
-            <div
+        <header className="flex items-center" style={{ minHeight: 72, padding: '6px 8px 6px 22px', gap: 6 }}>
+          <div style={{ flex: 1, minWidth: 0, padding: '4px 0' }}>
+            <h2
+              id="shot-editor-title"
               className="font-serif text-caddie-ink"
-              style={{
-                fontSize: 22,
-                fontWeight: 500,
-                fontStyle: 'italic',
-                lineHeight: 1.1,
-              }}
+              style={{ fontSize: 26, fontWeight: 500, lineHeight: 1.15 }}
             >
-              Shots
+              Shot {editingRow ? editingRow.shot_number : nextNumber()}
+              <span className="serif-italic" style={{ fontSize: 18 }}>
+                {editingRow ? (holeShots.length > 1 ? ` of ${holeShots.length}` : '') : ' new'}
+              </span>
+            </h2>
+            <div className="text-caddie-ink" style={{ fontSize: 13 }}>
+              Hole {holeNumber}
+              {toPin ? ` · ${toPin}` : ''}
             </div>
           </div>
+          {stepKey('prev', editingRow ? prevShot : holeShots.at(-1) ?? null)}
+          {stepKey('next', nextShot)}
           <button
             type="button"
+            aria-label="Close shot editor"
             onClick={onClose}
-            className="font-mono uppercase text-caddie-ink-mute hover:text-caddie-ink"
-            style={{
-              fontSize: 10,
-              letterSpacing: '0.14em',
-              padding: '6px 10px',
-            }}
+            className="flex items-center justify-center text-caddie-ink"
+            style={{ width: 44, height: 44, flexShrink: 0, background: 'none', border: 'none' }}
           >
-            Close
+            <svg width="20" height="20" viewBox="0 0 20 20" aria-hidden>
+              <path d="M5 5 L15 15 M15 5 L5 15" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+            </svg>
           </button>
         </header>
 
-        <div className="grid flex-1 grid-cols-1 overflow-y-auto md:grid-cols-[260px_1fr]">
-          <section
-            style={{
-              borderRight: '1px solid #D9D2BF',
-              padding: 18,
-            }}
-          >
-            <div className="kicker" style={{ marginBottom: 12 }}>
-              Logged shots
-            </div>
-            {holeShots.length === 0 && (
-              <div
-                className="text-caddie-ink-mute"
-                style={{
-                  border: '1px dashed #D9D2BF',
-                  borderRadius: 2,
-                  padding: 14,
-                  fontSize: 13,
-                }}
-              >
-                No shots logged yet.
-              </div>
-            )}
+        <div className="grid min-h-0 flex-1 grid-cols-1 overflow-y-auto md:grid-cols-[240px_1fr]">
+          {/* The hole's shots, a jump list beside the editor on wide screens;
+              a phone steps with ‹ › instead. */}
+          <nav aria-label={`Hole ${holeNumber} shots`} className="hidden md:block" style={{ borderTop: '1px solid #D9D2BF', borderRight: '1px solid #D9D2BF' }}>
             <ul>
-              {holeShots.map((s, i) => {
-                const isEditing = editing === s.id
-                return (
-                  <li
-                    key={s.id}
-                    className="flex items-center justify-between"
+              {holeShots.map((s, i) => (
+                <li key={s.id} style={{ borderBottom: '1px solid #D9D2BF' }}>
+                  <button
+                    type="button"
+                    aria-current={editing === s.id ? 'true' : undefined}
+                    onClick={() => editing !== s.id && void step(s)}
+                    disabled={busy}
+                    className="flex w-full items-center text-left text-caddie-ink"
                     style={{
-                      borderTop: i === 0 ? 'none' : '1px solid #D9D2BF',
-                      padding: '12px 0',
-                      backgroundColor: isEditing ? '#EBE5D6' : 'transparent',
+                      minHeight: 56,
+                      gap: 10,
+                      padding: '8px 12px 8px 14px',
+                      background: editing === s.id ? '#E4DCCA' : 'transparent',
                     }}
                   >
-                    <div>
-                      <div
-                        className="font-mono uppercase tabular text-caddie-ink-mute"
-                        style={{ fontSize: 10, letterSpacing: '0.14em' }}
-                      >
-                        Shot {s.shot_number}
-                      </div>
-                      <div
-                        className="font-serif text-caddie-ink"
-                        style={{ fontSize: 15, fontWeight: 500, marginTop: 2 }}
-                      >
-                        {s.club
-                          ? formatClubLabel(
-                              bag.find((b) => b.club_type === s.club) ?? {
-                                club_type: s.club,
-                              },
-                            )
-                          : '—'}
-                        {s.lie_type
-                          ? ` · ${LIE_TYPE_LABELS[s.lie_type as LieType] ?? s.lie_type}`
-                          : ''}
-                      </div>
-                      <div
-                        className="text-caddie-ink-dim"
-                        style={{ fontSize: 12, marginTop: 2 }}
-                      >
+                    <span
+                      className="serif-italic tabular"
+                      style={{
+                        minWidth: 26,
+                        height: 26,
+                        padding: '0 5px',
+                        flexShrink: 0,
+                        border: '1px solid #1C211C',
+                        borderRadius: 3,
+                        background: s.ob ? '#A33A2A' : '#FBF8F1',
+                        color: s.ob ? '#FBF8F1' : '#1C211C',
+                        fontSize: 17,
+                        lineHeight: '24px',
+                        textAlign: 'center',
+                      }}
+                    >
+                      {s.shot_number}
+                    </span>
+                    <span style={{ flex: 1, minWidth: 0 }}>
+                      <span className="block" style={{ fontSize: 15 }}>
+                        {s.lie_type ? LIE_TYPE_LABELS[s.lie_type as LieType] ?? s.lie_type : 'No lie'}
+                        {' · '}
+                        {s.club ? (
+                          formatClubLabel(bag.find((b) => b.club_type === s.club) ?? { club_type: s.club })
+                        ) : (
+                          <span className="text-caddie-ink-dim">no club</span>
+                        )}
+                      </span>
+                      <span className="block text-caddie-ink-dim" style={{ fontSize: 13 }}>
                         {formatShotSummary(s, holeShots[i + 1], units.unit)}
-                      </div>
-                    </div>
-                    <div className="flex" style={{ gap: 4 }}>
-                      <button
-                        type="button"
-                        onClick={() => startEdit(s)}
-                        className="font-mono uppercase text-caddie-ink-mute hover:text-caddie-ink"
-                        style={{
-                          fontSize: 10,
-                          letterSpacing: '0.14em',
-                          padding: '4px 8px',
-                        }}
-                      >
-                        Edit
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setPendingDeleteId(s.id)}
-                        className="font-mono uppercase text-caddie-neg"
-                        style={{
-                          fontSize: 10,
-                          letterSpacing: '0.14em',
-                          padding: '4px 8px',
-                        }}
-                      >
-                        Del
-                      </button>
-                    </div>
-                  </li>
-                )
-              })}
-            </ul>
-          </section>
-
-          <section style={{ padding: 22 }} className="flex flex-col" >
-            <div
-              className="flex items-center justify-between"
-              style={{ marginBottom: 18 }}
-            >
-              <div className="kicker">
-                {editing ? `Edit shot ${draft.shotNumber}` : `Add shot ${draft.shotNumber}`}
-              </div>
-              {editing && (
+                      </span>
+                    </span>
+                    <span aria-hidden>{Glyph.next()}</span>
+                  </button>
+                </li>
+              ))}
+              <li>
                 <button
                   type="button"
-                  onClick={cancelEdit}
-                  className="font-mono uppercase text-caddie-ink-mute hover:underline"
-                  style={{ fontSize: 10, letterSpacing: '0.14em' }}
+                  aria-current={!editing ? 'true' : undefined}
+                  onClick={() => editing && void step('new')}
+                  disabled={busy}
+                  className="flex w-full items-center text-left text-caddie-ink"
+                  style={{
+                    minHeight: 48,
+                    gap: 10,
+                    padding: '8px 12px 8px 14px',
+                    fontSize: 15,
+                    background: !editing ? '#E4DCCA' : 'transparent',
+                  }}
                 >
-                  Cancel edit
+                  <span className="flex items-center justify-center" style={{ width: 26 }}>{Glyph.plus()}</span>
+                  Add a shot
                 </button>
-              )}
-            </div>
+              </li>
+            </ul>
+          </nav>
 
-            <div className="flex flex-col" style={{ gap: 18 }}>
-              {!liveEntry && (
+          <section key={editing ?? 'new'} className="flex flex-col" style={{ padding: '0 22px 8px' }}>
+            {!liveEntry && editingRow?.start_lat != null && (
+              <div style={{ paddingBottom: 12 }}>
                 <ShotMiniMapPanel
                   editingRow={editingRow}
                   editingNext={editingNext}
                   onChangeStart={handleMiniMapDrag}
                 />
-              )}
+              </div>
+            )}
 
-              {isPutt && (
+            {isPutt && (
+              <div style={{ paddingBottom: 12 }}>
                 <GreenDiagram
                   distanceFt={draft.puttDistanceFt ?? 0}
                   aimOffsetInches={draft.aimOffsetInches ?? 0}
@@ -481,158 +499,105 @@ export function ShotEntryModal({
                     }))
                   }
                 />
-              )}
-
-              {!isPutt && (
-                <Field label="Club">
-                  <ChipGroup
-                    value={draft.club}
-                    options={clubOptions}
-                    onChange={(v) =>
-                      setDraft((d) => ({ ...d, club: v as Club | undefined }))
-                    }
-                  />
-                </Field>
-              )}
-
-              <Field label="Lie type">
-                <ChipGroup
-                  value={draft.lieType}
-                  options={LIE_TYPE_OPTIONS}
-                  onChange={(v) => setDraft((d) => ({ ...d, lieType: v }))}
-                />
-              </Field>
-
-              {!isPutt && (
-                <ShotFormFields
-                  draft={draft}
-                  setDraft={setDraft}
-                  unit={units.unit}
-                />
-              )}
-
-              {isPutt && <PuttFormFields draft={draft} setDraft={setDraft} />}
-
-              <Field label="Notes">
-                <input
-                  type="text"
-                  value={draft.notes ?? ''}
-                  onChange={(e) => setDraft((d) => ({ ...d, notes: e.target.value }))}
-                  className="w-full text-caddie-ink bg-caddie-surface"
-                  style={{
-                    border: '1px solid #D9D2BF',
-                    borderRadius: 2,
-                    padding: '8px 10px',
-                    fontSize: 14,
-                  }}
-                />
-              </Field>
-            </div>
-
-            {saveError && (
-              <div
-                className="text-caddie-neg"
-                style={{
-                  border: '1px solid #A33A2A',
-                  borderRadius: 4,
-                  padding: '10px 12px',
-                  fontSize: 13,
-                  marginTop: 16,
-                }}
-              >
-                {saveError}
               </div>
             )}
 
-            <div
-              className="flex justify-end"
-              style={{
-                gap: 12,
-                marginTop: 22,
-                paddingTop: 18,
-                borderTop: '1px solid #D9D2BF',
-              }}
-            >
-              <button
-                type="button"
-                onClick={cancelEdit}
-                className="text-caddie-accent hover:opacity-80"
+            {!isPutt && (
+              <PickerField title="Club">
+                <ClubPicker
+                  clubs={clubOptions}
+                  value={draft.club}
+                  onChange={(v) =>
+                    setDraft((d) => ({ ...d, club: (v ?? undefined) as Club | undefined }))
+                  }
+                />
+              </PickerField>
+            )}
+
+            <PickerField title="Lie">
+              <RockerRows
+                name="Lie"
+                options={LIE_TYPE_OPTIONS}
+                value={draft.lieType}
+                onChange={(v) => setDraft((d) => ({ ...d, lieType: v ?? undefined }))}
+              />
+            </PickerField>
+
+            {!isPutt && (
+              <ShotFormFields
+                draft={draft}
+                setDraft={setDraft}
+                unit={units.unit}
+                mapped={mapped}
+              />
+            )}
+
+            {isPutt && <PuttFormFields draft={draft} setDraft={setDraft} />}
+
+            <PickerField title="Notes">
+              <input
+                type="text"
+                aria-label="Notes"
+                value={draft.notes ?? ''}
+                onChange={(e) => setDraft((d) => ({ ...d, notes: e.target.value }))}
+                className="w-full text-caddie-ink"
                 style={{
-                  border: '1px solid #1F3D2C',
-                  borderRadius: 2,
-                  padding: '12px 16px',
-                  fontSize: 14,
-                  fontWeight: 600,
-                  letterSpacing: '0.02em',
-                  backgroundColor: 'transparent',
+                  background: '#FBF8F1',
+                  border: '1px solid #1C211C',
+                  borderRadius: 3,
+                  minHeight: 44,
+                  padding: '0 12px',
+                  fontSize: 15,
                 }}
-              >
-                Reset
-              </button>
-              {isPutt ? (
-                <>
-                  <button
-                    type="button"
-                    onClick={() => save({ madeOverride: false })}
-                    disabled={createShot.isPending || updateShot.isPending}
-                    className="text-caddie-accent hover:opacity-80 disabled:opacity-40"
-                    style={{
-                      border: '1px solid #1F3D2C',
-                      borderRadius: 2,
-                      padding: '12px 16px',
-                      fontSize: 14,
-                      fontWeight: 600,
-                      letterSpacing: '0.02em',
-                      backgroundColor: 'transparent',
-                    }}
-                  >
-                    Missed{' '}
-                    <span className="font-serif" style={{ fontStyle: 'italic' }}>
-                      →
-                    </span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => save({ madeOverride: true })}
-                    disabled={createShot.isPending || updateShot.isPending}
-                    className="key key-primary"
-                    style={{
-                      fontSize: 15,
-                      fontWeight: 700,
-                      letterSpacing: '0.02em',
-                    }}
-                  >
-                    Holed it{' '}
-                    <span className="font-serif" style={{ fontStyle: 'italic' }}>
-                      →
-                    </span>
-                  </button>
-                </>
-              ) : (
-                <button
-                type="button"
-                onClick={() => save()}
-                disabled={createShot.isPending || updateShot.isPending}
-                className="key key-primary"
-                style={{
-                  fontSize: 14,
-                  fontWeight: 600,
-                  letterSpacing: '0.02em',
-                }}
-              >
-                {editing ? 'Save changes' : 'Add shot'}{' '}
-                <span className="font-serif" style={{ fontStyle: 'italic' }}>
-                  →
-                </span>
-              </button>
-              )}
-            </div>
+              />
+            </PickerField>
           </section>
         </div>
+
+        {saveError && (
+          <div
+            role="alert"
+            className="text-caddie-neg"
+            style={{ borderTop: '1px solid #A33A2A', padding: '10px 22px', fontSize: 13 }}
+          >
+            {saveError}
+          </div>
+        )}
+
+        <footer
+          className="flex"
+          style={{ gap: 8, padding: '10px 12px 13px', borderTop: '1px solid #1C211C', flexShrink: 0 }}
+        >
+          {!editShotId && editingRow && (
+            <button
+              type="button"
+              onClick={() => setPendingDeleteId(editingRow.id)}
+              disabled={busy}
+              className="key"
+              style={{ color: '#A33A2A' }}
+            >
+              Remove
+            </button>
+          )}
+          <div className="hidden flex-1 sm:block" />
+          <button type="button" onClick={onClose} className="key flex-1 sm:flex-none">
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={() => void onSave()}
+            disabled={busy}
+            className="key key-primary flex-1 sm:flex-none"
+            style={{ fontSize: 16, fontWeight: 700, minWidth: 120 }}
+          >
+            {busy ? 'Saving…' : editing ? 'Save' : 'Add shot'}
+          </button>
+        </footer>
       </div>
       <ConfirmDialog
         open={pendingDeleteId !== null}
         title="Delete this shot?"
+        message="This removes the shot and renumbers the rest of the hole."
         destructive
         confirmLabel="Delete"
         busy={deleteShot.isPending}

@@ -1,21 +1,24 @@
-import { type BreakDirectionVertical, type GreenSpeed } from '@oga/core'
 import {
-  Field,
-  NumericInput,
-  PuttResultButton,
-  chipStyle,
-} from './formInputs'
+  type BreakDirectionVertical,
+  type GreenSpeed,
+  type PuttDirectionResult,
+  type PuttDistanceResult,
+} from '@oga/core'
+import { Rocker } from '../../ui/Rocker'
+import { NumericInput, PickerField, RockerRows } from './formInputs'
 import type { DraftShot } from './draft'
 
 // Only the vertical (slope) axis is chosen manually. The horizontal (line)
 // axis is derived from the aim handle on the GreenDiagram — see ShotEntryModal.
 const BREAK_SLOPE_OPTIONS: { value: BreakDirectionVertical; label: string }[] = [
   { value: 'uphill', label: 'Uphill' },
-  { value: 'flat', label: 'Flat' },
+  { value: 'flat', label: 'Level' },
   { value: 'downhill', label: 'Downhill' },
 ]
 
-const SLOPE_INTENSITY_LABELS = ['Flat', 'Slight', 'Moderate', 'Strong', 'Severe']
+const SLOPE_INTENSITY_OPTIONS = ['Flat', 'Slight', 'Moderate', 'Strong', 'Severe'].map(
+  (label, idx) => ({ value: idx, label }),
+)
 
 const GREEN_SPEEDS: { value: GreenSpeed; label: string }[] = [
   { value: 'slow', label: 'Slow' },
@@ -23,18 +26,33 @@ const GREEN_SPEEDS: { value: GreenSpeed; label: string }[] = [
   { value: 'fast', label: 'Fast' },
 ]
 
+// Putt vocab mirrors mobile's edit sheet so the two surfaces read alike.
+const PUTT_DISTANCE_OPTIONS: { value: PuttDistanceResult; label: string }[] = [
+  { value: 'short', label: 'Short' },
+  { value: 'long', label: 'Long' },
+]
+const PUTT_DIRECTION_OPTIONS: { value: PuttDirectionResult; label: string }[] = [
+  { value: 'left', label: 'Left' },
+  { value: 'right', label: 'Right' },
+]
+
+const hint = (text: string) => (
+  <span className="text-caddie-ink-dim" style={{ fontSize: 12 }}>
+    {text}
+  </span>
+)
+
 interface PuttFormFieldsProps {
   draft: DraftShot
   setDraft: (updater: (d: DraftShot) => DraftShot) => void
 }
 
-// Putt-specific fields rendered AFTER lie type: made/missed toggle,
-// distance & direction selectors, break/slope/speed, distance override.
-// GreenDiagram is rendered inline by the orchestrator BEFORE Lie type,
-// matching the original render order. Lie type and Notes stay in the
-// orchestrator (rendered for non-putts too).
+// Putt-specific fields rendered AFTER lie type: made/missed, the two miss
+// axes, break/slope/speed, putt length. GreenDiagram is rendered inline by
+// the orchestrator BEFORE Lie type, matching the original render order.
+// Lie type and Notes stay in the orchestrator (rendered for non-putts too).
 export function PuttFormFields({ draft, setDraft }: PuttFormFieldsProps) {
-  function setPuttMade(made: boolean) {
+  function setPuttMade(made: boolean | undefined) {
     setDraft((d) => ({
       ...d,
       puttMade: made,
@@ -43,163 +61,80 @@ export function PuttFormFields({ draft, setDraft }: PuttFormFieldsProps) {
     }))
   }
 
-  function setPuttDistanceResult(v: 'short' | 'long') {
-    setDraft((d) => ({
-      ...d,
-      puttMade: false,
-      puttDistanceResult: d.puttDistanceResult === v ? undefined : v,
-    }))
-  }
-
-  function setPuttDirectionResult(v: 'left' | 'right') {
-    setDraft((d) => ({
-      ...d,
-      puttMade: false,
-      puttDirectionResult: d.puttDirectionResult === v ? undefined : v,
-    }))
-  }
-
-  function setBreakSlope(v: BreakDirectionVertical) {
-    setDraft((d) => ({
-      ...d,
-      breakDirectionVertical: d.breakDirectionVertical === v ? undefined : v,
-    }))
-  }
-
   return (
     <>
-      <Field label="Made?">
-        <div className="flex" style={{ gap: 8 }}>
-          <PuttResultButton
-            label="Holed it"
-            active={draft.puttMade === true}
-            onClick={() => setPuttMade(draft.puttMade !== true)}
-          />
-          <div style={{ flex: 2 }} />
-        </div>
-      </Field>
-      <Field label="Distance">
-        <div className="flex" style={{ gap: 8 }}>
-          <PuttResultButton
-            label="Short"
-            active={
-              !draft.puttMade && draft.puttDistanceResult === 'short'
-            }
-            disabled={draft.puttMade === true}
-            onClick={() => setPuttDistanceResult('short')}
-          />
-          <PuttResultButton
-            label="Long"
-            active={
-              !draft.puttMade && draft.puttDistanceResult === 'long'
-            }
-            disabled={draft.puttMade === true}
-            onClick={() => setPuttDistanceResult('long')}
-          />
-          <div style={{ flex: 1 }} />
-        </div>
-        <div
-          className="font-mono uppercase text-caddie-ink-mute"
-          style={{
-            fontSize: 10,
-            letterSpacing: '0.14em',
-            marginTop: 8,
-          }}
-        >
-          Tap again to clear · leave blank if pace was right
-        </div>
-      </Field>
-      <Field label="Direction">
-        <div className="flex" style={{ gap: 8 }}>
-          <PuttResultButton
-            label="Missed left"
-            active={
-              !draft.puttMade && draft.puttDirectionResult === 'left'
-            }
-            disabled={draft.puttMade === true}
-            onClick={() => setPuttDirectionResult('left')}
-          />
-          <PuttResultButton
-            label="Missed right"
-            active={
-              !draft.puttMade && draft.puttDirectionResult === 'right'
-            }
-            disabled={draft.puttMade === true}
-            onClick={() => setPuttDirectionResult('right')}
-          />
-        </div>
-        <div
-          className="font-mono uppercase text-caddie-ink-mute"
-          style={{
-            fontSize: 10,
-            letterSpacing: '0.14em',
-            marginTop: 8,
-          }}
-        >
-          Tap again to clear · leave blank if line was good
-        </div>
-      </Field>
-      <Field label="Break (slope)">
-        <div className="flex flex-wrap" style={{ gap: 6 }}>
-          {BREAK_SLOPE_OPTIONS.map((b) => (
-            <button
-              key={b.value}
-              type="button"
-              onClick={() => setBreakSlope(b.value)}
-              style={chipStyle(draft.breakDirectionVertical === b.value)}
-            >
-              {b.label}
-            </button>
-          ))}
-        </div>
-        <div
-          className="font-mono uppercase text-caddie-ink-mute"
-          style={{ fontSize: 10, letterSpacing: '0.14em', marginTop: 8 }}
-        >
-          Tap again to clear · line break comes from your aim
-        </div>
-      </Field>
-      <Field label="How much">
-        <div className="flex flex-wrap" style={{ gap: 6 }}>
-          {SLOPE_INTENSITY_LABELS.map((label, idx) => (
-            <button
-              key={label}
-              type="button"
-              onClick={() =>
-                setDraft((d) => ({ ...d, puttSlopePct: idx }))
-              }
-              style={chipStyle(draft.puttSlopePct === idx)}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-      </Field>
-      <Field label="Speed">
-        <div className="flex" style={{ gap: 6 }}>
-          {GREEN_SPEEDS.map((s) => (
-            <button
-              key={s.value}
-              type="button"
-              onClick={() =>
-                setDraft((d) => ({ ...d, greenSpeed: s.value }))
-              }
-              style={chipStyle(draft.greenSpeed === s.value)}
-            >
-              {s.label}
-            </button>
-          ))}
-        </div>
-      </Field>
-      <Field label="Distance override (ft)">
-        <NumericInput
-          value={draft.puttDistanceFt}
-          step="0.5"
-          onChange={(n) =>
-            setDraft((d) => ({ ...d, puttDistanceFt: n }))
-          }
+      <PickerField title="Putt">
+        <Rocker
+          label="Putt"
+          options={[
+            { value: 'made', label: 'Holed it' },
+            { value: 'missed', label: 'Missed' },
+          ]}
+          value={draft.puttMade === true ? 'made' : draft.puttMade === false ? 'missed' : null}
+          onChange={(v) => setPuttMade(v === 'made')}
+          onClear={() => setPuttMade(undefined)}
         />
-      </Field>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13 }} className="text-caddie-ink">
+          <span style={{ width: 52, fontSize: 12 }}>Length</span>
+          <NumericInput
+            label="Putt length in feet"
+            value={draft.puttDistanceFt}
+            step="0.5"
+            onChange={(n) =>
+              setDraft((d) => ({ ...d, puttDistanceFt: n }))
+            }
+          />
+          ft
+        </label>
+      </PickerField>
+      {/* Putt miss = two independent axes (CLAUDE.md) — never one picker. */}
+      {draft.puttMade !== true && (
+        <PickerField title="Miss" aside={hint('leave blank if it was good')}>
+          <RockerRows
+            name="Miss distance"
+            label="Distance"
+            options={PUTT_DISTANCE_OPTIONS}
+            value={draft.puttDistanceResult}
+            onChange={(v) =>
+              setDraft((d) => ({ ...d, puttMade: false, puttDistanceResult: v ?? undefined }))
+            }
+          />
+          <RockerRows
+            name="Miss direction"
+            label="Missed"
+            options={PUTT_DIRECTION_OPTIONS}
+            value={draft.puttDirectionResult}
+            onChange={(v) =>
+              setDraft((d) => ({ ...d, puttMade: false, puttDirectionResult: v ?? undefined }))
+            }
+          />
+        </PickerField>
+      )}
+      <PickerField title="Break" aside={hint('the line comes from your aim')}>
+        <RockerRows
+          name="Break slope"
+          label="Slope"
+          options={BREAK_SLOPE_OPTIONS}
+          value={draft.breakDirectionVertical}
+          onChange={(v) => setDraft((d) => ({ ...d, breakDirectionVertical: v ?? undefined }))}
+        />
+      </PickerField>
+      <PickerField title="How much it breaks">
+        <RockerRows
+          name="How much it breaks"
+          options={SLOPE_INTENSITY_OPTIONS}
+          value={draft.puttSlopePct}
+          onChange={(v) => setDraft((d) => ({ ...d, puttSlopePct: v ?? undefined }))}
+        />
+      </PickerField>
+      <PickerField title="Green speed">
+        <RockerRows
+          name="Green speed"
+          options={GREEN_SPEEDS}
+          value={draft.greenSpeed}
+          onChange={(v) => setDraft((d) => ({ ...d, greenSpeed: v ?? undefined }))}
+        />
+      </PickerField>
     </>
   )
 }

@@ -151,6 +151,16 @@ body {
 .rocker button[aria-selected='true'] {
   font-weight: 600;
 }
+.rocker-tight button,
+.rocker-tight button[aria-checked='true'] {
+  padding-left: 3px;
+  padding-right: 3px;
+  font-size: 13px;
+}
+.rocker-glyph button {
+  min-height: 50px;
+  line-height: 1.1;
+}
 .rocker button:focus-visible {
   outline: 2px solid var(--caddie-ink);
   outline-offset: -4px;
@@ -309,6 +319,52 @@ dialog.pat-dialog::backdrop {
   }
   .prac-strike,
   .prac-fill {
+    transition: none;
+  }
+}
+
+/* Shot editor (#611 §19.6): a centred paper dialog, on a phone a bottom sheet
+   that rises over 220 ms (out-cubic) while the scrim fades in over 160 ms. */
+.shot-sheet-scrim {
+  background-color: rgba(28, 33, 28, 0.48);
+  animation: shot-scrim-in 160ms ease-out both;
+}
+.shot-sheet {
+  border: 1px solid #1c211c;
+  border-radius: 3px;
+  box-shadow: 3px 3px 0 rgba(28, 33, 28, 0.55);
+}
+@media (max-width: 639px) {
+  .shot-sheet {
+    border-width: 1px 0 0;
+    border-radius: 3px 3px 0 0;
+    box-shadow: none;
+    animation: shot-sheet-rise 220ms cubic-bezier(0.33, 1, 0.68, 1) both;
+  }
+}
+@keyframes shot-sheet-rise {
+  from {
+    transform: translateY(100%);
+  }
+}
+@keyframes shot-scrim-in {
+  from {
+    background-color: rgba(28, 33, 28, 0);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .shot-sheet,
+  .shot-sheet-scrim {
+    animation: none;
+  }
+}
+
+/* Hole review sheet: slides up over 220 ms (out-cubic). */
+.review-sheet {
+  transition: transform 220ms cubic-bezier(0.33, 1, 0.68, 1);
+}
+@media (prefers-reduced-motion: reduce) {
+  .review-sheet {
     transition: none;
   }
 }
