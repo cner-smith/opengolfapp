@@ -3,7 +3,7 @@ import { clubDistanceStats, isPartialRound } from '@oga/core'
 import { useDetailedStats } from '../../hooks/useDetailedStats'
 import { Skeleton } from './components/Section'
 import { StatsPreview } from './components/StatsPreview'
-import { Segmented } from './components/Segmented'
+import { Rocker } from '../../components/ui/Rocker'
 import { StrokesGainedSection } from './sections/StrokesGainedSection'
 import { ScoringSection } from './sections/ScoringSection'
 import { BallStrikingSection } from './sections/BallStrikingSection'
@@ -60,12 +60,12 @@ export function StrokesGainedPage() {
                 : `Across the last ${wholeCount} round${wholeCount === 1 ? '' : 's'} · ${stats.data.holesPlayed} holes scored.`}
           </div>
         </div>
-        <Segmented
+        <Rocker
           value={n}
-          options={N_OPTIONS}
+          options={N_OPTIONS.map((v) => ({ value: v, label: `Last ${v}` }))}
           onChange={setN}
-          renderLabel={(v) => `Last ${v}`}
           label="Rounds to include"
+          className="sm:w-[240px]"
         />
       </div>
 

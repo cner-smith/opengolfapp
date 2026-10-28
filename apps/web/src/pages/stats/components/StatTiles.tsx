@@ -1,38 +1,7 @@
-import { useEffect, useRef, useState } from 'react'
 import { formatSG, formatBandLabel, type ApproachBandStat, type RecoveryRateStat } from '@oga/core'
 import { useUnits } from '../../../hooks/useUnits'
+import { useCountUp } from '../../../hooks/useCountUp'
 import { fmtPct } from '../format'
-
-const reducedMotion = () =>
-  typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
-
-// Counts a figure to its value (from 0 on mount, from the old value when the
-// window changes), so the tile's number lands rather than swapping.
-function useCountUp(target: number | null, delay = 0, duration = 600): number | null {
-  const [shown, setShown] = useState<number | null>(target == null || reducedMotion() ? target : 0)
-  const from = useRef(0)
-  useEffect(() => {
-    if (target == null || reducedMotion()) {
-      setShown(target)
-      return
-    }
-    const start = from.current
-    let raf = 0
-    let t0 = 0
-    const ease = (t: number) => 1 - Math.pow(1 - t, 4)
-    const tick = (now: number) => {
-      if (!t0) t0 = now + delay
-      const t = Math.min(1, Math.max(0, (now - t0) / duration))
-      const v = start + (target - start) * ease(t)
-      from.current = v
-      setShown(v)
-      if (t < 1) raf = requestAnimationFrame(tick)
-    }
-    raf = requestAnimationFrame(tick)
-    return () => cancelAnimationFrame(raf)
-  }, [target, delay, duration])
-  return shown
-}
 
 const sgTone = (v: number | null) =>
   v == null || Math.abs(v) < 0.005 ? '#5C6356' : v > 0 ? '#1F3D2C' : '#A33A2A'
@@ -54,7 +23,7 @@ export function SgTile({
   scale?: number
   index?: number
 }) {
-  const shown = useCountUp(value, index * 60)
+  const shown = useCountUp(value, { delay: index * 60 })
   const half = value == null ? 0 : Math.min(1, Math.abs(value) / scale) * 50
   return (
     <div className="paper-tile st-rise" style={{ padding: '16px 18px 18px', animationDelay: `${index * 60}ms` }}>

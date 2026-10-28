@@ -6,9 +6,9 @@ test.describe('Stats / Strokes Gained (signed in)', () => {
     await expect(
       page.getByRole('heading', { name: /^Stats$/i }),
     ).toBeVisible()
-    // SegmentedControl renders "Last N" buttons.
+    // The Last N rocker is a radio group.
     await expect(
-      page.getByRole('button', { name: /^Last 5$/i }),
+      page.getByRole('radio', { name: /^Last 5$/i }),
     ).toBeVisible()
   })
 })
