@@ -69,19 +69,12 @@ export function ScorecardCsvImport() {
       </ol>
       <div>
         <label
-          className="inline-flex items-center text-caddie-ink hover:bg-caddie-surface focus-within:outline focus-within:outline-2 focus-within:outline-offset-2"
-          style={{
-            border: '1px solid #9F9580',
-            borderRadius: 2,
-            padding: '11px 16px',
-            fontSize: 14,
-            fontWeight: 600,
-            letterSpacing: '0.02em',
-            cursor: busy ? 'not-allowed' : 'pointer',
-            opacity: busy ? 0.5 : 1,
-          }}
+          className="key key-primary focus-within:outline focus-within:outline-2 focus-within:outline-offset-2"
+          aria-disabled={busy}
+          style={{ cursor: busy ? 'default' : 'pointer' }}
         >
-          {plan ? 'Choose a different file' : 'Choose the CSV file'}
+          {plan ? 'Choose a different file' : 'Choose the CSV file'}{' '}
+          <span className="font-serif" style={{ fontStyle: 'italic' }}>→</span>
           <input
             type="file"
             accept=".csv,text/csv"

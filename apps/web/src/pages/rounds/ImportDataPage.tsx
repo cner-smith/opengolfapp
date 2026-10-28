@@ -143,7 +143,7 @@ export function ImportDataPage() {
 
       <div className="flex flex-col" style={{ gap: 22 }}>
         {mode !== 'json' && (
-          <ChoiceRow>
+          <ChoiceRow label="What you’re importing">
             <Choice
               active={mode === 'golfpad'}
               onClick={() => setMode('golfpad')}
@@ -201,7 +201,7 @@ export function ImportDataPage() {
 
             {rawText.trim().length === 0 && (
               <div className="text-caddie-ink-mute" style={{ fontSize: 12 }}>
-                Waiting for a payload — see apps/web/src/lib/import.ts for the expected shape.
+                Paste a round in OGA’s JSON format, or upload a .json file.
               </div>
             )}
 
@@ -254,23 +254,23 @@ export function ImportDataPage() {
                   {dataQuality.missingLieType.length > 0 && (
                     <div style={{ marginBottom: 4 }}>
                       {dataQuality.missingLieType.length} shot
-                      {dataQuality.missingLieType.length === 1 ? '' : 's'} missing lie_type:{' '}
+                      {dataQuality.missingLieType.length === 1 ? '' : 's'} missing a lie:{' '}
                       {formatIssueLocations(dataQuality.missingLieType)}.
                     </div>
                   )}
                   {dataQuality.missingDistanceToTarget.length > 0 && (
                     <div style={{ marginBottom: 4 }}>
                       {dataQuality.missingDistanceToTarget.length} non-putt shot
-                      {dataQuality.missingDistanceToTarget.length === 1 ? '' : 's'} missing
-                      distance_to_target: {formatIssueLocations(dataQuality.missingDistanceToTarget)}.
+                      {dataQuality.missingDistanceToTarget.length === 1 ? '' : 's'} missing the
+                      distance to the pin: {formatIssueLocations(dataQuality.missingDistanceToTarget)}.
                     </div>
                   )}
                   {dataQuality.misplacedPuttDistance.length > 0 && (
                     <div>
                       {dataQuality.misplacedPuttDistance.length} putt
-                      {dataQuality.misplacedPuttDistance.length === 1 ? '' : 's'} store their distance
-                      in distance_to_target instead of putt_distance_ft — putting Strokes Gained will
-                      read as 0 for these: {formatIssueLocations(dataQuality.misplacedPuttDistance)}.
+                      {dataQuality.misplacedPuttDistance.length === 1 ? '' : 's'} keep the putt length in
+                      the wrong field, so putting strokes gained will read 0 for{' '}
+                      {dataQuality.misplacedPuttDistance.length === 1 ? 'it' : 'them'}: {formatIssueLocations(dataQuality.misplacedPuttDistance)}.
                     </div>
                   )}
                 </div>
