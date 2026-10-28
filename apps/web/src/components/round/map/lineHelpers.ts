@@ -219,3 +219,35 @@ export function upsertScatter(
     },
   })
 }
+
+// The saved shots' path in review (§19.3): a cream dotted line between
+// consecutive starts (round caps on a near-zero dash = dots). Pass [] to clear.
+export function upsertDottedLine(
+  map: mapboxgl.Map,
+  sourceId: string,
+  coords: [number, number][],
+) {
+  const data: GeoJSON.Feature<GeoJSON.LineString> = {
+    type: 'Feature',
+    properties: {},
+    geometry: { type: 'LineString', coordinates: coords },
+  }
+  const src = map.getSource(sourceId) as mapboxgl.GeoJSONSource | undefined
+  if (src) {
+    src.setData(data)
+    return
+  }
+  map.addSource(sourceId, { type: 'geojson', data })
+  map.addLayer({
+    id: `${sourceId}-layer`,
+    type: 'line',
+    source: sourceId,
+    layout: { 'line-join': 'round', 'line-cap': 'round' },
+    paint: {
+      'line-color': '#FBF8F1',
+      'line-width': 2,
+      'line-dasharray': [0.1, 2.2],
+      'line-opacity': 0.95,
+    },
+  })
+}

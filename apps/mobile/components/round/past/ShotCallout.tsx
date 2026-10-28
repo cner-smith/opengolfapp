@@ -4,7 +4,7 @@ import Svg, { Line } from 'react-native-svg'
 import { FONT, TYPE } from '../../../lib/typography'
 import { HardShadow } from '../../paper/Paper'
 import { FONT_CAP, P, R } from '../../paper/tokens'
-import { fanPlates, plateBox, type PlateSide } from '@oga/core'
+import { fanPlates, placeCallout, plateBox, type CalloutPlacement, type PlateSide } from '@oga/core'
 import type { LatLng } from '../HoleMap.types'
 
 type Pt = [number, number]
@@ -33,35 +33,14 @@ export interface ShotCalloutProps {
   sub: string
 }
 
-const RING = 22
-const CLEAR = 30
-// Candidate order doubles as the tie-break (§19.9 C).
-const CANDIDATES: Pt[] = [
-  [1, -1],
-  [-1, -1],
-  [1, 1],
-  [-1, 1],
-  [1, 0],
-  [-1, 0],
-  [0, -1],
-  [0, 1],
-]
-
-interface Placement {
-  bx: number
-  by: number
-  foot: Pt
-  head: Pt
-}
-
 // Flag-label callout on a staff from the selected shot's start marker (#611
-// §19.9 C). Screen-space: the points are projected with getPointInView and the
-// 8-candidate solver re-runs once per frame while the camera moves, and on any
+// §19.9 C). Screen-space: the points are projected with getPointInView and
+// core's placeCallout re-runs once per frame while the camera moves, and on any
 // prop change. Never touchable — the map and markers stay live under it.
 export function ShotCallout(p: ShotCalloutProps) {
   const [size, setSize] = useState<{ w: number; h: number } | null>(null)
   const [box, setBox] = useState({ w: 116, h: 46 })
-  const [place, setPlace] = useState<Placement | null>(null)
+  const [place, setPlace] = useState<CalloutPlacement | null>(null)
   const latest = useRef({ p, size, box })
   latest.current = { p, size, box }
   const seq = useRef(0)
@@ -79,49 +58,24 @@ export function ShotCallout(p: ShotCalloutProps) {
       setPlace(null)
       return
     }
-    const segs: [Pt, Pt][] = []
-    if (q.end) segs.push([a, scr[1]!])
-    if (q.prev) segs.push([scr[2]!, a])
-    const dots: Pt[] = [a, ...(q.end ? [scr[1]!] : []), ...scr.slice(3)]
+    const end = q.end ? scr[1]! : null
     // Plates first (#1208): core's fanPlates, clear of each other, the
     // selected disc, the leg's end, the pin and the aim.
     const crumbs = scr.slice(3, 3 + q.crumbCount)
-    const sides = fanPlates(crumbs, [...(q.end ? [scr[1]!] : []), ...scr.slice(3 + q.crumbCount)], a)
-    const plates = crumbs.map((d, i) => plateBox(d, sides[i]!))
+    const sides = fanPlates(crumbs, [...(end ? [end] : []), ...scr.slice(3 + q.crumbCount)], a)
     q.onPlates(sides)
-    const { w: BW, h: BH } = bb
-    const hits = (bx: number, by: number) => {
-      let n = 0
-      for (const [s, e] of segs) {
-        for (let t = 0; t <= 1; t += 0.02) {
-          const x = s[0] + (e[0] - s[0]) * t
-          const y = s[1] + (e[1] - s[1]) * t
-          if (x > bx - 4 && x < bx + BW + 4 && y > by - 4 && y < by + BH + 4) n++
-        }
-      }
-      for (const d of dots) {
-        if (d[0] > bx - 24 && d[0] < bx + BW + 24 && d[1] > by - 24 && d[1] < by + BH + 24) n += 50
-      }
-      for (const [l, t, r, btm] of plates) if (l < bx + BW + 4 && r > bx - 4 && t < by + BH + 4 && btm > by - 4) n += 50
-      const c = q.avoidCorner
-      if (c && bx < c.w && by + BH > sz.h - c.h) n += 50
-      return n
-    }
-    let best: { sc: number; bx: number; by: number } | null = null
-    for (const [ox, oy] of CANDIDATES) {
-      let bx = ox > 0 ? a[0] + CLEAR : ox < 0 ? a[0] - CLEAR - BW : a[0] - BW / 2
-      let by = oy > 0 ? a[1] + CLEAR : oy < 0 ? a[1] - CLEAR - BH : a[1] - BH / 2
-      bx = Math.max(14, Math.min(sz.w - 14 - BW, bx))
-      by = Math.max(11, Math.min(sz.h - 13 - BH, by))
-      const sc = hits(bx, by)
-      if (!best || sc < best.sc) best = { sc, bx, by }
-    }
-    if (!best) return
-    const { bx, by } = best
-    const head: Pt = [Math.max(bx, Math.min(bx + BW, a[0])), Math.max(by, Math.min(by + BH, a[1]))]
-    const ang = Math.atan2(head[1] - a[1], head[0] - a[0])
-    const foot: Pt = [a[0] + Math.cos(ang) * RING, a[1] + Math.sin(ang) * RING]
-    setPlace({ bx, by, foot, head })
+    setPlace(
+      placeCallout({
+        anchor: a,
+        end,
+        prev: q.prev ? scr[2]! : null,
+        dots: [a, ...(end ? [end] : []), ...scr.slice(3)],
+        plates: crumbs.map((d, i) => plateBox(d, sides[i]!)),
+        box: bb,
+        size: sz,
+        avoidCorner: q.avoidCorner,
+      }),
+    )
   }, [])
 
   // One solve per frame at most while the camera moves.

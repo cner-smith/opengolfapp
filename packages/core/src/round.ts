@@ -15,6 +15,8 @@ import type {
   ShotStartLine,
 } from './constants'
 import {
+  formatClubLabel,
+  LIE_TYPE_LABELS,
   PUTT_RESULT_LABELS,
   SHOT_CONTACT_LABELS,
   SHOT_RESULT_LABELS,
@@ -364,6 +366,25 @@ export function summarizeShotParts(
       ? SHOT_RESULT_LABELS[shot.shot_result as ShotResult] ?? shot.shot_result
       : null
   return [distance, result].filter((v): v is string => Boolean(v))
+}
+
+// One-line summary of the selected shot for the round map's shot stepper
+// (§19.5), e.g. ["Putt", "12 ft", "Made"] or ["7i", "fairway", "152 yd to
+// the pin", "Solid"]. "to the pin" only when the yardage IS
+// distance_to_target; the fallback measures to the next shot's start.
+export function summarizeShotStep(
+  shot: ShotSummaryFields & { club: string | null; lie_type: string | null },
+  next: ShotSummaryFields | null | undefined,
+  unit: DistanceUnit,
+): string[] {
+  if (isPuttShot(shot.lie_type)) return ['Putt', ...summarizePuttParts(shot, unit)]
+  const [distance] = summarizeShotParts({ ...shot, shot_result: null }, next, unit)
+  return [
+    shot.club ? formatClubLabel({ club_type: shot.club }) : null,
+    shot.lie_type ? LIE_TYPE_LABELS[shot.lie_type as LieType]?.toLowerCase() ?? null : null,
+    distance && shot.distance_to_target != null ? `${distance} to the pin` : distance,
+    shot.shot_result ? SHOT_RESULT_LABELS[shot.shot_result as ShotResult] ?? shot.shot_result : null,
+  ].filter((v): v is string => Boolean(v))
 }
 
 export function buildInitialRows(

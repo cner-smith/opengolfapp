@@ -66,23 +66,26 @@ export function useMapSetup({
     if (mapRef.current) return
     const map = new mapboxgl.Map({
       container: containerRef.current,
-      style: 'mapbox://styles/mapbox/satellite-streets-v12',
+      // Clean satellite, as mobile (HoleMap StyleURL.Satellite): no street
+      // or course labels printing across the fairway.
+      style: 'mapbox://styles/mapbox/satellite-v9',
       center: [0, 0],
       zoom: 1,
       attributionControl: false,
     })
+    // No zoom buttons (wheel and pinch zoom); the ⓘ sits bottom-right, the
+    // Mapbox logo bottom-left, as on mobile.
     map.addControl(
       new mapboxgl.AttributionControl({ compact: true }),
-      'top-left',
+      'bottom-right',
     )
-    // Zoom +/– and attribution live top-left (top-right = ExpStrokesHud); the chrome owns the bottom.
-    map.addControl(
-      new mapboxgl.NavigationControl({ showCompass: false }),
-      'top-left',
-    )
+    // The frame is a grid cell sized to the viewport: follow its size.
+    const ro = new ResizeObserver(() => map.resize())
+    ro.observe(containerRef.current)
     map.on('load', () => setMapLoaded(true))
     mapRef.current = map
     return () => {
+      ro.disconnect()
       map.remove()
       mapRef.current = null
       setMapLoaded(false)

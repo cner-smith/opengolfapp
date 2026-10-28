@@ -2,8 +2,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Alert, View } from 'react-native'
 import {
   DEFAULT_HANDICAP,
-  LIE_TYPE_LABELS,
-  SHOT_RESULT_LABELS,
   bearingDegrees,
   destinationYards,
   formatClubLabel,
@@ -15,11 +13,8 @@ import {
   obCount,
   projectShotMove,
   resolveHole,
-  summarizePuttParts,
-  summarizeShotParts,
+  summarizeShotStep,
   type DistanceUnit,
-  type LieType,
-  type ShotResult,
 } from '@oga/core'
 import type { Database } from '@oga/supabase'
 import { supabase } from '../../lib/supabase'
@@ -46,29 +41,14 @@ type ShotRow = Database['public']['Tables']['shots']['Row']
 // tracking the finger locally and only write the settled position.
 const AIM_PERSIST_DEBOUNCE_MS = 500
 
-// One-line summary of the selected shot for the review stepper (§19.5).
-// Putts read "Putt · 12 ft · Made"; full shots read "7i · fairway · 152 yd to
-// the pin · Solid". Distance/result formatting lives in @oga/core
-// (summarizePuttParts / summarizeShotParts, shared with web's ShotEntryModal).
-// "to the pin" only when the yardage IS distance_to_target (start → pin); the
-// haversine fallback measures to the next shot's start instead.
+// One-line summary of the selected shot for the review stepper (§19.5), from
+// @oga/core's summarizeShotStep (shared with web's round map).
 function summarizeShot(
   row: ShotRow | null,
   next: ShotRow | null,
   unit: DistanceUnit,
 ): string {
-  if (!row) return 'No details yet — tap Edit to add them'
-  const [distance] = summarizeShotParts({ ...row, shot_result: null }, next, unit)
-  const parts = isPuttShot(row.lie_type)
-    ? ['Putt', ...summarizePuttParts(row, unit)]
-    : ([
-        row.club ? formatClubLabel({ club_type: row.club }) : null,
-        row.lie_type ? LIE_TYPE_LABELS[row.lie_type as LieType]?.toLowerCase() ?? null : null,
-        distance && row.distance_to_target != null ? `${distance} to the pin` : distance,
-        row.shot_result
-          ? SHOT_RESULT_LABELS[row.shot_result as ShotResult] ?? row.shot_result
-          : null,
-      ].filter(Boolean) as string[])
+  const parts = row ? summarizeShotStep(row, next, unit) : []
   return parts.length ? parts.join(' · ') : 'No details yet — tap Edit to add them'
 }
 

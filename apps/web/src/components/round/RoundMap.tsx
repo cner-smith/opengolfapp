@@ -48,6 +48,10 @@ export interface ExistingShot {
   /** Penalty-stroke flag. Read (not re-derived) so saveReviewedHole's
    *  replace-all rewrite can preserve it — see useRoundActions. */
   penalty?: boolean | null
+  /** Club type, for the selected shot's callout (#1217). */
+  club?: string | null
+  /** One-line summary for the shot stepper ("pw · fairway · 132 yd to the pin"). */
+  summary?: string
 }
 
 export interface PlacedPoint {
@@ -86,6 +90,8 @@ interface RoundMapProps {
   /** Suppress tap-to-place. Used in "Edit on map" mode so the user can
    *  drag existing markers without accidentally dropping new ones. */
   tapToPlaceDisabled?: boolean
+  /** "+ Add shot" on a saved hole: the next tap is the new shot's start. */
+  addingShot?: boolean
   /** When set, the next map tap places either the tee box or pin for
    *  this hole instead of dropping a shot marker. Used for courses with
    *  no hole layout in the DB so the player can mark them manually. */
@@ -113,6 +119,9 @@ interface RoundMapProps {
   selectClub?: (distanceToTargetYards: number | null) => ClubPick | null
   /** Player handicap index — feeds the live best-case-SG readout (Phase D). */
   handicap?: number
+  /** The selected saved shot and a click on another one (#1217). */
+  selectedShotId?: string | null
+  onSelectShot?: (shotId: string) => void
 }
 
 export function RoundMap({
@@ -127,6 +136,7 @@ export function RoundMap({
   roundPinSet = false,
   teeOverride,
   tapToPlaceDisabled,
+  addingShot = false,
   placementMode,
   onPlace,
   onMovePoint,
@@ -141,6 +151,8 @@ export function RoundMap({
   dotsVisible = false,
   selectClub = NO_CLUB_PICK,
   handicap = DEFAULT_HANDICAP,
+  selectedShotId = null,
+  onSelectShot,
 }: RoundMapProps) {
   // Memoized so downstream effects can dep on the object directly without
   // thrashing on every parent render — coords are the only meaningful
@@ -159,9 +171,9 @@ export function RoundMap({
   }, [teeOverride?.lat, teeOverride?.lng, hole?.teeLat, hole?.teeLng])
   const containerRef = useRef<HTMLDivElement>(null)
 
-  const hasExistingShots = existingShots.some(
-    (s) => s.endLat != null && s.endLng != null,
-  )
+  // Gates tap-to-place: a saved hole ignores taps unless a shot is being added.
+  const hasExistingShots =
+    !addingShot && existingShots.some((s) => s.endLat != null && s.endLng != null)
   // Course centroid resolves from a direct prop first (so a course
   // with zero rows in the holes table — and therefore a null `hole`
   // — still drops the camera on the property), and only falls back
@@ -237,6 +249,8 @@ export function RoundMap({
     onSetAim,
     onMoveExistingShot,
     onMoveExistingShotAim,
+    selectedShotId,
+    onSelectShot,
   })
 
   return (
