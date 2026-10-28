@@ -106,14 +106,7 @@ export function ClubEditForm({
         <input
           value={name}
           onChange={(e) => setName(e.target.value)}
-          className="bg-caddie-bg text-caddie-ink"
-          style={{
-            width: '100%',
-            border: '1px solid #D9D2BF',
-            borderRadius: 2,
-            padding: '8px 10px',
-            fontSize: 14,
-          }}
+          style={fieldStyle}
         />
       </label>
       <div style={{ display: 'flex', gap: 12 }}>
@@ -126,14 +119,7 @@ export function ClubEditForm({
             onChange={(e) => setLoft(e.target.value)}
             inputMode="decimal"
             placeholder="optional"
-            className="bg-caddie-bg text-caddie-ink"
-            style={{
-              width: '100%',
-              border: '1px solid #D9D2BF',
-              borderRadius: 2,
-              padding: '8px 10px',
-              fontSize: 14,
-            }}
+            style={fieldStyle}
           />
         </label>
         <label
@@ -145,14 +131,7 @@ export function ClubEditForm({
             onChange={(e) => setTypical(e.target.value)}
             inputMode="numeric"
             placeholder="optional"
-            className="bg-caddie-bg text-caddie-ink"
-            style={{
-              width: '100%',
-              border: '1px solid #D9D2BF',
-              borderRadius: 2,
-              padding: '8px 10px',
-              fontSize: 14,
-            }}
+            style={fieldStyle}
           />
         </label>
       </div>
@@ -161,7 +140,7 @@ export function ClubEditForm({
           {localError}
         </div>
       )}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', paddingBottom: 3 }}>
         <button
           type="button"
           onClick={submit}
@@ -174,16 +153,11 @@ export function ClubEditForm({
         >
           {saving ? 'Saving…' : 'Save'}
         </button>
-        <button
-          type="button"
-          onClick={onCancel}
-          className="text-caddie-ink-dim"
-          style={{ fontSize: 13 }}
-        >
+        <button type="button" onClick={onCancel} className="key" style={{ fontSize: 13, fontWeight: 500 }}>
           Cancel
         </button>
         <span style={{ flex: 1 }} />
-        <button type="button" onClick={onBench} className="text-caddie-ink-dim hover:underline" style={{ fontSize: 13 }}>
+        <button type="button" onClick={onBench} className="text-caddie-ink hover:underline" style={{ fontSize: 13, fontWeight: 600, minHeight: 44 }}>
           Bench it
         </button>
         <button
@@ -191,7 +165,7 @@ export function ClubEditForm({
           onClick={onDelete}
           aria-label={`Delete ${club.name}`}
           className="text-caddie-neg hover:underline"
-          style={{ fontSize: 13 }}
+          style={{ fontSize: 13, minHeight: 44 }}
         >
           Delete
         </button>
@@ -221,9 +195,8 @@ export function AddClubForm({
   )
   // Custom mode lets the user enter a free-text club_type for non-utility
   // categories (e.g. an "attack wedge" the canonical wedge list doesn't
-  // mention). Toggled by the "Custom…" sentinel option in the dropdown.
+  // mention). Toggled by the "Other…" key.
   const [customMode, setCustomMode] = useState(false)
-  const CUSTOM_VALUE = '__custom__'
   const showFreeText = draft.category === 'utility' || customMode
 
   // When category changes, jump club_type to the first canonical option
@@ -240,88 +213,53 @@ export function AddClubForm({
   }, [draft.category])
 
   return (
-    <div
-      style={{
-        marginTop: 22,
-        padding: 18,
-        border: '1px solid #D9D2BF',
-        background: '#FBF8F1',
-      }}
-    >
+    <div className="paper-tile" style={{ marginTop: 22, padding: 18 }}>
       <h2 className="font-serif text-caddie-ink" style={{ fontSize: 20, fontStyle: 'italic', fontWeight: 500, marginBottom: 12 }}>
         Add a club
       </h2>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-        <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+        <div role="group" aria-label="Category" style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           <span className="text-caddie-ink-dim" style={{ fontSize: 12 }}>Category</span>
-          <select
-            value={draft.category}
-            onChange={(e) =>
-              onChange({ ...draft, category: e.target.value as ClubCategory })
-            }
-            style={{
-              width: '100%',
-            padding: '8px 10px',
-              fontSize: 14,
-              border: '1px solid #D9D2BF',
-              background: '#FBF8F1',
-              borderRadius: 2,
-            }}
-          >
+          <Keys>
             {CLUB_CATEGORIES.map((c) => (
-              <option key={c} value={c}>
-                {CLUB_CATEGORY_LABELS[c]}
-              </option>
+              <OptionKey
+                key={c}
+                label={CLUB_CATEGORY_LABELS[c]}
+                active={draft.category === c}
+                onClick={() => onChange({ ...draft, category: c })}
+              />
             ))}
-          </select>
-        </label>
-        <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+          </Keys>
+        </div>
+        <div role="group" aria-label="Club type" style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           <span className="text-caddie-ink-dim" style={{ fontSize: 12 }}>Club type</span>
           {showFreeText ? (
             <input
               value={draft.clubType}
+              aria-label="Club type"
               onChange={(e) => onChange({ ...draft, clubType: e.target.value })}
               placeholder="e.g. chipper, attack wedge, 1.5 hybrid"
-              style={{
-                width: '100%',
-            padding: '8px 10px',
-                fontSize: 14,
-                border: '1px solid #D9D2BF',
-                background: '#FBF8F1',
-                borderRadius: 2,
-              }}
+              style={fieldStyle}
             />
           ) : (
-            <select
-              value={
-                canonicalOptions.includes(draft.clubType)
-                  ? draft.clubType
-                  : canonicalOptions[0] ?? ''
-              }
-              onChange={(e) => {
-                if (e.target.value === CUSTOM_VALUE) {
+            <Keys>
+              {canonicalOptions.map((c) => (
+                <OptionKey
+                  key={c}
+                  label={formatClubLabel({ club_type: c })}
+                  active={draft.clubType === c}
+                  onClick={() => onChange({ ...draft, clubType: c })}
+                />
+              ))}
+              <OptionKey
+                label="Other…"
+                active={false}
+                onClick={() => {
                   setCustomMode(true)
                   onChange({ ...draft, clubType: '' })
-                  return
-                }
-                onChange({ ...draft, clubType: e.target.value })
-              }}
-              style={{
-                width: '100%',
-            padding: '8px 10px',
-                fontSize: 14,
-                border: '1px solid #D9D2BF',
-                background: '#FBF8F1',
-                borderRadius: 2,
-              }}
-            >
-              {canonicalOptions.map((c) => (
-                <option key={c} value={c}>
-                  {formatClubLabel({ club_type: c })}
-                </option>
-              ))}
-              <option value={CUSTOM_VALUE}>Other…</option>
-            </select>
+                }}
+              />
+            </Keys>
           )}
           {customMode && draft.category !== 'utility' && (
             <button
@@ -343,21 +281,14 @@ export function AddClubForm({
               ← Back to {CLUB_CATEGORY_LABELS[draft.category]} list
             </button>
           )}
-        </label>
+        </div>
         <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
           <span className="text-caddie-ink-dim" style={{ fontSize: 12 }}>Display name</span>
           <input
             value={draft.name}
             onChange={(e) => onChange({ ...draft, name: e.target.value })}
             placeholder="e.g. 7 Iron, Stealth Driver, 60° Lob"
-            style={{
-              width: '100%',
-            padding: '8px 10px',
-              fontSize: 14,
-              border: '1px solid #D9D2BF',
-              background: '#FBF8F1',
-              borderRadius: 2,
-            }}
+            style={fieldStyle}
           />
         </label>
         <div style={{ display: 'flex', gap: 12 }}>
@@ -368,14 +299,7 @@ export function AddClubForm({
               onChange={(e) => onChange({ ...draft, loft: e.target.value })}
               inputMode="decimal"
               placeholder="optional"
-              style={{
-                width: '100%',
-            padding: '8px 10px',
-                fontSize: 14,
-                border: '1px solid #D9D2BF',
-                background: '#FBF8F1',
-                borderRadius: 2,
-              }}
+              style={fieldStyle}
             />
           </label>
           <label style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: 1, minWidth: 0 }}>
@@ -385,19 +309,12 @@ export function AddClubForm({
               onChange={(e) => onChange({ ...draft, typicalDistance: e.target.value })}
               inputMode="numeric"
               placeholder="optional"
-              style={{
-                width: '100%',
-            padding: '8px 10px',
-                fontSize: 14,
-                border: '1px solid #D9D2BF',
-                background: '#FBF8F1',
-                borderRadius: 2,
-              }}
+              style={fieldStyle}
             />
           </label>
         </div>
         {error && <div className="text-caddie-neg" style={{ fontSize: 13 }}>{error}</div>}
-        <div style={{ display: 'flex', gap: 8, marginTop: 6 }}>
+        <div style={{ display: 'flex', gap: 10, marginTop: 6, paddingBottom: 3 }}>
           <button
             type="button"
             onClick={onSubmit}
@@ -410,12 +327,7 @@ export function AddClubForm({
           >
             Add to bag <span className="font-serif italic" style={{ marginLeft: 4 }}>→</span>
           </button>
-          <button
-            type="button"
-            onClick={onCancel}
-            className="text-caddie-ink-dim"
-            style={{ fontSize: 13 }}
-          >
+          <button type="button" onClick={onCancel} className="key" style={{ fontSize: 13, fontWeight: 500 }}>
             Cancel
           </button>
         </div>
@@ -424,5 +336,33 @@ export function AddClubForm({
         Files under {CLUB_CATEGORY_LABELS[clubCategoryFor(draft.clubType)].toLowerCase()} for the club type you chose.
       </div>
     </div>
+  )
+}
+
+// A paper field: raised face, ink edge (mobile bag.tsx inputStyle).
+const fieldStyle: React.CSSProperties = {
+  width: '100%',
+  background: '#FBF8F1',
+  color: '#1C211C',
+  border: '1px solid #1C211C',
+  borderRadius: 3,
+  padding: '8px 10px',
+  fontSize: 14,
+}
+
+function Keys({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="flex flex-wrap" style={{ gap: '10px 6px', paddingBottom: 3 }}>
+      {children}
+    </div>
+  )
+}
+
+// An option key, latched while chosen (mobile bag.tsx Chip).
+function OptionKey({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
+  return (
+    <button type="button" onClick={onClick} aria-pressed={active} className="key set-key" style={{ fontWeight: active ? 600 : 500 }}>
+      {label}
+    </button>
   )
 }

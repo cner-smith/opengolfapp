@@ -9,7 +9,7 @@ test.describe('Bag (signed in)', () => {
     const card = page.getByRole('region', { name: 'Yardage card' })
     await expect(card.getByTestId('bag-row')).toHaveCount(14)
     // core bagGaps' headline sentence leads the chart.
-    await expect(page.getByTestId('bag-headline')).toHaveText(/\d+ yd/)
+    await expect(page.getByTestId('bag-headline')).toHaveText(/\d+\syd/)
     // Gaps sit on the rules; exactly one is the widest.
     expect(await card.getByTestId('bag-gap').count()).toBeGreaterThan(0)
     await expect(card.getByTestId('bag-gap').filter({ hasText: 'the widest' })).toHaveCount(1)

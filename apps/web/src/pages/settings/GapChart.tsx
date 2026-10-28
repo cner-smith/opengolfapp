@@ -1,5 +1,7 @@
 import { HOLE_YARDS, MIN_SAMPLES_FOR_STATS, YARDS_TO_METERS, clubNoun, distanceUnitAbbr, shortClubLabel, wholeDistance, type BagClub, type BagGap, type BagGaps, type DistanceUnit } from '@oga/core'
+import type { CSSProperties } from 'react'
 import type { UserClub } from '../../hooks/useUserBag'
+import './settings.css'
 
 /** One in-bag club as the chart and the yardage card read it. */
 export interface BagRung extends BagClub {
@@ -10,6 +12,12 @@ const ROW = 30
 const WARN = '#A66A1F'
 const NEG = '#A33A2A'
 const HATCH = 'repeating-linear-gradient(135deg, rgba(166,106,31,0.22) 0 4px, rgba(166,106,31,0.06) 4px 8px)'
+
+// Entrance (SHL-11): each rung grows out from its tick, 40ms apart, driver
+// first; the shaded bands fade in once the last one lands. Static under
+// reduced motion (settings.css). Off for the landing page's editable bag.
+const STAGGER = 40
+const GROW = 360
 
 const words = (xs: string[]) => (xs.length < 2 ? (xs[0] ?? '') : `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}`)
 
@@ -60,12 +68,14 @@ export function GapChart({ bag, unit, example }: { bag: BagGaps<BagRung>; unit: 
     .filter((g) => g.kind === 'overlap')
     .sort((a, b) => b.span!.high - b.span!.low - (a.span!.high - a.span!.low))
   const measured = numbered.filter((r) => r.range).length
+  const animate = !example
+  const bandsAt = (rungs.length - 1) * STAGGER + GROW
 
   return (
     <section style={{ marginBottom: 34 }} aria-label="Gapping chart">
       <p
         className="font-serif text-caddie-ink"
-        style={{ fontSize: 22, fontStyle: 'italic', fontWeight: 500, lineHeight: 1.3, marginBottom: 16, maxWidth: 640 }}
+        style={{ fontSize: 22, fontStyle: 'italic', fontWeight: 500, lineHeight: 1.3, marginBottom: 16, maxWidth: 640, textWrap: 'balance' }}
         data-testid="bag-headline"
       >
         {bag.headline}
@@ -100,7 +110,9 @@ export function GapChart({ bag, unit, example }: { bag: BagGaps<BagRung>; unit: 
             return (
               <div
                 key={i}
+                className={animate ? 'bag-band' : undefined}
                 style={{
+                  '--d': `${bandsAt}ms`,
                   position: 'absolute',
                   left: x(g.span!.low),
                   width: `calc(${x(g.span!.high)} - ${x(g.span!.low)})`,
@@ -109,7 +121,7 @@ export function GapChart({ bag, unit, example }: { bag: BagGaps<BagRung>; unit: 
                   background: hole ? HATCH : 'rgba(163,58,42,0.16)',
                   borderLeft: hole ? `1px dashed ${WARN}` : 'none',
                   borderRight: hole ? `1px dashed ${WARN}` : 'none',
-                }}
+                } as CSSProperties}
               />
             )
           })}
@@ -127,11 +139,17 @@ export function GapChart({ bag, unit, example }: { bag: BagGaps<BagRung>; unit: 
               )
             }
             const shots = r.typical.source === 'shots'
+            const d = { '--d': `${i * STAGGER}ms` } as CSSProperties
+            // The bar grows from the tick, wherever it sits inside the range.
+            const origin = r.range ? ((r.typical.yards - r.range.low) / (r.range.high - r.range.low || 1)) * 100 : 0
             return (
               <div key={r.club.id}>
                 {r.range ? (
                   <div
+                    className={animate ? 'bag-grow' : undefined}
                     style={{
+                      ...d,
+                      transformOrigin: `${origin}% 50%`,
                       position: 'absolute',
                       left: x(r.range.low),
                       width: `calc(${x(r.range.high)} - ${x(r.range.low)})`,
@@ -143,7 +161,9 @@ export function GapChart({ bag, unit, example }: { bag: BagGaps<BagRung>; unit: 
                   />
                 ) : null}
                 <div
+                  className={animate ? 'bag-fade' : undefined}
                   style={{
+                    ...d,
                     position: 'absolute',
                     left: x(r.typical.yards),
                     top: y - 9,
@@ -154,8 +174,9 @@ export function GapChart({ bag, unit, example }: { bag: BagGaps<BagRung>; unit: 
                   }}
                 />
                 <div
-                  className="font-serif tabular"
+                  className={`font-serif tabular${animate ? ' bag-fade' : ''}`}
                   style={{
+                    ...d,
                     position: 'absolute',
                     left: `calc(${x(r.range?.high ?? r.typical.yards)} + 6px)`,
                     top: y - 9,
@@ -202,7 +223,7 @@ export function GapChart({ bag, unit, example }: { bag: BagGaps<BagRung>; unit: 
         {holes.length ? (
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
             <span aria-hidden style={{ width: 14, height: 10, background: HATCH, border: `1px dashed ${WARN}` }} />
-            Hole, {wholeDistance(HOLE_YARDS, unit)} {u} or more
+            Hole, {wholeDistance(HOLE_YARDS, unit)}{'\u00a0'}{u} or more
           </span>
         ) : null}
         {overlaps.length ? (
@@ -242,7 +263,7 @@ export function GapChart({ bag, unit, example }: { bag: BagGaps<BagRung>; unit: 
                   ) : null}
                 </span>
                 <span className="font-serif tabular" style={{ fontSize: 16, whiteSpace: 'nowrap', color: hole ? WARN : NEG }}>
-                  {show(g.span!.high - g.span!.low)} {u}
+                  {show(g.span!.high - g.span!.low)}{'\u00a0'}{u}
                 </span>
               </li>
             )
