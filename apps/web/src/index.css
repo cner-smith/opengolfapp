@@ -37,7 +37,9 @@ body {
 /* #611 paper system, ported from apps/mobile/components/paper (tokens.ts,
    Paper.tsx Key). A key is a face on a hard 3px ledge that sinks onto it when
    pressed: 40ms down (out-quad), 110ms up (out-cubic). Latched (aria-pressed)
-   = held down on a well face; disabled = sunk on a chrome face, ink-35 edge. */
+   = held down on a well face; disabled = sunk on a chrome face, ink-35 edge.
+   In the components layer so utilities (hidden, sm:inline-flex) win. */
+@layer components {
 .key {
   --key-face: #fbf8f1;
   --key-pressed: #e4dcca;
@@ -111,6 +113,7 @@ body {
   .key {
     transition: none;
   }
+}
 }
 
 .serif {

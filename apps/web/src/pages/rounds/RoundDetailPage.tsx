@@ -6,13 +6,14 @@ import {
 } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { ShotEntryModal } from '../../components/rounds/ShotEntryModal'
-import { RoundSummary } from '../../components/rounds/RoundSummary'
+import { RoundSide, RoundTotals, type ScoredHole } from '../../components/rounds/RoundSummary'
 import { ShareableScorecardCard } from '../../components/round/ShareableScorecardCard'
 import { HoleReviewSheet } from '../../components/round/HoleReviewSheet'
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
 import {
   DEFAULT_HANDICAP,
   inferHoleCount,
+  isFinishedRound,
   projectShotMove,
   resolveCourseTee,
   type CaptureMode,
@@ -220,7 +221,52 @@ export function RoundDetailPage() {
 
   const holesPlayed = holeScores.length
   const holeCount = inferHoleCount(holes.map((h) => h.number))
-  const totalRoundsLogged = allRounds.data?.length ?? 0
+  // Scored holes with their tee-resolved par: the header's running total,
+  // the totals block and the best / worst line all read from these.
+  const scored: ScoredHole[] = []
+  for (const h of holes) {
+    const hs = scoresByHoleId.get(h.id)
+    if (hs?.score != null && hs.score > 0)
+      scored.push({ number: h.number, score: hs.score, par: resolvedHoleByNumber.get(h.number)?.par ?? hs.par ?? h.par })
+  }
+  const runningScore = scored.reduce((t, h) => t + h.score, 0)
+  const runningPar = scored.reduce((t, h) => t + h.par, 0)
+  const finalized = isFinishedRound(round.data)
+  // Save / Recalculate SG and Delete: under the card, and under the map so a
+  // live round on a phone (which opens on the map) can still be finished.
+  const roundKeys = (
+    <div className="flex flex-wrap" style={{ gap: 12, marginTop: 28 }}>
+      {finalized ? (
+        <button
+          type="button"
+          onClick={handleComplete}
+          disabled={completeMutation.isPending}
+          className="key"
+        >
+          {completeMutation.isPending ? 'Saving…' : 'Recalculate SG'}
+        </button>
+      ) : (
+        <button
+          type="button"
+          onClick={handleComplete}
+          disabled={completeMutation.isPending || holesPlayed === 0}
+          className="key key-primary sm:hidden"
+          style={{ width: '100%', minHeight: 50, fontSize: 16 }}
+        >
+          {completeMutation.isPending ? 'Saving…' : 'Save SG'}
+        </button>
+      )}
+      <button
+        type="button"
+        onClick={() => setConfirmDelete(true)}
+        disabled={deleteMutation.isPending}
+        className="key"
+        style={{ color: '#A33A2A' }}
+      >
+        {deleteMutation.isPending ? 'Deleting…' : 'Delete round'}
+      </button>
+    </div>
+  )
   // The played tee (by id, then by colour) supplies rating/slope/yardage for
   // the share card — same match RoundHeader uses.
   const playedTee = resolveCourseTee(
@@ -238,18 +284,20 @@ export function RoundDetailPage() {
         tees={teesQuery.data ?? []}
         holesPlayed={holesPlayed}
         holeCount={holeCount}
+        score={runningScore}
+        toPar={runningPar > 0 ? runningScore - runningPar : null}
         shareTone={shareTone}
         sharing={sharing}
         completePending={completeMutation.isPending}
-        deletePending={deleteMutation.isPending}
         onBack={() => navigate('/rounds')}
         onShare={handleShare}
         onToggleShareTone={() =>
           setShareTone((t) => (t === 'light' ? 'dark' : 'light'))
         }
         onComplete={handleComplete}
-        onConfirmDelete={() => setConfirmDelete(true)}
       />
+
+      <ViewTabs value={view} onChange={setView} />
 
       {/* Off-screen render target for html-to-image. Position fixed
           left:-99999px keeps the rasteriser-visible DOM out of the
@@ -343,29 +391,37 @@ export function RoundDetailPage() {
         </div>
       )}
 
-      {round.data.sg_total !== null && (
-        <div style={{ marginBottom: 28 }}>
-          <RoundSummary
-            round={round.data as unknown as RoundRow}
-            holes={holes}
-            holeScores={holeScores}
-            totalRoundsLogged={totalRoundsLogged}
-          />
-        </div>
-      )}
-
-      <ViewTabs value={view} onChange={setView} />
-
       {view === 'scorecard' ? (
-        <ScorecardView
-          holes={holes}
-          scoresByHoleId={scoresByHoleId}
-          shotCountByHoleScore={shotCountByHoleScore}
-          resolvedHoleByNumber={resolvedHoleByNumber}
-          roundId={round.data.id}
-          ensureRealHole={ensureRealHole}
-          onEditShots={(args) => setShotsModalFor(args)}
-        />
+        <div role="tabpanel" aria-label="Scorecard">
+          <RoundTotals
+            round={round.data as unknown as RoundRow}
+            scored={scored}
+            handicap={profile.data?.handicap_index ?? null}
+          />
+          <div
+            className="grid lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]"
+            style={{ columnGap: 56, rowGap: 36, marginTop: 40 }}
+          >
+            <ScorecardView
+              holes={holes}
+              scoresByHoleId={scoresByHoleId}
+              shotCountByHoleScore={shotCountByHoleScore}
+              resolvedHoleByNumber={resolvedHoleByNumber}
+              roundId={round.data.id}
+              ensureRealHole={ensureRealHole}
+              onEditShots={(args) => setShotsModalFor(args)}
+            />
+            <div className="lg:sticky lg:top-6 lg:self-start lg:pt-[52px]">
+              <RoundSide
+                round={round.data as unknown as RoundRow}
+                holesPlayed={holesPlayed}
+                totalRoundsLogged={allRounds.data?.length ?? 0}
+              >
+                {roundKeys}
+              </RoundSide>
+            </div>
+          </div>
+        </div>
       ) : (
         <MapView
           holes={holes}
@@ -446,6 +502,7 @@ export function RoundDetailPage() {
           }
         />
       )}
+      {view === 'map' && roundKeys}
 
       {shotsModalFor && round.data && (() => {
         // Resolve pin for the modal's mini-map distance recalc. Per-round
@@ -480,6 +537,9 @@ export function RoundDetailPage() {
   )
 }
 
+// Scorecard | Map as a letterpress rocker (mobile Paper.tsx Rocker, §19.1):
+// the active half is pressed in (well face, 2px ink rim, a shade band at the
+// top); the other stands on a 3px ink ledge. Arrow keys switch.
 function ViewTabs({
   value,
   onChange,
@@ -492,37 +552,47 @@ function ViewTabs({
     { key: 'map', label: 'Map' },
   ]
   return (
-    <div
-      style={{
-        display: 'flex',
-        gap: 0,
-        borderBottom: '1px solid #D9D2BF',
-        marginBottom: 18,
-      }}
-    >
-      {tabs.map((t) => (
-        <button
-          key={t.key}
-          type="button"
-          onClick={() => onChange(t.key)}
-          className="font-mono uppercase"
-          style={{
-            background: 'transparent',
-            border: 'none',
-            padding: '10px 18px',
-            fontSize: 10,
-            letterSpacing: '0.14em',
-            color: value === t.key ? '#1C211C' : '#8A8B7E',
-            borderBottom:
-              value === t.key
-                ? '2px solid #1F3D2C'
-                : '2px solid transparent',
-            marginBottom: -1,
-          }}
-        >
-          {t.label}
-        </button>
-      ))}
+    <div style={{ borderBottom: '1px solid #1C211C', padding: '14px 0 18px', marginBottom: 28 }}>
+      <div
+        role="tablist"
+        aria-label="Round view"
+        className="flex overflow-hidden sm:max-w-[420px]"
+        style={{ border: '1px solid #1C211C', borderRadius: 3, background: '#FBF8F1' }}
+        onKeyDown={(e) => {
+          if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return
+          e.preventDefault()
+          onChange(value === 'map' ? 'scorecard' : 'map')
+          e.currentTarget.querySelector<HTMLButtonElement>('[aria-selected="false"]')?.focus()
+        }}
+      >
+        {tabs.map((t, i) => {
+          const on = value === t.key
+          return (
+            <button
+              key={t.key}
+              type="button"
+              role="tab"
+              aria-selected={on}
+              tabIndex={on ? 0 : -1}
+              onClick={() => onChange(t.key)}
+              className="flex-1 text-caddie-ink transition-[background-color,box-shadow] duration-100 ease-out"
+              style={{
+                minHeight: 44,
+                fontSize: 14,
+                fontWeight: on ? 600 : 400,
+                background: on ? '#E4DCCA' : '#FBF8F1',
+                borderLeft: i ? '1px solid #1C211C' : 'none',
+                boxShadow: on
+                  ? 'inset 0 0 0 2px #1C211C, inset 0 5px 0 0 rgba(28,33,28,.28)'
+                  : 'inset 0 -3px 0 0 #1C211C',
+                paddingBottom: on ? 0 : 3,
+              }}
+            >
+              {t.label}
+            </button>
+          )
+        })}
+      </div>
     </div>
   )
 }

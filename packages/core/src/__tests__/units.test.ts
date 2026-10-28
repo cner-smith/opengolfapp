@@ -138,8 +138,8 @@ describe('formatToPar', () => {
     expect(formatToPar(2)).toBe('+2')
   })
 
-  it('negative diff keeps the - sign', () => {
-    expect(formatToPar(-2)).toBe('-2')
+  it('negative diff gets a true minus sign (U+2212), not a hyphen', () => {
+    expect(formatToPar(-2)).toBe('−2')
   })
 
   it('zero renders as E', () => {
@@ -148,7 +148,7 @@ describe('formatToPar', () => {
 
   it('multi-digit values format correctly', () => {
     expect(formatToPar(10)).toBe('+10')
-    expect(formatToPar(-15)).toBe('-15')
+    expect(formatToPar(-15)).toBe('−15')
   })
 })
 

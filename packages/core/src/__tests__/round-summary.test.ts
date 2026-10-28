@@ -24,7 +24,7 @@ describe('buildRoundSummary', () => {
 
   it('labels under par with a minus sign', () => {
     const c = buildRoundSummary({ ...base, totalScore: 70 })
-    expect(c.hero.toParLabel).toBe('-2')
+    expect(c.hero.toParLabel).toBe('−2')
   })
 
   it('centers a neutral SG bar at 50%', () => {

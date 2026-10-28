@@ -35,7 +35,7 @@ const SG_SCALE = 5
 
 function toParLabel(toPar: number): string {
   if (toPar === 0) return 'E'
-  return toPar > 0 ? `+${toPar}` : `${toPar}`
+  return toPar > 0 ? `+${toPar}` : `−${-toPar}`
 }
 
 function barWidth(sg: number): number {

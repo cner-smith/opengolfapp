@@ -3,9 +3,16 @@ import type { Database } from '@oga/supabase'
 import { useUpsertHoleScore } from '../../hooks/useHoleScores'
 import { useUnits } from '../../hooks/useUnits'
 import { toUserMessage } from '../../lib/errors'
+import { GolfMark, GRAPHITE, PencilTick } from '../../pages/rounds/components/PencilMarks'
 
 type HoleRow = Database['public']['Tables']['holes']['Row']
 type HoleScoreRow = Database['public']['Tables']['hole_scores']['Row']
+
+// "Your card" columns (mobile HoleTable COL widths on a phone, roomier from
+// sm up): Hole · Par · Score · Putts · Fwy · Green · Shots. Shared with the
+// header row in ScorecardView.
+export const CARD_COLS =
+  'grid grid-cols-[34px_34px_56px_44px_36px_46px_1fr] sm:grid-cols-[64px_56px_88px_68px_64px_64px_1fr]'
 
 interface HoleScoreCardProps {
   roundId: string
@@ -24,58 +31,38 @@ interface HoleScoreCardProps {
   onEditShots: (holeScoreId: string) => void
 }
 
-interface BubbleStyle {
-  bg: string
-  fg: string
-  border?: string
-}
 
-// Score bubble palette per DESIGN.md scorecard recipe.
-function bubbleStyle(score: number | null | undefined, par: number): BubbleStyle | null {
-  if (!score) return null
-  const d = score - par
-  if (d <= -2) return { bg: '#1F3D2C', fg: '#F2EEE5' }
-  if (d === -1) return { bg: '#FBF8F1', fg: '#1F3D2C', border: '#1F3D2C' }
-  if (d === 0) return { bg: 'transparent', fg: '#5C6356' }
-  if (d === 1) return { bg: '#F1DCD7', fg: '#A33A2A' }
-  if (d === 2) return { bg: '#A33A2A', fg: '#F2EEE5' }
-  return { bg: '#A33A2A', fg: '#F2EEE5' }
-}
+const PENCIL_INPUT =
+  'border-0 border-b border-solid border-transparent placeholder:text-caddie-line-strong focus:border-caddie-line-strong focus:outline-none'
 
-function ToggleButton({
+// Fairway / green: a pencil tick when hit, a dot when missed, a dash when not
+// set. Clicking cycles hit → missed → not set.
+function TickCell({
   state,
   onChange,
   label,
+  seed,
 }: {
   state: boolean | null
   onChange: (v: boolean | null) => void
   label: string
+  seed: number
 }) {
-  const cycle = () => {
-    onChange(state === true ? false : state === false ? null : true)
-  }
-  const bg =
-    state === true ? '#1F3D2C' : state === false ? '#F1DCD7' : '#EBE5D6'
-  const color =
-    state === true ? '#F2EEE5' : state === false ? '#A33A2A' : '#5C6356'
+  const word = state === true ? 'hit' : state === false ? 'missed' : 'not set'
   return (
     <button
       type="button"
-      onClick={cycle}
-      style={{
-        backgroundColor: bg,
-        color,
-        border: 'none',
-        borderRadius: 2,
-        padding: '6px 10px',
-        fontSize: 12,
-        fontWeight: 500,
-        minWidth: 56,
-        letterSpacing: '0.02em',
-      }}
-      aria-label={label}
+      onClick={() => onChange(state === true ? false : state === false ? null : true)}
+      aria-label={`${label}: ${word}`}
+      title="Click: hit · missed · not set"
+      className="mx-auto flex items-center justify-center hover:outline hover:outline-1 hover:outline-caddie-line-strong focus-visible:outline focus-visible:outline-1 focus-visible:outline-caddie-ink"
+      style={{ width: 34, height: 34, borderRadius: 2, background: 'transparent', border: 'none' }}
     >
-      {label} {state === true ? '✓' : state === false ? '✗' : '–'}
+      {state === true ? (
+        <PencilTick seed={seed} />
+      ) : (
+        <span style={{ fontSize: 15, color: 'rgba(28,33,28,.35)' }}>{state === false ? '·' : '—'}</span>
+      )}
     </button>
   )
 }
@@ -92,7 +79,8 @@ export function HoleScoreCard({
 }: HoleScoreCardProps) {
   const upsert = useUpsertHoleScore(roundId)
   const { toDisplay } = useUnits()
-  const [score, setScore] = useState<string>(holeScore?.score?.toString() ?? '')
+  // A 0 score is an unplayed hole (live rounds seed rows ahead of play).
+  const [score, setScore] = useState<string>(holeScore?.score ? String(holeScore.score) : '')
   const [putts, setPutts] = useState<string>(holeScore?.putts?.toString() ?? '')
   const [fairway, setFairway] = useState<boolean | null>(holeScore?.fairway_hit ?? null)
   const [gir, setGir] = useState<boolean | null>(holeScore?.gir ?? null)
@@ -115,7 +103,7 @@ export function HoleScoreCard({
     if (!holeScore) return
     if (hydratedIdRef.current === holeScore.id) return
     hydratedIdRef.current = holeScore.id
-    setScore(holeScore.score?.toString() ?? '')
+    setScore(holeScore.score ? String(holeScore.score) : '')
     setPutts(holeScore.putts?.toString() ?? '')
     setFairway(holeScore.fairway_hit ?? null)
     setGir(holeScore.gir ?? null)
@@ -201,134 +189,97 @@ export function HoleScoreCard({
   }
 
   const isPar3 = effectivePar === 3
-  const bubble = bubbleStyle(holeScore?.score, effectivePar)
+  const typed = score ? Number(score) : 0
+
+  // The figures are pencilled in (Kalam graphite), as on the phone's card;
+  // no input boxes at rest, a 1px underline while focused.
+  const pencil = (size: number) =>
+    ({
+      fontFamily: 'Kalam, cursive',
+      fontSize: size,
+      lineHeight: 1,
+      color: GRAPHITE,
+      background: 'transparent',
+      borderRadius: 0,
+      textAlign: 'center',
+      width: '100%',
+      padding: '6px 0 2px',
+      position: 'relative',
+    }) as const
 
   return (
-    <div
-      className="grid grid-cols-12 items-center"
-      style={{
-        padding: '14px 0',
-        gap: 12,
-        borderBottom: '1px solid #D9D2BF',
-      }}
-    >
-      <div className="col-span-2">
-        <div
-          className="font-mono uppercase tabular text-caddie-ink-mute"
-          style={{ fontSize: 10, letterSpacing: '0.14em' }}
-        >
-          Hole {hole.number}
+    <div style={{ borderBottom: '1px solid #D9D2BF' }}>
+      <div className={`${CARD_COLS} items-center`} style={{ minHeight: 52 }}>
+        <div>
+          <div className="text-caddie-ink tabular" style={{ fontSize: 15 }}>
+            {hole.number}
+          </div>
+          {resolvedYards != null && resolvedYards > 0 && (
+            <div className="hidden sm:block text-caddie-ink-dim tabular" style={{ fontSize: 12 }}>
+              {toDisplay(resolvedYards).toLowerCase()}
+            </div>
+          )}
         </div>
+
         <button
           type="button"
           onClick={() => {
             const next = effectivePar === 3 ? 4 : effectivePar === 4 ? 5 : 3
             void setPar(next)
           }}
-          aria-label={`Par ${effectivePar}, tap to change`}
+          aria-label={`Hole ${hole.number} par ${effectivePar}, click to change`}
           title="Click to change par"
-          className="font-serif text-caddie-ink"
+          className="mx-auto text-caddie-ink tabular hover:underline"
           style={{
-            marginTop: 2,
-            padding: 0,
-            fontSize: 17,
-            fontWeight: 500,
-            lineHeight: 1.2,
+            fontSize: 15,
             background: 'transparent',
             border: 'none',
-            textDecoration: 'underline dotted',
-            textDecorationColor: '#9F9580',
+            padding: '8px 6px',
             textUnderlineOffset: 4,
-            cursor: 'pointer',
-            textAlign: 'left',
+            textDecorationColor: '#9F9580',
           }}
         >
-          Par {effectivePar}
+          {effectivePar}
         </button>
-        {resolvedYards && (
-          <div
-            className="font-mono tabular text-caddie-ink-mute"
-            style={{
-              fontSize: 10,
-              letterSpacing: '0.14em',
-              textTransform: 'uppercase',
+
+        <div className="relative flex items-center justify-center" style={{ height: 52 }}>
+          {typed > 0 && <GolfMark toPar={typed - effectivePar} seed={hole.number} />}
+          <input
+            type="text"
+            inputMode="numeric"
+            placeholder="—"
+            aria-label={`Hole ${hole.number} score`}
+            value={score}
+            onChange={(e) => setScore(e.target.value.replace(/[^0-9]/g, '').slice(0, 2))}
+            onFocus={(e) => e.currentTarget.select()}
+            onBlur={() => {
+              const n = score ? Number(score) : null
+              if (n) void persist({ score: n })
             }}
-          >
-            {toDisplay(resolvedYards)}
-          </div>
-        )}
-      </div>
+            className={PENCIL_INPUT}
+            style={pencil(28)}
+          />
+        </div>
 
-      <input
-        type="number"
-        inputMode="numeric"
-        min={1}
-        max={15}
-        placeholder="—"
-        value={score}
-        onChange={(e) => setScore(e.target.value)}
-        onBlur={() => {
-          const n = score ? Number(score) : null
-          if (n) void persist({ score: n })
-        }}
-        className="col-span-1 font-serif tabular text-caddie-ink bg-caddie-surface"
-        style={{
-          border: '1px solid #D9D2BF',
-          borderRadius: 2,
-          padding: '8px 6px',
-          fontSize: 17,
-          textAlign: 'center',
-          fontWeight: 500,
-        }}
-      />
+        <input
+          type="text"
+          inputMode="numeric"
+          placeholder="—"
+          aria-label={`Hole ${hole.number} putts`}
+          value={putts}
+          onChange={(e) => setPutts(e.target.value.replace(/[^0-9]/g, '').slice(0, 2))}
+          onFocus={(e) => e.currentTarget.select()}
+          onBlur={() => void persist({ putts: putts === '' ? null : Number(putts) })}
+          className={PENCIL_INPUT}
+          style={pencil(22)}
+        />
 
-      <div className="col-span-1 flex justify-center">
-        {bubble && (
-          <span
-            className="inline-flex items-center justify-center font-serif tabular"
-            style={{
-              backgroundColor: bubble.bg,
-              color: bubble.fg,
-              border: bubble.border ? `1px solid ${bubble.border}` : 'none',
-              borderRadius: 2,
-              width: 30,
-              height: 30,
-              fontSize: 14,
-              fontWeight: 500,
-            }}
-          >
-            {holeScore?.score}
-          </span>
-        )}
-      </div>
-
-      <input
-        type="number"
-        inputMode="numeric"
-        min={0}
-        max={10}
-        placeholder="Putts"
-        value={putts}
-        onChange={(e) => setPutts(e.target.value)}
-        onBlur={() => void persist({ putts: putts === '' ? null : Number(putts) })}
-        className="col-span-2 tabular text-caddie-ink bg-caddie-surface"
-        style={{
-          border: '1px solid #D9D2BF',
-          borderRadius: 2,
-          padding: '8px 8px',
-          fontSize: 13,
-          textAlign: 'center',
-        }}
-      />
-
-      <div className="col-span-2 flex justify-center">
         {isPar3 ? (
-          <span className="text-caddie-ink-mute" style={{ fontSize: 11 }}>
-            —
-          </span>
+          <span role="img" aria-label="No fairway on a par 3" />
         ) : (
-          <ToggleButton
-            label="FH"
+          <TickCell
+            label={`Hole ${hole.number} fairway`}
+            seed={hole.number * 2}
             state={fairway}
             onChange={(v) => {
               setFairway(v)
@@ -336,45 +287,41 @@ export function HoleScoreCard({
             }}
           />
         )}
-      </div>
 
-      <div className="col-span-1 flex justify-center">
-        <ToggleButton
-          label="GIR"
+        <TickCell
+          label={`Hole ${hole.number} green`}
+          seed={hole.number * 2 + 1}
           state={gir}
           onChange={(v) => {
             setGir(v)
             void persist({ gir: v })
           }}
         />
-      </div>
 
-      <div className="col-span-3 flex items-center justify-end">
-        <button
-          type="button"
-          disabled={!holeScore}
-          onClick={() => holeScore && onEditShots(holeScore.id)}
-          className="text-caddie-ink transition-colors disabled:cursor-not-allowed disabled:opacity-40"
-          style={{
-            backgroundColor: '#FBF8F1',
-            border: '1px solid #1F3D2C',
-            color: '#1F3D2C',
-            borderRadius: 2,
-            padding: '8px 12px',
-            fontSize: 12,
-            fontWeight: 600,
-            letterSpacing: '0.02em',
-          }}
-          title={holeScore ? 'Edit shots' : 'Enter a score to log shots'}
-        >
-          {shotCount > 0 ? `${shotCount} shots` : 'Add shots'}
-        </button>
+        <div className="flex justify-end">
+          <button
+            type="button"
+            disabled={!holeScore}
+            onClick={() => holeScore && onEditShots(holeScore.id)}
+            className="key"
+            style={{ minHeight: 34, padding: '0 10px', fontSize: 13, gap: 4 }}
+            aria-label={
+              holeScore
+                ? `Hole ${hole.number}, ${shotCount} shot${shotCount === 1 ? '' : 's'}, edit`
+                : 'Enter a score to log shots'
+            }
+            title={holeScore ? 'Edit shots' : 'Enter a score to log shots'}
+          >
+            <span className="hidden sm:inline">
+              {shotCount > 0 ? `${shotCount} shots` : 'Add shots'}
+            </span>
+            <span className="sm:hidden">Shots</span>
+            <span aria-hidden style={{ fontSize: 15, lineHeight: 1 }}>›</span>
+          </button>
+        </div>
       </div>
       {saveError && (
-        <div
-          className="col-span-12 text-caddie-neg"
-          style={{ fontSize: 12, marginTop: 4 }}
-        >
+        <div className="text-caddie-neg" style={{ fontSize: 13, paddingBottom: 8 }}>
           {saveError}
         </div>
       )}
