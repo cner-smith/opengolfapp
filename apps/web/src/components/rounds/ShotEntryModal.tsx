@@ -165,8 +165,10 @@ export function ShotEntryModal({
     // ascending, so the last element carries the max; lastIssuedNumberRef
     // covers the fast-second-add-before-refetch case (see its declaration).
     const freshMax = holeShotsRef.current.at(-1)?.shot_number ?? 0
+    // An edit keeps the row's current number: deleting an earlier shot
+    // renumbers it (delete_shot) after the draft was taken.
     const shotNumber = editing
-      ? draft.shotNumber
+      ? holeShots.find((s) => s.id === editing)?.shot_number ?? draft.shotNumber
       : Math.max(freshMax, lastIssuedNumberRef.current) + 1
     const isPuttSave = isPuttShot(draft.lieType)
     const made =
