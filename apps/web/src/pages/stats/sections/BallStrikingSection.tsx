@@ -9,11 +9,12 @@ export function BallStrikingSection({ data }: { data: DetailedStats }) {
   const { toDisplay } = useUnits()
   return (
     <Section title="Ball striking">
-      <div className="grid grid-cols-2" style={{ gap: 14, maxWidth: 520, marginBottom: 6 }}>
+      <div className="grid lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)] items-start" style={{ columnGap: 44, rowGap: 14 }}>
+      <div className="grid grid-cols-2" style={{ gap: 16 }}>
         <StatTile label="Fairways hit" value={fmtPct(b.fairwayPct)} />
         <StatTile label="Greens in regulation" value={fmtPct(b.girPct)} />
       </div>
-      <div className="grid sm:grid-cols-2" style={{ columnGap: 32 }}>
+      <div className="grid sm:grid-cols-2 lg:grid-cols-1" style={{ columnGap: 32 }}>
         <StatRow
           label="Drive"
           value={b.drivingDistanceAvg != null ? toDisplay(b.drivingDistanceAvg) : '—'}
@@ -32,6 +33,7 @@ export function BallStrikingSection({ data }: { data: DetailedStats }) {
               : 'Needs approach shots with the pin logged'
           }
         />
+      </div>
       </div>
     </Section>
   )

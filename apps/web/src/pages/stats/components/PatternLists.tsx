@@ -5,6 +5,7 @@ import type {
   ScoringDistributionSlice,
   SlopeImpact,
 } from '@oga/core'
+import { formatClubLabel } from '@oga/core'
 import { useUnits } from '../../../hooks/useUnits'
 import { Insufficient } from './Section'
 
@@ -26,17 +27,20 @@ export function ScoringDistributionBar({
           display: 'flex',
           width: '100%',
           height: 56,
-          border: '1px solid #D9D2BF',
-          borderRadius: 4,
+          border: '1px solid #1C211C',
+          borderRadius: 3,
           overflow: 'hidden',
           marginBottom: 14,
         }}
       >
-        {visible.map((s) => (
+        {visible.map((s, i) => (
           <div
             key={s.key}
+            className="st-rise"
             title={`${s.label} · ${s.count} (${s.pct.toFixed(1)}%)`}
             style={{
+              animationDelay: `${i * 50}ms`,
+              borderLeft: i === 0 ? 'none' : '1px solid #FBF8F1',
               width: `${s.pct}%`,
               background: s.color,
               display: 'flex',
@@ -79,18 +83,23 @@ export function ScoringDistributionBar({
   )
 }
 
+const missLabel = (r: string) =>
+  r === 'ob' ? 'OB' : r.charAt(0).toUpperCase() + r.slice(1).replace(/_/g, ' ')
+
 export function MissTendencyList({ entries }: { entries: MissTendencyEntry[] }) {
   if (entries.length === 0)
     return <Insufficient note="Need shot results logged to detect a tendency." />
   return (
     <div style={{ borderTop: '1px solid #D9D2BF' }}>
-      {entries.map((e) => (
+      {entries.map((e, i) => (
         <div
           key={e.result}
-          className="flex items-baseline justify-between"
+          className="grid items-center"
           style={{
+            gridTemplateColumns: 'minmax(110px, 180px) minmax(0, 1fr) auto',
+            gap: 18,
             borderBottom: '1px solid #D9D2BF',
-            padding: '14px 0',
+            padding: '12px 0',
           }}
         >
           <span
@@ -98,12 +107,18 @@ export function MissTendencyList({ entries }: { entries: MissTendencyEntry[] }) 
             style={{
               fontSize: 17,
               fontWeight: 500,
-              textTransform: 'capitalize',
+              
             }}
           >
-            {e.result.replace(/_/g, ' ')}
+            {missLabel(e.result)}
           </span>
-          <span className="flex items-baseline" style={{ gap: 14 }}>
+          <div aria-hidden style={{ height: 8, background: '#EBE5D6' }}>
+            <div
+              className="st-grow"
+              style={{ height: 8, width: `${e.pct}%`, background: '#1C211C', transformOrigin: 'left', animationDelay: `${i * 40}ms` }}
+            />
+          </div>
+          <span className="flex items-baseline justify-end" style={{ gap: 14, minWidth: 120 }}>
             <span
               className="tabular text-caddie-ink-mute"
               style={{ fontSize: 12 }}
@@ -228,10 +243,9 @@ function ClubRows({ entries }: { entries: ClubAccuracyEntry[] }) {
             style={{
               fontSize: 17,
               fontWeight: 500,
-              textTransform: 'uppercase',
             }}
           >
-            {e.club}
+            {formatClubLabel({ club_type: e.club }).replace(/^[a-z]{3,}/, (w) => w.charAt(0).toUpperCase() + w.slice(1))}
           </span>
           <span className="flex items-baseline" style={{ gap: 14 }}>
             <span

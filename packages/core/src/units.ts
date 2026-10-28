@@ -56,8 +56,9 @@ export function formatSG(n: number): string {
   // (e.g. -0.004) renders "0.00", not a signed "-0.00" (#672). Number()
   // collapses the rounded -0.00 to 0, and (-0).toFixed(2) drops the sign.
   const rounded = Number(n.toFixed(2))
-  const sign = rounded > 0 ? '+' : ''
-  return `${sign}${rounded.toFixed(2)}`
+  // U+2212, the typographic minus, as formatToPar prints.
+  const sign = rounded > 0 ? '+' : rounded < 0 ? '−' : ''
+  return `${sign}${Math.abs(rounded).toFixed(2)}`
 }
 
 // A true minus sign (U+2212), not a hyphen, as the scorecard prints it.

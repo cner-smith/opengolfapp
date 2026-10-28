@@ -1,0 +1,124 @@
+/* Stats page: the Last N rocker, the trend's reveal, bars that grow from
+   zero. Curves match Patterns (pat-draw) and Practice (prac-fill). */
+
+.st-rocker {
+  display: inline-flex;
+  border: 1px solid #1c211c;
+  border-radius: 3px;
+  overflow: hidden;
+  background: #fbf8f1;
+}
+.st-rocker button {
+  position: relative;
+  min-height: 44px;
+  min-width: 76px;
+  padding: 0 14px 3px;
+  font-size: 14px;
+  color: #1c211c;
+  background: #fbf8f1;
+  box-shadow: inset 0 -3px 0 #1c211c;
+  transition: background 110ms cubic-bezier(0.33, 1, 0.68, 1), box-shadow 110ms cubic-bezier(0.33, 1, 0.68, 1),
+    padding 110ms cubic-bezier(0.33, 1, 0.68, 1);
+}
+.st-rocker button + button {
+  border-left: 1px solid #1c211c;
+}
+.st-rocker button:hover {
+  background: #fffdf8;
+}
+.st-rocker button:active,
+.st-rocker button[aria-pressed='true'] {
+  padding: 3px 14px 0;
+  background: #e4dcca;
+  box-shadow: inset 0 0 0 2px #1c211c, inset 0 5px 0 rgba(28, 33, 28, 0.28);
+}
+.st-rocker button[aria-pressed='true'] {
+  font-weight: 600;
+}
+@media (max-width: 639px) {
+  .st-rocker {
+    display: flex;
+    width: 100%;
+  }
+  .st-rocker button {
+    flex: 1;
+    min-width: 0;
+  }
+}
+
+/* Focus keys over the trend: the shared .key, a size down. */
+.st-chip.key {
+  min-height: 38px;
+  padding: 0 12px;
+  font-size: 13px;
+  font-weight: 500;
+}
+@media (pointer: coarse) {
+  .st-chip.key {
+    min-height: 44px;
+  }
+}
+
+.st-reveal {
+  animation: st-reveal 700ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+@keyframes st-reveal {
+  from {
+    clip-path: inset(0 100% 0 0);
+  }
+  to {
+    clip-path: inset(0 0 0 0);
+  }
+}
+
+.st-grow {
+  animation: st-grow 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+@keyframes st-grow {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+.st-rise {
+  animation: st-rise 360ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+@keyframes st-rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.st-trend path.recharts-curve {
+  transition: stroke-opacity 200ms ease-out, stroke-width 200ms ease-out;
+}
+
+/* The chart's hover readout: a paper tag on a hard offset, never blur. */
+.st-tip {
+  background: #fbf8f1;
+  border: 1px solid #1c211c;
+  border-radius: 3px;
+  box-shadow: 2px 2px 0 rgba(28, 33, 28, 0.55);
+  padding: 10px 12px;
+  min-width: 170px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .st-reveal,
+  .st-grow,
+  .st-rise {
+    animation: none;
+  }
+  .st-rocker button,
+  .st-trend path.recharts-curve {
+    transition: none;
+  }
+}

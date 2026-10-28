@@ -30,7 +30,7 @@ const SG_ROWS = [
 
 const NEG = '#A33A2A'
 const INK35 = 'rgba(28,33,28,.35)'
-const sg = (n: number | null | undefined) => (n == null ? '—' : formatSG(n).replace('-', '−'))
+const sg = (n: number | null | undefined) => (n == null ? '—' : formatSG(n))
 const WORDS = ['no', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine']
 const strokes = (n: number) => `${WORDS[n] ?? n} stroke${n === 1 ? '' : 's'}`
 

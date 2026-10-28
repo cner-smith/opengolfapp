@@ -1,45 +1,30 @@
+// A paper rocker (mobile Paper.tsx Rocker): one object, the chosen half
+// pressed in, the others standing proud on their ink ledge.
 export function Segmented<T extends number | string>({
   value,
   options,
   onChange,
   renderLabel,
+  label,
 }: {
   value: T
   options: readonly T[]
   onChange: (v: T) => void
   renderLabel: (v: T) => string
+  label?: string
 }) {
   return (
-    <div
-      style={{
-        border: '1px solid #D9D2BF',
-        borderRadius: 2,
-        display: 'inline-flex',
-      }}
-    >
-      {options.map((opt, i) => {
-        const active = opt === value
-        return (
-          <button
-            key={String(opt)}
-            type="button"
-            onClick={() => onChange(opt)}
-            style={{
-              backgroundColor: active ? '#1F3D2C' : 'transparent',
-              color: active ? '#F2EEE5' : '#5C6356',
-              border: 'none',
-              borderLeft: i === 0 ? 'none' : '1px solid #D9D2BF',
-              padding: '8px 14px',
-              fontSize: 12,
-              fontWeight: active ? 600 : 500,
-              letterSpacing: '0.02em',
-              cursor: 'pointer',
-            }}
-          >
-            {renderLabel(opt)}
-          </button>
-        )
-      })}
+    <div className="st-rocker" role="group" aria-label={label}>
+      {options.map((opt) => (
+        <button
+          key={String(opt)}
+          type="button"
+          aria-pressed={opt === value}
+          onClick={() => onChange(opt)}
+        >
+          {renderLabel(opt)}
+        </button>
+      ))}
     </div>
   )
 }

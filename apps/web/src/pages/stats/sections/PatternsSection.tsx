@@ -14,17 +14,23 @@ export function PatternsSection({ data }: { data: DetailedStats }) {
       <Subhead>Miss tendency</Subhead>
       <MissTendencyList entries={data.missTendency} />
 
-      <Subhead style={{ marginTop: 22 }}>Most costly lies</Subhead>
-      <CostlyLiesList entries={data.costlyLies} />
 
-      <Subhead style={{ marginTop: 22 }}>Club accuracy</Subhead>
+      <Subhead style={{ marginTop: 30 }}>Club accuracy</Subhead>
       <ClubAccuracyList entries={data.clubAccuracy} />
 
-      <Subhead style={{ marginTop: 22 }}>Slope impact</Subhead>
+      <Subhead style={{ marginTop: 30 }}>Slope impact</Subhead>
       <SlopeImpactBlock impact={data.slopeImpact} />
 
-      <Subhead style={{ marginTop: 22 }}>Recovery from rough</Subhead>
-      <RecoveryStat stat={data.recovery} />
+      <div className="grid lg:grid-cols-2 items-start" style={{ columnGap: 44, rowGap: 30, marginTop: 30 }}>
+        <div>
+          <Subhead>Most costly lies</Subhead>
+          <CostlyLiesList entries={data.costlyLies} />
+        </div>
+        <div>
+          <Subhead>Recovery from rough</Subhead>
+          <RecoveryStat stat={data.recovery} />
+        </div>
+      </div>
     </Section>
   )
 }

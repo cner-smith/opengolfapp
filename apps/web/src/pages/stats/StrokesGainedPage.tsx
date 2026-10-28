@@ -11,6 +11,7 @@ import { ShortGameSection } from './sections/ShortGameSection'
 import { PatternsSection } from './sections/PatternsSection'
 import { ClubDistancesSection } from './sections/ClubDistancesSection'
 import { HelpButton } from '../../components/help/HelpButton'
+import './stats.css'
 
 const N_OPTIONS: readonly number[] = [5, 10, 20]
 
@@ -35,14 +36,14 @@ export function StrokesGainedPage() {
   return (
     <div>
       <div
-        className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3"
-        style={{ marginBottom: 28 }}
+        className="flex flex-col sm:flex-row sm:items-end sm:justify-between"
+        style={{ gap: 16, marginBottom: 32 }}
       >
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <h1
               className="font-serif text-caddie-ink"
-              style={{ fontSize: 28, fontWeight: 500, lineHeight: 1.15 }}
+              style={{ fontSize: 34, fontWeight: 500, lineHeight: 1.1 }}
             >
               Stats
             </h1>
@@ -50,7 +51,7 @@ export function StrokesGainedPage() {
           </div>
           <div
             className="text-caddie-ink-dim"
-            style={{ fontSize: 15, marginTop: 6, maxWidth: 560 }}
+            style={{ fontSize: 15, marginTop: 8, maxWidth: 560 }}
           >
             {stats.isLoading
               ? 'Per-category strokes vs. the bracket baseline.'
@@ -64,6 +65,7 @@ export function StrokesGainedPage() {
           options={N_OPTIONS}
           onChange={setN}
           renderLabel={(v) => `Last ${v}`}
+          label="Rounds to include"
         />
       </div>
 
@@ -73,7 +75,7 @@ export function StrokesGainedPage() {
         <StatsPreview />
       ) : (
         <>
-          <StrokesGainedSection data={stats.data} />
+          <StrokesGainedSection data={stats.data} wholeCount={wholeCount} />
           <ScoringSection data={stats.data} />
           <BallStrikingSection data={stats.data} />
           <ShortGameSection data={stats.data} />
