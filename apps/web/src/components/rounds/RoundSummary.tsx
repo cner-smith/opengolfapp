@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import {
   formatSG,
+  formatToPar,
   pickRoundFocus,
   roundFocusHeadline,
   selectNudgeDrills,
@@ -29,7 +30,6 @@ const SG_ROWS = [
 
 const NEG = '#A33A2A'
 const INK35 = 'rgba(28,33,28,.35)'
-export const signed = (n: number) => (n === 0 ? 'E' : n > 0 ? `+${n}` : `−${-n}`)
 const sg = (n: number | null | undefined) => (n == null ? '—' : formatSG(n).replace('-', '−'))
 const WORDS = ['no', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine']
 const strokes = (n: number) => `${WORDS[n] ?? n} stroke${n === 1 ? '' : 's'}`
@@ -83,7 +83,7 @@ export function RoundTotals({
             {par > 0 && (
               <>
                 <div className="font-serif italic tabular text-caddie-ink" style={{ fontSize: 24, fontWeight: 500, lineHeight: 1.1 }}>
-                  {signed(score - par)}
+                  {formatToPar(score - par)}
                 </div>
                 <div className="text-caddie-ink" style={{ fontSize: 13 }}>
                   to par · {par}
@@ -116,7 +116,7 @@ export function RoundTotals({
         </div>
         {best && worst && worstDiff > bestDiff && (
           <p className="font-serif text-caddie-ink" style={{ fontSize: 18, lineHeight: 1.5, marginTop: 18, maxWidth: 460 }}>
-            <em style={{ fontWeight: 500 }}>Hole {best.number}</em> was your best ({signed(bestDiff)});{' '}
+            <em style={{ fontWeight: 500 }}>Hole {best.number}</em> was your best ({formatToPar(bestDiff)});{' '}
             {worstDiff > 0 ? (
               <>
                 <em style={{ fontWeight: 500 }}>hole {worst.number}</em> cost you {strokes(worstDiff)}.
@@ -181,10 +181,12 @@ function SGBarRow({ label, value, max }: { label: string; value: number | null; 
 export function RoundSide({
   round,
   holesPlayed,
+  totalRoundsLogged,
   children,
 }: {
   round: RoundRow
   holesPlayed: number
+  totalRoundsLogged: number
   children: ReactNode
 }) {
   const focus = pickRoundFocus(round)
@@ -215,6 +217,13 @@ export function RoundSide({
   return (
     <aside>
       {focus && <RoundNudge focus={focus} />}
+      {totalRoundsLogged >= 3 && (
+        <div style={{ margin: focus ? '18px 0 28px' : '0 0 28px' }}>
+          <Link to="/practice" className="key key-primary">
+            Go to Practice <span className="font-serif" style={{ fontStyle: 'italic' }}>→</span>
+          </Link>
+        </div>
+      )}
       <div style={{ borderTop: '1px solid #1C211C', marginTop: focus ? 28 : 0 }}>
         {rows.map((r) => (
           <div

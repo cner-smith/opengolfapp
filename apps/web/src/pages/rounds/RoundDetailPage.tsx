@@ -146,6 +146,7 @@ export function RoundDetailPage() {
     missingHoleLayout,
     activeHoleShots,
     resolvedHoleByNumber,
+    allRounds,
   } = data
 
   const actions = useRoundActions({
@@ -411,7 +412,11 @@ export function RoundDetailPage() {
               onEditShots={(args) => setShotsModalFor(args)}
             />
             <div className="lg:sticky lg:top-6 lg:self-start lg:pt-[52px]">
-              <RoundSide round={round.data as unknown as RoundRow} holesPlayed={holesPlayed}>
+              <RoundSide
+                round={round.data as unknown as RoundRow}
+                holesPlayed={holesPlayed}
+                totalRoundsLogged={allRounds.data?.length ?? 0}
+              >
                 {roundKeys}
               </RoundSide>
             </div>

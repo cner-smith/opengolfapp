@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import type { Database } from '@oga/supabase'
-import type { ResolvedHole } from '@oga/core'
+import { formatToPar, type ResolvedHole } from '@oga/core'
 import { CARD_COLS, HoleScoreCard } from '../../../components/rounds/HoleScoreCard'
 
 type HoleRow = Database['public']['Tables']['holes']['Row']
@@ -71,7 +71,7 @@ export function ScorecardView({
               <span className="font-serif italic tabular" style={{ fontSize: 16, fontWeight: 500 }}>
                 {p.t.score}
               </span>{' '}
-              ({signed(p.t.toPar)})
+              ({formatToPar(p.t.toPar)})
             </span>
           ))}
         </div>
@@ -136,4 +136,3 @@ export function ScorecardView({
   )
 }
 
-const signed = (n: number) => (n === 0 ? 'E' : n > 0 ? `+${n}` : `−${-n}`)

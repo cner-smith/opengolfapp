@@ -60,9 +60,10 @@ export function formatSG(n: number): string {
   return `${sign}${rounded.toFixed(2)}`
 }
 
+// A true minus sign (U+2212), not a hyphen, as the scorecard prints it.
 export function formatToPar(diff: number): string {
   if (diff === 0) return 'E'
-  return diff > 0 ? `+${diff}` : `${diff}`
+  return diff > 0 ? `+${diff}` : `−${-diff}`
 }
 
 // Shot distances: yards under 'yards' mode, metres under 'meters'. Caller

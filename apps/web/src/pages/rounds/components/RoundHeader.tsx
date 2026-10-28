@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { Database } from '@oga/supabase'
-import { isFinishedRound, resolveCourseTee } from '@oga/core'
+import { formatToPar, isFinishedRound, resolveCourseTee } from '@oga/core'
 
 type RoundRow = Database['public']['Tables']['rounds']['Row']
 type CourseTeeRow = Database['public']['Tables']['course_tees']['Row']
@@ -98,7 +98,7 @@ export function RoundHeader({
               <span className="font-serif italic tabular" style={{ fontSize: 16, fontWeight: 500 }}>
                 {score}
               </span>
-              {toPar != null && ` (${toPar === 0 ? 'E' : toPar > 0 ? `+${toPar}` : `−${-toPar}`})`}
+              {toPar != null && ` (${formatToPar(toPar)})`}
             </>
           )}
         </div>

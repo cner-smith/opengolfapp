@@ -13,7 +13,7 @@ import type {
   HoleGeo,
   PlacedPoint,
 } from '../../../components/round/RoundMap'
-import { useRound } from '../../../hooks/useRounds'
+import { useRound, useRounds } from '../../../hooks/useRounds'
 import {
   useCourse,
   useCourseTees,
@@ -39,6 +39,7 @@ interface UseRoundDataInput {
 
 export interface UseRoundDataResult {
   round: ReturnType<typeof useRound>
+  allRounds: ReturnType<typeof useRounds>
   holesQuery: ReturnType<typeof useHolesForCourse>
   teesQuery: ReturnType<typeof useCourseTees>
   holeTeesQuery: ReturnType<typeof useHoleTeesForCourse>
@@ -96,6 +97,8 @@ export function useRoundData({
   // panned out in PostgREST. A standalone course read is unambiguous.
   const courseQuery = useCourse(courseId)
   const holeScoresQuery = useHoleScores(roundId)
+  // Only its length is read: the round page offers Practice from 3 rounds.
+  const allRounds = useRounds(50)
   const shotsQuery = useShotsForRound(roundId)
 
   // Synthetic fallback when the course has no rows in the `holes` table
@@ -350,6 +353,7 @@ export function useRoundData({
   }, [activeHoleScore, shotsQuery.data, resolvedPar, unit])
 
   return {
+    allRounds,
     round,
     holesQuery,
     teesQuery,
