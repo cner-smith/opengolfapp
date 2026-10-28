@@ -1,10 +1,11 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { partialRoundLabel } from '@oga/core'
+import { formatSG, partialRoundLabel } from '@oga/core'
 import { useDeleteRound, useRounds } from '../../hooks/useRounds'
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
 import { toUserMessage } from '../../lib/errors'
 import { formatPlayed } from '../dashboard/DashboardPage'
+import './rounds.css'
 
 // Tee names are stored as typed ("black", "Blue"); read them in sentence case.
 function teeLabel(tee: string): string {
@@ -19,6 +20,11 @@ export function RoundsPage() {
     id: string
     name: string
   } | null>(null)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
+  const closeDelete = () => {
+    setPendingDelete(null)
+    setDeleteError(null)
+  }
 
   return (
     <div>
@@ -105,24 +111,24 @@ export function RoundsPage() {
       )}
 
       {rounds && rounds.length > 0 && (
-        <ul style={{ borderTop: '1px solid #D9D2BF' }}>
-          {rounds.map((r) => {
+        <ul className="rounds-list" style={{ borderTop: '1px solid #1C211C' }}>
+          {rounds.map((r, i) => {
             const name = r.courses?.name ?? 'Round'
             return (
               <li
                 key={r.id}
                 className="flex items-center"
-                style={{ borderBottom: '1px solid #D9D2BF', gap: 6 }}
+                style={{ borderBottom: '1px solid #D9D2BF', gap: 6, ['--i' as string]: Math.min(i, 8) }}
               >
                 <Link
                   to={`/rounds/${r.id}`}
-                  className="flex min-w-0 flex-1 items-center justify-between transition-colors hover:bg-caddie-surface"
-                  style={{ padding: '14px 8px', gap: 16 }}
+                  className="flex min-w-0 flex-1 items-center justify-between transition-colors duration-100 hover:bg-caddie-surface"
+                  style={{ padding: '14px 4px', gap: 12 }}
                 >
                   <div className="min-w-0 flex-1">
                     <div
-                      className="font-serif text-caddie-ink truncate"
-                      style={{ fontSize: 19, fontWeight: 500, lineHeight: 1.2 }}
+                      className="font-serif text-caddie-ink"
+                      style={{ fontSize: 19, fontStyle: 'italic', fontWeight: 500, lineHeight: 1.25 }}
                     >
                       {name}
                     </div>
@@ -132,24 +138,33 @@ export function RoundsPage() {
                       {partialRoundLabel(r.hole_scores)}
                     </div>
                   </div>
-                  <div className="flex items-baseline" style={{ gap: 18 }}>
+                  <div className="flex items-baseline" style={{ gap: 14 }}>
                     <span
                       className="font-serif tabular text-caddie-ink"
                       style={{ fontSize: 24, fontWeight: 500, lineHeight: 1 }}
                     >
                       {r.total_score ? r.total_score : '—'}
                     </span>
-                    <span className="hidden sm:inline-block text-right" style={{ minWidth: 56 }}>
-                      <SGValue value={r.sg_total} />
+                    <span
+                      className="font-serif tabular text-right"
+                      style={{
+                        fontSize: 14,
+                        minWidth: 44,
+                        color: r.sg_total == null ? '#5C6356' : r.sg_total >= 0 ? '#1F3D2C' : '#A33A2A',
+                      }}
+                    >
+                      {r.sg_total == null ? '—' : formatSG(r.sg_total)}
                     </span>
                   </div>
                 </Link>
+                {/* Desktop only, shown on row hover/focus; on a phone it
+                    lives on the round's own page, as in the app. */}
                 <button
                   type="button"
-                  onClick={() => setPendingDelete({ id: r.id, name: r.courses?.name ?? 'this round' })}
-                  aria-label={`Delete round at ${r.courses?.name ?? 'this round'}`}
-                  className="text-caddie-ink-mute hover:text-caddie-neg hover:underline underline-offset-4"
-                  style={{ background: 'transparent', border: 'none', padding: '14px 4px 14px 8px', fontSize: 13, cursor: 'pointer' }}
+                  onClick={() => setPendingDelete({ id: r.id, name })}
+                  aria-label={`Delete round at ${name}`}
+                  className="rounds-del key hidden lg:inline-flex"
+                  style={{ minHeight: 34, padding: '0 10px', fontSize: 13, color: '#A33A2A', marginLeft: 4 }}
                 >
                   Delete
                 </button>
@@ -170,46 +185,18 @@ export function RoundsPage() {
         confirmLabel="Delete"
         destructive
         busy={deleteMutation.isPending}
+        error={deleteError}
         onConfirm={async () => {
           if (!pendingDelete) return
           try {
             await deleteMutation.mutateAsync(pendingDelete.id)
-            setPendingDelete(null)
-          } catch {
-            setPendingDelete(null)
+            closeDelete()
+          } catch (err) {
+            setDeleteError(toUserMessage(err))
           }
         }}
-        onCancel={() => setPendingDelete(null)}
+        onCancel={closeDelete}
       />
     </div>
-  )
-}
-
-function SGValue({ value }: { value: number | null }) {
-  if (value === null) {
-    return (
-      <span
-        className="font-serif text-caddie-ink-mute"
-        style={{ fontSize: 17 }}
-      >
-        —
-      </span>
-    )
-  }
-  const color = value > 0 ? '#1F3D2C' : value < 0 ? '#A33A2A' : '#5C6356'
-  return (
-    <span
-      className="font-serif tabular"
-      style={{
-        color,
-        fontSize: 17,
-        fontStyle: 'italic',
-        fontWeight: 500,
-        lineHeight: 1,
-      }}
-    >
-      {value > 0 ? '+' : ''}
-      {value.toFixed(2)}
-    </span>
   )
 }

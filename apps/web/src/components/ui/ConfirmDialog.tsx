@@ -8,6 +8,8 @@ interface ConfirmDialogProps {
   cancelLabel?: string
   destructive?: boolean
   busy?: boolean
+  /** Shown in brick under the message; the dialog stays open on failure. */
+  error?: string | null
   onConfirm: () => void | Promise<void>
   onCancel: () => void
 }
@@ -20,6 +22,7 @@ export function ConfirmDialog({
   cancelLabel = 'Cancel',
   destructive = false,
   busy = false,
+  error,
   onConfirm,
   onCancel,
 }: ConfirmDialogProps) {
@@ -65,6 +68,11 @@ export function ConfirmDialog({
             style={{ fontSize: 14, lineHeight: 1.5, marginBottom: 22 }}
           >
             {message}
+          </p>
+        )}
+        {error && (
+          <p role="alert" className="text-caddie-neg" style={{ fontSize: 13, lineHeight: 1.45, margin: '-10px 0 18px' }}>
+            {error}
           </p>
         )}
         <div
