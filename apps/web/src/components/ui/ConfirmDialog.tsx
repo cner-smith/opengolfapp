@@ -12,6 +12,8 @@ interface ConfirmDialogProps {
   error?: string | null
   onConfirm: () => void | Promise<void>
   onCancel: () => void
+  /** Escape and the scrim; defaults to onCancel. For a cancel key that goes somewhere. */
+  onDismiss?: () => void
 }
 
 export function ConfirmDialog({
@@ -25,15 +27,16 @@ export function ConfirmDialog({
   error,
   onConfirm,
   onCancel,
+  onDismiss = onCancel,
 }: ConfirmDialogProps) {
   useEffect(() => {
     if (!open) return
     function onKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') onCancel()
+      if (e.key === 'Escape') onDismiss()
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [open, onCancel])
+  }, [open, onDismiss])
 
   if (!open) return null
 
@@ -43,7 +46,7 @@ export function ConfirmDialog({
       aria-modal="true"
       className="fixed inset-0 z-[60] flex items-center justify-center"
       style={{ background: 'rgba(28,33,28,0.55)', padding: 16 }}
-      onClick={onCancel}
+      onClick={onDismiss}
     >
       <div
         className="paper-tile w-full"

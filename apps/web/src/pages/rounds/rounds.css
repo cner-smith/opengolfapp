@@ -10,13 +10,16 @@
     transform: translateY(12px);
   }
 }
-.rounds-del {
-  opacity: 0;
-  transition: opacity 120ms ease-out;
-}
-.rounds-list li:hover .rounds-del,
-.rounds-list li:focus-within .rounds-del {
-  opacity: 1;
+/* Only where there is hover: on a touch screen the key always shows. */
+@media (hover: hover) {
+  .rounds-del {
+    opacity: 0;
+    transition: opacity 120ms ease-out;
+  }
+  .rounds-list li:hover .rounds-del,
+  .rounds-list li:focus-within .rounds-del {
+    opacity: 1;
+  }
 }
 /* The trend: the average line draws left to right, the dots land in turn. */
 .rounds-trend-line {

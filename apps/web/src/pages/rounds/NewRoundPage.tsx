@@ -284,6 +284,7 @@ export function NewRoundPage() {
         busy={createRoundMutation.isPending}
         onConfirm={create}
         onCancel={() => navigate(`/rounds/${unfinishedId}?view=map`)}
+        onDismiss={() => setUnfinishedId(null)}
       />
     </div>
   )
