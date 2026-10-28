@@ -15,6 +15,16 @@ test.describe('Bag (signed in)', () => {
     await expect(card.getByTestId('bag-gap').filter({ hasText: 'the widest' })).toHaveCount(1)
   })
 
+  test('on a phone the chart rows read Dr, 3W … LW, not raw ids (#1235)', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 })
+    await page.goto('/settings/bag')
+    const chart = page.getByRole('region', { name: 'Gapping chart' })
+    for (const label of ['Dr', '3W', '7I', 'PW', 'LW']) {
+      await expect(chart.getByText(label, { exact: true })).toBeVisible()
+    }
+    await expect(chart.getByText('driver', { exact: true })).toBeHidden()
+  })
+
   test('opening a club shows its edit form with Bench it and Delete', async ({ page }) => {
     await page.goto('/settings/bag')
     const row = page.getByRole('button', { name: /^7 Iron[,.]/ })

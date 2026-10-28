@@ -1,4 +1,4 @@
-import { HOLE_YARDS, MIN_SAMPLES_FOR_STATS, YARDS_TO_METERS, clubNoun, distanceUnitAbbr, formatClubLabel, wholeDistance, type BagClub, type BagGap, type BagGaps, type DistanceUnit } from '@oga/core'
+import { HOLE_YARDS, MIN_SAMPLES_FOR_STATS, YARDS_TO_METERS, clubNoun, distanceUnitAbbr, shortClubLabel, wholeDistance, type BagClub, type BagGap, type BagGaps, type DistanceUnit } from '@oga/core'
 import type { UserClub } from '../../hooks/useUserBag'
 
 /** One in-bag club as the chart and the yardage card read it. */
@@ -82,7 +82,9 @@ export function GapChart({ bag, unit, example }: { bag: BagGaps<BagRung>; unit: 
               <span className="hidden sm:inline" style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
                 {r.club.name}
               </span>
-              <span className="sm:hidden">{formatClubLabel(r.club)}</span>
+              <span className="sm:hidden" style={{ fontWeight: 600 }}>
+                {shortClubLabel(r.club)}
+              </span>
             </div>
           ))}
         </div>

@@ -8,6 +8,7 @@ import {
   clubCategoryFor,
   clubNoun,
   formatClubLabel,
+  shortClubLabel,
 } from '../constants'
 
 describe('clubCategoryFor', () => {
@@ -208,6 +209,31 @@ describe('formatClubLabel', () => {
     expect(
       formatClubLabel({ club_type: 'cw', loft: 58 }, { hasDuplicateType: true }),
     ).toBe('58°')
+  })
+})
+
+describe('shortClubLabel', () => {
+  it('reads like the phone gap chart: Dr, 3W, 5H, 7I, PW', () => {
+    expect(['driver', '3w', '5h', '7i', 'pw', 'lw'].map((t) => shortClubLabel({ club_type: t }))).toEqual([
+      'Dr',
+      '3W',
+      '5H',
+      '7I',
+      'PW',
+      'LW',
+    ])
+  })
+
+  it('shortens the two multi-word types', () => {
+    expect(shortClubLabel({ club_type: 'mini_driver' })).toBe('Mini')
+    expect(shortClubLabel({ club_type: 'putter' })).toBe('Putter')
+  })
+
+  it('a custom wedge reads as its loft, else CW', () => {
+    expect(shortClubLabel({ club_type: 'cw', loft: 58 })).toBe('58°')
+    expect(shortClubLabel({ club_type: 'custom_wedge', loft: 64 })).toBe('64°')
+    expect(shortClubLabel({ club_type: 'cw', name: 'Grind' })).toBe('CW')
+    expect(shortClubLabel({ club_type: 'custom_wedge' })).toBe('CW')
   })
 })
 

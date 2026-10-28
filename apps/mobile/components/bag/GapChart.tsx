@@ -6,6 +6,7 @@ import {
   YARDS_TO_METERS,
   clubNoun,
   distanceUnitAbbr,
+  shortClubLabel,
   wholeDistance,
   type BagClub,
   type BagGap,
@@ -30,11 +31,6 @@ const OVERLAP_FILL = 'rgba(163,58,42,0.25)'
 export type ChartClub = BagClub & { id: string }
 
 const words = (xs: string[]) => (xs.length < 2 ? (xs[0] ?? '') : `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}`)
-
-// "Dr", "3W", "7I", "PW": short enough for the row labels.
-function short(clubType: string): string {
-  return clubType === 'driver' ? 'Dr' : clubType.toUpperCase()
-}
 
 // A shaded stretch: an overlap, or an empty one of HOLE_YARDS or more (a hole,
 // or the stretch over clubs with no number, as the headline reads it).
@@ -111,7 +107,7 @@ export function GapChart({ gaps, unit }: { gaps: BagGaps<ChartClub>; unit: Dista
                 numberOfLines={1}
                 style={[TYPE.bodyBold, { color: r.typical ? P.ink : MUTE, fontSize: 12 }]}
               >
-                {short(r.clubType)}
+                {shortClubLabel({ club_type: r.clubType })}
               </Text>
             </View>
           ))}
