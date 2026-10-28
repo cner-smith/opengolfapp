@@ -94,3 +94,35 @@ export function distinctiveToken(name: string): string | null {
   const sorted = [...tokens].sort((a, b) => b.length - a.length || a.localeCompare(b))
   return sorted[0]!
 }
+
+/** A hole row's coordinates, as far as planning needs them. */
+export interface PlanHoleCoords {
+  course_id: string
+  tee_lat: number | null
+  pin_lat: number | null
+}
+
+/**
+ * Course search results for the planner, with each course's hole count, how
+ * many of those holes are mapped (a tee and a pin, the planner's own test) and
+ * whether the player has a round there. Courses the player has played come
+ * first, then mapped ones, then the rest (no mapped hole: nothing to plan on);
+ * within a tier the search's own order stands.
+ */
+export function rankPlanCourses<C extends { id: string }>(
+  courses: C[],
+  holes: PlanHoleCoords[],
+  playedCourseIds: ReadonlySet<string>,
+): (C & { holeCount: number; mappedCount: number; played: boolean })[] {
+  const rows = courses.map((c) => {
+    const own = holes.filter((h) => h.course_id === c.id)
+    return {
+      ...c,
+      holeCount: own.length,
+      mappedCount: own.filter((h) => h.tee_lat != null && h.pin_lat != null).length,
+      played: playedCourseIds.has(c.id),
+    }
+  })
+  const tier = (r: (typeof rows)[number]) => (r.played ? 0 : r.mappedCount > 0 ? 1 : 2)
+  return rows.map((r, i) => ({ r, i })).sort((a, b) => tier(a.r) - tier(b.r) || a.i - b.i).map(({ r }) => r)
+}

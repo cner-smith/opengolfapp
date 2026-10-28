@@ -97,6 +97,11 @@ export function countRoundsWithSG(client: OgaSupabaseClient, userId: string) {
     )
 }
 
+// The planner's course search: which of these courses the player has a round on.
+export function getRoundCourseIds(client: OgaSupabaseClient, userId: string, courseIds: string[]) {
+  return client.from('rounds').select('course_id').eq('user_id', userId).in('course_id', courseIds)
+}
+
 // List views include in-progress rounds; the SG dashboard intentionally
 // keeps getRecentSGData (only rounds with computed SG).
 export function getRecentRounds(client: OgaSupabaseClient, userId: string, limit = 10) {

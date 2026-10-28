@@ -110,6 +110,11 @@ export function getHolesForCourse(client: OgaSupabaseClient, courseId: string) {
     .order('number')
 }
 
+// The planner's course search: which holes of each result have a tee and a pin.
+export function getHoleCoordsForCourses(client: OgaSupabaseClient, courseIds: string[]) {
+  return client.from('holes').select('course_id, tee_lat, pin_lat').in('course_id', courseIds)
+}
+
 export function createCourse(client: OgaSupabaseClient, course: CourseInsert) {
   return client.from('courses').insert(course).select().single()
 }
