@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { View } from 'react-native'
 import Animated, { useReducedMotion, useSharedValue, withTiming, useAnimatedStyle } from 'react-native-reanimated'
 import Svg, { Path } from 'react-native-svg'
-import { marksDuration, marksFor, marksPath, pencilTick } from './pencil'
+import { marksDuration, marksFor, marksPath, pencilTick } from '@oga/core'
 
 import { P } from './tokens'
 

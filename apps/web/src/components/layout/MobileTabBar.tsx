@@ -1,6 +1,5 @@
 import { NavLink } from 'react-router-dom'
-import { pencilUnderline } from '@oga/core'
-import { marksPath } from '../../pages/rounds/components/pencil'
+import { marksPath, pencilUnderline } from '@oga/core'
 import './shell.css'
 import {
   mdiHomeOutline,
@@ -30,7 +29,7 @@ function MdiIcon({ path }: { path: string }) {
 
 // Mobile's PencilTabButton underline, from the shared pencil geometry, so the
 // active tab carries the same graphite hand (SHL-14).
-const UNDERLINE = marksPath([{ m: pencilUnderline(), at: 0 }])
+const UNDERLINE = marksPath([{ m: pencilUnderline(), at: 0 }], 1e9)
 
 export function PencilUnderline({ width = 34, height = 8 }: { width?: number | string; height?: number | string }) {
   return (
