@@ -88,14 +88,11 @@ function GenerateButton({ label, onGenerate, isPending }: { label: string; onGen
       type="button"
       onClick={onGenerate}
       disabled={isPending}
-      className="bg-caddie-accent text-caddie-accent-ink hover:opacity-90 disabled:opacity-60"
+      className="key key-primary"
       style={{
         fontSize: 14,
         fontWeight: 600,
         letterSpacing: '0.02em',
-        padding: '12px 16px',
-        borderRadius: 2,
-        cursor: isPending ? 'default' : 'pointer',
         whiteSpace: 'nowrap',
       }}
     >

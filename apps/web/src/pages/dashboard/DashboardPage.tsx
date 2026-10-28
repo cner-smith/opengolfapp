@@ -265,11 +265,9 @@ function StartRoundCTAs() {
     <div style={{ marginBottom: 28 }}>
       <Link
         to="/rounds/new?mode=live"
-        className="bg-caddie-accent text-caddie-accent-ink hover:opacity-90 flex items-center justify-center"
+        className="key key-primary w-full"
         style={{
           gap: 8,
-          padding: '15px 16px',
-          borderRadius: 2,
           fontSize: 16,
           fontWeight: 700,
           letterSpacing: '0.02em',
@@ -416,14 +414,6 @@ function SGValue({ value }: { value: number | null }) {
 }
 
 function EmptyState({ headline, body }: { headline: string; body: string }) {
-  const button: React.CSSProperties = {
-    display: 'inline-block',
-    padding: '12px 16px',
-    fontSize: 14,
-    fontWeight: 600,
-    letterSpacing: '0.02em',
-    borderRadius: 2,
-  }
   return (
     <div
       className="bg-caddie-surface text-center"
@@ -446,14 +436,10 @@ function EmptyState({ headline, body }: { headline: string; body: string }) {
         {body}
       </div>
       <div className="flex flex-wrap justify-center" style={{ gap: 8, marginTop: 22 }}>
-        <Link to="/rounds/new" className="bg-caddie-accent text-caddie-accent-ink hover:opacity-90" style={button}>
+        <Link to="/rounds/new" className="key key-primary">
           Log a round <span className="font-serif" style={{ fontStyle: 'italic' }}>→</span>
         </Link>
-        <Link
-          to="/rounds/import"
-          className="text-caddie-accent hover:bg-caddie-bg"
-          style={{ ...button, border: '1px solid #1F3D2C' }}
-        >
+        <Link to="/rounds/import" className="key">
           Import your history
         </Link>
       </div>

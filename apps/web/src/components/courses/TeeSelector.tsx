@@ -240,10 +240,8 @@ function AddTeeForm({
           type="button"
           onClick={commit}
           disabled={busy || !color.trim()}
-          className="bg-caddie-accent text-caddie-accent-ink disabled:opacity-50"
+          className="key key-primary"
           style={{
-            borderRadius: 2,
-            padding: '8px 14px',
             fontSize: 13,
             fontWeight: 600,
             letterSpacing: '0.02em',

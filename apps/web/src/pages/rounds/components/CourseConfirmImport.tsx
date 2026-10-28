@@ -192,8 +192,8 @@ export function CourseConfirmImport({ rounds, notImported: leftOut, notice, impo
                     <button
                       type="button"
                       onClick={() => updateRow(row.fileName, { decision: { courseId: row.match!.id, courseName: row.match!.name } })}
-                      className="bg-caddie-accent text-caddie-accent-ink hover:opacity-90"
-                      style={{ ...buttonStyle, border: '1px solid #1F3D2C' }}
+                      className="key key-primary"
+                      style={buttonStyle}
                     >
                       Use this course
                     </button>
@@ -255,8 +255,8 @@ export function CourseConfirmImport({ rounds, notImported: leftOut, notice, impo
             type="button"
             onClick={handleImport}
             disabled={!decided || toImport === 0 || !!progress}
-            className="bg-caddie-accent text-caddie-accent-ink hover:opacity-90 disabled:opacity-50"
-            style={{ ...buttonStyle, border: 'none', padding: '12px 16px', fontSize: 14, letterSpacing: '0.02em' }}
+            className="key key-primary"
+            style={{ ...buttonStyle, fontSize: 14, letterSpacing: '0.02em' }}
           >
             Import {toImport} round{toImport === 1 ? '' : 's'}
           </button>

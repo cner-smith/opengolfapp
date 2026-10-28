@@ -148,10 +148,8 @@ export function RoundHeader({
             type="button"
             onClick={onComplete}
             disabled={completePending || holesPlayed === 0}
-            className="bg-caddie-accent text-caddie-accent-ink hover:opacity-90 disabled:opacity-40"
+            className="key key-primary"
             style={{
-              borderRadius: 2,
-              padding: '12px 16px',
               fontSize: 14,
               fontWeight: 600,
               letterSpacing: '0.02em',

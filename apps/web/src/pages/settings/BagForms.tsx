@@ -166,13 +166,10 @@ export function ClubEditForm({
           type="button"
           onClick={submit}
           disabled={saving}
-          className="bg-caddie-accent text-caddie-accent-ink"
+          className="key key-primary"
           style={{
-            padding: '8px 14px',
             fontSize: 13,
             fontWeight: 600,
-            borderRadius: 2,
-            opacity: saving ? 0.7 : 1,
           }}
         >
           {saving ? 'Saving…' : 'Save'}
@@ -405,13 +402,10 @@ export function AddClubForm({
             type="button"
             onClick={onSubmit}
             disabled={submitting}
-            className="bg-caddie-accent text-caddie-accent-ink"
+            className="key key-primary"
             style={{
-              padding: '10px 14px',
               fontSize: 14,
               fontWeight: 600,
-              borderRadius: 2,
-              opacity: submitting ? 0.7 : 1,
             }}
           >
             Add to bag <span className="font-serif italic" style={{ marginLeft: 4 }}>→</span>

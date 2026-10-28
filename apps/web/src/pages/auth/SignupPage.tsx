@@ -145,8 +145,8 @@ export function SignupPage() {
         <button
           type="submit"
           disabled={loading}
-          className="w-full bg-caddie-accent text-caddie-accent-ink transition-opacity hover:opacity-90 disabled:opacity-50"
-          style={{ border: 'none', borderRadius: 2, padding: '12px 16px', fontSize: 14, fontWeight: 600, letterSpacing: '0.02em' }}
+          className="w-full key key-primary"
+          style={{ fontSize: 14, fontWeight: 600, letterSpacing: '0.02em' }}
         >
           {loading ? (
             'Creating account…'
