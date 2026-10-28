@@ -15,7 +15,9 @@ export interface ActiveRound {
 export function useActiveRound() {
   const { user } = useAuth()
   return useQuery({
-    queryKey: ['active-round', user?.id],
+    // Under 'rounds' so finishing or deleting a round (which invalidates
+    // ['rounds', userId]) clears the banner.
+    queryKey: ['rounds', user?.id, 'active'],
     enabled: !!user,
     queryFn: async (): Promise<ActiveRound | null> => {
       const q = supabase
@@ -25,14 +27,18 @@ export function useActiveRound() {
         .is('completed_at', null)
         .is('total_score', null)
         .gte('played_at', new Date(Date.now() - 864e5).toISOString().slice(0, 10))
-      const { data, error } = await q.order('played_at', { ascending: false }).limit(1)
+      const { data, error } = await q
+        .order('played_at', { ascending: false })
+        .order('created_at', { ascending: false })
+        .limit(1)
       if (error) throw error
       const round = data?.[0] as { id: string; courses?: { name: string | null } | null } | undefined
       if (!round) return null
-      const { data: hs } = await supabase
+      const { data: hs, error: hsError } = await supabase
         .from('hole_scores')
         .select('score, finished_at, holes(number)')
         .eq('round_id', round.id)
+      if (hsError) throw hsError
       const rows = ((hs ?? []) as Array<{
         score: number | null
         finished_at: string | null

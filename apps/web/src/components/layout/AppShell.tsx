@@ -185,7 +185,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           {/* Clears the fixed bottom tab bar (mobile only). */}
           <div
             className="lg:hidden"
-            style={{ height: 'calc(56px + env(safe-area-inset-bottom, 0px))' }}
+            style={{ height: 'calc(72px + env(safe-area-inset-bottom, 0px))' }}
           />
         </div>
       </main>
