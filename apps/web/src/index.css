@@ -312,3 +312,25 @@ dialog.pat-dialog::backdrop {
     transition: none;
   }
 }
+/* Onboarding: the step segments fill in, the handicap number ticks over. */
+.onb-seg {
+  transform-origin: left;
+  transition: transform 240ms cubic-bezier(0.22, 1, 0.36, 1), background-color 240ms ease;
+}
+.onb-tick {
+  animation: onb-tick 120ms ease-out both;
+}
+@keyframes onb-tick {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .onb-seg {
+    transition: none;
+  }
+  .onb-tick {
+    animation: none;
+  }
+}

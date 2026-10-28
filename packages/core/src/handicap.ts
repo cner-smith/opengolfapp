@@ -131,3 +131,19 @@ export const HANDICAP_PROVENANCE_LABEL: Record<HandicapProvenance, string> = {
   calculated: 'WHS index',
   provisional: 'Provisional',
 }
+
+// A handicap index as golfers write it: one decimal, and a plus handicap
+// (better than scratch, stored as a negative index) with a leading plus.
+export function formatHandicapIndex(index: number): string {
+  const tenths = Math.round(index * 10) / 10
+  return tenths < 0 ? `+${(-tenths).toFixed(1)}` : Math.abs(tenths).toFixed(1)
+}
+
+// The inverse, for a typed index: "+2.3" is a plus handicap (-2.3), a
+// comma reads as the decimal point, and the result is rounded to tenths.
+export function parseHandicapIndex(text: string): number | null {
+  const t = text.trim().replace(',', '.')
+  if (!/^[+-]?(\d+\.?\d*|\.\d+)$/.test(t)) return null
+  const n = Math.round(Math.abs(Number(t)) * 10) / 10
+  return t.startsWith('+') || t.startsWith('-') ? -n || 0 : n
+}
