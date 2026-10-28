@@ -22,7 +22,7 @@ type DrillRow = Database['public']['Tables']['drills']['Row']
 // the focus lede + drills, and the editable hole table ("Your card").
 
 export const signed = (n: number) => (n === 0 ? 'E' : n > 0 ? `+${n}` : `−${-n}`)
-const sg = (n: number) => formatSG(n).replace('-', '−')
+const sg = (n: number) => formatSG(n)
 
 const COL = { hole: 34, par: 34, score: 56, putts: 44, fwy: 36, green: 46 }
 

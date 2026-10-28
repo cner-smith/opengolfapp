@@ -32,6 +32,7 @@ import { useRoundActions, type ShotDragUndo } from './hooks/useRoundActions'
 import { RoundHeader } from './components/RoundHeader'
 import { ScorecardView } from './components/ScorecardView'
 import { MapView } from './components/MapView'
+import { Rocker } from '../../components/ui/Rocker'
 
 type ViewMode = 'scorecard' | 'map'
 
@@ -70,7 +71,7 @@ export function RoundDetailPage() {
     searchParams.get('view') === 'map' ? 'map' : 'scorecard',
   )
   // Capture "session started in live mode" at mount. `view` is a
-  // runtime ViewTabs toggle — past-round reviewers can switch to the
+  // runtime Scorecard | Map rocker — past-round reviewers can switch to the
   // map tab and we don't want that to suppress the shot mini-map for
   // them. The mini-map suppression is for genuine live entry only.
   const [isLiveEntry] = useState(
@@ -297,7 +298,9 @@ export function RoundDetailPage() {
         onComplete={handleComplete}
       />
 
-      <ViewTabs value={view} onChange={setView} />
+      <div style={{ borderBottom: '1px solid #1C211C', padding: '14px 0 18px', marginBottom: 28 }}>
+        <Rocker tabs options={VIEWS} value={view} onChange={setView} label="Round view" className="sm:max-w-[420px]" />
+      </div>
 
       {/* Off-screen render target for html-to-image. Position fixed
           left:-99999px keeps the rasteriser-visible DOM out of the
@@ -537,65 +540,11 @@ export function RoundDetailPage() {
   )
 }
 
-// Scorecard | Map as a letterpress rocker (mobile Paper.tsx Rocker, §19.1):
-// the active half is pressed in (well face, 2px ink rim, a shade band at the
-// top); the other stands on a 3px ink ledge. Arrow keys switch.
-function ViewTabs({
-  value,
-  onChange,
-}: {
-  value: ViewMode
-  onChange: (v: ViewMode) => void
-}) {
-  const tabs: { key: ViewMode; label: string }[] = [
-    { key: 'scorecard', label: 'Scorecard' },
-    { key: 'map', label: 'Map' },
-  ]
-  return (
-    <div style={{ borderBottom: '1px solid #1C211C', padding: '14px 0 18px', marginBottom: 28 }}>
-      <div
-        role="tablist"
-        aria-label="Round view"
-        className="flex overflow-hidden sm:max-w-[420px]"
-        style={{ border: '1px solid #1C211C', borderRadius: 3, background: '#FBF8F1' }}
-        onKeyDown={(e) => {
-          if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return
-          e.preventDefault()
-          onChange(value === 'map' ? 'scorecard' : 'map')
-          e.currentTarget.querySelector<HTMLButtonElement>('[aria-selected="false"]')?.focus()
-        }}
-      >
-        {tabs.map((t, i) => {
-          const on = value === t.key
-          return (
-            <button
-              key={t.key}
-              type="button"
-              role="tab"
-              aria-selected={on}
-              tabIndex={on ? 0 : -1}
-              onClick={() => onChange(t.key)}
-              className="flex-1 text-caddie-ink transition-[background-color,box-shadow] duration-100 ease-out"
-              style={{
-                minHeight: 44,
-                fontSize: 14,
-                fontWeight: on ? 600 : 400,
-                background: on ? '#E4DCCA' : '#FBF8F1',
-                borderLeft: i ? '1px solid #1C211C' : 'none',
-                boxShadow: on
-                  ? 'inset 0 0 0 2px #1C211C, inset 0 5px 0 0 rgba(28,33,28,.28)'
-                  : 'inset 0 -3px 0 0 #1C211C',
-                paddingBottom: on ? 0 : 3,
-              }}
-            >
-              {t.label}
-            </button>
-          )
-        })}
-      </div>
-    </div>
-  )
-}
+// Scorecard | Map as the paper rocker (mobile Paper.tsx Rocker, §19.1).
+const VIEWS = [
+  { value: 'scorecard', label: 'Scorecard' },
+  { value: 'map', label: 'Map' },
+] as const satisfies readonly { value: ViewMode; label: string }[]
 
 // Re-export ScorecardView/MapView types for backwards compatibility if
 // any caller imports from this file.

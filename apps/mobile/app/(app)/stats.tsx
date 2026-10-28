@@ -8,6 +8,7 @@ import {
   formatClubLabel,
   formatSG,
   isPartialRound,
+  wholeRoundWindow,
   roundHolesPlayed,
   sgFinding,
   sgStandouts,
@@ -127,11 +128,7 @@ export default function Stats() {
   // Round-level numbers (SG cards, trend, headline) read only the whole
   // rounds; partials inside the span still feed per-hole stats, matching
   // computeDetailedStats' contract (packages/core/src/stats.ts).
-  const rounds = useMemo(() => {
-    let whole = 0
-    const end = allRounds.findIndex((r) => !isPartialRound(r.hole_scores) && ++whole === n)
-    return end === -1 ? allRounds : allRounds.slice(0, end + 1)
-  }, [allRounds, n])
+  const rounds = useMemo(() => wholeRoundWindow(allRounds, n), [allRounds, n])
   const wholeRounds = useMemo(
     () => rounds.filter((r) => !isPartialRound(r.hole_scores)),
     [rounds],

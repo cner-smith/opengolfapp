@@ -1,8 +1,9 @@
-import { lazy, Suspense, useEffect, useMemo, useState, type CSSProperties, type ReactNode } from 'react'
+import { lazy, Suspense, useMemo, type CSSProperties, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { barScale, formatSG, isPartialRound, parseLocalDate, partialRoundLabel, sgBreakdown, sgFinding } from '@oga/core'
 import { useRecentSG } from '../../hooks/useRounds'
 import { useProfile } from '../../hooks/useProfile'
+import { useCountUp } from '../../hooks/useCountUp'
 import { PencilUnderline } from '../../components/layout/MobileTabBar'
 import { ResumeRoundBanner, useActiveRound } from './ResumeRound'
 import './dashboard.css'
@@ -27,7 +28,7 @@ const NEG = '#A33A2A'
 
 export function DashboardPage() {
   const profile = useProfile()
-  const sg = useRecentSG(20)
+  const sg = useRecentSG(40)
   const active = useActiveRound()
   const activeRound = active.data ?? null
   const rounds = sg.data ?? []
@@ -42,7 +43,8 @@ export function DashboardPage() {
   // stable across renders.
   const stats = useMemo(() => {
     // Rounds ended early stay out of the per-round numbers (#911).
-    const whole = rounds.filter((r) => !isPartialRound(r.hole_scores))
+    // The newest 20 whole rounds out of 40, as mobile Home does (#1222).
+    const whole = rounds.filter((r) => !isPartialRound(r.hole_scores)).slice(0, 20)
     const sg = sgBreakdown(whole)
     const avgs = SG_KEYS.map((c) => ({ ...c, value: sg.breakdown.find((b) => b.key === c.key)?.value ?? 0 }))
     const maxAbs = barScale(sg.maxAbs)
@@ -297,44 +299,6 @@ function StartLiveRound() {
   )
 }
 
-// Counts up from 0 once per session (SHL-05); static under reduced motion.
-function useCountUp(target: number, ms = 600): number {
-  const [skip] = useState(() => {
-    try {
-      return (
-        window.matchMedia('(prefers-reduced-motion: reduce)').matches ||
-        sessionStorage.getItem('oga-dash-counted') === '1'
-      )
-    } catch {
-      return true
-    }
-  })
-  const [v, setV] = useState(skip ? target : 0)
-  useEffect(() => {
-    if (skip) {
-      setV(target)
-      return
-    }
-    let raf = 0
-    const t0 = performance.now() + 240
-    const tick = (now: number) => {
-      const p = Math.min(1, Math.max(0, (now - t0) / ms))
-      setV(target * (1 - Math.pow(1 - p, 3)))
-      if (p < 1) raf = requestAnimationFrame(tick)
-      else {
-        try {
-          sessionStorage.setItem('oga-dash-counted', '1')
-        } catch {
-          /* private mode: count again next time */
-        }
-      }
-    }
-    raf = requestAnimationFrame(tick)
-    return () => cancelAnimationFrame(raf)
-  }, [target, ms, skip])
-  return v
-}
-
 function StatTile({
   label,
   value,
@@ -346,7 +310,7 @@ function StatTile({
   format: (v: number) => string
   color?: string
 }) {
-  const shown = useCountUp(value)
+  const shown = useCountUp(value, { delay: 240, onceKey: 'oga-dash-counted' })
   return (
     <div className="paper-tile" style={{ padding: '14px 16px 16px' }}>
       <div className="text-caddie-ink-dim" style={{ fontSize: 12, marginBottom: 8 }}>

@@ -97,8 +97,8 @@ describe('formatSG', () => {
     expect(formatSG(1.23)).toBe('+1.23')
   })
 
-  it('negative values keep their - sign', () => {
-    expect(formatSG(-1.23)).toBe('-1.23')
+  it('negative values get a typographic minus (U+2212)', () => {
+    expect(formatSG(-1.23)).toBe('−1.23')
   })
 
   // Documents the choice: zero is signless. Avoids "+0.00" which reads
@@ -109,7 +109,7 @@ describe('formatSG', () => {
 
   it('rounds to two decimals', () => {
     expect(formatSG(1.23456)).toBe('+1.23')
-    expect(formatSG(-1.23999)).toBe('-1.24')
+    expect(formatSG(-1.23999)).toBe('−1.24')
   })
 
   it('values that round to 0 render unsigned (no "-0.00"/"+0.00") (#672)', () => {
@@ -123,7 +123,7 @@ describe('formatSG', () => {
 
   it('handles large magnitudes', () => {
     expect(formatSG(123.4567)).toBe('+123.46')
-    expect(formatSG(-99.99)).toBe('-99.99')
+    expect(formatSG(-99.99)).toBe('−99.99')
   })
 
   it('NaN renders as "NaN" (does not throw)', () => {

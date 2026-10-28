@@ -1,4 +1,5 @@
 import { useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
+import { Rocker } from '../../ui/Rocker'
 
 // #611 paper chrome for the web round map, ported from mobile's
 // components/paper (HeroRow, PastHoleBlock, PastFooter, Rocker, Key). Tokens
@@ -408,62 +409,6 @@ export function PatternKey({ active, onToggle, bottom }: { active: boolean; onTo
   )
 }
 
-export function Rocker<T extends string>({
-  options,
-  value,
-  onChange,
-  width,
-}: {
-  options: { value: T; label: string }[]
-  value: T
-  onChange: (v: T) => void
-  width?: number
-}) {
-  return (
-    <div
-      role="radiogroup"
-      style={{
-        display: 'flex',
-        width,
-        height: 44,
-        border: `1px solid ${P.ink}`,
-        borderRadius: 3,
-        boxShadow: `0 3px 0 ${P.ink}`,
-        overflow: 'hidden',
-        background: P.raised,
-      }}
-    >
-      {options.map((o, i) => {
-        const on = o.value === value
-        return (
-          <button
-            key={o.value}
-            type="button"
-            role="radio"
-            aria-checked={on}
-            onClick={() => onChange(o.value)}
-            style={{
-              flex: 1,
-              border: 'none',
-              borderLeft: i > 0 ? `1px solid ${P.ink}` : 'none',
-              background: on ? P.well : 'transparent',
-              boxShadow: on ? 'inset 0 2px 0 rgba(28,33,28,.28)' : 'none',
-              ...body,
-              fontSize: 14,
-              fontWeight: on ? 600 : 400,
-              color: P.ink,
-              cursor: 'pointer',
-              padding: '0 10px',
-            }}
-          >
-            {o.label}
-          </button>
-        )
-      })}
-    </div>
-  )
-}
-
 export function OverlayRail({
   mode,
   onSetMode,
@@ -547,6 +492,7 @@ export function OverlayRail({
         })}
       </div>
       <Rocker
+        label="Overlay"
         options={[
           { value: 'tee', label: 'Tee' },
           { value: 'appr', label: 'Appr' },
