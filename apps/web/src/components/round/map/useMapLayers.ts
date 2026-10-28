@@ -7,7 +7,10 @@ import {
   circleGeoJSON,
   destinationYards,
   fanPlates,
+  formatClubLabel,
   getExpectedStrokes,
+  placeCallout,
+  plateBox,
   type PlateSide,
   startCategory,
   haversineYards,
@@ -18,7 +21,10 @@ import { useUnits } from '../../../hooks/useUnits'
 import type { ExistingShot, PlacedPoint } from '../RoundMap'
 import {
   attachDragFx,
+  type CalloutParts,
   makeAimMarker,
+  makeCallout,
+  makeSelectedMarker,
   makeDistancePill,
   makeFlagMarker,
   FLAG_CLOTH,
@@ -34,6 +40,7 @@ import {
   upsertArcBand,
   upsertCircleFill,
   upsertDashedLines,
+  upsertDottedLine,
   upsertLine,
   upsertScatter,
 } from './lineHelpers'
@@ -77,6 +84,15 @@ interface UseMapLayersInput {
   onSetAim: ((index: number, point: PlacedPoint | null) => void) | undefined
   onMoveExistingShot: ((shotId: string, point: PlacedPoint) => void) | undefined
   onMoveExistingShotAim: ((shotId: string, point: PlacedPoint) => void) | undefined
+  /** The saved shot drawn as the selected disc with its leg and callout (#1217). */
+  selectedShotId: string | null
+  onSelectShot: ((shotId: string) => void) | undefined
+}
+
+// "142.9 yd" → ["142.9", "yd"] for the callout's big number and small unit.
+function splitDisplay(s: string): [string, string] {
+  const i = s.lastIndexOf(' ')
+  return i < 0 ? [s, ''] : [s.slice(0, i), s.slice(i + 1)]
 }
 
 const lineSourceId = 'shot-line'
@@ -98,7 +114,7 @@ const TEE_BOX_HALF_YARDS = 4
 // planning treatment (solid start→aim→pin bend + dotted start→pin
 // reference + aim/remaining pills); the rest render as a dashed
 // start→aim line.
-type AimSeg = { start: [number, number]; aim: [number, number]; first: boolean }
+type AimSeg = { start: [number, number]; aim: [number, number]; first: boolean; id?: string }
 
 export function useMapLayers({
   mapRef,
@@ -122,9 +138,12 @@ export function useMapLayers({
   onSetAim,
   onMoveExistingShot,
   onMoveExistingShotAim,
+  selectedShotId,
+  onSelectShot,
 }: UseMapLayersInput): void {
-  const { toDisplay } = useUnits()
+  const { toDisplay, toDisplayFt } = useUnits()
   const markerRefs = useRef<mapboxgl.Marker[]>([])
+  const calloutRef = useRef<HTMLElement | null>(null)
   // Re-fans the saved shots' plates for the current zoom/rotation (#1215).
   const layoutPlatesRef = useRef<(() => void) | null>(null)
 
@@ -140,6 +159,8 @@ export function useMapLayers({
     // Clear old markers.
     for (const m of markerRefs.current) m.remove()
     markerRefs.current = []
+    calloutRef.current?.remove()
+    calloutRef.current = null
 
     // Tee box — two understated dots flanking the tee shot, perpendicular to
     // the line of play (mirrors the mobile redesign; no draggable tee). Origin
@@ -246,21 +267,17 @@ export function useMapLayers({
     }
 
     const plates: { at: [number, number]; offset: [number, number]; setSide: (s: PlateSide) => void }[] = []
+    const selIdx = existingValid.findIndex((s) => s.id === selectedShotId)
+    const sel = existingValid[selIdx] ?? null
+    // Review (§19.3/19.5): a saved hole with a selected shot. The map then
+    // carries only the dotted path, the plates, the selected leg + callout
+    // and the selected shot's aim; no planning pills.
+    const review = sel != null && placedPoints.length === 0
     for (const s of existingValid) {
-      // caddie-neg overrides the category color for the shot that went OB —
-      // matches the live chip / scorecard penalty color (mirrors mobile's
-      // BreadcrumbLayers disc recolor).
-      const color =
-        s.ob === true
-          ? MARKER_COLORS.ob
-          : s.category === 'tee'
-            ? MARKER_COLORS.tee
-            : s.category === 'approach'
-              ? MARKER_COLORS.approach
-              : s.category === 'around-green'
-                ? MARKER_COLORS.approach
-                : MARKER_COLORS.green
-      const parts = makePlateMarker(s.shotNumber, color, s.ob === true)
+      // Paper plates (cream, ink ring); the shot that went OB stays brick,
+      // as on mobile and the scorecard.
+      const plate = s === sel ? null : makePlateMarker(s.shotNumber, s.ob === true)
+      const parts = plate ?? makeSelectedMarker(s.shotNumber)
       const lng = s.startLng ?? s.endLng!
       const lat = s.startLat ?? s.endLat!
       // Drag is gated on the parent wiring a handler AND the row having a
@@ -280,7 +297,18 @@ export function useMapLayers({
       })
         .setLngLat([lng, lat])
         .addTo(map)
-      plates.push({ at: [lng, lat], offset, setSide: parts.setSide })
+      if (plate) plates.push({ at: [lng, lat], offset, setSide: plate.setSide })
+      if (plate && onSelectShot) {
+        // A drag ends in a click too; only a click without one selects.
+        let dragged = false
+        marker.on('dragstart', () => (dragged = true))
+        parts.outer.style.cursor = 'pointer'
+        parts.outer.addEventListener('click', (e) => {
+          e.stopPropagation()
+          if (!dragged) onSelectShot(s.id)
+          dragged = false
+        })
+      }
       if (draggable) {
         attachDragFx({
           outer: parts.outer,
@@ -300,7 +328,7 @@ export function useMapLayers({
       // Aim ghost for saved shots. The line + pills are rendered
       // centrally below (latest aim = full planning treatment, the rest
       // dashed) so saved shots share the placed-flow vocabulary.
-      if (s.aimLat != null && s.aimLng != null) {
+      if (s.aimLat != null && s.aimLng != null && (!review || s === sel)) {
         const aimEl = makeAimMarker()
         const aimDraggable = !!onMoveExistingShotAim
         const aimMarker = new mapboxgl.Marker({
@@ -332,22 +360,59 @@ export function useMapLayers({
             start: [startLng, startLat],
             aim: [s.aimLng, s.aimLat],
             first: s.shotNumber === 1,
+            id: s.id,
           })
         }
       }
     }
 
-    const pinAt = effectivePin
+    const pinAt: [number, number] | null = effectivePin ? [effectivePin.lng, effectivePin.lat] : null
+    // The selected shot's leg (#1217) runs to the next start, or the pin.
+    const llOf = (s: ExistingShot): [number, number] => [s.startLng ?? s.endLng!, s.startLat ?? s.endLat!]
+    const selAt = sel ? llOf(sel) : null
+    const next = existingValid[selIdx + 1]
+    const legEnd = sel ? (next ? llOf(next) : pinAt) : null
+    const legPrev = selIdx > 0 ? llOf(existingValid[selIdx - 1]!) : null
+    const selAim: [number, number] | null = sel?.aimLat != null && sel.aimLng != null ? [sel.aimLng, sel.aimLat] : null
+    upsertLine(map, 'selected-leg', selAt && legEnd ? [selAt, legEnd] : [], '#FBF8F1')
+    let callout: CalloutParts | null = null
+    if (selAt && legEnd) {
+      const yards = haversineYards(selAt[1], selAt[0], legEnd[1], legEnd[0])
+      const [value, unit] = splitDisplay(sel!.category === 'putt' ? toDisplayFt(yards * 3) : toDisplay(yards, 1))
+      const to = next ? `to shot ${sel!.shotNumber + 1}` : 'to the pin'
+      callout = makeCallout(value, unit, sel!.club ? `${formatClubLabel({ club_type: sel!.club })} · ${to}` : to)
+      map.getContainer().appendChild(callout.el)
+      calloutRef.current = callout.el
+    }
     layoutPlatesRef.current = () => {
       const pt = (ll: [number, number], off: [number, number] = [0, 0]): [number, number] => {
         const q = map.project(ll)
         return [q.x + off[0], q.y + off[1]]
       }
-      const sides = fanPlates(
-        plates.map((p) => pt(p.at, p.offset)),
-        pinAt ? [pt([pinAt.lng, pinAt.lat])] : [],
-      )
+      const dots = plates.map((p) => pt(p.at, p.offset))
+      const others = [pinAt, selAim, sel ? legEnd : null].filter((p): p is [number, number] => p != null).map((p) => pt(p))
+      const a = selAt ? pt(selAt) : undefined
+      const sides = fanPlates(dots, others, a)
       plates.forEach((p, i) => p.setSide(sides[i]!))
+      if (!callout || !a || !legEnd) return
+      const c = map.getContainer()
+      const onMap = a[0] >= 0 && a[1] >= 0 && a[0] <= c.clientWidth && a[1] <= c.clientHeight
+      callout.el.style.display = onMap ? '' : 'none'
+      if (!onMap) return
+      const box = { w: callout.box.offsetWidth, h: callout.box.offsetHeight }
+      const end = pt(legEnd)
+      const place = placeCallout({
+        anchor: a,
+        end,
+        prev: legPrev ? pt(legPrev) : null,
+        dots: [a, end, ...dots, ...others],
+        plates: dots.map((d, i) => plateBox(d, sides[i]!)),
+        box,
+        size: { w: c.clientWidth, h: c.clientHeight },
+      })
+      callout.box.style.left = `${place.bx}px`
+      callout.box.style.top = `${place.by}px`
+      callout.setStaff(place.foot[0], place.foot[1], place.head[0], place.head[1])
     }
     layoutPlatesRef.current()
 
@@ -381,7 +446,7 @@ export function useMapLayers({
     // position in order, then close to the pin so the final segment
     // shows the last leg.
     const existingCoords = buildLineCoords(existingValid, effectivePin)
-    upsertLine(map, lineSourceId, existingCoords, '#A66A1F')
+    upsertDottedLine(map, lineSourceId, existingCoords)
 
     // Trajectory line (placed points): each marker is the START position
     // of a shot, so segment N→N+1 is the path of shot N. Closing to the
@@ -400,7 +465,8 @@ export function useMapLayers({
     // Per-segment distance pills. Renders midpoint label between every
     // pair of consecutive line coords for both existing and placed lines
     // so the player can see each shot's distance at a glance.
-    for (const coords of [existingCoords, placedCoords]) {
+    // Saved legs carry no pills: the callout reads the selected one.
+    for (const coords of [placedCoords]) {
       for (let i = 0; i < coords.length - 1; i++) {
         const a = coords[i]!
         const b = coords[i + 1]!
@@ -456,9 +522,12 @@ export function useMapLayers({
       ? [effectivePin.lng, effectivePin.lat]
       : null
     const activeFromPlaced = placedAimSegs.length > 0
+    // With a selected shot, its own aim (or none) is the active one (#1217).
     const activeSeg: AimSeg | null = activeFromPlaced
       ? placedAimSegs[placedAimSegs.length - 1]!
-      : savedAimSegs[savedAimSegs.length - 1] ?? null
+      : sel
+        ? savedAimSegs.find((x) => x.id === sel.id) ?? null
+        : savedAimSegs[savedAimSegs.length - 1] ?? null
 
     // Fixed-geometry shot-pattern overlay anchored on the active aimed shot.
     // Tee → dispersion arc band across the aim line; Appr → approach circle
@@ -466,19 +535,21 @@ export function useMapLayers({
     // target, not the pin). Rendered before the aim line below so it sits
     // underneath; always upserted (empty when no active aim / wrong mode) so
     // it clears on the next render.
+    // In review the overlay waits for the Pattern key.
+    const overlaySeg = review && !dotsVisible ? null : activeSeg
     const arcCoords: [number, number][] =
-      activeSeg && overlayMode === 'tee'
+      overlaySeg && overlayMode === 'tee'
         ? arcGeoJSON(
-            { lat: activeSeg.start[1], lng: activeSeg.start[0] },
-            { lat: activeSeg.aim[1], lng: activeSeg.aim[0] },
+            { lat: overlaySeg.start[1], lng: overlaySeg.start[0] },
+            { lat: overlaySeg.aim[1], lng: overlaySeg.aim[0] },
             arcWidthYards / 2,
           )?.geometry.coordinates ?? []
         : []
     upsertArcBand(map, 'aim-arc', arcCoords, AIM_COLOR)
     const circleRing: [number, number][][] =
-      activeSeg && overlayMode === 'appr'
+      overlaySeg && overlayMode === 'appr'
         ? circleGeoJSON(
-            { lat: activeSeg.aim[1], lng: activeSeg.aim[0] },
+            { lat: overlaySeg.aim[1], lng: overlaySeg.aim[0] },
             circleRadiusYards,
           )?.geometry.coordinates ?? []
         : []
@@ -516,10 +587,7 @@ export function useMapLayers({
     const placedDashed = activeFromPlaced
       ? placedAimSegs.slice(0, -1)
       : placedAimSegs
-    const savedDashed =
-      !activeFromPlaced && savedAimSegs.length > 0
-        ? savedAimSegs.slice(0, -1)
-        : savedAimSegs
+    const savedDashed = activeFromPlaced ? savedAimSegs : savedAimSegs.filter((x) => x !== activeSeg)
     upsertDashedLines(
       map,
       'aim-lines',
@@ -535,19 +603,22 @@ export function useMapLayers({
 
     // Active shot. Sources are always upserted (empty when there's no
     // active aim) so stale geometry clears on the next render.
-    const activeSolid: [number, number][] = activeSeg
+    // Review shows the selected shot's aim as its marker alone: an aim line
+    // would run beside the selected leg as a second path.
+    const planSeg = review ? null : activeSeg
+    const activeSolid: [number, number][] = planSeg
       ? pinLngLat
-        ? [activeSeg.start, activeSeg.aim, pinLngLat]
-        : [activeSeg.start, activeSeg.aim]
+        ? [planSeg.start, planSeg.aim, pinLngLat]
+        : [planSeg.start, planSeg.aim]
       : []
     upsertLine(map, 'aim-active', activeSolid, AIM_COLOR)
     upsertDashedLines(
       map,
       'aim-reference',
-      activeSeg && pinLngLat ? [[activeSeg.start, pinLngLat]] : [],
+      planSeg && pinLngLat ? [[planSeg.start, pinLngLat]] : [],
       AIM_COLOR,
     )
-    if (activeSeg) {
+    if (planSeg) {
       // Best-case SG of advancing ball→aim toward the pin: expected(start→pin)
       // − expected(aim→pin) − 1 (calculateShotSG), as the aim pill's sublabel.
       // Distance-band category (no polygons): within NEAR_GREEN_YARDS →
@@ -557,47 +628,45 @@ export function useMapLayers({
       let sgTone: 'pos' | 'neg' = 'pos'
       if (pinLngLat) {
         const startToPin = haversineYards(
-          activeSeg.start[1],
-          activeSeg.start[0],
+          planSeg.start[1],
+          planSeg.start[0],
           pinLngLat[1],
           pinLngLat[0],
         )
         const aimToPin = haversineYards(
-          activeSeg.aim[1],
-          activeSeg.aim[0],
+          planSeg.aim[1],
+          planSeg.aim[0],
           pinLngLat[1],
           pinLngLat[0],
         )
         // The tee shot of a par 4/5 starts from Broadie's tee line (#998).
-        const startCat = startCategory(startToPin, activeSeg.first && (par === 4 || par === 5))
+        const startCat = startCategory(startToPin, planSeg.first && (par === 4 || par === 5))
         const targetCat = aimToPin <= NEAR_GREEN_YARDS ? 'around_green' : 'approach'
         const expected = getExpectedStrokes(startCat, startToPin, undefined, handicap)
         const targetExpected = getExpectedStrokes(targetCat, aimToPin, undefined, handicap)
         if (expected != null && targetExpected != null) {
           const sg = calculateShotSG(expected, targetExpected)
           sgTone = sg < 0 ? 'neg' : 'pos'
-          sgSublabel = `${sg >= 0 ? '+' : ''}${sg.toFixed(1)} · ${
-            targetCat === 'around_green' ? 'GRN' : 'FWY'
-          }`
+          sgSublabel = `${sg >= 0 ? '+' : '−'}${Math.abs(sg).toFixed(1)}`
         }
       }
       const toAim = Math.round(
         haversineYards(
-          activeSeg.start[1],
-          activeSeg.start[0],
-          activeSeg.aim[1],
-          activeSeg.aim[0],
+          planSeg.start[1],
+          planSeg.start[0],
+          planSeg.aim[1],
+          planSeg.aim[0],
         ),
       )
       if (toAim > 0) {
         const mid: [number, number] = [
-          (activeSeg.start[0] + activeSeg.aim[0]) / 2,
-          (activeSeg.start[1] + activeSeg.aim[1]) / 2,
+          (planSeg.start[0] + planSeg.aim[0]) / 2,
+          (planSeg.start[1] + planSeg.aim[1]) / 2,
         ]
         markerRefs.current.push(
           new mapboxgl.Marker({
-            element: makeDistancePill(`TO AIM ${toDisplay(toAim)}`, {
-              sublabel: sgSublabel,
+            element: makeDistancePill(toDisplay(toAim), {
+              sublabel: sgSublabel ? `to aim · ${sgSublabel}` : 'to aim',
               tone: sgTone,
             }),
           })
@@ -608,19 +677,19 @@ export function useMapLayers({
       if (pinLngLat) {
         const remaining = Math.round(
           haversineYards(
-            activeSeg.aim[1],
-            activeSeg.aim[0],
+            planSeg.aim[1],
+            planSeg.aim[0],
             pinLngLat[1],
             pinLngLat[0],
           ),
         )
         if (remaining > 0) {
           const mid: [number, number] = [
-            (activeSeg.aim[0] + pinLngLat[0]) / 2,
-            (activeSeg.aim[1] + pinLngLat[1]) / 2,
+            (planSeg.aim[0] + pinLngLat[0]) / 2,
+            (planSeg.aim[1] + pinLngLat[1]) / 2,
           ]
           markerRefs.current.push(
-            new mapboxgl.Marker({ element: makeDistancePill(`REMAINING ${toDisplay(remaining)}`) })
+            new mapboxgl.Marker({ element: makeDistancePill(toDisplay(remaining), { sublabel: 'left to the pin' }) })
               .setLngLat(mid)
               .addTo(map),
           )
@@ -638,6 +707,8 @@ export function useMapLayers({
     onSetAim,
     onMoveExistingShot,
     onMoveExistingShotAim,
+    selectedShotId,
+    onSelectShot,
     effectivePin,
     pinStrong,
     holeNumber,
@@ -650,6 +721,7 @@ export function useMapLayers({
     selectClub,
     handicap,
     toDisplay,
+    toDisplayFt,
   ])
 
   // Render markers + connecting line for either existing shots or placed points.
@@ -672,15 +744,15 @@ export function useMapLayers({
     renderLayers()
   }, [mapRef, renderLayers])
 
-  // Re-fan after every camera change (zoom, rotation, pitch, the load-time
-  // jump/fly). ponytail: a pan re-runs it too; it's a handful of projections.
+  // Re-fan the plates and re-place the callout every camera frame, so the
+  // callout follows a pan as mobile's does. ponytail: a handful of projections.
   useEffect(() => {
     const map = mapRef.current
     if (!map) return
     const relayout = () => layoutPlatesRef.current?.()
-    map.on('moveend', relayout)
+    map.on('move', relayout)
     return () => {
-      map.off('moveend', relayout)
+      map.off('move', relayout)
     }
   }, [mapRef])
 }

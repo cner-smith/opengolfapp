@@ -61,6 +61,8 @@ interface ShotEntryModalProps {
    *  while the parent map view is also visible, and the live-entry
    *  flow already has the round map behind the modal. */
   liveEntry?: boolean
+  /** Open straight onto this shot (the round map's "Edit shot N"). */
+  editShotId?: string
   onClose: () => void
 }
 
@@ -72,6 +74,7 @@ export function ShotEntryModal({
   pinLat,
   pinLng,
   liveEntry = false,
+  editShotId,
   onClose,
 }: ShotEntryModalProps) {
   const { user } = useAuth()
@@ -110,10 +113,13 @@ export function ShotEntryModal({
       .sort((a, b) => a.shot_number - b.shot_number)
   }, [shotsQuery.data, holeScoreId])
 
+  // The map opens this with the round's shots already cached, so the shot to
+  // edit is known on the first render.
+  const opening = holeShots.find((s) => s.id === editShotId)
   const [draft, setDraft] = useState<DraftShot>(() =>
-    emptyDraft(holeShots.length + 1, holeShots.length === 0),
+    opening ? shotRowToDraft(opening) : emptyDraft(holeShots.length + 1, holeShots.length === 0),
   )
-  const [editing, setEditing] = useState<string | null>(null)
+  const [editing, setEditing] = useState<string | null>(() => opening?.id ?? null)
   const [saveError, setSaveError] = useState<string | null>(null)
 
   // Read the latest holeShots count via ref so the reset effect doesn't

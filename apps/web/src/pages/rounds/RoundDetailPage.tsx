@@ -13,10 +13,12 @@ import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
 import {
   DEFAULT_HANDICAP,
   inferHoleCount,
+  projectShotMove,
   resolveCourseTee,
   type CaptureMode,
 } from '@oga/core'
 import { useAuth } from '../../hooks/useAuth'
+import { useDeleteShot, useInsertShot } from '../../hooks/useShots'
 import { useProfile } from '../../hooks/useProfile'
 import { toUserMessage } from '../../lib/errors'
 import type { PlacedPoint } from '../../components/round/RoundMap'
@@ -57,6 +59,7 @@ export function RoundDetailPage() {
     holeScoreId: string
     holeNumber: number
     holePar: number
+    shotId?: string
   } | null>(null)
   const [completeError, setCompleteError] = useState<string | null>(null)
   const [searchParams] = useSearchParams()
@@ -133,6 +136,7 @@ export function RoundDetailPage() {
     scoresByHoleId,
     shotCountByHoleScore,
     activeHole,
+    activeHoleScore,
     effectivePin,
     persistedRoundPin,
     courseFallbackLat,
@@ -180,6 +184,13 @@ export function RoundDetailPage() {
     completeMutation,
     deleteMutation,
   } = actions
+
+  // The round map's Remove and + Add shot (#1239). Failures show where the
+  // hole save's do.
+  const removeShot = useDeleteShot(roundId)
+  const insertShot = useInsertShot(roundId)
+  const shotError = (err: unknown) =>
+    dispatchHoleView({ type: 'SAVE_ERROR', message: toUserMessage(err) })
 
   if (round.isLoading || holesQuery.isLoading) {
     return (
@@ -382,6 +393,29 @@ export function RoundDetailPage() {
           onApplyShotDragUndo={applyShotDragUndo}
           saveError={saveError}
           editingOnMap={editingOnMap}
+          holeScore={activeHoleScore}
+          shotBusy={removeShot.isPending || insertShot.isPending}
+          onRemoveShot={(id) => removeShot.mutateAsync(id).catch(shotError)}
+          onAddShot={async (afterShotId, start) => {
+            const id = crypto.randomUUID()
+            const { distanceToTarget } = projectShotMove({ newStart: start, pin: effectivePin, isPutt: false })
+            try {
+              await insertShot.mutateAsync({ id, afterShotId, start, distanceToTarget: distanceToTarget ?? null })
+              return id
+            } catch (err) {
+              shotError(err)
+              return null
+            }
+          }}
+          onEditShot={(shotId) => {
+            if (!activeHole || !activeHoleScore) return
+            setShotsModalFor({
+              holeScoreId: activeHoleScore.id,
+              holeNumber: activeHole.number,
+              holePar: resolvedHoleByNumber.get(activeHole.number)?.par ?? activeHole.par,
+              shotId,
+            })
+          }}
           reviewSheet={
             activeHole ? (
               <>
@@ -437,6 +471,7 @@ export function RoundDetailPage() {
             pinLat={pinLat}
             pinLng={pinLng}
             liveEntry={isLiveEntry}
+            editShotId={shotsModalFor.shotId}
             onClose={() => setShotsModalFor(null)}
           />
         )

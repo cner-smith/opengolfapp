@@ -4,6 +4,7 @@ import {
   getShotMarkerCategory,
   resolveCourseTee,
   resolveHole,
+  summarizeShotStep,
   type LieType,
   type ResolvedHole,
 } from '@oga/core'
@@ -21,6 +22,7 @@ import {
 } from '../../../hooks/useCourses'
 import { useHoleScores } from '../../../hooks/useHoleScores'
 import { useShotsForRound } from '../../../hooks/useShots'
+import { useUnits } from '../../../hooks/useUnits'
 
 type HoleRow = Database['public']['Tables']['holes']['Row']
 type HoleTeeRow = Database['public']['Tables']['hole_tees']['Row']
@@ -317,11 +319,14 @@ export function useRoundData({
     resolvedActiveHole?.teeLat == null &&
     activeHole.pin_lat == null
 
+  const { unit } = useUnits()
   const activeHoleShots = useMemo<ExistingShot[]>(() => {
     if (!activeHoleScore) return []
-    return (shotsQuery.data ?? [])
+    const rows = (shotsQuery.data ?? [])
       .filter((s) => s.hole_score_id === activeHoleScore.id)
-      .map((s) => ({
+      .sort((a, b) => a.shot_number - b.shot_number)
+    return rows
+      .map((s, i) => ({
         id: s.id,
         shotNumber: s.shot_number,
         endLat: s.end_lat,
@@ -332,6 +337,8 @@ export function useRoundData({
         aimLng: s.aim_lng,
         ob: s.ob,
         penalty: s.penalty,
+        club: s.club,
+        summary: summarizeShotStep(s, rows[i + 1], unit).join(' · '),
         category: getShotMarkerCategory(
           {
             lieType: (s.lie_type ?? undefined) as LieType | undefined,
@@ -342,7 +349,7 @@ export function useRoundData({
         ),
       }))
       .sort((a, b) => a.shotNumber - b.shotNumber)
-  }, [activeHoleScore, shotsQuery.data, resolvedPar])
+  }, [activeHoleScore, shotsQuery.data, resolvedPar, unit])
 
   return {
     round,

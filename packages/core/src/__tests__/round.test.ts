@@ -17,6 +17,7 @@ import {
   partialRoundLabel,
   summarizePuttParts,
   summarizeShotParts,
+  summarizeShotStep,
   withReplayLies,
   type PlacedPoint,
   type ShotSummaryFields,
@@ -603,5 +604,25 @@ describe('isFinishedRound', () => {
   it('does not count an open round or the past-round 0 sentinel', () => {
     expect(isFinishedRound({ completed_at: null, total_score: null })).toBe(false)
     expect(isFinishedRound({ completed_at: null, total_score: 0 })).toBe(false)
+  })
+})
+
+describe('summarizeShotStep', () => {
+  const step = (o: Record<string, unknown>) => ({ ...summaryFields(), club: null, lie_type: null, ...o })
+  it('club · lie · yards to the pin · result', () => {
+    expect(
+      summarizeShotStep(step({ club: 'pw', lie_type: 'fairway', distance_to_target: 132, shot_result: 'push_right' }), null, 'yards'),
+    ).toEqual(['pw', 'fairway', '132 yd to the pin', 'Push right'])
+  })
+  it('a putt reads Putt · feet · result', () => {
+    expect(summarizeShotStep(step({ lie_type: 'green', putt_distance_ft: 12, putt_result: 'made' }), null, 'yards')).toEqual([
+      'Putt',
+      '12 ft',
+      'Made',
+    ])
+  })
+  it('a yardage to the next shot does not say "to the pin"', () => {
+    const parts = summarizeShotStep(step({ start_lat: 35.0, start_lng: -97.0 }), summaryFields({ start_lat: 35.001, start_lng: -97.0 }), 'yards')
+    expect(parts[0]).toMatch(/^12[0-3] yd$/)
   })
 })

@@ -1,4 +1,4 @@
-import { Suspense, lazy, useEffect, useState, type ReactNode } from 'react'
+import { Suspense, lazy, useEffect, useRef, useState, type ReactNode } from 'react'
 import {
   getExpectedStrokes,
   startCategory,
@@ -12,7 +12,17 @@ import {
   type HoleGeo,
   type PlacedPoint,
 } from '../../../components/round/RoundMap'
-import { MARKER_COLORS } from '../../../components/round/map/markerFactories'
+import {
+  chromeSurface,
+  FooterKeys,
+  HoleBlock,
+  OverlayRail,
+  P,
+  PatternKey,
+  StepperRow,
+  type HoleResult,
+} from '../../../components/round/map/PaperChrome'
+import { useUnits } from '../../../hooks/useUnits'
 import { useClubDispersion } from '../hooks/useClubDispersion'
 
 // Lazy-load Mapbox GL JS only when the map tab is opened. Cuts ~2 MB off
@@ -91,6 +101,21 @@ interface MapViewProps {
   shotDragUndoLabel: string | null
   onApplyShotDragUndo: () => void
   reviewSheet?: ReactNode
+  /** The active hole's hole_scores row, for the score corner. */
+  holeScore: { score: number | null; putts: number | null } | null
+  /** A Remove or Add shot is saving. */
+  shotBusy: boolean
+  onRemoveShot: (shotId: string) => void
+  /** Resolves to the new shot's id, or null if the save failed. */
+  onAddShot: (afterShotId: string, start: PlacedPoint) => Promise<string | null>
+  onEditShot: (shotId: string) => void
+}
+
+
+// "142.9 yd" → { value: '142.9', unit: 'yd' }
+function splitDisplay(s: string): { value: string; unit: string } {
+  const i = s.lastIndexOf(' ')
+  return i < 0 ? { value: s, unit: '' } : { value: s.slice(0, i), unit: s.slice(i + 1) }
 }
 
 export function MapView({
@@ -120,7 +145,13 @@ export function MapView({
   saveError,
   editingOnMap,
   reviewSheet,
+  holeScore,
+  shotBusy,
+  onRemoveShot,
+  onAddShot,
+  onEditShot,
 }: MapViewProps) {
+  const { toDisplay, toDisplayFt } = useUnits()
   // Notice banner sits above the map when the active hole has no tee
   // or pin coords. Dismiss state resets on every hole switch so the
   // player isn't surprised by a missing-data hole later in the round.
@@ -129,39 +160,58 @@ export function MapView({
     setNoticeDismissed(false)
   }, [activeHoleNumber])
 
+  // The map is the whole screen on mobile; here the frame is sized to the
+  // viewport, so bring it to the top when the Map tab opens.
+  const frameRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    frameRef.current?.scrollIntoView({ block: 'start' })
+  }, [])
+
   // Shot-pattern overlay controls (Phase B). The toggle picks the SHAPE (tee
   // arc band / approach circle); the rail SIZES it. Kept per-mode so switching
-  // modes preserves the other's pick. Map-scoped — resets to tee/widest if the
-  // player bounces to the scorecard tab (negligible).
+  // modes preserves the other's pick.
   const [overlayMode, setOverlayMode] = useState<'tee' | 'appr'>('tee')
   const [teeRailIdx, setTeeRailIdx] = useState(0)
   const [apprRailIdx, setApprRailIdx] = useState(0)
   const arcWidthYards = TEE_RAIL_YARDS[teeRailIdx] ?? TEE_RAIL_YARDS[0]
   const circleDiaFeet = APPR_RAIL_FEET[apprRailIdx] ?? APPR_RAIL_FEET[0]
   const circleRadiusYards = circleDiaFeet / 2 / FEET_PER_YARD
-  const railLabels =
-    overlayMode === 'tee'
-      ? TEE_RAIL_YARDS.map((y) => `${y} yd`)
-      : APPR_RAIL_FEET.map((f) => `${f} ft`)
   const railIndex = overlayMode === 'tee' ? teeRailIdx : apprRailIdx
   const selectRail = (i: number) =>
     overlayMode === 'tee' ? setTeeRailIdx(i) : setApprRailIdx(i)
-  // Rail appears once an aim exists (placed or saved) and not during manual
-  // tee/pin placement — mirrors the mobile gate.
-  const overlayControlsVisible =
-    placementMode == null &&
-    (placedAims.some((a) => a != null) ||
-      existingShots.some((s) => s.aimLat != null && s.aimLng != null))
 
-  // Single-color dispersion-dots overlay (Phase C). One shot-history query per
-  // session (memoized on userId); the dots only render once there's an active
-  // aim and the matched club has enough samples. Left-edge toggle, always
-  // present so the player can pre-arm it.
+  // Pattern key (Phase C dots + the overlay). Off by default so a reviewed
+  // hole reads as clean as mobile's; on, it shows the arc/circle and dots.
   const [dotsVisible, setDotsVisible] = useState(false)
   const { selectClub } = useClubDispersion(userId)
   const hasExistingShots = existingShots.some(
     (s) => s.endLat != null && s.endLng != null,
   )
+  // The selected saved shot (#1217): the last one until the player picks
+  // another, reset on every hole. None while placing new shots.
+  const steps = existingShots
+    .filter((s) => s.startLat != null && s.startLng != null)
+    .sort((a, b) => a.shotNumber - b.shotNumber)
+  const [selectedId, setSelectedId] = useState<string | null>(null)
+  // "+ Add shot": the next map tap is the new shot's start.
+  const [adding, setAdding] = useState(false)
+  useEffect(() => {
+    setSelectedId(null)
+    setAdding(false)
+  }, [activeHoleNumber])
+  const found = steps.findIndex((s) => s.id === selectedId)
+  const stepPos = found >= 0 ? found : steps.length - 1
+  const selected = placedPoints.length === 0 ? steps[stepPos] ?? null : null
+  const step = (d: number) => setSelectedId(steps[stepPos + d]?.id ?? null)
+  // Review = a saved hole with a selected shot: the paper footer replaces
+  // the logging chrome.
+  const review = selected != null && !editingOnMap && placementMode == null
+  const placeAdded = (p: PlacedPoint) => {
+    const last = steps[steps.length - 1]
+    setAdding(false)
+    if (last) void onAddShot(last.id, p).then((id) => id && setSelectedId(id))
+  }
+
   const lastPoint = placedPoints[placedPoints.length - 1] ?? null
   const effectivePin =
     pinOverride ??
@@ -183,187 +233,256 @@ export function MapView({
   const remainingToPin =
     lastPoint && effectivePin
       ? Math.round(
-          haversineYards(
-            lastPoint.lat,
-            lastPoint.lng,
-            effectivePin.lat,
-            effectivePin.lng,
-          ),
-        )
-      : null
-  // Live expected strokes to hole out from the current ball (Phase D HUD),
-  // calibrated to the player's handicap bracket. Distance-band category (no
-  // polygons): within NEAR_GREEN_YARDS → around_green, else approach. Null
-  // until a ball + pin resolve.
-  const expectedStrokes =
-    remainingToPin != null
-      ? getExpectedStrokes(
-          // Only the first marker placed on a fresh hole is the tee (#998).
-          startCategory(remainingToPin, placedPoints.length === 1 && existingShots.length === 0 && (activeHoleGeo?.par === 4 || activeHoleGeo?.par === 5)),
-          remainingToPin,
-          undefined,
-          handicap,
+          haversineYards(lastPoint.lat, lastPoint.lng, effectivePin.lat, effectivePin.lng),
         )
       : null
 
+  // Hole block hero (§19.2): To the pin from the SELECTED shot's start (the
+  // stepper's shot in review, the last placed ball while logging), and the
+  // expected strokes to hole out from there. A putt reads in feet.
+  const par = activeHoleGeo?.par ?? null
+  const heroStart = selected
+    ? { lat: selected.startLat!, lng: selected.startLng! }
+    : lastPoint
+  const heroYards =
+    heroStart && effectivePin
+      ? haversineYards(heroStart.lat, heroStart.lng, effectivePin.lat, effectivePin.lng)
+      : null
+  const heroTee =
+    (par === 4 || par === 5) &&
+    (selected ? selected.shotNumber === 1 : placedPoints.length === 1 && existingShots.length === 0)
+  const heroFeet = selected?.category === 'putt' && heroYards != null ? heroYards * 3 : null
+  const heroDistance =
+    heroFeet != null
+      ? splitDisplay(toDisplayFt(heroFeet))
+      : heroYards == null
+        ? null
+        : splitDisplay(toDisplay(heroYards, 1))
+  const expected =
+    heroFeet != null
+      ? getExpectedStrokes('putting', undefined, heroFeet, handicap)
+      : heroYards == null
+        ? null
+        : getExpectedStrokes(startCategory(heroYards, heroTee), Math.round(heroYards), undefined, handicap)
+  const score = holeScore?.score ?? 0
+  const result: HoleResult =
+    score > 0
+      ? { scored: true, score, toPar: par != null ? score - par : null, putts: holeScore?.putts ?? null }
+      : { scored: false, shots: placedPoints.length }
+
+  // Leg length of each saved shot: its start to the next start, or the pin.
+  const legOf = (i: number): string | null => {
+    const s = steps[i]
+    if (!s) return null
+    const nx = steps[i + 1]
+    const end = nx ? { lat: nx.startLat!, lng: nx.startLng! } : effectivePin
+    if (!end) return null
+    const yd = haversineYards(s.startLat!, s.startLng!, end.lat, end.lng)
+    return s.category === 'putt' ? toDisplayFt(yd * 3) : toDisplay(yd, 1)
+  }
+
+  const overlayControlsVisible =
+    placementMode == null &&
+    (review
+      ? dotsVisible && selected?.aimLat != null
+      : placedAims.some((a) => a != null))
+  const mapKeysBottom = review ? 34 : 128
+
   return (
     <div>
-      <HoleSelector
-        holes={holes}
-        activeNumber={activeHoleNumber}
-        onSelect={onSwitchHole}
-      />
       {missingHoleLayout && !noticeDismissed && (
         <div
           role="status"
-          style={{
-            marginTop: 14,
-            padding: '10px 14px',
-            background: '#FBF8F1',
-            border: '1px solid #D9D2BF',
-            borderRadius: 2,
-            display: 'flex',
-            alignItems: 'flex-start',
-            gap: 14,
-          }}
+          className="paper-tile"
+          style={{ marginBottom: 14, padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 14 }}
         >
-          <div style={{ flex: 1 }}>
-            <div className="kicker" style={{ marginBottom: 4 }}>
-              No hole layout
-            </div>
-            <div
-              className="text-caddie-ink-dim"
-              style={{ fontSize: 13, lineHeight: 1.4 }}
-            >
-              No hole layout data for this course. You can still place
-              shots manually.
-            </div>
+          <div style={{ flex: 1, fontSize: 14, lineHeight: 1.4 }}>
+            <span className="font-serif" style={{ fontStyle: 'italic', fontSize: 17 }}>
+              No hole layout here.
+            </span>{' '}
+            You can still place shots on the map.
           </div>
-          <button
-            type="button"
-            onClick={() => setNoticeDismissed(true)}
-            aria-label="Dismiss notice"
-            className="font-mono uppercase text-caddie-ink-mute hover:text-caddie-ink"
-            style={{
-              fontSize: 10,
-              letterSpacing: '0.14em',
-              background: 'transparent',
-              border: 'none',
-              padding: 4,
-            }}
-          >
+          <button type="button" className="key" onClick={() => setNoticeDismissed(true)} style={{ fontWeight: 400 }}>
             Dismiss
           </button>
         </div>
       )}
       <div
-        className="flex flex-col gap-3 lg:grid lg:gap-4 lg:grid-cols-[minmax(300px,360px)_1fr]"
-        style={{ marginTop: 14 }}
+        ref={frameRef}
+        className={[
+          // Edge to edge on a phone, as the app; a framed panel on desktop.
+          'grid -mx-4 lg:mx-0 border-y lg:border lg:rounded-[3px] border-caddie-ink scroll-mt-[52px] lg:scroll-mt-6',
+          "[grid-template-areas:'hole'_'map'_'foot'] grid-rows-[auto_1fr_auto]",
+          "lg:[grid-template-areas:'hole_map'_'list_map'_'foot_map'] lg:grid-cols-[400px_1fr]",
+          'h-[calc(100dvh-112px)] min-h-[560px] lg:h-[calc(100vh-48px)] lg:min-h-[640px] lg:max-h-[980px]',
+        ].join(' ')}
+        style={{ overflow: 'hidden', background: P.chrome }}
       >
-        {/* Left column: controls + per-hole shot list. Below the map on
-            narrow screens (map-first), left of it on desktop. */}
-        <div className="lg:order-1">
-          <div className="kicker" style={{ marginBottom: 6 }}>
-            Shots
-          </div>
-          <ShotList shots={existingShots} />
-        </div>
-        {/* Right column: portrait up-the-hole map (leads on narrow). */}
         <div
-          className="order-first lg:order-2"
-          style={{
-            height: 'min(78vh, 720px)',
-            border: '1px solid #D9D2BF',
-            borderRadius: 4,
-            overflow: 'hidden',
-            position: 'relative',
-          }}
+          className="lg:border-r border-caddie-ink"
+          style={{ gridArea: 'hole', ...chromeSurface, borderBottom: `1px solid ${P.ink}` }}
         >
-        <Suspense fallback={<MapLoading />}>
-          <RoundMap
-            hole={activeHoleGeo}
-            courseLat={courseLat}
-            courseLng={courseLng}
-            existingShots={existingShots}
-            placedPoints={placedPoints}
-            placedAims={placedAims}
-            aimMode={aimMode}
-            pinOverride={pinOverride}
-            roundPinSet={roundPinSet}
-            teeOverride={teeOverride}
-            tapToPlaceDisabled={editingOnMap}
-            placementMode={placementMode}
-            onPlace={handlers.onPlace}
-            onMovePoint={handlers.onMovePoint}
-            onMovePin={handlers.onMovePin}
-            onMoveTee={handlers.onMoveTee}
-            onSetAim={handlers.onSetAim}
-            onMoveExistingShot={onMoveExistingShot}
-            onMoveExistingShotAim={onMoveExistingShotAim}
-            overlayMode={overlayMode}
-            arcWidthYards={arcWidthYards}
-            circleRadiusYards={circleRadiusYards}
-            dotsVisible={dotsVisible}
-            selectClub={selectClub}
-            handicap={handicap}
+          <HoleBlock
+            holeNumber={activeHoleNumber}
+            holeCount={holes.length}
+            par={par}
+            yardsLabel={activeHoleGeo?.yards ? toDisplay(activeHoleGeo.yards) : null}
+            result={result}
+            distance={heroDistance}
+            expected={expected}
+            onPrev={() => onSwitchHole(activeHoleNumber - 1)}
+            onNext={() => onSwitchHole(activeHoleNumber + 1)}
           />
-        </Suspense>
-        {reviewSheet}
-        {expectedStrokes != null && placementMode == null && (
-          <ExpStrokesHud value={expectedStrokes} />
-        )}
-        <DotsToggle
-          active={dotsVisible}
-          onToggle={() => setDotsVisible((v) => !v)}
-        />
-        {overlayControlsVisible && (
-          <OverlayRail
-            mode={overlayMode}
-            onSetMode={setOverlayMode}
-            railLabels={railLabels}
-            railIndex={railIndex}
-            onSelectRail={selectRail}
+        </div>
+        <div
+          className="hidden lg:flex flex-col lg:border-r border-caddie-ink min-h-0"
+          style={{ gridArea: 'list', ...chromeSurface }}
+        >
+          <ShotList
+            steps={steps}
+            legOf={legOf}
+            selectedId={review ? selected?.id ?? null : null}
+            onSelect={setSelectedId}
           />
-        )}
-        <MapBottomChrome
-          hasExistingShots={hasExistingShots}
-          editing={editingOnMap}
-          shotsPlaced={placedPoints.length}
-          remainingToPin={remainingToPin}
-          pinAvailable={effectivePin != null}
-          aimMode={aimMode}
-          aimsSet={placedAims.filter((a) => a != null).length}
-          holeNumber={activeHoleNumber}
-          needsTee={needsTee}
-          showPinButton={showPinButton}
-          placementMode={placementMode}
-          shotDragUndoLabel={shotDragUndoLabel}
-          onApplyShotDragUndo={onApplyShotDragUndo}
-          onStartPlaceTee={handlers.onStartPlaceTee}
-          onStartPlacePin={handlers.onStartPlacePin}
-          onCancelPlacement={handlers.onCancelPlacement}
-          onToggleAimMode={handlers.onToggleAimMode}
-          onClearLastAim={() => {
-            const idx = placedAims.length - 1
-            if (idx >= 0) handlers.onSetAim(idx, null)
-          }}
-          onUndo={handlers.onUndoPoint}
-          onClear={handlers.onClearPoints}
-          onDone={handlers.onDoneWithHole}
-          onDoneEditing={handlers.onDoneEditing}
-        />
+          <HolePicker holes={holes} activeNumber={activeHoleNumber} onSelect={onSwitchHole} />
+          <div style={{ flex: 1 }} />
+        </div>
+        <div style={{ gridArea: 'map', position: 'relative', minHeight: 0 }}>
+          <Suspense fallback={<MapLoading />}>
+            <RoundMap
+              hole={activeHoleGeo}
+              courseLat={courseLat}
+              courseLng={courseLng}
+              existingShots={existingShots}
+              placedPoints={placedPoints}
+              placedAims={placedAims}
+              aimMode={aimMode}
+              pinOverride={pinOverride}
+              roundPinSet={roundPinSet}
+              teeOverride={teeOverride}
+              tapToPlaceDisabled={editingOnMap}
+              placementMode={placementMode}
+              addingShot={adding}
+              onPlace={adding ? placeAdded : handlers.onPlace}
+              onMovePoint={handlers.onMovePoint}
+              onMovePin={handlers.onMovePin}
+              onMoveTee={handlers.onMoveTee}
+              onSetAim={handlers.onSetAim}
+              onMoveExistingShot={onMoveExistingShot}
+              onMoveExistingShotAim={onMoveExistingShotAim}
+              overlayMode={overlayMode}
+              arcWidthYards={arcWidthYards}
+              circleRadiusYards={circleRadiusYards}
+              dotsVisible={dotsVisible}
+              selectClub={selectClub}
+              handicap={handicap}
+              selectedShotId={selected?.id ?? null}
+              onSelectShot={setSelectedId}
+            />
+          </Suspense>
+          {reviewSheet}
+          {placementMode == null && (
+            <PatternKey active={dotsVisible} onToggle={() => setDotsVisible((v) => !v)} bottom={mapKeysBottom} />
+          )}
+          {overlayControlsVisible && (
+            <OverlayRail
+              mode={overlayMode}
+              onSetMode={setOverlayMode}
+              values={overlayMode === 'tee' ? TEE_RAIL_YARDS : APPR_RAIL_FEET}
+              unit={overlayMode === 'tee' ? 'yd' : 'ft'}
+              index={railIndex}
+              onSelect={selectRail}
+              bottom={mapKeysBottom}
+            />
+          )}
+          {!review && (
+            <MapBottomChrome
+              hasExistingShots={hasExistingShots}
+              editing={editingOnMap}
+              shotsPlaced={placedPoints.length}
+              remainingToPin={remainingToPin}
+              pinAvailable={effectivePin != null}
+              aimMode={aimMode}
+              aimsSet={placedAims.filter((a) => a != null).length}
+              holeNumber={activeHoleNumber}
+              needsTee={needsTee}
+              showPinButton={showPinButton}
+              placementMode={placementMode}
+              shotDragUndoLabel={shotDragUndoLabel}
+              onApplyShotDragUndo={onApplyShotDragUndo}
+              onStartPlaceTee={handlers.onStartPlaceTee}
+              onStartPlacePin={handlers.onStartPlacePin}
+              onCancelPlacement={handlers.onCancelPlacement}
+              onToggleAimMode={handlers.onToggleAimMode}
+              onClearLastAim={() => {
+                const idx = placedAims.length - 1
+                if (idx >= 0) handlers.onSetAim(idx, null)
+              }}
+              onUndo={handlers.onUndoPoint}
+              onClear={handlers.onClearPoints}
+              onDone={handlers.onDoneWithHole}
+              onDoneEditing={handlers.onDoneEditing}
+            />
+          )}
+        </div>
+        <div
+          className="lg:border-r border-caddie-ink"
+          style={{ gridArea: 'foot', ...chromeSurface, borderTop: `1px solid ${P.ink}`, padding: '0 12px 10px' }}
+        >
+          {review && selected ? (
+            <>
+              <StepperRow
+                pos={stepPos}
+                count={steps.length}
+                summary={selected.summary || 'No details yet. Tap Edit to add them.'}
+                onPrev={() => step(-1)}
+                onNext={() => step(1)}
+              />
+              {shotDragUndoLabel && (
+                <div style={{ fontSize: 14, textAlign: 'center', paddingBottom: 8 }}>
+                  {shotDragUndoLabel} moved.{' '}
+                  <button
+                    type="button"
+                    onClick={onApplyShotDragUndo}
+                    className="font-serif"
+                    style={{ fontStyle: 'italic', fontSize: 17, textDecoration: 'underline', background: 'none', border: 'none', padding: 0 }}
+                  >
+                    Undo
+                  </button>
+                </div>
+              )}
+              {adding ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, paddingBottom: 3 }}>
+                  <span style={{ flex: 1, fontSize: 14 }}>
+                    <span className="font-serif" style={{ fontStyle: 'italic', fontSize: 17 }}>
+                      Tap the map
+                    </span>{' '}
+                    where you hit shot {steps.length + 1} from.
+                  </span>
+                  <button type="button" className="key" onClick={() => setAdding(false)}>
+                    Cancel
+                  </button>
+                </div>
+              ) : (
+                <FooterKeys
+                  n={stepPos + 1}
+                  isLast={stepPos === steps.length - 1}
+                  busy={shotBusy}
+                  onRemove={() => onRemoveShot(selected.id)}
+                  onAdd={() => setAdding(true)}
+                  onEdit={() => onEditShot(selected.id)}
+                />
+              )}
+            </>
+          ) : (
+            <div style={{ minHeight: 10 }} />
+          )}
         </div>
       </div>
       {saveError && (
         <div
           className="text-caddie-neg"
-          style={{
-            border: '1px solid #A33A2A',
-            borderRadius: 4,
-            padding: '12px 14px',
-            fontSize: 13,
-            marginTop: 14,
-          }}
+          style={{ border: '1px solid #A33A2A', borderRadius: 3, padding: '12px 14px', fontSize: 13, marginTop: 14 }}
         >
           {saveError}
         </div>
@@ -384,116 +503,127 @@ function MapLoading() {
 }
 
 const CATEGORY_LABEL: Record<ShotMarkerCategory, string> = {
-  tee: 'Tee',
+  tee: 'Tee shot',
   approach: 'Approach',
-  'around-green': 'Around green',
+  'around-green': 'Around the green',
   putt: 'Putt',
 }
 
-function categoryColor(c: ShotMarkerCategory): string {
-  if (c === 'approach') return MARKER_COLORS.approach
-  if (c === 'putt' || c === 'around-green') return MARKER_COLORS.green
-  return MARKER_COLORS.tee
-}
-
-// Per-hole shot list for the map view's left column — number badge (colored
-// to match the map marker), category, and start→end distance. Reads the same
-// `existingShots` the map draws; co-located since MapView is its only caller.
-function ShotList({ shots }: { shots: ExistingShot[] }) {
-  const rows = shots
-    .filter((s) => s.startLat != null && s.startLng != null)
-    .sort((a, b) => a.shotNumber - b.shotNumber)
-  if (rows.length === 0) {
-    return (
-      <div
-        className="text-caddie-ink-mute"
-        style={{ fontSize: 12, padding: '6px 0' }}
-      >
-        No shots logged for this hole yet.
-      </div>
-    )
-  }
+// Desktop's printed column (MAP-09): the stepper's long form. Each row is the
+// map's plate, what the shot was, and how far it went; the selected row sits
+// pressed in.
+function ShotList({
+  steps,
+  legOf,
+  selectedId,
+  onSelect,
+}: {
+  steps: ExistingShot[]
+  legOf: (i: number) => string | null
+  selectedId: string | null
+  onSelect: (id: string) => void
+}) {
   return (
-    <div style={{ display: 'flex', flexDirection: 'column' }}>
-      {rows.map((s) => {
-        const cat = s.category ?? 'approach'
-        const dist =
-          s.endLat != null && s.endLng != null
-            ? Math.round(
-                haversineYards(s.startLat!, s.startLng!, s.endLat, s.endLng),
-              )
-            : null
-        return (
-          <div
-            key={s.id}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 10,
-              padding: '7px 0',
-              borderBottom: '1px solid #EBE5D6',
-            }}
-          >
-            <span
-              style={{
-                width: 20,
-                height: 20,
-                borderRadius: 999,
-                // OB overrides the category colour, exactly as the map marker
-                // does — the list and the map must never disagree about which
-                // shot went out of bounds (#839).
-                background: s.ob === true ? MARKER_COLORS.ob : categoryColor(cat),
-                color: '#FBF8F1',
-                fontSize: 11,
-                fontWeight: 600,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                flexShrink: 0,
-              }}
-            >
-              {s.shotNumber}
-            </span>
-            <span style={{ fontSize: 13, flex: 1 }}>
-              {CATEGORY_LABEL[cat]}
-              {s.ob === true && (
-                // On the map an OB shot and its re-hit sit on the same
-                // coordinate, so the two discs overlap and neither number is
-                // reliably legible. This row is the unambiguous answer to
-                // "which shot went OB" (#839).
+    <div style={{ flex: '0 1 auto', minHeight: 0, overflowY: 'auto', padding: '14px 0 8px' }}>
+      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', padding: '0 16px 8px' }}>
+        <span className="font-serif" style={{ fontStyle: 'italic', fontWeight: 500, fontSize: 18 }}>
+          Your shots
+        </span>
+        {steps.length > 0 && (
+          <span style={{ fontSize: 12, color: P.inkDim }}>tap one to see it on the map</span>
+        )}
+      </div>
+      {steps.length === 0 ? (
+        <div style={{ fontSize: 14, padding: '6px 16px', color: P.inkDim }}>No shots logged for this hole yet.</div>
+      ) : (
+        <div style={{ borderTop: `1px solid ${P.line}` }}>
+          {steps.map((s, i) => {
+            const on = s.id === selectedId
+            const leg = legOf(i)
+            const [v, u] = leg ? [leg.slice(0, leg.lastIndexOf(' ')), leg.slice(leg.lastIndexOf(' ') + 1)] : [null, null]
+            return (
+              <button
+                key={s.id}
+                type="button"
+                onClick={() => onSelect(s.id)}
+                aria-current={on}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 12,
+                  width: '100%',
+                  minHeight: 56,
+                  padding: '6px 16px 6px 14px',
+                  textAlign: 'left',
+                  border: 'none',
+                  borderBottom: `1px solid ${P.line}`,
+                  borderLeft: `2px solid ${on ? P.ink : 'transparent'}`,
+                  background: on ? P.well : 'transparent',
+                  boxShadow: on ? 'inset 0 2px 0 rgba(28,33,28,.12)' : 'none',
+                  cursor: 'pointer',
+                  color: P.ink,
+                }}
+              >
                 <span
                   style={{
-                    marginLeft: 8,
-                    padding: '1px 6px',
-                    borderRadius: 4,
-                    background: MARKER_COLORS.ob,
-                    color: '#FBF8F1',
-                    fontSize: 10,
-                    fontWeight: 700,
-                    letterSpacing: 0.5,
-                    verticalAlign: 'middle',
+                    minWidth: 24,
+                    height: 24,
+                    padding: '0 5px',
+                    boxSizing: 'border-box',
+                    borderRadius: 3,
+                    border: `1px solid ${P.ink}`,
+                    background: s.ob ? P.neg : on ? P.ink : P.raised,
+                    color: s.ob || on ? P.raised : P.ink,
+                    fontFamily: 'var(--caddie-serif)',
+                    fontStyle: 'italic',
+                    fontSize: 16,
+                    lineHeight: '22px',
+                    textAlign: 'center',
+                    flexShrink: 0,
                   }}
                 >
-                  OB
+                  {s.shotNumber}
                 </span>
-              )}
-            </span>
-            {dist != null && (
-              <span
-                className="text-caddie-ink-dim font-mono"
-                style={{ fontSize: 12 }}
-              >
-                {dist} yd
-              </span>
-            )}
-          </div>
-        )
-      })}
+                <span style={{ flex: 1, minWidth: 0 }}>
+                  <span style={{ display: 'block', fontSize: 15, lineHeight: '19px', fontWeight: on ? 600 : 400 }}>
+                    {CATEGORY_LABEL[s.category ?? 'approach']}
+                    {s.ob === true && <span style={{ color: P.neg }}> · out of bounds</span>}
+                  </span>
+                  <span
+                    style={{
+                      display: 'block',
+                      fontSize: 12,
+                      lineHeight: '16px',
+                      color: P.inkDim,
+                      whiteSpace: 'nowrap',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                    }}
+                  >
+                    {s.summary || 'No details yet'}
+                  </span>
+                </span>
+                {v && (
+                  <span style={{ flexShrink: 0, whiteSpace: 'nowrap' }}>
+                    <span className="font-serif" style={{ fontStyle: 'italic', fontWeight: 500, fontSize: 19 }}>
+                      {v}
+                    </span>
+                    <span className="font-mono" style={{ fontSize: 12, marginLeft: 3 }}>
+                      {u}
+                    </span>
+                  </span>
+                )}
+              </button>
+            )
+          })}
+        </div>
+      )}
     </div>
   )
 }
 
-function HoleSelector({
+// Desktop jump-to-hole grid under the shot list (phones step with ‹ ›).
+function HolePicker({
   holes,
   activeNumber,
   onSelect,
@@ -503,218 +633,36 @@ function HoleSelector({
   onSelect: (n: number) => void
 }) {
   return (
-    <div
-      style={{
-        display: 'flex',
-        flexWrap: 'wrap',
-        gap: 6,
-      }}
-    >
-      {holes.map((h) => {
-        const active = h.number === activeNumber
-        return (
-          <button
-            key={h.id}
-            type="button"
-            onClick={() => onSelect(h.number)}
-            className="font-mono tabular"
-            style={{
-              minWidth: 36,
-              height: 36,
-              padding: '0 10px',
-              borderRadius: 2,
-              background: active ? '#1F3D2C' : '#EBE5D6',
-              color: active ? '#F2EEE5' : '#1C211C',
-              border: 'none',
-              fontSize: 12,
-              fontWeight: active ? 600 : 500,
-              letterSpacing: '0.04em',
-              cursor: 'pointer',
-            }}
-            title={`Hole ${h.number} · Par ${h.par}`}
-          >
-            {h.number}
-          </button>
-        )
-      })}
-    </div>
-  )
-}
-
-// Right-edge shot-pattern controls (web parity of the mobile RightRail): a
-// Tee/Appr shape toggle over a distance rail. Vertically centered on the
-// windowed map and right-aligned, clear of Mapbox's bottom-right nav/zoom and
-// attribution controls. Co-located (single caller).
-function OverlayRail({
-  mode,
-  onSetMode,
-  railLabels,
-  railIndex,
-  onSelectRail,
-}: {
-  mode: 'tee' | 'appr'
-  onSetMode: (m: 'tee' | 'appr') => void
-  railLabels: string[]
-  railIndex: number
-  onSelectRail: (i: number) => void
-}) {
-  const groupStyle = {
-    display: 'flex',
-    flexDirection: 'column' as const,
-    gap: 2,
-    padding: 3,
-    borderRadius: 16,
-    background: 'rgba(28,33,28,0.82)',
-  }
-  return (
-    <div
-      style={{
-        position: 'absolute',
-        right: 12,
-        top: '50%',
-        transform: 'translateY(-50%)',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'flex-end',
-        gap: 10,
-        zIndex: 5,
-      }}
-    >
-      <div style={groupStyle}>
-        <RailPill label="Tee" active={mode === 'tee'} onClick={() => onSetMode('tee')} />
-        <RailPill label="Appr" active={mode === 'appr'} onClick={() => onSetMode('appr')} />
+    <div style={{ padding: '14px 16px' }}>
+      <div className="font-serif" style={{ fontStyle: 'italic', fontWeight: 500, fontSize: 16, marginBottom: 8 }}>
+        Holes
       </div>
-      <div style={groupStyle} role="group" aria-label={mode === 'tee' ? 'Aim width' : 'Aim circle'}>
-        {/* Names what the sizes measure, as mobile's ruler key does (#1215). */}
-        <div
-          aria-hidden
-          style={{ color: 'rgba(242,238,229,0.75)', fontSize: 10, textAlign: 'center', padding: '3px 2px 1px', whiteSpace: 'nowrap' }}
-        >
-          {mode === 'tee' ? 'Aim width' : 'Aim circle'}
-        </div>
-        {railLabels.map((label, i) => (
-          <RailPill
-            key={label}
-            label={label}
-            active={i === railIndex}
-            onClick={() => onSelectRail(i)}
-          />
-        ))}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(9, 1fr)', gap: 4 }}>
+        {holes.map((h) => {
+          const on = h.number === activeNumber
+          return (
+            <button
+              key={h.id}
+              type="button"
+              onClick={() => onSelect(h.number)}
+              aria-pressed={on}
+              title={`Hole ${h.number} · Par ${h.par}`}
+              style={{
+                height: 30,
+                borderRadius: 3,
+                border: on ? `2px solid ${P.ink}` : `1px solid ${P.line}`,
+                background: on ? P.well : P.raised,
+                fontSize: 13,
+                fontWeight: on ? 600 : 400,
+                color: P.ink,
+                cursor: 'pointer',
+              }}
+            >
+              {h.number}
+            </button>
+          )
+        })}
       </div>
     </div>
-  )
-}
-
-// Live expected-strokes HUD pill (Phase D), top-right of the map (the Mapbox
-// controls sit top-left and the rail is vertically centered, so it's clear of
-// both). The To Hole / remaining readouts already live in the bottom chrome +
-// aim pills on web, so this surfaces the one new value — expected strokes to
-// hole out from the current ball. Best-case SG rides the aim pill.
-function ExpStrokesHud({ value }: { value: number }) {
-  return (
-    <div
-      style={{
-        position: 'absolute',
-        top: 10,
-        right: 12,
-        zIndex: 5,
-        background: 'rgba(28,33,28,0.82)',
-        borderRadius: 20,
-        padding: '6px 12px',
-        textAlign: 'right',
-        pointerEvents: 'none',
-      }}
-    >
-      <div
-        className="font-mono uppercase"
-        style={{ color: 'rgba(242,238,229,0.6)', fontSize: 9, letterSpacing: '0.14em' }}
-      >
-        Exp · to hole
-      </div>
-      <div
-        className="tabular"
-        style={{ color: 'var(--caddie-accent-ink)', fontSize: 18, fontWeight: 600, lineHeight: 1.2 }}
-      >
-        {value.toFixed(1)}
-      </div>
-    </div>
-  )
-}
-
-// Left-edge dispersion-dots toggle (web parity of the mobile left-toolbar
-// "grain" button). Always present so the player can pre-arm it; the dots only
-// render once there's an active aim and the matched club has data. Vertically
-// centered on the left, clear of the right-side rail.
-function DotsToggle({
-  active,
-  onToggle,
-}: {
-  active: boolean
-  onToggle: () => void
-}) {
-  return (
-    <div
-      style={{
-        position: 'absolute',
-        left: 12,
-        top: '50%',
-        transform: 'translateY(-50%)',
-        zIndex: 5,
-      }}
-    >
-      <button
-        type="button"
-        onClick={onToggle}
-        aria-pressed={active}
-        title="Toggle your shot-pattern dots"
-        className="font-mono uppercase"
-        style={{
-          padding: '8px 12px',
-          borderRadius: 15,
-          border: 'none',
-          cursor: 'pointer',
-          background: active ? '#FBF8F1' : 'rgba(28,33,28,0.82)',
-          color: active ? 'var(--caddie-ink)' : 'var(--caddie-accent-ink)',
-          fontSize: 10,
-          fontWeight: active ? 700 : 500,
-          letterSpacing: '0.12em',
-        }}
-      >
-        Pattern
-      </button>
-    </div>
-  )
-}
-
-function RailPill({
-  label,
-  active,
-  onClick,
-}: {
-  label: string
-  active: boolean
-  onClick: () => void
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-pressed={active}
-      className="font-mono tabular"
-      style={{
-        minWidth: 52,
-        padding: '7px 12px',
-        borderRadius: 9,
-        border: 'none',
-        cursor: 'pointer',
-        background: active ? '#FBF8F1' : 'transparent',
-        color: active ? '#1C211C' : '#F2EEE5',
-        fontSize: 12,
-        fontWeight: active ? 700 : 500,
-        letterSpacing: '0.02em',
-      }}
-    >
-      {label}
-    </button>
   )
 }

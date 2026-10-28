@@ -65,7 +65,7 @@ export interface PlateMarkerParts extends MarkerParts {
   setSide: (side: PlateSide) => void
 }
 
-export function makePlateMarker(n: number, fill: string, ob: boolean): PlateMarkerParts {
+export function makePlateMarker(n: number, ob: boolean): PlateMarkerParts {
   const outer = document.createElement('div')
   // Above the leg's distance pills, so a shot's number is never hidden.
   outer.style.cssText = 'width:44px;height:44px;z-index:1' // Mapbox makes it position:absolute
@@ -78,8 +78,10 @@ export function makePlateMarker(n: number, fill: string, ob: boolean): PlateMark
     'height:10px',
     'box-sizing:border-box',
     'border-radius:999px',
-    `background:${fill}`,
-    'border:2px solid #FBF8F1',
+    // §19.3: a cream dot on an ink ring with a faint cream keyline (OB: brick).
+    `background:${ob ? MARKER_COLORS.ob : '#FBF8F1'}`,
+    'border:1.5px solid #1C211C',
+    'box-shadow:0 0 0 1px rgba(251,248,241,.6)',
     'transition:transform 120ms ease, box-shadow 120ms ease',
   ].join(';')
   const leader = document.createElement('div')
@@ -115,6 +117,111 @@ export function makePlateMarker(n: number, fill: string, ob: boolean): PlateMark
   }
   setSide('ur')
   return { outer, content, setSide }
+}
+
+// The selected shot (#1217), as mobile's SelectedCrumb: a 26 px ink disc with
+// a cream numeral inside a 44 px ring.
+export function makeSelectedMarker(n: number): MarkerParts {
+  const outer = document.createElement('div')
+  outer.style.cssText = 'width:44px;height:44px;z-index:2'
+  const content = document.createElement('div')
+  content.style.cssText = [
+    'width:44px',
+    'height:44px',
+    'box-sizing:border-box',
+    'border-radius:999px',
+    'background:rgba(28,33,28,0.28)',
+    'border:1.5px solid rgba(251,248,241,0.9)',
+    'display:flex',
+    'align-items:center',
+    'justify-content:center',
+  ].join(';')
+  const disc = document.createElement('div')
+  disc.style.cssText = [
+    'width:26px',
+    'height:26px',
+    'box-sizing:border-box',
+    'border-radius:999px',
+    'background:#1C211C',
+    'border:2px solid #FBF8F1',
+    'color:#FBF8F1',
+    'font-family:Fraunces, Georgia, serif',
+    'font-style:italic',
+    'font-size:15px',
+    'line-height:22px',
+    'text-align:center',
+  ].join(';')
+  disc.textContent = String(n)
+  content.appendChild(disc)
+  outer.appendChild(content)
+  return { outer, content }
+}
+
+// The selected shot's flag callout (#1217, mobile's ShotCallout): the leg's
+// distance over the club and where it went, on a staff from the disc. Placed
+// by useMapLayers with core's placeCallout; never takes the pointer.
+export interface CalloutParts {
+  el: HTMLElement
+  box: HTMLElement
+  setStaff: (x1: number, y1: number, x2: number, y2: number) => void
+}
+
+export function makeCallout(value: string, unit: string, sub: string): CalloutParts {
+  const el = document.createElement('div')
+  el.style.cssText = 'position:absolute;inset:0;pointer-events:none;z-index:3'
+  const NS = 'http://www.w3.org/2000/svg'
+  const svg = document.createElementNS(NS, 'svg')
+  svg.setAttribute('style', 'position:absolute;inset:0;width:100%;height:100%;overflow:visible')
+  const lines = (
+    [
+      ['#FBF8F1', '4'],
+      ['#1C211C', '1.6'],
+    ] as const
+  ).map(([stroke, width]) => {
+    const l = document.createElementNS(NS, 'line')
+    l.setAttribute('stroke', stroke)
+    l.setAttribute('stroke-width', width)
+    l.setAttribute('stroke-linecap', 'round')
+    svg.appendChild(l)
+    return l
+  })
+  const box = document.createElement('div')
+  box.style.cssText = [
+    'position:absolute',
+    'min-width:116px',
+    'box-sizing:border-box',
+    'padding:3px 10px 4px',
+    'background:#FBF8F1',
+    'border:1px solid #1C211C',
+    'border-radius:3px',
+    'box-shadow:2px 2px 0 rgba(28,33,28,.55)',
+    'color:#1C211C',
+    'white-space:nowrap',
+  ].join(';')
+  const v = document.createElement('div')
+  v.style.cssText = 'font-family:Fraunces, Georgia, serif;font-style:italic;font-size:24px;line-height:26px'
+  v.textContent = value
+  const u = document.createElement('span')
+  u.style.cssText = 'font-family:Inconsolata, monospace;font-style:normal;font-size:13px'
+  u.textContent = ` ${unit}`
+  v.appendChild(u)
+  const s = document.createElement('div')
+  s.style.cssText = 'font-family:Epilogue, system-ui, sans-serif;font-size:12px;line-height:15px'
+  s.textContent = sub
+  box.append(v, s)
+  el.append(svg, box)
+  return {
+    el,
+    box,
+    setStaff: (x1, y1, x2, y2) => {
+      for (const l of lines) {
+        l.setAttribute('x1', String(x1))
+        l.setAttribute('y1', String(y1))
+        l.setAttribute('x2', String(x2))
+        l.setAttribute('y2', String(y2))
+      }
+    },
+  }
 }
 
 export function makeAimMarker(): HTMLElement {
@@ -156,37 +263,44 @@ export function makeTeeDotMarker(): HTMLElement {
   return outer
 }
 
+// A paper tag (§7) for the logging flow's leg / aim / remaining distances:
+// raised cream, ink rule, hard 2/2 shadow; the number in Fraunces italic over
+// an optional Epilogue sub ("to aim · +0.3").
 export function makeDistancePill(
   label: string,
   opts: { sublabel?: string; tone?: 'pos' | 'neg' } = {},
 ): HTMLElement {
   const el = document.createElement('div')
   el.style.cssText = [
-    'background:rgba(28,33,28,0.85)',
-    'color:#F2EEE5',
-    'font-family:Inconsolata, monospace',
-    'font-size:11px',
-    'font-weight:500',
-    'letter-spacing:0.04em',
-    'padding:3px 8px',
-    'border-radius:999px',
+    'background:#FBF8F1',
+    'color:#1C211C',
+    'border:1px solid #1C211C',
+    'border-radius:3px',
+    'box-shadow:2px 2px 0 rgba(28,33,28,.55)',
+    'padding:1px 7px 2px',
     'pointer-events:none',
     'white-space:nowrap',
     'text-align:center',
-    'line-height:1.25',
   ].join(';')
+  const i = label.lastIndexOf(' ')
   const main = document.createElement('div')
-  main.textContent = label
+  main.style.cssText = 'font-family:Fraunces, Georgia, serif;font-style:italic;font-weight:500;font-size:16px;line-height:19px'
+  main.textContent = i < 0 ? label : label.slice(0, i)
+  if (i >= 0) {
+    const u = document.createElement('span')
+    u.style.cssText = 'font-family:Inconsolata, monospace;font-style:normal;font-size:11px;margin-left:2px'
+    u.textContent = label.slice(i + 1)
+    main.appendChild(u)
+  }
   el.appendChild(main)
-  // Optional second line — the live best-case SG on the aim pill
-  // ("+0.3 · FWY"), tinted positive/negative.
   if (opts.sublabel) {
     const sub = document.createElement('div')
     sub.textContent = opts.sublabel
     sub.style.cssText = [
-      'font-size:9px',
-      'margin-top:1px',
-      `color:${opts.tone === 'neg' ? '#E0796B' : '#9FD8A8'}`,
+      'font-family:Epilogue, system-ui, sans-serif',
+      'font-size:11px',
+      'line-height:13px',
+      `color:${opts.tone === 'neg' ? '#A33A2A' : '#1C211C'}`,
     ].join(';')
     el.appendChild(sub)
   }
