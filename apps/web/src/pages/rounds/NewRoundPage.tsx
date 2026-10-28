@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react'
+import { useState, type FormEvent, type KeyboardEvent } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import {
   CAPTURE_MODES,
@@ -12,8 +12,13 @@ import { useCreateRound } from '../../hooks/useRounds'
 import { useAuth } from '../../hooks/useAuth'
 import { supabase } from '../../lib/supabase'
 import { toUserMessage } from '../../lib/errors'
+import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
+import { Rocker } from '../../components/ui/Rocker'
 
-const TEE_COLORS = ['black', 'blue', 'white', 'gold', 'red'] as const
+const TEE_COLORS = ['black', 'blue', 'white', 'gold', 'red'].map((t) => ({
+  value: t,
+  label: `${t.charAt(0).toUpperCase()}${t.slice(1)}`,
+}))
 
 type RoundMode = 'live' | 'past'
 
@@ -34,6 +39,8 @@ export function NewRoundPage() {
   )
   const [captureMode, setCaptureMode] = useState<CaptureMode>('track_patterns')
   const [error, setError] = useState<string | null>(null)
+  // An unfinished round from the last day, found when starting a live one.
+  const [unfinishedId, setUnfinishedId] = useState<string | null>(null)
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
@@ -59,12 +66,16 @@ export function NewRoundPage() {
         .gte('played_at', oneDayAgo)
         .limit(1)
       if (unfinished && unfinished.length > 0) {
-        const ok = window.confirm(
-          'You have an unfinished round. Starting a new one will leave it incomplete. Continue?',
-        )
-        if (!ok) return
+        setUnfinishedId(unfinished[0]!.id)
+        return
       }
     }
+    await create()
+  }
+
+  async function create() {
+    if (!user || !courseId) return
+    setUnfinishedId(null)
     try {
       const round = await createRoundMutation.mutateAsync({
         user_id: user.id,
@@ -100,7 +111,7 @@ export function NewRoundPage() {
       </p>
       <form onSubmit={handleSubmit}>
         <Group title="How you’re logging it">
-          <ChoiceRow>
+          <ChoiceRow label="How you’re logging it">
             <Choice
               active={mode === 'past'}
               onClick={() => setMode('past')}
@@ -119,7 +130,7 @@ export function NewRoundPage() {
               <div className="text-caddie-ink" style={{ fontSize: 15, margin: '18px 0 10px' }}>
                 What to track
               </div>
-              <ChoiceRow>
+              <ChoiceRow label="What to track">
                 {CAPTURE_MODES.map((cm) => (
                   <Choice
                     key={cm}
@@ -191,29 +202,32 @@ export function NewRoundPage() {
               required
               value={playedAt}
               onChange={(e) => setPlayedAt(e.target.value)}
-              style={inputStyle}
+              className="font-serif text-caddie-ink"
+              style={{
+                fontSize: 17,
+                minHeight: 44,
+                background: 'transparent',
+                border: 'none',
+                borderBottom: '1px solid #9F9580',
+                padding: '0 2px',
+              }}
             />
           </label>
 
           {/* A tee from the course list sets the colour itself. */}
           {!courseTeeId && (
-            <label style={rowStyle}>
+            <div style={{ ...rowStyle, flexWrap: 'wrap' }}>
               <span className="text-caddie-ink" style={{ fontSize: 15 }}>
                 Tee colour
               </span>
-              <select
+              <Rocker
+                options={TEE_COLORS}
                 value={teeColor}
-                onChange={(e) => setTeeColor(e.target.value)}
-                className="capitalize"
-                style={{ ...inputStyle, minWidth: 140 }}
-              >
-                {TEE_COLORS.map((t) => (
-                  <option key={t} value={t}>
-                    {t}
-                  </option>
-                ))}
-              </select>
-            </label>
+                onChange={setTeeColor}
+                label="Tee colour"
+                className="w-full sm:w-[380px]"
+              />
+            </div>
           )}
         </Group>
 
@@ -226,7 +240,7 @@ export function NewRoundPage() {
         <div className="flex items-center" style={{ gap: 18 }}>
           <button
             type="submit"
-            disabled={createRoundMutation.isPending || !courseId}
+            disabled={createRoundMutation.isPending}
             className="key key-primary"
             style={{
               fontSize: 14,
@@ -245,6 +259,11 @@ export function NewRoundPage() {
               </>
             )}
           </button>
+          {!courseId && (
+            <span className="text-caddie-ink-dim" style={{ fontSize: 13 }}>
+              Pick a course first
+            </span>
+          )}
           <button
             type="button"
             onClick={() => navigate('/rounds')}
@@ -255,6 +274,18 @@ export function NewRoundPage() {
           </button>
         </div>
       </form>
+
+      <ConfirmDialog
+        open={!!unfinishedId}
+        title="Leave your other round unfinished?"
+        message="You started a round in the last day and haven't finished it."
+        confirmLabel="Start a new round"
+        cancelLabel="Go to that round"
+        busy={createRoundMutation.isPending}
+        onConfirm={create}
+        onCancel={() => navigate(`/rounds/${unfinishedId}?view=map`)}
+        onDismiss={() => setUnfinishedId(null)}
+      />
     </div>
   )
 }
@@ -268,15 +299,6 @@ const rowStyle: React.CSSProperties = {
   gap: 16,
   minHeight: 52,
   padding: '12px 4px',
-}
-
-const inputStyle: React.CSSProperties = {
-  background: '#FBF8F1',
-  border: '1px solid #D9D2BF',
-  borderRadius: 2,
-  padding: '9px 12px',
-  fontSize: 14,
-  color: '#1C211C',
 }
 
 function Group({ title, children }: { title: string; children: React.ReactNode }) {
@@ -301,15 +323,32 @@ function Group({ title, children }: { title: string; children: React.ReactNode }
   )
 }
 
-export function ChoiceRow({ children }: { children: React.ReactNode }) {
+export function ChoiceRow({ label, children }: { label: string; children: React.ReactNode }) {
+  const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
+    const step = e.key === 'ArrowRight' || e.key === 'ArrowDown' ? 1 : e.key === 'ArrowLeft' || e.key === 'ArrowUp' ? -1 : 0
+    if (!step) return
+    e.preventDefault()
+    const keys = [...e.currentTarget.querySelectorAll<HTMLButtonElement>('[role=radio]')]
+    const i = keys.findIndex((k) => k.getAttribute('aria-checked') === 'true')
+    const next = keys[(i + step + keys.length) % keys.length]
+    next?.click()
+    next?.focus()
+  }
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2" style={{ gap: 10 }}>
+    <div
+      role="radiogroup"
+      aria-label={label}
+      onKeyDown={onKeyDown}
+      className="grid grid-cols-1 sm:grid-cols-2"
+      style={{ gap: 12, paddingBottom: 3 }}
+    >
       {children}
     </div>
   )
 }
 
-// One of two printed options: a ringed dot marks the pick, the border firms up around it.
+// One of the printed options as a letterpress key: raised on its ink ledge,
+// latched into the well when picked.
 export function Choice({
   active,
   onClick,
@@ -324,45 +363,24 @@ export function Choice({
   return (
     <button
       type="button"
+      role="radio"
+      aria-checked={active}
+      tabIndex={active ? 0 : -1}
       onClick={onClick}
-      aria-pressed={active}
-      className="hover:bg-caddie-surface"
+      className="key"
       style={{
-        display: 'flex',
+        flexDirection: 'column',
         alignItems: 'flex-start',
-        gap: 12,
+        justifyContent: 'center',
+        gap: 3,
+        minHeight: 64,
+        padding: '12px 16px',
         textAlign: 'left',
-        background: active ? '#FBF8F1' : 'transparent',
-        border: `1px solid ${active ? '#1F3D2C' : '#D9D2BF'}`,
-        borderRadius: 2,
-        padding: '14px 14px',
-        cursor: 'pointer',
-        transition: 'border-color 120ms, background 120ms',
       }}
     >
-      <span
-        aria-hidden="true"
-        style={{
-          flex: 'none',
-          width: 16,
-          height: 16,
-          marginTop: 2,
-          borderRadius: '50%',
-          border: `1px solid ${active ? '#1F3D2C' : '#9F9580'}`,
-          display: 'inline-flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
-      >
-        {active && <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#1F3D2C' }} />}
-      </span>
-      <span>
-        <span className="text-caddie-ink" style={{ display: 'block', fontSize: 15, fontWeight: 500 }}>
-          {title}
-        </span>
-        <span className="text-caddie-ink-dim" style={{ display: 'block', fontSize: 13, marginTop: 3, lineHeight: 1.45 }}>
-          {subtitle}
-        </span>
+      <span style={{ fontSize: 15, fontWeight: 600 }}>{title}</span>
+      <span className="text-caddie-ink-dim" style={{ fontSize: 13, fontWeight: 400, lineHeight: 1.45 }}>
+        {subtitle}
       </span>
     </button>
   )

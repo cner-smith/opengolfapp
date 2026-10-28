@@ -18,7 +18,7 @@ const IDS = ['scorecard:2024-03-02:whistling-straits', 'scorecard:2024-03-16:whi
 const cleanup = () => admin.from('rounds').delete().in('import_id', IDS)
 
 async function chooseFileAndCourse(page: Page) {
-  await page.getByRole('button', { name: /^Scorecard CSV/ }).click()
+  await page.getByRole('radio', { name: /^Scorecard CSV/ }).click()
   await page.getByLabel('Scorecard CSV file').setInputFiles(FILE)
   const straits = page.getByRole('region', { name: 'Whistling Straits' })
   await expect(straits.getByText(/Match: Whistling Straits · Sheboygan, WI/)).toBeVisible({ timeout: 15_000 })
@@ -31,7 +31,7 @@ test.describe('Scorecard CSV import (signed in, mutating)', () => {
 
   test('choose the file → the bad line is listed → confirm the course → the scores land', async ({ page }) => {
     await page.goto('/rounds/import')
-    await page.getByRole('button', { name: /^Scorecard CSV/ }).click()
+    await page.getByRole('radio', { name: /^Scorecard CSV/ }).click()
     await page.getByLabel('Scorecard CSV file').setInputFiles(FILE)
 
     await expect(page.getByRole('heading', { name: '2 rounds found' })).toBeVisible()
@@ -110,7 +110,7 @@ test.describe('Scorecard CSV import (signed in, mutating)', () => {
 
   test('the template downloads with its header and two example rows', async ({ page }) => {
     await page.goto('/rounds/import')
-    await page.getByRole('button', { name: /^Scorecard CSV/ }).click()
+    await page.getByRole('radio', { name: /^Scorecard CSV/ }).click()
     const [download] = await Promise.all([
       page.waitForEvent('download'),
       page.getByRole('button', { name: 'Download the template' }).click(),

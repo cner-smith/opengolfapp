@@ -2,6 +2,7 @@ import { useState, type ChangeEvent } from 'react'
 import { readScorecardCsv, SCORECARD_CSV_TEMPLATE, type ScorecardCsvPlan } from '@oga/core'
 import { CourseConfirmImport, LINE_RULE, h2Style } from './CourseConfirmImport'
 import { toUserMessage } from '../../../lib/errors'
+import { FileDrop } from '../../../components/ui/FileDrop'
 
 // A plain scorecard CSV (#1192): one row per round from a spreadsheet or another app's scorecards.
 // Scores only; every line that can't be read is listed by number before anything is imported.
@@ -23,8 +24,12 @@ export function ScorecardCsvImport() {
   const [busy, setBusy] = useState(false)
 
   async function handleFile(e: ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]
-    if (!file) return
+    if (e.target.files?.length) await readFile(e.target.files)
+    e.target.value = ''
+  }
+
+  async function readFile(files: FileList) {
+    const file = files[0]!
     setError(null)
     try {
       // Non-fatal decode: bytes that aren't UTF-8 become U+FFFD, which the reader turns away.
@@ -41,7 +46,6 @@ export function ScorecardCsvImport() {
     } catch (err) {
       setError(toUserMessage(err))
     }
-    e.target.value = ''
   }
 
   const found = plan?.rounds.length ?? 0
@@ -69,19 +73,12 @@ export function ScorecardCsvImport() {
       </ol>
       <div>
         <label
-          className="inline-flex items-center text-caddie-ink hover:bg-caddie-surface focus-within:outline focus-within:outline-2 focus-within:outline-offset-2"
-          style={{
-            border: '1px solid #9F9580',
-            borderRadius: 2,
-            padding: '11px 16px',
-            fontSize: 14,
-            fontWeight: 600,
-            letterSpacing: '0.02em',
-            cursor: busy ? 'not-allowed' : 'pointer',
-            opacity: busy ? 0.5 : 1,
-          }}
+          className="key key-primary focus-within:outline focus-within:outline-2 focus-within:outline-offset-2"
+          aria-disabled={busy}
+          style={{ cursor: busy ? 'default' : 'pointer' }}
         >
-          {plan ? 'Choose a different file' : 'Choose the CSV file'}
+          {plan ? 'Choose a different file' : 'Choose the CSV file'}{' '}
+          <span className="font-serif" style={{ fontStyle: 'italic' }}>→</span>
           <input
             type="file"
             accept=".csv,text/csv"
@@ -92,6 +89,7 @@ export function ScorecardCsvImport() {
           />
         </label>
       </div>
+      <FileDrop label="Or drop the CSV file here" disabled={busy} onFiles={readFile} />
 
       {error && (
         <p className="text-caddie-neg" role="alert" style={{ fontSize: 13 }}>

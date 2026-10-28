@@ -8,8 +8,12 @@ interface ConfirmDialogProps {
   cancelLabel?: string
   destructive?: boolean
   busy?: boolean
+  /** Shown in brick under the message; the dialog stays open on failure. */
+  error?: string | null
   onConfirm: () => void | Promise<void>
   onCancel: () => void
+  /** Escape and the scrim; defaults to onCancel. For a cancel key that goes somewhere. */
+  onDismiss?: () => void
 }
 
 export function ConfirmDialog({
@@ -20,17 +24,19 @@ export function ConfirmDialog({
   cancelLabel = 'Cancel',
   destructive = false,
   busy = false,
+  error,
   onConfirm,
   onCancel,
+  onDismiss = onCancel,
 }: ConfirmDialogProps) {
   useEffect(() => {
     if (!open) return
     function onKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') onCancel()
+      if (e.key === 'Escape') onDismiss()
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [open, onCancel])
+  }, [open, onDismiss])
 
   if (!open) return null
 
@@ -40,7 +46,7 @@ export function ConfirmDialog({
       aria-modal="true"
       className="fixed inset-0 z-[60] flex items-center justify-center"
       style={{ background: 'rgba(28,33,28,0.55)', padding: 16 }}
-      onClick={onCancel}
+      onClick={onDismiss}
     >
       <div
         className="paper-tile w-full"
@@ -65,6 +71,11 @@ export function ConfirmDialog({
             style={{ fontSize: 14, lineHeight: 1.5, marginBottom: 22 }}
           >
             {message}
+          </p>
+        )}
+        {error && (
+          <p role="alert" className="text-caddie-neg" style={{ fontSize: 13, lineHeight: 1.45, margin: '-10px 0 18px' }}>
+            {error}
           </p>
         )}
         <div

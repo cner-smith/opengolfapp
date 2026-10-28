@@ -32,9 +32,9 @@ test.describe('New round (past, signed in, mutating)', () => {
       page.getByRole('heading', { name: /New round/i }),
     ).toBeVisible()
 
-    // Mode chip is a <button aria-pressed>. Make "After the fact"
+    // Mode choice is a radio key. Make "After the fact"
     // active explicitly rather than relying on the default.
-    await page.getByRole('button', { name: /After the fact/i }).click()
+    await page.getByRole('radio', { name: /After the fact/i }).click()
 
     // CourseSearch input + debounced result list.
     await page.getByPlaceholder('Search courses').fill(SEARCH_QUERY)
