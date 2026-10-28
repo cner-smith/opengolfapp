@@ -13,7 +13,7 @@ import type {
   HoleGeo,
   PlacedPoint,
 } from '../../../components/round/RoundMap'
-import { useRound, useRounds } from '../../../hooks/useRounds'
+import { useRound } from '../../../hooks/useRounds'
 import {
   useCourse,
   useCourseTees,
@@ -45,7 +45,6 @@ export interface UseRoundDataResult {
   courseQuery: ReturnType<typeof useCourse>
   holeScoresQuery: ReturnType<typeof useHoleScores>
   shotsQuery: ReturnType<typeof useShotsForRound>
-  allRounds: ReturnType<typeof useRounds>
   courseId: string | undefined
   expectedHoleCount: number
   holes: HoleRow[]
@@ -98,7 +97,6 @@ export function useRoundData({
   const courseQuery = useCourse(courseId)
   const holeScoresQuery = useHoleScores(roundId)
   const shotsQuery = useShotsForRound(roundId)
-  const allRounds = useRounds(50)
 
   // Synthetic fallback when the course has no rows in the `holes` table
   // (typical for OSM-imported courses that never went through enrichment).
@@ -359,7 +357,6 @@ export function useRoundData({
     courseQuery,
     holeScoresQuery,
     shotsQuery,
-    allRounds,
     courseId,
     expectedHoleCount,
     holes,

@@ -275,7 +275,7 @@ export function HoleScoreCard({
         />
 
         {isPar3 ? (
-          <span aria-label="No fairway on a par 3" />
+          <span role="img" aria-label="No fairway on a par 3" />
         ) : (
           <TickCell
             label={`Hole ${hole.number} fairway`}
