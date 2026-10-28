@@ -1,4 +1,4 @@
-import { Lede, SrcBody, SrcLabel } from '../components/ArticlePrimitives'
+import { ArticleTitle, Lede, SrcBody, SrcLabel, Subhead } from '../components/ArticlePrimitives'
 export function GlossaryArticle() {
   return (
     <article
@@ -9,22 +9,7 @@ export function GlossaryArticle() {
         marginBottom: 32,
       }}
     >
-      <div className="kicker" style={{ marginBottom: 14 }}>
-        Understanding the game · Glossary
-      </div>
-      <h2
-        className="font-serif text-caddie-ink"
-        style={{
-          fontSize: 28,
-          fontWeight: 500,
-          fontStyle: 'italic',
-          letterSpacing: '-0.015em',
-          lineHeight: 1.15,
-          marginBottom: 18,
-        }}
-      >
-        Glossary of golf terms.
-      </h2>
+      <ArticleTitle>Glossary of golf terms.</ArticleTitle>
 
       <Lede>
         The basics — birdie, bogey, par, handicap, GIR — are not
@@ -649,9 +634,7 @@ function Hr() {
 function Sources() {
   return (
     <section style={{ borderTop: '1px solid #D9D2BF', paddingTop: 18, marginTop: 22 }}>
-      <div className="kicker" style={{ marginBottom: 12 }}>
-        Sources
-      </div>
+      <Subhead>Sources</Subhead>
       <div style={{ display: 'grid', gap: 14, maxWidth: 640 }}>
         <div>
           <SrcLabel>How these definitions are sourced</SrcLabel>
@@ -671,10 +654,9 @@ function Sources() {
 function Footer() {
   return (
     <div
-      className="font-mono uppercase text-caddie-ink-mute"
+      className="text-caddie-ink-dim"
       style={{
-        fontSize: 10,
-        letterSpacing: '0.14em',
+        fontSize: 12,
         borderTop: '1px solid #D9D2BF',
         paddingTop: 18,
         marginTop: 22,

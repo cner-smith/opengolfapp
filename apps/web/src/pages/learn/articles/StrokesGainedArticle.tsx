@@ -1,10 +1,11 @@
 import {
+  ArticleTitle,
   Body,
   Bullet,
   Lede,
   SrcBody,
   SrcLabel,
-  Subkicker,
+  Subhead,
 } from '../components/ArticlePrimitives'
 
 export function StrokesGainedArticle() {
@@ -17,22 +18,7 @@ export function StrokesGainedArticle() {
         marginBottom: 32,
       }}
     >
-      <div className="kicker" style={{ marginBottom: 14 }}>
-        Understanding the game · Strokes gained
-      </div>
-      <h2
-        className="font-serif text-caddie-ink"
-        style={{
-          fontSize: 28,
-          fontWeight: 500,
-          fontStyle: 'italic',
-          letterSpacing: '-0.015em',
-          lineHeight: 1.15,
-          marginBottom: 18,
-        }}
-      >
-        Strokes gained, in plain English.
-      </h2>
+      <ArticleTitle>Strokes gained, in plain English.</ArticleTitle>
 
       <Lede>
         <em>Strokes gained</em> measures every shot against an
@@ -50,7 +36,7 @@ export function StrokesGainedArticle() {
         it is not.
       </Body>
 
-      <Subkicker>The four categories</Subkicker>
+      <Subhead>The four categories</Subhead>
       <Body>Every shot fits in exactly one bucket:</Body>
       <ul style={{ listStyle: 'none', padding: 0, margin: '14px 0' }}>
         <Bullet term="Off the tee">
@@ -73,7 +59,7 @@ export function StrokesGainedArticle() {
 
       <WorkedExample />
 
-      <Subkicker>Reading the sign</Subkicker>
+      <Subhead>Reading the sign</Subhead>
       <Body>
         Positive numbers mean you played better than the bracket
         baseline at your handicap. Negative means you lost strokes to
@@ -88,7 +74,7 @@ export function StrokesGainedArticle() {
         fine, not a leak.
       </Body>
 
-      <Subkicker>What counts where</Subkicker>
+      <Subhead>What counts where</Subhead>
       <SGCategoriesTable />
 
       <Sources />
@@ -100,10 +86,9 @@ export function StrokesGainedArticle() {
 function Footer() {
   return (
     <div
-      className="font-mono uppercase text-caddie-ink-mute"
+      className="text-caddie-ink-dim"
       style={{
-        fontSize: 10,
-        letterSpacing: '0.14em',
+        fontSize: 12,
         borderTop: '1px solid #D9D2BF',
         paddingTop: 18,
         marginTop: 22,
@@ -118,9 +103,7 @@ function Footer() {
 function Sources() {
   return (
     <section style={{ borderTop: '1px solid #D9D2BF', paddingTop: 18, marginTop: 22 }}>
-      <div className="kicker" style={{ marginBottom: 12 }}>
-        Sources
-      </div>
+      <Subhead>Sources</Subhead>
       <div style={{ display: 'grid', gap: 14, maxWidth: 640 }}>
         <div>
           <SrcLabel>Strokes-gained framework and baselines</SrcLabel>
@@ -149,9 +132,7 @@ function WorkedExample() {
         marginTop: 18,
       }}
     >
-      <div className="kicker" style={{ marginBottom: 12 }}>
-        A worked example
-      </div>
+      <Subhead>A worked example</Subhead>
       <p
         className="font-serif text-caddie-ink"
         style={{ fontSize: 17, lineHeight: 1.55, marginBottom: 14 }}
@@ -188,7 +169,7 @@ function WorkedExample() {
         all from 155 beats the expectation. Chunk the same swing 40
         yards instead, leaving <em>115 in the fairway</em>, and the
         sign flips: 3.67 − 3.39 − 1 ={' '}
-        <span className="font-serif" style={{ fontStyle: 'italic' }}>
+        <span className="font-serif" style={{ fontStyle: 'italic', color: '#A33A2A' }}>
           −0.72
         </span>{' '}
         — nearly three-quarters of a stroke lost on one swing. Three
@@ -214,7 +195,7 @@ function ExampleRow({
     tone === 'pos' ? '#1F3D2C' : tone === 'neg' ? '#A33A2A' : '#1C211C'
   return (
     <div>
-      <div className="kicker" style={{ marginBottom: 6 }}>
+      <div className="text-caddie-ink-dim" style={{ fontSize: 13, marginBottom: 6 }}>
         {label}
       </div>
       <div

@@ -1,4 +1,4 @@
-import { SrcBody, SrcLabel } from '../components/ArticlePrimitives'
+import { ArticleTitle, SrcBody, SrcLabel, Subhead } from '../components/ArticlePrimitives'
 import type { CSSProperties, ReactNode } from 'react'
 
 export function Operation36Article() {
@@ -11,22 +11,7 @@ export function Operation36Article() {
         marginBottom: 32,
       }}
     >
-      <div className="kicker" style={{ marginBottom: 14 }}>
-        Improving your game · Operation 36
-      </div>
-      <h2
-        className="font-serif text-caddie-ink"
-        style={{
-          fontSize: 28,
-          fontWeight: 500,
-          fontStyle: 'italic',
-          letterSpacing: '-0.015em',
-          lineHeight: 1.15,
-          marginBottom: 18,
-        }}
-      >
-        The Operation 36 philosophy.
-      </h2>
+      <ArticleTitle>The Operation 36 philosophy.</ArticleTitle>
 
       <P>
         Most golfers are taught to build a swing first and play golf later.
@@ -424,10 +409,8 @@ function Gate() {
     >
       <div style={{ width: 2, height: 8, background: '#9F9580' }} />
       <span
-        className="font-mono uppercase"
         style={{
-          fontSize: 9,
-          letterSpacing: '0.14em',
+          fontSize: 12,
           color: '#5C6356',
           padding: '2px 0',
         }}
@@ -450,9 +433,7 @@ function Gate() {
 function Sources() {
   return (
     <section style={{ borderTop: '1px solid #D9D2BF', paddingTop: 18, marginTop: 22 }}>
-      <div className="kicker" style={{ marginBottom: 12 }}>
-        Sources
-      </div>
+      <Subhead>Sources</Subhead>
       <div style={{ display: 'grid', gap: 14, maxWidth: 640 }}>
         <div>
           <SrcLabel>The program — distance progression and the "shoot 36" rule</SrcLabel>
@@ -502,10 +483,9 @@ function Src({ href, children }: { href: string; children: ReactNode }) {
 function Footer() {
   return (
     <div
-      className="font-mono uppercase text-caddie-ink-mute"
+      className="text-caddie-ink-dim"
       style={{
-        fontSize: 10,
-        letterSpacing: '0.14em',
+        fontSize: 12,
         borderTop: '1px solid #D9D2BF',
         paddingTop: 18,
         marginTop: 22,

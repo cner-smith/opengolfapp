@@ -1,4 +1,4 @@
-import { SrcBody, SrcLabel } from '../components/ArticlePrimitives'
+import { ArticleTitle, SrcBody, SrcLabel, Subhead } from '../components/ArticlePrimitives'
 import type { ReactNode } from 'react'
 
 export function GuideToFittingsArticle() {
@@ -11,22 +11,7 @@ export function GuideToFittingsArticle() {
         marginBottom: 32,
       }}
     >
-      <div className="kicker" style={{ marginBottom: 14 }}>
-        Your equipment · Golf fittings
-      </div>
-      <h2
-        className="font-serif text-caddie-ink"
-        style={{
-          fontSize: 28,
-          fontWeight: 500,
-          fontStyle: 'italic',
-          letterSpacing: '-0.015em',
-          lineHeight: 1.15,
-          marginBottom: 18,
-        }}
-      >
-        Golf fittings.
-      </h2>
+      <ArticleTitle>Golf fittings.</ArticleTitle>
 
       <H3>There is no such thing as "getting fit"</H3>
       <P>
@@ -291,17 +276,6 @@ function H3({ children }: { children: ReactNode }) {
   )
 }
 
-function Subhead({ children }: { children: ReactNode }) {
-  return (
-    <div
-      className="kicker"
-      style={{ marginTop: 14, marginBottom: 10, color: '#5C6356' }}
-    >
-      {children}
-    </div>
-  )
-}
-
 function P({ children }: { children: ReactNode }) {
   return (
     <p
@@ -358,11 +332,9 @@ function Fit({
 function Tag({ children }: { children: ReactNode }) {
   return (
     <span
-      className="font-mono uppercase"
       style={{
-        fontSize: 10,
-        letterSpacing: '0.14em',
-        color: '#8A8B7E',
+        fontSize: 12,
+        color: '#5C6356',
         marginRight: 6,
       }}
     >
@@ -446,9 +418,7 @@ function FitByHandicap() {
 function Sources() {
   return (
     <section style={{ borderTop: '1px solid #D9D2BF', paddingTop: 18, marginTop: 22 }}>
-      <div className="kicker" style={{ marginBottom: 12 }}>
-        Sources
-      </div>
+      <Subhead>Sources</Subhead>
       <div style={{ display: 'grid', gap: 14, maxWidth: 640 }}>
         <div>
           <SrcLabel>Lie angle and iron fitting</SrcLabel>
@@ -527,10 +497,9 @@ function Src({ href, children }: { href: string; children: ReactNode }) {
 function Footer() {
   return (
     <div
-      className="font-mono uppercase text-caddie-ink-mute"
+      className="text-caddie-ink-dim"
       style={{
-        fontSize: 10,
-        letterSpacing: '0.14em',
+        fontSize: 12,
         borderTop: '1px solid #D9D2BF',
         paddingTop: 18,
         marginTop: 22,
