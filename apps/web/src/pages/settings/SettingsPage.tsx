@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import {
   FACILITIES,
   GOALS,
+  HANDICAP_PROVENANCE_LABEL,
   SKILL_LEVELS,
   type Facility,
   type Goal,
@@ -10,12 +11,24 @@ import {
 } from '@oga/core'
 import { useProfile, useUpdateProfile } from '../../hooks/useProfile'
 import { useUserBag } from '../../hooks/useUserBag'
+import { useHandicapMeta } from '../../hooks/useHandicapMeta'
+import { useCountUp } from '../../hooks/useCountUp'
+import { Rocker } from '../../components/ui/Rocker'
 import { toUserMessage } from '../../lib/errors'
+import './settings.css'
 
-const UNIT_OPTIONS: { value: 'yards' | 'meters'; label: string }[] = [
+const UNIT_OPTIONS = [
   { value: 'yards', label: 'Yards' },
   { value: 'meters', label: 'Metres' },
-]
+] as const
+const HAND_OPTIONS = [
+  { value: 'right', label: 'Right-handed' },
+  { value: 'left', label: 'Left-handed' },
+] as const
+const ON_OFF = [
+  { value: 'on', label: 'On' },
+  { value: 'off', label: 'Off' },
+] as const
 
 const SKILL_LABELS: Record<SkillLevel, string> = {
   beginner: 'Beginner',
@@ -64,6 +77,7 @@ export function SettingsPage() {
   const [usernameTouched, setUsernameTouched] = useState(false)
   const [openRow, setOpenRow] = useState<string | null>(null)
   const { bag } = useUserBag()
+  const { data: handicapMeta } = useHandicapMeta()
   const unit = profile?.distance_unit ?? 'yards'
   const playsLeftHanded = profile?.plays_left_handed ?? false
   const emailSummaries = profile?.email_round_summaries_enabled ?? true
@@ -171,16 +185,36 @@ export function SettingsPage() {
         ? 'All four'
         : FACILITIES.filter((f) => facilities.includes(f)).map((f) => FACILITY_LABELS[f]).join(', ')
 
+  const hcp = profile?.handicap_index ?? null
+  const caption = [
+    hcp != null && handicapMeta ? HANDICAP_PROVENANCE_LABEL[handicapMeta.provenance] : null,
+    profile?.skill_level ? SKILL_LABELS[profile.skill_level as SkillLevel] : null,
+    profile?.username ? `@${profile.username}` : null,
+  ]
+    .filter(Boolean)
+    .join(' · ')
+  const tapAlert = tapError ? (
+    <p className="text-caddie-neg" role="alert" style={{ fontSize: 13, marginTop: 8 }}>
+      {tapError}
+    </p>
+  ) : null
+
   return (
     <div style={{ maxWidth: 680 }}>
       <h1
         className="font-serif text-caddie-ink"
-        style={{ fontSize: 28, fontWeight: 500, lineHeight: 1.15, marginBottom: 6 }}
+        style={{ fontSize: 28, fontWeight: 500, lineHeight: 1.15, marginBottom: 18 }}
       >
-        Settings
+        Profile
       </h1>
-      <p className="text-caddie-ink-dim" style={{ fontSize: 15, marginBottom: 28 }}>
-        Your plans and drills are pitched at your skill level and handicap.
+
+      {/* The one headline number: no tile, just the figure and what it is. */}
+      <div style={{ minHeight: 54, marginBottom: 10 }}>
+        {profile ? <Hero value={hcp} caption={caption} /> : null}
+      </div>
+      <p className="text-caddie-ink-dim" style={{ fontSize: 15, lineHeight: 1.5, marginBottom: 30, maxWidth: 520, textWrap: 'pretty' }}>
+        Your plans and drills are pitched at your skill level and handicap
+        {handicapMeta?.provenance === 'calculated' ? ', calculated from your rated rounds.' : '.'}
       </p>
 
       <Group title="Your game">
@@ -189,6 +223,7 @@ export function SettingsPage() {
           value={trimmedUsername || 'Not set'}
           open={openRow === 'username'}
           onToggle={() => toggleRow('username')}
+          first
         >
           <input
             type="text"
@@ -205,7 +240,7 @@ export function SettingsPage() {
               ...inputStyle,
               width: '100%',
               maxWidth: 320,
-              borderColor: showUsernameError ? '#A33A2A' : '#D9D2BF',
+              borderColor: showUsernameError ? '#A33A2A' : '#1C211C',
             }}
           />
           <div style={{ fontSize: 12, marginTop: 6, color: showUsernameError ? '#A33A2A' : '#5C6356' }}>
@@ -260,19 +295,16 @@ export function SettingsPage() {
           value={facilitiesValue}
           open={openRow === 'facilities'}
           onToggle={() => toggleRow('facilities')}
-          last
         >
           <ChipRow>
             {FACILITIES.map((f) => (
               <Chip key={f} label={FACILITY_LABELS[f]} active={facilities.includes(f)} onClick={() => toggleFacility(f)} />
             ))}
           </ChipRow>
-          <div className="text-caddie-ink-dim" style={{ fontSize: 12, marginTop: 8 }}>
-            Plans only pick drills you can run where you practice.
-          </div>
+          <Hint>Plans only pick drills you can run where you practice.</Hint>
         </Row>
         {dirty || saved ? (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, paddingTop: 14 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, paddingTop: 14, paddingBottom: 3 }}>
             {dirty ? (
               <button
                 type="button"
@@ -303,116 +335,65 @@ export function SettingsPage() {
       </Group>
 
       <Group title="Clubs and distances">
-        <Link
-          to="/settings/bag"
-          className="hover:bg-caddie-surface"
-          style={{ ...rowStyle, borderBottom: '1px solid #D9D2BF', textDecoration: 'none' }}
-        >
-          <span className="text-caddie-ink" style={{ fontSize: 15 }}>
-            My bag
-          </span>
-          <span className="text-caddie-ink-dim" style={{ fontSize: 15 }}>
-            {bag.length > 0 ? `${bag.length} clubs in the bag` : ''} <span aria-hidden="true">›</span>
-          </span>
-        </Link>
+        <NavLinkRow to="/settings/bag" label="My bag" value={bag.length > 0 ? `${bag.length} clubs in the bag` : ''} first />
         <Row
           label="Distances in"
           value={unit === 'meters' ? 'Metres' : 'Yards'}
           open={openRow === 'units'}
           onToggle={() => toggleRow('units')}
         >
-          <ChipRow>
-            {UNIT_OPTIONS.map((opt) => (
-              <Chip
-                key={opt.value}
-                label={opt.label}
-                active={unit === opt.value}
-                disabled={updateProfile.isPending}
-                onClick={() => setUnit(opt.value)}
-              />
-            ))}
-          </ChipRow>
-          <div className="text-caddie-ink-dim" style={{ fontSize: 12, marginTop: 8 }}>
-            Changes how distances read. Your shots are stored the same either way.
-          </div>
+          <TapRocker pending={updateProfile.isPending}>
+            <Rocker label="Distances in" options={UNIT_OPTIONS} value={unit === 'meters' ? 'meters' : 'yards'} onChange={setUnit} />
+          </TapRocker>
+          <Hint>Changes how distances read. Your shots are stored the same either way.</Hint>
+          {tapAlert}
         </Row>
         <Row
           label="You play"
           value={playsLeftHanded ? 'Left-handed' : 'Right-handed'}
           open={openRow === 'plays'}
           onToggle={() => toggleRow('plays')}
-          last
         >
-          <ChipRow>
-            {([false, true] as const).map((lefty) => (
-              <Chip
-                key={String(lefty)}
-                label={lefty ? 'Left-handed' : 'Right-handed'}
-                active={playsLeftHanded === lefty}
-                disabled={updateProfile.isPending}
-                onClick={() => setPlaysLeftHanded(lefty)}
-              />
-            ))}
-          </ChipRow>
-          <div className="text-caddie-ink-dim" style={{ fontSize: 12, marginTop: 8 }}>
-            Mirrors the shot shape and start-line buttons: a left-hander's draw curves the other way.
-          </div>
+          <TapRocker pending={updateProfile.isPending}>
+            <Rocker
+              label="You play"
+              options={HAND_OPTIONS}
+              value={playsLeftHanded ? 'left' : 'right'}
+              onChange={(v) => setPlaysLeftHanded(v === 'left')}
+            />
+          </TapRocker>
+          <Hint>Mirrors the shot shape and start-line buttons: a left-hander's draw curves the other way.</Hint>
+          {tapAlert}
         </Row>
       </Group>
 
-      {tapError && (
-        <p className="text-caddie-neg" role="alert" style={{ fontSize: 13, marginTop: -20, marginBottom: 24 }}>
-          {tapError}
-        </p>
-      )}
-
       <Group title="Email">
-        <label style={{ ...rowStyle, cursor: 'pointer' }}>
-          <span>
-            <span className="text-caddie-ink" style={{ fontSize: 15, display: 'block' }}>
-              Round summary
-            </span>
-            <span className="text-caddie-ink-dim" style={{ fontSize: 13 }}>
-              The morning after you play.
-            </span>
-          </span>
-          <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <span className="text-caddie-ink-dim" style={{ fontSize: 15 }}>
-              {emailSummaries ? 'On' : 'Off'}
-            </span>
-            <input
-              type="checkbox"
-              checked={emailSummaries}
-              disabled={updateProfile.isPending}
-              onChange={(e) => setEmailSummaries(e.target.checked)}
-              style={{ width: 18, height: 18, accentColor: '#1F3D2C' }}
+        <Row
+          label="Round summary"
+          value={emailSummaries ? 'On' : 'Off'}
+          open={openRow === 'email'}
+          onToggle={() => toggleRow('email')}
+          first
+        >
+          <TapRocker pending={updateProfile.isPending}>
+            <Rocker
+              label="Round summary email"
+              options={ON_OFF}
+              value={emailSummaries ? 'on' : 'off'}
+              onChange={(v) => setEmailSummaries(v === 'on')}
             />
-          </span>
-        </label>
+          </TapRocker>
+          <Hint>The morning after you play.</Hint>
+          {tapAlert}
+        </Row>
       </Group>
 
       <Group title="Your data">
-        <Link
-          to="/rounds/import"
-          className="hover:bg-caddie-surface"
-          style={{ ...rowStyle, borderBottom: '1px solid #D9D2BF', textDecoration: 'none' }}
-        >
-          <span>
-            <span className="text-caddie-ink" style={{ fontSize: 15, display: 'block' }}>
-              Import rounds
-            </span>
-            <span className="text-caddie-ink-dim" style={{ fontSize: 13 }}>
-              From Golf Pad, or a scorecard spreadsheet.
-            </span>
-          </span>
-          <span className="text-caddie-ink-dim" aria-hidden="true" style={{ fontSize: 15 }}>
-            ›
-          </span>
-        </Link>
+        <NavLinkRow to="/rounds/import" label="Import rounds" sub="From Golf Pad, or a scorecard spreadsheet." first />
       </Group>
 
       <Group title="Support OGA">
-        <p className="text-caddie-ink-dim" style={{ fontSize: 15, lineHeight: 1.55, padding: '12px 0 10px', maxWidth: 520 }}>
+        <p className="text-caddie-ink-dim" style={{ fontSize: 15, lineHeight: 1.55, padding: '0 0 12px', maxWidth: 520 }}>
           OGA is free and open source. If it helps your game, consider buying us a round.
         </p>
         <div style={{ display: 'flex', gap: 22, flexWrap: 'wrap', fontSize: 15 }}>
@@ -450,12 +431,51 @@ const rowStyle: React.CSSProperties = {
   textAlign: 'left',
 }
 
+// The handicap as Profile's hero (mobile profile.tsx; audit SHL-07): an
+// italic Fraunces figure that counts up once a session, its name and where
+// it comes from in a column beside it.
+function Hero({ value, caption }: { value: number | null; caption: string }) {
+  const shown = useCountUp(value, { onceKey: 'oga-profile-counted' })
+  const decimals = value == null ? 0 : (String(value).split('.')[1]?.length ?? 0)
+  // A 40px line box sets the digits' baseline near its bottom, so the column
+  // (flush to the bottom) puts its caption on that baseline, as mobile does.
+  return (
+    <div style={{ display: 'flex', alignItems: 'flex-end', gap: 14, paddingTop: 10 }}>
+      {value == null ? (
+        <span className="font-serif text-caddie-ink-dim" style={{ fontSize: 30, fontStyle: 'italic', fontWeight: 500, lineHeight: 1.1 }}>
+          No handicap yet
+        </span>
+      ) : (
+        <span className="font-serif tabular text-caddie-ink" style={{ fontSize: 54, fontStyle: 'italic', fontWeight: 500, letterSpacing: '-1.5px', lineHeight: '40px' }}>
+          {/* The counting figure is hidden from screen readers; they get the value once. */}
+          <span aria-hidden="true">{shown!.toFixed(decimals)}</span>
+          <span className="sr-only">{value}</span>
+        </span>
+      )}
+      <span className="prof-rise" style={{ display: 'block', marginBottom: -3, minWidth: 0 }}>
+        {value != null ? (
+          <span className="text-caddie-ink" style={{ display: 'block', fontSize: 17, lineHeight: 1.3 }}>
+            Handicap index
+          </span>
+        ) : null}
+        {caption ? (
+          <span className="text-caddie-ink-dim" style={{ display: 'block', fontSize: 13, lineHeight: 1.4 }}>
+            {caption}
+          </span>
+        ) : null}
+      </span>
+    </div>
+  )
+}
+
+// Paper section head (mobile paper/Section.tsx SectionHead): one ink rule,
+// then a Fraunces-italic title.
 function Group({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <section style={{ marginBottom: 32 }}>
+    <section style={{ marginBottom: 32, borderTop: '1px solid #1C211C', paddingTop: 12 }}>
       <h2
         className="font-serif text-caddie-ink"
-        style={{ fontSize: 22, fontWeight: 500, fontStyle: 'italic', lineHeight: 1.2, paddingBottom: 8, borderBottom: '1px solid #D9D2BF' }}
+        style={{ fontSize: 22, fontWeight: 500, fontStyle: 'italic', lineHeight: 1.2, paddingBottom: 4 }}
       >
         {title}
       </h2>
@@ -464,13 +484,15 @@ function Group({ title, children }: { title: string; children: React.ReactNode }
   )
 }
 
+// A settings row: plain label left, the current value right. Tapping opens
+// its editor underneath (one at a time).
 function Row({
   label,
   value,
   serifValue,
   open,
   onToggle,
-  last,
+  first,
   children,
 }: {
   label: string
@@ -478,11 +500,11 @@ function Row({
   serifValue?: boolean
   open: boolean
   onToggle: () => void
-  last?: boolean
+  first?: boolean
   children: React.ReactNode
 }) {
   return (
-    <div style={{ borderBottom: last && !open ? 'none' : '1px solid #D9D2BF' }}>
+    <div style={{ borderTop: first ? 'none' : '1px solid #D9D2BF' }}>
       <button
         type="button"
         onClick={onToggle}
@@ -493,69 +515,106 @@ function Row({
         <span className="text-caddie-ink" style={{ fontSize: 15 }}>
           {label}
         </span>
-        <span style={{ display: 'flex', alignItems: 'baseline', gap: 10, minWidth: 0 }}>
+        <span style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
           <span
             className={serifValue ? 'font-serif text-caddie-ink' : 'text-caddie-ink-dim'}
             style={{ fontSize: serifValue ? 18 : 15, textAlign: 'right' }}
           >
             {value}
           </span>
-          <span className="text-caddie-ink-dim" aria-hidden="true" style={{ fontSize: 13 }}>
-            {open ? 'Done' : 'Edit'}
-          </span>
+          <Chevron open={open} />
         </span>
       </button>
-      {open ? <div style={{ padding: '2px 4px 16px' }}>{children}</div> : null}
+      {open ? (
+        <div className="prof-open">
+          <div style={{ padding: '6px 4px 16px' }}>{children}</div>
+        </div>
+      ) : null}
     </div>
   )
 }
 
-const inputStyle: React.CSSProperties = {
-  background: '#FBF8F1',
-  border: '1px solid #D9D2BF',
-  borderRadius: 2,
-  padding: '10px 12px',
-  fontSize: 14,
-  color: '#1C211C',
+function Chevron({ open }: { open: boolean }) {
+  return (
+    <svg className="prof-chev" data-open={open} width="12" height="12" viewBox="0 0 12 12" aria-hidden="true" style={{ flex: 'none' }}>
+      <path d="M2 4.25 6 8.25l4-4" fill="none" stroke="#5C6356" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
 }
 
-function ChipRow({ children }: { children: React.ReactNode }) {
+// A row that goes somewhere: label (and a line under it) left, › right.
+function NavLinkRow({ to, label, value, sub, first }: { to: string; label: string; value?: string; sub?: string; first?: boolean }) {
   return (
-    <div className="flex flex-wrap" style={{ gap: 8 }}>
+    <Link
+      to={to}
+      className="hover:bg-caddie-surface"
+      style={{ ...rowStyle, borderTop: first ? 'none' : '1px solid #D9D2BF', textDecoration: 'none' }}
+    >
+      <span>
+        <span className="text-caddie-ink" style={{ fontSize: 15, display: 'block' }}>
+          {label}
+        </span>
+        {sub ? (
+          <span className="text-caddie-ink-dim" style={{ fontSize: 13 }}>
+            {sub}
+          </span>
+        ) : null}
+      </span>
+      <span className="text-caddie-ink-dim" style={{ fontSize: 15 }}>
+        {value} <span aria-hidden="true">›</span>
+      </span>
+    </Link>
+  )
+}
+
+function Hint({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="text-caddie-ink-dim" style={{ fontSize: 12, lineHeight: 1.45, marginTop: 10 }}>
       {children}
     </div>
   )
 }
 
+// These rows save on tap; the rocker sits still while a save is in flight.
+function TapRocker({ pending, children }: { pending: boolean; children: React.ReactNode }) {
+  return (
+    <fieldset disabled={pending} style={{ border: 0, margin: 0, padding: 0, minWidth: 0, maxWidth: 320, opacity: pending ? 0.6 : 1 }}>
+      {children}
+    </fieldset>
+  )
+}
+
+// A paper field: raised face, ink edge (mobile profile.tsx inputStyle).
+const inputStyle: React.CSSProperties = {
+  background: '#FBF8F1',
+  border: '1px solid #1C211C',
+  borderRadius: 3,
+  padding: '10px 12px',
+  fontSize: 15,
+  color: '#1C211C',
+}
+
+function ChipRow({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="flex flex-wrap" style={{ gap: '10px 8px', paddingBottom: 3 }}>
+      {children}
+    </div>
+  )
+}
+
+// An option key, latched (pressed in, well face) while chosen: never filled
+// forest (DESIGN.md, mobile profile.tsx Chip).
 function Chip({
   label,
   active,
-  disabled,
   onClick,
 }: {
   label: string
   active: boolean
-  disabled?: boolean
   onClick: () => void
 }) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
-      aria-pressed={active}
-      style={{
-        opacity: disabled ? 0.5 : 1,
-        background: active ? '#1F3D2C' : '#EBE5D6',
-        color: active ? '#F2EEE5' : '#1C211C',
-        border: 'none',
-        borderRadius: 2,
-        padding: '7px 12px',
-        fontSize: 13,
-        fontWeight: active ? 500 : 400,
-        cursor: 'pointer',
-      }}
-    >
+    <button type="button" onClick={onClick} aria-pressed={active} className="key set-key" style={{ fontWeight: active ? 600 : 500 }}>
       {label}
     </button>
   )

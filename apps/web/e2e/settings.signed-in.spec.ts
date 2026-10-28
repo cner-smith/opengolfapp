@@ -5,7 +5,7 @@ import { test, expect } from '@playwright/test'
 test.describe('Settings (signed in)', () => {
   test('rows show the seeded values; a row opens its editor', async ({ page }) => {
     await page.goto('/settings')
-    await expect(page.getByRole('heading', { name: /^Settings$/i })).toBeVisible()
+    await expect(page.getByRole('heading', { level: 1, name: 'Profile' })).toBeVisible()
     // Seeded values from scripts/seed-demo.ts profile upsert.
     const username = page.getByRole('button', { name: /^Username/ })
     await expect(username).toContainText('e2e-test')
