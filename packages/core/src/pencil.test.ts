@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { marksFor, pencilTick } from './pencil'
+import { marksFor, marksPath, pencilTick } from './pencil'
 
 describe('pencil marks', () => {
   it('draws nothing at par, one gesture for birdie / bogey, two for eagle / double', () => {
@@ -20,5 +20,15 @@ describe('pencil marks', () => {
     expect(pencilTick(7)).toEqual(pencilTick(7))
     expect(marksFor(-1, 7)).not.toEqual(marksFor(-1, 8))
     expect(pencilTick(7)).not.toEqual(pencilTick(8))
+  })
+})
+
+describe('marksPath', () => {
+  it('draws the mark over time: nothing before it starts, more as it goes, then the full outline', () => {
+    const ms = marksFor(-1, 3)
+    const full = marksPath(ms, 1e9)
+    expect(marksPath(ms, 0)).toBe('')
+    expect(full).toMatch(/^M[\d.-]+ [\d.-]+ Q.*Z$/)
+    expect(marksPath(ms, ms[0]!.m.dur / 2).length).toBeLessThan(full.length)
   })
 })

@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { marksFor, marksPath, pencilTick } from './pencil'
+import { marksFor, marksPath, pencilTick } from '@oga/core'
 
 // Pencil graphite (mobile paper tokens P.graphite).
 export const GRAPHITE = '#353430'
@@ -11,7 +11,7 @@ export const GRAPHITE = '#353430'
 const BOX = 62
 const SCALE = 1.02
 export function GolfMark({ toPar, seed }: { toPar: number; seed: number }) {
-  const d = useMemo(() => marksPath(marksFor(toPar, seed)), [toPar, seed])
+  const d = useMemo(() => marksPath(marksFor(toPar, seed), 1e9), [toPar, seed])
   if (!d) return null
   const v = BOX / SCALE
   return (
@@ -38,7 +38,7 @@ export function GolfMark({ toPar, seed }: { toPar: number; seed: number }) {
 const TICK = 24
 const TICK_VIEW = TICK / 1.4
 export function PencilTick({ seed }: { seed: number }) {
-  const d = useMemo(() => marksPath(pencilTick(seed)), [seed])
+  const d = useMemo(() => marksPath(pencilTick(seed), 1e9), [seed])
   return (
     <svg
       aria-hidden

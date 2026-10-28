@@ -1,4 +1,6 @@
 import { NavLink } from 'react-router-dom'
+import { marksPath, pencilUnderline } from '@oga/core'
+import './shell.css'
 import {
   mdiHomeOutline,
   mdiChartLine,
@@ -21,6 +23,25 @@ function MdiIcon({ path }: { path: string }) {
   return (
     <svg width={24} height={24} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
       <path d={path} />
+    </svg>
+  )
+}
+
+// Mobile's PencilTabButton underline, from the shared pencil geometry, so the
+// active tab carries the same graphite hand (SHL-14).
+const UNDERLINE = marksPath([{ m: pencilUnderline(), at: 0 }], 1e9)
+
+export function PencilUnderline({ width = 34, height = 8 }: { width?: number | string; height?: number | string }) {
+  return (
+    <svg
+      className="shell-pencil"
+      width={width}
+      height={height}
+      viewBox="-17 -4 34 8"
+      preserveAspectRatio="none"
+      aria-hidden="true"
+    >
+      <path d={UNDERLINE} fill="#353430" opacity={0.9} />
     </svg>
   )
 }
@@ -61,10 +82,10 @@ export function MobileTabBar() {
           className={({ isActive }) =>
             [
               'flex flex-1 flex-col items-center justify-center transition-colors',
-              isActive ? 'text-caddie-accent' : 'text-caddie-ink-mute',
+              isActive ? 'text-caddie-ink' : 'text-caddie-ink-mute hover:text-caddie-ink-dim',
             ].join(' ')
           }
-          style={{ gap: 3, paddingTop: 8, paddingBottom: 8, minHeight: 56 }}
+          style={{ gap: 3, paddingTop: 8, paddingBottom: 10, minHeight: 58, position: 'relative' }}
         >
           {({ isActive }) => (
             <>
@@ -72,6 +93,11 @@ export function MobileTabBar() {
               <span style={{ fontSize: 11, fontWeight: isActive ? 600 : 500 }}>
                 {label}
               </span>
+              {isActive && (
+                <span style={{ position: 'absolute', bottom: 3, lineHeight: 0 }}>
+                  <PencilUnderline />
+                </span>
+              )}
             </>
           )}
         </NavLink>
