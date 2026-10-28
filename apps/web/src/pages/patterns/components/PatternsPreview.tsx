@@ -170,8 +170,8 @@ export function PatternsEmpty() {
           </dl>
           <Link
             to="/rounds/new?mode=live"
-            className="bg-caddie-accent text-caddie-accent-ink hover:opacity-90 flex items-center justify-center"
-            style={{ marginTop: 18, padding: '15px 16px', borderRadius: 2, fontSize: 16, fontWeight: 700, letterSpacing: '0.02em', gap: 8 }}
+            className="key key-primary w-full"
+            style={{ marginTop: 18, fontSize: 16, fontWeight: 700, letterSpacing: '0.02em', gap: 8 }}
           >
             Track shot patterns on your next round →
           </Link>

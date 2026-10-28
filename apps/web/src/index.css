@@ -27,11 +27,90 @@ body {
 /* Editorial primitives */
 .kicker {
   font-family: var(--caddie-mono);
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 500;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: var(--caddie-ink-mute);
+  color: var(--caddie-ink-dim);
+}
+
+/* #611 paper system, ported from apps/mobile/components/paper (tokens.ts,
+   Paper.tsx Key). A key is a face on a hard 3px ledge that sinks onto it when
+   pressed: 40ms down (out-quad), 110ms up (out-cubic). Latched (aria-pressed)
+   = held down on a well face; disabled = sunk on a chrome face, ink-35 edge. */
+.key {
+  --key-face: #fbf8f1;
+  --key-pressed: #e4dcca;
+  --key-edge: #1c211c;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 18px;
+  background: var(--key-face);
+  color: var(--caddie-ink);
+  border: 1px solid var(--key-edge);
+  border-radius: 3px;
+  box-shadow: 0 3px 0 var(--key-edge);
+  font-family: var(--caddie-sans);
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+  text-decoration: none;
+  transition: transform 110ms cubic-bezier(0.33, 1, 0.68, 1), box-shadow 110ms cubic-bezier(0.33, 1, 0.68, 1);
+}
+.key:hover:not(:disabled) {
+  filter: brightness(1.04);
+}
+.key-primary {
+  --key-face: #1f3d2c;
+  --key-pressed: #183224;
+  --key-edge: #0c1a12;
+  color: #f2eee5;
+}
+.key-danger {
+  --key-face: #a33a2a;
+  --key-pressed: #8e3223;
+  --key-edge: #6e2418;
+  color: #f2eee5;
+}
+.key:active:not(:disabled),
+.key[aria-pressed='true'] {
+  background: var(--key-pressed);
+  transform: translateY(3px);
+  box-shadow: 0 0 0 var(--key-edge);
+}
+.key:active:not(:disabled) {
+  transition-duration: 40ms;
+  transition-timing-function: cubic-bezier(0.5, 1, 0.89, 1);
+}
+.key[aria-pressed='true'] {
+  box-shadow: inset 0 0 0 1px var(--key-edge);
+}
+.key:disabled,
+.key[aria-disabled='true'] {
+  background: #f2eee5;
+  color: rgba(28, 33, 28, 0.35);
+  border-color: rgba(28, 33, 28, 0.35);
+  transform: translateY(3px);
+  box-shadow: none;
+  cursor: default;
+}
+.key:focus-visible {
+  outline: 2px solid var(--caddie-ink);
+  outline-offset: 2px;
+}
+.paper-tile {
+  background: #fbf8f1;
+  border: 1px solid #1c211c;
+  border-radius: 3px;
+  box-shadow: 2px 2px 0 rgba(28, 33, 28, 0.55);
+}
+@media (prefers-reduced-motion: reduce) {
+  .key {
+    transition: none;
+  }
 }
 
 .serif {

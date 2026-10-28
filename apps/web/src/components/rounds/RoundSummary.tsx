@@ -156,14 +156,11 @@ export function RoundSummary({
         <div style={{ marginTop: 22 }}>
           <Link
             to="/practice"
-            className="bg-caddie-accent text-caddie-accent-ink hover:opacity-90"
+            className="key key-primary"
             style={{
-              display: 'inline-block',
-              padding: '12px 16px',
               fontSize: 14,
               fontWeight: 600,
               letterSpacing: '0.02em',
-              borderRadius: 2,
             }}
           >
             Go to Practice{' '}

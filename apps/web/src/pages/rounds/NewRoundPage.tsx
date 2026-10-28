@@ -227,15 +227,11 @@ export function NewRoundPage() {
           <button
             type="submit"
             disabled={createRoundMutation.isPending || !courseId}
-            className="bg-caddie-accent text-caddie-accent-ink hover:opacity-90 disabled:opacity-50"
+            className="key key-primary"
             style={{
-              border: 'none',
-              borderRadius: 2,
-              padding: '12px 16px',
               fontSize: 14,
               fontWeight: 600,
               letterSpacing: '0.02em',
-              cursor: createRoundMutation.isPending || !courseId ? 'not-allowed' : 'pointer',
             }}
           >
             {createRoundMutation.isPending ? (

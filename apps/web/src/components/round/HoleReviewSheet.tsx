@@ -410,10 +410,8 @@ export function HoleReviewSheet({
           type="button"
           onClick={() => onSave(rows, { score, putts, penalties })}
           disabled={saving || rows.length === 0}
-          className="bg-caddie-accent text-caddie-accent-ink disabled:opacity-40"
+          className="key key-primary"
           style={{
-            borderRadius: 2,
-            padding: '12px 18px',
             fontSize: 14,
             fontWeight: 600,
             letterSpacing: '0.02em',
@@ -615,11 +613,9 @@ function AimerOverlay({
         <button
           type="button"
           onClick={onClose}
-          className="bg-caddie-accent text-caddie-accent-ink"
+          className="key key-primary"
           style={{
             width: '100%',
-            borderRadius: 2,
-            padding: '12px 18px',
             fontSize: 14,
             fontWeight: 600,
             letterSpacing: '0.02em',

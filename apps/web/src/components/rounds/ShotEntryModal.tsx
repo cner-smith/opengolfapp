@@ -587,10 +587,8 @@ export function ShotEntryModal({
                     type="button"
                     onClick={() => save({ madeOverride: true })}
                     disabled={createShot.isPending || updateShot.isPending}
-                    className="bg-caddie-accent text-caddie-accent-ink hover:opacity-90 disabled:opacity-40"
+                    className="key key-primary"
                     style={{
-                      borderRadius: 2,
-                      padding: '12px 18px',
                       fontSize: 15,
                       fontWeight: 700,
                       letterSpacing: '0.02em',
@@ -607,10 +605,8 @@ export function ShotEntryModal({
                 type="button"
                 onClick={() => save()}
                 disabled={createShot.isPending || updateShot.isPending}
-                className="bg-caddie-accent text-caddie-accent-ink hover:opacity-90 disabled:opacity-40"
+                className="key key-primary"
                 style={{
-                  borderRadius: 2,
-                  padding: '12px 16px',
                   fontSize: 14,
                   fontWeight: 600,
                   letterSpacing: '0.02em',

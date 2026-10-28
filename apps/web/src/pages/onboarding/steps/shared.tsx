@@ -67,10 +67,8 @@ export function OnboardingButtons({
         type="button"
         onClick={onContinue}
         disabled={!canContinue || busy}
-        className="bg-caddie-accent text-caddie-accent-ink hover:opacity-90 disabled:opacity-40"
+        className="key key-primary"
         style={{
-          borderRadius: 2,
-          padding: '12px 22px',
           fontSize: 14,
           fontWeight: 600,
           letterSpacing: '0.02em',

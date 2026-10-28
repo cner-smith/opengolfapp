@@ -12,11 +12,9 @@ export function Step7Import({ onImport, onSkip }: { onImport: () => void; onSkip
       <button
         type="button"
         onClick={onImport}
-        className="bg-caddie-accent text-caddie-accent-ink hover:opacity-90"
+        className="key key-primary"
         style={{
           width: '100%',
-          borderRadius: 2,
-          padding: '12px 22px',
           fontSize: 14,
           fontWeight: 600,
           letterSpacing: '0.02em',

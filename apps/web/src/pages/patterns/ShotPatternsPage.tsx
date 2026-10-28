@@ -774,8 +774,8 @@ function FilterSheet({ onClose, done, children }: { onClose: () => void; done: s
         <button
           type="button"
           onClick={onClose}
-          className={`bg-caddie-accent text-caddie-accent-ink ${FOCUS_RING}`}
-          style={{ width: '100%', marginTop: 18, padding: '13px 16px', borderRadius: 2, border: 'none', fontSize: 14, fontWeight: 600 }}
+          className="key key-primary"
+          style={{ width: '100%', marginTop: 18, fontSize: 14, fontWeight: 600 }}
         >
           {done}
         </button>

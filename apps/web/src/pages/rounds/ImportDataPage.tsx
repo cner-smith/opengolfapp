@@ -287,7 +287,7 @@ export function ImportDataPage() {
                 type="button"
                 onClick={handleContinue}
                 disabled={busy || !validation?.success}
-                className="bg-caddie-accent text-caddie-accent-ink disabled:opacity-50"
+                className="key key-primary"
                 style={buttonStyle}
               >
                 {busy ? 'Checking…' : 'Continue'}
@@ -379,7 +379,7 @@ export function ImportDataPage() {
                 type="button"
                 onClick={handleImport}
                 disabled={busy || !courseId}
-                className="bg-caddie-accent text-caddie-accent-ink disabled:opacity-50"
+                className="key key-primary"
                 style={buttonStyle}
               >
                 {busy ? 'Importing…' : 'Import round'}
@@ -440,9 +440,6 @@ function FieldLabel({ children }: { children: React.ReactNode }) {
 const LINE_RULE = '1px solid #D9D2BF'
 
 const buttonStyle: React.CSSProperties = {
-  border: 'none',
-  borderRadius: 2,
-  padding: '12px 16px',
   fontSize: 14,
   fontWeight: 600,
   letterSpacing: '0.02em',

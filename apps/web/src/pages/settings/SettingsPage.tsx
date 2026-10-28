@@ -278,16 +278,11 @@ export function SettingsPage() {
                 type="button"
                 onClick={saveProfile}
                 disabled={updateProfile.isPending || usernameInvalid}
-                className="bg-caddie-accent text-caddie-accent-ink"
+                className="key key-primary"
                 style={{
-                  border: 'none',
-                  borderRadius: 2,
-                  padding: '10px 16px',
                   fontSize: 14,
                   fontWeight: 600,
                   letterSpacing: '0.02em',
-                  cursor: updateProfile.isPending || usernameInvalid ? 'not-allowed' : 'pointer',
-                  opacity: updateProfile.isPending || usernameInvalid ? 0.5 : 1,
                 }}
               >
                 {updateProfile.isPending ? 'Saving…' : 'Save changes'}

@@ -6,16 +6,6 @@ import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
 import { toUserMessage } from '../../lib/errors'
 import { formatPlayed } from '../dashboard/DashboardPage'
 
-const primaryButton: React.CSSProperties = {
-  padding: '12px 16px',
-  fontSize: 14,
-  fontWeight: 600,
-  letterSpacing: '0.02em',
-  borderRadius: 2,
-}
-
-const secondaryButton: React.CSSProperties = { ...primaryButton, border: '1px solid #1F3D2C' }
-
 // Tee names are stored as typed ("black", "Blue"); read them in sentence case.
 function teeLabel(tee: string): string {
   return `${tee.charAt(0).toUpperCase()}${tee.slice(1)} tees`
@@ -53,10 +43,10 @@ export function RoundsPage() {
           )}
         </div>
         <div className="flex" style={{ gap: 8 }}>
-          <Link to="/rounds/import" className="text-caddie-accent hover:bg-caddie-surface" style={secondaryButton}>
+          <Link to="/rounds/import" className="key">
             Import rounds
           </Link>
-          <Link to="/rounds/new" className="bg-caddie-accent text-caddie-accent-ink hover:opacity-90" style={primaryButton}>
+          <Link to="/rounds/new" className="key key-primary">
             New round <span className="font-serif" style={{ fontStyle: 'italic' }}>→</span>
           </Link>
         </div>
@@ -104,10 +94,10 @@ export function RoundsPage() {
             Log your first round, or bring your history from another app, to start tracking strokes gained.
           </div>
           <div className="flex flex-wrap justify-center" style={{ gap: 8, marginTop: 22 }}>
-            <Link to="/rounds/new" className="bg-caddie-accent text-caddie-accent-ink hover:opacity-90" style={primaryButton}>
+            <Link to="/rounds/new" className="key key-primary">
               Log a round <span className="font-serif" style={{ fontStyle: 'italic' }}>→</span>
             </Link>
-            <Link to="/rounds/import" className="text-caddie-accent hover:bg-caddie-bg" style={secondaryButton}>
+            <Link to="/rounds/import" className="key">
               Import your history
             </Link>
           </div>

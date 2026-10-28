@@ -423,8 +423,8 @@ export function BagPage() {
           <button
             type="button"
             onClick={() => setShowAdd(true)}
-            className="bg-caddie-accent text-caddie-accent-ink"
-            style={{ padding: '12px 16px', fontSize: 14, fontWeight: 600, letterSpacing: '0.02em', borderRadius: 2 }}
+            className="key key-primary"
+            style={{ fontSize: 14, fontWeight: 600, letterSpacing: '0.02em' }}
           >
             Add club <span className="font-serif italic" style={{ marginLeft: 4 }}>→</span>
           </button>
