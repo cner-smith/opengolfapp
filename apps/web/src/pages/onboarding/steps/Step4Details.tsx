@@ -1,5 +1,5 @@
 import { FACILITIES, type Facility } from '@oga/core'
-import { OnboardingButtons, StepHeading } from './shared'
+import { GroupLabel, OnboardingButtons, OptionList, StepHeading } from './shared'
 
 const FREQUENCIES = [
   { value: 'monthly', label: 'About once a month' },
@@ -50,52 +50,50 @@ export function Step4Details({
   return (
     <div>
       <StepHeading
-        kicker="Details"
         title="A bit about how you play"
         subtitle="Drives the practice plan and the kinds of drills you'll see."
       />
 
       <Field label="How often do you play or practice?">
-        <ChipGroup
-          options={FREQUENCIES.map((f) => f.value)}
+        <OptionList
+          label="How often do you play or practice?"
+          options={FREQUENCIES}
           value={frequency}
           onChange={(v) => onChange({ frequency: v })}
-          renderLabel={(v) => FREQUENCIES.find((f) => f.value === v)?.label ?? v}
+          minWidth={200}
         />
       </Field>
 
-      <Field label="Facilities you have access to">
-        <div className="flex flex-wrap" style={{ gap: 6 }}>
+      <Field label="Facilities you have access to" note="Select any that apply.">
+        <div className="flex flex-wrap" style={{ gap: 10, paddingBottom: 3 }}>
           {FACILITIES.map((f) => {
             const active = facilities.includes(f)
             return (
               <button
                 key={f}
                 type="button"
+                aria-pressed={active}
                 onClick={() => toggleFacility(f)}
-                style={chipStyle(active)}
+                className="key"
+                style={{ fontSize: 14, fontWeight: 500, padding: '0 14px' }}
               >
+                <span aria-hidden className="font-serif" style={{ fontStyle: 'italic', width: 10 }}>
+                  {active ? '✓' : ''}
+                </span>
                 {FACILITY_LABEL[f]}
               </button>
             )
           })}
         </div>
-        <div
-          className="text-caddie-ink-mute"
-          style={{ fontSize: 12, marginTop: 8 }}
-        >
-          Select any that apply.
-        </div>
       </Field>
 
       <Field label="How do you usually play?">
-        <ChipGroup
-          options={PLAY_STYLES.map((p) => p.value)}
+        <OptionList
+          label="How do you usually play?"
+          options={PLAY_STYLES}
           value={playStyle}
-          onChange={(v) =>
-            onChange({ playStyle: v as 'casual' | 'mixed' | 'competitive' | null })
-          }
-          renderLabel={(v) => PLAY_STYLES.find((p) => p.value === v)?.label ?? v}
+          onChange={(v) => onChange({ playStyle: v })}
+          minWidth={110}
         />
       </Field>
 
@@ -108,63 +106,16 @@ export function Step4Details({
   )
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function Field({ label, note, children }: { label: string; note?: string; children: React.ReactNode }) {
   return (
-    <div
-      style={{
-        borderTop: '1px solid #D9D2BF',
-        paddingTop: 14,
-        marginBottom: 22,
-      }}
-    >
-      <div className="kicker" style={{ marginBottom: 12 }}>
-        {label}
-      </div>
+    <div style={{ borderTop: '1px solid #D9D2BF', paddingTop: 16, marginBottom: 24 }}>
+      <GroupLabel>{label}</GroupLabel>
       {children}
-    </div>
-  )
-}
-
-function chipStyle(active: boolean): React.CSSProperties {
-  return {
-    backgroundColor: active ? '#1F3D2C' : '#EBE5D6',
-    color: active ? '#F2EEE5' : '#1C211C',
-    border: 'none',
-    borderRadius: 2,
-    padding: '6px 10px',
-    fontSize: 12,
-    fontWeight: active ? 500 : 400,
-  }
-}
-
-interface ChipGroupProps<T extends string> {
-  options: readonly T[]
-  value: T | null
-  onChange: (v: T) => void
-  renderLabel: (v: T) => string
-}
-
-function ChipGroup<T extends string>({
-  options,
-  value,
-  onChange,
-  renderLabel,
-}: ChipGroupProps<T>) {
-  return (
-    <div className="flex flex-wrap" style={{ gap: 6 }}>
-      {options.map((opt) => {
-        const active = value === opt
-        return (
-          <button
-            key={opt}
-            type="button"
-            onClick={() => onChange(opt)}
-            style={chipStyle(active)}
-          >
-            {renderLabel(opt)}
-          </button>
-        )
-      })}
+      {note && (
+        <div className="text-caddie-ink-dim" style={{ fontSize: 13, marginTop: 8 }}>
+          {note}
+        </div>
+      )}
     </div>
   )
 }
