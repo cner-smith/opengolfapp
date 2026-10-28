@@ -3,6 +3,8 @@ import { Outlet } from 'react-router-dom'
 import { useAuth } from '../../hooks/useAuth'
 import { AppShell } from '../layout/AppShell'
 import { PublicNav } from './PublicNav'
+import { Footer } from '../../pages/landing/LandingSections'
+import './landing.css'
 
 // Auth-aware layout for /learn and /learn/:slug. Same URLs serve both
 // audiences (SEO + shareability), but signed-in users get the app
@@ -12,14 +14,15 @@ import { PublicNav } from './PublicNav'
 //
 // Gates on `user` only — not `profile.onboarding_completed`. Mid-
 // onboarding users see the app chrome; clicking a sidebar link still
-// trips ProfileGuard on the target route.
+// trips ProfileGuard on the target route. The index uses the full 1080
+// (2fr 1fr); an article keeps its own 760 reading measure.
 export function LearnShell() {
   const { user, loading } = useAuth()
 
   if (!loading && user) {
     return (
       <AppShell>
-        <div style={{ maxWidth: 760, margin: '0 auto' }}>
+        <div style={{ maxWidth: 1080, margin: '0 auto' }}>
           <Suspense fallback={<RouteFallback />}>
             <Outlet />
           </Suspense>
@@ -32,12 +35,13 @@ export function LearnShell() {
     <div className="bg-caddie-bg text-caddie-ink" style={{ minHeight: '100vh' }}>
       <PublicNav />
       <main style={{ paddingTop: 120, paddingBottom: 80 }}>
-        <div style={{ maxWidth: 760, margin: '0 auto', padding: '0 28px' }}>
+        <div style={{ maxWidth: 1080, margin: '0 auto', padding: '0 28px' }}>
           <Suspense fallback={<RouteFallback />}>
             <Outlet />
           </Suspense>
         </div>
       </main>
+      <Footer />
     </div>
   )
 }

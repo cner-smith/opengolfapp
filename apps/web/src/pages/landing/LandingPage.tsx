@@ -1,10 +1,10 @@
-import { Suspense, lazy } from 'react'
+import { Suspense, lazy, useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../../hooks/useAuth'
 import { PhoneShot } from '../../components/landing/PhoneShot'
 import { StoreBadges } from '../../components/landing/StoreBadges'
 import '../../components/landing/landing.css'
-import { Close, Footer, Free, Negation, PrimaryCta } from './LandingSections'
+import { Close, Free, Negation, PrimaryCta } from './LandingSections'
 
 // The chart and its made-up bag load after the hero paints.
 const PatternsDemo = lazy(() => import('../../components/landing/PatternsDemo'))
@@ -33,7 +33,7 @@ export function LandingPage() {
       </Finding>
       <Finding
         reverse
-        sentence="Off the tee gains you 1.5 strokes a round. Approach gives back 0.8."
+        sentence="Over your last 10 rounds, off the tee gains you 1.5 strokes a round. Approach gives back 0.8."
         src="/landing/stats.webp"
         alt="Stats, last 10 rounds against a 12-handicap: off the tee +1.51, approach −0.79, around the green +0.90, putting +0.98, with a round-by-round chart"
         caption="Stats, last 10 rounds"
@@ -89,7 +89,6 @@ export function LandingPage() {
       <Free />
       <Negation />
       <Close />
-      <Footer />
     </main>
   )
 }
@@ -104,19 +103,25 @@ function Hero() {
       <div style={WRAP} className="lb-hero-grid">
         <div>
           <h1 className="lb-hero-title font-serif">
-            <span className="lb-hero-finding">Approach costs you 0.8 strokes a round.</span>{' '}
-            <span className="lb-hero-promise">Track your rounds. OGA finds yours.</span>
+            <span className="lb-hero-finding lb-rise">Approach costs you 0.8 strokes a round.</span>{' '}
+            <span className="lb-hero-promise lb-rise lb-rise-2">Track your rounds. OGA finds yours.</span>
           </h1>
           <p className="lb-lede" style={{ maxWidth: 520, margin: '26px 0 0' }}>
             Free shot tracking with strokes gained, on iPhone, Android and the
             web. No sensors on your clubs, no subscription.
           </p>
-          <div style={{ marginTop: 30, display: 'flex', gap: 18, alignItems: 'center', flexWrap: 'wrap' }}>
+          <div style={{ marginTop: 30, display: 'flex', gap: '14px 26px', alignItems: 'center', flexWrap: 'wrap' }}>
             <PrimaryCta isAuthed={isAuthed} />
+            <a href="#try" className="lb-link" style={{ marginTop: 0 }}>
+              Try the chart{' '}
+              <span className="font-serif" style={{ fontStyle: 'italic' }}>
+                ↓
+              </span>
+            </a>
           </div>
           <StoreBadges align="left" className="landing-store-badges" />
         </div>
-        <figure className="lb-figure">
+        <figure className="lb-figure lb-phone-in">
           <PhoneShot
             priority
             src="/landing/home.webp"
@@ -131,10 +136,37 @@ function Hero() {
   )
 }
 
-// The live chart: the app's own Shot patterns parts on a made-up bag.
+// Sets data-reveal on a section until a quarter of it is on screen, then
+// lets it rise in once (landing.css). Without IntersectionObserver, or with
+// reduced motion (the CSS ignores it), the section is simply there.
+function useOnView<T extends HTMLElement>(threshold: number) {
+  const ref = useRef<T>(null)
+  const [seen, setSeen] = useState(() => typeof IntersectionObserver === 'undefined')
+  useEffect(() => {
+    const el = ref.current
+    if (!el || seen) return
+    const io = new IntersectionObserver(
+      ([entry]) => {
+        if (entry?.isIntersecting) {
+          setSeen(true)
+          io.disconnect()
+        }
+      },
+      { threshold },
+    )
+    io.observe(el)
+    return () => io.disconnect()
+  }, [seen, threshold])
+  return [ref, seen] as const
+}
+
+// The live chart: the app's own Shot patterns parts on a made-up bag. It
+// mounts when it comes into view, so its shots draw out in front of the
+// reader instead of off screen.
 function TryIt() {
+  const [ref, seen] = useOnView<HTMLDivElement>(0.1)
   return (
-    <section className="lb-section lb-try">
+    <section className="lb-section lb-try" id="try">
       <div style={WRAP} className="lb-try-grid">
         <div>
           <h2 className="lb-sentence font-serif">Try it: one made&#8209;up golfer.</h2>
@@ -163,9 +195,9 @@ function TryIt() {
           </dl>
         </div>
         <figure className="lb-demo" aria-label="A live example of the Shot patterns chart">
-          <div className="lb-demo-body">
+          <div className="lb-demo-body" ref={ref}>
             <Suspense fallback={<div className="lb-demo-wait">Setting out the example…</div>}>
-              <PatternsDemo />
+              {seen ? <PatternsDemo /> : <div className="lb-demo-wait">Setting out the example…</div>}
             </Suspense>
           </div>
           <figcaption className="lb-demo-foot">
@@ -199,8 +231,9 @@ function Finding({
   linkLabel?: string
   after?: React.ReactNode
 }) {
+  const [ref, seen] = useOnView<HTMLElement>(0.25)
   return (
-    <section className="lb-section">
+    <section className="lb-section" ref={ref} data-reveal={seen ? 'shown' : 'waiting'}>
       <div style={WRAP}>
         <div className={reverse ? 'landing-spread reverse' : 'landing-spread'}>
           <div className="spread-copy">

@@ -3,7 +3,7 @@
 
 /* ---- Hero ---- */
 .lb-hero {
-  padding: 136px 0 72px;
+  padding: 112px 0 72px;
 }
 .lb-hero-grid {
   display: grid;
@@ -41,6 +41,14 @@
 }
 .landing-store-badges {
   margin-top: 22px;
+}
+#try {
+  scroll-margin-top: 56px;
+}
+@media (prefers-reduced-motion: no-preference) {
+  html:has(.lb-hero) {
+    scroll-behavior: smooth;
+  }
 }
 
 /* ---- Finding sections ---- */
@@ -166,40 +174,19 @@
   color: #5c6356;
 }
 
-/* ---- Buttons ---- */
-.lb-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  background: #1f3d2c;
-  color: #f2eee5;
-  border: 1px solid #1f3d2c;
-  border-radius: 2px;
-  padding: 14px 22px;
-  font-family: 'Epilogue', sans-serif;
-  font-weight: 600;
+/* ---- Buttons: the paper key (index.css .key), a size up ---- */
+.lb-cta {
+  min-height: 50px;
+  padding: 0 22px;
   font-size: 15px;
   letter-spacing: 0.02em;
-  text-decoration: none;
   white-space: nowrap;
-  box-shadow: 0 3px 0 #1c211c;
-  transition: transform 90ms ease, box-shadow 90ms ease;
 }
-.lb-btn:hover {
-  background: #183223;
-}
-.lb-btn:active {
-  transform: translateY(3px);
-  box-shadow: 0 0 0 #1c211c;
-}
-.lb-btn-inverse {
-  background: #f2eee5;
-  color: #1c211c;
-  border-color: #f2eee5;
-  box-shadow: 0 3px 0 #9f9580;
-}
-.lb-btn-inverse:hover {
-  background: #fbf8f1;
+/* On the dark close band: a cream face on a stone ledge. */
+.lb-cta-inverse {
+  --key-face: #f2eee5;
+  --key-pressed: #e4dcca;
+  --key-edge: #9f9580;
 }
 
 /* ---- Close + footer (the one dark band) ---- */
@@ -312,11 +299,6 @@
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .lb-btn {
-    transition: none;
-  }
-}
 
 /* Store-style phone screenshots (PhoneShot). One frame space so the tag and
    arrow scale with the phone. Hard paper shadow, never a blur. */
@@ -330,7 +312,8 @@
   position: absolute;
   inset: 0;
   overflow: hidden;
-  background: #141a15;
+  /* A paper screen until the capture decodes, never a black slab. */
+  background: #e4dcca;
   border: 3.33cqw solid #141a15;
   border-radius: 12cqw;
   box-shadow: 4cqw 4cqw 0 #d9d2bf;
@@ -340,6 +323,16 @@
   width: 100%;
   height: auto;
   border-radius: 8.7cqw;
+  opacity: 0;
+  transition: opacity 240ms ease-out;
+}
+.phone-shot-device img[data-loaded] {
+  opacity: 1;
+}
+@media (prefers-reduced-motion: reduce) {
+  .phone-shot-device img {
+    transition: none;
+  }
 }
 .phone-shot-arrow {
   position: absolute;
@@ -698,5 +691,131 @@
   }
   .lb-ladder-wait {
     min-height: 1315px;
+  }
+}
+
+/* ---- Sign in / sign up / reset (AuthSpread) ---- */
+.auth-top {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 14px 28px;
+}
+.auth-spread {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 56px 28px 72px;
+  display: grid;
+  grid-template-columns: minmax(0, 420px) 300px;
+  justify-content: center;
+  gap: 120px;
+  align-items: center;
+}
+.auth-input {
+  display: block;
+  width: 100%;
+  min-height: 44px;
+  margin-bottom: 16px;
+  padding: 10px 12px;
+  background: #fbf8f1;
+  border: 1px solid #9f9580;
+  border-radius: 3px;
+  font-size: 16px;
+  color: #1c211c;
+}
+.auth-input:focus-visible {
+  outline: none;
+  border-color: #1c211c;
+  box-shadow: 2px 2px 0 #1c211c;
+}
+.auth-link {
+  background: none;
+  border: none;
+  padding: 0;
+  font-family: 'Epilogue', sans-serif;
+  font-size: 13px;
+  color: #5c6356;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+.auth-link:hover {
+  color: #1c211c;
+}
+@media (max-width: 960px) {
+  .auth-spread {
+    grid-template-columns: minmax(0, 440px);
+    padding: 28px 16px 56px;
+  }
+  .auth-figure {
+    display: none;
+  }
+  .auth-top {
+    padding: 14px 16px;
+  }
+}
+
+/* ---- Motion (#1243). Every moment runs once and only when the reader
+   allows motion; without it everything is simply there. ---- */
+@media (prefers-reduced-motion: no-preference) {
+  .lb-rise {
+    animation: lb-rise 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+  .lb-rise-2 {
+    animation-delay: 120ms;
+  }
+  /* The phone lifts onto its shadow, the tag stamps on, the arrow draws. */
+  .lb-phone-in .phone-shot-device {
+    animation: lb-phone 380ms 240ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+  .lb-phone-in .phone-shot-tag {
+    animation: lb-stamp 180ms 600ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  }
+  .lb-phone-in .phone-shot-arrow path {
+    stroke-dasharray: 1;
+    animation: lb-draw 420ms 780ms ease-out both;
+  }
+  /* Finding sections: the sentence and its phone rise into place once,
+     when a quarter of the section is on screen (data-shown, LandingPage). */
+  [data-reveal] .spread-copy,
+  [data-reveal] .spread-figure {
+    transition: opacity 360ms cubic-bezier(0.22, 1, 0.36, 1), transform 360ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  [data-reveal] .spread-figure {
+    transition-delay: 90ms;
+  }
+  [data-reveal='waiting'] .spread-copy,
+  [data-reveal='waiting'] .spread-figure {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+}
+@keyframes lb-rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+@keyframes lb-phone {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+    box-shadow: 0 0 0 #d9d2bf;
+  }
+}
+@keyframes lb-stamp {
+  from {
+    opacity: 0;
+    transform: scale(0.92) rotate(-6deg);
+  }
+  to {
+    transform: rotate(-3deg);
+  }
+}
+@keyframes lb-draw {
+  from {
+    stroke-dashoffset: 1;
+  }
+  to {
+    stroke-dashoffset: 0;
   }
 }
