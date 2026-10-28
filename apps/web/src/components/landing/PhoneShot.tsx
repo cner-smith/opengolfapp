@@ -37,6 +37,14 @@ export function PhoneShot({
           // Lowercase: React 18 warns on the camelCase prop (React 19 knows it).
           {...{ fetchpriority: priority ? 'high' : 'auto' }}
           decoding="async"
+          // The screen "develops" from the paper placeholder once decoded
+          // (landing.css); the ref catches an image already in the cache.
+          ref={(img) => {
+            if (img?.complete) img.dataset.loaded = ''
+          }}
+          onLoad={(e) => {
+            e.currentTarget.dataset.loaded = ''
+          }}
         />
       </div>
       {arrow && <PencilArrow points={arrow} />}
@@ -70,6 +78,7 @@ function PencilArrow({ points: [x1, y1, x2, y2] }: { points: [number, number, nu
       <path
         d={`M${x1} ${y1} Q ${mx} ${my}, ${x2} ${y2} M${h1[0]} ${h1[1]} L${x2} ${y2} L${h2[0]} ${h2[1]}`}
         fill="none"
+        pathLength={1}
         stroke="#1C211C"
         strokeWidth={2}
         strokeLinecap="round"

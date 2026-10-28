@@ -164,7 +164,7 @@ const routes: RouteObject[] = [
         : []),
     ],
   },
-  { path: '*', element: <NotFoundPage />, errorElement },
+  { path: '*', element: <PublicShell><NotFoundPage /></PublicShell>, errorElement },
 ]
 
 export const router: ReturnType<typeof createBrowserRouter> = createBrowserRouter(routes)

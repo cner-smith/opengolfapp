@@ -10,7 +10,7 @@ const WRAP: React.CSSProperties = { maxWidth: 1180, margin: '0 auto', padding: '
 
 export function PrimaryCta({ isAuthed, inverse }: { isAuthed: boolean; inverse?: boolean }) {
   return (
-    <Link to={isAuthed ? '/dashboard' : '/signup'} className={inverse ? 'lb-btn lb-btn-inverse' : 'lb-btn'}>
+    <Link to={isAuthed ? '/dashboard' : '/signup'} className={inverse ? 'key lb-cta lb-cta-inverse' : 'key key-primary lb-cta'}>
       {isAuthed ? 'Go to app' : 'Create account'}{' '}
       <span className="font-serif" style={{ fontStyle: 'italic' }}>
         →

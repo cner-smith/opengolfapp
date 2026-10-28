@@ -8,21 +8,22 @@ import { FOCUS_RING } from '../../pages/patterns/components/LayerControls'
 // Lazy-loaded so it never holds up the headline.
 
 const MAX_YARDS = 400
-// A mid-handicap's typical distances, every gap under 20 yd.
+// The promo golfer's bag, as the My Bag screen above it shows it, so the
+// panel opens on the same numbers as the phone. Every gap is under 20 yd.
 const EXAMPLE: Record<string, number> = {
-  driver: 228,
-  '3w': 212,
-  '5w': 197,
-  '5h': 184,
-  '5i': 173,
-  '6i': 163,
-  '7i': 152,
-  '8i': 141,
-  '9i': 130,
-  pw: 119,
-  gw: 105,
-  sw: 91,
-  lw: 76,
+  driver: 226,
+  '3w': 211,
+  '5w': 200,
+  '5h': 189,
+  '5i': 177,
+  '6i': 168,
+  '7i': 158,
+  '8i': 149,
+  '9i': 140,
+  pw: 128,
+  gw: 116,
+  sw: 101,
+  lw: 87,
 }
 const CLUBS = DEFAULT_BAG.filter((c) => c.club_type !== 'putter').map((c, i) => {
   const noun = clubNoun(c.club_type)
