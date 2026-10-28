@@ -18,7 +18,7 @@ export function ClubDistancesSection({
     unit === 'meters' ? Math.round(y * YARDS_TO_METERS) : Math.round(y)
   // A yardage scale in steps of 50 that just holds every club's spread.
   const lo = Math.max(0, Math.floor(Math.min(...clubDistances.map((c) => c.min)) / 50) * 50)
-  const hi = Math.ceil(Math.max(...clubDistances.map((c) => c.max)) / 50) * 50
+  const hi = Math.max(lo + 50, Math.ceil(Math.max(...clubDistances.map((c) => c.max)) / 50) * 50)
   const at = (y: number) => `${((y - lo) / (hi - lo)) * 100}%`
   const ticks = Array.from({ length: (hi - lo) / 50 + 1 }, (_, i) => lo + i * 50)
   const cols = 'clamp(60px, 14vw, 130px) minmax(0, 1fr) 72px'

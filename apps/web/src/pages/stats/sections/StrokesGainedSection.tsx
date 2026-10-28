@@ -107,7 +107,7 @@ export function StrokesGainedSection({ data, wholeCount }: { data: DetailedStats
   const bandVals = data.approachByDistance.map((b) => b.avgSg).filter((v): v is number => v != null)
   const m = Math.max(0.1, ...bandVals.map(Math.abs))
   const lo = bandVals.some((v) => v < 0) ? -m * 1.05 : 0
-  const hi = bandVals.some((v) => v > 0) ? m * 1.05 : 0
+  const hi = bandVals.some((v) => v > 0) || lo === 0 ? m * 1.05 : 0
   const worstBand = data.approachByDistance
     .filter((b) => b.avgSg != null && b.avgSg < 0 && b.shots > 0)
     .sort((a, b) => a.avgSg! - b.avgSg!)[0]

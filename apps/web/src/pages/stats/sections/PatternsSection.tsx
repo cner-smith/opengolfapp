@@ -14,7 +14,6 @@ export function PatternsSection({ data }: { data: DetailedStats }) {
       <Subhead>Miss tendency</Subhead>
       <MissTendencyList entries={data.missTendency} />
 
-
       <Subhead style={{ marginTop: 30 }}>Club accuracy</Subhead>
       <ClubAccuracyList entries={data.clubAccuracy} />
 

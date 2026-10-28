@@ -107,7 +107,6 @@ export function MissTendencyList({ entries }: { entries: MissTendencyEntry[] }) 
             style={{
               fontSize: 17,
               fontWeight: 500,
-              
             }}
           >
             {missLabel(e.result)}
