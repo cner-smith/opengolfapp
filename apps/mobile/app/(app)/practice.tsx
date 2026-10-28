@@ -11,6 +11,7 @@ import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from 
 import { Link } from 'expo-router'
 import { MaterialCommunityIcons } from '@expo/vector-icons'
 import {
+  insightUnderFinding,
   isPartialRound,
   normalizeCategoryProse,
   sgBreakdown,
@@ -251,7 +252,7 @@ export default function Practice() {
 
             <Entrance index={2}>
               <WhyThisPlan
-                insight={finding ? plan.ai_insight : null}
+                insight={insightUnderFinding(finding, plan.ai_insight)}
                 note={plan.coach_note}
                 basis={
                   isStarter
