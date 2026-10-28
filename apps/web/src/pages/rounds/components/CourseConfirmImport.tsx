@@ -193,7 +193,7 @@ export function CourseConfirmImport({ rounds, notImported: leftOut, notice, impo
                       type="button"
                       onClick={() => updateRow(row.fileName, { decision: { courseId: row.match!.id, courseName: row.match!.name } })}
                       className="key key-primary"
-                      style={buttonStyle}
+                      style={{ fontSize: 13 }}
                     >
                       Use this course
                     </button>
@@ -256,7 +256,7 @@ export function CourseConfirmImport({ rounds, notImported: leftOut, notice, impo
             onClick={handleImport}
             disabled={!decided || toImport === 0 || !!progress}
             className="key key-primary"
-            style={{ ...buttonStyle, fontSize: 14, letterSpacing: '0.02em' }}
+            style={{ letterSpacing: '0.02em' }}
           >
             Import {toImport} round{toImport === 1 ? '' : 's'}
           </button>

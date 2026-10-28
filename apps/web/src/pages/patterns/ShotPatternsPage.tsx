@@ -774,7 +774,7 @@ function FilterSheet({ onClose, done, children }: { onClose: () => void; done: s
         <button
           type="button"
           onClick={onClose}
-          className={`key key-primary ${FOCUS_RING}`}
+          className="key key-primary"
           style={{ width: '100%', marginTop: 18, fontSize: 14, fontWeight: 600 }}
         >
           {done}
