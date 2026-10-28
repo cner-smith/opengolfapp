@@ -193,6 +193,18 @@ export function isPartialRound(
   return c != null && c.played < c.of
 }
 
+// "Last N rounds" runs back to the n-th most recent WHOLE round (#932):
+// partials inside the span stay (their holes feed per-hole stats), partials
+// past it don't use up a slot. Fewer than n whole rounds = everything.
+export function wholeRoundWindow<T extends { hole_scores?: readonly HoleScoreForCount[] | null }>(
+  rounds: readonly T[],
+  n: number,
+): T[] {
+  let whole = 0
+  const end = rounds.findIndex((r) => !isPartialRound(r.hole_scores) && ++whole === n)
+  return end === -1 ? [...rounds] : rounds.slice(0, end + 1)
+}
+
 // A round with no scored hole (score > 0; a 0 row is a placeholder) started
 // more than a day ago — a "Start live round" tap to look around. Hidden from
 // the round lists and Home (#1055); within the day it still shows so the

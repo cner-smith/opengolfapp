@@ -18,7 +18,8 @@ export function StrokesGainedPage() {
   const [n, setN] = useState<number>(10)
   const stats = useDetailedStats(n)
   // No rounds, or only partial ones (#1078): the sample page instead (#1076).
-  const preview = !stats.data || stats.rounds.every((r) => isPartialRound(r.hole_scores))
+  const wholeCount = stats.rounds.filter((r) => !isPartialRound(r.hole_scores)).length
+  const preview = !stats.data || wholeCount === 0
   // Per-club total distance, from every tracked shot's start→end across the
   // loaded rounds (same flatten the mobile Stats screen feeds clubDistanceStats).
   const clubDistances = useMemo(
@@ -55,7 +56,7 @@ export function StrokesGainedPage() {
               ? 'Per-category strokes vs. the bracket baseline.'
               : preview || !stats.data
                 ? 'No full rounds yet. Here’s what this page shows once you have some.'
-                : `Across the last ${stats.data.rounds} round${stats.data.rounds === 1 ? '' : 's'} · ${stats.data.holesPlayed} holes scored.`}
+                : `Across the last ${wholeCount} round${wholeCount === 1 ? '' : 's'} · ${stats.data.holesPlayed} holes scored.`}
           </div>
         </div>
         <Segmented

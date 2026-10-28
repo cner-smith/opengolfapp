@@ -27,7 +27,7 @@ const NEG = '#A33A2A'
 
 export function DashboardPage() {
   const profile = useProfile()
-  const sg = useRecentSG(20)
+  const sg = useRecentSG(40)
   const active = useActiveRound()
   const activeRound = active.data ?? null
   const rounds = sg.data ?? []
@@ -42,7 +42,8 @@ export function DashboardPage() {
   // stable across renders.
   const stats = useMemo(() => {
     // Rounds ended early stay out of the per-round numbers (#911).
-    const whole = rounds.filter((r) => !isPartialRound(r.hole_scores))
+    // The newest 20 whole rounds out of 40, as mobile Home does (#1222).
+    const whole = rounds.filter((r) => !isPartialRound(r.hole_scores)).slice(0, 20)
     const sg = sgBreakdown(whole)
     const avgs = SG_KEYS.map((c) => ({ ...c, value: sg.breakdown.find((b) => b.key === c.key)?.value ?? 0 }))
     const maxAbs = barScale(sg.maxAbs)

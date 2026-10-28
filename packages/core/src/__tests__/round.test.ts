@@ -12,6 +12,7 @@ import {
   formatHoleList,
   roundHolesPlayed,
   isPartialRound,
+  wholeRoundWindow,
   isStaleEmptyRound,
   isFinishedRound,
   partialRoundLabel,
@@ -624,5 +625,21 @@ describe('summarizeShotStep', () => {
   it('a yardage to the next shot does not say "to the pin"', () => {
     const parts = summarizeShotStep(step({ start_lat: 35.0, start_lng: -97.0 }), summaryFields({ start_lat: 35.001, start_lng: -97.0 }), 'yards')
     expect(parts[0]).toMatch(/^12[0-3] yd$/)
+  })
+})
+
+describe('wholeRoundWindow', () => {
+  const card = (scores: number[]) => scores.map((score, i) => ({ score, holes: { number: i + 1 } }))
+  const whole = (id: string) => ({ id, hole_scores: card(Array(18).fill(4)) })
+  const partial = (id: string) => ({ id, hole_scores: card([...Array(6).fill(5), ...Array(12).fill(0)]) })
+
+  it('runs back to the n-th whole round, keeping partials inside the span', () => {
+    const rs = [whole('a'), partial('p1'), whole('b'), partial('p2'), whole('c'), whole('d')]
+    expect(wholeRoundWindow(rs, 2).map((r) => r.id)).toEqual(['a', 'p1', 'b'])
+    expect(wholeRoundWindow(rs, 3).map((r) => r.id)).toEqual(['a', 'p1', 'b', 'p2', 'c'])
+  })
+
+  it('returns everything when there are fewer than n whole rounds', () => {
+    expect(wholeRoundWindow([partial('p'), whole('a')], 5).map((r) => r.id)).toEqual(['p', 'a'])
   })
 })
