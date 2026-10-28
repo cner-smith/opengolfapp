@@ -8,6 +8,7 @@ import {
 } from '@oga/core'
 import { CourseConfirmImport, LINE_RULE } from './CourseConfirmImport'
 import { toUserMessage } from '../../../lib/errors'
+import { FileDrop } from '../../../components/ui/FileDrop'
 
 // Golf Pad's "comprehensive" export (#1134): three CSVs → every round, one course confirm per
 // Golf Pad course name, SG at import.
@@ -57,8 +58,11 @@ export function GolfPadImport() {
   const [busy, setBusy] = useState(false)
 
   async function handleFiles(e: ChangeEvent<HTMLInputElement>) {
-    const files = e.target.files
-    if (!files?.length) return
+    if (e.target.files?.length) await readFiles(e.target.files)
+    e.target.value = ''
+  }
+
+  async function readFiles(files: FileList) {
     setError(null)
     try {
       const read = await readExport(files)
@@ -73,7 +77,6 @@ export function GolfPadImport() {
     } catch (err) {
       setError(toUserMessage(err))
     }
-    e.target.value = ''
   }
 
   return (
@@ -111,6 +114,7 @@ export function GolfPadImport() {
           />
         </label>
       </div>
+      <FileDrop label="Or drop rounds, holes and shots here" disabled={busy} onFiles={readFiles} />
 
       {error && (
         <p className="text-caddie-neg" role="alert" style={{ fontSize: 13 }}>
