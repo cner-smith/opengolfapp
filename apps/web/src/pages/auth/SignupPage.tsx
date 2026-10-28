@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { Turnstile } from '@marsidev/react-turnstile'
 import { supabase } from '../../lib/supabase'
 import { GoogleSignInButton } from '../../components/auth/GoogleSignInButton'
+import { AuthField, AuthSpread, AuthTitle } from '../../components/auth/AuthSpread'
 
 // Vite exposes only env vars prefixed `VITE_` to the client bundle, so
 // the Turnstile site key has to follow that convention. Set
@@ -68,50 +69,30 @@ export function SignupPage() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col items-center bg-caddie-bg" style={{ padding: '48px 16px' }}>
-      <Link
-        to="/"
-        aria-label="OGA home"
-        className="font-serif text-caddie-ink"
-        style={{ fontSize: 26, fontStyle: 'italic', fontWeight: 500, marginBottom: 28 }}
-      >
-        oga.
-      </Link>
-      <form
-        onSubmit={handleSubmit}
-        className="w-full bg-caddie-surface"
-        style={{ maxWidth: 400, border: '1px solid #D9D2BF', borderRadius: 4, padding: '28px 24px' }}
-      >
-        <h1
-          className="font-serif text-caddie-ink"
-          style={{ fontSize: 28, fontWeight: 500, lineHeight: 1.15 }}
-        >
-          Create account
-        </h1>
-        <p className="text-caddie-ink-dim" style={{ fontSize: 15, marginTop: 6, marginBottom: 22 }}>
-          Free and open source. No paywalls.
-        </p>
-        <Field label="Username">
+    <AuthSpread>
+      <form onSubmit={handleSubmit}>
+        <AuthTitle sub="Free, open source, and it stays free.">Start your yardage book.</AuthTitle>
+        <AuthField label="Username">
           <input
             required
             autoComplete="username"
             autoCapitalize="off"
             value={username}
             onChange={(e) => setUsername(e.target.value)}
-            style={inputStyle}
+            className="auth-input"
           />
-        </Field>
-        <Field label="Email">
+        </AuthField>
+        <AuthField label="Email">
           <input
             type="email"
             required
             autoComplete="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            style={inputStyle}
+            className="auth-input"
           />
-        </Field>
-        <Field label="Password">
+        </AuthField>
+        <AuthField label="Password">
           <input
             type="password"
             required
@@ -120,9 +101,10 @@ export function SignupPage() {
             aria-describedby="password-hint"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            style={{ ...inputStyle, marginBottom: 6 }}
+            className="auth-input"
+            style={{ marginBottom: 6 }}
           />
-        </Field>
+        </AuthField>
         <p id="password-hint" className="text-caddie-ink-dim" style={{ fontSize: 12, marginBottom: 18 }}>
           At least 8 characters.
         </p>
@@ -146,7 +128,7 @@ export function SignupPage() {
           type="submit"
           disabled={loading}
           className="w-full key key-primary"
-          style={{ fontSize: 14, fontWeight: 600, letterSpacing: '0.02em' }}
+          style={{ fontSize: 15, letterSpacing: '0.02em' }}
         >
           {loading ? (
             'Creating account…'
@@ -161,42 +143,19 @@ export function SignupPage() {
         </button>
         <div className="flex items-center" style={{ margin: '18px 0', gap: 12 }}>
           <div style={{ flex: 1, height: 1, backgroundColor: '#D9D2BF' }} />
-          <span className="text-caddie-ink-mute" style={{ fontSize: 13 }}>
+          <span className="text-caddie-ink-dim" style={{ fontSize: 13 }}>
             or
           </span>
           <div style={{ flex: 1, height: 1, backgroundColor: '#D9D2BF' }} />
         </div>
         <GoogleSignInButton />
       </form>
-      <p className="text-caddie-ink-dim" style={{ fontSize: 14, marginTop: 18 }}>
+      <p className="text-caddie-ink-dim" style={{ fontSize: 14, marginTop: 22 }}>
         Have an account?{' '}
         <Link to="/login" className="text-caddie-ink underline underline-offset-4 hover:opacity-80">
           Sign in
         </Link>
       </p>
-    </div>
-  )
-}
-
-const inputStyle: React.CSSProperties = {
-  display: 'block',
-  width: '100%',
-  background: '#F2EEE5',
-  border: '1px solid #D9D2BF',
-  borderRadius: 2,
-  padding: '10px 12px',
-  fontSize: 15,
-  color: '#1C211C',
-  marginBottom: 16,
-}
-
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <label className="block">
-      <span className="text-caddie-ink-dim" style={{ display: 'block', fontSize: 13, marginBottom: 6 }}>
-        {label}
-      </span>
-      {children}
-    </label>
+    </AuthSpread>
   )
 }
