@@ -20,7 +20,8 @@ test.describe('Practice plan + Drills (signed in)', () => {
     await expect(first).toHaveAttribute('aria-expanded', 'true')
     const detail = page.locator(`#${await first.getAttribute('aria-controls')}`)
     await expect(detail).toHaveCount(1)
-    expect((await detail.boundingBox())?.height ?? 0).toBeGreaterThan(20)
+    // It grows open (240 ms), so wait for the height rather than reading it once.
+    await expect.poll(async () => (await detail.boundingBox())?.height ?? 0).toBeGreaterThan(20)
   })
 
   test("the plan toggle shows only this week's plan drills", async ({ page }) => {
