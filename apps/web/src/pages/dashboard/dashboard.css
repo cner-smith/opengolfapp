@@ -1,0 +1,104 @@
+/* Home motion, ported from mobile's Entrance (380ms rise, 80ms stagger,
+   out-cubic) plus the SG bars growing from the zero axis. Static under
+   prefers-reduced-motion. */
+
+.dash-rule {
+  height: 1px;
+  background: #1c211c;
+  transform-origin: left center;
+}
+
+.dash-row {
+  transition: background-color 150ms ease-out;
+}
+.dash-row:hover {
+  background: rgba(251, 248, 241, 0.9);
+}
+.dash-row .dash-row-score {
+  transition: transform 150ms ease-out;
+}
+.dash-row:hover .dash-row-score {
+  transform: translateX(2px);
+}
+
+.dash-live-bar {
+  background: #a66a1f;
+}
+
+.dash-skel {
+  background: #ebe5d6;
+  border-radius: 3px;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .dash-rise {
+    animation: dash-rise 380ms cubic-bezier(0.33, 1, 0.68, 1) both;
+    animation-delay: calc(var(--i, 0) * 80ms);
+  }
+  @keyframes dash-rise {
+    from {
+      opacity: 0;
+      transform: translateY(16px);
+    }
+  }
+
+  .dash-rule {
+    animation: dash-rule 420ms cubic-bezier(0.33, 1, 0.68, 1) both;
+    animation-delay: calc(var(--i, 0) * 80ms + 120ms);
+  }
+  @keyframes dash-rule {
+    from {
+      transform: scaleX(0);
+    }
+  }
+
+  .dash-bar {
+    animation: dash-bar 480ms cubic-bezier(0.33, 1, 0.68, 1) both;
+    animation-delay: calc(var(--d, 0) * 60ms + 420ms);
+  }
+  @keyframes dash-bar {
+    from {
+      transform: scaleX(0);
+    }
+  }
+  .dash-bar-value {
+    animation: dash-fade 240ms ease-out both;
+    animation-delay: calc(var(--d, 0) * 60ms + 540ms);
+  }
+  @keyframes dash-fade {
+    from {
+      opacity: 0;
+    }
+  }
+
+  .dash-pencil {
+    animation: dash-pencil 520ms cubic-bezier(0.45, 0, 0.2, 1) both;
+    animation-delay: 700ms;
+  }
+  @keyframes dash-pencil {
+    from {
+      clip-path: inset(0 100% 0 0);
+    }
+    to {
+      clip-path: inset(0 0 0 0);
+    }
+  }
+
+  .dash-live-bar {
+    animation: dash-breathe 3s ease-in-out infinite;
+  }
+  @keyframes dash-breathe {
+    50% {
+      opacity: 0.4;
+    }
+  }
+
+  .dash-skel {
+    animation: dash-skel 900ms ease-in-out infinite alternate;
+  }
+  @keyframes dash-skel {
+    from {
+      opacity: 0.5;
+    }
+  }
+}

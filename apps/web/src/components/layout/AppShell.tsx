@@ -1,12 +1,37 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
-import { useLocation } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import { Sidebar } from './Sidebar'
 import { MobileTabBar } from './MobileTabBar'
+import './shell.css'
+
+// The phone top bar names the screen in cream Fraunces on ink, as the app's
+// header does (SHL-13). Longest prefix wins; unknown routes show the mark.
+const TITLES: [string, string][] = [
+  ['/settings/bag', 'My bag'],
+  ['/settings', 'Profile'],
+  ['/dashboard', 'Home'],
+  ['/rounds/new', 'New round'],
+  ['/rounds/import', 'Import'],
+  ['/rounds', 'Rounds'],
+  ['/stats', 'Stats'],
+  ['/patterns', 'Patterns'],
+  ['/practice/drills', 'Drills'],
+  ['/practice', 'Practice'],
+  ['/learn', 'Learn'],
+  ['/plan', 'Course plan'],
+]
+
+function titleFor(pathname: string): string | null {
+  return TITLES.find(([p]) => pathname === p || pathname.startsWith(`${p}/`))?.[1] ?? null
+}
 
 export function AppShell({ children }: { children: ReactNode }) {
   const [drawerOpen, setDrawerOpen] = useState(false)
   const location = useLocation()
   const mainRef = useRef<HTMLElement>(null)
+  const drawerRef = useRef<HTMLDivElement>(null)
+  const menuRef = useRef<HTMLButtonElement>(null)
+  const title = titleFor(location.pathname)
 
   // On navigation: close the drawer and reset the scroll position. `main`
   // is the scroll container (not the window), and the app had no scroll
@@ -19,64 +44,94 @@ export function AppShell({ children }: { children: ReactNode }) {
     mainRef.current?.scrollTo({ top: 0 })
   }, [location.pathname])
 
+  // Drawer is a modal: Escape closes it, focus moves in on open and back to
+  // the Menu key on close, and the page behind stops scrolling (SHL-03).
+  const wasOpen = useRef(false)
+  useEffect(() => {
+    if (!drawerOpen) {
+      if (wasOpen.current) menuRef.current?.focus()
+      wasOpen.current = false
+      return
+    }
+    wasOpen.current = true
+    drawerRef.current?.querySelector<HTMLElement>('nav a')?.focus()
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setDrawerOpen(false)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [drawerOpen])
+
   return (
     <div className="flex h-screen w-full bg-caddie-bg text-caddie-ink">
       <div className="hidden lg:flex">
         <Sidebar />
       </div>
 
-      {drawerOpen && (
-        <button
-          type="button"
-          aria-label="Close menu"
-          onClick={() => setDrawerOpen(false)}
-          className="fixed inset-0 z-40 lg:hidden"
-          style={{ background: 'rgba(28,33,28,0.55)' }}
-        />
-      )}
       <div
-        className="fixed inset-y-0 left-0 z-50 lg:hidden"
-        style={{
-          transform: drawerOpen ? 'translateX(0)' : 'translateX(-100%)',
-          transition: 'transform 200ms ease',
-        }}
+        aria-hidden="true"
+        data-open={drawerOpen}
+        onClick={() => setDrawerOpen(false)}
+        className="shell-scrim fixed inset-0 z-40 lg:hidden"
+      />
+      <div
+        ref={drawerRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Menu"
+        data-open={drawerOpen}
+        className="shell-drawer fixed inset-y-0 left-0 z-50 flex lg:hidden"
       >
-        <Sidebar />
+        <Sidebar onClose={() => setDrawerOpen(false)} />
       </div>
 
-      {/* Mobile top bar — brand + menu (opens the same drawer). Fixed so it
-          stays on scroll; hidden on lg+ where the sidebar takes over. */}
-      <div
-        className="lg:hidden fixed top-0 left-0 right-0 z-30 bg-caddie-surface flex items-center justify-between"
-        style={{ height: 52, borderBottom: '1px solid #D9D2BF', paddingInline: 16 }}
+      {/* Phone top bar: ink band, the screen's name in cream Fraunces, a
+          44px menu key. Fixed so it stays on scroll; hidden on lg+. */}
+      <header
+        className="lg:hidden fixed top-0 left-0 right-0 z-30 bg-caddie-ink text-caddie-bg"
+        style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}
       >
-        <div
-          className="font-serif text-caddie-ink"
-          style={{ fontSize: 20, fontWeight: 500, fontStyle: 'italic' }}
-        >
-          oga<span style={{ fontStyle: 'normal', color: '#1F3D2C' }}>.</span>
+        <div className="flex items-center justify-between" style={{ height: 52, paddingInline: '16px 6px' }}>
+          {title ? (
+            <div className="font-serif" style={{ fontSize: 20, fontWeight: 600, letterSpacing: '-0.01em' }}>
+              {title}
+            </div>
+          ) : (
+            <div className="font-serif" style={{ fontSize: 20, fontWeight: 500, fontStyle: 'italic' }}>
+              oga<span style={{ fontStyle: 'normal' }}>.</span>
+            </div>
+          )}
+          <div className="flex items-center">
+            {location.pathname === '/settings/bag' && (
+              <Link
+                to="/settings"
+                className="flex items-center text-caddie-bg/80 hover:text-caddie-bg"
+                style={{ minHeight: 44, paddingInline: 10, fontSize: 14 }}
+              >
+                ← Back
+              </Link>
+            )}
+            <button
+              ref={menuRef}
+              type="button"
+              onClick={() => setDrawerOpen(true)}
+              aria-label="Open menu"
+              aria-expanded={drawerOpen}
+              className="shell-menu-glyph flex flex-col items-center justify-center transition-colors hover:bg-white/10"
+              style={{ width: 44, height: 44, borderRadius: 3 }}
+            >
+              <span />
+              <span />
+              <span style={{ width: 14, alignSelf: 'center', marginLeft: 6 }} />
+            </button>
+          </div>
         </div>
-        <button
-          type="button"
-          onClick={() => setDrawerOpen(true)}
-          aria-label="Open menu"
-          className="text-caddie-ink"
-          style={{
-            border: '1px solid #D9D2BF',
-            borderRadius: 2,
-            padding: '6px 12px',
-            fontSize: 14,
-            fontWeight: 600,
-          }}
-        >
-          Menu
-        </button>
-      </div>
+      </header>
 
       <main
         ref={mainRef}
-        className="flex-1 overflow-y-auto pt-[52px] lg:pt-0"
-        style={{ paddingInline: 'clamp(16px, 4vw, 32px)' }}
+        className="flex-1 overflow-y-auto pt-[calc(52px+env(safe-area-inset-top))] lg:pt-0"
+        style={{ paddingInline: 'clamp(16px, 4vw, 40px)', overflowY: drawerOpen ? 'hidden' : undefined }}
       >
         <div
           style={{

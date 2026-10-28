@@ -7,10 +7,10 @@ test.describe('Learn — signed in', () => {
     await page.goto('/learn')
     // The sidebar's hamburger only renders on mobile widths; on desktop
     // (default Playwright viewport ~1280px), Sidebar is mounted directly
-    // and its top-level destinations are visible. "Dashboard" is the
+    // and its top-level destinations are visible. "Home" is the
     // first authed-only link and is unique to AppShell.
     await expect(
-      page.getByRole('link', { name: /^dashboard$/i }).first(),
+      page.getByRole('link', { name: /^home$/i }).first(),
     ).toBeVisible()
   })
 
