@@ -687,20 +687,25 @@
 }
 
 /* ---- Sign in / sign up / reset (AuthSpread) ---- */
-.auth-top {
-  max-width: 1180px;
-  margin: 0 auto;
-  padding: 14px 28px;
-}
+/* An open book: the form on the left page, the phone on the right, a
+   hairline fold between them, the pair centred on the screen. The wordmark
+   heads the left page, so nothing sits on a grid of its own. */
 .auth-spread {
-  max-width: 1180px;
-  margin: 0 auto;
-  padding: 56px 28px 72px;
+  min-height: 100vh;
+  padding: 48px 28px;
   display: grid;
-  grid-template-columns: minmax(0, 420px) 300px;
+  grid-template-columns: minmax(0, 420px) 1px 300px;
   justify-content: center;
-  gap: 120px;
+  align-content: center;
   align-items: center;
+  column-gap: 80px;
+}
+.auth-wordmark {
+  margin-bottom: 44px;
+}
+.auth-fold {
+  align-self: stretch;
+  background: #d9d2bf;
 }
 .auth-input {
   display: block;
@@ -735,14 +740,17 @@
 }
 @media (max-width: 960px) {
   .auth-spread {
+    min-height: 0;
     grid-template-columns: minmax(0, 440px);
-    padding: 28px 16px 56px;
+    align-content: start;
+    padding: 14px 16px 56px;
   }
+  .auth-wordmark {
+    margin-bottom: 36px;
+  }
+  .auth-fold,
   .auth-figure {
     display: none;
-  }
-  .auth-top {
-    padding: 14px 16px;
   }
 }
 

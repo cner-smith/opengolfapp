@@ -3,17 +3,20 @@ import { PhoneShot } from '../landing/PhoneShot'
 import { Wordmark } from '../landing/Wordmark'
 import '../landing/landing.css'
 
-// Sign in, sign up and password reset: the form on the paper at left, and
-// on a wide screen the landing's Home screen at right, so the page reads as
-// the same book the visitor just came from.
+// Sign in, sign up and password reset as an open book: the form on the left
+// page under the wordmark, and on a wide screen the landing's Home screen on
+// the right page, so the page reads as the same book the visitor came from.
 export function AuthSpread({ children }: { children: ReactNode }) {
   return (
     <div className="bg-caddie-bg text-caddie-ink" style={{ minHeight: '100vh' }}>
-      <div className="auth-top">
-        <Wordmark />
-      </div>
       <main className="auth-spread">
-        <div className="auth-form lb-rise">{children}</div>
+        <div className="auth-form lb-rise">
+          <div className="auth-wordmark">
+            <Wordmark />
+          </div>
+          {children}
+        </div>
+        <div className="auth-fold" aria-hidden />
         <figure className="auth-figure lb-figure lb-phone-in" aria-hidden>
           <PhoneShot
             src="/landing/home.webp"
