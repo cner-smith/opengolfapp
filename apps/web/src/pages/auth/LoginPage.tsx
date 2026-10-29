@@ -150,7 +150,7 @@ export function LoginPage() {
               onSuccess={(token) => setCaptchaToken(token)}
               onError={() => setCaptchaToken(null)}
               onExpire={() => setCaptchaToken(null)}
-              options={{ theme: 'auto' }}
+              options={{ theme: 'light' }}
             />
           </div>
         )}
