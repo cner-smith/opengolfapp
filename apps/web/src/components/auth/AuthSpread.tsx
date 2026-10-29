@@ -35,7 +35,9 @@ export function AuthTitle({ children, sub }: { children: ReactNode; sub?: ReactN
   return (
     <div style={{ marginBottom: 26 }}>
       <h1
-        className="font-serif text-caddie-ink"
+        id="auth-title"
+        tabIndex={-1}
+        className="font-serif text-caddie-ink outline-none"
         style={{ fontSize: 38, fontWeight: 500, fontStyle: 'italic', lineHeight: 1.08, letterSpacing: '-0.02em' }}
       >
         {children}

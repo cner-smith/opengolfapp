@@ -797,6 +797,50 @@
 .auth-link:hover {
   color: #1c211c;
 }
+/* Sign in, reset and sent share one height on a wide screen, so the
+   centred page doesn't re-centre and the title stays put between them:
+   sign in's height with the captcha (about 585px), the tallest of the three. */
+@media (min-width: 961px) {
+  .auth-stage {
+    min-height: 590px;
+  }
+}
+/* Sign in folding into reset (LoginPage): rows close to nothing rather
+   than unmounting, so the email field above them never moves. */
+.auth-collapse {
+  display: grid;
+  grid-template-rows: 1fr;
+  transition: grid-template-rows 260ms cubic-bezier(0.22, 1, 0.36, 1), opacity 180ms ease;
+}
+.auth-collapse > div {
+  overflow: hidden;
+  min-height: 0;
+  /* Room for the keys' ink ledge and focus ring inside the clip. */
+  padding: 0 3px 3px;
+  margin: 0 -3px;
+}
+.auth-collapse[data-open='false'] > div {
+  padding-bottom: 0;
+}
+.auth-collapse[data-open='false'] {
+  grid-template-rows: 0fr;
+  opacity: 0;
+  visibility: hidden;
+  transition: grid-template-rows 260ms cubic-bezier(0.22, 1, 0.36, 1), opacity 120ms ease-in, visibility 0s 260ms;
+}
+.auth-leave {
+  opacity: 0;
+  transition: opacity 120ms ease-in;
+}
+@media (prefers-reduced-motion: reduce) {
+  .auth-collapse,
+  .auth-collapse[data-open='false'] > div {
+  padding-bottom: 0;
+}
+.auth-collapse[data-open='false'] {
+    transition: none;
+  }
+}
 @media (max-width: 960px) {
   .auth-spread {
     min-height: 0;
