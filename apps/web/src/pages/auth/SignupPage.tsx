@@ -21,6 +21,8 @@ export function SignupPage() {
   const [password, setPassword] = useState('')
   const [username, setUsername] = useState('')
   const [error, setError] = useState<string | null>(null)
+  // The address already has an account: say so and offer sign in with it.
+  const [exists, setExists] = useState(false)
   const [loading, setLoading] = useState(false)
   // Token issued by Cloudflare Turnstile after the player passes the
   // (usually invisible) challenge. Supabase validates this token
@@ -50,6 +52,7 @@ export function SignupPage() {
     }
     setLoading(true)
     setError(null)
+    setExists(false)
     const { error: signUpError } = await supabase.auth.signUp({
       email,
       password,
@@ -64,7 +67,14 @@ export function SignupPage() {
       // Deliberately not toUserMessage: GoTrue auth errors ("Invalid login
       // credentials") carry no row data or policy text, and collapsing them
       // would leave the user with nothing to act on (#667).
-      setError(signUpError.message)
+      // With email confirmation off, GoTrue answers an existing address
+      // with this error; with it on, it answers as if signed up.
+      if (signUpError.code === 'user_already_exists' || signUpError.message === 'User already registered') setExists(true)
+      // The signup trigger's insert failed, most often on a name someone
+      // already has (profiles.username is unique).
+      else if (signUpError.message === 'Database error saving new user')
+        setError('We couldn’t create the account. That name may be taken: try another, or add a number.')
+      else setError(signUpError.message)
       // Reset the token on error — Turnstile tokens are single-use, so
       // a failed signUp leaves us with a spent token. Clearing state doesn't
       // touch the widget; reset() makes it issue a new one.
@@ -79,16 +89,25 @@ export function SignupPage() {
     <AuthSpread>
       <form onSubmit={handleSubmit}>
         <AuthTitle sub="Free, open source, and it stays free.">Start your yardage book.</AuthTitle>
-        <AuthField label="Username">
+        <AuthField label="What should we call you?">
           <input
             required
-            autoComplete="username"
+            autoComplete="nickname"
             autoCapitalize="off"
+            // profiles.username_format (0014): anything else is swapped for
+            // user_<id> by the signup trigger.
+            pattern="[A-Za-z0-9_\-]{3,32}"
+            title="3 to 32 letters, numbers, - or _, no spaces"
+            aria-describedby="name-hint"
             value={username}
             onChange={(e) => setUsername(e.target.value)}
             className="auth-input"
+            style={{ marginBottom: 6 }}
           />
         </AuthField>
+        <p id="name-hint" className="text-caddie-ink-dim" style={{ fontSize: 12, marginBottom: 18 }}>
+          Home greets you by it. 3 to 32 letters or numbers, no spaces.
+        </p>
         <AuthField label="Email">
           <input
             type="email"
@@ -125,9 +144,18 @@ export function SignupPage() {
             />
           </div>
         )}
-        {error && (
+        {(error || exists) && (
           <p className="text-caddie-neg" role="alert" style={{ fontSize: 13, marginBottom: 12 }}>
-            {error}
+            {exists ? (
+              <>
+                That email already has an account.{' '}
+                <Link to={`/login?email=${encodeURIComponent(email)}`} className="auth-link" style={{ color: 'inherit' }}>
+                  Sign in instead
+                </Link>
+              </>
+            ) : (
+              error
+            )}
           </p>
         )}
         <button
@@ -147,6 +175,13 @@ export function SignupPage() {
             </>
           )}
         </button>
+        <p className="text-caddie-ink-dim" style={{ fontSize: 12, marginTop: 10 }}>
+          No ads. How we handle your data is on the{' '}
+          <Link to="/privacy" className="auth-link" style={{ fontSize: 12 }}>
+            Privacy
+          </Link>{' '}
+          page.
+        </p>
         <div className="flex items-center" style={{ margin: '18px 0', gap: 12 }}>
           <div style={{ flex: 1, height: 1, backgroundColor: '#D9D2BF' }} />
           <span className="text-caddie-ink-dim" style={{ fontSize: 13 }}>

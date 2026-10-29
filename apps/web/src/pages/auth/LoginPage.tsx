@@ -19,12 +19,13 @@ type Mode = 'signin' | 'forgot' | 'sent'
 
 export function LoginPage() {
   const navigate = useNavigate()
-  const [email, setEmail] = useState('')
+  const [params, setParams] = useSearchParams()
+  // Sign up's 'Sign in instead' carries the address over (?email=).
+  const [email, setEmail] = useState(() => params.get('email') ?? '')
   // 'forgot' turns the form into the password reset request; 'sent' is its
   // confirmation. The mode lives in the URL (?mode=forgot) so Back returns
   // to sign in; same page, so the email typed so far carries over. A
   // reloaded ?mode=sent has lost the address, so it asks again.
-  const [params, setParams] = useSearchParams()
   const asked = params.get('mode')
   const mode: Mode = asked === 'forgot' || (asked === 'sent' && !email) ? 'forgot' : asked === 'sent' ? 'sent' : 'signin'
   // The form fades for 120 ms before Check your email rises in.
