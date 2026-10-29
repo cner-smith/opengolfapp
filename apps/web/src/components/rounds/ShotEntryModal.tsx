@@ -126,6 +126,13 @@ export function ShotEntryModal({
     opening ? shotRowToDraft(opening) : emptyDraft(holeShots.length + 1, holeShots.length === 0),
   )
   const [editing, setEditing] = useState<string | null>(() => opening?.id ?? null)
+  // Set by every user edit, cleared when a shot loads or saves: ‹ › saves
+  // only a dirty shot. The mini-map drag saves itself, so it leaves this be.
+  const [dirty, setDirty] = useState(false)
+  const editDraft = (update: (d: DraftShot) => DraftShot) => {
+    setDirty(true)
+    setDraft(update)
+  }
   const [saveError, setSaveError] = useState<string | null>(null)
 
   // Read the latest holeShots count via ref so the reset effect doesn't
@@ -148,6 +155,7 @@ export function ShotEntryModal({
     lastIssuedNumberRef.current = 0
     const len = holeShotsRef.current.length
     setDraft(emptyDraft(len + 1, len === 0))
+    setDirty(false)
   }, [holeScoreId, editing])
 
   // The number a new shot gets (see lastIssuedNumberRef).
@@ -157,12 +165,14 @@ export function ShotEntryModal({
   function startEdit(s: ShotRow) {
     setEditing(s.id)
     setDraft(shotRowToDraft(s))
+    setDirty(false)
   }
 
   function startAdd() {
     setEditing(null)
     const n = nextNumber()
     setDraft(emptyDraft(n, n === 1))
+    setDirty(false)
   }
 
   // Resolves true once the shot is stored.
@@ -244,6 +254,7 @@ export function ShotEntryModal({
         // lookup and stats inference (both assume contiguous numbering).
         lastIssuedNumberRef.current = shotNumber
       }
+      setDirty(false)
       return true
     } catch (err) {
       if (import.meta.env.DEV) {
@@ -321,7 +332,7 @@ export function ShotEntryModal({
   // ‹ › keep an edit (as mobile's sheet does) and move on; an untouched
   // shot isn't rewritten. Leaving a new shot drops it, like Cancel.
   async function step(target: ShotRow | 'new') {
-    if (editingRow && JSON.stringify(draft) !== JSON.stringify(shotRowToDraft(editingRow))) {
+    if (editingRow && dirty) {
       if (!(await save())) return
     }
     setSaveError(null)
@@ -492,7 +503,7 @@ export function ShotEntryModal({
                     }) ?? 'straight'
                   }
                   onAimChange={(n) =>
-                    setDraft((d) => ({
+                    editDraft((d) => ({
                       ...d,
                       aimOffsetInches: n,
                       breakDirectionHorizontal: horizontalBreakFromAim(n),
@@ -508,7 +519,7 @@ export function ShotEntryModal({
                   clubs={clubOptions}
                   value={draft.club}
                   onChange={(v) =>
-                    setDraft((d) => ({ ...d, club: (v ?? undefined) as Club | undefined }))
+                    editDraft((d) => ({ ...d, club: (v ?? undefined) as Club | undefined }))
                   }
                 />
               </PickerField>
@@ -519,27 +530,27 @@ export function ShotEntryModal({
                 name="Lie"
                 options={LIE_TYPE_OPTIONS}
                 value={draft.lieType}
-                onChange={(v) => setDraft((d) => ({ ...d, lieType: v ?? undefined }))}
+                onChange={(v) => editDraft((d) => ({ ...d, lieType: v ?? undefined }))}
               />
             </PickerField>
 
             {!isPutt && (
               <ShotFormFields
                 draft={draft}
-                setDraft={setDraft}
+                setDraft={editDraft}
                 unit={units.unit}
                 mapped={mapped}
               />
             )}
 
-            {isPutt && <PuttFormFields draft={draft} setDraft={setDraft} />}
+            {isPutt && <PuttFormFields draft={draft} setDraft={editDraft} />}
 
             <PickerField title="Notes">
               <input
                 type="text"
                 aria-label="Notes"
                 value={draft.notes ?? ''}
-                onChange={(e) => setDraft((d) => ({ ...d, notes: e.target.value }))}
+                onChange={(e) => editDraft((d) => ({ ...d, notes: e.target.value }))}
                 className="w-full text-caddie-ink"
                 style={{
                   background: '#FBF8F1',

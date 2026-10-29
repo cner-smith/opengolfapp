@@ -26,7 +26,8 @@ export function Rocker<T extends string | number>({
     const step = e.key === 'ArrowRight' || e.key === 'ArrowDown' ? 1 : e.key === 'ArrowLeft' || e.key === 'ArrowUp' ? -1 : 0
     if (!step) return
     e.preventDefault()
-    const next = (Math.max(chosen, 0) + (chosen < 0 ? 0 : step) + options.length) % options.length
+    // Nothing chosen: Right/Down picks the first option, Left/Up the last.
+    const next = chosen < 0 ? (step > 0 ? 0 : options.length - 1) : (chosen + step + options.length) % options.length
     onChange(options[next]!.value)
     e.currentTarget.querySelectorAll<HTMLButtonElement>('button')[next]?.focus()
   }

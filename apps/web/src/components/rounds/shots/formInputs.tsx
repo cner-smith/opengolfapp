@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { shotPickerClubGroups, splitBalancedRows } from '@oga/core'
 import { Rocker } from '../../ui/Rocker'
 
 // Shot-editor fields, ported from mobile's components/paper/Pickers.tsx
@@ -76,18 +77,6 @@ export function PickerRow({ label, children }: { label: string; children: ReactN
   )
 }
 
-const MAX_PER_ROW = 5
-
-// Balanced rows, never one segment left over: ceil(n / rows) each.
-function splitRows<T>(items: readonly T[]): T[][] {
-  if (items.length <= MAX_PER_ROW) return [[...items]]
-  const rows = Math.ceil(items.length / MAX_PER_ROW)
-  const per = Math.ceil(items.length / rows)
-  const out: T[][] = []
-  for (let i = 0; i < items.length; i += per) out.push(items.slice(i, i + per))
-  return out
-}
-
 // A rocker split into balanced rows when it's wide, with an optional row
 // label (omit it when the field title already names the choice). Tapping
 // the chosen segment clears it.
@@ -107,7 +96,7 @@ export function RockerRows<T extends string | number>({
 }) {
   return (
     <>
-      {splitRows(options).map((row, i) => {
+      {splitBalancedRows(options).map((row, i) => {
         const rocker = (
           <Rocker
             label={name}
@@ -130,12 +119,7 @@ export function RockerRows<T extends string | number>({
   )
 }
 
-const WOOD = /^(driver|\d+w|\d+h)$/
-const IRON = /^\d+i$/
-
-// Club picker (§19.9): Woods (driver, woods and hybrids) · Irons · Wedges (and
-// putter). A group never renders as one lonely segment — it folds into its
-// neighbour.
+// Club picker (§19.9), grouped by core shotPickerClubGroups.
 export function ClubPicker({
   clubs,
   value,
@@ -146,19 +130,7 @@ export function ClubPicker({
   value: string | undefined
   onChange: (v: string | null) => void
 }) {
-  const groups: { label: string; opts: { value: string; label: string }[] }[] = [
-    { label: 'Woods', opts: clubs.filter((c) => WOOD.test(c.value)) },
-    { label: 'Irons', opts: clubs.filter((c) => IRON.test(c.value)) },
-    { label: 'Wedges', opts: clubs.filter((c) => !WOOD.test(c.value) && !IRON.test(c.value)) },
-  ].filter((g) => g.opts.length > 0)
-  for (let i = 0; i < groups.length && groups.length > 1; i++) {
-    const g = groups[i]!
-    if (g.opts.length !== 1) continue
-    const into = groups[i + 1] ?? groups[i - 1]!
-    into.opts = i + 1 < groups.length ? [...g.opts, ...into.opts] : [...into.opts, ...g.opts]
-    groups.splice(i, 1)
-    i--
-  }
+  const groups = shotPickerClubGroups(clubs)
   return (
     <>
       {groups.map((g) => (
