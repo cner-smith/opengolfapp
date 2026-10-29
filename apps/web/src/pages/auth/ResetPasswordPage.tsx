@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
+import { toUserMessage } from '../../lib/errors'
 import { AuthField, AuthSpread, AuthTitle } from '../../components/auth/AuthSpread'
 
 // Where the password reset email lands (LoginPage → resetPasswordForEmail).
@@ -31,15 +32,15 @@ export function ResetPasswordPage() {
     const code = params.get('code')
     const linkFailed = () => setLinkError('This link has expired or was already used. Ask for a new one.')
     if (tokenHash && params.get('type') === 'recovery') {
-      supabase.auth.verifyOtp({ type: 'recovery', token_hash: tokenHash }).then(({ error: e }) => (e ? linkFailed() : setReady(true)))
+      supabase.auth.verifyOtp({ type: 'recovery', token_hash: tokenHash }).then(({ error: e }) => (e ? linkFailed() : setReady(true)), linkFailed)
     } else if (code) {
-      supabase.auth.exchangeCodeForSession(code).then(({ error: e }) => (e ? linkFailed() : setReady(true)))
+      supabase.auth.exchangeCodeForSession(code).then(({ error: e }) => (e ? linkFailed() : setReady(true)), linkFailed)
     } else if (params.get('error_description')) {
       linkFailed()
     } else {
       // Opened without a link: fine if already signed in (a recovery
       // session from a reload, or a signed-in golfer changing it).
-      supabase.auth.getSession().then(({ data }) => (data.session ? setReady(true) : linkFailed()))
+      supabase.auth.getSession().then(({ data }) => (data.session ? setReady(true) : linkFailed()), linkFailed)
     }
   }, [])
 
@@ -47,7 +48,9 @@ export function ResetPasswordPage() {
     e.preventDefault()
     setSaving(true)
     setError(null)
-    const { error: updateError } = await supabase.auth.updateUser({ password })
+    const { error: updateError } = await supabase.auth
+      .updateUser({ password })
+      .catch((err: unknown) => ({ error: { message: toUserMessage(err) } }))
     setSaving(false)
     // GoTrue's messages here ("New password should be different from the
     // old password.") are the actionable part, as on LoginPage (#667).
