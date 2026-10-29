@@ -3,17 +3,25 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import {
   CAPTURE_MODES,
   CAPTURE_MODE_LABELS,
+  holeCountFromTeePar,
+  inferHoleCount,
   todayLocalDate,
   type CaptureMode,
 } from '@oga/core'
 import { CourseSearch } from '../../components/courses/CourseSearch'
 import { TeeSelector } from '../../components/courses/TeeSelector'
 import { useCreateRound } from '../../hooks/useRounds'
+import { useCourseTees, useHolesForCourse } from '../../hooks/useCourses'
 import { useAuth } from '../../hooks/useAuth'
 import { supabase } from '../../lib/supabase'
 import { toUserMessage } from '../../lib/errors'
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
 import { Rocker } from '../../components/ui/Rocker'
+
+const HOLE_COUNTS = [
+  { value: 9, label: '9' },
+  { value: 18, label: '18' },
+] as const
 
 const TEE_COLORS = ['black', 'blue', 'white', 'gold', 'red'].map((t) => ({
   value: t,
@@ -38,9 +46,25 @@ export function NewRoundPage() {
     searchParams.get('mode') === 'live' ? 'live' : 'past',
   )
   const [captureMode, setCaptureMode] = useState<CaptureMode>('track_patterns')
+  const [holeChoice, setHoleChoice] = useState<9 | 18 | null>(null)
   const [error, setError] = useState<string | null>(null)
   // An unfinished round from the last day, found when starting a live one.
   const [unfinishedId, setUnfinishedId] = useState<string | null>(null)
+
+  // The round stores how many holes it plays (#727): an unmapped course can't
+  // tell 9 from 18 later, and its holes rows grow one save at a time. A hole
+  // past 9 on file settles it; otherwise the player says, starting from the
+  // tee's par or the holes on file.
+  const holesQuery = useHolesForCourse(courseId ?? undefined)
+  const teesQuery = useCourseTees(courseId)
+  const holeNumbers = (holesQuery.data ?? []).map((h) => h.number)
+  const knownEighteen = holeNumbers.some((n) => n > 9)
+  const tees = teesQuery.data ?? []
+  const teePar = (tees.find((t) => t.id === courseTeeId) ?? tees[0])?.par
+  const holeCount: 9 | 18 = knownEighteen
+    ? 18
+    : (holeChoice ?? (teePar != null ? holeCountFromTeePar(teePar) : inferHoleCount(holeNumbers)))
+  const holesLoading = !!courseId && (holesQuery.isLoading || teesQuery.isLoading)
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
@@ -83,6 +107,7 @@ export function NewRoundPage() {
         played_at: playedAt,
         tee_color: teeColor,
         course_tee_id: courseTeeId,
+        hole_count: holeCount,
         // Capture mode only steers the live flow; past-round entry leaves the
         // column at its 'track_patterns' default.
         ...(mode === 'live' ? { capture_mode: captureMode } : {}),
@@ -167,6 +192,7 @@ export function NewRoundPage() {
                 setCourseId(id)
                 setCourseName(name)
                 setCourseTeeId(null)
+                setHoleChoice(null)
               }}
               requestGps={mode === 'live'}
             />
@@ -191,6 +217,21 @@ export function NewRoundPage() {
                 }}
               />
             </section>
+          )}
+
+          {courseId && !holesLoading && !knownEighteen && (
+            <div style={{ ...rowStyle, borderBottom: LINE_RULE }}>
+              <span className="text-caddie-ink" style={{ fontSize: 15 }}>
+                Holes
+              </span>
+              <Rocker
+                options={HOLE_COUNTS}
+                value={holeCount}
+                onChange={setHoleChoice}
+                label="Holes"
+                className="w-[160px]"
+              />
+            </div>
           )}
 
           <label style={{ ...rowStyle, borderBottom: courseTeeId ? 'none' : LINE_RULE }}>
@@ -240,7 +281,7 @@ export function NewRoundPage() {
         <div className="flex items-center" style={{ gap: 18 }}>
           <button
             type="submit"
-            disabled={createRoundMutation.isPending}
+            disabled={createRoundMutation.isPending || holesLoading}
             className="key key-primary"
             style={{
               fontSize: 14,

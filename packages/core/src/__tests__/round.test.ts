@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest'
 import {
   buildInitialRows,
   inferHoleCount,
+  holeCountFromTeePar,
+  roundHoleCount,
   inferParFromYards,
   isPuttShot,
   isPuttEntry,
@@ -441,6 +443,35 @@ describe('inferHoleCount', () => {
 
   it('a single mapped hole 10 already implies 18', () => {
     expect(inferHoleCount([10])).toBe(18)
+  })
+})
+
+describe('roundHoleCount (#727)', () => {
+  it('the count stored at creation wins over the fallback', () => {
+    expect(roundHoleCount(9, 18)).toBe(9)
+    expect(roundHoleCount(18, 9)).toBe(18)
+  })
+
+  it('a round from before the column (null) keeps the fallback', () => {
+    expect(roundHoleCount(null, 9)).toBe(9)
+    expect(roundHoleCount(undefined, 18)).toBe(18)
+  })
+})
+
+describe('holeCountFromTeePar', () => {
+  it('a total par of 36 or less is a 9-hole card', () => {
+    expect(holeCountFromTeePar(36)).toBe(9)
+    expect(holeCountFromTeePar(34)).toBe(9)
+  })
+
+  it('more than 36 is 18', () => {
+    expect(holeCountFromTeePar(37)).toBe(18)
+    expect(holeCountFromTeePar(72)).toBe(18)
+  })
+
+  it('no tee par (no course_tees row) reads as 18', () => {
+    expect(holeCountFromTeePar(null)).toBe(18)
+    expect(holeCountFromTeePar(undefined)).toBe(18)
   })
 })
 

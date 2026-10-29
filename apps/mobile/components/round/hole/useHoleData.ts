@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { inferHoleCount, isPuttShot, resolveCourseTee, resolveHole, type CapturedShot, type ResolvedHole } from '@oga/core'
+import { inferHoleCount, isPuttShot, resolveCourseTee, resolveHole, roundHoleCount, type CapturedShot, type ResolvedHole } from '@oga/core'
 import { getHoleTeesForCourse } from '@oga/supabase'
 import type { Database } from '@oga/supabase'
 import {
@@ -142,12 +142,13 @@ export function useHoleData(
     [],
   )
 
-  // How many holes this round plays. course_tees.par is unpopulated in
-  // our crawled data, so infer from the mapped hole numbers — a genuine
-  // 9-hole course stays 9 instead of padding to 18 phantom holes (#525).
+  // How many holes this round plays: the count stored at creation (#727).
+  // Older rounds infer it from the mapped hole numbers (course_tees.par is
+  // unpopulated in our crawled data) — a genuine 9-hole course stays 9
+  // instead of padding to 18 phantom holes (#525).
   const holeCount = useMemo(
-    () => inferHoleCount(holes.map((h) => h.number)),
-    [holes],
+    () => roundHoleCount(round?.hole_count, inferHoleCount(holes.map((h) => h.number))),
+    [round?.hole_count, holes],
   )
 
   // Synthetic-holes fallback. Mirrors the web pattern documented in
