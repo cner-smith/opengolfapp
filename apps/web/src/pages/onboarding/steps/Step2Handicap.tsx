@@ -6,6 +6,9 @@ import { OnboardingButtons, StepHeading } from './shared'
 // covers the usual range; the keys and the typed number reach the rest.
 const MIN = -10
 const MAX = 54
+const SLIDER_MIN = -5
+// A ruler position: the thumb's centre runs 9 px in from each end.
+const at = (n: number) => `calc(9px + (100% - 18px) * ${(n - SLIDER_MIN) / (MAX - SLIDER_MIN)})`
 const clamp = (n: number) => Math.min(MAX, Math.max(MIN, Math.round(n * 10) / 10))
 
 function bracketLabel(handicap: number): string {
@@ -117,24 +120,41 @@ export function Step2Handicap({
           </p>
         )}
       </div>
-      <input
-        type="range"
-        min={-5}
-        max={MAX}
-        step={0.1}
-        value={value}
-        aria-label="Handicap index"
-        aria-valuetext={formatHandicapIndex(value)}
-        onChange={(e) => onChange(clamp(Number(e.target.value)))}
-        style={{
-          width: '100%',
-          accentColor: '#1F3D2C',
-          marginBottom: 8,
-        }}
-      />
-      <div className="text-caddie-ink-dim flex justify-between" style={{ fontSize: 13 }}>
-        <span>+5</span>
-        <span>54</span>
+      {/* A printed ruler: a tick every stroke, a longer one every five, numbers
+          every ten; the pick is a green pencil line across it. */}
+      <div style={{ position: 'relative', height: 52, marginBottom: 4 }}>
+        {Array.from({ length: MAX - SLIDER_MIN + 1 }, (_, k) => {
+          const t = SLIDER_MIN + k
+          return (
+            <span
+              key={t}
+              aria-hidden
+              className="onb-ruler-tick"
+              style={{ left: at(t), height: t % 10 === 0 ? 16 : t % 5 === 0 ? 11 : 6 }}
+            />
+          )
+        })}
+        {[SLIDER_MIN, 0, 10, 20, 30, 40, 50].map((t) => (
+          <span
+            key={t}
+            aria-hidden
+            className="font-serif tabular text-caddie-ink-dim onb-ruler-num"
+            style={{ left: at(t), fontStyle: t < 0 ? 'italic' : undefined }}
+          >
+            {t < 0 ? `+${-t}` : t}
+          </span>
+        ))}
+        <input
+          type="range"
+          min={SLIDER_MIN}
+          max={MAX}
+          step={0.1}
+          value={value}
+          aria-label="Handicap index"
+          aria-valuetext={formatHandicapIndex(value)}
+          onChange={(e) => onChange(clamp(Number(e.target.value)))}
+          className="onb-ruler"
+        />
       </div>
       <OnboardingButtons onBack={onBack} onContinue={onContinue} canContinue={true} />
     </div>
