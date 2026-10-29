@@ -137,78 +137,82 @@ export function OnboardingPage() {
 
         <StepIndicator current={step} />
 
-        {step === 1 && (
-          <Step1Skill
-            value={draft.skillLevel}
-            onChange={(skillLevel) =>
-              setDraft((d) => ({ ...d, skillLevel, handicap: handicapTouched ? d.handicap : SEED_HANDICAP[skillLevel] }))
-            }
-            onContinue={next}
-          />
-        )}
-        {step === 2 && (
-          <Step2Handicap
-            value={draft.handicap}
-            seeded={!handicapTouched}
-            onChange={(handicap) => {
-              setHandicapTouched(true)
-              setDraft((d) => ({ ...d, handicap }))
-            }}
-            onBack={back}
-            onContinue={next}
-          />
-        )}
-        {step === 3 && (
-          <Step3Goal
-            value={draft.goal}
-            onChange={(goal) => setDraft((d) => ({ ...d, goal }))}
-            onBack={back}
-            onContinue={next}
-          />
-        )}
-        {step === 4 && (
-          <Step4Details
-            frequency={draft.playFrequency}
-            facilities={draft.facilities}
-            playStyle={draft.playStyle}
-            onChange={(patch) =>
-              setDraft((d) => ({
-                ...d,
-                playFrequency: patch.frequency ?? d.playFrequency,
-                facilities: patch.facilities ?? d.facilities,
-                playStyle: patch.playStyle ?? d.playStyle,
-              }))
-            }
-            onBack={back}
-            onContinue={next}
-          />
-        )}
-        {step === 5 && (
-          <Step5Summary
-            draft={draft}
-            saving={updateProfile.isPending}
-            error={error}
-            onBack={back}
-            onEdit={setStep}
-            onSave={saveProfile}
-          />
-        )}
-        {step === 6 && (
-          <Step6Bag
-            selected={bagSelection}
-            onChange={setBagSelection}
-            onBack={back}
-            onContinue={saveBagAndFinish}
-            busy={savingBag}
-            error={error}
-          />
-        )}
-        {step === 7 && (
-          <Step7Import
-            onImport={() => navigate('/rounds/import', { replace: true })}
-            onSkip={() => navigate('/dashboard', { replace: true })}
-          />
-        )}
+        {/* Keyed by step: each new step fades in where the last one was, its
+            keys rising onto their ledges (index.css .onb-step). */}
+        <div key={step} className="onb-step">
+          {step === 1 && (
+            <Step1Skill
+              value={draft.skillLevel}
+              onChange={(skillLevel) =>
+                setDraft((d) => ({ ...d, skillLevel, handicap: handicapTouched ? d.handicap : SEED_HANDICAP[skillLevel] }))
+              }
+              onContinue={next}
+            />
+          )}
+          {step === 2 && (
+            <Step2Handicap
+              value={draft.handicap}
+              seeded={!handicapTouched}
+              onChange={(handicap) => {
+                setHandicapTouched(true)
+                setDraft((d) => ({ ...d, handicap }))
+              }}
+              onBack={back}
+              onContinue={next}
+            />
+          )}
+          {step === 3 && (
+            <Step3Goal
+              value={draft.goal}
+              onChange={(goal) => setDraft((d) => ({ ...d, goal }))}
+              onBack={back}
+              onContinue={next}
+            />
+          )}
+          {step === 4 && (
+            <Step4Details
+              frequency={draft.playFrequency}
+              facilities={draft.facilities}
+              playStyle={draft.playStyle}
+              onChange={(patch) =>
+                setDraft((d) => ({
+                  ...d,
+                  playFrequency: patch.frequency ?? d.playFrequency,
+                  facilities: patch.facilities ?? d.facilities,
+                  playStyle: patch.playStyle ?? d.playStyle,
+                }))
+              }
+              onBack={back}
+              onContinue={next}
+            />
+          )}
+          {step === 5 && (
+            <Step5Summary
+              draft={draft}
+              saving={updateProfile.isPending}
+              error={error}
+              onBack={back}
+              onEdit={setStep}
+              onSave={saveProfile}
+            />
+          )}
+          {step === 6 && (
+            <Step6Bag
+              selected={bagSelection}
+              onChange={setBagSelection}
+              onBack={back}
+              onContinue={saveBagAndFinish}
+              busy={savingBag}
+              error={error}
+            />
+          )}
+          {step === 7 && (
+            <Step7Import
+              onImport={() => navigate('/rounds/import', { replace: true })}
+              onSkip={() => navigate('/dashboard', { replace: true })}
+            />
+          )}
+        </div>
       </div>
     </div>
   )
