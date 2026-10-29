@@ -15,7 +15,7 @@ export function FileDrop({
   accept: string
   multiple?: boolean
   disabled?: boolean
-  onFiles: (files: FileList) => void
+  onFiles: (files: File[]) => void
 }) {
   const [over, setOver] = useState(false)
   const hover = (e: DragEvent) => {
@@ -30,7 +30,7 @@ export function FileDrop({
       onDrop={(e) => {
         e.preventDefault()
         setOver(false)
-        if (!disabled && e.dataTransfer.files.length) onFiles(e.dataTransfer.files)
+        if (!disabled && e.dataTransfer.files.length) onFiles(Array.from(e.dataTransfer.files))
       }}
       className="font-serif flex items-center justify-center text-center"
       style={{
@@ -56,7 +56,8 @@ export function FileDrop({
         aria-hidden
         className="sr-only"
         onChange={(e) => {
-          if (e.target.files?.length) onFiles(e.target.files)
+          // A copy: clearing the input empties its live FileList.
+          if (e.target.files?.length) onFiles(Array.from(e.target.files))
           e.target.value = ''
         }}
       />
