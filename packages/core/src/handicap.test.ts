@@ -230,6 +230,7 @@ describe('parseHandicapIndex', () => {
     expect(parseHandicapIndex(' 12,4 ')).toBe(12.4)
     expect(parseHandicapIndex('+2')).toBe(-2)
     expect(parseHandicapIndex('+2.3')).toBe(-2.3)
+    // '-1.5' is read as the stored form of a plus 1.5, so it shows as +1.5.
     expect(parseHandicapIndex('-1.5')).toBe(-1.5)
     expect(parseHandicapIndex('8.25')).toBe(8.3)
   })

@@ -40,7 +40,7 @@ export function Step2Handicap({
   const inputRef = useRef<HTMLInputElement>(null)
   useEffect(() => {
     if (typing !== null) inputRef.current?.select()
-  }, [typing !== null]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [typing !== null]) // eslint-disable-line react-hooks/exhaustive-deps -- select once on entering edit mode, not on every keystroke
 
   const commit = () => {
     const n = typing === null ? null : parseHandicapIndex(typing)
