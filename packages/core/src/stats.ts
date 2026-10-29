@@ -114,7 +114,7 @@ export interface SGAverages {
 // across whole rounds; a round ended early stays out of them (#911). Its holes
 // still feed the per-hole stats.
 function wholeRounds(rounds: DetailedRound[]): DetailedRound[] {
-  return rounds.filter((r) => !isPartialRound(r.hole_scores))
+  return rounds.filter((r) => !isPartialRound(r.hole_scores, r.hole_count))
 }
 
 export function sgAverages(rounds: DetailedRound[]): SGAverages {

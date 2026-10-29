@@ -16,8 +16,9 @@ type CachedActiveRound = ActiveRound & { playedAt: string }
 // The hole a live round reopens on. Fetches ALL hole_scores (not just scored
 // ones): the round's hole rows are batch-created at round start, so their
 // hole numbers give resumeHoleNumber the round's true hole count to clamp
-// against. A failed fetch reads as a fresh round (hole 1).
-export async function fetchResumeHole(roundId: string): Promise<number> {
+// against, unless the round stores its count (#727). A failed fetch reads as
+// a fresh round (hole 1).
+export async function fetchResumeHole(roundId: string, holeCount: number | null): Promise<number> {
   const { data: hs } = await supabase
     .from('hole_scores')
     .select('score, finished_at, holes(number)')
@@ -33,6 +34,7 @@ export async function fetchResumeHole(roundId: string): Promise<number> {
         ? [{ number: row.holes.number, score: row.score, finished_at: row.finished_at }]
         : [],
     ),
+    holeCount,
   )
 }
 
@@ -63,7 +65,7 @@ export function useActiveRound(): ActiveRound | null {
         const cacheKey = offlineKeys.activeRound(user.id)
         const { data, error, status } = await supabase
           .from('rounds')
-          .select('id, played_at, course_id, courses(name)')
+          .select('id, played_at, course_id, hole_count, courses(name)')
           .eq('user_id', user.id)
           .is('completed_at', null)
           .is('total_score', null)
@@ -89,9 +91,10 @@ export function useActiveRound(): ActiveRound | null {
           id: string
           played_at: string
           course_id: string
+          hole_count: number | null
           courses?: { name: string | null } | null
         }
-        const next = await fetchResumeHole(round.id)
+        const next = await fetchResumeHole(round.id, round.hole_count)
         if (!active) return
         const found: CachedActiveRound = {
           id: round.id,

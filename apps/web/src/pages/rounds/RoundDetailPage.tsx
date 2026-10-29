@@ -13,6 +13,7 @@ import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
 import {
   DEFAULT_HANDICAP,
   inferHoleCount,
+  MAX_HOLE_NUMBER,
   roundHoleCount,
   isFinishedRound,
   projectShotMove,
@@ -222,7 +223,8 @@ export function RoundDetailPage() {
   }
 
   const holesPlayed = holeScores.length
-  const holeCount = roundHoleCount(round.data.hole_count, inferHoleCount(holes.map((h) => h.number)))
+  // holes is already padded and capped to the round's count, at most 18.
+  const holeCount = Math.min(roundHoleCount(round.data.hole_count, inferHoleCount(holes.map((h) => h.number))), MAX_HOLE_NUMBER)
   // Scored holes with their tee-resolved par: the header's running total,
   // the totals block and the best / worst line all read from these.
   const scored: ScoredHole[] = []

@@ -13,6 +13,8 @@ export interface RecentRoundRow {
   played_at: string
   total_score: number | null
   sg_total: number | null
+  // Optional: rows cached before #727 have none.
+  hole_count?: number | null
   courses?: { name: string | null } | null
   hole_scores?: { score: number; holes: { number: number } | null }[] | null
 }
@@ -93,7 +95,7 @@ export function RecentRoundsList({
                   <View style={{ flex: 1, paddingRight: 12 }}>
                     <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { color: P.inkDim, fontSize: 12, marginBottom: 4 }]}>
                       {parseLocalDate(r.played_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                      {partialRoundLabel(r.hole_scores)}
+                      {partialRoundLabel(r.hole_scores, r.hole_count)}
                     </Text>
                     <Text
                       style={[

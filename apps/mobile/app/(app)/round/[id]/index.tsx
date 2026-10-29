@@ -239,7 +239,7 @@ function RoundScreen() {
         if (unfinished && mode !== 'past') {
           // No ?hole= (rounds list, deep link): open where the player left
           // off, same pick as the Home banner (#324).
-          const resumeAt = hole ? null : await fetchResumeHole(row.id)
+          const resumeAt = hole ? null : await fetchResumeHole(row.id, row.hole_count)
           if (active) {
             setResumeHole(resumeAt)
             setRedirectToLive(true)
