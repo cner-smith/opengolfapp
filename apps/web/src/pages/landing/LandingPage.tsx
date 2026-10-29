@@ -24,6 +24,8 @@ export function LandingPage() {
         src="/landing/round-map.webp"
         alt="Bear Creek Golf Club, hole 9, par 4, 376 yards, scored 4: three marked shots up the fairway to a 3-foot putt that was made"
         caption="Bear Creek, hole 9, after the round"
+        tag={{ text: <>the hole<br />draws itself</>, left: 14, top: 446, width: 112 }}
+        arrow={[100, 442, 146, 380]}
       >
         On the course OGA follows your phone&apos;s GPS. Stand by the ball and
         mark it, set where you&apos;re aiming, and play. Each mark is where a
@@ -37,6 +39,8 @@ export function LandingPage() {
         src="/landing/stats.webp"
         alt="Stats, last 10 rounds against a 12-handicap: off the tee +1.51, approach −0.79, around the green +0.90, putting +0.98, with a round-by-round chart"
         caption="Stats, last 10 rounds"
+        tag={{ text: 'approach', left: 170, top: 366, width: 94 }}
+        arrow={[238, 362, 226, 266]}
         to="/learn/strokes-gained"
         linkLabel="How strokes gained works"
       >
@@ -50,6 +54,8 @@ export function LandingPage() {
         src="/landing/patterns.webp"
         alt="Shot patterns for the 7-iron, 24 shots around the aim: two in three finish inside the solid ring, the average sits short and right of the aim flag"
         caption="Shot patterns, 7-iron, 24 shots"
+        tag={{ text: <>two in<br />three</>, left: 22, top: 420, width: 76 }}
+        arrow={[78, 470, 148, 506]}
         to="/learn/course-management"
         linkLabel="Course management guide"
       >
@@ -64,6 +70,8 @@ export function LandingPage() {
         src="/landing/bag.webp"
         alt="My bag, 14 clubs: typical distance per club from driver 226 to lob wedge 87 yards, with the overlaps between neighbouring clubs shaded"
         caption="My bag, typical distance per club"
+        tag={{ text: 'share 8 yd', left: 40, top: 200, width: 104 }}
+        arrow={[144, 224, 194, 236]}
         to="/learn/building-your-bag"
         linkLabel="Building your bag"
         after={<TryYourBag />}
@@ -78,6 +86,8 @@ export function LandingPage() {
         src="/landing/practice.webp"
         alt="Practice, week of Oct 21: two sessions, 125 minutes. The first, Iron contact and start line, 70 minutes, opens with a 7-iron calibration warm-up"
         caption="Practice, week of Oct 21"
+        tag={{ text: 'your 7-iron', left: 158, top: 404, width: 112 }}
+        arrow={[200, 400, 230, 350]}
         to="/learn/how-to-practice"
         linkLabel="How to practice effectively"
       >
@@ -220,6 +230,8 @@ function Finding({
   to,
   linkLabel,
   after,
+  tag,
+  arrow,
 }: {
   sentence: string
   children: React.ReactNode
@@ -230,6 +242,8 @@ function Finding({
   to?: string
   linkLabel?: string
   after?: React.ReactNode
+  tag: React.ComponentProps<typeof PhoneShot>['tag']
+  arrow: React.ComponentProps<typeof PhoneShot>['arrow']
 }) {
   const [ref, seen] = useOnView<HTMLElement>(0.25)
   return (
@@ -251,7 +265,7 @@ function Finding({
             )}
           </div>
           <figure className="spread-figure lb-figure">
-            <PhoneShot src={src} alt={alt} />
+            <PhoneShot src={src} alt={alt} tag={tag} arrow={arrow} />
             <figcaption className="lb-caption">{caption}</figcaption>
           </figure>
         </div>

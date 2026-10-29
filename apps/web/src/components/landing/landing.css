@@ -323,6 +323,10 @@
   overflow: visible;
   pointer-events: none;
 }
+/* A paper halo, so the pencil still reads over a dark map. */
+.spread-figure .phone-shot-arrow {
+  filter: drop-shadow(0 0 1px #f7f2e7) drop-shadow(0 0 1px #f7f2e7);
+}
 .phone-shot-tag {
   position: absolute;
   padding: 1.6cqw 2.6cqw;
@@ -787,6 +791,21 @@
   [data-reveal='waiting'] .spread-figure {
     opacity: 0;
     transform: translateY(12px);
+  }
+  /* Then the coach's note: the tag stamps on and the arrow draws to the
+     thing on screen that proves the sentence. */
+  [data-reveal='waiting'] .phone-shot-tag {
+    opacity: 0;
+  }
+  [data-reveal] .phone-shot-arrow path {
+    stroke-dasharray: 1;
+    stroke-dashoffset: 1;
+  }
+  [data-reveal='shown'] .phone-shot-tag {
+    animation: lb-stamp 180ms 300ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  }
+  [data-reveal='shown'] .phone-shot-arrow path {
+    animation: lb-draw 420ms 460ms ease-out both;
   }
 }
 @keyframes lb-rise {
