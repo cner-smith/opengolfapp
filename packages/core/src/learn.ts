@@ -8,7 +8,9 @@ export interface LearnArticle {
   title: string
   description: string
   status: ArticleStatus
-  /** Approx word count for prose-only articles. Used for reading time. */
+  /** Approx word count of the article before its Sources (prose, tables,
+   *  captions), counted from the rendered web page. Used for reading time;
+   *  recount when an article changes. */
   words?: number
 }
 
@@ -31,7 +33,7 @@ export const LEARN_SECTIONS: LearnSection[] = [
         description:
           'How every shot is graded against an expectation, and what +0.3 SG-Putting actually means.',
         status: 'published',
-        words: 720,
+        words: 500,
       },
       {
         id: 'benchmarks',
@@ -39,7 +41,7 @@ export const LEARN_SECTIONS: LearnSection[] = [
         description:
           'Where each stat lands across the field, from a 25-handicap weekend round up to the PGA Tour.',
         status: 'published',
-        words: 200,
+        words: 300,
       },
       {
         id: 'glossary',
@@ -47,7 +49,7 @@ export const LEARN_SECTIONS: LearnSection[] = [
         description:
           'Intermediate and advanced terms beyond the basics — shot shapes, green reading, slang, rules, and historical terms.',
         status: 'published',
-        words: 3500,
+        words: 3170,
       },
     ],
   },
@@ -61,21 +63,21 @@ export const LEARN_SECTIONS: LearnSection[] = [
         title: 'Guide to golf fittings',
         description: 'What a fitting actually changes and when one is worth the money.',
         status: 'published',
-        words: 2200,
+        words: 1580,
       },
       {
         id: 'training-aids',
         title: 'Training aids explained',
         description: 'Which devices teach a real skill and which ones just feel productive.',
         status: 'published',
-        words: 1400,
+        words: 1500,
       },
       {
         id: 'building-your-bag',
         title: 'Building your bag',
         description: 'Picking 14 clubs that cover your distances without dead zones.',
         status: 'published',
-        words: 850,
+        words: 870,
       },
     ],
   },
@@ -90,21 +92,21 @@ export const LEARN_SECTIONS: LearnSection[] = [
         description:
           'Block, random, skill games, pressure — what each kind of practice is for and when to use it.',
         status: 'published',
-        words: 2700,
+        words: 1340,
       },
       {
         id: 'practice-modes',
         title: 'Block, random, and pressure practice',
         description: 'A deeper look at the three modes and how to combine them.',
         status: 'published',
-        words: 800,
+        words: 830,
       },
       {
         id: 'measurable-goals',
         title: 'Creating measurable practice goals',
         description: 'Turning "work on my irons" into something you can actually pass or fail.',
         status: 'published',
-        words: 800,
+        words: 660,
       },
       {
         id: 'skill-games-pressure-games',
@@ -112,28 +114,28 @@ export const LEARN_SECTIONS: LearnSection[] = [
         description:
           'Clock drill, putting circuits, flag left or right, HORSE, and why the last ball in the bucket matters.',
         status: 'published',
-        words: 1900,
+        words: 2000,
       },
       {
         id: 'understanding-your-swing',
         title: 'Understanding your own swing',
         description: 'Reading your own miss patterns without an instructor in the bay.',
         status: 'published',
-        words: 900,
+        words: 790,
       },
       {
         id: 'swing-variations',
         title: 'Swing variations for different body types',
         description: 'Why the textbook swing fits some bodies and not others.',
         status: 'published',
-        words: 2400,
+        words: 1950,
       },
       {
         id: 'operation-36',
         title: 'The Operation 36 philosophy',
         description: 'Building a game from inside out, par at every distance.',
         status: 'published',
-        words: 1600,
+        words: 1610,
       },
     ],
   },
@@ -148,7 +150,7 @@ export const LEARN_SECTIONS: LearnSection[] = [
         description:
           'Way of the Playa, the Scoring Zone, planning a hole backwards — shooting your number with the swing you have today.',
         status: 'published',
-        words: 2200,
+        words: 2500,
       },
       {
         id: 'mental-game',
@@ -156,14 +158,14 @@ export const LEARN_SECTIONS: LearnSection[] = [
         description:
           'One shot at a time, the productive delusion, visualization, and staying calm when it matters.',
         status: 'published',
-        words: 2900,
+        words: 2620,
       },
       {
         id: 'practice-vs-scoring-round',
         title: 'Practice round vs scoring round',
         description: 'Two different activities you should never mix.',
         status: 'published',
-        words: 1700,
+        words: 1550,
       },
       {
         id: 'self-diagnosis',
@@ -171,7 +173,7 @@ export const LEARN_SECTIONS: LearnSection[] = [
         description:
           'A framework for reading your own miss patterns and finding where your game leaks strokes.',
         status: 'published',
-        words: 1500,
+        words: 1480,
       },
     ],
   },
@@ -185,21 +187,21 @@ export const LEARN_SECTIONS: LearnSection[] = [
         title: 'Guide to lessons and coaching',
         description: 'Picking an instructor and getting a return on the lesson hour.',
         status: 'published',
-        words: 1300,
+        words: 1450,
       },
       {
         id: 'fittings-with-coaches',
         title: 'Fittings and your coach',
         description: 'Who should fit you, and timing a fitting around your lessons.',
         status: 'published',
-        words: 1000,
+        words: 900,
       },
       {
         id: 'questions-for-coach',
         title: 'Questions to ask your coach',
         description: 'The conversation that makes a lesson stick beyond the bay.',
         status: 'published',
-        words: 900,
+        words: 790,
       },
     ],
   },
