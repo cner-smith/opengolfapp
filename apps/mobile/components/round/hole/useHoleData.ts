@@ -142,14 +142,16 @@ export function useHoleData(
     [],
   )
 
-  // How many holes this round plays: the count stored at creation (#727).
-  // Older rounds infer it from the mapped hole numbers (course_tees.par is
-  // unpopulated in our crawled data) — a genuine 9-hole course stays 9
-  // instead of padding to 18 phantom holes (#525).
-  const holeCount = useMemo(
-    () => roundHoleCount(round?.hole_count, inferHoleCount(holes.map((h) => h.number))),
-    [round?.hole_count, holes],
-  )
+  // How many holes this round plays, inferred from the mapped hole numbers
+  // (course_tees.par is unpopulated in our crawled data) — a genuine 9-hole
+  // course stays 9 instead of padding to 18 phantom holes (#525). A round
+  // stored as 9 (#727) caps it; a stored 18 never raises it: mobile has no
+  // ensureRealHole, so a padded hole with no hole_scores row drops its
+  // shots silently (a web round on a course mapped only to hole 9).
+  const holeCount = useMemo(() => {
+    const inferred = inferHoleCount(holes.map((h) => h.number))
+    return roundHoleCount(round?.hole_count, inferred) === 9 ? 9 : inferred
+  }, [round?.hole_count, holes])
 
   // Synthetic-holes fallback. Mirrors the web pattern documented in
   // CLAUDE.md: when the course has fewer real `holes` rows than the
