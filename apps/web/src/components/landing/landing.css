@@ -168,6 +168,16 @@
   color: #5c6356;
 }
 
+/* The heading stays beside its rows while they scroll past (wide only). */
+@media (min-width: 961px) {
+  .lb-negation > h2,
+  .lb-free > h2 {
+    position: sticky;
+    top: 104px;
+    align-self: start;
+  }
+}
+
 /* ---- Buttons: the paper key (index.css .key), a size up ---- */
 .lb-cta {
   min-height: 50px;
