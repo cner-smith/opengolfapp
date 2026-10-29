@@ -160,6 +160,19 @@ export function ImportDataPage() {
             />
           </ChoiceRow>
         )}
+        {mode !== 'json' && (
+          <p className="text-caddie-ink-dim" style={{ fontSize: 13, lineHeight: 1.5, marginTop: -8 }}>
+            More platforms are coming. If one matters to you,{' '}
+            <a href={`${GITHUB_REPO}/issues/new`} target="_blank" rel="noreferrer noopener" className="text-caddie-ink underline underline-offset-4 hover:opacity-80">
+              open an issue
+            </a>{' '}
+            or{' '}
+            <a href={`${GITHUB_REPO}/discussions`} target="_blank" rel="noreferrer noopener" className="text-caddie-ink underline underline-offset-4 hover:opacity-80">
+              start a discussion
+            </a>{' '}
+            on GitHub.
+          </p>
+        )}
         {mode === 'golfpad' && <GolfPadImport />}
         {mode === 'csv' && <ScorecardCsvImport />}
 
@@ -440,6 +453,7 @@ function FieldLabel({ children }: { children: React.ReactNode }) {
 }
 
 const LINE_RULE = '1px solid #D9D2BF'
+const GITHUB_REPO = 'https://github.com/cner-smith/opengolfapp'
 
 const buttonStyle: React.CSSProperties = {
   fontSize: 14,
