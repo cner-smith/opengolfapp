@@ -1,4 +1,31 @@
-import { test, expect } from '@playwright/test'
+import { test, expect, type Page } from '@playwright/test'
+
+const AI_LINE = /^Claude, Anthropic’s AI, writes your plan\. Generating sends it your handicap/
+
+// Serve the e2e user's real plan as last week's, written by Claude, so the
+// Generate button shows. Optionally answer the rounds-with-SG count. The plan
+// function is blocked: these tests must never reach the paid API.
+async function lastWeeksAiPlan(page: Page, roundsWithSG?: number) {
+  await page.route('**/functions/v1/generate-practice-plan*', (route) => route.abort())
+  await page.route('**/rest/v1/practice_plans*', async (route) => {
+    if (route.request().method() !== 'GET') return route.fallback()
+    const res = await route.fetch()
+    const rows = (await res.json()) as Record<string, unknown>[]
+    await route.fulfill({
+      response: res,
+      json: rows.map((p) => ({ ...p, valid_until: '2020-01-07', raw_model_output: { status: 'ok' } })),
+    })
+  })
+  if (roundsWithSG != null) {
+    // The count rides on content-range; keep the real response's CORS headers
+    // so the browser lets the client read it.
+    await page.route('**/rest/v1/rounds*', async (route) => {
+      if (route.request().method() !== 'HEAD') return route.fallback()
+      const res = await route.fetch()
+      await route.fulfill({ response: res, headers: { ...res.headers(), 'content-range': `*/${roundsWithSG}` } })
+    })
+  }
+}
 
 test.describe('Practice plan + Drills (signed in)', () => {
   test('practice page leads with the title and the week bar', async ({ page }) => {
@@ -37,5 +64,24 @@ test.describe('Practice plan + Drills (signed in)', () => {
     expect(n).toBeLessThan(all)
     // Every line left is marked as in the plan.
     for (const line of await lines.all()) await expect(line).toContainText("In this week's plan")
+  })
+
+  test('Generate says Claude writes the plan, and the plan says Claude wrote it', async ({ page }) => {
+    await lastWeeksAiPlan(page, 6)
+    await page.goto('/practice')
+    await expect(page.getByRole('button', { name: /Generate this week's plan/ })).toBeVisible()
+    const line = page.getByTestId('ai-disclosure')
+    await expect(line).toHaveText(AI_LINE)
+    expect((await line.boundingBox())?.height ?? 0).toBeGreaterThan(10)
+    await expect(page.getByText('Claude reads this note too.', { exact: false })).toHaveCount(1)
+    await expect(page.getByTestId('ai-written')).toHaveText('Claude wrote this plan from your numbers. Use your judgment.')
+  })
+
+  test('below 5 rounds with strokes gained, Generate says nothing about Claude', async ({ page }) => {
+    await lastWeeksAiPlan(page, 4)
+    await page.goto('/practice')
+    await expect(page.getByRole('button', { name: /Generate this week's plan/ })).toBeVisible()
+    await expect(page.getByTestId('ai-disclosure')).toHaveCount(0)
+    await expect(page.getByText('Claude reads this note too.', { exact: false })).toHaveCount(0)
   })
 })

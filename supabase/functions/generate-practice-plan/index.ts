@@ -28,6 +28,7 @@ import {
   buildPlanPrompt,
   sanitizeFeedback,
   shouldPromptPlanRefresh,
+  AI_PLAN_MIN_SG_ROUNDS,
   PLAN_TOOL,
   COACH_NOTE_MAX,
   type PlanDraft,
@@ -44,8 +45,9 @@ const MAX_GENERATIONS_PER_USER_PER_MONTH =
   Number(Deno.env.get('MAX_GENERATIONS_PER_USER_PER_MONTH')) || 8
 const GLOBAL_MONTHLY_CAP = Number(Deno.env.get('GLOBAL_MONTHLY_CAP')) || 5000
 const PLAN_MODEL = Deno.env.get('PLAN_MODEL') ?? 'claude-sonnet-4-6'
-// Min rounds-with-SG before we'll pay for a generated plan (§3.3).
-const MIN_SG_ROUNDS = 5
+// Min rounds-with-SG before we'll pay for a generated plan (§3.3). Shared with
+// the apps, which show the AI disclosure at Generate from the same count.
+const MIN_SG_ROUNDS = AI_PLAN_MIN_SG_ROUNDS
 // Digest window — last N rounds with SG (§6).
 const DIGEST_ROUND_CAP = 10
 // Leave this much wall-clock head-room before firing the (second) repair call,
