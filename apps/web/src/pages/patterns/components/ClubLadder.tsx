@@ -47,7 +47,7 @@ export function ClubLadder({
         ref={row}
         role="radiogroup"
         aria-label="Club"
-        className="flex"
+        className="club-ladder-row flex"
         style={{ overflowX: 'auto', borderTop: '1px solid #9F9580', borderLeft: '1px solid #D9D2BF', scrollbarWidth: 'thin' }}
       >
         {clubs.map((c, j) => {
@@ -101,7 +101,7 @@ export function ClubLadder({
               {t != null && prev != null && (
                 <span
                   aria-hidden
-                  className="font-serif tabular"
+                  className="club-ladder-gap font-serif tabular"
                   style={{
                     position: 'absolute',
                     left: -1,

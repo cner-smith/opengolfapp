@@ -456,6 +456,19 @@
   .lb-demo-body {
     padding: 12px 10px;
   }
+  /* The whole bag in two rows of five, nothing hidden off the edge. The
+     ladder's own inline styles make it one scrolling row, hence !important. */
+  .lb-demo .club-ladder-row {
+    flex-wrap: wrap;
+    overflow: visible !important;
+  }
+  .lb-demo .club-ladder-row > button {
+    flex: 0 0 20% !important;
+  }
+  /* A row's first club has no rule to its left to print a gap on. */
+  .lb-demo .club-ladder-row > button:nth-child(5n + 1) .club-ladder-gap {
+    display: none;
+  }
   .lb-demo-wait {
     min-height: 787px;
   }
