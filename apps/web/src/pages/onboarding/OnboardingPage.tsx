@@ -27,6 +27,9 @@ export interface OnboardingDraft {
 
 const TOTAL_STEPS = 7
 
+// Where Step 2 starts for each Step 1 answer, until the golfer moves it.
+const SEED_HANDICAP: Record<SkillLevel, number> = { beginner: 36, casual: 28, developing: 18, competitive: 6 }
+
 export function OnboardingPage() {
   const navigate = useNavigate()
   const { user } = useAuth()
@@ -49,6 +52,7 @@ export function OnboardingPage() {
     () => new Set(DEFAULT_BAG.map((c) => c.club_type)),
   )
   const [savingBag, setSavingBag] = useState(false)
+  const [handicapTouched, setHandicapTouched] = useState(false)
   useDocumentTitle(`${stepLabel(step)} · OGA`)
 
   // Each step is a new component, so Continue/Back unmount the focused key
@@ -152,14 +156,20 @@ export function OnboardingPage() {
         {step === 1 && (
           <Step1Skill
             value={draft.skillLevel}
-            onChange={(skillLevel) => setDraft((d) => ({ ...d, skillLevel }))}
+            onChange={(skillLevel) =>
+              setDraft((d) => ({ ...d, skillLevel, handicap: handicapTouched ? d.handicap : SEED_HANDICAP[skillLevel] }))
+            }
             onContinue={next}
           />
         )}
         {step === 2 && (
           <Step2Handicap
             value={draft.handicap}
-            onChange={(handicap) => setDraft((d) => ({ ...d, handicap }))}
+            seeded={!handicapTouched}
+            onChange={(handicap) => {
+              setHandicapTouched(true)
+              setDraft((d) => ({ ...d, handicap }))
+            }}
             onBack={back}
             onContinue={next}
           />

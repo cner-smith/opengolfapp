@@ -8,28 +8,27 @@ const MIN = -10
 const MAX = 54
 const clamp = (n: number) => Math.min(MAX, Math.max(MIN, Math.round(n * 10) / 10))
 
-function bracketLabel(handicap: number): { name: string; description: string } {
-  if (handicap < 0) return { name: 'Plus handicap', description: 'Better than scratch' }
-  if (handicap <= 2) return { name: 'Scratch', description: 'Bracket: 0–2 handicap' }
-  if (handicap <= 7)
-    return { name: 'Single digit', description: 'Bracket: 3–7 handicap' }
-  if (handicap <= 12)
-    return { name: 'Low double digit', description: 'Bracket: 8–12 handicap' }
-  if (handicap <= 17)
-    return { name: 'Mid double digit', description: 'Bracket: 13–17 handicap' }
-  if (handicap <= 22) return { name: 'High teens', description: 'Bracket: 18–22 handicap' }
-  if (handicap <= 27)
-    return { name: 'Twenty-something', description: 'Bracket: 23–27 handicap' }
-  return { name: 'New to scoring', description: 'Bracket: 28+ handicap' }
+function bracketLabel(handicap: number): string {
+  if (handicap < 0) return 'Plus handicap'
+  if (handicap <= 2) return 'Scratch'
+  if (handicap <= 7) return 'Single digit'
+  if (handicap <= 12) return 'Low double digit'
+  if (handicap <= 17) return 'Mid double digit'
+  if (handicap <= 22) return 'High teens'
+  if (handicap <= 27) return 'Twenty-something'
+  return 'New to scoring'
 }
 
 export function Step2Handicap({
   value,
+  seeded,
   onChange,
   onBack,
   onContinue,
 }: {
   value: number
+  /** Still the start Step 1 picked for them: say so. */
+  seeded: boolean
   onChange: (v: number) => void
   onBack: () => void
   onContinue: () => void
@@ -110,11 +109,13 @@ export function Step2Handicap({
           <StepKey label="Raise by a tenth" glyph="+" onStep={() => onChange(clamp(value + 0.1))} />
         </div>
         <div className="font-serif text-caddie-ink-dim" style={{ fontSize: 17, marginTop: 12 }}>
-          {bracket.name}
+          {bracket}
         </div>
-        <div className="text-caddie-ink-dim" style={{ fontSize: 13, marginTop: 4 }}>
-          {bracket.description}
-        </div>
+        {seeded && (
+          <p className="text-caddie-ink-dim" style={{ fontSize: 13, marginTop: 8, lineHeight: 1.5, maxWidth: 360, marginInline: 'auto' }}>
+            No handicap yet? Keep this: it&rsquo;s typical for golfers like you, and you can change it any time in Profile.
+          </p>
+        )}
       </div>
       <input
         type="range"

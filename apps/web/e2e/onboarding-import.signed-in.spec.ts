@@ -83,3 +83,17 @@ test.describe('Onboarding step 4 on a phone (signed in)', () => {
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390)
   })
 })
+
+test.describe('Onboarding step 2 (signed in)', () => {
+  // Step 1's answer sets where the handicap starts, and says so (#1266).
+  test('starts the handicap from the skill picked on step 1', async ({ page }) => {
+    await page.goto('/onboarding')
+    await page.getByRole('radio', { name: /^Casual/ }).click()
+    await page.getByRole('button', { name: /Continue/ }).click()
+    await expect(page.getByRole('button', { name: /^Handicap index 28\.0/ })).toBeVisible()
+    await expect(page.getByText(/No handicap yet\? Keep this/)).toBeVisible()
+    await page.getByRole('button', { name: 'Raise by a tenth' }).click()
+    await expect(page.getByRole('button', { name: /^Handicap index 28\.1/ })).toBeVisible()
+    await expect(page.getByText(/No handicap yet\? Keep this/)).toHaveCount(0)
+  })
+})
