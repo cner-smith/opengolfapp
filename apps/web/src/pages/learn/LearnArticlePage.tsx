@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, Navigate, useParams } from 'react-router-dom'
 import {
+  READABLE_LEARN_ARTICLES,
   findLearnArticle,
   type LearnArticle,
   type LearnSection,
@@ -19,7 +20,7 @@ export function LearnArticlePage() {
   }
 
   const { article, section } = found
-  const { prev, next } = neighbours(section, article.id)
+  const { prev, next } = neighbours(article.id)
   const isDraft = article.status === 'draft'
 
   return (
@@ -99,16 +100,14 @@ function DraftBanner({ slug }: { slug: string }) {
   )
 }
 
-function neighbours(
-  section: LearnSection,
-  currentId: string,
-): { prev: LearnArticle | null; next: LearnArticle | null } {
-  const reachable = section.articles.filter((a) => a.status !== 'soon')
-  const idx = reachable.findIndex((a) => a.id === currentId)
+// Reading order runs through the whole book, so the last guide in a section
+// leads on to the next section instead of to nothing.
+function neighbours(currentId: string): { prev: LearnArticle | null; next: LearnArticle | null } {
+  const idx = READABLE_LEARN_ARTICLES.findIndex((a) => a.id === currentId)
   if (idx === -1) return { prev: null, next: null }
   return {
-    prev: idx > 0 ? (reachable[idx - 1] ?? null) : null,
-    next: idx < reachable.length - 1 ? (reachable[idx + 1] ?? null) : null,
+    prev: READABLE_LEARN_ARTICLES[idx - 1] ?? null,
+    next: READABLE_LEARN_ARTICLES[idx + 1] ?? null,
   }
 }
 
@@ -122,6 +121,7 @@ function NeighbourNav({
   if (!prev && !next) return null
   return (
     <nav
+      aria-label="More guides"
       style={{
         display: 'grid',
         gridTemplateColumns: '1fr 1fr',
