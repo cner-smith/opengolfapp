@@ -1,6 +1,6 @@
-import { useState, type FormEvent } from 'react'
+import { useRef, useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Turnstile } from '@marsidev/react-turnstile'
+import { Turnstile, type TurnstileInstance } from '@marsidev/react-turnstile'
 import { supabase } from '../../lib/supabase'
 import { GoogleSignInButton } from '../../components/auth/GoogleSignInButton'
 import { AuthField, AuthSpread, AuthTitle } from '../../components/auth/AuthSpread'
@@ -29,6 +29,10 @@ export function LoginPage() {
   // rejects with "captcha protection: request disallowed (no
   // captcha_token found)" when this is missing.
   const [captchaToken, setCaptchaToken] = useState<string | null>(null)
+  // The widget only issues a new token on reset() or after the old one
+  // expires (~300 s); clearing our state alone leaves it holding the spent
+  // one (#1254).
+  const turnstileRef = useRef<TurnstileInstance | undefined>(undefined)
   // Local-dev path: when no site key is configured we skip the widget
   // so devs running against a local Supabase (CAPTCHA disabled) aren't
   // blocked. Production deploys always have the env var set.
@@ -63,9 +67,10 @@ export function LoginPage() {
             },
           })
     setLoading(false)
-    // Turnstile tokens are single-use: clear after every call so the
-    // widget reissues a fresh one for the next.
+    // Turnstile tokens are single-use: clear after every call and reset the
+    // widget so it issues a fresh one for the next.
     setCaptchaToken(null)
+    turnstileRef.current?.reset()
     if (authError) {
       // Deliberately not toUserMessage: GoTrue auth errors ("Invalid login
       // credentials") carry no row data or policy text, and collapsing them
@@ -138,6 +143,7 @@ export function LoginPage() {
         {captchaEnabled && (
           <div style={{ marginBottom: 14 }}>
             <Turnstile
+              ref={turnstileRef}
               siteKey={TURNSTILE_SITE_KEY!}
               onSuccess={(token) => setCaptchaToken(token)}
               onError={() => setCaptchaToken(null)}
