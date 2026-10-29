@@ -191,7 +191,7 @@ export function ImportDataPage() {
               aria-label="OGA JSON payload"
               className="w-full bg-caddie-surface text-caddie-ink"
               style={{
-                border: LINE_RULE,
+                border: '1px solid #5C6356',
                 borderRadius: 2,
                 padding: '10px 12px',
                 fontSize: 12,
@@ -202,7 +202,7 @@ export function ImportDataPage() {
             />
 
             {rawText.trim().length === 0 && (
-              <div className="text-caddie-ink-mute" style={{ fontSize: 12 }}>
+              <div className="text-caddie-ink-dim" style={{ fontSize: 13 }}>
                 Paste a round in OGA’s JSON format, or upload a .json file.
               </div>
             )}
@@ -242,7 +242,7 @@ export function ImportDataPage() {
                 dataQuality.missingLieType.length > 0 ||
                 dataQuality.missingDistanceToTarget.length > 0 ||
                 dataQuality.misplacedPuttDistance.length > 0) && (
-                <div className="text-caddie-warn" style={{ fontSize: 13, borderLeft: '2px solid #A66A1F', paddingLeft: 12 }}>
+                <div className="text-caddie-ink" style={{ fontSize: 13, borderLeft: '2px solid #A66A1F', paddingLeft: 12 }}>
                   <div style={{ fontWeight: 600, marginBottom: 6 }}>
                     Watch out — some shot details are missing:
                   </div>
