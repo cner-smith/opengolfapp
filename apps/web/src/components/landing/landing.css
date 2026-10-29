@@ -797,6 +797,44 @@
 .auth-link:hover {
   color: #1c211c;
 }
+.auth-link:focus-visible,
+.auth-pw-toggle:focus-visible {
+  outline: 2px solid #1c211c;
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+.auth-pw {
+  position: relative;
+}
+.auth-pw .auth-input {
+  padding-right: 60px;
+}
+.auth-pw-toggle {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 56px;
+  height: 44px;
+  background: none;
+  border: none;
+  font-family: 'Epilogue', sans-serif;
+  font-size: 13px;
+  color: #5c6356;
+  cursor: pointer;
+}
+.auth-pw-toggle:hover {
+  color: #1c211c;
+}
+/* Forgot sits after the password field, so Tab reaches it before Sign in. */
+.auth-forgot {
+  display: flex;
+  justify-content: flex-end;
+  margin: -10px 0 14px;
+}
+.auth-forgot .auth-link {
+  min-height: 24px;
+  padding: 4px 0;
+}
 /* Sign in, reset and sent share one height on a wide screen, so the
    centred page doesn't re-centre and the title stays put between them:
    sign in's height with the captcha (about 585px), the tallest of the three. */

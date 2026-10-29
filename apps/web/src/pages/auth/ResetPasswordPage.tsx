@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { useDocumentTitle } from '../../hooks/useDocumentTitle'
 import { toUserMessage } from '../../lib/errors'
-import { AuthField, AuthSpread, AuthTitle } from '../../components/auth/AuthSpread'
+import { AuthField, AuthSpread, AuthTitle, PasswordInput } from '../../components/auth/AuthSpread'
 
 // Where the password reset email lands (LoginPage → resetPasswordForEmail).
 // The link proves the address; this page turns it into a recovery session,
@@ -81,8 +81,7 @@ export function ResetPasswordPage() {
           Set a new password.
         </AuthTitle>
         <AuthField label="New password">
-          <input
-            type="password"
+          <PasswordInput
             required
             minLength={8}
             autoComplete="new-password"
@@ -90,7 +89,6 @@ export function ResetPasswordPage() {
             disabled={!ready}
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className="auth-input"
             style={{ marginBottom: 6 }}
           />
         </AuthField>

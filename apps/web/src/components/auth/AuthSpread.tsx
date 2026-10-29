@@ -1,4 +1,4 @@
-import { cloneElement, useId, type ReactElement, type ReactNode } from 'react'
+import { cloneElement, useId, useState, type InputHTMLAttributes, type ReactElement, type ReactNode } from 'react'
 import { PhoneShot } from '../landing/PhoneShot'
 import { Wordmark } from '../landing/Wordmark'
 import '../landing/landing.css'
@@ -61,19 +61,29 @@ export function AuthTitle({ children, sub }: { children: ReactNode; sub?: ReactN
   )
 }
 
-// The label row can carry a link at its right (Forgot password?), so the
-// label points at the input by id instead of wrapping it.
-export function AuthField({ label, aside, children }: { label: string; aside?: ReactNode; children: ReactElement<{ id?: string }> }) {
+// The label points at the input by id, so the input can sit inside a
+// wrapper (PasswordInput) instead of the label.
+export function AuthField({ label, children }: { label: string; children: ReactElement<{ id?: string }> }) {
   const id = useId()
   return (
     <div>
-      <div className="flex items-baseline justify-between" style={{ gap: 12, marginBottom: 6 }}>
-        <label htmlFor={id} className="text-caddie-ink-dim" style={{ fontSize: 13 }}>
-          {label}
-        </label>
-        {aside}
-      </div>
+      <label htmlFor={id} className="block text-caddie-ink-dim" style={{ fontSize: 13, marginBottom: 6 }}>
+        {label}
+      </label>
       {cloneElement(children, { id })}
+    </div>
+  )
+}
+
+// A password field with a Show key inside its right edge (sign in, sign up, reset).
+export function PasswordInput(props: InputHTMLAttributes<HTMLInputElement>) {
+  const [shown, setShown] = useState(false)
+  return (
+    <div className="auth-pw">
+      <input {...props} type={shown ? 'text' : 'password'} className="auth-input" />
+      <button type="button" className="auth-pw-toggle" aria-pressed={shown} aria-label="Show password" onClick={() => setShown((v) => !v)}>
+        {shown ? 'Hide' : 'Show'}
+      </button>
     </div>
   )
 }
