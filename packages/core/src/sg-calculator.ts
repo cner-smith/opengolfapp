@@ -164,8 +164,9 @@ export function perShotSG(
     // next row, or one with no position, it is stroke and distance — "Skip
     // all, just track location" is always visible, so a player who drops
     // without logging the recovery is normal use, and reading isLastShot below
-    // would zero endExpected and return a large POSITIVE sg.
-    if (shot.ob) {
+    // would zero endExpected and return a large POSITIVE sg. A penalty (water)
+    // shot is the same unless it was holed (#1148).
+    if (shot.ob || (shot.penalty && !holedOut(shot))) {
       endExpected = next?.expected ?? startExpected
     } else if (shot.isLastShot || holedOut(shot) || !next) {
       endExpected = 0

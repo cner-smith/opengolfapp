@@ -222,6 +222,53 @@ describe('stored rows → strokes gained', () => {
     expect(sg.total).toBeCloseTo(-2.0518, 2)
   })
 
+  // A penalty (water) shot with nothing to read after it ends where it was
+  // played from, as OB does: stroke and distance (#1148). The normal case, a
+  // valued next row, is 'water off the tee, drop at 180 yd' above.
+  it('par 4, water off the tee, then nothing logged', () => {
+    // Tee 400 yd → 5.43; the water drive ends at its own start (5.43).
+    // off tee 5.43 − 5.43 − 1 − 1 (penalty stroke) = −2
+    // (Valued as holed it would read 5.43 − 0 − 1 − 1 = +3.43.)
+    const sg = storedSG(4, 2, [{ lie_type: 'tee', distance_to_target: 400, penalty: true }])
+    expect(sg.offTee).toBeCloseTo(-2, 2)
+    expect(sg.total).toBeCloseTo(-2, 2)
+  })
+
+  it('par 4, water off the tee, a drop with no position, then two putts', () => {
+    // The drop can't be valued (no distance, not a putt), so the water drive
+    // falls back to its own start, and the drop itself is skipped.
+    // off tee  5.43 − 5.43 − 1 − 1 = −2
+    // putting  (2.34 − 1.10 − 1) + (1.10 − 0 − 1) = 0.24 + 0.10 = 0.34
+    // total −1.66 (the drop's approach is unscored)
+    // (Before #1148 the drive was skipped too: off tee 0, total 0.34.)
+    const sg = storedSG(4, 5, [
+      { lie_type: 'tee', distance_to_target: 400, penalty: true },
+      { lie_type: 'rough' },
+      { lie_type: 'green', club: 'putter', putt_distance_ft: 30 },
+      { lie_type: 'green', club: 'putter', putt_distance_ft: 3, putt_result: 'made' },
+    ])
+    expect(sg.offTee).toBeCloseTo(-2, 2)
+    expect(sg.approach).toBeCloseTo(0, 2)
+    expect(sg.putting).toBeCloseTo(0.34, 2)
+    expect(sg.total).toBeCloseTo(-1.66, 2)
+  })
+
+  it('a holed putt carrying a penalty stroke still ends in the hole', () => {
+    // Tee 400 → 150 yd: 0.48 off tee. Approach 3.95 → 3 ft putt (1.10): 1.85.
+    // Putt 3 ft holed, penalty stroke: 1.10 − 0 − 1 − 1 = −0.90
+    // total 0.48 + 1.85 − 0.90 = 1.43 (= 5.43 − 4: three swings + the penalty)
+    // (Ending at its own start instead: 1.10 − 1.10 − 2 = −2, total 0.33.)
+    const sg = storedSG(4, 4, [
+      { lie_type: 'tee', distance_to_target: 400 },
+      { lie_type: 'fairway', distance_to_target: 150 },
+      { lie_type: 'green', club: 'putter', putt_distance_ft: 3, putt_result: 'made', penalty: true },
+    ])
+    expect(sg.offTee).toBeCloseTo(0.48, 2)
+    expect(sg.approach).toBeCloseTo(1.85, 2)
+    expect(sg.putting).toBeCloseTo(-0.9, 2)
+    expect(sg.total).toBeCloseTo(1.43, 2)
+  })
+
   // The replay is judged by start coordinates when both rows have them; the
   // distances here are deliberately equal so only the coordinates can decide.
   const reteeAt = (yardsApart: number) =>
