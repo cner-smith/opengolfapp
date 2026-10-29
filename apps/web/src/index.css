@@ -494,3 +494,26 @@ dialog.pat-dialog::backdrop {
     transform: scale(0.9);
   }
 }
+/* 404: the ghost number rises, then the line, then the way back. Once, and
+   not at all under reduced motion. */
+@media (prefers-reduced-motion: no-preference) {
+  .nf-rise {
+    animation: nf-rise 320ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+  .nf-ghost {
+    --nf-from: 10px;
+    animation-duration: 420ms;
+  }
+  .nf-head {
+    animation-delay: 90ms;
+  }
+  .nf-keys {
+    animation-delay: 180ms;
+  }
+}
+@keyframes nf-rise {
+  from {
+    opacity: 0;
+    transform: translateY(var(--nf-from, 6px));
+  }
+}

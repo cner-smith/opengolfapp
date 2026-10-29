@@ -32,7 +32,7 @@ function NotFound({ signedIn }: { signedIn: boolean }) {
       <div style={{ maxWidth: 520, textAlign: 'center', position: 'relative' }}>
         <div
           aria-hidden
-          className="font-serif"
+          className="font-serif nf-rise nf-ghost"
           style={{
             fontSize: 120,
             fontStyle: 'italic',
@@ -47,15 +47,15 @@ function NotFound({ signedIn }: { signedIn: boolean }) {
           404
         </div>
         <h1
-          className="font-serif text-caddie-ink"
+          className="font-serif text-caddie-ink nf-rise nf-head"
           style={{ position: 'relative', fontStyle: 'italic', fontWeight: 500, fontSize: 38, letterSpacing: '-0.015em', margin: 0 }}
         >
           Page not found.
         </h1>
-        <p className="font-serif text-caddie-ink" style={{ fontSize: 18, lineHeight: 1.5, margin: '14px 0 26px' }}>
+        <p className="font-serif text-caddie-ink nf-rise nf-head" style={{ fontSize: 18, lineHeight: 1.5, margin: '14px 0 26px' }}>
           That hole isn&rsquo;t on this course.
         </p>
-        <div className="flex flex-wrap items-center justify-center" style={{ gap: '14px 22px' }}>
+        <div className="flex flex-wrap items-center justify-center nf-rise nf-keys" style={{ gap: '14px 22px' }}>
           <Link to={signedIn ? '/dashboard' : '/'} className="key key-primary">
             {signedIn ? 'Back to Home' : 'Back to the start'}{' '}
             <span className="font-serif" style={{ fontStyle: 'italic' }}>
