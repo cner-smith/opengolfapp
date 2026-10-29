@@ -44,7 +44,7 @@ export function PrivacyPage() {
           </P>
           <P>
             <strong>Profile.</strong> What you tell us: skill level, goal,
-            handicap index, how often you play, where you practise, which hand
+            handicap index, how often you play, where you practice, which hand
             you play, and your clubs. Change any of it under{' '}
             <em>Profile</em>.
           </P>
@@ -92,7 +92,7 @@ export function PrivacyPage() {
           <P>
             <strong>Anthropic</strong> writes your practice plan with its AI,
             Claude, when you ask for one. It gets your skill level, handicap,
-            goal, how often you play, where you practise, your strokes-gained
+            goal, how often you play, where you practice, your strokes-gained
             averages and trends, and your plan note. Never your name, email,
             courses or shot positions. Anthropic doesn't train its models on
             it and deletes it within 30 days, longer only if it's flagged
@@ -100,7 +100,7 @@ export function PrivacyPage() {
             <ExtLink href="https://privacy.claude.com/en/articles/7996866-how-long-do-you-store-my-organization-s-data">
               Anthropic's retention policy
             </ExtLink>
-            ). Plans are written by an AI, so use your judgement.
+            ). Plans are written by an AI, so use your judgment.
           </P>
           <P>
             <strong>Resend</strong> sends the round email: your email address,
