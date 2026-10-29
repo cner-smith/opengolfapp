@@ -65,7 +65,7 @@ export function Step4Details({
       </Field>
 
       <Field label="Facilities you have access to" note="Select any that apply.">
-        <div className="flex flex-wrap" style={{ gap: 10, paddingBottom: 3 }}>
+        <div role="group" aria-label="Facilities you have access to" className="flex flex-wrap" style={{ gap: 10, paddingBottom: 3 }}>
           {FACILITIES.map((f) => {
             const active = facilities.includes(f)
             return (
@@ -75,12 +75,14 @@ export function Step4Details({
                 aria-pressed={active}
                 onClick={() => toggleFacility(f)}
                 className="key"
-                style={{ fontSize: 14, fontWeight: 500, padding: '0 14px' }}
+                style={{ padding: '0 14px' }}
               >
-                <span aria-hidden className="font-serif" style={{ fontStyle: 'italic', width: 10 }}>
+                <span className="font-serif" style={{ fontSize: 15, fontWeight: 500 }}>
+                  {FACILITY_LABEL[f]}
+                </span>
+                <span aria-hidden className="font-serif" style={{ fontSize: 16, fontStyle: 'italic', width: 14, flexShrink: 0 }}>
                   {active ? '✓' : ''}
                 </span>
-                {FACILITY_LABEL[f]}
               </button>
             )
           })}

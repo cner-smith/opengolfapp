@@ -17,7 +17,7 @@ export function SkillGamesArticle() {
         game, and full swing.
       </P>
 
-      <H3>Why games beat mindless repetition</H3>
+      <H2>Why games beat mindless repetition</H2>
       <P>
         Hitting the same shot over and over until you run out of
         balls is the default range session for most golfers. It
@@ -39,7 +39,7 @@ export function SkillGamesArticle() {
 
       <Hr />
 
-      <H3>The pressure problem</H3>
+      <H2>The pressure problem</H2>
       <P>
         Here is the fundamental challenge of practice: you know you
         have another ball. On the course, you don't.
@@ -75,9 +75,9 @@ export function SkillGamesArticle() {
 
       <Hr />
 
-      <H3>Putting games</H3>
+      <H2>Putting games</H2>
 
-      <H4>The clock drill</H4>
+      <H3>The clock drill</H3>
       <P>
         Place twelve balls around a hole at a consistent distance —
         three feet is a good starting point. The balls form a clock
@@ -108,7 +108,7 @@ export function SkillGamesArticle() {
         — exactly like on the course.
       </Kv>
 
-      <H4>The three-station pressure drill</H4>
+      <H3>The three-station pressure drill</H3>
       <P>
         Set up three stations: three feet, six feet, and nine feet.
       </P>
@@ -130,7 +130,7 @@ export function SkillGamesArticle() {
         drop over time as your putting under pressure improves.
       </P>
 
-      <H4>The putting circuit</H4>
+      <H3>The putting circuit</H3>
       <P>
         Pick nine holes on the practice green and play them as a
         course. Par 2 for each hole — you're trying to one-putt
@@ -149,7 +149,7 @@ export function SkillGamesArticle() {
         practice can't replicate.
       </Kv>
 
-      <H4>The gate drill</H4>
+      <H3>The gate drill</H3>
       <P>
         Place two tees just wider than your putter head a foot in
         front of the ball on your intended line, forming a gate.
@@ -168,7 +168,7 @@ export function SkillGamesArticle() {
         inconsistency in your stroke path fast.
       </P>
 
-      <H4>Speed control — the ladder drill</H4>
+      <H3>Speed control — the ladder drill</H3>
       <P>
         Drop five balls at ten feet from the hole. Hit the first
         putt and watch where it finishes — past the hole, short,
@@ -188,9 +188,9 @@ export function SkillGamesArticle() {
 
       <Hr />
 
-      <H3>Chipping and short game games</H3>
+      <H2>Chipping and short game games</H2>
 
-      <H4>Up and down challenge</H4>
+      <H3>Up and down challenge</H3>
       <P>
         Pick five spots around the practice green at varying
         distances and difficulties. From each spot, chip and then
@@ -208,7 +208,7 @@ export function SkillGamesArticle() {
         creates.
       </Kv>
 
-      <H4>Three clubs, one ball per station</H4>
+      <H3>Three clubs, one ball per station</H3>
       <P>
         Pick three distances — say 20 yards, 40 yards, and 60 yards.
         Hit one ball from each distance to a specific target. One
@@ -220,7 +220,7 @@ export function SkillGamesArticle() {
         doesn't when you have a pile of balls at your feet.
       </P>
 
-      <H4>Flag left or flag right</H4>
+      <H3>Flag left or flag right</H3>
       <P>
         At the range, pick a flag as your target. Before each shot,
         declare: left or right. If your ball finishes within a
@@ -244,9 +244,9 @@ export function SkillGamesArticle() {
 
       <Hr />
 
-      <H3>Full swing games</H3>
+      <H2>Full swing games</H2>
 
-      <H4>Horse at the range</H4>
+      <H3>Horse at the range</H3>
       <P>
         Exactly like the basketball game. Pick a target — a specific
         flag, a yardage sign, a tree in the distance. Hit your shot.
@@ -261,7 +261,7 @@ export function SkillGamesArticle() {
         matched the shot.
       </P>
 
-      <H4>The imaginary fairway</H4>
+      <H3>The imaginary fairway</H3>
       <P>
         Pick two targets on the range to define a fairway — two
         flags, two trees, whatever. Make the fairway about 25–30
@@ -282,7 +282,7 @@ export function SkillGamesArticle() {
         every hole of real golf.
       </P>
 
-      <H4>Same distance, different clubs</H4>
+      <H3>Same distance, different clubs</H3>
       <P>
         Pick a target on the range — a flag at, say, 100 yards. Now
         try to hit that target with five different clubs. Your
@@ -299,7 +299,7 @@ export function SkillGamesArticle() {
         produces.
       </P>
 
-      <H4>Three club challenge</H4>
+      <H3>Three club challenge</H3>
       <P>
         Play a simulated nine-hole round on the range using only
         three clubs. Pick a driver, a mid iron, and a wedge. Play
@@ -317,7 +317,7 @@ export function SkillGamesArticle() {
 
       <Hr />
 
-      <H3>The last ball rule</H3>
+      <H2>The last ball rule</H2>
       <P>
         Here is a simple pressure practice habit that requires no
         setup and no partner.
@@ -344,7 +344,7 @@ export function SkillGamesArticle() {
 
       <Hr />
 
-      <H3>Building your own pressure games</H3>
+      <H2>Building your own pressure games</H2>
       <P>
         The best pressure games are the ones where the stakes feel
         real to you personally. Generic drills work, but customized
@@ -387,9 +387,9 @@ export function SkillGamesArticle() {
 // Components
 // ===========================================================================
 
-function H3({ children }: { children: React.ReactNode }) {
+function H2({ children }: { children: React.ReactNode }) {
   return (
-    <h3
+    <h2
       className="font-serif text-caddie-ink"
       style={{
         fontSize: 22,
@@ -402,13 +402,13 @@ function H3({ children }: { children: React.ReactNode }) {
       }}
     >
       {children}
-    </h3>
+    </h2>
   )
 }
 
-function H4({ children }: { children: React.ReactNode }) {
+function H3({ children }: { children: React.ReactNode }) {
   return (
-    <h4
+    <h3
       className="font-serif text-caddie-ink"
       style={{
         fontSize: 17,
@@ -419,7 +419,7 @@ function H4({ children }: { children: React.ReactNode }) {
       }}
     >
       {children}
-    </h4>
+    </h3>
   )
 }
 

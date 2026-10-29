@@ -27,15 +27,17 @@ export function GoogleSignInButton() {
         type="button"
         onClick={onClick}
         aria-label="Continue with Google"
-        className="w-full flex items-center justify-center transition-opacity hover:opacity-90"
+        // Google fixes the fill, stroke, text colour and the G; height and
+        // radius are ours, matched to the Sign in key above it.
+        className="w-full flex items-center justify-center bg-white hover:bg-[#F7F7F7] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-caddie-ink"
         style={{
           gap: 10,
-          backgroundColor: '#FFFFFF',
+          minHeight: 44,
           color: '#1F1F1F',
           border: '1px solid #747775',
-          borderRadius: 4,
-          padding: '10px 16px',
-          fontSize: 13,
+          borderRadius: 3,
+          padding: '0 16px',
+          fontSize: 14,
           fontWeight: 500,
         }}
       >

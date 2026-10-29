@@ -78,6 +78,11 @@
 .learn-row:focus-visible .learn-row-title {
   text-decoration-color: #1f3d2c;
 }
+.learn-row:focus-visible {
+  outline: 2px solid #1c211c;
+  outline-offset: 4px;
+  border-radius: 2px;
+}
 .learn-row:hover .learn-arrow,
 .learn-row:focus-visible .learn-arrow {
   transform: translateX(4px);
@@ -88,7 +93,7 @@
   min-height: 44px;
   padding: 10px 36px 10px 34px;
   background: #fbf8f1;
-  border: 1px solid #9f9580;
+  border: 1px solid #5c6356;
   border-radius: 3px;
   font-family: 'Epilogue', sans-serif;
   font-size: 15px;

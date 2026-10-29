@@ -28,7 +28,7 @@ export function PracticeVsScoringRoundArticle() {
 
       <Hr />
 
-      <H3>What a practice round is actually for</H3>
+      <H2>What a practice round is actually for</H2>
       <P>
         A practice round is reconnaissance. You are not trying to shoot a number
         — you are gathering the information that lets you commit on the day it
@@ -69,7 +69,7 @@ export function PracticeVsScoringRoundArticle() {
 
       <Hr />
 
-      <H3>How the pros do it</H3>
+      <H2>How the pros do it</H2>
       <P>
         The gold standard for this lives on tour, and the logic scales down to
         any golfer. Pros don't see a tournament course cold on Thursday — they
@@ -104,7 +104,7 @@ export function PracticeVsScoringRoundArticle() {
 
       <Hr />
 
-      <H3>Borrow the method, skip the budget</H3>
+      <H2>Borrow the method, skip the budget</H2>
       <P>
         You don't have a caddie, four days, or a closed golf course — but the
         method shrinks to fit an ordinary tee time. The goal is unchanged: walk
@@ -152,7 +152,7 @@ export function PracticeVsScoringRoundArticle() {
 
       <Hr />
 
-      <H3>What a scoring round demands</H3>
+      <H2>What a scoring round demands</H2>
       <P>
         A scoring round is performance. One ball, every shot counts, and the
         only job is to post the lowest number you can with the game you brought.
@@ -188,7 +188,7 @@ export function PracticeVsScoringRoundArticle() {
 
       <Hr />
 
-      <H3>Why mixing them costs you both</H3>
+      <H2>Why mixing them costs you both</H2>
       <P>
         The common mistake isn't choosing the wrong mode — it's failing to
         choose, and drifting through the round half in each. You take the round
@@ -207,7 +207,7 @@ export function PracticeVsScoringRoundArticle() {
 
       <Hr />
 
-      <H3>The casual round is neither — and that's the trap</H3>
+      <H2>The casual round is neither — and that's the trap</H2>
       <P>
         Most weekend rounds are neither a true practice round nor a true scoring
         round. That's completely fine — golf is supposed to be fun, and most of
@@ -254,9 +254,9 @@ const UL_STYLE: CSSProperties = {
   color: '#1C211C',
 }
 
-function H3({ children }: { children: ReactNode }) {
+function H2({ children }: { children: ReactNode }) {
   return (
-    <h3
+    <h2
       className="font-serif text-caddie-ink"
       style={{
         fontSize: 22,
@@ -267,7 +267,7 @@ function H3({ children }: { children: ReactNode }) {
       }}
     >
       {children}
-    </h3>
+    </h2>
   )
 }
 

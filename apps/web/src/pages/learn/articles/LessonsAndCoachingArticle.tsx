@@ -21,7 +21,7 @@ export function LessonsAndCoachingArticle() {
 
       <Hr />
 
-      <H3>Most golfers waste the lesson hour</H3>
+      <H2>Most golfers waste the lesson hour</H2>
       <P>
         A golf lesson is one of the highest-leverage hours you can spend on your
         game — and most golfers either never book one or get almost nothing out
@@ -34,7 +34,7 @@ export function LessonsAndCoachingArticle() {
 
       <Hr />
 
-      <H3>What the letters after a name mean — and don't</H3>
+      <H2>What the letters after a name mean — and don't</H2>
       <P>
         Certifications tell you someone cleared a bar. They don't tell you
         whether that person is the right teacher for <em>you</em>.
@@ -65,7 +65,7 @@ export function LessonsAndCoachingArticle() {
 
       <Hr />
 
-      <H3>Questions worth asking before you book</H3>
+      <H2>Questions worth asking before you book</H2>
       <P>
         You're hiring someone. It's fair — and smart — to interview them first.
         A quick email or phone call answers most of this:
@@ -93,7 +93,7 @@ export function LessonsAndCoachingArticle() {
 
       <Hr />
 
-      <H3>Green flags and red flags</H3>
+      <H2>Green flags and red flags</H2>
       <P>
         Once you're in front of someone — or watching a few minutes of how they
         teach online — the difference between a teacher who'll help you and one
@@ -104,7 +104,7 @@ export function LessonsAndCoachingArticle() {
 
       <Hr />
 
-      <H3>Online or in person?</H3>
+      <H2>Online or in person?</H2>
       <P>
         In-person lessons give a coach hands-on feedback in real time — they can
         feel your grip, move you into a position, and react to a shot the second
@@ -122,7 +122,7 @@ export function LessonsAndCoachingArticle() {
 
       <Hr />
 
-      <H3>Show up ready</H3>
+      <H2>Show up ready</H2>
       <P>
         How much you get out of an hour is mostly decided before it starts.
       </P>
@@ -149,7 +149,7 @@ export function LessonsAndCoachingArticle() {
 
       <Hr />
 
-      <H3>Feel isn't real</H3>
+      <H2>Feel isn't real</H2>
       <P>
         This is the single most useful thing to understand about taking
         instruction: what a change <em>feels</em> like and what the camera
@@ -163,7 +163,7 @@ export function LessonsAndCoachingArticle() {
 
       <Hr />
 
-      <H3>Why you might get worse before you get better</H3>
+      <H2>Why you might get worse before you get better</H2>
       <P>
         A genuine swing change means overwriting a motor pattern your brain has
         grooved over years. For a while the old pattern is fading and the new
@@ -182,7 +182,7 @@ export function LessonsAndCoachingArticle() {
 
       <Hr />
 
-      <H3>One lesson rarely fixes anything</H3>
+      <H2>One lesson rarely fixes anything</H2>
       <P>
         Skill change comes from reps and feedback loops, not a single
         revelation on a Tuesday. Going in expecting to be "fixed" in an hour is
@@ -202,7 +202,7 @@ export function LessonsAndCoachingArticle() {
 
       <Hr />
 
-      <H3>Coaching yourself between lessons</H3>
+      <H2>Coaching yourself between lessons</H2>
       <P>
         You can do a surprising amount of your own checking with a phone and a
         little honesty. Film two angles: <strong>down the line</strong> (camera
@@ -230,7 +230,7 @@ export function LessonsAndCoachingArticle() {
 
       <Hr />
 
-      <H3>The bottom line</H3>
+      <H2>The bottom line</H2>
       <P>
         Pick a teacher who measures, explains the why, and sends you away with a
         plan. Show up with your clubs, your numbers, and the truth about your
@@ -256,9 +256,9 @@ const UL_STYLE: CSSProperties = {
   color: '#1C211C',
 }
 
-function H3({ children }: { children: ReactNode }) {
+function H2({ children }: { children: ReactNode }) {
   return (
-    <h3
+    <h2
       className="font-serif text-caddie-ink"
       style={{
         fontSize: 22,
@@ -269,7 +269,7 @@ function H3({ children }: { children: ReactNode }) {
       }}
     >
       {children}
-    </h3>
+    </h2>
   )
 }
 

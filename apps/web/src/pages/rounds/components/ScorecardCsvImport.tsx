@@ -24,11 +24,11 @@ export function ScorecardCsvImport() {
   const [busy, setBusy] = useState(false)
 
   async function handleFile(e: ChangeEvent<HTMLInputElement>) {
-    if (e.target.files?.length) await readFile(e.target.files)
+    if (e.target.files?.length) await readFile(Array.from(e.target.files))
     e.target.value = ''
   }
 
-  async function readFile(files: FileList) {
+  async function readFile(files: File[]) {
     const file = files[0]!
     setError(null)
     try {
@@ -89,7 +89,7 @@ export function ScorecardCsvImport() {
           />
         </label>
       </div>
-      <FileDrop label="Or drop the CSV file here" disabled={busy} onFiles={readFile} />
+      <FileDrop label="Or drop the CSV file here" accept=".csv,text/csv" disabled={busy} onFiles={readFile} />
 
       {error && (
         <p className="text-caddie-neg" role="alert" style={{ fontSize: 13 }}>

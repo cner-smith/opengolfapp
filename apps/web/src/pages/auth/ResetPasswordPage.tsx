@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
+import { useDocumentTitle } from '../../hooks/useDocumentTitle'
 import { toUserMessage } from '../../lib/errors'
 import { AuthField, AuthSpread, AuthTitle } from '../../components/auth/AuthSpread'
 
@@ -16,6 +17,7 @@ import { AuthField, AuthSpread, AuthTitle } from '../../components/auth/AuthSpre
 // is single-use: the ref keeps StrictMode's second effect from spending it
 // twice (see AuthCallbackPage).
 export function ResetPasswordPage() {
+  useDocumentTitle('Set a new password · OGA')
   const navigate = useNavigate()
   const [ready, setReady] = useState(false)
   const [linkError, setLinkError] = useState<string | null>(null)
