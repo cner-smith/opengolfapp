@@ -1,6 +1,8 @@
 import { useState, type ChangeEvent } from 'react'
 import {
+  golfPadFileKind,
   readGolfPadExport,
+  type GolfPadFileKind,
   type GolfPadHole,
   type GolfPadPlan,
   type GolfPadScoresOnlyReason,
@@ -45,17 +47,26 @@ function scoresOnlyCounts(holes: GolfPadHole[]): ScoresOnly {
 
 const holesText = (n: number) => `${n} hole${n === 1 ? '' : 's'}`
 
-// Golf Pad writes Windows-1252.
+// Golf Pad writes Windows-1252. Also says which of the three files each pick was, for the ledger.
 async function readExport(files: File[]) {
   const decoder = new TextDecoder('windows-1252')
-  return readGolfPadExport(await Promise.all(files.map(async (f) => decoder.decode(await f.arrayBuffer()))))
+  const picked = await Promise.all(files.map(async (f) => ({ name: f.name, text: decoder.decode(await f.arrayBuffer()) })))
+  const got: Got = {}
+  for (const f of picked) {
+    const kind = golfPadFileKind(f.text)
+    if (kind) got[kind] = f.name
+  }
+  return { got, read: readGolfPadExport(picked.map((f) => f.text)) }
 }
+
+type Got = Partial<Record<GolfPadFileKind, string>>
 
 export function GolfPadImport() {
   const [plan, setPlan] = useState<GolfPadPlan | null>(null)
   const [pick, setPick] = useState(0)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const [got, setGot] = useState<Got | null>(null)
 
   async function handleFiles(e: ChangeEvent<HTMLInputElement>) {
     if (e.target.files?.length) await readFiles(Array.from(e.target.files))
@@ -65,7 +76,8 @@ export function GolfPadImport() {
   async function readFiles(files: File[]) {
     setError(null)
     try {
-      const read = await readExport(files)
+      const { got, read } = await readExport(files)
+      setGot(got)
       // Shown as written: toUserMessage hides every message outside dev builds.
       if ('rejected' in read) {
         setPlan(null)
@@ -85,13 +97,16 @@ export function GolfPadImport() {
         {[
           'In Golf Pad, open Settings → Data Export and ask for the comprehensive export (Premium).',
           'Golf Pad emails you a download link.',
-          'Choose all three CSV files from it here: rounds, holes and shots.',
+          'Choose all three CSV files from it here:',
         ].map((step, i) => (
-          <li key={i} className="flex" style={{ gap: 12, padding: '10px 0', borderBottom: LINE_RULE }}>
+          <li key={i} className="flex" style={{ gap: 12, padding: i < 2 ? '10px 0' : '10px 0 14px', borderBottom: LINE_RULE }}>
             <span className="font-serif text-caddie-ink-dim tabular" style={{ fontSize: 17, minWidth: 14 }}>
               {i + 1}
             </span>
-            <span>{step}</span>
+            <span className="flex flex-col" style={{ gap: 10, minWidth: 0, flex: 1 }}>
+              <span>{step}</span>
+              {i === 2 && <FileLedger got={got} />}
+            </span>
           </li>
         ))}
       </ol>
@@ -116,7 +131,7 @@ export function GolfPadImport() {
       </div>
       <FileDrop label="Or drop rounds, holes and shots here" accept=".csv,text/csv" multiple disabled={busy} onFiles={readFiles} />
 
-      {error && (
+      {error && !partialPick(got) && (
         <p className="text-caddie-neg" role="alert" style={{ fontSize: 13 }}>
           {error}
         </p>
@@ -166,5 +181,62 @@ function ScoresOnlyWarning({ holes }: { holes: GolfPadHole[] }) {
         ))}
       </ul>
     </section>
+  )
+}
+
+const LEDGER: GolfPadFileKind[] = ['rounds', 'holes', 'shots']
+
+// Some of the three files but not all: the ledger says which are missing.
+// A rounds file alone keeps core's line, which names the rounds-only export.
+const partialPick = (got: Got | null) =>
+  !!got && !!(got.holes || got.shots) && LEDGER.some((k) => !got[k])
+
+// The three files the export needs, as slots that stamp in as each one is
+// picked or dropped, so the requirement is visible before any error.
+function FileLedger({ got }: { got: Got | null }) {
+  const missing = LEDGER.filter((k) => !got?.[k])
+  return (
+    <div style={{ width: '100%' }}>
+      <ul className="grid grid-cols-1 sm:grid-cols-3" style={{ gap: 10, listStyle: 'none', padding: 0, margin: 0 }} aria-label="Files">
+        {LEDGER.map((k, i) => {
+          const name = got?.[k]
+          return (
+            <li
+              key={k}
+              className="flex items-center text-left"
+              style={{
+                gap: 10,
+                minHeight: 52,
+                padding: '8px 12px',
+                border: name ? '1px solid #1C211C' : '1px dashed #9F9580',
+                borderRadius: 3,
+                background: name ? '#FBF8F1' : 'transparent',
+              }}
+            >
+              <span aria-hidden style={{ width: 16, height: 16, flexShrink: 0 }}>
+                {name && (
+                  <svg key={name} className="ledger-stamp" style={{ animationDelay: `${i * 60}ms` }} width="16" height="16" viewBox="0 0 16 16">
+                    <path d="M3 8.5 6.5 12 13 4.5" fill="none" stroke="#1C211C" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                )}
+              </span>
+              <span style={{ minWidth: 0, fontStyle: 'normal' }}>
+                <span className="block" style={{ fontFamily: 'var(--caddie-mono)', fontSize: 15, color: name ? '#1C211C' : '#8A8B7E' }}>
+                  {k}.csv
+                </span>
+                <span className="block text-caddie-ink-dim" style={{ fontFamily: 'Epilogue, sans-serif', fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {name ?? 'Not chosen yet'}
+                </span>
+              </span>
+            </li>
+          )
+        })}
+      </ul>
+      {partialPick(got) && (
+        <p className="text-caddie-neg text-left" role="alert" style={{ fontFamily: 'Epilogue, sans-serif', fontStyle: 'normal', fontSize: 13, marginTop: 8 }}>
+          Still need {missing.map((k) => `${k}.csv`).join(' and ')}. Choose all three together.
+        </p>
+      )}
+    </div>
   )
 }
