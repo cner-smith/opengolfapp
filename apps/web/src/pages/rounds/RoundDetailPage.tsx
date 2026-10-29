@@ -70,11 +70,11 @@ export function RoundDetailPage() {
   const [view, setView] = useState<ViewMode>(() =>
     searchParams.get('view') === 'map' ? 'map' : 'scorecard',
   )
-  // Capture "session started in live mode" at mount. `view` is a
+  // Capture "session started in live mode" at mount (see isLiveEntry). `view` is a
   // runtime Scorecard | Map rocker — past-round reviewers can switch to the
   // map tab and we don't want that to suppress the shot mini-map for
   // them. The mini-map suppression is for genuine live entry only.
-  const [isLiveEntry] = useState(
+  const [urlLiveEntry] = useState(
     () =>
       searchParams.get('mode') === 'live' ||
       searchParams.get('view') === 'map',
@@ -149,6 +149,8 @@ export function RoundDetailPage() {
     resolvedHoleByNumber,
     allRounds,
   } = data
+  // A finished round is never live, whatever the URL says (#1230).
+  const isLiveEntry = urlLiveEntry && !(round.data && isFinishedRound(round.data))
 
   const actions = useRoundActions({
     roundId,
