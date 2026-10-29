@@ -242,8 +242,8 @@ describe('OB / stroke and distance', () => {
     expect(sg.total).toBeCloseTo(-4, 5)
   })
 
-  // A penalty (water) shot as the last row is stroke and distance too, not
-  // holed (#1148).
+  // A penalty shot as the last row is stroke and distance too, not holed
+  // (#1148).
   it('yields exactly -2 when a penalty shot is the last logged row', () => {
     const sg = calculateRoundSG(
       [shotCtx({ shotNumber: 1, par: 4, isLastShot: true, distanceToTarget: 400, lieType: 'tee', penalty: true })],

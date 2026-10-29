@@ -222,9 +222,10 @@ describe('stored rows → strokes gained', () => {
     expect(sg.total).toBeCloseTo(-2.0518, 2)
   })
 
-  // A penalty (water) shot with nothing to read after it ends where it was
-  // played from, as OB does: stroke and distance (#1148). The normal case, a
-  // valued next row, is 'water off the tee, drop at 180 yd' above.
+  // A penalty shot (water in these holes) with nothing to read after it ends
+  // where it was played from, as OB does: stroke and distance (#1148). The
+  // water hole with a dropped ball at a known distance, above, covers the
+  // normal case of a valued next row.
   it('par 4, water off the tee, then nothing logged', () => {
     // Tee 400 yd → 5.43; the water drive ends at its own start (5.43).
     // off tee 5.43 − 5.43 − 1 − 1 (penalty stroke) = −2
@@ -267,6 +268,28 @@ describe('stored rows → strokes gained', () => {
     expect(sg.approach).toBeCloseTo(1.85, 2)
     expect(sg.putting).toBeCloseTo(-0.9, 2)
     expect(sg.total).toBeCloseTo(1.43, 2)
+  })
+
+  // Known, deliberate limitation (#1148): holedOut only sees green lies, so a
+  // holed chip carrying a penalty stroke as the hole's last row ends at its
+  // own start, not in the hole. Judged rare; this pins it so a change is a
+  // decision, not an accident.
+  it('a holed chip carrying a penalty stroke, as the last row, ends at its own start', () => {
+    // Tee 400 → 150 yd: 5.43 − 3.95 − 1 = 0.48 off tee.
+    // Approach 150 yd → 20 yd (≤ 30 → around green, AROUND[15][20] = 2.97):
+    //   3.95 − 2.97 − 1 = −0.02.
+    // Chip 20 yd, penalty, last row: 2.97 − 2.97 − 1 − 1 = −2
+    // total 0.48 − 0.02 − 2 = −1.54
+    // (Valued as holed it would read 2.97 − 0 − 2 = 0.97, total 1.43 = 5.43 − 4.)
+    const sg = storedSG(4, 4, [
+      { lie_type: 'tee', distance_to_target: 400 },
+      { lie_type: 'fairway', distance_to_target: 150 },
+      { lie_type: 'rough', distance_to_target: 20, penalty: true },
+    ])
+    expect(sg.offTee).toBeCloseTo(0.48, 2)
+    expect(sg.approach).toBeCloseTo(-0.02, 2)
+    expect(sg.aroundGreen).toBeCloseTo(-2, 2)
+    expect(sg.total).toBeCloseTo(-1.54, 2)
   })
 
   // The replay is judged by start coordinates when both rows have them; the
