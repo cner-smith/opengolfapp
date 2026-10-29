@@ -21,12 +21,25 @@ test.describe('Login page (signed out)', () => {
     await page.goto('/login')
     await page.getByRole('button', { name: 'Forgot password?' }).click()
     await expect(page.getByRole('heading', { name: 'Reset your password.' })).toBeVisible()
-    await expect(page.getByLabel('Password')).toHaveCount(0)
+    await expect(page).toHaveURL(/\?mode=forgot$/)
+    // The password row folds shut rather than unmounting (#1262).
+    await expect
+      .poll(() => page.getByLabel('Password').evaluate((el) => getComputedStyle(el).visibility))
+      .toBe('hidden')
     await page.getByLabel('Email').fill('someone@example.com')
     await page.getByRole('button', { name: /Send the link/ }).click()
     await expect(page.getByRole('heading', { name: 'Check your email.' })).toBeVisible()
     expect(sent).not.toBeNull()
     expect(sent!.body).toContain('someone@example.com')
     expect(decodeURIComponent(sent!.url)).toMatch(/redirect_to=https?:\/\/[^&]+\/auth\/reset/)
+  })
+
+  test('Back from the reset form returns to sign in', async ({ page }) => {
+    await page.goto('/login')
+    await page.getByRole('button', { name: 'Forgot password?' }).click()
+    await expect(page.getByRole('heading', { name: 'Reset your password.' })).toBeVisible()
+    await page.goBack()
+    await expect(page.getByRole('heading', { name: 'Welcome back.' })).toBeVisible()
+    await expect(page.getByLabel('Password')).toBeEditable()
   })
 })
