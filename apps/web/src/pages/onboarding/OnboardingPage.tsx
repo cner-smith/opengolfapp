@@ -65,12 +65,21 @@ export function OnboardingPage() {
     pageRef.current?.querySelector<HTMLElement>('h1')?.focus()
   }, [step])
 
+  // An answer changed from step 5's rows: Continue goes straight back there.
+  const [editing, setEditing] = useState(false)
+  function goTo(n: number) {
+    setError(null)
+    setStep(n)
+  }
   function next() {
-    if (step < TOTAL_STEPS) setStep(step + 1)
+    if (editing && step < 5) {
+      setEditing(false)
+      goTo(5)
+    } else if (step < TOTAL_STEPS) goTo(step + 1)
   }
   // Step 1 has no Back: the user is signed in, so there is nothing behind it.
   function back() {
-    if (step > 1) setStep(step - 1)
+    if (step > 1) goTo(step - 1)
   }
 
   // Step 5 → save profile, advance to bag step. Step 6 → save bag and
@@ -192,7 +201,10 @@ export function OnboardingPage() {
               saving={updateProfile.isPending}
               error={error}
               onBack={back}
-              onEdit={setStep}
+              onEdit={(n) => {
+                setEditing(true)
+                goTo(n)
+              }}
               onSave={saveProfile}
             />
           )}

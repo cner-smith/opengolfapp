@@ -81,3 +81,23 @@ test.describe('Onboarding step 2 (signed in)', () => {
     await expect(page.getByText(/No handicap yet\? Keep this/)).toHaveCount(0)
   })
 })
+
+test.describe('Onboarding step 5 (signed in)', () => {
+  // #1264: an answer changed from step 5's rows goes straight back to step 5.
+  test('changing the goal from the summary returns to the summary', async ({ page }) => {
+    await page.goto('/onboarding')
+    await page.getByRole('radio', { name: /^Casual/ }).click()
+    await page.getByRole('button', { name: /Continue/ }).click()
+    await page.getByRole('button', { name: /Continue/ }).click()
+    await page.getByRole('radio', { name: /^Break 90/ }).click()
+    await page.getByRole('button', { name: /Continue/ }).click()
+    await page.getByRole('radio', { name: 'About once a week' }).click()
+    await page.getByRole('radio', { name: 'Mixed' }).click()
+    await page.getByRole('button', { name: /Continue/ }).click()
+    await page.getByRole('button', { name: /^Goal/ }).click()
+    await page.getByRole('radio', { name: /^Break 80/ }).click()
+    await page.getByRole('button', { name: /Continue/ }).click()
+    await expect(page.getByRole('heading', { name: 'Here’s your game, as you told it.' })).toBeVisible()
+    await expect(page.getByRole('button', { name: /^Goal/ })).toContainText('Break 80')
+  })
+})
