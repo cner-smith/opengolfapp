@@ -477,3 +477,15 @@ dialog.pat-dialog::backdrop {
     translate: 0 10px;
   }
 }
+/* Golf Pad file ledger: a matched file stamps into its slot (#1304). */
+@media (prefers-reduced-motion: no-preference) {
+  .ledger-stamp {
+    animation: ledger-stamp 180ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+}
+@keyframes ledger-stamp {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+}
