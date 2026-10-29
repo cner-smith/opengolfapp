@@ -1,22 +1,32 @@
 import { Link } from 'react-router-dom'
 import { useAuth } from '../../hooks/useAuth'
 import { useDocumentTitle } from '../../hooks/useDocumentTitle'
+import { AppShell } from '../../components/layout/AppShell'
+import { PublicShell } from '../../components/landing/PublicShell'
 
-// Rendered inside PublicShell (router '*'), so the nav and wordmark show.
-// The way back depends on who is reading: Home for a signed-in golfer, the
-// landing page for anyone else.
+// The router's '*'. A signed-in golfer who mistypes an app URL stays in the
+// app (sidebar and all), with one key back to Home; anyone else gets the
+// public nav and a way back to the landing page. Public while auth resolves,
+// as in LearnShell.
 export function NotFoundPage() {
   useDocumentTitle('Page not found · OGA')
   const { user, loading } = useAuth()
   const signedIn = !loading && !!user
+  const body = <NotFound signedIn={signedIn} />
+  return signedIn ? <AppShell>{body}</AppShell> : <PublicShell>{body}</PublicShell>
+}
+
+function NotFound({ signedIn }: { signedIn: boolean }) {
+  // AppShell already has the page's <main>; PublicShell doesn't.
+  const Wrap = signedIn ? 'div' : 'main'
   return (
-    <main
+    <Wrap
       style={{
         minHeight: '82vh',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        padding: '120px 16px 64px',
+        padding: signedIn ? '64px 0' : '120px 16px 64px',
       }}
     >
       <div style={{ maxWidth: 520, textAlign: 'center', position: 'relative' }}>
@@ -61,6 +71,6 @@ export function NotFoundPage() {
           </Link>
         </div>
       </div>
-    </main>
+    </Wrap>
   )
 }
