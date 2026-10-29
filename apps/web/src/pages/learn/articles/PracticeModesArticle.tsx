@@ -13,7 +13,7 @@ export function PracticeModesArticle() {
     >
       <ArticleTitle>Block, random, and pressure.</ArticleTitle>
 
-      <H3>The practice that feels best teaches least</H3>
+      <H2>The practice that feels best teaches least</H2>
       <P>
         The most satisfying practice — same club, same target, ball after ball
         until it grooves — is also the least durable. Half a century of
@@ -33,7 +33,7 @@ export function PracticeModesArticle() {
 
       <Hr />
 
-      <H3>Blocked — building the movement</H3>
+      <H2>Blocked — building the movement</H2>
       <P>
         Blocked practice is one shot repeated: the same club to the same target,
         over and over. It's the right tool for installing a brand-new movement or
@@ -46,7 +46,7 @@ export function PracticeModesArticle() {
 
       <Hr />
 
-      <H3>Random — the mode that actually transfers</H3>
+      <H2>Random — the mode that actually transfers</H2>
       <Aid svg={<ScheduleDiagram />}>
         <AidBody>
           Random practice mixes it up every ball — different club, different
@@ -77,7 +77,7 @@ export function PracticeModesArticle() {
 
       <Hr />
 
-      <H3>Pressure — closing the gap to the first tee</H3>
+      <H2>Pressure — closing the gap to the first tee</H2>
       <P>
         The range swing that abandons you on the first tee is a transfer failure:
         you rehearsed the skill in a calm state you never actually compete in.
@@ -97,7 +97,7 @@ export function PracticeModesArticle() {
 
       <Hr />
 
-      <H3>How to combine them</H3>
+      <H2>How to combine them</H2>
       <P>
         The modes aren't a menu to pick from; they're a progression. Match the
         mix to what you're trying to do, and shift it as a movement stabilizes.
@@ -115,7 +115,7 @@ export function PracticeModesArticle() {
 
       <Hr />
 
-      <H3>Why it has to feel worse</H3>
+      <H2>Why it has to feel worse</H2>
       <P>
         The through-line under all three modes is the same: performance during
         practice is a poor guide to learning, and the conditions that build
@@ -132,9 +132,9 @@ export function PracticeModesArticle() {
   )
 }
 
-function H3({ children }: { children: ReactNode }) {
+function H2({ children }: { children: ReactNode }) {
   return (
-    <h3
+    <h2
       className="font-serif text-caddie-ink"
       style={{
         fontSize: 22,
@@ -145,7 +145,7 @@ function H3({ children }: { children: ReactNode }) {
       }}
     >
       {children}
-    </h3>
+    </h2>
   )
 }
 
