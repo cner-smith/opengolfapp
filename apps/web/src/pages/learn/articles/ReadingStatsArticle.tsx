@@ -4,10 +4,11 @@ import { useDetailedStats } from '../../../hooks/useDetailedStats'
 import { useProfile } from '../../../hooks/useProfile'
 import { useUnits } from '../../../hooks/useUnits'
 import {
+  ArticleTitle,
   Lede,
   SrcBody,
   SrcLabel,
-  Subkicker,
+  Subhead,
   fmtSG,
 } from '../components/ArticlePrimitives'
 
@@ -35,22 +36,7 @@ export function ReadingStatsArticle() {
         marginBottom: 32,
       }}
     >
-      <div className="kicker" style={{ marginBottom: 14 }}>
-        Understanding the game · By the numbers
-      </div>
-      <h2
-        className="font-serif text-caddie-ink"
-        style={{
-          fontSize: 28,
-          fontWeight: 500,
-          fontStyle: 'italic',
-          letterSpacing: '-0.015em',
-          lineHeight: 1.15,
-          marginBottom: 18,
-        }}
-      >
-        Where you sit in the field.
-      </h2>
+      <ArticleTitle>Where you sit in the field.</ArticleTitle>
       <BenchmarkBody me={me} />
       <Sources />
       <Footer />
@@ -61,10 +47,9 @@ export function ReadingStatsArticle() {
 function Footer() {
   return (
     <div
-      className="font-mono uppercase text-caddie-ink-mute"
+      className="text-caddie-ink-dim"
       style={{
-        fontSize: 10,
-        letterSpacing: '0.14em',
+        fontSize: 12,
         borderTop: '1px solid #D9D2BF',
         paddingTop: 18,
         marginTop: 22,
@@ -79,9 +64,7 @@ function Footer() {
 function Sources() {
   return (
     <section style={{ borderTop: '1px solid #D9D2BF', paddingTop: 18, marginTop: 22 }}>
-      <div className="kicker" style={{ marginBottom: 12 }}>
-        Sources
-      </div>
+      <Subhead>Sources</Subhead>
       <div style={{ display: 'grid', gap: 14, maxWidth: 640 }}>
         <div>
           <SrcLabel>PGA Tour benchmarks</SrcLabel>
@@ -305,20 +288,18 @@ function BenchmarkViewTabs({
           key={v}
           type="button"
           onClick={() => onChange(v)}
-          className="font-mono uppercase"
           style={{
             background: 'transparent',
             border: 'none',
             padding: '8px 16px',
-            fontSize: 10,
-            letterSpacing: '0.14em',
-            color: value === v ? '#1C211C' : '#8A8B7E',
+            fontSize: 14,
+            color: value === v ? '#1C211C' : '#5C6356',
             borderBottom:
               value === v ? '2px solid #1F3D2C' : '2px solid transparent',
             marginBottom: -1,
           }}
         >
-          {v}
+          {v === 'chart' ? 'Chart' : 'Table'}
         </button>
       ))}
     </div>
@@ -353,11 +334,9 @@ function BenchmarkTable({
         <thead>
           <tr style={{ borderBottom: '1px solid #9F9580' }}>
             <th
-              className="font-mono uppercase"
               style={{
-                fontSize: 10,
-                letterSpacing: '0.14em',
-                color: '#8A8B7E',
+                fontSize: 12,
+                color: '#5C6356',
                 textAlign: 'left',
                 padding: '10px 8px',
               }}
@@ -370,11 +349,10 @@ function BenchmarkTable({
               return (
                 <th
                   key={h}
-                  className="font-mono uppercase tabular"
+                  className="tabular"
                   style={{
-                    fontSize: 10,
-                    letterSpacing: '0.14em',
-                    color: '#8A8B7E',
+                    fontSize: 12,
+                    color: '#5C6356',
                     textAlign: 'right',
                     padding: '10px 8px',
                     minWidth: 56,
@@ -394,8 +372,10 @@ function BenchmarkTable({
             <tr key={`group-${g.title}`}>
               <td
                 colSpan={8}
-                className="kicker"
+                className="text-caddie-ink"
                 style={{
+                  fontSize: 13,
+                  fontWeight: 600,
                   padding: '14px 8px 6px',
                   borderTop: '1px solid #D9D2BF',
                 }}
@@ -475,7 +455,7 @@ function BenchmarkGroup({
 }) {
   return (
     <div style={{ marginTop: 22 }}>
-      <Subkicker>{title}</Subkicker>
+      <Subhead>{title}</Subhead>
       <div className="flex flex-col" style={{ gap: 18 }}>
         {rows.map((r) => (
           <BenchmarkBar key={r.key} row={r} highlightScratch={highlightScratch} />
@@ -520,7 +500,9 @@ function BenchmarkBar({
         className="flex items-baseline justify-between"
         style={{ gap: 14, marginBottom: 8 }}
       >
-        <span className="kicker">{row.label}</span>
+        <span className="text-caddie-ink-dim" style={{ fontSize: 13 }}>
+          {row.label}
+        </span>
         {highlightScratch && (
           <span
             className="font-serif tabular text-caddie-ink-dim"
@@ -570,10 +552,9 @@ function BenchmarkBar({
         )}
       </div>
       <div
-        className="font-mono uppercase tabular text-caddie-ink-mute"
+        className="tabular text-caddie-ink-dim"
         style={{
-          fontSize: 9,
-          letterSpacing: '0.14em',
+          fontSize: 12,
           marginTop: 4,
           position: 'relative',
           height: 14,

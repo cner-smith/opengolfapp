@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../../hooks/useAuth'
+import { Wordmark } from './Wordmark'
 
 // Fixed top nav for marketing/public pages (LandingPage, PrivacyPage,
 // public Learn). Transparent on top of the page; opaque paper appears as
@@ -43,42 +44,15 @@ export function PublicNav() {
           alignItems: 'center',
         }}
       >
-        <Link
-          to="/"
-          style={{
-            textDecoration: 'none',
-            color: '#1C211C',
-            display: 'flex',
-            flexDirection: 'column',
-            lineHeight: 1.05,
-          }}
-        >
-          <span
-            className="font-serif"
-            style={{ fontSize: 24, fontWeight: 500, fontStyle: 'italic' }}
-          >
-            oga
-            {/* Upright forest period — the "o." brand mark, not all-caps OGA */}
-            <span style={{ fontStyle: 'normal', color: '#1F3D2C' }}>.</span>
-          </span>
-          <span
-            className="font-sans"
-            style={{ fontSize: 12, color: '#5C6356', marginTop: 3 }}
-          >
+        <div style={{ display: 'flex', flexDirection: 'column' }}>
+          <Wordmark />
+          <span className="font-sans" style={{ fontSize: 12, color: '#5C6356', marginTop: 3 }}>
             Open Golf App
           </span>
-        </Link>
-        <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+        </div>
+        <div style={{ display: 'flex', gap: 18, alignItems: 'center' }}>
           {!loading && user ? (
-            <Link
-              to="/dashboard"
-              style={{
-                ...btnBase,
-                background: '#1C211C',
-                color: '#F2EEE5',
-                border: '1px solid #1C211C',
-              }}
-            >
+            <Link to="/dashboard" className="key key-primary" style={navKey}>
               Go to app{' '}
               <span className="font-serif" style={{ fontStyle: 'italic' }}>
                 →
@@ -88,25 +62,12 @@ export function PublicNav() {
             <>
               <Link
                 to="/login"
-                style={{
-                  ...btnBase,
-                  color: '#1C211C',
-                  border: '1px solid #9F9580',
-                  background: 'transparent',
-                }}
-                className="public-nav-ghost"
+                className="text-caddie-ink hover:underline"
+                style={{ fontSize: 14, fontWeight: 600, textUnderlineOffset: 3, minHeight: 44, display: 'inline-flex', alignItems: 'center' }}
               >
                 Sign in
               </Link>
-              <Link
-                to="/signup"
-                style={{
-                  ...btnBase,
-                  background: '#1C211C',
-                  color: '#F2EEE5',
-                  border: '1px solid #1C211C',
-                }}
-              >
+              <Link to="/signup" className="key key-primary" style={navKey}>
                 Create account
               </Link>
             </>
@@ -117,17 +78,6 @@ export function PublicNav() {
   )
 }
 
-const btnBase = {
-  display: 'inline-flex',
-  alignItems: 'center',
-  gap: 6,
-  fontFamily: 'Epilogue, sans-serif',
-  fontWeight: 600,
-  fontSize: 13,
-  letterSpacing: '0.01em',
-  borderRadius: 2,
-  padding: '8px 14px',
-  textDecoration: 'none',
-  whiteSpace: 'nowrap',
-  transition: 'background-color 160ms ease, color 160ms ease, border-color 160ms ease',
-} as const
+// The landing's one primary, a size down for the bar: same forest key as the
+// hero, not a second (ink) primary beside it.
+const navKey = { minHeight: 40, padding: '0 14px', fontSize: 13, whiteSpace: 'nowrap' } as const

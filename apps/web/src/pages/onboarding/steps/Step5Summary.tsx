@@ -1,3 +1,4 @@
+import { formatHandicapIndex } from '@oga/core'
 import type { OnboardingDraft } from '../OnboardingPage'
 import { OnboardingButtons, StepHeading } from './shared'
 
@@ -46,7 +47,6 @@ export function Step5Summary({
   return (
     <div>
       <StepHeading
-        kicker="Confirm"
         title="You're set."
         subtitle="We'll calibrate your strokes-gained baseline to these answers."
       />
@@ -54,7 +54,7 @@ export function Step5Summary({
         <Row label="Skill level">
           {draft.skillLevel ? SKILL_LABEL[draft.skillLevel] : '—'}
         </Row>
-        <Row label="Handicap">{draft.handicap}</Row>
+        <Row label="Handicap">{formatHandicapIndex(draft.handicap)}</Row>
         <Row label="Goal">{draft.goal ? GOAL_LABEL[draft.goal] : '—'}</Row>
         <Row label="Frequency">
           {draft.playFrequency ? FREQUENCY_LABEL[draft.playFrequency] ?? draft.playFrequency : '—'}
@@ -110,7 +110,9 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
         gap: 18,
       }}
     >
-      <dt className="kicker">{label}</dt>
+      <dt className="text-caddie-ink-dim" style={{ fontSize: 13 }}>
+        {label}
+      </dt>
       <dd
         className="font-serif text-caddie-ink text-right"
         style={{ fontSize: 17, fontWeight: 500 }}

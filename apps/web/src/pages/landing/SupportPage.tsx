@@ -11,9 +11,6 @@ export function SupportPage() {
   return (
     <main style={{ paddingTop: 120, paddingBottom: 80 }}>
       <div style={{ maxWidth: 760, margin: '0 auto', padding: '0 28px' }}>
-        <div className="kicker" style={{ marginBottom: 8 }}>
-          Support
-        </div>
         <h1
           className="font-serif text-caddie-ink"
           style={{
@@ -106,6 +103,11 @@ export function SupportPage() {
           </P>
         </div>
 
+        <p className="font-serif text-caddie-ink" style={{ fontSize: 22, fontStyle: 'italic', fontWeight: 500, lineHeight: 1.3, marginTop: 36 }}>
+          Questions the guides don&rsquo;t answer?{' '}
+          <ExtLink href={ISSUES_URL}>Open an issue →</ExtLink>
+        </p>
+
         <Footnote>
           Last reviewed: June 2026. The fastest way to reach the project is the
           issue tracker linked above.
@@ -171,10 +173,9 @@ function ExtLink({ href, children }: { href: string; children: ReactNode }) {
 function Footnote({ children }: { children: ReactNode }) {
   return (
     <div
-      className="font-mono uppercase text-caddie-ink-mute"
+      className="text-caddie-ink-dim"
       style={{
-        fontSize: 10,
-        letterSpacing: '0.14em',
+        fontSize: 12,
         borderTop: '1px solid #D9D2BF',
         paddingTop: 18,
         marginTop: 36,

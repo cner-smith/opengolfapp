@@ -17,13 +17,13 @@ async function walkToImportStep(page: Page) {
   await page.getByRole('button', { name: /Continue/ }).click()
   await page.getByRole('radio', { name: /^Break 90/ }).click()
   await page.getByRole('button', { name: /Continue/ }).click()
-  await page.getByRole('button', { name: 'About once a week' }).click()
-  await page.getByRole('button', { name: 'Mixed' }).click()
+  await page.getByRole('radio', { name: 'About once a week' }).click()
+  await page.getByRole('radio', { name: 'Mixed' }).click()
   await page.getByRole('button', { name: /Continue/ }).click()
   await page.getByRole('button', { name: /Continue/ }).click()
   await page.getByRole('button', { name: /Set up later/ }).click()
   await expect(page.getByRole('heading', { name: 'Coming from another app?' })).toBeVisible()
-  await expect(page.getByText('Step 7 of 7')).toBeVisible()
+  await expect(page.getByText('One more thing')).toBeVisible()
   expect(writes.at(-1)).toEqual({ onboarding_completed: true })
   return writes
 }
@@ -41,5 +41,20 @@ test.describe('Onboarding import step (signed in)', () => {
     await walkToImportStep(page)
     await page.getByRole('button', { name: 'Skip' }).click()
     await expect(page).toHaveURL(/\/dashboard$/)
+  })
+})
+
+test.describe('Onboarding step 1 (signed in)', () => {
+  // The user is signed in, so there is nothing behind step 1: no Back that
+  // lands on the sign-in form (#1228). Step 2 has one, back to step 1.
+  test('has no Back; step 2 goes back to step 1', async ({ page }) => {
+    await page.goto('/onboarding')
+    await expect(page.getByText('Step 1 of 5')).toBeVisible()
+    await expect(page.getByRole('button', { name: /Back/ })).toHaveCount(0)
+    await page.getByRole('radio', { name: /^Casual/ }).click()
+    await page.getByRole('button', { name: /Continue/ }).click()
+    await page.getByRole('button', { name: /Back/ }).click()
+    await expect(page.getByText('Step 1 of 5')).toBeVisible()
+    await expect(page).toHaveURL(/\/onboarding$/)
   })
 })

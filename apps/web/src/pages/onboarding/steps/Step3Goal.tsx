@@ -1,5 +1,5 @@
 import type { Goal } from '@oga/core'
-import { OnboardingButtons, StepHeading } from './shared'
+import { OnboardingButtons, OptionList, StepHeading } from './shared'
 
 const OPTIONS: Array<{ value: Goal; label: string; blurb: string }> = [
   {
@@ -29,6 +29,8 @@ const OPTIONS: Array<{ value: Goal; label: string; blurb: string }> = [
   },
 ]
 
+const TITLE = "What's your goal this season?"
+
 export function Step3Goal({
   value,
   onChange,
@@ -43,54 +45,10 @@ export function Step3Goal({
   return (
     <div>
       <StepHeading
-        kicker="Goal"
-        title="What's your goal this season?"
+        title={TITLE}
         subtitle="The practice planner weights drills toward closing the gap to this number."
       />
-      <div role="radiogroup" style={{ borderTop: '1px solid #D9D2BF' }}>
-        {OPTIONS.map((opt) => {
-          const active = value === opt.value
-          return (
-            <button
-              key={opt.value}
-              type="button"
-              role="radio"
-              aria-checked={active}
-              onClick={() => onChange(opt.value)}
-              className="text-left transition-colors w-full"
-              style={{
-                backgroundColor: active ? '#FBF8F1' : 'transparent',
-                borderBottom: '1px solid #D9D2BF',
-                padding: '18px 14px',
-                display: 'block',
-              }}
-            >
-              <div className="flex items-baseline justify-between">
-                <div
-                  className="font-serif text-caddie-ink"
-                  style={{ fontSize: 17, fontWeight: 500 }}
-                >
-                  {opt.label}
-                </div>
-                {active && (
-                  <span
-                    className="font-mono uppercase text-caddie-accent"
-                    style={{ fontSize: 10, letterSpacing: '0.14em' }}
-                  >
-                    Selected
-                  </span>
-                )}
-              </div>
-              <div
-                className="text-caddie-ink-dim"
-                style={{ fontSize: 13, marginTop: 4, lineHeight: 1.5 }}
-              >
-                {opt.blurb}
-              </div>
-            </button>
-          )
-        })}
-      </div>
+      <OptionList label={TITLE} options={OPTIONS} value={value} onChange={onChange} />
       <OnboardingButtons
         onBack={onBack}
         onContinue={onContinue}

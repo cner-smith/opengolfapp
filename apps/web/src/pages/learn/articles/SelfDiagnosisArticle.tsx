@@ -1,4 +1,4 @@
-import { SrcBody, SrcLabel } from '../components/ArticlePrimitives'
+import { ArticleTitle, SrcBody, SrcLabel, Subhead } from '../components/ArticlePrimitives'
 import type { CSSProperties, ReactNode } from 'react'
 
 export function SelfDiagnosisArticle() {
@@ -11,22 +11,7 @@ export function SelfDiagnosisArticle() {
         marginBottom: 32,
       }}
     >
-      <div className="kicker" style={{ marginBottom: 14 }}>
-        On the course · Self-diagnosis
-      </div>
-      <h2
-        className="font-serif text-caddie-ink"
-        style={{
-          fontSize: 28,
-          fontWeight: 500,
-          fontStyle: 'italic',
-          letterSpacing: '-0.015em',
-          lineHeight: 1.15,
-          marginBottom: 18,
-        }}
-      >
-        Self-diagnosis.
-      </h2>
+      <ArticleTitle>Self-diagnosis.</ArticleTitle>
 
       <H3>You know something is off</H3>
       <P>
@@ -262,17 +247,6 @@ function H3({ children }: { children: ReactNode }) {
   )
 }
 
-function Subhead({ children }: { children: ReactNode }) {
-  return (
-    <div
-      className="kicker"
-      style={{ marginTop: 14, marginBottom: 10, color: '#5C6356' }}
-    >
-      {children}
-    </div>
-  )
-}
-
 function P({ children }: { children: ReactNode }) {
   return (
     <p
@@ -387,8 +361,7 @@ function FlowQ({ n, q }: { n: string; q: string }) {
         }}
       >
         <span
-          className="font-mono"
-          style={{ fontSize: 10, letterSpacing: '0.14em', color: '#8A8B7E' }}
+          style={{ fontSize: 12, color: '#5C6356' }}
         >
           {n}
         </span>
@@ -461,10 +434,8 @@ function Chip({
       }}
     >
       <div
-        className="font-mono uppercase"
         style={{
-          fontSize: 10,
-          letterSpacing: '0.14em',
+          fontSize: 12,
           color: accent ? '#F2EEE5' : '#5C6356',
           marginBottom: 3,
         }}
@@ -499,9 +470,7 @@ function Chip({
 function Sources() {
   return (
     <section style={{ borderTop: '1px solid #D9D2BF', paddingTop: 18, marginTop: 22 }}>
-      <div className="kicker" style={{ marginBottom: 12 }}>
-        Sources
-      </div>
+      <Subhead>Sources</Subhead>
       <div style={{ display: 'grid', gap: 14, maxWidth: 640 }}>
         <div>
           <SrcLabel>Ball flight — start line, curve, and why the driver curves more</SrcLabel>
@@ -575,10 +544,9 @@ function Src({ href, children }: { href: string; children: ReactNode }) {
 function Footer() {
   return (
     <div
-      className="font-mono uppercase text-caddie-ink-mute"
+      className="text-caddie-ink-dim"
       style={{
-        fontSize: 10,
-        letterSpacing: '0.14em',
+        fontSize: 12,
         borderTop: '1px solid #D9D2BF',
         paddingTop: 18,
         marginTop: 22,

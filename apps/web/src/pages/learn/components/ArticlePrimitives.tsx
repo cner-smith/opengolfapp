@@ -1,45 +1,26 @@
 import type { ReactNode } from 'react'
+import '../learn.css'
 
-export function Entry({
-  id,
-  kicker,
-  title,
-  children,
-}: {
-  id: string
-  kicker: string
-  title?: string
-  children: ReactNode
-}) {
+// The article's title: the one big italic line, ruled off from the text.
+// The category it belongs to is the breadcrumb above (LearnArticlePage).
+export function ArticleTitle({ children }: { children: ReactNode }) {
   return (
-    <section
-      id={id}
+    <h1
+      className="font-serif text-caddie-ink"
       style={{
-        borderTop: '1px solid #D9D2BF',
-        paddingTop: 22,
-        marginBottom: 32,
-      }}
+        fontSize: 'clamp(34px, 5vw, 46px)',
+        fontWeight: 500,
+        fontStyle: 'italic',
+        letterSpacing: '-0.02em',
+        lineHeight: 1.08,
+        paddingBottom: 18,
+        borderBottom: '2px solid #1C211C',
+        marginBottom: 22,
+        textWrap: 'balance',
+      } as React.CSSProperties}
     >
-      <div className="kicker" style={{ marginBottom: 14 }}>
-        {kicker}
-      </div>
-      {title && (
-        <h2
-          className="font-serif text-caddie-ink"
-          style={{
-            fontSize: 28,
-            fontWeight: 500,
-            fontStyle: 'italic',
-            letterSpacing: '-0.015em',
-            lineHeight: 1.15,
-            marginBottom: 14,
-          }}
-        >
-          {title}
-        </h2>
-      )}
       {children}
-    </section>
+    </h1>
   )
 }
 
@@ -75,14 +56,16 @@ export function Body({ children }: { children: ReactNode }) {
   )
 }
 
-export function Subkicker({ children }: { children: ReactNode }) {
+// A plain heading inside an article: sentence case, upright, under the
+// articles' own italic section heads.
+export function Subhead({ children }: { children: ReactNode }) {
   return (
-    <div
-      className="kicker"
-      style={{ marginTop: 14, marginBottom: 12, color: '#5C6356' }}
+    <h3
+      className="font-serif text-caddie-ink"
+      style={{ fontSize: 20, fontWeight: 500, lineHeight: 1.25, marginTop: 22, marginBottom: 12 }}
     >
       {children}
-    </div>
+    </h3>
   )
 }
 
@@ -100,16 +83,15 @@ export function Bullet({
         borderTop: '1px solid #D9D2BF',
       }}
     >
-      <div className="flex items-baseline" style={{ gap: 14 }}>
+      <div className="learn-bullet">
         <span
           className="font-serif text-caddie-ink"
-          style={{ fontSize: 17, fontWeight: 500, fontStyle: 'italic', minWidth: 160 }}
+          style={{ fontSize: 17, fontWeight: 500, fontStyle: 'italic' }}
         >
           {term}
         </span>
         <span
-          className="text-caddie-ink-dim"
-          style={{ fontSize: 14, lineHeight: 1.5 }}
+          className="learn-bullet-def text-caddie-ink-dim"
         >
           {children}
         </span>
@@ -121,10 +103,9 @@ export function Bullet({
 export function Footnote({ children }: { children: ReactNode }) {
   return (
     <div
-      className="font-mono uppercase text-caddie-ink-mute"
+      className="text-caddie-ink-dim"
       style={{
-        fontSize: 10,
-        letterSpacing: '0.14em',
+        fontSize: 12,
         borderTop: '1px solid #D9D2BF',
         paddingTop: 18,
         marginTop: 18,
@@ -133,80 +114,6 @@ export function Footnote({ children }: { children: ReactNode }) {
     >
       {children}
     </div>
-  )
-}
-
-export function SectionHeader({
-  id,
-  number,
-  title,
-}: {
-  id: string
-  number: string
-  title: string
-}) {
-  return (
-    <section
-      id={id}
-      style={{
-        borderTop: '2px solid #9F9580',
-        paddingTop: 28,
-        marginTop: 14,
-        marginBottom: 22,
-      }}
-    >
-      <div className="kicker" style={{ marginBottom: 10 }}>
-        {number}
-      </div>
-      <h2
-        className="font-serif text-caddie-ink"
-        style={{
-          fontSize: 32,
-          fontWeight: 500,
-          fontStyle: 'italic',
-          letterSpacing: '-0.015em',
-          lineHeight: 1.1,
-        }}
-      >
-        {title}
-      </h2>
-    </section>
-  )
-}
-
-export function ArticleAnchor({
-  id,
-  kicker,
-  title,
-}: {
-  id: string
-  kicker: string
-  title: string
-}) {
-  return (
-    <section
-      id={id}
-      style={{
-        borderTop: '1px solid #D9D2BF',
-        paddingTop: 22,
-        marginBottom: 18,
-      }}
-    >
-      <div className="kicker" style={{ marginBottom: 14 }}>
-        {kicker}
-      </div>
-      <h3
-        className="font-serif text-caddie-ink"
-        style={{
-          fontSize: 22,
-          fontWeight: 500,
-          fontStyle: 'italic',
-          lineHeight: 1.2,
-        }}
-      >
-        {title}
-      </h3>
-    </section>
   )
 }
 
@@ -220,8 +127,8 @@ export function fmtSG(v: number): string {
 export function SrcLabel({ children }: { children: ReactNode }) {
   return (
     <div
-      className="font-mono uppercase"
-      style={{ fontSize: 10, letterSpacing: '0.14em', color: '#5C6356', marginBottom: 4 }}
+      className="text-caddie-ink"
+      style={{ fontSize: 13, fontWeight: 600, marginBottom: 4 }}
     >
       {children}
     </div>
