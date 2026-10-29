@@ -4,6 +4,7 @@
 // guessed.
 
 import type { LieType } from './constants'
+import { isRoundHoleCount } from './round'
 
 export interface GolfPadFiles {
   rounds: string
@@ -43,8 +44,8 @@ export interface GolfPadRound {
   /** YYYY-MM-DD */
   played_at: string
   tee_color: string | null
-  /** The course's 9 or 18 (#727). Unset: the import infers it from the hole numbers. */
-  hole_count?: 9 | 18
+  /** The course's hole count, 1–36 (#727). Unset: the import infers it from the hole numbers. */
+  hole_count?: number
   holes: GolfPadHole[]
 }
 
@@ -239,7 +240,7 @@ export function planGolfPadImport(files: GolfPadFiles): GolfPadPlan {
     plan.rounds.push({
       ...base,
       tee_color: r['tee name'] ? r['tee name']!.toLowerCase() : null,
-      ...(courseHoles === 9 || courseHoles === 18 ? { hole_count: courseHoles } : {}),
+      ...(isRoundHoleCount(courseHoles) ? { hole_count: courseHoles } : {}),
       holes: holes.map((h) => {
         const score = int(h['total strokes']) ?? 0
         const rows = mine.shots

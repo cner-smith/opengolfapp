@@ -3,8 +3,10 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import {
   CAPTURE_MODES,
   CAPTURE_MODE_LABELS,
-  holeCountFromTeePar,
-  inferHoleCount,
+  HOLE_COUNT_KEYS,
+  MAX_ROUND_HOLES,
+  guessHoleCount,
+  isRoundHoleCount,
   todayLocalDate,
   type CaptureMode,
 } from '@oga/core'
@@ -18,10 +20,10 @@ import { toUserMessage } from '../../lib/errors'
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
 import { Rocker } from '../../components/ui/Rocker'
 
-const HOLE_COUNTS = [
-  { value: 9, label: '9' },
-  { value: 18, label: '18' },
-] as const
+const HOLE_KEYS: { value: number | 'other'; label: string }[] = [
+  ...HOLE_COUNT_KEYS.map((n) => ({ value: n, label: String(n) })),
+  { value: 'other', label: 'Other' },
+]
 
 const TEE_COLORS = ['black', 'blue', 'white', 'gold', 'red'].map((t) => ({
   value: t,
@@ -46,25 +48,25 @@ export function NewRoundPage() {
     searchParams.get('mode') === 'live' ? 'live' : 'past',
   )
   const [captureMode, setCaptureMode] = useState<CaptureMode>('track_patterns')
-  const [holeChoice, setHoleChoice] = useState<9 | 18 | null>(null)
+  // The player's pick: a key's count, or Other's typed text (null = closed).
+  const [holeChoice, setHoleChoice] = useState<number | null>(null)
+  const [otherHoles, setOtherHoles] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   // An unfinished round from the last day, found when starting a live one.
   const [unfinishedId, setUnfinishedId] = useState<string | null>(null)
 
   // The round stores how many holes it plays (#727): an unmapped course can't
-  // tell 9 from 18 later, and its holes rows grow one save at a time. A hole
-  // past 9 on file settles it; otherwise the player says, starting from the
-  // tee's par or the holes on file.
+  // tell later, and its holes rows grow one save at a time. The row starts on
+  // a guess from the holes on file and the tee's par; the player can change it.
   const holesQuery = useHolesForCourse(courseId ?? undefined)
   const teesQuery = useCourseTees(courseId)
-  const holeNumbers = (holesQuery.data ?? []).map((h) => h.number)
-  const knownEighteen = holeNumbers.some((n) => n > 9)
   const tees = teesQuery.data ?? []
   const teePar = (tees.find((t) => t.id === courseTeeId) ?? tees[0])?.par
-  const holeCount: 9 | 18 = knownEighteen
-    ? 18
-    : (holeChoice ?? (teePar != null ? holeCountFromTeePar(teePar) : inferHoleCount(holeNumbers)))
-  const holesLoading = !!courseId && (holesQuery.isLoading || teesQuery.isLoading)
+  const guessedHoles = guessHoleCount(teePar, (holesQuery.data ?? []).map((h) => h.number))
+  const holeCount = otherHoles != null ? Number(otherHoles) : (holeChoice ?? guessedHoles)
+  const holeKey = otherHoles != null || !HOLE_KEYS.some((k) => k.value === holeCount) ? 'other' : holeCount
+  // isPending, not isLoading: no data yet, even on the render before the fetch starts.
+  const holesLoading = !!courseId && (holesQuery.isPending || teesQuery.isPending)
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
@@ -72,6 +74,10 @@ export function NewRoundPage() {
     if (!user) return
     if (!courseId) {
       setError('Pick a course first.')
+      return
+    }
+    if (otherHoles != null && (!otherHoles || !isRoundHoleCount(holeCount))) {
+      setError(`Holes: a whole number from 1 to ${MAX_ROUND_HOLES}.`)
       return
     }
     // Block accidental abandonment: if the user already has an
@@ -193,6 +199,7 @@ export function NewRoundPage() {
                 setCourseName(name)
                 setCourseTeeId(null)
                 setHoleChoice(null)
+                setOtherHoles(null)
               }}
               requestGps={mode === 'live'}
             />
@@ -219,18 +226,49 @@ export function NewRoundPage() {
             </section>
           )}
 
-          {courseId && !holesLoading && !knownEighteen && (
-            <div style={{ ...rowStyle, borderBottom: LINE_RULE }}>
+          {courseId && !holesLoading && (
+            <div style={{ ...rowStyle, borderBottom: LINE_RULE, flexWrap: 'wrap' }}>
               <span className="text-caddie-ink" style={{ fontSize: 15 }}>
                 Holes
               </span>
-              <Rocker
-                options={HOLE_COUNTS}
-                value={holeCount}
-                onChange={setHoleChoice}
-                label="Holes"
-                className="w-[160px]"
-              />
+              <div className="flex flex-wrap items-center justify-end w-full sm:w-auto" style={{ gap: 12 }}>
+                <Rocker
+                  options={HOLE_KEYS}
+                  value={holeKey}
+                  onChange={(v) => {
+                    if (v === 'other') {
+                      setOtherHoles((t) => t ?? '')
+                      return
+                    }
+                    setOtherHoles(null)
+                    setHoleChoice(v)
+                  }}
+                  label="Holes"
+                  className="w-full sm:w-[380px]"
+                />
+                {otherHoles != null && (
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    placeholder={`1–${MAX_ROUND_HOLES}`}
+                    autoFocus
+                    aria-label="Number of holes"
+                    value={otherHoles}
+                    onChange={(e) => setOtherHoles(e.target.value.replace(/[^0-9]/g, '').slice(0, 2))}
+                    className="font-serif text-caddie-ink tabular"
+                    style={{
+                      width: 56,
+                      fontSize: 17,
+                      minHeight: 44,
+                      background: 'transparent',
+                      border: 'none',
+                      borderBottom: '1px solid #9F9580',
+                      padding: '0 2px',
+                      textAlign: 'center',
+                    }}
+                  />
+                )}
+              </div>
             </div>
           )}
 

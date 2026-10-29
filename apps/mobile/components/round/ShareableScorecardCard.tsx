@@ -1,5 +1,5 @@
 import { Text, View } from 'react-native'
-import { formatSG, formatToPar, inferHoleCount } from '@oga/core'
+import { formatSG, formatToPar, inferHoleCount, roundHoleCount } from '@oga/core'
 import type { Database } from '@oga/supabase'
 import { FONT } from '../../lib/typography'
 import { GolfMark } from '../paper/GolfMark'
@@ -18,6 +18,8 @@ export interface ShareableRoundData {
   sg_around_green: number | null
   sg_putting: number | null
   sg_total: number | null
+  /** The round's stored hole count (#727); null on older rounds. */
+  hole_count?: number | null
   courseName: string | null
   // Played-tee detail (optional): total yardage + course/slope rating, shown
   // alongside the tee colour when the round names a rated tee.
@@ -79,7 +81,7 @@ export function ShareableScorecardCard({
   for (const h of holes) holesByNumber.set(h.number, h)
   // Match the round's actual size (#525) — a 9-hole round shows one grid,
   // not nine empty "In" cells. Empty/old rounds fall back to 18.
-  const holeCount = inferHoleCount(holes.map((h) => h.number))
+  const holeCount = Math.min(roundHoleCount(round.hole_count, inferHoleCount(holes.map((h) => h.number))), 18)
   const holeNumbers = Array.from({ length: holeCount }, (_, i) => i + 1)
 
   const totalPar = holeNumbers.reduce((sum, n) => {

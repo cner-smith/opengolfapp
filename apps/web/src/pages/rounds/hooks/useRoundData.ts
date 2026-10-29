@@ -123,13 +123,18 @@ export function useRoundData({
   // to 18. Never infer it from the course's holes rows or the round's scores:
   // both grow one save at a time, and an 18-hole round with only the front
   // nine saved would collapse to 9 and strand holes 10-18 (the #783 revert).
+  // A stored count also caps the course's rows (a 6-hole round on an 18-hole
+  // course shows 6), and padding stops at 18: holes.number is 1–18 (0001), so
+  // a 27 imported from Golf Pad can't save a hole 19.
+  const storedHoleCount = round.data?.hole_count ?? null
   const expectedHoleCount = useMemo(
-    () => roundHoleCount(round.data?.hole_count, holeCountFromTeePar(teesQuery.data?.[0]?.par)),
-    [round.data?.hole_count, teesQuery.data],
+    () => Math.min(roundHoleCount(storedHoleCount, holeCountFromTeePar(teesQuery.data?.[0]?.par)), 18),
+    [storedHoleCount, teesQuery.data],
   )
 
   const holes = useMemo<HoleRow[]>(() => {
-    const fetched = holesQuery.data ?? []
+    const all = holesQuery.data ?? []
+    const fetched = storedHoleCount == null ? all : all.filter((h) => h.number <= expectedHoleCount)
     const roundData = round.data
     if (fetched.length >= expectedHoleCount) return fetched
     if (!roundData) return fetched
@@ -188,7 +193,7 @@ export function useRoundData({
         par_source: null,
       }
     })
-  }, [holesQuery.data, round.data, expectedHoleCount])
+  }, [holesQuery.data, round.data, expectedHoleCount, storedHoleCount])
 
   const rawScores: Array<HoleScoreRow & { holes?: HoleRow | null }> = useMemo(
     () => holeScoresQuery.data ?? [],
