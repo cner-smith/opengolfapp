@@ -22,7 +22,7 @@ async function walkToImportStep(page: Page) {
   await page.getByRole('button', { name: /Continue/ }).click()
   await page.getByRole('button', { name: /Continue/ }).click()
   await page.getByRole('button', { name: /Set up later/ }).click()
-  await expect(page.getByRole('heading', { name: 'Coming from another app?' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Your yardage book is open.' })).toBeVisible()
   await expect(page.getByText('One more thing')).toBeVisible()
   expect(writes.at(-1)).toEqual({ onboarding_completed: true })
   return writes
@@ -37,9 +37,9 @@ test.describe('Onboarding import step (signed in)', () => {
     expect(writes.length).toBe(before)
   })
 
-  test('Skip goes Home', async ({ page }) => {
+  test('Go to Home goes Home', async ({ page }) => {
     await walkToImportStep(page)
-    await page.getByRole('button', { name: 'Skip' }).click()
+    await page.getByRole('button', { name: 'Go to Home' }).click()
     await expect(page).toHaveURL(/\/dashboard$/)
   })
 })

@@ -6,8 +6,8 @@ export function Step7Import({ onImport, onSkip }: { onImport: () => void; onSkip
   return (
     <div>
       <StepHeading
-        title="Coming from another app?"
-        subtitle="Bring your Golf Pad rounds, or a scorecard spreadsheet, and your stats start from day one."
+        title="Your yardage book is open."
+        subtitle="Coming from another app? Bring your Golf Pad rounds or a scorecard spreadsheet, and your stats start from day one."
       />
       <button
         type="button"
@@ -26,21 +26,8 @@ export function Step7Import({ onImport, onSkip }: { onImport: () => void; onSkip
           →
         </span>
       </button>
-      <button
-        type="button"
-        onClick={onSkip}
-        className="text-caddie-ink-dim hover:text-caddie-ink"
-        style={{
-          fontSize: 14,
-          padding: '14px 0 0',
-          background: 'transparent',
-          border: 'none',
-          width: '100%',
-          textAlign: 'center',
-          display: 'block',
-        }}
-      >
-        Skip
+      <button type="button" onClick={onSkip} className="key" style={{ width: '100%', fontSize: 14, marginTop: 14 }}>
+        Go to Home
       </button>
     </div>
   )
