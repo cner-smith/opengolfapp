@@ -108,27 +108,6 @@
   padding-bottom: 1px;
 }
 
-/* The bag: sentence beside a wide clipping of the chart. */
-.lb-bag {
-  display: grid;
-  grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
-  gap: 64px;
-  align-items: center;
-}
-.lb-clipping {
-  background: #efebe0;
-  border: 1px solid #1c211c;
-  border-radius: 3px;
-  box-shadow: 6px 6px 0 #1c211c;
-  padding: 18px 14px 12px;
-  transform: rotate(-0.6deg);
-}
-.lb-clipping img {
-  display: block;
-  width: 100%;
-  height: auto;
-}
-
 /* ---- Free forever ---- */
 .lb-free {
   display: grid;
@@ -275,7 +254,6 @@
   }
   .lb-hero-grid,
   .landing-spread,
-  .lb-bag,
   .lb-free,
   .lb-negation {
     grid-template-columns: 1fr;
@@ -299,10 +277,6 @@
 @media (max-width: 560px) {
   .lb-lede {
     font-size: 17px;
-  }
-  .lb-clipping {
-    padding: 12px 8px 8px;
-    transform: none;
   }
 }
 
