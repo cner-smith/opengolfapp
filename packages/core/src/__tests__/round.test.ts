@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest'
 import {
   buildInitialRows,
   inferHoleCount,
+  guessHoleCount,
+  handicapHoleCount,
   holeCountFromTeePar,
   roundHoleCount,
   inferParFromYards,
@@ -452,9 +454,61 @@ describe('roundHoleCount (#727)', () => {
     expect(roundHoleCount(18, 9)).toBe(18)
   })
 
-  it('a round from before the column (null) keeps the fallback', () => {
+  it('any whole count from 1 to 36 is kept: a 6-hole course plays 6', () => {
+    expect(roundHoleCount(6, 18)).toBe(6)
+    expect(roundHoleCount(1, 18)).toBe(1)
+    expect(roundHoleCount(36, 18)).toBe(36)
+  })
+
+  it('a round from before the column (null), or a value out of range, keeps the fallback', () => {
     expect(roundHoleCount(null, 9)).toBe(9)
     expect(roundHoleCount(undefined, 18)).toBe(18)
+    expect(roundHoleCount(0, 18)).toBe(18)
+    expect(roundHoleCount(37, 18)).toBe(18)
+    expect(roundHoleCount(6.5, 18)).toBe(18)
+  })
+})
+
+describe('guessHoleCount (#727)', () => {
+  it('a hole past 9 on file means 18, whatever the tee says', () => {
+    expect(guessHoleCount(36, Array.from({ length: 18 }, (_, i) => i + 1))).toBe(18)
+    expect(guessHoleCount(null, [10])).toBe(18)
+  })
+
+  it('otherwise a tee par settles it over the holes on file', () => {
+    expect(guessHoleCount(36, [])).toBe(9)
+    expect(guessHoleCount(72, [1, 2, 3])).toBe(18)
+  })
+
+  it('with no tee par, the holes on file: none past 9 reads as 9, none at all as 18', () => {
+    expect(guessHoleCount(null, [1, 2, 3, 4, 5, 6])).toBe(9)
+    expect(guessHoleCount(null, [1, 10])).toBe(18)
+    expect(guessHoleCount(undefined, [])).toBe(18)
+  })
+})
+
+describe('handicapHoleCount (#727)', () => {
+  const nine = Array.from({ length: 9 }, (_, i) => i + 1)
+  const eighteen = Array.from({ length: 18 }, (_, i) => i + 1)
+
+  it('a 9 or 18 that matches the course counts', () => {
+    expect(handicapHoleCount(9, nine)).toBe(9)
+    expect(handicapHoleCount(18, eighteen)).toBe(18)
+  })
+
+  it('a 6-hole round gets no differential', () => {
+    expect(handicapHoleCount(6, [1, 2, 3, 4, 5, 6])).toBeNull()
+    expect(handicapHoleCount(12, eighteen)).toBeNull()
+  })
+
+  it('a 9 played on an 18-hole course gets none: the rating is for 18', () => {
+    expect(handicapHoleCount(9, eighteen)).toBeNull()
+  })
+
+  it('a round from before the column uses the course count, as before', () => {
+    expect(handicapHoleCount(null, nine)).toBe(9)
+    expect(handicapHoleCount(null, eighteen)).toBe(18)
+    expect(handicapHoleCount(null, [])).toBe(18)
   })
 })
 

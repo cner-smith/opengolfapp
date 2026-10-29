@@ -29,7 +29,7 @@ export interface UseHoleDataResult {
   loading: boolean
   error: string | null
   loadAll: () => Promise<void>
-  holeCount: 9 | 18
+  holeCount: number
   effectiveHoles: HoleRow[]
   currentHole: HoleRow | null
   currentHoleScore: HoleScoreRow | null
@@ -144,13 +144,14 @@ export function useHoleData(
 
   // How many holes this round plays, inferred from the mapped hole numbers
   // (course_tees.par is unpopulated in our crawled data) — a genuine 9-hole
-  // course stays 9 instead of padding to 18 phantom holes (#525). A round
-  // stored as 9 (#727) caps it; a stored 18 never raises it: mobile has no
-  // ensureRealHole, so a padded hole with no hole_scores row drops its
-  // shots silently (a web round on a course mapped only to hole 9).
+  // course stays 9 instead of padding to 18 phantom holes (#525). The
+  // round's stored count (#727) caps it — a 6-hole round shows 6, even on an
+  // 18-hole course — but never raises it: mobile has no ensureRealHole, so a
+  // padded hole with no hole_scores row drops its shots silently (a web
+  // round stored as 18 on a course mapped only to hole 9).
   const holeCount = useMemo(() => {
     const inferred = inferHoleCount(holes.map((h) => h.number))
-    return roundHoleCount(round?.hole_count, inferred) === 9 ? 9 : inferred
+    return Math.min(roundHoleCount(round?.hole_count, inferred), inferred)
   }, [round?.hole_count, holes])
 
   // Synthetic-holes fallback. Mirrors the web pattern documented in
@@ -160,9 +161,10 @@ export function useHoleData(
   // isn't trapped on a "Hole not found" screen.
   const effectiveHoles = useMemo<HoleRow[]>(() => {
     if (!round) return holes
-    if (holes.length >= holeCount) return holes
+    const own = holes.filter((h) => h.number <= holeCount)
+    if (own.length >= holeCount) return own
     const realByNumber = new Map<number, HoleRow>()
-    for (const h of holes) realByNumber.set(h.number, h)
+    for (const h of own) realByNumber.set(h.number, h)
     return Array.from({ length: holeCount }, (_, i) => {
       const num = i + 1
       const real = realByNumber.get(num)

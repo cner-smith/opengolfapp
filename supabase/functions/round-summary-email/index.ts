@@ -112,11 +112,12 @@ Deno.serve(async (req) => {
 
     // Par from the round's resolved tee (course_tees.par), which matches the
     // in-app dashboard's total for standard 18/9-hole courses and the common
-    // synthetic-hole case; with no tee row linked, 36 for a round stored as
-    // 9 holes (#727), else 72. NOT byte-identical to the dashboard's padded-
+    // synthetic-hole case. With no tee row linked: 4 a hole over the round's
+    // stored hole count (#727) — the par-4 the app pads unmapped holes with —
+    // else 72 for older rounds. NOT byte-identical to the dashboard's padded-
     // holes derivation for partial-real-hole rounds with a null tee par —
     // accepted scaffold approximation.
-    const par = round.course_tees?.par ?? (round.hole_count === 9 ? 36 : 72)
+    const par = round.course_tees?.par ?? (round.hole_count != null ? 4 * round.hole_count : 72)
     const content = buildRoundSummary({
       courseName: round.courses?.name ?? 'your round',
       totalScore: round.total_score ?? 0,

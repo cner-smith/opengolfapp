@@ -131,9 +131,13 @@ describe('Golf Pad export → planned rounds', () => {
     expect(eighteen.rounds[0]!.hole_count).toBe(18)
     const nine = planGolfPadImport({ rounds: csv(ROUNDS_HEADER, [round(D, C, 'R9', '', 2).replace(',18,', ',9,')]), holes, shots })
     expect(nine.rounds[0]!.hole_count).toBe(9)
-    // Anything but 9 or 18 is left for the import to infer from the hole numbers.
-    const odd = planGolfPadImport({ rounds: csv(ROUNDS_HEADER, [round(D, C, 'R27', '', 2).replace(',18,', ',27,')]), holes, shots })
-    expect(odd.rounds[0]!.hole_count).toBeUndefined()
+    const six = planGolfPadImport({ rounds: csv(ROUNDS_HEADER, [round(D, C, 'R6', '', 2).replace(',18,', ',6,')]), holes, shots })
+    expect(six.rounds[0]!.hole_count).toBe(6)
+    // Outside 1–36 is left for the import to infer from the hole numbers.
+    const zero = planGolfPadImport({ rounds: csv(ROUNDS_HEADER, [round(D, C, 'R0', '', 2).replace(',18,', ',0,')]), holes, shots })
+    expect(zero.rounds[0]!.hole_count).toBeUndefined()
+    const many = planGolfPadImport({ rounds: csv(ROUNDS_HEADER, [round(D, C, 'R37', '', 2).replace(',18,', ',37,')]), holes, shots })
+    expect(many.rounds[0]!.hole_count).toBeUndefined()
   })
 
   it('a hole whose shots don’t add up to the score imports the score only, with the reason', () => {

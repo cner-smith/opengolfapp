@@ -15,7 +15,7 @@ import { locationManager } from '@rnmapbox/maps'
 import {
   formatLocation,
   getOpenGolfApiCourse,
-  inferHoleCount,
+  MAX_HOLE_NUMBER,
   isProbableSameCourse,
   resolveFacilityResults,
   searchOpenGolfApi,
@@ -302,8 +302,9 @@ function NewRoundScreen() {
 
   async function startWith(
     courseId: string,
-    tee?: { courseTeeId: string | null; teeColor: string | null },
-    captureMode?: CaptureMode,
+    tee: { courseTeeId: string | null; teeColor: string | null },
+    captureMode: CaptureMode,
+    holeCount: number,
   ) {
     if (!user) return
     if (startInFlightRef.current) return
@@ -319,16 +320,16 @@ function NewRoundScreen() {
         .eq('course_id', courseId)
         .order('number')
       if (holesError) throw holesError
-      // Hole count is inferred from the mapped numbers (course_tees.par is
-      // unpopulated in our data — see inferHoleCount); a genuine 9-hole
-      // course stays 9. Stored on the round (#727) so web pads to the same.
-      const existing = existingHoles ?? []
-      const expectedCount = inferHoleCount(existing.map((h) => h.number))
+      // The player's count from the setup step (#727), stored on the round.
+      // Rows exist for holes 1–18 only (holes.number), so a longer round
+      // materializes and scores those.
+      const existing = (existingHoles ?? []).filter((h) => h.number <= holeCount)
+      const expectedCount = Math.min(holeCount, MAX_HOLE_NUMBER)
       const { data: round, error: roundError } = await createRound(supabase, {
         user_id: user.id,
         course_id: courseId,
         played_at: today,
-        hole_count: expectedCount,
+        hole_count: holeCount,
         // Past-round entry persists a total_score sentinel (0) at creation
         // so re-opening the round from the home list routes to the editable
         // scorecard, never the live map state machine. Live rounds leave
@@ -558,8 +559,8 @@ function NewRoundScreen() {
         initialCapture={params.capture === 'track_patterns' ? 'track_patterns' : undefined}
         busy={busy}
         onBack={() => setPendingCourse(null)}
-        onStart={(courseTeeId, teeColor, captureMode) =>
-          startWith(pendingCourse.id, { courseTeeId, teeColor }, captureMode)
+        onStart={(courseTeeId, teeColor, captureMode, holeCount) =>
+          startWith(pendingCourse.id, { courseTeeId, teeColor }, captureMode, holeCount)
         }
       />
     )
