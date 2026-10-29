@@ -254,6 +254,13 @@
 .lb-footer-links a:hover {
   color: #f2eee5;
 }
+/* On the dark band the ink focus ring would vanish: cream instead. */
+.lb-close .key:focus-visible,
+.lb-close a:focus-visible,
+.lb-footer a:focus-visible {
+  outline: 2px solid #f2eee5;
+  outline-offset: 2px;
+}
 .lb-footer-note {
   text-align: right;
   font-family: 'Epilogue', sans-serif;
