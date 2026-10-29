@@ -26,7 +26,7 @@ export function UnderstandingYourSwingArticle() {
 
       <Hr />
 
-      <H3>Start line and curve: the two-number readout</H3>
+      <H2>Start line and curve: the two-number readout</H2>
       <P>
         Modern launch-monitor data overturned what most of us were taught. Two
         things at impact write the whole shot:
@@ -47,7 +47,7 @@ export function UnderstandingYourSwingArticle() {
 
       <Hr />
 
-      <H3>The divot tells you the rest</H3>
+      <H2>The divot tells you the rest</H2>
       <P>
         With an iron, the turf is a second instrument. On solid contact the divot
         begins <em>after</em> the ball, not under it — proof you struck the ball
@@ -77,7 +77,7 @@ export function UnderstandingYourSwingArticle() {
 
       <Hr />
 
-      <H3>The strike fills in the blanks</H3>
+      <H2>The strike fills in the blanks</H2>
       <P>
         Where on the face you make contact is the cheapest data in golf to
         collect: a dusting of foot spray, face tape, or even the wear pattern on a
@@ -90,7 +90,7 @@ export function UnderstandingYourSwingArticle() {
 
       <Hr />
 
-      <H3>Three reads, one cause</H3>
+      <H2>Three reads, one cause</H2>
       <P>
         The skill isn't any single read — it's that the ball, the divot, and the
         strike almost always converge on the same story. A pull that curves right,
@@ -104,7 +104,7 @@ export function UnderstandingYourSwingArticle() {
 
       <Hr />
 
-      <H3>When the read runs out</H3>
+      <H2>When the read runs out</H2>
       <P>
         Reading your swing and <em>changing</em> it are different skills. You can
         often diagnose the cause — an open face, a steep path — long before you
@@ -133,9 +133,9 @@ const UL_STYLE: CSSProperties = {
   color: '#1C211C',
 }
 
-function H3({ children }: { children: ReactNode }) {
+function H2({ children }: { children: ReactNode }) {
   return (
-    <h3
+    <h2
       className="font-serif text-caddie-ink"
       style={{
         fontSize: 22,
@@ -146,7 +146,7 @@ function H3({ children }: { children: ReactNode }) {
       }}
     >
       {children}
-    </h3>
+    </h2>
   )
 }
 

@@ -13,7 +13,7 @@ export function GuideToFittingsArticle() {
     >
       <ArticleTitle>Golf fittings.</ArticleTitle>
 
-      <H3>There is no such thing as "getting fit"</H3>
+      <H2>There is no such thing as "getting fit"</H2>
       <P>
         Most golfers picture a fitting as one appointment that sorts out their
         clubs. It isn't. Driver, irons, wedges, putter, shaft, and ball are six
@@ -28,7 +28,7 @@ export function GuideToFittingsArticle() {
 
       <Hr />
 
-      <H3>The six fittings, and what each one changes</H3>
+      <H2>The six fittings, and what each one changes</H2>
 
       <Fit
         name="Driver"
@@ -63,7 +63,7 @@ export function GuideToFittingsArticle() {
 
       <Hr />
 
-      <H3>When to get fitted — start where it pays</H3>
+      <H2>When to get fitted — start where it pays</H2>
       <P>
         You don't need every fitting at once, and a brand-new golfer doesn't
         need any yet — the swing has to repeat before there is anything stable
@@ -80,7 +80,7 @@ export function GuideToFittingsArticle() {
 
       <Hr />
 
-      <H3>Get the most out of the day</H3>
+      <H2>Get the most out of the day</H2>
       <P>
         A fitting is only as good as the swing you bring to it. A few habits
         separate data you can trust from a wasted hour:
@@ -112,7 +112,7 @@ export function GuideToFittingsArticle() {
 
       <Hr />
 
-      <H3>A real fitting vs a sales pitch</H3>
+      <H2>A real fitting vs a sales pitch</H2>
       <P>
         A fitting and a sale can look identical from the outside. The difference
         is whether the session is about your numbers or about the rack.
@@ -142,7 +142,7 @@ export function GuideToFittingsArticle() {
 
       <Hr />
 
-      <H3>Questions worth asking</H3>
+      <H2>Questions worth asking</H2>
       <P>
         The fitter works for you for that hour, even when the bay is inside a
         shop. These turn a transaction back into a fitting — each one, and what
@@ -176,7 +176,7 @@ export function GuideToFittingsArticle() {
 
       <Hr />
 
-      <H3>Decoding what the fitter says</H3>
+      <H2>Decoding what the fitter says</H2>
       <P>
         Fitters talk in launch-monitor shorthand. Here is what the common
         phrases actually mean — and when one is a real signal versus a way to
@@ -222,7 +222,7 @@ export function GuideToFittingsArticle() {
 
       <Hr />
 
-      <H3>When you're ready, and how often</H3>
+      <H2>When you're ready, and how often</H2>
       <P>
         You are ready when your contact is consistent enough that the fitter is
         measuring your swing and not your mishits — roughly, when most shots
@@ -233,7 +233,7 @@ export function GuideToFittingsArticle() {
 
       <Hr />
 
-      <H3>What it costs</H3>
+      <H2>What it costs</H2>
       <P>
         Big retailers often fit for free when you buy. Independent fittings run
         roughly $75–150 for a single club up to $300 and more for a full bag,
@@ -259,9 +259,9 @@ const UL_STYLE: import('react').CSSProperties = {
   color: '#1C211C',
 }
 
-function H3({ children }: { children: ReactNode }) {
+function H2({ children }: { children: ReactNode }) {
   return (
-    <h3
+    <h2
       className="font-serif text-caddie-ink"
       style={{
         fontSize: 22,
@@ -272,7 +272,7 @@ function H3({ children }: { children: ReactNode }) {
       }}
     >
       {children}
-    </h3>
+    </h2>
   )
 }
 

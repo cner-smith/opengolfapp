@@ -27,7 +27,7 @@ export function FittingsWithCoachesArticle() {
 
       <Hr />
 
-      <H3>Two different appointments</H3>
+      <H2>Two different appointments</H2>
       <P>
         A lesson tries to change your swing. A fitting fits clubs to the swing
         you actually have today — not the one you're hoping to build. That's the
@@ -46,7 +46,7 @@ export function FittingsWithCoachesArticle() {
 
       <Hr />
 
-      <H3>Who's actually fitting you</H3>
+      <H2>Who's actually fitting you</H2>
       <P>
         Not all fittings come from the same chair, and the chair matters. Three
         people might fit you, and their incentives are not identical:
@@ -83,7 +83,7 @@ export function FittingsWithCoachesArticle() {
 
       <Hr />
 
-      <H3>Time it around your swing, not against it</H3>
+      <H2>Time it around your swing, not against it</H2>
       <P>
         The "fit the swing you have" rule has a wrinkle worth getting right.
         Real swing changes are usually incremental and ongoing, not a single
@@ -101,7 +101,7 @@ export function FittingsWithCoachesArticle() {
 
       <Hr />
 
-      <H3>The body comes first</H3>
+      <H2>The body comes first</H2>
       <P>
         Before the launch monitor, the right spec depends on what your body can
         actually do. The textbook lie angle, shaft, and length assume a range of
@@ -121,7 +121,7 @@ export function FittingsWithCoachesArticle() {
         becoming.
       </Callout>
 
-      <H3>Red flags</H3>
+      <H2>Red flags</H2>
       <P>
         A coach-coordinated fitting should make your equipment quieter, not your
         wallet lighter. Walk if you see these:
@@ -167,9 +167,9 @@ const UL_STYLE: CSSProperties = {
   color: '#1C211C',
 }
 
-function H3({ children }: { children: ReactNode }) {
+function H2({ children }: { children: ReactNode }) {
   return (
-    <h3
+    <h2
       className="font-serif text-caddie-ink"
       style={{
         fontSize: 22,
@@ -180,7 +180,7 @@ function H3({ children }: { children: ReactNode }) {
       }}
     >
       {children}
-    </h3>
+    </h2>
   )
 }
 

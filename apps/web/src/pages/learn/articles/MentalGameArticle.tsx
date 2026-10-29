@@ -13,7 +13,7 @@ export function MentalGameArticle() {
     >
       <ArticleTitle>The mental game.</ArticleTitle>
 
-      <H3>Golf is you versus you</H3>
+      <H2>Golf is you versus you</H2>
       <P>
         Every other sport has an opponent actively trying to stop
         you. A defender. A pitcher. A goalie. In golf, the course is
@@ -43,7 +43,7 @@ export function MentalGameArticle() {
 
       <Hr />
 
-      <H3>One shot at a time</H3>
+      <H2>One shot at a time</H2>
       <P>
         Every touring professional, when asked about performance,
         eventually says the same thing: one shot at a time. It sounds
@@ -95,7 +95,7 @@ export function MentalGameArticle() {
 
       <Hr />
 
-      <H3>Sulking won't get you anything</H3>
+      <H2>Sulking won't get you anything</H2>
       <P>
         When Padraig Harrington won the 2007 British Open, he knocked
         two balls into the water on the last hole and made double
@@ -126,7 +126,7 @@ export function MentalGameArticle() {
 
       <Hr />
 
-      <H3>The productive delusion</H3>
+      <H2>The productive delusion</H2>
       <P>
         Rotella's first rule is the one that separates good mental
         players from great ones: believe you can win. Not hope you
@@ -163,7 +163,7 @@ export function MentalGameArticle() {
 
       <Hr />
 
-      <H3>Visualization</H3>
+      <H2>Visualization</H2>
       <P>
         Before a shot, the mental game starts. Not on the backswing —
         before you even take the club out of the bag.
@@ -204,7 +204,7 @@ export function MentalGameArticle() {
 
       <Hr />
 
-      <H3>The routine as an anchor</H3>
+      <H2>The routine as an anchor</H2>
       <P>
         A consistent pre-shot routine serves two purposes that most
         golfers understand: it prepares you physically for the shot
@@ -249,7 +249,7 @@ export function MentalGameArticle() {
 
       <Hr />
 
-      <H3>Patience over aggression</H3>
+      <H2>Patience over aggression</H2>
       <P>
         Rotella's fourth rule: every time you have the urge to make
         an aggressive play, go with the more conservative one. You
@@ -272,7 +272,7 @@ export function MentalGameArticle() {
 
       <Hr />
 
-      <H3>Ignore unsolicited swing advice</H3>
+      <H2>Ignore unsolicited swing advice</H2>
       <P>This one is practical and underappreciated.</P>
       <P>
         Rotella tells a story about a player who had been struggling,
@@ -300,7 +300,7 @@ export function MentalGameArticle() {
 
       <Hr />
 
-      <H3>Calm is a superpower</H3>
+      <H2>Calm is a superpower</H2>
       <P>
         You cannot make good decisions when you're angry. You cannot
         execute a golf swing well when you're amped up or brooding
@@ -331,7 +331,7 @@ export function MentalGameArticle() {
 
       <Hr />
 
-      <H3>Grounding and the present moment</H3>
+      <H2>Grounding and the present moment</H2>
       <P>
         When the mind spirals — after a run of bad holes, after a
         penalty, after a blow-up — the way back is through the body,
@@ -361,7 +361,7 @@ export function MentalGameArticle() {
 
       <Hr />
 
-      <H3>Find someone who believes in you</H3>
+      <H2>Find someone who believes in you</H2>
       <P>
         Rotella's tenth rule is the one that gets overlooked in
         conversations about the mental game: find someone who
@@ -387,7 +387,7 @@ export function MentalGameArticle() {
 
       <Hr />
 
-      <H3>Be process-driven, not results-driven</H3>
+      <H2>Be process-driven, not results-driven</H2>
       <P>
         Most golfers think too little on the golf course. They step
         up to the ball, swing, and react emotionally to wherever it
@@ -428,7 +428,7 @@ export function MentalGameArticle() {
 
       <Hr />
 
-      <H3>It never gets fully solved</H3>
+      <H2>It never gets fully solved</H2>
       <P>
         One of the more humbling truths about the mental game is
         that it never gets fully mastered. Tour professionals — with
@@ -463,9 +463,9 @@ export function MentalGameArticle() {
 // Components
 // ===========================================================================
 
-function H3({ children }: { children: React.ReactNode }) {
+function H2({ children }: { children: React.ReactNode }) {
   return (
-    <h3
+    <h2
       className="font-serif text-caddie-ink"
       style={{
         fontSize: 22,
@@ -478,7 +478,7 @@ function H3({ children }: { children: React.ReactNode }) {
       }}
     >
       {children}
-    </h3>
+    </h2>
   )
 }
 
