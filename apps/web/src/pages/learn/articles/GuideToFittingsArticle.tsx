@@ -11,7 +11,7 @@ export function GuideToFittingsArticle() {
         marginBottom: 32,
       }}
     >
-      <ArticleTitle>Golf fittings.</ArticleTitle>
+      <ArticleTitle>Guide to golf fittings.</ArticleTitle>
 
       <H2>There is no such thing as "getting fit"</H2>
       <P>

@@ -92,6 +92,11 @@ body {
 .key[aria-checked='true'] {
   box-shadow: inset 0 0 0 1px var(--key-edge);
 }
+/* A printed option, latched: the rocker's 2px ink rim and shade band, so
+   the pick reads as pressed in, not greyed out (#1306). */
+.key-choice[aria-checked='true'] {
+  box-shadow: inset 0 0 0 2px var(--key-edge), inset 0 5px 0 rgba(28, 33, 28, 0.22);
+}
 .key:disabled,
 .key[aria-disabled='true'] {
   background: #f2eee5;
@@ -317,13 +322,12 @@ dialog.pat-dialog::backdrop {
     transition: none;
   }
 }
-/* Onboarding: the step segments fill in, the handicap number ticks over. */
-.onb-seg {
-  transform-origin: left;
-  transition: transform 240ms cubic-bezier(0.22, 1, 0.36, 1), background-color 240ms ease;
-}
+/* Onboarding: the handicap number ticks over; the current step's ring pops in. */
 .onb-tick {
   animation: onb-tick 120ms ease-out both;
+}
+.onb-hole {
+  animation: onb-tick 240ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
 }
 @keyframes onb-tick {
   from {
@@ -332,10 +336,184 @@ dialog.pat-dialog::backdrop {
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .onb-seg {
-    transition: none;
-  }
-  .onb-tick {
+  .onb-tick,
+  .onb-hole {
     animation: none;
+  }
+}
+/* Step 2's handicap slider as a printed ruler: ticks and numbers under one
+   ink rule, the pick a green pencil line across the ticks (Step2Handicap).
+   The range input covers the tick band only, so WebKit and Firefox place
+   the thumb alike (Firefox centres it in the track). */
+.onb-ruler-tick {
+  position: absolute;
+  top: 0;
+  width: 1px;
+  background: #9f9580;
+}
+.onb-ruler-num {
+  position: absolute;
+  top: 26px;
+  font-size: 13px;
+  transform: translateX(-50%);
+}
+.onb-ruler {
+  position: absolute;
+  inset: 0 0 auto;
+  appearance: none;
+  -webkit-appearance: none;
+  width: 100%;
+  height: 24px;
+  margin: 0;
+  background: linear-gradient(#1c211c, #1c211c) 0 0 / 100% 1px no-repeat;
+  cursor: pointer;
+}
+.onb-ruler::-webkit-slider-runnable-track {
+  height: 24px;
+  background: transparent;
+}
+.onb-ruler::-moz-range-track {
+  height: 24px;
+  background: transparent;
+}
+.onb-ruler::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 18px;
+  height: 20px;
+  margin-top: 2px;
+  background: linear-gradient(#1f3d2c, #1f3d2c) center / 3px 100% no-repeat;
+}
+.onb-ruler::-moz-range-thumb {
+  width: 18px;
+  height: 20px;
+  border: none;
+  border-radius: 0;
+  background: linear-gradient(#1f3d2c, #1f3d2c) center / 3px 100% no-repeat;
+}
+.onb-ruler:focus-visible {
+  outline: 2px solid var(--caddie-ink);
+  outline-offset: 4px;
+}
+/* Step 5's answers: each row a quiet link back to its step. */
+.onb-answer {
+  display: flex;
+  width: 100%;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 18px;
+  min-height: 44px;
+  padding: 10px 0;
+  background: none;
+  border: none;
+  border-bottom: 1px solid #d9d2bf;
+  cursor: pointer;
+  text-align: left;
+}
+.onb-answer:hover .font-serif {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.onb-answer:focus-visible,
+.onb-answer-hero:focus-visible {
+  outline: 2px solid var(--caddie-ink);
+  outline-offset: 2px;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .onb-coach {
+    animation: onb-rise 420ms 720ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+}
+@keyframes onb-rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+/* In the components layer, after .key, so its :active press still wins. */
+@layer components {
+  /* Step 6: a club in the bag stands on its ledge; one taken out lies flat,
+     dashed and struck through, so the default bag isn't a wall of latched
+     keys. aria-pressed still means "in the bag". */
+  .onb-club[aria-pressed='true'] {
+    background: var(--key-face);
+    transform: none;
+    box-shadow: 0 3px 0 var(--key-edge);
+  }
+  .onb-club[aria-pressed='false'] {
+    background: transparent;
+    color: var(--caddie-ink-dim);
+    border-style: dashed;
+    border-color: #9f9580;
+    transform: translateY(3px);
+    box-shadow: none;
+    text-decoration: line-through;
+  }
+}
+/* Onboarding: the new step fades in where the old one was, and its option
+   keys rise onto their ledges one after another, 40 ms apart. */
+@media (prefers-reduced-motion: no-preference) {
+  .onb-step {
+    animation: onb-fade 180ms ease-out both;
+  }
+  .onb-step [role='radio'] {
+    animation: onb-key-rise 320ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+  .onb-step [role='radio']:nth-child(2) {
+    animation-delay: 40ms;
+  }
+  .onb-step [role='radio']:nth-child(3) {
+    animation-delay: 80ms;
+  }
+  .onb-step [role='radio']:nth-child(4) {
+    animation-delay: 120ms;
+  }
+  .onb-step [role='radio']:nth-child(n + 5) {
+    animation-delay: 160ms;
+  }
+}
+@keyframes onb-fade {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes onb-key-rise {
+  from {
+    opacity: 0;
+    translate: 0 10px;
+  }
+}
+/* Golf Pad file ledger: a matched file stamps into its slot (#1304). */
+@media (prefers-reduced-motion: no-preference) {
+  .ledger-stamp {
+    animation: ledger-stamp 180ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+}
+@keyframes ledger-stamp {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+}
+/* 404: the ghost number rises, then the line, then the way back. Once, and
+   not at all under reduced motion. */
+@media (prefers-reduced-motion: no-preference) {
+  .nf-rise {
+    animation: nf-rise 320ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+  .nf-ghost {
+    --nf-from: 10px;
+    animation-duration: 420ms;
+  }
+  .nf-head {
+    animation-delay: 90ms;
+  }
+  .nf-keys {
+    animation-delay: 180ms;
+  }
+}
+@keyframes nf-rise {
+  from {
+    opacity: 0;
+    transform: translateY(var(--nf-from, 6px));
   }
 }

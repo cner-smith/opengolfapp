@@ -11,6 +11,11 @@ async function walkToImportStep(page: Page) {
     writes.push(body)
     await route.fulfill({ json: { onboarding_completed: false, ...body } })
   })
+  // The bag write too: the e2e user's bag stays as it is.
+  await page.route('**/rest/v1/user_clubs*', async (route) => {
+    if (route.request().method() === 'GET') return route.fallback()
+    await route.fulfill({ json: [] })
+  })
   await page.goto('/onboarding')
   await page.getByRole('radio', { name: /^Casual/ }).click()
   await page.getByRole('button', { name: /Continue/ }).click()
@@ -20,10 +25,10 @@ async function walkToImportStep(page: Page) {
   await page.getByRole('radio', { name: 'About once a week' }).click()
   await page.getByRole('radio', { name: 'Mixed' }).click()
   await page.getByRole('button', { name: /Continue/ }).click()
-  await page.getByRole('button', { name: /Continue/ }).click()
-  await page.getByRole('button', { name: /Set up later/ }).click()
-  await expect(page.getByRole('heading', { name: 'Coming from another app?' })).toBeVisible()
-  await expect(page.getByText('One more thing')).toBeVisible()
+  await page.getByRole('button', { name: /Save and continue/ }).click()
+  await page.getByRole('button', { name: /Looks good/ }).click()
+  await expect(page.getByRole('heading', { name: 'Your yardage book is open.' })).toBeVisible()
+  await expect(page.getByRole('status')).toHaveText('One more thing')
   expect(writes.at(-1)).toEqual({ onboarding_completed: true })
   return writes
 }
@@ -37,9 +42,9 @@ test.describe('Onboarding import step (signed in)', () => {
     expect(writes.length).toBe(before)
   })
 
-  test('Skip goes Home', async ({ page }) => {
+  test('Go to Home goes Home', async ({ page }) => {
     await walkToImportStep(page)
-    await page.getByRole('button', { name: 'Skip' }).click()
+    await page.getByRole('button', { name: 'Go to Home' }).click()
     await expect(page).toHaveURL(/\/dashboard$/)
   })
 })
@@ -49,12 +54,50 @@ test.describe('Onboarding step 1 (signed in)', () => {
   // lands on the sign-in form (#1228). Step 2 has one, back to step 1.
   test('has no Back; step 2 goes back to step 1', async ({ page }) => {
     await page.goto('/onboarding')
-    await expect(page.getByText('Step 1 of 5')).toBeVisible()
+    await expect(page.getByRole('status')).toHaveText('Step 1 of 5')
     await expect(page.getByRole('button', { name: /Back/ })).toHaveCount(0)
+    // Continue with no pick says why and takes focus to the list (#1267).
+    await page.getByRole('button', { name: /Continue/ }).click()
+    await expect(page.getByText('Pick the one that fits best.')).toBeVisible()
+    await expect(page.getByRole('radio').first()).toBeFocused()
     await page.getByRole('radio', { name: /^Casual/ }).click()
     await page.getByRole('button', { name: /Continue/ }).click()
     await page.getByRole('button', { name: /Back/ }).click()
-    await expect(page.getByText('Step 1 of 5')).toBeVisible()
+    await expect(page.getByRole('status')).toHaveText('Step 1 of 5')
     await expect(page).toHaveURL(/\/onboarding$/)
+  })
+})
+
+test.describe('Onboarding step 2 (signed in)', () => {
+  // Step 1's answer sets where the handicap starts, and says so (#1266).
+  test('starts the handicap from the skill picked on step 1', async ({ page }) => {
+    await page.goto('/onboarding')
+    await page.getByRole('radio', { name: /^Casual/ }).click()
+    await page.getByRole('button', { name: /Continue/ }).click()
+    await expect(page.getByRole('button', { name: /^Handicap index 28\.0/ })).toBeVisible()
+    await expect(page.getByText(/No handicap yet\? Keep this/)).toBeVisible()
+    await page.getByRole('button', { name: 'Raise by a tenth' }).click()
+    await expect(page.getByRole('button', { name: /^Handicap index 28\.1/ })).toBeVisible()
+    await expect(page.getByText(/No handicap yet\? Keep this/)).toHaveCount(0)
+  })
+})
+
+test.describe('Onboarding step 5 (signed in)', () => {
+  // #1264: an answer changed from step 5's rows goes straight back to step 5.
+  test('changing the goal from the summary returns to the summary', async ({ page }) => {
+    await page.goto('/onboarding')
+    await page.getByRole('radio', { name: /^Casual/ }).click()
+    await page.getByRole('button', { name: /Continue/ }).click()
+    await page.getByRole('button', { name: /Continue/ }).click()
+    await page.getByRole('radio', { name: /^Break 90/ }).click()
+    await page.getByRole('button', { name: /Continue/ }).click()
+    await page.getByRole('radio', { name: 'About once a week' }).click()
+    await page.getByRole('radio', { name: 'Mixed' }).click()
+    await page.getByRole('button', { name: /Continue/ }).click()
+    await page.getByRole('button', { name: /^Goal/ }).click()
+    await page.getByRole('radio', { name: /^Break 80/ }).click()
+    await page.getByRole('button', { name: /Continue/ }).click()
+    await expect(page.getByRole('heading', { name: 'Here’s your game, as you told it.' })).toBeVisible()
+    await expect(page.getByRole('button', { name: /^Goal/ })).toContainText('Break 80')
   })
 })

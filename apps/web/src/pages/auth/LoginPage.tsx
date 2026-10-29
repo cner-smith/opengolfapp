@@ -1,10 +1,10 @@
-import { useRef, useState, type FormEvent } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { Turnstile, type TurnstileInstance } from '@marsidev/react-turnstile'
 import { supabase } from '../../lib/supabase'
 import { useDocumentTitle } from '../../hooks/useDocumentTitle'
 import { GoogleSignInButton } from '../../components/auth/GoogleSignInButton'
-import { AuthField, AuthSpread, AuthTitle } from '../../components/auth/AuthSpread'
+import { AuthField, AuthSpread, AuthTitle, PasswordInput } from '../../components/auth/AuthSpread'
 
 // Vite exposes only env vars prefixed `VITE_` to the client bundle, so
 // the Turnstile site key has to follow that convention. Set
@@ -15,12 +15,30 @@ const TURNSTILE_SITE_KEY = import.meta.env.VITE_TURNSTILE_SITE_KEY as
   | string
   | undefined
 
+type Mode = 'signin' | 'forgot' | 'sent'
+
 export function LoginPage() {
   const navigate = useNavigate()
-  // 'forgot' swaps the card to the password reset request; 'sent' is its
-  // confirmation. Same page, so the email typed so far carries over.
-  const [mode, setMode] = useState<'signin' | 'forgot' | 'sent'>('signin')
-  const [email, setEmail] = useState('')
+  const [params, setParams] = useSearchParams()
+  // Sign up's 'Sign in instead' carries the address over (?email=).
+  const [email, setEmail] = useState(() => params.get('email') ?? '')
+  // 'forgot' turns the form into the password reset request; 'sent' is its
+  // confirmation. The mode lives in the URL (?mode=forgot) so Back returns
+  // to sign in; same page, so the email typed so far carries over. A
+  // reloaded ?mode=sent has lost the address, so it asks again.
+  const asked = params.get('mode')
+  const mode: Mode = asked === 'forgot' || (asked === 'sent' && !email) ? 'forgot' : asked === 'sent' ? 'sent' : 'signin'
+  // The form fades for 120 ms before Check your email rises in.
+  const [leaving, setLeaving] = useState(false)
+  const leaveTimer = useRef<number | undefined>(undefined)
+  useEffect(() => () => window.clearTimeout(leaveTimer.current), [])
+  const shownMode = useRef(mode)
+  useEffect(() => {
+    if (shownMode.current === mode) return
+    shownMode.current = mode
+    // The pressed link may fold away or unmount: hand focus to the title.
+    document.getElementById('auth-title')?.focus()
+  }, [mode])
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
@@ -38,6 +56,13 @@ export function LoginPage() {
   // so devs running against a local Supabase (CAPTCHA disabled) aren't
   // blocked. Production deploys always have the env var set.
   const captchaEnabled = Boolean(TURNSTILE_SITE_KEY)
+  // 'Send it again' rests for 30 s after each send.
+  const [resentAt, setResentAt] = useState<number | null>(null)
+  useEffect(() => {
+    if (resentAt === null) return
+    const t = window.setTimeout(() => setResentAt(null), 30_000)
+    return () => window.clearTimeout(t)
+  }, [resentAt])
   useDocumentTitle(mode === 'signin' ? 'Sign in · OGA' : 'Reset your password · OGA')
 
   async function handleSubmit(e: FormEvent) {
@@ -80,39 +105,120 @@ export function LoginPage() {
       setError(authError.message)
       return
     }
-    if (mode === 'forgot') setMode('sent')
-    else navigate('/dashboard')
+    if (mode === 'forgot') {
+      // Still busy through the fade, so a second press can't send again.
+      setLoading(true)
+      const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+      setLeaving(!reduce)
+      leaveTimer.current = window.setTimeout(
+        () => {
+          setLeaving(false)
+          setLoading(false)
+          setParams({ mode: 'sent' }, { replace: true })
+        },
+        reduce ? 0 : 120,
+      )
+    } else navigate('/dashboard')
+  }
+
+  async function resend() {
+    if (captchaEnabled && !captchaToken) {
+      setError('Please wait a moment and try again.')
+      return
+    }
+    setLoading(true)
+    setError(null)
+    const { error: sendError } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/auth/reset`,
+      ...(captchaToken ? { captchaToken } : {}),
+    })
+    setLoading(false)
+    setCaptchaToken(null)
+    turnstileRef.current?.reset()
+    if (sendError) setError(sendError.message)
+    else setResentAt(Date.now())
   }
 
   function switchTo(next: 'signin' | 'forgot') {
+    setResentAt(null)
     setError(null)
-    setMode(next)
+    setParams(next === 'signin' ? {} : { mode: next })
   }
 
   if (mode === 'sent') {
     return (
       <AuthSpread>
-        <AuthTitle sub="If that address has an account, the link is on its way. It works once; open it on this device.">
-          Check your email.
-        </AuthTitle>
-        <button type="button" className="auth-link" style={{ fontSize: 14 }} onClick={() => switchTo('signin')}>
-          Back to sign in
-        </button>
+        <div className="auth-stage lb-rise">
+          <AuthTitle
+            sub={
+              <>
+                A link is on its way to <span className="text-caddie-ink">{email}</span>, if it has an account. Open it on
+                this device; it works once.
+              </>
+            }
+          >
+            Check your email.{' '}
+            <span className="auth-sent-tag" aria-hidden>
+              in the post
+            </span>
+          </AuthTitle>
+          <button
+            type="button"
+            className="w-full key"
+            disabled={loading || resentAt !== null}
+            onClick={resend}
+            style={{ fontSize: 15 }}
+          >
+            {loading ? 'Sending…' : resentAt ? 'Sent again' : 'Send it again'}
+          </button>
+          <p className="text-caddie-ink-dim" style={{ fontSize: 13, marginTop: 12, marginBottom: 22 }} aria-live="polite">
+            {resentAt ? 'Give it a minute, and check spam.' : 'Nothing after a minute? Check spam first.'}
+          </p>
+          {captchaEnabled && (
+            <div style={{ marginBottom: 14 }}>
+              <Turnstile
+                ref={turnstileRef}
+                siteKey={TURNSTILE_SITE_KEY!}
+                onSuccess={(token) => setCaptchaToken(token)}
+                onError={() => setCaptchaToken(null)}
+                onExpire={() => setCaptchaToken(null)}
+                options={{ theme: 'light' }}
+              />
+            </div>
+          )}
+          {error && (
+            <p className="text-caddie-neg" role="alert" style={{ fontSize: 13, marginBottom: 12 }}>
+              {error}
+            </p>
+          )}
+          <div className="flex flex-wrap justify-between" style={{ gap: 12 }}>
+            <button type="button" className="auth-link" style={{ fontSize: 14 }} onClick={() => switchTo('signin')}>
+              Back to sign in
+            </button>
+            <button type="button" className="auth-link" style={{ fontSize: 14 }} onClick={() => switchTo('forgot')}>
+              Use a different email
+            </button>
+          </div>
+        </div>
       </AuthSpread>
     )
   }
 
   const forgot = mode === 'forgot'
+  // Sign in and reset are one form: the title turns over, the password and
+  // the Google rows fold shut, and the email field never moves.
   return (
     <AuthSpread>
-      <form onSubmit={handleSubmit}>
-        {forgot ? (
-          <AuthTitle sub="Type the email you signed up with and we'll send a link to set a new one.">
-            Reset your password.
-          </AuthTitle>
-        ) : (
-          <AuthTitle sub="Your rounds, strokes gained and practice plan.">Welcome back.</AuthTitle>
-        )}
+      <form onSubmit={handleSubmit} className={leaving ? 'auth-stage auth-leave' : 'auth-stage'}>
+        <div key={mode} className="lb-rise">
+          {forgot ? (
+            <AuthTitle sub="Type the email you signed up with and we'll send a link to set a new one.">
+              Reset your password.
+            </AuthTitle>
+          ) : (
+            <AuthTitle sub="Your rounds, strokes gained and practice plan.">Welcome back.</AuthTitle>
+          )}
+        </div>
         <AuthField label="Email">
           <input
             type="email"
@@ -123,25 +229,23 @@ export function LoginPage() {
             className="auth-input"
           />
         </AuthField>
-        {!forgot && (
-          <AuthField
-            label="Password"
-            aside={
+        <div className="auth-collapse" data-open={!forgot}>
+          <div>
+            <AuthField label="Password">
+              <PasswordInput
+                required={!forgot}
+                autoComplete="current-password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
+            </AuthField>
+            <div className="auth-forgot">
               <button type="button" className="auth-link" onClick={() => switchTo('forgot')}>
-                Forgot password?
+                Forgot your password?
               </button>
-            }
-          >
-            <input
-              type="password"
-              required
-              autoComplete="current-password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="auth-input"
-            />
-          </AuthField>
-        )}
+            </div>
+          </div>
+        </div>
         {captchaEnabled && (
           <div style={{ marginBottom: 14 }}>
             <Turnstile
@@ -176,12 +280,15 @@ export function LoginPage() {
             </>
           )}
         </button>
-        {forgot ? (
-          <button type="button" className="auth-link" style={{ fontSize: 14, marginTop: 18 }} onClick={() => switchTo('signin')}>
-            Back to sign in
-          </button>
-        ) : (
-          <>
+        <div className="auth-collapse" data-open={forgot}>
+          <div>
+            <button type="button" className="auth-link" style={{ fontSize: 14, marginTop: 18 }} onClick={() => switchTo('signin')}>
+              Back to sign in
+            </button>
+          </div>
+        </div>
+        <div className="auth-collapse" data-open={!forgot}>
+          <div>
             <div className="flex items-center" style={{ margin: '18px 0', gap: 12 }}>
               <div style={{ flex: 1, height: 1, backgroundColor: '#D9D2BF' }} />
               <span className="text-caddie-ink-dim" style={{ fontSize: 13 }}>
@@ -190,17 +297,15 @@ export function LoginPage() {
               <div style={{ flex: 1, height: 1, backgroundColor: '#D9D2BF' }} />
             </div>
             <GoogleSignInButton />
-          </>
-        )}
+            <p className="text-caddie-ink-dim" style={{ fontSize: 14, marginTop: 22 }}>
+              New to OGA?{' '}
+              <Link to="/signup" className="text-caddie-ink underline underline-offset-4 hover:opacity-80">
+                Create account
+              </Link>
+            </p>
+          </div>
+        </div>
       </form>
-      {!forgot && (
-        <p className="text-caddie-ink-dim" style={{ fontSize: 14, marginTop: 22 }}>
-          New to OGA?{' '}
-          <Link to="/signup" className="text-caddie-ink underline underline-offset-4 hover:opacity-80">
-            Create account
-          </Link>
-        </p>
-      )}
     </AuthSpread>
   )
 }

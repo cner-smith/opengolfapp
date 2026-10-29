@@ -45,17 +45,36 @@
 }
 .learn-lead {
   display: grid;
-  gap: 6px;
+  grid-template-columns: minmax(0, 1fr) 300px;
+  gap: 36px;
+  align-items: start;
   margin-top: 28px;
   padding: 18px 0 20px;
   border-top: 2px solid #1c211c;
   border-bottom: 1px solid #d9d2bf;
   position: relative;
 }
-.learn-lead .learn-arrow {
-  position: absolute;
-  right: 0;
-  top: 18px;
+.learn-lead-fig {
+  width: 100%;
+  max-width: 300px;
+  margin-top: 6px;
+  height: auto;
+  overflow: visible;
+}
+.learn-lead-bar {
+  transform-box: view-box;
+  animation: learn-lead-draw 520ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+@keyframes learn-lead-draw {
+  from {
+    transform: scaleX(0);
+  }
+}
+@media (max-width: 640px) {
+  .learn-lead {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 18px;
+  }
 }
 .learn-row {
   color: #1c211c;
@@ -114,7 +133,91 @@
     position: static;
   }
 }
+/* Worked example: two swings on one diverging SG scale (#1297). */
+.sg-swing {
+  display: grid;
+  grid-template-columns: 180px minmax(0, 1fr);
+  gap: 14px;
+  align-items: center;
+  min-height: 40px;
+}
+.sg-swing-track {
+  position: relative;
+  height: 40px;
+  margin: 0 58px;
+}
+.sg-swing-track::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  border-top: 1px solid #d9d2bf;
+}
+.sg-swing-track::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 8px;
+  bottom: 8px;
+  border-left: 1px solid #9f9580;
+}
+.sg-swing-bar {
+  position: absolute;
+  top: 13px;
+  height: 14px;
+  transform: scaleX(0);
+  transition: transform 520ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.sg-swing-value {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 20px;
+  font-style: italic;
+  font-weight: 500;
+  padding: 0 4px;
+  background: #fbf8f1;
+  opacity: 0;
+  transition: opacity 240ms ease-out;
+}
+.sg-swings[data-seen] .sg-swing-bar {
+  transform: scaleX(1);
+}
+.sg-swings[data-seen] .sg-swing-value {
+  opacity: 1;
+}
+.sg-swing-axis {
+  min-height: 0;
+  font-size: 12px;
+}
+.sg-swing-axis-labels {
+  margin: 0 58px;
+  display: flex;
+  justify-content: space-between;
+}
+@media (max-width: 560px) {
+  .sg-swing {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+  }
+  .sg-swing-axis > span:first-child {
+    display: none;
+  }
+}
 @media (prefers-reduced-motion: reduce) {
+  .sg-swing-bar,
+  .sg-swing-value {
+    transform: none;
+    opacity: 1;
+    transition: none;
+  }
+  .sg-swing-value {
+    transform: translateY(-50%);
+  }
+  .learn-lead-bar {
+    animation: none;
+  }
   .learn-row-title,
   .learn-arrow {
     transition: none;

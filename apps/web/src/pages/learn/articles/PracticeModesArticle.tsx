@@ -11,7 +11,7 @@ export function PracticeModesArticle() {
         marginBottom: 32,
       }}
     >
-      <ArticleTitle>Block, random, and pressure.</ArticleTitle>
+      <ArticleTitle>Block, random, and pressure practice.</ArticleTitle>
 
       <H2>The practice that feels best teaches least</H2>
       <P>

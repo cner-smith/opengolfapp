@@ -18,7 +18,12 @@ const START_HERE = ['how-to-practice', 'course-management', 'building-your-bag']
 export function LearnPage() {
   useDocumentTitle('The yardage book · OGA')
   const [query, setQuery] = useState('')
-  const filtered = useMemo(() => filterSections(LEARN_SECTIONS, query), [query])
+  const filtered = useMemo(() => {
+    const sections = filterSections(LEARN_SECTIONS, query)
+    if (query.trim()) return sections
+    // The lead is featured above; don't list it twice.
+    return sections.map((s) => ({ ...s, articles: s.articles.filter((a) => a.id !== LEAD) }))
+  }, [query])
   const lead = findLearnArticle(LEAD)?.article
   const picks = START_HERE.map((id) => findLearnArticle(id)?.article).filter((a): a is LearnArticle => !!a)
 
@@ -36,18 +41,21 @@ export function LearnPage() {
         </p>
         {lead && (
           <Link to={`/learn/${lead.id}`} className="learn-lead learn-row">
-            <span className="text-caddie-ink-dim" style={{ fontSize: 13 }}>
-              Start with the one the rest lean on
+            <span style={{ display: 'grid', gap: 6, alignContent: 'start' }}>
+              <span className="font-serif text-caddie-ink-dim" style={{ fontSize: 15, fontStyle: 'italic' }}>
+                Read this one first.
+              </span>
+              <span className="learn-row-title font-serif" style={{ fontSize: 28, fontWeight: 500, fontStyle: 'italic', lineHeight: 1.15 }}>
+                {lead.title}{' '}
+                <span className="learn-arrow font-serif" aria-hidden style={{ fontSize: 22, fontStyle: 'italic' }}>
+                  →
+                </span>
+              </span>
+              <span className="font-serif text-caddie-ink" style={{ fontSize: 17, lineHeight: 1.55, maxWidth: 560 }}>
+                {lead.description}
+              </span>
             </span>
-            <span className="learn-row-title font-serif" style={{ fontSize: 28, fontWeight: 500, fontStyle: 'italic', lineHeight: 1.15 }}>
-              {lead.title}
-            </span>
-            <span className="font-serif text-caddie-ink" style={{ fontSize: 17, lineHeight: 1.55, maxWidth: 560 }}>
-              {lead.description}
-            </span>
-            <span className="learn-arrow font-serif" aria-hidden style={{ fontSize: 22, fontStyle: 'italic' }}>
-              →
-            </span>
+            <LeadFigure />
           </Link>
         )}
       </header>
@@ -270,5 +278,65 @@ function ArticleRow({ article, first }: { article: LearnArticle; first: boolean 
         {inner}
       </Link>
     </li>
+  )
+}
+
+// One made-up round read by part of the game, the same diverging bar the
+// guide teaches. The bars draw out once on load (learn.css).
+const LEAD_ROUND = [
+  { label: 'Off the tee', value: 0.4 },
+  { label: 'Approach', value: -1.1 },
+  { label: 'Around the green', value: 0.2 },
+  { label: 'Putting', value: 0.5 },
+]
+
+function LeadFigure() {
+  const mid = 196
+  const half = 84
+  return (
+    // Hidden from the accessible tree: it sits inside the lead's link, whose
+    // name is the guide's title and description.
+    <svg className="learn-lead-fig" viewBox="0 0 300 128" aria-hidden>
+      <line x1={mid} x2={mid} y1={0} y2={108} stroke="#9F9580" strokeWidth={1} />
+      {LEAD_ROUND.map((r, i) => {
+        const y = 14 + i * 26
+        const w = (Math.abs(r.value) / 1.1) * (half - 28)
+        const pos = r.value >= 0
+        const color = pos ? '#1F3D2C' : '#A33A2A'
+        return (
+          <g key={r.label}>
+            <text x={0} y={y + 4} fontFamily="Epilogue, sans-serif" fontSize={12} fill="#1C211C">
+              {r.label}
+            </text>
+            <line x1={mid - half} x2={mid + half} y1={y} y2={y} stroke="#D9D2BF" strokeWidth={1} />
+            <rect
+              className="learn-lead-bar"
+              x={pos ? mid : mid - w}
+              y={y - 5}
+              width={w}
+              height={10}
+              fill={color}
+              style={{ transformOrigin: `${mid}px ${y}px`, animationDelay: `${200 + i * 90}ms` }}
+            />
+            <text
+              x={pos ? mid + w + 4 : mid - w - 4}
+              y={y + 4}
+              textAnchor={pos ? 'start' : 'end'}
+              fontFamily="Fraunces, serif"
+              fontStyle="italic"
+              fontWeight={500}
+              fontSize={13}
+              fill={color}
+            >
+              {pos ? '+' : '\u2212'}
+              {Math.abs(r.value).toFixed(1)}
+            </text>
+          </g>
+        )
+      })}
+      <text x={0} y={126} fontFamily="Fraunces, serif" fontStyle="italic" fontSize={12} fill="#5C6356">
+        One round, by part of the game
+      </text>
+    </svg>
   )
 }

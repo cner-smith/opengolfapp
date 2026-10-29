@@ -1,9 +1,13 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { Turnstile, type TurnstileInstance } from '@marsidev/react-turnstile'
 import { supabase } from '../../lib/supabase'
 import { useDocumentTitle } from '../../hooks/useDocumentTitle'
 import { toUserMessage } from '../../lib/errors'
-import { AuthField, AuthSpread, AuthTitle } from '../../components/auth/AuthSpread'
+import { AuthField, AuthSpread, AuthTitle, PasswordInput } from '../../components/auth/AuthSpread'
+
+// As on LoginPage: no site key (local dev) skips the widget.
+const TURNSTILE_SITE_KEY = import.meta.env.VITE_TURNSTILE_SITE_KEY as string | undefined
 
 // Where the password reset email lands (LoginPage → resetPasswordForEmail).
 // The link proves the address; this page turns it into a recovery session,
@@ -20,11 +24,17 @@ export function ResetPasswordPage() {
   useDocumentTitle('Set a new password · OGA')
   const navigate = useNavigate()
   const [ready, setReady] = useState(false)
-  const [linkError, setLinkError] = useState<string | null>(null)
+  const [linkFailed, setLinkFailed] = useState(false)
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const handledRef = useRef(false)
+  // A dead link asks for a fresh one right here, no trip back through sign
+  // in. Requested from this browser, so its PKCE code works here.
+  const [email, setEmail] = useState('')
+  const [resent, setResent] = useState(false)
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null)
+  const turnstileRef = useRef<TurnstileInstance | undefined>(undefined)
 
   useEffect(() => {
     if (handledRef.current) return
@@ -32,7 +42,7 @@ export function ResetPasswordPage() {
     const params = new URLSearchParams(window.location.search)
     const tokenHash = params.get('token_hash')
     const code = params.get('code')
-    const linkFailed = () => setLinkError('This link has expired or was already used. Ask for a new one.')
+    const linkFailed = () => setLinkFailed(true)
     if (tokenHash && params.get('type') === 'recovery') {
       supabase.auth.verifyOtp({ type: 'recovery', token_hash: tokenHash }).then(({ error: e }) => (e ? linkFailed() : setReady(true)), linkFailed)
     } else if (code) {
@@ -60,15 +70,98 @@ export function ResetPasswordPage() {
     navigate('/dashboard', { replace: true })
   }
 
-  if (linkError) {
+  // The view swaps under the reader (checking → dead link → sent): hand
+  // focus to the new title.
+  useEffect(() => {
+    if (linkFailed) document.getElementById('auth-title')?.focus()
+  }, [linkFailed, resent])
+
+  async function sendFreshLink(e: FormEvent) {
+    e.preventDefault()
+    if (TURNSTILE_SITE_KEY && !captchaToken) return setError('Please wait a moment and try again.')
+    setSaving(true)
+    setError(null)
+    const { error: sendError } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/auth/reset`,
+      ...(captchaToken ? { captchaToken } : {}),
+    })
+    setSaving(false)
+    // Single-use tokens, as on LoginPage (#1254).
+    setCaptchaToken(null)
+    turnstileRef.current?.reset()
+    if (sendError) return setError(sendError.message)
+    setResent(true)
+  }
+
+  if (linkFailed && resent) {
     return (
       <AuthSpread>
-        <AuthTitle sub={linkError}>That link didn&rsquo;t work.</AuthTitle>
-        <Link to="/login" className="key key-primary">
-          Back to sign in{' '}
-          <span className="font-serif" style={{ fontStyle: 'italic' }}>
-            →
-          </span>
+        <AuthTitle
+          sub={
+            <>
+              If <span className="text-caddie-ink">{email}</span> has an account, a fresh link is on its way. Open it on this
+              device; it works once.
+            </>
+          }
+        >
+          Check your email.
+        </AuthTitle>
+        <Link to="/login" className="auth-link" style={{ fontSize: 14 }}>
+          Back to sign in
+        </Link>
+      </AuthSpread>
+    )
+  }
+
+  if (linkFailed) {
+    return (
+      <AuthSpread>
+        <form onSubmit={sendFreshLink}>
+          <AuthTitle sub="It has expired or was already used. Each link works once; we'll send you a fresh one.">
+            That link didn&rsquo;t work.
+          </AuthTitle>
+          <AuthField label="Email">
+            <input
+              type="email"
+              required
+              autoComplete="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="auth-input"
+            />
+          </AuthField>
+          {TURNSTILE_SITE_KEY && (
+            <div style={{ marginBottom: 14 }}>
+              <Turnstile
+                ref={turnstileRef}
+                siteKey={TURNSTILE_SITE_KEY}
+                onSuccess={(token) => setCaptchaToken(token)}
+                onError={() => setCaptchaToken(null)}
+                onExpire={() => setCaptchaToken(null)}
+                options={{ theme: 'light' }}
+              />
+            </div>
+          )}
+          {error && (
+            <p className="text-caddie-neg" role="alert" style={{ fontSize: 13, marginBottom: 12 }}>
+              {error}
+            </p>
+          )}
+          <button type="submit" disabled={saving} className="w-full key key-primary" style={{ fontSize: 15, letterSpacing: '0.02em' }}>
+            {saving ? (
+              'Sending…'
+            ) : (
+              <>
+                Send a fresh link{' '}
+                <span className="font-serif" style={{ fontStyle: 'italic' }}>
+                  →
+                </span>
+              </>
+            )}
+          </button>
+        </form>
+        <Link to="/login" className="auth-link" style={{ display: 'inline-block', fontSize: 14, marginTop: 18 }}>
+          Back to sign in
         </Link>
       </AuthSpread>
     )
@@ -77,12 +170,11 @@ export function ResetPasswordPage() {
   return (
     <AuthSpread>
       <form onSubmit={handleSubmit}>
-        <AuthTitle sub={ready ? 'Pick a new one, then you are signed in.' : 'Checking your link…'}>
+        <AuthTitle sub={ready ? "One new password and you're back in." : 'Checking your link…'}>
           Set a new password.
         </AuthTitle>
         <AuthField label="New password">
-          <input
-            type="password"
+          <PasswordInput
             required
             minLength={8}
             autoComplete="new-password"
@@ -90,7 +182,6 @@ export function ResetPasswordPage() {
             disabled={!ready}
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className="auth-input"
             style={{ marginBottom: 6 }}
           />
         </AuthField>

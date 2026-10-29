@@ -164,7 +164,7 @@ const routes: RouteObject[] = [
         : []),
     ],
   },
-  { path: '*', element: <PublicShell><NotFoundPage /></PublicShell>, errorElement },
+  { path: '*', element: <NotFoundPage />, errorElement },
 ]
 
 // One <ScrollRestoration /> at the root (react-router's documented placement):

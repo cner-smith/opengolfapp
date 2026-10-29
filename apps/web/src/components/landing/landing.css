@@ -24,6 +24,21 @@
   font-style: italic;
   color: #1c211c;
 }
+.lb-pencil-under {
+  position: relative;
+  white-space: nowrap;
+}
+.lb-pencil-under svg {
+  position: absolute;
+  left: -2%;
+  bottom: -0.16em;
+  width: 104%;
+  height: 0.3em;
+  overflow: visible;
+  fill: #1c211c;
+  opacity: 0.7;
+  pointer-events: none;
+}
 .lb-hero-promise {
   display: block;
   margin-top: 0.18em;
@@ -151,6 +166,16 @@
   font-size: 15px;
   line-height: 1.55;
   color: #5c6356;
+}
+
+/* The heading stays beside its rows while they scroll past (wide only). */
+@media (min-width: 961px) {
+  .lb-negation > h2,
+  .lb-free > h2 {
+    position: sticky;
+    top: 104px;
+    align-self: start;
+  }
 }
 
 /* ---- Buttons: the paper key (index.css .key), a size up ---- */
@@ -323,6 +348,10 @@
   overflow: visible;
   pointer-events: none;
 }
+/* A paper halo, so the pencil still reads over a dark map. */
+.spread-figure .phone-shot-arrow {
+  filter: drop-shadow(0 0 1px #f7f2e7) drop-shadow(0 0 1px #f7f2e7);
+}
 .phone-shot-tag {
   position: absolute;
   padding: 1.6cqw 2.6cqw;
@@ -342,6 +371,13 @@
   grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
   gap: 64px;
   align-items: start;
+}
+/* The heading and key stay beside the chart as a reader scrolls it. */
+@media (min-width: 961px) {
+  .lb-try-grid > :first-child {
+    position: sticky;
+    top: 96px;
+  }
 }
 .lb-key {
   margin: 36px 0 0;
@@ -386,9 +422,9 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  /* The chart's opening height (driver, from the tee) at this width, so
+  /* The chart's opening height (7-iron, around the aim) at this width, so
      the lazy load doesn't move anything below it. */
-  min-height: 1057px;
+  min-height: 915px;
   font-family: 'Epilogue', sans-serif;
   font-size: 13px;
   color: #5c6356;
@@ -416,7 +452,7 @@
     margin-top: 32px;
   }
   .lb-demo-wait {
-    min-height: 1101px;
+    min-height: 961px;
   }
   .lb-key {
     order: 1;
@@ -430,8 +466,21 @@
   .lb-demo-body {
     padding: 12px 10px;
   }
+  /* The whole bag in two rows of five, nothing hidden off the edge. The
+     ladder's own inline styles make it one scrolling row, hence !important. */
+  .lb-demo .club-ladder-row {
+    flex-wrap: wrap;
+    overflow: visible !important;
+  }
+  .lb-demo .club-ladder-row > button {
+    flex: 0 0 20% !important;
+  }
+  /* A row's first club has no rule to its left to print a gap on. */
+  .lb-demo .club-ladder-row > button:nth-child(5n + 1) .club-ladder-gap {
+    display: none;
+  }
   .lb-demo-wait {
-    min-height: 950px;
+    min-height: 787px;
   }
   .lb-demo-foot {
     padding-left: 12px;
@@ -481,17 +530,27 @@
   line-height: 1.2;
   color: #1c211c;
 }
-.lb-stamp {
-  font-family: 'Inconsolata', monospace;
-  font-size: 11px;
-  font-weight: 500;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: #5c6356;
-  border: 1px solid #5c6356;
-  border-radius: 2px;
-  padding: 2px 6px 1px;
+.lb-example-tag {
+  padding: 2px 9px 1px;
+  background: #f7f2e7;
+  border: 1px solid #1c211c;
+  box-shadow: 2px 2px 0 #1c211c;
+  font-family: 'Kalam', cursive;
+  font-size: 15px;
+  line-height: 1.3;
+  color: #1c211c;
+  white-space: nowrap;
   transform: rotate(-3deg);
+  transition: opacity 160ms ease-out;
+}
+/* The first edit makes it the reader's bag: the tag leaves. */
+.lb-example-tag[data-gone] {
+  opacity: 0;
+}
+@media (prefers-reduced-motion: reduce) {
+  .lb-example-tag {
+    transition: none;
+  }
 }
 .lb-ladder-top {
   display: flex;
@@ -687,20 +746,25 @@
 }
 
 /* ---- Sign in / sign up / reset (AuthSpread) ---- */
-.auth-top {
-  max-width: 1180px;
-  margin: 0 auto;
-  padding: 14px 28px;
-}
+/* An open book: the form on the left page, the phone on the right, a
+   hairline fold between them, the pair centred on the screen. The wordmark
+   heads the left page, so nothing sits on a grid of its own. */
 .auth-spread {
-  max-width: 1180px;
-  margin: 0 auto;
-  padding: 56px 28px 72px;
+  min-height: 100vh;
+  padding: 48px 28px;
   display: grid;
-  grid-template-columns: minmax(0, 420px) 300px;
+  grid-template-columns: minmax(0, 420px) 1px 300px;
   justify-content: center;
-  gap: 120px;
+  align-content: center;
   align-items: center;
+  column-gap: 80px;
+}
+.auth-wordmark {
+  margin-bottom: 44px;
+}
+.auth-fold {
+  align-self: stretch;
+  background: #d9d2bf;
 }
 .auth-input {
   display: block;
@@ -733,16 +797,138 @@
 .auth-link:hover {
   color: #1c211c;
 }
-@media (max-width: 960px) {
-  .auth-spread {
-    grid-template-columns: minmax(0, 440px);
-    padding: 28px 16px 56px;
+.auth-link:focus-visible,
+.auth-pw-toggle:focus-visible {
+  outline: 2px solid #1c211c;
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+.auth-pw {
+  position: relative;
+}
+.auth-pw .auth-input {
+  padding-right: 60px;
+}
+.auth-pw-toggle {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 56px;
+  height: 44px;
+  background: none;
+  border: none;
+  font-family: 'Epilogue', sans-serif;
+  font-size: 13px;
+  color: #5c6356;
+  cursor: pointer;
+}
+.auth-pw-toggle:hover {
+  color: #1c211c;
+}
+/* The landing's paper tag, stamped beside Check your email. */
+.auth-sent-tag {
+  display: inline-block;
+  vertical-align: middle;
+  margin-left: 8px;
+  padding: 3px 8px 2px;
+  background: #f7f2e7;
+  border: 1.5px solid #1c211c;
+  box-shadow: 3px 3px 0 #1c211c;
+  font-family: 'Kalam', cursive;
+  font-size: 17px;
+  font-style: normal;
+  font-weight: 400;
+  letter-spacing: 0;
+  line-height: 1.1;
+  transform: rotate(-3deg);
+}
+/* Forgot sits after the password field, so Tab reaches it before Sign in. */
+.auth-forgot {
+  display: flex;
+  justify-content: flex-end;
+  margin: -10px 0 14px;
+}
+.auth-forgot .auth-link {
+  min-height: 24px;
+  padding: 4px 0;
+}
+/* Sign in, reset and sent share one height on a wide screen, so the
+   centred page doesn't re-centre and the title stays put between them:
+   sign in's height with the captcha (about 585px), the tallest of the three. */
+@media (min-width: 961px) {
+  .auth-stage {
+    min-height: 590px;
   }
+}
+/* Sign in folding into reset (LoginPage): rows close to nothing rather
+   than unmounting, so the email field above them never moves. */
+.auth-collapse {
+  display: grid;
+  grid-template-rows: 1fr;
+  transition: grid-template-rows 260ms cubic-bezier(0.22, 1, 0.36, 1), opacity 180ms ease;
+}
+.auth-collapse > div {
+  overflow: hidden;
+  min-height: 0;
+  /* Room for the keys' ink ledge and focus ring inside the clip. */
+  padding: 0 3px 3px;
+  margin: 0 -3px;
+}
+.auth-collapse[data-open='false'] > div {
+  padding-bottom: 0;
+}
+.auth-collapse[data-open='false'] {
+  grid-template-rows: 0fr;
+  opacity: 0;
+  visibility: hidden;
+  transition: grid-template-rows 260ms cubic-bezier(0.22, 1, 0.36, 1), opacity 120ms ease-in, visibility 0s 260ms;
+}
+.auth-leave {
+  opacity: 0;
+  transition: opacity 120ms ease-in;
+}
+@media (prefers-reduced-motion: reduce) {
+  .auth-collapse,
+  .auth-collapse[data-open='false'] > div {
+  padding-bottom: 0;
+}
+.auth-collapse[data-open='false'] {
+    transition: none;
+  }
+}
+.auth-peek {
+  display: none;
+}
+@media (max-width: 960px) {
+  .auth-peek {
+    display: block;
+    margin: 34px 0 0;
+  }
+  /* A hard clip on a hairline, no fade: the phone runs on past the page. */
+  .auth-peek-crop {
+    height: 260px;
+    overflow: hidden;
+    padding-top: 6px;
+    border-bottom: 1px solid #9f9580;
+  }
+  .auth-peek .phone-shot {
+    width: 250px;
+  }
+  .auth-peek .lb-caption {
+    margin-top: 10px;
+  }
+  .auth-spread {
+    min-height: 0;
+    grid-template-columns: minmax(0, 440px);
+    align-content: start;
+    padding: 14px 16px 56px;
+  }
+  .auth-wordmark {
+    margin-bottom: 36px;
+  }
+  .auth-fold,
   .auth-figure {
     display: none;
-  }
-  .auth-top {
-    padding: 14px 16px;
   }
 }
 
@@ -754,6 +940,9 @@
   }
   .lb-rise-2 {
     animation-delay: 120ms;
+  }
+  .auth-sent-tag {
+    animation: lb-stamp 180ms 360ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
   }
   /* The phone lifts onto its shadow, the tag stamps on, the arrow draws. */
   .lb-phone-in .phone-shot-device {
@@ -779,6 +968,21 @@
   [data-reveal='waiting'] .spread-figure {
     opacity: 0;
     transform: translateY(12px);
+  }
+  /* Then the coach's note: the tag stamps on and the arrow draws to the
+     thing on screen that proves the sentence. */
+  [data-reveal='waiting'] .phone-shot-tag {
+    opacity: 0;
+  }
+  [data-reveal] .phone-shot-arrow path {
+    stroke-dasharray: 1;
+    stroke-dashoffset: 1;
+  }
+  [data-reveal='shown'] .phone-shot-tag {
+    animation: lb-stamp 180ms 300ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  }
+  [data-reveal='shown'] .phone-shot-arrow path {
+    animation: lb-draw 420ms 460ms ease-out both;
   }
 }
 @keyframes lb-rise {

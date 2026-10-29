@@ -3,24 +3,28 @@ import '../learn.css'
 
 // The article's title: the one big italic line, ruled off from the text.
 // The category it belongs to is the breadcrumb above (LearnArticlePage).
-export function ArticleTitle({ children }: { children: ReactNode }) {
+export function ArticleTitle({ children, standfirst }: { children: ReactNode; standfirst?: string }) {
   return (
-    <h1
-      className="font-serif text-caddie-ink"
-      style={{
-        fontSize: 'clamp(34px, 5vw, 46px)',
-        fontWeight: 500,
-        fontStyle: 'italic',
-        letterSpacing: '-0.02em',
-        lineHeight: 1.08,
-        paddingBottom: 18,
-        borderBottom: '2px solid #1C211C',
-        marginBottom: 22,
-        textWrap: 'balance',
-      } as React.CSSProperties}
-    >
-      {children}
-    </h1>
+    <header style={{ paddingBottom: 18, borderBottom: '2px solid #1C211C', marginBottom: 22 }}>
+      <h1
+        className="font-serif text-caddie-ink"
+        style={{
+          fontSize: 'clamp(34px, 5vw, 46px)',
+          fontWeight: 500,
+          fontStyle: 'italic',
+          letterSpacing: '-0.02em',
+          lineHeight: 1.08,
+          textWrap: 'balance',
+        } as React.CSSProperties}
+      >
+        {children}
+      </h1>
+      {standfirst && (
+        <p className="font-serif text-caddie-ink-dim" style={{ fontSize: 22, fontStyle: 'italic', lineHeight: 1.3, marginTop: 10 }}>
+          {standfirst}
+        </p>
+      )}
+    </header>
   )
 }
 

@@ -1,5 +1,6 @@
 import { Suspense, lazy, useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { marksDuration, marksPath, pencilUnderline } from '@oga/core'
 import { useAuth } from '../../hooks/useAuth'
 import { PhoneShot } from '../../components/landing/PhoneShot'
 import { StoreBadges } from '../../components/landing/StoreBadges'
@@ -24,6 +25,8 @@ export function LandingPage() {
         src="/landing/round-map.webp"
         alt="Bear Creek Golf Club, hole 9, par 4, 376 yards, scored 4: three marked shots up the fairway to a 3-foot putt that was made"
         caption="Bear Creek, hole 9, after the round"
+        tag={{ text: <>the hole<br />draws itself</>, left: 14, top: 446, width: 112 }}
+        arrow={[100, 442, 146, 380]}
       >
         On the course OGA follows your phone&apos;s GPS. Stand by the ball and
         mark it, set where you&apos;re aiming, and play. Each mark is where a
@@ -37,6 +40,8 @@ export function LandingPage() {
         src="/landing/stats.webp"
         alt="Stats, last 10 rounds against a 12-handicap: off the tee +1.51, approach −0.79, around the green +0.90, putting +0.98, with a round-by-round chart"
         caption="Stats, last 10 rounds"
+        tag={{ text: 'approach', left: 170, top: 366, width: 94 }}
+        arrow={[238, 362, 226, 266]}
         to="/learn/strokes-gained"
         linkLabel="How strokes gained works"
       >
@@ -50,6 +55,8 @@ export function LandingPage() {
         src="/landing/patterns.webp"
         alt="Shot patterns for the 7-iron, 24 shots around the aim: two in three finish inside the solid ring, the average sits short and right of the aim flag"
         caption="Shot patterns, 7-iron, 24 shots"
+        tag={{ text: <>two in<br />three</>, left: 22, top: 420, width: 76 }}
+        arrow={[78, 470, 148, 506]}
         to="/learn/course-management"
         linkLabel="Course management guide"
       >
@@ -64,6 +71,8 @@ export function LandingPage() {
         src="/landing/bag.webp"
         alt="My bag, 14 clubs: typical distance per club from driver 226 to lob wedge 87 yards, with the overlaps between neighbouring clubs shaded"
         caption="My bag, typical distance per club"
+        tag={{ text: 'share 8 yd', left: 40, top: 200, width: 104 }}
+        arrow={[144, 224, 194, 236]}
         to="/learn/building-your-bag"
         linkLabel="Building your bag"
         after={<TryYourBag />}
@@ -78,6 +87,8 @@ export function LandingPage() {
         src="/landing/practice.webp"
         alt="Practice, week of Oct 21: two sessions, 125 minutes. The first, Iron contact and start line, 70 minutes, opens with a 7-iron calibration warm-up"
         caption="Practice, week of Oct 21"
+        tag={{ text: 'your 7-iron', left: 158, top: 404, width: 112 }}
+        arrow={[200, 400, 230, 350]}
         to="/learn/how-to-practice"
         linkLabel="How to practice effectively"
       >
@@ -103,7 +114,9 @@ function Hero() {
       <div style={WRAP} className="lb-hero-grid">
         <div>
           <h1 className="lb-hero-title font-serif">
-            <span className="lb-hero-finding lb-rise">Approach costs you 0.8 strokes a round.</span>{' '}
+            <span className="lb-hero-finding lb-rise">
+              Approach costs you <PencilUnder>0.8 strokes</PencilUnder> a round.
+            </span>{' '}
             <span className="lb-hero-promise lb-rise lb-rise-2">Track your rounds. OGA finds yours.</span>
           </h1>
           <p className="lb-lede" style={{ maxWidth: 520, margin: '26px 0 0' }}>
@@ -133,6 +146,41 @@ function Hero() {
         </figure>
       </div>
     </section>
+  )
+}
+
+// The pitch's quantity gets the coach's pencil: once the second line has
+// risen, an underline draws in under it (core pencil geometry, as on the
+// tab bar). Reduced motion: the underline is simply there.
+const UNDERLINE = [{ m: pencilUnderline(), at: 0 }]
+const UNDERLINE_MS = marksDuration(UNDERLINE)
+function PencilUnder({ children }: { children: React.ReactNode }) {
+  const [t, setT] = useState(() =>
+    window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ? UNDERLINE_MS : 0,
+  )
+  const drawn = t >= UNDERLINE_MS
+  useEffect(() => {
+    if (drawn) return
+    let raf = 0
+    let t0 = 0
+    const tick = (now: number) => {
+      if (!t0) t0 = now + 560
+      const k = Math.min(1, Math.max(0, (now - t0) / 480))
+      setT(k * UNDERLINE_MS)
+      if (k < 1) raf = requestAnimationFrame(tick)
+    }
+    raf = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(raf)
+    // Runs once on mount; `drawn` only says whether to start.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+  return (
+    <span className="lb-pencil-under">
+      {children}
+      <svg viewBox="-15.5 -3.5 31 7" preserveAspectRatio="none" aria-hidden>
+        <path d={marksPath(UNDERLINE, t)} />
+      </svg>
+    </span>
   )
 }
 
@@ -220,6 +268,8 @@ function Finding({
   to,
   linkLabel,
   after,
+  tag,
+  arrow,
 }: {
   sentence: string
   children: React.ReactNode
@@ -230,6 +280,8 @@ function Finding({
   to?: string
   linkLabel?: string
   after?: React.ReactNode
+  tag: React.ComponentProps<typeof PhoneShot>['tag']
+  arrow: React.ComponentProps<typeof PhoneShot>['arrow']
 }) {
   const [ref, seen] = useOnView<HTMLElement>(0.25)
   return (
@@ -251,7 +303,7 @@ function Finding({
             )}
           </div>
           <figure className="spread-figure lb-figure">
-            <PhoneShot src={src} alt={alt} />
+            <PhoneShot src={src} alt={alt} tag={tag} arrow={arrow} />
             <figcaption className="lb-caption">{caption}</figcaption>
           </figure>
         </div>
