@@ -52,4 +52,19 @@ test.describe('Login page (signed out)', () => {
     await expect(page.getByRole('heading', { name: 'Welcome back.' })).toBeVisible()
     await expect(page.getByLabel('Password', { exact: true })).toBeEditable()
   })
+
+  test('a dead reset link asks for a fresh one on the spot', async ({ page }) => {
+    let sent = ''
+    await page.route('**/auth/v1/recover**', async (route) => {
+      sent = route.request().postData() ?? ''
+      await route.fulfill({ status: 200, contentType: 'application/json', body: '{}' })
+    })
+    // No code and no session: the link is dead (#1276).
+    await page.goto('/auth/reset')
+    await expect(page.getByRole('heading', { name: 'That link didn’t work.' })).toBeVisible()
+    await page.getByLabel('Email').fill('someone@example.com')
+    await page.getByRole('button', { name: /Send a fresh link/ }).click()
+    await expect(page.getByRole('heading', { name: 'Check your email.' })).toBeVisible()
+    expect(sent).toContain('someone@example.com')
+  })
 })
