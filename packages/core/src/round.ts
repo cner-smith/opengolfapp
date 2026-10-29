@@ -191,16 +191,18 @@ export function inferParFromYards(yards: number | null | undefined): 3 | 4 | 5 {
 // every shot, so a hole with one shot already reads as played (#902). Rows
 // written before finished_at existed resume on the last hole with shots.
 // Clamped to the round's length so a finished 9-hole round doesn't resume on
-// a phantom hole 10 (#650).
+// a phantom hole 10 (#650): its stored hole_count (#727), else inferred.
 export function resumeHoleNumber(
   rows: ReadonlyArray<{ number: number; score: number | null; finished_at: string | null }>,
+  holeCount?: number | null,
 ): number {
   let next = 1
   for (const r of rows) {
     if (r.finished_at) next = Math.max(next, r.number + 1)
     if ((r.score ?? 0) > 0) next = Math.max(next, r.number)
   }
-  return Math.min(inferHoleCount(rows.map((r) => r.number)), next)
+  const count = roundHoleCount(holeCount, inferHoleCount(rows.map((r) => r.number)))
+  return Math.min(count, MAX_HOLE_NUMBER, next)
 }
 
 // Sorted hole numbers as prose with consecutive runs collapsed, for copy like
@@ -221,16 +223,20 @@ export function formatHoleList(holes: readonly number[]): string {
 type HoleScoreForCount = { score: number | null; holes?: { number: number } | null }
 
 // How much of a round was played (#911): holes with a score (> 0, the
-// not-played sentinel) against the round's 9 or 18, inferred from its rows'
+// not-played sentinel) against the round's stored hole_count (#727; a 6-hole
+// round played through is whole), else its 9 or 18 inferred from its rows'
 // hole numbers — mobile pre-creates every row, web creates them as entered.
-// Null for a round with no rows (a bare total), which callers count as whole.
+// At most 18: no hole row exists past 18. Null for a round with no rows (a
+// bare total), which callers count as whole.
 export function roundHolesPlayed(
   holeScores: readonly HoleScoreForCount[] | null | undefined,
+  holeCount?: number | null,
 ): { played: number; of: number } | null {
   if (!holeScores?.length) return null
+  const inferred = inferHoleCount(holeScores.flatMap((hs) => (hs.holes ? [hs.holes.number] : [])))
   return {
     played: holeScores.filter((hs) => hs.score != null && hs.score > 0).length,
-    of: inferHoleCount(holeScores.flatMap((hs) => (hs.holes ? [hs.holes.number] : []))),
+    of: Math.min(roundHoleCount(holeCount, inferred), MAX_HOLE_NUMBER),
   }
 }
 
@@ -238,20 +244,23 @@ export function roundHolesPlayed(
 // whose values only compare across whole rounds.
 export function isPartialRound(
   holeScores: readonly HoleScoreForCount[] | null | undefined,
+  holeCount?: number | null,
 ): boolean {
-  const c = roundHolesPlayed(holeScores)
+  const c = roundHolesPlayed(holeScores, holeCount)
   return c != null && c.played < c.of
 }
 
 // "Last N rounds" runs back to the n-th most recent WHOLE round (#932):
 // partials inside the span stay (their holes feed per-hole stats), partials
 // past it don't use up a slot. Fewer than n whole rounds = everything.
-export function wholeRoundWindow<T extends { hole_scores?: readonly HoleScoreForCount[] | null }>(
+export function wholeRoundWindow<
+  T extends { hole_scores?: readonly HoleScoreForCount[] | null; hole_count?: number | null },
+>(
   rounds: readonly T[],
   n: number,
 ): T[] {
   let whole = 0
-  const end = rounds.findIndex((r) => !isPartialRound(r.hole_scores) && ++whole === n)
+  const end = rounds.findIndex((r) => !isPartialRound(r.hole_scores, r.hole_count) && ++whole === n)
   return end === -1 ? [...rounds] : rounds.slice(0, end + 1)
 }
 
@@ -279,8 +288,9 @@ export function isFinishedRound(r: {
 // Suffix for a round's date line in the rounds lists: " · partial · 6 of 18".
 export function partialRoundLabel(
   holeScores: readonly HoleScoreForCount[] | null | undefined,
+  holeCount?: number | null,
 ): string {
-  const c = roundHolesPlayed(holeScores)
+  const c = roundHolesPlayed(holeScores, holeCount)
   return c && c.played < c.of ? ` · partial · ${c.played} of ${c.of}` : ''
 }
 

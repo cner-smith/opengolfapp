@@ -1,5 +1,5 @@
 import type { Database } from '@oga/supabase'
-import { formatSG, formatToPar, inferHoleCount, roundHoleCount } from '@oga/core'
+import { MAX_HOLE_NUMBER, formatSG, formatToPar, inferHoleCount, roundHoleCount } from '@oga/core'
 
 type HoleRow = Database['public']['Tables']['holes']['Row']
 type HoleScoreRow = Database['public']['Tables']['hole_scores']['Row']
@@ -85,7 +85,7 @@ export function ShareableScorecardCard({
   // not nine empty "In" cells. Empty/old rounds fall back to 18.
   const holesByNumber = new Map<number, HoleRow>()
   for (const h of holes) holesByNumber.set(h.number, h)
-  const holeCount = Math.min(roundHoleCount(round.hole_count, inferHoleCount(holes.map((h) => h.number))), 18)
+  const holeCount = Math.min(roundHoleCount(round.hole_count, inferHoleCount(holes.map((h) => h.number))), MAX_HOLE_NUMBER)
   const holeNumbers = Array.from({ length: holeCount }, (_, i) => i + 1)
 
   const totalPar = holeNumbers.reduce((sum, n) => {

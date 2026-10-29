@@ -44,7 +44,7 @@ export function DashboardPage() {
   const stats = useMemo(() => {
     // Rounds ended early stay out of the per-round numbers (#911).
     // The newest 20 whole rounds out of 40, as mobile Home does (#1222).
-    const whole = rounds.filter((r) => !isPartialRound(r.hole_scores)).slice(0, 20)
+    const whole = rounds.filter((r) => !isPartialRound(r.hole_scores, r.hole_count)).slice(0, 20)
     const sg = sgBreakdown(whole)
     const avgs = SG_KEYS.map((c) => ({ ...c, value: sg.breakdown.find((b) => b.key === c.key)?.value ?? 0 }))
     const maxAbs = barScale(sg.maxAbs)
@@ -187,7 +187,7 @@ export function DashboardPage() {
                         </div>
                         <div className="text-caddie-ink-dim" style={{ fontSize: 12, marginTop: 2 }}>
                           {formatPlayed(r.played_at)}
-                          {partialRoundLabel(r.hole_scores)}
+                          {partialRoundLabel(r.hole_scores, r.hole_count)}
                         </div>
                       </div>
                       <div className="dash-row-score flex items-baseline shrink-0" style={{ gap: 12 }}>

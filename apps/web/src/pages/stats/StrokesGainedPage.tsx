@@ -19,7 +19,7 @@ export function StrokesGainedPage() {
   const [n, setN] = useState<number>(10)
   const stats = useDetailedStats(n)
   // No rounds, or only partial ones (#1078): the sample page instead (#1076).
-  const wholeCount = stats.rounds.filter((r) => !isPartialRound(r.hole_scores)).length
+  const wholeCount = stats.rounds.filter((r) => !isPartialRound(r.hole_scores, r.hole_count)).length
   const preview = !stats.data || wholeCount === 0
   // Per-club total distance, from every tracked shot's start→end across the
   // loaded rounds (same flatten the mobile Stats screen feeds clubDistanceStats).

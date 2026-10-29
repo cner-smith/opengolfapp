@@ -569,6 +569,28 @@ describe('roundHolesPlayed / isPartialRound', () => {
     expect(roundHolesPlayed(rows(Array(12).fill(4)))).toEqual({ played: 12, of: 18 })
   })
 
+  it('a 6-hole round played through is whole against its stored count (#727)', () => {
+    const six = rows(Array(6).fill(4))
+    expect(roundHolesPlayed(six, 6)).toEqual({ played: 6, of: 6 })
+    expect(isPartialRound(six, 6)).toBe(false)
+    expect(partialRoundLabel(six, 6)).toBe('')
+    expect(isPartialRound(rows(Array(12).fill(4)), 12)).toBe(false)
+  })
+
+  it('a stored 18 ended after 9 is partial, though only 9 rows exist (#727)', () => {
+    expect(roundHolesPlayed(rows(Array(9).fill(4)), 18)).toEqual({ played: 9, of: 18 })
+  })
+
+  it('a stored count past 18 is measured against 18: no hole row exists past it', () => {
+    expect(roundHolesPlayed(rows(Array(18).fill(4)), 27)).toEqual({ played: 18, of: 18 })
+  })
+
+  it('wholeRoundWindow counts a played-through 6 as whole', () => {
+    const six = { hole_count: 6, hole_scores: rows(Array(6).fill(4)) }
+    const partial = { hole_count: 18, hole_scores: rows(Array(9).fill(4)) }
+    expect(wholeRoundWindow([partial, six, partial], 1)).toEqual([partial, six])
+  })
+
   it('partialRoundLabel names the played count, empty when whole', () => {
     expect(partialRoundLabel(rows([...Array(6).fill(5), ...Array(12).fill(0)]))).toBe(' · partial · 6 of 18')
     expect(partialRoundLabel(rows(Array(18).fill(4)))).toBe('')
@@ -629,6 +651,12 @@ describe('obCount', () => {
 })
 
 describe('resumeHoleNumber', () => {
+  it('a 6-hole round finished on 6 resumes on 6, not 7 (#727)', () => {
+    const r = [1, 2, 3, 4, 5, 6].map((number) => ({ number, score: 4, finished_at: '2026-10-29T00:00:00Z' }))
+    expect(resumeHoleNumber(r, 6)).toBe(6)
+    expect(resumeHoleNumber(r)).toBe(7)
+  })
+
   const row = (number: number, score: number, finished = false) => ({
     number,
     score,

@@ -81,7 +81,10 @@ export function ShareableScorecardCard({
   for (const h of holes) holesByNumber.set(h.number, h)
   // Match the round's actual size (#525) — a 9-hole round shows one grid,
   // not nine empty "In" cells. Empty/old rounds fall back to 18.
-  const holeCount = Math.min(roundHoleCount(round.hole_count, inferHoleCount(holes.map((h) => h.number))), 18)
+  // The round's stored count caps the course's rows, never raises them, as
+  // on mobile's round screen (#727).
+  const inferred = inferHoleCount(holes.map((h) => h.number))
+  const holeCount = Math.min(roundHoleCount(round.hole_count, inferred), inferred)
   const holeNumbers = Array.from({ length: holeCount }, (_, i) => i + 1)
 
   const totalPar = holeNumbers.reduce((sum, n) => {
