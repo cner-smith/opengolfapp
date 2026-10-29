@@ -54,7 +54,12 @@ test.describe('Rounds list (signed in)', () => {
 // mini-map on a finished round.
 test('a finished round opened on the map keeps the shot editor mini-map', async ({ page }) => {
   await page.goto('/rounds')
-  const href = await page.locator('main li a[href^="/rounds/"]').first().getAttribute('href')
+  // A row shows a score only when total_score > 0, which isFinishedRound counts as finished.
+  const finished = page
+    .locator('main li a[href^="/rounds/"]')
+    .filter({ has: page.locator('span', { hasText: /^\d+$/ }) })
+    .first()
+  const href = await finished.getAttribute('href')
   await page.goto(`${href}?view=map`)
   await page.getByRole('tab', { name: 'Scorecard' }).click()
   await page.getByRole('button', { name: /^Hole 1, \d+ shots?, edit$/ }).click()

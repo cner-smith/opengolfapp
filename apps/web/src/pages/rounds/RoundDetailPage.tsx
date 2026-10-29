@@ -70,10 +70,7 @@ export function RoundDetailPage() {
   const [view, setView] = useState<ViewMode>(() =>
     searchParams.get('view') === 'map' ? 'map' : 'scorecard',
   )
-  // Capture "session started in live mode" at mount (see isLiveEntry). `view` is a
-  // runtime Scorecard | Map rocker — past-round reviewers can switch to the
-  // map tab and we don't want that to suppress the shot mini-map for
-  // them. The mini-map suppression is for genuine live entry only.
+  // The URL said live at mount; the Scorecard | Map rocker never changes it.
   const [urlLiveEntry] = useState(
     () =>
       searchParams.get('mode') === 'live' ||
