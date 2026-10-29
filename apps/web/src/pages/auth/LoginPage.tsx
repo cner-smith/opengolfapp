@@ -2,6 +2,7 @@ import { useRef, useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Turnstile, type TurnstileInstance } from '@marsidev/react-turnstile'
 import { supabase } from '../../lib/supabase'
+import { useDocumentTitle } from '../../hooks/useDocumentTitle'
 import { GoogleSignInButton } from '../../components/auth/GoogleSignInButton'
 import { AuthField, AuthSpread, AuthTitle } from '../../components/auth/AuthSpread'
 
@@ -37,6 +38,7 @@ export function LoginPage() {
   // so devs running against a local Supabase (CAPTCHA disabled) aren't
   // blocked. Production deploys always have the env var set.
   const captchaEnabled = Boolean(TURNSTILE_SITE_KEY)
+  useDocumentTitle(mode === 'signin' ? 'Sign in · OGA' : 'Reset your password · OGA')
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()

@@ -6,11 +6,13 @@ import {
   type LearnSection,
 } from '@oga/core'
 import { getArticleComponent } from './data/articleRegistry'
+import { useDocumentTitle } from '../../hooks/useDocumentTitle'
 
 export function LearnArticlePage() {
   const { slug = '' } = useParams<{ slug: string }>()
   const found = findLearnArticle(slug)
   const Component = getArticleComponent(slug)
+  useDocumentTitle(found ? `${found.article.title} · OGA Learn` : 'The yardage book · OGA')
 
   if (!found || !Component) {
     return <Navigate to="/learn" replace />
