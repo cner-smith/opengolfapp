@@ -517,7 +517,7 @@
 }
 .lb-seg {
   display: inline-flex;
-  border: 1px solid #9f9580;
+  border: 1px solid #5c6356;
   border-radius: 2px;
 }
 .lb-seg button,
@@ -532,7 +532,7 @@
   cursor: pointer;
 }
 .lb-seg button + button {
-  border-left: 1px solid #9f9580;
+  border-left: 1px solid #5c6356;
 }
 .lb-seg button[aria-pressed='true'] {
   background: #ebe5d6;
@@ -586,7 +586,7 @@
   font-size: 17px;
   color: #1c211c;
   background: #f2eee5;
-  border: 1px solid #9f9580;
+  border: 1px solid #5c6356;
   border-radius: 2px;
 }
 .lb-rung-unit {
@@ -629,6 +629,7 @@
 .lb-rung-out input {
   color: #8a8b7e;
   background: transparent;
+  border-color: #9f9580;
   border-style: dashed;
 }
 .lb-rung-out .lb-inbag {
@@ -717,7 +718,7 @@
   margin-bottom: 16px;
   padding: 10px 12px;
   background: #fbf8f1;
-  border: 1px solid #9f9580;
+  border: 1px solid #5c6356;
   border-radius: 3px;
   font-size: 16px;
   color: #1c211c;
