@@ -91,7 +91,7 @@ export function Step5Summary({
   ]
   return (
     <div>
-      <StepHeading title="Page one of your yardage book." />
+      <StepHeading title="Here’s your game, as you told it." />
       <div style={{ borderTop: '1px solid #1C211C', borderBottom: '1px solid #D9D2BF', padding: '26px 0 24px', marginBottom: 6 }}>
         <button
           type="button"
@@ -125,19 +125,9 @@ export function Step5Summary({
         ))}
       </div>
       {error && (
-        <div
-          role="alert"
-          className="text-caddie-neg"
-          style={{
-            border: '1px solid #A33A2A',
-            borderRadius: 2,
-            padding: '12px 14px',
-            fontSize: 13,
-            marginTop: 18,
-          }}
-        >
+        <p className="text-caddie-neg" role="alert" style={{ fontSize: 13, marginTop: 18 }}>
           {error}
-        </div>
+        </p>
       )}
       <OnboardingButtons
         onBack={onBack}
@@ -148,7 +138,7 @@ export function Step5Summary({
           draft.playFrequency !== null &&
           draft.playStyle !== null
         }
-        continueLabel="Continue"
+        continueLabel="Save and continue"
         busy={saving}
       />
     </div>

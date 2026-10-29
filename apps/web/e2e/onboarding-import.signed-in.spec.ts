@@ -20,7 +20,7 @@ async function walkToImportStep(page: Page) {
   await page.getByRole('radio', { name: 'About once a week' }).click()
   await page.getByRole('radio', { name: 'Mixed' }).click()
   await page.getByRole('button', { name: /Continue/ }).click()
-  await page.getByRole('button', { name: /Continue/ }).click()
+  await page.getByRole('button', { name: /Save and continue/ }).click()
   await page.getByRole('button', { name: /Set up later/ }).click()
   await expect(page.getByRole('heading', { name: 'Your yardage book is open.' })).toBeVisible()
   await expect(page.getByText('One more thing')).toBeVisible()
