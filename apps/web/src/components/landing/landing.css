@@ -347,6 +347,13 @@
   gap: 64px;
   align-items: start;
 }
+/* The heading and key stay beside the chart as a reader scrolls it. */
+@media (min-width: 961px) {
+  .lb-try-grid > :first-child {
+    position: sticky;
+    top: 96px;
+  }
+}
 .lb-key {
   margin: 36px 0 0;
   max-width: 420px;
@@ -390,9 +397,9 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  /* The chart's opening height (driver, from the tee) at this width, so
+  /* The chart's opening height (7-iron, around the aim) at this width, so
      the lazy load doesn't move anything below it. */
-  min-height: 1057px;
+  min-height: 915px;
   font-family: 'Epilogue', sans-serif;
   font-size: 13px;
   color: #5c6356;
@@ -420,7 +427,7 @@
     margin-top: 32px;
   }
   .lb-demo-wait {
-    min-height: 1101px;
+    min-height: 961px;
   }
   .lb-key {
     order: 1;
@@ -435,7 +442,7 @@
     padding: 12px 10px;
   }
   .lb-demo-wait {
-    min-height: 950px;
+    min-height: 787px;
   }
   .lb-demo-foot {
     padding-left: 12px;

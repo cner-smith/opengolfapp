@@ -134,8 +134,8 @@ const VIEWS: { value: View; label: string }[] = [
 
 export default function PatternsDemo() {
   const bag = useMemo(sampleBag, [])
-  const [club, setClub] = useState<Club>('driver')
-  const [view, setView] = useState<View>('tee')
+  const [club, setClub] = useState<Club>('7i')
+  const [view, setView] = useState<View>('aim')
   const [layers, setLayers] = useState<Record<Layer, boolean>>(DEFAULT_LAYERS)
   const [colourBy, setColourBy] = useState<ColourBy>('shape')
   const [hidden, setHidden] = useState<Set<string>>(new Set())
