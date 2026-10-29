@@ -127,7 +127,7 @@ function Hero() {
             src="/landing/home.webp"
             alt="Home after 15 rounds, handicap 12.4: Approach costs you 0.8 strokes a round; off the tee gains you 1.6"
             tag={{ text: <>the one<br />sentence</>, left: 186, top: 24, width: 96 }}
-            arrow={[238, 70, 250, 152]}
+            arrow={[262, 72, 262, 160]}
           />
           <figcaption className="lb-caption">Home, after 15 rounds</figcaption>
         </figure>
