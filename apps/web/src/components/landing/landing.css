@@ -841,7 +841,27 @@
     transition: none;
   }
 }
+.auth-peek {
+  display: none;
+}
 @media (max-width: 960px) {
+  .auth-peek {
+    display: block;
+    margin: 34px 0 0;
+  }
+  /* A hard clip on a hairline, no fade: the phone runs on past the page. */
+  .auth-peek-crop {
+    height: 260px;
+    overflow: hidden;
+    padding-top: 6px;
+    border-bottom: 1px solid #9f9580;
+  }
+  .auth-peek .phone-shot {
+    width: 250px;
+  }
+  .auth-peek .lb-caption {
+    margin-top: 10px;
+  }
   .auth-spread {
     min-height: 0;
     grid-template-columns: minmax(0, 440px);
