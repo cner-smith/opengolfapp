@@ -89,7 +89,7 @@ export function ScorecardCsvImport() {
           />
         </label>
       </div>
-      <FileDrop label="Or drop the CSV file here" disabled={busy} onFiles={readFile} />
+      <FileDrop label="Or drop the CSV file here" accept=".csv,text/csv" disabled={busy} onFiles={readFile} />
 
       {error && (
         <p className="text-caddie-neg" role="alert" style={{ fontSize: 13 }}>
