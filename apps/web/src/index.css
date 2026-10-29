@@ -317,13 +317,12 @@ dialog.pat-dialog::backdrop {
     transition: none;
   }
 }
-/* Onboarding: the step segments fill in, the handicap number ticks over. */
-.onb-seg {
-  transform-origin: left;
-  transition: transform 240ms cubic-bezier(0.22, 1, 0.36, 1), background-color 240ms ease;
-}
+/* Onboarding: the handicap number ticks over; the current step's ring pops in. */
 .onb-tick {
   animation: onb-tick 120ms ease-out both;
+}
+.onb-hole {
+  animation: onb-tick 240ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
 }
 @keyframes onb-tick {
   from {
@@ -332,10 +331,8 @@ dialog.pat-dialog::backdrop {
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .onb-seg {
-    transition: none;
-  }
-  .onb-tick {
+  .onb-tick,
+  .onb-hole {
     animation: none;
   }
 }
