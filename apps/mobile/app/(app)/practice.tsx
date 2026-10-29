@@ -7,7 +7,7 @@ import Animated, {
   withSpring,
   withTiming,
 } from 'react-native-reanimated'
-import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from 'react-native'
+import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View, type TextStyle } from 'react-native'
 import { Link } from 'expo-router'
 import { MaterialCommunityIcons } from '@expo/vector-icons'
 import {
@@ -368,9 +368,9 @@ function NoPlan({
 }
 
 // Apple 5.1.2(i): say who gets the data before the press that sends it.
-function AiDisclosure({ style }: { style?: import('react-native').TextStyle }) {
+function AiDisclosure({ style }: { style?: TextStyle }) {
   return (
-    <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { color: INK_DIM, fontSize: 13, lineHeight: 19 }, style]}>
+    <Text testID="practice-ai-disclosure" maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { color: INK_DIM, fontSize: 13, lineHeight: 19 }, style]}>
       Claude, Anthropic’s AI, writes your plan. Generating sends it your handicap, skill level, goal, how often you
       play, where you practice, your strokes-gained numbers and your plan note. Never your name or email.
     </Text>
@@ -405,7 +405,7 @@ function WhyThisPlan({
         {basis}
       </Text>
       {aiWritten ? (
-        <Text maxFontSizeMultiplier={FONT_CAP} style={{ ...META, color: INK_MUTE, marginTop: 4 }}>
+        <Text testID="practice-ai-written" maxFontSizeMultiplier={FONT_CAP} style={{ ...META, color: INK_MUTE, marginTop: 4 }}>
           Claude wrote this plan from your numbers. Use your judgment.
         </Text>
       ) : null}

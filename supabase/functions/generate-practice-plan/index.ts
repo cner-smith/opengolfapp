@@ -265,6 +265,8 @@ Deno.serve(async (req) => {
   // service-role dryRun path — a service_role JWT bypasses RLS, so without it the
   // rounds queries would aggregate every user's rounds. (profiles below is
   // already keyed by id.)
+  // Same filter as countRoundsWithSG (@oga/supabase), the count the apps use to
+  // show the AI disclosure at Generate: keep the two in step.
   const sgFilter =
     'sg_off_tee.not.is.null,sg_approach.not.is.null,sg_around_green.not.is.null,sg_putting.not.is.null'
   const { count: sgCountRaw } = await supabase

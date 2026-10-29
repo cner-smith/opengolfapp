@@ -18,7 +18,7 @@ export function shouldPromptPlanRefresh(args: {
 
 /** Rounds with strokes-gained data the player needs before generate-practice-plan
  *  asks Claude to write the plan. Below it the plan is built on the server with
- *  no AI call. */
+ *  no AI call. Changing it needs an Edge Function deploy as well as an OTA. */
 export const AI_PLAN_MIN_SG_ROUNDS = 5
 
 /** Should the Generate button say Claude writes the plan (App Store 5.1.2(i))?
