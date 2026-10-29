@@ -339,3 +339,56 @@ dialog.pat-dialog::backdrop {
     animation: none;
   }
 }
+/* Step 2's handicap slider as a printed ruler: ticks and numbers under one
+   ink rule, the pick a green pencil line across the ticks (Step2Handicap).
+   The range input covers the tick band only, so WebKit and Firefox place
+   the thumb alike (Firefox centres it in the track). */
+.onb-ruler-tick {
+  position: absolute;
+  top: 0;
+  width: 1px;
+  background: #9f9580;
+}
+.onb-ruler-num {
+  position: absolute;
+  top: 26px;
+  font-size: 13px;
+  transform: translateX(-50%);
+}
+.onb-ruler {
+  position: absolute;
+  inset: 0 0 auto;
+  appearance: none;
+  -webkit-appearance: none;
+  width: 100%;
+  height: 24px;
+  margin: 0;
+  background: linear-gradient(#1c211c, #1c211c) 0 0 / 100% 1px no-repeat;
+  cursor: pointer;
+}
+.onb-ruler::-webkit-slider-runnable-track {
+  height: 24px;
+  background: transparent;
+}
+.onb-ruler::-moz-range-track {
+  height: 24px;
+  background: transparent;
+}
+.onb-ruler::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 18px;
+  height: 20px;
+  margin-top: 2px;
+  background: linear-gradient(#1f3d2c, #1f3d2c) center / 3px 100% no-repeat;
+}
+.onb-ruler::-moz-range-thumb {
+  width: 18px;
+  height: 20px;
+  border: none;
+  border-radius: 0;
+  background: linear-gradient(#1f3d2c, #1f3d2c) center / 3px 100% no-repeat;
+}
+.onb-ruler:focus-visible {
+  outline: 2px solid var(--caddie-ink);
+  outline-offset: 4px;
+}
