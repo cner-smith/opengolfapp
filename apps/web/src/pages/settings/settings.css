@@ -1,0 +1,97 @@
+/* Profile and My bag. Curves match the Stats page (st-grow, st-rise). */
+
+/* Gapping chart entrance (SHL-11): a rung grows from its tick, its tick and
+   number fade up with it, the bands follow. --d is each one's delay. */
+.bag-grow {
+  animation: bag-grow 360ms cubic-bezier(0.33, 1, 0.68, 1) var(--d, 0ms) both;
+}
+@keyframes bag-grow {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+.bag-fade {
+  animation: bag-fade 360ms cubic-bezier(0.33, 1, 0.68, 1) var(--d, 0ms) both;
+}
+.bag-band {
+  animation: bag-fade 200ms ease-out var(--d, 0ms) both;
+}
+@keyframes bag-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* A Profile row's chevron turns over as its editor opens (SHL-08). */
+.prof-chev {
+  transition: transform 160ms ease-out;
+}
+.prof-chev[data-open='true'] {
+  transform: rotate(180deg);
+}
+/* The editor unfolds from the row: grid rows 0fr to 1fr, with a fade. */
+.prof-open {
+  display: grid;
+  animation: prof-open 200ms cubic-bezier(0.33, 1, 0.68, 1) both;
+}
+.prof-open > * {
+  min-height: 0;
+  overflow: hidden;
+}
+@keyframes prof-open {
+  from {
+    grid-template-rows: 0fr;
+    opacity: 0;
+  }
+  to {
+    grid-template-rows: 1fr;
+    opacity: 1;
+  }
+}
+
+/* The hero number counts up on mount (useCountUp); the column beside it
+   rises in a beat later. */
+.prof-rise {
+  animation: prof-rise 360ms cubic-bezier(0.22, 1, 0.36, 1) 120ms both;
+}
+@keyframes prof-rise {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bag-grow,
+  .bag-fade,
+  .bag-band,
+  .prof-open,
+  .prof-rise {
+    animation: none;
+  }
+  .prof-chev {
+    transition: none;
+  }
+}
+
+/* Option keys on Profile and My bag: the shared .key, a size down. */
+.set-key.key {
+  min-height: 40px;
+  padding: 0 12px;
+  font-size: 13px;
+}
+@media (pointer: coarse) {
+  .set-key.key {
+    min-height: 44px;
+  }
+}

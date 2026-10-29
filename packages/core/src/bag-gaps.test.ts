@@ -32,7 +32,7 @@ describe('bagGaps', () => {
     // Ties go to the first in the bag.
     expect(r.widest).toBe(r.gaps[0])
     expect(r.unmeasured).toEqual([])
-    expect(r.headline).toBe('Your 7-iron to your pitching wedge, 150 to 120 yd, with every gap under 20 yd.')
+    expect(r.headline).toBe('Your 7-iron to your pitching wedge, 150 to 120\u00a0yd, with every gap under 20\u00a0yd.')
   })
 
   it('a hole: the biggest empty stretch between ranges is the headline', () => {
@@ -44,13 +44,13 @@ describe('bagGaps', () => {
     ])
     // The widest gap ties at 40 (first wins); the headline names the bigger hole.
     expect(r.widest).toBe(r.gaps[0])
-    expect(r.headline).toBe('33 yd hole between your 7-iron and pitching wedge.')
+    expect(r.headline).toBe('33\u00a0yd hole between your 7-iron and pitching wedge.')
   })
 
   it('an overlap: crossing ranges, with the shared stretch', () => {
     const r = bagGaps([m('driver', 250, 235, 265), m('3w', 235, 225, 245)], 'yards')
     expect(r.gaps[0]).toMatchObject({ yards: 15, kind: 'overlap', span: { low: 235, high: 245 } })
-    expect(r.headline).toBe('Your driver to your 3-wood, 250 to 235 yd, with every gap under 20 yd.')
+    expect(r.headline).toBe('Your driver to your 3-wood, 250 to 235\u00a0yd, with every gap under 20\u00a0yd.')
   })
 
   it('ranges that only touch are a step, not an overlap', () => {
@@ -73,20 +73,20 @@ describe('bagGaps', () => {
     expect(r.widest).toBe(r.gaps[1])
     expect(r.unmeasured).toEqual([driver, w5, h5, i5, lw])
     expect(r.headline).toBe(
-      '37 yd hole between your 3-wood and 6-iron, where your 5-wood, 5-hybrid and 5-iron have no number yet.',
+      '37\u00a0yd hole between your 3-wood and 6-iron, where your 5-wood, 5-hybrid and 5-iron have no number yet.',
     )
   })
 
   it('one club with no number in a hole: "has"', () => {
     const r = bagGaps([e('3w', 220), none('5w'), e('5h', 190)], 'yards')
-    expect(r.headline).toBe('30 yd hole between your 3-wood and 5-hybrid, where your 5-wood has no number yet.')
+    expect(r.headline).toBe('30\u00a0yd hole between your 3-wood and 5-hybrid, where your 5-wood has no number yet.')
   })
 
   it('a narrow gap across a club with no number is still not measured, and not a hole', () => {
     const r = bagGaps([e('7i', 150), none('8i'), e('9i', 140)], 'yards')
     expect(r.gaps[0]).toMatchObject({ kind: 'not measured', span: { low: 140, high: 150 } })
     expect(r.widest).toBeNull()
-    expect(r.headline).toBe('Your 7-iron to your 9-iron, 150 to 140 yd, with every gap under 20 yd.')
+    expect(r.headline).toBe('Your 7-iron to your 9-iron, 150 to 140\u00a0yd, with every gap under 20\u00a0yd.')
   })
 
   it('estimates only: typical distances stand in for the range ends; 20 yd is a hole, 19 is not', () => {
@@ -98,7 +98,7 @@ describe('bagGaps', () => {
       [20, 'hole', { low: 170, high: 190 }],
     ])
     expect(r.rungs.every((c) => c.typical?.source === 'estimate')).toBe(true)
-    expect(r.headline).toBe('31 yd hole between your 3-wood and 5-iron.')
+    expect(r.headline).toBe('31\u00a0yd hole between your 3-wood and 5-iron.')
   })
 
   it('a missing range falls back to the typical distance at that end only', () => {
@@ -113,24 +113,24 @@ describe('bagGaps', () => {
       [47, 'step'], // 105 − 96 = 9, under a hole
       [13, 'overlap'],
     ])
-    expect(r.headline).toBe('47 yd between your pitching wedge and gap wedge, the widest gap in the bag.')
+    expect(r.headline).toBe('47\u00a0yd between your pitching wedge and gap wedge, the widest gap in the bag.')
   })
 
   it('a 20 yd widest gap the ranges cover is wide enough for the widest-gap sentence', () => {
     const r = bagGaps([m('pw', 120, 105, 130), m('gw', 100, 92, 108)], 'yards')
     expect(r.gaps[0]!.kind).toBe('overlap')
-    expect(r.headline).toBe('20 yd between your pitching wedge and gap wedge, the widest gap in the bag.')
+    expect(r.headline).toBe('20\u00a0yd between your pitching wedge and gap wedge, the widest gap in the bag.')
   })
 
   it('a wide overlap is never read as a hole', () => {
     const r = bagGaps([m('3w', 230, 200, 260), m('5w', 215, 185, 245)], 'yards')
     expect(r.gaps[0]).toMatchObject({ kind: 'overlap', span: { low: 200, high: 245 } })
-    expect(r.headline).toBe('Your 3-wood to your 5-wood, 230 to 215 yd, with every gap under 20 yd.')
+    expect(r.headline).toBe('Your 3-wood to your 5-wood, 230 to 215\u00a0yd, with every gap under 20\u00a0yd.')
   })
 
   it('two holes of the same size: the first in the bag leads', () => {
     const r = bagGaps([e('3w', 220), e('5i', 190), e('7i', 160)], 'yards')
-    expect(r.headline).toBe('30 yd hole between your 3-wood and 5-iron.')
+    expect(r.headline).toBe('30\u00a0yd hole between your 3-wood and 5-iron.')
   })
 
   it('a not-measured gap whose reaches cross has no span', () => {
@@ -141,7 +141,7 @@ describe('bagGaps', () => {
   it('all within 20: a 19 yd widest gap gives the range sentence', () => {
     const r = bagGaps([e('driver', 240), e('3w', 221), e('5w', 202)], 'yards')
     expect(r.widest?.yards).toBe(19)
-    expect(r.headline).toBe('Your driver to your 5-wood, 240 to 202 yd, with every gap under 20 yd.')
+    expect(r.headline).toBe('Your driver to your 5-wood, 240 to 202\u00a0yd, with every gap under 20\u00a0yd.')
   })
 
   it('the range sentence names the longest and shortest even when the bag is out of order', () => {
@@ -150,19 +150,19 @@ describe('bagGaps', () => {
       ['7i', '8i', 10],
       ['7i', '9i', 15],
     ])
-    expect(r.headline).toBe('Your 7-iron to your 9-iron, 150 to 135 yd, with every gap under 20 yd.')
+    expect(r.headline).toBe('Your 7-iron to your 9-iron, 150 to 135\u00a0yd, with every gap under 20\u00a0yd.')
   })
 
   it('metres: every number in the sentence is converted; the threshold stays 20 yd', () => {
     // 40 yd = 36.6 m, 240 yd = 219.5 m, 200 yd = 182.9 m, 20 yd = 18.3 m
     expect(bagGaps([e('driver', 240), e('3w', 200)], 'meters').headline).toBe(
-      '37 m hole between your driver and 3-wood.',
+      '37\u00a0m hole between your driver and 3-wood.',
     )
     expect(bagGaps([m('pw', 130, 105, 150), m('gw', 83, 70, 96)], 'meters').headline).toBe(
-      '43 m between your pitching wedge and gap wedge, the widest gap in the bag.',
+      '43\u00a0m between your pitching wedge and gap wedge, the widest gap in the bag.',
     )
     expect(bagGaps([e('driver', 240), e('3w', 221)], 'meters').headline).toBe(
-      'Your driver to your 3-wood, 219 to 202 m, with every gap under 18 m.',
+      'Your driver to your 3-wood, 219 to 202\u00a0m, with every gap under 18\u00a0m.',
     )
     // Stored numbers stay in yards.
     expect(bagGaps([e('driver', 240), e('3w', 200)], 'meters').gaps[0]!.yards).toBe(40)

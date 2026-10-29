@@ -140,6 +140,18 @@ export function formatClubLabel(
   return base
 }
 
+// The gap chart's row label where a full name won't fit (both apps' phone
+// widths): "Dr", "3W", "7I", "PW"; a custom wedge reads as its loft.
+export function shortClubLabel(c: { club_type: string; loft?: number | null }): string {
+  if (c.club_type === 'driver') return 'Dr'
+  if (c.club_type === 'mini_driver') return 'Mini'
+  if (c.club_type === 'putter') return 'Putter'
+  if (c.club_type === 'cw' || c.club_type === 'custom_wedge') {
+    return c.loft != null && Number.isFinite(c.loft) ? `${c.loft}°` : 'CW'
+  }
+  return c.club_type.toUpperCase()
+}
+
 const WEDGE_NOUNS: Record<string, string> = {
   pw: 'pitching wedge',
   gw: 'gap wedge',

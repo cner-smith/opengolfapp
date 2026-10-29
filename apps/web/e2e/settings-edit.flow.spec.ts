@@ -24,7 +24,7 @@ test.describe('Settings: edit handicap (signed in, mutating)', () => {
   test('change handicap, save, reload, persists', async ({ page }) => {
     await page.goto('/settings')
     await expect(
-      page.getByRole('heading', { name: /^Settings$/i }),
+      page.getByRole('heading', { level: 1, name: 'Profile' }),
     ).toBeVisible()
 
     const row = page.getByRole('button', { name: /^Handicap index/ })
