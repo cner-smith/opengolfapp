@@ -11,7 +11,7 @@ export function CourseManagementArticle() {
         marginBottom: 32,
       }}
     >
-      <ArticleTitle>Course management.</ArticleTitle>
+      <ArticleTitle>Course management guide.</ArticleTitle>
 
       <H2>You are not on the range anymore</H2>
       <P>

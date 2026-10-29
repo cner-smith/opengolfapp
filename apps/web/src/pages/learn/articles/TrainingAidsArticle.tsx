@@ -11,7 +11,7 @@ export function TrainingAidsArticle() {
         marginBottom: 32,
       }}
     >
-      <ArticleTitle>Training aids.</ArticleTitle>
+      <ArticleTitle>Training aids explained.</ArticleTitle>
 
       <H2>Feeling productive isn't the same as getting better</H2>
       <P>

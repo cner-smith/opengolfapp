@@ -18,7 +18,7 @@ export function StrokesGainedArticle() {
         marginBottom: 32,
       }}
     >
-      <ArticleTitle>Strokes gained, in plain English.</ArticleTitle>
+      <ArticleTitle standfirst="Strokes gained, in plain English.">How strokes gained works.</ArticleTitle>
 
       <Lede>
         <em>Strokes gained</em> measures every shot against an

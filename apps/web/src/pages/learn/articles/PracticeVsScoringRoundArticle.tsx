@@ -11,7 +11,7 @@ export function PracticeVsScoringRoundArticle() {
         marginBottom: 32,
       }}
     >
-      <ArticleTitle>Decide which round you're playing.</ArticleTitle>
+      <ArticleTitle standfirst="Decide which round you're playing.">Practice round vs scoring round.</ArticleTitle>
 
       <P>
         A practice round and a scoring round use the same eighteen holes, but
