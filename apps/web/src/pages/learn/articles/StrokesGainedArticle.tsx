@@ -1,7 +1,6 @@
 import {
   ArticleTitle,
   Body,
-  Bullet,
   Lede,
   SrcBody,
   SrcLabel,
@@ -38,24 +37,7 @@ export function StrokesGainedArticle() {
 
       <Subhead>The four categories</Subhead>
       <Body>Every shot fits in exactly one bucket:</Body>
-      <ul style={{ listStyle: 'none', padding: 0, margin: '14px 0' }}>
-        <Bullet term="Off the tee">
-          Tee shots on par 4s and par 5s. Your driver swing,
-          essentially.
-        </Bullet>
-        <Bullet term="Approach">
-          Shots from more than 30 yards out (measured to the edge of
-          the green) that aren't par-4 or par-5 tee shots — a par-3
-          tee shot counts as approach.
-        </Bullet>
-        <Bullet term="Around the green">
-          Shots from within 30 yards of the green's edge that are not
-          on the putting surface — chips, pitches, bunker shots.
-        </Bullet>
-        <Bullet term="Putting">
-          Every shot taken from the green.
-        </Bullet>
-      </ul>
+      <SGCategoriesTable />
 
       <WorkedExample />
 
@@ -73,9 +55,6 @@ export function StrokesGainedArticle() {
         category sits at zero you are the average for your bracket —
         fine, not a leak.
       </Body>
-
-      <Subhead>What counts where</Subhead>
-      <SGCategoriesTable />
 
       <Sources />
       <Footer />
@@ -244,7 +223,7 @@ function SGCategoriesTable() {
     },
   ]
   return (
-    <div style={{ borderTop: '1px solid #D9D2BF' }}>
+    <div style={{ borderTop: '1px solid #D9D2BF', marginBottom: 14 }}>
       {rows.map((r) => (
         <div
           key={r.cat}
@@ -258,7 +237,7 @@ function SGCategoriesTable() {
         >
           <div
             className="font-serif text-caddie-ink"
-            style={{ fontSize: 17, fontWeight: 500 }}
+            style={{ fontSize: 17, fontWeight: 500, fontStyle: 'italic' }}
           >
             {r.cat}
           </div>

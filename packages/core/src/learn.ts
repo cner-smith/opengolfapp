@@ -33,7 +33,7 @@ export const LEARN_SECTIONS: LearnSection[] = [
         description:
           'How every shot is graded against an expectation, and what +0.3 SG-Putting actually means.',
         status: 'published',
-        words: 500,
+        words: 440,
       },
       {
         id: 'benchmarks',
