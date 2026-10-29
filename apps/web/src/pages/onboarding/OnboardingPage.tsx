@@ -4,6 +4,7 @@ import { DEFAULT_BAG, type Facility, type Goal, type SkillLevel } from '@oga/cor
 import { seedDefaultBag } from '@oga/supabase'
 import { useUpdateProfile } from '../../hooks/useProfile'
 import { useAuth } from '../../hooks/useAuth'
+import { useDocumentTitle } from '../../hooks/useDocumentTitle'
 import { supabase } from '../../lib/supabase'
 import { Step1Skill } from './steps/Step1Skill'
 import { Step2Handicap } from './steps/Step2Handicap'
@@ -48,6 +49,7 @@ export function OnboardingPage() {
     () => new Set(DEFAULT_BAG.map((c) => c.club_type)),
   )
   const [savingBag, setSavingBag] = useState(false)
+  useDocumentTitle(`${stepLabel(step)} · OGA`)
 
   function next() {
     if (step < TOTAL_STEPS) setStep(step + 1)
@@ -210,9 +212,12 @@ export function OnboardingPage() {
 // the profile is saved, so neither takes a number.
 const NUMBERED_STEPS = 5
 
+function stepLabel(current: number) {
+  return current <= NUMBERED_STEPS ? `Step ${current} of ${NUMBERED_STEPS}` : current === 6 ? 'Optional: your bag' : 'One more thing'
+}
+
 function StepIndicator({ current }: { current: number }) {
-  const label =
-    current <= NUMBERED_STEPS ? `Step ${current} of ${NUMBERED_STEPS}` : current === 6 ? 'Optional: your bag' : 'One more thing'
+  const label = stepLabel(current)
   return (
     <div style={{ marginBottom: 28 }}>
       <div className="flex" style={{ gap: 4 }} aria-hidden>

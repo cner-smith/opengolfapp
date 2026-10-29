@@ -14,6 +14,7 @@ import { ScorecardCsvImport } from './components/ScorecardCsvImport'
 import { Choice, ChoiceRow } from './NewRoundPage'
 import { TeeSelector } from '../../components/courses/TeeSelector'
 import { useAuth } from '../../hooks/useAuth'
+import { useDocumentTitle } from '../../hooks/useDocumentTitle'
 import { supabase } from '../../lib/supabase'
 import { toUserMessage } from '../../lib/errors'
 
@@ -28,6 +29,7 @@ type Step = 'input' | 'review'
 // speed, ...) are simply absent from the payload and get filled in on the
 // normal scorecard/shot-entry screens after import.
 export function ImportDataPage() {
+  useDocumentTitle('Import rounds · OGA')
   const navigate = useNavigate()
   const { user } = useAuth()
   const qc = useQueryClient()

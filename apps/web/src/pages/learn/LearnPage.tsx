@@ -8,6 +8,7 @@ import {
   type LearnSection,
 } from '@oga/core'
 import { Footnote } from './components/ArticlePrimitives'
+import { useDocumentTitle } from '../../hooks/useDocumentTitle'
 import './learn.css'
 
 // Read first: the lead, and three picks for someone new to the book.
@@ -15,6 +16,7 @@ const LEAD = 'strokes-gained'
 const START_HERE = ['how-to-practice', 'course-management', 'building-your-bag']
 
 export function LearnPage() {
+  useDocumentTitle('The yardage book · OGA')
   const [query, setQuery] = useState('')
   const filtered = useMemo(() => filterSections(LEARN_SECTIONS, query), [query])
   const lead = findLearnArticle(LEAD)?.article
