@@ -25,7 +25,7 @@ export function PrimaryCta({ isAuthed, inverse }: { isAuthed: boolean; inverse?:
 
 export function Free() {
   return (
-    <section className="lb-section lb-ruled">
+    <section className="lb-section">
       <div style={WRAP} className="lb-free">
         <h2 className="lb-sentence font-serif">
           It&apos;s free, and it <em className="lb-accent">stays</em> free.
