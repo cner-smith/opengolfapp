@@ -447,3 +447,36 @@ dialog.pat-dialog::backdrop {
     text-decoration: line-through;
   }
 }
+/* Onboarding: the new step fades in where the old one was, and its option
+   keys rise onto their ledges one after another, 40 ms apart. */
+@media (prefers-reduced-motion: no-preference) {
+  .onb-step {
+    animation: onb-fade 180ms ease-out both;
+  }
+  .onb-step [role='radio'] {
+    animation: onb-key-rise 320ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+  .onb-step [role='radio']:nth-child(2) {
+    animation-delay: 40ms;
+  }
+  .onb-step [role='radio']:nth-child(3) {
+    animation-delay: 80ms;
+  }
+  .onb-step [role='radio']:nth-child(4) {
+    animation-delay: 120ms;
+  }
+  .onb-step [role='radio']:nth-child(n + 5) {
+    animation-delay: 160ms;
+  }
+}
+@keyframes onb-fade {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes onb-key-rise {
+  from {
+    opacity: 0;
+    translate: 0 10px;
+  }
+}
