@@ -124,6 +124,20 @@ export function inferHoleCount(holeNumbers: number[]): 9 | 18 {
   return Math.max(...holeNumbers) <= 9 ? 9 : 18
 }
 
+// How many holes a round plays: rounds.hole_count, chosen when the round is
+// created (#727). Rounds from before that column (null) keep the caller's old
+// guess. Neither the course's holes rows (they accrete one save at a time on
+// web) nor the round's scores (mid-round) can tell 9 from 18 later on.
+export function roundHoleCount(stored: number | null | undefined, fallback: 9 | 18): 9 | 18 {
+  return stored === 9 || stored === 18 ? stored : fallback
+}
+
+// A course's hole count from a tee's total par: 36 or less is a 9-hole card.
+// No par (no course_tees row, most courses) reads as 18.
+export function holeCountFromTeePar(par: number | null | undefined): 9 | 18 {
+  return par != null && par <= 36 ? 9 : 18
+}
+
 // Par for a hole whose source has none (an OSM hole way with no `par` tag),
 // from its length: under 250 yd → 3, over 470 → 5, else 4 (#912). Crawled
 // lengths are tee→pin straight lines, so a dogleg reads short. Store the

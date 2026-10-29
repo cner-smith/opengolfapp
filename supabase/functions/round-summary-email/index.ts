@@ -14,6 +14,7 @@ interface RoundRow {
   id: string
   user_id: string
   total_score: number | null
+  hole_count: number | null
   sg_off_tee: number | null
   sg_approach: number | null
   sg_around_green: number | null
@@ -23,7 +24,7 @@ interface RoundRow {
 }
 
 const ROUND_SELECT = `
-  id, user_id, total_score,
+  id, user_id, total_score, hole_count,
   sg_off_tee, sg_approach, sg_around_green, sg_putting,
   courses(name),
   course_tees(par)
@@ -111,10 +112,11 @@ Deno.serve(async (req) => {
 
     // Par from the round's resolved tee (course_tees.par), which matches the
     // in-app dashboard's total for standard 18/9-hole courses and the common
-    // synthetic-hole case; 72 fallback when no tee row is linked. NOT byte-
-    // identical to the dashboard's padded-holes derivation for partial-real-
-    // hole rounds with a null tee par — accepted scaffold approximation.
-    const par = round.course_tees?.par ?? 72
+    // synthetic-hole case; with no tee row linked, 36 for a round stored as
+    // 9 holes (#727), else 72. NOT byte-identical to the dashboard's padded-
+    // holes derivation for partial-real-hole rounds with a null tee par —
+    // accepted scaffold approximation.
+    const par = round.course_tees?.par ?? (round.hole_count === 9 ? 36 : 72)
     const content = buildRoundSummary({
       courseName: round.courses?.name ?? 'your round',
       totalScore: round.total_score ?? 0,

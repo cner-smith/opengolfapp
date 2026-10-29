@@ -43,6 +43,8 @@ export interface GolfPadRound {
   /** YYYY-MM-DD */
   played_at: string
   tee_color: string | null
+  /** The course's 9 or 18 (#727). Unset: the import infers it from the hole numbers. */
+  hole_count?: 9 | 18
   holes: GolfPadHole[]
 }
 
@@ -232,9 +234,12 @@ export function planGolfPadImport(files: GolfPadFiles): GolfPadPlan {
     const holes = mine.holes.filter((h) => (int(h['total strokes']) ?? 0) > 0)
     if (holes.length === 0) { plan.skipped.push({ ...base, reason: 'no_holes' }); continue }
 
+    // The course's holes, not the holes played: a round ended after 7 still plays an 18.
+    const courseHoles = int(r['course holes'])
     plan.rounds.push({
       ...base,
       tee_color: r['tee name'] ? r['tee name']!.toLowerCase() : null,
+      ...(courseHoles === 9 || courseHoles === 18 ? { hole_count: courseHoles } : {}),
       holes: holes.map((h) => {
         const score = int(h['total strokes']) ?? 0
         const rows = mine.shots
