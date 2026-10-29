@@ -28,7 +28,7 @@ async function walkToImportStep(page: Page) {
   await page.getByRole('button', { name: /Save and continue/ }).click()
   await page.getByRole('button', { name: /Looks good/ }).click()
   await expect(page.getByRole('heading', { name: 'Your yardage book is open.' })).toBeVisible()
-  await expect(page.getByText('One more thing')).toBeVisible()
+  await expect(page.getByRole('status')).toHaveText('One more thing')
   expect(writes.at(-1)).toEqual({ onboarding_completed: true })
   return writes
 }
@@ -54,7 +54,7 @@ test.describe('Onboarding step 1 (signed in)', () => {
   // lands on the sign-in form (#1228). Step 2 has one, back to step 1.
   test('has no Back; step 2 goes back to step 1', async ({ page }) => {
     await page.goto('/onboarding')
-    await expect(page.getByText('Step 1 of 5')).toBeVisible()
+    await expect(page.getByRole('status')).toHaveText('Step 1 of 5')
     await expect(page.getByRole('button', { name: /Back/ })).toHaveCount(0)
     // Continue with no pick says why and takes focus to the list (#1267).
     await page.getByRole('button', { name: /Continue/ }).click()
@@ -63,7 +63,7 @@ test.describe('Onboarding step 1 (signed in)', () => {
     await page.getByRole('radio', { name: /^Casual/ }).click()
     await page.getByRole('button', { name: /Continue/ }).click()
     await page.getByRole('button', { name: /Back/ }).click()
-    await expect(page.getByText('Step 1 of 5')).toBeVisible()
+    await expect(page.getByRole('status')).toHaveText('Step 1 of 5')
     await expect(page).toHaveURL(/\/onboarding$/)
   })
 })

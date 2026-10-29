@@ -226,28 +226,43 @@ function stepLabel(current: number) {
   return current <= NUMBERED_STEPS ? `Step ${current} of ${NUMBERED_STEPS}` : current === 6 ? 'Optional: your bag' : 'One more thing'
 }
 
+// A scorecard's hole row: steps done in ink, the current one ringed like a
+// birdie, the rest pale. The bag and import aren't numbered, so they show
+// their label instead. The status line announces each step (#1260).
 function StepIndicator({ current }: { current: number }) {
   const label = stepLabel(current)
   return (
     <div style={{ marginBottom: 28 }}>
-      <div className="flex" style={{ gap: 4 }} aria-hidden>
-        {Array.from({ length: NUMBERED_STEPS }, (_, i) => {
-          const n = i + 1
-          return (
-            <div key={n} style={{ flex: 1, height: 3, backgroundColor: '#D9D2BF' }}>
-              <div
-                className="onb-seg"
+      {current <= NUMBERED_STEPS ? (
+        <ol className="flex" style={{ gap: 6 }} aria-hidden>
+          {Array.from({ length: NUMBERED_STEPS }, (_, i) => {
+            const n = i + 1
+            const now = n === current
+            return (
+              <li
+                key={n}
+                className={now ? 'font-serif tabular onb-hole' : 'font-serif tabular'}
                 style={{
-                  height: 3,
-                  backgroundColor: n === current ? '#1F3D2C' : '#1C211C',
-                  transform: n <= current ? 'scaleX(1)' : 'scaleX(0)',
+                  width: 28,
+                  height: 28,
+                  display: 'grid',
+                  placeItems: 'center',
+                  fontSize: 15,
+                  fontStyle: 'italic',
+                  fontWeight: 500,
+                  borderRadius: '50%',
+                  border: now ? '1.5px solid #1F3D2C' : '1.5px solid transparent',
+                  background: now ? '#FBF8F1' : 'transparent',
+                  color: now ? '#1F3D2C' : n < current ? '#1C211C' : '#9F9580',
                 }}
-              />
-            </div>
-          )
-        })}
-      </div>
-      <div role="status" className="text-caddie-ink-dim" style={{ fontSize: 13, marginTop: 10 }}>
+              >
+                {n}
+              </li>
+            )
+          })}
+        </ol>
+      ) : null}
+      <div role="status" className={current <= NUMBERED_STEPS ? 'sr-only' : 'text-caddie-ink-dim'} style={{ fontSize: 13 }}>
         {label}
       </div>
     </div>
