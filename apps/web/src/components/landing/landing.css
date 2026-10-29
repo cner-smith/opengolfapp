@@ -24,6 +24,21 @@
   font-style: italic;
   color: #1c211c;
 }
+.lb-pencil-under {
+  position: relative;
+  white-space: nowrap;
+}
+.lb-pencil-under svg {
+  position: absolute;
+  left: -2%;
+  bottom: -0.16em;
+  width: 104%;
+  height: 0.3em;
+  overflow: visible;
+  fill: #1c211c;
+  opacity: 0.7;
+  pointer-events: none;
+}
 .lb-hero-promise {
   display: block;
   margin-top: 0.18em;

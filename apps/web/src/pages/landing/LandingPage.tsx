@@ -1,5 +1,6 @@
 import { Suspense, lazy, useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { marksDuration, marksPath, pencilUnderline } from '@oga/core'
 import { useAuth } from '../../hooks/useAuth'
 import { PhoneShot } from '../../components/landing/PhoneShot'
 import { StoreBadges } from '../../components/landing/StoreBadges'
@@ -113,7 +114,9 @@ function Hero() {
       <div style={WRAP} className="lb-hero-grid">
         <div>
           <h1 className="lb-hero-title font-serif">
-            <span className="lb-hero-finding lb-rise">Approach costs you 0.8 strokes a round.</span>{' '}
+            <span className="lb-hero-finding lb-rise">
+              Approach costs you <PencilUnder>0.8 strokes</PencilUnder> a round.
+            </span>{' '}
             <span className="lb-hero-promise lb-rise lb-rise-2">Track your rounds. OGA finds yours.</span>
           </h1>
           <p className="lb-lede" style={{ maxWidth: 520, margin: '26px 0 0' }}>
@@ -143,6 +146,41 @@ function Hero() {
         </figure>
       </div>
     </section>
+  )
+}
+
+// The pitch's quantity gets the coach's pencil: once the second line has
+// risen, an underline draws in under it (core pencil geometry, as on the
+// tab bar). Reduced motion: the underline is simply there.
+const UNDERLINE = [{ m: pencilUnderline(), at: 0 }]
+const UNDERLINE_MS = marksDuration(UNDERLINE)
+function PencilUnder({ children }: { children: React.ReactNode }) {
+  const [t, setT] = useState(() =>
+    window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ? UNDERLINE_MS : 0,
+  )
+  const drawn = t >= UNDERLINE_MS
+  useEffect(() => {
+    if (drawn) return
+    let raf = 0
+    let t0 = 0
+    const tick = (now: number) => {
+      if (!t0) t0 = now + 560
+      const k = Math.min(1, Math.max(0, (now - t0) / 480))
+      setT(k * UNDERLINE_MS)
+      if (k < 1) raf = requestAnimationFrame(tick)
+    }
+    raf = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(raf)
+    // Runs once on mount; `drawn` only says whether to start.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+  return (
+    <span className="lb-pencil-under">
+      {children}
+      <svg viewBox="-15.5 -3.5 31 7" preserveAspectRatio="none" aria-hidden>
+        <path d={marksPath(UNDERLINE, t)} />
+      </svg>
+    </span>
   )
 }
 

@@ -10,7 +10,7 @@ test.describe('Landing page (signed out)', () => {
     )
     // Two lines at desktop: each half of the headline sits on one line.
     await page.evaluate(() => document.fonts.ready)
-    const lines = await h1.locator('span').evaluateAll((spans) =>
+    const lines = await h1.locator(':scope > span').evaluateAll((spans) =>
       spans.map((s) => s.getBoundingClientRect().height / parseFloat(getComputedStyle(s).lineHeight)),
     )
     expect(lines).toHaveLength(2)
