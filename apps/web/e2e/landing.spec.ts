@@ -31,10 +31,12 @@ test.describe('Landing page (signed out)', () => {
     const ladder = page.getByRole('radiogroup', { name: 'Club' })
     await expect(ladder).toBeVisible()
     const finding = page.locator('.lb-demo-body p').first()
-    await expect(finding).toContainText('driver')
-    await ladder.getByRole('radio', { name: /^7-iron/ }).click()
+    // It opens on the 7-iron, around the aim (#1282).
     await expect(finding).toContainText('7-iron')
-    await expect(finding).not.toContainText('driver')
+    await expect(page.getByRole('tab', { name: 'Around the aim' })).toHaveAttribute('aria-selected', 'true')
+    await ladder.getByRole('radio', { name: /^driver/i }).click()
+    await expect(finding).toContainText('driver')
+    await expect(finding).not.toContainText('7-iron')
   })
 
   test('the try-yours ladder answers a typed distance, a club out and metres', async ({ page }) => {
