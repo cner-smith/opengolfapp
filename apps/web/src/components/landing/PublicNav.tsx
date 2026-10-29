@@ -50,7 +50,7 @@ export function PublicNav() {
             Open Golf App
           </span>
         </div>
-        <div style={{ display: 'flex', gap: 18, alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
           {!loading && user ? (
             <Link to="/dashboard" className="key key-primary" style={navKey}>
               Go to app{' '}
@@ -60,11 +60,8 @@ export function PublicNav() {
             </Link>
           ) : (
             <>
-              <Link
-                to="/login"
-                className="text-caddie-ink hover:underline"
-                style={{ fontSize: 14, fontWeight: 600, textUnderlineOffset: 3, minHeight: 44, display: 'inline-flex', alignItems: 'center' }}
-              >
+              {/* A paper key: pressable like Create account, but not green. */}
+              <Link to="/login" className="key" style={navKey}>
                 Sign in
               </Link>
               <Link to="/signup" className="key key-primary" style={navKey}>
