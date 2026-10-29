@@ -37,3 +37,14 @@ export function sgFinding(
     ? `${opening}; ${strongest.label.toLowerCase()} gains you ${strongest.value.toFixed(1)}.`
     : `${opening}.`
 }
+
+/**
+ * The practice plan's stored insight for "Why this plan", under the page's
+ * finding. Null with no finding (the insight leads the page instead) and when
+ * it only repeats the finding: a plan can store the finding as its insight.
+ */
+export function insightUnderFinding(finding: string | null, insight: string | null | undefined): string | null {
+  const said = insight?.trim()
+  if (!finding || !said || said === finding.trim()) return null
+  return said
+}

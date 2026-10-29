@@ -105,6 +105,21 @@ body {
   outline: 2px solid var(--caddie-ink);
   outline-offset: 2px;
 }
+.key-sm {
+  min-height: 40px;
+  padding: 0 12px;
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.key-sm[aria-pressed='true'] {
+  font-weight: 600;
+}
+@media (pointer: coarse) {
+  .key-sm {
+    min-height: 44px;
+  }
+}
 .paper-tile {
   background: #fbf8f1;
   border: 1px solid #1c211c;
@@ -310,5 +325,37 @@ dialog.pat-dialog::backdrop {
   .prac-strike,
   .prac-fill {
     transition: none;
+  }
+}
+/* Drills: a filter row of keys wraps on a desktop and scrolls sideways on a
+   phone (room under it for the keys' ledge); an opened drill grows its row. */
+.drl-keys {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  scrollbar-width: none;
+}
+@media (min-width: 1024px) {
+  .drl-keys {
+    flex-wrap: wrap;
+    overflow: visible;
+  }
+}
+.drl-open {
+  display: grid;
+  grid-template-rows: 1fr;
+  animation: drl-open 240ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+@keyframes drl-open {
+  from {
+    grid-template-rows: 0fr;
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .drl-open {
+    animation: none;
   }
 }

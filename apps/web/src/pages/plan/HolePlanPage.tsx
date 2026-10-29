@@ -1,17 +1,19 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
+import { useNavigate, useParams } from 'react-router-dom'
 import {
   DEFAULT_HANDICAP,
   bearingDegrees,
+  clubNoun,
   destinationYards,
   formatClubLabel,
   haversineYards,
   sgAtAim,
-  type Club,
   type GeoPoint,
 } from '@oga/core'
 import { useCoursePlanData } from '../../hooks/useCoursePlanData'
+import { useCourse } from '../../hooks/useCourses'
 import { useProfile } from '../../hooks/useProfile'
+import { Rocker } from '../../components/ui/Rocker'
 import HoleStrategyMap, { type Leg } from '../../components/plan/HoleStrategyMap'
 import SGFeedbackCard from '../../components/plan/SGFeedbackCard'
 import type { ClubDispersion } from '../rounds/hooks/useClubDispersion'
@@ -24,6 +26,7 @@ export default function HolePlanPage() {
   const { courseId, holeNumber } = useParams<{ courseId: string; holeNumber: string }>()
   const navigate = useNavigate()
   const { holes, loading, isMapped, dispersion } = useCoursePlanData(courseId)
+  const { data: course } = useCourse(courseId)
   const { data: profileData } = useProfile()
   const handicap = profileData?.handicap_index ?? DEFAULT_HANDICAP
 
@@ -176,26 +179,28 @@ export default function HolePlanPage() {
   }
 
   if (!isMapped || !hole || !tee || !pin) {
+    // Name the course: search lists many courses under one name (#1223).
+    const where = course ? [course.name, [course.city, course.state].filter(Boolean).join(' ')].filter(Boolean).join(', ') : 'This course'
     return (
       <div className="mx-auto max-w-2xl">
-        <div
-          className="bg-caddie-surface"
-          style={{ border: '0.5px solid #D9D2BF', borderRadius: 10, padding: 20 }}
+        <h1
+          className="font-serif text-caddie-ink"
+          style={{ fontSize: 24, fontStyle: 'italic', fontWeight: 500, lineHeight: 1.25 }}
         >
-          <div className="text-caddie-ink" style={{ fontSize: 15, fontWeight: 500 }}>
-            This course isn&rsquo;t mapped yet
-          </div>
-          <div className="text-caddie-ink-dim" style={{ fontSize: 13, marginTop: 6 }}>
-            Tee and pin locations haven&rsquo;t been imported for this hole, so a
-            plan can&rsquo;t be built yet.
-          </div>
-          <Link
-            to="/plan"
-            className="text-caddie-accent"
-            style={{ fontSize: 13, display: 'inline-block', marginTop: 14 }}
-          >
-            ← Back to course search
-          </Link>
+          {isMapped ? `Hole ${holeNum} isn\u2019t mapped yet.` : `${where} isn\u2019t mapped yet.`}
+        </h1>
+        <p className="text-caddie-ink-dim" style={{ fontSize: 15, lineHeight: 1.5, marginTop: 10, maxWidth: 520 }}>
+          {isMapped
+            ? 'We have the course but not where this hole\u2019s tee and green are, so there\u2019s nothing to plan on.'
+            : 'We have its scorecard but not where the tees and greens are, so there\u2019s nothing to plan on.'}
+        </p>
+        <div className="flex flex-wrap" style={{ gap: 12, marginTop: 22 }}>
+          <button type="button" className="key key-primary" onClick={() => navigate('/plan')}>
+            Pick another course
+          </button>
+          <button type="button" className="key" onClick={() => navigate(-1)}>
+            Back
+          </button>
         </div>
       </div>
     )
@@ -207,117 +212,119 @@ export default function HolePlanPage() {
     navigate(`/plan/${courseId}/${clamped}`)
   }
 
-  const clubs = [...dispersion.byClub.values()]
+  // Longest club first, as a bag reads.
+  const clubs = [...dispersion.byClub.values()].sort((x, y) => (y.medianDistanceYards ?? 0) - (x.medianDistanceYards ?? 0))
+  const clubKeys = (e: KeyboardEvent<HTMLDivElement>) => {
+    const step = e.key === 'ArrowRight' || e.key === 'ArrowDown' ? 1 : e.key === 'ArrowLeft' || e.key === 'ArrowUp' ? -1 : 0
+    if (!step || clubs.length === 0) return
+    e.preventDefault()
+    const i = clubs.findIndex((c) => c.club === focusedLegData?.club?.club)
+    const next = (i + step + clubs.length) % clubs.length
+    onClubChange(clubs[next]!)
+    e.currentTarget.querySelectorAll<HTMLButtonElement>('[role=radio]')[next]?.focus()
+  }
+  const label13 = { fontSize: 13, marginBottom: 6 } as const
 
   return (
     <div className="mx-auto max-w-6xl">
       <div className="grid grid-cols-1 gap-6 items-start lg:grid-cols-[minmax(320px,380px)_1fr]">
         {/* Controls — below the map on narrow screens, left column on desktop. */}
-        <div className="order-2 flex flex-col gap-4 lg:order-1">
-          <div className="flex items-center justify-between">
+        <div className="order-2 flex flex-col gap-5 lg:order-1">
+          <div className="flex items-center justify-between" style={{ gap: 12 }}>
             <button
               type="button"
+              className="key"
+              aria-label="Previous hole"
               onClick={() => goToHole(holeNum - 1)}
               disabled={holeNum <= 1}
-              className="text-caddie-ink-dim"
-              style={{ fontSize: 13, opacity: holeNum <= 1 ? 0.4 : 1 }}
+              style={{ padding: '0 14px' }}
             >
-              ← Prev
+              <span className="font-serif" style={{ fontStyle: 'italic' }}>&larr;</span> Prev
             </button>
-            <h1
-              className="text-caddie-ink"
-              style={{ fontSize: 19, fontWeight: 600, lineHeight: 1.3, textAlign: 'center' }}
-            >
-              Hole {hole.number} · Par {hole.par}
-            </h1>
+            <div style={{ textAlign: 'center', minWidth: 0 }}>
+              {course?.name && (
+                <div className="text-caddie-ink-dim" style={{ fontSize: 13, overflowWrap: 'anywhere' }}>
+                  {course.name}
+                </div>
+              )}
+              <h1 className="font-serif text-caddie-ink" style={{ fontSize: 28, fontWeight: 500, lineHeight: 1.15 }}>
+                Hole {hole.number}
+              </h1>
+              <div className="font-serif text-caddie-ink-dim" style={{ fontSize: 15, fontStyle: 'italic' }}>
+                Par {hole.par}
+                {hole.yards != null ? ` \u00b7 ${hole.yards} yd` : ''}
+              </div>
+            </div>
             <button
               type="button"
+              className="key"
+              aria-label="Next hole"
               onClick={() => goToHole(holeNum + 1)}
               disabled={holeNum >= totalHoles}
-              className="text-caddie-ink-dim"
-              style={{ fontSize: 13, opacity: holeNum >= totalHoles ? 0.4 : 1 }}
+              style={{ padding: '0 14px' }}
             >
-              Next →
+              Next <span className="font-serif" style={{ fontStyle: 'italic' }}>&rarr;</span>
             </button>
           </div>
 
-          <div
-            className="bg-caddie-surface flex flex-col gap-3"
-            style={{ border: '0.5px solid #D9D2BF', borderRadius: 10, padding: 16 }}
-          >
-        <div className="flex items-center justify-between" style={{ flexWrap: 'wrap', gap: 10 }}>
-          <div className="flex items-center" style={{ gap: 6, flexWrap: 'wrap' }}>
-            {legs.map((_, i) => (
-              <button
-                key={i}
-                type="button"
-                onClick={() => setFocusedLeg(i)}
-                className={i === focusedLeg ? 'text-caddie-accent-ink' : 'text-caddie-ink-dim'}
-                style={{
-                  background: i === focusedLeg ? 'var(--caddie-chip-on)' : 'var(--caddie-chip)',
-                  borderRadius: 2,
-                  padding: '6px 10px',
-                  fontSize: 12,
-                }}
-              >
-                Shot {i + 1}
+          <div>
+            <div className="text-caddie-ink-dim" style={label13}>
+              Shot
+            </div>
+            <Rocker
+              label="Shot"
+              options={legs.map((_, i) => ({ value: i, label: `Shot ${i + 1}` }))}
+              value={focusedLeg}
+              onChange={setFocusedLeg}
+            />
+            <div className="flex flex-wrap" style={{ gap: 10, marginTop: 12 }}>
+              <button type="button" className="key key-sm" onClick={addLeg}>
+                Add next shot
               </button>
-            ))}
+              <button type="button" className="key key-sm" onClick={removeLeg} disabled={legs.length <= 1}>
+                Remove last shot
+              </button>
+            </div>
           </div>
-          <div className="flex items-center" style={{ gap: 8 }}>
-            <button
-              type="button"
-              onClick={removeLeg}
-              disabled={legs.length <= 1}
-              className="text-caddie-ink-dim"
-              style={{ fontSize: 12, opacity: legs.length <= 1 ? 0.4 : 1 }}
-            >
-              Remove last shot
-            </button>
-            <button
-              type="button"
-              onClick={addLeg}
-              className="text-caddie-accent"
-              style={{ fontSize: 12, fontWeight: 500 }}
-            >
-              + Add next shot
-            </button>
-          </div>
-        </div>
 
-        {clubs.length === 0 ? (
-          <div className="text-caddie-ink-mute" style={{ fontSize: 12 }}>
-            Log a few rounds with shot data to enable club-specific dispersion.
-          </div>
-        ) : (
-          <label style={{ display: 'flex', flexDirection: 'column', gap: 4, maxWidth: 220 }}>
-            <span className="kicker">Club</span>
-            <select
-              value={focusedLegData?.club?.club ?? ''}
-              onChange={(e) => {
-                const selected = dispersion.byClub.get(e.target.value as Club) ?? null
-                onClubChange(selected)
-              }}
-              style={{
-                padding: '8px 10px',
-                fontSize: 14,
-                border: '1px solid #D9D2BF',
-                background: '#FBF8F1',
-                borderRadius: 2,
-              }}
-            >
-              <option value="" disabled>
-                Select a club…
-              </option>
-              {clubs.map((c) => (
-                <option key={c.club} value={c.club}>
-                  {formatClubLabel({ club_type: c.club })}
-                </option>
-              ))}
-            </select>
-          </label>
-        )}
-          </div>
+          {clubs.length === 0 ? (
+            <div className="text-caddie-ink-mute" style={{ fontSize: 13 }}>
+              Log a few rounds with shot data to enable club-specific dispersion.
+            </div>
+          ) : (
+            <div>
+              <div className="text-caddie-ink-dim" style={label13} id="plan-club-label">
+                Club
+              </div>
+              <div
+                role="radiogroup"
+                aria-labelledby="plan-club-label"
+                onKeyDown={clubKeys}
+                className="flex flex-wrap"
+                style={{ gap: 6, paddingBottom: 3 }}
+              >
+                {clubs.map((c, i) => {
+                  const on = c.club === focusedLegData?.club?.club
+                  const noneOn = !clubs.some((x) => x.club === focusedLegData?.club?.club)
+                  return (
+                    <button
+                      key={c.club}
+                      type="button"
+                      role="radio"
+                      aria-checked={on}
+                      aria-label={clubNoun(c.club)}
+                      tabIndex={on || (noneOn && i === 0) ? 0 : -1}
+                      onClick={() => onClubChange(c)}
+                      className="key key-sm"
+                      style={{ minWidth: 48, padding: '0 10px' }}
+                    >
+                      {formatClubLabel({ club_type: c.club })}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          )}
 
           <SGFeedbackCard
             legSG={legSG}
@@ -330,7 +337,13 @@ export default function HolePlanPage() {
         {/* Map — on top on narrow screens, right column on desktop. */}
         <div
           className="order-1 lg:order-2"
-          style={{ height: 'min(80vh, 760px)', minHeight: 460, borderRadius: 10, overflow: 'hidden' }}
+          style={{
+            height: 'min(80vh, 760px)',
+            minHeight: 460,
+            borderRadius: 3,
+            border: '1px solid #1C211C',
+            overflow: 'hidden',
+          }}
         >
           <HoleStrategyMap
             tee={tee}

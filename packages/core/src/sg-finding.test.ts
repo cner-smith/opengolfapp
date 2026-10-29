@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { sgFinding } from './sg-finding'
+import { insightUnderFinding, sgFinding } from './sg-finding'
 
 const tee = (value: number) => ({ label: 'Off the tee', value })
 const approach = (value: number) => ({ label: 'Approach', value })
@@ -70,5 +70,24 @@ describe("sgFinding 'softest area' (Stats)", () => {
       'Approach is your softest area, still gaining 0.6 a round.',
     )
     expect(sgFinding(approach(-0.3), null, 'softest area')).toBe('Approach costs you 0.3 strokes a round.')
+  })
+})
+
+describe('insightUnderFinding (Practice, #1224)', () => {
+  const finding = 'Approach costs you 0.8 strokes a round; off the tee gains you 1.6.'
+
+  it('drops an insight that repeats the finding, ignoring outer whitespace', () => {
+    expect(insightUnderFinding(finding, finding)).toBeNull()
+    expect(insightUnderFinding(finding, `  ${finding}\n`)).toBeNull()
+  })
+
+  it('keeps an insight that says something else', () => {
+    expect(insightUnderFinding(finding, 'Your 7-iron finishes short; club up.')).toBe('Your 7-iron finishes short; club up.')
+  })
+
+  it('is null with no finding (the insight leads the page) or no insight', () => {
+    expect(insightUnderFinding(null, 'Your 7-iron finishes short; club up.')).toBeNull()
+    expect(insightUnderFinding(finding, null)).toBeNull()
+    expect(insightUnderFinding(finding, '   ')).toBeNull()
   })
 })

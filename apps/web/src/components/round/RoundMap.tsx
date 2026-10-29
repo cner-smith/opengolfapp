@@ -264,11 +264,13 @@ export function RoundMap({
         }}
       />
       {!MAPBOX_TOKEN_PRESENT && (
+        // Missing token = a build problem, not one the user can retry (#1225);
+        // lib/mapbox logs it.
         <div
-          className="absolute inset-0 flex items-center justify-center text-caddie-ink-mute"
-          style={{ background: '#FBF8F1', fontSize: 13, padding: 22 }}
+          className="absolute inset-0 flex flex-col items-center justify-center text-caddie-ink-dim"
+          style={{ background: '#FBF8F1', fontSize: 14, padding: 22, gap: 14, textAlign: 'center' }}
         >
-          Map unavailable — set <code style={{ marginInline: 4 }}>VITE_MAPBOX_TOKEN</code> in your env to enable the map view.
+          The map isn&rsquo;t available right now.
         </div>
       )}
     </div>
