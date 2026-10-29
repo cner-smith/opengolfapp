@@ -170,7 +170,7 @@ export function ShotRow({
           marginBottom: 9,
         }}
       >
-        <span className="kicker" style={{ color: '#8A8B7E' }}>
+        <span className="text-caddie-ink" style={{ fontSize: 13 }}>
           Shot {row.shotNumber}
         </span>
         <span
@@ -192,7 +192,7 @@ export function ShotRow({
           className="text-caddie-ink-mute"
           style={{ fontSize: 12, marginLeft: 'auto' }}
         >
-          {toDisplay(row.distanceToPin)} to pin
+          {toDisplay(row.distanceToPin)} to the pin
         </span>
       </div>
 
@@ -448,7 +448,7 @@ function ChipExpand<V extends string>({
         padding: '9px 10px',
       }}
     >
-      <div className="kicker" style={{ color: '#8A8B7E', marginBottom: 7 }}>
+      <div className="text-caddie-ink" style={{ fontSize: 12, marginBottom: 7 }}>
         {label}
       </div>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
@@ -487,7 +487,7 @@ function SlopeExpand({
       }}
     >
       <div>
-        <div className="kicker" style={{ color: '#8A8B7E', marginBottom: 6 }}>
+        <div className="text-caddie-ink" style={{ fontSize: 12, marginBottom: 6 }}>
           Uphill / downhill
         </div>
         <div style={{ display: 'flex', gap: 6 }}>
@@ -510,7 +510,7 @@ function SlopeExpand({
         </div>
       </div>
       <div>
-        <div className="kicker" style={{ color: '#8A8B7E', marginBottom: 6 }}>
+        <div className="text-caddie-ink" style={{ fontSize: 12, marginBottom: 6 }}>
           Ball above / below
         </div>
         <div style={{ display: 'flex', gap: 6 }}>
@@ -556,7 +556,7 @@ function BreakExpand({
       }}
     >
       <div>
-        <div className="kicker" style={{ color: '#8A8B7E', marginBottom: 6 }}>
+        <div className="text-caddie-ink" style={{ fontSize: 12, marginBottom: 6 }}>
           Break — which way
         </div>
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
@@ -579,7 +579,7 @@ function BreakExpand({
         </div>
       </div>
       <div>
-        <div className="kicker" style={{ color: '#8A8B7E', marginBottom: 6 }}>
+        <div className="text-caddie-ink" style={{ fontSize: 12, marginBottom: 6 }}>
           Slope
         </div>
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
@@ -671,8 +671,8 @@ function AxisRow<V extends string>({
       }}
     >
       <span
-        className="kicker"
-        style={{ minWidth: 72, color: '#5C6356' }}
+        className="text-caddie-ink"
+        style={{ minWidth: 72, fontSize: 12 }}
       >
         {label}
       </span>

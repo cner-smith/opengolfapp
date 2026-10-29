@@ -83,6 +83,51 @@ export function clubCategoryFor(clubType: string): ClubCategory {
   return 'utility'
 }
 
+const SHOT_PICKER_GROUP: Record<ClubCategory, string> = {
+  driver: 'Woods',
+  wood: 'Woods',
+  hybrid: 'Woods',
+  iron: 'Irons',
+  wedge: 'Wedges',
+  putter: 'Wedges',
+  utility: 'Other',
+}
+
+// Shot-editor club picker rows (#611 §19.9): Woods (driver, woods, hybrids) ·
+// Irons · Wedges (and putter) · Other (a club_type clubCategoryFor doesn't
+// know). Bag order is kept within a group. A group never stands as one lonely
+// club: it folds into the next group (or the previous, when it's last).
+export function shotPickerClubGroups<T extends { value: string }>(
+  clubs: readonly T[],
+): { label: string; opts: T[] }[] {
+  const groups = ['Woods', 'Irons', 'Wedges', 'Other']
+    .map((label) => ({
+      label,
+      opts: clubs.filter((c) => SHOT_PICKER_GROUP[clubCategoryFor(c.value)] === label),
+    }))
+    .filter((g) => g.opts.length > 0)
+  for (let i = 0; i < groups.length && groups.length > 1; i++) {
+    const g = groups[i]!
+    if (g.opts.length !== 1) continue
+    const into = groups[i + 1] ?? groups[i - 1]!
+    into.opts = i + 1 < groups.length ? [...g.opts, ...into.opts] : [...into.opts, ...g.opts]
+    groups.splice(i, 1)
+    i--
+  }
+  return groups
+}
+
+// A wide rocker's rows, balanced and never one segment left over: at most
+// five per row, ceil(n / rows) each.
+export function splitBalancedRows<T>(items: readonly T[]): T[][] {
+  if (items.length <= 5) return [[...items]]
+  const rows = Math.ceil(items.length / 5)
+  const per = Math.ceil(items.length / rows)
+  const out: T[][] = []
+  for (let i = 0; i < items.length; i += per) out.push(items.slice(i, i + per))
+  return out
+}
+
 // Canonical picklist options per category, surfaced by the bag UIs on
 // web and mobile. Lives here (not in app code) so both apps stay in
 // lockstep — adding a club_type to the picklist is a one-file edit.
