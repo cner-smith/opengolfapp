@@ -11,7 +11,7 @@ export function UnderstandingYourSwingArticle() {
         marginBottom: 32,
       }}
     >
-      <ArticleTitle>The ball doesn't lie.</ArticleTitle>
+      <ArticleTitle standfirst="The ball doesn't lie.">Understanding your own swing.</ArticleTitle>
 
       <P>
         You don't need a coach behind you or a launch monitor in front of you to

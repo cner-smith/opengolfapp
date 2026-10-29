@@ -11,7 +11,7 @@ export function MeasurableGoalsArticle() {
         marginBottom: 32,
       }}
     >
-      <ArticleTitle>A goal you can pass or fail.</ArticleTitle>
+      <ArticleTitle standfirst="A goal you can pass or fail.">Creating measurable practice goals.</ArticleTitle>
 
       <P>
         Most practice goals are wishes wearing a goal's clothes — work on my

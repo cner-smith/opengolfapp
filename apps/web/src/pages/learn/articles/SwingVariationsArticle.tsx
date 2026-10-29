@@ -11,7 +11,7 @@ export function SwingVariationsArticle() {
         marginBottom: 32,
       }}
     >
-      <ArticleTitle>Swing your swing.</ArticleTitle>
+      <ArticleTitle standfirst="Swing your swing.">Swing variations for different body types.</ArticleTitle>
 
       <P>
         Almost all golf instruction quietly assumes one student: a flexible,
