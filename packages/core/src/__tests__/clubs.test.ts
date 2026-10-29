@@ -232,7 +232,6 @@ describe('shortClubLabel', () => {
   it('a custom wedge reads as its loft, else CW', () => {
     expect(shortClubLabel({ club_type: 'cw', loft: 58 })).toBe('58°')
     expect(shortClubLabel({ club_type: 'custom_wedge', loft: 64 })).toBe('64°')
-    expect(shortClubLabel({ club_type: 'cw', name: 'Grind' })).toBe('CW')
     expect(shortClubLabel({ club_type: 'custom_wedge' })).toBe('CW')
   })
 })

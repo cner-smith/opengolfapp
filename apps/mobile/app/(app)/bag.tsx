@@ -95,7 +95,7 @@ export default function BagScreen() {
     const d = byClub.get(c.club_type as Club)
     const shots = d?.points.length ?? 0
     const typical = clubTypicalDistance(d?.medianDistanceYards, shots, c.typical_distance_yards)
-    return { id: c.id, clubType: c.club_type, typical, range: typical?.source === 'shots' ? (d?.range ?? null) : null, shots }
+    return { id: c.id, clubType: c.club_type, loft: c.loft, typical, range: typical?.source === 'shots' ? (d?.range ?? null) : null, shots }
   })
   const readingOf = new Map(readings.map((r) => [r.id, r]))
   const gaps = bagGaps(readings, unit)

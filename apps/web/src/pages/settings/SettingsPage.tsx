@@ -186,16 +186,17 @@ export function SettingsPage() {
   async function deleteAccount() {
     setDeleting(true)
     setDeleteError(null)
-    const { error: rpcError } = await supabase.rpc('delete_my_account')
-    if (rpcError) {
+    let deleted = false
+    try {
+      const { error: rpcError } = await supabase.rpc('delete_my_account')
+      if (rpcError) throw rpcError
+      deleted = true
+      const { error: signOutError } = await supabase.auth.signOut()
+      if (signOutError) throw signOutError
+    } catch (err) {
+      setDeleteError(deleted ? 'Your account is deleted. Reload the page to finish signing out.' : toUserMessage(err))
+    } finally {
       setDeleting(false)
-      setDeleteError(toUserMessage(rpcError))
-      return
-    }
-    const { error: signOutError } = await supabase.auth.signOut()
-    if (signOutError) {
-      setDeleting(false)
-      setDeleteError('Your account is deleted. Reload the page to finish signing out.')
     }
   }
 
@@ -521,7 +522,6 @@ const rowStyle: React.CSSProperties = {
 // it comes from in a column beside it.
 function Hero({ value, caption }: { value: number | null; caption: string }) {
   const shown = useCountUp(value, { onceKey: 'oga-profile-counted' })
-  const decimals = value == null ? 0 : (String(value).split('.')[1]?.length ?? 0)
   // A 40px line box sets the digits' baseline near its bottom, so the column
   // (flush to the bottom) puts its caption on that baseline, as mobile does.
   return (
@@ -533,8 +533,8 @@ function Hero({ value, caption }: { value: number | null; caption: string }) {
       ) : (
         <span className="font-serif tabular text-caddie-ink" style={{ fontSize: 54, fontStyle: 'italic', fontWeight: 500, letterSpacing: '-1.5px', lineHeight: '40px' }}>
           {/* The counting figure is hidden from screen readers; they get the value once. */}
-          <span aria-hidden="true">{shown!.toFixed(decimals)}</span>
-          <span className="sr-only">{value}</span>
+          <span aria-hidden="true">{shown!.toFixed(1)}</span>
+          <span className="sr-only">{value.toFixed(1)}</span>
         </span>
       )}
       <span className="prof-rise" style={{ display: 'block', marginBottom: -3, minWidth: 0 }}>

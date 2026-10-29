@@ -28,7 +28,7 @@ const MUTE = '#8A8B7E'
 const HOLE_FILL = 'rgba(166,106,31,0.06)'
 const OVERLAP_FILL = 'rgba(163,58,42,0.25)'
 
-export type ChartClub = BagClub & { id: string }
+export type ChartClub = BagClub & { id: string; loft: number | null }
 
 const words = (xs: string[]) => (xs.length < 2 ? (xs[0] ?? '') : `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}`)
 
@@ -107,7 +107,7 @@ export function GapChart({ gaps, unit }: { gaps: BagGaps<ChartClub>; unit: Dista
                 numberOfLines={1}
                 style={[TYPE.bodyBold, { color: r.typical ? P.ink : MUTE, fontSize: 12 }]}
               >
-                {shortClubLabel({ club_type: r.clubType })}
+                {shortClubLabel({ club_type: r.clubType, loft: r.loft })}
               </Text>
             </View>
           ))}
