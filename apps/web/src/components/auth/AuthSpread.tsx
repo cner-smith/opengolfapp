@@ -6,6 +6,16 @@ import '../landing/landing.css'
 // Sign in, sign up and password reset as an open book: the form on the left
 // page under the wordmark, and on a wide screen the landing's Home screen on
 // the right page, so the page reads as the same book the visitor came from.
+// The landing hero's phone, its arrow on the sentence as there (#1256).
+const HOME = (
+  <PhoneShot
+    src="/landing/home.webp"
+    alt=""
+    tag={{ text: <>the one<br />sentence</>, left: 186, top: 24, width: 96 }}
+    arrow={[262, 72, 262, 160]}
+  />
+)
+
 export function AuthSpread({ children }: { children: ReactNode }) {
   return (
     <div className="bg-caddie-bg text-caddie-ink" style={{ minHeight: '100vh' }}>
@@ -15,15 +25,15 @@ export function AuthSpread({ children }: { children: ReactNode }) {
             <Wordmark />
           </div>
           {children}
+          {/* A phone loses the figure at right: its top third, clipped on a hairline. */}
+          <figure className="auth-peek lb-phone-in" aria-hidden>
+            <div className="auth-peek-crop">{HOME}</div>
+            <figcaption className="lb-caption">Home, after 15 rounds</figcaption>
+          </figure>
         </div>
         <div className="auth-fold" aria-hidden />
         <figure className="auth-figure lb-figure lb-phone-in" aria-hidden>
-          <PhoneShot
-            src="/landing/home.webp"
-            alt=""
-            tag={{ text: <>the one<br />sentence</>, left: 186, top: 24, width: 96 }}
-            arrow={[238, 70, 250, 152]}
-          />
+          {HOME}
           <figcaption className="lb-caption">Home, after 15 rounds</figcaption>
         </figure>
       </main>
