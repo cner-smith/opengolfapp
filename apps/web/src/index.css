@@ -92,6 +92,11 @@ body {
 .key[aria-checked='true'] {
   box-shadow: inset 0 0 0 1px var(--key-edge);
 }
+/* A printed option, latched: the rocker's 2px ink rim and shade band, so
+   the pick reads as pressed in, not greyed out (#1306). */
+.key-choice[aria-checked='true'] {
+  box-shadow: inset 0 0 0 2px var(--key-edge), inset 0 5px 0 rgba(28, 33, 28, 0.22);
+}
 .key:disabled,
 .key[aria-disabled='true'] {
   background: #f2eee5;
