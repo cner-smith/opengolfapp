@@ -392,3 +392,38 @@ dialog.pat-dialog::backdrop {
   outline: 2px solid var(--caddie-ink);
   outline-offset: 4px;
 }
+/* Step 5's answers: each row a quiet link back to its step. */
+.onb-answer {
+  display: flex;
+  width: 100%;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 18px;
+  min-height: 44px;
+  padding: 10px 0;
+  background: none;
+  border: none;
+  border-bottom: 1px solid #d9d2bf;
+  cursor: pointer;
+  text-align: left;
+}
+.onb-answer:hover .font-serif {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.onb-answer:focus-visible,
+.onb-answer-hero:focus-visible {
+  outline: 2px solid var(--caddie-ink);
+  outline-offset: 2px;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .onb-coach {
+    animation: onb-rise 420ms 720ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+}
+@keyframes onb-rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}

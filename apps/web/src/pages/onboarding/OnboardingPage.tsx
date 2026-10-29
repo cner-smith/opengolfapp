@@ -205,6 +205,7 @@ export function OnboardingPage() {
             saving={updateProfile.isPending}
             error={error}
             onBack={back}
+            onEdit={setStep}
             onSave={saveProfile}
           />
         )}

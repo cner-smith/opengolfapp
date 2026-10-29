@@ -11,7 +11,7 @@ const SLIDER_MIN = -5
 const at = (n: number) => `calc(9px + (100% - 18px) * ${(n - SLIDER_MIN) / (MAX - SLIDER_MIN)})`
 const clamp = (n: number) => Math.min(MAX, Math.max(MIN, Math.round(n * 10) / 10))
 
-function bracketLabel(handicap: number): string {
+export function bracketLabel(handicap: number): string {
   if (handicap < 0) return 'Plus handicap'
   if (handicap <= 2) return 'Scratch'
   if (handicap <= 7) return 'Single digit'
