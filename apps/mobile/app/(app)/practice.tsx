@@ -7,10 +7,12 @@ import Animated, {
   withSpring,
   withTiming,
 } from 'react-native-reanimated'
-import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from 'react-native'
+import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View, type TextStyle } from 'react-native'
 import { Link } from 'expo-router'
 import { MaterialCommunityIcons } from '@expo/vector-icons'
 import {
+  generateMaySendToAi,
+  isAiWrittenPlan,
   isPartialRound,
   normalizeCategoryProse,
   sgBreakdown,
@@ -157,6 +159,9 @@ export default function Practice() {
     : isExpired
       ? 'Generate this week’s plan'
       : null
+  const mayUseAi = generateMaySendToAi(roundsWithSG)
+  // The 2nd/3rd-round update is always built without AI.
+  const aiAtGenerate = !!generateLabel && !promptRefresh && mayUseAi
   const sub = !plan
     ? ''
     : isExpired
@@ -200,7 +205,7 @@ export default function Practice() {
             <ActivityIndicator color={ACCENT} />
           </View>
         ) : !plan ? (
-          <NoPlan finding={finding} generating={generating} error={error} onGenerate={generate} />
+          <NoPlan finding={finding} generating={generating} error={error} onGenerate={generate} aiDisclosure={mayUseAi} />
         ) : (
           <>
             <Entrance index={0}>
@@ -219,7 +224,7 @@ export default function Practice() {
                 accessibilityLabel={generateLabel}
                 disabled={generating}
                 onPress={generate}
-                style={{ marginBottom: 22 }}
+                style={{ marginBottom: aiAtGenerate ? 10 : 22 }}
                 faceStyle={{ minHeight: 48 }}
               >
                 {generating ? (
@@ -231,6 +236,7 @@ export default function Practice() {
                 )}
               </Key>
             ) : null}
+            {aiAtGenerate ? <AiDisclosure style={{ marginBottom: 22 }} /> : null}
 
             {error ? (
               <Text style={[TYPE.body, { color: NEG, fontSize: 13, marginBottom: 14 }]}>{error}</Text>
@@ -258,13 +264,14 @@ export default function Practice() {
                     ? 'Built from your profile answers, not your rounds yet.'
                     : `Built from your last ${plan.based_on_rounds} round${plan.based_on_rounds === 1 ? '' : 's'}.`
                 }
+                aiWritten={isAiWrittenPlan(plan.raw_model_output)}
               />
               {focusAreas.length > 0 ? <FocusAreas areas={focusAreas} /> : null}
             </Entrance>
 
             <Entrance index={3}>
             {plan.id ? (
-              <FeedbackSection key={plan.id} initial={plan.feedback ?? ''} onSave={submitFeedback} />
+              <FeedbackSection key={plan.id} initial={plan.feedback ?? ''} onSave={submitFeedback} aiReadsNote={mayUseAi} />
             ) : null}
 
             <Link href={'/(app)/drills' as never} asChild>
@@ -285,11 +292,13 @@ function NoPlan({
   generating,
   error,
   onGenerate,
+  aiDisclosure,
 }: {
   finding: string | null
   generating: boolean
   error: string | null
   onGenerate: () => void
+  aiDisclosure: boolean
 }) {
   return (
     <View>
@@ -328,6 +337,7 @@ function NoPlan({
           </KeyText>
         )}
       </Key>
+      {aiDisclosure ? <AiDisclosure style={{ marginTop: 10 }} /> : null}
       {generating ? (
         <Text style={[TYPE.body, { color: INK_MUTE, fontSize: 12, textAlign: 'center', marginTop: 10 }]}>
           Reading your rounds and writing the plan… this takes a few seconds.
@@ -357,7 +367,27 @@ function NoPlan({
   )
 }
 
-function WhyThisPlan({ insight, note, basis }: { insight: string | null; note: string | null; basis: string }) {
+// Apple 5.1.2(i): say who gets the data before the press that sends it.
+function AiDisclosure({ style }: { style?: TextStyle }) {
+  return (
+    <Text testID="practice-ai-disclosure" maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { color: INK_DIM, fontSize: 13, lineHeight: 19 }, style]}>
+      Claude, Anthropic’s AI, writes your plan. Generating sends it your handicap, skill level, goal, how often you
+      play, where you practice, your strokes-gained numbers and your plan note. Never your name or email.
+    </Text>
+  )
+}
+
+function WhyThisPlan({
+  insight,
+  note,
+  basis,
+  aiWritten,
+}: {
+  insight: string | null
+  note: string | null
+  basis: string
+  aiWritten: boolean
+}) {
   return (
     <View style={{ marginTop: 8, marginBottom: 24 }}>
       <SectionHead title="Why this plan" />
@@ -374,6 +404,11 @@ function WhyThisPlan({ insight, note, basis }: { insight: string | null; note: s
       <Text maxFontSizeMultiplier={FONT_CAP} style={{ ...META, color: INK_MUTE, marginTop: 8 }}>
         {basis}
       </Text>
+      {aiWritten ? (
+        <Text testID="practice-ai-written" maxFontSizeMultiplier={FONT_CAP} style={{ ...META, color: INK_MUTE, marginTop: 4 }}>
+          Claude wrote this plan from your numbers. Use your judgment.
+        </Text>
+      ) : null}
     </View>
   )
 }
@@ -649,9 +684,11 @@ function FocusAreas({ areas }: { areas: StoredFocusArea[] }) {
 function FeedbackSection({
   initial,
   onSave,
+  aiReadsNote,
 }: {
   initial: string
   onSave: (feedback: string) => Promise<void> | void
+  aiReadsNote: boolean
 }) {
   const [value, setValue] = useState(initial)
   // Track the last persisted value so blur only saves real edits and the
@@ -676,6 +713,7 @@ function FeedbackSection({
       <SectionHead title="Before next week" />
       <Text style={[TYPE.body, { color: INK_DIM, fontSize: 14, lineHeight: 20, marginBottom: 12 }]}>
         One note on how the week went: what worked, what felt off. Next week’s plan reads it.
+        {aiReadsNote ? ' Claude reads this note too.' : ''}
       </Text>
       <TextInput
         value={value}
