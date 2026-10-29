@@ -114,7 +114,7 @@ export function GolfPadImport() {
           />
         </label>
       </div>
-      <FileDrop label="Or drop rounds, holes and shots here" disabled={busy} onFiles={readFiles} />
+      <FileDrop label="Or drop rounds, holes and shots here" accept=".csv,text/csv" multiple disabled={busy} onFiles={readFiles} />
 
       {error && (
         <p className="text-caddie-neg" role="alert" style={{ fontSize: 13 }}>

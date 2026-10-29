@@ -1,13 +1,19 @@
 import { useState, type DragEvent } from 'react'
 
 // A paper drop box under a file key: the edge firms to ink and the face lifts
-// while files are dragged over it.
+// while files are dragged over it. A click or tap opens the file chooser too
+// (phones never drag); its input stays out of the tab order, since the key
+// above is the keyboard's way in.
 export function FileDrop({
   label,
+  accept,
+  multiple,
   disabled,
   onFiles,
 }: {
   label: string
+  accept: string
+  multiple?: boolean
   disabled?: boolean
   onFiles: (files: FileList) => void
 }) {
@@ -17,7 +23,7 @@ export function FileDrop({
     if (!disabled) setOver(true)
   }
   return (
-    <div
+    <label
       onDragEnter={hover}
       onDragOver={hover}
       onDragLeave={() => setOver(false)}
@@ -37,9 +43,23 @@ export function FileDrop({
         fontSize: 17,
         fontStyle: 'italic',
         transition: 'background 120ms ease-out, border-color 120ms ease-out, color 120ms ease-out',
+        cursor: disabled ? 'default' : 'pointer',
       }}
     >
       {label}
-    </div>
+      <input
+        type="file"
+        accept={accept}
+        multiple={multiple}
+        disabled={disabled}
+        tabIndex={-1}
+        aria-hidden
+        className="sr-only"
+        onChange={(e) => {
+          if (e.target.files?.length) onFiles(e.target.files)
+          e.target.value = ''
+        }}
+      />
+    </label>
   )
 }
