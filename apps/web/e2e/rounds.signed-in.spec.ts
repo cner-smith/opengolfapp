@@ -49,3 +49,21 @@ test.describe('Rounds list (signed in)', () => {
     }
   })
 })
+
+// #1230: ?view=map used to mark any round live, so the shot editor hid its
+// mini-map on a finished round.
+test('a finished round opened on the map keeps the shot editor mini-map', async ({ page }) => {
+  await page.goto('/rounds')
+  // A row shows a score only when total_score > 0, which isFinishedRound counts as finished.
+  const finished = page
+    .locator('main li a[href^="/rounds/"]')
+    .filter({ has: page.locator('span', { hasText: /^\d+$/ }) })
+    .first()
+  const href = await finished.getAttribute('href')
+  await page.goto(`${href}?view=map`)
+  await page.getByRole('tab', { name: 'Scorecard' }).click()
+  await page.getByRole('button', { name: /^Hole 1, \d+ shots?, edit$/ }).click()
+  const editor = page.locator('.fixed.inset-0.z-50')
+  await editor.getByRole('button', { name: /^edit$/i }).first().click()
+  await expect(editor.locator('.mapboxgl-map')).toHaveCount(1, { timeout: 15_000 })
+})
