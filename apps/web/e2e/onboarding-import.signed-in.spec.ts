@@ -11,6 +11,11 @@ async function walkToImportStep(page: Page) {
     writes.push(body)
     await route.fulfill({ json: { onboarding_completed: false, ...body } })
   })
+  // The bag write too: the e2e user's bag stays as it is.
+  await page.route('**/rest/v1/user_clubs*', async (route) => {
+    if (route.request().method() === 'GET') return route.fallback()
+    await route.fulfill({ json: [] })
+  })
   await page.goto('/onboarding')
   await page.getByRole('radio', { name: /^Casual/ }).click()
   await page.getByRole('button', { name: /Continue/ }).click()
@@ -21,7 +26,7 @@ async function walkToImportStep(page: Page) {
   await page.getByRole('radio', { name: 'Mixed' }).click()
   await page.getByRole('button', { name: /Continue/ }).click()
   await page.getByRole('button', { name: /Save and continue/ }).click()
-  await page.getByRole('button', { name: /Set up later/ }).click()
+  await page.getByRole('button', { name: /Looks good/ }).click()
   await expect(page.getByRole('heading', { name: 'Your yardage book is open.' })).toBeVisible()
   await expect(page.getByText('One more thing')).toBeVisible()
   expect(writes.at(-1)).toEqual({ onboarding_completed: true })

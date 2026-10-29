@@ -427,3 +427,23 @@ dialog.pat-dialog::backdrop {
     transform: translateY(8px);
   }
 }
+/* In the components layer, after .key, so its :active press still wins. */
+@layer components {
+  /* Step 6: a club in the bag stands on its ledge; one taken out lies flat,
+     dashed and struck through, so the default bag isn't a wall of latched
+     keys. aria-pressed still means "in the bag". */
+  .onb-club[aria-pressed='true'] {
+    background: var(--key-face);
+    transform: none;
+    box-shadow: 0 3px 0 var(--key-edge);
+  }
+  .onb-club[aria-pressed='false'] {
+    background: transparent;
+    color: var(--caddie-ink-dim);
+    border-style: dashed;
+    border-color: #9f9580;
+    transform: translateY(3px);
+    box-shadow: none;
+    text-decoration: line-through;
+  }
+}

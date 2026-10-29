@@ -45,9 +45,8 @@ export function OnboardingPage() {
     playStyle: null,
   })
   // Bag step starts with all DEFAULT_BAG clubs selected. User toggles
-  // off any they don't carry. Skipping the step doesn't seed at all —
-  // the bag stays empty and ShotEntryModal falls back to DEFAULT_BAG
-  // until the user explicitly populates it.
+  // off any they don't carry. There's no separate skip: an untouched bag
+  // and an empty one both end up as DEFAULT_BAG (useUserBag's fallback).
   const [bagSelection, setBagSelection] = useState<Set<string>>(
     () => new Set(DEFAULT_BAG.map((c) => c.club_type)),
   )
@@ -74,10 +73,9 @@ export function OnboardingPage() {
     if (step > 1) setStep(step - 1)
   }
 
-  // Step 5 → save profile, advance to bag step. Step 6 → save bag (or
-  // skip) and finish onboarding. Splitting the saves keeps the bag truly
-  // optional: a user who skips never inserts a user_clubs row. Step 7 (import)
-  // comes after the finish, so it only picks where the user lands.
+  // Step 5 → save profile, advance to bag step. Step 6 → save bag and
+  // finish onboarding. Step 7 (import) comes after the finish, so it only
+  // picks where the user lands.
   async function saveProfile() {
     setError(null)
     if (draft.handicap < -10 || draft.handicap > 54) {
@@ -114,20 +112,6 @@ export function OnboardingPage() {
       await seedDefaultBag(supabase, user.id, reseeded)
       // Flip the gate AFTER the bag write so a failed bag save can't
       // strand the user on a half-completed onboarding.
-      await updateProfile.mutateAsync({ onboarding_completed: true })
-      setStep(7)
-    } catch (err) {
-      setError(toUserMessage(err))
-    } finally {
-      setSavingBag(false)
-    }
-  }
-
-  async function skipBag() {
-    if (!user) return
-    setError(null)
-    setSavingBag(true)
-    try {
       await updateProfile.mutateAsync({ onboarding_completed: true })
       setStep(7)
     } catch (err) {
@@ -215,7 +199,6 @@ export function OnboardingPage() {
             onChange={setBagSelection}
             onBack={back}
             onContinue={saveBagAndFinish}
-            onSkip={skipBag}
             busy={savingBag}
             error={error}
           />
