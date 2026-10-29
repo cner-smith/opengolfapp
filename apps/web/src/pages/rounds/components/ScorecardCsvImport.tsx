@@ -24,11 +24,11 @@ export function ScorecardCsvImport() {
   const [busy, setBusy] = useState(false)
 
   async function handleFile(e: ChangeEvent<HTMLInputElement>) {
-    if (e.target.files?.length) await readFile(e.target.files)
+    if (e.target.files?.length) await readFile(Array.from(e.target.files))
     e.target.value = ''
   }
 
-  async function readFile(files: FileList) {
+  async function readFile(files: File[]) {
     const file = files[0]!
     setError(null)
     try {
