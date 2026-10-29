@@ -4,6 +4,7 @@ export function StepHeading({ title, subtitle }: { title: string; subtitle?: str
   return (
     <div style={{ marginBottom: 22 }}>
       <h1
+        tabIndex={-1}
         className="font-serif text-caddie-ink"
         style={{
           fontSize: 28,

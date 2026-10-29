@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { DEFAULT_BAG, type Facility, type Goal, type SkillLevel } from '@oga/core'
 import { seedDefaultBag } from '@oga/supabase'
@@ -50,6 +50,17 @@ export function OnboardingPage() {
   )
   const [savingBag, setSavingBag] = useState(false)
   useDocumentTitle(`${stepLabel(step)} · OGA`)
+
+  // Each step is a new component, so Continue/Back unmount the focused key
+  // and focus falls to <body>. Move it to the new step's heading instead
+  // (not on the first paint: nothing has changed yet).
+  const pageRef = useRef<HTMLDivElement>(null)
+  const shownStep = useRef(step)
+  useEffect(() => {
+    if (shownStep.current === step) return
+    shownStep.current = step
+    pageRef.current?.querySelector<HTMLElement>('h1')?.focus()
+  }, [step])
 
   function next() {
     if (step < TOTAL_STEPS) setStep(step + 1)
@@ -125,6 +136,7 @@ export function OnboardingPage() {
   return (
     <div className="flex min-h-screen items-start justify-center bg-caddie-bg">
       <div
+        ref={pageRef}
         className="w-full"
         style={{
           maxWidth: 520,
@@ -237,7 +249,7 @@ function StepIndicator({ current }: { current: number }) {
           )
         })}
       </div>
-      <div className="text-caddie-ink-dim" style={{ fontSize: 13, marginTop: 10 }}>
+      <div role="status" className="text-caddie-ink-dim" style={{ fontSize: 13, marginTop: 10 }}>
         {label}
       </div>
     </div>
