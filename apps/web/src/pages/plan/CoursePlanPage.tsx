@@ -54,11 +54,17 @@ export default function CoursePlanPage() {
       ])
       if (holes.error) throw holes.error
       if (rounds.error) throw rounds.error
-      return { holes: holes.data ?? [], played: new Set((rounds.data ?? []).map((r) => r.course_id)) }
+      return { holes: holes.data ?? [], played: rounds.data }
     },
   })
-  // Until the counts land the rows keep the search's order and say nothing.
-  const rows = detail.data ? rankPlanCourses(courses, detail.data.holes, detail.data.played) : null
+  useEffect(() => {
+    if (detail.error) console.error('[CoursePlanPage/detail] counts failed; showing the unranked list', detail.error)
+  }, [detail.error])
+  // Until the counts land (or if they fail) the rows keep the search's order
+  // and say nothing about mapping.
+  const rows = detail.data
+    ? rankPlanCourses(courses, detail.data.holes, detail.data.played)
+    : courses.map((c) => ({ ...c, counts: null }))
   const hasQuery = query.trim().length > 0
 
   return (
@@ -98,8 +104,8 @@ export default function CoursePlanPage() {
           )}
 
           {!isLoading &&
-            (rows ?? courses).map((c) => {
-              const counts = rows ? (c as (typeof rows)[number]) : null
+            rows.map((c) => {
+              const counts = 'counts' in c ? null : c
               const where = [c.city, c.state].filter(Boolean).join(', ')
               const unmapped = counts != null && counts.mappedCount === 0
               const mapped =

@@ -111,6 +111,8 @@ export function getHolesForCourse(client: OgaSupabaseClient, courseId: string) {
 }
 
 // The planner's course search: which holes of each result have a tee and a pin.
+// Unranged: the search returns at most 10 courses (useCourseSearch; search_courses
+// result_limit), so ~18 holes each stays far below PostgREST's 1000-row cap.
 export function getHoleCoordsForCourses(client: OgaSupabaseClient, courseIds: string[]) {
   return client.from('holes').select('course_id, tee_lat, pin_lat').in('course_id', courseIds)
 }

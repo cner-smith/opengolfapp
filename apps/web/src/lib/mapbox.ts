@@ -6,8 +6,8 @@ const TOKEN = import.meta.env.VITE_MAPBOX_TOKEN as string | undefined
 
 if (TOKEN) {
   mapboxgl.accessToken = TOKEN
-} else if (import.meta.env.DEV) {
-  // eslint-disable-next-line no-console
+} else {
+  // Every build: a deploy without the token must be diagnosable.
   console.error('VITE_MAPBOX_TOKEN missing — map view will not render.')
 }
 

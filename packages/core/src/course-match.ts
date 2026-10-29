@@ -114,15 +114,19 @@ export function rankPlanCourses<C extends { id: string }>(
   holes: PlanHoleCoords[],
   playedCourseIds: ReadonlySet<string>,
 ): (C & { holeCount: number; mappedCount: number; played: boolean })[] {
-  const rows = courses.map((c) => {
-    const own = holes.filter((h) => h.course_id === c.id)
-    return {
-      ...c,
-      holeCount: own.length,
-      mappedCount: own.filter((h) => h.tee_lat != null && h.pin_lat != null).length,
-      played: playedCourseIds.has(c.id),
-    }
-  })
+  const counts = new Map<string, { holeCount: number; mappedCount: number }>()
+  for (const h of holes) {
+    const n = counts.get(h.course_id) ?? { holeCount: 0, mappedCount: 0 }
+    n.holeCount += 1
+    if (h.tee_lat != null && h.pin_lat != null) n.mappedCount += 1
+    counts.set(h.course_id, n)
+  }
+  const rows = courses.map((c) => ({
+    ...c,
+    holeCount: counts.get(c.id)?.holeCount ?? 0,
+    mappedCount: counts.get(c.id)?.mappedCount ?? 0,
+    played: playedCourseIds.has(c.id),
+  }))
   const tier = (r: (typeof rows)[number]) => (r.played ? 0 : r.mappedCount > 0 ? 1 : 2)
   return rows.map((r, i) => ({ r, i })).sort((a, b) => tier(a.r) - tier(b.r) || a.i - b.i).map(({ r }) => r)
 }
