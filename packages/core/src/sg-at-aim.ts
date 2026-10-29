@@ -28,10 +28,11 @@ const BLEND_TO_YARDS = 6
 export function expectedStrokesFromPin(distanceYards: number, handicap: number): number {
   const d = Math.max(0, distanceYards)
   if (d >= 30) return getExpectedStrokes('approach', d, undefined, handicap) ?? 0
+  // Each range looks up only the table(s) it reads: this runs inside sgAtAim's Monte-Carlo loop.
+  if (d <= BLEND_FROM_YARDS) return getExpectedStrokes('putting', undefined, d * 3, handicap) ?? 0
   const aroundGreen = getExpectedStrokes('around_green', d, undefined, handicap) ?? 0
   if (d >= BLEND_TO_YARDS) return aroundGreen
   const putting = getExpectedStrokes('putting', undefined, d * 3, handicap) ?? 0
-  if (d <= BLEND_FROM_YARDS) return putting
   const w = (d - BLEND_FROM_YARDS) / (BLEND_TO_YARDS - BLEND_FROM_YARDS)
   return putting + w * (aroundGreen - putting)
 }
