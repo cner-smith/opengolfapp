@@ -8,7 +8,7 @@ test.describe('Signup page (signed out)', () => {
     await expect(page.getByRole('heading', { name: 'Start your yardage book.' })).toBeVisible()
     await expect(page.getByLabel('Username')).toBeVisible()
     await expect(page.getByLabel('Email')).toHaveAttribute('type', 'email')
-    await expect(page.getByLabel('Password')).toHaveAttribute('minlength', '8')
+    await expect(page.getByLabel('Password', { exact: true })).toHaveAttribute('minlength', '8')
     await expect(page.getByRole('button', { name: 'Create account' })).toBeVisible()
     await expect(page.getByRole('link', { name: 'Sign in' })).toHaveAttribute('href', '/login')
   })

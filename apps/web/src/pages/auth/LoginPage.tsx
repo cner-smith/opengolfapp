@@ -4,7 +4,7 @@ import { Turnstile, type TurnstileInstance } from '@marsidev/react-turnstile'
 import { supabase } from '../../lib/supabase'
 import { useDocumentTitle } from '../../hooks/useDocumentTitle'
 import { GoogleSignInButton } from '../../components/auth/GoogleSignInButton'
-import { AuthField, AuthSpread, AuthTitle } from '../../components/auth/AuthSpread'
+import { AuthField, AuthSpread, AuthTitle, PasswordInput } from '../../components/auth/AuthSpread'
 
 // Vite exposes only env vars prefixed `VITE_` to the client bundle, so
 // the Turnstile site key has to follow that convention. Set
@@ -160,23 +160,19 @@ export function LoginPage() {
         </AuthField>
         <div className="auth-collapse" data-open={!forgot}>
           <div>
-            <AuthField
-              label="Password"
-              aside={
-                <button type="button" className="auth-link" onClick={() => switchTo('forgot')}>
-                  Forgot password?
-                </button>
-              }
-            >
-              <input
-                type="password"
+            <AuthField label="Password">
+              <PasswordInput
                 required={!forgot}
                 autoComplete="current-password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="auth-input"
               />
             </AuthField>
+            <div className="auth-forgot">
+              <button type="button" className="auth-link" onClick={() => switchTo('forgot')}>
+                Forgot your password?
+              </button>
+            </div>
           </div>
         </div>
         {captchaEnabled && (
