@@ -148,6 +148,7 @@ export function Close() {
 // ---------------------------------------------------------------------------
 
 export function Footer() {
+  const { user, loading } = useAuth()
   return (
     <footer className="lb-footer">
       <div style={WRAP} className="landing-footer lb-footer-grid">
@@ -161,7 +162,7 @@ export function Footer() {
           <a href="https://github.com/sponsors/cner-smith" target="_blank" rel="noreferrer noopener">Sponsors</a>
           <Link to="/privacy">Privacy</Link>
           <Link to="/support">Support</Link>
-          <Link to="/login">Sign in</Link>
+          {!loading && user ? <Link to="/dashboard">Go to app</Link> : <Link to="/login">Sign in</Link>}
         </nav>
         <div className="lb-footer-note">Free and open source, MIT License</div>
       </div>
