@@ -360,13 +360,13 @@ export function PastRoundMap({
   async function persistShotAt(
     idx: number,
     next: { start?: LatLng | null; aim?: LatLng | null },
-  ) {
-    if (!currentHoleScore) return
+  ): Promise<boolean> {
+    if (!currentHoleScore) return false
     const shot = placed[idx]
-    if (!shot) return
+    if (!shot) return false
     const start = next.start !== undefined ? next.start : shot.start
     const aim = next.aim !== undefined ? next.aim : shot.aim
-    if (!start) return
+    if (!start) return false
     // A shot only becomes a putt via handleGreenYes's own direct update (lie_type
     // + club) — this move/aim path never sets lie_type, so the existing server
     // row (if any) is the source of truth for whether this is a putt.
@@ -405,7 +405,7 @@ export function PastRoundMap({
         .single()
       if (error) {
         Alert.alert('Save failed', error.message)
-        return
+        return false
       }
       if (data) onShotUpserted(data as ShotRow)
     } else {
@@ -416,7 +416,7 @@ export function PastRoundMap({
         .single()
       if (error) {
         Alert.alert('Save failed', error.message)
-        return
+        return false
       }
       if (data) {
         const saved = data as ShotRow
@@ -433,21 +433,35 @@ export function PastRoundMap({
         )
       }
     }
+    return true
   }
 
   // Map tap (LOGGING, or REVIEW only while adding) OR a marker drag (always,
   // in PLACE_BALL) lands here. A drag on an existing shot just repositions +
   // persists. A FIRST placement may trip the green prompt, then either aims
   // (logging) or drops back to review (completed).
+  // A save that fails puts the stored start back and resolves false, so
+  // HoleMap snaps the dragged marker back too (#1129, as the live round #1111).
   async function handleSetBall(loc: LatLng) {
-    const wasInitial = active?.start == null
+    if (!currentHoleScore || !active) {
+      Alert.alert('Save failed', "That shot didn't save.")
+      return false
+    }
+    const idx = activeIdx
+    const storedStart = active.start
+    const wasInitial = storedStart == null
     setPlaced((prev) =>
-      prev.map((s, i) => (i === activeIdx ? { ...s, start: loc } : s)),
+      prev.map((s, i) => (i === idx ? { ...s, start: loc } : s)),
     )
     // Await the placement INSERT so the row + id exist before any follow-up
     // (a putt confirmation may update it). Only branch on the FIRST placement.
-    await persistShotAt(activeIdx, { start: loc })
-    if (!wasInitial) return
+    if (!(await persistShotAt(idx, { start: loc }))) {
+      setPlaced((prev) =>
+        prev.map((s, i) => (i === idx ? { ...s, start: storedStart } : s)),
+      )
+      return false
+    }
+    if (!wasInitial) return true
     // Within putting range of the pin → ask "On the green?" (mirrors the live
     // prompt) instead of forcing aim. A putt skips aiming entirely.
     if (effectivePin && distanceYards(loc, effectivePin) <= PUTTING_RADIUS_YARDS) {
@@ -459,6 +473,7 @@ export function PastRoundMap({
       // Logging: aim as usual.
       setMode('SET_AIM')
     }
+    return true
   }
 
   // "On the green?" → Yes: it's a putt. Mark lie/club + pre-fill the putt
