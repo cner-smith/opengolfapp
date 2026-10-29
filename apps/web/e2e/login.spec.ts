@@ -36,6 +36,12 @@ test.describe('Login page (signed out)', () => {
     expect(sent).not.toBeNull()
     expect(sent!.body).toContain('someone@example.com')
     expect(decodeURIComponent(sent!.url)).toMatch(/redirect_to=https?:\/\/[^&]+\/auth\/reset/)
+    // The sent page names the address and can send again, then rests (#1274).
+    await expect(page.getByText('someone@example.com')).toBeVisible()
+    sent = null
+    await page.getByRole('button', { name: 'Send it again' }).click()
+    await expect(page.getByRole('button', { name: 'Sent again' })).toBeDisabled()
+    expect(sent).not.toBeNull()
   })
 
   test('Back from the reset form returns to sign in', async ({ page }) => {

@@ -55,6 +55,13 @@ export function LoginPage() {
   // so devs running against a local Supabase (CAPTCHA disabled) aren't
   // blocked. Production deploys always have the env var set.
   const captchaEnabled = Boolean(TURNSTILE_SITE_KEY)
+  // 'Send it again' rests for 30 s after each send.
+  const [resentAt, setResentAt] = useState<number | null>(null)
+  useEffect(() => {
+    if (resentAt === null) return
+    const t = window.setTimeout(() => setResentAt(null), 30_000)
+    return () => window.clearTimeout(t)
+  }, [resentAt])
   useDocumentTitle(mode === 'signin' ? 'Sign in · OGA' : 'Reset your password · OGA')
 
   async function handleSubmit(e: FormEvent) {
@@ -113,7 +120,26 @@ export function LoginPage() {
     } else navigate('/dashboard')
   }
 
+  async function resend() {
+    if (captchaEnabled && !captchaToken) {
+      setError('Please wait a moment and try again.')
+      return
+    }
+    setLoading(true)
+    setError(null)
+    const { error: sendError } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/auth/reset`,
+      ...(captchaToken ? { captchaToken } : {}),
+    })
+    setLoading(false)
+    setCaptchaToken(null)
+    turnstileRef.current?.reset()
+    if (sendError) setError(sendError.message)
+    else setResentAt(Date.now())
+  }
+
   function switchTo(next: 'signin' | 'forgot') {
+    setResentAt(null)
     setError(null)
     setParams(next === 'signin' ? {} : { mode: next })
   }
@@ -122,12 +148,56 @@ export function LoginPage() {
     return (
       <AuthSpread>
         <div className="auth-stage lb-rise">
-          <AuthTitle sub="If that address has an account, the link is on its way. It works once; open it on this device.">
-            Check your email.
+          <AuthTitle
+            sub={
+              <>
+                A link is on its way to <span className="text-caddie-ink">{email}</span>, if it has an account. Open it on
+                this device; it works once.
+              </>
+            }
+          >
+            Check your email.{' '}
+            <span className="auth-sent-tag" aria-hidden>
+              in the post
+            </span>
           </AuthTitle>
-          <button type="button" className="auth-link" style={{ fontSize: 14 }} onClick={() => switchTo('signin')}>
-            Back to sign in
+          <button
+            type="button"
+            className="w-full key"
+            disabled={loading || resentAt !== null}
+            onClick={resend}
+            style={{ fontSize: 15 }}
+          >
+            {loading ? 'Sending…' : resentAt ? 'Sent again' : 'Send it again'}
           </button>
+          <p className="text-caddie-ink-dim" style={{ fontSize: 13, marginTop: 12, marginBottom: 22 }} aria-live="polite">
+            {resentAt ? 'Give it a minute, and check spam.' : 'Nothing after a minute? Check spam first.'}
+          </p>
+          {captchaEnabled && (
+            <div style={{ marginBottom: 14 }}>
+              <Turnstile
+                ref={turnstileRef}
+                siteKey={TURNSTILE_SITE_KEY!}
+                onSuccess={(token) => setCaptchaToken(token)}
+                onError={() => setCaptchaToken(null)}
+                onExpire={() => setCaptchaToken(null)}
+                options={{ theme: 'light' }}
+              />
+            </div>
+          )}
+          {error && (
+            <p className="text-caddie-neg" role="alert" style={{ fontSize: 13, marginBottom: 12 }}>
+              {error}
+            </p>
+          )}
+          <div className="flex flex-wrap justify-between" style={{ gap: 12 }}>
+            <button type="button" className="auth-link" style={{ fontSize: 14 }} onClick={() => switchTo('signin')}>
+              Back to sign in
+            </button>
+            <button type="button" className="auth-link" style={{ fontSize: 14 }} onClick={() => switchTo('forgot')}>
+              Use a different email
+            </button>
+          </div>
         </div>
       </AuthSpread>
     )
