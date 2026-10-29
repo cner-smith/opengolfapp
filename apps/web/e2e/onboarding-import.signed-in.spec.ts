@@ -51,6 +51,10 @@ test.describe('Onboarding step 1 (signed in)', () => {
     await page.goto('/onboarding')
     await expect(page.getByText('Step 1 of 5')).toBeVisible()
     await expect(page.getByRole('button', { name: /Back/ })).toHaveCount(0)
+    // Continue with no pick says why and takes focus to the list (#1267).
+    await page.getByRole('button', { name: /Continue/ }).click()
+    await expect(page.getByText('Pick the one that fits best.')).toBeVisible()
+    await expect(page.getByRole('radio').first()).toBeFocused()
     await page.getByRole('radio', { name: /^Casual/ }).click()
     await page.getByRole('button', { name: /Continue/ }).click()
     await page.getByRole('button', { name: /Back/ }).click()

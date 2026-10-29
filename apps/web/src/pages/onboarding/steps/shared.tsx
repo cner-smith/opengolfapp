@@ -116,7 +116,7 @@ export function OnboardingButtons({
   continueLabel = 'Continue',
   busy = false,
 }: {
-  /** Absent on the first step: an invisible stand-in keeps Continue's width. */
+  /** Absent on the first step: Continue takes the full width. */
   onBack?: () => void
   onContinue: () => void
   canContinue: boolean
@@ -125,27 +125,19 @@ export function OnboardingButtons({
 }) {
   return (
     <div className="flex justify-between items-center" style={{ gap: 18, marginTop: 26 }}>
-      <button
-        type="button"
-        onClick={onBack}
-        disabled={!onBack}
-        aria-hidden={!onBack}
-        tabIndex={onBack ? undefined : -1}
-        className="text-caddie-ink-dim hover:text-caddie-ink"
-        style={{
-          fontSize: 14,
-          minHeight: 44,
-          padding: '0 4px',
-          background: 'transparent',
-          border: 'none',
-          visibility: onBack ? 'visible' : 'hidden',
-        }}
-      >
-        <span className="font-serif" style={{ fontStyle: 'italic' }}>
-          ←
-        </span>{' '}
-        Back
-      </button>
+      {onBack && (
+        <button
+          type="button"
+          onClick={onBack}
+          className="text-caddie-ink-dim hover:text-caddie-ink"
+          style={{ fontSize: 14, minHeight: 44, padding: '0 4px', background: 'transparent', border: 'none' }}
+        >
+          <span className="font-serif" style={{ fontStyle: 'italic' }}>
+            ←
+          </span>{' '}
+          Back
+        </button>
+      )}
       <button
         type="button"
         onClick={onContinue}
