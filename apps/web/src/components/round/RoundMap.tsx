@@ -264,15 +264,13 @@ export function RoundMap({
         }}
       />
       {!MAPBOX_TOKEN_PRESENT && (
-        // User copy only (#1225): lib/mapbox logs the missing token in dev.
+        // Missing token = a build problem, not one the user can retry (#1225);
+        // lib/mapbox logs it.
         <div
           className="absolute inset-0 flex flex-col items-center justify-center text-caddie-ink-dim"
           style={{ background: '#FBF8F1', fontSize: 14, padding: 22, gap: 14, textAlign: 'center' }}
         >
-          The map didn&rsquo;t load. Check your connection and try again.
-          <button type="button" className="key" onClick={() => window.location.reload()}>
-            Try again
-          </button>
+          The map isn&rsquo;t available right now.
         </div>
       )}
     </div>
