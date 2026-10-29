@@ -402,18 +402,28 @@
   color: #5c6356;
 }
 @media (max-width: 960px) {
+  /* One column: the copy's parts join the grid so the key can follow the
+     chart it explains. */
   .lb-try-grid {
     grid-template-columns: 1fr;
-    gap: 32px;
+    gap: 0;
+  }
+  .lb-try-grid > div:first-child {
+    display: contents;
   }
   .lb-demo {
     justify-self: center;
+    margin-top: 32px;
   }
   .lb-demo-wait {
     min-height: 1101px;
   }
   .lb-key {
-    display: none;
+    order: 1;
+    justify-self: center;
+    width: 100%;
+    max-width: 560px;
+    margin-top: 28px;
   }
 }
 @media (max-width: 560px) {
