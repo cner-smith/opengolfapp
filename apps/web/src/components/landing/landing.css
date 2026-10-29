@@ -825,6 +825,23 @@
 .auth-pw-toggle:hover {
   color: #1c211c;
 }
+/* The landing's paper tag, stamped beside Check your email. */
+.auth-sent-tag {
+  display: inline-block;
+  vertical-align: middle;
+  margin-left: 8px;
+  padding: 3px 8px 2px;
+  background: #f7f2e7;
+  border: 1.5px solid #1c211c;
+  box-shadow: 3px 3px 0 #1c211c;
+  font-family: 'Kalam', cursive;
+  font-size: 17px;
+  font-style: normal;
+  font-weight: 400;
+  letter-spacing: 0;
+  line-height: 1.1;
+  transform: rotate(-3deg);
+}
 /* Forgot sits after the password field, so Tab reaches it before Sign in. */
 .auth-forgot {
   display: flex;
@@ -923,6 +940,9 @@
   }
   .lb-rise-2 {
     animation-delay: 120ms;
+  }
+  .auth-sent-tag {
+    animation: lb-stamp 180ms 360ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
   }
   /* The phone lifts onto its shadow, the tag stamps on, the arrow draws. */
   .lb-phone-in .phone-shot-device {
