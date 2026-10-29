@@ -12,17 +12,28 @@ export interface SgAtAim {
 
 const HIGH_CONFIDENCE_SAMPLES = 15
 
+// Without lie data the planner can't tell a putt from a chip, so between 4 and
+// 6 yd it blends the putting curve (d·3 ft) into the around-green one. The two
+// tables differ by 0.6–0.8 strokes at 5 yd; a hard switch there made a landing
+// at 4.99 yd look most of a stroke better than one at 5.0 (#671).
+const BLEND_FROM_YARDS = 4
+const BLEND_TO_YARDS = 6
+
 /**
  * Expected strokes to hole out from `distanceYards` to the pin, keyed on
- * distance only (no lie data yet): putting inside 5 yd, around-green to 30,
- * approach beyond. The tables meet at 30 yd (#632), so the stitched curve is
- * non-decreasing.
+ * distance only (no lie data yet): putting inside 4 yd, a blend to 6,
+ * around-green to 30, approach beyond. The tables meet at 30 yd (#632), so the
+ * stitched curve is non-decreasing.
  */
 export function expectedStrokesFromPin(distanceYards: number, handicap: number): number {
   const d = Math.max(0, distanceYards)
-  if (d < 5) return getExpectedStrokes('putting', undefined, d * 3, handicap) ?? 0
-  if (d < 30) return getExpectedStrokes('around_green', d, undefined, handicap) ?? 0
-  return getExpectedStrokes('approach', d, undefined, handicap) ?? 0
+  if (d >= 30) return getExpectedStrokes('approach', d, undefined, handicap) ?? 0
+  const aroundGreen = getExpectedStrokes('around_green', d, undefined, handicap) ?? 0
+  if (d >= BLEND_TO_YARDS) return aroundGreen
+  const putting = getExpectedStrokes('putting', undefined, d * 3, handicap) ?? 0
+  if (d <= BLEND_FROM_YARDS) return putting
+  const w = (d - BLEND_FROM_YARDS) / (BLEND_TO_YARDS - BLEND_FROM_YARDS)
+  return putting + w * (aroundGreen - putting)
 }
 
 /**
