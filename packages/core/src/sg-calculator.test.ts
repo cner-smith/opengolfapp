@@ -242,14 +242,14 @@ describe('OB / stroke and distance', () => {
     expect(sg.total).toBeCloseTo(-4, 5)
   })
 
-  it('leaves a non-OB penalty shot on the existing path', () => {
+  // A penalty shot as the last row is stroke and distance too, not holed
+  // (#1148).
+  it('yields exactly -2 when a penalty shot is the last logged row', () => {
     const sg = calculateRoundSG(
       [shotCtx({ shotNumber: 1, par: 4, isLastShot: true, distanceToTarget: 400, lieType: 'tee', penalty: true })],
       15,
     )
-    // isLastShot => endExpected 0 => startExpected - 1, then penaltyAdjust -1.
-    // Asserting only that the existing penalty path is untouched by this change.
-    expect(sg.offTee).toBeGreaterThan(-2)
+    expect(sg.offTee).toBeCloseTo(-2, 5)
   })
 })
 
