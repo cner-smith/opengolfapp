@@ -12,6 +12,11 @@ import { clearScreenCache } from '../lib/screenCache'
 interface AuthState {
   user: User | null
   loading: boolean
+  /** The user came from the stored session because its refresh failed on the
+   *  network (#1005). Until a refresh succeeds every request first waits out
+   *  auth-js's failed refresh (~26 s), so the offline cache readers skip the
+   *  network. Cleared by the next auth event (TOKEN_REFRESHED, SIGNED_OUT). */
+  offline: boolean
 }
 
 const AuthContext = createContext<AuthState | null>(null)
@@ -24,6 +29,7 @@ const AuthContext = createContext<AuthState | null>(null)
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
+  const [offline, setOffline] = useState(false)
 
   useEffect(() => {
     let mounted = true
@@ -32,11 +38,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // SIGNED_OUT and signing in as someone else, not just Profile's sign-out.
     // undefined = nothing seen yet (the cache is empty at launch anyway).
     let lastUserId: string | null | undefined
-    const apply = (next: User | null) => {
+    const apply = (next: User | null, fromStorage = false) => {
       const id = next?.id ?? null
       if (lastUserId !== undefined && id !== lastUserId) clearScreenCache()
       lastUserId = id
       setUser(next)
+      setOffline(fromStorage && next !== null)
       setLoading(false)
     }
 
@@ -60,7 +67,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
         const seen = events
         const stored = await readPersistedUser()
-        if (mounted && seen === events) apply(stored)
+        if (mounted && seen === events) apply(stored, true)
       })
       .catch(() => {
         if (mounted) apply(null)
@@ -86,7 +93,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   return (
-    <AuthContext.Provider value={{ user, loading }}>
+    <AuthContext.Provider value={{ user, loading, offline }}>
       {children}
     </AuthContext.Provider>
   )
