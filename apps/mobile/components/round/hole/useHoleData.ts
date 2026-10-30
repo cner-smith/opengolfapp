@@ -99,8 +99,11 @@ export function useHoleData(
   id: string | undefined,
   holeNumber: number,
 ): UseHoleDataResult {
-  const { user } = useAuth()
+  const { user, offline: authOffline } = useAuth()
   const userId = user?.id
+  // Read at call time: loadAll is also the error screen's retry.
+  const authOfflineRef = useRef(authOffline)
+  authOfflineRef.current = authOffline
   const [round, setRound] = useState<RoundRow | null>(null)
   const [courseCenter, setCourseCenter] = useState<LatLng | null>(null)
   const [holes, setHoles] = useState<HoleRow[]>([])
@@ -269,6 +272,12 @@ export function useHoleData(
       setHoleTees(p.holeTees)
     }
     try {
+      // Signed in from the stored session (#1005): every fetch would first
+      // wait out auth-js's failed refresh, so try the cache first.
+      const saved = authOfflineRef.current && userId
+        ? await readCache<CachedRoundData>(offlineKeys.round(userId, id))
+        : null
+      if (saved) return apply(saved)
       // If the round was deleted (e.g. from the home list) while this live
       // session is still mounted, a 0-row result returns null instead of
       // throwing PGRST116 "cannot coerce to a single JSON object" — surfaced
@@ -392,18 +401,27 @@ export function useHoleData(
             .select('id, club, lie_type, shot_number, start_lat, start_lng, ob, putt_result')
             .eq('hole_score_id', currentHoleScore.id)
             .order('shot_number')
-        let shotsRes = await fetchShots()
+        // Signed in from the stored session (#1005): with this hole cached,
+        // skip the fetch, which would first wait out auth-js's failed refresh;
+        // the cache below answers as for a network failure. Uncached, still
+        // fetch: an empty answer here would read as a confident remote=0.
+        const hasCache = authOfflineRef.current && userId && id
+          ? (await readCache<LiteShot[]>(offlineKeys.holeShots(userId, id, currentHoleScore.id))) !== null
+          : false
+        if (myNonce !== fetchNonceRef.current) return
+        let shotsRes = hasCache ? null : await fetchShots()
         if (myNonce !== fetchNonceRef.current) return
         // postgrest-js returns failures in-band ({data: null, error}) — the
         // promise resolves normally, so this can't be caught by the outer
         // try/catch. One retry covers most transient failures (mirrors the
         // sync.ts chunk-upsert retry); a network failure skips it, since
         // postgrest-js has already retried the GET itself.
-        if (shotsRes.error && !isNetworkFailure(shotsRes.error, shotsRes.status)) {
+        if (shotsRes?.error && !isNetworkFailure(shotsRes.error, shotsRes.status)) {
           shotsRes = await fetchShots()
           if (myNonce !== fetchNonceRef.current) return
         }
-        const offline = !!shotsRes.error && !!userId && !!id && isNetworkFailure(shotsRes.error, shotsRes.status)
+        const offline = !!userId && !!id &&
+          (!shotsRes || (!!shotsRes.error && isNetworkFailure(shotsRes.error, shotsRes.status)))
         const cached = offline && userId && id
           ? await readCache<LiteShot[]>(offlineKeys.holeShots(userId, id, currentHoleScore.id))
           : null
@@ -435,7 +453,7 @@ export function useHoleData(
           }
         }
         let shots: LiteShot[]
-        if (!shotsRes.error) {
+        if (shotsRes && !shotsRes.error) {
           shots = shotsRes.data ?? []
         } else if (offline) {
           // Offline (#993): the shots this device last knew for the hole
@@ -449,9 +467,9 @@ export function useHoleData(
           // than committing a confident remote=0 that the save path could
           // collide on.
           if (__DEV__) {
-            console.warn('[hole/shots-fetch]', shotsRes.error.message)
+            console.warn('[hole/shots-fetch]', shotsRes?.error?.message)
           }
-          logDiag('refetch_failed', { msg: shotsRes.error.message.slice(0, 120) })
+          logDiag('refetch_failed', { msg: shotsRes?.error?.message.slice(0, 120) })
           return
         }
         // Dedupe the sync-in-flight window: a shot whose server row just
