@@ -160,7 +160,7 @@ function RoundScreen() {
   const [editShotId, setEditShotId] = useState<string | null>(null)
   const shareCardRef = useRef<View>(null)
   const { unit } = useUnits()
-  const { user } = useAuth()
+  const { user, offline } = useAuth()
   // "Today's focus" nudge data — fetched lazily, only when the round has a leak.
   const [nudgeFacilities, setNudgeFacilities] = useState<string[]>([])
   const [nudgeDrills, setNudgeDrills] = useState<DrillRow[]>([])
@@ -197,8 +197,21 @@ function RoundScreen() {
     setError(null)
     setRedirectToLive(false)
     let status: number | undefined
+    // Offline (#993): a live round this device has loaded before reopens from
+    // its cache (useHoleData hydrates the rest the same way).
+    const reopenFromCache = async () => {
+      if (!user || mode === 'past') return false
+      const saved = await readCache<{ round: RoundRow }>(offlineKeys.round(user.id, id))
+      if (!active || !saved || saved.round.completed_at != null || saved.round.total_score != null) return false
+      setRound(saved.round)
+      setRedirectToLive(true)
+      return true
+    }
     ;(async () => {
       try {
+        // Signed in from the stored session (#1005): the fetch would first
+        // wait out auth-js's failed refresh, so try the cache first.
+        if (offline && (await reopenFromCache())) return
         // A deleted round returns null rather than throwing PGRST116 "cannot
         // coerce the result to a single JSON object".
         const { data: r, error: rErr, status: rStatus } = await supabase
@@ -265,17 +278,8 @@ function RoundScreen() {
         // See #246.
       } catch (err) {
         if (!active) return
-        // Offline (#993): a live round this device has loaded before reopens
-        // from its cache (useHoleData hydrates the rest the same way).
-        if (user && mode !== 'past' && isNetworkFailure(err, status)) {
-          const cached = await readCache<{ round: RoundRow }>(offlineKeys.round(user.id, id))
-          if (!active) return
-          if (cached && cached.round.completed_at == null && cached.round.total_score == null) {
-            setRound(cached.round)
-            setRedirectToLive(true)
-            return
-          }
-        }
+        if (isNetworkFailure(err, status) && (await reopenFromCache())) return
+        if (!active) return
         setError((err as Error).message)
       } finally {
         if (active) setLoading(false)
