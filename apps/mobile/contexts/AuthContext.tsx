@@ -57,6 +57,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // the round. Nothing is synced meanwhile: sync.ts and every request ask
     // auth-js for the session, which stays null until a refresh succeeds; the
     // refresh then emits TOKEN_REFRESHED, or SIGNED_OUT on a 4xx.
+    const seen = events
     supabase.auth
       .getSession()
       .then(async ({ data, error }) => {
@@ -65,7 +66,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           apply(data.session?.user ?? null)
           return
         }
-        const seen = events
         const stored = await readPersistedUser()
         if (mounted && seen === events) apply(stored, true)
       })

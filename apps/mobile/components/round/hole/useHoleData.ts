@@ -401,10 +401,15 @@ export function useHoleData(
             .select('id, club, lie_type, shot_number, start_lat, start_lng, ob, putt_result')
             .eq('hole_score_id', currentHoleScore.id)
             .order('shot_number')
-        // Signed in from the stored session (#1005): skip the fetch, which
-        // would first wait out auth-js's failed refresh; the cache below
-        // answers as for a network failure.
-        let shotsRes = authOffline ? null : await fetchShots()
+        // Signed in from the stored session (#1005): with this hole cached,
+        // skip the fetch, which would first wait out auth-js's failed refresh;
+        // the cache below answers as for a network failure. Uncached, still
+        // fetch: an empty answer here would read as a confident remote=0.
+        const hasCache = authOffline && userId && id
+          ? (await readCache<LiteShot[]>(offlineKeys.holeShots(userId, id, currentHoleScore.id))) !== null
+          : false
+        if (myNonce !== fetchNonceRef.current) return
+        let shotsRes = hasCache ? null : await fetchShots()
         if (myNonce !== fetchNonceRef.current) return
         // postgrest-js returns failures in-band ({data: null, error}) — the
         // promise resolves normally, so this can't be caught by the outer
