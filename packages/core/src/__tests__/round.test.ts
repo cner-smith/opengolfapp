@@ -454,17 +454,17 @@ describe('roundHoleCount (#727)', () => {
     expect(roundHoleCount(18, 9)).toBe(18)
   })
 
-  it('any whole count from 1 to 36 is kept: a 6-hole course plays 6', () => {
-    expect(roundHoleCount(6, 18)).toBe(6)
-    expect(roundHoleCount(1, 18)).toBe(1)
-    expect(roundHoleCount(36, 18)).toBe(36)
+  it('any whole count from 1 to 18 is kept: a 6-hole course plays 6', () => {
+    expect(roundHoleCount(6, 9)).toBe(6)
+    expect(roundHoleCount(1, 9)).toBe(1)
+    expect(roundHoleCount(18, 9)).toBe(18)
   })
 
   it('a round from before the column (null), or a value out of range, keeps the fallback', () => {
     expect(roundHoleCount(null, 9)).toBe(9)
     expect(roundHoleCount(undefined, 18)).toBe(18)
     expect(roundHoleCount(0, 18)).toBe(18)
-    expect(roundHoleCount(37, 18)).toBe(18)
+    expect(roundHoleCount(19, 9)).toBe(9)
     expect(roundHoleCount(6.5, 18)).toBe(18)
   })
 })
@@ -579,10 +579,6 @@ describe('roundHolesPlayed / isPartialRound', () => {
 
   it('a stored 18 ended after 9 is partial, though only 9 rows exist (#727)', () => {
     expect(roundHolesPlayed(rows(Array(9).fill(4)), 18)).toEqual({ played: 9, of: 18 })
-  })
-
-  it('a stored count past 18 is measured against 18: no hole row exists past it', () => {
-    expect(roundHolesPlayed(rows(Array(18).fill(4)), 27)).toEqual({ played: 18, of: 18 })
   })
 
   it('wholeRoundWindow counts a played-through 6 as whole', () => {

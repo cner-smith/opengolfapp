@@ -124,11 +124,10 @@ export function useRoundData({
   // both grow one save at a time, and an 18-hole round with only the front
   // nine saved would collapse to 9 and strand holes 10-18 (the #783 revert).
   // A stored count also caps the course's rows (a 6-hole round on an 18-hole
-  // course shows 6), and padding stops at 18: holes.number is 1–18 (0001), so
-  // a 27 imported from Golf Pad can't save a hole 19.
+  // course shows 6).
   const storedHoleCount = round.data?.hole_count ?? null
   const expectedHoleCount = useMemo(
-    () => Math.min(roundHoleCount(storedHoleCount, holeCountFromTeePar(teesQuery.data?.[0]?.par)), 18),
+    () => roundHoleCount(storedHoleCount, holeCountFromTeePar(teesQuery.data?.[0]?.par)),
     [storedHoleCount, teesQuery.data],
   )
 

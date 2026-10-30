@@ -44,7 +44,7 @@ export interface GolfPadRound {
   /** YYYY-MM-DD */
   played_at: string
   tee_color: string | null
-  /** The course's hole count, 1–36 (#727). Unset: the import infers it from the hole numbers. */
+  /** The course's hole count, 1–18 (#727). Unset: the import infers it from the hole numbers. */
   hole_count?: number
   holes: GolfPadHole[]
 }

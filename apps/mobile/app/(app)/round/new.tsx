@@ -15,7 +15,6 @@ import { locationManager } from '@rnmapbox/maps'
 import {
   formatLocation,
   getOpenGolfApiCourse,
-  MAX_HOLE_NUMBER,
   isProbableSameCourse,
   resolveFacilityResults,
   searchOpenGolfApi,
@@ -321,10 +320,8 @@ function NewRoundScreen() {
         .order('number')
       if (holesError) throw holesError
       // The player's count from the setup step (#727), stored on the round.
-      // Rows exist for holes 1–18 only (holes.number), so a longer round
-      // materializes and scores those.
       const existing = (existingHoles ?? []).filter((h) => h.number <= holeCount)
-      const expectedCount = Math.min(holeCount, MAX_HOLE_NUMBER)
+      const expectedCount = holeCount
       const { data: round, error: roundError } = await createRound(supabase, {
         user_id: user.id,
         course_id: courseId,
