@@ -5,8 +5,8 @@ import {
   useState,
   type ReactNode,
 } from 'react'
-import type { User } from '@supabase/supabase-js'
-import { supabase } from '../lib/supabase'
+import { isAuthRetryableFetchError, type User } from '@supabase/supabase-js'
+import { readPersistedUser, supabase } from '../lib/supabase'
 import { clearScreenCache } from '../lib/screenCache'
 
 interface AuthState {
@@ -40,20 +40,42 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(false)
     }
 
-    supabase.auth.getSession().then(({ data }) => {
-      if (!mounted) return
-      apply(data.session?.user ?? null)
-    })
+    // Counts applied auth events, so a slower offline fallback below can't
+    // overwrite one (e.g. bring the user back after a SIGNED_OUT).
+    let events = 0
 
-    // Always flip loading off on the first auth event, including the
-    // synchronous INITIAL_SESSION the JS client emits on a warm
-    // session — getSession's resolve and the listener can race, and
-    // if getSession ever silently rejects we don't want the splash
-    // overlay to wedge.
+    // Offline with an expired access token (#1005), the refresh fails with a
+    // retryable network error: getSession returns null WITH that error, and
+    // the session stays in storage. Keep its user so a cold start can resume
+    // the round. Nothing is synced meanwhile: sync.ts and every request ask
+    // auth-js for the session, which stays null until a refresh succeeds; the
+    // refresh then emits TOKEN_REFRESHED, or SIGNED_OUT on a 4xx.
+    supabase.auth
+      .getSession()
+      .then(async ({ data, error }) => {
+        if (!mounted) return
+        if (data.session || !isAuthRetryableFetchError(error)) {
+          apply(data.session?.user ?? null)
+          return
+        }
+        const seen = events
+        const stored = await readPersistedUser()
+        if (mounted && seen === events) apply(stored)
+      })
+      .catch(() => {
+        if (mounted) apply(null)
+      })
+
+    // Flip loading off on the first auth event too: on a warm session the
+    // listener can beat getSession's resolve. The exception is a null
+    // INITIAL_SESSION: auth-js emits it without the error, so it can't tell
+    // signed-out from offline (#1005); getSession above decides that case.
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+    } = supabase.auth.onAuthStateChange((event, nextSession) => {
       if (!mounted) return
+      if (event === 'INITIAL_SESSION' && !nextSession) return
+      events += 1
       apply(nextSession?.user ?? null)
     })
 
