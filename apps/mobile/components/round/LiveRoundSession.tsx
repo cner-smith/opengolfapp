@@ -87,7 +87,7 @@ export default function LiveRoundSession({
 }: LiveRoundSessionProps) {
   const isPastMode = mode === 'past'
   const router = useRouter()
-  const { user } = useAuth()
+  const { user, backOnline } = useAuth()
   const { unit, toDisplay } = useUnits()
 
   const [holeNumber, setHoleNumber] = useState(initialHoleNumber)
@@ -169,6 +169,10 @@ export default function LiveRoundSession({
   }, [initialHoleNumber])
 
   const data = useHoleData(roundId, holeNumber)
+  const { refreshRound } = data
+  useEffect(() => {
+    if (backOnline > 0) void refreshRound()
+  }, [backOnline, refreshRound])
   // Deep-link / refresh clamp (#718): ?hole= can name a hole past the
   // round's actual count (e.g. hole=10 on a 9-hole round) — the
   // Resume-banner path (useActiveRound) already clamps to the round's

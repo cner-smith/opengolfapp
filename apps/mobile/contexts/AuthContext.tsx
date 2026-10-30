@@ -8,6 +8,7 @@ import {
 import { isAuthRetryableFetchError, type User } from '@supabase/supabase-js'
 import { readPersistedUser, supabase } from '../lib/supabase'
 import { clearScreenCache } from '../lib/screenCache'
+import { logDiag } from '../lib/db'
 
 interface AuthState {
   user: User | null
@@ -17,6 +18,8 @@ interface AuthState {
    *  auth-js's failed refresh (~26 s), so the offline cache readers skip the
    *  network. Cleared by the next auth event (TOKEN_REFRESHED, SIGNED_OUT). */
   offline: boolean
+  /** Counts `offline` clearing for a user still signed in: signal is back. */
+  backOnline: number
 }
 
 const AuthContext = createContext<AuthState | null>(null)
@@ -30,6 +33,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
   const [offline, setOffline] = useState(false)
+  const [backOnline, setBackOnline] = useState(0)
 
   useEffect(() => {
     let mounted = true
@@ -38,12 +42,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // SIGNED_OUT and signing in as someone else, not just Profile's sign-out.
     // undefined = nothing seen yet (the cache is empty at launch anyway).
     let lastUserId: string | null | undefined
+    let wasOffline = false
     const apply = (next: User | null, fromStorage = false) => {
       const id = next?.id ?? null
       if (lastUserId !== undefined && id !== lastUserId) clearScreenCache()
       lastUserId = id
       setUser(next)
-      setOffline(fromStorage && next !== null)
+      const nowOffline = fromStorage && next !== null
+      if (wasOffline && !nowOffline && next) setBackOnline((n) => n + 1)
+      wasOffline = nowOffline
+      setOffline(nowOffline)
       setLoading(false)
     }
 
@@ -69,7 +77,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const stored = await readPersistedUser()
         if (mounted && seen === events) apply(stored, true)
       })
-      .catch(() => {
+      .catch((err) => {
+        logDiag('auth_session_failed', { msg: String(err).slice(0, 120) })
         if (mounted) apply(null)
       })
 
@@ -93,7 +102,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   return (
-    <AuthContext.Provider value={{ user, loading, offline }}>
+    <AuthContext.Provider value={{ user, loading, offline, backOnline }}>
       {children}
     </AuthContext.Provider>
   )
