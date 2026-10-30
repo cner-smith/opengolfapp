@@ -31,6 +31,8 @@ interface RoundRow {
   tee_color: string | null
   total_score: number | null
   sg_total: number | null
+  // Optional: rows cached before #727 have none.
+  hole_count?: number | null
   courses?: { name: string | null } | null
   hole_scores?: { score: number; holes: { number: number } | null }[] | null
 }
@@ -45,7 +47,7 @@ function playedLine(r: RoundRow): string {
   const tee = r.tee_color
     ? ` · ${r.tee_color.charAt(0).toUpperCase()}${r.tee_color.slice(1)} tees`
     : ''
-  return `${date}${tee}${partialRoundLabel(r.hole_scores)}`
+  return `${date}${tee}${partialRoundLabel(r.hole_scores, r.hole_count)}`
 }
 
 // Screen-reader label for a round row. TalkBack and VoiceOver read visible

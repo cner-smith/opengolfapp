@@ -96,7 +96,7 @@ function useFinding(): string | null {
         console.warn('[practice/getRecentRounds]', error.message)
         return
       }
-      const whole = (data ?? []).filter((r) => !isPartialRound(r.hole_scores)).slice(0, 20)
+      const whole = (data ?? []).filter((r) => !isPartialRound(r.hole_scores, r.hole_count)).slice(0, 20)
       if (whole.length === 0) return setText(null)
       const { breakdown } = sgBreakdown(whole)
       const avgs = SG_KEYS.map((c) => ({ label: c.label, value: breakdown.find((b) => b.key === c.key)?.value ?? 0 }))

@@ -124,6 +124,22 @@ describe('Golf Pad export → planned rounds', () => {
     expect(r.holes[1]!.shots).toHaveLength(3)
   })
 
+  it('the round’s hole count is Golf Pad’s course holes, not the holes played (#727)', () => {
+    const holes = csv(HOLES_HEADER, [hole(D, C, 1, 4, 5, 2), hole(D, C, 2, 3, 3, 1)])
+    const shots = csv(SHOTS_HEADER, [])
+    const eighteen = planGolfPadImport({ rounds: csv(ROUNDS_HEADER, [round(D, C, 'R18', '', 2)]), holes, shots })
+    expect(eighteen.rounds[0]!.hole_count).toBe(18)
+    const nine = planGolfPadImport({ rounds: csv(ROUNDS_HEADER, [round(D, C, 'R9', '', 2).replace(',18,', ',9,')]), holes, shots })
+    expect(nine.rounds[0]!.hole_count).toBe(9)
+    const six = planGolfPadImport({ rounds: csv(ROUNDS_HEADER, [round(D, C, 'R6', '', 2).replace(',18,', ',6,')]), holes, shots })
+    expect(six.rounds[0]!.hole_count).toBe(6)
+    // Outside 1–18 (a 27-hole facility) is left for the import to infer from the hole numbers.
+    const zero = planGolfPadImport({ rounds: csv(ROUNDS_HEADER, [round(D, C, 'R0', '', 2).replace(',18,', ',0,')]), holes, shots })
+    expect(zero.rounds[0]!.hole_count).toBeUndefined()
+    const many = planGolfPadImport({ rounds: csv(ROUNDS_HEADER, [round(D, C, 'R27', '', 2).replace(',18,', ',27,')]), holes, shots })
+    expect(many.rounds[0]!.hole_count).toBeUndefined()
+  })
+
   it('a hole whose shots don’t add up to the score imports the score only, with the reason', () => {
     const plan = planGolfPadImport({
       rounds: csv(ROUNDS_HEADER, [round(D, C, 'R1')]),

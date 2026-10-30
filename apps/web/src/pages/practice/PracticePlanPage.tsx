@@ -67,7 +67,7 @@ const SG_KEYS = [
 function useFinding(): string | null {
   const sg = useRecentSG(20)
   return useMemo(() => {
-    const whole = (sg.data ?? []).filter((r) => !isPartialRound(r.hole_scores))
+    const whole = (sg.data ?? []).filter((r) => !isPartialRound(r.hole_scores, r.hole_count))
     if (whole.length === 0) return null
     const { breakdown } = sgBreakdown(whole)
     const sorted = SG_KEYS.map((c) => ({

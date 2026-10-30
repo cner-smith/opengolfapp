@@ -118,10 +118,59 @@ export interface ReviewedShotRow {
 // 18, the common case. A max ≤ 9 means a 9-hole course; this deliberately
 // buckets a front-9-only mapping of an 18 as a 9 (data can't distinguish
 // them, and stranding a real 9-hole player on phantom holes 10–18 is the
-// worse failure). See #525.
-export function inferHoleCount(holeNumbers: number[]): 9 | 18 {
+// worse failure). See #525. Only a guess: a round stores its own count
+// (roundHoleCount), which can be any number of holes.
+export function inferHoleCount(holeNumbers: number[]): number {
   if (holeNumbers.length === 0) return 18
   return Math.max(...holeNumbers) <= 9 ? 9 : 18
+}
+
+// How many holes a round plays: rounds.hole_count, chosen when the round is
+// created (#727) — any whole number from 1 to 18 (courses come in 3, 6, 12
+// holes too). Rounds from before that column (null) keep the caller's old
+// guess. Neither the course's holes rows (they accrete one save at a time on
+// web) nor the round's scores (mid-round) can tell the count later on.
+export function roundHoleCount(stored: number | null | undefined, fallback: number): number {
+  return isRoundHoleCount(stored) ? stored : fallback
+}
+
+// rounds.hole_count's range (0064): a course's holes rows stop at hole 18
+// (holes.number, 0001), so no round can play a hole past it.
+export const MAX_ROUND_HOLES = 18
+// The New round keys, beside "Other" (owner's pick, #727).
+export const HOLE_COUNT_KEYS = [3, 6, 9, 12, 18] as const
+
+export function isRoundHoleCount(n: number | null | undefined): n is number {
+  return n != null && Number.isInteger(n) && n >= 1 && n <= MAX_ROUND_HOLES
+}
+
+// A course's hole count from a tee's total par: 36 or less is a 9-hole card.
+// No par (no course_tees row, most courses) reads as 18.
+export function holeCountFromTeePar(par: number | null | undefined): number {
+  return par != null && par <= 36 ? 9 : 18
+}
+
+// New round's starting guess when the player hasn't said: a hole past 9 on
+// file means 18; else the tee's par; else the holes on file (some = 9, none =
+// 18). The player can always change it.
+export function guessHoleCount(teePar: number | null | undefined, holeNumbers: number[]): number {
+  if (holeNumbers.some((n) => n > 9)) return 18
+  return teePar != null ? holeCountFromTeePar(teePar) : inferHoleCount(holeNumbers)
+}
+
+// The hole count a round's handicap differential is figured over, or null when
+// the round gets none. Only 9- and 18-hole rounds count (owner, #727). A
+// stored count that differs from the course's (a 9 played on an 18-hole
+// course) gets none either: the tee's rating is for the course's holes.
+// Rounds from before rounds.hole_count use the course's count, as before.
+export function handicapHoleCount(
+  stored: number | null | undefined,
+  courseHoleNumbers: number[],
+): 9 | 18 | null {
+  const course = inferHoleCount(courseHoleNumbers)
+  const count = roundHoleCount(stored, course)
+  if (count !== course) return null
+  return count === 9 || count === 18 ? count : null
 }
 
 // Par for a hole whose source has none (an OSM hole way with no `par` tag),
@@ -141,16 +190,18 @@ export function inferParFromYards(yards: number | null | undefined): 3 | 4 | 5 {
 // every shot, so a hole with one shot already reads as played (#902). Rows
 // written before finished_at existed resume on the last hole with shots.
 // Clamped to the round's length so a finished 9-hole round doesn't resume on
-// a phantom hole 10 (#650).
+// a phantom hole 10 (#650): its stored hole_count (#727), else inferred.
 export function resumeHoleNumber(
   rows: ReadonlyArray<{ number: number; score: number | null; finished_at: string | null }>,
+  holeCount?: number | null,
 ): number {
   let next = 1
   for (const r of rows) {
     if (r.finished_at) next = Math.max(next, r.number + 1)
     if ((r.score ?? 0) > 0) next = Math.max(next, r.number)
   }
-  return Math.min(inferHoleCount(rows.map((r) => r.number)), next)
+  const count = roundHoleCount(holeCount, inferHoleCount(rows.map((r) => r.number)))
+  return Math.min(count, next)
 }
 
 // Sorted hole numbers as prose with consecutive runs collapsed, for copy like
@@ -171,16 +222,19 @@ export function formatHoleList(holes: readonly number[]): string {
 type HoleScoreForCount = { score: number | null; holes?: { number: number } | null }
 
 // How much of a round was played (#911): holes with a score (> 0, the
-// not-played sentinel) against the round's 9 or 18, inferred from its rows'
+// not-played sentinel) against the round's stored hole_count (#727; a 6-hole
+// round played through is whole), else its 9 or 18 inferred from its rows'
 // hole numbers — mobile pre-creates every row, web creates them as entered.
 // Null for a round with no rows (a bare total), which callers count as whole.
 export function roundHolesPlayed(
   holeScores: readonly HoleScoreForCount[] | null | undefined,
-): { played: number; of: 9 | 18 } | null {
+  holeCount?: number | null,
+): { played: number; of: number } | null {
   if (!holeScores?.length) return null
+  const inferred = inferHoleCount(holeScores.flatMap((hs) => (hs.holes ? [hs.holes.number] : [])))
   return {
     played: holeScores.filter((hs) => hs.score != null && hs.score > 0).length,
-    of: inferHoleCount(holeScores.flatMap((hs) => (hs.holes ? [hs.holes.number] : []))),
+    of: roundHoleCount(holeCount, inferred),
   }
 }
 
@@ -188,20 +242,23 @@ export function roundHolesPlayed(
 // whose values only compare across whole rounds.
 export function isPartialRound(
   holeScores: readonly HoleScoreForCount[] | null | undefined,
+  holeCount?: number | null,
 ): boolean {
-  const c = roundHolesPlayed(holeScores)
+  const c = roundHolesPlayed(holeScores, holeCount)
   return c != null && c.played < c.of
 }
 
 // "Last N rounds" runs back to the n-th most recent WHOLE round (#932):
 // partials inside the span stay (their holes feed per-hole stats), partials
 // past it don't use up a slot. Fewer than n whole rounds = everything.
-export function wholeRoundWindow<T extends { hole_scores?: readonly HoleScoreForCount[] | null }>(
+export function wholeRoundWindow<
+  T extends { hole_scores?: readonly HoleScoreForCount[] | null; hole_count?: number | null },
+>(
   rounds: readonly T[],
   n: number,
 ): T[] {
   let whole = 0
-  const end = rounds.findIndex((r) => !isPartialRound(r.hole_scores) && ++whole === n)
+  const end = rounds.findIndex((r) => !isPartialRound(r.hole_scores, r.hole_count) && ++whole === n)
   return end === -1 ? [...rounds] : rounds.slice(0, end + 1)
 }
 
@@ -229,8 +286,9 @@ export function isFinishedRound(r: {
 // Suffix for a round's date line in the rounds lists: " · partial · 6 of 18".
 export function partialRoundLabel(
   holeScores: readonly HoleScoreForCount[] | null | undefined,
+  holeCount?: number | null,
 ): string {
-  const c = roundHolesPlayed(holeScores)
+  const c = roundHolesPlayed(holeScores, holeCount)
   return c && c.played < c.of ? ` · partial · ${c.played} of ${c.of}` : ''
 }
 
@@ -255,9 +313,10 @@ export function obCount(
 // because adjustedScore adds 0 strokes per unplayed hole and yields an
 // impossible negative value that then dominates the last-20 handicap
 // recompute (#711). Score 0 is the "not played" sentinel on both platforms.
-// Implicit contract: callers pass holeCount = inferHoleCount(course hole
-// numbers), and both materialization paths (mobile round creation's gap-fill,
-// web's ensureRealHole) create holes rows up to that same inferred count — if
+// Implicit contract: callers pass holeCount = handicapHoleCount(round's
+// hole_count, course hole numbers) and skip the differential when it's null,
+// and both materialization paths (mobile round creation's gap-fill, web's
+// ensureRealHole) create holes rows up to that same inferred count — if
 // a materialization path ever changes, this gate fails CLOSED (differential
 // stays null on a fully-played round) rather than corrupting the index.
 export function playedRowsForDifferential<T extends { score: number }>(

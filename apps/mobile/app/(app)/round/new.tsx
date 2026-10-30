@@ -15,7 +15,6 @@ import { locationManager } from '@rnmapbox/maps'
 import {
   formatLocation,
   getOpenGolfApiCourse,
-  inferHoleCount,
   isProbableSameCourse,
   resolveFacilityResults,
   searchOpenGolfApi,
@@ -302,8 +301,9 @@ function NewRoundScreen() {
 
   async function startWith(
     courseId: string,
-    tee?: { courseTeeId: string | null; teeColor: string | null },
-    captureMode?: CaptureMode,
+    tee: { courseTeeId: string | null; teeColor: string | null },
+    captureMode: CaptureMode,
+    holeCount: number,
   ) {
     if (!user) return
     if (startInFlightRef.current) return
@@ -313,10 +313,20 @@ function NewRoundScreen() {
     let createdRoundId: string | null = null
     try {
       const today = todayLocalDate()
+      const { data: existingHoles, error: holesError } = await supabase
+        .from('holes')
+        .select('id, number, par')
+        .eq('course_id', courseId)
+        .order('number')
+      if (holesError) throw holesError
+      // The player's count from the setup step (#727), stored on the round.
+      const existing = (existingHoles ?? []).filter((h) => h.number <= holeCount)
+      const expectedCount = holeCount
       const { data: round, error: roundError } = await createRound(supabase, {
         user_id: user.id,
         course_id: courseId,
         played_at: today,
+        hole_count: holeCount,
         // Past-round entry persists a total_score sentinel (0) at creation
         // so re-opening the round from the home list routes to the editable
         // scorecard, never the live map state machine. Live rounds leave
@@ -334,23 +344,12 @@ function NewRoundScreen() {
       if (roundError || !round) throw roundError ?? new Error('Round insert failed')
       createdRoundId = round.id
 
-      const { data: existingHoles, error: holesError } = await supabase
-        .from('holes')
-        .select('id, number, par')
-        .eq('course_id', courseId)
-        .order('number')
-      if (holesError) throw holesError
-
       // Courses range from fully unmapped (most private clubs — zero
       // `holes` rows) to partially mapped (the crawler averages ~14 of 18
       // from OSM). Either way, every hole the round needs an FK target for
       // must have a real `holes` row, or hole_scores can't be created for
       // it and persistShot silently no-ops on the padded holes (#525).
-      // Materialize whichever hole numbers are missing. Hole count is
-      // inferred from the mapped numbers (course_tees.par is unpopulated in
-      // our data — see inferHoleCount); a genuine 9-hole course stays 9.
-      const existing = existingHoles ?? []
-      const expectedCount = inferHoleCount(existing.map((h) => h.number))
+      // Materialize whichever hole numbers are missing.
       const byNumber = new Map<number, { id: string }>()
       for (const h of existing) byNumber.set(h.number, { id: h.id })
 
@@ -557,8 +556,8 @@ function NewRoundScreen() {
         initialCapture={params.capture === 'track_patterns' ? 'track_patterns' : undefined}
         busy={busy}
         onBack={() => setPendingCourse(null)}
-        onStart={(courseTeeId, teeColor, captureMode) =>
-          startWith(pendingCourse.id, { courseTeeId, teeColor }, captureMode)
+        onStart={(courseTeeId, teeColor, captureMode, holeCount) =>
+          startWith(pendingCourse.id, { courseTeeId, teeColor }, captureMode, holeCount)
         }
       />
     )

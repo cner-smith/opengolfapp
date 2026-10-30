@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { inferHoleCount, isPuttShot, resolveCourseTee, resolveHole, type CapturedShot, type ResolvedHole } from '@oga/core'
+import { inferHoleCount, isPuttShot, resolveCourseTee, resolveHole, roundHoleCount, type CapturedShot, type ResolvedHole } from '@oga/core'
 import { getHoleTeesForCourse } from '@oga/supabase'
 import type { Database } from '@oga/supabase'
 import {
@@ -29,7 +29,7 @@ export interface UseHoleDataResult {
   loading: boolean
   error: string | null
   loadAll: () => Promise<void>
-  holeCount: 9 | 18
+  holeCount: number
   effectiveHoles: HoleRow[]
   currentHole: HoleRow | null
   currentHoleScore: HoleScoreRow | null
@@ -142,13 +142,17 @@ export function useHoleData(
     [],
   )
 
-  // How many holes this round plays. course_tees.par is unpopulated in
-  // our crawled data, so infer from the mapped hole numbers — a genuine
-  // 9-hole course stays 9 instead of padding to 18 phantom holes (#525).
-  const holeCount = useMemo(
-    () => inferHoleCount(holes.map((h) => h.number)),
-    [holes],
-  )
+  // How many holes this round plays, inferred from the mapped hole numbers
+  // (course_tees.par is unpopulated in our crawled data) — a genuine 9-hole
+  // course stays 9 instead of padding to 18 phantom holes (#525). The
+  // round's stored count (#727) caps it — a 6-hole round shows 6, even on an
+  // 18-hole course — but never raises it: mobile has no ensureRealHole, so a
+  // padded hole with no hole_scores row drops its shots silently (a web
+  // round stored as 18 on a course mapped only to hole 9).
+  const holeCount = useMemo(() => {
+    const inferred = inferHoleCount(holes.map((h) => h.number))
+    return Math.min(roundHoleCount(round?.hole_count, inferred), inferred)
+  }, [round?.hole_count, holes])
 
   // Synthetic-holes fallback. Mirrors the web pattern documented in
   // CLAUDE.md: when the course has fewer real `holes` rows than the
@@ -157,9 +161,10 @@ export function useHoleData(
   // isn't trapped on a "Hole not found" screen.
   const effectiveHoles = useMemo<HoleRow[]>(() => {
     if (!round) return holes
-    if (holes.length >= holeCount) return holes
+    const own = holes.filter((h) => h.number <= holeCount)
+    if (own.length >= holeCount) return own
     const realByNumber = new Map<number, HoleRow>()
-    for (const h of holes) realByNumber.set(h.number, h)
+    for (const h of own) realByNumber.set(h.number, h)
     return Array.from({ length: holeCount }, (_, i) => {
       const num = i + 1
       const real = realByNumber.get(num)

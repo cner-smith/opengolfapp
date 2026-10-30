@@ -239,7 +239,7 @@ function RoundScreen() {
         if (unfinished && mode !== 'past') {
           // No ?hole= (rounds list, deep link): open where the player left
           // off, same pick as the Home banner (#324).
-          const resumeAt = hole ? null : await fetchResumeHole(row.id)
+          const resumeAt = hole ? null : await fetchResumeHole(row.id, row.hole_count)
           if (active) {
             setResumeHole(resumeAt)
             setRedirectToLive(true)
@@ -321,9 +321,15 @@ function RoundScreen() {
     () => new Map(holeScores.map((hs) => [hs.hole_id, hs])),
     [holeScores],
   )
+  // A round stored with fewer holes than the course has rows (a 6 on an
+  // 18-hole course, #727) shows only its own.
+  const storedHoleCount = round?.hole_count ?? null
   const sortedHoles = useMemo(
-    () => [...holes].sort((a, b) => a.number - b.number),
-    [holes],
+    () =>
+      holes
+        .filter((h) => storedHoleCount == null || h.number <= storedHoleCount)
+        .sort((a, b) => a.number - b.number),
+    [holes, storedHoleCount],
   )
   // Per-hole shot counts for the scorecard "Shots" affordance. Every row
   // is tappable now that the scorecard is editable (#514) — the count just
@@ -728,6 +734,7 @@ function RoundScreen() {
               sg_around_green: round.sg_around_green,
               sg_putting: round.sg_putting,
               sg_total: round.sg_total,
+              hole_count: round.hole_count,
               courseName,
               course_rating: playedTee?.course_rating ?? null,
               slope_rating: playedTee?.slope_rating ?? null,

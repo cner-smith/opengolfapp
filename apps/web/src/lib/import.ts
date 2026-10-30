@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { LIE_SLOPES_FORWARD, LIE_SLOPES_SIDE, LIE_TYPES, SHOT_RESULTS, shotAxesFromLegacy } from '@oga/core'
+import { LIE_SLOPES_FORWARD, LIE_SLOPES_SIDE, LIE_TYPES, MAX_ROUND_HOLES, SHOT_RESULTS, inferHoleCount, shotAxesFromLegacy } from '@oga/core'
 import {
   createRound,
   createShots,
@@ -117,6 +117,9 @@ export const importRoundSchema = z.object({
   tee_color: z.string().min(1).nullish(),
   total_score: z.number().int().nullish(),
   total_putts: z.number().int().min(0).nullish(),
+  // The round's hole count, stored as rounds.hole_count (#727). Without it
+  // the write infers it from the hole numbers (a hole past 9 = 18).
+  hole_count: z.number().int().min(1).max(MAX_ROUND_HOLES).nullish(),
   // Capped at 18 (real courses top out there) — the write path upserts
   // hole_scores on (round_id, hole_id), so a payload with a second nine
   // (holes 19-36 for a double round) would silently overwrite the first
@@ -273,6 +276,7 @@ export async function writeImportedRound(
     total_score: payload.total_score ?? null,
     total_putts: payload.total_putts ?? null,
     import_id: payload.import_id ?? null,
+    hole_count: payload.hole_count ?? inferHoleCount(payload.holes.map((h) => h.number)),
   })
   if (roundError) throw roundError
   if (!roundRow) throw new Error('Round insert returned no row')

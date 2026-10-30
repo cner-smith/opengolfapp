@@ -2,6 +2,10 @@ import { describe, expect, it } from 'vitest'
 import {
   buildInitialRows,
   inferHoleCount,
+  guessHoleCount,
+  handicapHoleCount,
+  holeCountFromTeePar,
+  roundHoleCount,
   inferParFromYards,
   isPuttShot,
   isPuttEntry,
@@ -444,6 +448,87 @@ describe('inferHoleCount', () => {
   })
 })
 
+describe('roundHoleCount (#727)', () => {
+  it('the count stored at creation wins over the fallback', () => {
+    expect(roundHoleCount(9, 18)).toBe(9)
+    expect(roundHoleCount(18, 9)).toBe(18)
+  })
+
+  it('any whole count from 1 to 18 is kept: a 6-hole course plays 6', () => {
+    expect(roundHoleCount(6, 9)).toBe(6)
+    expect(roundHoleCount(1, 9)).toBe(1)
+    expect(roundHoleCount(18, 9)).toBe(18)
+  })
+
+  it('a round from before the column (null), or a value out of range, keeps the fallback', () => {
+    expect(roundHoleCount(null, 9)).toBe(9)
+    expect(roundHoleCount(undefined, 18)).toBe(18)
+    expect(roundHoleCount(0, 18)).toBe(18)
+    expect(roundHoleCount(19, 9)).toBe(9)
+    expect(roundHoleCount(6.5, 18)).toBe(18)
+  })
+})
+
+describe('guessHoleCount (#727)', () => {
+  it('a hole past 9 on file means 18, whatever the tee says', () => {
+    expect(guessHoleCount(36, Array.from({ length: 18 }, (_, i) => i + 1))).toBe(18)
+    expect(guessHoleCount(null, [10])).toBe(18)
+  })
+
+  it('otherwise a tee par settles it over the holes on file', () => {
+    expect(guessHoleCount(36, [])).toBe(9)
+    expect(guessHoleCount(72, [1, 2, 3])).toBe(18)
+  })
+
+  it('with no tee par, the holes on file: none past 9 reads as 9, none at all as 18', () => {
+    expect(guessHoleCount(null, [1, 2, 3, 4, 5, 6])).toBe(9)
+    expect(guessHoleCount(null, [1, 10])).toBe(18)
+    expect(guessHoleCount(undefined, [])).toBe(18)
+  })
+})
+
+describe('handicapHoleCount (#727)', () => {
+  const nine = Array.from({ length: 9 }, (_, i) => i + 1)
+  const eighteen = Array.from({ length: 18 }, (_, i) => i + 1)
+
+  it('a 9 or 18 that matches the course counts', () => {
+    expect(handicapHoleCount(9, nine)).toBe(9)
+    expect(handicapHoleCount(18, eighteen)).toBe(18)
+  })
+
+  it('a 6-hole round gets no differential', () => {
+    expect(handicapHoleCount(6, [1, 2, 3, 4, 5, 6])).toBeNull()
+    expect(handicapHoleCount(12, eighteen)).toBeNull()
+  })
+
+  it('a 9 played on an 18-hole course gets none: the rating is for 18', () => {
+    expect(handicapHoleCount(9, eighteen)).toBeNull()
+  })
+
+  it('a round from before the column uses the course count, as before', () => {
+    expect(handicapHoleCount(null, nine)).toBe(9)
+    expect(handicapHoleCount(null, eighteen)).toBe(18)
+    expect(handicapHoleCount(null, [])).toBe(18)
+  })
+})
+
+describe('holeCountFromTeePar', () => {
+  it('a total par of 36 or less is a 9-hole card', () => {
+    expect(holeCountFromTeePar(36)).toBe(9)
+    expect(holeCountFromTeePar(34)).toBe(9)
+  })
+
+  it('more than 36 is 18', () => {
+    expect(holeCountFromTeePar(37)).toBe(18)
+    expect(holeCountFromTeePar(72)).toBe(18)
+  })
+
+  it('no tee par (no course_tees row) reads as 18', () => {
+    expect(holeCountFromTeePar(null)).toBe(18)
+    expect(holeCountFromTeePar(undefined)).toBe(18)
+  })
+})
+
 describe('isStaleEmptyRound', () => {
   const now = Date.parse('2026-10-07T12:00:00Z')
   const created = (hoursAgo: number) => new Date(now - hoursAgo * 3_600_000).toISOString()
@@ -482,6 +567,24 @@ describe('roundHolesPlayed / isPartialRound', () => {
 
   it('web rows for holes 1-12 all scored is a partial 18', () => {
     expect(roundHolesPlayed(rows(Array(12).fill(4)))).toEqual({ played: 12, of: 18 })
+  })
+
+  it('a 6-hole round played through is whole against its stored count (#727)', () => {
+    const six = rows(Array(6).fill(4))
+    expect(roundHolesPlayed(six, 6)).toEqual({ played: 6, of: 6 })
+    expect(isPartialRound(six, 6)).toBe(false)
+    expect(partialRoundLabel(six, 6)).toBe('')
+    expect(isPartialRound(rows(Array(12).fill(4)), 12)).toBe(false)
+  })
+
+  it('a stored 18 ended after 9 is partial, though only 9 rows exist (#727)', () => {
+    expect(roundHolesPlayed(rows(Array(9).fill(4)), 18)).toEqual({ played: 9, of: 18 })
+  })
+
+  it('wholeRoundWindow counts a played-through 6 as whole', () => {
+    const six = { hole_count: 6, hole_scores: rows(Array(6).fill(4)) }
+    const partial = { hole_count: 18, hole_scores: rows(Array(9).fill(4)) }
+    expect(wholeRoundWindow([partial, six, partial], 1)).toEqual([partial, six])
   })
 
   it('partialRoundLabel names the played count, empty when whole', () => {
@@ -544,6 +647,12 @@ describe('obCount', () => {
 })
 
 describe('resumeHoleNumber', () => {
+  it('a 6-hole round finished on 6 resumes on 6, not 7 (#727)', () => {
+    const r = [1, 2, 3, 4, 5, 6].map((number) => ({ number, score: 4, finished_at: '2026-10-29T00:00:00Z' }))
+    expect(resumeHoleNumber(r, 6)).toBe(6)
+    expect(resumeHoleNumber(r)).toBe(7)
+  })
+
   const row = (number: number, score: number, finished = false) => ({
     number,
     score,

@@ -608,6 +608,7 @@ export type Database = {
           fairways_hit: number | null
           fairways_total: number | null
           gir: number | null
+          hole_count: number | null
           id: string
           import_id: string | null
           notes: string | null
@@ -633,6 +634,7 @@ export type Database = {
           fairways_hit?: number | null
           fairways_total?: number | null
           gir?: number | null
+          hole_count?: number | null
           id?: string
           import_id?: string | null
           notes?: string | null
@@ -658,6 +660,7 @@ export type Database = {
           fairways_hit?: number | null
           fairways_total?: number | null
           gir?: number | null
+          hole_count?: number | null
           id?: string
           import_id?: string | null
           notes?: string | null
