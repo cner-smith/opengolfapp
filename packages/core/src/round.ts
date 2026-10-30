@@ -126,7 +126,7 @@ export function inferHoleCount(holeNumbers: number[]): number {
 }
 
 // How many holes a round plays: rounds.hole_count, chosen when the round is
-// created (#727) — any whole number from 1 to 36 (courses come in 3, 6, 12
+// created (#727) — any whole number from 1 to 18 (courses come in 3, 6, 12
 // holes too). Rounds from before that column (null) keep the caller's old
 // guess. Neither the course's holes rows (they accrete one save at a time on
 // web) nor the round's scores (mid-round) can tell the count later on.
@@ -134,10 +134,9 @@ export function roundHoleCount(stored: number | null | undefined, fallback: numb
   return isRoundHoleCount(stored) ? stored : fallback
 }
 
-// rounds.hole_count's range (0064). A course's holes rows stop at hole 18
-// (holes.number, 0001), so a longer round shows and saves holes 1–18 only.
-export const MAX_ROUND_HOLES = 36
-export const MAX_HOLE_NUMBER = 18
+// rounds.hole_count's range (0064): a course's holes rows stop at hole 18
+// (holes.number, 0001), so no round can play a hole past it.
+export const MAX_ROUND_HOLES = 18
 // The New round keys, beside "Other" (owner's pick, #727).
 export const HOLE_COUNT_KEYS = [3, 6, 9, 12, 18] as const
 
@@ -202,7 +201,7 @@ export function resumeHoleNumber(
     if ((r.score ?? 0) > 0) next = Math.max(next, r.number)
   }
   const count = roundHoleCount(holeCount, inferHoleCount(rows.map((r) => r.number)))
-  return Math.min(count, MAX_HOLE_NUMBER, next)
+  return Math.min(count, next)
 }
 
 // Sorted hole numbers as prose with consecutive runs collapsed, for copy like
@@ -226,8 +225,7 @@ type HoleScoreForCount = { score: number | null; holes?: { number: number } | nu
 // not-played sentinel) against the round's stored hole_count (#727; a 6-hole
 // round played through is whole), else its 9 or 18 inferred from its rows'
 // hole numbers — mobile pre-creates every row, web creates them as entered.
-// At most 18: no hole row exists past 18. Null for a round with no rows (a
-// bare total), which callers count as whole.
+// Null for a round with no rows (a bare total), which callers count as whole.
 export function roundHolesPlayed(
   holeScores: readonly HoleScoreForCount[] | null | undefined,
   holeCount?: number | null,
@@ -236,7 +234,7 @@ export function roundHolesPlayed(
   const inferred = inferHoleCount(holeScores.flatMap((hs) => (hs.holes ? [hs.holes.number] : [])))
   return {
     played: holeScores.filter((hs) => hs.score != null && hs.score > 0).length,
-    of: Math.min(roundHoleCount(holeCount, inferred), MAX_HOLE_NUMBER),
+    of: roundHoleCount(holeCount, inferred),
   }
 }
 

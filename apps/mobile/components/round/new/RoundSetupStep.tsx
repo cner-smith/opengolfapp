@@ -66,7 +66,7 @@ export function RoundSetupStep({
 
   // The round stores how many holes it plays (#727), as on web: the row
   // starts on a guess from the holes on file and the tee's par, and the
-  // player can change it. Other opens a field for any count from 1 to 36.
+  // player can change it. Other opens a field for any count from 1 to 18.
   const [course, setCourse] = useState<{ holeNumbers: number[]; tees: { id: string; par: number | null }[] } | null>(null)
   const [holeChoice, setHoleChoice] = useState<number | null>(null)
   const [otherHoles, setOtherHoles] = useState<string | null>(null)
