@@ -15,6 +15,7 @@ import { ErrorBoundary } from '../../components/errors/ErrorBoundary'
 import { UnitsProvider } from '../../contexts/UnitsContext'
 import { isNetworkFailure, offlineKeys, readCache, writeCache } from '../../lib/offlineCache'
 import { TYPE } from '../../lib/typography'
+import { BackOnlineToast } from '../../components/round/BackOnline'
 
 const ICON_SIZE = 18
 // Transient profile fetch can hang on flaky networks. After this
@@ -270,6 +271,7 @@ export default function AppLayout() {
         options={{ href: null, tabBarStyle: { display: 'none' } }}
       />
     </Tabs>
+    <BackOnlineToast />
     </UnitsProvider>
     </ErrorBoundary>
   )

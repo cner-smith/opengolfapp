@@ -37,6 +37,7 @@ import { useHoleState } from './hole/useHoleState'
 import { useShotActions } from './hole/useShotActions'
 import { HoleModals } from './hole/HoleModals'
 import { LiveRoundDock } from './LiveRoundDock'
+import { BackOnlineTag, useBackOnlineTag } from './BackOnline'
 import { ConfirmDialog } from '../ui/ConfirmDialog'
 import { CoachOverlay, CoachProvider, CoachTarget, useCoach } from '../help/CoachMarks'
 import { LIVE_AIM_STEPS, LIVE_PLACE_STEPS, LIVE_PUTT_STEPS, PLAYED_HOLE_STEPS } from './coachSteps'
@@ -87,7 +88,7 @@ export default function LiveRoundSession({
 }: LiveRoundSessionProps) {
   const isPastMode = mode === 'past'
   const router = useRouter()
-  const { user, backOnline } = useAuth()
+  const { user } = useAuth()
   const { unit, toDisplay } = useUnits()
 
   const [holeNumber, setHoleNumber] = useState(initialHoleNumber)
@@ -169,10 +170,7 @@ export default function LiveRoundSession({
   }, [initialHoleNumber])
 
   const data = useHoleData(roundId, holeNumber)
-  const { refreshRound } = data
-  useEffect(() => {
-    if (backOnline > 0) void refreshRound()
-  }, [backOnline, refreshRound])
+  const [backTag, closeBackTag] = useBackOnlineTag(data.refreshRound)
   // Deep-link / refresh clamp (#718): ?hole= can name a hole past the
   // round's actual count (e.g. hole=10 on a 9-hole round) — the
   // Resume-banner path (useActiveRound) already clamps to the round's
@@ -873,6 +871,17 @@ export default function LiveRoundSession({
           onDockHeight={setDockHeight}
           onRulerDrawer={setRulerDrawer}
         />
+        {backTag && (
+          <BackOnlineTag
+            holeNumber={holeNumber}
+            anchor={{ top: 12 }}
+            onStillHere={closeBackTag}
+            onMovedOn={() => {
+              closeBackTag()
+              setScorecardOpen(true)
+            }}
+          />
+        )}
       </View>
 
       <HoleModals
