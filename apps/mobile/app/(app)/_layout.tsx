@@ -15,6 +15,7 @@ import { ErrorBoundary } from '../../components/errors/ErrorBoundary'
 import { UnitsProvider } from '../../contexts/UnitsContext'
 import { isNetworkFailure, offlineKeys, readCache, writeCache } from '../../lib/offlineCache'
 import { TYPE } from '../../lib/typography'
+import { BackOnlineToast } from '../../components/round/BackOnline'
 
 const ICON_SIZE = 18
 // Transient profile fetch can hang on flaky networks. After this
@@ -24,7 +25,7 @@ const PROFILE_FETCH_TIMEOUT_MS = 10_000
 type ProfileState = 'loading' | 'complete' | 'incomplete' | 'error'
 
 export default function AppLayout() {
-  const { user, loading: authLoading } = useAuth()
+  const { user, loading: authLoading, offline } = useAuth()
   const [profileState, setProfileState] = useState<ProfileState>('loading')
   const [retryNonce, setRetryNonce] = useState(0)
   const insets = useSafeAreaInsets()
@@ -49,6 +50,14 @@ export default function AppLayout() {
       readCache<string>(onboardedKey).then((flag) => {
         if (active) setProfileState(flag === '1' ? 'complete' : 'error')
       })
+    }
+    // Not a dependency: the flag clearing must not re-run this gate, which
+    // would swap the Tabs (and a live round) for the spinner.
+    if (offline) {
+      fallBack()
+      return () => {
+        active = false
+      }
     }
     const timeoutId = setTimeout(() => {
       if (active) fallBack()
@@ -262,6 +271,7 @@ export default function AppLayout() {
         options={{ href: null, tabBarStyle: { display: 'none' } }}
       />
     </Tabs>
+    <BackOnlineToast />
     </UnitsProvider>
     </ErrorBoundary>
   )

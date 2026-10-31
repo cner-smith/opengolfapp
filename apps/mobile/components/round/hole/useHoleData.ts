@@ -5,10 +5,12 @@ import type { Database } from '@oga/supabase'
 import {
   logDiag,
   allShotsForHoleScore,
+  listHoleScorePatches,
   type PendingShot,
   type ShotPayload,
 } from '../../../lib/db'
 import { supabase } from '../../../lib/supabase'
+import { syncPendingShots } from '../../../lib/sync'
 import { isNetworkFailure, offlineKeys, readCache, writeCache } from '../../../lib/offlineCache'
 import { useAuth } from '../../../hooks/useAuth'
 import type { LatLng } from '../HoleMap'
@@ -29,6 +31,7 @@ export interface UseHoleDataResult {
   loading: boolean
   error: string | null
   loadAll: () => Promise<void>
+  refreshRound: () => Promise<void>
   holeCount: 9 | 18
   effectiveHoles: HoleRow[]
   currentHole: HoleRow | null
@@ -95,12 +98,45 @@ function payloadOf(row: PendingShot): ShotPayload | null {
   }
 }
 
+async function fetchRoundData(id: string): Promise<CachedRoundData> {
+  // If the round was deleted (e.g. from the home list) while this live
+  // session is still mounted, a 0-row result returns null instead of
+  // throwing PGRST116 "cannot coerce to a single JSON object" — surfaced
+  // cleanly as "Round not found" below.
+  const { data: r, error: rErr } = await supabase
+    .from('rounds')
+    .select('*, courses(lat, lng)')
+    .eq('id', id)
+    .maybeSingle()
+  if (rErr || !r) throw rErr ?? new Error('Round not found')
+  const [hRes, hsRes, ctRes, htRes] = await Promise.all([
+    supabase.from('holes').select('*').eq('course_id', r.course_id).order('number'),
+    supabase.from('hole_scores').select('*').eq('round_id', r.id),
+    supabase.from('course_tees').select('*').eq('course_id', r.course_id),
+    getHoleTeesForCourse(supabase, r.course_id),
+  ])
+  if (hRes.error) throw hRes.error
+  if (hsRes.error) throw hsRes.error
+  if (ctRes.error) throw ctRes.error
+  if (htRes.error) throw htRes.error
+  return {
+    round: r,
+    holes: hRes.data ?? [],
+    holeScores: hsRes.data ?? [],
+    courseTees: ctRes.data ?? [],
+    holeTees: htRes.data ?? [],
+  }
+}
+
 export function useHoleData(
   id: string | undefined,
   holeNumber: number,
 ): UseHoleDataResult {
-  const { user } = useAuth()
+  const { user, offline: authOffline } = useAuth()
   const userId = user?.id
+  // Read at call time: loadAll is also the error screen's retry.
+  const authOfflineRef = useRef(authOffline)
+  authOfflineRef.current = authOffline
   const [round, setRound] = useState<RoundRow | null>(null)
   const [courseCenter, setCourseCenter] = useState<LatLng | null>(null)
   const [holes, setHoles] = useState<HoleRow[]>([])
@@ -269,34 +305,13 @@ export function useHoleData(
       setHoleTees(p.holeTees)
     }
     try {
-      // If the round was deleted (e.g. from the home list) while this live
-      // session is still mounted, a 0-row result returns null instead of
-      // throwing PGRST116 "cannot coerce to a single JSON object" — surfaced
-      // cleanly as "Round not found" below.
-      const { data: r, error: rErr } = await supabase
-        .from('rounds')
-        .select('*, courses(lat, lng)')
-        .eq('id', id)
-        .maybeSingle()
-      if (rErr || !r) throw rErr ?? new Error('Round not found')
-      const [hRes, hsRes, ctRes, htRes] = await Promise.all([
-        supabase.from('holes').select('*').eq('course_id', r.course_id).order('number'),
-        supabase.from('hole_scores').select('*').eq('round_id', r.id),
-        supabase.from('course_tees').select('*').eq('course_id', r.course_id),
-        getHoleTeesForCourse(supabase, r.course_id),
-      ])
-      if (hRes.error) throw hRes.error
-      if (hsRes.error) throw hsRes.error
-      if (ctRes.error) throw ctRes.error
-      if (htRes.error) throw htRes.error
-      const payload: CachedRoundData = {
-        round: r,
-        holes: hRes.data ?? [],
-        holeScores: hsRes.data ?? [],
-        courseTees: ctRes.data ?? [],
-        holeTees: htRes.data ?? [],
-      }
-      apply(payload)
+      // Signed in from the stored session (#1005): every fetch would first
+      // wait out auth-js's failed refresh, so try the cache first.
+      const saved = authOfflineRef.current && userId
+        ? await readCache<CachedRoundData>(offlineKeys.round(userId, id))
+        : null
+      if (saved) return apply(saved)
+      apply(await fetchRoundData(id))
     } catch (err) {
       // Offline (#993): reopen the round from its last successful load.
       const cached =
@@ -313,6 +328,28 @@ export function useHoleData(
   useEffect(() => {
     loadAll()
   }, [loadAll])
+
+  // Signal back after an offline start (#1005): catch up with the server
+  // behind the player. Never touches `loading`, which would swap the map for
+  // the loading screen mid-round, or the hole. Course rows stay as they are: a
+  // tee set while offline only lives in them. The queue goes first, so the rows
+  // read here include it; a queued patch still left means the server is behind
+  // this phone, so its scores wait for the next load. A failure just keeps
+  // what's on screen.
+  const refreshRound = useCallback(async () => {
+    if (!id) return
+    try {
+      await syncPendingShots()
+      const fresh = await fetchRoundData(id)
+      if (!(await listHoleScorePatches()).some((p) => p.round_id === id)) {
+        setRound(fresh.round)
+        setHoleScores(fresh.holeScores)
+      }
+    } catch (err) {
+      logDiag('refresh_round_failed', { msg: (err as Error).message.slice(0, 120) })
+    }
+    await refreshShots()
+  }, [id, refreshShots])
 
   // Persist the loaded round for a cold start without signal (#993). Follows
   // the in-memory state rather than only loadAll's fetch, so the scores, pins
@@ -392,18 +429,27 @@ export function useHoleData(
             .select('id, club, lie_type, shot_number, start_lat, start_lng, ob, putt_result')
             .eq('hole_score_id', currentHoleScore.id)
             .order('shot_number')
-        let shotsRes = await fetchShots()
+        // Signed in from the stored session (#1005): with this hole cached,
+        // skip the fetch, which would first wait out auth-js's failed refresh;
+        // the cache below answers as for a network failure. Uncached, still
+        // fetch: an empty answer here would read as a confident remote=0.
+        const hasCache = authOfflineRef.current && userId && id
+          ? (await readCache<LiteShot[]>(offlineKeys.holeShots(userId, id, currentHoleScore.id))) !== null
+          : false
+        if (myNonce !== fetchNonceRef.current) return
+        let shotsRes = hasCache ? null : await fetchShots()
         if (myNonce !== fetchNonceRef.current) return
         // postgrest-js returns failures in-band ({data: null, error}) — the
         // promise resolves normally, so this can't be caught by the outer
         // try/catch. One retry covers most transient failures (mirrors the
         // sync.ts chunk-upsert retry); a network failure skips it, since
         // postgrest-js has already retried the GET itself.
-        if (shotsRes.error && !isNetworkFailure(shotsRes.error, shotsRes.status)) {
+        if (shotsRes?.error && !isNetworkFailure(shotsRes.error, shotsRes.status)) {
           shotsRes = await fetchShots()
           if (myNonce !== fetchNonceRef.current) return
         }
-        const offline = !!shotsRes.error && !!userId && !!id && isNetworkFailure(shotsRes.error, shotsRes.status)
+        const offline = !!userId && !!id &&
+          (!shotsRes || (!!shotsRes.error && isNetworkFailure(shotsRes.error, shotsRes.status)))
         const cached = offline && userId && id
           ? await readCache<LiteShot[]>(offlineKeys.holeShots(userId, id, currentHoleScore.id))
           : null
@@ -435,7 +481,7 @@ export function useHoleData(
           }
         }
         let shots: LiteShot[]
-        if (!shotsRes.error) {
+        if (shotsRes && !shotsRes.error) {
           shots = shotsRes.data ?? []
         } else if (offline) {
           // Offline (#993): the shots this device last knew for the hole
@@ -448,10 +494,11 @@ export function useHoleData(
           // Failed twice: leave counts at the neutral reset above rather
           // than committing a confident remote=0 that the save path could
           // collide on.
+          const failure = shotsRes?.error?.message ?? 'no shots read'
           if (__DEV__) {
-            console.warn('[hole/shots-fetch]', shotsRes.error.message)
+            console.warn('[hole/shots-fetch]', failure)
           }
-          logDiag('refetch_failed', { msg: shotsRes.error.message.slice(0, 120) })
+          logDiag('refetch_failed', { msg: failure.slice(0, 120) })
           return
         }
         // Dedupe the sync-in-flight window: a shot whose server row just
@@ -669,6 +716,7 @@ export function useHoleData(
     loading,
     error,
     loadAll,
+    refreshRound,
     holeCount,
     effectiveHoles,
     currentHole,

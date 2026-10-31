@@ -15,6 +15,7 @@ import Animated, {
 import { AuthProvider } from '../contexts/AuthContext'
 import { useAuth } from '../hooks/useAuth'
 import { ErrorBoundary } from '../components/errors/ErrorBoundary'
+import { SlowStart } from '../components/ui/SlowStart'
 
 // Native splash stays up until our JS-side font load finishes so the brand
 // mark never renders in a fallback serif. The animated brand splash now lives
@@ -46,6 +47,8 @@ function RootLayoutContent() {
   })
   const { loading: authLoading } = useAuth()
 
+  // A shown slow-start screen lifts when its ball has finished, not before.
+  const [hold, setHold] = useState(false)
   const gateOpacity = useSharedValue(1)
   const [gateMounted, setGateMounted] = useState(true)
 
@@ -59,7 +62,7 @@ function RootLayoutContent() {
   // gap between native-splash dismissal and the first real frame so the app
   // never flashes a half-resolved screen on cold start.
   useEffect(() => {
-    if (!fontsLoaded || authLoading) return
+    if (!fontsLoaded || authLoading || hold) return
     gateOpacity.value = withTiming(
       0,
       { duration: FADE_OUT_DURATION, easing: Easing.out(Easing.cubic) },
@@ -67,7 +70,7 @@ function RootLayoutContent() {
         if (finished) runOnJS(setGateMounted)(false)
       },
     )
-  }, [fontsLoaded, authLoading, gateOpacity])
+  }, [fontsLoaded, authLoading, hold, gateOpacity])
 
   const gateStyle = useAnimatedStyle(() => ({ opacity: gateOpacity.value }))
 
@@ -83,9 +86,11 @@ function RootLayoutContent() {
       </ErrorBoundary>
       {gateMounted && (
         <Animated.View
-          pointerEvents={authLoading ? 'auto' : 'none'}
+          pointerEvents={authLoading || hold ? 'auto' : 'none'}
           style={[StyleSheet.absoluteFill, styles.gate, gateStyle]}
-        />
+        >
+          <SlowStart authDone={!authLoading} onHold={setHold} />
+        </Animated.View>
       )}
     </GestureHandlerRootView>
   )

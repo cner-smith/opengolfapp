@@ -49,7 +49,7 @@ export async function fetchResumeHole(roundId: string): Promise<number> {
 // deleting the active round from the hole/end-round screens left a
 // stale banner on home until the app reloaded.
 export function useActiveRound(): ActiveRound | null {
-  const { user } = useAuth()
+  const { user, offline } = useAuth()
   const [activeRound, setActiveRound] = useState<ActiveRound | null>(null)
 
   useFocusEffect(
@@ -61,6 +61,15 @@ export function useActiveRound(): ActiveRound | null {
           .toISOString()
           .slice(0, 10)
         const cacheKey = offlineKeys.activeRound(user.id)
+        // Offline (#993): show the last banner this device saw, under the
+        // same one-day window as the query.
+        const showCached = async () => {
+          const cached = await readCache<CachedActiveRound>(cacheKey)
+          if (active) setActiveRound(cached && cached.playedAt >= oneDayAgo ? cached : null)
+        }
+        // Signed in from the stored session (#1005): the query would first
+        // wait out auth-js's failed refresh, so skip it.
+        if (offline) return showCached()
         const { data, error, status } = await supabase
           .from('rounds')
           .select('id, played_at, course_id, courses(name)')
@@ -71,14 +80,7 @@ export function useActiveRound(): ActiveRound | null {
           .order('played_at', { ascending: false })
           .limit(1)
         if (!active) return
-        if (error && isNetworkFailure(error, status)) {
-          // Offline (#993): show the last banner this device saw, under the
-          // same one-day window as the query.
-          const cached = await readCache<CachedActiveRound>(cacheKey)
-          if (!active) return
-          setActiveRound(cached && cached.playedAt >= oneDayAgo ? cached : null)
-          return
-        }
+        if (error && isNetworkFailure(error, status)) return showCached()
         if (error || !data?.[0]) {
           setActiveRound(null)
           // No active round: drop every cached round of this user.
@@ -108,7 +110,7 @@ export function useActiveRound(): ActiveRound | null {
       return () => {
         active = false
       }
-    }, [user?.id]),
+    }, [user?.id, offline]),
   )
 
   return activeRound
