@@ -28,10 +28,14 @@ export default function AppLayout() {
   const [profileState, setProfileState] = useState<ProfileState>('loading')
   const [retryNonce, setRetryNonce] = useState(0)
   const insets = useSafeAreaInsets()
+  // Keyed on the id, not the user object: every TOKEN_REFRESHED hands
+  // AuthContext a new object for the same user, and re-running this gate
+  // swaps the Tabs for the spinner, unmounting the live round (#1132).
+  const userId = user?.id
 
   useEffect(() => {
     if (authLoading) return
-    if (!user) return
+    if (!userId) return
 
     let active = true
     setProfileState('loading')
@@ -40,7 +44,7 @@ export default function AppLayout() {
     // gets through it without signal, so they can reach their live round.
     // Only a network failure or the timeout falls back — a real error still
     // shows the retry screen.
-    const onboardedKey = offlineKeys.onboarded(user.id)
+    const onboardedKey = offlineKeys.onboarded(userId)
     const fallBack = () => {
       readCache<string>(onboardedKey).then((flag) => {
         if (active) setProfileState(flag === '1' ? 'complete' : 'error')
@@ -53,7 +57,7 @@ export default function AppLayout() {
     supabase
       .from('profiles')
       .select('onboarding_completed')
-      .eq('id', user.id)
+      .eq('id', userId)
       .maybeSingle()
       .then(({ data, error, status }) => {
         if (!active) return
@@ -76,7 +80,7 @@ export default function AppLayout() {
       active = false
       clearTimeout(timeoutId)
     }
-  }, [user, authLoading, retryNonce])
+  }, [userId, authLoading, retryNonce])
 
   if (authLoading || profileState === 'loading') {
     // Match the native splash screen's dark background so the cold-start
