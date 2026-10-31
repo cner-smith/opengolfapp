@@ -69,6 +69,9 @@ export interface UseHoleDataResult {
   lastShotHoled: boolean
   /** The hole's latest shot was played from the green. */
   lastShotPutt: boolean
+  /** This hole has a score but its shots haven't loaded (still loading, or no
+   *  signal and never seen here), so a saved shot would number from zero. */
+  shotsOutOfReach: boolean
   /** Refetches the hole's shots; resolves once the refetch has landed in state. */
   refreshShots: () => Promise<void>
   localShotCount: number
@@ -141,6 +144,8 @@ export function useHoleData(
   const [courseCenter, setCourseCenter] = useState<LatLng | null>(null)
   const [holes, setHoles] = useState<HoleRow[]>([])
   const [holeScores, setHoleScores] = useState<HoleScoreRow[]>([])
+  const holeScoresRef = useRef(holeScores)
+  holeScoresRef.current = holeScores
   const [courseTees, setCourseTees] = useState<CourseTeeRow[]>([])
   const [holeTees, setHoleTees] = useState<HoleTeeRow[]>([])
   const [loading, setLoading] = useState(true)
@@ -156,6 +161,8 @@ export function useHoleData(
   // hole switch the caller sees the new hole before this resets.
   const [remoteHoledFor, setRemoteHoledFor] = useState<string | null>(null)
   const [remotePuttFor, setRemotePuttFor] = useState<string | null>(null)
+  // Hole score whose shots have landed in state (#1005).
+  const [shotsLoadedFor, setShotsLoadedFor] = useState<string | null>(null)
   const [shotsRefreshNonce, setShotsRefreshNonce] = useState(0)
   // Resolved by the refetch effect once a run that started at or after this
   // refresh settles, so a caller can wait for fresh shots (Done after a move,
@@ -334,16 +341,19 @@ export function useHoleData(
   // the loading screen mid-round, or the hole. Course rows stay as they are: a
   // tee set while offline only lives in them. The queue goes first, so the rows
   // read here include it; a queued patch still left means the server is behind
-  // this phone, so its scores wait for the next load. A failure just keeps
-  // what's on screen.
+  // this phone, so its scores wait for the next load. So do they if the scores
+  // changed meanwhile: an edit whose patch flushed before the read below is in
+  // no queue, and the fetched rows may predate it. A failure just keeps what's
+  // on screen.
   const refreshRound = useCallback(async () => {
     if (!id) return
+    const scoresBefore = holeScoresRef.current
     try {
       await syncPendingShots()
       const fresh = await fetchRoundData(id)
       if (!(await listHoleScorePatches()).some((p) => p.round_id === id)) {
         setRound(fresh.round)
-        setHoleScores(fresh.holeScores)
+        setHoleScores((cur) => (cur === scoresBefore ? fresh.holeScores : cur))
       }
     } catch (err) {
       logDiag('refresh_round_failed', { msg: (err as Error).message.slice(0, 120) })
@@ -413,6 +423,7 @@ export function useHoleData(
       setRemoteShotCaptured([])
       setRemoteHoledFor(null)
       setRemotePuttFor(null)
+      setShotsLoadedFor(null)
       setPendingForHole([])
     }
     if (!currentHoleScore) {
@@ -483,6 +494,14 @@ export function useHoleData(
         let shots: LiteShot[]
         if (shotsRes && !shotsRes.error) {
           shots = shotsRes.data ?? []
+        } else if (offline && !cached && !local.length && currentHoleScore.score > 0) {
+          // Offline on a hole with a score that this phone never loaded: it was
+          // played elsewhere. Committing remote=0 here numbers the next shot 1,
+          // which the sync quarantines on unique(hole_score_id, shot_number),
+          // while its score patch overwrites the real score (#1005). Caching
+          // that 0 would outlive this load too.
+          logDiag('refetch_offline', { cached: null, outOfReach: true })
+          return
         } else if (offline) {
           // Offline (#993): the shots this device last knew for the hole
           // (server rows + ones it queued, written below), minus the ones
@@ -535,6 +554,7 @@ export function useHoleData(
         setRemoteHoledFor(lastRemote?.putt_result === 'made' ? currentHoleScore.id : null)
         setRemotePuttFor(lastRemote && isPuttShot(lastRemote.lie_type) ? currentHoleScore.id : null)
         setPendingForHole(dedupedLocal)
+        setShotsLoadedFor(currentHoleScore.id)
         logDiag('refetch', { remote: shots.length, local: dedupedLocal.length, ms: Date.now() - fetchT0 })
       } catch (err) {
         logDiag('refetch_failed', { msg: err })
@@ -738,6 +758,7 @@ export function useHoleData(
     previousShotCaptured,
     lastShotHoled,
     lastShotPutt,
+    shotsOutOfReach: !!currentHoleScore?.score && shotsLoadedFor !== currentHoleScore.id && !pendingForHole.length,
     refreshShots,
     localShotCount,
     localPuttCount,

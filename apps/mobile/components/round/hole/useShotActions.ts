@@ -249,6 +249,14 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
     opts?: { forceAim?: boolean; ball?: LatLng },
   ) {
     if (persistShotInFlightRef.current) return
+    if (data.shotsOutOfReach) {
+      data.refreshShots() // Signal may be back: the next try reads the hole again.
+      Alert.alert(
+        "Can't add to this hole yet",
+        "It already has shots that aren't on this phone. Get signal and try again, or move to another hole.",
+      )
+      return
+    }
     const base = buildPayload(meta, opts)
     if (!base) return
     // Stamp the client id up front so the optimistic pending entry below carries
@@ -351,7 +359,7 @@ export function useShotActions(input: UseShotActionsInput): UseShotActionsResult
     // next putt. The "On the green" chip is gated on totalShotsThisHole > 0
     // (MapBottomChrome), so a putt is never the hole's first shot: previousShots
     // is ≥1 here and finishHole opens the summary, never the empty-hole advance.
-    if (v.puttMade === true) finishHole()
+    if (v.puttMade === true && !data.shotsOutOfReach) finishHole()
   }
 
   async function persistRoundPin(loc: LatLng) {
