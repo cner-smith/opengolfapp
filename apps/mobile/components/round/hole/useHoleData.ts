@@ -331,21 +331,20 @@ export function useHoleData(
 
   // Signal back after an offline start (#1005): catch up with the server
   // behind the player. Never touches `loading`, which would swap the map for
-  // the loading screen mid-round, or the hole. The queue goes first, so the
-  // rows read here include it; a queued patch still left means the server is
-  // behind this phone, so its rows wait for the next load. Shots merge with
-  // the queue in the refetch effect. A failure just keeps what's on screen.
+  // the loading screen mid-round, or the hole. Course rows stay as they are: a
+  // tee set while offline only lives in them. The queue goes first, so the rows
+  // read here include it; a queued patch still left means the server is behind
+  // this phone, so its scores wait for the next load. A failure just keeps
+  // what's on screen.
   const refreshRound = useCallback(async () => {
     if (!id) return
     try {
       await syncPendingShots()
       const fresh = await fetchRoundData(id)
-      if ((await listHoleScorePatches()).some((p) => p.round_id === id)) return
-      setRound(fresh.round)
-      setHoles(fresh.holes)
-      setHoleScores(fresh.holeScores)
-      setCourseTees(fresh.courseTees)
-      setHoleTees(fresh.holeTees)
+      if (!(await listHoleScorePatches()).some((p) => p.round_id === id)) {
+        setRound(fresh.round)
+        setHoleScores(fresh.holeScores)
+      }
     } catch (err) {
       logDiag('refresh_round_failed', { msg: (err as Error).message.slice(0, 120) })
     }

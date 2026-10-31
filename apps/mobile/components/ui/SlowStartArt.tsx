@@ -69,10 +69,10 @@ const DIMPLES = [
 ] as const
 
 
-// A grass tick under the line. Near the hole it fades away, so none is left
-// at the rim for the cover to hide or reveal.
 type Quat = [number, number, number, number]
 
+// A grass tick under the line. Near the hole it fades away, so none is left
+// at the rim for the cover to hide or reveal.
 function Tick({ i, line, cupOff, shown }: { i: number; line: SharedValue<number>; cupOff: SharedValue<number>; shown: SharedValue<number> }) {
   const style = useAnimatedStyle(() => {
     const x = i * TILE + 6.5 - TILE * 2 - (line.value % TILE)

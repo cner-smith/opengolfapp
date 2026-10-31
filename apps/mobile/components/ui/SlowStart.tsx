@@ -67,7 +67,7 @@ export function SlowStart({ authDone, onHold }: { authDone: boolean; onHold: (ho
     <Animated.View collapsable={false} style={[StyleSheet.absoluteFill, styles.page, style]}>
       <StatusBar style="dark" animated />
       <SlowStartArt noSignal={out} connected={rolled && authDone} reduced={reduced} onRest={rest} />
-      <View style={styles.copy} accessibilityLiveRegion="polite">
+      <View style={styles.copy}>
         <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.serif, styles.line]}>
           {sad ? SAD_LINE : 'Checking your login.'}
         </Text>

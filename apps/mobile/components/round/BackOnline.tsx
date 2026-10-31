@@ -23,8 +23,11 @@ export function useBackOnlineTag(refreshRound: () => Promise<void>) {
   const { backOnline } = useAuth()
   const [tag, setTag] = useState(false)
   const close = useCallback(() => setTag(false), [])
+  // Only signal coming back while mounted: the count outlives this screen.
+  const seen = useRef(backOnline)
   useEffect(() => {
-    if (backOnline === 0) return
+    if (backOnline === seen.current) return
+    seen.current = backOnline
     void refreshRound()
     if (liveRoundFocus.current) setTag(true)
   }, [backOnline, refreshRound])
@@ -153,8 +156,11 @@ export function BackOnlineToast() {
   const { backOnline } = useAuth()
   const [show, setShow] = useState(0)
   const close = useCallback(() => setShow(0), [])
+  const seen = useRef(backOnline)
   useEffect(() => {
-    if (backOnline > 0 && !liveRoundFocus.current) setShow(backOnline)
+    if (backOnline === seen.current) return
+    seen.current = backOnline
+    if (!liveRoundFocus.current) setShow(backOnline)
   }, [backOnline])
   return show > 0 ? <Banner key={show} onDone={close} /> : null
 }
