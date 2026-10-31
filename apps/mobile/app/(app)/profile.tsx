@@ -30,6 +30,7 @@ import { clearScreenCache } from '../../lib/screenCache'
 import { getAimTilt, setAimTilt, type AimTilt } from '../../lib/aimTilt'
 import { getLeftHand, setLeftHand } from '../../lib/leftHand'
 import { getSoundsOn, setSoundsOn } from '../../lib/sounds'
+import { getKeepScreenOn, setKeepScreenOn } from '../../lib/keepScreenOn'
 import { readDiagLog } from '../../lib/db'
 import { AppBar } from '../../components/ui/AppBar'
 import { SectionHead } from '../../components/paper/Section'
@@ -126,6 +127,14 @@ export default function ProfileTab() {
   const chooseSounds = (on: boolean) => {
     setSoundsState(on)
     void setSoundsOn(on)
+  }
+  const [keepOn, setKeepOnState] = useState(true)
+  useEffect(() => {
+    void getKeepScreenOn().then(setKeepOnState)
+  }, [])
+  const chooseKeepOn = (on: boolean) => {
+    setKeepOnState(on)
+    void setKeepScreenOn(on)
   }
   // Count of rounds with a derived score_differential — the signal for
   // whether the displayed index is a calculated WHS value or still the
@@ -431,6 +440,13 @@ export default function ProfileTab() {
               <Chip label="On" active={sounds} onPress={() => chooseSounds(true)} />
               <Chip label="Off" active={!sounds} onPress={() => chooseSounds(false)} />
             </Chips>
+          </Row>
+          <Row label="Keep screen on" value={keepOn ? 'On' : 'Off'} open={openRow === 'keep'} onToggle={() => toggleRow('keep')}>
+            <Chips>
+              <Chip label="On" active={keepOn} onPress={() => chooseKeepOn(true)} />
+              <Chip label="Off" active={!keepOn} onPress={() => chooseKeepOn(false)} />
+            </Chips>
+            <Hint>During a live round. After 20 seconds without a touch the screen goes black; the first tap only wakes it.</Hint>
           </Row>
         </Group>
 

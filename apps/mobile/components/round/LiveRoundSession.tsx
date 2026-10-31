@@ -39,6 +39,7 @@ import { HoleModals } from './hole/HoleModals'
 import { LiveRoundDock } from './LiveRoundDock'
 import { BackOnlineTag, useBackOnlineTag } from './BackOnline'
 import { ConfirmDialog } from '../ui/ConfirmDialog'
+import { IdleBlackout, useIdleBlackout } from './IdleBlackout'
 import { CoachOverlay, CoachProvider, CoachTarget, useCoach } from '../help/CoachMarks'
 import { LIVE_AIM_STEPS, LIVE_PLACE_STEPS, LIVE_PUTT_STEPS, PLAYED_HOLE_STEPS } from './coachSteps'
 import { LiveRoundHeader, RoundOptionsMenu } from './LiveRoundHeader'
@@ -116,6 +117,8 @@ export default function LiveRoundSession({
   // One mutually-exclusive confirm dialog at a time. See ActiveDialog
   // in ./hole/types for the full union + rationale (#293).
   const [activeDialog, setActiveDialog] = useState<ActiveDialog>(null)
+  // Confirmed in the paper dialog (a brick Delete beside a plain Cancel).
+  const [deleteShotId, setDeleteShotId] = useState<string | null>(null)
   // Left-toolbar dispersion-dots toggle (T2). Drives the single-color
   // historical-shot scatter overlay; the render lands in T4. Off by
   // default — it's a summoned planning aid, not always-on clutter.
@@ -459,11 +462,28 @@ export default function LiveRoundSession({
     onRoundCompleted,
   })
 
+  // Coach marks (#900): what's on screen in this state; first-time tips open
+  // on their own, "?" shows them all. Nothing while a sheet / dialog / menu
+  // is up; a played hole shows its own (#1115).
+  const rs = finalState.roundState
+  const coach = useCoach(
+    menuOpen || pinPlacementOpen || activeDialog
+      ? null
+      : editMode ? PLAYED_HOLE_STEPS : rs === 'PLACE_BALL' ? LIVE_PLACE_STEPS : rs === 'SET_AIM' ? LIVE_AIM_STEPS : rs === 'PUTTING' ? LIVE_PUTT_STEPS : null,
+  )
+
+  const idle = useIdleBlackout({
+    paused: activeDialog != null || scorecardOpen || deleteShotId != null,
+    reading: rs === 'SET_AIM' || coach.steps != null,
+    draggingRef: finalState.ballDraggingRef,
+  })
+
   // Android Back (#915): menu/pin/aim aren't Modals; runs before the router's listener (newest first).
   // Only while this screen is focused: the session stays mounted behind Home
   // after Leave, and its "Leave round?" Modal would show over Home (#1032).
   useFocusEffect(useCallback(() => {
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (idle.black) { idle.wake(); return true } // like the first tap (#1121)
       if (data.loading || data.error || !data.round || !data.currentHole || !data.currentHoleScore) return false
       // The review sheet owns Back while it shows. This effect re-subscribes on
       // most renders, and RN runs the newest listener first, so without this
@@ -482,7 +502,7 @@ export default function LiveRoundSession({
       return true
     })
     return () => sub.remove()
-  }, [wheelOpen, menuOpen, pinPlacementOpen, finalState, data, holeNumber, furthestHoleReached, editHole, sheetHeld]))
+  }, [wheelOpen, menuOpen, pinPlacementOpen, finalState, data, holeNumber, furthestHoleReached, editHole, sheetHeld, idle.black]))
 
   // End-of-hole review rows. Built from the shots placed live (their start
   // coords, in order) via the shared @oga/core inference — same call the web
@@ -571,8 +591,6 @@ export default function LiveRoundSession({
     return moveInFlightRef.current
   }
 
-  // Confirmed in the paper dialog (a brick Delete beside a plain Cancel).
-  const [deleteShotId, setDeleteShotId] = useState<string | null>(null)
   const handleDeleteActiveShot = () => setDeleteShotId(data.previousShotIds[activeShotIdx] ?? null)
 
   // Add inserts a shot after the selected one and selects it, ready to drag into place (#1114).
@@ -605,16 +623,6 @@ export default function LiveRoundSession({
     actions.editHoleOnMap()
   }
 
-  // Coach marks (#900): what's on screen in this state; first-time tips open
-  // on their own, "?" shows them all. Nothing while a sheet / dialog / menu
-  // is up; a played hole shows its own (#1115).
-  const rs = finalState.roundState
-  const coach = useCoach(
-    menuOpen || pinPlacementOpen || activeDialog
-      ? null
-      : editMode ? PLAYED_HOLE_STEPS : rs === 'PLACE_BALL' ? LIVE_PLACE_STEPS : rs === 'SET_AIM' ? LIVE_AIM_STEPS : rs === 'PUTTING' ? LIVE_PUTT_STEPS : null,
-  )
-
   if (data.loading || data.error || !data.round || !data.currentHole || !data.currentHoleScore) {
     return (
       <LiveRoundError
@@ -632,7 +640,7 @@ export default function LiveRoundSession({
 
   return (
     <CoachProvider>
-    <View style={{ flex: 1, backgroundColor: P.chrome }}>
+    <View style={{ flex: 1, backgroundColor: P.chrome }} {...idle.touchProps}>
       <LiveRoundHeader
         onHelp={coach.openHelp}
         holeNumber={holeNumber}
@@ -978,6 +986,7 @@ export default function LiveRoundSession({
         />
       )}
       <CoachOverlay steps={coach.steps} onClose={coach.close} />
+      {idle.black && <IdleBlackout onWake={idle.wake} />}
     </View>
     </CoachProvider>
   )
