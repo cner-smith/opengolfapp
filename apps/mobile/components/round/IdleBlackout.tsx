@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { AppState, Keyboard, Pressable, StyleSheet, type GestureResponderEvent } from 'react-native'
+import { AccessibilityInfo, AppState, Keyboard, Pressable, StyleSheet, type GestureResponderEvent } from 'react-native'
 import { useFocusEffect } from 'expo-router'
 import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake'
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated'
@@ -31,6 +31,7 @@ export function useIdleBlackout({ paused, reading, draggingRef }: {
 }) {
   const [armed, setArmed] = useState(false)
   const [black, setBlack] = useState(false)
+  const [screenReader, setScreenReader] = useState(false)
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const start = useRef(noop)
   const stop = () => {
@@ -57,8 +58,22 @@ export function useIdleBlackout({ paused, reading, draggingRef }: {
     }, []),
   )
 
+  // A screen reader walks the controls under the overlay, and the screen means
+  // nothing to its user, so the screen stays on and never blacks out.
   useEffect(() => {
-    if (!armed || paused) {
+    let live = true
+    void AccessibilityInfo.isScreenReaderEnabled().then((on) => {
+      if (live) setScreenReader(on)
+    })
+    const sub = AccessibilityInfo.addEventListener('screenReaderChanged', setScreenReader)
+    return () => {
+      live = false
+      sub.remove()
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!armed || paused || screenReader) {
       setBlack(false)
       return
     }
@@ -86,7 +101,7 @@ export function useIdleBlackout({ paused, reading, draggingRef }: {
       stop()
       sub.remove()
     }
-  }, [armed, paused, reading])
+  }, [armed, paused, reading, screenReader])
 
   return {
     black,
