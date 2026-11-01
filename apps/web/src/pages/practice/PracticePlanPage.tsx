@@ -1,6 +1,8 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
+  generateMaySendToAi,
+  isAiWrittenPlan,
   isPartialRound,
   normalizeCategoryProse,
   parseLocalDate,
@@ -110,6 +112,16 @@ function GenerateButton({ label, onGenerate, isPending }: { label: string; onGen
   )
 }
 
+// Apple 5.1.2(i): say who gets the data before the press that sends it.
+function AiDisclosure() {
+  return (
+    <p className="text-caddie-ink-dim" data-testid="ai-disclosure" style={{ fontSize: 13, lineHeight: 1.5, marginTop: 10, maxWidth: 440 }}>
+      Claude, Anthropic&rsquo;s AI, writes your plan. Generating sends it your handicap, skill level, goal, how often you
+      play, where you practice, your strokes-gained numbers and your plan note. Never your name or email.
+    </p>
+  )
+}
+
 /** Keyframes inlined so the progress bar stays local to this page. */
 function GenerateProgressBar({ visible }: { visible: boolean }) {
   if (!visible) return null
@@ -194,11 +206,13 @@ function NoPlanState({
   finding,
   onGenerate,
   isPending,
+  aiDisclosure,
   errorNotice,
 }: {
   finding: string | null
   onGenerate: () => void
   isPending: boolean
+  aiDisclosure: boolean
   errorNotice: React.ReactNode
 }) {
   return (
@@ -229,6 +243,7 @@ function NoPlanState({
             Browse all drills
           </Link>
         </div>
+        {aiDisclosure ? <AiDisclosure /> : null}
         {errorNotice}
       </div>
     </div>
@@ -522,7 +537,17 @@ function SessionBlock({
 // The side column: why this plan, what to work on, the note for next week.
 // ---------------------------------------------------------------------------
 
-function WhyThisPlan({ insight, note, basis }: { insight: string | null; note: string | null; basis: string }) {
+function WhyThisPlan({
+  insight,
+  note,
+  basis,
+  aiWritten,
+}: {
+  insight: string | null
+  note: string | null
+  basis: string
+  aiWritten: boolean
+}) {
   return (
     <section style={{ marginBottom: 28 }}>
       <SideHead>Why this plan</SideHead>
@@ -539,6 +564,11 @@ function WhyThisPlan({ insight, note, basis }: { insight: string | null; note: s
       <div className="text-caddie-ink-dim" style={{ fontSize: 12, marginTop: 10 }}>
         {basis}
       </div>
+      {aiWritten ? (
+        <div className="text-caddie-ink-dim" data-testid="ai-written" style={{ fontSize: 12, marginTop: 4 }}>
+          Claude wrote this plan from your numbers. Use your judgment.
+        </div>
+      ) : null}
     </section>
   )
 }
@@ -573,7 +603,7 @@ function FocusAreas({ areas }: { areas: StoredFocusArea[] }) {
 
 const FEEDBACK_MAX = 500
 
-function FeedbackSection({ planId, initial }: { planId: string; initial: string }) {
+function FeedbackSection({ planId, initial, aiReadsNote }: { planId: string; initial: string; aiReadsNote: boolean }) {
   const saveFeedback = useSaveFeedback()
   const [value, setValue] = useState(initial)
   // The last persisted value: blur saves only real edits, and "Saved" clears
@@ -594,6 +624,7 @@ function FeedbackSection({ planId, initial }: { planId: string; initial: string 
       <SideHead>Before next week</SideHead>
       <p className="text-caddie-ink-dim" style={{ fontSize: 14, lineHeight: 1.5, marginBottom: 10 }}>
         One note on how the week went: what worked, what felt off. Next week's plan reads it.
+        {aiReadsNote ? ' Claude reads this note too.' : ''}
       </p>
       <textarea
         value={value}
@@ -665,10 +696,20 @@ export function PracticePlanPage() {
     <ErrorNotice error={updateProgress.error} />
   ) : null
 
+  const mayUseAi = generateMaySendToAi(roundsWithSG.data)
+
   if (planQuery.isLoading) return <LoadingState />
 
   if (!plan) {
-    return <NoPlanState finding={finding} onGenerate={onGenerate} isPending={generate.isPending} errorNotice={errorNotice} />
+    return (
+      <NoPlanState
+        finding={finding}
+        onGenerate={onGenerate}
+        isPending={generate.isPending}
+        aiDisclosure={mayUseAi}
+        errorNotice={errorNotice}
+      />
+    )
   }
 
   const today = todayLocalDate()
@@ -696,7 +737,13 @@ export function PracticePlanPage() {
       ) : null}
       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between" style={{ gap: 12 }}>
         <Title sub={sub} />
-        {generateLabel ? <GenerateButton label={generateLabel} onGenerate={onGenerate} isPending={generate.isPending} /> : null}
+        {generateLabel ? (
+          <div className="flex flex-col sm:items-end" style={{ maxWidth: 440, marginBottom: 18 }}>
+            <GenerateButton label={generateLabel} onGenerate={onGenerate} isPending={generate.isPending} />
+            {/* The 2nd/3rd-round update is always built without AI. */}
+            {!promptRefresh && mayUseAi ? <AiDisclosure /> : null}
+          </div>
+        ) : null}
       </div>
 
       <Finding text={finding ?? plan.ai_insight ?? 'Your practice plan'} />
@@ -719,9 +766,14 @@ export function PracticePlanPage() {
         </div>
         <aside>
           {/* With no finding, the insight already leads the page. */}
-          <WhyThisPlan insight={finding ? plan.ai_insight : null} note={plan.coach_note} basis={basis} />
+          <WhyThisPlan
+            insight={finding ? plan.ai_insight : null}
+            note={plan.coach_note}
+            basis={basis}
+            aiWritten={isAiWrittenPlan(plan.raw_model_output)}
+          />
           <FocusAreas areas={focusAreas} />
-          {plan.id ? <FeedbackSection planId={plan.id} initial={plan.feedback ?? ''} /> : null}
+          {plan.id ? <FeedbackSection planId={plan.id} initial={plan.feedback ?? ''} aiReadsNote={mayUseAi} /> : null}
           <Link to="/practice/drills" className="text-caddie-accent hover:opacity-80" style={{ fontSize: 15, fontWeight: 600 }}>
             Browse all drills{' '}
             <span className="font-serif" style={{ fontStyle: 'italic' }}>
