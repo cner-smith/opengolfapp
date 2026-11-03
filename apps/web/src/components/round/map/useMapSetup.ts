@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type RefObject } from 'react'
-import { mapboxgl, MAPBOX_TOKEN_PRESENT, fitHoleUpward } from '../../../lib/mapbox'
+import { mapboxgl, MAPBOX_TOKEN_PRESENT, createMap, fitHoleUpward } from '../../../lib/mapbox'
 import type { PlacedPoint } from '../RoundMap'
 
 interface CameraTarget {
@@ -30,6 +30,8 @@ interface UseMapSetupInput {
 export interface UseMapSetupResult {
   mapRef: React.MutableRefObject<mapboxgl.Map | null>
   mapLoaded: boolean
+  /** The map failed at runtime (see lib/mapbox createMap). */
+  mapFailed: boolean
   /** Set true the moment the user places or drags the tee/pin. The
    *  camera effect skips one cameraTarget cycle when this is set, so
    *  the camera stays where the user was looking instead of snapping
@@ -56,6 +58,7 @@ export function useMapSetup({
   const initialPositionDoneRef = useRef(false)
   const userPlacedRef = useRef(false)
   const [mapLoaded, setMapLoaded] = useState(false)
+  const [mapFailed, setMapFailed] = useState(false)
 
   // Initialize at a neutral world view. The camera positioning waits
   // for the 'load' event below — Mapbox happily queues jumpTo on a
@@ -64,15 +67,19 @@ export function useMapSetup({
   useEffect(() => {
     if (!containerRef.current || !MAPBOX_TOKEN_PRESENT) return
     if (mapRef.current) return
-    const map = new mapboxgl.Map({
-      container: containerRef.current,
-      // Clean satellite, as mobile (HoleMap StyleURL.Satellite): no street
-      // or course labels printing across the fairway.
-      style: 'mapbox://styles/mapbox/satellite-v9',
-      center: [0, 0],
-      zoom: 1,
-      attributionControl: false,
-    })
+    const map = createMap(
+      {
+        container: containerRef.current,
+        // Clean satellite, as mobile (HoleMap StyleURL.Satellite): no street
+        // or course labels printing across the fairway.
+        style: 'mapbox://styles/mapbox/satellite-v9',
+        center: [0, 0],
+        zoom: 1,
+        attributionControl: false,
+      },
+      () => setMapFailed(true),
+    )
+    if (!map) return
     // No zoom buttons (wheel and pinch zoom); the ⓘ sits bottom-right, the
     // Mapbox logo bottom-left, as on mobile.
     map.addControl(
@@ -172,5 +179,5 @@ export function useMapSetup({
     onMovePin,
   ])
 
-  return { mapRef, mapLoaded, userPlacedRef }
+  return { mapRef, mapLoaded, userPlacedRef, mapFailed }
 }
