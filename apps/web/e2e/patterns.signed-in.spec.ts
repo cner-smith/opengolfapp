@@ -29,6 +29,8 @@ test.describe('Shot patterns (signed in)', () => {
   test('the club ladder selects the 7-iron', async ({ page }) => {
     await open7i(page)
     await expect(page.getByRole('status').filter({ hasText: 'Showing' })).toContainText(/Showing \d+ 7-iron shots/)
+    // The small numbers on the rules are gaps, not shot counts.
+    await expect(page.getByText('The small number on each rule is the gap between clubs.')).toBeVisible()
   })
 
   test('colour by shape shows the legend with a Not recorded entry', async ({ page }) => {

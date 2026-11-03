@@ -1,4 +1,4 @@
-import { SrcBody, SrcLabel } from '../components/ArticlePrimitives'
+import { ArticleTitle, SrcBody, SrcLabel, Subhead } from '../components/ArticlePrimitives'
 const DEV = import.meta.env.DEV
 
 export function CourseManagementArticle() {
@@ -11,24 +11,9 @@ export function CourseManagementArticle() {
         marginBottom: 32,
       }}
     >
-      <div className="kicker" style={{ marginBottom: 14 }}>
-        On the course · Course management
-      </div>
-      <h2
-        className="font-serif text-caddie-ink"
-        style={{
-          fontSize: 28,
-          fontWeight: 500,
-          fontStyle: 'italic',
-          letterSpacing: '-0.015em',
-          lineHeight: 1.15,
-          marginBottom: 18,
-        }}
-      >
-        Course management.
-      </h2>
+      <ArticleTitle>Course management guide.</ArticleTitle>
 
-      <H3>You are not on the range anymore</H3>
+      <H2>You are not on the range anymore</H2>
       <P>
         The driving range is where you work on your golf swing. The
         golf course is where you work on your score. These are two
@@ -50,7 +35,7 @@ export function CourseManagementArticle() {
 
       <Hr />
 
-      <H3>Know your game, not your best game</H3>
+      <H2>Know your game, not your best game</H2>
       <P>
         Course management starts with brutal honesty about what you
         actually do — not what you're capable of on a perfect day.
@@ -88,7 +73,7 @@ export function CourseManagementArticle() {
 
       <Hr />
 
-      <H3>The confidence club rule</H3>
+      <H2>The confidence club rule</H2>
       <P>
         For any shot on the course, choose the club you can hit the
         shot you need 8 times out of 10. Not the club that gets you
@@ -115,7 +100,7 @@ export function CourseManagementArticle() {
 
       <Hr />
 
-      <H3>The Way of the Playa</H3>
+      <H2>The Way of the Playa</H2>
       <P>
         Golf content creator Golf Sidekick has articulated a
         philosophy called the Way of the Playa that every amateur
@@ -168,7 +153,7 @@ export function CourseManagementArticle() {
 
       <Hr />
 
-      <H3>Aim at the center of the green</H3>
+      <H2>Aim at the center of the green</H2>
       <P>
         This is a simple rule that will immediately save you strokes.
       </P>
@@ -193,7 +178,7 @@ export function CourseManagementArticle() {
 
       <Hr />
 
-      <H3>Plan the hole backwards</H3>
+      <H2>Plan the hole backwards</H2>
       <P>
         Most amateurs walk up to the tee and hit their driver as far
         as they can, then figure out what to do next. This is
@@ -246,7 +231,7 @@ export function CourseManagementArticle() {
 
       <Hr />
 
-      <H3>Your free throw range</H3>
+      <H2>Your free throw range</H2>
       <P>
         Every player has a distance where they feel genuinely
         comfortable — a yardage where they know, without much doubt,
@@ -279,7 +264,7 @@ export function CourseManagementArticle() {
 
       <Hr />
 
-      <H3>The Scoring Method and the Scoring Zone</H3>
+      <H2>The Scoring Method and the Scoring Zone</H2>
       <P>
         Will Robins, PGA member and Golf Digest Best Young Teachers
         honoree, developed a course management system called The
@@ -297,15 +282,15 @@ export function CourseManagementArticle() {
         The Scoring Method tracks just two things per hole on a
         modified scorecard:
       </P>
-      <H4>1. Did you reach the Scoring Zone in two shots?</H4>
+      <H3>1. Did you reach the Scoring Zone in two shots?</H3>
       <P>
         After your first two shots, are you inside your distance? Yes
         or no.
       </P>
-      <H4>
+      <H3>
         2. Did you get up and down in 3 shots or fewer from the
         Scoring Zone?
-      </H4>
+      </H3>
       <P>
         Once inside your zone, did you convert? Or did you take 4
         from there?
@@ -331,7 +316,7 @@ export function CourseManagementArticle() {
 
       <Hr />
 
-      <H3>Think target, not trouble</H3>
+      <H2>Think target, not trouble</H2>
       <P>
         When you stand over a shot thinking "don't hit it in the
         water" — you are thinking about the water. Your brain doesn't
@@ -359,7 +344,7 @@ export function CourseManagementArticle() {
 
       <Hr />
 
-      <H3>Never make two mistakes in a row</H3>
+      <H2>Never make two mistakes in a row</H2>
       <P>
         You will hit bad shots. Every player at every level hits bad
         shots. A bad shot is not a crisis — it's golf.
@@ -392,7 +377,7 @@ export function CourseManagementArticle() {
 
       <Hr />
 
-      <H3>Be process-driven, not results-driven</H3>
+      <H2>Be process-driven, not results-driven</H2>
       <P>
         Most golfers think too little on the golf course. They step
         up to the ball, swing, and react emotionally to wherever it
@@ -437,7 +422,7 @@ export function CourseManagementArticle() {
 
       <Hr />
 
-      <H3>The practice round</H3>
+      <H2>The practice round</H2>
       <P>
         Course management is not something you can learn sitting in a
         cart or watching videos. It's learned by doing — and the
@@ -471,7 +456,7 @@ export function CourseManagementArticle() {
 
       <Hr />
 
-      <H3>Keep it simple</H3>
+      <H2>Keep it simple</H2>
       <P>
         The fundamentals that will lower your score, in order of
         importance:
@@ -510,9 +495,9 @@ export function CourseManagementArticle() {
 // Components
 // ===========================================================================
 
-function H3({ children }: { children: React.ReactNode }) {
+function H2({ children }: { children: React.ReactNode }) {
   return (
-    <h3
+    <h2
       className="font-serif text-caddie-ink"
       style={{
         fontSize: 22,
@@ -525,13 +510,13 @@ function H3({ children }: { children: React.ReactNode }) {
       }}
     >
       {children}
-    </h3>
+    </h2>
   )
 }
 
-function H4({ children }: { children: React.ReactNode }) {
+function H3({ children }: { children: React.ReactNode }) {
   return (
-    <h4
+    <h3
       className="font-serif text-caddie-ink"
       style={{
         fontSize: 17,
@@ -542,7 +527,7 @@ function H4({ children }: { children: React.ReactNode }) {
       }}
     >
       {children}
-    </h4>
+    </h3>
   )
 }
 
@@ -586,9 +571,7 @@ const UL_STYLE: React.CSSProperties = {
 function Sources() {
   return (
     <section style={{ borderTop: '1px solid #D9D2BF', paddingTop: 18, marginTop: 22 }}>
-      <div className="kicker" style={{ marginBottom: 12 }}>
-        Sources
-      </div>
+      <Subhead>Sources</Subhead>
       <div style={{ display: 'grid', gap: 14, maxWidth: 640 }}>
         <div>
           <SrcLabel>Course-management approaches this article draws on</SrcLabel>
@@ -633,10 +616,8 @@ function EditorialNote({
   if (inline) {
     return (
       <span
-        className="font-mono uppercase"
         style={{
-          fontSize: 10,
-          letterSpacing: '0.14em',
+          fontSize: 12,
           color: tone,
           marginLeft: 8,
         }}
@@ -656,10 +637,8 @@ function EditorialNote({
       }}
     >
       <div
-        className="font-mono uppercase"
         style={{
-          fontSize: 10,
-          letterSpacing: '0.14em',
+          fontSize: 12,
           color: tone,
           marginBottom: 4,
         }}
@@ -679,10 +658,9 @@ function EditorialNote({
 function Footer() {
   return (
     <div
-      className="font-mono uppercase text-caddie-ink-mute"
+      className="text-caddie-ink-dim"
       style={{
-        fontSize: 10,
-        letterSpacing: '0.14em',
+        fontSize: 12,
         borderTop: '1px solid #D9D2BF',
         paddingTop: 18,
         marginTop: 22,

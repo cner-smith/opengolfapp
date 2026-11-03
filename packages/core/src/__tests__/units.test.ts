@@ -14,7 +14,9 @@ import {
   haversineYards,
   todayLocalDate,
   toRadians,
+  wholeYardsFrom,
 } from '../units'
+import { wholeDistance } from '../shot-pattern-words'
 
 // Realistic golf coordinates pinned to OKC area. Picking integer-ish
 // values so the precomputed expectations stay legible.
@@ -97,8 +99,8 @@ describe('formatSG', () => {
     expect(formatSG(1.23)).toBe('+1.23')
   })
 
-  it('negative values keep their - sign', () => {
-    expect(formatSG(-1.23)).toBe('-1.23')
+  it('negative values get a typographic minus (U+2212)', () => {
+    expect(formatSG(-1.23)).toBe('−1.23')
   })
 
   // Documents the choice: zero is signless. Avoids "+0.00" which reads
@@ -109,7 +111,7 @@ describe('formatSG', () => {
 
   it('rounds to two decimals', () => {
     expect(formatSG(1.23456)).toBe('+1.23')
-    expect(formatSG(-1.23999)).toBe('-1.24')
+    expect(formatSG(-1.23999)).toBe('−1.24')
   })
 
   it('values that round to 0 render unsigned (no "-0.00"/"+0.00") (#672)', () => {
@@ -123,7 +125,7 @@ describe('formatSG', () => {
 
   it('handles large magnitudes', () => {
     expect(formatSG(123.4567)).toBe('+123.46')
-    expect(formatSG(-99.99)).toBe('-99.99')
+    expect(formatSG(-99.99)).toBe('−99.99')
   })
 
   it('NaN renders as "NaN" (does not throw)', () => {
@@ -138,8 +140,8 @@ describe('formatToPar', () => {
     expect(formatToPar(2)).toBe('+2')
   })
 
-  it('negative diff keeps the - sign', () => {
-    expect(formatToPar(-2)).toBe('-2')
+  it('negative diff gets a true minus sign (U+2212), not a hyphen', () => {
+    expect(formatToPar(-2)).toBe('−2')
   })
 
   it('zero renders as E', () => {
@@ -148,7 +150,7 @@ describe('formatToPar', () => {
 
   it('multi-digit values format correctly', () => {
     expect(formatToPar(10)).toBe('+10')
-    expect(formatToPar(-15)).toBe('-15')
+    expect(formatToPar(-15)).toBe('−15')
   })
 })
 
@@ -199,6 +201,24 @@ describe('formatDistance', () => {
   it('non-finite input renders em dash so callers do not need a guard', () => {
     expect(formatDistance(Number.NaN, 'yards')).toBe('—')
     expect(formatDistance(Number.POSITIVE_INFINITY, 'meters')).toBe('—')
+  })
+})
+
+describe('wholeYardsFrom', () => {
+  it('a distance typed in metres is stored as whole yards', () => {
+    // 120 m / 0.9144 = 131.2 yd
+    expect(wholeYardsFrom(120, 'meters')).toBe(131)
+  })
+
+  it('a distance typed in yards is stored as typed, rounded to whole yards', () => {
+    expect(wholeYardsFrom(132, 'yards')).toBe(132)
+    expect(wholeYardsFrom(132.6, 'yards')).toBe(133)
+  })
+
+  it('every whole metre reads back as itself after the yards round trip', () => {
+    for (let m = 0; m <= 600; m++) {
+      expect(wholeDistance(wholeYardsFrom(m, 'meters'), 'meters')).toBe(m)
+    }
   })
 })
 

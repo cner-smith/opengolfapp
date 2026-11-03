@@ -10,7 +10,7 @@ test.describe('Landing page (signed out)', () => {
     )
     // Two lines at desktop: each half of the headline sits on one line.
     await page.evaluate(() => document.fonts.ready)
-    const lines = await h1.locator('span').evaluateAll((spans) =>
+    const lines = await h1.locator(':scope > span').evaluateAll((spans) =>
       spans.map((s) => s.getBoundingClientRect().height / parseFloat(getComputedStyle(s).lineHeight)),
     )
     expect(lines).toHaveLength(2)
@@ -26,13 +26,17 @@ test.describe('Landing page (signed out)', () => {
 
   test('the example Shot patterns chart loads and answers a club change', async ({ page }) => {
     await page.goto('/')
+    // The chart mounts when it comes into view.
+    await page.locator('#try').scrollIntoViewIfNeeded()
     const ladder = page.getByRole('radiogroup', { name: 'Club' })
     await expect(ladder).toBeVisible()
     const finding = page.locator('.lb-demo-body p').first()
-    await expect(finding).toContainText('driver')
-    await ladder.getByRole('radio', { name: /^7-iron/ }).click()
+    // It opens on the 7-iron, around the aim (#1282).
     await expect(finding).toContainText('7-iron')
-    await expect(finding).not.toContainText('driver')
+    await expect(page.getByRole('tab', { name: 'Around the aim' })).toHaveAttribute('aria-selected', 'true')
+    await ladder.getByRole('radio', { name: /^driver/i }).click()
+    await expect(finding).toContainText('driver')
+    await expect(finding).not.toContainText('7-iron')
   })
 
   test('the try-yours ladder answers a typed distance, a club out and metres', async ({ page }) => {
@@ -40,10 +44,10 @@ test.describe('Landing page (signed out)', () => {
     const wedge = page.getByLabel('Gap wedge typical distance, yards')
     await wedge.scrollIntoViewIfNeeded()
     const headline = page.getByTestId('bag-headline')
-    await expect(headline).toHaveText('Your driver to your lob wedge, 228 to 76 yd, with every gap under 20 yd.')
+    await expect(headline).toHaveText('Your driver to your lob wedge, 226 to 87 yd, with every gap under 20 yd.')
 
-    // Pitching wedge 119, gap wedge 105 → 95: a 24 yd hole opens between them.
-    await wedge.fill('95')
+    // The promo bag: pitching wedge 128, gap wedge 116 → 104: a 24 yd hole.
+    await wedge.fill('104')
     await expect(headline).toHaveText('24 yd hole between your pitching wedge and gap wedge.')
 
     // Out of the bag, the 5-hybrid's row leaves the chart.
@@ -56,7 +60,7 @@ test.describe('Landing page (signed out)', () => {
 
     // Metres: the fields, the chart and the sentence all change unit.
     await page.getByRole('button', { name: 'Metres' }).click()
-    await expect(page.getByLabel('Gap wedge typical distance, metres')).toHaveValue('87')
-    await expect(headline).toHaveText('22 m hole between your 5-wood and 5-iron.')
+    await expect(page.getByLabel('Gap wedge typical distance, metres')).toHaveValue('95')
+    await expect(headline).toHaveText('22 m hole between your pitching wedge and gap wedge.')
   })
 })

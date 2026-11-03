@@ -2,8 +2,11 @@ import { useMemo } from 'react'
 import type { Database } from '@oga/supabase'
 import {
   getShotMarkerCategory,
+  holeCountFromTeePar,
   resolveCourseTee,
   resolveHole,
+  roundHoleCount,
+  summarizeShotStep,
   type LieType,
   type ResolvedHole,
 } from '@oga/core'
@@ -21,6 +24,7 @@ import {
 } from '../../../hooks/useCourses'
 import { useHoleScores } from '../../../hooks/useHoleScores'
 import { useShotsForRound } from '../../../hooks/useShots'
+import { useUnits } from '../../../hooks/useUnits'
 
 type HoleRow = Database['public']['Tables']['holes']['Row']
 type HoleTeeRow = Database['public']['Tables']['hole_tees']['Row']
@@ -37,13 +41,13 @@ interface UseRoundDataInput {
 
 export interface UseRoundDataResult {
   round: ReturnType<typeof useRound>
+  allRounds: ReturnType<typeof useRounds>
   holesQuery: ReturnType<typeof useHolesForCourse>
   teesQuery: ReturnType<typeof useCourseTees>
   holeTeesQuery: ReturnType<typeof useHoleTeesForCourse>
   courseQuery: ReturnType<typeof useCourse>
   holeScoresQuery: ReturnType<typeof useHoleScores>
   shotsQuery: ReturnType<typeof useShotsForRound>
-  allRounds: ReturnType<typeof useRounds>
   courseId: string | undefined
   expectedHoleCount: number
   holes: HoleRow[]
@@ -95,8 +99,9 @@ export function useRoundData({
   // panned out in PostgREST. A standalone course read is unambiguous.
   const courseQuery = useCourse(courseId)
   const holeScoresQuery = useHoleScores(roundId)
-  const shotsQuery = useShotsForRound(roundId)
+  // Only its length is read: the round page offers Practice from 3 rounds.
   const allRounds = useRounds(50)
+  const shotsQuery = useShotsForRound(roundId)
 
   // Synthetic fallback when the course has no rows in the `holes` table
   // (typical for OSM-imported courses that never went through enrichment).
@@ -112,24 +117,23 @@ export function useRoundData({
   // 2..18 disappeared from the array. Length is the unambiguous signal:
   // if fewer rows than the course expects, fill the gap.
   //
-  // Expected count comes from `course_tees.par` when present (≤36 = 9,
-  // else 18); falls back to 18 when no tees row exists. A 9-hole real
-  // course with no course_tees row over-pads to 18 — accepted, because
-  // the only alternative (inferring from the round's hole_scores) breaks
-  // the common case: an in-progress 18-hole round that has only scored
-  // holes 1–9 so far would wrongly collapse to 9 and strand 10–18 (#727
-  // regression). There's no reliable 9-vs-18 signal for an unmapped
-  // course mid-round, so 18 is the safe default. Revisit via a real
-  // per-round hole_count captured at round creation.
-  const expectedHoleCount = useMemo(() => {
-    const tees = teesQuery.data ?? []
-    const totalPar = tees[0]?.par
-    if (totalPar != null && totalPar <= 36) return 9
-    return 18
-  }, [teesQuery.data])
+  // Expected count is the round's own hole_count, chosen at creation (#727).
+  // Rounds from before that column fall back to `course_tees.par` (<= 36 = 9,
+  // else 18), so an old round on a 9-hole course with no tees row still pads
+  // to 18. Never infer it from the course's holes rows or the round's scores:
+  // both grow one save at a time, and an 18-hole round with only the front
+  // nine saved would collapse to 9 and strand holes 10-18 (the #783 revert).
+  // A stored count also caps the course's rows (a 6-hole round on an 18-hole
+  // course shows 6).
+  const storedHoleCount = round.data?.hole_count ?? null
+  const expectedHoleCount = useMemo(
+    () => roundHoleCount(storedHoleCount, holeCountFromTeePar(teesQuery.data?.[0]?.par)),
+    [storedHoleCount, teesQuery.data],
+  )
 
   const holes = useMemo<HoleRow[]>(() => {
-    const fetched = holesQuery.data ?? []
+    const all = holesQuery.data ?? []
+    const fetched = storedHoleCount == null ? all : all.filter((h) => h.number <= expectedHoleCount)
     const roundData = round.data
     if (fetched.length >= expectedHoleCount) return fetched
     if (!roundData) return fetched
@@ -188,7 +192,7 @@ export function useRoundData({
         par_source: null,
       }
     })
-  }, [holesQuery.data, round.data, expectedHoleCount])
+  }, [holesQuery.data, round.data, expectedHoleCount, storedHoleCount])
 
   const rawScores: Array<HoleScoreRow & { holes?: HoleRow | null }> = useMemo(
     () => holeScoresQuery.data ?? [],
@@ -317,11 +321,14 @@ export function useRoundData({
     resolvedActiveHole?.teeLat == null &&
     activeHole.pin_lat == null
 
+  const { unit } = useUnits()
   const activeHoleShots = useMemo<ExistingShot[]>(() => {
     if (!activeHoleScore) return []
-    return (shotsQuery.data ?? [])
+    const rows = (shotsQuery.data ?? [])
       .filter((s) => s.hole_score_id === activeHoleScore.id)
-      .map((s) => ({
+      .sort((a, b) => a.shot_number - b.shot_number)
+    return rows
+      .map((s, i) => ({
         id: s.id,
         shotNumber: s.shot_number,
         endLat: s.end_lat,
@@ -332,6 +339,8 @@ export function useRoundData({
         aimLng: s.aim_lng,
         ob: s.ob,
         penalty: s.penalty,
+        club: s.club,
+        summary: summarizeShotStep(s, rows[i + 1], unit).join(' · '),
         category: getShotMarkerCategory(
           {
             lieType: (s.lie_type ?? undefined) as LieType | undefined,
@@ -342,9 +351,10 @@ export function useRoundData({
         ),
       }))
       .sort((a, b) => a.shotNumber - b.shotNumber)
-  }, [activeHoleScore, shotsQuery.data, resolvedPar])
+  }, [activeHoleScore, shotsQuery.data, resolvedPar, unit])
 
   return {
+    allRounds,
     round,
     holesQuery,
     teesQuery,
@@ -352,7 +362,6 @@ export function useRoundData({
     courseQuery,
     holeScoresQuery,
     shotsQuery,
-    allRounds,
     courseId,
     expectedHoleCount,
     holes,

@@ -12,12 +12,12 @@ import {
 } from '@oga/core'
 import type { ReactNode } from 'react'
 import { useProfile } from '../../../hooks/useProfile'
-import { chipStyle } from './formInputs'
+import { Rocker } from '../../ui/Rocker'
+import { PickerRow } from './formInputs'
 
 export type ResultValue = ShotResultAxes & { penalty: boolean; ob: boolean }
 
-// Glyphs mirror mobile's result picker (#611 §19.10), in currentColor so
-// they follow the chip's active colour.
+// Glyphs mirror mobile's result picker (#611 §19.10), in currentColor.
 const STRIKE_MARK: Record<ShotContact, string> = {
   solid: 'M9 13.5 L12 11',
   fat: 'M3 16 Q6 13 10 15',
@@ -48,23 +48,16 @@ function AxisRow<T extends string>({
   onChange: (v: T | null) => void
 }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-      <span style={{ width: 52, fontSize: 12, color: '#1C211C' }}>{label}</span>
-      <div style={{ display: 'flex', flex: 1, gap: 4 }}>
-        {options.map((o) => (
-          <button
-            key={o.value}
-            type="button"
-            aria-pressed={value === o.value}
-            onClick={() => onChange(value === o.value ? null : o.value)}
-            style={{ ...chipStyle(value === o.value), flex: 1, padding: '5px 2px' }}
-          >
-            {o.glyph}
-            {o.label}
-          </button>
-        ))}
-      </div>
-    </div>
+    <PickerRow label={label}>
+      <Rocker
+        label={label}
+        options={options}
+        value={value}
+        onChange={onChange}
+        onClear={() => onChange(null)}
+        className="rocker-tight rocker-glyph"
+      />
+    </PickerRow>
   )
 }
 
@@ -88,7 +81,7 @@ export function ResultAxes({
   const shapes = flip < 0 ? [...SHOT_SHAPES].reverse() : SHOT_SHAPES
   const starts = flip < 0 ? [...SHOT_START_LINES].reverse() : SHOT_START_LINES
   return (
-    <div style={{ display: 'grid', gap: 6 }}>
+    <div style={{ display: 'grid', gap: 8 }}>
       <AxisRow
         label="Contact"
         value={value.contact}
@@ -145,36 +138,40 @@ export function ResultAxes({
           ),
         }))}
       />
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        <span style={{ width: 52 }} />
-        <button
-          type="button"
-          aria-pressed={value.penalty}
-          onClick={() => onChange({ ...value, penalty: !value.penalty })}
-          style={{ ...chipStyle(value.penalty), flex: 1 }}
-        >
-          Penalty stroke
-        </button>
-        <button
-          type="button"
-          aria-pressed={value.ob}
-          onClick={() => onChange({ ...value, ob: !value.ob })}
-          style={{ ...chipStyle(value.ob), flex: 1 }}
-        >
-          Out of bounds
-        </button>
-        {any && (
+      <PickerRow label="">
+        <div style={{ display: 'flex', gap: 6, paddingBottom: 3 }}>
           <button
             type="button"
-            onClick={() => onChange({ contact: null, shape: null, startLine: null, penalty: false, ob: false })}
-            style={{ background: 'none', border: 'none', fontSize: 13, textDecoration: 'underline', color: '#1C211C' }}
+            aria-pressed={value.penalty}
+            onClick={() => onChange({ ...value, penalty: !value.penalty })}
+            className="key"
+            style={{ flex: 1, padding: '0 8px', fontSize: 13, fontWeight: value.penalty ? 600 : 500 }}
           >
-            Clear
+            Penalty stroke
           </button>
-        )}
-      </div>
+          <button
+            type="button"
+            aria-pressed={value.ob}
+            onClick={() => onChange({ ...value, ob: !value.ob })}
+            className="key"
+            style={{ flex: 1, padding: '0 8px', fontSize: 13, fontWeight: value.ob ? 600 : 500 }}
+          >
+            Out of bounds
+          </button>
+        </div>
+      </PickerRow>
+      {any && (
+        <button
+          type="button"
+          onClick={() => onChange({ contact: null, shape: null, startLine: null, penalty: false, ob: false })}
+          className="text-caddie-ink"
+          style={{ justifySelf: 'end', minHeight: 32, background: 'none', border: 'none', fontSize: 13, textDecoration: 'underline' }}
+        >
+          Clear result
+        </button>
+      )}
       {penaltyCountsStroke && (
-        <p className="text-caddie-ink-mute" style={{ fontSize: 12, textAlign: 'center', margin: 0 }}>
+        <p className="text-caddie-ink-dim" style={{ fontSize: 12, textAlign: 'center', margin: 0 }}>
           {value.penalty ? 'One stroke added to the hole score.' : 'Adds one stroke to the hole score.'}
         </p>
       )}

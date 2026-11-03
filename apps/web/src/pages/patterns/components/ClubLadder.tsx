@@ -39,6 +39,7 @@ export function ClubLadder({
     if (!gap || size > gap.size) gap = { from: numbered[i - 1]!, to: numbered[i]!, size }
   }
   const i = clubs.indexOf(value)
+  const showsGaps = clubs.some((c, j) => j > 0 && typical(c) != null && typical(clubs[j - 1]!) != null)
 
   return (
     // width 0 / min-width 100%: the row scrolls inside the page instead of widening it.
@@ -47,7 +48,7 @@ export function ClubLadder({
         ref={row}
         role="radiogroup"
         aria-label="Club"
-        className="flex"
+        className="club-ladder-row flex"
         style={{ overflowX: 'auto', borderTop: '1px solid #9F9580', borderLeft: '1px solid #D9D2BF', scrollbarWidth: 'thin' }}
       >
         {clubs.map((c, j) => {
@@ -101,7 +102,7 @@ export function ClubLadder({
               {t != null && prev != null && (
                 <span
                   aria-hidden
-                  className="font-serif tabular"
+                  className="club-ladder-gap font-serif tabular"
                   style={{
                     position: 'absolute',
                     left: -1,
@@ -122,6 +123,11 @@ export function ClubLadder({
           )
         })}
       </div>
+      {showsGaps && (
+        <div className="text-caddie-ink-dim" style={{ fontSize: 12, lineHeight: 1.5, marginTop: 6 }}>
+          The small number on each rule is the gap between clubs.
+        </div>
+      )}
       {gap && gap.size > 25 && (
         <div className="text-caddie-ink-dim" style={{ fontSize: 13, marginTop: 6 }}>
           {gap.size} {unit === 'meters' ? 'm' : 'yd'} between your {clubNoun(gap.from)} and {clubNoun(gap.to)}, the widest gap in the bag.

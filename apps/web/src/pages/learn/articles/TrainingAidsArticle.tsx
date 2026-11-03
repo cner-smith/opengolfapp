@@ -1,4 +1,4 @@
-import { SrcBody, SrcLabel } from '../components/ArticlePrimitives'
+import { ArticleTitle, SrcBody, SrcLabel, Subhead } from '../components/ArticlePrimitives'
 import type { ReactNode } from 'react'
 
 export function TrainingAidsArticle() {
@@ -11,24 +11,9 @@ export function TrainingAidsArticle() {
         marginBottom: 32,
       }}
     >
-      <div className="kicker" style={{ marginBottom: 14 }}>
-        Your equipment · Training aids
-      </div>
-      <h2
-        className="font-serif text-caddie-ink"
-        style={{
-          fontSize: 28,
-          fontWeight: 500,
-          fontStyle: 'italic',
-          letterSpacing: '-0.015em',
-          lineHeight: 1.15,
-          marginBottom: 18,
-        }}
-      >
-        Training aids.
-      </h2>
+      <ArticleTitle>Training aids explained.</ArticleTitle>
 
-      <H3>Feeling productive isn't the same as getting better</H3>
+      <H2>Feeling productive isn't the same as getting better</H2>
       <P>
         The training-aid aisle sells a feeling: that buying the device is the
         same as building the skill. Most of it isn't. A few aids genuinely teach
@@ -47,7 +32,7 @@ export function TrainingAidsArticle() {
 
       <Hr />
 
-      <H3>The seven kinds, and what each one trains</H3>
+      <H2>The seven kinds, and what each one trains</H2>
       <P>
         Six aids you can rehearse with, then the one that measures — the launch
         monitor — which gets its own section because the numbers need
@@ -199,7 +184,7 @@ export function TrainingAidsArticle() {
 
       <Hr />
 
-      <H3>Launch monitors — the numbers, and which ones are yours</H3>
+      <H2>Launch monitors — the numbers, and which ones are yours</H2>
       <P>
         A launch monitor is the one aid that measures rather than guides. Point
         it at your swing and it reports ball speed, club speed, launch angle,
@@ -233,7 +218,7 @@ export function TrainingAidsArticle() {
 
       <Hr />
 
-      <H3>What most golfers actually need</H3>
+      <H2>What most golfers actually need</H2>
       <P>
         Set against the thesis, the honest shortlist is short and cheap. The aids
         worth owning give you feedback you can't get on your own; the rest mostly
@@ -266,9 +251,9 @@ const UL_STYLE: import('react').CSSProperties = {
   color: '#5C6356',
 }
 
-function H3({ children }: { children: ReactNode }) {
+function H2({ children }: { children: ReactNode }) {
   return (
-    <h3
+    <h2
       className="font-serif text-caddie-ink"
       style={{
         fontSize: 22,
@@ -279,18 +264,7 @@ function H3({ children }: { children: ReactNode }) {
       }}
     >
       {children}
-    </h3>
-  )
-}
-
-function Subhead({ children }: { children: ReactNode }) {
-  return (
-    <div
-      className="kicker"
-      style={{ marginTop: 14, marginBottom: 10, color: '#5C6356' }}
-    >
-      {children}
-    </div>
+    </h2>
   )
 }
 
@@ -312,11 +286,9 @@ function Hr() {
 function Tag({ children }: { children: ReactNode }) {
   return (
     <span
-      className="font-mono uppercase"
       style={{
-        fontSize: 10,
-        letterSpacing: '0.14em',
-        color: '#8A8B7E',
+        fontSize: 12,
+        color: '#5C6356',
         marginRight: 6,
       }}
     >
@@ -352,9 +324,7 @@ function TheTest() {
         marginBottom: 18,
       }}
     >
-      <div className="kicker" style={{ marginBottom: 12, color: '#5C6356' }}>
-        The test for any aid
-      </div>
+      <Subhead>The test for any aid</Subhead>
       {rows.map((r, i) => (
         <div
           key={r.q}
@@ -645,9 +615,7 @@ function Shortlist() {
 function Sources() {
   return (
     <section style={{ borderTop: '1px solid #D9D2BF', paddingTop: 18, marginTop: 22 }}>
-      <div className="kicker" style={{ marginBottom: 12 }}>
-        Sources
-      </div>
+      <Subhead>Sources</Subhead>
       <div style={{ display: 'grid', gap: 14, maxWidth: 640 }}>
         <div>
           <SrcLabel>Why alignment is foundational</SrcLabel>
@@ -725,10 +693,9 @@ function Src({ href, children }: { href: string; children: ReactNode }) {
 function Footer() {
   return (
     <div
-      className="font-mono uppercase text-caddie-ink-mute"
+      className="text-caddie-ink-dim"
       style={{
-        fontSize: 10,
-        letterSpacing: '0.14em',
+        fontSize: 12,
         borderTop: '1px solid #D9D2BF',
         paddingTop: 18,
         marginTop: 22,

@@ -1,4 +1,4 @@
-import { Lede, SrcBody, SrcLabel } from '../components/ArticlePrimitives'
+import { ArticleTitle, Lede, SrcBody, SrcLabel, Subhead } from '../components/ArticlePrimitives'
 export function GlossaryArticle() {
   return (
     <article
@@ -9,22 +9,7 @@ export function GlossaryArticle() {
         marginBottom: 32,
       }}
     >
-      <div className="kicker" style={{ marginBottom: 14 }}>
-        Understanding the game · Glossary
-      </div>
-      <h2
-        className="font-serif text-caddie-ink"
-        style={{
-          fontSize: 28,
-          fontWeight: 500,
-          fontStyle: 'italic',
-          letterSpacing: '-0.015em',
-          lineHeight: 1.15,
-          marginBottom: 18,
-        }}
-      >
-        Glossary of golf terms.
-      </h2>
+      <ArticleTitle>Glossary of golf terms.</ArticleTitle>
 
       <Lede>
         The basics — birdie, bogey, par, handicap, GIR — are not
@@ -34,7 +19,7 @@ export function GlossaryArticle() {
 
       <Hr />
 
-      <H3>Shot shapes and ball flight</H3>
+      <H2>Shot shapes and ball flight</H2>
       <Term name="Draw">
         A controlled shot that curves gently from right to left in
         the air (for a right-handed golfer). The opposite of a fade.
@@ -133,7 +118,7 @@ export function GlossaryArticle() {
 
       <Hr />
 
-      <H3>Short game shots</H3>
+      <H2>Short game shots</H2>
       <Term name="Chip">
         A low, running shot played from just off the green where
         the ball spends more time on the ground than in the air.
@@ -186,7 +171,7 @@ export function GlossaryArticle() {
 
       <Hr />
 
-      <H3>Putting terms</H3>
+      <H2>Putting terms</H2>
       <Term name="Pin high / Hole high">
         When your approach shot finishes level with the pin (the
         same distance from the front of the green as the hole) but
@@ -197,7 +182,7 @@ export function GlossaryArticle() {
       </Term>
       <Hr />
 
-      <H3>Course and green terminology</H3>
+      <H2>Course and green terminology</H2>
       <Term name="Below the hole">
         The lower side of the hole on a sloped green. A ball
         finishing below the hole leaves an uphill putt — the
@@ -261,7 +246,7 @@ export function GlossaryArticle() {
 
       <Hr />
 
-      <H3>Divots and course care</H3>
+      <H2>Divots and course care</H2>
       <Term name="Divot">
         The chunk of turf displaced by the club during an iron shot.
         Two meanings: (1) the chunk of turf itself, and (2) the
@@ -299,7 +284,7 @@ export function GlossaryArticle() {
 
       <Hr />
 
-      <H3>Scoring and competition terms</H3>
+      <H2>Scoring and competition terms</H2>
       <Term name="Snowman">
         Slang for a score of 8 on a hole — because the number 8
         looks like a snowman. Not a term you want to hear often.
@@ -362,7 +347,7 @@ export function GlossaryArticle() {
 
       <Hr />
 
-      <H3>Lie and course conditions</H3>
+      <H2>Lie and course conditions</H2>
       <Term name="Tight lie">
         A ball sitting on bare or closely-mown ground with very
         little grass underneath. Requires clean contact.
@@ -380,7 +365,7 @@ export function GlossaryArticle() {
 
       <Hr />
 
-      <H3>Equipment terms</H3>
+      <H2>Equipment terms</H2>
       <Term name="Muscle back">
         An iron design where the weight is concentrated in a solid
         mass directly behind the center of the clubface — sometimes
@@ -418,7 +403,7 @@ export function GlossaryArticle() {
 
       <Hr />
 
-      <H3>Slang and culture</H3>
+      <H2>Slang and culture</H2>
       <Term name="Worm burner">
         A shot that never gets airborne, rolling along the ground.
         Usually a topped or thinned iron.
@@ -466,7 +451,7 @@ export function GlossaryArticle() {
 
       <Hr />
 
-      <H3>Rules terms worth knowing</H3>
+      <H2>Rules terms worth knowing</H2>
       <Term name="Relief">
         When the rules allow you to move your ball without penalty
         — from a cart path, temporary water, ground under repair,
@@ -495,7 +480,7 @@ export function GlossaryArticle() {
 
       <Hr />
 
-      <H3>Historical terms (and why you still hear them)</H3>
+      <H2>Historical terms (and why you still hear them)</H2>
       <P>
         Golf has a longer continuous history than almost any other
         sport, and its vocabulary reflects that. Some terms from
@@ -570,9 +555,9 @@ export function GlossaryArticle() {
 // Components
 // ===========================================================================
 
-function H3({ children }: { children: React.ReactNode }) {
+function H2({ children }: { children: React.ReactNode }) {
   return (
-    <h3
+    <h2
       className="font-serif text-caddie-ink"
       style={{
         fontSize: 22,
@@ -585,7 +570,7 @@ function H3({ children }: { children: React.ReactNode }) {
       }}
     >
       {children}
-    </h3>
+    </h2>
   )
 }
 
@@ -649,9 +634,7 @@ function Hr() {
 function Sources() {
   return (
     <section style={{ borderTop: '1px solid #D9D2BF', paddingTop: 18, marginTop: 22 }}>
-      <div className="kicker" style={{ marginBottom: 12 }}>
-        Sources
-      </div>
+      <Subhead>Sources</Subhead>
       <div style={{ display: 'grid', gap: 14, maxWidth: 640 }}>
         <div>
           <SrcLabel>How these definitions are sourced</SrcLabel>
@@ -671,10 +654,9 @@ function Sources() {
 function Footer() {
   return (
     <div
-      className="font-mono uppercase text-caddie-ink-mute"
+      className="text-caddie-ink-dim"
       style={{
-        fontSize: 10,
-        letterSpacing: '0.14em',
+        fontSize: 12,
         borderTop: '1px solid #D9D2BF',
         paddingTop: 18,
         marginTop: 22,

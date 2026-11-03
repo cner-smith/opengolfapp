@@ -16,8 +16,9 @@ type CachedActiveRound = ActiveRound & { playedAt: string }
 // The hole a live round reopens on. Fetches ALL hole_scores (not just scored
 // ones): the round's hole rows are batch-created at round start, so their
 // hole numbers give resumeHoleNumber the round's true hole count to clamp
-// against. A failed fetch reads as a fresh round (hole 1).
-export async function fetchResumeHole(roundId: string): Promise<number> {
+// against, unless the round stores its count (#727). A failed fetch reads as
+// a fresh round (hole 1).
+export async function fetchResumeHole(roundId: string, holeCount: number | null): Promise<number> {
   const { data: hs } = await supabase
     .from('hole_scores')
     .select('score, finished_at, holes(number)')
@@ -33,6 +34,7 @@ export async function fetchResumeHole(roundId: string): Promise<number> {
         ? [{ number: row.holes.number, score: row.score, finished_at: row.finished_at }]
         : [],
     ),
+    holeCount,
   )
 }
 
@@ -49,7 +51,7 @@ export async function fetchResumeHole(roundId: string): Promise<number> {
 // deleting the active round from the hole/end-round screens left a
 // stale banner on home until the app reloaded.
 export function useActiveRound(): ActiveRound | null {
-  const { user } = useAuth()
+  const { user, offline } = useAuth()
   const [activeRound, setActiveRound] = useState<ActiveRound | null>(null)
 
   useFocusEffect(
@@ -61,9 +63,18 @@ export function useActiveRound(): ActiveRound | null {
           .toISOString()
           .slice(0, 10)
         const cacheKey = offlineKeys.activeRound(user.id)
+        // Offline (#993): show the last banner this device saw, under the
+        // same one-day window as the query.
+        const showCached = async () => {
+          const cached = await readCache<CachedActiveRound>(cacheKey)
+          if (active) setActiveRound(cached && cached.playedAt >= oneDayAgo ? cached : null)
+        }
+        // Signed in from the stored session (#1005): the query would first
+        // wait out auth-js's failed refresh, so skip it.
+        if (offline) return showCached()
         const { data, error, status } = await supabase
           .from('rounds')
-          .select('id, played_at, course_id, courses(name)')
+          .select('id, played_at, course_id, hole_count, courses(name)')
           .eq('user_id', user.id)
           .is('completed_at', null)
           .is('total_score', null)
@@ -71,14 +82,7 @@ export function useActiveRound(): ActiveRound | null {
           .order('played_at', { ascending: false })
           .limit(1)
         if (!active) return
-        if (error && isNetworkFailure(error, status)) {
-          // Offline (#993): show the last banner this device saw, under the
-          // same one-day window as the query.
-          const cached = await readCache<CachedActiveRound>(cacheKey)
-          if (!active) return
-          setActiveRound(cached && cached.playedAt >= oneDayAgo ? cached : null)
-          return
-        }
+        if (error && isNetworkFailure(error, status)) return showCached()
         if (error || !data?.[0]) {
           setActiveRound(null)
           // No active round: drop every cached round of this user.
@@ -89,9 +93,10 @@ export function useActiveRound(): ActiveRound | null {
           id: string
           played_at: string
           course_id: string
+          hole_count: number | null
           courses?: { name: string | null } | null
         }
-        const next = await fetchResumeHole(round.id)
+        const next = await fetchResumeHole(round.id, round.hole_count)
         if (!active) return
         const found: CachedActiveRound = {
           id: round.id,
@@ -108,7 +113,7 @@ export function useActiveRound(): ActiveRound | null {
       return () => {
         active = false
       }
-    }, [user?.id]),
+    }, [user?.id, offline]),
   )
 
   return activeRound

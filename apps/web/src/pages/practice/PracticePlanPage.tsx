@@ -1,6 +1,9 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
+  generateMaySendToAi,
+  isAiWrittenPlan,
+  insightUnderFinding,
   isPartialRound,
   normalizeCategoryProse,
   parseLocalDate,
@@ -67,7 +70,7 @@ const SG_KEYS = [
 function useFinding(): string | null {
   const sg = useRecentSG(20)
   return useMemo(() => {
-    const whole = (sg.data ?? []).filter((r) => !isPartialRound(r.hole_scores))
+    const whole = (sg.data ?? []).filter((r) => !isPartialRound(r.hole_scores, r.hole_count))
     if (whole.length === 0) return null
     const { breakdown } = sgBreakdown(whole)
     const sorted = SG_KEYS.map((c) => ({
@@ -88,14 +91,11 @@ function GenerateButton({ label, onGenerate, isPending }: { label: string; onGen
       type="button"
       onClick={onGenerate}
       disabled={isPending}
-      className="bg-caddie-accent text-caddie-accent-ink hover:opacity-90 disabled:opacity-60"
+      className="key key-primary"
       style={{
         fontSize: 14,
         fontWeight: 600,
         letterSpacing: '0.02em',
-        padding: '12px 16px',
-        borderRadius: 2,
-        cursor: isPending ? 'default' : 'pointer',
         whiteSpace: 'nowrap',
       }}
     >
@@ -110,6 +110,16 @@ function GenerateButton({ label, onGenerate, isPending }: { label: string; onGen
         </>
       )}
     </button>
+  )
+}
+
+// Apple 5.1.2(i): say who gets the data before the press that sends it.
+function AiDisclosure() {
+  return (
+    <p className="text-caddie-ink-dim" data-testid="ai-disclosure" style={{ fontSize: 13, lineHeight: 1.5, marginTop: 10, maxWidth: 440 }}>
+      Claude, Anthropic&rsquo;s AI, writes your plan. Generating sends it your handicap, skill level, goal, how often you
+      play, where you practice, your strokes-gained numbers and your plan note. Never your name or email.
+    </p>
   )
 }
 
@@ -197,11 +207,13 @@ function NoPlanState({
   finding,
   onGenerate,
   isPending,
+  aiDisclosure,
   errorNotice,
 }: {
   finding: string | null
   onGenerate: () => void
   isPending: boolean
+  aiDisclosure: boolean
   errorNotice: React.ReactNode
 }) {
   return (
@@ -232,6 +244,7 @@ function NoPlanState({
             Browse all drills
           </Link>
         </div>
+        {aiDisclosure ? <AiDisclosure /> : null}
         {errorNotice}
       </div>
     </div>
@@ -313,7 +326,7 @@ function WeekBar({ sessions, completedIds }: { sessions: StoredSession[]; comple
             <div
               key={i}
               className={r.complete ? 'text-caddie-ink' : undefined}
-              style={{ flex: r.total || 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+              style={{ flex: r.total || 1, minWidth: 0, lineHeight: 1.3, overflowWrap: 'anywhere' }}
             >
               {r.title}
             </div>
@@ -328,6 +341,8 @@ function WeekBar({ sessions, completedIds }: { sessions: StoredSession[]; comple
 // Sessions
 // ---------------------------------------------------------------------------
 
+// The box is 22 px; the button around it is 44 px, pulled back by its padding
+// so the row lays out around the box alone.
 function TickBox({ checked, label, onToggle }: { checked: boolean; label: string; onToggle: () => void }) {
   return (
     <button
@@ -336,35 +351,35 @@ function TickBox({ checked, label, onToggle }: { checked: boolean; label: string
       aria-checked={checked}
       aria-label={label}
       onClick={onToggle}
-      // Re-keyed on change so the pop replays on every tick.
-      key={String(checked)}
-      className={checked ? 'prac-tick bg-caddie-accent text-caddie-accent-ink' : 'bg-caddie-surface'}
-      style={{
-        width: 22,
-        height: 22,
-        borderRadius: 2,
-        border: checked ? '1px solid #1F3D2C' : '1px solid #9F9580',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: 0,
-        marginTop: 1,
-        cursor: 'pointer',
-        flexShrink: 0,
-      }}
+      style={{ padding: 11, margin: -11, marginTop: -10, background: 'none', border: 'none', cursor: 'pointer', flexShrink: 0 }}
     >
-      {checked ? (
-        <svg aria-hidden="true" width="13" height="13" viewBox="0 0 12 12" fill="none" style={{ display: 'block' }}>
-          <path
-            className="prac-check"
-            d="M2.5 6.2 5 8.7 9.5 3.5"
-            stroke="currentColor"
-            strokeWidth="1.7"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        </svg>
-      ) : null}
+      <span
+        // Re-keyed on change so the pop replays on every tick.
+        key={String(checked)}
+        className={checked ? 'prac-tick bg-caddie-accent text-caddie-accent-ink' : 'bg-caddie-surface'}
+        style={{
+          width: 22,
+          height: 22,
+          borderRadius: 2,
+          border: checked ? '1px solid #1F3D2C' : '1px solid #9F9580',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        {checked ? (
+          <svg aria-hidden="true" width="13" height="13" viewBox="0 0 12 12" fill="none" style={{ display: 'block' }}>
+            <path
+              className="prac-check"
+              d="M2.5 6.2 5 8.7 9.5 3.5"
+              stroke="currentColor"
+              strokeWidth="1.7"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+        ) : null}
+      </span>
     </button>
   )
 }
@@ -483,10 +498,9 @@ function SessionBlock({
   const allDone = blocks.length > 0 && doneCount === blocks.length
   return (
     <section
-      className="bg-caddie-surface"
+      className="paper-tile"
       style={{
-        border: `1px solid ${allDone ? '#1F3D2C' : LINE}`,
-        borderRadius: 4,
+        borderColor: allDone ? '#1F3D2C' : undefined,
         padding: '18px clamp(14px, 3vw, 20px) 6px',
         marginBottom: 18,
         transition: 'border-color 300ms ease',
@@ -525,7 +539,17 @@ function SessionBlock({
 // The side column: why this plan, what to work on, the note for next week.
 // ---------------------------------------------------------------------------
 
-function WhyThisPlan({ insight, note, basis }: { insight: string | null; note: string | null; basis: string }) {
+function WhyThisPlan({
+  insight,
+  note,
+  basis,
+  aiWritten,
+}: {
+  insight: string | null
+  note: string | null
+  basis: string
+  aiWritten: boolean
+}) {
   return (
     <section style={{ marginBottom: 28 }}>
       <SideHead>Why this plan</SideHead>
@@ -534,14 +558,26 @@ function WhyThisPlan({ insight, note, basis }: { insight: string | null; note: s
           {insight}
         </p>
       ) : null}
+      {/* With no insight of its own, the coach's note leads, in the serif. */}
       {note ? (
-        <p className="text-caddie-ink-dim" style={{ fontSize: 14, lineHeight: 1.6 }}>
-          {normalizeCategoryProse(note)}
-        </p>
+        insight ? (
+          <p className="text-caddie-ink-dim" style={{ fontSize: 14, lineHeight: 1.6 }}>
+            {normalizeCategoryProse(note)}
+          </p>
+        ) : (
+          <p className="font-serif text-caddie-ink" style={{ fontSize: 17, lineHeight: 1.45 }}>
+            {normalizeCategoryProse(note)}
+          </p>
+        )
       ) : null}
       <div className="text-caddie-ink-dim" style={{ fontSize: 12, marginTop: 10 }}>
         {basis}
       </div>
+      {aiWritten ? (
+        <div className="text-caddie-ink-dim" data-testid="ai-written" style={{ fontSize: 12, marginTop: 4 }}>
+          Claude wrote this plan from your numbers. Use your judgment.
+        </div>
+      ) : null}
     </section>
   )
 }
@@ -576,7 +612,7 @@ function FocusAreas({ areas }: { areas: StoredFocusArea[] }) {
 
 const FEEDBACK_MAX = 500
 
-function FeedbackSection({ planId, initial }: { planId: string; initial: string }) {
+function FeedbackSection({ planId, initial, aiReadsNote }: { planId: string; initial: string; aiReadsNote: boolean }) {
   const saveFeedback = useSaveFeedback()
   const [value, setValue] = useState(initial)
   // The last persisted value: blur saves only real edits, and "Saved" clears
@@ -597,6 +633,7 @@ function FeedbackSection({ planId, initial }: { planId: string; initial: string 
       <SideHead>Before next week</SideHead>
       <p className="text-caddie-ink-dim" style={{ fontSize: 14, lineHeight: 1.5, marginBottom: 10 }}>
         One note on how the week went: what worked, what felt off. Next week's plan reads it.
+        {aiReadsNote ? ' Claude reads this note too.' : ''}
       </p>
       <textarea
         value={value}
@@ -668,10 +705,20 @@ export function PracticePlanPage() {
     <ErrorNotice error={updateProgress.error} />
   ) : null
 
+  const mayUseAi = generateMaySendToAi(roundsWithSG.data)
+
   if (planQuery.isLoading) return <LoadingState />
 
   if (!plan) {
-    return <NoPlanState finding={finding} onGenerate={onGenerate} isPending={generate.isPending} errorNotice={errorNotice} />
+    return (
+      <NoPlanState
+        finding={finding}
+        onGenerate={onGenerate}
+        isPending={generate.isPending}
+        aiDisclosure={mayUseAi}
+        errorNotice={errorNotice}
+      />
+    )
   }
 
   const today = todayLocalDate()
@@ -699,7 +746,13 @@ export function PracticePlanPage() {
       ) : null}
       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between" style={{ gap: 12 }}>
         <Title sub={sub} />
-        {generateLabel ? <GenerateButton label={generateLabel} onGenerate={onGenerate} isPending={generate.isPending} /> : null}
+        {generateLabel ? (
+          <div className="flex flex-col sm:items-end" style={{ maxWidth: 440, marginBottom: 18 }}>
+            <GenerateButton label={generateLabel} onGenerate={onGenerate} isPending={generate.isPending} />
+            {/* The 2nd/3rd-round update is always built without AI. */}
+            {!promptRefresh && mayUseAi ? <AiDisclosure /> : null}
+          </div>
+        ) : null}
       </div>
 
       <Finding text={finding ?? plan.ai_insight ?? 'Your practice plan'} />
@@ -721,10 +774,14 @@ export function PracticePlanPage() {
           ))}
         </div>
         <aside>
-          {/* With no finding, the insight already leads the page. */}
-          <WhyThisPlan insight={finding ? plan.ai_insight : null} note={plan.coach_note} basis={basis} />
+          <WhyThisPlan
+            insight={insightUnderFinding(finding, plan.ai_insight)}
+            note={plan.coach_note}
+            basis={basis}
+            aiWritten={isAiWrittenPlan(plan.raw_model_output)}
+          />
           <FocusAreas areas={focusAreas} />
-          {plan.id ? <FeedbackSection planId={plan.id} initial={plan.feedback ?? ''} /> : null}
+          {plan.id ? <FeedbackSection planId={plan.id} initial={plan.feedback ?? ''} aiReadsNote={mayUseAi} /> : null}
           <Link to="/practice/drills" className="text-caddie-accent hover:opacity-80" style={{ fontSize: 15, fontWeight: 600 }}>
             Browse all drills{' '}
             <span className="font-serif" style={{ fontStyle: 'italic' }}>

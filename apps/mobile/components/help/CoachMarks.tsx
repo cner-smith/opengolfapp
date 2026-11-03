@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
 import { BackHandler, Pressable, Text, View, useWindowDimensions, type StyleProp, type ViewStyle } from 'react-native'
+import Animated, { Easing, cancelAnimation, useAnimatedStyle, useReducedMotion, useSharedValue, withRepeat, withTiming } from 'react-native-reanimated'
 import Svg, { Path } from 'react-native-svg'
 import { useAuth } from '../../hooks/useAuth'
 import { markSeenFlags, seenFlags } from '../../lib/seenFlags'
@@ -62,6 +63,11 @@ export async function unseenSteps(userId: string, steps: CoachStep[]): Promise<C
 
 const PAD = 6
 const NOTE_W = 300
+// The scrim breathes (#1124), a sweep each way, so the eye goes to the spotlit
+// control. Reduced motion holds it at the top value.
+const SCRIM_TOP = 0.62
+const SCRIM_LOW = 0.5
+const SCRIM_SWEEP_MS = 1600
 
 /**
  * Full-screen spotlight. Mount it last inside the screen's root (absolute,
@@ -126,13 +132,7 @@ export function CoachOverlay({ steps, onClose }: { steps: CoachStep[] | null; on
       {cur && shown && (
         <>
           <Pressable accessibilityLabel="Next tip" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} onPress={next}>
-            <Svg width={W} height={H}>
-              <Path
-                fillRule="evenodd"
-                fill="rgba(28,33,28,0.62)"
-                d={`M0 0H${W}V${H}H0Z M${cur.rect.x - PAD} ${cur.rect.y - PAD}h${cur.rect.w + 2 * PAD}v${cur.rect.h + 2 * PAD}h${-(cur.rect.w + 2 * PAD)}Z`}
-              />
-            </Svg>
+            <Scrim W={W} H={H} rect={cur.rect} />
           </Pressable>
           <View
             pointerEvents="none"
@@ -161,6 +161,34 @@ export function CoachOverlay({ steps, onClose }: { steps: CoachStep[] | null; on
         </>
       )}
     </View>
+  )
+}
+
+// The view's opacity runs on the UI thread, so a frame touches neither React nor
+// the SVG, and the cutout (no paint) stays fixed.
+function Scrim({ W, H, rect }: { W: number; H: number; rect: Rect }) {
+  const reduceMotion = useReducedMotion()
+  const opacity = useSharedValue(SCRIM_TOP)
+  useEffect(() => {
+    if (reduceMotion) return
+    opacity.value = withRepeat(
+      withTiming(SCRIM_LOW, { duration: SCRIM_SWEEP_MS, easing: Easing.inOut(Easing.sin) }),
+      -1,
+      true,
+    )
+    return () => cancelAnimation(opacity)
+  }, [reduceMotion])
+  const breathing = useAnimatedStyle(() => ({ opacity: opacity.value }))
+  return (
+    <Animated.View style={breathing}>
+      <Svg width={W} height={H}>
+        <Path
+          fillRule="evenodd"
+          fill="rgb(28,33,28)"
+          d={`M0 0H${W}V${H}H0Z M${rect.x - PAD} ${rect.y - PAD}h${rect.w + 2 * PAD}v${rect.h + 2 * PAD}h${-(rect.w + 2 * PAD)}Z`}
+        />
+      </Svg>
+    </Animated.View>
   )
 }
 

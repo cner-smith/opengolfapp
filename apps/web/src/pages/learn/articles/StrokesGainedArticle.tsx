@@ -1,10 +1,11 @@
+import { useEffect, useRef, useState } from 'react'
 import {
+  ArticleTitle,
   Body,
-  Bullet,
   Lede,
   SrcBody,
   SrcLabel,
-  Subkicker,
+  Subhead,
 } from '../components/ArticlePrimitives'
 
 export function StrokesGainedArticle() {
@@ -17,22 +18,7 @@ export function StrokesGainedArticle() {
         marginBottom: 32,
       }}
     >
-      <div className="kicker" style={{ marginBottom: 14 }}>
-        Understanding the game · Strokes gained
-      </div>
-      <h2
-        className="font-serif text-caddie-ink"
-        style={{
-          fontSize: 28,
-          fontWeight: 500,
-          fontStyle: 'italic',
-          letterSpacing: '-0.015em',
-          lineHeight: 1.15,
-          marginBottom: 18,
-        }}
-      >
-        Strokes gained, in plain English.
-      </h2>
+      <ArticleTitle standfirst="Strokes gained, in plain English.">How strokes gained works.</ArticleTitle>
 
       <Lede>
         <em>Strokes gained</em> measures every shot against an
@@ -50,30 +36,13 @@ export function StrokesGainedArticle() {
         it is not.
       </Body>
 
-      <Subkicker>The four categories</Subkicker>
+      <Subhead>The four categories</Subhead>
       <Body>Every shot fits in exactly one bucket:</Body>
-      <ul style={{ listStyle: 'none', padding: 0, margin: '14px 0' }}>
-        <Bullet term="Off the tee">
-          Tee shots on par 4s and par 5s. Your driver swing,
-          essentially.
-        </Bullet>
-        <Bullet term="Approach">
-          Shots from more than 30 yards out (measured to the edge of
-          the green) that aren't par-4 or par-5 tee shots — a par-3
-          tee shot counts as approach.
-        </Bullet>
-        <Bullet term="Around the green">
-          Shots from within 30 yards of the green's edge that are not
-          on the putting surface — chips, pitches, bunker shots.
-        </Bullet>
-        <Bullet term="Putting">
-          Every shot taken from the green.
-        </Bullet>
-      </ul>
+      <SGCategoriesTable />
 
       <WorkedExample />
 
-      <Subkicker>Reading the sign</Subkicker>
+      <Subhead>Reading the sign</Subhead>
       <Body>
         Positive numbers mean you played better than the bracket
         baseline at your handicap. Negative means you lost strokes to
@@ -88,9 +57,6 @@ export function StrokesGainedArticle() {
         fine, not a leak.
       </Body>
 
-      <Subkicker>What counts where</Subkicker>
-      <SGCategoriesTable />
-
       <Sources />
       <Footer />
     </article>
@@ -100,10 +66,9 @@ export function StrokesGainedArticle() {
 function Footer() {
   return (
     <div
-      className="font-mono uppercase text-caddie-ink-mute"
+      className="text-caddie-ink-dim"
       style={{
-        fontSize: 10,
-        letterSpacing: '0.14em',
+        fontSize: 12,
         borderTop: '1px solid #D9D2BF',
         paddingTop: 18,
         marginTop: 22,
@@ -118,9 +83,7 @@ function Footer() {
 function Sources() {
   return (
     <section style={{ borderTop: '1px solid #D9D2BF', paddingTop: 18, marginTop: 22 }}>
-      <div className="kicker" style={{ marginBottom: 12 }}>
-        Sources
-      </div>
+      <Subhead>Sources</Subhead>
       <div style={{ display: 'grid', gap: 14, maxWidth: 640 }}>
         <div>
           <SrcLabel>Strokes-gained framework and baselines</SrcLabel>
@@ -149,9 +112,7 @@ function WorkedExample() {
         marginTop: 18,
       }}
     >
-      <div className="kicker" style={{ marginBottom: 12 }}>
-        A worked example
-      </div>
+      <Subhead>A worked example</Subhead>
       <p
         className="font-serif text-caddie-ink"
         style={{ fontSize: 17, lineHeight: 1.55, marginBottom: 14 }}
@@ -180,15 +141,16 @@ function WorkedExample() {
           tone="pos"
         />
       </div>
+      <SwingBars />
       <p
-        className="text-caddie-ink-dim"
-        style={{ fontSize: 13, lineHeight: 1.5 }}
+        className="text-caddie-ink"
+        style={{ fontSize: 15, lineHeight: 1.6, maxWidth: 640 }}
       >
         Well above baseline — for a 10-handicap, finding the green at
         all from 155 beats the expectation. Chunk the same swing 40
         yards instead, leaving <em>115 in the fairway</em>, and the
         sign flips: 3.67 − 3.39 − 1 ={' '}
-        <span className="font-serif" style={{ fontStyle: 'italic' }}>
+        <span className="font-serif" style={{ fontStyle: 'italic', color: '#A33A2A' }}>
           −0.72
         </span>{' '}
         — nearly three-quarters of a stroke lost on one swing. Three
@@ -214,7 +176,7 @@ function ExampleRow({
     tone === 'pos' ? '#1F3D2C' : tone === 'neg' ? '#A33A2A' : '#1C211C'
   return (
     <div>
-      <div className="kicker" style={{ marginBottom: 6 }}>
+      <div className="text-caddie-ink-dim" style={{ fontSize: 13, marginBottom: 6 }}>
         {label}
       </div>
       <div
@@ -263,7 +225,7 @@ function SGCategoriesTable() {
     },
   ]
   return (
-    <div style={{ borderTop: '1px solid #D9D2BF' }}>
+    <div style={{ borderTop: '1px solid #D9D2BF', marginBottom: 14 }}>
       {rows.map((r) => (
         <div
           key={r.cat}
@@ -277,7 +239,7 @@ function SGCategoriesTable() {
         >
           <div
             className="font-serif text-caddie-ink"
-            style={{ fontSize: 17, fontWeight: 500 }}
+            style={{ fontSize: 17, fontWeight: 500, fontStyle: 'italic' }}
           >
             {r.cat}
           </div>
@@ -295,6 +257,90 @@ function SGCategoriesTable() {
           </div>
         </div>
       ))}
+    </div>
+  )
+}
+
+// The same 7-iron, two outcomes, on one diverging scale (DESIGN.md
+// "Diverging SG bar"). The bars grow from the centre tick once the panel is
+// in view; learn.css drops the motion under reduced motion.
+const SWINGS = [
+  { label: 'On the green from 155', value: 0.65 },
+  { label: 'Chunked to 115', value: -0.72 },
+]
+const SCALE = 1 // strokes at the end of each half of the track
+
+function SwingBars() {
+  const ref = useRef<HTMLDivElement>(null)
+  const [seen, setSeen] = useState(() => typeof IntersectionObserver === 'undefined')
+  useEffect(() => {
+    const el = ref.current
+    if (!el || seen) return
+    const io = new IntersectionObserver(
+      ([entry]) => {
+        if (entry?.isIntersecting) {
+          setSeen(true)
+          io.disconnect()
+        }
+      },
+      { threshold: 0.4 },
+    )
+    io.observe(el)
+    return () => io.disconnect()
+  }, [seen])
+  return (
+    <div
+      ref={ref}
+      className="sg-swings"
+      data-seen={seen || undefined}
+      role="img"
+      aria-label="Strokes gained: on the green from 155, plus 0.65; chunked to 115, minus 0.72."
+      style={{ margin: '4px 0 18px', borderTop: '1px solid #D9D2BF', paddingTop: 14 }}
+    >
+      {SWINGS.map((s, i) => {
+        const pos = s.value >= 0
+        const color = pos ? '#1F3D2C' : '#A33A2A'
+        const pct = (Math.abs(s.value) / SCALE) * 50
+        return (
+          <div key={s.label} className="sg-swing">
+            <span className="text-caddie-ink" style={{ fontSize: 14 }}>
+              {s.label}
+            </span>
+            <span className="sg-swing-track">
+              <span
+                className="sg-swing-bar"
+                style={{
+                  background: color,
+                  width: `${pct}%`,
+                  left: pos ? '50%' : `${50 - pct}%`,
+                  transformOrigin: pos ? 'left center' : 'right center',
+                  transitionDelay: `${i * 140}ms`,
+                }}
+              />
+              <span
+                className="sg-swing-value font-serif tabular"
+                style={{
+                  color,
+                  left: pos ? `calc(${50 + pct}% + 4px)` : undefined,
+                  right: pos ? undefined : `calc(${50 + pct}% + 4px)`,
+                  transitionDelay: `${i * 140 + 300}ms`,
+                }}
+              >
+                {pos ? '+' : '\u2212'}
+                {Math.abs(s.value).toFixed(2)}
+              </span>
+            </span>
+          </div>
+        )
+      })}
+      <div className="sg-swing sg-swing-axis text-caddie-ink-dim" aria-hidden>
+        <span />
+        <span className="sg-swing-axis-labels">
+          <span>Lost</span>
+          <span>0</span>
+          <span>Gained</span>
+        </span>
+      </div>
     </div>
   )
 }

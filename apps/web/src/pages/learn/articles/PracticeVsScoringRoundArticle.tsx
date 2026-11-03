@@ -1,4 +1,4 @@
-import { SrcBody, SrcLabel } from '../components/ArticlePrimitives'
+import { ArticleTitle, SrcBody, SrcLabel, Subhead } from '../components/ArticlePrimitives'
 import type { CSSProperties, ReactNode } from 'react'
 
 export function PracticeVsScoringRoundArticle() {
@@ -11,22 +11,7 @@ export function PracticeVsScoringRoundArticle() {
         marginBottom: 32,
       }}
     >
-      <div className="kicker" style={{ marginBottom: 14 }}>
-        On the course · Practice vs scoring
-      </div>
-      <h2
-        className="font-serif text-caddie-ink"
-        style={{
-          fontSize: 28,
-          fontWeight: 500,
-          fontStyle: 'italic',
-          letterSpacing: '-0.015em',
-          lineHeight: 1.15,
-          marginBottom: 18,
-        }}
-      >
-        Decide which round you're playing.
-      </h2>
+      <ArticleTitle standfirst="Decide which round you're playing.">Practice round vs scoring round.</ArticleTitle>
 
       <P>
         A practice round and a scoring round use the same eighteen holes, but
@@ -43,7 +28,7 @@ export function PracticeVsScoringRoundArticle() {
 
       <Hr />
 
-      <H3>What a practice round is actually for</H3>
+      <H2>What a practice round is actually for</H2>
       <P>
         A practice round is reconnaissance. You are not trying to shoot a number
         — you are gathering the information that lets you commit on the day it
@@ -84,7 +69,7 @@ export function PracticeVsScoringRoundArticle() {
 
       <Hr />
 
-      <H3>How the pros do it</H3>
+      <H2>How the pros do it</H2>
       <P>
         The gold standard for this lives on tour, and the logic scales down to
         any golfer. Pros don't see a tournament course cold on Thursday — they
@@ -119,7 +104,7 @@ export function PracticeVsScoringRoundArticle() {
 
       <Hr />
 
-      <H3>Borrow the method, skip the budget</H3>
+      <H2>Borrow the method, skip the budget</H2>
       <P>
         You don't have a caddie, four days, or a closed golf course — but the
         method shrinks to fit an ordinary tee time. The goal is unchanged: walk
@@ -167,7 +152,7 @@ export function PracticeVsScoringRoundArticle() {
 
       <Hr />
 
-      <H3>What a scoring round demands</H3>
+      <H2>What a scoring round demands</H2>
       <P>
         A scoring round is performance. One ball, every shot counts, and the
         only job is to post the lowest number you can with the game you brought.
@@ -203,7 +188,7 @@ export function PracticeVsScoringRoundArticle() {
 
       <Hr />
 
-      <H3>Why mixing them costs you both</H3>
+      <H2>Why mixing them costs you both</H2>
       <P>
         The common mistake isn't choosing the wrong mode — it's failing to
         choose, and drifting through the round half in each. You take the round
@@ -222,7 +207,7 @@ export function PracticeVsScoringRoundArticle() {
 
       <Hr />
 
-      <H3>The casual round is neither — and that's the trap</H3>
+      <H2>The casual round is neither — and that's the trap</H2>
       <P>
         Most weekend rounds are neither a true practice round nor a true scoring
         round. That's completely fine — golf is supposed to be fun, and most of
@@ -269,9 +254,9 @@ const UL_STYLE: CSSProperties = {
   color: '#1C211C',
 }
 
-function H3({ children }: { children: ReactNode }) {
+function H2({ children }: { children: ReactNode }) {
   return (
-    <h3
+    <h2
       className="font-serif text-caddie-ink"
       style={{
         fontSize: 22,
@@ -282,7 +267,7 @@ function H3({ children }: { children: ReactNode }) {
       }}
     >
       {children}
-    </h3>
+    </h2>
   )
 }
 
@@ -336,10 +321,10 @@ function ModeTable() {
         }}
       >
         <div />
-        <div className="kicker" style={{ color: '#5C6356' }}>
+        <div className="text-caddie-ink-dim" style={{ fontSize: 13 }}>
           Practice round
         </div>
-        <div className="kicker" style={{ color: '#5C6356' }}>
+        <div className="text-caddie-ink-dim" style={{ fontSize: 13 }}>
           Scoring round
         </div>
         {rows.map((r, i) => (
@@ -407,9 +392,7 @@ function Callout({ children }: { children: ReactNode }) {
 function Sources() {
   return (
     <section style={{ borderTop: '1px solid #D9D2BF', paddingTop: 18, marginTop: 22 }}>
-      <div className="kicker" style={{ marginBottom: 12 }}>
-        Sources
-      </div>
+      <Subhead>Sources</Subhead>
       <div style={{ display: 'grid', gap: 14, maxWidth: 640 }}>
         <div>
           <SrcLabel>A practice round is recon, not a score</SrcLabel>
@@ -497,10 +480,9 @@ function Src({ href, children }: { href: string; children: ReactNode }) {
 function Footer() {
   return (
     <div
-      className="font-mono uppercase text-caddie-ink-mute"
+      className="text-caddie-ink-dim"
       style={{
-        fontSize: 10,
-        letterSpacing: '0.14em',
+        fontSize: 12,
         borderTop: '1px solid #D9D2BF',
         paddingTop: 18,
         marginTop: 22,

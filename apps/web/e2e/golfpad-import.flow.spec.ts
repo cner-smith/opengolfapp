@@ -33,6 +33,16 @@ test.describe('Golf Pad import (signed in, mutating)', () => {
   test.beforeEach(cleanup)
   test.afterEach(cleanup)
 
+  // #1304: the step lists the three files, and a partial pick names what's missing.
+  test('two of the three files → the ledger says which one is still needed', async ({ page }) => {
+    await page.goto('/rounds/import')
+    const ledger = page.getByRole('list', { name: 'Files' })
+    await expect(ledger.getByRole('listitem')).toHaveText([/rounds\.csv\s*Not chosen yet/, /holes\.csv\s*Not chosen yet/, /shots\.csv\s*Not chosen yet/])
+    await page.getByLabel('Golf Pad export files').setInputFiles(FILES.slice(0, 2))
+    await expect(ledger.getByRole('listitem').first()).toHaveText(/rounds\.csv\s*rounds\.csv/)
+    await expect(page.getByRole('alert')).toHaveText('Still need shots.csv. Choose all three together.')
+  })
+
   test('drop the export → confirm, change and skip courses → rounds land with SG', async ({ page }) => {
     await page.goto('/rounds/import')
     await page.getByLabel('Golf Pad export files').setInputFiles(FILES)

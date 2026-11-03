@@ -14,6 +14,7 @@ import { ScorecardCsvImport } from './components/ScorecardCsvImport'
 import { Choice, ChoiceRow } from './NewRoundPage'
 import { TeeSelector } from '../../components/courses/TeeSelector'
 import { useAuth } from '../../hooks/useAuth'
+import { useDocumentTitle } from '../../hooks/useDocumentTitle'
 import { supabase } from '../../lib/supabase'
 import { toUserMessage } from '../../lib/errors'
 
@@ -28,6 +29,7 @@ type Step = 'input' | 'review'
 // speed, ...) are simply absent from the payload and get filled in on the
 // normal scorecard/shot-entry screens after import.
 export function ImportDataPage() {
+  useDocumentTitle('Import rounds · OGA')
   const navigate = useNavigate()
   const { user } = useAuth()
   const qc = useQueryClient()
@@ -143,7 +145,7 @@ export function ImportDataPage() {
 
       <div className="flex flex-col" style={{ gap: 22 }}>
         {mode !== 'json' && (
-          <ChoiceRow>
+          <ChoiceRow label="What you’re importing">
             <Choice
               active={mode === 'golfpad'}
               onClick={() => setMode('golfpad')}
@@ -157,6 +159,19 @@ export function ImportDataPage() {
               subtitle="A spreadsheet of scores, from our template."
             />
           </ChoiceRow>
+        )}
+        {mode !== 'json' && (
+          <p className="text-caddie-ink-dim" style={{ fontSize: 13, lineHeight: 1.5, marginTop: -8 }}>
+            More platforms are coming. If one matters to you,{' '}
+            <a href={`${GITHUB_REPO}/issues/new`} target="_blank" rel="noreferrer noopener" className="text-caddie-ink underline underline-offset-4 hover:opacity-80">
+              open an issue
+            </a>{' '}
+            or{' '}
+            <a href={`${GITHUB_REPO}/discussions`} target="_blank" rel="noreferrer noopener" className="text-caddie-ink underline underline-offset-4 hover:opacity-80">
+              start a discussion
+            </a>{' '}
+            on GitHub.
+          </p>
         )}
         {mode === 'golfpad' && <GolfPadImport />}
         {mode === 'csv' && <ScorecardCsvImport />}
@@ -189,7 +204,7 @@ export function ImportDataPage() {
               aria-label="OGA JSON payload"
               className="w-full bg-caddie-surface text-caddie-ink"
               style={{
-                border: LINE_RULE,
+                border: '1px solid #5C6356',
                 borderRadius: 2,
                 padding: '10px 12px',
                 fontSize: 12,
@@ -200,8 +215,8 @@ export function ImportDataPage() {
             />
 
             {rawText.trim().length === 0 && (
-              <div className="text-caddie-ink-mute" style={{ fontSize: 12 }}>
-                Waiting for a payload — see apps/web/src/lib/import.ts for the expected shape.
+              <div className="text-caddie-ink-dim" style={{ fontSize: 13 }}>
+                Paste a round in OGA’s JSON format, or upload a .json file.
               </div>
             )}
 
@@ -240,7 +255,7 @@ export function ImportDataPage() {
                 dataQuality.missingLieType.length > 0 ||
                 dataQuality.missingDistanceToTarget.length > 0 ||
                 dataQuality.misplacedPuttDistance.length > 0) && (
-                <div className="text-caddie-warn" style={{ fontSize: 13, borderLeft: '2px solid #A66A1F', paddingLeft: 12 }}>
+                <div className="text-caddie-ink" style={{ fontSize: 13, borderLeft: '2px solid #A66A1F', paddingLeft: 12 }}>
                   <div style={{ fontWeight: 600, marginBottom: 6 }}>
                     Watch out — some shot details are missing:
                   </div>
@@ -254,23 +269,23 @@ export function ImportDataPage() {
                   {dataQuality.missingLieType.length > 0 && (
                     <div style={{ marginBottom: 4 }}>
                       {dataQuality.missingLieType.length} shot
-                      {dataQuality.missingLieType.length === 1 ? '' : 's'} missing lie_type:{' '}
+                      {dataQuality.missingLieType.length === 1 ? '' : 's'} missing a lie:{' '}
                       {formatIssueLocations(dataQuality.missingLieType)}.
                     </div>
                   )}
                   {dataQuality.missingDistanceToTarget.length > 0 && (
                     <div style={{ marginBottom: 4 }}>
                       {dataQuality.missingDistanceToTarget.length} non-putt shot
-                      {dataQuality.missingDistanceToTarget.length === 1 ? '' : 's'} missing
-                      distance_to_target: {formatIssueLocations(dataQuality.missingDistanceToTarget)}.
+                      {dataQuality.missingDistanceToTarget.length === 1 ? '' : 's'} missing the
+                      distance to the pin: {formatIssueLocations(dataQuality.missingDistanceToTarget)}.
                     </div>
                   )}
                   {dataQuality.misplacedPuttDistance.length > 0 && (
                     <div>
                       {dataQuality.misplacedPuttDistance.length} putt
-                      {dataQuality.misplacedPuttDistance.length === 1 ? '' : 's'} store their distance
-                      in distance_to_target instead of putt_distance_ft — putting Strokes Gained will
-                      read as 0 for these: {formatIssueLocations(dataQuality.misplacedPuttDistance)}.
+                      {dataQuality.misplacedPuttDistance.length === 1 ? ' keeps' : 's keep'} the putt length in
+                      the wrong field, so putting strokes gained will read 0 for{' '}
+                      {dataQuality.misplacedPuttDistance.length === 1 ? 'it' : 'them'}: {formatIssueLocations(dataQuality.misplacedPuttDistance)}.
                     </div>
                   )}
                 </div>
@@ -287,7 +302,7 @@ export function ImportDataPage() {
                 type="button"
                 onClick={handleContinue}
                 disabled={busy || !validation?.success}
-                className="bg-caddie-accent text-caddie-accent-ink disabled:opacity-50"
+                className="key key-primary"
                 style={buttonStyle}
               >
                 {busy ? 'Checking…' : 'Continue'}
@@ -379,7 +394,7 @@ export function ImportDataPage() {
                 type="button"
                 onClick={handleImport}
                 disabled={busy || !courseId}
-                className="bg-caddie-accent text-caddie-accent-ink disabled:opacity-50"
+                className="key key-primary"
                 style={buttonStyle}
               >
                 {busy ? 'Importing…' : 'Import round'}
@@ -438,11 +453,9 @@ function FieldLabel({ children }: { children: React.ReactNode }) {
 }
 
 const LINE_RULE = '1px solid #D9D2BF'
+const GITHUB_REPO = 'https://github.com/cner-smith/opengolfapp'
 
 const buttonStyle: React.CSSProperties = {
-  border: 'none',
-  borderRadius: 2,
-  padding: '12px 16px',
   fontSize: 14,
   fontWeight: 600,
   letterSpacing: '0.02em',

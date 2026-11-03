@@ -1,4 +1,4 @@
-import { SrcBody, SrcLabel } from '../components/ArticlePrimitives'
+import { ArticleTitle, SrcBody, SrcLabel, Subhead } from '../components/ArticlePrimitives'
 import type { ReactNode } from 'react'
 
 export function MeasurableGoalsArticle() {
@@ -11,22 +11,7 @@ export function MeasurableGoalsArticle() {
         marginBottom: 32,
       }}
     >
-      <div className="kicker" style={{ marginBottom: 14 }}>
-        Improving your game · Measurable goals
-      </div>
-      <h2
-        className="font-serif text-caddie-ink"
-        style={{
-          fontSize: 28,
-          fontWeight: 500,
-          fontStyle: 'italic',
-          letterSpacing: '-0.015em',
-          lineHeight: 1.15,
-          marginBottom: 18,
-        }}
-      >
-        A goal you can pass or fail.
-      </h2>
+      <ArticleTitle standfirst="A goal you can pass or fail.">Creating measurable practice goals.</ArticleTitle>
 
       <P>
         Most practice goals are wishes wearing a goal's clothes — work on my
@@ -40,7 +25,7 @@ export function MeasurableGoalsArticle() {
         of them are yours to control.
       </P>
 
-      <H3>Three kinds of goal</H3>
+      <H2>Three kinds of goal</H2>
       <GoalGlance />
       <P>
         The trouble with outcome goals is that you don't fully own them: a clean
@@ -57,7 +42,7 @@ export function MeasurableGoalsArticle() {
 
       <Hr />
 
-      <H3>Start with a baseline</H3>
+      <H2>Start with a baseline</H2>
       <P>
         You can't make a goal measurable until you know your current number.
         Before you set a target, measure where you stand: hit ten wedges from 60
@@ -70,7 +55,7 @@ export function MeasurableGoalsArticle() {
 
       <Hr />
 
-      <H3>Calibrate the difficulty</H3>
+      <H2>Calibrate the difficulty</H2>
       <P>
         Goal-setting research is consistent on one point: specific, hard goals
         beat vague or easy ones — but only up to the edge of what you can actually
@@ -85,7 +70,7 @@ export function MeasurableGoalsArticle() {
 
       <Hr />
 
-      <H3>The anatomy of a testable goal</H3>
+      <H2>The anatomy of a testable goal</H2>
       <P>
         Whatever the skill, a goal you can score has the same four parts. Leave
         any one of them vague and the verdict goes fuzzy with it.
@@ -94,7 +79,7 @@ export function MeasurableGoalsArticle() {
 
       <Hr />
 
-      <H3>Then move it</H3>
+      <H2>Then move it</H2>
       <P>
         The whole point of a baseline is that you re-set it. Clear your target a
         few sessions running and it has gone too easy — raise it. A measurable
@@ -111,9 +96,9 @@ export function MeasurableGoalsArticle() {
   )
 }
 
-function H3({ children }: { children: ReactNode }) {
+function H2({ children }: { children: ReactNode }) {
   return (
-    <h3
+    <h2
       className="font-serif text-caddie-ink"
       style={{
         fontSize: 22,
@@ -124,7 +109,7 @@ function H3({ children }: { children: ReactNode }) {
       }}
     >
       {children}
-    </h3>
+    </h2>
   )
 }
 
@@ -173,9 +158,7 @@ function GoalGlance() {
         marginBottom: 18,
       }}
     >
-      <div className="kicker" style={{ marginBottom: 12, color: '#5C6356' }}>
-        From least to most controllable
-      </div>
+      <Subhead>From least to most controllable</Subhead>
       {rows.map((r, i) => (
         <div
           key={r.kind}
@@ -304,9 +287,7 @@ function AnatomyTable() {
 function Sources() {
   return (
     <section style={{ borderTop: '1px solid #D9D2BF', paddingTop: 18, marginTop: 22 }}>
-      <div className="kicker" style={{ marginBottom: 12 }}>
-        Sources
-      </div>
+      <Subhead>Sources</Subhead>
       <div style={{ display: 'grid', gap: 14, maxWidth: 640 }}>
         <div>
           <SrcLabel>Specific, hard goals beat "do your best"</SrcLabel>
@@ -371,10 +352,9 @@ function Src({ href, children }: { href: string; children: ReactNode }) {
 function Footer() {
   return (
     <div
-      className="font-mono uppercase text-caddie-ink-mute"
+      className="text-caddie-ink-dim"
       style={{
-        fontSize: 10,
-        letterSpacing: '0.14em',
+        fontSize: 12,
         borderTop: '1px solid #D9D2BF',
         paddingTop: 18,
         marginTop: 22,

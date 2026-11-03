@@ -136,6 +136,9 @@ importers:
       '@oga/supabase':
         specifier: file:../supabase
         version: link:../supabase
+      perfect-freehand:
+        specifier: 1.2.3
+        version: 1.2.3
     devDependencies:
       typescript:
         specifier: ^5.4.0
@@ -1987,6 +1990,9 @@ packages:
   pbf@4.0.1:
     resolution: {integrity: sha512-SuLdBvS42z33m8ejRbInMapQe8n0D3vN/Xd5fmWM3tufNgRQFBpaW2YVJxQZV4iPNqb0vEFvssMEo5w9c6BTIA==}
     hasBin: true
+
+  perfect-freehand@1.2.3:
+    resolution: {integrity: sha512-bHZSfqDHGNlPpgH2yxXgPHlQSPpEbo+qg7li0M78J9vNAi2yjwLeA4x79BEQhX44lEWpCLSFCeRZwpw0niiXPA==}
 
   picocolors@1.1.1:
     resolution: {integrity: sha512-xceH2snhtb5M9liqDsmEw56le376mTZkEX/jEb/RxNFyegNul7eNslCXP9FDj/Lcu0X8KEyMceP2ntpaHrDEVA==}
@@ -4173,6 +4179,8 @@ snapshots:
   pbf@4.0.1:
     dependencies:
       resolve-protobuf-schema: 2.1.0
+
+  perfect-freehand@1.2.3: {}
 
   picocolors@1.1.1: {}
 

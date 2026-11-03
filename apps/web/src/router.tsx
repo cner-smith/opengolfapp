@@ -1,5 +1,5 @@
 import { lazy, Suspense } from 'react'
-import { createBrowserRouter, Outlet, type RouteObject } from 'react-router-dom'
+import { createBrowserRouter, Outlet, ScrollRestoration, type RouteObject } from 'react-router-dom'
 import { AuthGuard } from './components/auth/AuthGuard'
 import { ProfileGuard } from './components/auth/ProfileGuard'
 import { AppShell } from './components/layout/AppShell'
@@ -9,6 +9,7 @@ import { RouteErrorBoundary } from './components/errors/ErrorBoundary'
 import { LoginPage } from './pages/auth/LoginPage'
 import { SignupPage } from './pages/auth/SignupPage'
 import { AuthCallbackPage } from './pages/auth/AuthCallbackPage'
+import { ResetPasswordPage } from './pages/auth/ResetPasswordPage'
 import { NotFoundPage } from './pages/errors/NotFoundPage'
 import { OnboardingPage } from './pages/onboarding/OnboardingPage'
 import { LandingPage } from './pages/landing/LandingPage'
@@ -124,6 +125,7 @@ const routes: RouteObject[] = [
   { path: '/login', element: <LoginPage />, errorElement },
   { path: '/signup', element: <SignupPage />, errorElement },
   { path: '/auth/callback', element: <AuthCallbackPage />, errorElement },
+  { path: '/auth/reset', element: <ResetPasswordPage />, errorElement },
   {
     path: '/onboarding',
     element: <AuthGuard><OnboardingPage /></AuthGuard>,
@@ -165,4 +167,18 @@ const routes: RouteObject[] = [
   { path: '*', element: <NotFoundPage />, errorElement },
 ]
 
-export const router: ReturnType<typeof createBrowserRouter> = createBrowserRouter(routes)
+// One <ScrollRestoration /> at the root (react-router's documented placement):
+// a new page starts at the top of the window and Back returns to where the
+// reader was. The signed-in shell scrolls its own <main> (AppShell), so the
+// window reset is a no-op there.
+export const router: ReturnType<typeof createBrowserRouter> = createBrowserRouter([
+  {
+    element: (
+      <>
+        <ScrollRestoration />
+        <Outlet />
+      </>
+    ),
+    children: routes,
+  },
+])

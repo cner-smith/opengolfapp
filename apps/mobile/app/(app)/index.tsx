@@ -220,7 +220,7 @@ export default function Home() {
   // SG averages, trend) — a 6-hole total isn't comparable to a whole round (#911).
   // The window is the 20 most recent WHOLE rounds, like Stats' L20 (#935).
   const wholeRounds = useMemo(
-    () => rounds.filter((r) => !isPartialRound(r.hole_scores)).slice(0, 20),
+    () => rounds.filter((r) => !isPartialRound(r.hole_scores, r.hole_count)).slice(0, 20),
     [rounds],
   )
 

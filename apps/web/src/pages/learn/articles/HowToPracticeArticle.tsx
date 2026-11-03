@@ -1,4 +1,4 @@
-import { SrcBody, SrcLabel } from '../components/ArticlePrimitives'
+import { ArticleTitle, SrcBody, SrcLabel, Subhead } from '../components/ArticlePrimitives'
 const DEV = import.meta.env.DEV
 
 export function HowToPracticeArticle() {
@@ -11,22 +11,7 @@ export function HowToPracticeArticle() {
         marginBottom: 32,
       }}
     >
-      <div className="kicker" style={{ marginBottom: 14 }}>
-        Improving your game · How to practice
-      </div>
-      <h2
-        className="font-serif text-caddie-ink"
-        style={{
-          fontSize: 28,
-          fontWeight: 500,
-          fontStyle: 'italic',
-          letterSpacing: '-0.015em',
-          lineHeight: 1.15,
-          marginBottom: 18,
-        }}
-      >
-        How to practice.
-      </h2>
+      <ArticleTitle>How to practice effectively.</ArticleTitle>
 
       <P>
         Hitting balls and getting better are two different activities. This is
@@ -34,7 +19,7 @@ export function HowToPracticeArticle() {
         shows up on the course.
       </P>
 
-      <H3>The uncomfortable truth</H3>
+      <H2>The uncomfortable truth</H2>
       <P>
         Most golfers practice in a way that feels productive but
         isn't. They hit a bucket of balls, stripe a few drives, feel
@@ -54,7 +39,7 @@ export function HowToPracticeArticle() {
 
       <Hr />
 
-      <H3>What practice is actually for</H3>
+      <H2>What practice is actually for</H2>
       <P>
         Practice exists to change your behavior on the golf course.
         Not to feel good on the range. Not to hit your best shots. To
@@ -69,9 +54,9 @@ export function HowToPracticeArticle() {
 
       <Hr />
 
-      <H3>The four types of practice</H3>
+      <H2>The four types of practice</H2>
 
-      <H4>Block practice</H4>
+      <H3>Block practice</H3>
       <Kv label="What it is">
         Repeating the same shot over and over. 50 7-irons in a row to
         the same target.
@@ -101,7 +86,7 @@ export function HowToPracticeArticle() {
         TODO: Add specific study citations
       </EditorialNote>
 
-      <H4>Random practice</H4>
+      <H3>Random practice</H3>
       <Kv label="What it is">
         Varying every shot. 7-iron, driver, wedge, 5-iron — never
         hitting the same club twice in a row.
@@ -135,7 +120,7 @@ export function HowToPracticeArticle() {
         well-established or still debated
       </EditorialNote>
 
-      <H4>Skill games</H4>
+      <H3>Skill games</H3>
       <Kv label="What it is">
         Turning a drill into a scored challenge. Make 7 of 10 from 8
         feet. Get up-and-down 6 times out of 10. Land 5 wedges inside
@@ -157,7 +142,7 @@ export function HowToPracticeArticle() {
         miss — and you've trained scoring and nerves at the same time.
       </Kv>
 
-      <H4>Pressure practice</H4>
+      <H3>Pressure practice</H3>
       <Kv label="What it is">
         Creating consequences in practice. Something is at stake on
         each shot.
@@ -192,7 +177,7 @@ export function HowToPracticeArticle() {
 
       <Hr />
 
-      <H3>How to structure a session</H3>
+      <H2>How to structure a session</H2>
       <P>
         A well-structured session has a flow. Adjust based on your
         time and current focus area.
@@ -207,7 +192,7 @@ export function HowToPracticeArticle() {
 
       <Hr />
 
-      <H3>Having a goal for the session</H3>
+      <H2>Having a goal for the session</H2>
       <P>
         Before you hit a single ball, decide what you're trying to
         accomplish today.
@@ -235,7 +220,7 @@ export function HowToPracticeArticle() {
         shots, that's your focus area. Your practice goal should be
         specific to that weakness.
       </P>
-      <H4>How to quantify your practice</H4>
+      <H3>How to quantify your practice</H3>
       <ul style={UL_STYLE}>
         <li>Track your success rate on pressure games over time</li>
         <li>Note which club and distance you practiced</li>
@@ -245,9 +230,9 @@ export function HowToPracticeArticle() {
 
       <Hr />
 
-      <H3>What bad practice looks like</H3>
+      <H2>What bad practice looks like</H2>
 
-      <H4>The range bucket spiral</H4>
+      <H3>The range bucket spiral</H3>
       <P>
         Buy a large bucket. Hit wedges, feel good. Move to 7-iron,
         stripe a few. Pull out the driver. Spend 45 minutes hitting
@@ -255,7 +240,7 @@ export function HowToPracticeArticle() {
         worked hard. Nothing about your game changed.
       </P>
 
-      <H4>Same shot, same target, same lie</H4>
+      <H3>Same shot, same target, same lie</H3>
       <P>
         You struggle with your 6-iron so you hit 60 6-irons to the
         same target from a flat lie. On the course you face a 6-iron
@@ -263,21 +248,21 @@ export function HowToPracticeArticle() {
         different skills.
       </P>
 
-      <H4>Practicing your strengths</H4>
+      <H3>Practicing your strengths</H3>
       <P>
         You putt well so you skip the green. You hit your driver well
         so you spend an hour on the tee line. Improvement comes from
         addressing weaknesses, not reinforcing strengths.
       </P>
 
-      <H4>No target, no feedback</H4>
+      <H3>No target, no feedback</H3>
       <P>
         Hitting shots without a specific target or any way to evaluate
         the result is exercise, not practice. Useful and enjoyable —
         but not improvement.
       </P>
 
-      <H4>Working on technique under pressure</H4>
+      <H3>Working on technique under pressure</H3>
       <P>
         The course is for playing. The range is for working on
         technique. Working on a swing change during a round rarely
@@ -286,7 +271,7 @@ export function HowToPracticeArticle() {
 
       <Hr />
 
-      <H3>Practice round vs scoring round</H3>
+      <H2>Practice round vs scoring round</H2>
       <P>
         Two completely different activities. Mixing them is one of
         the most common mistakes amateurs make.
@@ -325,9 +310,9 @@ export function HowToPracticeArticle() {
 // Components
 // ===========================================================================
 
-function H3({ children }: { children: React.ReactNode }) {
+function H2({ children }: { children: React.ReactNode }) {
   return (
-    <h3
+    <h2
       className="font-serif text-caddie-ink"
       style={{
         fontSize: 22,
@@ -340,13 +325,13 @@ function H3({ children }: { children: React.ReactNode }) {
       }}
     >
       {children}
-    </h3>
+    </h2>
   )
 }
 
-function H4({ children }: { children: React.ReactNode }) {
+function H3({ children }: { children: React.ReactNode }) {
   return (
-    <h4
+    <h3
       className="font-serif text-caddie-ink"
       style={{
         fontSize: 17,
@@ -357,7 +342,7 @@ function H4({ children }: { children: React.ReactNode }) {
       }}
     >
       {children}
-    </h4>
+    </h3>
   )
 }
 
@@ -450,7 +435,7 @@ function SessionTable() {
             {r.phase}
           </div>
           <div
-            className="font-mono tabular text-caddie-ink-dim"
+            className="tabular text-caddie-ink-dim"
             style={{ fontSize: 12, letterSpacing: '0.05em' }}
           >
             {r.dur}
@@ -467,9 +452,7 @@ function SessionTable() {
 function Sources() {
   return (
     <section style={{ borderTop: '1px solid #D9D2BF', paddingTop: 18, marginTop: 22 }}>
-      <div className="kicker" style={{ marginBottom: 12 }}>
-        Sources
-      </div>
+      <Subhead>Sources</Subhead>
       <div style={{ display: 'grid', gap: 14, maxWidth: 640 }}>
         <div>
           <SrcLabel>Block vs random practice (contextual interference)</SrcLabel>
@@ -568,10 +551,8 @@ function EditorialNote({
   if (inline) {
     return (
       <span
-        className="font-mono uppercase"
         style={{
-          fontSize: 10,
-          letterSpacing: '0.14em',
+          fontSize: 12,
           color: tone,
           marginLeft: 8,
         }}
@@ -591,10 +572,8 @@ function EditorialNote({
       }}
     >
       <div
-        className="font-mono uppercase"
         style={{
-          fontSize: 10,
-          letterSpacing: '0.14em',
+          fontSize: 12,
           color: tone,
           marginBottom: 4,
         }}
@@ -614,10 +593,9 @@ function EditorialNote({
 function Footer() {
   return (
     <div
-      className="font-mono uppercase text-caddie-ink-mute"
+      className="text-caddie-ink-dim"
       style={{
-        fontSize: 10,
-        letterSpacing: '0.14em',
+        fontSize: 12,
         borderTop: '1px solid #D9D2BF',
         paddingTop: 18,
         marginTop: 22,

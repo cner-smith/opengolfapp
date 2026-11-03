@@ -41,6 +41,8 @@ const RH = 166
 const TOP0 = 38
 const SPAN = RH - TOP0 - 16
 const STEP = SPAN / 3
+/** dp between the ruler's values; the dock's ruler key scrubs at the same pitch. */
+export const RULER_STEP = STEP
 
 // Ruler card (§5): translucent glass plate, one pan target that settles on
 // the four values — a tap picks the nearest. Mirrors for the left-hand layout.

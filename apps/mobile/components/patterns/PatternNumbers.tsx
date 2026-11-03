@@ -206,12 +206,12 @@ export function PatternNumbers({
   return (
     <View style={{ marginTop: 26 }}>
       <View style={{ flexDirection: 'row', gap: 12, marginBottom: 6 }}>
-        <Tile label="Two in three" value={pair(stats.cone68.lateral * 2, stats.cone68.distance * 2)} note="wide × short to long" />
+        <Tile label="68% of shots" value={pair(stats.cone68.lateral * 2, stats.cone68.distance * 2)} note="wide × short to long" />
         {finish != null ? (
           <Tile
             label="Finishes"
             value={`${num(finish - stats.cone68.distance, unit)}–${num(finish + stats.cone68.distance, unit)} ${u}`}
-            note="two in three, from where it was hit"
+            note="from where it was hit"
           />
         ) : (
           <Tile label="Typical distance" value={typicalYards != null ? dist(typicalYards, unit) : '—'} note="how far it goes, every lie" />
@@ -230,7 +230,7 @@ export function PatternNumbers({
         value={`${shortMore ? misses.short : misses.long} of ${n}`}
         note={`${shortMore ? `${misses.long} long` : `${misses.short} short`}; ${misses.left} left, ${misses.right} right of the aim`}
       />
-      <Row label="Nearly all" value={pair(stats.cone95.lateral * 2, stats.cone95.distance * 2)} note="Wide × deep. The dashed ring." />
+      <Row label="95% of shots" value={pair(stats.cone95.lateral * 2, stats.cone95.distance * 2)} note="Wide × deep. The dashed ring." />
       <TallyRow label="Shape" tally={shape} words={tallyWords(shape, SHOT_SHAPE_LABELS, n)} by="shape" leftHanded={leftHanded} onColour={onColour} />
       <TallyRow label="Start line" tally={start} words={startWords} by="start" leftHanded={leftHanded} onColour={onColour} />
       <Matrix points={points} leftHanded={leftHanded} />

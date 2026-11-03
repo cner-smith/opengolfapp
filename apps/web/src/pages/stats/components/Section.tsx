@@ -1,26 +1,27 @@
 import type { CSSProperties, ReactNode } from 'react'
 
+// Paper section head (mobile components/paper/Section.tsx SectionHead): one
+// ink rule, then a Fraunces-italic title; `aside` sits on the title's line.
 export function Section({
   title,
+  aside,
   children,
 }: {
   title: string
+  aside?: ReactNode
   children: ReactNode
 }) {
   return (
-    <section
-      style={{
-        borderTop: '1px solid #D9D2BF',
-        paddingTop: 18,
-        marginBottom: 32,
-      }}
-    >
-      <h2
-        className="font-serif text-caddie-ink"
-        style={{ fontSize: 24, fontStyle: 'italic', fontWeight: 500, lineHeight: 1.2, marginBottom: 12 }}
-      >
-        {title}
-      </h2>
+    <section style={{ borderTop: '1px solid #1C211C', paddingTop: 14, marginBottom: 44 }}>
+      <div className="flex items-baseline justify-between flex-wrap" style={{ gap: 12, marginBottom: 14 }}>
+        <h2
+          className="font-serif text-caddie-ink"
+          style={{ fontSize: 26, fontStyle: 'italic', fontWeight: 500, lineHeight: 1.2 }}
+        >
+          {title}
+        </h2>
+        {aside}
+      </div>
       {children}
     </section>
   )
@@ -34,7 +35,10 @@ export function Subhead({
   style?: CSSProperties
 }) {
   return (
-    <h3 className="text-caddie-ink" style={{ fontSize: 15, fontWeight: 600, marginBottom: 8, ...style }}>
+    <h3
+      className="font-serif text-caddie-ink"
+      style={{ fontSize: 19, fontStyle: 'italic', fontWeight: 500, lineHeight: 1.3, marginBottom: 10, ...style }}
+    >
       {children}
     </h3>
   )
@@ -43,12 +47,13 @@ export function Subhead({
 export function Insufficient({ note }: { note: string }) {
   return (
     <div
-      className="text-caddie-ink-mute"
+      className="font-serif text-caddie-ink-dim"
       style={{
-        border: '1px dashed #D9D2BF',
-        borderRadius: 4,
-        padding: '18px 22px',
-        fontSize: 13,
+        borderTop: '1px solid #D9D2BF',
+        borderBottom: '1px solid #D9D2BF',
+        padding: '16px 0',
+        fontSize: 16,
+        fontStyle: 'italic',
       }}
     >
       {note}
@@ -58,36 +63,14 @@ export function Insufficient({ note }: { note: string }) {
 
 export function Skeleton() {
   return (
-    <div>
-      {[0, 1, 2].map((i) => (
-        <div
-          key={i}
-          style={{
-            borderTop: '1px solid #D9D2BF',
-            paddingTop: 18,
-            marginBottom: 32,
-          }}
-        >
-          <div
-            style={{
-              height: 10,
-              width: 120,
-              background: '#EBE5D6',
-              marginBottom: 18,
-            }}
-          />
-          <div className="grid grid-cols-2 sm:grid-cols-4" style={{ gap: 14 }}>
+    <div aria-busy="true">
+      {[0, 1].map((i) => (
+        <div key={i} style={{ borderTop: '1px solid #1C211C', paddingTop: 14, marginBottom: 44 }}>
+          <div style={{ height: 22, width: 180, background: '#EBE5D6', marginBottom: 18 }} />
+          <div style={{ height: 14, width: '60%', maxWidth: 520, background: '#EBE5D6', marginBottom: 22 }} />
+          <div className="grid grid-cols-2 lg:grid-cols-4" style={{ gap: 16 }}>
             {[0, 1, 2, 3].map((j) => (
-              <div
-                key={j}
-                style={{
-                  border: '1px solid #D9D2BF',
-                  background: '#FBF8F1',
-                  borderRadius: 4,
-                  padding: 18,
-                  height: 96,
-                }}
-              />
+              <div key={j} className="paper-tile" style={{ height: 118, opacity: 0.6 }} />
             ))}
           </div>
         </div>

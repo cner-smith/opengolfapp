@@ -98,8 +98,8 @@ export function StatsPreview() {
         </dl>
         <Link
           to="/rounds/new?mode=past"
-          className="bg-caddie-accent text-caddie-accent-ink hover:opacity-90 flex items-center justify-center"
-          style={{ marginTop: 18, padding: '15px 16px', borderRadius: 2, fontSize: 16, fontWeight: 700, letterSpacing: '0.02em' }}
+          className="key key-primary w-full"
+          style={{ marginTop: 18, fontSize: 16, fontWeight: 700, letterSpacing: '0.02em' }}
         >
           Log a round →
         </Link>

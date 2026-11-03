@@ -10,7 +10,7 @@ const WRAP: React.CSSProperties = { maxWidth: 1180, margin: '0 auto', padding: '
 
 export function PrimaryCta({ isAuthed, inverse }: { isAuthed: boolean; inverse?: boolean }) {
   return (
-    <Link to={isAuthed ? '/dashboard' : '/signup'} className={inverse ? 'lb-btn lb-btn-inverse' : 'lb-btn'}>
+    <Link to={isAuthed ? '/dashboard' : '/signup'} className={inverse ? 'key lb-cta lb-cta-inverse' : 'key key-primary lb-cta'}>
       {isAuthed ? 'Go to app' : 'Create account'}{' '}
       <span className="font-serif" style={{ fontStyle: 'italic' }}>
         →
@@ -25,7 +25,7 @@ export function PrimaryCta({ isAuthed, inverse }: { isAuthed: boolean; inverse?:
 
 export function Free() {
   return (
-    <section className="lb-section lb-ruled">
+    <section className="lb-section">
       <div style={WRAP} className="lb-free">
         <h2 className="lb-sentence font-serif">
           It&apos;s free, and it <em className="lb-accent">stays</em> free.
@@ -122,12 +122,12 @@ export function Close() {
     <section className="lb-close">
       <div style={{ ...WRAP, textAlign: 'center' }}>
         <h2 className="lb-close-title font-serif">
-          {isAuthed ? 'Welcome back.' : 'Find your sentence.'}
+          {isAuthed ? 'Welcome back.' : 'Stop guessing what to work on.'}
         </h2>
         <p className="lb-close-sub">
           {isAuthed
             ? 'Pick up where you left off.'
-            : 'Play a few rounds with OGA in your pocket and it will tell you where yours go.'}
+            : 'Play your rounds, mark your shots, and OGA tells you where the strokes went and builds the practice around it.'}
         </p>
         <div style={{ marginTop: 30 }}>
           <PrimaryCta isAuthed={isAuthed} inverse />
@@ -148,6 +148,7 @@ export function Close() {
 // ---------------------------------------------------------------------------
 
 export function Footer() {
+  const { user, loading } = useAuth()
   return (
     <footer className="lb-footer">
       <div style={WRAP} className="landing-footer lb-footer-grid">
@@ -161,7 +162,7 @@ export function Footer() {
           <a href="https://github.com/sponsors/cner-smith" target="_blank" rel="noreferrer noopener">Sponsors</a>
           <Link to="/privacy">Privacy</Link>
           <Link to="/support">Support</Link>
-          <Link to="/login">Sign in</Link>
+          {!loading && user ? <Link to="/dashboard">Go to app</Link> : <Link to="/login">Sign in</Link>}
         </nav>
         <div className="lb-footer-note">Free and open source, MIT License</div>
       </div>

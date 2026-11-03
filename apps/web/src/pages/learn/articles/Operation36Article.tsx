@@ -1,4 +1,4 @@
-import { SrcBody, SrcLabel } from '../components/ArticlePrimitives'
+import { ArticleTitle, SrcBody, SrcLabel, Subhead } from '../components/ArticlePrimitives'
 import type { CSSProperties, ReactNode } from 'react'
 
 export function Operation36Article() {
@@ -11,22 +11,7 @@ export function Operation36Article() {
         marginBottom: 32,
       }}
     >
-      <div className="kicker" style={{ marginBottom: 14 }}>
-        Improving your game · Operation 36
-      </div>
-      <h2
-        className="font-serif text-caddie-ink"
-        style={{
-          fontSize: 28,
-          fontWeight: 500,
-          fontStyle: 'italic',
-          letterSpacing: '-0.015em',
-          lineHeight: 1.15,
-          marginBottom: 18,
-        }}
-      >
-        The Operation 36 philosophy.
-      </h2>
+      <ArticleTitle>The Operation 36 philosophy.</ArticleTitle>
 
       <P>
         Most golfers are taught to build a swing first and play golf later.
@@ -36,7 +21,7 @@ export function Operation36Article() {
 
       <Hr />
 
-      <H3>Most golfers learn in the wrong order</H3>
+      <H2>Most golfers learn in the wrong order</H2>
       <P>
         The traditional path into golf goes like this: stand on a mat at the
         range, hit a full swing a few hundred times, chase a textbook position,
@@ -58,7 +43,7 @@ export function Operation36Article() {
 
       <Hr />
 
-      <H3>How the progression works</H3>
+      <H2>How the progression works</H2>
       <P>
         The whole system runs on one number you can pass or fail:{' '}
         <strong>shoot 36 — par for nine holes — from your current distance.</strong>{' '}
@@ -83,7 +68,7 @@ export function Operation36Article() {
 
       <Hr />
 
-      <H3>What "36" actually means</H3>
+      <H2>What "36" actually means</H2>
       <P>
         The 36 is simply par for nine holes — four strokes a hole, nine holes,
         thirty-six. What makes it clever is that you're chasing that par on a
@@ -105,7 +90,7 @@ export function Operation36Article() {
 
       <Hr />
 
-      <H3>Why starting near the hole works</H3>
+      <H2>Why starting near the hole works</H2>
       <P>
         The instinct to "master the swing first" feels responsible, but it puts
         the hardest, least rewarding part of golf at the very front, before any
@@ -148,7 +133,7 @@ export function Operation36Article() {
 
       <Hr />
 
-      <H3>What it actually teaches</H3>
+      <H2>What it actually teaches</H2>
       <P>
         Beyond getting beginners hooked, the inside-out order quietly teaches a
         few things the range-first path tends to leave out:
@@ -173,7 +158,7 @@ export function Operation36Article() {
 
       <Hr />
 
-      <H3>What the program actually sells</H3>
+      <H2>What the program actually sells</H2>
       <P>
         The distance ladder is the part that's easy to describe, but it isn't
         really what you pay for. Operation 36 is built around coaching: a
@@ -195,7 +180,7 @@ export function Operation36Article() {
 
       <Hr />
 
-      <H3>Borrowing the idea without joining the program</H3>
+      <H2>Borrowing the idea without joining the program</H2>
       <P>
         You don't need to enroll anywhere to use the thinking. The philosophy
         survives perfectly well on its own, and any golfer — beginner or not —
@@ -217,7 +202,7 @@ export function Operation36Article() {
 
       <Hr />
 
-      <H3>A guided version you can build for free</H3>
+      <H2>A guided version you can build for free</H2>
       <P>
         On the course, the same logic argues for playing the tees that fit your
         game today rather than the ones ego or habit picks for you. Move up,
@@ -247,7 +232,7 @@ export function Operation36Article() {
 
       <Hr />
 
-      <H3>Credit where it's due</H3>
+      <H2>Credit where it's due</H2>
       <P>
         The structured, distance-based progression described here was developed
         and popularized by{' '}
@@ -282,9 +267,9 @@ const UL_STYLE: CSSProperties = {
   color: '#1C211C',
 }
 
-function H3({ children }: { children: ReactNode }) {
+function H2({ children }: { children: ReactNode }) {
   return (
-    <h3
+    <h2
       className="font-serif text-caddie-ink"
       style={{
         fontSize: 22,
@@ -295,7 +280,7 @@ function H3({ children }: { children: ReactNode }) {
       }}
     >
       {children}
-    </h3>
+    </h2>
   )
 }
 
@@ -424,10 +409,8 @@ function Gate() {
     >
       <div style={{ width: 2, height: 8, background: '#9F9580' }} />
       <span
-        className="font-mono uppercase"
         style={{
-          fontSize: 9,
-          letterSpacing: '0.14em',
+          fontSize: 12,
           color: '#5C6356',
           padding: '2px 0',
         }}
@@ -450,9 +433,7 @@ function Gate() {
 function Sources() {
   return (
     <section style={{ borderTop: '1px solid #D9D2BF', paddingTop: 18, marginTop: 22 }}>
-      <div className="kicker" style={{ marginBottom: 12 }}>
-        Sources
-      </div>
+      <Subhead>Sources</Subhead>
       <div style={{ display: 'grid', gap: 14, maxWidth: 640 }}>
         <div>
           <SrcLabel>The program — distance progression and the "shoot 36" rule</SrcLabel>
@@ -502,10 +483,9 @@ function Src({ href, children }: { href: string; children: ReactNode }) {
 function Footer() {
   return (
     <div
-      className="font-mono uppercase text-caddie-ink-mute"
+      className="text-caddie-ink-dim"
       style={{
-        fontSize: 10,
-        letterSpacing: '0.14em',
+        fontSize: 12,
         borderTop: '1px solid #D9D2BF',
         paddingTop: 18,
         marginTop: 22,

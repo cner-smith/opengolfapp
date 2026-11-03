@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { shouldPromptPlanRefresh } from './refresh'
+import { generateMaySendToAi, isAiWrittenPlan, shouldPromptPlanRefresh } from './refresh'
 
 describe('shouldPromptPlanRefresh', () => {
   it('prompts after the 2nd round when the plan was a starter (built on 0 rounds)', () => {
@@ -30,5 +30,41 @@ describe('shouldPromptPlanRefresh', () => {
 
   it('does not prompt when the plan saw more rounds than exist now (rounds deleted)', () => {
     expect(shouldPromptPlanRefresh({ planRounds: 4, roundsNow: 3 })).toBe(false)
+  })
+})
+
+describe('generateMaySendToAi', () => {
+  it('says so from the 5th round with strokes gained', () => {
+    expect(generateMaySendToAi(5)).toBe(true)
+    expect(generateMaySendToAi(12)).toBe(true)
+  })
+
+  it('stays quiet below 5 rounds, where the plan is built without AI', () => {
+    expect(generateMaySendToAi(0)).toBe(false)
+    expect(generateMaySendToAi(4)).toBe(false)
+  })
+
+  it('says so while the round count is unknown', () => {
+    expect(generateMaySendToAi(null)).toBe(true)
+    expect(generateMaySendToAi(undefined)).toBe(true)
+  })
+})
+
+describe('isAiWrittenPlan', () => {
+  it('is true when Claude’s draft was stored, first time or after a repair', () => {
+    expect(isAiWrittenPlan({ status: 'ok', model: 'm', attempts: [], request_id: null })).toBe(true)
+    expect(isAiWrittenPlan({ status: 'repaired', model: 'm', attempts: [], request_id: null })).toBe(true)
+  })
+
+  it('is false for a plan built without AI', () => {
+    expect(isAiWrittenPlan({ status: 'baseline', reason: 'insufficient_rounds' })).toBe(false)
+    expect(isAiWrittenPlan({ status: 'error', model: 'm', error_type: 'x', request_id: null, message: 'x' })).toBe(false)
+  })
+
+  it('is false for plans with no record of how they were built', () => {
+    expect(isAiWrittenPlan(null)).toBe(false)
+    expect(isAiWrittenPlan(undefined)).toBe(false)
+    expect(isAiWrittenPlan('ok')).toBe(false)
+    expect(isAiWrittenPlan([])).toBe(false)
   })
 })

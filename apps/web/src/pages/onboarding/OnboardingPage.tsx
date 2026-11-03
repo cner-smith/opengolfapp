@@ -1,9 +1,10 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { DEFAULT_BAG, type Facility, type Goal, type SkillLevel } from '@oga/core'
 import { seedDefaultBag } from '@oga/supabase'
 import { useUpdateProfile } from '../../hooks/useProfile'
 import { useAuth } from '../../hooks/useAuth'
+import { useDocumentTitle } from '../../hooks/useDocumentTitle'
 import { supabase } from '../../lib/supabase'
 import { Step1Skill } from './steps/Step1Skill'
 import { Step2Handicap } from './steps/Step2Handicap'
@@ -13,6 +14,7 @@ import { Step5Summary } from './steps/Step5Summary'
 import { Step6Bag } from './steps/Step6Bag'
 import { Step7Import } from './steps/Step7Import'
 import { toUserMessage } from '../../lib/errors'
+import { Wordmark } from '../../components/landing/Wordmark'
 
 export interface OnboardingDraft {
   skillLevel: SkillLevel | null
@@ -24,6 +26,9 @@ export interface OnboardingDraft {
 }
 
 const TOTAL_STEPS = 7
+
+// Where Step 2 starts for each Step 1 answer, until the golfer moves it.
+const SEED_HANDICAP: Record<SkillLevel, number> = { beginner: 36, casual: 28, developing: 18, competitive: 6 }
 
 export function OnboardingPage() {
   const navigate = useNavigate()
@@ -40,26 +45,46 @@ export function OnboardingPage() {
     playStyle: null,
   })
   // Bag step starts with all DEFAULT_BAG clubs selected. User toggles
-  // off any they don't carry. Skipping the step doesn't seed at all —
-  // the bag stays empty and ShotEntryModal falls back to DEFAULT_BAG
-  // until the user explicitly populates it.
+  // off any they don't carry. There's no separate skip: an untouched bag
+  // and an empty one both end up as DEFAULT_BAG (useUserBag's fallback).
   const [bagSelection, setBagSelection] = useState<Set<string>>(
     () => new Set(DEFAULT_BAG.map((c) => c.club_type)),
   )
   const [savingBag, setSavingBag] = useState(false)
+  const [handicapTouched, setHandicapTouched] = useState(false)
+  useDocumentTitle(`${stepLabel(step)} · OGA`)
 
+  // Each step is a new component, so Continue/Back unmount the focused key
+  // and focus falls to <body>. Move it to the new step's heading instead
+  // (not on the first paint: nothing has changed yet).
+  const pageRef = useRef<HTMLDivElement>(null)
+  const shownStep = useRef(step)
+  useEffect(() => {
+    if (shownStep.current === step) return
+    shownStep.current = step
+    pageRef.current?.querySelector<HTMLElement>('h1')?.focus()
+  }, [step])
+
+  // An answer changed from step 5's rows: Continue goes straight back there.
+  const [editing, setEditing] = useState(false)
+  function goTo(n: number) {
+    setError(null)
+    setStep(n)
+  }
   function next() {
-    if (step < TOTAL_STEPS) setStep(step + 1)
+    if (editing && step < 5) {
+      setEditing(false)
+      goTo(5)
+    } else if (step < TOTAL_STEPS) goTo(step + 1)
   }
+  // Step 1 has no Back: the user is signed in, so there is nothing behind it.
   function back() {
-    if (step > 1) setStep(step - 1)
-    else navigate('/login')
+    if (step > 1) goTo(step - 1)
   }
 
-  // Step 5 → save profile, advance to bag step. Step 6 → save bag (or
-  // skip) and finish onboarding. Splitting the saves keeps the bag truly
-  // optional: a user who skips never inserts a user_clubs row. Step 7 (import)
-  // comes after the finish, so it only picks where the user lands.
+  // Step 5 → save profile, advance to bag step. Step 6 → save bag and
+  // finish onboarding. Step 7 (import) comes after the finish, so it only
+  // picks where the user lands.
   async function saveProfile() {
     setError(null)
     if (draft.handicap < -10 || draft.handicap > 54) {
@@ -105,23 +130,10 @@ export function OnboardingPage() {
     }
   }
 
-  async function skipBag() {
-    if (!user) return
-    setError(null)
-    setSavingBag(true)
-    try {
-      await updateProfile.mutateAsync({ onboarding_completed: true })
-      setStep(7)
-    } catch (err) {
-      setError(toUserMessage(err))
-    } finally {
-      setSavingBag(false)
-    }
-  }
-
   return (
     <div className="flex min-h-screen items-start justify-center bg-caddie-bg">
       <div
+        ref={pageRef}
         className="w-full"
         style={{
           maxWidth: 520,
@@ -129,113 +141,141 @@ export function OnboardingPage() {
         }}
       >
         <div style={{ marginBottom: 32 }}>
-          <div
-            className="font-serif text-caddie-ink"
-            style={{ fontSize: 22, fontWeight: 500 }}
-          >
-            OGA
-          </div>
-          <div className="kicker" style={{ marginTop: 4 }}>
-            Open Golf App
-          </div>
+          <Wordmark />
         </div>
 
-        <StepIndicator current={step} total={TOTAL_STEPS} />
+        <StepIndicator current={step} />
 
-        {step === 1 && (
-          <Step1Skill
-            value={draft.skillLevel}
-            onChange={(skillLevel) => setDraft((d) => ({ ...d, skillLevel }))}
-            onBack={back}
-            onContinue={next}
-          />
-        )}
-        {step === 2 && (
-          <Step2Handicap
-            value={draft.handicap}
-            onChange={(handicap) => setDraft((d) => ({ ...d, handicap }))}
-            onBack={back}
-            onContinue={next}
-          />
-        )}
-        {step === 3 && (
-          <Step3Goal
-            value={draft.goal}
-            onChange={(goal) => setDraft((d) => ({ ...d, goal }))}
-            onBack={back}
-            onContinue={next}
-          />
-        )}
-        {step === 4 && (
-          <Step4Details
-            frequency={draft.playFrequency}
-            facilities={draft.facilities}
-            playStyle={draft.playStyle}
-            onChange={(patch) =>
-              setDraft((d) => ({
-                ...d,
-                playFrequency: patch.frequency ?? d.playFrequency,
-                facilities: patch.facilities ?? d.facilities,
-                playStyle: patch.playStyle ?? d.playStyle,
-              }))
-            }
-            onBack={back}
-            onContinue={next}
-          />
-        )}
-        {step === 5 && (
-          <Step5Summary
-            draft={draft}
-            saving={updateProfile.isPending}
-            error={error}
-            onBack={back}
-            onSave={saveProfile}
-          />
-        )}
-        {step === 6 && (
-          <Step6Bag
-            selected={bagSelection}
-            onChange={setBagSelection}
-            onBack={back}
-            onContinue={saveBagAndFinish}
-            onSkip={skipBag}
-            busy={savingBag}
-            error={error}
-          />
-        )}
-        {step === 7 && (
-          <Step7Import
-            onImport={() => navigate('/rounds/import', { replace: true })}
-            onSkip={() => navigate('/dashboard', { replace: true })}
-          />
-        )}
+        {/* Keyed by step: each new step fades in where the last one was, its
+            keys rising onto their ledges (index.css .onb-step). */}
+        <div key={step} className="onb-step">
+          {step === 1 && (
+            <Step1Skill
+              value={draft.skillLevel}
+              onChange={(skillLevel) =>
+                setDraft((d) => ({ ...d, skillLevel, handicap: handicapTouched ? d.handicap : SEED_HANDICAP[skillLevel] }))
+              }
+              onContinue={next}
+            />
+          )}
+          {step === 2 && (
+            <Step2Handicap
+              value={draft.handicap}
+              seeded={!handicapTouched}
+              onChange={(handicap) => {
+                setHandicapTouched(true)
+                setDraft((d) => ({ ...d, handicap }))
+              }}
+              onBack={back}
+              onContinue={next}
+            />
+          )}
+          {step === 3 && (
+            <Step3Goal
+              value={draft.goal}
+              onChange={(goal) => setDraft((d) => ({ ...d, goal }))}
+              onBack={back}
+              onContinue={next}
+            />
+          )}
+          {step === 4 && (
+            <Step4Details
+              frequency={draft.playFrequency}
+              facilities={draft.facilities}
+              playStyle={draft.playStyle}
+              onChange={(patch) =>
+                setDraft((d) => ({
+                  ...d,
+                  playFrequency: patch.frequency ?? d.playFrequency,
+                  facilities: patch.facilities ?? d.facilities,
+                  playStyle: patch.playStyle ?? d.playStyle,
+                }))
+              }
+              onBack={back}
+              onContinue={next}
+            />
+          )}
+          {step === 5 && (
+            <Step5Summary
+              draft={draft}
+              saving={updateProfile.isPending}
+              error={error}
+              onBack={back}
+              onEdit={(n) => {
+                setEditing(true)
+                goTo(n)
+              }}
+              onSave={saveProfile}
+            />
+          )}
+          {step === 6 && (
+            <Step6Bag
+              selected={bagSelection}
+              onChange={setBagSelection}
+              onBack={back}
+              onContinue={saveBagAndFinish}
+              busy={savingBag}
+              error={error}
+            />
+          )}
+          {step === 7 && (
+            <Step7Import
+              onImport={() => navigate('/rounds/import', { replace: true })}
+              onSkip={() => navigate('/dashboard', { replace: true })}
+            />
+          )}
+        </div>
       </div>
     </div>
   )
 }
 
-function StepIndicator({ current, total }: { current: number; total: number }) {
+// Five numbered steps; the bag is optional and the import offer comes after
+// the profile is saved, so neither takes a number.
+const NUMBERED_STEPS = 5
+
+function stepLabel(current: number) {
+  return current <= NUMBERED_STEPS ? `Step ${current} of ${NUMBERED_STEPS}` : current === 6 ? 'Optional: your bag' : 'One more thing'
+}
+
+// A scorecard's hole row: steps done in ink, the current one ringed like a
+// birdie, the rest pale. The bag and import aren't numbered, so they show
+// their label instead. The status line announces each step (#1260).
+function StepIndicator({ current }: { current: number }) {
+  const label = stepLabel(current)
   return (
     <div style={{ marginBottom: 28 }}>
-      <div className="kicker" style={{ marginBottom: 10 }}>
-        Step {current} of {total}
-      </div>
-      <div
-        style={{
-          width: '100%',
-          height: 1,
-          backgroundColor: '#D9D2BF',
-          position: 'relative',
-        }}
-      >
-        <div
-          style={{
-            width: `${(current / total) * 100}%`,
-            height: 1,
-            backgroundColor: '#1F3D2C',
-            transition: 'width 200ms ease',
-          }}
-        />
+      {current <= NUMBERED_STEPS ? (
+        <ol className="flex" style={{ gap: 6 }} aria-hidden>
+          {Array.from({ length: NUMBERED_STEPS }, (_, i) => {
+            const n = i + 1
+            const now = n === current
+            return (
+              <li
+                key={n}
+                className={now ? 'font-serif tabular onb-hole' : 'font-serif tabular'}
+                style={{
+                  width: 28,
+                  height: 28,
+                  display: 'grid',
+                  placeItems: 'center',
+                  fontSize: 15,
+                  fontStyle: 'italic',
+                  fontWeight: 500,
+                  borderRadius: '50%',
+                  border: now ? '1.5px solid #1F3D2C' : '1.5px solid transparent',
+                  background: now ? '#FBF8F1' : 'transparent',
+                  color: now ? '#1F3D2C' : n < current ? '#1C211C' : '#9F9580',
+                }}
+              >
+                {n}
+              </li>
+            )
+          })}
+        </ol>
+      ) : null}
+      <div role="status" className={current <= NUMBERED_STEPS ? 'sr-only' : 'text-caddie-ink-dim'} style={{ fontSize: 13 }}>
+        {label}
       </div>
     </div>
   )

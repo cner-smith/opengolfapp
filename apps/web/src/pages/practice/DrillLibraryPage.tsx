@@ -73,51 +73,42 @@ export function DrillLibraryPage() {
         and a rep target. Open one to read it.
       </p>
 
-      {/* One compact filter row: part of the game, practice mode, this week's plan, order. */}
-      <div className="flex flex-wrap items-center" style={{ gap: 8, marginTop: 18, paddingBottom: 14 }}>
-        <div role="group" aria-label="Part of the game" className="flex flex-wrap" style={{ gap: 6 }}>
-          {(['all', ...CATEGORIES] as const).map((c) => (
-            <Chip key={c} on={category === c} onClick={() => setCategory(c)}>
-              {c === 'all' ? 'All' : CATEGORY_LABEL[c]}
-            </Chip>
+      {/* Filters as latched keys (mobile drills.tsx): this week's plan, part of the game and order, then
+          the practice mode. On a phone each row scrolls sideways. */}
+      <div style={{ marginTop: 18, paddingBottom: 14, display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <div className="drl-keys">
+          {planIds.size > 0 ? (
+            <>
+              <FilterKey on={planOnly} onClick={() => setPlanOnly((v) => !v)}>
+                In this week's plan · {planIds.size}
+              </FilterKey>
+              <Divider />
+            </>
+          ) : null}
+          <div role="group" aria-label="Part of the game" className="flex" style={{ gap: 6 }}>
+            {(['all', ...CATEGORIES] as const).map((c) => (
+              <FilterKey key={c} on={category === c} onClick={() => setCategory(c)}>
+                {c === 'all' ? 'All' : CATEGORY_LABEL[c]}
+              </FilterKey>
+            ))}
+          </div>
+          <Divider />
+          <button
+            type="button"
+            onClick={() => setSort((s) => (s === 'az' ? 'za' : 'az'))}
+            className="key key-sm"
+            aria-label={`Sort ${sort === 'az' ? 'Z to A' : 'A to Z'}`}
+          >
+            {sort === 'az' ? 'A to Z' : 'Z to A'}
+          </button>
+        </div>
+        <div role="group" aria-label="Practice mode" className="drl-keys">
+          {(['all', ...MODES] as const).map((m) => (
+            <FilterKey key={m} on={mode === m} onClick={() => setMode(m)}>
+              {m === 'all' ? 'Any mode' : BLOCK_TYPE_LABEL[m]}
+            </FilterKey>
           ))}
         </div>
-        <span aria-hidden className="hidden sm:block" style={{ width: 1, height: 20, background: LINE, margin: '0 4px' }} />
-        <select
-          aria-label="Practice mode"
-          value={mode}
-          onChange={(e) => setMode(e.target.value as BlockType | 'all')}
-          style={{
-            ...chipStyle(mode !== 'all'),
-            appearance: 'none',
-            paddingRight: 24,
-            backgroundImage: `linear-gradient(45deg, transparent 50%, currentColor 50%), linear-gradient(135deg, currentColor 50%, transparent 50%)`,
-            backgroundPosition: 'right 12px center, right 8px center',
-            backgroundSize: '4px 4px',
-            backgroundRepeat: 'no-repeat',
-          }}
-        >
-          <option value="all">Any mode</option>
-          {MODES.map((m) => (
-            <option key={m} value={m}>
-              {BLOCK_TYPE_LABEL[m]}
-            </option>
-          ))}
-        </select>
-        {planIds.size > 0 ? (
-          <Chip on={planOnly} onClick={() => setPlanOnly((v) => !v)}>
-            In this week's plan · {planIds.size}
-          </Chip>
-        ) : null}
-        <button
-          type="button"
-          onClick={() => setSort((s) => (s === 'az' ? 'za' : 'az'))}
-          className="text-caddie-ink-dim hover:text-caddie-ink"
-          style={{ fontSize: 13, marginLeft: 4 }}
-          aria-label={`Sort ${sort === 'az' ? 'Z to A' : 'A to Z'}`}
-        >
-          {sort === 'az' ? 'A to Z' : 'Z to A'}
-        </button>
       </div>
 
       {drillsQuery.isLoading ? (
@@ -152,11 +143,18 @@ export function DrillLibraryPage() {
                 {g.drills.length} drill{g.drills.length === 1 ? '' : 's'}
               </span>
             </div>
-            {/* Two index columns from 1024 px; read down, then across. */}
-            <div className="lg:columns-2" style={{ columnGap: 36 }}>
-              {g.drills.map((d) => (
-                <IndexLine key={d.id} drill={d} inPlan={planIds.has(d.id)} />
-              ))}
+            {/* Two index columns from 1024 px; read down, then across. Each column is its own stack, so
+                opening a drill only moves the lines under it. */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 items-start" style={{ columnGap: 36 }}>
+              {[g.drills.slice(0, Math.ceil(g.drills.length / 2)), g.drills.slice(Math.ceil(g.drills.length / 2))].map(
+                (col, i) => (
+                  <div key={i}>
+                    {col.map((d) => (
+                      <IndexLine key={d.id} drill={d} inPlan={planIds.has(d.id)} />
+                    ))}
+                  </div>
+                ),
+              )}
             </div>
           </section>
         ))
@@ -176,26 +174,16 @@ function emptyLine(category: PlanCategory | 'all', mode: BlockType | 'all', plan
   return planOnly ? `This week's plan has no ${what}.` : `No ${what} yet.`
 }
 
-function chipStyle(on: boolean): React.CSSProperties {
-  return {
-    background: on ? '#1F3D2C' : '#EBE5D6',
-    color: on ? '#F2EEE5' : '#1C211C',
-    border: 'none',
-    borderRadius: 2,
-    padding: '6px 10px',
-    fontSize: 12,
-    fontWeight: on ? 600 : 400,
-    whiteSpace: 'nowrap',
-    cursor: 'pointer',
-  }
-}
-
-function Chip({ on, onClick, children }: { on: boolean; onClick: () => void; children: React.ReactNode }) {
+function FilterKey({ on, onClick, children }: { on: boolean; onClick: () => void; children: React.ReactNode }) {
   return (
-    <button type="button" aria-pressed={on} onClick={onClick} style={chipStyle(on)}>
+    <button type="button" aria-pressed={on} onClick={onClick} className="key key-sm">
       {children}
     </button>
   )
+}
+
+function Divider() {
+  return <span aria-hidden style={{ flex: 'none', width: 1, height: 24, background: '#9F9580', margin: '0 6px' }} />
 }
 
 function IndexLine({ drill, inPlan }: { drill: Drill; inPlan: boolean }) {
@@ -209,7 +197,7 @@ function IndexLine({ drill, inPlan }: { drill: Drill; inPlan: boolean }) {
   ].join(' · ')
 
   return (
-    <div style={{ borderTop: `1px solid ${LINE}`, padding: '9px 0 8px', breakInside: 'avoid' }} data-testid="drill-line">
+    <div style={{ borderTop: `1px solid ${LINE}`, padding: '9px 0 8px' }} data-testid="drill-line">
       <button
         type="button"
         onClick={() => canExpand && setOpen((o) => !o)}
@@ -248,20 +236,25 @@ function IndexLine({ drill, inPlan }: { drill: Drill; inPlan: boolean }) {
         </span>
       </div>
       {canExpand && open ? (
-        <div id={`drill-detail-${drill.id}`} style={{ marginTop: 10, paddingBottom: 6 }}>
-          {renderInstructions(instructions)}
-          {drill.source ? (
-            <div className="text-caddie-ink-dim" style={{ fontSize: 12, marginTop: 12 }}>
-              From{' '}
-              {drill.source_url ? (
-                <a href={drill.source_url} target="_blank" rel="noopener noreferrer" className="text-caddie-ink underline">
-                  {drill.source}
-                </a>
-              ) : (
-                drill.source
-              )}
+        // Opens by growing its row from 0fr to 1fr (index.css .drl-open).
+        <div id={`drill-detail-${drill.id}`} className="drl-open">
+          <div style={{ minHeight: 0, overflow: 'hidden' }}>
+            <div style={{ paddingTop: 10, paddingBottom: 6 }}>
+              {renderInstructions(instructions)}
+              {drill.source ? (
+                <div className="text-caddie-ink-dim" style={{ fontSize: 12, marginTop: 12 }}>
+                  From{' '}
+                  {drill.source_url ? (
+                    <a href={drill.source_url} target="_blank" rel="noopener noreferrer" className="text-caddie-ink underline">
+                      {drill.source}
+                    </a>
+                  ) : (
+                    drill.source
+                  )}
+                </div>
+              ) : null}
             </div>
-          ) : null}
+          </div>
         </div>
       ) : null}
     </div>

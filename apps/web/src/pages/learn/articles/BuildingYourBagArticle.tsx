@@ -1,4 +1,4 @@
-import { SrcBody, SrcLabel } from '../components/ArticlePrimitives'
+import { ArticleTitle, SrcBody, SrcLabel, Subhead } from '../components/ArticlePrimitives'
 import type { ReactNode } from 'react'
 
 export function BuildingYourBagArticle() {
@@ -11,24 +11,9 @@ export function BuildingYourBagArticle() {
         marginBottom: 32,
       }}
     >
-      <div className="kicker" style={{ marginBottom: 14 }}>
-        Your equipment · Building your bag
-      </div>
-      <h2
-        className="font-serif text-caddie-ink"
-        style={{
-          fontSize: 28,
-          fontWeight: 500,
-          fontStyle: 'italic',
-          letterSpacing: '-0.015em',
-          lineHeight: 1.15,
-          marginBottom: 18,
-        }}
-      >
-        Building your bag.
-      </h2>
+      <ArticleTitle>Building your bag.</ArticleTitle>
 
-      <H3>Fourteen clubs is a budget, not a checklist</H3>
+      <H2>Fourteen clubs is a budget, not a checklist</H2>
       <P>
         The rules let you carry fourteen clubs — no more. Most golfers fill that
         number out of habit: driver, 3-wood, irons down through the pitching
@@ -47,7 +32,7 @@ export function BuildingYourBagArticle() {
 
       <Hr />
 
-      <H3>Start from your distances, not the set</H3>
+      <H2>Start from your distances, not the set</H2>
       <Aid svg={<GapLadderDiagram />}>
         <AidBody>
           Build the bag backwards from your own distances, not forwards from a set
@@ -66,7 +51,7 @@ export function BuildingYourBagArticle() {
 
       <Hr />
 
-      <H3>The top of the bag: driver down to your longest club</H3>
+      <H2>The top of the bag: driver down to your longest club</H2>
       <P>
         This is where the most common dead zone hides. Modern lofts are strong,
         and a lot of amateurs find their 3-, 4-, and 5-iron all finish within ten
@@ -85,7 +70,7 @@ export function BuildingYourBagArticle() {
 
       <Hr />
 
-      <H3>The scoring clubs: wedges, where strokes are won and lost</H3>
+      <H2>The scoring clubs: wedges, where strokes are won and lost</H2>
       <Aid svg={<WedgeLoftDiagram />}>
         <AidBody>
           The bottom of the bag is where most amateurs quietly leak strokes.
@@ -112,7 +97,7 @@ export function BuildingYourBagArticle() {
 
       <Hr />
 
-      <H3>The putter — the club you use most</H3>
+      <H2>The putter — the club you use most</H2>
       <P>
         Roughly 40% of the strokes in a round are putts, which makes the putter
         the one slot you should never treat as an afterthought or a hand-me-down.
@@ -123,7 +108,7 @@ export function BuildingYourBagArticle() {
 
       <Hr />
 
-      <H3>Where the fourteen go</H3>
+      <H2>Where the fourteen go</H2>
       <P>
         There's no single correct bag, but a no-dead-zone build for most golfers
         lands close to this. The exact count flexes — drop a wedge to add a
@@ -146,9 +131,9 @@ export function BuildingYourBagArticle() {
   )
 }
 
-function H3({ children }: { children: ReactNode }) {
+function H2({ children }: { children: ReactNode }) {
   return (
-    <h3
+    <h2
       className="font-serif text-caddie-ink"
       style={{
         fontSize: 22,
@@ -159,7 +144,7 @@ function H3({ children }: { children: ReactNode }) {
       }}
     >
       {children}
-    </h3>
+    </h2>
   )
 }
 
@@ -203,9 +188,7 @@ function DeadZones() {
         marginBottom: 18,
       }}
     >
-      <div className="kicker" style={{ marginBottom: 12, color: '#5C6356' }}>
-        The two dead zones
-      </div>
+      <Subhead>The two dead zones</Subhead>
       {rows.map((r, i) => (
         <div
           key={r.label}
@@ -395,9 +378,7 @@ function SampleBag() {
 function Sources() {
   return (
     <section style={{ borderTop: '1px solid #D9D2BF', paddingTop: 18, marginTop: 22 }}>
-      <div className="kicker" style={{ marginBottom: 12 }}>
-        Sources
-      </div>
+      <Subhead>Sources</Subhead>
       <div style={{ display: 'grid', gap: 14, maxWidth: 640 }}>
         <div>
           <SrcLabel>The fourteen-club limit</SrcLabel>
@@ -458,10 +439,9 @@ function Src({ href, children }: { href: string; children: ReactNode }) {
 function Footer() {
   return (
     <div
-      className="font-mono uppercase text-caddie-ink-mute"
+      className="text-caddie-ink-dim"
       style={{
-        fontSize: 10,
-        letterSpacing: '0.14em',
+        fontSize: 12,
         borderTop: '1px solid #D9D2BF',
         paddingTop: 18,
         marginTop: 22,

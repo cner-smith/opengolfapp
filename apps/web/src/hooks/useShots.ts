@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { createShot, createShots, deleteShot, getShotsForRound, updateShot } from '@oga/supabase'
+import { createShot, createShots, getShotsForRound, updateShot } from '@oga/supabase'
 import type { Database } from '@oga/supabase'
 import { supabase } from '../lib/supabase'
 import { useAuth } from './useAuth'
@@ -76,15 +76,45 @@ export function useUpdateShot(roundId: string | undefined) {
   })
 }
 
+// The shot RPCs also re-tally hole_scores, which has its own key.
+function invalidateRpcKeys(qc: ReturnType<typeof useQueryClient>, roundId: string | undefined) {
+  invalidateShotMutationKeys(qc, roundId)
+  qc.invalidateQueries({ queryKey: ['hole-scores', roundId] })
+}
+
+// delete_shot renumbers the later shots and re-tallies the hole score in one
+// transaction, as mobile's Remove does.
 export function useDeleteShot(roundId: string | undefined) {
   const qc = useQueryClient()
-  const { user } = useAuth()
   return useMutation({
     mutationFn: async (id: string) => {
-      if (!user) throw new Error('Not authenticated')
-      const { error } = await deleteShot(supabase, id, user.id)
+      const { error } = await supabase.rpc('delete_shot', { p_shot_id: id })
       if (error) throw error
     },
-    onSuccess: () => invalidateShotMutationKeys(qc, roundId),
+    onSuccess: () => invalidateRpcKeys(qc, roundId),
+  })
+}
+
+// insert_shot puts a shot after another, renumbers the later ones and adds a
+// stroke to the hole score.
+export function useInsertShot(roundId: string | undefined) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (args: {
+      id: string
+      afterShotId: string
+      start: { lat: number; lng: number }
+      distanceToTarget: number | null
+    }) => {
+      const { error } = await supabase.rpc('insert_shot', {
+        p_id: args.id,
+        p_after_shot_id: args.afterShotId,
+        p_start_lat: args.start.lat,
+        p_start_lng: args.start.lng,
+        p_distance_to_target: args.distanceToTarget,
+      })
+      if (error) throw error
+    },
+    onSuccess: () => invalidateRpcKeys(qc, roundId),
   })
 }

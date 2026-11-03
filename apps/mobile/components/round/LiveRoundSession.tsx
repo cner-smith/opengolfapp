@@ -8,14 +8,12 @@ import type { OffscreenArrow } from './HoleMap.types'
 import { HoleReviewSheet } from './HoleReviewSheet'
 import { ShotStepper } from './ShotStepper'
 import {
-  DEFAULT_BAG,
   DEFAULT_HANDICAP,
   applyCapturedShots,
   bearingDegrees,
   buildInitialRows,
   clubTypicalDistance,
   destinationYards,
-  formatClubLabel,
   getExpectedStrokes,
   insertedShotStart,
   isPuttShot,
@@ -29,6 +27,7 @@ import { supabase } from '../../lib/supabase'
 import { distanceYards } from '../../lib/maps'
 import { useAuth } from '../../hooks/useAuth'
 import { useClubDispersion } from './hole/useClubDispersion'
+import { useClubWheel } from './hole/useClubWheel'
 import { useUserBag } from '../../hooks/useUserBag'
 import { useUnits } from '../../hooks/useUnits'
 import { getLeftHand } from '../../lib/leftHand'
@@ -38,7 +37,9 @@ import { useHoleState } from './hole/useHoleState'
 import { useShotActions } from './hole/useShotActions'
 import { HoleModals } from './hole/HoleModals'
 import { LiveRoundDock } from './LiveRoundDock'
+import { BackOnlineTag, useBackOnlineTag } from './BackOnline'
 import { ConfirmDialog } from '../ui/ConfirmDialog'
+import { IdleBlackout, useIdleBlackout } from './IdleBlackout'
 import { CoachOverlay, CoachProvider, CoachTarget, useCoach } from '../help/CoachMarks'
 import { LIVE_AIM_STEPS, LIVE_PLACE_STEPS, LIVE_PUTT_STEPS, PLAYED_HOLE_STEPS } from './coachSteps'
 import { LiveRoundHeader, RoundOptionsMenu } from './LiveRoundHeader'
@@ -116,6 +117,8 @@ export default function LiveRoundSession({
   // One mutually-exclusive confirm dialog at a time. See ActiveDialog
   // in ./hole/types for the full union + rationale (#293).
   const [activeDialog, setActiveDialog] = useState<ActiveDialog>(null)
+  // Confirmed in the paper dialog (a brick Delete beside a plain Cancel).
+  const [deleteShotId, setDeleteShotId] = useState<string | null>(null)
   // Left-toolbar dispersion-dots toggle (T2). Drives the single-color
   // historical-shot scatter overlay; the render lands in T4. Off by
   // default — it's a summoned planning aid, not always-on clutter.
@@ -126,6 +129,7 @@ export default function LiveRoundSession({
   // The dock footer's measured height — the aim frame keeps the ball above it.
   const [footerHeight, setFooterHeight] = useState(0)
   const [dockHeight, setDockHeight] = useState(0)
+  const [rulerDrawer, setRulerDrawer] = useState<{ width: number; top: number } | null>(null)
   const recenterRef = useRef<(() => void) | null>(null)
   // Left-hand layout (§12), device-local; re-read on focus since Profile is
   // a tab away while this screen stays mounted.
@@ -169,6 +173,7 @@ export default function LiveRoundSession({
   }, [initialHoleNumber])
 
   const data = useHoleData(roundId, holeNumber)
+  const [backTag, closeBackTag] = useBackOnlineTag(data.refreshRound)
   // Deep-link / refresh clamp (#718): ?hole= can name a hole past the
   // round's actual count (e.g. hole=10 on a 9-hole round) — the
   // Resume-banner path (useActiveRound) already clamps to the round's
@@ -413,39 +418,9 @@ export default function LiveRoundSession({
       ? data.remoteShotCount + data.localShotCount
       : 0
 
-  // Club wheel (#611 §4): the bag minus the putter, one row per club type.
-  // It opens on the auto pick every shot; a manual pick lasts one shot.
-  // Open state lives here so Back closes the wheel first; it names the shot it opened on (a new shot = closed).
-  const [clubOverride, setClubOverride] = useState<Club | null>(null)
-  const shotKey = `${holeNumber}:${totalShotsThisHole}`, [wheelOpenOn, setWheelOpenOn] = useState<string | null>(null)
-  const wheelOpen = wheelOpenOn === shotKey, setWheelOpen = (open: boolean) => setWheelOpenOn(open ? shotKey : null)
-  useEffect(() => { setClubOverride(null) }, [holeNumber, totalShotsThisHole])
-  const wheelRows = useMemo(() => {
-    const seen = new Set<string>()
-    return (bag.length > 0 ? bag : DEFAULT_BAG)
-      .filter((c) => c.club_type !== 'putter' && !seen.has(c.club_type) && !!seen.add(c.club_type))
-      .map((c) => {
-        const d = byClub.get(c.club_type as Club)
-        // DEFAULT_BAG rows carry no typed distance.
-        const typed = (c as { typical_distance_yards?: number | null }).typical_distance_yards
-        return {
-          club: c.club_type as Club,
-          name: formatClubLabel(c),
-          // The wheel is 124 wide: "driver" at 32 sp pushed the meta off the card.
-          label: c.club_type === 'driver' ? 'dr' : formatClubLabel(c),
-          // Measured once the club has 5 shots, else the My Bag estimate (#1052).
-          typicalYards: clubTypicalDistance(d?.medianDistanceYards, d?.points.length ?? 0, typed)?.yards ?? null,
-          shots: d?.points.length ?? 0,
-          sparse: !d?.dispersion,
-        }
-      })
-  }, [bag, byClub])
-  const autoClub = useMemo(
-    () => selectClub(ballToPinYards, new Set(wheelRows.map((r) => r.club)))?.club ?? null,
-    [selectClub, ballToPinYards, wheelRows],
-  )
+  const { wheelRows, autoClub, wheelClub, setClubOverride, wheelOpen, setWheelOpen } =
+    useClubWheel({ bag, byClub, selectClub, ballToPinYards, holeNumber, totalShotsThisHole })
   autoClubYardsRef.current = wheelRows.find((r) => r.club === autoClub)?.typicalYards ?? null
-  const wheelClub = clubOverride ?? autoClub ?? wheelRows[0]?.club ?? null
   // The Pattern key draws the wheel club's shots around the aim.
   const pattern = useMemo(() => {
     const d = dotsVisible && wheelClub ? byClub.get(wheelClub) : undefined
@@ -487,11 +462,28 @@ export default function LiveRoundSession({
     onRoundCompleted,
   })
 
+  // Coach marks (#900): what's on screen in this state; first-time tips open
+  // on their own, "?" shows them all. Nothing while a sheet / dialog / menu
+  // is up; a played hole shows its own (#1115).
+  const rs = finalState.roundState
+  const coach = useCoach(
+    menuOpen || pinPlacementOpen || activeDialog
+      ? null
+      : editMode ? PLAYED_HOLE_STEPS : rs === 'PLACE_BALL' ? LIVE_PLACE_STEPS : rs === 'SET_AIM' ? LIVE_AIM_STEPS : rs === 'PUTTING' ? LIVE_PUTT_STEPS : null,
+  )
+
+  const idle = useIdleBlackout({
+    paused: activeDialog != null || scorecardOpen || deleteShotId != null,
+    reading: rs === 'SET_AIM' || coach.steps != null,
+    draggingRef: finalState.ballDraggingRef,
+  })
+
   // Android Back (#915): menu/pin/aim aren't Modals; runs before the router's listener (newest first).
   // Only while this screen is focused: the session stays mounted behind Home
   // after Leave, and its "Leave round?" Modal would show over Home (#1032).
   useFocusEffect(useCallback(() => {
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (idle.black) { idle.wake(); return true } // like the first tap (#1121)
       if (data.loading || data.error || !data.round || !data.currentHole || !data.currentHoleScore) return false
       // The review sheet owns Back while it shows. This effect re-subscribes on
       // most renders, and RN runs the newest listener first, so without this
@@ -510,7 +502,7 @@ export default function LiveRoundSession({
       return true
     })
     return () => sub.remove()
-  }, [wheelOpen, menuOpen, pinPlacementOpen, finalState, data, holeNumber, furthestHoleReached, editHole, sheetHeld]))
+  }, [wheelOpen, menuOpen, pinPlacementOpen, finalState, data, holeNumber, furthestHoleReached, editHole, sheetHeld, idle.black]))
 
   // End-of-hole review rows. Built from the shots placed live (their start
   // coords, in order) via the shared @oga/core inference — same call the web
@@ -599,8 +591,6 @@ export default function LiveRoundSession({
     return moveInFlightRef.current
   }
 
-  // Confirmed in the paper dialog (a brick Delete beside a plain Cancel).
-  const [deleteShotId, setDeleteShotId] = useState<string | null>(null)
   const handleDeleteActiveShot = () => setDeleteShotId(data.previousShotIds[activeShotIdx] ?? null)
 
   // Add inserts a shot after the selected one and selects it, ready to drag into place (#1114).
@@ -633,16 +623,6 @@ export default function LiveRoundSession({
     actions.editHoleOnMap()
   }
 
-  // Coach marks (#900): what's on screen in this state; first-time tips open
-  // on their own, "?" shows them all. Nothing while a sheet / dialog / menu
-  // is up; a played hole shows its own (#1115).
-  const rs = finalState.roundState
-  const coach = useCoach(
-    menuOpen || pinPlacementOpen || activeDialog
-      ? null
-      : editMode ? PLAYED_HOLE_STEPS : rs === 'PLACE_BALL' ? LIVE_PLACE_STEPS : rs === 'SET_AIM' ? LIVE_AIM_STEPS : rs === 'PUTTING' ? LIVE_PUTT_STEPS : null,
-  )
-
   if (data.loading || data.error || !data.round || !data.currentHole || !data.currentHoleScore) {
     return (
       <LiveRoundError
@@ -660,7 +640,7 @@ export default function LiveRoundSession({
 
   return (
     <CoachProvider>
-    <View style={{ flex: 1, backgroundColor: P.chrome }}>
+    <View style={{ flex: 1, backgroundColor: P.chrome }} {...idle.touchProps}>
       <LiveRoundHeader
         onHelp={coach.openHelp}
         holeNumber={holeNumber}
@@ -752,6 +732,7 @@ export default function LiveRoundSession({
           lefty={lefty}
           aimBallInset={footerHeight + BALL_ABOVE_DOCK}
           tagClearBottom={dockHeight ? dockHeight + 6 : undefined}
+          tagClearDrawer={rulerDrawer ? { width: rulerDrawer.width + 6, top: footerHeight + rulerDrawer.top + 6 } : undefined}
           onSetAim={(loc) => {
             // A user drag / long-press is an explicit aim — mark it touched so
             // it persists (an untouched auto-spawn suggestion is dropped on
@@ -896,7 +877,19 @@ export default function LiveRoundSession({
           onNotOnGreen={actions.notOnGreen}
           onFooterHeight={setFooterHeight}
           onDockHeight={setDockHeight}
+          onRulerDrawer={setRulerDrawer}
         />
+        {backTag && (
+          <BackOnlineTag
+            holeNumber={holeNumber}
+            anchor={{ top: 12 }}
+            onStillHere={closeBackTag}
+            onMovedOn={() => {
+              closeBackTag()
+              setScorecardOpen(true)
+            }}
+          />
+        )}
       </View>
 
       <HoleModals
@@ -993,6 +986,7 @@ export default function LiveRoundSession({
         />
       )}
       <CoachOverlay steps={coach.steps} onClose={coach.close} />
+      {idle.black && <IdleBlackout onWake={idle.wake} />}
     </View>
     </CoachProvider>
   )

@@ -12,11 +12,12 @@ type RoundUpdate = Database['public']['Tables']['rounds']['Update']
 // Single literal so supabase-js's select-type inference doesn't collapse
 // to GenericStringError.
 // Just enough per hole for @oga/core's isPartialRound / roundHolesPlayed —
-// round-level stats and the "partial" badge need the played-hole count (#911).
+// round-level stats and the "partial" badge need the played-hole count (#911),
+// against the round's hole_count (#727), which the list queries also select.
 // The list queries also select created_at for isStaleEmptyRound (#1055).
 const HOLE_COUNT_EMBED = 'hole_scores(score, holes(number))' as const
 
-const ROUND_COLUMNS = 'id, user_id, course_id, played_at, tee_color, total_score, total_putts, fairways_hit, fairways_total, gir, sg_off_tee, sg_approach, sg_around_green, sg_putting, sg_total, course_tee_id, score_differential, capture_mode' as const
+const ROUND_COLUMNS = 'id, user_id, course_id, played_at, tee_color, total_score, total_putts, fairways_hit, fairways_total, gir, sg_off_tee, sg_approach, sg_around_green, sg_putting, sg_total, course_tee_id, score_differential, capture_mode, completed_at, hole_count' as const
 
 export function getRounds(client: OgaSupabaseClient, userId: string, limit = 20) {
   return client
@@ -76,7 +77,7 @@ export function getRecentSGData(client: OgaSupabaseClient, userId: string, limit
   return client
     .from('rounds')
     .select(
-      `id, played_at, sg_off_tee, sg_approach, sg_around_green, sg_putting, sg_total, total_score, courses(name), ${HOLE_COUNT_EMBED}`,
+      `id, played_at, sg_off_tee, sg_approach, sg_around_green, sg_putting, sg_total, total_score, courses(name), hole_count, ${HOLE_COUNT_EMBED}`,
     )
     .eq('user_id', userId)
     .not('sg_total', 'is', null)
@@ -97,13 +98,32 @@ export function countRoundsWithSG(client: OgaSupabaseClient, userId: string) {
     )
 }
 
+// The planner's course search: which of these courses the player has a round on.
+// One row per round, so it pages past PostgREST's 1000-row cap.
+export async function getRoundCourseIds(client: OgaSupabaseClient, userId: string, courseIds: string[]) {
+  const PAGE = 1000
+  const found = new Set<string>()
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await client
+      .from('rounds')
+      .select('id, course_id')
+      .eq('user_id', userId)
+      .in('course_id', courseIds)
+      .order('id')
+      .range(from, from + PAGE - 1)
+    if (error) return { data: null, error }
+    for (const r of data) found.add(r.course_id)
+    if (data.length < PAGE) return { data: found, error: null }
+  }
+}
+
 // List views include in-progress rounds; the SG dashboard intentionally
 // keeps getRecentSGData (only rounds with computed SG).
 export function getRecentRounds(client: OgaSupabaseClient, userId: string, limit = 10) {
   return client
     .from('rounds')
     .select(
-      `id, played_at, completed_at, created_at, sg_off_tee, sg_approach, sg_around_green, sg_putting, sg_total, total_score, courses(name), ${HOLE_COUNT_EMBED}`,
+      `id, played_at, completed_at, created_at, sg_off_tee, sg_approach, sg_around_green, sg_putting, sg_total, total_score, courses(name), hole_count, ${HOLE_COUNT_EMBED}`,
     )
     .eq('user_id', userId)
     .order('played_at', { ascending: false })
@@ -116,7 +136,7 @@ export function getRecentRounds(client: OgaSupabaseClient, userId: string, limit
 export function getRoundsList(client: OgaSupabaseClient, userId: string, limit = 500) {
   return client
     .from('rounds')
-    .select(`id, played_at, created_at, total_score, sg_total, tee_color, courses(name), ${HOLE_COUNT_EMBED}`)
+    .select(`id, played_at, created_at, total_score, sg_total, tee_color, courses(name), hole_count, ${HOLE_COUNT_EMBED}`)
     .eq('user_id', userId)
     .order('played_at', { ascending: false })
     .limit(limit)

@@ -160,7 +160,7 @@ function RoundScreen() {
   const [editShotId, setEditShotId] = useState<string | null>(null)
   const shareCardRef = useRef<View>(null)
   const { unit } = useUnits()
-  const { user } = useAuth()
+  const { user, offline } = useAuth()
   // "Today's focus" nudge data — fetched lazily, only when the round has a leak.
   const [nudgeFacilities, setNudgeFacilities] = useState<string[]>([])
   const [nudgeDrills, setNudgeDrills] = useState<DrillRow[]>([])
@@ -197,8 +197,21 @@ function RoundScreen() {
     setError(null)
     setRedirectToLive(false)
     let status: number | undefined
+    // Offline (#993): a live round this device has loaded before reopens from
+    // its cache (useHoleData hydrates the rest the same way).
+    const reopenFromCache = async () => {
+      if (!user || mode === 'past') return false
+      const saved = await readCache<{ round: RoundRow }>(offlineKeys.round(user.id, id))
+      if (!active || !saved || saved.round.completed_at != null || saved.round.total_score != null) return false
+      setRound(saved.round)
+      setRedirectToLive(true)
+      return true
+    }
     ;(async () => {
       try {
+        // Signed in from the stored session (#1005): the fetch would first
+        // wait out auth-js's failed refresh, so try the cache first.
+        if (offline && (await reopenFromCache())) return
         // A deleted round returns null rather than throwing PGRST116 "cannot
         // coerce the result to a single JSON object".
         const { data: r, error: rErr, status: rStatus } = await supabase
@@ -239,7 +252,7 @@ function RoundScreen() {
         if (unfinished && mode !== 'past') {
           // No ?hole= (rounds list, deep link): open where the player left
           // off, same pick as the Home banner (#324).
-          const resumeAt = hole ? null : await fetchResumeHole(row.id)
+          const resumeAt = hole ? null : await fetchResumeHole(row.id, row.hole_count)
           if (active) {
             setResumeHole(resumeAt)
             setRedirectToLive(true)
@@ -265,17 +278,8 @@ function RoundScreen() {
         // See #246.
       } catch (err) {
         if (!active) return
-        // Offline (#993): a live round this device has loaded before reopens
-        // from its cache (useHoleData hydrates the rest the same way).
-        if (user && mode !== 'past' && isNetworkFailure(err, status)) {
-          const cached = await readCache<{ round: RoundRow }>(offlineKeys.round(user.id, id))
-          if (!active) return
-          if (cached && cached.round.completed_at == null && cached.round.total_score == null) {
-            setRound(cached.round)
-            setRedirectToLive(true)
-            return
-          }
-        }
+        if (isNetworkFailure(err, status) && (await reopenFromCache())) return
+        if (!active) return
         setError((err as Error).message)
       } finally {
         if (active) setLoading(false)
@@ -321,9 +325,15 @@ function RoundScreen() {
     () => new Map(holeScores.map((hs) => [hs.hole_id, hs])),
     [holeScores],
   )
+  // A round stored with fewer holes than the course has rows (a 6 on an
+  // 18-hole course, #727) shows only its own.
+  const storedHoleCount = round?.hole_count ?? null
   const sortedHoles = useMemo(
-    () => [...holes].sort((a, b) => a.number - b.number),
-    [holes],
+    () =>
+      holes
+        .filter((h) => storedHoleCount == null || h.number <= storedHoleCount)
+        .sort((a, b) => a.number - b.number),
+    [holes, storedHoleCount],
   )
   // Per-hole shot counts for the scorecard "Shots" affordance. Every row
   // is tappable now that the scorecard is editable (#514) — the count just
@@ -728,6 +738,7 @@ function RoundScreen() {
               sg_around_green: round.sg_around_green,
               sg_putting: round.sg_putting,
               sg_total: round.sg_total,
+              hole_count: round.hole_count,
               courseName,
               course_rating: playedTee?.course_rating ?? null,
               slope_rating: playedTee?.slope_rating ?? null,

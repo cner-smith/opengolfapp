@@ -2,8 +2,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Alert, View } from 'react-native'
 import {
   DEFAULT_HANDICAP,
-  LIE_TYPE_LABELS,
-  SHOT_RESULT_LABELS,
   bearingDegrees,
   destinationYards,
   formatClubLabel,
@@ -15,11 +13,8 @@ import {
   obCount,
   projectShotMove,
   resolveHole,
-  summarizePuttParts,
-  summarizeShotParts,
+  summarizeShotStep,
   type DistanceUnit,
-  type LieType,
-  type ShotResult,
 } from '@oga/core'
 import type { Database } from '@oga/supabase'
 import { supabase } from '../../lib/supabase'
@@ -28,7 +23,7 @@ import { Icon } from '../paper/icons'
 import { MARGIN, P } from '../paper/tokens'
 import { ConfirmDialog } from '../ui/ConfirmDialog'
 import { HoleMap, type LatLng } from './HoleMap'
-import type { HoleMapPhase, PastCrumbs } from './HoleMap.types'
+import type { HoleMapPhase, PastCrumbs, PlateSide } from './HoleMap.types'
 import { PUTTING_RADIUS_YARDS } from './hole/types'
 import { Em, NoPinVoice, Primary, Secondary, SmallKey, Voice } from '../paper/Dock'
 import { ButtonRow, ModeRocker, PastFooter, ShotStepperRow } from './past/PastFooter'
@@ -46,29 +41,14 @@ type ShotRow = Database['public']['Tables']['shots']['Row']
 // tracking the finger locally and only write the settled position.
 const AIM_PERSIST_DEBOUNCE_MS = 500
 
-// One-line summary of the selected shot for the review stepper (§19.5).
-// Putts read "Putt · 12 ft · Made"; full shots read "7i · fairway · 152 yd to
-// the pin · Solid". Distance/result formatting lives in @oga/core
-// (summarizePuttParts / summarizeShotParts, shared with web's ShotEntryModal).
-// "to the pin" only when the yardage IS distance_to_target (start → pin); the
-// haversine fallback measures to the next shot's start instead.
+// One-line summary of the selected shot for the review stepper (§19.5), from
+// @oga/core's summarizeShotStep (shared with web's round map).
 function summarizeShot(
   row: ShotRow | null,
   next: ShotRow | null,
   unit: DistanceUnit,
 ): string {
-  if (!row) return 'No details yet — tap Edit to add them'
-  const [distance] = summarizeShotParts({ ...row, shot_result: null }, next, unit)
-  const parts = isPuttShot(row.lie_type)
-    ? ['Putt', ...summarizePuttParts(row, unit)]
-    : ([
-        row.club ? formatClubLabel({ club_type: row.club }) : null,
-        row.lie_type ? LIE_TYPE_LABELS[row.lie_type as LieType]?.toLowerCase() ?? null : null,
-        distance && row.distance_to_target != null ? `${distance} to the pin` : distance,
-        row.shot_result
-          ? SHOT_RESULT_LABELS[row.shot_result as ShotResult] ?? row.shot_result
-          : null,
-      ].filter(Boolean) as string[])
+  const parts = row ? summarizeShotStep(row, next, unit) : []
   return parts.length ? parts.join(' · ') : 'No details yet — tap Edit to add them'
 }
 
@@ -380,13 +360,13 @@ export function PastRoundMap({
   async function persistShotAt(
     idx: number,
     next: { start?: LatLng | null; aim?: LatLng | null },
-  ) {
-    if (!currentHoleScore) return
+  ): Promise<boolean> {
+    if (!currentHoleScore) return false
     const shot = placed[idx]
-    if (!shot) return
+    if (!shot) return false
     const start = next.start !== undefined ? next.start : shot.start
     const aim = next.aim !== undefined ? next.aim : shot.aim
-    if (!start) return
+    if (!start) return false
     // A shot only becomes a putt via handleGreenYes's own direct update (lie_type
     // + club) — this move/aim path never sets lie_type, so the existing server
     // row (if any) is the source of truth for whether this is a putt.
@@ -425,7 +405,7 @@ export function PastRoundMap({
         .single()
       if (error) {
         Alert.alert('Save failed', error.message)
-        return
+        return false
       }
       if (data) onShotUpserted(data as ShotRow)
     } else {
@@ -436,7 +416,7 @@ export function PastRoundMap({
         .single()
       if (error) {
         Alert.alert('Save failed', error.message)
-        return
+        return false
       }
       if (data) {
         const saved = data as ShotRow
@@ -453,21 +433,35 @@ export function PastRoundMap({
         )
       }
     }
+    return true
   }
 
   // Map tap (LOGGING, or REVIEW only while adding) OR a marker drag (always,
   // in PLACE_BALL) lands here. A drag on an existing shot just repositions +
   // persists. A FIRST placement may trip the green prompt, then either aims
   // (logging) or drops back to review (completed).
+  // A save that fails puts the stored start back and resolves false, so
+  // HoleMap snaps the dragged marker back too (#1129, as the live round #1111).
   async function handleSetBall(loc: LatLng) {
-    const wasInitial = active?.start == null
+    if (!currentHoleScore || !active) {
+      Alert.alert('Save failed', "That shot didn't save.")
+      return false
+    }
+    const idx = activeIdx
+    const storedStart = active.start
+    const wasInitial = storedStart == null
     setPlaced((prev) =>
-      prev.map((s, i) => (i === activeIdx ? { ...s, start: loc } : s)),
+      prev.map((s, i) => (i === idx ? { ...s, start: loc } : s)),
     )
     // Await the placement INSERT so the row + id exist before any follow-up
     // (a putt confirmation may update it). Only branch on the FIRST placement.
-    await persistShotAt(activeIdx, { start: loc })
-    if (!wasInitial) return
+    if (!(await persistShotAt(idx, { start: loc }))) {
+      setPlaced((prev) =>
+        prev.map((s, i) => (i === idx ? { ...s, start: storedStart } : s)),
+      )
+      return false
+    }
+    if (!wasInitial) return true
     // Within putting range of the pin → ask "On the green?" (mirrors the live
     // prompt) instead of forcing aim. A putt skips aiming entirely.
     if (effectivePin && distanceYards(loc, effectivePin) <= PUTTING_RADIUS_YARDS) {
@@ -479,6 +473,7 @@ export function PastRoundMap({
       // Logging: aim as usual.
       setMode('SET_AIM')
     }
+    return true
   }
 
   // "On the green?" → Yes: it's a putt. Mark lie/club + pre-fill the putt
@@ -710,16 +705,19 @@ export function PastRoundMap({
   const prevStart = activePos > 0 ? placedReal[activePos - 1]?.s.start ?? null : null
   const segEnd = active?.start ? nextStart ?? (active.aim ? null : effectivePin) : null
   const selectCrumbs = completed && !adding
+  // Plate sides from the callout's solve (#1208); it runs per camera frame, so keep the array while unchanged.
+  const [plateSides, setPlateSides] = useState<PlateSide[]>([])
+  const onPlates = useCallback((s: PlateSide[]) => setPlateSides((o) => (o.join() === s.join() ? o : s)), [])
   const pastCrumbs = useMemo<PastCrumbs>(() => {
     const others = placedReal.filter((x) => x.i !== activeIdx)
     return {
-      crumbs: others.map(({ s }) => ({ at: s.start!, n: s.shotNumber, ob: s.ob === true })),
+      crumbs: others.map(({ s }, ci) => ({ at: s.start!, n: s.shotNumber, ob: s.ob === true, plate: plateSides[ci] })),
       path: placedReal.map((x) => x.s.start!),
       segment: active?.start && segEnd ? [active.start, segEnd] : null,
       selectedN: active?.start ? active.shotNumber : null,
       onSelect: selectCrumbs ? (ci) => others[ci] && setActiveIdx(others[ci].i) : undefined,
     }
-  }, [placedReal, activeIdx, active?.start, active?.shotNumber, segEnd, selectCrumbs])
+  }, [placedReal, activeIdx, active?.start, active?.shotNumber, segEnd, selectCrumbs, plateSides])
 
   // Flag callout (§19.9 C) on the selected start: the aim leg while logging
   // an aimed shot, otherwise the leg to the next shot / the pin.
@@ -819,6 +817,8 @@ export function PastRoundMap({
             end={legEnd}
             prev={prevStart}
             markers={calloutMarkers}
+            crumbCount={pastCrumbs.crumbs.length}
+            onPlates={onPlates}
             avoidCorner={completed ? undefined : { w: MARGIN + 186 + 4, h: ROCKER_BOTTOM + 47 + 4 }}
             value={callout.value}
             unit={callout.unit}

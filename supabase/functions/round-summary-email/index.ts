@@ -5,7 +5,7 @@
 //              respect the opt-in, send, then stamp summary_email_sent_at.
 import { createClient } from 'npm:@supabase/supabase-js@2'
 import { Resend } from 'npm:resend@4'
-import { buildRoundSummary } from '../_shared/round-summary.ts'
+import { buildRoundSummary, roundSummaryPar } from '../_shared/round-summary.ts'
 import { renderHtml } from './template.ts'
 
 const FROM = Deno.env.get('EMAIL_FROM') ?? 'onboarding@resend.dev'
@@ -14,19 +14,22 @@ interface RoundRow {
   id: string
   user_id: string
   total_score: number | null
+  hole_count: number | null
   sg_off_tee: number | null
   sg_approach: number | null
   sg_around_green: number | null
   sg_putting: number | null
   courses: { name: string | null } | null
   course_tees: { par: number | null } | null
+  hole_scores: { score: number | null; par: number | null; holes: { par: number } | null }[] | null
 }
 
 const ROUND_SELECT = `
-  id, user_id, total_score,
+  id, user_id, total_score, hole_count,
   sg_off_tee, sg_approach, sg_around_green, sg_putting,
   courses(name),
-  course_tees(par)
+  course_tees(par),
+  hole_scores(score, par, holes(par))
 `
 
 function json(body: unknown, status = 200): Response {
@@ -109,12 +112,14 @@ Deno.serve(async (req) => {
     const email = userRes?.user?.email
     if (userErr || !email) continue
 
-    // Par from the round's resolved tee (course_tees.par), which matches the
-    // in-app dashboard's total for standard 18/9-hole courses and the common
-    // synthetic-hole case; 72 fallback when no tee row is linked. NOT byte-
-    // identical to the dashboard's padded-holes derivation for partial-real-
-    // hole rounds with a null tee par — accepted scaffold approximation.
-    const par = round.course_tees?.par ?? 72
+    // Par of the holes the round scored (per-round override, else the
+    // hole's), so a 6-hole round reads against its own six holes (#727).
+    // With none, the tee's par scaled to the round's hole count, else 4 a
+    // hole, else the tee's par, else 72 — see roundSummaryPar.
+    const scoredPars = (round.hole_scores ?? [])
+      .filter((hs) => (hs.score ?? 0) > 0)
+      .map((hs) => hs.par ?? hs.holes?.par ?? 4)
+    const par = roundSummaryPar(scoredPars, round.course_tees?.par, round.hole_count)
     const content = buildRoundSummary({
       courseName: round.courses?.name ?? 'your round',
       totalScore: round.total_score ?? 0,

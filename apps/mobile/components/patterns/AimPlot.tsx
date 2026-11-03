@@ -2,7 +2,7 @@ import { G, Line, Rect, Text as SvgText } from 'react-native-svg'
 import { insideRing, ringExtent, shotWords, type DispersionRing, type DispersionStats } from '@oga/core'
 import { FONT } from '../../lib/typography'
 import { P } from '../paper/tokens'
-import { LEFT, RIGHT, RULE, RULE_MAJOR, DENSE, type ChartProps, type Box, type RingPx, placeOnRing, placeNear, Fade, TweenRing, TweenAverage, Selected, Halo, Pennant, markStyle, Mark, groupBy, ChartFrame } from './chartParts'
+import { LEFT, RIGHT, RULE, RULE_MAJOR, DENSE, type ChartProps, type Box, type RingPx, placeOnRing, placeNear, Fade, TweenRing, TweenAverage, Selected, Halo, Pennant, markStyle, Mark, groupBy, ChartFrame, ChartLegend, legendHeight } from './chartParts'
 
 /* ---------------------------------------------------------- aim view */
 
@@ -12,7 +12,7 @@ const TOP = 10
 export function AimPlot(props: ChartProps) {
   const { points, stats, ghost, layers, width, unitYd, label, unit, empty, hot, onHot } = props
   const area = width - LEFT - RIGHT
-  const h = TOP + area + BOTTOM
+  const h = TOP + area + BOTTOM + legendHeight(width)
   const dense = points.length > DENSE
   const step = 5 * unitYd
   // The scale holds both rings (and the ghost) whether or not they are drawn,
@@ -46,34 +46,17 @@ export function AimPlot(props: ChartProps) {
   const taken: Box[] = [{ x: cx - 30, y: cy - 22, w: 30, h: 24 }]
   const aimLabel = placeNear(cx, cy - 10, 'aim', 13, visible, taken, bounds)
   taken.push(aimLabel.box)
-  let r68: ReturnType<typeof placeOnRing> | null = null
-  let r95: ReturnType<typeof placeOnRing> | null = null
   let rGhost: ReturnType<typeof placeOnRing> | null = null
   let avg: ReturnType<typeof placeNear> | null = null
   const ringPoints = props.recentIds ? points.filter((p) => props.recentIds!.has(p.id)) : points
   const inside = stats ? ringPoints.filter((p) => insideRing(stats.ring68, p.lateralOffsetYards, p.distanceOffsetYards)).length : 0
-  const ring68Text = `two in three · ${inside} of ${ringPoints.length}`
-  if (stats && layers.rings) {
-    r68 = placeOnRing(ringPx(stats.ring68), ring68Text, 12, visible, taken, bounds, [52, 128, -52, -128, 18, 162])
-    taken.push(r68.box)
-    r95 = placeOnRing(ringPx(stats.ring95), 'nearly all', 12, visible, taken, bounds, [128, 52, -128, -52, 162, 18])
-    taken.push(r95.box)
-  }
   if (ghost && layers.rings) {
     rGhost = placeOnRing(ringPx(ghost.stats.ring68), ghost.label, 12, visible, taken, bounds, [90, -90, 30, 150, -30, -150])
     taken.push(rGhost.box)
   }
   if (stats && layers.average) avg = placeNear(px(stats.avgLateralOffset), py(stats.avgDistanceOffset), 'average', 12, visible, taken, bounds)
+  const ly = TOP + area + BOTTOM
   const hotD = hot ? visible.find((d) => d.p.id === hot) : null
-  // Finishes either side of the aim, printed in the margins like a yardage book.
-  const t = { short: 0, long: 0, left: 0, right: 0 }
-  for (const p of points) {
-    if (p.distanceOffsetYards < 0) t.short++
-    else if (p.distanceOffsetYards > 0) t.long++
-    if (p.lateralOffsetYards < 0) t.left++
-    else if (p.lateralOffsetYards > 0) t.right++
-  }
-  const axisText = (s: string, n: number) => (points.length ? `${s} ${n}` : s)
 
   return (
     <ChartFrame
@@ -105,11 +88,13 @@ export function AimPlot(props: ChartProps) {
         )
       })}
       <Rect x={LEFT} y={TOP} width={area} height={area} fill="none" stroke={P.lineStrong} strokeWidth={1} />
-      <SvgText x={LEFT - 5} y={TOP + 4} textAnchor="end" fontFamily={FONT.bodyItalic} fontSize={12} fill={P.inkDim}>{axisText('long', t.long)}</SvgText>
-      <SvgText x={LEFT - 5} y={TOP + area + 4} textAnchor="end" fontFamily={FONT.bodyItalic} fontSize={12} fill={P.inkDim}>{axisText('short', t.short)}</SvgText>
-      <SvgText x={LEFT} y={h - 3} fontFamily={FONT.bodyItalic} fontSize={12} fill={P.inkDim}>{axisText('left', t.left)}</SvgText>
-      <SvgText x={LEFT + area} y={h - 3} textAnchor="end" fontFamily={FONT.bodyItalic} fontSize={12} fill={P.inkDim}>{axisText('right', t.right)}</SvgText>
-      <SvgText x={cx} y={h - 3} textAnchor="middle" fontFamily={FONT.body} fontSize={12} fill={P.inkDim}>{`squares ${label(ruleStep)} ${props.unitWord}`}</SvgText>
+      {/* Which way is which, on the aim lines. The counts are in the rows below the chart. */}
+      <SvgText x={cx + 4} y={TOP + 13} fontFamily={FONT.bodyItalic} fontSize={12} fill={P.inkDim}>long ↑</SvgText>
+      <SvgText x={cx + 4} y={TOP + area - 5} fontFamily={FONT.bodyItalic} fontSize={12} fill={P.inkDim}>short ↓</SvgText>
+      <SvgText x={LEFT + 4} y={cy - 5} fontFamily={FONT.bodyItalic} fontSize={12} fill={P.inkDim}>← left</SvgText>
+      <SvgText x={LEFT + area - 4} y={cy - 5} textAnchor="end" fontFamily={FONT.bodyItalic} fontSize={12} fill={P.inkDim}>right →</SvgText>
+      <SvgText x={cx} y={TOP + area + BOTTOM - 3} textAnchor="middle" fontFamily={FONT.body} fontSize={12} fill={P.inkDim}>{`${unit === 'meters' ? 'metres' : 'yards'} from the aim · each square ${label(ruleStep)} ${props.unitWord}`}</SvgText>
+      <ChartLegend y={ly} width={width} ring68={stats && layers.rings ? `68% of shots (${inside} of ${ringPoints.length})` : null} />
 
       <Fade on={layers.rings}>
         {ghost && <TweenRing ring={ringPx(ghost.stats.ring68)} fill="none" stroke={P.inkDim} strokeOpacity={0.75} strokeWidth={1} dash="1,3" />}
@@ -132,8 +117,6 @@ export function AimPlot(props: ChartProps) {
       )}
       <Pennant x={cx} y={cy} />
       <Halo x={aimLabel.x} y={aimLabel.y} anchor={aimLabel.anchor} size={13} fill={P.warn} text="aim" />
-      {r68 && <Halo x={r68.x} y={r68.y} anchor={r68.anchor} fill={P.forest} text={ring68Text} />}
-      {r95 && <Halo x={r95.x} y={r95.y} anchor={r95.anchor} fill={P.forest} text="nearly all" />}
       {rGhost && ghost && <Halo x={rGhost.x} y={rGhost.y} anchor={rGhost.anchor} fill={P.inkDim} text={ghost.label} />}
       {avg && <Halo x={avg.x} y={avg.y} anchor={avg.anchor} fill={P.ink} text="average" />}
       {hotD && <Selected key={hotD.p.id} x={hotD.x} y={hotD.y} r={hotD.s.r} />}

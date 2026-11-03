@@ -1,28 +1,30 @@
 import { useEffect, useState } from 'react'
 import { Link, Navigate, useParams } from 'react-router-dom'
 import {
+  READABLE_LEARN_ARTICLES,
   findLearnArticle,
   type LearnArticle,
   type LearnSection,
 } from '@oga/core'
 import { getArticleComponent } from './data/articleRegistry'
+import { useDocumentTitle } from '../../hooks/useDocumentTitle'
 
 export function LearnArticlePage() {
   const { slug = '' } = useParams<{ slug: string }>()
   const found = findLearnArticle(slug)
   const Component = getArticleComponent(slug)
+  useDocumentTitle(found ? `${found.article.title} · OGA Learn` : 'The yardage book · OGA')
 
   if (!found || !Component) {
     return <Navigate to="/learn" replace />
   }
 
   const { article, section } = found
-  const { prev, next } = neighbours(section, article.id)
+  const { prev, next } = neighbours(article.id)
   const isDraft = article.status === 'draft'
 
   return (
     <div style={{ maxWidth: 760, margin: '0 auto' }}>
-      <BackLink />
       <Breadcrumb section={section} />
       {isDraft && <DraftBanner slug={article.id} />}
       <Component />
@@ -31,37 +33,18 @@ export function LearnArticlePage() {
   )
 }
 
-function BackLink() {
-  return (
-    <Link
-      to="/learn"
-      className="font-mono uppercase"
-      style={{
-        display: 'inline-block',
-        fontSize: 10,
-        letterSpacing: '0.14em',
-        color: '#5C6356',
-        textDecoration: 'none',
-        marginBottom: 18,
-      }}
-    >
-      ← Learn
-    </Link>
-  )
-}
-
+// The one way back, and the article's category (no separate kicker).
 function Breadcrumb({ section }: { section: LearnSection }) {
   return (
-    <div
-      className="font-mono uppercase text-caddie-ink-mute"
-      style={{
-        fontSize: 10,
-        letterSpacing: '0.14em',
-        marginBottom: 22,
-      }}
-    >
-      Learn / <span style={{ color: '#1C211C' }}>{section.title}</span>
-    </div>
+    <nav aria-label="Breadcrumb" className="text-caddie-ink-dim" style={{ fontSize: 13, marginBottom: 18 }}>
+      <Link to="/learn" className="hover:text-caddie-ink" style={{ textDecoration: 'underline', textUnderlineOffset: 3 }}>
+        Learn
+      </Link>
+      <span aria-hidden style={{ margin: '0 8px' }}>
+        /
+      </span>
+      <span className="text-caddie-ink">{section.title}</span>
+    </nav>
   )
 }
 
@@ -91,7 +74,7 @@ function DraftBanner({ slug }: { slug: string }) {
       }}
     >
       <div style={{ flex: 1 }}>
-        <div className="kicker" style={{ marginBottom: 6, color: '#A66A1F' }}>
+        <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 6, color: '#A66A1F' }}>
           Work in progress
         </div>
         <p
@@ -108,17 +91,8 @@ function DraftBanner({ slug }: { slug: string }) {
           window.sessionStorage.setItem(key, '1')
           setDismissed(true)
         }}
-        className="font-mono uppercase"
-        style={{
-          background: 'transparent',
-          border: '1px solid #D9D2BF',
-          padding: '6px 10px',
-          fontSize: 10,
-          letterSpacing: '0.14em',
-          color: '#5C6356',
-          cursor: 'pointer',
-          borderRadius: 2,
-        }}
+        className="key"
+        style={{ minHeight: 36, padding: '0 12px', fontSize: 13 }}
       >
         Dismiss
       </button>
@@ -126,16 +100,14 @@ function DraftBanner({ slug }: { slug: string }) {
   )
 }
 
-function neighbours(
-  section: LearnSection,
-  currentId: string,
-): { prev: LearnArticle | null; next: LearnArticle | null } {
-  const reachable = section.articles.filter((a) => a.status !== 'soon')
-  const idx = reachable.findIndex((a) => a.id === currentId)
+// Reading order runs through the whole book, so the last guide in a section
+// leads on to the next section instead of to nothing.
+function neighbours(currentId: string): { prev: LearnArticle | null; next: LearnArticle | null } {
+  const idx = READABLE_LEARN_ARTICLES.findIndex((a) => a.id === currentId)
   if (idx === -1) return { prev: null, next: null }
   return {
-    prev: idx > 0 ? (reachable[idx - 1] ?? null) : null,
-    next: idx < reachable.length - 1 ? (reachable[idx + 1] ?? null) : null,
+    prev: READABLE_LEARN_ARTICLES[idx - 1] ?? null,
+    next: READABLE_LEARN_ARTICLES[idx + 1] ?? null,
   }
 }
 
@@ -149,6 +121,7 @@ function NeighbourNav({
   if (!prev && !next) return null
   return (
     <nav
+      aria-label="More guides"
       style={{
         display: 'grid',
         gridTemplateColumns: '1fr 1fr',
@@ -179,10 +152,7 @@ function NeighbourLink({
       to={`/learn/${article.id}`}
       style={{ textDecoration: 'none', textAlign: align, display: 'block' }}
     >
-      <div
-        className="font-mono uppercase text-caddie-ink-mute"
-        style={{ fontSize: 10, letterSpacing: '0.14em', marginBottom: 6 }}
-      >
+      <div className="text-caddie-ink-dim" style={{ fontSize: 13, marginBottom: 6 }}>
         {isNext ? 'Next →' : '← Previous'}
       </div>
       <div

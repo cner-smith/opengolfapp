@@ -1,4 +1,4 @@
-import { SrcBody, SrcLabel } from '../components/ArticlePrimitives'
+import { ArticleTitle, SrcBody, SrcLabel, Subhead } from '../components/ArticlePrimitives'
 import type { CSSProperties, ReactNode } from 'react'
 
 export function QuestionsForCoachArticle() {
@@ -11,22 +11,7 @@ export function QuestionsForCoachArticle() {
         marginBottom: 32,
       }}
     >
-      <div className="kicker" style={{ marginBottom: 14 }}>
-        Working with coaches · Questions for your coach
-      </div>
-      <h2
-        className="font-serif text-caddie-ink"
-        style={{
-          fontSize: 28,
-          fontWeight: 500,
-          fontStyle: 'italic',
-          letterSpacing: '-0.015em',
-          lineHeight: 1.15,
-          marginBottom: 18,
-        }}
-      >
-        A lesson is a conversation.
-      </h2>
+      <ArticleTitle standfirst="A lesson is a conversation.">Questions to ask your coach.</ArticleTitle>
 
       <P>
         Most golfers treat a lesson as a download: stand there, collect the tip,
@@ -43,7 +28,7 @@ export function QuestionsForCoachArticle() {
 
       <Hr />
 
-      <H3>While they're teaching</H3>
+      <H2>While they're teaching</H2>
       <P>
         A tip you can't reproduce on your own is worthless by Tuesday. These
         three turn a position into something portable.
@@ -74,7 +59,7 @@ export function QuestionsForCoachArticle() {
 
       <Hr />
 
-      <H3>Before you leave</H3>
+      <H2>Before you leave</H2>
       <P>
         The clarity you feel walking off the range fades startlingly fast. Pin it
         down before you go.
@@ -118,7 +103,7 @@ export function QuestionsForCoachArticle() {
 
       <Hr />
 
-      <H3>Questions that waste the hour</H3>
+      <H2>Questions that waste the hour</H2>
       <P>A few questions feel productive and aren't. Skip them.</P>
       <ul style={UL_STYLE}>
         <li>
@@ -142,7 +127,7 @@ export function QuestionsForCoachArticle() {
 
       <Hr />
 
-      <H3>The thread under all of it</H3>
+      <H2>The thread under all of it</H2>
       <P>
         A lesson isn't something done to you — it's something you steer. Ask what
         the change is <em>for</em>, how to verify it alone, what to ignore, and
@@ -168,9 +153,9 @@ const UL_STYLE: CSSProperties = {
   color: '#1C211C',
 }
 
-function H3({ children }: { children: ReactNode }) {
+function H2({ children }: { children: ReactNode }) {
   return (
-    <h3
+    <h2
       className="font-serif text-caddie-ink"
       style={{
         fontSize: 22,
@@ -181,7 +166,7 @@ function H3({ children }: { children: ReactNode }) {
       }}
     >
       {children}
-    </h3>
+    </h2>
   )
 }
 
@@ -228,9 +213,7 @@ function WhenToAsk() {
         marginBottom: 18,
       }}
     >
-      <div className="kicker" style={{ marginBottom: 12, color: '#5C6356' }}>
-        When to ask what
-      </div>
+      <Subhead>When to ask what</Subhead>
       {rows.map((r, i) => (
         <div
           key={r.when}
@@ -281,9 +264,7 @@ function Callout({ children }: { children: ReactNode }) {
 function Sources() {
   return (
     <section style={{ borderTop: '1px solid #D9D2BF', paddingTop: 18, marginTop: 22 }}>
-      <div className="kicker" style={{ marginBottom: 12 }}>
-        Sources
-      </div>
+      <Subhead>Sources</Subhead>
       <div style={{ display: 'grid', gap: 14, maxWidth: 640 }}>
         <div>
           <SrcLabel>Focus on the ball, not the body part</SrcLabel>
@@ -333,10 +314,9 @@ function Src({ href, children }: { href: string; children: ReactNode }) {
 function Footer() {
   return (
     <div
-      className="font-mono uppercase text-caddie-ink-mute"
+      className="text-caddie-ink-dim"
       style={{
-        fontSize: 10,
-        letterSpacing: '0.14em',
+        fontSize: 12,
         borderTop: '1px solid #D9D2BF',
         paddingTop: 18,
         marginTop: 22,

@@ -68,7 +68,7 @@ test.describe('Import OGA JSON (signed in, mutating)', () => {
     createdRoundId = match![1]
 
     // Completing stamps SG + totals (the step the Golf Pad importer reuses, #1135).
-    await page.getByRole('button', { name: 'Save SG + finalize' }).click()
+    await page.getByRole('button', { name: /^(Save|Recalculate) SG$/ }).click()
     await expect
       .poll(async () => {
         const { data } = await admin

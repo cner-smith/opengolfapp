@@ -68,7 +68,7 @@ export function PatternNumbers({
     <div>
       <div className="grid grid-cols-2" style={{ gap: 12, marginBottom: 8 }}>
         <StatTile
-          label="Two in three"
+          label="68% of shots"
           value={`${num(stats.cone68.lateral * 2, unit)} × ${num(stats.cone68.distance * 2, unit)}`}
           subtle={`${u}, wide × deep`}
         />
@@ -96,7 +96,7 @@ export function PatternNumbers({
           value={nb(`${shortMore ? misses.short : misses.long} of ${n}`)}
           note={`${shortMore ? `${misses.long} long` : `${misses.short} short`}; ${misses.left} left, ${misses.right} right of the aim`}
         />
-        <StatRow label="Nearly all" value={pair(stats.cone95.lateral * 2, stats.cone95.distance * 2)} note="Wide × deep. The dashed ring." />
+        <StatRow label="95% of shots" value={pair(stats.cone95.lateral * 2, stats.cone95.distance * 2)} note="Wide × deep. The dashed ring." />
         <TallyRow
           label="Shape"
           tally={shape}

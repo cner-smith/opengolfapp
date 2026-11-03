@@ -3,14 +3,16 @@ import { getStroke } from 'perfect-freehand'
 // Hand-drawn pencil marks for the scorecard (#611 §15), ported from the design
 // harness (docs/internal/611-redesign/design/anim-pencil.js). Geometry is built
 // once per mark, seeded by hole number, then rendered at any time t (ms) — so
-// the same code gives the animated draw and the static final form.
+// the same code gives the animated draw and the static final form. Shared by
+// mobile (perfect-freehand outlines) and web (its own static outline); each
+// app keeps only its renderer.
 //
 // Motion model: speed follows the 2/3 power law of human drawing (slower in
 // tight turns and corners), lands slow and is still moving at the lift;
 // pressure tapers in/out, wobbles, and is heavier where the pencil is slow.
 
-type Pt = { x: number; y: number; t: number; w: number }
-type Stroke = { pts: Pt[]; t0: number }
+export type Pt = { x: number; y: number; t: number; w: number }
+export type Stroke = { pts: Pt[]; t0: number }
 export type Mark = { strokes: Stroke[]; dur: number; w0: number }
 
 type Opts = {

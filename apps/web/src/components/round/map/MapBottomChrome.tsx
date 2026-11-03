@@ -42,16 +42,9 @@ interface MapBottomChromeProps {
   onDoneEditing?: () => void
 }
 
-// Map-only dark chrome — the on-course HUD treatment for surfaces rendered over
-// Mapbox satellite imagery. Renders as an absolute, bottom-anchored overlay
-// INSIDE the map box (see MapView) —
-// not a full-width bar above it. The instruction card is pointer-events:none
-// (text only) so taps reach the Mapbox canvas listener underneath; only the
-// button row (and only when a button actually matters) is pointer-events:auto.
-const MAP_DARK = 'rgba(28,33,28,0.82)'
-const MAP_CREAM = '#FBF8F1'
-const FOREST = 'var(--caddie-accent)'
-
+// Logging chrome over the map, in the #611 paper system: a raised paper tag
+// for the instruction (pointer-events:none so taps reach the Mapbox canvas)
+// over a row of letterpress keys (.key in index.css).
 const wrapperStyle = {
   position: 'absolute' as const,
   left: 12,
@@ -59,7 +52,7 @@ const wrapperStyle = {
   bottom: 12,
   display: 'flex' as const,
   flexDirection: 'column' as const,
-  gap: 9,
+  gap: 10,
   alignItems: 'center' as const,
   pointerEvents: 'none' as const,
   zIndex: 5,
@@ -68,80 +61,39 @@ const wrapperStyle = {
 const cardStyle = {
   pointerEvents: 'none' as const,
   maxWidth: '92%',
-  background: MAP_DARK,
-  borderRadius: 12,
-  padding: '8px 13px',
+  background: '#FBF8F1',
+  border: '1px solid #1C211C',
+  borderRadius: 3,
+  boxShadow: '2px 2px 0 rgba(28,33,28,.55)',
+  padding: '7px 13px 8px',
   textAlign: 'center' as const,
+  color: '#1C211C',
 }
 
-const kickerStyle = { color: '#C9C7B8', marginBottom: 2 }
-const bodyStyle = { color: MAP_CREAM, fontSize: 13 }
-const bodyDimStyle = { color: 'rgba(251,248,241,0.68)', fontSize: 12 }
+const kickerStyle = {
+  fontFamily: 'var(--caddie-serif)',
+  fontStyle: 'italic' as const,
+  fontWeight: 500,
+  fontSize: 17,
+  lineHeight: '21px',
+  marginBottom: 1,
+}
+const bodyStyle = { fontSize: 13, lineHeight: '17px' }
+const bodyDimStyle = { fontSize: 13, lineHeight: '17px', color: '#5C6356' }
 
 const buttonRowStyle = {
   pointerEvents: 'auto' as const,
   display: 'flex' as const,
-  gap: 9,
+  gap: 8,
   justifyContent: 'center' as const,
   flexWrap: 'wrap' as const,
+  paddingBottom: 3,
 }
 
-const primaryStyle = {
-  pointerEvents: 'auto' as const,
-  background: MAP_CREAM,
-  color: FOREST,
-  border: `1px solid ${FOREST}`,
-  borderRadius: 26,
-  padding: '11px 20px',
-  fontWeight: 700,
-  fontSize: 14,
-  boxShadow: '0 6px 16px rgba(28,33,28,0.25)',
-}
-
-function primaryDisabledStyle(disabled: boolean) {
-  return { ...primaryStyle, opacity: disabled ? 0.5 : 1 }
-}
-
-const secondaryStyle = {
-  pointerEvents: 'auto' as const,
-  background: 'rgba(251,248,241,0.92)',
-  color: 'var(--caddie-ink)',
-  border: '1px solid var(--caddie-line)',
-  borderRadius: 22,
-  padding: '9px 13px',
-  fontSize: 12,
-  fontWeight: 600,
-}
-
-function secondaryDisabledStyle(disabled: boolean) {
-  return { ...secondaryStyle, opacity: disabled ? 0.4 : 1 }
-}
-
-function amberStyle(active: boolean) {
-  return {
-    pointerEvents: 'auto' as const,
-    border: '1px solid var(--caddie-warn)',
-    borderRadius: 22,
-    padding: '9px 13px',
-    fontSize: 12,
-    background: active ? 'var(--caddie-warn)' : 'transparent',
-    color: active ? MAP_CREAM : 'var(--caddie-warn)',
-    fontWeight: 600,
-    letterSpacing: '0.02em',
-  }
-}
-
-const brickStyle = {
-  pointerEvents: 'auto' as const,
-  border: '1px solid var(--caddie-neg)',
-  borderRadius: 22,
-  padding: '9px 13px',
-  fontSize: 12,
-  background: 'transparent',
-  color: 'var(--caddie-neg)',
-  fontWeight: 600,
-  letterSpacing: '0.02em',
-}
+const keyText = { fontWeight: 400, fontSize: 14, pointerEvents: 'auto' as const }
+const primaryStyle = { pointerEvents: 'auto' as const }
+const secondaryStyle = keyText
+const brickStyle = { ...keyText, color: '#A33A2A' }
 
 export function MapBottomChrome({
   hasExistingShots,
@@ -176,7 +128,7 @@ export function MapBottomChrome({
     return (
       <div style={wrapperStyle}>
         <div style={cardStyle}>
-          <div className="kicker" style={kickerStyle}>
+          <div style={kickerStyle}>
             Place {targetLabel}
           </div>
           <div style={bodyStyle}>
@@ -188,7 +140,7 @@ export function MapBottomChrome({
             <button
               type="button"
               onClick={onCancelPlacement}
-              style={secondaryStyle}
+              className="key" style={secondaryStyle}
             >
               Cancel
             </button>
@@ -201,7 +153,7 @@ export function MapBottomChrome({
     showPinButton && onStartPlacePin ? (
       <>
         {showPinButton && onStartPlacePin && (
-          <button type="button" onClick={onStartPlacePin} style={brickStyle}>
+          <button type="button" onClick={onStartPlacePin} className="key" style={brickStyle}>
             Set pin
           </button>
         )}
@@ -212,7 +164,7 @@ export function MapBottomChrome({
       <div style={cardStyle}>
         {editing ? (
           <>
-            <div className="kicker" style={kickerStyle}>
+            <div style={kickerStyle}>
               Edit on map
             </div>
             <div style={bodyStyle}>
@@ -221,7 +173,7 @@ export function MapBottomChrome({
           </>
         ) : hasExistingShots ? (
           <>
-            <div className="kicker" style={kickerStyle}>
+            <div style={kickerStyle}>
               Logged hole
             </div>
             <div style={bodyStyle}>
@@ -232,7 +184,7 @@ export function MapBottomChrome({
           </>
         ) : aimMode ? (
           <>
-            <div className="kicker" style={kickerStyle}>
+            <div style={kickerStyle}>
               Aim line — shot {shotsPlaced}
             </div>
             <div style={bodyStyle}>
@@ -242,7 +194,7 @@ export function MapBottomChrome({
           </>
         ) : (
           <>
-            <div className="kicker" style={kickerStyle}>
+            <div style={kickerStyle}>
               Tap where you hit shot {placingNumber} from
             </div>
             <div style={bodyDimStyle}>
@@ -267,8 +219,8 @@ export function MapBottomChrome({
           {editing ? (
             <>
               {placeButtons}
-              <button type="button" onClick={onDoneEditing} style={primaryStyle}>
-                Done editing →
+              <button type="button" onClick={onDoneEditing} className="key key-primary" style={primaryStyle}>
+                Done editing
               </button>
             </>
           ) : !hasExistingShots ? (
@@ -279,13 +231,13 @@ export function MapBottomChrome({
                   type="button"
                   onClick={() => onToggleAimMode(!aimMode)}
                   aria-pressed={aimMode}
-                  style={amberStyle(aimMode)}
+                  className="key" style={keyText}
                 >
                   {aimMode ? 'Cancel aim' : 'Set aim'}
                 </button>
               )}
               {onClearLastAim && aimsSet > 0 && !aimMode && (
-                <button type="button" onClick={onClearLastAim} style={secondaryStyle}>
+                <button type="button" onClick={onClearLastAim} className="key" style={secondaryStyle}>
                   Clear aim
                 </button>
               )}
@@ -293,7 +245,7 @@ export function MapBottomChrome({
                 type="button"
                 disabled={shotsPlaced === 0}
                 onClick={onUndo}
-                style={secondaryDisabledStyle(shotsPlaced === 0)}
+                className="key" style={secondaryStyle}
               >
                 Undo
               </button>
@@ -301,7 +253,7 @@ export function MapBottomChrome({
                 type="button"
                 disabled={shotsPlaced === 0}
                 onClick={onClear}
-                style={secondaryDisabledStyle(shotsPlaced === 0)}
+                className="key" style={secondaryStyle}
               >
                 Clear
               </button>
@@ -309,9 +261,9 @@ export function MapBottomChrome({
                 type="button"
                 disabled={shotsPlaced === 0}
                 onClick={onDone}
-                style={primaryDisabledStyle(shotsPlaced === 0)}
+                className="key key-primary" style={primaryStyle}
               >
-                Done with hole →
+                Finish hole
               </button>
             </>
           ) : (
@@ -321,7 +273,7 @@ export function MapBottomChrome({
                 <button
                   type="button"
                   onClick={onApplyShotDragUndo}
-                  style={secondaryStyle}
+                  className="key" style={secondaryStyle}
                 >
                   Undo
                 </button>

@@ -7,10 +7,10 @@ test.describe('Learn — signed in', () => {
     await page.goto('/learn')
     // The sidebar's hamburger only renders on mobile widths; on desktop
     // (default Playwright viewport ~1280px), Sidebar is mounted directly
-    // and its top-level destinations are visible. "Dashboard" is the
+    // and its top-level destinations are visible. "Home" is the
     // first authed-only link and is unique to AppShell.
     await expect(
-      page.getByRole('link', { name: /^dashboard$/i }).first(),
+      page.getByRole('link', { name: /^home$/i }).first(),
     ).toBeVisible()
   })
 
@@ -22,5 +22,20 @@ test.describe('Learn — signed in', () => {
     await expect(
       page.getByRole('link', { name: /^create account$/i }),
     ).toHaveCount(0)
+  })
+
+  // #1258: signed in, AppShell's <main> is the scroll container, so the
+  // window-based ScrollRestoration can't reset it; AppShell does on a new path.
+  test('a new guide opens with main scrolled to the top', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 })
+    await page.goto('/learn/glossary')
+    await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
+    const main = page.locator('main')
+    await main.evaluate((el) => el.scrollTo(0, el.scrollHeight))
+    expect(await main.evaluate((el) => el.scrollTop)).toBeGreaterThan(2000)
+    await page.getByRole('link', { name: /Previous/ }).click()
+    await expect(page).not.toHaveURL(/glossary/)
+    await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
+    await expect.poll(() => main.evaluate((el) => el.scrollTop)).toBeLessThan(10)
   })
 })

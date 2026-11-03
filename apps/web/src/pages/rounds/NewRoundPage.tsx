@@ -1,19 +1,34 @@
-import { useState, type FormEvent } from 'react'
+import { useState, type FormEvent, type KeyboardEvent } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import {
   CAPTURE_MODES,
   CAPTURE_MODE_LABELS,
+  HOLE_COUNT_KEYS,
+  MAX_ROUND_HOLES,
+  guessHoleCount,
+  isRoundHoleCount,
   todayLocalDate,
   type CaptureMode,
 } from '@oga/core'
 import { CourseSearch } from '../../components/courses/CourseSearch'
 import { TeeSelector } from '../../components/courses/TeeSelector'
 import { useCreateRound } from '../../hooks/useRounds'
+import { useCourseTees, useHolesForCourse } from '../../hooks/useCourses'
 import { useAuth } from '../../hooks/useAuth'
 import { supabase } from '../../lib/supabase'
 import { toUserMessage } from '../../lib/errors'
+import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
+import { Rocker } from '../../components/ui/Rocker'
 
-const TEE_COLORS = ['black', 'blue', 'white', 'gold', 'red'] as const
+const HOLE_KEYS: { value: number | 'other'; label: string }[] = [
+  ...HOLE_COUNT_KEYS.map((n) => ({ value: n, label: String(n) })),
+  { value: 'other', label: 'Other' },
+]
+
+const TEE_COLORS = ['black', 'blue', 'white', 'gold', 'red'].map((t) => ({
+  value: t,
+  label: `${t.charAt(0).toUpperCase()}${t.slice(1)}`,
+}))
 
 type RoundMode = 'live' | 'past'
 
@@ -33,7 +48,25 @@ export function NewRoundPage() {
     searchParams.get('mode') === 'live' ? 'live' : 'past',
   )
   const [captureMode, setCaptureMode] = useState<CaptureMode>('track_patterns')
+  // The player's pick: a key's count, or Other's typed text (null = closed).
+  const [holeChoice, setHoleChoice] = useState<number | null>(null)
+  const [otherHoles, setOtherHoles] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  // An unfinished round from the last day, found when starting a live one.
+  const [unfinishedId, setUnfinishedId] = useState<string | null>(null)
+
+  // The round stores how many holes it plays (#727): an unmapped course can't
+  // tell later, and its holes rows grow one save at a time. The row starts on
+  // a guess from the holes on file and the tee's par; the player can change it.
+  const holesQuery = useHolesForCourse(courseId ?? undefined)
+  const teesQuery = useCourseTees(courseId)
+  const tees = teesQuery.data ?? []
+  const teePar = (tees.find((t) => t.id === courseTeeId) ?? tees[0])?.par
+  const guessedHoles = guessHoleCount(teePar, (holesQuery.data ?? []).map((h) => h.number))
+  const holeCount = otherHoles != null ? Number(otherHoles) : (holeChoice ?? guessedHoles)
+  const holeKey = otherHoles != null || !HOLE_KEYS.some((k) => k.value === holeCount) ? 'other' : holeCount
+  // isPending, not isLoading: no data yet, even on the render before the fetch starts.
+  const holesLoading = !!courseId && (holesQuery.isPending || teesQuery.isPending)
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
@@ -41,6 +74,10 @@ export function NewRoundPage() {
     if (!user) return
     if (!courseId) {
       setError('Pick a course first.')
+      return
+    }
+    if (otherHoles != null && (!otherHoles || !isRoundHoleCount(holeCount))) {
+      setError(`Holes: a whole number from 1 to ${MAX_ROUND_HOLES}.`)
       return
     }
     // Block accidental abandonment: if the user already has an
@@ -59,12 +96,16 @@ export function NewRoundPage() {
         .gte('played_at', oneDayAgo)
         .limit(1)
       if (unfinished && unfinished.length > 0) {
-        const ok = window.confirm(
-          'You have an unfinished round. Starting a new one will leave it incomplete. Continue?',
-        )
-        if (!ok) return
+        setUnfinishedId(unfinished[0]!.id)
+        return
       }
     }
+    await create()
+  }
+
+  async function create() {
+    if (!user || !courseId) return
+    setUnfinishedId(null)
     try {
       const round = await createRoundMutation.mutateAsync({
         user_id: user.id,
@@ -72,6 +113,7 @@ export function NewRoundPage() {
         played_at: playedAt,
         tee_color: teeColor,
         course_tee_id: courseTeeId,
+        hole_count: holeCount,
         // Capture mode only steers the live flow; past-round entry leaves the
         // column at its 'track_patterns' default.
         ...(mode === 'live' ? { capture_mode: captureMode } : {}),
@@ -100,7 +142,7 @@ export function NewRoundPage() {
       </p>
       <form onSubmit={handleSubmit}>
         <Group title="How you’re logging it">
-          <ChoiceRow>
+          <ChoiceRow label="How you’re logging it">
             <Choice
               active={mode === 'past'}
               onClick={() => setMode('past')}
@@ -119,7 +161,7 @@ export function NewRoundPage() {
               <div className="text-caddie-ink" style={{ fontSize: 15, margin: '18px 0 10px' }}>
                 What to track
               </div>
-              <ChoiceRow>
+              <ChoiceRow label="What to track">
                 {CAPTURE_MODES.map((cm) => (
                   <Choice
                     key={cm}
@@ -156,6 +198,8 @@ export function NewRoundPage() {
                 setCourseId(id)
                 setCourseName(name)
                 setCourseTeeId(null)
+                setHoleChoice(null)
+                setOtherHoles(null)
               }}
               requestGps={mode === 'live'}
             />
@@ -182,6 +226,52 @@ export function NewRoundPage() {
             </section>
           )}
 
+          {courseId && !holesLoading && (
+            <div style={{ ...rowStyle, borderBottom: LINE_RULE, flexWrap: 'wrap' }}>
+              <span className="text-caddie-ink" style={{ fontSize: 15 }}>
+                Holes
+              </span>
+              <div className="flex flex-wrap items-center justify-end w-full sm:w-auto" style={{ gap: 12 }}>
+                <Rocker
+                  options={HOLE_KEYS}
+                  value={holeKey}
+                  onChange={(v) => {
+                    if (v === 'other') {
+                      setOtherHoles((t) => t ?? '')
+                      return
+                    }
+                    setOtherHoles(null)
+                    setHoleChoice(v)
+                  }}
+                  label="Holes"
+                  className="w-full sm:w-[380px]"
+                />
+                {otherHoles != null && (
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    placeholder={`1–${MAX_ROUND_HOLES}`}
+                    autoFocus
+                    aria-label="Number of holes"
+                    value={otherHoles}
+                    onChange={(e) => setOtherHoles(e.target.value.replace(/[^0-9]/g, '').slice(0, 2))}
+                    className="font-serif text-caddie-ink tabular"
+                    style={{
+                      width: 56,
+                      fontSize: 17,
+                      minHeight: 44,
+                      background: 'transparent',
+                      border: 'none',
+                      borderBottom: '1px solid #9F9580',
+                      padding: '0 2px',
+                      textAlign: 'center',
+                    }}
+                  />
+                )}
+              </div>
+            </div>
+          )}
+
           <label style={{ ...rowStyle, borderBottom: courseTeeId ? 'none' : LINE_RULE }}>
             <span className="text-caddie-ink" style={{ fontSize: 15 }}>
               Date
@@ -191,29 +281,32 @@ export function NewRoundPage() {
               required
               value={playedAt}
               onChange={(e) => setPlayedAt(e.target.value)}
-              style={inputStyle}
+              className="font-serif text-caddie-ink"
+              style={{
+                fontSize: 17,
+                minHeight: 44,
+                background: 'transparent',
+                border: 'none',
+                borderBottom: '1px solid #9F9580',
+                padding: '0 2px',
+              }}
             />
           </label>
 
           {/* A tee from the course list sets the colour itself. */}
           {!courseTeeId && (
-            <label style={rowStyle}>
+            <div style={{ ...rowStyle, flexWrap: 'wrap' }}>
               <span className="text-caddie-ink" style={{ fontSize: 15 }}>
                 Tee colour
               </span>
-              <select
+              <Rocker
+                options={TEE_COLORS}
                 value={teeColor}
-                onChange={(e) => setTeeColor(e.target.value)}
-                className="capitalize"
-                style={{ ...inputStyle, minWidth: 140 }}
-              >
-                {TEE_COLORS.map((t) => (
-                  <option key={t} value={t}>
-                    {t}
-                  </option>
-                ))}
-              </select>
-            </label>
+                onChange={setTeeColor}
+                label="Tee colour"
+                className="w-full sm:w-[380px]"
+              />
+            </div>
           )}
         </Group>
 
@@ -226,16 +319,12 @@ export function NewRoundPage() {
         <div className="flex items-center" style={{ gap: 18 }}>
           <button
             type="submit"
-            disabled={createRoundMutation.isPending || !courseId}
-            className="bg-caddie-accent text-caddie-accent-ink hover:opacity-90 disabled:opacity-50"
+            disabled={createRoundMutation.isPending || holesLoading}
+            className="key key-primary"
             style={{
-              border: 'none',
-              borderRadius: 2,
-              padding: '12px 16px',
               fontSize: 14,
               fontWeight: 600,
               letterSpacing: '0.02em',
-              cursor: createRoundMutation.isPending || !courseId ? 'not-allowed' : 'pointer',
             }}
           >
             {createRoundMutation.isPending ? (
@@ -249,6 +338,11 @@ export function NewRoundPage() {
               </>
             )}
           </button>
+          {!courseId && (
+            <span className="text-caddie-ink-dim" style={{ fontSize: 13 }}>
+              Pick a course first
+            </span>
+          )}
           <button
             type="button"
             onClick={() => navigate('/rounds')}
@@ -259,6 +353,18 @@ export function NewRoundPage() {
           </button>
         </div>
       </form>
+
+      <ConfirmDialog
+        open={!!unfinishedId}
+        title="Leave your other round unfinished?"
+        message="You started a round in the last day and haven't finished it."
+        confirmLabel="Start a new round"
+        cancelLabel="Go to that round"
+        busy={createRoundMutation.isPending}
+        onConfirm={create}
+        onCancel={() => navigate(`/rounds/${unfinishedId}?view=map`)}
+        onDismiss={() => setUnfinishedId(null)}
+      />
     </div>
   )
 }
@@ -272,15 +378,6 @@ const rowStyle: React.CSSProperties = {
   gap: 16,
   minHeight: 52,
   padding: '12px 4px',
-}
-
-const inputStyle: React.CSSProperties = {
-  background: '#FBF8F1',
-  border: '1px solid #D9D2BF',
-  borderRadius: 2,
-  padding: '9px 12px',
-  fontSize: 14,
-  color: '#1C211C',
 }
 
 function Group({ title, children }: { title: string; children: React.ReactNode }) {
@@ -305,15 +402,32 @@ function Group({ title, children }: { title: string; children: React.ReactNode }
   )
 }
 
-export function ChoiceRow({ children }: { children: React.ReactNode }) {
+export function ChoiceRow({ label, children }: { label: string; children: React.ReactNode }) {
+  const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
+    const step = e.key === 'ArrowRight' || e.key === 'ArrowDown' ? 1 : e.key === 'ArrowLeft' || e.key === 'ArrowUp' ? -1 : 0
+    if (!step) return
+    e.preventDefault()
+    const keys = [...e.currentTarget.querySelectorAll<HTMLButtonElement>('[role=radio]')]
+    const i = keys.findIndex((k) => k.getAttribute('aria-checked') === 'true')
+    const next = keys[(i + step + keys.length) % keys.length]
+    next?.click()
+    next?.focus()
+  }
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2" style={{ gap: 10 }}>
+    <div
+      role="radiogroup"
+      aria-label={label}
+      onKeyDown={onKeyDown}
+      className="grid grid-cols-1 sm:grid-cols-2"
+      style={{ gap: 12, paddingBottom: 3 }}
+    >
       {children}
     </div>
   )
 }
 
-// One of two printed options: a ringed dot marks the pick, the border firms up around it.
+// One of the printed options as a letterpress key: raised on its ink ledge,
+// latched into the well when picked.
 export function Choice({
   active,
   onClick,
@@ -328,45 +442,24 @@ export function Choice({
   return (
     <button
       type="button"
+      role="radio"
+      aria-checked={active}
+      tabIndex={active ? 0 : -1}
       onClick={onClick}
-      aria-pressed={active}
-      className="hover:bg-caddie-surface"
+      className="key key-choice"
       style={{
-        display: 'flex',
+        flexDirection: 'column',
         alignItems: 'flex-start',
-        gap: 12,
+        justifyContent: 'center',
+        gap: 3,
+        minHeight: 64,
+        padding: '12px 16px',
         textAlign: 'left',
-        background: active ? '#FBF8F1' : 'transparent',
-        border: `1px solid ${active ? '#1F3D2C' : '#D9D2BF'}`,
-        borderRadius: 2,
-        padding: '14px 14px',
-        cursor: 'pointer',
-        transition: 'border-color 120ms, background 120ms',
       }}
     >
-      <span
-        aria-hidden="true"
-        style={{
-          flex: 'none',
-          width: 16,
-          height: 16,
-          marginTop: 2,
-          borderRadius: '50%',
-          border: `1px solid ${active ? '#1F3D2C' : '#9F9580'}`,
-          display: 'inline-flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
-      >
-        {active && <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#1F3D2C' }} />}
-      </span>
-      <span>
-        <span className="text-caddie-ink" style={{ display: 'block', fontSize: 15, fontWeight: 500 }}>
-          {title}
-        </span>
-        <span className="text-caddie-ink-dim" style={{ display: 'block', fontSize: 13, marginTop: 3, lineHeight: 1.45 }}>
-          {subtitle}
-        </span>
+      <span style={{ fontSize: 15, fontWeight: 600 }}>{title}</span>
+      <span className="text-caddie-ink-dim" style={{ fontSize: 13, fontWeight: 400, lineHeight: 1.45 }}>
+        {subtitle}
       </span>
     </button>
   )

@@ -100,10 +100,9 @@ export function OAuthButtons() {
       const rawNonce = Crypto.randomUUID() // CSPRNG
       const hashedNonce = await Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, rawNonce)
       const credential = await AppleAuthentication.signInAsync({
-        requestedScopes: [
-          AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
-          AppleAuthentication.AppleAuthenticationScope.EMAIL,
-        ],
+        // Email only: OGA never reads Apple's name (only the identity token
+        // goes to Supabase), so it doesn't ask for it.
+        requestedScopes: [AppleAuthentication.AppleAuthenticationScope.EMAIL],
         nonce: hashedNonce,
       })
       if (!credential.identityToken) {

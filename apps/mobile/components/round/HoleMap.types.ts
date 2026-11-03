@@ -1,3 +1,4 @@
+import type { PlateSide } from '@oga/core'
 import type { PatternOverlay } from './markers/DispersionLayers'
 
 export interface LatLng {
@@ -100,6 +101,9 @@ export interface HoleMapProps {
   ornamentsTop?: boolean
   /** dp from the map bottom the caller's dock covers; leg tags stay above it. */
   tagClearBottom?: number
+  /** The dock's open ruler drawer on its ruler side: dp in from that map edge
+   *  and dp above the map bottom. A leg tag reaching over it rises above it. */
+  tagClearDrawer?: { width: number; top: number }
   onSetAim: (loc: LatLng) => void
   /** Resolving false rejects the move: the ball marker snaps back. */
   onSetBall: (loc: LatLng) => void | Promise<void | boolean>
@@ -175,9 +179,12 @@ export interface HoleMapProps {
   teeShot?: boolean
 }
 
+/** Which side of its dot a crumb's number plate sits (core's fanPlates picks it). */
+export type { PlateSide }
+
 export interface PastCrumbs {
   /** Every placed shot start except the selected one (that's `ball`). */
-  crumbs: { at: LatLng; n: number; ob: boolean }[]
+  crumbs: { at: LatLng; n: number; ob: boolean; plate?: PlateSide }[]
   /** All placed starts in shot order — the dotted path. */
   path: LatLng[]
   /** The selected shot's leg (start → next start, or the pin), drawn solid. */

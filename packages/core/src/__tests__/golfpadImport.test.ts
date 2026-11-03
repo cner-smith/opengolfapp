@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { planGolfPadImport, readGolfPadExport } from '../golfpad-import'
+import { golfPadFileKind, planGolfPadImport, readGolfPadExport } from '../golfpad-import'
 import { computeRoundSG } from '../sg'
 import type { Database } from '@oga/supabase'
 
@@ -122,6 +122,22 @@ describe('Golf Pad export → planned rounds', () => {
     expect(r.holes.map((h) => h.number)).toEqual([10, 11])
     expect(r.holes[0]).toMatchObject({ shots: [], scores_only: 'no_shots' })
     expect(r.holes[1]!.shots).toHaveLength(3)
+  })
+
+  it('the round’s hole count is Golf Pad’s course holes, not the holes played (#727)', () => {
+    const holes = csv(HOLES_HEADER, [hole(D, C, 1, 4, 5, 2), hole(D, C, 2, 3, 3, 1)])
+    const shots = csv(SHOTS_HEADER, [])
+    const eighteen = planGolfPadImport({ rounds: csv(ROUNDS_HEADER, [round(D, C, 'R18', '', 2)]), holes, shots })
+    expect(eighteen.rounds[0]!.hole_count).toBe(18)
+    const nine = planGolfPadImport({ rounds: csv(ROUNDS_HEADER, [round(D, C, 'R9', '', 2).replace(',18,', ',9,')]), holes, shots })
+    expect(nine.rounds[0]!.hole_count).toBe(9)
+    const six = planGolfPadImport({ rounds: csv(ROUNDS_HEADER, [round(D, C, 'R6', '', 2).replace(',18,', ',6,')]), holes, shots })
+    expect(six.rounds[0]!.hole_count).toBe(6)
+    // Outside 1–18 (a 27-hole facility) is left for the import to infer from the hole numbers.
+    const zero = planGolfPadImport({ rounds: csv(ROUNDS_HEADER, [round(D, C, 'R0', '', 2).replace(',18,', ',0,')]), holes, shots })
+    expect(zero.rounds[0]!.hole_count).toBeUndefined()
+    const many = planGolfPadImport({ rounds: csv(ROUNDS_HEADER, [round(D, C, 'R27', '', 2).replace(',18,', ',27,')]), holes, shots })
+    expect(many.rounds[0]!.hole_count).toBeUndefined()
   })
 
   it('a hole whose shots don’t add up to the score imports the score only, with the reason', () => {
@@ -277,6 +293,16 @@ describe('Golf Pad export → planned rounds', () => {
       const read = readGolfPadExport(texts)
       return 'rejected' in read ? read.rejected : null
     }
+
+    it('names each file by its header line alone (the ledger on the import page)', () => {
+      expect(golfPadFileKind(roundsCsv)).toBe('rounds')
+      expect(golfPadFileKind(csv(HOLES_HEADER, [hole(D, C, 1, 4, 4, 2)], '\r\n'))).toBe('holes')
+      expect(golfPadFileKind(shotsCsv)).toBe('shots')
+      // A rounds column named in a later line doesn't make a holes file a rounds file.
+      expect(golfPadFileKind(csv(HOLES_HEADER, ['gross score,,,,1,4,4,2,0,0,,']))).toBe('holes')
+      expect(golfPadFileKind(csv('a,b', ['gross score,shot number']))).toBeNull()
+      expect(golfPadFileKind('')).toBeNull()
+    })
 
     it('tells the three files apart by their headers, in any order', () => {
       const read = readGolfPadExport([shotsCsv, roundsCsv, holesCsv])

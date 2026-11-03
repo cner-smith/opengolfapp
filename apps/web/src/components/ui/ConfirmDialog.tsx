@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, type ReactNode } from 'react'
 
 interface ConfirmDialogProps {
   open: boolean
@@ -8,8 +8,15 @@ interface ConfirmDialogProps {
   cancelLabel?: string
   destructive?: boolean
   busy?: boolean
+  /** Shown in brick under the message; the dialog stays open on failure. */
+  error?: string | null
+  /** Extra content under the message (Delete account's type-to-confirm field). */
+  children?: ReactNode
+  confirmDisabled?: boolean
   onConfirm: () => void | Promise<void>
   onCancel: () => void
+  /** Escape and the scrim; defaults to onCancel. For a cancel key that goes somewhere. */
+  onDismiss?: () => void
 }
 
 export function ConfirmDialog({
@@ -20,23 +27,23 @@ export function ConfirmDialog({
   cancelLabel = 'Cancel',
   destructive = false,
   busy = false,
+  error,
+  children,
+  confirmDisabled = false,
   onConfirm,
   onCancel,
+  onDismiss = onCancel,
 }: ConfirmDialogProps) {
   useEffect(() => {
     if (!open) return
     function onKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') onCancel()
+      if (e.key === 'Escape') onDismiss()
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [open, onCancel])
+  }, [open, onDismiss])
 
   if (!open) return null
-
-  const confirmColors = destructive
-    ? { bg: '#A33A2A', text: '#F2EEE5' }
-    : { bg: '#1F3D2C', text: '#F2EEE5' }
 
   return (
     <div
@@ -44,21 +51,13 @@ export function ConfirmDialog({
       aria-modal="true"
       className="fixed inset-0 z-[60] flex items-center justify-center"
       style={{ background: 'rgba(28,33,28,0.55)', padding: 16 }}
-      onClick={onCancel}
+      onClick={onDismiss}
     >
       <div
-        className="bg-caddie-surface w-full"
-        style={{
-          maxWidth: 420,
-          border: '1px solid #9F9580',
-          borderRadius: 4,
-          padding: 22,
-        }}
+        className="paper-tile w-full"
+        style={{ maxWidth: 420, padding: 22, boxShadow: '3px 3px 0 rgba(28,33,28,0.55)' }}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="kicker" style={{ marginBottom: 8 }}>
-          {destructive ? 'Confirm delete' : 'Confirm'}
-        </div>
         <div
           className="font-serif text-caddie-ink"
           style={{
@@ -79,41 +78,29 @@ export function ConfirmDialog({
             {message}
           </p>
         )}
+        {children}
+        {error && (
+          <p role="alert" className="text-caddie-neg" style={{ fontSize: 13, lineHeight: 1.45, margin: '-10px 0 18px' }}>
+            {error}
+          </p>
+        )}
         <div
           className="flex justify-end"
-          style={{ gap: 10 }}
+          style={{ gap: 10, paddingBottom: 3 }}
         >
           <button
             type="button"
             onClick={onCancel}
             disabled={busy}
-            className="text-caddie-ink-dim hover:text-caddie-ink disabled:opacity-50"
-            style={{
-              border: '1px solid #D9D2BF',
-              background: 'transparent',
-              borderRadius: 2,
-              padding: '10px 14px',
-              fontSize: 13,
-              fontWeight: 500,
-            }}
+            className="key"
           >
             {cancelLabel}
           </button>
           <button
             type="button"
             onClick={onConfirm}
-            disabled={busy}
-            style={{
-              backgroundColor: confirmColors.bg,
-              color: confirmColors.text,
-              border: 'none',
-              borderRadius: 2,
-              padding: '10px 16px',
-              fontSize: 14,
-              fontWeight: 600,
-              letterSpacing: '0.02em',
-              opacity: busy ? 0.5 : 1,
-            }}
+            disabled={busy || confirmDisabled}
+            className={destructive ? 'key key-danger' : 'key key-primary'}
           >
             {busy ? 'Working…' : confirmLabel}
           </button>

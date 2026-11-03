@@ -7,6 +7,7 @@ import {
   DEFAULT_HANDICAP,
   type DetailedRound,
   type DetailedStats,
+  wholeRoundWindow,
 } from '@oga/core'
 import { useAuth } from './useAuth'
 import { useProfile } from './useProfile'
@@ -25,7 +26,7 @@ export function useDetailedStats(limit: number): {
     queryKey: ['detailed-stats', user?.id, limit],
     enabled: !!user,
     queryFn: async (): Promise<DetailedRound[]> => {
-      const { data, error } = await getRoundsWithDetails(supabase, user!.id, limit)
+      const { data, error } = await getRoundsWithDetails(supabase, user!.id, limit * 2)
       if (error) throw error
       // The Supabase types for nested joins (rounds → hole_scores → holes/shots)
       // come back as a narrow inferred shape (no created_at on shots, no notes
@@ -37,20 +38,24 @@ export function useDetailedStats(limit: number): {
     },
   })
 
-  const rounds = useMemo(() => query.data ?? [], [query.data])
+  // The window runs back to the limit-th WHOLE round, as on mobile (#1222).
+  // 2× buffer: a player with more than `limit` partials in their last
+  // 2×limit rounds gets a shorter window.
+  const rounds = useMemo(() => wholeRoundWindow(query.data ?? [], limit), [query.data, limit])
   // computeDetailedStats walks every shot in every round (O(N×shots)) — wrap
   // in useMemo so it doesn't re-run on parent renders unrelated to the data.
-  // Returns null while loading and when there are zero rounds; consumers
-  // MUST gate EmptyState on !isLoading first to avoid flashing the empty
-  // state during fetch.
+  // Returns null while the rounds or the profile load (until the profile
+  // lands the baseline would be the default 15, then jump: #1197) and when
+  // there are zero rounds; consumers MUST gate EmptyState on !isLoading
+  // first to avoid flashing the empty state during fetch.
   const data = useMemo(
-    () => (rounds.length > 0 ? computeDetailedStats(rounds, handicap) : null),
-    [rounds, handicap],
+    () => (rounds.length > 0 && !profile.isLoading ? computeDetailedStats(rounds, handicap) : null),
+    [rounds, handicap, profile.isLoading],
   )
 
   return {
     data,
-    isLoading: query.isLoading,
+    isLoading: query.isLoading || profile.isLoading,
     error: (query.error as Error | null) ?? null,
     rounds,
   }

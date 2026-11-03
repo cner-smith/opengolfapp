@@ -6,17 +6,21 @@ import {
 } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { ShotEntryModal } from '../../components/rounds/ShotEntryModal'
-import { RoundSummary } from '../../components/rounds/RoundSummary'
+import { RoundSide, RoundTotals, type ScoredHole } from '../../components/rounds/RoundSummary'
 import { ShareableScorecardCard } from '../../components/round/ShareableScorecardCard'
 import { HoleReviewSheet } from '../../components/round/HoleReviewSheet'
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog'
 import {
   DEFAULT_HANDICAP,
   inferHoleCount,
+  roundHoleCount,
+  isFinishedRound,
+  projectShotMove,
   resolveCourseTee,
   type CaptureMode,
 } from '@oga/core'
 import { useAuth } from '../../hooks/useAuth'
+import { useDeleteShot, useInsertShot } from '../../hooks/useShots'
 import { useProfile } from '../../hooks/useProfile'
 import { toUserMessage } from '../../lib/errors'
 import type { PlacedPoint } from '../../components/round/RoundMap'
@@ -29,6 +33,7 @@ import { useRoundActions, type ShotDragUndo } from './hooks/useRoundActions'
 import { RoundHeader } from './components/RoundHeader'
 import { ScorecardView } from './components/ScorecardView'
 import { MapView } from './components/MapView'
+import { Rocker } from '../../components/ui/Rocker'
 
 type ViewMode = 'scorecard' | 'map'
 
@@ -57,6 +62,7 @@ export function RoundDetailPage() {
     holeScoreId: string
     holeNumber: number
     holePar: number
+    shotId?: string
   } | null>(null)
   const [completeError, setCompleteError] = useState<string | null>(null)
   const [searchParams] = useSearchParams()
@@ -65,11 +71,8 @@ export function RoundDetailPage() {
   const [view, setView] = useState<ViewMode>(() =>
     searchParams.get('view') === 'map' ? 'map' : 'scorecard',
   )
-  // Capture "session started in live mode" at mount. `view` is a
-  // runtime ViewTabs toggle — past-round reviewers can switch to the
-  // map tab and we don't want that to suppress the shot mini-map for
-  // them. The mini-map suppression is for genuine live entry only.
-  const [isLiveEntry] = useState(
+  // The URL said live at mount; the Scorecard | Map rocker never changes it.
+  const [urlLiveEntry] = useState(
     () =>
       searchParams.get('mode') === 'live' ||
       searchParams.get('view') === 'map',
@@ -133,6 +136,7 @@ export function RoundDetailPage() {
     scoresByHoleId,
     shotCountByHoleScore,
     activeHole,
+    activeHoleScore,
     effectivePin,
     persistedRoundPin,
     courseFallbackLat,
@@ -143,6 +147,8 @@ export function RoundDetailPage() {
     resolvedHoleByNumber,
     allRounds,
   } = data
+  // A finished round is never live, whatever the URL says (#1230).
+  const isLiveEntry = urlLiveEntry && !(round.data && isFinishedRound(round.data))
 
   const actions = useRoundActions({
     roundId,
@@ -181,6 +187,13 @@ export function RoundDetailPage() {
     deleteMutation,
   } = actions
 
+  // The round map's Remove and + Add shot (#1239). Failures show where the
+  // hole save's do.
+  const removeShot = useDeleteShot(roundId)
+  const insertShot = useInsertShot(roundId)
+  const shotError = (err: unknown) =>
+    dispatchHoleView({ type: 'SAVE_ERROR', message: toUserMessage(err) })
+
   if (round.isLoading || holesQuery.isLoading) {
     return (
       <div className="text-caddie-ink-mute" style={{ fontSize: 13 }}>
@@ -208,8 +221,53 @@ export function RoundDetailPage() {
   }
 
   const holesPlayed = holeScores.length
-  const holeCount = inferHoleCount(holes.map((h) => h.number))
-  const totalRoundsLogged = allRounds.data?.length ?? 0
+  const holeCount = roundHoleCount(round.data.hole_count, inferHoleCount(holes.map((h) => h.number)))
+  // Scored holes with their tee-resolved par: the header's running total,
+  // the totals block and the best / worst line all read from these.
+  const scored: ScoredHole[] = []
+  for (const h of holes) {
+    const hs = scoresByHoleId.get(h.id)
+    if (hs?.score != null && hs.score > 0)
+      scored.push({ number: h.number, score: hs.score, par: resolvedHoleByNumber.get(h.number)?.par ?? hs.par ?? h.par })
+  }
+  const runningScore = scored.reduce((t, h) => t + h.score, 0)
+  const runningPar = scored.reduce((t, h) => t + h.par, 0)
+  const finalized = isFinishedRound(round.data)
+  // Save / Recalculate SG and Delete: under the card, and under the map so a
+  // live round on a phone (which opens on the map) can still be finished.
+  const roundKeys = (
+    <div className="flex flex-wrap" style={{ gap: 12, marginTop: 28 }}>
+      {finalized ? (
+        <button
+          type="button"
+          onClick={handleComplete}
+          disabled={completeMutation.isPending}
+          className="key"
+        >
+          {completeMutation.isPending ? 'Saving…' : 'Recalculate SG'}
+        </button>
+      ) : (
+        <button
+          type="button"
+          onClick={handleComplete}
+          disabled={completeMutation.isPending || holesPlayed === 0}
+          className="key key-primary sm:hidden"
+          style={{ width: '100%', minHeight: 50, fontSize: 16 }}
+        >
+          {completeMutation.isPending ? 'Saving…' : 'Save SG'}
+        </button>
+      )}
+      <button
+        type="button"
+        onClick={() => setConfirmDelete(true)}
+        disabled={deleteMutation.isPending}
+        className="key"
+        style={{ color: '#A33A2A' }}
+      >
+        {deleteMutation.isPending ? 'Deleting…' : 'Delete round'}
+      </button>
+    </div>
+  )
   // The played tee (by id, then by colour) supplies rating/slope/yardage for
   // the share card — same match RoundHeader uses.
   const playedTee = resolveCourseTee(
@@ -227,18 +285,22 @@ export function RoundDetailPage() {
         tees={teesQuery.data ?? []}
         holesPlayed={holesPlayed}
         holeCount={holeCount}
+        score={runningScore}
+        toPar={runningPar > 0 ? runningScore - runningPar : null}
         shareTone={shareTone}
         sharing={sharing}
         completePending={completeMutation.isPending}
-        deletePending={deleteMutation.isPending}
         onBack={() => navigate('/rounds')}
         onShare={handleShare}
         onToggleShareTone={() =>
           setShareTone((t) => (t === 'light' ? 'dark' : 'light'))
         }
         onComplete={handleComplete}
-        onConfirmDelete={() => setConfirmDelete(true)}
       />
+
+      <div style={{ borderBottom: '1px solid #1C211C', padding: '14px 0 18px', marginBottom: 28 }}>
+        <Rocker tabs options={VIEWS} value={view} onChange={setView} label="Round view" className="sm:max-w-[420px]" />
+      </div>
 
       {/* Off-screen render target for html-to-image. Position fixed
           left:-99999px keeps the rasteriser-visible DOM out of the
@@ -332,29 +394,37 @@ export function RoundDetailPage() {
         </div>
       )}
 
-      {round.data.sg_total !== null && (
-        <div style={{ marginBottom: 28 }}>
-          <RoundSummary
-            round={round.data as unknown as RoundRow}
-            holes={holes}
-            holeScores={holeScores}
-            totalRoundsLogged={totalRoundsLogged}
-          />
-        </div>
-      )}
-
-      <ViewTabs value={view} onChange={setView} />
-
       {view === 'scorecard' ? (
-        <ScorecardView
-          holes={holes}
-          scoresByHoleId={scoresByHoleId}
-          shotCountByHoleScore={shotCountByHoleScore}
-          resolvedHoleByNumber={resolvedHoleByNumber}
-          roundId={round.data.id}
-          ensureRealHole={ensureRealHole}
-          onEditShots={(args) => setShotsModalFor(args)}
-        />
+        <div role="tabpanel" aria-label="Scorecard">
+          <RoundTotals
+            round={round.data as unknown as RoundRow}
+            scored={scored}
+            handicap={profile.data?.handicap_index ?? null}
+          />
+          <div
+            className="grid lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]"
+            style={{ columnGap: 56, rowGap: 36, marginTop: 40 }}
+          >
+            <ScorecardView
+              holes={holes}
+              scoresByHoleId={scoresByHoleId}
+              shotCountByHoleScore={shotCountByHoleScore}
+              resolvedHoleByNumber={resolvedHoleByNumber}
+              roundId={round.data.id}
+              ensureRealHole={ensureRealHole}
+              onEditShots={(args) => setShotsModalFor(args)}
+            />
+            <div className="lg:sticky lg:top-6 lg:self-start lg:pt-[52px]">
+              <RoundSide
+                round={round.data as unknown as RoundRow}
+                holesPlayed={holesPlayed}
+                totalRoundsLogged={allRounds.data?.length ?? 0}
+              >
+                {roundKeys}
+              </RoundSide>
+            </div>
+          </div>
+        </div>
       ) : (
         <MapView
           holes={holes}
@@ -382,6 +452,29 @@ export function RoundDetailPage() {
           onApplyShotDragUndo={applyShotDragUndo}
           saveError={saveError}
           editingOnMap={editingOnMap}
+          holeScore={activeHoleScore}
+          shotBusy={removeShot.isPending || insertShot.isPending}
+          onRemoveShot={(id) => removeShot.mutateAsync(id).catch(shotError)}
+          onAddShot={async (afterShotId, start) => {
+            const id = crypto.randomUUID()
+            const { distanceToTarget } = projectShotMove({ newStart: start, pin: effectivePin, isPutt: false })
+            try {
+              await insertShot.mutateAsync({ id, afterShotId, start, distanceToTarget: distanceToTarget ?? null })
+              return id
+            } catch (err) {
+              shotError(err)
+              return null
+            }
+          }}
+          onEditShot={(shotId) => {
+            if (!activeHole || !activeHoleScore) return
+            setShotsModalFor({
+              holeScoreId: activeHoleScore.id,
+              holeNumber: activeHole.number,
+              holePar: resolvedHoleByNumber.get(activeHole.number)?.par ?? activeHole.par,
+              shotId,
+            })
+          }}
           reviewSheet={
             activeHole ? (
               <>
@@ -412,6 +505,7 @@ export function RoundDetailPage() {
           }
         />
       )}
+      {view === 'map' && roundKeys}
 
       {shotsModalFor && round.data && (() => {
         // Resolve pin for the modal's mini-map distance recalc. Per-round
@@ -437,6 +531,7 @@ export function RoundDetailPage() {
             pinLat={pinLat}
             pinLng={pinLng}
             liveEntry={isLiveEntry}
+            editShotId={shotsModalFor.shotId}
             onClose={() => setShotsModalFor(null)}
           />
         )
@@ -445,52 +540,11 @@ export function RoundDetailPage() {
   )
 }
 
-function ViewTabs({
-  value,
-  onChange,
-}: {
-  value: ViewMode
-  onChange: (v: ViewMode) => void
-}) {
-  const tabs: { key: ViewMode; label: string }[] = [
-    { key: 'scorecard', label: 'Scorecard' },
-    { key: 'map', label: 'Map' },
-  ]
-  return (
-    <div
-      style={{
-        display: 'flex',
-        gap: 0,
-        borderBottom: '1px solid #D9D2BF',
-        marginBottom: 18,
-      }}
-    >
-      {tabs.map((t) => (
-        <button
-          key={t.key}
-          type="button"
-          onClick={() => onChange(t.key)}
-          className="font-mono uppercase"
-          style={{
-            background: 'transparent',
-            border: 'none',
-            padding: '10px 18px',
-            fontSize: 10,
-            letterSpacing: '0.14em',
-            color: value === t.key ? '#1C211C' : '#8A8B7E',
-            borderBottom:
-              value === t.key
-                ? '2px solid #1F3D2C'
-                : '2px solid transparent',
-            marginBottom: -1,
-          }}
-        >
-          {t.label}
-        </button>
-      ))}
-    </div>
-  )
-}
+// Scorecard | Map as the paper rocker (mobile Paper.tsx Rocker, §19.1).
+const VIEWS = [
+  { value: 'scorecard', label: 'Scorecard' },
+  { value: 'map', label: 'Map' },
+] as const satisfies readonly { value: ViewMode; label: string }[]
 
 // Re-export ScorecardView/MapView types for backwards compatibility if
 // any caller imports from this file.

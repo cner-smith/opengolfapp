@@ -1,35 +1,58 @@
+import { useEffect, useRef, useState } from 'react'
+import { formatHandicapIndex, parseHandicapIndex } from '@oga/core'
 import { OnboardingButtons, StepHeading } from './shared'
 
-function bracketLabel(handicap: number): { name: string; description: string } {
-  if (handicap <= 2) return { name: 'Scratch', description: 'Bracket: 0–2 handicap' }
-  if (handicap <= 7)
-    return { name: 'Single digit', description: 'Bracket: 3–7 handicap' }
-  if (handicap <= 12)
-    return { name: 'Low double digit', description: 'Bracket: 8–12 handicap' }
-  if (handicap <= 17)
-    return { name: 'Mid double digit', description: 'Bracket: 13–17 handicap' }
-  if (handicap <= 22) return { name: 'High teens', description: 'Bracket: 18–22 handicap' }
-  if (handicap <= 27)
-    return { name: 'Twenty-something', description: 'Bracket: 23–27 handicap' }
-  return { name: 'New to scoring', description: 'Bracket: 28+ handicap' }
+// The index the profile accepts (OnboardingPage.saveProfile). The slider
+// covers the usual range; the keys and the typed number reach the rest.
+const MIN = -10
+const MAX = 54
+const SLIDER_MIN = -5
+// A ruler position: the thumb's centre runs 9 px in from each end.
+const at = (n: number) => `calc(9px + (100% - 18px) * ${(n - SLIDER_MIN) / (MAX - SLIDER_MIN)})`
+const clamp = (n: number) => Math.min(MAX, Math.max(MIN, Math.round(n * 10) / 10))
+
+export function bracketLabel(handicap: number): string {
+  if (handicap < 0) return 'Plus handicap'
+  if (handicap <= 2) return 'Scratch'
+  if (handicap <= 7) return 'Single digit'
+  if (handicap <= 12) return 'Low double digit'
+  if (handicap <= 17) return 'Mid double digit'
+  if (handicap <= 22) return 'High teens'
+  if (handicap <= 27) return 'Twenty-something'
+  return 'New to scoring'
 }
 
 export function Step2Handicap({
   value,
+  seeded,
   onChange,
   onBack,
   onContinue,
 }: {
   value: number
+  /** Still the start Step 1 picked for them: say so. */
+  seeded: boolean
   onChange: (v: number) => void
   onBack: () => void
   onContinue: () => void
 }) {
   const bracket = bracketLabel(value)
+  // The big number is a button until pressed, then a text field.
+  const [typing, setTyping] = useState<string | null>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
+  useEffect(() => {
+    if (typing !== null) inputRef.current?.select()
+  }, [typing !== null]) // eslint-disable-line react-hooks/exhaustive-deps -- select once on entering edit mode, not on every keystroke
+
+  const commit = () => {
+    const n = typing === null ? null : parseHandicapIndex(typing)
+    if (n !== null) onChange(clamp(n))
+    setTyping(null)
+  }
+
   return (
     <div>
       <StepHeading
-        kicker="Handicap"
         title="What's your handicap index?"
         subtitle="It calibrates the strokes-gained baseline. No official number — your best guess is fine."
       />
@@ -37,53 +60,140 @@ export function Step2Handicap({
         style={{
           borderTop: '1px solid #D9D2BF',
           borderBottom: '1px solid #D9D2BF',
-          padding: '32px 0',
+          padding: '28px 0',
           textAlign: 'center',
           marginBottom: 22,
         }}
       >
-        <div
-          className="font-serif tabular text-caddie-ink"
-          style={{
-            fontSize: 64,
-            fontStyle: 'italic',
-            fontWeight: 500,
-            lineHeight: 1,
-          }}
-        >
-          {value}
+        <div className="flex items-center justify-center" style={{ gap: 22 }}>
+          <StepKey label="Lower by a tenth" glyph="−" onStep={() => onChange(clamp(value - 0.1))} />
+          <div style={{ width: 170, height: 72, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+            {typing === null ? (
+              <button
+                type="button"
+                onClick={() => setTyping(formatHandicapIndex(value))}
+                aria-label={`Handicap index ${formatHandicapIndex(value)}. Press to type it`}
+                className="font-serif tabular text-caddie-ink"
+                style={{ fontSize: 64, fontStyle: 'italic', fontWeight: 500, lineHeight: 1, background: 'none', border: 'none', cursor: 'text', padding: 0 }}
+              >
+                <span key={value} className="onb-tick" style={{ display: 'inline-block' }}>
+                  {formatHandicapIndex(value)}
+                </span>
+              </button>
+            ) : (
+              <input
+                ref={inputRef}
+                inputMode="decimal"
+                aria-label="Handicap index"
+                value={typing}
+                onChange={(e) => setTyping(e.target.value)}
+                onBlur={commit}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') commit()
+                  if (e.key === 'Escape') setTyping(null)
+                }}
+                className="font-serif tabular text-caddie-ink"
+                style={{
+                  width: 160,
+                  fontSize: 56,
+                  fontStyle: 'italic',
+                  fontWeight: 500,
+                  lineHeight: 1,
+                  textAlign: 'center',
+                  background: '#FBF8F1',
+                  border: '1px solid #1C211C',
+                  borderRadius: 3,
+                  boxShadow: '2px 2px 0 #1C211C',
+                  outline: 'none',
+                }}
+              />
+            )}
+          </div>
+          <StepKey label="Raise by a tenth" glyph="+" onStep={() => onChange(clamp(value + 0.1))} />
         </div>
-        <div
-          className="font-serif text-caddie-ink-dim"
-          style={{ fontSize: 17, marginTop: 10 }}
-        >
-          {bracket.name}
+        <div className="font-serif text-caddie-ink-dim" style={{ fontSize: 17, marginTop: 12 }}>
+          {bracket}
         </div>
-        <div className="kicker" style={{ marginTop: 6 }}>
-          {bracket.description}
-        </div>
+        {seeded && (
+          <p className="text-caddie-ink-dim" style={{ fontSize: 13, marginTop: 8, lineHeight: 1.5, maxWidth: 360, marginInline: 'auto' }}>
+            No handicap yet? Keep this: it&rsquo;s typical for golfers like you, and you can change it any time in Profile.
+          </p>
+        )}
       </div>
-      <input
-        type="range"
-        min={0}
-        max={36}
-        step={1}
-        value={value}
-        onChange={(e) => onChange(Number(e.target.value))}
-        style={{
-          width: '100%',
-          accentColor: '#1F3D2C',
-          marginBottom: 8,
-        }}
-      />
-      <div
-        className="font-mono uppercase tabular text-caddie-ink-mute flex justify-between"
-        style={{ fontSize: 10, letterSpacing: '0.14em' }}
-      >
-        <span>0 SCRATCH</span>
-        <span>36+</span>
+      {/* A printed ruler: a tick every stroke, a longer one every five, numbers
+          every ten; the pick is a green pencil line across it. */}
+      <div style={{ position: 'relative', height: 52, marginBottom: 4 }}>
+        {Array.from({ length: MAX - SLIDER_MIN + 1 }, (_, k) => {
+          const t = SLIDER_MIN + k
+          return (
+            <span
+              key={t}
+              aria-hidden
+              className="onb-ruler-tick"
+              style={{ left: at(t), height: t % 10 === 0 ? 16 : t % 5 === 0 ? 11 : 6 }}
+            />
+          )
+        })}
+        {[SLIDER_MIN, 0, 10, 20, 30, 40, 50].map((t) => (
+          <span
+            key={t}
+            aria-hidden
+            className="font-serif tabular text-caddie-ink-dim onb-ruler-num"
+            style={{ left: at(t), fontStyle: t < 0 ? 'italic' : undefined }}
+          >
+            {t < 0 ? `+${-t}` : t}
+          </span>
+        ))}
+        <input
+          type="range"
+          min={SLIDER_MIN}
+          max={MAX}
+          step={0.1}
+          value={value}
+          aria-label="Handicap index"
+          aria-valuetext={formatHandicapIndex(value)}
+          onChange={(e) => onChange(clamp(Number(e.target.value)))}
+          className="onb-ruler"
+        />
       </div>
       <OnboardingButtons onBack={onBack} onContinue={onContinue} canContinue={true} />
     </div>
+  )
+}
+
+// A raised −/+ key: one tenth per press; held down, it keeps stepping.
+function StepKey({ label, glyph, onStep }: { label: string; glyph: string; onStep: () => void }) {
+  const step = useRef(onStep)
+  step.current = onStep
+  const timers = useRef<{ delay?: number; repeat?: number }>({})
+  const stop = () => {
+    window.clearTimeout(timers.current.delay)
+    window.clearInterval(timers.current.repeat)
+    timers.current = {}
+  }
+  useEffect(() => stop, [])
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      className="key font-serif"
+      style={{ width: 44, minHeight: 44, padding: 0, fontSize: 22, fontWeight: 500 }}
+      onClick={(e) => {
+        // A pointer press already stepped on pointerdown; keyboard steps here.
+        if (e.detail === 0) step.current()
+      }}
+      onPointerDown={(e) => {
+        if (e.button !== 0) return
+        step.current()
+        timers.current.delay = window.setTimeout(() => {
+          timers.current.repeat = window.setInterval(() => step.current(), 80)
+        }, 400)
+      }}
+      onPointerUp={stop}
+      onPointerLeave={stop}
+      onPointerCancel={stop}
+    >
+      {glyph}
+    </button>
   )
 }

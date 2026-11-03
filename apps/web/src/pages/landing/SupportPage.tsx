@@ -11,9 +11,6 @@ export function SupportPage() {
   return (
     <main style={{ paddingTop: 120, paddingBottom: 80 }}>
       <div style={{ maxWidth: 760, margin: '0 auto', padding: '0 28px' }}>
-        <div className="kicker" style={{ marginBottom: 8 }}>
-          Support
-        </div>
         <h1
           className="font-serif text-caddie-ink"
           style={{
@@ -36,7 +33,7 @@ export function SupportPage() {
         </p>
 
         <div style={{ marginTop: 36 }}>
-          <H3>Start with Learn</H3>
+          <H2>Start with Learn</H2>
           <P>
             Most "how does this work" questions — strokes gained, shot
             patterns, what a stat means — are answered in{' '}
@@ -51,7 +48,7 @@ export function SupportPage() {
 
           <Hr />
 
-          <H3>Report a bug or ask a question</H3>
+          <H2>Report a bug or ask a question</H2>
           <P>
             The contact channel is{' '}
             <ExtLink href={ISSUES_URL}>GitHub Issues</ExtLink>. Open one for a
@@ -66,26 +63,32 @@ export function SupportPage() {
 
           <Hr />
 
-          <H3>Your account and data</H3>
+          <H2>Your account and data</H2>
           <P>
-            You can delete your account and all of its data yourself, at any
-            time, from <em>Settings</em> (in the app, under your profile). It's
-            permanent and immediate.
+            Delete your account and all its data yourself, any time:{' '}
+            <em>Profile → Account → Delete account</em>, in the app or on the
+            website. It's permanent and immediate.
           </P>
           <P>
-            No longer have the app installed? Email{' '}
+            Can't sign in? Email{' '}
             <a
               href="mailto:support@oga.golf"
               style={{ color: '#1F3D2C', textDecoration: 'underline' }}
             >
               support@oga.golf
             </a>{' '}
-            to request deletion of your account and all of its data.
+            from your account's address and we'll delete it.
           </P>
           <P>
             For anything else about your data — a correction, an export, a
-            question about what's stored — open an issue and we'll handle it.
-            The full rundown of what we collect is on the{' '}
+            question about what's stored — email{' '}
+            <a
+              href="mailto:support@oga.golf"
+              style={{ color: '#1F3D2C', textDecoration: 'underline' }}
+            >
+              support@oga.golf
+            </a>{' '}
+            rather than posting it in public. The full rundown of what we collect is on the{' '}
             <a
               href="/privacy"
               style={{ color: '#1F3D2C', textDecoration: 'underline' }}
@@ -97,7 +100,7 @@ export function SupportPage() {
 
           <Hr />
 
-          <H3>How fast you'll hear back</H3>
+          <H2>How fast you'll hear back</H2>
           <P>
             One person maintains this in their spare time, so there's no
             guaranteed response time — but issues are read, and real bugs get
@@ -106,8 +109,13 @@ export function SupportPage() {
           </P>
         </div>
 
+        <p className="font-serif text-caddie-ink" style={{ fontSize: 22, fontStyle: 'italic', fontWeight: 500, lineHeight: 1.3, marginTop: 36 }}>
+          Questions the guides don&rsquo;t answer?{' '}
+          <ExtLink href={ISSUES_URL}>Open an issue →</ExtLink>
+        </p>
+
         <Footnote>
-          Last reviewed: June 2026. The fastest way to reach the project is the
+          Last updated: 29 October 2026. The fastest way to reach the project is the
           issue tracker linked above.
         </Footnote>
       </div>
@@ -120,9 +128,9 @@ export function SupportPage() {
 // doesn't pull in the Learn article registry chunk.
 // ---------------------------------------------------------------------------
 
-function H3({ children }: { children: ReactNode }) {
+function H2({ children }: { children: ReactNode }) {
   return (
-    <h3
+    <h2
       className="font-serif text-caddie-ink"
       style={{
         fontSize: 22,
@@ -134,7 +142,7 @@ function H3({ children }: { children: ReactNode }) {
       }}
     >
       {children}
-    </h3>
+    </h2>
   )
 }
 
@@ -171,10 +179,9 @@ function ExtLink({ href, children }: { href: string; children: ReactNode }) {
 function Footnote({ children }: { children: ReactNode }) {
   return (
     <div
-      className="font-mono uppercase text-caddie-ink-mute"
+      className="text-caddie-ink-dim"
       style={{
-        fontSize: 10,
-        letterSpacing: '0.14em',
+        fontSize: 12,
         borderTop: '1px solid #D9D2BF',
         paddingTop: 18,
         marginTop: 36,

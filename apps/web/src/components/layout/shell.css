@@ -1,0 +1,78 @@
+/* App shell motion: the phone drawer, the pencil under the active tab, the
+   sidebar's active rule. Every animation sits behind no-preference. */
+
+.shell-scrim {
+  background: rgba(28, 33, 28, 0.48);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 200ms ease-out;
+}
+.shell-scrim[data-open='true'] {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.shell-drawer {
+  transform: translateX(-100%);
+  visibility: hidden;
+  transition: transform 240ms cubic-bezier(0.32, 0.72, 0, 1), visibility 0s linear 240ms;
+}
+.shell-drawer[data-open='true'] {
+  transform: none;
+  visibility: visible;
+  transition: transform 240ms cubic-bezier(0.32, 0.72, 0, 1), visibility 0s;
+}
+
+.shell-nav-link {
+  position: relative;
+  color: rgba(255, 255, 255, 0.55);
+  transition: color 120ms ease-out, background-color 160ms ease-out;
+}
+.shell-nav-link:hover {
+  color: rgba(255, 255, 255, 0.88);
+}
+.shell-nav-link[aria-current='page'] {
+  color: #f2eee5;
+  font-weight: 500;
+  background: rgba(242, 238, 229, 0.1);
+  box-shadow: inset 2px 0 0 #f2eee5;
+}
+
+.shell-pencil {
+  clip-path: inset(0 0 0 0);
+}
+
+.shell-menu-glyph span {
+  display: block;
+  width: 20px;
+  height: 1.5px;
+  background: #f2eee5;
+  border-radius: 1px;
+}
+.shell-menu-glyph span + span {
+  margin-top: 5px;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .shell-pencil {
+    animation: shell-pencil-draw 260ms cubic-bezier(0.33, 1, 0.68, 1) both;
+  }
+  @keyframes shell-pencil-draw {
+    from {
+      clip-path: inset(0 100% 0 0);
+    }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shell-drawer,
+  .shell-drawer[data-open='true'] {
+    transform: none;
+    opacity: 0;
+    transition: opacity 160ms ease-out, visibility 0s linear 160ms;
+  }
+  .shell-drawer[data-open='true'] {
+    opacity: 1;
+    transition: opacity 160ms ease-out, visibility 0s;
+  }
+}

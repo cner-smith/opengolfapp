@@ -39,7 +39,7 @@ import { useProfile } from '../../hooks/useProfile'
 import { ShotPatternsShareCard } from './components/ShotPatternsShareCard'
 import { PatternExplainer, PatternProgress, PatternsEmpty } from './components/PatternsPreview'
 import { ClubLadder } from './components/ClubLadder'
-import { AimPlot, squaresWord } from './components/AimPlot'
+import { AimPlot } from './components/AimPlot'
 import { TeePlot, teeGeometry } from './components/TeePlot'
 import { useNarrow, type ChartProps, type Ghost } from './components/chartParts'
 import { ColourByControl, FOCUS_RING, LAYER_INFO, LayerBar, Legend, rovingKey, type LegendEntry } from './components/LayerControls'
@@ -553,7 +553,6 @@ function chartCaption(a: {
   }
   if (a.stats && a.shownLayers.rings) parts.push(`Your next ${a.noun} will probably finish inside the solid ring; nearly all inside the dashed one.`)
   if (a.ghost && a.shownLayers.rings) parts.push(a.recentOn ? `The dotted ring is all of them, and the pencil dots the older shots.` : 'The dotted ring is your pattern from every lie.')
-  if (a.view === 'aim') parts.push(squaresWord(a.points, a.older, a.stats, a.ghost, a.unit, a.narrow))
   if (a.hiddenWords.length) {
     parts.push(`Hidden: ${a.hiddenWords.join('; ')}.`)
     if (a.legendHidden && a.stats) parts.push('Hidden shots still count in the rings and the numbers.')
@@ -775,8 +774,8 @@ function FilterSheet({ onClose, done, children }: { onClose: () => void; done: s
         <button
           type="button"
           onClick={onClose}
-          className={`bg-caddie-accent text-caddie-accent-ink ${FOCUS_RING}`}
-          style={{ width: '100%', marginTop: 18, padding: '13px 16px', borderRadius: 2, border: 'none', fontSize: 14, fontWeight: 600 }}
+          className="key key-primary"
+          style={{ width: '100%', marginTop: 18, fontSize: 14, fontWeight: 600 }}
         >
           {done}
         </button>

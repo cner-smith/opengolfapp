@@ -6,7 +6,7 @@ import { StatusBar } from 'expo-status-bar'
 import { P } from '../../components/paper/tokens'
 import { FONT } from '../../lib/typography'
 import Svg, { Path } from 'react-native-svg'
-import { marksPath, pencilUnderline } from '../../components/paper/pencil'
+import { marksPath, pencilUnderline } from '@oga/core'
 import type { BottomTabBarButtonProps } from '@react-navigation/bottom-tabs'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { supabase } from '../../lib/supabase'
@@ -15,6 +15,7 @@ import { ErrorBoundary } from '../../components/errors/ErrorBoundary'
 import { UnitsProvider } from '../../contexts/UnitsContext'
 import { isNetworkFailure, offlineKeys, readCache, writeCache } from '../../lib/offlineCache'
 import { TYPE } from '../../lib/typography'
+import { BackOnlineToast } from '../../components/round/BackOnline'
 
 const ICON_SIZE = 18
 // Transient profile fetch can hang on flaky networks. After this
@@ -24,14 +25,18 @@ const PROFILE_FETCH_TIMEOUT_MS = 10_000
 type ProfileState = 'loading' | 'complete' | 'incomplete' | 'error'
 
 export default function AppLayout() {
-  const { user, loading: authLoading } = useAuth()
+  const { user, loading: authLoading, offline } = useAuth()
   const [profileState, setProfileState] = useState<ProfileState>('loading')
   const [retryNonce, setRetryNonce] = useState(0)
   const insets = useSafeAreaInsets()
+  // Keyed on the id, not the user object: every TOKEN_REFRESHED hands
+  // AuthContext a new object for the same user, and re-running this gate
+  // swaps the Tabs for the spinner, unmounting the live round (#1132).
+  const userId = user?.id
 
   useEffect(() => {
     if (authLoading) return
-    if (!user) return
+    if (!userId) return
 
     let active = true
     setProfileState('loading')
@@ -40,11 +45,19 @@ export default function AppLayout() {
     // gets through it without signal, so they can reach their live round.
     // Only a network failure or the timeout falls back — a real error still
     // shows the retry screen.
-    const onboardedKey = offlineKeys.onboarded(user.id)
+    const onboardedKey = offlineKeys.onboarded(userId)
     const fallBack = () => {
       readCache<string>(onboardedKey).then((flag) => {
         if (active) setProfileState(flag === '1' ? 'complete' : 'error')
       })
+    }
+    // Not a dependency: the flag clearing must not re-run this gate, which
+    // would swap the Tabs (and a live round) for the spinner.
+    if (offline) {
+      fallBack()
+      return () => {
+        active = false
+      }
     }
     const timeoutId = setTimeout(() => {
       if (active) fallBack()
@@ -53,7 +66,7 @@ export default function AppLayout() {
     supabase
       .from('profiles')
       .select('onboarding_completed')
-      .eq('id', user.id)
+      .eq('id', userId)
       .maybeSingle()
       .then(({ data, error, status }) => {
         if (!active) return
@@ -76,7 +89,7 @@ export default function AppLayout() {
       active = false
       clearTimeout(timeoutId)
     }
-  }, [user, authLoading, retryNonce])
+  }, [userId, authLoading, retryNonce])
 
   if (authLoading || profileState === 'loading') {
     // Match the native splash screen's dark background so the cold-start
@@ -258,6 +271,7 @@ export default function AppLayout() {
         options={{ href: null, tabBarStyle: { display: 'none' } }}
       />
     </Tabs>
+    <BackOnlineToast />
     </UnitsProvider>
     </ErrorBoundary>
   )

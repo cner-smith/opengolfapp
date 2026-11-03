@@ -1,4 +1,4 @@
-import { SrcBody, SrcLabel } from '../components/ArticlePrimitives'
+import { ArticleTitle, SrcBody, SrcLabel, Subhead } from '../components/ArticlePrimitives'
 import type { CSSProperties, ReactNode } from 'react'
 
 export function UnderstandingYourSwingArticle() {
@@ -11,22 +11,7 @@ export function UnderstandingYourSwingArticle() {
         marginBottom: 32,
       }}
     >
-      <div className="kicker" style={{ marginBottom: 14 }}>
-        Improving your game · Your swing
-      </div>
-      <h2
-        className="font-serif text-caddie-ink"
-        style={{
-          fontSize: 28,
-          fontWeight: 500,
-          fontStyle: 'italic',
-          letterSpacing: '-0.015em',
-          lineHeight: 1.15,
-          marginBottom: 18,
-        }}
-      >
-        The ball doesn't lie.
-      </h2>
+      <ArticleTitle standfirst="The ball doesn't lie.">Understanding your own swing.</ArticleTitle>
 
       <P>
         You don't need a coach behind you or a launch monitor in front of you to
@@ -41,7 +26,7 @@ export function UnderstandingYourSwingArticle() {
 
       <Hr />
 
-      <H3>Start line and curve: the two-number readout</H3>
+      <H2>Start line and curve: the two-number readout</H2>
       <P>
         Modern launch-monitor data overturned what most of us were taught. Two
         things at impact write the whole shot:
@@ -62,7 +47,7 @@ export function UnderstandingYourSwingArticle() {
 
       <Hr />
 
-      <H3>The divot tells you the rest</H3>
+      <H2>The divot tells you the rest</H2>
       <P>
         With an iron, the turf is a second instrument. On solid contact the divot
         begins <em>after</em> the ball, not under it — proof you struck the ball
@@ -92,7 +77,7 @@ export function UnderstandingYourSwingArticle() {
 
       <Hr />
 
-      <H3>The strike fills in the blanks</H3>
+      <H2>The strike fills in the blanks</H2>
       <P>
         Where on the face you make contact is the cheapest data in golf to
         collect: a dusting of foot spray, face tape, or even the wear pattern on a
@@ -105,7 +90,7 @@ export function UnderstandingYourSwingArticle() {
 
       <Hr />
 
-      <H3>Three reads, one cause</H3>
+      <H2>Three reads, one cause</H2>
       <P>
         The skill isn't any single read — it's that the ball, the divot, and the
         strike almost always converge on the same story. A pull that curves right,
@@ -119,7 +104,7 @@ export function UnderstandingYourSwingArticle() {
 
       <Hr />
 
-      <H3>When the read runs out</H3>
+      <H2>When the read runs out</H2>
       <P>
         Reading your swing and <em>changing</em> it are different skills. You can
         often diagnose the cause — an open face, a steep path — long before you
@@ -148,9 +133,9 @@ const UL_STYLE: CSSProperties = {
   color: '#1C211C',
 }
 
-function H3({ children }: { children: ReactNode }) {
+function H2({ children }: { children: ReactNode }) {
   return (
-    <h3
+    <h2
       className="font-serif text-caddie-ink"
       style={{
         fontSize: 22,
@@ -161,7 +146,7 @@ function H3({ children }: { children: ReactNode }) {
       }}
     >
       {children}
-    </h3>
+    </h2>
   )
 }
 
@@ -205,9 +190,7 @@ function FlightReadout() {
         marginBottom: 18,
       }}
     >
-      <div className="kicker" style={{ marginBottom: 12, color: '#5C6356' }}>
-        What writes the shot
-      </div>
+      <Subhead>What writes the shot</Subhead>
       {rows.map((r, i) => (
         <div
           key={r.factor}
@@ -278,9 +261,7 @@ function BallFlightDiagram() {
 function Sources() {
   return (
     <section style={{ borderTop: '1px solid #D9D2BF', paddingTop: 18, marginTop: 22 }}>
-      <div className="kicker" style={{ marginBottom: 12 }}>
-        Sources
-      </div>
+      <Subhead>Sources</Subhead>
       <div style={{ display: 'grid', gap: 14, maxWidth: 640 }}>
         <div>
           <SrcLabel>The modern ball-flight laws</SrcLabel>
@@ -326,10 +307,9 @@ function Src({ href, children }: { href: string; children: ReactNode }) {
 function Footer() {
   return (
     <div
-      className="font-mono uppercase text-caddie-ink-mute"
+      className="text-caddie-ink-dim"
       style={{
-        fontSize: 10,
-        letterSpacing: '0.14em',
+        fontSize: 12,
         borderTop: '1px solid #D9D2BF',
         paddingTop: 18,
         marginTop: 22,

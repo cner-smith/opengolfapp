@@ -1,4 +1,4 @@
-import { SrcBody, SrcLabel } from '../components/ArticlePrimitives'
+import { ArticleTitle, SrcBody, SrcLabel, Subhead } from '../components/ArticlePrimitives'
 import type { ReactNode } from 'react'
 
 export function PracticeModesArticle() {
@@ -11,24 +11,9 @@ export function PracticeModesArticle() {
         marginBottom: 32,
       }}
     >
-      <div className="kicker" style={{ marginBottom: 14 }}>
-        Improving your game · Practice modes
-      </div>
-      <h2
-        className="font-serif text-caddie-ink"
-        style={{
-          fontSize: 28,
-          fontWeight: 500,
-          fontStyle: 'italic',
-          letterSpacing: '-0.015em',
-          lineHeight: 1.15,
-          marginBottom: 18,
-        }}
-      >
-        Block, random, and pressure.
-      </h2>
+      <ArticleTitle>Block, random, and pressure practice.</ArticleTitle>
 
-      <H3>The practice that feels best teaches least</H3>
+      <H2>The practice that feels best teaches least</H2>
       <P>
         The most satisfying practice — same club, same target, ball after ball
         until it grooves — is also the least durable. Half a century of
@@ -48,7 +33,7 @@ export function PracticeModesArticle() {
 
       <Hr />
 
-      <H3>Blocked — building the movement</H3>
+      <H2>Blocked — building the movement</H2>
       <P>
         Blocked practice is one shot repeated: the same club to the same target,
         over and over. It's the right tool for installing a brand-new movement or
@@ -61,7 +46,7 @@ export function PracticeModesArticle() {
 
       <Hr />
 
-      <H3>Random — the mode that actually transfers</H3>
+      <H2>Random — the mode that actually transfers</H2>
       <Aid svg={<ScheduleDiagram />}>
         <AidBody>
           Random practice mixes it up every ball — different club, different
@@ -92,7 +77,7 @@ export function PracticeModesArticle() {
 
       <Hr />
 
-      <H3>Pressure — closing the gap to the first tee</H3>
+      <H2>Pressure — closing the gap to the first tee</H2>
       <P>
         The range swing that abandons you on the first tee is a transfer failure:
         you rehearsed the skill in a calm state you never actually compete in.
@@ -112,7 +97,7 @@ export function PracticeModesArticle() {
 
       <Hr />
 
-      <H3>How to combine them</H3>
+      <H2>How to combine them</H2>
       <P>
         The modes aren't a menu to pick from; they're a progression. Match the
         mix to what you're trying to do, and shift it as a movement stabilizes.
@@ -130,7 +115,7 @@ export function PracticeModesArticle() {
 
       <Hr />
 
-      <H3>Why it has to feel worse</H3>
+      <H2>Why it has to feel worse</H2>
       <P>
         The through-line under all three modes is the same: performance during
         practice is a poor guide to learning, and the conditions that build
@@ -147,9 +132,9 @@ export function PracticeModesArticle() {
   )
 }
 
-function H3({ children }: { children: ReactNode }) {
+function H2({ children }: { children: ReactNode }) {
   return (
-    <h3
+    <h2
       className="font-serif text-caddie-ink"
       style={{
         fontSize: 22,
@@ -160,7 +145,7 @@ function H3({ children }: { children: ReactNode }) {
       }}
     >
       {children}
-    </h3>
+    </h2>
   )
 }
 
@@ -197,9 +182,7 @@ function ModesGlance() {
         marginBottom: 18,
       }}
     >
-      <div className="kicker" style={{ marginBottom: 12, color: '#5C6356' }}>
-        The three modes at a glance
-      </div>
+      <Subhead>The three modes at a glance</Subhead>
       {rows.map((r, i) => (
         <div
           key={r.mode}
@@ -396,9 +379,7 @@ function CombineTable() {
 function Sources() {
   return (
     <section style={{ borderTop: '1px solid #D9D2BF', paddingTop: 18, marginTop: 22 }}>
-      <div className="kicker" style={{ marginBottom: 12 }}>
-        Sources
-      </div>
+      <Subhead>Sources</Subhead>
       <div style={{ display: 'grid', gap: 14, maxWidth: 640 }}>
         <div>
           <SrcLabel>The contextual interference effect (blocked vs random)</SrcLabel>
@@ -486,10 +467,9 @@ function Src({ href, children }: { href: string; children: ReactNode }) {
 function Footer() {
   return (
     <div
-      className="font-mono uppercase text-caddie-ink-mute"
+      className="text-caddie-ink-dim"
       style={{
-        fontSize: 10,
-        letterSpacing: '0.14em',
+        fontSize: 12,
         borderTop: '1px solid #D9D2BF',
         paddingTop: 18,
         marginTop: 22,

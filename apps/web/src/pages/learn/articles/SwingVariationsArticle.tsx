@@ -1,4 +1,4 @@
-import { SrcBody, SrcLabel } from '../components/ArticlePrimitives'
+import { ArticleTitle, SrcBody, SrcLabel, Subhead } from '../components/ArticlePrimitives'
 import type { CSSProperties, ReactNode } from 'react'
 
 export function SwingVariationsArticle() {
@@ -11,22 +11,7 @@ export function SwingVariationsArticle() {
         marginBottom: 32,
       }}
     >
-      <div className="kicker" style={{ marginBottom: 14 }}>
-        Improving your game · Swing variations
-      </div>
-      <h2
-        className="font-serif text-caddie-ink"
-        style={{
-          fontSize: 28,
-          fontWeight: 500,
-          fontStyle: 'italic',
-          letterSpacing: '-0.015em',
-          lineHeight: 1.15,
-          marginBottom: 18,
-        }}
-      >
-        Swing your swing.
-      </h2>
+      <ArticleTitle standfirst="Swing your swing.">Swing variations for different body types.</ArticleTitle>
 
       <P>
         Almost all golf instruction quietly assumes one student: a flexible,
@@ -42,7 +27,7 @@ export function SwingVariationsArticle() {
 
       <Hr />
 
-      <H3>Before you take advice from anyone</H3>
+      <H2>Before you take advice from anyone</H2>
       <P>
         Generic tips are optimized for the average golfer. Before you take one
         from a video or an article, run it through a few honest questions:
@@ -65,7 +50,7 @@ export function SwingVariationsArticle() {
 
       <Hr />
 
-      <H3>The proof: great swings that broke the rules</H3>
+      <H2>The proof: great swings that broke the rules</H2>
       <P>
         If there were one correct swing, the best players in the world would all
         own it. They emphatically don't. A short, non-exhaustive list of
@@ -81,7 +66,7 @@ export function SwingVariationsArticle() {
 
       <Hr />
 
-      <H3>Every striking sport finds the same thing</H3>
+      <H2>Every striking sport finds the same thing</H2>
       <P>
         Golf isn't special here. Sports science has spent decades studying how
         athletes swing implements and throw objects — baseball pitches and swings,
@@ -115,7 +100,7 @@ export function SwingVariationsArticle() {
 
       <Hr />
 
-      <H3>Your body shapes your swing</H3>
+      <H2>Your body shapes your swing</H2>
       <P>
         Height, build, mobility, and handedness all change what a sound setup and
         swing look like for you. These are tendencies, not rules — but they're a
@@ -130,7 +115,7 @@ export function SwingVariationsArticle() {
 
       <Hr />
 
-      <H3>Schools of thought</H3>
+      <H2>Schools of thought</H2>
       <P>
         "Swing plane" — roughly, how upright or flat the club travels — is where
         much of the genuine expert disagreement lives. These are perspectives with
@@ -220,7 +205,7 @@ export function SwingVariationsArticle() {
 
       <Hr />
 
-      <H3>Physical conditions and adaptations</H3>
+      <H2>Physical conditions and adaptations</H2>
       <Callout>
         <strong>This is general information, not medical advice.</strong> If you
         have any of the conditions below, get cleared by a medical professional
@@ -264,7 +249,7 @@ export function SwingVariationsArticle() {
 
       <Hr />
 
-      <H3>How a good coach finds your swing</H3>
+      <H2>How a good coach finds your swing</H2>
       <P>
         This is where a well-trained teacher earns their fee. The Titleist
         Performance Institute (TPI) has done the most rigorous work on what it
@@ -285,7 +270,7 @@ export function SwingVariationsArticle() {
 
       <Hr />
 
-      <H3>The bottom line</H3>
+      <H2>The bottom line</H2>
       <P>
         "Swing your swing" isn't lazy advice. It's the most sophisticated advice
         in golf. There is no one correct swing — the Hall of Fame settles that —
@@ -313,9 +298,9 @@ const UL_STYLE: CSSProperties = {
   color: '#1C211C',
 }
 
-function H3({ children }: { children: ReactNode }) {
+function H2({ children }: { children: ReactNode }) {
   return (
-    <h3
+    <h2
       className="font-serif text-caddie-ink"
       style={{
         fontSize: 22,
@@ -326,7 +311,7 @@ function H3({ children }: { children: ReactNode }) {
       }}
     >
       {children}
-    </h3>
+    </h2>
   )
 }
 
@@ -377,9 +362,7 @@ function Checklist({ items }: { items: string[] }) {
         marginBottom: 18,
       }}
     >
-      <div className="kicker" style={{ marginBottom: 12, color: '#5C6356' }}>
-        Run this before you copy a tip
-      </div>
+      <Subhead>Run this before you copy a tip</Subhead>
       <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
         {items.map((item) => (
           <li
@@ -543,9 +526,7 @@ function BodyTypeTable() {
 function Sources() {
   return (
     <section style={{ borderTop: '1px solid #D9D2BF', paddingTop: 18, marginTop: 22 }}>
-      <div className="kicker" style={{ marginBottom: 12 }}>
-        Sources
-      </div>
+      <Subhead>Sources</Subhead>
       <div style={{ display: 'grid', gap: 14, maxWidth: 640 }}>
         <div>
           <SrcLabel>The body-swing connection</SrcLabel>
@@ -709,10 +690,9 @@ function Src({ href, children }: { href: string; children: ReactNode }) {
 function Footer() {
   return (
     <div
-      className="font-mono uppercase text-caddie-ink-mute"
+      className="text-caddie-ink-dim"
       style={{
-        fontSize: 10,
-        letterSpacing: '0.14em',
+        fontSize: 12,
         borderTop: '1px solid #D9D2BF',
         paddingTop: 18,
         marginTop: 22,

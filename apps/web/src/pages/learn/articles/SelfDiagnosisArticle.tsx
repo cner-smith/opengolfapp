@@ -1,4 +1,4 @@
-import { SrcBody, SrcLabel } from '../components/ArticlePrimitives'
+import { ArticleTitle, SrcBody, SrcLabel, Subhead } from '../components/ArticlePrimitives'
 import type { CSSProperties, ReactNode } from 'react'
 
 export function SelfDiagnosisArticle() {
@@ -11,24 +11,9 @@ export function SelfDiagnosisArticle() {
         marginBottom: 32,
       }}
     >
-      <div className="kicker" style={{ marginBottom: 14 }}>
-        On the course · Self-diagnosis
-      </div>
-      <h2
-        className="font-serif text-caddie-ink"
-        style={{
-          fontSize: 28,
-          fontWeight: 500,
-          fontStyle: 'italic',
-          letterSpacing: '-0.015em',
-          lineHeight: 1.15,
-          marginBottom: 18,
-        }}
-      >
-        Self-diagnosis.
-      </h2>
+      <ArticleTitle>Self-diagnosis: finding your weaknesses.</ArticleTitle>
 
-      <H3>You know something is off</H3>
+      <H2>You know something is off</H2>
       <P>
         Most golfers can feel that a part of their game is leaking shots.
         Far fewer can say what is actually happening — and that gap is the
@@ -47,7 +32,7 @@ export function SelfDiagnosisArticle() {
 
       <Hr />
 
-      <H3>Start where the strokes leak</H3>
+      <H2>Start where the strokes leak</H2>
       <P>
         Golf hands you four bills to pay every round: the tee shot, the
         approach, the short game, and the putter. Before you diagnose a
@@ -87,7 +72,7 @@ export function SelfDiagnosisArticle() {
 
       <Hr />
 
-      <H3>Four questions for any miss</H3>
+      <H2>Four questions for any miss</H2>
       <P>
         Once you know the area, the same four questions crack open almost any
         ball-flight problem. Ask them in order. Each answer narrows the field.
@@ -138,7 +123,7 @@ export function SelfDiagnosisArticle() {
 
       <Hr />
 
-      <H3>Off the tee</H3>
+      <H2>Off the tee</H2>
       <P>
         The expensive tee misses are the ones that find penalty areas: the big
         slice and the snap hook. Run the four questions. A consistent curve in
@@ -155,7 +140,7 @@ export function SelfDiagnosisArticle() {
 
       <Hr />
 
-      <H3>Approach</H3>
+      <H2>Approach</H2>
       <P>
         Approach misses come in two flavors: <em>direction</em> (push/pull,
         or a curve) and <em>contact</em> (fat/thin). Direction misses behave
@@ -171,7 +156,7 @@ export function SelfDiagnosisArticle() {
 
       <Hr />
 
-      <H3>Short game</H3>
+      <H2>Short game</H2>
       <P>
         Around the green, the two killers are the chunk and the skull — and
         they are often the same fault from opposite directions: a low point
@@ -188,7 +173,7 @@ export function SelfDiagnosisArticle() {
 
       <Hr />
 
-      <H3>Putting</H3>
+      <H2>Putting</H2>
       <P>
         Putting misses are easy to mislabel. Most golfers blame their read
         when the real culprit is speed. Read errors and pace errors look
@@ -204,7 +189,7 @@ export function SelfDiagnosisArticle() {
 
       <Hr />
 
-      <H3>Consistent is fixable; random is fundamentals</H3>
+      <H2>Consistent is fixable; random is fundamentals</H2>
       <P>
         If you take one thing from this guide, take the second question. A
         consistent miss is a friend — it is repeatable, which means it is
@@ -216,7 +201,7 @@ export function SelfDiagnosisArticle() {
 
       <Hr />
 
-      <H3>When to bring this to a coach</H3>
+      <H2>When to bring this to a coach</H2>
       <P>
         Self-diagnosis tells you <em>what</em> is happening and points you at
         the likely <em>why</em>. It does not replace a trained eye and a camera
@@ -245,9 +230,9 @@ const UL_STYLE: CSSProperties = {
   color: '#1C211C',
 }
 
-function H3({ children }: { children: ReactNode }) {
+function H2({ children }: { children: ReactNode }) {
   return (
-    <h3
+    <h2
       className="font-serif text-caddie-ink"
       style={{
         fontSize: 22,
@@ -258,18 +243,7 @@ function H3({ children }: { children: ReactNode }) {
       }}
     >
       {children}
-    </h3>
-  )
-}
-
-function Subhead({ children }: { children: ReactNode }) {
-  return (
-    <div
-      className="kicker"
-      style={{ marginTop: 14, marginBottom: 10, color: '#5C6356' }}
-    >
-      {children}
-    </div>
+    </h2>
   )
 }
 
@@ -387,8 +361,7 @@ function FlowQ({ n, q }: { n: string; q: string }) {
         }}
       >
         <span
-          className="font-mono"
-          style={{ fontSize: 10, letterSpacing: '0.14em', color: '#8A8B7E' }}
+          style={{ fontSize: 12, color: '#5C6356' }}
         >
           {n}
         </span>
@@ -461,10 +434,8 @@ function Chip({
       }}
     >
       <div
-        className="font-mono uppercase"
         style={{
-          fontSize: 10,
-          letterSpacing: '0.14em',
+          fontSize: 12,
           color: accent ? '#F2EEE5' : '#5C6356',
           marginBottom: 3,
         }}
@@ -499,9 +470,7 @@ function Chip({
 function Sources() {
   return (
     <section style={{ borderTop: '1px solid #D9D2BF', paddingTop: 18, marginTop: 22 }}>
-      <div className="kicker" style={{ marginBottom: 12 }}>
-        Sources
-      </div>
+      <Subhead>Sources</Subhead>
       <div style={{ display: 'grid', gap: 14, maxWidth: 640 }}>
         <div>
           <SrcLabel>Ball flight — start line, curve, and why the driver curves more</SrcLabel>
@@ -575,10 +544,9 @@ function Src({ href, children }: { href: string; children: ReactNode }) {
 function Footer() {
   return (
     <div
-      className="font-mono uppercase text-caddie-ink-mute"
+      className="text-caddie-ink-dim"
       style={{
-        fontSize: 10,
-        letterSpacing: '0.14em',
+        fontSize: 12,
         borderTop: '1px solid #D9D2BF',
         paddingTop: 18,
         marginTop: 22,

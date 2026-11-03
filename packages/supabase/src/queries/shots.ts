@@ -115,11 +115,3 @@ export function updateShot(
     .select()
     .single()
 }
-
-export function deleteShot(
-  client: OgaSupabaseClient,
-  shotId: string,
-  userId: string,
-) {
-  return client.from('shots').delete().eq('id', shotId).eq('user_id', userId)
-}

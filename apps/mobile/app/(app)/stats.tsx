@@ -8,6 +8,7 @@ import {
   formatClubLabel,
   formatSG,
   isPartialRound,
+  wholeRoundWindow,
   roundHolesPlayed,
   sgFinding,
   sgStandouts,
@@ -75,8 +76,10 @@ export default function Stats() {
   // Player's handicap for SG baselines. Web (useDetailedStats) already uses
   // the profile value; hardcoding DEFAULT_HANDICAP here benchmarked every
   // player against the default bracket and made mobile disagree with web on
-  // the same rounds (#673).
-  const [handicap, setHandicap] = useState<number | null>(null)
+  // the same rounds (#673). Undefined until the profile loads: computing
+  // against the default meanwhile showed a 15-handicap baseline that then
+  // jumped (#1197). Cached like the rounds so a warm open stays instant.
+  const [handicap, setHandicap] = useState(() => getCached<number | null>('stats:handicap'))
 
   useEffect(() => {
     if (!user) return
@@ -87,10 +90,9 @@ export default function Stats() {
         // eslint-disable-next-line no-console
         console.error('[stats/getProfile]', error.message)
       }
-      setHandicap(
-        (data as { handicap_index?: number | null } | null)?.handicap_index ??
-          null,
-      )
+      const h = (data as { handicap_index?: number | null } | null)?.handicap_index ?? null
+      setHandicap(h)
+      if (!error) setCached('stats:handicap', h)
     })
     return () => {
       active = false
@@ -126,13 +128,9 @@ export default function Stats() {
   // Round-level numbers (SG cards, trend, headline) read only the whole
   // rounds; partials inside the span still feed per-hole stats, matching
   // computeDetailedStats' contract (packages/core/src/stats.ts).
-  const rounds = useMemo(() => {
-    let whole = 0
-    const end = allRounds.findIndex((r) => !isPartialRound(r.hole_scores) && ++whole === n)
-    return end === -1 ? allRounds : allRounds.slice(0, end + 1)
-  }, [allRounds, n])
+  const rounds = useMemo(() => wholeRoundWindow(allRounds, n), [allRounds, n])
   const wholeRounds = useMemo(
-    () => rounds.filter((r) => !isPartialRound(r.hole_scores)),
+    () => rounds.filter((r) => !isPartialRound(r.hole_scores, r.hole_count)),
     [rounds],
   )
 
@@ -206,7 +204,7 @@ export default function Stats() {
 
   const stats: DetailedStats | null = useMemo(
     () =>
-      rounds.length > 0
+      rounds.length > 0 && handicap !== undefined
         ? computeDetailedStats(rounds, handicap ?? DEFAULT_HANDICAP)
         : null,
     [rounds, handicap],
@@ -281,14 +279,14 @@ export default function Stats() {
       />
 
       <ScrollView contentContainerStyle={{ padding: 18, paddingBottom: 40 }}>
-        {loading ? (
+        {loading || handicap === undefined ? (
           <Text style={[TYPE.body, { color: '#8A8B7E', fontSize: 13 }]}>Loading…</Text>
         ) : rounds.length === 0 ? (
           <StatsEmpty />
         ) : wholeRounds.length === 0 ? (
           // Partial rounds only (#1078): the averages would read 0.00.
           <StatsPartialOnly
-            holes={roundHolesPlayed(rounds[0]!.hole_scores)?.played ?? null}
+            holes={roundHolesPlayed(rounds[0]!.hole_scores, rounds[0]!.hole_count)?.played ?? null}
             // getRoundsWithDetails selects courses(name); DetailedRound doesn't declare it.
             course={(rounds[0] as { courses?: { name: string | null } | null }).courses?.name ?? null}
           />

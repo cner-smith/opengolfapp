@@ -1,5 +1,6 @@
 import 'react-native-url-polyfill/auto'
 import * as SecureStore from 'expo-secure-store'
+import type { Session, User } from '@supabase/supabase-js'
 import { createOgaClient } from '@oga/supabase'
 import { logDiag } from './db'
 
@@ -180,3 +181,20 @@ export const supabase = createOgaClient({
   flowType: 'pkce',
   fetch: timeoutFetch,
 })
+
+/** The user of the session auth-js has persisted, read without refreshing it
+ *  (#1005). Offline with an expired access token, getSession() returns null
+ *  because its refresh fails with a retryable network error, yet auth-js
+ *  leaves the session in storage (it only calls _removeSession on a
+ *  non-retryable error). The key mirrors supabase-js's default,
+ *  `sb-${hostname.split('.')[0]}-auth-token`; with no userStorage configured
+ *  the stored session carries its user. */
+export async function readPersistedUser(): Promise<User | null> {
+  try {
+    const raw = await SecureStoreAdapter.getItem(`sb-${new URL(url).hostname.split('.')[0]}-auth-token`)
+    const stored = raw ? (JSON.parse(raw) as Partial<Session> | null) : null
+    return stored?.refresh_token && typeof stored.user?.id === 'string' ? stored.user : null
+  } catch {
+    return null
+  }
+}

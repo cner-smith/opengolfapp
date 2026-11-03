@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { coneRingGeoJSON, scatterGeoJSON, type GeoPoint } from '@oga/core'
-import { mapboxgl, MAPBOX_TOKEN_PRESENT, fitHoleUpward } from '../../lib/mapbox'
+import { mapboxgl, MAPBOX_TOKEN_PRESENT, createMap, fitHoleUpward } from '../../lib/mapbox'
 import type { ClubDispersion } from '../../pages/rounds/hooks/useClubDispersion'
 
 export interface Leg {
@@ -124,6 +124,7 @@ export default function HoleStrategyMap({
   const mapRef = useRef<mapboxgl.Map | null>(null)
   const markersRef = useRef<mapboxgl.Marker[]>([])
   const [mapLoaded, setMapLoaded] = useState(false)
+  const [mapFailed, setMapFailed] = useState(false)
   const initialPositionDoneRef = useRef(false)
   // Highest number of legs rendered so far. `upsert` only ever
   // adds/updates sources; when the consumer shrinks `legs.length` (e.g.
@@ -140,13 +141,17 @@ export default function HoleStrategyMap({
   useEffect(() => {
     if (!containerRef.current || !MAPBOX_TOKEN_PRESENT) return
     if (mapRef.current) return
-    const map = new mapboxgl.Map({
-      container: containerRef.current,
-      style: 'mapbox://styles/mapbox/satellite-streets-v12',
-      center: [0, 0],
-      zoom: 1,
-      attributionControl: false,
-    })
+    const map = createMap(
+      {
+        container: containerRef.current,
+        style: 'mapbox://styles/mapbox/satellite-streets-v12',
+        center: [0, 0],
+        zoom: 1,
+        attributionControl: false,
+      },
+      () => setMapFailed(true),
+    )
+    if (!map) return
     map.addControl(
       new mapboxgl.AttributionControl({ compact: true }),
       'bottom-right',
@@ -331,12 +336,17 @@ export default function HoleStrategyMap({
           background: '#1C211C',
         }}
       />
-      {!MAPBOX_TOKEN_PRESENT && (
+      {(!MAPBOX_TOKEN_PRESENT || mapFailed) && (
+        // One message for a missing token and a runtime failure (owner,
+        // 2026-11-02). lib/mapbox logs both.
         <div
-          className="absolute inset-0 flex items-center justify-center text-caddie-ink-mute"
-          style={{ background: '#FBF8F1', fontSize: 13, padding: 22 }}
+          className="absolute inset-0 flex flex-col items-center justify-center text-caddie-ink-dim"
+          style={{ background: '#FBF8F1', fontSize: 14, padding: 22, gap: 14, textAlign: 'center' }}
         >
-          Map unavailable — set <code style={{ marginInline: 4 }}>VITE_MAPBOX_TOKEN</code> in your env to enable the map view.
+          The map didn&rsquo;t load. Check your connection and try again.
+          <button type="button" className="key" onClick={() => window.location.reload()}>
+            Try again
+          </button>
         </div>
       )}
     </div>
