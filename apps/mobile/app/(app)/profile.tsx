@@ -22,6 +22,7 @@ import {
 } from '@oga/core'
 import { getProfile, updateProfile } from '@oga/supabase'
 import type { Database } from '@oga/supabase'
+import NetInfo from '@react-native-community/netinfo'
 import { isAuthRetryableFetchError } from '@supabase/supabase-js'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
@@ -484,21 +485,31 @@ export default function ProfileTab() {
             label="Sign out"
             danger
             onPress={async () => {
-              // Offline, /logout can retry for a while: one sign-out at a time.
-              if (signingOutRef.current) return
-              signingOutRef.current = true
+              const needsSignal = () =>
+                Alert.alert("Couldn't sign out", 'Signing out needs signal. Try again when you’re connected.')
               // Offline, signOut() keeps the session and returns an error,
               // whatever the scope: it always calls /logout, and an expired
-              // token fails its refresh first (auth-js _signOut, #1329).
-              const { error } = await supabase.auth.signOut()
-              signingOutRef.current = false
+              // token fails its refresh first (auth-js _signOut, #1329). It
+              // only says so after ~100 s (it queues behind auth-js's failing
+              // refreshes; seen on the emulator), so with no connection at
+              // all, say it now.
+              if ((await NetInfo.fetch()).isConnected === false) return needsSignal()
+              // One sign-out at a time while /logout retries.
+              if (signingOutRef.current) return
+              signingOutRef.current = true
+              // auth-js rethrows non-auth errors: treat a throw as a failure,
+              // and always release the guard.
+              let error: unknown
+              try {
+                ;({ error } = await supabase.auth.signOut())
+              } catch (e) {
+                error = e
+              } finally {
+                signingOutRef.current = false
+              }
               if (error) {
-                Alert.alert(
-                  "Couldn't sign out",
-                  isAuthRetryableFetchError(error)
-                    ? 'Signing out needs signal. Try again when you’re connected.'
-                    : 'Something went wrong. Try again.',
-                )
+                if (isAuthRetryableFetchError(error)) return needsSignal()
+                Alert.alert("Couldn't sign out", 'Something went wrong. Try again.')
                 return
               }
               // Next sign-in must not render this account's cached screens.
