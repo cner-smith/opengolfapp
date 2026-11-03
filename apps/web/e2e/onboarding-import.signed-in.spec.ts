@@ -125,4 +125,23 @@ test.describe('Onboarding step 5 (signed in)', () => {
     await expect(page.getByRole('heading', { name: 'Here’s your game, as you told it.' })).toBeVisible()
     await expect(page.getByRole('button', { name: /^Goal/ })).toContainText('Break 80')
   })
+
+  // The coach sentence names only the sessions a week: the AI-written plan
+  // may choose a different focus than core's baseline week one.
+  for (const [frequency, sessions] of [['About once a week', '2 sessions'], ['About once a month', 'one session']] as const) {
+    test(`the coach sentence says ${sessions} a week and no week-one focus`, async ({ page }) => {
+      await page.goto('/onboarding')
+      await page.getByRole('radio', { name: /^Casual/ }).click()
+      await page.getByRole('button', { name: /Continue/ }).click()
+      await page.getByRole('button', { name: /Continue/ }).click()
+      await page.getByRole('radio', { name: /^Break 90/ }).click()
+      await page.getByRole('button', { name: /Continue/ }).click()
+      await page.getByRole('radio', { name: frequency }).click()
+      await page.getByRole('radio', { name: 'Mixed' }).click()
+      await page.getByRole('button', { name: /Continue/ }).click()
+      await expect(page.locator('.onb-coach')).toHaveText(
+        `A 28.0 chasing 90, ${frequency.toLowerCase()}: your first plan starts with ${sessions} a week.`,
+      )
+    })
+  }
 })

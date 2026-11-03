@@ -1,4 +1,4 @@
-import { formatHandicapIndex, playFrequencyPlan, selectBaselinePlan, type PlayFrequency } from '@oga/core'
+import { formatHandicapIndex, playFrequencyPlan, type PlayFrequency } from '@oga/core'
 import { useCountUp } from '../../../hooks/useCountUp'
 import type { OnboardingDraft } from '../OnboardingPage'
 import { bracketLabel } from './Step2Handicap'
@@ -48,8 +48,9 @@ const FACILITY_PHRASE: Record<string, string> = {
   sim: 'a simulator',
 }
 
-// The one coach sentence: their answers read back, then what the first plan
-// does with them (the same core calls the plan generator starts from).
+// The one coach sentence: their answers read back, then how many sessions a
+// week the first plan holds (core's rule, as the plan generator uses). Not its
+// focus: the AI-written plan may choose a different one.
 function coachLine(draft: OnboardingDraft): string {
   const index = formatHandicapIndex(draft.handicap)
   // Said aloud, 8, 11 and 18 start with a vowel: "an 8.0".
@@ -59,10 +60,8 @@ function coachLine(draft: OnboardingDraft): string {
   const f = draft.facilities.map((x) => FACILITY_PHRASE[x] ?? x)
   const where = f.length ? `, with ${f.length > 1 ? `${f.slice(0, -1).join(', ')} and ${f[f.length - 1]}` : f[0]}` : ''
   const { sessionCount } = playFrequencyPlan(draft.playFrequency as PlayFrequency | null)
-  const plan = selectBaselinePlan({ skill: draft.skillLevel, goal: draft.goal, weekIndex: 0 })
-  const focus = plan.week_focus.charAt(0).toLowerCase() + plan.week_focus.slice(1)
   const sessions = sessionCount === 1 ? 'one session' : `${sessionCount} sessions`
-  return `${who}${often}${where}: your first plan is ${sessions} a week, and week one is about how to ${focus}.`
+  return `${who}${often}${where}: your first plan starts with ${sessions} a week.`
 }
 
 export function Step5Summary({
