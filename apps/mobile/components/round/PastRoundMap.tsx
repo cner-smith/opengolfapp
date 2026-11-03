@@ -442,11 +442,16 @@ export function PastRoundMap({
   // (logging) or drops back to review (completed).
   // A save that fails puts the stored start back and resolves false, so
   // HoleMap snaps the dragged marker back too (#1129, as the live round #1111).
+  // One save at a time: `storedStart` is read from optimistic state, so a drag
+  // landing mid-save would capture the first drag's unsaved spot as "stored"
+  // and a failure would restore it (#1322). Refused drags snap back.
+  const savingStartRef = useRef(false)
   async function handleSetBall(loc: LatLng) {
     if (!currentHoleScore || !active) {
       Alert.alert('Save failed', "That shot didn't save.")
       return false
     }
+    if (savingStartRef.current) return false
     const idx = activeIdx
     const storedStart = active.start
     const wasInitial = storedStart == null
@@ -455,7 +460,14 @@ export function PastRoundMap({
     )
     // Await the placement INSERT so the row + id exist before any follow-up
     // (a putt confirmation may update it). Only branch on the FIRST placement.
-    if (!(await persistShotAt(idx, { start: loc }))) {
+    savingStartRef.current = true
+    let saved: boolean
+    try {
+      saved = await persistShotAt(idx, { start: loc })
+    } finally {
+      savingStartRef.current = false
+    }
+    if (!saved) {
       setPlaced((prev) =>
         prev.map((s, i) => (i === idx ? { ...s, start: storedStart } : s)),
       )
