@@ -835,7 +835,7 @@ export interface VerdictSuggestion {
 }
 
 // Haiku 5.5: no temperature (400), structured output instead of a forced tool.
-// ponytail: computed on demand, not stored; add a column if reloads get costly.
+// Computed on demand, not stored: add a column if reloads get costly.
 async function suggestVerdict(course: unknown): Promise<VerdictSuggestion> {
   const msg = await new Anthropic().messages.create({
     model: 'claude-haiku-5-5',
