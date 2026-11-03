@@ -361,6 +361,8 @@ export async function upsertMatchedHoles(
     tee_lng: h.tee.lon,
     pin_lat: h.pin.lat,
     pin_lng: h.pin.lon,
+    // A mapped hole is the course's own, not a front-nine repeat (#1326).
+    loop_of: null,
   }))
   const { error } = await client.from('holes').upsert(rows, { onConflict: 'course_id,number' })
   if (error) throw error

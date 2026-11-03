@@ -400,6 +400,7 @@ export type Database = {
         Row: {
           course_id: string
           id: string
+          loop_of: string | null
           number: number
           par: number
           par_source: string | null
@@ -413,6 +414,7 @@ export type Database = {
         Insert: {
           course_id: string
           id?: string
+          loop_of?: string | null
           number: number
           par: number
           par_source?: string | null
@@ -426,6 +428,7 @@ export type Database = {
         Update: {
           course_id?: string
           id?: string
+          loop_of?: string | null
           number?: number
           par?: number
           par_source?: string | null
@@ -442,6 +445,13 @@ export type Database = {
             columns: ["course_id"]
             isOneToOne: false
             referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "holes_loop_of_fkey"
+            columns: ["loop_of"]
+            isOneToOne: false
+            referencedRelation: "holes"
             referencedColumns: ["id"]
           },
         ]

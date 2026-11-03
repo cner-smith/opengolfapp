@@ -235,7 +235,7 @@ export async function completeRound({
       .filter((x): x is { score: number; par: number; strokeIndex: number | null } => !!x)
     // Only a complete 9- or 18-hole round produces a differential (#711,
     // #727) — see playedRowsForDifferential for the coverage contract.
-    const holeCount = handicapHoleCount(roundTee?.hole_count, holes.map((h) => h.number))
+    const holeCount = handicapHoleCount(roundTee?.hole_count, holes.filter((h) => !h.loop_of).map((h) => h.number))
     const playedRows = holeCount == null ? null : playedRowsForDifferential(holeRows, holeCount)
     if (playedRows) {
       const adjusted = adjustedScore(playedRows, handicap ?? DEFAULT_HANDICAP, {

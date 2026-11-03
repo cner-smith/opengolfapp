@@ -325,6 +325,7 @@ function holeRow(par: number): HoleRow {
     id: 'h1',
     course_id: 'c',
     number: 1,
+    loop_of: null,
     par,
     par_source: null,
     yards: null,
