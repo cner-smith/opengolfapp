@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 
 // Privacy policy. Plain language, no boilerplate. Mirrors the Learn
-// article styling (kicker → italic title → H3 / P / Hr blocks) so it
+// article styling (italic title → H3 / P / Hr blocks) so it
 // reads as part of the same editorial voice.
 export function PrivacyPage() {
   return (
@@ -13,9 +13,6 @@ export function PrivacyPage() {
           padding: '0 28px',
         }}
       >
-        <div className="kicker" style={{ marginBottom: 8 }}>
-          Privacy
-        </div>
         <h1
           className="font-serif text-caddie-ink"
           style={{
@@ -220,10 +217,9 @@ function ExtLink({
 function Footnote({ children }: { children: ReactNode }) {
   return (
     <div
-      className="font-mono uppercase text-caddie-ink-mute"
+      className="text-caddie-ink-dim"
       style={{
-        fontSize: 10,
-        letterSpacing: '0.14em',
+        fontSize: 12,
         borderTop: '1px solid #D9D2BF',
         paddingTop: 18,
         marginTop: 36,

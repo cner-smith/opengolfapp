@@ -26,6 +26,8 @@ test.describe('Landing page (signed out)', () => {
 
   test('the example Shot patterns chart loads and answers a club change', async ({ page }) => {
     await page.goto('/')
+    // The chart mounts when it comes into view.
+    await page.locator('#try').scrollIntoViewIfNeeded()
     const ladder = page.getByRole('radiogroup', { name: 'Club' })
     await expect(ladder).toBeVisible()
     const finding = page.locator('.lb-demo-body p').first()
@@ -40,10 +42,10 @@ test.describe('Landing page (signed out)', () => {
     const wedge = page.getByLabel('Gap wedge typical distance, yards')
     await wedge.scrollIntoViewIfNeeded()
     const headline = page.getByTestId('bag-headline')
-    await expect(headline).toHaveText('Your driver to your lob wedge, 228 to 76 yd, with every gap under 20 yd.')
+    await expect(headline).toHaveText('Your driver to your lob wedge, 226 to 87 yd, with every gap under 20 yd.')
 
-    // Pitching wedge 119, gap wedge 105 → 95: a 24 yd hole opens between them.
-    await wedge.fill('95')
+    // The promo bag: pitching wedge 128, gap wedge 116 → 104: a 24 yd hole.
+    await wedge.fill('104')
     await expect(headline).toHaveText('24 yd hole between your pitching wedge and gap wedge.')
 
     // Out of the bag, the 5-hybrid's row leaves the chart.
@@ -56,7 +58,7 @@ test.describe('Landing page (signed out)', () => {
 
     // Metres: the fields, the chart and the sentence all change unit.
     await page.getByRole('button', { name: 'Metres' }).click()
-    await expect(page.getByLabel('Gap wedge typical distance, metres')).toHaveValue('87')
-    await expect(headline).toHaveText('22 m hole between your 5-wood and 5-iron.')
+    await expect(page.getByLabel('Gap wedge typical distance, metres')).toHaveValue('95')
+    await expect(headline).toHaveText('22 m hole between your pitching wedge and gap wedge.')
   })
 })

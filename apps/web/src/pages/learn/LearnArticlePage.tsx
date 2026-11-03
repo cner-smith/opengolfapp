@@ -22,7 +22,6 @@ export function LearnArticlePage() {
 
   return (
     <div style={{ maxWidth: 760, margin: '0 auto' }}>
-      <BackLink />
       <Breadcrumb section={section} />
       {isDraft && <DraftBanner slug={article.id} />}
       <Component />
@@ -31,37 +30,18 @@ export function LearnArticlePage() {
   )
 }
 
-function BackLink() {
-  return (
-    <Link
-      to="/learn"
-      className="font-mono uppercase"
-      style={{
-        display: 'inline-block',
-        fontSize: 10,
-        letterSpacing: '0.14em',
-        color: '#5C6356',
-        textDecoration: 'none',
-        marginBottom: 18,
-      }}
-    >
-      ← Learn
-    </Link>
-  )
-}
-
+// The one way back, and the article's category (no separate kicker).
 function Breadcrumb({ section }: { section: LearnSection }) {
   return (
-    <div
-      className="font-mono uppercase text-caddie-ink-mute"
-      style={{
-        fontSize: 10,
-        letterSpacing: '0.14em',
-        marginBottom: 22,
-      }}
-    >
-      Learn / <span style={{ color: '#1C211C' }}>{section.title}</span>
-    </div>
+    <nav aria-label="Breadcrumb" className="text-caddie-ink-dim" style={{ fontSize: 13, marginBottom: 18 }}>
+      <Link to="/learn" className="hover:text-caddie-ink" style={{ textDecoration: 'underline', textUnderlineOffset: 3 }}>
+        Learn
+      </Link>
+      <span aria-hidden style={{ margin: '0 8px' }}>
+        /
+      </span>
+      <span className="text-caddie-ink">{section.title}</span>
+    </nav>
   )
 }
 
@@ -91,7 +71,7 @@ function DraftBanner({ slug }: { slug: string }) {
       }}
     >
       <div style={{ flex: 1 }}>
-        <div className="kicker" style={{ marginBottom: 6, color: '#A66A1F' }}>
+        <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 6, color: '#A66A1F' }}>
           Work in progress
         </div>
         <p
@@ -108,17 +88,8 @@ function DraftBanner({ slug }: { slug: string }) {
           window.sessionStorage.setItem(key, '1')
           setDismissed(true)
         }}
-        className="font-mono uppercase"
-        style={{
-          background: 'transparent',
-          border: '1px solid #D9D2BF',
-          padding: '6px 10px',
-          fontSize: 10,
-          letterSpacing: '0.14em',
-          color: '#5C6356',
-          cursor: 'pointer',
-          borderRadius: 2,
-        }}
+        className="key"
+        style={{ minHeight: 36, padding: '0 12px', fontSize: 13 }}
       >
         Dismiss
       </button>
@@ -179,10 +150,7 @@ function NeighbourLink({
       to={`/learn/${article.id}`}
       style={{ textDecoration: 'none', textAlign: align, display: 'block' }}
     >
-      <div
-        className="font-mono uppercase text-caddie-ink-mute"
-        style={{ fontSize: 10, letterSpacing: '0.14em', marginBottom: 6 }}
-      >
+      <div className="text-caddie-ink-dim" style={{ fontSize: 13, marginBottom: 6 }}>
         {isNext ? 'Next →' : '← Previous'}
       </div>
       <div

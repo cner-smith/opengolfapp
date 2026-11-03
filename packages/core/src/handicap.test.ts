@@ -3,7 +3,9 @@ import {
   adjustedScore,
   calculateDifferential,
   calculateHandicapIndex,
+  formatHandicapIndex,
   handicapProvenance,
+  parseHandicapIndex,
 } from './handicap'
 
 describe('calculateDifferential', () => {
@@ -209,5 +211,34 @@ describe('handicapProvenance', () => {
     expect(handicapProvenance(twoDiffs.length)).toBe('provisional')
     expect(calculateHandicapIndex(threeDiffs)).not.toBeNull()
     expect(handicapProvenance(threeDiffs.length)).toBe('calculated')
+  })
+})
+
+describe('formatHandicapIndex', () => {
+  it('prints one decimal, and a plus handicap (stored negative) with a plus', () => {
+    expect(formatHandicapIndex(12.4)).toBe('12.4')
+    expect(formatHandicapIndex(15)).toBe('15.0')
+    expect(formatHandicapIndex(0)).toBe('0.0')
+    expect(formatHandicapIndex(-2)).toBe('+2.0')
+    expect(formatHandicapIndex(-0.04)).toBe('0.0')
+  })
+})
+
+describe('parseHandicapIndex', () => {
+  it('reads what a golfer types: a plus handicap is stored negative', () => {
+    expect(parseHandicapIndex('12.4')).toBe(12.4)
+    expect(parseHandicapIndex(' 12,4 ')).toBe(12.4)
+    expect(parseHandicapIndex('+2')).toBe(-2)
+    expect(parseHandicapIndex('+2.3')).toBe(-2.3)
+    // '-1.5' is read as the stored form of a plus 1.5, so it shows as +1.5.
+    expect(parseHandicapIndex('-1.5')).toBe(-1.5)
+    expect(parseHandicapIndex('8.25')).toBe(8.3)
+  })
+
+  it('rejects text that is not a number', () => {
+    expect(parseHandicapIndex('')).toBeNull()
+    expect(parseHandicapIndex('abc')).toBeNull()
+    expect(parseHandicapIndex('1.2.3')).toBeNull()
+    expect(parseHandicapIndex('+')).toBeNull()
   })
 })

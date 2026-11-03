@@ -13,6 +13,7 @@ import { Step5Summary } from './steps/Step5Summary'
 import { Step6Bag } from './steps/Step6Bag'
 import { Step7Import } from './steps/Step7Import'
 import { toUserMessage } from '../../lib/errors'
+import { Wordmark } from '../../components/landing/Wordmark'
 
 export interface OnboardingDraft {
   skillLevel: SkillLevel | null
@@ -51,9 +52,9 @@ export function OnboardingPage() {
   function next() {
     if (step < TOTAL_STEPS) setStep(step + 1)
   }
+  // Step 1 has no Back: the user is signed in, so there is nothing behind it.
   function back() {
     if (step > 1) setStep(step - 1)
-    else navigate('/login')
   }
 
   // Step 5 → save profile, advance to bag step. Step 6 → save bag (or
@@ -129,24 +130,15 @@ export function OnboardingPage() {
         }}
       >
         <div style={{ marginBottom: 32 }}>
-          <div
-            className="font-serif text-caddie-ink"
-            style={{ fontSize: 22, fontWeight: 500 }}
-          >
-            OGA
-          </div>
-          <div className="kicker" style={{ marginTop: 4 }}>
-            Open Golf App
-          </div>
+          <Wordmark />
         </div>
 
-        <StepIndicator current={step} total={TOTAL_STEPS} />
+        <StepIndicator current={step} />
 
         {step === 1 && (
           <Step1Skill
             value={draft.skillLevel}
             onChange={(skillLevel) => setDraft((d) => ({ ...d, skillLevel }))}
-            onBack={back}
             onContinue={next}
           />
         )}
@@ -214,28 +206,34 @@ export function OnboardingPage() {
   )
 }
 
-function StepIndicator({ current, total }: { current: number; total: number }) {
+// Five numbered steps; the bag is optional and the import offer comes after
+// the profile is saved, so neither takes a number.
+const NUMBERED_STEPS = 5
+
+function StepIndicator({ current }: { current: number }) {
+  const label =
+    current <= NUMBERED_STEPS ? `Step ${current} of ${NUMBERED_STEPS}` : current === 6 ? 'Optional: your bag' : 'One more thing'
   return (
     <div style={{ marginBottom: 28 }}>
-      <div className="kicker" style={{ marginBottom: 10 }}>
-        Step {current} of {total}
+      <div className="flex" style={{ gap: 4 }} aria-hidden>
+        {Array.from({ length: NUMBERED_STEPS }, (_, i) => {
+          const n = i + 1
+          return (
+            <div key={n} style={{ flex: 1, height: 3, backgroundColor: '#D9D2BF' }}>
+              <div
+                className="onb-seg"
+                style={{
+                  height: 3,
+                  backgroundColor: n === current ? '#1F3D2C' : '#1C211C',
+                  transform: n <= current ? 'scaleX(1)' : 'scaleX(0)',
+                }}
+              />
+            </div>
+          )
+        })}
       </div>
-      <div
-        style={{
-          width: '100%',
-          height: 1,
-          backgroundColor: '#D9D2BF',
-          position: 'relative',
-        }}
-      >
-        <div
-          style={{
-            width: `${(current / total) * 100}%`,
-            height: 1,
-            backgroundColor: '#1F3D2C',
-            transition: 'width 200ms ease',
-          }}
-        />
+      <div className="text-caddie-ink-dim" style={{ fontSize: 13, marginTop: 10 }}>
+        {label}
       </div>
     </div>
   )

@@ -33,16 +33,16 @@ export function Step6Bag({
   return (
     <div>
       <StepHeading
-        kicker="Optional"
         title="Build your bag."
-        subtitle="Standard bags carry up to 14 clubs. Select what you carry — tap to toggle. You can customise your bag fully in settings later."
+        subtitle="Standard bags carry up to 14 clubs. Press a club to take it out or put it back. You can customise your bag fully in settings later."
       />
       <div
         style={{
           display: 'flex',
           flexWrap: 'wrap',
-          gap: 6,
+          gap: 10,
           marginTop: 4,
+          paddingBottom: 3,
         }}
       >
         {DEFAULT_BAG.map((c) => {
@@ -53,32 +53,10 @@ export function Step6Bag({
               type="button"
               onClick={() => toggle(c.club_type)}
               aria-pressed={active}
-              style={{
-                // Outline style for unselected, filled accent + leading
-                // checkmark for selected — gives an obvious binary read
-                // at a glance instead of "two shades of green".
-                backgroundColor: active ? '#1F3D2C' : 'transparent',
-                color: active ? '#F2EEE5' : '#5C6356',
-                border: active ? '1px solid #1F3D2C' : '1px solid #D9D2BF',
-                borderRadius: 2,
-                padding: '8px 12px',
-                fontSize: 13,
-                fontWeight: active ? 500 : 400,
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 6,
-              }}
+              className="key"
+              style={{ minHeight: 40, padding: '0 12px', fontSize: 13, fontWeight: 500, gap: 6 }}
             >
-              <span
-                aria-hidden
-                style={{
-                  display: 'inline-block',
-                  width: 12,
-                  fontSize: 12,
-                  lineHeight: 1,
-                  textAlign: 'center',
-                }}
-              >
+              <span aria-hidden className="font-serif" style={{ display: 'inline-block', width: 10, fontStyle: 'italic' }}>
                 {active ? '✓' : ''}
               </span>
               {c.name}
@@ -86,15 +64,15 @@ export function Step6Bag({
           )
         })}
       </div>
-      <div
-        className="kicker"
-        style={{ marginTop: 22, color: '#8A8B7E' }}
-      >
-        {selected.size} of {DEFAULT_BAG.length} selected
+      <div className="text-caddie-ink" style={{ marginTop: 22, fontSize: 14 }}>
+        <span className="font-serif tabular" style={{ fontSize: 17, fontStyle: 'italic', fontWeight: 500 }}>
+          {selected.size}
+        </span>{' '}
+        of {DEFAULT_BAG.length} in the bag
       </div>
       <p
-        className="text-caddie-ink-mute"
-        style={{ fontSize: 12, marginTop: 8, lineHeight: 1.5 }}
+        className="text-caddie-ink-dim"
+        style={{ fontSize: 13, marginTop: 6, lineHeight: 1.5 }}
       >
         You can add custom clubs and reorder your bag any time in
         Settings → My Bag.
@@ -128,11 +106,11 @@ export function Step6Bag({
       <button
         type="button"
         onClick={onSkip}
-        className="font-mono uppercase text-caddie-ink-dim hover:text-caddie-ink"
+        className="text-caddie-ink-dim hover:text-caddie-ink"
         style={{
-          fontSize: 11,
-          letterSpacing: '0.14em',
-          padding: '14px 0 0',
+          fontSize: 14,
+          minHeight: 44,
+          marginTop: 8,
           background: 'transparent',
           border: 'none',
           width: '100%',
