@@ -146,6 +146,35 @@ export function useMapLayers({
   const calloutRef = useRef<HTMLElement | null>(null)
   // Re-fans the saved shots' plates for the current zoom/rotation (#1215).
   const layoutPlatesRef = useRef<(() => void) | null>(null)
+  const overlaySegRef = useRef<AimSeg | null>(null)
+
+  // The pattern overlay (arc / circle) redraws on its own: a Tee/Appr or
+  // width tap only needs setData, not a rebuild of every marker (#477).
+  const drawOverlay = useCallback(() => {
+    const map = mapRef.current
+    if (!map) return
+    const overlaySeg = overlaySegRef.current
+    const arcCoords: [number, number][] =
+      overlaySeg && overlayMode === 'tee'
+        ? arcGeoJSON(
+            { lat: overlaySeg.start[1], lng: overlaySeg.start[0] },
+            { lat: overlaySeg.aim[1], lng: overlaySeg.aim[0] },
+            arcWidthYards / 2,
+          )?.geometry.coordinates ?? []
+        : []
+    upsertArcBand(map, 'aim-arc', arcCoords, AIM_COLOR)
+    const circleRing: [number, number][][] =
+      overlaySeg && overlayMode === 'appr'
+        ? circleGeoJSON(
+            { lat: overlaySeg.aim[1], lng: overlaySeg.aim[0] },
+            circleRadiusYards,
+          )?.geometry.coordinates ?? []
+        : []
+    upsertCircleFill(map, 'aim-circle', circleRing, AIM_COLOR)
+  }, [mapRef, overlayMode, arcWidthYards, circleRadiusYards])
+  // Read through a ref so renderLayers doesn't depend on (and rebuild with) it.
+  const drawOverlayRef = useRef(drawOverlay)
+  drawOverlayRef.current = drawOverlay
 
   const renderLayers = useCallback(() => {
     const map = mapRef.current
@@ -536,24 +565,8 @@ export function useMapLayers({
     // underneath; always upserted (empty when no active aim / wrong mode) so
     // it clears on the next render.
     // In review the overlay waits for the Pattern key.
-    const overlaySeg = review && !dotsVisible ? null : activeSeg
-    const arcCoords: [number, number][] =
-      overlaySeg && overlayMode === 'tee'
-        ? arcGeoJSON(
-            { lat: overlaySeg.start[1], lng: overlaySeg.start[0] },
-            { lat: overlaySeg.aim[1], lng: overlaySeg.aim[0] },
-            arcWidthYards / 2,
-          )?.geometry.coordinates ?? []
-        : []
-    upsertArcBand(map, 'aim-arc', arcCoords, AIM_COLOR)
-    const circleRing: [number, number][][] =
-      overlaySeg && overlayMode === 'appr'
-        ? circleGeoJSON(
-            { lat: overlaySeg.aim[1], lng: overlaySeg.aim[0] },
-            circleRadiusYards,
-          )?.geometry.coordinates ?? []
-        : []
-    upsertCircleFill(map, 'aim-circle', circleRing, AIM_COLOR)
+    overlaySegRef.current = review && !dotsVisible ? null : activeSeg
+    drawOverlayRef.current()
 
     // Single-color dispersion dots: the club whose median distance best matches
     // the active shot's ball→pin distance (longest club when no pin), scattered
@@ -714,9 +727,6 @@ export function useMapLayers({
     holeNumber,
     par,
     effectiveTee,
-    overlayMode,
-    arcWidthYards,
-    circleRadiusYards,
     dotsVisible,
     selectClub,
     handicap,
@@ -743,6 +753,12 @@ export function useMapLayers({
     }
     renderLayers()
   }, [mapRef, renderLayers])
+
+  // An overlay input changing redraws only the overlay sources.
+  useEffect(() => {
+    const map = mapRef.current
+    if (map?.isStyleLoaded()) drawOverlay()
+  }, [mapRef, drawOverlay])
 
   // Re-fan the plates and re-place the callout every camera frame, so the
   // callout follows a pan as mobile's does. ponytail: a handful of projections.
