@@ -19,7 +19,7 @@ export function RoundsPage() {
   const handicap = useProfile().data?.handicap_index
   // The trend reads whole, scored rounds only, newest 20, oldest first.
   const trend = (rounds ?? [])
-    .filter((r) => (r.total_score ?? 0) > 0 && !isPartialRound(r.hole_scores))
+    .filter((r) => (r.total_score ?? 0) > 0 && !isPartialRound(r.hole_scores, r.hole_count))
     .slice(0, 20)
     .reverse()
     .map((r) => ({ date: r.played_at, score: r.total_score! }))
@@ -145,7 +145,7 @@ export function RoundsPage() {
                     <div className="text-caddie-ink-dim truncate" style={{ fontSize: 13, marginTop: 3 }}>
                       {formatPlayed(r.played_at)}
                       {r.tee_color ? ` · ${teeLabel(r.tee_color)}` : ''}
-                      {partialRoundLabel(r.hole_scores)}
+                      {partialRoundLabel(r.hole_scores, r.hole_count)}
                     </div>
                   </div>
                   <div className="flex items-baseline" style={{ gap: 14 }}>

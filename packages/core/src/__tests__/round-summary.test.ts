@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { buildRoundSummary } from '../round-summary'
+import { buildRoundSummary, roundSummaryPar } from '../round-summary'
 import { formatToPar } from '../units'
 
 const base = {
@@ -54,5 +54,22 @@ describe('buildRoundSummary', () => {
       const c = buildRoundSummary({ ...base, totalScore })
       expect(c.hero.toParLabel).toBe(formatToPar(c.hero.toPar))
     }
+  })
+})
+
+describe('roundSummaryPar (#727)', () => {
+  it('sums the par of the holes played: a 6-hole round on an 18-hole tee reads against them, not 72', () => {
+    expect(roundSummaryPar([4, 3, 5, 4, 5, 4], 72, 6)).toBe(25)
+  })
+
+  it('with no scored holes, scales the tee par to the round: 72 over 9 holes is 36', () => {
+    expect(roundSummaryPar([], 72, 9)).toBe(36)
+    expect(roundSummaryPar([], 33, 7)).toBe(26)
+  })
+
+  it('no scored holes and no tee: 4 a hole, else the tee par, else 72', () => {
+    expect(roundSummaryPar([], null, 6)).toBe(24)
+    expect(roundSummaryPar([], 70, null)).toBe(70)
+    expect(roundSummaryPar([], null, null)).toBe(72)
   })
 })

@@ -4,7 +4,7 @@ import {
   calculateDifferential,
   calculateHandicapIndex,
   computeRoundSG,
-  inferHoleCount,
+  handicapHoleCount,
   inferHoleStats,
   obCount,
   playedRowsForDifferential,
@@ -67,7 +67,7 @@ export async function completeRound({
     getCourseTees(supabase, courseId),
     supabase
       .from('rounds')
-      .select('course_tee_id, tee_color')
+      .select('course_tee_id, tee_color, hole_count')
       .eq('id', roundId)
       .single(),
   ])
@@ -233,12 +233,10 @@ export async function completeRound({
         return { score: hs.score, par: h.par, strokeIndex: h.stroke_index }
       })
       .filter((x): x is { score: number; par: number; strokeIndex: number | null } => !!x)
-    // Only a complete round produces a differential (#711) — see
-    // playedRowsForDifferential for the sentinel/coverage contract.
-    const playedRows = playedRowsForDifferential(
-      holeRows,
-      inferHoleCount(holes.map((h) => h.number)),
-    )
+    // Only a complete 9- or 18-hole round produces a differential (#711,
+    // #727) — see playedRowsForDifferential for the coverage contract.
+    const holeCount = handicapHoleCount(roundTee?.hole_count, holes.map((h) => h.number))
+    const playedRows = holeCount == null ? null : playedRowsForDifferential(holeRows, holeCount)
     if (playedRows) {
       const adjusted = adjustedScore(playedRows, handicap ?? DEFAULT_HANDICAP, {
         courseRating: tee.course_rating,

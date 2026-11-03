@@ -2,8 +2,10 @@ import { useMemo } from 'react'
 import type { Database } from '@oga/supabase'
 import {
   getShotMarkerCategory,
+  holeCountFromTeePar,
   resolveCourseTee,
   resolveHole,
+  roundHoleCount,
   summarizeShotStep,
   type LieType,
   type ResolvedHole,
@@ -115,24 +117,23 @@ export function useRoundData({
   // 2..18 disappeared from the array. Length is the unambiguous signal:
   // if fewer rows than the course expects, fill the gap.
   //
-  // Expected count comes from `course_tees.par` when present (≤36 = 9,
-  // else 18); falls back to 18 when no tees row exists. A 9-hole real
-  // course with no course_tees row over-pads to 18 — accepted, because
-  // the only alternative (inferring from the round's hole_scores) breaks
-  // the common case: an in-progress 18-hole round that has only scored
-  // holes 1–9 so far would wrongly collapse to 9 and strand 10–18 (#727
-  // regression). There's no reliable 9-vs-18 signal for an unmapped
-  // course mid-round, so 18 is the safe default. Revisit via a real
-  // per-round hole_count captured at round creation.
-  const expectedHoleCount = useMemo(() => {
-    const tees = teesQuery.data ?? []
-    const totalPar = tees[0]?.par
-    if (totalPar != null && totalPar <= 36) return 9
-    return 18
-  }, [teesQuery.data])
+  // Expected count is the round's own hole_count, chosen at creation (#727).
+  // Rounds from before that column fall back to `course_tees.par` (<= 36 = 9,
+  // else 18), so an old round on a 9-hole course with no tees row still pads
+  // to 18. Never infer it from the course's holes rows or the round's scores:
+  // both grow one save at a time, and an 18-hole round with only the front
+  // nine saved would collapse to 9 and strand holes 10-18 (the #783 revert).
+  // A stored count also caps the course's rows (a 6-hole round on an 18-hole
+  // course shows 6).
+  const storedHoleCount = round.data?.hole_count ?? null
+  const expectedHoleCount = useMemo(
+    () => roundHoleCount(storedHoleCount, holeCountFromTeePar(teesQuery.data?.[0]?.par)),
+    [storedHoleCount, teesQuery.data],
+  )
 
   const holes = useMemo<HoleRow[]>(() => {
-    const fetched = holesQuery.data ?? []
+    const all = holesQuery.data ?? []
+    const fetched = storedHoleCount == null ? all : all.filter((h) => h.number <= expectedHoleCount)
     const roundData = round.data
     if (fetched.length >= expectedHoleCount) return fetched
     if (!roundData) return fetched
@@ -191,7 +192,7 @@ export function useRoundData({
         par_source: null,
       }
     })
-  }, [holesQuery.data, round.data, expectedHoleCount])
+  }, [holesQuery.data, round.data, expectedHoleCount, storedHoleCount])
 
   const rawScores: Array<HoleScoreRow & { holes?: HoleRow | null }> = useMemo(
     () => holeScoresQuery.data ?? [],

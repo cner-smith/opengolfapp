@@ -22,7 +22,7 @@ export function useActiveRound() {
     queryFn: async (): Promise<ActiveRound | null> => {
       const q = supabase
         .from('rounds')
-        .select('id, played_at, courses(name)')
+        .select('id, played_at, hole_count, courses(name)')
         .eq('user_id', user!.id)
         .is('completed_at', null)
         .is('total_score', null)
@@ -32,7 +32,9 @@ export function useActiveRound() {
         .order('created_at', { ascending: false })
         .limit(1)
       if (error) throw error
-      const round = data?.[0] as { id: string; courses?: { name: string | null } | null } | undefined
+      const round = data?.[0] as
+        | { id: string; hole_count: number | null; courses?: { name: string | null } | null }
+        | undefined
       if (!round) return null
       const { data: hs, error: hsError } = await supabase
         .from('hole_scores')
@@ -48,7 +50,7 @@ export function useActiveRound() {
           ? [{ number: r.holes.number, score: r.score, finished_at: r.finished_at }]
           : [],
       )
-      return { id: round.id, courseName: round.courses?.name ?? 'Round', currentHole: resumeHoleNumber(rows) }
+      return { id: round.id, courseName: round.courses?.name ?? 'Round', currentHole: resumeHoleNumber(rows, round.hole_count) }
     },
   })
 }

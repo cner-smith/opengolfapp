@@ -130,7 +130,7 @@ export default function Stats() {
   // computeDetailedStats' contract (packages/core/src/stats.ts).
   const rounds = useMemo(() => wholeRoundWindow(allRounds, n), [allRounds, n])
   const wholeRounds = useMemo(
-    () => rounds.filter((r) => !isPartialRound(r.hole_scores)),
+    () => rounds.filter((r) => !isPartialRound(r.hole_scores, r.hole_count)),
     [rounds],
   )
 
@@ -286,7 +286,7 @@ export default function Stats() {
         ) : wholeRounds.length === 0 ? (
           // Partial rounds only (#1078): the averages would read 0.00.
           <StatsPartialOnly
-            holes={roundHolesPlayed(rounds[0]!.hole_scores)?.played ?? null}
+            holes={roundHolesPlayed(rounds[0]!.hole_scores, rounds[0]!.hole_count)?.played ?? null}
             // getRoundsWithDetails selects courses(name); DetailedRound doesn't declare it.
             course={(rounds[0] as { courses?: { name: string | null } | null }).courses?.name ?? null}
           />

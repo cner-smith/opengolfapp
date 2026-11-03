@@ -4,7 +4,7 @@ import {
   calculateDifferential,
   calculateHandicapIndex,
   computeRoundSG,
-  inferHoleCount,
+  handicapHoleCount,
   playedRowsForDifferential,
   resolveCourseTee,
 } from '@oga/core'
@@ -50,13 +50,15 @@ export async function completeRound({
   teeColor,
   userId,
 }: CompleteRoundArgs): Promise<RoundSGResult> {
-  const [holesRes, holeScoresRes, shotsRes, teesRes] = await Promise.all([
+  const [holesRes, holeScoresRes, shotsRes, teesRes, roundRes] = await Promise.all([
     getHolesForCourse(supabase, courseId),
     getHoleScoresForRound(supabase, roundId),
     getShotsForRound(supabase, roundId, userId),
     getCourseTees(supabase, courseId),
+    supabase.from('rounds').select('hole_count').eq('id', roundId).eq('user_id', userId).single(),
   ])
   if (holesRes.error) throw holesRes.error
+  if (roundRes.error) throw roundRes.error
   if (holeScoresRes.error) throw holeScoresRes.error
   if (shotsRes.error) throw shotsRes.error
 
@@ -140,12 +142,10 @@ export async function completeRound({
         return { score: hs.score, par: h.par, strokeIndex: h.stroke_index }
       })
       .filter((x): x is { score: number; par: number; strokeIndex: number | null } => !!x)
-    // Only a complete round produces a differential (#711) — see
-    // playedRowsForDifferential for the sentinel/coverage contract.
-    const playedRows = playedRowsForDifferential(
-      holeRows,
-      inferHoleCount(holes.map((h) => h.number)),
-    )
+    // Only a complete 9- or 18-hole round produces a differential (#711,
+    // #727) — see playedRowsForDifferential for the coverage contract.
+    const holeCount = handicapHoleCount(roundRes.data.hole_count, holes.map((h) => h.number))
+    const playedRows = holeCount == null ? null : playedRowsForDifferential(holeRows, holeCount)
     if (playedRows) {
       const adjusted = adjustedScore(playedRows, handicap, {
         courseRating: tee.course_rating,

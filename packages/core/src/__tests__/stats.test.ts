@@ -116,6 +116,7 @@ function makeRound(overrides: Partial<DetailedRound>): DetailedRound {
     sg_putting: overrides.sg_putting ?? null,
     sg_total: overrides.sg_total ?? null,
     notes: overrides.notes ?? null,
+    hole_count: overrides.hole_count ?? null,
     hole_scores: overrides.hole_scores ?? null,
   })
 }
@@ -347,6 +348,19 @@ describe('unplayed holes and unscored rounds', () => {
     expect(sgTrend([full, withSg]).map((p) => p.date)).toEqual(['2026-01-01'])
     expect(scoringDistribution([full, withSg]).total).toBe(24)
     expect(computeDetailedStats([full, withSg], 12).holesPlayed).toBe(24)
+  })
+
+  it('a 6-hole round played through is whole: it feeds SG per round (#727)', () => {
+    const six = makeRound({
+      id: 'six',
+      hole_count: 6,
+      total_score: 30,
+      sg_putting: 2,
+      hole_scores: Array.from({ length: 6 }, (_, i) =>
+        makeHoleScore({ id: `s${i}`, score: 5, holes: makeHole({ id: `s${i}`, number: i + 1, par: 4 }), shots: [] }),
+      ),
+    })
+    expect(sgAverages([six]).putting).toBe(2)
   })
 
   it('shortGameStats 3-putt rate counts played holes only', () => {
