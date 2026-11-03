@@ -150,14 +150,16 @@ export function buildMessages(
     { role: 'assistant', content: repair.priorAssistantContent },
     {
       role: 'user',
-      content: [
-        {
-          type: 'tool_result',
-          tool_use_id: repair.toolUseId,
+      // Every tool_use in the prior turn needs its tool_result, or the API 400s
+      // (#1157: Sonnet 5.5 on DEV once split the plan over two calls).
+      content: repair.priorAssistantContent
+        .filter((b): b is Anthropic.Messages.ToolUseBlock => b.type === 'tool_use')
+        .map((b) => ({
+          type: 'tool_result' as const,
+          tool_use_id: b.id,
           is_error: true,
-          content: guidance,
-        },
-      ],
+          content: b.id === repair.toolUseId ? guidance : 'Ignored: send the whole plan in one call.',
+        })),
     },
   ]
 }
@@ -199,7 +201,8 @@ export async function generatePlanDraft(
     system: sonnet55 ? `${system}\n\nAnswer only by calling the ${tool.name} tool.` : system,
     tools: [tool as Anthropic.Messages.Tool],
     // Forced single tool where the model allows it (see isSonnet55).
-    tool_choice: sonnet55 ? { type: 'auto' } : { type: 'tool', name: tool.name },
+    // `auto` allows parallel calls; one plan = one call.
+    tool_choice: sonnet55 ? { type: 'auto', disable_parallel_tool_use: true } : { type: 'tool', name: tool.name },
     messages: buildMessages(user, sessionCount, repair),
   }
   if (sonnet55) {
