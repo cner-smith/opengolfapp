@@ -152,8 +152,8 @@ export function LoginPage() {
           <AuthTitle
             sub={
               <>
-                A link is on its way to <span className="text-caddie-ink">{email}</span>, if it has an account. Open it on
-                this device; it works once.
+                A link is on its way to <span className="text-caddie-ink">{email}</span>, if it has an account. It works
+                once.
               </>
             }
           >

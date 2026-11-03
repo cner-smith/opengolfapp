@@ -30,7 +30,7 @@ export function ResetPasswordPage() {
   const [saving, setSaving] = useState(false)
   const handledRef = useRef(false)
   // A dead link asks for a fresh one right here, no trip back through sign
-  // in. Requested from this browser, so its PKCE code works here.
+  // in. The emailed token_hash link works on any device.
   const [email, setEmail] = useState('')
   const [resent, setResent] = useState(false)
   const [captchaToken, setCaptchaToken] = useState<string | null>(null)
@@ -99,8 +99,7 @@ export function ResetPasswordPage() {
         <AuthTitle
           sub={
             <>
-              If <span className="text-caddie-ink">{email}</span> has an account, a fresh link is on its way. Open it on this
-              device; it works once.
+              If <span className="text-caddie-ink">{email}</span> has an account, a fresh link is on its way. It works once.
             </>
           }
         >
