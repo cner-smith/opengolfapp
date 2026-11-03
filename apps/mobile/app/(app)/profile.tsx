@@ -22,6 +22,7 @@ import {
 } from '@oga/core'
 import { getProfile, updateProfile } from '@oga/supabase'
 import type { Database } from '@oga/supabase'
+import { isAuthRetryableFetchError } from '@supabase/supabase-js'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
 import { useUserBag } from '../../hooks/useUserBag'
@@ -185,6 +186,7 @@ export default function ProfileTab() {
   // re-fetch can't clobber typing. Reset on user.id change so a different
   // account starts cleanly.
   const hydratedUserIdRef = useRef<string | null>(null)
+  const signingOutRef = useRef(false)
   useEffect(() => {
     if (authLoading || !user) return
     if (hydratedUserIdRef.current === user.id) return
@@ -482,12 +484,21 @@ export default function ProfileTab() {
             label="Sign out"
             danger
             onPress={async () => {
+              // Offline, /logout can retry for a while: one sign-out at a time.
+              if (signingOutRef.current) return
+              signingOutRef.current = true
               // Offline, signOut() keeps the session and returns an error,
               // whatever the scope: it always calls /logout, and an expired
               // token fails its refresh first (auth-js _signOut, #1329).
               const { error } = await supabase.auth.signOut()
+              signingOutRef.current = false
               if (error) {
-                Alert.alert("Couldn't sign out", 'Signing out needs signal. Try again when you’re connected.')
+                Alert.alert(
+                  "Couldn't sign out",
+                  isAuthRetryableFetchError(error)
+                    ? 'Signing out needs signal. Try again when you’re connected.'
+                    : 'Something went wrong. Try again.',
+                )
                 return
               }
               // Next sign-in must not render this account's cached screens.
