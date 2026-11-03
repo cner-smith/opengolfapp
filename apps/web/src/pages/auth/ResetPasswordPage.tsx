@@ -8,12 +8,12 @@ import { AuthField, AuthSpread, AuthTitle } from '../../components/auth/AuthSpre
 // The link proves the address; this page turns it into a recovery session,
 // then sets the new password on it.
 //
-// Two link shapes reach here. With Supabase's default email template the
-// link carries `?code=`, a PKCE code that only the browser which asked for
-// the reset can exchange (its code verifier is in that browser's storage).
-// A template that sends `?token_hash=…&type=recovery` (Supabase's PKCE
-// recipe) works from any device, via verifyOtp. Either way the code or hash
-// is single-use: the ref keeps StrictMode's second effect from spending it
+// Two link shapes reach here. The reset email template (DEV and prod, since
+// 2026-11-02) sends `?token_hash=…&type=recovery` (Supabase's PKCE recipe),
+// which works from any device via verifyOtp. Supabase's default template
+// sends `?code=`, a PKCE code that only the browser which asked for the
+// reset can exchange (its code verifier is in that browser's storage); it is
+// still accepted. Either way the code or hash is single-use: the ref keeps StrictMode's second effect from spending it
 // twice (see AuthCallbackPage).
 export function ResetPasswordPage() {
   const navigate = useNavigate()

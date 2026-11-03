@@ -85,7 +85,7 @@ export function LoginPage() {
   if (mode === 'sent') {
     return (
       <AuthSpread>
-        <AuthTitle sub="If that address has an account, the link is on its way. It works once; open it on this device.">
+        <AuthTitle sub="If that address has an account, the link is on its way. It works once.">
           Check your email.
         </AuthTitle>
         <button type="button" className="auth-link" style={{ fontSize: 14 }} onClick={() => switchTo('signin')}>
