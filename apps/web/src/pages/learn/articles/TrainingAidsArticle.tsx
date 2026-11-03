@@ -13,7 +13,7 @@ export function TrainingAidsArticle() {
     >
       <ArticleTitle>Training aids.</ArticleTitle>
 
-      <H3>Feeling productive isn't the same as getting better</H3>
+      <H2>Feeling productive isn't the same as getting better</H2>
       <P>
         The training-aid aisle sells a feeling: that buying the device is the
         same as building the skill. Most of it isn't. A few aids genuinely teach
@@ -32,7 +32,7 @@ export function TrainingAidsArticle() {
 
       <Hr />
 
-      <H3>The seven kinds, and what each one trains</H3>
+      <H2>The seven kinds, and what each one trains</H2>
       <P>
         Six aids you can rehearse with, then the one that measures — the launch
         monitor — which gets its own section because the numbers need
@@ -184,7 +184,7 @@ export function TrainingAidsArticle() {
 
       <Hr />
 
-      <H3>Launch monitors — the numbers, and which ones are yours</H3>
+      <H2>Launch monitors — the numbers, and which ones are yours</H2>
       <P>
         A launch monitor is the one aid that measures rather than guides. Point
         it at your swing and it reports ball speed, club speed, launch angle,
@@ -218,7 +218,7 @@ export function TrainingAidsArticle() {
 
       <Hr />
 
-      <H3>What most golfers actually need</H3>
+      <H2>What most golfers actually need</H2>
       <P>
         Set against the thesis, the honest shortlist is short and cheap. The aids
         worth owning give you feedback you can't get on your own; the rest mostly
@@ -251,9 +251,9 @@ const UL_STYLE: import('react').CSSProperties = {
   color: '#5C6356',
 }
 
-function H3({ children }: { children: ReactNode }) {
+function H2({ children }: { children: ReactNode }) {
   return (
-    <h3
+    <h2
       className="font-serif text-caddie-ink"
       style={{
         fontSize: 22,
@@ -264,7 +264,7 @@ function H3({ children }: { children: ReactNode }) {
       }}
     >
       {children}
-    </h3>
+    </h2>
   )
 }
 

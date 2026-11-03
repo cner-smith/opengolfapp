@@ -60,12 +60,12 @@ export function Body({ children }: { children: ReactNode }) {
 // articles' own italic section heads.
 export function Subhead({ children }: { children: ReactNode }) {
   return (
-    <h3
+    <h2
       className="font-serif text-caddie-ink"
       style={{ fontSize: 20, fontWeight: 500, lineHeight: 1.25, marginTop: 22, marginBottom: 12 }}
     >
       {children}
-    </h3>
+    </h2>
   )
 }
 

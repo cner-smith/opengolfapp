@@ -72,6 +72,7 @@ export function Step5Summary({
       </dl>
       {error && (
         <div
+          role="alert"
           className="text-caddie-neg"
           style={{
             border: '1px solid #A33A2A',

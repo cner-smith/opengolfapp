@@ -28,7 +28,7 @@ export function QuestionsForCoachArticle() {
 
       <Hr />
 
-      <H3>While they're teaching</H3>
+      <H2>While they're teaching</H2>
       <P>
         A tip you can't reproduce on your own is worthless by Tuesday. These
         three turn a position into something portable.
@@ -59,7 +59,7 @@ export function QuestionsForCoachArticle() {
 
       <Hr />
 
-      <H3>Before you leave</H3>
+      <H2>Before you leave</H2>
       <P>
         The clarity you feel walking off the range fades startlingly fast. Pin it
         down before you go.
@@ -103,7 +103,7 @@ export function QuestionsForCoachArticle() {
 
       <Hr />
 
-      <H3>Questions that waste the hour</H3>
+      <H2>Questions that waste the hour</H2>
       <P>A few questions feel productive and aren't. Skip them.</P>
       <ul style={UL_STYLE}>
         <li>
@@ -127,7 +127,7 @@ export function QuestionsForCoachArticle() {
 
       <Hr />
 
-      <H3>The thread under all of it</H3>
+      <H2>The thread under all of it</H2>
       <P>
         A lesson isn't something done to you — it's something you steer. Ask what
         the change is <em>for</em>, how to verify it alone, what to ignore, and
@@ -153,9 +153,9 @@ const UL_STYLE: CSSProperties = {
   color: '#1C211C',
 }
 
-function H3({ children }: { children: ReactNode }) {
+function H2({ children }: { children: ReactNode }) {
   return (
-    <h3
+    <h2
       className="font-serif text-caddie-ink"
       style={{
         fontSize: 22,
@@ -166,7 +166,7 @@ function H3({ children }: { children: ReactNode }) {
       }}
     >
       {children}
-    </h3>
+    </h2>
   )
 }
 

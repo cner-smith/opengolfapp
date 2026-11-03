@@ -1,10 +1,12 @@
 import { Link } from 'react-router-dom'
 import { useAuth } from '../../hooks/useAuth'
+import { useDocumentTitle } from '../../hooks/useDocumentTitle'
 
 // Rendered inside PublicShell (router '*'), so the nav and wordmark show.
 // The way back depends on who is reading: Home for a signed-in golfer, the
 // landing page for anyone else.
 export function NotFoundPage() {
+  useDocumentTitle('Page not found · OGA')
   const { user, loading } = useAuth()
   const signedIn = !loading && !!user
   return (

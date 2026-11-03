@@ -46,9 +46,9 @@ function scoresOnlyCounts(holes: GolfPadHole[]): ScoresOnly {
 const holesText = (n: number) => `${n} hole${n === 1 ? '' : 's'}`
 
 // Golf Pad writes Windows-1252.
-async function readExport(files: FileList) {
+async function readExport(files: File[]) {
   const decoder = new TextDecoder('windows-1252')
-  return readGolfPadExport(await Promise.all(Array.from(files, async (f) => decoder.decode(await f.arrayBuffer()))))
+  return readGolfPadExport(await Promise.all(files.map(async (f) => decoder.decode(await f.arrayBuffer()))))
 }
 
 export function GolfPadImport() {
@@ -58,11 +58,11 @@ export function GolfPadImport() {
   const [busy, setBusy] = useState(false)
 
   async function handleFiles(e: ChangeEvent<HTMLInputElement>) {
-    if (e.target.files?.length) await readFiles(e.target.files)
+    if (e.target.files?.length) await readFiles(Array.from(e.target.files))
     e.target.value = ''
   }
 
-  async function readFiles(files: FileList) {
+  async function readFiles(files: File[]) {
     setError(null)
     try {
       const read = await readExport(files)
@@ -114,7 +114,7 @@ export function GolfPadImport() {
           />
         </label>
       </div>
-      <FileDrop label="Or drop rounds, holes and shots here" disabled={busy} onFiles={readFiles} />
+      <FileDrop label="Or drop rounds, holes and shots here" accept=".csv,text/csv" multiple disabled={busy} onFiles={readFiles} />
 
       {error && (
         <p className="text-caddie-neg" role="alert" style={{ fontSize: 13 }}>

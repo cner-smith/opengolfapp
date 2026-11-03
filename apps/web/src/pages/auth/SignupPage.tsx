@@ -1,7 +1,8 @@
-import { useState, type FormEvent } from 'react'
+import { useRef, useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Turnstile } from '@marsidev/react-turnstile'
+import { Turnstile, type TurnstileInstance } from '@marsidev/react-turnstile'
 import { supabase } from '../../lib/supabase'
+import { useDocumentTitle } from '../../hooks/useDocumentTitle'
 import { GoogleSignInButton } from '../../components/auth/GoogleSignInButton'
 import { AuthField, AuthSpread, AuthTitle } from '../../components/auth/AuthSpread'
 
@@ -14,6 +15,7 @@ const TURNSTILE_SITE_KEY = import.meta.env.VITE_TURNSTILE_SITE_KEY as
   | undefined
 
 export function SignupPage() {
+  useDocumentTitle('Create account · OGA')
   const navigate = useNavigate()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -25,6 +27,10 @@ export function SignupPage() {
   // server-side via the secret key configured in the Auth dashboard;
   // signup will reject with a 400 if the token is missing or stale.
   const [captchaToken, setCaptchaToken] = useState<string | null>(null)
+  // The widget only issues a new token on reset() or after the old one
+  // expires (~300 s); clearing our state alone leaves it holding the spent
+  // one (#1254).
+  const turnstileRef = useRef<TurnstileInstance | undefined>(undefined)
   // Turnstile-less local dev path: when no site key is configured we
   // skip the widget entirely so devs running against a local Supabase
   // (which has CAPTCHA disabled) aren't blocked. Production deploys
@@ -60,9 +66,10 @@ export function SignupPage() {
       // would leave the user with nothing to act on (#667).
       setError(signUpError.message)
       // Reset the token on error — Turnstile tokens are single-use, so
-      // a failed signUp leaves us with a spent token. The widget's
-      // built-in reset triggers automatically when state is cleared.
+      // a failed signUp leaves us with a spent token. Clearing state doesn't
+      // touch the widget; reset() makes it issue a new one.
       setCaptchaToken(null)
+      turnstileRef.current?.reset()
       return
     }
     navigate('/onboarding')
@@ -111,11 +118,12 @@ export function SignupPage() {
         {captchaEnabled && (
           <div style={{ marginBottom: 14 }}>
             <Turnstile
+              ref={turnstileRef}
               siteKey={TURNSTILE_SITE_KEY!}
               onSuccess={(token) => setCaptchaToken(token)}
               onError={() => setCaptchaToken(null)}
               onExpire={() => setCaptchaToken(null)}
-              options={{ theme: 'auto' }}
+              options={{ theme: 'light' }}
             />
           </div>
         )}

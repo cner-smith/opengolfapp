@@ -7,7 +7,7 @@
 }
 .lb-hero-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 280px;
+  grid-template-columns: minmax(0, 1fr) 300px;
   gap: 48px;
   align-items: center;
 }
@@ -106,27 +106,6 @@
 .lb-link:hover {
   border-bottom-width: 2px;
   padding-bottom: 1px;
-}
-
-/* The bag: sentence beside a wide clipping of the chart. */
-.lb-bag {
-  display: grid;
-  grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
-  gap: 64px;
-  align-items: center;
-}
-.lb-clipping {
-  background: #efebe0;
-  border: 1px solid #1c211c;
-  border-radius: 3px;
-  box-shadow: 6px 6px 0 #1c211c;
-  padding: 18px 14px 12px;
-  transform: rotate(-0.6deg);
-}
-.lb-clipping img {
-  display: block;
-  width: 100%;
-  height: auto;
 }
 
 /* ---- Free forever ---- */
@@ -254,6 +233,13 @@
 .lb-footer-links a:hover {
   color: #f2eee5;
 }
+/* On the dark band the ink focus ring would vanish: cream instead. */
+.lb-close .key:focus-visible,
+.lb-close a:focus-visible,
+.lb-footer a:focus-visible {
+  outline: 2px solid #f2eee5;
+  outline-offset: 2px;
+}
 .lb-footer-note {
   text-align: right;
   font-family: 'Epilogue', sans-serif;
@@ -268,7 +254,6 @@
   }
   .lb-hero-grid,
   .landing-spread,
-  .lb-bag,
   .lb-free,
   .lb-negation {
     grid-template-columns: 1fr;
@@ -292,10 +277,6 @@
 @media (max-width: 560px) {
   .lb-lede {
     font-size: 17px;
-  }
-  .lb-clipping {
-    padding: 12px 8px 8px;
-    transform: none;
   }
 }
 
@@ -421,18 +402,28 @@
   color: #5c6356;
 }
 @media (max-width: 960px) {
+  /* One column: the copy's parts join the grid so the key can follow the
+     chart it explains. */
   .lb-try-grid {
     grid-template-columns: 1fr;
-    gap: 32px;
+    gap: 0;
+  }
+  .lb-try-grid > div:first-child {
+    display: contents;
   }
   .lb-demo {
     justify-self: center;
+    margin-top: 32px;
   }
   .lb-demo-wait {
     min-height: 1101px;
   }
   .lb-key {
-    display: none;
+    order: 1;
+    justify-self: center;
+    width: 100%;
+    max-width: 560px;
+    margin-top: 28px;
   }
 }
 @media (max-width: 560px) {
@@ -517,7 +508,7 @@
 }
 .lb-seg {
   display: inline-flex;
-  border: 1px solid #9f9580;
+  border: 1px solid #5c6356;
   border-radius: 2px;
 }
 .lb-seg button,
@@ -532,7 +523,7 @@
   cursor: pointer;
 }
 .lb-seg button + button {
-  border-left: 1px solid #9f9580;
+  border-left: 1px solid #5c6356;
 }
 .lb-seg button[aria-pressed='true'] {
   background: #ebe5d6;
@@ -586,7 +577,7 @@
   font-size: 17px;
   color: #1c211c;
   background: #f2eee5;
-  border: 1px solid #9f9580;
+  border: 1px solid #5c6356;
   border-radius: 2px;
 }
 .lb-rung-unit {
@@ -629,6 +620,7 @@
 .lb-rung-out input {
   color: #8a8b7e;
   background: transparent;
+  border-color: #9f9580;
   border-style: dashed;
 }
 .lb-rung-out .lb-inbag {
@@ -717,7 +709,7 @@
   margin-bottom: 16px;
   padding: 10px 12px;
   background: #fbf8f1;
-  border: 1px solid #9f9580;
+  border: 1px solid #5c6356;
   border-radius: 3px;
   font-size: 16px;
   color: #1c211c;
