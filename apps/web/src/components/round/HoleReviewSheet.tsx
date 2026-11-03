@@ -3,6 +3,7 @@ import {
   buildInitialRows,
   clubTypicalDistance,
   combinedBreakDirection,
+  formatToPar,
   haversineYards,
   horizontalBreakFromAim,
   isPuttShot,
@@ -15,6 +16,7 @@ import { useAuth } from '../../hooks/useAuth'
 import { useUserBag } from '../../hooks/useUserBag'
 import { useClubDispersion } from '../../pages/rounds/hooks/useClubDispersion'
 import { GreenDiagram } from './GreenDiagram'
+import { chromeSurface } from './map/PaperChrome'
 import type { PlacedPoint } from './RoundMap'
 import { ShotRow } from './HoleReviewShotRow'
 export type { ReviewedShotRow }
@@ -201,64 +203,34 @@ export function HoleReviewSheet({
     <div
       role="dialog"
       aria-label={`Hole ${holeNumber} review`}
+      className="review-sheet"
       style={{
+        ...chromeSurface,
         position: 'absolute',
         left: 0,
         right: 0,
         top: 0,
         bottom: 0,
-        background: '#FBF8F1',
-        borderTop: '1px solid #9F9580',
-        borderTopLeftRadius: 12,
-        borderTopRightRadius: 12,
+        borderTop: '1px solid #1C211C',
+        borderTopLeftRadius: 3,
+        borderTopRightRadius: 3,
         display: 'flex',
         flexDirection: 'column',
         transform: slidIn ? 'translateY(0)' : 'translateY(100%)',
-        transition: 'transform 220ms ease-out',
         // Fill the whole map area and sit above the map HUD (EXP / rail /
         // PATTERN / aim overlays) so nothing bleeds over the summary. #791
         zIndex: 40,
       }}
     >
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'center',
-          paddingTop: 8,
-          marginBottom: 12,
-        }}
-      >
-        <div
-          aria-hidden
-          style={{
-            width: 32,
-            height: 4,
-            borderRadius: 2,
-            background: '#D9D2BF',
-          }}
-        />
-      </div>
-      <div
-        style={{
-          padding: '0 22px 14px',
-          borderBottom: '1px solid #D9D2BF',
-        }}
-      >
-        <div className="kicker" style={{ marginBottom: 4 }}>
-          Hole {holeNumber} · Par {par}
+      <div style={{ padding: '16px 22px 14px' }}>
+        <h2 className="font-serif text-caddie-ink" style={{ fontSize: 26, fontWeight: 500, lineHeight: 1.15 }}>
+          Hole {holeNumber} ·{' '}
+          <span className="serif-italic">scored {score}</span>
+        </h2>
+        <div className="text-caddie-ink" style={{ fontSize: 13, marginTop: 2, marginBottom: 12 }}>
+          Par {par} · nice — how’d it go?
         </div>
-        <div
-          className="font-serif text-caddie-ink"
-          style={{
-            fontSize: 24,
-            fontWeight: 500,
-            fontStyle: 'italic',
-            marginBottom: 14,
-          }}
-        >
-          Nice — how'd it go?
-        </div>
-        <div style={{ display: 'flex', gap: 10 }}>
+        <div style={{ display: 'flex', gap: 8 }}>
           <Ticker label="Score" value={score} onChange={setScore} vsPar={vsPar} />
           <Ticker label="Putts" value={putts} onChange={setPutts} />
           <Ticker label="Penalties" value={penalties} onChange={setPenalties} amber />
@@ -271,22 +243,23 @@ export function HoleReviewSheet({
           padding: '4px 22px 14px',
           flex: 1,
           minHeight: 0,
+          borderTop: '1px solid #D9D2BF',
         }}
       >
         {rows.length === 0 ? (
           <div
-            className="text-caddie-ink-mute"
-            style={{ padding: 22, fontSize: 13 }}
+            className="text-caddie-ink"
+            style={{ padding: '22px 0', fontSize: 14 }}
           >
             No placed shots. Drop pins on the map and try again.
           </div>
         ) : (
           <>
-          <div
-            className="kicker"
-            style={{ paddingTop: 10, paddingBottom: 2, color: '#8A8B7E' }}
-          >
-            Your shots · optional
+          <div className="font-serif text-caddie-ink" style={{ fontSize: 16, paddingTop: 12, paddingBottom: 2 }}>
+            Your shots{' '}
+            <span className="font-sans text-caddie-ink-dim" style={{ fontSize: 13 }}>
+              optional
+            </span>
           </div>
           {rows.map((row, idx) => (
             <ShotRow
@@ -382,47 +355,24 @@ export function HoleReviewSheet({
       <div
         style={{
           display: 'flex',
-          gap: 10,
-          justifyContent: 'flex-end',
-          padding: '14px 22px 18px',
-          borderTop: '1px solid #D9D2BF',
-          background: '#FBF8F1',
+          gap: 8,
+          padding: '10px 12px 13px',
+          borderTop: '1px solid #1C211C',
           flexShrink: 0,
         }}
       >
-        <button
-          type="button"
-          onClick={onEditOnMap}
-          className="text-caddie-accent"
-          style={{
-            border: '1px solid #1F3D2C',
-            background: 'transparent',
-            borderRadius: 2,
-            padding: '12px 16px',
-            fontSize: 14,
-            fontWeight: 600,
-            letterSpacing: '0.02em',
-          }}
-        >
+        <div className="hidden flex-1 sm:block" />
+        <button type="button" onClick={onEditOnMap} className="key flex-1 sm:flex-none">
           Edit on map
         </button>
         <button
           type="button"
           onClick={() => onSave(rows, { score, putts, penalties })}
           disabled={saving || rows.length === 0}
-          className="key key-primary"
-          style={{
-            fontSize: 14,
-            fontWeight: 600,
-            letterSpacing: '0.02em',
-          }}
+          className="key key-primary flex-1 sm:flex-none"
+          style={{ fontSize: 16, fontWeight: 700 }}
         >
-          {saving ? 'Saving…' : 'Save & next hole'}{' '}
-          {!saving && (
-            <span className="font-serif" style={{ fontStyle: 'italic' }}>
-              →
-            </span>
-          )}
+          {saving ? 'Saving…' : 'Save & next hole'}
         </button>
       </div>
 
@@ -461,8 +411,7 @@ function Ticker({
   vsPar?: number | null
   amber?: boolean
 }) {
-  const vsParText =
-    vsPar == null ? null : vsPar === 0 ? 'E' : vsPar > 0 ? `+${vsPar}` : `${vsPar}`
+  const vsParText = vsPar == null ? null : formatToPar(vsPar)
   // Muted brick over par, forest under, ink at even — never a bright red.
   const vsParColor =
     vsPar == null || vsPar === 0 ? '#8A8B7E' : vsPar > 0 ? '#A33A2A' : '#1F3D2C'
@@ -472,18 +421,8 @@ function Ticker({
       aria-label={`${delta < 0 ? 'Fewer' : 'More'} ${label.toLowerCase()}`}
       onClick={() => onChange(Math.max(0, value + delta))}
       disabled={disabled}
-      className="text-caddie-ink-dim disabled:opacity-25"
-      style={{
-        width: 24,
-        height: 24,
-        flexShrink: 0,
-        borderRadius: '50%',
-        border: '1px solid #9F9580',
-        background: 'transparent',
-        fontSize: 15,
-        lineHeight: 1,
-        cursor: disabled ? 'default' : 'pointer',
-      }}
+      className="key"
+      style={{ width: 40, padding: 0, flexShrink: 0, fontSize: 22, fontWeight: 400 }}
     >
       {delta < 0 ? '−' : '+'}
     </button>
@@ -493,25 +432,29 @@ function Ticker({
       style={{
         flex: 1,
         minWidth: 0,
-        background: '#F2EEE5',
-        border: '1px solid #D9D2BF',
-        borderRadius: 6,
-        padding: '9px 8px 8px',
+        background: '#FBF8F1',
+        border: '1px solid #1C211C',
+        borderRadius: 3,
+        padding: '6px 4px 9px',
         display: 'flex',
         flexDirection: 'column',
-        alignItems: 'center',
-        gap: 5,
+        alignItems: 'stretch',
+        gap: 4,
       }}
     >
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+      <span className="text-caddie-ink" style={{ fontSize: 12, textAlign: 'center' }}>
+        {label}
+        {vsParText && (
+          <span style={{ color: vsParColor }}> · {vsParText}</span>
+        )}
+      </span>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2 }}>
         {step(-1, value === 0)}
         <span
-          className="font-serif tabular"
+          className="serif-italic tabular"
           style={{
-            fontSize: 26,
-            fontWeight: 500,
+            fontSize: 32,
             lineHeight: 1,
-            minWidth: 20,
             textAlign: 'center',
             color: amber && value > 0 ? '#A66A1F' : '#1C211C',
           }}
@@ -520,12 +463,6 @@ function Ticker({
         </span>
         {step(1, false)}
       </div>
-      <span className="kicker" style={{ color: '#8A8B7E' }}>
-        {label}
-        {vsParText && (
-          <span style={{ color: vsParColor }}> · {vsParText}</span>
-        )}
-      </span>
     </div>
   )
 }
@@ -560,7 +497,7 @@ function AimerOverlay({
         left: 0,
         right: 0,
         bottom: 0,
-        background: '#FBF8F1',
+        ...chromeSurface,
         zIndex: 50,
         display: 'flex',
         flexDirection: 'column',
@@ -572,14 +509,14 @@ function AimerOverlay({
           borderBottom: '1px solid #D9D2BF',
         }}
       >
-        <div className="kicker" style={{ marginBottom: 4, color: '#8A8B7E' }}>
-          Shot {row.shotNumber} · read the green
-        </div>
         <div
           className="font-serif text-caddie-ink"
           style={{ fontSize: 22, fontWeight: 500, fontStyle: 'italic' }}
         >
           Aim &amp; break
+        </div>
+        <div className="text-caddie-ink" style={{ fontSize: 13, marginTop: 2 }}>
+          Shot {row.shotNumber} · read the green
         </div>
       </div>
       <div
@@ -606,8 +543,8 @@ function AimerOverlay({
       </div>
       <div
         style={{
-          padding: '14px 22px 18px',
-          borderTop: '1px solid #D9D2BF',
+          padding: '10px 12px 13px',
+          borderTop: '1px solid #1C211C',
         }}
       >
         <button

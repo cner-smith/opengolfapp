@@ -77,6 +77,12 @@ export function formatDistance(yards: number, unit: DistanceUnit, decimals = 0):
   return yards.toFixed(decimals) + ' yd'
 }
 
+// A distance typed in the player's unit, as the whole yards shots store
+// (`distance_to_target` is an int column).
+export function wholeYardsFrom(n: number, unit: DistanceUnit): number {
+  return Math.round(unit === 'meters' ? n / YARDS_TO_METERS : n)
+}
+
 // Putt distances: feet primary in 'yards' mode, metres primary in
 // 'meters' mode. Switches to a smaller unit below the threshold so a
 // 9-inch tap-in doesn't render as "0 ft" or "0 m" — inches under 1 ft
