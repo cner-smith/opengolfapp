@@ -310,12 +310,20 @@ export function BagPage() {
         // number you'd pull each club for, and the gap on the rule between.
         <section
           aria-label="Yardage card"
-          className="bg-caddie-surface px-3 sm:px-[18px]"
+          className="bag-card bg-caddie-surface px-3 sm:px-[18px]"
           style={{ border: '1px solid #9F9580', borderRadius: 2, paddingTop: 16, paddingBottom: 12 }}
         >
-          <h2 className="font-serif text-caddie-ink" style={{ fontSize: 20, fontStyle: 'italic', fontWeight: 500 }}>
-            Yardage card
-          </h2>
+          <div className="flex items-center justify-between" style={{ gap: 12 }}>
+            <h2 className="font-serif text-caddie-ink" style={{ fontSize: 20, fontStyle: 'italic', fontWeight: 500 }}>
+              Yardage card
+            </h2>
+            {inBag.length > 0 && (
+              // ponytail: the browser's print (and Save as PDF); print CSS in settings.css shows only this card.
+              <button type="button" className="key set-key bag-noprint" onClick={() => window.print()}>
+                Print
+              </button>
+            )}
+          </div>
           <div
             className="text-caddie-ink-dim"
             style={{
@@ -359,7 +367,7 @@ export function BagPage() {
               Every club is on the bench. Put one back to start the card.
             </p>
           )}
-          <p className="text-caddie-ink-dim" style={{ fontSize: 12, lineHeight: 1.5, marginTop: 10, borderTop: '1px solid #D9D2BF', paddingTop: 10 }}>
+          <p className="bag-noprint text-caddie-ink-dim" style={{ fontSize: 12, lineHeight: 1.5, marginTop: 10, borderTop: '1px solid #D9D2BF', paddingTop: 10 }}>
             Typical is the middle of your shots once a club has {MIN_SAMPLES_FOR_STATS}; before that, your own estimate in
             italics. Plays is where two in three of its shots finish. The number on each rule is the gap between the two
             clubs. Drag ⠿ to set the order of the club wheel; open a club to edit it.
@@ -565,7 +573,7 @@ const SortableClubRow = memo(function SortableClubRow({
           aria-label={`Drag ${club.name} to reorder`}
           {...sortable.attributes}
           {...sortable.listeners}
-          className="text-caddie-ink-mute"
+          className="bag-print-blank text-caddie-ink-mute"
           style={{ cursor: 'grab', fontSize: 13, padding: '4px 0' }}
         >
           ⠿
@@ -613,6 +621,7 @@ const SortableClubRow = memo(function SortableClubRow({
         </button>
       </div>
       {editing && (
+        <div className="bag-noprint">
         <ClubEditForm
           club={club}
           saving={saving}
@@ -621,6 +630,7 @@ const SortableClubRow = memo(function SortableClubRow({
           onBench={() => onToggleInBag(club.id)}
           onDelete={() => onDelete(club.id)}
         />
+        </div>
       )}
     </div>
   )
