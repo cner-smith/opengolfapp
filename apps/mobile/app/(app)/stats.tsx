@@ -10,6 +10,7 @@ import {
   isPartialRound,
   wholeRoundWindow,
   roundHolesPlayed,
+  sgBreakdown,
   sgFinding,
   sgStandouts,
   symmetricNiceTicks,
@@ -134,15 +135,10 @@ export default function Stats() {
     [rounds],
   )
 
-  const avgs = useMemo(
-    () =>
-      SERIES.map((s) => {
-        const values = wholeRounds.map((r) => r[s.key]).filter((v): v is number => v !== null)
-        const a = values.length === 0 ? 0 : values.reduce((x, y) => x + y, 0) / values.length
-        return { ...s, value: a }
-      }),
-    [wholeRounds],
-  )
+  const avgs = useMemo(() => {
+    const { breakdown } = sgBreakdown(wholeRounds)
+    return SERIES.map((s) => ({ ...s, value: breakdown.find((b) => b.key === s.key)?.value ?? 0 }))
+  }, [wholeRounds])
 
   // Pre-build the chart series once per rounds change. The inline
   // ordered.map(...) inside <VictoryLine> previously rebuilt every
