@@ -18,9 +18,11 @@ const STYLE_TIMEOUT_MS = 15_000
 
 /** A map that can fail at runtime calls onFail (#1225). From mapbox-gl 3.23's
  *  source: `new Map` throws when WebGL can't start; a blocked or offline style
- *  fetch fires `error` with no `sourceId` before `load`, while tile and source
- *  errors carry a `sourceId` and leave the map usable. A style request that
- *  never answers fires nothing, so `load` gets a deadline. */
+ *  fetch fires `error` with no `sourceId` before `style.load`, while tile and
+ *  source errors carry a `sourceId` and leave the map usable. A style request
+ *  that never answers fires nothing, so `style.load` gets a deadline. Not
+ *  `load`: it waits for every first-view tile and the sprite, so a slow
+ *  connection or a failed sprite would cover a map that works. */
 export function createMap(options: mapboxgl.MapOptions, onFail: () => void): mapboxgl.Map | null {
   let map: mapboxgl.Map
   try {
@@ -34,7 +36,7 @@ export function createMap(options: mapboxgl.MapOptions, onFail: () => void): map
   const timer = setTimeout(() => {
     if (!loaded) onFail()
   }, STYLE_TIMEOUT_MS)
-  map.once('load', () => {
+  map.once('style.load', () => {
     loaded = true
     clearTimeout(timer)
   })
