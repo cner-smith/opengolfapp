@@ -481,10 +481,17 @@ export default function ProfileTab() {
           <NavRow
             label="Sign out"
             danger
-            onPress={() => {
+            onPress={async () => {
+              // Offline, signOut() keeps the session and returns an error,
+              // whatever the scope: it always calls /logout, and an expired
+              // token fails its refresh first (auth-js _signOut, #1329).
+              const { error } = await supabase.auth.signOut()
+              if (error) {
+                Alert.alert("Couldn't sign out", 'Signing out needs signal. Try again when you’re connected.')
+                return
+              }
               // Next sign-in must not render this account's cached screens.
               clearScreenCache()
-              supabase.auth.signOut()
             }}
             first
           />
