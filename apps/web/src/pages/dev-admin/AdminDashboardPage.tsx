@@ -287,6 +287,37 @@ function DuplicateFlags({ matches }: { matches: DuplicateMatch[] }) {
   )
 }
 
+// #1158: Haiku's suggested verdict for one card. Advice only; the owner still clicks.
+function SuggestVerdict({ c }: { c: PendingCourse }) {
+  const s = useMutation({
+    mutationFn: async () => {
+      const res = await fetch(`/api/dev-admin/courses/${c.id}/suggest`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(c),
+      })
+      const body = await res.json()
+      if (!res.ok) throw new Error(body.error ?? `HTTP ${res.status}`)
+      return body as { verdict: 'approve' | 'reject' | 'unsure'; reasons: string[]; duplicate_of: string | null }
+    },
+  })
+  if (s.isError) return <div style={{ color: '#b4291f' }}>Suggest failed: {(s.error as Error).message}</div>
+  if (!s.data) {
+    return (
+      <button type="button" disabled={s.isPending} onClick={() => s.mutate()}>
+        {s.isPending ? 'Asking…' : 'Suggest'}
+      </button>
+    )
+  }
+  const dup = s.data.duplicate_of ? c.duplicates.find((m) => m.id === s.data.duplicate_of) : null
+  return (
+    <div className="text-caddie-ink-dim">
+      Suggests <strong>{s.data.verdict}</strong>
+      {dup && <> (duplicate of {dup.name})</>}: {s.data.reasons.join('; ')}
+    </div>
+  )
+}
+
 export default function AdminDashboardPage() {
   const stats = useAdminStats()
   const action = useCourseAction()
@@ -377,6 +408,7 @@ export default function AdminDashboardPage() {
                         <EvidenceLine c={c} />
                         <DuplicateFlags matches={c.duplicates} />
                         <RowLinks c={c} />
+                        <SuggestVerdict c={c} />
                       </div>
                       <span style={{ display: 'flex', gap: 8, alignItems: 'flex-start', flexShrink: 0 }}>
                         <span className="text-caddie-ink-mute">

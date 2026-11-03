@@ -1,4 +1,5 @@
-import type { ServerResponse } from 'node:http'
+import type { IncomingMessage, ServerResponse } from 'node:http'
+import Anthropic from '@anthropic-ai/sdk'
 import type { Plugin, ViteDevServer } from 'vite'
 // Type-only, so it is erased at build time and never triggers a runtime
 // resolution of '@oga/supabase' from vite.config.ts's module graph.
@@ -788,6 +789,20 @@ export function devAdminApi(): Plugin {
             return sendJson(res, 200, { ok: true })
           }
 
+          // Suggested verdict for one pending card (#1158). The page posts the card it
+          // already rendered; the owner still clicks Approve / Reject.
+          if (
+            segments[0] === 'courses' &&
+            segments.length === 3 &&
+            segments[2] === 'suggest' &&
+            method === 'POST'
+          ) {
+            if (!process.env.ANTHROPIC_API_KEY) {
+              return sendJson(res, 500, { error: 'ANTHROPIC_API_KEY not set on the dev server' })
+            }
+            return sendJson(res, 200, await suggestVerdict(await readJson(req)))
+          }
+
           next()
         } catch (err) {
           sendJson(res, 500, { error: err instanceof Error ? err.message : String(err) })
@@ -795,6 +810,50 @@ export function devAdminApi(): Plugin {
       })
     },
   }
+}
+
+const VERDICT_SYSTEM = `You review user-submitted golf courses waiting in the OGA admin queue. Each one is approved (becomes searchable for everyone) or rejected (deleted).
+Approve a real golf course that isn't already in the database. Reject duplicates of an existing course, driving ranges, mini golf, simulators, test or junk names, and personal entries. Say unsure when the evidence doesn't settle it.
+Evidence fields: rounds / roundsByOthers = rounds logged there (by the submitter / by other players; others playing it is strong evidence it's real), holes / holesMapped = hole rows and how many have tee coordinates, holeSpanM = how far apart the mapped tees are (a real 18-hole course spans roughly 800-2500 m; a few metres means points dropped in one spot), tees = tee sets, submitterPending = other submissions by the same account in the queue, duplicates = existing courses with a similar name or nearby (likely/possible).
+Give each reason in a few words that name the evidence, e.g. "likely duplicate of Pebble Creek GC 300 m away". duplicate_of is the id of the course it duplicates, or null.`
+
+const VERDICT_SCHEMA = {
+  type: 'object',
+  properties: {
+    verdict: { type: 'string', enum: ['approve', 'reject', 'unsure'] },
+    reasons: { type: 'array', items: { type: 'string' } },
+    duplicate_of: { anyOf: [{ type: 'string' }, { type: 'null' }] },
+  },
+  required: ['verdict', 'reasons', 'duplicate_of'],
+  additionalProperties: false,
+}
+
+export interface VerdictSuggestion {
+  verdict: 'approve' | 'reject' | 'unsure'
+  reasons: string[]
+  duplicate_of: string | null
+}
+
+// Haiku 5.5: no temperature (400), structured output instead of a forced tool.
+// ponytail: computed on demand, not stored; add a column if reloads get costly.
+async function suggestVerdict(course: unknown): Promise<VerdictSuggestion> {
+  const msg = await new Anthropic().messages.create({
+    model: 'claude-haiku-5-5',
+    max_tokens: 1024,
+    system: VERDICT_SYSTEM,
+    messages: [{ role: 'user', content: JSON.stringify(course) }],
+    output_config: { format: { type: 'json_schema', schema: VERDICT_SCHEMA } },
+  })
+  if (msg.stop_reason === 'refusal') return { verdict: 'unsure', reasons: ['model declined'], duplicate_of: null }
+  const text = msg.content.find((b) => b.type === 'text')
+  if (!text || text.type !== 'text') throw new Error(`no verdict (stop_reason ${msg.stop_reason})`)
+  return JSON.parse(text.text) as VerdictSuggestion
+}
+
+async function readJson(req: IncomingMessage): Promise<unknown> {
+  let body = ''
+  for await (const chunk of req) body += chunk
+  return JSON.parse(body)
 }
 
 function sendJson(res: ServerResponse, status: number, body: unknown): void {
