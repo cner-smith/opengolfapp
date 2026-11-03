@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import {
   generateMaySendToAi,
   isAiWrittenPlan,
+  insightUnderFinding,
   isPartialRound,
   normalizeCategoryProse,
   parseLocalDate,
@@ -325,7 +326,7 @@ function WeekBar({ sessions, completedIds }: { sessions: StoredSession[]; comple
             <div
               key={i}
               className={r.complete ? 'text-caddie-ink' : undefined}
-              style={{ flex: r.total || 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+              style={{ flex: r.total || 1, minWidth: 0, lineHeight: 1.3, overflowWrap: 'anywhere' }}
             >
               {r.title}
             </div>
@@ -340,6 +341,8 @@ function WeekBar({ sessions, completedIds }: { sessions: StoredSession[]; comple
 // Sessions
 // ---------------------------------------------------------------------------
 
+// The box is 22 px; the button around it is 44 px, pulled back by its padding
+// so the row lays out around the box alone.
 function TickBox({ checked, label, onToggle }: { checked: boolean; label: string; onToggle: () => void }) {
   return (
     <button
@@ -348,35 +351,35 @@ function TickBox({ checked, label, onToggle }: { checked: boolean; label: string
       aria-checked={checked}
       aria-label={label}
       onClick={onToggle}
-      // Re-keyed on change so the pop replays on every tick.
-      key={String(checked)}
-      className={checked ? 'prac-tick bg-caddie-accent text-caddie-accent-ink' : 'bg-caddie-surface'}
-      style={{
-        width: 22,
-        height: 22,
-        borderRadius: 2,
-        border: checked ? '1px solid #1F3D2C' : '1px solid #9F9580',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: 0,
-        marginTop: 1,
-        cursor: 'pointer',
-        flexShrink: 0,
-      }}
+      style={{ padding: 11, margin: -11, marginTop: -10, background: 'none', border: 'none', cursor: 'pointer', flexShrink: 0 }}
     >
-      {checked ? (
-        <svg aria-hidden="true" width="13" height="13" viewBox="0 0 12 12" fill="none" style={{ display: 'block' }}>
-          <path
-            className="prac-check"
-            d="M2.5 6.2 5 8.7 9.5 3.5"
-            stroke="currentColor"
-            strokeWidth="1.7"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        </svg>
-      ) : null}
+      <span
+        // Re-keyed on change so the pop replays on every tick.
+        key={String(checked)}
+        className={checked ? 'prac-tick bg-caddie-accent text-caddie-accent-ink' : 'bg-caddie-surface'}
+        style={{
+          width: 22,
+          height: 22,
+          borderRadius: 2,
+          border: checked ? '1px solid #1F3D2C' : '1px solid #9F9580',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        {checked ? (
+          <svg aria-hidden="true" width="13" height="13" viewBox="0 0 12 12" fill="none" style={{ display: 'block' }}>
+            <path
+              className="prac-check"
+              d="M2.5 6.2 5 8.7 9.5 3.5"
+              stroke="currentColor"
+              strokeWidth="1.7"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+        ) : null}
+      </span>
     </button>
   )
 }
@@ -495,10 +498,9 @@ function SessionBlock({
   const allDone = blocks.length > 0 && doneCount === blocks.length
   return (
     <section
-      className="bg-caddie-surface"
+      className="paper-tile"
       style={{
-        border: `1px solid ${allDone ? '#1F3D2C' : LINE}`,
-        borderRadius: 4,
+        borderColor: allDone ? '#1F3D2C' : undefined,
         padding: '18px clamp(14px, 3vw, 20px) 6px',
         marginBottom: 18,
         transition: 'border-color 300ms ease',
@@ -556,10 +558,17 @@ function WhyThisPlan({
           {insight}
         </p>
       ) : null}
+      {/* With no insight of its own, the coach's note leads, in the serif. */}
       {note ? (
-        <p className="text-caddie-ink-dim" style={{ fontSize: 14, lineHeight: 1.6 }}>
-          {normalizeCategoryProse(note)}
-        </p>
+        insight ? (
+          <p className="text-caddie-ink-dim" style={{ fontSize: 14, lineHeight: 1.6 }}>
+            {normalizeCategoryProse(note)}
+          </p>
+        ) : (
+          <p className="font-serif text-caddie-ink" style={{ fontSize: 17, lineHeight: 1.45 }}>
+            {normalizeCategoryProse(note)}
+          </p>
+        )
       ) : null}
       <div className="text-caddie-ink-dim" style={{ fontSize: 12, marginTop: 10 }}>
         {basis}
@@ -765,9 +774,8 @@ export function PracticePlanPage() {
           ))}
         </div>
         <aside>
-          {/* With no finding, the insight already leads the page. */}
           <WhyThisPlan
-            insight={finding ? plan.ai_insight : null}
+            insight={insightUnderFinding(finding, plan.ai_insight)}
             note={plan.coach_note}
             basis={basis}
             aiWritten={isAiWrittenPlan(plan.raw_model_output)}

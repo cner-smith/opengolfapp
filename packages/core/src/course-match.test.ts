@@ -5,6 +5,7 @@ import {
   isProbableSameCourse,
   distinctiveToken,
   nameTokensContained,
+  rankPlanCourses,
 } from './course-match'
 
 describe('normalizeCourseName', () => {
@@ -145,5 +146,52 @@ describe('nameTokensContained', () => {
 
   it('is false when either name normalizes to nothing', () => {
     expect(nameTokensContained(n('Golf Club'), n('Ocean Course'))).toBe(false)
+  })
+})
+
+describe('rankPlanCourses (#1223)', () => {
+  const hole = (course_id: string, mapped: boolean) => ({ course_id, tee_lat: mapped ? 32.2 : null, pin_lat: mapped ? 32.21 : null })
+  // Search order: Laurel (unmapped), Murrieta (no holes), Wentzville (mapped), Hilton Head (mapped, played).
+  const courses = [{ id: 'laurel' }, { id: 'murrieta' }, { id: 'wentzville' }, { id: 'hilton' }]
+  const holes = [
+    ...Array.from({ length: 18 }, () => hole('laurel', false)),
+    ...Array.from({ length: 18 }, (_, i) => hole('wentzville', i < 12)),
+    ...Array.from({ length: 18 }, () => hole('hilton', true)),
+    hole('elsewhere', true),
+  ]
+
+  it('counts holes and mapped holes (tee and pin) per course', () => {
+    const rows = rankPlanCourses(courses, holes, new Set())
+    const by = Object.fromEntries(rows.map((r) => [r.id, [r.holeCount, r.mappedCount, r.played]]))
+    expect(by).toEqual({
+      laurel: [18, 0, false],
+      murrieta: [0, 0, false],
+      wentzville: [18, 12, false],
+      hilton: [18, 18, false],
+    })
+  })
+
+  it('a tee without a pin is not mapped', () => {
+    const rows = rankPlanCourses([{ id: 'x' }], [{ course_id: 'x', tee_lat: 1, pin_lat: null }], new Set())
+    expect(rows[0]!.mappedCount).toBe(0)
+  })
+
+  it('played first, then mapped, then the rest, keeping search order within a tier', () => {
+    expect(rankPlanCourses(courses, holes, new Set(['hilton'])).map((r) => r.id)).toEqual([
+      'hilton',
+      'wentzville',
+      'laurel',
+      'murrieta',
+    ])
+    expect(rankPlanCourses(courses, holes, new Set()).map((r) => r.id)).toEqual(['wentzville', 'hilton', 'laurel', 'murrieta'])
+  })
+
+  it('a played course leads even when it is not mapped', () => {
+    expect(rankPlanCourses(courses, holes, new Set(['laurel'])).map((r) => r.id)).toEqual([
+      'laurel',
+      'wentzville',
+      'hilton',
+      'murrieta',
+    ])
   })
 })

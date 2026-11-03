@@ -211,7 +211,7 @@ export function RoundMap({
     effectiveCourseLng,
   ])
 
-  const { mapRef, userPlacedRef } = useMapSetup({
+  const { mapRef, userPlacedRef, mapFailed } = useMapSetup({
     containerRef,
     cameraTarget,
     effectivePin,
@@ -263,12 +263,24 @@ export function RoundMap({
           background: '#1C211C',
         }}
       />
-      {!MAPBOX_TOKEN_PRESENT && (
+      {(!MAPBOX_TOKEN_PRESENT || mapFailed) && (
+        // Missing token = a build problem, not one the user can retry; a map
+        // that fails at runtime (offline, blocked) can be (#1225). lib/mapbox
+        // logs both.
         <div
-          className="absolute inset-0 flex items-center justify-center text-caddie-ink-mute"
-          style={{ background: '#FBF8F1', fontSize: 13, padding: 22 }}
+          className="absolute inset-0 flex flex-col items-center justify-center text-caddie-ink-dim"
+          style={{ background: '#FBF8F1', fontSize: 14, padding: 22, gap: 14, textAlign: 'center' }}
         >
-          Map unavailable — set <code style={{ marginInline: 4 }}>VITE_MAPBOX_TOKEN</code> in your env to enable the map view.
+          {!MAPBOX_TOKEN_PRESENT ? (
+            <>The map isn&rsquo;t available right now.</>
+          ) : (
+            <>
+              The map didn&rsquo;t load. Check your connection and try again.
+              <button type="button" className="key" onClick={() => window.location.reload()}>
+                Try again
+              </button>
+            </>
+          )}
         </div>
       )}
     </div>

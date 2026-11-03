@@ -6,13 +6,50 @@ const TOKEN = import.meta.env.VITE_MAPBOX_TOKEN as string | undefined
 
 if (TOKEN) {
   mapboxgl.accessToken = TOKEN
-} else if (typeof window !== 'undefined') {
-  // eslint-disable-next-line no-console
-  console.warn('VITE_MAPBOX_TOKEN missing — map view will not render.')
+} else {
+  // Every build: a deploy without the token must be diagnosable.
+  console.error('VITE_MAPBOX_TOKEN missing — map view will not render.')
 }
 
 export { mapboxgl }
 export const MAPBOX_TOKEN_PRESENT = !!TOKEN
+
+const STYLE_TIMEOUT_MS = 15_000
+
+/** A map that can fail at runtime calls onFail (#1225). From mapbox-gl 3.23's
+ *  source: `new Map` throws when WebGL can't start; a blocked or offline style
+ *  fetch fires `error` with no `sourceId` before `style.load`, while tile and
+ *  source errors carry a `sourceId` and leave the map usable. A style request
+ *  that never answers fires nothing, so `style.load` gets a deadline. Not
+ *  `load`: it waits for every first-view tile and the sprite, so a slow
+ *  connection or a failed sprite would cover a map that works. */
+export function createMap(options: mapboxgl.MapOptions, onFail: () => void): mapboxgl.Map | null {
+  let map: mapboxgl.Map
+  try {
+    map = new mapboxgl.Map(options)
+  } catch (err) {
+    console.error(err)
+    onFail()
+    return null
+  }
+  let loaded = false
+  const timer = setTimeout(() => {
+    if (!loaded) onFail()
+  }, STYLE_TIMEOUT_MS)
+  map.once('style.load', () => {
+    loaded = true
+    clearTimeout(timer)
+  })
+  map.once('remove', () => clearTimeout(timer))
+  map.on('error', (e) => {
+    // A bound listener stops Mapbox printing the error itself.
+    console.error(e.error)
+    if (loaded || 'sourceId' in e) return
+    clearTimeout(timer)
+    onFail()
+  })
+  return map
+}
 
 /** Frame a hole "up-the-hole": rotate the camera so the tee→pin line runs
  *  bottom→top, then fitBounds so both endpoints sit in view. Shared by the

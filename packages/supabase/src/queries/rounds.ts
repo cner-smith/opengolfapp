@@ -97,6 +97,25 @@ export function countRoundsWithSG(client: OgaSupabaseClient, userId: string) {
     )
 }
 
+// The planner's course search: which of these courses the player has a round on.
+// One row per round, so it pages past PostgREST's 1000-row cap.
+export async function getRoundCourseIds(client: OgaSupabaseClient, userId: string, courseIds: string[]) {
+  const PAGE = 1000
+  const found = new Set<string>()
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await client
+      .from('rounds')
+      .select('id, course_id')
+      .eq('user_id', userId)
+      .in('course_id', courseIds)
+      .order('id')
+      .range(from, from + PAGE - 1)
+    if (error) return { data: null, error }
+    for (const r of data) found.add(r.course_id)
+    if (data.length < PAGE) return { data: found, error: null }
+  }
+}
+
 // List views include in-progress rounds; the SG dashboard intentionally
 // keeps getRecentSGData (only rounds with computed SG).
 export function getRecentRounds(client: OgaSupabaseClient, userId: string, limit = 10) {
