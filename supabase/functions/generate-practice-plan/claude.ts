@@ -242,6 +242,22 @@ export async function generatePlanDraft(
     throw new PlanToolUseMissingError(model, request_id)
   }
 
+  // Without forced tool use / strict mode, a model can send an array field as a
+  // JSON string (#1157: Sonnet 5.5 on DEV). Parse it back; anything else still
+  // non-array is left for validatePlanDraft's shape check (→ repair turn).
+  const input = toolUse.input as Record<string, unknown>
+  for (const k of ['sessions', 'focus_areas']) {
+    if (Array.isArray(input[k])) continue
+    console.error(`[generate-practice-plan] ${model} sent ${k} as ${typeof input[k]} (request ${request_id})`)
+    if (typeof input[k] === 'string') {
+      try {
+        input[k] = JSON.parse(input[k] as string)
+      } catch {
+        // left as is: validation reports it
+      }
+    }
+  }
+
   return {
     // `input` is the model's untrusted output — cast to PlanDraft; validatePlanDraft
     // (orchestrator) is what makes it trustworthy.

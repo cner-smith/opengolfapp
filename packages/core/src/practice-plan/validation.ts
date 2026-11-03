@@ -18,6 +18,15 @@ export function validatePlanDraft(
   const errors: string[] = []
   const refOf = (i: number): CandidateDrill | undefined => ctx.pool[i]
 
+  // D0: shape. The draft is untrusted model output; a field that isn't an
+  // array (missing, or sent as a JSON string) is a validation error the repair
+  // turn can fix, not a crash straight to baseline (#1157).
+  if (!Array.isArray(draft.sessions)) return { ok: false, errors: ['sessions must be an array'] }
+  const shapeless = draft.sessions.filter((s) => !Array.isArray(s?.blocks))
+  if (shapeless.length > 0) {
+    return { ok: false, errors: shapeless.map((s) => `session "${s?.title}" blocks must be an array`) }
+  }
+
   // D1: session count must match what the planner requested
   if (draft.sessions.length !== ctx.sessionCount) {
     errors.push(`session count ${draft.sessions.length} != ${ctx.sessionCount}`)

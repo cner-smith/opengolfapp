@@ -39,6 +39,16 @@ describe('validatePlanDraft', () => {
     expect(validatePlanDraft(okDraft, ctx).ok).toBe(true)
   })
 
+  it('rejects, without throwing, sessions or blocks that are not arrays (model output, #1157)', () => {
+    const asString = { ...okDraft, sessions: JSON.stringify(okDraft.sessions) } as unknown as PlanDraft
+    const missingBlocks = { ...okDraft, sessions: [{ title: 'S1', total_minutes: 10 }] } as unknown as PlanDraft
+    for (const d of [asString, missingBlocks]) {
+      const r = validatePlanDraft(d, ctx)
+      expect(r.ok).toBe(false)
+      expect(r.errors.join(' ')).toMatch(/must be an array/)
+    }
+  })
+
   it('rejects an out-of-range drill_ref', () => {
     const bad = structuredClone(okDraft)
     // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- structuredClone(okDraft) preserves the full shape, so this indexed access is non-null
