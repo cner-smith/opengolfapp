@@ -66,9 +66,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // auth-js for the session, which stays null until a refresh succeeds; the
     // refresh then emits TOKEN_REFRESHED, or SIGNED_OUT on a 4xx.
     const seen = events
+    // auth-js answers that only after two failed refresh windows (~26 s each:
+    // _initialize's _recoverAndRefresh, then getSession's own refresh), so a
+    // cold start without signal sat ~58 s on the gate (#1330). If it hasn't
+    // answered in 3 s, start from the stored user as offline; getSession
+    // still settles it later (session → online, a 4xx → signed out).
+    let answered = false
+    const early = setTimeout(async () => {
+      const stored = await readPersistedUser()
+      if (mounted && !answered && seen === events && stored) apply(stored, true)
+    }, 3000)
     supabase.auth
       .getSession()
       .then(async ({ data, error }) => {
+        answered = true
+        clearTimeout(early)
         if (!mounted) return
         if (data.session || !isAuthRetryableFetchError(error)) {
           apply(data.session?.user ?? null)
@@ -78,6 +90,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (mounted && seen === events) apply(stored, true)
       })
       .catch((err) => {
+        answered = true
+        clearTimeout(early)
         logDiag('auth_session_failed', { msg: String(err).slice(0, 120) })
         if (mounted) apply(null)
       })
@@ -97,6 +111,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     return () => {
       mounted = false
+      clearTimeout(early)
       subscription.unsubscribe()
     }
   }, [])
