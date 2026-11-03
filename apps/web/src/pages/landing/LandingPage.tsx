@@ -33,10 +33,10 @@ export function LandingPage() {
       </Finding>
       <Finding
         reverse
-        sentence="Over your last 10 rounds, off the tee gains you 1.5 strokes a round. Approach gives back 0.8."
+        sentence="Over your last 15 rounds, off the tee gains you 1.6 strokes a round. Approach gives back 0.8."
         src="/landing/stats.webp"
-        alt="Stats, last 10 rounds against a 12-handicap: off the tee +1.51, approach −0.79, around the green +0.90, putting +0.98, with a round-by-round chart"
-        caption="Stats, last 10 rounds"
+        alt="Stats, last 15 rounds against a 12-handicap: off the tee +1.56, approach −0.82, around the green +0.83, putting +1.00, with a round-by-round chart"
+        caption="Stats, last 15 rounds"
         to="/learn/strokes-gained"
         linkLabel="How strokes gained works"
       >
