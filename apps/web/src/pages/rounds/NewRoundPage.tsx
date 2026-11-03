@@ -367,7 +367,7 @@ export function Choice({
       aria-checked={active}
       tabIndex={active ? 0 : -1}
       onClick={onClick}
-      className="key"
+      className="key key-choice"
       style={{
         flexDirection: 'column',
         alignItems: 'flex-start',

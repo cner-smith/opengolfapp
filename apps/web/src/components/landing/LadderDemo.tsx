@@ -103,7 +103,9 @@ export default function LadderDemo() {
           <h3 id={titleId} className="font-serif lb-ladder-title">
             Try yours.
           </h3>
-          {edited ? null : <span className="lb-stamp">Example</span>}
+          <span className="lb-example-tag" aria-hidden={edited} data-gone={edited || undefined}>
+            an example bag
+          </span>
         </div>
         <div className="lb-ladder-tools">
           <div role="group" aria-label="Units" className="lb-seg">

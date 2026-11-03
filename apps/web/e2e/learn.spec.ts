@@ -26,6 +26,14 @@ test.describe('Learn — signed out', () => {
     ).toHaveCount(0)
   })
 
+  // #1302: the H1 is the guide's index title; an editorial line stays as
+  // the standfirst under it.
+  test('a guide is titled as the index lists it', async ({ page }) => {
+    await page.goto('/learn/strokes-gained')
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('How strokes gained works.')
+    await expect(page.getByText('Strokes gained, in plain English.')).toBeVisible()
+  })
+
   // #1258: the window is the scroll container here, so a guide opened from
   // the bottom of a long page must start at its title, and Back must return
   // to where the reader was.

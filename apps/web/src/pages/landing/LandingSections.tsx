@@ -122,12 +122,12 @@ export function Close() {
     <section className="lb-close">
       <div style={{ ...WRAP, textAlign: 'center' }}>
         <h2 className="lb-close-title font-serif">
-          {isAuthed ? 'Welcome back.' : 'Find your sentence.'}
+          {isAuthed ? 'Welcome back.' : 'Stop guessing what to work on.'}
         </h2>
         <p className="lb-close-sub">
           {isAuthed
             ? 'Pick up where you left off.'
-            : 'Play a few rounds with OGA in your pocket and it will tell you where yours go.'}
+            : 'Play your rounds, mark your shots, and OGA tells you where the strokes went and builds the practice around it.'}
         </p>
         <div style={{ marginTop: 30 }}>
           <PrimaryCta isAuthed={isAuthed} inverse />

@@ -11,7 +11,7 @@ export function FittingsWithCoachesArticle() {
         marginBottom: 32,
       }}
     >
-      <ArticleTitle>A lesson changes the swing; a fitting fits it.</ArticleTitle>
+      <ArticleTitle standfirst="A lesson changes the swing; a fitting fits it.">Fittings and your coach.</ArticleTitle>
 
       <P>
         The equipment guide on <em>golf fittings</em> covers what each fitting

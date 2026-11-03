@@ -279,6 +279,17 @@ export type GolfPadRead = { plan: GolfPadPlan } | { rejected: string }
 
 const ALL_THREE = 'Choose all three Golf Pad files: rounds, holes and shots.'
 
+export type GolfPadFileKind = 'rounds' | 'holes' | 'shots'
+
+// Which Golf Pad export file a decoded CSV is, by its header (names are the player's to change).
+export function golfPadFileKind(text: string): GolfPadFileKind | null {
+  const header = text.slice(0, text.search(/\r?\n|$/))
+  if (header.includes('gross score')) return 'rounds'
+  if (header.includes('total strokes')) return 'holes'
+  if (header.includes('shot number')) return 'shots'
+  return null
+}
+
 // The player's chosen files (decoded text, any order) → the plan, or why they can't be imported. Files
 // are told apart by their headers, not their names. Golf Pad picks the distance unit from where the
 // player is and names it in the shots file's "shot length" column; there's no setting to change it.
@@ -286,10 +297,9 @@ export function readGolfPadExport(texts: string[]): GolfPadRead {
   const found: Partial<GolfPadFiles> = {}
   let shotsHeader = ''
   for (const text of texts) {
-    const header = text.slice(0, text.search(/\r?\n|$/))
-    if (header.includes('gross score')) found.rounds = text
-    else if (header.includes('total strokes')) found.holes = text
-    else if (header.includes('shot number')) { found.shots = text; shotsHeader = header }
+    const kind = golfPadFileKind(text)
+    if (kind) found[kind] = text
+    if (kind === 'shots') shotsHeader = text.slice(0, text.search(/\r?\n|$/))
   }
   const { rounds, holes, shots } = found
   if (!rounds && !holes && !shots) {

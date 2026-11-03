@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { planGolfPadImport, readGolfPadExport } from '../golfpad-import'
+import { golfPadFileKind, planGolfPadImport, readGolfPadExport } from '../golfpad-import'
 import { computeRoundSG } from '../sg'
 import type { Database } from '@oga/supabase'
 
@@ -277,6 +277,16 @@ describe('Golf Pad export → planned rounds', () => {
       const read = readGolfPadExport(texts)
       return 'rejected' in read ? read.rejected : null
     }
+
+    it('names each file by its header line alone (the ledger on the import page)', () => {
+      expect(golfPadFileKind(roundsCsv)).toBe('rounds')
+      expect(golfPadFileKind(csv(HOLES_HEADER, [hole(D, C, 1, 4, 4, 2)], '\r\n'))).toBe('holes')
+      expect(golfPadFileKind(shotsCsv)).toBe('shots')
+      // A rounds column named in a later line doesn't make a holes file a rounds file.
+      expect(golfPadFileKind(csv(HOLES_HEADER, ['gross score,,,,1,4,4,2,0,0,,']))).toBe('holes')
+      expect(golfPadFileKind(csv('a,b', ['gross score,shot number']))).toBeNull()
+      expect(golfPadFileKind('')).toBeNull()
+    })
 
     it('tells the three files apart by their headers, in any order', () => {
       const read = readGolfPadExport([shotsCsv, roundsCsv, holesCsv])

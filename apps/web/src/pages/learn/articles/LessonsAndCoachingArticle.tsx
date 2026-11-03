@@ -11,7 +11,7 @@ export function LessonsAndCoachingArticle() {
         marginBottom: 32,
       }}
     >
-      <ArticleTitle>Lessons and coaching.</ArticleTitle>
+      <ArticleTitle>Guide to lessons and coaching.</ArticleTitle>
 
       <P>
         Good instruction is the fastest way to get better — and the easiest

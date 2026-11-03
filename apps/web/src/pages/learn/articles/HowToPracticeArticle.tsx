@@ -11,7 +11,7 @@ export function HowToPracticeArticle() {
         marginBottom: 32,
       }}
     >
-      <ArticleTitle>How to practice.</ArticleTitle>
+      <ArticleTitle>How to practice effectively.</ArticleTitle>
 
       <P>
         Hitting balls and getting better are two different activities. This is

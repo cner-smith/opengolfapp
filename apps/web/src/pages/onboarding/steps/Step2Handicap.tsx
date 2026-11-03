@@ -6,30 +6,32 @@ import { OnboardingButtons, StepHeading } from './shared'
 // covers the usual range; the keys and the typed number reach the rest.
 const MIN = -10
 const MAX = 54
+const SLIDER_MIN = -5
+// A ruler position: the thumb's centre runs 9 px in from each end.
+const at = (n: number) => `calc(9px + (100% - 18px) * ${(n - SLIDER_MIN) / (MAX - SLIDER_MIN)})`
 const clamp = (n: number) => Math.min(MAX, Math.max(MIN, Math.round(n * 10) / 10))
 
-function bracketLabel(handicap: number): { name: string; description: string } {
-  if (handicap < 0) return { name: 'Plus handicap', description: 'Better than scratch' }
-  if (handicap <= 2) return { name: 'Scratch', description: 'Bracket: 0–2 handicap' }
-  if (handicap <= 7)
-    return { name: 'Single digit', description: 'Bracket: 3–7 handicap' }
-  if (handicap <= 12)
-    return { name: 'Low double digit', description: 'Bracket: 8–12 handicap' }
-  if (handicap <= 17)
-    return { name: 'Mid double digit', description: 'Bracket: 13–17 handicap' }
-  if (handicap <= 22) return { name: 'High teens', description: 'Bracket: 18–22 handicap' }
-  if (handicap <= 27)
-    return { name: 'Twenty-something', description: 'Bracket: 23–27 handicap' }
-  return { name: 'New to scoring', description: 'Bracket: 28+ handicap' }
+export function bracketLabel(handicap: number): string {
+  if (handicap < 0) return 'Plus handicap'
+  if (handicap <= 2) return 'Scratch'
+  if (handicap <= 7) return 'Single digit'
+  if (handicap <= 12) return 'Low double digit'
+  if (handicap <= 17) return 'Mid double digit'
+  if (handicap <= 22) return 'High teens'
+  if (handicap <= 27) return 'Twenty-something'
+  return 'New to scoring'
 }
 
 export function Step2Handicap({
   value,
+  seeded,
   onChange,
   onBack,
   onContinue,
 }: {
   value: number
+  /** Still the start Step 1 picked for them: say so. */
+  seeded: boolean
   onChange: (v: number) => void
   onBack: () => void
   onContinue: () => void
@@ -110,30 +112,49 @@ export function Step2Handicap({
           <StepKey label="Raise by a tenth" glyph="+" onStep={() => onChange(clamp(value + 0.1))} />
         </div>
         <div className="font-serif text-caddie-ink-dim" style={{ fontSize: 17, marginTop: 12 }}>
-          {bracket.name}
+          {bracket}
         </div>
-        <div className="text-caddie-ink-dim" style={{ fontSize: 13, marginTop: 4 }}>
-          {bracket.description}
-        </div>
+        {seeded && (
+          <p className="text-caddie-ink-dim" style={{ fontSize: 13, marginTop: 8, lineHeight: 1.5, maxWidth: 360, marginInline: 'auto' }}>
+            No handicap yet? Keep this: it&rsquo;s typical for golfers like you, and you can change it any time in Profile.
+          </p>
+        )}
       </div>
-      <input
-        type="range"
-        min={-5}
-        max={MAX}
-        step={0.1}
-        value={value}
-        aria-label="Handicap index"
-        aria-valuetext={formatHandicapIndex(value)}
-        onChange={(e) => onChange(clamp(Number(e.target.value)))}
-        style={{
-          width: '100%',
-          accentColor: '#1F3D2C',
-          marginBottom: 8,
-        }}
-      />
-      <div className="text-caddie-ink-dim flex justify-between" style={{ fontSize: 13 }}>
-        <span>+5</span>
-        <span>54</span>
+      {/* A printed ruler: a tick every stroke, a longer one every five, numbers
+          every ten; the pick is a green pencil line across it. */}
+      <div style={{ position: 'relative', height: 52, marginBottom: 4 }}>
+        {Array.from({ length: MAX - SLIDER_MIN + 1 }, (_, k) => {
+          const t = SLIDER_MIN + k
+          return (
+            <span
+              key={t}
+              aria-hidden
+              className="onb-ruler-tick"
+              style={{ left: at(t), height: t % 10 === 0 ? 16 : t % 5 === 0 ? 11 : 6 }}
+            />
+          )
+        })}
+        {[SLIDER_MIN, 0, 10, 20, 30, 40, 50].map((t) => (
+          <span
+            key={t}
+            aria-hidden
+            className="font-serif tabular text-caddie-ink-dim onb-ruler-num"
+            style={{ left: at(t), fontStyle: t < 0 ? 'italic' : undefined }}
+          >
+            {t < 0 ? `+${-t}` : t}
+          </span>
+        ))}
+        <input
+          type="range"
+          min={SLIDER_MIN}
+          max={MAX}
+          step={0.1}
+          value={value}
+          aria-label="Handicap index"
+          aria-valuetext={formatHandicapIndex(value)}
+          onChange={(e) => onChange(clamp(Number(e.target.value)))}
+          className="onb-ruler"
+        />
       </div>
       <OnboardingButtons onBack={onBack} onContinue={onContinue} canContinue={true} />
     </div>

@@ -11,7 +11,7 @@ export function SelfDiagnosisArticle() {
         marginBottom: 32,
       }}
     >
-      <ArticleTitle>Self-diagnosis.</ArticleTitle>
+      <ArticleTitle>Self-diagnosis: finding your weaknesses.</ArticleTitle>
 
       <H2>You know something is off</H2>
       <P>

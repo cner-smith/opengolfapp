@@ -11,7 +11,7 @@ export function QuestionsForCoachArticle() {
         marginBottom: 32,
       }}
     >
-      <ArticleTitle>A lesson is a conversation.</ArticleTitle>
+      <ArticleTitle standfirst="A lesson is a conversation.">Questions to ask your coach.</ArticleTitle>
 
       <P>
         Most golfers treat a lesson as a download: stand there, collect the tip,

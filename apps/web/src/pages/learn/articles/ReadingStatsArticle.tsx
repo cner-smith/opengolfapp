@@ -36,7 +36,7 @@ export function ReadingStatsArticle() {
         marginBottom: 32,
       }}
     >
-      <ArticleTitle>Where you sit in the field.</ArticleTitle>
+      <ArticleTitle standfirst="Where you sit in the field.">Reading your stats.</ArticleTitle>
       <BenchmarkBody me={me} />
       <Sources />
       <Footer />
