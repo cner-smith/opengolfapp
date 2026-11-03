@@ -337,23 +337,16 @@ export default function HoleStrategyMap({
         }}
       />
       {(!MAPBOX_TOKEN_PRESENT || mapFailed) && (
-        // Missing token = a build problem, not one the user can retry; a map
-        // that fails at runtime (offline, blocked) can be (#1225). lib/mapbox
-        // logs both.
+        // One message for a missing token and a runtime failure (owner,
+        // 2026-11-02). lib/mapbox logs both.
         <div
           className="absolute inset-0 flex flex-col items-center justify-center text-caddie-ink-dim"
           style={{ background: '#FBF8F1', fontSize: 14, padding: 22, gap: 14, textAlign: 'center' }}
         >
-          {!MAPBOX_TOKEN_PRESENT ? (
-            <>The map isn&rsquo;t available right now.</>
-          ) : (
-            <>
-              The map didn&rsquo;t load. Check your connection and try again.
-              <button type="button" className="key" onClick={() => window.location.reload()}>
-                Try again
-              </button>
-            </>
-          )}
+          The map didn&rsquo;t load. Check your connection and try again.
+          <button type="button" className="key" onClick={() => window.location.reload()}>
+            Try again
+          </button>
         </div>
       )}
     </div>
