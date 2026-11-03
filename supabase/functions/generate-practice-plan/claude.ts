@@ -33,9 +33,19 @@ const MAX_TOKENS = 4096
  *  sending `temperature` 400s. Sonnet 4.6 / Haiku 4.5 accept it; Opus-4.7-class
  *  does not. `PLAN_MODEL` is an open env knob, so gate `temperature` on the id. */
 function modelRejectsSamplingParams(model: string): boolean {
-  // Opus 4.7 and later strip sampling params. Conservative substring match: any
-  // opus-4-7+ id. (If a future Sonnet/Haiku also strips them, extend here.)
-  return /opus-4-(7|8|9)/.test(model) || /opus-[5-9]/.test(model)
+  // Opus 4.7 and later strip sampling params, and so does Sonnet 5.5.
+  return /opus-4-(7|8|9)/.test(model) || /opus-[5-9]/.test(model) || isSonnet55(model)
+}
+
+/** Claude Sonnet 5.5 (#1157) rejects forced `tool_choice` (`tool`/`any`) and
+ *  `thinking: disabled` with a 400. It gets `auto` plus a prompt line naming
+ *  the tool (a missed call is already PlanToolUseMissingError → baseline), and
+ *  `between_tools`, its lowest thinking setting, so latency and `max_tokens`
+ *  stay where Sonnet 4.6 had them. `strict: true` stays off: PLAN_TOOL has
+ *  optional fields (prompt.ts). Other models keep the forced call, so unsetting
+ *  the PLAN_MODEL secret still rolls back. */
+function isSonnet55(model: string): boolean {
+  return model.startsWith('claude-sonnet-5-5')
 }
 
 /** Truncation: the forced tool-call JSON came back partial (`stop_reason ===
@@ -182,14 +192,19 @@ export async function generatePlanDraft(
   // 2048-token cache floor (§11), so it would pay the 1.25× write for zero reads.
   // `system` is byte-identical between the first call and the repair (the SDK
   // sees the same string; only `messages` differs) so a future cache could hit.
+  const sonnet55 = isSonnet55(model)
   const body: Anthropic.Messages.MessageCreateParamsNonStreaming = {
     model,
     max_tokens: MAX_TOKENS,
-    system,
-    // Forced single tool — the model can only answer by calling it.
+    system: sonnet55 ? `${system}\n\nAnswer only by calling the ${tool.name} tool.` : system,
     tools: [tool as Anthropic.Messages.Tool],
-    tool_choice: { type: 'tool', name: tool.name },
+    // Forced single tool where the model allows it (see isSonnet55).
+    tool_choice: sonnet55 ? { type: 'auto' } : { type: 'tool', name: tool.name },
     messages: buildMessages(user, sessionCount, repair),
+  }
+  if (sonnet55) {
+    // Plain values: the SDK's types may predate `between_tools`.
+    Object.assign(body, { thinking: { type: 'between_tools' }, output_config: { effort: 'medium' } })
   }
 
   // temperature: 0 for determinism on Sonnet 4.6 / Haiku 4.5; OMITTED on Opus-4.7-
@@ -213,6 +228,10 @@ export async function generatePlanDraft(
   // and unparsable. Distinct error; the orchestrator skips repair → straight to baseline.
   if (response.stop_reason === 'max_tokens') {
     throw new PlanTruncatedError(model, request_id)
+  }
+  // A safety decline (Sonnet 5.5 and later): no tool call to read → baseline.
+  if ((response.stop_reason as string) === 'refusal') {
+    throw new PlanToolUseMissingError(model, request_id)
   }
 
   const toolUse = response.content.find(
