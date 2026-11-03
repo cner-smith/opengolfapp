@@ -118,6 +118,8 @@ function headline<T extends BagClub>(
   if (gaps.length === 0) return null
   const u = distanceUnitAbbr(unit)
   const d = (yd: number) => wholeDistance(yd, unit)
+  // A non-breaking space keeps a number on the line with its unit (SHL-11).
+  const du = (yd: number) => `${d(yd)}\u00a0${u}`
   const pair = (g: BagGap<T>) => `your ${clubNoun(g.longer.clubType)} and ${clubNoun(g.shorter.clubType)}`
 
   let hole: BagGap<T> | null = null
@@ -129,10 +131,10 @@ function headline<T extends BagClub>(
     const n = hole.unmeasured.length
     const where =
       n > 0 ? `, where your ${listWords(hole.unmeasured.map((c) => clubNoun(c.clubType)))} ${n === 1 ? 'has' : 'have'} no number yet` : ''
-    return `${d(hole.span!.high - hole.span!.low)} ${u} hole between ${pair(hole)}${where}.`
+    return `${du(hole.span!.high - hole.span!.low)} hole between ${pair(hole)}${where}.`
   }
   if (widest && widest.yards >= HOLE_YARDS) {
-    return `${d(widest.yards)} ${u} between ${pair(widest)}, the widest gap in the bag.`
+    return `${du(widest.yards)} between ${pair(widest)}, the widest gap in the bag.`
   }
   const numbered = rungs.filter((c) => c.typical)
   let longest = numbered[0]!
@@ -141,7 +143,7 @@ function headline<T extends BagClub>(
     if (c.typical!.yards > longest.typical!.yards) longest = c
     if (c.typical!.yards < shortest.typical!.yards) shortest = c
   }
-  return `Your ${clubNoun(longest.clubType)} to your ${clubNoun(shortest.clubType)}, ${d(longest.typical!.yards)} to ${d(shortest.typical!.yards)} ${u}, with every gap under ${d(HOLE_YARDS)} ${u}.`
+  return `Your ${clubNoun(longest.clubType)} to your ${clubNoun(shortest.clubType)}, ${d(longest.typical!.yards)} to ${du(shortest.typical!.yards)}, with every gap under ${du(HOLE_YARDS)}.`
 }
 
 /** "5-wood", "5-wood and 5-iron", "5-wood, 5-hybrid and 5-iron". */

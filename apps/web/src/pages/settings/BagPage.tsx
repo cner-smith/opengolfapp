@@ -271,7 +271,7 @@ export function BagPage() {
       <h1 className="font-serif text-caddie-ink" style={{ fontSize: 28, fontWeight: 500, lineHeight: 1.15 }}>
         My bag
       </h1>
-      <p className="text-caddie-ink-dim" style={{ fontSize: 15, marginTop: 6, marginBottom: 22 }}>
+      <p className="text-caddie-ink-dim" style={{ fontSize: 15, marginTop: 6, marginBottom: 22, textWrap: 'pretty' }}>
         {ready && clubs.length > 0
           ? `${inBag.length} club${inBag.length === 1 ? '' : 's'} in the bag${benched.length ? `, ${benched.length} on the bench` : ''}. Only clubs in the bag show when you log a shot.`
           : 'The clubs you carry. Only these show when you log a shot.'}

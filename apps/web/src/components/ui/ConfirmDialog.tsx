@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, type ReactNode } from 'react'
 
 interface ConfirmDialogProps {
   open: boolean
@@ -10,6 +10,9 @@ interface ConfirmDialogProps {
   busy?: boolean
   /** Shown in brick under the message; the dialog stays open on failure. */
   error?: string | null
+  /** Extra content under the message (Delete account's type-to-confirm field). */
+  children?: ReactNode
+  confirmDisabled?: boolean
   onConfirm: () => void | Promise<void>
   onCancel: () => void
   /** Escape and the scrim; defaults to onCancel. For a cancel key that goes somewhere. */
@@ -25,6 +28,8 @@ export function ConfirmDialog({
   destructive = false,
   busy = false,
   error,
+  children,
+  confirmDisabled = false,
   onConfirm,
   onCancel,
   onDismiss = onCancel,
@@ -73,6 +78,7 @@ export function ConfirmDialog({
             {message}
           </p>
         )}
+        {children}
         {error && (
           <p role="alert" className="text-caddie-neg" style={{ fontSize: 13, lineHeight: 1.45, margin: '-10px 0 18px' }}>
             {error}
@@ -93,7 +99,7 @@ export function ConfirmDialog({
           <button
             type="button"
             onClick={onConfirm}
-            disabled={busy}
+            disabled={busy || confirmDisabled}
             className={destructive ? 'key key-danger' : 'key key-primary'}
           >
             {busy ? 'Working…' : confirmLabel}
