@@ -490,8 +490,16 @@ export default function ProfileTab() {
               // Offline, signOut() keeps the session and returns an error,
               // whatever the scope: it always calls /logout, and an expired
               // token fails its refresh first (auth-js _signOut, #1329).
-              const { error } = await supabase.auth.signOut()
-              signingOutRef.current = false
+              // auth-js rethrows non-auth errors: treat a throw as a failure,
+              // and always release the guard.
+              let error: unknown
+              try {
+                ;({ error } = await supabase.auth.signOut())
+              } catch (e) {
+                error = e
+              } finally {
+                signingOutRef.current = false
+              }
               if (error) {
                 Alert.alert(
                   "Couldn't sign out",
