@@ -18,7 +18,7 @@ const TITLES: [string, string][] = [
   ['/practice/drills', 'Drills'],
   ['/practice', 'Practice'],
   ['/learn', 'Learn'],
-  ['/plan', 'Course plan'],
+  ['/plan', 'Plan a round'],
 ]
 
 function titleFor(pathname: string): string | null {
