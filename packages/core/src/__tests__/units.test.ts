@@ -14,7 +14,9 @@ import {
   haversineYards,
   todayLocalDate,
   toRadians,
+  wholeYardsFrom,
 } from '../units'
+import { wholeDistance } from '../shot-pattern-words'
 
 // Realistic golf coordinates pinned to OKC area. Picking integer-ish
 // values so the precomputed expectations stay legible.
@@ -199,6 +201,24 @@ describe('formatDistance', () => {
   it('non-finite input renders em dash so callers do not need a guard', () => {
     expect(formatDistance(Number.NaN, 'yards')).toBe('—')
     expect(formatDistance(Number.POSITIVE_INFINITY, 'meters')).toBe('—')
+  })
+})
+
+describe('wholeYardsFrom', () => {
+  it('a distance typed in metres is stored as whole yards', () => {
+    // 120 m / 0.9144 = 131.2 yd
+    expect(wholeYardsFrom(120, 'meters')).toBe(131)
+  })
+
+  it('a distance typed in yards is stored as typed, rounded to whole yards', () => {
+    expect(wholeYardsFrom(132, 'yards')).toBe(132)
+    expect(wholeYardsFrom(132.6, 'yards')).toBe(133)
+  })
+
+  it('every whole metre reads back as itself after the yards round trip', () => {
+    for (let m = 0; m <= 600; m++) {
+      expect(wholeDistance(wholeYardsFrom(m, 'meters'), 'meters')).toBe(m)
+    }
   })
 })
 

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { LieSlopeGrid } from '../../forms/LieSlopeGrid'
-import { formatDistance, type DistanceUnit } from '@oga/core'
+import { formatDistance, wholeDistance, wholeYardsFrom, type DistanceUnit } from '@oga/core'
 import { NumericInput, PickerField } from './formInputs'
 import { ResultAxes } from './ResultAxes'
 import type { DraftShot } from './draft'
@@ -62,9 +62,9 @@ export function ShotFormFields({
           <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13 }} className="text-caddie-ink">
             <NumericInput
               label={label}
-              value={draft.distanceToTarget}
+              value={draft.distanceToTarget != null ? wholeDistance(draft.distanceToTarget, unit) : undefined}
               onChange={(n) =>
-                setDraft((d) => ({ ...d, distanceToTarget: n }))
+                setDraft((d) => ({ ...d, distanceToTarget: n != null && n >= 0 ? wholeYardsFrom(n, unit) : undefined }))
               }
             />
             {unit === 'meters' ? 'm' : 'yd'}
