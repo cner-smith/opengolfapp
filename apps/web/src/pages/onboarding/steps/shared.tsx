@@ -46,6 +46,7 @@ export function OptionList<T extends string>({
   value,
   onChange,
   minWidth,
+  className,
 }: {
   label: string
   options: readonly { value: T; label: string; blurb?: string }[]
@@ -53,6 +54,7 @@ export function OptionList<T extends string>({
   onChange: (v: T) => void
   /** Lay the keys side by side, as many as fit at this width each. */
   minWidth?: number
+  className?: string
 }) {
   const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
     const step = e.key === 'ArrowRight' || e.key === 'ArrowDown' ? 1 : e.key === 'ArrowLeft' || e.key === 'ArrowUp' ? -1 : 0
@@ -69,6 +71,7 @@ export function OptionList<T extends string>({
       role="radiogroup"
       aria-label={label}
       onKeyDown={onKeyDown}
+      className={className}
       style={{ display: 'grid', gridTemplateColumns: minWidth ? `repeat(auto-fit, minmax(${minWidth}px, 1fr))` : '1fr', gap: 10, paddingBottom: 3 }}
     >
       {options.map((o, i) => {

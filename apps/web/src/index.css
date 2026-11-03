@@ -444,3 +444,11 @@ dialog.pat-dialog::backdrop {
     animation: none;
   }
 }
+
+/* Onboarding's three play-style keys stack on phones; side by side they
+   didn't fit at 390 px. */
+@media (max-width: 560px) {
+  .onb-stack {
+    grid-template-columns: 1fr !important;
+  }
+}

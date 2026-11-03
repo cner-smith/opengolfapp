@@ -96,6 +96,7 @@ export function Step4Details({
           value={playStyle}
           onChange={(v) => onChange({ playStyle: v })}
           minWidth={110}
+          className="onb-stack"
         />
       </Field>
 

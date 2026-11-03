@@ -58,3 +58,28 @@ test.describe('Onboarding step 1 (signed in)', () => {
     await expect(page).toHaveURL(/\/onboarding$/)
   })
 })
+
+test.describe('Onboarding step 4 on a phone (signed in)', () => {
+  // Three play-style keys side by side overflowed at 390 px; below 560 px
+  // they stack.
+  test('the play-style keys stack, one per row, inside the page', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 })
+    await page.goto('/onboarding')
+    await page.getByRole('radio', { name: /^Casual/ }).click()
+    await page.getByRole('button', { name: /Continue/ }).click()
+    await page.getByRole('button', { name: /Continue/ }).click()
+    await page.getByRole('radio', { name: /^Break 90/ }).click()
+    await page.getByRole('button', { name: /Continue/ }).click()
+    const group = page.getByRole('radiogroup', { name: 'How do you usually play?' })
+    const boxes = await Promise.all(
+      ['Casual', 'Mixed', 'Competitive'].map(async (name) => (await group.getByRole('radio', { name }).boundingBox())!),
+    )
+    for (const b of boxes) {
+      expect(b.x).toBeGreaterThanOrEqual(0)
+      expect(b.x + b.width).toBeLessThanOrEqual(390)
+    }
+    expect(boxes[1]!.y).toBeGreaterThan(boxes[0]!.y)
+    expect(boxes[2]!.y).toBeGreaterThan(boxes[1]!.y)
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390)
+  })
+})
