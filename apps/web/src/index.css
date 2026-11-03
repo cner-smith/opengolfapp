@@ -413,6 +413,9 @@ dialog.pat-dialog::backdrop {
 }
 @media (prefers-reduced-motion: reduce) {
   .drl-open {
+    animation: none;
+  }
+}
 
 /* Onboarding: the step segments fill in, the handicap number ticks over. */
 .onb-seg {
