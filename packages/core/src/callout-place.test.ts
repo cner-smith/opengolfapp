@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { placeCallout } from './callout-place'
+import { placeAimTag, placeCallout } from './callout-place'
 
 const base = { box: { w: 116, h: 46 }, size: { w: 600, h: 700 }, prev: null, plates: [] }
 
@@ -28,5 +28,26 @@ describe('placeCallout', () => {
     const p = placeCallout({ ...base, anchor: [300, 400], end: null, dots: [[300, 400]] })
     expect(Math.hypot(p.foot[0] - 300, p.foot[1] - 400)).toBeCloseTo(22)
     expect(p.head).toEqual([330, 370])
+  })
+})
+
+describe('placeAimTag', () => {
+  const tag = { box: { w: 120, h: 50 }, size: { w: 600, h: 400 } }
+
+  it('sits to the right of the aim, centred on it', () => {
+    expect(placeAimTag({ ...tag, anchor: [300, 200] })).toEqual({ x: 314, y: 175 })
+  })
+
+  it('flips to the left when the right edge would cut it', () => {
+    expect(placeAimTag({ ...tag, anchor: [500, 200] })).toEqual({ x: 366, y: 175 })
+  })
+
+  it('stays inside the top and bottom edges', () => {
+    expect(placeAimTag({ ...tag, anchor: [300, 10] }).y).toBe(8)
+    expect(placeAimTag({ ...tag, anchor: [300, 395] }).y).toBe(342)
+  })
+
+  it('holds the left edge when neither side fits', () => {
+    expect(placeAimTag({ ...tag, size: { w: 100, h: 400 }, anchor: [50, 200] }).x).toBe(8)
   })
 })

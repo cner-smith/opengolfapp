@@ -6,6 +6,7 @@ import {
   clubNoun,
   destinationYards,
   formatClubLabel,
+  formatToPar,
   haversineYards,
   sgAtAim,
   type GeoPoint,
@@ -15,13 +16,25 @@ import { useCourse } from '../../hooks/useCourses'
 import { useProfile } from '../../hooks/useProfile'
 import { Rocker } from '../../components/ui/Rocker'
 import HoleStrategyMap, { type Leg } from '../../components/plan/HoleStrategyMap'
-import SGFeedbackCard from '../../components/plan/SGFeedbackCard'
+import { Glyph, P, chromeSurface } from '../../components/round/map/PaperChrome'
 import type { ClubDispersion } from '../rounds/hooks/useClubDispersion'
 
+// Moving a leg's aim also moves the next leg's start.
+function withAim(legs: Leg[], legIndex: number, aim: GeoPoint): Leg[] {
+  const leg = legs[legIndex]
+  if (!leg) return legs
+  const next = [...legs]
+  next[legIndex] = { ...leg, aim }
+  const nextLeg = next[legIndex + 1]
+  if (nextLeg) next[legIndex + 1] = { ...nextLeg, origin: aim }
+  return next
+}
+
 // Hole-by-hole strategy planner: owns the ordered "leg" list (one entry per
-// planned shot) and wires HoleStrategyMap (drag-to-adjust aim) + SGFeedbackCard
-// (expected-strokes readout) + prev/next hole nav. Read-only — no round/shot
-// writes; this is a planning surface, not a live-round logger.
+// planned shot) and wires HoleStrategyMap (drag-to-adjust aim) inside a paper
+// frame: prev/next hole nav on top, the expected-strokes readout below and on
+// a tag at the aim (#1336). Read-only — no round/shot writes; this is a
+// planning surface, not a live-round logger.
 export default function HolePlanPage() {
   const { courseId, holeNumber } = useParams<{ courseId: string; holeNumber: string }>()
   const navigate = useNavigate()
@@ -54,6 +67,8 @@ export default function HolePlanPage() {
 
   const [legs, setLegs] = useState<Leg[]>([])
   const [focusedLeg, setFocusedLeg] = useState(0)
+  // An aim mid-drag: the readouts follow it before the drop commits it.
+  const [dragAim, setDragAim] = useState<{ index: number; aim: GeoPoint } | null>(null)
   // The `${courseId}/${holeNum}` key whose legs are currently initialized.
   // Guards the reset effect so an incidental dependency change (e.g. a future
   // refetch giving dispersion.selectClub a new identity) can't re-run
@@ -96,16 +111,10 @@ export default function HolePlanPage() {
   // every parent render. Functional setState form keeps this stable forever
   // (empty dep array), so it never invalidates that effect.
   const onAimChange = useCallback((legIndex: number, aim: GeoPoint) => {
-    setLegs((prev) => {
-      const leg = prev[legIndex]
-      if (!leg) return prev
-      const next = [...prev]
-      next[legIndex] = { ...leg, aim }
-      const nextLeg = next[legIndex + 1]
-      if (nextLeg) next[legIndex + 1] = { ...nextLeg, origin: aim }
-      return next
-    })
+    setLegs((prev) => withAim(prev, legIndex, aim))
+    setDragAim(null)
   }, [])
+  const onAimDrag = useCallback((index: number, aim: GeoPoint) => setDragAim({ index, aim }), [])
 
   const addLeg = () => {
     if (!pin) return
@@ -139,7 +148,8 @@ export default function HolePlanPage() {
 
   const { legSG, holeExpectedScore } = useMemo(() => {
     if (!pin) return { legSG: null, holeExpectedScore: null }
-    const leg = legs[focusedLeg]
+    const plan = dragAim ? withAim(legs, dragAim.index, dragAim.aim) : legs
+    const leg = plan[focusedLeg]
     const legSG = leg?.club
       ? sgAtAim({
           tee: leg.origin,
@@ -149,9 +159,9 @@ export default function HolePlanPage() {
           handicap,
         })
       : null
-    const lastLeg = legs[legs.length - 1]
+    const lastLeg = plan[plan.length - 1]
     const holeExpectedScore = lastLeg?.club
-      ? legs.length -
+      ? plan.length -
         1 +
         sgAtAim({
           tee: lastLeg.origin,
@@ -163,12 +173,9 @@ export default function HolePlanPage() {
       : null
     return { legSG, holeExpectedScore }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [legs, focusedLeg, handicap, pin?.lat, pin?.lng])
+  }, [legs, dragAim, focusedLeg, handicap, pin?.lat, pin?.lng])
 
   const focusedLegData = legs[focusedLeg]
-  const clubLabel = focusedLegData?.club
-    ? formatClubLabel({ club_type: focusedLegData.club.club })
-    : null
 
   if (loading) {
     return (
@@ -224,49 +231,13 @@ export default function HolePlanPage() {
     e.currentTarget.querySelectorAll<HTMLButtonElement>('[role=radio]')[next]?.focus()
   }
   const label13 = { fontSize: 13, marginBottom: 6 } as const
+  const navKey = { width: 44, height: 44, padding: 0, flexShrink: 0 } as const
 
   return (
     <div className="mx-auto max-w-6xl">
       <div className="grid grid-cols-1 gap-6 items-start lg:grid-cols-[minmax(320px,380px)_1fr]">
         {/* Controls — below the map on narrow screens, left column on desktop. */}
         <div className="order-2 flex flex-col gap-5 lg:order-1">
-          <div className="flex items-center justify-between" style={{ gap: 12 }}>
-            <button
-              type="button"
-              className="key"
-              aria-label="Previous hole"
-              onClick={() => goToHole(holeNum - 1)}
-              disabled={holeNum <= 1}
-              style={{ padding: '0 14px' }}
-            >
-              <span className="font-serif" style={{ fontStyle: 'italic' }}>&larr;</span> Prev
-            </button>
-            <div style={{ textAlign: 'center', minWidth: 0 }}>
-              {course?.name && (
-                <div className="text-caddie-ink-dim" style={{ fontSize: 13, overflowWrap: 'anywhere' }}>
-                  {course.name}
-                </div>
-              )}
-              <h1 className="font-serif text-caddie-ink" style={{ fontSize: 28, fontWeight: 500, lineHeight: 1.15 }}>
-                Hole {hole.number}
-              </h1>
-              <div className="font-serif text-caddie-ink-dim" style={{ fontSize: 15, fontStyle: 'italic' }}>
-                Par {hole.par}
-                {hole.yards != null ? ` \u00b7 ${hole.yards} yd` : ''}
-              </div>
-            </div>
-            <button
-              type="button"
-              className="key"
-              aria-label="Next hole"
-              onClick={() => goToHole(holeNum + 1)}
-              disabled={holeNum >= totalHoles}
-              style={{ padding: '0 14px' }}
-            >
-              Next <span className="font-serif" style={{ fontStyle: 'italic' }}>&rarr;</span>
-            </button>
-          </div>
-
           <div>
             <div className="text-caddie-ink-dim" style={label13}>
               Shot
@@ -325,33 +296,105 @@ export default function HolePlanPage() {
               </div>
             </div>
           )}
-
-          <SGFeedbackCard
-            legSG={legSG}
-            clubLabel={clubLabel}
-            holeExpectedScore={holeExpectedScore}
-            par={hole.par}
-          />
         </div>
 
-        {/* Map — on top on narrow screens, right column on desktop. */}
+        {/* Map in a paper frame — on top on narrow screens, right column on desktop. */}
         <div
-          className="order-1 lg:order-2"
+          className="order-1 lg:order-2 flex flex-col"
           style={{
             height: 'min(80vh, 760px)',
             minHeight: 460,
             borderRadius: 3,
-            border: '1px solid #1C211C',
+            border: `1px solid ${P.ink}`,
             overflow: 'hidden',
           }}
         >
-          <HoleStrategyMap
-            tee={tee}
-            pin={pin}
-            legs={legs}
-            focusedLeg={focusedLeg}
-            onAimChange={onAimChange}
-          />
+          <div
+            className="flex items-center"
+            style={{ ...chromeSurface, borderBottom: `1px solid ${P.ink}`, gap: 12, padding: '8px 12px' }}
+          >
+            <button
+              type="button"
+              className="key"
+              aria-label="Previous hole"
+              onClick={() => goToHole(holeNum - 1)}
+              disabled={holeNum <= 1}
+              style={navKey}
+            >
+              {Glyph.prev(holeNum <= 1 ? P.ink35 : P.ink)}
+            </button>
+            <div style={{ flex: 1, minWidth: 0, textAlign: 'center' }}>
+              {course?.name && (
+                <div className="text-caddie-ink-dim" style={{ fontSize: 12, overflowWrap: 'anywhere' }}>
+                  {course.name}
+                </div>
+              )}
+              <h1 className="font-serif text-caddie-ink" style={{ fontSize: 21, fontWeight: 500, lineHeight: 1.15 }}>
+                Hole {hole.number}{' '}
+                <span className="text-caddie-ink-dim" style={{ fontSize: 14, fontStyle: 'italic' }}>
+                  &middot; Par {hole.par}
+                  {hole.yards != null ? ` · ${hole.yards} yd` : ''}
+                </span>
+              </h1>
+            </div>
+            <button
+              type="button"
+              className="key"
+              aria-label="Next hole"
+              onClick={() => goToHole(holeNum + 1)}
+              disabled={holeNum >= totalHoles}
+              style={navKey}
+            >
+              {Glyph.next(holeNum >= totalHoles ? P.ink35 : P.ink)}
+            </button>
+          </div>
+          <div style={{ flex: 1, minHeight: 0 }}>
+            <HoleStrategyMap
+              tee={tee}
+              pin={pin}
+              legs={legs}
+              focusedLeg={focusedLeg}
+              onAimChange={onAimChange}
+              onAimDrag={onAimDrag}
+              tag={
+                legSG && (
+                  <>
+                    <div
+                      className="font-serif tabular"
+                      style={{ fontSize: 18, fontStyle: 'italic', fontWeight: 500, lineHeight: 1 }}
+                    >
+                      {legSG.expectedStrokes.toFixed(1)}
+                    </div>
+                    <div className="text-caddie-ink-dim" style={{ fontSize: 12, marginTop: 2 }}>
+                      to hole out from here
+                    </div>
+                  </>
+                )
+              }
+            />
+          </div>
+          <div
+            className="flex flex-wrap items-baseline justify-between text-caddie-ink-dim"
+            style={{ ...chromeSurface, borderTop: `1px solid ${P.ink}`, gap: '4px 10px', padding: '10px 12px', fontSize: 13 }}
+          >
+            <span>
+              {legSG && focusedLegData?.club
+                ? `Shot ${focusedLeg + 1}, ${clubNoun(focusedLegData.club.club)} · ${Math.round(legSG.avgDistanceToPinYards)} yd to the pin · ${legSG.confidence} confidence`
+                : 'Log a few rounds with shot data to unlock aim planning.'}
+            </span>
+            {holeExpectedScore != null && (
+              <span>
+                Hole{' '}
+                <b
+                  className="font-serif tabular text-caddie-ink"
+                  style={{ fontSize: 17, fontStyle: 'italic', fontWeight: 500 }}
+                >
+                  {holeExpectedScore.toFixed(1)}
+                </b>{' '}
+                ({formatToPar(Math.round((holeExpectedScore - hole.par) * 10) / 10)})
+              </span>
+            )}
+          </div>
         </div>
       </div>
     </div>
