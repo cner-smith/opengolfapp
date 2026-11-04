@@ -11,6 +11,8 @@ import {
   getExpectedStrokes,
   placeCallout,
   plateBox,
+  plateWidth,
+  shortClubLabel,
   type PlateSide,
   startCategory,
   haversineYards,
@@ -295,7 +297,7 @@ export function useMapLayers({
       coincidentCount.set(k, (coincidentCount.get(k) ?? 0) + 1)
     }
 
-    const plates: { at: [number, number]; offset: [number, number]; setSide: (s: PlateSide) => void }[] = []
+    const plates: { at: [number, number]; offset: [number, number]; w: number; setSide: (s: PlateSide) => void }[] = []
     const selIdx = existingValid.findIndex((s) => s.id === selectedShotId)
     const sel = existingValid[selIdx] ?? null
     // Review (§19.3/19.5): a saved hole with a selected shot. The map then
@@ -305,7 +307,8 @@ export function useMapLayers({
     for (const s of existingValid) {
       // Paper plates (cream, ink ring); the shot that went OB stays brick,
       // as on mobile and the scorecard.
-      const plate = s === sel ? null : makePlateMarker(s.shotNumber, s.ob === true)
+      const club = s.club ? shortClubLabel({ club_type: s.club }) : null
+      const plate = s === sel ? null : makePlateMarker(s.shotNumber, s.ob === true, club)
       const parts = plate ?? makeSelectedMarker(s.shotNumber)
       const lng = s.startLng ?? s.endLng!
       const lat = s.startLat ?? s.endLat!
@@ -326,7 +329,7 @@ export function useMapLayers({
       })
         .setLngLat([lng, lat])
         .addTo(map)
-      if (plate) plates.push({ at: [lng, lat], offset, setSide: plate.setSide })
+      if (plate) plates.push({ at: [lng, lat], offset, w: plateWidth(s.shotNumber, club), setSide: plate.setSide })
       if (plate && onSelectShot) {
         // A drag ends in a click too; only a click without one selects.
         let dragged = false
@@ -421,7 +424,7 @@ export function useMapLayers({
       const dots = plates.map((p) => pt(p.at, p.offset))
       const others = [pinAt, selAim, sel ? legEnd : null].filter((p): p is [number, number] => p != null).map((p) => pt(p))
       const a = selAt ? pt(selAt) : undefined
-      const sides = fanPlates(dots, others, a)
+      const sides = fanPlates(dots, others, a, plates.map((p) => p.w))
       plates.forEach((p, i) => p.setSide(sides[i]!))
       if (!callout || !a || !legEnd) return
       const c = map.getContainer()
@@ -435,7 +438,7 @@ export function useMapLayers({
         end,
         prev: legPrev ? pt(legPrev) : null,
         dots: [a, end, ...dots, ...others],
-        plates: dots.map((d, i) => plateBox(d, sides[i]!)),
+        plates: dots.map((d, i) => plateBox(d, sides[i]!, plates[i]!.w)),
         box,
         size: { w: c.clientWidth, h: c.clientHeight },
       })

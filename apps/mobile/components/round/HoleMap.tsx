@@ -704,6 +704,7 @@ export function HoleMap({
               obs={pastCrumbObs}
               numbers={pastCrumbs.crumbs.map((c) => c.n)}
               plates={pastCrumbs.crumbs.map((c) => c.plate)}
+              clubs={pastCrumbs.crumbs.map((c) => c.club)}
               segment={pastSegmentLine}
               onSelect={pastCrumbs.onSelect}
             />

@@ -1,4 +1,4 @@
-import type { PlateSide } from '@oga/core'
+import { plateWidth, type PlateSide } from '@oga/core'
 import { mapboxgl } from '../../../lib/mapbox'
 
 export const MARKER_COLORS = {
@@ -60,12 +60,13 @@ export function makeNumberedMarker(
 // A saved shot (#1215, mobile's PaperCrumb): a 10px dot on the spot and the
 // number on a cream plate out to one side on a flat leader, so shots stacked
 // near the green don't cover each other. `setSide` moves the plate; core's
-// fanPlates picks the side, and its PLATE boxes mirror these positions.
+// fanPlates picks the side, and its PLATE boxes mirror these positions. A
+// club (#737) follows the number past a faint divider: "1 | Dr".
 export interface PlateMarkerParts extends MarkerParts {
   setSide: (side: PlateSide) => void
 }
 
-export function makePlateMarker(n: number, ob: boolean): PlateMarkerParts {
+export function makePlateMarker(n: number, ob: boolean, club: string | null): PlateMarkerParts {
   const outer = document.createElement('div')
   // Above the leg's distance pills, so a shot's number is never hidden.
   outer.style.cssText = 'width:44px;height:44px;z-index:1' // Mapbox makes it position:absolute
@@ -89,10 +90,14 @@ export function makePlateMarker(n: number, ob: boolean): PlateMarkerParts {
   const plate = document.createElement('div')
   plate.style.cssText = [
     'position:absolute',
-    'min-width:20px',
+    `width:${plateWidth(n, club)}px`,
     'height:20px',
-    'padding:0 5px',
+    `padding:0 ${club ? 6 : 5}px`,
     'box-sizing:border-box',
+    'display:flex',
+    'align-items:center',
+    `justify-content:${club ? 'flex-start' : 'center'}`,
+    'white-space:nowrap',
     'border-radius:3px',
     `background:${ob ? MARKER_COLORS.ob : '#FBF8F1'}`,
     'border:1px solid #1C211C',
@@ -101,9 +106,16 @@ export function makePlateMarker(n: number, ob: boolean): PlateMarkerParts {
     'font-style:italic',
     'font-size:15px',
     'line-height:18px',
-    'text-align:center',
   ].join(';')
   plate.textContent = String(n)
+  if (club) {
+    const rule = document.createElement('span')
+    rule.style.cssText = `width:1px;height:12px;margin:0 3px;background:${ob ? 'rgba(251,248,241,.5)' : 'rgba(28,33,28,.35)'}`
+    const text = document.createElement('span')
+    text.style.cssText = 'font-family:Epilogue, sans-serif;font-style:normal;font-size:12px;line-height:14px'
+    text.textContent = club
+    plate.append(rule, text)
+  }
   outer.append(leader, plate, content)
   const setSide = (side: PlateSide) => {
     const left = side === 'ul' || side === 'dl'
