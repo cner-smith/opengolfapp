@@ -1,11 +1,25 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { rankPlanCourses } from '@oga/core'
+import { groupPlayedCourses, planIntroLine, rankPlanCourses, shortPlayedDate } from '@oga/core'
 import { getHoleCoordsForCourses, getRoundCourseIds } from '@oga/supabase'
 import { useAuth } from '../../hooks/useAuth'
-import { useCourseSearch } from '../../hooks/useCourses'
+import { useCourseSearch, useHolesForCourse } from '../../hooks/useCourses'
+import { useRounds } from '../../hooks/useRounds'
+import { useClubDispersion } from '../rounds/hooks/useClubDispersion'
 import { supabase } from '../../lib/supabase'
+
+// The newest played courses listed under an empty search box. Ten keeps the
+// mapped-count read (~18 holes each) under PostgREST's 1000-row cap.
+const PLAYED_ROWS = 10
+
+function mappedLabel(counts: { holeCount: number; mappedCount: number } | null): string | null {
+  if (counts == null) return null
+  if (counts.mappedCount === 0) return 'Not mapped yet'
+  return counts.mappedCount === counts.holeCount
+    ? `${counts.holeCount} holes mapped`
+    : `${counts.mappedCount} of ${counts.holeCount} holes mapped`
+}
 
 // Course Planner landing page — search an already-imported course, then
 // navigate to the hole-by-hole planner. Read-only: no round/shot writes.
@@ -67,6 +81,36 @@ export default function CoursePlanPage() {
     : courses.map((c) => ({ ...c, counts: null }))
   const hasQuery = query.trim().length > 0
 
+  // Before the player types (#1337): the courses they've played, and an intro
+  // written from the last one and their own club distances. Same 500-round
+  // read as the Rounds page, so the cache is shared.
+  const rounds = useRounds(500)
+  const played = groupPlayedCourses(rounds.data ?? []).slice(0, PLAYED_ROWS)
+  const playedIds = played.map((c) => c.courseId)
+  const playedHoles = useQuery({
+    queryKey: ['plan-played-holes', playedIds],
+    enabled: playedIds.length > 0,
+    queryFn: async () => {
+      const { data, error } = await getHoleCoordsForCourses(supabase, playedIds)
+      if (error) throw error
+      return data ?? []
+    },
+  })
+  const playedRows = playedHoles.data
+    ? rankPlanCourses(played.map((c) => ({ ...c, id: c.courseId })), playedHoles.data, new Set(playedIds))
+    : played.map((c) => ({ ...c, id: c.courseId, holeCount: 0, mappedCount: 0, unknown: true as const }))
+  const lastHoles = useHolesForCourse(played[0]?.courseId)
+  const dispersion = useClubDispersion(user?.id)
+  const clubYards = new Map<string, number>()
+  for (const [club, d] of dispersion.byClub) if (d.medianDistanceYards != null) clubYards.set(club, d.medianDistanceYards)
+  const introReady = !rounds.isLoading && !dispersion.loading && !(played.length > 0 && lastHoles.isLoading)
+  const intro = planIntroLine({
+    last: played[0] ? { courseName: played[0].name, playedAt: played[0].lastPlayedAt } : null,
+    holes: lastHoles.data ?? [],
+    clubYards,
+    clubFor: (yards) => dispersion.selectClub(yards)?.club ?? null,
+  })
+
   return (
     <div className="mx-auto max-w-2xl">
       <h1 className="font-serif text-caddie-ink" style={{ fontSize: 28, fontWeight: 500, lineHeight: 1.15 }}>
@@ -74,9 +118,24 @@ export default function CoursePlanPage() {
       </h1>
       <p
         className="font-serif text-caddie-ink-dim"
-        style={{ fontSize: 17, fontStyle: 'italic', lineHeight: 1.4, marginTop: 6, marginBottom: 18 }}
+        style={{
+          fontSize: 17,
+          fontStyle: 'italic',
+          lineHeight: 1.4,
+          marginTop: 6,
+          marginBottom: 18,
+          visibility: introReady ? 'visible' : 'hidden',
+        }}
       >
-        Pick a course, then walk it hole by hole with the distances your clubs really go.
+        {intro.map((part, i) =>
+          part.strong ? (
+            <b key={i} className="text-caddie-ink" style={{ fontWeight: 500 }}>
+              {part.text}
+            </b>
+          ) : (
+            part.text
+          ),
+        )}
       </p>
 
       <input
@@ -108,14 +167,7 @@ export default function CoursePlanPage() {
               const counts = 'counts' in c ? null : c
               const where = [c.city, c.state].filter(Boolean).join(', ')
               const unmapped = counts != null && counts.mappedCount === 0
-              const mapped =
-                counts == null
-                  ? null
-                  : unmapped
-                    ? 'Not mapped yet'
-                    : counts.mappedCount === counts.holeCount
-                      ? `${counts.holeCount} holes mapped`
-                      : `${counts.mappedCount} of ${counts.holeCount} holes mapped`
+              const mapped = mappedLabel(counts)
               return (
                 <button
                   key={c.id}
@@ -139,6 +191,50 @@ export default function CoursePlanPage() {
               )
             })}
         </div>
+      )}
+
+      {!hasQuery && playedRows.length > 0 && (
+        <section style={{ marginTop: 26 }}>
+          <h2 className="font-serif text-caddie-ink" style={{ fontSize: 22, fontWeight: 500, marginBottom: 6 }}>
+            Courses you&rsquo;ve played
+          </h2>
+          {playedRows.map((c) => {
+            const counts = 'unknown' in c ? null : c
+            const unmapped = counts != null && counts.mappedCount === 0
+            const where = [c.city, c.state].filter(Boolean).join(', ')
+            const meta = [where, mappedLabel(counts), `${c.rounds} round${c.rounds === 1 ? '' : 's'}`]
+            return (
+              <button
+                key={c.id}
+                type="button"
+                onClick={() => navigate(`/plan/${c.id}/1`)}
+                className="flex w-full items-center justify-between text-left transition-colors hover:bg-caddie-surface"
+                style={{ padding: '12px 4px', borderTop: '1px solid #D9D2BF', gap: 14 }}
+              >
+                <div className="min-w-0">
+                  <div className={unmapped ? 'text-caddie-ink-dim' : 'text-caddie-ink'} style={{ fontSize: 15, fontWeight: 500 }}>
+                    {c.name}
+                  </div>
+                  <div className={unmapped ? 'text-caddie-ink-mute' : 'text-caddie-ink-dim'} style={{ fontSize: 13, marginTop: 2 }}>
+                    {meta.filter(Boolean).join(' · ')}
+                  </div>
+                </div>
+                {c.lastScore && (
+                  <div className="shrink-0 text-right text-caddie-ink-dim" style={{ fontSize: 12 }}>
+                    <div
+                      className={`font-serif tabular ${c.lastScore.nineHoles ? 'text-caddie-ink-dim' : 'text-caddie-ink'}`}
+                      style={{ fontSize: 20, fontWeight: 500 }}
+                    >
+                      {c.lastScore.score}
+                    </div>
+                    {shortPlayedDate(c.lastScore.playedAt)}
+                    {c.lastScore.nineHoles && ', 9 holes'}
+                  </div>
+                )}
+              </button>
+            )
+          })}
+        </section>
       )}
     </div>
   )
