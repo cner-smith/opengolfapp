@@ -63,6 +63,8 @@ export interface LiveRoundDockProps {
 
   aimHintVisible: boolean
   onDismissAimHint: () => void
+  /** "Drag the ring" during the player's first few rounds (#950). */
+  aimDragHint: boolean
   puttDistanceFt: number | null
   /** OB offered for the hole's last shot (#839 / #895 B2). */
   obPromptActive: boolean
@@ -361,10 +363,17 @@ function voiceLine(p: LiveRoundDockProps): ReactNode {
         </Voice>
       )
     }
-    // The last shot's distance (#1087) outranks the aim helper, which then
-    // shows where there's no last shot: every tee.
+    // The last shot's distance (#1087) outranks the aim helpers, which then
+    // show where there's no last shot: every tee.
     const hit = hitLine(p)
     if (hit) return hit
+    if (p.aimDragHint) {
+      return (
+        <Voice>
+          <Em>Drag the ring</Em> to move your aim.
+        </Voice>
+      )
+    }
     // #1076: early on only — while the club in hand has no pattern yet, so
     // the line fades out club by club.
     const inHand = p.wheel.rows.find((r) => r.club === p.wheel.selected) ?? p.wheel.rows[0]

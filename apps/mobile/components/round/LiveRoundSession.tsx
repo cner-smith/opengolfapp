@@ -194,6 +194,7 @@ export default function LiveRoundSession({
   }, [data.loading, data.holeCount, holeNumber])
   const autoClubYardsRef = useRef<number | null>(null)
   const finalState = useHoleState({
+    roundId,
     autoClubYardsRef,
     currentHoleId: data.currentHole?.id ?? null,
     currentHoleScoreId: data.currentHoleScore?.id ?? null,
@@ -819,6 +820,7 @@ export default function LiveRoundSession({
           onRecenter={() => recenterRef.current?.()}
           aimHintVisible={finalState.aimHintVisible}
           onDismissAimHint={() => finalState.setAimHintVisible(false)}
+          aimDragHint={finalState.aimDragHint}
           puttDistanceFt={puttDistanceFt}
           // Live OB (#839): label + toggle share one source in useShotActions
           // (the fetched flag, overridden by our own last write until the
