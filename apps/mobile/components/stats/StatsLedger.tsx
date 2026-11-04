@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Text, View } from 'react-native'
 import Svg, { Circle, Polyline } from 'react-native-svg'
-import { formatBandLabel, formatSG, sparkPoints, type ApproachBandStat } from '@oga/core'
+import { formatBandLabel, formatSG, sparkPoints, type ApproachBandStat, type PuttSplit } from '@oga/core'
 import { useUnits } from '../../hooks/useUnits'
 import { TYPE } from '../../lib/typography'
 import { FONT_CAP, P } from '../paper/tokens'
@@ -111,6 +111,59 @@ export function Sparkline({ values }: { values: number[] }) {
       >
         {latest}
       </Text>
+    </View>
+  )
+}
+
+// Putts per hole as one strip (#1355): 1, 2, 3+ left to right, each told
+// apart by position, label and tone (light, mid, ink), never colour alone.
+const PUTT_TONE = [P.raised, 'rgba(92,99,86,.55)', P.ink] as const
+const PUTT_WORD = { '1': 'one putt', '2': 'two', '3+': 'three or more' } as const
+const PUTT_ALIGN = ['left', 'center', 'right'] as const
+
+export function PuttStrip({ split }: { split: PuttSplit | null }) {
+  return (
+    <View style={{ borderBottomWidth: 1, borderColor: P.line, paddingTop: 10, paddingBottom: 12 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between' }}>
+        <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { color: P.ink, fontSize: 15 }]}>Putts per hole</Text>
+        {split && (
+          <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { color: P.inkDim, fontSize: 12 }]}>{split.holes} holes</Text>
+        )}
+      </View>
+      {split ? (
+        <View
+          accessible
+          accessibilityLabel={split.buckets.map((b) => `${PUTT_WORD[b.putts]}: ${Math.round(b.pct)}%, ${b.count} holes`).join('; ')}
+        >
+          <View style={{ flexDirection: 'row', height: 14, marginTop: 10, borderWidth: 1, borderColor: P.lineStrong }}>
+            {split.buckets.map((b, i) => (
+              <View
+                key={b.putts}
+                style={{
+                  width: `${b.pct}%`,
+                  backgroundColor: PUTT_TONE[i],
+                  borderLeftWidth: i > 0 && b.count > 0 ? 1 : 0,
+                  borderColor: P.chrome,
+                }}
+              />
+            ))}
+          </View>
+          <View style={{ flexDirection: 'row', marginTop: 8, gap: 8 }}>
+            {split.buckets.map((b, i) => (
+              <View key={b.putts} style={{ flex: 1 }}>
+                <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.serif, { color: P.ink, fontSize: 18, textAlign: PUTT_ALIGN[i] }]}>
+                  {Math.round(b.pct)}%
+                </Text>
+                <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { color: P.inkDim, fontSize: 12, marginTop: 2, textAlign: PUTT_ALIGN[i] }]}>
+                  {PUTT_WORD[b.putts]} · {b.count}
+                </Text>
+              </View>
+            ))}
+          </View>
+        </View>
+      ) : (
+        <Text maxFontSizeMultiplier={FONT_CAP} style={[TYPE.body, { color: P.inkDim, fontSize: 12, marginTop: 4 }]}>Needs putts logged</Text>
+      )}
     </View>
   )
 }
