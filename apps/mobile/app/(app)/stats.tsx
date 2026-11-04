@@ -36,6 +36,7 @@ import { PaperSurface } from '../../components/paper/Paper'
 import { FONT_CAP, P } from '../../components/paper/tokens'
 import { StatsEmpty, StatsPartialOnly } from '../../components/stats/StatsPreview'
 import { ApproachBandRow, LedgerRow } from '../../components/stats/StatsLedger'
+import { ClubHistory } from '../../components/stats/ClubHistory'
 
 const N_OPTIONS = [5, 10, 20] as const
 // Short labels for the standout callout, keyed to SGAverages (camelCase);
@@ -755,6 +756,12 @@ export default function Stats() {
                   })}
                 </View>
               </Section>
+              </Entrance>
+            )}
+
+            {clubDistances.length > 0 && (
+              <Entrance index={7}>
+                <ClubHistory clubDistances={clubDistances} unit={unit} width={screenWidth - 36} />
               </Entrance>
             )}
           </>
